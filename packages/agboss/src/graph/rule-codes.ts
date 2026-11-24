@@ -200,7 +200,6 @@ export type RuleCode =
   | "model.missing"
   | "model.price-invalid"
   | "model-provider.both-modes"
-  | "model-provider.circuit-breaker-required"
   | "model-provider.request-fields-missing"
   // contexts (#261 PR 3), reported at the application's assembly
   | "context.prompt-unused"

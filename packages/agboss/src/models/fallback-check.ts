@@ -17,7 +17,7 @@ export function fallbackProblems(
   use: ModelUse,
   provider: KeptModelProviderOptions,
 ): readonly ModelProblem[] {
-  const { fallback, fallbackModels = {} } = provider.circuitBreakerPolicy;
+  const { fallback, fallbackModels = {} } = provider.circuitBreakerPolicy ?? {};
   if (fallback === undefined) return [];
   const backup = modelProviderOf(fallback);
   const mapped = fallbackModels[use.model];
@@ -37,7 +37,7 @@ export function fallbackProblems(
       ),
     ];
   }
-  if (backup.cost.kind === "from-prices" && priceOf(backup.cost, mapped) === undefined) {
+  if (backup.cost?.kind === "from-prices" && priceOf(backup.cost, mapped) === undefined) {
     return [problem("model.fallback-no-price", `${backup.name} has no price for ${mapped}`)];
   }
   return [];

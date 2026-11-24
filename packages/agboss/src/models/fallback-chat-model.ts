@@ -20,7 +20,7 @@ export interface FallbackTarget {
   readonly chatModel: () => BaseChatModel;
   /** The fallback's model for the primary's (`circuitBreakerPolicy.fallbackModels`). */
   readonly model: string;
-  readonly cost: ModelCost;
+  readonly cost: ModelCost | undefined;
 }
 
 /** What a primary chat model with a fallback is made of. */

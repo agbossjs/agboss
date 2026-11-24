@@ -27,16 +27,17 @@ export interface HttpModelProviderOptions {
    * (`[limits.timeout-invalid]`, #1141).
    */
   readonly timeout: Milliseconds;
-  readonly cost: ModelCost;
-  /** Retries one call: attempts and backoff (the only place backoff is set). */
-  readonly retryPolicy: RetryPolicy;
+  /** Omit: the calls are unpriced (`CostSource.Unpriced`, 0 USD, tokens counted) — a subscription or a local model. */
+  readonly cost?: ModelCost;
+  /** Retries one call: attempts and backoff (the only place backoff is set). Omit: no retry. */
+  readonly retryPolicy?: RetryPolicy;
   /**
    * How many calls go to the provider and how everyone slows down after a 429 — one limit for the
    * whole application, shared by every instance through `RateLimitRepository`. Omit: no limit.
    */
   readonly rateLimitPolicy?: RateLimitPolicy;
-  /** Stops calling a provider that is down for a while (its state in `RateLimitRepository`). */
-  readonly circuitBreakerPolicy: CircuitBreakerPolicy;
+  /** Stops calling a provider that is down for a while (its state in `RateLimitRepository`). Omit: no breaker. */
+  readonly circuitBreakerPolicy?: CircuitBreakerPolicy;
   /** The server's base URL (`https://openrouter.ai/api/v1`); `baseUrlField` may override it. */
   readonly baseUrl: string;
   /**
@@ -76,16 +77,17 @@ export interface TransportModelProviderOptions<D extends readonly Token[] = read
    * it may be quiet between two chunks after its first content (#1125).
    */
   readonly timeout: Milliseconds;
-  readonly cost: ModelCost;
-  /** Retries one call: attempts and backoff (the only place backoff is set). */
-  readonly retryPolicy: RetryPolicy;
+  /** Omit: the calls are unpriced (`CostSource.Unpriced`, 0 USD, tokens counted) — a subscription or a local model. */
+  readonly cost?: ModelCost;
+  /** Retries one call: attempts and backoff (the only place backoff is set). Omit: no retry. */
+  readonly retryPolicy?: RetryPolicy;
   /**
    * How many calls go to the provider and how everyone slows down after a 429 — one limit for the
    * whole application, shared by every instance through `RateLimitRepository`. Omit: no limit.
    */
   readonly rateLimitPolicy?: RateLimitPolicy;
-  /** Stops calling a provider that is down for a while (its state in `RateLimitRepository`). */
-  readonly circuitBreakerPolicy: CircuitBreakerPolicy;
+  /** Stops calling a provider that is down for a while (its state in `RateLimitRepository`). Omit: no breaker. */
+  readonly circuitBreakerPolicy?: CircuitBreakerPolicy;
   readonly baseUrl?: never;
   readonly baseUrlField?: never;
   readonly apiKey?: never;
@@ -111,13 +113,14 @@ export interface DriverModelProviderOptions {
   readonly driver: ModelDriver;
   /** Per attempt: the response head and a plain answer's body; between two chunks of a streamed one (#1125). */
   readonly timeout: Milliseconds;
-  readonly cost: ModelCost;
-  /** Retries one call: attempts and backoff (the only place backoff is set). */
-  readonly retryPolicy: RetryPolicy;
+  /** Omit: the calls are unpriced (`CostSource.Unpriced`, 0 USD, tokens counted) — a subscription or a local model. */
+  readonly cost?: ModelCost;
+  /** Retries one call: attempts and backoff (the only place backoff is set). Omit: no retry. */
+  readonly retryPolicy?: RetryPolicy;
   /** How many calls go to the provider and how everyone slows down after a 429. Omit: no limit. */
   readonly rateLimitPolicy?: RateLimitPolicy;
-  /** Stops calling a provider that is down for a while (its state in `RateLimitRepository`). */
-  readonly circuitBreakerPolicy: CircuitBreakerPolicy;
+  /** Stops calling a provider that is down for a while (its state in `RateLimitRepository`). Omit: no breaker. */
+  readonly circuitBreakerPolicy?: CircuitBreakerPolicy;
   /** The model of a component that names none (and no `models.default`). */
   readonly model?: string;
   /**
@@ -252,20 +255,6 @@ export function modelProviderOf(cls: object): KeptModelProviderOptions {
   }
   return options;
 }
-
-/** The breaker as a JS project or a cast may hand it over: left out, or `null`. */
-interface UncheckedBreaker {
-  readonly circuitBreakerPolicy?: CircuitBreakerPolicy | null;
-}
-
-/**
- * A provider's breaker as the decorator was given it: required by the type, absent (or `null`) only
- * from a JS project or a cast — `[model-provider.circuit-breaker-required]` at assembly (#521).
- */
-export const circuitBreakerPolicyOf = (
-  options: ModelProviderOptions,
-): CircuitBreakerPolicy | undefined =>
-  (options as UncheckedBreaker).circuitBreakerPolicy ?? undefined;
 
 /** Whether a class (or a value listed in `providers`) is a `@ModelProvider` class. */
 export const isModelProviderClass = (value: unknown): value is ModelProviderType =>

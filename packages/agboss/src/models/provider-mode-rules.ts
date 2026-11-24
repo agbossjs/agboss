@@ -2,7 +2,6 @@ import { MAX_TIMEOUT, timerProblemOf } from "../units/timer-limits.js";
 import type { Provider } from "../components/injection.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
 import {
-  circuitBreakerPolicyOf,
   hasProviderMethod,
   isDriverOptions,
   isTransportClass,
@@ -66,26 +65,6 @@ export function providerModeViolations(
   });
 }
 
-/**
- * `[model-provider.circuit-breaker-required]` for every listed model provider and breaker fallback
- * without `circuitBreakerPolicy` (#521): the type requires it, a JS project or a cast can leave it
- * out — named at assembly, never a crash on its first read.
- */
-export function providerBreakerViolations(
-  application: string,
-  providers: readonly Provider[] | undefined,
-): RuleViolation[] {
-  const classes = withFallbacks(listedModelProvidersOf(providers));
-  return classes
-    .filter((cls) => circuitBreakerPolicyOf(modelProviderOf(cls)) === undefined)
-    .map((cls) => {
-      const message =
-        `${modelProviderOf(cls).name} (${cls.name}) has no circuitBreakerPolicy — set ` +
-        "circuitBreakerPolicy: { failureThreshold, window, openFor } on its @ModelProvider";
-      return violation("model-provider.circuit-breaker-required", message, [application]);
-    });
-}
-
 /** Whether an HTTP provider's instance is an OpenAI-compatible one whose class sets no `requestFields`. */
 function lacksRequestFields(cls: ModelProviderType): boolean {
   if (isTransportClass(cls)) return false;
@@ -145,7 +124,7 @@ export function providerPriceViolations(
   const classes = withFallbacks(listedModelProvidersOf(providers));
   return classes.flatMap((cls) => {
     const { name, cost } = modelProviderOf(cls);
-    const problem = cost.kind === "from-prices" ? modelPricesProblemOf(cost.prices) : undefined;
+    const problem = cost?.kind === "from-prices" ? modelPricesProblemOf(cost.prices) : undefined;
     return problem === undefined
       ? []
       : [violation("model.price-invalid", `${name} (${cls.name}): ${problem}`, [application])];
@@ -153,7 +132,7 @@ export function providerPriceViolations(
 }
 
 /**
- * Every provider rule over the providers a place names (#1313): mode, breaker, request fields, timeout
+ * Every provider rule over the providers a place names (#1313): mode, request fields, timeout
  * and price. The application runs it over its listed providers and its own `modelProvider`; a workflow's
  * assembly runs it over every provider its cascade names (the workflow's, its agents', its components'),
  * so a provider named only there is checked exactly like a listed one.
@@ -164,7 +143,6 @@ export function providerRuleViolations(
 ): RuleViolation[] {
   return [
     ...providerModeViolations(scope, providers),
-    ...providerBreakerViolations(scope, providers),
     ...providerFieldsViolations(scope, providers),
     ...providerTimeoutViolations(scope, providers),
     ...providerPriceViolations(scope, providers),

@@ -4,6 +4,7 @@ import type { ProviderCalls } from "./calls/provider-calls.js";
 import { providerBaseUrlOf, providerHeadersOf, providerKeyOf } from "./provider-environment.js";
 import type { ProviderConnection } from "./handler.js";
 import type { KeptModelProviderOptions } from "./model-provider.decorator.js";
+import { RetryPolicy } from "./retry-policy.js";
 import { resilientFetch, type ProviderFetch, type ResilienceOptions } from "./resilient-fetch.js";
 
 /** How connections are made: the environments, whether keys must be set, the shared calls, the raw client. */
@@ -35,13 +36,16 @@ export function resilienceOf(
 ): ResilienceOptions {
   const { calls } = connection;
   const gate = calls?.gateOf(options.name, options.rateLimitPolicy);
+  // a JS project may hand `null` for none
+  const breakerPolicy = options.circuitBreakerPolicy ?? undefined;
   return {
     provider: options.name,
     timeout: options.timeout,
-    retryPolicy: options.retryPolicy,
-    ...(calls === undefined
+    // no retryPolicy: no retry (#1313)
+    retryPolicy: options.retryPolicy ?? RetryPolicy.none(),
+    ...(calls === undefined || breakerPolicy === undefined
       ? {}
-      : { breaker: calls.breakerOf(options.name, options.circuitBreakerPolicy) }),
+      : { breaker: calls.breakerOf(options.name, breakerPolicy) }),
     ...(gate === undefined ? {} : { gate }),
     ...(connection.clock === undefined ? {} : { clock: connection.clock }),
   };

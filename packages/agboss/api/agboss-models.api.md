@@ -177,9 +177,8 @@ export interface DriverModelProviderOptions {
     readonly baseUrl?: never;
     // (undocumented)
     readonly baseUrlField?: never;
-    readonly circuitBreakerPolicy: CircuitBreakerPolicy;
-    // (undocumented)
-    readonly cost: ModelCost;
+    readonly circuitBreakerPolicy?: CircuitBreakerPolicy;
+    readonly cost?: ModelCost;
     // (undocumented)
     readonly deps?: never;
     // (undocumented)
@@ -191,7 +190,7 @@ export interface DriverModelProviderOptions {
     readonly promptCaching?: PromptCaching;
     readonly rateLimitPolicy?: RateLimitPolicy;
     readonly reasoning?: Reasoning;
-    readonly retryPolicy: RetryPolicy;
+    readonly retryPolicy?: RetryPolicy;
     // (undocumented)
     readonly serves?: never;
     readonly timeout: Milliseconds;
@@ -235,9 +234,8 @@ export interface HttpModelProviderOptions {
     readonly apiKey?: string;
     readonly baseUrl: string;
     readonly baseUrlField?: string;
-    readonly circuitBreakerPolicy: CircuitBreakerPolicy;
-    // (undocumented)
-    readonly cost: ModelCost;
+    readonly circuitBreakerPolicy?: CircuitBreakerPolicy;
+    readonly cost?: ModelCost;
     // (undocumented)
     readonly deps?: never;
     // (undocumented)
@@ -246,7 +244,7 @@ export interface HttpModelProviderOptions {
     readonly promptCaching: PromptCaching;
     readonly rateLimitPolicy?: RateLimitPolicy;
     readonly reasoning: Reasoning;
-    readonly retryPolicy: RetryPolicy;
+    readonly retryPolicy?: RetryPolicy;
     readonly serves: readonly RegExp[];
     readonly timeout: Milliseconds;
 }
@@ -1012,6 +1010,7 @@ export interface ResolvedModelSettings {
     readonly reasoning?: Reasoning | undefined;
     // (undocumented)
     readonly temperature: number;
+    readonly unpriced?: true | undefined;
 }
 
 // @public
@@ -1072,9 +1071,8 @@ export interface TransportModelProviderOptions<D extends readonly Token[] = read
     readonly baseUrl?: never;
     // (undocumented)
     readonly baseUrlField?: never;
-    readonly circuitBreakerPolicy: CircuitBreakerPolicy;
-    // (undocumented)
-    readonly cost: ModelCost;
+    readonly circuitBreakerPolicy?: CircuitBreakerPolicy;
+    readonly cost?: ModelCost;
     readonly deps?: D;
     // (undocumented)
     readonly description?: string;
@@ -1082,7 +1080,7 @@ export interface TransportModelProviderOptions<D extends readonly Token[] = read
     readonly promptCaching?: PromptCaching;
     readonly rateLimitPolicy?: RateLimitPolicy;
     readonly reasoning?: Reasoning;
-    readonly retryPolicy: RetryPolicy;
+    readonly retryPolicy?: RetryPolicy;
     readonly serves: readonly RegExp[];
     readonly timeout: Milliseconds;
 }
@@ -1252,15 +1250,12 @@ export interface WireTool {
 // src/models/model-list.ts - (ae-undocumented) Missing documentation for "architecture".
 // src/models/model-list.ts - (ae-undocumented) Missing documentation for "__index".
 // src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "description".
-// src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "cost".
 // src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "deps".
 // src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "description".
-// src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "cost".
 // src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "baseUrl".
 // src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "baseUrlField".
 // src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "apiKey".
 // src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "description".
-// src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "cost".
 // src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "serves".
 // src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "baseUrl".
 // src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "baseUrlField".

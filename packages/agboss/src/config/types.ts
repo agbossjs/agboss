@@ -100,6 +100,11 @@ export const ModelSettingsSchema = z.object({
    * its workflow's, else its application's. Absent: the older providers' `serves` patterns decide.
    */
   modelProvider: z.string().min(1).optional(),
+  /**
+   * The provider has no `cost` (#1313): a call with no reported cost and no price is recorded
+   * `CostSource.Unpriced` at 0 USD, its tokens counted — set by the cascade, never by hand.
+   */
+  unpriced: z.literal(true).optional(),
 });
 
 /** How many recent turns a reader sees in full: a whole number from 0, or `TurnLimit.ALL`. */
@@ -273,6 +278,8 @@ export interface ResolvedModelSettings {
   readonly price?: Price | undefined;
   /** The provider's `name` its cascade resolved (#1313); absent = by `serves`. */
   readonly modelProvider?: string | undefined;
+  /** The provider has no `cost`: a call it leaves unpriced is `CostSource.Unpriced` (#1313). */
+  readonly unpriced?: true | undefined;
 }
 
 /** Validates at startup and keeps the literal type of the config; checks tool names if given. */

@@ -34,6 +34,8 @@ export interface CostReport {
   /** Every category is present (`usd(0)` when unused). */
   readonly byCategory: Readonly<Record<CostCategory, Usd>>;
   readonly byModel: Readonly<Record<string, Usd>>;
+  /** What each `@ModelProvider` (by `name`) was paid (#1313); a call with no provider is in none. */
+  readonly byProvider: Readonly<Record<string, Usd>>;
   /** Every call in the order it happened. */
   readonly trace: readonly CostLine[];
 }
@@ -96,6 +98,10 @@ const reportOf = (records: readonly UsageRecord[]): CostReport => {
       Object.entries(byCategory).map(([category, sum]) => [category, usd(sum)]),
     ) as Record<CostCategory, Usd>,
     byModel: sumBy(known, (line) => line.model),
+    byProvider: sumBy(
+      known.filter((line) => line.provider !== undefined),
+      (line) => line.provider ?? "",
+    ),
     trace,
   };
 };
@@ -111,6 +117,7 @@ const recordOfLine = (line: CostLine): UsageRecord => ({
   costUsd: line.costUsd,
   costSource: line.costSource,
   ...(line.servedBy === undefined ? {} : { servedBy: line.servedBy }),
+  ...(line.provider === undefined ? {} : { provider: line.provider }),
 });
 
 /** Builds a `CostReport`: `fromUsage(records)`, `empty()`, `sum(reports)` (the calls of reports together). */

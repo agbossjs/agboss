@@ -51,7 +51,8 @@ export function resolutionProblems(
 
 function priceProblems(use: ModelUse, provider: RegisteredModelProvider): readonly ModelProblem[] {
   const cost = provider.options.cost;
-  if (cost.kind === "from-response" || use.settings === undefined) return [];
+  // no cost: the provider is unpriced, its calls are recorded at 0 USD with their tokens (#1313)
+  if (cost === undefined || cost.kind === "from-response" || use.settings === undefined) return [];
   if (use.settings.price !== undefined || priceOf(cost, use.model) !== undefined) return [];
   return [
     {
@@ -153,7 +154,7 @@ async function fallbackInputs(
   options: ModelCheckOptions,
   connectionFor: (provider: RegisteredModelProvider) => ProviderConnection,
 ): Promise<UseResult> {
-  const mapped = provider.options.circuitBreakerPolicy.fallbackModels?.[use.model];
+  const mapped = provider.options.circuitBreakerPolicy?.fallbackModels?.[use.model];
   if (mapped === undefined) return { problems: [] };
   const resolution = directory.resolve({ ...use, model: mapped });
   if (resolution.kind === "problem") return { problems: [] };

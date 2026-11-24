@@ -66,7 +66,11 @@ interface Resolver {
 
 /** A model use with its provider and model name resolved; unchanged when no provider is in its cascade. */
 function resolvedUse<
-  T extends { readonly model: string; readonly modelProvider?: string | undefined },
+  T extends {
+    readonly model: string;
+    readonly modelProvider?: string | undefined;
+    readonly unpriced?: true | undefined;
+  },
 >(use: T, key: string, resolver: Resolver, isImplicitModel = false): T {
   const options =
     use.modelProvider === undefined ? resolver.inherited : resolver.byName.get(use.modelProvider);
@@ -82,7 +86,12 @@ function resolvedUse<
     );
     return use;
   }
-  return { ...use, model, modelProvider: options.name };
+  return {
+    ...use,
+    model,
+    modelProvider: options.name,
+    ...(options.cost === undefined ? { unpriced: true as const } : {}),
+  };
 }
 
 /** The workflow's cascade levels that are no `@ModelProvider` class. */

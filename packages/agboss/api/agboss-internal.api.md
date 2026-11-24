@@ -418,6 +418,7 @@ export interface CostLine extends TokenUsage {
     readonly costUsd: Usd;
     // (undocumented)
     readonly model: string;
+    readonly provider?: string;
     readonly servedBy?: string;
 }
 
@@ -428,6 +429,7 @@ export interface CostReport {
     readonly byCategory: Readonly<Record<CostCategory, Usd>>;
     // (undocumented)
     readonly byModel: Readonly<Record<string, Usd>>;
+    readonly byProvider: Readonly<Record<string, Usd>>;
     readonly cacheReadTokens: number;
     readonly cacheWriteTokens: number;
     readonly calls: number;

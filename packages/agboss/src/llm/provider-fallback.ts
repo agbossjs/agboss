@@ -26,6 +26,7 @@ export interface FallbackParts {
 export function withFallback(primary: BaseChatModel, parts: FallbackParts): BaseChatModel {
   const { provider, fallback, settings, calls, chatOf } = parts;
   const policy = provider.options.circuitBreakerPolicy;
+  if (policy === undefined) return primary;
   const model = policy.fallbackModels?.[settings.model] ?? settings.model;
   return new FallbackChatModel({
     primary,

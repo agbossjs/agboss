@@ -20,7 +20,7 @@ const KIMI = { model: "moonshotai/kimi-k2.6", temperature: 0, maxTokens: 1 };
 async function openedGateway(send: typeof fetch) {
   const calls = instanceCalls();
   const options = modelProviderOf(TestOpenRouterProvider);
-  const breaker = calls.breakerOf(options.name, options.circuitBreakerPolicy);
+  const breaker = calls.breakerOf(options.name, options.circuitBreakerPolicy ?? policy);
   for (let failure = 0; failure < 3; failure++) await breaker.recordFailure();
   const directory = ModelProviderDirectory.of([TestOpenRouterProvider]);
   return createProviderGateway(directory, { env: ENV, environment: KEYS, calls, send });

@@ -22,8 +22,7 @@ Multi-agent project on LangGraph + LangChain (TypeScript). Built with a three-ph
   `env.optional("OPENROUTER_BASE_URL")` — unset → the decorator's `baseUrl`, no repeated default). A provider's `name` is optional: kebab-case, the class name in kebab-case by default (`[name.not-kebab-case]`; #1343a).
   A **transport** provider (#385) `implements ModelProviderHandler` with `complete(request)` in
   place of `baseUrl` / `baseUrlField` / `apiKey` (both modes → a compile error and
-  `[model-provider.both-modes]`; no `circuitBreakerPolicy` — a JS project or a cast — is
-  `[model-provider.circuit-breaker-required]`, #521; an OpenAI-compatible subclass without `requestFields` is `[model-provider.request-fields-missing]`, #644): `ModelProviderRequest` (`model`, `messages:
+  `[model-provider.both-modes]`; `cost`, `retryPolicy` and `circuitBreakerPolicy` are optional — none: unpriced, no retry, no breaker, #1313; an OpenAI-compatible subclass without `requestFields` is `[model-provider.request-fields-missing]`, #644): `ModelProviderRequest` (`model`, `messages:
 ModelProviderMessage[]`, `tools: ModelProviderToolDefinition[]`, `temperature`, `maxTokens`,
   `reasoning`, `promptCaching` — off when unset —, `signal`) → `ModelProviderResponse` (`text`,
   `toolCalls?`, `usage`, `cost?`, `finishReason?`), a failure thrown as

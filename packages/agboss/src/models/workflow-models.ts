@@ -28,7 +28,8 @@ function priced<T extends ModelSettings>(settings: T, directory: ModelProviderDi
     purpose: ModelKind.Chat,
   });
   if (resolution.kind === "problem") return settings;
-  const price = priceOf(resolution.provider.options.cost, settings.model);
+  const { cost } = resolution.provider.options;
+  const price = cost === undefined ? undefined : priceOf(cost, settings.model);
   return price === undefined ? settings : { ...settings, price };
 }
 
@@ -87,7 +88,7 @@ export function modelSummaryOf(
         `${use.key}  ${use.model}`,
         `provider ${provider.name}`,
         ...chat,
-        costLabel(provider.cost),
+        provider.cost === undefined ? "unpriced" : costLabel(provider.cost),
       ].join(" · "),
     ];
   });

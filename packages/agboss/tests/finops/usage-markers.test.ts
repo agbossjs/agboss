@@ -31,10 +31,26 @@ describe("#1356: the fallback's mark", () => {
   it("reads the model, and priced only when it is true", () => {
     const of = (mark: unknown) => fallbackMarkOf({ usage: { [FALLBACK_MARK]: mark } });
 
-    expect(of({ model: "backup/m", priced: true })).toEqual({ model: "backup/m", priced: true });
-    expect(of({ model: "backup/m", priced: false })).toEqual({ model: "backup/m", priced: false });
-    expect(of({ model: "backup/m" })).toEqual({ model: "backup/m", priced: false });
-    expect(of({ model: "backup/m", priced: "true" })).toEqual({ model: "backup/m", priced: false });
+    expect(of({ model: "backup/m", priced: true })).toEqual({
+      model: "backup/m",
+      priced: true,
+      unpriced: false,
+    });
+    expect(of({ model: "backup/m", priced: false })).toEqual({
+      model: "backup/m",
+      priced: false,
+      unpriced: false,
+    });
+    expect(of({ model: "backup/m" })).toEqual({
+      model: "backup/m",
+      priced: false,
+      unpriced: false,
+    });
+    expect(of({ model: "backup/m", priced: "true" })).toEqual({
+      model: "backup/m",
+      priced: false,
+      unpriced: false,
+    });
   });
 
   it("is none when no fallback served the call, or the mark is not a model's", () => {

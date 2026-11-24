@@ -1,5 +1,5 @@
 import type { AgentsConfigOf } from "../config/types.js";
-import { circuitBreakerPolicyOf, isHttpProvider } from "../models/model-provider.decorator.js";
+import { isHttpProvider } from "../models/model-provider.decorator.js";
 import type { RegisteredModelProvider } from "../models/resolve.js";
 import type { ModelUse } from "../models/uses.js";
 import type { ResolvedModelFiles } from "./file-settings.js";
@@ -42,7 +42,7 @@ function isSameServerAndKey(a: RegisteredModelProvider, b: RegisteredModelProvid
  * such as OpenRouter serves them all, and its model is the one that gets the data. In doubt: not the same.
  */
 export function isSameProvider(agent: UsedProvider, redactor: UsedProvider): boolean {
-  if (circuitBreakerPolicyOf(redactor.provider.options)?.fallback !== undefined) return false;
+  if (redactor.provider.options.circuitBreakerPolicy?.fallback !== undefined) return false;
   if (vendorOf(agent.model) !== vendorOf(redactor.model)) return false;
   return (
     agent.provider.type === redactor.provider.type ||

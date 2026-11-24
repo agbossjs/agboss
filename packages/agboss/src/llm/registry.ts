@@ -52,6 +52,15 @@ export interface ModelRegistry {
   readonly fileRedactors: ReadonlyMap<string, ModelBinding>;
 }
 
+/** What a model's settings say of its price and its provider, as they are. */
+const ownAccountOf = (
+  settings: ModelSettings,
+): Pick<ResolvedModelSettings, "price" | "modelProvider" | "unpriced"> => ({
+  ...(settings.price === undefined ? {} : { price: settings.price }),
+  ...(settings.modelProvider === undefined ? {} : { modelProvider: settings.modelProvider }),
+  ...(settings.unpriced === undefined ? {} : { unpriced: settings.unpriced }),
+});
+
 /**
  * An agent's (or LLM router's) model settings over the chat defaults. Reasoning and caching set
  * nowhere stay unset: the model provider's own apply.
@@ -68,8 +77,7 @@ export function resolveSettings(
     maxTokens: settings.maxTokens ?? defaults.maxTokens ?? DEFAULT_MAX_TOKENS,
     ...(thinking === undefined ? {} : { reasoning: reasoningOfThinking(thinking) }),
     ...(promptCaching === undefined ? {} : { promptCaching }),
-    ...(settings.price === undefined ? {} : { price: settings.price }),
-    ...(settings.modelProvider === undefined ? {} : { modelProvider: settings.modelProvider }),
+    ...ownAccountOf(settings),
   };
 }
 

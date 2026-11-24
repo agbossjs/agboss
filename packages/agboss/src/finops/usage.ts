@@ -46,6 +46,11 @@ export interface UsageRecord extends TokenUsage {
    */
   readonly servedBy?: string;
   /**
+   * The `@ModelProvider` that served the call, by its `name` (#1313); absent for a charge no model
+   * made (a tool's), for a call a fallback answered, and for a model reached by `serves`.
+   */
+  readonly provider?: string;
+  /**
    * Where the ledger holds its cost (#333 PR 3, #727, #771): absent while it is not in the ledger
    * yet — its pass writes it —; `LedgerState.Written` once a pass wrote it as it was made, under its
    * `ledgerId` and dated `madeAt`; `LedgerState.RecordedElsewhere` for a call of a child that ran on
@@ -74,6 +79,8 @@ export interface CostLine extends TokenUsage {
   readonly costSource: CostSource;
   /** The host that served the call (`UsageRecord.servedBy`, #395 PR 6). */
   readonly servedBy?: string;
+  /** The provider that served the call (`UsageRecord.provider`, #1313). */
+  readonly provider?: string;
 }
 
 export const ZERO_USAGE: TokenUsage = {
@@ -123,13 +130,31 @@ export function reportedCostOf(message: UsageCarrier): Usd | undefined {
   return isFiniteNumber(cost) && cost >= 0 ? usd(cost) : undefined;
 }
 
+/** The record of a call a fallback answered: its model, its reported cost, else unpriced (#202, #1313). */
+function fallbackRecordOf(
+  caller: string,
+  fallback: NonNullable<ReturnType<typeof fallbackMarkOf>>,
+  reported: Usd | undefined,
+  made: Pick<UsageRecord, "servedBy" | keyof TokenUsage>,
+): UsageRecord {
+  const base = { caller, model: fallback.model, ...made };
+  if (reported !== undefined) {
+    const costSource = fallback.priced ? CostSource.PriceTable : CostSource.Api;
+    return { ...base, costUsd: reported, costSource };
+  }
+  if (fallback.unpriced) return { ...base, costUsd: usd(0), costSource: CostSource.Unpriced };
+  throw new ModelCostError(`${caller}: fallback model ${fallback.model} — no cost and no price`);
+}
+
 /**
  * One model call's record: the provider's reported cost first (`api`), else tokens × the model's
- * price (`price-table`). A call that has neither cannot be accounted and fails.
+ * price (`price-table`). A call that has neither cannot be accounted and fails — unless its provider
+ * has no `cost` at all (#1313): that call is `unpriced`, 0 USD with its tokens, which a token budget
+ * still counts.
  */
 export function recordUsage(
   caller: string,
-  settings: Pick<ResolvedModelSettings, "model" | "price">,
+  settings: Pick<ResolvedModelSettings, "model" | "price" | "modelProvider" | "unpriced">,
   message: UsageCarrier,
 ): UsageRecord {
   const usage = extractTokenUsage(message);
@@ -137,43 +162,33 @@ export function recordUsage(
   const served = servedBy === undefined ? {} : { servedBy };
   const reported = reportedCostOf(message);
   const fallback = fallbackMarkOf(message.response_metadata);
-  if (fallback !== undefined) {
-    if (reported === undefined)
-      throw new ModelCostError(
-        `${caller}: fallback model ${fallback.model} — no cost and no price`,
-      );
-    const costSource = fallback.priced ? CostSource.PriceTable : CostSource.Api;
-    return { caller, model: fallback.model, ...usage, costUsd: reported, costSource, ...served };
-  }
-  if (reported !== undefined) {
-    return {
-      caller,
-      model: settings.model,
-      ...usage,
-      costUsd: reported,
-      costSource: CostSource.Api,
-      ...served,
-    };
-  }
-  if (settings.price === undefined) {
-    throw new ModelCostError(
-      `${caller}: model ${settings.model} — its provider reported no cost and it has no price`,
-    );
-  }
-  const priced = costOf(usage, settings.price);
-  // tokens a provider left out price as NaN: never accounted as an amount (#817)
+  if (fallback !== undefined)
+    return fallbackRecordOf(caller, fallback, reported, { ...usage, ...served });
+  const provider = settings.modelProvider === undefined ? {} : { provider: settings.modelProvider };
+  const made = { caller, model: settings.model, ...usage, ...served, ...provider };
+  if (reported !== undefined) return { ...made, costUsd: reported, costSource: CostSource.Api };
+  if (settings.price !== undefined)
+    return { ...made, ...pricedOf(caller, settings.model, settings.price, usage) };
+  if (settings.unpriced === true)
+    return { ...made, costUsd: usd(0), costSource: CostSource.Unpriced };
+  throw new ModelCostError(
+    `${caller}: model ${settings.model} — its provider reported no cost and it has no price`,
+  );
+}
+
+/** The cost of a call's tokens at the model's price: no amount (NaN) is never accounted (#817). */
+function pricedOf(
+  caller: string,
+  model: string,
+  price: Price,
+  usage: TokenUsage,
+): Pick<UsageRecord, "costUsd" | "costSource"> {
+  const priced = costOf(usage, price);
   if (!Number.isFinite(priced) || priced < 0)
     throw new ModelCostError(
-      `${caller}: model ${settings.model} — its tokens price at no amount: ${String(priced)}`,
+      `${caller}: model ${model} — its tokens price at no amount: ${String(priced)}`,
     );
-  return {
-    caller,
-    model: settings.model,
-    ...usage,
-    costUsd: usd(priced),
-    costSource: CostSource.PriceTable,
-    ...served,
-  };
+  return { costUsd: usd(priced), costSource: CostSource.PriceTable };
 }
 
 export class InvalidToolCostError extends Error {

@@ -6,6 +6,8 @@
 export interface FallbackMark {
   readonly model: string;
   readonly priced: boolean;
+  /** The fallback provider has no `cost` (#1313): a call it leaves unpriced is recorded `CostSource.Unpriced`. */
+  readonly unpriced: boolean;
 }
 
 /** The key of the mark in the response's `usage`. */
@@ -21,5 +23,5 @@ export function fallbackMarkOf(
   const usage = metadata?.usage;
   const mark = isRecord(usage) ? usage[FALLBACK_MARK] : undefined;
   if (!isRecord(mark) || typeof mark.model !== "string") return undefined;
-  return { model: mark.model, priced: mark.priced === true };
+  return { model: mark.model, priced: mark.priced === true, unpriced: mark.unpriced === true };
 }

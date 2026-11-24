@@ -73,6 +73,7 @@ const StoredCostLine = z.object({
   costUsd: storedUsd,
   costSource: z.enum(CostSource),
   servedBy: text.optional(),
+  provider: text.optional(),
   ...tokens,
 });
 
@@ -89,6 +90,7 @@ export const StoredCostReport: z.ZodType<CostReport> = z.object({
   byCaller: z.record(text, storedUsd),
   byCategory: z.record(z.enum(CostCategory), storedUsd),
   byModel: z.record(text, storedUsd),
+  byProvider: z.record(text, storedUsd),
   trace: z.array(StoredCostLine),
 });
 

@@ -11,14 +11,22 @@ import { priceOf, type ModelCost } from "./cost.js";
 export function markedFallbackMessage(
   message: BaseMessage,
   model: string,
-  cost: ModelCost,
+  cost: ModelCost | undefined,
 ): BaseMessage {
   if (!(message instanceof AIMessage)) return message;
   const metadata = message.response_metadata;
   const usage = isRecord(metadata.usage) ? metadata.usage : {};
-  const price = priceOf(cost, model);
+  const price = cost === undefined ? undefined : priceOf(cost, model);
   const priced = price === undefined ? {} : { cost: costOf(extractTokenUsage(message), price) };
-  const marked = { ...usage, ...priced, [FALLBACK_MARK]: { model, priced: price !== undefined } };
+  const marked = {
+    ...usage,
+    ...priced,
+    [FALLBACK_MARK]: {
+      model,
+      priced: price !== undefined,
+      ...(cost === undefined ? { unpriced: true } : {}),
+    },
+  };
   return new AIMessage({
     content: message.content,
     tool_calls: message.tool_calls ?? [],

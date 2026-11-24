@@ -56,7 +56,7 @@ export async function streamedAnswer(
 export function markedChunk(
   answer: AIMessageChunk,
   model: string,
-  cost: ModelCost,
+  cost: ModelCost | undefined,
 ): AIMessageChunk {
   const whole = new AIMessage({
     content: answer.content,

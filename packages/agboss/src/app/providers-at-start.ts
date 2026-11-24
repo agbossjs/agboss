@@ -21,7 +21,7 @@ export function providersAtStart(
     const resolution = directory.resolve(use);
     if (resolution.kind !== "resolved") continue;
     needed.add(resolution.provider.type);
-    const fallback = resolution.provider.options.circuitBreakerPolicy.fallback;
+    const fallback = resolution.provider.options.circuitBreakerPolicy?.fallback;
     if (isModelProviderClass(fallback)) fallbacks.push(fallback);
   }
   const registeredFor = registeredIn(directory);

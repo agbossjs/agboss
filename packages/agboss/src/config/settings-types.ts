@@ -65,6 +65,8 @@ export interface ModelSettings {
   price?: Price | undefined;
   /** The `@ModelProvider` this model is served from, by `name` (#1313); absent = by `serves`. */
   modelProvider?: string | undefined;
+  /** The provider has no `cost`: a call left unpriced is `CostSource.Unpriced` (#1313). */
+  unpriced?: true | undefined;
 }
 
 /**

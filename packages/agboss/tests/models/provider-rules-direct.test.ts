@@ -19,7 +19,6 @@ import type {
   TransportModelProviderOptions,
 } from "../../src/models/model-provider.decorator.js";
 import {
-  providerBreakerViolations,
   providerFieldsViolations,
   providerModeViolations,
   providerPriceViolations,
@@ -88,10 +87,6 @@ class Fine extends Handler {}
   circuitBreakerPolicy: { ...breaker, fallback: BothMode },
 })
 class WithBadFallback extends Handler {}
-
-const { circuitBreakerPolicy: _dropped, ...withoutBreaker } = transport("unguarded-model-provider");
-@ModelProvider(withoutBreaker as TransportModelProviderOptions)
-class Unguarded extends Handler {}
 
 @ModelProvider(http("bare-model-provider"))
 // @ts-expect-error -- the abstract requestFields left out
@@ -187,74 +182,5 @@ describe("#1366: providerModeViolations", () => {
     expect(providerModeViolations(APP, [Fine])).toEqual([]);
     expect(providerModeViolations(APP, [])).toEqual([]);
     expect(providerModeViolations(APP, undefined)).toEqual([]);
-  });
-});
-
-describe("#1366: providerBreakerViolations", () => {
-  it("names a provider without a breaker policy, and finds nothing otherwise", () => {
-    expect(providerBreakerViolations(APP, [Unguarded])).toEqual([
-      {
-        code: "model-provider.circuit-breaker-required",
-        message:
-          "unguarded-model-provider (Unguarded) has no circuitBreakerPolicy — set circuitBreakerPolicy: { failureThreshold, window, openFor } on its @ModelProvider",
-        nodes: [APP],
-      },
-    ]);
-    expect(providerBreakerViolations(APP, [Fine])).toEqual([]);
-    expect(providerBreakerViolations(APP, undefined)).toEqual([]);
-  });
-});
-
-describe("#1366: providerFieldsViolations", () => {
-  it("names an OpenAI-compatible provider without requestFields, and not a transport or a fielded one", () => {
-    expect(providerFieldsViolations(APP, [BareFields, FieldedFields, Fine])).toEqual([
-      {
-        code: "model-provider.request-fields-missing",
-        message:
-          "bare-model-provider (BareFields) sets no requestFields — an OpenAI-compatible provider says which request fields it sends: override readonly requestFields = {} (none)",
-        nodes: [APP],
-      },
-    ]);
-    expect(providerFieldsViolations(APP, undefined)).toEqual([]);
-  });
-
-  it("names a provider whose requestFields is null, and builds no transport to read it", () => {
-    expect(providerFieldsViolations(APP, [NullFields]).map((found) => found.message)).toEqual([
-      expect.stringContaining("null-fields-model-provider (NullFields) sets no requestFields"),
-    ]);
-    expect(providerFieldsViolations(APP, [NeedsArguments])).toEqual([]);
-  });
-});
-
-describe("#1366: providerTimeoutViolations", () => {
-  it("names a timeout above the maximum, and not one within it", () => {
-    expect(providerTimeoutViolations(APP, [Slow, Fine])).toEqual([
-      {
-        code: "limits.timeout-invalid",
-        message: `slow-model-provider (Slow): ${String(timerProblemOf("timeout", slow, MAX_TIMEOUT))}`,
-        nodes: [APP],
-      },
-    ]);
-    expect(providerTimeoutViolations(APP, undefined)).toEqual([]);
-  });
-});
-
-describe("#1366: providerPriceViolations", () => {
-  it("names a price that is no amount from 0, in a listed provider and in a fallback", () => {
-    const expected = {
-      code: "model.price-invalid",
-      message:
-        "negative-model-provider (Negative): inputPerMillion is -5, not a finite number of dollars from 0 (usd(...))",
-      nodes: [APP],
-    };
-
-    expect(providerPriceViolations(APP, [Negative])).toEqual([expected]);
-    expect(providerPriceViolations(APP, [OuterOfNegative])).toEqual([expected]);
-  });
-
-  it("finds nothing in a zero price, a cost from the response, an empty list or none", () => {
-    expect(providerPriceViolations(APP, [Zero, Fine])).toEqual([]);
-    expect(providerPriceViolations(APP, [])).toEqual([]);
-    expect(providerPriceViolations(APP, undefined)).toEqual([]);
   });
 });

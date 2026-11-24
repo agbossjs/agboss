@@ -13,7 +13,6 @@ import { environmentRuleViolations, readingClassesOf } from "../environments/con
 import { isModelProviderClass, modelProviderOf } from "../models/model-provider.decorator.js";
 import { listedModelProvidersOf } from "../models/resolution.js";
 import {
-  providerBreakerViolations,
   providerFieldsViolations,
   providerPriceViolations,
   providerModeViolations,
@@ -188,7 +187,6 @@ export function applicationRuleViolations(
     ...budgetRuleViolations(options),
     ...modelProviderNameViolations(options),
     ...providerModeViolations(options.name, withNamedModelProvider(options)),
-    ...providerBreakerViolations(options.name, withNamedModelProvider(options)),
     ...providerFieldsViolations(options.name, withNamedModelProvider(options)),
     ...providerPriceViolations(options.name, withNamedModelProvider(options)),
     ...infrastructureViolations(options),

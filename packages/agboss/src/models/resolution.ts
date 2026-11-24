@@ -6,7 +6,6 @@ import type { ElementGuardrails } from "../guardrails/assembly.js";
 import { modelGuardrailsOf, type LoadedGuardrail } from "../guardrails/loaded.js";
 import { GraphRuleError, violation, type RuleViolation } from "../graph/rule-error.js";
 import {
-  circuitBreakerPolicyOf,
   isDriverOptions,
   isModelProviderClass,
   isTransportClass,
@@ -56,7 +55,7 @@ export const transportProviderClassesOf = (
 /** Model provider classes and their breakers' fallbacks, each once. */
 export function withFallbacks(classes: readonly ModelProviderType[]): readonly ModelProviderType[] {
   const fallbacks = classes.flatMap(
-    (cls) => circuitBreakerPolicyOf(modelProviderOf(cls))?.fallback ?? [],
+    (cls) => modelProviderOf(cls).circuitBreakerPolicy?.fallback ?? [],
   );
   return [...new Set([...classes, ...fallbacks.filter(isModelProviderClass)])];
 }

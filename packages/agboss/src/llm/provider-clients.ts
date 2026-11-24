@@ -105,7 +105,7 @@ export function providerClients(
   const chatModel = (settings: ResolvedModelSettings): BaseChatModel => {
     const provider = providerFor(settings.model, ModelKind.Chat, settings.modelProvider);
     const primary = chatOf(provider, settings);
-    const fallback = provider.options.circuitBreakerPolicy.fallback;
+    const fallback = provider.options.circuitBreakerPolicy?.fallback;
     if (!isModelProviderClass(fallback) || options.calls === undefined) return primary;
     return withFallback(primary, {
       provider,
