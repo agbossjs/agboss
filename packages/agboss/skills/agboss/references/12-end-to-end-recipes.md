@@ -661,29 +661,29 @@ export class SupplierShortlistAgent {}
 ```
 
 ```ts file=sourcing/src/agents/price-review/price-review.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { PurchaseReviewDto } from "../../dto/purchase-review.dto.js";
 import { SupplierShortlistDto } from "../../dto/supplier-shortlist.dto.js";
 
-@Agent({ name: "price-review-agent", description: "Reviews the price", prompt: "Score the price from 1 to 10.", model: "moonshotai/kimi-k2.6", input: { shortlist: SupplierShortlistDto }, output: PurchaseReviewDto })
+@Agent({ name: "price-review-agent", description: "Reviews the price", prompt: inline("Score the price from 1 to 10."), model: "moonshotai/kimi-k2.6", input: { shortlist: SupplierShortlistDto }, output: PurchaseReviewDto })
 export class PriceReviewAgent {}
 ```
 
 ```ts file=sourcing/src/agents/risk-review/risk-review.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { PurchaseReviewDto } from "../../dto/purchase-review.dto.js";
 import { SupplierShortlistDto } from "../../dto/supplier-shortlist.dto.js";
 
-@Agent({ name: "risk-review-agent", description: "Reviews the supplier risk", prompt: "Score the supplier risk from 1 (high) to 10 (low).", model: "moonshotai/kimi-k2.6", input: { shortlist: SupplierShortlistDto }, output: PurchaseReviewDto })
+@Agent({ name: "risk-review-agent", description: "Reviews the supplier risk", prompt: inline("Score the supplier risk from 1 (high) to 10 (low)."), model: "moonshotai/kimi-k2.6", input: { shortlist: SupplierShortlistDto }, output: PurchaseReviewDto })
 export class RiskReviewAgent {}
 ```
 
 ```ts file=sourcing/src/agents/terms-review/terms-review.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { PurchaseReviewDto } from "../../dto/purchase-review.dto.js";
 import { SupplierShortlistDto } from "../../dto/supplier-shortlist.dto.js";
 
-@Agent({ name: "terms-review-agent", description: "Reviews the terms", prompt: "Score the delivery terms from 1 to 10.", model: "moonshotai/kimi-k2.6", input: { shortlist: SupplierShortlistDto }, output: PurchaseReviewDto })
+@Agent({ name: "terms-review-agent", description: "Reviews the terms", prompt: inline("Score the delivery terms from 1 to 10."), model: "moonshotai/kimi-k2.6", input: { shortlist: SupplierShortlistDto }, output: PurchaseReviewDto })
 export class TermsReviewAgent {}
 ```
 

@@ -1471,29 +1471,29 @@ export class DealWorkflowStart {}
 ```
 
 ```ts file=src/deal/agents/deal-legal/deal-legal.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { DealDto } from "../../dto/deal.dto.js";
 import { LegalReviewDto } from "../../dto/legal-review.dto.js";
 
-@Agent({ name: "deal-legal-agent", description: "Checks the law", prompt: "Check the terms against the law.", model: "moonshotai/kimi-k2.6", input: { deal: DealDto }, output: LegalReviewDto })
+@Agent({ name: "deal-legal-agent", description: "Checks the law", prompt: inline("Check the terms against the law."), model: "moonshotai/kimi-k2.6", input: { deal: DealDto }, output: LegalReviewDto })
 export class DealLegalAgent {}
 ```
 
 ```ts file=src/deal/agents/deal-critic/deal-critic.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { DealCritiqueDto } from "../../dto/deal-critique.dto.js";
 import { DealDto } from "../../dto/deal.dto.js";
 
-@Agent({ name: "deal-critic-agent", description: "Finds a weakness", prompt: "Name the deal's worst weakness.", model: "moonshotai/kimi-k2.6", input: { deal: DealDto }, output: DealCritiqueDto })
+@Agent({ name: "deal-critic-agent", description: "Finds a weakness", prompt: inline("Name the deal's worst weakness."), model: "moonshotai/kimi-k2.6", input: { deal: DealDto }, output: DealCritiqueDto })
 export class DealCriticAgent {}
 ```
 
 ```ts file=src/deal/agents/deal-screen/deal-screen.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { DealDto } from "../../dto/deal.dto.js";
 import { FastScreenDto } from "../../dto/fast-screen.dto.js";
 
-@Agent({ name: "deal-screen-agent", description: "Screens fast", prompt: "Say whether the deal is obviously bad.", model: "moonshotai/kimi-k2.6", input: { deal: DealDto }, output: FastScreenDto })
+@Agent({ name: "deal-screen-agent", description: "Screens fast", prompt: inline("Say whether the deal is obviously bad."), model: "moonshotai/kimi-k2.6", input: { deal: DealDto }, output: FastScreenDto })
 export class DealScreenAgent {}
 ```
 

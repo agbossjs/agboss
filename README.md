@@ -80,20 +80,20 @@ export class ScoutAgent {}
 ```
 
 <!-- snippet-context
-import { Agent, DecidedBy, Injectable, Router, WorkflowFinish, WorkflowStart } from "@agboss/core";
+import { Agent, DecidedBy, Injectable, Router, WorkflowFinish, WorkflowStart, inline } from "@agboss/core";
 import { WorkflowFinishTextDto } from "@agboss/core/dto";
 import { ScoutAgent } from "./agents/scout.agent.js";
 @WorkflowStart({ name: "chat-workflow-start", description: "A message", input: WorkflowStartTextDto })
 export class ChatWorkflowStart {}
 @WorkflowFinish({ name: "chat-workflow-finish", description: "The answer", output: WorkflowFinishTextDto })
 export class ChatWorkflowFinish {}
-@Agent({ name: "profiler-agent", description: "Reads the resume", prompt: "Read the resume.", model: "moonshotai/kimi-k2.6" })
+@Agent({ name: "profiler-agent", description: "Reads the resume", prompt: inline("Read the resume."), model: "moonshotai/kimi-k2.6" })
 export class ProfilerAgent {}
 @Router({
   name: "main-router",
   description: "Sends the message to the agent that answers it",
   decidedBy: DecidedBy.Model,
-  prompt: "Pick the agent that answers the message.",
+  prompt: inline("Pick the agent that answers the message."),
   input: { message: WorkflowStartTextDto },
   routes: [
     { prompt: "Reading the resume", target: ProfilerAgent },
@@ -1301,6 +1301,7 @@ export class RefundCardInputDto {
 -->
 
 ```ts
+import { inline } from "@agboss/core";
 @ReplyInterpreter({
   name: "refund-reply-interpreter",
   description: "Turns a manager's free-text reply into a refund decision",
@@ -1335,6 +1336,7 @@ export class DepositReturnDto {
 -->
 
 ```ts
+import { inline } from "@agboss/core";
 // approve / refuse on a decision model: one Decision.boolean("approved") — no reason, no overrideArguments
 @ReplyInterpreter({
   name: "deposit-reply-interpreter",
@@ -2098,6 +2100,7 @@ export class RefusalTextService {
 -->
 
 ```ts
+import { inline } from "@agboss/core";
 // a computed refusal: the class implements GuardrailRefusal, the execution through deps
 @InputGuardrail({
   name: "legal-advice-guardrail",

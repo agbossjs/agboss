@@ -195,14 +195,14 @@ tool may also name a concrete `@Channel` as is (`TerminalUserChannel`; `AutoAppr
 `AutoRejectChannel`, which decide at once, for tests and scripts).
 
 <!-- snippet-context
-import { Agent, Application, EmptyEnvironment, Tool, Workflow, WorkflowFinish, WorkflowStart, onStart } from "@agboss/core";
+import { Agent, Application, EmptyEnvironment, Tool, Workflow, WorkflowFinish, WorkflowStart, onStart, inline } from "@agboss/core";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 import { DeleteUserInputDto, SlackClient, SlackUserDeletionApprovalChannel, UserDeletionApprovalChannel } from "./channels.js";
 export class UserDeletedDto {
   @Text() userId!: string;
 }
 // @snippet
-@Agent({ name: "admin-agent", description: "Manages users", prompt: "Manage users.", model: "moonshotai/kimi-k2.6", tools: [DeleteUserTool] })
+@Agent({ name: "admin-agent", description: "Manages users", prompt: inline("Manage users."), model: "moonshotai/kimi-k2.6", tools: [DeleteUserTool] })
 export class AdminAgent {}
 @WorkflowStart({ name: "chat-workflow-start", description: "A request", input: WorkflowStartTextDto })
 export class ChatStart {}

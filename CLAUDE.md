@@ -366,7 +366,7 @@ export class HandOverWorkflowFinish {}
 ```ts file=src/desk/routers/main.router.ts
 // routers/main.router.ts — `prompt` says how to choose, `routes` what each choice means, `input`
 // what it decides on
-import { DecidedBy, Router } from "@agboss/core";
+import { DecidedBy, Router, inline } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { SupportAgent } from "../agents/support.agent.js";
 import { HandOverWorkflowFinish } from "../workflow-finishes/hand-over.workflow-finish.js";
@@ -375,7 +375,7 @@ import { HandOverWorkflowFinish } from "../workflow-finishes/hand-over.workflow-
   name: "main-router",
   description: "Sends the message to the agent that answers it, or hands it over",
   decidedBy: DecidedBy.Model,
-  prompt: "Pick who handles the customer's message.",
+  prompt: inline("Pick who handles the customer's message."),
   model: "typesafe/jev-1.13",
   input: { message: WorkflowStartTextDto },
   maxVisits: 1,
@@ -833,7 +833,7 @@ workflows: { placement } } })`, else `CurrentProcess`; `OtherWorker` is never cl
   `onValuesOutdated` event per cascade (Wiki → Path-scope).
 
 <!-- snippet-context
-import { Action, Agent, VisitsLimitExceededError, Workflow, WorkflowFinish, WorkflowStart, onAgent, caseOf, onStart, toAction } from "@agboss/core";
+import { Action, Agent, VisitsLimitExceededError, Workflow, WorkflowFinish, WorkflowStart, onAgent, caseOf, onStart, toAction, inline } from "@agboss/core";
 import { Bool, Text } from "@agboss/core/dto";
 import { oneOf } from "@agboss/core";
 
@@ -859,11 +859,11 @@ export class OfferSentDto {
 }
 @WorkflowStart({ name: "offer-workflow-start", description: "A shortlist", input: ShortlistDto })
 export class OfferWorkflowStart {}
-@Agent({ name: "draft-agent", description: "Drafts the offer", prompt: "Draft the offer.", model: "moonshotai/kimi-k2.6", input: { shortlist: ShortlistDto }, output: OfferDraftDto })
+@Agent({ name: "draft-agent", description: "Drafts the offer", prompt: inline("Draft the offer."), model: "moonshotai/kimi-k2.6", input: { shortlist: ShortlistDto }, output: OfferDraftDto })
 export class DraftAgent {}
-@Agent({ name: "reviewer-agent", description: "Reviews the draft", prompt: "Review the draft.", model: "moonshotai/kimi-k2.6", input: { draft: OfferDraftDto }, output: oneOf(ChangesRequestedDto, DraftApprovedDto) })
+@Agent({ name: "reviewer-agent", description: "Reviews the draft", prompt: inline("Review the draft."), model: "moonshotai/kimi-k2.6", input: { draft: OfferDraftDto }, output: oneOf(ChangesRequestedDto, DraftApprovedDto) })
 export class ReviewerAgent {}
-@Agent({ name: "editor-agent", description: "Rewrites the draft", prompt: "Rewrite the draft.", model: "moonshotai/kimi-k2.6", input: { draft: OfferDraftDto, changes: ChangesRequestedDto }, output: OfferDraftDto, executionLimits: { maxVisits: 2 } })
+@Agent({ name: "editor-agent", description: "Rewrites the draft", prompt: inline("Rewrite the draft."), model: "moonshotai/kimi-k2.6", input: { draft: OfferDraftDto, changes: ChangesRequestedDto }, output: OfferDraftDto, executionLimits: { maxVisits: 2 } })
 export class EditorAgent {}
 @Action({ name: "notify-recruiter-action", description: "Tells the recruiter", input: { draft: OfferDraftDto } })
 export class NotifyRecruiterAction {
@@ -945,21 +945,21 @@ export class CustomerReplyDto {
 export class ScreeningWorkflowStart {}
 @WorkflowStart({ name: "support-workflow-start", description: "A customer's message", input: WorkflowStartTextDto })
 export class SupportWorkflowStart {}
-@Agent({ name: "screening-agent", description: "Finds companies", prompt: "Find them.", model: "moonshotai/kimi-k2.6", input: { message: WorkflowStartTextDto }, output: listOf(CompanyDto) })
+@Agent({ name: "screening-agent", description: "Finds companies", prompt: inline("Find them."), model: "moonshotai/kimi-k2.6", input: { message: WorkflowStartTextDto }, output: listOf(CompanyDto) })
 export class ScreeningAgent {}
-@Agent({ name: "company-check-agent", description: "Checks one company", prompt: "Check it.", model: "moonshotai/kimi-k2.6", input: { company: CompanyDto }, output: CompanyCheckDto })
+@Agent({ name: "company-check-agent", description: "Checks one company", prompt: inline("Check it."), model: "moonshotai/kimi-k2.6", input: { company: CompanyDto }, output: CompanyCheckDto })
 export class CompanyCheckAgent {}
-@Agent({ name: "ranker-agent", description: "Ranks", prompt: "Rank.", model: "moonshotai/kimi-k2.6", input: { checks: listOf(CompanyCheckDto) }, output: RankingDto })
+@Agent({ name: "ranker-agent", description: "Ranks", prompt: inline("Rank."), model: "moonshotai/kimi-k2.6", input: { checks: listOf(CompanyCheckDto) }, output: RankingDto })
 export class RankerAgent {}
 @WorkflowFinish({ name: "ranking-workflow-finish", description: "The ranking", output: RankingDto })
 export class RankingWorkflowFinish {}
-@Agent({ name: "order-agent", description: "Looks the order up", prompt: "Look it up.", model: "moonshotai/kimi-k2.6", input: { message: WorkflowStartTextDto }, output: OrderStatusDto })
+@Agent({ name: "order-agent", description: "Looks the order up", prompt: inline("Look it up."), model: "moonshotai/kimi-k2.6", input: { message: WorkflowStartTextDto }, output: OrderStatusDto })
 export class OrderAgent {}
-@Agent({ name: "refund-policy-agent", description: "Quotes the policy", prompt: "Quote it.", model: "moonshotai/kimi-k2.6", input: { message: WorkflowStartTextDto }, output: RefundPolicyDto })
+@Agent({ name: "refund-policy-agent", description: "Quotes the policy", prompt: inline("Quote it."), model: "moonshotai/kimi-k2.6", input: { message: WorkflowStartTextDto }, output: RefundPolicyDto })
 export class RefundPolicyAgent {}
-@Agent({ name: "loyalty-agent", description: "Finds an offer", prompt: "Find one.", model: "moonshotai/kimi-k2.6", input: { message: WorkflowStartTextDto }, output: LoyaltyOfferDto })
+@Agent({ name: "loyalty-agent", description: "Finds an offer", prompt: inline("Find one."), model: "moonshotai/kimi-k2.6", input: { message: WorkflowStartTextDto }, output: LoyaltyOfferDto })
 export class LoyaltyAgent {}
-@Agent({ name: "answer-agent", description: "Replies", prompt: "Reply.", model: "moonshotai/kimi-k2.6", input: { message: WorkflowStartTextDto, order: OrderStatusDto, refund: optional(RefundPolicyDto), loyalty: optional(LoyaltyOfferDto) }, output: CustomerReplyDto })
+@Agent({ name: "answer-agent", description: "Replies", prompt: inline("Reply."), model: "moonshotai/kimi-k2.6", input: { message: WorkflowStartTextDto, order: OrderStatusDto, refund: optional(RefundPolicyDto), loyalty: optional(LoyaltyOfferDto) }, output: CustomerReplyDto })
 export class AnswerAgent {}
 @WorkflowFinish({ name: "support-workflow-finish", description: "The reply", output: CustomerReplyDto })
 export class SupportWorkflowFinish {}
@@ -1003,7 +1003,7 @@ export const launchPaths = [
 ```
 
 <!-- snippet-context
-import { Action, Agent, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, caseOf, onStart, toAction } from "@agboss/core";
+import { Action, Agent, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, caseOf, onStart, toAction, inline } from "@agboss/core";
 import { Bool, Text, WorkflowStartTextDto } from "@agboss/core/dto";
 import { listOf, oneOf } from "@agboss/core";
 
@@ -1029,7 +1029,7 @@ export class VendorRankingDto {
 }
 @WorkflowStart({ name: "vendor-check-workflow-start", description: "One vendor", input: VendorDto })
 export class VendorCheckWorkflowStart {}
-@Agent({ name: "vendor-checker-agent", description: "Checks a vendor", prompt: "Check it.", model: "moonshotai/kimi-k2.6", input: { vendor: VendorDto }, output: oneOf(VendorScoreDto, VendorRejectedDto) })
+@Agent({ name: "vendor-checker-agent", description: "Checks a vendor", prompt: inline("Check it."), model: "moonshotai/kimi-k2.6", input: { vendor: VendorDto }, output: oneOf(VendorScoreDto, VendorRejectedDto) })
 export class VendorCheckerAgent {}
 @Action({ name: "mark-vendor-failed-action", description: "Records a failed check", input: { vendor: VendorDto }, output: VendorCheckFailedDto })
 export class MarkVendorFailedAction {
@@ -1045,9 +1045,9 @@ export class VendorRejectedWorkflowFinish {}
 export class VendorCheckFailedWorkflowFinish {}
 @WorkflowStart({ name: "vendor-screening-workflow-start", description: "What to look for", input: WorkflowStartTextDto })
 export class VendorScreeningWorkflowStart {}
-@Agent({ name: "vendor-finder-agent", description: "Finds vendors", prompt: "Find them.", model: "moonshotai/kimi-k2.6", input: { message: WorkflowStartTextDto }, output: listOf(VendorDto) })
+@Agent({ name: "vendor-finder-agent", description: "Finds vendors", prompt: inline("Find them."), model: "moonshotai/kimi-k2.6", input: { message: WorkflowStartTextDto }, output: listOf(VendorDto) })
 export class VendorFinderAgent {}
-@Agent({ name: "vendor-ranker-agent", description: "Ranks", prompt: "Rank.", model: "moonshotai/kimi-k2.6", input: { checks: listOf(oneOf(VendorScoreDto, VendorRejectedDto, VendorCheckFailedDto)) }, output: VendorRankingDto })
+@Agent({ name: "vendor-ranker-agent", description: "Ranks", prompt: inline("Rank."), model: "moonshotai/kimi-k2.6", input: { checks: listOf(oneOf(VendorScoreDto, VendorRejectedDto, VendorCheckFailedDto)) }, output: VendorRankingDto })
 export class VendorRankerAgent {}
 @WorkflowFinish({ name: "vendor-ranking-workflow-finish", description: "The ranking", output: VendorRankingDto })
 export class VendorRankingWorkflowFinish {}
@@ -1092,7 +1092,7 @@ export const childPaths = [
 ```
 
 <!-- snippet-context
-import { Agent, Arbiter, Arbitrate, Workflow, WorkflowFinish, WorkflowStart, onStart, toAgent, toFinish } from "@agboss/core";
+import { Agent, Arbiter, Arbitrate, Workflow, WorkflowFinish, WorkflowStart, onStart, toAgent, toFinish, inline } from "@agboss/core";
 import { Integer, Text } from "@agboss/core/dto";
 import { listOf, optional } from "@agboss/core";
 import { minutes, seconds } from "@agboss/core/units";
@@ -1127,25 +1127,25 @@ export class DealReportDto {
 }
 @WorkflowStart({ name: "candidate-workflow-start", description: "A candidate", input: CandidateDto })
 export class CandidateWorkflowStart {}
-@Agent({ name: "score-a-agent", description: "Scores skills", prompt: "Score.", model: "moonshotai/kimi-k2.6", input: { candidate: CandidateDto }, output: ScoreDto })
+@Agent({ name: "score-a-agent", description: "Scores skills", prompt: inline("Score."), model: "moonshotai/kimi-k2.6", input: { candidate: CandidateDto }, output: ScoreDto })
 export class ScoreAAgent {}
-@Agent({ name: "score-b-agent", description: "Scores risks", prompt: "Score.", model: "moonshotai/kimi-k2.6", input: { candidate: CandidateDto }, output: ScoreDto })
+@Agent({ name: "score-b-agent", description: "Scores risks", prompt: inline("Score."), model: "moonshotai/kimi-k2.6", input: { candidate: CandidateDto }, output: ScoreDto })
 export class ScoreBAgent {}
-@Agent({ name: "score-c-agent", description: "Scores the hire", prompt: "Score.", model: "moonshotai/kimi-k2.6", input: { candidate: CandidateDto }, output: ScoreDto })
+@Agent({ name: "score-c-agent", description: "Scores the hire", prompt: inline("Score."), model: "moonshotai/kimi-k2.6", input: { candidate: CandidateDto }, output: ScoreDto })
 export class ScoreCAgent {}
-@Agent({ name: "score-summary-agent", description: "Sums up", prompt: "Sum up.", model: "moonshotai/kimi-k2.6", input: { candidate: CandidateDto, scores: listOf(ScoreDto) }, output: ScoreReviewDto })
+@Agent({ name: "score-summary-agent", description: "Sums up", prompt: inline("Sum up."), model: "moonshotai/kimi-k2.6", input: { candidate: CandidateDto, scores: listOf(ScoreDto) }, output: ScoreReviewDto })
 export class ScoreSummaryAgent {}
 @WorkflowFinish({ name: "score-review-workflow-finish", description: "The review", output: ScoreReviewDto })
 export class ScoreReviewWorkflowFinish {}
 @WorkflowStart({ name: "deal-workflow-start", description: "A deal", input: CandidateDto })
 export class DealWorkflowStart {}
-@Agent({ name: "legal-agent", description: "Legal review", prompt: "Review.", model: "moonshotai/kimi-k2.6", input: { deal: CandidateDto }, output: LegalReviewDto })
+@Agent({ name: "legal-agent", description: "Legal review", prompt: inline("Review."), model: "moonshotai/kimi-k2.6", input: { deal: CandidateDto }, output: LegalReviewDto })
 export class LegalAgent {}
-@Agent({ name: "critic-agent", description: "Objects", prompt: "Object.", model: "moonshotai/kimi-k2.6", input: { deal: CandidateDto }, output: CritiqueDto })
+@Agent({ name: "critic-agent", description: "Objects", prompt: inline("Object."), model: "moonshotai/kimi-k2.6", input: { deal: CandidateDto }, output: CritiqueDto })
 export class CriticAgent {}
-@Agent({ name: "fast-screen-agent", description: "Screens", prompt: "Screen.", model: "moonshotai/kimi-k2.6", input: { deal: CandidateDto }, output: FastScreenDto })
+@Agent({ name: "fast-screen-agent", description: "Screens", prompt: inline("Screen."), model: "moonshotai/kimi-k2.6", input: { deal: CandidateDto }, output: FastScreenDto })
 export class FastScreenAgent {}
-@Agent({ name: "full-review-agent", description: "Reports", prompt: "Report.", model: "moonshotai/kimi-k2.6", input: { legal: optional(LegalReviewDto), critiques: listOf(CritiqueDto) }, output: DealReportDto })
+@Agent({ name: "full-review-agent", description: "Reports", prompt: inline("Report."), model: "moonshotai/kimi-k2.6", input: { legal: optional(LegalReviewDto), critiques: listOf(CritiqueDto) }, output: DealReportDto })
 export class FullReviewAgent {}
 @WorkflowFinish({ name: "deal-report-workflow-finish", description: "The report", output: DealReportDto })
 export class DealReportWorkflowFinish {}
@@ -1184,7 +1184,7 @@ export class InRangeArbiter {
 @Arbiter({
   name: "valid-score-arbiter",
   model: "typesafe/jev-1.13",
-  prompt: "Count an answer only if it meets the criterion of the agent that gave it.",
+  prompt: inline("Count an answer only if it meets the criterion of the agent that gave it."),
   criteria: [
     { target: ScoreAAgent, prompt: "Gives a 1–10 score for technical skills, with a reason" },
     { target: ScoreBAgent, prompt: "Names at least two concrete risks" },
@@ -1790,7 +1790,7 @@ export class ArchiveMemory {}
 @Agent({
   name: "archive-agent",
   description: "Answers from the whole thread",
-  prompt: "Answer from the thread.",
+  prompt: inline("Answer from the thread."),
   model: "moonshotai/kimi-k2.6",
   memory: ArchiveMemory,
 })
@@ -2038,6 +2038,7 @@ import { Agent, PiiAction, PiiKind, PiiPolicy, secret } from "@agboss/core";
 -->
 
 ```ts
+import { inline } from "@agboss/core";
 @PiiPolicy({
   name: "contact-pii-policy",
   description: "Hides contact details from models",
@@ -2054,7 +2055,7 @@ export class ContactPiiPolicy {}
 @Agent({
   name: "order-agent",
   description: "Looks orders up",
-  prompt: "Look the order up.",
+  prompt: inline("Look the order up."),
   model: "moonshotai/kimi-k2.6",
   excludePiiPolicies: [ContactPiiPolicy], // its model sees contacts; logs and traces stay masked
 })
@@ -2109,10 +2110,11 @@ export class RefusalTextService {
 -->
 
 ```ts
+import { inline } from "@agboss/core";
 @InputGuardrail({
   name: "legal-advice-guardrail",
   description: "Blocks requests for legal advice",
-  prompt: "Does the message ask for legal advice?",
+  prompt: inline("Does the message ask for legal advice?"),
   model: "typesafe/jev-1.13",
   threshold: 0.8,
   deps: [ClinicExecutionContext, RefusalTextService], // the refusal in the sender's language
@@ -2131,7 +2133,7 @@ export class LegalAdviceGuardrail implements GuardrailRefusal {
 @OutputGuardrail({
   name: "no-legal-advice-guardrail",
   description: "Blocks answers that give legal advice",
-  prompt: "Does the answer give legal advice?",
+  prompt: inline("Does the answer give legal advice?"),
   threshold: 0.8, // no model: defaults.guardrail.model
   refusal: "I can't give legal advice. Please contact a lawyer.",
 })
