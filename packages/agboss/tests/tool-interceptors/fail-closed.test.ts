@@ -98,6 +98,37 @@ describe("#1295a: an unresolvable tool is never unintercepted", () => {
   });
 });
 
+describe("#1295a: one agent never has two tools of one name", () => {
+  @Tool({ name: "twin", description: "d", input: Query, output: Status })
+  class TwinOne {
+    execute(): Status {
+      return { status: "1" };
+    }
+  }
+
+  @Tool({ name: "twin", description: "d", input: Query, output: Status })
+  class TwinTwo {
+    execute(): Status {
+      return { status: "2" };
+    }
+  }
+
+  it("[tool-interceptor.duplicate-tool-name] instead of the last class overwriting the first", () => {
+    @ToolInterceptor({ name: "any-tool-interceptor", description: "d" })
+    class Any {
+      beforeAnyTool(): ToolCallDecision {
+        return ToolCallDecision.allow();
+      }
+    }
+
+    expect(() =>
+      toolInterceptorPartsOf({ ...none, application: [Any] }, [
+        agentOf("desk-agent", [TwinOne, TwinTwo]),
+      ]),
+    ).toThrow(/duplicate-tool-name/u);
+  });
+});
+
 describe("#1295a: tool types are per agent", () => {
   @Tool({ name: "same", description: "d", input: Query, output: Status })
   class SameA {

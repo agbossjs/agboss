@@ -186,6 +186,7 @@ export type RuleCode =
   | "tool-interceptor.duplicate-hook"
   | "tool-interceptor.override-drops-target"
   | "tool-interceptor.unresolved-tool"
+  | "tool-interceptor.duplicate-tool-name"
   | "tool-interceptor.unknown-hook"
   // compaction (#120 PR 3), reported at each workflow's assembly
   | "compaction.not-a-compaction"
