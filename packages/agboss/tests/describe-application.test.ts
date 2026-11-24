@@ -174,10 +174,10 @@ describe("#261 M1: describe shows the application", () => {
       "  maxSteps 2 (set) · steps 1–1",
       "  maxVisits teller-agent 2",
       "  Worst case of one tell-workflow-start call",
-      "    workflow executions     1  1 tell-workflow",
-      "    at the same time        1  1 tell-workflow",
-      "    agent and router steps  1  1 in tell-workflow (longest path)",
-      "    nesting depth           1  tell-workflow",
+      "    workflow executions  1  1 tell-workflow",
+      "    at the same time     1  1 tell-workflow",
+      "    steps                1  1 in tell-workflow (longest path)",
+      "    nesting depth        1  tell-workflow",
     ]);
   });
 });

@@ -2758,7 +2758,7 @@ leads only to actions and finishes (`[graph.limit-handler-uses-model]`): nothing
 
 ## 10. Limits the flow is checked against
 
-- `@Workflow({ maxSteps })` — agent and router visits per execution, default (agents + routers) × 3.
+- `@Workflow({ maxSteps })` — agent, router, action and external-task visits per execution, default (agents + routers + actions + external tasks) × 3.
   `[limits.max-steps-too-low]`: no finish fits in a hand-set `maxSteps`, or the default cannot hold a
   per-item launch's worst case; `[limits.branch-exceeds-max-steps]`: every path through a node is
   longer; `[limits.max-steps-unused]`: a workflow without agents or routers sets it.

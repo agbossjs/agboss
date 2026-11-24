@@ -40,6 +40,7 @@ import { oneOfRules } from "./rules/one-of.js";
 import { switchRules } from "./rules/switch.js";
 import { judgeOutputRules, textAgentRules } from "./rules/text-agents.js";
 import { stepsRules } from "./steps.js";
+import { stepsAboveOldDefaultWarnings } from "./steps-default.js";
 import { worstCaseStepsWarnings } from "./strongly-connected.js";
 import { walkFlow } from "./walk.js";
 import { worstCasesOf, type WorstCase } from "./worst-case.js";
@@ -49,7 +50,7 @@ import { worstCasesOf, type WorstCase } from "./worst-case.js";
  * runs the data-flow engine (with outdating) to a fixed point, and checks every rule — all violations at once, before any
  * model call, in one `GraphRuleError`. Warnings (`[flow.path-too-deep]`,
  * `[graph.child-without-failure-finish]`, `[flow.committer-unreachable]`, `[judge.same-model-family]`,
- * `[limits.max-steps-below-worst-case]`) are errors
+ * `[limits.max-steps-below-worst-case]`, `[limits.max-steps-above-0.1.0-default]`) are errors
  * under `strict`.
  * Its result is what type generation (PR 3) and the runtime (PR 4) read.
  */
@@ -127,6 +128,7 @@ const warningsOf = (context: AnalysisContext): readonly RuleViolation[] => [
   ...judgeFamilyWarnings(context),
   ...judgeRetryWarnings(context),
   ...worstCaseStepsWarnings(context),
+  ...stepsAboveOldDefaultWarnings(context),
   ...remindBeforeWarnings(context),
 ];
 

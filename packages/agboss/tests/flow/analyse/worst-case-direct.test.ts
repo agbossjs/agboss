@@ -81,7 +81,7 @@ describe("#1366: the most steps from a start", () => {
       loops: ["A (maxVisits 2)"],
     });
     expect(boundedStepsFrom(loop(2, NodeKind.Question), named("S"))).toEqual({
-      most: 3,
+      most: 5,
       loops: ["A (maxVisits 2)"],
     });
     expect(boundedStepsFrom(loop("x"), named("S"))).toEqual({

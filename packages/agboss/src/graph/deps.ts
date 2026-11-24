@@ -69,7 +69,7 @@ export interface GraphDeps<TName extends string> {
   readonly memories?: AssembledMemories;
   /** The workflow's graph: its paths, analysed (`@Workflow({ flow })`). */
   readonly graph: RuntimeGraph;
-  /** Steps per execution (`@Workflow({ maxSteps })`, default (agents + routers) × 3). */
+  /** Steps per execution (`@Workflow({ maxSteps })`, default (agents + routers + actions + external tasks) × 3). */
   readonly maxSteps: number;
   /** Every router of the graph with its texts loaded (part of the run's versions). */
   readonly routers: readonly LoadedRouter[];

@@ -53,6 +53,7 @@ export type RuleCode =
   | "arbiter.unknown-target"
   | "arbiter.duplicate-target"
   | "arbiter.branch-has-no-output"
+  // a code arbiter that names a model or a provider without `ArbiterModel` in `deps` (#1283b)
   // child workflows (#263 PR 1), reported by `src/flow/analyse`
   | "graph.no-matching-start"
   | "graph.ambiguous-start"
@@ -127,6 +128,8 @@ export type RuleCode =
   | "tools.max-result-size-invalid"
   | "limits.max-steps-too-low"
   | "limits.max-steps-below-worst-case"
+  // a default maxSteps whose worst case is above 0.1.0's default (#1278, D8)
+  | "limits.max-steps-above-0.1.0-default"
   | "limits.branch-exceeds-max-steps"
   | "limits.max-steps-unused"
   // a maxSteps, maxVisits, maxToolCalls or maxRetries that is no whole number from 0 (#1373)

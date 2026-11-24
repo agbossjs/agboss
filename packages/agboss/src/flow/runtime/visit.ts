@@ -1,7 +1,7 @@
 import { extractRunContext } from "../../core/run-context.js";
 import { runInFrame } from "../context/frame.js";
 import type { RuntimeGraph, RuntimeNode } from "./graph-model.js";
-import { checkVisit, isWorkingNode, sidePathAfter, type ExecutionLimits } from "./limits.js";
+import { checkVisit, countsAsStep, sidePathAfter, type ExecutionLimits } from "./limits.js";
 import {
   recordsOf,
   reportingOf,
@@ -142,7 +142,7 @@ function succeeded(
   const launched = overflow === undefined ? dispatched : undefined;
   const next = nextOf(launched, exit);
   const update = {
-    ...visited(node, isWorkingNode(node)),
+    ...visited(node, countsAsStep(state, node)),
     ...write.update,
     next,
     ...sidePathAfter(state, node, launched === undefined ? next : undefined),

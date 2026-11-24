@@ -96,6 +96,7 @@ export function assemblyRulesShard() {
       "src/channels/working-time-rules.ts",
       "src/flow/analyse/rules/recursion.ts",
       "src/flow/analyse/steps.ts",
+      "src/flow/analyse/steps-default.ts",
       "src/flow/analyse/strongly-connected.ts",
       "src/health/health-check.ts",
       // #1321: which storage holds the leases, the idempotency keys and the retention

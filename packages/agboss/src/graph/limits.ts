@@ -208,7 +208,7 @@ export interface StepsLimitExceededErrorOptions {
   readonly cause?: unknown;
 }
 
-/** An execution took more agent and router steps than its workflow's `maxSteps` (#261). */
+/** An execution took more steps (agents, routers, actions, external tasks) than its workflow's `maxSteps` (#261). */
 export class StepsLimitExceededError extends LimitExceededError {
   static override readonly code = "limit.steps" as const;
   declare readonly code: typeof StepsLimitExceededError.code;
@@ -246,5 +246,5 @@ export class StepsLimitExceededError extends LimitExceededError {
 export const isPeriodBudgetExhausted = (error: unknown): boolean =>
   error instanceof BudgetExceededError && error.scope !== BudgetScope.Execution;
 
-/** Steps per execution by default: (agents + routers) × 3 (#261). */
+/** Steps per execution by default: (agents + routers + actions + external tasks) × 3 (#261, #1278). */
 export const STEPS_PER_WORKING_NODE = 3;

@@ -429,7 +429,7 @@ describe("#273: steps and the worst case count the launch", () => {
     });
     const [capped] = checkWorkflow(ScreeningWorkflow).analysis?.worstCases ?? [];
     expect(capped === undefined ? "" : worstCaseLine(capped)).toBe(
-      "Worst case of one screening-workflow-start call: 1 workflow execution, 1 at the same time, 9 agent and router steps",
+      "Worst case of one screening-workflow-start call: 1 workflow execution, 1 at the same time, 9 steps",
     );
   });
 });

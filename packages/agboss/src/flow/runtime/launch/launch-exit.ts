@@ -1,6 +1,6 @@
 import type { FlowEdge } from "../../analyse/flow-graph.js";
 import type { RuntimeGraph, RuntimeNode } from "../graph-model.js";
-import { isWorkingNode } from "../limits.js";
+import { countsAsStep } from "../limits.js";
 import type { NodeOutcome } from "../node-runner.js";
 import type { ScopeRecords } from "../records.js";
 import type { ExecutionStateType } from "../state.js";
@@ -60,7 +60,7 @@ const deadlineOf = (launch: RuntimeLaunch, now: Date): number | undefined => {
 /** The ticket of the launch a visit takes: its branches, counted after the step's own visit. */
 export function launchTicketOf(visit: LaunchingVisit, launch: RuntimeLaunch): LaunchTicket {
   const { node, state, outcome } = visit;
-  const isStep = isWorkingNode(node);
+  const isStep = countsAsStep(state, node);
   const deadlineAt = deadlineOf(launch, visit.now);
   const ticket = dispatchOf({
     graph: visit.graph,

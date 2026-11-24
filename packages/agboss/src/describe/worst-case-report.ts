@@ -8,7 +8,7 @@ import type { WorstCase, WorstCaseChild } from "../flow/analyse/worst-case.js";
  * Worst case of one screening-workflow-start call
  *   workflow executions     51   1 screening-workflow + 50 company-check-workflow (maxItems 50)
  *   at the same time        5    1 screening-workflow + 4 company-check-workflow (maxConcurrency 4)
- *   agent and router steps  512  12 in screening-workflow (maxSteps) + 50 × 10 in company-check-workflow (maxSteps)
+ *   steps  512  12 in screening-workflow (maxSteps) + 50 × 10 in company-check-workflow (maxSteps)
  *   nesting depth           2    screening-workflow → company-check-workflow
  * ```
  */
@@ -17,7 +17,7 @@ import type { WorstCase, WorstCaseChild } from "../flow/analyse/worst-case.js";
 export enum WorstCaseMeasure {
   Executions = "workflow executions",
   ConcurrentExecutions = "at the same time",
-  Steps = "agent and router steps",
+  Steps = "steps",
   Depth = "nesting depth",
 }
 

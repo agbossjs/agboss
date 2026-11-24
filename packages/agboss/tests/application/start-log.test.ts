@@ -42,8 +42,8 @@ describe("#261 AC13: the start log", () => {
       /^Started logged-application 2\.3\.0 — environment dev, host \S+, process \d+$/,
     );
     expect(info.slice(1).map((entry) => entry.message)).toEqual([
-      "Worst case of one note-workflow-start call: 1 workflow execution, 1 at the same time, 1 agent and router steps",
-      "Worst case of one send-workflow-start call: 1 workflow execution, 1 at the same time, 1 agent and router steps",
+      "Worst case of one note-workflow-start call: 1 workflow execution, 1 at the same time, 1 steps",
+      "Worst case of one send-workflow-start call: 1 workflow execution, 1 at the same time, 1 steps",
     ]);
     expect(
       logged.filter((entry) => entry.level === LogLevel.Warn).map((entry) => entry.code),

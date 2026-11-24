@@ -213,10 +213,10 @@ describe("#1366: the aligned report", () => {
 
     expect(worstCaseReportLines(worst, NO_CAP)).toEqual([
       "Worst case of one root-start call",
-      "  workflow executions     156  1 root",
-      "  at the same time        40   1 root",
-      "  agent and router steps  7    1 in root (longest path)",
-      "  nesting depth           4    root",
+      "  workflow executions  156  1 root",
+      "  at the same time     40   1 root",
+      "  steps                7    1 in root (longest path)",
+      "  nesting depth        4    root",
     ]);
   });
 });

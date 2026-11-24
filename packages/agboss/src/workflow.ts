@@ -54,7 +54,7 @@ export interface AssembledWorkflow<TName extends string = string> {
   readonly config: AgentsConfigOf<TName>;
   /** The workflow's graph: its paths analysed at assembly (every rule, all at once). */
   readonly graph: RuntimeGraph;
-  /** Steps per execution: `@Workflow({ maxSteps })`, default (agents + routers) × 3. */
+  /** Steps per execution: `@Workflow({ maxSteps })`, default (agents + routers + actions + external tasks) × 3. */
   readonly maxSteps: number;
   /**
    * Its application's model providers (`@Application({ providers })`, #266): the listed

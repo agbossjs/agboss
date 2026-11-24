@@ -503,7 +503,7 @@ Counts protect the graph, not money ([Workflow](Workflow)):
 
 | Limit | Error | Meaning |
 | --- | --- | --- |
-| `@Workflow({ maxSteps })` | `StepsLimitExceededError` (`workflow`, `maxSteps`, `steps`: `support-workflow took 41 steps; its maxSteps is 40`) | agent and router visits per execution (default (agents + routers) × 3) |
+| `@Workflow({ maxSteps })` | `StepsLimitExceededError` (`workflow`, `maxSteps`, `steps`: `support-workflow took 41 steps; its maxSteps is 40`) | agent, router, action and external-task visits per execution (default (agents + routers + actions + external tasks) × 3) |
 | `maxVisits` on `@Router` / `@Agent` | `VisitsLimitExceededError` (`component`, `nodeId`, `maxVisits`, `visits`) | visits of one node per execution |
 | `@Workflow({ maxDepth })` (#264) | `DepthLimitExceededError` (`workflow`, `maxDepth`, `depth`: `topic-research-workflow went 5 levels deep; its maxDepth is 4`), in the `cause` of `ChildExecutionFailedError` | the levels a recursive workflow's executions run at, the root at 1 — a launch by code past it does not start ([Workflow as a step → Recursion](Workflow-as-a-step#recursion-264)) |
 
@@ -513,6 +513,11 @@ executions each count their own `maxSteps`; its money is the root's budgets, eve
 `[limits.max-steps-too-low]` — no finish fits in a hand-set `maxSteps`, or the default cannot hold the
 worst case of a per-item launch (`maxItems` runs: set `@Workflow({ maxSteps })`, the default never
 grows silently) —, `[limits.branch-exceeds-max-steps]`, `[limits.max-steps-unused]`, and the warning
+`[limits.max-steps-above-0.1.0-default]` (#1278; an error under `--strict`): a flow with no `maxSteps` whose worst case takes
+more steps than 0.1.0's default — (agents + routers) × 3 — allowed: actions and external tasks count
+as steps now (an action that undoes an entry or reacts to a limit on a side path does not), the
+default grew with them, and a loop through actions is bounded by `maxSteps`, not only by
+`maxVisits`; set `@Workflow({ maxSteps })` to choose the bound. The warning
 `[limits.max-steps-below-worst-case]` (#643; an error under `--strict`): a hand-set `maxSteps` below
 the worst case of a flow whose every loop `maxVisits` bounds — each loop counted at its nodes'
 `maxVisits`, its other nodes between two of their visits — would end a run with

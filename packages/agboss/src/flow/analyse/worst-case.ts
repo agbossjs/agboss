@@ -249,6 +249,6 @@ export function worstCaseLine(worst: WorstCase): string {
       : `${String(worst.executions)} workflow executions`;
   return (
     `Worst case of one ${worst.start} call: ${executions}, ` +
-    `${String(worst.concurrentExecutions)} at the same time, ${String(worst.steps)} agent and router steps`
+    `${String(worst.concurrentExecutions)} at the same time, ${String(worst.steps)} steps`
   );
 }

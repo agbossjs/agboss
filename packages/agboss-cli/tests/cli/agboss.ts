@@ -71,7 +71,7 @@ const singleWorstCase = (start: string, workflow: string, steps: number): string
   `Worst case of one ${start} call`,
   `  workflow executions     1  1 ${workflow}`,
   `  at the same time        1  1 ${workflow}`,
-  `  agent and router steps  ${String(steps)}  ${String(steps)} in ${workflow} (longest path)`,
+  `  steps  ${String(steps)}  ${String(steps)} in ${workflow} (longest path)`,
   `  nesting depth           1  ${workflow}`,
 ];
 

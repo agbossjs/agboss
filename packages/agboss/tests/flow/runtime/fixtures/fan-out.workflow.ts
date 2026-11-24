@@ -243,6 +243,7 @@ export class ItemResultsWorkflowFinish {}
 @Workflow({
   name: "list-finish-workflow",
   version: "1.0.0",
+  maxSteps: 10,
   flow: [
     onStart(ItemsWorkflowStart)
       .toParallelActions(ProcessItemAction, { maxItems: 4 })

@@ -284,10 +284,10 @@ describe("#268 AC5: the worst case of one call of each start, each number with h
 
     expect(worstCaseReportLines(worst, worstCaseLimitsOf(limits))).toEqual([
       "Worst case of one treasury-batch-workflow-start call",
-      "  workflow executions     4  1 treasury-batch-workflow + 3 treasury-workflow (maxItems 3)",
-      "  at the same time        3  1 treasury-batch-workflow + 2 treasury-workflow (maxConcurrency 2)",
-      "  agent and router steps  4  1 in treasury-batch-workflow (longest path) + 3 × 1 in treasury-workflow (longest path)",
-      "  nesting depth           2  treasury-batch-workflow → treasury-workflow",
+      "  workflow executions  4  1 treasury-batch-workflow + 3 treasury-workflow (maxItems 3)",
+      "  at the same time     3  1 treasury-batch-workflow + 2 treasury-workflow (maxConcurrency 2)",
+      "  steps                5  2 in treasury-batch-workflow (longest path) + 3 × 1 in treasury-workflow (longest path)",
+      "  nesting depth        2  treasury-batch-workflow → treasury-workflow",
     ]);
   });
 
@@ -301,7 +301,7 @@ describe("#268 AC5: the worst case of one call of each start, each number with h
     expect(rows.map((row) => [row.measure, row.total])).toEqual([
       ["workflow executions", 156],
       ["at the same time", 40],
-      ["agent and router steps", 312],
+      ["steps", 624],
       ["nesting depth", 4],
     ]);
     expect(rows[0]?.madeUp).toBe(

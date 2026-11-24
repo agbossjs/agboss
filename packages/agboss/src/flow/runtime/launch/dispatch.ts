@@ -1,6 +1,7 @@
 import { isStrictItems, itemBoundOf } from "../../analyse/flow-graph.js";
 import { slotOfValue } from "../../analyse/scope.js";
 import { NodeKind } from "../../ast.js";
+import { isStepKind } from "../limits.js";
 import { idempotencyKeyOf } from "../../context/idempotency.js";
 import { declarationOf } from "../../decorators/declaration.js";
 import {
@@ -121,7 +122,8 @@ function counted(site: DispatchSite, planned: readonly Planned[]): readonly Bran
     // every run of one launch is the same visit of its node: copies and items differ by number
     const visitNumber = (site.visits[branch.node] ?? 0) + 1;
     const stepsBefore = steps;
-    if (site.graph.nodes.get(branch.node)?.kind === NodeKind.Agent) steps += 1;
+    const target = site.graph.nodes.get(branch.node);
+    if (target !== undefined && isStepKind(target)) steps += 1;
     const { skip, ...rest } = branch;
     return { ...rest, ...(skip.length === 0 ? {} : { skip }), index, visitNumber, stepsBefore };
   });

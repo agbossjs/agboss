@@ -314,10 +314,10 @@ describe("#1366: the start log's line", () => {
 
   it("says '1 workflow execution' for one, and the number for any other count", () => {
     expect(withExecutions(1)).toBe(
-      "Worst case of one S call: 1 workflow execution, 1 at the same time, 1 agent and router steps",
+      "Worst case of one S call: 1 workflow execution, 1 at the same time, 1 steps",
     );
     expect(withExecutions(51)).toBe(
-      "Worst case of one S call: 51 workflow executions, 1 at the same time, 1 agent and router steps",
+      "Worst case of one S call: 51 workflow executions, 1 at the same time, 1 steps",
     );
     expect(withExecutions(2)).toMatch(/: 2 workflow executions, /);
   });
@@ -331,7 +331,7 @@ describe("#1366: the start log's line", () => {
     );
 
     expect(worstCaseLine(worst)).toBe(
-      "Worst case of one S call: 6 workflow executions, 3 at the same time, 1 agent and router steps",
+      "Worst case of one S call: 6 workflow executions, 3 at the same time, 1 steps",
     );
   });
 });

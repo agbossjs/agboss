@@ -201,7 +201,7 @@ export class ScreeningFailedWorkflowFinish {}
       .toAgent(RankerAgent)
       .toFinish(RankingWorkflowFinish),
   ],
-  // the worst case (50 items) takes 52 steps: the default (agents + routers) × 3 cannot hold it
+  // the worst case (50 items) takes 52 steps: the default (agents + routers + actions + external tasks) × 3 cannot hold it
   // (#273 S68 f); 9 stops a long list, into the join's handler
   maxSteps: 9,
 })

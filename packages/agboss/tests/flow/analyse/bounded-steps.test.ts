@@ -87,20 +87,20 @@ const warningsOf = (workflow: abstract new () => unknown) =>
   );
 
 describe("#643 AC1: a maxSteps below the bounded worst case of a loop warns", () => {
-  it("AC1: officer 4 + rewriter 3 + draft 1 = 8 steps; maxSteps 7 names the loop", () => {
+  it("AC1: officer 4 + rewriter 3 + draft 1 + send 1 = 9 steps; maxSteps 7 names the loop", () => {
     expect(warningsOf(reviewWith(7)).map((found) => found.message)).toEqual([
-      "review-steps-workflow: the worst case from offer-workflow-start takes 8 steps — through " +
+      "review-steps-workflow: the worst case from offer-workflow-start takes 9 steps — through " +
         "officer-agent (maxVisits 4), rewriter-agent (maxVisits 3), but maxSteps is 7: a run that long " +
-        "fails with StepsLimitExceededError before its maxVisits ends it — set maxSteps: 8",
+        "fails with StepsLimitExceededError before its maxVisits ends it — set maxSteps: 9",
     ]);
     expect(checkWorkflow(reviewWith(7)).errors).toEqual([]);
   });
 
   it("AC1: an unbounded node between the bounded visits counts once per bounded visit and once more", () => {
-    // reviewer (no maxVisits) ↔ editor (maxVisits 2): draft 1 + editor 2 + reviewer 3 = 6
+    // reviewer (no maxVisits) ↔ editor (maxVisits 2): draft 1 + editor 2 + reviewer 3 + send 1 = 7
     expect(warningsOf(offerWith(5)).map((found) => found.message)).toEqual([
       expect.stringContaining(
-        "takes 6 steps — through editor-agent (maxVisits 2), but maxSteps is 5",
+        "takes 7 steps — through editor-agent (maxVisits 2), but maxSteps is 5",
       ),
     ]);
   });
@@ -114,8 +114,8 @@ describe("#643 AC1: a maxSteps below the bounded worst case of a loop warns", ()
 
 describe("#643 AC2: what is not warned", () => {
   it("AC2: maxSteps at the worst case is clean", () => {
-    expect(warningsOf(reviewWith(8))).toEqual([]);
-    expect(warningsOf(offerWith(6))).toEqual([]);
+    expect(warningsOf(reviewWith(9))).toEqual([]);
+    expect(warningsOf(offerWith(7))).toEqual([]);
   });
 
   it("AC2: a flow that takes the steps limit itself means a smaller maxSteps", () => {
@@ -130,7 +130,7 @@ describe("#643 AC2: what is not warned", () => {
 
   it("AC2: the bound is exact for the walk of 09's loop and for a flow without a cycle", () => {
     const walked = walkFlow(reviewPaths());
-    expect(boundedStepsFrom(walked.graph, OFFER_START)?.most).toBe(8);
+    expect(boundedStepsFrom(walked.graph, OFFER_START)?.most).toBe(9);
     const straight = walkFlow([
       onStart(OfferWorkflowStart).toAgent(DraftAgent).toFinish(OfferFailedWorkflowFinish),
     ]);

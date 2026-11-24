@@ -10,8 +10,8 @@ import type { AssembledWorkflow } from "../workflow.js";
 import { worstCaseReportLines, type WorstCaseLimits } from "./worst-case-report.js";
 
 /**
- * The count limits `agboss describe` shows (#261): `maxSteps` (set, or the default (agents +
- * routers) × 3) with the range of steps an execution takes, each node's `maxVisits`, a recursive
+ * The count limits `agboss describe` shows (#261): `maxSteps` (set, or the default (agents + routers +
+ * actions + external tasks) × 3) with the range of steps an execution takes, each node's `maxVisits`, a recursive
  * workflow's `maxDepth`, for a workflow that launches children its tree's `maxConcurrentExecutions`
  * (#264), and the worst case of one call of each start with how each number is made up (#268, the
  * report of `agboss check`). Money is the application's budgets.
@@ -80,7 +80,9 @@ export function limitLines(bundle: AssembledWorkflow): string[] {
   const limits = describedLimitsOf(bundle);
   const { least, most } = limits.steps;
   const steps = most === undefined ? `${String(least)}+` : `${String(least)}–${String(most)}`;
-  const source = limits.isMaxStepsSet ? "set" : "default: (agents + routers) × 3";
+  const source = limits.isMaxStepsSet
+    ? "set"
+    : "default: (agents + routers + actions + external tasks) × 3";
   const visits = Object.entries(limits.maxVisits).map(([node, max]) => `${node} ${String(max)}`);
   return [
     "limits",

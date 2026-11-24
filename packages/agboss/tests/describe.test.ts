@@ -81,13 +81,13 @@ describe("describe a workflow", () => {
     const limits = lines.indexOf("limits");
     expect(lines.slice(limits, limits + 8)).toEqual([
       "limits",
-      "  maxSteps 9 (default: (agents + routers) × 3) · steps 1–2",
+      "  maxSteps 9 (default: (agents + routers + actions + external tasks) × 3) · steps 1–2",
       "  maxVisits main-router 10",
       "  Worst case of one chat-workflow-start call",
-      "    workflow executions     1  1 test-workflow",
-      "    at the same time        1  1 test-workflow",
-      "    agent and router steps  2  2 in test-workflow (longest path)",
-      "    nesting depth           1  test-workflow",
+      "    workflow executions  1  1 test-workflow",
+      "    at the same time     1  1 test-workflow",
+      "    steps                2  2 in test-workflow (longest path)",
+      "    nesting depth        1  test-workflow",
     ]);
     expect(describeWorkflow(test, "fast")[0]).toMatch(
       /^test-workflow 1\.0\.0 \(profile fast\) · config [0-9a-f]{8}$/,

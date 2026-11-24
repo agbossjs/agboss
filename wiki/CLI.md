@@ -572,7 +572,7 @@ flow-patterns-application 1.0.0, environment prod
 Worst case of one vendor-screening-workflow-start call
   workflow executions     21  1 vendor-screening-workflow + 20 vendor-check-workflow (maxItems 20)
   at the same time        4   1 vendor-screening-workflow + 3 vendor-check-workflow (maxConcurrency 3)
-  agent and router steps  22  2 in vendor-screening-workflow (longest path) + 20 × 1 in vendor-check-workflow (longest path)
+  steps  22  2 in vendor-screening-workflow (longest path) + 20 × 1 in vendor-check-workflow (longest path)
   nesting depth           2   vendor-screening-workflow → vendor-check-workflow
 
 prod environment needs 3 process variables:

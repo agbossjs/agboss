@@ -1757,7 +1757,7 @@ export enum WorstCaseMeasure {
     // (undocumented)
     Executions = "workflow executions",
     // (undocumented)
-    Steps = "agent and router steps"
+    Steps = "steps"
 }
 
 // @public

@@ -93,7 +93,7 @@ export interface WorkflowOptions<
   readonly version: string;
   /** The paths; a workflow launches itself with `toWorkflow(() => ItsOwnClass)` (#1287). */
   readonly flow: TFlow;
-  /** Steps (agent and router visits) per execution; default (agents + routers) × 3 (#261). */
+  /** Steps (agent, router, action and external-task visits) per execution; default (agents + routers + actions + external tasks) × 3 (#261, #1278). */
   readonly maxSteps?: number;
   /** Nesting of child workflows (#263, #264). */
   readonly maxDepth?: number;

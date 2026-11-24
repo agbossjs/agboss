@@ -31,7 +31,7 @@ describe("#1366: limit lines", () => {
   it("an unbounded step range reads as its least with a plus, a bounded one as least to most", () => {
     expect(limitLines(story)[1]).toMatch(/ · steps 4\+$/);
     expect(limitLines(review)[1]).toMatch(/ · steps 3\+$/);
-    expect(limitLines(recursive)[1]).toMatch(/ · steps 1–2$/);
+    expect(limitLines(recursive)[1]).toMatch(/ · steps 1–4$/);
   });
 
   it("the nodes' visit caps are listed on one line, joined by commas", () => {

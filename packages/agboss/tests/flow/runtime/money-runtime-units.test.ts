@@ -29,7 +29,8 @@ import { ChildExecutionStatus } from "../../../src/flow/runtime/child-records.js
 import {
   checkVisit,
   countedServiceSpend,
-  isWorkingNode,
+  countsAsStep,
+  isStepKind,
   type ExecutionLimits,
 } from "../../../src/flow/runtime/limits.js";
 import {
@@ -115,17 +116,20 @@ const caught = async (work: () => Promise<unknown>): Promise<unknown> => {
 };
 
 describe("#1356: which nodes are steps", () => {
-  it("an agent and a router are; the rest are not", () => {
-    expect(isWorkingNode(node("a", NodeKind.Agent))).toBe(true);
-    expect(isWorkingNode(node("r", NodeKind.Router))).toBe(true);
-    for (const kind of [
-      NodeKind.Action,
-      NodeKind.Question,
-      NodeKind.Workflow,
-      NodeKind.Start,
-      NodeKind.Finish,
-    ])
-      expect(isWorkingNode(node("x", kind))).toBe(false);
+  it("an agent, a router, an action and an external task are (#1278); the rest are not", () => {
+    for (const kind of [NodeKind.Agent, NodeKind.Router, NodeKind.Action, NodeKind.Question])
+      expect(isStepKind(node("x", kind))).toBe(true);
+    for (const kind of [NodeKind.Workflow, NodeKind.Start, NodeKind.Finish])
+      expect(isStepKind(node("x", kind))).toBe(false);
+  });
+
+  it("an action on a side path that took a limit is no step; the same action elsewhere is", () => {
+    const action = node("act", NodeKind.Action);
+    const after = stateOf({ sidePath: { next: "act", isAfterLimit: true, owed: [] } });
+    const before = stateOf({ sidePath: { next: "act", isAfterLimit: false, owed: [] } });
+
+    expect([countsAsStep(after, action), countsAsStep(before, action)]).toEqual([false, true]);
+    expect(countsAsStep(stateOf(), action)).toBe(true);
   });
 });
 
@@ -223,14 +227,13 @@ describe("#1356: the limits of a visit", () => {
     async (_kind, value) => {
       const { limits } = limitsOf(value as never);
 
-      for (const kind of [NodeKind.Agent, NodeKind.Router]) {
+      for (const kind of [NodeKind.Agent, NodeKind.Router, NodeKind.Action, NodeKind.Question]) {
         const error = await caught(() => visit(stateOf(), node("clerk", kind), limits));
 
         expect(error).toBeInstanceOf(StepsLimitExceededError);
         expect(error).toMatchObject({ maxSteps: 0, steps: 1, path: ["start", "clerk"] });
         expect((error as Error).message).not.toContain("five");
       }
-      await expect(visit(stateOf(), node("act", NodeKind.Action), limits)).resolves.toBe(false);
     },
   );
 
@@ -246,14 +249,14 @@ describe("#1356: the limits of a visit", () => {
     );
   });
 
-  it("holds a question to its own maxVisits, and an action or a start to none", async () => {
+  it("holds a question to its own maxVisits; an action without one and a start to none", async () => {
     const { limits } = limitsOf();
     const state = stateOf({ visits: { ask: 3, act: 3, begin: 3 } });
 
     expect(
       await caught(() => visit(state, node("ask", NodeKind.Question, 3), limits)),
     ).toBeInstanceOf(VisitsLimitExceededError);
-    await expect(visit(state, node("act", NodeKind.Action, 1), limits)).resolves.toBe(false);
+    await expect(visit(state, node("act", NodeKind.Action), limits)).resolves.toBe(true);
     await expect(visit(state, node("begin", NodeKind.Start, 1), limits)).resolves.toBe(false);
   });
 
@@ -281,15 +284,18 @@ describe("#1356: the limits of a visit", () => {
     );
   });
 
-  it("counts no step for a question or an action", async () => {
+  it("counts a step for a question and an action (#1278), but none for a start, and none for a limit's own reaction", async () => {
     const { limits } = limitsOf(1);
 
-    await expect(
-      visit(stateOf({ steps: 5 }), node("ask", NodeKind.Question), limits),
-    ).resolves.toBe(false);
-    await expect(visit(stateOf({ steps: 5 }), node("act", NodeKind.Action), limits)).resolves.toBe(
+    for (const kind of [NodeKind.Question, NodeKind.Action])
+      expect(
+        await caught(() => visit(stateOf({ steps: 5 }), node("x", kind), limits)),
+      ).toBeInstanceOf(StepsLimitExceededError);
+    await expect(visit(stateOf({ steps: 5 }), node("begin", NodeKind.Start), limits)).resolves.toBe(
       false,
     );
+    const reacting = stateOf({ steps: 5, sidePath: { next: "act", isAfterLimit: true, owed: [] } });
+    await expect(visit(reacting, node("act", NodeKind.Action), limits)).resolves.toBe(false);
   });
 
   it("says the visits first when both limits are crossed", async () => {

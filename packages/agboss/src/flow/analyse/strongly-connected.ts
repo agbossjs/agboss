@@ -6,7 +6,7 @@ import { NodeKind } from "../ast.js";
 import type { ComponentName } from "../registry.js";
 import { EdgeKind, type FlowEdge, type FlowGraph, type FlowNode } from "./flow-graph.js";
 import type { AnalysisContext } from "./rules/context.js";
-import { mostRunning } from "./steps.js";
+import { mostRunning, weightOf } from "./steps.js";
 
 /**
  * Tarjan's strongly connected components of a directed graph, given by its vertices and each
@@ -63,9 +63,6 @@ export const isCycle = <TVertex extends string>(
  * `[limits.max-steps-below-worst-case]` is a warning (an error under `--strict`); a flow that takes
  * the steps limit itself (`.onError(StepsLimitExceededError, …)`) is not checked.
  */
-
-const weightOf = (node: FlowNode | undefined): number =>
-  node?.kind === NodeKind.Agent || node?.kind === NodeKind.Router ? 1 : 0;
 
 /** A node's `maxVisits`; `undefined` for a node without one. */
 function maxVisitsOf(node: FlowNode | undefined): number | undefined {

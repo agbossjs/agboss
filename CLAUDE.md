@@ -175,7 +175,7 @@ with their producers, its limits (`maxSteps`, `maxVisits`, `maxDepth`,
 `maxConcurrentExecutions`), `model → provider`, and each agent's memory, compaction and `uncompactedTurns`
 with where they came from (`(own)`, `(<workflow>)`, `(<application>)`, `(built-in)`). `agboss check` prints its report from the
 decorators only (no `maxSpend()`): per start the worst case of one call — executions, at the same
-time, agent and router steps of the tree, nesting depth — each with how it is made up; with `--env
+time, steps of the tree, nesting depth — each with how it is made up; with `--env
 <name>` the process variables that environment needs, names marked `value` / `secret` (`optional`,
 `has a default`), never a value. `describe --json` / `check --json` carry the same as data;
 `describe --json` is also each workflow's declarative snapshot (#268 S93): `configHash` (the one join
@@ -2738,11 +2738,13 @@ const readiness: HealthReport = await app.checkReadiness();
   current tool call's or step's spend (`tool:<name>` / `action:<name>`), counted in the
   execution's budgets; outside a frame `[spend.outside-step]`. In a tool call `executionContext.signal` is the
   call's: the execution's signal and the tool's `timeout` timer (S45).
-- **Limits:** `@Workflow({ maxSteps })` — visits of agents and routers in one execution (default:
-  (agents + routers) × 3), checked at assembly: `[limits.max-steps-too-low]` (no finish fits in a
+- **Limits:** `@Workflow({ maxSteps })` — visits of agents, routers, actions and external tasks in one
+  execution (#1278; default: (agents + routers + actions + external tasks) × 3; a side-path action
+  that reacts to a limit or undoes an open entry is no step), checked at assembly: `[limits.max-steps-too-low]` (no finish fits in a
   hand-set `maxSteps`, or the default cannot hold the worst case of a per-item launch — set
   `maxSteps`), `[limits.branch-exceeds-max-steps]`, `[limits.max-steps-unused]`, and the warning
-  `[limits.max-steps-below-worst-case]` (#643: a hand-set `maxSteps` below the worst case of a flow
+  `[limits.max-steps-above-0.1.0-default]` (#1278: a flow without `maxSteps` whose worst case takes
+  more steps than 0.1.0's default — (agents + routers) × 3 — allowed), `[limits.max-steps-below-worst-case]` (#643: a hand-set `maxSteps` below the worst case of a flow
   whose every loop `maxVisits` bounds — each component of a loop counted at its nodes' `maxVisits`
   and its other nodes between them —, which would end a run with `StepsLimitExceededError` before
   the loop's `.onError(VisitsLimitExceededError, …)` does; not when a side path takes the steps

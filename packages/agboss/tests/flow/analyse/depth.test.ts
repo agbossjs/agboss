@@ -65,6 +65,8 @@ const workflowNesting = (
   @Workflow({
     name: "nesting-workflow",
     version: "1.0.0",
+    // every action counts as a step (#1278): the default would warn of its worst case
+    maxSteps: 30,
     flow: [
       onStart(SecondKitWorkflowStart)
         .toAgent(EditKitAgent)

@@ -22,7 +22,7 @@ import { sidePathAfter } from "../../../src/flow/runtime/limits.js";
 
 vi.mock("../../../src/flow/runtime/limits.js", () => ({
   checkVisit: vi.fn(),
-  isWorkingNode: vi.fn(() => true),
+  countsAsStep: vi.fn(() => true),
   sidePathAfter: vi.fn(() => ({})),
 }));
 vi.mock("../../../src/flow/runtime/step-frame.js", () => ({
