@@ -42,7 +42,7 @@ const appWith = (
   providers: readonly Provider[] = [],
   more: Partial<ApplicationOptions> = {},
 ) => {
-  @FilePolicy({ name: "rules-file-policy", ...files })
+  @FilePolicy({ ttl: hours(24), name: "rules-file-policy", ...files })
   class RulesFilePolicy {}
 
   @Workflow({
@@ -167,26 +167,12 @@ describe("#859: the file options and their retention, checked at assembly", () =
     ]);
   });
 
-  it("retention.a2aFiles above a2aTasks keeps files no task reads: [application.retention-invalid]", async () => {
-    const longer = appWith(undefined, [], { retention: { a2aFiles: hours(48) } });
-    const shorter = appWith(undefined, [], { retention: { a2aFiles: hours(1) } });
+  it("retention.a2aFiles is gone: a typo of retention, refused (#1316: the files age by @FilePolicy.ttl)", () => {
+    const messages = retentionViolations("files-application", { a2aFiles: hours(48) }).map(
+      (found) => found.message,
+    );
 
-    expect((await outcomeOf(longer)).violations).toEqual(["application.retention-invalid"]);
-    expect((await outcomeOf(shorter)).violations).toEqual([]);
-  });
-
-  it("#904 item 5 AC5.3: a2aFiles' refusal names a2aFiles and a2aTasks only, its fix among them", () => {
-    const messages = [
-      ...retentionViolations("files-application", { a2aFiles: hours(48) }),
-      ...retentionViolations("files-application", { a2aFiles: 0 }),
-    ].map((found) => found.message);
-
-    expect(messages).toEqual([
-      expect.stringContaining(
-        "— @Application({ retention: { a2aTasks: hours(24), a2aFiles: hours(24) } })",
-      ),
-      expect.stringContaining("— @Application({ retention: { a2aFiles: hours(24) } })"),
-    ]);
-    expect(messages.filter((text) => /fencedEffects|meshAnswers/.test(text))).toEqual([]);
+    expect(messages).toHaveLength(1);
+    expect(messages[0]).toContain("retention.a2aFiles is not a retention");
   });
 });

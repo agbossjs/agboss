@@ -74,7 +74,6 @@ function hostOf(given: { mesh: boolean; control: boolean }): Host {
       clock,
       idempotencyRetention: 1,
       a2aTaskRetention: 1,
-      a2aFileRetention: 1,
       a2aMessageRetention: 1,
       workflows: [],
       exposes: [OrdersA2AExpose, FlippedExpose],

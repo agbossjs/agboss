@@ -84,7 +84,7 @@ describe("#860: the sweep of the direct messages", () => {
     expect(deleteByOwner).not.toHaveBeenCalled();
   });
 
-  it("messages accepted before the retention go, with their attempts' files; younger ones stay", async () => {
+  it("messages accepted before the retention go, their attempts' files stay for the file policy's ttl (#1316); younger ones stay", async () => {
     const clock = new VirtualClock(NINE);
     const { messages, deleteByOwner, sweep } = sweepOn(clock);
     const reply = { finish: "quote-workflow-finish", output: { text: "12.50" }, spentUsd: usd(0) };
@@ -101,7 +101,8 @@ describe("#860: the sweep of the direct messages", () => {
 
     expect(await messages.findByKey(lostMessage())).toBeUndefined();
     expect(await messages.findByKey(lostMessage({ messageId: "m-2" }))).toBeDefined();
-    expect(deleteByOwner.mock.calls).toEqual([[{ tenantId: "default", ownerId: "run-lost" }]]);
+    // a short message retention never wipes the files early
+    expect(deleteByOwner).not.toHaveBeenCalled();
   });
 });
 

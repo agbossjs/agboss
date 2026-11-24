@@ -50,12 +50,6 @@ export interface RetentionOptions {
    */
   readonly a2aTasks?: Milliseconds;
   /**
-   * The files of an A2A task (#859, `FileRepository`) after the task is over — never while it is
-   * not: a paused, `INPUT_REQUIRED` task keeps them however long it waits. At most `a2aTasks`: a
-   * file outliving its task is read by no one. Default `a2aTasks`.
-   */
-  readonly a2aFiles?: Milliseconds;
-  /**
    * A direct A2A message's reply (#860, `A2AReply.Message`, `A2ADirectMessageRepository`) after it
    * was accepted — and with it its `messageId`: a resend within it gets the same reply, the skill
    * never runs twice; after it the id is free. Published on the Agent Card as the mesh extension's
@@ -72,13 +66,12 @@ export interface ApplicationRetention {
   readonly auditLog: Milliseconds;
   readonly costLedgerEntries: Milliseconds;
   readonly a2aTasks: Milliseconds;
-  readonly a2aFiles: Milliseconds;
   readonly a2aMessages: Milliseconds;
 }
 
 /** The defaults of every retention but `executionRecords` (unset = nothing kept). */
 export const DEFAULT_RETENTION: Readonly<
-  Omit<ApplicationRetention, "executionRecords" | "a2aFiles">
+  Omit<ApplicationRetention, "executionRecords">
 > = Object.freeze({
   pauseRecords: hours(24),
   auditLog: hours(24),
@@ -96,7 +89,6 @@ const RETENTION_FIELDS: readonly (keyof RetentionOptions)[] = [
   "auditLog",
   "costLedgerEntries",
   "a2aTasks",
-  "a2aFiles",
   "a2aMessages",
 ];
 
@@ -110,16 +102,11 @@ const ABOVE_THE_LEASE: ReadonlySet<keyof RetentionOptions> = new Set([
   "a2aMessages",
 ]);
 
-/** #859: how long an A2A task's files are kept once it is over — by default as long as the task. */
-const fileRetentionOf = (given: RetentionOptions): Milliseconds =>
-  given.a2aFiles ?? given.a2aTasks ?? DEFAULT_RETENTION.a2aTasks;
-
-/** The A2A retentions (#807, #859, #860) with their defaults. */
+/** The A2A retentions (#807, #860) with their defaults. */
 const a2aRetentionOf = (
   given: RetentionOptions,
-): Pick<ApplicationRetention, "a2aTasks" | "a2aFiles" | "a2aMessages"> => ({
+): Pick<ApplicationRetention, "a2aTasks" | "a2aMessages"> => ({
   a2aTasks: given.a2aTasks ?? DEFAULT_RETENTION.a2aTasks,
-  a2aFiles: fileRetentionOf(given),
   a2aMessages: given.a2aMessages ?? DEFAULT_RETENTION.a2aMessages,
 });
 
@@ -191,20 +178,7 @@ export function retentionViolations(application: string, options: unknown): Rule
       const problem = retentionProblem(field, given[field]);
       return problem === undefined ? [] : [fail(`.${field} ${problem}`, hintOf(field))];
     }),
-    ...fileRetentionViolations(given, fail),
   ];
-}
-
-/** #859: `a2aFiles` above `a2aTasks` (as given or by default) keeps files no task reads. */
-function fileRetentionViolations(
-  given: Readonly<Record<string, unknown>>,
-  fail: (text: string, hint: string) => RuleViolation,
-): RuleViolation[] {
-  const files = given.a2aFiles;
-  const tasks = given.a2aTasks ?? DEFAULT_RETENTION.a2aTasks;
-  if (typeof files !== "number" || typeof tasks !== "number" || files <= tasks) return [];
-  const problem = `.a2aFiles is ${String(files)} ms, above a2aTasks' ${String(tasks)} ms — a file outliving its task is read by no one`;
-  return [fail(problem, hintOf("a2aTasks", "a2aFiles"))];
 }
 
 /** An object literal (or one without a prototype): a `Map` or a class instance keeps no retentions. */
@@ -265,7 +239,6 @@ export interface AssembledRetentions {
   readonly executionRecordRetention?: Milliseconds;
   readonly auditLogRetention: Milliseconds;
   readonly a2aTaskRetention: Milliseconds;
-  readonly a2aFileRetention: Milliseconds;
   /** How long a direct A2A message's reply is kept (`retention.a2aMessages`, #860). */
   readonly a2aMessageRetention: Milliseconds;
   readonly ledgerEntryRetention: Milliseconds;
@@ -278,7 +251,6 @@ export const assembledRetentionsOf = (retention: ApplicationRetention): Assemble
     : { executionRecordRetention: retention.executionRecords }),
   auditLogRetention: retention.auditLog,
   a2aTaskRetention: retention.a2aTasks,
-  a2aFileRetention: retention.a2aFiles,
   a2aMessageRetention: retention.a2aMessages,
   ledgerEntryRetention: retention.costLedgerEntries,
 });

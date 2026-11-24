@@ -3983,6 +3983,7 @@ export interface FileMetadata extends FileKey {
     readonly sha256: string;
     // (undocumented)
     readonly sizeBytes: Bytes;
+    readonly ttl?: Milliseconds;
 }
 
 // @public
@@ -3991,6 +3992,14 @@ export interface FileOwner {
     readonly ownerId: string;
     // (undocumented)
     readonly tenantId: string;
+}
+
+// @public
+export interface FileOwnerCompletion extends FileOwner {
+    // (undocumented)
+    readonly completedAt: Date;
+    // (undocumented)
+    readonly workflow: string;
 }
 
 // @public
@@ -4016,6 +4025,7 @@ export interface FilePolicyOptions {
     readonly maxFileSize?: Bytes;
     readonly maxTotalFileSize?: Bytes;
     readonly name?: string;
+    readonly ttl?: Milliseconds | Ttl.Forever;
 }
 
 // @public
@@ -4066,22 +4076,24 @@ export enum FileRefusal {
     OriginDenied = "origin-denied",
     OutsideExecution = "outside-execution",
     TooLarge = "too-large",
+    TtlAbovePolicy = "ttl-above-policy",
     UrlInvalid = "url-invalid"
 }
 
 // @public (undocumented)
 export abstract class FileRepository {
     abstract deleteByOwner(owner: FileOwner): Promise<void>;
+    abstract deleteExpired(sweep: FileSweep): Promise<number>;
     abstract findBytes(key: FileKey): Promise<Uint8Array | undefined>;
     abstract findMetadata(key: FileKey): Promise<FileMetadata | undefined>;
-    abstract findOwnersByCreatedAtBefore(cutoff: Date, limit: number, after?: FileOwner): Promise<readonly FileOwner[]>;
+    abstract markOwnerCompleted(completion: FileOwnerCompletion): Promise<void>;
     abstract ping(): Promise<void>;
     abstract save(file: NewFile): Promise<void>;
     static readonly store: StoreDescriptor;
 }
 
 // @public
-export type FileRuleCode = "files.invalid-setting" | "files.no-redactor" | "files.redacted-needs-store" | "files.history-needs-store" | "files.redactor-values-withheld" | "files.answer-file-unseen" | "pii.original-file" | "pii.redacted-needs-kinds" | "file-policy.invalid" | "file-policy.not-a-file-policy" | "workflow.file-policy-required" | "a2a.skill-file-policy-exceeds-workflow";
+export type FileRuleCode = "files.invalid-setting" | "files.no-redactor" | "files.redacted-needs-store" | "files.history-needs-store" | "files.redactor-values-withheld" | "files.answer-file-unseen" | "pii.original-file" | "pii.redacted-needs-kinds" | "file-policy.invalid" | "file-policy.not-a-file-policy" | "file-policy.ttl-required-on-workflow" | "workflow.file-policy-required" | "a2a.skill-file-policy-exceeds-workflow";
 
 // @public
 export class Files {
@@ -4111,6 +4123,12 @@ export interface FileSummary {
 }
 
 // @public
+export interface FileSweep {
+    readonly cutoffsByWorkflow: ReadonlyMap<string, Date>;
+    readonly now: Date;
+}
+
+// @public
 export interface FileToSave {
     // (undocumented)
     readonly bytes: Uint8Array;
@@ -4118,6 +4136,7 @@ export interface FileToSave {
     readonly filename?: string;
     // (undocumented)
     readonly mediaType: string;
+    readonly ttl?: Milliseconds;
 }
 
 // @public
@@ -8657,7 +8676,6 @@ export interface ResumeVersions {
 
 // @public
 export interface RetentionOptions {
-    readonly a2aFiles?: Milliseconds;
     readonly a2aMessages?: Milliseconds;
     readonly a2aTasks?: Milliseconds;
     readonly auditLog?: Milliseconds;
@@ -12472,6 +12490,8 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/file.repository.ts - (ae-undocumented) Missing documentation for "mediaType".
 // src/infrastructure/file.repository.ts - (ae-undocumented) Missing documentation for "filename".
 // src/infrastructure/file.repository.ts - (ae-undocumented) Missing documentation for "sizeBytes".
+// src/infrastructure/file.repository.ts - (ae-undocumented) Missing documentation for "workflow".
+// src/infrastructure/file.repository.ts - (ae-undocumented) Missing documentation for "completedAt".
 // src/infrastructure/file.repository.ts - (ae-undocumented) Missing documentation for "bytes".
 // src/infrastructure/file.repository.ts - (ae-undocumented) Missing documentation for "FileRepository".
 // src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "store".

@@ -1,3 +1,4 @@
+import { hours } from "../../../src/units/index.js";
 import {
   Agent,
   CompactionStrategy,
@@ -189,7 +190,7 @@ export function everyKindWorkflows(models: KindModels): {
     output: WorkflowFinishTextDto,
   })
   class DeskFinish {}
-  @FilePolicy({ name: "desk-file-policy" })
+  @FilePolicy({ ttl: hours(24), name: "desk-file-policy" })
   class DeskFilePolicy {}
   @Workflow({
     name: "desk-workflow",

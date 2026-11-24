@@ -37,8 +37,6 @@ export interface MeshSettings {
    * A2A listener deduplicates a `messageId` for, its card's mesh `idempotencyRetention` (#810).
    */
   readonly a2aTaskRetention: number;
-  /** How long an A2A task's files are kept once it is over (`retention.a2aFiles`, #859). */
-  readonly a2aFileRetention: number;
   /**
    * How long a direct A2A message's reply is kept (`retention.a2aMessages`, #860): what a listener
    * deduplicates a direct-reply skill's `messageId` for, its card's mesh `messageIdempotencyRetention`.

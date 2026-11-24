@@ -1,4 +1,4 @@
-import { bytes as byteSize } from "../../units/index.js";
+import { bytes as byteSize, Ttl, type Milliseconds } from "../../units/index.js";
 import type { FileDto } from "../../dto/standard/file.js";
 import { fetchedFile } from "../files/a2a-file-fetch.js";
 import { callerKeyOf, tenantKeyOf } from "../files/a2a-file-slots.js";
@@ -139,6 +139,8 @@ interface AdmissionParts {
   readonly parts: A2AServerParts;
   readonly tenantId: string;
   readonly bytesOf: (file: IncomingFile) => Promise<Uint8Array>;
+  /** How long the skill's files are kept once the task is over (its `@FilePolicy.ttl`, #1316). */
+  readonly ttl: Milliseconds | Ttl.Forever;
 }
 
 /** One file admitted for `taskId`: kept already (a resend), or read, checked and described. */
@@ -172,7 +174,7 @@ async function admittedOne(
   return {
     admitted: { field, file: describedOf(meta) },
     sizeBytes: bytes.byteLength,
-    toSave: { ...meta, bytes },
+    toSave: { ...meta, ...(admission.ttl === Ttl.Forever ? {} : { ttl: admission.ttl }), bytes },
   };
 }
 
@@ -189,6 +191,7 @@ export function fileAdmissionOf(
     parts,
     tenantId: caller.tenantId,
     bytesOf: bytesReaderOf(parts, caller, sent),
+    ttl: skill.fileLimits.ttl,
   };
   return async (taskId) => {
     const files: AdmittedFile[] = [];

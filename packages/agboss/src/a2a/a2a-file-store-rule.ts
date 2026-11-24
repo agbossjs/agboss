@@ -18,7 +18,11 @@ import { listItemClassesOf, plainOutputClassOf } from "../flow/finish-output.js"
 import { fileFieldsOf, inputClassOf } from "../dto/standard/file.js";
 import { cardFileFieldsViolations } from "./files/a2a-file-options.js";
 import { fileTierSizeOf } from "./files/a2a-file-tier.js";
-import { filePolicyExcesses, filePolicyViolations } from "../files/file-policy.js";
+import {
+  filePolicyExcesses,
+  filePolicyMetaOf,
+  filePolicyViolations,
+} from "../files/file-policy.js";
 import { workflowFilePolicyOf, workflowOfStart } from "../files/workflow-file-policy.js";
 
 /**
@@ -138,7 +142,19 @@ function optionsViolations(options: ApplicationOptions): RuleViolation[] {
   const own = options.workflows.flatMap((workflow) => {
     const policy = workflowFilePolicyOf(workflow);
     const name = declarationOf(workflow)?.options.name ?? workflow.name;
-    return filePolicyViolations(`${name}'s filePolicy`, policy, [options.name]);
+    const meta = policy === undefined ? undefined : filePolicyMetaOf(policy);
+    // a workflow's files are kept for as long as its policy says: no default to forget (#1316)
+    const unset =
+      meta !== undefined && meta.ttl === undefined
+        ? [
+            violation(
+              "file-policy.ttl-required-on-workflow",
+              `${name}'s filePolicy ${meta.name} sets no ttl — a workflow says how long its files are kept: ttl: hours(24), or Ttl.Forever`,
+              [options.name],
+            ),
+          ]
+        : [];
+    return [...filePolicyViolations(`${name}'s filePolicy`, policy, [options.name]), ...unset];
   });
   const skills = (options.exposes ?? []).flatMap((expose) => {
     const meta = componentOf(expose);

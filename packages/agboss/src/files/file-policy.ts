@@ -1,12 +1,13 @@
-import { DEFAULT_A2A_FILE_MEDIA_TYPES, mediaTypeEssenceOf } from "../a2a/files/a2a-file-options.js";
+import { DEFAULT_A2A_FILE_MEDIA_TYPES } from "../a2a/files/a2a-file-options.js";
 import type { Class } from "../components/injection.js";
+import { filePolicyProblemsOf } from "./file-policy-problems.js";
 import { poolExcessOf } from "./file-pool-excess.js";
 import { callerFile } from "../components/call-site.js";
 import { componentOf, recordComponent } from "../components/metadata.js";
 import { resolvedName } from "../flow/names.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
-import { MAX_TIMEOUT, timerProblemOf } from "../units/timer-limits.js";
-import { kilobytes, seconds, type Bytes, type Milliseconds } from "../units/index.js";
+import { kilobytes, seconds, hours, Ttl, type Bytes, type Milliseconds } from "../units/index.js";
+import { ttlExcessOf } from "./file-ttl.js";
 
 /**
  * `@FilePolicy` (#1316): what a workflow's files may be — how many, how large, of which media
@@ -39,6 +40,12 @@ export interface FilePolicyOptions {
   /** Kebab-case; the class name in kebab-case when left out. */
   readonly name?: string;
   readonly description?: string;
+  /**
+   * How long a file is kept once its execution (its whole tree) has ended — never while it runs
+   * (`hours(24)` by default, `Ttl.Forever`: never swept). A workflow's policy must set it
+   * (`[file-policy.ttl-required-on-workflow]`); a skill's or an agent's may only be shorter.
+   */
+  readonly ttl?: Milliseconds | Ttl.Forever;
   /** The most files of one message or one model call (5). */
   readonly maxFiles?: number;
   /** The largest file (`kilobytes(64)`). */
@@ -82,6 +89,7 @@ export const filePolicyMetaOf = (cls: Class): FilePolicyMeta | undefined => {
 
 /** The limits a file runs with: every field set. */
 export interface FileLimits {
+  readonly ttl: Milliseconds | Ttl.Forever;
   readonly maxFileSize: Bytes;
   readonly maxTotalFileSize: Bytes;
   readonly maxFiles: number;
@@ -97,6 +105,7 @@ export const DEFAULT_FILE_FETCH_TIMEOUT: Milliseconds = seconds(10);
 
 /** The limits of a workflow with no `filePolicy` set: every file past them is refused. */
 export const DEFAULT_FILE_LIMITS: FileLimits = Object.freeze({
+  ttl: hours(24),
   maxFileSize: kilobytes(64),
   maxTotalFileSize: kilobytes(64),
   maxFiles: 5,
@@ -107,6 +116,7 @@ export const DEFAULT_FILE_LIMITS: FileLimits = Object.freeze({
 });
 
 const LIMIT_FIELDS = [
+  "ttl",
   "maxFileSize",
   "maxTotalFileSize",
   "maxFiles",
@@ -138,89 +148,6 @@ export const fileLimitsOf = (...chain: readonly (Class | undefined)[]): FileLimi
     }),
     DEFAULT_FILE_LIMITS,
   );
-
-const isWhole = (value: unknown, min: number): boolean =>
-  typeof value === "number" && Number.isInteger(value) && value >= min;
-
-/** An allowed origin is written as `new URL(…).origin` writes it, on `https:`. */
-const isHttpsOrigin = (entry: string): boolean =>
-  URL.canParse(entry) && new URL(entry).origin === entry && entry.startsWith("https://");
-
-/** What is wrong with the sizes and the count of one policy. */
-function limitProblemsOf(options: FilePolicyOptions): readonly string[] {
-  const sizes = (["maxFileSize", "maxTotalFileSize"] as const).flatMap((field) =>
-    options[field] === undefined || isWhole(options[field], 1)
-      ? []
-      : [`${field} is not a whole number of bytes from 1`],
-  );
-  const count =
-    options.maxFiles === undefined || isWhole(options.maxFiles, 1)
-      ? []
-      : ["maxFiles is not a whole number from 1"];
-  const cap =
-    options.fetchTimeout === undefined
-      ? undefined
-      : timerProblemOf("fetchTimeout", options.fetchTimeout, MAX_TIMEOUT);
-  const timeout =
-    options.fetchTimeout === undefined
-      ? []
-      : cap !== undefined
-        ? [cap]
-        : isWhole(options.fetchTimeout, 1)
-          ? []
-          : ["fetchTimeout is not a whole number of milliseconds from 1"];
-  return [...sizes, ...count, ...timeout];
-}
-
-/** What is wrong with the media types and origins of one policy. */
-function listProblemsOf(options: FilePolicyOptions): readonly string[] {
-  const types = (options.allowedMediaTypes ?? []).flatMap((type) =>
-    mediaTypeEssenceOf(type) === type && type.includes("/")
-      ? []
-      : [`allowedMediaTypes entry "${type}" is not a lower-case type/subtype`],
-  );
-  const origins = (options.allowedOrigins ?? []).flatMap((origin) =>
-    isHttpsOrigin(origin)
-      ? []
-      : [`allowedOrigins entry "${origin}" is not an https: origin (no path)`],
-  );
-  return [...types, ...origins];
-}
-
-const POOL_FIELDS = [
-  "maxConcurrent",
-  "maxConcurrentPerTenant",
-  "maxConcurrentPerOwner",
-  "maxQueuedPerOwner",
-] as const;
-
-/** What is wrong with a policy's pool: a field that is no whole number from 1. */
-function poolProblemsOf(pool: FileFetchPool | undefined): readonly string[] {
-  if (pool === undefined) return [];
-  return POOL_FIELDS.flatMap((field) =>
-    pool[field] === undefined || isWhole(pool[field], 1)
-      ? []
-      : [`fetchPool.${field} is not a whole number from 1`],
-  );
-}
-
-/** What is wrong with the size limits taken together: a file never larger than the total, when both are set. */
-function orderProblemsOf(options: FilePolicyOptions): readonly string[] {
-  const { maxFileSize, maxTotalFileSize } = options;
-  return maxFileSize !== undefined &&
-    maxTotalFileSize !== undefined &&
-    maxFileSize > maxTotalFileSize
-    ? ["maxFileSize is larger than maxTotalFileSize"]
-    : [];
-}
-
-/** What is wrong with one policy, each a text. */
-export const filePolicyProblemsOf = (options: FilePolicyOptions): readonly string[] => [
-  ...limitProblemsOf(options),
-  ...listProblemsOf(options),
-  ...poolProblemsOf(options.fetchPool),
-  ...orderProblemsOf(options),
-];
 
 /** `[file-policy.invalid]` of one policy class; `[file-policy.not-a-file-policy]` when it is none. */
 export function filePolicyViolations(
@@ -258,7 +185,13 @@ function exceedsOf(parent: FileLimits, child: FileLimits): readonly string[] {
   const origins = child.allowedOrigins
     .filter((origin) => !parent.allowedOrigins.includes(origin))
     .map((origin) => `allowedOrigins has ${origin}, which it does not`);
-  return [...numbers, ...poolExcessOf(parent.fetchPool, child.fetchPool), ...types, ...origins];
+  return [
+    ...numbers,
+    ...ttlExcessOf(parent.ttl, child.ttl),
+    ...poolExcessOf(parent.fetchPool, child.fetchPool),
+    ...types,
+    ...origins,
+  ];
 }
 
 /**
@@ -269,3 +202,5 @@ export function filePolicyExcesses(parent: Class | undefined, child: Class): rea
   if (filePolicyMetaOf(child) === undefined) return [];
   return exceedsOf(fileLimitsOf(parent), fileLimitsOf(parent, child));
 }
+
+export { filePolicyProblemsOf };

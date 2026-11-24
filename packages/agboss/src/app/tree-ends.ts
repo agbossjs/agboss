@@ -3,6 +3,7 @@ import type {
   ExecutionTree,
   ExecutionTreeRepository,
 } from "../infrastructure/execution-tree.repository.js";
+import { FileRepository } from "../infrastructure/file.repository.js";
 import { withoutRecoveryOf } from "./tree-control.js";
 import type { AppDeps } from "./app-deps.js";
 import type { LiveRuns } from "./live-runs.js";
@@ -76,6 +77,13 @@ export async function forgetTree(
   cause: unknown = TREE_FINISHED,
 ): Promise<void> {
   await parts.trees.deleteAllInTree(treeOf(state));
+  // its files age from now (#1316): never before, a running or a paused tree keeps them
+  await parts.deps.container.get(FileRepository).markOwnerCompleted({
+    tenantId: state.tenantId,
+    ownerId: state.runId,
+    workflow: parts.deps.config.name,
+    completedAt: parts.clock.now(),
+  });
   // its queued children (#333 PR 2): a worker still running one stops at its next look
   await parts.deps.remoteChildren?.queue.deleteAllByTenantIdAndRootExecutionId(
     state.tenantId,

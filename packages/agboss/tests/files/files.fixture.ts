@@ -1,3 +1,4 @@
+import { hours } from "../../src/units/index.js";
 /**
  * #899: an agent that reads a document its start gives it and a tool that returns another file —
  * the same application with and without a PII policy; a code router in front of the agent; an
@@ -118,7 +119,7 @@ export class ReaderStart {}
 })
 export class ReaderFinish {}
 
-@FilePolicy({ name: "reader-file-policy" })
+@FilePolicy({ ttl: hours(24), name: "reader-file-policy" })
 export class ReaderFilePolicy {}
 
 @Workflow({

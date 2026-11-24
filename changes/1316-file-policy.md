@@ -29,4 +29,18 @@ Removed: `@Application({ a2aFiles })` and `A2AFileOptions`, `@A2AExpose({ skills
 `[a2a.file-fetch-limit-invalid]`, `FileUnavailableReason.ByReference`.
 Added: `@FilePolicy`, `FilePolicyOptions`, `FilePolicyMeta`, `FileFetchPool`, `filePolicy` on `@Workflow`
 and on a skill, `FileUnavailableReason.FetchBusy`.
-Not yet: `ttl` (with the retention part), the inline cap (1316c), `@FileMasker` / `@FileTranscriber` (1314a).
+Not yet: the inline cap (1316c), `@FileMasker` / `@FileTranscriber` (1314a).
+
+**Files age by `@FilePolicy({ ttl })`, from the end of the execution.** `ttl: Milliseconds | Ttl.Forever`
+(`hours(24)` with no policy); a workflow's policy must set it (`[file-policy.ttl-required-on-workflow]`),
+a skill's may only be shorter. A file of an execution that runs or waits paused is never swept — the same
+rule as the audit log: the time counts from the end of the root execution's whole tree
+(`FileRepository.markOwnerCompleted`, stamped when the tree ends). `Files.save({ ttl })` keeps one file
+for less (`FileRefusal.TtlAbovePolicy` for more). The sweep is `FileRepository.deleteExpired({ now,
+cutoffsByWorkflow })`, giving the number of files removed (`onTtlSweep`); S3 indexes completed owners
+under `completed/<workflow>/<utc time>/…` and files with a ttl of their own under `expires/<utc time>/…`,
+so a sweep reads only what is up (`a2aS3Prefix` at most 87 bytes).
+Removed: `retention.a2aFiles`, `findOwnersByCreatedAtBefore`, the 60-second orphan sweep (it deleted files
+of executions that were no A2A task), the direct-message sweep's removal of its attempts' files.
+Added: `FileRepository.{markOwnerCompleted, deleteExpired}`, `FileOwnerCompletion`, `FileSweep`,
+`FileMetadata.ttl`, `FileToSave.ttl`, `FileRefusal.TtlAbovePolicy`, `FileUnavailableReason.DigestMissing`.

@@ -1,3 +1,4 @@
+import { hours } from "../../../src/units/index.js";
 /**
  * #1256: the fetches of files by url a listener has in flight at once are bounded across messages —
  * a slot per fetch, a bounded queue for the rest, the wait part of the fetch timeout, the overflow a
@@ -584,6 +585,7 @@ function poolApplication(fetchPool: FileFetchPool) {
   const id = String(counter);
 
   @FilePolicy({
+    ttl: hours(24),
     name: `pool-${id}-file-policy`,
     allowedMediaTypes: ["application/pdf", "text/plain", "image/png"],
     allowedOrigins: [FILE_ORIGIN],
@@ -770,7 +772,7 @@ describe("#1297: a tenant's share bounds the sum of its owners; an owner's share
 
 describe("#1316: a fetchPool is checked with its policy", () => {
   const problemsOf = (fetchPool: object) => {
-    @FilePolicy({ name: "pool-check-file-policy", fetchPool })
+    @FilePolicy({ ttl: hours(24), name: "pool-check-file-policy", fetchPool })
     class Checked {}
     return filePolicyViolations("app", Checked, ["app"]).map((found) => found.message);
   };

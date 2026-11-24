@@ -91,7 +91,7 @@ describe("#834 AC2: [application.retention-invalid]", () => {
 
   it("a field it does not know is a typo, never a silent default", async () => {
     await expect(assembledWith({ ledgerEntries: hours(1) })).rejects.toThrow(
-      "[application.retention-invalid] its retention.ledgerEntries is not a retention (pauseRecords, executionRecords, auditLog, costLedgerEntries, a2aTasks, a2aFiles, a2aMessages)",
+      "[application.retention-invalid] its retention.ledgerEntries is not a retention (pauseRecords, executionRecords, auditLog, costLedgerEntries, a2aTasks, a2aMessages)",
     );
   });
 

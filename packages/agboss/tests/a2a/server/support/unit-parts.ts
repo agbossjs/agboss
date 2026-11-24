@@ -57,7 +57,6 @@ export const UNIT_MESH: MeshSettings = {
   clock: new VirtualClock(NINE),
   idempotencyRetention: 0,
   a2aTaskRetention: 0,
-  a2aFileRetention: 0,
   a2aMessageRetention: 0,
   workflows: [],
   exposes: [],

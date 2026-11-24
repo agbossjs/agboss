@@ -167,6 +167,8 @@ export {
   type FileKey,
   type FileMetadata,
   type FileOwner,
+  type FileOwnerCompletion,
+  type FileSweep,
   type NewFile,
 } from "../infrastructure/file.repository.js";
 export type { RetentionOptions } from "../application/retention.js";

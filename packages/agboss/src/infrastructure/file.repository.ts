@@ -1,17 +1,13 @@
 import { Injectable } from "../components/decorators.js";
 import type { StoreDescriptor } from "./execution-lease.repository.js";
 import type { Bytes, Milliseconds } from "../units/index.js";
-import type { Clock } from "./clock.js";
-import type { Expiry } from "./expiry.js";
-import { isTerminalA2ATaskState, type A2ATaskRepository } from "./a2a-task.repository.js";
 
 /**
- * Infrastructure (#859): the bytes of the files an application's A2A tasks take and give — one row
- * per file, keyed `(tenantId, fileId)`, immutable once saved (a retry, a lease takeover, a resend
- * read the same bytes), owned by the task whose execution it belongs to (`ownerId`, its id). The
- * recovery sweep removes a task's files once the task has been over for `@Application({ retention:
- * { a2aFiles } })` — never while it is not (a paused, `INPUT_REQUIRED` task keeps them) — and a
- * file whose task never came to be, once it is that old.
+ * Infrastructure (#859, #1316): the bytes of the files a workflow keeps — one row per file, keyed
+ * `(tenantId, fileId)`, immutable once saved (a retry, a lease takeover, a resend read the same
+ * bytes), owned by the root execution it belongs to (`ownerId`, its id). A file is kept while its
+ * execution runs, however long, and for its `@FilePolicy` `ttl` (or the shorter one of its own) once
+ * the execution's whole tree has ended: `markOwnerCompleted` says when, `deleteExpired` is the sweep.
  *
  * Listed only in `@Application({ providers })`. With none listed (the built-in
  * `InlineFileRepository`), a small file rides inline in the task's own records — the
@@ -44,6 +40,30 @@ export interface FileMetadata extends FileKey {
   readonly sizeBytes: Bytes;
   /** When it was saved, on the application's `Clock`. */
   readonly createdAt: Date;
+  /**
+   * How long it is kept once its owner has ended: the `ttl` of the policy it was saved under, or
+   * the shorter one of its own (`Files.save({ ttl })`); `undefined`: its root workflow's
+   * (`FileSweep.cutoffsByWorkflow`), a copy of a file made for a model included.
+   */
+  readonly ttl?: Milliseconds;
+}
+
+/** An owner whose execution has ended: its workflow and when. */
+export interface FileOwnerCompletion extends FileOwner {
+  readonly workflow: string;
+  readonly completedAt: Date;
+}
+
+/** What one sweep of `deleteExpired` is given. */
+export interface FileSweep {
+  /** The moment of the sweep, on the application's `Clock`. */
+  readonly now: Date;
+  /**
+   * Per root workflow with a finite `ttl`: `now - ttl`. An owner that completed before its workflow's
+   * cutoff loses all its files. A workflow with no entry (`Ttl.Forever`) loses only the files that
+   * carry a `ttl` of their own, and those at `completedAt + ttl < now`.
+   */
+  readonly cutoffsByWorkflow: ReadonlyMap<string, Date>;
 }
 
 /** A file to save: its metadata and its bytes. */
@@ -71,16 +91,19 @@ export abstract class FileRepository {
   abstract findMetadata(key: FileKey): Promise<FileMetadata | undefined>;
 
   /**
-   * The owners of files saved before `cutoff`, each once, in an order of the store's own that every
-   * call keeps: the first `limit` (a whole number from 1, else `RangeError`) of those after `after`
-   * — an owner the page before gave. What the sweep pages through, every page each look, and checks
-   * against the tasks before removing anything, so an owner still kept never hides the ones after it.
+   * The owner's execution has ended at `completedAt`: from then its files age. Idempotent — a
+   * second call (a recovery ending the same tree again) keeps the first moment. A file saved for
+   * the owner afterwards ages from that moment too.
    */
-  abstract findOwnersByCreatedAtBefore(
-    cutoff: Date,
-    limit: number,
-    after?: FileOwner,
-  ): Promise<readonly FileOwner[]>;
+  abstract markOwnerCompleted(completion: FileOwnerCompletion): Promise<void>;
+
+  /**
+   * The sweep: removes the files of the owners that have ended and whose time is up
+   * (see `FileSweep`), and the owner's mark with its last file; gives the number of files
+   * removed (`onTtlSweep`'s count). The files of an owner not marked completed — a running or a
+   * paused execution — are never removed, whatever their age. Never scans an owner whose time is not up.
+   */
+  abstract deleteExpired(sweep: FileSweep): Promise<number>;
 
   /** Removes every file of one owner. */
   abstract deleteByOwner(owner: FileOwner): Promise<void>;
@@ -110,8 +133,12 @@ export class InlineFileRepository extends FileRepository {
     return Promise.resolve(undefined);
   }
 
-  findOwnersByCreatedAtBefore(): Promise<readonly FileOwner[]> {
-    return Promise.resolve([]);
+  markOwnerCompleted(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  deleteExpired(): Promise<number> {
+    return Promise.resolve(0);
   }
 
   deleteByOwner(): Promise<void> {
@@ -137,94 +164,17 @@ export const metadataOf = (file: FileMetadata): FileMetadata => ({
   sha256: file.sha256,
   sizeBytes: file.sizeBytes,
   createdAt: new Date(file.createdAt.getTime()),
+  ...(file.ttl === undefined ? {} : { ttl: file.ttl }),
 });
 
-/** The order owners are paged in: by tenant, then owner (code units, as `<` compares them). */
-export const ownerOrderOf = (owner: FileOwner): string => `${owner.tenantId}\u0000${owner.ownerId}`;
-
-/** A page's limit, checked: a whole number from 1, so a sweep's paging always ends. */
-export function checkedPageLimit(limit: number): number {
-  if (!Number.isInteger(limit) || limit < 1)
-    throw new RangeError(
-      `a page of A2A file owners holds a whole number from 1, not ${String(limit)}`,
-    );
-  return limit;
+/** Whether a file is up at the sweep: its own `ttl`, else its workflow's cutoff, from `completedAt`. */
+export function isFileExpired(
+  file: Pick<FileMetadata, "ttl">,
+  completion: Pick<FileOwnerCompletion, "workflow" | "completedAt">,
+  sweep: FileSweep,
+): boolean {
+  const completed = completion.completedAt.getTime();
+  const cutoff = sweep.cutoffsByWorkflow.get(completion.workflow);
+  if (cutoff !== undefined && completed < cutoff.getTime()) return true;
+  return file.ttl !== undefined && completed + file.ttl < sweep.now.getTime();
 }
-
-/**
- * A page of owners from all a store found (an in-memory or local-disk store's order): each once, by
- * tenant then owner, after `after`, at most `limit`.
- */
-export function ownerPageOf(
-  found: Iterable<FileOwner>,
-  limit: number,
-  after: FileOwner | undefined,
-): readonly FileOwner[] {
-  checkedPageLimit(limit);
-  const byOrder = new Map<string, FileOwner>();
-  for (const { tenantId, ownerId } of found)
-    byOrder.set(ownerOrderOf({ tenantId, ownerId }), { tenantId, ownerId });
-  const from = after === undefined ? undefined : ownerOrderOf(after);
-  return [...byOrder.entries()]
-    .filter(([order]) => from === undefined || order > from)
-    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-    .slice(0, limit)
-    .map(([, owner]) => owner);
-}
-
-/** How many owners one page of the sweep checks. */
-const OWNERS_PER_PAGE = 100;
-
-/**
- * Two leases (#859): a file whose task does not exist after this was kept for a message that never
- * became a task (an accept that lost its race, or crashed): an orphan. Younger, its task may still
- * be being saved.
- */
-const ORPHAN_AFTER = 60_000;
-
-/** What the sweep of the files reads: the tasks, to tell which are over. */
-export interface FileExpirySources {
-  readonly files: FileRepository;
-  readonly tasks: Pick<A2ATaskRepository, "findById">;
-  readonly clock: Pick<Clock, "now">;
-  readonly retention: Milliseconds;
-  /** Owners per page of the listing (`OWNERS_PER_PAGE` by default). */
-  readonly pageSize?: number;
-}
-
-/** Whether an owner's files may go at `cutoff`: its task over before it, or never a task. */
-async function isExpired(
-  sources: FileExpirySources,
-  owner: FileOwner,
-  cutoff: Date,
-): Promise<boolean> {
-  const task = await sources.tasks.findById({ tenantId: owner.tenantId, taskId: owner.ownerId });
-  if (task === undefined) return true; // swept with its task, or an orphan older than the cutoff
-  return isTerminalA2ATaskState(task.status.state) && task.statusAt.getTime() < cutoff.getTime();
-}
-
-/**
- * The recovery sweep's removal of A2A files (#859): of the owners with files older than the cutoff,
- * those whose task has been over since before it — a task not over keeps its files, however long
- * it waits — and those that never were a task, past `ORPHAN_AFTER` too.
- */
-export const fileExpiryOf = (sources: FileExpirySources): Expiry => ({
-  what: "the A2A tasks' files",
-  remove: async (cutoff: Date) => {
-    const orphanCutoff = Math.min(cutoff.getTime(), sources.clock.now().getTime() - ORPHAN_AFTER);
-    const pageSize = sources.pageSize ?? OWNERS_PER_PAGE;
-    // every page, each look: owners still kept never hide the ones after them
-    for (let after: FileOwner | undefined; ;) {
-      const owners = await sources.files.findOwnersByCreatedAtBefore(
-        new Date(orphanCutoff),
-        pageSize,
-        after,
-      );
-      for (const owner of owners)
-        if (await isExpired(sources, owner, cutoff)) await sources.files.deleteByOwner(owner);
-      if (owners.length < pageSize) return;
-      after = owners.at(-1);
-    }
-  },
-  retention: sources.retention,
-});

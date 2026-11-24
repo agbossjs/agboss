@@ -304,7 +304,7 @@ describe("#1366: a retention stays above the lease", () => {
     expect(retentionViolations("desk-app", { pauseRecord: 5 })).toEqual([
       {
         code: "application.retention-invalid",
-        message: `its retention.pauseRecord is not a retention (pauseRecords, executionRecords, auditLog, costLedgerEntries, a2aTasks, a2aFiles, a2aMessages) — ${hint}`,
+        message: `its retention.pauseRecord is not a retention (pauseRecords, executionRecords, auditLog, costLedgerEntries, a2aTasks, a2aMessages) — ${hint}`,
         nodes: ["desk-app"],
       },
     ]);

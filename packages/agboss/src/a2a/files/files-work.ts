@@ -1,4 +1,5 @@
-import { bytes as byteSize } from "../../units/index.js";
+import { bytes as byteSize, Ttl, type Milliseconds } from "../../units/index.js";
+import { ttlMillisOf } from "../../files/file-ttl.js";
 import { createHash } from "node:crypto";
 import { currentFrame, rootFactsOf, type ExecutionFacts } from "../../flow/context/frame.js";
 import { isInlineFileStore, type FileRepository } from "../../infrastructure/file.repository.js";
@@ -43,6 +44,18 @@ function checkedMediaTypeOf(execution: ExecutionFacts, content: FileToSave): str
   return mediaType;
 }
 
+/**
+ * How long a saved file is kept once its tree has ended (#1316): its own `ttl`, never longer than its
+ * workflow's `@FilePolicy.ttl`; else that one. `undefined` for ever (a policy of `Ttl.Forever`, no own `ttl`).
+ */
+function savedTtlOf(execution: ExecutionFacts, content: FileToSave): Milliseconds | undefined {
+  const policy = fileLimitsOf(workflowFilePolicyOf(execution.workflow.type)).ttl;
+  if (content.ttl === undefined) return policy === Ttl.Forever ? undefined : policy;
+  if (!Number.isInteger(content.ttl) || content.ttl < 1 || content.ttl > ttlMillisOf(policy))
+    throw fileRefused({ refusal: FileRefusal.TtlAbovePolicy });
+  return content.ttl;
+}
+
 /** `Files.save`: kept for the execution's task (inline with no store); its descriptor. */
 export async function savedFile(
   store: FileRepository,
@@ -53,6 +66,7 @@ export async function savedFile(
   if (execution === undefined) throw fileRefused({ refusal: FileRefusal.OutsideExecution });
   const mediaType = checkedMediaTypeOf(execution, content);
   const sha256 = sha256Of(content.bytes);
+  const ttl = savedTtlOf(execution, content);
   const named = content.filename === undefined ? {} : { filename: content.filename };
   const described = { mediaType, ...named, sha256, sizeBytes: content.bytes.byteLength };
   if (isInlineFileStore(store))
@@ -65,6 +79,7 @@ export async function savedFile(
     fileId,
     ownerId,
     ...described,
+    ...(ttl === undefined ? {} : { ttl }),
     sizeBytes: byteSize(described.sizeBytes),
     createdAt: clock.now(),
     bytes: Uint8Array.from(content.bytes),

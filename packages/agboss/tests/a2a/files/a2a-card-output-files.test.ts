@@ -1,3 +1,4 @@
+import { hours } from "../../../src/units/index.js";
 /**
  * #916 items 2 and 4: the card's file fields, of a skill's input and of its finishes' outputs, as
  * `@A2AExpose({ cardFileFields })` sets them — `Extension`: out of the data schema (and its
@@ -38,7 +39,7 @@ const SUMMARY = "file-summary-workflow-start";
 const MEDIA = ["application/pdf", "text/plain", "image/png"];
 const OUTPUT_MEDIA = ["application/pdf", "text/plain", "image/png"];
 
-@FilePolicy({ allowedMediaTypes: MEDIA })
+@FilePolicy({ ttl: hours(24), allowedMediaTypes: MEDIA })
 class MediaPolicy {}
 
 @A2AExpose({

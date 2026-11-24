@@ -9,7 +9,7 @@ import type { ExecutionTreeValue } from "./execution-tree.repository.js";
 import type { RateLimitLease } from "./rate-limit.repository.js";
 import type { MeshRequestRecord } from "./mesh-request.repository.js";
 import type { A2AMessageRecord, A2ATaskRecord } from "./a2a-task.repository.js";
-import type { NewFile } from "./file.repository.js";
+import type { FileOwnerCompletion, NewFile } from "./file.repository.js";
 import type { A2ADirectMessageRecord } from "./a2a-direct-message.repository.js";
 import type { ExecutionHistoryRecord } from "./execution-history.repository.js";
 import type { QueuedChildExecution } from "./child-execution-queue.repository.js";
@@ -48,6 +48,8 @@ export class InMemoryDatabase {
   readonly a2aDirectMessages = new Map<string, A2ADirectMessageRecord>();
   /** The A2A files by `tenantId` + `fileId` (#859), each kept as saved. */
   readonly a2aFiles = new Map<string, NewFile>();
+  /** The owners of files whose execution has ended, by `tenantId` + `ownerId` (#1316). */
+  readonly fileCompletions = new Map<string, FileOwnerCompletion>();
   /** The kept root executions by `tenantId` + `executionId` (#401 PR 1). */
   readonly executionHistory = new Map<string, ExecutionHistoryRecord>();
   /** The queued children by `tenantId` + `executionId` (#333 PR 2), in the order queued. */

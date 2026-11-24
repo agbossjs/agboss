@@ -71,8 +71,6 @@ export interface AssembledApplication extends AssembledKeyFields, StorageFields,
   readonly auditLogRetention?: Milliseconds | undefined;
   /** How long a finished A2A task is kept (`retention.a2aTasks`, #807). */
   readonly a2aTaskRetention: Milliseconds;
-  /** How long an A2A task's files are kept once it is over (`retention.a2aFiles`, #859). */
-  readonly a2aFileRetention: Milliseconds;
   /** How long a direct A2A message's reply is kept (`retention.a2aMessages`, #860). */
   readonly a2aMessageRetention: Milliseconds;
   /** How long an entry of the cost ledger is kept (`retention.costLedgerEntries`, #771). */

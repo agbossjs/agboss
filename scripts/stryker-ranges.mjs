@@ -124,7 +124,12 @@ export function a2aFilesShard() {
   return {
     configFile: "vitest.mutation-a2a-files.config.ts",
     // the slots (#1256) are the a2a-server shard's
-    mutate: ["src/a2a/files/**/*.ts", "!src/a2a/files/a2a-file-slots.ts"],
+    mutate: [
+      "src/a2a/files/**/*.ts",
+      "!src/a2a/files/a2a-file-slots.ts",
+      // the files' sweep: whose ttl is up, never a live execution's (#1316)
+      "src/application/file-expiry.ts",
+    ],
   };
 }
 

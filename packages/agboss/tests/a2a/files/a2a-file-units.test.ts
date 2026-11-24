@@ -1,3 +1,4 @@
+import { hours } from "../../../src/units/index.js";
 /**
  * #859 AC3: the rules of a file, one by one — the descriptor's own rule, the media check of the
  * bytes, the addresses a file is never fetched from, the fetch of a file by url (origins, redirects,
@@ -300,9 +301,9 @@ describe("#859 AC3: the fetch of a file by url", () => {
 
 describe("#859: the file options and the body they need", () => {
   it("a skill's own fields over its workflow's over the defaults", () => {
-    @FilePolicy({ maxFiles: 2, maxFileSize: kilobytes(8) })
+    @FilePolicy({ ttl: hours(24), maxFiles: 2, maxFileSize: kilobytes(8) })
     class WorkflowPolicy {}
-    @FilePolicy({ maxFiles: 1 })
+    @FilePolicy({ ttl: hours(24), maxFiles: 1 })
     class SkillPolicy {}
     const limits = fileLimitsOf(WorkflowPolicy, SkillPolicy);
 
@@ -311,6 +312,7 @@ describe("#859: the file options and the body they need", () => {
 
   it("[file-policy.invalid]: sizes and counts whole from 1, lower-case types, https: origins", () => {
     @FilePolicy({
+      ttl: hours(24),
       maxFileSize: kilobytes(0),
       maxTotalFileSize: 1.5 as never,
       maxFiles: 0,

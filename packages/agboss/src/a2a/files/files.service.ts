@@ -3,6 +3,7 @@ import { FileRepository } from "../../infrastructure/file.repository.js";
 import { Clock, lazyLoad } from "../../infrastructure/clock.js";
 import type { FileDto } from "../../dto/standard/file.js";
 import { FileRefusal, fileRefused } from "../../files/file-errors.js";
+import type { Milliseconds } from "../../units/index.js";
 import { mediaTypeEssenceOf } from "./a2a-file-options.js";
 
 /** A file a step makes: its bytes, its media type and its name. */
@@ -10,6 +11,11 @@ export interface FileToSave {
   readonly bytes: Uint8Array;
   readonly mediaType: string;
   readonly filename?: string;
+  /**
+   * How long it is kept once the execution's tree has ended; at most the workflow's `@FilePolicy.ttl`
+   * (else `FileError.Refused`, `FileRefusal.TtlAbovePolicy`), which is its default.
+   */
+  readonly ttl?: Milliseconds;
 }
 
 /** A file by reference: its media type and name. */

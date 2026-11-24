@@ -1,3 +1,4 @@
+import { hours } from "../../src/units/index.js";
 /**
  * #1269: what an agent's files come to — every level applied: the agent's over its workflow's over its
  * application's, over the workflow's file policy and the built-ins.
@@ -74,7 +75,7 @@ describe("the built-ins", () => {
 
 /** A `@FilePolicy` class with these options. */
 const policyOf = (options: FilePolicyOptions) => {
-  @FilePolicy({ name: "settings-file-policy", ...options })
+  @FilePolicy({ ttl: hours(24), name: "settings-file-policy", ...options })
   class Policy {}
   return Policy;
 };

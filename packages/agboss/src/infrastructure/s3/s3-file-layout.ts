@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { FileMetadata, FileOwner } from "../file.repository.js";
+import type { FileMetadata, FileOwner, FileOwnerCompletion } from "../file.repository.js";
 import { parsedStoredJson } from "../stored-step.js";
 
 /**
@@ -23,8 +23,20 @@ const MAX_ID_LENGTH = 300;
 /** The width of a save's time in an owner's index key: sorted as text, in time order. */
 export const TIME_WIDTH = 15;
 
-/** The longest prefix: `owners/` + three ids + a time + their slashes leave the rest of 1024. */
-export const MAX_PREFIX_BYTES = 1024 - ("owners/".length + 3 * MAX_ID_LENGTH + TIME_WIDTH + 3);
+/** The width of a UTC ISO 8601 time with milliseconds (`2026-01-05T09:00:00.000Z`), sorted as text in time order. */
+export const ISO_WIDTH = 24;
+
+/**
+ * The longest prefix: the longest key below it — `completed/<workflow>/<time>/<tenant>/<owner>`,
+ * `expires/<time>/<tenant>/<owner>/<file>` or an owner's index entry — leaves the rest of 1024.
+ */
+export const MAX_PREFIX_BYTES =
+  1024 -
+  Math.max(
+    "owners/".length + 3 * MAX_ID_LENGTH + TIME_WIDTH + 3,
+    "completed/".length + 3 * MAX_ID_LENGTH + ISO_WIDTH + 3,
+    "expires/".length + 3 * MAX_ID_LENGTH + ISO_WIDTH + 3,
+  );
 
 const DIGEST = /^h\.[\w-]{43}$/;
 
@@ -122,3 +134,66 @@ export const ownerOfEntryBody = (body: Uint8Array): FileOwner => {
   }) as FileOwner;
   return { tenantId: parsed.tenantId, ownerId: parsed.ownerId };
 };
+
+/** The folder of a workflow's completed owners of the index, below the prefix. */
+export const completedFolderOf = (workflow: string): string => `completed/${segmentOf(workflow)}/`;
+
+/** A completed owner's index entry (its key sorts by the time it completed), below the prefix. */
+export const completedKeyOf = (completion: FileOwnerCompletion): string =>
+  `${completedFolderOf(completion.workflow)}${completion.completedAt.toISOString()}/${segmentOf(completion.tenantId)}/${segmentOf(completion.ownerId)}`;
+
+/** The mark of a completed owner (the first moment is kept), below the prefix. */
+export const completionMarkKeyOf = (owner: FileOwner): string =>
+  `completion/${segmentOf(owner.tenantId)}/${segmentOf(owner.ownerId)}`;
+
+/** A file with a `ttl` of its own, in the index of when it is up: below the prefix. */
+export const expiresKeyOf = (expiresAt: Date, owner: FileOwner, fileId: string): string =>
+  `expires/${expiresAt.toISOString()}/${segmentOf(owner.tenantId)}/${segmentOf(owner.ownerId)}/${segmentOf(fileId)}`;
+
+const ISO = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z/;
+
+/** The time a `completed/` or `expires/` key names, as the text that sorts. */
+export const isoOfKey = (key: string): string | undefined => ISO.exec(key)?.[0];
+
+/** What a completed owner's mark and index entry hold. */
+export const completionBodyOf = (completion: FileOwnerCompletion): Uint8Array =>
+  Buffer.from(
+    JSON.stringify({ ...completion, completedAt: completion.completedAt.toISOString() }),
+    "utf8",
+  );
+
+/** The completion a mark or an index entry's body names. */
+export function completionOfBody(body: Uint8Array): FileOwnerCompletion {
+  const parsed = parsedStoredJson({
+    what: "file completion",
+    text: Buffer.from(body).toString("utf8"),
+  }) as {
+    tenantId: string;
+    ownerId: string;
+    workflow: string;
+    completedAt: string;
+  };
+  return { ...parsed, completedAt: new Date(parsed.completedAt) };
+}
+
+/** An expiry entry's body: the file, and the completion it ages from. */
+export const expiryBodyOf = (completion: FileOwnerCompletion, fileId: string): Uint8Array =>
+  Buffer.from(
+    JSON.stringify({ ...completion, completedAt: completion.completedAt.toISOString(), fileId }),
+    "utf8",
+  );
+
+/** The file and the completion an expiry entry's body names. */
+export function expiryOfBody(body: Uint8Array): {
+  readonly completion: FileOwnerCompletion;
+  readonly fileId: string;
+} {
+  const completion = completionOfBody(body);
+  const { fileId } = parsedStoredJson({
+    what: "file expiry",
+    text: Buffer.from(body).toString("utf8"),
+  }) as {
+    fileId: string;
+  };
+  return { completion, fileId };
+}

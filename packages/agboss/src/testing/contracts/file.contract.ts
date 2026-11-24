@@ -4,10 +4,10 @@ import { FileError } from "../../core/error-families/remote-errors.js";
 import {
   metadataOf,
   type FileMetadata,
-  type FileOwner,
   type FileRepository,
   type NewFile,
 } from "../../infrastructure/file.repository.js";
+import { fileSweepCases } from "./file-sweep.cases.js";
 import { pingOf, registerContract, type ContractCase } from "./define.js";
 import type { ContractTarget } from "./instance-context.js";
 
@@ -37,6 +37,7 @@ const fileOf = (fields: Partial<NewFile> & { readonly text?: string } = {}): New
 const metaOf = (file: NewFile): FileMetadata => metadataOf(file);
 
 const FILE_CASES: readonly ContractCase<FileRepository>[] = [
+  ...fileSweepCases(),
   {
     name: "a saved file is read back on another instance: its bytes and its metadata",
     run: async ({ first, second }) => {
@@ -82,98 +83,19 @@ const FILE_CASES: readonly ContractCase<FileRepository>[] = [
     },
   },
   {
-    name: "the owners of files older than a cutoff, each once; an owner's files go together",
+    name: "deleteByOwner removes an owner's files together, another owner's and another tenant's stay",
     run: async ({ first, second }) => {
       await first.save(fileOf());
       await first.save(fileOf({ fileId: "task-1.1", text: "cccc" }));
       await first.save(fileOf({ fileId: "task-2.0", ownerId: "task-2", createdAt: TEN }));
       await first.save(fileOf({ tenantId: "acme", fileId: "task-1.0" }));
 
-      const owners = await second.findOwnersByCreatedAtBefore(
-        new Date("2026-01-05T09:30:00.000Z"),
-        10,
-      );
       await second.deleteByOwner({ tenantId: "default", ownerId: "task-1" });
 
-      expect(owners).toHaveLength(2);
-      expect(owners).toEqual(
-        expect.arrayContaining([
-          { tenantId: "default", ownerId: "task-1" },
-          { tenantId: "acme", ownerId: "task-1" },
-        ]),
-      );
       expect(await first.findMetadata({ tenantId: "default", fileId: "task-1.0" })).toBeUndefined();
       expect(await first.findBytes({ tenantId: "default", fileId: "task-1.1" })).toBeUndefined();
       expect(await first.findMetadata({ tenantId: "default", fileId: "task-2.0" })).toBeDefined();
       expect(await first.findMetadata({ tenantId: "acme", fileId: "task-1.0" })).toBeDefined();
-    },
-  },
-  {
-    name: "the owners are paged after the last one, at most the limit: every owner once, then none",
-    run: async ({ first, second }) => {
-      for (const owner of ["c", "a", "b", "d", "e"])
-        await first.save(fileOf({ fileId: `${owner}.0`, ownerId: owner }));
-      await first.save(fileOf({ fileId: "a.1", ownerId: "a", text: "dddd" }));
-
-      const pages: (readonly FileOwner[])[] = [];
-      for (let after: FileOwner | undefined, page = 0; page < 4; page += 1) {
-        const owners = await second.findOwnersByCreatedAtBefore(TEN, 2, after);
-        pages.push(owners);
-        after = owners.at(-1);
-      }
-
-      expect(pages.map((owners) => owners.length)).toEqual([2, 2, 1, 0]);
-      expect(
-        pages
-          .flat()
-          .map((owner) => owner.ownerId)
-          .sort(),
-      ).toEqual(["a", "b", "c", "d", "e"]);
-    },
-  },
-  {
-    name: "#904: a tenant id of 200 characters, three-byte ones too: its file is saved, read, found by the sweep and removed",
-    run: async ({ first, second }) => {
-      const tenants = ["t".repeat(200), "€".repeat(200)];
-      for (const tenantId of tenants) await first.save(fileOf({ tenantId }));
-
-      const owners = await second.findOwnersByCreatedAtBefore(TEN, 10);
-      const read = await Promise.all(
-        tenants.map((tenantId) => second.findMetadata({ tenantId, fileId: "task-1.0" })),
-      );
-      for (const tenantId of tenants) await second.deleteByOwner({ tenantId, ownerId: "task-1" });
-
-      expect(owners).toEqual(
-        expect.arrayContaining(tenants.map((tenantId) => ({ tenantId, ownerId: "task-1" }))),
-      );
-      expect(read).toEqual(tenants.map((tenantId) => metaOf(fileOf({ tenantId }))));
-      expect(await first.findOwnersByCreatedAtBefore(TEN, 10)).toEqual([]);
-    },
-  },
-  {
-    name: "#904: the longest ids together — a tenant, an owner and a file id of 200 three-byte characters, a long filename: saved, read, found by the sweep and removed",
-    run: async ({ first, second }) => {
-      const owner = { tenantId: "€".repeat(200), ownerId: "₤".repeat(200) };
-      const file = fileOf({ ...owner, fileId: `${"₿".repeat(198)}.0`, filename: "я".repeat(255) });
-      await first.save(file);
-
-      const owners = await second.findOwnersByCreatedAtBefore(TEN, 10);
-      const meta = await second.findMetadata(file);
-      const bytes = await second.findBytes(file);
-      await second.deleteByOwner(owner);
-
-      expect(owners).toEqual([owner]);
-      expect(meta).toEqual(metaOf(file));
-      expect(Buffer.from(bytes ?? [])).toEqual(Buffer.from(file.bytes));
-      expect(await first.findMetadata(file)).toBeUndefined();
-      expect(await first.findOwnersByCreatedAtBefore(TEN, 10)).toEqual([]);
-    },
-  },
-  {
-    name: "a page holds a whole number of owners from 1: another limit is a RangeError",
-    run: async ({ first }) => {
-      await expect(first.findOwnersByCreatedAtBefore(TEN, 0)).rejects.toBeInstanceOf(RangeError);
-      await expect(first.findOwnersByCreatedAtBefore(TEN, 1.5)).rejects.toBeInstanceOf(RangeError);
     },
   },
 ];
@@ -182,7 +104,8 @@ const FILE_CASES: readonly ContractCase<FileRepository>[] = [
  * `FileRepository` (#859): the A2A tasks' files by `(tenantId, fileId)`. A file saved on one
  * instance is read on another, bytes and metadata; it is its tenant's; it never changes (the same
  * bytes again do nothing, others are `FileError.Conflict`); of two saves at once one is kept;
- * the sweep finds the owners of files older than its cutoff and removes an owner's files together.
+ * the sweep (`deleteExpired`) removes, and counts, the files of the owners that completed and whose
+ * time is up — their workflow's cutoff, or a file's own `ttl` — and never a file of an owner that has not.
  */
 export function fileContract(target: ContractTarget<FileRepository>): void {
   registerContract("A2A file contract", target, [{ cases: FILE_CASES }], pingOf);

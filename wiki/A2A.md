@@ -269,12 +269,13 @@ records (the checkpoint, the task's output) — silently up to 64 KB, with the w
 `LocalDiskFileRepository` on the environment's `a2aFilesPath`, `S3FileRepository` — a bucket
 every instance reaches, on plain `fetch` with Signature Version 4: `a2aS3Bucket`, `a2aS3Region`,
 `a2aS3Endpoint?` (an S3-compatible store), `a2aS3Prefix?`, `a2aS3AccessKeyId`,
-`a2aS3SecretAccessKey`; every key within S3's 255-byte segments and 1024-byte keys for every valid id — a long id in pieces, one past 300 characters as its digest —, a file's metadata in its object's body, `a2aS3Prefix` at most 99 bytes (#904) —, or your own, proved by
+`a2aS3SecretAccessKey`; every key within S3's 255-byte segments and 1024-byte keys for every valid id — a long id in pieces, one past 300 characters as its digest —, a file's metadata in its object's body, `a2aS3Prefix` at most 87 bytes (#904, #1316) —, or your own, proved by
 `fileContract`); on leases the instances share, one host's store with files above 256 KB is
 `[a2a.file-store-not-shared]`. A task's files are its own: a step reads no other task's, a task's
-artifact serves only its own. They are removed `@Application({ retention: { a2aFiles } })` after
-the task is over (default and at most `a2aTasks`) — never while it waits, however long an
-`INPUT_REQUIRED` task is paused.
+artifact serves only its own. They are removed `@FilePolicy({ ttl })` after
+the task's execution (its whole tree) has ended (`hours(24)` by default, `Ttl.Forever`: never) — never while it runs or
+waits, however long an `INPUT_REQUIRED` task is paused. `Files.save({ ttl })` may keep one file
+for less, never for more.
 
 **The client.** `execute(input)` sends `FileDto.fromBytes(bytes, { mediaType, filename })`
 (a `raw` part) or `FileDto.fromUrl(url, …)` (a `url` part) in an input's file fields, a

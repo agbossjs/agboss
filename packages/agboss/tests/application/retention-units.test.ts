@@ -27,11 +27,11 @@ describe("#1366: the retentions with their defaults", () => {
   it("every one that is not given is its default; execution records are kept only when asked", () => {
     const out = retentionOf(undefined);
 
-    expect(out).toEqual({ ...DEFAULT_RETENTION, a2aFiles: DEFAULT_RETENTION.a2aTasks });
+    expect(out).toEqual({ ...DEFAULT_RETENTION });
     expect(Object.keys(out)).not.toContain("executionRecords");
   });
 
-  it("each one given is the one used, and the files follow their task's unless given", () => {
+  it("each one given is the one used", () => {
     const given = {
       pauseRecords: hours(1),
       executionRecords: hours(2),
@@ -41,10 +41,7 @@ describe("#1366: the retentions with their defaults", () => {
       a2aMessages: hours(9),
     };
 
-    expect(retentionOf(given)).toEqual({ ...given, a2aFiles: hours(8) });
-    expect(retentionOf({ a2aTasks: hours(8), a2aFiles: hours(2) }).a2aFiles).toBe(hours(2));
-    expect(retentionOf({ a2aFiles: hours(2) }).a2aTasks).toBe(DEFAULT_RETENTION.a2aTasks);
-    expect(retentionOf({ a2aFiles: hours(2) }).a2aMessages).toBe(minutes(15));
+    expect(retentionOf(given)).toEqual(given);
   });
 
   it("is read by the sweep under its own names, execution records only when kept", () => {
@@ -56,7 +53,6 @@ describe("#1366: the retentions with their defaults", () => {
       executionRecordRetention: hours(2),
       auditLogRetention: DEFAULT_RETENTION.auditLog,
       a2aTaskRetention: DEFAULT_RETENTION.a2aTasks,
-      a2aFileRetention: DEFAULT_RETENTION.a2aTasks,
       a2aMessageRetention: DEFAULT_RETENTION.a2aMessages,
       ledgerEntryRetention: DEFAULT_RETENTION.costLedgerEntries,
     });
@@ -135,33 +131,10 @@ describe("#1366: what a retention may not be", () => {
     expect(
       messagesOf("app", { auditlog: hours(1), leaseEvents: hours(1), pauseRecords: -1 }),
     ).toEqual([
-      `its retention.auditlog is not a retention (pauseRecords, executionRecords, auditLog, costLedgerEntries, a2aTasks, a2aFiles, a2aMessages) — ${DEFAULT_HINT}`,
+      `its retention.auditlog is not a retention (pauseRecords, executionRecords, auditLog, costLedgerEntries, a2aTasks, a2aMessages) — ${DEFAULT_HINT}`,
       `its retention.leaseEvents is renamed: the audit log's rows are kept for retention.auditLog — ${DEFAULT_HINT}`,
       `its retention.pauseRecords is -1, not a positive duration — ${hint("pauseRecords")}`,
     ]);
-  });
-});
-
-describe("#1366: the files of an A2A task", () => {
-  it("are not kept longer than their task, as given or by default", () => {
-    const fix = hint("a2aTasks", "a2aFiles");
-
-    expect(messagesOf("app", { a2aTasks: hours(1), a2aFiles: hours(2) })).toEqual([
-      `its retention.a2aFiles is 7200000 ms, above a2aTasks' 3600000 ms — a file outliving its task is read by no one — ${fix}`,
-    ]);
-    expect(messagesOf("app", { a2aFiles: hours(25) })).toEqual([
-      `its retention.a2aFiles is 90000000 ms, above a2aTasks' 86400000 ms — a file outliving its task is read by no one — ${fix}`,
-    ]);
-  });
-
-  it("as long as, or shorter than, their task's are fine, and so is a files retention that is no number (refused on its own)", () => {
-    expect(retentionViolations("app", { a2aTasks: hours(2), a2aFiles: hours(2) })).toEqual([]);
-    expect(retentionViolations("app", { a2aTasks: hours(2), a2aFiles: hours(1) })).toEqual([]);
-    expect(retentionViolations("app", { a2aFiles: hours(1) })).toEqual([]);
-    expect(messagesOf("app", { a2aFiles: "long" })).toHaveLength(1);
-    expect(messagesOf("app", { a2aTasks: "long", a2aFiles: hours(99) }).join()).not.toContain(
-      "outliving",
-    );
   });
 });
 

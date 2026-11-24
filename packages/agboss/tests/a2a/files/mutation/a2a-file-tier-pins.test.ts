@@ -1,3 +1,4 @@
+import { hours } from "../../../../src/units/index.js";
 /**
  * #1244: the storage tier's size, pinned: of each exported start, its input's files take
  * `maxTotalFileSize`, its finishes' files `maxFileSize`; the most of them all.
@@ -60,7 +61,7 @@ function skill(
   @WorkflowFinish({ name: `${id}-workflow-finish`, description: "f", output })
   class TierFinish {}
 
-  @FilePolicy({ name: `${id}-file-policy`, ...files })
+  @FilePolicy({ ttl: hours(24), name: `${id}-file-policy`, ...files })
   class TierPolicy {}
 
   @Workflow({
@@ -226,6 +227,7 @@ class MixedAction {
 class MixedTextFinish {}
 
 @FilePolicy({
+  ttl: hours(24),
   name: "tier-mixed-file-policy",
   maxFileSize: 5000 as Bytes,
   maxTotalFileSize: 5000 as Bytes,

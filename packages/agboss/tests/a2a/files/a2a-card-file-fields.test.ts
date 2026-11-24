@@ -1,3 +1,4 @@
+import { hours } from "../../../src/units/index.js";
 /**
  * #904 item 5 (AC5.1): the Agent Card never asks for a file field in the data part. As set by
  * `@A2AExpose({ cardFileFields })` (a skill may set its own): `Extension`, the default — the file
@@ -34,7 +35,7 @@ import {
 const START = "file-review-workflow-start";
 const FILE_TYPES = ["application/pdf", "text/plain", "image/png"];
 
-@FilePolicy({ allowedMediaTypes: FILE_TYPES })
+@FilePolicy({ ttl: hours(24), allowedMediaTypes: FILE_TYPES })
 class SkillFilesPolicy {}
 
 @A2AExpose({

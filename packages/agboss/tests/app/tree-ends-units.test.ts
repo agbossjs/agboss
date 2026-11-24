@@ -67,7 +67,14 @@ describe("#633: forgetTree and passEnded", () => {
     mocks.closeTreePauses.mockClear();
 
     await forgetTree(
-      { deps: {}, trees: { deleteAllInTree }, clock: { now: () => new Date(0) } } as never,
+      {
+        deps: {
+          container: { get: () => ({ markOwnerCompleted: () => Promise.resolve() }) },
+          config: { name: "w" },
+        },
+        trees: { deleteAllInTree },
+        clock: { now: () => new Date(0) },
+      } as never,
       STATE,
       END.cause,
     );
@@ -85,6 +92,8 @@ describe("#633: forgetTree and passEnded", () => {
       remoteChildren: { queue: { deleteAllByTenantIdAndRootExecutionId } },
       branchErrors: { forgetExecution },
       pause,
+      container: { get: () => ({ markOwnerCompleted: () => Promise.resolve() }) },
+      config: { name: "w" },
     };
 
     await forgetTree(
@@ -110,7 +119,11 @@ describe("#633: forgetTree and passEnded", () => {
   it("a tree that finished closes a pause it still had with the finish as its cause; an end that is no Error is made one", async () => {
     mocks.closeTreePauses.mockClear();
     const parts = {
-      deps: { pause: { pauses: {} } },
+      deps: {
+        pause: { pauses: {} },
+        container: { get: () => ({ markOwnerCompleted: () => Promise.resolve() }) },
+        config: { name: "w" },
+      },
       trees: { deleteAllInTree: () => Promise.resolve() },
       clock: { now: () => new Date(0) },
     } as never;

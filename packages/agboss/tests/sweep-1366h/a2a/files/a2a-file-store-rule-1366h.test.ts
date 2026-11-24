@@ -1,3 +1,4 @@
+import { hours } from "../../../../src/units/index.js";
 /**
  * #1366: the file store rule reports, per violation, the code and the node it names (the
  * application, or the expose whose skill options are wrong), measures the tier in KB (256 KB is the
@@ -35,7 +36,7 @@ let counter = 0;
 /** The file review workflow under a `@FilePolicy` of these options. */
 function workflowWith(options: FilePolicyOptions) {
   counter += 1;
-  @FilePolicy({ name: `sized-${String(counter)}-file-policy`, ...options })
+  @FilePolicy({ ttl: hours(24), name: `sized-${String(counter)}-file-policy`, ...options })
   class SizedPolicy {}
 
   @Workflow({
@@ -48,7 +49,7 @@ function workflowWith(options: FilePolicyOptions) {
   return SizedWorkflow;
 }
 
-@FilePolicy({ name: "zero-files-file-policy", maxFiles: 0 })
+@FilePolicy({ ttl: hours(24), name: "zero-files-file-policy", maxFiles: 0 })
 class ZeroFilesPolicy {}
 
 @A2AExpose({

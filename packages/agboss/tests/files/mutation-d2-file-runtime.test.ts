@@ -1,3 +1,4 @@
+import { hours } from "../../src/units/index.js";
 /** #1269: what an agent's loop reads its files with: the execution's read context, its thread owners, its transcriber and redactor. */
 import { AIMessage, type BaseMessage } from "@langchain/core/messages";
 import { describe, expect, it } from "vitest";
@@ -151,6 +152,7 @@ describe("#1269: the read context", () => {
 
   it("the deps' clock is the context's, and the workflow policy's origins, timeout and pool ride the settings", async () => {
     @FilePolicy({
+      ttl: hours(24),
       allowedOrigins: ["https://files.example"],
       fetchTimeout: seconds(3),
       fetchPool: { maxConcurrent: 2 },

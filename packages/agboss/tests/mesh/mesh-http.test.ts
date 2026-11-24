@@ -69,7 +69,6 @@ function receiverOf(
     requests: options.requests ?? (() => store),
     idempotencyRetention: 30 * 60_000,
     a2aTaskRetention: 0,
-    a2aFileRetention: 0,
     a2aMessageRetention: 0,
     workflows: [],
     exposes: [],

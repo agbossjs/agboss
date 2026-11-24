@@ -133,7 +133,6 @@ export const applicationWarningsOf: (assembled: AssembledApplication) => readonl
 
 // @public
 export interface AssembledApplication extends AssembledKeyFields, StorageFields, P.ProfileFields {
-    readonly a2aFileRetention: Milliseconds;
     readonly a2aMessageRetention: Milliseconds;
     readonly a2aTaskRetention: Milliseconds;
     // (undocumented)

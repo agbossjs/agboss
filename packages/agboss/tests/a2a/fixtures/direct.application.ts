@@ -1,3 +1,4 @@
+import { hours } from "../../../src/units/index.js";
 // #860 — an application with a direct-reply skill: a quote agent (one read-only tool) that answers
 // with a direct A2A `Message`, beside an ordinary task skill (an action). The quote skill is the
 // expose's `defaultSkill`. Stores: the in-memory defaults (DirectApplication), the SQLite files of
@@ -109,7 +110,7 @@ export class QuoteFileWorkflowStart {}
 })
 export class QuoteFileWorkflowFinish {}
 
-@FilePolicy({ name: "quote-file-policy", allowedMediaTypes: ["text/plain"] })
+@FilePolicy({ ttl: hours(24), name: "quote-file-policy", allowedMediaTypes: ["text/plain"] })
 export class QuoteFilePolicy {}
 
 @Workflow({

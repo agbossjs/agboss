@@ -1,3 +1,4 @@
+import { hours } from "../../../../src/units/index.js";
 /**
  * #1244: the file options, pinned: the defaults as they are, the media type's essence, each
  * option's rule at its boundary with the exact message, and the card file fields' rules.
@@ -24,7 +25,7 @@ const CODE = "a2a.file-options-invalid";
 const POLICY_CODE = "file-policy.invalid";
 const NODES = ["app"];
 const policyOf = (options: FilePolicyOptions) => {
-  @FilePolicy({ name: "pins-file-policy", ...options })
+  @FilePolicy({ ttl: hours(24), name: "pins-file-policy", ...options })
   class Policy {}
   return Policy;
 };
@@ -38,6 +39,7 @@ const messagesOf = (options: FilePolicyOptions | undefined): string[] =>
 describe("the defaults", () => {
   it("are exactly 64 KB, 64 KB, 5 files, nine media types, no origin, ten seconds and no own pool", () => {
     expect(DEFAULT_FILE_LIMITS).toStrictEqual({
+      ttl: hours(24),
       maxFileSize: kilobytes(64),
       maxTotalFileSize: kilobytes(64),
       maxFiles: 5,

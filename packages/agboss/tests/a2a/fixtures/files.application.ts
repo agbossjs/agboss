@@ -1,3 +1,4 @@
+import { hours } from "../../../src/units/index.js";
 // #859 — an application that takes files and gives them back over A2A: a start whose input holds a
 // document (and optional more pages), an action that reads its bytes through Files and answers
 // with a report file and a verdict, or — asked to — pauses for its caller first (INPUT_REQUIRED),
@@ -170,6 +171,7 @@ export class FileReturnedFinish {}
 export const FILE_ORIGIN = "https://files.example";
 
 @FilePolicy({
+  ttl: hours(24),
   allowedMediaTypes: ["application/pdf", "text/plain", "image/png"],
   allowedOrigins: [FILE_ORIGIN],
 })
@@ -177,6 +179,7 @@ export class FileReviewPolicy {}
 
 /** The same files with room for a store's bigger ones. */
 @FilePolicy({
+  ttl: hours(24),
   allowedMediaTypes: ["application/pdf", "text/plain", "image/png"],
   allowedOrigins: [FILE_ORIGIN],
   maxFileSize: kilobytes(512),

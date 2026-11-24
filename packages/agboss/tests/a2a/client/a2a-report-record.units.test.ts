@@ -120,7 +120,6 @@ async function settled(
     clock: new VirtualClock(NOW),
     idempotencyRetention: hours(1),
     a2aTaskRetention: hours(1),
-    a2aFileRetention: hours(1),
     a2aMessageRetention: hours(1),
     workflows: [],
     exposes: [],

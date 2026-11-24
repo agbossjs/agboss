@@ -1,3 +1,4 @@
+import { hours } from "../../src/units/index.js";
 // #811 — the conformance application the official A2A TCK (a2aproject/a2a-tck) runs against: a task
 // skill, the expose's `defaultSkill` (the TCK names none), whose paths end at a text finish, at a DTO
 // finish (a `data` artifact) or at a pause its caller answers (INPUT_REQUIRED); and (#860) a skill
@@ -208,7 +209,7 @@ export class TckFileFinish {}
 })
 export class TckDataFinish {}
 
-@FilePolicy({ name: "tck-file-policy" })
+@FilePolicy({ ttl: hours(24), name: "tck-file-policy" })
 export class TckFilePolicy {}
 
 @Workflow({

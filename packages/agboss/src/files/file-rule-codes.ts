@@ -10,5 +10,6 @@ export type FileRuleCode =
   | "pii.redacted-needs-kinds"
   | "file-policy.invalid"
   | "file-policy.not-a-file-policy"
+  | "file-policy.ttl-required-on-workflow"
   | "workflow.file-policy-required"
   | "a2a.skill-file-policy-exceeds-workflow";

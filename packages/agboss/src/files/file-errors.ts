@@ -47,6 +47,8 @@ export enum FileRefusal {
   OriginDenied = "origin-denied",
   /** The url's host is an address a file is never fetched from (private, link-local, …). */
   AddressDenied = "address-denied",
+  /** A `Files.save({ ttl })` longer than its workflow's `@FilePolicy.ttl`. */
+  TtlAbovePolicy = "ttl-above-policy",
 }
 
 /** What a refused file is known by. */

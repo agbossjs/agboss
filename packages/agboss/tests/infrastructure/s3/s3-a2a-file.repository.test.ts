@@ -86,7 +86,7 @@ describe("#859: S3FileRepository", () => {
     );
   });
 
-  it("a page of owners lists from past the cursor and stops at the limit: never the whole index", async () => {
+  it("the sweep reads the index only up to the cutoff: an owner not yet up is never listed past, read or touched", async () => {
     const s3 = new FakeS3();
     const store = new S3FileRepository(
       contextOf(ENVIRONMENT, PROCESS_ENV),
@@ -95,7 +95,8 @@ describe("#859: S3FileRepository", () => {
       s3.fetcher,
     );
     const at = new Date("2026-01-05T09:00:00.000Z");
-    for (const owner of ["a", "b", "c", "d", "e", "f"])
+    const owners = ["a", "b", "c", "d", "e", "f"];
+    for (const [index, owner] of owners.entries()) {
       await store.save({
         tenantId: "default",
         fileId: `${owner}.0`,
@@ -106,20 +107,73 @@ describe("#859: S3FileRepository", () => {
         createdAt: at,
         bytes: Uint8Array.from([1]),
       });
+      // completed an hour apart: a at 09:00 … f at 14:00
+      await store.markOwnerCompleted({
+        tenantId: "default",
+        ownerId: owner,
+        workflow: "w",
+        completedAt: new Date(at.getTime() + index * 3_600_000),
+      });
+    }
     s3.listed.length = 0;
+    s3.requests.length = 0;
 
-    const first = await store.findOwnersByCreatedAtBefore(new Date("2026-01-06T00:00:00.000Z"), 2);
-    const firstListed = s3.listed.length;
-    s3.listed.length = 0;
-    const next = await store.findOwnersByCreatedAtBefore(
-      new Date("2026-01-06T00:00:00.000Z"),
-      2,
-      first.at(-1),
+    // a 1 hour ttl at 11:30: a (09:00) and b (10:00) are up, c (11:00) is not (11:00 + 1h > 11:30... 12:00)
+    const now = new Date(at.getTime() + 2.5 * 3_600_000);
+    const removed = await store.deleteExpired({
+      now,
+      cutoffsByWorkflow: new Map([["w", new Date(now.getTime() - 3_600_000)]]),
+    });
+
+    const requests = [...s3.requests];
+
+    expect(removed).toBe(2);
+    expect(await store.findMetadata({ tenantId: "default", fileId: "a.0" })).toBeUndefined();
+    expect(await store.findMetadata({ tenantId: "default", fileId: "b.0" })).toBeUndefined();
+    expect(await store.findMetadata({ tenantId: "default", fileId: "c.0" })).toBeDefined();
+    // never the files, nor the index of the owners not yet up
+    const touched = (owner: string) =>
+      requests.filter((request) =>
+        request.includes(Buffer.from(`${owner}.0`).toString("base64url")),
+      );
+    expect(["c", "d", "e", "f"].flatMap(touched)).toEqual([]);
+  });
+
+  it("#1316: the index keys: completed/<workflow>/<utc time>/<tenant>/<owner>, and expires/<utc time>/… for a file with a ttl of its own", async () => {
+    const s3 = new FakeS3();
+    const store = new S3FileRepository(
+      contextOf(ENVIRONMENT, PROCESS_ENV),
+      new VirtualClock(),
+      undefined,
+      s3.fetcher,
     );
+    const at = new Date("2026-01-05T09:00:00.000Z");
+    await store.save({
+      tenantId: "default",
+      fileId: "a.0",
+      ownerId: "a",
+      mediaType: "text/plain",
+      sha256: "a".repeat(64),
+      sizeBytes: byteSize(1),
+      createdAt: at,
+      ttl: 60_000 as never,
+      bytes: Uint8Array.from([1]),
+    });
 
-    expect(first.map((owner) => owner.ownerId)).toEqual(["a", "b"]);
-    expect(next.map((owner) => owner.ownerId)).toEqual(["c", "d"]);
-    expect([firstListed, s3.listed.length]).toEqual([2, 2]);
+    await store.markOwnerCompleted({
+      tenantId: "default",
+      ownerId: "a",
+      workflow: "w",
+      completedAt: at,
+    });
+
+    const keys = [...s3.objects.keys()];
+    expect(keys.filter((key) => key.includes("/completed/"))).toEqual([
+      expect.stringMatching(/\/completed\/[\w-]+\/2026-01-05T09:00:00\.000Z\/[\w-]+\/[\w-]+$/),
+    ]);
+    expect(keys.filter((key) => key.includes("/expires/"))).toEqual([
+      expect.stringMatching(/\/expires\/2026-01-05T09:01:00\.000Z\/[\w-]+\/[\w-]+\/[\w-]+$/),
+    ]);
   });
 
   it("names the environment field it misses, never a value", () => {

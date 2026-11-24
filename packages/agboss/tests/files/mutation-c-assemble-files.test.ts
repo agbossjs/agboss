@@ -1,3 +1,4 @@
+import { hours } from "../../src/units/index.js";
 /**
  * #1269: the files of a workflow's agents resolved from their sources (#899 §1) — the application's own
  * transcriber, redactor and file store among its providers, each agent's levels, the media types
@@ -182,7 +183,7 @@ describe("an agent's files of its sources", () => {
   });
 
   it("the workflow's filePolicy gives the size and the types", () => {
-    @FilePolicy({ maxFileSize: kilobytes(7), allowedMediaTypes: ["text/plain"] })
+    @FilePolicy({ ttl: hours(24), maxFileSize: kilobytes(7), allowedMediaTypes: ["text/plain"] })
     class SmallTextPolicy {}
     const mini = miniWorkflow(ModelFiles.of({}), undefined, SmallTextPolicy);
 

@@ -56,7 +56,7 @@ async function sweptLostAttempts(sources: A2ADirectMessageExpirySources): Promis
 /**
  * The recovery sweep's removal of direct messages (#860): first the attempts lost in flight (each
  * settled once), then the completed messages accepted before the cutoff — `retention.a2aMessages` —
- * a page at a time, with their ids' claims and their attempts' files; at most `MAX_PAGES` pages of
+ * a page at a time, with their ids' claims (their files stay for their `@FilePolicy.ttl`); at most `MAX_PAGES` pages of
  * each per look. A message in flight is never removed by age (#860 D2).
  */
 export const a2aDirectMessageExpiryOf = (sources: A2ADirectMessageExpirySources): Expiry => ({
@@ -64,12 +64,8 @@ export const a2aDirectMessageExpiryOf = (sources: A2ADirectMessageExpirySources)
   remove: async (cutoff: Date) => {
     await sweptLostAttempts(sources);
     for (let page = 0; page < MAX_PAGES; page += 1) {
+      // its attempt's files are the `@FilePolicy.ttl`'s: a short message retention never wipes them
       const gone = await sources.messages.deleteByCreatedAtBefore(cutoff, PAGE);
-      for (const message of gone)
-        await sources.files.deleteByOwner({
-          tenantId: message.tenantId,
-          ownerId: message.attemptId,
-        });
       if (gone.length < PAGE) return;
     }
   },

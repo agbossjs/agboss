@@ -61,6 +61,7 @@ describe("FileError.Refused", () => {
       "url-invalid",
       "origin-denied",
       "address-denied",
+      "ttl-above-policy",
     ]);
   });
 });

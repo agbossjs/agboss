@@ -1377,7 +1377,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/guardrails/runtime.ts"],
   ),
   ...reviewed(
-    "holds spend, rate-limit or deadline sites (orphan cutoff max; orphan cutoff cutoff only) - not mutated: covered by tests/a2a/files/a2a-file-orphan-cutoff.test.ts, each sabotage of it (2 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    "holds spend, rate-limit or deadline sites (the sweep's cutoff and ttl comparisons in isFileExpired) - not mutated: covered by tests/a2a/files/file-ttl-1316b.test.ts and the file contract (src/testing/contracts/file-sweep.cases.ts), the strict and non-strict edges of the cutoff and of a file's own ttl each fail one of them; listed for the reviewer (#1316)",
     ["src/infrastructure/file.repository.ts"],
   ),
   ...reviewed(
