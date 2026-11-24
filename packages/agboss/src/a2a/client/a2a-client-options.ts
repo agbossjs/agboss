@@ -1,5 +1,6 @@
 import { MAX_TIMEOUT, timerProblemOf } from "../../units/timer-limits.js";
 import type { Message, StreamResponse, Task } from "@a2a-js/sdk";
+import type { Class } from "../../components/injection.js";
 import { nestedFileFieldsOf } from "../../dto/standard/file.js";
 import type { FileDto } from "../../dto/standard/file.js";
 import { checkedPrice } from "../a2a-rules.js";
@@ -53,6 +54,12 @@ export interface A2AClientOptions {
    * default: `@A2AAgent({ allowedOrigins })`. Any other is refused, and no request goes there.
    */
   readonly allowedOrigins?: readonly string[];
+  /**
+   * A `@FilePolicy` (#1316) bounding `downloadFile`: its `maxFileSize` caps a download, its
+   * `fetchTimeout` ends a slow one, its `fetchPool` is the client's own pool of downloads. With none,
+   * a download is capped at `maxSize` (10 MB) and runs in the client's default pool (16 / 4 / 2 + 8).
+   */
+  readonly filePolicy?: Class;
 }
 
 /** One event of a remote task while the call waits: the SDK's `StreamResponse`. */

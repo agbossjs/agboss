@@ -1,10 +1,11 @@
 import { createHash } from "node:crypto";
 import type { ReadableStream as WebStream } from "node:stream/web";
 import { AGBossError } from "../../core/errors.js";
-import { kilobytes, type Bytes } from "../../units/index.js";
+import { kilobytes, type Bytes, type Milliseconds } from "../../units/index.js";
 import { FilePayloadSource, fileSourceOf } from "../../dto/standard/file.js";
 import { fileUnavailable, FileUnavailableReason } from "../../files/file-errors.js";
 import type { FileDto } from "../../dto/standard/file.js";
+import type { FileFetchSlots } from "../files/a2a-file-slots.js";
 
 export type { FileDto };
 
@@ -20,6 +21,10 @@ const DEFAULT_MAX_SIZE = kilobytes(10240);
 /** What a download goes through: the client's own fetch (its origins, its headers). */
 export interface A2ADownload extends A2ADownloadOptions {
   readonly fetcher: typeof fetch;
+  /** The client's pool of downloads (#1316): none, no bound but `maxSize`. */
+  readonly slots?: FileFetchSlots;
+  /** How long a download may take, the wait for a slot included (the `@FilePolicy`'s `fetchTimeout`). */
+  readonly timeout?: Milliseconds;
 }
 
 const unavailable = (reason: FileUnavailableReason) => fileUnavailable({ reason });
@@ -38,14 +43,42 @@ async function boundedBodyOf(response: Response, max: number): Promise<Uint8Arra
   return Buffer.concat(chunks);
 }
 
-/** A file by `url`, fetched; any failure but the client's own refusals is `DownloadFailed`. */
-async function fetchedOf(url: string, download: A2ADownload, max: number): Promise<Uint8Array> {
+/** The signal a download runs under: the caller's and the policy's timeout. */
+const signalOf = (download: A2ADownload): AbortSignal | undefined => {
+  const signals = [
+    ...(download.signal === undefined ? [] : [download.signal]),
+    ...(download.timeout === undefined ? [] : [AbortSignal.timeout(download.timeout)]),
+  ];
+  // one signal is passed as it is: the fetch is handed the caller's own
+  return signals.length > 1 ? AbortSignal.any(signals) : signals[0];
+};
+
+/** A file by `url`, fetched in the client's pool; any failure but the client's own refusals is `DownloadFailed`. */
+function fetchedOf(url: string, download: A2ADownload, max: number): Promise<Uint8Array> {
+  const signal = signalOf(download);
+  const work = () => fetchedBody(url, download, max, signal);
+  if (download.slots === undefined) return work();
+  // a full pool fails at once, as on every path (#1316): FileError.Unavailable, FetchBusy
+  return download.slots.run(
+    signal ?? new AbortController().signal,
+    work,
+    () => unavailable(FileUnavailableReason.FetchBusy),
+    { tenant: CLIENT_TENANT, owner: undefined },
+  );
+}
+
+/** The pool's one tenant: a standalone client has no tenant of its own. */
+const CLIENT_TENANT = JSON.stringify(["a2a-client"]);
+
+async function fetchedBody(
+  url: string,
+  download: A2ADownload,
+  max: number,
+  signal: AbortSignal | undefined,
+): Promise<Uint8Array> {
   let response: Response;
   try {
-    response = await download.fetcher(
-      url,
-      download.signal === undefined ? {} : { signal: download.signal },
-    );
+    response = await download.fetcher(url, signal === undefined ? {} : { signal });
   } catch (error) {
     // an origin refused by the client's policy is said as it is (`A2AOriginError`)
     if (error instanceof AGBossError) throw error;

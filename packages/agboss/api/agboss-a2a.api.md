@@ -194,6 +194,7 @@ export interface A2AClientOptions {
     readonly cardTtl?: Milliseconds;
     readonly contract?: A2AClientContract;
     readonly fetcher?: typeof fetch;
+    readonly filePolicy?: Class;
     readonly headers?: Readonly<Record<string, string>>;
     readonly url?: string;
 }

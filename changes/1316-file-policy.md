@@ -56,3 +56,9 @@ tool outputs belongs to the app lane (src/app/**), not yet done.
 tree) are removed by `FileRepository.deleteOrphans({ createdBefore, isLive })`: all the owner's files older
 than 30 minutes, no execution record and no A2A task for it, never a live or completed owner's. An accept
 that loses its race (`MessageTaken`, `TaskIdTaken`) removes the files it kept for its task.
+
+**`A2AClient.downloadFile` under a `@FilePolicy`.** `new A2AClient({ filePolicy: X })`: a download is capped at
+the policy's `maxFileSize` (never above the call's `maxSize`; past it the read stops: `FileUnavailableReason.TooLarge`),
+ends at its `fetchTimeout`, and runs in the client's own pool — the policy's `fetchPool`, else the default
+16 / 4 / 2 + 8 per client. A full pool is `FileError.Unavailable` (`FetchBusy`), never an unbounded fetch.
+Added: `A2AClientOptions.filePolicy`.

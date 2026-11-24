@@ -1,5 +1,6 @@
 import type { AgentCard, Part, Task } from "@a2a-js/sdk";
 import { markBusinessKeyWriter } from "../../components/container/fenced-reach.js";
+import type { Class } from "../../components/injection.js";
 import { validate } from "../../dto/schema.js";
 import { currentFrame } from "../../flow/context/frame.js";
 import { lazyLoad, SystemClock, type Clock } from "../../infrastructure/clock.js";
@@ -59,10 +60,12 @@ export class A2AClient<TIn extends object = object, TOut extends object = object
 
   readonly #agent: string;
   readonly #cards: CardCache;
+  readonly #filePolicy: Class | undefined;
 
   constructor(options: A2AClientOptions = {}) {
     this.url = options.url ?? urlOf(new.target, new.target.name);
     this.contract = options.contract ?? contractOfClass(new.target);
+    this.#filePolicy = options.filePolicy;
     this.#agent = agentNameOf(new.target, new.target.name);
     const allowed = options.allowedOrigins ?? allowedOriginsOfClass(new.target);
     const fixed = options.headers ?? {};
@@ -130,8 +133,14 @@ export class A2AClient<TIn extends object = object, TOut extends object = object
    * (`kilobytes(10240)` by default), each checked against its `sha256` when it names one.
    */
   public downloadFile(file: FileDto, options?: A2ADownloadOptions): Promise<Uint8Array> {
-    const loaded = lazyLoad(import("./a2a-download.js"));
-    return loaded.then((it) => it.downloadedFile(file, { ...options, fetcher: this.#cards.fetch }));
+    return lazyLoad(import("./a2a-download.js")).then(async (it) => {
+      const bounds = await lazyLoad(import("./a2a-download-bounds.js"));
+      return it.downloadedFile(file, {
+        ...options,
+        ...bounds.boundsOf(this, this.#filePolicy, options?.maxSize),
+        fetcher: this.#cards.fetch,
+      });
+    });
   }
 
   /** The task as the agent has it now. */

@@ -8625,7 +8625,9 @@ export interface ResolvedModelFiles {
     allowedOrigins: string[];
     // (undocumented)
     answerFiles: AnswerFiles;
-    fetchPool?: FileFetchPool;
+    fetchPool?: {
+        -readonly [K in keyof FileFetchPool]: FileFetchPool[K];
+    } | undefined;
     // (undocumented)
     fetchTimeout: Milliseconds;
     // (undocumented)
