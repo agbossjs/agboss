@@ -34,6 +34,7 @@
         "caller": "a",
         "category": "agents",
         "model": "m",
+        "provider": "openrouter",
         "inputTokens": 1,
         "outputTokens": 1,
         "cacheReadTokens": 0,
@@ -51,7 +52,7 @@
   },
   "threadId": "t-1",
   "tenantId": "default",
-  "ternId": "turn-1",
+  "turnId": "turn-1",
   "data": {
     "scope": {
       "v1": {
@@ -81,7 +82,7 @@
         ],
         "isQuorumReached": false,
         "group": {
-          "agents": ["a"],
+          "targets": ["a"],
           "priority": 1
         }
       }
@@ -138,6 +139,7 @@
               "caller": "a",
               "category": "agents",
               "model": "m",
+              "provider": "openrouter",
               "inputTokens": 1,
               "outputTokens": 1,
               "cacheReadTokens": 0,
@@ -220,8 +222,9 @@
   "pending": [
     {
       "pauseId": "p1",
-      "answeredBy": "channel",
-      "agent": "clerk-agent",
+      "kind": "approval",
+      "answerer": "channel",
+      "step": "clerk-agent",
       "channel": "refund-approval-channel",
       "ask": {
         "callId": "call-1",

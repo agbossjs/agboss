@@ -1,5 +1,5 @@
 /**
- * #934 D1 / D2: a stored value that is neither the 0.1.0 shape nor the new one is refused — in the
+ * #934 D1 / D2: a stored value that is not the shape 0.1.1 writes is refused — in the
  * history record (its pauses and its children's, at any depth), in the answer log and in a pause's
  * answer column alike — with `StoredNamesUnreadableError` naming the record's id and the field, never
  * the value. Rows are inserted as a damaged file would hold them.
@@ -15,12 +15,12 @@ import { StoredNamesUnreadableError } from "../../../src/infrastructure/stored-s
 import { VirtualClock } from "../../../src/testing/clock.js";
 import { applicationOn, connectionTo, temporarySqlitePath } from "../contracts/store-kinds.js";
 import {
+  answerEntry,
+  historyRecord,
   historyRecordWith,
   leafOf,
-  oldAnswer,
-  oldHistoryRecord,
-  oldPauseJson,
-} from "./pause-names-0.1.0.fixtures.js";
+  pauseJson,
+} from "./stored-rows.fixtures.js";
 
 const SECRET = "sk-live-PLANTED-SECRET-934";
 const clock = new VirtualClock(new Date(0));
@@ -46,26 +46,17 @@ async function refusal(read: () => unknown, id: string, field: string): Promise<
 
 /** An entry as a damaged file holds it. */
 const entry = (change: Record<string, unknown>): unknown => ({
-  ...oldAnswer("run-1", "channel", "manager-17"),
+  ...answerEntry("run-1", "channel", "manager-17"),
   ...change,
 });
 
-/** Entries neither shape accepts, with the field the refusal names. */
+/** Entries the reader refuses, with the field the refusal names. */
 const BAD_ENTRIES: readonly (readonly [string, Record<string, unknown>, string])[] = [
-  ["a 0.1.0 entry with a junk answerer", { answerer: "<junk>" }, "answerer"],
-  [
-    "a new entry whose answeredBy is an object",
-    { answerer: "channel", answeredBy: { t: SECRET } },
-    "answeredBy",
-  ],
-  [
-    "a new entry whose answeredBy is a number",
-    { answerer: "channel", answeredBy: 42 },
-    "answeredBy",
-  ],
-  ["a 0.1.0 entry whose answeredBy is no kind", { answeredBy: SECRET }, "answeredBy"],
-  ["a 0.1.0 entry whose responder is a number", { responder: 42 }, "responder"],
-  ["a 0.1.0 entry whose responder is an object", { responder: { t: SECRET } }, "responder"],
+  ["an entry with a junk answerer", { answerer: "<junk>" }, "answerer"],
+  ["an entry whose answeredBy is an object", { answeredBy: { t: SECRET } }, "answeredBy"],
+  ["an entry whose answeredBy is a number", { answeredBy: 42 }, "answeredBy"],
+  ["an entry whose responder is a number", { responder: 42 }, "responder"],
+  ["an entry whose responder is an object", { responder: { t: SECRET } }, "responder"],
 ];
 
 function historyOn(path: string, record: unknown): SqliteExecutionHistoryRepository {
@@ -100,7 +91,7 @@ async function answerLogOn(
 describe("D1: the same entry is refused on the history path and on the answer-log path", () => {
   it.each(BAD_ENTRIES)("%s", async (_name, change, field) => {
     const bad = entry(change);
-    const history = historyOn(temporarySqlitePath(), { ...oldHistoryRecord, pauses: [bad] });
+    const history = historyOn(temporarySqlitePath(), { ...historyRecord, pauses: [bad] });
     const records = await answerLogOn(temporarySqlitePath(), bad);
 
     await refusal(
@@ -140,7 +131,7 @@ describe("D2: an unreadable history record names its id and the field, nothing e
     ["a spend that is a text", { spend: SECRET }, "spend"],
     ["a step that is a number", { steps: [42] }, "steps.0"],
   ])("%s", async (_name, change, field) => {
-    const history = historyOn(temporarySqlitePath(), { ...oldHistoryRecord, ...change });
+    const history = historyOn(temporarySqlitePath(), { ...historyRecord, ...change });
 
     await refusal(() => history.findByTenantIdAndExecutionId("default", "run-1"), "run-1", field);
   });
@@ -160,7 +151,7 @@ describe("D2: an unreadable history record names its id and the field, nothing e
 
   it("an executionId that is no text: the field is named", async () => {
     const history = historyOn(temporarySqlitePath(), {
-      ...oldHistoryRecord,
+      ...historyRecord,
       executionId: { t: SECRET },
     });
 
@@ -181,12 +172,11 @@ describe("D1 / D2: a pause's answer column and the answer log", () => {
       .prepare(
         "INSERT INTO pauses (tenant_id, pause_id, step_key, root_execution_id, status, is_sent, pause, answer, resolution, resolved_at) VALUES ('default', 'p1', 'run-1:s:1', 'run-1', 'resolved', 1, ?, ?, 'replied', '2026-01-05T09:05:00.000Z')",
       )
-      .run(oldPauseJson, answer);
+      .run(pauseJson, answer);
     return new SqlitePausedExecutionRepository(connectionTo(path), clock);
   };
 
   it.each([
-    ["an answerer that is an object", { decision: 1, answerer: { t: SECRET } }, "answer.answerer"],
     ["an answeredBy that is a number", { decision: 1, answeredBy: 42 }, "answer.answeredBy"],
     ["a text instead of the answer", SECRET, "answer"],
   ])("a pause whose answer has %s names the pause and the field", async (_name, answer, field) => {

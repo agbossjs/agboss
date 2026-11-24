@@ -8,12 +8,12 @@ import { StoredNamesUnreadableError } from "../../../src/infrastructure/stored-s
 import { SqlitePausedExecutionRepository } from "../../../src/infrastructure/sqlite/sqlite-paused-execution.repository.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
 import { connectionTo, temporarySqlitePath } from "../contracts/store-kinds.js";
-import { oldPausedRun } from "./pause-names-0.1.0.fixtures.js";
+import { pausedRun } from "./stored-rows.fixtures.js";
 
 const clock = new VirtualClock(new Date(0));
 const SECRET = "ssn-078-05-1120";
 
-/** A store holding one stored run, written as given (a damaged one, or a 0.1.0 one). */
+/** A store holding one stored run, written as given (a damaged one). */
 function storeWith(
   run: Record<string, unknown>,
   edit: (json: string) => string = (json) => json,
@@ -44,13 +44,13 @@ const failureOf = async (store: SqlitePausedExecutionRepository): Promise<Error>
 
 describe("#906 D4: an unreadable stored paused run names ids and a field, not the run", () => {
   const run = {
-    ...oldPausedRun,
+    ...pausedRun,
     threadId: "thread-1",
     tenantId: "acme",
     runId: "run-1",
-    ternId: undefined,
+    turnId: undefined,
     startInput: { ssn: SECRET },
-    data: { ...Object(oldPausedRun.data), note: SECRET },
+    data: { ...Object(pausedRun.data), note: SECRET },
   };
 
   it("a run without its record's id: the message names the ids and `turnId`, nothing of the input", async () => {
@@ -90,13 +90,5 @@ describe("#906 D4: an unreadable stored paused run names ids and a field, not th
       expect(link.message).not.toContain("startInput");
       expect(link.message).not.toContain("JSON.parse");
     }
-  });
-
-  it("a run stored by 0.1.0 under `ternId` is still read", async () => {
-    const store = storeWith({ ...run, ternId: "turn-0" });
-
-    expect((await store.findByTenantIdAndThreadId("acme", "thread-1"))?.run).toMatchObject({
-      turnId: "turn-0",
-    });
   });
 });

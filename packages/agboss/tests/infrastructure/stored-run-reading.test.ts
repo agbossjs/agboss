@@ -1,42 +1,36 @@
 /**
- * #934: a paused run is read whole by the core (`pausedRunOfValue`), version tolerant.
- * `paused-run-0.1.0.json` is a run in the shape of 0.1.0's `AgentExecutionOutput` — `ternId`, a
- * pending pause with `agent` and `answeredBy` and no `kind` — written as a typed literal against the
- * published `@agboss/core@0.1.0` declarations and printed with that package. A run at current main
- * (`turnId`, `step`, `answerer`, `kind`) reads too; a wrong-typed field does not.
+ * #934: a paused run is read whole by the core (`pausedRunOfValue`). `sqlite/paused-run.json` is a run
+ * in the shape 0.1.1 writes it: `turnId`, a pending approval with `step`, `answerer` and `kind`, every
+ * usage naming its provider, a launch's group by `targets`. A wrong-typed field is refused by name.
  */
-import { readFileSync } from "node:fs";
 import { inspect } from "node:util";
 import { describe, expect, it } from "vitest";
 import { pausedRunOfValue, StoredNamesUnreadableError } from "../../src/stores/index.js";
+import { pausedRun as RUN } from "./sqlite/stored-rows.fixtures.js";
 
-const OLD: Record<string, unknown> = JSON.parse(
-  readFileSync(new URL("./sqlite/paused-run-0.1.0.json", import.meta.url), "utf8"),
-);
 const SECRET = "sk-live-PLANTED-SECRET-934";
 
 describe("a paused run is read whole", () => {
-  it("in the shape 0.1.0 wrote it: ternId is turnId, the pending pause has the new names", () => {
-    const run = pausedRunOfValue(OLD);
+  it("as 0.1.1 writes it: turnId, the pending approval, the launch's targets, the provider", () => {
+    const run = pausedRunOfValue(RUN);
 
     expect(run).toMatchObject({ turnId: "turn-1", threadId: "t-1", budgetUsd: 5 });
-    expect(run).not.toHaveProperty("ternId");
     expect(run.pending[0]).toMatchObject({
       kind: "approval",
       step: "clerk-agent",
       answerer: "channel",
-      answeredBy: "channel",
       ask: { tool: "refund" },
     });
+    expect(run.data.launches?.[0]?.group).toEqual({ targets: ["a"], priority: 1 });
     expect(run.data.launches?.[0]?.branches[0]?.nodeId).toBe("b");
     expect(run.data.compensations?.[0]?.compensated.nodeId).toBe("clerk-agent");
+    expect(run.cost.trace[0]?.provider).toBe("openrouter");
     expect(run.cost.unknownCalls).toBe(0);
   });
 
-  it("at current main: turnId, step, answerer and a question; no cost limit", () => {
-    const { ternId: _old, ...rest } = OLD;
+  it("a pending question and no cost limit", () => {
     const run = pausedRunOfValue({
-      ...rest,
+      ...RUN,
       turnId: "turn-2",
       budgetUsd: Infinity,
       pending: [
@@ -44,7 +38,6 @@ describe("a paused run is read whole", () => {
           pauseId: "p2",
           kind: "question",
           answerer: "thread-owner",
-          answeredBy: "thread-owner",
           step: "asker",
           channel: "c",
           ask: { topic: "free" },
@@ -62,15 +55,15 @@ describe("a paused run is read whole", () => {
     ["a pending list of numbers", { pending: [42] }, "pending.0"],
     [
       "a pending pause with no step",
-      { pending: [{ pauseId: "p", channel: "c", answeredBy: "channel", ask: {} }] },
+      { pending: [{ pauseId: "p", channel: "c", answerer: "channel", ask: {} }] },
       "pending.0",
     ],
     ["a budget that is a text", { budgetUsd: SECRET }, "budgetUsd"],
-    ["a run with neither turnId nor ternId", { ternId: undefined }, "turnId"],
+    ["a run with no turnId", { turnId: undefined }, "turnId"],
   ])("%s is unreadable: the ids and the field, no value", (_name, change, field) => {
     let error: unknown;
     try {
-      pausedRunOfValue({ ...OLD, ...change });
+      pausedRunOfValue({ ...RUN, ...change });
     } catch (thrown) {
       error = thrown;
     }

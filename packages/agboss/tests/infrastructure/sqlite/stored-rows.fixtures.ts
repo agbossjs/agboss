@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 
-/** What 0.1.0 wrote as JSON: a pause, an answer-log entry, a kept history record (#934). */
+/** What 0.1.1 writes as JSON: a pause, an answer-log entry, a kept history record, a paused run. */
 
 export const STEP = {
   component: { name: "clerk-agent", kind: "agent" },
@@ -11,8 +11,8 @@ export const STEP = {
   validationAttempts: 0,
 };
 
-/** A 0.1.0 pause row's JSON: `answeredBy` is who may answer. */
-export const oldPauseJson = JSON.stringify({
+/** A pause row's JSON: `answerer` is who may answer. */
+export const pauseJson = JSON.stringify({
   threadId: "t-1",
   executionId: "run-1",
   workflow: "desk-workflow",
@@ -24,12 +24,12 @@ export const oldPauseJson = JSON.stringify({
   step: "clerk-agent",
   component: { name: "clerk-agent", kind: "agent" },
   channel: "refund-approval-channel",
-  answeredBy: "channel",
+  answerer: "channel",
   ask: { callId: "call-1", tool: "refund", arguments: { orderId: "7" }, summary: "refund 7" },
 });
 
-/** One 0.1.0 `PauseAnswerRecord`: `answeredBy` the kind, `responder` the person. */
-export const oldAnswer = (
+/** One `PauseAnswerRecord`: `answerer` the kind, `answeredBy` the person (`responder` the same). */
+export const answerEntry = (
   executionId: string,
   kind: string,
   person: string,
@@ -38,7 +38,8 @@ export const oldAnswer = (
   executionId,
   step: STEP,
   role: "refund-approval-channel",
-  answeredBy: kind,
+  answerer: kind,
+  answeredBy: person,
   responder: person,
   resolution: "replied",
   askedAt: "2026-01-05T09:00:00.000Z",
@@ -46,7 +47,7 @@ export const oldAnswer = (
   decision: { approved: true },
 });
 
-export const oldAnswerLogEntry = oldAnswer("run-1", "channel", "manager-17");
+export const answerLogEntry = answerEntry("run-1", "channel", "manager-17");
 
 /** A kept record's tree: what a test reaches into. */
 export interface RecordTree {
@@ -55,18 +56,17 @@ export interface RecordTree {
   [field: string]: unknown;
 }
 
-const OLD_TEXT = readFileSync(new URL("./history-record-0.1.0.json", import.meta.url), "utf8");
+const RECORD_TEXT = readFileSync(new URL("./history-record.json", import.meta.url), "utf8");
 
 /**
- * A 0.1.0 `ExecutionHistoryRecord` in full (`history-record-0.1.0.json`: written as a typed literal
- * against the published `@agboss/core@0.1.0` declarations): the root's pauses, a child's, and the
- * child's child's.
+ * An `ExecutionHistoryRecord` in full (`history-record.json`): the root's pauses, a child's, and the
+ * child's child's; each usage names its provider.
  */
-export const oldHistoryRecord: Record<string, unknown> = JSON.parse(OLD_TEXT);
+export const historyRecord: Record<string, unknown> = JSON.parse(RECORD_TEXT);
 
 /** A fresh copy of the record, changed by `change`. */
 export function historyRecordWith(change: (tree: RecordTree) => void): RecordTree {
-  const tree: RecordTree = JSON.parse(OLD_TEXT);
+  const tree: RecordTree = JSON.parse(RECORD_TEXT);
   change(tree);
   return tree;
 }
@@ -79,7 +79,7 @@ export function leafOf(tree: RecordTree): RecordTree {
   return leaf;
 }
 
-/** A paused run in the shape 0.1.0 wrote it (`paused-run-0.1.0.json`: `ternId`, a pending `agent`). */
-export const oldPausedRun: Record<string, unknown> = JSON.parse(
-  readFileSync(new URL("./paused-run-0.1.0.json", import.meta.url), "utf8"),
+/** A paused run (`paused-run.json`): `turnId`, a pending approval, a launch's group by `targets`. */
+export const pausedRun: Record<string, unknown> = JSON.parse(
+  readFileSync(new URL("./paused-run.json", import.meta.url), "utf8"),
 );

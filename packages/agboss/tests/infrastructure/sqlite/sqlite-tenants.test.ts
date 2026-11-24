@@ -9,7 +9,7 @@ import type { PausedExecution } from "../../../src/app/paused-runs.js";
 import { SqliteCheckpointSaver } from "../../../src/infrastructure/sqlite/sqlite-checkpoint-saver.js";
 import { SqlitePausedExecutionRepository } from "../../../src/infrastructure/sqlite/sqlite-paused-execution.repository.js";
 import { pausedRunOfValue } from "../../../src/infrastructure/stored-run.js";
-import { oldPausedRun } from "./pause-names-0.1.0.fixtures.js";
+import { pausedRun } from "./stored-rows.fixtures.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
 import { connectionTo, temporarySqlitePath } from "../contracts/store-kinds.js";
 
@@ -18,12 +18,10 @@ const clock = new VirtualClock(new Date(0));
 /** A paused run of a tenant's thread, as the app stores it. */
 const pausedOf = (tenantId: string, threadId: string): PausedExecution => ({
   run: pausedRunOfValue({
-    ...oldPausedRun,
+    ...pausedRun,
     runId: `run-${tenantId}`,
     threadId,
     tenantId,
-    turnId: "turn-1",
-    ternId: undefined,
   }),
   workflowVersion: "1.0.0",
   configHash: "hash",
