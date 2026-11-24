@@ -80,6 +80,7 @@ export function routeToActions(
           runId: state.runId,
           piiKey: state.piiKey,
           piiValues: state.piiValues,
+          turn: state.modelCalls,
           progress: loopProgressOf(state),
           fileTally: state.fileTally,
           transcripts: state.fileTranscripts,

@@ -505,10 +505,19 @@ What `onStream` hears depends on the provider kind:
   empty body, another content type, an `{error}` inside the 200) fails that call like any other
   failed call — retried under the retry policy, counted by the breaker — never as a configuration
   error.
-- **Transport providers** (`complete()`, #385) stream the whole answer as one delta at the end
-  (a streaming form is #1011).
+- **Transport providers** (`complete()`, #385) stream the whole answer as one delta at the end,
+  unless the class has `stream(request)` (#1011): it returns a `ModelProviderStream` — `{ textStream:
+  AsyncIterable<string>, result: Promise<ModelProviderStreamResult> }`, where `result` is
+  `{ usage: TokenUsage, cost?, finishReason? }` (#1311), what `complete()`'s answer holds beside its
+  text. Each chunk is a `StreamEventKind.TextDelta`; the call's usage, cost and budgets are a plain
+  call's. `result` must settle when the stream ends, fails or is aborted — after a failure, with
+  what the call used so far (the provider's rate-limit window counts it); one that never settles
+  within the provider's `timeout` is a `ModelFailure.Timeout`. A `result` that settles to anything
+  but `{ usage: { inputTokens, outputTokens }, … }` fails the call as the project's bug, never as
+  a call of zero tokens.
 - **A fallback model** streams like the primary. A primary that dies mid-stream with its breaker
-  open is answered by the fallback from the start, after a `discarded` event (`stream-broken`).
+  open is answered by the fallback from the start, after a `StreamEventKind.Discarded` event
+  (`StreamDiscardReason.StreamBroken`).
 - `agboss run` prints the answer from the result when nothing streamed.
 
 ## Fail fast: settings must fit their models

@@ -11,7 +11,7 @@ import type {
   ModelProviderRequest,
   ModelProviderResponse,
   ModelProviderStream,
-  ModelProviderStreamUsage,
+  ModelProviderStreamResult,
 } from "./transport.js";
 
 /**
@@ -19,8 +19,8 @@ import type {
  * `complete(request)` goes (transport-carrier.ts). The attempt reads up to the first chunk — a failure
  * before it is the attempt's, the retry policy's to retry, no text has gone out. After it the text
  * is read as it comes (`consume`), each wait bound by the provider's `timeout`, and the call's fate
- * is told to the breaker once, at the end: completed (the stream ended and its usage settled), failed
- * (it threw, went silent or its usage did not settle), ignored (the caller's abort, a project's bug).
+ * is told to the breaker once, at the end: completed (the stream ended and its result settled), failed
+ * (it threw, went silent or its result did not settle), ignored (the caller's abort, a project's bug).
  * A failed stream is never a success with a partial answer.
  */
 
@@ -38,7 +38,7 @@ export interface StreamedAnswer {
 export interface StreamLimits {
   readonly provider: string;
   readonly clock: Clock;
-  /** The provider's `timeout`: the longest wait for a chunk, and for the usage after the last one. */
+  /** The provider's `timeout`: the longest wait for a chunk, and for the result after the last one. */
   readonly timeout: Milliseconds;
   readonly breaker: Pick<CircuitBreaker, "recordSuccess" | "recordFailure"> | undefined;
 }
@@ -89,7 +89,7 @@ type End = "completed" | "failed" | "ignored";
 interface Reading {
   readonly iterator: AsyncIterator<string>;
   readonly first: Pull;
-  readonly usage: Promise<ModelProviderStreamUsage>;
+  readonly result: Promise<ModelProviderStreamResult>;
   readonly caller: AbortSignal | undefined;
   readonly limits: StreamLimits;
   /** Tells the SDK to stop (the request's signal): a stream that failed or stalled is not left open. */
@@ -113,10 +113,10 @@ async function tell(limits: StreamLimits, end: End): Promise<void> {
   if (end === "failed") await limits.breaker?.recordFailure();
 }
 
-/** What the call used, as far as its usage settles in time; never throws. */
+/** What the call used, as far as its result settles in time; never throws. */
 async function usedAfterFailure(reading: Reading): Promise<number> {
   try {
-    const usage = await within(reading.usage, reading.limits, reading.caller);
+    const { usage } = await within(reading.result, reading.limits, reading.caller);
     return tokensOf({ text: "", usage });
   } catch {
     return 0;
@@ -130,7 +130,7 @@ function endOf(error: unknown, caller: AbortSignal | undefined): End {
 
 /**
  * A failed read ends the call: the SDK is told to stop, the breaker is told, the room is released
- * (with the tokens its usage settles to, unless the wait itself ran out) and the error is thrown.
+ * (with the tokens its result settles to, unless the wait itself ran out) and the error is thrown.
  */
 async function failWith(
   reading: Reading,
@@ -178,14 +178,14 @@ function answerOf(reading: Reading, release: Release): StreamedAnswer {
         const isWaited = !isRanOut(error, caller) && caller?.aborted !== true;
         return await failWith(reading, release, error, isWaited);
       }
-      let end: ModelProviderStreamUsage;
+      let end: ModelProviderStreamResult;
       try {
-        end = await within(reading.usage, limits, caller);
+        end = await within(reading.result, limits, caller);
       } catch (error) {
         return await failWith(reading, release, error, false);
       }
       await tell(limits, "completed");
-      const { cost, finishReason, ...usage } = end;
+      const { usage, cost, finishReason } = end;
       await release?.(tokensOf({ text, usage }));
       return {
         text,
@@ -218,7 +218,7 @@ export function transportStreamCarrier(
         if (signal.aborted) forward();
         else signal.addEventListener("abort", forward, { once: true });
         const source = sourceOf(stream({ ...request, signal: controller.signal }), limits.provider);
-        source.usage.catch(nothing); // read at the end; a failed attempt never reads it
+        source.result.catch(nothing); // read at the end; a failed attempt never reads it
         iterator = source.textStream[Symbol.asyncIterator]();
         let first = await untilAborted(iterator.next(), signal);
         // an empty chunk is no text: a failure after it is still before the first token (retried)
@@ -228,7 +228,7 @@ export function transportStreamCarrier(
           {
             iterator,
             first,
-            usage: source.usage,
+            result: source.result,
             caller,
             limits,
             stop: (reason) => {

@@ -5,7 +5,7 @@
  * server answers; the scripted test models cannot prove it (they emit tokens for plain calls).
  */
 import { afterEach, describe, expect, it } from "vitest";
-import type { ExecutionStreamEvent } from "../../src/run/types.js";
+import { StreamEventKind, type ExecutionStreamEvent } from "../../src/run/types.js";
 import { ChatStart } from "../channels/approval.workflow.js";
 import { execute } from "../helpers/flow.js";
 import { answer, ScriptedBedrockClient } from "../models/transport/bedrock-provider.fixture.js";
@@ -29,7 +29,9 @@ const guardrailAlone = HELD_KINDS.find((kind) => kind.agent.guardrails !== undef
 if (guardrailAlone === undefined) throw new Error("no guardrail-alone variant");
 
 const deltas = (events: readonly ExecutionStreamEvent[]): string =>
-  events.flatMap((event) => (event.kind === "textDelta" ? [event.delta] : [])).join("");
+  events
+    .flatMap((event) => (event.kind === StreamEventKind.TextDelta ? [event.delta] : []))
+    .join("");
 
 describe.each(HELD_KINDS.map((kind, index) => [kind.name, kind, index] as const))(
   "#1122: a held agent with %s on an HTTP provider",
@@ -53,8 +55,10 @@ describe.each(HELD_KINDS.map((kind, index) => [kind.name, kind, index] as const)
       expect(done.output).toEqual({ text: "The answer." });
       expect(deltas(events)).toBe("The answer.");
       expect(server.requests.map((request) => request.body.stream)).toEqual([true]); // the wire is SSE (#1122: decided)
-      expect(events.filter((event) => event.kind === "textDelta").length).toBeGreaterThan(0);
-      expect(events.some((event) => event.kind === "discarded")).toBe(false);
+      expect(
+        events.filter((event) => event.kind === StreamEventKind.TextDelta).length,
+      ).toBeGreaterThan(0);
+      expect(events.some((event) => event.kind === StreamEventKind.Discarded)).toBe(false);
       await app.close();
     });
 
@@ -110,7 +114,7 @@ describe("#1122 AC2: a held agent through a fallback", () => {
 
     expect(done.output).toEqual({ text: "from backup" });
     expect(deltas(events)).toBe("from backup");
-    expect(events.some((event) => event.kind === "discarded")).toBe(false);
+    expect(events.some((event) => event.kind === StreamEventKind.Discarded)).toBe(false);
     await app.close();
   });
 });

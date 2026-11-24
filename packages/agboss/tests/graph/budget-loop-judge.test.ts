@@ -3,6 +3,7 @@
  * fakes: what the judges' models cost is counted at once (#338) and the budgets' tallied form is the loop's
  * spend, whichever way the gate ends — a pass, a send-back for a retry, or a `QualityGateError`, which carries it.
  */
+import { StreamDiscardReason } from "../../src/run/types.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CostSource, ZERO_USAGE, type UsageRecord } from "../../src/finops/usage.js";
 import { makeJudgeNode } from "../../src/graph/agent-loop/judge-node.js";
@@ -221,7 +222,7 @@ describe("#1366: what a rejection retracts and carries", () => {
     await fail.node(stateOf({ retries: 0 }), undefined).catch(() => undefined);
 
     expect(discardLast).toHaveBeenCalledTimes(2);
-    expect(discardLast).toHaveBeenCalledWith("judge-rejected");
+    expect(discardLast).toHaveBeenCalledWith(StreamDiscardReason.JudgeRejected);
   });
 
   it("a reply that passes is not retracted", async () => {

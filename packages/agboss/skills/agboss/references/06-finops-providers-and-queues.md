@@ -460,13 +460,15 @@ name, arguments }`), `usage` (`ModelProviderUsage { inputTokens, outputTokens, c
 cacheWriteTokens? }` — the rate limit's tokens and the price table's), `cost?` (exact,
   `costSource: CostSource.Api`; else the table), `finishReason?` (`FinishReason.Length`).
 - **Streaming** (optional, #1011): `stream(request): ModelProviderStream` — `{ textStream:
-AsyncIterable<string>, usage: Promise<ModelProviderUsage> }`, as the Vercel AI SDK's `streamText`
-  — makes each chunk a `textDelta` of `onStream`; without it the whole answer is one delta at the end.
+AsyncIterable<string>, result: Promise<ModelProviderStreamResult> }`, as the Vercel AI SDK's
+  `streamText`; `result` is `{ usage: TokenUsage, cost?, finishReason? }` (#1311), what the plain
+  answer holds beside its text — makes each chunk a `StreamEventKind.TextDelta` of `onStream`;
+  without it the whole answer is one delta at the end.
   Used for a call with no tools bound (a text stream carries no tool call: those go through
   `complete()`). Same attempt runner: a failure before the first chunk is retried, one after text
   fails the call (never retried, counted once by the breaker); each wait is bound by `timeout`, and
-  `usage` must settle when the stream ends, fails or is aborted (`request.signal`) — one that never
-  settles is a typed `Timeout`.
+  `result` must settle when the stream ends, fails or is aborted (`request.signal`) — after a
+  failure with what the call used so far; one that never settles is a typed `Timeout`.
 - **Failures**: throw `new ModelProviderFailureError({ failure: ModelFailure.…, retryAfter?, cause? })` — the
   retry policy retries the failures it lists, `RateLimited` pauses the whole queue for
   `retryAfter`, the breaker counts it. Any other error is not retried and counted by the breaker.

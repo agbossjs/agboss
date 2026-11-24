@@ -2,6 +2,7 @@
  * #1005 AC5: `agboss run "<task>"` without --json prints the answer — streamed from the model, or
  * from the result when nothing streamed — and prints it once.
  */
+import { StreamDiscardReason, StreamEventKind } from "@agboss/core";
 import { afterAll, describe, expect, it } from "vitest";
 import { unstreamedAnswer } from "../../src/cli/approve.js";
 import { KeptText } from "../../src/cli/kept-text.js";
@@ -65,26 +66,30 @@ describe("#1123 AC2: the kept text of a stream", () => {
   it("is the deltas of the steps that were not retracted; a retracted one is gone, a retry is another step", () => {
     const kept = new KeptText();
 
-    kept.hear({ kind: "textDelta", delta: "Let me ", step });
-    kept.hear({ kind: "textDelta", delta: "refund.", step });
-    kept.hear({ kind: "toolCall", tool: "t" });
-    kept.hear({ kind: "discarded", step, reason: "tool-turn" });
+    kept.hear({ kind: StreamEventKind.TextDelta, delta: "Let me ", step });
+    kept.hear({ kind: StreamEventKind.TextDelta, delta: "refund.", step });
+    kept.hear({ kind: StreamEventKind.ToolCall, tool: "t", step });
+    kept.hear({ kind: StreamEventKind.Discarded, step, reason: StreamDiscardReason.ToolTurn });
     expect(kept.text()).toBe("");
 
-    kept.hear({ kind: "textDelta", delta: "Done", step: { ...step, attempt: 2 } });
-    kept.hear({ kind: "textDelta", delta: "!", step: { ...step, attempt: 2 } });
-    kept.hear({ kind: "textDelta", delta: "Other", step: { ...step, agent: "b" } });
+    kept.hear({ kind: StreamEventKind.TextDelta, delta: "Done", step: { ...step, attempt: 2 } });
+    kept.hear({ kind: StreamEventKind.TextDelta, delta: "!", step: { ...step, attempt: 2 } });
+    kept.hear({ kind: StreamEventKind.TextDelta, delta: "Other", step: { ...step, agent: "b" } });
     expect(kept.text()).toBe("Done!Other");
 
-    kept.hear({ kind: "discarded", step: { ...step, attempt: 2 }, reason: "judge-rejected" });
+    kept.hear({
+      kind: StreamEventKind.Discarded,
+      step: { ...step, attempt: 2 },
+      reason: StreamDiscardReason.JudgeRejected,
+    });
     expect(kept.text()).toBe("Other");
   });
 
   it("a step that is retracted and answers again under the same key is kept again", () => {
     const kept = new KeptText();
-    kept.hear({ kind: "textDelta", delta: "old", step });
-    kept.hear({ kind: "discarded", step, reason: "tool-turn" });
-    kept.hear({ kind: "textDelta", delta: "new", step });
+    kept.hear({ kind: StreamEventKind.TextDelta, delta: "old", step });
+    kept.hear({ kind: StreamEventKind.Discarded, step, reason: StreamDiscardReason.ToolTurn });
+    kept.hear({ kind: StreamEventKind.TextDelta, delta: "new", step });
     expect(kept.text()).toBe("new");
   });
 });

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { replyWith, testWith } from "../../../src/testing/index.js";
-import type { ExecutionStreamEvent } from "../../../src/run/types.js";
+import { StreamEventKind, type ExecutionStreamEvent } from "../../../src/run/types.js";
 import { ChatStart } from "../../channels/approval.workflow.js";
 import { execute } from "../../helpers/flow.js";
 import { BEDROCK_DESK, BedrockApplication } from "../transport/bedrock-apps.fixture.js";
@@ -12,7 +12,7 @@ import { sseServer, streamOf, type SseServer } from "./sse-server.js";
 /** #1005 AC6: what streams per provider kind — a text answer is never zero deltas. */
 
 const deltas = (events: readonly ExecutionStreamEvent[]): string[] =>
-  events.flatMap((event) => (event.kind === "textDelta" ? [event.delta] : []));
+  events.flatMap((event) => (event.kind === StreamEventKind.TextDelta ? [event.delta] : []));
 
 const servers: SseServer[] = [];
 afterEach(async () => {

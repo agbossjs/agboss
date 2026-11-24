@@ -669,9 +669,6 @@ export const describeServicesWith: (environment: DescribedEnvironment | undefine
 export const directoryOf: (providers: readonly ModelProviderType[]) => ModelProviderDirectory;
 
 // @public
-export type DiscardReason = "judge-rejected" | "tool-turn" | "invalid-answer" | "stream-broken" | "failed";
-
-// @public
 export interface DraftToolCall {
     // (undocumented)
     readonly arguments: unknown;
@@ -943,20 +940,24 @@ export class ExecutionObserverManager implements Required<ExecutionObserver> {
 
 // @public
 export type ExecutionStreamEvent = {
-    readonly kind: "textDelta";
+    readonly kind: StreamEventKind.TextDelta;
     readonly delta: string;
     readonly step: StreamStep;
 }
 /** The text streamed for `step` is retracted (#1006): show it no more. */
 | {
-    readonly kind: "discarded";
+    readonly kind: StreamEventKind.Discarded;
     readonly step: StreamStep;
-    readonly reason: DiscardReason;
+    readonly reason: StreamDiscardReason;
 }
-/** An agent's tool call as it starts (#848): the tool's name only — never its arguments. */
+/**
+* An agent's tool call as it starts (#848): the tool's name only — never its arguments; `step`
+* is the model call of the visit that asked for it (#1311).
+*/
 | {
-    readonly kind: "toolCall";
+    readonly kind: StreamEventKind.ToolCall;
     readonly tool: string;
+    readonly step: StreamStep;
 };
 
 // @public

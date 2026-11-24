@@ -7,7 +7,7 @@ import type { BaseMessage } from "@langchain/core/messages";
 import type { ChatResult } from "@langchain/core/outputs";
 import { FakeListChatModel } from "@langchain/core/utils/testing";
 import { expect, it } from "vitest";
-import type { ExecutionStreamEvent } from "../../src/run/types.js";
+import { StreamEventKind, type ExecutionStreamEvent } from "../../src/run/types.js";
 import { fakeChatFactory, fakeDeps, routeTo, runText } from "../helpers.js";
 
 /** Writes its answer in two tokens and notes what the listener had heard between them. */
@@ -53,8 +53,7 @@ it("the first delta is heard before the model call ends", async () => {
   await runText("Hi", deps, { onStream: (event) => events.push(event) });
 
   expect(seen).toEqual([1]);
-  expect(events.map((event) => (event.kind === "textDelta" ? event.delta : event.kind))).toEqual([
-    "Hello",
-    " world.",
-  ]);
+  expect(
+    events.map((event) => (event.kind === StreamEventKind.TextDelta ? event.delta : event.kind)),
+  ).toEqual(["Hello", " world."]);
 });

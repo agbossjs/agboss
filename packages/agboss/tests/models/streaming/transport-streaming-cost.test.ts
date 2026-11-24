@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from "vitest";
-import type { ExecutionStreamEvent } from "../../../src/run/types.js";
+import { StreamEventKind, type ExecutionStreamEvent } from "../../../src/run/types.js";
 import { FinishReason } from "../../../src/models/index.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
 import { usd } from "../../../src/units/index.js";
@@ -23,7 +23,7 @@ import { TransportStreamCostApplication } from "./transport-streaming-cost.fixtu
  */
 
 const deltas = (events: readonly ExecutionStreamEvent[]): string[] =>
-  events.flatMap((event) => (event.kind === "textDelta" ? [event.delta] : []));
+  events.flatMap((event) => (event.kind === StreamEventKind.TextDelta ? [event.delta] : []));
 
 const reporting =
   (chunks: readonly string[], end: { cost?: number; finishReason?: FinishReason }): StreamScript =>
@@ -32,9 +32,8 @@ const reporting =
       await Promise.resolve();
       yield* chunks;
     })(),
-    usage: Promise.resolve({
-      inputTokens: 100,
-      outputTokens: 50,
+    result: Promise.resolve({
+      usage: { inputTokens: 100, outputTokens: 50, cacheReadTokens: 0, cacheWriteTokens: 0 },
       ...(end.cost === undefined ? {} : { cost: usd(end.cost) }),
       ...(end.finishReason === undefined ? {} : { finishReason: end.finishReason }),
     }),

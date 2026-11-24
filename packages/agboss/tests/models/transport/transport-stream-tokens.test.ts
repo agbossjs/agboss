@@ -1,7 +1,7 @@
 /**
  * #1366: the tokens a streamed transport call releases to the provider's per-minute window — the
- * usage's input plus output once the stream ended; after a failed read what its usage settles to, and
- * none when the wait itself ran out or the usage never came.
+ * result's input plus output once the stream ended; after a failed read what its result's usage
+ * settles to (#1311), and none when the wait itself ran out or the result never came.
  */
 import { describe, expect, it } from "vitest";
 import type { ModelProviderRequest, ModelProviderStream } from "../../../src/models/index.js";
@@ -27,6 +27,8 @@ async function* chunks(parts: readonly string[], then?: () => Promise<void>) {
 }
 
 const never = (): Promise<never> => new Promise<never>(() => undefined);
+
+const USAGE = { inputTokens: 7, outputTokens: 5, cacheReadTokens: 0, cacheWriteTokens: 0 };
 
 /** The answer of `source`, its room released into `released` (the tokens each release gave). */
 async function held(source: () => ModelProviderStream) {
@@ -61,7 +63,7 @@ describe("#1366: the tokens a streamed call releases", () => {
   it("a stream that ends well releases its input and output tokens, once", async () => {
     const { answer, released } = await held(() => ({
       textStream: chunks(["a", "b"]),
-      usage: Promise.resolve({ inputTokens: 7, outputTokens: 5 }),
+      result: Promise.resolve({ usage: USAGE }),
     }));
 
     await answer.consume(() => Promise.resolve());
@@ -69,10 +71,10 @@ describe("#1366: the tokens a streamed call releases", () => {
     expect(released).toEqual([12]);
   });
 
-  it("a read that fails releases what its usage settles to", async () => {
+  it("a read that fails releases what its result's usage settles to", async () => {
     const { answer, released } = await held(() => ({
       textStream: chunks(["a"], () => Promise.reject(new Error("the stream broke"))),
-      usage: Promise.resolve({ inputTokens: 7, outputTokens: 5 }),
+      result: Promise.resolve({ usage: USAGE }),
     }));
 
     const error = await settled(answer.consume(() => Promise.resolve()));
@@ -81,10 +83,10 @@ describe("#1366: the tokens a streamed call releases", () => {
     expect(released).toEqual([12]);
   });
 
-  it("a read that fails with no usage coming releases none", async () => {
+  it("a read that fails with no result coming releases none", async () => {
     const { answer, released } = await held(() => ({
       textStream: chunks(["a"], () => Promise.reject(new Error("the stream broke"))),
-      usage: Promise.reject(new Error("no usage")),
+      result: Promise.reject(new Error("no result")),
     }));
 
     await settled(answer.consume(() => Promise.resolve()));
@@ -92,10 +94,10 @@ describe("#1366: the tokens a streamed call releases", () => {
     expect(released).toEqual([0]);
   });
 
-  it("a wait that ran out releases none, though the usage would have counted", async () => {
+  it("a wait that ran out releases none, though the result would have counted", async () => {
     const { answer, clock, released } = await held(() => ({
       textStream: chunks(["a"], never),
-      usage: Promise.resolve({ inputTokens: 7, outputTokens: 5 }),
+      result: Promise.resolve({ usage: USAGE }),
     }));
 
     const consumed = settled(answer.consume(() => Promise.resolve()));
@@ -105,10 +107,10 @@ describe("#1366: the tokens a streamed call releases", () => {
     expect(released).toEqual([0]);
   });
 
-  it("a usage that never settles after the text releases none", async () => {
+  it("a result that never settles after the text releases none", async () => {
     const { answer, clock, released } = await held(() => ({
       textStream: chunks(["a"]),
-      usage: never(),
+      result: never(),
     }));
 
     const consumed = settled(answer.consume(() => Promise.resolve()));

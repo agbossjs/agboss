@@ -3,7 +3,11 @@
  * output of each PII action, a sensitive field's token; the deltas, joined, are the reply.
  */
 import { describe, expect } from "vitest";
-import type { ExecutionStreamEvent } from "../../src/run/types.js";
+import {
+  StreamDiscardReason,
+  StreamEventKind,
+  type ExecutionStreamEvent,
+} from "../../src/run/types.js";
 import { replyWith, routeTo, testWith, type ModelRequest } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
 import { requestText, tokensIn } from "../pii/boundary.helpers.js";
@@ -82,8 +86,8 @@ describe("#1007 AC2: a made-up token is never shown as written", () => {
       );
 
       expect(JSON.stringify(events)).not.toContain("abcdef12");
-      expect(events.find((event) => event.kind === "discarded")).toMatchObject({
-        reason: "invalid-answer",
+      expect(events.find((event) => event.kind === StreamEventKind.Discarded)).toMatchObject({
+        reason: StreamDiscardReason.InvalidAnswer,
       });
       expect(keptText(events)).toBe("Fine.");
       expect(done.output).toEqual({ text: "Fine." });

@@ -3,7 +3,7 @@ import {
   isTerminalA2ATaskState,
   type A2ATaskRecord,
 } from "../../infrastructure/a2a-task.repository.js";
-import type { ExecutionStreamEvent } from "../../run/types.js";
+import { StreamEventKind, type ExecutionStreamEvent } from "../../run/types.js";
 import { ArtifactView } from "./a2a-artifact-view.js";
 import { droppedLog, listenerOf, SubscriberQueue } from "./a2a-subscriber-queue.js";
 import { TaskWatch } from "../tasks/task-changes.js";
@@ -34,7 +34,7 @@ import {
  * what it showed with an empty last chunk (`append: false`, `lastChunk: true`) before its final
  * status (#1006). The artifact shows the text of one step at a time (`ArtifactView`): a retry, the
  * turn after a tool call or another branch starts it anew (`append: false`), a retraction of the
- * step shown (`discarded`) empties it.
+ * step shown (`StreamEventKind.Discarded`) empties it.
  */
 
 /** When a stream ends. */
@@ -157,7 +157,7 @@ const updateOf = (
 ): StreamResponse | undefined =>
   view.textOf(task, event) ??
   view.retractionOf(task, event) ??
-  (event.kind === "toolCall" ? toolEventOf(task, event.tool) : undefined);
+  (event.kind === StreamEventKind.ToolCall ? toolEventOf(task, event.tool) : undefined);
 
 /** What a changed task adds: a task over without an output replaces what its stream showed, then its last events. */
 async function* changeOf(

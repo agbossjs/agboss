@@ -5,7 +5,7 @@
  * only: `useCanary()` installs it for a test file, `canaries(events)` counts what was heard.
  */
 import { afterEach, beforeEach } from "vitest";
-import type { ExecutionStreamEvent } from "../../src/run/types.js";
+import { StreamEventKind, type ExecutionStreamEvent } from "../../src/run/types.js";
 import { ScriptedChatModel } from "../../src/testing/scripted-chat-model.js";
 
 export const CANARY = "CANARY";
@@ -33,7 +33,8 @@ export function useCanary(): void {
 
 /** How many canaries the user's stream heard. */
 export const canaries = (events: readonly ExecutionStreamEvent[]): number =>
-  events.filter((event) => event.kind === "textDelta" && event.delta === CANARY).length;
+  events.filter((event) => event.kind === StreamEventKind.TextDelta && event.delta === CANARY)
+    .length;
 
 /**
  * Scripted chat models write their text in pieces of `size` characters, as a streaming provider

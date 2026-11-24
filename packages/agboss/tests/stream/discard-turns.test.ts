@@ -8,7 +8,11 @@ import type { BaseMessage } from "@langchain/core/messages";
 import type { ChatResult } from "@langchain/core/outputs";
 import { FakeListChatModel } from "@langchain/core/utils/testing";
 import { describe, expect, it } from "vitest";
-import type { ExecutionStreamEvent } from "../../src/run/types.js";
+import {
+  StreamDiscardReason,
+  StreamEventKind,
+  type ExecutionStreamEvent,
+} from "../../src/run/types.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import {
   AskStart,
@@ -48,11 +52,11 @@ describe("#1006: text before a tool call", () => {
         attempt,
       });
       expect(events).toEqual([
-        { kind: "textDelta", delta: CANARY, step: step(1) },
-        { kind: "discarded", step: step(1), reason: "tool-turn" },
-        { kind: "toolCall", tool: "quick-lookup-tool" },
-        { kind: "textDelta", delta: CANARY, step: step(2) },
-        { kind: "textDelta", delta: "Order 7 shipped.", step: step(2) },
+        { kind: StreamEventKind.TextDelta, delta: CANARY, step: step(1) },
+        { kind: StreamEventKind.Discarded, step: step(1), reason: StreamDiscardReason.ToolTurn },
+        { kind: StreamEventKind.ToolCall, tool: "quick-lookup-tool", step: step(1) },
+        { kind: StreamEventKind.TextDelta, delta: CANARY, step: step(2) },
+        { kind: StreamEventKind.TextDelta, delta: "Order 7 shipped.", step: step(2) },
       ]);
     },
   );
@@ -89,7 +93,13 @@ describe("#1006: a call that breaks after partial chunks", () => {
       runText("Hi", deps, { onStream: (event) => events.push(event) }),
     ).rejects.toThrow();
 
-    expect(events.map((event) => event.kind)).toEqual(["textDelta", "discarded"]);
-    expect(events[1]).toMatchObject({ kind: "discarded", reason: "stream-broken" });
+    expect(events.map((event) => event.kind)).toEqual([
+      StreamEventKind.TextDelta,
+      StreamEventKind.Discarded,
+    ]);
+    expect(events[1]).toMatchObject({
+      kind: StreamEventKind.Discarded,
+      reason: StreamDiscardReason.StreamBroken,
+    });
   });
 });

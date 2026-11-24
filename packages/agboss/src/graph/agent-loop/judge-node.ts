@@ -25,6 +25,7 @@ import { countBoundOf } from "../count-limit.js";
 import type { JudgedFiles } from "./judge-files.js";
 import { lazyLoad } from "../../infrastructure/clock.js";
 import { agentStreamOf } from "../../run/stream/agent-stream.js";
+import { StreamDiscardReason } from "../../run/types.js";
 
 /**
  * The class of each value of the answer (#262 S125): the class of the answer tool it was answered
@@ -207,7 +208,7 @@ export function makeJudgeNode(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType
     const usage = [...deps.budgets.tally(judged, state.flowPath)];
     if (rejected.length === 0) return { usage, judgeVerdicts: verdicts };
     // what the reply streamed is retracted, whether a retry follows or the agent fails (#1006)
-    agentStreamOf(config)?.discardLast("judge-rejected");
+    agentStreamOf(config)?.discardLast(StreamDiscardReason.JudgeRejected);
     if (state.retries >= maxRetries) {
       const error = new QualityGateError({
         agent,

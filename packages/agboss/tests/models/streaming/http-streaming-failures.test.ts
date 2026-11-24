@@ -1,5 +1,5 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
-import type { ExecutionStreamEvent } from "../../../src/run/types.js";
+import { StreamEventKind, type ExecutionStreamEvent } from "../../../src/run/types.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
 import { ChatStart } from "../../channels/approval.workflow.js";
 import { execute } from "../../helpers/flow.js";
@@ -22,7 +22,9 @@ afterEach(async () => {
 });
 
 const deltas = (events: readonly ExecutionStreamEvent[]): string =>
-  events.flatMap((event) => (event.kind === "textDelta" ? [event.delta] : [])).join("");
+  events
+    .flatMap((event) => (event.kind === StreamEventKind.TextDelta ? [event.delta] : []))
+    .join("");
 
 const afterHello: SseScript["steps"] = [sseEvents(chunk({ content: "Hel" }))];
 const providerError = (code: unknown): unknown => ({ error: { code, message: "provider failed" } });

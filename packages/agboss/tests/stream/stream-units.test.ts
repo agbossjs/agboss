@@ -5,7 +5,11 @@ import { STREAM_DISCARD_EVENT } from "../../src/models/stream-discard.js";
 import { AgentStream, AttemptStream } from "../../src/run/stream/agent-stream.js";
 import { AnswerTokenHandler, withAnswerHandler } from "../../src/run/stream/answer-handler.js";
 import { RunStream } from "../../src/run/stream/run-stream.js";
-import type { ExecutionStreamEvent } from "../../src/run/types.js";
+import {
+  StreamDiscardReason,
+  StreamEventKind,
+  type ExecutionStreamEvent,
+} from "../../src/run/types.js";
 
 const SITE = { agent: "a-agent", visit: 1, branch: "e1" };
 
@@ -18,8 +22,8 @@ function sinkOf(): { sink: RunStream; heard: ExecutionStreamEvent[] } {
 /** What a consumer shows: a delta as its text, a retraction as `[reason]`. */
 const told = (heard: readonly ExecutionStreamEvent[]): string[] =>
   heard.flatMap((event) => {
-    if (event.kind === "textDelta") return [event.delta];
-    return event.kind === "discarded" ? [`[${event.reason}]`] : [];
+    if (event.kind === StreamEventKind.TextDelta) return [event.delta];
+    return event.kind === StreamEventKind.Discarded ? [`[${event.reason}]`] : [];
   });
 
 describe("RunStream: a throwing listener", () => {
@@ -40,9 +44,9 @@ describe("RunStream: a throwing listener", () => {
       { executionId: "e1", tenantId: "t1" },
     );
 
-    stream.emit({ kind: "toolCall", tool: "x" });
-    stream.emit({ kind: "toolCall", tool: "x" });
-    stream.emit({ kind: "toolCall", tool: "x" });
+    stream.emit({ kind: StreamEventKind.ToolCall, tool: "x", step: { ...SITE, attempt: 1 } });
+    stream.emit({ kind: StreamEventKind.ToolCall, tool: "x", step: { ...SITE, attempt: 1 } });
+    stream.emit({ kind: StreamEventKind.ToolCall, tool: "x", step: { ...SITE, attempt: 1 } });
 
     expect(calls).toBe(3); // every event still goes to the listener
     expect(logged).toHaveLength(1);
@@ -61,7 +65,7 @@ describe("RunStream: a throwing listener", () => {
     };
     new RunStream(() => {
       throw JSON.parse('"text"'); // a listener may throw anything: a string here
-    }, log).emit({ kind: "toolCall", tool: "x" });
+    }, log).emit({ kind: StreamEventKind.ToolCall, tool: "x", step: { ...SITE, attempt: 1 } });
 
     expect(messages).toHaveLength(1);
     expect(messages[0]).toContain("(string)");
@@ -73,7 +77,7 @@ describe("RunStream: a throwing listener", () => {
     });
 
     expect(() => {
-      stream.emit({ kind: "toolCall", tool: "x" });
+      stream.emit({ kind: StreamEventKind.ToolCall, tool: "x", step: { ...SITE, attempt: 1 } });
     }).not.toThrow();
   });
 });
@@ -85,13 +89,17 @@ describe("AttemptStream: one model call's text", () => {
 
     attempt.push("Hel");
     attempt.push("lo");
-    attempt.discard("judge-rejected");
-    attempt.discard("failed");
+    attempt.discard(StreamDiscardReason.JudgeRejected);
+    attempt.discard(StreamDiscardReason.Failed);
 
     expect(heard).toEqual([
-      { kind: "textDelta", delta: "Hel", step: { ...SITE, attempt: 2 } },
-      { kind: "textDelta", delta: "lo", step: { ...SITE, attempt: 2 } },
-      { kind: "discarded", step: { ...SITE, attempt: 2 }, reason: "judge-rejected" },
+      { kind: StreamEventKind.TextDelta, delta: "Hel", step: { ...SITE, attempt: 2 } },
+      { kind: StreamEventKind.TextDelta, delta: "lo", step: { ...SITE, attempt: 2 } },
+      {
+        kind: StreamEventKind.Discarded,
+        step: { ...SITE, attempt: 2 },
+        reason: StreamDiscardReason.JudgeRejected,
+      },
     ]);
   });
 
@@ -100,7 +108,7 @@ describe("AttemptStream: one model call's text", () => {
     const attempt = new AgentStream(sink, SITE, false).begin(1);
 
     attempt.push("   "); // leading whitespace is not streamed
-    attempt.discard("failed");
+    attempt.discard(StreamDiscardReason.Failed);
 
     expect(heard).toEqual([]);
   });
@@ -109,7 +117,7 @@ describe("AttemptStream: one model call's text", () => {
     const { sink, heard } = sinkOf();
     const attempt = new AgentStream(sink, SITE, false).begin(1);
     attempt.push("a");
-    attempt.discard("failed");
+    attempt.discard(StreamDiscardReason.Failed);
 
     attempt.push("b");
     attempt.end();
@@ -163,9 +171,9 @@ describe("AttemptStream: one model call's text", () => {
     const { sink, heard } = sinkOf();
     const attempt = new AgentStream(sink, SITE, false).begin(1, { "<email:9cf08e>": "a@b.c" });
     attempt.push("one <email:9c"); // a token half written: held
-    attempt.restart("stream-broken");
+    attempt.restart(StreamDiscardReason.StreamBroken);
     attempt.push("f08e> two"); // the old half is forgotten: this is plain text now
-    attempt.restart("stream-broken");
+    attempt.restart(StreamDiscardReason.StreamBroken);
     attempt.push("  fresh <email:9cf08e>"); // the leading whitespace is trimmed again, the token revealed
     attempt.end();
 
@@ -182,10 +190,10 @@ describe("AttemptStream: one model call's text", () => {
     const { sink, heard } = sinkOf();
     const attempt = new AgentStream(sink, SITE, false).begin(1);
     attempt.push("a");
-    attempt.restart("stream-broken");
+    attempt.restart(StreamDiscardReason.StreamBroken);
 
-    attempt.discard("failed"); // nothing was shown since the restart
-    attempt.restart("stream-broken");
+    attempt.discard(StreamDiscardReason.Failed); // nothing was shown since the restart
+    attempt.restart(StreamDiscardReason.StreamBroken);
     attempt.push("<email:9cf08e>"); // no map: shown as written
 
     expect(told(heard)).toEqual(["a", "[stream-broken]", "<email:9cf08e>"]);
@@ -195,9 +203,9 @@ describe("AttemptStream: one model call's text", () => {
     const { sink, heard } = sinkOf();
     const attempt = new AgentStream(sink, SITE, false).begin(1);
 
-    attempt.restart("stream-broken");
+    attempt.restart(StreamDiscardReason.StreamBroken);
     attempt.push("x");
-    attempt.discard("failed");
+    attempt.discard(StreamDiscardReason.Failed);
 
     expect(told(heard)).toEqual(["x", "[failed]"]);
   });
@@ -206,11 +214,11 @@ describe("AttemptStream: one model call's text", () => {
     const { sink, heard } = sinkOf();
     const attempt = new AgentStream(sink, SITE, false).begin(1);
     attempt.push("a");
-    attempt.discard("judge-rejected");
+    attempt.discard(StreamDiscardReason.JudgeRejected);
 
-    attempt.restart("stream-broken");
+    attempt.restart(StreamDiscardReason.StreamBroken);
     attempt.push("b");
-    attempt.discard("failed");
+    attempt.discard(StreamDiscardReason.Failed);
 
     expect(told(heard)).toEqual(["a", "[judge-rejected]", "b", "[failed]"]);
   });
@@ -235,7 +243,7 @@ describe("AttemptStream: a held attempt", () => {
     const attempt = new AgentStream(sink, SITE, true).begin(1);
 
     attempt.push("secret");
-    attempt.discard("judge-rejected");
+    attempt.discard(StreamDiscardReason.JudgeRejected);
     attempt.release();
 
     expect(heard).toEqual([]);
@@ -247,8 +255,8 @@ describe("AttemptStream: a held attempt", () => {
     attempt.push("ok");
     attempt.release();
 
-    attempt.discard("failed");
-    attempt.discard("failed");
+    attempt.discard(StreamDiscardReason.Failed);
+    attempt.discard(StreamDiscardReason.Failed);
 
     expect(told(heard)).toEqual(["ok", "[failed]"]);
   });
@@ -258,7 +266,7 @@ describe("AttemptStream: a held attempt", () => {
     const attempt = new AgentStream(sink, SITE, true).begin(1);
 
     attempt.release();
-    attempt.discard("failed");
+    attempt.discard(StreamDiscardReason.Failed);
 
     expect(heard).toEqual([]);
   });
@@ -273,12 +281,16 @@ describe("AgentStream: a visit", () => {
     const second = visit.begin(2);
     second.push("two");
 
-    visit.discardLast("judge-rejected");
+    visit.discardLast(StreamDiscardReason.JudgeRejected);
 
     expect(heard).toEqual([
-      { kind: "textDelta", delta: "one", step: { ...SITE, attempt: 1 } },
-      { kind: "textDelta", delta: "two", step: { ...SITE, attempt: 2 } },
-      { kind: "discarded", step: { ...SITE, attempt: 2 }, reason: "judge-rejected" },
+      { kind: StreamEventKind.TextDelta, delta: "one", step: { ...SITE, attempt: 1 } },
+      { kind: StreamEventKind.TextDelta, delta: "two", step: { ...SITE, attempt: 2 } },
+      {
+        kind: StreamEventKind.Discarded,
+        step: { ...SITE, attempt: 2 },
+        reason: StreamDiscardReason.JudgeRejected,
+      },
     ]);
   });
 
@@ -307,7 +319,7 @@ describe("AgentStream: a visit", () => {
     const { sink, heard } = sinkOf();
     const visit = new AgentStream(sink, SITE, false);
 
-    visit.discardLast("judge-rejected");
+    visit.discardLast(StreamDiscardReason.JudgeRejected);
     visit.fail();
     visit.release();
 

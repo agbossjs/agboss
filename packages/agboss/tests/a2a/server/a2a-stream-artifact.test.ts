@@ -9,7 +9,7 @@ import { InMemoryTaskStore, ResultManager, ServerCallContext } from "@a2a-js/sdk
 import { describe, expect } from "vitest";
 import { callTool, replyWith, testWith } from "../../../src/testing/index.js";
 import { execute } from "../../helpers/flow.js";
-import type { ExecutionStreamEvent } from "../../../src/run/types.js";
+import { StreamEventKind, type ExecutionStreamEvent } from "../../../src/run/types.js";
 import {
   AskStart,
   Desk,
@@ -164,7 +164,7 @@ describe("#848: an agent's own tool call is streamed — no event injected", () 
     );
     const heard: ExecutionStreamEvent[] = [];
 
-    await execute(
+    const done = await execute(
       app,
       AskStart,
       { text: "where is order 7?" },
@@ -173,12 +173,14 @@ describe("#848: an agent's own tool call is streamed — no event injected", () 
       },
     );
 
-    expect(heard.filter((event) => event.kind === "toolCall")).toEqual([
-      { kind: "toolCall", tool: "quick-lookup-tool" },
+    // the step of the model call that asked for it (#1311): the visit's first
+    const step = { agent: "desk-agent", visit: 1, branch: done.executionId, attempt: 1 };
+    expect(heard.filter((event) => event.kind === StreamEventKind.ToolCall)).toEqual([
+      { kind: StreamEventKind.ToolCall, tool: "quick-lookup-tool", step },
     ]);
-    const call = heard.findIndex((event) => event.kind === "toolCall");
+    const call = heard.findIndex((event) => event.kind === StreamEventKind.ToolCall);
     const answer = heard.findIndex(
-      (event) => event.kind === "textDelta" && event.delta.includes("shipped"),
+      (event) => event.kind === StreamEventKind.TextDelta && event.delta.includes("shipped"),
     );
     expect(call).toBeLessThan(answer);
   });
@@ -200,13 +202,14 @@ describe("#848: an agent's own tool call is streamed — no event injected", () 
       {
         onStream: (event) => {
           heard.push(event);
-          if (event.kind === "toolCall") throw new Error("the stream's socket closed");
+          if (event.kind === StreamEventKind.ToolCall)
+            throw new Error("the stream's socket closed");
         },
       },
     );
 
     expect(result.output).toEqual({ text: "Order 7 shipped." });
     expect(result.toolCalls.map((call) => call.status)).toEqual(["succeeded"]);
-    expect(heard.some((event) => event.kind === "toolCall")).toBe(true);
+    expect(heard.some((event) => event.kind === StreamEventKind.ToolCall)).toBe(true);
   });
 });

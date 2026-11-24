@@ -746,7 +746,7 @@ export class AuditToolInterceptor implements AfterToolCall {
 ## Running the application
 
 <!-- snippet-context
-import { createApp } from "@agboss/core";
+import { createApp, StreamEventKind } from "@agboss/core";
 import { DeskApplication } from "./src/desk.application.js";
 import { DeskWorkflowStart } from "./src/desk/workflows/desk/desk.workflow-start.js";
 -->
@@ -765,11 +765,12 @@ const first = await app.execute(
     ownerId: "customer-17", // another owner on this thread → ThreadOwnerError
     signal: controller.signal,
     onStream: (event) => {
-      if (event.kind === "toolCall") return; // the tool's name only: a "working…" hint
+      if (event.kind === StreamEventKind.ToolCall) return; // the name only: a "working…" hint
       const { agent, visit, branch, attempt } = event.step;
       const key = `${branch}/${agent}#${visit}/${attempt}`; // streamed text is provisional, per step
-      if (event.kind === "textDelta") shown.set(key, (shown.get(key) ?? "") + event.delta);
-      else shown.delete(key); // "discarded": a judge rejected it, a tool turn, a retry, a failure
+      if (event.kind === StreamEventKind.TextDelta)
+        shown.set(key, (shown.get(key) ?? "") + event.delta);
+      else shown.delete(key); // Discarded: a judge rejected it, a tool turn, a retry, a failure
     },
   },
 );
@@ -789,16 +790,18 @@ await app.close(); // onStop → running executions awaited → onDestroy
 ```
 
 - **What `onStream` carries**: only the agent's own answering call streams (routers, judges,
-  guardrails, PII detection and the like are silent). Events: `{ kind: "textDelta", delta, step }`,
-  `{ kind: "discarded", step, reason }` (`judge-rejected`, `tool-turn`, `invalid-answer`,
-  `stream-broken`, `failed`) and `{ kind: "toolCall", tool }` (the name only). **Streamed text is
-  provisional**: `step` is `{ agent, visit, branch, attempt }`; a `discarded` event retracts
+  guardrails, PII detection and the like are silent). Events (`StreamEventKind`, #1311):
+  `{ kind: StreamEventKind.TextDelta, delta, step }`,
+  `{ kind: StreamEventKind.Discarded, step, reason }` (a `StreamDiscardReason`:
+  `JudgeRejected` = `"judge-rejected"`, `ToolTurn`, `InvalidAnswer`, `StreamBroken`, `Failed`) and
+  `{ kind: StreamEventKind.ToolCall, tool, step }` (the name only; `step` is the model call that asked for it). **Streamed text is provisional**:
+  `step` is `{ agent, visit, branch, attempt }`; a `StreamEventKind.Discarded` event retracts
   everything streamed for that step, and the deltas of the steps never discarded, joined, are
-  `output` — so keep a buffer per step key and drop it on `discarded` (or print `result.output` at
-  the end). Under a **blocking output check** (an output guardrail, a PII policy with a block rule)
-  the text is held until the checks passed: a refused answer never reaches the stream. With PII
-  policies a token the model wrote (`<email:9cf08e>`) is revealed as the run's value; leading
-  whitespace is not streamed and trailing whitespace waits for the text after it. A listener that
+  `output` — so keep a buffer per step key and drop it on `StreamEventKind.Discarded` (or print
+  `result.output` at the end). Under a **blocking output check** (an output guardrail, a PII policy
+  with a block rule) the text is held until the checks passed: a refused answer never reaches the
+  stream. With PII policies a token the model wrote (`<email:9cf08e>`) is revealed as the run's
+  value; leading whitespace is not streamed and trailing whitespace waits for the text after it. A listener that
   throws never fails the run: it is logged once per run (`stream.listener-failed`).
 - **`executionId` vs `threadId`**: an execution is one pass of `app.execute` (or a resume); a thread
   is the conversation of many executions, keyed by `tenantId` + `threadId`. Without a `threadId` a

@@ -2246,13 +2246,9 @@ export interface Summary {
 
 // @public
 export interface TokenUsage {
-    // (undocumented)
     readonly cacheReadTokens: number;
-    // (undocumented)
     readonly cacheWriteTokens: number;
-    // (undocumented)
     readonly inputTokens: number;
-    // (undocumented)
     readonly outputTokens: number;
 }
 
@@ -2476,10 +2472,6 @@ export interface WrittenLedgerMark {
 // src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Files".
 // src/finops/ledger-mark.ts - (ae-undocumented) Missing documentation for "state".
 // src/finops/ledger-mark.ts - (ae-undocumented) Missing documentation for "state".
-// src/finops/usage.ts - (ae-undocumented) Missing documentation for "inputTokens".
-// src/finops/usage.ts - (ae-undocumented) Missing documentation for "outputTokens".
-// src/finops/usage.ts - (ae-undocumented) Missing documentation for "cacheReadTokens".
-// src/finops/usage.ts - (ae-undocumented) Missing documentation for "cacheWriteTokens".
 // src/finops/usage.ts - (ae-undocumented) Missing documentation for "caller".
 // src/finops/usage.ts - (ae-undocumented) Missing documentation for "model".
 // src/finops/usage.ts - (ae-undocumented) Missing documentation for "costUsd".

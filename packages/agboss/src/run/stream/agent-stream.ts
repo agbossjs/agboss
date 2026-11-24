@@ -1,6 +1,6 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
 import type { PiiTokenMap } from "../../pii/tokens.js";
-import type { DiscardReason, StreamStep } from "../types.js";
+import { StreamDiscardReason, StreamEventKind, type StreamStep } from "../types.js";
 import type { RunStream } from "./run-stream.js";
 import { Trimmer } from "./trim.js";
 import { Unmasker } from "./unmask.js";
@@ -39,7 +39,7 @@ export class AttemptStream {
    * The model answers again from the start inside this call (a fallback, #1005): what reached the
    * consumer is retracted, what was held dropped, and the new text streams as this attempt's.
    */
-  restart(reason: DiscardReason): void {
+  restart(reason: StreamDiscardReason): void {
     this.discard(reason);
     this.#discarded = false;
     this.#emitted = false;
@@ -66,22 +66,22 @@ export class AttemptStream {
       return;
     }
     this.#emitted = true;
-    this.sink.emit({ kind: "textDelta", delta: shown, step: this.step });
+    this.sink.emit({ kind: StreamEventKind.TextDelta, delta: shown, step: this.step });
   }
 
   /** Retracts the attempt: what reached the consumer is discarded, what was held is dropped. */
-  discard(reason: DiscardReason): void {
+  discard(reason: StreamDiscardReason): void {
     if (this.#discarded) return;
     this.#discarded = true;
     this.#held.length = 0;
-    if (this.#emitted) this.sink.emit({ kind: "discarded", step: this.step, reason });
+    if (this.#emitted) this.sink.emit({ kind: StreamEventKind.Discarded, step: this.step, reason });
   }
 
   /** The held text, now that the visit's checks passed (a retracted attempt holds none). */
   release(): void {
     for (const token of this.#held.splice(0)) {
       this.#emitted = true;
-      this.sink.emit({ kind: "textDelta", delta: token, step: this.step });
+      this.sink.emit({ kind: StreamEventKind.TextDelta, delta: token, step: this.step });
     }
   }
 }
@@ -103,14 +103,22 @@ export class AgentStream {
     return stream;
   }
 
+  /**
+   * A tool call of the visit as it starts (#848): its name only, never its arguments, under the step
+   * of the model call that asked for it (#1311) — that call's `attempt`.
+   */
+  toolCall(tool: string, attempt: number): void {
+    this.sink.emit({ kind: StreamEventKind.ToolCall, tool, step: { ...this.site, attempt } });
+  }
+
   /** The latest attempt is rejected (a judge). */
-  discardLast(reason: DiscardReason): void {
+  discardLast(reason: StreamDiscardReason): void {
     this.#last?.discard(reason);
   }
 
   /** The visit ended in failure: what is still shown is retracted, what is held is dropped. */
   fail(): void {
-    this.#last?.discard("failed");
+    this.#last?.discard(StreamDiscardReason.Failed);
   }
 
   /** The visit's checks passed: a held answer goes out now. */

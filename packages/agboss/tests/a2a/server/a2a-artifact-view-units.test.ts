@@ -4,7 +4,7 @@ import { ArtifactView } from "../../../src/a2a/server/a2a-artifact-view.js";
 import { A2ATaskState } from "../../../src/infrastructure/a2a-task.repository.js";
 import { InMemoryA2ATaskRepository } from "../../../src/infrastructure/in-memory-a2a-task.repository.js";
 import { InMemoryDatabase } from "../../../src/infrastructure/in-memory-database.js";
-import type { StreamStep } from "../../../src/run/types.js";
+import { StreamDiscardReason, StreamEventKind, type StreamStep } from "../../../src/run/types.js";
 import { savedTask, WORKING } from "./support/unit-parts.js";
 
 const STEP: StreamStep = { agent: "desk-agent", visit: 1, branch: "execution-1", attempt: 1 };
@@ -22,7 +22,7 @@ function shapeOf(response: ReturnType<ArtifactView["textOf"]>) {
 }
 
 const delta = (text: string, step: StreamStep = STEP) =>
-  ({ kind: "textDelta", delta: text, step }) as const;
+  ({ kind: StreamEventKind.TextDelta, delta: text, step }) as const;
 
 describe("ArtifactView.textOf", () => {
   it("the first delta starts the artifact, the next of the same step appends", async () => {
@@ -58,8 +58,16 @@ describe("ArtifactView.textOf", () => {
     const view = new ArtifactView();
     const task = await taskOf();
 
-    expect(view.textOf(task, { kind: "toolCall", tool: "t" })).toBeUndefined();
-    expect(view.textOf(task, { kind: "discarded", step: STEP, reason: "failed" })).toBeUndefined();
+    expect(
+      view.textOf(task, { kind: StreamEventKind.ToolCall, tool: "t", step: STEP }),
+    ).toBeUndefined();
+    expect(
+      view.textOf(task, {
+        kind: StreamEventKind.Discarded,
+        step: STEP,
+        reason: StreamDiscardReason.Failed,
+      }),
+    ).toBeUndefined();
   });
 
   it("restart() makes the next delta start the artifact over", async () => {
@@ -78,7 +86,11 @@ describe("ArtifactView.retractionOf", () => {
     const view = new ArtifactView();
     const task = await taskOf();
     view.textOf(task, delta("a"));
-    const event = { kind: "discarded", step: STEP, reason: "judge-rejected" } as const;
+    const event = {
+      kind: StreamEventKind.Discarded,
+      step: STEP,
+      reason: StreamDiscardReason.JudgeRejected,
+    } as const;
 
     expect(shapeOf(view.retractionOf(task, event))).toMatchObject({
       append: false,
@@ -98,9 +110,9 @@ describe("ArtifactView.retractionOf", () => {
     view.textOf(task, delta("a"));
 
     const chunk = view.retractionOf(task, {
-      kind: "discarded",
+      kind: StreamEventKind.Discarded,
       step: { ...STEP, ...change },
-      reason: "failed",
+      reason: StreamDiscardReason.Failed,
     });
 
     expect(chunk).toBeUndefined();
@@ -111,9 +123,13 @@ describe("ArtifactView.retractionOf", () => {
     const view = new ArtifactView();
     const task = await taskOf();
 
-    expect(view.retractionOf(task, { kind: "discarded", step: STEP, reason: "failed" })).toBe(
-      undefined,
-    );
+    expect(
+      view.retractionOf(task, {
+        kind: StreamEventKind.Discarded,
+        step: STEP,
+        reason: StreamDiscardReason.Failed,
+      }),
+    ).toBe(undefined);
     view.textOf(task, delta("a"));
     expect(view.retractionOf(task, delta("b"))).toBeUndefined();
   });

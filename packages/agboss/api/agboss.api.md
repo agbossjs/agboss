@@ -2345,9 +2345,6 @@ export interface DepthLimitExceededErrorOptions {
 }
 
 // @public
-export type DiscardReason = "judge-rejected" | "tool-turn" | "invalid-answer" | "stream-broken" | "failed";
-
-// @public
 export interface DtoBrands {
     // (undocumented)
     readonly [notGenerated]?: never;
@@ -3361,20 +3358,24 @@ export interface ExecutionStepRecord {
 
 // @public
 export type ExecutionStreamEvent = {
-    readonly kind: "textDelta";
+    readonly kind: StreamEventKind.TextDelta;
     readonly delta: string;
     readonly step: StreamStep;
 }
 /** The text streamed for `step` is retracted (#1006): show it no more. */
 | {
-    readonly kind: "discarded";
+    readonly kind: StreamEventKind.Discarded;
     readonly step: StreamStep;
-    readonly reason: DiscardReason;
+    readonly reason: StreamDiscardReason;
 }
-/** An agent's tool call as it starts (#848): the tool's name only — never its arguments. */
+/**
+* An agent's tool call as it starts (#848): the tool's name only — never its arguments; `step`
+* is the model call of the visit that asked for it (#1311).
+*/
 | {
-    readonly kind: "toolCall";
+    readonly kind: StreamEventKind.ToolCall;
     readonly tool: string;
+    readonly step: StreamStep;
 };
 
 // @public
@@ -9653,6 +9654,22 @@ export enum StoreTimeSource {
 }
 
 // @public
+export enum StreamDiscardReason {
+    Failed = "failed",
+    InvalidAnswer = "invalid-answer",
+    JudgeRejected = "judge-rejected",
+    StreamBroken = "stream-broken",
+    ToolTurn = "tool-turn"
+}
+
+// @public
+export enum StreamEventKind {
+    Discarded = "discarded",
+    TextDelta = "text-delta",
+    ToolCall = "tool-call"
+}
+
+// @public
 export interface StreamStep {
     readonly agent: string;
     readonly attempt: number;
@@ -9986,13 +10003,9 @@ export enum TokenLimit {
 
 // @public
 export interface TokenUsage {
-    // (undocumented)
     readonly cacheReadTokens: number;
-    // (undocumented)
     readonly cacheWriteTokens: number;
-    // (undocumented)
     readonly inputTokens: number;
-    // (undocumented)
     readonly outputTokens: number;
 }
 
@@ -11568,10 +11581,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/finops/ledger-mark.ts - (ae-undocumented) Missing documentation for "name".
 // src/finops/ledger-mark.ts - (ae-undocumented) Missing documentation for "ledgerIds".
 // src/finops/ledger-mark.ts - (ae-undocumented) Missing documentation for "prunedBefore".
-// src/finops/usage.ts - (ae-undocumented) Missing documentation for "inputTokens".
-// src/finops/usage.ts - (ae-undocumented) Missing documentation for "outputTokens".
-// src/finops/usage.ts - (ae-undocumented) Missing documentation for "cacheReadTokens".
-// src/finops/usage.ts - (ae-undocumented) Missing documentation for "cacheWriteTokens".
 // src/finops/usage.ts - (ae-undocumented) Missing documentation for "caller".
 // src/finops/usage.ts - (ae-undocumented) Missing documentation for "model".
 // src/finops/usage.ts - (ae-undocumented) Missing documentation for "costUsd".

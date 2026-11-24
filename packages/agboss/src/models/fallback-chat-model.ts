@@ -125,7 +125,7 @@ export class FallbackChatModel extends BaseChatModel {
   /**
    * The streamed call (#1005): the primary's tokens, or — its breaker open — the fallback's. A
    * primary that dies after text went out and opens its breaker is answered by the fallback from
-   * the start, after a `discarded` event: the text streamed so far is void.
+   * the start, after a `StreamEventKind.Discarded` event: the text streamed so far is void.
    */
   override async *_streamResponseChunks(
     messages: BaseMessage[],

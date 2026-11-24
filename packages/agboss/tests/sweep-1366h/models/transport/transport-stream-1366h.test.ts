@@ -124,7 +124,7 @@ const settledError = (promise: Promise<unknown>): Promise<unknown> =>
     (error: unknown) => error,
   );
 
-const USAGE = { inputTokens: 7, outputTokens: 5 };
+const USAGE = { inputTokens: 7, outputTokens: 5, cacheReadTokens: 0, cacheWriteTokens: 0 };
 
 describe("#1366: a stream that breaks the transport's contract is the project's bug", () => {
   it("a first chunk that is no string is a rejected attempt with a ModelProviderError", async () => {
@@ -135,7 +135,7 @@ describe("#1366: a stream that breaks the transport's contract is the project's 
     };
 
     const attempt = await sendOn(
-      carrierOf(() => ({ textStream: bad, usage: Promise.resolve(USAGE) })),
+      carrierOf(() => ({ textStream: bad, result: Promise.resolve({ usage: USAGE }) })),
     );
 
     expect(attempt).toMatchObject({ kind: "threw", isRejected: true });
@@ -158,7 +158,10 @@ describe("#1366: a stream that breaks the transport's contract is the project's 
         },
       }),
     };
-    const opened = carrierOf(() => ({ textStream: bad, usage: Promise.resolve(USAGE) }));
+    const opened = carrierOf(() => ({
+      textStream: bad,
+      result: Promise.resolve({ usage: USAGE }),
+    }));
     const { answer, released } = await held(opened);
 
     const error = await settledError(answer.consume(() => Promise.resolve()));
@@ -214,7 +217,9 @@ describe("#1366: the SDK's iterator is closed after a failure", () => {
   it("a failure before the first chunk closes it", async () => {
     const { textStream, returned } = iterated([() => Promise.reject(new Error("no chunk"))]);
 
-    const attempt = await sendOn(carrierOf(() => ({ textStream, usage: Promise.resolve(USAGE) })));
+    const attempt = await sendOn(
+      carrierOf(() => ({ textStream, result: Promise.resolve({ usage: USAGE }) })),
+    );
     await tick();
 
     expect(attempt.kind).toBe("threw");
@@ -223,7 +228,9 @@ describe("#1366: the SDK's iterator is closed after a failure", () => {
 
   it("a read that fails after the first chunk closes it", async () => {
     const { textStream, returned } = iterated(["a", () => Promise.reject(new Error("cut"))]);
-    const { answer } = await held(carrierOf(() => ({ textStream, usage: Promise.resolve(USAGE) })));
+    const { answer } = await held(
+      carrierOf(() => ({ textStream, result: Promise.resolve({ usage: USAGE }) })),
+    );
 
     await settledError(answer.consume(() => Promise.resolve()));
     await tick();
@@ -235,7 +242,7 @@ describe("#1366: the SDK's iterator is closed after a failure", () => {
 describe("#1366: the attempt's abort reaches the request's signal", () => {
   it("an abort after the stream opened aborts the request with the same reason, not before", async () => {
     const { textStream } = iterated(["a", never]);
-    const opened = carrierOf(() => ({ textStream, usage: Promise.resolve(USAGE) }));
+    const opened = carrierOf(() => ({ textStream, result: Promise.resolve({ usage: USAGE }) }));
     const attempt = new AbortController();
     const reason = new Error("attempt over");
 
@@ -251,7 +258,7 @@ describe("#1366: the attempt's abort reaches the request's signal", () => {
 
   it("an attempt already aborted opens the stream with an aborted request signal", async () => {
     const { textStream } = iterated(["a"]);
-    const opened = carrierOf(() => ({ textStream, usage: Promise.resolve(USAGE) }));
+    const opened = carrierOf(() => ({ textStream, result: Promise.resolve({ usage: USAGE }) }));
     const attempt = new AbortController();
     const reason = new Error("already over");
     attempt.abort(reason);
@@ -267,7 +274,10 @@ describe("#1366: the caller's abort and the wait that ran out", () => {
   it("the caller's abort ends a stalled read at once, with its own reason", async () => {
     const caller = new AbortController();
     const { textStream } = iterated(["a", never]);
-    const opened = carrierOf(() => ({ textStream, usage: Promise.resolve(USAGE) }), caller.signal);
+    const opened = carrierOf(
+      () => ({ textStream, result: Promise.resolve({ usage: USAGE }) }),
+      caller.signal,
+    );
     const { answer, released } = await held(opened);
     let end: unknown = "pending";
     const consumed = answer
@@ -295,7 +305,7 @@ describe("#1366: the caller's abort and the wait that ran out", () => {
     const caller = new AbortController();
     const { textStream } = iterated(["a", never]);
     const { answer } = await held(
-      carrierOf(() => ({ textStream, usage: Promise.resolve(USAGE) }), caller.signal),
+      carrierOf(() => ({ textStream, result: Promise.resolve({ usage: USAGE }) }), caller.signal),
     );
     const consumed = settledError(answer.consume(() => Promise.resolve()));
     await tick();
@@ -309,7 +319,10 @@ describe("#1366: the caller's abort and the wait that ran out", () => {
   it("a wait that ran out with a live caller releases none and is a typed timeout", async () => {
     const caller = new AbortController();
     const { textStream } = iterated(["a", never]);
-    const opened = carrierOf(() => ({ textStream, usage: Promise.resolve(USAGE) }), caller.signal);
+    const opened = carrierOf(
+      () => ({ textStream, result: Promise.resolve({ usage: USAGE }) }),
+      caller.signal,
+    );
     const { answer, released } = await held(opened);
 
     const consumed = settledError(answer.consume(() => Promise.resolve()));
@@ -325,7 +338,7 @@ describe("#1366: the caller's abort and the wait that ran out", () => {
     const caller = new AbortController();
     const { textStream } = iterated(["a", () => Promise.reject(new Error("cut"))]);
     const { answer, released } = await held(
-      carrierOf(() => ({ textStream, usage: Promise.resolve(USAGE) }), caller.signal),
+      carrierOf(() => ({ textStream, result: Promise.resolve({ usage: USAGE }) }), caller.signal),
     );
 
     await settledError(answer.consume(() => Promise.resolve()));
@@ -336,7 +349,9 @@ describe("#1366: the caller's abort and the wait that ran out", () => {
   it("an error that is no timeout is thrown as it is", async () => {
     const cut = new Error("cut");
     const { textStream } = iterated(["a", () => Promise.reject(cut)]);
-    const { answer } = await held(carrierOf(() => ({ textStream, usage: Promise.resolve(USAGE) })));
+    const { answer } = await held(
+      carrierOf(() => ({ textStream, result: Promise.resolve({ usage: USAGE }) })),
+    );
 
     const error = await settledError(answer.consume(() => Promise.resolve()));
 
@@ -346,7 +361,9 @@ describe("#1366: the caller's abort and the wait that ran out", () => {
   it("a timeout of the SDK itself (a TimeoutError it throws) is the typed timeout", async () => {
     const own = new DOMException("sdk timed out", "TimeoutError");
     const { textStream } = iterated(["a", () => Promise.reject(own)]);
-    const { answer } = await held(carrierOf(() => ({ textStream, usage: Promise.resolve(USAGE) })));
+    const { answer } = await held(
+      carrierOf(() => ({ textStream, result: Promise.resolve({ usage: USAGE }) })),
+    );
 
     const error = await settledError(answer.consume(() => Promise.resolve()));
 
@@ -357,7 +374,7 @@ describe("#1366: the caller's abort and the wait that ran out", () => {
 describe("#1366: every timeout timer of a read is released", () => {
   it("none is left running after a completed stream", async () => {
     const { textStream } = iterated(["a", "b"]);
-    const opened = carrierOf(() => ({ textStream, usage: Promise.resolve(USAGE) }));
+    const opened = carrierOf(() => ({ textStream, result: Promise.resolve({ usage: USAGE }) }));
     const { answer } = await held(opened);
 
     await answer.consume(() => Promise.resolve());
@@ -371,7 +388,9 @@ describe("#1366: every timeout timer of a read is released", () => {
 describe("#1366: the answer has only the fields the usage had", () => {
   it("no cost and no finishReason key when the usage has none", async () => {
     const { textStream } = iterated(["a"]);
-    const { answer } = await held(carrierOf(() => ({ textStream, usage: Promise.resolve(USAGE) })));
+    const { answer } = await held(
+      carrierOf(() => ({ textStream, result: Promise.resolve({ usage: USAGE }) })),
+    );
 
     const response = await answer.consume(() => Promise.resolve());
 

@@ -17,6 +17,9 @@ import { callStepOf, endedCallRecordOf } from "../../src/graph/agent-loop/call-r
 import { storedCallOf } from "../../src/graph/agent-loop/stored-call.js";
 import { withFiles } from "../../src/files/tool-files.js";
 import { keepStopCause } from "../../src/graph/agent-loop/tool-stops.js";
+import { StreamEventKind } from "../../src/run/types.js";
+import { AgentStream, withAgentStream } from "../../src/run/stream/agent-stream.js";
+import { RunStream } from "../../src/run/stream/run-stream.js";
 
 vi.mock("../../src/graph/agent-loop/run-tool.js", () => ({ runTool: vi.fn() }));
 vi.mock("../../src/graph/agent-loop/tool-pii.js", () => ({
@@ -81,6 +84,8 @@ const toolOf = (changes: Record<string, unknown> = {}) => ({
 });
 
 const taskOf = () => ({ callId: "c1", tool: "lookup-tool", args: { q: 1 }, runId: "run-1" });
+
+const SITE = { agent: "alpha", visit: 2, branch: "run-1" };
 
 function setup(
   options: { tool?: object | undefined; isExhausted?: boolean; observer?: object } = {},
@@ -270,14 +275,44 @@ describe("#1366: what the call tells", () => {
     });
   });
 
-  it("a stream of the run is told the tool is called", async () => {
+  it("the visit's stream is told the tool is called, under the step of the model call that asked (#1311)", async () => {
+    const { node } = setup();
+    const heard = vi.fn();
+    const run = newRunContext({ runId: "run-1", signal: undefined });
+    const visit = new AgentStream(new RunStream(heard), SITE, false);
+
+    await node({ ...taskOf(), turn: 3 }, withAgentStream({ configurable: { run } }, visit));
+
+    expect(heard).toHaveBeenCalledExactlyOnceWith({
+      kind: StreamEventKind.ToolCall,
+      tool: "lookup-tool",
+      step: { ...SITE, attempt: 3 },
+    });
+  });
+
+  it("a task of an old checkpoint (no turn) streams its call as the visit's first model call", async () => {
+    const { node } = setup();
+    const heard = vi.fn();
+    const run = newRunContext({ runId: "run-1", signal: undefined });
+    const visit = new AgentStream(new RunStream(heard), SITE, false);
+
+    await node(taskOf(), withAgentStream({ configurable: { run } }, visit));
+
+    expect(heard).toHaveBeenCalledExactlyOnceWith({
+      kind: StreamEventKind.ToolCall,
+      tool: "lookup-tool",
+      step: { ...SITE, attempt: 1 },
+    });
+  });
+
+  it("the run's own stream outside a visit is told nothing: an event has no step without one", async () => {
     const { node } = setup();
     const emit = vi.fn();
     const run = { ...newRunContext({ runId: "run-1", signal: undefined }), stream: { emit } };
 
     await node(taskOf(), { configurable: { run } });
 
-    expect(emit).toHaveBeenCalledWith({ kind: "toolCall", tool: "lookup-tool" });
+    expect(emit).not.toHaveBeenCalled();
   });
 
   it("a run with no stream is told of nothing, and the call goes on", async () => {

@@ -24,9 +24,13 @@ export interface UsageCarrier {
 
 /** inputTokens includes cached tokens (OpenAI-compatible accounting). */
 export interface TokenUsage {
+  /** The prompt's tokens, the cached ones included. */
   readonly inputTokens: number;
+  /** The answer's tokens. */
   readonly outputTokens: number;
+  /** The prompt's tokens read from the provider's cache (0 when none). */
   readonly cacheReadTokens: number;
+  /** The prompt's tokens written to the provider's cache (0 when none). */
   readonly cacheWriteTokens: number;
 }
 

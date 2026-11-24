@@ -7,7 +7,12 @@ import { TaskState, type StreamResponse } from "@a2a-js/sdk";
 import { describe, expect, it } from "vitest";
 import { A2ATaskState, type A2ATaskRecord } from "../../src/infrastructure/a2a-task.repository.js";
 import { ArtifactView } from "../../src/a2a/server/a2a-artifact-view.js";
-import type { ExecutionStreamEvent, StreamStep } from "../../src/run/types.js";
+import {
+  StreamDiscardReason,
+  StreamEventKind,
+  type ExecutionStreamEvent,
+  type StreamStep,
+} from "../../src/run/types.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import {
   AskStart,
@@ -141,7 +146,7 @@ const taskIn = (state: A2ATaskState): A2ATaskRecord => ({
   acceptedAt: new Date(0),
   statusAt: new Date(0),
 });
-const text: ExecutionStreamEvent = { kind: "textDelta", delta: "x", step: STEP };
+const text: ExecutionStreamEvent = { kind: StreamEventKind.TextDelta, delta: "x", step: STEP };
 
 describe("#1006 AC4: the view of a task that ends without an output", () => {
   for (const state of [A2ATaskState.Failed, A2ATaskState.Canceled, A2ATaskState.Rejected]) {
@@ -175,14 +180,14 @@ describe("#1006 AC4: the view of a task that ends without an output", () => {
     view.textOf(task, text);
 
     const other = view.retractionOf(task, {
-      kind: "discarded",
+      kind: StreamEventKind.Discarded,
       step: { ...STEP, branch: "other" },
-      reason: "judge-rejected",
+      reason: StreamDiscardReason.JudgeRejected,
     });
     const shown = view.retractionOf(task, {
-      kind: "discarded",
+      kind: StreamEventKind.Discarded,
       step: STEP,
-      reason: "judge-rejected",
+      reason: StreamDiscardReason.JudgeRejected,
     });
 
     expect(other).toBeUndefined();

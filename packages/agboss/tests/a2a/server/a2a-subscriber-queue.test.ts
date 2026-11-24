@@ -10,7 +10,12 @@ import {
 } from "../../../src/a2a/server/a2a-subscriber-queue.js";
 import { InMemoryA2ATaskRepository } from "../../../src/infrastructure/in-memory-a2a-task.repository.js";
 import { InMemoryDatabase } from "../../../src/infrastructure/in-memory-database.js";
-import type { ExecutionStreamEvent, StreamStep } from "../../../src/run/types.js";
+import {
+  StreamDiscardReason,
+  StreamEventKind,
+  type ExecutionStreamEvent,
+  type StreamStep,
+} from "../../../src/run/types.js";
 import { savedTask, scriptOf, unitParts, WORKING } from "./support/unit-parts.js";
 
 const STEP: StreamStep = { agent: "desk-agent", visit: 1, branch: "execution-1", attempt: 1 };
@@ -19,19 +24,23 @@ const OTHER: StreamStep = { ...STEP, attempt: 2 };
 describe("#1008: the subscriber queue", () => {
   it("adjacent deltas of one step become one chunk; another step, a tool call and a retraction stay apart", () => {
     const queue = new SubscriberQueue();
-    queue.push({ kind: "textDelta", delta: "he", step: STEP });
-    queue.push({ kind: "textDelta", delta: "llo", step: STEP });
-    queue.push({ kind: "toolCall", tool: "lookup-tool" });
-    queue.push({ kind: "textDelta", delta: "a", step: STEP });
-    queue.push({ kind: "textDelta", delta: "b", step: OTHER });
-    queue.push({ kind: "discarded", step: OTHER, reason: "judge-rejected" });
+    queue.push({ kind: StreamEventKind.TextDelta, delta: "he", step: STEP });
+    queue.push({ kind: StreamEventKind.TextDelta, delta: "llo", step: STEP });
+    queue.push({ kind: StreamEventKind.ToolCall, tool: "lookup-tool", step: STEP });
+    queue.push({ kind: StreamEventKind.TextDelta, delta: "a", step: STEP });
+    queue.push({ kind: StreamEventKind.TextDelta, delta: "b", step: OTHER });
+    queue.push({
+      kind: StreamEventKind.Discarded,
+      step: OTHER,
+      reason: StreamDiscardReason.JudgeRejected,
+    });
 
     expect(queue.take()).toStrictEqual([
-      { kind: "textDelta", delta: "hello", step: STEP },
-      { kind: "toolCall", tool: "lookup-tool" },
-      { kind: "textDelta", delta: "a", step: STEP },
-      { kind: "textDelta", delta: "b", step: OTHER },
-      { kind: "discarded", step: OTHER, reason: "judge-rejected" },
+      { kind: StreamEventKind.TextDelta, delta: "hello", step: STEP },
+      { kind: StreamEventKind.ToolCall, tool: "lookup-tool", step: STEP },
+      { kind: StreamEventKind.TextDelta, delta: "a", step: STEP },
+      { kind: StreamEventKind.TextDelta, delta: "b", step: OTHER },
+      { kind: StreamEventKind.Discarded, step: OTHER, reason: StreamDiscardReason.JudgeRejected },
     ]);
     expect(queue.isWaiting).toBe(true);
   });
@@ -40,27 +49,31 @@ describe("#1008: the subscriber queue", () => {
     const queue = new SubscriberQueue();
     const half = "x".repeat(SUBSCRIBER_MAX_BYTES / 2);
 
-    expect(queue.push({ kind: "textDelta", delta: half, step: STEP })).toBe(true);
-    expect(queue.push({ kind: "textDelta", delta: half, step: STEP })).toBe(true);
-    expect(queue.push({ kind: "textDelta", delta: "x", step: STEP })).toBe(false);
+    expect(queue.push({ kind: StreamEventKind.TextDelta, delta: half, step: STEP })).toBe(true);
+    expect(queue.push({ kind: StreamEventKind.TextDelta, delta: half, step: STEP })).toBe(true);
+    expect(queue.push({ kind: StreamEventKind.TextDelta, delta: "x", step: STEP })).toBe(false);
 
     expect(queue.isDropped).toBe(true);
     expect(queue.take()).toStrictEqual([]);
-    expect(queue.push({ kind: "toolCall", tool: "t" })).toBe(false);
+    expect(queue.push({ kind: StreamEventKind.ToolCall, tool: "t", step: STEP })).toBe(false);
   });
 
   it("bytes are counted, not characters; over the event bound the subscriber is dropped", () => {
     const wide = new SubscriberQueue();
     expect(
-      wide.push({ kind: "textDelta", delta: "é".repeat(SUBSCRIBER_MAX_BYTES / 2), step: STEP }),
+      wide.push({
+        kind: StreamEventKind.TextDelta,
+        delta: "é".repeat(SUBSCRIBER_MAX_BYTES / 2),
+        step: STEP,
+      }),
     ).toBe(true);
-    expect(wide.push({ kind: "textDelta", delta: "é", step: STEP })).toBe(false);
+    expect(wide.push({ kind: StreamEventKind.TextDelta, delta: "é", step: STEP })).toBe(false);
 
     const many = new SubscriberQueue();
     for (let index = 0; index < SUBSCRIBER_MAX_EVENTS; index += 1) {
-      expect(many.push({ kind: "toolCall", tool: "t" })).toBe(true);
+      expect(many.push({ kind: StreamEventKind.ToolCall, tool: "t", step: STEP })).toBe(true);
     }
-    expect(many.push({ kind: "toolCall", tool: "t" })).toBe(false);
+    expect(many.push({ kind: StreamEventKind.ToolCall, tool: "t", step: STEP })).toBe(false);
   });
 });
 
@@ -73,22 +86,25 @@ describe("#1048: what makes two deltas one step", () => {
   ] as const)("a delta of another %s is a chunk of its own", (_name, change) => {
     const queue = new SubscriberQueue();
 
-    queue.push({ kind: "textDelta", delta: "a", step: STEP });
-    queue.push({ kind: "textDelta", delta: "b", step: { ...STEP, ...change } });
+    queue.push({ kind: StreamEventKind.TextDelta, delta: "a", step: STEP });
+    queue.push({ kind: StreamEventKind.TextDelta, delta: "b", step: { ...STEP, ...change } });
 
-    expect(queue.take().map((event) => (event.kind === "textDelta" ? event.delta : ""))).toEqual([
-      "a",
-      "b",
-    ]);
+    expect(
+      queue.take().map((event) => (event.kind === StreamEventKind.TextDelta ? event.delta : "")),
+    ).toEqual(["a", "b"]);
   });
 
   it("a delta after a tool call or a retraction of the same step is a chunk of its own", () => {
     const queue = new SubscriberQueue();
 
-    queue.push({ kind: "discarded", step: STEP, reason: "tool-turn" });
-    queue.push({ kind: "textDelta", delta: "a", step: STEP });
-    queue.push({ kind: "toolCall", tool: "t" });
-    queue.push({ kind: "textDelta", delta: "b", step: STEP });
+    queue.push({
+      kind: StreamEventKind.Discarded,
+      step: STEP,
+      reason: StreamDiscardReason.ToolTurn,
+    });
+    queue.push({ kind: StreamEventKind.TextDelta, delta: "a", step: STEP });
+    queue.push({ kind: StreamEventKind.ToolCall, tool: "t", step: STEP });
+    queue.push({ kind: StreamEventKind.TextDelta, delta: "b", step: STEP });
 
     expect(queue.take()).toHaveLength(4);
   });
@@ -97,7 +113,7 @@ describe("#1048: what makes two deltas one step", () => {
     const queue = new SubscriberQueue();
     expect(queue.isWaiting).toBe(true);
 
-    queue.push({ kind: "toolCall", tool: "t" });
+    queue.push({ kind: StreamEventKind.ToolCall, tool: "t", step: STEP });
     expect(queue.isWaiting).toBe(false);
     queue.take();
 
@@ -115,9 +131,13 @@ describe("#1048: listenerOf", () => {
       () => told.push("drop"),
     );
 
-    listen({ kind: "toolCall", tool: "t" });
-    listen({ kind: "textDelta", delta: "x".repeat(SUBSCRIBER_MAX_BYTES + 1), step: STEP }); // behind: dropped
-    listen({ kind: "toolCall", tool: "t" }); // dropped: heard no more
+    listen({ kind: StreamEventKind.ToolCall, tool: "t", step: STEP });
+    listen({
+      kind: StreamEventKind.TextDelta,
+      delta: "x".repeat(SUBSCRIBER_MAX_BYTES + 1),
+      step: STEP,
+    }); // behind: dropped
+    listen({ kind: StreamEventKind.ToolCall, tool: "t", step: STEP }); // dropped: heard no more
 
     expect(told).toEqual(["wake", "drop", "wake"]);
     expect(queue.isDropped).toBe(true);
@@ -140,14 +160,14 @@ describe("#1048: droppedLog", () => {
 });
 
 const textOf = (events: readonly ExecutionStreamEvent[]): string[] =>
-  events.map((event) => (event.kind === "textDelta" ? event.delta : ""));
+  events.map((event) => (event.kind === StreamEventKind.TextDelta ? event.delta : ""));
 
 describe("#1140: a single large delta never drops a reader that is keeping up", () => {
   it("a delta over the byte bound, found by an empty queue, is taken as chunks that join to it", () => {
     const queue = new SubscriberQueue();
     const big = "ab".repeat(SUBSCRIBER_MAX_BYTES); // 2 MiB
 
-    expect(queue.push({ kind: "textDelta", delta: big, step: STEP })).toBe(true);
+    expect(queue.push({ kind: StreamEventKind.TextDelta, delta: big, step: STEP })).toBe(true);
 
     expect(queue.isDropped).toBe(false);
     const taken = textOf(queue.take());
@@ -160,18 +180,22 @@ describe("#1140: a single large delta never drops a reader that is keeping up", 
     const queue = new SubscriberQueue();
     const big = "x".repeat(2 * SUBSCRIBER_MAX_BYTES);
 
-    expect(queue.push({ kind: "textDelta", delta: big, step: STEP })).toBe(true);
+    expect(queue.push({ kind: StreamEventKind.TextDelta, delta: big, step: STEP })).toBe(true);
     queue.take();
-    expect(queue.push({ kind: "textDelta", delta: big, step: STEP })).toBe(true);
+    expect(queue.push({ kind: StreamEventKind.TextDelta, delta: big, step: STEP })).toBe(true);
     expect(queue.isDropped).toBe(false);
   });
 
   it("a reader already behind (something waiting) that gets a delta over the bound is dropped", () => {
     const queue = new SubscriberQueue();
-    queue.push({ kind: "toolCall", tool: "t" });
+    queue.push({ kind: StreamEventKind.ToolCall, tool: "t", step: STEP });
 
     expect(
-      queue.push({ kind: "textDelta", delta: "x".repeat(SUBSCRIBER_MAX_BYTES + 1), step: STEP }),
+      queue.push({
+        kind: StreamEventKind.TextDelta,
+        delta: "x".repeat(SUBSCRIBER_MAX_BYTES + 1),
+        step: STEP,
+      }),
     ).toBe(false);
     expect(queue.isDropped).toBe(true);
   });
@@ -181,7 +205,7 @@ describe("#1140: a single large delta never drops a reader that is keeping up", 
       const queue = new SubscriberQueue();
       const text = `${"a".repeat(lead)}😀${"b".repeat(5)}`;
 
-      queue.push({ kind: "textDelta", delta: text, step: STEP });
+      queue.push({ kind: StreamEventKind.TextDelta, delta: text, step: STEP });
       const taken = textOf(queue.take());
 
       expect(taken.join("")).toBe(text);
@@ -197,7 +221,7 @@ describe("#1140: a single large delta never drops a reader that is keeping up", 
       const queue = new SubscriberQueue();
       const text = `${"a".repeat(SUBSCRIBER_CHUNK_CHARS - 1)}${pair}${"b".repeat(3)}`;
 
-      queue.push({ kind: "textDelta", delta: text, step: STEP });
+      queue.push({ kind: StreamEventKind.TextDelta, delta: text, step: STEP });
       const taken = textOf(queue.take());
 
       expect(taken.map((piece) => piece.length)).toEqual([SUBSCRIBER_CHUNK_CHARS - 1, 5]);
@@ -209,7 +233,7 @@ describe("#1140: a single large delta never drops a reader that is keeping up", 
     const queue = new SubscriberQueue();
     const text = `${"a".repeat(SUBSCRIBER_CHUNK_CHARS - 1)}\ud83d`;
 
-    queue.push({ kind: "textDelta", delta: text, step: STEP });
+    queue.push({ kind: StreamEventKind.TextDelta, delta: text, step: STEP });
 
     expect(textOf(queue.take())).toEqual([text]);
   });
@@ -218,9 +242,9 @@ describe("#1140: a single large delta never drops a reader that is keeping up", 
     const queue = new SubscriberQueue();
     const half = "x".repeat(SUBSCRIBER_CHUNK_CHARS / 2);
 
-    queue.push({ kind: "textDelta", delta: half, step: STEP });
-    queue.push({ kind: "textDelta", delta: half, step: STEP }); // exactly one chunk: joined
-    queue.push({ kind: "textDelta", delta: "y", step: STEP }); // over it: a chunk of its own
+    queue.push({ kind: StreamEventKind.TextDelta, delta: half, step: STEP });
+    queue.push({ kind: StreamEventKind.TextDelta, delta: half, step: STEP }); // exactly one chunk: joined
+    queue.push({ kind: StreamEventKind.TextDelta, delta: "y", step: STEP }); // over it: a chunk of its own
 
     expect(textOf(queue.take()).map((piece) => piece.length)).toEqual([SUBSCRIBER_CHUNK_CHARS, 1]);
   });
@@ -228,9 +252,13 @@ describe("#1140: a single large delta never drops a reader that is keeping up", 
   it("an empty delta stays one (empty) event; a delta of exactly one chunk is not split", () => {
     const queue = new SubscriberQueue();
 
-    queue.push({ kind: "textDelta", delta: "x".repeat(SUBSCRIBER_CHUNK_CHARS), step: OTHER });
-    queue.push({ kind: "toolCall", tool: "t" });
-    queue.push({ kind: "textDelta", delta: "", step: STEP });
+    queue.push({
+      kind: StreamEventKind.TextDelta,
+      delta: "x".repeat(SUBSCRIBER_CHUNK_CHARS),
+      step: OTHER,
+    });
+    queue.push({ kind: StreamEventKind.ToolCall, tool: "t", step: STEP });
+    queue.push({ kind: StreamEventKind.TextDelta, delta: "", step: STEP });
 
     expect(textOf(queue.take()).map((piece) => piece.length)).toEqual([
       SUBSCRIBER_CHUNK_CHARS,

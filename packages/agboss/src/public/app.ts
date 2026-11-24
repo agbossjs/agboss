@@ -4,6 +4,7 @@
  * resuming, profiles, comparisons and the public configuration and run types.
  */
 export type { AppOptions } from "../app/create-app.js";
+export { StreamDiscardReason, StreamEventKind } from "../run/types.js";
 export { Application, type ApplicationOptions } from "../application/application.js";
 export { createApp } from "../application/create-app.js";
 export type { ApplicationClass, WorkflowIsNotAnApplication } from "../application/types.js";

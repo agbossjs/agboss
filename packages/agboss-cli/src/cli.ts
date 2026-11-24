@@ -1,4 +1,4 @@
-import type { App, ExecutionOutput } from "@agboss/core";
+import { StreamEventKind, type App, type ExecutionOutput } from "@agboss/core";
 import {
   createAppWith,
   executeWithoutInputCheck,
@@ -30,14 +30,14 @@ function streamTo(context: CommandContext, kept: KeptText): (event: ExecutionStr
   return (event) => {
     kept.hear(event);
     switch (event.kind) {
-      case "textDelta":
+      case StreamEventKind.TextDelta:
         reply.write(event.delta);
         break;
-      case "discarded":
+      case StreamEventKind.Discarded:
         // a terminal cannot unwrite: say what is no longer the answer, then go on from a new line
         context.warn(styleText("dim", `\n[Retracted: ${event.reason}]`));
         break;
-      case "toolCall":
+      case StreamEventKind.ToolCall:
         context.warn(styleText("dim", `\n[Agent is using tool: ${event.tool}]`));
         break;
     }

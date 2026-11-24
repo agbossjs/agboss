@@ -4,7 +4,12 @@
  */
 import { describe, expect } from "vitest";
 import { QualityGateError } from "../../src/index.js";
-import type { ExecutionStreamEvent, StreamStep } from "../../src/run/types.js";
+import {
+  StreamDiscardReason,
+  StreamEventKind,
+  type ExecutionStreamEvent,
+  type StreamStep,
+} from "../../src/run/types.js";
 import { failWith, ModelFailure, replyWith, testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
 import { keptText } from "./kept-text.js";
@@ -37,9 +42,9 @@ describe("#1006: a judge rejects an attempt", () => {
 
     const step = (attempt: number) => stepOf(done.executionId, attempt);
     expect(events).toEqual([
-      { kind: "textDelta", delta: "BAD DRAFT", step: step(1) },
-      { kind: "discarded", step: step(1), reason: "judge-rejected" },
-      { kind: "textDelta", delta: "Good answer.", step: step(2) },
+      { kind: StreamEventKind.TextDelta, delta: "BAD DRAFT", step: step(1) },
+      { kind: StreamEventKind.Discarded, step: step(1), reason: StreamDiscardReason.JudgeRejected },
+      { kind: StreamEventKind.TextDelta, delta: "Good answer.", step: step(2) },
     ]);
     expect(done.output).toEqual({ text: "Good answer." });
     expect(keptText(events)).toBe("Good answer.");
@@ -66,9 +71,11 @@ describe("#1006: a judge rejects an attempt", () => {
     expect(failure).toBeInstanceOf(QualityGateError);
     expect(
       events.map((event) =>
-        event.kind === "toolCall" ? "" : `${event.kind}:${String(event.step.attempt)}`,
+        event.kind === StreamEventKind.ToolCall
+          ? ""
+          : `${event.kind}:${String(event.step.attempt)}`,
       ),
-    ).toEqual(["textDelta:1", "discarded:1", "textDelta:2", "discarded:2"]);
+    ).toEqual(["text-delta:1", "discarded:1", "text-delta:2", "discarded:2"]);
     expect(keptText(events)).toBe("");
   });
 
@@ -84,8 +91,11 @@ describe("#1006: a judge rejects an attempt", () => {
       execute(app, AuditStart, { text: "Q" }, { onStream: (event) => events.push(event) }),
     ).rejects.toThrow();
 
-    expect(events.map((event) => event.kind)).toEqual(["textDelta", "discarded"]);
-    expect(events[1]).toMatchObject({ reason: "failed" });
+    expect(events.map((event) => event.kind)).toEqual([
+      StreamEventKind.TextDelta,
+      StreamEventKind.Discarded,
+    ]);
+    expect(events[1]).toMatchObject({ reason: StreamDiscardReason.Failed });
   });
 });
 
@@ -105,8 +115,15 @@ describe("#1006: a refused move", () => {
       { onStream: (event) => events.push(event) },
     );
 
-    expect(events.map((event) => event.kind)).toEqual(["textDelta", "discarded", "textDelta"]);
-    expect(events[1]).toMatchObject({ kind: "discarded", reason: "invalid-answer" });
+    expect(events.map((event) => event.kind)).toEqual([
+      StreamEventKind.TextDelta,
+      StreamEventKind.Discarded,
+      StreamEventKind.TextDelta,
+    ]);
+    expect(events[1]).toMatchObject({
+      kind: StreamEventKind.Discarded,
+      reason: StreamDiscardReason.InvalidAnswer,
+    });
     expect(done.output).toEqual({ text: "Fine." });
     expect(keptText(events)).toBe("Fine.");
   });

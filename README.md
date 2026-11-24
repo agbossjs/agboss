@@ -1511,8 +1511,9 @@ Several-instances).
 #### What `onStream` carries
 
 `onStream` carries the **user-facing answer** as it is produced, and nothing else: the text of an
-`@Agent`'s own answering model call (`{ kind: "textDelta", delta }`) and its tool calls (`{ kind:
-"toolCall", tool }`, the tool's name only, never its arguments). It **never carries** a model the
+`@Agent`'s own answering model call (`{ kind: StreamEventKind.TextDelta, delta, step }`) and its tool
+calls (`{ kind: StreamEventKind.ToolCall, tool, step }`, the tool's name only, never its arguments;
+`step` is the model call that asked for it, so a spinner lands on the right branch, #1311). It **never carries** a model the
 framework calls for itself — routers, judges (`invoke` and `decide`), guardrails, arbiters, PII
 detection models, compaction and memory, rerankers, reply interpreters, launch deciders and eval
 judges are silent, and so is a model call any future component makes: the stream is no callback of
@@ -1538,33 +1539,32 @@ never as a configuration error.
 The provider's `timeout` bounds a plain call's whole attempt — its body too, so a body that stalls after
 the headers times the attempt out and is retried as a timeout — and a streamed answer's silence: after the
 first content the clock restarts at every chunk, so a stream that is quiet for the `timeout` fails as
-`ModelFailure.Timeout` (the text so far is retracted, `stream-broken`; no retry, as for a cut; one
+`ModelFailure.Timeout` (the text so far is retracted, `StreamDiscardReason.StreamBroken`; no retry, as for a cut; one
 breaker failure; the rate-limit room is given back) while a long answer that keeps coming is never
 cut by it (#1125).
 A transport provider streams the text as it comes when its class has `stream(request)` (#1011): it
-returns `{ textStream: AsyncIterable<string>, usage: Promise<ModelProviderUsage> }`, the shape of the
-Vercel AI SDK's `streamText` — each chunk is a `textDelta`, and the call's usage, cost and budgets are
-a plain call's. It goes through the same attempt runner as `complete()`: a failure before the first
-chunk is retried, a failure after text (a thrown stream, a `usage` that rejects) fails the call, is
+returns `{ textStream: AsyncIterable<string>, result: Promise<ModelProviderStreamResult> }` — the
+shape of the Vercel AI SDK's `streamText`, its `result` (`{ usage: TokenUsage, cost?, finishReason?
+}`, #1311) what `complete()`'s response holds beside its text — each chunk is a
+`StreamEventKind.TextDelta`, and the call's usage, cost and budgets are a plain call's. It goes through the same attempt runner as `complete()`: a failure before the first
+chunk is retried, a failure after text (a thrown stream, a `result` that rejects) fails the call, is
 not retried and counts once in the breaker, a caller's abort is neither. Every wait — for a chunk,
-for the `usage` after the last one — is bound by the provider's `timeout`; a stall or a `usage` that
-never settles is a `ModelProviderFailureError` (`ModelFailure.Timeout`), and the request's `signal` is
-aborted so the SDK stops. `usage` must settle when the stream ends, fails or is aborted. A call with
+for the `result` after the last one — is bound by the provider's `timeout`; a stall or a `result` that never settles is a `ModelProviderFailureError` (`ModelFailure.Timeout`), and the request's `signal` is
+aborted so the SDK stops. `result` must settle when the stream ends, fails or is aborted — after a failure, with what the
+call used so far: the provider's rate-limit window counts those tokens. A call with
 tools bound (an agent with an `output` DTO, a tool loop) goes through `complete()`: a text stream
 carries no tool call; so does a run under `--chaos`. A transport provider without `stream` streams
 the whole answer as one delta at the end. A fallback
 model's answer streams like the primary's; when the primary dies mid-stream and its breaker opens,
-the text so far is retracted (`stream-broken`) and the fallback answers from the start. `agboss run`
+the text so far is retracted (`StreamDiscardReason.StreamBroken`) and the fallback answers from the start. `agboss run`
 prints the answer from the result when nothing streamed.
 
-Streamed text is **provisional** (#1006). Every `textDelta` carries `step: { agent, visit, branch,
-attempt }` — the visit's node id (a launch copy: `critic-agent#2`), its visit number, the execution
+Streamed text is **provisional** (#1006). Every event carries `step: { agent, visit, branch, attempt }` — the visit's node id (a launch copy: `critic-agent#2`), its visit number, the execution
 that makes it (a child workflow has its own) and the agent's model call in the visit — so parallel
 branches, child executions and agent chains never share a key. When a judge rejects an attempt, a
-retry's first model call starts, or the visit fails, a `{ kind: "discarded", step, reason }` event
-retracts everything streamed for that step (`reason`: `judge-rejected`, `tool-turn`,
-`invalid-answer`, `stream-broken`, `failed`); the next attempt is `attempt + 1`. The text before an
-ordinary tool call in a turn is retracted too (`tool-turn`): the turn's text is not the reply. The
+retry's first model call starts, or the visit fails, a `{ kind: StreamEventKind.Discarded, step, reason }` event retracts everything streamed for that
+step (`reason`, a `StreamDiscardReason`: `JudgeRejected`, `ToolTurn`, `InvalidAnswer`,
+`StreamBroken`, `Failed`); the next attempt is `attempt + 1`. The text before an ordinary tool call in a turn is retracted too (`ToolTurn`): the turn's text is not the reply. The
 deltas of the steps that were not discarded, joined, are the agent's reply. An agent with a
 **blocking output check** — an output guardrail, a PII policy with a block rule — has its text held
 until its checks passed: a refused answer never reaches the stream, and this cannot be switched off.

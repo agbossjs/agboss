@@ -4,6 +4,7 @@
  * the agent's `modelCalls` and `toolCalls` limits with the spend they carry, the spend counted at once and
  * the check after the call that asks for tools.
  */
+import { StreamDiscardReason } from "../../src/run/types.js";
 import { AIMessage, HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ExecutionCancelledError } from "../../src/core/errors.js";
@@ -424,7 +425,7 @@ describe("#1366: what the move asks for", () => {
     returning(moveOf([]));
     await reply.node(stateOf(), undefined);
 
-    expect(tools.attempt.discard).toHaveBeenCalledWith("tool-turn");
+    expect(tools.attempt.discard).toHaveBeenCalledWith(StreamDiscardReason.ToolTurn);
     expect(reply.attempt.discard).not.toHaveBeenCalled();
   });
 
@@ -434,7 +435,7 @@ describe("#1366: what the move asks for", () => {
 
     await node(stateOf(), undefined);
 
-    expect(attempt.discard).toHaveBeenCalledWith("invalid-answer");
+    expect(attempt.discard).toHaveBeenCalledWith(StreamDiscardReason.InvalidAnswer);
   });
 
   it("an agent with no stream of its answer has nothing to retract", async () => {
@@ -488,7 +489,7 @@ describe("#1366: the spend of a call that broke", () => {
       record(0.125, "mask"),
     ]);
     expect((failure as AgentFailedError).cause).toEqual(new Error("provider down"));
-    expect(attempt.discard).toHaveBeenCalledWith("stream-broken");
+    expect(attempt.discard).toHaveBeenCalledWith(StreamDiscardReason.StreamBroken);
   });
 
   it("a call that broke is not tallied here: the failure carries its spend to the ledger", async () => {

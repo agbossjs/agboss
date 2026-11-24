@@ -525,16 +525,16 @@ export interface ModelProviderResponse {
 
 // @public
 export interface ModelProviderStream {
+    readonly result: Promise<ModelProviderStreamResult>;
     // (undocumented)
     readonly textStream: AsyncIterable<string>;
-    // (undocumented)
-    readonly usage: Promise<ModelProviderStreamUsage>;
 }
 
 // @public
-export interface ModelProviderStreamUsage extends ModelProviderUsage {
-    readonly cost?: Usd;
-    readonly finishReason?: FinishReason;
+export interface ModelProviderStreamResult {
+    readonly cost?: Usd | undefined;
+    readonly finishReason?: FinishReason | undefined;
+    readonly usage: TokenUsage;
 }
 
 // @public
@@ -943,6 +943,14 @@ export interface RoutingProblem {
 }
 
 // @public
+export interface TokenUsage {
+    readonly cacheReadTokens: number;
+    readonly cacheWriteTokens: number;
+    readonly inputTokens: number;
+    readonly outputTokens: number;
+}
+
+// @public
 export function toWireRequest(source: WireRequest, plan: WirePlan): WireRequest;
 
 // @public
@@ -1247,7 +1255,6 @@ export interface WireTool {
 // src/models/transport/transport.ts - (ae-undocumented) Missing documentation for "cacheReadTokens".
 // src/models/transport/transport.ts - (ae-undocumented) Missing documentation for "cacheWriteTokens".
 // src/models/transport/transport.ts - (ae-undocumented) Missing documentation for "textStream".
-// src/models/transport/transport.ts - (ae-undocumented) Missing documentation for "usage".
 // src/models/transport/transport.ts - (ae-undocumented) Missing documentation for "messages".
 // src/models/transport/transport.ts - (ae-undocumented) Missing documentation for "temperature".
 // src/models/transport/transport.ts - (ae-undocumented) Missing documentation for "text".

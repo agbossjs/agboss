@@ -59,8 +59,9 @@ export interface ModelProviderHandler {
    */
   readonly complete?: (request: ModelProviderRequest) => Promise<ModelProviderResponse>;
   /**
-   * The same call, streamed (#1011): the text chunks as they come and the call's usage. Optional;
-   * a provider without it keeps its answer as one `textDelta` at the end. Used for a call with no
+   * The same call, streamed (#1011): the text chunks as they come and the call's `result` (its
+   * usage, cost and finish reason, #1311). Optional; a provider without it keeps its answer as one
+   * `StreamEventKind.TextDelta` event at the end. Used for a call with no
    * tools bound — a text stream carries no tool call, so a call with tools goes through `complete`.
    */
   readonly stream?: (request: ModelProviderRequest) => ModelProviderStream;

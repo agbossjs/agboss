@@ -6,6 +6,7 @@ import { ScriptedBedrockClient } from "../transport/bedrock-provider.fixture.js"
 import { transportApp } from "../transport/transport-app.js";
 import { StreamOpenRouterApplication } from "./http-streaming.fixture.js";
 import { sseEvents, sseServer, type SseServer } from "./sse-server.js";
+import { StreamEventKind } from "../../../src/run/types.js";
 
 /**
  * #1231: a stream recorded live from OpenRouter (`mistralai/mistral-nemo`, 2026-11-16; ids,
@@ -46,7 +47,10 @@ describe("#1231: a live OpenRouter stream, replayed", () => {
       app,
       ChatStart,
       { text: "Say hi in five words." },
-      { onStream: (event) => (event.kind === "textDelta" ? deltas.push(event.delta) : undefined) },
+      {
+        onStream: (event) =>
+          event.kind === StreamEventKind.TextDelta ? deltas.push(event.delta) : undefined,
+      },
     );
     await app.close();
 

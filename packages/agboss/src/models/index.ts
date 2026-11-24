@@ -23,11 +23,13 @@ export {
   type ModelProviderRequest,
   type ModelProviderResponse,
   type ModelProviderStream,
-  type ModelProviderStreamUsage,
+  type ModelProviderStreamResult,
   type ModelProviderToolCall,
   type ModelProviderToolDefinition,
   type ModelProviderUsage,
 } from "./transport/transport.js";
+/** What a streamed call used (#1311): the ledger's own token counts. */
+export type { TokenUsage } from "../finops/usage.js";
 export {
   ModelProviderFailureError,
   type ModelProviderFailureOptions,

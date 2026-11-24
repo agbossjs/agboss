@@ -21,6 +21,7 @@ import type { MaskedRequest } from "../../pii/model-boundary.js";
 import { loopPoliciesOf, maskedRequest, outgoingMove } from "./model-pii.js";
 import { toolBindingOf } from "../../flow/runtime/answer-tools.js";
 import type { AttemptStream } from "../../run/stream/agent-stream.js";
+import { StreamDiscardReason } from "../../run/types.js";
 import { answering, attemptOf } from "./answer-stream.js";
 
 export class ToolCallingUnsupportedError extends Error {
@@ -137,7 +138,7 @@ async function observedCall(
   const response = await callModel(request.messages, deps, config, attempt).catch(
     (error: unknown) => {
       // the text of a call that broke is retracted before the failure goes on (#1006)
-      attempt?.discard("stream-broken");
+      attempt?.discard(StreamDiscardReason.StreamBroken);
       throw new AgentFailedError({
         agent: name,
         usage: [...loopUsage(state), ...request.usage],
@@ -203,7 +204,7 @@ export function makeModelNode(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType
     const outgoing = await outgoingMove(withCallIds(response, state), request, state, deps, spent);
     const pii = { piiTokens: request.tokens, piiMasked: request.cache };
     if (outgoing.kind === "invalid") {
-      attempt?.discard("invalid-answer");
+      attempt?.discard(StreamDiscardReason.InvalidAnswer);
       return { ...outgoing.update, modelCalls: 1, ...pii };
     }
     const checked = deps.budgets.tally(outgoing.usage, state.flowPath);
@@ -213,7 +214,7 @@ export function makeModelNode(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType
       callsOf(move).filter((call) => !isAnswerCall(deps.agent, call)).length +
       invalidCallsOf(move).filter((call) => !isAnswerCall(deps.agent, call)).length;
     // a turn that goes to tools is no reply: its text is retracted (#1006)
-    if (calls > 0) attempt?.discard("tool-turn");
+    if (calls > 0) attempt?.discard(StreamDiscardReason.ToolTurn);
     const toolCalls = state.toolCalls + calls;
     if (toolCalls > limits.toolCalls) {
       const breach = {

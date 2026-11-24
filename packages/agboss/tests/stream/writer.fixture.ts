@@ -17,7 +17,7 @@ import {
 } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
 import { PlainTextDto, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
-import type { ExecutionStreamEvent } from "../../src/run/types.js";
+import { StreamEventKind, type ExecutionStreamEvent } from "../../src/run/types.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { onStart } from "../helpers/flow.js";
 import { DEFAULTS, MODEL_PROVIDERS } from "../judges/fixtures/judged.workflow.js";
@@ -79,4 +79,4 @@ export class AuditJudgeApplication {}
 
 /** The text of every `textDelta`, in order. */
 export const deltas = (events: readonly ExecutionStreamEvent[]): string[] =>
-  events.flatMap((event) => (event.kind === "textDelta" ? [event.delta] : []));
+  events.flatMap((event) => (event.kind === StreamEventKind.TextDelta ? [event.delta] : []));

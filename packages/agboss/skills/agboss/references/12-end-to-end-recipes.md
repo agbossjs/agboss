@@ -1291,7 +1291,7 @@ The caller streams the text as it arrives and serves the same workflow to A2A ca
 
 ```ts file=helpdesk/src/http/server.ts
 import { createServer } from "node:http";
-import { createApp } from "@agboss/core";
+import { createApp, StreamEventKind } from "@agboss/core";
 import { a2aHttpListener } from "@agboss/core/a2a";
 import { HelpdeskA2aCallerResolver } from "../a2a/helpdesk.a2a-caller-resolver.js";
 import { HelpdeskA2AExpose } from "../a2a/helpdesk.a2a-expose.js";
@@ -1308,11 +1308,12 @@ const result = await app.execute(
     tenant: { tenantId: "acme" },
     threadId: "ticket-88",
     onStream: (event) => {
-      if (event.kind === "toolCall") return; // the tool's name only
+      if (event.kind === StreamEventKind.ToolCall) return; // the tool's name only
       const { agent, visit, branch, attempt } = event.step;
       const key = `${branch}/${agent}#${visit}/${attempt}`; // streamed text is provisional, per step
-      if (event.kind === "textDelta") shown.set(key, (shown.get(key) ?? "") + event.delta);
-      else shown.delete(key); // "discarded": a judge rejected it, a tool turn, a retry, a failure
+      if (event.kind === StreamEventKind.TextDelta)
+        shown.set(key, (shown.get(key) ?? "") + event.delta);
+      else shown.delete(key); // Discarded: a judge rejected it, a tool turn, a retry, a failure
     },
   },
 );

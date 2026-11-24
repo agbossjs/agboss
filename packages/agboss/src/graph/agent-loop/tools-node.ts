@@ -20,6 +20,7 @@ import { inLoopFrame, inToolCallFrame } from "../../flow/context/frame.js";
 import { extractRunContext, throwIfCancelled } from "../../core/run-context.js";
 import { callSignalOf } from "./call-signal.js";
 import { reportNodeEvent } from "../../flow/observers/execution-event.js";
+import { agentStreamOf } from "../../run/stream/agent-stream.js";
 
 /**
  * A guarded call: its result for the model, how its interceptors ended it (#384) and what the tool
@@ -166,7 +167,7 @@ function runTask(
       deps.observer?.onToolStart({ ...b, ...event, arguments: task.args }),
     );
     // the loop calls the tool itself, so no LangChain tool callback fires: stream it (#848)
-    runCtx.run.stream?.emit({ kind: "toolCall", tool: task.tool });
+    agentStreamOf(config)?.toolCall(task.tool, task.turn ?? 1);
     const startedAt = runCtx.clock.now();
     const mesh = toolMeshCallOf(tool, deps.budgets, startedAt); // its remote calls' (#398)
     const guarded = await inToolCallFrame(

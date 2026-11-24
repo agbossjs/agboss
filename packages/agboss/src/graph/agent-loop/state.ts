@@ -198,6 +198,11 @@ export interface ToolTask {
    * call (a knowledge base's reranker) masks as the agent's own model does; absent in an old task.
    */
   readonly piiValues?: readonly SensitiveValue[];
+  /**
+   * The model call of the visit that made the move, from 1 (#1311): the `attempt` of its
+   * `StreamEventKind.ToolCall` event's step; absent in a task from before it.
+   */
+  readonly turn?: number;
   /** The loop's progress when its move was made (#268 S93); absent in a task from before it. */
   readonly progress?: LoopProgress;
   /** What the loop's files and spend were when the move was made (#899): a call's files are checked on it. */

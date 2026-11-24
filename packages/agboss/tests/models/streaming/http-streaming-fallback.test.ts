@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it } from "vitest";
-import type { ExecutionStreamEvent } from "../../../src/run/types.js";
+import {
+  StreamDiscardReason,
+  StreamEventKind,
+  type ExecutionStreamEvent,
+} from "../../../src/run/types.js";
 import { ChatStart } from "../../channels/approval.workflow.js";
 import { execute } from "../../helpers/flow.js";
 import { HttpToTransportApplication } from "../transport/bedrock-apps.fixture.js";
@@ -23,8 +27,8 @@ afterEach(async () => {
 /** What the run's stream said, in order: a delta as its text, a discard as `[discarded]`. */
 const told = (events: readonly ExecutionStreamEvent[]): string[] =>
   events.flatMap((event) => {
-    if (event.kind === "textDelta") return [event.delta];
-    return event.kind === "discarded" ? ["[discarded]"] : [];
+    if (event.kind === StreamEventKind.TextDelta) return [event.delta];
+    return event.kind === StreamEventKind.Discarded ? ["[discarded]"] : [];
   });
 
 const cutAfterHello: SseScript = {
@@ -62,8 +66,8 @@ describe("#1005 AC4: a fallback model's answer streams like the primary's", () =
     );
 
     expect(told(events)).toEqual(["Hel", "[discarded]", "from", " backup"]);
-    expect(events.find((event) => event.kind === "discarded")).toMatchObject({
-      reason: "stream-broken",
+    expect(events.find((event) => event.kind === StreamEventKind.Discarded)).toMatchObject({
+      reason: StreamDiscardReason.StreamBroken,
       step: { agent: "stream-1005-agent", attempt: 1 },
     });
     expect(done.output).toEqual({ text: "from backup" });
