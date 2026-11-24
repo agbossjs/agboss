@@ -1,6 +1,6 @@
 import { compactionPromptTexts } from "../prompts/compaction.js";
-import type { AssembledCompactions } from "../compaction/assembly.js";
-import { compactionSnapshot } from "../compaction/snapshot.js";
+import type { AssembledMemories } from "../memory/assembly.js";
+import { memorySnapshot } from "../memory/snapshot.js";
 import { ragPromptTexts } from "../prompts/rag.js";
 import { routerLaunchPromptTexts } from "../prompts/router-launch.js";
 import { arbiterPromptTexts } from "../prompts/arbiter.js";
@@ -70,7 +70,7 @@ export type SnapshotSource<TName extends string = string> = Pick<
   | "graph"
   | "maxSteps"
   | "routers"
-  | "compactions"
+  | "memories"
   | "modelProviders"
   | "ownFileRedactor"
   | "ownFileTranscriber"
@@ -114,9 +114,9 @@ const ownSnapshot = <TName extends string>(
   routers: routerTexts(deps.routers),
   prompts: agentTexts(deps.prompts),
   elements: elementFingerprintsOf(deps),
-  frame: framePrompts(deps.graph, deps.compactions, modelGuardrailsOf(deps.guardrails)),
+  frame: framePrompts(deps.graph, deps.memories, modelGuardrailsOf(deps.guardrails)),
   // the compactions (#120 PR 3): only a workflow that has one, so the others keep their hash
-  ...compactionSnapshot(deps.compactions),
+  ...memorySnapshot(deps.memories),
   // the guardrails (#120): only a workflow that has one, so the others keep their hash
   ...guardrailSnapshot(deps.guardrails?.guardrails ?? []),
   // the tool interceptors (#384): only a workflow that has one, so the others keep their hash
@@ -178,7 +178,7 @@ export const configSnapshot = <TName extends string>(
  */
 const framePrompts = (
   graph: RuntimeGraph,
-  compactions: AssembledCompactions | undefined,
+  compactions: AssembledMemories | undefined,
   guardrails: readonly LoadedModelGuardrail[],
 ): object => ({
   routers: routerPromptTexts,
@@ -204,11 +204,11 @@ const guardrailPrompts = (guardrails: readonly LoadedModelGuardrail[]): object =
 });
 
 /** The compactions that write summaries (their prompt is not `""`). */
-const summarisingOf = (compactions: AssembledCompactions | undefined) =>
-  (compactions?.compactions ?? []).filter((c) => c.prompt !== "");
+const summarisingOf = (compactions: AssembledMemories | undefined) =>
+  (compactions?.memories ?? []).filter((c) => c.prompt !== "");
 
 /** The compactions' prompts (#120 PR 3) in the prompt version, only where one writes summaries. */
-function compactionPrompts(compactions: AssembledCompactions | undefined): object {
+function compactionPrompts(compactions: AssembledMemories | undefined): object {
   const summarising = summarisingOf(compactions);
   return summarising.length === 0
     ? {}
@@ -239,8 +239,8 @@ export function executionVersions<TName extends string>(
         instructions,
         routes,
       })),
-      ...framePrompts(deps.graph, deps.compactions, guardrails),
-      ...compactionPrompts(deps.compactions),
+      ...framePrompts(deps.graph, deps.memories, guardrails),
+      ...compactionPrompts(deps.memories),
       // model arbiters (#279): only a workflow that has one
       ...(arbiterTexts(deps.graph).length === 0 ? {} : { arbiters: arbiterTexts(deps.graph) }),
       ...guardrailPrompts(guardrails),

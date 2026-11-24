@@ -1,6 +1,6 @@
 import { resolveTools, type AssembledWorkflow, type WorkflowServices } from "../workflow.js";
 import { DEFAULT_MAX_TOKENS, type Thinking } from "../config/types.js";
-import { memoryPlanOf, readerOf } from "../compaction/plan.js";
+import { memoryPlanOf, readerOf } from "../memory/plan.js";
 import { resolveAgentLimits, type AgentLimit } from "../graph/agent-loop/index.js";
 import { reasoningLabel, reasoningOfThinking } from "../models/reasoning.js";
 import { flowLines } from "../flow/print.js";
@@ -152,7 +152,7 @@ function settingsLines(
 
 function agentLines(bundle: AssembledWorkflow, tools: ReadonlyMap<string, AnyTool>): string[] {
   const c = bundle.config;
-  const plan = memoryPlanOf(c, bundle.compactions);
+  const plan = memoryPlanOf(c, bundle.memories);
   return Object.entries(c.agents).flatMap(([name, agent]) => {
     const reader = readerOf(plan, name);
     const compaction =

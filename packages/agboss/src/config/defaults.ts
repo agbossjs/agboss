@@ -79,8 +79,6 @@ export const defaultsLevelsOf = (graph: object): DefaultsLevels | undefined =>
 export function uncompactedTurnsSourceOf(levels: DefaultsLevels): DefaultSource | undefined {
   if (levels.workflow.uncompactedTurns !== undefined)
     return { level: DefaultsLevel.Workflow, name: levels.workflow.name };
-  if (levels.application?.uncompactedTurns !== undefined)
-    return { level: DefaultsLevel.Application, name: levels.application.name };
   return undefined;
 }
 

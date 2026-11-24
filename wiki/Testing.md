@@ -138,7 +138,6 @@ export class MainRouter {}
     models: { temperature: 0 },
     router: { model: "typesafe/jev-1.13" },
   },
-  uncompactedTurns: 5,
   providers: [OrderBook],
 })
 export class JobScout {}
@@ -205,8 +204,8 @@ the next.
 
 - **Models** → scripted (the model gateway is replaced). An agent or router without a script is a
   blocked live call. Guardrails nobody scripted **pass** (`mockLlm(G).thenReturn(decideWith({ blocks:
-  0.9 }))` blocks); a `@Compaction` nobody scripted writes a fixed summary
-  (`mockLlm(ConversationCompaction).thenReturn(replyWith("…"))` scripts it, #120 PR 3).
+  0.9 }))` blocks); a `@Memory` that compacts, if nobody scripted it, writes a fixed summary
+  (`mockLlm(ConversationMemory).thenReturn(replyWith("…"))` scripts it, #120 PR 3).
 - **MCP servers** → stubs: `mcpOf(Server).thenReturn({ <server tool>: handler })`; `.calls` lists what
   the server got. A server tool without a handler fails the test with the server's and the tool's
   name. `real: [Server]` connects that server for real (an integration test).
@@ -1009,7 +1008,7 @@ failure rejects as the component threw it.
 | `testGuardrail(Guardrail, options)`     | `run(text, { element, timeout })`                          | `{ isBlocked, probability, refusal? }`      |
 | `testReplyInterpreter(Role, options)`   | `run({ ask, reply }, { timeout })` — typed by the role (#644) | `{ isUnderstood: true, answer }` or `{ isUnderstood: false, reason }`, as `app.resume({ reply })` reads it |
 | `testPii([Policies], options)`          | `.mask(text)`, `.reveal(text)`                             | the masked text; the revealed one           |
-| `testCompaction(Compaction, options)`   | `run({ previousSummaries, turnsToCompact }, { timeout })` (#395) | `{ summaries, requests }` (`CompactionResult`) |
+| `testCompaction(Memory, options)`   | `run({ previousSummaries, turnsToCompact }, { timeout })` (#395) | `{ summaries, requests }` (`CompactionResult`) |
 
 <!-- snippet-context
 import { OrderBook, OrderStatus } from "./job-scout.js";
@@ -1067,18 +1066,18 @@ it("looks the order up in the book it is given", async () => {
   `JudgeVerdict.passed(…)` / `JudgeVerdict.failed(reason)`. A code judge (`decidedBy:
   DecidedBy.Code`, #396) runs its `judge(input)` alone: no `model` (one is a `TestSetupError`), no
   spend; the judge's assembly rules apply (`[judge.model-on-code-judge]`).
-- **`testCompaction`** (#395 PR 5) — a `CompactionRunner` — checks the compaction's rules first, then
+- **`testCompaction`** (#395 PR 5) — a `CompactionRunner` — checks the memory's rules first, then
   compacts one `CompactionInput`. A model strategy writes on `model` (`replyWith("…")`, `{ truncated:
-  true }` for a summary cut at `summaryMaxTokens`, `{ cost }` for its spend `compaction:<name>`):
+  true }` for a summary cut at `summaryMaxTokens`, `{ cost }` for its spend `memory:<name>`):
   `requests` is what its model was sent — its `instructions` (its prompt, or the built-in one) and
   its `input`, the turns as a reader's memory renders them (`start <name>: <json>` / `finish …`), a
   `SingleSummary` with its current summary (the last of `previousSummaries`, `(none yet)` without
   one); the earlier turns a `SummaryQueue` reads as context at run time are not part of the input —
   and `summaries` what readers see next (a queue the latest `summaryQueueLength`, a single summary
-  the new one). A cut summary is asked once more, shorter (two requests), then `CompactionError`, as
-  an empty one. `CompactionStrategy.Custom` (#382) runs `compact(input)` on the runner's container
+  the new one). A cut summary is asked once more, shorter (two requests), then `StepError.Memory`, as
+  an empty one. A memory whose class has `compact(input)` (#382, #1303) runs it on the runner's container
   (`deps`, `overrides`), in a step's frame, its answer checked as at run time; no `model` (one is a
-  `TestSetupError`), no requests. `CompactionStrategy.None` writes nothing: a `TestSetupError`. No
+  `TestSetupError`), no requests. A memory with neither `compaction` nor `compact()` writes nothing: a `TestSetupError`. No
   PII policies apply. It checks the request and the plumbing — whether a fact survives compaction is
   an eval case ([Testing suites and comparisons](Testing-Suites-And-Comparisons)).
 - **`testGuardrail`** (#120 PR 2) checks the guardrail's own rules first (kebab-case name, one refusal, a

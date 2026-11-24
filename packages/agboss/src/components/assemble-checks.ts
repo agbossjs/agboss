@@ -143,7 +143,6 @@ export const componentClassesOf = (
   ...channelComponentClassesOf(tools, modules),
   ...agents.flatMap((a) => a.judges ?? []),
   ...providerClassesOf(bundle),
-  ...agents.flatMap((a) => a.memoryStrategy ?? []),
   // the application's transport providers (#385): its container creates them on their first call
   ...transportProviderClassesOf(owner?.providers),
   // the application's default calendar class (#944), created by its container

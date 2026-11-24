@@ -1,3 +1,4 @@
+import { Window1Memory } from "../../helpers/window-memory.js";
 import type { Page } from "../../../src/app/page.js";
 import { until } from "../../helpers/until.js";
 import { TerminalUserChannel } from "../../../src/channels/terminal-channel.js";
@@ -287,7 +288,7 @@ export class ReceiptWorkflowFinish {}
     models: { maxTokens: 100, temperature: 0 },
     tools: { maxToolCalls: 8 },
   },
-  uncompactedTurns: 1,
+  memory: Window1Memory,
   flow: [onStart(OrderWorkflowStart)
     .toAgent(Clerk)
     .toFinish(ReceiptWorkflowFinish)],

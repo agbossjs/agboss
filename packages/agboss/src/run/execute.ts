@@ -18,7 +18,7 @@ export type TurnBase = Pick<
   | "runId"
   | "threadId"
   | "tenantId"
-  | "bundle"
+  | "workflow"
   | "task"
   | "replayOf"
   | "promptVersion"

@@ -417,11 +417,10 @@ export type ClusterDriver = StorageDriver<StorageRole.Cluster>;
 
 // @public
 export interface Compacted {
-    readonly compaction: string;
     readonly fromTurn: number;
+    readonly memory: string;
     readonly summaries: number;
-    // (undocumented)
-    readonly summaryQueueLength: number;
+    readonly summaryQueueLength?: number;
     // (undocumented)
     readonly toTurn: number;
 }
@@ -482,9 +481,9 @@ export enum ComponentKind {
     Agent = "agent",
     Arbiter = "arbiter",
     Budget = "budget",
-    Compaction = "compaction",
     Guardrail = "guardrail",
     Judge = "judge",
+    Memory = "memory",
     PiiPolicy = "pii-policy",
     Question = "question",
     Rag = "rag",
@@ -928,7 +927,7 @@ export abstract class ExecutionRecordRepository {
     abstract findPauseAnswersByTenantIdAndRootExecutionId(tenantId: string, rootExecutionId: string): Promise<PauseAnswerRecord[]>;
     abstract hasThread(workflow: string, tenantId: string, threadId: string): Promise<boolean>;
     abstract lastTurns(tenantId: string, threadId: string, limit: number): Promise<Turn[]>;
-    abstract latestSummaries(tenantId: string, threadId: string, compaction: string, limit: number): Promise<Summary[]>;
+    abstract latestSummaries(tenantId: string, threadId: string, memory: string, limit: number): Promise<Summary[]>;
     abstract markPauseAnswerNotTaken(tenantId: string, rootExecutionId: string, answer: PauseAnswerRecord): Promise<void>;
     // (undocumented)
     abstract meanScore(turnIds: readonly string[]): Promise<number | null>;
@@ -942,12 +941,12 @@ export abstract class ExecutionRecordRepository {
     abstract saveScore(turnId: string, judge: string, score: number): Promise<void>;
     abstract summary(workflow: string): Promise<VersionScore[]>;
     // (undocumented)
-    abstract summaryCount(tenantId: string, threadId: string, compaction: string): Promise<number>;
+    abstract summaryCount(tenantId: string, threadId: string, memory: string): Promise<number>;
     abstract threadOwner(workflow: string, tenantId: string, threadId: string): Promise<{
         readonly owner: string | undefined;
     } | undefined>;
     abstract turnNumber(tenantId: string, threadId: string, turnId: string): Promise<number>;
-    abstract uncovered(tenantId: string, threadId: string, compaction: string): Promise<Turn[]>;
+    abstract uncovered(tenantId: string, threadId: string, memory: string): Promise<Turn[]>;
     abstract unscored(workflow: string, promptVersion: string | undefined, limit: number): Promise<Turn[]>;
 }
 
@@ -2333,9 +2332,6 @@ export interface StoreOutcomeUnknownErrorOptions extends AGBossErrorOptions {
 // @public
 export interface Summary {
     // (undocumented)
-    readonly bundle: string;
-    readonly compaction: string;
-    // (undocumented)
     readonly costUsd: Usd;
     // (undocumented)
     readonly createdAt: string;
@@ -2343,6 +2339,7 @@ export interface Summary {
     readonly fromTurnId: string;
     // (undocumented)
     readonly id: string;
+    readonly memory: string;
     readonly tenantId: string;
     // (undocumented)
     readonly text: string;
@@ -2352,6 +2349,8 @@ export interface Summary {
     readonly toTurnId: string;
     // (undocumented)
     readonly turns: number;
+    // (undocumented)
+    readonly workflow: string;
 }
 
 // @public
@@ -2421,8 +2420,6 @@ export enum ToolCallStatus {
 // @public (undocumented)
 export interface Turn {
     // (undocumented)
-    readonly bundle: string;
-    // (undocumented)
     readonly configHash: string | null;
     readonly configVersion: string | null;
     // (undocumented)
@@ -2452,6 +2449,7 @@ export interface Turn {
     readonly tenantId: string;
     // (undocumented)
     readonly threadId: string;
+    readonly workflow: string;
 }
 
 // @public
@@ -2817,7 +2815,6 @@ export interface WrittenLedgerMark {
 // src/pause/types.ts - (ae-undocumented) Missing documentation for "kind".
 // src/pause/types.ts - (ae-undocumented) Missing documentation for "kind".
 // src/run/compaction.ts - (ae-undocumented) Missing documentation for "toTurn".
-// src/run/compaction.ts - (ae-undocumented) Missing documentation for "summaryQueueLength".
 // src/run/resume-guard.ts - (ae-undocumented) Missing documentation for "workflowVersion".
 // src/run/resume-guard.ts - (ae-undocumented) Missing documentation for "configHash".
 // src/run/types.ts - (ae-undocumented) Missing documentation for "scope".
@@ -2841,7 +2838,6 @@ export interface WrittenLedgerMark {
 // src/turns/types.ts - (ae-undocumented) Missing documentation for "Turn".
 // src/turns/types.ts - (ae-undocumented) Missing documentation for "id".
 // src/turns/types.ts - (ae-undocumented) Missing documentation for "threadId".
-// src/turns/types.ts - (ae-undocumented) Missing documentation for "bundle".
 // src/turns/types.ts - (ae-undocumented) Missing documentation for "createdAt".
 // src/turns/types.ts - (ae-undocumented) Missing documentation for "task".
 // src/turns/types.ts - (ae-undocumented) Missing documentation for "replyWith".
@@ -2856,7 +2852,7 @@ export interface WrittenLedgerMark {
 // src/turns/types.ts - (ae-undocumented) Missing documentation for "NewTurn".
 // src/turns/types.ts - (ae-undocumented) Missing documentation for "id".
 // src/turns/types.ts - (ae-undocumented) Missing documentation for "threadId".
-// src/turns/types.ts - (ae-undocumented) Missing documentation for "bundle".
+// src/turns/types.ts - (ae-undocumented) Missing documentation for "workflow".
 // src/turns/types.ts - (ae-undocumented) Missing documentation for "fromTurnId".
 // src/turns/types.ts - (ae-undocumented) Missing documentation for "toTurnId".
 // src/turns/types.ts - (ae-undocumented) Missing documentation for "turns".

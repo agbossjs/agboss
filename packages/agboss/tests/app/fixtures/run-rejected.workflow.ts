@@ -1,3 +1,4 @@
+import { Window1Memory } from "../../helpers/window-memory.js";
 import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { crossFieldRule } from "../../../src/dto/schema.js";
 import {
@@ -55,7 +56,7 @@ export class VoucherClerk {}
     models: { maxTokens: 100, temperature: 0 },
     tools: { maxToolCalls: 3 },
   },
-  uncompactedTurns: 1,
+  memory: Window1Memory,
   flow: [
     onStart(Redeem)
       .toAgent(VoucherClerk)

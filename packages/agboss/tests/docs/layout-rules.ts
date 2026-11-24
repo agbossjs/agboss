@@ -129,7 +129,7 @@ export const PROMPT_KINDS: Readonly<Record<string, string>> = {
   routers: ".router.ts",
   judges: ".judge.ts",
   arbiters: ".arbiter.ts",
-  compactions: ".compaction.ts",
+  memories: ".memory.ts",
   guardrails: ".guardrail.ts",
   "reply-interpreters": ".reply-interpreter.ts",
 };

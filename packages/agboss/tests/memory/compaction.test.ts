@@ -1,28 +1,32 @@
 /**
- * #120 PR 3 — compaction (AC10, AC4): `@Compaction` and its strategies, `uncompactedTurns` (the
- * lowest set value; a compaction summarises what is older than the smallest window among its
- * readers), the "shorter" retry and `CompactionError`, and the compaction's model behind the PII
+ * #120 PR 3, #1303 — memory (AC10, AC4): `@Memory` and its compaction strategies, `uncompactedTurns` (the
+ * lowest set value; a memory summarises what is older than the smallest window among its
+ * readers), the "shorter" retry and `StepError.Memory`, and the compaction's model behind the PII
  * boundary (S84 i). Models answer by script; nothing reaches a network.
  */
+import { Window2Memory } from "../helpers/window-memory.js";
 import { describe, expect, it } from "vitest";
 import {
   Agent,
-  Compaction,
-  CompactionError,
   CompactionStrategy,
   DecidedBy,
   Injectable,
+  Memory,
+  Observer,
   Router,
+  StepError,
   TurnLimit,
+  Ttl,
   Workflow,
 } from "../../src/index.js";
 import { WorkflowStartTextDto } from "../../src/dto/index.js";
+import type { CompactionEndEvent, CompactionStartEvent } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
 import type { Class } from "../../src/components/injection.js";
 import { applicationOf } from "../../src/application/assemble.js";
-import { compactionViolations } from "../../src/compaction/checks.js";
-import { effectiveCompactions } from "../../src/compaction/levels.js";
-import { memoryPlanOf, readerOf, windowOfCompaction } from "../../src/compaction/plan.js";
+import { memoryViolations } from "../../src/memory/checks.js";
+import { effectiveMemories } from "../../src/memory/levels.js";
+import { memoryPlanOf, readerOf, windowOfCompaction } from "../../src/memory/plan.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { GraphRuleError } from "../../src/graph/rule-error.js";
 import { SHORTER_SUMMARY_REQUEST } from "../../src/prompts/compaction.js";
@@ -47,15 +51,16 @@ import {
   DeskAnswer,
   DeskStart,
   EagerAgent,
-  EagerCompaction,
+  EagerMemory,
   EagerDeskApplication,
   HelpDeskApplication,
   HelpRouter,
-  NoSummariesCompaction,
+  WindowOnlyMemory,
   NoteAgent,
-  NoteCompaction,
+  NoteMemory,
   NotesDeskApplication,
-  QueueCompaction,
+  NotesDeskWorkflow,
+  QueueMemory,
   WindowDeskApplication,
   WindowRouter,
 } from "./compaction.fixture.js";
@@ -123,69 +128,86 @@ const violationsOf = async (application: object): Promise<string[]> => {
   }
 };
 
-@Compaction({
+@Memory({
   name: "misnamed",
   description: "A name without its kind",
-  model: "test/compactor",
-  strategy: CompactionStrategy.SummaryQueue,
+  ttl: Ttl.Forever,
   turnsBetweenCompactions: 0,
-  summaryQueueLength: 0,
-  summaryMaxTokens: 1.5,
+  compaction: {
+    strategy: CompactionStrategy.SummaryQueue,
+    model: "test/compactor",
+    summaryQueueLength: 0,
+    summaryMaxTokens: 1.5,
+  },
 })
-class MisnamedCompaction {}
+class MisnamedMemory {}
 
-@Compaction({
-  name: "decision-compaction",
+@Memory({
+  name: "decision-memory",
   description: "On a decision model",
-  model: JEV,
-  strategy: CompactionStrategy.SingleSummary,
-  turnsBetweenCompactions: 1,
-  summaryMaxTokens: 100,
+  ttl: Ttl.Forever,
+  compaction: {
+    strategy: CompactionStrategy.SingleSummary,
+    model: JEV,
+    summaryMaxTokens: 100,
+  },
 })
-class DecisionCompaction {}
+class DecisionMemory {}
 
-// @ts-expect-error -- AC10: a strategy that writes summaries needs a model
-@Compaction({
-  name: "modelless-compaction",
-  description: "No model",
-  strategy: CompactionStrategy.SummaryQueue,
-  turnsBetweenCompactions: 1,
-  summaryQueueLength: 1,
-  summaryMaxTokens: 100,
+@Memory({
+  name: "odd-window-memory",
+  description: "A window no memory takes",
+  ttl: Ttl.Forever,
+  uncompactedTurns: -1,
 })
-class ModellessCompaction {}
+class OddWindowMemory {}
 
-// @ts-expect-error -- AC10: `None` takes no parameters
-@Compaction({
-  name: "busy-none-compaction",
-  description: "None with a model",
-  strategy: CompactionStrategy.None,
-  model: "test/compactor",
+@Memory({
+  name: "never-memory",
+  description: "A ttl that is no duration",
+  ttl: 0 as never,
 })
-class BusyNoneCompaction {}
+class NeverMemory {}
 
-// @ts-expect-error -- AC10: a single summary has no queue
-@Compaction({
-  name: "queued-single-compaction",
+// @ts-expect-error -- #1303: a declarative compaction and a compact() method are two ways to compact
+@Memory({
+  name: "both-memory",
+  description: "A compaction in the decorator and a compact method",
+  ttl: Ttl.Forever,
+  compaction: { strategy: CompactionStrategy.SingleSummary, model: "test/compactor" },
+})
+class BothMemory {
+  compact(): readonly string[] {
+    return ["x"];
+  }
+}
+
+@Memory({
+  name: "queued-single-memory",
   description: "A single summary with a queue length",
-  model: "test/compactor",
-  strategy: CompactionStrategy.SingleSummary,
-  turnsBetweenCompactions: 1,
-  summaryQueueLength: 3,
-  summaryMaxTokens: 100,
+  ttl: Ttl.Forever,
+  // @ts-expect-error -- #1303: a single summary has no queue
+  compaction: {
+    strategy: CompactionStrategy.SingleSummary,
+    model: "test/compactor",
+    summaryQueueLength: 3,
+  },
 })
-class QueuedSingleCompaction {}
+class QueuedSingleMemory {}
+
+// @ts-expect-error -- #1303: a ttl is required
+@Memory({ name: "ttl-less-memory", description: "No ttl" })
+class TtlLessMemory {}
 
 @Injectable()
-class NotACompaction {}
+class NotAMemory {}
 
 @Agent({
   name: "odd-agent",
-  description: "Settings no compaction takes",
+  description: "Settings no memory takes",
   prompt: "Answer.",
   model: "test/odd",
-  compaction: NotACompaction,
-  uncompactedTurns: -1,
+  memory: NotAMemory,
 })
 class OddAgent {}
 
@@ -193,8 +215,7 @@ class OddAgent {}
   name: "odd-workflow",
   version: "1.0.0",
   flow: [onStart(DeskStart).toAgent(OddAgent).toFinish(DeskAnswer)],
-  compaction: MisnamedCompaction,
-  uncompactedTurns: 2.5,
+  memory: OddWindowMemory,
 })
 class OddWorkflow {}
 
@@ -207,41 +228,48 @@ class OddWorkflow {}
 })
 class OddApplication {}
 
-describe("#120 AC10: @Compaction at assembly", () => {
-  it("the decorator's types: a model for SummaryQueue and SingleSummary, nothing for None", () => {
+describe("#120 AC10, #1303: @Memory at assembly", () => {
+  it("the decorator's types: a ttl is required, a single summary has no queue", () => {
     // the @ts-expect-error lines above are the check; the classes still carry their options
-    expect([ModellessCompaction, BusyNoneCompaction, QueuedSingleCompaction]).toHaveLength(3);
+    expect([TtlLessMemory, QueuedSingleMemory]).toHaveLength(2);
     Router({
       name: "code-window-router",
       description: "A code router with a window",
       decidedBy: DecidedBy.Code,
       input: { message: WorkflowStartTextDto },
       routes: [{ target: DeskAnswer }],
-      // @ts-expect-error -- a code router reads no thread memory: no compaction, no window
-      uncompactedTurns: 2,
+      // @ts-expect-error -- a code router reads no thread memory
+      memory: Window2Memory,
     });
   });
 
-  it("name ends with -compaction; counts are whole numbers from 1; a summary needs a chat model", () => {
-    expect(compactionViolations([MisnamedCompaction, DecisionCompaction, QueueCompaction])).toEqual(
-      [
-        expect.objectContaining({ code: "name.kind-suffix" }),
-        expect.objectContaining({
-          code: "compaction.invalid-setting",
-          message: "misnamed: turnsBetweenCompactions 0 — a whole number from 1",
-        }),
-        expect.objectContaining({
-          code: "compaction.invalid-setting",
-          message:
-            "misnamed: summaryMaxTokens 1.5 — a whole number from 1, or TokenLimit.MODEL_MAX",
-        }),
-        expect.objectContaining({
-          code: "compaction.invalid-setting",
-          message: "misnamed: summaryQueueLength 0 — a whole number from 1",
-        }),
-        expect.objectContaining({ code: "compaction.decision-model" }),
-      ],
-    );
+  it("name ends with -memory; counts are whole numbers from 1; a summary needs a chat model; a ttl is a duration or Ttl.Forever; compaction and compact() never both", () => {
+    expect(
+      memoryViolations([MisnamedMemory, DecisionMemory, QueueMemory, NeverMemory, BothMemory]),
+    ).toEqual([
+      expect.objectContaining({ code: "name.kind-suffix" }),
+      expect.objectContaining({
+        code: "memory.invalid-setting",
+        message: "misnamed: turnsBetweenCompactions 0 — a whole number from 1",
+      }),
+      expect.objectContaining({
+        code: "memory.invalid-setting",
+        message: "misnamed: summaryMaxTokens 1.5 — a whole number from 1, or TokenLimit.ModelMax",
+      }),
+      expect.objectContaining({
+        code: "memory.invalid-setting",
+        message: "misnamed: summaryQueueLength 0 — a whole number from 1",
+      }),
+      expect.objectContaining({
+        code: "memory.invalid-setting",
+        message: expect.stringContaining("decision-memory: typesafe/jev-1.13 is a decision model"),
+      }),
+      expect.objectContaining({
+        code: "memory.invalid-setting",
+        message: "never-memory: ttl 0 — a duration above 0, or Ttl.Forever",
+      }),
+      expect.objectContaining({ code: "memory.conflicting-compaction" }),
+    ]);
   });
 
   it("every rule broken fails the application's assembly, all at once", async () => {
@@ -249,60 +277,62 @@ describe("#120 AC10: @Compaction at assembly", () => {
 
     expect(violations).toEqual(
       expect.arrayContaining([
-        "[compaction.uncompacted-turns-invalid] odd-workflow: uncompactedTurns 2.5 — a whole number from 0, or TurnLimit.ALL",
-        "[compaction.not-a-compaction] odd-agent: compaction is NotACompaction, which is not a @Compaction class",
-        "[compaction.uncompacted-turns-invalid] odd-agent: uncompactedTurns -1 — a whole number from 0, or TurnLimit.ALL",
+        "[memory.uncompacted-turns-invalid] odd-window-memory: uncompactedTurns -1 — a whole number from 0, or TurnLimit.All",
+        "[memory.not-a-memory] odd-agent: memory is NotAMemory, which is not a @Memory class",
       ]),
     );
   });
 });
 
-describe("#120 AC4: one setting on every level — the lowest set value wins", () => {
-  it("compaction: an element's own over the workflow's over the application's", () => {
-    const effective = effectiveCompactions({
-      application: { compaction: QueueCompaction },
-      workflow: { name: "w-workflow" },
+describe("#1303: one setting on every level — the lowest set value wins", () => {
+  it("memory: an element's own over the workflow's", () => {
+    const effective = effectiveMemories({
+      workflow: { name: "w-workflow", memory: QueueMemory },
       elements: [
         { name: "answer-agent" },
-        { name: "note-agent", compaction: NoteCompaction },
+        { name: "note-agent", memory: NoteMemory },
         { name: "help-router" },
       ],
     });
 
     expect([...effective.byElement]).toEqual([
-      ["answer-agent", QueueCompaction],
-      ["note-agent", NoteCompaction],
-      ["help-router", QueueCompaction],
+      ["answer-agent", QueueMemory],
+      ["note-agent", NoteMemory],
+      ["help-router", QueueMemory],
     ]);
-    expect(effective.classes).toEqual([QueueCompaction, NoteCompaction]);
+    expect(effective.classes).toEqual([QueueMemory, NoteMemory]);
     expect(
-      effectiveCompactions({
-        application: { compaction: QueueCompaction },
-        workflow: { name: "w-workflow", compaction: NoSummariesCompaction },
+      effectiveMemories({
+        workflow: { name: "w-workflow", memory: WindowOnlyMemory },
         elements: [{ name: "answer-agent" }],
       }).byElement.get("answer-agent"),
-    ).toBe(NoSummariesCompaction);
+    ).toBe(WindowOnlyMemory);
   });
 
-  it("uncompactedTurns: the router's own (1), the agents' the application's (3)", async () => {
+  it("a reader's window is its memory's: the workflow's shared one (1), the archive agent's own (all)", async () => {
     const [workflow] = (await applicationOf(HelpDeskApplication)).workflows;
     if (workflow === undefined) throw new Error("the application has a workflow");
-    const plan = memoryPlanOf(workflow.config, workflow.compactions);
+    const plan = memoryPlanOf(workflow.config, workflow.memories);
 
     expect(readerOf(plan, "help-router").window).toBe(1);
-    expect(readerOf(plan, "answer-agent").window).toBe(3);
-    expect(readerOf(plan, "contact-agent").compaction?.name).toBe("queue-compaction");
+    expect(readerOf(plan, "answer-agent").window).toBe(1);
+    expect(readerOf(plan, "contact-agent").compaction?.name).toBe("queue-memory");
+    const [window] = (await applicationOf(WindowDeskApplication)).workflows;
+    if (window === undefined) throw new Error("the application has a workflow");
+    expect(readerOf(memoryPlanOf(window.config, window.memories), "archive-agent").window).toBe(
+      TurnLimit.All,
+    );
   });
 
-  it("a compaction's window is the smallest among its readers; ALL only when every reader sees all", async () => {
+  it("a memory's window is the smallest among its readers (a profile may set an agent's own); ALL only when every reader sees all", async () => {
     const [workflow] = (await applicationOf(HelpDeskApplication)).workflows;
     if (workflow === undefined) throw new Error("the application has a workflow");
 
-    expect(memoryPlanOf(workflow.config, workflow.compactions).compactions).toEqual([
-      expect.objectContaining({ name: "queue-compaction", window: 1, summaryQueueLength: 2 }),
+    expect(memoryPlanOf(workflow.config, workflow.memories).compactions).toEqual([
+      expect.objectContaining({ name: "queue-memory", window: 1, summaryQueueLength: 2 }),
     ]);
-    expect(windowOfCompaction([TurnLimit.ALL, 4, 2])).toBe(2);
-    expect(windowOfCompaction([TurnLimit.ALL, TurnLimit.ALL])).toBe(TurnLimit.ALL);
+    expect(windowOfCompaction([TurnLimit.All, 4, 2])).toBe(2);
+    expect(windowOfCompaction([TurnLimit.All, TurnLimit.All])).toBe(TurnLimit.All);
   });
 });
 
@@ -314,7 +344,7 @@ describe("#120 AC10: a queue summarises what is older than the smallest window",
     mockLlm,
   }) => {
     answerOk(mockLlm);
-    mockLlm(QueueCompaction).thenReturn(replyWith("t1 and t2 were asked", { cost: usd(0.002) }));
+    mockLlm(QueueMemory).thenReturn(replyWith("t1 and t2 were asked", { cost: usd(0.002) }));
 
     const [first, second, third, fourth] = await conversation(app, 4);
 
@@ -325,35 +355,32 @@ describe("#120 AC10: a queue summarises what is older than the smallest window",
     expect(third?.spend.byCategory.memory).toBe(0);
     expect(fourth?.compacted).toEqual([
       {
-        compaction: "queue-compaction",
+        memory: "queue-memory",
         fromTurn: 1,
         toTurn: 2,
         summaries: 1,
         summaryQueueLength: 2,
       },
     ]);
-    expect(fourth?.spend.byCaller["compaction:queue-compaction"]).toBeCloseTo(0.002, 6);
+    expect(fourth?.spend.byCaller["memory:queue-memory"]).toBeCloseTo(0.002, 6);
     expect(fourth?.spend.byCategory.memory).toBeCloseTo(0.002, 6);
-    expect(fourth?.spend.trace.map((line) => line.caller)[0]).toBe("compaction:queue-compaction");
-    expect(textOf(mockLlm(QueueCompaction).onlyRequest)).toContain("Turns to compact:\nstart");
+    expect(fourth?.spend.trace.map((line) => line.caller)[0]).toBe("memory:queue-memory");
+    expect(textOf(mockLlm(QueueMemory).onlyRequest)).toContain("Turns to compact:\nstart");
   });
 
-  test("no one loses a turn: the router reads the summary and t3, the agent its three turns", async ({
+  test("no one loses a turn: the router and the agent read the summary and t3", async ({
     app,
     mockLlm,
   }) => {
     answerOk(mockLlm);
-    mockLlm(QueueCompaction).thenReturn(replyWith("t1 and t2 were asked"));
+    mockLlm(QueueMemory).thenReturn(replyWith("t1 and t2 were asked"));
 
     await converse(app, 4);
 
-    const router = mockLlm(HelpRouter).lastRequest;
-    expect(textOf(router)).toContain("Earlier in this conversation:\n[1] t1 and t2 were asked");
-    expect(turnsSeen(router)).toEqual(["t3"]);
-    // the larger window sees the summarised turns in full, so not the summary again
-    const agent = mockLlm(AnswerAgent).lastRequest;
-    expect(turnsSeen(agent)).toEqual(["t1", "t2", "t3"]);
-    expect(textOf(agent)).not.toContain("t1 and t2 were asked");
+    for (const reader of [mockLlm(HelpRouter).lastRequest, mockLlm(AnswerAgent).lastRequest]) {
+      expect(textOf(reader)).toContain("Earlier in this conversation:\n[1] t1 and t2 were asked");
+      expect(turnsSeen(reader)).toEqual(["t3"]);
+    }
   });
 
   test("the queue keeps its latest summaryQueueLength summaries: the oldest leaves first", async ({
@@ -361,7 +388,7 @@ describe("#120 AC10: a queue summarises what is older than the smallest window",
     mockLlm,
   }) => {
     answerOk(mockLlm);
-    mockLlm(QueueCompaction).thenReturn(replyWith("S1"), replyWith("S2"), replyWith("S3"));
+    mockLlm(QueueMemory).thenReturn(replyWith("S1"), replyWith("S2"), replyWith("S3"));
 
     const seventh = await converse(app, 7);
     await execute(app, DeskStart, { text: "t8" }, { threadId: seventh.threadId });
@@ -377,29 +404,27 @@ describe("#120 AC10: a queue summarises what is older than the smallest window",
     mockLlm,
   }) => {
     answerOk(mockLlm);
-    mockLlm(QueueCompaction).thenReturn(
+    mockLlm(QueueMemory).thenReturn(
       replyWith("a summary that goes on and", { truncated: true }),
       replyWith("short"),
     );
 
     await converse(app, 4);
 
-    const [first, shorter] = mockLlm(QueueCompaction).requests;
-    expect(textOf(first ?? mockLlm(QueueCompaction).lastRequest)).not.toContain(
+    const [first, shorter] = mockLlm(QueueMemory).requests;
+    expect(textOf(first ?? mockLlm(QueueMemory).lastRequest)).not.toContain(
       SHORTER_SUMMARY_REQUEST,
     );
-    expect(textOf(shorter ?? mockLlm(QueueCompaction).lastRequest)).toContain(
-      SHORTER_SUMMARY_REQUEST,
-    );
+    expect(textOf(shorter ?? mockLlm(QueueMemory).lastRequest)).toContain(SHORTER_SUMMARY_REQUEST);
     expect(textOf(mockLlm(HelpRouter).lastRequest)).toContain("[1] short");
   });
 
-  test("cut again: CompactionError, never a cut summary — the turns stay for the next one", async ({
+  test("cut again: StepError.Memory, never a cut summary — the turns stay for the next one", async ({
     app,
     mockLlm,
   }) => {
     answerOk(mockLlm);
-    mockLlm(QueueCompaction).thenReturn(
+    mockLlm(QueueMemory).thenReturn(
       replyWith("cut", { truncated: true }),
       replyWith("cut again", { truncated: true }),
       replyWith("t1 and t2 were asked"),
@@ -408,29 +433,28 @@ describe("#120 AC10: a queue summarises what is older than the smallest window",
 
     const fourth = execute(app, DeskStart, { text: "t4" }, { threadId: third.threadId });
 
-    await expect(fourth).rejects.toFailWith(CompactionError, {
-      code: "compaction",
-      compaction: "queue-compaction",
-      summaryMaxTokens: 200,
+    await expect(fourth).rejects.toFailWith(StepError.Memory, {
+      code: "step.memory",
+      memory: "queue-memory",
     });
     // the failed execution is no turn: the next one compacts t1 and t2 (the failed record read as none)
     const retried = await execute(app, DeskStart, { text: "t4" }, { threadId: third.threadId });
-    expect(retried.compacted).toMatchObject([{ compaction: "queue-compaction", fromTurn: 1 }]);
-    expect(turnsSeen(mockLlm(QueueCompaction).lastRequest)).toEqual(["t1", "t2"]);
+    expect(retried.compacted).toMatchObject([{ memory: "queue-memory", fromTurn: 1 }]);
+    expect(turnsSeen(mockLlm(QueueMemory).lastRequest)).toEqual(["t1", "t2"]);
   });
 
   // replaces #77 AC5 (a compaction failure swallowed, the next turn retrying): S132
-  test("a failed model call is a CompactionError with the failure as its cause", async ({
+  test("a failed model call is a StepError.Memory with the failure as its cause", async ({
     app,
     mockLlm,
   }) => {
     answerOk(mockLlm);
-    mockLlm(QueueCompaction).thenReturn(failWith(ModelFailure.ServerError));
+    mockLlm(QueueMemory).thenReturn(failWith(ModelFailure.ServerError));
     const third = await converse(app, 3);
 
     await expect(
       execute(app, DeskStart, { text: "t4" }, { threadId: third.threadId }),
-    ).rejects.toFailWith(CompactionError, { compaction: "queue-compaction" });
+    ).rejects.toFailWith(StepError.Memory, { memory: "queue-memory" });
   });
 });
 
@@ -449,7 +473,7 @@ describe("#120 S84 (i): the compaction's model reads the turns masked, the summa
     );
     mockLlm(AnswerAgent).thenReturnAlways(replyWith("ok"));
     mockLlm(ContactAgent).thenReturn(replyWith("written"));
-    mockLlm(QueueCompaction).thenAnswer((request) => {
+    mockLlm(QueueMemory).thenAnswer((request) => {
       const token = /<email:[0-9a-f]+>/u.exec(textOf(request))?.[0] ?? "(no token)";
       return replyWith(`the user's address is ${token}`);
     });
@@ -458,7 +482,7 @@ describe("#120 S84 (i): the compaction's model reads the turns masked, the summa
       turn === 1 ? "write to alice@example.com" : `t${String(turn)}`,
     );
 
-    const compactor = textOf(mockLlm(QueueCompaction).onlyRequest);
+    const compactor = textOf(mockLlm(QueueMemory).onlyRequest);
     expect(compactor).not.toContain("alice@example.com");
     expect(compactor).toMatch(/<email:[0-9a-f]+>/u);
     // the router's policies mask the stored summary at its boundary
@@ -477,26 +501,25 @@ describe("#120 AC10: a single summary is rewritten from the previous one and the
 
   test("the note covers the thread; its reader sees only the latest", async ({ app, mockLlm }) => {
     mockLlm(NoteAgent).thenReturnAlways(replyWith("ok"));
-    mockLlm(NoteCompaction).thenReturn(replyWith("note 1"), replyWith("note 2"));
+    mockLlm(NoteMemory).thenReturn(replyWith("note 1"), replyWith("note 2"));
 
     const [, , third] = await conversation(app, 4);
 
     // before turns 3 and 4 — none after the last turn
-    const [first, second] = mockLlm(NoteCompaction).requests;
-    expect(mockLlm(NoteCompaction).requests).toHaveLength(2);
-    expect(textOf(first ?? mockLlm(NoteCompaction).lastRequest)).toContain(
+    const [first, second] = mockLlm(NoteMemory).requests;
+    expect(mockLlm(NoteMemory).requests).toHaveLength(2);
+    expect(textOf(first ?? mockLlm(NoteMemory).lastRequest)).toContain(
       "Current summary:\n(none yet)",
     );
-    expect(textOf(second ?? mockLlm(NoteCompaction).lastRequest)).toContain(
+    expect(textOf(second ?? mockLlm(NoteMemory).lastRequest)).toContain(
       "Current summary:\nnote 1\n\nTurns to add:",
     );
     expect(third?.compacted).toMatchObject([
       {
-        compaction: "note-compaction",
+        memory: "note-memory",
         fromTurn: 1,
         toTurn: 1,
         summaries: 1,
-        summaryQueueLength: 1,
       },
     ]);
     const agent = textOf(mockLlm(NoteAgent).lastRequest);
@@ -514,7 +537,7 @@ describe("#120 S132: compaction runs before the next turn reads its thread, neve
     mockLlm,
   }) => {
     mockLlm(EagerAgent).thenReturn(replyWith("answer 1"), replyWith("answer 2"));
-    mockLlm(EagerCompaction).thenReturn(
+    mockLlm(EagerMemory).thenReturn(
       replyWith("cut", { truncated: true }),
       replyWith("cut again", { truncated: true }),
       replyWith("t1 was asked"),
@@ -523,13 +546,13 @@ describe("#120 S132: compaction runs before the next turn reads its thread, neve
 
     const second = execute(app, DeskStart, { text: "t2" }, { threadId: first.threadId });
 
-    await expect(second).rejects.toFailWith(CompactionError, { compaction: "eager-compaction" });
+    await expect(second).rejects.toFailWith(StepError.Memory, { memory: "eager-memory" });
     expect(first.output).toEqual({ text: "answer 1" }); // a finished turn's answer is kept
     expect(mockLlm(EagerAgent).requests).toHaveLength(1); // no model call, no step of turn 2
     // turn 1 is still the thread's only turn: the retry compacts it, then answers
     const retried = await execute(app, DeskStart, { text: "t2" }, { threadId: first.threadId });
     expect(retried.output).toEqual({ text: "answer 2" });
-    expect(turnsSeen(mockLlm(EagerCompaction).lastRequest)).toEqual(["t1"]);
+    expect(turnsSeen(mockLlm(EagerMemory).lastRequest)).toEqual(["t1"]);
     expect(textOf(mockLlm(EagerAgent).lastRequest)).toContain("[1] t1 was asked");
   });
 
@@ -543,11 +566,11 @@ describe("#120 S132: compaction runs before the next turn reads its thread, neve
 
     expect(only.compacted).toBeUndefined();
     expect(only.spend.byCategory.memory).toBe(0);
-    expect(mockLlm(EagerCompaction).requests).toEqual([]);
+    expect(mockLlm(EagerMemory).requests).toEqual([]);
   });
 });
 
-describe("#120 AC10: None writes no summaries; TurnLimit.ALL sees every turn", () => {
+describe("#120 AC10: None writes no summaries; TurnLimit.All sees every turn", () => {
   const test = testWith(WindowDeskApplication);
 
   test("the router sees its window only, the archive agent the whole thread", async ({
@@ -570,6 +593,46 @@ describe("#120 AC10: None writes no summaries; TurnLimit.ALL sees every turn", (
       "t6",
       "t7",
     ]);
-    expect(() => mockLlm(NoSummariesCompaction)).toThrow("compaction that writes summaries");
+    expect(() => mockLlm(WindowOnlyMemory)).toThrow("compaction that writes summaries");
+  });
+});
+
+describe("#1303: onCompactionStart / onCompactionEnd", () => {
+  const events: string[] = [];
+
+  @Observer()
+  class CompactionObserver {
+    onCompactionStart(event: CompactionStartEvent): void {
+      events.push(`start ${event.memory} ${String(event.turns)} ${event.workflow.name}`);
+    }
+
+    onCompactionEnd(event: CompactionEndEvent): void {
+      events.push(`end ${event.memory} ${String(event.costUsd)} ${String(event.summaries)}`);
+    }
+  }
+
+  @Application({
+    name: "observed-notes-desk-application",
+    version: "1.0.0",
+    environment: EmptyEnvironment,
+    workflows: [NotesDeskWorkflow],
+    observers: [CompactionObserver],
+    budgets: TEST_BUDGETS,
+  })
+  class ObservedNotesDeskApplication {}
+
+  const test = testWith(ObservedNotesDeskApplication);
+
+  test("a compaction with turns due is announced before and after, with its spend", async ({
+    app,
+    mockLlm,
+  }) => {
+    events.length = 0;
+    mockLlm(NoteAgent).thenReturnAlways(replyWith("ok"));
+    mockLlm(NoteMemory).thenReturn(replyWith("note 1", { cost: usd(0.003) }));
+
+    await conversation(app, 3);
+
+    expect(events).toEqual(["start note-memory 1 notes-desk-workflow", "end note-memory 0.003 1"]);
   });
 });

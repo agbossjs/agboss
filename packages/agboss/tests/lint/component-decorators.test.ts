@@ -91,8 +91,8 @@ const FIXTURES: Readonly<Record<ComponentDecoratorName, string>> = {
     '@Arbiter({ name: "in-range-arbiter", decidedBy: DecidedBy.Code })',
     "isInRange(): void",
   ),
-  Compaction: statefulClass(
-    '@Compaction({ name: "graph-compaction", description: "d", strategy: CompactionStrategy.Custom, turnsBetweenCompactions: 5 })',
+  Memory: statefulClass(
+    '@Memory({ name: "graph-memory", description: "d", ttl: Ttl.Forever, turnsBetweenCompactions: 5 })',
     "async compact(): Promise<void>",
   ),
   Budget: statefulClass(
@@ -221,7 +221,6 @@ async function exportedDecorators(): Promise<ReadonlyMap<string, string>> {
     mcp: await import("../../src/mcp/index.js"),
     rag: await import("../../src/rag/index.js"),
     a2a: await import("../../src/a2a/index.js"),
-    memory: await import("../../src/memory/index.js"),
     eval: await import("../../src/eval/index.js"),
     testing: await import("../../src/testing/index.js"),
   };

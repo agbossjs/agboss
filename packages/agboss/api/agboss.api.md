@@ -492,7 +492,6 @@ export interface AgentFailedErrorOptions {
 export interface AgentOptions {
     // (undocumented)
     readonly cache?: CacheSetting;
-    readonly compaction?: Class;
     // (undocumented)
     readonly description: string;
     readonly excludeGuardrails?: readonly Class[];
@@ -509,7 +508,7 @@ export interface AgentOptions {
     // (undocumented)
     readonly maxToolCalls?: number;
     readonly maxVisits?: number;
-    readonly memoryStrategy?: Class<BaseMemoryStrategy>;
+    readonly memory?: Class;
     readonly model?: string;
     readonly modelProvider?: Class;
     readonly name: string;
@@ -532,7 +531,6 @@ export interface AgentOptions {
     readonly tools?: readonly (Class<ToolHandler<never, unknown>> | Class<{
         send(ask: never): Promise<unknown>;
     }>)[];
-    readonly uncompactedTurns?: UncompactedTurns;
 }
 
 // @public
@@ -584,7 +582,7 @@ export interface AgentsConfig {
             maxToolCalls?: number | undefined;
             maxResultSize?: number | undefined;
         } | undefined;
-        uncompactedTurns: number | TurnLimit.ALL;
+        uncompactedTurns: number | TurnLimit.All;
     };
     judges?: Record<string, ModelSettings> | undefined;
     name: string;
@@ -617,7 +615,7 @@ export interface AgentSettings extends ModelSettings {
         } | undefined;
     }[] | undefined;
     tools?: string[] | undefined;
-    uncompactedTurns?: number | TurnLimit.ALL | undefined;
+    uncompactedTurns?: number | TurnLimit.All | undefined;
 }
 
 // @public
@@ -746,7 +744,6 @@ export interface ApplicationOptions<TEnvironment = unknown> {
     readonly channelListeners?: readonly Class[];
     readonly channels?: readonly Class[];
     readonly channelSelectors?: readonly Class[];
-    readonly compaction?: Class;
     readonly compensationTimeout?: Milliseconds;
     readonly defaults?: WorkflowDefaults;
     readonly environment: Class<TEnvironment>;
@@ -773,7 +770,6 @@ export interface ApplicationOptions<TEnvironment = unknown> {
     readonly storage?: ApplicationStorage;
     readonly tenantContext?: TenantContextClass;
     readonly toolInterceptors?: readonly Class[];
-    readonly uncompactedTurns?: UncompactedTurns;
     readonly version: string;
     readonly workflows: readonly Class[];
     readonly workingCalendar?: WorkingCalendarSource;
@@ -1751,6 +1747,13 @@ export interface CodeJudgeOptions<TOutput extends JudgeOutputShape = JudgeOutput
 }
 
 // @public
+export interface CodeMemoryOptions<TDeps extends readonly Token[] = readonly Token[]> extends MemoryBaseOptions {
+    // (undocumented)
+    readonly compaction?: never;
+    readonly deps?: TDeps;
+}
+
+// @public
 export interface CodeReplyInterpreterOptions<TDeps extends readonly Token[] = readonly Token[]> {
     // (undocumented)
     readonly decidedBy: DecidedBy.Code;
@@ -1771,7 +1774,6 @@ type CodeRouterDecorator<TDeps extends readonly Token[]> = <TClass extends new (
 
 // @public
 export interface CodeRouterOptions<TDeps extends readonly Token[] = readonly Token[]> {
-    readonly compaction?: never;
     // (undocumented)
     readonly decidedBy: DecidedBy.Code;
     readonly deps?: TDeps;
@@ -1782,6 +1784,7 @@ export interface CodeRouterOptions<TDeps extends readonly Token[] = readonly Tok
     readonly guardrails?: readonly Class[];
     readonly input: InputFields;
     readonly maxVisits?: number;
+    readonly memory?: never;
     // (undocumented)
     readonly model?: never;
     readonly name: string;
@@ -1794,8 +1797,6 @@ export interface CodeRouterOptions<TDeps extends readonly Token[] = readonly Tok
     readonly promptVariables?: never;
     // (undocumented)
     readonly routes: readonly [CodeRouterRoute, ...CodeRouterRoute[]];
-    // (undocumented)
-    readonly uncompactedTurns?: never;
 }
 
 // @public
@@ -1812,46 +1813,18 @@ export interface CodeRouterRoute {
 
 // @public
 export interface Compacted {
-    readonly compaction: string;
     readonly fromTurn: number;
+    readonly memory: string;
     readonly summaries: number;
-    // (undocumented)
-    readonly summaryQueueLength: number;
+    readonly summaryQueueLength?: number;
     // (undocumented)
     readonly toTurn: number;
 }
 
 // @public
-export function Compaction(options: SummaryQueueCompactionOptions | SingleSummaryCompactionOptions | NoSummaryCompactionOptions): <C extends Class>(value: C) => C;
-
-// @public
-export function Compaction<const TDeps extends readonly Token[] = []>(options: CustomCompactionOptions<TDeps>): <C extends new (...args: ResolvedAll<TDeps>) => CompactionHandler>(value: C) => C;
-
-// @public
-export class CompactionError extends AGBossError {
-    constructor(options: CompactionErrorOptions);
-    // (undocumented)
-    static readonly code: "compaction";
-    // (undocumented)
-    readonly code: typeof CompactionError.code;
-    readonly compaction: string;
-    // (undocumented)
-    name: string;
-    readonly summaryMaxTokens: SummaryMaxTokens | undefined;
-}
-
-// @public
-export interface CompactionErrorOptions {
-    readonly cause?: unknown;
-    readonly compaction: string;
-    // (undocumented)
-    readonly message: string;
-    readonly summaryMaxTokens: SummaryMaxTokens | undefined;
-}
-
-// @public
-export interface CompactionHandler {
-    compact(input: CompactionInput): Promise<readonly string[]> | readonly string[];
+export interface CompactionEndEvent extends CompactionStartEvent {
+    readonly costUsd: Usd;
+    readonly summaries: number;
 }
 
 // @public
@@ -1861,14 +1834,11 @@ export interface CompactionInput {
 }
 
 // @public
-export type CompactionOptions = SummaryQueueCompactionOptions | SingleSummaryCompactionOptions | NoSummaryCompactionOptions | CustomCompactionOptions;
-
-// @public
 export interface CompactionSettings {
     // (undocumented)
     model?: ModelSettings | undefined;
     // (undocumented)
-    strategy: CompactionStrategy;
+    strategy: CompactionStrategy | "custom";
     // (undocumented)
     summaryQueueLength?: number | undefined;
     // (undocumented)
@@ -1876,20 +1846,27 @@ export interface CompactionSettings {
 }
 
 // @public
+export interface CompactionStartEvent extends ExecutionEvent {
+    readonly memory: string;
+    readonly turns: number;
+}
+
+// @public
 export enum CompactionStrategy {
-    Custom = "custom",
-    None = "none",
     SingleSummary = "single-summary",
     SummaryQueue = "summary-queue"
 }
 
 // @public
 export interface CompactionTurn {
-    readonly finishName: string;
+    readonly finish: string;
     readonly input: unknown;
     readonly output: unknown;
-    readonly startName: string;
+    readonly start: string;
 }
+
+// @public
+export type CompactMethod = (input: CompactionInput) => Promise<readonly string[]> | readonly string[];
 
 // @public
 export function compareProfiles<TApplication extends Class>(application: ApplicationClass<TApplication>, options: CompareProfilesOptions): Promise<ProfileComparison>;
@@ -2019,9 +1996,9 @@ export enum ComponentKind {
     Agent = "agent",
     Arbiter = "arbiter",
     Budget = "budget",
-    Compaction = "compaction",
     Guardrail = "guardrail",
     Judge = "judge",
+    Memory = "memory",
     PiiPolicy = "pii-policy",
     Question = "question",
     Rag = "rag",
@@ -2359,28 +2336,6 @@ export interface CountQuorum {
 export function createApp<TApplication extends Class>(application: ApplicationClass<TApplication>, options?: AppOptions): Promise<App>;
 
 // @public
-export interface CustomCompactionOptions<TDeps extends readonly Token[] = readonly Token[]> {
-    readonly deps?: TDeps;
-    // (undocumented)
-    readonly description: string;
-    // (undocumented)
-    readonly model?: never;
-    // (undocumented)
-    readonly name: string;
-    // (undocumented)
-    readonly prompt?: never;
-    // (undocumented)
-    readonly promptUrls?: never;
-    // (undocumented)
-    readonly strategy: CompactionStrategy.Custom;
-    // (undocumented)
-    readonly summaryMaxTokens?: never;
-    // (undocumented)
-    readonly summaryQueueLength?: never;
-    readonly turnsBetweenCompactions: number;
-}
-
-// @public
 export interface CustomPiiPolicyOptions<D extends readonly Token[] = readonly Token[]> {
     readonly action: MaskingPiiAction;
     // (undocumented)
@@ -2538,6 +2493,14 @@ export interface DecisionResumeRequest {
 
 // @public
 export type DecisionState = string | Readonly<Record<string, unknown>> | readonly (string | DecisionImage)[];
+
+// @public
+export interface DeclarativeMemoryOptions extends MemoryBaseOptions {
+    // (undocumented)
+    readonly compaction: MemoryCompaction;
+    // (undocumented)
+    readonly deps?: never;
+}
 
 // @public
 export interface DeclarativePiiPolicyOptions<D extends readonly Token[] = readonly Token[]> {
@@ -3414,6 +3377,8 @@ export interface ExecutionObserver {
     onChannelEnd?(event: ChannelEndEvent): void | Promise<void>;
     // (undocumented)
     onChannelStart?(event: ChannelStartEvent): void | Promise<void>;
+    onCompactionEnd?(event: CompactionEndEvent): void | Promise<void>;
+    onCompactionStart?(event: CompactionStartEvent): void | Promise<void>;
     onCompensationEnd?(event: CompensationEndEvent): void | Promise<void>;
     onCompensationStart?(event: CompensationStartEvent): void | Promise<void>;
     onExecutionEnd?(event: ExecutionEndEvent): void | Promise<void>;
@@ -3567,7 +3532,7 @@ export abstract class ExecutionRecordRepository {
     abstract findPauseAnswersByTenantIdAndRootExecutionId(tenantId: string, rootExecutionId: string): Promise<PauseAnswerRecord[]>;
     abstract hasThread(workflow: string, tenantId: string, threadId: string): Promise<boolean>;
     abstract lastTurns(tenantId: string, threadId: string, limit: number): Promise<Turn[]>;
-    abstract latestSummaries(tenantId: string, threadId: string, compaction: string, limit: number): Promise<Summary[]>;
+    abstract latestSummaries(tenantId: string, threadId: string, memory: string, limit: number): Promise<Summary[]>;
     abstract markPauseAnswerNotTaken(tenantId: string, rootExecutionId: string, answer: PauseAnswerRecord): Promise<void>;
     // (undocumented)
     abstract meanScore(turnIds: readonly string[]): Promise<number | null>;
@@ -3581,12 +3546,12 @@ export abstract class ExecutionRecordRepository {
     abstract saveScore(turnId: string, judge: string, score: number): Promise<void>;
     abstract summary(workflow: string): Promise<VersionScore[]>;
     // (undocumented)
-    abstract summaryCount(tenantId: string, threadId: string, compaction: string): Promise<number>;
+    abstract summaryCount(tenantId: string, threadId: string, memory: string): Promise<number>;
     abstract threadOwner(workflow: string, tenantId: string, threadId: string): Promise<{
         readonly owner: string | undefined;
     } | undefined>;
     abstract turnNumber(tenantId: string, threadId: string, turnId: string): Promise<number>;
-    abstract uncovered(tenantId: string, threadId: string, compaction: string): Promise<Turn[]>;
+    abstract uncovered(tenantId: string, threadId: string, memory: string): Promise<Turn[]>;
     abstract unscored(workflow: string, promptVersion: string | undefined, limit: number): Promise<Turn[]>;
 }
 
@@ -5805,6 +5770,32 @@ export interface MaskPartAction {
 export const MAX_DECISION_QUESTIONS = 200;
 
 // @public
+export function Memory(options: DeclarativeMemoryOptions): <C extends new () => {
+    readonly compact?: never;
+}>(value: C) => C;
+
+// @public (undocumented)
+export function Memory<const TDeps extends readonly Token[] = []>(options: CodeMemoryOptions<TDeps>): <C extends new (...args: ResolvedAll<TDeps>) => {
+    compact?: CompactMethod;
+}>(value: C) => C;
+
+// @public
+export interface MemoryBaseOptions {
+    // (undocumented)
+    readonly description: string;
+    readonly name: string;
+    readonly ttl: Milliseconds | Ttl.Forever;
+    readonly turnsBetweenCompactions?: number;
+    readonly uncompactedTurns?: UncompactedTurns;
+}
+
+// @public
+export type MemoryCompaction = SummaryQueueCompaction | SingleSummaryCompaction;
+
+// @public
+export type MemoryOptions = DeclarativeMemoryOptions | CodeMemoryOptions;
+
+// @public
 export interface MeshBudgetClaim {
     // (undocumented)
     readonly currency: "USD";
@@ -6201,7 +6192,6 @@ type ModelRouterDecorator = <TClass extends new () => object>(value: TClass & No
 
 // @public
 export interface ModelRouterOptions {
-    readonly compaction?: Class;
     // (undocumented)
     readonly decidedBy: DecidedBy.Model;
     // (undocumented)
@@ -6213,6 +6203,7 @@ export interface ModelRouterOptions {
     readonly guardrails?: readonly Class[];
     readonly input: InputFields;
     readonly maxVisits?: number;
+    readonly memory?: Class;
     readonly model?: string;
     readonly name: string;
     readonly piiPolicies?: readonly Class[];
@@ -6222,7 +6213,6 @@ export interface ModelRouterOptions {
     readonly promptVariables?: Readonly<Record<string, string>>;
     // (undocumented)
     readonly routes: readonly [RouterRoute, ...RouterRoute[]];
-    readonly uncompactedTurns?: UncompactedTurns;
 }
 
 // @public
@@ -6343,6 +6333,10 @@ export interface NoInput {
 }
 
 // @public
+export class NoMemory {
+}
+
+// @public
 export interface NoOutput {
     // (undocumented)
     readonly [noOutput]: true;
@@ -6354,28 +6348,6 @@ type NoRouteMethod<TClass extends Class> = InstanceType<TClass> extends {
 } ? {
     readonly __error: "a model router has no route() — routes are chosen by its model";
 } : unknown;
-
-// @public
-export interface NoSummaryCompactionOptions {
-    // (undocumented)
-    readonly description: string;
-    // (undocumented)
-    readonly model?: never;
-    // (undocumented)
-    readonly name: string;
-    // (undocumented)
-    readonly prompt?: never;
-    // (undocumented)
-    readonly promptUrls?: never;
-    // (undocumented)
-    readonly strategy: CompactionStrategy.None;
-    // (undocumented)
-    readonly summaryMaxTokens?: never;
-    // (undocumented)
-    readonly summaryQueueLength?: never;
-    // (undocumented)
-    readonly turnsBetweenCompactions?: never;
-}
 
 // @public
 export class NotAWorkflowStartError extends AGBossError {
@@ -8869,7 +8841,7 @@ type RouteTargetKind = NodeKind.Agent | NodeKind.Action | NodeKind.Router | Node
 type RouteTargetLabel = "a route target (an agent, an action, a router, a child workflow or a finish)";
 
 // @public
-export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-max-previous" | "input.outdated-on-path" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.unjoinable-output" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "limits.timeout-invalid" | "application.fenced-effects-invalid" | "application.store-backend-mismatch" | "application.store-backend-undeclared" | "application.store-descriptor-invalid" | "application.idempotency-key-required" | "application.idempotency-key-shared" | "application.pii-key-shared" | "a2a.expose-description-required" | "a2a.task-store-not-shared" | "a2a.message-store-not-shared" | "a2a.message-skill-pause" | "a2a.message-skill-effect" | "a2a.message-skill-tool" | "a2a.message-skill-compensation" | "a2a.message-skill-child" | "a2a.unknown-skill-option" | "a2a.file-options-invalid" | "a2a.file-store-required" | "a2a.file-store-not-shared" | "a2a.nested-file-field" | "a2a.unknown-finish" | "a2a.price-invalid" | "application.outbound-calls-invalid" | "application.retention-invalid" | "mesh.signing-key-missing" | "mesh.unknown-peer-key" | "mesh.duplicate-peer" | "application.not-an-expose" | "application.duplicate-expose" | "application.expose-unknown-start" | "name.kind-suffix" | "name.not-kebab-case" | "dto.name" | "dto.duplicate-name" | "dto.cyclic" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.max-steps-below-worst-case" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "limits.count-invalid" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "pause-listener.not-a-handler" | "pause-listener.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "environment.conflicting-field" | "guardrail.no-model" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "rag.rerank-invalid" | "rag.tenancy-required" | "rag.not-a-reranker" | "reranker.missing-handler" | "reranker.decision-model" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "tool-interceptor.target-not-a-tool" | "tool-interceptor.duplicate-hook" | "tool-interceptor.override-drops-target" | "tool-interceptor.unresolved-tool" | "tool-interceptor.duplicate-tool-name" | "tool-interceptor.unknown-hook" | "compaction.not-a-compaction" | "compaction.invalid-setting" | "compaction.decision-model" | "compaction.uncompacted-turns-invalid" | "compaction.missing-handler" | "model.unserved" | "model.ambiguous-provider" | "model.missing-provider" | "model.incompatible-provider" | "model.missing" | "model.price-invalid" | "model-provider.both-modes" | "model-provider.request-fields-missing" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "channel.expires-in-invalid" | "channel.remind-before-invalid" | "channel.remind-before-exceeds-expiry" | "channel.remind-before-below-tick" | "channel.remind-before-working-without-working-expiry" | "channel.working-time-without-calendar" | "working-calendar.invalid" | "working-calendar.duplicate-name" | "tool.expires-in-without-channel" | "question.expires-in-conflict" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "judge.wrong-output" | "judge.same-model-family" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-output" | "flow.conflicting-placement" | ExtraRuleCode;
+export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-max-previous" | "input.outdated-on-path" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.unjoinable-output" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "limits.timeout-invalid" | "application.fenced-effects-invalid" | "application.store-backend-mismatch" | "application.store-backend-undeclared" | "application.store-descriptor-invalid" | "application.idempotency-key-required" | "application.idempotency-key-shared" | "application.pii-key-shared" | "a2a.expose-description-required" | "a2a.task-store-not-shared" | "a2a.message-store-not-shared" | "a2a.message-skill-pause" | "a2a.message-skill-effect" | "a2a.message-skill-tool" | "a2a.message-skill-compensation" | "a2a.message-skill-child" | "a2a.unknown-skill-option" | "a2a.file-options-invalid" | "a2a.file-store-required" | "a2a.file-store-not-shared" | "a2a.nested-file-field" | "a2a.unknown-finish" | "a2a.price-invalid" | "application.outbound-calls-invalid" | "application.retention-invalid" | "mesh.signing-key-missing" | "mesh.unknown-peer-key" | "mesh.duplicate-peer" | "application.not-an-expose" | "application.duplicate-expose" | "application.expose-unknown-start" | "name.kind-suffix" | "name.not-kebab-case" | "dto.name" | "dto.duplicate-name" | "dto.cyclic" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.max-steps-below-worst-case" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "limits.count-invalid" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "pause-listener.not-a-handler" | "pause-listener.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "environment.conflicting-field" | "guardrail.no-model" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "rag.rerank-invalid" | "rag.tenancy-required" | "rag.not-a-reranker" | "reranker.missing-handler" | "reranker.decision-model" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "tool-interceptor.target-not-a-tool" | "tool-interceptor.duplicate-hook" | "tool-interceptor.override-drops-target" | "tool-interceptor.unresolved-tool" | "tool-interceptor.duplicate-tool-name" | "tool-interceptor.unknown-hook" | "memory.not-a-memory" | "memory.invalid-setting" | "memory.uncompacted-turns-invalid" | "memory.conflicting-compaction" | "model.unserved" | "model.ambiguous-provider" | "model.missing-provider" | "model.incompatible-provider" | "model.missing" | "model.price-invalid" | "model-provider.both-modes" | "model-provider.request-fields-missing" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "channel.expires-in-invalid" | "channel.remind-before-invalid" | "channel.remind-before-exceeds-expiry" | "channel.remind-before-below-tick" | "channel.remind-before-working-without-working-expiry" | "channel.working-time-without-calendar" | "working-calendar.invalid" | "working-calendar.duplicate-name" | "tool.expires-in-without-channel" | "question.expires-in-conflict" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "judge.wrong-output" | "judge.same-model-family" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-output" | "flow.conflicting-placement" | ExtraRuleCode;
 
 // @public
 export interface RuleViolation {
@@ -8996,20 +8968,11 @@ export interface SideHead {
 export type SidePath = BuiltPath<SideHead>;
 
 // @public
-export interface SingleSummaryCompactionOptions {
-    // (undocumented)
-    readonly description: string;
-    readonly model: string;
-    readonly name: string;
-    readonly prompt?: PromptValue;
-    // (undocumented)
-    readonly promptUrls?: readonly string[];
+export interface SingleSummaryCompaction extends SummariserOptions {
     // (undocumented)
     readonly strategy: CompactionStrategy.SingleSummary;
-    readonly summaryMaxTokens: SummaryMaxTokens;
     // (undocumented)
     readonly summaryQueueLength?: never;
-    readonly turnsBetweenCompactions: number;
 }
 
 // @public (undocumented)
@@ -9836,10 +9799,15 @@ export interface SucceededToolCall<TInput, TOutput> extends ToolCallRecord {
 }
 
 // @public
+export interface SummariserOptions {
+    readonly model?: string;
+    readonly modelProvider?: Class;
+    readonly prompt?: PromptSource;
+    readonly summaryMaxTokens?: SummaryMaxTokens;
+}
+
+// @public
 export interface Summary {
-    // (undocumented)
-    readonly bundle: string;
-    readonly compaction: string;
     // (undocumented)
     readonly costUsd: Usd;
     // (undocumented)
@@ -9848,6 +9816,7 @@ export interface Summary {
     readonly fromTurnId: string;
     // (undocumented)
     readonly id: string;
+    readonly memory: string;
     readonly tenantId: string;
     // (undocumented)
     readonly text: string;
@@ -9857,25 +9826,18 @@ export interface Summary {
     readonly toTurnId: string;
     // (undocumented)
     readonly turns: number;
+    // (undocumented)
+    readonly workflow: string;
 }
 
 // @public
-export type SummaryMaxTokens = number | TokenLimit.MODEL_MAX;
+export type SummaryMaxTokens = number | TokenLimit.ModelMax;
 
 // @public
-export interface SummaryQueueCompactionOptions {
-    // (undocumented)
-    readonly description: string;
-    readonly model: string;
-    readonly name: string;
-    readonly prompt?: PromptValue;
-    // (undocumented)
-    readonly promptUrls?: readonly string[];
+export interface SummaryQueueCompaction extends SummariserOptions {
     // (undocumented)
     readonly strategy: CompactionStrategy.SummaryQueue;
-    readonly summaryMaxTokens: SummaryMaxTokens;
     readonly summaryQueueLength: number;
-    readonly turnsBetweenCompactions: number;
 }
 
 // @public
@@ -10142,7 +10104,7 @@ export interface TokenizeAction {
 // @public
 export enum TokenLimit {
     // (undocumented)
-    MODEL_MAX = "max"
+    ModelMax = "max"
 }
 
 // @public
@@ -10453,8 +10415,6 @@ export enum Ttl {
 // @public (undocumented)
 export interface Turn {
     // (undocumented)
-    readonly bundle: string;
-    // (undocumented)
     readonly configHash: string | null;
     readonly configVersion: string | null;
     // (undocumented)
@@ -10484,12 +10444,13 @@ export interface Turn {
     readonly tenantId: string;
     // (undocumented)
     readonly threadId: string;
+    readonly workflow: string;
 }
 
 // @public
 export enum TurnLimit {
     // (undocumented)
-    ALL = "all"
+    All = "all"
 }
 
 // @public
@@ -10880,7 +10841,6 @@ export class WorkflowLoadError extends AGBossError {
 
 // @public
 export interface WorkflowOptions<TName extends string = string, TFlow extends readonly FlowPath[] = readonly FlowPath[]> {
-    readonly compaction?: Class;
     // (undocumented)
     readonly defaults?: WorkflowDefaults;
     readonly excludePiiPolicies?: readonly Class[];
@@ -10890,6 +10850,7 @@ export interface WorkflowOptions<TName extends string = string, TFlow extends re
     readonly maxConcurrentExecutions?: number;
     readonly maxDepth?: number;
     readonly maxSteps?: number;
+    readonly memory?: Class;
     readonly modelProvider?: Class;
     readonly name: TName;
     readonly piiPolicies?: readonly Class[];
@@ -10897,7 +10858,6 @@ export interface WorkflowOptions<TName extends string = string, TFlow extends re
     readonly providers?: readonly Provider[];
     readonly services?: readonly ServiceEntry[];
     readonly toolInterceptors?: readonly Class[];
-    readonly uncompactedTurns?: UncompactedTurns;
     // (undocumented)
     readonly version: string;
 }
@@ -11363,34 +11323,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/channels/test-channels.ts - (ae-undocumented) Missing documentation for "send".
 // src/channels/test-channels.ts - (ae-undocumented) Missing documentation for "[agbossComponent]".
 // src/channels/test-channels.ts - (ae-undocumented) Missing documentation for "send".
-// src/compaction/compaction.decorator.ts - (ae-undocumented) Missing documentation for "description".
-// src/compaction/compaction.decorator.ts - (ae-undocumented) Missing documentation for "promptUrls".
-// src/compaction/compaction.decorator.ts - (ae-undocumented) Missing documentation for "strategy".
-// src/compaction/compaction.decorator.ts - (ae-undocumented) Missing documentation for "description".
-// src/compaction/compaction.decorator.ts - (ae-undocumented) Missing documentation for "promptUrls".
-// src/compaction/compaction.decorator.ts - (ae-undocumented) Missing documentation for "strategy".
-// src/compaction/compaction.decorator.ts - (ae-undocumented) Missing documentation for "summaryQueueLength".
-// src/compaction/compaction.decorator.ts - (ae-undocumented) Missing documentation for "name".
-// src/compaction/compaction.decorator.ts - (ae-undocumented) Missing documentation for "description".
-// src/compaction/compaction.decorator.ts - (ae-undocumented) Missing documentation for "strategy".
-// src/compaction/compaction.decorator.ts - (ae-undocumented) Missing documentation for "prompt".
-// src/compaction/compaction.decorator.ts - (ae-undocumented) Missing documentation for "promptUrls".
-// src/compaction/compaction.decorator.ts - (ae-undocumented) Missing documentation for "model".
-// src/compaction/compaction.decorator.ts - (ae-undocumented) Missing documentation for "turnsBetweenCompactions".
-// src/compaction/compaction.decorator.ts - (ae-undocumented) Missing documentation for "summaryQueueLength".
-// src/compaction/compaction.decorator.ts - (ae-undocumented) Missing documentation for "summaryMaxTokens".
-// src/compaction/compaction.decorator.ts - (ae-undocumented) Missing documentation for "name".
-// src/compaction/compaction.decorator.ts - (ae-undocumented) Missing documentation for "description".
-// src/compaction/compaction.decorator.ts - (ae-undocumented) Missing documentation for "strategy".
-// src/compaction/compaction.decorator.ts - (ae-undocumented) Missing documentation for "prompt".
-// src/compaction/compaction.decorator.ts - (ae-undocumented) Missing documentation for "promptUrls".
-// src/compaction/compaction.decorator.ts - (ae-undocumented) Missing documentation for "model".
-// src/compaction/compaction.decorator.ts - (ae-undocumented) Missing documentation for "summaryQueueLength".
-// src/compaction/compaction.decorator.ts - (ae-undocumented) Missing documentation for "summaryMaxTokens".
-// src/compaction/errors.ts - (ae-undocumented) Missing documentation for "message".
-// src/compaction/errors.ts - (ae-undocumented) Missing documentation for "code".
-// src/compaction/errors.ts - (ae-undocumented) Missing documentation for "code".
-// src/compaction/errors.ts - (ae-undocumented) Missing documentation for "name".
 // src/components/container/lifecycle.ts - (ae-undocumented) Missing documentation for "onReady".
 // src/components/container/lifecycle.ts - (ae-undocumented) Missing documentation for "onBeforeDestroy".
 // src/components/decorators.ts - (ae-undocumented) Missing documentation for "execute".
@@ -11464,8 +11396,8 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/config/settings-types.ts - (ae-undocumented) Missing documentation for "maxRetries".
 // src/config/settings-types.ts - (ae-undocumented) Missing documentation for "defaults".
 // src/config/settings-types.ts - (ae-undocumented) Missing documentation for "agents".
-// src/config/types.ts - (ae-undocumented) Missing documentation for "MODEL_MAX".
-// src/config/types.ts - (ae-undocumented) Missing documentation for "ALL".
+// src/config/types.ts - (ae-undocumented) Missing documentation for "ModelMax".
+// src/config/types.ts - (ae-undocumented) Missing documentation for "All".
 // src/core/error-families/config-errors.ts - (ae-undocumented) Missing documentation for "GraphRules".
 // src/core/error-families/config-errors.ts - (ae-undocumented) Missing documentation for "FlowSyntax".
 // src/core/error-families/config-errors.ts - (ae-undocumented) Missing documentation for "NotAWorkflowStart".
@@ -11986,7 +11918,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/decorators/router.ts - (ae-undocumented) Missing documentation for "prompt".
 // src/flow/decorators/router.ts - (ae-undocumented) Missing documentation for "promptUrls".
 // src/flow/decorators/router.ts - (ae-undocumented) Missing documentation for "promptVariables".
-// src/flow/decorators/router.ts - (ae-undocumented) Missing documentation for "uncompactedTurns".
 // src/flow/decorators/router.ts - (ae-undocumented) Missing documentation for "route".
 // src/flow/decorators/workflow-finish.ts - (ae-undocumented) Missing documentation for "description".
 // src/flow/decorators/workflow-finish.ts - (ae-undocumented) Missing documentation for "WorkflowFinish".
@@ -12731,6 +12662,14 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/loader/load-errors.ts - (ae-undocumented) Missing documentation for "code".
 // src/loader/load-errors.ts - (ae-undocumented) Missing documentation for "code".
 // src/loader/load-errors.ts - (ae-undocumented) Missing documentation for "name".
+// src/memory/memory.decorator.ts - (ae-undocumented) Missing documentation for "strategy".
+// src/memory/memory.decorator.ts - (ae-undocumented) Missing documentation for "strategy".
+// src/memory/memory.decorator.ts - (ae-undocumented) Missing documentation for "summaryQueueLength".
+// src/memory/memory.decorator.ts - (ae-undocumented) Missing documentation for "description".
+// src/memory/memory.decorator.ts - (ae-undocumented) Missing documentation for "compaction".
+// src/memory/memory.decorator.ts - (ae-undocumented) Missing documentation for "deps".
+// src/memory/memory.decorator.ts - (ae-undocumented) Missing documentation for "compaction".
+// src/memory/memory.decorator.ts - (ae-undocumented) Missing documentation for "Memory".
 // src/mesh/mesh-call.ts - (ae-undocumented) Missing documentation for "application".
 // src/mesh/mesh-call.ts - (ae-undocumented) Missing documentation for "executionId".
 // src/mesh/mesh-envelope.ts - (ae-undocumented) Missing documentation for "remaining".
@@ -12852,7 +12791,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/routers/types.ts - (ae-undocumented) Missing documentation for "name".
 // src/routers/types.ts - (ae-undocumented) Missing documentation for "route".
 // src/run/compaction.ts - (ae-undocumented) Missing documentation for "toTurn".
-// src/run/compaction.ts - (ae-undocumented) Missing documentation for "summaryQueueLength".
 // src/run/resume-agent.ts - (ae-undocumented) Missing documentation for "code".
 // src/run/resume-agent.ts - (ae-undocumented) Missing documentation for "code".
 // src/run/resume-agent.ts - (ae-undocumented) Missing documentation for "name".
@@ -12904,7 +12842,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/turns/types.ts - (ae-undocumented) Missing documentation for "Turn".
 // src/turns/types.ts - (ae-undocumented) Missing documentation for "id".
 // src/turns/types.ts - (ae-undocumented) Missing documentation for "threadId".
-// src/turns/types.ts - (ae-undocumented) Missing documentation for "bundle".
 // src/turns/types.ts - (ae-undocumented) Missing documentation for "createdAt".
 // src/turns/types.ts - (ae-undocumented) Missing documentation for "task".
 // src/turns/types.ts - (ae-undocumented) Missing documentation for "replyWith".
@@ -12919,7 +12856,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/turns/types.ts - (ae-undocumented) Missing documentation for "NewTurn".
 // src/turns/types.ts - (ae-undocumented) Missing documentation for "id".
 // src/turns/types.ts - (ae-undocumented) Missing documentation for "threadId".
-// src/turns/types.ts - (ae-undocumented) Missing documentation for "bundle".
+// src/turns/types.ts - (ae-undocumented) Missing documentation for "workflow".
 // src/turns/types.ts - (ae-undocumented) Missing documentation for "fromTurnId".
 // src/turns/types.ts - (ae-undocumented) Missing documentation for "toTurnId".
 // src/turns/types.ts - (ae-undocumented) Missing documentation for "turns".

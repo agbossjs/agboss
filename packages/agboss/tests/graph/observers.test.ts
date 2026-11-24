@@ -1,3 +1,4 @@
+import { Window1Memory } from "../helpers/window-memory.js";
 import { describe, expect } from "vitest";
 import {
   Workflow,
@@ -54,7 +55,7 @@ import { EmptyEnvironment } from "../../src/index.js";
     router: { model: "typesafe/jev-1.13" },
     tools: { maxToolCalls: 1 },
   },
-  uncompactedTurns: 1,
+  memory: Window1Memory,
   flow: [onStart(Start).toAgent(WorkerAgent).toFinish(Finish)],
 })
 class ObsWf {}

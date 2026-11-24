@@ -1,3 +1,4 @@
+import { Window5Memory } from "../../helpers/window-memory.js";
 import {
   Agent,
   Application,
@@ -185,7 +186,7 @@ export class HandOverWorkflowFinish {}
           .toFinish(HandOverWorkflowFinish),
       ),
   ],
-  uncompactedTurns: 5,
+  memory: Window5Memory,
   providers: [RefundLedger],
 })
 export class EvalDeskWorkflow {}

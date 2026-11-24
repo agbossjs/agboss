@@ -20,8 +20,8 @@ import {
 import type { PromptLoader } from "./prompt-render.js";
 import { codeClassesOf, type RuntimeGraph } from "../flow/runtime/graph-model.js";
 import { NodeKind } from "../flow/ast.js";
-import type { AssembledCompactions } from "../compaction/assembly.js";
-import { customCompactionClassesOf } from "../compaction/custom-classes.js";
+import type { AssembledMemories } from "../memory/assembly.js";
+import { customCompactionClassesOf } from "../memory/custom-classes.js";
 
 /**
  * The channels of a workflow (#267): the classes its tools name, found from the graph — no
@@ -116,12 +116,12 @@ export const createdClassesOf = (
   graph: Pick<RuntimeGraph, "nodes" | "launches">,
   piiClasses: readonly Class[],
   interpreters: readonly AssembledReplyInterpreter[],
-  compactions?: AssembledCompactions,
+  memories?: AssembledMemories,
 ): Class[] => [
   ...codeClassesOf(graph),
   ...piiClasses,
   ...codeInterpreterClassesOf(interpreters),
-  ...customCompactionClassesOf(compactions),
+  ...customCompactionClassesOf(memories),
 ];
 
 /** The question roles a workflow's flow asks (#659): its question steps' classes. */

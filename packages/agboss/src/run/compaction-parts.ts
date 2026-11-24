@@ -36,7 +36,7 @@ export async function maskedTextOf<TName extends string>(
 
 /** What one compaction wrote, to store: the records it covers, its text and its cost. */
 export interface CompactionWrite {
-  readonly compaction: string;
+  readonly memory: string;
   readonly due: readonly Turn[];
   /** The summary it rewrites (a single summary, a custom one): it covers the thread from its start. */
   readonly current?: Summary | undefined;
@@ -45,6 +45,8 @@ export interface CompactionWrite {
   /** The summaries readers see now, and how many they may see. */
   readonly summaries: number;
   readonly summaryQueueLength: number;
+  /** Whether the memory is a queue: only a queue reports its length. */
+  readonly isQueue: boolean;
 }
 
 /** Stores what one compaction wrote and says what it did. */
@@ -61,8 +63,8 @@ export async function storedCompaction<TName extends string>(
   await deps.turns.addSummary({
     tenantId,
     threadId,
-    bundle: deps.config.name,
-    compaction: write.compaction,
+    workflow: deps.config.name,
+    memory: write.memory,
     fromTurnId: write.current?.fromTurnId ?? first.id,
     toTurnId: last.id,
     turns: (write.current?.turns ?? 0) + write.due.length,
@@ -70,10 +72,10 @@ export async function storedCompaction<TName extends string>(
     costUsd: write.costUsd,
   });
   return {
-    compaction: write.compaction,
+    memory: write.memory,
     fromTurn: await deps.turns.turnNumber(tenantId, threadId, first.id),
     toTurn: await deps.turns.turnNumber(tenantId, threadId, last.id),
     summaries: write.summaries,
-    summaryQueueLength: write.summaryQueueLength,
+    ...(write.isQueue ? { summaryQueueLength: write.summaryQueueLength } : {}),
   };
 }

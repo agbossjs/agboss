@@ -28,18 +28,23 @@ export { AfterTool, BeforeTool } from "../tool-interceptors/hooks.js";
 export { ToolCall, ToolCallDecision } from "../tool-interceptors/decision.js";
 export { TokenLimit, TurnLimit } from "../config/types.js";
 export {
-  Compaction,
+  Memory,
+  NoMemory,
   CompactionStrategy,
-  type CompactionHandler,
+  type CodeMemoryOptions,
   type CompactionInput,
-  type CompactionOptions,
+  type CompactMethod,
   type CompactionTurn,
-  type NoSummaryCompactionOptions,
-  type SingleSummaryCompactionOptions,
+  type DeclarativeMemoryOptions,
+  type MemoryBaseOptions,
+  type MemoryCompaction,
+  type MemoryOptions,
+  type SingleSummaryCompaction,
+  type SummariserOptions,
   type SummaryMaxTokens,
-  type SummaryQueueCompactionOptions,
+  type SummaryQueueCompaction,
   type UncompactedTurns,
-} from "../compaction/compaction.decorator.js";
+} from "../memory/memory.decorator.js";
 export {
   PiiAction,
   PiiActionKind,

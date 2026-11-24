@@ -8,7 +8,6 @@ import * as graph from "../../src/graph/index.js";
 import * as root from "../../src/index.js";
 import * as internal from "../../src/internal.js";
 import * as mcp from "../../src/mcp/index.js";
-import * as memory from "../../src/memory/index.js";
 import * as models from "../../src/models/index.js";
 import * as rag from "../../src/rag/index.js";
 import * as router from "../../src/router/index.js";
@@ -29,7 +28,6 @@ const ENTRIES: Readonly<Record<string, object>> = {
   "./mcp": mcp,
   "./rag": rag,
   "./a2a": a2a,
-  "./memory": memory,
   "./eval": evals,
   "./stores": stores,
   "./internal": internal,

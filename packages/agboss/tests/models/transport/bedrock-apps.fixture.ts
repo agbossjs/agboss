@@ -116,7 +116,7 @@ export function workflowsOn(model: string, prefix: string): BedrockDesk {
     name: `${prefix}-workflow`,
     version: "1.0.0",
     flow: [onStart(ChatStart).toAgent(TextAgent).toFinish(Reply)],
-    defaults: { models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX } },
+    defaults: { models: { temperature: 0, maxTokens: TokenLimit.ModelMax } },
   })
   class TextWorkflow {}
 
@@ -124,7 +124,7 @@ export function workflowsOn(model: string, prefix: string): BedrockDesk {
     name: `${prefix}-verdict-workflow`,
     version: "1.0.0",
     flow: [onStart(VerdictStart).toAgent(VerdictAgent).toFinish(VerdictFinish)],
-    defaults: { models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX } },
+    defaults: { models: { temperature: 0, maxTokens: TokenLimit.ModelMax } },
   })
   class VerdictWorkflow {}
 
@@ -132,7 +132,7 @@ export function workflowsOn(model: string, prefix: string): BedrockDesk {
     name: `${prefix}-lookup-workflow`,
     version: "1.0.0",
     flow: [onStart(LookupStart).toAgent(LookupAgent).toFinish(Reply)],
-    defaults: { models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX } },
+    defaults: { models: { temperature: 0, maxTokens: TokenLimit.ModelMax } },
   })
   class LookupWorkflow {}
 

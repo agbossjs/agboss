@@ -20,7 +20,7 @@ const turnOf = (runId: string, status: Turn["status"], bundle = "orders-workflow
   runId,
   threadId: `thread-${runId}`,
   tenantId: "default",
-  bundle,
+  workflow: bundle,
   createdAt: "2026-01-05T09:00:00.000Z",
   task: "",
   replyWith: "",

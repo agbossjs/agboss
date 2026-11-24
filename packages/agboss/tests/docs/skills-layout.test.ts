@@ -299,7 +299,7 @@ describe("#474: the layout rules find what they guard against", () => {
 
   it.each([
     ["agents/support/support.prompt.md", "agents/support/support.agent.ts"],
-    ["compactions/notes/notes.prompt.md", "compactions/notes/notes.compaction.ts"],
+    ["memories/notes/notes.prompt.md", "memories/notes/notes.memory.ts"],
     ["routers/main/main.prompt.md", "routers/main/main.router.ts"],
   ])("AC4: a .prompt.md beside its component is fine (%s)", (prompt, component) => {
     const files = projectOf(`src/desk/${prompt}`, `src/desk/${component}`);

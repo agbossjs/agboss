@@ -94,7 +94,7 @@ export class PauseClerk {}
       .toAgent(PauseClerk)
       .toFinish(PauseAnswerFinish),
   ],
-  defaults: { models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX } },
+  defaults: { models: { temperature: 0, maxTokens: TokenLimit.ModelMax } },
 })
 export class PauseWorkflow {}
 

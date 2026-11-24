@@ -1,3 +1,4 @@
+import { Window1Memory } from "../../helpers/window-memory.js";
 import { TerminalUserChannel } from "../../../src/channels/terminal-channel.js";
 import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
@@ -180,7 +181,7 @@ export class Done {}
     models: { maxTokens: 100, temperature: 0 },
     tools: { maxToolCalls: 3 },
   },
-  uncompactedTurns: 1,
+  memory: Window1Memory,
   providers: [FileAway],
   flow: [
     onStart(Ask)

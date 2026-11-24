@@ -1,3 +1,4 @@
+import { Window2Memory } from "../helpers/window-memory.js";
 import { createAppWith, type BuildApplicationOptions } from "../../src/application/create-app.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
@@ -103,7 +104,7 @@ class Clerk {}
     router: { model: "typesafe/jev-1.13" },
     tools: { maxToolCalls: 2 },
   },
-  uncompactedTurns: 2,
+  memory: Window2Memory,
   providers: [OrderBook],
 })
 class ClerkDesk implements WorkflowDefinition {

@@ -1,3 +1,4 @@
+import { Window1Memory } from "../../helpers/window-memory.js";
 import { Application } from "../../../src/application/application.js";
 import {
   Budget,
@@ -128,7 +129,7 @@ export class SentWorkflowFinish {}
   name: "note-workflow",
   version: "1.0.0",
   defaults: { models: { temperature: 0 } },
-  uncompactedTurns: 1,
+  memory: Window1Memory,
   flow: [onStart(NoteWorkflowStart).toAgent(ScribeAgent).toFinish(NoteWorkflowFinish)],
 })
 export class NoteWorkflow {}
@@ -138,7 +139,7 @@ export class NoteWorkflow {}
   name: "send-workflow",
   version: "1.0.0",
   defaults: { models: { temperature: 0 }, tools: { maxToolCalls: 2 } },
-  uncompactedTurns: 1,
+  memory: Window1Memory,
   flow: [onStart(SendWorkflowStart).toAgent(SenderAgent).toFinish(SentWorkflowFinish)],
 })
 export class SendWorkflow {}

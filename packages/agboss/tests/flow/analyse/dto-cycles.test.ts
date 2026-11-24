@@ -4,6 +4,7 @@
  * Every place that walks DTOs: an agent's answer tool, an input, a tool's DTOs; a DTO used twice
  * is not a cycle.
  */
+import { Window2Memory } from "../../helpers/window-memory.js";
 import { describe, expect, it } from "vitest";
 import { createAppWith } from "../../../src/application/create-app.js";
 import {
@@ -30,7 +31,7 @@ const workflowDefaults = {
     router: { model: "typesafe/jev-1.13" },
     tools: { maxToolCalls: 2 },
   },
-  uncompactedTurns: 2,
+  memory: Window2Memory,
 };
 
 const agentWith = (options: Partial<Parameters<typeof Agent>[0]>) => {

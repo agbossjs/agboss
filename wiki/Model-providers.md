@@ -190,7 +190,7 @@ export class BedrockModelProvider implements ModelProviderHandler {
   `messages` (`ModelProviderMessage { role: ModelProviderMessageRole.System | User | Assistant | Tool,
   text, toolCalls?, toolCallId? }` — text only, masked by the PII policies), `tools`
   (`ModelProviderToolDefinition { name, description, parameters }` — the agent's own tools and its
-  `answer-<dto>` tools), `temperature`, `maxTokens` (`undefined` = `TokenLimit.MODEL_MAX`),
+  `answer-<dto>` tools), `temperature`, `maxTokens` (`undefined` = `TokenLimit.ModelMax`),
   `reasoning`, `promptCaching`, `signal` (the attempt's timeout, a cancel, an exhausted budget — an
   SDK that ignores it is cut at `timeout` anyway, as a `Timeout`). No LangChain type in the contract.
 - **The answer** — `ModelProviderResponse`: `text`, `toolCalls?` (`ModelProviderToolCall { id, name,

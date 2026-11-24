@@ -51,7 +51,7 @@ describe("AC6: fail fast — settings must fit their models, all problems at onc
           description: "w",
           thinking: { budgetTokens: 2000 },
         },
-        local: { model: "local/llama", description: "l", maxTokens: TokenLimit.MODEL_MAX },
+        local: { model: "local/llama", description: "l", maxTokens: TokenLimit.ModelMax },
       }),
     ).toEqual([]);
   });

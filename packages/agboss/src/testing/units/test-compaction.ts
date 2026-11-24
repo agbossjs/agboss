@@ -1,20 +1,23 @@
 import type { MessageContent } from "@langchain/core/messages";
 import type { Class } from "../../components/injection.js";
 import { PromptLoader } from "../../components/prompt-render.js";
-import { loadedCompactionOf } from "../../compaction/assembly.js";
-import { compactionViolations } from "../../compaction/checks.js";
+import { loadedMemoryOf } from "../../memory/assembly.js";
+import { memoryViolations } from "../../memory/checks.js";
 import {
   CompactionStrategy,
-  compactionMetaOf,
-  isCustomCompaction,
-  isSummarising,
+  memoryMetaOf,
+  modeOf,
+  WINDOW_ONLY,
+  CUSTOM_COMPACTION,
   type CompactionInput,
-  type CompactionMeta,
-} from "../../compaction/compaction.decorator.js";
-import { CompactionError } from "../../compaction/errors.js";
-import type { ModelCompactionInUse } from "../../compaction/plan.js";
+  type MemoryCompaction,
+  type MemoryMeta,
+} from "../../memory/memory.decorator.js";
+import { memoryError } from "../../memory/memory-error.js";
+import type { ModelCompactionInUse } from "../../memory/plan.js";
 import type { ModelBinding } from "../../llm/registry.js";
 import { TokenLimit } from "../../config/types.js";
+import { DEFAULT_MODEL_ALIAS } from "../../models/model-cascade.js";
 import type { ExecutionContext } from "../../flow/context/execution-context.js";
 import type { TenantContext } from "../../flow/context/tenant-context.js";
 import { finishLine, startLine } from "../../flow/runtime/history.js";
@@ -50,22 +53,20 @@ export interface CompactionRunner extends UnitClock {
   (input: CompactionInput, options?: UnitCallOptions): Promise<UnitRun<CompactionResult>>;
 }
 
-/** The compaction's record, its rules checked; `None` writes nothing, so there is nothing to run. */
-function checkedMetaOf(
-  compaction: Class,
-  options: Pick<UnitModelOptions, "model">,
-): CompactionMeta {
-  const meta = compactionMetaOf(compaction);
+/** The memory's record, its rules checked; a window-only memory writes nothing, so there is nothing to run. */
+function checkedMetaOf(compaction: Class, options: Pick<UnitModelOptions, "model">): MemoryMeta {
+  const meta = memoryMetaOf(compaction);
   if (meta === undefined)
-    throw new TestSetupError({ message: `testCompaction(${compaction.name}): not a @Compaction` });
-  throwIfViolated(compactionViolations([compaction]));
-  if (meta.strategy === CompactionStrategy.None)
+    throw new TestSetupError({ message: `testCompaction(${compaction.name}): not a @Memory` });
+  throwIfViolated(memoryViolations([compaction]));
+  const mode = modeOf(compaction, meta);
+  if (mode === WINDOW_ONLY)
     throw new TestSetupError({
-      message: `testCompaction(${compaction.name}): ${meta.name} is CompactionStrategy.None — it writes no summaries`,
+      message: `testCompaction(${compaction.name}): ${meta.name} has no compaction and no compact() — it writes no summaries`,
     });
-  if (isCustomCompaction(meta) && options.model !== undefined)
+  if (mode === CUSTOM_COMPACTION && options.model !== undefined)
     throw new TestSetupError({
-      message: `testCompaction(${compaction.name}): ${meta.name} is CompactionStrategy.Custom — its compact() calls no model; leave out model`,
+      message: `testCompaction(${compaction.name}): ${meta.name} compacts in code — its compact() calls no model; leave out model`,
     });
   return meta;
 }
@@ -73,10 +74,7 @@ function checkedMetaOf(
 /** The turns as the compaction's model reads them: `start <name>: <json>` / `finish <name>: <json>`. */
 const turnsTextOf = (input: CompactionInput): string =>
   input.turnsToCompact
-    .map(
-      (turn) =>
-        `${startLine(turn.startName, turn.input)}\n${finishLine(turn.finishName, turn.output)}`,
-    )
+    .map((turn) => `${startLine(turn.start, turn.input)}\n${finishLine(turn.finish, turn.output)}`)
     .join("\n\n");
 
 /** The summaries after a model's compaction: a queue keeps the latest, a single summary is replaced. */
@@ -92,22 +90,20 @@ function summariesAfter(
 /** A model strategy as it runs: its loaded prompt, its queue, its token limit. */
 async function inUseOf(
   compaction: Class,
-  meta: Extract<CompactionMeta, { readonly model: string }>,
+  meta: MemoryMeta,
+  declared: MemoryCompaction,
 ): Promise<ModelCompactionInUse> {
   const loader = new PromptLoader();
-  const loaded = await loadedCompactionOf(compaction, loader);
+  const loaded = await loadedMemoryOf(compaction, loader);
   loader.throwIfAny();
   return {
     name: meta.name,
-    strategy:
-      meta.strategy === CompactionStrategy.SingleSummary
-        ? CompactionStrategy.SingleSummary
-        : CompactionStrategy.SummaryQueue,
+    strategy: declared.strategy,
     prompt: loaded?.prompt ?? "",
     window: 0,
-    turnsBetweenCompactions: meta.turnsBetweenCompactions,
-    summaryQueueLength: meta.summaryQueueLength ?? 1,
-    summaryMaxTokens: meta.summaryMaxTokens,
+    turnsBetweenCompactions: meta.turnsBetweenCompactions ?? 1,
+    summaryQueueLength: declared.summaryQueueLength ?? 1,
+    summaryMaxTokens: declared.summaryMaxTokens ?? TokenLimit.ModelMax,
   };
 }
 
@@ -115,7 +111,7 @@ async function inUseOf(
 function bindingOf(site: UnitSite, inUse: ModelCompactionInUse, model: string): ModelBinding {
   const base = unitChatSettings(model);
   const settings =
-    inUse.summaryMaxTokens === TokenLimit.MODEL_MAX
+    inUse.summaryMaxTokens === TokenLimit.ModelMax
       ? base
       : { ...base, maxTokens: inUse.summaryMaxTokens };
   const user = { kind: "compaction", compaction: inUse.name } as const;
@@ -171,9 +167,9 @@ async function modelCompaction(
     const written = (await summaryOf(binding, inUse, text, unitRunOf(spent))).text.trim();
     if (written === "") {
       const message = `${inUse.name}: the model wrote an empty summary`;
-      throw new CompactionError({
+      throw memoryError({
         message,
-        compaction: inUse.name,
+        memory: inUse.name,
         summaryMaxTokens: inUse.summaryMaxTokens,
       });
     }
@@ -183,16 +179,16 @@ async function modelCompaction(
 }
 
 /**
- * A `@Compaction` on its own (#395 PR 5, S2 Q4): its rules checked first, then one compaction of
+ * A `@Memory`'s compaction on its own (#395 PR 5, S2 Q4, #1303): its rules checked first, then one compaction of
  * `{ previousSummaries, turnsToCompact }` — the request its model is sent and the plumbing around
  * it, not whether a fact survives (that is an eval case, #396). A model strategy
  * (`SummaryQueue`, `SingleSummary`) writes its summary on the model scripted by `model`
  * (`replyWith("…")`, `{ truncated: true }` for a summary cut at `summaryMaxTokens`, `{ cost }` for
- * its spend `compaction:<name>`): the request carries the turns as a reader's memory renders them —
+ * its spend `memory:<name>`): the request carries the turns as a reader's memory renders them —
  * a single summary its current one (the last of `previousSummaries`), a queue the turns only (the
  * earlier turns it reads as context at run time are not part of the input) —, a cut summary is
- * asked once more, shorter, then `CompactionError`, and `summaries` is what readers see next (a
- * queue the latest `summaryQueueLength`). `CompactionStrategy.Custom` (#382) runs its class's
+ * asked once more, shorter, then `StepError.Memory`, and `summaries` is what readers see next (a
+ * queue the latest `summaryQueueLength`). A code compaction (a class with `compact(input)`, #382) runs its class's
  * `compact(input)` — created by the runner's container (`deps`, `overrides`, `environment`), in a
  * step's frame — no `model` (a `TestSetupError`), its answer checked as at run time. No PII
  * policies apply: the input is what the compaction reads.
@@ -214,16 +210,17 @@ export function testCompaction<
     call: UnitCallOptions = {},
   ): Promise<UnitRun<CompactionResult>> => {
     const frame = { component: compaction, caller: key, ...callTimeoutOf(call.timeout) };
-    if (!isSummarising(meta)) {
+    const declared = meta.compaction;
+    if (declared === undefined) {
       return site.run(frame, async () => {
         const handler = site.instanceOf(compaction);
         const summaries = await compactedBy(handler, meta.name, (work) => work(), input);
         return { summaries, requests: [] };
       });
     }
-    model ??= inUseOf(compaction, meta).then((inUse) => ({
+    model ??= inUseOf(compaction, meta, declared).then((inUse) => ({
       inUse,
-      binding: bindingOf(site, inUse, meta.model),
+      binding: bindingOf(site, inUse, declared.model ?? DEFAULT_MODEL_ALIAS),
     }));
     const { inUse, binding } = await model;
     return modelCompaction(site, frame, inUse, binding, input);

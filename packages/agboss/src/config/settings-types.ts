@@ -5,7 +5,7 @@
  * checks that each pair is the same type, so the two cannot drift.
  */
 import type { ResolvedModelFiles } from "../files/file-settings.js";
-import type { CompactionStrategy } from "../compaction/compaction.decorator.js";
+import type { CompactionStrategy } from "../memory/memory.decorator.js";
 import type { CachedPart, CacheRetention } from "../models/prompt-caching.js";
 import type { ReasoningEffort } from "../models/reasoning.js";
 import type { RagMode, RagTenancy, RerankFailurePolicy } from "../rag/types.js";
@@ -19,8 +19,8 @@ export interface Price {
   cacheWritePerMTok?: number | undefined;
 }
 
-/** An output ceiling: a whole number of tokens, or `TokenLimit.MODEL_MAX` — what the model allows. */
-export type MaxTokens = number | TokenLimit.MODEL_MAX;
+/** An output ceiling: a whole number of tokens, or `TokenLimit.ModelMax` — what the model allows. */
+export type MaxTokens = number | TokenLimit.ModelMax;
 
 /**
  * A component's reasoning: "default" = the model decides, an effort level ("none" = off),
@@ -70,11 +70,11 @@ export interface ModelSettings {
 }
 
 /**
- * A `@Compaction` in use, by name: its strategy and — when it writes summaries — its model, how
+ * A `@Memory` that compacts, by name: its strategy and — when it writes summaries — its model, how
  * many turns gather before a compaction, and for a queue how many summaries are kept.
  */
 export interface CompactionSettings {
-  strategy: CompactionStrategy;
+  strategy: CompactionStrategy | "custom";
   model?: ModelSettings | undefined;
   turnsBetweenCompactions?: number | undefined;
   summaryQueueLength?: number | undefined;
@@ -86,7 +86,7 @@ export interface AgentSettings extends ModelSettings {
   /** Tool names from the registry. */
   tools?: string[] | undefined;
   /** How many recent turns of the thread the agent sees in full. */
-  uncompactedTurns?: number | TurnLimit.ALL | undefined;
+  uncompactedTurns?: number | TurnLimit.All | undefined;
   /** Tool calls per call of the agent; crossing it fails the run. */
   maxToolCalls?: number | undefined;
   /** Judges of the agent's reply (names in `judges`), and how often a rejected reply is retried. */
@@ -127,7 +127,7 @@ export interface AgentsConfig {
       | undefined;
     tools?: { maxToolCalls?: number | undefined; maxResultSize?: number | undefined } | undefined;
     /** Recent turns every agent and model router sees in full. */
-    uncompactedTurns: number | TurnLimit.ALL;
+    uncompactedTurns: number | TurnLimit.All;
   };
   /** The `@Compaction`s its agents and model routers use, by name. */
   compactions?: Record<string, CompactionSettings> | undefined;

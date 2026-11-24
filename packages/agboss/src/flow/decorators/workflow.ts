@@ -1,7 +1,6 @@
 import { callerFile } from "../../components/call-site.js";
 import type { Class, Provider, ServiceEntry } from "../../components/injection.js";
 import type { CacheSetting, MaxTokens } from "../../config/settings-types.js";
-import type { UncompactedTurns } from "../../compaction/compaction.decorator.js";
 import type { FileDefaults } from "../../files/model-files.js";
 import type { Reasoning } from "../../models/reasoning.js";
 import type { Bytes } from "../../units/index.js";
@@ -126,15 +125,10 @@ export interface WorkflowOptions<
    */
   readonly excludeToolInterceptors?: readonly Class[];
   /**
-   * The `@Compaction` of every agent and model router, over the application's (#120: one setting,
-   * the lowest level that sets it wins; none anywhere → no summaries, the window only).
+   * The `@Memory` of every agent and model router (#1303): its `ttl`, its window and its compaction;
+   * an agent's or a router's own `memory` wins. Left out, the workflow is stateless across runs.
    */
-  readonly compaction?: Class;
-  /**
-   * How many recent turns of the thread its agents and model routers see in full, over the
-   * application's (#120; default 5, `TurnLimit.ALL` = every turn); an agent's or a router's own wins.
-   */
-  readonly uncompactedTurns?: UncompactedTurns;
+  readonly memory?: Class;
   /** Static `{{key}}` values of every prompt of the workflow. */
   readonly promptVariables?: Readonly<Record<string, string>>;
 }

@@ -2,10 +2,11 @@ import { budgetLeftAfter, isBudgetLeftUsed } from "../finops/cost-report.js";
 import { type Usd } from "../units/index.js";
 import type { BaseCallbackHandler } from "@langchain/core/callbacks/base";
 import { HumanMessage, SystemMessage, type AIMessage } from "@langchain/core/messages";
-import { CompactionError } from "../compaction/errors.js";
-import { CompactionStrategy } from "../compaction/compaction.decorator.js";
+import { observedCompaction } from "./compaction-events.js";
+import { isMemoryError, memoryError } from "../memory/memory-error.js";
+import { CUSTOM_COMPACTION, CompactionStrategy } from "../memory/memory.decorator.js";
 import { TurnLimit } from "../config/types.js";
-import type { CompactionInUse, ModelCompactionInUse, MemoryPlan } from "../compaction/plan.js";
+import type { CompactionInUse, ModelCompactionInUse, MemoryPlan } from "../memory/plan.js";
 import { recordUsage, totalCost, type UsageRecord } from "../finops/usage.js";
 import type { ModelBinding } from "../llm/registry.js";
 import { isCutAtLimit } from "../models/finish-reason.js";
@@ -34,14 +35,15 @@ import type { AgentExecutionDeps } from "./types.js";
 
 /** What one compaction did before the execution: the turns it summarised and its summaries now. */
 export interface Compacted {
-  /** The `@Compaction`'s name. */
-  readonly compaction: string;
+  /** The `@Memory`'s name. */
+  readonly memory: string;
   /** 1-based positions of the first and the last record summarised. */
   readonly fromTurn: number;
   readonly toTurn: number;
   /** Its summaries readers see now (at most `summaryQueueLength`). */
   readonly summaries: number;
-  readonly summaryQueueLength: number;
+  /** How many summaries it keeps; omitted under `CompactionStrategy.SingleSummary` and a code compaction. */
+  readonly summaryQueueLength?: number;
 }
 
 /** The thread compacted and what it may spend; every model call's spend is recorded at once. */
@@ -68,7 +70,7 @@ const asTurns = (turns: readonly Turn[]): string =>
     .map((turn) => `${turn.start}\n${turn.finish}`)
     .join("\n\n");
 
-const callerOf = (compaction: ModelCompactionInUse): string => `compaction:${compaction.name}`;
+const callerOf = (compaction: ModelCompactionInUse): string => `memory:${compaction.name}`;
 
 /**
  * The turns due: those older than the window, once `turnsBetweenCompactions` have gathered —
@@ -78,7 +80,7 @@ function dueOf(
   compaction: Pick<CompactionInUse, "window" | "turnsBetweenCompactions">,
   records: readonly Turn[],
 ): readonly Turn[] {
-  if (compaction.window === TurnLimit.ALL) return [];
+  if (compaction.window === TurnLimit.All) return [];
   const uncovered = records.filter(isTurn);
   const due = uncovered.slice(0, Math.max(0, uncovered.length - compaction.window));
   return due.length < compaction.turnsBetweenCompactions ? [] : due;
@@ -134,11 +136,11 @@ async function summaryCall(
     await run.record([usage]);
     return { answer, usage };
   } catch (error) {
-    if (error instanceof CompactionError) throw error;
+    if (isMemoryError(error)) throw error;
     const message = `${compaction.name}: the summary's model call failed`;
-    throw new CompactionError({
+    throw memoryError({
       message,
-      compaction: compaction.name,
+      memory: compaction.name,
       summaryMaxTokens: compaction.summaryMaxTokens,
       cause: error,
     });
@@ -161,9 +163,9 @@ export async function summaryOf(
     run,
   );
   if (isCutAtLimit(shorter.answer)) {
-    throw new CompactionError({
+    throw memoryError({
       message: `${compaction.name}: the summary did not fit in summaryMaxTokens ${String(compaction.summaryMaxTokens)}, also when asked to be shorter`,
-      compaction: compaction.name,
+      memory: compaction.name,
       summaryMaxTokens: compaction.summaryMaxTokens,
     });
   }
@@ -185,16 +187,16 @@ export async function compactWithModel<TName extends string>(
   const text = revealedText(summary.text.trim(), masked.tokens).text;
   if (text === "") {
     const message = `${compaction.name}: the model wrote an empty summary`;
-    throw new CompactionError({
+    throw memoryError({
       message,
-      compaction: compaction.name,
+      memory: compaction.name,
       summaryMaxTokens: compaction.summaryMaxTokens,
     });
   }
   const { tenantId, threadId } = run;
   const count = (await deps.turns.summaryCount(tenantId, threadId, compaction.name)) + 1;
   const compacted = await storedCompaction(deps, run, {
-    compaction: compaction.name,
+    memory: compaction.name,
     due,
     // a single summary covers the thread from its first summarised record
     current: input.current,
@@ -202,6 +204,7 @@ export async function compactWithModel<TName extends string>(
     costUsd: totalCost(summary.usage),
     summaries: Math.min(count, compaction.summaryQueueLength),
     summaryQueueLength: compaction.summaryQueueLength,
+    isQueue: compaction.strategy === CompactionStrategy.SummaryQueue,
   });
   const usage = [...masked.usage, ...summary.usage];
   return compacted === undefined ? { usage } : { usage, compacted };
@@ -222,9 +225,11 @@ async function compactOne<TName extends string>(
   const { tenantId, threadId } = run;
   const due = dueOf(compaction, await deps.turns.uncovered(tenantId, threadId, compaction.name));
   if (due.length === 0) return { usage: [] };
-  return compaction.strategy === CompactionStrategy.Custom
-    ? compactWithHandler(deps, compaction, run, due)
-    : compactWithModel(deps, compaction, run, due);
+  return observedCompaction(deps, run, { memory: compaction.name, turns: due.length }, async () =>
+    compaction.strategy === CUSTOM_COMPACTION
+      ? compactWithHandler(deps, compaction, run, due)
+      : compactWithModel(deps, compaction, run, due),
+  );
 }
 
 /**

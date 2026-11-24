@@ -1,14 +1,10 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect } from "vitest";
 import type { Class } from "../../src/components/injection.js";
-import { workflowOf } from "../../src/components/assemble.js";
-import { Agent, Workflow, WorkflowSettings } from "../../src/index.js";
 import { replyWith, testWith, type ModelScript } from "../../src/testing/index.js";
 import type { TestApp } from "../../src/testing/test-app.js";
 import { usd } from "../../src/units/index.js";
-import type { BaseMemoryStrategy } from "../../src/memory/index.js";
 import {
   Answer,
-  NOTED,
   Noter,
   RecallDto,
   Recaller,
@@ -16,10 +12,10 @@ import {
   WindowDto,
   Windowed,
   CompactingDeskApplication,
-  DeskCompaction,
+  DeskMemory,
   MemoryDeskApplication,
 } from "./fixtures/memory.workflow.js";
-import { execute, onStart } from "../helpers/flow.js";
+import { execute } from "../helpers/flow.js";
 
 /** What the model read in its last request: the thread's memory and the input message. */
 const inputOf = (script: ModelScript): string => {
@@ -58,13 +54,10 @@ async function converse(app: TestApp, count: number) {
   return result;
 }
 
-describe("memory strategies on agent model calls", () => {
+describe("memory on agent model calls (#1303)", () => {
   const test = testWith(MemoryDeskApplication);
-  beforeEach(() => {
-    NOTED.length = 0;
-  });
 
-  test("AC1: with a sliding window of N, the model request holds at most N earlier turns", async ({
+  test("AC1: with a window of N, the model request holds at most N earlier turns", async ({
     app,
     mockLlm,
   }) => {
@@ -75,7 +68,7 @@ describe("memory strategies on agent model calls", () => {
     expect(turnsSeen(mockLlm(Windowed))).toEqual(["t4", "t5"]);
   });
 
-  test("an agent's own strategy is used for that agent only; the others keep the workflow's default", async ({
+  test("an agent's own memory is used for that agent only; NoMemory sees no earlier turn", async ({
     app,
     mockLlm,
   }) => {
@@ -83,48 +76,35 @@ describe("memory strategies on agent model calls", () => {
 
     await converse(app, 6);
 
-    expect(turnsSeen(mockLlm(Noter))).toEqual(["t5"]);
+    expect(turnsSeen(mockLlm(Noter))).toEqual([]);
     expect(turnsSeen(mockLlm(Recaller))).toEqual(["t2", "t3", "t4", "t5"]);
-  });
-
-  test("after every finished turn the strategy updates its memory (created by the container, with its deps)", async ({
-    app,
-    mockLlm,
-  }) => {
-    answerOk(mockLlm);
-
-    await converse(app, 3);
-
-    expect(NOTED).toEqual(
-      ["t1", "t2", "t3"].map((text) => `start task-workflow-start: {"text":"${text}"}`),
-    );
   });
 });
 
-describe("compaction is the built-in strategy's memory update", () => {
+describe("a memory's compaction", () => {
   const test = testWith(CompactingDeskApplication);
 
   test("AC2: compaction cost is recorded in the run's cost report", async ({ app, mockLlm }) => {
     mockLlm(Recaller).thenReturnAlways(replyWith(RecallDto, { text: "ok" }, { cost: usd(0.001) }));
-    mockLlm(DeskCompaction).thenReturn(replyWith("t1 and t2 were asked", { cost: usd(0.004) }));
+    mockLlm(DeskMemory).thenReturn(replyWith("t1 and t2 were asked", { cost: usd(0.004) }));
 
     // window 1, 2 turns between compactions: before turn 4 reads the thread, t1 and t2 are older
     const fourth = await converse(app, 4);
 
     expect(fourth.compacted).toMatchObject([
-      { compaction: "desk-compaction", fromTurn: 1, toTurn: 2, summaries: 1 },
+      { memory: "desk-memory", fromTurn: 1, toTurn: 2, summaries: 1 },
     ]);
     expect(fourth.spend.byCategory.memory).toBeCloseTo(0.004, 6);
     expect(fourth.spend.totalUsd).toBeCloseTo(0.005, 6);
     expect(fourth.spend.trace.map((line) => line.caller)).toEqual([
-      "compaction:desk-compaction",
+      "memory:desk-memory",
       "recaller-agent",
     ]);
   });
 
   test("agents then see the summary and the turns not yet compacted", async ({ app, mockLlm }) => {
     mockLlm(Recaller).thenReturnAlways(replyWith(RecallDto, { text: "ok" }));
-    mockLlm(DeskCompaction).thenReturn(replyWith("t1 and t2 were asked"));
+    mockLlm(DeskMemory).thenReturn(replyWith("t1 and t2 were asked"));
 
     await converse(app, 4);
 
@@ -132,41 +112,5 @@ describe("compaction is the built-in strategy's memory update", () => {
       "Earlier in this conversation:\n[1] t1 and t2 were asked",
     );
     expect(turnsSeen(mockLlm(Recaller))).toEqual(["t3"]);
-  });
-});
-
-class NotAStrategy {
-  readonly kind = "not a strategy";
-}
-const notAStrategy: Class = NotAStrategy;
-
-@Agent({
-  name: "odd-agent",
-  prompt: "Odd.",
-  description: "Has a class that is no strategy",
-  model: "local/llama",
-  memoryStrategy: notAStrategy as Class<BaseMemoryStrategy>,
-})
-class Odd {}
-
-@Workflow({
-  name: "odd-desk-workflow",
-  version: "1.0.0",
-  flow: [onStart(TaskStart).toAgent(Odd).toFinish(Answer)],
-  defaults: {
-    models: { temperature: 0 },
-    router: { model: "typesafe/jev-1.13" },
-  },
-  uncompactedTurns: 1,
-})
-class OddDesk {
-  settings(): WorkflowSettings {
-    return WorkflowSettings.builder().build();
-  }
-}
-
-describe("assembly", () => {
-  it("a memoryStrategy that does not extend BaseMemoryStrategy fails assembly", async () => {
-    await expect(workflowOf(OddDesk)).rejects.toThrow("[memory.not-a-strategy]");
   });
 });

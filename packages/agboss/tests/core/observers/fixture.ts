@@ -1,3 +1,4 @@
+import { Window1Memory } from "../../helpers/window-memory.js";
 import {
   Agent,
   Injectable,
@@ -77,7 +78,7 @@ export function workflowWith(name: string, providers: readonly Provider[] = []):
       router: { model: "typesafe/jev-1.13" },
       tools: { maxToolCalls: 2 },
     },
-    uncompactedTurns: 1,
+    memory: Window1Memory,
     flow: [onStart(Start)
       .toAgent(Worker)
       .toFinish(Finish)],

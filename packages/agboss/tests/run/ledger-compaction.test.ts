@@ -1,13 +1,14 @@
 import { usd } from "../../src/units/index.js";
 /**
  * #1366 (ledger-memory shard) — what a compaction spends and stores, each rule on its own over fakes: every model
- * call recorded at once under `compaction:<name>`, the summary asked again shorter when it was cut, the cost the
+ * call recorded at once under `memory:<name>`, the summary asked again shorter when it was cut, the cost the
  * summary is stored with, the masking spend, and the budget left for the next compaction.
  */
 import { AIMessage } from "@langchain/core/messages";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { CompactionError } from "../../src/compaction/errors.js";
-import { CompactionStrategy } from "../../src/compaction/compaction.decorator.js";
+import { memoryError } from "../../src/memory/memory-error.js";
+import { StepError } from "../../src/index.js";
+import { CUSTOM_COMPACTION, CompactionStrategy } from "../../src/memory/memory.decorator.js";
 import { TurnLimit } from "../../src/config/types.js";
 import {
   CURRENT_SUMMARY_HEADING,
@@ -117,20 +118,20 @@ beforeEach(() => {
 });
 
 describe("#1366: the summary's model call", () => {
-  it("is recorded at once under `compaction:<name>`, and a summary that fits is the first answer", async () => {
+  it("is recorded at once under `memory:<name>`, and a summary that fits is the first answer", async () => {
     const { run, invoke, recorded, binding } = setup([answer("the summary", 0.25)]);
 
     const out = await summaryOf(binding as never, compaction(), "input", run);
 
     expect(out.text).toBe("the summary");
     expect(out.usage).toEqual([
-      expect.objectContaining({ caller: "compaction:notes", costUsd: usd(0.25), model: "cheap" }),
+      expect.objectContaining({ caller: "memory:notes", costUsd: usd(0.25), model: "cheap" }),
     ]);
     expect(recorded).toHaveBeenCalledOnce();
     expect(recorded).toHaveBeenCalledWith(out.usage);
     const [messages, options] = invoke.mock.calls[0] ?? [];
     expect(messages.map((m: { text: string }) => m.text)).toEqual(["Summarise.", "input"]);
-    expect(options).toEqual({ callbacks: ["cb"], runName: "compaction:notes" });
+    expect(options).toEqual({ callbacks: ["cb"], runName: "memory:notes" });
   });
 
   it("a summary cut at its limit is asked once more, shorter: both calls recorded, both spent", async () => {
@@ -147,7 +148,7 @@ describe("#1366: the summary's model call", () => {
     expect(invoke.mock.calls[1]?.[0][1].text).toBe(`input\n\n${SHORTER_SUMMARY_REQUEST}`);
   });
 
-  it("cut again, it is a CompactionError that names the limit — and both calls were recorded", async () => {
+  it("cut again, it is a StepError.Memory that names the limit — and both calls were recorded", async () => {
     const { run, recorded, binding } = setup([
       answer("cut", 0.25, true),
       answer("cut", 0.125, true),
@@ -157,19 +158,22 @@ describe("#1366: the summary's model call", () => {
       (e: unknown) => e,
     );
 
-    expect(failure).toBeInstanceOf(CompactionError);
+    expect(failure).toBeInstanceOf(StepError.Memory);
     expect((failure as Error).message).toBe(
       "notes: the summary did not fit in summaryMaxTokens 400, also when asked to be shorter",
     );
-    expect(failure).toMatchObject({ compaction: "notes", summaryMaxTokens: 400 });
+    expect(failure).toMatchObject({
+      memory: "notes",
+      details: { memory: "notes", summaryMaxTokens: 400 },
+    });
     expect(recorded).toHaveBeenCalledTimes(2);
   });
 
-  it("a failed call is a CompactionError with the cause; one that is already a CompactionError passes as it is", async () => {
+  it("a failed call is a StepError.Memory with the cause; one that is already a StepError.Memory passes as it is", async () => {
     const { run, invoke, binding } = setup([]);
     const cause = new Error("down");
     invoke.mockRejectedValueOnce(cause);
-    const own = new CompactionError({ message: "own", compaction: "notes", summaryMaxTokens: 400 });
+    const own = memoryError({ message: "own", memory: "notes", summaryMaxTokens: 400 });
     invoke.mockRejectedValueOnce(own);
 
     const wrapped = await summaryOf(binding as never, compaction(), "i", run).catch(
@@ -179,10 +183,13 @@ describe("#1366: the summary's model call", () => {
       (e: unknown) => e,
     );
 
-    expect(wrapped).toBeInstanceOf(CompactionError);
+    expect(wrapped).toBeInstanceOf(StepError.Memory);
     expect((wrapped as Error).message).toBe("notes: the summary's model call failed");
     expect((wrapped as Error).cause).toBe(cause);
-    expect(wrapped).toMatchObject({ compaction: "notes", summaryMaxTokens: 400 });
+    expect(wrapped).toMatchObject({
+      memory: "notes",
+      details: { memory: "notes", summaryMaxTokens: 400 },
+    });
     expect(passed).toBe(own);
   });
 });
@@ -197,8 +204,8 @@ describe("#1366: the compactions due before an execution", () => {
     expect(turns.addSummary).toHaveBeenCalledWith({
       tenantId: "tenant-1",
       threadId: "thread-1",
-      bundle: "bundle",
-      compaction: "notes",
+      workflow: "bundle",
+      memory: "notes",
       fromTurnId: "t1",
       toTurnId: "t2",
       turns: 2,
@@ -206,10 +213,10 @@ describe("#1366: the compactions due before an execution", () => {
       costUsd: usd(0.25),
     });
     expect(out.compacted).toEqual([
-      { compaction: "notes", fromTurn: 1, toTurn: 2, summaries: 2, summaryQueueLength: 3 },
+      { memory: "notes", fromTurn: 1, toTurn: 2, summaries: 2, summaryQueueLength: 3 },
     ]);
     expect(out.usage.map((u) => u.costUsd)).toEqual([0.25]);
-    expect(calls).toEqual(["record:compaction:notes", "add"]);
+    expect(calls).toEqual(["record:memory:notes", "add"]);
   });
 
   it("the summaries it counts never pass the queue's length", async () => {
@@ -239,16 +246,19 @@ describe("#1366: the compactions due before an execution", () => {
     expect(out).toEqual({ usage: [], compacted: [] });
   });
 
-  it("a model that wrote nothing is a CompactionError: nothing is stored", async () => {
+  it("a model that wrote nothing is a StepError.Memory: nothing is stored", async () => {
     const { deps, run, turns } = setup([answer("   ", 0.25)]);
 
     const failure = await compactDue(deps, { compactions: [compaction()] } as never, run).catch(
       (e: unknown) => e,
     );
 
-    expect(failure).toBeInstanceOf(CompactionError);
+    expect(failure).toBeInstanceOf(StepError.Memory);
     expect((failure as Error).message).toBe("notes: the model wrote an empty summary");
-    expect(failure).toMatchObject({ compaction: "notes", summaryMaxTokens: 400 });
+    expect(failure).toMatchObject({
+      memory: "notes",
+      details: { memory: "notes", summaryMaxTokens: 400 },
+    });
     expect(turns.addSummary).not.toHaveBeenCalled();
   });
 
@@ -287,14 +297,14 @@ describe("#1366: the compactions due before an execution", () => {
   it("a custom compaction is run by its handler, and its spend and work are the outcome's", async () => {
     const { deps, run, turns } = setup([]);
     const done = {
-      compaction: "notes",
+      memory: "notes",
       fromTurn: 1,
       toTurn: 2,
       summaries: 1,
       summaryQueueLength: 3,
     };
     vi.mocked(compactWithHandler).mockResolvedValue({ usage: [record(0.5)], compacted: done });
-    const custom = compaction({ strategy: CompactionStrategy.Custom });
+    const custom = compaction({ strategy: CUSTOM_COMPACTION });
 
     const out = await compactDue(deps, { compactions: [custom] } as never, run);
 
@@ -357,7 +367,7 @@ describe("#1366: which turns are due, and what the compaction's model reads", ()
         Array.prototype.filter.apply(uncovered, args) as typeof uncovered,
     );
     turns.uncovered.mockResolvedValue(Object.assign([...uncovered], { filter }));
-    const plan = { compactions: [compaction({ window: TurnLimit.ALL })] } as never;
+    const plan = { compactions: [compaction({ window: TurnLimit.All })] } as never;
 
     const out = await compactDue(deps, plan, run);
 

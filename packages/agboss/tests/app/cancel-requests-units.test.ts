@@ -356,7 +356,7 @@ describe("#1356: a cancel of a thread that runs on another instance", () => {
     runId: "root-1",
     threadId: "thread-1",
     tenantId: "acme",
-    bundle: "bundle-a",
+    workflow: "bundle-a",
     status: "running",
     configVersion: "3",
     ...fields,
@@ -368,7 +368,7 @@ describe("#1356: a cancel of a thread that runs on another instance", () => {
     turns.lastTurns.mockResolvedValue([
       turn({ id: "t1", runId: "root-1" }),
       turn({ id: "t2", runId: "root-2", status: "failed" }),
-      turn({ id: "t3", runId: "root-3", bundle: "bundle-b" }),
+      turn({ id: "t3", runId: "root-3", workflow: "bundle-b" }),
       turn({ id: "t4", runId: null }),
     ]);
     turns.byIds.mockResolvedValue([turn({ id: "t1" })]);

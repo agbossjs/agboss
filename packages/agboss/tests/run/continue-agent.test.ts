@@ -105,7 +105,7 @@ describe("#265 S30: continuing an interrupted execution", () => {
       runId: "run-lost",
       threadId,
       tenantId: "default",
-      bundle: "test-bundle-workflow",
+      workflow: "test-bundle-workflow",
       task: "start chat-workflow-start: Hi",
       replayOf: null,
       promptVersion: "p",

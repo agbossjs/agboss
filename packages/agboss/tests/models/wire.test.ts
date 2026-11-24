@@ -1,3 +1,4 @@
+import { Window1Memory } from "../helpers/window-memory.js";
 import { describe, expect, it } from "vitest";
 import { file } from "../../src/components/file.js";
 
@@ -178,7 +179,7 @@ describe("AC6: prompts are normalised at load and sent normalised", () => {
         models: { temperature: 0 },
         router: { model: "typesafe/jev-1.13" },
       },
-      uncompactedTurns: 1,
+      memory: Window1Memory,
     })
     class Normalised implements WorkflowDefinition {
       settings(): WorkflowSettings {

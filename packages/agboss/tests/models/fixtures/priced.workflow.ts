@@ -1,3 +1,4 @@
+import { Window2Memory } from "../../helpers/window-memory.js";
 import { Agent, Workflow, TokenLimit, WorkflowFinish, WorkflowStart } from "../../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { DecisionsModelProvider, Reasoning } from "../../../src/models/index.js";
@@ -56,11 +57,11 @@ export class Answer {}
     .toAgent(Writer)
     .toFinish(Answer)],
   defaults: {
-    models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX },
+    models: { temperature: 0, maxTokens: TokenLimit.ModelMax },
     router: { model: "typesafe/jev-1.13" },
     tools: { maxToolCalls: 2 },
   },
-  uncompactedTurns: 2,
+  memory: Window2Memory,
 })
 export class Priced {}
 

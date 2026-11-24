@@ -1,3 +1,4 @@
+import { Window2Memory } from "../../helpers/window-memory.js";
 import { type BuildApplicationOptions } from "../../../src/application/create-app.js";
 import { A2AExpose, A2ACallerResolution, type A2ACallerResolver } from "../../../src/a2a/index.js";
 import { Injectable } from "../../../src/components/decorators.js";
@@ -114,7 +115,7 @@ const defaults = {
       .toFinish(DeskAnswer),
   ],
   defaults,
-  uncompactedTurns: 2,
+  memory: Window2Memory,
   providers: [SingleTenantCallerResolver],
 })
 export class RemoteDesk implements WorkflowDefinition {

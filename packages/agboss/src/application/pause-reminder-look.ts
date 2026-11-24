@@ -125,7 +125,7 @@ export class ReminderLook {
   async #remind(pause: PauseRecord, now: Date, onWriting: () => void): Promise<void> {
     const { pauses, records, bundles, recipientsOf, delivered } = this.sources;
     const record = await records.findByTenantIdAndRunId(pause.tenantId, pause.rootExecutionId);
-    if (record === undefined || !bundles.has(record.bundle)) return;
+    if (record === undefined || !bundles.has(record.workflow)) return;
     onWriting();
     const done = await pauses.remindByTenantIdAndPauseId(
       pause.tenantId,

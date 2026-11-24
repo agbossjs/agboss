@@ -6,18 +6,18 @@ import { z } from "zod";
 import { ReasoningEffort, type Reasoning } from "../models/reasoning.js";
 import { RagMode, RagTenancy, RerankFailurePolicy } from "../rag/types.js";
 import { CachedPart, CacheRetention, type PromptCaching } from "../models/prompt-caching.js";
-import { CompactionStrategy } from "../compaction/compaction.decorator.js";
+import { CompactionStrategy, CUSTOM_COMPACTION } from "../memory/memory.decorator.js";
 
 /** Limits without a number (#120 S132): enums, next to each other — one spelling per value. */
 
-/** A token limit: `TokenLimit.MODEL_MAX` — no ceiling of our own, what the model allows. */
+/** A token limit: `TokenLimit.ModelMax` — no ceiling of our own, what the model allows. */
 export enum TokenLimit {
-  MODEL_MAX = "max",
+  ModelMax = "max",
 }
 
-/** A window without a limit: `uncompactedTurns: TurnLimit.ALL` — every turn of the thread in full. */
+/** A window without a limit: `uncompactedTurns: TurnLimit.All` — every turn of the thread in full. */
 export enum TurnLimit {
-  ALL = "all",
+  All = "all",
 }
 
 /** OpenRouter `reasoning.effort` levels. "none" disables thinking (not accepted by every model). */
@@ -33,7 +33,7 @@ export const PriceSchema = z.object({
 
 export const MaxTokensSchema = z.union([
   z.number().int().positive(),
-  z.literal(TokenLimit.MODEL_MAX),
+  z.literal(TokenLimit.ModelMax),
 ]);
 
 /** A `Reasoning` value (`@agboss/core/models`): `Reasoning.on({ effort, budget })`, `off()`, `modelDecides()`. */
@@ -72,7 +72,7 @@ export const PromptCachingValueSchema = z.discriminatedUnion("kind", [
 /** A component's prompt caching until #152: true = the provider's, false = off, or a `PromptCaching`. */
 export const CacheSettingSchema = z.union([z.boolean(), PromptCachingValueSchema]);
 
-/** Output ceiling when a workflow sets none — a model stuck in a loop stops here. `TokenLimit.MODEL_MAX` = no ceiling. */
+/** Output ceiling when a workflow sets none — a model stuck in a loop stops here. `TokenLimit.ModelMax` = no ceiling. */
 export const DEFAULT_MAX_TOKENS = 8192;
 
 /**
@@ -81,7 +81,7 @@ export const DEFAULT_MAX_TOKENS = 8192;
  */
 export const ChatDefaultsSchema = z.object({
   temperature: z.number().min(0).max(2),
-  /** Default 8 192 (`DEFAULT_MAX_TOKENS`); `TokenLimit.MODEL_MAX` for no ceiling. */
+  /** Default 8 192 (`DEFAULT_MAX_TOKENS`); `TokenLimit.ModelMax` for no ceiling. */
   maxTokens: MaxTokensSchema.optional(),
   thinking: ThinkingSchema.optional(),
   cache: CacheSettingSchema.optional(),
@@ -107,19 +107,19 @@ export const ModelSettingsSchema = z.object({
   unpriced: z.literal(true).optional(),
 });
 
-/** How many recent turns a reader sees in full: a whole number from 0, or `TurnLimit.ALL`. */
+/** How many recent turns a reader sees in full: a whole number from 0, or `TurnLimit.All`. */
 export const UncompactedTurnsSchema = z.union([
   z.number().int().nonnegative(),
-  z.literal(TurnLimit.ALL),
+  z.literal(TurnLimit.All),
 ]);
 
 /**
- * A `@Compaction` in use (#120 PR 3), by name: its strategy and — when it writes summaries — its
+ * A `@Memory` that compacts (#1303), by name: its strategy (`custom`: its class's `compact()`) and — when it writes summaries — its
  * model (`maxTokens` = its `summaryMaxTokens`), how many turns gather before a compaction, and for
  * a queue how many summaries are kept. A profile may change any of them.
  */
 export const CompactionSettingsSchema = z.object({
-  strategy: z.enum(CompactionStrategy),
+  strategy: z.union([z.enum(CompactionStrategy), z.literal(CUSTOM_COMPACTION)]),
   model: ModelSettingsSchema.optional(),
   turnsBetweenCompactions: z.number().int().positive().optional(),
   summaryQueueLength: z.number().int().positive().optional(),

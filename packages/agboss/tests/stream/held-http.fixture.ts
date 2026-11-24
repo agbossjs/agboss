@@ -57,7 +57,7 @@ export function heldApplication(
     name: `${prefix}-workflow`,
     version: "1.0.0",
     flow: [onStart(ChatStart).toAgent(HeldAgent).toFinish(Reply)],
-    defaults: { models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX } },
+    defaults: { models: { temperature: 0, maxTokens: TokenLimit.ModelMax } },
   })
   class HeldWorkflow {}
 

@@ -1,4 +1,4 @@
-import type { UncompactedTurns } from "../compaction/compaction.decorator.js";
+import type { UncompactedTurns } from "../memory/memory.decorator.js";
 import { formatHistory, formatSummaries } from "../flow/runtime/history.js";
 import { answerToolDescription } from "../flow/runtime/answer-tools.js";
 import { ONE_ANSWER_MESSAGE } from "../graph/agent-loop/answer-node.js";
@@ -47,8 +47,8 @@ export interface JudgeFingerprint {
 /** What one agent or model router reads besides its decorator. */
 export interface ElementFingerprint {
   readonly uncompactedTurns: UncompactedTurns;
-  /** The compaction summarising what is older than its window; absent = none. */
-  readonly compaction?: string;
+  /** The memory of the reader; absent = none. */
+  readonly memory?: string;
   /** Absent = none. */
   readonly piiPolicies?: readonly PiiPolicyFingerprint[];
   /** Absent = none. */
@@ -62,7 +62,7 @@ export interface ElementFingerprint {
 export interface FingerprintDeps {
   readonly config: AgentExecutionDeps<string>["config"];
   readonly routers: AgentExecutionDeps<string>["routers"];
-  readonly compactions?: AgentExecutionDeps<string>["compactions"];
+  readonly memories?: AgentExecutionDeps<string>["memories"];
   readonly pii?: PiiRuntime | AssembledPii | undefined;
 }
 
@@ -126,7 +126,7 @@ function judgesOf(deps: FingerprintDeps, agent: string): readonly JudgeFingerpri
 }
 
 function elementFingerprint(deps: FingerprintDeps, name: string): ElementFingerprint {
-  const reader = deps.compactions?.readers.get(name);
+  const reader = deps.memories?.readers.get(name);
   const policies = piiMetasOf(deps.pii, name);
   const judges = judgesOf(deps, name);
   return {
@@ -134,7 +134,7 @@ function elementFingerprint(deps: FingerprintDeps, name: string): ElementFingerp
       reader?.uncompactedTurns ??
       deps.config.agents[name]?.uncompactedTurns ??
       deps.config.defaults.uncompactedTurns,
-    ...(reader?.compaction === undefined ? {} : { compaction: reader.compaction }),
+    ...(reader?.memory === undefined ? {} : { memory: reader.memory }),
     ...(policies.length === 0 ? {} : { piiPolicies: policies.map(piiPolicyFingerprint) }),
     ...(judges.length === 0 ? {} : { judges }),
   };

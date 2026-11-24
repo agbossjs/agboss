@@ -159,7 +159,7 @@ class Sweeper implements RecoverySweep {
 
   /** Starts the record's recovery; `false` when it is not this instance's to start now. */
   #recover(record: Turn): boolean {
-    const recoverRoot = this.sources.workflows.get(record.bundle);
+    const recoverRoot = this.sources.workflows.get(record.workflow);
     // another application's record on a shared store, or one already being continued here
     if (recoverRoot === undefined || this.#inFlight.has(record.id)) return false;
     const recovery = recoverRoot(record, this.sources.signal)

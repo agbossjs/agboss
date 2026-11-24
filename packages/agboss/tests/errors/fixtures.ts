@@ -1,3 +1,4 @@
+import { Window4Memory } from "../helpers/window-memory.js";
 import {
   Agent,
   Workflow,
@@ -49,7 +50,7 @@ export class Pay {
 
 const price = { inputPerMTok: 1, outputPerMTok: 10 };
 const defaults = {
-  models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX, cache: true },
+  models: { temperature: 0, maxTokens: TokenLimit.ModelMax, cache: true },
   router: { model: "typesafe/jev-1.13" },
   tools: { maxToolCalls: 4 },
 } as const;
@@ -118,7 +119,7 @@ const SHOP_BUDGETS = [TestApplicationDailyBudget, TestTenantDailyBudget, ShopExe
       .toFinish(Done),
   ],
   defaults,
-  uncompactedTurns: 4,
+  memory: Window4Memory,
 })
 export class Shop {}
 
@@ -143,7 +144,7 @@ export class ShopApplication {}
       .toFinish(Done),
   ],
   defaults,
-  uncompactedTurns: 4,
+  memory: Window4Memory,
 })
 export class ShopCatchingLimits {}
 
@@ -167,7 +168,7 @@ export class ShopCatchingLimitsApplication {}
       .toFinish(Done),
   ],
   defaults,
-  uncompactedTurns: 4,
+  memory: Window4Memory,
 })
 export class ShopUncaught {}
 

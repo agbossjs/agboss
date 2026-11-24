@@ -402,8 +402,16 @@
         "type": "object",
         "properties": {
           "strategy": {
-            "type": "string",
-            "enum": ["summary-queue", "single-summary", "none", "custom"]
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["summary-queue", "single-summary"]
+              },
+              {
+                "type": "string",
+                "const": "custom"
+              }
+            ]
           },
           "model": {
             "type": "object",

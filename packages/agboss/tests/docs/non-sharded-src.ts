@@ -300,7 +300,9 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "runs a code reply interpreter and wraps its answer; code interpreters report no usage",
     ["src/channels/reply-code.ts"],
   ),
-  ...reviewed("the compaction of a thread's history: no money decision", ["src/compaction/**"]),
+  ...reviewed("the memory of a thread (its window and compaction): no money decision", [
+    "src/memory/**",
+  ]),
   ...reviewed("the components' decorators, assembly and injection: wiring, no money decision", [
     "src/components/agent-settings.ts",
     "src/components/assemble-checks.ts",
@@ -320,7 +322,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "src/components/judge-decorators.ts",
     "src/components/judge-parts.ts",
     "src/components/mcp-client.ts",
-    "src/components/memory-parts.ts",
     "src/components/meta-types.ts",
     "src/components/metadata.ts",
     "src/components/model-parts.ts",
@@ -660,7 +661,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "src/graph/agent-loop/judge-points.ts",
     "src/graph/agent-loop/loop-graph.ts",
     "src/graph/agent-loop/loop-records.ts",
-    "src/graph/agent-loop/memory-view.ts",
     "src/graph/agent-loop/reply-node.ts",
     "src/graph/agent-loop/run-tool.ts",
     "src/graph/agent-loop/runner.ts",
@@ -1442,7 +1442,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/run/custom-compaction.ts"],
   ),
   ...reviewed(
-    "holds spend, rate-limit or deadline sites (thread rawDepth min; thread deepest min) - not mutated: covered by tests/compaction/compaction.test.ts, tests/memory/memory-strategies.test.ts, each sabotage of it (2 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    "holds spend, rate-limit or deadline sites (thread rawDepth min; thread deepest min) - not mutated: covered by tests/memory/compaction.test.ts, tests/memory/memory.test.ts, each sabotage of it (2 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
     ["src/run/thread.ts"],
   ),
   ...reviewed(

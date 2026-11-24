@@ -13,7 +13,7 @@ import { isResolvedSecret, Secret, variableOfSecret } from "../environments/secr
 import { isModelGuardrail, type LoadedGuardrail } from "../guardrails/loaded.js";
 import { isCustomPolicy } from "../pii/pii-policy.decorator.js";
 import { piiPolicyMetaOf } from "../pii/policy-checks.js";
-import { customCompactionClassesOf } from "../compaction/custom-classes.js";
+import { customCompactionClassesOf } from "../memory/custom-classes.js";
 import { compactionKeyOf, guardrailKeyOf, piiPolicyKeyOf } from "./scripted-gateway.js";
 
 /**
@@ -176,7 +176,7 @@ export function compactionScriptKeyOf(
   assembled: AssembledApplication,
 ): string | undefined {
   const compaction = assembled.workflows
-    .flatMap((workflow) => workflow.compactions?.compactions ?? [])
+    .flatMap((workflow) => workflow.memories?.memories ?? [])
     .find((candidate) => candidate.type === target && candidate.prompt !== "");
   return compaction === undefined ? undefined : compactionKeyOf(compaction.name);
 }
@@ -184,5 +184,5 @@ export function compactionScriptKeyOf(
 /** Whether a class is a custom compaction of the application (#382): its `compact()` calls no model. */
 export const isCustomCompactionIn = (target: Class, assembled: AssembledApplication): boolean =>
   assembled.workflows.some((workflow) =>
-    customCompactionClassesOf(workflow.compactions).includes(target),
+    customCompactionClassesOf(workflow.memories).includes(target),
   );

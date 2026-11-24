@@ -11,7 +11,7 @@ import { CostSource, ZERO_USAGE, type UsageRecord } from "../../src/finops/usage
 import { executionGraphOf } from "../../src/flow/runtime/build.js";
 import { continueRun } from "../../src/run/continue-run.js";
 import { finishRun } from "../../src/run/finish.js";
-import { memoryBeforeRun } from "../../src/run/memory.js";
+import { memoryBeforeRun } from "../../src/run/compact-before-run.js";
 import { executeAgent, runOpenedAgent } from "../../src/run/run-agent.js";
 import {
   continuedExecutionBudgets,
@@ -23,7 +23,7 @@ import { streamConfig } from "../../src/run/stream-config.js";
 
 vi.mock("../../src/flow/runtime/build.js", () => ({ executionGraphOf: vi.fn() }));
 vi.mock("../../src/run/finish.js", () => ({ finishRun: vi.fn() }));
-vi.mock("../../src/run/memory.js", () => ({ memoryBeforeRun: vi.fn() }));
+vi.mock("../../src/run/compact-before-run.js", () => ({ memoryBeforeRun: vi.fn() }));
 vi.mock("../../src/run/stream-config.js", () => ({ streamConfig: vi.fn() }));
 vi.mock("../../src/run/versions.js", () => ({
   executionVersions: () => ({ promptVersion: "p1", modelVersion: "m1", configVersion: "c1" }),
@@ -115,7 +115,7 @@ describe("#1366: a new run records what it spends", () => {
         runId: "run-1",
         threadId: "thread-1",
         tenantId: "default",
-        bundle: "bundle",
+        workflow: "bundle",
         task: 'start chat: {"text":"hi"}',
         replayOf: null,
         promptVersion: "p1",
@@ -160,7 +160,7 @@ describe("#1366: a new run records what it spends", () => {
       runId: "run-1",
       threadId: "thread-1",
       tenantId: "default",
-      bundle: "bundle",
+      workflow: "bundle",
       task: 'start chat: {"text":"hi"}',
       replayOf: null,
       promptVersion: "p1",
@@ -426,7 +426,7 @@ describe("#1366: a continued pass does not record the spend before it", () => {
         runId: "run-1",
         threadId: "thread-1",
         tenantId: "tenant-1",
-        bundle: "bundle",
+        workflow: "bundle",
         task: 'start chat: {"text":"hi"}',
         replayOf: null,
         promptVersion: "p1",

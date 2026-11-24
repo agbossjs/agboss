@@ -1,3 +1,4 @@
+import { Window2Memory } from "../helpers/window-memory.js";
 import {
   Agent,
   Channel,
@@ -152,7 +153,7 @@ class NoLimits implements WorkflowDefinition {
       .toFinish(Reply),
   ],
   defaults,
-  uncompactedTurns: 2,
+  memory: Window2Memory,
   providers: [ApprovalDesk],
 })
 export class Refunds extends NoLimits {}

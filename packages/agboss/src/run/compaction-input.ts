@@ -1,5 +1,5 @@
-import { CompactionStrategy } from "../compaction/compaction.decorator.js";
-import type { ModelCompactionInUse } from "../compaction/plan.js";
+import { CompactionStrategy } from "../memory/memory.decorator.js";
+import type { ModelCompactionInUse } from "../memory/plan.js";
 import {
   CURRENT_SUMMARY_HEADING,
   EARLIER_TURNS_HEADING,

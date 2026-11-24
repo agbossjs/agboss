@@ -1,13 +1,11 @@
+import { workflowWindowOf } from "../memory/memory.decorator.js";
 import { withoutUndefined } from "../types/defined.js";
 import type { AgentsConfig, ChatDefaults, RouterModel } from "../config/types.js";
 import { NodeKind } from "../flow/ast.js";
 import { declarationOf, type WorkflowDeclaration } from "../flow/decorators/declaration.js";
 import type { ModelDefaults, WorkflowDefaults } from "../flow/decorators/workflow.js";
 import { isDecisionModel } from "../models/decision-models.js";
-import {
-  DEFAULT_UNCOMPACTED_TURNS,
-  type UncompactedTurns,
-} from "../compaction/compaction.decorator.js";
+import { DEFAULT_UNCOMPACTED_TURNS, type UncompactedTurns } from "../memory/memory.decorator.js";
 import type { Class } from "./injection.js";
 import { ComponentError } from "./metadata.js";
 import type { WorkflowMeta } from "./meta-types.js";
@@ -34,8 +32,8 @@ const chatDefaultsOf = (models: ModelDefaults | undefined): ChatDefaults =>
   });
 
 /**
- * The config's defaults: the cascaded `defaults` and the workflow's window — its own
- * `uncompactedTurns`, else its application's, else `DEFAULT_UNCOMPACTED_TURNS` (#120 PR 3).
+ * The config's defaults: the cascaded `defaults` and the workflow's window — its `memory`'s
+ * `uncompactedTurns`, else `DEFAULT_UNCOMPACTED_TURNS` (#1303).
  */
 export function configDefaultsOf(
   defaults: WorkflowDefaults | undefined,
@@ -71,14 +69,13 @@ export function moduleOf(workflow: Class): WorkflowMeta {
     name: options.name,
     version: options.version,
     source,
-    defaults: configDefaultsOf(options.defaults, options.uncompactedTurns),
+    defaults: configDefaultsOf(options.defaults, workflowWindowOf(options.memory)),
     piiPolicies: options.piiPolicies,
     excludePiiPolicies: options.excludePiiPolicies,
     guardrails: options.guardrails,
     toolInterceptors: options.toolInterceptors,
     excludeToolInterceptors: options.excludeToolInterceptors,
-    compaction: options.compaction,
-    uncompactedTurns: options.uncompactedTurns,
+    memory: options.memory,
     providers: options.providers,
     services: options.services,
     promptVariables: options.promptVariables,

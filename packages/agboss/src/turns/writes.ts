@@ -80,7 +80,7 @@ export function turnWrites(
       ).run(
         t.id,
         t.threadId,
-        t.bundle,
+        t.workflow,
         t.createdAt,
         storedTextOf(t.task),
         storedTextOf(t.replyWith),

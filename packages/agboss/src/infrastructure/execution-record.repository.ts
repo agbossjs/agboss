@@ -128,7 +128,7 @@ export abstract class ExecutionRecordRepository {
   /** The latest `limit` original answered records of a workflow, oldest first. */
   abstract recentOriginals(workflow: string, limit: number): Promise<Turn[]>;
   /** Records of the thread after the compaction's last summary, oldest first (#120 PR 3). */
-  abstract uncovered(tenantId: string, threadId: string, compaction: string): Promise<Turn[]>;
+  abstract uncovered(tenantId: string, threadId: string, memory: string): Promise<Turn[]>;
   /** Up to `limit` records right before `turnId`, oldest first. */
   abstract before(
     tenantId: string,
@@ -144,10 +144,10 @@ export abstract class ExecutionRecordRepository {
   abstract latestSummaries(
     tenantId: string,
     threadId: string,
-    compaction: string,
+    memory: string,
     limit: number,
   ): Promise<Summary[]>;
-  abstract summaryCount(tenantId: string, threadId: string, compaction: string): Promise<number>;
+  abstract summaryCount(tenantId: string, threadId: string, memory: string): Promise<number>;
   /**
    * Keeps how a pause of a tree was resolved (#267 S107), once per pause of the tree (by its
    * tenant, `rootExecutionId` and `step.idempotencyKey`: a second save is ignored; #676 — a step
@@ -245,8 +245,8 @@ export class TurnStoreRecordRepository extends ExecutionRecordRepository {
   recentOriginals(workflow: string, limit: number): Promise<Turn[]> {
     return this.store.recentOriginals(workflow, limit);
   }
-  uncovered(tenantId: string, threadId: string, compaction: string): Promise<Turn[]> {
-    return this.store.uncovered(tenantId, threadId, compaction);
+  uncovered(tenantId: string, threadId: string, memory: string): Promise<Turn[]> {
+    return this.store.uncovered(tenantId, threadId, memory);
   }
   before(tenantId: string, threadId: string, turnId: string, limit: number): Promise<Turn[]> {
     return this.store.before(tenantId, threadId, turnId, limit);
@@ -260,8 +260,8 @@ export class TurnStoreRecordRepository extends ExecutionRecordRepository {
   latestSummaries(...args: Parameters<TurnStore["latestSummaries"]>): Promise<Summary[]> {
     return this.store.latestSummaries(...args);
   }
-  summaryCount(tenantId: string, threadId: string, compaction: string): Promise<number> {
-    return this.store.summaryCount(tenantId, threadId, compaction);
+  summaryCount(tenantId: string, threadId: string, memory: string): Promise<number> {
+    return this.store.summaryCount(tenantId, threadId, memory);
   }
   savePauseAnswer(...args: AnswerArgs): Promise<void> {
     return this.store.appendPauseAnswer(pauseAnswerEntryOf(...args));

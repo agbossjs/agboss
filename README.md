@@ -128,7 +128,6 @@ import { WorkflowStartTextDto } from "@agboss/core/dto";
     router: { model: "typesafe/jev-1.13" },
     tools: { maxToolCalls: 8 },
   },
-  uncompactedTurns: 5, // the last 5 turns of the thread in full (older ones: a @Compaction's summaries)
   providers: [JobFitJudge],
 })
 export class JobScout {}
@@ -618,7 +617,7 @@ Runtime package `@agboss/core` + dev/CI companion `@agboss/cli`; the root `@agbo
 
 - `@agboss/core` — `@Workflow`, `@Agent`, `@Router`, `@Arbiter`, `@Tool`, `@ToolInterceptor`, `@Injectable`, `@Action`,
   `@WorkflowStart` / `@WorkflowFinish`, `@Judge`, `@InputGuardrail` / `@OutputGuardrail`,
-  `@PiiPolicy`, `@ChannelRole`, `@Compaction`,
+  `@PiiPolicy`, `@ChannelRole`, `@Memory`,
   `InjectionToken`, `provide`, `env`, `secret`, `Secret`, the context levels (`ApplicationContext`,
   `TenantContext`, `ExecutionContext`, `ContextValues`), the path builder (`onStart`,
   `onAgent`, `onRouter`, `onAction`, `route`, `caseOf`, `toAgent`, `toAction`, `toWorkflow`, `toParallelWorkflows`, `toFinish`, `ChildPlacement`, …),
@@ -2183,63 +2182,74 @@ gives `{ isBlocked, probability, refusal }`.
 ## Memory and compaction
 
 A thread's turns are its finished executions (`start <name>: <input>` / `finish <name>: <output>`).
-Each agent and model router sees the last `uncompactedTurns` of them in full — set on
-`@Application`, `@Workflow`, `@Agent` or `@Router`, the lowest set value wins (default 5,
-`TurnLimit.ALL` = every turn). What is older is summarised by a `@Compaction`, named by
-`compaction` on the same levels (again the lowest wins; none anywhere → the window only):
+What a workflow, an agent or a model router remembers of its thread is a `@Memory` class, named by
+`memory` on `@Workflow`, `@Agent` or `@Router` (the lowest level that sets one wins; a workflow
+without `memory` is stateless). `ttl` says how long an idle thread is kept (a duration, or
+`Ttl.Forever`), `uncompactedTurns` how many recent turns a reader sees in full (default 5,
+`TurnLimit.All` = every turn), and what is older is summarised by its `compaction`, or by a
+`compact(input)` method of its class; neither → the window only. `NoMemory` on an agent or a router
+sees no earlier turn:
 
 <!-- snippet-context
-import { Compaction, CompactionStrategy, TokenLimit } from "@agboss/core";
+import { CompactionStrategy, Memory, NoMemory, Ttl, TokenLimit, TurnLimit, inline } from "@agboss/core";
+import { days } from "@agboss/core/units";
 -->
 
 ```ts
 // a queue: every 5 turns older than the window become one summary, the latest 10 are kept
-@Compaction({
-  name: "conversation-compaction",
-  description: "Summarises old turns of the conversation",
-  prompt: "Summarise the turns under `Turns to compact`: what was asked, decided and is still open.",
-  model: "moonshotai/kimi-k2.6",
-  strategy: CompactionStrategy.SummaryQueue,
+@Memory({
+  name: "conversation-memory",
+  description: "Remembers the conversation for 30 days, summarising old turns",
+  ttl: days(30),
+  uncompactedTurns: 6,
   turnsBetweenCompactions: 5,
-  summaryQueueLength: 10,
-  summaryMaxTokens: 400,
+  compaction: {
+    strategy: CompactionStrategy.SummaryQueue,
+    prompt: inline("Summarise the turns under `Turns to compact`: what was asked, decided and is still open."),
+    model: "moonshotai/kimi-k2.6",
+    summaryQueueLength: 10,
+    summaryMaxTokens: 400,
+  },
 })
-export class ConversationCompaction {}
+export class ConversationMemory {}
 
 // one running summary, rewritten from the previous one and the new turns (the built-in prompt)
-@Compaction({
-  name: "code-context-compaction",
+@Memory({
+  name: "code-context-memory",
   description: "Keeps one summary of the code touched so far",
-  model: "moonshotai/kimi-k2.6",
-  strategy: CompactionStrategy.SingleSummary,
+  ttl: Ttl.Forever,
   turnsBetweenCompactions: 3,
-  summaryMaxTokens: TokenLimit.MODEL_MAX,
+  compaction: {
+    strategy: CompactionStrategy.SingleSummary,
+    model: "moonshotai/kimi-k2.6",
+    summaryMaxTokens: TokenLimit.ModelMax,
+  },
 })
-export class CodeContextCompaction {}
+export class CodeContextMemory {}
 
-// no summaries at all: only the window (no model, no prompt, no parameters)
-@Compaction({
-  name: "no-summaries-compaction",
+// no summaries at all: only the window
+@Memory({
+  name: "recent-memory",
   description: "Only the window of recent turns",
-  strategy: CompactionStrategy.None,
+  ttl: days(1),
+  uncompactedTurns: TurnLimit.All,
 })
-export class NoSummariesCompaction {}
+export class RecentMemory {}
 ```
 
-A compaction summarises everything older than the **smallest** `uncompactedTurns` among the agents
-and routers that use it, so no one loses a turn: a router that sees 1 turn and an agent that sees 3
-share one compaction that summarises what is older than 1 — the agent sees its 3 turns in full and
-not the summary they already cover. `summaryMaxTokens` is the summary call's `max_tokens` (the
-model's server counts it; thinking is off on that call): a summary cut there is asked once more,
-shorter, and cut again fails the execution with `CompactionError` (`compaction`) — never a cut
-summary. A compaction runs lazily, before a new execution first reads its thread — never after a
-turn: a finished answer is always kept, a thread that ends pays for none, and a `CompactionError`
-fails the new execution before any of its work (no model call, no step, no turn kept). The compaction's model reads the turns
-through the application's and the workflow's PII policies, its summary is revealed before it is
-stored, and each reader's own policies mask it on the way into its model. Spend is
-`compaction:<name>`; `result.compacted` says what each compaction did before the execution. In tests,
-`mockLlm(ConversationCompaction).thenReturn(replyWith("…"))` scripts it (`replyWith("…", {
-truncated: true })` is a summary cut at the limit); unscripted, it writes a fixed summary.
+A memory summarises everything older than the **smallest** window among the agents and routers that
+use it, so no one loses a turn. `summaryMaxTokens` is the summary call's `max_tokens` (the model's
+server counts it; thinking is off on that call): a summary cut there is asked once more, shorter,
+and cut again fails the execution with `StepError.Memory` (`memory`) — never a cut summary. A
+compaction runs lazily, before a new execution first reads its thread — never after a turn: a
+finished answer is always kept, a thread that ends pays for none, and a `StepError.Memory` fails the
+new execution before any of its work (no model call, no step, no turn kept). The memory's model reads
+the turns through the application's and the workflow's PII policies, its summary is revealed before
+it is stored, and each reader's own policies mask it on the way into its model. Spend is
+`memory:<name>`; `result.compacted` says what each memory did before the execution, and
+`onCompactionStart` / `onCompactionEnd` of an observer show it as it happens. In tests,
+`mockLlm(ConversationMemory).thenReturn(replyWith("…"))` scripts it (`replyWith("…", { truncated:
+true })` is a summary cut at the limit); unscripted, it writes a fixed summary.
 
 ## Tracing (local, optional)
 

@@ -19,7 +19,6 @@ function agentMetaOf(declaration: AgentDeclaration): AgentMeta {
     promptUrls: options.promptUrls,
     model: options.model,
     modelProvider: options.modelProvider,
-    memoryStrategy: options.memoryStrategy,
     price: options.price,
     thinking: options.reasoning,
     temperature: options.temperature,
@@ -38,8 +37,7 @@ function agentMetaOf(declaration: AgentDeclaration): AgentMeta {
     excludeGuardrails: options.excludeGuardrails,
     toolInterceptors: options.toolInterceptors,
     excludeToolInterceptors: options.excludeToolInterceptors,
-    compaction: options.compaction,
-    uncompactedTurns: options.uncompactedTurns,
+    memory: options.memory,
     files: options.files,
   });
 }

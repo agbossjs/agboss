@@ -41,7 +41,7 @@ describe("#946: the re-send look reaches every stuck replacement", () => {
       records: {
         findByTenantIdAndRunId: (_tenant, runId) =>
           Promise.resolve({
-            bundle: Number(runId.slice(4)) < NOT_OURS ? "another-app" : "ours",
+            workflow: Number(runId.slice(4)) < NOT_OURS ? "another-app" : "ours",
           } as never),
       },
       resends: new Map([

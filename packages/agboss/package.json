@@ -100,10 +100,6 @@
       "types": "./dist/a2a/index.d.ts",
       "import": "./dist/a2a/index.js"
     },
-    "./memory": {
-      "types": "./dist/memory/index.d.ts",
-      "import": "./dist/memory/index.js"
-    },
     "./eval": {
       "types": "./dist/eval/index.d.ts",
       "import": "./dist/eval/index.js"

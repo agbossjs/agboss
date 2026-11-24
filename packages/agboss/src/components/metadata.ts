@@ -92,10 +92,10 @@ export type ComponentMeta =
       readonly kind: "tool-interceptor";
       readonly meta: import("../tool-interceptors/decorator.js").ToolInterceptorMeta;
     }
-  /** `@Compaction` (#120 PR 3): how turns older than the readers' window are summarised. */
+  /** `@Memory` (#1303): how long a thread is kept, what readers see of it and how old turns are summarised. */
   | {
-      readonly kind: "compaction";
-      readonly meta: import("../compaction/compaction.decorator.js").CompactionMeta;
+      readonly kind: "memory";
+      readonly meta: import("../memory/memory.decorator.js").MemoryMeta;
     }
   | {
       readonly kind: "judge";
@@ -180,7 +180,7 @@ export function requireComponent<K extends ComponentMeta["kind"]>(
 const kindName: Readonly<Record<ComponentMeta["kind"], string>> = {
   "pii-policy": "@PiiPolicy",
   guardrail: "@InputGuardrail / @OutputGuardrail",
-  compaction: "@Compaction",
+  memory: "@Memory",
   "tool-interceptor": "@ToolInterceptor",
   tool: "Tool",
   "mcp-server": "McpServer",

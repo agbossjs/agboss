@@ -67,12 +67,13 @@ describe("#1366: one compaction stored", () => {
   };
   const run = { tenantId: "tenant-1", threadId: "thread-1" };
   const write = {
-    compaction: "notes",
+    memory: "notes",
     due: [turn("a"), turn("b"), turn("c")],
     text: "summary",
     costUsd: usd(0.5),
     summaries: 2,
     summaryQueueLength: 4,
+    isQueue: true,
   };
 
   it("covers the thread from its first due record to the last, with the text and its cost", async () => {
@@ -83,8 +84,8 @@ describe("#1366: one compaction stored", () => {
     expect(addSummary).toHaveBeenCalledWith({
       tenantId: "tenant-1",
       threadId: "thread-1",
-      bundle: "bundle",
-      compaction: "notes",
+      workflow: "bundle",
+      memory: "notes",
       fromTurnId: "a",
       toTurnId: "c",
       turns: 3,
@@ -94,7 +95,7 @@ describe("#1366: one compaction stored", () => {
     expect(turnNumber).toHaveBeenCalledWith("tenant-1", "thread-1", "a");
     expect(turnNumber).toHaveBeenCalledWith("tenant-1", "thread-1", "c");
     expect(out).toEqual({
-      compaction: "notes",
+      memory: "notes",
       fromTurn: 1,
       toTurn: 7,
       summaries: 2,
@@ -113,6 +114,14 @@ describe("#1366: one compaction stored", () => {
     expect(addSummary).toHaveBeenCalledWith(
       expect.objectContaining({ fromTurnId: "z", toTurnId: "c", turns: 8 }),
     );
+  });
+
+  it("a memory that is no queue reports no queue length", async () => {
+    const { deps } = depsOf();
+
+    const out = await storedCompaction(deps, run, { ...write, isQueue: false });
+
+    expect(out).toEqual({ memory: "notes", fromTurn: 1, toTurn: 7, summaries: 2 });
   });
 
   it("nothing due stores nothing", async () => {

@@ -1,3 +1,4 @@
+import { Window4Memory } from "../../../helpers/window-memory.js";
 import {
   Agent,
   Injectable,
@@ -75,7 +76,7 @@ export class ChatStart {}
 export class Reply {}
 
 export const settingsDefaults = {
-  models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX, cache: true },
+  models: { temperature: 0, maxTokens: TokenLimit.ModelMax, cache: true },
   router: { model: "typesafe/jev-1.13" },
   tools: { maxToolCalls: 4 },
 } as const;
@@ -90,7 +91,7 @@ export const settingsDefaults = {
       .toFinish(Reply),
   ],
   defaults: settingsDefaults,
-  uncompactedTurns: 4,
+  memory: Window4Memory,
   providers: [ApiClient],
 })
 export class SettingsApp {}

@@ -2,12 +2,13 @@ import type { Class } from "../components/injection.js";
 import type { AgentsConfigOf } from "../config/types.js";
 import { TurnLimit } from "../config/types.js";
 import { TokenLimit } from "../config/types.js";
-import type { AssembledCompactions } from "./assembly.js";
+import type { AssembledMemories } from "./assembly.js";
 import {
+  CUSTOM_COMPACTION,
   CompactionStrategy,
   type SummaryMaxTokens,
   type UncompactedTurns,
-} from "./compaction.decorator.js";
+} from "./memory.decorator.js";
 
 /**
  * A workflow's memory at run time (#120 PR 3): each reader's window and compaction, and every
@@ -37,8 +38,8 @@ export interface ModelCompactionInUse extends CompactionInUseBase {
 
 /** A custom compaction (#382): its class's `compact()` writes them. */
 export interface CustomCompactionInUse extends CompactionInUseBase {
-  readonly strategy: CompactionStrategy.Custom;
-  /** The `@Compaction` class, created by the container. */
+  readonly strategy: typeof CUSTOM_COMPACTION;
+  /** The `@Memory` class, created by the container. */
   readonly type: Class;
 }
 
@@ -60,17 +61,17 @@ export interface MemoryPlan {
   readonly fallback: MemoryReader;
 }
 
-/** A window as a count to compare: `TurnLimit.ALL` is above every number. */
+/** A window as a count to compare: `TurnLimit.All` is above every number. */
 const sizeOf = (window: UncompactedTurns): number =>
-  window === TurnLimit.ALL ? Number.POSITIVE_INFINITY : window;
+  window === TurnLimit.All ? Number.POSITIVE_INFINITY : window;
 
 /**
- * The window of a compaction: the smallest among its readers' (`TurnLimit.ALL` when every reader
+ * The window of a compaction: the smallest among its readers' (`TurnLimit.All` when every reader
  * sees every turn — then nothing is ever summarised).
  */
 export function windowOfCompaction(windows: readonly UncompactedTurns[]): UncompactedTurns {
   const smallest = Math.min(...windows.map(sizeOf));
-  return Number.isFinite(smallest) ? smallest : TurnLimit.ALL;
+  return Number.isFinite(smallest) ? smallest : TurnLimit.All;
 }
 
 type Settings = NonNullable<AgentsConfigOf<string>["compactions"]>[string];
@@ -81,7 +82,7 @@ const isQueue = (settings: Settings): boolean =>
 /** Each reader's window: an agent's own in the config (a profile may set it), else its own, else the workflow's. */
 function windowsOf(
   config: AgentsConfigOf<string>,
-  assembled: AssembledCompactions | undefined,
+  assembled: AssembledMemories | undefined,
 ): ReadonlyMap<string, UncompactedTurns> {
   const agents = new Map(Object.entries(config.agents));
   const names = [...new Set([...agents.keys(), ...(assembled?.readers.keys() ?? [])])];
@@ -97,12 +98,12 @@ function windowsOf(
 
 /** A custom compaction in use (#382): its class, its count; one stored record holds its list. */
 const customInUse = (
-  loaded: AssembledCompactions["compactions"][number],
+  loaded: AssembledMemories["memories"][number],
   settings: Settings | undefined,
   windows: readonly UncompactedTurns[],
 ): CustomCompactionInUse => ({
   name: loaded.name,
-  strategy: CompactionStrategy.Custom,
+  strategy: CUSTOM_COMPACTION,
   type: loaded.type,
   window: windowOfCompaction(windows),
   turnsBetweenCompactions: settings?.turnsBetweenCompactions ?? 1,
@@ -111,11 +112,11 @@ const customInUse = (
 
 /** A compaction in use as it runs, from its settings (a profile may change them); none for `None`. */
 function compactionInUse(
-  loaded: AssembledCompactions["compactions"][number],
+  loaded: AssembledMemories["memories"][number],
   settings: Settings | undefined,
   windows: readonly UncompactedTurns[],
 ): CompactionInUse[] {
-  if (settings?.strategy === CompactionStrategy.None || settings?.model === undefined) return [];
+  if (settings?.model === undefined || settings.strategy === CUSTOM_COMPACTION) return [];
   const queue = isQueue(settings);
   return [
     {
@@ -125,7 +126,7 @@ function compactionInUse(
       window: windowOfCompaction(windows),
       turnsBetweenCompactions: settings.turnsBetweenCompactions ?? 1,
       summaryQueueLength: queue ? (settings.summaryQueueLength ?? 1) : 1,
-      summaryMaxTokens: settings.model.maxTokens ?? TokenLimit.MODEL_MAX,
+      summaryMaxTokens: settings.model.maxTokens ?? TokenLimit.ModelMax,
     },
   ];
 }
@@ -133,22 +134,22 @@ function compactionInUse(
 /** The workflow's memory plan. */
 export function memoryPlanOf(
   config: AgentsConfigOf<string>,
-  assembled: AssembledCompactions | undefined,
+  assembled: AssembledMemories | undefined,
 ): MemoryPlan {
   const windows = windowsOf(config, assembled);
   const usersOf = (compaction: string): UncompactedTurns[] =>
     [...windows].flatMap(([name, window]) =>
-      assembled?.readers.get(name)?.compaction === compaction ? [window] : [],
+      assembled?.readers.get(name)?.memory === compaction ? [window] : [],
     );
-  const compactions = (assembled?.compactions ?? []).flatMap((loaded) =>
-    loaded.strategy === CompactionStrategy.Custom
+  const compactions = (assembled?.memories ?? []).flatMap((loaded) =>
+    loaded.mode === CUSTOM_COMPACTION
       ? [customInUse(loaded, config.compactions?.[loaded.name], usersOf(loaded.name))]
       : compactionInUse(loaded, config.compactions?.[loaded.name], usersOf(loaded.name)),
   );
   const byName = new Map(compactions.map((compaction) => [compaction.name, compaction]));
   const readers = new Map(
     [...windows].map(([name, window]): [string, MemoryReader] => {
-      const named = assembled?.readers.get(name)?.compaction;
+      const named = assembled?.readers.get(name)?.memory;
       const compaction = named === undefined ? undefined : byName.get(named);
       return [name, compaction === undefined ? { window } : { window, compaction }];
     }),

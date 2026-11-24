@@ -1,3 +1,4 @@
+import { Window1Memory } from "../../helpers/window-memory.js";
 import { Agent, EmptyEnvironment, TokenLimit, Workflow } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import {
@@ -64,10 +65,10 @@ export class LimitedAgent {}
     .toAgent(LimitedAgent)
     .toFinish(Reply)],
   defaults: {
-    models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX },
+    models: { temperature: 0, maxTokens: TokenLimit.ModelMax },
     tools: { maxToolCalls: 1 },
   },
-  uncompactedTurns: 1,
+  memory: Window1Memory,
 })
 export class LimitedWorkflow {}
 

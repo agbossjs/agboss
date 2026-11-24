@@ -257,7 +257,7 @@ export async function remoteCancel(
   const { deps, clock } = parts;
   const records = await deps.turns.lastTurns(thread.tenantId, thread.threadId, RECORDS);
   const running = records.filter(
-    (record) => record.status === "running" && record.bundle === deps.config.name,
+    (record) => record.status === "running" && record.workflow === deps.config.name,
   );
   const request = { requestedAt: clock.now().toISOString(), ownerId: ownerId ?? null };
   for (const record of running) {

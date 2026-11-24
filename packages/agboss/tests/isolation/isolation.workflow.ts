@@ -1,3 +1,4 @@
+import { Window2Memory } from "../helpers/window-memory.js";
 import {
   Agent,
   ExecutionContext,
@@ -89,7 +90,7 @@ const defaults = {
       .toFinish(Reply),
   ],
   defaults,
-  uncompactedTurns: 2,
+  memory: Window2Memory,
   providers: [ApprovalDesk, PaymentLog],
 })
 export class Payments implements WorkflowDefinition {
@@ -157,7 +158,7 @@ export class Editor {}
       .toFinish(Reply),
   ],
   defaults,
-  uncompactedTurns: 2,
+  memory: Window2Memory,
 })
 export class Capped {}
 

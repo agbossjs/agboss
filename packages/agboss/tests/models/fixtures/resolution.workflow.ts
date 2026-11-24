@@ -1,7 +1,9 @@
+import { Window1Memory } from "../../helpers/window-memory.js";
 import {
   Agent,
-  Compaction,
   CompactionStrategy,
+  Memory,
+  Ttl,
   DecidedBy,
   EmptyEnvironment,
   Injectable,
@@ -82,16 +84,20 @@ export class ResolutionFinish {}
 export class NowhereRouter {}
 
 /** A compaction on a model no listed provider serves (#120 PR 3). */
-@Compaction({
-  name: "nowhere-compaction",
+@Memory({
+  name: "nowhere-memory",
   description: "Summarises on a model nobody serves",
-  model: "nowhere/compaction",
-  strategy: CompactionStrategy.SummaryQueue,
+  ttl: Ttl.Forever,
+  uncompactedTurns: 1,
   turnsBetweenCompactions: 2,
-  summaryQueueLength: 1,
-  summaryMaxTokens: 200,
+  compaction: {
+    strategy: CompactionStrategy.SummaryQueue,
+    model: "nowhere/compaction",
+    summaryQueueLength: 1,
+    summaryMaxTokens: 200,
+  },
 })
-export class NowhereCompaction {}
+export class NowhereMemory {}
 
 /** Every kind of model use, none served by the local providers. */
 @Workflow({
@@ -104,13 +110,12 @@ export class NowhereCompaction {}
         .toFinish(ResolutionFinish)),
   ],
   defaults: {
-    models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX },
+    models: { temperature: 0, maxTokens: TokenLimit.ModelMax },
     router: { model: "nowhere/default-router" },
     guardrail: { model: "nowhere/guardrail" },
   },
-  uncompactedTurns: 1,
+  memory: NowhereMemory,
   guardrails: [PromptInjectionGuardrail],
-  compaction: NowhereCompaction,
 })
 export class EveryKindWorkflow {}
 
@@ -140,10 +145,10 @@ export class LocalStart {}
     .toAgent(LocalAgent)
     .toFinish(ResolutionFinish)],
   defaults: {
-    models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX },
+    models: { temperature: 0, maxTokens: TokenLimit.ModelMax },
     router: { model: "typesafe/jev-1.13" },
   },
-  uncompactedTurns: 1,
+  memory: Window1Memory,
 })
 export class LocalWorkflow {}
 
@@ -190,10 +195,10 @@ export class NotInfrastructure {}
     .toAgent(LocalAgent)
     .toFinish(ResolutionFinish)],
   defaults: {
-    models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX },
+    models: { temperature: 0, maxTokens: TokenLimit.ModelMax },
     router: { model: "typesafe/jev-1.13" },
   },
-  uncompactedTurns: 1,
+  memory: Window1Memory,
   providers: [NotInfrastructure, LocalModelProvider],
 })
 export class MisplacedProviderWorkflow {}

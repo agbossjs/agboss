@@ -6,8 +6,10 @@
  */
 import {
   Agent,
-  Compaction,
   CompactionStrategy,
+  inline,
+  Memory,
+  Ttl,
   DecidedBy,
   Judge,
   JudgeModel,
@@ -59,19 +61,35 @@ function policyOf(variant: DeskVariant): Class {
   return ContactPiiPolicy;
 }
 
-function compactionOf(variant: DeskVariant): Class {
-  @Compaction({
-    name: "queue-compaction",
-    description: "Summarises the desk's old turns",
-    prompt: "Summarise the turns under `Turns to compact`.",
-    model: "test/compactor",
-    strategy: CompactionStrategy.SummaryQueue,
-    turnsBetweenCompactions: 2,
-    summaryQueueLength: variant.isLongerQueue === true ? 3 : 2,
-    summaryMaxTokens: 200,
+/** A router's own window: its own memory, no summaries. */
+function routerWindowOf(turns: number): Class {
+  @Memory({
+    name: "router-window-memory",
+    description: "The router's own window",
+    ttl: Ttl.Forever,
+    uncompactedTurns: turns,
   })
-  class QueueCompaction {}
-  return QueueCompaction;
+  class RouterWindowMemory {}
+  return RouterWindowMemory;
+}
+
+function memoryOf(variant: DeskVariant): Class {
+  @Memory({
+    name: "queue-memory",
+    description: "Summarises the desk's old turns",
+    ttl: Ttl.Forever,
+    uncompactedTurns: 3,
+    turnsBetweenCompactions: 2,
+    compaction: {
+      strategy: CompactionStrategy.SummaryQueue,
+      prompt: inline("Summarise the turns under `Turns to compact`."),
+      model: "test/compactor",
+      summaryQueueLength: variant.isLongerQueue === true ? 3 : 2,
+      summaryMaxTokens: 200,
+    },
+  })
+  class QueueMemory {}
+  return QueueMemory;
 }
 
 function judgesOf(variant: DeskVariant): readonly Class<object>[] {
@@ -125,7 +143,7 @@ export function deskApplicationOf(variant: DeskVariant = {}): Class {
     prompt: "Pick who answers.",
     model: JEV,
     input: { message: WorkflowStartTextDto },
-    ...(variant.routerTurns === undefined ? {} : { uncompactedTurns: variant.routerTurns }),
+    ...(variant.routerTurns === undefined ? {} : { memory: routerWindowOf(variant.routerTurns) }),
     routes: [{ prompt: "Questions", target: AnswerAgent }],
   })
   class HelpRouter {}
@@ -136,6 +154,7 @@ export function deskApplicationOf(variant: DeskVariant = {}): Class {
     flow: [
       onStart(DeskStart).toRouter(HelpRouter).chooseOne(route(AnswerAgent).toFinish(DeskAnswer)),
     ],
+    memory: memoryOf(variant),
   })
   class DeskWorkflow {}
 
@@ -145,8 +164,6 @@ export function deskApplicationOf(variant: DeskVariant = {}): Class {
     environment: EmptyEnvironment,
     workflows: [DeskWorkflow],
     piiPolicies: [policy],
-    compaction: compactionOf(variant),
-    uncompactedTurns: 3,
     budgets: TEST_BUDGETS,
   })
   class DeskApplication {}

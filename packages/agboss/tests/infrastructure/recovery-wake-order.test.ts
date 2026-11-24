@@ -18,7 +18,7 @@ const recordOf = (status: string): Turn =>
     runId: "run-1",
     threadId: "thread-1",
     tenantId: "default",
-    bundle: "orders-workflow",
+    workflow: "orders-workflow",
     status,
   }) as Turn;
 

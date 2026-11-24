@@ -10,11 +10,9 @@ import { ExecutionStatus } from "../../src/app/types.js";
 import { CostReport, CostSource, ZERO_USAGE, type UsageRecord } from "../../src/finops/usage.js";
 import { finishLine } from "../../src/flow/runtime/history.js";
 import { endOf, finishRun, outcomeOf } from "../../src/run/finish.js";
-import { updateMemoryAfter } from "../../src/run/memory.js";
 import { isWaiting, pausedLoopsOf } from "../../src/run/paused.js";
 import { openPausesOf, waitingPausesOf } from "../../src/run/waiting-pauses.js";
 
-vi.mock("../../src/run/memory.js", () => ({ updateMemoryAfter: vi.fn() }));
 vi.mock("../../src/run/paused.js", async (original) => ({
   ...(await original<typeof import("../../src/run/paused.js")>()),
   isWaiting: vi.fn(),
@@ -80,7 +78,6 @@ const setup = (options: { paused?: boolean; compacted?: unknown; pause?: boolean
     compacted: options.compacted,
   };
   vi.mocked(isWaiting).mockResolvedValue(options.paused === true);
-  vi.mocked(updateMemoryAfter).mockResolvedValue({ usage: [] });
   return { ctx: ctx as never, raw: ctx, append, complete, recorded, pauses, checkpointer, graph };
 };
 
@@ -158,23 +155,9 @@ describe("#1366: a finished run's turn", () => {
     expect(kept.startedVersion).toBe("1.2.3");
   });
 
-  it("adds the memory strategies' spend to the turn's cost and the report, after the finish line is known", async () => {
-    const { ctx, append, raw } = setup();
-    vi.mocked(updateMemoryAfter).mockResolvedValue({ usage: [record(0.25, "memory")] });
-
-    const out = await finishRun(ctx, stateOf());
-
-    expect(updateMemoryAfter).toHaveBeenCalledWith(raw, [record(0.5)], {
-      start: "the task",
-      finish: finishLine("done", { text: "ok" }),
-    });
-    expect(append).toHaveBeenCalledWith(expect.objectContaining({ costUsd: usd(0.75) }));
-    expect(out.cost).toEqual(CostReport.fromUsage([record(0.5), record(0.25, "memory")]));
-  });
-
   it("says what the compactions did, only when they did", async () => {
     const compacted = [
-      { compaction: "c", fromTurn: 1, toTurn: 2, summaries: 1, summaryQueueLength: 3 },
+      { memory: "c", fromTurn: 1, toTurn: 2, summaries: 1, summaryQueueLength: 3 },
     ];
 
     const did = await finishRun(setup({ compacted }).ctx, stateOf());
@@ -273,7 +256,6 @@ describe("#1366: a paused run", () => {
       steps: [],
       costUsd: usd(0.75),
     });
-    expect(updateMemoryAfter).not.toHaveBeenCalled();
     expect(out.status).toBe(ExecutionStatus.Paused);
     expect(out.path).toEqual(["chat", "alpha", "alpha-agent"]);
     expect(out.pending).toEqual(made.pending);

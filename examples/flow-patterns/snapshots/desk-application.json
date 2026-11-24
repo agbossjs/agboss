@@ -372,7 +372,7 @@
               "maxToolCalls": 3,
               "maxResultSize": 131072,
               "uncompactedTurns": 2,
-              "compaction": "case-notes-compaction",
+              "memory": "case-notes-memory",
               "tools": [
                 "order-status-tool",
                 "close-account-tool",

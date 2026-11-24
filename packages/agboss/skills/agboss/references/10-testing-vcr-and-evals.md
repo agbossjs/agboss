@@ -596,8 +596,8 @@ raceTest("an answer without notes leaves the quorum short", async ({ app, mockLl
   `AgentAnswerInvalidError`).
 - **`when(partial)`** binds turns to the input: `mockLlm(SkillsAgent).when({ candidate: { name: "Dana" } }).thenReturn(…)`.
 - **Unscripted**: a guardrail passes, a compaction writes a fixed summary; an agent, a router or a
-  judge without a script is a blocked live call (`test.live-call-blocked`). A custom compaction
-  (`CompactionStrategy.Custom`) calls no model: `mockLlm(GraphMemoryCompaction)` is a setup error —
+  judge without a script is a blocked live call (`test.live-call-blocked`). A memory that compacts in code
+  (a `compact(input)` method) calls no model: `mockLlm(GraphMemory)` is a setup error —
   `mockOf(KnowledgeGraphService).saveFactsAndSummarize.mockResolvedValue([…])` the services its
   `compact()` uses.
 - **Replacing a class**: `mockOf(Service).method.mockResolvedValue(…)` (any component or service, a
@@ -1398,39 +1398,42 @@ it("testToolInterceptor: the decision for the tenant given", async () => {
 });
 ```
 
-`testCompaction(Compaction, options)` (#395) — a `CompactionRunner` — runs one `@Compaction` on a
+`testCompaction(Memory, options)` (#395) — a `CompactionRunner` — runs one `@Memory`'s compaction on a
 `CompactionInput` (`previousSummaries`, `turnsToCompact`) and gives a `CompactionResult`:
 `summaries` (what readers see next — a `SummaryQueue` the latest `summaryQueueLength`, a
 `SingleSummary` the new one) and `requests` (each model call's `instructions` and `input`, two when
-a summary cut at `summaryMaxTokens` was asked again; none for `CompactionStrategy.Custom`, whose
+a summary cut at `summaryMaxTokens` was asked again; none for a code compaction, whose
 `compact()` runs on the runner's container). It checks the request and the plumbing; whether a fact
 survives compaction is an eval case.
 
 <!-- snippet-context
-import { Compaction, CompactionStrategy } from "@agboss/core";
+import { CompactionStrategy, Memory, Ttl, inline } from "@agboss/core";
 import { replyWith, testCompaction } from "@agboss/core/testing";
 import { expect, it } from "vitest";
-@Compaction({
-  name: "conversation-compaction",
+@Memory({
+  name: "conversation-memory",
   description: "Summarises old turns",
-  prompt: "Summarise the turns under `Turns to compact`.",
-  model: "moonshotai/kimi-k2.6",
-  strategy: CompactionStrategy.SummaryQueue,
+  ttl: Ttl.Forever,
   turnsBetweenCompactions: 5,
-  summaryQueueLength: 10,
-  summaryMaxTokens: 400,
+  compaction: {
+    strategy: CompactionStrategy.SummaryQueue,
+    prompt: inline("Summarise the turns under `Turns to compact`."),
+    model: "moonshotai/kimi-k2.6",
+    summaryQueueLength: 10,
+    summaryMaxTokens: 400,
+  },
 })
-export class ConversationCompaction {}
+export class ConversationMemory {}
 -->
 
 ```ts
 it("testCompaction: the turns reach the model, the summary joins the queue", async () => {
-  const compact = testCompaction(ConversationCompaction, { model: replyWith("Dana: no calls before 9.") });
+  const compact = testCompaction(ConversationMemory, { model: replyWith("Dana: no calls before 9.") });
 
   const { output } = await compact({
     previousSummaries: ["Dana asked about order 7."],
     turnsToCompact: [
-      { startName: "chat-workflow-start", input: { text: "Never call me before 9." }, finishName: "chat-workflow-finish", output: { text: "Noted." } },
+      { start: "chat-workflow-start", input: { text: "Never call me before 9." }, finish: "chat-workflow-finish", output: { text: "Noted." } },
     ],
   });
 

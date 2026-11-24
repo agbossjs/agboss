@@ -119,7 +119,7 @@ describe("config schemas", () => {
   });
 
   it("compaction settings: a known strategy, positive counts, a model", () => {
-    admits(CompactionSettingsSchema, { strategy: "none" });
+    admits(CompactionSettingsSchema, { strategy: "custom" });
     admits(CompactionSettingsSchema, {
       strategy: "summary-queue",
       model: { model: "m" },
@@ -127,9 +127,9 @@ describe("config schemas", () => {
       summaryQueueLength: 2,
     });
     refuses(CompactionSettingsSchema, {}, { strategy: "bogus" });
-    refuses(CompactionSettingsSchema, { strategy: "none", turnsBetweenCompactions: 0 });
-    refuses(CompactionSettingsSchema, { strategy: "none", summaryQueueLength: 0 });
-    refuses(CompactionSettingsSchema, { strategy: "none", model: { model: "" } });
+    refuses(CompactionSettingsSchema, { strategy: "custom", turnsBetweenCompactions: 0 });
+    refuses(CompactionSettingsSchema, { strategy: "custom", summaryQueueLength: 0 });
+    refuses(CompactionSettingsSchema, { strategy: "custom", model: { model: "" } });
   });
 
   it("agent settings: a description, limits, knowledge bases with their reranking", () => {

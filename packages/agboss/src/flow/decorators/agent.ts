@@ -3,9 +3,7 @@ import type { ModelFiles } from "../../files/model-files.js";
 import { callerFile } from "../../components/call-site.js";
 import type { Class } from "../../components/injection.js";
 import type { ToolHandler } from "../../components/decorators.js";
-import type { UncompactedTurns } from "../../compaction/compaction.decorator.js";
 import type { CacheSetting, MaxTokens, Price } from "../../config/settings-types.js";
-import type { BaseMemoryStrategy } from "../../memory/types.js";
 import type { Reasoning } from "../../models/reasoning.js";
 import { RagMode } from "../../rag/types.js";
 import { NodeKind } from "../ast.js";
@@ -56,8 +54,6 @@ export interface AgentOptions {
   )[];
   readonly reasoning?: Reasoning;
   readonly rag?: readonly AgentRag[];
-  /** A `BaseMemoryStrategy` subclass (`@agboss/core/memory`); the others use the built-in one. */
-  readonly memoryStrategy?: Class<BaseMemoryStrategy>;
   readonly price?: Price;
   readonly temperature?: number;
   readonly maxTokens?: MaxTokens;
@@ -78,10 +74,8 @@ export interface AgentOptions {
   readonly toolInterceptors?: readonly Class[];
   /** Inherited tool interceptors removed for this agent. */
   readonly excludeToolInterceptors?: readonly Class[];
-  /** Its own `@Compaction`, over the workflow's and the application's. */
-  readonly compaction?: Class;
-  /** How many recent turns it sees in full, over the workflow's and the application's. */
-  readonly uncompactedTurns?: UncompactedTurns;
+  /** Its own `@Memory` class over its workflow's; `NoMemory` sees only the current turn. */
+  readonly memory?: Class;
   /** Files for the agent's model (#899): `ModelFiles.of({ sources, views, … })`; without it, no byte goes to the model. */
   readonly files?: ModelFiles;
 }

@@ -453,7 +453,7 @@ export class BedrockModelProvider implements ModelProviderHandler {
   (`ModelProviderMessage { role: ModelProviderMessageRole, text, toolCalls?, toolCallId? }`, text
   only, masked), `tools` (`ModelProviderToolDefinition { name, description, parameters }` — the
   agent's own and its `answer-<dto>` tools), `temperature`, `maxTokens` (`undefined` =
-  `TokenLimit.MODEL_MAX`), `reasoning`, `promptCaching`, `signal` (pass it to the SDK; an SDK that
+  `TokenLimit.ModelMax`), `reasoning`, `promptCaching`, `signal` (pass it to the SDK; an SDK that
   ignores it is cut at `timeout` anyway, a `Timeout`).
 - **The answer** (`ModelProviderResponse`): `text`, `toolCalls?` (`ModelProviderToolCall { id,
 name, arguments }`), `usage` (`ModelProviderUsage { inputTokens, outputTokens, cacheReadTokens?,

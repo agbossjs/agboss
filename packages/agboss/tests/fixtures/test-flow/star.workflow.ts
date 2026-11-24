@@ -1,3 +1,4 @@
+import { Window2Memory } from "../../helpers/window-memory.js";
 import { TokenLimit } from "../../../src/config/types.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import type { Class } from "../../../src/components/injection.js";
@@ -18,10 +19,10 @@ import { EmptyEnvironment } from "../../../src/index.js";
   version: "1.0.0",
   flow: testPaths,
   defaults: {
-    models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX, cache: true },
+    models: { temperature: 0, maxTokens: TokenLimit.ModelMax, cache: true },
     tools: { maxToolCalls: 3 },
   },
-  uncompactedTurns: 2,
+  memory: Window2Memory,
 })
 export class StarWorkflow {}
 
@@ -68,7 +69,7 @@ export function toolWorkflowOf(options: ToolWorkflowOptions): Class {
       tools: { maxToolCalls: 3 },
       router: { model: "typesafe/jev-test" },
     },
-    uncompactedTurns: 2,
+    memory: Window2Memory,
   })
   class ToolWorkflow {}
   return ToolWorkflow;

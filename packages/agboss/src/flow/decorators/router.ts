@@ -1,7 +1,6 @@
 import type { PromptValue } from "../../components/prompt-source.js";
 import { callerFile } from "../../components/call-site.js";
 import type { Class, ResolvedAll, Token } from "../../components/injection.js";
-import type { UncompactedTurns } from "../../compaction/compaction.decorator.js";
 import { NodeKind } from "../ast.js";
 import { resolveTarget, type TargetRef } from "../target-ref.js";
 import { declared, recordDeclaration, type InputFields } from "./declaration.js";
@@ -100,10 +99,8 @@ export interface ModelRouterOptions {
   readonly piiPolicies?: readonly Class[];
   /** Inherited PII policies removed for the router's own model. */
   readonly excludePiiPolicies?: readonly Class[];
-  /** Its own `@Compaction`, over the workflow's and the application's. */
-  readonly compaction?: Class;
-  /** How many recent turns it sees in full, over the workflow's and the application's. */
-  readonly uncompactedTurns?: UncompactedTurns;
+  /** Its own `@Memory` class over its workflow's; `NoMemory` sees only the current turn. */
+  readonly memory?: Class;
 }
 
 /** `@Router({ decidedBy: DecidedBy.Code })` — the class's `route(input)` chooses; no model, no prompt. */
@@ -123,9 +120,8 @@ export interface CodeRouterOptions<TDeps extends readonly Token[] = readonly Tok
   readonly prompt?: never;
   readonly promptUrls?: never;
   readonly promptVariables?: never;
-  /** A code router reads no thread memory: no compaction, no window. */
-  readonly compaction?: never;
-  readonly uncompactedTurns?: never;
+  /** A code router reads no thread memory. */
+  readonly memory?: never;
   /** Guardrails added to the inherited ones (`@Application` → `@Workflow`): `@InputGuardrail` / `@OutputGuardrail` classes. */
   readonly guardrails?: readonly Class[];
   /** Inherited guardrails removed for this router. */

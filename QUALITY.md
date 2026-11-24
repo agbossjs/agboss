@@ -96,7 +96,7 @@ holds from its type**, not guess it from the name.
   Every chat model inherits `defaults.chat`; each router names its own `model` or takes
   `defaults.router.model`; guardrails take `defaults.guardrail.model` (Jev), never the router's —
   `defaults` cascade application → workflow → component (#261). Model choice is config, never code. Reference: Wiki → Configuration.
-- **`TokenLimit.MODEL_MAX` is the only way to say "no output cap"** — never a magic large number.
+- **`TokenLimit.ModelMax` is the only way to say "no output cap"** — never a magic large number.
 - **Models come from model providers** (`@ModelProvider`, `@agboss/core/models`, #151): application
   infrastructure, listed only in `@Application({ providers })` (#266; none → the built-in OpenRouter
   - Decisions providers, one listed → the list is complete); each model of the application is
@@ -193,7 +193,7 @@ $40`). Limit errors are one class per limit, all `LimitExceededError`s: `StepsLi
   - **Nothing is reserved**: a budget protects from draining money, it is not exact accounting —
     parallel executions of one tenant may overrun it a little, and a budget is exceeded by at most
     the calls in flight when it was exhausted (their cost is known only after them; with
-    `TokenLimit.MODEL_MAX` one call is bounded only by the model), plus (#664) the spend of the
+    `TokenLimit.ModelMax` one call is bounded only by the model), plus (#664) the spend of the
     steps it never holds back — the undos, automatic or a side path's, and the actions of the side
     path that took a limit, step by step (no check bounds what they cost) —, plus, across
     instances, what the steps spend — other trees' and the tree's own on another instance — that

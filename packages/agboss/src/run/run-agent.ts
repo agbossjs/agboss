@@ -18,7 +18,7 @@ import { DEFAULT_CONTEXT_VALUES } from "../flow/context/context-values.js";
 import { streamConfig } from "./stream-config.js";
 import { finishRun } from "./finish.js";
 import { openThread } from "./thread.js";
-import { memoryBeforeRun } from "./memory.js";
+import { memoryBeforeRun } from "./compact-before-run.js";
 import type { AgentExecutionOutput, AgentExecutionDeps, AgentExecutionOptions } from "./types.js";
 import { executionVersions } from "./versions.js";
 import { newPiiKey } from "../pii/tokens.js";
@@ -54,7 +54,7 @@ const turnBaseOf = <TName extends string>(
   options: AgentExecutionOptions,
 ): TurnBase => ({
   ...run,
-  bundle: deps.config.name,
+  workflow: deps.config.name,
   replayOf: options.replayOf ?? null,
   ...executionVersions(deps),
 });

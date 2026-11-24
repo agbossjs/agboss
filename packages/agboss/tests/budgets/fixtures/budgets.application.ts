@@ -1,3 +1,4 @@
+import { Window2Memory } from "../../helpers/window-memory.js";
 import {
   Agent,
   Budget,
@@ -71,7 +72,7 @@ export class DraftDto {
 }
 
 const defaults = {
-  models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX, cache: true },
+  models: { temperature: 0, maxTokens: TokenLimit.ModelMax, cache: true },
   tools: { maxToolCalls: 2 },
 } as const;
 const price = { inputPerMTok: 1, outputPerMTok: 10 };
@@ -101,7 +102,7 @@ export class ReviewerAgent {}
   version: "1.0.0",
   flow: [onStart(BriefStart).toAgent(DrafterAgent).toAgent(ReviewerAgent).toFinish(BriefFinish)],
   defaults,
-  uncompactedTurns: 2,
+  memory: Window2Memory,
 })
 export class BriefWorkflow {}
 

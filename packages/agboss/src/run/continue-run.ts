@@ -61,7 +61,7 @@ export async function continueRun<TName extends string>(
     runId: run.runId,
     threadId: run.threadId,
     tenantId: run.tenantId,
-    bundle: deps.config.name,
+    workflow: deps.config.name,
     task: startLine(run.start, run.startInput),
     replayOf: null,
     ...executionVersions(deps),

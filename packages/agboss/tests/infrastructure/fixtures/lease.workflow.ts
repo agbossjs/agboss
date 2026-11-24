@@ -1,3 +1,4 @@
+import { Window1Memory } from "../../helpers/window-memory.js";
 import { TerminalUserChannel } from "../../../src/channels/terminal-channel.js";
 import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
@@ -260,7 +261,7 @@ export class ReceiptWorkflowFinish {}
     models: { maxTokens: 100, temperature: 0 },
     tools: { maxToolCalls: 8 },
   },
-  uncompactedTurns: 1,
+  memory: Window1Memory,
   flow: [
     onStart(OrderWorkflowStart)
       .toAgent(Clerk)

@@ -1,6 +1,6 @@
 import { toolInterceptorsAt } from "./tool-interceptors.js";
-import { memoryPlanOf, readerOf } from "../compaction/plan.js";
-import type { UncompactedTurns } from "../compaction/compaction.decorator.js";
+import { memoryPlanOf, readerOf } from "../memory/plan.js";
+import type { UncompactedTurns } from "../memory/memory.decorator.js";
 import { promptTextOf } from "../components/prompt-render.js";
 import { DEFAULT_MAX_TOKENS } from "../config/types.js";
 import type { RagMode, RagTenancy } from "../rag/types.js";
@@ -67,7 +67,7 @@ export interface AgentSnapshot {
   /** What its model reads of one tool result (a tool without its own) and knowledge block, in bytes (#336). */
   readonly maxResultSize: number;
   readonly uncompactedTurns: UncompactedTurns;
-  readonly compaction?: string;
+  readonly memory?: string;
   readonly tools: readonly string[];
   readonly rag: readonly RagSnapshot[];
   readonly guardrails: ElementGuardrailsSnapshot;
@@ -152,11 +152,11 @@ function agentOf(
 ): AgentSnapshot | undefined {
   const agent = bundle.config.agents[name];
   if (agent === undefined) return undefined;
-  const reader = readerOf(memoryPlanOf(bundle.config, bundle.compactions), name);
+  const reader = readerOf(memoryPlanOf(bundle.config, bundle.memories), name);
   return {
     ...modelSettingsOf(bundle, name, agent, providers),
     uncompactedTurns: reader.window,
-    ...(reader.compaction === undefined ? {} : { compaction: reader.compaction.name }),
+    ...(reader.compaction === undefined ? {} : { memory: reader.compaction.name }),
     tools: agent.tools ?? [],
     rag: (agent.rag ?? []).map(({ name, mode, topK, tenancy }) => ({ name, mode, topK, tenancy })),
     guardrails: guardrailsAt(bundle, name),

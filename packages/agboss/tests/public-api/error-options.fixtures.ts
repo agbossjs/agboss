@@ -126,11 +126,6 @@ export const fixtures: Readonly<Record<string, object>> = Object.fromEntries([
   }),
   fx(root.ReplyInterpreterMissingError, { message }),
   fx(root.UninterpretableReplyError, { message, reason: "no verdict" }),
-  fx(root.CompactionError, {
-    message,
-    compaction: "conversation-compaction",
-    summaryMaxTokens: TokenLimit.MODEL_MAX,
-  }),
   fx(root.DtoValidationError, { dto: "Order", issues: [{ path: "id", reason: "missing" }] }),
   fx(root.EvalCaseInvalidError, {
     suite: "refund-suite",

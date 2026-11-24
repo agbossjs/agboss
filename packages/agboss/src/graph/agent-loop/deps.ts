@@ -3,7 +3,6 @@ import type { BudgetCheck } from "../../budgets/execution-budgets.js";
 import type { ExecutionObserverManager } from "../../core/observer-manager.js";
 import type { AIMessage } from "@langchain/core/messages";
 import type { JudgeBinding, ModelBinding } from "../../llm/registry.js";
-import type { BaseMemoryStrategy } from "../../memory/types.js";
 import type { KnowledgeSource } from "../../rag/types.js";
 import type { AnyTool } from "../../tools/index.js";
 import type { FileRuntime } from "../../files/visit-files.js";
@@ -35,8 +34,6 @@ export interface AgentDefinition {
   readonly maxResultSize: Bytes;
   /** The files its model reads (#899); absent = none: no byte goes to the model. */
   readonly files?: ResolvedModelFiles;
-  /** What of the thread memory the agent sees; absent = the built-in sliding window. */
-  readonly memory?: BaseMemoryStrategy;
   /** Context-mode knowledge bases: retrieved before the first model call. */
   readonly knowledge: readonly KnowledgeSource[];
   /** Quality gates of the reply (`@Agent({ judges })`), each with its own model; none = no gate. */

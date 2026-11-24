@@ -1,3 +1,4 @@
+import { Window2Memory } from "../helpers/window-memory.js";
 import {
   createApp,
   createAppWith,
@@ -93,7 +94,7 @@ const defaults = {
     onStart(ChatStart).toAgent(Writer).toFinish(Reply),
   ],
   defaults,
-  uncompactedTurns: 2,
+  memory: Window2Memory,
   providers: [OrderBook],
 })
 class TwoStarts {}
@@ -112,7 +113,7 @@ export class TwoStartsApplication {}
   version: "1.0.0",
   flow: [onStart(ChatStart).toAgent(Writer).toFinish(Reply), onAgent(Support).toFinish(Reply)],
   defaults,
-  uncompactedTurns: 2,
+  memory: Window2Memory,
 })
 class Broken {}
 

@@ -176,8 +176,6 @@ export interface AssembledWorkflow<TName extends string = string> {
     readonly businessKeyWriter?: BusinessKeyWriterUse;
     readonly channels?: (services: WorkflowServices) => ReadonlyMap<string, PauseChannel>;
     // (undocumented)
-    readonly compactions?: AssembledCompactions;
-    // (undocumented)
     readonly config: AgentsConfigOf<TName>;
     readonly graph: RuntimeGraph;
     readonly guardrails?: AssembledGuardrails;
@@ -193,7 +191,8 @@ export interface AssembledWorkflow<TName extends string = string> {
     readonly mcpServerConfigs?: Readonly<Record<string, McpServerConfig>>;
     // (undocumented)
     readonly mcpServers: readonly McpServerHandle<string>[];
-    readonly memoryStrategies?: (services: WorkflowServices) => ReadonlyMap<string, BaseMemoryStrategy>;
+    // (undocumented)
+    readonly memories?: AssembledMemories;
     readonly modelProviders: readonly ModelProviderType[];
     readonly onIncompatibleResume?: IncompatibleResumePolicy | undefined;
     readonly ownFileRedactor?: Class | undefined;
@@ -909,6 +908,10 @@ export class ExecutionObserverManager implements Required<ExecutionObserver> {
     // (undocumented)
     onChannelStart(event: ChannelStartEvent): Promise<void>;
     // (undocumented)
+    onCompactionEnd(event: CompactionEndEvent): Promise<void>;
+    // (undocumented)
+    onCompactionStart(event: CompactionStartEvent): Promise<void>;
+    // (undocumented)
     onCompensationEnd(event: CompensationEndEvent): Promise<void>;
     // (undocumented)
     onCompensationStart(event: CompensationStartEvent): Promise<void>;
@@ -1138,7 +1141,6 @@ export interface GraphDeps<TName extends string> {
     readonly channelOf?: (channelName: string) => PauseChannel;
     readonly childDepsOf?: (workflow: Class) => GraphDeps<string> | undefined;
     readonly clock?: Clock | undefined;
-    readonly compactions?: AssembledCompactions;
     readonly compensation?: CompensationParts | undefined;
     // (undocumented)
     readonly config: AgentsConfigOf<TName>;
@@ -1156,7 +1158,7 @@ export interface GraphDeps<TName extends string> {
     readonly lease?: FrameLease | undefined;
     readonly log?: FrameworkLog | undefined;
     readonly maxSteps: number;
-    readonly memory?: ReadonlyMap<string, BaseMemoryStrategy>;
+    readonly memories?: AssembledMemories;
     // (undocumented)
     readonly observer?: ExecutionObserverManager;
     readonly pause?: PauseSeam | undefined;
@@ -1732,6 +1734,8 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onValuesOutdated".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onLaunchItemsTruncated".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onQuorumDecided".
+// src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onCompactionStart".
+// src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onCompactionEnd".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onCompensationStart".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onCompensationEnd".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onExecutionLeaseTakeover".
@@ -1893,7 +1897,7 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/workflow.ts - (ae-undocumented) Missing documentation for "prompts".
 // src/workflow.ts - (ae-undocumented) Missing documentation for "tools".
 // src/workflow.ts - (ae-undocumented) Missing documentation for "mcpServers".
-// src/workflow.ts - (ae-undocumented) Missing documentation for "compactions".
+// src/workflow.ts - (ae-undocumented) Missing documentation for "memories".
 // src/workflow.ts - (ae-undocumented) Missing documentation for "resolveTools".
 
 // (No @packageDocumentation comment for this package)

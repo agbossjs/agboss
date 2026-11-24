@@ -29,7 +29,7 @@ export default defineConfig({
       "tests/run/*.test.ts",
       // a trusted caller's budget, and the frame a custom compaction reads before the first step
       "tests/mcp/mcp-mesh-trust.test.ts",
-      "tests/compaction/custom-compaction.test.ts",
+      "tests/memory/custom-compaction.test.ts",
     ],
   },
 });

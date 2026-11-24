@@ -96,14 +96,14 @@ export class OrphanLook {
     const record = await records.findByTenantIdAndRunId(root.tenantId, root.rootExecutionId);
     if (record === undefined) return;
     if (isEnded(record.status)) {
-      await orphans.get(record.bundle)?.(record);
+      await orphans.get(record.workflow)?.(record);
       return;
     }
     if (record.status !== RESTING) return;
     // a resting tree with a cancel nobody finished is ended (#1152), never woken; else an answer
     // recorded and not taken wakes it (#1187)
-    const isCancelled = (await orphans.get(record.bundle)?.(record)) === true;
-    if (!isCancelled && isAnswered) await wakes?.get(record.bundle)?.(record);
+    const isCancelled = (await orphans.get(record.workflow)?.(record)) === true;
+    if (!isCancelled && isAnswered) await wakes?.get(record.workflow)?.(record);
   }
 }
 

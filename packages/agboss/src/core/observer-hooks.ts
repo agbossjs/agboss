@@ -1,5 +1,6 @@
 import type { ValuesOutdatedEvent } from "../flow/observers/values-outdated.js";
 import type { LaunchItemsTruncatedEvent } from "../flow/observers/launch-items-truncated.js";
+import type { CompactionEndEvent, CompactionStartEvent } from "../flow/observers/compaction.js";
 import type { QuorumDecidedEvent } from "../flow/observers/quorum-decided.js";
 import type {
   CompensationEndEvent,
@@ -90,6 +91,10 @@ export interface ExecutionObserver {
   onLaunchItemsTruncated?(event: LaunchItemsTruncatedEvent): void | Promise<void>;
   /** A quorum join decided (#279): once per quorum, before the execution goes on (or into `.onError`). */
   onQuorumDecided?(event: QuorumDecidedEvent): void | Promise<void>;
+  /** A memory starts summarising the turns older than its readers' window (#1303): before a new execution reads its thread, once per memory that has turns due. */
+  onCompactionStart?(event: CompactionStartEvent): void | Promise<void>;
+  /** A memory ended summarising (#1303), with what it spent; a failed compaction fails the execution (`StepError.Memory`) and has no end. */
+  onCompactionEnd?(event: CompactionEndEvent): void | Promise<void>;
   /** An automatic undo action starts (#340): before each one runs, in its frame. */
   onCompensationStart?(event: CompensationStartEvent): void | Promise<void>;
   /** An automatic undo action ended: `Compensated` or `Failed` (with its `error`). */
@@ -152,6 +157,8 @@ const HOOKS: Readonly<Record<ObserverHook, true>> = {
   onValuesOutdated: true,
   onLaunchItemsTruncated: true,
   onQuorumDecided: true,
+  onCompactionStart: true,
+  onCompactionEnd: true,
   onCompensationStart: true,
   onCompensationEnd: true,
   onAgentRetry: true,

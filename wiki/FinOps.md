@@ -351,7 +351,7 @@ onStart(ReviewWorkflowStart)
   | across instances, per step and instance: the steps that read the counters before that spend was in the ledger | what those steps spend | a spend is in the ledger one write after it was made (#727, #732) — for another trees' steps and for the tree's own steps on another instance alike; a step on another instance that read the counters before that write landed, or checks only before its next step, runs as a call in flight does. An action that records a large spend and then works on no longer leaves the other steps passing their checks while it works: the one in flight at that moment is the bound, never the steps started after it |
 
   Nothing is reserved because a step's cost is known
-  only after it (a call is not pre-checked by its `maxTokens`; `TokenLimit.MODEL_MAX` makes one call
+  only after it (a call is not pre-checked by its `maxTokens`; `TokenLimit.ModelMax` makes one call
   bounded only by the model; an action's service reports what it charged) — reserving money for
   parallel executions was rejected (#261, S76 f).
 

@@ -1,3 +1,4 @@
+import { Window4Memory } from "../../helpers/window-memory.js";
 import {
   Agent,
   InjectionToken,
@@ -73,7 +74,7 @@ export class TaskStart {}
 export class Reply {}
 
 export const DEFAULTS = {
-  models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX },
+  models: { temperature: 0, maxTokens: TokenLimit.ModelMax },
   router: { model: "typesafe/jev-1.13" },
 } as const;
 
@@ -90,7 +91,7 @@ export const MODEL_PROVIDERS = [DecisionsModelProvider, LocalModelProvider];
       .toFinish(Reply),
   ],
   defaults: DEFAULTS,
-  uncompactedTurns: 4,
+  memory: Window4Memory,
   providers: [provide(RUBRIC, "Is the reply grounded in the task? Answer PASS or FAIL: <why>.")],
 })
 export class JudgedDesk {}
@@ -131,7 +132,7 @@ export class Careless {}
       .toFinish(Reply),
   ],
   defaults: DEFAULTS,
-  uncompactedTurns: 4,
+  memory: Window4Memory,
 })
 export class ModellessDesk {}
 

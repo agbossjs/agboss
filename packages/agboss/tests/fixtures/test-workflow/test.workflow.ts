@@ -1,3 +1,4 @@
+import { Window5Memory } from "../../helpers/window-memory.js";
 import {
   Agent,
   DecidedBy,
@@ -93,7 +94,7 @@ export class MainRouter {}
   defaults: {
     models: {
       temperature: 0,
-      maxTokens: TokenLimit.MODEL_MAX,
+      maxTokens: TokenLimit.ModelMax,
       reasoning: Reasoning.modelDecides(),
       cache: true,
     },
@@ -101,7 +102,7 @@ export class MainRouter {}
     guardrail: { model: "typesafe/jev-1.13" },
     tools: { maxToolCalls: 8 },
   },
-  uncompactedTurns: 5,
+  memory: Window5Memory,
   guardrails: [PromptInjectionGuardrail, PersonalDataGuardrail],
   flow: [
     onStart(TestChat)

@@ -259,7 +259,7 @@ export async function createWorkflowDeps(
     ...policiesFor(bundle, services, config, gateway),
     tools: toolLookup(tools),
     pause: pauseFor(checkpointer, parts.infrastructure.pausedExecutions, turns, own.notices),
-    ...(bundle.compactions === undefined ? {} : { compactions: bundle.compactions }),
+    ...(bundle.memories === undefined ? {} : { memories: bundle.memories }),
     ...components,
     pii,
     budgets,

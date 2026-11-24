@@ -14,7 +14,7 @@ import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import { KEYS } from "../models/gateway.js";
 import { DEFAULT_MODEL_PROVIDERS, directoryOf } from "../../src/models/workflow-models.js";
 import { createModelRegistry } from "../../src/llm/registry.js";
-import { CompactionStrategy } from "../../src/compaction/compaction.decorator.js";
+import { CompactionStrategy } from "../../src/memory/memory.decorator.js";
 import { createRouter, type RouteOutcome } from "../../src/routers/index.js";
 import { routeTo, fakeChatFactory, testConfig, testRouter, unusedJevClient } from "../helpers.js";
 import { jevAnswer, request } from "../routers/fixtures.js";
@@ -112,8 +112,6 @@ describe("AC12: model clients are asked for through the gateway", () => {
           turnsBetweenCompactions: 4,
           summaryQueueLength: 2,
         },
-        // a compaction without summaries has no model to ask for
-        "no-summaries-compaction": { strategy: CompactionStrategy.None },
       },
     };
 

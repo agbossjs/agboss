@@ -27,7 +27,6 @@ const CATEGORY_BY_PREFIX: readonly (readonly [string, CostCategory])[] = [
   ["tool:", CostCategory.Tools],
   ["action:", CostCategory.Tools],
   ["memory:", CostCategory.Memory],
-  ["compaction:", CostCategory.Memory],
   ["rag:", CostCategory.Rag],
   ["reranker:", CostCategory.Rag],
   ["files:", CostCategory.Files],

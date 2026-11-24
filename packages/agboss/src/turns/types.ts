@@ -33,7 +33,8 @@ export interface Turn {
   readonly threadId: string;
   /** The tenant of its thread (#261): `"default"` for a thread that names none. */
   readonly tenantId: string;
-  readonly bundle: string;
+  /** The workflow's name. */
+  readonly workflow: string;
   readonly createdAt: string;
   readonly task: string;
   readonly replyWith: string;
@@ -59,9 +60,9 @@ export interface Summary {
   /** The thread it summarises: its tenant and its id (#261 S72: the thread's key). */
   readonly tenantId: string;
   readonly threadId: string;
-  readonly bundle: string;
-  /** The `@Compaction` that wrote it (#120 PR 3): each keeps its own summaries of the thread. */
-  readonly compaction: string;
+  readonly workflow: string;
+  /** The `@Memory` that wrote it (#1303): each keeps its own summaries of the thread. */
+  readonly memory: string;
   readonly fromTurnId: string;
   readonly toTurnId: string;
   readonly turns: number;
@@ -100,7 +101,7 @@ export interface ConfigStore {
  */
 export interface MemoryStore {
   /** Turns of the thread after the compaction's last summary, oldest first. */
-  readonly uncovered: (tenantId: string, threadId: string, compaction: string) => Promise<Turn[]>;
+  readonly uncovered: (tenantId: string, threadId: string, memory: string) => Promise<Turn[]>;
   /** Up to `limit` turns right before `turnId`, oldest first. */
   readonly before: (
     tenantId: string,
@@ -115,14 +116,10 @@ export interface MemoryStore {
   readonly latestSummaries: (
     tenantId: string,
     threadId: string,
-    compaction: string,
+    memory: string,
     limit: number,
   ) => Promise<Summary[]>;
-  readonly summaryCount: (
-    tenantId: string,
-    threadId: string,
-    compaction: string,
-  ) => Promise<number>;
+  readonly summaryCount: (tenantId: string, threadId: string, memory: string) => Promise<number>;
 }
 
 /**

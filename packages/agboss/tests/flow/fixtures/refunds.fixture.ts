@@ -1,3 +1,4 @@
+import { Window2Memory } from "../../helpers/window-memory.js";
 import { Channel, Injectable, Tool } from "../../../src/components/decorators.js";
 import { ChannelOf, type ChannelAsk } from "../../../src/channels/channel-handler.js";
 import { ChannelOutcome } from "../../../src/channels/channel-outcome.js";
@@ -135,7 +136,7 @@ export class RefundWorkflowFinish {}
       .toFinish(RefundWorkflowFinish),
   ],
   defaults: { router: { model: "typesafe/jev-test" } },
-  uncompactedTurns: 2,
+  memory: Window2Memory,
   providers: [RefundDesk],
 })
 export class CardRefundsWorkflow {}

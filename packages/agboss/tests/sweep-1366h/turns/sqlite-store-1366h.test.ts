@@ -10,7 +10,7 @@ const turn = (overrides: Partial<NewTurn> = {}): NewTurn => ({
   runId: "run-1",
   threadId: "t",
   tenantId: "default",
-  bundle: "b",
+  workflow: "b",
   task: "task",
   replyWith: "reply",
   status: "answered",

@@ -175,6 +175,8 @@ export interface ExecutionObserver {
     onChannelEnd?(event: ChannelEndEvent): void | Promise<void>;
     // (undocumented)
     onChannelStart?(event: ChannelStartEvent): void | Promise<void>;
+    onCompactionEnd?(event: CompactionEndEvent): void | Promise<void>;
+    onCompactionStart?(event: CompactionStartEvent): void | Promise<void>;
     onCompensationEnd?(event: CompensationEndEvent): void | Promise<void>;
     onCompensationStart?(event: CompensationStartEvent): void | Promise<void>;
     onExecutionEnd?(event: ExecutionEndEvent): void | Promise<void>;

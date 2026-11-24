@@ -5,6 +5,7 @@ import { judgeNamesOf } from "./judge-parts.js";
 import type { AgentMeta } from "./meta-types.js";
 import { DEFAULT_MODEL_ALIAS } from "../models/model-cascade.js";
 import { modelProviderOf } from "../models/model-provider.decorator.js";
+import { windowOfClass } from "../memory/memory.decorator.js";
 import { ragMeta, ragSettings, searchToolName } from "./rag.js";
 
 /** An agent's settings as the config holds them (tools by name). */
@@ -17,7 +18,7 @@ export function agentSettings(
     temperature: agent.temperature,
     maxTokens: agent.maxTokens,
     cache: agent.cache,
-    uncompactedTurns: agent.uncompactedTurns,
+    uncompactedTurns: agent.memory === undefined ? undefined : windowOfClass(agent.memory),
     maxToolCalls: agent.maxToolCalls,
     maxRetries: agent.maxRetries,
     price: agent.price,

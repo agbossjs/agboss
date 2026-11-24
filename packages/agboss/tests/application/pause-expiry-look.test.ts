@@ -31,7 +31,7 @@ function look(
       Promise.resolve(
         runId === "orphan" || runId.startsWith("foreign")
           ? undefined
-          : { tenantId, runId, bundle: "desk-workflow" },
+          : { tenantId, runId, workflow: "desk-workflow" },
       ),
     ),
   };

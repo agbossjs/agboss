@@ -206,7 +206,7 @@
   },
   "compacted": [
     {
-      "compaction": "c",
+      "memory": "c",
       "fromTurn": 1,
       "toTurn": 2,
       "summaries": 1,

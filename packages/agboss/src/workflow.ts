@@ -1,6 +1,5 @@
 import type { BusinessKeyWriterUse } from "./components/container/fenced-reach.js";
 import type { JudgeInstance } from "./components/judge-decorators.js";
-import type { BaseMemoryStrategy } from "./memory/types.js";
 import type { AgentPrompts, AgentsConfigOf } from "./config/types.js";
 import type { McpServerConfig } from "./config/mcp-server-config.js";
 import type { KnowledgeSource, RagConnector } from "./rag/types.js";
@@ -9,7 +8,7 @@ import type { PauseChannel } from "./flow/runtime/pause.js";
 import type { AssembledPii } from "./pii/assembly.js";
 import type { AssembledGuardrails } from "./guardrails/assembly.js";
 import type { AssembledToolInterceptors } from "./tool-interceptors/assembly.js";
-import type { AssembledCompactions } from "./compaction/assembly.js";
+import type { AssembledMemories } from "./memory/assembly.js";
 import type { Class } from "./components/injection.js";
 import type { AnyTool, McpFacade, McpServerHandle } from "./tools/index.js";
 import type { RouterEngine } from "./routers/index.js";
@@ -77,10 +76,6 @@ export interface AssembledWorkflow<TName extends string = string> {
   readonly mcpServerClasses?: ReadonlyMap<Class, string>;
   /** Every declared server tool, checked against its server at startup (`@McpServer({ tools })`). */
   readonly serverTools?: readonly McpFacade[];
-  /** Agents' own memory strategies by agent name (`@Agent({ memoryStrategy })`). */
-  readonly memoryStrategies?: (
-    services: WorkflowServices,
-  ) => ReadonlyMap<string, BaseMemoryStrategy>;
   /** The agents' `@Judge`s by judge name, created by the workflow's container. */
   readonly judges?: (services: WorkflowServices) => ReadonlyMap<string, JudgeInstance>;
   /** Context-mode knowledge bases per agent (retrieved before the agent runs). */
@@ -95,14 +90,14 @@ export interface AssembledWorkflow<TName extends string = string> {
   ) => readonly { readonly name: string; readonly connector: RagConnector }[];
   /** Per tool: its constructor dependencies as a tree, e.g. `JobFitJudge (ROUTER_FACTORY), JOB_SEARCH`. */
   readonly toolDependencies?: Readonly<Record<string, string>>;
-  /** Its compactions (#120 PR 3): every one in use, with its prompt, and each reader's. */
+  /** Its memories (#1303): every one in use, with its prompt, and each reader's. */
   /**
    * A component of the workflow that can make a business key (#825: it reaches `OutboundCalls` or a
    * fenced-effect store), and what it reaches; absent = none — its application then needs no
    * idempotency key for it.
    */
   readonly businessKeyWriter?: BusinessKeyWriterUse;
-  readonly compactions?: AssembledCompactions;
+  readonly memories?: AssembledMemories;
   /** The channels its tools name (#267), by name, created by the application's container. */
   readonly channels?: (services: WorkflowServices) => ReadonlyMap<string, PauseChannel>;
   /** A component by its class, from the workflow's container (created with its `deps` on first use). */

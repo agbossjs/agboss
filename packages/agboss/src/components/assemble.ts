@@ -33,7 +33,6 @@ import { channelPartsOf, questionRolesOf } from "./channel-parts.js";
 import type { ToolClasses } from "./assemble-checks.js";
 import { checkedChannelsOf, createdClassesOf } from "./channel-parts.js";
 import { PromptLoader } from "./prompt-render.js";
-import { checkMemoryStrategies, memoryPartsOf } from "./memory-parts.js";
 import { configDefaultsOf, moduleOf, workflowDeclarationOf } from "./module.js";
 import {
   cascadeDefaults,
@@ -42,13 +41,12 @@ import {
 } from "../config/defaults.js";
 import { judgeClassesOf, judgePartsOf, judgeSettingsOf, type JudgeClass } from "./judge-parts.js";
 import { agentSettings } from "./agent-settings.js";
-import { compactionsFor, policyPartsOf, type CompactionConfigPart } from "./policy-parts.js";
+import { memoriesFor, policyPartsOf, type CompactionConfigPart } from "./policy-parts.js";
 import { cascadedConfigOf, workflowModelPartsOf } from "./model-parts.js";
 import { settingsOf } from "./workflow-settings.js";
 import type { WorkingCalendarSource } from "../calendar/working-calendar.js";
-import type { AssembledCompactions } from "../compaction/assembly.js";
-
-import type { UncompactedTurns } from "../compaction/compaction.decorator.js";
+import type { AssembledMemories } from "../memory/assembly.js";
+import { windowOfClass, workflowWindowOf } from "../memory/memory.decorator.js";
 
 /** The application a workflow is assembled in: its name, `defaults` and providers (its model providers). */
 type WorkflowOwner = NonNullable<DefaultsLevels["application"]> & {
@@ -61,9 +59,6 @@ type WorkflowOwner = NonNullable<DefaultsLevels["application"]> & {
   readonly guardrails?: readonly Class[];
   /** `@Application({ toolInterceptors })`: every agent's tool calls (#384). */
   readonly toolInterceptors?: readonly Class[];
-  /** `@Application({ compaction, uncompactedTurns })`: every reader's, under its own (#120 PR 3). */
-  readonly compaction?: Class;
-  readonly uncompactedTurns?: UncompactedTurns;
   /** `@Application({ workingCalendar })`: the default calendar of working-time deadlines (#944). */
   readonly workingCalendar?: WorkingCalendarSource;
   /** `@Application({ modelProvider })`: the provider of every model that names none (#1313). */
@@ -78,13 +73,13 @@ function configOf(
   agents: readonly AgentMeta[],
   names: ReadonlyMap<Class, string>,
   judges: ReadonlyMap<string, JudgeClass>,
-  compactions: AssembledCompactions & CompactionConfigPart,
+  memories: AssembledMemories & CompactionConfigPart,
 ): AgentsConfigOf<string> {
   const config: AgentsConfigOf<string> = {
     name: bundle.name,
     version: bundle.version,
     defaults: bundle.defaults,
-    ...(compactions.compactions.length === 0 ? {} : { compactions: compactions.settings }),
+    ...(Object.keys(memories.settings).length === 0 ? {} : { compactions: memories.settings }),
     ...judgeSettingsOf(judges),
     agents: Object.fromEntries(agents.map((agent) => [agent.name, agentSettings(agent, names)])),
   };
@@ -125,7 +120,7 @@ const maxStepsOf = (workflow: Class, graph: RuntimeGraph): number =>
 
 /**
  * The workflow's module with its defaults merged over its application's (#261 cascade) — its
- * window too: its own `uncompactedTurns` over the application's (#120 PR 3).
+ * window too: its `memory`'s (#1303).
  */
 function withApplicationDefaults(
   bundle: WorkflowMeta,
@@ -136,8 +131,11 @@ function withApplicationDefaults(
   const modelCascade = { workflow: options.modelProvider, application: owner?.modelProvider };
   if (owner === undefined) return { ...bundle, modelCascade };
   const defaults = cascadeDefaults(owner.defaults, options.defaults);
-  const window = options.uncompactedTurns ?? owner.uncompactedTurns;
-  return { ...bundle, defaults: configDefaultsOf(defaults, window), modelCascade };
+  return {
+    ...bundle,
+    defaults: configDefaultsOf(defaults, workflowWindowOf(options.memory)),
+    modelCascade,
+  };
 }
 
 /** The workflow's module over its application's defaults, and its paths analysed with them. */
@@ -163,15 +161,14 @@ const levelsOf = (workflow: Class, owner: WorkflowOwner | undefined): DefaultsLe
     workflow: {
       name: options.name,
       defaults: options.defaults,
-      uncompactedTurns: options.uncompactedTurns,
+      uncompactedTurns: options.memory === undefined ? undefined : windowOfClass(options.memory),
     },
   };
 };
 
-/** The workflow's provider classes and its agents' memory strategies, checked before the graph; then its judges. */
+/** The workflow's provider classes, checked before the graph; then its judges. */
 function checkedJudgeClassesOf(bundle: WorkflowMeta, agents: readonly AgentMeta[]) {
   checkProviderClasses(bundle);
-  checkMemoryStrategies(agents);
   return judgeClassesOf(agents);
 }
 
@@ -205,16 +202,16 @@ export async function workflowOf(
   const rags = await checkedRagClassesOf(bundle, agents);
   const judges = checkedJudgeClassesOf(bundle, agents);
   const policies = await policyPartsOf({ workflow, bundle, owner, agents, graph, loader });
-  const compactions = await compactionsFor({ bundle, owner, agents, graph, loader });
+  const memories = await memoriesFor({ bundle, agents, graph, loader });
   const modules = [...providerModulesOf(bundle), ...application];
   const replyInterpreters = await checkedChannelsOf(workflow, modules, owner, loader);
-  const created = createdClassesOf(graph, policies.classes, replyInterpreters, compactions);
+  const created = createdClassesOf(graph, policies.classes, replyInterpreters, memories);
   const components = componentClassesOf(bundle, agents, tools, rags, created, modules, owner);
   const mcp = mcpOf(mcpServerClassesOf(components, modules));
   checkComponents(bundle, { components, modules, mcp, contexts });
   const names = toolNames(tools, rags, resultSizeViolations(bundle, tools));
   const files = { owner, workflow, graph, agents, pii: policies.assembled.pii };
-  const config = withAgentFiles(configOf(bundle, agents, names, judges, compactions), files);
+  const config = withAgentFiles(configOf(bundle, agents, names, judges, memories), files);
   validateAgentsConfig(config, [...names.values()]);
   const models = workflowModelPartsOf(
     { owner, bundle, agents, config, routers, graph },
@@ -233,10 +230,9 @@ export async function workflowOf(
     prompts: await promptsOf(agents, loader),
     tools: toolBuilder(bundle, agents, tools),
     ...(rags.length === 0 ? {} : ragParts(bundle, agents, rags)),
-    ...memoryPartsOf(bundle, agents),
     ...judgePartsOf(bundle, judges),
     ...mcpPartsOf(mcp),
     toolDependencies: toolDependenciesOf(bundle, tools.local, names),
-    compactions,
+    memories,
   };
 }

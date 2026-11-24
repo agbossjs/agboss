@@ -48,7 +48,7 @@ balancing })` — one limit for every execution, tenant and instance (`RateLimit
     `Decision.boolean` / `Decision.choice` / `Decision.score` / `Decision.image` (typed answers);
     `invoke` or `decide` on the wrong kind of model → `ModelKindError`.
   - Agents: cheap chat models (default `moonshotai/kimi-k2.6`) via `@langchain/openai`, each with
-    `maxTokens` (`TokenLimit.MODEL_MAX` = model's maximum), `reasoning` (`Reasoning.on({ effort })`, `@agboss/core/models`), `cache`.
+    `maxTokens` (`TokenLimit.ModelMax` = model's maximum), `reasoning` (`Reasoning.on({ effort })`, `@agboss/core/models`), `cache`.
   - Everything is set in the workflow's components (`@Workflow` with its `flow` of paths,
     `@Router`, `@Agent`) and its application (`@Application`, its `@Budget`s) — reference: Architecture below (compiled by `make check`), then Wiki →
     Workflow, Routers, Components, Configuration (compiled by CI, see Quality gates).
@@ -172,7 +172,7 @@ channel (a role's question → answer, who answers, its reply interpreter and it
 the budgets by scope and the execution budget of each workflow, then every workflow: its guardrails
 and PII policies with their refusals (the text, or `ClassName.refusal()`), flow, each node's inputs
 with their producers, its limits (`maxSteps`, `maxVisits`, `maxDepth`,
-`maxConcurrentExecutions`), `model → provider`, and each agent's compaction and `uncompactedTurns`
+`maxConcurrentExecutions`), `model → provider`, and each agent's memory, compaction and `uncompactedTurns`
 with where they came from (`(own)`, `(<workflow>)`, `(<application>)`, `(built-in)`). `agboss check` prints its report from the
 decorators only (no `maxSpend()`): per start the worst case of one call — executions, at the same
 time, agent and router steps of the tree, nesting depth — each with how it is made up; with `--env
@@ -416,7 +416,6 @@ import { ChatWorkflowStart } from "./workflow-starts/chat.workflow-start.js";
       ),
   ],
   defaults: { tools: { maxToolCalls: 4 } }, // over the application's
-  uncompactedTurns: 5, // the last 5 turns of the thread in full, for its agent and its router
   maxSteps: 4,
   providers: [OrderBook],
 })
@@ -1225,10 +1224,10 @@ export const quorumPaths = [
 ### Components and dependency injection
 
 - **One class per file, folders by kind:** `workflow-starts/`, `routers/`, `agents/`, `actions/`,
-  `workflow-finishes/`, `arbiters/`, `guardrails/`, `tool-interceptors/`, `compactions/`, `tools/`,
+  `workflow-finishes/`, `arbiters/`, `guardrails/`, `tool-interceptors/`, `memories/`, `tools/`,
   `services/`, `mcp/`, `rag/`, `rerankers/`, `a2a/`, `environments/`, `eval-suites/` (#396); files `*.workflow-start.ts`,
   `*.router.ts`, `*.agent.ts` (+ `*.prompt.md`), `*.action.ts`, `*.workflow-finish.ts`, `*.arbiter.ts`,
-  `*.guardrail.ts`, `*.tool-interceptor.ts`, `*.compaction.ts` (+
+  `*.guardrail.ts`, `*.tool-interceptor.ts`, `*.memory.ts` (+
   `*.prompt.md`), `*.tool.ts`, `*.dto.ts`, `*.service.ts`, `*.server.ts` + `*.mcp.ts`, `*.rag.ts`, `*.reranker.ts`,
   `*.helper.ts`, `*.eval-suite.ts`, `*.a2a-agent.ts`, `*.a2a-expose.ts`.
 - **Decorator = metadata, constructor = dependencies, methods = a contract:** `implements` for your
@@ -1702,75 +1701,81 @@ FencedEffectEventOutcome` — `Ran` / `Replayed` / `Joined` / `Refused` —, `wr
   queue (`[application.in-memory-child-queue]`), PII tokens on a key of the instance — no
   `@Application({ piiKeyField })` (`[application.pii-instance-key]`, #120 S94) — are in
   `app.warnings` and the start log, errors under `agboss check --strict`, silent in tests.
-- **Memory and compaction (#120 PR 3):** a turn of a thread is a finished root execution
-  (`start <name>: <input>` / `finish <name>: <output>`); each agent and model router sees its last
-  `uncompactedTurns` in full, as a message of its own — one setting on `@Application` →
-  `@Workflow` → `@Agent` / `@Router` (the lowest set value wins; default 5, `TurnLimit.ALL` = every
-  turn; on a code router it does not compile, `compaction` neither). What is older is a
-  `@Compaction`'s (`compactions/*.compaction.ts`, `-compaction`), named by `compaction: X` on the
-  same levels (the lowest set wins; none anywhere → the window only): `CompactionStrategy.SummaryQueue`
-  — every `turnsBetweenCompactions` turns older than the window become one self-contained summary,
-  the latest `summaryQueueLength` kept; `SingleSummary` — one summary, rewritten from the previous
-  one and the new turns; `None` — no model, no prompt, no parameters (a type error otherwise, as a
-  missing `model` is for the other two); `Custom` (#382) — the class `implements CompactionHandler`:
-  `compact({ previousSummaries, turnsToCompact })` (each a `CompactionTurn`: `startName`, `input`,
-  `finishName`, `output`, masked like a model's input) returns the summaries readers see from now
-  on, its services through `deps` (created by the container, run in the frame of the execution's
-  start); `turnsBetweenCompactions` only — no `model` / `prompt` / `summaryQueueLength` /
-  `summaryMaxTokens` (the overloads, and `agboss check`), no `compact` →
-  `[compaction.missing-handler]`; a throw or no summary → `CompactionError`; `agboss describe`:
-  `strategy: custom (GraphMemoryCompaction.compact())`, the class in `configHash`. A compaction summarises everything older than the
-  **smallest** window among the agents and routers that use it, so no one loses a turn: a reader
-  sees in full its window and every turn its compaction has not summarised yet, and only the
-  summaries its turns do not cover. `summaryMaxTokens` is the summary call's `max_tokens` (counted
-  by the model's server, `TokenLimit.MODEL_MAX` allowed, reasoning off): cut there → one "shorter" retry, then
-  `CompactionError` (`compaction`: `compaction`, `summaryMaxTokens`; a failed call is one too, as its
-  `cause`) — never a cut summary. A compaction runs lazily, before a new execution's first read of
-  its thread (#120 S132), never after a turn: a finished turn's answer is always kept, a thread that
-  ends pays for none, and a `CompactionError` fails the new execution before any of its work (no
-  model call, no step, no turn kept). The compaction's model reads the turns through the application's
-  and the workflow's PII policies (masked, S84 i); the summary is revealed before it is stored
-  (`ExecutionRecordRepository`, by `(tenantId, threadId, compaction)`), and each reader's own
-  policies mask it at its boundary. Spend `compaction:<name>` (category `compaction`);
-  `result.compacted` lists what each compaction did before the execution; `[compaction.not-a-compaction]`,
-  `[compaction.invalid-setting]`, `[compaction.decision-model]`,
-  `[compaction.uncompacted-turns-invalid]` at assembly. Tests: `mockLlm(ConversationCompaction)
-.thenReturn(replyWith("…"))` (`{ truncated: true }` = cut at the limit) — unscripted, a fixed
-  summary. `@Agent({ memoryStrategy })` (`@agboss/core/memory`, `extends BaseMemoryStrategy`) replaces
-  what one agent sees of that memory.
-
-<!-- snippet-context
-import { Agent, Compaction, CompactionStrategy, TurnLimit } from "@agboss/core";
--->
+- **Memory (#1303, #120 PR 3):** a turn of a thread is a finished root execution
+  (`start <name>: <input>` / `finish <name>: <output>`). What a workflow, an agent or a model router
+  remembers of its thread is a `@Memory` class (`memories/*.memory.ts`, `-memory`), named by `memory: X`
+  on `@Workflow`, `@Agent` and `@Router` (the lowest level that sets one wins; on a code router it does
+  not compile): `ttl` (required: a duration, or `Ttl.Forever`), `uncompactedTurns` (how many recent
+  turns a reader sees in full as a message of its own; default 5, `TurnLimit.All` = every turn),
+  `turnsBetweenCompactions` (default 1) and what is older: `compaction: { strategy, … }` —
+  `CompactionStrategy.SummaryQueue` (every `turnsBetweenCompactions` turns older than the window
+  become one self-contained summary, the latest `summaryQueueLength` kept) or `SingleSummary` (one
+  summary, rewritten from the previous one and the new turns), with `prompt` (a file, `inline(…)` or
+  a list; none → the built-in one), `modelProvider` / `model` (cascade as for an agent) and
+  `summaryMaxTokens` — or a `compact({ previousSummaries, turnsToCompact })` method on the class
+  (sync or async, no `implements`; each turn is a `CompactionTurn`: `start`, `input`, `finish`,
+  `output`, masked like a model's input) that returns the summaries readers see from now on, its
+  services through `deps` (created by the container, run in the frame of the execution's start).
+  `compaction` and `compact()` together do not compile and fail assembly
+  (`[memory.conflicting-compaction]`); neither → the window only. `NoMemory` (built in) on an agent
+  or a router sees no earlier turn. A workflow without `memory` is stateless (#1303b, D8).
+  A memory summarises everything older than the **smallest** window among the agents and routers that
+  use it (a profile may set an agent's own window), so no one loses a turn: a reader sees in full its
+  window and every turn its memory has not summarised yet, and only the summaries its turns do not
+  cover. `summaryMaxTokens` is the summary call's `max_tokens` (counted by the model's server,
+  `TokenLimit.ModelMax` allowed, reasoning off): cut there → one "shorter" retry, then
+  `StepError.Memory` (`memory`; `details.summaryMaxTokens`; a failed call is one too, as its `cause`;
+  a `compact()` that throws or gives no summary likewise) — never a cut summary. A compaction runs
+  lazily, before a new execution's first read of its thread (#120 S132), never after a turn: a
+  finished turn's answer is always kept, a thread that ends pays for none, and a `StepError.Memory`
+  fails the new execution before any of its work (no model call, no step, no turn kept). It is
+  observable: `onCompactionStart` / `onCompactionEnd` (`memory`, `turns`; the end adds `costUsd` and
+  `summaries`). The memory's model reads the turns through the application's and the workflow's PII
+  policies (masked, S84 i); the summary is revealed before it is stored
+  (`ExecutionRecordRepository`, by `(tenantId, threadId, memory)`), and each reader's own policies
+  mask it at its boundary. Spend `memory:<name>` (category `memory`); `result.compacted` lists what
+  each memory did before the execution (`memory`, `fromTurn`, `toTurn`, `summaries`,
+  `summaryQueueLength` for a queue); `[memory.not-a-memory]`, `[memory.invalid-setting]`,
+  `[memory.uncompacted-turns-invalid]`, `[memory.conflicting-compaction]` at assembly; `agboss describe`:
+  `strategy: custom (GraphMemory.compact())`, the class in `configHash`. Tests:
+  `mockLlm(ConversationMemory).thenReturn(replyWith("…"))` (`{ truncated: true }` = cut at the limit) —
+  unscripted, a fixed summary; `testCompaction(Memory)` runs one compaction on its own.
 
 ```ts
-@Compaction({
-  name: "conversation-compaction",
-  description: "Summarises old turns of the conversation",
-  prompt: "Summarise the turns under `Turns to compact`: what was asked, decided and is still open.",
-  model: "moonshotai/kimi-k2.6",
-  strategy: CompactionStrategy.SummaryQueue,
+import { Agent, CompactionStrategy, Memory, Ttl, TurnLimit, inline } from "@agboss/core";
+import { days } from "@agboss/core/units";
+
+@Memory({
+  name: "conversation-memory",
+  description: "Remembers 8 turns in full and summarises the older ones",
+  ttl: days(30),
+  uncompactedTurns: 8,
   turnsBetweenCompactions: 5,
-  summaryQueueLength: 10,
-  summaryMaxTokens: 400,
+  compaction: {
+    strategy: CompactionStrategy.SummaryQueue,
+    prompt: inline("Summarise the turns under `Turns to compact`: what was asked, decided and is still open."),
+    model: "moonshotai/kimi-k2.6",
+    summaryQueueLength: 10,
+    summaryMaxTokens: 400,
+  },
 })
-export class ConversationCompaction {}
+export class ConversationMemory {}
 
-@Compaction({
-  name: "no-summaries-compaction",
-  description: "No summaries: only the window of recent turns",
-  strategy: CompactionStrategy.None,
+@Memory({
+  name: "archive-memory",
+  description: "Every turn of the thread in full: no summaries needed",
+  ttl: Ttl.Forever,
+  uncompactedTurns: TurnLimit.All,
 })
-export class NoSummariesCompaction {}
+export class ArchiveMemory {}
 
-// @Workflow({ …, uncompactedTurns: 8, compaction: ConversationCompaction }) — its agents and routers
+// @Workflow({ …, memory: ConversationMemory }) — its agents and routers
 @Agent({
   name: "archive-agent",
   description: "Answers from the whole thread",
   prompt: "Answer from the thread.",
   model: "moonshotai/kimi-k2.6",
-  uncompactedTurns: TurnLimit.ALL, // every turn in full: no summaries needed
-  compaction: NoSummariesCompaction,
+  memory: ArchiveMemory,
 })
 export class ArchiveAgent {}
 ```
@@ -2834,7 +2839,7 @@ signingKey, peers } })` the envelope is a signed JWS and a peer the caller resol
   `step.arbiter` (`ArbiterError`) / `step.quorum` (`QuorumNotReachedError`, #279) /
   `step.child` (`ChildExecutionFailedError`, #263) / `step.tool-blocked` (`ToolBlockedError`, #384),
   `limit.depth` (`DepthLimitExceededError`, #264),
-  `compaction` (`CompactionError`, #120 PR 3),
+  `step.memory` (`StepError.Memory`, #1303),
   `pause.unknown`, `pause.wrong-answerer`, `pause.uninterpretable-reply`, `pause.no-reply-interpreter`,
   `execution.cancelled`, `app.stopping` — `ApplicationStoppingError`, `execute` / `resume` after
   `app.close()`, an `onExecutionRejected`, …); a new error

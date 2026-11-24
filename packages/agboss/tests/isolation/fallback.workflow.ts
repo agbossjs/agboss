@@ -1,3 +1,4 @@
+import { Window1Memory } from "../helpers/window-memory.js";
 import { Agent, Workflow, TokenLimit } from "../../src/index.js";
 import {
   DecisionsModelProvider,
@@ -85,7 +86,7 @@ export class Unmapped202 extends OpenAiCompatibleProvider {
 export class Answerer {}
 
 const defaults = {
-  models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX },
+  models: { temperature: 0, maxTokens: TokenLimit.ModelMax },
   router: { model: "typesafe/jev-1.13" },
   tools: { maxToolCalls: 1 },
 } as const;
@@ -99,7 +100,7 @@ const defaults = {
       .toFinish(Reply),
   ],
   defaults,
-  uncompactedTurns: 1,
+  memory: Window1Memory,
 })
 export class WithFallback {}
 
@@ -122,7 +123,7 @@ export class WithFallbackApplication {}
       .toFinish(Reply),
   ],
   defaults,
-  uncompactedTurns: 1,
+  memory: Window1Memory,
 })
 export class UnmappedFallback {}
 

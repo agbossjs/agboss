@@ -27,7 +27,7 @@ function turnOf(deps: AppDeps, thread: CaseThread, past: EvalPastTurn): NewTurn 
     runId: null,
     threadId: thread.threadId,
     tenantId: thread.tenantId,
-    bundle: deps.config.name,
+    workflow: deps.config.name,
     task: startLine(nameOf(past.start), past.input),
     replyWith: finishLine(nameOf(past.finish), past.output),
     status: ExecutionRecordStatus.Written,

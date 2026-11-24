@@ -68,7 +68,6 @@ export function agentDefinitions<TName extends string>(
     const instructions = prompts.get(name);
     if (instructions === undefined) throw new MissingAgentPromptError(`No prompt for ${name}`);
     const agent = settings.get(name);
-    const memory = deps.memory?.get(name);
     definitions.set(name, {
       name,
       binding,
@@ -78,7 +77,6 @@ export function agentDefinitions<TName extends string>(
       ...limitsOf(agent, deps.config),
       ...judgesOf(agent, deps),
       knowledge: deps.knowledge?.(name) ?? [],
-      ...(memory === undefined ? {} : { memory }),
     });
   }
   return definitions;

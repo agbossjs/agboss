@@ -1,3 +1,4 @@
+import { Window1Memory } from "../helpers/window-memory.js";
 import { createAppWith } from "../../src/application/create-app.js";
 import { describe, expect, it, vi } from "vitest";
 import { createAppDeps } from "../../src/app/app-deps.js";
@@ -57,7 +58,7 @@ class TicketWriter {}
     router: { model: "typesafe/jev-1.13" },
     tools: { maxToolCalls: 1 },
   },
-  uncompactedTurns: 1,
+  memory: Window1Memory,
   providers: [OrderBook],
 })
 class Tickets implements WorkflowDefinition {
@@ -95,7 +96,7 @@ describe("AC12: the app's parts", () => {
       data: { scope: {}, outdatedValues: [], lastError: null },
       compacted: [
         {
-          compaction: "conversation-compaction",
+          memory: "conversation-memory",
           fromTurn: 1,
           toTurn: 5,
           summaries: 1,

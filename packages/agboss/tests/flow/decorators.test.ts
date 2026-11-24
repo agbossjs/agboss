@@ -1,3 +1,4 @@
+import { Window5Memory } from "../helpers/window-memory.js";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { NodeKind } from "../../src/flow/ast.js";
@@ -116,7 +117,7 @@ describe("@Workflow records the flow as plain paths", () => {
         router: { model: "typesafe/jev-1.13" },
         flow: { maxPathDepth: 4 },
       },
-      uncompactedTurns: 5,
+      memory: Window5Memory,
     })
     class LimitedWorkflow {}
 

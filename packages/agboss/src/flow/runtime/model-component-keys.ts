@@ -2,8 +2,8 @@ import { nameOf } from "../../components/name-of.js";
 import { judgeClassesOf } from "../../components/judge-parts.js";
 import { isCodeJudge } from "../../components/judge-decorators.js";
 import { normalisePromptText } from "../../components/prompt-render.js";
-import type { AssembledCompactions } from "../../compaction/assembly.js";
-import { CompactionStrategy } from "../../compaction/compaction.decorator.js";
+import type { AssembledMemories } from "../../memory/assembly.js";
+import { CompactionStrategy } from "../../memory/memory.decorator.js";
 import type { AssembledReplyInterpreter } from "../../channels/discovery.js";
 import type { AssembledGuardrails } from "../../guardrails/assembly.js";
 import type { AssembledPii } from "../../pii/assembly.js";
@@ -33,7 +33,7 @@ import { ComponentKind, type ComponentRecord } from "./records.js";
 export interface ModelComponentSource {
   readonly graph: RuntimeGraph;
   readonly guardrails?: AssembledGuardrails | undefined;
-  readonly compactions?: AssembledCompactions | undefined;
+  readonly memories?: AssembledMemories | undefined;
   readonly replyInterpreters?: readonly AssembledReplyInterpreter[] | undefined;
   readonly pii?: AssembledPii | undefined;
 }
@@ -94,15 +94,15 @@ const guardrailRecordsOf = (guardrails: AssembledGuardrails | undefined): Compon
         ],
   );
 
-const compactionRecordsOf = (compactions: AssembledCompactions | undefined): ComponentRecord[] =>
-  (compactions?.compactions ?? []).flatMap((compaction) =>
-    compaction.strategy === CompactionStrategy.SummaryQueue ||
-    compaction.strategy === CompactionStrategy.SingleSummary
+const memoryRecordsOf = (memories: AssembledMemories | undefined): ComponentRecord[] =>
+  (memories?.memories ?? []).flatMap((memory) =>
+    memory.mode === CompactionStrategy.SummaryQueue ||
+    memory.mode === CompactionStrategy.SingleSummary
       ? [
           recordOf(
-            compaction.name,
-            ComponentKind.Compaction,
-            versionOf({ prompt: compaction.prompt, strategy: compaction.strategy }),
+            memory.name,
+            ComponentKind.Memory,
+            versionOf({ prompt: memory.prompt, strategy: memory.mode }),
             undefined,
           ),
         ]
@@ -140,7 +140,7 @@ export function modelComponentRecordsOf(source: ModelComponentSource): readonly 
     ...judgeRecordsOf(source.graph),
     ...guardrailRecordsOf(source.guardrails),
     ...arbiterRecordsOf(source.graph),
-    ...compactionRecordsOf(source.compactions),
+    ...memoryRecordsOf(source.memories),
     ...interpreterRecordsOf(source.replyInterpreters),
     ...piiRecordsOf(source.pii),
   ];

@@ -35,7 +35,7 @@ export function ledgerMemoryShard() {
   return {
     configFile: "vitest.mutation-ledger-memory.config.ts",
     mutate: [
-      "src/run/memory.ts",
+      "src/run/compact-before-run.ts",
       "src/run/compaction-parts.ts",
       // the model call and its record, the summary asked again shorter, the stored cost and the budget
       // left; what is due and what the model reads are not money

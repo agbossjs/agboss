@@ -93,7 +93,7 @@ export function toTurn(row: unknown): Turn {
     runId: r.run_id,
     threadId: r.thread_id,
     tenantId: r.tenant_id,
-    bundle: r.bundle,
+    workflow: r.bundle,
     createdAt: r.created_at,
     task: textOf(r.task, "turn task", ids),
     replyWith: textOf(r.replyWith, "turn answer", ids),

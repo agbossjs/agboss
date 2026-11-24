@@ -1,3 +1,4 @@
+import { Window1Memory } from "../../helpers/window-memory.js";
 import {
   Agent,
   EmptyEnvironment,
@@ -186,7 +187,7 @@ export class DecStart {}
 })
 export class DecFinish {}
 
-const defaults = { models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX } };
+const defaults = { models: { temperature: 0, maxTokens: TokenLimit.ModelMax } };
 
 @Workflow({
   name: "fast-workflow",
@@ -195,7 +196,7 @@ const defaults = { models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX } }
     .toAgent(FastAgent)
     .toFinish(FastFinish)],
   defaults,
-  uncompactedTurns: 1,
+  memory: Window1Memory,
 })
 export class FastWorkflow {}
 
@@ -206,7 +207,7 @@ export class FastWorkflow {}
     .toAgent(PlainAgent)
     .toFinish(PlainFinish)],
   defaults,
-  uncompactedTurns: 1,
+  memory: Window1Memory,
 })
 export class PlainWorkflow {}
 
@@ -217,7 +218,7 @@ export class PlainWorkflow {}
     .toAgent(OwnAgent)
     .toFinish(OwnFinish)],
   defaults,
-  uncompactedTurns: 1,
+  memory: Window1Memory,
 })
 export class OwnWorkflow {}
 
@@ -228,7 +229,7 @@ export class OwnWorkflow {}
     .toAgent(LiteralAgent)
     .toFinish(LiteralFinish)],
   defaults,
-  uncompactedTurns: 1,
+  memory: Window1Memory,
 })
 export class LiteralWorkflow {}
 
@@ -262,7 +263,7 @@ export class UnlistedApplication {}
     .toAgent(PlainAgent)
     .toFinish(BareFinish)],
   defaults,
-  uncompactedTurns: 1,
+  memory: Window1Memory,
   modelProvider: BareChatModels,
 })
 export class BareWorkflow {}
@@ -284,7 +285,7 @@ export class BareApplication {}
     .toAgent(FastAgent)
     .toFinish(NopFinish)],
   defaults,
-  uncompactedTurns: 1,
+  memory: Window1Memory,
 })
 export class NoProviderWorkflow {}
 
@@ -306,7 +307,7 @@ export class NoProviderApplication {}
     .toAgent(LiteralAgent)
     .toFinish(DecFinish)],
   defaults,
-  uncompactedTurns: 1,
+  memory: Window1Memory,
   modelProvider: DecisionModels,
 })
 export class DecisionProviderWorkflow {}

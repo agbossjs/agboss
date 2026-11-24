@@ -92,11 +92,11 @@ const StoredData: z.ZodType<ExecutionData> = z.object({
 });
 
 const StoredCompacted: z.ZodType<Compacted> = z.object({
-  compaction: text,
+  memory: text,
   fromTurn: count,
   toTurn: count,
   summaries: count,
-  summaryQueueLength: count,
+  summaryQueueLength: count.optional(),
 });
 
 /** A pause a run waits on; 0.1.0's has `agent` (now `step`), `answeredBy` (now `answerer`), no `kind`. */

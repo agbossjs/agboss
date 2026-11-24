@@ -1,17 +1,17 @@
 import { expect, it } from "vitest";
 import { testCompaction } from "@agboss/core/testing";
-import { CaseNotesCompaction } from "../../../../src/desk/compactions/case-notes/case-notes.compaction.js";
+import { CaseNotesMemory } from "../../../../src/desk/memories/case-notes/case-notes.memory.js";
 
 it("testCompaction: a custom compaction runs its own code, no model request", async () => {
-  const compact = testCompaction(CaseNotesCompaction);
+  const compact = testCompaction(CaseNotesMemory);
 
   const { output } = await compact({
     previousSummaries: [],
     turnsToCompact: [
       {
-        startName: "desk-workflow-start",
+        start: "desk-workflow-start",
         input: {},
-        finishName: "desk-answer-workflow-finish",
+        finish: "desk-answer-workflow-finish",
         output: {},
       },
     ],

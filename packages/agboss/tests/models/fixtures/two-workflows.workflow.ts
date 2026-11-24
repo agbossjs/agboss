@@ -1,3 +1,4 @@
+import { Window1Memory } from "../../helpers/window-memory.js";
 import {
   Agent,
   EmptyEnvironment,
@@ -16,7 +17,7 @@ import { LocalModelProvider, TestOpenRouterProvider } from "../providers.fixture
 /** #266 AC8: `agboss check --models` on one workflow checks every model of its application. */
 
 const defaults = {
-  models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX },
+  models: { temperature: 0, maxTokens: TokenLimit.ModelMax },
   router: { model: "typesafe/jev-1.13" },
 } as const;
 
@@ -44,7 +45,7 @@ export class DraftingStart {}
     .toAgent(DraftingAgent)
     .toFinish(NotesFinish)],
   defaults,
-  uncompactedTurns: 1,
+  memory: Window1Memory,
 })
 export class DraftingWorkflow {}
 
@@ -70,7 +71,7 @@ export class PolishingStart {}
     .toAgent(PolishingAgent)
     .toFinish(NotesFinish)],
   defaults,
-  uncompactedTurns: 1,
+  memory: Window1Memory,
 })
 export class PolishingWorkflow {}
 

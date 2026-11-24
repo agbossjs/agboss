@@ -1,19 +1,20 @@
 /**
- * #382 — a custom compaction (`CompactionStrategy.Custom` + `CompactionHandler`): its `compact()` is
+ * #382, #1303 — a code compaction (a `@Memory` class with a `compact(input)` method): its `compact()` is
  * called with the turns due (counted as a model's are: older than the window, every
  * `turnsBetweenCompactions`, before the next turn reads its thread) and the summaries readers see,
  * masked by the PII policies; what it gives is stored, revealed, and read back by the readers and the
- * next `compact()`. `[compaction.missing-handler]`, `agboss describe`'s line and `configHash`.
+ * next `compact()`. `[memory.conflicting-compaction]`, `agboss describe`'s line and `configHash`.
  */
 import { describe, expect, it } from "vitest";
 import {
-  Compaction,
-  CompactionError,
   CompactionStrategy,
+  Memory,
+  StepError,
+  Ttl,
   type CompactionTurn,
 } from "../../src/index.js";
 import { applicationOf } from "../../src/application/assemble.js";
-import { compactionViolations } from "../../src/compaction/checks.js";
+import { memoryViolations } from "../../src/memory/checks.js";
 import { memoryLines } from "../../src/describe/defaults.js";
 import { configSnapshot } from "../../src/run/versions.js";
 import { versionOf } from "../../src/turns/index.js";
@@ -25,7 +26,7 @@ import { execute } from "../helpers/flow.js";
 import {
   GraphAgent,
   GraphDeskApplication,
-  GraphMemoryCompaction,
+  GraphMemory,
   GraphStart,
   KnowledgeGraphService,
   OtherGraphDeskApplication,
@@ -57,9 +58,9 @@ async function conversation(
 
 /** A turn as `compact()` reads it: the start's input, the finish's output. */
 const turn = (text: string, answer = "ok"): CompactionTurn => ({
-  startName: "graph-workflow-start",
+  start: "graph-workflow-start",
   input: { text },
-  finishName: "graph-workflow-finish",
+  finish: "graph-workflow-finish",
   output: { text: answer },
 });
 
@@ -91,21 +92,19 @@ describe("#382: compact() is called with the turns due and the previous summarie
       undefined,
       [
         {
-          compaction: "graph-memory-compaction",
+          memory: "graph-memory",
           fromTurn: 1,
           toTurn: 2,
           summaries: 1,
-          summaryQueueLength: 1,
         },
       ],
       undefined,
       [
         {
-          compaction: "graph-memory-compaction",
+          memory: "graph-memory",
           fromTurn: 3,
           toTurn: 4,
           summaries: 2,
-          summaryQueueLength: 2,
         },
       ],
     ]);
@@ -130,8 +129,8 @@ describe("#382: a custom compaction is tested through its services", () => {
   const test = testWith(GraphDeskApplication);
 
   test("mockLlm of it is a setup error: it calls no model", async ({ mockLlm }) => {
-    expect(() => mockLlm(GraphMemoryCompaction)).toThrow(
-      "mockLlm(GraphMemoryCompaction): a custom compaction calls no model — mockOf() it, or the services its compact() uses",
+    expect(() => mockLlm(GraphMemory)).toThrow(
+      "mockLlm(GraphMemory): a custom compaction calls no model — mockOf() it, or the services its compact() uses",
     );
   });
 });
@@ -164,7 +163,7 @@ describe("#382: compact() reads its input masked; what it gives is stored reveal
 
 class GraphUnavailableError extends Error {}
 
-describe("#382: a compact() that fails fails the new execution — CompactionError", () => {
+describe("#382: a compact() that fails fails the new execution — StepError.Memory", () => {
   const test = testWith(GraphDeskApplication);
 
   test("its error is the cause; nothing of the new turn runs", async ({ app, mockLlm, mockOf }) => {
@@ -176,8 +175,8 @@ describe("#382: a compact() that fails fails the new execution — CompactionErr
 
     await expect(
       execute(app, GraphStart, { text: "t4" }, { threadId: first?.threadId }),
-    ).rejects.toFailWith(CompactionError, {
-      compaction: "graph-memory-compaction",
+    ).rejects.toFailWith(StepError.Memory, {
+      memory: "graph-memory",
       cause: GraphUnavailableError,
     });
   });
@@ -189,61 +188,52 @@ describe("#382: a compact() that fails fails the new execution — CompactionErr
 
     await expect(
       execute(app, GraphStart, { text: "t4" }, { threadId: first?.threadId }),
-    ).rejects.toFailWith(CompactionError, { compaction: "graph-memory-compaction" });
+    ).rejects.toFailWith(StepError.Memory, { memory: "graph-memory" });
   });
 });
 
-describe("#382: [compaction.missing-handler] and no model's settings on a custom compaction", () => {
-  it("the decorator's types: a compact method, no model, prompt or summary limits", () => {
-    // @ts-expect-error -- a custom compaction implements CompactionHandler: compact(input)
-    @Compaction({
-      name: "handlerless-compaction",
-      description: "No compact()",
-      strategy: CompactionStrategy.Custom,
-      turnsBetweenCompactions: 1,
+describe("#1303: [memory.conflicting-compaction] — a compaction in the decorator and a compact() method", () => {
+  it("the decorator's types: no compact method beside a declarative compaction", () => {
+    // @ts-expect-error -- a declarative compaction and compact(input) are two ways to compact
+    @Memory({
+      name: "both-ways-memory",
+      description: "Both ways",
+      ttl: Ttl.Forever,
+      compaction: { strategy: CompactionStrategy.SingleSummary },
     })
-    class HandlerlessCompaction {}
-
-    // @ts-expect-error -- CompactionStrategy.Custom takes no model
-    Compaction({
-      name: "modelled-custom-compaction",
-      description: "A model on a custom compaction",
-      strategy: CompactionStrategy.Custom,
-      turnsBetweenCompactions: 1,
-      model: "test/compactor",
-    });
-
-    expect(compactionViolations([HandlerlessCompaction])).toEqual([
-      expect.objectContaining({
-        code: "compaction.missing-handler",
-        message:
-          "HandlerlessCompaction (handlerless-compaction) is CompactionStrategy.Custom but has no compact(input) method — implements CompactionHandler",
-      }),
-    ]);
-  });
-
-  it("agboss check: a model's settings and a count below 1, all at once", () => {
-    const options: unknown = {
-      name: "busy-custom-compaction",
-      description: "Settings a custom compaction does not take",
-      strategy: CompactionStrategy.Custom,
-      turnsBetweenCompactions: 0,
-      model: "test/compactor",
-      summaryMaxTokens: 100,
-      summaryQueueLength: 2,
-    };
-    class BusyCustomCompaction {
+    class BothWaysMemory {
       compact(): readonly string[] {
         return ["a summary"];
       }
     }
-    Reflect.apply(Compaction, undefined, [options])(BusyCustomCompaction);
 
-    expect(compactionViolations([BusyCustomCompaction]).map((found) => found.message)).toEqual([
-      "busy-custom-compaction: turnsBetweenCompactions 0 — a whole number from 1",
-      "busy-custom-compaction: model test/compactor — CompactionStrategy.Custom takes none",
-      "busy-custom-compaction: summaryMaxTokens 100 — CompactionStrategy.Custom takes none",
-      "busy-custom-compaction: summaryQueueLength 2 — CompactionStrategy.Custom takes none",
+    expect(memoryViolations([BothWaysMemory])).toEqual([
+      expect.objectContaining({ code: "memory.conflicting-compaction" }),
+    ]);
+  });
+
+  it("a memory with neither is the window only: no rule is broken", () => {
+    @Memory({ name: "plain-memory", description: "The window only", ttl: Ttl.Forever })
+    class PlainMemory {}
+
+    expect(memoryViolations([PlainMemory])).toEqual([]);
+  });
+
+  it("agboss check: a count below 1 on a code compaction", () => {
+    @Memory({
+      name: "busy-code-memory",
+      description: "A code compaction with a bad count",
+      ttl: Ttl.Forever,
+      turnsBetweenCompactions: 0,
+    })
+    class BusyCodeMemory {
+      compact(): readonly string[] {
+        return ["a summary"];
+      }
+    }
+
+    expect(memoryViolations([BusyCodeMemory]).map((found) => found.message)).toEqual([
+      "busy-code-memory: turnsBetweenCompactions 0 — a whole number from 1",
     ]);
   });
 });
@@ -256,19 +246,19 @@ async function graphDeskOf(application: Class) {
 }
 
 describe("#382: agboss describe and configHash", () => {
-  it("describe: strategy: custom (GraphMemoryCompaction.compact())", async () => {
+  it("describe: strategy: custom (GraphMemory.compact())", async () => {
     const lines = memoryLines(await graphDeskOf(GraphDeskApplication));
 
     expect(lines).toEqual([
       "memory",
-      "  graph-memory-compaction — strategy: custom (GraphMemoryCompaction.compact()) every 2 turns · older than 1 turns",
+      "  graph-memory — strategy: custom (GraphMemory.compact()) every 2 turns · older than 1 turns",
     ]);
   });
 
   it("configHash: another class under the same name is another hash; the same class is the same", async () => {
     const hashOf = async (application: Class): Promise<string> =>
       versionOf(configSnapshot(await graphDeskOf(application)));
-    const same = graphDeskOn(GraphMemoryCompaction, "same-graph-desk-application");
+    const same = graphDeskOn(GraphMemory, "same-graph-desk-application");
 
     const base = await hashOf(GraphDeskApplication);
 

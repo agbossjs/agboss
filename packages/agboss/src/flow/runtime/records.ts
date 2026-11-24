@@ -33,8 +33,8 @@ export enum ComponentKind {
   Rag = "rag",
   /** `@Budget` (#261). */
   Budget = "budget",
-  /** `@Compaction` that writes summaries with a model (#120 PR 3). */
-  Compaction = "compaction",
+  /** `@Memory` that writes summaries with a model (#1303). */
+  Memory = "memory",
   /** `@ReplyInterpreter` (#267 PR 3). */
   ReplyInterpreter = "reply-interpreter",
   /** `@PiiPolicy` that detects with a model (#120). */

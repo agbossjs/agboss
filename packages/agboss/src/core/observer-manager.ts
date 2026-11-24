@@ -1,6 +1,7 @@
 import { redactedFilesIn } from "../a2a/files/a2a-file-scrub.js";
 import type { ValuesOutdatedEvent } from "../flow/observers/values-outdated.js";
 import type { LaunchItemsTruncatedEvent } from "../flow/observers/launch-items-truncated.js";
+import type { CompactionEndEvent, CompactionStartEvent } from "../flow/observers/compaction.js";
 import type { QuorumDecidedEvent } from "../flow/observers/quorum-decided.js";
 import type {
   CompensationEndEvent,
@@ -202,6 +203,12 @@ export class ExecutionObserverManager implements Required<ExecutionObserver> {
   }
   onQuorumDecided(event: QuorumDecidedEvent): Promise<void> {
     return this.each("onQuorumDecided", event, (o, e) => o.onQuorumDecided?.(e));
+  }
+  onCompactionStart(event: CompactionStartEvent): Promise<void> {
+    return this.each("onCompactionStart", event, (o, e) => o.onCompactionStart?.(e));
+  }
+  onCompactionEnd(event: CompactionEndEvent): Promise<void> {
+    return this.each("onCompactionEnd", event, (o, e) => o.onCompactionEnd?.(e));
   }
   onCompensationStart(event: CompensationStartEvent): Promise<void> {
     return this.each("onCompensationStart", event, (o, e) => o.onCompensationStart?.(e));

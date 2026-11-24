@@ -45,7 +45,7 @@ export abstract class OpenAiCompatibleProvider<
         apiKey: connection.apiKey ?? "none",
         model: settings.model,
         temperature: settings.temperature,
-        ...(settings.maxTokens === TokenLimit.MODEL_MAX ? {} : { maxTokens: settings.maxTokens }),
+        ...(settings.maxTokens === TokenLimit.ModelMax ? {} : { maxTokens: settings.maxTokens }),
         // the provider's client owns timeouts and retries (its retry policy and circuit breaker)
         maxRetries: 0,
         // a streamed call (the run has `onStream`, #1005) reports its real usage, so budgets stay exact
@@ -69,7 +69,7 @@ export abstract class OpenAiCompatibleProvider<
       ls_model_type: "chat",
       ls_model_name: settings.model,
       ls_temperature: settings.temperature,
-      ...(settings.maxTokens === TokenLimit.MODEL_MAX ? {} : { ls_max_tokens: settings.maxTokens }),
+      ...(settings.maxTokens === TokenLimit.ModelMax ? {} : { ls_max_tokens: settings.maxTokens }),
     });
   }
 

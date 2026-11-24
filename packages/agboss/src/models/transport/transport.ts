@@ -96,7 +96,7 @@ export interface ModelProviderRequest {
   /** Empty when the caller binds none. */
   readonly tools: readonly ModelProviderToolDefinition[];
   readonly temperature: number;
-  /** `undefined` = `TokenLimit.MODEL_MAX`: no ceiling of the framework's own. */
+  /** `undefined` = `TokenLimit.ModelMax`: no ceiling of the framework's own. */
   readonly maxTokens: number | undefined;
   /** The component's, else the provider's (`Reasoning.off()` when it sets none). */
   readonly reasoning: Reasoning;

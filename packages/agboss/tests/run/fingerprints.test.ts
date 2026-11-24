@@ -51,7 +51,7 @@ describe("#120 PR 4: the fingerprint covers what an element's model reads outsid
   it("each element's sub-tree: its policies, window, compaction and judges", async () => {
     expect(await elementOf({ judgeModel: "test/judge" }, "answer-agent")).toEqual({
       uncompactedTurns: 3,
-      compaction: "queue-compaction",
+      memory: "queue-memory",
       piiPolicies: [
         {
           name: "contact-pii-policy",
@@ -62,7 +62,7 @@ describe("#120 PR 4: the fingerprint covers what an element's model reads outsid
     });
     expect(await elementOf({ routerTurns: 1, isAgentExcludingPii: true }, "help-router")).toEqual({
       uncompactedTurns: 1,
-      compaction: "queue-compaction",
+      memory: "router-window-memory",
       piiPolicies: [
         {
           name: "contact-pii-policy",
@@ -78,7 +78,7 @@ describe("#120 PR 4: the fingerprint covers what an element's model reads outsid
     expect(await configHashOf({ isAgentExcludingPii: true })).not.toBe(base);
     expect(await elementOf({ isAgentExcludingPii: true }, "answer-agent")).toEqual({
       uncompactedTurns: 3,
-      compaction: "queue-compaction",
+      memory: "queue-memory",
     });
   });
 

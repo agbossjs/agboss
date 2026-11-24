@@ -85,7 +85,6 @@ export {
 export { ToolBlockedError, type ToolBlockedErrorOptions } from "./graph/tool-blocked-error.js";
 export { NotAWorkflowStartError } from "./flow/runtime/start-input.js";
 export { PiiRefusedError, type PiiRefusedErrorOptions } from "./pii/errors.js";
-export { CompactionError, type CompactionErrorOptions } from "./compaction/errors.js";
 export { PiiDetectionFailedError } from "./pii/detectors/model.js";
 export {
   ChildExecutionFailedError,

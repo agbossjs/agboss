@@ -14,7 +14,7 @@ import type { AssembledWorkflow } from "../../../src/workflow.js";
 import { PiiPolicy } from "../../../src/pii/pii-policy.decorator.js";
 import { PiiKind } from "../../../src/pii/index.js";
 import { OutlineWorkflow } from "../../flow/fixtures/recursion.fixture.js";
-import { NotesDeskApplication } from "../../compaction/compaction.fixture.js";
+import { NotesDeskApplication } from "../../memory/compaction.fixture.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { TestApplication } from "../../fixtures/test-workflow/test.workflow.js";
 
@@ -120,8 +120,8 @@ describe("#1366: an agent's settings as resolved", () => {
     expect(coder?.provider).not.toBe("");
     expect(coder?.instructions).not.toBe("");
     expect(coder?.piiPolicies).toStrictEqual([]);
-    expect(coder?.compaction).toBeUndefined();
-    expect(coder).not.toHaveProperty("compaction");
+    expect(coder?.memory).toBeUndefined();
+    expect(coder).not.toHaveProperty("memory");
   });
 
   it("an agent under a compaction names it", async () => {
@@ -130,7 +130,7 @@ describe("#1366: an agent's settings as resolved", () => {
     if (workflow === undefined) throw new TypeError("one workflow");
 
     expect(nodeNamed(workflow, "note-agent").agent).toMatchObject({
-      compaction: "note-compaction",
+      memory: "note-memory",
     });
   });
 });

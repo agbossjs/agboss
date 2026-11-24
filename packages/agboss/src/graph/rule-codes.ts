@@ -188,13 +188,11 @@ export type RuleCode =
   | "tool-interceptor.unresolved-tool"
   | "tool-interceptor.duplicate-tool-name"
   | "tool-interceptor.unknown-hook"
-  // compaction (#120 PR 3), reported at each workflow's assembly
-  | "compaction.not-a-compaction"
-  | "compaction.invalid-setting"
-  | "compaction.decision-model"
-  | "compaction.uncompacted-turns-invalid"
-  // a custom compaction (#382) without its compact(input) method
-  | "compaction.missing-handler"
+  // memory (#1303), reported at each workflow's assembly
+  | "memory.not-a-memory"
+  | "memory.invalid-setting"
+  | "memory.uncompacted-turns-invalid"
+  | "memory.conflicting-compaction"
   // model providers (#266 PR 1): every model of the application resolves to one provider
   | "model.unserved"
   | "model.ambiguous-provider"

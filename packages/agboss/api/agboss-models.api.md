@@ -276,7 +276,7 @@ export const JevModelProvider: typeof DecisionsModelProvider;
 export type JevModelProvider = DecisionsModelProvider;
 
 // @public
-export type MaxTokens = number | TokenLimit.MODEL_MAX;
+export type MaxTokens = number | TokenLimit.ModelMax;
 
 // @public
 export interface MessageErrorOptions extends AGBossErrorOptions {

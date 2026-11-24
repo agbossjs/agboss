@@ -67,7 +67,7 @@ export class TransportChatModel extends BaseChatModel {
       ls_provider: provider,
       ls_model_name: settings.model,
       ls_temperature: settings.temperature,
-      ...(settings.maxTokens === TokenLimit.MODEL_MAX ? {} : { ls_max_tokens: settings.maxTokens }),
+      ...(settings.maxTokens === TokenLimit.ModelMax ? {} : { ls_max_tokens: settings.maxTokens }),
     };
   }
 
@@ -79,7 +79,7 @@ export class TransportChatModel extends BaseChatModel {
       messages: providerMessagesOf(messages, provider),
       tools: this.tools,
       temperature: settings.temperature,
-      maxTokens: settings.maxTokens === TokenLimit.MODEL_MAX ? undefined : settings.maxTokens,
+      maxTokens: settings.maxTokens === TokenLimit.ModelMax ? undefined : settings.maxTokens,
       reasoning,
       promptCaching,
     };

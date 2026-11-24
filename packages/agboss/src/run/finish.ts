@@ -5,7 +5,6 @@ import { finishLine } from "../flow/runtime/history.js";
 import type { ExecutionStateType } from "../flow/runtime/state.js";
 import type { UsageRecord } from "../finops/usage.js";
 import type { TurnOutcome } from "../turns/index.js";
-import { updateMemoryAfter } from "./memory.js";
 import type { FinishContext } from "./execute.js";
 import type { WaitingPause } from "../pause/index.js";
 import { isWaiting, pausedLoopsOf, pausedUsageOf } from "./paused.js";
@@ -99,14 +98,7 @@ export async function finishRun<TName extends string>(
 ): Promise<AgentExecutionOutput> {
   const { usage, paused, pending } = await stoppedState(ctx, state);
   assertEnded(ctx.runId, state, paused);
-  const finishedLine = outcomeOf(state, usage, paused).replyWith;
-  // #844: the strategies' memory update is the turn's spend too — made before the record says the
-  // turn ended, so the record's cost is what the end event reports (a task read repair completes
-  // from the record signs the same spend)
-  const memory = paused
-    ? { usage: [] }
-    : await updateMemoryAfter(ctx, usage, { start: ctx.base.task, finish: finishedLine });
-  const outcome = outcomeOf(state, [...usage, ...memory.usage], paused);
+  const outcome = outcomeOf(state, usage, paused);
   let turnId = existingTurnId;
   if (turnId === undefined) turnId = (await ctx.deps.turns.append({ ...ctx.base, ...outcome })).id;
   else await ctx.deps.turns.complete(turnId, outcome);
@@ -116,7 +108,7 @@ export async function finishRun<TName extends string>(
     startInput: state.startInput,
     path: pathOf(state, pending),
     budgetUsd: ctx.budgetUsd,
-    cost: CostReport.fromUsage([...usage, ...memory.usage]),
+    cost: CostReport.fromUsage(usage),
     threadId: ctx.base.threadId,
     tenantId: ctx.base.tenantId,
     turnId,

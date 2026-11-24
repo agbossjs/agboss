@@ -1,4 +1,12 @@
-import { Agent, EmptyEnvironment, TokenLimit, Workflow, WorkflowFinish, WorkflowStart } from "../../../src/index.js";
+import { Window1Memory } from "../../helpers/window-memory.js";
+import {
+  Agent,
+  EmptyEnvironment,
+  TokenLimit,
+  Workflow,
+  WorkflowFinish,
+  WorkflowStart,
+} from "../../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { Application } from "../../../src/application/application.js";
 import { ModelCost, ModelProvider, OpenAiCompatibleDriver } from "../../../src/models/index.js";
@@ -22,25 +30,51 @@ export class FreeModels {}
 })
 export class PricedModels {}
 
-@Agent({ name: "free-agent", prompt: "Answer.", description: "On the free provider", modelProvider: FreeModels })
+@Agent({
+  name: "free-agent",
+  prompt: "Answer.",
+  description: "On the free provider",
+  modelProvider: FreeModels,
+})
 export class FreeAgent {}
 
-@Agent({ name: "paid-agent", prompt: "Answer.", description: "On the paid provider", modelProvider: PricedModels })
+@Agent({
+  name: "paid-agent",
+  prompt: "Answer.",
+  description: "On the paid provider",
+  modelProvider: PricedModels,
+})
 export class PaidAgent {}
 
-@WorkflowStart({ name: "unpriced-workflow-start", description: "A message", input: WorkflowStartTextDto })
+@WorkflowStart({
+  name: "unpriced-workflow-start",
+  description: "A message",
+  input: WorkflowStartTextDto,
+})
 export class UnpricedStart {}
 
-@WorkflowFinish({ name: "unpriced-workflow-finish", description: "The answer", output: WorkflowFinishTextDto })
+@WorkflowFinish({
+  name: "unpriced-workflow-finish",
+  description: "The answer",
+  output: WorkflowFinishTextDto,
+})
 export class UnpricedFinish {}
 
-@WorkflowStart({ name: "paid-workflow-start", description: "A message", input: WorkflowStartTextDto })
+@WorkflowStart({
+  name: "paid-workflow-start",
+  description: "A message",
+  input: WorkflowStartTextDto,
+})
 export class PaidStart {}
 
-@WorkflowFinish({ name: "paid-workflow-finish", description: "The answer", output: WorkflowFinishTextDto })
+@WorkflowFinish({
+  name: "paid-workflow-finish",
+  description: "The answer",
+  output: WorkflowFinishTextDto,
+})
 export class PaidFinish {}
 
-const defaults = { models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX } };
+const defaults = { models: { temperature: 0, maxTokens: TokenLimit.ModelMax } };
 
 @Workflow({
   name: "unpriced-workflow",
@@ -49,7 +83,7 @@ const defaults = { models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX } }
     .toAgent(FreeAgent)
     .toFinish(UnpricedFinish)],
   defaults,
-  uncompactedTurns: 1,
+  memory: Window1Memory,
 })
 export class UnpricedWorkflow {}
 
@@ -60,7 +94,7 @@ export class UnpricedWorkflow {}
     .toAgent(PaidAgent)
     .toFinish(PaidFinish)],
   defaults,
-  uncompactedTurns: 1,
+  memory: Window1Memory,
 })
 export class PaidWorkflow {}
 

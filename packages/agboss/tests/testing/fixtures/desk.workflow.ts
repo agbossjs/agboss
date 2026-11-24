@@ -1,4 +1,5 @@
 import { McpTransport } from "../../../src/config/mcp-server-config.js";
+import { Window4Memory } from "../../helpers/window-memory.js";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -242,7 +243,7 @@ export class MainRouter {}
   defaults: {
     models: {
       temperature: 0,
-      maxTokens: TokenLimit.MODEL_MAX,
+      maxTokens: TokenLimit.ModelMax,
       reasoning: Reasoning.modelDecides(),
       cache: true,
     },
@@ -250,7 +251,7 @@ export class MainRouter {}
     guardrail: { model: "typesafe/jev-1.13" },
     tools: { maxToolCalls: 4 },
   },
-  uncompactedTurns: 4,
+  memory: Window4Memory,
   guardrails: [PromptInjectionGuardrail],
   providers: [OrderBook],
 })

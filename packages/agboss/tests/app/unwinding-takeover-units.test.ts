@@ -42,7 +42,7 @@ const FAILED_TURN: Turn = {
   runId: "root-1",
   threadId: "thread-1",
   tenantId: "acme",
-  bundle: "desk-workflow",
+  workflow: "desk-workflow",
   createdAt: "2026-11-20T10:00:00.000Z",
   task: "",
   replyWith: "",

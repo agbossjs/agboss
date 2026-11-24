@@ -1,6 +1,5 @@
 import { BranchErrors } from "../flow/runtime/launch/branch-end.js";
 import type { BranchScheduler } from "../flow/runtime/launch/branch-schedule.js";
-import type { BaseMemoryStrategy } from "../memory/types.js";
 import type { JudgeInstance } from "../components/judge-decorators.js";
 import type { BaseCheckpointSaver } from "@langchain/langgraph";
 import type { AssembledWorkflow, WorkflowServices } from "../workflow.js";
@@ -90,15 +89,6 @@ export function knowledgeFor(
   const byAgent = bundle.knowledge?.(services);
   return byAgent === undefined ? {} : { knowledge: (agent) => byAgent.get(agent) ?? [] };
 }
-
-/** The agents' own memory strategies (`@Agent({ memoryStrategy })`), from the container. */
-export const memoryFor = (
-  bundle: AssembledWorkflow,
-  services: WorkflowServices,
-): { readonly memory?: ReadonlyMap<string, BaseMemoryStrategy> } => {
-  const memory = bundle.memoryStrategies?.(services);
-  return memory === undefined ? {} : { memory };
-};
 
 /** The agents' judges by name, created by the workflow's container. */
 export const judgesFor = (

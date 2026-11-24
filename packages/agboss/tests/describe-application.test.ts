@@ -3,6 +3,7 @@
  * why, the budgets by scope with their periods, the execution budget that caps each workflow (its
  * own or the default), the observers, the assembly warnings and each workflow's count limits.
  */
+import { Window1Memory } from "./helpers/window-memory.js";
 import { describe, expect, it } from "vitest";
 import { Application } from "../src/application/application.js";
 import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "../src/budgets/budget.js";
@@ -49,7 +50,7 @@ class ToldWorkflowFinish {}
   version: "1.0.0",
   maxSteps: 2,
   defaults: { models: { temperature: 0 } },
-  uncompactedTurns: 1,
+  memory: Window1Memory,
   flow: [onStart(TellWorkflowStart).toAgent(TellerAgent).toFinish(ToldWorkflowFinish)],
 })
 class TellWorkflow {}

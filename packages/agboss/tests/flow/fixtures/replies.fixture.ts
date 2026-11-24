@@ -1,3 +1,4 @@
+import { Window2Memory } from "../../helpers/window-memory.js";
 import { Channel, Injectable, Tool } from "../../../src/components/decorators.js";
 import {
   ToolCallDecision,
@@ -368,7 +369,7 @@ export class TreasuryWorkflowFinish {}
       .toFinish(TreasuryWorkflowFinish),
   ],
   defaults: { tools: { maxToolCalls: 3 } },
-  uncompactedTurns: 2,
+  memory: Window2Memory,
   providers: [ExpenseButtonCodes],
 })
 export class TreasuryWorkflow {}

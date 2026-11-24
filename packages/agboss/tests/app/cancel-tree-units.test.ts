@@ -440,7 +440,7 @@ describe("#1356: `app.cancel` of a thread", () => {
         runId: "run-1",
         threadId: "thread-1",
         tenantId: "acme",
-        bundle: "bundle-a",
+        workflow: "bundle-a",
         status: "running",
       },
     ]);

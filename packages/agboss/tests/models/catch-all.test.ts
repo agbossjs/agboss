@@ -6,6 +6,7 @@
  * `[model.ambiguous-provider]` (AC2); a subclass of the built-in with its own `serves` claims like
  * any other provider.
  */
+import { Window1Memory } from "../helpers/window-memory.js";
 import { describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
@@ -119,10 +120,10 @@ class CatchAllFinish {}
     onStart(CatchAllKimiStart).toAgent(KimiAgent).toFinish(CatchAllFinish),
   ],
   defaults: {
-    models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX },
+    models: { temperature: 0, maxTokens: TokenLimit.ModelMax },
     router: { model: "typesafe/jev-1.13" },
   },
-  uncompactedTurns: 1,
+  memory: Window1Memory,
 })
 class CatchAllWorkflow {}
 

@@ -15,7 +15,7 @@ import type { Interaction } from "../../../src/testing/vcr-file.js";
 import { CassetteChange } from "../../../src/testing/index.js";
 import { cassetteHashesOf, changesOf } from "../../../src/testing/vcr-hashes.js";
 import { JudgedDeskApplication } from "../../judges/fixtures/judged.workflow.js";
-import { HelpDeskApplication } from "../../compaction/compaction.fixture.js";
+import { HelpDeskApplication } from "../../memory/compaction.fixture.js";
 import { ModelPanelApplication } from "../fixtures/quorum-runtime.fixture.js";
 import { TreasuryApplication } from "../fixtures/replies.fixture.js";
 import { SensitiveApplication } from "../../pii/sensitive.fixture.js";
@@ -65,9 +65,9 @@ describe("each kind of model component has its join keys", () => {
   });
 
   it("a compaction that writes summaries: its prompt and strategy", async () => {
-    const compaction = named(await recordsOf(HelpDeskApplication), "queue-compaction");
+    const compaction = named(await recordsOf(HelpDeskApplication), "queue-memory");
 
-    expect(compaction).toMatchObject({ kind: ComponentKind.Compaction });
+    expect(compaction).toMatchObject({ kind: ComponentKind.Memory });
     expect(compaction?.promptHash).toMatch(HASH);
   });
 

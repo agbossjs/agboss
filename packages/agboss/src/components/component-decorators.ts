@@ -25,7 +25,7 @@ export const COMPONENT_DECORATORS = [
   "PiiPolicy",
   "Judge",
   "Arbiter",
-  "Compaction",
+  "Memory",
   "Budget",
   "HealthCheck",
   "Observer",

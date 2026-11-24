@@ -3,10 +3,8 @@ import type { AgentSettings, AgentsConfig } from "../config/types.js";
 import type { ModelFiles } from "../files/model-files.js";
 import type { RagMode } from "../rag/types.js";
 import type { AgentToolClass } from "./decorators.js";
-import type { BaseMemoryStrategy } from "../memory/types.js";
 import type { ModelCascade } from "../models/model-cascade.js";
 import type { Class, Provider } from "./injection.js";
-import type { UncompactedTurns } from "../compaction/compaction.decorator.js";
 
 /** An agent's use of a `@Rag` knowledge base; both fields required (no defaults). */
 export interface RagBinding {
@@ -33,13 +31,9 @@ export interface ToolInterceptorFields {
   readonly excludeToolInterceptors?: readonly Class[];
 }
 
-/**
- * The memory an agent or a router reads (#120 PR 3): its own `@Compaction` and how many recent turns
- * it sees in full — single settings, over the workflow's and the application's.
- */
-export interface CompactionFields {
-  readonly compaction?: Class;
-  readonly uncompactedTurns?: UncompactedTurns;
+/** The memory an agent or a router reads (#1303): its own `@Memory` class, over the workflow's. */
+export interface MemoryFields {
+  readonly memory?: Class;
 }
 
 /**
@@ -56,7 +50,7 @@ export interface PiiPolicyFields {
  * tools (class references), knowledge bases, judges and memory.
  */
 export interface AgentMeta
-  extends GuardrailFields, PiiPolicyFields, CompactionFields, ToolInterceptorFields {
+  extends GuardrailFields, PiiPolicyFields, MemoryFields, ToolInterceptorFields {
   readonly name: string;
   readonly description: string;
   readonly prompt?: PromptValue;
@@ -64,12 +58,6 @@ export interface AgentMeta
   readonly model?: string;
   /** The `@ModelProvider` class its model is served from (#1313); left out: its workflow's, its application's. */
   readonly modelProvider?: Class;
-  /**
-   * This agent's memory strategy (a `BaseMemoryStrategy` subclass from `@agboss/core/memory`,
-   * created by the workflow's container); other agents use the built-in one (`uncompactedTurns`,
-   * `compaction`).
-   */
-  readonly memoryStrategy?: Class<BaseMemoryStrategy>;
   /** Overrides the model provider's price table; the provider's own reported cost comes first. */
   readonly price?: AgentSettings["price"];
   readonly thinking?: AgentSettings["thinking"];
@@ -112,10 +100,8 @@ export interface WorkflowMeta {
   readonly toolInterceptors?: readonly Class[];
   /** Application-level tool interceptors removed for every agent of the workflow (#1295). */
   readonly excludeToolInterceptors?: readonly Class[];
-  /** `@Compaction` of every agent and model router, over the application's (#120 PR 3). */
-  readonly compaction?: Class;
-  /** Recent turns seen in full by every agent and model router, over the application's. */
-  readonly uncompactedTurns?: UncompactedTurns;
+  /** `@Memory` of every agent and model router (#1303); none: the workflow is stateless. */
+  readonly memory?: Class;
   readonly providers?: readonly Provider[];
   /** `@Workflow({ services })` (#1324): scoped to the workflow's own container. */
   readonly services?: readonly Provider[];

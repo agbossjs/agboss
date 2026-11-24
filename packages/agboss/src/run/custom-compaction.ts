@@ -1,12 +1,8 @@
 import { usd } from "../units/index.js";
-import type {
-  CompactionHandler,
-  CompactionInput,
-  CompactionTurn,
-} from "../compaction/compaction.decorator.js";
-import { CompactionError } from "../compaction/errors.js";
-import type { CustomCompactionInUse } from "../compaction/plan.js";
-import { summaryTextsOf } from "../compaction/stored-summaries.js";
+import type { CompactionInput, CompactionTurn, CompactMethod } from "../memory/memory.decorator.js";
+import { isMemoryError, memoryError } from "../memory/memory-error.js";
+import type { CustomCompactionInUse } from "../memory/plan.js";
+import { summaryTextsOf } from "../memory/stored-summaries.js";
 import type { UsageRecord } from "../finops/usage.js";
 import { mappedStringsAsync } from "../pii/strings.js";
 import { revealedText, type PiiTokenMap } from "../pii/tokens.js";
@@ -45,9 +41,9 @@ function turnOf(turn: Turn): CompactionTurn {
   const start = partsOf(turn.task);
   const finish = partsOf(turn.replyWith);
   return {
-    startName: start.name,
+    start: start.name,
     input: start.value,
-    finishName: finish.name,
+    finish: finish.name,
     output: finish.value,
   };
 }
@@ -84,7 +80,7 @@ async function maskedInputOf<TName extends string>(
   return { input: { previousSummaries, turnsToCompact }, tokens, usage };
 }
 
-const isHandler = (value: unknown): value is CompactionHandler =>
+const isHandler = (value: unknown): value is { compact: CompactMethod } =>
   typeof value === "object" &&
   value !== null &&
   "compact" in value &&
@@ -96,7 +92,7 @@ function checkedSummaries(name: string, given: unknown): readonly string[] {
   const texts: readonly unknown[] = isList ? given : [];
   if (texts.length === 0 || texts.some((text) => typeof text !== "string" || text.trim() === "")) {
     const message = `${name}: compact() gave no summaries or an empty one — it gives the summaries readers see`;
-    throw new CompactionError({ message, compaction: name, summaryMaxTokens: undefined });
+    throw memoryError({ message, memory: name, summaryMaxTokens: undefined });
   }
   return texts.map((text) => String(text).trim());
 }
@@ -116,11 +112,11 @@ export async function compactedBy(
     const given: unknown = await inFrame(() => Promise.resolve(handler.compact(input)));
     return checkedSummaries(name, given);
   } catch (error) {
-    if (error instanceof CompactionError) throw error;
+    if (isMemoryError(error)) throw error;
     const message = `${name}: compact() failed`;
-    throw new CompactionError({
+    throw memoryError({
       message,
-      compaction: name,
+      memory: name,
       summaryMaxTokens: undefined,
       cause: error,
     });
@@ -153,13 +149,14 @@ export async function compactWithHandler<TName extends string>(
   const given = await compacted(deps, compaction, run, masked.input);
   const summaries = given.map((text) => revealedText(text, masked.tokens).text);
   const stored = await storedCompaction(deps, run, {
-    compaction: compaction.name,
+    memory: compaction.name,
     due,
     current,
     text: JSON.stringify(summaries),
     costUsd: usd(0),
     summaries: summaries.length,
     summaryQueueLength: summaries.length,
+    isQueue: false,
   });
   return stored === undefined
     ? { usage: masked.usage }

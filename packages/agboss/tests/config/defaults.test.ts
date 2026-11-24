@@ -4,6 +4,7 @@
  * `defaults.guardrail.model` are separate; no model anywhere → `[router.no-model]` /
  * `[guardrail.no-model]`; `agboss describe` shows where each value came from.
  */
+import { Window1Memory, Window3Memory, Window7Memory } from "../helpers/window-memory.js";
 import { describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
@@ -115,7 +116,7 @@ const guardrails = [PromptInjectionGuardrail, PersonalDataGuardrail];
   version: "1.0.0",
   flow: flowThrough(AskRouter),
   defaults: { models: { temperature: 0.3 } },
-  uncompactedTurns: 7,
+  memory: Window7Memory,
   guardrails,
 })
 class AskWorkflow {}
@@ -133,7 +134,6 @@ const applicationDefaults: WorkflowDefaults = {
   environment: EmptyEnvironment,
   workflows: [AskWorkflow],
   defaults: applicationDefaults,
-  uncompactedTurns: 3,
   budgets: TEST_BUDGETS,
 })
 class AskApplication {}
@@ -144,7 +144,7 @@ class AskApplication {}
   version: "1.0.0",
   flow: flowThrough(OwnRouter),
   defaults: { router: { model: "typesafe/jev-workflow" } },
-  uncompactedTurns: 1,
+  memory: Window1Memory,
 })
 class OwnDefaultsWorkflow {}
 

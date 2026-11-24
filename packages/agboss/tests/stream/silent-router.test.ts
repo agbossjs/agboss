@@ -54,7 +54,7 @@ class AuditChatRouter {}
       .toRouter(AuditChatRouter)
       .chooseOne(route(RoutedAgent).toFinish(Reply), route(HandOver)),
   ],
-  defaults: { models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX } },
+  defaults: { models: { temperature: 0, maxTokens: TokenLimit.ModelMax } },
 })
 class RoutedWorkflow {}
 

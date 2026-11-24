@@ -136,7 +136,7 @@ export function threadLine(result: Pick<ExecutionOutput, "threadId" | "traceUrl"
 }
 
 /**
- * `memory: conversation-compaction turns 1–5 → summary 1/10` when this turn compacted the
+ * `memory: conversation-memory turns 1–5 → summary 1/10` when this turn compacted the
  * conversation — one part per compaction that did (#120 PR 3).
  */
 export function memoryLine(result: Pick<ExecutionOutput, "compacted">): string | undefined {
@@ -144,7 +144,7 @@ export function memoryLine(result: Pick<ExecutionOutput, "compacted">): string |
   if (compacted.length === 0) return undefined;
   const parts = compacted.map(
     (c) =>
-      `${c.compaction} turns ${String(c.fromTurn)}–${String(c.toTurn)} → summary ${String(c.summaries)}/${String(c.summaryQueueLength)}`,
+      `${c.memory} turns ${String(c.fromTurn)}–${String(c.toTurn)} → summary ${String(c.summaries)}${c.summaryQueueLength === undefined ? "" : `/${String(c.summaryQueueLength)}`}`,
   );
   return `memory: ${parts.join(" · ")}`;
 }

@@ -1,3 +1,4 @@
+import { Window2Memory } from "../../helpers/window-memory.js";
 import { type BuildApplicationOptions } from "../../../src/application/create-app.js";
 import {
   Agent,
@@ -82,7 +83,7 @@ const base = {
     router: { model: "typesafe/jev-1.13" },
     tools: { maxToolCalls: 2 },
   },
-  uncompactedTurns: 2,
+  memory: Window2Memory,
 } satisfies Partial<WorkflowOptions>;
 
 /** A workflow `Chat → text agent → Done` with extra settings, for the assembly checks. */

@@ -46,7 +46,7 @@ export class AnsweringAgent {}
       .toAgent(AnsweringAgent)
       .toFinish(AnswerWorkflowFinish),
   ],
-  defaults: { models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX } },
+  defaults: { models: { temperature: 0, maxTokens: TokenLimit.ModelMax } },
 })
 export class AskWorkflow {}
 

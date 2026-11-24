@@ -1,3 +1,4 @@
+import { Window1Memory } from "../../../helpers/window-memory.js";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -122,7 +123,7 @@ export class SqliteRecoveryApplication {}
     models: { maxTokens: 100, temperature: 0 },
     tools: { maxToolCalls: 8 },
   },
-  uncompactedTurns: 1,
+  memory: Window1Memory,
   flow: [
     onStart(OrderWorkflowStart)
       .toAgent(Clerk)

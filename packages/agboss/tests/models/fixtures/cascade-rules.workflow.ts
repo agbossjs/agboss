@@ -1,3 +1,4 @@
+import { Window1Memory } from "../../helpers/window-memory.js";
 import {
   Agent,
   EmptyEnvironment,
@@ -70,7 +71,7 @@ export class BrokenStart {}
 @WorkflowFinish({ name: "broken-workflow-finish", description: "The answer", output: WorkflowFinishTextDto })
 export class BrokenFinish {}
 
-const defaults = { models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX } };
+const defaults = { models: { temperature: 0, maxTokens: TokenLimit.ModelMax } };
 
 /** Names no provider itself: it inherits its application's. */
 @Workflow({
@@ -80,7 +81,7 @@ const defaults = { models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX } }
     .toAgent(SoundAgent)
     .toFinish(SoundFinish)],
   defaults,
-  uncompactedTurns: 1,
+  memory: Window1Memory,
 })
 export class SoundWorkflow {}
 
@@ -92,7 +93,7 @@ export class SoundWorkflow {}
     .toAgent(SoundAgent)
     .toFinish(BrokenFinish)],
   defaults,
-  uncompactedTurns: 1,
+  memory: Window1Memory,
   modelProvider: BrokenModels,
 })
 export class BrokenWorkflow {}
@@ -104,7 +105,7 @@ export class BrokenWorkflow {}
     .toAgent(BrokenAgent)
     .toFinish(BrokenFinish)],
   defaults,
-  uncompactedTurns: 1,
+  memory: Window1Memory,
   modelProvider: SoundModels,
 })
 export class BrokenAgentWorkflow {}
@@ -188,7 +189,7 @@ export class ThirdAgent {}
     .toAgent(ThirdAgent)
     .toFinish(SoundFinish)],
   defaults,
-  uncompactedTurns: 1,
+  memory: Window1Memory,
   modelProvider: SecondModels,
 })
 export class NamedWorkflow {}

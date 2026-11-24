@@ -1,13 +1,14 @@
 /**
- * The compaction test applications (#120 PR 3): a help desk whose router sees one turn in full and
- * whose answer agent sees three — one queue compaction for both, so it summarises what is older
- * than one turn — behind a PII policy; a notes desk on one running summary; and a window desk
+ * The compaction test applications (#120 PR 3): a help desk whose agents and router see one turn in full
+ * and share one queue memory, which summarises what is older than that — behind a PII policy; a notes desk on one running summary; and a window desk
  * whose compaction writes no summaries, with an agent that sees every turn.
  */
 import {
   Agent,
-  Compaction,
   CompactionStrategy,
+  Memory,
+  inline,
+  Ttl,
   DecidedBy,
   TokenLimit,
   PiiKind,
@@ -34,36 +35,54 @@ const JEV = "typesafe/jev-1.13";
 export class ContactPiiPolicy {}
 
 /** A queue: every 2 turns older than its window become one summary, the latest 2 are kept. */
-@Compaction({
-  name: "queue-compaction",
+@Memory({
+  name: "queue-memory",
   description: "Summarises the help desk's old turns",
-  prompt: "Summarise the turns under `Turns to compact`.",
-  model: "test/compactor",
-  strategy: CompactionStrategy.SummaryQueue,
+  ttl: Ttl.Forever,
+  uncompactedTurns: 1,
   turnsBetweenCompactions: 2,
-  summaryQueueLength: 2,
-  summaryMaxTokens: 200,
+  compaction: {
+    strategy: CompactionStrategy.SummaryQueue,
+    prompt: inline("Summarise the turns under `Turns to compact`."),
+    model: "test/compactor",
+    summaryQueueLength: 2,
+    summaryMaxTokens: 200,
+  },
 })
-export class QueueCompaction {}
+export class QueueMemory {}
 
 /** One running summary, rewritten every turn older than the window; the built-in prompt. */
-@Compaction({
-  name: "note-compaction",
+@Memory({
+  name: "note-memory",
   description: "Keeps one note of the notes desk",
-  model: "test/compactor",
-  strategy: CompactionStrategy.SingleSummary,
+  ttl: Ttl.Forever,
+  uncompactedTurns: 1,
   turnsBetweenCompactions: 1,
-  summaryMaxTokens: TokenLimit.MODEL_MAX,
+  compaction: {
+    strategy: CompactionStrategy.SingleSummary,
+    model: "test/compactor",
+    summaryMaxTokens: TokenLimit.ModelMax,
+  },
 })
-export class NoteCompaction {}
+export class NoteMemory {}
 
 /** No summaries: only the window. */
-@Compaction({
-  name: "no-summaries-compaction",
+@Memory({
+  name: "window-only-memory",
   description: "Shows only the window of recent turns",
-  strategy: CompactionStrategy.None,
+  ttl: Ttl.Forever,
+  uncompactedTurns: 1,
 })
-export class NoSummariesCompaction {}
+export class WindowOnlyMemory {}
+
+/** Every turn in full, no summaries. */
+@Memory({
+  name: "all-turns-memory",
+  description: "Shows every turn of the thread",
+  ttl: Ttl.Forever,
+  uncompactedTurns: TurnLimit.All,
+})
+export class AllTurnsMemory {}
 
 @WorkflowStart({
   name: "desk-workflow-start",
@@ -86,7 +105,7 @@ export class DeskAnswer {}
 })
 export class DeskHandOver {}
 
-/** Inherits the application's window (3) and compaction. */
+/** Inherits its workflow's memory. */
 @Agent({
   name: "answer-agent",
   description: "Answers",
@@ -102,7 +121,6 @@ export class AnswerAgent {}
   prompt: "Write to the contact.",
   model: "test/contact",
   excludePiiPolicies: [ContactPiiPolicy],
-  uncompactedTurns: 1,
 })
 export class ContactAgent {}
 
@@ -114,7 +132,6 @@ export class ContactAgent {}
   prompt: "Pick who answers.",
   model: JEV,
   input: { message: WorkflowStartTextDto },
-  uncompactedTurns: 1,
   routes: [
     { prompt: "Questions", target: AnswerAgent },
     { prompt: "Anything about a contact", target: ContactAgent },
@@ -130,6 +147,7 @@ export class HelpRouter {}
       .toRouter(HelpRouter)
       .chooseOne(route(AnswerAgent).toFinish(DeskAnswer), route(ContactAgent).toFinish(DeskAnswer)),
   ],
+  memory: QueueMemory,
 })
 export class HelpDeskWorkflow {}
 
@@ -139,8 +157,6 @@ export class HelpDeskWorkflow {}
   environment: EmptyEnvironment,
   workflows: [HelpDeskWorkflow],
   piiPolicies: [ContactPiiPolicy],
-  compaction: QueueCompaction,
-  uncompactedTurns: 3,
   budgets: TEST_BUDGETS,
 })
 export class HelpDeskApplication {}
@@ -157,8 +173,7 @@ export class NoteAgent {}
   name: "notes-desk-workflow",
   version: "1.0.0",
   flow: [onStart(DeskStart).toAgent(NoteAgent).toFinish(DeskAnswer)],
-  compaction: NoteCompaction,
-  uncompactedTurns: 1,
+  memory: NoteMemory,
 })
 export class NotesDeskWorkflow {}
 
@@ -177,7 +192,7 @@ export class NotesDeskApplication {}
   description: "Answers from the whole thread",
   prompt: "Answer the message.",
   model: "test/archive",
-  uncompactedTurns: TurnLimit.ALL,
+  memory: AllTurnsMemory,
 })
 export class ArchiveAgent {}
 
@@ -203,8 +218,7 @@ export class WindowRouter {}
       .toRouter(WindowRouter)
       .chooseOne(route(ArchiveAgent).toFinish(DeskAnswer), route(DeskHandOver)),
   ],
-  compaction: NoSummariesCompaction,
-  uncompactedTurns: 1,
+  memory: WindowOnlyMemory,
 })
 export class WindowDeskWorkflow {}
 
@@ -218,16 +232,20 @@ export class WindowDeskWorkflow {}
 export class WindowDeskApplication {}
 
 /** Every turn older than a window of none: compacted before the next turn reads the thread. */
-@Compaction({
-  name: "eager-compaction",
+@Memory({
+  name: "eager-memory",
   description: "Summarises every turn before the next one",
-  model: "test/compactor",
-  strategy: CompactionStrategy.SummaryQueue,
+  ttl: Ttl.Forever,
+  uncompactedTurns: 0,
   turnsBetweenCompactions: 1,
-  summaryQueueLength: 1,
-  summaryMaxTokens: 100,
+  compaction: {
+    strategy: CompactionStrategy.SummaryQueue,
+    model: "test/compactor",
+    summaryQueueLength: 1,
+    summaryMaxTokens: 100,
+  },
 })
-export class EagerCompaction {}
+export class EagerMemory {}
 
 @Agent({
   name: "eager-agent",
@@ -241,8 +259,7 @@ export class EagerAgent {}
   name: "eager-desk-workflow",
   version: "1.0.0",
   flow: [onStart(DeskStart).toAgent(EagerAgent).toFinish(DeskAnswer)],
-  compaction: EagerCompaction,
-  uncompactedTurns: 0,
+  memory: EagerMemory,
 })
 export class EagerDeskWorkflow {}
 

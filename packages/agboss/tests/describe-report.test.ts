@@ -33,9 +33,9 @@ import { TreasuryApplication } from "./flow/fixtures/replies.fixture.js";
 import { CardPiiPolicy } from "./pii/pii.fixture.js";
 import {
   HelpDeskApplication,
-  NoteCompaction,
+  NoteMemory,
   NotesDeskApplication,
-} from "./compaction/compaction.fixture.js";
+} from "./memory/compaction.fixture.js";
 import { onStart } from "./helpers/flow.js";
 
 /** A block rule with its own text, beside one whose class computes it. */
@@ -226,7 +226,7 @@ describe("#268 AC4: PII policies and their refusals", () => {
   description: "Answers from its own note",
   prompt: "Answer.",
   model: "test/own-note",
-  compaction: NoteCompaction,
+  memory: NoteMemory,
 })
 class OwnNoteAgent {}
 
@@ -251,20 +251,20 @@ describe("#268 AC4, #120 PR 3: each agent's compaction and window with where the
   const agentLine = (lines: readonly string[], agent: string): string | undefined =>
     lines.find((line) => line.startsWith(`  ${agent}  `));
 
-  it("the agent's own, its workflow's, or its application's", async () => {
+  it("the agent's own or its workflow's", async () => {
     const own = describeApplication(await applicationOf(applicationWith(OwnNoteWorkflow)));
     const workflow = describeApplication(await applicationOf(NotesDeskApplication));
     const application = describeApplication(await applicationOf(HelpDeskApplication));
 
-    expect(agentLine(own, "own-note-agent")).toMatch(/ · compaction note-compaction \(own\)$/);
+    expect(agentLine(own, "own-note-agent")).toMatch(/ · compaction note-memory \(own\)$/);
     expect(agentLine(workflow, "note-agent")).toMatch(
-      / · compaction note-compaction \(notes-desk-workflow\)$/,
+      / · compaction note-memory \(notes-desk-workflow\)$/,
     );
     expect(agentLine(application, "answer-agent")).toMatch(
-      / · compaction queue-compaction \(help-desk-application\)$/,
+      / · compaction queue-memory \(help-desk-workflow\)$/,
     );
     expect(application).toContainEqual(
-      expect.stringMatching(/^ {4}defaults: .* · uncompactedTurns 3 \(help-desk-application\)$/),
+      expect.stringMatching(/^ {4}defaults: .* · uncompactedTurns 1 \(help-desk-workflow\)$/),
     );
   });
 });

@@ -45,7 +45,7 @@ export const testConfig: AgentsConfigOf<TestAgent> = {
   name: "test-bundle",
   version: "1.0.0",
   defaults: {
-    models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX, thinking: "default", cache: true },
+    models: { temperature: 0, maxTokens: TokenLimit.ModelMax, thinking: "default", cache: true },
     router: testRouter,
     tools: { maxToolCalls: 3 },
     uncompactedTurns: 2,
@@ -68,7 +68,7 @@ export const testConfig: AgentsConfigOf<TestAgent> = {
 export { StarWorkflow };
 
 export const testDefaults: WorkflowDefaults = {
-  models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX, cache: true },
+  models: { temperature: 0, maxTokens: TokenLimit.ModelMax, cache: true },
   router: { model: "typesafe/jev-test" },
   tools: { maxToolCalls: 3 },
 };

@@ -50,16 +50,14 @@ describe("CLI cost output", () => {
   it("AC2 (#77): says when a turn compacted the conversation", () => {
     const compacted = [
       {
-        compaction: "conversation-compaction",
+        memory: "conversation-memory",
         fromTurn: 1,
         toTurn: 5,
         summaries: 1,
         summaryQueueLength: 10,
       },
     ];
-    expect(memoryLine({ compacted })).toBe(
-      "memory: conversation-compaction turns 1–5 → summary 1/10",
-    );
+    expect(memoryLine({ compacted })).toBe("memory: conversation-memory turns 1–5 → summary 1/10");
     expect(memoryLine({})).toBeUndefined();
   });
 });

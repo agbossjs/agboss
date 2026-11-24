@@ -1,22 +1,21 @@
 /**
  * The custom compaction test applications (#382): a graph desk whose agent sees one turn in full and
- * whose `@Compaction` is `CompactionStrategy.Custom` — `GraphMemoryCompaction` hands every two turns
+ * whose `@Memory` has a `compact(input)` — `GraphMemory` hands every two turns
  * older than the window to a knowledge graph service (`deps`, created by the container) — behind a
  * PII policy; the same desk on another custom class of the same name (the hash), and a desk whose
  * custom compaction has no `compact` method (the rule).
  */
 import {
   Agent,
-  Compaction,
-  CompactionStrategy,
   ExecutionContext,
   Injectable,
+  Memory,
   PiiKind,
   PiiPolicy,
+  Ttl,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type CompactionHandler,
   type CompactionInput,
   type CompactionTurn,
 } from "../../src/index.js";
@@ -40,14 +39,15 @@ export class KnowledgeGraphService {
   }
 }
 
-@Compaction({
-  name: "graph-memory-compaction",
+@Memory({
+  name: "graph-memory",
   description: "Keeps the facts of old turns in a knowledge graph",
-  strategy: CompactionStrategy.Custom,
+  ttl: Ttl.Forever,
+  uncompactedTurns: 1,
   turnsBetweenCompactions: 2,
   deps: [KnowledgeGraphService, ExecutionContext],
 })
-export class GraphMemoryCompaction implements CompactionHandler {
+export class GraphMemory {
   constructor(
     private readonly knowledgeGraphService: KnowledgeGraphService,
     private readonly executionContext: ExecutionContext,
@@ -63,13 +63,14 @@ export class GraphMemoryCompaction implements CompactionHandler {
 }
 
 /** Another class under the same name: the same settings, another `compact()`. */
-@Compaction({
-  name: "graph-memory-compaction",
+@Memory({
+  name: "graph-memory",
   description: "Keeps the facts of old turns in a knowledge graph",
-  strategy: CompactionStrategy.Custom,
+  ttl: Ttl.Forever,
+  uncompactedTurns: 1,
   turnsBetweenCompactions: 2,
 })
-export class OtherGraphMemoryCompaction implements CompactionHandler {
+export class OtherGraphMemory {
   compact(): readonly string[] {
     return ["one summary"];
   }
@@ -106,33 +107,32 @@ export class GraphAnswer {}
 })
 export class GraphAgent {}
 
-@Workflow({
-  name: "graph-desk-workflow",
-  version: "1.0.0",
-  flow: [onStart(GraphStart).toAgent(GraphAgent).toFinish(GraphAnswer)],
-  uncompactedTurns: 1,
-  providers: [KnowledgeGraphService],
-})
-export class GraphDeskWorkflow {}
+/** The graph desk on a memory. */
+export const graphDeskOn = (memory: Class, name: string): Class => {
+  @Workflow({
+    name: "graph-desk-workflow",
+    version: "1.0.0",
+    flow: [onStart(GraphStart).toAgent(GraphAgent).toFinish(GraphAnswer)],
+    memory,
+    providers: [KnowledgeGraphService],
+  })
+  class GraphDeskWorkflow {}
 
-/** The graph desk on a compaction: its application's. */
-export const graphDeskOn = (compaction: Class, name: string): Class => {
   @Application({
     name,
     version: "1.0.0",
     environment: EmptyEnvironment,
     workflows: [GraphDeskWorkflow],
     piiPolicies: [GraphContactPiiPolicy],
-    compaction,
     budgets: TEST_BUDGETS,
   })
   class GraphDeskApplication {}
   return GraphDeskApplication;
 };
 
-export const GraphDeskApplication = graphDeskOn(GraphMemoryCompaction, "graph-desk-application");
+export const GraphDeskApplication = graphDeskOn(GraphMemory, "graph-desk-application");
 
 export const OtherGraphDeskApplication = graphDeskOn(
-  OtherGraphMemoryCompaction,
+  OtherGraphMemory,
   "other-graph-desk-application",
 );

@@ -16,7 +16,6 @@ export {
   type ToolTargets,
 } from "../tool-interceptors/hooks.js";
 export { type ToolInputOf, type ToolOutputOf, type UnionToIntersection } from "../tools/index.js";
-export { type CustomCompactionOptions } from "../compaction/compaction.decorator.js";
 export { type AgentSettings, type AgentSettingsOf } from "../config/types.js";
 export { type UnavailableRead } from "../flow/context/errors.js";
 export { type AlwaysRouterRoute, type ChosenRouterRoute } from "../flow/decorators/router.js";

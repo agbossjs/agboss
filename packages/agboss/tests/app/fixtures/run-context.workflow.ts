@@ -1,3 +1,4 @@
+import { Window1Memory } from "../../helpers/window-memory.js";
 import { TerminalUserChannel } from "../../../src/channels/terminal-channel.js";
 import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
@@ -172,7 +173,7 @@ const defaults = {
   name: "checkout-workflow",
   version: "1.0.0",
   defaults,
-  uncompactedTurns: 1,
+  memory: Window1Memory,
   providers: [Pay],
   flow: [
     onStart(Start)

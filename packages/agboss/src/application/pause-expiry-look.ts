@@ -132,7 +132,7 @@ export class ExpiryLook {
     const { records, expiries, signal } = this.sources;
     // a root with no record (another application's tree on a shared store) is skipped
     const record = await records.findByTenantIdAndRunId(tenantId, rootExecutionId);
-    if (record !== undefined) await expiries.get(record.bundle)?.(record, signal, onTaken);
+    if (record !== undefined) await expiries.get(record.workflow)?.(record, signal, onTaken);
   }
 }
 

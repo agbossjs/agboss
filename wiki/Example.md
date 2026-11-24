@@ -89,7 +89,7 @@ npm test
   (#454, [Model providers](Model-providers#which-provider-serves-a-model)). The agent has two code guardrails (`decidedBy: DecidedBy.Code`:
   credentials in the question, a promised date in the answer), a `@ToolInterceptor` that blocks
   `close-account-tool`, answers for an archived order (`reply`) and cuts a status's internal
-  note (`afterAnyTool`), and the workflow a `CompactionStrategy.Custom` compaction past a two-turn
+  note (`afterAnyTool`), and the workflow a `@Memory` with its own `compact(input)` past a two-turn
   window. `src/desk.application.ts` lists the same workflow with the transport alone, so
   `PII_PSEUDONYM_KEY=offline-only npx agboss run --application src/desk.application.ts --env offline
   --start desk-workflow-start --input '{"customerId":"c-1","question":"Where is order #7?"}'`

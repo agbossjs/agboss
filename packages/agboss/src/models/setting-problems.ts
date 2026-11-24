@@ -87,7 +87,7 @@ function parameterProblems(
             `parameters ${list(parameters)}`,
           ),
         ]),
-    ...(settings.maxTokens === TokenLimit.MODEL_MAX || takes("max_tokens", "max_completion_tokens")
+    ...(settings.maxTokens === TokenLimit.ModelMax || takes("max_tokens", "max_completion_tokens")
       ? []
       : [
           unsupported(

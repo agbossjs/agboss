@@ -1,3 +1,4 @@
+import { Window4Memory } from "../../helpers/window-memory.js";
 import {
   Agent,
   DecidedBy,
@@ -92,7 +93,7 @@ export class PromiseFinish {}
       .toFinish(PromiseFinish),
   ],
   defaults: DEFAULTS,
-  uncompactedTurns: 4,
+  memory: Window4Memory,
   providers: [BannedWords, provide(RUBRIC, "Is the reply grounded? Answer PASS or FAIL: <why>.")],
 })
 export class PromiseDesk {}

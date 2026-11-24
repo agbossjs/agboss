@@ -1,3 +1,4 @@
+import { Window1Memory } from "../../helpers/window-memory.js";
 import { TerminalUserChannel } from "../../../src/channels/terminal-channel.js";
 import { Integer, Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
@@ -147,7 +148,7 @@ export class Done {}
     models: { maxTokens: 100, temperature: 0 },
     tools: { maxToolCalls: 3 },
   },
-  uncompactedTurns: 1,
+  memory: Window1Memory,
   providers: [Shortlist],
   flow: [
     onStart(SearchStart)
@@ -183,7 +184,7 @@ export class Typo {}
   name: "typo-search-workflow",
   version: "1.0.0",
   defaults: { models: { maxTokens: 100, temperature: 0 } },
-  uncompactedTurns: 1,
+  memory: Window1Memory,
   flow: [
     onStart(SearchStart)
       .toAgent(Typo)

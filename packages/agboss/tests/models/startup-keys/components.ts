@@ -1,7 +1,8 @@
 import {
   Agent,
-  Compaction,
   CompactionStrategy,
+  Memory,
+  Ttl,
   DecidedBy,
   InputGuardrail,
   FileView,
@@ -155,16 +156,20 @@ export function everyKindWorkflows(models: KindModels): {
     ],
   })
   class DeskRouter {}
-  @Compaction({
-    name: "desk-compaction",
+  @Memory({
+    name: "desk-memory",
     description: "Summarises",
-    model: models.compactions,
-    strategy: CompactionStrategy.SummaryQueue,
+    ttl: Ttl.Forever,
+    uncompactedTurns: 1,
     turnsBetweenCompactions: 2,
-    summaryQueueLength: 1,
-    summaryMaxTokens: 200,
+    compaction: {
+      strategy: CompactionStrategy.SummaryQueue,
+      model: models.compactions,
+      summaryQueueLength: 1,
+      summaryMaxTokens: 200,
+    },
   })
-  class DeskCompaction {}
+  class DeskMemory {}
   @WorkflowStart({
     name: "desk-workflow-start",
     description: "A message",
@@ -189,15 +194,14 @@ export function everyKindWorkflows(models: KindModels): {
         ),
     ],
     defaults: {
-      models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX },
+      models: { temperature: 0, maxTokens: TokenLimit.ModelMax },
       router: { model: models.defaults },
       guardrail: { model: models.guardrails },
       // the built-in transcriber of files is a model use of its own (#899)
       files: { transcriptionModel: models.files },
     },
-    uncompactedTurns: 1,
+    memory: DeskMemory,
     guardrails: [InjectionGuardrail],
-    compaction: DeskCompaction,
   })
   class DeskWorkflow {}
   return {

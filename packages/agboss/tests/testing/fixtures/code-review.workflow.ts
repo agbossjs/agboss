@@ -1,3 +1,4 @@
+import { Window2Memory } from "../../helpers/window-memory.js";
 import {
   Agent,
   DecidedBy,
@@ -100,14 +101,14 @@ export class Unused {}
   defaults: {
     models: {
       temperature: 0,
-      maxTokens: TokenLimit.MODEL_MAX,
+      maxTokens: TokenLimit.ModelMax,
       reasoning: Reasoning.modelDecides(),
       cache: true,
     },
     router: { model: "typesafe/jev-1.13" },
     tools: { maxToolCalls: 2 },
   },
-  uncompactedTurns: 2,
+  memory: Window2Memory,
 })
 export class CodeReview {}
 
