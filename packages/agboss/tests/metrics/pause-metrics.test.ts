@@ -60,7 +60,7 @@ function metered(
   });
   two(name, ({ apps, clock }) => body({ apps, clock, meters }));
 }
-const manager = { answeredBy: "manager-17" };
+const manager = { actor: { id: "manager-17" } };
 
 beforeEach(resetAsked);
 

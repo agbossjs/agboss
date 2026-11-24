@@ -62,7 +62,7 @@ describe("#933 AC1: a question starts an .onError side path", () => {
       expect.objectContaining({
         kind: PauseKind.Question,
         step: "spending-limit-question",
-        ask: expect.objectContaining({ item: "laptop", priceUsd: 900 }),
+        input: expect.objectContaining({ item: "laptop", priceUsd: 900 }),
       }),
     ]);
     expect(app.resolve(QuestionInbox).asked).toHaveLength(1);

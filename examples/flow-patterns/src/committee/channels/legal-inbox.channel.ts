@@ -15,7 +15,7 @@ export class LegalInboxChannel {
   constructor(private readonly committeeDeskService: CommitteeDeskService) {}
 
   send(ask: ChannelAsk<LegalSignOffExternalTask>): ChannelOutcome<LegalSignOffExternalTask> {
-    this.committeeDeskService.post("Legal", ask.value.title, ask.pauseId);
+    this.committeeDeskService.post("Legal", ask.input.title, ask.pauseId);
     return ChannelOutcome.awaitReply();
   }
 }

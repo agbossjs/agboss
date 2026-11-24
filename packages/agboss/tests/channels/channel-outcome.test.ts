@@ -129,7 +129,7 @@ describe("#267 AC5: awaitReply pauses, decided goes on and leaves no pending rec
 
     expect(result).toMatchObject({
       status: ExecutionStatus.Paused,
-      pending: [{ ask: { tool: "refund-card-tool" } }],
+      pending: [{ toolCall: { tool: "refund-card-tool" } }],
     });
     expect(desk.posted).toHaveLength(1);
     expect(desk.refunded).toEqual([]);

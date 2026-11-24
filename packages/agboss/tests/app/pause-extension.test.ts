@@ -34,7 +34,7 @@ import {
 const test = testWith(ExtensionApplication, { instances: 3 });
 const ORDER = { orderId: "o-1" };
 const THREAD = { threadId: "extend-1" };
-const manager = { answeredBy: "manager-17" };
+const manager = { actor: { id: "manager-17" } };
 
 beforeEach(resetTold);
 
@@ -135,7 +135,7 @@ describe("#942 AC1: an operator extends an open approval", () => {
     await execute(app, managerFlow.start, ORDER, THREAD);
     const request = { pauseId: pauseIdOf(), expiresIn: hours(30) };
 
-    for (const options of [{}, { answeredBy: " " }, { ownerId: "alice" }])
+    for (const options of [{}, { actor: { id: " " } }, { ownerId: "alice" }])
       expect(await failureOf(app.extendPause(request, options as never))).toBeInstanceOf(
         PauseError.PermissionDenied,
       );
@@ -266,7 +266,7 @@ describe("#942: the caller's options", () => {
     await execute(app, managerFlow.start, ORDER, THREAD);
     const request = { pauseId: pauseIdOf(), expiresIn: hours(30) };
 
-    const refused = await failureOf(app.extendPause(request, { answeredBy: "bob\uD800" }));
+    const refused = await failureOf(app.extendPause(request, { actor: { id: "bob\uD800" } }));
 
     expect(refused).toBeInstanceOf(DtoValidationError);
     expect(refused).toMatchObject({ dto: "PauseCallerOptions" });
@@ -279,7 +279,7 @@ describe("#942: the caller's options", () => {
     const streamed: unknown[] = [];
 
     const extension = await app.extendPause({ pauseId: pauseIdOf(), expiresIn: hours(30) }, {
-      answeredBy: "manager-17",
+      actor: { id: "manager-17" },
       onStream: (event: unknown) => streamed.push(event),
     } as never);
 

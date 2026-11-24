@@ -18,7 +18,7 @@ import {
 } from "../../flow/fixtures/pause-extension.fixture.js";
 
 const test = testWith(ExtensionApplication);
-const manager = { answeredBy: "manager-17" };
+const manager = { actor: { id: "manager-17" } };
 const THREAD = { threadId: "change-thread" };
 const ORDER = { orderId: "o-1" };
 
@@ -70,10 +70,10 @@ describe("#1343: onPauseReassigned", () => {
     const oldId = pauseId();
     const deadline = paused.pending[0]?.expiresAt ?? "";
 
-    await app.reassignPause({ pauseId: oldId, assignee: "deputy-3" }, manager);
+    await app.reassignPause({ pauseId: oldId, assignees: ["deputy-3"] }, manager);
     // the old id is closed: a second reassignment loses and tells nothing
     const lost = await app
-      .reassignPause({ pauseId: oldId, assignee: "deputy-4" }, manager)
+      .reassignPause({ pauseId: oldId, assignees: ["deputy-4"] }, manager)
       .catch((error: unknown) => error);
     expect(lost).toBeInstanceOf(PauseClosedError);
 

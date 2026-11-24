@@ -110,7 +110,7 @@ const pauseOf = (pause: PauseAnswerRecord): EvalPauseTrace => ({
   nodeId: pause.step.nodeId,
   target: pause.role,
   resolution: pause.resolution,
-  ...(pause.answeredBy === undefined ? {} : { actor: { id: pause.answeredBy } }),
+  ...(pause.actor === undefined ? {} : { actor: pause.actor }),
   ...(pause.decision === undefined ? {} : { output: pause.decision }),
 });
 

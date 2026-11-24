@@ -5,7 +5,7 @@
 import { describe, expect, it } from "vitest";
 import {
   PauseKind,
-  questionAskOf,
+  pauseInputOf,
   isApprovalPause,
   isQuestionPause,
   type PauseRecord,
@@ -32,13 +32,13 @@ describe("#801: a pause's kind", () => {
   });
 });
 
-describe("#801: questionAskOf", () => {
+describe("#801: pauseInputOf", () => {
   it("brands an object as it is", () => {
     const ask = { item: "laptop" };
-    expect(questionAskOf(ask)).toBe(ask);
+    expect(pauseInputOf(ask)).toBe(ask);
   });
 
   it.each([null, undefined, "laptop", 7, ["laptop"]])("refuses %j", (value) => {
-    expect(() => questionAskOf(value)).toThrow(TypeError);
+    expect(() => pauseInputOf(value)).toThrow(TypeError);
   });
 });

@@ -27,7 +27,7 @@ import type { AppDeps } from "./app-deps.js";
 import { ownDepsOf } from "./own-deps.js";
 import { toldTimeoutChanged } from "./pause-change-events.js";
 import type { AnswerParts } from "./resume.js";
-import { answeredByOf, pauseOf } from "./resume.js";
+import { actorOf, pauseOf } from "./resume.js";
 import { pauseClosed } from "./pause-closed.js";
 import { PauseExtensionContendedError } from "./pause-closed-error.js";
 import type { AnyTenantApp, ExtendPauseRequest, PauseCallerOptions } from "./types.js";
@@ -199,7 +199,7 @@ export const extendPauseOf =
     checkedCallers("PauseCallerOptions", { ...call, tenantId });
     const request = checked(given);
     let pause = await pauseOf(parts.pauses, request, tenantId);
-    await answeredByOf(parts, pause, call);
+    await actorOf(parts, pause, call);
     for (let attempt = 1; attempt <= MAX_EXTEND_ATTEMPTS; attempt += 1) {
       await assertOpen(parts, pause);
       const channel = channelOf(parts.deps, pause);

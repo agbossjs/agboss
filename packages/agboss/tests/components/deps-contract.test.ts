@@ -69,9 +69,9 @@ describe("#183 AC1: every decorator kind with deps gets them injected at run tim
 
   it("@Channel: created with deps", async () => {
     const { app } = await runVault();
-    await expect(app.resolve(VaultChannel).send({ pauseId: "p1", value: {} })).resolves.toEqual(
-      ChannelOutcome.awaitReply(),
-    );
+    await expect(
+      app.resolve(VaultChannel).send({ pauseId: "p1", input: {}, trail: [] } as never),
+    ).resolves.toEqual(ChannelOutcome.awaitReply());
     expect(seen).toContain("channel:p1:s3cret");
     await app.close();
   });

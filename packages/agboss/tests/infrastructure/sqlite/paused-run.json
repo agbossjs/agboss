@@ -226,12 +226,20 @@
       "answerer": "channel",
       "step": "clerk-agent",
       "channel": "refund-approval-channel",
-      "ask": {
+      "input": {},
+      "toolCall": {
         "callId": "call-1",
         "tool": "refund",
-        "arguments": {},
         "summary": "refund 7"
-      }
+      },
+      "trail": [
+        {
+          "action": "opened",
+          "at": "2026-01-05T09:00:00.000Z",
+          "target": "refund-approval-channel",
+          "channel": "refund-approval-channel"
+        }
+      ]
     }
   ],
   "startedVersion": "1"

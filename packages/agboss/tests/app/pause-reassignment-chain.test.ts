@@ -61,7 +61,7 @@ describe("#946: a stored run's pending list names the live pause of a reassigned
     await pauses.reassignByTenantIdAndPauseId(
       "default",
       "p1",
-      { pauseId: "p2", assignee: "deputy-3" },
+      { pauseId: "p2", assignees: ["deputy-3"] },
       MID,
       NO_RECIPIENTS,
     );
@@ -83,7 +83,7 @@ describe("#946: a stored run's pending list names the live pause of a reassigned
     await pauses.resolveByTenantIdAndPauseId(
       "default",
       "p2",
-      { decision: { approved: true }, answeredBy: "deputy-3" },
+      { decision: { approved: true }, actor: { id: "deputy-3" } },
       MID,
       NO_RECIPIENTS,
     );
@@ -101,7 +101,7 @@ describe("#946: treeResumeOf takes the replacement's answer under the first paus
     const p2 = record("p2", {
       reassignedFrom: "p1",
       status: PauseStatus.Resolved,
-      answer: { decision: { approved: true }, answeredBy: "deputy-3" },
+      answer: { decision: { approved: true }, actor: { id: "deputy-3" } },
       expiresAt: DEADLINE.toISOString(),
     });
     const waiting = [{ interruptId: "i-1", pauseId: "p1", via: [] }];

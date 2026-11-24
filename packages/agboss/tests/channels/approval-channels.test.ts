@@ -24,7 +24,7 @@ function offline(book: ScriptBook): BuildApplicationOptions {
 }
 
 /** Who answers through the desk (a `PauseAnswerer.Channel` role: the desk knows its staff). */
-const dana = { answeredBy: "dana" };
+const dana = { actor: { id: "dana" } };
 
 /** The answer to the desk's first ask: by the `pauseId` the channel was sent. */
 function deskAnswer(desk: ApprovalDesk, decision: unknown): ResumeRequest {
@@ -53,7 +53,7 @@ describe("#261: a channel reads the execution through its ExecutionContext", () 
     await execute(app, ChatStart, { text: "refund order A-1" }, { tenant: { tenantId: "acme" } });
 
     expect(desk.tenants).toEqual(["acme"]);
-    expect(Object.keys(desk.posted[0] ?? {})).toEqual(["pauseId", "value"]);
+    expect(Object.keys(desk.posted[0] ?? {})).toEqual(["pauseId", "input", "toolCall", "trail"]);
     await app.close();
   });
 });
@@ -68,12 +68,14 @@ describe("#188: approval through a @Channel", () => {
 
     expect(paused).toMatchObject({
       status: ExecutionStatus.Paused,
-      pending: [{ step: "clerk-agent", ask: { tool: "refund-tool" } }],
+      pending: [{ step: "clerk-agent", toolCall: { tool: "refund-tool" } }],
     });
     expect(desk.posted).toEqual([
       {
         pauseId: expect.stringMatching(/^[0-9a-f]{32}$/),
-        value: expect.objectContaining({ tool: "refund-tool", arguments: { orderId: "A-1" } }),
+        input: { orderId: "A-1" },
+        toolCall: expect.objectContaining({ tool: "refund-tool" }),
+        trail: [expect.objectContaining({ action: "opened" })],
       },
     ]);
     expect(desk.refunded).toEqual([]);

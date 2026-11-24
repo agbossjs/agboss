@@ -39,7 +39,8 @@ vi.mock("@langchain/langgraph", async (importOriginal) => ({
 const question = {
   kind: PauseKind.Approval,
   step: "desk-clerk-agent",
-  ask: { callId: "call-1", tool: "refund", arguments: { orderId: "7" }, summary: "refund 7" },
+  input: { orderId: "7" },
+  toolCall: { callId: "call-1", tool: "refund", summary: "refund 7" },
 };
 
 const clock = new VirtualClock();
@@ -100,7 +101,9 @@ async function stored(
     step: question.step,
     channel: "refund-approval-channel",
     answerer: PauseAnswerer.Channel,
-    ask: question.ask,
+    input: question.input,
+    ...(question.toolCall === undefined ? {} : { toolCall: question.toolCall }),
+    trail: [],
     status: PauseStatus.Pending,
     isSent: false,
     askedAt: clock.now().toISOString(),
@@ -118,7 +121,7 @@ describe("#1366: a channel's send", () => {
     answerer: PauseAnswerer.Channel,
     sender: { send: () => Promise.reject(new Error("the channel failed")) },
   };
-  const ask = { pauseId: "p-1", value: question.ask } as never;
+  const ask = { pauseId: "p-1", input: question.input, trail: [] } as never;
 
   it("a failure is the asking step's, the channel's error its cause — unless the pass was stopped, when it is the error itself", async () => {
     const failure = await sentBy(channel, ask, undefined).catch((error: unknown) => error);
@@ -217,7 +220,7 @@ describe("#1366: a step that waits", () => {
           (
             await pauses.findAllByTenantIdAndRootExecutionId(tenantId, frame.execution.executionId)
           )[0]?.pauseId ?? "",
-          { decision: { approved: true }, answeredBy: "manager-17" },
+          { decision: { approved: true }, actor: { id: "manager-17" } },
           clock.now(),
           NO_RECIPIENTS,
         );
@@ -235,7 +238,7 @@ describe("#1366: a step that waits", () => {
 });
 
 describe("#1366: a pause that is no longer pending", () => {
-  const answered = { decision: { approved: true }, answeredBy: "manager-17" };
+  const answered = { decision: { approved: true }, actor: { id: "manager-17" } };
 
   it("withdrawn: its step stops with the withdrawal, naming the pause — whether the answer it held is kept or not", async () => {
     for (const answer of [undefined, answered]) {
@@ -293,7 +296,7 @@ describe("#1366: a pause that is no longer pending", () => {
   it("an answer no step took yet: marked taken, durably, before the step acts; who answered, or the thread's owner, and what reading it cost", async () => {
     for (const [answer, by] of [
       [{ ...answered, usage: [{ costUsd: usd(1) }] }, "manager-17"],
-      [{ decision: { approved: true }, answeredBy: undefined }, THREAD_OWNER],
+      [{ decision: { approved: true }, actor: undefined }, THREAD_OWNER],
     ] as const) {
       const { site, pauses } = setup();
       const made = await stored(pauses, { isSent: true });
@@ -370,7 +373,7 @@ describe("#1366: a pause that is no longer pending", () => {
         resolution,
         answer: {
           decision: { approved: false },
-          answeredBy: undefined,
+          actor: undefined,
           usage: [{ costUsd: usd(5) }],
         } as never,
       });

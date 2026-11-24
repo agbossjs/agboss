@@ -115,7 +115,11 @@ describe("#807 AC3: the projection moves the task with its execution", () => {
           {
             pauseId: paused.pending[0]?.pauseId,
             kind: PauseKind.Approval,
-            ask: paused.pending[0]?.ask,
+            input: paused.pending[0]?.input,
+            toolCall:
+              paused.pending[0]?.kind === PauseKind.Approval
+                ? paused.pending[0].toolCall
+                : undefined,
           },
         ],
       });

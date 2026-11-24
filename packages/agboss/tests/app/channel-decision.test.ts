@@ -47,7 +47,7 @@ describe("#946: a channel's decision for a pause", () => {
       expect.anything(),
       pause,
       { pauseId: "p-1", decision: { approved: true } },
-      "refund-channel",
+      { id: "refund-channel" },
       PauseResolution.Decided,
     );
     expect(resumed).toHaveBeenCalledWith(expect.anything(), { ownerId: "alice" });

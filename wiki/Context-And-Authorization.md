@@ -181,7 +181,7 @@ come from is the project's choice; the framework loads nothing.
   with `dto.invalid` and `onExecutionRejected`; the message names the field, never the value
   (`invalid ClinicTenantContext: units[0].unitId: …`).
 - Frozen for the whole execution, kept in its checkpoint: a resume — `app.resume({ pauseId,
-  decision }, { tenantId, ownerId | answeredBy })` ([Pauses](Pauses)) — runs on the values it
+  decision }, { tenantId, ownerId | actor })` ([Pauses](Pauses)) — runs on the values it
   started with, and takes only the tenant's id (a plan changed meanwhile applies from the next
   execution). Child executions (#263) inherit them.
 
@@ -314,7 +314,7 @@ real `401` / `403`, nothing run, never the default tenant (#387, #808,
 [A2A](A2A#1-who-calls--the-http-authenticator)). A
 resume through either takes the tenant's id; an A2A `CancelTask` cancels only the caller's own task.
 
-Tool arguments a channel shows (and `ExecutionOutput.pending[i].ask.arguments`) have the input DTO's `sensitive`
+Tool arguments a channel shows (and `ExecutionOutput.pending[i].input`) have the input DTO's `sensitive`
 fields through their action — `mask(…)` as written, a token or a kind as `<field-name>`
 (#120); the tool itself still gets them whole.
 

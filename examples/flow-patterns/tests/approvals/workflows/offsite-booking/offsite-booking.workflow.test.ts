@@ -47,7 +47,7 @@ describe("two purchases wait for the thread's owner at once", () => {
     expect(
       paused.pending.map((pause) => [
         pause.step,
-        pause.kind === PauseKind.Approval ? pause.ask.arguments : pause.kind,
+        pause.kind === PauseKind.Approval ? pause.input : pause.kind,
       ]),
     ).toEqual([
       ["venue-buyer-agent", VENUE],

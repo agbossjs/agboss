@@ -3,7 +3,7 @@ import { DtoValidationError } from "../../../dto/errors.js";
 import { validate } from "../../../dto/schema.js";
 import type { GraphDeps } from "../../../graph/deps.js";
 import { systemClock } from "../../../infrastructure/clock.js";
-import { PauseKind, questionAskOf } from "../../../infrastructure/pause-record.js";
+import { PauseKind, pauseInputOf } from "../../../infrastructure/pause-record.js";
 import { NodeKind } from "../../ast.js";
 import { currentFrame } from "../../context/frame.js";
 import { reportNodeEvent } from "../../observers/execution-event.js";
@@ -73,7 +73,7 @@ export function questionRunner(
     if (pause === undefined || channelOf === undefined || frame === undefined)
       throw new TypeError(`${node.id}: a question is asked only inside its application`);
     // the question as the channel, the records and the events see it: `sensitive` fields masked
-    const ask = questionAskOf(redactedDto(role.ask, questionOf(input.fields.ask)));
+    const ask = pauseInputOf(redactedDto(role.ask, questionOf(input.fields.ask)));
     const onSend = (): Promise<void> =>
       reportNodeEvent((base) =>
         deps.observer?.onChannelStart({ ...base, name: role.name, input: ask }),
@@ -94,7 +94,7 @@ export function questionRunner(
     const asked = {
       kind: PauseKind.Question,
       step: node.id,
-      ask,
+      input: ask,
       ...(node.expiresIn === undefined ? {} : { expiresIn: node.expiresIn }),
     };
     const reply = await pauseStep(site, asked).catch((error: unknown) =>

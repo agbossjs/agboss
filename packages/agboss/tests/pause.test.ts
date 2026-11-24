@@ -79,7 +79,8 @@ describe("pause seam", () => {
       pending: [
         {
           step: "alpha-agent",
-          ask: { tool: "send-email-tool", arguments: { to: "boss@example.com" } },
+          toolCall: { tool: "send-email-tool" },
+          input: { to: "boss@example.com" },
         },
       ],
     });

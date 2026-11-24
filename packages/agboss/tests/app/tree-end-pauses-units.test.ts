@@ -87,7 +87,7 @@ describe("#939: closeTreePauses", () => {
     expect(
       await answers.findPauseAnswersByTenantIdAndRootExecutionId("default", "run-1"),
     ).toMatchObject([
-      { isTaken: false, resolution: PauseResolution.TreeEnded, answeredBy: "manager-17" },
+      { isTaken: false, resolution: PauseResolution.TreeEnded, actor: { id: "manager-17" } },
     ]);
   });
 

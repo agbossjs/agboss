@@ -85,7 +85,8 @@ describe("#941 D9: a re-entry finds the record as made", () => {
   const question = {
     kind: PauseKind.Approval,
     step: "desk-clerk-agent",
-    ask: { callId: "call-1", tool: "refund", arguments: { orderId: "7" }, summary: "refund 7" },
+    input: { orderId: "7" },
+    toolCall: { callId: "call-1", tool: "refund", summary: "refund 7" },
   };
   const channelWith = (expiresIn: number): PauseChannel => ({
     name: "refund-approval-channel",
@@ -164,7 +165,7 @@ describe("#941 D9: a re-entry finds the record as made", () => {
     await pauses.expireByTenantIdAndPauseId(
       pause?.tenantId ?? "",
       pause?.pauseId ?? "",
-      { answer: { decision: { approved: true }, answeredBy: undefined } },
+      { answer: { decision: { approved: true }, actor: undefined } },
       new Date(clock.now().getTime() + hours(2)),
       { listeners: [] },
     );

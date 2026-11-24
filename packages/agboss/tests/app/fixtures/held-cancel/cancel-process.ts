@@ -13,13 +13,13 @@ const app = await createApp(HeldCancelApplication, { env: "dev" });
 if (operation === "extend") {
   const extension = await app.extendPause(
     { pauseId: id, expiresIn: hours(5) },
-    { answeredBy: "the operator", tenantId: "default" },
+    { actor: { id: "the operator" }, tenantId: "default" },
   );
   process.stdout.write(`result extended=${String(extension.pauseKey.length > 0)}\n`);
 } else if (operation === "reassign") {
   const moved = await app.reassignPause(
-    { pauseId: id, assignee: "deputy-3" },
-    { answeredBy: "the operator", tenantId: "default" },
+    { pauseId: id, assignees: ["deputy-3"] },
+    { actor: { id: "the operator" }, tenantId: "default" },
   );
   process.stdout.write(`result reassigned=${String(moved.pauseKey.length > 0)}\n`);
 } else if (operation === "cancel") {
@@ -27,7 +27,7 @@ if (operation === "extend") {
 } else {
   const resumed = await app.resume(
     { pauseId: id, decision: { approved: true } },
-    { answeredBy: "the director", tenantId: "default" },
+    { actor: { id: "the director" }, tenantId: "default" },
   );
   process.stdout.write(`result finished=${String(resumed.finish !== undefined)}\n`);
 }

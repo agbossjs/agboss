@@ -47,7 +47,9 @@ const pause = (overrides: Partial<PendingPause> = {}): PendingPause =>
     childExecutionId: undefined,
     itemIndex: undefined,
     kind: PauseKind.Approval,
-    ask: { tool: "charge-tool", args: { text: "10 USD" } },
+    input: { text: "10 USD" },
+    assignees: undefined,
+    trail: [],
     ...overrides,
   }) as PendingPause;
 
@@ -113,12 +115,12 @@ async function storeWith(
 const WORKING: A2ATaskStatus = { state: A2ATaskState.Working, pendingPauses: [] };
 
 describe("#807: an execution's state as its task's status", () => {
-  it("pauses a caller may answer → INPUT_REQUIRED with each pause's id, kind and ask only", () => {
+  it("pauses a caller may answer → INPUT_REQUIRED with each pause's id, kind and input only", () => {
     expect(pausedStatusOf([pause(), pause({ pauseId: "p-2", kind: PauseKind.Question })])).toEqual({
       state: A2ATaskState.InputRequired,
       pendingPauses: [
-        { pauseId: "p-1", kind: PauseKind.Approval, ask: pause().ask },
-        { pauseId: "p-2", kind: PauseKind.Question, ask: pause().ask },
+        { pauseId: "p-1", kind: PauseKind.Approval, input: pause().input },
+        { pauseId: "p-2", kind: PauseKind.Question, input: pause().input },
       ],
     });
   });
@@ -139,7 +141,7 @@ describe("#807: an execution's state as its task's status", () => {
 
     expect(status).toEqual({
       state: A2ATaskState.InputRequired,
-      pendingPauses: [{ pauseId: "p-1", kind: PauseKind.Approval, ask: pause().ask }],
+      pendingPauses: [{ pauseId: "p-1", kind: PauseKind.Approval, input: pause().input }],
       message: "awaiting slack out of band",
     });
   });

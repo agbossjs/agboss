@@ -23,7 +23,7 @@ import {
 import { workingApp } from "../../flow/fixtures/working-time-app.js";
 
 const ORDER = { orderId: "o-1" };
-const manager = { answeredBy: "manager-17" };
+const manager = { actor: { id: "manager-17" } };
 
 const plain = workingApp("ext-1366h-plain", {
   role: { expiresIn: hours(24), remindBefore: hours(2) },

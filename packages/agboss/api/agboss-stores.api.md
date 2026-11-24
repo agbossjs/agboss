@@ -130,10 +130,11 @@ export interface A2ATaskPage {
 
 // @public
 export interface A2ATaskPause {
-    readonly ask: unknown;
+    readonly input: unknown;
     // (undocumented)
     readonly kind: PauseKind;
     readonly pauseId?: string;
+    readonly toolCall?: unknown;
 }
 
 // @public
@@ -1840,8 +1841,8 @@ export function parsedStoredJson(options: {
 
 // @public
 export interface PauseAnswer {
-    readonly answeredBy: string | undefined;
-    readonly byChannel?: true;
+    readonly actor: PauseActor | undefined;
+    readonly byDelegate?: true;
     // (undocumented)
     readonly decision: unknown;
     readonly usage?: readonly UsageRecord[];
@@ -1855,12 +1856,14 @@ export enum PauseAnswerer {
 
 // @public
 export interface PauseAnswerRecord {
-    readonly answeredBy: string | undefined;
+    readonly actor: PauseActor | undefined;
     readonly answerer: PauseAnswerer;
-    readonly asked?: unknown;
     readonly askedAt: string;
+    readonly assignees?: readonly string[];
     readonly decision: unknown;
     readonly executionId: string;
+    readonly externalRef?: string;
+    readonly input: unknown;
     readonly isTaken?: false;
     readonly pauseId: string | undefined;
     // (undocumented)
@@ -1869,13 +1872,12 @@ export interface PauseAnswerRecord {
     readonly resolvedAt: string | undefined;
     readonly role: string;
     readonly step: StepRecord;
+    readonly toolCall?: unknown;
+    readonly trail: readonly PauseTrailRecord[];
 }
 
 // @public
 export const pauseAnswerRecordOfValue: (value: unknown) => PauseAnswerRecord;
-
-// @public
-export type PauseAsk = ToolCallApprovalAskDto | QuestionAsk;
 
 // @public
 export type PauseCancellation = PauseResolution.Withdrawn | PauseResolution.Cancelled | PauseResolution.TreeEnded;
@@ -2073,15 +2075,16 @@ export interface PauseRecipients {
 export interface PauseRecord extends PauseSite {
     readonly answer?: PauseAnswer;
     readonly answerer: PauseAnswerer;
-    readonly ask: PauseAsk;
     readonly askedAt: string;
-    readonly assignee?: string;
+    readonly assignees?: readonly string[];
     readonly boundAt?: string;
     readonly channel: string;
     readonly closedFirst?: PauseFirstClose;
     readonly expiresAt?: string;
     readonly expiryBound?: PauseExpiryBound;
     readonly expiryProblem?: ExpiryProblem;
+    readonly externalRef?: string;
+    readonly input: Readonly<Record<string, unknown>>;
     readonly isSent: boolean;
     readonly kind: PauseKind;
     readonly pauseId: string;
@@ -2093,6 +2096,8 @@ export interface PauseRecord extends PauseSite {
     // (undocumented)
     readonly status: PauseStatus;
     readonly step: string;
+    readonly toolCall?: PauseToolCallSummary;
+    readonly trail: readonly PauseTrailRecord[];
 }
 
 // @public
@@ -2100,8 +2105,10 @@ export const pauseRecordOfJson: (value: unknown) => PauseRecord;
 
 // @public
 export interface PauseReplacement {
-    readonly assignee: string;
+    readonly actor?: PauseActor;
+    readonly assignees: readonly string[];
     readonly pauseId: string;
+    readonly reason?: string;
 }
 
 // @public
@@ -2156,13 +2163,32 @@ export enum PauseStatus {
 }
 
 // @public
+export interface PauseTrailRecord {
+    // (undocumented)
+    readonly action: "opened" | "reassigned" | "timeout-changed" | "escalated";
+    readonly actor?: PauseActor;
+    // (undocumented)
+    readonly assignees?: readonly string[];
+    readonly at: string;
+    // (undocumented)
+    readonly channel?: string;
+    // (undocumented)
+    readonly expiresAt?: string;
+    // (undocumented)
+    readonly externalRef?: string;
+    // (undocumented)
+    readonly reason?: string;
+    readonly target: string;
+}
+
+// @public
 export type PauseUntakenResolution = PauseResolution.Cancelled | PauseResolution.TreeEnded;
 
 // @public
 export interface PendingApproval extends PendingPauseBase {
-    readonly ask: ToolCallApprovalAskDto;
     // (undocumented)
     readonly kind: PauseKind.Approval;
+    readonly toolCall: PauseToolCallSummary;
 }
 
 // @public
@@ -2174,17 +2200,20 @@ export type PendingPause = PendingApproval | PendingQuestion;
 // @public
 export interface PendingPauseBase {
     readonly answerer: PauseAnswerer;
+    readonly assignees?: readonly string[];
     readonly channel: string;
     readonly childExecutionId: string | undefined;
     readonly expiresAt?: string;
+    readonly externalRef?: string;
+    readonly input: Readonly<Record<string, unknown>>;
     readonly itemIndex: number | undefined;
     readonly pauseId?: string;
     readonly step: string;
+    readonly trail: readonly PauseTrailRecord[];
 }
 
 // @public
 export interface PendingQuestion extends PendingPauseBase {
-    readonly ask: QuestionAsk;
     // (undocumented)
     readonly kind: PauseKind.Question;
 }
@@ -2196,11 +2225,6 @@ export interface PreviousLeaseHolder {
     // (undocumented)
     readonly token: number;
 }
-
-// @public
-export type QuestionAsk = Readonly<{
-    [questionAsk]: true;
-}>;
 
 // @public
 export interface QueuedChildExecution {
@@ -2771,18 +2795,6 @@ export interface TokenUsage {
 }
 
 // @public
-export class ToolCallApprovalAskDto {
-    // (undocumented)
-    arguments: ToolArguments;
-    // (undocumented)
-    callId: string;
-    // (undocumented)
-    summary: string;
-    // (undocumented)
-    tool: string;
-}
-
-// @public
 export interface ToolCallRecord {
     // (undocumented)
     readonly endedAt: string;
@@ -2987,10 +2999,6 @@ export interface WrittenLedgerMark {
 // src/core/stored-json.ts - (ae-undocumented) Missing documentation for "code".
 // src/core/stored-json.ts - (ae-undocumented) Missing documentation for "code".
 // src/core/stored-json.ts - (ae-undocumented) Missing documentation for "name".
-// src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "callId".
-// src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "tool".
-// src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "arguments".
-// src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "summary".
 // src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Agents".
 // src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Routing".
 // src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Guardrails".
@@ -3254,6 +3262,12 @@ export interface WrittenLedgerMark {
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "threadId".
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "visitNumber".
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "itemIndex".
+// src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "action".
+// src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "channel".
+// src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "assignees".
+// src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "expiresAt".
+// src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "externalRef".
+// src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "reason".
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "status".
 // src/infrastructure/pause-replacement.ts - (ae-undocumented) Missing documentation for "stepKey".
 // src/infrastructure/pause-replacement.ts - (ae-undocumented) Missing documentation for "reassignedFrom".

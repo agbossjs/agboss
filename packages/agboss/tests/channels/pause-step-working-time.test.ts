@@ -27,7 +27,8 @@ const at = (delay: number): string => new Date(ASKED.getTime() + delay).toISOStr
 const question = {
   kind: PauseKind.Approval,
   step: "desk-clerk-agent",
-  ask: { callId: "call-1", tool: "refund", arguments: { orderId: "7" }, summary: "refund 7" },
+  input: { orderId: "7" },
+  toolCall: { callId: "call-1", tool: "refund", summary: "refund 7" },
 };
 const answers = {
   savePauseAnswer: (): Promise<void> => Promise.resolve(),

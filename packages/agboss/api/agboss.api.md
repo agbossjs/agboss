@@ -1080,12 +1080,15 @@ export interface ChannelApprovalRoleOptions extends ChannelRoleBaseOptions {
 
 // @public
 export interface ChannelAsk<TRole> {
-    readonly assignee?: string;
+    readonly assignees?: readonly string[];
+    readonly expiresAt?: Date;
+    readonly input: ChannelInputOf<TRole>;
     readonly pauseId: string;
     readonly replaces?: {
         readonly pauseId: string;
     };
-    readonly value: ChannelQuestionOf<TRole>;
+    readonly toolCall?: PauseToolCallSummary;
+    readonly trail: readonly PauseTrailEntry[];
 }
 
 // @public
@@ -1103,6 +1106,13 @@ export interface ChannelHandler<TRole> {
     // (undocumented)
     readonly send: (ask: ChannelAsk<TRole>) => Promise<ChannelOutcome<TRole>>;
 }
+
+// @public
+export type ChannelInputOf<TRole> = ChannelQuestionOf<TRole> extends {
+    readonly callId: string;
+    readonly tool: string;
+    readonly arguments: infer TArguments;
+} ? TArguments : ChannelQuestionOf<TRole>;
 
 // @public
 export type ChannelInterpretation<TOutput = never> = UnderstoodChannelInterpretation<TOutput> | NotUnderstoodChannelInterpretation;
@@ -1267,57 +1277,63 @@ export interface ChannelOverlay {
 
 // @public
 export interface ChannelPauseAnswerNotTakenEvent<TRole> extends PauseDeliveredEvent {
+    readonly actor?: PauseActor;
     readonly answer: ChannelAnswerOf<TRole>;
-    readonly answeredBy?: string;
     readonly at: string;
+    // (undocumented)
+    readonly input: ChannelInputOf<TRole>;
     // (undocumented)
     readonly pauseId: string;
     readonly reason: PauseClosedReason.Cancelled | PauseClosedReason.TreeEnded;
     // (undocumented)
-    readonly value: ChannelQuestionOf<TRole>;
+    readonly toolCall?: PauseToolCallSummary;
 }
 
 // @public
 export interface ChannelPauseClosedEvent<TRole> extends PauseDeliveredEvent {
+    readonly actor?: PauseActor;
     readonly answer?: ChannelAnswerOf<TRole>;
-    readonly answeredBy?: string;
     readonly closedAt: string;
+    readonly input: ChannelInputOf<TRole>;
     readonly pauseId: string;
     // (undocumented)
     readonly reason: PauseClosedReason;
-    readonly value: ChannelQuestionOf<TRole>;
+    readonly toolCall?: PauseToolCallSummary;
 }
 
 // @public
 export interface ChannelPauseExpiringEvent<TRole> extends PauseDeliveredEvent {
     readonly expiresAt: string;
+    readonly input: ChannelInputOf<TRole>;
     // (undocumented)
     readonly pauseId: string;
-    readonly value: ChannelQuestionOf<TRole>;
+    readonly toolCall?: PauseToolCallSummary;
 }
 
 // @public
 export interface ChannelPauseExtendedEvent<TRole> extends PauseDeliveredEvent {
     readonly expiresAt: string;
+    readonly input: ChannelInputOf<TRole>;
     // (undocumented)
     readonly pauseId: string;
     readonly previousExpiresAt: string;
-    readonly value: ChannelQuestionOf<TRole>;
+    readonly toolCall?: PauseToolCallSummary;
 }
 
 // @public
 export interface ChannelPauseJoinFailedEvent<TRole> extends PauseDeliveredEvent {
     readonly at: string;
     readonly errorCode: string;
+    readonly input: ChannelInputOf<TRole>;
     readonly launch: string;
     // (undocumented)
     readonly pauseId: string;
-    readonly value: ChannelQuestionOf<TRole>;
+    readonly toolCall?: PauseToolCallSummary;
 }
 
 // @public
 export interface ChannelPauseOptions {
-    readonly answeredBy: string;
+    readonly actor: PauseActor;
     // (undocumented)
     readonly ownerId?: never;
     // (undocumented)
@@ -1328,6 +1344,7 @@ export interface ChannelPauseOptions {
 export interface ChannelPauseReassignedEvent<TTarget> extends PauseDeliveredEvent {
     // (undocumented)
     readonly channel: string;
+    readonly input: ChannelInputOf<TTarget>;
     // (undocumented)
     readonly pauseId: string;
     // (undocumented)
@@ -1336,7 +1353,7 @@ export interface ChannelPauseReassignedEvent<TTarget> extends PauseDeliveredEven
     readonly previousTarget: string;
     // (undocumented)
     readonly reason?: string;
-    readonly value: ChannelQuestionOf<TTarget>;
+    readonly toolCall?: PauseToolCallSummary;
 }
 
 // @public
@@ -3666,7 +3683,7 @@ export interface ExecutionRejectedEvent {
 
 // @public
 export interface ExecutionResumeEvent extends ExecutionEvent {
-    readonly answeredBy: string | undefined;
+    readonly actor: PauseActor | undefined;
     readonly decision: unknown;
     readonly reason: ResumeReason;
     readonly unpauseReason?: string | undefined;
@@ -5913,8 +5930,7 @@ export interface LimitExceededErrorOptions {
 
 // @public
 export interface ListedPause extends PendingPauseBase {
-    readonly answeredBy?: string;
-    readonly ask: unknown;
+    readonly actor?: PauseActor;
     // (undocumented)
     readonly askedAt: string;
     // (undocumented)
@@ -5931,6 +5947,7 @@ export interface ListedPause extends PendingPauseBase {
     readonly status: PauseStatus;
     // (undocumented)
     readonly threadId: string;
+    readonly toolCall?: PauseToolCallSummary;
 }
 
 // @public
@@ -7438,8 +7455,8 @@ export interface PauseActor {
 
 // @public
 export interface PauseAnswer {
-    readonly answeredBy: string | undefined;
-    readonly byChannel?: true;
+    readonly actor: PauseActor | undefined;
+    readonly byDelegate?: true;
     // (undocumented)
     readonly decision: unknown;
     readonly usage?: readonly UsageRecord[];
@@ -7453,12 +7470,14 @@ export enum PauseAnswerer {
 
 // @public
 export interface PauseAnswerRecord {
-    readonly answeredBy: string | undefined;
+    readonly actor: PauseActor | undefined;
     readonly answerer: PauseAnswerer;
-    readonly asked?: unknown;
     readonly askedAt: string;
+    readonly assignees?: readonly string[];
     readonly decision: unknown;
     readonly executionId: string;
+    readonly externalRef?: string;
+    readonly input: unknown;
     readonly isTaken?: false;
     readonly pauseId: string | undefined;
     // (undocumented)
@@ -7467,10 +7486,9 @@ export interface PauseAnswerRecord {
     readonly resolvedAt: string | undefined;
     readonly role: string;
     readonly step: StepRecord;
+    readonly toolCall?: unknown;
+    readonly trail: readonly PauseTrailRecord[];
 }
-
-// @public
-export type PauseAsk = ToolCallApprovalAskDto | QuestionAsk;
 
 // @public
 export type PauseCallerOptions = ThreadOwnerPauseOptions | ChannelPauseOptions;
@@ -7785,6 +7803,9 @@ export type PauseInputOf<TTarget> = [TTarget] extends [never] ? never : Generate
 } ? TInput : MissingGeneratedTypes;
 
 // @public
+export function pauseInputOf(input: unknown): Readonly<Record<string, unknown>>;
+
+// @public
 export const pauseKeyOf: (tenantId: string, pauseId: string) => string;
 
 // @public
@@ -7798,9 +7819,9 @@ export function PauseListener<const TDeps extends readonly Token[] = []>(options
 
 // @public
 export interface PauseListenerAnswerNotTakenEvent extends PauseListenerEventBase {
-    readonly answer: unknown;
     // (undocumented)
-    readonly answeredBy?: string;
+    readonly actor?: PauseActor;
+    readonly answer: unknown;
     // (undocumented)
     readonly at: string;
     // (undocumented)
@@ -7809,8 +7830,8 @@ export interface PauseListenerAnswerNotTakenEvent extends PauseListenerEventBase
 
 // @public
 export interface PauseListenerClosedEvent extends PauseListenerEventBase {
+    readonly actor?: PauseActor;
     readonly answer?: unknown;
-    readonly answeredBy?: string;
     // (undocumented)
     readonly closedAt: string;
     // (undocumented)
@@ -7820,13 +7841,15 @@ export interface PauseListenerClosedEvent extends PauseListenerEventBase {
 // @public
 export interface PauseListenerEventBase extends PauseDeliveredEvent {
     readonly answerer: PauseAnswerer;
-    readonly ask: unknown;
     // (undocumented)
     readonly askedAt: string;
+    readonly assignees?: readonly string[];
     readonly channel: string;
     readonly executionId: string;
     // (undocumented)
     readonly expiresAt?: string;
+    readonly externalRef?: string;
+    readonly input: Readonly<Record<string, unknown>>;
     // (undocumented)
     readonly kind: PauseKind;
     readonly pauseId?: string;
@@ -7838,6 +7861,8 @@ export interface PauseListenerEventBase extends PauseDeliveredEvent {
     readonly tenantId: string;
     // (undocumented)
     readonly threadId: string;
+    readonly toolCall?: PauseToolCallSummary;
+    readonly trail: readonly PauseTrailRecord[];
     readonly workflow: string;
 }
 
@@ -7919,15 +7944,16 @@ export interface PauseReassignment {
 export interface PauseRecord extends PauseSite {
     readonly answer?: PauseAnswer;
     readonly answerer: PauseAnswerer;
-    readonly ask: PauseAsk;
     readonly askedAt: string;
-    readonly assignee?: string;
+    readonly assignees?: readonly string[];
     readonly boundAt?: string;
     readonly channel: string;
     readonly closedFirst?: PauseFirstClose;
     readonly expiresAt?: string;
     readonly expiryBound?: PauseExpiryBound;
     readonly expiryProblem?: ExpiryProblem;
+    readonly externalRef?: string;
+    readonly input: Readonly<Record<string, unknown>>;
     readonly isSent: boolean;
     readonly kind: PauseKind;
     readonly pauseId: string;
@@ -7939,6 +7965,8 @@ export interface PauseRecord extends PauseSite {
     // (undocumented)
     readonly status: PauseStatus;
     readonly step: string;
+    readonly toolCall?: PauseToolCallSummary;
+    readonly trail: readonly PauseTrailRecord[];
 }
 
 // @public
@@ -8103,10 +8131,29 @@ export interface PauseTrailEntry {
 }
 
 // @public
+export interface PauseTrailRecord {
+    // (undocumented)
+    readonly action: "opened" | "reassigned" | "timeout-changed" | "escalated";
+    readonly actor?: PauseActor;
+    // (undocumented)
+    readonly assignees?: readonly string[];
+    readonly at: string;
+    // (undocumented)
+    readonly channel?: string;
+    // (undocumented)
+    readonly expiresAt?: string;
+    // (undocumented)
+    readonly externalRef?: string;
+    // (undocumented)
+    readonly reason?: string;
+    readonly target: string;
+}
+
+// @public
 export interface PendingApproval extends PendingPauseBase {
-    readonly ask: ToolCallApprovalAskDto;
     // (undocumented)
     readonly kind: PauseKind.Approval;
+    readonly toolCall: PauseToolCallSummary;
 }
 
 // @public
@@ -8123,17 +8170,20 @@ export type PendingPause = PendingApproval | PendingQuestion;
 // @public
 export interface PendingPauseBase {
     readonly answerer: PauseAnswerer;
+    readonly assignees?: readonly string[];
     readonly channel: string;
     readonly childExecutionId: string | undefined;
     readonly expiresAt?: string;
+    readonly externalRef?: string;
+    readonly input: Readonly<Record<string, unknown>>;
     readonly itemIndex: number | undefined;
     readonly pauseId?: string;
     readonly step: string;
+    readonly trail: readonly PauseTrailRecord[];
 }
 
 // @public
 export interface PendingQuestion extends PendingPauseBase {
-    readonly ask: QuestionAsk;
     // (undocumented)
     readonly kind: PauseKind.Question;
 }
@@ -8550,14 +8600,6 @@ export interface QualityGateErrorOptions {
 }
 
 // @public
-export type QuestionAsk = Readonly<{
-    [questionAsk]: true;
-}>;
-
-// @public
-export function questionAskOf(ask: unknown): QuestionAsk;
-
-// @public
 export class QuestionFailedError extends StepFailedError {
     constructor(options: QuestionFailedErrorOptions);
     // (undocumented)
@@ -8739,8 +8781,9 @@ export abstract class RateLimitRepository {
 
 // @public
 export interface ReassignPauseRequest {
-    readonly assignee: string;
+    readonly assignees: readonly string[];
     readonly pauseId: string;
+    readonly reason?: string;
 }
 
 // @public
@@ -10593,7 +10636,7 @@ export class ThreadOwnerError extends AGBossError {
 // @public
 export interface ThreadOwnerPauseOptions {
     // (undocumented)
-    readonly answeredBy?: never;
+    readonly actor?: never;
     readonly ownerId?: string | undefined;
     // (undocumented)
     readonly tenantId?: string | undefined;
@@ -11805,7 +11848,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/app/types.ts - (ae-undocumented) Missing documentation for "reply".
 // src/app/types.ts - (ae-undocumented) Missing documentation for "decision".
 // src/app/types.ts - (ae-undocumented) Missing documentation for "tenantId".
-// src/app/types.ts - (ae-undocumented) Missing documentation for "answeredBy".
+// src/app/types.ts - (ae-undocumented) Missing documentation for "actor".
 // src/app/types.ts - (ae-undocumented) Missing documentation for "tenantId".
 // src/app/types.ts - (ae-undocumented) Missing documentation for "ownerId".
 // src/app/types.ts - (ae-undocumented) Missing documentation for "tenantId".
@@ -13088,6 +13131,12 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "threadId".
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "visitNumber".
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "itemIndex".
+// src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "action".
+// src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "channel".
+// src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "assignees".
+// src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "expiresAt".
+// src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "externalRef".
+// src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "reason".
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "status".
 // src/infrastructure/sqlite/sqlite-checkpoint-saver.ts - (ae-undocumented) Missing documentation for "getTuple".
 // src/infrastructure/sqlite/sqlite-checkpoint-saver.ts - (ae-undocumented) Missing documentation for "latestByStep".
@@ -13339,7 +13388,8 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "deliveryId".
 // src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "reason".
 // src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "pauseId".
-// src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "value".
+// src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "input".
+// src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "toolCall".
 // src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "pauseId".
 // src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "pauseId".
 // src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "pauseId".
@@ -13353,7 +13403,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "closedAt".
 // src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "reason".
 // src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "at".
-// src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "answeredBy".
+// src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "actor".
 // src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "launch".
 // src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "errorCode".
 // src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "at".

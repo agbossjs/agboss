@@ -1079,7 +1079,7 @@ all there is (`weight`, a positive integer, default 1, is the tenant's share for
 `@Application({ tenantContext: ShopTenantContext, executionContext: ShopExecutionContext })` — its
 own subclasses with DTO field decorators, identity only, never secrets — gets their values typed
 per start (`tenant: ContextValues<ShopTenantContext>`, `execution: …`), checked before the first
-step (invalid → `dto.invalid`, an `onExecutionRejected`, the field named, never the value) and frozen. Tool arguments a channel shows (and `ExecutionOutput.pending[i].ask.arguments`) have the input DTO's
+step (invalid → `dto.invalid`, an `onExecutionRejected`, the field named, never the value) and frozen. Tool arguments a channel shows (and `ExecutionOutput.pending[i].input`) have the input DTO's
 `sensitive` fields through their action (`mask(part)` as written, a token or a kind as `<field>`,
 #120); the tool itself still gets them whole.
 
@@ -1094,9 +1094,9 @@ execution pauses again with the rest; the result carries `threadId` and `executi
 the pause's channel role's `answerer`: a `PauseAnswerer.ThreadOwner` pause lists its `pauseId` in
 `result.pending` and is resumed with the thread's `ownerId` (another → `ThreadOwnerError`); a
 `PauseAnswerer.Channel` pause's id is the right to answer it — only its channel got it
-(`ask.pauseId`), `result.pending` leaves it out — and it is resumed with `{ answeredBy:
+(`ask.pauseId`), `result.pending` leaves it out — and it is resumed with `{ actor:
 "manager-17" }`, recorded on the pause and in `onExecutionResume`; the other credential (or an empty
-`answeredBy`) is `PauseError.PermissionDenied` (`pause.permission-denied`). The decision is validated before
+`actor`) is `PauseError.PermissionDenied` (`pause.permission-denied`). The decision is validated before
 it is recorded — a `ToolCallApprovalDecisionDto` (`approved`, `reason?`, `overrideArguments?`
 only with `approved: true`, checked by the tool's input), else `DtoValidationError` and the pause
 keeps waiting:
@@ -1111,7 +1111,7 @@ declare const replyKey: string;
 // a webhook: the finance manager pressed "Approve" on the message whose reply key is the pauseId
 const result = await app.resume(
   { pauseId: replyKey, decision: { approved: true } },
-  { tenantId: "acme", answeredBy: "manager-17" },
+  { tenantId: "acme", actor: { id: "manager-17" } },
 );
 ```
 
@@ -1173,7 +1173,7 @@ export class RefundReplyInterpreter {}
 export abstract class RefundApprovalChannel extends ChannelOf<RefundApprovalChannel> {}
 
 // a webhook passes the text as it came
-await app.resume({ pauseId: replyKey, reply: "ok, refund it" }, { answeredBy: "manager-17" });
+await app.resume({ pauseId: replyKey, reply: "ok, refund it" }, { actor: { id: "manager-17" } });
 ```
 
 <!-- snippet-context
@@ -1212,7 +1212,7 @@ anything else (Wiki → Pauses has the whole class).
 **Who answered each pause (#267 S107).** `app.resume(…, { includeRecord: true })` (or `execute`) returns
 `result.record.pauses`: every resolved pause of the tree in the order asked —
 `PauseAnswerRecord { pauseId (undefined for a PauseAnswerer.Channel pause), executionId (the
-execution it waited in: the root's or a child's), step, role, answerer, answeredBy (the person; `responder` is its deprecated alias), resolution,
+execution it waited in: the root's or a child's), step, role, answerer, actor (the person; `responder` is its deprecated alias), resolution,
 askedAt, resolvedAt, decision }`, `PauseResolution.Decided`
 (`ChannelOutcome.decided`, no pause), `Replied` (`awaitReply()` + `app.resume`), `Withdrawn` (a
 `FailFast` sibling failed) or `Cancelled` (`app.cancel`, or the tree ended); the decision masked by
@@ -1275,7 +1275,7 @@ and `agboss describe` show the deadlines. Over A2A the task goes `WORKING`, then
 (`step.pause-expired`) or `COMPLETED`.
 
 **Extend a pause, remind before its deadline** (#942). `await app.extendPause({ pauseId, expiresIn:
-hours(24) }, { answeredBy })` (the `ownerId` for a thread owner's pause: who may answer may extend)
+hours(24) }, { actor })` (the `ownerId` for a thread owner's pause: who may answer may extend)
 moves an open pause's deadline to `now + expiresIn` and returns `PauseExtension` (`pauseKey`,
 `expiresAt`, `previousExpiresAt`); the channel's optional `onPauseExtended(event)` and a
 `@PauseListener`'s `onPauseExtended` hear "extended until …". Refused: a closed pause or one past its
@@ -1288,10 +1288,10 @@ once per deadline, whatever the number of instances, and again before the new de
 extension; a step's or tool's `expiresIn` no longer than `remindBefore` gives that pause none
 (`[channel.remind-before-invalid]`, `[channel.remind-before-exceeds-expiry]`); a `remindBefore` shorter than the pause timers' 5 s tick can be skipped (`[channel.remind-before-below-tick]`, a warning). Two extensions at once: one wins in the store, the other re-reads — refused when it is not later than the new deadline, else applied over it — and the deadline never shortens.
 
-**Reassign a pause** (#946). `await app.reassignPause({ pauseId, assignee: "deputy-3" }, { answeredBy })`
+**Reassign a pause** (#946). `await app.reassignPause({ pauseId, assignees: ["deputy-3"] }, { actor })`
 (the `ownerId` for a thread owner's pause: who may answer may reassign; `PauseCallerOptions`) moves an
 open pause to another addressee of the same channel without running the agent or the step again. The
-channel is asked again — `send` gets a new `pauseId`, `ChannelAsk.assignee` and `ChannelAsk.replaces`
+channel is asked again — `send` gets a new `pauseId`, `ChannelAsk.assignees` and `ChannelAsk.replaces`
 (`{ pauseId }` of the old message; both absent on a first send) — and its optional
 `onPauseClosed(event)` hears `reason: reassigned` for the old message, in no fixed order: the channel
 may edit the old message from `send` or from the notice. The old id answers nothing
@@ -1465,7 +1465,7 @@ channel, judge, `onValuesOutdated`, `onLaunchItemsTruncated`) adds `step`, a `St
 `callId`) — the serialized `executionContext.step`. `onExecutionStart` fires once per execution (at
 `execute`); one that pauses because nothing else can move emits `onExecutionPause` (`event.pending`:
 every pause it waits for — again after a partial resume), `app.resume` and recovery emit
-`onExecutionResume` (`event.reason`, `event.decision`, `event.answeredBy`), `onExecutionEnd` fires once
+`onExecutionResume` (`event.reason`, `event.decision`, `event.actor?.id`), `onExecutionEnd` fires once
 when it ends at a finish (`event.finish`: a `ComponentRecord`, `event.output`, `event.spend`) and
 `onExecutionError` when it fails (`event.error`) — also after a resume; a cancelled
 execution is `onExecutionCancel` (`event.compensations`, `event.spend`), never an error, and a stopped one `onExecutionStop`. A request refused before an

@@ -169,14 +169,15 @@ function nameViolations(uses: readonly ChannelUse[]): RuleViolation[] {
 }
 
 /** The permission hooks no runtime path calls yet, and who wires each (see `permitHookViolations`). */
-const UNENFORCED_PERMIT_HOOKS = ["permitTimeoutChange", "permitReassign"] as const;
+const UNENFORCED_PERMIT_HOOKS = ["permitTimeoutChange"] as const;
 
 /**
- * `[pause.permit-hook-not-enforced]`: fail closed. `permitTimeoutChange` and `permitReassign` are
- * declared on a target, but no timeout change or reassignment calls them yet — one that returns
- * `false` would refuse nothing. Until each is wired, a target that defines one fails assembly.
- * #1307d removes both (setPauseTimeout, reassignPause) when it wires the call with deny-on-false and
- * deny-on-throw. `permitAnswer` is wired (#1307c): `app.resume` calls it before an answer is recorded.
+ * `[pause.permit-hook-not-enforced]`: fail closed. `permitTimeoutChange` is declared on a target, but
+ * no timeout change calls it yet — one that returns `false` would refuse nothing. Until it is wired,
+ * a target that defines it fails assembly; #1307b removes the line when `setPauseTimeout` calls it
+ * with deny-on-false and deny-on-throw. `permitAnswer` is wired (#1307c): `app.resume` calls it before
+ * an answer is recorded; `permitReassign` is wired (#1307d): `app.reassignPause` calls it before a
+ * reassignment is written.
  */
 function permitHookViolations(uses: readonly ChannelUse[]): RuleViolation[] {
   return targetsOf(uses).flatMap(([target, { options }]) =>

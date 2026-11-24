@@ -3,7 +3,7 @@ import { implementationsOf } from "../channels/channel-rules.js";
 import { pauseCalendarOf } from "../calendar/calendar-source.js";
 import type { WorkingCalendarSource } from "../calendar/working-calendar.js";
 import type { ChannelSender } from "../channels/channel-sender.js";
-import type { PermitAnswer } from "../channels/pause-contexts.js";
+import type { PermitAnswer, PermitReassign } from "../channels/pause-contexts.js";
 import type { TimeSpan } from "../units/working-time.js";
 import {
   pauseTargetOf,
@@ -81,9 +81,13 @@ const answererOf = (cls: Class): PauseAnswerer =>
  * container's tokens, its `deps` — at app start, so a missing dependency fails there. `undefined`
  * for a class that is no target or has no `permitAnswer`.
  */
-function permitAnswerOf(cls: Class, container: Container): PermitAnswer | undefined {
+function permitHookOf(
+  cls: Class,
+  container: Container,
+  name: "permitAnswer" | "permitReassign",
+): ((ctx: never) => Promise<unknown>) | undefined {
   const declaration = pauseTargetOf(cls);
-  const hook: unknown = Reflect.get(cls.prototype as object, "permitAnswer");
+  const hook: unknown = Reflect.get(cls.prototype as object, name);
   if (declaration === undefined || typeof hook !== "function") return undefined;
   const args = (declaration.options.deps ?? []).map((dep) => container.get(dep));
   const holder: unknown = Reflect.construct(cls, args);
@@ -125,7 +129,10 @@ export function channelPartsOf(
           const sender = isChannelless(cls, modules)
             ? undefined
             : (container.get(cls) as ChannelSender);
-          const permitAnswer = permitAnswerOf(cls, container);
+          const permitAnswer = permitHookOf(cls, container, "permitAnswer") as
+            PermitAnswer | undefined;
+          const permitReassign = permitHookOf(cls, container, "permitReassign") as
+            PermitReassign | undefined;
           const role = channelRoleOf(cls)?.options;
           // a profile's deadline and reminder (`toolApprovals` / `externalTasks`) over the target's own
           const { expiresIn, remindBefore } = pauseTimesOf(role, bundle.pauseOverrides?.get(name));
@@ -141,6 +148,7 @@ export function channelPartsOf(
             expiresIn,
             remindBefore,
             permitAnswer,
+            permitReassign,
           };
           return [name, { ...channel, calendar }];
         }),

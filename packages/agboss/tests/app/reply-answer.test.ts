@@ -32,9 +32,11 @@ const pause: PauseRecord = {
   step: "clerk-agent",
   channel: "refund-approval-channel",
   answerer: PauseAnswerer.Channel,
-  ask: { callId: "call-1", tool: "refund", arguments: {}, summary: "refund" },
+  input: {},
+  toolCall: { callId: "call-1", tool: "refund", summary: "refund" },
   status: PauseStatus.Pending,
   isSent: true,
+  trail: [],
   askedAt: "2026-01-05T09:00:00.000Z",
 };
 

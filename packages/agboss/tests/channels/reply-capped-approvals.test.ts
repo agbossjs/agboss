@@ -40,7 +40,7 @@ const test = testWith(TreasuryApplication);
 
 beforeEach(resetReplyDesk);
 
-const manager = { answeredBy: "manager-17" };
+const manager = { actor: { id: "manager-17" } };
 const payout = { payee: "ann", amountCents: 120_000 };
 const ANSWER_TOOL = "answer-tool-call-approval-decision-dto";
 
@@ -139,7 +139,8 @@ describe("#688: a capped approval after a reply not understood", () => {
     // auditable (#688): the kept record shows the call as asked and as it ran
     expect(done.record?.pauses).toMatchObject([
       {
-        asked: { tool: "pay-out-tool", arguments: { payee: "ann", amountCents: 120_000 } },
+        input: { payee: "ann", amountCents: 120_000 },
+        toolCall: { tool: "pay-out-tool" },
         decision: { approved: true, overrideArguments: { payee: "ann", amountCents: 90_000 } },
       },
     ]);

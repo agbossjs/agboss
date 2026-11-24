@@ -70,13 +70,12 @@ async function terminalAnswer(
 ): Promise<TerminalAnswer> {
   if (pause.kind === PauseKind.Question) {
     const reply = await ask(
-      `${retry}${pause.step} asks ${JSON.stringify(pause.ask)} — your answer (${ANSWER_MODES}): `,
+      `${retry}${pause.step} asks ${JSON.stringify(pause.input)} — your answer (${ANSWER_MODES}): `,
     );
     return questionAnswerOf((reply ?? "").trim());
   }
-  const question = pause.ask;
   const reply = await ask(
-    `${pause.step} wants to call ${question.tool} ${JSON.stringify(question.arguments)} — approve? [y/N] `,
+    `${pause.step} wants to call ${pause.toolCall.tool} ${JSON.stringify(pause.input)} — approve? [y/N] `,
   );
   return { kind: "decision", decision: terminalDecision(/^y(es)?$/i.test((reply ?? "").trim())) };
 }

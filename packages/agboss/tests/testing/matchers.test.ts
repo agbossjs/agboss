@@ -60,7 +60,8 @@ const paused = run({
       channel: "terminal-user-channel",
       childExecutionId: undefined,
       itemIndex: undefined,
-      ask: { callId: "call-1", tool: "save-note-tool", arguments: {}, summary: "save a note" },
+      input: {},
+      toolCall: { callId: "call-1", tool: "save-note-tool", summary: "save a note" },
     },
   ],
 });

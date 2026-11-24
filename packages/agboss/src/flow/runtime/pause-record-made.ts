@@ -6,6 +6,7 @@ import {
   PauseExpiryBound,
   PauseStatus,
   type PauseRecord,
+  type PauseTrailRecord,
 } from "../../infrastructure/pause-record.js";
 import type { PauseChannel, PauseQuestion } from "./pause.js";
 import { plainRecordOf } from "./records.js";
@@ -175,6 +176,20 @@ async function addedReminderOf(
     : undefined;
 }
 
+/** The first entry of a pause's chain of custody: it was opened, under this target, with this deadline. */
+const openedEntryOf = (
+  channel: PauseChannel,
+  at: Date,
+  expiresAt: string | undefined,
+): PauseTrailRecord => ({
+  action: "opened",
+  at: at.toISOString(),
+  target: channel.name,
+  // an owner's pause with no channel is asked of nobody
+  ...(channel.sender === undefined ? {} : { channel: channel.name }),
+  ...(expiresAt === undefined ? {} : { expiresAt }),
+});
+
 /** The record a step would make: a new id, `Pending`, not sent; working time asks the calendar (`add`). */
 export async function newRecordOf(
   frame: FrameSpec,
@@ -217,7 +232,9 @@ export async function newRecordOf(
     channel: channel.name,
     branchKeys: branchKeysAt(frame),
     answerer: channel.answerer,
-    ask: question.ask,
+    input: question.input,
+    ...(question.toolCall === undefined ? {} : { toolCall: question.toolCall }),
+    trail: [openedEntryOf(channel, now, deadline.expiresAt)],
     status: PauseStatus.Pending,
     isSent: false,
     askedAt: now.toISOString(),

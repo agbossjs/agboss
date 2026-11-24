@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { PauseAnswerer } from "../channels/channel-role.decorator.js";
-import type { ToolCallApprovalAskDto } from "../dto/standard/framework.js";
+import type { PauseActor, PauseToolCallSummary } from "../channels/pause-contexts.js";
 import type { UsageRecord } from "../finops/usage.js";
 import type { ComponentRecord } from "../flow/runtime/records.js";
 import { lazyLoad } from "./clock.js";
@@ -107,18 +107,18 @@ export interface PauseExpiry {
 export interface PauseAnswer {
   readonly decision: unknown;
   /**
-   * Who answered: the `answeredBy` of a `PauseAnswerer.Channel` pause's resume, the `ownerId` of a
-   * `PauseAnswerer.ThreadOwner` one (`undefined` for a thread without an owner, or a channel that
-   * decided at once). 0.1.0 named it `answerer`: a record stored then reads with the new name.
+   * Who answered: the `actor` of a delegate pause's resume, the thread's owner (`{ id: ownerId }`)
+   * for an owner's pause; `undefined` for a thread without an owner, or a channel that decided at
+   * once.
    */
-  readonly answeredBy: string | undefined;
+  readonly actor: PauseActor | undefined;
   /**
-   * `true` when the channel itself decided this answer — the replacement of a reassigned send that
-   * `ChannelOutcome.decided` answered at once (#1193) — not a person's reply. The store keeps it as
-   * written, so after a crash the retention repair logs the pause `decided`, not `replied` (#1197).
-   * Absent for a person's answer.
+   * `true` when the delegate channel itself decided this answer — the replacement of a reassigned
+   * send that `ChannelOutcome.decided` answered at once (#1193) — not a person's reply. The store
+   * keeps it as written, so after a crash the retention repair logs the pause `decided`, not
+   * `replied` (#1197). Absent for a person's answer.
    */
-  readonly byChannel?: true;
+  readonly byDelegate?: true;
   /**
    * The model calls of its reply interpreter (`app.resume({ pauseId, reply })`): already in the
    * ledger, added to the execution's spend when its step takes the answer.
@@ -162,37 +162,42 @@ export interface PauseSite {
 
 /** What a pause waits for (#659): a tool call's approval, or a question role's answer. */
 export enum PauseKind {
-  /** An agent's tool call through its channel: `ask` is the call, the answer a `ToolCallApprovalDecisionDto`. */
+  /** An agent's tool call through its channel: `input` is its arguments, `toolCall` names the call. */
   Approval = "approval",
-  /** A question role's step or tool (#659, #712): `ask` is the role's ask, the answer its `answer` DTO. */
+  /** A question role's step or tool (#659, #712): `input` is the role's ask, the answer its `answer` DTO. */
   Question = "question",
 }
 
-declare const questionAsk: unique symbol;
-
 /**
- * What a question role asks (#659): the role's `ask` value, `sensitive` fields masked — the
- * project's own DTO, so opaque here: a field of a `PendingPause`'s ask is read only after narrowing
- * on `kind` (an approval's ask keeps its typing), and a question's is read by assigning it to
- * `Readonly<Record<string, unknown>>` (0.1.1 API review). A plain object is not one.
+ * What a pause asks, as the framework made it and a store keeps it: a plain object — the gated
+ * tool's arguments for an approval, the external task's input for a question — `sensitive` fields
+ * masked, tokenized by the pause's own workflow's PII policy. Anything but an object (`null`, an
+ * array, a text) throws `TypeError`.
  */
-export type QuestionAsk = Readonly<{ [questionAsk]: true }>;
-
-/**
- * A question's ask as the framework made it — the role's DTO, masked — or as a store of your own
- * reads it back (a question pause's `ask`, kept as written): the one place it is branded. Anything
- * but an object (`null`, an array, a text) throws `TypeError`.
- */
-export function questionAskOf(ask: unknown): QuestionAsk {
-  if (typeof ask !== "object" || ask === null || Array.isArray(ask))
-    throw new TypeError(
-      `a question's ask is an object (the role's ask DTO), not ${JSON.stringify(ask)}`,
-    );
-  return ask as QuestionAsk;
+export function pauseInputOf(input: unknown): Readonly<Record<string, unknown>> {
+  if (typeof input !== "object" || input === null || Array.isArray(input))
+    throw new TypeError(`a pause's input is an object, not ${JSON.stringify(input)}`);
+  return input as Readonly<Record<string, unknown>>;
 }
 
-/** What a pause asks: a tool call to approve, or a question role's ask (#659). */
-export type PauseAsk = ToolCallApprovalAskDto | QuestionAsk;
+/**
+ * One step of a pause's chain of custody as the record keeps it: `PauseTrailEntry` with its times as
+ * ISO 8601 texts, like the record's own. Written by the store's transitions, never edited.
+ */
+export interface PauseTrailRecord {
+  readonly action: "opened" | "reassigned" | "timeout-changed" | "escalated";
+  /** When it happened (ISO 8601, the application's clock). */
+  readonly at: string;
+  /** Who did it: absent for the framework's own (`opened`, an expiry). */
+  readonly actor?: PauseActor;
+  /** The target the pause waited under after it. */
+  readonly target: string;
+  readonly channel?: string;
+  readonly assignees?: readonly string[];
+  readonly expiresAt?: string;
+  readonly externalRef?: string;
+  readonly reason?: string;
+}
 
 /** How and when a pause first closed with an answer: what a later untaken close keeps (#935). */
 export interface PauseFirstClose {
@@ -208,7 +213,7 @@ export interface PauseRecord extends PauseSite {
   readonly pauseId: string;
   /**
    * What it waits for (0.1.1: stored, written by the step that pauses): a tool call's approval or
-   * a question role's answer — what `ask` is. A store keeps it as written, never infers it.
+   * a question role's answer — what `input` is. A store keeps it as written, never infers it.
    */
   readonly kind: PauseKind;
   /**
@@ -221,10 +226,21 @@ export interface PauseRecord extends PauseSite {
   /** Who may answer it (its channel role's `answerer`). */
   readonly answerer: PauseAnswerer;
   /**
-   * The question, `sensitive` fields masked: the tool call an approval waits for, or a question
-   * role's ask (#659) — told apart by `kind`.
+   * What it asks, `sensitive` fields masked and PII tokenized: the arguments of the tool call an
+   * approval waits for, or a question role's ask (#659) — told apart by `kind`.
    */
-  readonly ask: PauseAsk;
+  readonly input: Readonly<Record<string, unknown>>;
+  /** The tool call an approval waits on; `undefined` for a question, which waits on none. */
+  readonly toolCall?: PauseToolCallSummary;
+  /**
+   * Who the pause is for (a Slack user, an address, a queue's members): the 1-of-N pool a delegate
+   * answers from; `undefined`: nobody in particular. Set on a replacement (#946), never empty.
+   */
+  readonly assignees?: readonly string[];
+  /** The id the channel's own system gave the pause (a ticket key), kept as the channel returned it. */
+  readonly externalRef?: string;
+  /** The chain of custody: `opened`, then every reassignment, newest last. Never empty. */
+  readonly trail: readonly PauseTrailRecord[];
   readonly status: PauseStatus;
   /** Whether its channel's `send` returned (`awaitReply`): a re-entry does not ask again. */
   readonly isSent: boolean;
@@ -252,8 +268,6 @@ export interface PauseRecord extends PauseSite {
   readonly closedFirst?: PauseFirstClose;
   /** The smaller of the run's and a quorum's deadline at creation: an extension never passes it (#942). */
   readonly boundAt?: string;
-  /** Who the question is for (a Slack user, an address, a queue): set on a replacement only (#946). */
-  readonly assignee?: string;
   /** The pause that replaced this one (#946), once `Cancelled / Reassigned`. */
   readonly reassignedTo?: string;
   /** The pause this one replaces (#946): made unsent, its channel asked again. */
@@ -277,8 +291,8 @@ export function isQuestionPause(pause: Pick<PauseRecord, "kind" | "pauseId">): b
   }
 }
 
-/** A pause of an agent's tool call: its `ask` is the call (every pause before #659). */
-export type ApprovalPauseRecord = PauseRecord & { readonly ask: ToolCallApprovalAskDto };
+/** A pause of an agent's tool call: its `toolCall` is the call (every pause before #659). */
+export type ApprovalPauseRecord = PauseRecord & { readonly toolCall: PauseToolCallSummary };
 
 /** Whether a pause approves a tool call (not a question role's, #659). */
 export const isApprovalPause = (pause: PauseRecord): pause is ApprovalPauseRecord =>
@@ -286,7 +300,14 @@ export const isApprovalPause = (pause: PauseRecord): pause is ApprovalPauseRecor
 
 /** The tool call a pause waits on; `undefined` for a question (#659), which waits on none. */
 export const callIdOfPause = (pause: PauseRecord): string | undefined =>
-  isApprovalPause(pause) ? pause.ask.callId : undefined;
+  isApprovalPause(pause) ? pause.toolCall.callId : undefined;
+
+/**
+ * What a reply interpreter reads as the question of a pause: an approval's call as the agent made
+ * it (`callId`, `tool`, `summary`, its `arguments`), a question's ask as it is.
+ */
+export const replyAskOf = (pause: PauseRecord): unknown =>
+  pause.toolCall === undefined ? pause.input : { ...pause.toolCall, arguments: pause.input };
 
 /** A pause's id: a cryptographically random 128-bit token, made once per pause (AC3). */
 export const newPauseId = (): string => randomBytes(16).toString("hex");

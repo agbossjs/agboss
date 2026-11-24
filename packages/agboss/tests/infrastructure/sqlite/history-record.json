@@ -166,13 +166,26 @@
       },
       "role": "refund-approval-channel",
       "answerer": "channel",
-      "answeredBy": "manager-17",
+      "actor": {
+        "id": "manager-17"
+      },
       "resolution": "replied",
       "askedAt": "2026-01-05T09:00:00.000Z",
       "resolvedAt": "2026-01-05T09:05:00.000Z",
       "decision": {
         "approved": true
-      }
+      },
+      "input": {
+        "text": "10 USD"
+      },
+      "trail": [
+        {
+          "action": "opened",
+          "at": "2026-01-05T09:00:00.000Z",
+          "target": "refund-approval-channel",
+          "channel": "refund-approval-channel"
+        }
+      ]
     }
   ],
   "compensations": [
@@ -637,13 +650,26 @@
           },
           "role": "refund-approval-channel",
           "answerer": "thread-owner",
-          "answeredBy": "alice",
+          "actor": {
+            "id": "alice"
+          },
           "resolution": "replied",
           "askedAt": "2026-01-05T09:00:00.000Z",
           "resolvedAt": "2026-01-05T09:05:00.000Z",
           "decision": {
             "approved": true
-          }
+          },
+          "input": {
+            "text": "10 USD"
+          },
+          "trail": [
+            {
+              "action": "opened",
+              "at": "2026-01-05T09:00:00.000Z",
+              "target": "refund-approval-channel",
+              "channel": "refund-approval-channel"
+            }
+          ]
         }
       ],
       "children": [
@@ -742,13 +768,26 @@
               },
               "role": "refund-approval-channel",
               "answerer": "channel",
-              "answeredBy": "bob",
+              "actor": {
+                "id": "bob"
+              },
               "resolution": "replied",
               "askedAt": "2026-01-05T09:00:00.000Z",
               "resolvedAt": "2026-01-05T09:05:00.000Z",
               "decision": {
                 "approved": true
-              }
+              },
+              "input": {
+                "text": "10 USD"
+              },
+              "trail": [
+                {
+                  "action": "opened",
+                  "at": "2026-01-05T09:00:00.000Z",
+                  "target": "refund-approval-channel",
+                  "channel": "refund-approval-channel"
+                }
+              ]
             }
           ],
           "children": []

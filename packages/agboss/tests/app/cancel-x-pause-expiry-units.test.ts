@@ -59,7 +59,9 @@ const pause = (overrides: Record<string, unknown> = {}) => ({
   kind: PauseKind.Approval,
   answerer: PauseAnswerer.Channel,
   step: "desk-clerk-agent",
-  ask: { callId: "c-1", tool: "refund", arguments: {}, summary: "refund" },
+  input: {},
+  toolCall: { callId: "c-1", tool: "refund", summary: "refund" },
+  trail: [],
   askedAt: "2026-01-01T00:00:00.000Z",
   expiresAt: "2026-01-01T11:00:00.000Z",
   expiryBound: PauseExpiryBound.Pause,
@@ -182,7 +184,9 @@ describe("#1366: the channel's decision on an expiry", () => {
       { frame: "the frame", timeout: 7000, clock, interruption: signal },
       expect.any(Function),
     );
-    expect(onPauseExpired).toHaveBeenCalledWith({ pauseId: "p-1", value: pause().ask });
+    expect(onPauseExpired).toHaveBeenCalledWith(
+      expect.objectContaining({ pauseId: "p-1", input: pause().input, trail: [] }),
+    );
     expect(expire).toHaveBeenCalledWith("acme", "p-1", {}, NOW, RECIPIENTS);
   });
 
@@ -212,7 +216,7 @@ describe("#1366: the channel's decision on an expiry", () => {
     expect(expire).toHaveBeenCalledWith(
       "acme",
       "p-1",
-      { answer: { decision: { validated: { approved: true } }, answeredBy: undefined } },
+      { answer: { decision: { validated: { approved: true } }, actor: undefined } },
       NOW,
       RECIPIENTS,
     );

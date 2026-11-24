@@ -30,7 +30,7 @@ export const decidedOnExpiryPause = (
 ): PauseRecord => ({
   ...pause,
   status: PauseStatus.Resolved,
-  answer: { ...answer, answeredBy: undefined },
+  answer: { ...answer, actor: undefined },
   resolution: PauseResolution.DecidedOnExpiry,
   resolvedAt: at.toISOString(),
 });

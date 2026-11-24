@@ -25,23 +25,25 @@ waiting pause, one `PendingPause` each:
 | ------------------ | -------------------------------------------------------------------------------------- |
 | `kind`             | `PauseKind.Approval` (a tool call) or `PauseKind.Question` (a question role's step, #659) |
 | `pauseId`          | what `app.resume` takes — only for a `PauseAnswerer.ThreadOwner` pause (below)         |
-| `answerer`         | who may answer it: `PauseAnswerer.ThreadOwner` or `PauseAnswerer.Channel` (its role's); `answeredBy` is the same value, `@deprecated` until 0.2 (#934) |
+| `answerer`         | who may answer it: `PauseAnswerer.ThreadOwner` or `PauseAnswerer.Channel` (its role's); who answered is `actor` (a `PauseActor`, #1307) |
 | `step`, `channel`  | the step that asks — the agent whose tool call waits, or the question step — and the channel asked (a role's name or a `@Channel`'s) |
 | `itemIndex`        | the item of a per-item launch it waits in — no copy of the item                        |
 | `childExecutionId` | the child execution it waits in ([Workflow as a step](Workflow-as-a-step#at-run-time)); `undefined` in the root |
-| `ask`              | the question: the tool call (`ToolCallApprovalAskDto`), or a question role's ask (`QuestionAsk`, opaque); `sensitive` fields masked |
+| `input`            | what it asks: an approval's tool arguments, or a question role's ask, as `Readonly<Record<string, unknown>>`; `sensitive` fields masked |
+| `toolCall`         | an approval only: the call it waits on, `{ callId, tool, summary? }` |
+| `assignees`, `externalRef` | who it is for (a 1-of-N pool), and the id its channel's system gave it (a ticket key) |
+| `trail`            | its chain of custody, newest last: `opened`, then one entry per reassignment (who, when, to whom, why) |
 
 The fields every kind has are `PendingPauseBase`; `PendingPause` is `PendingApproval |
-PendingQuestion`, told apart by `kind`. Narrow before reading `ask`: a question's ask is the
-project's own DTO, so it is opaque (`QuestionAsk`) and a field of a `PendingPause`'s ask does not
-compile until the kind is known —
+PendingQuestion`, told apart by `kind`. Narrow on `kind` before reading `toolCall`: only an approval has one;
+`input` is on every pause —
 
 ```ts
 import { PauseKind, type PendingPause } from "@agboss/core";
 
 export function describePause(pause: PendingPause): string {
-  if (pause.kind === PauseKind.Approval) return `${pause.step} calls ${pause.ask.tool}`; // typed
-  const fields: Readonly<Record<string, unknown>> = pause.ask; // the role's ask DTO, masked
+  if (pause.kind === PauseKind.Approval) return `${pause.step} calls ${pause.toolCall.tool}`; // typed
+  const fields: Readonly<Record<string, unknown>> = pause.input; // the arguments or the role's ask, masked
   return `${pause.step} asks ${JSON.stringify(fields)}`;
 }
 ```
@@ -68,7 +70,7 @@ declare const replyKey: string;
 // a Slack webhook: the finance manager pressed "Approve"; the message's reply key is the pauseId
 const result = await app.resume(
   { pauseId: replyKey, decision: { approved: true } },
-  { tenantId: "acme", answeredBy: "manager-17" },
+  { tenantId: "acme", actor: { id: "manager-17" } },
 );
 console.log(result.threadId, result.executionId, result.pending.length);
 ```
@@ -126,12 +128,12 @@ export class RefundReplyInterpreter {}
 export abstract class RefundApprovalChannel extends ChannelOf<RefundApprovalChannel> {}
 
 // the webhook passes the text as it came; the result is the same as with a decision
-await app.resume({ pauseId: replyKey, reply: "ok, but only half" }, { answeredBy: "manager-17" });
+await app.resume({ pauseId: replyKey, reply: "ok, but only half" }, { actor: { id: "manager-17" } });
 ```
 
 - **Exactly one of `decision` or `reply`** — by types (`ResumeRequest = DecisionResumeRequest |
   ReplyResumeRequest`) and at run time: both, or an empty `reply`, is `DtoValidationError` before the
-  pause is looked up. The credential (`ownerId` / `answeredBy`) is checked as for a decision.
+  pause is looked up. The credential (`ownerId` / `actor`) is checked as for a decision.
 - **The interpreter gets the pause's original question and the reply** — `{ ask, reply }`, where the
   amount to halve is in `ask.arguments` — and what it gives is validated like a decision (the role's
   answer DTO: `ToolCallApprovalDecisionDto` for an `approves` role, `overrideArguments` checked by
@@ -457,23 +459,23 @@ it calls it like any tool, and:
 
 `@ChannelRole({ …, answerer })` is required (no default): a forgotten value must not let a customer
 approve their own refund. One meaning per name (#934): **`answerer` is who *may* answer**
-(`PauseAnswerer`), **`answeredBy` is who *did*** — the person, a string, in `app.resume`'s options, on a
-pause's answer and in the audit trail. 0.1.0's `answeredBy: PauseAnswerer` on a role is gone (#1307d): a role
+(`PauseAnswerer`), **`actor` is who *did*** — the person, a string, in `app.resume`'s options, on a
+pause's answer and in the audit trail. 0.1.0's `actor: PauseAnswerer` on a role is gone (#1307d): a role
 names its `answerer`, or it fails `[channel.role-form]`.
 
 | `answerer`                   | `resume` takes                                    | Its `pauseId`                                       |
 | ---------------------------- | ------------------------------------------------- | --------------------------------------------------- |
 | `PauseAnswerer.ThreadOwner`  | the thread's `ownerId` (another → `ThreadOwnerError`) | listed in `result.pending`                      |
-| `PauseAnswerer.Channel`      | `answeredBy: "manager-17"` — non-empty            | only in the channel's `ask.pauseId`                 |
+| `PauseAnswerer.Channel`      | `actor: { id: "manager-17" }` — non-empty            | only in the channel's `ask.pauseId`                 |
 
 The channel's side authenticates who answers a `Channel` pause (Slack, a ticket system, an admin
 panel already knows the manager); the framework adds no permission model of its own — it checks that
-`answeredBy` is given and records it on the pause and in `onExecutionResume` (`event.answeredBy`).
+`actor` is given and records it on the pause and in `onExecutionResume` (`event.actor?.id`).
 **`pauseId` is the right to answer**: a cryptographically random 128-bit token made once per pause,
 before the first `send` — a retried `send` gets the same one, so it is safe as the idempotency key
 towards Slack, mail or a ticket system — and `result.pending` and `onExecutionPause` leave it out of a
 `Channel` pause, so the token never leaves the channel's server side. A `ThreadOwner` pause answered
-with `answeredBy`, or a `Channel` pause with `ownerId` (or without `answeredBy`), is
+with `actor`, or a `Channel` pause with `ownerId` (or without `actor`), is
 `PauseError.PermissionDenied` (`pause.permission-denied`); the pause keeps waiting. A concrete `@Channel` a tool
 names as is (`TerminalUserChannel`) is answered by the thread's owner. The resumed pass runs as the
 thread's owner (`executionContext.ownerId`), whoever answered.
@@ -548,7 +550,7 @@ resolved pause of the tree, in the order they were asked:
 | `executionId`            | the execution it waited in: the root's, or a child's (#267 S124)               |
 | `step`                   | the waiting step: agent (its `ComponentRecord`), node, visit, copy, item, tool call, the loop's `toolLoopIteration` and `validationAttempts` (`StepRecord`, #268) |
 | `role`, `answerer`       | the channel asked and who may answer                                           |
-| `answeredBy`             | who answered — the person: the `ownerId` / `answeredBy` of `app.resume`; `undefined` when decided at once, withdrawn or cancelled (0.1.0's `responder` alias is gone, #1307d) |
+| `actor`             | who answered — the person: the `ownerId` / `actor` of `app.resume`; `undefined` when decided at once, withdrawn or cancelled (0.1.0's `responder` alias is gone, #1307d) |
 | `resolution`             | `PauseResolution`                                                              |
 | `askedAt`, `resolvedAt`  | ISO 8601, the application's `Clock`                                            |
 | `decision`               | what was decided, masked by the application's PII policies; `undefined` when withdrawn or cancelled |
@@ -689,7 +691,7 @@ export class SlackRefundApprovalChannel extends RefundApprovalChannel {
   async send(
     ask: ChannelAsk<RefundApprovalChannel>,
   ): Promise<ChannelOutcome<RefundApprovalChannel>> {
-    const { orderId } = ask.value.arguments;
+    const { orderId } = ask.input;
     const tenantId = this.executionContext.tenant.tenantId;
     await this.slackClient.postApproval(ask.pauseId, `Refund order ${orderId} (${tenantId})?`);
     return ChannelOutcome.awaitReply();
@@ -697,10 +699,10 @@ export class SlackRefundApprovalChannel extends RefundApprovalChannel {
 
   // at least once whenever a pause this channel sent closes; deduplicate by event.deliveryId
   override async onPauseClosed(event: ChannelPauseClosedEvent<RefundApprovalChannel>): Promise<void> {
-    const { orderId } = event.value.arguments;
+    const { orderId } = event.input.arguments;
     const why =
       event.reason === PauseClosedReason.Answered
-        ? `answered by ${event.answeredBy ?? "someone"}`
+        ? `answered by ${event.actor?.id ?? "someone"}`
         : event.reason;
     await this.slackClient.closeApproval(event.pauseId, `Refund of order ${orderId}: ${why}`);
   }
@@ -709,7 +711,7 @@ export class SlackRefundApprovalChannel extends RefundApprovalChannel {
 
 - **What a channel gets** — `ChannelPauseClosedEvent<Role>`: the `pauseId` and `value` as `send` got
   them, `reason: PauseClosedReason` (`Answered`, `Expired`, `Cancelled`, `Withdrawn`, `TreeEnded`),
-  `closedAt`, and for an answer `answeredBy` (the resume's `answeredBy`, or the thread's owner) and the
+  `closedAt`, and for an answer `actor` (the resume's `actor`, or the thread's owner) and the
   `answer` (masked by the PII policies), and `deliveryId`. The channel hears an answer **given
   elsewhere** too — a manager approves in the back office, the Slack message loses its buttons — and
   its own. `onPauseAnswerNotTaken(event)` is told, after the `closed`, when a recorded answer is never
@@ -766,11 +768,11 @@ export class BackOfficePauseListener implements PauseListenerHandler {
   constructor(private readonly backOffice: BackOfficeApi) {}
 
   async onPauseOpened(event: PauseListenerOpenedEvent): Promise<void> {
-    await this.backOffice.track(event.pauseKey, event.channel, event.ask);
+    await this.backOffice.track(event.pauseKey, event.channel, event.input);
   }
 
   async onPauseClosed(event: PauseListenerClosedEvent): Promise<void> {
-    await this.backOffice.settle(event.pauseKey, event.reason, event.answeredBy, event.answer);
+    await this.backOffice.settle(event.pauseKey, event.reason, event.actor?.id, event.answer);
   }
 }
 ```
@@ -790,7 +792,7 @@ applied. An event carries the safe context — `pauseKey`, `tenantId`, `rootExec
   and no `pauseId`; the id of a `PauseAnswerer.ThreadOwner` pause is no secret (the owner check
   guards it) and is always there. `@PauseListener({ allowAnswering: true })` declares a **trusted
   component**: its events carry the raw id of channel pauses, so it holds the right to answer every
-  channel pause of the application (`app.resume` still needs `answeredBy`).
+  channel pause of the application (`app.resume` still needs `actor`).
 
 ## Expiry in parallel launches (#945)
 
@@ -898,7 +900,7 @@ export class DeskManagerChannel extends DeskManagerQuestion {
   }
 
   async send(ask: ChannelAsk<DeskManagerQuestion>): Promise<ChannelOutcome<DeskManagerQuestion>> {
-    await this.chat.ask("manager", ask.pauseId, `Refund order ${ask.value.orderId}?`);
+    await this.chat.ask("manager", ask.pauseId, `Refund order ${ask.input.orderId}?`);
     return ChannelOutcome.awaitReply();
   }
 }
@@ -924,7 +926,7 @@ export class DeskDirectorChannel extends DeskDirectorQuestion {
   }
 
   async send(ask: ChannelAsk<DeskDirectorQuestion>): Promise<ChannelOutcome<DeskDirectorQuestion>> {
-    await this.chat.ask("director", ask.pauseId, `The manager did not answer: refund ${ask.value.orderId}?`);
+    await this.chat.ask("director", ask.pauseId, `The manager did not answer: refund ${ask.input.orderId}?`);
     return ChannelOutcome.awaitReply();
   }
 }
@@ -1030,7 +1032,7 @@ export class DeskManagerChannel
 }
 ```
 
-The step goes on with `{ approved: false }` as if the manager had answered, `answeredBy` the
+The step goes on with `{ approved: false }` as if the manager had answered, `actor` the
 channel's name in the audit trail (`PauseResolution.DecidedOnExpiry`); `decide` is typed by the role's
 answer.
 
@@ -1049,7 +1051,7 @@ may answer `onPauseExpired(ask)` — `ask` is what `send` got — with:
   **agent step**, its spend kept, and none of the move's calls ran;
 - `PauseExpiration.decide(answer)`: the step goes on with that answer, validated like a resume's
   and recorded as answered **by the channel** (`PauseResolution.DecidedOnExpiry`, the log's
-  `answeredBy` is the channel's name); `onExecutionResume` says `ResumeReason.Expired`. An
+  `actor` is the channel's name); `onExecutionResume` says `ResumeReason.Expired`. An
   approval decided `{ approved: true }` runs its tool with no person having looked — choose it
   knowing that; `{ approved: false, reason }` is read by the model as a refusal by the channel.
 
@@ -1116,14 +1118,14 @@ export class DeskManagerChannel extends DeskManagerQuestion {
   }
 
   async send(ask: ChannelAsk<DeskManagerQuestion>): Promise<ChannelOutcome<DeskManagerQuestion>> {
-    await this.chat.ask("manager", ask.pauseId, `Refund order ${ask.value.orderId}?`);
+    await this.chat.ask("manager", ask.pauseId, `Refund order ${ask.input.orderId}?`);
     return ChannelOutcome.awaitReply();
   }
 
   // once per deadline, whatever the number of instances; at least once, so a chat message
   // that is sent twice must be harmless — deduplicate by event.deliveryId
   override async onPauseExpiring(event: ChannelPauseExpiringEvent<DeskManagerQuestion>): Promise<void> {
-    await this.chat.ask("manager", event.pauseId, `Order ${event.value.orderId}: answer by ${event.expiresAt}`);
+    await this.chat.ask("manager", event.pauseId, `Order ${event.input.orderId}: answer by ${event.expiresAt}`);
   }
 }
 
@@ -1146,7 +1148,7 @@ export class OnCallPauseListener implements PauseListenerHandler {
 }
 ```
 
-**An extension.** `await app.extendPause({ pauseId, expiresIn: hours(24) }, { answeredBy })` — the
+**An extension.** `await app.extendPause({ pauseId, expiresIn: hours(24) }, { actor })` — the
 `ownerId` for a thread owner's pause: whoever may answer may extend; the options are
 `PauseCallerOptions`, the caller fields of `resume`'s and none of a run's — moves an open pause's deadline
 to `now + expiresIn` and returns `PauseExtension { pauseKey, expiresAt, previousExpiresAt }`. The channel's
@@ -1170,10 +1172,10 @@ import type { App, PauseExtension } from "@agboss/core";
 declare const app: App;
 declare const pauseId: string; // the id the channel was sent
 
-// the manager asks for one more day; the Channel role's credential is `answeredBy`
+// the manager asks for one more day; the Channel role's credential is `actor`
 const extension: PauseExtension = await app.extendPause(
   { pauseId, expiresIn: hours(24) },
-  { answeredBy: "manager-17" },
+  { actor: { id: "manager-17" } },
 );
 console.log(extension.expiresAt, extension.previousExpiresAt);
 ```
@@ -1190,7 +1192,7 @@ instance, an expiry look on any instance, all read the new deadline from the rec
 ### Reassigning a pause to someone else (#946)
 
 The approver is on leave: the request must go to a deputy, and the agent or the step must not run again.
-`await app.reassignPause({ pauseId, assignee: "deputy-3" }, { answeredBy })` — the `ownerId` for a thread
+`await app.reassignPause({ pauseId, assignees: ["deputy-3"] }, { actor })` — the `ownerId` for a thread
 owner's pause: whoever may answer may reassign; `PauseCallerOptions`, as `extendPause` — moves the open pause
 to another addressee of **the same channel** and returns `PauseReassignment { pauseKey }`, the new pause's key.
 It is the same role's implementation that routes on `assignee` (a Slack user, an address, a queue): no other
@@ -1200,11 +1202,11 @@ its reminder; extend it separately ("An extension" above).
 
 What the channel hears, in no fixed order:
 
-- **`send` again** — with a **new `pauseId`**, `ChannelAsk.assignee` (the `assignee` of the call) and
+- **`send` again** — with a **new `pauseId`**, `ChannelAsk.assignees` (the `assignee` of the call) and
   `ChannelAsk.replaces: { pauseId }`, the old message's id. A first send carries neither field. A `send`
   that returns `ChannelOutcome.decided(…)` answers the replacement at once, through the normal answer path
   (the decision validated, recorded by the store's compare-and-set, the tree moved): the answer is the
-  **channel's own** — `answeredBy` is the channel's name for a channel's pause and a thread owner's alike, never the
+  **channel's own** — `actor` is the channel's name for a channel's pause and a thread owner's alike, never the
   owner who only reassigned it — applied once, a re-send after a crash finds it answered; a hand-over or a
   run that ended after the decision is the run's own outcome, not a failed send.
 - **`onPauseClosed`** (if the channel overrides it) for the **old** message with `reason: reassigned`
@@ -1240,10 +1242,10 @@ import type { App, PauseReassignment } from "@agboss/core";
 declare const app: App;
 declare const pauseId: string; // the id the channel was sent
 
-// the operator hands the approval to the deputy; the Channel role's credential is `answeredBy`
+// the operator hands the approval to the deputy; the Channel role's credential is `actor`
 const moved: PauseReassignment = await app.reassignPause(
-  { pauseId, assignee: "deputy-3" },
-  { answeredBy: "operator-1" },
+  { pauseId, assignees: ["deputy-3"] },
+  { actor: { id: "operator-1" } },
 );
 console.log(moved.pauseKey); // the new pause's key: a correlation, it answers nothing
 ```
@@ -1414,7 +1416,7 @@ import { PauseClosedError, PauseClosedReason } from "@agboss/core";
 
 // the Slack webhook of "Approve": the pause may be closed by now
 try {
-  await app.resume({ pauseId, decision: { approved: true } }, { answeredBy: "manager-17" });
+  await app.resume({ pauseId, decision: { approved: true } }, { actor: { id: "manager-17" } });
 } catch (error) {
   if (!(error instanceof PauseClosedError)) throw error;
   const sorry =

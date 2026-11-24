@@ -31,8 +31,8 @@ describe("#941: PauseExpiration and PauseExpiryHandler", () => {
   it("a handler of a role returns the role's expiration: decide checks the role's answer type", () => {
     class Sync implements PauseExpiryHandler<ManagerQuestion> {
       onPauseExpired(ask: ChannelAsk<ManagerQuestion>) {
-        expectTypeOf(ask.value.orderId).toEqualTypeOf<string>();
-        return ask.value.orderId === "small"
+        expectTypeOf(ask.input.orderId).toEqualTypeOf<string>();
+        return ask.input.orderId === "small"
           ? PauseExpiration.decide({ approved: true, comment: "auto" })
           : PauseExpiration.fail();
       }

@@ -177,6 +177,20 @@ export type ChannelQuestionOf<TRole> =
     : MissingGeneratedTypes;
 
 /**
+ * What a pause of `TRole` asks as a channel and a hook read it (`ChannelAsk<TRole>["input"]`): an
+ * approval role's tool arguments (the `arguments` of its generated ask), a question role's `ask`
+ * DTO as it is (#659); `MissingGeneratedTypes` before `agboss check`.
+ */
+export type ChannelInputOf<TRole> =
+  ChannelQuestionOf<TRole> extends {
+    readonly callId: string;
+    readonly tool: string;
+    readonly arguments: infer TArguments;
+  }
+    ? TArguments
+    : ChannelQuestionOf<TRole>;
+
+/**
  * The answer that decides a pause of `TRole` (`ChannelOutcome.decided(…)`, a reply): the
  * `ToolCallApprovalDecisionDto` of an approval role's `approves`, a question role's `answer` (#659);
  * `MissingGeneratedTypes` before `agboss check`.

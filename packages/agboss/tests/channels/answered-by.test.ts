@@ -56,7 +56,7 @@ describe("#267 AC4: a ThreadOwner pause is answered by the thread's owner", () =
     const done = await app.resume(answerOf(paused, approve), { ownerId: "alice" });
     expect(done).toFinishWith(DeskWorkflowFinish, { text: "Confirmed." });
     expect(seen.confirmed).toEqual(["7"]);
-    expect(seen.resumes.map((event) => event.answeredBy)).toEqual(["alice"]);
+    expect(seen.resumes.map((event) => event.actor?.id)).toEqual(["alice"]);
   });
 });
 
@@ -79,7 +79,7 @@ describe("#267 AC3 / AC4: a Channel pause is answered through its channel", () =
 
     const asOwner = app.resume(answerFor("7"), { ownerId: "alice" });
     const anonymous = app.resume(answerFor("7"));
-    const empty = app.resume(answerFor("7"), { answeredBy: " " });
+    const empty = app.resume(answerFor("7"), { actor: { id: " " } });
 
     await expect(asOwner).rejects.toBeInstanceOf(PauseError.PermissionDenied);
     await expect(anonymous).rejects.toBeInstanceOf(PauseError.PermissionDenied);
@@ -102,9 +102,9 @@ describe("#267 AC3 / AC4: a Channel pause is answered through its channel", () =
     const stored = await pauseStore().findByTenantIdAndPauseId("default", askFor("7").pauseId);
     expect(stored).toMatchObject({
       status: PauseStatus.Taken,
-      answer: { answeredBy: "manager-17", decision: { approved: false, reason: "too late" } },
+      answer: { actor: { id: "manager-17" }, decision: { approved: false, reason: "too late" } },
     });
-    expect(seen.resumes).toMatchObject([{ answeredBy: "manager-17" }]);
+    expect(seen.resumes).toMatchObject([{ actor: { id: "manager-17" } }]);
     expect(JSON.stringify(mockLlm(DeskClerkAgent).requests[1])).toContain(
       "the call was rejected by manager-17: too late",
     );

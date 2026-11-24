@@ -101,7 +101,7 @@ describe("#940 AC1: the channel that asked hears an answer given elsewhere", () 
           channel: "finance-desk",
           orderId: "7",
           reason: PauseClosedReason.Answered,
-          answeredBy: "manager-17",
+          actor: { id: "manager-17" },
           answer: { approved: true, reason: "ok" },
           executionId: paused.executionId,
           tenantId: "acme",
@@ -307,7 +307,7 @@ describe("#940 Q2: an answer recorded and never applied", () => {
         channel: "refund-approval-channel",
         listeners: ["audit-pause-listener", "trusted-pause-listener"],
       };
-      const answer = { decision: { approved: true }, answeredBy: "manager-17" };
+      const answer = { decision: { approved: true }, actor: { id: "manager-17" } };
       // the answer is recorded; the cancel closes it before its step took it
       await pauseStore().resolveByTenantIdAndPauseId(
         "acme",
@@ -330,7 +330,7 @@ describe("#940 Q2: an answer recorded and never applied", () => {
       expect(seen.closed).toMatchObject([
         {
           reason: PauseClosedReason.Answered,
-          answeredBy: "manager-17",
+          actor: { id: "manager-17" },
           answer: { approved: true },
         },
       ]);

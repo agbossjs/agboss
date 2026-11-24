@@ -23,7 +23,7 @@ vi.mock("../../src/app/tree-resume.js", async (importOriginal) => ({
   treeResumeNow: mocks.treeResumeNow,
 }));
 
-const RESUME = { values: {}, pauseIds: ["p-2"], taken: [], decisions: [], answeredBy: [] };
+const RESUME = { values: {}, pauseIds: ["p-2"], taken: [], decisions: [], actors: [] };
 
 const recordOf = (status: string): Turn => {
   const record: Turn = {

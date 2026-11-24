@@ -28,9 +28,7 @@ import { callTool, type ToolCallTurn } from "../../../src/testing/index.js";
 
 describe("#267 AC6: approves types arguments", () => {
   it("ask.value.arguments is the role's approves DTO", () => {
-    expectTypeOf<
-      ChannelAsk<RefundApprovalChannel>["value"]["arguments"]
-    >().toEqualTypeOf<RefundCardInputDto>();
+    expectTypeOf<ChannelAsk<RefundApprovalChannel>["input"]>().toEqualTypeOf<RefundCardInputDto>();
     expectTypeOf<ChannelAsk<RefundApprovalChannel>["pauseId"]>().toEqualTypeOf<string>();
   });
 
@@ -59,16 +57,14 @@ describe("#267 AC6: approves types arguments", () => {
   });
 
   it("the built-in channels approve any tool: untyped arguments", () => {
-    expectTypeOf<
-      ChannelAsk<TerminalUserChannel>["value"]["arguments"]
-    >().toEqualTypeOf<ToolArguments>();
+    expectTypeOf<ChannelAsk<TerminalUserChannel>["input"]>().toEqualTypeOf<ToolArguments>();
   });
 
   it("a class that is not a generated role gives MissingGeneratedTypes", () => {
     class NotARole {
       readonly label = "not a role";
     }
-    expectTypeOf<ChannelAsk<NotARole>["value"]>().toEqualTypeOf<MissingGeneratedTypes>();
+    expectTypeOf<ChannelAsk<NotARole>["input"]>().toEqualTypeOf<MissingGeneratedTypes>();
   });
 
   it("AC1: a question role (ask / answer) compiles; beside approves it does not (#659)", () => {
@@ -99,7 +95,7 @@ describe("#267 AC6: approves types arguments", () => {
 
 describe("#659 AC6: a question role's ask and answer type its channel and its interpreter", () => {
   it("ask.value is the role's ask DTO", () => {
-    expectTypeOf<ChannelAsk<SpendingLimitQuestion>["value"]>().toEqualTypeOf<PurchaseQuestionDto>();
+    expectTypeOf<ChannelAsk<SpendingLimitQuestion>["input"]>().toEqualTypeOf<PurchaseQuestionDto>();
   });
 
   it("a decided outcome takes the role's answer DTO", () => {
@@ -149,6 +145,6 @@ describe("#712: a question role an agent asks is typed by its role", () => {
     >();
     // @ts-expect-error — the ask's priceUsd is a number
     callTool(ApproverQuestion, { item: "laptop", priceUsd: "900" });
-    expectTypeOf<ChannelAsk<ApproverQuestion>["value"]>().toEqualTypeOf<PurchaseQuestionDto>();
+    expectTypeOf<ChannelAsk<ApproverQuestion>["input"]>().toEqualTypeOf<PurchaseQuestionDto>();
   });
 });

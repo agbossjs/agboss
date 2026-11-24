@@ -18,7 +18,7 @@ sqliteFilePerTest();
 const test = testWith(SqliteExtensionApplication, { instances: 3 });
 const ORDER = { orderId: "o-1" };
 const THREAD = { threadId: "remind-sqlite" };
-const manager = { answeredBy: "manager-17" };
+const manager = { actor: { id: "manager-17" } };
 
 beforeEach(resetTold);
 

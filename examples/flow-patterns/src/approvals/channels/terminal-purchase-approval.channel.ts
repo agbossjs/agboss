@@ -19,7 +19,7 @@ export class TerminalPurchaseApprovalChannel extends PurchaseApprovalChannel {
   }
 
   send(ask: ChannelAsk<PurchaseApprovalChannel>): Promise<ChannelOutcome<PurchaseApprovalChannel>> {
-    const { item, amountUsd } = ask.value.arguments;
+    const { item, amountUsd } = ask.input;
     this.approvalTerminal.print([
       "",
       `[APPROVAL REQUIRED] ${item} for $${String(amountUsd)} (pause ${ask.pauseId})`,

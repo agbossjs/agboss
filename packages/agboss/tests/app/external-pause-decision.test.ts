@@ -48,7 +48,7 @@ describe("#1341c: a channel decision on a root paused from outside", () => {
       told.ownerDecides = approve;
 
       await app.reassignPause(
-        { pauseId: pause?.pauseId ?? "", assignee: "deputy-3" },
+        { pauseId: pause?.pauseId ?? "", assignees: ["deputy-3"] },
         { ownerId: "alice" },
       );
       await clock.advance(seconds(40));

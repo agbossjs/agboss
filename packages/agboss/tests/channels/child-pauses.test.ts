@@ -52,7 +52,9 @@ describe("#267 × #263: a single child pauses", () => {
         channel: "order-confirmation-channel",
         childExecutionId: expect.any(String),
         itemIndex: undefined,
-        ask: expect.objectContaining({ tool: "confirm-order-tool", arguments: { orderId: "A" } }),
+        toolCall: expect.objectContaining({ tool: "confirm-order-tool" }),
+        input: { orderId: "A" },
+        trail: [expect.objectContaining({ action: "opened" })],
       },
     ]);
     expect(paused.pending[0]?.childExecutionId).not.toBe(paused.executionId);
@@ -89,7 +91,9 @@ describe("#267 × #263: per-item children pause at once", () => {
         channel: "refund-approval-channel",
         childExecutionId: expect.any(String),
         itemIndex: index + 1,
-        ask: expect.objectContaining({ tool: "refund-tool", arguments: { orderId } }),
+        toolCall: expect.objectContaining({ tool: "refund-tool" }),
+        input: { orderId },
+        trail: [expect.objectContaining({ action: "opened" })],
       })),
     );
     expect(new Set(byItem.map((pause) => pause.childExecutionId)).size).toBe(2);

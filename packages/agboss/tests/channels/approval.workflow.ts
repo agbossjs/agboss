@@ -26,7 +26,8 @@ import { EmptyEnvironment } from "../../src/index.js";
 /** One ask a channel posted: the pause's id and the question (the tool call, read by the tests). */
 export interface PostedAsk {
   readonly pauseId: string;
-  readonly value: unknown;
+  readonly input: unknown;
+  readonly toolCall?: unknown;
 }
 
 /** What the channels posted and what the tools did — the observable effects the tests read. */

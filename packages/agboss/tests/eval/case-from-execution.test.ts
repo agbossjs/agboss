@@ -76,11 +76,13 @@ describe("#396 PR 8: a case drafted from a kept execution", () => {
       },
       role: "refund-approval",
       answerer: PauseAnswerer.ThreadOwner,
-      answeredBy: "alice",
+      actor: { id: "alice" },
       resolution,
       askedAt: "2026-01-05T09:00:02.000Z",
       resolvedAt: "2026-01-05T09:00:03.000Z",
       decision,
+      input: {},
+      trail: [],
     });
     const cancelled = historyRecordOf("e5", {
       status: ExecutionHistoryStatus.Cancelled,
@@ -110,7 +112,7 @@ describe("#396 PR 8: a case drafted from a kept execution", () => {
 
   it("the person who answered is a placeholder, one per person; a tokenized decision keeps its token only", () => {
     const base = historyRecordOf("e7", {});
-    const answer = (answeredBy: string, decision: unknown) => ({
+    const answer = (actor: string, decision: unknown) => ({
       pauseId: "p-2",
       executionId: "e7",
       step: {
@@ -126,11 +128,13 @@ describe("#396 PR 8: a case drafted from a kept execution", () => {
       },
       role: "refund-approval",
       answerer: PauseAnswerer.ThreadOwner,
-      answeredBy,
+      actor: { id: actor },
       resolution: PauseResolution.Replied,
       askedAt: "2026-01-05T09:00:02.000Z",
       resolvedAt: "2026-01-05T09:00:03.000Z",
       decision,
+      input: {},
+      trail: [],
     });
     const record = {
       ...base,

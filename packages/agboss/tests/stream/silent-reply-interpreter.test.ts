@@ -39,7 +39,7 @@ describe("#1004: the reply interpreter is silent", () => {
 
     await app.resume(
       { pauseId: ask?.pauseId ?? "", reply: "yes" },
-      { answeredBy: "manager-17", onStream: (event) => events.push(event) },
+      { actor: { id: "manager-17" }, onStream: (event) => events.push(event) },
     );
 
     expect(mockLlm(PayoutReplyInterpreter).requests).toHaveLength(1);

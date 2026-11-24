@@ -20,7 +20,7 @@ export const FaultPauseStateSchema = z.object({
     z.object({
       isTaken: z.boolean(),
       resolution: z.string(),
-      answeredBy: z.string().nullable(),
+      actorId: z.string().nullable(),
     }),
   ),
 });
@@ -57,7 +57,7 @@ export async function pauseStateOf(
     log: log.map((entry) => ({
       isTaken: entry.isTaken !== false,
       resolution: entry.resolution,
-      answeredBy: entry.answeredBy ?? null,
+      actorId: entry.actor?.id ?? null,
     })),
   };
 }

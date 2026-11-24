@@ -27,7 +27,7 @@ const test = testWith(QuestionsApplication);
 
 const owner = { ownerId: "alice" };
 const asking = { threadId: "purchase-1", ownerId: "alice" };
-const by = { answeredBy: "budget-owner-7" };
+const by = { actor: { id: "budget-owner-7" } };
 
 describe("#659 AC4: a code interpreter reads the reply into the answer", () => {
   test("AC4: 'up to 1200' is understood: the answer goes on the path", async ({ app }) => {

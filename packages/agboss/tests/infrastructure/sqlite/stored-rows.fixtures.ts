@@ -25,10 +25,11 @@ export const pauseJson = JSON.stringify({
   component: { name: "clerk-agent", kind: "agent" },
   channel: "refund-approval-channel",
   answerer: "channel",
-  ask: { callId: "call-1", tool: "refund", arguments: { orderId: "7" }, summary: "refund 7" },
+  input: { orderId: "7" },
+  toolCall: { callId: "call-1", tool: "refund", summary: "refund 7" },
 });
 
-/** One `PauseAnswerRecord`: `answerer` the kind, `answeredBy` the person. */
+/** One `PauseAnswerRecord`: `answerer` the kind, `actor` the person. */
 export const answerEntry = (
   executionId: string,
   kind: string,
@@ -39,11 +40,13 @@ export const answerEntry = (
   step: STEP,
   role: "refund-approval-channel",
   answerer: kind,
-  answeredBy: person,
+  actor: { id: person },
   resolution: "replied",
   askedAt: "2026-01-05T09:00:00.000Z",
   resolvedAt: "2026-01-05T09:05:00.000Z",
   decision: { approved: true },
+  input: { text: "10 USD" },
+  trail: [{ action: "opened", at: "2026-01-05T09:00:00.000Z", target: "refund-approval-channel" }],
 });
 
 export const answerLogEntry = answerEntry("run-1", "channel", "manager-17");

@@ -105,7 +105,7 @@ export function answerValidatorOf(
   checks: AnswerChecks,
 ): (decision: unknown) => unknown {
   if (isApprovalPause(pause)) {
-    const tool = checks.tools(pause.ask.tool);
+    const tool = checks.tools(pause.toolCall.tool);
     return (decision) => validDecisionOf(decision, tool);
   }
   const answer = checks.questions?.(pause.workflow, pause.step) ?? askedByAgent(pause, checks);

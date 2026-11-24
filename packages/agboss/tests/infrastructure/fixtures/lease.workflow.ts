@@ -208,7 +208,7 @@ export class LeaseLog {
   }
   async onExecutionResume(event: ExecutionResumeEvent): Promise<void> {
     seen.resumes.push(event.decision);
-    seen.answerers.push(event.answeredBy);
+    seen.answerers.push(event.actor?.id);
     await hooks.onResume?.();
   }
 }

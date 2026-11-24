@@ -64,7 +64,7 @@ const channel: PauseChannel = {
 const question: PauseQuestion = {
   kind: PauseKind.Question,
   step: "ask",
-  ask: {} as never,
+  input: {},
 };
 
 const noCalendar = (): Promise<Date> => Promise.reject(new Error("no calendar"));

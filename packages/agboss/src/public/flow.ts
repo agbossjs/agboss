@@ -170,6 +170,7 @@ export {
   agbossComponent,
   agbossDto,
   type ChannelAnswerOf,
+  type ChannelInputOf,
   type ChannelQuestionOf,
   type ExecutionInputOf,
   type ExecutionOptionsArgs,

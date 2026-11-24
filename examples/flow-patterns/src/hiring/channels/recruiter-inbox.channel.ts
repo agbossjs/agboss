@@ -16,7 +16,7 @@ export class RecruiterInboxChannel extends RecruiterApprovalChannel {
   send(
     ask: ChannelAsk<RecruiterApprovalChannel>,
   ): Promise<ChannelOutcome<RecruiterApprovalChannel>> {
-    this.recruiterDeskService.post(ask.value.arguments.text, ask.pauseId);
+    this.recruiterDeskService.post(ask.input.text, ask.pauseId);
     return Promise.resolve(ChannelOutcome.awaitReply());
   }
 }

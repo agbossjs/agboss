@@ -39,7 +39,7 @@ import {
 
 const test = testWith(PermitApplication);
 
-const dana = { answeredBy: "dana" };
+const dana = { actor: { id: "dana" } };
 const approve = { approved: true } as const;
 
 describe("#1307c: permitAnswer gates the answer of a delegate approval", () => {
@@ -131,7 +131,7 @@ describe("#1307c: permitAnswer gates the answer of a delegate approval", () => {
         input: { orderId: "A-1" },
         output: { approved: false, reason: "late" },
         toolCall: { tool: "gated-refund-tool" },
-        trail: [],
+        trail: [expect.objectContaining({ action: "opened" })],
       },
     ]);
   });
@@ -190,7 +190,11 @@ describe("#1307c: an owner's target with no channel asks nobody", () => {
     expect(paused).toMatchObject({
       status: ExecutionStatus.Paused,
       pending: [
-        { kind: PauseKind.Approval, answerer: "thread-owner", ask: { tool: "owner-refund-tool" } },
+        {
+          kind: PauseKind.Approval,
+          answerer: "thread-owner",
+          toolCall: { tool: "owner-refund-tool" },
+        },
       ],
     });
     const [pending] = paused.pending;

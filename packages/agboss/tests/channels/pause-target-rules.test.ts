@@ -387,7 +387,7 @@ describe("#1307a: a permission hook nothing calls fails assembly (fail closed)",
     expect(found([useOf(Gated)], [channelOf(Gated, "gated-channel")])).toEqual([]);
   });
 
-  it.each(["permitTimeoutChange", "permitReassign"])(
+  it.each(["permitTimeoutChange"])(
     "[pause.permit-hook-not-enforced]: %s on a target is refused until the runtime enforces it",
     (hook) => {
       class Gated {

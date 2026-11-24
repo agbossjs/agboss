@@ -13,6 +13,7 @@ import type {
   ExecutionOutputOf,
 } from "../flow/generated-types.js";
 import type { TenantValues } from "../flow/context/context-values.js";
+import type { PauseActor, PauseToolCallSummary } from "../channels/pause-contexts.js";
 import type { PendingPauseBase } from "../pause/index.js";
 import type { PauseClosedReason, PauseKind, PauseStatus } from "../infrastructure/pause-record.js";
 import type { ExecutionStreamEvent } from "../run/types.js";
@@ -131,8 +132,8 @@ export interface ReplyResumeRequest {
 /**
  * `app.resume(request, options)`: a resume finds what exists, so it takes keys and credentials only
  * — the tenant by its id (omitted → `"default"`) and who answers, as the pause's role says
- * (its `answerer` on `@ChannelRole`: the `ownerId` of a thread owner's, the `answeredBy` credential
- * of a channel's — the person who answered). It runs on the context values the execution started with.
+ * (its `answerer` on `@ChannelRole`: the `ownerId` of a thread owner's, the `actor` of a
+ * channel's — the person or system that answered). It runs on the context values the execution started with.
  */
 export type ResumeOptions = ThreadOwnerResumeOptions | ChannelResumeOptions;
 
@@ -140,7 +141,7 @@ export type ResumeOptions = ThreadOwnerResumeOptions | ChannelResumeOptions;
  * Who calls and for which tenant, for what acts on a pause without running anything — `app.extendPause`
  * (#942): the caller fields of `ResumeOptions` and none of `CallOptions` (`signal`, `onStream`, …:
  * nothing executes, so they would be ignored; an object literal with one does not compile). Who may:
- * as an answer — the `ownerId` of a thread owner's pause, the `answeredBy` credential of a channel's.
+ * as an answer — the `ownerId` of a thread owner's pause, the `actor` of a channel's.
  */
 export type PauseCallerOptions = ThreadOwnerPauseOptions | ChannelPauseOptions;
 
@@ -149,7 +150,7 @@ export interface ThreadOwnerPauseOptions {
   readonly tenantId?: string | undefined;
   /** The thread's owner (omitted for a thread without one; another → `ThreadOwnerError`); a key's text (#589). */
   readonly ownerId?: string | undefined;
-  readonly answeredBy?: never;
+  readonly actor?: never;
 }
 
 /**
@@ -158,8 +159,11 @@ export interface ThreadOwnerPauseOptions {
  */
 export interface ChannelPauseOptions {
   readonly tenantId?: string | undefined;
-  /** Who calls, as the channel's side knows them (`"manager-17"`): non-empty, a key's text (#589). */
-  readonly answeredBy: string;
+  /**
+   * Who calls, as the channel's side knows them (`{ id: "manager-17", orgId: "holding-hq" }`): the
+   * `id` and the `orgId` (when given) are non-empty key's texts (#589).
+   */
+  readonly actor: PauseActor;
   readonly ownerId?: never;
 }
 
@@ -199,10 +203,13 @@ export interface ReassignPauseRequest {
   /** The open pause's id: `result.pending[i].pauseId`, or the `ask.pauseId` its channel was sent. */
   readonly pauseId: string;
   /**
-   * Who the same channel asks now, as the channel reads it (a Slack user, an address, a queue): a key's
-   * text (#589), non-empty. The channel's one implementation routes on it.
+   * Who the same channel asks now, as the channel reads it (a Slack user, an address, the members of
+   * a queue): one to 100 key's texts (#589), each non-empty, none twice — the 1-of-N pool its
+   * answers come from. The channel's one implementation routes on them.
    */
-  readonly assignee: string;
+  readonly assignees: readonly string[];
+  /** Why, as a person reads it in the pause's chain of custody: one to 500 characters; PII-masked before it is kept. */
+  readonly reason?: string;
 }
 
 /**
@@ -480,10 +487,10 @@ export interface PausesQuery {
 /** One pause as `app.listPauses` shows it: `pauseId` per the rule of `result.pending`, `pauseKey` always. */
 export interface ListedPause extends PendingPauseBase {
   readonly kind: PauseKind;
-  /** The question, masked by the pause's workflow's observability policies. */
-  readonly ask: unknown;
+  /** The tool call an approval waits on, masked by the pause's workflow's observability policies. */
+  readonly toolCall?: PauseToolCallSummary;
   /** Who answered a closed pause (`undefined` while open, or when its channel decided). */
-  readonly answeredBy?: string;
+  readonly actor?: PauseActor;
   /** The pause's one-way key: what a metric, a log or an error calls it in place of its id. */
   readonly pauseKey: string;
   readonly status: PauseStatus;

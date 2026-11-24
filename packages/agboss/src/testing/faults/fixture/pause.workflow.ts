@@ -61,13 +61,13 @@ export class FaultPauseChannel extends FaultPauseQuestion {
 
   send(ask: {
     readonly pauseId: string;
-    readonly assignee?: string;
+    readonly assignees?: readonly string[];
     readonly replaces?: { readonly pauseId: string };
   }): Promise<ChannelOutcome<FaultPauseQuestion>> {
     this.faultPodLink.emit("pause-sent", {
       pauseKey: pauseKeyOf("default", ask.pauseId),
       pauseId: ask.pauseId,
-      ...(ask.assignee === undefined ? {} : { assignee: ask.assignee }),
+      ...(ask.assignees?.[0] === undefined ? {} : { assignee: ask.assignees[0] }),
       ...(ask.replaces === undefined
         ? {}
         : { replacesKey: pauseKeyOf("default", ask.replaces.pauseId) }),

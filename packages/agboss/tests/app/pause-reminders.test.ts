@@ -26,7 +26,7 @@ import {
 const memory = testWith(ExtensionApplication, { instances: 3 });
 const ORDER = { orderId: "o-1" };
 const THREAD = { threadId: "remind-1" };
-const manager = { answeredBy: "manager-17" };
+const manager = { actor: { id: "manager-17" } };
 
 beforeEach(resetTold);
 

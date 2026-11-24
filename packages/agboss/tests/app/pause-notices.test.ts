@@ -33,7 +33,7 @@ const answered: PauseRecord = {
   status: PauseStatus.Resolved,
   isSent: true,
   resolution: PauseResolution.Replied,
-  answer: { decision: { approved: true, mail: "alice@example.com" }, answeredBy: "manager-17" },
+  answer: { decision: { approved: true, mail: "alice@example.com" }, actor: { id: "manager-17" } },
 };
 
 const closed: PauseNotice = {
@@ -61,10 +61,11 @@ describe("#940: the events a receiver is told", () => {
 
     expect(event).toMatchObject({
       pauseId: "p-1",
-      value: answered.ask,
+      input: answered.input,
+      toolCall: answered.toolCall,
       reason: PauseClosedReason.Answered,
       closedAt: "2026-01-05T10:00:00.000Z",
-      answeredBy: "manager-17",
+      actor: { id: "manager-17" },
       answer: { approved: true, mail: "<email>" },
     });
   });
@@ -88,7 +89,7 @@ describe("#940: the events a receiver is told", () => {
     expect(await channelNotTakenOf(sources(answered, untaken))).toMatchObject({
       reason: PauseClosedReason.TreeEnded,
       at: "2026-01-05T10:00:00.000Z",
-      answeredBy: "manager-17",
+      actor: { id: "manager-17" },
       answer: { mail: "<email>" },
     });
     expect(await listenerNotTakenOf(sources(answered, untaken), false)).toMatchObject({
@@ -102,7 +103,8 @@ describe("#940: the events a receiver is told", () => {
       sources(
         {
           ...answered,
-          ask: { callId: "c", tool: "t", arguments: { to: "alice@example.com" }, summary: "s" },
+          input: { to: "alice@example.com" },
+          toolCall: { callId: "c", tool: "t", summary: "s" },
         },
         closed,
       ),
@@ -110,11 +112,11 @@ describe("#940: the events a receiver is told", () => {
     );
     const event = await listenerClosedOf(sources(answered, closed), false);
 
-    expect(JSON.stringify(opened.ask)).not.toContain("alice@example.com");
+    expect(JSON.stringify(opened.input)).not.toContain("alice@example.com");
     expect(event).not.toHaveProperty("pauseId");
     expect(event).toMatchObject({
       pauseKey: pauseKeyOf("default", "p-1"),
-      answeredBy: "manager-17",
+      actor: { id: "manager-17" },
       answer: { mail: "<email>" },
     });
   });

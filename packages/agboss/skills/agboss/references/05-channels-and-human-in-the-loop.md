@@ -16,7 +16,7 @@ Tools themselves: `03-components-di-and-lifecycle.md`; durable stores: `09-persi
    `ChannelOutcome.awaitReply()` (the execution rests, `result.status === ExecutionStatus.Paused`,
    `result.pending: PendingPause[]`).
 4. Later, a webhook, a CLI or a scheduler answers by the pause's id: `app.resume({ pauseId,
-decision }, { tenantId, answeredBy | ownerId })` — or with free text, `{ pauseId, reply }`, read
+decision }, { tenantId, actor | ownerId })` — or with free text, `{ pauseId, reply }`, read
    by the role's `@ReplyInterpreter`. Approved → the tool runs once (with `overrideArguments` if
    given); rejected → the model reads `Tool error: the call was rejected …` and goes on.
 
@@ -74,7 +74,7 @@ import type { InputOf, OutputOf, ReplyInterpreterHandler } from "@agboss/core";
 })
 export class RefundReplyInterpreter implements ReplyInterpreterHandler<RefundReplyInterpreter> {
   interpret(input: InputOf<RefundReplyInterpreter>): ReplyInterpretation<OutputOf<RefundReplyInterpreter>> {
-    const reply: string = input.reply.trim().toLowerCase(); // input.ask is the original question
+    const reply: string = input.reply.trim().toLowerCase(); // input.ask is the original question (an approval's ToolCallApprovalAskDto: callId, tool, arguments, summary)
     if (reply === "approve") return ReplyInterpretation.understood({ approved: true });
     if (reply.startsWith("reject")) return ReplyInterpretation.understood({ approved: false, reason: reply });
     return ReplyInterpretation.notUnderstood({ reason: `not "approve" or "reject …": ${input.reply}` });
@@ -121,7 +121,7 @@ export class SlackRefundApprovalChannel extends RefundApprovalChannel {
   }
 
   async send(ask: ChannelAsk<RefundApprovalChannel>): Promise<ChannelOutcome<RefundApprovalChannel>> {
-    const { orderId, amountCents } = ask.value.arguments; // typed by RefundRequestDto
+    const { orderId, amountCents } = ask.input; // typed by RefundRequestDto
     if (amountCents <= AUTO_APPROVE_CENTS)
       return ChannelOutcome.decided({ approved: true, reason: "under the auto-approve limit" });
     const tenantId: string = this.executionContext.tenant.tenantId;
@@ -134,7 +134,7 @@ export class SlackRefundApprovalChannel extends RefundApprovalChannel {
   // its tree ended — deduplicate by event.deliveryId (the same on every redelivery)
   override async onPauseClosed(event: ChannelPauseClosedEvent<RefundApprovalChannel>): Promise<void> {
     const why: string =
-      event.reason === PauseClosedReason.Answered ? `answered by ${event.answeredBy ?? "?"}` : event.reason;
+      event.reason === PauseClosedReason.Answered ? `answered by ${event.actor?.id ?? "?"}` : event.reason;
     await this.slackClientService.closeApproval(event.pauseId, why);
   }
 }
@@ -301,24 +301,24 @@ declare const pauseId: string;
 // the Slack webhook: the button's reply key is the pauseId the channel was sent
 const result = await app.resume(
   { pauseId, decision: { approved: true } }, // a ToolCallApprovalDecisionDto, validated first
-  { tenantId: "acme", answeredBy: "manager-17", includeRecord: true }, // Channel role → answeredBy (who answered)
+  { tenantId: "acme", actor: { id: "manager-17" }, includeRecord: true }, // Channel role → actor (who answered)
 );
 console.log(result.status, result.pending.length, result.record?.pauses); // who answered what
 
 // approve with corrected arguments, bypassing the model (only with approved: true)
 await app.resume(
   { pauseId, decision: { approved: true, overrideArguments: { orderId: "7", amountCents: 900 } } },
-  { tenantId: "acme", answeredBy: "manager-17" },
+  { tenantId: "acme", actor: { id: "manager-17" } },
 );
 
 // a free-text reply, read by the role's reply interpreter
-await app.resume({ pauseId, reply: "reject: duplicate" }, { tenantId: "acme", answeredBy: "manager-17" });
+await app.resume({ pauseId, reply: "reject: duplicate" }, { tenantId: "acme", actor: { id: "manager-17" } });
 ```
 
 | `answerer` of the role      | `app.resume` takes                                       | Where the `pauseId` is              |
 | --------------------------- | -------------------------------------------------------- | ----------------------------------- |
 | `PauseAnswerer.ThreadOwner` | `ownerId` — the thread's owner (else `ThreadOwnerError`) | `result.pending[i].pauseId`         |
-| `PauseAnswerer.Channel`     | `answeredBy` — non-empty, recorded                       | only in the channel's `ask.pauseId` |
+| `PauseAnswerer.Channel`     | `actor` — non-empty, recorded                            | only in the channel's `ask.pauseId` |
 
 The wrong credential for the role is `PauseError.PermissionDenied`. The contract of every channel is
 `ChannelHandler<Role>` — `send(ask)` and the optional `onPauseClosed(event)` / `onPauseAnswerNotTaken(event)` / `onPauseExtended(event)` / `onPauseExpiring(event)`;
@@ -440,7 +440,7 @@ DTO (a chat model gets one answer tool, `answer-<answer dto>`, and the not-under
 interpreter returns `ReplyInterpretation.understood(answer)`; a decision model cannot answer a
 question, `[reply-interpreter.decision-model]`). `result.pending[i].kind` is `PauseKind.Question`,
 `step` the question step, `ask` the masked question (opaque: read it after narrowing on `kind`, as
-`const fields: Readonly<Record<string, unknown>> = pending.ask`). Exactly one answer wins (`PauseClosedError` for the
+`const fields: Readonly<Record<string, unknown>> = pending.input`). Exactly one answer wins (`PauseClosedError` for the
 second), another instance continues it, a cancel withdraws it — as any pause. The step is no model
 call and no step of `maxSteps`; the execution's budgets are checked before it asks. A tool that
 names a question role is `[channel.wrong-tool]`.
@@ -483,10 +483,10 @@ priceUsd })` (typed by the role's ask); `agboss describe` prints `asked at <agen
 
 - **`PendingPause`** (`result.pending`): `kind` (`PauseKind.Approval` | `PauseKind.Question`),
   `pauseId?` (ThreadOwner roles only), `answerer`, `step` (the agent whose call waits, or the
-  question step), `channel`, `ask` (an approval's `ToolCallApprovalAskDto`: `tool`, `arguments`,
-  `summary`, `callId`; a question's `QuestionAsk` — its ask DTO, `sensitive` fields masked,
-  opaque), `itemIndex`, `childExecutionId` (a pause in a child workflow is the root's); the fields
-  every kind has are `PendingPauseBase`. Narrow on `kind` before reading `ask`: `pending[0].ask.arguments`
+  question step), `channel`, `input` (an approval's tool arguments, or a question's ask DTO, `sensitive`
+  fields masked, as `Readonly<Record<string, unknown>>`), `toolCall` (an approval's `{ callId, tool,
+summary? }`), `assignees?`, `externalRef?`, `trail`, `itemIndex`, `childExecutionId` (a pause in a child workflow is the root's); the fields
+  every kind has are `PendingPauseBase`. Narrow on `kind` before reading `toolCall`: `pending[0].toolCall`
   does not compile until `pending[0].kind === PauseKind.Approval`. Parallel branches pause on their own; the execution rests when nothing else can move,
   and answering one continues it while the rest keep waiting.
 - **`PauseStatus`**: `Pending` → `Resolved` (an answer recorded, atomically) → `Taken` (its step went
@@ -496,12 +496,12 @@ priceUsd })` (typed by the role's ask); `agboss describe` prints `asked at <agen
   only (a thread with no paused run); an unknown id or another tenant's → `UnknownPauseError`. Resolved records are kept
   `@Application({ retention: { pauseRecords: hours(24) } })`, then removed by the recovery sweep.
 - **`PauseAnswerRecord`** (`result.record.pauses`, with `{ includeRecord: true }`) — the permanent history:
-  `pauseId`, `executionId`, `step`, `role`, `answerer`, `answeredBy`, `resolution`
+  `pauseId`, `executionId`, `step`, `role`, `answerer`, `actor`, `resolution`
   (`PauseResolution.Decided` | `Replied` | `Withdrawn` | `Cancelled`), `askedAt`, `resolvedAt`, the
   masked `decision`. A child's own are in its `ChildExecutionRecord.pauses`.
 - **`onPauseClosed(event)`** (`ChannelPauseClosedEvent`: `pauseId`, `value`, `reason`
   (`PauseClosedReason.Answered` | `Expired` | `Cancelled` | `Withdrawn` | `TreeEnded`), `closedAt`,
-  `answeredBy?`, the masked `answer?`, `deliveryId`) is called **at least once** whenever a pause the
+  `actor?`, the masked `answer?`, `deliveryId`) is called **at least once** whenever a pause the
   channel sent closes — written with the close, delivered after a crash by any instance, in order,
   in the pause's frame under the tool's `timeout`; `onPauseAnswerNotTaken` when its recorded answer
   was never applied. A channel that overrides neither has no mailbox. A throw is retried with
@@ -574,7 +574,7 @@ priceUsd })` (typed by the role's ask); `agboss describe` prints `asked at <agen
   (`[channel.remind-before-exceeds-expiry]`, a warning, an error under `--strict`; the role alone sets
   `remindBefore`); a role's `remindBefore` shorter than the pause timers' 5 s tick can be skipped by a tick that falls on none of its window
   (`[channel.remind-before-below-tick]`, a warning, an error under `--strict`); a pause bound by its run's deadline is reminded before that deadline; one with no
-  deadline never. `await app.extendPause({ pauseId, expiresIn: hours(24) }, { answeredBy })` (the
+  deadline never. `await app.extendPause({ pauseId, expiresIn: hours(24) }, { actor })` (the
   `ownerId` for a thread owner's pause — who may answer may extend; the options are
   `PauseCallerOptions`: the caller fields only, no `signal` / `onStream` / `record`) moves an open pause's deadline to
   `now + expiresIn` and returns `PauseExtension` (`pauseKey`, `expiresAt`, `previousExpiresAt`); the
@@ -587,12 +587,12 @@ priceUsd })` (typed by the role's ask); `agboss describe` prints `asked at <agen
   another tenant's pause is `UnknownPauseError`. An extension and the expiry look at one tick: the
   store lets one win. A channel that overrides any of `onPauseClosed`, `onPauseAnswerNotTaken`,
   `onPauseExtended`, `onPauseExpiring`, `onPauseJoinFailed` has a mailbox.
-- **Reassign a pause** (#946): `await app.reassignPause({ pauseId, assignee: "deputy-3" }, { answeredBy })`
+- **Reassign a pause** (#946): `await app.reassignPause({ pauseId, assignees: ["deputy-3"] }, { actor })`
   (`ownerId` for a thread owner's pause; `PauseCallerOptions`, as `extendPause`) moves an open pause to another
   addressee of the same channel — no other role, no new deadline, the agent and the step do not run again —
   and returns `PauseReassignment` (`pauseKey` only: the new `pauseId` is a capability, given to the channel's
   `send` and to a `@PauseListener({ allowAnswering })`, never to the caller or a log). The channel's `send`
-  gets a new `ChannelAsk.pauseId`, `ChannelAsk.assignee` and `ChannelAsk.replaces` (`{ pauseId }`: the old
+  gets a new `ChannelAsk.pauseId`, `ChannelAsk.assignees` and `ChannelAsk.replaces` (`{ pauseId }`: the old
   message; both absent on a first send) and its `onPauseClosed` hears `reason: reassigned` for the old one
   (`PauseClosedReason.Reassigned`) — in no fixed order: edit the old message from `send`, or from the notice.
   The old id gives `PauseClosedError` (`reassigned`); a closed pause or one past its deadline gives
@@ -663,7 +663,7 @@ test("a large refund waits for the manager, then runs", async ({ app, mockLlm, m
 
   const done = await app.resume(
     { pauseId: ask?.pauseId ?? "", decision: { approved: true } },
-    { answeredBy: "manager-17" },
+    { actor: { id: "manager-17" } },
   );
   expect(done).toFinishWith(RefundWorkflowFinish, { text: "Refunded order 7." });
 });
@@ -703,7 +703,7 @@ test("a large refund waits for the manager, then runs", async ({ app, mockLlm, m
 | `[channel.shared-interpreter]`                           | one `@ReplyInterpreter` on two roles → one each                                                                                                                           |
 | `[reply-interpreter.no-interpret-method]`                | a code interpreter without `interpret` → add it                                                                                                                           |
 | `[application.in-memory-pauses]`                         | pauses possible on the in-memory stores (a warning; an error under `--strict`) → list durable ones                                                                        |
-| `PauseError.PermissionDenied`                            | `ownerId` for a Channel role or `answeredBy` for a ThreadOwner role → the other credential                                                                                |
+| `PauseError.PermissionDenied`                            | `ownerId` for a Channel role or `actor` for a ThreadOwner role → the other credential                                                                                     |
 | `IncompatibleResumeError`                                | resumed on an app with another config hash → `WorkflowSettings.builder().onIncompatibleResume(…)`                                                                         |
 
 ## Pitfalls

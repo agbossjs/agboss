@@ -32,7 +32,7 @@ import { TEL_AVIV } from "./helpers.js";
 import { milliseconds } from "./units.js";
 
 const ORDER = { orderId: "o-1" };
-const manager = { answeredBy: "manager-17" };
+const manager = { actor: { id: "manager-17" } };
 
 async function moveTo(clock: VirtualClock, instant: string): Promise<void> {
   await clock.advance(milliseconds(Date.parse(instant) - clock.now().getTime()));

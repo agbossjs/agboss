@@ -423,7 +423,7 @@ export class SupervisorQueueRefundSignOffChannel extends RefundSignOffChannel {
   }
 
   async send(ask: ChannelAsk<RefundSignOffChannel>): Promise<ChannelOutcome<RefundSignOffChannel>> {
-    const { orderId, amountCents } = ask.value.arguments;
+    const { orderId, amountCents } = ask.input;
     await this.supervisorQueueService.notify(ask.pauseId, `Refund ${String(amountCents)} cents on order ${orderId}?`);
     return ChannelOutcome.awaitReply(); // Command({ resume }) becomes app.resume({ pauseId, decision })
   }

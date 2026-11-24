@@ -9,6 +9,13 @@ import {
   type PauseRecipients,
   type PauseRecord,
 } from "../infrastructure/pause-record.js";
+import {
+  askedOf,
+  deadlineOf,
+  listenedOf,
+  maskedActor,
+  previousDeadlineOf,
+} from "./pause-notice-shape.js";
 import type { PauseNotice } from "../infrastructure/pause-notices.js";
 import type {
   ChannelSenderClosed,
@@ -108,41 +115,27 @@ const hasAnswer = (reason: PauseClosedReason, pause: PauseRecord): boolean =>
 export async function channelClosedOf(sources: EventSources): Promise<ChannelSenderClosed> {
   const { pause, notice, deliveryId } = sources;
   const reason = notice.reason ?? PauseClosedReason.Cancelled;
-  const base = { deliveryId, pauseId: pause.pauseId, value: pause.ask, reason };
+  const base = { deliveryId, pauseId: pause.pauseId, ...askedOf(pause), reason };
   const closedAt = notice.closedAt ?? notice.writtenAt;
   if (!hasAnswer(reason, pause)) return { ...base, closedAt };
   const answer = await sources.masked(pause.answer?.decision);
-  const by = reason === PauseClosedReason.Answered ? pause.answer?.answeredBy : undefined;
-  return { ...base, closedAt, ...(by === undefined ? {} : { answeredBy: by }), answer };
+  const by = reason === PauseClosedReason.Answered ? pause.answer?.actor : undefined;
+  return { ...base, closedAt, ...(by === undefined ? {} : { actor: by }), answer };
 }
 
 /** The `answerNotTaken` event of a channel. */
 export async function channelNotTakenOf(sources: EventSources): Promise<ChannelSenderNotTaken> {
   const { pause, notice, deliveryId } = sources;
-  const by = pause.answer?.answeredBy;
+  const by = pause.answer?.actor;
   return {
     deliveryId,
     pauseId: pause.pauseId,
-    value: pause.ask,
+    ...askedOf(pause),
     reason: untakenReasonOf(notice),
     at: notice.closedAt ?? notice.writtenAt,
-    ...(by === undefined ? {} : { answeredBy: by }),
+    ...(by === undefined ? {} : { actor: by }),
     answer: await sources.masked(pause.answer?.decision),
   };
-}
-
-/** The deadline a notice names; a notice of a deadline always carries it (the store writes it). */
-function deadlineOf(notice: PauseNotice): string {
-  if (notice.expiresAt === undefined)
-    throw new TypeError(`a ${notice.kind} notice names its deadline`);
-  return notice.expiresAt;
-}
-
-/** The deadline an extension moved from. */
-function previousDeadlineOf(notice: PauseNotice): string {
-  if (notice.previousExpiresAt === undefined)
-    throw new TypeError("an extended notice names the deadline it moved from");
-  return notice.previousExpiresAt;
 }
 
 /** The `extended` event of a channel (#942). */
@@ -151,7 +144,7 @@ export function channelExtendedOf(sources: EventSources): ChannelSenderExtended 
   return {
     deliveryId,
     pauseId: pause.pauseId,
-    value: pause.ask,
+    ...askedOf(pause),
     expiresAt: deadlineOf(notice),
     previousExpiresAt: previousDeadlineOf(notice),
   };
@@ -160,7 +153,7 @@ export function channelExtendedOf(sources: EventSources): ChannelSenderExtended 
 /** The `expiring` event of a channel (#942). */
 export function channelExpiringOf(sources: EventSources): ChannelSenderExpiring {
   const { pause, notice, deliveryId } = sources;
-  return { deliveryId, pauseId: pause.pauseId, value: pause.ask, expiresAt: deadlineOf(notice) };
+  return { deliveryId, pauseId: pause.pauseId, ...askedOf(pause), expiresAt: deadlineOf(notice) };
 }
 
 /** What a listener reads of every pause: the safe context; the id only when it may answer. */
@@ -184,7 +177,7 @@ export async function listenerBaseOf(
     kind: pause.kind,
     channel: pause.channel,
     answerer: pauseAnswererOf(pause),
-    ask: await sources.masked(pause.ask),
+    ...(await listenedOf(pause, sources.masked)),
     askedAt: pause.askedAt,
     ...(expiresAt === undefined ? {} : { expiresAt }),
   };
@@ -206,9 +199,13 @@ export async function listenerClosedOf(
   const base = await listenerBaseOf(sources, allowAnswering);
   const closed = { ...base, reason, closedAt: notice.closedAt ?? notice.writtenAt };
   if (!hasAnswer(reason, pause)) return closed;
-  const by = reason === PauseClosedReason.Answered ? pause.answer?.answeredBy : undefined;
+  const by = reason === PauseClosedReason.Answered ? pause.answer?.actor : undefined;
   const answer = await sources.masked(pause.answer?.decision);
-  return { ...closed, ...(by === undefined ? {} : { answeredBy: by }), answer };
+  return {
+    ...closed,
+    ...(by === undefined ? {} : { actor: await maskedActor(sources, by) }),
+    answer,
+  };
 }
 
 /** The `answerNotTaken` event of a listener. */
@@ -217,12 +214,12 @@ export async function listenerNotTakenOf(
   allowAnswering: boolean,
 ): Promise<PauseListenerAnswerNotTakenEvent> {
   const { pause, notice } = sources;
-  const by = pause.answer?.answeredBy;
+  const by = pause.answer?.actor;
   return {
     ...(await listenerBaseOf(sources, allowAnswering)),
     reason: untakenReasonOf(notice),
     at: notice.closedAt ?? notice.writtenAt,
-    ...(by === undefined ? {} : { answeredBy: by }),
+    ...(by === undefined ? {} : { actor: await maskedActor(sources, by) }),
     answer: await sources.masked(pause.answer?.decision),
   };
 }

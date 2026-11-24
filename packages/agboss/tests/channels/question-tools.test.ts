@@ -60,12 +60,16 @@ describe("#712 AC1 / AC2: the agent's question call pauses like any pause", () =
         childExecutionId: undefined,
         itemIndex: undefined,
         // the requester is `sensitive`: masked in the record, the channel's ask and the result
-        ask: { item: "laptop", priceUsd: 900, requester: expect.not.stringContaining("alice") },
+        input: { item: "laptop", priceUsd: 900, requester: expect.not.stringContaining("alice") },
+        trail: [expect.objectContaining({ action: "opened" })],
       },
     ]);
     const desk = app.resolve(BuyerDesk);
     expect(desk.asked).toEqual([
-      { pauseId: paused.pending[0]?.pauseId, value: paused.pending[0]?.ask },
+      expect.objectContaining({
+        pauseId: paused.pending[0]?.pauseId,
+        input: paused.pending[0]?.input,
+      }),
     ]);
     const pause = await app
       .resolve(PausedExecutionRepository)

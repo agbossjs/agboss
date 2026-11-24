@@ -159,7 +159,7 @@ class TreeMover implements TreeMoves {
             ...event,
             reason,
             decision: undefined,
-            answeredBy: undefined,
+            actor: undefined,
             ...(unpauseReason === undefined ? {} : { unpauseReason }),
           });
         },

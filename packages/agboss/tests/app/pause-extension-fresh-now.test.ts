@@ -28,7 +28,7 @@ import { TEL_AVIV } from "../calendar/helpers.js";
 import { milliseconds } from "../calendar/units.js";
 
 const ORDER = { orderId: "o-1" };
-const manager = { answeredBy: "manager-17" };
+const manager = { actor: { id: "manager-17" } };
 const DEADLINE = "2026-11-22T08:30:00.000Z";
 
 /** The calendar's slowness: how long the next call takes on the virtual clock (once). */

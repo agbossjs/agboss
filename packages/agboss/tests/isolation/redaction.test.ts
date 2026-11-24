@@ -30,12 +30,10 @@ describe("#202: sensitive tool arguments are redacted in channel output", () => 
     const desk = app.resolve(ApprovalDesk);
     expect(desk.posted).toEqual([
       expect.objectContaining({
-        value: expect.objectContaining({ arguments: { orderId: "A-1", cardNumber: "•••• 1111" } }),
+        input: { orderId: "A-1", cardNumber: "•••• 1111" },
       }),
     ]);
-    expect(paused.pending).toMatchObject([
-      { ask: { arguments: { orderId: "A-1", cardNumber: "•••• 1111" } } },
-    ]);
+    expect(paused.pending).toMatchObject([{ input: { orderId: "A-1", cardNumber: "•••• 1111" } }]);
     expect(JSON.stringify(paused)).not.toContain("4111 1111");
     await app.resume(answerOf(paused, approve));
     expect(app.resolve(PaymentLog).cards).toEqual(["4111 1111 1111 1111"]);

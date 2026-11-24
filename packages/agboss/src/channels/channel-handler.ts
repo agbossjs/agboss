@@ -1,4 +1,5 @@
-import type { ChannelQuestionOf } from "../flow/generated-types.js";
+import type { ChannelInputOf } from "../flow/generated-types.js";
+import type { PauseToolCallSummary, PauseTrailEntry } from "./pause-contexts.js";
 import type {
   ChannelPauseAnswerNotTakenEvent,
   ChannelPauseClosedEvent,
@@ -25,13 +26,20 @@ export interface ChannelAsk<TRole> {
    * resumes it — and it is the idempotency key of the channel's own call.
    */
   readonly pauseId: string;
-  /** The question, typed by the role (`approves` → the tool call; `ask` → that DTO). */
-  readonly value: ChannelQuestionOf<TRole>;
+  /** What it asks, typed by the role (`approves` → the tool call's arguments; `ask` → that DTO). */
+  readonly input: ChannelInputOf<TRole>;
+  /** The tool call an approval waits on; absent for a question. */
+  readonly toolCall?: PauseToolCallSummary;
+  /** When the pause expires; absent: it waits without a deadline. */
+  readonly expiresAt?: Date;
   /**
-   * Who the question is for, as the channel reads it (a Slack user, an address, a queue) — set only
-   * on the send of a reassignment (`app.reassignPause`, #946); absent on a first send.
+   * Who the question is for, as the channel reads it (a Slack user, an address, the members of a
+   * queue): from the target's `assign`, or the `assignees` of `app.reassignPause` (#946); absent:
+   * nobody in particular. Never empty.
    */
-  readonly assignee?: string;
+  readonly assignees?: readonly string[];
+  /** The pause's chain of custody so far: `opened`, then every reassignment; never empty. */
+  readonly trail: readonly PauseTrailEntry[];
   /**
    * The pause this send replaces (#946): the old message's id, so the channel can take its buttons
    * off from `send` — or wait for `onPauseClosed(Reassigned)` of that pause; no order is imposed. Absent

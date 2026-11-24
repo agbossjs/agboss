@@ -138,12 +138,9 @@ describe("AC12: everything external is replaced; a live call fails the test befo
         channel: "terminal-user-channel",
         childExecutionId: undefined,
         itemIndex: undefined,
-        ask: {
-          callId: "call-1",
-          tool: "save-note-tool",
-          arguments: { title: "n2", text: "x" },
-          summary: expect.any(String),
-        },
+        input: { title: "n2", text: "x" },
+        toolCall: { callId: "call-1", tool: "save-note-tool", summary: expect.any(String) },
+        trail: [expect.objectContaining({ action: "opened" })],
       },
     ]);
   });

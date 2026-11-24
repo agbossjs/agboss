@@ -67,7 +67,7 @@ async function childCutAfterAnswer(a: TestApp, clock: VirtualClock) {
   pausesWindow.cut = { thread: isChildThread, namespace: "", skip: 0 };
   const from = pausesWindow.writes.length;
   const answer = { pauseId: pauseId ?? "", decision: { approved: true } };
-  const failure = rejectionOf(a.resume(answer, { answeredBy: "approver-1" }));
+  const failure = rejectionOf(a.resume(answer, { actor: { id: "approver-1" } }));
   await passLive(clock, seconds(40));
   expect(await failure).toBeInstanceOf(ExecutionLeaseLostError);
   const during = pausesWindow.writes.slice(from);

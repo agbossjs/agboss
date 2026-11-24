@@ -177,7 +177,7 @@ export class SlackUserDeletionApprovalChannel extends UserDeletionApprovalChanne
   async send(
     ask: ChannelAsk<UserDeletionApprovalChannel>,
   ): Promise<ChannelOutcome<UserDeletionApprovalChannel>> {
-    const { userId } = ask.value.arguments; // typed by DeleteUserInputDto
+    const { userId } = ask.input; // typed by DeleteUserInputDto
     const tenant = this.executionContext.tenant.tenantId;
     await this.slackClient.post(`Delete user ${userId} (${tenant})?`, ask.pauseId);
     return ChannelOutcome.awaitReply();
@@ -266,7 +266,7 @@ After `awaitReply()` the run rests paused. Once the reply arrives out-of-band (e
 "Approve" in Slack), answer that pause **by its id** — the `pauseId` the channel was sent (the
 reply key of its message) — with the decision, a `ToolCallApprovalDecisionDto` validated on the way
 in. The role says who may answer: this one is `PauseAnswerer.Channel`, so Slack's side names who
-answered (`answeredBy`, recorded on the pause and in `onExecutionResume`); its id never appears in
+answered (`actor`, recorded on the pause and in `onExecutionResume`); its id never appears in
 `result.pending`. A `PauseAnswerer.ThreadOwner` pause is answered with the thread's `ownerId`
 instead, its id listed in `result.pending`. `agboss chat` asks in the terminal and answers by
 itself. (Free-text replies come with #267 PR 3.)
@@ -281,13 +281,13 @@ declare const replyKey: string;
 // the Slack webhook: the reply key of the message is the pause's id
 await app.resume(
   { pauseId: replyKey, decision: { approved: false, reason: "123 belongs to the CEO" } },
-  { tenantId: "acme", answeredBy: "admin@example.com" },
+  { tenantId: "acme", actor: { id: "admin@example.com" } },
 );
 
 // approve, but with corrected arguments (bypassing the LLM)
 await app.resume(
   { pauseId: replyKey, decision: { approved: true, overrideArguments: { userId: "456" } } },
-  { tenantId: "acme", answeredBy: "admin@example.com" },
+  { tenantId: "acme", actor: { id: "admin@example.com" } },
 );
 ```
 
@@ -296,6 +296,6 @@ await app.resume(
 - **Override Arguments**: If the user modifies the tool arguments during the approval step, returning `overrideArguments` in the decision will inject those modified arguments straight into the tool, bypassing the LLM — only with `approved: true`, and checked against the tool's input DTO (`DtoValidationError` otherwise; the pause keeps waiting).
 - **Several pauses at once**: parallel branches each pause on their own; the execution rests only when nothing else can move, `result.pending` lists every waiting pause, and answering one continues it while the others keep waiting. Two answers to one pause (a double click) — the second gets `PauseClosedError`.
 - **Decided at once**: a rule-based channel ("up to $50 approve at once") returns `ChannelOutcome.decided(decision)` — the step goes on with no pause, the decision validated like a reply. No channel needs the application to resume itself, and nothing waits in memory for a person.
-- **Timeouts and Rejections**: If a run should timeout, use an external cron job or scheduler to answer the pause: `app.resume({ pauseId, decision: { approved: false, reason: "Timeout" } }, { answeredBy: "scheduler" })`.
+- **Timeouts and Rejections**: If a run should timeout, use an external cron job or scheduler to answer the pause: `app.resume({ pauseId, decision: { approved: false, reason: "Timeout" } }, { actor: { id: "scheduler" } })`.
 - **Durable pauses**: each pause is a record of `PausedExecutionRepository`, made by its step's idempotency key before the channel is asked, so a retried `send` carries the same `pauseId`. By default paused runs live in memory (the built-in in-memory `PausedExecutionRepository` and checkpointer, #261) and are lost on restart — dev and tests only. In production list durable implementations in `@Application({ providers })`: a class that `extends PausedExecutionRepository` and a durable `BaseCheckpointSaver` — e.g. `SqlitePausedExecutionRepository` and `SqliteCheckpointSaver` (#265, `sqlitePath` in the environment).
 - **Resume across deployments**: each pause stores the workflow version and config hash it paused under. Resuming it on an app with another config hash throws `IncompatibleResumeError` (naming both versions) unless the workflow accepts it: `WorkflowSettings.builder().onIncompatibleResume(({ paused }) => paused.workflowVersion === "1.0.0" ? "resume" : "reject")`. A rejected resume leaves the run paused.

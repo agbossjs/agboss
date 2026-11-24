@@ -208,7 +208,7 @@ describe("#401 PR 1: a paused tree's history", () => {
 
       await app.resume(
         { pauseId: pauseIdOf(), decision: { approved: true } },
-        { answeredBy: "manager-17" },
+        { actor: { id: "manager-17" } },
       );
       const ended = await history.findByTenantIdAndExecutionId("default", paused.executionId);
 
@@ -216,7 +216,7 @@ describe("#401 PR 1: a paused tree's history", () => {
         status: ExecutionHistoryStatus.Finished,
         startedAt: TEST_START,
         endedAt: "2026-01-06T10:00:00.000Z",
-        pauses: [{ answeredBy: "manager-17" }],
+        pauses: [{ actor: { id: "manager-17" } }],
       });
     },
   );

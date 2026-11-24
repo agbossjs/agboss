@@ -1,3 +1,4 @@
+import type { PauseActor } from "../channels/pause-contexts.js";
 import type {
   PauseClosedReason,
   PauseRecipients,
@@ -140,8 +141,12 @@ export interface PauseDeadlineChange {
 export interface PauseReplacement {
   /** The new pause's id: a random 128-bit token the caller made (`newPauseId()`), never the old one's. */
   readonly pauseId: string;
-  /** The addressee (a key's text, #589): who the channel asks now. */
-  readonly assignee: string;
+  /** The addressees (key's texts, #589; one to 100, none twice): who the channel asks now. */
+  readonly assignees: readonly string[];
+  /** Who reassigned it; absent for the framework's own (an expiry). */
+  readonly actor?: PauseActor;
+  /** Why, already masked by the pause's workflow's PII policy: kept in the chain of custody. */
+  readonly reason?: string;
 }
 
 /** The receivers of a kind: `opened` goes to listeners only, every other kind to the channel too. */

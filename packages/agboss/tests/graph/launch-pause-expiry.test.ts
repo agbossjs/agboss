@@ -100,7 +100,7 @@ describe("#941 I6: a branch's pause is due while its sibling still runs", () => 
     const refused = await app
       .resume(
         { pauseId: agentExpiry.sent[0]?.pauseId ?? "", decision: { approved: true } },
-        { answeredBy: "manager-17" },
+        { actor: { id: "manager-17" } },
       )
       .catch((error: unknown) => error);
     expect(refused).toBeInstanceOf(PauseClosedError);

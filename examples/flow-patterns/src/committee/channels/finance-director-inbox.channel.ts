@@ -17,7 +17,7 @@ export class FinanceDirectorInboxChannel {
   send(
     ask: ChannelAsk<FinanceDirectorSignOffExternalTask>,
   ): ChannelOutcome<FinanceDirectorSignOffExternalTask> {
-    this.committeeDeskService.post("FinanceDirector", ask.value.title, ask.pauseId);
+    this.committeeDeskService.post("FinanceDirector", ask.input.title, ask.pauseId);
     return ChannelOutcome.awaitReply();
   }
 }

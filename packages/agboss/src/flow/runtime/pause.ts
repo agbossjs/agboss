@@ -1,6 +1,7 @@
 import { interrupt } from "@langchain/langgraph";
 import { AGBossError, type MessageErrorOptions } from "../../core/errors.js";
 import type { ChannelSenderSend } from "../../channels/channel-sender.js";
+import type { PauseToolCallSummary } from "../../channels/pause-contexts.js";
 import { ChannelOutcomeKind, isChannelOutcome } from "../../channels/channel-outcome.js";
 import type { PausedExecutionRepository } from "../../infrastructure/paused-execution.repository.js";
 import type { Clock } from "../../infrastructure/clock.js";
@@ -11,7 +12,6 @@ import {
   PauseResolution,
   PauseStatus,
   type PauseKind,
-  type PauseAsk,
   type PauseRecord,
 } from "../../infrastructure/pause-record.js";
 import type { PauseAnswerLog } from "../../infrastructure/pause-answer-log.js";
@@ -51,7 +51,10 @@ export interface PauseQuestion {
   readonly kind: PauseKind;
   /** The step that asks: the agent of the tool call (or of a question tool, #712), or the question step. */
   readonly step: string;
-  readonly ask: PauseAsk;
+  /** What it asks, `sensitive` fields masked: the tool call's arguments, or the role's ask. */
+  readonly input: Readonly<Record<string, unknown>>;
+  /** The tool call an approval waits on; none for a question. */
+  readonly toolCall?: PauseToolCallSummary;
   /**
    * What asks, when it is not the step's own component: the question role an agent asks through
    * its tool loop (#712) — the record's `component`.
@@ -102,7 +105,7 @@ export class ChannelSendError extends Error {
 /** The channel asked once: its outcome, a failure (not a cancellation) as `ChannelSendError`. */
 export async function sentBy(
   channel: Pick<PauseChannel, "name" | "sender">,
-  ask: ChannelSenderSend & { readonly value: PauseAsk },
+  ask: ChannelSenderSend,
   signal: AbortSignal | undefined,
 ): Promise<unknown> {
   const { sender } = channel;
@@ -176,7 +179,7 @@ async function settledAnswer(
   // a re-entry of a step its channel decided at once, or on the pause's expiry (#941): the
   // channel's decision, its spend counted already
   if (isDecidedByChannel(pause)) return { decision: answer.decision, by: channel, usage: [] };
-  const by = answer.answeredBy ?? THREAD_OWNER;
+  const by = answer.actor?.id ?? THREAD_OWNER;
   return { decision: answer.decision, by, usage: answer.usage ?? [] };
 }
 
@@ -248,7 +251,7 @@ export async function pauseStep(site: PauseStepSite, question: PauseQuestion): P
     const decided = await sendOnce(channel, pause, site.signal);
     if (decided !== undefined) {
       const decision = site.validate(decided.decision);
-      const answer = { decision, answeredBy: undefined };
+      const answer = { decision, actor: undefined };
       const at = site.clock.now();
       if (await pauses.decideByTenantIdAndPauseId(tenantId, pause.pauseId, answer, at))
         await logPauseAnswer(

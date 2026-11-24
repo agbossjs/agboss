@@ -1,5 +1,6 @@
 import { type Bytes, type Usd } from "../units/index.js";
 import type { InterruptReason } from "../app/interrupt-types.js";
+import type { PauseActor } from "../channels/pause-contexts.js";
 import type { CompensationRecord } from "../flow/compensation.js";
 import type { GuardrailSide } from "../components/policy-decorators.js";
 import type { ShownModelMessage } from "../models/messages.js";
@@ -234,10 +235,11 @@ export interface ExecutionResumeEvent extends ExecutionEvent {
   /** The decision it continues with (`undefined` for a recovery that takes none). */
   readonly decision: unknown;
   /**
-   * Who gave it (#267 AC4): the resume's `answeredBy` for a `PauseAnswerer.Channel` pause, the
-   * owner for a `ThreadOwner` one (`undefined` for an unowned thread, or a recovery that takes none).
+   * Who gave it (#267 AC4): the resume's `actor` for a `PauseAnswerer.Channel` pause, the owner
+   * (`{ id: ownerId }`) for a `ThreadOwner` one (`undefined` for an unowned thread, or a recovery
+   * that takes none).
    */
-  readonly answeredBy: string | undefined;
+  readonly actor: PauseActor | undefined;
   /**
    * Why the operator unpaused it (`ResumeReason.Unpaused`, #1341c), when they said; never the
    * `reason` of this event, which is a `ResumeReason`.

@@ -609,7 +609,7 @@ export class BuyerInboxPurchaseApprovalChannel extends PurchaseApprovalChannel {
   }
 
   async send(ask: ChannelAsk<PurchaseApprovalChannel>): Promise<ChannelOutcome<PurchaseApprovalChannel>> {
-    const { supplier, price } = ask.value.arguments;
+    const { supplier, price } = ask.input;
     await this.buyerInboxService.notify(ask.pauseId, `Order from ${supplier} for $${String(price)}?`);
     return ChannelOutcome.awaitReply(); // the execution rests until app.resume
   }

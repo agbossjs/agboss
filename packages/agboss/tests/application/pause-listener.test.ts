@@ -120,7 +120,9 @@ describe("#940 AC5: what a listener hears", () => {
         kind: PauseKind.Approval,
         channel: "refund-approval-channel",
         answerer: PauseAnswerer.Channel,
-        ask: expect.objectContaining({ tool: "refund-tool" }),
+        toolCall: expect.objectContaining({ tool: "refund-tool" }),
+        input: { orderId: "7" },
+        trail: [expect.objectContaining({ action: "opened" })],
         askedAt: expect.any(String),
       });
       // opened is told to listeners only: the channel sent the question itself
@@ -159,7 +161,7 @@ describe("#940 AC5: what a listener hears", () => {
       answerer: PauseAnswerer.ThreadOwner,
       kind: PauseKind.Question,
       // the requester is `sensitive`: masked for the listener too
-      ask: { item: "laptop", priceUsd: 900, requester: expect.not.stringContaining("alice") },
+      input: { item: "laptop", priceUsd: 900, requester: expect.not.stringContaining("alice") },
     });
   });
 
@@ -185,7 +187,7 @@ describe("#940 AC5: what a listener hears", () => {
       ]);
       expect(heard[2]?.event).toMatchObject({
         reason: PauseClosedReason.Answered,
-        answeredBy: "manager-17",
+        actor: { id: "manager-17" },
         answer: { approved: true, limitUsd: 800 },
       });
     },

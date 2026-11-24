@@ -154,7 +154,7 @@ describe("#1356: the spend a continued child already has", () => {
     await pauses.decideByTenantIdAndPauseId(
       TENANT,
       "p-answered",
-      { decision: { approved: true }, answeredBy: undefined, usage: [replyA] },
+      { decision: { approved: true }, actor: undefined, usage: [replyA] },
       new Date(),
     );
     // answered by a person, being taken now: its reply's usage counts, once
@@ -163,7 +163,7 @@ describe("#1356: the spend a continued child already has", () => {
     await pauses.resolveByTenantIdAndPauseId(
       TENANT,
       "p-replied",
-      { decision: { approved: true }, answeredBy: "manager", usage: [replyLate] },
+      { decision: { approved: true }, actor: { id: "manager" }, usage: [replyLate] },
       new Date(),
       NO_RECIPIENTS,
     );
@@ -174,7 +174,7 @@ describe("#1356: the spend a continued child already has", () => {
     await pauses.decideByTenantIdAndPauseId(
       TENANT,
       "p-unasked",
-      { decision: { approved: true }, answeredBy: undefined, usage: [replyUnasked] },
+      { decision: { approved: true }, actor: undefined, usage: [replyUnasked] },
       new Date(),
     );
     // another tenant's tree with the same pause id
@@ -185,7 +185,7 @@ describe("#1356: the spend a continued child already has", () => {
     await pauses.decideByTenantIdAndPauseId(
       "other",
       "p-answered",
-      { decision: { approved: true }, answeredBy: undefined, usage: [replyOther] },
+      { decision: { approved: true }, actor: undefined, usage: [replyOther] },
       new Date(),
     );
     const graph = graphOf(

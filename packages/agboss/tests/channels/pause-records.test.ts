@@ -57,7 +57,7 @@ beforeEach(() => {
   resetPauses();
 });
 
-const manager = { answeredBy: "manager-17" };
+const manager = { actor: { id: "manager-17" } };
 
 /** The finance desk's only ask: its pause's id is the reply key. */
 function payoutPauseId(): string {
@@ -104,16 +104,15 @@ describe("#267 S107: ExecutionRecord.pauses — who answered each pause, and how
           },
           role: "payout-approval-channel",
           answerer: PauseAnswerer.Channel,
-          answeredBy: "manager-17",
+          actor: { id: "manager-17" },
           resolution: PauseResolution.Replied,
           askedAt: TEST_START,
           resolvedAt: "2026-01-05T09:01:00.000Z",
           decision: { approved: false, reason: "ask <email>" },
           // #688: the call as asked, beside the decision on it
-          asked: expect.objectContaining({
-            tool: "pay-out-tool",
-            arguments: { payee: "ann", amountCents: 1000 },
-          }),
+          input: { payee: "ann", amountCents: 1000 },
+          toolCall: expect.objectContaining({ tool: "pay-out-tool" }),
+          trail: [expect.objectContaining({ action: "opened" })],
         },
       ]);
     },
@@ -161,7 +160,7 @@ describe("#267 S107: ExecutionRecord.pauses — who answered each pause, and how
           pauseId,
           role: "expense-approval-channel",
           answerer: PauseAnswerer.ThreadOwner,
-          answeredBy: "alice",
+          actor: { id: "alice" },
           resolution: PauseResolution.Replied,
           decision: { approved: true },
         },
@@ -190,7 +189,7 @@ describe("#267 S107: ExecutionRecord.pauses — who answered each pause, and how
         {
           pauseId: undefined,
           role: "transfer-approval-channel",
-          answeredBy: undefined,
+          actor: undefined,
           resolution: PauseResolution.Decided,
           resolvedAt: TEST_START,
           decision: { approved: true },
@@ -218,7 +217,7 @@ describe("#267 S107: ExecutionRecord.pauses — who answered each pause, and how
         {
           pauseId: seen.confirmations[0]?.pauseId,
           role: "order-confirmation-channel",
-          answeredBy: undefined,
+          actor: undefined,
           resolution: PauseResolution.Withdrawn,
           decision: undefined,
         },
@@ -298,7 +297,7 @@ describe("#267 S107: resolved pause records are kept retention.pauseRecords, the
         ["expense-approval-channel", PauseResolution.Replied],
       ]);
       expect(done.record?.pauses[0]).toMatchObject({
-        answeredBy: "manager-17",
+        actor: { id: "manager-17" },
         askedAt: TEST_START,
       });
     },
@@ -320,7 +319,7 @@ describe("#939: an unconsumed Resolved pause of an ended tree is closed not take
       const pauseId = waiting.pending[0]?.pauseId ?? "";
       const pauses = treasuryPauses();
       // a resume recorded its answer and the cancel won before its pass took it (#811 s18c)
-      const answer = { decision: { approved: true }, answeredBy: undefined };
+      const answer = { decision: { approved: true }, actor: undefined };
       await pauses.resolveByTenantIdAndPauseId(
         waiting.tenantId,
         pauseId,

@@ -99,8 +99,11 @@ const withRun =
 const withAsk =
   (change: (ask: Record<string, unknown>) => Record<string, unknown>) =>
   (pause: PauseRecord): PauseRecord =>
-    "tool" in pause.ask
-      ? ({ ...pause, ask: change(Object.fromEntries(Object.entries(pause.ask))) } as PauseRecord)
+    pause.toolCall !== undefined
+      ? ({
+          ...pause,
+          input: change(Object.fromEntries(Object.entries(pause.input))),
+        } as PauseRecord)
       : pause;
 
 const LOSSES: readonly (readonly [string, Loss, string])[] = [

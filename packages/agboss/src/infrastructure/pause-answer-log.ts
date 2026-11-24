@@ -48,7 +48,7 @@ function recordOf(
   hasAnswer: boolean,
 ): PauseAnswerRecord {
   const answerer = pauseAnswererOf(pause);
-  const answeredBy = hasAnswer ? pause.answer?.answeredBy : undefined;
+  const actor = hasAnswer ? pause.answer?.actor : undefined;
   return {
     pauseId: answerer === PauseAnswerer.Channel ? undefined : pause.pauseId,
     executionId: pause.executionId,
@@ -66,14 +66,25 @@ function recordOf(
     },
     role: pause.channel,
     answerer,
-    answeredBy,
+    actor,
     resolution,
     askedAt: pause.askedAt,
     resolvedAt: pause.resolvedAt,
     decision: hasAnswer ? pause.answer?.decision : undefined,
-    asked: pause.ask,
+    ...custodyOf(pause),
   };
 }
+
+/** What the log entry keeps of what a pause asked and who had it. */
+const custodyOf = (
+  pause: PauseRecord,
+): Pick<PauseAnswerRecord, "input" | "toolCall" | "assignees" | "externalRef" | "trail"> => ({
+  input: pause.input,
+  ...(pause.toolCall === undefined ? {} : { toolCall: pause.toolCall }),
+  ...(pause.assignees === undefined ? {} : { assignees: pause.assignees }),
+  ...(pause.externalRef === undefined ? {} : { externalRef: pause.externalRef }),
+  trail: pause.trail,
+});
 
 /** Writes that a pause's answer was not taken into its tree's execution records (wins in any order). */
 export const logPauseNotTaken = (

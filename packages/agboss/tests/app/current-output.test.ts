@@ -26,7 +26,7 @@ const listedBefore = (pauseId: string, agent: string): WaitingPause =>
       pauseId,
       agent,
       channel: "refund-approval-channel",
-      ask: {},
+      input: {},
     }),
   ) as WaitingPause;
 
@@ -39,7 +39,7 @@ describe("#801: the pauses still pending, as their records say", () => {
     await pauses.resolveByTenantIdAndPauseId(
       "default",
       "p-answered",
-      { decision: { approved: true }, answeredBy: "manager-17" },
+      { decision: { approved: true }, actor: { id: "manager-17" } },
       new Date(0),
       NO_RECIPIENTS,
     );
@@ -69,7 +69,7 @@ describe("#801: the pauses still pending, as their records say", () => {
         pauseId: "p-question",
         kind: PauseKind.Question,
         step: "spending-limit-question",
-        ask: { item: "laptop", priceUsd: 1200, nested: { tags: ["it", "q4"] } },
+        input: { item: "laptop", priceUsd: 1200, nested: { tags: ["it", "q4"] } },
       }),
     ]);
   });

@@ -65,7 +65,7 @@ describe("#267 S124 c: a single child's record lists its own pauses", () => {
       executionId: pending?.childExecutionId,
       role: "expense-approval-channel",
       resolution: PauseResolution.Replied,
-      answeredBy: "alice",
+      actor: { id: "alice" },
       decision: { approved: true },
     };
     expect(child?.executionId).toBe(pending?.childExecutionId);

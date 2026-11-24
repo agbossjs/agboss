@@ -22,6 +22,7 @@ import {
   type ChannelPauseClosedEvent,
   type PauseClosedReason,
   type PauseListenerAnswerNotTakenEvent,
+  type PauseActor,
   type PauseListenerClosedEvent,
   type PauseListenerEventBase,
   type PauseListenerHandler,
@@ -51,8 +52,8 @@ import { onStart } from "../../helpers/flow.js";
 export interface SentAsk {
   readonly pauseId: string;
   readonly orderId: string;
-  /** Set on the send of a reassignment (#946). */
-  readonly assignee?: string;
+  /** Set on the send of a reassignment (#946): who it is for. */
+  readonly assignees?: readonly string[];
   /** The pause that send replaces (#946). */
   readonly replaces?: { readonly pauseId: string };
 }
@@ -63,7 +64,7 @@ export interface SeenClosed extends SentAsk {
   readonly reason: PauseClosedReason;
   readonly deliveryId: string;
   readonly closedAt: string;
-  readonly answeredBy?: string | undefined;
+  readonly actor?: PauseActor | undefined;
   readonly answer?: unknown;
   readonly executionId: string;
   readonly tenantId: string;
@@ -83,7 +84,7 @@ export interface Heard {
   readonly listener: string;
   readonly type: "opened" | "closed" | "answer-not-taken";
   readonly event: PauseListenerEventBase &
-    Partial<Pick<PauseListenerClosedEvent, "reason" | "answeredBy" | "answer" | "closedAt">>;
+    Partial<Pick<PauseListenerClosedEvent, "reason" | "actor" | "answer" | "closedAt">>;
   readonly executionId: string;
   readonly tenantId: string;
 }
@@ -141,18 +142,18 @@ export function resetPauses(): void {
 /** What the fixture reads of a close, whatever the role types it. */
 interface ClosedLike {
   readonly pauseId: string;
-  readonly value: unknown;
+  readonly input: unknown;
   readonly reason: PauseClosedReason;
   readonly deliveryId: string;
   readonly closedAt: string;
-  readonly answeredBy?: string | undefined;
+  readonly actor?: PauseActor | undefined;
   readonly answer?: unknown;
 }
 
 /** What the fixture reads of an answer never applied. */
 interface NotTakenLike {
   readonly pauseId: string;
-  readonly value: unknown;
+  readonly input: unknown;
   readonly reason: PauseClosedReason;
   readonly deliveryId: string;
   readonly answer: unknown;
@@ -167,11 +168,11 @@ async function recordClose(
   seen.closed.push({
     channel,
     pauseId: event.pauseId,
-    orderId: orderIdIn(event.value),
+    orderId: orderIdIn(event.input),
     reason: event.reason,
     deliveryId: event.deliveryId,
     closedAt: event.closedAt,
-    answeredBy: event.answeredBy,
+    ...(event.actor === undefined ? {} : { actor: event.actor }),
     answer: event.answer,
     executionId: executionContext.executionId,
     tenantId: executionContext.tenant.tenantId,
@@ -186,7 +187,7 @@ async function recordNotTaken(channel: string, event: NotTakenLike): Promise<voi
   seen.notTaken.push({
     channel,
     pauseId: event.pauseId,
-    orderId: orderIdIn(event.value),
+    orderId: orderIdIn(event.input),
     reason: event.reason,
     deliveryId: event.deliveryId,
     answer: event.answer,
@@ -242,8 +243,8 @@ export class FinanceDeskRefundApprovalChannel extends RefundApprovalChannel {
     this.executionContext.signal.throwIfAborted();
     const sent = {
       pauseId: ask.pauseId,
-      orderId: orderIdIn(ask.value),
-      ...(ask.assignee === undefined ? {} : { assignee: ask.assignee }),
+      orderId: orderIdIn(ask.input),
+      ...(ask.assignees === undefined ? {} : { assignees: ask.assignees }),
       ...(ask.replaces === undefined ? {} : { replaces: ask.replaces }),
     };
     const refusal = hooks.refusals?.get(sent.orderId);
@@ -284,7 +285,7 @@ export class CustomerOrderConfirmationChannel extends OrderConfirmationChannel {
   send(
     ask: ChannelAsk<OrderConfirmationChannel>,
   ): Promise<ChannelOutcome<OrderConfirmationChannel>> {
-    seen.confirmations.push({ pauseId: ask.pauseId, orderId: orderIdIn(ask.value) });
+    seen.confirmations.push({ pauseId: ask.pauseId, orderId: orderIdIn(ask.input) });
     return Promise.resolve(ChannelOutcome.awaitReply());
   }
 }

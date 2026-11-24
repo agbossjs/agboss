@@ -76,7 +76,7 @@ export class SlackRefundApprovalChannel extends RefundApprovalChannel {
 @Channel({ name: "rule-refund-approval-channel", description: "Up to $50 at once" })
 export class RuleRefundApprovalChannel extends RefundApprovalChannel {
   send(ask: ChannelAsk<RefundApprovalChannel>): Promise<ChannelOutcome<RefundApprovalChannel>> {
-    const isSmall = ask.value.arguments.amountCents <= 5000;
+    const isSmall = ask.input.amountCents <= 5000;
     return Promise.resolve(
       isSmall
         ? ChannelOutcome.decided({ approved: true })

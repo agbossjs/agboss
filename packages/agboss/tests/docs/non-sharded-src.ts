@@ -1317,7 +1317,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
   ),
   ...reviewed(
     "holds spend, rate-limit or deadline sites (reassign due <) - not mutated: covered by tests/app/pause-reassignment.test.ts, each sabotage of it (1 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
-    ["src/app/pause-reassignment.ts"],
+    ["src/app/pause-reassignment.ts", "src/app/reassign-request.ts"],
   ),
   ...reviewed(
     "holds spend, rate-limit or deadline sites (paused-runs due <; paused-runs total 0) - not mutated: covered by tests/app/mark-answered-cost.test.ts, each sabotage of it (2 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",

@@ -8,7 +8,7 @@ import { BranchStatus, BranchVerdict, type LaunchRecord } from "../flow/runtime/
 import type { ScopeRecords } from "../flow/runtime/records.js";
 import type { Compacted } from "../run/compaction.js";
 import type { AgentExecutionOutput, ExecutionData } from "../run/types.js";
-import { PauseKind, questionAskOf } from "./pause-record.js";
+import { PauseKind } from "./pause-record.js";
 import type { WaitingPause } from "../pause/types.js";
 import {
   StoredCompensation,
@@ -22,8 +22,8 @@ import {
   StoredStepRecord,
   StoredToolCall,
 } from "./stored-record-parts.js";
-import { StoredApprovalAsk } from "./stored-pause.js";
-import { readStored, StoredComponent } from "./stored-step.js";
+import { StoredPauseToolCall } from "./stored-pause.js";
+import { readStored, StoredComponent, StoredTrailEntry } from "./stored-step.js";
 
 /**
  * A paused run as a store keeps it as JSON (`PausedExecution.run`), read whole and version tolerant
@@ -115,19 +115,16 @@ const StoredWaiting = z
     channel: text,
     childExecutionId: text.optional(),
     itemIndex: count.optional(),
-    ask: z.record(text, z.unknown()),
+    // 0.1.0's name of `input` + `toolCall`: refused, never read
+    ask: z.never().optional(),
+    input: z.record(text, z.unknown()),
+    toolCall: StoredPauseToolCall.optional(),
+    assignees: z.array(text).optional(),
+    externalRef: text.optional(),
+    trail: z.array(StoredTrailEntry),
   })
   .transform((stored, context): WaitingPause => {
-    const { answerer, step } = stored;
-    const approval = StoredApprovalAsk.safeParse(stored.ask);
-    const refused = (path: string): typeof z.NEVER => {
-      context.addIssue({
-        code: "custom",
-        path: [path],
-        message: "missing or not what was written",
-      });
-      return z.NEVER;
-    };
+    const { answerer, step, toolCall } = stored;
     const base = {
       pauseId: stored.pauseId,
       answerer,
@@ -135,12 +132,21 @@ const StoredWaiting = z
       channel: stored.channel,
       childExecutionId: stored.childExecutionId,
       itemIndex: stored.itemIndex,
+      input: stored.input,
+      ...(stored.assignees === undefined ? {} : { assignees: stored.assignees }),
+      ...(stored.externalRef === undefined ? {} : { externalRef: stored.externalRef }),
+      trail: stored.trail,
     };
-    if (stored.kind === PauseKind.Question)
-      return { ...base, kind: PauseKind.Question, ask: questionAskOf(stored.ask) };
-    return approval.success
-      ? { ...base, kind: PauseKind.Approval, ask: approval.data }
-      : refused("ask");
+    if (stored.kind === PauseKind.Question && toolCall === undefined)
+      return { ...base, kind: PauseKind.Question };
+    if (stored.kind === PauseKind.Approval && toolCall !== undefined)
+      return { ...base, kind: PauseKind.Approval, toolCall };
+    context.addIssue({
+      code: "custom",
+      path: ["toolCall"],
+      message: "missing or not what was written",
+    });
+    return z.NEVER;
   });
 
 const StoredRun = z.object({

@@ -7,13 +7,17 @@ import {
   PauseKind,
   PauseResolution,
   PauseStatus,
-  questionAskOf,
   type PauseAnswer,
-  type PauseAsk,
   type PauseRecord,
 } from "./pause-record.js";
 import { storedUsd } from "../finops/cost-report.js";
-import { readStored, StoredComponent } from "./stored-step.js";
+import {
+  actorOf,
+  readStored,
+  StoredActor,
+  StoredComponent,
+  StoredTrailEntry,
+} from "./stored-step.js";
 
 /**
  * A pause as a store keeps it as JSON (#934): every field of `PauseRecord` in the 0.1.1 shape, with
@@ -37,36 +41,28 @@ const StoredUsage = z.looseObject({
 export const StoredAnswer = z
   .object({
     decision: z.unknown(),
-    answeredBy: z.string().optional(),
-    // 0.1.0's name of `answeredBy` (the person): refused, never read
+    actor: StoredActor.optional(),
+    // 0.1.0's names of `actor` (the person) and of `byDelegate`: refused, never read
+    answeredBy: z.never().optional(),
     answerer: z.never().optional(),
-    // #1197: the channel's own decision; `false` is no marker
-    byChannel: z.boolean().optional(),
+    byChannel: z.never().optional(),
+    // #1197: the delegate channel's own decision; `false` is no marker
+    byDelegate: z.boolean().optional(),
     usage: z.array(StoredUsage).optional(),
   })
   .transform((stored): PauseAnswer => ({
     decision: stored.decision,
-    answeredBy: stored.answeredBy,
-    ...(stored.byChannel === true ? { byChannel: true as const } : {}),
+    actor: stored.actor === undefined ? undefined : actorOf(stored.actor),
+    ...(stored.byDelegate === true ? { byDelegate: true as const } : {}),
     ...(stored.usage === undefined ? {} : { usage: stored.usage }),
   }));
-/** The tool call an approval's pause asks about. */
-export const StoredApprovalAsk = z.object({
+
+/** The tool call an approval pause waits on. */
+export const StoredPauseToolCall = z.object({
   callId: z.string(),
   tool: z.string(),
-  arguments: z.record(z.string(), z.unknown()),
-  summary: z.string(),
+  summary: z.string().optional(),
 });
-
-/** #746: a question role's ask is its own DTO, as written; an approval's is the tool call. */
-const askOfStored = (
-  kind: PauseKind,
-  ask: Readonly<Record<string, unknown>>,
-): PauseAsk | undefined => {
-  if (kind === PauseKind.Question) return questionAskOf(ask);
-  const approval = StoredApprovalAsk.safeParse(ask);
-  return approval.success ? approval.data : undefined;
-};
 
 /** A pause record as JSON stored it; parsing it reads it. */
 export const StoredPause = z
@@ -90,8 +86,11 @@ export const StoredPause = z
     answerer: z.enum(PauseAnswerer),
     // 0.1.0's name of `answerer` (who may answer): refused, never read, never filled from 0.1.1
     answeredBy: z.never().optional(),
-    // an approval's tool call, or a question role's own ask (#659, #712, #746): `kind` says
-    ask: z.record(z.string(), z.unknown()),
+    // what it asks (an approval's arguments, a question role's own ask) and, for an approval, its call
+    input: z.record(z.string(), z.unknown()),
+    toolCall: StoredPauseToolCall.optional(),
+    // 0.1.0's name of `input` + `toolCall`: refused, never read
+    ask: z.never().optional(),
     pauseId: z.string(),
     tenantId: z.string(),
     rootExecutionId: z.string(),
@@ -111,18 +110,21 @@ export const StoredPause = z
       .object({ resolution: z.enum(PauseResolution), resolvedAt: z.string() })
       .optional(),
     // #946: who a reassigned pause is for, the pause it replaced, the pause that replaced it
-    assignee: z.string().optional(),
+    assignees: z.array(z.string()).min(1).optional(),
+    assignee: z.never().optional(),
+    externalRef: z.string().optional(),
+    trail: z.array(StoredTrailEntry).min(1),
     reassignedTo: z.string().optional(),
     reassignedFrom: z.string().optional(),
     answer: StoredAnswer.optional(),
   })
   .transform((stored, context): PauseRecord => {
-    const { branchKeys, itemIndex, ask, ...rest } = stored;
-    const asked = askOfStored(stored.kind, ask);
-    if (asked === undefined) {
+    const { branchKeys, itemIndex, toolCall, assignees, externalRef, ...rest } = stored;
+    // an approval is a tool call's; a question has none: `kind` and `toolCall` agree
+    if ((stored.kind === PauseKind.Approval) !== (toolCall !== undefined)) {
       context.addIssue({
         code: "custom",
-        path: ["ask"],
+        path: ["toolCall"],
         message: "missing or not what was written",
       });
       return z.NEVER;
@@ -130,7 +132,9 @@ export const StoredPause = z
     return {
       ...rest,
       itemIndex,
-      ask: asked,
+      ...(toolCall === undefined ? {} : { toolCall }),
+      ...(assignees === undefined ? {} : { assignees }),
+      ...(externalRef === undefined ? {} : { externalRef }),
       ...(branchKeys === undefined ? {} : { branchKeys }),
     };
   });

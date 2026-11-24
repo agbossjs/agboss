@@ -3,7 +3,8 @@ import { interrupt, isGraphInterrupt } from "@langchain/langgraph";
 import { redactedArguments, redactedDto } from "../../dto/redact.js";
 import { validate } from "../../dto/schema.js";
 import type { UsageRecord } from "../../finops/usage.js";
-import { PauseKind, questionAskOf, type PauseAsk } from "../../infrastructure/pause-record.js";
+import { PauseKind, pauseInputOf } from "../../infrastructure/pause-record.js";
+import type { PauseToolCallSummary } from "../../channels/pause-contexts.js";
 import { toolRecordOf } from "../../flow/runtime/tool-keys.js";
 import type { ComponentRecord } from "../../flow/runtime/records.js";
 import type { ToolCallApprovalAskDto } from "../../dto/standard/framework.js";
@@ -91,9 +92,12 @@ interface SeamAsk {
   readonly kind: PauseKind;
   readonly channel: string;
   readonly agent: string;
-  readonly shown: PauseAsk;
-  /** What the channel's `onChannelStart` reports as its input. */
-  readonly input: unknown;
+  /** What it asks as a loop on its own is interrupted with: the call as the approver sees it, or the ask. */
+  readonly shown: unknown;
+  /** What it asks, as the record keeps it and `onChannelStart` reports it. */
+  readonly input: Readonly<Record<string, unknown>>;
+  /** The tool call an approval waits on. */
+  readonly toolCall?: PauseToolCallSummary;
   readonly validate: (decision: unknown) => unknown;
   /** The record's component when it is not the asking step's own (a question role, #712). */
   readonly component?: ComponentRecord;
@@ -111,13 +115,18 @@ async function interruptedAnswer(
   signal: AbortSignal | undefined,
 ): Promise<StepAnswer> {
   try {
-    const decision = interrupt<PauseAsk, unknown>(ask.shown);
+    const decision = interrupt<unknown, unknown>(ask.shown);
     return { decision, by: THREAD_OWNER, usage: [] };
   } catch (error) {
     if (!isGraphInterrupt(error) || channels.channelOf === undefined) throw error;
     const outcome = await sentBy(
       channels.channelOf(ask.channel),
-      { pauseId: "", value: ask.shown },
+      {
+        pauseId: "",
+        input: ask.input,
+        ...(ask.toolCall === undefined ? {} : { toolCall: ask.toolCall }),
+        trail: [],
+      },
       signal,
     );
     if (!isChannelOutcome(outcome) || outcome.kind !== ChannelOutcomeKind.Decided) throw error;
@@ -140,7 +149,8 @@ async function seamAnswer(
   const question = {
     kind: ask.kind,
     step: ask.agent,
-    ask: ask.shown,
+    input: ask.input,
+    ...(ask.toolCall === undefined ? {} : { toolCall: ask.toolCall }),
     ...(ask.component === undefined ? {} : { component: ask.component }),
     ...(ask.expiresIn === undefined ? {} : { expiresIn: ask.expiresIn }),
   };
@@ -175,9 +185,11 @@ export function pauseSeamApproval(channels: ApprovalChannels = {}): ToolCallAppr
       const shown = shownAsk(ask, tool);
       const validate = (decision: unknown): unknown => validDecisionOf(decision, tool);
       const channel = approvalChannelOf(tool) ?? "";
+      const toolCall = { callId: shown.callId, tool: shown.tool, summary: shown.summary };
+      const input = pauseInputOf(shown.arguments);
       const seam = {
         kind: PauseKind.Approval,
-        ...{ channel, agent, shown, input: shown.arguments, validate },
+        ...{ channel, agent, shown, input, toolCall, validate },
         expiresIn: tool.expiresIn,
       };
       const answer = await seamAnswer(channels, seam, signal);
@@ -187,7 +199,7 @@ export function pauseSeamApproval(channels: ApprovalChannels = {}): ToolCallAppr
       const { question } = tool;
       if (question === undefined) throw new TypeError(`${tool.name} asks no question`);
       // the question as the channel, the records and the events see it: `sensitive` fields masked
-      const shown = questionAskOf(redactedDto(question.ask, args));
+      const shown = pauseInputOf(redactedDto(question.ask, args));
       const answered = (decision: unknown): unknown => validate(question.answer, decision);
       const channel = tool.channel ?? tool.name;
       const component = toolRecordOf(tool);

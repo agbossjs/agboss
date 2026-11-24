@@ -78,7 +78,7 @@ const answerWith = (parts: object) =>
     parts as never,
     pause as never,
     { pauseId: "p-1", decision: { note: "n", scan: scan() } },
-    "dana",
+    { id: "dana" },
   );
 
 describe("a pause's answer and the inline cap", () => {

@@ -152,7 +152,7 @@ export {
   type ChannelRoleBaseOptions,
   type ChannelRoleOptions,
 } from "../channels/channel-role.decorator.js";
-export { PauseKind, questionAskOf, type PendingPauseBase } from "../pause/index.js";
+export { PauseKind, pauseInputOf, type PendingPauseBase } from "../pause/index.js";
 export { ChannelOf, type ChannelAsk, type ChannelHandler } from "../channels/channel-handler.js";
 export type { QuestionStepOptions } from "../flow/child-placement.js";
 export {

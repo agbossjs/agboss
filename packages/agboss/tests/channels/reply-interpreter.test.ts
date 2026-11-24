@@ -45,7 +45,7 @@ const test = testWith(TreasuryApplication);
 
 beforeEach(resetReplyDesk);
 
-const manager = { answeredBy: "manager-17" };
+const manager = { actor: { id: "manager-17" } };
 const payout = { payee: "ann", amountCents: 1000 };
 
 /** The finance desk's only ask: its pause's id is the reply key. */

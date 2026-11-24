@@ -27,7 +27,7 @@ function repaired(log: PauseAnswerLog, pause: PauseRecord): Promise<void> {
     pause.status === PauseStatus.Cancelled ? PauseResolution.Cancelled : PauseResolution.Replied;
   // a channel's own decision of a reassigned send is stored `Replied`, its answer marked (#1197)
   const resolution =
-    pause.resolution === PauseResolution.Replied && pause.answer?.byChannel === true
+    pause.resolution === PauseResolution.Replied && pause.answer?.byDelegate === true
       ? PauseResolution.Decided
       : (pause.resolution ?? fallback);
   return logPauseAnswer(log, pause, resolution);

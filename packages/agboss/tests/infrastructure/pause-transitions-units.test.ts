@@ -33,7 +33,7 @@ const T11 = "2026-11-20T11:00:00.000Z";
 const T12 = "2026-11-20T12:00:00.000Z";
 const AT = new Date(T10);
 const RECIPIENTS = { channel: "refund", listeners: ["metrics"] };
-const answer = { decision: { approved: true }, answeredBy: "manager-1" };
+const answer = { decision: { approved: true }, actor: { id: "manager-1" } };
 
 /** A pending pause, sent unless it says otherwise. */
 const pending = (fields: Partial<PauseRecord> = {}): PauseRecord => ({

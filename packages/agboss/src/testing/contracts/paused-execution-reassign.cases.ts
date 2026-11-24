@@ -56,7 +56,18 @@ export const REASSIGN_CASES: readonly ContractCase<PausedExecutionRepository>[] 
         status: PauseStatus.Pending,
         isSent: false,
         askedAt: MID.toISOString(),
-        assignee: "deputy-3",
+        assignees: ["deputy-3"],
+        trail: [
+          ...old.trail,
+          {
+            action: "reassigned",
+            at: MID.toISOString(),
+            target: old.channel,
+            channel: old.channel,
+            assignees: ["deputy-3"],
+            expiresAt: DEADLINE.toISOString(),
+          },
+        ],
         reassignedFrom: "pause-a",
       };
       expect(replacement).toEqual(expected);
@@ -90,13 +101,13 @@ export const REASSIGN_CASES: readonly ContractCase<PausedExecutionRepository>[] 
       await first.findOrCreateByStepKey(pauseOf("pause-a"));
       await reassign(first, "pause-a", "pause-b");
 
-      const third = await reassign(second, "pause-b", "pause-c", BEFORE_DEADLINE, "deputy-4");
-      const fourth = await reassign(first, "pause-c", "pause-d", BEFORE_DEADLINE, "deputy-5");
+      const third = await reassign(second, "pause-b", "pause-c", BEFORE_DEADLINE, ["deputy-4"]);
+      const fourth = await reassign(first, "pause-c", "pause-d", BEFORE_DEADLINE, ["deputy-5"]);
 
       expect(third).toMatchObject({
         stepKey: "run-1:clerk-agent:1:call-1~r2",
         reassignedFrom: "pause-b",
-        assignee: "deputy-4",
+        assignees: ["deputy-4"],
       });
       expect(fourth?.stepKey).toBe("run-1:clerk-agent:1:call-1~r3");
       expect((await first.findByTenantIdAndPauseId("default", "pause-b"))?.reassignedTo).toBe(
@@ -144,7 +155,7 @@ export const REASSIGN_CASES: readonly ContractCase<PausedExecutionRepository>[] 
         await second.reassignByTenantIdAndPauseId(
           "acme",
           "pause-d",
-          { pauseId: "pause-r7", assignee: "deputy-3" },
+          { pauseId: "pause-r7", assignees: ["deputy-3"] },
           BEFORE_DEADLINE,
           R,
         ),

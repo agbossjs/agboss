@@ -1,6 +1,7 @@
-import type { AnswerPermitCall, PermitAnswer } from "../channels/pause-contexts.js";
+import type { AnswerPermitCall, PauseActor, PermitAnswer } from "../channels/pause-contexts.js";
+import { trailOf } from "../flow/runtime/pause-chain.js";
 import type { PauseChannel } from "../flow/runtime/pause.js";
-import { isApprovalPause, type PauseRecord } from "../infrastructure/pause-record.js";
+import { pauseKeyOf, type PauseRecord } from "../infrastructure/pause-record.js";
 import { PauseError } from "../core/error-families/pause-errors.js";
 import type { AnswerParts } from "./resume.js";
 import { ownDepsOf } from "./own-deps.js";
@@ -30,56 +31,120 @@ export const permitsOf =
   (pause: PauseRecord): PermitAnswer | undefined =>
     channelOfPause(deps, pause).permitAnswer;
 
-/** What `permitAnswer` reads for this pause, answered by `answeredBy` with `output`. */
+/** What `permitAnswer` reads for this pause, answered by `actor` with `output`. */
 function permitCallOf(
   pause: PauseRecord,
-  answeredBy: string | undefined,
+  actor: PauseActor | undefined,
   output: unknown,
 ): AnswerPermitCall {
-  const actor = answeredBy === undefined ? {} : { actor: { id: answeredBy } };
-  const assignees = pause.assignee === undefined ? {} : { assignees: [pause.assignee] };
-  if (!isApprovalPause(pause))
-    return { ...actor, ...assignees, input: pause.ask, output, trail: [] };
-  const { callId, tool, summary } = pause.ask;
   return {
-    ...actor,
-    ...assignees,
-    input: pause.ask.arguments,
+    ...(actor === undefined ? {} : { actor }),
+    ...(pause.assignees === undefined ? {} : { assignees: pause.assignees }),
+    input: pause.input,
     output,
-    toolCall: { callId, tool, summary },
-    trail: [],
+    ...(pause.toolCall === undefined ? {} : { toolCall: pause.toolCall }),
+    ...(pause.externalRef === undefined ? {} : { externalRef: pause.externalRef }),
+    trail: trailOf(pause),
   };
 }
 
-/** Throws `PauseError.PermissionDenied` unless the pause's target permits this answer (or has no `permitAnswer`). */
-export async function assertAnswerPermitted(
-  parts: Pick<AnswerParts, "permits">,
+/**
+ * Throws `PauseError.PermissionDenied` unless the pause's target permits: the hook asked is `hook`,
+ * resolved by `permitOf` (a target that cannot be resolved refuses) and called with `ctx`. A target
+ * without the hook permits.
+ */
+async function assertPermitted(
   pause: PauseRecord,
-  answeredBy: string | undefined,
-  output: unknown,
+  what: "answer" | "reassignment",
+  hook: string,
+  permitOf: () => PermitHook | undefined,
+  ctx: () => unknown,
 ): Promise<void> {
-  let permit: PermitAnswer | undefined;
+  const key = pauseKeyOf(pause.tenantId, pause.pauseId);
+  let permit: PermitHook | undefined;
   try {
-    permit = parts.permits?.(pause);
+    permit = permitOf();
   } catch (cause) {
-    // the target cannot be resolved: whether it has a permitAnswer is unknown, so refuse
+    // the target cannot be resolved: whether it has the hook is unknown, so refuse
     throw new PauseError.PermissionDenied({
-      message: `pause ${pause.pauseId}: its target cannot be resolved, the answer is refused`,
+      message: `pause ${key}: its target cannot be resolved, the ${what} is refused`,
       cause,
     });
   }
   if (permit === undefined) return;
   let verdict: unknown;
   try {
-    verdict = await permit(permitCallOf(pause, answeredBy, output));
+    verdict = await (permit as (call: unknown) => Promise<unknown>)(ctx());
   } catch (cause) {
     throw new PauseError.PermissionDenied({
-      message: `pause ${pause.pauseId}: its target's permitAnswer failed, the answer is refused`,
+      message: `pause ${key}: its target's ${hook} failed, the ${what} is refused`,
       cause,
     });
   }
   if (verdict !== true)
     throw new PauseError.PermissionDenied({
-      message: `pause ${pause.pauseId}: its target's permitAnswer refused the answer`,
+      message: `pause ${key}: its target's ${hook} refused the ${what}`,
     });
+}
+
+/** A target's permission hook as the runtime calls it: only `true` permits. */
+type PermitHook = (ctx: never) => Promise<unknown>;
+
+/** Throws `PauseError.PermissionDenied` unless the pause's target permits this answer (or has no `permitAnswer`). */
+export function assertAnswerPermitted(
+  parts: Pick<AnswerParts, "permits">,
+  pause: PauseRecord,
+  actor: PauseActor | undefined,
+  output: unknown,
+): Promise<void> {
+  return assertPermitted(
+    pause,
+    "answer",
+    "permitAnswer",
+    () => parts.permits?.(pause),
+    () => permitCallOf(pause, actor, output),
+  );
+}
+
+/** What a reassignment asks of `permitReassign`: where to, and why. */
+export interface ReassignAsk {
+  readonly actor?: PauseActor | undefined;
+  readonly assignees: readonly string[];
+  readonly reason?: string | undefined;
+}
+
+/** A pause's `permitReassign` as its workflow has it now; `undefined`: none. Fails closed like `permitsOf`. */
+export const reassignPermitsOf =
+  (deps: AppDeps) =>
+  (pause: PauseRecord): PermitHook | undefined =>
+    channelOfPause(deps, pause).permitReassign;
+
+/**
+ * Throws `PauseError.PermissionDenied` unless the pause's target permits this reassignment (or has no
+ * `permitReassign`): fail closed, as `permitAnswer` — `false`, a throw, a rejection, an unresolvable
+ * target and any other value refuse it, and the pause stays as it was.
+ */
+export function assertReassignPermitted(
+  deps: AppDeps,
+  pause: PauseRecord,
+  ask: ReassignAsk,
+): Promise<void> {
+  return assertPermitted(
+    pause,
+    "reassignment",
+    "permitReassign",
+    () => reassignPermitsOf(deps)(pause),
+    () => ({
+      ...(ask.actor === undefined ? {} : { actor: ask.actor }),
+      input: pause.input,
+      ...(pause.assignees === undefined ? {} : { assignees: pause.assignees }),
+      target: pause.channel,
+      channel: pause.channel,
+      toAssignees: ask.assignees,
+      ...(ask.reason === undefined ? {} : { reason: ask.reason }),
+      ...(pause.toolCall === undefined ? {} : { toolCall: pause.toolCall }),
+      ...(pause.externalRef === undefined ? {} : { externalRef: pause.externalRef }),
+      trail: trailOf(pause),
+    }),
+  );
 }

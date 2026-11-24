@@ -62,7 +62,7 @@ export const A2A_TASK_STATUS_KEY_CASES: readonly ContractCase<A2ATaskRepository>
   {
     name: "a key this version does not know inside a pending pause survives every round trip too: one rule at every level",
     run: async ({ first, second }: Instances): Promise<void> => {
-      const pause = { pauseId: "p-1", kind: PauseKind.Approval, ask: { q: 1 } };
+      const pause = { pauseId: "p-1", kind: PauseKind.Approval, input: { q: 1 } };
       const future = {
         state: A2ATaskState.InputRequired,
         pendingPauses: [{ ...pause, futureKey: { count: 1 } }],

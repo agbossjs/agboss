@@ -41,7 +41,7 @@ describe("#1356: a pause row", () => {
     const resolved: PauseRecord = {
       ...pending,
       status: PauseStatus.Resolved,
-      answer: { decision: { approved: true }, answeredBy: undefined },
+      answer: { decision: { approved: true }, actor: undefined },
       resolution: PauseResolution.Replied,
       resolvedAt: "2026-11-20T10:00:00.000Z",
     };

@@ -160,10 +160,11 @@ class DropsPauseKeys extends InMemoryA2ATaskRepository {
 
 const pausesKnownOf = (status: A2ATaskStatus): A2ATaskStatus => ({
   ...status,
-  pendingPauses: status.pendingPauses.map(({ pauseId, kind, ask }) => ({
+  pendingPauses: status.pendingPauses.map(({ pauseId, kind, input, toolCall }) => ({
     ...(pauseId === undefined ? {} : { pauseId }),
     kind,
-    ask,
+    input,
+    ...(toolCall === undefined ? {} : { toolCall }),
   })),
 });
 

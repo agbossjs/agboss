@@ -107,7 +107,7 @@ And what no setting can enforce — the assumptions of [Guarantees](Guarantees) 
   document in a transaction: the deadline (`deadlineAt`, extension) sits in the filter, so of two
   instances exactly one records an expiry or an extension, and the per-recipient notices are
   appended in the same transaction, in order (`noticeOnce` is a guarded upsert, not a duplicate-key
-  error inside the transaction). A not-taken answer is kept with its answer and `answeredBy`, and a
+  error inside the transaction). A not-taken answer is kept with its answer and `actor`, and a
   later save is ignored. An extension (#1099, #1148) is one `findOneAndUpdate`-style compare-and-set
   whose filter holds "pending, the stored deadline is still the one the caller read
   (`previousExpiresAt`), after the caller's `at`, earlier than the new one" — the loser and a write

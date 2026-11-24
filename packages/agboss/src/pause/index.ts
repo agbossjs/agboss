@@ -4,7 +4,7 @@ export {
   pendingPauseOf,
   recipientsIn,
   PauseKind,
-  questionAskOf,
+  pauseInputOf,
   type ApprovalRecord,
   type PendingApproval,
   type PendingPauseBase,

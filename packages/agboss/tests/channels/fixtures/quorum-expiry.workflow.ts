@@ -191,7 +191,7 @@ export class ShortDeskRefundApprovalChannel extends ShortRefundApprovalChannel {
   ): Promise<ChannelOutcome<ShortRefundApprovalChannel>> {
     qe.shortAsks.push({
       pauseId: ask.pauseId,
-      orderId: /"orderId":"([^"]+)"/.exec(JSON.stringify(ask.value))?.[1] ?? "?",
+      orderId: /"orderId":"([^"]+)"/.exec(JSON.stringify(ask.input))?.[1] ?? "?",
     });
     return Promise.resolve(ChannelOutcome.awaitReply());
   }

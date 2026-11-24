@@ -18,7 +18,8 @@ export function channelJoinFailedOf(sources: EventSources): ChannelSenderJoinFai
   return {
     deliveryId,
     pauseId: pause.pauseId,
-    value: pause.ask,
+    input: pause.input,
+    ...(pause.toolCall === undefined ? {} : { toolCall: pause.toolCall }),
     ...joinFailureOf(notice),
     at: notice.writtenAt,
   };

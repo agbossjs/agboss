@@ -73,8 +73,10 @@ export interface A2ATaskPause {
   /** What a follow-up message names; absent for a pause only its channel may answer. */
   readonly pauseId?: string;
   readonly kind: PauseKind;
-  /** The question, masked as the execution's pending pauses are. */
-  readonly ask: unknown;
+  /** What it asks, masked as the execution's pending pauses are. */
+  readonly input: unknown;
+  /** The tool call an approval waits on. */
+  readonly toolCall?: unknown;
 }
 
 /**

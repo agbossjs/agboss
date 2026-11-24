@@ -3,6 +3,7 @@
  * model, in the call's frame, the answer validated by the call — the reader of a tree's pauses
  * (`replyReaderOf`) and `testReplyInterpreter`'s one reading (`readReplyBy`).
  */
+import { replyAskOf } from "../infrastructure/pause-record.js";
 import { runInFrame } from "../flow/context/frame.js";
 import { resolveSettings } from "../llm/registry.js";
 import { isDecisionModel } from "../models/decision-models.js";
@@ -112,7 +113,7 @@ export function replyReaderOf(parts: ReplyReaderParts): ReplyReader {
     }
     return readReplyBy(
       interpreter,
-      { ...rest, ask: pause.ask, label: `pause ${pause.pauseId}` },
+      { ...rest, ask: replyAskOf(pause), label: `pause ${pause.pauseId}` },
       parts,
     );
   };

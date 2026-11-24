@@ -8,9 +8,46 @@ import { PauseAnswerer } from "../channels/channel-role.decorator.js";
 import { ComponentKind, type ComponentRecord } from "../flow/runtime/records.js";
 import type { StepRecord } from "../flow/context/execution-context.js";
 import type { PauseAnswerRecord } from "../flow/runtime/execution-record.js";
-import { PauseResolution } from "./pause-record.js";
+import type { PauseActor } from "../channels/pause-contexts.js";
+import { PauseResolution, type PauseTrailRecord } from "./pause-record.js";
 
 const optionalText = z.string().optional();
+
+/** Who acted on a pause: an id, and the organisation it acts for. */
+export const StoredActor = z.object({ id: z.string(), orgId: z.string().optional() });
+
+/** The actor without the fields it does not have (`exactOptionalPropertyTypes`). */
+export const actorOf = (stored: {
+  readonly id: string;
+  readonly orgId?: string | undefined;
+}): PauseActor =>
+  stored.orgId === undefined ? { id: stored.id } : { id: stored.id, orgId: stored.orgId };
+
+/** One entry of a pause's chain of custody. */
+export const StoredTrailEntry = z
+  .object({
+    action: z.enum(["opened", "reassigned", "timeout-changed", "escalated"]),
+    at: z.string(),
+    actor: StoredActor.optional(),
+    target: z.string(),
+    channel: z.string().optional(),
+    assignees: z.array(z.string()).optional(),
+    expiresAt: z.string().optional(),
+    externalRef: z.string().optional(),
+    reason: z.string().optional(),
+  })
+  .transform((stored): PauseTrailRecord => {
+    const { actor, channel, assignees, expiresAt, externalRef, reason, ...rest } = stored;
+    return {
+      ...rest,
+      ...(actor === undefined ? {} : { actor: actorOf(actor) }),
+      ...(channel === undefined ? {} : { channel }),
+      ...(assignees === undefined ? {} : { assignees }),
+      ...(expiresAt === undefined ? {} : { expiresAt }),
+      ...(externalRef === undefined ? {} : { externalRef }),
+      ...(reason === undefined ? {} : { reason }),
+    };
+  });
 
 /**
  * The join keys a stored pause keeps of its waiting step (#268 S93), read back with defaults: a
@@ -106,14 +143,20 @@ export const PauseAnswerRecordSchema = z
     step: StoredStep,
     role: z.string(),
     answerer: z.enum(PauseAnswerer),
-    answeredBy: optionalText,
-    // 0.1.0's alias of `answeredBy`: refused, never read
+    actor: StoredActor.optional(),
+    // 0.1.0's names of `actor` and `input`: refused, never read
+    answeredBy: z.never().optional(),
     responder: z.never().optional(),
+    asked: z.never().optional(),
     resolution: z.enum(PauseResolution),
     askedAt: z.string(),
     resolvedAt: optionalText,
     decision: z.unknown().optional(),
-    asked: z.unknown().optional(),
+    input: z.unknown().optional(),
+    toolCall: z.unknown().optional(),
+    assignees: z.array(z.string()).optional(),
+    externalRef: z.string().optional(),
+    trail: z.array(StoredTrailEntry),
     isTaken: z.literal(false).optional(),
   })
   .transform((stored): PauseAnswerRecord => ({
@@ -121,7 +164,8 @@ export const PauseAnswerRecordSchema = z
     pauseId: stored.pauseId,
     resolvedAt: stored.resolvedAt,
     decision: stored.decision,
-    answeredBy: stored.answeredBy,
+    input: stored.input,
+    actor: stored.actor,
   }));
 
 /** A log entry from the parsed JSON a store kept: read in the 0.1.1 shape, or unreadable (id, field). */

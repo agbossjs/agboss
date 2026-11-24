@@ -528,7 +528,7 @@ export class SlackRefundApprovalChannel extends RefundApprovalChannel {
   }
 
   async send(ask: ChannelAsk<RefundApprovalChannel>): Promise<ChannelOutcome<RefundApprovalChannel>> {
-    const cents: number = ask.value.arguments.amountCents; // typed by RefundCardInputDto
+    const cents: number = ask.input.amountCents; // typed by RefundCardInputDto
     const tenant = this.executionContext.tenant.tenantId;
     await this.slackService.post("#finance", `Refund ${String(cents)}¢ (${tenant})?`, ask.pauseId);
     return ChannelOutcome.awaitReply();
@@ -550,13 +550,13 @@ export class RefundCardTool {
 }
 ```
 
-- **`@ChannelRole({ name, description, answeredBy, approves, replyInterpreter? })`** — a tool
+- **`@ChannelRole({ name, description, actor, approves, replyInterpreter? })`** — a tool
   approval: `approves: XDto` (the question is `ToolCallApprovalAskDto` with `arguments: XDto`, the
   answer `ToolCallApprovalDecisionDto` with `overrideArguments?: XDto`). A question role (`ask` /
   `answer`, #659) is asked by a flow step — `.toExternalTask(Role)`
   ([Pauses](Pauses#a-question-the-workflow-asks-toquestionrole-659)) — or by an agent that lists the
   role itself in its `tools` (#712, [Pauses](Pauses#an-agent-asks-a-question-role-as-a-tool-712));
-  a `@Tool` naming one as its `channel` is `[channel.wrong-tool]`. `answeredBy` is required —
+  a `@Tool` naming one as its `channel` is `[channel.wrong-tool]`. `actor` is required —
   `PauseAnswerer.ThreadOwner` or `PauseAnswerer.Channel`, no default (`[channel.role-form]` without
   it, with both `approves` and `ask` / `answer`, or with neither). A tool whose `input` is not its role's `approves` fails assembly with
   `[channel.wrong-tool]`; one `replyInterpreter` class in two roles with
@@ -582,7 +582,7 @@ export class RefundCardTool {
 - **Who answers** (#267 PR 2): the role's `answerer`. A `PauseAnswerer.ThreadOwner` pause is
   answered with the thread's `ownerId` and its `pauseId` is listed in `result.pending`; a
   `PauseAnswerer.Channel` pause — the reply comes through the channel's own system — is answered
-  with `app.resume({ pauseId: ask.pauseId, decision }, { answeredBy: "manager-17" })`, its id never
+  with `app.resume({ pauseId: ask.pauseId, decision }, { actor: { id: "manager-17" } })`, its id never
   listed (it is the right to answer). The `pauseId` is made once per pause, before the first `send`:
   a retried `send` gets the same one — use it as the idempotency key of the post. Several pauses
   at once, concurrent answers, validation: [Pauses](Pauses).

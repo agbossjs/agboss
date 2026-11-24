@@ -15,7 +15,7 @@ export class SecurityInboxChannel {
   constructor(private readonly committeeDeskService: CommitteeDeskService) {}
 
   send(ask: ChannelAsk<SecuritySignOffExternalTask>): ChannelOutcome<SecuritySignOffExternalTask> {
-    this.committeeDeskService.post("Security", ask.value.title, ask.pauseId);
+    this.committeeDeskService.post("Security", ask.input.title, ask.pauseId);
     return ChannelOutcome.awaitReply();
   }
 }

@@ -43,7 +43,7 @@ describe("#1366: the kept record of a run with a model interpreter", () => {
     const done = await app.resume(
       { pauseId, reply: "fine, up to eight hundred" },
       {
-        answeredBy: "budget-owner-7",
+        actor: { id: "budget-owner-7" },
       },
     );
 

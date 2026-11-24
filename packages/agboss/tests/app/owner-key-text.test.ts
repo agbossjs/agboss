@@ -177,18 +177,18 @@ describe("#589: who answers a pause is a key's text", () => {
   );
 
   pauses.for(REFUSED_KEYS.filter(([, , text]) => text.trim() !== ""))(
-    "a Channel pause: answeredBy with %s (%s) is refused, it keeps waiting, nothing is recorded",
-    async ([, rule, answeredBy], { app, mockLlm }) => {
+    "a Channel pause: actor.id with %s (%s) is refused, it keeps waiting, nothing is recorded",
+    async ([, rule, actorId], { app, mockLlm }) => {
       mockLlm(DeskClerkAgent).thenReturn(
         callTool(RefundTool, { orderId: "7" }),
         replyWith("Done."),
       );
       await execute(app, DeskWorkflowStart, { text: "refund 7" }, { ownerId: "alice" });
 
-      const refused = await rejectionOf(app.resume(answerFor("7"), { answeredBy }));
+      const refused = await rejectionOf(app.resume(answerFor("7"), { actor: { id: actorId } }));
       const stored = await pauseStore().findByTenantIdAndPauseId("default", askFor("7").pauseId);
 
-      expectRefused(refused, "answeredBy", rule, answeredBy);
+      expectRefused(refused, "actor.id", rule, actorId);
       expect(stored?.status).toBe(PauseStatus.Pending);
       expect(seen.resumes).toEqual([]);
       expect(await app.resume(answerFor("7"), manager)).toFinishWith(DeskWorkflowFinish, {

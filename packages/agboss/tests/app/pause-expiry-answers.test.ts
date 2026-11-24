@@ -21,7 +21,7 @@ import {
 const test = testWith(ExpiryApplication);
 const THREAD = { threadId: "late-1" };
 const ANSWER = { approved: true };
-const manager = { answeredBy: "manager-17" };
+const manager = { actor: { id: "manager-17" } };
 
 beforeEach(resetExpiry);
 

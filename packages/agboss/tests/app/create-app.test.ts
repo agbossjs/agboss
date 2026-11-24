@@ -182,7 +182,7 @@ describe("AC12: createApp — the real app", () => {
 
     expect(paused).toMatchObject({
       status: ExecutionStatus.Paused,
-      pending: [{ step: "support-agent", ask: { tool: "save-note-tool" } }],
+      pending: [{ step: "support-agent", toolCall: { tool: "save-note-tool" } }],
     });
     expect(paused).toFollowPath([ChatStart, MainRouter, Support]);
     expect(done).toMatchObject({

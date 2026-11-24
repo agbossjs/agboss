@@ -18,7 +18,6 @@ import type { TestApp } from "../../src/testing/test-app.js";
 import { hours } from "../../src/units/index.js";
 import { execute } from "../helpers/flow.js";
 import { PausedExecutionRepository } from "../../src/infrastructure/paused-execution.repository.js";
-import { questionAskOf } from "../../src/infrastructure/pause-record.js";
 import { pauseOf } from "../../src/testing/contracts/paused-execution-data.js";
 import { until } from "../channels/fixtures/pause-scripts.js";
 import {
@@ -32,7 +31,7 @@ import {
 } from "../flow/fixtures/list-pauses.fixture.js";
 
 const test = testWith(ListingApplication, { instances: 2 });
-const manager = { answeredBy: "manager-17" };
+const manager = { actor: { id: "manager-17" } };
 
 beforeEach(resetAsked);
 
@@ -233,7 +232,7 @@ describe("#943 AC1: listing pauses", () => {
     const pauses = await allOf(app, { tenantId: "default" });
 
     const text = (role: string): string =>
-      JSON.stringify(pauses.find((one) => one.channel === role)?.ask);
+      JSON.stringify(pauses.find((one) => one.channel === role)?.input);
     expect(text(managerFlow.role)).not.toContain("bob@example.com");
     expect(text(managerFlow.role)).not.toContain("123-45-6789");
     expect(text(managerFlow.role)).toContain("<email>");
@@ -266,13 +265,13 @@ describe("#943 AC1: listing pauses", () => {
     expect(Object.keys(byReason).sort()).toEqual(
       [PauseClosedReason.Answered, PauseClosedReason.Cancelled, PauseClosedReason.Expired].sort(),
     );
-    expect(byReason[PauseClosedReason.Answered]?.answeredBy).toBe("manager-17");
+    expect(byReason[PauseClosedReason.Answered]?.actor).toEqual({ id: "manager-17" });
     expect(byReason[PauseClosedReason.Answered]?.closedAt).toBe(answeredAt);
     // an expiry closed at the deadline itself
     expect(byReason[PauseClosedReason.Expired]?.closedAt).toBe(
       byReason[PauseClosedReason.Expired]?.expiresAt,
     );
-    expect(byReason[PauseClosedReason.Cancelled]?.answeredBy).toBeUndefined();
+    expect(byReason[PauseClosedReason.Cancelled]?.actor).toBeUndefined();
     for (const one of closed) expect(one.closedAt).toBeTruthy();
   });
 
@@ -288,14 +287,14 @@ describe("#943 AC1: listing pauses", () => {
       workflow: "removed-workflow",
       kind: PauseKind.Question,
       channel: "removed-question",
-      ask: questionAskOf({ note: "ssn 123-45-6789, mail bob@example.com" }),
+      input: { note: "ssn 123-45-6789, mail bob@example.com" },
     };
     await app.resolve(PausedExecutionRepository).findOrCreateByStepKey(ghost);
 
     const [listed] = (await app.listPauses({ tenantId: "ghost-tenant" })).pauses;
 
     // the SSN is hidden by the manager workflow's policy alone, the email by the application's
-    const text = JSON.stringify(listed?.ask);
+    const text = JSON.stringify(listed?.input);
     expect(text).not.toContain("123-45-6789");
     expect(text).not.toContain("bob@example.com");
     expect(text).toContain("<us-ssn>");

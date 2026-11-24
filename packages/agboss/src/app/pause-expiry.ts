@@ -20,6 +20,7 @@ import { pauseTallyOf } from "../pause/pause-tally.js";
 import { treeQuestionAnswersOf, treeToolsOf } from "./child-deps.js";
 import { callInFrame, NoticeTimeoutError } from "./pause-notice-call.js";
 import { pauseFrameOf, pauseTreeOf, treeStateOf } from "./pause-frame.js";
+import { askOfPause } from "../flow/runtime/pause-chain.js";
 import { ownDepsOf } from "./own-deps.js";
 import type { TreeMoveParts, TreeState } from "./tree-move-types.js";
 
@@ -76,7 +77,7 @@ function decisionOf(parts: TreeMoveParts, pause: PauseRecord, value: unknown): P
   try {
     const checks = { tools: treeToolsOf(parts.deps), questions: treeQuestionAnswersOf(parts.deps) };
     const decision = answerValidatorOf(pause, checks)(value.answer);
-    return { answer: { decision, answeredBy: undefined } };
+    return { answer: { decision, actor: undefined } };
   } catch {
     return fellBackTo(parts, pause, ExpiryProblem.AnswerInvalid);
   }
@@ -91,7 +92,9 @@ async function askedChannel(
 ): Promise<PauseExpiry> {
   const { deps } = parts;
   const own = ownDepsOf(deps, pause.workflow);
-  const timeout = isApprovalPause(pause) ? own.tools(pause.ask.tool).timeout : DEFAULT_TOOL_TIMEOUT;
+  const timeout = isApprovalPause(pause)
+    ? own.tools(pause.toolCall.tool).timeout
+    : DEFAULT_TOOL_TIMEOUT;
   // the frame is read from the stores outside the handler's try: a store that fails is the look's
   // to retry, never a decision recorded against the channel
   const tree = await pauseTreeOf(deps, pause, await treeStateOf(deps, pause.rootExecutionId));
@@ -99,7 +102,7 @@ async function askedChannel(
   try {
     const value = await callInFrame(
       { frame, timeout, clock: parts.clock, interruption },
-      async () => decide({ pauseId: pause.pauseId, value: pause.ask }),
+      async () => decide(askOfPause(pause)),
     );
     return decisionOf(parts, pause, value);
   } catch (error) {

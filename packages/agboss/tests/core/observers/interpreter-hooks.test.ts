@@ -76,7 +76,7 @@ beforeEach(() => {
   filtered.length = 0;
 });
 
-const manager = { answeredBy: "manager-17" };
+const manager = { actor: { id: "manager-17" } };
 const payout = { payee: "ann", amountCents: 1000 };
 
 const pauseId = (): string => {

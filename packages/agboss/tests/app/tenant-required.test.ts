@@ -69,7 +69,7 @@ describe("#1324e: an application with a tenantContext refuses a call that names 
     ["resume", (app) => app.resume({ pauseId: "p", decision: {} })],
     ["cancel", (app) => app.cancel("thread-1")],
     ["extendPause", (app) => app.extendPause({ pauseId: "p", expiresIn: 1000 as never })],
-    ["reassignPause", (app) => app.reassignPause({ pauseId: "p", assignee: "d" })],
+    ["reassignPause", (app) => app.reassignPause({ pauseId: "p", assignees: ["d"] })],
     ["getExecution", (app) => app.getExecution("e-1")],
     ["getStatusHistory", (app) => app.getStatusHistory("thread-1")],
     ["listExecutions", (app) => app.listExecutions()],

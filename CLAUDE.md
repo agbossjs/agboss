@@ -1588,7 +1588,7 @@ export class SeenJobsRepository {
   services through `deps` — there is no `channelClasses`. A tool names a concrete `@Channel` (used as
   is: `TerminalUserChannel`, `AutoApproveChannel`, …) or a **role**: a project's abstract class
   `@ChannelRole({ name, description, approves: XDto, answerer: PauseAnswerer.… })`
-  that `extends ChannelOf<Self>` — `answerer` is required (0.1.0's `answeredBy` is a deprecated alias), `approves` must be the tool's input
+  that `extends ChannelOf<Self>` — `answerer` is required (0.1.0's `answeredBy` alias is gone), `approves` must be the tool's input
   (`[channel.wrong-tool]`; both forms or neither → `[channel.role-form]` when the decorator runs), one `replyInterpreter` belongs to one role
   (`[channel.shared-interpreter]`). **Question roles (#659):** `@ChannelRole({ name: "…-question",
 description, ask: AskDto, answer: AnswerDto, answerer, replyInterpreter?, maxVisits? })` is a
@@ -1596,8 +1596,7 @@ description, ask: AskDto, answer: AnswerDto, answerer, replyInterpreter?, maxVis
   (`onExternalTask(Role)` for its own path; `NodeKind.Question`, the role its node, its name ending with
   `-question`, `[name.kind-suffix]`; `maxVisits` its limit on a cycle): the step reads one `AskDto`
   from the path (its field `ask`, #802), asks the role's channel through the pause seam like an
-  approval (`result.pending[i].kind === PauseKind.Question`, `ask` the masked question — an opaque
-  `QuestionAsk`, read after narrowing on `kind` —, `step` the step; the record's `kind` is
+  approval (`result.pending[i].kind === PauseKind.Question`, `input` the masked question, `step` the step; the record's `kind` is
   `PauseKind.Question`, stored, its `component.kind` `question`, no `callId`), and puts the answer on the path —
   `app.resume({ pauseId, decision })` validated as `AnswerDto`, `{ reply }` read by its interpreter
   into it (a decision model there is `[reply-interpreter.decision-model]`), `decided(answer)` at
@@ -1608,7 +1607,7 @@ description, ask: AskDto, answer: AnswerDto, answerer, replyInterpreter?, maxVis
   `agboss describe` prints `asked at <step> (<workflow>)` for it. **An agent asks one as a tool (#712):** `@Agent({ tools: [SpendingLimitQuestion] })` — its model sees a tool named the role (input = `ask`, strict: invalid arguments — an undeclared field too — ask nobody, the model reads a tool error, counted against `maxVisits`), the call pauses at the loop's approval step (before the move's other tools; a move's question calls one after another), the validated `answer` is the call's result (PII-masked, `maxResultSize`, `onToolStart` / `onToolEnd`, `result.toolCalls` with `component.kind` `question`; no tool interceptors), `result.pending[i].step` the asking agent, the record's `kind` `question` and its `component` the role; `maxVisits` bounds one visit's calls (`VisitsLimitExceededError` before the ask), budgets and the fence checked before each ask, a failed `send` or invalid `decided(…)` is `AgentFailedError`; an approval role there is `[channel.approval-role-as-tool]`; `callTool(Role, ask)` scripts it; describe: `asked at <agent>'s tool loop (<workflow>)`. Its one implementation (`@Channel`, `extends` the role) is
   listed in `@Application({ providers })` — channel transport is infrastructure, never a workflow's
   provider; none → `[di.missing-implementation]`, two → `[di.ambiguous-implementation]`. A channel has
-  one method, `send(ask: ChannelAsk<Role>): Promise<ChannelOutcome<Role>>` (`ask = { pauseId, value }`,
+  one method, `send(ask: ChannelAsk<Role>): Promise<ChannelOutcome<Role>>` (`ask = { pauseId, input, toolCall?, expiresAt?, assignees?, trail }`,
   typed by the generated `AGBossTypes.ChannelRoles`): `ChannelOutcome.awaitReply()` pauses the execution until
   `app.resume({ pauseId, decision })`, `ChannelOutcome.decided(decision)` goes on at once (validated
   like a reply, its record closed at once: `Taken`, `PauseResolution.Decided`). The `pauseId` is made
@@ -1664,7 +1663,7 @@ description, ask: AskDto, answer: AnswerDto, answerer, replyInterpreter?, maxVis
   from 1, during it and its move's tool calls), `validationAttempts` (its answers and tool arguments
   that failed validation so far)). Execution hooks: `onExecutionStart` once per execution,
   `onExecutionPause` (`pending`, when nothing else can move — again after a partial resume) /
-  `onExecutionResume` (`reason: ResumeReason`, `decision`, `answeredBy`) around a pause,
+  `onExecutionResume` (`reason: ResumeReason`, `decision`, `actor`) around a pause,
   `onExecutionEnd` once when it ends at a finish (`finish`, `spend`), `onExecutionError` when it
   fails — also after a resume (a cancel is `onExecutionCancel`, a stop `onExecutionStop`: outcomes, #1341; `onInterruptCleanupError` — a step's `executionContext.onInterrupted` cleanup threw, #1341b — is a node event, never `onExecutionError`); a root's end only
   while its pass still holds the tree's lease (#597, `observed-pass.ts`: a holder frozen after the
@@ -2291,12 +2290,12 @@ tenant, execution, onStream, deadline })` (`deadline`, #398: `DeadlineExceededEr
   before the next step or model call) runs the workflow of that start (any workflow of the
   application; one start in two workflows → `[application.ambiguous-start]`) → `ExecutionOutput`
   (`output` is the finish's DTO, `finish`, `path`, `spend`, `threadId`, `tenantId`, `executionId`);
-  `app.resume({ pauseId, decision }, { tenantId, ownerId | answeredBy })` answers one pause (#267) —
+  `app.resume({ pauseId, decision }, { tenantId, ownerId | actor })` answers one pause (#267) —
   by its id, never by thread, found by `(tenantId, pauseId)` anywhere in the tree (unknown or another
   tenant's → `UnknownPauseError`); `result.pending: PendingPause[]` lists every waiting pause
   (parallel branches each pause on their own; the execution rests when nothing else can move) and
   an execution with others left pauses again with the rest. Who may answer is the role's `answerer`:
-  `ThreadOwner` — `ownerId`, the id listed in `result.pending`; `Channel` — `answeredBy` (non-empty,
+  `ThreadOwner` — `ownerId`, the id listed in `result.pending`; `Channel` — `actor: { id, orgId? }` (`id` non-empty,
   recorded on the pause and in `onExecutionResume`), the id only in the channel's `ask.pauseId`; the
   other credential → `PauseError.PermissionDenied`. The decision (`ToolCallApprovalDecisionDto`: `approved`,
   `reason?`, `overrideArguments?` only with `approved: true`) is validated before it is recorded.
@@ -2309,7 +2308,7 @@ tenant, execution, onStream, deadline })` (`deadline`, #398: `DeadlineExceededEr
   role's `@ReplyInterpreter` (Components above). Who answered each pause is in
   `result.record.pauses` (`{ includeRecord: true }`, #267 S107): every resolved pause of the tree in the order
   asked — `PauseAnswerRecord { pauseId (none for a Channel pause), executionId, step, role,
-answerer, answeredBy (the person; `responder` deprecated), resolution: PauseResolution,
+answerer, actor (a `PauseActor`), input, toolCall, assignees, externalRef, trail, resolution: PauseResolution,
 askedAt, resolvedAt, decision, asked }`, the decision PII-masked, none when withdrawn or cancelled, `asked` (#688) the call as
   asked — its own arguments before a reply's correction — or a question's ask, masked; each
   child's own in its `ChildExecutionRecord.pauses` (#267 S124) — written when the pause is
@@ -2357,7 +2356,7 @@ askedAt, resolvedAt, decision, asked }`, the decision PII-masked, none when with
   run-bound pause is reminded before the run's deadline); rules `[channel.remind-before-invalid]` (`channels/channel-rules.ts`) and the
   warning `[channel.remind-before-exceeds-expiry]` (`flow/analyse/remind-before.ts`: a question step's or a tool's `expiresIn` ≤ the
   role's `remindBefore`). `app.extendPause` (`app/pause-extension.ts`; the workflow app's, routed by the composed app like `resume`):
-  `answeredByOf` as an answer, then refusals (`DtoValidationError` `ExtendPauseRequest`: no deadline, not later, past `boundAt`;
+  `actorOf` as an answer, then refusals (`DtoValidationError` `ExtendPauseRequest`: no deadline, not later, past `boundAt`;
   `PauseClosedError` closed or due), `remindAtOf` recomputed, then `extendByTenantIdAndPauseId` — its CAS is the final word against the
   expiry look — and `noticesWritten`; no lease, no tree move. The reminder look (`application/pause-reminder-look.ts`, a look of the
   timers, `ReminderLook`: a sweep of `findPendingByRemindAtBefore(now, 50, after)` pages with the keyset `PauseScanAfter` like the expiry
@@ -2414,7 +2413,7 @@ askedAt, resolvedAt, decision, asked }`, the decision PII-masked, none when with
   so too; `agboss executions export --tenant` and `generate eval-case --tenant`, `usage.option-value`; a
   trusted A2A / MCP request under another is never deduplicated —, else `dto.invalid` naming
   `tenantId` and the rule, never the id — `t\uD800` and `t\uD801` would be one tenant in UTF-8; so is
-  who calls, #589: `ownerId` at `execute`, `resume`, `cancel` and a `Channel` pause's `answeredBy`); every
+  who calls, #589: `ownerId` at `execute`, `resume`, `cancel` and a `Channel` pause's `actor`); every
   record, lease and tree key carries `tenantId`, traces too (LangGraph `metadata` / `tags`,
   Langfuse `tenant:<id>`). Identity only — never secrets (a service gets a secret from the
   identity). Injecting a subclass the application does not declare → `[context.not-declared]`.

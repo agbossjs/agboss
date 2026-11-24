@@ -144,10 +144,10 @@ describe("#712 AC4: maxVisits, several calls of one move, a failing channel", ()
           ),
     );
     const first = await execute(app, BuyerWorkflowStart, { text: "buy" }, asking);
-    expect(first.pending.map((pause) => pause.ask)).toEqual([laptop]);
+    expect(first.pending.map((pause) => pause.input)).toEqual([laptop]);
 
     const next = await app.resume(answerOf(first, yes), owner);
-    expect(next.pending.map((pause) => pause.ask)).toEqual([{ item: "dock", priceUsd: 200 }]);
+    expect(next.pending.map((pause) => pause.input)).toEqual([{ item: "dock", priceUsd: 200 }]);
 
     const done = await app.resume(answerOf(next, no), owner);
     expect(done).toFinishWith(BuyerWorkflowFinish, { text: "both answered" });

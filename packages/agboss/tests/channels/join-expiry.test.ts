@@ -61,9 +61,9 @@ describe("AC4: the settled answers reach the .onError path", () => {
     expect(paused.status).toBe(ExecutionStatus.Paused);
     expect(je.sent).toHaveLength(4);
     const byWho = (who: string) =>
-      je.sent.findIndex((ask) => JSON.stringify(ask.value).includes(`"what":"${who}"`));
-    await app.resume(answerTo(byWho("legal")), { answeredBy: "legal-1" });
-    await app.resume(answerTo(byWho("finance")), { answeredBy: "finance-1" });
+      je.sent.findIndex((ask) => JSON.stringify(ask.input).includes(`"what":"${who}"`));
+    await app.resume(answerTo(byWho("legal")), { actor: { id: "legal-1" } });
+    await app.resume(answerTo(byWho("finance")), { actor: { id: "finance-1" } });
 
     await clock.advance(minutes(30));
     await until(() => je.ended.length === 1);
@@ -110,9 +110,9 @@ describe("AC4: two instances, exactly once", () => {
       const paused = await execute(first, JoinExpiryWorkflowStart, THING);
       expect(paused.status).toBe(ExecutionStatus.Paused);
       const legal = je.sent.findIndex((ask) =>
-        JSON.stringify(ask.value).includes('"what":"legal"'),
+        JSON.stringify(ask.input).includes('"what":"legal"'),
       );
-      await second.resume(answerTo(legal), { answeredBy: "legal-1" });
+      await second.resume(answerTo(legal), { actor: { id: "legal-1" } });
 
       await clock.advance(minutes(30));
       await until(() => je.ended.length === 1);

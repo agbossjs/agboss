@@ -1,3 +1,4 @@
+import type { PauseActor } from "../channels/pause-contexts.js";
 import { PauseResolution, PauseStatus, type PauseRecord } from "./pause-record.js";
 
 /**
@@ -55,15 +56,41 @@ export const reassignedPause = (
  */
 export function replacementPause(
   pause: PauseRecord,
-  replacement: { readonly pauseId: string; readonly assignee: string; readonly stepKey: string },
+  replacement: {
+    readonly pauseId: string;
+    readonly assignees: readonly string[];
+    readonly stepKey: string;
+    readonly actor?: PauseActor | undefined;
+    readonly reason?: string | undefined;
+  },
   at: Date,
 ): PauseRecord {
+  const { pauseId, assignees, stepKey, actor, reason } = replacement;
+  // the channel's system gave the old pause its reference: the new send gets its own
+  const asked = Object.fromEntries(
+    Object.entries(pause).filter(([key]) => key !== "externalRef"),
+  ) as Omit<PauseRecord, "externalRef">;
   return {
-    ...pause,
-    ...replacement,
+    ...asked,
+    pauseId,
+    assignees,
+    stepKey,
     status: PauseStatus.Pending,
     isSent: false,
     askedAt: at.toISOString(),
     reassignedFrom: pause.pauseId,
+    trail: [
+      ...pause.trail,
+      {
+        action: "reassigned",
+        at: at.toISOString(),
+        ...(actor === undefined ? {} : { actor }),
+        target: pause.channel,
+        channel: pause.channel,
+        assignees,
+        ...(pause.expiresAt === undefined ? {} : { expiresAt: pause.expiresAt }),
+        ...(reason === undefined ? {} : { reason }),
+      },
+    ],
   };
 }

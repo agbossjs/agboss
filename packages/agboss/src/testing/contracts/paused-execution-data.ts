@@ -7,7 +7,7 @@ import {
   type PauseRecord,
 } from "../../infrastructure/paused-execution.repository.js";
 import { PauseAnswerer } from "../../channels/channel-role.decorator.js";
-import { PauseKind, questionAskOf } from "../../infrastructure/pause-record.js";
+import { PauseKind } from "../../infrastructure/pause-record.js";
 import { PauseExpiryBound } from "../../infrastructure/pause-record.js";
 import type { PauseRecipients } from "../../infrastructure/pause-notices.js";
 import { bareRecordOf, ComponentKind } from "../../flow/runtime/records.js";
@@ -51,24 +51,40 @@ export const pauseOf = (pauseId: string, stepKey = "run-1:clerk-agent:1:call-1")
   step: "clerk-agent",
   channel: "refund-approval-channel",
   answerer: PauseAnswerer.Channel,
-  ask: { callId: "call-1", tool: "charge", arguments: { text: "10 USD" }, summary: "charge" },
+  input: { text: "10 USD" },
+  toolCall: { callId: "call-1", tool: "charge", summary: "charge" },
+  trail: [
+    {
+      action: "opened",
+      at: "2026-01-05T09:00:00.000Z",
+      target: "refund-approval-channel",
+      channel: "refund-approval-channel",
+    },
+  ],
   status: PauseStatus.Pending,
   isSent: false,
   askedAt: "2026-01-05T09:00:00.000Z",
 });
 
 /** What a channel decided at once. */
-export const DECIDED_ANSWER: PauseAnswer = { decision: { approved: true }, answeredBy: undefined };
+export const DECIDED_ANSWER: PauseAnswer = { decision: { approved: true }, actor: undefined };
 
 /** A person's approval. */
 export const APPROVED_BY_MANAGER: PauseAnswer = {
   decision: { approved: true },
-  answeredBy: "manager-17",
+  actor: { id: "manager-17", orgId: "holding-hq" },
 };
 
 /** The moments the cases resolve pauses at. */
 export const NINE = new Date("2026-01-05T09:00:00.000Z");
 export const TEN = new Date("2026-01-05T10:00:00.000Z");
+
+/** The pause without its tool call: what a question's record is. */
+const withoutToolCall = (pause: PauseRecord): Omit<PauseRecord, "toolCall"> =>
+  Object.fromEntries(Object.entries(pause).filter(([key]) => key !== "toolCall")) as Omit<
+    PauseRecord,
+    "toolCall"
+  >;
 
 /**
  * #746: a question role's pause (#659, #712) — `kind: PauseKind.Question`, its step's component the
@@ -78,13 +94,13 @@ export const questionPauseOf = (
   pauseId: string,
   stepKey = "run-1:spending-limit-question:1",
 ): PauseRecord => ({
-  ...pauseOf(pauseId, stepKey),
+  ...withoutToolCall(pauseOf(pauseId, stepKey)),
   nodeId: "spending-limit-question",
   kind: PauseKind.Question,
   step: "spending-limit-question",
   channel: "spending-limit-question",
   component: bareRecordOf("spending-limit-question", ComponentKind.Question),
-  ask: questionAskOf({ item: "laptop", priceUsd: 1200, nested: { tags: ["it", "q4"] } }),
+  input: { item: "laptop", priceUsd: 1200, nested: { tags: ["it", "q4"] } },
 });
 
 /**
@@ -105,7 +121,7 @@ export const kindOnlyPausesOf = (): readonly PauseRecord[] => {
 /** A question's answer: the role's answer DTO, not an approval. */
 export const QUESTION_ANSWER: PauseAnswer = {
   decision: { approved: true, limitUsd: 900 },
-  answeredBy: "manager-17",
+  actor: { id: "manager-17" },
 };
 
 /** The deadline of the pauses of the deadline cases, and the instants a millisecond around it. */

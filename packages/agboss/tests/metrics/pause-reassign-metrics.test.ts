@@ -20,7 +20,7 @@ import { collect, instanceMeter, type InstanceMeter } from "./support/metric-rea
 const OPENED = "agboss.instance.pauses.opened";
 const CLOSED = "agboss.instance.pauses.closed";
 const REASSIGNED = "agboss.instance.pauses.reassigned";
-const manager = { answeredBy: "manager-17" };
+const manager = { actor: { id: "manager-17" } };
 
 beforeEach(resetPauses);
 
@@ -50,11 +50,11 @@ describe("#946 with #943: a reassignment is counted", () => {
       const role = "refund-approval-channel";
       expect(await countedOf(meter, OPENED)).toEqual({ [`desk-workflow/${role}`]: 1 });
 
-      await app.reassignPause({ pauseId: oldId, assignee: "deputy-3" }, manager);
+      await app.reassignPause({ pauseId: oldId, assignees: ["deputy-3"] }, manager);
       await until(() => seen.asks.length === 2);
       // refused twice (the old pause is closed): counted nowhere
       await app
-        .reassignPause({ pauseId: oldId, assignee: "deputy-4" }, manager)
+        .reassignPause({ pauseId: oldId, assignees: ["deputy-4"] }, manager)
         .catch(() => undefined);
 
       expect(await countedOf(meter, OPENED)).toEqual({ [`desk-workflow/${role}`]: 2 });

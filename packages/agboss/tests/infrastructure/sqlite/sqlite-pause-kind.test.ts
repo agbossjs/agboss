@@ -12,11 +12,9 @@ import { connectionTo, temporarySqlitePath } from "../contracts/store-kinds.js";
 
 const clock = new VirtualClock(new Date(0));
 
-const APPROVAL_ASK = {
-  callId: "call-1",
-  tool: "refund",
-  arguments: { orderId: "7" },
-  summary: "r",
+const APPROVAL = {
+  input: { orderId: "7" },
+  toolCall: { callId: "call-1", tool: "refund", summary: "r" },
 };
 
 /** A row's pause as JSON, in the 0.1.1 shape. */
@@ -30,6 +28,9 @@ const storedOf = (fields: Record<string, unknown>): string =>
     askedAt: "2026-01-05T09:00:00.000Z",
     channel: "refund-approval-channel",
     answerer: "channel",
+    trail: [
+      { action: "opened", at: "2026-01-05T09:00:00.000Z", target: "refund-approval-channel" },
+    ],
     ...fields,
   });
 
@@ -52,7 +53,7 @@ describe("0.1.1: the SQLite pause store reads the kind it stores", () => {
           kind: PauseKind.Question,
           step: "clerk-agent",
           component: { name: "spending-limit-tool", kind: "tool" },
-          ask: { item: "laptop" },
+          input: { item: "laptop" },
         }),
       );
 
@@ -60,7 +61,7 @@ describe("0.1.1: the SQLite pause store reads the kind it stores", () => {
 
     expect(await pauses.findByTenantIdAndPauseId("default", "q")).toMatchObject({
       kind: PauseKind.Question,
-      ask: { item: "laptop" },
+      input: { item: "laptop" },
     });
   });
 
@@ -77,7 +78,7 @@ describe("0.1.1: the SQLite pause store reads the kind it stores", () => {
           nodeId: "clerk-agent",
           kind: PauseKind.Approval,
           step: "clerk-agent",
-          ask: APPROVAL_ASK,
+          ...APPROVAL,
         }),
       );
 
@@ -97,7 +98,7 @@ describe("0.1.1: the SQLite pause store reads the kind it stores", () => {
       .prepare(
         "INSERT INTO pauses (tenant_id, pause_id, step_key, root_execution_id, status, is_sent, pause) VALUES ('default', 'kindless', 's', 'run-1', 'pending', 1, ?)",
       )
-      .run(storedOf({ nodeId: "clerk-agent", ask: APPROVAL_ASK }));
+      .run(storedOf({ nodeId: "clerk-agent", ...APPROVAL }));
 
     const pauses = new SqlitePausedExecutionRepository(connectionTo(path), clock);
 

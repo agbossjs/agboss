@@ -49,7 +49,7 @@ function cancelled(app: AnyTenantApp, tag: string, threadId: string): void {
 
 /** `app.reassignPause` in the background (#946): its end is an event under the call's tag. */
 function reassigned(app: AnyTenantApp, tag: string, pauseId: string, assignee: string): void {
-  app.reassignPause({ pauseId, assignee }).then(
+  app.reassignPause({ pauseId, assignees: [assignee] }).then(
     () => {
       sendToTest({ kind: "event", event: { type: "reassigned", tag } });
     },

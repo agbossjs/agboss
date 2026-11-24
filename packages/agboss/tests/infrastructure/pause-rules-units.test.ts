@@ -36,8 +36,8 @@ import {
   PauseExpiryBound,
   PauseResolution,
   PauseStatus,
+  pauseInputOf,
   pauseAnswererOf,
-  questionAskOf,
   type PauseRecord,
 } from "../../src/infrastructure/pause-record.js";
 import {
@@ -129,24 +129,39 @@ describe("#1356: the step key of a replacement (#946)", () => {
       remindAt: T10,
     };
 
-    const made = replacementPause(old, { pauseId: "p-2", assignee: "anna", stepKey: "k~r1" }, AT);
+    const made = replacementPause(
+      old,
+      { pauseId: "p-2", assignees: ["anna"], stepKey: "k~r1" },
+      AT,
+    );
 
     expect(made).toStrictEqual({
       ...old,
       pauseId: "p-2",
-      assignee: "anna",
+      assignees: ["anna"],
       stepKey: "k~r1",
       status: PauseStatus.Pending,
       isSent: false,
       askedAt: T10,
       reassignedFrom: "p-1",
+      trail: [
+        ...old.trail,
+        {
+          action: "reassigned",
+          at: T10,
+          target: old.channel,
+          channel: old.channel,
+          assignees: ["anna"],
+          expiresAt: T11,
+        },
+      ],
     });
   });
 });
 
 describe("#1356: the records the closers of a pause make (#935)", () => {
   const pending = pauseOf("p-1");
-  const answer = { decision: { approved: true }, answeredBy: "manager-1" };
+  const answer = { decision: { approved: true }, actor: { id: "manager-1" } };
 
   it("an expired pause is `Cancelled` as `Expired`, with why it fell back to fail only when it did", () => {
     expect(expiredPause(pending, AT, undefined)).toStrictEqual({
@@ -165,7 +180,7 @@ describe("#1356: the records the closers of a pause make (#935)", () => {
     expect(decidedOnExpiryPause(pending, answer, AT)).toStrictEqual({
       ...pending,
       status: PauseStatus.Resolved,
-      answer: { decision: { approved: true }, answeredBy: undefined },
+      answer: { decision: { approved: true }, actor: undefined },
       resolution: PauseResolution.DecidedOnExpiry,
       resolvedAt: T10,
     });
@@ -212,7 +227,7 @@ describe("#1356: why and when a pause closed", () => {
     status: PauseStatus.Cancelled,
     ...fields,
   });
-  const answer = { decision: { approved: true }, answeredBy: undefined };
+  const answer = { decision: { approved: true }, actor: undefined };
 
   it.each([
     [PauseResolution.Decided, PauseClosedReason.Answered],
@@ -411,7 +426,7 @@ describe("#1356: the log entry of a pause's answer (#267 S107)", () => {
   const answered: PauseRecord = {
     ...pauseOf("p-1"),
     status: PauseStatus.Taken,
-    answer: { decision: { approved: true }, answeredBy: "manager-1" },
+    answer: { decision: { approved: true }, actor: { id: "manager-1" } },
     resolution: PauseResolution.Replied,
     resolvedAt: T10,
   };
@@ -422,13 +437,15 @@ describe("#1356: the log entry of a pause's answer (#267 S107)", () => {
     expect(entry).toMatchObject({
       executionId: "run-1",
       answerer: PauseAnswerer.Channel,
-      answeredBy: "manager-1",
+      actor: { id: "manager-1" },
       resolution: PauseResolution.Replied,
       role: "refund-approval-channel",
       askedAt: "2026-01-05T09:00:00.000Z",
       resolvedAt: T10,
       decision: { approved: true },
-      asked: answered.ask,
+      input: answered.input,
+      toolCall: answered.toolCall,
+      trail: answered.trail,
     });
     expect(entry.step).toMatchObject({
       nodeId: "clerk-agent",
@@ -464,7 +481,7 @@ describe("#1356: the log entry of a pause's answer (#267 S107)", () => {
     ]) {
       const entry = answerRecordOf(answered, resolution);
 
-      expect(entry.answeredBy).toBeUndefined();
+      expect(entry.actor).toBeUndefined();
       expect(entry.decision).toBeUndefined();
       expect(entry.resolution).toBe(resolution);
     }
@@ -486,7 +503,7 @@ describe("#1356: the log entry of a pause's answer (#267 S107)", () => {
     expect(notTakenRecordOf(untaken)).toMatchObject({
       isTaken: false,
       resolution: PauseResolution.TreeEnded,
-      answeredBy: "manager-1",
+      actor: { id: "manager-1" },
       decision: { approved: true },
     });
     expect(notTakenRecordOf({ ...untaken, resolution: undefined }).resolution).toBe(
@@ -505,11 +522,11 @@ describe("#1356: a pause record's own rules", () => {
     expect(NO_RECIPIENTS).toStrictEqual({ listeners: [] });
   });
 
-  it("a question's ask is an object: null, a list and a text are refused, shown as they are", () => {
-    expect(questionAskOf({ text: "ok" })).toStrictEqual({ text: "ok" });
-    for (const ask of [null, ["x"], "text", 5, undefined])
-      expect(() => questionAskOf(ask)).toThrow(
-        `a question's ask is an object (the role's ask DTO), not ${JSON.stringify(ask)}`,
+  it("a pause's input is an object: null, a list and a text are refused, shown as they are", () => {
+    expect(pauseInputOf({ text: "ok" })).toStrictEqual({ text: "ok" });
+    for (const input of [null, ["x"], "text", 5, undefined])
+      expect(() => pauseInputOf(input)).toThrow(
+        `a pause's input is an object, not ${JSON.stringify(input)}`,
       );
   });
 
@@ -571,7 +588,7 @@ describe("#1356: the answer log written before a closed pause is removed (#939)"
     resolvedAt: T9,
     ...fields,
   });
-  const answer = { decision: { approved: true }, answeredBy: "manager-1" };
+  const answer = { decision: { approved: true }, actor: { id: "manager-1" } };
 
   /** The log entries the removal wrote for `pauses`, and what it removed. */
   async function removed(pauses: PauseRecord[]) {
@@ -657,12 +674,12 @@ describe("#1356: the answer log written before a closed pause is removed (#939)"
 
   it("a channel's own decision of a reassigned send, stored as replied, is written as decided", async () => {
     const { saved } = await removed([
-      closed({ resolution: PauseResolution.Replied, answer: { ...answer, byChannel: true } }),
+      closed({ resolution: PauseResolution.Replied, answer: { ...answer, byDelegate: true } }),
       closed({ resolution: PauseResolution.Replied, answer }),
       closed({
         resolution: PauseResolution.Cancelled,
         status: PauseStatus.Taken,
-        answer: { ...answer, byChannel: true },
+        answer: { ...answer, byDelegate: true },
       }),
     ]);
 

@@ -38,8 +38,17 @@ const failedOf = (code: string): A2ATaskStatus => ({
  * caller can answer invites no input). Pending pauses only channels answer are named in the message.
  */
 export function pausedStatusOf(pending: readonly PendingPause[]): A2ATaskStatus {
-  const answerable = pending.flatMap(({ pauseId, kind, ask }) =>
-    pauseId === undefined ? [] : [{ pauseId, kind, ask }],
+  const answerable = pending.flatMap((pause) =>
+    pause.pauseId === undefined
+      ? []
+      : [
+          {
+            pauseId: pause.pauseId,
+            kind: pause.kind,
+            input: pause.input,
+            ...("toolCall" in pause ? { toolCall: pause.toolCall } : {}),
+          },
+        ],
   );
   const channels = [
     ...new Set(

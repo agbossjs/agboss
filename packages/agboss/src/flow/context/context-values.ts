@@ -143,18 +143,27 @@ export function checkedCallerId(options: string, field: string, id: unknown): vo
 
 /**
  * Who answers a pause, before it is looked up: its tenant (#552), then the owner the thread was
- * created with or a `Channel` answerer (#589) — recorded on the pause, in the records and read by a
- * model. A missing or blank `answeredBy` is left to the role's own check (`PauseError.PermissionDenied`).
+ * created with or a delegate's `actor` (#589) — recorded on the pause, in the records and read by a
+ * model. A missing actor, or one with a blank `id`, is left to the role's own check
+ * (`PauseError.PermissionDenied`); an actor that is no `{ id, orgId? }` object, or whose `id` or
+ * `orgId` is no key's text, is `DtoValidationError`.
  */
 export function checkedCallers(
   options: string,
-  call: { readonly tenantId: string; readonly ownerId?: unknown; readonly answeredBy?: unknown },
+  call: { readonly tenantId: string; readonly ownerId?: unknown; readonly actor?: unknown },
 ): void {
   checkedTenantId(call.tenantId);
   checkedCallerId(options, "ownerId", call.ownerId);
-  const { answeredBy } = call;
-  if (typeof answeredBy !== "string" || answeredBy.trim() !== "")
-    checkedCallerId(options, "answeredBy", answeredBy);
+  const { actor } = call;
+  if (actor === undefined) return;
+  if (typeof actor !== "object" || actor === null || Array.isArray(actor))
+    throw new DtoValidationError({
+      dto: options,
+      issues: [{ path: "actor", reason: "an actor is an object: { id, orgId? }" }],
+    });
+  const id: unknown = Reflect.get(actor, "id");
+  if (typeof id !== "string" || id.trim() !== "") checkedCallerId(options, "actor.id", id);
+  checkedCallerId(options, "actor.orgId", Reflect.get(actor, "orgId"));
 }
 
 /** `read`, once `tenantId` is checked as a key's text (#568: the operator's reads by tenant). */

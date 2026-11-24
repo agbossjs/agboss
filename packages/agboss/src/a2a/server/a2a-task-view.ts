@@ -45,8 +45,10 @@ export const wireStateOf = (state: A2ATaskState): TaskState => TaskState[state];
 /** The agent's message of a status; `undefined` when it says nothing. */
 function statusMessageOf(task: A2ATaskRecord): Message | undefined {
   const { status } = task;
-  const pauses = status.pendingPauses.flatMap(({ pauseId, kind, ask }) =>
-    pauseId === undefined ? [] : [{ pauseId, kind, ask }],
+  const pauses = status.pendingPauses.flatMap(({ pauseId, kind, input, toolCall }) =>
+    pauseId === undefined
+      ? []
+      : [{ pauseId, kind, input, ...(toolCall === undefined ? {} : { toolCall }) }],
   );
   const parts = [
     ...(status.message === undefined ? [] : [textPart(status.message)]),

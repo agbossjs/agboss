@@ -1632,7 +1632,7 @@ export function toolOf<TInput, TOutput>(instance: {
 
 // @public
 export interface TreeResume {
-    readonly answeredBy: readonly (string | undefined)[];
+    readonly actors: readonly (PauseActor | undefined)[];
     readonly decisions: readonly unknown[];
     readonly hasUnansweredExpiry: boolean;
     readonly pauseIds: readonly string[];

@@ -31,7 +31,8 @@ import { seconds } from "../../src/units/index.js";
 const question = {
   kind: PauseKind.Approval,
   step: "desk-clerk-agent",
-  ask: { callId: "call-1", tool: "refund", arguments: { orderId: "7" }, summary: "refund 7" },
+  input: { orderId: "7" },
+  toolCall: { callId: "call-1", tool: "refund", summary: "refund 7" },
 };
 
 /** A channel that answers with the outcomes given, one per `send`, and keeps what it was sent. */
@@ -116,7 +117,7 @@ describe("#267 S35: the pause step", () => {
       {
         status: PauseStatus.Taken,
         resolution: PauseResolution.Decided,
-        answer: { decision: { approved: false }, answeredBy: undefined },
+        answer: { decision: { approved: false }, actor: undefined },
         askedAt: "2026-01-05T09:00:00.000Z",
         resolvedAt: "2026-01-05T09:00:00.000Z",
       },
@@ -138,7 +139,7 @@ describe("#267 S35: the pause step", () => {
         testFrame().execution.executionId,
       );
       if (pause === undefined) throw new Error("no record before send");
-      const answer = { decision: { approved: true }, answeredBy: "manager-17" };
+      const answer = { decision: { approved: true }, actor: { id: "manager-17" } };
       await pauses.resolveByTenantIdAndPauseId(
         tenantId,
         pause.pauseId,
@@ -174,7 +175,9 @@ describe("#267 S35: the pause step", () => {
       step: question.step,
       channel: channel.name,
       answerer: PauseAnswerer.Channel,
-      ask: question.ask,
+      input: question.input,
+      ...(question.toolCall === undefined ? {} : { toolCall: question.toolCall }),
+      trail: [],
       status: PauseStatus.Pending,
       isSent: true,
       askedAt: clock.now().toISOString(),
@@ -277,7 +280,7 @@ describe("#940: the pause's notices are written by its changes", () => {
     await pauses.resolveByTenantIdAndPauseId(
       tenantId,
       waiting.pauseId,
-      { decision: { approved: true }, answeredBy: "manager-17" },
+      { decision: { approved: true }, actor: { id: "manager-17" } },
       clock.now(),
       NO_RECIPIENTS,
     );

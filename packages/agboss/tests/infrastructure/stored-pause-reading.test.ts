@@ -29,36 +29,39 @@ const PAUSE = {
   step: "clerk-agent",
   channel: "refund-approval-channel",
   answerer: "channel",
-  ask: { callId: "call-1", tool: "refund", arguments: { orderId: "7" }, summary: "refund 7" },
+  input: { orderId: "7" },
+  toolCall: { callId: "call-1", tool: "refund", summary: "refund 7" },
   status: "resolved",
   isSent: true,
   askedAt: "2026-01-05T09:00:00.000Z",
   resolution: "replied",
   resolvedAt: "2026-01-05T09:05:00.000Z",
-  answer: { decision: { approved: true }, answeredBy: "manager-17" },
+  trail: [{ action: "opened", at: "2026-01-05T09:00:00.000Z", target: "refund-approval-channel" }],
+  answer: { decision: { approved: true }, actor: { id: "manager-17", orgId: "holding-hq" } },
 };
 
 describe("a store's parsed JSON is read through the core", () => {
-  it("a pause: its answerer is who may answer, the answer's answeredBy is the person", () => {
+  it("a pause: its answerer is who may answer, the answer's actor is who answered", () => {
     expect(pauseRecordOfJson(PAUSE)).toMatchObject({
       answerer: PauseAnswerer.Channel,
-      answer: { decision: { approved: true }, answeredBy: "manager-17" },
+      answer: { decision: { approved: true }, actor: { id: "manager-17", orgId: "holding-hq" } },
     });
   });
 
-  it("a question's ask is the role's own", () => {
+  it("a question's input is the role's own", () => {
     const stored = {
       ...PAUSE,
       answerer: "thread-owner",
       kind: "question",
-      ask: { topic: "free" },
-      answer: { decision: 1, answeredBy: "alice" },
+      input: { topic: "free" },
+      toolCall: undefined,
+      answer: { decision: 1, actor: { id: "alice" } },
     };
 
     expect(pauseRecordOfJson(stored)).toMatchObject({
       answerer: PauseAnswerer.ThreadOwner,
-      ask: { topic: "free" },
-      answer: { answeredBy: "alice" },
+      input: { topic: "free" },
+      answer: { actor: { id: "alice" } },
     });
   });
 
@@ -77,12 +80,16 @@ describe("a store's parsed JSON is read through the core", () => {
 
   it.each([
     ["a pause with no kind of answerer", { answerer: undefined }, "answerer"],
-    ["an approval whose ask is no tool call", { ask: { topic: "free" } }, "ask"],
+    ["an approval with no tool call", { toolCall: undefined }, "toolCall"],
+    ["a question that names a tool call", { kind: "question" }, "toolCall"],
+    ["a pause with no chain of custody", { trail: undefined }, "trail"],
+    ["a pause with an empty chain of custody", { trail: [] }, "trail"],
+    ["an empty list of assignees", { assignees: [] }, "assignees"],
     ["an answer that is a text", { answer: "sk-live-PLANTED" }, "answer"],
     [
       "an answer whose person is an object",
-      { answer: { decision: 1, answeredBy: {} } },
-      "answer.answeredBy",
+      { answer: { decision: 1, actor: { id: {} } } },
+      "answer.actor.id",
     ],
   ])("%s is unreadable: its id and the field", (_name, change, field) => {
     const read = (): unknown => pauseRecordOfJson({ ...PAUSE, ...change });
@@ -95,11 +102,11 @@ describe("a store's parsed JSON is read through the core", () => {
   it("an answer-log entry and a kept history record are read the same way", () => {
     expect(pauseAnswerRecordOfValue(answerLogEntry)).toMatchObject({
       answerer: PauseAnswerer.Channel,
-      answeredBy: "manager-17",
+      actor: { id: "manager-17" },
     });
     expect(executionHistoryRecordOfJson(historyRecord).children[0]?.pauses[0]).toMatchObject({
       answerer: PauseAnswerer.ThreadOwner,
-      answeredBy: "alice",
+      actor: { id: "alice" },
     });
   });
 });
@@ -124,6 +131,14 @@ describe("0.1.0 is refused, never defaulted", () => {
       "answerer",
     ],
     ["answeredBy beside the answerer", { answeredBy: "channel" }, "answeredBy"],
+    ["0.1.0's ask", { ask: { topic: "free" } }, "ask"],
+    ["0.1.0's one assignee", { assignee: "deputy-3" }, "assignee"],
+    [
+      "0.1.0's answer.answeredBy",
+      { answer: { decision: 1, answeredBy: "manager-17" } },
+      "answer.answeredBy",
+    ],
+    ["0.1.0's answer.byChannel", { answer: { decision: 1, byChannel: true } }, "answer.byChannel"],
     ["no copyNumber", { copyNumber: undefined }, "copyNumber"],
     ["no askedAt", { askedAt: undefined }, "askedAt"],
     [

@@ -19,7 +19,8 @@ describe("a paused run is read whole", () => {
       kind: "approval",
       step: "clerk-agent",
       answerer: "channel",
-      ask: { tool: "refund" },
+      toolCall: { tool: "refund" },
+      input: {},
     });
     expect(run.data.launches?.[0]?.group).toEqual({ targets: ["a"], priority: 1 });
     expect(run.data.launches?.[0]?.branches[0]?.nodeId).toBe("b");
@@ -40,13 +41,14 @@ describe("a paused run is read whole", () => {
           answerer: "thread-owner",
           step: "asker",
           channel: "c",
-          ask: { topic: "free" },
+          input: { topic: "free" },
+          trail: [{ action: "opened", at: "2026-01-05T09:00:00.000Z", target: "c" }],
         },
       ],
     });
 
     expect(run).toMatchObject({ turnId: "turn-2", budgetUsd: Infinity });
-    expect(run.pending[0]).toMatchObject({ kind: "question", ask: { topic: "free" } });
+    expect(run.pending[0]).toMatchObject({ kind: "question", input: { topic: "free" } });
   });
 
   it.each([
@@ -55,7 +57,7 @@ describe("a paused run is read whole", () => {
     ["a pending list of numbers", { pending: [42] }, "pending.0"],
     [
       "a pending pause with no step",
-      { pending: [{ pauseId: "p", channel: "c", answerer: "channel", ask: {} }] },
+      { pending: [{ pauseId: "p", channel: "c", answerer: "channel", input: {}, trail: [] }] },
       "pending.0",
     ],
     ["a budget that is a text", { budgetUsd: SECRET }, "budgetUsd"],
@@ -83,7 +85,9 @@ describe("a paused run is read whole", () => {
         answerer: "channel",
         step: "clerk-agent",
         channel: "c",
-        ask: { callId: "c1", tool: "refund", arguments: {}, summary: "s" },
+        input: {},
+        toolCall: { callId: "c1", tool: "refund", summary: "s" },
+        trail: [],
         ...change,
       },
     ],

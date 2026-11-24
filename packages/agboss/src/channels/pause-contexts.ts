@@ -115,6 +115,14 @@ export type AnswerPermitCall = Omit<AnswerPermissionContext<never>, "input" | "o
   readonly output: unknown;
 };
 
+/** What the reassignment hands `permitReassign`: the context, its `input` as the record keeps it. */
+export type ReassignPermitCall = Omit<ReassignPermissionContext<never>, "input"> & {
+  readonly input: unknown;
+};
+
+/** A target's `permitReassign`, as `app.reassignPause` calls it (#1307d): `true` permits; anything else refuses. */
+export type PermitReassign = (ctx: ReassignPermitCall) => Promise<unknown>;
+
 /**
  * A target's `permitAnswer`, as the resume calls it (#1307c): `true` lets the answer be recorded;
  * `false`, a throw and any other value refuse it.

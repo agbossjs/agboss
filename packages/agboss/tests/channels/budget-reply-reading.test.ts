@@ -244,7 +244,7 @@ describe("#1366: the reader of a tree's pauses", () => {
 
     const out = await reader({
       ...(call as object),
-      pause: { pauseId: "p9", channel: "ch", ask: { asked: true } },
+      pause: { pauseId: "p9", channel: "ch", input: { asked: true } },
     } as never);
 
     expect(out.kind).toBe("read");

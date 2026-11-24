@@ -84,7 +84,7 @@ describe("#1193: a channel's decision for a reassigned send is a decision", () =
       told.ownerDecides = approve;
 
       await app.reassignPause(
-        { pauseId: first?.pauseId ?? "", assignee: "deputy-3" },
+        { pauseId: first?.pauseId ?? "", assignees: ["deputy-3"] },
         { ownerId: "alice" },
       );
       await until(() => told.recorded.length === 1);
@@ -99,7 +99,7 @@ describe("#1193: a channel's decision for a reassigned send is a decision", () =
         { statuses: [PauseStatus.Taken] },
         10,
       );
-      expect(stored.pauses.map((one) => one.answer?.byChannel)).toEqual([true]);
+      expect(stored.pauses.map((one) => one.answer?.byDelegate)).toEqual([true]);
       // the first pause opened and closed `reassigned`; the replacement was never opened, so never closed
       expect(await countedSince(before)).toEqual({
         answered: 0,
@@ -119,13 +119,13 @@ describe("#1193: a channel's decision for a reassigned send is a decision", () =
         await store.findPageByTenantId("default", { statuses: [PauseStatus.Pending] }, 10)
       ).pauses;
       await app.reassignPause(
-        { pauseId: first?.pauseId ?? "", assignee: "deputy-3" },
-        { answeredBy: "manager-17" },
+        { pauseId: first?.pauseId ?? "", assignees: ["deputy-3"] },
+        { actor: { id: "manager-17" } },
       );
       await until(() => told.sent.some((ask) => ask.replaces !== undefined));
       const newId = told.sent.find((ask) => ask.replaces !== undefined)?.pauseId ?? "";
 
-      await app.resume({ pauseId: newId, decision: approve }, { answeredBy: "deputy-3" });
+      await app.resume({ pauseId: newId, decision: approve }, { actor: { id: "deputy-3" } });
 
       const log = await app
         .resolve(ExecutionRecordRepository)

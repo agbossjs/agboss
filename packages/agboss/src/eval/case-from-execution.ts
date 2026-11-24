@@ -123,9 +123,7 @@ function pausesOf(pauses: readonly PauseAnswerRecord[]): readonly DraftPause[] {
           {
             target: pause.role,
             decision: pause.decision,
-            ...(pause.answeredBy === undefined
-              ? {}
-              : { actor: { id: placeholderOf(pause.answeredBy) } }),
+            ...(pause.actor === undefined ? {} : { actor: { id: placeholderOf(pause.actor.id) } }),
           },
         ]
       : [],

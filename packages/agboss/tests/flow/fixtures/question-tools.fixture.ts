@@ -115,7 +115,7 @@ export class DeskApproverChannel extends ApproverQuestion {
 @Channel({ name: "rule-approver-channel", description: "Up to $100 at once" })
 export class RuleApproverChannel extends ApproverQuestion {
   send(ask: ChannelAsk<ApproverQuestion>): Promise<ChannelOutcome<ApproverQuestion>> {
-    const approved = ask.value.priceUsd <= 100;
+    const approved = ask.input.priceUsd <= 100;
     return Promise.resolve(ChannelOutcome.decided({ approved, limitUsd: approved ? 100 : 0 }));
   }
 }

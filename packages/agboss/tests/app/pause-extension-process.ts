@@ -39,7 +39,7 @@ try {
       const wait = begin + index * SLOT_MS - Date.now();
       if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
       const outcome = await app
-        .extendPause({ pauseId, expiresIn: hours(Number(first)) }, { answeredBy: "manager-17" })
+        .extendPause({ pauseId, expiresIn: hours(Number(first)) }, { actor: { id: "manager-17" } })
         .then(
           (done) => ({
             ok: true,

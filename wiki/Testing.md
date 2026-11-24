@@ -537,7 +537,7 @@ Call it before the first `app.execute` (after it is a clear error). A class the 
 no pause, no pause record. A role's implementation listed in the application is scripted like any
 class: `mockOf(SlackRefundApprovalChannel).send.mockResolvedValue(ChannelOutcome.decided({ approved:
 true }))` goes on at once; left as written, it pauses and the test answers like a webhook —
-`app.resume({ pauseId, decision }, { answeredBy })` with the `pauseId` the channel was sent (a
+`app.resume({ pauseId, decision }, { actor })` with the `pauseId` the channel was sent (a
 `ThreadOwner` pause: `result.pending[0].pauseId`, with the thread's `ownerId`). Two pauses of one
 tree answered at once from `apps[0]` and `apps[1]` (`instances: 2`) test the concurrent answers
 ([Pauses](Pauses#concurrent-answers)).

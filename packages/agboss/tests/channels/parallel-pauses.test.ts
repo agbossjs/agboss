@@ -44,7 +44,9 @@ describe("#267 AC1: a paused branch does not stop its siblings", () => {
         channel: "refund-approval-channel",
         childExecutionId: undefined,
         itemIndex: index + 1,
-        ask: expect.objectContaining({ tool: "refund-tool", arguments: { orderId } }),
+        toolCall: expect.objectContaining({ tool: "refund-tool" }),
+        input: { orderId },
+        trail: [expect.objectContaining({ action: "opened" })],
       })),
     );
     expect(mockLlm(BatchRefundAgent).requests.map(orderOf).sort()).toEqual(["A", "B", "C"]);
@@ -89,7 +91,7 @@ describe("#267 AC2: a pause is resumed by its id; the rest keep waiting", () => 
     expect(done.pending).toEqual([]);
     expect(seen.refunds).toEqual(["B", "C"]);
     expect(seen.asks).toHaveLength(2);
-    expect(seen.resumes.map((event) => event.answeredBy)).toEqual(["manager-17", "manager-17"]);
+    expect(seen.resumes.map((event) => event.actor?.id)).toEqual(["manager-17", "manager-17"]);
   });
 
   test("an unknown pause and another tenant's are the same UnknownPauseError", async ({

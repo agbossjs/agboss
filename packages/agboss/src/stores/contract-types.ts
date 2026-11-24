@@ -134,18 +134,17 @@ export type {
   OutdatedMark,
   OutdatedValueRecord,
   PauseAnswer,
-  PauseAsk,
   PauseCancellation,
   PausedExecution,
   PauseRecord,
   PauseSite,
+  PauseTrailRecord,
   PendingApproval,
   PendingPause,
   PendingPauseBase,
   PendingQuestion,
   NewStatusTransition,
   PreviousLeaseHolder,
-  QuestionAsk,
   QueuedChildExecution,
   QuorumGroupRecord,
   RateLimitLease,
@@ -192,7 +191,6 @@ export {
 export * from "../infrastructure/a2a-direct-message.repository.js";
 // store contracts whose values the root names as types only (#1324)
 export { CompensationEntryStatus } from "../flow/compensation.js";
-export { ToolCallApprovalAskDto } from "../dto/standard/framework.js";
 export { InMemoryA2ATaskRepository } from "../infrastructure/in-memory-a2a-task.repository.js";
 export { InMemoryA2ADirectMessageRepository } from "../infrastructure/in-memory-a2a-direct-message.repository.js";
 export { SqliteA2ATaskRepository } from "../infrastructure/sqlite/sqlite-a2a-task.repository.js";

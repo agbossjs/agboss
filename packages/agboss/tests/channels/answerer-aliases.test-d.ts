@@ -15,5 +15,6 @@ test("no pause shape names a 0.1.0 alias", () => {
   expectTypeOf<PauseRecord>().not.toHaveProperty("answeredBy");
   expectTypeOf<DescribedChannel>().not.toHaveProperty("answeredBy");
   expectTypeOf<PauseAnswerRecord>().not.toHaveProperty("responder");
-  expectTypeOf<PauseAnswerRecord>().toHaveProperty("answeredBy");
+  expectTypeOf<PauseAnswerRecord>().not.toHaveProperty("answeredBy");
+  expectTypeOf<PauseAnswerRecord>().toHaveProperty("actor");
 });

@@ -33,7 +33,7 @@ const test = testWith(TreasuryApplication);
 
 beforeEach(resetReplyDesk);
 
-const clerk = { answeredBy: "clerk-4" };
+const clerk = { actor: { id: "clerk-4" } };
 
 /** The clerk's only ask: its pause's id is the reply key. */
 function depositPauseId(): string {

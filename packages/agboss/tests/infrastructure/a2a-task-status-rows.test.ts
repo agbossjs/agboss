@@ -33,7 +33,12 @@ describe("#960 AC3: the status column of the SQLite A2A task store", () => {
   });
 
   it("a key this version does not know inside a pending pause is read back as written", async () => {
-    const pause = { pauseId: "p-1", kind: PauseKind.Approval, ask: { q: 1 }, grantedBy: { n: 5 } };
+    const pause = {
+      pauseId: "p-1",
+      kind: PauseKind.Approval,
+      input: { q: 1 },
+      grantedBy: { n: 5 },
+    };
     const status = { ...WORKING, pendingPauses: [pause] };
 
     expect((await (await withStatus(status)).findById(KEY))?.status).toEqual(status);
@@ -45,10 +50,10 @@ describe("#960 AC3: the status column of the SQLite A2A task store", () => {
     ["a negative spend", { ...WORKING, spentUsd: -1 }],
     ["a state no task has", { state: "TASK_STATE_LOST", pendingPauses: [] }],
     ["a cancel time that is none", { ...WORKING, cancelRequestedAt: "soon" }],
-    ["a pause of a kind no pause has", { ...WORKING, pendingPauses: [{ kind: "wish", ask: 1 }] }],
+    ["a pause of a kind no pause has", { ...WORKING, pendingPauses: [{ kind: "wish", input: 1 }] }],
     [
       "a pause whose id is no text",
-      { ...WORKING, pendingPauses: [{ pauseId: 1, kind: PauseKind.Question, ask: 1 }] },
+      { ...WORKING, pendingPauses: [{ pauseId: 1, kind: PauseKind.Question, input: 1 }] },
     ],
   ])("a status with %s is refused, never read", async (_name, status) => {
     await expect((await withStatus(status)).findById(KEY)).rejects.toThrow();

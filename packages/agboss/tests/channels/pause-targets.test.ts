@@ -55,7 +55,12 @@ describe("#1307a: an @ExternalTask step pauses like a question and its channel i
       },
     ]);
     const { asked } = app.resolve(TargetInbox);
-    expect(asked).toEqual([{ pauseId: paused.pending[0]?.pauseId, value: paused.pending[0]?.ask }]);
+    expect(asked).toEqual([
+      expect.objectContaining({
+        pauseId: paused.pending[0]?.pauseId,
+        input: paused.pending[0]?.input,
+      }),
+    ]);
   });
 
   test("a reply is read by the @ChannelInterpreter into the output; the answer goes on the path", async ({
@@ -115,7 +120,9 @@ describe("#1307a: a @ToolApproval gates a tool named by `approval`", () => {
 
     expect(paused).toMatchObject({
       status: ExecutionStatus.Paused,
-      pending: [{ kind: PauseKind.Approval, answerer: "channel", ask: { tool: "refund-tool" } }],
+      pending: [
+        { kind: PauseKind.Approval, answerer: "channel", toolCall: { tool: "refund-tool" } },
+      ],
     });
     const inbox = app.resolve(TargetInbox);
     expect(inbox.approvals).toHaveLength(1);
@@ -125,7 +132,7 @@ describe("#1307a: a @ToolApproval gates a tool named by `approval`", () => {
     const pauseId = inbox.approvals[0]?.pauseId ?? "";
     const done = await app.resume(
       { pauseId, decision: { approved: true } },
-      { answeredBy: "dana" },
+      { actor: { id: "dana" } },
     );
 
     expect(done).toFinishWith(RefundWorkflowFinish, { text: "Refunded." });
@@ -144,7 +151,7 @@ describe("#1307a: a @ToolApproval gates a tool named by `approval`", () => {
         pauseId: app.resolve(TargetInbox).approvals[0]?.pauseId ?? "",
         decision: { approved: false, reason: "no" },
       },
-      { answeredBy: "dana" },
+      { actor: { id: "dana" } },
     );
 
     expect(done).toFinishWith(RefundWorkflowFinish, { text: "Not refunded." });

@@ -28,7 +28,7 @@ export const REASSIGN_RACE_CASES: readonly ContractCase<PausedExecutionRepositor
           first.reassignByTenantIdAndPauseId(
             "default",
             old,
-            { pauseId: `${old}-one`, assignee: "deputy-1" },
+            { pauseId: `${old}-one`, assignees: ["deputy-1"] },
             BEFORE_DEADLINE,
             RECIPIENTS,
           );
@@ -36,7 +36,7 @@ export const REASSIGN_RACE_CASES: readonly ContractCase<PausedExecutionRepositor
           second.reassignByTenantIdAndPauseId(
             "default",
             old,
-            { pauseId: `${old}-two`, assignee: "deputy-2" },
+            { pauseId: `${old}-two`, assignees: ["deputy-2"] },
             BEFORE_DEADLINE,
             RECIPIENTS,
           );

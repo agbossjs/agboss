@@ -29,7 +29,7 @@ try {
   await sleep(1200);
   fresh.slow = true;
   const outcome = await app
-    .extendPause({ pauseId, expiresIn: workingMinutes(1) }, { answeredBy: "manager-17" })
+    .extendPause({ pauseId, expiresIn: workingMinutes(1) }, { actor: { id: "manager-17" } })
     .then(
       (done) => ({ ok: true, expiresAt: done.expiresAt }),
       (error: unknown) => ({

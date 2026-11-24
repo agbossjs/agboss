@@ -100,7 +100,7 @@ describe("#941 AC5: an approval inside an agent expires", () => {
     // the first call's approval comes in time; the second is asked next, and nobody answers it
     await app.resume(
       { pauseId: agentExpiry.sent[0]?.pauseId ?? "", decision: { approved: true } },
-      { answeredBy: "manager-17" },
+      { actor: { id: "manager-17" } },
     );
     await until(() => agentExpiry.sent.length === 2);
 

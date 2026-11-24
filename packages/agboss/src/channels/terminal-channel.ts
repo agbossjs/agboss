@@ -13,7 +13,8 @@ export class TerminalUserChannel {
   declare readonly [agbossComponent]?: { readonly name: "terminal-user-channel" };
 
   send(ask: ChannelAsk<TerminalUserChannel>): Promise<ChannelOutcome<TerminalUserChannel>> {
-    const { tool, arguments: args } = ask.value;
+    const args = ask.input;
+    const tool = ask.toolCall?.tool ?? "tool";
     const lines = [
       "",
       `[APPROVAL REQUIRED] Tool '${tool}' wants to run (pause ${ask.pauseId}).`,

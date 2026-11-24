@@ -64,11 +64,11 @@ describe("#941 AC1: a pause nobody answers expires and the step fails", () => {
     const director = expiry.directorAsked[0];
     const done = await app.resume(
       { pauseId: director?.pauseId ?? "", decision: { approved: true } },
-      { answeredBy: "director-1", includeRecord: true },
+      { actor: { id: "director-1" }, includeRecord: true },
     );
     expect(done.record?.pauses).toMatchObject([
-      { resolution: PauseResolution.Expired, answeredBy: undefined },
-      { resolution: PauseResolution.Replied, answeredBy: "director-1" },
+      { resolution: PauseResolution.Expired, actor: undefined },
+      { resolution: PauseResolution.Replied, actor: { id: "director-1" } },
     ]);
     expect(expiry.recorded).toEqual(["o-1: escalated, approved"]);
     // the channel heard it: closed, expired, at the deadline
@@ -161,7 +161,7 @@ describe("#941 AC2: the channel decides on expiry", () => {
       {
         reason: ResumeReason.Expired,
         decision: { approved: true, comment: "auto-approved: small amount" },
-        answeredBy: undefined,
+        actor: undefined,
       },
     ]);
     const [pause] = await expiryStore().findAllByTenantIdAndRootExecutionId(
@@ -177,7 +177,7 @@ describe("#941 AC2: the channel decides on expiry", () => {
       reason: "expired",
       answer: { approved: true, comment: "auto-approved: small amount" },
     });
-    expect(expiry.closed[0]?.answeredBy).toBeUndefined();
+    expect(expiry.closed[0]?.actor).toBeUndefined();
   });
 
   const fallbacks: readonly (readonly [string, () => unknown, ExpiryProblem])[] = [
@@ -257,7 +257,7 @@ describe("#941 (#933's scope note): the shipped toQuestion starters take expires
       expect(open?.expiresAt).toBe(AT(clock, hours(1)));
       const done = await app.resume(
         { pauseId: expiry.directorAsked[0]?.pauseId ?? "", decision: { approved: true } },
-        { answeredBy: "director-1" },
+        { actor: { id: "director-1" } },
       );
 
       expect(done.status).toBe(ExecutionStatus.Finished);

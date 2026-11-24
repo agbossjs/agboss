@@ -1,5 +1,5 @@
 import type { PauseAnswerer } from "../../channels/channel-role.decorator.js";
-import type { PermitAnswer } from "../../channels/pause-contexts.js";
+import type { PermitAnswer, PermitReassign } from "../../channels/pause-contexts.js";
 import type { ChannelSender } from "../../channels/channel-sender.js";
 import type { PauseCalendar } from "../../calendar/calendar-call.js";
 import type { Milliseconds, WorkingDuration } from "../../units/index.js";
@@ -12,6 +12,8 @@ export interface PauseChannel {
   readonly answerer: PauseAnswerer;
   /** The target's `permitAnswer` (#1307c): anything but `true` refuses an answer; `undefined`: none. */
   readonly permitAnswer?: PermitAnswer | undefined;
+  /** The target's `permitReassign` (#1307d): anything but `true` refuses a reassignment; `undefined`: none. */
+  readonly permitReassign?: PermitReassign | undefined;
   /** How long its pauses wait for an answer (#941): its role's `expiresIn`; none → no deadline of its own. */
   readonly expiresIn?: Milliseconds | WorkingDuration | undefined;
   /** How long before its deadline its pauses are reminded (#942): its role's `remindBefore`; none → no reminder. */

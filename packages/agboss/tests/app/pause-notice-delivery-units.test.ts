@@ -70,7 +70,7 @@ async function made(
     await pauses.resolveByTenantIdAndPauseId(
       "default",
       id,
-      { decision: { approved: true }, answeredBy: undefined },
+      { decision: { approved: true }, actor: undefined },
       START,
       RECIPIENTS,
     );

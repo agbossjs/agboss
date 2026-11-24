@@ -30,7 +30,8 @@ import { markAnswered, refusedAfterMark } from "./paused-runs.js";
 import { noticesWritten, recipientsIn, type PauseNotices } from "../pause/index.js";
 import { pauseTallyOf } from "../pause/pause-tally.js";
 import { pauseClosed } from "./pause-closed.js";
-import { answeredByOf, pauseOf } from "./pause-answerer.js";
+import { actorOf, pauseOf } from "./pause-answerer.js";
+import type { PauseActor } from "../channels/pause-contexts.js";
 import { assertAnswerPermitted } from "./answer-permit.js";
 import type { InlineFiles } from "../files/inline-offload.js";
 import type { PermitAnswer } from "../channels/pause-contexts.js";
@@ -114,7 +115,7 @@ export interface RecordedAnswer {
   readonly run: AgentExecutionOutput | undefined;
 }
 
-export { answeredByOf, pauseOf } from "./pause-answerer.js";
+export { actorOf, pauseOf } from "./pause-answerer.js";
 
 /** The tree's run as it rests, its versions checked against the app's; `undefined` while it moves. */
 async function restingRunOf(
@@ -163,19 +164,19 @@ export async function recordAnswer(
   request: ResumeRequest,
   call: ResumeOptions,
 ): Promise<RecordedAnswer> {
-  return recordedAnswer(parts, pause, request, await answeredByOf(parts, pause, call));
+  return recordedAnswer(parts, pause, request, await actorOf(parts, pause, call));
 }
 
-/** The answer a pause keeps: the decision, who gave it, a channel's own mark (#1197), what it cost. */
+/** The answer a pause keeps: the decision, who gave it, a delegate channel's own mark (#1197), what it cost. */
 const answerOf = (
   read: ReadReply,
-  answeredBy: string | undefined,
+  actor: PauseActor | undefined,
   source: AnswerSource,
 ): PauseAnswer => ({
   decision: read.decision,
-  answeredBy,
+  actor,
   // kept in the stored answer: a crash before the log write is repaired as `decided` too
-  ...(source === PauseResolution.Decided ? { byChannel: true as const } : {}),
+  ...(source === PauseResolution.Decided ? { byDelegate: true as const } : {}),
   ...(read.usage.length === 0 ? {} : { usage: read.usage }),
 });
 
@@ -190,7 +191,7 @@ const offloadedAnswer = (parts: AnswerParts, pause: PauseRecord, decision: unkno
   });
 
 /**
- * The answer recorded on its pause by `answeredBy` (already checked, or a channel's own name — #946):
+ * The answer recorded on its pause by `actor` (already checked, or a channel's own name — #946):
  * what `recordAnswer` does once it knows who answers. A channel's decision (`source` `Decided`) is
  * logged `decided`, like the first send's decided-at-once outcome, and is not counted: the pause was
  * never asked of anyone — not opened, so not closed, and no wait for a human to time (#1193).
@@ -199,7 +200,7 @@ export async function recordedAnswer(
   parts: AnswerParts,
   pause: PauseRecord,
   request: ResumeRequest,
-  answeredBy: string | undefined,
+  actor: PauseActor | undefined,
   source: AnswerSource = PauseResolution.Replied,
 ): Promise<RecordedAnswer> {
   const { tenantId } = pause;
@@ -212,9 +213,9 @@ export async function recordedAnswer(
   // a person's answer is permitted by its target before anything is marked or recorded (#1307c); a
   // channel's own decision is the application's and is not asked of the hook
   if (source === PauseResolution.Replied)
-    await assertAnswerPermitted(parts, pause, answeredBy, read.decision);
+    await assertAnswerPermitted(parts, pause, actor, read.decision);
   await offloadedAnswer(parts, pause, read.decision);
-  const answer = answerOf(read, answeredBy, source);
+  const answer = answerOf(read, actor, source);
   // the tree has work again before its answer is recorded (#850, paused-runs.ts)
   const isMarked = await markAnswered(parts, pause, run);
   const at = parts.clock.now();

@@ -115,7 +115,7 @@ if (mode === "run") {
       pauseId: asked?.pauseId ?? "",
       decision: { approved: true },
     },
-    { answeredBy: "reviewer-1" },
+    { actor: { id: "reviewer-1" } },
   );
   await summary({ ...afterPause, resumedStatus: done.status, output: done.output });
 } else if (mode === "crash") {

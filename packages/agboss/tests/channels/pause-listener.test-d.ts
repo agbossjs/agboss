@@ -7,6 +7,7 @@ import { describe, expectTypeOf, it } from "vitest";
 import {
   PauseListener,
   type ChannelPauseClosedEvent,
+  type PauseActor,
   type PauseClosedReason,
   type PauseDeliveredEvent,
   type PauseListenerClosedEvent,
@@ -27,7 +28,7 @@ describe("#940 AC5: the listener's types", () => {
     expectTypeOf<PauseListenerOpenedEvent["pauseKey"]>().toEqualTypeOf<string>();
     expectTypeOf<PauseListenerOpenedEvent["pauseId"]>().toEqualTypeOf<string | undefined>();
     expectTypeOf<PauseListenerClosedEvent["reason"]>().toEqualTypeOf<PauseClosedReason>();
-    expectTypeOf<PauseListenerClosedEvent["answeredBy"]>().toEqualTypeOf<string | undefined>();
+    expectTypeOf<PauseListenerClosedEvent["actor"]>().toEqualTypeOf<PauseActor | undefined>();
   });
 
   it("the options: an optional name, its dependencies and the trust to answer", () => {

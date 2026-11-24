@@ -1,6 +1,7 @@
 import type * as LostPassesAtTake from "./lost-passes-at-take.js";
 import { lazyLoad } from "../infrastructure/clock.js";
 import { ResumeReason } from "../core/observability.js";
+import type { PauseActor } from "../channels/pause-contexts.js";
 import type { ExecutionObserverManager } from "../core/observer-manager.js";
 import type { ExecutionEvent } from "../flow/observers/execution-event.js";
 import { readingGraphOf } from "../run/run-budgets.js";
@@ -49,18 +50,18 @@ export async function markTaken(
 interface Told {
   readonly reason: ResumeReason;
   readonly decision: unknown;
-  readonly answeredBy: string | undefined;
+  readonly actor: PauseActor | undefined;
 }
 
 const toldWithout = (reason: ResumeReason): Told => ({
   reason,
   decision: undefined,
-  answeredBy: undefined,
+  actor: undefined,
 });
 
 /**
  * The events a pass is announced with: one per decision it takes, with its own reason — an answer
- * `Answered`, an expiry's decision `Expired` — and its `answeredBy` (#267 AC4); a recovery or an
+ * `Answered`, an expiry's decision `Expired` — and its `actor` (#267 AC4); a recovery or an
  * expiry that takes none says so once (#941, V1: a pass whose pauses closed without an answer still
  * announces); a pass that takes an expiry that failed its step and no decision of an expiry says
  * `Expired` once more. A pass that only withdraws pauses is announced by nothing.
@@ -73,7 +74,7 @@ function resumesToTell(reason: ResumeReason, resume: TreeResume | undefined): re
   const told = decisions.map((decision, index): Told => ({
     reason: reason === ResumeReason.Recovered ? reason : (resume?.reasons[index] ?? reason),
     decision,
-    answeredBy: resume?.answeredBy[index],
+    actor: resume?.actors[index],
   }));
   const hasExpiry = told.some((one) => one.reason === ResumeReason.Expired);
   const isExpiryMissing = resume?.hasUnansweredExpiry === true && !hasExpiry;

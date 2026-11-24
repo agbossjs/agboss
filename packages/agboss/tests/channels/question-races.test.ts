@@ -125,8 +125,8 @@ describe("#659 AC5: cancel, tenants and owners", () => {
     await expect(app.resume(answerOf(paused, yes), { ownerId: "mallory" })).rejects.toBeInstanceOf(
       ThreadOwnerError,
     );
-    await expect(app.resume(answerOf(paused, yes), { answeredBy: "alice" })).rejects.toThrow(
-      /pass ownerId, not answeredBy/,
+    await expect(app.resume(answerOf(paused, yes), { actor: { id: "alice" } })).rejects.toThrow(
+      /pass ownerId, not actor/,
     );
     expect(await statusOf(app, pauseId)).toBe(PauseStatus.Pending);
   });
@@ -136,7 +136,7 @@ describe("#659 AC5: maxVisits on a cycle", () => {
   test("AC5: asked again below the price, at most maxVisits times", async ({ app }) => {
     const paused = await execute(app, OwnerPurchaseWorkflowStart, { text: "desk for 700" });
     const inbox = app.resolve(QuestionInbox);
-    const by = { answeredBy: "budget-owner-7" };
+    const by = { actor: { id: "budget-owner-7" } };
     const pauseIdOf = (index: number): string => inbox.ownerAsked[index]?.pauseId ?? "";
     expect(paused.status).toBe(ExecutionStatus.Paused);
     expect(paused.pending[0]?.pauseId).toBeUndefined(); // a Channel pause hides its id
@@ -157,7 +157,7 @@ describe("#659 AC5: maxVisits on a cycle", () => {
   test("AC5: answered within the price on the second ask, it finishes", async ({ app }) => {
     await execute(app, OwnerPurchaseWorkflowStart, { text: "desk for 700" });
     const inbox = app.resolve(QuestionInbox);
-    const by = { answeredBy: "budget-owner-7" };
+    const by = { actor: { id: "budget-owner-7" } };
     await app.resume(
       { pauseId: inbox.ownerAsked[0]?.pauseId ?? "", decision: { approved: true, limitUsd: 500 } },
       by,

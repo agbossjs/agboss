@@ -116,7 +116,9 @@ describe("#267 AC9: implementations in @Application({ providers })", () => {
     expect(desk.posted).toEqual([
       {
         pauseId: expect.stringMatching(/^[0-9a-f]{32}$/),
-        value: expect.objectContaining({ arguments: { orderId: "A-1", amountCents: 1200 } }),
+        input: { orderId: "A-1", amountCents: 1200 },
+        toolCall: expect.objectContaining({ tool: "refund-card-tool" }),
+        trail: [expect.objectContaining({ action: "opened" })],
       },
     ]);
     expect(desk.tenants).toEqual(["acme"]);

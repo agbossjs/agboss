@@ -107,12 +107,12 @@ describe("#943 AC2 with #945: expiry inside a launch is counted", () => {
       mockLlm(CooApproverAgent).thenReturn(callTool(ApproveTool, { what: "coo" }));
       await execute(app, JoinExpiryWorkflowStart, { what: "the merger" });
       const idOf = (who: string) =>
-        je.sent.find((ask) => JSON.stringify(ask.value).includes(`"what":"${who}"`))?.pauseId ?? "";
+        je.sent.find((ask) => JSON.stringify(ask.input).includes(`"what":"${who}"`))?.pauseId ?? "";
       const approve = { approved: true };
-      await app.resume({ pauseId: idOf("legal"), decision: approve }, { answeredBy: "legal-1" });
+      await app.resume({ pauseId: idOf("legal"), decision: approve }, { actor: { id: "legal-1" } });
       await app.resume(
         { pauseId: idOf("finance"), decision: approve },
-        { answeredBy: "finance-1" },
+        { actor: { id: "finance-1" } },
       );
 
       await clock.advance(minutes(30));

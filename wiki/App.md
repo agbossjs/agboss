@@ -299,14 +299,14 @@ undo action may run — its clean-up `executionContext.signal` aborts after it (
 loses the tree's lease or stops), not with the execution's; a failed join also waits this long for
 its launch's branches still running before it undoes ([Rollback](Rollback#a-failed-join-undoes-its-finished-branches)).
 
-## `app.resume({ pauseId, decision }, { tenantId, ownerId | answeredBy })`
+## `app.resume({ pauseId, decision }, { tenantId, ownerId | actor })`
 
 Answers **one pause, by its id** (#267) — never by thread: the pause is found by `(tenantId,
 pauseId)` anywhere in its execution tree (a parallel branch, later a child); an unknown id, or
 another tenant's, is the same `UnknownPauseError` (`pause.unknown-pause`). A resume takes keys and
 credentials only — the tenant by its id (omitted → `"default"`) and who answers, as the pause's
 channel role says (`answerer` on `@ChannelRole`): `ownerId` for a `PauseAnswerer.ThreadOwner`
-pause (another → `ThreadOwnerError`), a non-empty `answeredBy` for a `PauseAnswerer.Channel` one;
+pause (another → `ThreadOwnerError`), a non-empty `actor` for a `PauseAnswerer.Channel` one;
 the other credential → `PauseError.PermissionDenied`. The decision is a `ToolCallApprovalDecisionDto`
 (`approved`, `reason?`, `overrideArguments?` only with `approved: true`), validated before it is
 recorded (`DtoValidationError`; the pause keeps waiting). The execution runs on the context values
@@ -324,7 +324,7 @@ atomically, so a second resume of the same pause gets `PauseClosedError` (`reaso
 and continues with every answer recorded for the tree. While another call or instance moves the
 tree it waits, and returns the tree's current output once the holder took its decision
 ([Several instances](Several-instances#the-execution-lease)). Observers get `onExecutionResume` —
-one per decision taken, with `answeredBy` — and `reason: ResumeReason.Answered`
+one per decision taken, with `actor` — and `reason: ResumeReason.Answered`
 (`ResumeReason.Recovered` when [recovery](Several-instances#recovery) continues a tree).
 
 ## `@PauseListener` (#940)
@@ -336,10 +336,10 @@ listeners](Pauses#telling-the-channel-and-the-listeners-940)). The container cre
 its `onInit` / `onStart` run with the application's — one instance for every workflow. `agboss
 describe` lists the listeners and marks `allowAnswering`.
 
-## `app.extendPause({ pauseId, expiresIn }, { tenantId, ownerId | answeredBy })` (#942)
+## `app.extendPause({ pauseId, expiresIn }, { tenantId, ownerId | actor })` (#942)
 
 Moves an open pause's deadline to `now + expiresIn` and returns `PauseExtension { pauseKey, expiresAt,
-previousExpiresAt }`. Who may: as an answer (the `ownerId` of a thread owner's pause, the `answeredBy` of
+previousExpiresAt }`. Who may: as an answer (the `ownerId` of a thread owner's pause, the `actor` of
 a channel's). The options are `PauseCallerOptions` — the caller fields only, no `signal` / `onStream` /
 `record`: nothing runs. Refused: a closed or expired pause (`PauseClosedError`), a pause with no deadline,
 a deadline not later than the current one or past the one the pause was made under (`DtoValidationError`,
@@ -356,16 +356,16 @@ order — never an offset — so a pause that opens or closes between two pages 
 or repeated. A `ListedPause` shows `pauseId` as `result.pending` does (only a `ThreadOwner` pause's; a
 channel pause's id stays with its channel), its `pauseKey` always, `kind`, `step`, `channel`,
 `answerer`, `status`, `rootExecutionId`, `threadId`, `askedAt`, `expiresAt`; a closed one also `reason`
-(`PauseClosedReason`), `closedAt` and `answeredBy` (who answered; absent when its channel decided). Its
+(`PauseClosedReason`), `closedAt` and `actor` (who answered; absent when its channel decided). Its
 `ask` is masked by the policies of the workflow it waits in. Another tenant's pauses are never listed; an
 invalid query is a `DtoValidationError` (`dto: "PausesQuery"`). On the application the method finds each
 pause's workflow by its root's; a pause of a workflow the application no longer lists is masked with the
 union of every workflow's policies (fail closed).
 
-## `app.reassignPause({ pauseId, assignee }, { tenantId, ownerId | answeredBy })` (#946)
+## `app.reassignPause({ pauseId, assignees }, { tenantId, ownerId | actor })` (#946)
 
 Moves an open pause to another addressee of the same channel — `send` again with a new `pauseId`,
-`ChannelAsk.assignee` and `ChannelAsk.replaces` (the old id), `onPauseClosed` told `reassigned` for the old
+`ChannelAsk.assignees` and `ChannelAsk.replaces` (the old id), `onPauseClosed` told `reassigned` for the old
 message, in no fixed order — and returns `PauseReassignment { pauseKey }`: the new id goes to the channel only.
 Who may: as an answer; the options are `PauseCallerOptions`, as `extendPause`. The old id is `PauseClosedError`
 (`reassigned`) from then on; the deadline is kept; the agent and the step do not run again. Refused: a closed

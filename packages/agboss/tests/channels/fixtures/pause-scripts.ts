@@ -9,7 +9,7 @@ import { RefundDoneDto, RefundTool, seen, type SentAsk } from "./pauses.workflow
 
 /** The decisions and credentials the #267 tests answer with. */
 export const approve = { approved: true };
-export const manager = { answeredBy: "manager-17" };
+export const manager = { actor: { id: "manager-17" } };
 
 /** The order a model request is about, by its input message. */
 export function orderOf(request: ModelRequest): string {

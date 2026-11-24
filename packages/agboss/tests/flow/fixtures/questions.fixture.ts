@@ -121,7 +121,7 @@ export class InboxSpendingLimitChannel extends SpendingLimitQuestion {
 export class RuleSpendingLimitChannel extends SpendingLimitQuestion {
   send(ask: ChannelAsk<SpendingLimitQuestion>): Promise<ChannelOutcome<SpendingLimitQuestion>> {
     return Promise.resolve(
-      ChannelOutcome.decided({ approved: ask.value.priceUsd <= 100, limitUsd: 100 }),
+      ChannelOutcome.decided({ approved: ask.input.priceUsd <= 100, limitUsd: 100 }),
     );
   }
 }
