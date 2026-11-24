@@ -43,4 +43,5 @@ export const FIXTURE_WORKFLOWS: readonly string[] = [
   "units.fixture.ts",
   "join-expiry.fixture.ts",
   "in-parallel.fixture.ts",
+  "committee.fixture.ts",
 ].map((file) => new URL(`../fixtures/${file}`, import.meta.url).pathname);

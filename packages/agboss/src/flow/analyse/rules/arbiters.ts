@@ -4,6 +4,7 @@ import { NodeKind, type ArbiterClass } from "../../ast.js";
 import {
   answerMethodsOf,
   arbiterOf,
+  ArbiterModel,
   isCodeArbiter,
   type ArbiterDeclaration,
 } from "../../decorators/arbiter.js";
@@ -117,6 +118,22 @@ function voidBranches(
   });
 }
 
+/**
+ * A code arbiter has a model only when it injects `ArbiterModel`: `model` / `modelProvider` without it
+ * would name a model nothing can call (the types forbid it; plain JS and parsed options do not).
+ */
+function modelWithoutArbiterModel(declaration: ArbiterDeclaration): readonly RuleViolation[] {
+  const { options } = declaration;
+  if (!isCodeArbiter(options) || (options.deps ?? []).includes(ArbiterModel)) return [];
+  const named = [
+    ...(options.model === undefined ? [] : ["model"]),
+    ...(options.modelProvider === undefined ? [] : ["modelProvider"]),
+  ];
+  if (named.length === 0) return [];
+  const message = `${options.name} names ${named.join(" and ")} but does not inject ArbiterModel — add ArbiterModel to deps (a hybrid arbiter), or drop ${named.join(" and ")} (a code arbiter has no model)`;
+  return [violation("arbiter.model-without-arbiter-model", message, [options.name])];
+}
+
 function oneArbiter(
   arbiter: ArbiterClass,
   launch: FlowLaunch,
@@ -134,6 +151,7 @@ function oneArbiter(
   const suffix = kebabNameProblem(name, "@Arbiter");
   return [
     ...(suffix === undefined ? [] : [violation(suffix.code, suffix.message, [name])]),
+    ...modelWithoutArbiterModel(declaration),
     ...coverage(judging, targetClassOf),
     ...duplicates(judging),
     ...voidBranches(judging, context, targetClassOf),

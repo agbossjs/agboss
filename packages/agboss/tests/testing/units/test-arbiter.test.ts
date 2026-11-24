@@ -1,6 +1,11 @@
 /** #262 PR 3 (S89, #279): `testUnit` — whether one answer counts, by code or by model. */
 import { describe, expect, it } from "vitest";
 import { ArbiterError } from "../../../src/index.js";
+import {
+  CommitteeChildWorkflow,
+  CommitteeNoteAgent,
+  NoteArbiter,
+} from "../../flow/fixtures/committee.fixture.js";
 import { decideWith, testUnit } from "../../../src/testing/index.js";
 import { usd } from "../../../src/units/index.js";
 import { LiveArbiterModel } from "../../../src/flow/runtime/launch/arbiter-live.js";
@@ -91,5 +96,16 @@ describe("testUnit", () => {
 
   it("a class that is no @Arbiter is a setup error", () => {
     expect(() => testUnit(SkillsPanelAgent)).toThrow("not a component it runs");
+  });
+});
+
+describe("testUnit: the answer of a text agent (#1283b)", () => {
+  it("is a WorkflowFinishTextDto tracked as given by its agent; a child workflow's output by that workflow", async () => {
+    const runArbiter = testUnit(NoteArbiter);
+
+    const note = await runArbiter(CommitteeNoteAgent, { text: "a note" });
+    const checked = await runArbiter(CommitteeChildWorkflow, { title: "supply" });
+
+    expect([note.output, checked.output]).toEqual([true, true]);
   });
 });

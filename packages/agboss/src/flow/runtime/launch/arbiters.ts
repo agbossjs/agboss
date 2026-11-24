@@ -2,7 +2,8 @@ import type { ModelReadingMask } from "../../../pii/model-boundary.js";
 import type { Class } from "../../../components/injection.js";
 import { normalisePromptText } from "../../../components/prompt-render.js";
 import type { UsageRecord } from "../../../finops/usage.js";
-import type { ArbiterClass } from "../../ast.js";
+import { WorkflowFinishTextDto } from "../../../dto/standard/framework.js";
+import { NodeKind, type ArbiterClass } from "../../ast.js";
 import {
   answerMethodsOf,
   arbiterOf,
@@ -89,7 +90,22 @@ class Abandoned extends Error {}
 /** The answer as the method reads it: tracked as given by its target (`Metadata.createdBy`, #1274). */
 function trackedAnswer(answer: unknown, target: Class | undefined): unknown {
   if (target === undefined || typeof answer !== "object" || answer === null) return answer;
-  return Metadata.has(answer) ? answer : Metadata.with(answer, { createdBy: target });
+  if (Metadata.has(answer)) return answer;
+  const read = isTextAgent(target) ? asTextDto(answer) : answer;
+  return Metadata.with(read, { createdBy: target });
+}
+
+/** A text agent (an `@Agent` without `output`) answers with its reply: a `WorkflowFinishTextDto` (#1283b). */
+const isTextAgent = (target: Class): boolean => {
+  const declaration = declarationOf(target);
+  return declaration?.kind === NodeKind.Agent && declaration.options.output === undefined;
+};
+
+/** The reply `{ text }` as the class the method's parameter names, so `answer instanceof WorkflowFinishTextDto` holds. */
+function asTextDto(answer: object): object {
+  return answer instanceof WorkflowFinishTextDto
+    ? answer
+    : Object.assign(Object.create(WorkflowFinishTextDto.prototype) as object, answer);
 }
 
 /** The method judging `site`'s target, with that target. */

@@ -54,6 +54,7 @@ export type RuleCode =
   | "arbiter.duplicate-target"
   | "arbiter.branch-has-no-output"
   // a code arbiter that names a model or a provider without `ArbiterModel` in `deps` (#1283b)
+  | "arbiter.model-without-arbiter-model"
   // child workflows (#263 PR 1), reported by `src/flow/analyse`
   | "graph.no-matching-start"
   | "graph.ambiguous-start"

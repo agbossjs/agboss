@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { checkWorkflow } from "../../../src/flow/analyse/analyse.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
-import { Arbiter, Arbitrate } from "../../../src/flow/decorators/arbiter.js";
+import { Arbiter, ArbiterModel, Arbitrate } from "../../../src/flow/decorators/arbiter.js";
 import { DecidedBy } from "../../../src/flow/decorators/router.js";
 import { Workflow, type WorkflowOptions } from "../../../src/flow/decorators/workflow.js";
 import { listOf, optional } from "../../../src/flow/dto-wrappers.js";
@@ -296,6 +296,18 @@ class OneMethodArbiter {
 })
 class BadlyNamedArbiter {}
 
+// `model` without `ArbiterModel` in `deps` (plain JS reaches it past the types)
+const modelWithoutArbiterModel = (options: Record<string, unknown>) => {
+  @Arbiter(options as never)
+  class UntypedArbiter {
+    @Arbitrate(ScoreAAgent, ScoreBAgent, ScoreCAgent)
+    isMeaningful(answer: ScoreDto): boolean {
+      return answer.score > 0;
+    }
+  }
+  return UntypedArbiter;
+};
+
 class UndecoratedArbiter {
   readonly note = "no decorator";
 }
@@ -399,6 +411,36 @@ describe("#279 AC6: a code arbiter has one @Arbitrate(Agent) method per agent", 
 
   it("a variadic @Arbitrate(A, B, C) method covers every target it names", () => {
     expect(arbiterErrorsOf(OneMethodArbiter)).toEqual([]);
+  });
+});
+
+describe("#1283b: a code arbiter has a model only when it injects ArbiterModel", () => {
+  it("model or modelProvider without ArbiterModel in deps is refused; with it, it passes", () => {
+    expect(arbiterErrorsOf(modelWithoutArbiterModel({ name: "no-model-arbiter", model: "fast" })))
+      .toEqual([
+        {
+          code: "arbiter.model-without-arbiter-model",
+          message:
+            "no-model-arbiter names model but does not inject ArbiterModel — add ArbiterModel to deps (a hybrid arbiter), or drop model (a code arbiter has no model)",
+        },
+      ]);
+    expect(
+      arbiterErrorsOf(
+        modelWithoutArbiterModel({
+          name: "provider-arbiter",
+          model: "fast",
+          modelProvider: Object,
+          deps: [],
+        }),
+      ).map(({ code }) => code),
+    )
+      .toEqual(["arbiter.model-without-arbiter-model"]);
+    expect(
+      arbiterErrorsOf(
+        modelWithoutArbiterModel({ name: "hybrid-arbiter", model: "fast", deps: [ArbiterModel] }),
+      ).map(({ code }) => code),
+    )
+      .not.toContain("arbiter.model-without-arbiter-model");
   });
 });
 

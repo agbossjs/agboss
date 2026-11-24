@@ -11,6 +11,7 @@ import type { AskResumeWorkflowFinish, ChatWorkflow, ChatWorkflowFinish, IntakeW
 import type { CompanyGradeDto, CompanyLinkDto, CompanyRejectedDto, CompanyReviewFailedDto, DeepDiveDto, GradedShortlistDto, JobOfferDto, PromisingCompanyDto } from "../tests/flow/fixtures/child-dtos.js";
 import type { CompanyFinderAgent, CompanyGradedWorkflowFinish, CompanyLinkReviewWorkflowStart, CompanyPickerAgent, CompanyRejectedWorkflowFinish, CompanyReviewFailedWorkflowFinish, CompanyReviewWorkflow, CompanyReviewWorkflowStart, CompanyReviewerAgent, CompanyScreeningWorkflow, CompanyScreeningWorkflowStart, DeepDiveAgent, GradedShortlistWorkflowFinish, GraderAgent, JobOfferAgent, JobOfferWorkflow, JobOfferWorkflowFinish, JobOfferWorkflowStart, LinkOfferWorkflow, LinkOfferWorkflowStart, MarkReviewFailedAction, NoOfferFailedWorkflowFinish, NoOfferRejectedWorkflowFinish, NotifyReviewStoppedAction, PickedOfferWorkflowStart, ReviewErrorWorkflowFinish, ReviewRankerAgent, ScreeningStoppedWorkflowFinish } from "../tests/flow/fixtures/children.fixture.js";
 import type { AuditBedAction, BedAgent, BedRequestWorkflow, BedRequestWorkflowStart, BedsDto, BedsWorkflowFinish, BookBedTool, ClinicExecutionContext, ClinicTenantContext, FreeBedsTool } from "../tests/flow/fixtures/clinic.fixture.js";
+import type { BudgetApprovalWorkflow, BudgetApprovalWorkflowStart, BudgetOwnerExternalTask, BudgetOwnerInboxChannel, CommitteeChildWorkflow, CommitteeChildWorkflowFinish, CommitteeChildWorkflowStart, CommitteeNoteAgent, CommitteeNotesWorkflow, CommitteeNotesWorkflowFinish, CommitteeNotesWorkflowStart, ContractCommitteeWorkflow, ContractCommitteeWorkflowStart, ContractDto, ContractGroupsWorkflow, ContractGroupsWorkflowStart, ContractRejectedWorkflowFinish, ContractSignedWorkflowFinish, DraftContractAction, FinanceDirectorExternalTask, FinanceInboxChannel, LegalInboxChannel, LegalSignOffExternalTask, LoadBudgetOwnersAction, OwnerAskDto, ReviewNotesAction, SecurityInboxChannel, SecuritySignOffExternalTask, SignAsFinanceAction, SignAsPanelAction, SignContractAction, SignOffDto, SignedDto } from "../tests/flow/fixtures/committee.fixture.js";
 import type { ChargeResultDto, CreditApprovalDto, CreditOrderDto, SupportIntentDto, TopicAnswerDto } from "../tests/flow/fixtures/credit-dtos.js";
 import type { ApprovalAgent, ChargeCardAction, CreditByModelWorkflow, CreditLimitByModelRouter, CreditLimitRouter, CreditWorkflow, CreditWorkflowFinish, CreditWorkflowStart, DeskRouter, NoOrderWorkflowFinish, OrderHeldWorkflowFinish, OrderIntakeAgent } from "../tests/flow/fixtures/credit.fixture.js";
 import type { CompanyDto, CompanyScoreDto, CustomerReplyDto, DraftChangesDto, ExpertDraftDto, FastDraftDto, LoyaltyOfferDto, OrderStatusDto, SearchRequestDto } from "../tests/flow/fixtures/data-dtos.js";
@@ -76,6 +77,8 @@ declare module "../src/flow/generated-types.js" {
       "board-search-agent": readonly CompanyDto[];
       "broken-agent": OfferDraftDto;
       "broken-review-workflow-start": WorkflowStartTextDto;
+      "budget-approval-workflow-start": WorkflowStartTextDto;
+      "budget-owner-external-task": SignOffDto;
       "budget-owner-question": SpendingLimitAnswerDto;
       "buyer-agent": NoOutput;
       "buyer-workflow-start": WorkflowStartTextDto;
@@ -87,6 +90,10 @@ declare module "../src/flow/generated-types.js" {
       "check-limit-action": PurchasePlacedDto | PurchaseQuestionDto;
       "checkout-workflow-start": WorkflowStartTextDto;
       "chosen-panel-writer-agent": ArticleDraftDto;
+      "committee-child-workflow": ContractDto;
+      "committee-child-workflow-start": ContractDto;
+      "committee-note-agent": NoOutput;
+      "committee-notes-workflow-start": WorkflowStartTextDto;
       "company-audit-agent": CompanyCheckDto;
       "company-batch-workflow-start": readonly CompanyDto[];
       "company-check-agent": CompanyScoreDto;
@@ -102,6 +109,8 @@ declare module "../src/flow/generated-types.js" {
       "company-search-workflow-start": WorkflowStartTextDto;
       "company-shortlist-agent": CompanyShortlistDto;
       "company-vet-agent": CompanyCheckDto;
+      "contract-committee-workflow-start": WorkflowStartTextDto;
+      "contract-groups-workflow-start": WorkflowStartTextDto;
       "coo-approver-agent": CooDecisionDto;
       "credit-workflow-start": WorkflowStartTextDto;
       "critic-agent": CritiqueDto;
@@ -119,6 +128,7 @@ declare module "../src/flow/generated-types.js" {
       "desk-agent": DeskAnswerDto | HandOverDto;
       "desk-workflow-start": WorkflowStartTextDto;
       "draft-agent": OfferDraftDto;
+      "draft-contract-action": ContractDto;
       "draft-editor-agent": OfferDraftDto;
       "draft-history-action": DraftChangesDto;
       "draft-question-action": PurchaseQuestionDto;
@@ -153,6 +163,7 @@ declare module "../src/flow/generated-types.js" {
       "fast-screen-agent": FastScreenDto;
       "final-reviewer-agent": ReviewDto;
       "finance-approver-agent": FinanceDecisionDto;
+      "finance-director-external-task": SignOffDto;
       "first-draft-agent": OfferDraftDto;
       "fit-review-workflow-start": CandidateDto;
       "fit-summary-agent": FitSummaryDto;
@@ -173,6 +184,7 @@ declare module "../src/flow/generated-types.js" {
       "legal-agent": LegalReviewDto;
       "legal-approver-agent": LegalDecisionDto;
       "legal-panel-agent": LegalReviewDto;
+      "legal-sign-off-external-task": SignOffDto;
       "link-offer-workflow-start": readonly [WorkflowStartTextDto, CompanyLinkDto];
       "list-finance-question": ListDecisionDto;
       "list-finance-workflow-start": ListOrderDto;
@@ -182,6 +194,7 @@ declare module "../src/flow/generated-types.js" {
       "list-open-workflow-start": ListOrderDto;
       "list-owner-question": ListDecisionDto;
       "list-owner-workflow-start": ListOrderDto;
+      "load-budget-owners-action": readonly OwnerAskDto[];
       "lookup-agent": NoOutput;
       "loyalty-agent": LoyaltyOfferDto;
       "loyalty-offer-agent": LoyaltyOfferDto;
@@ -256,6 +269,7 @@ declare module "../src/flow/generated-types.js" {
       "reserve-goods-action": NoOutput;
       "reserve-stock-action": StockReservationDto;
       "review-draft-action": ChangesRequestedDto | DraftApprovedDto;
+      "review-notes-action": SignedDto;
       "review-ranker-agent": GradedShortlistDto;
       "reviewer-agent": ChangesRequestedDto | DraftApprovedDto;
       "reviewer-workflow-start": ExpiryOrderDto;
@@ -268,11 +282,15 @@ declare module "../src/flow/generated-types.js" {
       "scout-agent": OpeningsDto;
       "screening-agent": readonly CompanyDto[];
       "screening-workflow-start": WorkflowStartTextDto;
+      "security-sign-off-external-task": SignOffDto;
       "send-offer-action": OfferSentDto;
       "send-receipt-action": NoOutput;
       "ship-order-action": OrderShippedDto;
       "short-expiry-workflow-start": ExpiryOrderDto;
       "side-question-workflow-start": WorkflowStartTextDto;
+      "sign-as-finance-action": SignedDto;
+      "sign-as-panel-action": SignedDto;
+      "sign-contract-action": SignedDto;
       "skills-panel-agent": ScoreDto;
       "skills-score-agent": SkillsScoreDto;
       "slow-escalation-action": ExpiryDoneDto;
@@ -349,6 +367,9 @@ declare module "../src/flow/generated-types.js" {
       "broken-review-workflow": WorkflowStartTextDto;
       "broken-review-workflow-start": WorkflowStartTextDto;
       "broken-screening-workflow": WorkflowStartTextDto;
+      "budget-approval-workflow": WorkflowStartTextDto;
+      "budget-approval-workflow-start": WorkflowStartTextDto;
+      "budget-owner-external-task": { ask: Produced<OwnerAskDto, typeof LoadBudgetOwnersAction> };
       "budget-owner-question": { ask: Produced<PurchaseQuestionDto, typeof CheckLimitAction | typeof DraftQuestionAction> };
       "budget-owner-reply-interpreter": { readonly ask: PurchaseQuestionDto; readonly reply: string };
       "buyer-agent": { message: Produced<WorkflowStartTextDto, typeof BuyerWorkflowStart> };
@@ -377,6 +398,12 @@ declare module "../src/flow/generated-types.js" {
         | { plan: Produced<PlanDto, typeof PlannerAgent>; research: Produced<ResearchDto, typeof PlanResearcherAgent>; critique?: undefined }
         | { plan: Produced<PlanDto, typeof PlannerAgent>; research?: undefined; critique: Produced<CritiqueDto, typeof CriticAgent> }
         | { plan: Produced<PlanDto, typeof PlannerAgent>; research?: undefined; critique?: undefined };
+      "committee-child-workflow": ContractDto;
+      "committee-child-workflow-finish": NoInput;
+      "committee-child-workflow-start": ContractDto;
+      "committee-note-agent": { message: Produced<WorkflowStartTextDto, typeof CommitteeNotesWorkflowStart> };
+      "committee-notes-workflow": WorkflowStartTextDto;
+      "committee-notes-workflow-start": WorkflowStartTextDto;
       "company-audit-agent": { company: Produced<CompanyDto, typeof ScreeningAgent> };
       "company-batch-workflow-start": readonly CompanyDto[];
       "company-check-agent":
@@ -404,6 +431,12 @@ declare module "../src/flow/generated-types.js" {
       "company-shortlist-agent": { checks: readonly Produced<CompanyCheckDto, typeof CompanyVetAgent>[] };
       "company-shortlist-workflow-finish": NoInput;
       "company-vet-agent": { company: Produced<CompanyDto, typeof BoardSearchAgent> };
+      "contract-committee-workflow": WorkflowStartTextDto;
+      "contract-committee-workflow-start": WorkflowStartTextDto;
+      "contract-groups-workflow": WorkflowStartTextDto;
+      "contract-groups-workflow-start": WorkflowStartTextDto;
+      "contract-rejected-workflow-finish": NoInput;
+      "contract-signed-workflow-finish": NoInput;
       "coo-approver-agent": { request: Produced<ApprovalRequestDto, typeof JoinExpiryWorkflowStart> };
       "copies-panel-workflow": CandidateDto;
       "credit-by-model-workflow": WorkflowStartTextDto;
@@ -434,6 +467,7 @@ declare module "../src/flow/generated-types.js" {
       "desk-workflow-finish": NoInput;
       "desk-workflow-start": WorkflowStartTextDto;
       "draft-agent": { shortlist: Produced<ShortlistDto, typeof OfferWorkflowStart> };
+      "draft-contract-action": { message: Produced<WorkflowStartTextDto, typeof CommitteeNotesWorkflowStart | typeof ContractCommitteeWorkflowStart | typeof ContractGroupsWorkflowStart> };
       "draft-editor-agent": { draft: Produced<OfferDraftDto, typeof DraftEditorAgent | typeof FirstDraftAgent>; changes: Produced<ChangesRequestedDto, typeof ReviewDraftAction> };
       "draft-history-action": { drafts: HistoryOf<Produced<OfferDraftDto, typeof DraftEditorAgent | typeof FirstDraftAgent>> };
       "draft-history-workflow-finish": NoInput;
@@ -487,6 +521,7 @@ declare module "../src/flow/generated-types.js" {
       "fast-screen-agent": { deal: Produced<DealDto, typeof DealWorkflowStart> };
       "final-reviewer-agent": { article: Produced<ArticleDto, typeof WriterAgent> };
       "finance-approver-agent": { request: Produced<ApprovalRequestDto, typeof JoinExpiryWorkflowStart> };
+      "finance-director-external-task": { ask: Produced<ContractDto, typeof DraftContractAction> };
       "first-draft-agent": { shortlist: Produced<ShortlistDto, typeof HistoryOfferWorkflowStart> };
       "fit-review-workflow": CandidateDto;
       "fit-review-workflow-start": CandidateDto;
@@ -536,6 +571,7 @@ declare module "../src/flow/generated-types.js" {
       "legal-agent": { deal: Produced<DealDto, typeof DealWorkflowStart> };
       "legal-approver-agent": { request: Produced<ApprovalRequestDto, typeof JoinExpiryWorkflowStart> };
       "legal-panel-agent": { deal: Produced<DealDto, typeof DealPanelWorkflowStart> };
+      "legal-sign-off-external-task": { ask: Produced<ContractDto, typeof DraftContractAction> };
       "link-offer-workflow": WorkflowStartTextDto | { message: WorkflowStartTextDto; link: CompanyLinkDto };
       "link-offer-workflow-start": { message: WorkflowStartTextDto; link: CompanyLinkDto };
       "list-finance-question": { ask: Produced<ListOrderDto, typeof ListFinanceWorkflowStart> };
@@ -551,6 +587,7 @@ declare module "../src/flow/generated-types.js" {
       "list-owner-workflow": ListOrderDto;
       "list-owner-workflow-start": ListOrderDto;
       "list-workflow-finish": NoInput;
+      "load-budget-owners-action": { message: Produced<WorkflowStartTextDto, typeof BudgetApprovalWorkflowStart> };
       "lookup-agent": { message: Produced<AskDto, typeof AskWorkflowStart> };
       "lookup-workflow": AskDto;
       "loyalty-agent": { order: Produced<OrderStatusDto, typeof OrderAgent> };
@@ -694,6 +731,9 @@ declare module "../src/flow/generated-types.js" {
       "reserve-stock-action": { order: Produced<OrderRequestDto, typeof OrderWorkflowStart> };
       "review-draft-action": { draft: HistoryOf<Produced<OfferDraftDto, typeof DraftEditorAgent | typeof FirstDraftAgent>> };
       "review-error-workflow-finish": NoInput;
+      "review-notes-action":
+        | { note: Produced<WorkflowFinishTextDto, typeof CommitteeNoteAgent>; checked: Produced<ContractDto, typeof CommitteeChildWorkflow | typeof DraftContractAction> }
+        | { note?: undefined; checked: Produced<ContractDto, typeof CommitteeChildWorkflow | typeof DraftContractAction> };
       "review-ranker-agent": { reviews: readonly Produced<CompanyGradeDto | CompanyRejectedDto | CompanyReviewFailedDto, typeof CompanyReviewWorkflow>[] };
       "reviewer-agent": { draft: Produced<OfferDraftDto, typeof DraftAgent | typeof EditorAgent> };
       "reviewer-notified-workflow-finish": NoInput;
@@ -717,6 +757,7 @@ declare module "../src/flow/generated-types.js" {
       "screening-workflow-start": WorkflowStartTextDto;
       "second-opinion-panel-workflow-finish": NoInput;
       "second-opinion-router": { critiques: readonly Produced<DealCritiqueDto, typeof DealCriticAgent>[] };
+      "security-sign-off-external-task": { ask: Produced<ContractDto, typeof DraftContractAction> };
       "send-offer-action": { draft: Produced<OfferDraftDto, typeof DraftAgent | typeof EditorAgent> };
       "send-receipt-action": { payment: Produced<PaymentDto, typeof ChargePaymentAction> };
       "ship-order-action": { order: Produced<OrderRequestDto, typeof OrderWorkflowStart> };
@@ -724,6 +765,9 @@ declare module "../src/flow/generated-types.js" {
       "short-expiry-workflow-start": ExpiryOrderDto;
       "side-question-workflow": WorkflowStartTextDto;
       "side-question-workflow-start": WorkflowStartTextDto;
+      "sign-as-finance-action": { signOffs: readonly Produced<SignOffDto, typeof FinanceDirectorExternalTask>[] };
+      "sign-as-panel-action": { signOffs: readonly Produced<SignOffDto, typeof LegalSignOffExternalTask | typeof SecuritySignOffExternalTask>[] };
+      "sign-contract-action": { signOffs: readonly Produced<SignOffDto, typeof BudgetOwnerExternalTask | typeof FinanceDirectorExternalTask | typeof LegalSignOffExternalTask | typeof SecuritySignOffExternalTask>[] };
       "skills-panel-agent": { candidate: Produced<CandidateDto, typeof PanelItemsWorkflowStart | typeof PanelWorkflowStart> };
       "skills-score-agent": { candidate: Produced<CandidateDto, typeof FitReviewWorkflowStart> };
       "slow-escalation-action": { order: Produced<ExpiryOrderDto, typeof SlowExpiryWorkflowStart> };
@@ -788,6 +832,7 @@ declare module "../src/flow/generated-types.js" {
       "ask-resume-workflow-finish": ResumeMissingDto;
       "audit-bed-action": NoOutput;
       "beds-workflow-finish": BedsDto;
+      "budget-owner-external-task": SignOffDto;
       "budget-owner-question": SpendingLimitAnswerDto;
       "budget-owner-reply-interpreter": SpendingLimitAnswerDto;
       "buyer-workflow-finish": WorkflowFinishTextDto;
@@ -795,17 +840,22 @@ declare module "../src/flow/generated-types.js" {
       "charge-payment-action": PaymentDto;
       "chat-workflow-finish": OpeningsDto;
       "check-limit-action": PurchasePlacedDto | PurchaseQuestionDto;
+      "committee-child-workflow-finish": ContractDto;
+      "committee-notes-workflow-finish": SignedDto;
       "company-graded-workflow-finish": CompanyGradeDto;
       "company-rejected-workflow-finish": CompanyRejectedDto;
       "company-review-failed-workflow-finish": CompanyReviewFailedDto;
       "company-score-workflow-finish": CompanyScoreDto;
       "company-shortlist-workflow-finish": CompanyShortlistDto;
+      "contract-rejected-workflow-finish": WorkflowStartTextDto;
+      "contract-signed-workflow-finish": SignedDto;
       "credit-workflow-finish": ChargeResultDto;
       "critique-action": readonly CritiqueDto[];
       "deal-report-panel-workflow-finish": DueDiligenceReportDto;
       "deal-room-opened-workflow-finish": AuditDto;
       "deposit-reply-interpreter": Omit<ToolCallApprovalDecisionDto, "overrideArguments"> & { readonly overrideArguments?: DepositReturnDto };
       "desk-workflow-finish": DeskAnswerDto;
+      "draft-contract-action": ContractDto;
       "draft-history-action": DraftChangesDto;
       "draft-history-workflow-finish": DraftChangesDto;
       "draft-question-action": PurchaseQuestionDto;
@@ -828,6 +878,7 @@ declare module "../src/flow/generated-types.js" {
       "extension-workflow-finish": ExpiryDoneDto;
       "fail-first-place-action": PurchasePlacedDto;
       "fail-topic-action": ResearchFailedDto;
+      "finance-director-external-task": SignOffDto;
       "fit-summary-workflow-finish": FitSummaryDto;
       "flaky-check-action": PurchasePlacedDto;
       "graded-shortlist-workflow-finish": GradedShortlistDto;
@@ -838,11 +889,13 @@ declare module "../src/flow/generated-types.js" {
       "join-expiry-escalated-workflow-finish": EscalationDto;
       "lazy-no-order-workflow-finish": WorkflowStartTextDto;
       "lazy-order-workflow-finish": ChargeResultDto;
+      "legal-sign-off-external-task": SignOffDto;
       "list-finance-question": ListDecisionDto;
       "list-manager-question": ListDecisionDto;
       "list-open-question": ListDecisionDto;
       "list-owner-question": ListDecisionDto;
       "list-workflow-finish": ListDoneDto;
+      "load-budget-owners-action": readonly OwnerAskDto[];
       "manual-quote-workflow-finish": QuoteRequestDto;
       "mark-review-failed-action": CompanyReviewFailedDto;
       "mark-unit-failed-action": OrgChartFailedDto;
@@ -901,15 +954,20 @@ declare module "../src/flow/generated-types.js" {
       "reserve-stock-action": StockReservationDto;
       "review-draft-action": ChangesRequestedDto | DraftApprovedDto;
       "review-error-workflow-finish": WorkflowStartTextDto;
+      "review-notes-action": SignedDto;
       "reviewer-notified-workflow-finish": DealDto;
       "score-review-failed-workflow-finish": CandidateDto;
       "score-review-workflow-finish": ScoreReviewDto;
       "screening-failed-workflow-finish": ScreeningFailedDto;
       "screening-stopped-workflow-finish": WorkflowStartTextDto;
       "second-opinion-panel-workflow-finish": DealCritiqueDto;
+      "security-sign-off-external-task": SignOffDto;
       "send-offer-action": OfferSentDto;
       "send-receipt-action": NoOutput;
       "ship-order-action": OrderShippedDto;
+      "sign-as-finance-action": SignedDto;
+      "sign-as-panel-action": SignedDto;
+      "sign-contract-action": SignedDto;
       "slow-escalation-action": ExpiryDoneDto;
       "spending-limit-question": SpendingLimitAnswerDto;
       "spending-limit-reply-interpreter": SpendingLimitAnswerDto;
@@ -935,15 +993,20 @@ declare module "../src/flow/generated-types.js" {
       "ask-workflow-start": { input: AskDto; output: WorkflowFinishTextDto; readonly finishes: "answer-workflow-finish" };
       "bed-request-workflow-start": { input: WorkflowStartTextDto; output: BedsDto; readonly finishes: "beds-workflow-finish"; tenant: ClinicTenantContext; execution: ClinicExecutionContext };
       "broken-review-workflow-start": { input: WorkflowStartTextDto; output: JobOfferDto; readonly finishes: "job-offer-workflow-finish" };
+      "budget-approval-workflow-start": { input: WorkflowStartTextDto; output: SignedDto | WorkflowStartTextDto; readonly finishes: "contract-rejected-workflow-finish" | "contract-signed-workflow-finish" };
       "buyer-workflow-start": { input: WorkflowStartTextDto; output: WorkflowFinishTextDto; readonly finishes: "buyer-workflow-finish" };
       "candidate-review-workflow-start": { input: CandidateDto; output: CandidateDto | ScoreReviewDto; readonly finishes: "score-review-failed-workflow-finish" | "score-review-workflow-finish" };
       "checkout-workflow-start": { input: WorkflowStartTextDto; output: PaymentDto; readonly finishes: "payment-workflow-finish" };
+      "committee-child-workflow-start": { input: ContractDto; output: ContractDto; readonly finishes: "committee-child-workflow-finish" };
+      "committee-notes-workflow-start": { input: WorkflowStartTextDto; output: SignedDto | WorkflowStartTextDto; readonly finishes: "contract-rejected-workflow-finish" | "contract-signed-workflow-finish" };
       "company-batch-workflow-start": { input: readonly CompanyDto[]; output: CompanyScoreDto; readonly finishes: "company-score-workflow-finish" };
       "company-check-workflow-start": { input: { company: CompanyDto; request?: SearchRequestDto }; output: CompanyScoreDto; readonly finishes: "company-score-workflow-finish" };
       "company-link-review-workflow-start": { input: CompanyLinkDto; output: CompanyGradeDto | CompanyRejectedDto | CompanyReviewFailedDto; readonly finishes: "company-graded-workflow-finish" | "company-rejected-workflow-finish" | "company-review-failed-workflow-finish" };
       "company-review-workflow-start": { input: CompanyDto; output: CompanyGradeDto | CompanyRejectedDto | CompanyReviewFailedDto; readonly finishes: "company-graded-workflow-finish" | "company-rejected-workflow-finish" | "company-review-failed-workflow-finish" };
       "company-screening-workflow-start": { input: WorkflowStartTextDto; output: GradedShortlistDto | WorkflowStartTextDto; readonly finishes: "graded-shortlist-workflow-finish" | "screening-stopped-workflow-finish" };
       "company-search-workflow-start": { input: WorkflowStartTextDto; output: CompanyShortlistDto; readonly finishes: "company-shortlist-workflow-finish" };
+      "contract-committee-workflow-start": { input: WorkflowStartTextDto; output: SignedDto | WorkflowStartTextDto; readonly finishes: "contract-rejected-workflow-finish" | "contract-signed-workflow-finish" };
+      "contract-groups-workflow-start": { input: WorkflowStartTextDto; output: SignedDto | WorkflowStartTextDto; readonly finishes: "contract-rejected-workflow-finish" | "contract-signed-workflow-finish" };
       "credit-workflow-start": { input: WorkflowStartTextDto; output: ChargeResultDto | CreditOrderDto | WorkflowStartTextDto; readonly finishes: "credit-workflow-finish" | "no-order-workflow-finish" | "order-held-workflow-finish" };
       "deal-panel-workflow-start": { input: DealDto; output: DealCritiqueDto | DealDto | DueDiligenceReportDto | FastScreenDto; readonly finishes: "deal-report-panel-workflow-finish" | "no-quorum-panel-workflow-finish" | "quick-reject-panel-workflow-finish" | "second-opinion-panel-workflow-finish" };
       "deal-workflow-start": { input: DealDto; output: AuditDto | DealDto | DueDiligenceReportDto | FastScreenDto; readonly finishes: "deal-room-opened-workflow-finish" | "due-diligence-report-workflow-finish" | "quick-reject-workflow-finish" | "reviewer-notified-workflow-finish" };
@@ -1007,6 +1070,7 @@ declare module "../src/flow/generated-types.js" {
       "verdict-workflow-start": { input: ShortlistDto; output: ApprovedVerdictDto | RejectedVerdictDto; readonly finishes: "approved-workflow-finish" | "rejected-workflow-finish" };
     }
     interface WorkflowFinishes {
+      "committee-child-workflow": typeof CommitteeChildWorkflowFinish;
       "company-review-workflow": typeof CompanyGradedWorkflowFinish | typeof CompanyRejectedWorkflowFinish | typeof CompanyReviewFailedWorkflowFinish;
       "deep-research-workflow": typeof ResearchFailedWorkflowFinish | typeof ResearchReportWorkflowFinish;
       "org-chart-workflow": typeof OrgChartFailedWorkflowFinish | typeof TeamChartWorkflowFinish;
@@ -1052,6 +1116,7 @@ declare module "../src/flow/generated-types.js" {
     }
     interface ChannelRoles {
       "approver-question": { readonly ask: PurchaseQuestionDto; readonly answer: ApproverAnswerDto };
+      "budget-owner-external-task": { readonly ask: OwnerAskDto; readonly answer: SignOffDto };
       "budget-owner-question": { readonly ask: PurchaseQuestionDto; readonly answer: SpendingLimitAnswerDto };
       "deposit-approval-channel": { readonly ask: Omit<ToolCallApprovalAskDto, "arguments"> & { readonly arguments: DepositReturnDto }; readonly answer: Omit<ToolCallApprovalDecisionDto, "overrideArguments"> & { readonly overrideArguments?: DepositReturnDto } };
       "edge-once-question": { readonly ask: PurchaseQuestionDto; readonly answer: SpendingLimitAnswerDto };
@@ -1065,7 +1130,9 @@ declare module "../src/flow/generated-types.js" {
       "extendable-manager-question": { readonly ask: ExpiryOrderDto; readonly answer: ExpiryDecisionDto };
       "extendable-open-question": { readonly ask: ExpiryOrderDto; readonly answer: ExpiryDecisionDto };
       "extendable-owner-question": { readonly ask: ExpiryOrderDto; readonly answer: ExpiryDecisionDto };
+      "finance-director-external-task": { readonly ask: ContractDto; readonly answer: SignOffDto };
       "join-approver-question-channel": { readonly ask: Omit<ToolCallApprovalAskDto, "arguments"> & { readonly arguments: ApprovalRequestDto }; readonly answer: Omit<ToolCallApprovalDecisionDto, "overrideArguments"> & { readonly overrideArguments?: ApprovalRequestDto } };
+      "legal-sign-off-external-task": { readonly ask: ContractDto; readonly answer: SignOffDto };
       "list-finance-question": { readonly ask: ListOrderDto; readonly answer: ListDecisionDto };
       "list-manager-question": { readonly ask: ListOrderDto; readonly answer: ListDecisionDto };
       "list-open-question": { readonly ask: ListOrderDto; readonly answer: ListDecisionDto };
@@ -1075,13 +1142,18 @@ declare module "../src/flow/generated-types.js" {
       "pt-limit-external-task": { readonly ask: PtLimitAskDto; readonly answer: PtLimitAnswerDto };
       "pt-payout-tool-approval": { readonly ask: Omit<ToolCallApprovalAskDto, "arguments"> & { readonly arguments: PtPayoutDto }; readonly answer: Omit<ToolCallApprovalDecisionDto, "overrideArguments"> & { readonly overrideArguments?: PtPayoutDto } };
       "refund-approval-channel": { readonly ask: Omit<ToolCallApprovalAskDto, "arguments"> & { readonly arguments: RefundCardInputDto }; readonly answer: Omit<ToolCallApprovalDecisionDto, "overrideArguments"> & { readonly overrideArguments?: RefundCardInputDto } };
+      "security-sign-off-external-task": { readonly ask: ContractDto; readonly answer: SignOffDto };
       "spending-limit-question": { readonly ask: PurchaseQuestionDto; readonly answer: SpendingLimitAnswerDto };
       "transfer-approval-channel": { readonly ask: Omit<ToolCallApprovalAskDto, "arguments"> & { readonly arguments: TransferRequestDto }; readonly answer: Omit<ToolCallApprovalDecisionDto, "overrideArguments"> & { readonly overrideArguments?: TransferRequestDto } };
     }
     interface PauseTargets {
+      "budget-owner-external-task": { readonly input: OwnerAskDto; readonly output: SignOffDto };
+      "finance-director-external-task": { readonly input: ContractDto; readonly output: SignOffDto };
+      "legal-sign-off-external-task": { readonly input: ContractDto; readonly output: SignOffDto };
       "pt-any-tool-approval": { readonly input: PtLimitAskDto; readonly output: { readonly approved: boolean; readonly reason?: string; readonly overrideInput?: PtLimitAskDto } };
       "pt-limit-external-task": { readonly input: PtLimitAskDto; readonly output: PtLimitAnswerDto };
       "pt-payout-tool-approval": { readonly input: PtPayoutDto; readonly output: { readonly approved: boolean; readonly reason?: string; readonly overrideInput?: PtPayoutDto } };
+      "security-sign-off-external-task": { readonly input: ContractDto; readonly output: SignOffDto };
     }
     interface AgentTools {
       "answer-agent": never;
@@ -1098,6 +1170,7 @@ declare module "../src/flow/generated-types.js" {
       "cfo-approver-agent": "approve-in-30-tool";
       "chart-merger-agent": never;
       "chosen-panel-writer-agent": never;
+      "committee-note-agent": never;
       "company-audit-agent": never;
       "company-check-agent": never;
       "company-finder-agent": never;
@@ -1216,6 +1289,7 @@ declare module "../src/flow/generated-types.js" {
       "CompanyReviewFailedDto": CompanyReviewFailedDto;
       "CompanyScoreDto": CompanyScoreDto;
       "CompanyShortlistDto": CompanyShortlistDto;
+      "ContractDto": ContractDto;
       "CooDecisionDto": CooDecisionDto;
       "CreditApprovalDto": CreditApprovalDto;
       "CreditOrderDto": CreditOrderDto;
@@ -1260,6 +1334,7 @@ declare module "../src/flow/generated-types.js" {
       "OrgChartFailedDto": OrgChartFailedDto;
       "OrgSplitDto": OrgSplitDto;
       "OrgUnitDto": OrgUnitDto;
+      "OwnerAskDto": OwnerAskDto;
       "PaymentDto": PaymentDto;
       "PayoutRequestDto": PayoutRequestDto;
       "PlanDto": PlanDto;
@@ -1292,6 +1367,8 @@ declare module "../src/flow/generated-types.js" {
       "ScreeningFailedDto": ScreeningFailedDto;
       "SearchRequestDto": SearchRequestDto;
       "ShortlistDto": ShortlistDto;
+      "SignedDto": SignedDto;
+      "SignOffDto": SignOffDto;
       "SkillsScoreDto": SkillsScoreDto;
       "SpendingLimitAnswerDto": SpendingLimitAnswerDto;
       "StockReservationDto": StockReservationDto;
@@ -1631,6 +1708,108 @@ declare module "../tests/flow/fixtures/clinic.fixture.js" {
   }
   interface FreeBedsTool {
     readonly [agbossComponent]?: { readonly name: "free-beds-tool" };
+  }
+}
+
+declare module "../tests/flow/fixtures/committee.fixture.js" {
+  interface BudgetApprovalWorkflow {
+    readonly [agbossComponent]?: { readonly name: "budget-approval-workflow"; readonly kind: NodeKind.Workflow };
+  }
+  interface BudgetApprovalWorkflowStart {
+    readonly [agbossComponent]?: { readonly name: "budget-approval-workflow-start"; readonly kind: NodeKind.Start };
+  }
+  interface BudgetOwnerExternalTask {
+    readonly [agbossComponent]?: { readonly name: "budget-owner-external-task"; readonly kind: NodeKind.Question };
+  }
+  interface BudgetOwnerInboxChannel {
+    readonly [agbossComponent]?: { readonly name: "budget-owner-inbox-channel" };
+  }
+  interface CommitteeChildWorkflow {
+    readonly [agbossComponent]?: { readonly name: "committee-child-workflow"; readonly kind: NodeKind.Workflow };
+  }
+  interface CommitteeChildWorkflowFinish {
+    readonly [agbossComponent]?: { readonly name: "committee-child-workflow-finish"; readonly kind: NodeKind.Finish };
+  }
+  interface CommitteeChildWorkflowStart {
+    readonly [agbossComponent]?: { readonly name: "committee-child-workflow-start"; readonly kind: NodeKind.Start };
+  }
+  interface CommitteeNoteAgent {
+    readonly [agbossComponent]?: { readonly name: "committee-note-agent"; readonly kind: NodeKind.Agent };
+  }
+  interface CommitteeNotesWorkflow {
+    readonly [agbossComponent]?: { readonly name: "committee-notes-workflow"; readonly kind: NodeKind.Workflow };
+  }
+  interface CommitteeNotesWorkflowFinish {
+    readonly [agbossComponent]?: { readonly name: "committee-notes-workflow-finish"; readonly kind: NodeKind.Finish };
+  }
+  interface CommitteeNotesWorkflowStart {
+    readonly [agbossComponent]?: { readonly name: "committee-notes-workflow-start"; readonly kind: NodeKind.Start };
+  }
+  interface ContractCommitteeWorkflow {
+    readonly [agbossComponent]?: { readonly name: "contract-committee-workflow"; readonly kind: NodeKind.Workflow };
+  }
+  interface ContractCommitteeWorkflowStart {
+    readonly [agbossComponent]?: { readonly name: "contract-committee-workflow-start"; readonly kind: NodeKind.Start };
+  }
+  interface ContractDto {
+    readonly [agbossDto]?: "ContractDto";
+  }
+  interface ContractGroupsWorkflow {
+    readonly [agbossComponent]?: { readonly name: "contract-groups-workflow"; readonly kind: NodeKind.Workflow };
+  }
+  interface ContractGroupsWorkflowStart {
+    readonly [agbossComponent]?: { readonly name: "contract-groups-workflow-start"; readonly kind: NodeKind.Start };
+  }
+  interface ContractRejectedWorkflowFinish {
+    readonly [agbossComponent]?: { readonly name: "contract-rejected-workflow-finish"; readonly kind: NodeKind.Finish };
+  }
+  interface ContractSignedWorkflowFinish {
+    readonly [agbossComponent]?: { readonly name: "contract-signed-workflow-finish"; readonly kind: NodeKind.Finish };
+  }
+  interface DraftContractAction {
+    readonly [agbossComponent]?: { readonly name: "draft-contract-action"; readonly kind: NodeKind.Action };
+  }
+  interface FinanceDirectorExternalTask {
+    readonly [agbossComponent]?: { readonly name: "finance-director-external-task"; readonly kind: NodeKind.Question };
+  }
+  interface FinanceInboxChannel {
+    readonly [agbossComponent]?: { readonly name: "finance-inbox-channel" };
+  }
+  interface LegalInboxChannel {
+    readonly [agbossComponent]?: { readonly name: "legal-inbox-channel" };
+  }
+  interface LegalSignOffExternalTask {
+    readonly [agbossComponent]?: { readonly name: "legal-sign-off-external-task"; readonly kind: NodeKind.Question };
+  }
+  interface LoadBudgetOwnersAction {
+    readonly [agbossComponent]?: { readonly name: "load-budget-owners-action"; readonly kind: NodeKind.Action };
+  }
+  interface OwnerAskDto {
+    readonly [agbossDto]?: "OwnerAskDto";
+  }
+  interface ReviewNotesAction {
+    readonly [agbossComponent]?: { readonly name: "review-notes-action"; readonly kind: NodeKind.Action };
+  }
+  interface SecurityInboxChannel {
+    readonly [agbossComponent]?: { readonly name: "security-inbox-channel" };
+  }
+  interface SecuritySignOffExternalTask {
+    readonly [agbossComponent]?: { readonly name: "security-sign-off-external-task"; readonly kind: NodeKind.Question };
+  }
+  interface SignAsFinanceAction {
+    readonly [agbossComponent]?: { readonly name: "sign-as-finance-action"; readonly kind: NodeKind.Action };
+  }
+  interface SignAsPanelAction {
+    readonly [agbossComponent]?: { readonly name: "sign-as-panel-action"; readonly kind: NodeKind.Action };
+  }
+  interface SignContractAction {
+    readonly [agbossComponent]?: { readonly name: "sign-contract-action"; readonly kind: NodeKind.Action };
+  }
+  interface SignedDto {
+    readonly [agbossDto]?: "SignedDto";
+  }
+  interface SignOffDto {
+    readonly [agbossDto]?: "SignOffDto";
   }
 }
 

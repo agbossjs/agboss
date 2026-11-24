@@ -8,7 +8,8 @@ import { METADATA_KEY } from "../../polyfills/symbol-metadata.js";
 import type { NodeKind } from "../ast.js";
 import { resolvedName } from "../names.js";
 import type { KindCheck } from "../builder-types.js";
-import type { NoOutput, ProducerOutputOf } from "../generated-types.js";
+import type { WorkflowFinishTextDto } from "../../dto/standard/framework.js";
+import type { KindOf, NoOutput, ProducerOutputOf } from "../generated-types.js";
 import { FlowSyntaxError } from "../launch-step.js";
 import type { Tracked } from "../metadata.js";
 
@@ -160,8 +161,18 @@ export const isCodeArbiter = (options: ArbiterOptions): options is RecordedCodeA
 export const hasArbiterModel = (options: ArbiterOptions): boolean =>
   isDeclarativeArbiter(options) || (options.deps ?? []).includes(ArbiterModel);
 
-/** The answer an `@Arbitrate(Target)` method takes: the target's output as a plain DTO. */
-export type ArbiterAnswerOf<TTarget extends Class> = ProducerOutputOf<InstanceType<TTarget>>;
+/**
+ * The answer an `@Arbitrate(Target)` method takes: the target's output as a plain DTO — an
+ * `@Agent` without `output` (a text agent) answers with its reply as a `WorkflowFinishTextDto`; an
+ * `@ExternalTask` its reply DTO; an `@Workflow` the output of its finishes (#1283b).
+ */
+export type ArbiterAnswerOf<TTarget extends Class> = [
+  ProducerOutputOf<InstanceType<TTarget>>,
+] extends [NoOutput]
+  ? [KindOf<InstanceType<TTarget>>] extends [NodeKind.Agent]
+    ? WorkflowFinishTextDto
+    : NoOutput
+  : ProducerOutputOf<InstanceType<TTarget>>;
 
 /** What `@Arbitrate(…)` accepts: what a quorum branch is that gives an answer. */
 export type ArbitrableKind =

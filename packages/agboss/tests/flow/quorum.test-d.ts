@@ -8,7 +8,16 @@ import {
   ArbiterModel,
   Arbitrate,
   type ArbitratedAnswerOf,
+  type ArbiterAnswerOf,
 } from "../../src/flow/decorators/arbiter.js";
+import type { WorkflowFinishTextDto } from "../../src/dto/index.js";
+import {
+  CommitteeChildWorkflow,
+  CommitteeNoteAgent,
+  FinanceDirectorExternalTask,
+  LegalSignOffExternalTask,
+  type SignOffDto,
+} from "./fixtures/committee.fixture.js";
 import * as index from "../../src/index.js";
 import { Metadata, type Tracked } from "../../src/flow/metadata.js";
 import { listOf, optional } from "../../src/flow/dto-wrappers.js";
@@ -227,6 +236,35 @@ describe("#279 AC6: @Arbitrate(…targets) checks the method; the options say ho
     // @ts-expect-error — @OnAnswer is @Arbitrate(…targets)
     const removed: unknown = index.OnAnswer;
     expectTypeOf(removed).toBeUnknown();
+  });
+
+  it("the answer of an @ExternalTask, a text @Agent and a @Workflow target is typed (#1283b)", () => {
+    expectTypeOf<ArbiterAnswerOf<typeof LegalSignOffExternalTask>>().toEqualTypeOf<SignOffDto>();
+    expectTypeOf<
+      ArbiterAnswerOf<typeof CommitteeNoteAgent>
+    >().toEqualTypeOf<WorkflowFinishTextDto>();
+    expectTypeOf<ArbiterAnswerOf<typeof CommitteeChildWorkflow>>().not.toBeNever();
+
+    @Arbiter()
+    class MixedArbiter {
+      @Arbitrate(LegalSignOffExternalTask, FinanceDirectorExternalTask)
+      isApproved(
+        answer: ArbitratedAnswerOf<
+          [typeof LegalSignOffExternalTask, typeof FinanceDirectorExternalTask]
+        >,
+      ): boolean {
+        expectTypeOf(Metadata.createdBy(answer)).toEqualTypeOf<
+          typeof LegalSignOffExternalTask | typeof FinanceDirectorExternalTask
+        >();
+        return answer.approved;
+      }
+
+      @Arbitrate(CommitteeNoteAgent)
+      isNote(answer: WorkflowFinishTextDto): boolean {
+        return answer.text !== "";
+      }
+    }
+    expectTypeOf(MixedArbiter).toBeConstructibleWith();
   });
 
   it("model / modelProvider need ArbiterModel in deps; with it they compile (#1283)", () => {
