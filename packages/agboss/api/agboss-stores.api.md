@@ -7,7 +7,6 @@
 import type { BaseCheckpointSaver } from '@langchain/langgraph';
 import type { CheckpointTuple } from '@langchain/langgraph';
 import type { DatabaseSync } from 'node:sqlite';
-import type { MessageContent } from '@langchain/core/messages';
 import type { RunnableConfig } from '@langchain/core/runnables';
 
 // @public
@@ -709,7 +708,7 @@ export type ExecutionAuditEventRecord = LeaseTakeoverRecord | StepHandedOverReco
 
 // @public (undocumented)
 export abstract class ExecutionAuditLogRepository {
-    abstract deleteByOccurredAtBefore(cutoff: Date): Promise<void>;
+    abstract deleteExpired(cutoff: Date): Promise<number>;
     abstract findAllByTenantIdAndRootExecutionIdOrderByOccurredAt(tenantId: string, rootExecutionId: string): Promise<readonly ExecutionAuditEventRecord[]>;
     abstract ping(): Promise<void>;
     abstract save(record: ExecutionAuditEventRecord): Promise<void>;
@@ -808,7 +807,7 @@ export const executionHistoryRecordOfJson: (value: unknown) => ExecutionHistoryR
 
 // @public (undocumented)
 export abstract class ExecutionHistoryRepository {
-    abstract deleteByEndedAtBefore(cutoff: Date): Promise<void>;
+    abstract deleteExpired(cutoff: Date): Promise<number>;
     abstract findAllByExecutionId(executionId: string): Promise<ExecutionHistoryRecord[]>;
     abstract findAllByStartedAtBetween(from: Date, to: Date, page: ExecutionHistoryPage): Promise<ExecutionHistoryRecord[]>;
     abstract findAllByTenantIdAndStartedAtBetween(tenantId: string, from: Date, to: Date, page: ExecutionHistoryPage): Promise<ExecutionHistoryRecord[]>;
@@ -972,10 +971,8 @@ export interface ExecutionTree {
 // @public
 export abstract class ExecutionTreeRepository {
     abstract deleteAllInTree(tree: ExecutionTree): Promise<void>;
-    findById(key: string): Promise<ExecutionTreeValue | undefined>;
     abstract findByIdInTree(tree: ExecutionTree, key: string): Promise<ExecutionTreeValue | undefined>;
     abstract ping(): Promise<void>;
-    saveIfAbsent(key: string, value: ExecutionTreeValue): Promise<boolean>;
     abstract saveIfAbsentInTree(tree: ExecutionTree, key: string, value: ExecutionTreeValue): Promise<boolean>;
 }
 
@@ -1298,8 +1295,8 @@ export interface MeshRequestRecord extends MeshRequestKey {
 
 // @public (undocumented)
 export abstract class MeshRequestRepository {
-    abstract deleteByCreatedAtBefore(cutoff: Date): Promise<void>;
     abstract deleteByKey(key: MeshRequestKey): Promise<void>;
+    abstract deleteExpired(cutoff: Date): Promise<number>;
     abstract findByKey(key: MeshRequestKey): Promise<MeshRequestRecord | undefined>;
     abstract ping(): Promise<void>;
     abstract saveIfAbsent(record: MeshRequestRecord): Promise<boolean>;
@@ -2434,7 +2431,7 @@ export interface TurnStep {
     // (undocumented)
     readonly agent: string;
     // (undocumented)
-    readonly content: MessageContent;
+    readonly content: string;
 }
 
 // @public

@@ -24,10 +24,10 @@ export const A2A_MESH_EXTENSION = "https://agboss.dev/a2a/mesh/v1";
 export const A2A_SKILLS_EXTENSION = "https://agboss.dev/a2a/skills/v1";
 
 // @public
-export function A2AAgent<TIn extends DtoClass, TOut extends DtoClass, const D extends readonly Token[] = []>(config: A2AAgentConfig<TIn, TOut, D>): <C extends new (...args: ResolvedAll<D>) => A2AClient<InstanceType<TIn>, InstanceType<TOut>>>(value: C) => C;
+export function A2AAgent<TIn extends DtoClass, TOut extends DtoClass, const D extends readonly Token[] = [], const TPorts extends InjectAs = readonly []>(config: A2AAgentConfig<TIn, TOut, D, TPorts>): <C extends new (...args: ResolvedAll<D>) => A2AClient<InstanceType<TIn>, InstanceType<TOut>> & PortInstances<TPorts>>(value: C) => C;
 
 // @public
-export type A2AAgentConfig<TIn extends DtoClass = DtoClass, TOut extends DtoClass = DtoClass, D extends readonly Token[] = []> = {
+export type A2AAgentConfig<TIn extends DtoClass = DtoClass, TOut extends DtoClass = DtoClass, D extends readonly Token[] = [], TPorts extends InjectAs = readonly []> = {
     readonly name: string;
     readonly url: string;
     readonly target?: A2ATarget;
@@ -35,6 +35,7 @@ export type A2AAgentConfig<TIn extends DtoClass = DtoClass, TOut extends DtoClas
     readonly mesh?: A2AMesh;
     readonly allowedOrigins?: readonly string[];
     readonly deps?: D;
+    readonly injectAs?: TPorts;
 } & ({
     readonly input: TIn;
     readonly output: TOut;

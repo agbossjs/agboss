@@ -61,11 +61,11 @@ export class SqliteExecutionAuditLogRepository extends ExecutionAuditLogReposito
     return Promise.resolve(rows.map(recordOf));
   }
 
-  deleteByOccurredAtBefore(cutoff: Date): Promise<void> {
-    this.connection.database
+  deleteExpired(cutoff: Date): Promise<number> {
+    const { changes } = this.connection.database
       .prepare("DELETE FROM execution_lease_events WHERE occurred_at < ?")
       .run(cutoff.getTime());
-    return Promise.resolve();
+    return Promise.resolve(Number(changes));
   }
 }
 

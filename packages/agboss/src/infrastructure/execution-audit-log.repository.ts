@@ -275,8 +275,11 @@ export abstract class ExecutionAuditLogRepository {
     rootExecutionId: string,
   ): Promise<readonly ExecutionAuditEventRecord[]>;
 
-  /** Removes every row that happened before `cutoff` (the recovery sweep, `now - retention`). */
-  abstract deleteByOccurredAtBefore(cutoff: Date): Promise<void>;
+  /**
+   * Removes every row that happened before `cutoff` (the recovery sweep, `now - retention`) and gives
+   * the number removed (`onTtlSweep`'s count).
+   */
+  abstract deleteExpired(cutoff: Date): Promise<number>;
 }
 
 /** The built-in default: the rows in this instance's memory (a test's instances share them). */
@@ -306,11 +309,11 @@ export class InMemoryExecutionAuditLogRepository extends ExecutionAuditLogReposi
     return Promise.resolve(found.map((row) => structuredClone(row)));
   }
 
-  deleteByOccurredAtBefore(cutoff: Date): Promise<void> {
-    const kept = this.database.executionAuditLog.filter(
-      (row) => Date.parse(row.occurredAt) >= cutoff.getTime(),
-    );
-    this.database.executionAuditLog.splice(0, Infinity, ...kept);
-    return Promise.resolve();
+  deleteExpired(cutoff: Date): Promise<number> {
+    const rows = this.database.executionAuditLog;
+    const kept = rows.filter((row) => Date.parse(row.occurredAt) >= cutoff.getTime());
+    const removed = rows.length - kept.length;
+    rows.splice(0, Infinity, ...kept);
+    return Promise.resolve(removed);
   }
 }

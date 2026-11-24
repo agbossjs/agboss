@@ -5,7 +5,6 @@
 ```ts
 
 import { BaseCheckpointSaver } from '@langchain/langgraph';
-import type { MessageContent } from '@langchain/core/messages';
 
 // @public
 export function a2aDirectMessageContract(target: ContractTarget<A2ADirectMessageStores>): void;

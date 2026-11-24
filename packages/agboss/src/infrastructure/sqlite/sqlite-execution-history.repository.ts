@@ -108,11 +108,11 @@ export class SqliteExecutionHistoryRepository extends ExecutionHistoryRepository
     return Promise.resolve(rows.map(recordOf));
   }
 
-  deleteByEndedAtBefore(cutoff: Date): Promise<void> {
-    this.connection.database
+  deleteExpired(cutoff: Date): Promise<number> {
+    const { changes } = this.connection.database
       .prepare("DELETE FROM execution_history WHERE ended_at IS NOT NULL AND ended_at < ?")
       .run(cutoff.toISOString());
-    return Promise.resolve();
+    return Promise.resolve(Number(changes));
   }
 }
 

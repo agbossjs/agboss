@@ -200,7 +200,7 @@ export enum ImageDetail {
 }
 
 // @public
-export function Injectable<const D extends readonly Token[] = []>(options?: InjectableOptions<D>): <C extends new (...args: ResolvedAll<D>) => object>(value: C) => C;
+export function Injectable<const D extends readonly Token[] = [], const TPorts extends InjectAs = readonly []>(options?: InjectableOptions<D, TPorts>): <C extends new (...args: ResolvedAll<D>) => PortInstances<TPorts>>(value: C) => C;
 
 // @public
 export class InjectionToken<T> {

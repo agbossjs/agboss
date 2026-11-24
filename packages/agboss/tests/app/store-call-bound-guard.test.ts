@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { FencedEffectRepository, FencedEffectStatus } from "../../src/index.js";
-import { boundedStoreOf, targetOf } from "../../src/app/store-call-bound.js";
+import { boundedStoreOf, MAINTENANCE_METHODS, targetOf } from "../../src/app/store-call-bound.js";
 import { LONG_CALL_BOUND, RENEW_BOUND, STORE_CALL_BOUND } from "../../src/app/lease-fence.js";
 import { StoreBounds } from "../../src/app/store-bounds.js";
 import type { Class } from "../../src/components/injection.js";
@@ -77,7 +77,7 @@ describe("#928 AC1 guard: every method of every bounded contract is bounded", ()
           Promise.resolve("pending"),
         ]);
         expect(await settled).toBe("pending");
-        const isLong = /^delete\w*Before$/u.test(name) || contract === A2AFileRepository;
+        const isLong = MAINTENANCE_METHODS.test(name) || contract === A2AFileRepository;
         const bound = isLong
           ? LONG_CALL_BOUND
           : name === "renew" && contract === ExecutionLeaseRepository
@@ -98,19 +98,22 @@ describe("#928 AC1 guard: every method of every bounded contract is bounded", ()
     });
   }
 
-  it("MAINTENANCE_METHODS is exactly the delete…Before methods, each of them bounded by 5 minutes", () => {
+  it("MAINTENANCE_METHODS is exactly the sweeps (deleteExpired and the delete…Before not yet renamed), each of them bounded by 5 minutes", () => {
     const found = new Set(
-      CONTRACTS.flatMap(([, names]) => names).filter((name) => /^delete\w*Before$/u.test(name)),
+      CONTRACTS.flatMap(([, names]) => names).filter((name) =>
+        /^delete\w*(Before|Expired)$/u.test(name),
+      ),
     );
     expect([...found].sort()).toEqual([
       "deleteByCreatedAtBefore",
       "deleteByEndedAtBefore",
       "deleteByMadeAtBefore",
-      "deleteByOccurredAtBefore",
       "deleteByResolvedAtBefore",
       "deleteByStoredAtBefore",
+      "deleteExpired",
       "deleteTerminalByStatusAtBefore",
     ]);
+    expect([...found].every((name) => MAINTENANCE_METHODS.test(name))).toBe(true);
   });
 });
 

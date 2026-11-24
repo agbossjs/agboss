@@ -123,7 +123,7 @@ const HISTORY_CASES: readonly ContractCase<ExecutionHistoryRepository>[] = [
       await first.save(recordOf("e2", { endedAt: "2026-01-05T12:00:00.000Z" }));
       await first.save(recordOf("e3", { status: ExecutionHistoryStatus.Paused }));
 
-      await second.deleteByEndedAtBefore(new Date("2026-01-05T10:00:00.000Z"));
+      await second.deleteExpired(new Date("2026-01-05T10:00:00.000Z"));
 
       expect(idsOf(await first.findAllByTenantIdAndThreadId("acme", "thread-1"))).toEqual([
         "e2",

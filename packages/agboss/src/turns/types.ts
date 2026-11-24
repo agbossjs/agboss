@@ -1,4 +1,3 @@
-import type { MessageContent } from "@langchain/core/messages";
 /** Terminology: a Turn is one question → replyWith round (one run). A thread is a client's sequence of Turns. */
 
 /**
@@ -23,7 +22,7 @@ export const TURN_STATUSES = [
 /** One step inside a Turn: what one agent answered. */
 export interface TurnStep {
   readonly agent: string;
-  readonly content: MessageContent;
+  readonly content: string;
 }
 
 export interface Turn {

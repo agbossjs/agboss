@@ -210,12 +210,12 @@ describe("#834 AC1: the recovery sweep removes each kind past its own retention"
       ],
       [
         "executionRecords",
-        vi.spyOn(app.resolve(ExecutionHistoryRepository), "deleteByEndedAtBefore"),
+        vi.spyOn(app.resolve(ExecutionHistoryRepository), "deleteExpired"),
         RETENTION.executionRecords,
       ],
       [
         "auditLog",
-        vi.spyOn(app.resolve(ExecutionAuditLogRepository), "deleteByOccurredAtBefore"),
+        vi.spyOn(app.resolve(ExecutionAuditLogRepository), "deleteExpired"),
         RETENTION.auditLog,
       ],
       [
@@ -235,7 +235,7 @@ describe("#834 AC1: the recovery sweep removes each kind past its own retention"
       ],
       [
         "meshAnswers",
-        vi.spyOn(app.resolve(MeshRequestRepository), "deleteByCreatedAtBefore"),
+        vi.spyOn(app.resolve(MeshRequestRepository), "deleteExpired"),
         RETENTION.meshAnswers,
       ],
       [

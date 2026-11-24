@@ -33,10 +33,10 @@ const sourcesOf = (changes: Partial<RetentionSources> = {}) => {
     }),
   };
   const stores = {
-    meshRequests: store("deleteByCreatedAtBefore"),
-    executionHistory: store("deleteByEndedAtBefore"),
+    meshRequests: store("deleteExpired"),
+    executionHistory: store("deleteExpired"),
     fencedEffects: store("deleteByStoredAtBefore"),
-    auditLog: store("deleteByOccurredAtBefore"),
+    auditLog: store("deleteExpired"),
     outboundCalls: store("deleteByEndedAtBefore"),
   };
   const sources = {
@@ -62,6 +62,18 @@ const sweep = (sources: RetentionSources) => {
 };
 
 describe("#1366: the sweep removes each kind of rows past its retention", () => {
+  it("tells what each look removed: the count of the stores that count, none for the others", async () => {
+    const { sources, stores } = sourcesOf();
+    stores.meshRequests.deleteExpired.mockResolvedValue(4);
+
+    const swept = await sweep(sources).done;
+
+    expect(swept.find((one) => one.what === "the mesh requests' answers")?.removed).toBe(4);
+    expect(swept.find((one) => one.what === "the notices of a receiver no instance knows")).toEqual(
+      { what: "the notices of a receiver no instance knows", removed: undefined },
+    );
+  });
+
   it("the ledger's entries made before the cut, through the ledger itself", async () => {
     const { sources, ledgerOwn } = sourcesOf();
     const { done, report } = sweep(sources);
@@ -79,10 +91,10 @@ describe("#1366: the sweep removes each kind of rows past its retention", () => 
     await sweep(sources).done;
 
     expect(pauses.deleteByResolvedAtBefore).toHaveBeenCalledWith(cutoffOf(1000));
-    expect(stores.meshRequests.deleteByCreatedAtBefore).toHaveBeenCalledWith(cutoffOf(2000));
-    expect(stores.executionHistory.deleteByEndedAtBefore).toHaveBeenCalledWith(cutoffOf(3000));
+    expect(stores.meshRequests.deleteExpired).toHaveBeenCalledWith(cutoffOf(2000));
+    expect(stores.executionHistory.deleteExpired).toHaveBeenCalledWith(cutoffOf(3000));
     expect(stores.fencedEffects.deleteByStoredAtBefore).toHaveBeenCalledWith(cutoffOf(4000));
-    expect(stores.auditLog.deleteByOccurredAtBefore).toHaveBeenCalledWith(cutoffOf(5000));
+    expect(stores.auditLog.deleteExpired).toHaveBeenCalledWith(cutoffOf(5000));
     expect(stores.outboundCalls.deleteByEndedAtBefore).toHaveBeenCalledWith(cutoffOf(6000));
   });
 
@@ -126,7 +138,7 @@ describe("#1366: the sweep removes each kind of rows past its retention", () => 
     ] as never);
     const { done, report } = sweep(sources);
 
-    await expect(done).resolves.toBeUndefined();
+    await done;
 
     expect(pauses.setAsideStaleNoticesBefore).toHaveBeenCalledOnce();
     expect(report).not.toHaveBeenCalled();
@@ -154,10 +166,10 @@ describe("#1366: the sweep removes each kind of rows past its retention", () => 
     });
     pauses.setAsideStaleNoticesBefore.mockImplementation(log("notices") as never);
     pauses.deleteByResolvedAtBefore.mockImplementation(log("pauses") as never);
-    stores.meshRequests.deleteByCreatedAtBefore.mockImplementation(log("mesh") as never);
-    stores.executionHistory.deleteByEndedAtBefore.mockImplementation(log("history") as never);
+    stores.meshRequests.deleteExpired.mockImplementation(log("mesh") as never);
+    stores.executionHistory.deleteExpired.mockImplementation(log("history") as never);
     stores.fencedEffects.deleteByStoredAtBefore.mockImplementation(log("effects") as never);
-    stores.auditLog.deleteByOccurredAtBefore.mockImplementation(log("audit") as never);
+    stores.auditLog.deleteExpired.mockImplementation(log("audit") as never);
     stores.outboundCalls.deleteByEndedAtBefore.mockImplementation(log("calls") as never);
     ledgerOwn.deleteByMadeAtBefore.mockImplementation(log("ledger") as never);
 
@@ -189,7 +201,7 @@ describe("#1366: what the sweep leaves", () => {
     await done;
 
     expect(ledgerOwn.deleteByMadeAtBefore).not.toHaveBeenCalled();
-    expect(stores.auditLog.deleteByOccurredAtBefore).not.toHaveBeenCalled();
+    expect(stores.auditLog.deleteExpired).not.toHaveBeenCalled();
     expect(report).not.toHaveBeenCalled();
   });
 
@@ -222,11 +234,11 @@ describe("#1366: a store that fails is reported and asked again at the next look
     ],
     [
       "the mesh requests' answers",
-      (s: ReturnType<typeof sourcesOf>) => s.stores.meshRequests.deleteByCreatedAtBefore,
+      (s: ReturnType<typeof sourcesOf>) => s.stores.meshRequests.deleteExpired,
     ],
     [
       "the kept execution records",
-      (s: ReturnType<typeof sourcesOf>) => s.stores.executionHistory.deleteByEndedAtBefore,
+      (s: ReturnType<typeof sourcesOf>) => s.stores.executionHistory.deleteExpired,
     ],
     [
       "the fenced effects' results",
@@ -234,7 +246,7 @@ describe("#1366: a store that fails is reported and asked again at the next look
     ],
     [
       "the audit log's old rows",
-      (s: ReturnType<typeof sourcesOf>) => s.stores.auditLog.deleteByOccurredAtBefore,
+      (s: ReturnType<typeof sourcesOf>) => s.stores.auditLog.deleteExpired,
     ],
     [
       "the ended outbound calls",

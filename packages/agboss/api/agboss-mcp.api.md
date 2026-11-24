@@ -52,10 +52,11 @@ export interface McpExposeOptions {
 }
 
 // @public
-export function McpServer<const TTools extends ServerTools>(options: {
+export function McpServer<const TTools extends ServerTools, const TPorts extends InjectAs = readonly []>(options: {
     readonly name: string;
     readonly tools: TTools;
-} & McpServerConfig): <C extends new () => McpServerClient<TTools>>(value: C) => C;
+    readonly injectAs?: TPorts;
+} & McpServerConfig): <C extends new () => McpServerClient<TTools> & PortInstances<TPorts>>(value: C) => C;
 
 // @public
 export abstract class McpServerClient<TTools extends ServerTools> {

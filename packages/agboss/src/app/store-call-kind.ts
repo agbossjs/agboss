@@ -22,8 +22,8 @@ export enum StoreCallKind {
   Long = "long",
 }
 
-/** The contract methods that prune a backlog: `delete…Before`. */
-export const MAINTENANCE_METHODS = /^delete\w*Before$/u;
+/** The contract methods that prune a backlog: `deleteExpired`, `deleteIdleThreads` and the older `delete…Before`. */
+export const MAINTENANCE_METHODS = /^(?:delete\w*Before|deleteExpired|deleteIdleThreads)$/u;
 
 /** The contracts whose every call is long: a file body is not a fencing event. */
 export const LONG_CONTRACTS: ReadonlySet<Class> = new Set<Class>([A2AFileRepository]);
