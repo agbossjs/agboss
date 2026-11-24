@@ -449,11 +449,11 @@ describe("#807 AC3: where a tree is, from its durable records", () => {
       pending: [{ pauseId: paused.pending[0]?.pauseId, channel: expect.any(String) as string }],
     });
     // #1321d: the tree's checkpoints went with its end, so the record answers: the finish is the last
-    // node of its route, the spend its cost — the output and the tokens are not kept
+    // node of its route, the output its masked finish line, the spend its cost — no tokens
     expect(finished).toEqual({
       status: DurableExecutionStatus.Finished,
       finish: "receipt-workflow-finish",
-      output: undefined,
+      output: { text: "Done." },
       spentUsd: resumed.spend.totalUsd,
     });
   });
@@ -492,8 +492,9 @@ describe("#807 AC3: where a tree is, from its durable records", () => {
     expect(state).toMatchObject({
       status: DurableExecutionStatus.Finished,
       finish: "receipt-workflow-finish",
-      output: undefined,
+      output: { text: "Done." },
     });
+    expect((state as { output: unknown }).output).toBeInstanceOf(ReceiptDto);
   });
 
   test("a record a guard stopped is a failure with its reason", async ({ apps }) => {

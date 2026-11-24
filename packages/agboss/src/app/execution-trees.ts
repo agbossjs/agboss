@@ -9,6 +9,7 @@ import { InvalidThreadIdError } from "../core/errors.js";
 import type { Turn } from "../turns/index.js";
 import { writeCancelRequest, type CancelParts } from "./cancel-requests.js";
 import { cancelledPaused } from "./cancel-paused.js";
+import { endedResultOf } from "./ended-output.js";
 import { currentOutputOf } from "./current-output.js";
 import { rootRecordOf } from "./ended-tree.js";
 import {
@@ -55,7 +56,10 @@ async function hasCheckpoint(parts: CancelParts, runId: string): Promise<boolean
 }
 
 /** What a tree's own record says when it runs or ended without a finish; `undefined` for any other record. */
-function recordStateOf(record: Turn | undefined): DurableExecutionState | undefined {
+function recordStateOf(
+  parts: CancelParts,
+  record: Turn | undefined,
+): DurableExecutionState | undefined {
   switch (record?.status) {
     case ExecutionRecordStatus.Running:
       return { status: DurableExecutionStatus.Running };
@@ -67,7 +71,7 @@ function recordStateOf(record: Turn | undefined): DurableExecutionState | undefi
     case ExecutionRecordStatus.Guarded:
       return { status: DurableExecutionStatus.Failed, reason: record.stopReason };
     case ExecutionRecordStatus.Answered:
-      return answeredStateOf(record);
+      return answeredStateOf(parts, record);
     default:
       return undefined;
   }
@@ -75,15 +79,20 @@ function recordStateOf(record: Turn | undefined): DurableExecutionState | undefi
 
 /**
  * A tree whose record says it answered (#1321d, Q11): its checkpoints are gone with the tree's end
- * (`forgetTree`), so the record is all that is left — its finish is the last node of its route and
- * its spend its cost; the output is not kept (`undefined`), nor the tokens.
+ * (`forgetTree`), so the record is all that is left — its finish, its masked output (with its
+ * finish DTO's prototype) and its spend, which is its cost; the tokens are not kept.
  */
-const answeredStateOf = (record: Turn): DurableExecutionState => ({
-  status: DurableExecutionStatus.Finished,
-  finish: record.route.at(-1) ?? "",
-  output: undefined,
-  spentUsd: record.costUsd,
-});
+const answeredStateOf = (parts: CancelParts, record: Turn): DurableExecutionState | undefined => {
+  const ended = endedResultOf(parts.deps.graph, record);
+  return ended === undefined
+    ? undefined
+    : {
+        status: DurableExecutionStatus.Finished,
+        finish: ended.finish,
+        output: ended.output,
+        spentUsd: ended.spend.totalUsd,
+      };
+};
 
 /**
  * Its paused run, else its last checkpoint at a finish (a tree whose end is still being recorded —
@@ -123,7 +132,7 @@ export async function executionStateOf(
   return checkedTree(tree, async () => {
     const state = stateOf(parts, tree);
     const record = await rootRecordOf(parts.deps, state);
-    const known = recordStateOf(record) ?? (await restStateOf(parts, state));
+    const known = recordStateOf(parts, record) ?? (await restStateOf(parts, state));
     if (known !== undefined) return known;
     const isBegun = record !== undefined || (await hasCheckpoint(parts, tree.rootExecutionId));
     return { status: isBegun ? DurableExecutionStatus.Running : DurableExecutionStatus.NotStarted };

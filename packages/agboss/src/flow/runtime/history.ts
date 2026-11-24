@@ -50,6 +50,31 @@ export const startLine = (start: string, input: unknown): string =>
 export const finishLine = (finish: string, output: unknown): string =>
   `finish ${finish}: ${sortedJson(withoutInlineBytes(output))}`;
 
+/**
+ * The finish line of a turn as it is written to the store (#1321d): the output masked by the
+ * observability policies first (what no observer sees is not stored either), files without bytes.
+ */
+export async function maskedFinishLine(
+  finish: string,
+  output: unknown,
+  mask: { value(value: unknown): Promise<unknown> } | undefined,
+): Promise<string> {
+  return finishLine(finish, mask === undefined ? output : await mask.value(output));
+}
+
+/** The finish name and the output (as JSON) a finish line holds; `undefined` for any other line. */
+export function finishLineParts(
+  line: string,
+): { readonly name: string; readonly output: unknown } | undefined {
+  const head = /^finish ([^\n]*?): /.exec(line);
+  if (head === null) return undefined;
+  try {
+    return { name: head[1] ?? "", output: JSON.parse(line.slice(head[0].length)) as unknown };
+  } catch {
+    return undefined;
+  }
+}
+
 /** The last `limit` turns, oldest first, as the model reads them; "" when there are none. */
 export function formatHistory(history: readonly HistoryTurn[], limit: number): string {
   const turns = limit > 0 ? history.slice(-limit) : [];

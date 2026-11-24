@@ -242,6 +242,10 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/application/referenced-variables.ts"],
   ),
   ...reviewed(
+    "an answered record's result read for a late resume (#1321d): the finish name, the masked output with its DTO's prototype and the cost the record kept, no spend, lease or cancel rule of its own; the masking is done where the line is written (run/finish.ts); covered by tests/app/ended-output.test.ts and tests/app/execution-control.test.ts",
+    ["src/app/ended-output.ts"],
+  ),
+  ...reviewed(
     "the paging shape and the tenant-safety argument types of App (#1324e): type declarations and one brand symbol, no runtime rule; the runtime refusal is ValidationError.TenantRequired, in the error families; pinned by the type tests in tests/app",
     ["src/app/page.ts", "src/app/tenant-args.ts"],
   ),

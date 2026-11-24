@@ -1,9 +1,10 @@
 import { AGBossError } from "../core/errors.js";
 import { ExecutionStatus } from "../app/types.js";
 import { CostReport, totalCost } from "../finops/usage.js";
-import { finishLine } from "../flow/runtime/history.js";
+import { maskedFinishLine } from "../flow/runtime/history.js";
 import type { ExecutionStateType } from "../flow/runtime/state.js";
 import type { UsageRecord } from "../finops/usage.js";
+import type { ObservabilityMask } from "../pii/observability-mask.js";
 import type { TurnOutcome } from "../turns/index.js";
 import type { FinishContext } from "./execute.js";
 import type { WaitingPause } from "../pause/index.js";
@@ -13,15 +14,20 @@ import { openPausesOf, waitingPausesOf } from "./waiting-pauses.js";
 import type { AgentExecutionOutput, ExecutionData } from "./types.js";
 import { traceUrlFieldOf } from "../tracing/trace-url.js";
 
-/** The Turn of an execution: a finished one's finish line (S8), a paused one waits. */
-export function outcomeOf(
+/**
+ * The Turn of an execution: a finished one's finish line (S8), a paused one waits. The line is
+ * written masked by the observability policies (#1321d): once the tree's checkpoints are forgotten
+ * it is all a late resume reads, and no raw PII stays in the store.
+ */
+export async function outcomeOf(
   state: ExecutionStateType,
   usage: readonly UsageRecord[],
   paused: boolean,
-): TurnOutcome {
+  mask?: ObservabilityMask,
+): Promise<TurnOutcome> {
   const finished = !paused && state.finish !== "";
   return {
-    replyWith: finished ? finishLine(state.finish, state.output) : "",
+    replyWith: finished ? await maskedFinishLine(state.finish, state.output, mask) : "",
     status: paused ? "paused" : "answered",
     stopReason: paused ? "waiting for approval" : "",
     route: state.path,
@@ -91,6 +97,10 @@ function assertEnded(runId: string, state: ExecutionStateType, paused: boolean):
   );
 }
 
+/** The mask the finish line is written through: the workflow's observability, none without PII policies. */
+const maskOf = <TName extends string>(ctx: FinishContext<TName>): ObservabilityMask | undefined =>
+  ctx.deps.pii?.observability;
+
 /** Writes (or completes) the Turn and shapes the result: finished or paused. */
 export async function finishRun<TName extends string>(
   ctx: FinishContext<TName>,
@@ -102,7 +112,7 @@ export async function finishRun<TName extends string>(
   // a finish never lands over a durable stop or cancel mark (#1341b): the run ends as that
   const interrupted = paused ? undefined : await ctx.deps.compensation?.interrupted?.();
   if (interrupted !== undefined) throw interrupted;
-  const outcome = outcomeOf(state, usage, paused);
+  const outcome = await outcomeOf(state, usage, paused, maskOf(ctx));
   let turnId = existingTurnId;
   if (turnId === undefined) turnId = (await ctx.deps.turns.append({ ...ctx.base, ...outcome })).id;
   else await ctx.deps.turns.complete(turnId, outcome);

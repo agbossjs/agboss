@@ -299,8 +299,8 @@ describe("#1366: a paused run", () => {
 });
 
 describe("#1366: the turn's outcome and the end a result reports", () => {
-  it("a run that ended is answered with its finish line and the cost of its spend", () => {
-    expect(outcomeOf(stateOf(), [record(0.5), record(0.25)], false)).toEqual({
+  it("a run that ended is answered with its finish line and the cost of its spend", async () => {
+    expect(await outcomeOf(stateOf(), [record(0.5), record(0.25)], false)).toEqual({
       replyWith: finishLine("done", { text: "ok" }),
       status: "answered",
       stopReason: "",
@@ -310,8 +310,8 @@ describe("#1366: the turn's outcome and the end a result reports", () => {
     });
   });
 
-  it("a paused run has no reply and says what it waits for", () => {
-    expect(outcomeOf(stateOf(), [record(0.5)], true)).toEqual({
+  it("a paused run has no reply and says what it waits for", async () => {
+    expect(await outcomeOf(stateOf(), [record(0.5)], true)).toEqual({
       replyWith: "",
       status: "paused",
       stopReason: "waiting for approval",
@@ -321,8 +321,8 @@ describe("#1366: the turn's outcome and the end a result reports", () => {
     });
   });
 
-  it("a run with no finish has no reply, whatever its output", () => {
-    const out = outcomeOf(stateOf({ finish: "" }), [], false);
+  it("a run with no finish has no reply, whatever its output", async () => {
+    const out = await outcomeOf(stateOf({ finish: "" }), [], false);
 
     expect(out.replyWith).toBe("");
     expect(out.status).toBe("answered");

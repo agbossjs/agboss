@@ -6,6 +6,7 @@ import type { ExecutionStateType } from "../flow/runtime/state.js";
 import { PauseStatus } from "../infrastructure/paused-execution.repository.js";
 import type { AgentExecutionOutput } from "../run/types.js";
 import { NotPausedError } from "../run/resume-agent.js";
+import { endedResultOf } from "./ended-output.js";
 import { pauseClosed } from "./pause-closed.js";
 import { endOfRecord } from "./tree-end-pauses.js";
 import { forgetTree, type TreeEndParts } from "./tree-ends.js";
@@ -71,6 +72,8 @@ export async function currentOutputOf(
   // LangGraph boundary: a checkpoint's values are the flow's own state
   const state = snapshot.values as Partial<ExecutionStateType>;
   if (!hasGraphEnded(snapshot) || state.finish === undefined || state.finish === "") {
+    const ended = await endedOutputOf(deps, tree);
+    if (ended !== undefined) return ended;
     throw new NotPausedError({ message: `Thread "${tree.threadId}" has no paused run` });
   }
   return withPauseAnswers(
@@ -85,6 +88,35 @@ export async function currentOutputOf(
       pending: [],
       finish: nodeRecordIn(deps, state.finish),
       output: state.output,
+    },
+    deps,
+  );
+}
+
+/**
+ * A tree that ended and forgot its checkpoints (`forgetTree`, #1321d): its answered root record
+ * keeps the finish, the masked output and the spend — a late resume reads them from there.
+ */
+async function endedOutputOf(
+  deps: AgentExecutionDeps<string>,
+  tree: ThreadKey & { readonly runId: string },
+): Promise<ExecutionOutput | undefined> {
+  const record = await deps.turns.findByTenantIdAndRunId(tree.tenantId, tree.runId);
+  if (record?.threadId !== tree.threadId) return undefined;
+  const ended = endedResultOf(deps.graph, record);
+  if (ended === undefined) return undefined;
+  return withPauseAnswers(
+    {
+      status: ExecutionStatus.Finished,
+      threadId: tree.threadId,
+      tenantId: tree.tenantId,
+      executionId: tree.runId,
+      path: record.route,
+      spend: ended.spend,
+      ...recordsOf({}),
+      pending: [],
+      finish: nodeRecordIn(deps, ended.finish),
+      output: ended.output,
     },
     deps,
   );
