@@ -10,7 +10,6 @@ export enum StepErrorKind {
   AgentAnswerInvalid = "agent-answer-invalid",
   QualityGate = "quality-gate",
   Action = "action",
-  ActionTimeout = "action-timeout",
   ActionOutcomeUnknown = "action-outcome-unknown",
   Router = "router",
   RouterDecision = "router-decision",
@@ -34,7 +33,6 @@ export type StepError =
   | StepError.AgentAnswerInvalid
   | StepError.QualityGate
   | StepError.Action
-  | StepError.ActionTimeout
   | StepError.ActionOutcomeUnknown
   | StepError.Router
   | StepError.RouterDecision
@@ -72,13 +70,10 @@ export declare namespace StepError {
   /** An action failed. */
   export type Action = PaidErrorVariant<StepErrorKind.Action, "step.action"> &
     StepCoordinates & { readonly action: string };
-  /** An action ran past its timeout. */
-  export type ActionTimeout = PaidErrorVariant<StepErrorKind.ActionTimeout, "step.action.timeout"> &
-    StepCoordinates & { readonly action: string; readonly timeout: Milliseconds };
   /**
-   * An action ran past its timeout and is not guarded by `Idempotency`: it may still finish, so
-   * whether its effect happened is UNKNOWN. Never retried or undone by the framework — `action` names
-   * the step, for the flow's `.onError` or an operator to settle.
+   * An action ran past its timeout: it may still finish, so whether its effect happened is UNKNOWN.
+   * Never retried or undone by the framework — `action` names the step, for the flow's `.onError` or
+   * an operator to settle. A retry from `.onError` is safe for what went through `Idempotency`.
    */
   export type ActionOutcomeUnknown = PaidErrorVariant<
     StepErrorKind.ActionOutcomeUnknown,
@@ -162,7 +157,6 @@ export const StepError: FamilyConstructor<
     AgentAnswerInvalid: StepError.AgentAnswerInvalid;
     QualityGate: StepError.QualityGate;
     Action: StepError.Action;
-    ActionTimeout: StepError.ActionTimeout;
     ActionOutcomeUnknown: StepError.ActionOutcomeUnknown;
     Router: StepError.Router;
     RouterDecision: StepError.RouterDecision;
@@ -195,9 +189,8 @@ export const StepError: FamilyConstructor<
       "step.agent.quality-gate",
     ],
     Action: ["an action failed"],
-    ActionTimeout: ["an action ran past its timeout", "step.action.timeout"],
     ActionOutcomeUnknown: [
-      "an unguarded action ran past its timeout: its effect may have happened",
+      "an action ran past its timeout: its effect may have happened",
       "step.action.outcome-unknown",
     ],
     Router: ["a router's model call or its `route()` failed"],

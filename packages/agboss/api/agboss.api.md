@@ -9529,7 +9529,7 @@ export interface StepDescriptor extends StepRecord {
 }
 
 // @public
-export type StepError = StepError.Agent | StepError.AgentAnswerInvalid | StepError.QualityGate | StepError.Action | StepError.ActionTimeout | StepError.ActionOutcomeUnknown | StepError.Router | StepError.RouterDecision | StepError.ExternalTask | StepError.PauseExpired | StepError.Arbiter | StepError.QuorumNotReached | StepError.Child | StepError.Guardrail | StepError.ToolBlocked | StepError.ToolTimeout | StepError.RerankFailed | StepError.Memory | StepError.ModelFileLimit | StepError.FileMaskingFailed;
+export type StepError = StepError.Agent | StepError.AgentAnswerInvalid | StepError.QualityGate | StepError.Action | StepError.ActionOutcomeUnknown | StepError.Router | StepError.RouterDecision | StepError.ExternalTask | StepError.PauseExpired | StepError.Arbiter | StepError.QuorumNotReached | StepError.Child | StepError.Guardrail | StepError.ToolBlocked | StepError.ToolTimeout | StepError.RerankFailed | StepError.Memory | StepError.ModelFileLimit | StepError.FileMaskingFailed;
 
 // @public
 export namespace StepError {
@@ -9537,10 +9537,6 @@ export namespace StepError {
         readonly action: string;
     };
     export type ActionOutcomeUnknown = PaidErrorVariant<StepErrorKind.ActionOutcomeUnknown, "step.action.outcome-unknown"> & StepCoordinates & {
-        readonly action: string;
-        readonly timeout: Milliseconds;
-    };
-    export type ActionTimeout = PaidErrorVariant<StepErrorKind.ActionTimeout, "step.action.timeout"> & StepCoordinates & {
         readonly action: string;
         readonly timeout: Milliseconds;
     };
@@ -9621,7 +9617,6 @@ export const StepError: FamilyConstructor<StepError, {
     AgentAnswerInvalid: StepError.AgentAnswerInvalid;
     QualityGate: StepError.QualityGate;
     Action: StepError.Action;
-    ActionTimeout: StepError.ActionTimeout;
     ActionOutcomeUnknown: StepError.ActionOutcomeUnknown;
     Router: StepError.Router;
     RouterDecision: StepError.RouterDecision;
@@ -9645,8 +9640,6 @@ export enum StepErrorKind {
     Action = "action",
     // (undocumented)
     ActionOutcomeUnknown = "action-outcome-unknown",
-    // (undocumented)
-    ActionTimeout = "action-timeout",
     // (undocumented)
     Agent = "agent",
     // (undocumented)
@@ -11646,7 +11639,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/core/error-families/step-errors.ts - (ae-undocumented) Missing documentation for "AgentAnswerInvalid".
 // src/core/error-families/step-errors.ts - (ae-undocumented) Missing documentation for "QualityGate".
 // src/core/error-families/step-errors.ts - (ae-undocumented) Missing documentation for "Action".
-// src/core/error-families/step-errors.ts - (ae-undocumented) Missing documentation for "ActionTimeout".
 // src/core/error-families/step-errors.ts - (ae-undocumented) Missing documentation for "ActionOutcomeUnknown".
 // src/core/error-families/step-errors.ts - (ae-undocumented) Missing documentation for "Router".
 // src/core/error-families/step-errors.ts - (ae-undocumented) Missing documentation for "RouterDecision".

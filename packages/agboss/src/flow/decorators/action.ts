@@ -38,10 +38,11 @@ export interface ActionOptions<TDeps extends readonly Token[] = readonly Token[]
    * it. So `execute` must honour `executionContext.signal` (inject `ExecutionContext`): it aborts at
    * the timeout, on a cancel and when the lease is lost — pass it to `fetch` and to your client.
    * Past the timeout the outcome is UNKNOWN, not failed:
-   * - an action that goes through `Idempotency` (`runOnce`, `sendOnce`) fails with
-   *   `StepError.ActionTimeout`; retrying it is safe, the key recognises the repeat;
-   * - any other fails with `StepError.ActionOutcomeUnknown`: its effect may have happened, so
+   * - the step fails with `StepError.ActionOutcomeUnknown`: its effect may have happened, so
    *   nothing retries or undoes it — settle it in the flow's `.onError` or by an operator;
+   * - retrying is the flow's explicit choice (`.onError`); only an effect through `Idempotency`
+   *   (`runOnce`, `sendOnce`) is safe to repeat, the key recognises it; a raw effect (a direct
+   *   HTTP charge) runs again;
    * - a write the orphaned `execute` then attempts through the framework (`Idempotency`, the fence)
    *   is refused; a write to your own store is yours to guard with the signal and a key.
    */

@@ -72,10 +72,10 @@ export function checkedActionValue(node: string, output: OutputShape, result: un
  * and — with a `timeout` — the timeout, so `execute` can stop (#1318e). Past the timeout (on the
  * application's clock) the step fails and that frame is closed: the orphaned `execute` may still
  * finish its own work, but any read of the framework's context through it — `Idempotency`,
- * the fence — is refused. The failure is `StepError.ActionTimeout` for an action that went through
- * `Idempotency` (a retry is safe: the key recognises the repeat), else
- * `StepError.ActionOutcomeUnknown`: its effect may have happened, nothing retries or undoes it.
- * Without a timeout it waits as long as the action does.
+ * the fence — is refused. The failure is always `StepError.ActionOutcomeUnknown`: the action's
+ * effect may have happened, nothing retries or undoes it; a retry is the flow's explicit `.onError`
+ * choice, safe for what went through `Idempotency`. Without a timeout it waits as long as the
+ * action does.
  */
 async function executed(
   run: () => unknown,
@@ -86,14 +86,9 @@ async function executed(
   const expired =
     timeout === undefined || clock === undefined
       ? undefined
-      : timeoutOn(clock, timeout, () => timedOut(node, timeout));
-  const guard = { isGuarded: false };
+      : timeoutOn(clock, timeout, () => outcomeUnknown(node, timeout));
   try {
-    return await inStepFrame(guard, expired, () => raced(run, expired));
-  } catch (error) {
-    if (expired?.signal.aborted === true && timeout !== undefined)
-      throw guard.isGuarded ? timedOut(node, timeout) : outcomeUnknown(node, timeout);
-    throw error;
+    return await inStepFrame(expired, () => raced(run, expired));
   } finally {
     expired?.release();
   }
@@ -113,11 +108,10 @@ function raced(run: () => unknown, expired: ClockTimeout | undefined): Promise<u
 
 /**
  * `work` in a frame of the step whose `executionContext.signal` also aborts at the timeout and when
- * the lease is lost, and which tells `guard` when the code reaches `Idempotency`; closed when `work`
- * settles — at the timeout too, so the orphaned `execute` finds it closed.
+ * the lease is lost; closed when `work` settles — at the timeout too, so the orphaned `execute`
+ * finds it closed.
  */
 function inStepFrame(
-  guard: { isGuarded: boolean },
   expired: ClockTimeout | undefined,
   work: () => Promise<unknown>,
 ): Promise<unknown> {
@@ -129,34 +123,21 @@ function inStepFrame(
     execution: Object.freeze({ ...parent.execution, signal }),
     step: parent.step,
     services: parent.services,
-    onIdempotencyUse: () => {
-      guard.isGuarded = true;
-    },
   };
   return runInFrame(spec, work);
 }
-
-const timedOut = (action: string, timeout: Milliseconds): StepError.ActionTimeout =>
-  new StepError.ActionTimeout({
-    ...stepCoordinatesOf(action, ComponentKind.Action),
-    action,
-    timeout,
-    message: `Action "${action}" ran past its timeout of ${String(timeout)} ms`,
-  });
 
 const outcomeUnknown = (action: string, timeout: Milliseconds): StepError.ActionOutcomeUnknown =>
   new StepError.ActionOutcomeUnknown({
     ...stepCoordinatesOf(action, ComponentKind.Action),
     action,
     timeout,
-    message: `Action "${action}" ran past its timeout of ${String(timeout)} ms and is not guarded by Idempotency: its effect may have happened — it is not retried or undone`,
+    message: `Action "${action}" ran past its timeout of ${String(timeout)} ms: its effect may have happened — it is not retried or undone`,
   });
 
 /** A failure of the action's code; a limit, a cancel or a pause passes as it is (S22). */
 const failure = (node: string, error: unknown): unknown =>
-  passesThrough(error) ||
-  error instanceof StepError.ActionTimeout ||
-  error instanceof StepError.ActionOutcomeUnknown
+  passesThrough(error) || error instanceof StepError.ActionOutcomeUnknown
     ? error
     : new ActionFailedError({ action: node, cause: error });
 
@@ -191,9 +172,8 @@ export function actionRunner(node: RuntimeNode, deps: GraphDeps<string>): NodeRu
       deps.clock,
     ).catch((error: unknown) => {
       // a failure under a lease lost meanwhile is a hand-over, not the action's (#1318e)
-      const isTimeout =
-        error instanceof StepError.ActionTimeout || error instanceof StepError.ActionOutcomeUnknown;
-      if (!isTimeout) currentFrame()?.execution.lease?.assertHeld();
+      if (!(error instanceof StepError.ActionOutcomeUnknown))
+        currentFrame()?.execution.lease?.assertHeld();
       throw failure(node.id, error);
     });
     // #1318e: the fence once more before the result is committed — the action may have run long

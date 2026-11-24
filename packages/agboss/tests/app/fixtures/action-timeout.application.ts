@@ -13,7 +13,8 @@ import type { InMemoryFencedEffectTransaction } from "../../../src/stores/index.
 import { hours, seconds } from "../../../src/units/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { onStart } from "../../helpers/flow.js";
+import { onStart, toAction } from "../../helpers/flow.js";
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { IdempotencyKeyEnvironment } from "../../helpers/idempotency-key.environment.js";
 
 /**
@@ -25,6 +26,8 @@ export const seen = {
   effects: 0,
   /** What an action did to its own store, outside the framework. */
   ownWrites: 0,
+  /** The raw effects (a direct call, outside `Idempotency`) of the mixed action. */
+  rawEffects: 0,
   /** How many times `execute` was entered. */
   entered: 0,
   signal: undefined as AbortSignal | undefined,
@@ -38,6 +41,7 @@ export const seen = {
 export function resetSeen(): void {
   seen.effects = 0;
   seen.ownWrites = 0;
+  seen.rawEffects = 0;
   seen.entered = 0;
   seen.signal = undefined;
   seen.lateError = undefined;
@@ -121,6 +125,47 @@ export class GuardedAction {
   }
 }
 
+/** One `runOnce` AND a raw effect; its first attempt hangs past the timeout, later ones finish. */
+const mixedOptions = {
+  description: "Charges through runOnce and by a raw call",
+  input: { message: WorkflowStartTextDto },
+  output: WorkflowFinishTextDto,
+  timeout: seconds(5),
+  deps: [Idempotency],
+} as const;
+
+@Action({ ...mixedOptions, name: "mixed-action" })
+export class MixedAction {
+  constructor(private readonly idempotency: Idempotency) {}
+
+  async execute(input: Message): Promise<WorkflowFinishTextDto> {
+    seen.entered += 1;
+    const attempt = seen.entered;
+    await this.idempotency.runOnce({
+      name: "charge",
+      key: input.message.value.text,
+      withoutFingerprint: true,
+      ttl: hours(24),
+      execute: (transaction) => {
+        (transaction as InMemoryFencedEffectTransaction).onCommit(() => {
+          seen.effects += 1;
+        });
+        return { done: true };
+      },
+    });
+    seen.rawEffects += 1;
+    if (attempt === 1) await seen.gate;
+    return { text: "charged" };
+  }
+}
+
+/** The same code as `MixedAction` as the first try and as the explicit retry: one class is one node. */
+@Action({ ...mixedOptions, name: "mixed-first-action" })
+export class MixedFirstAction extends MixedAction {}
+
+@Action({ ...mixedOptions, name: "mixed-retry-action" })
+export class MixedRetryAction extends MixedAction {}
+
 @WorkflowStart({
   name: "unguarded-timeout-workflow-start",
   description: "A key",
@@ -135,6 +180,20 @@ export class UnguardedStart {}
 })
 export class GuardedStart {}
 
+@WorkflowStart({
+  name: "mixed-timeout-workflow-start",
+  description: "A key",
+  input: WorkflowStartTextDto,
+})
+export class MixedStart {}
+
+@WorkflowStart({
+  name: "mixed-retry-workflow-start",
+  description: "A key, retried by the flow",
+  input: WorkflowStartTextDto,
+})
+export class MixedRetryStart {}
+
 @WorkflowFinish({
   name: "timeout-workflow-finish",
   description: "Done",
@@ -148,6 +207,11 @@ export class TimeoutFinish {}
   flow: [
     onStart(UnguardedStart).toAction(UnguardedAction).toFinish(TimeoutFinish),
     onStart(GuardedStart).toAction(GuardedAction).toFinish(TimeoutFinish),
+    onStart(MixedStart).toAction(MixedAction).toFinish(TimeoutFinish),
+    onStart(MixedRetryStart)
+      .toAction(MixedFirstAction)
+      .onError(StepError.ActionOutcomeUnknown, toAction(MixedRetryAction).toFinish(TimeoutFinish))
+      .toFinish(TimeoutFinish),
   ],
 })
 export class ActionTimeoutWorkflow {}
