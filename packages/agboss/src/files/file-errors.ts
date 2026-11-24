@@ -49,6 +49,8 @@ export enum FileRefusal {
   AddressDenied = "address-denied",
   /** A `Files.save({ ttl })` longer than its workflow's `@FilePolicy.ttl`. */
   TtlAbovePolicy = "ttl-above-policy",
+  /** Bytes held inline over the cap (64 KB a file, 256 KB a payload) and no file store to offload them to. */
+  InlineTooLarge = "inline-too-large",
 }
 
 /** What a refused file is known by. */

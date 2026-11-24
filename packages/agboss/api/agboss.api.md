@@ -4099,6 +4099,7 @@ export interface FileReference {
 // @public
 export enum FileRefusal {
     AddressDenied = "address-denied",
+    InlineTooLarge = "inline-too-large",
     MediaType = "media-type",
     MediaTypeMismatch = "media-type-mismatch",
     OriginDenied = "origin-denied",

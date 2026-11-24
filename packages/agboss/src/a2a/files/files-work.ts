@@ -6,6 +6,7 @@ import { isInlineFileStore, type FileRepository } from "../../infrastructure/fil
 import { definedOf, lazyLoad, type Clock } from "../../infrastructure/clock.js";
 import { appFileSlotsOf } from "./a2a-file-pool.js";
 import { callerKeyOf, tenantKeyOf } from "./a2a-file-slots.js";
+import { MAX_INLINE_FILE_BYTES } from "../../files/inline-cap.js";
 import { fileLimitsOf } from "../../files/file-policy.js";
 import { workflowFilePolicyOf } from "../../files/workflow-file-policy.js";
 import { FilePayloadSource, fileSourceOf, type FileDto } from "../../dto/standard/file.js";
@@ -69,8 +70,15 @@ export async function savedFile(
   const ttl = savedTtlOf(execution, content);
   const named = content.filename === undefined ? {} : { filename: content.filename };
   const described = { mediaType, ...named, sha256, sizeBytes: content.bytes.byteLength };
-  if (isInlineFileStore(store))
+  if (isInlineFileStore(store)) {
+    // no store: the bytes ride in the descriptor, so only up to the inline cap (#1316)
+    if (content.bytes.byteLength > MAX_INLINE_FILE_BYTES)
+      throw fileRefused({
+        refusal: FileRefusal.InlineTooLarge,
+        sizeBytes: content.bytes.byteLength,
+      });
     return { ...described, inline: Buffer.from(content.bytes).toString("base64") };
+  }
   const ownerId = rootFactsOf(execution).executionId;
   // by its bytes: a step run again saves the same file under the same id
   const fileId = `${ownerId}.${sha256}`;

@@ -44,3 +44,10 @@ Removed: `retention.a2aFiles`, `findOwnersByCreatedAtBefore`, the 60-second orph
 of executions that were no A2A task), the direct-message sweep's removal of its attempts' files.
 Added: `FileRepository.{markOwnerCompleted, deleteExpired}`, `FileOwnerCompletion`, `FileSweep`,
 `FileMetadata.ttl`, `FileToSave.ttl`, `FileRefusal.TtlAbovePolicy`, `FileUnavailableReason.DigestMissing`.
+
+**The inline cap (1316c).** Bytes held inline in a descriptor ride in checkpoints and records, so
+`Files.save` with no `FileRepository` refuses a file over 64 KB (`FileError.Refused`,
+`FileRefusal.InlineTooLarge`, no 0.1.0 grandfathering), and `offloadedInlineFiles` (src/files/inline-cap.ts)
+moves every inline file over 64 KB — then the largest until a payload's inline bytes fit 256 KB — into the
+store under `<ownerId>.<sha256>`, or refuses with no store. Wiring it into `app.execute`, `app.resume` and
+tool outputs belongs to the app lane (src/app/**), not yet done.

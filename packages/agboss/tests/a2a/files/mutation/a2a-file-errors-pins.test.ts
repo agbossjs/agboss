@@ -62,6 +62,7 @@ describe("FileError.Refused", () => {
       "origin-denied",
       "address-denied",
       "ttl-above-policy",
+      "inline-too-large",
     ]);
   });
 });
