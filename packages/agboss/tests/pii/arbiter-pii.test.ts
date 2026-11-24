@@ -16,6 +16,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type Produced,
+  Action,
 } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
 import { Text, WorkflowStartTextDto } from "../../src/dto/index.js";
@@ -64,17 +65,26 @@ class ContactArbiter {}
 })
 class OwnersStart {}
 
-@WorkflowFinish({
-  name: "owners-workflow-finish",
+@Action({
+  name: "owners-action",
   description: "The owners",
   input: { answers: listOf(OwnerAnswerDto) },
   output: OwnersDto,
 })
-class OwnersFinish {
-  finish(input: { readonly answers: readonly Produced<OwnerAnswerDto, unknown>[] }): OwnersDto {
+class OwnersAction {
+  async execute(input: {
+    readonly answers: readonly Produced<OwnerAnswerDto, unknown>[];
+  }): Promise<OwnersDto> {
     return { owners: input.answers.map((answer) => answer.value.owner).join("; ") };
   }
 }
+
+@WorkflowFinish({
+  name: "owners-workflow-finish",
+  description: "The owners",
+  output: OwnersDto,
+})
+class OwnersFinish {}
 
 @Workflow({
   name: "owners-workflow",
@@ -84,6 +94,7 @@ class OwnersFinish {
       .toParallelAgents(ContactAnswerAgent, ContactAnswerAgent)
       .acceptedBy(ContactArbiter)
       .joinQuorum({ min: 2 })
+      .toAction(OwnersAction)
       .toFinish(OwnersFinish),
   ],
 })

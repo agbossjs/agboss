@@ -19,11 +19,6 @@ export interface ActionHandler<TSelf> {
   readonly execute: (input: InputOf<TSelf>) => ActionResult<OutputOf<TSelf>>;
 }
 
-/** `@WorkflowFinish` with `input`: builds the execution's output. */
-export interface FinishHandler<TSelf> {
-  readonly finish: (input: InputOf<TSelf>) => OutputOf<TSelf> | Promise<OutputOf<TSelf>>;
-}
-
 /**
  * `@Router({ decidedBy: DecidedBy.Code })` (#280): `route(input)` returns the target to take —
  * `Route<Self>` after `.chooseOne(…)`, a list after a launch (#273). No model call; the execution

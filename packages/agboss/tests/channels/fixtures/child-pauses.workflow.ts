@@ -6,6 +6,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type Produced,
+  Action,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -100,16 +101,16 @@ export class SingleChildWorkflow {}
 })
 export class ChildBatchWorkflowStart {}
 
-@WorkflowFinish({
-  name: "child-batch-workflow-finish",
+@Action({
+  name: "child-batch-action",
   description: "What was refunded",
   input: { refunds: listOf(RefundDoneDto) },
   output: BatchSummaryDto,
 })
-export class ChildBatchWorkflowFinish {
-  finish(input: {
+export class ChildBatchAction {
+  async execute(input: {
     readonly refunds: readonly Produced<RefundDoneDto, unknown>[];
-  }): BatchSummaryDto {
+  }): Promise<BatchSummaryDto> {
     return {
       text: input.refunds
         .map((refund) => refund.value.orderId)
@@ -117,6 +118,13 @@ export class ChildBatchWorkflowFinish {
     };
   }
 }
+
+@WorkflowFinish({
+  name: "child-batch-workflow-finish",
+  description: "What was refunded",
+  output: BatchSummaryDto,
+})
+export class ChildBatchWorkflowFinish {}
 
 /** One child per order: several children wait at once, each resumed by its own pause's id. */
 @Workflow({
@@ -126,6 +134,7 @@ export class ChildBatchWorkflowFinish {
     onStart(ChildBatchWorkflowStart)
       .toParallelWorkflows(RefundOneWorkflow, { maxConcurrency: 3, maxItems: 5 })
       .join()
+      .toAction(ChildBatchAction)
       .toFinish(ChildBatchWorkflowFinish),
   ],
 })

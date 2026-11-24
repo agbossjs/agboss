@@ -13,7 +13,7 @@ import {
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
-import { onStart, toFinish } from "../../../helpers/flow.js";
+import { onStart, toFinish, toAction } from "../../../helpers/flow.js";
 import { ItemDto, ItemFailedError, ItemResultDto, SummaryDto } from "./fan-out.workflow.js";
 
 /**
@@ -155,14 +155,16 @@ export class RemoteItemWorkflow {}
 })
 export class RemoteItemsWorkflowStart {}
 
-@WorkflowFinish({
-  name: "remote-checks-workflow-finish",
+@Action({
+  name: "remote-checks-action",
   description: "What was checked",
   input: { results: listOf(ItemResultDto) },
   output: SummaryDto,
 })
-export class RemoteChecksWorkflowFinish {
-  finish(input: { readonly results: readonly Produced<ItemResultDto, unknown>[] }): SummaryDto {
+export class RemoteChecksAction {
+  async execute(input: {
+    readonly results: readonly Produced<ItemResultDto, unknown>[];
+  }): Promise<SummaryDto> {
     return {
       text: input.results
         .map((result) => result.value.name)
@@ -172,16 +174,32 @@ export class RemoteChecksWorkflowFinish {
 }
 
 @WorkflowFinish({
-  name: "remote-checks-failed-workflow-finish",
+  name: "remote-checks-workflow-finish",
+  description: "What was checked",
+  output: SummaryDto,
+})
+export class RemoteChecksWorkflowFinish {}
+
+@Action({
+  name: "remote-checks-failed-action",
   description: "The items were not all checked",
   input: { items: listOf(ItemDto) },
   output: SummaryDto,
 })
-export class RemoteChecksFailedWorkflowFinish {
-  finish(input: { readonly items: readonly Produced<ItemDto, unknown>[] }): SummaryDto {
+export class RemoteChecksFailedAction {
+  async execute(input: {
+    readonly items: readonly Produced<ItemDto, unknown>[];
+  }): Promise<SummaryDto> {
     return { text: `failed on one of ${String(input.items.length)}` };
   }
 }
+
+@WorkflowFinish({
+  name: "remote-checks-failed-workflow-finish",
+  description: "The items were not all checked",
+  output: SummaryDto,
+})
+export class RemoteChecksFailedWorkflowFinish {}
 
 /** One child per item on any instance; a failed child is caught by the join. */
 @Workflow({
@@ -195,7 +213,12 @@ export class RemoteChecksFailedWorkflowFinish {
         placement: ChildPlacement.AnyInstance,
       })
       .join()
-      .onError(ChildExecutionFailedError, toFinish(RemoteChecksFailedWorkflowFinish))
+      .onError(
+        ChildExecutionFailedError,
+        toAction(RemoteChecksFailedAction)
+          .toFinish(RemoteChecksFailedWorkflowFinish),
+      )
+      .toAction(RemoteChecksAction)
       .toFinish(RemoteChecksWorkflowFinish),
   ],
 })

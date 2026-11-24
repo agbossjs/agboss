@@ -62,10 +62,6 @@ const FIXTURES: Readonly<Record<ComponentDecoratorName, string>> = {
     '@Router({ name: "credit-router", description: "d", decidedBy: DecidedBy.Code, input: { order: OrderDto }, routes: [] })',
     "route(): void",
   ),
-  WorkflowFinish: statefulClass(
-    '@WorkflowFinish({ name: "order-workflow-finish", description: "d", input: { order: OrderDto }, output: OrderDto })',
-    "finish(): void",
-  ),
   Channel: statefulClass('@Channel({ name: "slack-channel" })', "async send(): Promise<void>"),
   ReplyInterpreter: statefulClass(
     '@ReplyInterpreter({ name: "refund-reply-interpreter", description: "d", decidedBy: DecidedBy.Code })',
@@ -172,6 +168,7 @@ const NOT_COMPONENTS: Readonly<Record<string, string>> = {
   Agent:
     "metadata of a flow node: an empty class, never instantiated (its loop is the framework's)",
   WorkflowStart: "metadata of a flow node: an empty class, never instantiated",
+  WorkflowFinish: "metadata of a flow node: an empty class, never instantiated",
   Workflow: "the module: metadata only, never instantiated",
   Application: "the application: metadata only, never instantiated",
   ChannelRole: "an abstract role: its @Channel implementation is the component",

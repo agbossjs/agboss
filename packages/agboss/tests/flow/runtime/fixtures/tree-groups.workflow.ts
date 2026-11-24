@@ -83,18 +83,27 @@ export class NarrowGroupWorkflow {}
 })
 export class GroupsWorkflowStart {}
 
-@WorkflowFinish({
-  name: "groups-done-workflow-finish",
+@Action({
+  name: "groups-done-action",
   description: "Every group done",
   input: { done: listOf(GroupDoneDto) },
   output: GroupDoneDto,
 })
-export class GroupsDoneWorkflowFinish {
-  finish(input: { readonly done: readonly Produced<GroupDoneDto, unknown>[] }): GroupDoneDto {
+export class GroupsDoneAction {
+  async execute(input: {
+    readonly done: readonly Produced<GroupDoneDto, unknown>[];
+  }): Promise<GroupDoneDto> {
     const names = input.done.map((group) => group.value.name);
     return { name: names.join(", ") };
   }
 }
+
+@WorkflowFinish({
+  name: "groups-done-workflow-finish",
+  description: "Every group done",
+  output: GroupDoneDto,
+})
+export class GroupsDoneWorkflowFinish {}
 
 /** Groups of tasks, one execution of the tree at work at a time. */
 @Workflow({
@@ -104,6 +113,7 @@ export class GroupsDoneWorkflowFinish {
     onStart(GroupsWorkflowStart)
       .toParallelWorkflows(GroupWorkflow, { maxConcurrency: 5, maxItems: 10 })
       .join()
+      .toAction(GroupsDoneAction)
       .toFinish(GroupsDoneWorkflowFinish),
   ],
   maxConcurrentExecutions: 1,
@@ -125,6 +135,7 @@ export class NarrowGroupsWorkflowStart {}
     onStart(NarrowGroupsWorkflowStart)
       .toParallelWorkflows(NarrowGroupWorkflow, { maxConcurrency: 5, maxItems: 10 })
       .join()
+      .toAction(GroupsDoneAction)
       .toFinish(GroupsDoneWorkflowFinish),
   ],
   maxConcurrentExecutions: 4,

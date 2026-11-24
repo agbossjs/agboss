@@ -10,6 +10,7 @@ import {
 import {
   BatchDoneWorkflowFinish,
   BatchWorkflow,
+  BatchDoneAction,
 } from "../../flow/runtime/fixtures/tree-batch.workflow.js";
 import { TaskDto, WorkAction } from "../../flow/runtime/fixtures/tree-task.workflow.js";
 
@@ -35,6 +36,7 @@ export class ItemsWorkflowStart {}
     onStart(ItemsWorkflowStart)
       .toParallelActions(WorkAction, { maxConcurrency: 20, maxItems: 20 })
       .join()
+      .toAction(BatchDoneAction)
       .toFinish(BatchDoneWorkflowFinish),
   ],
 })

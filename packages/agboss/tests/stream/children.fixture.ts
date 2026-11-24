@@ -6,6 +6,7 @@ import {
   WorkflowStart,
   listOf,
   type Produced,
+  Action,
 } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
@@ -62,19 +63,26 @@ class OnceWorkflow {}
 })
 export class FanStart {}
 
-@WorkflowFinish({
-  name: "fan-workflow-finish",
+@Action({
+  name: "fan-action",
   description: "The answers",
   input: { answers: listOf(WorkflowFinishTextDto) },
   output: WorkflowFinishTextDto,
 })
-class FanFinish {
-  finish(input: {
+class FanAction {
+  async execute(input: {
     readonly answers: readonly Produced<WorkflowFinishTextDto, unknown>[];
-  }): WorkflowFinishTextDto {
+  }): Promise<WorkflowFinishTextDto> {
     return { text: input.answers.map((answer) => answer.value.text).join(" | ") };
   }
 }
+
+@WorkflowFinish({
+  name: "fan-workflow-finish",
+  description: "The answers",
+  output: WorkflowFinishTextDto,
+})
+class FanFinish {}
 
 /** One child per item, in parallel. */
 @Workflow({
@@ -84,6 +92,7 @@ class FanFinish {
     onStart(FanStart)
       .toParallelWorkflows(ChildWriterWorkflow, { maxItems: 4 })
       .join()
+      .toAction(FanAction)
       .toFinish(FanFinish),
   ],
 })

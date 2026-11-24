@@ -4,6 +4,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type Produced,
+  Action,
 } from "../../../../src/index.js";
 import { onStart } from "../../../helpers/flow.js";
 import { GroupDoneDto, TaskDoneDto, TaskDto, TaskWorkflow } from "./tree-task.workflow.js";
@@ -17,18 +18,27 @@ import { GroupDoneDto, TaskDoneDto, TaskDto, TaskWorkflow } from "./tree-task.wo
 })
 export class BatchWorkflowStart {}
 
-@WorkflowFinish({
-  name: "batch-done-workflow-finish",
+@Action({
+  name: "batch-done-action",
   description: "Every task done",
   input: { done: listOf(TaskDoneDto) },
   output: GroupDoneDto,
 })
-export class BatchDoneWorkflowFinish {
-  finish(input: { readonly done: readonly Produced<TaskDoneDto, unknown>[] }): GroupDoneDto {
+export class BatchDoneAction {
+  async execute(input: {
+    readonly done: readonly Produced<TaskDoneDto, unknown>[];
+  }): Promise<GroupDoneDto> {
     const names = input.done.map((task) => task.value.name);
     return { name: names.join(", ") };
   }
 }
+
+@WorkflowFinish({
+  name: "batch-done-workflow-finish",
+  description: "Every task done",
+  output: GroupDoneDto,
+})
+export class BatchDoneWorkflowFinish {}
 
 /** Five tasks may start at once; two of the tree work at once. */
 @Workflow({
@@ -38,6 +48,7 @@ export class BatchDoneWorkflowFinish {
     onStart(BatchWorkflowStart)
       .toParallelWorkflows(TaskWorkflow, { maxConcurrency: 5, maxItems: 10 })
       .join()
+      .toAction(BatchDoneAction)
       .toFinish(BatchDoneWorkflowFinish),
   ],
   maxConcurrentExecutions: 2,
@@ -59,6 +70,7 @@ export class SerialBatchWorkflowStart {}
     onStart(SerialBatchWorkflowStart)
       .toParallelWorkflows(TaskWorkflow, { maxConcurrency: 1, maxItems: 10 })
       .join()
+      .toAction(BatchDoneAction)
       .toFinish(BatchDoneWorkflowFinish),
   ],
 })
@@ -79,6 +91,7 @@ export class SingleFileWorkflowStart {}
     onStart(SingleFileWorkflowStart)
       .toParallelWorkflows(TaskWorkflow, { maxConcurrency: 5, maxItems: 10 })
       .join()
+      .toAction(BatchDoneAction)
       .toFinish(BatchDoneWorkflowFinish),
   ],
   maxConcurrentExecutions: 1,

@@ -5,6 +5,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type Produced,
+  Action,
 } from "../../../src/index.js";
 import { caseOf, onStart } from "../../helpers/flow.js";
 import {
@@ -70,14 +71,16 @@ export class PaidChildWorkflow {}
 })
 export class PaidItemsWorkflowStart {}
 
-@WorkflowFinish({
-  name: "paid-items-workflow-finish",
+@Action({
+  name: "paid-items-action",
   description: "Every order's note",
   input: { notes: listOf(OrderNoteDto) },
   output: OrderNoteDto,
 })
-export class PaidItemsWorkflowFinish {
-  finish(input: { readonly notes: readonly Produced<OrderNoteDto, unknown>[] }): OrderNoteDto {
+export class PaidItemsAction {
+  async execute(input: {
+    readonly notes: readonly Produced<OrderNoteDto, unknown>[];
+  }): Promise<OrderNoteDto> {
     return {
       note: input.notes
         .map((note) => note.value.note)
@@ -85,6 +88,13 @@ export class PaidItemsWorkflowFinish {
     };
   }
 }
+
+@WorkflowFinish({
+  name: "paid-items-workflow-finish",
+  description: "Every order's note",
+  output: OrderNoteDto,
+})
+export class PaidItemsWorkflowFinish {}
 
 /** Charged past the budgets for every order, then one child per order. */
 @Workflow({
@@ -95,6 +105,7 @@ export class PaidItemsWorkflowFinish {
       .toAction(OverspendOrdersAction)
       .toParallelWorkflows(NoteChildWorkflow, { maxItems: 3 })
       .join()
+      .toAction(PaidItemsAction)
       .toFinish(PaidItemsWorkflowFinish),
   ],
 })

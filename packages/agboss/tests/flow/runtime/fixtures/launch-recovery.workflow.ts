@@ -18,6 +18,7 @@ import {
   ItemResultDto,
   ItemsWorkflowStart,
   SummaryWorkflowFinish,
+  SummaryAction,
 } from "./fan-out.workflow.js";
 
 /**
@@ -67,6 +68,7 @@ export class RecoverableItemAction {
     onStart(ItemsWorkflowStart)
       .toParallelActions(RecoverableItemAction, { maxItems: 10 })
       .join()
+      .toAction(SummaryAction)
       .toFinish(SummaryWorkflowFinish),
   ],
 })

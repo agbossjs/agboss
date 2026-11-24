@@ -12,6 +12,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type Produced,
+  Action,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
@@ -24,6 +25,7 @@ import {
   ItemsWorkflowStart,
   SummaryDto,
   SummaryWorkflowFinish,
+  SummaryAction,
 } from "./fan-out.workflow.js";
 
 /**
@@ -62,18 +64,27 @@ export class LoopPlannerAgent {}
 })
 export class LoopCriticAgent {}
 
-@WorkflowFinish({
-  name: "critiques-workflow-finish",
+@Action({
+  name: "critiques-action",
   description: "The last critiques",
   input: { critiques: listOf(CritiqueDto) },
   output: SummaryDto,
 })
-export class CritiquesWorkflowFinish {
-  finish(input: { readonly critiques: readonly Produced<CritiqueDto, unknown>[] }): SummaryDto {
+export class CritiquesAction {
+  async execute(input: {
+    readonly critiques: readonly Produced<CritiqueDto, unknown>[];
+  }): Promise<SummaryDto> {
     const remarks = input.critiques.map((critique) => critique.value.remark);
     return { text: remarks.join(", ") };
   }
 }
+
+@WorkflowFinish({
+  name: "critiques-workflow-finish",
+  description: "The last critiques",
+  output: SummaryDto,
+})
+export class CritiquesWorkflowFinish {}
 
 /** Plans again while a critique says "redo". */
 @Router({
@@ -82,12 +93,12 @@ export class CritiquesWorkflowFinish {
   decidedBy: DecidedBy.Code,
   maxVisits: 2,
   input: { critiques: listOf(CritiqueDto) },
-  routes: [{ target: LoopPlannerAgent }, { target: CritiquesWorkflowFinish }],
+  routes: [{ target: LoopPlannerAgent }, { target: CritiquesAction }],
 })
 export class PlanLoopRouter {
   route(input: { readonly critiques: readonly Produced<CritiqueDto, unknown>[] }): unknown {
     const redo = input.critiques.some((critique) => critique.value.remark === "redo");
-    return redo ? LoopPlannerAgent : CritiquesWorkflowFinish;
+    return redo ? LoopPlannerAgent : CritiquesAction;
   }
 }
 
@@ -101,7 +112,11 @@ export class PlanLoopRouter {
       .toParallelAgents(LoopCriticAgent, LoopCriticAgent)
       .join()
       .toRouter(PlanLoopRouter)
-      .chooseOne(route(LoopPlannerAgent), route(CritiquesWorkflowFinish)),
+      .chooseOne(
+        route(LoopPlannerAgent),
+        route(CritiquesAction)
+          .toFinish(CritiquesWorkflowFinish),
+      ),
   ],
 })
 export class PlanLoopWorkflow {}
@@ -155,6 +170,7 @@ export class ItemClerkAgent {}
     onStart(ItemsWorkflowStart)
       .toParallelAgents(ItemClerkAgent, { maxConcurrency: 2, maxItems: 10 })
       .join()
+      .toAction(SummaryAction)
       .toFinish(SummaryWorkflowFinish),
   ],
 })
@@ -210,12 +226,12 @@ export class TiredWorkflowFinish {}
   decidedBy: DecidedBy.Code,
   maxVisits: 2,
   input: { critiques: listOf(CritiqueDto) },
-  routes: [{ target: TiredPlannerAgent }, { target: CritiquesWorkflowFinish }],
+  routes: [{ target: TiredPlannerAgent }, { target: CritiquesAction }],
 })
 export class TiredLoopRouter {
   route(input: { readonly critiques: readonly Produced<CritiqueDto, unknown>[] }): unknown {
     const redo = input.critiques.some((critique) => critique.value.remark === "redo");
-    return redo ? TiredPlannerAgent : CritiquesWorkflowFinish;
+    return redo ? TiredPlannerAgent : CritiquesAction;
   }
 }
 
@@ -230,7 +246,11 @@ export class TiredLoopRouter {
       .join()
       .onError(VisitsLimitExceededError, toFinish(TiredWorkflowFinish))
       .toRouter(TiredLoopRouter)
-      .chooseOne(route(TiredPlannerAgent), route(CritiquesWorkflowFinish)),
+      .chooseOne(
+        route(TiredPlannerAgent),
+        route(CritiquesAction)
+          .toFinish(CritiquesWorkflowFinish),
+      ),
   ],
 })
 export class TiredWorkflow {}

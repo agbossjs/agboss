@@ -37,6 +37,7 @@ import {
   SupportWorkflow,
   SupportWorkflowFinish,
   SupportWorkflowStart,
+  SupportAction,
 } from "../fixtures/support.fixture.js";
 
 /** The path scope (#270 AC4) on the data-flow engine (#272 S10). */
@@ -119,7 +120,7 @@ class StrictRouter {}
         route(LoyaltyAgent).toAgent(StrictExpertAgent),
         route(StrictExpertAgent),
       ),
-    onAgent(StrictExpertAgent).toFinish(SupportWorkflowFinish),
+    onAgent(StrictExpertAgent).toAction(SupportAction).toFinish(SupportWorkflowFinish),
   ],
 })
 class WitnessWorkflow {}
@@ -181,24 +182,31 @@ const manyDtos = Array.from({ length: 13 }, (_, index) => {
 })
 class WideWorkflowStart {}
 
-@WorkflowFinish({
-  name: "wide-workflow-finish",
+@Action({
+  name: "wide-action",
   description: "Reads them all",
   input: Object.fromEntries(
     manyDtos.map((dto, index) => [`field${String(index + 1)}`, optional(dto)]),
   ),
   output: ShortlistDto,
 })
-class WideWorkflowFinish {
-  finish(): ShortlistDto {
+class WideAction {
+  async execute(): Promise<ShortlistDto> {
     return { candidates: "" };
   }
 }
 
+@WorkflowFinish({
+  name: "wide-workflow-finish",
+  description: "Reads them all",
+  output: ShortlistDto,
+})
+class WideWorkflowFinish {}
+
 @Workflow({
   name: "wide-workflow",
   version: "1.0.0",
-  flow: [onStart(WideWorkflowStart).toFinish(WideWorkflowFinish)],
+  flow: [onStart(WideWorkflowStart).toAction(WideAction).toFinish(WideWorkflowFinish)],
 })
 class WideWorkflow {}
 
@@ -347,7 +355,7 @@ describe("#270 AC4: the path scope", () => {
 
 describe("#270 AC4, #272 S10: one engine over sets of abstract scopes", () => {
   it("field correlation is kept: the finish gets { fast } or { expert }, never neither", () => {
-    expect(inputShapesOf(analyseWorkflow(SupportWorkflow), "support-workflow-finish")).toEqual([
+    expect(inputShapesOf(analyseWorkflow(SupportWorkflow), "support-action")).toEqual([
       [absent("fast"), present("expert", "expert-answer-agent")],
       [present("fast", "fast-answer-agent"), absent("expert")],
     ]);
@@ -372,7 +380,7 @@ describe("#270 AC4, #272 S10: one engine over sets of abstract scopes", () => {
     expect(checkWorkflow(WideWorkflow).errors).toEqual([
       expect.objectContaining({
         code: "flow.analysis-too-large",
-        message: `wide-workflow: wide-workflow-finish is reached with more than 4096 path scopes — the slots ${slots} multiply them; move a branch into a child workflow (agboss generate workflow …)`,
+        message: `wide-workflow: wide-action is reached with more than 4096 path scopes — the slots ${slots} multiply them; move a branch into a child workflow (agboss generate workflow …)`,
       }),
     ]);
   });

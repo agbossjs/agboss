@@ -136,7 +136,8 @@ const IDENTITY = {
 };
 const node = { id: "launch-node" } as RuntimeNode;
 const CHILD_GRAPH = trivialExecutionGraph();
-const FINISH = { kind: NodeKind.Finish, options: { output: { name: "ApprovedDto" } } };
+const ApprovedDto = Object.defineProperty(() => undefined, "name", { value: "ApprovedDto" });
+const FINISH = { kind: NodeKind.Finish, options: { output: ApprovedDto } };
 
 interface Setup {
   readonly isRecursive?: boolean;

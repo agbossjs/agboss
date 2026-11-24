@@ -18,7 +18,7 @@ import { Injectable } from "../../../../src/components/decorators.js";
 import { Application } from "../../../../src/application/application.js";
 import { usd } from "../../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
-import { onStart, toFinish } from "../../../helpers/flow.js";
+import { onAction, onStart, toFinish, toAction } from "../../../helpers/flow.js";
 
 /**
  * #273 PR 2 — per-item actions whose timing the test sets: each item waits `delay` ms (or until
@@ -131,31 +131,49 @@ export class ProcessItemAction {
 export class ItemsWorkflowStart {}
 
 /** The results in the join's order. */
-@WorkflowFinish({
-  name: "summary-workflow-finish",
+@Action({
+  name: "summary-action",
   description: "What was done",
   input: { results: listOf(ItemResultDto) },
   output: SummaryDto,
 })
-export class SummaryWorkflowFinish {
-  finish(input: { readonly results: readonly Produced<ItemResultDto, unknown>[] }): SummaryDto {
+export class SummaryAction {
+  async execute(input: {
+    readonly results: readonly Produced<ItemResultDto, unknown>[];
+  }): Promise<SummaryDto> {
     const names = input.results.map((result) => result.value.name);
     return { text: names.join(", ") };
   }
 }
 
-/** The launch failed on an item: how many items there were. */
 @WorkflowFinish({
-  name: "items-failed-workflow-finish",
+  name: "summary-workflow-finish",
+  description: "What was done",
+  output: SummaryDto,
+})
+export class SummaryWorkflowFinish {}
+
+/** The launch failed on an item: how many items there were. */
+@Action({
+  name: "items-failed-action",
   description: "The items were not all processed",
   input: { items: listOf(ItemDto) },
   output: SummaryDto,
 })
-export class ItemsFailedWorkflowFinish {
-  finish(input: { readonly items: readonly Produced<ItemDto, unknown>[] }): SummaryDto {
+export class ItemsFailedAction {
+  async execute(input: {
+    readonly items: readonly Produced<ItemDto, unknown>[];
+  }): Promise<SummaryDto> {
     return { text: `failed on one of ${String(input.items.length)}` };
   }
 }
+
+@WorkflowFinish({
+  name: "items-failed-workflow-finish",
+  description: "The items were not all processed",
+  output: SummaryDto,
+})
+export class ItemsFailedWorkflowFinish {}
 
 @Injectable()
 export class FanOutLog implements OnLaunchItemsTruncated {
@@ -172,10 +190,13 @@ export class FanOutLog implements OnLaunchItemsTruncated {
     onStart(ItemsWorkflowStart)
       .toParallelActions(ProcessItemAction, { maxConcurrency: 2, maxItems: 4 })
       .join()
-      .onError(ItemFailedError, toFinish(ItemsFailedWorkflowFinish))
+      .onError(ItemFailedError, toAction(ItemsFailedAction))
       // never taken: a cancel of the execution stops it whole (S21)
-      .onError(ExecutionCancelledError, toFinish(ItemsFailedWorkflowFinish))
+      .onError(ExecutionCancelledError, toAction(ItemsFailedAction))
+      .toAction(SummaryAction)
       .toFinish(SummaryWorkflowFinish),
+    onAction(ItemsFailedAction)
+      .toFinish(ItemsFailedWorkflowFinish),
   ],
 })
 export class FanOutWorkflow {}
@@ -198,6 +219,7 @@ export class FanOutApplication {}
     onStart(ItemsWorkflowStart)
       .toParallelActions(ProcessItemAction, { maxItems: 4 })
       .join()
+      .toAction(SummaryAction)
       .toFinish(SummaryWorkflowFinish),
   ],
 })
@@ -211,6 +233,35 @@ export class FanOutUnboundedWorkflow {}
   budgets: TEST_BUDGETS,
 })
 export class FanOutUnboundedApplication {}
+
+/** A finish whose output is a list (#1271): the join's values pass straight through, no wrapper DTO. */
+@WorkflowFinish({
+  name: "item-results-workflow-finish",
+  description: "Every item's result, in the join's order",
+  output: listOf(ItemResultDto),
+})
+export class ItemResultsWorkflowFinish {}
+
+@Workflow({
+  name: "list-finish-workflow",
+  version: "1.0.0",
+  flow: [
+    onStart(ItemsWorkflowStart)
+      .toParallelActions(ProcessItemAction, { maxItems: 4 })
+      .join()
+      .toFinish(ItemResultsWorkflowFinish),
+  ],
+})
+export class ListFinishWorkflow {}
+
+@Application({
+  name: "list-finish-application",
+  version: "1.0.0",
+  environment: EmptyEnvironment,
+  workflows: [ListFinishWorkflow],
+  budgets: TEST_BUDGETS,
+})
+export class ListFinishApplication {}
 
 /** Which copy ran: what the step's `ExecutionContext` said (AC1: `step.copyNumber` from 1). */
 export class StampDto {
@@ -243,20 +294,29 @@ export class StampAction {
 @WorkflowStart({ name: "one-item-workflow-start", description: "One item", input: ItemDto })
 export class OneItemWorkflowStart {}
 
-@WorkflowFinish({
-  name: "stamps-workflow-finish",
+@Action({
+  name: "stamps-action",
   description: "Which copies ran",
   input: { stamps: listOf(StampDto) },
   output: SummaryDto,
 })
-export class StampsWorkflowFinish {
-  finish(input: { readonly stamps: readonly Produced<StampDto, unknown>[] }): SummaryDto {
+export class StampsAction {
+  async execute(input: {
+    readonly stamps: readonly Produced<StampDto, unknown>[];
+  }): Promise<SummaryDto> {
     const said = input.stamps.map(({ value }) =>
       [value.nodeId, String(value.copyNumber), String(value.visitNumber)].join(" "),
     );
     return { text: said.join("; ") };
   }
 }
+
+@WorkflowFinish({
+  name: "stamps-workflow-finish",
+  description: "Which copies ran",
+  output: SummaryDto,
+})
+export class StampsWorkflowFinish {}
 
 /** One action listed twice: two copies. */
 @Workflow({
@@ -266,6 +326,7 @@ export class StampsWorkflowFinish {
     onStart(OneItemWorkflowStart)
       .toParallelActions(StampAction, StampAction)
       .join()
+      .toAction(StampsAction)
       .toFinish(StampsWorkflowFinish),
   ],
 })

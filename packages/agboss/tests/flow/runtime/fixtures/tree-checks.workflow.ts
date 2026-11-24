@@ -8,7 +8,7 @@ import {
   WorkflowStart,
 } from "../../../../src/index.js";
 import { onStart } from "../../../helpers/flow.js";
-import { BatchDoneWorkflowFinish } from "./tree-batch.workflow.js";
+import { BatchDoneWorkflowFinish, BatchDoneAction } from "./tree-batch.workflow.js";
 import { TaskDoneDto, TaskDoneWorkflowFinish, TaskDto } from "./tree-task.workflow.js";
 
 /** #264 PR 2 — a paused child holds no slot: checks of tasks, one asking for a confirmation. */
@@ -70,6 +70,7 @@ export class ChecksWorkflowStart {}
     onStart(ChecksWorkflowStart)
       .toParallelWorkflows(TaskCheckWorkflow, { maxConcurrency: 5, maxItems: 10 })
       .join()
+      .toAction(BatchDoneAction)
       .toFinish(BatchDoneWorkflowFinish),
   ],
   maxConcurrentExecutions: 1,

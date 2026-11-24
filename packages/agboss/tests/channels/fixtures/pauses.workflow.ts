@@ -30,6 +30,7 @@ import {
   type OnExecutionPause,
   type OnExecutionResume,
   type Produced,
+  Action,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { minutes } from "../../../src/units/index.js";
@@ -492,16 +493,16 @@ export class BatchSummaryDto {
   text!: string;
 }
 
-@WorkflowFinish({
-  name: "batch-workflow-finish",
+@Action({
+  name: "batch-action",
   description: "What was refunded",
   input: { refunds: listOf(RefundDoneDto) },
   output: BatchSummaryDto,
 })
-export class BatchWorkflowFinish {
-  finish(input: {
+export class BatchAction {
+  async execute(input: {
     readonly refunds: readonly Produced<RefundDoneDto, unknown>[];
-  }): BatchSummaryDto {
+  }): Promise<BatchSummaryDto> {
     return {
       text: input.refunds
         .map((refund) => refund.value.orderId)
@@ -509,6 +510,13 @@ export class BatchWorkflowFinish {
     };
   }
 }
+
+@WorkflowFinish({
+  name: "batch-workflow-finish",
+  description: "What was refunded",
+  output: BatchSummaryDto,
+})
+export class BatchWorkflowFinish {}
 
 @Workflow({
   name: "batch-workflow",
@@ -518,6 +526,7 @@ export class BatchWorkflowFinish {
     onStart(BatchWorkflowStart)
       .toParallelAgents(BatchRefundAgent, { maxConcurrency: 3, maxItems: 5 })
       .join()
+      .toAction(BatchAction)
       .toFinish(BatchWorkflowFinish),
   ],
 })
@@ -549,20 +558,27 @@ export class AuditRefundAgent {}
 })
 export class AuditCheckAgent {}
 
-@WorkflowFinish({
-  name: "audit-workflow-finish",
+@Action({
+  name: "audit-action",
   description: "The audit",
   input: { refund: RefundDoneDto, check: BatchSummaryDto },
   output: BatchSummaryDto,
 })
-export class AuditWorkflowFinish {
-  finish(input: {
+export class AuditAction {
+  async execute(input: {
     readonly refund: Produced<RefundDoneDto, unknown>;
     readonly check: Produced<BatchSummaryDto, unknown>;
-  }): BatchSummaryDto {
+  }): Promise<BatchSummaryDto> {
     return { text: `${input.refund.value.orderId}: ${input.check.value.text}` };
   }
 }
+
+@WorkflowFinish({
+  name: "audit-workflow-finish",
+  description: "The audit",
+  output: BatchSummaryDto,
+})
+export class AuditWorkflowFinish {}
 
 @Workflow({
   name: "audit-workflow",
@@ -571,6 +587,7 @@ export class AuditWorkflowFinish {
     onStart(AuditWorkflowStart)
       .toParallelAgents(AuditRefundAgent, AuditCheckAgent)
       .join()
+      .toAction(AuditAction)
       .toFinish(AuditWorkflowFinish),
   ],
 })

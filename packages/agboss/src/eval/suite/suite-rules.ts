@@ -4,6 +4,7 @@ import type { DtoClass } from "../../dto/types.js";
 import { requireApplication } from "../../application/application.js";
 import { startsOfApplication } from "../../application/application-starts.js";
 import { NodeKind } from "../../flow/ast.js";
+import { outputClassesOf } from "../../flow/finish-output.js";
 import { checkWorkflow } from "../../flow/analyse/analyse.js";
 import { childWorkflowOf, withChildWorkflows } from "../../flow/analyse/child-workflow.js";
 import { declarationOf } from "../../flow/decorators/declaration.js";
@@ -86,7 +87,7 @@ function reachedOutputs(
   if (graph === undefined) return [];
   return [...reachableFrom([opened.entry], graph.edges)].flatMap((name) => {
     const declaration = graph.nodes.get(name)?.declaration;
-    return declaration?.kind === NodeKind.Finish ? [declaration.options.output] : [];
+    return declaration?.kind === NodeKind.Finish ? outputClassesOf(declaration.options.output) : [];
   });
 }
 

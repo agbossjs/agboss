@@ -2,6 +2,7 @@ import { Agent } from "../../../src/flow/decorators/agent.js";
 import { DecidedBy, Router } from "../../../src/flow/decorators/router.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
+import { Action } from "../../../src/flow/decorators/action.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import { optional } from "../../../src/flow/dto-wrappers.js";
 import {
@@ -12,7 +13,7 @@ import {
   OrderStatusDto,
 } from "./data-dtos.js";
 import { WorkflowStartTextDto } from "./dtos.js";
-import { onAgent, route, onStart } from "./paths.js";
+import { onAction, onAgent, route, onStart } from "./paths.js";
 
 /** #270 — the support desk: a router, an optional loyalty offer, a finish reading `fast` or `expert`. */
 
@@ -74,8 +75,8 @@ export class LoyaltyAgent {}
 })
 export class ExpertAnswerAgent {}
 
-@WorkflowFinish({
-  name: "support-workflow-finish",
+@Action({
+  name: "support-action",
   description: "The reply to the customer",
   input: {
     fast: optional(FastDraftDto),
@@ -83,11 +84,18 @@ export class ExpertAnswerAgent {}
   },
   output: CustomerReplyDto,
 })
-export class SupportWorkflowFinish {
-  finish(): CustomerReplyDto {
+export class SupportAction {
+  async execute(): Promise<CustomerReplyDto> {
     return { text: "", holdForReview: false };
   }
 }
+
+@WorkflowFinish({
+  name: "support-workflow-finish",
+  description: "The reply to the customer",
+  output: CustomerReplyDto,
+})
+export class SupportWorkflowFinish {}
 
 @Router({
   name: "answer-router",
@@ -111,12 +119,14 @@ export const supportPaths = [
     .toRouter(AnswerRouter)
     .chooseOne(
       route(FastAnswerAgent)
-        .toFinish(SupportWorkflowFinish),
+        .toAction(SupportAction),
       route(LoyaltyAgent)
         .toAgent(ExpertAnswerAgent),
       route(ExpertAnswerAgent),
     ),
   onAgent(ExpertAnswerAgent)
+    .toAction(SupportAction),
+  onAction(SupportAction)
     .toFinish(SupportWorkflowFinish),
 ];
 

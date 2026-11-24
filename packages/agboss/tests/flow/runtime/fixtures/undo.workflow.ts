@@ -237,20 +237,27 @@ export class UndoUnhandledWorkflowStart {}
 })
 export class UndoPathWorkflowStart {}
 
-@WorkflowFinish({
-  name: "reserved-workflow-finish",
+@Action({
+  name: "reserved-action",
   description: "Reserved",
   input: { seat: SeatDto, room: RoomDto },
   output: ReservedDto,
 })
-export class ReservedWorkflowFinish {
-  finish(input: {
+export class ReservedAction {
+  async execute(input: {
     readonly seat: Produced<SeatDto, unknown>;
     readonly room: Produced<RoomDto, unknown>;
-  }): ReservedDto {
+  }): Promise<ReservedDto> {
     return { summary: `${input.seat.value.seatId} + ${input.room.value.roomId}` };
   }
 }
+
+@WorkflowFinish({
+  name: "reserved-workflow-finish",
+  description: "Reserved",
+  output: ReservedDto,
+})
+export class ReservedWorkflowFinish {}
 
 @WorkflowFinish({
   name: "not-reserved-workflow-finish",
@@ -275,6 +282,7 @@ export class SeatConfirmedWorkflowFinish {}
       .toParallelActions(ReserveSeatAction, ReserveRoomAction, ChargeCardAction)
       .join()
       .onError(UndoDeskError, toFinish(NotReservedWorkflowFinish))
+      .toAction(ReservedAction)
       .toFinish(ReservedWorkflowFinish),
   ],
   providers: [UndoDesk],
@@ -289,6 +297,7 @@ export class UndoWorkflow {}
     onStart(UndoUnhandledWorkflowStart)
       .toParallelActions(ReserveSeatAction, ReserveRoomAction, ChargeCardAction)
       .join()
+      .toAction(ReservedAction)
       .toFinish(ReservedWorkflowFinish),
   ],
   providers: [UndoDesk],

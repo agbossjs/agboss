@@ -101,6 +101,7 @@ export function componentIoOf(declaration: ComponentDeclaration): ComponentIo {
     case NodeKind.Router:
       return { input: declaration.options.input };
     case NodeKind.Finish:
+      return { output: declaration.options.output };
     case NodeKind.Agent:
     case NodeKind.Action:
     case NodeKind.Question: {

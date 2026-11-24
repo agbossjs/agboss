@@ -106,7 +106,7 @@ function runnerOf(node: RuntimeNode, deps: GraphDeps<string>, parts: Parts): Nod
     case NodeKind.Start:
       return startRunner();
     case NodeKind.Finish:
-      return finishRunner(node, deps);
+      return finishRunner(node);
     case NodeKind.Action:
       return actionRunner(node, deps);
     case NodeKind.Router: {

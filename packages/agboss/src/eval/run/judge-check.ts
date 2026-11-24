@@ -14,6 +14,7 @@ import { checkedJudgeOf } from "../../components/judge-parts.js";
 import type { DtoClass } from "../../dto/types.js";
 import { totalCost, type UsageRecord } from "../../finops/usage.js";
 import { NodeKind } from "../../flow/ast.js";
+import { singleOutputClassOf } from "../../flow/finish-output.js";
 import { isJudgedBy, judgedShapeOf } from "../../flow/analyse/rules/text-agents.js";
 import { runInFrame } from "../../flow/context/frame.js";
 import type { ToolCallRecord } from "../../flow/runtime/tool-calls.js";
@@ -43,7 +44,9 @@ export interface JudgedTurn extends JudgedExecution {
 /** The output class of the finish a run ended at; undefined = not a finish of the workflow. */
 function finishOutputOf(deps: AppDeps, finish: string): DtoClass | undefined {
   const declaration = deps.graph.nodes.get(finish)?.declaration;
-  return declaration?.kind === NodeKind.Finish ? declaration.options.output : undefined;
+  return declaration?.kind === NodeKind.Finish
+    ? singleOutputClassOf(declaration.options.output)
+    : undefined;
 }
 
 /** Why a judge cannot judge the run's output; undefined = it can, as this class. */

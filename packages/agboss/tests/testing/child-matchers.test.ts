@@ -23,6 +23,7 @@ import {
 import {
   CheckItemsWorkflowStart,
   CheckOneWorkflowStart,
+  ChecksFailedAction,
   ChecksFailedWorkflowFinish,
   ChildrenApplication,
   CheckItemAction,
@@ -33,6 +34,7 @@ import {
   ItemNoteDto,
   ItemReviewerAgent,
   ItemReviewWorkflow,
+  OneFailedAction,
   OneFailedWorkflowFinish,
   resetChildLog,
   ReviewItemsWorkflowStart,
@@ -142,12 +144,12 @@ describe("toHaveHandledError", () => {
 
     expect(result).toHaveHandledError(ChildExecutionFailedError, {
       at: ItemCheckWorkflow,
-      by: ChecksFailedWorkflowFinish,
+      by: ChecksFailedAction,
     });
     expect(result).toHaveHandledError(ItemFailedError);
     expect(result).toHaveHandledError(ActionFailedError, { at: ItemCheckWorkflow });
     expect(result).not.toHaveHandledError(ExecutionCancelledError);
-    expect(result).not.toHaveHandledError(ItemFailedError, { by: OneFailedWorkflowFinish });
+    expect(result).not.toHaveHandledError(ItemFailedError, { by: OneFailedAction });
     expect(result).not.toHaveHandledError(ItemFailedError, { at: CheckItemAction });
   });
 
@@ -168,7 +170,7 @@ describe("toHaveHandledError", () => {
 
     expect(one).toHaveHandledError(ItemFailedError, {
       at: ItemCheckWorkflow,
-      by: OneFailedWorkflowFinish,
+      by: OneFailedAction,
     });
     expect(reviews).toHaveHandledError(StepsLimitExceededError, {
       at: ItemReviewWorkflow,

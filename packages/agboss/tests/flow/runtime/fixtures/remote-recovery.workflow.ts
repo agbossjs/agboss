@@ -17,8 +17,8 @@ import {
   StampedExecutionRecordRepository,
 } from "../../../infrastructure/fixtures/recovery.workflow.js";
 import { RecordingLogger } from "../../../helpers/log.js";
-import { onStart, toFinish } from "../../../helpers/flow.js";
-import { ItemDto, SummaryWorkflowFinish } from "./fan-out.workflow.js";
+import { onStart, toFinish, toAction } from "../../../helpers/flow.js";
+import { ItemDto, SummaryWorkflowFinish, SummaryAction } from "./fan-out.workflow.js";
 import {
   ChecksFailedWorkflowFinish,
   ChildEventLog,
@@ -27,6 +27,8 @@ import {
   ReviewsSummaryWorkflowFinish,
   ShopExecutionContext,
   ShopTenantContext,
+  ChecksFailedAction,
+  ReviewsSummaryAction,
 } from "./children.workflow.js";
 import { HoldCheckedWorkflowFinish, HoldCheckWorkflowStart } from "./child-recovery.workflow.js";
 import { RecoverableItemAction, recoveryRuns } from "./launch-recovery.workflow.js";
@@ -98,7 +100,12 @@ export class RemoteHoldItemsWorkflowStart {}
         placement: ChildPlacement.AnyInstance,
       })
       .join()
-      .onError(ChildExecutionFailedError, toFinish(ChecksFailedWorkflowFinish))
+      .onError(
+        ChildExecutionFailedError,
+        toAction(ChecksFailedAction)
+          .toFinish(ChecksFailedWorkflowFinish),
+      )
+      .toAction(SummaryAction)
       .toFinish(SummaryWorkflowFinish),
   ],
 })
@@ -140,6 +147,7 @@ export class RemoteReviewItemsWorkflowStart {}
         placement: ChildPlacement.AnyInstance,
       })
       .join()
+      .toAction(ReviewsSummaryAction)
       .toFinish(ReviewsSummaryWorkflowFinish),
   ],
 })

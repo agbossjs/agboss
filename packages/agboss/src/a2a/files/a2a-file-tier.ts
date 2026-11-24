@@ -4,6 +4,7 @@ import { workflowPartsOf } from "../../describe/contracts-parts.js";
 import type { DtoClass } from "../../dto/types.js";
 import { NodeKind } from "../../flow/ast.js";
 import { declarationOf } from "../../flow/decorators/declaration.js";
+import { singleOutputClassOf } from "../../flow/finish-output.js";
 import { fileFieldsOf, inputClassOf } from "./a2a-file.dto.js";
 import { fileLimitsOf, type A2AFileOptions } from "./a2a-file-options.js";
 
@@ -26,7 +27,9 @@ export function finishDtosOf(
     const finish = declarationOf(node);
     // Stryker disable next-line OptionalChaining: equivalent: every node of a flow has a declaration
     if (finish?.kind !== NodeKind.Finish) return [];
-    return [[finish.options.name, finish.options.output]];
+    // a list of one DTO keeps that DTO's files; a list of several or other shapes has no single class
+    const dto = singleOutputClassOf(finish.options.output);
+    return dto === undefined ? [] : [[finish.options.name, dto]];
   });
   return new Map(entries);
 }

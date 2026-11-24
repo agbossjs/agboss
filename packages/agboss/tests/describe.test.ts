@@ -134,7 +134,7 @@ describe("describe a workflow", () => {
     expect(describeWorkflow(history)).toEqual(
       expect.arrayContaining([
         "  review-draft-action ← draft: draft-editor-agent | first-draft-agent (latest, historyOf, maxPrevious 2)",
-        "  draft-history-workflow-finish ← drafts: draft-editor-agent | first-draft-agent (latest, historyOf)",
+        "  draft-history-action ← drafts: draft-editor-agent | first-draft-agent (latest, historyOf)",
       ]),
     );
   });

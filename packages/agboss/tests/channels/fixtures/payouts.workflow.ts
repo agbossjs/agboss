@@ -7,10 +7,11 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type Produced,
+  Action,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { onStart, toFinish } from "../../helpers/flow.js";
+import { onStart, toFinish, toAction } from "../../helpers/flow.js";
 import {
   BatchSummaryDto,
   ConfirmOrderTool,
@@ -62,32 +63,48 @@ export class PayoutConfirmAgent {}
 })
 export class PayoutRefundAgent {}
 
-@WorkflowFinish({
-  name: "payout-workflow-finish",
+@Action({
+  name: "payout-action",
   description: "The payout",
   input: { confirmation: OrderConfirmationDto, refund: RefundDoneDto },
   output: BatchSummaryDto,
 })
-export class PayoutWorkflowFinish {
-  finish(input: {
+export class PayoutAction {
+  async execute(input: {
     readonly confirmation: Produced<OrderConfirmationDto, unknown>;
     readonly refund: Produced<RefundDoneDto, unknown>;
-  }): BatchSummaryDto {
+  }): Promise<BatchSummaryDto> {
     return { text: `paid ${input.refund.value.orderId}` };
+  }
+}
+
+@WorkflowFinish({
+  name: "payout-workflow-finish",
+  description: "The payout",
+  output: BatchSummaryDto,
+})
+export class PayoutWorkflowFinish {}
+
+@Action({
+  name: "payout-declined-action",
+  description: "The payout was declined",
+  input: { request: RefundRequestDto },
+  output: BatchSummaryDto,
+})
+export class PayoutDeclinedAction {
+  async execute(input: {
+    readonly request: Produced<RefundRequestDto, unknown>;
+  }): Promise<BatchSummaryDto> {
+    return { text: `declined ${input.request.value.orderId}` };
   }
 }
 
 @WorkflowFinish({
   name: "payout-declined-workflow-finish",
   description: "The payout was declined",
-  input: { request: RefundRequestDto },
   output: BatchSummaryDto,
 })
-export class PayoutDeclinedWorkflowFinish {
-  finish(input: { readonly request: Produced<RefundRequestDto, unknown> }): BatchSummaryDto {
-    return { text: `declined ${input.request.value.orderId}` };
-  }
-}
+export class PayoutDeclinedWorkflowFinish {}
 
 const providers = [
   FinanceDeskRefundApprovalChannel,
@@ -103,7 +120,12 @@ const providers = [
     onStart(PayoutWorkflowStart)
       .toParallelAgents(PayoutConfirmAgent, PayoutRefundAgent)
       .join()
-      .onError(PaymentDeclinedError, toFinish(PayoutDeclinedWorkflowFinish))
+      .onError(
+        PaymentDeclinedError,
+        toAction(PayoutDeclinedAction)
+          .toFinish(PayoutDeclinedWorkflowFinish),
+      )
+      .toAction(PayoutAction)
       .toFinish(PayoutWorkflowFinish),
   ],
 })
@@ -128,7 +150,12 @@ export class PayoutsApplication {}
     onStart(PayoutWorkflowStart)
       .toParallelAgents(PayoutConfirmAgent, PayoutRefundAgent)
       .join()
-      .onError(StepFailedError, toFinish(PayoutDeclinedWorkflowFinish))
+      .onError(
+        StepFailedError,
+        toAction(PayoutDeclinedAction)
+          .toFinish(PayoutDeclinedWorkflowFinish),
+      )
+      .toAction(PayoutAction)
       .toFinish(PayoutWorkflowFinish),
   ],
 })
@@ -153,6 +180,7 @@ export class PayoutStepsApplication {}
     onStart(PayoutWorkflowStart)
       .toParallelAgents(PayoutConfirmAgent, PayoutRefundAgent)
       .join()
+      .toAction(PayoutAction)
       .toFinish(PayoutWorkflowFinish),
   ],
 })

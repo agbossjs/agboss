@@ -77,7 +77,7 @@ describe("AC8: an uncaught child error fails the parent's step (FailFast)", () =
         cause: { code: "step.action", cause: { code: "test.item-failed" } },
       },
       at: { name: "item-check-workflow" },
-      by: { name: "checks-failed-workflow-finish" },
+      by: { name: "checks-failed-action" },
     });
     const failed = result.children.find((child) => child.status === ChildExecutionStatus.Failed);
     expect(failed?.itemIndex).toBe(1);
@@ -128,7 +128,7 @@ describe("AC9: the side path sees the scope before the launch, and the settled a
     expect(result).toFinishWith(ChecksFailedWorkflowFinish, { text: "failed on one of 2" });
     const slots = result.record?.scope.map((value) => value.slot) ?? [];
     // the finished child's output joins the scope as a list of the finished items (#945)
-    expect(slots).toEqual(["list:ItemDto", "list:ItemResultDto"]);
+    expect(slots).toEqual(["list:ItemDto", "list:ItemResultDto", "SummaryDto"]);
     expect(result.record?.children.map((child) => [child.itemIndex, child.status])).toEqual(
       expect.arrayContaining([
         [0, ChildExecutionStatus.Finished],

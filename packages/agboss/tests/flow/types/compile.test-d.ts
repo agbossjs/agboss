@@ -30,7 +30,7 @@ import {
 } from "../fixtures/dtos.js";
 import {
   DraftEditorAgent,
-  DraftHistoryWorkflowFinish,
+  DraftHistoryAction,
   FirstDraftAgent,
   ReviewDraftAction,
 } from "../fixtures/history.fixture.js";
@@ -53,11 +53,7 @@ import {
   CompanyCheckAgent,
   CompanyCheckWorkflowStart,
 } from "../fixtures/starts.fixture.js";
-import {
-  ExpertAnswerAgent,
-  FastAnswerAgent,
-  SupportWorkflowFinish,
-} from "../fixtures/support.fixture.js";
+import { ExpertAnswerAgent, FastAnswerAgent, SupportAction } from "../fixtures/support.fixture.js";
 
 /**
  * Compile-time checks of the generated `.agboss/types.d.ts` (#272 PR 3, #270 → Generated types),
@@ -99,7 +95,7 @@ describe("#270 AC6, #299 S54: returns and caseOf against ProducerOutputs", () =>
     expectTypeOf<InputOf<ReviewDraftAction>>().toEqualTypeOf<{
       draft: HistoryOf<Produced<OfferDraftDto, typeof DraftEditorAgent | typeof FirstDraftAgent>>;
     }>();
-    expectTypeOf<InputOf<DraftHistoryWorkflowFinish>["drafts"]["previous"]>().toEqualTypeOf<
+    expectTypeOf<InputOf<DraftHistoryAction>["drafts"]["previous"]>().toEqualTypeOf<
       readonly Produced<OfferDraftDto, typeof DraftEditorAgent | typeof FirstDraftAgent>[]
     >();
     expectTypeOf(historyOf(OfferDraftDto, { maxPrevious: 2 }).maxPrevious).toEqualTypeOf<
@@ -158,7 +154,7 @@ describe("#270 AC13: InputOf is path-sensitive — optional fields narrow withou
   });
 
   it("two fields of which every path brings exactly one", () => {
-    const input = {} as InputOf<SupportWorkflowFinish>;
+    const input = {} as InputOf<SupportAction>;
     if (input.fast === undefined) {
       expectTypeOf(input.expert.value).toEqualTypeOf<ExpertDraftDto>();
     } else {
@@ -183,6 +179,6 @@ describe("#270 AC13 / AC21: WorkflowStarts types app.execute's input and result.
       company: CompanyDto;
       request?: SearchRequestDto;
     }>();
-    expectTypeOf<OutputOf<SupportWorkflowFinish>>().not.toEqualTypeOf<ShortlistDto>();
+    expectTypeOf<OutputOf<SupportAction>>().not.toEqualTypeOf<ShortlistDto>();
   });
 });

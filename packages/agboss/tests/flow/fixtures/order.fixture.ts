@@ -4,7 +4,7 @@ import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import type { InputOf, OutputOf } from "../../../src/flow/generated-types.js";
-import type { ActionHandler, FinishHandler } from "../../../src/flow/handlers.js";
+import type { ActionHandler } from "../../../src/flow/handlers.js";
 import { OrderRequestDto, OrderShippedDto, StockReservationDto } from "./dtos.js";
 
 /** #272 example 3 — errors and an explicit rollback, with a branch for a failed rollback. */
@@ -93,19 +93,26 @@ export class ReleaseStockAction implements ActionHandler<ReleaseStockAction> {
 })
 export class OrderFailedWorkflowFinish {}
 
-@WorkflowFinish({
-  name: "order-workflow-finish",
+@Action({
+  name: "order-action",
   description: "The shipped order",
   input: {
     shipped: OrderShippedDto,
   },
   output: OrderShippedDto,
 })
-export class OrderWorkflowFinish implements FinishHandler<OrderWorkflowFinish> {
-  finish(input: InputOf<OrderWorkflowFinish>): OutputOf<OrderWorkflowFinish> {
+export class OrderAction {
+  async execute(input: InputOf<OrderAction>): Promise<OutputOf<OrderAction>> {
     return { trackingNumber: input.shipped.value.trackingNumber };
   }
 }
+
+@WorkflowFinish({
+  name: "order-workflow-finish",
+  description: "The shipped order",
+  output: OrderShippedDto,
+})
+export class OrderWorkflowFinish {}
 
 export const orderPaths = [
   onStart(OrderWorkflowStart)
@@ -122,6 +129,7 @@ export const orderPaths = [
         .toAction(ReleaseStockAction)
         .toFinish(OrderFailedWorkflowFinish),
     )
+    .toAction(OrderAction)
     .toFinish(OrderWorkflowFinish),
 ] as const;
 

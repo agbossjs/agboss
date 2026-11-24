@@ -7,11 +7,12 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  Action,
 } from "../../../../src/index.js";
 import { optional } from "../../../../src/flow/dto-wrappers.js";
 import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "../../../../src/index.js";
 import { usd, type Usd } from "../../../../src/units/index.js";
-import { onAgent, route, onStart, toFinish } from "../../../helpers/flow.js";
+import { onAgent, route, onStart, toFinish, toAction } from "../../../helpers/flow.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS, TestApplicationDailyBudget } from "../../fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../../src/index.js";
@@ -47,17 +48,24 @@ export class EditorAgent {}
 export class DoneFinish {}
 
 /** The last draft, if any: on the side path of a first visit there is none yet. */
-@WorkflowFinish({
-  name: "gave-up-workflow-finish",
+@Action({
+  name: "gave-up-action",
   description: "The last draft, the editor's visits spent",
   input: { draft: optional(DraftDto) },
   output: DraftDto,
 })
-export class GaveUpFinish {
-  finish(input: { readonly draft?: { readonly value: DraftDto } }): DraftDto {
+export class GaveUpAction {
+  async execute(input: { readonly draft?: { readonly value: DraftDto } }): Promise<DraftDto> {
     return input.draft?.value ?? { text: "" };
   }
 }
+
+@WorkflowFinish({
+  name: "gave-up-workflow-finish",
+  description: "The last draft, the editor's visits spent",
+  output: DraftDto,
+})
+export class GaveUpFinish {}
 
 @Router({
   name: "gate-router",
@@ -123,7 +131,11 @@ export class PatientGateRouter {}
     onStart(EditStart)
       .toAgent(PatientEditorAgent),
     onAgent(PatientEditorAgent)
-      .onError(VisitsLimitExceededError, toFinish(GaveUpFinish))
+      .onError(
+        VisitsLimitExceededError,
+        toAction(GaveUpAction)
+          .toFinish(GaveUpFinish),
+      )
       .toRouter(PatientGateRouter)
       .chooseOne(route(PatientEditorAgent), route(DoneFinish)),
   ],

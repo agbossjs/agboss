@@ -52,8 +52,8 @@ describe("v2 decorators record kind, options and the declaring file", () => {
     expect(declarationOf(OrderWorkflowStart)?.kind).toBe(NodeKind.Start);
     expect(declarationOf(OrderWorkflowFinish)?.options).toMatchObject({
       name: "order-workflow-finish",
-      input: { shipped: expect.any(Function) },
     });
+    expect(declarationOf(OrderWorkflowFinish)?.options).not.toHaveProperty("input");
     expect(declarationOf(NotifyRecruiterAction)?.kind).toBe(NodeKind.Action);
     expect(declarationOf(MainRouter)).toMatchObject({
       kind: NodeKind.Router,
@@ -271,26 +271,51 @@ describe("#269 AC1 / AC2: enums and the one reasoning form", () => {
   });
 });
 
-describe("@WorkflowFinish with input has a handler", () => {
-  it("records input, output and deps", () => {
+describe("@WorkflowFinish is a pure boundary port (#1271)", () => {
+  it("records name, description and output; the handler work is an @Action before it", () => {
     @Injectable()
     class Formatter {}
 
-    @WorkflowFinish({
-      name: "formatted-workflow-finish",
+    @Action({
+      name: "formatted-action",
       description: "Formats the draft",
       input: { draft: OfferDraftDto },
       output: OfferDraftDto,
       deps: [Formatter],
     })
-    class FormattedWorkflowFinish {
+    class FormattedAction {
       constructor(readonly formatter: Formatter) {}
-      finish(): OfferDraftDto {
+      async execute(): Promise<OfferDraftDto> {
         return { text: "formatted" };
       }
     }
 
-    expect(declarationOf(FormattedWorkflowFinish)?.options).toMatchObject({ deps: [Formatter] });
-    expect(new FormattedWorkflowFinish(new Formatter()).finish()).toEqual({ text: "formatted" });
+    @WorkflowFinish({
+      name: "formatted-workflow-finish",
+      description: "Formats the draft",
+      output: OfferDraftDto,
+    })
+    class FormattedWorkflowFinish {}
+
+    expect(declarationOf(FormattedAction)?.options).toMatchObject({ deps: [Formatter] });
+    expect(declarationOf(FormattedWorkflowFinish)?.options).toEqual({
+      name: "formatted-workflow-finish",
+      description: "Formats the draft",
+      output: OfferDraftDto,
+    });
+    expect(new FormattedAction(new Formatter())).toBeInstanceOf(FormattedAction);
+  });
+
+  it("a list output is recorded as given", () => {
+    const output = listOf(OfferDraftDto);
+
+    @WorkflowFinish({ name: "drafts-workflow-finish", description: "The drafts", output })
+    class DraftsWorkflowFinish {}
+
+    expect(declarationOf(DraftsWorkflowFinish)?.options).toEqual({
+      name: "drafts-workflow-finish",
+      description: "The drafts",
+      output,
+    });
   });
 });

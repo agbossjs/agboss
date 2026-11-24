@@ -17,6 +17,7 @@ import {
   RemoteChecksWorkflowFinish,
   RemoteItemWorkflow,
   remoteLog,
+  RemoteChecksAction,
 } from "./remote-children.workflow.js";
 
 /**
@@ -45,6 +46,7 @@ export class RemoteCappedWorkflowStart {}
         placement: ChildPlacement.AnyInstance,
       })
       .join()
+      .toAction(RemoteChecksAction)
       .toFinish(RemoteChecksWorkflowFinish),
   ],
   maxConcurrentExecutions: 2,

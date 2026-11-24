@@ -161,14 +161,16 @@ export class WaiterAgent {}
 })
 export class ParallelBudgetWorkflowStart {}
 
-@WorkflowFinish({
-  name: "notes-workflow-finish",
+@Action({
+  name: "notes-action",
   description: "Every branch's note",
   input: { notes: listOf(NoteDto) },
   output: NoteDto,
 })
-export class NotesWorkflowFinish {
-  finish(input: { readonly notes: readonly Produced<NoteDto, unknown>[] }): NoteDto {
+export class NotesAction {
+  async execute(input: {
+    readonly notes: readonly Produced<NoteDto, unknown>[];
+  }): Promise<NoteDto> {
     return {
       text: input.notes
         .map((note) => note.value.text)
@@ -176,6 +178,13 @@ export class NotesWorkflowFinish {
     };
   }
 }
+
+@WorkflowFinish({
+  name: "notes-workflow-finish",
+  description: "Every branch's note",
+  output: NoteDto,
+})
+export class NotesWorkflowFinish {}
 
 /** The side path of an exhausted budget: code only, no model. */
 @Action({
@@ -209,6 +218,7 @@ const onBudget = toAction(NoteBudgetStopAction)
       .toParallelAgents(SpenderAgent, WaiterAgent)
       .join()
       .onError(BudgetExceededError, onBudget)
+      .toAction(NotesAction)
       .toFinish(NotesWorkflowFinish),
   ],
 })
@@ -222,6 +232,7 @@ export class ParallelBudgetWorkflow {}
     onStart(ParallelBudgetWorkflowStart)
       .toParallelAgents(SpenderAgent, WaiterAgent)
       .join()
+      .toAction(NotesAction)
       .toFinish(NotesWorkflowFinish),
   ],
 })
@@ -236,6 +247,7 @@ export class UnhandledBudgetWorkflow {}
       .toParallelAgents(SpenderAgent, WaiterAgent)
       .joinQuorum({ min: 2 })
       .onError(BudgetExceededError, onBudget)
+      .toAction(NotesAction)
       .toFinish(NotesWorkflowFinish),
   ],
 })
@@ -288,6 +300,7 @@ export class TasksWorkflowStart {}
       .toParallelWorkflows(TaskWorkflow, { maxItems: 4 })
       .join()
       .onError(BudgetExceededError, onBudget)
+      .toAction(NotesAction)
       .toFinish(NotesWorkflowFinish),
   ],
 })
@@ -338,6 +351,7 @@ export class TaskAction {
       .toParallelActions(TaskAction, { maxItems: 4 })
       .join()
       .onError(BudgetExceededError, onBudget)
+      .toAction(NotesAction)
       .toFinish(NotesWorkflowFinish),
   ],
 })

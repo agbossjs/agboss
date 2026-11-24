@@ -7,10 +7,11 @@ import {
   type WorkflowDeclaration,
   type WorkflowStartDeclaration,
 } from "../decorators/declaration.js";
-import { oneOf, type OutputShape, type ValueShape } from "../dto-wrappers.js";
+import { oneOf, type ListWrapper, type OutputShape, type ValueShape } from "../dto-wrappers.js";
+import { FlowSyntaxError } from "../flow-syntax-error.js";
 import type { ComponentName } from "../registry.js";
 import { isThisWorkflow } from "../this-workflow.js";
-import { dtoLabel } from "./labels.js";
+import { shapeLabel } from "./labels.js";
 import { slotOfField, type SlotKey } from "./scope.js";
 
 /**
@@ -42,7 +43,7 @@ export interface ChildWorkflow {
   readonly name: ComponentName;
   readonly starts: readonly ChildStart[];
   /** The distinct output classes of its finishes, sorted by name. */
-  readonly outputs: readonly DtoClass[];
+  readonly outputs: readonly (DtoClass | ListWrapper)[];
   /** What it gives its parent: one class, a `oneOf(…)` of several, nothing without a finish. */
   readonly output?: OutputShape;
 }
@@ -91,20 +92,32 @@ function finishesOf(flow: readonly FlowPath[]): readonly Class[] {
   return [...new Set(targets)].filter((target) => declarationOf(target)?.kind === NodeKind.Finish);
 }
 
-function outputsOf(flow: readonly FlowPath[]): readonly DtoClass[] {
+function outputsOf(flow: readonly FlowPath[]): readonly (DtoClass | ListWrapper)[] {
   const outputs = finishesOf(flow).flatMap((finish) => {
     const declaration = declarationOf(finish);
     return declaration?.kind === NodeKind.Finish ? [declaration.options.output] : [];
   });
-  return [...new Set(outputs)].sort((first, second) =>
-    dtoLabel(first).localeCompare(dtoLabel(second)),
+  const byLabel = new Map(outputs.map((output) => [shapeLabel(output), output]));
+  return [...byLabel.values()].sort((first, second) =>
+    shapeLabel(first).localeCompare(shapeLabel(second)),
   );
 }
 
-const outputShapeOf = (outputs: readonly DtoClass[]): OutputShape | undefined => {
-  const [first, second, ...rest] = outputs;
+const outputShapeOf = (
+  outputs: readonly (DtoClass | ListWrapper)[],
+  workflow: string,
+): OutputShape | undefined => {
+  const [first, second] = outputs;
   if (first === undefined) return undefined;
-  return second === undefined ? first : oneOf(first, second, ...rest);
+  if (second === undefined) return first;
+  const classes = outputs.filter((output): output is DtoClass => typeof output === "function");
+  const [firstClass, secondClass, ...moreClasses] = classes;
+  if (classes.length !== outputs.length || firstClass === undefined || secondClass === undefined) {
+    throw new FlowSyntaxError({
+      message: `${workflow}: its finishes give ${outputs.map(shapeLabel).join(" and ")} — a list output cannot be one of several; give every finish the same list, or end the lists in one finish`,
+    });
+  }
+  return oneOf(firstClass, secondClass, ...moreClasses);
 };
 
 function summarise(declaration: WorkflowDeclaration): ChildWorkflow {
@@ -118,7 +131,7 @@ function summarise(declaration: WorkflowDeclaration): ChildWorkflow {
     (first, second) => first.name.localeCompare(second.name),
   );
   const outputs = outputsOf(flow);
-  const output = outputShapeOf(outputs);
+  const output = outputShapeOf(outputs, name);
   return {
     name: name as ComponentName,
     starts: unique,

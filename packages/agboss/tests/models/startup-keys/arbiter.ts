@@ -8,6 +8,7 @@ import {
   listOf,
   type Class,
   type Produced,
+  Action,
 } from "../../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { onStart } from "../../helpers/flow.js";
@@ -41,19 +42,26 @@ export function arbiterWorkflow(model: string): Class {
     input: WorkflowStartTextDto,
   })
   class AnsStart {}
-  @WorkflowFinish({
-    name: "ans-finish-workflow-finish",
+  @Action({
+    name: "ans-finish-action",
     description: "f",
     input: { answers: listOf(AnswerDto) },
     output: WorkflowFinishTextDto,
   })
-  class AnsFinish {
-    finish(i: {
+  class AnsAction {
+    async execute(i: {
       readonly answers: readonly Produced<AnswerDto, unknown>[];
-    }): WorkflowFinishTextDto {
+    }): Promise<WorkflowFinishTextDto> {
       return { text: String(i.answers.length) };
     }
   }
+
+  @WorkflowFinish({
+    name: "ans-finish-workflow-finish",
+    description: "f",
+    output: WorkflowFinishTextDto,
+  })
+  class AnsFinish {}
   @Workflow({
     name: "ans-workflow",
     version: "1.0.0",
@@ -62,6 +70,7 @@ export function arbiterWorkflow(model: string): Class {
         .toParallelAgents(AnsAgent, AnsAgent)
         .acceptedBy(AnsArbiter)
         .joinQuorum({ min: 2 })
+        .toAction(AnsAction)
         .toFinish(AnsFinish),
     ],
   })

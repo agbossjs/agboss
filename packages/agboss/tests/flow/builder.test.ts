@@ -65,6 +65,7 @@ import {
   NotifyFinanceTeamAction,
   orderPaths,
   OrderFailedWorkflowFinish,
+  OrderAction,
   OrderWorkflowFinish,
   OrderWorkflowStart,
   PaymentProviderError,
@@ -238,6 +239,7 @@ describe("AC7: onError side paths (#272 examples 2a and 3)", () => {
           ],
         },
       },
+      to(OrderAction, NodeKind.Action),
       to(OrderWorkflowFinish, NodeKind.Finish),
     ]);
     expect(orderPaths[0].source.node).toBe(OrderWorkflowStart);

@@ -129,12 +129,7 @@ export {
   type WorkflowOptions,
 } from "../flow/decorators/workflow.js";
 export type { InputFieldShape, InputFields } from "../flow/decorators/declaration.js";
-export type {
-  ActionHandler,
-  ActionResult,
-  FinishHandler,
-  RouterHandler,
-} from "../flow/handlers.js";
+export type { ActionHandler, ActionResult, RouterHandler } from "../flow/handlers.js";
 export {
   historyOf,
   isVariant,

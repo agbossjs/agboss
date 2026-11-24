@@ -3,7 +3,7 @@
 import type { HistoryOf, NoInput, NoOutput, Produced, agbossComponent, agbossDto } from "../src/flow/generated-types.js";
 import type { ToolCallApprovalAskDto, ToolCallApprovalDecisionDto, WorkflowFinishTextDto } from "../src/dto/index.js";
 import type { ThisWorkflow } from "../src/public/flow.js";
-import type { AgentBareWorkflow, AgentBareWorkflowStart, AgentBatchSummaryDto, AgentBatchWorkflow, AgentBatchWorkflowFinish, AgentBatchWorkflowStart, AgentExpiryWorkflow, AgentExpiryWorkflowFinish, AgentExpiryWorkflowStart, AgentGatedWorkflow, AgentGatedWorkflowFinish, AgentGatedWorkflowStart, AgentRefundDoneDto, AgentRefundDto, EscalateRefundAction, ExpiringRefundTool, ExpiryBatchRefundAgent, ExpiryDecisionDto, ExpiryHoldAgent, ExpiryOrderDto, ExpiryRefundAgent, GateDto, GateTool, QuickRefundTool, RefundApprovalRole, UrgentRefundTool } from "../tests/flow/fixtures/agent-expiry.fixture.js";
+import type { AgentBareWorkflow, AgentBareWorkflowStart, AgentBatchAction, AgentBatchSummaryDto, AgentBatchWorkflow, AgentBatchWorkflowFinish, AgentBatchWorkflowStart, AgentExpiryWorkflow, AgentExpiryWorkflowFinish, AgentExpiryWorkflowStart, AgentGatedAction, AgentGatedWorkflow, AgentGatedWorkflowFinish, AgentGatedWorkflowStart, AgentRefundDoneDto, AgentRefundDto, EscalateRefundAction, ExpiringRefundTool, ExpiryBatchRefundAgent, ExpiryDecisionDto, ExpiryHoldAgent, ExpiryOrderDto, ExpiryRefundAgent, GateDto, GateTool, QuickRefundTool, RefundApprovalRole, UrgentRefundTool } from "../tests/flow/fixtures/agent-expiry.fixture.js";
 import type { ArticleDraftAgent, ArticleWorkflow, ArticleWorkflowFinish, ArticleWorkflowStart, DraftReviewerAgent, FinalReviewerAgent, WriterAgent } from "../tests/flow/fixtures/article.fixture.js";
 import type { BrokenReviewWorkflow, BrokenReviewWorkflowStart, CompanyGraderAgent, FullGradeWorkflowStart, QuickGradeWorkflowStart, TwinGradeWorkflow } from "../tests/flow/fixtures/broken-children.fixture.js";
 import type { BrokenScreeningWorkflow, ItemBlindAgent } from "../tests/flow/fixtures/broken-launch.fixture.js";
@@ -20,14 +20,14 @@ import type { DeleteOrderTool, DeskAgent, DeskAnswerDto, DeskExecutionContext, D
 import type { AnswerWorkflowFinish, AskDto, AskWorkflowStart, LookupAgent, LookupTool, LookupWorkflow } from "../tests/flow/fixtures/evals.fixture.js";
 import type { PublicExpiryWorkflow, PublicExpiryWorkflowStart } from "../tests/flow/fixtures/expiry-public.fixture.js";
 import type { DirectorQuestion, ExpiryDoneDto, ExpiryWorkflow, ExpiryWorkflowFinish, ExpiryWorkflowStart, ManagerQuestion, OwnerQuestion, OwnerWorkflow, OwnerWorkflowStart, PlainWorkflow, PlainWorkflowStart, RecordEscalatedAction, RecordExpiryAction, ReviewerQuestion, ReviewerWorkflow, ReviewerWorkflowStart, ShortExpiryWorkflow, ShortExpiryWorkflowStart, SlowEscalationAction, SlowExpiryWorkflow, SlowExpiryWorkflowStart } from "../tests/flow/fixtures/expiry.fixture.js";
-import type { DraftEditorAgent, DraftHistoryWorkflowFinish, FirstDraftAgent, HistoryOfferWorkflow, HistoryOfferWorkflowStart, ReviewDraftAction } from "../tests/flow/fixtures/history.fixture.js";
+import type { DraftEditorAgent, DraftHistoryAction, DraftHistoryWorkflowFinish, FirstDraftAgent, HistoryOfferWorkflow, HistoryOfferWorkflowStart, ReviewDraftAction } from "../tests/flow/fixtures/history.fixture.js";
 import type { ApprovalRequestDto, ApproveInThirtyTool, ApproveTool, CfoApproverAgent, CfoDecisionDto, CooApproverAgent, CooDecisionDto, EscalateToCeoAction, EscalationDto, FinanceApproverAgent, FinanceDecisionDto, JoinApproverQuestion, JoinExpiryApprovedWorkflowFinish, JoinExpiryEscalatedWorkflowFinish, JoinExpiryWorkflow, JoinExpiryWorkflowStart, LegalApproverAgent, LegalDecisionDto } from "../tests/flow/fixtures/join-expiry.fixture.js";
 import type { ArticleDraftDto, CompanyCheckDto, PaymentDto, RankingDto, RefundPolicyDto, ScreeningFailedDto } from "../tests/flow/fixtures/launch-dtos.js";
 import type { AnswerAgent, ArticleDraftWorkflowFinish, ArticleWriterAgent, ChargePaymentAction, CheckoutWorkflow, CheckoutWorkflowStart, CompanyAuditAgent, CriticAgent, HelpDeskRouter, HelpDeskWorkflow, HelpDeskWorkflowFinish, HelpDeskWorkflowStart, LoyaltyOfferAgent, NotifyOperatorAction, OffersAnswerAgent, OffersRouter, OffersWorkflow, OffersWorkflowFinish, OffersWorkflowStart, OrderLookupAgent, PaymentWorkflowFinish, PlanResearcherAgent, PlannerAgent, RankerAgent, RankingWorkflowFinish, RefundPolicyAgent, ResearchWorkflow, ResearchWorkflowStart, ReserveGoodsAction, ScreeningAgent, ScreeningFailedWorkflowFinish, ScreeningWorkflow, ScreeningWorkflowStart, SendReceiptAction, UpdateCrmAction } from "../tests/flow/fixtures/launch.fixture.js";
 import type { ListDecisionDto, ListDoneDto, ListFinanceQuestion, ListFinanceWorkflow, ListFinanceWorkflowStart, ListManagerQuestion, ListManagerWorkflow, ListManagerWorkflowStart, ListOpenQuestion, ListOpenWorkflow, ListOpenWorkflowStart, ListOrderDto, ListOwnerQuestion, ListOwnerWorkflow, ListOwnerWorkflowStart, ListWorkflowFinish, RecordListedAction } from "../tests/flow/fixtures/list-pauses.fixture.js";
 import type { ApprovedVerdictDto, ApprovedWorkflowFinish, RejectedVerdictDto, RejectedWorkflowFinish, VerdictAgent, VerdictWorkflow, VerdictWorkflowStart } from "../tests/flow/fixtures/markers.fixture.js";
 import type { BrokenAgent, DraftAgent, EditorAgent, NotifyRecruiterAction, OfferFailedWorkflowFinish, OfferSentWorkflowFinish, OfferWorkflow, OfferWorkflowStart, ReviewerAgent, SendOfferAction } from "../tests/flow/fixtures/offer.fixture.js";
-import type { NotifyFinanceTeamAction, OrderFailedWorkflowFinish, OrderWorkflow, OrderWorkflowFinish, OrderWorkflowStart, RefundCardAction, ReleaseStockAction, ReserveStockAction, ShipOrderAction } from "../tests/flow/fixtures/order.fixture.js";
+import type { NotifyFinanceTeamAction, OrderAction, OrderFailedWorkflowFinish, OrderWorkflow, OrderWorkflowFinish, OrderWorkflowStart, RefundCardAction, ReleaseStockAction, ReserveStockAction, ShipOrderAction } from "../tests/flow/fixtures/order.fixture.js";
 import type { ChartMergerAgent, MarkUnitFailedAction, OrgChartFailedDto, OrgChartFailedWorkflowFinish, OrgChartWorkflow, OrgChartWorkflowStart, OrgDepthRouter, OrgDrillWorkflow, OrgDrillWorkflowStart, OrgMapperAgent, OrgRetryWorkflow, OrgRetryWorkflowStart, OrgSplitDto, OrgUnitDto, SplitUnitAction, TeamChartDto, TeamChartWorkflowFinish, UnitCharterAgent, UnitPickerAgent } from "../tests/flow/fixtures/org-chart.fixture.js";
 import type { ExtendManagerQuestion, ExtendManagerWorkflow, ExtendManagerWorkflowStart, ExtendOpenQuestion, ExtendOpenWorkflow, ExtendOpenWorkflowStart, ExtendOwnerQuestion, ExtendOwnerWorkflow, ExtendOwnerWorkflowStart, ExtendTightWorkflow, ExtendTightWorkflowStart, ExtensionWorkflowFinish, RecordExtensionAction } from "../tests/flow/fixtures/pause-extension.fixture.js";
 import type { ApproverAnswerDto, ApproverQuestion, ApproverReplyInterpreter, BuyerAgent, BuyerWorkflow, BuyerWorkflowFinish, BuyerWorkflowStart, OrderTool, OwnerBuyerAgent, OwnerBuyerWorkflow, OwnerBuyerWorkflowFinish, OwnerBuyerWorkflowStart } from "../tests/flow/fixtures/question-tools.fixture.js";
@@ -45,15 +45,17 @@ import type { CritiqueAction, CritiqueRouter, PolishAgent, PolishWorkflow, Polis
 import type { EdgeOnceInterpreter, EdgeOnceQuestion, EdgeOnceStart, EdgeOnceWorkflow, EdgeTwiceInterpreter, EdgeTwiceQuestion, EdgeTwiceStart, EdgeTwiceWorkflow, FailFirstPlaceAction, PublicStarterWorkflow, PublicStarterWorkflowStart } from "../tests/flow/fixtures/side-question-edge.fixture.js";
 import type { FlakyCheckAction, SideQuestionWorkflow, SideQuestionWorkflowStart } from "../tests/flow/fixtures/side-question.fixture.js";
 import type { BatchRankAgent, CompanyBatchWorkflowStart, CompanyCheckAgent, CompanyCheckWorkflow, CompanyCheckWorkflowStart, CompanyScoreWorkflowFinish } from "../tests/flow/fixtures/starts.fixture.js";
-import type { AnswerRouter, ExpertAnswerAgent, FastAnswerAgent, LoyaltyAgent, OrderAgent, SupportWorkflow, SupportWorkflowFinish, SupportWorkflowStart } from "../tests/flow/fixtures/support.fixture.js";
+import type { AnswerRouter, ExpertAnswerAgent, FastAnswerAgent, LoyaltyAgent, OrderAgent, SupportAction, SupportWorkflow, SupportWorkflowFinish, SupportWorkflowStart } from "../tests/flow/fixtures/support.fixture.js";
 import type { DeliveryTopicAgent, OrderTopicAgent, RefundTopicAgent, TopicsRouter, TopicsWorkflow, TopicsWorkflowFinish, TopicsWorkflowStart } from "../tests/flow/fixtures/topics.fixture.js";
 import type { ManualQuoteWorkflowFinish, PriceQuoteAction, QuoteDto, QuoteRefusedDto, QuoteRefusedWorkflowFinish, QuoteRequestDto, QuoteSizeRouter, QuoteWorkflow, QuoteWorkflowFinish, QuoteWorkflowStart } from "../tests/flow/fixtures/units.fixture.js";
 
 declare module "../src/flow/generated-types.js" {
   interface ProducerOutputs {
     "agent-bare-workflow-start": AgentRefundDto;
+    "agent-batch-action": AgentBatchSummaryDto;
     "agent-batch-workflow-start": readonly AgentRefundDto[];
     "agent-expiry-workflow-start": AgentRefundDto;
+    "agent-gated-action": AgentRefundDoneDto;
     "agent-gated-workflow-start": AgentRefundDto;
     "answer-agent": CustomerReplyDto;
     "approval-agent": CreditApprovalDto;
@@ -112,6 +114,7 @@ declare module "../src/flow/generated-types.js" {
     "desk-workflow-start": WorkflowStartTextDto;
     "draft-agent": OfferDraftDto;
     "draft-editor-agent": OfferDraftDto;
+    "draft-history-action": DraftChangesDto;
     "draft-question-action": PurchaseQuestionDto;
     "draft-reviewer-agent": ReviewDto;
     "edge-once-question": SpendingLimitAnswerDto;
@@ -185,6 +188,7 @@ declare module "../src/flow/generated-types.js" {
     "offers-answer-agent": CustomerReplyDto;
     "offers-workflow-start": WorkflowStartTextDto;
     "open-deal-room-action": NoOutput;
+    "order-action": OrderShippedDto;
     "order-agent": OrderStatusDto;
     "order-intake-agent": CreditOrderDto;
     "order-lookup-agent": OrderStatusDto;
@@ -262,6 +266,7 @@ declare module "../src/flow/generated-types.js" {
     "story-reviewer-agent": ApprovalDto | DraftChangesDto;
     "story-workflow-start": ArticleRequestDto;
     "story-writer-agent": DraftDto;
+    "support-action": CustomerReplyDto;
     "support-workflow-start": WorkflowStartTextDto;
     "topic-researcher-agent": ResearchReportDto | ResearchTooBroadDto;
     "topics-workflow-start": SupportIntentDto;
@@ -280,11 +285,13 @@ declare module "../src/flow/generated-types.js" {
   }
   interface Inputs {
     "agent-bare-workflow-start": AgentRefundDto;
-    "agent-batch-workflow-finish": { refunds: readonly Produced<AgentRefundDoneDto, typeof ExpiryBatchRefundAgent>[] };
+    "agent-batch-action": { refunds: readonly Produced<AgentRefundDoneDto, typeof ExpiryBatchRefundAgent>[] };
+    "agent-batch-workflow-finish": NoInput;
     "agent-batch-workflow-start": readonly AgentRefundDto[];
     "agent-expiry-workflow-finish": NoInput;
     "agent-expiry-workflow-start": AgentRefundDto;
-    "agent-gated-workflow-finish": { refund: Produced<AgentRefundDoneDto, typeof ExpiryRefundAgent>; hold: Produced<GateDto, typeof ExpiryHoldAgent> };
+    "agent-gated-action": { refund: Produced<AgentRefundDoneDto, typeof ExpiryRefundAgent>; hold: Produced<GateDto, typeof ExpiryHoldAgent> };
+    "agent-gated-workflow-finish": NoInput;
     "agent-gated-workflow-start": AgentRefundDto;
     "answer-agent":
       | { message: Produced<WorkflowStartTextDto, typeof HelpDeskWorkflowStart>; order: Produced<OrderStatusDto, typeof OrderLookupAgent>; refund: Produced<RefundPolicyDto, typeof RefundPolicyAgent>; loyalty: Produced<LoyaltyOfferDto, typeof LoyaltyOfferAgent> }
@@ -378,7 +385,8 @@ declare module "../src/flow/generated-types.js" {
     "desk-workflow-start": WorkflowStartTextDto;
     "draft-agent": { shortlist: Produced<ShortlistDto, typeof OfferWorkflowStart> };
     "draft-editor-agent": { draft: Produced<OfferDraftDto, typeof DraftEditorAgent | typeof FirstDraftAgent>; changes: Produced<ChangesRequestedDto, typeof ReviewDraftAction> };
-    "draft-history-workflow-finish": { drafts: HistoryOf<Produced<OfferDraftDto, typeof DraftEditorAgent | typeof FirstDraftAgent>> };
+    "draft-history-action": { drafts: HistoryOf<Produced<OfferDraftDto, typeof DraftEditorAgent | typeof FirstDraftAgent>> };
+    "draft-history-workflow-finish": NoInput;
     "draft-question-action": { message: Produced<WorkflowStartTextDto, typeof EdgeOnceStart | typeof EdgeTwiceStart | typeof OwnerPurchaseWorkflowStart | typeof PublicStarterWorkflowStart | typeof PurchaseWorkflowStart | typeof SideQuestionWorkflowStart> };
     "draft-reviewer-agent": { article: Produced<ArticleDto, typeof ArticleDraftAgent> };
     "due-diligence-report-workflow-finish": NoInput;
@@ -492,13 +500,14 @@ declare module "../src/flow/generated-types.js" {
     "offers-workflow-finish": NoInput;
     "offers-workflow-start": WorkflowStartTextDto;
     "open-deal-room-action": { audit: Produced<AuditDto, typeof AuditorAgent> };
+    "order-action": { shipped: Produced<OrderShippedDto, typeof ShipOrderAction> };
     "order-agent": { message: Produced<WorkflowStartTextDto, typeof SupportWorkflowStart> };
     "order-failed-workflow-finish": NoInput;
     "order-held-workflow-finish": NoInput;
     "order-intake-agent": { message: Produced<WorkflowStartTextDto, typeof CreditWorkflowStart> };
     "order-lookup-agent": { message: Produced<WorkflowStartTextDto, typeof HelpDeskWorkflowStart> };
     "order-topic-agent": { intent: Produced<SupportIntentDto, typeof TopicsWorkflowStart> };
-    "order-workflow-finish": { shipped: Produced<OrderShippedDto, typeof ShipOrderAction> };
+    "order-workflow-finish": NoInput;
     "order-workflow-start": OrderRequestDto;
     "org-chart-failed-workflow-finish": NoInput;
     "org-chart-workflow-start": OrgUnitDto;
@@ -611,9 +620,10 @@ declare module "../src/flow/generated-types.js" {
     "story-writer-agent":
       | { request: Produced<ArticleRequestDto, typeof StoryWorkflowStart>; research: Produced<ResearchDto, typeof ResearcherAgent>; changes: Produced<DraftChangesDto, typeof StoryReviewerAgent> }
       | { request: Produced<ArticleRequestDto, typeof StoryWorkflowStart>; research: Produced<ResearchDto, typeof ResearcherAgent>; changes?: undefined };
-    "support-workflow-finish":
+    "support-action":
       | { fast: Produced<FastDraftDto, typeof FastAnswerAgent>; expert?: undefined }
       | { fast?: undefined; expert: Produced<ExpertDraftDto, typeof ExpertAnswerAgent> };
+    "support-workflow-finish": NoInput;
     "support-workflow-start": WorkflowStartTextDto;
     "team-chart-workflow-finish": NoInput;
     "topic-researcher-agent": { topic: Produced<ResearchTopicDto, typeof DeepResearchWorkflowStart> };
@@ -637,8 +647,10 @@ declare module "../src/flow/generated-types.js" {
     "writer-agent": { article: Produced<ArticleDto, typeof ArticleDraftAgent>; review: Produced<ReviewDto, typeof DraftReviewerAgent> };
   }
   interface Outputs {
+    "agent-batch-action": AgentBatchSummaryDto;
     "agent-batch-workflow-finish": AgentBatchSummaryDto;
     "agent-expiry-workflow-finish": AgentRefundDoneDto;
+    "agent-gated-action": AgentRefundDoneDto;
     "agent-gated-workflow-finish": AgentRefundDoneDto;
     "answer-workflow-finish": WorkflowFinishTextDto;
     "approved-workflow-finish": ApprovedVerdictDto;
@@ -666,6 +678,7 @@ declare module "../src/flow/generated-types.js" {
     "deal-room-opened-workflow-finish": AuditDto;
     "deposit-reply-interpreter": Omit<ToolCallApprovalDecisionDto, "overrideArguments"> & { readonly overrideArguments?: DepositReturnDto };
     "desk-workflow-finish": DeskAnswerDto;
+    "draft-history-action": DraftChangesDto;
     "draft-history-workflow-finish": DraftChangesDto;
     "draft-question-action": PurchaseQuestionDto;
     "due-diligence-report-workflow-finish": DueDiligenceReportDto;
@@ -717,6 +730,7 @@ declare module "../src/flow/generated-types.js" {
     "offer-sent-workflow-finish": OfferSentDto;
     "offers-workflow-finish": CustomerReplyDto;
     "open-deal-room-action": NoOutput;
+    "order-action": OrderShippedDto;
     "order-failed-workflow-finish": OrderRequestDto;
     "order-held-workflow-finish": CreditOrderDto;
     "order-workflow-finish": OrderShippedDto;
@@ -768,6 +782,7 @@ declare module "../src/flow/generated-types.js" {
     "split-topic-action": readonly ResearchTopicDto[];
     "split-unit-action": readonly OrgUnitDto[];
     "story-workflow-finish": ArticleDto;
+    "support-action": CustomerReplyDto;
     "support-workflow-finish": CustomerReplyDto;
     "team-chart-workflow-finish": TeamChartDto;
     "topics-workflow-finish": TopicAnswerDto;
@@ -1149,6 +1164,9 @@ declare module "../tests/flow/fixtures/agent-expiry.fixture.js" {
   interface AgentBareWorkflowStart {
     readonly [agbossComponent]?: "agent-bare-workflow-start";
   }
+  interface AgentBatchAction {
+    readonly [agbossComponent]?: "agent-batch-action";
+  }
   interface AgentBatchSummaryDto {
     readonly [agbossDto]?: "AgentBatchSummaryDto";
   }
@@ -1169,6 +1187,9 @@ declare module "../tests/flow/fixtures/agent-expiry.fixture.js" {
   }
   interface AgentExpiryWorkflowStart {
     readonly [agbossComponent]?: "agent-expiry-workflow-start";
+  }
+  interface AgentGatedAction {
+    readonly [agbossComponent]?: "agent-gated-action";
   }
   interface AgentGatedWorkflow {
     readonly [agbossComponent]?: "agent-gated-workflow";
@@ -1719,6 +1740,9 @@ declare module "../tests/flow/fixtures/history.fixture.js" {
   interface DraftEditorAgent {
     readonly [agbossComponent]?: "draft-editor-agent";
   }
+  interface DraftHistoryAction {
+    readonly [agbossComponent]?: "draft-history-action";
+  }
   interface DraftHistoryWorkflowFinish {
     readonly [agbossComponent]?: "draft-history-workflow-finish";
   }
@@ -2036,6 +2060,9 @@ declare module "../tests/flow/fixtures/offer.fixture.js" {
 declare module "../tests/flow/fixtures/order.fixture.js" {
   interface NotifyFinanceTeamAction {
     readonly [agbossComponent]?: "notify-finance-team-action";
+  }
+  interface OrderAction {
+    readonly [agbossComponent]?: "order-action";
   }
   interface OrderFailedWorkflowFinish {
     readonly [agbossComponent]?: "order-failed-workflow-finish";
@@ -2816,6 +2843,9 @@ declare module "../tests/flow/fixtures/support.fixture.js" {
   }
   interface OrderAgent {
     readonly [agbossComponent]?: "order-agent";
+  }
+  interface SupportAction {
+    readonly [agbossComponent]?: "support-action";
   }
   interface SupportWorkflow {
     readonly [agbossComponent]?: "support-workflow";

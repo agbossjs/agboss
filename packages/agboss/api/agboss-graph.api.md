@@ -149,21 +149,18 @@ export interface WorkflowDefinition {
 }
 
 // @public (undocumented)
-export function WorkflowFinish<const TDeps extends readonly Token[] = []>(options: HandledFinishOptions<TDeps>): <TClass extends new (...args: ResolvedAll<TDeps>) => FinishMethod>(value: TClass) => TClass;
-
-// @public (undocumented)
-export function WorkflowFinish<const TDeps extends readonly Token[] = []>(options: PassThroughFinishOptions<TDeps>): <TClass extends new (...args: ResolvedAll<TDeps>) => object>(value: TClass & NoFinishMethod<TClass>) => TClass;
+export function WorkflowFinish(options: WorkflowFinishOptions): <TClass extends new () => object>(value: TClass & (InstanceType<TClass> extends {
+    readonly finish: unknown;
+} ? {
+    readonly __error: "a finish is a pure boundary port \u2014 remove finish(), and put the work in an @Action before .toFinish(\u2026)";
+} : unknown)) => TClass;
 
 // @public
-export interface WorkflowFinishOptions<TDeps extends readonly Token[] = readonly Token[]> {
-    readonly deps?: TDeps;
+export interface WorkflowFinishOptions {
     // (undocumented)
     readonly description: string;
-    // (undocumented)
-    readonly input?: InputFields;
     readonly name: string;
-    // (undocumented)
-    readonly output: DtoClass;
+    readonly output: DtoClass | ListWrapper;
 }
 
 // @public
@@ -199,9 +196,6 @@ export interface WorkflowStartOptions {
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "target".
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "targetKind".
 // src/flow/decorators/workflow-finish.ts - (ae-undocumented) Missing documentation for "description".
-// src/flow/decorators/workflow-finish.ts - (ae-undocumented) Missing documentation for "input".
-// src/flow/decorators/workflow-finish.ts - (ae-undocumented) Missing documentation for "output".
-// src/flow/decorators/workflow-finish.ts - (ae-undocumented) Missing documentation for "WorkflowFinish".
 // src/flow/decorators/workflow-finish.ts - (ae-undocumented) Missing documentation for "WorkflowFinish".
 // src/flow/decorators/workflow-start.ts - (ae-undocumented) Missing documentation for "description".
 // src/flow/decorators/workflow-start.ts - (ae-undocumented) Missing documentation for "input".

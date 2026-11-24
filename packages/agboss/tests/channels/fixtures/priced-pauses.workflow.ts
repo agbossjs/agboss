@@ -21,6 +21,7 @@ import {
   RefundRequestDto,
   RefundTool,
   SeenPausedExecutionRepository,
+  BatchAction,
 } from "./pauses.workflow.js";
 
 /**
@@ -86,6 +87,7 @@ export function costLedger(): SeenCostLedgerRepository {
     onStart(BatchWorkflowStart)
       .toParallelAgents(PricedRefundAgent, { maxConcurrency: 3, maxItems: 5 })
       .join()
+      .toAction(BatchAction)
       .toFinish(BatchWorkflowFinish),
   ],
 })

@@ -178,7 +178,7 @@ export const SKILL_COVERAGE: SkillCoverage = {
     ...["testCompaction", "CompactionRunner", "CompactionResult", "CompactionInput"],
   ],
   "references/02-flow-dsl-all-combinations.md": [
-    ...["Workflow", "WorkflowStart", "WorkflowFinish", "FinishHandler", "WorkflowStartTextDto"],
+    ...["Workflow", "WorkflowStart", "WorkflowFinish", "WorkflowStartTextDto"],
     ...["onStart", "onAgent", "onAction", "onWorkflow", "route", "caseOf", "group", "anyOf"],
     ...["toAction", "toAgent", "toRouter", "toWorkflow", "toFinish", "ThisWorkflow"],
     ...["oneOf", "listOf", "optional", "historyOf", "variant", "SpawnPolicy", "FailurePolicy"],

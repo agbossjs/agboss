@@ -3897,18 +3897,6 @@ export interface FingerprintRequiredErrorOptions {
 }
 
 // @public
-export interface FinishHandler<TSelf> {
-    // (undocumented)
-    readonly finish: (input: InputOf<TSelf>) => OutputOf<TSelf> | Promise<OutputOf<TSelf>>;
-}
-
-// @public
-interface FinishMethod {
-    // (undocumented)
-    finish(input: never): unknown;
-}
-
-// @public
 export interface FlowDefaults {
     // (undocumented)
     readonly maxPathDepth?: number;
@@ -3962,8 +3950,6 @@ declare namespace FlowTypes {
         ModelRouterDecorator,
         NoRouteMethod,
         RouteMethod,
-        FinishMethod,
-        NoFinishMethod,
         ExecutionOptionOf,
         GeneratedEntry,
         KindOf,
@@ -4299,11 +4285,6 @@ export interface HandledErrorRecord {
     readonly by: ComponentRecord;
     readonly error: ErrorRecord;
 }
-
-// @public
-export type HandledFinishOptions<TDeps extends readonly Token[]> = WorkflowFinishOptions<TDeps> & {
-    readonly input: InputFields;
-};
 
 // @public
 export enum HandOverReason {
@@ -6022,13 +6003,6 @@ export interface NodeValue {
 }
 
 // @public
-type NoFinishMethod<TClass extends Class> = InstanceType<TClass> extends {
-    readonly finish: unknown;
-} ? {
-    readonly __error: "a finish without input has no handler — declare input, or remove finish()";
-} : unknown;
-
-// @public
 export interface NoInput {
     // (undocumented)
     readonly [noInput]?: never;
@@ -7091,11 +7065,6 @@ export interface PassedJudgeVerdict {
 export interface PassedJudgeVerdictOptions {
     readonly metrics?: JudgeMetrics;
 }
-
-// @public
-export type PassThroughFinishOptions<TDeps extends readonly Token[]> = WorkflowFinishOptions<TDeps> & {
-    readonly input?: undefined;
-};
 
 // @public (undocumented)
 export type PathHead = SourceHead<unknown> | RouteHead<unknown> | CaseHead<unknown, unknown> | SideHead<unknown> | GroupHead<unknown>;
@@ -10525,21 +10494,18 @@ export interface WorkflowDescriptor extends WorkflowRecord {
 }
 
 // @public (undocumented)
-export function WorkflowFinish<const TDeps extends readonly Token[] = []>(options: HandledFinishOptions<TDeps>): <TClass extends new (...args: ResolvedAll<TDeps>) => FinishMethod>(value: TClass) => TClass;
-
-// @public (undocumented)
-export function WorkflowFinish<const TDeps extends readonly Token[] = []>(options: PassThroughFinishOptions<TDeps>): <TClass extends new (...args: ResolvedAll<TDeps>) => object>(value: TClass & NoFinishMethod<TClass>) => TClass;
+export function WorkflowFinish(options: WorkflowFinishOptions): <TClass extends new () => object>(value: TClass & (InstanceType<TClass> extends {
+    readonly finish: unknown;
+} ? {
+    readonly __error: "a finish is a pure boundary port \u2014 remove finish(), and put the work in an @Action before .toFinish(\u2026)";
+} : unknown)) => TClass;
 
 // @public
-export interface WorkflowFinishOptions<TDeps extends readonly Token[] = readonly Token[]> {
-    readonly deps?: TDeps;
+export interface WorkflowFinishOptions {
     // (undocumented)
     readonly description: string;
-    // (undocumented)
-    readonly input?: InputFields;
     readonly name: string;
-    // (undocumented)
-    readonly output: DtoClass;
+    readonly output: DtoClass | ListWrapper;
 }
 
 // @public
@@ -11638,10 +11604,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/decorators/router.ts - (ae-undocumented) Missing documentation for "uncompactedTurns".
 // src/flow/decorators/router.ts - (ae-undocumented) Missing documentation for "route".
 // src/flow/decorators/workflow-finish.ts - (ae-undocumented) Missing documentation for "description".
-// src/flow/decorators/workflow-finish.ts - (ae-undocumented) Missing documentation for "input".
-// src/flow/decorators/workflow-finish.ts - (ae-undocumented) Missing documentation for "output".
-// src/flow/decorators/workflow-finish.ts - (ae-undocumented) Missing documentation for "finish".
-// src/flow/decorators/workflow-finish.ts - (ae-undocumented) Missing documentation for "WorkflowFinish".
 // src/flow/decorators/workflow-finish.ts - (ae-undocumented) Missing documentation for "WorkflowFinish".
 // src/flow/decorators/workflow-start.ts - (ae-undocumented) Missing documentation for "description".
 // src/flow/decorators/workflow-start.ts - (ae-undocumented) Missing documentation for "input".
@@ -11701,7 +11663,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[notGenerated]".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "StartExecutionOf".
 // src/flow/handlers.ts - (ae-undocumented) Missing documentation for "execute".
-// src/flow/handlers.ts - (ae-undocumented) Missing documentation for "finish".
 // src/flow/handlers.ts - (ae-undocumented) Missing documentation for "route".
 // src/flow/launch-types.ts - (ae-undocumented) Missing documentation for "maxItems".
 // src/flow/launch-types.ts - (ae-undocumented) Missing documentation for "join".

@@ -118,18 +118,27 @@ export class WorkAction {
 @WorkflowStart({ name: "lost-answer-workflow-start", description: "An order", input: OrderDto })
 export class LostAnswerWorkflowStart {}
 
-@WorkflowFinish({
-  name: "lost-answer-workflow-finish",
+@Action({
+  name: "lost-answer-action",
   description: "Paid and worked",
   input: { results: listOf(OrderDto) },
   output: OrderDto,
 })
-export class LostAnswerWorkflowFinish {
-  finish(input: { readonly results: readonly Produced<OrderDto, unknown>[] }): OrderDto {
+export class LostAnswerAction {
+  async execute(input: {
+    readonly results: readonly Produced<OrderDto, unknown>[];
+  }): Promise<OrderDto> {
     const ids = input.results.map((result) => result.value.orderId);
     return { orderId: ids.join(",") };
   }
 }
+
+@WorkflowFinish({
+  name: "lost-answer-workflow-finish",
+  description: "Paid and worked",
+  output: OrderDto,
+})
+export class LostAnswerWorkflowFinish {}
 
 @Workflow({
   name: "lost-answer-workflow",
@@ -138,6 +147,7 @@ export class LostAnswerWorkflowFinish {
     onStart(LostAnswerWorkflowStart)
       .toParallelActions(PayThriceAction, WorkAction)
       .join()
+      .toAction(LostAnswerAction)
       .toFinish(LostAnswerWorkflowFinish),
   ],
 })

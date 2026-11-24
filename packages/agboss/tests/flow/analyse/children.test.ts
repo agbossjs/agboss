@@ -44,7 +44,15 @@ import {
   CompanyCheckWorkflow,
   CompanyScoreWorkflowFinish,
 } from "../fixtures/starts.fixture.js";
-import { onAgent, caseOf, route, onStart, toFinish, toWorkflow } from "../fixtures/paths.js";
+import {
+  onAgent,
+  caseOf,
+  route,
+  onStart,
+  toFinish,
+  toWorkflow,
+  toAction,
+} from "../fixtures/paths.js";
 
 /** #263 PR 1 — child workflows in the analyser: the start per edge, outputs, scope, warnings. */
 
@@ -96,17 +104,24 @@ class SoloGradeWorkflow {}
 @WorkflowStart({ name: "twice-grade-workflow-start", description: "A company", input: CompanyDto })
 class TwiceGradeWorkflowStart {}
 
-@WorkflowFinish({
-  name: "fallback-grade-workflow-finish",
+@Action({
+  name: "fallback-grade-action",
   description: "A grade when grading failed",
   input: { company: CompanyDto },
   output: CompanyGradeDto,
 })
-class FallbackGradeWorkflowFinish {
-  finish(): CompanyGradeDto {
+class FallbackGradeAction {
+  async execute(): Promise<CompanyGradeDto> {
     return { grade: "unknown" };
   }
 }
+
+@WorkflowFinish({
+  name: "fallback-grade-workflow-finish",
+  description: "A grade when grading failed",
+  output: CompanyGradeDto,
+})
+class FallbackGradeWorkflowFinish {}
 
 /** Two finishes of one output class: one case for the parent; a failure finish on its side path. */
 @Workflow({
@@ -115,7 +130,7 @@ class FallbackGradeWorkflowFinish {
   flow: [
     onStart(TwiceGradeWorkflowStart)
       .toAgent(SoloGraderAgent)
-      .onError(StepFailedError, toFinish(FallbackGradeWorkflowFinish))
+      .onError(StepFailedError, toAction(FallbackGradeAction).toFinish(FallbackGradeWorkflowFinish))
       .toFinish(CompanyGradedWorkflowFinish),
   ],
 })
@@ -538,5 +553,54 @@ describe("S85: toWorkflow(W) starts a side path", () => {
 
   it("a side path that can catch a limit does not start a child", () => {
     expect(codesOf([handled(LimitExceededError)])).toEqual(["graph.limit-handler-uses-model"]);
+  });
+});
+
+describe("#1271: a workflow's finishes do not mix a list with another shape", () => {
+  @WorkflowStart({
+    name: "mixed-outputs-workflow-start",
+    description: "Some companies",
+    input: listOf(CompanyDto),
+  })
+  class MixedOutputsWorkflowStart {}
+
+  @WorkflowFinish({
+    name: "mixed-list-workflow-finish",
+    description: "Every company",
+    output: listOf(CompanyDto),
+  })
+  class MixedListWorkflowFinish {}
+
+  @WorkflowFinish({
+    name: "mixed-one-workflow-finish",
+    description: "One score",
+    output: CompanyScoreDto,
+  })
+  class MixedOneWorkflowFinish {}
+
+  @Agent({
+    name: "mixed-scorer-agent",
+    description: "Scores them",
+    prompt: "Score.",
+    model: "moonshotai/kimi-k2.6",
+    input: { companies: listOf(CompanyDto) },
+    output: CompanyScoreDto,
+  })
+  class MixedScorerAgent {}
+
+  @Workflow({
+    name: "mixed-outputs-workflow",
+    version: "1.0.0",
+    flow: [
+      onStart(MixedOutputsWorkflowStart).toFinish(MixedListWorkflowFinish),
+      onAgent(MixedScorerAgent).toFinish(MixedOneWorkflowFinish),
+    ],
+  })
+  class MixedOutputsWorkflow {}
+
+  it("is refused when the workflow is used as a child, naming both shapes", () => {
+    expect(() => childWorkflowOf(MixedOutputsWorkflow)).toThrow(
+      /a list output cannot be one of several/,
+    );
   });
 });

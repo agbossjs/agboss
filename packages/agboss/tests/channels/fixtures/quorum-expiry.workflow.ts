@@ -24,6 +24,7 @@ import {
   type OnQuorumDecided,
   type Produced,
   type QuorumDecidedEvent,
+  Action,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { groupFrom } from "../../../src/flow/path-builder.js";
@@ -106,14 +107,33 @@ const record = (input: ScoresInput): RefundDoneDto => {
 })
 export class QuorumExpiryWorkflowStart {}
 
-@WorkflowFinish({
-  name: "quorum-expiry-workflow-finish",
+@Action({
+  name: "quorum-expiry-action",
   description: "The counted scores",
   input: { scores: listOf(RefundScoreDto) },
   output: RefundDoneDto,
 })
-export class QuorumExpiryWorkflowFinish {
-  finish(input: ScoresInput): RefundDoneDto {
+export class QuorumExpiryAction {
+  async execute(input: ScoresInput): Promise<RefundDoneDto> {
+    return record(input);
+  }
+}
+
+@WorkflowFinish({
+  name: "quorum-expiry-workflow-finish",
+  description: "The counted scores",
+  output: RefundDoneDto,
+})
+export class QuorumExpiryWorkflowFinish {}
+
+@Action({
+  name: "quorum-expiry-second-action",
+  description: "The second group's scores",
+  input: { scores: listOf(RefundScoreDto) },
+  output: RefundDoneDto,
+})
+export class QuorumExpirySecondAction {
+  async execute(input: ScoresInput): Promise<RefundDoneDto> {
     return record(input);
   }
 }
@@ -121,14 +141,9 @@ export class QuorumExpiryWorkflowFinish {
 @WorkflowFinish({
   name: "quorum-expiry-second-workflow-finish",
   description: "The second group's scores",
-  input: { scores: listOf(RefundScoreDto) },
   output: RefundDoneDto,
 })
-export class QuorumExpirySecondWorkflowFinish {
-  finish(input: ScoresInput): RefundDoneDto {
-    return record(input);
-  }
-}
+export class QuorumExpirySecondWorkflowFinish {}
 
 /** Three reviewers, any two decide, up to three count, an hour. */
 @Workflow({
@@ -138,6 +153,7 @@ export class QuorumExpirySecondWorkflowFinish {
     onStart(QuorumExpiryWorkflowStart)
       .toParallelAgents(PolicyAgent, RiskAgent, FraudAgent)
       .joinQuorum({ min: 2, max: 3, deadline: hours(1) })
+      .toAction(QuorumExpiryAction)
       .toFinish(QuorumExpiryWorkflowFinish),
   ],
 })
@@ -158,6 +174,7 @@ export class QuorumExpiryOneWorkflowStart {}
     onStart(QuorumExpiryOneWorkflowStart)
       .toParallelAgents(PolicyAgent, RiskAgent, FraudAgent)
       .joinQuorum({ min: 1, max: 3, deadline: hours(1) })
+      .toAction(QuorumExpiryAction)
       .toFinish(QuorumExpiryWorkflowFinish),
   ],
 })
@@ -249,6 +266,7 @@ export class QuorumExpiryShortWorkflowStart {}
     onStart(QuorumExpiryShortWorkflowStart)
       .toParallelAgents(ShortPolicyAgent, ShortRiskAgent, ShortFraudAgent)
       .joinQuorum({ min: 2, max: 3, deadline: hours(1) })
+      .toAction(QuorumExpiryAction)
       .toFinish(QuorumExpiryWorkflowFinish),
   ],
 })
@@ -268,6 +286,7 @@ export class QuorumExpiryShortOneWorkflowStart {}
     onStart(QuorumExpiryShortOneWorkflowStart)
       .toParallelAgents(ShortPolicyAgent, ShortRiskAgent, ShortFraudAgent)
       .joinQuorum({ min: 1, max: 3, deadline: hours(1) })
+      .toAction(QuorumExpiryAction)
       .toFinish(QuorumExpiryWorkflowFinish),
   ],
 })
@@ -300,9 +319,11 @@ export class QuorumExpiryGroupsWorkflowStart {}
       .joinQuorumGroups(
         groupFrom([PolicyAgent, RiskAgent, FraudAgent])
           .priority(1)
+          .toAction(QuorumExpiryAction)
           .toFinish(QuorumExpiryWorkflowFinish),
         groupFrom([QuickScoreAgent])
           .priority(2)
+          .toAction(QuorumExpirySecondAction)
           .toFinish(QuorumExpirySecondWorkflowFinish),
         { deadline: hours(1) },
       ),
@@ -332,6 +353,7 @@ export class PlainExpiryEscalatedWorkflowFinish {}
     onStart(PlainExpiryWorkflowStart)
       .toParallelAgents(ShortPolicyAgent, ShortRiskAgent, PolicyAgent)
       .join()
+      .toAction(QuorumExpiryAction)
       .toFinish(QuorumExpiryWorkflowFinish),
   ],
 })
@@ -353,6 +375,7 @@ export class PlainExpiryHandledWorkflowStart {}
       .toParallelAgents(ShortPolicyAgent, ShortRiskAgent, PolicyAgent)
       .join()
       .onError(PauseExpiredError, toFinish(PlainExpiryEscalatedWorkflowFinish))
+      .toAction(QuorumExpiryAction)
       .toFinish(QuorumExpiryWorkflowFinish),
   ],
 })
@@ -388,6 +411,7 @@ export class SkipExpiryWorkflowStart {}
       .toRouter(SkipPanelRouter)
       .toParallelAgents(ShortPolicyAgent, ShortRiskAgent)
       .join()
+      .toAction(QuorumExpiryAction)
       .toFinish(QuorumExpiryWorkflowFinish),
   ],
 })

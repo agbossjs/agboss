@@ -1,6 +1,6 @@
 import type { Class } from "../../components/injection.js";
 import { DtoValidationError, type DtoIssue } from "../../dto/errors.js";
-import { validate } from "../../dto/schema.js";
+import { validOutput } from "../../flow/finish-output.js";
 import { NodeKind } from "../../flow/ast.js";
 import {
   executionFieldsOf,
@@ -61,7 +61,7 @@ function pastTurnIssues(past: EvalPastTurn, prefix: string): DtoIssue[] {
   const declaration = declarationOf(finish);
   if (declaration?.kind === NodeKind.Finish) {
     const { output } = declaration.options;
-    found.push(...issuesOf(`${prefix}.output`, () => validate(output, past.output)));
+    found.push(...issuesOf(`${prefix}.output`, () => validOutput(output, past.output)));
   } else
     found.push({ path: `${prefix}.finish`, reason: `${finish.name} is not a @WorkflowFinish` });
   return found;

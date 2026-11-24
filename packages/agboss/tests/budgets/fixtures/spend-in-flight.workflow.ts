@@ -27,6 +27,7 @@ import {
   ItemDto,
   ItemResultDto,
   SummaryWorkflowFinish,
+  SummaryAction,
 } from "../../flow/runtime/fixtures/fan-out.workflow.js";
 
 /**
@@ -234,6 +235,7 @@ export class AnyPayItemsWorkflowStart {}
         placement: ChildPlacement.ParentInstance,
       })
       .join()
+      .toAction(SummaryAction)
       .toFinish(SummaryWorkflowFinish),
   ],
 })
@@ -249,6 +251,7 @@ export class LocalPayItemsWorkflow {}
         placement: ChildPlacement.AnyInstance,
       })
       .join()
+      .toAction(SummaryAction)
       .toFinish(SummaryWorkflowFinish),
   ],
 })

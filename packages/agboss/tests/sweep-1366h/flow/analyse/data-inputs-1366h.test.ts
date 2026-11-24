@@ -275,22 +275,29 @@ describe("#1366: a node reached by too many scopes", () => {
     input: { base: ShortlistDto, ...fields },
   })
   class WideStart {}
-  @WorkflowFinish({
-    name: "wide-1366h-workflow-finish",
+  @Action({
+    name: "wide-1366h-action",
     description: "Reads them all",
     input: fields,
     output: ShortlistDto,
   })
-  class WideFinish {
-    finish(): ShortlistDto {
+  class WideAction {
+    async execute(): Promise<ShortlistDto> {
       return { candidates: "" };
     }
   }
-  const wide: Flow = [onStart(WideStart).toFinish(WideFinish)];
+
+  @WorkflowFinish({
+    name: "wide-1366h-workflow-finish",
+    description: "Reads them all",
+    output: ShortlistDto,
+  })
+  class WideFinish {}
+  const wide: Flow = [onStart(WideStart).toAction(WideAction).toFinish(WideFinish)];
 
   it(`more than ${String(MAX_SCOPES_PER_NODE)} scopes at a node are [flow.analysis-too-large] naming the node`, () => {
     expect(codesAndNodes(wide)).toEqual([
-      { code: "flow.analysis-too-large", nodes: ["wide-1366h-workflow-finish"] },
+      { code: "flow.analysis-too-large", nodes: ["wide-1366h-action"] },
     ]);
   });
 

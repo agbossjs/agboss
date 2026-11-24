@@ -9,6 +9,7 @@ import {
   BatchWorkflow,
   BatchWorkflowStart,
   SerialBatchWorkflow,
+  BatchDoneAction,
 } from "../runtime/fixtures/tree-batch.workflow.js";
 import { NarrowGroupsWorkflow } from "../runtime/fixtures/tree-groups.workflow.js";
 import {
@@ -38,6 +39,7 @@ function tree(cap: number | undefined, child: Workflowish = TaskWorkflow): Workf
       onStart(BatchWorkflowStart)
         .toParallelWorkflows(child, { maxItems: 10 })
         .join()
+        .toAction(BatchDoneAction)
         .toFinish(BatchDoneWorkflowFinish),
     ],
   };

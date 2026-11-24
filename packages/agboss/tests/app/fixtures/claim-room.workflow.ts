@@ -118,14 +118,16 @@ export class ClaimRoomItemWorkflow {}
 })
 export class ClaimRoomBatchWorkflowStart {}
 
-@WorkflowFinish({
-  name: "claim-room-batch-workflow-finish",
+@Action({
+  name: "claim-room-batch-action",
   description: "What was checked",
   input: { results: listOf(ItemResultDto) },
   output: SummaryDto,
 })
-export class ClaimRoomBatchWorkflowFinish {
-  finish(input: { readonly results: readonly Produced<ItemResultDto, unknown>[] }): SummaryDto {
+export class ClaimRoomBatchAction {
+  async execute(input: {
+    readonly results: readonly Produced<ItemResultDto, unknown>[];
+  }): Promise<SummaryDto> {
     return {
       text: input.results
         .map((result) => result.value.name)
@@ -133,6 +135,13 @@ export class ClaimRoomBatchWorkflowFinish {
     };
   }
 }
+
+@WorkflowFinish({
+  name: "claim-room-batch-workflow-finish",
+  description: "What was checked",
+  output: SummaryDto,
+})
+export class ClaimRoomBatchWorkflowFinish {}
 
 /** Every item a child on any instance, all launched at once. */
 @Workflow({
@@ -147,6 +156,7 @@ export class ClaimRoomBatchWorkflowFinish {
         placement: ChildPlacement.AnyInstance,
       })
       .join()
+      .toAction(ClaimRoomBatchAction)
       .toFinish(ClaimRoomBatchWorkflowFinish),
   ],
 })

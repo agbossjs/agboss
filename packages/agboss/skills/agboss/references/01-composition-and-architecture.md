@@ -327,8 +327,9 @@ What this shows:
   `{ producer, value }` — `input.shortlist.value.jobs`.
 - **A marker class for an outcome.** `NoMatchDto` has no fields: the class is the answer, and the
   `switch` routes on it. `oneOf` outputs become one answer tool per class for the model.
-- **Pass-through finishes.** A finish without a `finish()` method hands back the value of its
-  `output` class from the path (`TooManyJobsWorkflowFinish` returns the `ShortlistDto`).
+- **Finishes are pure boundary ports.** A `@WorkflowFinish({ name, description, output })` is an empty class: it hands back
+  the value of its `output` (one DTO, or a `listOf(…)` after a join) from the path (`TooManyJobsWorkflowFinish` returns the
+  `ShortlistDto`). It has no `input`, no `deps` and no `finish()`; work before it is an `@Action`.
 - **Persisted names end with their kind — the class too.** A workflow, agent, router, action or budget `name` is kebab-case with its kind last
   (`shortlist-size-router`, `tenant-daily-budget`), the class the same name in PascalCase
   (`ShortlistSizeRouter`, `TenantDailyBudget`); every other component's `name` is optional (kebab-case,

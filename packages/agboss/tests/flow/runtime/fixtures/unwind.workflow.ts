@@ -35,6 +35,7 @@ import {
   UndoDesk,
   UndoDeskError,
   UndoRequestDto,
+  ReservedAction,
 } from "./undo.workflow.js";
 import { toFinish } from "../../../helpers/flow.js";
 
@@ -69,20 +70,27 @@ export class WaitAction {
   }
 }
 
-@WorkflowFinish({
-  name: "seat-and-room-workflow-finish",
+@Action({
+  name: "seat-and-room-action",
   description: "The confirmed seat and the room",
   input: { seat: SeatConfirmedDto, room: RoomDto },
   output: ReservedDto,
 })
-export class SeatAndRoomWorkflowFinish {
-  finish(input: {
+export class SeatAndRoomAction {
+  async execute(input: {
     readonly seat: Produced<SeatConfirmedDto, unknown>;
     readonly room: Produced<RoomDto, unknown>;
-  }): ReservedDto {
+  }): Promise<ReservedDto> {
     return { summary: `${input.seat.value.seatId} + ${input.room.value.roomId}` };
   }
 }
+
+@WorkflowFinish({
+  name: "seat-and-room-workflow-finish",
+  description: "The confirmed seat and the room",
+  output: ReservedDto,
+})
+export class SeatAndRoomWorkflowFinish {}
 
 @WorkflowStart({
   name: "unwind-workflow-start",
@@ -101,6 +109,7 @@ export class UnwindWorkflowStart {}
       .toAction(ReserveRoomAction)
       .toAction(WaitAction)
       .toAction(ConfirmSeatAction)
+      .toAction(SeatAndRoomAction)
       .toFinish(SeatAndRoomWorkflowFinish),
   ],
   providers: [UndoDesk, UnwindGate],
@@ -124,6 +133,7 @@ export class UnwindCommittedWorkflowStart {}
       .toAction(ConfirmSeatAction)
       .toAction(ReserveRoomAction)
       .toAction(WaitAction)
+      .toAction(SeatAndRoomAction)
       .toFinish(SeatAndRoomWorkflowFinish),
   ],
   providers: [UndoDesk, UnwindGate],
@@ -191,14 +201,16 @@ export class UnwindRoomWorkflow {}
 })
 export class UnwindManyWorkflowStart {}
 
-@WorkflowFinish({
-  name: "rooms-reserved-workflow-finish",
+@Action({
+  name: "rooms-reserved-action",
   description: "Every room",
   input: { rooms: listOf(RoomDto) },
   output: ReservedDto,
 })
-export class RoomsReservedWorkflowFinish {
-  finish(input: { readonly rooms: readonly Produced<RoomDto, unknown>[] }): ReservedDto {
+export class RoomsReservedAction {
+  async execute(input: {
+    readonly rooms: readonly Produced<RoomDto, unknown>[];
+  }): Promise<ReservedDto> {
     return {
       summary: input.rooms
         .map((room) => room.value.roomId)
@@ -206,6 +218,13 @@ export class RoomsReservedWorkflowFinish {
     };
   }
 }
+
+@WorkflowFinish({
+  name: "rooms-reserved-workflow-finish",
+  description: "Every room",
+  output: ReservedDto,
+})
+export class RoomsReservedWorkflowFinish {}
 
 /** A child per guest: a failing one aborts the others (`FailFast`), each undoes its own room. */
 @Workflow({
@@ -215,6 +234,7 @@ export class RoomsReservedWorkflowFinish {
     onStart(UnwindManyWorkflowStart)
       .toParallelWorkflows(UnwindRoomWorkflow, { maxConcurrency: 2, maxItems: 5 })
       .join()
+      .toAction(RoomsReservedAction)
       .toFinish(RoomsReservedWorkflowFinish),
   ],
 })
@@ -240,6 +260,7 @@ export class UnwindParentWorkflowStart {}
         toAction(ReleaseSeatAction)
           .toFinish(NotReservedWorkflowFinish),
       )
+      .toAction(ReservedAction)
       .toFinish(ReservedWorkflowFinish),
   ],
   providers: [UndoDesk],

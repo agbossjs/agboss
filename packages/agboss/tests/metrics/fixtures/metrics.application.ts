@@ -13,6 +13,7 @@ import { ItemDto } from "../../flow/runtime/fixtures/fan-out.workflow.js";
 import {
   RemoteChecksWorkflowFinish,
   RemoteItemWorkflow,
+  RemoteChecksAction,
 } from "../../flow/runtime/fixtures/remote-children.workflow.js";
 
 /**
@@ -42,6 +43,7 @@ export class MetricsBatchWorkflowStart {}
         placement: ChildPlacement.AnyInstance,
       })
       .join()
+      .toAction(RemoteChecksAction)
       .toFinish(RemoteChecksWorkflowFinish),
   ],
 })

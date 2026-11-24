@@ -1,5 +1,6 @@
 import { onStart, StepFailedError, toFinish, Workflow } from "@agboss/core";
 import { EditorialPlanAction } from "../../actions/editorial-plan.action.js";
+import { ReviewReportAction } from "../../actions/review-report.action.js";
 import { FactCheckerAgent } from "../../agents/fact-checker/fact-checker.agent.js";
 import { SectionReviewerAgent } from "../../agents/section-reviewer/section-reviewer.agent.js";
 import { SectionSplitterAgent } from "../../agents/section-splitter/section-splitter.agent.js";
@@ -26,6 +27,7 @@ import { ReviewWorkflowStart } from "./review.workflow-start.js";
       .toParallelAgents(StyleCriticAgent, FactCheckerAgent, FactCheckerAgent, { maxConcurrency: 2 })
       .join()
       .onError(StepFailedError, toFinish(ReviewIncompleteWorkflowFinish))
+      .toAction(ReviewReportAction)
       .toFinish(ReviewWorkflowFinish),
   ],
   maxSteps: 30, // the worst case: the splitter, 20 section reviews and the three critics

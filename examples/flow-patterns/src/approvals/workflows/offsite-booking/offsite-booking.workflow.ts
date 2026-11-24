@@ -1,4 +1,5 @@
 import { onStart, Workflow } from "@agboss/core";
+import { OffsiteBookingAction } from "../../actions/offsite-booking.action.js";
 import { FlightBuyerAgent } from "../../agents/flight-buyer/flight-buyer.agent.js";
 import { VenueBuyerAgent } from "../../agents/venue-buyer/venue-buyer.agent.js";
 import { ApprovalTerminal } from "../../services/approval-terminal.service.js";
@@ -19,6 +20,7 @@ import { OffsiteBookingWorkflowStart } from "./offsite-booking.workflow-start.js
     onStart(OffsiteBookingWorkflowStart)
       .toParallelAgents(VenueBuyerAgent, FlightBuyerAgent)
       .join()
+      .toAction(OffsiteBookingAction)
       .toFinish(OffsiteBookingWorkflowFinish),
   ],
   providers: [ApprovalTerminal], // what the terminal channel prints on

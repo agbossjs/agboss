@@ -12,6 +12,7 @@ import {
   WorkflowStart,
   type ChannelAsk,
   type Produced,
+  Action,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
@@ -107,20 +108,27 @@ export class UnwindGuestWorkflow {}
 })
 export class UnwindPausedWorkflowStart {}
 
-@WorkflowFinish({
-  name: "seat-reserved-workflow-finish",
+@Action({
+  name: "seat-reserved-action",
   description: "The seat and the guest's room",
   input: { seat: SeatDto, reserved: ReservedDto },
   output: ReservedDto,
 })
-export class SeatReservedWorkflowFinish {
-  finish(input: {
+export class SeatReservedAction {
+  async execute(input: {
     readonly seat: Produced<SeatDto, unknown>;
     readonly reserved: Produced<ReservedDto, unknown>;
-  }): ReservedDto {
+  }): Promise<ReservedDto> {
     return { summary: `${input.seat.value.seatId} + ${input.reserved.value.summary}` };
   }
 }
+
+@WorkflowFinish({
+  name: "seat-reserved-workflow-finish",
+  description: "The seat and the guest's room",
+  output: ReservedDto,
+})
+export class SeatReservedWorkflowFinish {}
 
 /** A seat, then the child that waits for the guest. */
 @Workflow({
@@ -130,6 +138,7 @@ export class SeatReservedWorkflowFinish {
     onStart(UnwindPausedWorkflowStart)
       .toAction(ReserveSeatAction)
       .toWorkflow(UnwindGuestWorkflow)
+      .toAction(SeatReservedAction)
       .toFinish(SeatReservedWorkflowFinish),
   ],
   providers: [UndoDesk],

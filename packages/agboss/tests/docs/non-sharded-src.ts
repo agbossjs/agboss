@@ -495,6 +495,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "src/flow/child-placement.ts",
     "src/flow/compensation.ts",
     "src/flow/dto-wrappers.ts",
+    "src/flow/finish-output.ts",
     "src/flow/flow-syntax-error.ts",
     "src/flow/generated-types.ts",
     "src/flow/handlers.ts",

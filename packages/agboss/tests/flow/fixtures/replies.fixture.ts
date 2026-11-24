@@ -458,10 +458,7 @@ export class TreasuryBatchWorkflow {}
 @PiiPolicy({
   name: "treasury-pii-policy",
   description: "Hides e-mail addresses, and phone numbers behind tokens",
-  rules: [
-    PiiKind.Email.mask(),
-    PiiKind.Phone.tokenize(),
-  ],
+  rules: [PiiKind.Email.mask(), PiiKind.Phone.tokenize()],
 })
 export class TreasuryPiiPolicy {}
 

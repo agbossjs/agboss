@@ -243,20 +243,27 @@ export class AgentBatchSummaryDto {
   text!: string;
 }
 
-@WorkflowFinish({
-  name: "agent-batch-workflow-finish",
+@Action({
+  name: "agent-batch-action",
   description: "What was refunded",
   input: { refunds: listOf(AgentRefundDoneDto) },
   output: AgentBatchSummaryDto,
 })
-export class AgentBatchWorkflowFinish {
-  finish(input: {
+export class AgentBatchAction {
+  async execute(input: {
     readonly refunds: readonly Produced<AgentRefundDoneDto, unknown>[];
-  }): AgentBatchSummaryDto {
+  }): Promise<AgentBatchSummaryDto> {
     const texts = input.refunds.map((refund) => refund.value.text);
     return { text: texts.join(", ") };
   }
 }
+
+@WorkflowFinish({
+  name: "agent-batch-workflow-finish",
+  description: "What was refunded",
+  output: AgentBatchSummaryDto,
+})
+export class AgentBatchWorkflowFinish {}
 
 @Workflow({
   name: "agent-batch-workflow",
@@ -266,6 +273,7 @@ export class AgentBatchWorkflowFinish {
     onStart(AgentBatchWorkflowStart)
       .toParallelAgents(ExpiryBatchRefundAgent, { maxConcurrency: 3, maxItems: 5 })
       .join()
+      .toAction(AgentBatchAction)
       .toFinish(AgentBatchWorkflowFinish),
   ],
 })
@@ -310,17 +318,26 @@ export class ExpiryHoldAgent {}
 })
 export class AgentGatedWorkflowStart {}
 
-@WorkflowFinish({
-  name: "agent-gated-workflow-finish",
+@Action({
+  name: "agent-gated-action",
   description: "Both done",
   input: { refund: AgentRefundDoneDto, hold: GateDto },
   output: AgentRefundDoneDto,
 })
-export class AgentGatedWorkflowFinish {
-  finish(input: { readonly refund: Produced<AgentRefundDoneDto, unknown> }): AgentRefundDoneDto {
+export class AgentGatedAction {
+  async execute(input: {
+    readonly refund: Produced<AgentRefundDoneDto, unknown>;
+  }): Promise<AgentRefundDoneDto> {
     return { text: input.refund.value.text };
   }
 }
+
+@WorkflowFinish({
+  name: "agent-gated-workflow-finish",
+  description: "Both done",
+  output: AgentRefundDoneDto,
+})
+export class AgentGatedWorkflowFinish {}
 
 @Workflow({
   name: "agent-gated-workflow",
@@ -329,6 +346,7 @@ export class AgentGatedWorkflowFinish {
     onStart(AgentGatedWorkflowStart)
       .toParallelAgents(ExpiryRefundAgent, ExpiryHoldAgent)
       .join()
+      .toAction(AgentGatedAction)
       .toFinish(AgentGatedWorkflowFinish),
   ],
 })

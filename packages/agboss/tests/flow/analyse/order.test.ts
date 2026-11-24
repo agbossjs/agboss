@@ -18,7 +18,7 @@ import {
   SendOfferAction,
   VisitsLimitExceededError,
 } from "../fixtures/offer.fixture.js";
-import { onAgent, caseOf, route, onStart, toAction } from "../fixtures/paths.js";
+import { onAction, onAgent, caseOf, route, onStart, toAction } from "../fixtures/paths.js";
 import {
   AnswerRouter,
   ExpertAnswerAgent,
@@ -28,6 +28,7 @@ import {
   SupportWorkflow,
   SupportWorkflowFinish,
   SupportWorkflowStart,
+  SupportAction,
 } from "../fixtures/support.fixture.js";
 
 /** Position never carries meaning (#272 AC9): only the order of steps inside a path does. */
@@ -36,14 +37,15 @@ import {
   name: "support-workflow",
   version: "1.0.0",
   flow: [
-    onAgent(ExpertAnswerAgent).toFinish(SupportWorkflowFinish),
+    onAction(SupportAction).toFinish(SupportWorkflowFinish),
+    onAgent(ExpertAnswerAgent).toAction(SupportAction),
     onStart(SupportWorkflowStart)
       .toAgent(OrderAgent)
       .toRouter(AnswerRouter)
       .chooseOne(
         route(ExpertAnswerAgent),
         route(LoyaltyAgent).toAgent(ExpertAnswerAgent),
-        route(FastAnswerAgent).toFinish(SupportWorkflowFinish),
+        route(FastAnswerAgent).toAction(SupportAction),
       ),
   ],
 })

@@ -104,17 +104,10 @@ function exitsOf(edges: readonly FlowEdge[]): NodeExits {
 export const isCodeRouterNode = (node: Pick<RuntimeNode, "declaration">): boolean =>
   node.declaration.kind === NodeKind.Router && isCodeRouter(node.declaration.options);
 
-/**
- * A node whose class the container creates — its code runs: an action, a finish with a handler
- * (`input`), a code router.
- */
+/** A node whose class the container creates — its code runs: an action, a code router. */
 export const isCodeNode = (node: Pick<RuntimeNode, "declaration">): boolean => {
   const { declaration } = node;
-  return (
-    declaration.kind === NodeKind.Action ||
-    (declaration.kind === NodeKind.Finish && declaration.options.input !== undefined) ||
-    isCodeRouterNode(node)
-  );
+  return declaration.kind === NodeKind.Action || isCodeRouterNode(node);
 };
 
 /** The undo actions the graph's actions declare (#340): run by the runtime even off every path. */

@@ -7,6 +7,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type Produced,
+  Action,
 } from "../../../../src/index.js";
 import { seconds } from "../../../../src/units/index.js";
 import { route, onStart } from "../../../helpers/flow.js";
@@ -23,6 +24,7 @@ import {
   SecondVoterAgent,
   VotedDto,
   VotedWorkflowFinish,
+  VotedAction,
 } from "./tree-vote.workflow.js";
 
 /**
@@ -41,6 +43,7 @@ export class StrictVoteWorkflowStart {}
     onStart(StrictVoteWorkflowStart)
       .toParallelAgents(FirstVoterAgent, SecondVoterAgent)
       .joinQuorum({ min: 2, deadline: seconds(30) })
+      .toAction(VotedAction)
       .toFinish(VotedWorkflowFinish),
   ],
 })
@@ -86,17 +89,26 @@ export class StrictMixedWorkflow {}
 })
 export class StrictVotingWorkflowStart {}
 
-@WorkflowFinish({
-  name: "strict-voting-done-workflow-finish",
+@Action({
+  name: "strict-voting-done-action",
   description: "Every item done",
   input: { results: listOf(oneOf(TaskDoneDto, VotedDto)) },
   output: GroupDoneDto,
 })
-export class StrictVotingDoneWorkflowFinish {
-  finish(input: { readonly results: readonly Produced<unknown, unknown>[] }): GroupDoneDto {
+export class StrictVotingDoneAction {
+  async execute(input: {
+    readonly results: readonly Produced<unknown, unknown>[];
+  }): Promise<GroupDoneDto> {
     return { name: `${String(input.results.length)} done` };
   }
 }
+
+@WorkflowFinish({
+  name: "strict-voting-done-workflow-finish",
+  description: "Every item done",
+  output: GroupDoneDto,
+})
+export class StrictVotingDoneWorkflowFinish {}
 
 /** One execution of the tree at work at a time; a vote not reached fails the tree. */
 @Workflow({
@@ -106,6 +118,7 @@ export class StrictVotingDoneWorkflowFinish {
     onStart(StrictVotingWorkflowStart)
       .toParallelWorkflows(StrictMixedWorkflow, { maxConcurrency: 5, maxItems: 5 })
       .join()
+      .toAction(StrictVotingDoneAction)
       .toFinish(StrictVotingDoneWorkflowFinish),
   ],
   maxConcurrentExecutions: 1,

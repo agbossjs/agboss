@@ -13,7 +13,12 @@ import {
   StampedExecutionRecordRepository,
 } from "../../../infrastructure/fixtures/recovery.workflow.js";
 import { onStart } from "../../../helpers/flow.js";
-import { ItemDto, ItemResultDto, SummaryWorkflowFinish } from "./fan-out.workflow.js";
+import {
+  ItemDto,
+  ItemResultDto,
+  SummaryWorkflowFinish,
+  SummaryAction,
+} from "./fan-out.workflow.js";
 import { RecoverableItemAction } from "./launch-recovery.workflow.js";
 import { ChildEventLog } from "./children.workflow.js";
 
@@ -62,6 +67,7 @@ export class HoldItemsWorkflowStart {}
     onStart(HoldItemsWorkflowStart)
       .toParallelWorkflows(HoldCheckWorkflow, { maxItems: 10 })
       .join()
+      .toAction(SummaryAction)
       .toFinish(SummaryWorkflowFinish),
   ],
 })

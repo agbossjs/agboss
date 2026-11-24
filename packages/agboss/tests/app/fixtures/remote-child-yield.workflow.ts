@@ -28,6 +28,7 @@ import {
   ItemDto,
   ItemResultDto,
   SummaryWorkflowFinish,
+  SummaryAction,
 } from "../../flow/runtime/fixtures/fan-out.workflow.js";
 
 /**
@@ -268,6 +269,7 @@ export class YieldReviewsWorkflowStart {}
         placement: ChildPlacement.AnyInstance,
       })
       .join()
+      .toAction(SummaryAction)
       .toFinish(SummaryWorkflowFinish),
   ],
 })

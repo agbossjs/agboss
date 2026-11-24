@@ -26,7 +26,7 @@ export interface ResolvedField {
   readonly isList: boolean;
   /** `historyOf(XDto, { maxPrevious })`: it reads the earlier versions too (#299 S56). */
   readonly history?: { readonly maxPrevious?: number };
-  /** The output of a finish without `input`: not a field of `InputOf<X>`. */
+  /** The output of a finish: not a field of `InputOf<X>`. */
   readonly isPassThrough: boolean;
 }
 
@@ -41,7 +41,6 @@ function declaredFields(node: FlowNode): InputFields | undefined {
       return declaration.options.input ?? TEXT_AGENT_INPUT;
     case NodeKind.Action:
     case NodeKind.Router:
-    case NodeKind.Finish:
     case NodeKind.Question:
       return declaration.options.input;
     default:
@@ -55,21 +54,20 @@ function resolveField(node: FlowNode, name: string, shape: InputFieldShape): Res
   return { name, label, shape, ...slot, isPassThrough: false };
 }
 
-/** A pass-through finish reads the latest value of its `output` type. */
+/** A finish reads the latest value of its `output` type: one DTO, or a list of them. */
 function passThroughField(node: FlowNode): ResolvedField | undefined {
   const { declaration } = node;
-  if (declaration.kind !== NodeKind.Finish || declaration.options.input !== undefined)
-    return undefined;
+  if (declaration.kind !== NodeKind.Finish) return undefined;
   const { output } = declaration.options;
-  const { slot } = slotOfField(output);
+  const { slot, isList } = slotOfField(output);
   const label = `${node.name} (${shapeLabel(output)})`;
   return {
-    name: output.name,
+    name: typeof output === "function" ? output.name : shapeLabel(output),
     label,
     shape: output,
     slot,
     isRequired: true,
-    isList: false,
+    isList,
     isPassThrough: true,
   };
 }

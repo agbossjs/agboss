@@ -178,7 +178,7 @@ import { TicketWorkflowStart } from "./ticket.workflow-start.js";
     onStart(TicketWorkflowStart) // a start's map of fields: one value per field
       .toAgent(TicketTriageAgent)
       .toAction(FileTicketAction) // reads ticket (from the start) and triage (from the agent)
-      .toFinish(TicketFiledWorkflowFinish), // a finish without finish(): hands back its output class
+      .toFinish(TicketFiledWorkflowFinish), // a finish is a pure boundary port: it hands back its output class
   ],
   maxSteps: 2,
 })
@@ -2624,20 +2624,34 @@ export class TripNotBookedWorkflowFinish {}
 
 ```ts file=src/trip/workflows/trip/trip-booked.workflow-finish.ts
 import { WorkflowFinish } from "@agboss/core";
-import type { FinishHandler, InputOf, OutputOf } from "@agboss/core";
-import { FlightBookingDto } from "../../dto/flight-booking.dto.js";
-import { HotelBookingDto } from "../../dto/hotel-booking.dto.js";
 import { TripBookedDto } from "../../dto/trip-booked.dto.js";
 
 @WorkflowFinish({
   name: "trip-booked-workflow-finish",
   description: "Both bookings",
+  output: TripBookedDto,
+})
+export class TripBookedWorkflowFinish {}
+```
+
+```ts file=src/trip/actions/trip-booked.action.ts
+import { Action } from "@agboss/core";
+import type { ActionHandler, InputOf, OutputOf } from "@agboss/core";
+import { FlightBookingDto } from "../dto/flight-booking.dto.js";
+import { HotelBookingDto } from "../dto/hotel-booking.dto.js";
+import { TripBookedDto } from "../dto/trip-booked.dto.js";
+
+@Action({
+  name: "trip-booked-action",
+  description: "Both bookings, as one answer",
   input: { flight: FlightBookingDto, hotel: HotelBookingDto },
   output: TripBookedDto,
 })
-export class TripBookedWorkflowFinish implements FinishHandler<TripBookedWorkflowFinish> {
-  finish(input: InputOf<TripBookedWorkflowFinish>): OutputOf<TripBookedWorkflowFinish> {
-    return { summary: `${input.flight.value.bookingId} + ${input.hotel.value.bookingId}` };
+export class TripBookedAction implements ActionHandler<TripBookedAction> {
+  execute(input: InputOf<TripBookedAction>): Promise<OutputOf<TripBookedAction>> {
+    return Promise.resolve({
+      summary: `${input.flight.value.bookingId} + ${input.hotel.value.bookingId}`,
+    });
   }
 }
 ```
@@ -2646,6 +2660,7 @@ export class TripBookedWorkflowFinish implements FinishHandler<TripBookedWorkflo
 import { Workflow, onStart, toFinish } from "@agboss/core";
 import { BookFlightAction } from "../../actions/book-flight.action.js";
 import { BookHotelAction } from "../../actions/book-hotel.action.js";
+import { TripBookedAction } from "../../actions/trip-booked.action.js";
 import { FlightBookingDto } from "../../dto/flight-booking.dto.js";
 import { HotelBookingDto } from "../../dto/hotel-booking.dto.js";
 import { TripRequestDto } from "../../dto/trip-request.dto.js";
@@ -2665,6 +2680,7 @@ import { TripWorkflowStart } from "./trip.workflow-start.js";
         BookingFailedError, // the hotel failed: the finished flight is cancelled before this path runs
         toFinish(TripNotBookedWorkflowFinish),
       )
+      .toAction(TripBookedAction)
       .toFinish(TripBookedWorkflowFinish), // the finish commits both bookings
   ],
 })

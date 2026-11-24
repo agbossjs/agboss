@@ -26,6 +26,7 @@ import {
   ItemDto,
   ItemResultDto,
   SummaryWorkflowFinish,
+  SummaryAction,
 } from "../../flow/runtime/fixtures/fan-out.workflow.js";
 
 /**
@@ -228,6 +229,7 @@ export class SiblingItemsWorkflowStart {}
         placement: ChildPlacement.ParentInstance,
       })
       .join()
+      .toAction(SummaryAction)
       .toFinish(SummaryWorkflowFinish),
   ],
 })

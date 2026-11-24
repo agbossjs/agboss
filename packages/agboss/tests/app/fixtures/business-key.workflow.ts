@@ -315,16 +315,16 @@ export class ChargeSummaryDto {
 })
 export class SendChargesStart {}
 
-@WorkflowFinish({
-  name: "charges-sent-workflow-finish",
+@Action({
+  name: "charges-sent-action",
   description: "The charges, in the join's order",
   input: { results: listOf(ChargeResultDto) },
   output: ChargeSummaryDto,
 })
-export class ChargesSentFinish {
-  finish(input: {
+export class ChargesSentAction {
+  async execute(input: {
     readonly results: readonly Produced<ChargeResultDto, unknown>[];
-  }): ChargeSummaryDto {
+  }): Promise<ChargeSummaryDto> {
     return {
       chargeIds: input.results
         .map((result) => result.value.chargeId)
@@ -332,6 +332,13 @@ export class ChargesSentFinish {
     };
   }
 }
+
+@WorkflowFinish({
+  name: "charges-sent-workflow-finish",
+  description: "The charges, in the join's order",
+  output: ChargeSummaryDto,
+})
+export class ChargesSentFinish {}
 
 /** One branch per order of the list, at once: two branches of one tree may charge one order. */
 @Workflow({
@@ -341,6 +348,7 @@ export class ChargesSentFinish {
     onStart(SendChargesStart)
       .toParallelActions(SendChargeAction, { maxItems: 4 })
       .join()
+      .toAction(ChargesSentAction)
       .toFinish(ChargesSentFinish),
   ],
   providers: [PaymentGateway],

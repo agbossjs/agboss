@@ -9,6 +9,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type Produced,
+  Action,
 } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
 import { createAppWith } from "../../src/application/create-app.js";
@@ -45,17 +46,24 @@ class AnsArbiter {}
 @WorkflowStart({ name: "ans-start-workflow-start", description: "q", input: WorkflowStartTextDto })
 class AnsStart {}
 
-@WorkflowFinish({
-  name: "ans-finish-workflow-finish",
+@Action({
+  name: "ans-finish-action",
   description: "f",
   input: { answers: listOf(AnsDto) },
   output: OutDto,
 })
-class AnsFinish {
-  finish(i: { readonly answers: readonly Produced<AnsDto, unknown>[] }): OutDto {
+class AnsAction {
+  async execute(i: { readonly answers: readonly Produced<AnsDto, unknown>[] }): Promise<OutDto> {
     return { o: String(i.answers.length) };
   }
 }
+
+@WorkflowFinish({
+  name: "ans-finish-workflow-finish",
+  description: "f",
+  output: OutDto,
+})
+class AnsFinish {}
 
 @Workflow({
   name: "ans-workflow",
@@ -65,6 +73,7 @@ class AnsFinish {
       .toParallelAgents(AnsAgent, AnsAgent)
       .acceptedBy(AnsArbiter)
       .joinQuorum({ min: 2 })
+      .toAction(AnsAction)
       .toFinish(AnsFinish),
   ],
 })

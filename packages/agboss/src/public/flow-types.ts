@@ -37,7 +37,6 @@ export {
   type NoRouteMethod,
   type RouteMethod,
 } from "../flow/decorators/router.js";
-export { type FinishMethod, type NoFinishMethod } from "../flow/decorators/workflow-finish.js";
 export {
   type ExecutionOptionOf,
   type GeneratedEntry,

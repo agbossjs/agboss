@@ -57,11 +57,12 @@ export function declaredDtos(declaration: ComponentDeclaration): readonly DtoCla
     }
     case NodeKind.Agent:
     case NodeKind.Action:
-    case NodeKind.Finish:
     case NodeKind.Question: {
       const { input, output } = declaration.options;
       return [...dtosOfFields(input), ...(output === undefined ? [] : dtosOf(output))];
     }
+    case NodeKind.Finish:
+      return dtosOf(declaration.options.output);
     case NodeKind.Router:
       return dtosOfFields(declaration.options.input);
     case NodeKind.Workflow:

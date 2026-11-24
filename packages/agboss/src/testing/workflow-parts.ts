@@ -32,9 +32,7 @@ function workflowComponentsOf(bundle: AssembledWorkflow): Class[] {
   const agents = nodes.flatMap((node) =>
     node.declaration.kind === NodeKind.Agent ? [node.declaration.options] : [],
   );
-  const codeNodes = nodes.flatMap((node) =>
-    isCodeNode(node) || node.kind === NodeKind.Finish ? [node.component] : [],
-  );
+  const codeNodes = nodes.flatMap((node) => (isCodeNode(node) ? [node.component] : []));
   return [
     ...providers,
     ...agents.flatMap((agent) => agent.tools ?? []),

@@ -12,7 +12,6 @@ export const COMPONENT_DECORATORS = [
   "Tool",
   "Action",
   "Router",
-  "WorkflowFinish",
   "Channel",
   "ReplyInterpreter",
   "InputGuardrail",

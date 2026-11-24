@@ -5,6 +5,7 @@ import {
   WorkflowStart,
   listOf,
   type Produced,
+  Action,
 } from "../../../index.js";
 import type { Class } from "../../../components/injection.js";
 import { NodeKind, type PathSource } from "../../../flow/ast.js";
@@ -60,19 +61,26 @@ export class FaultOrderWorkflow {}
 })
 export class FaultBatchWorkflowStart {}
 
-@WorkflowFinish({
-  name: "fault-batch-workflow-finish",
+@Action({
+  name: "fault-batch-action",
   description: "Every order, paid",
   input: { payments: listOf(FaultPaymentDto) },
   output: FaultBatchDto,
 })
-export class FaultBatchWorkflowFinish {
-  finish(input: {
+export class FaultBatchAction {
+  async execute(input: {
     readonly payments: readonly Produced<FaultPaymentDto, unknown>[];
-  }): FaultBatchDto {
+  }): Promise<FaultBatchDto> {
     return { orderIds: input.payments.map((payment) => payment.value.orderId) };
   }
 }
+
+@WorkflowFinish({
+  name: "fault-batch-workflow-finish",
+  description: "Every order, paid",
+  output: FaultBatchDto,
+})
+export class FaultBatchWorkflowFinish {}
 
 @Workflow({
   name: "fault-batch-workflow",
@@ -85,6 +93,7 @@ export class FaultBatchWorkflowFinish {
         placement: ChildPlacement.AnyInstance,
       })
       .join()
+      .toAction(FaultBatchAction)
       .toFinish(FaultBatchWorkflowFinish),
   ],
 })

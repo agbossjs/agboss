@@ -6,7 +6,7 @@ import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js"
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import { historyOf, oneOf, variant } from "../../../src/flow/dto-wrappers.js";
 import type { InputOf, OutputOf } from "../../../src/flow/generated-types.js";
-import type { ActionHandler, FinishHandler } from "../../../src/flow/handlers.js";
+import type { ActionHandler } from "../../../src/flow/handlers.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { DraftChangesDto } from "./data-dtos.js";
@@ -82,16 +82,16 @@ export class ReviewDraftAction implements ActionHandler<ReviewDraftAction> {
 export class DraftEditorAgent {}
 
 /** Every version of the draft, oldest first: what the loop went through. */
-@WorkflowFinish({
-  name: "draft-history-workflow-finish",
+@Action({
+  name: "draft-history-action",
   description: "The drafts the offer went through",
   input: {
     drafts: historyOf(OfferDraftDto),
   },
   output: DraftChangesDto,
 })
-export class DraftHistoryWorkflowFinish implements FinishHandler<DraftHistoryWorkflowFinish> {
-  finish(input: InputOf<DraftHistoryWorkflowFinish>): OutputOf<DraftHistoryWorkflowFinish> {
+export class DraftHistoryAction {
+  async execute(input: InputOf<DraftHistoryAction>): Promise<OutputOf<DraftHistoryAction>> {
     const { current, previous } = input.drafts;
     return {
       changes: [...previous, current]
@@ -100,6 +100,13 @@ export class DraftHistoryWorkflowFinish implements FinishHandler<DraftHistoryWor
     };
   }
 }
+
+@WorkflowFinish({
+  name: "draft-history-workflow-finish",
+  description: "The drafts the offer went through",
+  output: DraftChangesDto,
+})
+export class DraftHistoryWorkflowFinish {}
 
 export const historyPaths = [
   onStart(HistoryOfferWorkflowStart)
@@ -111,6 +118,7 @@ export const historyPaths = [
         .toAgent(DraftEditorAgent)
         .toAction(ReviewDraftAction),
       caseOf(DraftApprovedDto)
+        .toAction(DraftHistoryAction)
         .toFinish(DraftHistoryWorkflowFinish),
     ),
 ] as const;

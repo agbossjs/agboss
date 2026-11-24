@@ -7,6 +7,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type Produced,
+  Action,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { groupFrom } from "../../../src/flow/path-builder.js";
@@ -93,14 +94,33 @@ const scoresOf = (input: RefundScoresInput): BatchSummaryDto => ({
     .join(", "),
 });
 
-@WorkflowFinish({
-  name: "refund-decided-workflow-finish",
+@Action({
+  name: "refund-decided-action",
   description: "The counted scores",
   input: { scores: listOf(RefundScoreDto) },
   output: BatchSummaryDto,
 })
-export class RefundDecidedWorkflowFinish {
-  finish(input: RefundScoresInput): BatchSummaryDto {
+export class RefundDecidedAction {
+  async execute(input: RefundScoresInput): Promise<BatchSummaryDto> {
+    return scoresOf(input);
+  }
+}
+
+@WorkflowFinish({
+  name: "refund-decided-workflow-finish",
+  description: "The counted scores",
+  output: BatchSummaryDto,
+})
+export class RefundDecidedWorkflowFinish {}
+
+@Action({
+  name: "refund-escalated-action",
+  description: "The risk agent's scores",
+  input: { scores: listOf(RefundScoreDto) },
+  output: BatchSummaryDto,
+})
+export class RefundEscalatedAction {
+  async execute(input: RefundScoresInput): Promise<BatchSummaryDto> {
     return scoresOf(input);
   }
 }
@@ -108,14 +128,9 @@ export class RefundDecidedWorkflowFinish {
 @WorkflowFinish({
   name: "refund-escalated-workflow-finish",
   description: "The risk agent's scores",
-  input: { scores: listOf(RefundScoreDto) },
   output: BatchSummaryDto,
 })
-export class RefundEscalatedWorkflowFinish {
-  finish(input: RefundScoresInput): BatchSummaryDto {
-    return scoresOf(input);
-  }
-}
+export class RefundEscalatedWorkflowFinish {}
 
 @Workflow({
   name: "refund-panel-workflow",
@@ -124,6 +139,7 @@ export class RefundEscalatedWorkflowFinish {
     onStart(RefundPanelWorkflowStart)
       .toParallelAgents(PolicyAgent, RiskAgent, FraudAgent)
       .joinQuorum({ min: 2 })
+      .toAction(RefundDecidedAction)
       .toFinish(RefundDecidedWorkflowFinish),
   ],
 })
@@ -145,9 +161,11 @@ export class RefundGroupsWorkflowStart {}
       .joinQuorumGroups(
         groupFrom([PolicyAgent])
           .priority(1)
+          .toAction(RefundDecidedAction)
           .toFinish(RefundDecidedWorkflowFinish),
         groupFrom([RiskAgent])
           .priority(2)
+          .toAction(RefundEscalatedAction)
           .toFinish(RefundEscalatedWorkflowFinish),
       ),
   ],
@@ -179,6 +197,7 @@ export class RefundRecoveryWorkflowStart {}
     onStart(RefundRecoveryWorkflowStart)
       .toParallelAgents(PolicyAgent, RiskAgent, FraudAgent)
       .joinQuorum({ min: 1, max: 3, deadline: seconds(300) })
+      .toAction(RefundDecidedAction)
       .toFinish(RefundDecidedWorkflowFinish),
   ],
 })
