@@ -23,6 +23,7 @@ import { toolBindingOf } from "../../flow/runtime/answer-tools.js";
 import type { AttemptStream } from "../../run/stream/agent-stream.js";
 import { StreamDiscardReason } from "../../run/types.js";
 import { answering, attemptOf } from "./answer-stream.js";
+import { ChunkCounter, partialSpendOf, withChunkCounter } from "./chunk-counter.js";
 
 export class ToolCallingUnsupportedError extends Error {
   override name = "ToolCallingUnsupportedError";
@@ -51,10 +52,16 @@ async function callModel(
   deps: AgentLoopDeps,
   config: RunnableConfig | undefined,
   attempt: AttemptStream | undefined,
+  counter: ChunkCounter,
 ): Promise<AIMessageChunk> {
   const { binding, name } = deps.agent;
-  // an exhausted budget (#338) aborts the call in flight: its partial cost is unknown, unrecorded
-  const call = { ...answering(config, attempt), signal: withExhausted(config?.signal, deps) };
+  // an exhausted budget (#338) aborts the call in flight: what it received is still spent (#1399)
+  const answered = answering(config, attempt);
+  const call = {
+    ...answered,
+    callbacks: withChunkCounter(answered?.callbacks, counter),
+    signal: withExhausted(config?.signal, deps),
+  };
   // cache markers, where the model needs them, are placed by its provider on the wire (#151)
   const tools = toolDefinitionsOf(deps.agent);
   if (tools.length === 0) return binding.model.invoke([...messages], call);
@@ -135,13 +142,16 @@ async function observedCall(
   await reportNodeEvent((base) =>
     deps.observer?.onModelStart({ ...base, modelName, callerName: name, rawPayload }),
   );
-  const response = await callModel(request.messages, deps, config, attempt).catch(
+  const counter = new ChunkCounter();
+  const response = await callModel(request.messages, deps, config, attempt, counter).catch(
     (error: unknown) => {
       // the text of a call that broke is retracted before the failure goes on (#1006)
       attempt?.discard(StreamDiscardReason.StreamBroken);
+      // what it had used is spent all the same (#1399): counted in the budgets, carried to the ledger
+      const spent = partialSpendOf(deps, state.flowPath, request.messages, error, counter);
       throw new AgentFailedError({
         agent: name,
-        usage: [...loopUsage(state), ...request.usage],
+        usage: [...loopUsage(state), ...request.usage, ...spent],
         cause: error,
       });
     },

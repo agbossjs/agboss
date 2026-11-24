@@ -5,6 +5,7 @@ import type { CircuitBreaker } from "../circuit-breaker.js";
 import { ModelFailure } from "../model-failure.js";
 import { ModelProviderError } from "../model-provider.decorator.js";
 import { ModelProviderFailureError } from "./failure-error.js";
+import { withPartialSpend } from "./stream-partial.js";
 import { sourceOf } from "./transport-stream-source.js";
 import { failedAttempt, tokensOf, untilAborted } from "./transport-carrier.js";
 import type {
@@ -113,13 +114,14 @@ async function tell(limits: StreamLimits, end: End): Promise<void> {
   if (end === "failed") await limits.breaker?.recordFailure();
 }
 
-/** What the call used, as far as its result settles in time; never throws. */
-async function usedAfterFailure(reading: Reading): Promise<number> {
+/** What the call's result settled to, as far as it settles in time; never throws. */
+async function settledAfterFailure(
+  reading: Reading,
+): Promise<ModelProviderStreamResult | undefined> {
   try {
-    const { usage } = await within(reading.result, reading.limits, reading.caller);
-    return tokensOf({ text: "", usage });
+    return await within(reading.result, reading.limits, reading.caller);
   } catch {
-    return 0;
+    return undefined;
   }
 }
 
@@ -141,8 +143,12 @@ async function failWith(
   reading.stop(error);
   closeQuietly(reading.iterator);
   await tell(reading.limits, endOf(error, reading.caller));
-  await release?.(isUsageWaited ? await usedAfterFailure(reading) : 0);
-  throw surfaced(error, reading);
+  const settled = isUsageWaited ? await settledAfterFailure(reading) : undefined;
+  await release?.(settled === undefined ? 0 : tokensOf({ text: "", usage: settled.usage }));
+  const surfacedError = surfaced(error, reading);
+  // what the provider billed for the text that came is the call's spend, though it failed (#1399)
+  if (settled === undefined) throw surfacedError;
+  throw withPartialSpend(surfacedError, { usage: settled.usage, cost: settled.cost });
 }
 
 /** The text of the stream after its first chunk, each chunk told to `onText`. */

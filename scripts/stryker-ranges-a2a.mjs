@@ -122,6 +122,10 @@ export function streamShard() {
       "src/models/{chat-openai,usage-once,event-stream-lines,served-by}.ts",
       "src/a2a/server/a2a-{sse-write,subscriber-queue,artifact-view}.ts",
       "src/models/calls/event-stream-guard.ts",
+      // #1399: what a stream that failed mid-way had spent — the record, the error's carrier, the counter
+      "src/finops/partial-usage.ts",
+      "src/models/transport/stream-partial.ts",
+      "src/graph/agent-loop/chunk-counter.ts",
     ],
   };
 }
