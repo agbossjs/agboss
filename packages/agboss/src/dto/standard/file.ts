@@ -3,16 +3,32 @@ import "../../polyfills/symbol-metadata.js";
 import { mediaTypeEssenceOf } from "../../a2a/files/a2a-file-options.js";
 import type { WorkflowStartInput } from "../../flow/decorators/workflow-start.js";
 import { PiiAction } from "../../pii/actions.js";
-import { Integer, List, MediaType, Nested, Text, Url } from "../decorators.js";
+import { Integer, List, MediaType, Nested, Text, Url, Validate } from "../decorators.js";
 import { fieldsOf } from "../metadata.js";
-import { crossFieldRule } from "../schema.js";
-import type { DtoClass, FieldDecorator, FieldOptions, OptionalField } from "../types.js";
+import type { DtoCheck, DtoClass, FieldDecorator, FieldOptions, OptionalField } from "../types.js";
 
 /** What a file made of bytes or of a URL is named by: its media type and file name. */
 export interface FileDtoOptions {
   readonly mediaType: string;
   readonly filename?: string;
 }
+
+const isHttpUrl = (url: string): boolean => /^https?:\/\//i.test(url);
+
+/** A file is exactly one of `fileId`, `inline` and `url`; bytes carry their digest and size. */
+const fileSourceCheck: DtoCheck<FileDto> = (file) => {
+  const sources = [file.fileId, file.inline, file.url].filter((value) => value !== undefined);
+  if (sources.length !== 1)
+    return { field: "fileId", reason: "a file is exactly one of fileId, inline or url" };
+  if (file.url !== undefined)
+    return isHttpUrl(file.url)
+      ? undefined
+      : { field: "url", reason: "a file's url is an http(s) URL" };
+  if (file.sha256 === undefined) return { field: "sha256", reason: "a file's bytes need sha256" };
+  return file.sizeBytes === undefined
+    ? { field: "sizeBytes", reason: "a file's bytes need sizeBytes" }
+    : undefined;
+};
 
 /**
  * A file of an A2A message or artifact (#859, spec §4.1.6 `Part` with `raw` or `url`), as a step
@@ -23,6 +39,7 @@ export interface FileDtoOptions {
  * leaves the execution as text (a model's prompt, a tool result, a kept record, an event, a trace)
  * only `redactedFileOf` of it does; its bytes reach a model as a file part, never as text.
  */
+@Validate<FileDto>(fileSourceCheck)
 export class FileDto {
   @MediaType({ prompt: "the file's media type, e.g. application/pdf" })
   mediaType!: string;
@@ -135,22 +152,6 @@ export function redactedFileOf(file: FileDto): RedactedFile {
     source: fileSourceOf(file),
   };
 }
-
-const isHttpUrl = (url: string): boolean => /^https?:\/\//i.test(url);
-
-crossFieldRule(FileDto, (file) => {
-  const sources = [file.fileId, file.inline, file.url].filter((value) => value !== undefined);
-  if (sources.length !== 1)
-    return { field: "fileId", reason: "a file is exactly one of fileId, inline or url" };
-  if (file.url !== undefined)
-    return isHttpUrl(file.url)
-      ? undefined
-      : { field: "url", reason: "a file's url is an http(s) URL" };
-  if (file.sha256 === undefined) return { field: "sha256", reason: "a file's bytes need sha256" };
-  return file.sizeBytes === undefined
-    ? { field: "sizeBytes", reason: "a file's bytes need sizeBytes" }
-    : undefined;
-});
 
 /** A run that finishes with one file: its artifact is that file's part (#859). */
 export class WorkflowFinishFileDto {

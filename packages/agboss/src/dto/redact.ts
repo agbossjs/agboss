@@ -100,3 +100,11 @@ function sensitiveBelow(dto: DtoClass, seen: Set<DtoClass>): boolean {
       (field.element?.kind === "dto" && sensitiveBelow(field.element.dto, seen)),
   );
 }
+
+/**
+ * A DTO's value for logs and `$0` tests: every `sensitive` field one-way masked, nested DTOs and
+ * DTO lists included — also on a plain object that was never hydrated. A value that is no object
+ * masks to `{}`: nothing unmasked leaves.
+ */
+export const maskDto = <T extends object>(dto: DtoClass<T>, value: T): Record<string, unknown> =>
+  isRecord(value) ? maskedRecord(dto, value, displayMask) : {};

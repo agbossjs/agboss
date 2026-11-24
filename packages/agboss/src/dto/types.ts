@@ -25,7 +25,8 @@ export type ScalarKind =
   | "country-code"
   | "phone-number"
   | "media-type"
-  | "time-zone";
+  | "time-zone"
+  | "key-text";
 
 export type FieldKind = ScalarKind | "one-of" | "list-of" | "nested";
 
@@ -65,6 +66,16 @@ export interface TextLimits {
 export interface NumberLimits {
   readonly min?: number;
   readonly max?: number;
+}
+
+/** `@KeyText`'s limits: a key is at most 200 characters; these only narrow it. */
+export interface KeyTextLimits {
+  /** At least this many characters. */
+  readonly minLength?: number;
+  /** At most this many characters (never more than 200). */
+  readonly maxLength?: number;
+  /** A narrower format on top of the key rules, e.g. `/^[a-z0-9-]+$/`. */
+  readonly pattern?: RegExp;
 }
 
 export interface DecimalStringLimits {
@@ -124,3 +135,20 @@ export interface FieldFactory<T, TLimits extends object = object> {
   (options: TLimits & FieldOptions<T> & OptionalField): FieldDecorator<T | undefined>;
   (options?: TLimits & FieldOptions<T> & RequiredField<T>): FieldDecorator<T>;
 }
+
+/**
+ * What a `@Validate` check reports: a message for the whole DTO, or a message at one field. The
+ * message is the author's fixed text — never the rejected value.
+ */
+export type ValidationIssue<TDto> =
+  string | { readonly field?: keyof TDto & string; readonly reason: string };
+
+/**
+ * A cross-field check: `undefined`, `true` and `[]` mean valid; `false` is invalid with the reason
+ * `"validation failed"`; a string or issue (or a list of them) reports why. It runs after the
+ * fields are parsed, on a value whose fields have their declared types (one that broke its own limits
+ * may still be there, so a check reads defensively).
+ */
+export type DtoCheck<TDto> = (
+  value: TDto,
+) => undefined | boolean | ValidationIssue<TDto> | readonly ValidationIssue<TDto>[];

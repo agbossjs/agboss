@@ -1,6 +1,7 @@
-import { recordField } from "./metadata.js";
+import { recordCheck, recordField } from "./metadata.js";
 import type {
   DecimalStringLimits,
+  DtoCheck,
   DtoClass,
   ElementSpec,
   FieldDecorator,
@@ -8,6 +9,7 @@ import type {
   FieldKind,
   FieldOptions,
   FieldSettings,
+  KeyTextLimits,
   NumberLimits,
   OptionalField,
   RequiredField,
@@ -61,6 +63,12 @@ export const IsoDate = scalar<string>("date");
 export const IsoDateTime = scalar<string>("date-time");
 /** An ISO 8601 duration as text: `PT30M`. */
 export const IsoDuration = scalar<string>("duration");
+/**
+ * A key's text: an id the framework may use as a key (a thread id, a business key, a tenant id) — 1 to
+ * 200 characters, no control, invisible or look-alike characters, NFC (the rules of #538). The
+ * reason names the rule, never the text.
+ */
+export const KeyText = scalar<string, KeyTextLimits>("key-text");
 /** A decimal number as a string, exact: `"19.99"`; at most `scale` digits after the point. */
 export const DecimalString = scalar<string, DecimalStringLimits>("decimal-string");
 /** An ISO 4217 currency code: `"USD"`. */
@@ -178,4 +186,18 @@ export function Nested<T extends object>(
 ): FieldDecorator<T>;
 export function Nested(dto: DtoClass, options: FieldSettings = {}): FieldDecorator<unknown> {
   return field("nested", options, { kind: "dto", dto });
+}
+
+/**
+ * `@Validate<Dto>((dto) => dto.to >= dto.from || "to is before from")`: a rule across fields that no
+ * field decorator can say. It runs after the fields are parsed, on the DTO and on a DTO nested in
+ * another; a subclass inherits its parents' rules. A failure is a validation issue (the model is
+ * told, and corrects itself); a check that throws is a failure too — nothing passes by accident.
+ */
+export function Validate<TDto extends object>(
+  check: DtoCheck<TDto>,
+): <C extends abstract new () => TDto>(value: C, context: ClassDecoratorContext<C>) => void {
+  return (_value, context) => {
+    recordCheck(context.metadata, check);
+  };
 }

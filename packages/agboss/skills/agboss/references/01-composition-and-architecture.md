@@ -342,10 +342,15 @@ What this shows:
 
 - One field decorator per field (`[dto.undecorated-field]` otherwise): `@Text`, `@Integer`,
   `@Float`, `@Bool`, `@Enum(["a", "b"])`, `@List(ItemDto | Text, { minItems })`,
-  `@Nested(OtherDto)`, formats `@Email`, `@Url`, `@Uuid`, `@IsoDate`, `@IsoDateTime`, `@PhoneNumber`, ….
+  `@Nested(OtherDto)`, formats `@Email`, `@Url`, `@Uuid`, `@IsoDate`, `@IsoDateTime`, `@PhoneNumber`, `@KeyText` (an id that is usable as a key: 1 to 200
+  characters, no invisible or look-alike ones), ….
   Options: `prompt` (the field's description in the JSON Schema the model reads), `optional: true`,
   `default`, limits (`minLength`, `maxLength`, `pattern`, `min`, `max`), `example`, `sensitive`
   (a PII action, reference 07).
+- A rule across fields is a class decorator: `@Validate<Dto>((dto) => dto.to >= dto.from || "to is before from")`
+  (a string, `{ field, reason }` or a list of them is a failure; `false` fails; a check that throws fails
+  closed; a subclass inherits the checks). `validate(Dto, raw)`, `jsonSchemaOf(Dto)` and `maskDto(Dto, value)`
+  (every `sensitive` field masked, for logs and `$0` tests) are exported from `@agboss/core/dto`.
 - **Plain data**: no methods, no getters, no constructor logic (`[dto.not-plain-data]`). Values are
   object literals; the framework validates every value that crosses a boundary — a start's input,
   a tool's arguments and result, an agent's answer, an action's output, a resume's decision — and

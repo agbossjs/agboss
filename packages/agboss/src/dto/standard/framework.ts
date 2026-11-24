@@ -1,6 +1,5 @@
-import { Bool, List, Nested, Text } from "../decorators.js";
+import { Bool, List, Nested, Text, Validate } from "../decorators.js";
 import { markOpen } from "../metadata.js";
-import { crossFieldRule } from "../schema.js";
 import { PiiAction } from "../../pii/actions.js";
 
 /** The text a workflow run starts with (the input of a text `@WorkflowStart`). */
@@ -60,6 +59,11 @@ export class ToolCallApprovalAskDto {
  * The decision on one tool call waiting for approval (#267): who answered is not part of it — the
  * resume's `answeredBy` or the thread's owner, checked by the framework.
  */
+@Validate<ToolCallApprovalDecisionDto>(({ approved, overrideArguments }) =>
+  overrideArguments !== undefined && !approved
+    ? { field: "overrideArguments", reason: "overrideArguments only with approved: true" }
+    : undefined,
+)
 export class ToolCallApprovalDecisionDto {
   @Bool({ prompt: "true to run the call, false to refuse it" })
   approved!: boolean;
@@ -73,12 +77,6 @@ export class ToolCallApprovalDecisionDto {
   })
   overrideArguments?: ToolArguments;
 }
-
-crossFieldRule(ToolCallApprovalDecisionDto, ({ approved, overrideArguments }) =>
-  overrideArguments !== undefined && !approved
-    ? { field: "overrideArguments", reason: "overrideArguments only with approved: true" }
-    : undefined,
-);
 
 /**
  * What a model reply interpreter answers when a reply does not answer its pause's question (#648):

@@ -16,6 +16,7 @@ export {
   IsoDate,
   IsoDateTime,
   IsoDuration,
+  KeyText,
   List,
   MediaType,
   Nested,
@@ -24,6 +25,7 @@ export {
   TimeZone,
   Url,
   Uuid,
+  Validate,
   type ListItem,
 } from "./decorators.js";
 export {
@@ -34,7 +36,10 @@ export {
   type DtoErrorOptions,
   type DtoIssue,
 } from "./errors.js";
+export { maskDto } from "./redact.js";
+export { jsonSchemaOf, validate } from "./schema.js";
 export type {
+  DtoCheck,
   DtoClass,
   FieldDecorator,
   FieldFactory,
@@ -42,6 +47,7 @@ export type {
   OptionalField,
   RequiredField,
   Sensitivity,
+  ValidationIssue,
 } from "./types.js";
 export {
   NoInputDto,
@@ -95,7 +101,12 @@ export {
 } from "../flow/dto-wrappers.js";
 export { type EnumOptions, type ListOptions } from "./decorators.js";
 export { type ToolArguments } from "./standard/framework.js";
-export { type DecimalStringLimits, type NumberLimits, type TextLimits } from "./types.js";
+export {
+  type DecimalStringLimits,
+  type KeyTextLimits,
+  type NumberLimits,
+  type TextLimits,
+} from "./types.js";
 /** @beta Type machinery of the DTO decorators and wrappers: not a contract, names may change. */
 export type * as DtoTypes from "./dto-types.js";
 export { ValidationError, ValidationErrorKind } from "../core/error-families/effect-errors.js";

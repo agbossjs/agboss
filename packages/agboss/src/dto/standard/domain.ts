@@ -8,12 +8,31 @@ import {
   PhoneNumber,
   Text,
   TimeZone,
+  Validate,
 } from "../decorators.js";
-import { crossFieldRule } from "../schema.js";
+import { minorUnitsOf } from "../codes.js";
 
-/** An amount of money: exact, as a decimal string, with its currency. */
+/** The most digits after the point any ISO 4217 currency has (CLF, UYW). */
+const MAX_MINOR_UNITS = 4;
+
+/**
+ * An amount of money: exact, as a decimal string, with its currency; the digits after the point
+ * follow the currency's ISO 4217 minor unit (`JPY` 0, `USD` 2, `KWD` 3), and a code that is no money
+ * (a metal, a fund, `XXX`) is refused.
+ */
+@Validate<MoneyDto>(({ amount, currency }) => {
+  const units = minorUnitsOf(currency);
+  if (units === undefined) return { field: "currency", reason: "a currency with no minor unit" };
+  const digits = amount.split(".")[1]?.length ?? 0;
+  return digits <= units
+    ? undefined
+    : {
+        field: "amount",
+        reason: `${currency} has at most ${String(units)} digits after the point`,
+      };
+})
 export class MoneyDto {
-  @DecimalString({ prompt: "the amount, e.g. 19.99", scale: 2 })
+  @DecimalString({ prompt: "the amount, e.g. 19.99", scale: MAX_MINOR_UNITS })
   amount!: string;
 
   @CurrencyCode({ prompt: "the currency, ISO 4217, e.g. USD" })
@@ -21,6 +40,9 @@ export class MoneyDto {
 }
 
 /** Calendar days, both ends included; no time of day. */
+@Validate<DateRangeDto>(({ from, to }) =>
+  from <= to ? undefined : { field: "to", reason: "the last day is before the first" },
+)
 export class DateRangeDto {
   @CalendarDate({ prompt: "the first day, e.g. 2026-09-01" })
   from!: string;
@@ -34,11 +56,13 @@ export class DateRangeDto {
   })
   timeZone?: string;
 }
-crossFieldRule(DateRangeDto, ({ from, to }) =>
-  from <= to ? undefined : { field: "to", reason: "the last day is before the first" },
-);
 
 /** Exact moments: from included, to excluded. */
+@Validate<DateTimeRangeDto>(({ from, to }) =>
+  Date.parse(from) < Date.parse(to)
+    ? undefined
+    : { field: "to", reason: "the end is not after the start" },
+)
 export class DateTimeRangeDto {
   @IsoDateTime({ prompt: "start, with a UTC offset, e.g. 2026-09-01T09:00:00+03:00" })
   from!: string;
@@ -46,11 +70,6 @@ export class DateTimeRangeDto {
   @IsoDateTime({ prompt: "end, with a UTC offset, e.g. 2026-09-01T18:00:00+03:00" })
   to!: string;
 }
-crossFieldRule(DateTimeRangeDto, ({ from, to }) =>
-  Date.parse(from) < Date.parse(to)
-    ? undefined
-    : { field: "to", reason: "the end is not after the start" },
-);
 
 /** A postal address. */
 export class AddressDto {
@@ -80,6 +99,11 @@ export class PersonNameDto {
 }
 
 /** How to reach a person. */
+@Validate<ContactInfoDto>(({ email, phone }) =>
+  email !== undefined || phone !== undefined
+    ? undefined
+    : { field: "email", reason: "give an email, a phone or both" },
+)
 export class ContactInfoDto {
   @Email({ prompt: "email address", optional: true })
   email?: string;
@@ -90,8 +114,3 @@ export class ContactInfoDto {
   })
   phone?: string;
 }
-crossFieldRule(ContactInfoDto, ({ email, phone }) =>
-  email !== undefined || phone !== undefined
-    ? undefined
-    : { field: "email", reason: "give an email, a phone or both" },
-);

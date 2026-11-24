@@ -1,6 +1,5 @@
 import { Window1Memory } from "../../helpers/window-memory.js";
-import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
-import { crossFieldRule } from "../../../src/dto/schema.js";
+import { Text, Validate, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
   Agent,
   Budget,
@@ -18,16 +17,15 @@ import { TestApplicationDailyBudget, TestExecutionBudget } from "../../flow/fixt
 import { EmptyEnvironment } from "../../../src/index.js";
 
 /** A start input with a code a rule checks; the rule's reason echoes the value it rejects. */
+@Validate<VoucherDto>((voucher) =>
+  voucher.code.startsWith("V-")
+    ? undefined
+    : { field: "code", reason: `"${voucher.code}" is not a voucher code` },
+)
 export class VoucherDto extends WorkflowStartTextDto {
   @Text({ prompt: "the voucher code" })
   code!: string;
 }
-
-crossFieldRule(VoucherDto, (voucher) =>
-  voucher.code.startsWith("V-")
-    ? undefined
-    : { field: "code", reason: `"${voucher.code}" is not a voucher code` },
-);
 
 @WorkflowStart({
   name: "redeem-workflow-start",

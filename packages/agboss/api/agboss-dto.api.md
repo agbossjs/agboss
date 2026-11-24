@@ -62,6 +62,9 @@ export interface DecimalStringLimits {
 }
 
 // @public
+export type DtoCheck<TDto> = (value: TDto) => undefined | boolean | ValidationIssue<TDto> | readonly ValidationIssue<TDto>[];
+
+// @public
 export type DtoClass<T = object> = abstract new () => T;
 
 // @public
@@ -273,6 +276,19 @@ export function isVariant<TItem extends {
 }>;
 
 // @public
+export const jsonSchemaOf: (dto: DtoClass) => Readonly<Record<string, unknown>>;
+
+// @public
+export const KeyText: FieldFactory<string, KeyTextLimits>;
+
+// @public
+export interface KeyTextLimits {
+    readonly maxLength?: number;
+    readonly minLength?: number;
+    readonly pattern?: RegExp;
+}
+
+// @public
 export const List: ListFactory;
 
 // @public
@@ -316,6 +332,9 @@ export interface ListWrapper<TElement extends ListElementShape = ListElementShap
     // (undocumented)
     readonly kind: Wrapper.List;
 }
+
+// @public
+export const maskDto: <T extends object>(dto: DtoClass<T>, value: T) => Record<string, unknown>;
 
 // @public
 export const MediaType: FieldFactory<string, object>;
@@ -498,6 +517,12 @@ export const Url: FieldFactory<string, object>;
 export const Uuid: FieldFactory<string, object>;
 
 // @public
+export function Validate<TDto extends object>(check: DtoCheck<TDto>): <C extends abstract new () => TDto>(value: C, context: ClassDecoratorContext<C>) => void;
+
+// @public
+export function validate<T extends object>(dto: DtoClass<T>, raw: unknown): T;
+
+// @public
 export type ValidationError = ValidationError.DtoInvalid | ValidationError.TenantRequired;
 
 // @public
@@ -524,6 +549,12 @@ export enum ValidationErrorKind {
     // (undocumented)
     TenantRequired = "tenant-required"
 }
+
+// @public
+export type ValidationIssue<TDto> = string | {
+    readonly field?: keyof TDto & string;
+    readonly reason: string;
+};
 
 // @public
 export type ValueOf<TShape> = TShape extends DtoClass<infer TValue> ? TValue : TShape extends ListWrapper<infer TElement> ? readonly ValueOf<TElement>[] : TShape extends OneOfWrapper<infer TVariants> ? InstanceType<TVariants[number]> : TShape extends OptionalWrapper<infer TInner> ? ValueOf<TInner> | undefined : TShape extends HistoryWrapper<infer TDto> ? HistoryOf<InstanceType<TDto>> : never;

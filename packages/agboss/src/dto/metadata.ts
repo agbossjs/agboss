@@ -1,6 +1,6 @@
 import { METADATA_KEY } from "../polyfills/symbol-metadata.js";
 import { DtoError } from "./errors.js";
-import type { DtoClass, FieldSpec } from "./types.js";
+import type { DtoCheck, DtoClass, FieldSpec } from "./types.js";
 
 type FieldTable = Map<string, FieldSpec>;
 
@@ -26,6 +26,24 @@ export function recordField(metadata: DecoratorMetadataObject | undefined, spec:
   ownTable(metadata).set(spec.name, spec);
 }
 
+/** Each class's own `@Validate` checks, keyed by its decorator metadata object. */
+const checkTables = new WeakMap<object, DtoCheck<never>[]>();
+
+/** Called by `@Validate` at class definition. */
+export function recordCheck(
+  metadata: DecoratorMetadataObject | undefined,
+  check: DtoCheck<never>,
+): void {
+  if (metadata === undefined) {
+    throw new DtoError({
+      code: "dto.no-metadata",
+      message: `@Validate: decorator metadata is missing — import "@agboss/core/dto" before declaring DTOs`,
+    });
+  }
+  const own = checkTables.get(metadata) ?? [];
+  checkTables.set(metadata, [...own, check]);
+}
+
 const isObject = (value: unknown): value is object => typeof value === "object" && value !== null;
 
 /** A DTO's fields — its parents' first, then its own — in declaration order. */
@@ -41,6 +59,18 @@ export function fieldsOf(dto: DtoClass): readonly FieldSpec[] {
   const byName = new Map<string, FieldSpec>();
   for (const table of chain) for (const field of table.values()) byName.set(field.name, field);
   return [...byName.values()];
+}
+
+/** A DTO's `@Validate` checks — its parents' first, then its own — in declaration order. */
+export function checksOf(dto: DtoClass): readonly DtoCheck<never>[] {
+  const chain: DtoCheck<never>[][] = [];
+  let metadata: unknown = Reflect.get(dto, METADATA_KEY);
+  while (isObject(metadata)) {
+    const own = checkTables.get(metadata);
+    if (own !== undefined) chain.unshift(own);
+    metadata = Object.getPrototypeOf(metadata);
+  }
+  return chain.flat();
 }
 
 /** DTOs that hold any JSON object (internal: tool arguments). */

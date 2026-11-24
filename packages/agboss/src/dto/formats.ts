@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { KEY_TEXT_RULE_TEXT, keyTextRuleOf } from "../core/errors.js";
 import { COUNTRY_CODES, CURRENCY_CODES, TIME_ZONES } from "./codes.js";
 import type { FieldSettings, ScalarKind } from "./types.js";
 
@@ -42,6 +43,13 @@ const text = (settings: FieldSettings): z.ZodType<string> => {
   return schema;
 };
 
+/** A key's text (#538): the framework's rules, so a valid value is always usable as a key; the rule is named, never the text. */
+const keyText = (settings: FieldSettings): z.ZodType<string> =>
+  text(settings).superRefine((value, ctx) => {
+    const rule = keyTextRuleOf(value);
+    if (rule !== undefined) ctx.addIssue({ code: "custom", message: KEY_TEXT_RULE_TEXT[rule] });
+  });
+
 const number = (settings: FieldSettings, isInteger: boolean): z.ZodType<number> => {
   let schema = isInteger ? z.number().int() : z.number();
   if (settings.min !== undefined) schema = schema.min(settings.min);
@@ -69,6 +77,7 @@ export const scalarSchemas: Readonly<Record<ScalarKind, (settings: FieldSettings
   "phone-number": () =>
     z.string().regex(PHONE_E164, "not a phone number in E.164, e.g. +972521234567"),
   "media-type": () => z.string().regex(MEDIA_TYPE, "not a media type, e.g. application/pdf"),
+  "key-text": keyText,
   "time-zone": () =>
     z.string().refine((zone) => TIME_ZONES.has(zone), "not an IANA time zone, e.g. Asia/Jerusalem"),
 };
