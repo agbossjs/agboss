@@ -53,7 +53,9 @@ export function toolWorkflowOf(options: ToolWorkflowOptions): Class {
     model: "test/alpha",
     price: { inputPerMTok: 3, outputPerMTok: 6 },
     tools: options.tools,
-    ...(options.maxToolCalls === undefined ? {} : { maxToolCalls: options.maxToolCalls }),
+    ...(options.maxToolCalls === undefined
+      ? {}
+      : { executionLimits: { maxToolCalls: options.maxToolCalls } }),
   })
   class ToolAlpha {}
 
