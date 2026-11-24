@@ -8,6 +8,7 @@ import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import { applicationPiiKeyOf } from "../../src/application/application-pii.js";
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
+import { createAppWithoutPiiKey } from "./without-pii-key.js";
 import { Injectable } from "../../src/components/decorators.js";
 import { Text } from "../../src/dto/index.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
@@ -302,7 +303,7 @@ describe("#1301b: [pii.secret-required]", () => {
   const offline = { processEnv: {}, gateway: createScriptedGateway(new ScriptBook()) };
 
   const failureOf = async (application: new () => object): Promise<GraphRuleError> => {
-    const failure = await createTestAppWith(application as never, offline).catch(
+    const failure = await createAppWithoutPiiKey(application as never, offline).catch(
       (error: unknown) => error,
     );
     expect(failure).toBeInstanceOf(GraphRuleError);
