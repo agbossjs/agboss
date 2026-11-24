@@ -66,14 +66,13 @@ export class A2AClient<TIn extends object = object, TOut extends object = object
     this.#filePolicy = options.filePolicy;
     this.#agent = agentNameOf(new.target, new.target.name);
     const allowed = options.allowedOrigins ?? allowedOriginsOfClass(new.target);
-    const fixed = options.headers ?? {};
     this.#cards = new CardCache({
       url: this.url,
       agent: this.#agent,
       contract: this.contract,
       policy: originPolicyOf(this.#agent, this.url, allowed),
       fetcher: options.fetcher ?? fetch,
-      headersOf: async () => ({ ...fixed, ...(await this.getHeaders()) }),
+      headersOf: async () => ({ ...options.headers, ...(await this.getHeaders()) }),
       ttl: options.cardTtl,
     });
   }
