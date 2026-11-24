@@ -167,9 +167,11 @@ describe("#1366: a finished run's turn", () => {
     expect(Object.keys(none)).not.toContain("compacted");
   });
 
-  it("carries where its request came from and where its trace is", async () => {
+  it("carries where its request came from and where its trace is (#1324f)", async () => {
     const { ctx, raw } = setup();
-    Object.assign(raw.deps, { tracing: { sessionUrl: (id: string) => `https://trace/${id}` } });
+    Object.assign(raw.deps, {
+      tracing: { traceUrl: (ctx: { threadId: string }) => `https://trace/${ctx.threadId}` },
+    });
     const state = stateOf({ contexts: { mesh: { trusted: { origin: { application: "peer" } } } } });
 
     const out = await finishRun(ctx, state);

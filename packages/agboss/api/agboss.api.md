@@ -14,6 +14,7 @@ import { inspect } from 'node:util';
 import type { MessageContent } from '@langchain/core/messages';
 import type { MeterProvider } from '@opentelemetry/api';
 import type { RunnableConfig } from '@langchain/core/runnables';
+import type { TracerProvider } from '@opentelemetry/api';
 
 // @public
 export interface A2ADirectMessageAttempt {
@@ -803,13 +804,6 @@ export interface ApplicationStorageOptions {
     // (undocumented)
     readonly database: Class;
     readonly objects?: Class;
-}
-
-// @public
-export interface AppOptions {
-    readonly env?: string | undefined;
-    readonly meterProvider?: MeterProvider;
-    readonly profile?: ProfileSelection | undefined;
 }
 
 // @public
@@ -2422,7 +2416,15 @@ export interface CountQuorum {
 }
 
 // @public
-export function createApp<TApplication extends Class>(application: ApplicationClass<TApplication>, options?: AppOptions): Promise<App>;
+export function createApp<TApplication extends Class>(application: ApplicationClass<TApplication>, options?: CreateAppOptions): Promise<App>;
+
+// @public
+export interface CreateAppOptions {
+    readonly env?: string | undefined;
+    readonly meterProvider?: MeterProvider;
+    readonly profile?: ProfileSelection | undefined;
+    readonly tracerProvider?: TracerProvider | TracingAdapter;
+}
 
 // @public
 export interface CustomPiiPolicyOptions<D extends readonly Token[] = readonly Token[]> {
@@ -10508,6 +10510,22 @@ export function totalCost(records: readonly {
 
 // @public
 export function toWorkflow<const TRef extends TargetRef>(target: TRef & TargetCheck<ClassOf<TRef>, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>): AfterStep<InstanceType<ClassOf<TRef>>, SideHead<ClaimsOf<InstanceType<ClassOf<TRef>>>, ClassOf<TRef>>>;
+
+// @public
+export interface TraceLinkContext {
+    readonly runId: string;
+    readonly tenantId: string;
+    readonly threadId: string;
+    readonly workflow: string;
+}
+
+// @public
+export interface TracingAdapter {
+    forceFlush?(): Promise<void>;
+    shutdown?(): Promise<void>;
+    readonly tracerProvider: TracerProvider;
+    traceUrl?(ctx: TraceLinkContext): string | undefined;
+}
 
 // @public
 export type Tracked<TValue extends object, TComponent extends Class = Class> = TValue & {

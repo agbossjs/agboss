@@ -5,8 +5,8 @@ requests refused before an execution, and the node events — agent, router, too
 base, guardrail, action, channel and judge start / end, outdated values, truncated
 launches. They are registered, not discovered: only `@Observer` classes listed in
 `@Application({ observers: [...] })` are called (#261, #1343) — the one place, never in `@Workflow`;
-one instance each, for every execution of the application, child executions included. Tracing to Langfuse is built in
-([Tracing](Tracing)); observers are for everything else (metrics, your own tracer, audit). What the
+one instance each, for every execution of the application, child executions included. Tracing is vendor-neutral OpenTelemetry
+(`createApp({ tracerProvider })`, [Tracing](Tracing)); observers are for everything else (metrics, your own tracer, audit). What the
 framework itself writes is its [log](#the-frameworks-log).
 
 ## Every event

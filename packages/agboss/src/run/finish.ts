@@ -10,7 +10,8 @@ import type { WaitingPause } from "../pause/index.js";
 import { isWaiting, pausedLoopsOf, pausedUsageOf } from "./paused.js";
 import { unrecordedOf } from "../finops/record-stream.js";
 import { openPausesOf, waitingPausesOf } from "./waiting-pauses.js";
-import type { AgentExecutionOutput, AgentExecutionDeps, ExecutionData } from "./types.js";
+import type { AgentExecutionOutput, ExecutionData } from "./types.js";
+import { traceUrlFieldOf } from "../tracing/trace-url.js";
 
 /** The Turn of an execution: a finished one's finish line (S8), a paused one waits. */
 export function outcomeOf(
@@ -42,13 +43,13 @@ const pathOf = (state: ExecutionStateType, pending: readonly WaitingPause[]): re
   return first === undefined ? state.path : [...state.path, first.step];
 };
 
-const traceUrlOf = <TName extends string>(
-  deps: AgentExecutionDeps<TName>,
-  threadId: string,
-): { traceUrl?: string } => {
-  const traceUrl = deps.tracing?.sessionUrl(threadId);
-  return traceUrl === undefined ? {} : { traceUrl };
-};
+const traceUrlOf = <TName extends string>(ctx: FinishContext<TName>): { traceUrl?: string } =>
+  traceUrlFieldOf(ctx.deps.tracing, {
+    workflow: ctx.deps.config.name,
+    threadId: ctx.base.threadId,
+    runId: ctx.runId,
+    tenantId: ctx.base.tenantId,
+  });
 
 /** Where the execution stopped: paused inside an agent's loop (its spend so far is there), or not. */
 async function stoppedState<TName extends string>(
@@ -128,7 +129,7 @@ export async function finishRun<TName extends string>(
     },
     ...endOf(state, paused),
     pending,
-    ...traceUrlOf(ctx.deps, ctx.base.threadId),
+    ...traceUrlOf(ctx),
     ...((ctx.compacted ?? []).length === 0 ? {} : { compacted: ctx.compacted }),
   };
 }

@@ -162,15 +162,15 @@ npm test
 The `dev` environment calls real models: `openRouterApiKey: secret("OPENROUTER_API_KEY")` and
 `openRouterBaseUrl: env.optional("OPENROUTER_BASE_URL")` for the built-in OpenRouter providers,
 `PII_PSEUDONYM_KEY` for the application's PII key, and the SQLite stores in
-`.agboss/flow-patterns.sqlite`; `test` has neither key — the tests script every model. Langfuse traces
-a run when its `LANGFUSE_*` keys are set (`scripts/langfuse.sh up` writes them to the repo's `.env`),
-and only then. The example's `README.md` walks through the manual checks it serves — #263 M1 (the
+`.agboss/flow-patterns.sqlite`; `test` has neither key — the tests script every model. A run is traced
+only when its application is given a `tracerProvider` (`LangfuseTracer` from `@agboss/langfuse`;
+`scripts/langfuse.sh up` writes the Langfuse keys to the repo's `.env`). The example's `README.md` walks through the manual checks it serves — #263 M1 (the
 vendor screening's children in Langfuse), #264 M1 (the topic research, `maxDepth: 3`,
 `maxConcurrentExecutions: 4`) and #267 M1 (two approvals at once):
 
 ```bash
 cd examples/flow-patterns
-set -a && . ../../.env && set +a      # OPENROUTER_API_KEY, PII_PSEUDONYM_KEY, LANGFUSE_*
+set -a && . ../../.env && set +a      # OPENROUTER_API_KEY, PII_PSEUDONYM_KEY
 npx agboss run --start vendor-screening-workflow-start \
   --input '{"text":"check these vendors: Acme, Globex, a vendor that does not exist"}'
 npx agboss run --start topic-research-workflow-start \

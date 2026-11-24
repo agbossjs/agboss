@@ -44,7 +44,7 @@
     "examples/*"
   ],
   "scripts": {
-    "build": "npm run build -w @agboss/core -w @agboss/cli",
+    "build": "npm run build -w @agboss/core -w @agboss/cli -w @agboss/langfuse",
     "dev": "npm run dev -w @agboss/core",
     "lint": "eslint .",
     "format": "prettier --write . && node scripts/format-flows.mjs",

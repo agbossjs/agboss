@@ -7,7 +7,7 @@ audit, your own tracer), replace the framework's log, or send traces to Langfuse
 | ------------------------------------------------- | --------------------------------------------------------------------------------------------- |
 | what one execution did, in code or a test         | the `ExecutionOutput` of `app.execute` / `app.resume`; `{ record: true }` for the full record |
 | metrics, audit, alerts, your own tracer           | an observer class in `@Application({ observers })`                                            |
-| a trace of every step, model call and tool call   | Langfuse: set `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_BASE_URL`               |
+| a trace of every step, model call and tool call   | `createApp(App, { tracerProvider })`: an OpenTelemetry provider or `LangfuseTracer`           |
 | the framework's own problems (recovery, failures) | its log through the application's `Logger`                                                    |
 | the declarative spec the records join on          | `npx agboss describe --json` (`configHash`, each node's `promptHash` / `schemaHash`)          |
 
@@ -17,7 +17,7 @@ audit, your own tracer), replace the framework's log, or send traces to Langfuse
 
 | Field                                 | What                                                                                                                                |
 | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `status`                              | `ExecutionStatus.Finished` or `Paused`                                                                                              |
+| `status`                              | `ExecutionStatus.Finished`, `Paused`, `Stopped` or `Cancelled`                                                                      |
 | `output`, `finish`                    | the finish's DTO and its `ComponentRecord` (`{ name, kind, promptHash, schemaHash }`)                                               |
 | `path`                                | the visited nodes in order (`critic-agent#2` for a copy)                                                                            |
 | `spend`                               | `CostReport`: `totalUsd`, `calls`, tokens, `byCategory`, `byModel`, `byCaller`, `trace` (every call in order)                       |
@@ -28,7 +28,7 @@ audit, your own tracer), replace the framework's log, or send traces to Langfuse
 | `handledErrors`                       | the failures a side path took — `{ at, by, error }`                                                                                 |
 | `compensations`                       | every undo that ran — `CompensationRecord` (reference 02, section 8)                                                                |
 | `compacted`                           | what each compaction did before the execution                                                                                       |
-| `traceUrl`                            | the Langfuse session, when tracing is on and `LANGFUSE_PROJECT_ID` is set                                                           |
+| `traceUrl`                            | the tracing adapter's link, on every status, when its `traceUrl` builds one (`LangfuseTracer` with a `projectId`)                   |
 | `record`                              | with `{ record: true }`: the `ExecutionRecord` below                                                                                |
 
 `ExecutionRecord` — `path`, `scope` (every current value of the path scope: `ScopeValueRecord` with
@@ -380,17 +380,22 @@ that `extends Logger` (`write(entry: LogEntry)`; `LogEntry`: `level: LogLevel`, 
 
 ## Tracing
 
-- **Langfuse** is built in: set `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` and `LANGFUSE_BASE_URL`
-  in the process environment (optionally `LANGFUSE_PROJECT_ID` for `result.traceUrl` links). Without
-  all three nothing is traced and nothing changes. One trace per execution pass, named after the
-  workflow, its session the thread; one span per node, named by its kind and name, the agent's
-  model requests and tool calls inside; a child workflow is a nested run under its parent's step;
-  every trace is tagged `tenant:<id>` and masked by the PII policies. Decision-model calls (Jev) are
-  not LangChain calls: their cost is in `spend`, not in the trace.
-- **OpenTelemetry**: tracing uses its own isolated tracer provider — the framework never registers a
-  global one and is flushed when the app closes. To send spans to another backend, write an observer
-  over your own tracer (start a span in `onAgentStart`, end it in `onAgentEnd`, keyed by
-  `step.idempotencyKey`), registered like `ExecutionMetricsObserver` above.
+- **`createApp(App, { tracerProvider })`** turns tracing on; without it nothing is traced and
+  nothing changes. The framework emits vendor-neutral OpenTelemetry spans: one per node, named by
+  its kind and name, the agent's model requests and tool calls inside; a child workflow is a nested
+  run under its parent's step; the first span of a run carries `session.id` (the thread),
+  `agboss.tenant.id` and `agboss.run.id`. Every value is masked by the workflow's PII policies
+  (a child's: by its ancestors' too) **before** it is set on a span — an external provider never
+  sees an unmasked value. Decision-model calls (Jev) are not LangChain calls: their cost is in
+  `spend`, not in the trace.
+- **Your own provider** (`TracerProvider` of the OpenTelemetry SDK): yours — `app.close()` flushes it,
+  you shut it down. The framework never registers a global provider.
+- **A `TracingAdapter`** (`{ tracerProvider, traceUrl?(ctx), forceFlush?(), shutdown?() }`) is the
+  application's: `app.close()` flushes and shuts it down, and `ExecutionOutput.traceUrl` is its
+  `traceUrl(ctx)` (`ctx`: `TraceLinkContext` — workflow, thread, run, tenant).
+- **Langfuse**: `@agboss/langfuse` — `new LangfuseTracer({ publicKey, secretKey, baseUrl, projectId })`
+  as the `tracerProvider`; `LangfuseTracer.fromEnv()` reads the `LANGFUSE_*` variables. `@agboss/core`
+  itself reads none of them.
 
 ## Reading it in a test
 
@@ -428,4 +433,4 @@ test("the record shows the path, the scope and the spend", async ({ app, mockLlm
 - Doing slow I/O in a hook — it runs on the execution's path; buffer it in a service.
 - Logging DTO values from `scope`: they are the real values; events, logs and traces are masked, the
   scope is not.
-- Expecting traces from `testWith`: tests run offline, the `LANGFUSE_*` variables are ignored there.
+- Expecting traces from `testWith`: tests run offline and give no `tracerProvider`.

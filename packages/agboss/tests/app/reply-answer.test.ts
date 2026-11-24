@@ -51,8 +51,8 @@ const parts: ReplyAnsweringParts = {
       traced.push(context);
       return [handler];
     },
-    sessionUrl: () => undefined,
-    shutdown: () => Promise.resolve(),
+    traceUrl: () => undefined,
+    close: () => Promise.resolve(),
   },
 };
 

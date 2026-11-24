@@ -1,7 +1,7 @@
 /**
  * The workflows a run's spans are masked by (#1150): its chain — the root's name, every ancestor's
  * and its own — kept in each step's LangChain metadata as `workflowChain` (a JSON array as text,
- * so Langfuse keeps it as one attribute), which `TraceRouter` reads to mask with every one of them.
+ * so a backend keeps it as one value), which the OpenTelemetry emitter reads to mask with every one of them.
  */
 
 /** The chain as written: a JSON array of workflow names; `undefined` for anything else. */

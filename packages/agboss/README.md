@@ -1373,7 +1373,7 @@ detection models, compaction and memory, rerankers, reply interpreters, launch d
 judges are silent, and so is a model call any future component makes: the stream is no callback of
 the run, so a model does not hear it by inheriting one; only the agent's answering call is marked
 to stream (#1004). An agent with an `output` DTO answers with an answer tool, so it streams no
-text. Tracing (Langfuse) is separate and still sees every model call. A listener that throws never
+text. Tracing (OpenTelemetry) is separate and still sees every model call. A listener that throws never
 fails the run and the stream goes on: the first failure of a run is logged once through the
 `Logger` (`stream.listener-failed`, Warn, with the run's ids and the error's class, never the event;
 later ones of that run are not repeated).
@@ -1916,7 +1916,7 @@ true })` is a summary cut at the limit); unscripted, it writes a fixed summary.
 scripts/langfuse.sh up   # self-hosted Langfuse in Docker, keys written to .env
 ```
 
-Then every run is traced at http://localhost:3000. Details: [Observability & Tracing Guide](https://agboss.dev/guides/observability-and-tracing/) · [Wiki → Tracing](https://github.com/agbossjs/agboss/wiki/Tracing).
+Then give the application `createApp(App, { tracerProvider: LangfuseTracer.fromEnv() })` (`@agboss/langfuse`): every run is traced at http://localhost:3000. Details: [Observability & Tracing Guide](https://agboss.dev/guides/observability-and-tracing/) · [Wiki → Tracing](https://github.com/agbossjs/agboss/wiki/Tracing).
 
 ## The conveyor
 

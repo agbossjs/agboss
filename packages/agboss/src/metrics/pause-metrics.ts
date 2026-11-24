@@ -12,7 +12,7 @@ import { METRICS } from "./metric-catalog.js";
 
 /**
  * The instance's pause counters (#943): told by the sites that apply a change, once each, on the
- * instance that applied it. Labels are the pause's workflow and its channel's name (bounded by the
+ * instance that applied it. Labels are the pause's workflow, its target and its channel (bounded by the
  * code) and a close's reason — never an id, a tenant, a thread or anything of the question. A
  * counter that throws is a warning (`metrics.pause-uncounted`), never the pause's failure.
  */
@@ -34,11 +34,22 @@ function secondsToAnswer(pause: PauseRecord): number | undefined {
   return Number.isFinite(seconds) ? Math.max(0, seconds) : undefined;
 }
 
+/**
+ * A pause's labels: its workflow, its target and its channel. The record names the target as its
+ * channel until it keeps the two apart (#1307d), when `target` reads that field.
+ */
+const labelsOf = (pause: PauseRecord) => ({
+  workflow: pause.workflow,
+  target: pause.channel,
+  channel: pause.channel,
+});
+
 /** The tally on `meter`. */
 export function pauseTallyOn(meter: Meter, log: FrameworkLog): PauseTally {
   const opened = counterOf(meter, METRICS.pausesOpened);
   const closed = counterOf(meter, METRICS.pausesClosed);
-  const extended = counterOf(meter, METRICS.pausesExtended);
+  const timeoutChanged = counterOf(meter, METRICS.pausesTimeoutChanged);
+  const reassigned = counterOf(meter, METRICS.pausesReassigned);
   const notTaken = counterOf(meter, METRICS.pausesAnswersNotTaken);
   const timeToAnswer = timeToAnswerOf(meter);
   const guarded = (count: () => void): void => {
@@ -48,10 +59,9 @@ export function pauseTallyOn(meter: Meter, log: FrameworkLog): PauseTally {
       log.warn("metrics.pause-uncounted", `a pause count was not added: ${String(error)}`);
     }
   };
-  const labels = (pause: PauseRecord) => ({ workflow: pause.workflow, role: pause.channel });
   const add = (counter: Counter, pause: PauseRecord, extra: Record<string, string> = {}): void => {
     guarded(() => {
-      counter.add(1, { ...labels(pause), ...extra });
+      counter.add(1, { ...labelsOf(pause), ...extra });
     });
   };
   return {
@@ -65,11 +75,14 @@ export function pauseTallyOn(meter: Meter, log: FrameworkLog): PauseTally {
       // a human's answer only: an expiry's decision, a cancel or a channel's own decision are not
       if (reason === PauseClosedReason.Answered && pause.resolution === PauseResolution.Replied)
         guarded(() => {
-          if (seconds !== undefined) timeToAnswer.record(seconds, labels(pause));
+          if (seconds !== undefined) timeToAnswer.record(seconds, labelsOf(pause));
         });
     },
-    extended: (pause) => {
-      add(extended, pause);
+    timeoutChanged: (pause) => {
+      add(timeoutChanged, pause);
+    },
+    reassigned: (pause) => {
+      add(reassigned, pause);
     },
     answerNotTaken: (pause) => {
       const reason =

@@ -80,9 +80,8 @@ export interface TestWithOptions extends EnvironmentSelection {
   readonly profile?: ProfileSelection | undefined;
 }
 
-/** The process env without tracing keys: tests never export traces. */
-const testEnv = (): NodeJS.ProcessEnv =>
-  Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("LANGFUSE_")));
+/** The process env as the tests see it: a copy, so no test writes through to the process. (Tests never export traces: tracing is on only with a `tracerProvider`.) */
+const testEnv = (): NodeJS.ProcessEnv => ({ ...process.env });
 
 /** The names of the MCP servers kept real; anything else in `real` is a setup error. */
 function realServers(servers: ReadonlyMap<Class, string>, real: readonly Class[]): Set<string> {

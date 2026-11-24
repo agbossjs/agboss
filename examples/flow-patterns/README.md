@@ -127,10 +127,11 @@ Then, in every terminal you run from:
 
 ```bash
 cd examples/flow-patterns
-set -a && . ../../.env && set +a      # OPENROUTER_API_KEY, PII_PSEUDONYM_KEY, LANGFUSE_*
+set -a && . ../../.env && set +a      # OPENROUTER_API_KEY, PII_PSEUDONYM_KEY
 ```
 
-Langfuse traces a run only when its `LANGFUSE_*` keys are set; without them a run is not traced.
+A run is traced only when its application is given a `tracerProvider` (`LangfuseTracer` from
+`@agboss/langfuse`, Wiki → Tracing); without one a run is not traced.
 Log in to http://localhost:3000 with the user `scripts/langfuse.sh up` printed and open
 **Tracing → Traces**: one trace per execution, the newest first. A run prints its thread and cost
 on standard error; `--json` prints its output on standard output.

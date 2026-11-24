@@ -1,5 +1,6 @@
 import type { BuildOptions, WorkflowDepsParts } from "../app/app-deps.js";
-import { buildApp, type AppOptions, type BuiltApp } from "../app/create-app.js";
+import { buildApp, type BuiltApp } from "../app/create-app.js";
+import type { CreateAppOptions } from "../app/create-app-options.js";
 import type { App } from "../app/types.js";
 import type { ContainerOptions } from "../components/container/container.js";
 import type { Class } from "../components/injection.js";
@@ -189,7 +190,7 @@ export const environmentOwnerOf = (assembled: AssembledApplication): Environment
  */
 export async function createApp<TApplication extends Class>(
   application: ApplicationClass<TApplication>,
-  options: AppOptions = {},
+  options: CreateAppOptions = {},
 ): Promise<App> {
   return (await builtApplicationOf(application, productionOptionsOf(options))).app;
 }
@@ -200,7 +201,8 @@ export async function createApp<TApplication extends Class>(
  * the container's hooks, the branch scheduler, the run's chaos. `testWith`, the CLI and the
  * framework's own tests go through it; never an option of `createApp`.
  */
-export interface BuildApplicationOptions extends AppOptions, Omit<BuildOptions, "environment"> {}
+export interface BuildApplicationOptions
+  extends CreateAppOptions, Omit<BuildOptions, "environment"> {}
 
 /**
  * An app instance on the internal build path (#834): `createApp` with its seams — and never the

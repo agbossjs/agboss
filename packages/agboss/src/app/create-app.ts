@@ -1,4 +1,3 @@
-import type { MeterProvider } from "@opentelemetry/api";
 import { lazyLoad } from "../infrastructure/clock.js";
 import { runIdOf, treeControlOf, type TreeControl } from "./tree-control.js";
 import { newThreadOf } from "./new-thread.js";
@@ -37,7 +36,6 @@ import type { ExecutionOptions, ExecutionOutput, WorkflowApp } from "./types.js"
 import { ExecutionOperation } from "../core/observability.js";
 import { ApplicationStoppingError } from "../core/errors.js";
 import { orphanEndsOf, type OrphanEnds } from "./orphan-tree.js";
-import type { ProfileSelection } from "../config/profile-names.js";
 import { expireRootOf, type ExpireRoot } from "./expire-root.js";
 import { recoverRootOf, type RecoverRoot } from "./recover-root.js";
 import { treeToolsOf, treeQuestionAnswersOf } from "./child-deps.js";
@@ -49,35 +47,6 @@ import { meshContextValuesOf } from "../mesh/mesh-context-values.js";
 import { checkedCallerId } from "../flow/context/context-values.js";
 
 export { NotAWorkflowStartError } from "./starts.js";
-
-/**
- * `createApp` options (#834): the environment, the profiles layered on the application and where the
- * instance publishes its metrics — nothing else. Infrastructure is listed in
- * `@Application({ providers })`; every other setting is an `@Application` option, and the seams a
- * test or a tool replaces (models, MCP transports, the process environment) are on the internal
- * build path only (`testWith`, the CLI).
- */
-export interface AppOptions {
-  /**
-   * The environment: `environments/<env>.environment.ts` next to the application file (default
-   * `dev`) — of an application that declares `@Application({ environment })`.
-   */
-  readonly env?: string | undefined;
-  /**
-   * The profiles: `src/config/<name>.config.ts|yaml` next to the application file, layered left to
-   * right over `base.config.*` — `"prod"`, `"prod,economy"` (or `"prod+economy"`) or
-   * `["prod", "economy"]`. Default `"dev"`; a profile that is named and has no file fails, naming
-   * the ones that exist.
-   */
-  readonly profile?: ProfileSelection | undefined;
-  /**
-   * Where the instance publishes its metrics (#485, Wiki → Metrics): an OpenTelemetry
-   * `MeterProvider` — an SDK one with a Prometheus or an OTLP exporter, or the global one
-   * (`metrics.getMeterProvider()`). A runtime object, so an option here and not of `@Application`.
-   * Absent = no metrics: nothing loaded, no store read.
-   */
-  readonly meterProvider?: MeterProvider;
-}
 
 /** Why an execution or a resume is refused once `app.close()` has begun. */
 const STOPPING = "the app is stopping: app.close() was called, no new execution is accepted";

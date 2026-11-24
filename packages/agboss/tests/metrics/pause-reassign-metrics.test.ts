@@ -19,6 +19,7 @@ import { collect, instanceMeter, type InstanceMeter } from "./support/metric-rea
 
 const OPENED = "agboss.instance.pauses.opened";
 const CLOSED = "agboss.instance.pauses.closed";
+const REASSIGNED = "agboss.instance.pauses.reassigned";
 const manager = { answeredBy: "manager-17" };
 
 beforeEach(resetPauses);
@@ -27,7 +28,7 @@ beforeEach(resetPauses);
 async function countedOf(meter: InstanceMeter, name: string): Promise<Record<string, number>> {
   const counted: Record<string, number> = {};
   for (const { attributes, value } of (await collect(meter)).get(name)?.points ?? []) {
-    const key = [attributes.workflow, attributes.role, attributes.reason]
+    const key = [attributes.workflow, attributes.channel, attributes.reason]
       .filter((part) => part !== undefined)
       .map(String)
       .join("/");
@@ -57,13 +58,15 @@ describe("#946 with #943: a reassignment is counted", () => {
         .catch(() => undefined);
 
       expect(await countedOf(meter, OPENED)).toEqual({ [`desk-workflow/${role}`]: 2 });
+      // counted once, by the call whose transaction won: the refused one counts nothing
+      expect(await countedOf(meter, REASSIGNED)).toEqual({ [`desk-workflow/${role}`]: 1 });
       expect(await countedOf(meter, CLOSED)).toEqual({
         [`desk-workflow/${role}/reassigned`]: 1,
       });
       const labels = (await collect(meter))
         .get(CLOSED)
         ?.points.flatMap((p) => Object.keys(p.attributes));
-      expect(labels?.sort()).toEqual(["reason", "role", "workflow"]);
+      expect(labels?.sort()).toEqual(["channel", "reason", "target", "workflow"]);
     },
   );
 });

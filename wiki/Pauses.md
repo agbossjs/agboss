@@ -1270,9 +1270,9 @@ thread's owner answers it; its `ask` is masked by its workflow's policies; a clo
 `app.listPauses({ tenantId, expiringBefore: new Date(Date.now() + 3600e3) })`.
 
 The instance's meter counts them ([Metrics](Metrics)): `agboss.instance.pauses.opened`, `.closed` by
-`reason`, `.extended`, `.answers_not_taken`, the histogram `.time_to_answer` (human answers only, in
+`reason`, `.timeout_changed`, `.reassigned`, `.answers_not_taken`, the histogram `.time_to_answer` (human answers only, in
 seconds) and the cluster gauges `agboss.cluster.pauses.notices.waiting` / `.dead`. Each change is counted
-once, by the instance that applied it; labels are the workflow, the channel's name and the reason.
+once, by the instance that applied it; labels are the workflow, the target, the channel and the reason.
 
 ## Deadlines in working time (#944)
 

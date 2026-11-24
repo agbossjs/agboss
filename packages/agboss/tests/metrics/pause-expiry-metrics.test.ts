@@ -1,6 +1,6 @@
 /**
  * #943 AC2 with #945: a pause that expires inside a quorum or a plain join closes `expired` — the
- * metric counts it by workflow and role, once, next to the answered and the withdrawn ones.
+ * metric counts it by workflow, target and channel, once, next to the answered and the withdrawn ones.
  */
 import { beforeEach, describe, expect } from "vitest";
 import { ExecutionStatus } from "../../src/app/types.js";
@@ -46,12 +46,13 @@ beforeEach(() => {
   resetJoinExpiry();
 });
 
-/** The closes counted, as `workflow/reason → count` (the role is a channel's name). */
+/** The closes counted, as `workflow/reason → count` (target and channel are the pause's names). */
 async function closesOf(meter: InstanceMeter): Promise<Record<string, number>> {
   const points = (await collect(meter)).get(CLOSED)?.points ?? [];
   const counted: Record<string, number> = {};
   for (const { attributes, value } of points) {
-    expect(typeof attributes.role).toBe("string");
+    expect(typeof attributes.target).toBe("string");
+    expect(typeof attributes.channel).toBe("string");
     const key = `${String(attributes.workflow)}/${String(attributes.reason)}`;
     counted[key] = (counted[key] ?? 0) + value;
   }

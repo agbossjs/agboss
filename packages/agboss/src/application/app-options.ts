@@ -1,8 +1,13 @@
-import type { AppOptions } from "../app/create-app.js";
+import type { CreateAppOptions } from "../app/create-app-options.js";
 import { shownValueOf } from "../core/shown-value.js";
 
-/** The four options `createApp` takes (#834): a JavaScript caller's other keys are refused, never ignored. */
-const APP_OPTIONS: readonly (keyof AppOptions)[] = ["env", "profile", "meterProvider"];
+/** The options `createApp` takes (#834): a JavaScript caller's other keys are refused, never ignored. */
+const APP_OPTIONS: readonly (keyof CreateAppOptions)[] = [
+  "env",
+  "profile",
+  "meterProvider",
+  "tracerProvider",
+];
 
 const REFUSED = "infrastructure and settings go in @Application({ … }), test seams in testWith";
 
@@ -12,10 +17,10 @@ const isPlainObject = (value: unknown): value is object =>
   [Object.prototype, null].includes(Object.getPrototypeOf(value) as object | null);
 
 /**
- * `createApp`'s options as a fresh object of its four keys only (#834) — so no seam reaches the
+ * `createApp`'s options as a fresh object of its keys only (#834) — so no seam reaches the
  * build through an inherited, a non-enumerable or a symbol key either.
  */
-export function productionOptionsOf(options: unknown): AppOptions {
+export function productionOptionsOf(options: unknown): CreateAppOptions {
   if (!isPlainObject(options)) {
     throw new TypeError(
       `createApp takes an object of ${APP_OPTIONS.join(", ")} — not ${shownValueOf(options)}: ${REFUSED}`,
@@ -29,10 +34,11 @@ export function productionOptionsOf(options: unknown): AppOptions {
       `createApp takes only ${APP_OPTIONS.join(", ")} — not ${unknown.join(", ")}: ${REFUSED}`,
     );
   }
-  const given = options as AppOptions;
+  const given = options as CreateAppOptions;
   return {
     ...(given.env === undefined ? {} : { env: given.env }),
     ...(given.profile === undefined ? {} : { profile: given.profile }),
     ...(given.meterProvider === undefined ? {} : { meterProvider: given.meterProvider }),
+    ...(given.tracerProvider === undefined ? {} : { tracerProvider: given.tracerProvider }),
   };
 }

@@ -40,7 +40,8 @@ import {
 const OPENED = "agboss.instance.pauses.opened";
 const CLOSED = "agboss.instance.pauses.closed";
 const TIME_TO_ANSWER = "agboss.instance.pauses.time_to_answer";
-const EXTENDED = "agboss.instance.pauses.extended";
+const TIMEOUT_CHANGED = "agboss.instance.pauses.timeout_changed";
+const REASSIGNED = "agboss.instance.pauses.reassigned";
 const NOT_TAKEN = "agboss.instance.pauses.answers_not_taken";
 
 interface Instances {
@@ -87,9 +88,11 @@ async function histogramPointsOf(meters: readonly InstanceMeter[]) {
   return found;
 }
 
-const labelsOf = (workflow: string, role: string, reason?: string) => ({
+/** The target is the pause's channel name until its record keeps the two apart (#1307d). */
+const labelsOf = (workflow: string, channel: string, reason?: string) => ({
   workflow,
-  role,
+  target: channel,
+  channel,
   ...(reason === undefined ? {} : { reason }),
 });
 
@@ -105,16 +108,18 @@ describe("#943 AC2: the catalog of the pause metrics", () => {
       pick(METRICS.pausesOpened),
       pick(METRICS.pausesClosed),
       pick(METRICS.pausesTimeToAnswer),
-      pick(METRICS.pausesExtended),
+      pick(METRICS.pausesTimeoutChanged),
+      pick(METRICS.pausesReassigned),
       pick(METRICS.pausesAnswersNotTaken),
       pick(METRICS.noticesWaiting),
       pick(METRICS.noticesDead),
     ]).toEqual([
-      [OPENED, MetricKind.Counter, "{pause}", ["workflow", "role"]],
-      [CLOSED, MetricKind.Counter, "{pause}", ["workflow", "role", "reason"]],
-      [TIME_TO_ANSWER, MetricKind.Histogram, "s", ["workflow", "role"]],
-      [EXTENDED, MetricKind.Counter, "{pause}", ["workflow", "role"]],
-      [NOT_TAKEN, MetricKind.Counter, "{pause}", ["workflow", "role", "reason"]],
+      [OPENED, MetricKind.Counter, "{pause}", ["workflow", "target", "channel"]],
+      [CLOSED, MetricKind.Counter, "{pause}", ["workflow", "target", "channel", "reason"]],
+      [TIME_TO_ANSWER, MetricKind.Histogram, "s", ["workflow", "target", "channel"]],
+      [TIMEOUT_CHANGED, MetricKind.Counter, "{pause}", ["workflow", "target", "channel"]],
+      [REASSIGNED, MetricKind.Counter, "{pause}", ["workflow", "target", "channel"]],
+      [NOT_TAKEN, MetricKind.Counter, "{pause}", ["workflow", "target", "channel", "reason"]],
       ["agboss.cluster.pauses.notices.waiting", MetricKind.ObservableGauge, "{mailbox}", []],
       ["agboss.cluster.pauses.notices.dead", MetricKind.ObservableGauge, "{mailbox}", []],
     ]);
@@ -218,7 +223,8 @@ describe("#943 AC2: counted once, on the instance that applied the change", () =
       const [point] = found;
       expect(point?.attributes).toEqual({
         workflow: "list-manager-workflow",
-        role: managerFlow.role,
+        target: managerFlow.role,
+        channel: managerFlow.role,
       });
       expect(point?.value.count).toBe(1);
       expect(point?.value.sum).toBe(600);
@@ -228,7 +234,7 @@ describe("#943 AC2: counted once, on the instance that applied the change", () =
     },
   );
 
-  metered("extended once per applied extension", async ({ apps, clock, meters }) => {
+  metered("timeout_changed once per applied extension", async ({ apps, clock, meters }) => {
     const [first, second] = apps;
     if (first === undefined || second === undefined) throw new Error("two instances");
     await execute(first, managerFlow.start, { orderId: "x", note: "n" }, { threadId: "x-1" });
@@ -240,12 +246,12 @@ describe("#943 AC2: counted once, on the instance that applied the change", () =
     );
 
     expect(
-      await totalOn(meters, EXTENDED, labelsOf("list-manager-workflow", managerFlow.role)),
+      await totalOn(meters, TIMEOUT_CHANGED, labelsOf("list-manager-workflow", managerFlow.role)),
     ).toBe(1);
     expect(
       valueOf(
         await collect(meters[1] ?? instanceMeter()),
-        EXTENDED,
+        TIMEOUT_CHANGED,
         labelsOf("list-manager-workflow", managerFlow.role),
       ),
     ).toBe(1);
@@ -289,7 +295,8 @@ describe("#943 AC2: the sites that close without a request", () => {
       told,
       opened: (pause) => told.push(`opened ${pause.pauseId}`),
       closed: (pause) => told.push(`closed ${pause.pauseId} ${pause.resolution ?? "?"}`),
-      extended: (pause) => told.push(`extended ${pause.pauseId}`),
+      timeoutChanged: (pause) => told.push(`timeout-changed ${pause.pauseId}`),
+      reassigned: (pause) => told.push(`reassigned ${pause.pauseId}`),
       answerNotTaken: (pause) => told.push(`not-taken ${pause.pauseId} ${pause.resolution ?? "?"}`),
     };
   }
@@ -410,7 +417,12 @@ describe("#943 AC2: the sites that close without a request", () => {
     const reasons = (collected.get(CLOSED)?.points ?? []).map((point) => point.attributes.reason);
     expect(reasons.sort()).toEqual(["answered", "tree-ended", "withdrawn"]);
     expect(collected.get(NOT_TAKEN)?.points.map((point) => point.attributes)).toEqual([
-      { workflow: "order-workflow", role: "refund-approval-channel", reason: "tree-ended" },
+      {
+        workflow: "order-workflow",
+        target: "refund-approval-channel",
+        channel: "refund-approval-channel",
+        reason: "tree-ended",
+      },
     ]);
   });
 
@@ -439,7 +451,8 @@ describe("#943 AC2: the sites that close without a request", () => {
     expect(() => {
       tally.opened(pause);
       tally.closed(pause);
-      tally.extended(pause);
+      tally.timeoutChanged(pause);
+      tally.reassigned(pause);
     }).not.toThrow();
     expect(log.warn).toHaveBeenCalledWith(
       "metrics.pause-uncounted",

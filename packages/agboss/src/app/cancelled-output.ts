@@ -4,6 +4,7 @@ import { withChildPauses } from "../flow/runtime/child-records.js";
 import type { AppDeps } from "./app-deps.js";
 import { checkpointStateOf, EMPTY_STATE, type RecordedState } from "./execution-history.js";
 import type { TreeState } from "./tree-move-types.js";
+import { traceUrlFieldOf } from "../tracing/trace-url.js";
 import { ExecutionStatus, type CancelledExecutionOutput, type ExecutionOutput } from "./types.js";
 
 /**
@@ -67,6 +68,12 @@ export async function cancelledOutputOf(
     compensations: end.compensations ?? compensationRecordsOf(values.compensations),
     toolCalls: values.toolCalls,
     pending: [],
+    ...traceUrlFieldOf(deps.tracing, {
+      workflow: deps.config.name,
+      threadId: state.threadId,
+      tenantId: state.tenantId,
+      runId: state.runId,
+    }),
   };
   causes.set(output, end.cause);
   return output;

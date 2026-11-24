@@ -3,7 +3,14 @@ import type * as Root from "../../src/index.js";
 import type * as Units from "../../src/units/index.js";
 import type * as Internal from "../../src/internal.js";
 import type * as DeprecatedCore from "../../src/core/index.js";
-import type { AppOptions, ApplicationOptions, RetentionOptions } from "../../src/index.js";
+import type { TracerProvider } from "@opentelemetry/api";
+import type {
+  CreateAppOptions,
+  ApplicationOptions,
+  RetentionOptions,
+  TraceLinkContext,
+  TracingAdapter,
+} from "../../src/index.js";
 
 /**
  * #834 — the application's configuration (0.1.1 API review G2): one retention group, `createApp`'s
@@ -43,15 +50,38 @@ describe("#834 AC1: one retention group", () => {
   });
 });
 
-describe("#834 AC4: createApp takes env, profile and meterProvider only", () => {
-  it("its options are those three", () => {
-    expectTypeOf<keyof AppOptions>().toEqualTypeOf<"env" | "profile" | "meterProvider">();
+describe("#834 AC4 / #1324f: createApp takes env, profile, meterProvider and tracerProvider only", () => {
+  it("its options are those four", () => {
+    expectTypeOf<keyof CreateAppOptions>().toEqualTypeOf<
+      "env" | "profile" | "meterProvider" | "tracerProvider"
+    >();
+  });
+
+  it("#1324f: tracerProvider is an OpenTelemetry TracerProvider or a TracingAdapter", () => {
+    expectTypeOf<CreateAppOptions["tracerProvider"]>().toEqualTypeOf<
+      TracerProvider | TracingAdapter | undefined
+    >();
+    expectTypeOf<TracingAdapter["tracerProvider"]>().toEqualTypeOf<TracerProvider>();
+    expectTypeOf<TraceLinkContext>().toEqualTypeOf<{
+      readonly workflow: string;
+      readonly threadId: string;
+      readonly runId: string;
+      readonly tenantId: string;
+    }>();
+  });
+
+  it("#1324f: AppOptions is gone", () => {
+    // @ts-expect-error -- renamed to CreateAppOptions
+    type Gone = Root.AppOptions;
+    expectTypeOf<Gone>().toBeAny();
   });
 
   it("#1318d1: profile is one name, a comma/plus list, or a list of names — profileRoot is gone", () => {
-    expectTypeOf<AppOptions["profile"]>().toEqualTypeOf<string | readonly string[] | undefined>();
+    expectTypeOf<CreateAppOptions["profile"]>().toEqualTypeOf<
+      string | readonly string[] | undefined
+    >();
     // @ts-expect-error -- profiles live in src/config next to the application file, not under a root
-    const rooted: AppOptions = { profileRoot: "." };
+    const rooted: CreateAppOptions = { profileRoot: "." };
     expectTypeOf(rooted).toBeObject();
   });
 

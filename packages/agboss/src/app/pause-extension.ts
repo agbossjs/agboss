@@ -227,7 +227,7 @@ export const extendPauseOf =
       );
       if (extended !== undefined) {
         noticesWritten(parts.deps.pause);
-        pauseTallyOf(parts.deps.pause)?.extended(extended);
+        pauseTallyOf(parts.deps.pause)?.timeoutChanged(extended);
         return { pauseKey: pauseKeyOf(tenantId, pause.pauseId), expiresAt, previousExpiresAt };
       }
       // lost the compare-and-set: the expiry, an answer, a cancel or another extension won — read what it left

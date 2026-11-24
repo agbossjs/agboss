@@ -5,8 +5,8 @@ import type { AppEnvironment } from "./app.environment.js";
  * No --env, a real run: models through OpenRouter with OPENROUTER_API_KEY (OPENROUTER_BASE_URL
  * optional); the SQLite stores in `.agboss/flow-patterns.sqlite` (git-ignored) unless
  * AGBOSS_SQLITE_PATH says otherwise; the PII key from PII_PSEUDONYM_KEY, the idempotency key (#825)
- * from IDEMPOTENCY_KEY. Langfuse traces the run
- * when its LANGFUSE_* keys are set, and only then.
+ * from IDEMPOTENCY_KEY. A run is traced only when the application is
+ * given a `tracerProvider` (`@agboss/langfuse`).
  */
 export const environment: AppEnvironment = {
   openRouterApiKey: secret("OPENROUTER_API_KEY"),

@@ -207,6 +207,7 @@ export const reassignPauseOf =
     noticesWritten(parts.deps.pause);
     // counted once, by the call whose transaction won: the old pause closed `reassigned`
     pauseTallyOf(parts.deps.pause)?.closed(reassignedPause(pause, replacement.pauseId, at));
+    pauseTallyOf(parts.deps.pause)?.reassigned(replacement);
     await sentAfter(parts, replacement);
     return { pauseKey: pauseKeyOf(tenantId, replacement.pauseId) };
   };

@@ -52,7 +52,7 @@ balancing })` — one limit for every execution, tenant and instance (`RateLimit
   - Everything is set in the workflow's components (`@Workflow` with its `flow` of paths,
     `@Router`, `@Agent`) and its application (`@Application`, its `@Budget`s) — reference: Architecture below (compiled by `make check`), then Wiki →
     Workflow, Routers, Components, Configuration (compiled by CI, see Quality gates).
-- Observability: Langfuse tracing via env (`LANGFUSE_*` keys, loaded only when set). FinOps: built-in cost
+- Observability: vendor-neutral OpenTelemetry tracing — `createApp(App, { tracerProvider })`, an OpenTelemetry provider or a `TracingAdapter` such as `LangfuseTracer` from `@agboss/langfuse` (#1324f); PII-masked before a span is set. FinOps: built-in cost
   accounting; `@Workflow({ maxSteps })` and each node's `maxVisits` count steps, money is the
   application's `@Budget`s — per execution, per tenant and for the whole application per
   `BudgetPeriod` (UTC); an exhausted one rejects an execution before its first step or stops it
@@ -228,7 +228,7 @@ every unit runner runs on the patterns' components in the test that mirrors each
 (`tests/credit/routers/credit-limit/credit-limit.router.test.ts`, …), `src/model-providers/` beside the built-in OpenRouter, which yields `harness/…` to it, #382–#385, #454) · `npm test`.
 Real runs (#346, its README: the manual checks #263 M1, #264 M1, #267 M1): `dev` reads
 `OPENROUTER_API_KEY` (`openRouterBaseUrl` optional) and `PII_PSEUDONYM_KEY`, every store is SQLite,
-Langfuse traces when its keys are set — `npx agboss run --start <name> --input '<json>'`, and
+`tracerProvider` traces it (`LangfuseTracer` from `@agboss/langfuse`) — `npx agboss run --start <name> --input '<json>'`, and
 `npm run answer -- <pauseId…> [--decline]` answers waiting pauses from another process.
 
 ## Architecture
@@ -2652,7 +2652,7 @@ ExecutionLeaseLostError`: `scopeKey`, `tenantId`, `leaseExecutionId`, `token`, `
   interrupts what is left: its call rejects with `ApplicationStoppingError`, no `onExecutionError`, the lease
   released at once, the record stays `running`. `createApp` closes on SIGTERM / SIGINT (listeners
   removed when `close()` finishes); `testWith` never listens.
-- **Metrics (#485):** `createApp(App, { meterProvider })` (`AppOptions.meterProvider`, an
+- **Metrics (#485):** `createApp(App, { meterProvider })` (`CreateAppOptions.meterProvider`, an
   `@opentelemetry/api` `MeterProvider`; `testWith(App, { instances: [{ meterProvider }, …] })` by instance, #831)
   publishes the instance's metrics on its meter `@agboss/core` — loaded only then (`src/metrics/`,
   `lazyLoad`), none given → nothing loaded, no store read. Cluster gauges from the shared child

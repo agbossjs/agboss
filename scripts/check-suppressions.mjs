@@ -16,6 +16,8 @@ const DIRS = [
   "packages/agboss/tests",
   "packages/agboss-cli/src",
   "packages/agboss-cli/tests",
+  "packages/agboss-langfuse/src",
+  "packages/agboss-langfuse/tests",
   "examples/flow-patterns/src",
   "examples/flow-patterns/tests",
 ];

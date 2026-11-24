@@ -24,6 +24,7 @@ const allTests = {
   files: [
     "packages/agboss/tests/**/*.ts",
     "packages/agboss-cli/tests/**/*.ts",
+    "packages/agboss-langfuse/tests/**/*.ts",
     "examples/*/tests/**/*.ts",
   ],
   rules: {

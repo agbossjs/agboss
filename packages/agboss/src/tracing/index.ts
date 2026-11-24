@@ -1,22 +1,28 @@
 /** Optional run tracing (Wiki → Tracing). */
-import { langfuseSettings } from "./settings.js";
-import type { ExecutionTracing, TraceMask } from "./types.js";
+import type { TracerProvider } from "@opentelemetry/api";
+import type { ExecutionTracing, TraceMask, TracingAdapter } from "./types.js";
 import { lazyLoad } from "../infrastructure/clock.js";
 
-export type { ExecutionTracing, TraceContext, TraceMask } from "./types.js";
+export type {
+  ExecutionTracing,
+  TraceContext,
+  TraceLinkContext,
+  TraceMask,
+  TracingAdapter,
+} from "./types.js";
 
 /**
- * The app's tracing: Langfuse when configured, else none. The Langfuse and OpenTelemetry modules are
- * loaded only here, when tracing is on — importing `@agboss/core` never loads them (#195). `mask`
- * masks the spans of `route.workflow`'s runs (#1130: its policies, whatever another workflow lists),
- * exported only through the processor of its application instance (`route.owner`).
+ * The app's tracing: spans on the `tracerProvider` it was given, else none. The OpenTelemetry
+ * emitter is loaded only here, when tracing is on — importing `@agboss/core` never loads it (#195).
+ * `mask` masks the spans of `route.workflow`'s runs (#1130: its policies, whatever another workflow
+ * lists), before they reach the provider; `route.owner` is the application instance.
  */
 export async function tracingOf(
-  env: NodeJS.ProcessEnv,
+  source: TracerProvider | TracingAdapter | undefined,
   mask: TraceMask | undefined,
   route: { readonly workflow: string; readonly owner: object },
 ): Promise<ExecutionTracing | undefined> {
-  if (langfuseSettings(env) === undefined) return undefined;
-  const { langfuseTracing } = await lazyLoad(import("./langfuse.js"));
-  return langfuseTracing(env, mask, route);
+  if (source === undefined) return undefined;
+  const { otelTracing } = await lazyLoad(import("./otel-tracing.js"));
+  return otelTracing(source, mask, route);
 }

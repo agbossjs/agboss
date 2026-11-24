@@ -11,8 +11,10 @@ export interface PauseTally {
   opened(pause: PauseRecord): void;
   /** `pause` is the record a close returned: answered, expired, cancelled, withdrawn, tree ended. */
   closed(pause: PauseRecord): void;
-  /** `pause` is the record an extension returned. */
-  extended(pause: PauseRecord): void;
+  /** `pause` is the record a deadline change (an extension) returned. */
+  timeoutChanged(pause: PauseRecord): void;
+  /** `pause` is the replacement a reassignment made: the open pause moved to another assignee. */
+  reassigned(pause: PauseRecord): void;
   /** `pause` is the record `closeUntaken` returned: an answer no step took. */
   answerNotTaken(pause: PauseRecord): void;
 }

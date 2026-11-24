@@ -220,7 +220,7 @@ own, and there is no `xray` option.
   `vendor-check-workflow:vendor-checker-agent`) and also as a graph of its own.
 - A workflow launching itself (`() => Self`) is the plain node of its own name — Studio shows no recursion mark.
 - Studio's own runs are limited by `maxSteps` and `maxVisits`; budgets are opened per execution by the
-  app, so they do not cap Studio's runs. Traces go to Langfuse when its keys are set (reference 08).
+  app, so they do not cap Studio's runs. Traces go to the app's `tracerProvider` (reference 08).
 
 ## The catalog: assembly rule codes
 

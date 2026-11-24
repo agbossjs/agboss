@@ -13,6 +13,7 @@ import { inspect } from 'node:util';
 import type { MessageContent } from '@langchain/core/messages';
 import type { MeterProvider } from '@opentelemetry/api';
 import type { RunnableConfig } from '@langchain/core/runnables';
+import type { TracerProvider } from '@opentelemetry/api';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { z } from 'zod';
 
@@ -89,6 +90,7 @@ export interface AppDepsOptions {
     readonly meterProvider?: MeterProvider;
     readonly processEnv?: NodeJS.ProcessEnv;
     readonly providerFetch?: ProviderFetch;
+    readonly tracerProvider?: TracerProvider | TracingAdapter;
     readonly transport?: TransportFactory;
 }
 
@@ -265,7 +267,7 @@ export interface BudgetListing {
 }
 
 // @public
-export interface BuildApplicationOptions extends AppOptions, Omit<BuildOptions, "environment"> {
+export interface BuildApplicationOptions extends CreateAppOptions, Omit<BuildOptions, "environment"> {
 }
 
 // @public

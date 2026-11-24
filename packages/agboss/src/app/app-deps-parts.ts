@@ -85,7 +85,7 @@ export const releaseOf =
     try {
       await mcp.close();
     } finally {
-      await tracing?.shutdown();
+      await tracing?.close();
     }
   };
 

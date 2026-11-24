@@ -172,6 +172,8 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     [
       "src/app/app-deps-parts.ts",
       "src/app/app-workflow.ts",
+      "src/app/create-app-options.ts",
+      "src/app/tracing-for.ts",
       "src/app/channel-decision.ts",
       "src/app/checkpoint-keys.ts",
       "src/app/child-deps.ts",

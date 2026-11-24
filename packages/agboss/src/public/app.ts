@@ -3,7 +3,8 @@
  * budgets, the health checks (#300), the infrastructure contracts, the workflow's dependencies,
  * resuming, profiles, comparisons and the public configuration and run types.
  */
-export type { AppOptions } from "../app/create-app.js";
+export type { CreateAppOptions } from "../app/create-app-options.js";
+export type { TraceLinkContext, TracingAdapter } from "../tracing/types.js";
 export { StreamDiscardReason, StreamEventKind } from "../run/types.js";
 export { Application, type ApplicationOptions } from "../application/application.js";
 export { createApp } from "../application/create-app.js";

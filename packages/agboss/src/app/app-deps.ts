@@ -1,4 +1,4 @@
-import type { MeterProvider } from "@opentelemetry/api";
+import type { MeterProvider, TracerProvider } from "@opentelemetry/api";
 import { withChainedChildren } from "./pii-chain.js";
 import { type AssembledWorkflow } from "../workflow.js";
 import { redactorValuesViolations } from "../files/redactor-rules.js";
@@ -14,7 +14,7 @@ import type { ExecutionObserverManager } from "../core/observer-manager.js";
 import type { FrameworkLog } from "../infrastructure/logger.js";
 import type { EvalDeps } from "../eval/eval.js";
 import type { AgentExecutionDeps } from "../run/types.js";
-import { tracingOf } from "../tracing/index.js";
+import type { TracingAdapter } from "../tracing/index.js";
 import type { ModelGateway } from "../llm/gateway.js";
 import { createModelRegistry } from "../llm/registry.js";
 import type { ProviderFetch } from "../models/resilient-fetch.js";
@@ -39,6 +39,7 @@ import {
   observedBy,
   treeDepsOf,
 } from "./app-deps-parts.js";
+import { tracingFor } from "./tracing-for.js";
 import { ownNoticesOf } from "./own-notices.js";
 import { startedOwn } from "./own-start.js";
 import { historyKeeperOf, type ExecutionHistoryKeeper } from "./execution-history.js";
@@ -130,6 +131,13 @@ export interface AppDepsOptions {
    * (`metrics.getMeterProvider()`). Absent = no metrics: nothing loaded, no store read.
    */
   readonly meterProvider?: MeterProvider;
+  /**
+   * Where the instance's spans go (#1324f, Wiki → Tracing): an OpenTelemetry `TracerProvider` the
+   * caller owns (`app.close()` flushes it), or a `TracingAdapter` the application owns (`app.close()`
+   * flushes and shuts it down, `ExecutionOutput.traceUrl` comes from it). Every value is masked by
+   * the workflow's PII policies before it reaches a span. Absent = no tracing.
+   */
+  readonly tracerProvider?: TracerProvider | TracingAdapter;
 }
 
 /**
@@ -209,12 +217,6 @@ const budgetsOf = (
         clock,
       };
 
-/** A workflow's tracing route (#1130): its spans go to its application instance's Langfuse only. */
-const traceRouteOf = (workflow: string, parts: WorkflowDepsParts) => ({
-  workflow,
-  owner: parts.infrastructure, // one per application instance
-});
-
 /**
  * The run dependencies of one workflow of an application: its model providers behind the model
  * gateway (every model setting checked against its model first), MCP servers, and the application's
@@ -253,7 +255,7 @@ export async function createWorkflowDeps(
   const mcp = await connect(bundle, config, env, mcpIdentityOf(contexts));
   throwIfViolated(redactorValuesViolations(bundle, config, contexts));
   const pii = piiFor(bundle, config, { gateway, services, contexts, env }, parts);
-  const tracing = await tracingOf(env, pii.observability, traceRouteOf(config.name, parts));
+  const tracing = await tracingFor(options, pii.observability, config.name, parts);
   const components = componentsAtStart(bundle, services);
   const budgets = budgetsOf(parts.budgets, components.container, parts.infrastructure, clock);
   const own = ownNoticesOf(parts.notices);
