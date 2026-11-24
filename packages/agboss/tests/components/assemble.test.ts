@@ -122,7 +122,8 @@ describe("components — errors at assembly", () => {
     class NoProviders {}
 
     await expect(workflowOf(NoProviders)).rejects.toThrow(
-      'GreetTool: "Greeter" is not registered in @Workflow({ providers })',
+      // the decorated `Greeter` is found through `deps` (#1324): what it needs is what is missing
+      'Greeter: "GREETING" is not registered in @Workflow({ providers })',
     );
   });
 

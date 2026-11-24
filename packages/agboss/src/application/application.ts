@@ -5,7 +5,7 @@ import type {
   OutboundCallOptions,
 } from "../infrastructure/fenced-effect-settings.js";
 import { callerFile } from "../components/call-site.js";
-import type { Class, Provider } from "../components/injection.js";
+import type { Class, Provider, ServiceEntry } from "../components/injection.js";
 import { ComponentError } from "../components/metadata.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import { NodeKind } from "../flow/ast.js";
@@ -54,6 +54,13 @@ export interface ApplicationOptions<TEnvironment = unknown> {
   readonly channelSelectors?: readonly Class[];
   /** The `@ChannelListener` classes: told of every pause of the application (#1307, #1310). */
   readonly channelListeners?: readonly Class[];
+  /**
+   * The application's services (#1324): `@Injectable`, `@McpServer` and `@A2AAgent` classes bound to
+   * abstract ports with their `injectAs`, and values bound with `provide(TOKEN, value)`. One instance
+   * for every workflow; a workflow's own `services` bind the same port over these, for that workflow
+   * alone. A concrete class reached through `deps` needs no listing.
+   */
+  readonly services?: readonly ServiceEntry[];
   /**
    * Where the application's rows go (#1321): `storage: AppDatabaseStorage`, or `storage: { database,
    * cluster?, objects? }` — `@DatabaseStorage`, `@ClusterStorage` and `@ObjectStorage` classes, each
@@ -288,7 +295,9 @@ export function Application<TEnvironment>(options: ApplicationOptions<TEnvironme
   return <TClass extends Class>(value: TClass): TClass => {
     // kept as the application's options: the contract's field types are a compile-time check only
     // `storage` becomes the stores in `providers`: everything downstream reads one list
-    const declared = withStorageProviders(withShelfProviders(options as ApplicationOptions));
+    const declared = withServices(
+      withStorageProviders(withShelfProviders(options as ApplicationOptions)),
+    );
     applications.set(
       value,
       source === undefined ? { options: declared } : { options: declared, source },
@@ -298,6 +307,13 @@ export function Application<TEnvironment>(options: ApplicationOptions<TEnvironme
       listedIn.set(workflow, [...(listedIn.get(workflow) ?? []), value]);
     return value;
   };
+}
+
+/** The `services` listed with the providers: one list, the application's own instances. */
+function withServices(options: ApplicationOptions): ApplicationOptions {
+  const { services, ...rest } = options;
+  if (services === undefined) return options;
+  return { ...rest, providers: [...(options.providers ?? []), ...services] };
 }
 
 /** What `@Application` recorded on a class; `undefined` for any other class. */

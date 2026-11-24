@@ -751,6 +751,7 @@ export interface ApplicationOptions<TEnvironment = unknown> {
     readonly previousIdempotencyKeyField?: SecretFieldOf<TEnvironment>;
     readonly providers?: readonly Provider[];
     readonly retention?: RetentionOptions;
+    readonly services?: readonly ServiceEntry[];
     readonly shutdownTimeout?: Milliseconds;
     readonly storage?: ApplicationStorage;
     readonly tenantContext?: TenantContextClass;
@@ -2960,7 +2961,7 @@ export type ExecutionAuditEventRecord = LeaseTakeoverRecord | StepHandedOverReco
 
 // @public (undocumented)
 export abstract class ExecutionAuditLogRepository {
-    abstract deleteByOccurredAtBefore(cutoff: Date): Promise<void>;
+    abstract deleteExpired(cutoff: Date): Promise<number>;
     abstract findAllByTenantIdAndRootExecutionIdOrderByOccurredAt(tenantId: string, rootExecutionId: string): Promise<readonly ExecutionAuditEventRecord[]>;
     abstract ping(): Promise<void>;
     abstract save(record: ExecutionAuditEventRecord): Promise<void>;
@@ -3317,7 +3318,7 @@ export interface ExecutionHistoryRecord extends ExecutionRecord {
 
 // @public (undocumented)
 export abstract class ExecutionHistoryRepository {
-    abstract deleteByEndedAtBefore(cutoff: Date): Promise<void>;
+    abstract deleteExpired(cutoff: Date): Promise<number>;
     abstract findAllByExecutionId(executionId: string): Promise<ExecutionHistoryRecord[]>;
     abstract findAllByStartedAtBetween(from: Date, to: Date, page: ExecutionHistoryPage): Promise<ExecutionHistoryRecord[]>;
     abstract findAllByTenantIdAndStartedAtBetween(tenantId: string, from: Date, to: Date, page: ExecutionHistoryPage): Promise<ExecutionHistoryRecord[]>;
@@ -3654,10 +3655,8 @@ export interface ExecutionTreeQuery {
 // @public
 export abstract class ExecutionTreeRepository {
     abstract deleteAllInTree(tree: ExecutionTree): Promise<void>;
-    findById(key: string): Promise<ExecutionTreeValue | undefined>;
     abstract findByIdInTree(tree: ExecutionTree, key: string): Promise<ExecutionTreeValue | undefined>;
     abstract ping(): Promise<void>;
-    saveIfAbsent(key: string, value: ExecutionTreeValue): Promise<boolean>;
     abstract saveIfAbsentInTree(tree: ExecutionTree, key: string, value: ExecutionTreeValue): Promise<boolean>;
 }
 
@@ -4816,13 +4815,17 @@ export type InferEnv<TContract> = TContract extends {
 export type InferEnvValue<TRef> = TRef extends SecretRef ? Secret : TRef extends OptionalSecretRef ? Secret | undefined : TRef extends EnvRef<infer TValue> ? TValue : never;
 
 // @public
-export function Injectable<const D extends readonly Token[] = []>(options?: InjectableOptions<D>): <C extends new (...args: ResolvedAll<D>) => object>(value: C) => C;
+export function Injectable<const D extends readonly Token[] = [], const TPorts extends InjectAs = readonly []>(options?: InjectableOptions<D, TPorts>): <C extends new (...args: ResolvedAll<D>) => PortInstances<TPorts>>(value: C) => C;
 
 // @public
-export interface InjectableOptions<D extends readonly Token[]> {
+export interface InjectableOptions<D extends readonly Token[], TPorts extends InjectAs = readonly []> {
     readonly deps?: D;
     readonly environmentFields?: EnvironmentFields;
+    readonly injectAs?: TPorts;
 }
+
+// @public
+export type InjectAs = Class | readonly Class[];
 
 // @public
 export class InjectionToken<T> {
@@ -5797,8 +5800,8 @@ export interface MeshRequestRecord extends MeshRequestKey {
 
 // @public (undocumented)
 export abstract class MeshRequestRepository {
-    abstract deleteByCreatedAtBefore(cutoff: Date): Promise<void>;
     abstract deleteByKey(key: MeshRequestKey): Promise<void>;
+    abstract deleteExpired(cutoff: Date): Promise<number>;
     abstract findByKey(key: MeshRequestKey): Promise<MeshRequestRecord | undefined>;
     abstract ping(): Promise<void>;
     abstract saveIfAbsent(record: MeshRequestRecord): Promise<boolean>;
@@ -6418,6 +6421,12 @@ export type OnAnswerDecorator<TAgent extends Class> = <This>(value: AnswerJudgem
     readonly static: false;
 }) => void;
 
+// @public
+export interface OnBeforeDestroy {
+    // (undocumented)
+    onBeforeDestroy(): Promise<void> | void;
+}
+
 // @public (undocumented)
 export interface OnChannelEnd {
     // (undocumented)
@@ -6581,6 +6590,12 @@ export interface OnRagEnd {
 export interface OnRagStart {
     // (undocumented)
     onRagStart(event: RagStartEvent): HookResult;
+}
+
+// @public
+export interface OnReady {
+    // (undocumented)
+    onReady(): Promise<void> | void;
 }
 
 // @public
@@ -8215,6 +8230,9 @@ export interface PlainErrorOptions {
 }
 
 // @public
+export type PortInstances<TPorts> = TPorts extends abstract new (...args: never[]) => infer TInstance ? TInstance : TPorts extends readonly [infer THead, ...infer TRest] ? PortInstances<THead> & PortInstances<TRest> : unknown;
+
+// @public
 export interface PreviousLeaseHolder {
     // (undocumented)
     readonly holderInstanceId: string;
@@ -9088,6 +9106,9 @@ export interface SecretRef {
 }
 
 // @public
+export type ServiceEntry = Class | ValueProvider;
+
+// @public
 export interface ServiceSpend {
     // (undocumented)
     readonly cost: Usd;
@@ -9224,7 +9245,7 @@ export interface SqliteDriverOptions {
 export class SqliteExecutionAuditLogRepository extends ExecutionAuditLogRepository {
     constructor(connection: SqliteConnection);
     // (undocumented)
-    deleteByOccurredAtBefore(cutoff: Date): Promise<void>;
+    deleteExpired(cutoff: Date): Promise<number>;
     // (undocumented)
     findAllByTenantIdAndRootExecutionIdOrderByOccurredAt(tenantId: string, rootExecutionId: string): Promise<readonly ExecutionAuditEventRecord[]>;
     // (undocumented)
@@ -9237,7 +9258,7 @@ export class SqliteExecutionAuditLogRepository extends ExecutionAuditLogReposito
 export class SqliteExecutionHistoryRepository extends ExecutionHistoryRepository {
     constructor(connection: SqliteConnection);
     // (undocumented)
-    deleteByEndedAtBefore(cutoff: Date): Promise<void>;
+    deleteExpired(cutoff: Date): Promise<number>;
     // (undocumented)
     findAllByExecutionId(executionId: string): Promise<ExecutionHistoryRecord[]>;
     // (undocumented)
@@ -9375,9 +9396,9 @@ export class SqliteFencedEffectRepository extends FencedEffectRepository<Databas
 export class SqliteMeshRequestRepository extends MeshRequestRepository {
     constructor(connection: SqliteConnection);
     // (undocumented)
-    deleteByCreatedAtBefore(cutoff: Date): Promise<void>;
-    // (undocumented)
     deleteByKey(key: MeshRequestKey): Promise<void>;
+    // (undocumented)
+    deleteExpired(cutoff: Date): Promise<number>;
     // (undocumented)
     findByKey(key: MeshRequestKey): Promise<MeshRequestRecord | undefined>;
     // (undocumented)
@@ -10629,7 +10650,7 @@ export interface TurnStep {
     // (undocumented)
     readonly agent: string;
     // (undocumented)
-    readonly content: MessageContent;
+    readonly content: string;
 }
 
 // @public
@@ -10996,6 +11017,7 @@ export interface WorkflowOptions<TName extends string = string, TFlow extends re
     readonly piiPolicies?: readonly Class[];
     readonly promptVariables?: Readonly<Record<string, string>>;
     readonly providers?: readonly Provider[];
+    readonly services?: readonly ServiceEntry[];
     readonly toolInterceptors?: readonly Class[];
     readonly uncompactedTurns?: UncompactedTurns;
     // (undocumented)
@@ -11492,6 +11514,8 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/compaction/errors.ts - (ae-undocumented) Missing documentation for "code".
 // src/compaction/errors.ts - (ae-undocumented) Missing documentation for "code".
 // src/compaction/errors.ts - (ae-undocumented) Missing documentation for "name".
+// src/components/container/lifecycle.ts - (ae-undocumented) Missing documentation for "onReady".
+// src/components/container/lifecycle.ts - (ae-undocumented) Missing documentation for "onBeforeDestroy".
 // src/components/decorators.ts - (ae-undocumented) Missing documentation for "execute".
 // src/components/decorators.ts - (ae-undocumented) Missing documentation for "ToolOptions".
 // src/components/decorators.ts - (ae-undocumented) Missing documentation for "name".
@@ -12715,7 +12739,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/sqlite/sqlite-execution-audit-log.repository.ts - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-execution-audit-log.repository.ts - (ae-undocumented) Missing documentation for "save".
 // src/infrastructure/sqlite/sqlite-execution-audit-log.repository.ts - (ae-undocumented) Missing documentation for "findAllByTenantIdAndRootExecutionIdOrderByOccurredAt".
-// src/infrastructure/sqlite/sqlite-execution-audit-log.repository.ts - (ae-undocumented) Missing documentation for "deleteByOccurredAtBefore".
+// src/infrastructure/sqlite/sqlite-execution-audit-log.repository.ts - (ae-undocumented) Missing documentation for "deleteExpired".
 // src/infrastructure/sqlite/sqlite-execution-history.repository.ts - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-execution-history.repository.ts - (ae-undocumented) Missing documentation for "save".
 // src/infrastructure/sqlite/sqlite-execution-history.repository.ts - (ae-undocumented) Missing documentation for "findByTenantIdAndExecutionId".
@@ -12723,7 +12747,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/sqlite/sqlite-execution-history.repository.ts - (ae-undocumented) Missing documentation for "findAllByTenantIdAndThreadId".
 // src/infrastructure/sqlite/sqlite-execution-history.repository.ts - (ae-undocumented) Missing documentation for "findAllByTenantIdAndStartedAtBetween".
 // src/infrastructure/sqlite/sqlite-execution-history.repository.ts - (ae-undocumented) Missing documentation for "findAllByStartedAtBetween".
-// src/infrastructure/sqlite/sqlite-execution-history.repository.ts - (ae-undocumented) Missing documentation for "deleteByEndedAtBefore".
+// src/infrastructure/sqlite/sqlite-execution-history.repository.ts - (ae-undocumented) Missing documentation for "deleteExpired".
 // src/infrastructure/sqlite/sqlite-execution-lease.repository.ts - (ae-undocumented) Missing documentation for "store".
 // src/infrastructure/sqlite/sqlite-execution-lease.repository.ts - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-execution-lease.repository.ts - (ae-undocumented) Missing documentation for "acquire".
@@ -12775,7 +12799,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/sqlite/sqlite-mesh-request.repository.ts - (ae-undocumented) Missing documentation for "findByKey".
 // src/infrastructure/sqlite/sqlite-mesh-request.repository.ts - (ae-undocumented) Missing documentation for "saveResponse".
 // src/infrastructure/sqlite/sqlite-mesh-request.repository.ts - (ae-undocumented) Missing documentation for "deleteByKey".
-// src/infrastructure/sqlite/sqlite-mesh-request.repository.ts - (ae-undocumented) Missing documentation for "deleteByCreatedAtBefore".
+// src/infrastructure/sqlite/sqlite-mesh-request.repository.ts - (ae-undocumented) Missing documentation for "deleteExpired".
 // src/infrastructure/sqlite/sqlite-outbound-call.repository.ts - (ae-undocumented) Missing documentation for "store".
 // src/infrastructure/sqlite/sqlite-outbound-call.repository.ts - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-outbound-call.repository.ts - (ae-undocumented) Missing documentation for "findByKey".

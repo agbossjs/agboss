@@ -1,5 +1,5 @@
 import { callerFile } from "../../components/call-site.js";
-import type { Class, Provider } from "../../components/injection.js";
+import type { Class, Provider, ServiceEntry } from "../../components/injection.js";
 import type { CacheSetting, MaxTokens } from "../../config/settings-types.js";
 import type { UncompactedTurns } from "../../compaction/compaction.decorator.js";
 import type { FileDefaults } from "../../files/model-files.js";
@@ -85,6 +85,13 @@ export interface WorkflowOptions<
   readonly defaults?: WorkflowDefaults;
   /** The workflow's own services for DI: classes, or values bound with `provide(TOKEN, value)`. */
   readonly providers?: readonly Provider[];
+  /**
+   * The workflow's own services (#1324): `@Injectable`, `@McpServer` and `@A2AAgent` classes bound to
+   * abstract ports with `injectAs`, and values bound with `provide(TOKEN, value)`. They resolve in a
+   * container of this workflow alone — no sibling workflow sees them, and what depends on them is
+   * created once for this workflow — and they bind a port over the application's own `services`.
+   */
+  readonly services?: readonly ServiceEntry[];
   /** `@McpServer` classes its `@McpTool`s call. */
   readonly mcp?: readonly Class[];
   /**

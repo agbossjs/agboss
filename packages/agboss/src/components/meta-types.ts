@@ -114,5 +114,7 @@ export interface WorkflowMeta {
   readonly uncompactedTurns?: UncompactedTurns;
   readonly mcp?: readonly Class[];
   readonly providers?: readonly Provider[];
+  /** `@Workflow({ services })` (#1324): scoped to the workflow's own container. */
+  readonly services?: readonly Provider[];
   readonly promptVariables?: Readonly<Record<string, string>>;
 }

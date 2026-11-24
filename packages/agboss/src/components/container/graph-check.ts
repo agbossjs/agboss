@@ -1,7 +1,7 @@
 import { tokenName, type Class, type Token } from "../injection.js";
 import { isEnvContract } from "../../environments/define-env.js";
 import { ComponentError } from "../metadata.js";
-import { depsOf } from "./container.js";
+import { depsOf, isDecorated } from "./container.js";
 import { Registrations, type ProviderModule, type Registration } from "./registrations.js";
 import { CONTAINER_DEFAULTS, infrastructureContractOf } from "../../infrastructure/contracts.js";
 import { undeclaredContextError } from "../context-tokens.js";
@@ -27,12 +27,16 @@ export function dependencyTree(cls: Class, modules: readonly ProviderModule[]): 
 }
 
 /**
- * An unlisted class under an infrastructure implementation (#526 AC8: `SqliteConnection`,
- * `PostgresConnection` under the store `OutboundCalls` uses): its own registration, as the
- * application's container creates it — never an `InjectionToken`, and never a workflow's service.
+ * An unlisted class is its own registration when the container may create it (#1324): a decorated
+ * class — found through `deps`, listing it is not needed — or any class under an infrastructure
+ * implementation (#526 AC8: `SqliteConnection`, `PostgresConnection` under the store `OutboundCalls`
+ * uses). Never an `InjectionToken`, and never an undecorated class: its dependencies are unknown, and
+ * an abstract port would be `new`-ed.
  */
 const ownRegistrationOf = (dep: Token, isUnderStore: boolean): Registration | undefined =>
-  isUnderStore && typeof dep === "function" ? { kind: "class", cls: dep } : undefined;
+  typeof dep === "function" && (isUnderStore || isDecorated(dep))
+    ? { kind: "class", cls: dep }
+    : undefined;
 
 /** What `dep` of `dependant` resolves to; nothing → the error that says why. */
 function registrationOf(
@@ -48,7 +52,7 @@ function registrationOf(
   const own = ownRegistrationOf(dep, isUnderStore);
   if (own !== undefined) return own;
   throw new ComponentError({
-    message: `${dependant}: "${tokenName(dep)}" is not registered in @Workflow({ providers })`,
+    message: `[di.unregistered-token] ${dependant}: "${tokenName(dep)}" is not registered in @Workflow({ providers })`,
   });
 }
 

@@ -222,6 +222,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "the application's declaration, its other rules and its description: build-time checks and wiring; its rules on a limit, a price and a budget are sharded (assembly-rules, spend)",
     [
       "src/application/a2a-expiries.ts",
+      "src/application/create-listed.ts",
       "src/application/app-options.ts",
       "src/application/application-pii.ts",
       "src/application/application-starts.ts",
