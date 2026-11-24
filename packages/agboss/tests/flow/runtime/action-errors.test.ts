@@ -1,3 +1,4 @@
+import { usd } from "../../../src/units/index.js";
 import { describe, expect, it } from "vitest";
 import {
   ActionFailedError,
@@ -88,7 +89,7 @@ describe("S22: the StepFailedError family", () => {
       limit: 1,
       actual: 2,
       path: [],
-      spentUsd: 0,
+      spentUsd: usd(0),
     });
     expect(limit).not.toBeInstanceOf(StepFailedError);
   });
@@ -129,7 +130,7 @@ describe("S22: the StepFailedError family", () => {
         limit: 1,
         actual: 2,
         path: [],
-        spentUsd: 0,
+        spentUsd: usd(0),
       }),
       new ExecutionCancelledError(),
       new Error("plain"),

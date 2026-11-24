@@ -1,3 +1,4 @@
+import { usd } from "../../../src/units/index.js";
 /**
  * #1366 (money-runtime shard) — the side path an execution is on after an `.onError` took a failure (#656), each rule on
  * its own: where it leads and whether it took a limit (its actions then run past the budgets), the undos it owes (the
@@ -26,7 +27,7 @@ const stateOf = (changes: Record<string, unknown> = {}) =>
   ({ sidePath: null, compensations: [], ...changes }) as never;
 
 const limit = errorRecordOf(
-  new LimitExceededError({ key: "k", limit: 1, actual: 2, path: [], spentUsd: 0, usage: [] }),
+  new LimitExceededError({ key: "k", limit: 1, actual: 2, path: [], spentUsd: usd(0), usage: [] }),
 );
 const plain = errorRecordOf(new Error("boom"));
 

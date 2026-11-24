@@ -74,7 +74,7 @@ describe(
 
       expect(deltas(events)).toEqual(["a", "b"]);
       expect(done.spend.trace).toEqual([
-        expect.objectContaining({ costUsd: 0.42, costSource: "api", inputTokens: 100 }),
+        expect.objectContaining({ costUsd: usd(0.42), costSource: "api", inputTokens: 100 }),
       ]);
       expect(done.spend.totalUsd).toBeCloseTo(0.42, 9);
       await app.close();

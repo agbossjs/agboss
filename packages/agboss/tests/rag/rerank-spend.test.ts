@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #1366: what a rerank costs, whether it works or fails — the spend of its masking, of a model's reply it could
  * not read and of a code reranker's reported cost is on the retrieval it falls back to and on the error of
@@ -15,7 +16,7 @@ const record = (costUsd: number, caller: string): UsageRecord => ({
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.Api,
 });
 
@@ -24,7 +25,7 @@ const CANDIDATES = [
   { source: "b.md", text: "beta", score: 0.8 },
 ];
 
-const retrieve = () => Promise.resolve({ results: CANDIDATES, costUsd: 0.0625 });
+const retrieve = () => Promise.resolve({ results: CANDIDATES, costUsd: usd(0.0625) });
 const call = { query: "q", topK: 1, tenantId: "t", signal: new AbortController().signal };
 
 const codeBound = (
@@ -73,12 +74,12 @@ const callers = (records: readonly UsageRecord[] | undefined): string[] | undefi
 describe("#1366: the spend of a rerank that works", () => {
   it("a code reranker's reported cost is one record under rag:<name>", async () => {
     const handler: RerankerHandler = {
-      rerank: () => Promise.resolve({ results: CANDIDATES.slice(1), costUsd: 0.125 }),
+      rerank: () => Promise.resolve({ results: CANDIDATES.slice(1), costUsd: usd(0.125) }),
     };
 
     const found = await rerankedRetrieval(retrieve, codeBound(handler), call);
 
-    expect(found.usage).toMatchObject([{ costUsd: 0.125, caller: "rag:docs" }]);
+    expect(found.usage).toMatchObject([{ costUsd: usd(0.125), caller: "rag:docs" }]);
     expect(found.costUsd).toBe(0.0625);
   });
 });

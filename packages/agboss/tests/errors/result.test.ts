@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #1325a: `Result<T, E>` — a value or the error that took its place. `Result.try` keeps only a framework
  * error (`AGBossError`) as an `Err` and throws every other again — a bug is never dressed as a failure of
@@ -8,7 +9,7 @@ import { ComponentKind, bareRecordOf } from "../../src/flow/runtime/records.js";
 import { AGBossError, LimitError, Result, StepError } from "../../src/index.js";
 
 const limit = (): LimitError.Visits =>
-  new LimitError.Visits({ nodeId: "a", limit: 1, actual: 2, path: [], spentUsd: 0 });
+  new LimitError.Visits({ nodeId: "a", limit: 1, actual: 2, path: [], spentUsd: usd(0) });
 
 describe("#1325a: Result.ok and Result.err", () => {
   it("an Ok holds its value, unwraps to it and ignores a fallback", () => {

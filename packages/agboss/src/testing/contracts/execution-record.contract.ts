@@ -1,3 +1,4 @@
+import { usd } from "../../units/index.js";
 import { expect } from "vitest";
 import {
   ExecutionRecordStatus,
@@ -16,7 +17,7 @@ const outcome = (status: ExecutionRecordStatus): TurnOutcome => ({
   stopReason: "",
   route: ["start", "clerk"],
   steps: [],
-  costUsd: 0.01,
+  costUsd: usd(0.01),
 });
 
 /** A new record of `threadId` with `status`. */
@@ -153,7 +154,7 @@ const RECORD_CASES: readonly ContractCase<ExecutionRecordRepository>[] = [
         toTurnId: turn.id,
         turns: 1,
         text: NUL_TEXT,
-        costUsd: 0,
+        costUsd: usd(0),
       });
 
       const [summary] = await second.latestSummaries(

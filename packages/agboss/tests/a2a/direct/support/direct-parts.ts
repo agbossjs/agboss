@@ -1,3 +1,4 @@
+import { usd } from "../../../../src/units/index.js";
 // #860 — the server's parts for unit tests of the direct replies (mutation shard `a2a-direct`):
 // the unit parts of the server (an in-memory direct store, a virtual clock) with a direct skill, an
 // app whose every run is recorded and scripted, and attempt ids counted per rig.
@@ -5,7 +6,7 @@ import { A2AReply } from "../../../../src/a2a/a2a-expose.decorator.js";
 import type { A2AServerParts } from "../../../../src/a2a/server/a2a-server-parts.js";
 import type { ServedSkill } from "../../../../src/a2a/server/a2a-skills.js";
 import { ExecutionStatus, type ExecutionOutput } from "../../../../src/app/types.js";
-import { buildCostReport } from "../../../../src/finops/usage.js";
+import { CostReport } from "../../../../src/finops/usage.js";
 import { bareRecordOf, ComponentKind } from "../../../../src/flow/runtime/records.js";
 import {
   A2ADirectMessageState,
@@ -39,7 +40,7 @@ export const finished = (): ExecutionOutput => ({
   output: OUTPUT,
   pending: [],
   path: [],
-  spend: { ...buildCostReport([]), totalUsd: 0.25 },
+  spend: { ...CostReport.fromUsage([]), totalUsd: usd(0.25) },
   launches: [],
   children: [],
   handledErrors: [],

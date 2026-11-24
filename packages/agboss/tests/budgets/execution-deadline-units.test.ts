@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #1356 — an execution's deadline (#398 PR 2) on its own: when it is fixed, when it has passed, which of
  * two delays counts and what the error of a passed one says.
@@ -15,7 +16,7 @@ import { LimitExceededError } from "../../src/graph/limits.js";
 import type { Milliseconds } from "../../src/units/index.js";
 
 const NOW = new Date("2026-11-20T10:00:00.000Z");
-const place = { path: ["start", "pay"], spentUsd: 1.5, usage: [recordToolCost("pay", 1.5)] };
+const place = { path: ["start", "pay"], spentUsd: usd(1.5), usage: [recordToolCost("pay", 1.5)] };
 
 describe("#1356: the deadline of a new execution", () => {
   it("is none without a delay, or with one that is no finite number", () => {
@@ -90,7 +91,7 @@ describe("#1356: a deadline that has passed", () => {
       deadline: 1_500 as Milliseconds,
       deadlineAt: "2026-11-20T10:00:01.500Z",
       path: ["start"],
-      spentUsd: 0,
+      spentUsd: usd(0),
       cause,
     });
 

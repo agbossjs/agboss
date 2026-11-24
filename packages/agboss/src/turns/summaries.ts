@@ -1,3 +1,4 @@
+import { usd } from "../units/index.js";
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync, SQLInputValue } from "node:sqlite";
 import { z } from "zod";
@@ -30,7 +31,7 @@ const toSummary = (row: unknown): Summary => {
     toTurnId: r.to_tern,
     turns: r.turns,
     text: textOf(r.text, "turn summary text", { summaryId: r.id, threadId: r.thread_id }),
-    costUsd: r.cost_usd,
+    costUsd: usd(r.cost_usd),
     createdAt: r.created_at,
   };
 };

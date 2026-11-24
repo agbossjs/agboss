@@ -314,9 +314,9 @@ export interface MessageErrorOptions extends AGBossErrorOptions {
 // @public
 export interface ModelEndEvent extends NodeEvent {
     // (undocumented)
-    readonly calculatedCost?: number;
-    // (undocumented)
     readonly callerName: string;
+    // (undocumented)
+    readonly costUsd?: Usd;
     // (undocumented)
     readonly model: string;
     // (undocumented)
@@ -532,7 +532,7 @@ export class WorkflowSettings {
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "callerName".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "rawContent".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "usage".
-// src/core/observability.ts - (ae-undocumented) Missing documentation for "calculatedCost".
+// src/core/observability.ts - (ae-undocumented) Missing documentation for "costUsd".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "input".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "judge".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "agent".

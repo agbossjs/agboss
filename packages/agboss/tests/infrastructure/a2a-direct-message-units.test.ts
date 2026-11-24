@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #860 (mutation shard `a2a-direct`): the direct-message stores' parts on their own — the contract's
  * undeclared backend, a page's limit refused with its value, the SQLite row's refusals (a state and
@@ -81,7 +82,7 @@ const row = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
-const REPLY = JSON.stringify({ finish: "f", output: { a: 1 }, spentUsd: 0 });
+const REPLY = JSON.stringify({ finish: "f", output: { a: 1 }, spentUsd: usd(0) });
 const DISAGREE = "a2a_direct_messages row m-1: its state and its reply disagree";
 
 describe("#860: a SQLite row of a direct message", () => {
@@ -90,7 +91,7 @@ describe("#860: a SQLite row of a direct message", () => {
 
     expect(directMessageOf(row())).not.toHaveProperty("reply");
     expect(directMessageOf(completed)).toMatchObject({
-      reply: { finish: "f", output: { a: 1 }, spentUsd: 0 },
+      reply: { finish: "f", output: { a: 1 }, spentUsd: usd(0) },
       completedAt: NINE,
     });
   });

@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #1366: what a model's PII reading cost — a judge's texts and a model arbiter's question each go through the
  * agent's policies, and the paid detections are in the usage the judge or the arbiter hands back.
@@ -14,7 +15,7 @@ const record = (costUsd: number, caller: string): UsageRecord => ({
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.Api,
 });
 

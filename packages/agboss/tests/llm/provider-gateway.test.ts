@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 import { describe, expect, it } from "vitest";
 import { createProviderGateway } from "../../src/llm/gateway.js";
 import { providerClients, ProviderCapabilityError } from "../../src/llm/provider-clients.js";
@@ -36,7 +37,7 @@ describe("AC6: the default gateway resolves each model's provider", () => {
     expect(outcome).toMatchObject({
       kind: "decided",
       decision: { next: "finish" },
-      usage: { costUsd: 0.0001 },
+      usage: { costUsd: usd(0.0001) },
     });
     expect(stub.requests[0]).toMatchObject({
       url: "https://openrouter.ai/api/alpha/decisions",

@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /** #1269: what a visit's files become — limits at their edges, removed files, masked transcriptions. */
 import { describe, expect, it } from "vitest";
 import { CostSource } from "../../src/finops/cost-source.js";
@@ -31,7 +32,7 @@ const baseSettings = resolvedFilesOf({
 const usageOf = (caller: string): UsageRecord => ({
   caller,
   model: "m",
-  costUsd: 0,
+  costUsd: usd(0),
   costSource: CostSource.Tool,
   inputTokens: 1,
   outputTokens: 1,

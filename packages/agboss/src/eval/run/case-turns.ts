@@ -1,3 +1,4 @@
+import { type Usd, usd } from "../../units/index.js";
 import { executeWithoutInputCheck } from "../../app/execute-without-input-check.js";
 import { ExecutionStatus, type ExecutionOutput } from "../../app/types.js";
 import { AGBossError } from "../../core/errors.js";
@@ -14,8 +15,8 @@ import type { EvalRunError } from "./report.js";
 
 /** How the turns of a run went: the last turn's output, or why one could not end. */
 export type TurnsOutcome =
-  | { readonly kind: "ended"; readonly last: ExecutionOutput; readonly spentUsd: number }
-  | { readonly kind: "failed"; readonly error: EvalRunError; readonly spentUsd: number };
+  | { readonly kind: "ended"; readonly last: ExecutionOutput; readonly spentUsd: Usd }
+  | { readonly kind: "failed"; readonly error: EvalRunError; readonly spentUsd: Usd };
 
 const errorOf = (error: unknown): EvalRunError =>
   error instanceof AGBossError
@@ -34,7 +35,7 @@ export async function runTurns(
     tenant: values.tenant,
     ...(written.execution === undefined ? {} : { execution: values.execution }),
   };
-  let spentUsd = 0;
+  let spentUsd: Usd = usd(0);
   let last: ExecutionOutput | undefined;
   for (const [index, turn] of written.turns.entries()) {
     if (last?.status === ExecutionStatus.Paused) {
@@ -50,7 +51,7 @@ export async function runTurns(
     } catch (error) {
       return { kind: "failed", error: errorOf(error), spentUsd };
     }
-    spentUsd += last.spend.totalUsd;
+    spentUsd = usd(spentUsd + last.spend.totalUsd);
   }
   if (last === undefined) throw new Error(`case "${written.name}" has no turns`);
   return { kind: "ended", last, spentUsd };

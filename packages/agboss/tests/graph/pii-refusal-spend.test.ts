@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #1366: the spend a PII refusal carries — a block rule that refuses a request, a final answer or a tool call's
  * arguments names every paid detection that led to it (the loop's own, the call's, each text searched), so the
@@ -13,7 +14,7 @@ const record = (costUsd: number, caller: string): UsageRecord => ({
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.Api,
 });
 

@@ -1,3 +1,4 @@
+import { type Usd, usd } from "../units/index.js";
 import type { UsageRecord } from "../finops/usage.js";
 import { LimitExceededError } from "../graph/limits.js";
 import { chainText, type MeshEntry, type MeshHop } from "./mesh-hop.js";
@@ -15,7 +16,7 @@ export interface MeshLimitPlace {
   /** The execution's path so far. */
   readonly path: readonly string[];
   /** What the execution spent so far, in USD. */
-  readonly spentUsd: number;
+  readonly spentUsd: Usd;
   /** Spend the execution's state does not hold yet (the agent loop's), so the ledger sees it. */
   readonly usage: readonly UsageRecord[];
 }
@@ -46,7 +47,7 @@ export class MeshLoopDetectedError extends LimitExceededError {
   readonly chain: readonly MeshHop[];
 
   constructor(options: MeshLoopDetectedErrorOptions) {
-    const { entry, chain, path = [], spentUsd = 0, usage = [], cause } = options;
+    const { entry, chain, path = [], spentUsd = usd(0), usage = [], cause } = options;
     const line = chainText([...chain, entry]);
     super({
       key: "mesh.callChain",
@@ -79,7 +80,7 @@ export class HopsLimitExceededError extends LimitExceededError {
   readonly hops: number;
 
   constructor(options: HopsLimitExceededErrorOptions) {
-    const { entry, chain, maxMeshHops, path = [], spentUsd = 0, usage = [], cause } = options;
+    const { entry, chain, maxMeshHops, path = [], spentUsd = usd(0), usage = [], cause } = options;
     const hops = chain.length + 1;
     super({
       key: "maxMeshHops",

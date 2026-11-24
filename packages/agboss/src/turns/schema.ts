@@ -1,3 +1,4 @@
+import { usd } from "../units/index.js";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
@@ -100,7 +101,7 @@ export function toTurn(row: unknown): Turn {
     stopReason: textOf(r.stop_reason, "turn stop reason", ids),
     route: Route.parse(parsedStoredJson("turn route", r.route, ids)),
     steps: Steps.parse(parsedStoredJson("turn steps", r.steps, ids)),
-    costUsd: r.cost_usd,
+    costUsd: usd(r.cost_usd),
     promptVersion: r.prompt_version,
     modelVersion: r.model_version,
     replayOf: r.replay_of,

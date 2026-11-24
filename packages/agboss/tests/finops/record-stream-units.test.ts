@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #1356 — the multiset by which a stream's usage counts once: two equal records are the same spend,
  * whatever order they come in, and a record differing in any one field is another spend.
@@ -18,7 +19,7 @@ const base = usageRecord("agent", 0.5);
 const variants: readonly (readonly [string, UsageRecord])[] = [
   ["caller", { ...base, caller: "other" }],
   ["model", { ...base, model: "other/m" }],
-  ["costUsd", { ...base, costUsd: 0.6 }],
+  ["costUsd", { ...base, costUsd: usd(0.6) }],
   ["costSource", { ...base, costSource: CostSource.Api }],
   ["inputTokens", { ...base, inputTokens: 1 }],
   ["outputTokens", { ...base, outputTokens: 1 }],

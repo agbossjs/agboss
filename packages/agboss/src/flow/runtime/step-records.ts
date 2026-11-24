@@ -1,7 +1,7 @@
 import type { ErrorRecord } from "../../core/error-record.js";
 import type { GuardrailSide } from "../../components/policy-decorators.js";
 import type { JudgeMetrics } from "../../components/judge-decorators.js";
-import { buildCostReport, type CostReport, type UsageRecord } from "../../finops/usage.js";
+import { CostReport, type UsageRecord } from "../../finops/usage.js";
 import { versionOf } from "../../turns/index.js";
 import type { StepRecord } from "../context/execution-context.js";
 import { bareRecordOf, ComponentKind, type ComponentRecord } from "./records.js";
@@ -94,7 +94,7 @@ export const executionStepRecordOf = (visited: VisitedStep): ExecutionStepRecord
   ...(visited.decision === undefined ? {} : { decision: visited.decision }),
   judgeVerdicts: [...(visited.judgeVerdicts ?? [])],
   guardrailDecisions: [...(visited.guardrailDecisions ?? [])],
-  spend: buildCostReport(visited.usage),
+  spend: CostReport.fromUsage(visited.usage),
   startedAt: visited.startedAt.toISOString(),
   endedAt: visited.endedAt.toISOString(),
   ...(visited.error === undefined ? {} : { error: visited.error }),

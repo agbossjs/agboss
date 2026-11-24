@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #1366: what a judge's model calls cost — the usage of reading the call through the agent's policies, then the
  * call's own, are both added to the judge's spend, for a chat call and for a decision.
@@ -13,7 +14,7 @@ const record = (costUsd: number, caller: string): UsageRecord => ({
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.Api,
 });
 

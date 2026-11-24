@@ -1,4 +1,4 @@
-import { buildCostReport } from "../../../src/finops/usage.js";
+import { CostReport } from "../../../src/finops/usage.js";
 import { bareRecordOf, ComponentKind } from "../../../src/flow/runtime/records.js";
 import { ToolCallStatus, type ToolCallRecord } from "../../../src/flow/runtime/tool-calls.js";
 import {
@@ -47,7 +47,7 @@ export function historyRecordOf(
     path: ["desk-workflow-start", "desk-agent", "desk-workflow-finish"],
     scope: [],
     outdatedValues: [],
-    spend: buildCostReport([]),
+    spend: CostReport.fromUsage([]),
     children: [],
     pauses: [],
     compensations: [],

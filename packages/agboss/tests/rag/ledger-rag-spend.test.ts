@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #1366 (ledger-retention shard) — the spend of a knowledge base's search tool, each rule on its own: its own cost
  * and a reranker's records reported to the call (into its frame when there is one, else as a cost), never twice.
@@ -18,7 +19,7 @@ const record = (costUsd: number): UsageRecord => ({
   ...ZERO_USAGE,
   caller: "rag:docs-rag",
   model: "m",
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.Api,
 });
 
@@ -89,7 +90,7 @@ describe("#1366: a knowledge base's search tool", () => {
   });
 
   it("reports the retrieval's cost to the call, and 0 when the connector gave none", async () => {
-    const priced = call(toolOf({ results: [], costUsd: 0.25 }).tool);
+    const priced = call(toolOf({ results: [], costUsd: usd(0.25) }).tool);
     const free = call(toolOf({ results: [] }).tool);
 
     await priced.run();
@@ -106,7 +107,7 @@ describe("#1366: a knowledge base's search tool", () => {
     vi.mocked(currentFrame).mockReturnValue(frameOf(reportUsage));
     vi.mocked(rerankedRetrieval).mockResolvedValue({
       results: [],
-      costUsd: 0.125,
+      costUsd: usd(0.125),
       usage: [record(0.5), record(0.25)],
     });
     const made = call(toolOf({ results: [] }, { rag: "docs-rag" } as never).tool);
@@ -144,7 +145,7 @@ describe("#1366: a knowledge base's search tool", () => {
   it("a retrieval with no reranker records reports no usage", async () => {
     const reportUsage = vi.fn();
     vi.mocked(currentFrame).mockReturnValue(frameOf(reportUsage));
-    const made = call(toolOf({ results: [], costUsd: 0.25 }).tool);
+    const made = call(toolOf({ results: [], costUsd: usd(0.25) }).tool);
 
     await made.run();
 

@@ -1,5 +1,5 @@
 import { expect } from "vitest";
-import { buildCostReport } from "../../finops/usage.js";
+import { CostReport } from "../../finops/usage.js";
 import { bareRecordOf, ComponentKind } from "../../flow/runtime/records.js";
 import {
   ExecutionHistoryStatus,
@@ -18,7 +18,7 @@ const recordOf = (
   path: ["desk-workflow-start", "desk-agent", "desk-workflow-finish"],
   scope: [],
   outdatedValues: [],
-  spend: buildCostReport([]),
+  spend: CostReport.fromUsage([]),
   children: [],
   pauses: [],
   compensations: [],

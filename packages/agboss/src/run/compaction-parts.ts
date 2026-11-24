@@ -1,3 +1,4 @@
+import { type Usd } from "../units/index.js";
 import type { UsageRecord } from "../finops/usage.js";
 import { DetectionMode } from "../pii/runtime-policy.js";
 import type { PiiTokenMap } from "../pii/tokens.js";
@@ -40,7 +41,7 @@ export interface CompactionWrite {
   /** The summary it rewrites (a single summary, a custom one): it covers the thread from its start. */
   readonly current?: Summary | undefined;
   readonly text: string;
-  readonly costUsd: number;
+  readonly costUsd: Usd;
   /** The summaries readers see now, and how many they may see. */
   readonly summaries: number;
   readonly summaryQueueLength: number;

@@ -219,7 +219,7 @@ describe("#1269: a project's own transcriber", () => {
     expect(result.usage).toMatchObject({
       caller: "files:transcriber",
       model: "transcriber",
-      costUsd: 0.01,
+      costUsd: usd(0.01),
       costSource: "tool",
     });
   });
@@ -234,7 +234,7 @@ describe("#1269: a project's own transcriber", () => {
   });
 
   it("a usage it reports itself is kept, not replaced by its price", async () => {
-    const usage = { caller: "mine", model: "m", costUsd: 5 } as never;
+    const usage = { caller: "mine", model: "m", costUsd: usd(5) } as never;
     const answer = { text: "T", cost: usd(0.01), usage };
     const runtime = runtimeOf(
       depsOf(new Map<Token, unknown>([[FileTranscriber, new OwnTranscriber(answer)]])),
@@ -292,7 +292,7 @@ describe("#1269: the redactor", () => {
     expect(result.usage).toMatchObject({
       caller: "files:redactor",
       model: "redactor",
-      costUsd: 0.02,
+      costUsd: usd(0.02),
       costSource: "tool",
     });
     expect(own.seen).toHaveLength(1);

@@ -1,3 +1,4 @@
+import { type Usd } from "../../units/index.js";
 import type { JudgeMetrics } from "../../components/judge-decorators.js";
 import { CheckStatus, type EvalCascade } from "../suite/checks.js";
 import type { EvalRunComparison } from "./comparison.js";
@@ -38,7 +39,7 @@ export interface EvalCheckResult {
   /** What a judge measured. */
   readonly metrics?: JudgeMetrics;
   /** What a judge's model calls cost, in USD (a model judge only). */
-  readonly spentUsd?: number;
+  readonly spentUsd?: Usd;
 }
 
 /** Why a run has no checks: a turn failed or paused before the last one ended. */
@@ -67,7 +68,7 @@ export interface EvalRunResult {
   /** The turn that could not end, when one could not (its checks then do not run). */
   readonly error?: EvalRunError;
   /** The turns' executions and the judges' model calls, in USD. */
-  readonly spentUsd: number;
+  readonly spentUsd: Usd;
   /**
    * The last turn's execution step by step, masked (#397 PR 2, schemaVersion 2); absent when that
    * turn threw before it had a record, and in a version 1 artifact.
@@ -115,7 +116,7 @@ export interface EvalRunComponent {
 
 /** What a run spent: every turn's execution and every judge's model calls, in USD. */
 export interface EvalRunSpend {
-  readonly totalUsd: number;
+  readonly totalUsd: Usd;
 }
 
 /** The whole run artifact. */

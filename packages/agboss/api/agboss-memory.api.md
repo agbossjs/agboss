@@ -31,7 +31,7 @@ export interface MemoryContext extends MemoryView {
 
 // @public
 export interface MemoryTurn {
-    readonly budgetLeftUsd: number;
+    readonly budgetLeftUsd: Usd | undefined;
     // (undocumented)
     readonly executionId: string;
     readonly tenantId: string;

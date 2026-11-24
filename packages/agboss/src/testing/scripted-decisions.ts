@@ -1,4 +1,5 @@
 import type { DecisionOutcome } from "../llm/decision-response.js";
+import { usd } from "../units/index.js";
 import { CostSource } from "../finops/usage.js";
 import {
   checkDecisionRequest,
@@ -136,7 +137,7 @@ function outcomeOf(turn: ScriptedTurn, spec: DecideSpec, label: string): Decisio
       outputTokens: 0,
       cacheReadTokens: 0,
       cacheWriteTokens: 0,
-      costUsd: cost ?? 0,
+      costUsd: usd(cost ?? 0),
       costSource: CostSource.Api,
     },
   };

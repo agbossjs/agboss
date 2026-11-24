@@ -1,3 +1,4 @@
+import { usd } from "../../../src/units/index.js";
 /**
  * #1366: the SQLite turn store — a version's summary carries its turns, scored count, mean score and spend (running
  * turns left out); a store made without an id generator mints distinct thread ids; `close` closes the connection.
@@ -16,7 +17,7 @@ const turn = (overrides: Partial<NewTurn> = {}): NewTurn => ({
   stopReason: "done",
   route: ["alpha"],
   steps: [{ agent: "alpha", content: "reply" }],
-  costUsd: 0.25,
+  costUsd: usd(0.25),
   promptVersion: "p1",
   modelVersion: "m1",
   replayOf: null,
@@ -29,17 +30,17 @@ describe("#1366: a version's summary", () => {
   it("counts its turns and scores, averages the scores and adds the spend, version by version", async () => {
     const store = createSqliteTurnStore(":memory:", () => new Date());
     const thread = await store.createThread({ workflow: "b", tenantId: "default" });
-    const first = await store.append(turn({ threadId: thread, costUsd: 0.25 }));
-    const second = await store.append(turn({ threadId: thread, costUsd: 0.5 }));
-    await store.append(turn({ threadId: thread, promptVersion: "p2", costUsd: 1 }));
+    const first = await store.append(turn({ threadId: thread, costUsd: usd(0.25) }));
+    const second = await store.append(turn({ threadId: thread, costUsd: usd(0.5) }));
+    await store.append(turn({ threadId: thread, promptVersion: "p2", costUsd: usd(1) }));
     await store.saveScore(first.id, "judge", 0.5);
     await store.saveScore(second.id, "judge", 1);
 
     const summary = await store.summary("b");
 
     expect(summary).toEqual([
-      { promptVersion: "p1", turns: 2, scored: 2, meanScore: 0.75, costUsd: 0.75 },
-      { promptVersion: "p2", turns: 1, scored: 0, meanScore: null, costUsd: 1 },
+      { promptVersion: "p1", turns: 2, scored: 2, meanScore: 0.75, costUsd: usd(0.75) },
+      { promptVersion: "p2", turns: 1, scored: 0, meanScore: null, costUsd: usd(1) },
     ]);
     expect(await store.meanScore([first.id, second.id])).toBe(0.75);
     store.close();

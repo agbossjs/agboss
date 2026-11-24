@@ -3,7 +3,7 @@
  * the visit a branch brings back counts its own step once, and the run's next step is checked against the steps the branches took.
  */
 import { describe, expect, it } from "vitest";
-import { buildCostReport } from "../../../src/finops/usage.js";
+import { CostReport } from "../../../src/finops/usage.js";
 import { FailurePolicy } from "../../../src/flow/decorators/router.js";
 import {
   ChildExecutionStatus,
@@ -85,7 +85,7 @@ const endedChild: EndedChildRecord = {
   input: {},
   status: ChildExecutionStatus.Finished,
   path: [],
-  spend: buildCostReport([]),
+  spend: CostReport.fromUsage([]),
   toolCalls: [],
   steps: [],
   children: [],

@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /** #1269: the files of a tool's result — read, guarded, counted and stored — called with fake deps. */
 import { z } from "zod";
 import { describe, expect, it } from "vitest";
@@ -55,7 +56,7 @@ const opaqueTool: AnyTool = { ...scanTool, name: "opaque-tool", output: z.object
 const usageOf = (caller: string): UsageRecord => ({
   caller,
   model: "m",
-  costUsd: 0,
+  costUsd: usd(0),
   costSource: CostSource.Tool,
   inputTokens: 1,
   outputTokens: 1,

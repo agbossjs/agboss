@@ -20,7 +20,7 @@ audit, your own tracer), replace the framework's log, or send traces to Langfuse
 | `status`                              | `ExecutionStatus.Finished` or `Paused`                                                                                              |
 | `output`, `finish`                    | the finish's DTO and its `ComponentRecord` (`{ name, kind, promptHash, schemaHash }`)                                               |
 | `path`                                | the visited nodes in order (`critic-agent#2` for a copy)                                                                            |
-| `spend`                               | `CostReport`: `totalUsd`, `calls`, `byCategory`, `byModel`, `byCaller`, `trace` (every call in order)                               |
+| `spend`                               | `CostReport`: `totalUsd`, `calls`, tokens, `byCategory`, `byModel`, `byCaller`, `trace` (every call in order)                       |
 | `executionId`, `threadId`, `tenantId` | the keys                                                                                                                            |
 | `pending`                             | every waiting pause (`PendingPause`), when paused                                                                                   |
 | `launches`                            | one `LaunchRecord` per joined launch: `items`, `taken`, each branch's `BranchStatus` and, under a quorum, `BranchVerdict`           |

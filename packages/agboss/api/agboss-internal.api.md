@@ -350,7 +350,7 @@ export function compareProfilesWith<TApplication extends Class>(application: App
 }): Promise<ProfileComparison>;
 
 // @public
-export const completedStatusOf: (finish: string, output: unknown, spentUsd: number) => A2ATaskStatus;
+export const completedStatusOf: (finish: string, output: unknown, spentUsd: Usd) => A2ATaskStatus;
 
 // @public
 export const configSnapshot: <TName extends string>(deps: SnapshotDeps<TName>, children?: ChildSnapshotSources | undefined) => unknown;
@@ -385,13 +385,19 @@ export enum CostCategory {
     // (undocumented)
     Agents = "agents",
     // (undocumented)
-    Compaction = "compaction",
+    Arbiters = "arbiters",
     // (undocumented)
     Files = "files",
     // (undocumented)
-    Guards = "guards",
+    Guardrails = "guardrails",
     // (undocumented)
-    Retrieval = "retrieval",
+    Memory = "memory",
+    // (undocumented)
+    Pauses = "pauses",
+    // (undocumented)
+    Pii = "pii",
+    // (undocumented)
+    Rag = "rag",
     // (undocumented)
     Review = "review",
     // (undocumented)
@@ -409,7 +415,7 @@ export interface CostLine extends TokenUsage {
     // (undocumented)
     readonly costSource: CostSource;
     // (undocumented)
-    readonly costUsd: number;
+    readonly costUsd: Usd;
     // (undocumented)
     readonly model: string;
     readonly servedBy?: string;
@@ -418,24 +424,35 @@ export interface CostLine extends TokenUsage {
 // @public
 export interface CostReport {
     // (undocumented)
-    readonly byCaller: Readonly<Record<string, number>>;
-    readonly byCategory: Readonly<Record<CostCategory, number>>;
+    readonly byCaller: Readonly<Record<string, Usd>>;
+    readonly byCategory: Readonly<Record<CostCategory, Usd>>;
     // (undocumented)
-    readonly byModel: Readonly<Record<string, number>>;
-    // (undocumented)
+    readonly byModel: Readonly<Record<string, Usd>>;
     readonly cacheReadTokens: number;
+    readonly cacheWriteTokens: number;
     readonly calls: number;
-    readonly totalUsd: number;
+    readonly inputTokens: number;
+    readonly outputTokens: number;
+    readonly totalTokens: number;
+    readonly totalUsd: Usd;
     readonly trace: readonly CostLine[];
     readonly unknownCalls: number;
 }
+
+// @public
+export const CostReport: {
+    readonly fromUsage: (records: readonly UsageRecord[]) => CostReport;
+    readonly empty: () => CostReport;
+    readonly sum: (reports: readonly CostReport[]) => CostReport;
+};
 
 // @public
 export enum CostSource {
     Api = "api",
     PriceTable = "price-table",
     Tool = "tool",
-    Unknown = "unknown"
+    Unknown = "unknown",
+    Unpriced = "unpriced"
 }
 
 // @public
@@ -692,7 +709,7 @@ export type DurableExecutionState = {
     readonly status: DurableExecutionStatus.Finished;
     readonly finish: string;
     readonly output: unknown;
-    readonly spentUsd: number;
+    readonly spentUsd: Usd;
 } | {
     readonly status: DurableExecutionStatus.Failed;
     readonly reason: string;
@@ -1814,20 +1831,22 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/federation/federation-types.ts - (ae-undocumented) Missing documentation for "problems".
 // src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Agents".
 // src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Routing".
-// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Guards".
+// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Guardrails".
 // src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Review".
 // src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Tools".
-// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Compaction".
-// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Retrieval".
+// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Memory".
+// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Rag".
 // src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Files".
+// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Pii".
+// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Arbiters".
+// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Pauses".
+// src/finops/cost-report.ts - (ae-undocumented) Missing documentation for "byCaller".
+// src/finops/cost-report.ts - (ae-undocumented) Missing documentation for "byModel".
 // src/finops/usage.ts - (ae-undocumented) Missing documentation for "caller".
 // src/finops/usage.ts - (ae-undocumented) Missing documentation for "category".
 // src/finops/usage.ts - (ae-undocumented) Missing documentation for "model".
 // src/finops/usage.ts - (ae-undocumented) Missing documentation for "costUsd".
 // src/finops/usage.ts - (ae-undocumented) Missing documentation for "costSource".
-// src/finops/usage.ts - (ae-undocumented) Missing documentation for "cacheReadTokens".
-// src/finops/usage.ts - (ae-undocumented) Missing documentation for "byCaller".
-// src/finops/usage.ts - (ae-undocumented) Missing documentation for "byModel".
 // src/flow/analyse/steps.ts - (ae-undocumented) Missing documentation for "least".
 // src/flow/analyse/steps.ts - (ae-undocumented) Missing documentation for "most".
 // src/flow/analyse/worst-case.ts - (ae-undocumented) Missing documentation for "start".

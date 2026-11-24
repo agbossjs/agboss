@@ -62,7 +62,7 @@ export class JoinKeyLog {
     const { configHash } = event.workflow; // describe --json: workflows[].configHash
     const { name, promptHash, schemaHash } = event.step.component; // workflows[].nodes[]
     const iteration = event.step.toolLoopIteration; // 1, 2, … within the agent's visit
-    console.info(configHash, name, promptHash, schemaHash, iteration, event.calculatedCost);
+    console.info(configHash, name, promptHash, schemaHash, iteration, event.costUsd);
   }
 }
 ```

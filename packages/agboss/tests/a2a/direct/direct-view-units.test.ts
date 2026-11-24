@@ -1,3 +1,4 @@
+import { usd } from "../../../src/units/index.js";
 /**
  * #860 (mutation shard `a2a-direct`): a completed direct reply as the wire shows it — for a trusted
  * caller (its message's `bodyHash` kept) of an application that signs, the run report over what the
@@ -25,7 +26,7 @@ const COMPLETED_AT = new Date(NINE.getTime() + seconds(3));
 const completed = (overrides: Partial<A2ADirectMessageRecord> = {}): A2ADirectMessageRecord => ({
   ...acceptedMessage({ meshBodyHash: "body-hash-1" }),
   state: A2ADirectMessageState.Completed,
-  reply: { finish: "unit-workflow-finish", output: { total: 3 }, spentUsd: 0.25 },
+  reply: { finish: "unit-workflow-finish", output: { total: 3 }, spentUsd: usd(0.25) },
   completedAt: COMPLETED_AT,
   ...overrides,
 });
@@ -89,7 +90,7 @@ describe("#860: a direct reply's files", () => {
     };
     const lost = { mediaType: "text/plain", fileId: "gone.0", sha256: "00", sizeBytes: 1 };
     const message = completed({
-      reply: { finish: "unit-workflow-finish", output: { report: lost }, spentUsd: 0 },
+      reply: { finish: "unit-workflow-finish", output: { report: lost }, spentUsd: usd(0) },
     });
 
     const shown = await wireReplyOf(message, viewParts(false, skill));

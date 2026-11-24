@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #226 on the wire: the production gateway sends decisions to OpenRouter's Decisions API
  * (`POST {base}/alpha/decisions`, `{ model, state, questions }`) and validates every answer —
@@ -68,7 +69,7 @@ describe("AC4: an image part in state is sent as a top-level image_url item", ()
     });
     const judged = result.spend.trace.filter((line) => line.caller === "judge:looks-right");
     expect(judged).toMatchObject([
-      { model: LUNA, costUsd: 0.0004, costSource: "api", inputTokens: 120, outputTokens: 3 },
+      { model: LUNA, costUsd: usd(0.0004), costSource: "api", inputTokens: 120, outputTokens: 3 },
     ]);
   });
 
@@ -129,7 +130,11 @@ describe("AC3: a router on openai/gpt-6-luna-decisions decides through the Decis
     );
     expect(criteria).toEqual([...criteria].sort());
     expect(result.spend.trace).toContainEqual(
-      expect.objectContaining({ caller: "router:triage-router", model: LUNA, costUsd: 0.0002 }),
+      expect.objectContaining({
+        caller: "router:triage-router",
+        model: LUNA,
+        costUsd: usd(0.0002),
+      }),
     );
   });
 });

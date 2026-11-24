@@ -1,3 +1,4 @@
+import { usd } from "../../../src/units/index.js";
 /**
  * #1366: what a branch's answer is marked with when the quorum is decided while its arbiters judge it — no mark, its
  * place in the quorum left and the spend of the arbiters' calls kept; and what happens to the other branches when
@@ -14,7 +15,7 @@ const record = (costUsd: number): UsageRecord => ({
   ...ZERO_USAGE,
   caller: "arbiter",
   model: "m",
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.Api,
 });
 

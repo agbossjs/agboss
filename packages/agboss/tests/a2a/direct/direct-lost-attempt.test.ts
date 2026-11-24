@@ -1,3 +1,4 @@
+import { usd } from "../../../src/units/index.js";
 /**
  * #860 (design §5): an attempt lost in flight — its run stopped without its reply, its `expiresAt`
  * passed — is settled once by whoever removes or takes the message over: its files removed (its
@@ -86,7 +87,7 @@ describe("#860: the sweep of the direct messages", () => {
   it("messages accepted before the retention go, with their attempts' files; younger ones stay", async () => {
     const clock = new VirtualClock(NINE);
     const { messages, deleteByOwner, sweep } = sweepOn(clock);
-    const reply = { finish: "quote-workflow-finish", output: { text: "12.50" }, spentUsd: 0 };
+    const reply = { finish: "quote-workflow-finish", output: { text: "12.50" }, spentUsd: usd(0) };
     await messages.saveIfAbsent(lostMessage());
     await messages.completeIfInFlight(lostMessage(), "run-lost", reply, NINE);
     await clock.advance(minutes(10));

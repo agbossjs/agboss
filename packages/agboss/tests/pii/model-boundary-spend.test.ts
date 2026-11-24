@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #1366: what the model boundary's masking cost — the usage of every paid detection is on the reading
  * of a model called for an agent, and on the masked request, one record for each text it searched.
@@ -12,7 +13,7 @@ const record = (costUsd: number, caller: string): UsageRecord => ({
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.Api,
 });
 

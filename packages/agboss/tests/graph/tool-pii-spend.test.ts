@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #1366: the spend of the tool task's PII reading — what a detection cost is on the closed result when a block
  * rule refuses it, whether the refusal came from a model the call made or from the result's own check.
@@ -12,7 +13,7 @@ const record = (costUsd: number, caller: string): UsageRecord => ({
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.Api,
 });
 

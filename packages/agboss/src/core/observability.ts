@@ -1,3 +1,4 @@
+import { type Usd } from "../units/index.js";
 import type { CompensationRecord } from "../flow/compensation.js";
 import type { GuardrailSide } from "../components/policy-decorators.js";
 import type { BaseMessage, MessageContent } from "@langchain/core/messages";
@@ -129,7 +130,7 @@ export interface ModelEndEvent extends NodeEvent {
   readonly callerName: string;
   readonly rawContent: MessageContent;
   readonly usage: ModelUsage;
-  readonly calculatedCost?: number;
+  readonly costUsd?: Usd;
 }
 
 /** Why an agent ran its model again inside one step: what the retry loop corrected. */

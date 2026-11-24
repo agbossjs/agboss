@@ -1,3 +1,4 @@
+import { usd } from "../../../src/units/index.js";
 /**
  * #1366 (budget-loop shard): a tool task of the loop carries the budget the tool's own paid file reading is
  * checked against — the whole usage so far, the flow's path and the loop's own spend — so that a tool result's
@@ -13,7 +14,7 @@ const record = (costUsd: number, caller: string): UsageRecord => ({
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.Api,
 });
 

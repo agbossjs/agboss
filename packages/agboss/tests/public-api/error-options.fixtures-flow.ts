@@ -9,7 +9,7 @@ import { fx } from "./error-options.fx.js";
 const workflow = { name: "refund-workflow", version: "1", startedVersion: "1", configHash: "a" };
 const entry = { application: "orders", start: "orders-workflow-start" };
 const chain = [{ ...entry, executionId: "root-1" }];
-const lost = { path: ["refund-agent"], spentUsd: 0.5 };
+const lost = { path: ["refund-agent"], spentUsd: usd(0.5) };
 const paid = { usage: [] };
 
 export const flowFixtures: Readonly<Record<string, object>> = Object.fromEntries([

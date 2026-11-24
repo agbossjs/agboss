@@ -1,3 +1,4 @@
+import { storedUsd } from "../../finops/cost-report.js";
 import { z } from "zod";
 import { ComponentKind } from "../../flow/runtime/records.js";
 import { CheckStatus, EvalCascade } from "../suite/checks.js";
@@ -27,7 +28,7 @@ const CheckSchema = z.looseObject({
   reason: z.string().optional(),
   skippedBy: z.string().optional(),
   metrics: z.record(z.string(), z.union([z.number(), z.string(), z.boolean()])).optional(),
-  spentUsd: z.number().optional(),
+  spentUsd: storedUsd.optional(),
 });
 
 const RunSchema = z.looseObject({
@@ -39,7 +40,7 @@ const RunSchema = z.looseObject({
   passed: z.boolean(),
   checks: z.array(CheckSchema),
   error: z.looseObject({ code: z.string(), message: z.string() }).optional(),
-  spentUsd: z.number(),
+  spentUsd: storedUsd,
   trace: ExecutionTraceSchema.optional(),
 });
 
@@ -116,7 +117,7 @@ const ReportSchema: z.ZodType<EvalRunReport> = z.looseObject({
     judgeCalls: count,
     skippedByCascade: count,
   }),
-  spend: z.looseObject({ totalUsd: z.number() }),
+  spend: z.looseObject({ totalUsd: storedUsd }),
   chaos: ChaosSchema.optional(),
   metamorphic: z.boolean().optional(),
   baseline: ComparisonSchema.optional(),

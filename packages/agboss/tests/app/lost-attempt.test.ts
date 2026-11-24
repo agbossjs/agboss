@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #860 D1 (recovery shard): the lost pass of a run no recovery continues, read from its tree's mark
  * before its keys go — one call of unknown cost under the run's own ledger key for a run that can
@@ -41,7 +42,7 @@ describe("#860 D1: a lost run's call of unknown cost", () => {
       expect.objectContaining({
         caller: "lost-pass:quote-workflow",
         model: "unknown",
-        costUsd: 0,
+        costUsd: usd(0),
         costSource: CostSource.Unknown,
         ledgerKey: { id: "unknown:lost-run:acme:run-1", madeAt: NINE },
       }),

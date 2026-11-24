@@ -1,4 +1,5 @@
 import { expect } from "vitest";
+import { usd } from "../../units/index.js";
 import { NO_RECIPIENTS } from "../../infrastructure/pause-notices.js";
 import {
   PauseResolution,
@@ -26,7 +27,7 @@ const INTERPRETER_CALL: UsageRecord = {
   outputTokens: 2,
   cacheReadTokens: 0,
   cacheWriteTokens: 0,
-  costUsd: 0.01,
+  costUsd: usd(0.01),
   costSource: CostSource.Api,
 };
 

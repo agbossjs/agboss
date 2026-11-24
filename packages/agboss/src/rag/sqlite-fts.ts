@@ -1,3 +1,4 @@
+import { usd } from "../units/index.js";
 import { createHash } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
@@ -138,7 +139,7 @@ export class SqliteFtsConnector implements RagConnector {
       documents: documents.length,
       chunks,
       skipped: documents.length - changed.length,
-      costUsd: 0,
+      costUsd: usd(0),
     };
   }
 
@@ -150,7 +151,7 @@ export class SqliteFtsConnector implements RagConnector {
     signal.throwIfAborted();
     const db = this.open();
     const match = ftsQuery(query);
-    if (match === undefined) return { results: [], costUsd: 0 };
+    if (match === undefined) return { results: [], costUsd: usd(0) };
     const hits = db
       .prepare(
         "SELECT source, text, bm25(chunks) AS rank FROM chunks WHERE chunks MATCH ? AND tenant_id = ? ORDER BY rank LIMIT ?",
@@ -159,7 +160,7 @@ export class SqliteFtsConnector implements RagConnector {
       .map((row) => Hit.parse(row));
     return {
       results: hits.map((hit) => ({ source: hit.source, text: hit.text, score: -hit.rank })),
-      costUsd: 0,
+      costUsd: usd(0),
     };
   }
 

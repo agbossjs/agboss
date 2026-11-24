@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #1187 — the orphan look's wake of a `paused` root beside an answer no pass took, on its own: a
  * root with a resolved pause is woken (a pending sibling after it on the page too), never closed;
@@ -24,7 +25,7 @@ const turnOf = (runId: string, status: Turn["status"], bundle = "orders-workflow
   stopReason: "",
   route: [],
   steps: [],
-  costUsd: 0,
+  costUsd: usd(0),
   promptVersion: "",
   modelVersion: "",
   replayOf: null,

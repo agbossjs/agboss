@@ -1,3 +1,4 @@
+import { usd } from "../../units/index.js";
 import { LimitExceededError } from "../../graph/limits.js";
 import type { WorkflowRecord } from "../context/execution-context.js";
 
@@ -43,7 +44,7 @@ export class DepthLimitExceededError extends LimitExceededError {
       limit: maxDepth,
       actual: depth,
       path,
-      spentUsd: 0,
+      spentUsd: usd(0),
       cause,
       message: `${workflow.name} went ${String(depth)} levels deep; its maxDepth is ${String(maxDepth)}`,
       details: { workflow: record, maxDepth, depth },

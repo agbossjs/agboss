@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #1325a: what a record and a handler read of a class — its own `static code`, never an inherited one —
  * and `RecordedError`, the failure rebuilt from a record, which is an `AGBossError` like the original.
@@ -49,7 +50,7 @@ describe("#1325a: a class is caught by its own code, never an inherited one", ()
 
   it("a family's variant and its family are caught by their own codes", () => {
     const record = errorRecordOf(
-      new LimitError.Visits({ nodeId: "a", limit: 1, actual: 2, path: [], spentUsd: 0 }),
+      new LimitError.Visits({ nodeId: "a", limit: 1, actual: 2, path: [], spentUsd: usd(0) }),
     );
 
     expect(record.lineage).toEqual(["limit.visits", "limit", "agboss"]);
@@ -61,7 +62,7 @@ describe("#1325a: a class is caught by its own code, never an inherited one", ()
 
 describe("#1325a: RecordedError is an AGBossError", () => {
   const original = new CardDeclinedError("declined", {
-    cause: new LimitError.Items({ node: "n", limit: 1, actual: 2, path: [], spentUsd: 0 }),
+    cause: new LimitError.Items({ node: "n", limit: 1, actual: 2, path: [], spentUsd: usd(0) }),
   });
 
   it("is an AGBossError and an Error, with the original's name, message and code", () => {

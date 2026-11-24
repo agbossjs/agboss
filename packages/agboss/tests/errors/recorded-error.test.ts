@@ -187,7 +187,7 @@ describe("#598: what a store holds, as each reader rebuilds it", () => {
       maxSpend: usd(1),
       spent: usd(2),
       path: [],
-      spentUsd: 2,
+      spentUsd: usd(2),
     });
     const undo = new CompensationFailedError({ failures: [], cause: declined });
 
@@ -220,7 +220,7 @@ describe("#598: what a store holds, as each reader rebuilds it", () => {
         maxSpend: usd(1),
         spent: usd(2),
         path: [],
-        spentUsd: 2,
+        spentUsd: usd(2),
       }),
     );
     const undo = stored(new CompensationFailedError({ failures: [], cause: declined }));

@@ -8,7 +8,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { duePausesOf, expirePauses } from "../../src/app/pause-expiry.js";
 import { ExecutionStatus } from "../../src/app/types.js";
-import { buildCostReport } from "../../src/finops/usage.js";
+import { CostReport } from "../../src/finops/usage.js";
 import type { ThreadKey } from "../../src/app/live-runs.js";
 import type { PausedExecution, PausedRunBook } from "../../src/app/paused-runs.js";
 import type { TreeMoveParts } from "../../src/app/tree-move-types.js";
@@ -175,7 +175,7 @@ describe("#941: the pass an expiry starts (expiredPassOf)", () => {
       startInput: {},
       path: [],
       budgetUsd: 1,
-      cost: buildCostReport([]),
+      cost: CostReport.fromUsage([]),
       threadId: "t-1",
       tenantId: "acme",
       turnId: "turn-1",

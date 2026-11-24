@@ -1,7 +1,7 @@
 import { ExecutionCancelledError } from "../../core/errors.js";
 import type { ExecutionEndEvent } from "../../core/observability.js";
 import type { ExecutionEvent } from "../../flow/observers/execution-event.js";
-import { buildCostReport } from "../../finops/usage.js";
+import { CostReport } from "../../finops/usage.js";
 import type { RemoteChildRun } from "../../flow/runtime/remote/remote-child-run.js";
 import type { ExecutionStateType } from "../../flow/runtime/state.js";
 import { nodeRecordIn, workflowIdentityOf } from "../../flow/runtime/workflow-keys.js";
@@ -58,7 +58,7 @@ const childEndEventOf = (child: FinishedChild): ExecutionEndEvent => ({
   ...eventOf(child),
   finish: nodeRecordIn(child.deps, child.last.finish),
   output: child.last.output,
-  spend: buildCostReport(child.last.usage.slice(child.run.initial.child.inheritedUsage)),
+  spend: CostReport.fromUsage(child.last.usage.slice(child.run.initial.child.inheritedUsage)),
 });
 
 /** A claimed child's pass as its worker announces it: finished, or stopped by a cancel. */

@@ -2052,7 +2052,7 @@ GuardrailRefusal`, its services and the execution through `deps`) — never both
   (`[guardrail.exclude-not-inherited]`, `[guardrail.not-a-guardrail]`); a model router takes the
   input ones (an `@OutputGuardrail` on a router is `[guardrail.output-on-router]`), a code router
   none (its own list: `[guardrail.no-model-call]`); a child workflow gets its own workflow's lists
-  over the application's. Spend `guardrail:<name>` (category `guards`); events `onGuardrailStart`
+  over the application's. Spend `guardrail:<name>` (category `guardrails`); events `onGuardrailStart`
   (`side`, `element`, `text`) / `onGuardrailEnd` (`isBlocked`, `probability`). Tests:
   `mockLlm(G).thenReturn(decideWith({ blocks: 0.9 }))` — unscripted, a guardrail passes. **Code
   guardrails (#383):** `decidedBy: DecidedBy.Code` (absent = `DecidedBy.Model`; options

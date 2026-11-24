@@ -126,7 +126,7 @@ function bindingOf(site: UnitSite, inUse: ModelCompactionInUse, model: string): 
 const unitRunOf = (spent: UsageRecord[]): CompactionRun => ({
   tenantId: "",
   threadId: "",
-  budgetLeftUsd: Number.POSITIVE_INFINITY,
+  budgetLeftUsd: undefined,
   callbacks: [],
   tokens: {},
   inFrame: (work) => work(),

@@ -1,6 +1,6 @@
 import type { PausedExecution } from "../../app/paused-runs.js";
 import { ExecutionStatus } from "../../app/types.js";
-import { buildCostReport } from "../../finops/usage.js";
+import { CostReport } from "../../finops/usage.js";
 import {
   PauseStatus,
   type PauseAnswer,
@@ -26,7 +26,7 @@ export const pausedRunOf = (threadId: string, runId = "run-1"): PausedExecution 
     startInput: { text: "charge" },
     budgetUsd: Number.POSITIVE_INFINITY,
     path: ["start", "clerk"],
-    cost: buildCostReport([]),
+    cost: CostReport.fromUsage([]),
     data: { scope: {}, outdatedValues: [], lastError: null },
     pending: [],
   },

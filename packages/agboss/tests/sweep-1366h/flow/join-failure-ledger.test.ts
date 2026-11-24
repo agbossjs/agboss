@@ -1,3 +1,4 @@
+import { usd } from "../../../src/units/index.js";
 /**
  * #1366: a launch that fails with no `.onError` side path to take it throws the branch's error, and the
  * spend of the undo it ran first (#340) reaches no state: it is written to the ledger at once, so no paid
@@ -25,7 +26,7 @@ const undoSpend: UsageRecord = {
   ...ZERO_USAGE,
   caller: "refund-action",
   model: "m",
-  costUsd: 0.75,
+  costUsd: usd(0.75),
   costSource: CostSource.Api,
 };
 

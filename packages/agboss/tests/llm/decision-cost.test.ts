@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #1366: the cost a Decisions API answer states — the reported `usage.cost` is the call's, none reported is no cost,
  * and a cost below zero (which would take spend off the budgets' counters) makes the answer invalid.
@@ -18,7 +19,7 @@ describe("#1366: the cost of a decision", () => {
 
     expect(read.usage).toMatchObject({
       caller: "router:desk",
-      costUsd: 0.25,
+      costUsd: usd(0.25),
       inputTokens: 10,
       outputTokens: 2,
     });

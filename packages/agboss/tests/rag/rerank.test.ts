@@ -106,7 +106,7 @@ describe("#703 AC1: the agent gets the reranked best topK of the candidates", ()
     const result = await execute(await appWith(book), KEYWORD_TOOL.start, { text: QUESTION });
 
     expect(sourcesOf(result.toolCalls[0]?.output)[0]).toBe(ANSWER.source);
-    expect(result.spend.byCategory.retrieval).toBeCloseTo(0.0001 + 0.0004, 10);
+    expect(result.spend.byCategory.rag).toBeCloseTo(0.0001 + 0.0004, 10);
   });
 });
 
@@ -118,12 +118,12 @@ describe("#703 AC2: the reranker's cost is in the turn and counts against the bu
 
     const result = await execute(await appWith(book), MODEL_CONTEXT.start, { text: QUESTION });
 
-    expect(result.spend.byCategory.retrieval).toBeCloseTo(0.0001 + 0.002, 10);
+    expect(result.spend.byCategory.rag).toBeCloseTo(0.0001 + 0.002, 10);
     expect(result.spend.trace).toContainEqual(
       expect.objectContaining({
         caller: "rag:model-ranked-rag",
         model: "local/llama",
-        category: "retrieval",
+        category: "rag",
       }),
     );
   });
@@ -137,7 +137,7 @@ describe("#703 AC2: the reranker's cost is in the turn and counts against the bu
 
     const result = await execute(await appWith(book), MODEL_TOOL.start, { text: QUESTION });
 
-    expect(result.spend.byCategory.retrieval).toBeCloseTo(0.0001 + 0.003, 10);
+    expect(result.spend.byCategory.rag).toBeCloseTo(0.0001 + 0.003, 10);
   });
 });
 

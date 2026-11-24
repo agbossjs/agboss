@@ -322,7 +322,7 @@ describe("#120 AC10: a queue summarises what is older than the smallest window",
     expect(second?.compacted).toBeUndefined();
     // S132: not after turn 3 — before turn 4 first reads its thread
     expect(third?.compacted).toBeUndefined();
-    expect(third?.spend.byCategory.compaction).toBe(0);
+    expect(third?.spend.byCategory.memory).toBe(0);
     expect(fourth?.compacted).toEqual([
       {
         compaction: "queue-compaction",
@@ -333,7 +333,7 @@ describe("#120 AC10: a queue summarises what is older than the smallest window",
       },
     ]);
     expect(fourth?.spend.byCaller["compaction:queue-compaction"]).toBeCloseTo(0.002, 6);
-    expect(fourth?.spend.byCategory.compaction).toBeCloseTo(0.002, 6);
+    expect(fourth?.spend.byCategory.memory).toBeCloseTo(0.002, 6);
     expect(fourth?.spend.trace.map((line) => line.caller)[0]).toBe("compaction:queue-compaction");
     expect(textOf(mockLlm(QueueCompaction).onlyRequest)).toContain("Turns to compact:\nstart");
   });
@@ -542,7 +542,7 @@ describe("#120 S132: compaction runs before the next turn reads its thread, neve
     const only = await execute(app, DeskStart, { text: "t1" });
 
     expect(only.compacted).toBeUndefined();
-    expect(only.spend.byCategory.compaction).toBe(0);
+    expect(only.spend.byCategory.memory).toBe(0);
     expect(mockLlm(EagerCompaction).requests).toEqual([]);
   });
 });

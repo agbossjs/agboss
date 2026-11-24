@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #1366 (budget-loop shard) — the budget rules of the quality gate after an agent's reply, each on its own over
  * fakes: what the judges' models cost is counted at once (#338) and the budgets' tallied form is the loop's
@@ -37,7 +38,7 @@ const record = (costUsd: number, caller = "x"): UsageRecord => ({
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.Api,
 });
 

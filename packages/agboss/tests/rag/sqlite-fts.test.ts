@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -64,7 +65,7 @@ describe("SQLite FTS5 connector (reference implementation)", () => {
       documents: 0,
       chunks: 0,
       skipped: 0,
-      costUsd: 0,
+      costUsd: usd(0),
     });
   });
 
@@ -96,7 +97,7 @@ describe("SQLite FTS5 connector (reference implementation)", () => {
     );
     const third = await connector.index(asDefault);
 
-    expect(first).toEqual({ documents: 2, chunks: 3, skipped: 0, costUsd: 0 });
+    expect(first).toEqual({ documents: 2, chunks: 3, skipped: 0, costUsd: usd(0) });
     expect(second.skipped).toBe(2);
     expect(third).toMatchObject({ documents: 2, skipped: 1 });
   });
@@ -220,7 +221,7 @@ describe("#818: the read path indexes lazily, once per tenant per instance", () 
     await expect(ask(connector, "acme")).rejects.toThrow("folder unreadable");
     isBroken = false;
 
-    await expect(ask(connector, "acme")).resolves.toEqual({ results: [], costUsd: 0 });
+    await expect(ask(connector, "acme")).resolves.toEqual({ results: [], costUsd: usd(0) });
   });
 
   it("a first build stopped midway — an abort between two documents — leaves nothing: the next retrieval builds it whole", async () => {
@@ -286,7 +287,7 @@ describe("#818: the read path indexes lazily, once per tenant per instance", () 
 
     expect(results.map((result) => result.status)).toEqual(["rejected", "rejected"]);
     expect(tries).toBe(1);
-    await expect(ask(connector, "acme")).resolves.toEqual({ results: [], costUsd: 0 });
+    await expect(ask(connector, "acme")).resolves.toEqual({ results: [], costUsd: usd(0) });
   });
 
   it("a retrieval waiting on another's first look, aborted by its own caller, tries its own", async () => {

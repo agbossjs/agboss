@@ -1,6 +1,6 @@
 import { AGBossError } from "../core/errors.js";
 import type { PauseKind } from "../pause/types.js";
-import type { Milliseconds } from "../units/index.js";
+import { Milliseconds, Usd } from "../units/index.js";
 import type { Expiry } from "./expiry.js";
 import type { StoreDescriptor } from "./execution-lease.repository.js";
 
@@ -92,7 +92,7 @@ export interface A2ATaskStatus {
    * when that was missed, by read repair from its records (#844): what a trusted caller's run report
    * signs.
    */
-  readonly spentUsd?: number;
+  readonly spentUsd?: Usd;
   /** Why it failed or was rejected: a stable code (`limit.hops`, `a2a.start-lost`, …). */
   readonly errorCode?: string;
   /**

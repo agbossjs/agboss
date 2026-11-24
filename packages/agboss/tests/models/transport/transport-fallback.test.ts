@@ -1,3 +1,4 @@
+import { usd } from "../../../src/units/index.js";
 /**
  * #385 — a breaker's fallback at the chat model: transport → HTTP and HTTP → transport, each call
  * sent as the fallback's model and priced by its table; PII masked in what `complete()` reads; and
@@ -41,7 +42,11 @@ describe("#385: the breaker's fallback works both ways between HTTP and transpor
     expect(backup.requests.map((request) => request.body?.model)).toEqual(["backup/claude"]);
     // 1M input × $10 + 0.5M output × $20 = $20
     expect(result.spend.trace).toEqual([
-      expect.objectContaining({ model: "backup/claude", costUsd: 20, costSource: "price-table" }),
+      expect.objectContaining({
+        model: "backup/claude",
+        costUsd: usd(20),
+        costSource: "price-table",
+      }),
     ]);
     await app.close();
   });
@@ -60,7 +65,7 @@ describe("#385: the breaker's fallback works both ways between HTTP and transpor
     expect(result.spend.trace).toEqual([
       expect.objectContaining({
         model: "bedrock/claude",
-        costUsd: 10.5,
+        costUsd: usd(10.5),
         costSource: "price-table",
       }),
     ]);

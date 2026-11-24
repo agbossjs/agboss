@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 import { BaseCallbackHandler } from "@langchain/core/callbacks/base";
 import { FakeListChatModel } from "@langchain/core/utils/testing";
 import { describe, expect, it, vi } from "vitest";
@@ -19,7 +20,7 @@ const handbook = (retrieve: KnowledgeSource["retrieve"]): KnowledgeSource => ({
 const found: KnowledgeSource["retrieve"] = () =>
   Promise.resolve({
     results: [{ source: "oncall.md", text: "On-call starts after the third month." }],
-    costUsd: 0.0002,
+    costUsd: usd(0.0002),
   });
 
 async function setup(source: KnowledgeSource) {
@@ -59,7 +60,7 @@ describe("knowledge bases — context mode", () => {
     expect(agentInput(alpha)).toContain(CITE_INSTRUCTION);
     expect(agentInput(alpha)).toContain("Answer from these search results when they are relevant");
     expect(agentInput(alpha)).not.toContain("passages");
-    expect(result.cost.byCategory.retrieval).toBeCloseTo(0.0002);
+    expect(result.cost.byCategory.rag).toBeCloseTo(0.0002);
     expect(JSON.stringify(result.output)).toContain("[oncall.md]");
   });
 
@@ -95,7 +96,7 @@ describe("knowledge bases — context mode", () => {
     );
 
     expect(record.caller).toBe("rag:handbook");
-    expect(costCategoryOf(record.caller)).toBe("retrieval");
+    expect(costCategoryOf(record.caller)).toBe("rag");
     expect(costCategoryOf(recordReportedCost({ name: "exchange_rate" }, 0.001).caller)).toBe(
       "tools",
     );

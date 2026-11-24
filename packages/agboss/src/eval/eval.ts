@@ -1,3 +1,4 @@
+import { type Usd, usd } from "../units/index.js";
 import {
   isApplicationSpendExhausted,
   recordApplicationSpend,
@@ -29,7 +30,7 @@ export const BUDGET_EXHAUSTED = "the application's budget is exhausted";
 
 export interface ScoringReport {
   readonly scored: number;
-  readonly costUsd: number;
+  readonly costUsd: Usd;
   readonly stoppedBy?: string;
 }
 
@@ -52,7 +53,7 @@ export function scoreOf(outcome: RouteOutcome): number | undefined {
 /** Scores the given Turns within the eval budget; a judge failure leaves a Turn unscored. */
 export async function scoreTurns(deps: EvalDeps, turns: readonly Turn[]): Promise<ScoringReport> {
   let scored = 0;
-  let costUsd = 0;
+  let costUsd: Usd = usd(0);
   for (const turn of turns) {
     if (await isApplicationSpendExhausted(deps.budgets)) {
       return { scored, costUsd, stoppedBy: BUDGET_EXHAUSTED };
@@ -60,7 +61,7 @@ export async function scoreTurns(deps: EvalDeps, turns: readonly Turn[]): Promis
     const outcome = await deps.judge.route(judgeRequest(turn));
     if (outcome.usage !== undefined) {
       await recordApplicationSpend(deps.budgets, [outcome.usage]);
-      costUsd += outcome.usage.costUsd;
+      costUsd = usd(costUsd + outcome.usage.costUsd);
     }
     const score = scoreOf(outcome);
     if (score === undefined) continue;

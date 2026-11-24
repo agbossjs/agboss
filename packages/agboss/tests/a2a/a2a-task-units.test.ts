@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #807 — the A2A task status mapping, projection and read repair on their own: an in-memory task
  * store and an execution control of the test's, every branch of each.
@@ -211,13 +212,18 @@ describe("#807: an execution's state as its task's status", () => {
     [{ status: DurableExecutionStatus.Running }, WORKING],
     [{ status: DurableExecutionStatus.Paused, pending: [pause()] }, pausedStatusOf([pause()])],
     [
-      { status: DurableExecutionStatus.Finished, finish: "f", output: { a: 1 }, spentUsd: 0.5 },
+      {
+        status: DurableExecutionStatus.Finished,
+        finish: "f",
+        output: { a: 1 },
+        spentUsd: usd(0.5),
+      },
       {
         state: A2ATaskState.Completed,
         pendingPauses: [],
         finish: "f",
         output: { a: 1 },
-        spentUsd: 0.5,
+        spentUsd: usd(0.5),
       },
     ],
     [
@@ -273,7 +279,7 @@ const FINISHED = {
   status: DurableExecutionStatus.Finished,
   finish: "f",
   output: 1,
-  spentUsd: 0.2,
+  spentUsd: usd(0.2),
 } as const;
 
 describe("#807: the projection on its own", () => {
@@ -313,7 +319,7 @@ describe("#807: the projection on its own", () => {
   });
 
   it("an end → COMPLETED from the records, with what it spent (#810); nothing while they show no finish", async () => {
-    const spend = { totalUsd: 0.25 };
+    const spend = { totalUsd: usd(0.25) };
     const end = { ...(eventOf() as object), finish: { name: "f" }, spend } as never;
     const { tasks } = await storeWith(WORKING);
 
@@ -330,7 +336,7 @@ describe("#807: the projection on its own", () => {
       pendingPauses: [],
       finish: "f",
       output: 1,
-      spentUsd: 0.25,
+      spentUsd: usd(0.25),
     });
   });
 
@@ -620,12 +626,12 @@ describe("#810: the mesh's statuses", () => {
   it("#844: a completion always keeps what it spent", async () => {
     const { completedStatusOf } = await import("../../src/a2a/tasks/task-status.js");
 
-    expect(completedStatusOf("f", 1, 0.5)).toStrictEqual({
+    expect(completedStatusOf("f", 1, usd(0.5))).toStrictEqual({
       state: A2ATaskState.Completed,
       pendingPauses: [],
       finish: "f",
       output: 1,
-      spentUsd: 0.5,
+      spentUsd: usd(0.5),
     });
   });
 });

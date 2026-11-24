@@ -1,3 +1,4 @@
+import { storedUsd } from "../../finops/cost-report.js";
 import { z } from "zod";
 import { CompensationReason, CompensationStatus } from "../../flow/compensation.js";
 import { ChildExecutionStatus } from "../../flow/runtime/child-records.js";
@@ -34,7 +35,7 @@ const StepSchema = z.looseObject({
       inputTokens: count,
       outputTokens: count,
       cacheReadTokens: count,
-      costUsd: z.number(),
+      costUsd: storedUsd,
     }),
   ),
   toolCalls: z.array(
@@ -66,7 +67,7 @@ const StepSchema = z.looseObject({
       metrics: metrics.optional(),
     }),
   ),
-  spentUsd: z.number(),
+  spentUsd: storedUsd,
   startedAt: z.string(),
   endedAt: z.string(),
   error: ErrorSchema.optional(),

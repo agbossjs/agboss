@@ -1,3 +1,4 @@
+import { usd } from "../../../../src/units/index.js";
 /**
  * #1366: how a step whose pause expired fails — a run-bound pause fails with the run's own deadline error (the
  * budgets' check first, any other error it throws goes on as it is), else with PauseExpiredError carrying the
@@ -91,7 +92,7 @@ describe("#1366: a run-bound pause", () => {
       deadline: seconds(1),
       deadlineAt: ASKED,
       path: [],
-      spentUsd: 0,
+      spentUsd: usd(0),
     });
     const error = expiryFailureOf(
       pauseOf(),

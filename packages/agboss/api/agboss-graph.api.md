@@ -56,7 +56,7 @@ export class LimitExceededError extends AGBossError {
     // (undocumented)
     readonly path: readonly string[];
     // (undocumented)
-    readonly spentUsd: number;
+    readonly spentUsd: Usd;
     // (undocumented)
     readonly usage: readonly UsageRecord[];
 }
@@ -74,7 +74,7 @@ export interface LimitExceededErrorOptions {
     // (undocumented)
     readonly path: readonly string[];
     // (undocumented)
-    readonly spentUsd: number;
+    readonly spentUsd: Usd;
     readonly usage?: readonly UsageRecord[];
 }
 

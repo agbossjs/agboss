@@ -27,7 +27,7 @@ const budget = new BudgetExceededError({
   maxSpend: usd(0.01),
   spent: usd(0.02),
   path: ["order", "buyer"],
-  spentUsd: 0.02,
+  spentUsd: usd(0.02),
 });
 
 /** What a serialising checkpointer gives back. */

@@ -52,7 +52,7 @@ export interface A2ADirectMessageReply {
     readonly finish: string;
     // (undocumented)
     readonly output: unknown;
-    readonly spentUsd: number;
+    readonly spentUsd: Usd;
 }
 
 // @public
@@ -295,7 +295,7 @@ export interface A2ATaskStatus {
     readonly message?: string;
     readonly output?: unknown;
     readonly pendingPauses: readonly A2ATaskPause[];
-    readonly spentUsd?: number;
+    readonly spentUsd?: Usd;
     // (undocumented)
     readonly state: A2ATaskState;
 }
@@ -1102,7 +1102,7 @@ export interface BudgetExceededErrorOptions extends BudgetBreach {
     // (undocumented)
     readonly path: readonly string[];
     // (undocumented)
-    readonly spentUsd: number;
+    readonly spentUsd: Usd;
     // (undocumented)
     readonly usage?: readonly UsageRecord[];
 }
@@ -2286,13 +2286,19 @@ export enum CostCategory {
     // (undocumented)
     Agents = "agents",
     // (undocumented)
-    Compaction = "compaction",
+    Arbiters = "arbiters",
     // (undocumented)
     Files = "files",
     // (undocumented)
-    Guards = "guards",
+    Guardrails = "guardrails",
     // (undocumented)
-    Retrieval = "retrieval",
+    Memory = "memory",
+    // (undocumented)
+    Pauses = "pauses",
+    // (undocumented)
+    Pii = "pii",
+    // (undocumented)
+    Rag = "rag",
     // (undocumented)
     Review = "review",
     // (undocumented)
@@ -2390,7 +2396,7 @@ export interface CostLine extends TokenUsage {
     // (undocumented)
     readonly costSource: CostSource;
     // (undocumented)
-    readonly costUsd: number;
+    readonly costUsd: Usd;
     // (undocumented)
     readonly model: string;
     readonly servedBy?: string;
@@ -2399,24 +2405,35 @@ export interface CostLine extends TokenUsage {
 // @public
 export interface CostReport {
     // (undocumented)
-    readonly byCaller: Readonly<Record<string, number>>;
-    readonly byCategory: Readonly<Record<CostCategory, number>>;
+    readonly byCaller: Readonly<Record<string, Usd>>;
+    readonly byCategory: Readonly<Record<CostCategory, Usd>>;
     // (undocumented)
-    readonly byModel: Readonly<Record<string, number>>;
-    // (undocumented)
+    readonly byModel: Readonly<Record<string, Usd>>;
     readonly cacheReadTokens: number;
+    readonly cacheWriteTokens: number;
     readonly calls: number;
-    readonly totalUsd: number;
+    readonly inputTokens: number;
+    readonly outputTokens: number;
+    readonly totalTokens: number;
+    readonly totalUsd: Usd;
     readonly trace: readonly CostLine[];
     readonly unknownCalls: number;
 }
+
+// @public
+export const CostReport: {
+    readonly fromUsage: (records: readonly UsageRecord[]) => CostReport;
+    readonly empty: () => CostReport;
+    readonly sum: (reports: readonly CostReport[]) => CostReport;
+};
 
 // @public
 export enum CostSource {
     Api = "api",
     PriceTable = "price-table",
     Tool = "tool",
-    Unknown = "unknown"
+    Unknown = "unknown",
+    Unpriced = "unpriced"
 }
 
 // @public
@@ -2512,7 +2529,7 @@ export interface DeadlineExceededErrorOptions {
     // (undocumented)
     readonly path: readonly string[];
     // (undocumented)
-    readonly spentUsd: number;
+    readonly spentUsd: Usd;
     // (undocumented)
     readonly usage?: readonly UsageRecord[];
 }
@@ -5552,7 +5569,7 @@ export type LimitError = LimitError.Budget | LimitError.Deadline | LimitError.It
 export namespace LimitError {
     export type Budget = PaidErrorVariant<LimitErrorKind.Budget, "limit.budget"> & {
         readonly path: readonly string[];
-        readonly spentUsd: number;
+        readonly spentUsd: Usd;
     } & {
         readonly budget: Pick<ComponentRecord, "name">;
         readonly scope: BudgetScope;
@@ -5563,14 +5580,14 @@ export namespace LimitError {
     };
     export type Deadline = PaidErrorVariant<LimitErrorKind.Deadline, "limit.deadline"> & {
         readonly path: readonly string[];
-        readonly spentUsd: number;
+        readonly spentUsd: Usd;
     } & {
         readonly deadline: Milliseconds;
         readonly deadlineAt: Date;
     };
     export type Depth = PaidErrorVariant<LimitErrorKind.Depth, "limit.depth"> & {
         readonly path: readonly string[];
-        readonly spentUsd: number;
+        readonly spentUsd: Usd;
     } & {
         readonly workflow: string;
         readonly limit: number;
@@ -5578,7 +5595,7 @@ export namespace LimitError {
     };
     export type Hops = PaidErrorVariant<LimitErrorKind.Hops, "limit.hops"> & {
         readonly path: readonly string[];
-        readonly spentUsd: number;
+        readonly spentUsd: Usd;
     } & {
         readonly entry: string;
         readonly limit: number;
@@ -5586,7 +5603,7 @@ export namespace LimitError {
     };
     export type Items = PaidErrorVariant<LimitErrorKind.Items, "limit.items"> & {
         readonly path: readonly string[];
-        readonly spentUsd: number;
+        readonly spentUsd: Usd;
     } & {
         readonly node: string;
         readonly limit: number;
@@ -5594,7 +5611,7 @@ export namespace LimitError {
     };
     export type MeshLoop = PaidErrorVariant<LimitErrorKind.MeshLoop, "limit.mesh-loop"> & {
         readonly path: readonly string[];
-        readonly spentUsd: number;
+        readonly spentUsd: Usd;
     } & {
         readonly entry: string;
         readonly limit: number;
@@ -5602,7 +5619,7 @@ export namespace LimitError {
     };
     export type Steps = PaidErrorVariant<LimitErrorKind.Steps, "limit.steps"> & {
         readonly path: readonly string[];
-        readonly spentUsd: number;
+        readonly spentUsd: Usd;
     } & {
         readonly workflow: string;
         readonly limit: number;
@@ -5610,7 +5627,7 @@ export namespace LimitError {
     };
     export type Visits = PaidErrorVariant<LimitErrorKind.Visits, "limit.visits"> & {
         readonly path: readonly string[];
-        readonly spentUsd: number;
+        readonly spentUsd: Usd;
     } & {
         readonly nodeId: string;
         readonly limit: number;
@@ -5668,7 +5685,7 @@ export class LimitExceededError extends AGBossError {
     // (undocumented)
     readonly path: readonly string[];
     // (undocumented)
-    readonly spentUsd: number;
+    readonly spentUsd: Usd;
     // (undocumented)
     readonly usage: readonly UsageRecord[];
 }
@@ -5686,7 +5703,7 @@ export interface LimitExceededErrorOptions {
     // (undocumented)
     readonly path: readonly string[];
     // (undocumented)
-    readonly spentUsd: number;
+    readonly spentUsd: Usd;
     readonly usage?: readonly UsageRecord[];
 }
 
@@ -5821,7 +5838,7 @@ export interface MeshHop extends MeshEntry {
 // @public
 export interface MeshLimitPlace {
     readonly path: readonly string[];
-    readonly spentUsd: number;
+    readonly spentUsd: Usd;
     readonly usage: readonly UsageRecord[];
 }
 
@@ -6006,9 +6023,9 @@ export interface ModelDefaults {
 // @public
 export interface ModelEndEvent extends NodeEvent {
     // (undocumented)
-    readonly calculatedCost?: number;
-    // (undocumented)
     readonly callerName: string;
+    // (undocumented)
+    readonly costUsd?: Usd;
     // (undocumented)
     readonly model: string;
     // (undocumented)
@@ -8165,7 +8182,7 @@ export interface ProfileReport {
     // (undocumented)
     readonly costPerTaskUsd: number;
     // (undocumented)
-    readonly costUsd: number;
+    readonly costUsd: Usd;
     // (undocumented)
     readonly diff: readonly string[];
     // (undocumented)
@@ -9723,7 +9740,7 @@ export interface StepsLimitExceededErrorOptions {
     // (undocumented)
     readonly path: readonly string[];
     // (undocumented)
-    readonly spentUsd: number;
+    readonly spentUsd: Usd;
     // (undocumented)
     readonly workflow: WorkflowRecord;
 }
@@ -9853,7 +9870,7 @@ export interface Summary {
     readonly bundle: string;
     readonly compaction: string;
     // (undocumented)
-    readonly costUsd: number;
+    readonly costUsd: Usd;
     // (undocumented)
     readonly createdAt: string;
     // (undocumented)
@@ -10429,12 +10446,9 @@ export interface ToStep {
 }
 
 // @public
-export function totalCost(entries: readonly (UsageRecord & {
+export function totalCost(records: readonly {
     readonly costUsd: Usd;
-})[]): Usd;
-
-// @public (undocumented)
-export function totalCost(records: readonly UsageRecord[]): number;
+}[]): Usd;
 
 // @public
 export function toWorkflow<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>, options?: ChildStepOptions): AfterStep<InstanceType<TClass>, SideHead>;
@@ -10486,7 +10500,7 @@ export interface Turn {
     readonly configHash: string | null;
     readonly configVersion: string | null;
     // (undocumented)
-    readonly costUsd: number;
+    readonly costUsd: Usd;
     // (undocumented)
     readonly createdAt: string;
     // (undocumented)
@@ -10638,7 +10652,7 @@ export interface UsageRecord extends TokenUsage {
     // (undocumented)
     readonly costSource: CostSource;
     // (undocumented)
-    readonly costUsd: number;
+    readonly costUsd: Usd;
     readonly ledger?: LedgerMark;
     readonly ledgerKey?: LedgerKey;
     // (undocumented)
@@ -10743,7 +10757,7 @@ export type VariantOptions<TVariant extends AGBossError> = VariantFacts<TVariant
 // @public
 export interface VersionScore {
     // (undocumented)
-    readonly costUsd: number;
+    readonly costUsd: Usd;
     // (undocumented)
     readonly meanScore: number | null;
     // (undocumented)
@@ -10782,7 +10796,7 @@ export interface VisitsLimitExceededErrorOptions {
     // (undocumented)
     readonly path: readonly string[];
     // (undocumented)
-    readonly spentUsd: number;
+    readonly spentUsd: Usd;
 }
 
 // @public
@@ -11662,7 +11676,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "callerName".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "rawContent".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "usage".
-// src/core/observability.ts - (ae-undocumented) Missing documentation for "calculatedCost".
+// src/core/observability.ts - (ae-undocumented) Missing documentation for "costUsd".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "reason".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "input".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "judge".
@@ -11817,12 +11831,17 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/files/model-files.ts - (ae-undocumented) Missing documentation for "options".
 // src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Agents".
 // src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Routing".
-// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Guards".
+// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Guardrails".
 // src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Review".
 // src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Tools".
-// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Compaction".
-// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Retrieval".
+// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Memory".
+// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Rag".
 // src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Files".
+// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Pii".
+// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Arbiters".
+// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Pauses".
+// src/finops/cost-report.ts - (ae-undocumented) Missing documentation for "byCaller".
+// src/finops/cost-report.ts - (ae-undocumented) Missing documentation for "byModel".
 // src/finops/ledger-mark.ts - (ae-undocumented) Missing documentation for "state".
 // src/finops/ledger-mark.ts - (ae-undocumented) Missing documentation for "state".
 // src/finops/ledger-mark.ts - (ae-undocumented) Missing documentation for "cause".
@@ -11850,10 +11869,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/finops/usage.ts - (ae-undocumented) Missing documentation for "model".
 // src/finops/usage.ts - (ae-undocumented) Missing documentation for "costUsd".
 // src/finops/usage.ts - (ae-undocumented) Missing documentation for "costSource".
-// src/finops/usage.ts - (ae-undocumented) Missing documentation for "cacheReadTokens".
-// src/finops/usage.ts - (ae-undocumented) Missing documentation for "byCaller".
-// src/finops/usage.ts - (ae-undocumented) Missing documentation for "byModel".
-// src/finops/usage.ts - (ae-undocumented) Missing documentation for "totalCost".
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "Start".
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "Finish".
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "Agent".

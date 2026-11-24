@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #1325a security: a `RecordedError` is an `AGBossError`, so every boundary that trusts "an AGBossError's
  * code is a framework code" must still say nothing of a recorded error whose original was a third-party
@@ -22,7 +23,7 @@ const thirdParty = (): RecordedError =>
 const framework = (): RecordedError =>
   new RecordedError(
     errorRecordOf(
-      new LimitError.Visits({ nodeId: "a", limit: 1, actual: 2, path: [], spentUsd: 0 }),
+      new LimitError.Visits({ nodeId: "a", limit: 1, actual: 2, path: [], spentUsd: usd(0) }),
     ),
   );
 
