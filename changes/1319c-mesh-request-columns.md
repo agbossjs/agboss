@@ -4,17 +4,21 @@ issue: 1319
 ---
 
 **The mesh request store keeps what each request asked and when it expires** (#1319c).
-`MeshRequestRecord` has `tool`, `requestHash` (`sha256:` of the tool and its arguments) and
-`expiresAt` (`createdAt` + `@Mesh({ deduplicationTtl })`); `saveIfAbsent` also stores a `response`
-the record already carries (a replayed-signature marker is finished at once). A trusted MCP call
-that repeats an idempotency key with another tool or other arguments is refused
-`mesh.idempotency-key-reused` (`MeshRefusalCode.IdempotencyKeyReused`), never answered with the
-other call's result. `MeshRequestRepository.deleteExpired(now)` removes the rows whose `expiresAt`
-has come and that have an answer, and those without one only `MESH_IN_PROGRESS_GRACE_MS` (1 hour)
-after it: a request still running inside its window keeps its key (a repeat meets
-`mesh.request-in-progress`, a replay is refused, a different body is `mesh.idempotency-key-reused`),
-and a crashed handler frees its key after the window plus the grace. The sweep passes `now`; the `meshAnswers`
-retention is no longer read by it. SQLite: `mesh_requests(tool, request_hash, expires_at)` in the
-baseline schema (no migration). Store follow-up: PostgreSQL and MongoDB need the same three columns
-and the same `deleteExpired(now)` (answered rows at `expires_at`, unanswered ones at `expires_at` +
-grace; Redis keeps its keys with a TTL of window + grace) (the 0.1.1 baseline, train T4).
+`MeshRequestRecord` has `tool`, `requestHash` (`sha256:` of the tool and its arguments),
+`expiresAt` (`createdAt` + `@Mesh({ deduplicationTtl })`), `attemptId` and `lockedUntil`: a request
+that runs is held by its attempt under a lease (`MESH_REQUEST_LEASE_MS`, 30 s) that the running
+handler renews every third of it. `saveIfAbsent` claims a key, saves a `response` the record already
+carries (a replayed-signature marker is finished at once), and takes over a key kept without an
+answer only when its lease has lapsed and the call is the same (tool and request hash). `renewLease`,
+`saveResponse` and `deleteByKey` take the attempt id and write nothing (return `false`, fenced) for
+a stale attempt. A trusted MCP call that repeats an idempotency key with another tool or other
+arguments is refused `mesh.idempotency-key-reused` (`MeshRefusalCode.IdempotencyKeyReused`), one
+inside the lease meets `mesh.request-in-progress`; a handler that crashed frees its key once its
+lease lapsed. `MeshRequestRepository.deleteExpired(now)` removes the rows whose `expiresAt` has
+come and that are answered or whose lease has lapsed; a handler that keeps renewing is never
+swept. SQLite: `mesh_requests(tool, request_hash, attempt_id, expires_at, locked_until)` in the
+baseline schema (no migration). Store follow-up (train T4): PostgreSQL and MongoDB need the same
+columns and conditional writes (`UPDATE ... WHERE attempt_id = ? AND response IS NULL`, the
+takeover as one conditional update on `locked_until <= now` with the same tool and hash, the sweep
+as above); Redis: a hash per key with the attempt id and a Lua script for the conditional
+renew/answer/delete/takeover, the key's TTL at `expiresAt`.

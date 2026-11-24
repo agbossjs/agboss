@@ -6,6 +6,7 @@
  */
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { describe, expect, it } from "vitest";
+import { seconds } from "../../src/units/index.js";
 import type { App } from "../../src/app/types.js";
 import {
   InMemoryMeshRequestRepository,
@@ -41,18 +42,22 @@ class ListedRequests extends InMemoryMeshRequestRepository {
     return super.findByKey(key);
   }
 
-  override saveResponse(key: MeshRequestKey, response: unknown) {
+  override saveResponse(key: MeshRequestKey, attemptId: string, response: unknown) {
     this.asked.push("saveResponse");
-    return super.saveResponse(key, response);
+    return super.saveResponse(key, attemptId, response);
   }
 
-  override deleteByKey(key: MeshRequestKey) {
+  override deleteByKey(key: MeshRequestKey, attemptId: string) {
     this.asked.push("deleteByKey");
-    return super.deleteByKey(key);
+    return super.deleteByKey(key, attemptId);
   }
 }
 
-function appOf(requests: MeshRequestRepository, hasSettings = true): App {
+function appOf(
+  requests: MeshRequestRepository,
+  hasSettings = true,
+  clock = new VirtualClock(NOW),
+): App {
   const app = {
     resolve: (type: unknown) => {
       if (type !== MeshRequestRepository) throw new Error("only the request store is resolved");
@@ -60,11 +65,21 @@ function appOf(requests: MeshRequestRepository, hasSettings = true): App {
     },
   };
   rememberMeshSettings(app, () =>
-    hasSettings
-      ? ({ clock: new VirtualClock(NOW), idempotencyRetention: 60_000 } as never)
-      : undefined,
+    hasSettings ? ({ clock, idempotencyRetention: 60_000 } as never) : undefined,
   );
   return app as never;
+}
+
+/** The request hash the store keeps for `TRUSTED`: read off a call run on a scratch store. */
+async function hashOfTrusted(): Promise<string> {
+  const scratch = new ListedRequests();
+  await dedupedMcpCall(appOf(scratch), TRUSTED, () => Promise.resolve(result("x")));
+  const kept = await scratch.findByKey({
+    tenantId: "acme",
+    peer: "orders-app",
+    idempotencyKey: "c-1",
+  });
+  return kept?.requestHash ?? "";
 }
 
 const TRUSTED: McpDedupeCall = {
@@ -105,8 +120,10 @@ describe("#1366: a trusted MCP call runs once", () => {
         idempotencyKey: "c-1",
         tool: "order-status-tool",
         requestHash: expect.stringMatching(/^sha256:[0-9a-f]{64}$/) as unknown,
+        attemptId: expect.any(String) as unknown,
         createdAt: NOW.toISOString(),
         expiresAt: new Date(NOW.getTime() + 60_000).toISOString(),
+        lockedUntil: new Date(NOW.getTime() + 30_000).toISOString(),
       },
     ]);
     expect(
@@ -144,6 +161,59 @@ describe("#1366: a trusted MCP call runs once", () => {
       });
     expect(sameAgain).toEqual(result("paid 1"));
     expect(runs.count).toBe(1);
+  });
+
+  it("a long handler that keeps renewing its lease is never reclaimed: a repeat meets in-progress, runs nothing", async () => {
+    const requests = new ListedRequests();
+    const clock = new VirtualClock(NOW);
+    const app = appOf(requests, true, clock);
+    let release: () => void = () => undefined;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    const slow = counting();
+    const first = dedupedMcpCall(app, TRUSTED, async () => {
+      await held;
+      return slow.run();
+    });
+    await clock.advance(seconds(100)); // far past one lease: the handler renewed it each time
+
+    const repeat = await dedupedMcpCall(app, TRUSTED, counting("again").run);
+    release();
+    await first;
+
+    expect(repeat).toMatchObject({
+      _meta: { "agboss.dev/error": { code: "mesh.request-in-progress" } },
+    });
+    expect(slow.runs.count).toBe(1);
+  });
+
+  it("a dead handler's request is taken over once its lease lapsed, and its late answer writes nothing", async () => {
+    const requests = new ListedRequests();
+    const clock = new VirtualClock(NOW);
+    const app = appOf(requests, true, clock);
+    const key = { tenantId: "acme", peer: "orders-app", idempotencyKey: "c-1" };
+    // a handler that took the request and died: its attempt never renews
+    await requests.saveIfAbsent({
+      ...key,
+      tool: TRUSTED.tool,
+      requestHash: await hashOfTrusted(),
+      attemptId: "dead-attempt",
+      createdAt: NOW.toISOString(),
+      expiresAt: new Date(NOW.getTime() + 60_000).toISOString(),
+      lockedUntil: new Date(NOW.getTime() + 30_000).toISOString(),
+    });
+    const inside = await dedupedMcpCall(app, TRUSTED, counting().run);
+    await clock.advance(seconds(31));
+    const mine = counting("taken over");
+
+    const taken = await dedupedMcpCall(app, TRUSTED, mine.run);
+    const lateAnswer = await requests.saveResponse(key, "dead-attempt", result("stale"));
+
+    expect(inside).toMatchObject({
+      _meta: { "agboss.dev/error": { code: "mesh.request-in-progress" } },
+    });
+    expect(taken).toEqual(result("taken over 1"));
+    expect(lateAnswer).toBe(false);
+    expect((await requests.findByKey(key))?.response).toEqual(result("taken over 1"));
   });
 
   it("answers a repeat while the first still runs: mesh.request-in-progress, and runs nothing", async () => {

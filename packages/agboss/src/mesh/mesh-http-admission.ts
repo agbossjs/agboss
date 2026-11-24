@@ -65,6 +65,8 @@ async function firstSeen(
       requestHash: "",
       createdAt: new Date(kept).toISOString(),
       expiresAt: new Date(kept + settings.idempotencyRetention).toISOString(),
+      attemptId: "",
+      lockedUntil: new Date(kept).toISOString(),
       response: true,
     });
     return isNew ? undefined : refused(401, MeshRefusalCode.Replayed);

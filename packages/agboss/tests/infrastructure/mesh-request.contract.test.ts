@@ -24,9 +24,11 @@ describe("#398 PR 2: the recovery sweep removes the answers past their retention
       tool: "order-status-tool",
       requestHash: "sha256:aa",
       createdAt: createdAt.toISOString(),
+      attemptId: "attempt-1",
       expiresAt: new Date(createdAt.getTime() + DEFAULT_IDEMPOTENCY_RETENTION).toISOString(),
+      lockedUntil: createdAt.toISOString(),
     });
-    await requests.saveResponse(key, { status: "finished" });
+    await requests.saveResponse(key, "attempt-1", { status: "finished" });
 
     await clock.advance(minutes(29));
     const kept = await requests.findByKey(key);

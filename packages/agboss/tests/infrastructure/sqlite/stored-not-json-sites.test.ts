@@ -104,9 +104,11 @@ describe.each(TEXTS)("#1166: %s is the coded unreadable refusal", (_name, NOT_JS
       tool: "t",
       requestHash: "h",
       createdAt: iso,
+      attemptId: "a",
       expiresAt: iso,
+      lockedUntil: iso,
     });
-    await mesh.saveResponse(key, "ok");
+    await mesh.saveResponse(key, "a", "ok");
     connection.database.prepare("UPDATE mesh_requests SET response = ?").run(NOT_JSON);
 
     await refused(

@@ -6236,8 +6236,10 @@ export interface MeshRequestKey {
 
 // @public
 export interface MeshRequestRecord extends MeshRequestKey {
+    readonly attemptId: string;
     readonly createdAt: string;
     readonly expiresAt: string;
+    readonly lockedUntil: string;
     readonly requestHash: string;
     readonly response?: unknown;
     readonly tool: string;
@@ -6245,12 +6247,13 @@ export interface MeshRequestRecord extends MeshRequestKey {
 
 // @public (undocumented)
 export abstract class MeshRequestRepository {
-    abstract deleteByKey(key: MeshRequestKey): Promise<void>;
+    abstract deleteByKey(key: MeshRequestKey, attemptId: string): Promise<boolean>;
     abstract deleteExpired(now: Date): Promise<number>;
     abstract findByKey(key: MeshRequestKey): Promise<MeshRequestRecord | undefined>;
     abstract ping(): Promise<void>;
+    abstract renewLease(key: MeshRequestKey, attemptId: string, lockedUntil: string): Promise<boolean>;
     abstract saveIfAbsent(record: MeshRequestRecord): Promise<boolean>;
-    abstract saveResponse(key: MeshRequestKey, response: unknown): Promise<void>;
+    abstract saveResponse(key: MeshRequestKey, attemptId: string, response: unknown): Promise<boolean>;
 }
 
 // @public
@@ -9775,7 +9778,7 @@ export class SqliteFencedEffectRepository extends FencedEffectRepository {
 export class SqliteMeshRequestRepository extends MeshRequestRepository {
     constructor(connection: SqliteConnection);
     // (undocumented)
-    deleteByKey(key: MeshRequestKey): Promise<void>;
+    deleteByKey(key: MeshRequestKey, attemptId: string): Promise<boolean>;
     // (undocumented)
     deleteExpired(now: Date): Promise<number>;
     // (undocumented)
@@ -9783,9 +9786,11 @@ export class SqliteMeshRequestRepository extends MeshRequestRepository {
     // (undocumented)
     ping(): Promise<void>;
     // (undocumented)
+    renewLease(key: MeshRequestKey, attemptId: string, lockedUntil: string): Promise<boolean>;
+    // (undocumented)
     saveIfAbsent(record: MeshRequestRecord): Promise<boolean>;
     // (undocumented)
-    saveResponse(key: MeshRequestKey, response: unknown): Promise<void>;
+    saveResponse(key: MeshRequestKey, attemptId: string, response: unknown): Promise<boolean>;
 }
 
 // @public
@@ -13246,6 +13251,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/sqlite/sqlite-mesh-request.repository.ts - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-mesh-request.repository.ts - (ae-undocumented) Missing documentation for "saveIfAbsent".
 // src/infrastructure/sqlite/sqlite-mesh-request.repository.ts - (ae-undocumented) Missing documentation for "findByKey".
+// src/infrastructure/sqlite/sqlite-mesh-request.repository.ts - (ae-undocumented) Missing documentation for "renewLease".
 // src/infrastructure/sqlite/sqlite-mesh-request.repository.ts - (ae-undocumented) Missing documentation for "saveResponse".
 // src/infrastructure/sqlite/sqlite-mesh-request.repository.ts - (ae-undocumented) Missing documentation for "deleteByKey".
 // src/infrastructure/sqlite/sqlite-mesh-request.repository.ts - (ae-undocumented) Missing documentation for "deleteExpired".

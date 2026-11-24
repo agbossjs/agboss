@@ -28,8 +28,10 @@ const at = (createdAt: string, key: MeshRequestKey = KEY): MeshRequestRecord => 
   ...key,
   tool: "order-status-tool",
   requestHash: "sha256:aa",
+  attemptId: "attempt-1",
   createdAt,
   expiresAt: new Date(Date.parse(createdAt) + 30 * 60_000).toISOString(),
+  lockedUntil: new Date(Date.parse(createdAt) + 30_000).toISOString(),
 });
 
 const stores: readonly (readonly [string, () => MeshRequestRepository])[] = [
@@ -42,12 +44,12 @@ describe.each(stores)("#1374: the mesh request store %s", (_kind, make) => {
     await expect(make().ping()).resolves.toBeUndefined();
   });
 
-  it("claims a key once: the first save wins, a repeat is refused and the first row stays", async () => {
+  it("claims a key once: the first save wins, a repeat inside its lease is refused and the first row stays", async () => {
     const store = make();
 
     expect(await store.saveIfAbsent(at(NINE))).toBe(true);
-    expect(await store.saveIfAbsent(at("2026-01-05T10:00:00.000Z"))).toBe(false);
-    expect(await store.saveIfAbsent(at("2026-01-05T11:00:00.000Z"))).toBe(false);
+    expect(await store.saveIfAbsent(at("2026-01-05T09:00:10.000Z"))).toBe(false);
+    expect(await store.saveIfAbsent(at("2026-01-05T09:00:29.999Z"))).toBe(false);
 
     expect(await store.findByKey(KEY)).toEqual(at(NINE));
   });
@@ -79,14 +81,14 @@ describe.each(stores)("#1374: the mesh request store %s", (_kind, make) => {
     await store.saveIfAbsent(at(NINE));
     await store.saveIfAbsent(at(NINE, other));
 
-    await store.saveResponse(KEY, { status: "finished", output: { text: "paid" } });
+    await store.saveResponse(KEY, "attempt-1", { status: "finished", output: { text: "paid" } });
 
     expect((await store.findByKey(KEY))?.response).toEqual({
       status: "finished",
       output: { text: "paid" },
     });
     expect(await store.findByKey(other)).not.toHaveProperty("response");
-    await store.saveResponse(other, 0);
+    await store.saveResponse(other, "attempt-1", 0);
     expect((await store.findByKey(other))?.response).toBe(0);
   });
 
@@ -98,7 +100,7 @@ describe.each(stores)("#1374: the mesh request store %s", (_kind, make) => {
     await store.saveIfAbsent(at(NINE, otherTenant));
     await store.saveIfAbsent(at(NINE, otherPeer));
 
-    await store.saveResponse(KEY, { answer: 1 });
+    await store.saveResponse(KEY, "attempt-1", { answer: 1 });
 
     expect(await store.findByKey(otherTenant)).not.toHaveProperty("response");
     expect(await store.findByKey(otherPeer)).not.toHaveProperty("response");
@@ -107,7 +109,7 @@ describe.each(stores)("#1374: the mesh request store %s", (_kind, make) => {
   it("saves the answer of a key it does not hold nowhere", async () => {
     const store = make();
 
-    await store.saveResponse(KEY, { answer: 1 });
+    await store.saveResponse(KEY, "attempt-1", { answer: 1 });
 
     expect(await store.findByKey(KEY)).toBeUndefined();
     expect(await store.saveIfAbsent(at(NINE))).toBe(true);
@@ -124,7 +126,7 @@ describe.each(stores)("#1374: the mesh request store %s", (_kind, make) => {
     await store.saveIfAbsent(at(NINE));
     for (const other of others) await store.saveIfAbsent(at(NINE, other));
 
-    await store.deleteByKey(KEY);
+    await store.deleteByKey(KEY, "attempt-1");
 
     expect(await store.findByKey(KEY)).toBeUndefined();
     for (const other of others) expect(await store.findByKey(other)).toEqual(at(NINE, other));
@@ -142,7 +144,7 @@ describe.each(stores)("#1374: the mesh request store %s", (_kind, make) => {
       [after, "2026-01-05T09:00:00.001Z"],
     ] as const) {
       await store.saveIfAbsent(at(createdAt, key));
-      await store.saveResponse(key, "ok");
+      await store.saveResponse(key, "attempt-1", "ok");
     }
 
     await expect(store.deleteExpired(new Date("2026-01-05T09:30:00.000Z"))).resolves.toBe(2);
@@ -152,13 +154,14 @@ describe.each(stores)("#1374: the mesh request store %s", (_kind, make) => {
     expect(await store.findByKey(after)).toBeDefined();
   });
 
-  it("keeps an unanswered request through its window, sweeps it after the grace", async () => {
+  it("sweeps an unanswered request only when its window and its lease have lapsed", async () => {
     const store = make();
     await store.saveIfAbsent(at(NINE));
+    await store.renewLease(KEY, "attempt-1", "2026-01-05T09:45:00.000Z");
 
-    await expect(store.deleteExpired(new Date("2026-01-05T10:29:59.999Z"))).resolves.toBe(0);
+    await expect(store.deleteExpired(new Date("2026-01-05T09:44:59.999Z"))).resolves.toBe(0);
     expect(await store.findByKey(KEY)).toBeDefined();
-    await expect(store.deleteExpired(new Date("2026-01-05T10:30:00.000Z"))).resolves.toBe(1);
+    await expect(store.deleteExpired(new Date("2026-01-05T09:45:00.000Z"))).resolves.toBe(1);
     expect(await store.findByKey(KEY)).toBeUndefined();
   });
 
@@ -172,7 +175,7 @@ describe("#1374: the in-memory mesh request store keeps copies", () => {
     const store = new InMemoryMeshRequestRepository(new InMemoryDatabase());
     const record = { ...at(NINE) };
     await store.saveIfAbsent(record);
-    await store.saveResponse(KEY, { nested: { text: "paid" } });
+    await store.saveResponse(KEY, "attempt-1", { nested: { text: "paid" } });
 
     record.createdAt = "changed";
     const found = await store.findByKey(KEY);
@@ -187,7 +190,7 @@ describe("#1374: the in-memory mesh request store keeps copies", () => {
     const store = new InMemoryMeshRequestRepository(new InMemoryDatabase());
     const response = { nested: { text: "paid" } };
     await store.saveIfAbsent(at(NINE));
-    await store.saveResponse(KEY, response);
+    await store.saveResponse(KEY, "attempt-1", response);
 
     response.nested.text = "changed";
 

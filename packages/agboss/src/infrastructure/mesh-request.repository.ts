@@ -29,42 +29,54 @@ export interface MeshRequestRecord extends MeshRequestKey {
   readonly createdAt: string;
   /** Until when its answer is kept (ISO 8601): `createdAt` + `@Mesh({ deduplicationTtl })`. */
   readonly expiresAt: string;
+  /** The attempt that owns the request while it runs: only it may answer, renew or forget it. */
+  readonly attemptId: string;
+  /** Until when that attempt holds the request (ISO 8601): the running handler renews it. */
+  readonly lockedUntil: string;
   /** The answer sent (the MCP result, #398); `undefined` while it runs. */
   readonly response?: unknown;
 }
 
-/**
- * How long past its `expiresAt` a request with no answer keeps its row (1 hour): its replay window
- * has passed by then, so a handler that crashed no longer locks its key out for good, and the table
- * does not grow. Inside the window the row stays, so a replay is refused.
- */
-export const MESH_IN_PROGRESS_GRACE_MS = 60 * 60_000;
+/** How long an attempt holds a running request without renewing it (30 s): the handler renews every third of it. */
+export const MESH_REQUEST_LEASE_MS = 30_000;
 
 export abstract class MeshRequestRepository {
   /** Whether the store answers (#300): one fast round trip. */
   abstract ping(): Promise<void>;
 
   /**
-   * Saves a request that is not kept yet, with its `response` when the record has one (a marker
-   * that is finished at once); `true` when this call saved it (atomic).
+   * Claims a request for `record.attemptId`; `true` when this call owns it (atomic). A key not kept
+   * yet is saved, with its `response` when the record has one (a marker that is finished at once).
+   * A key kept without an answer whose lease lapsed (`lockedUntil` at or before `record.createdAt`)
+   * is taken over — only by the same tool and request hash; a live lease, an answered request or
+   * another request under the key gives `false`.
    */
   abstract saveIfAbsent(record: MeshRequestRecord): Promise<boolean>;
 
   /** The request of `key`; `undefined` when none is kept. */
   abstract findByKey(key: MeshRequestKey): Promise<MeshRequestRecord | undefined>;
 
-  /** Keeps the answer of a saved request. */
-  abstract saveResponse(key: MeshRequestKey, response: unknown): Promise<void>;
+  /** Extends the lease of the attempt that holds `key`; `false` (fenced) when another attempt holds it or it is gone. */
+  abstract renewLease(
+    key: MeshRequestKey,
+    attemptId: string,
+    lockedUntil: string,
+  ): Promise<boolean>;
 
-  /** Forgets a request whose run did not answer (its caller may try again). */
-  abstract deleteByKey(key: MeshRequestKey): Promise<void>;
+  /** Keeps the answer of the request `attemptId` holds; `false` (fenced, nothing written) when another attempt holds it, it is answered or gone. */
+  abstract saveResponse(
+    key: MeshRequestKey,
+    attemptId: string,
+    response: unknown,
+  ): Promise<boolean>;
+
+  /** Forgets a request whose run did not answer, if `attemptId` still holds it; `false` (fenced) when another does. */
+  abstract deleteByKey(key: MeshRequestKey, attemptId: string): Promise<boolean>;
 
   /**
-   * Removes every request whose `expiresAt` is at or before `now` and that has its answer, and every
-   * one without an answer whose `expiresAt` is `MESH_IN_PROGRESS_GRACE_MS` or more past (the recovery
-   * sweep), and gives the number removed (`onTtlSweep`'s count). A request still running inside its
-   * window keeps its row, so a repeat of its key meets `mesh.request-in-progress`, never a second
-   * run; one whose handler crashed frees its key once the window and the grace have passed.
+   * Removes every request whose `expiresAt` is at or before `now` and that is answered or whose
+   * lease has lapsed (`lockedUntil` at or before `now`), and gives the number removed (`onTtlSweep`'s
+   * count). A running request whose handler keeps renewing is never removed.
    */
   abstract deleteExpired(now: Date): Promise<number>;
 }
@@ -86,8 +98,23 @@ export class InMemoryMeshRequestRepository extends MeshRequestRepository {
 
   saveIfAbsent(record: MeshRequestRecord): Promise<boolean> {
     const key = meshRequestKeyOf(record);
-    if (this.database.meshRequests.has(key)) return Promise.resolve(false);
-    this.database.meshRequests.set(key, structuredClone(record));
+    const kept = this.database.meshRequests.get(key);
+    if (kept === undefined) {
+      this.database.meshRequests.set(key, structuredClone(record));
+      return Promise.resolve(true);
+    }
+    const canTakeOver =
+      kept.response === undefined &&
+      Date.parse(kept.lockedUntil) <= Date.parse(record.createdAt) &&
+      kept.tool === record.tool &&
+      kept.requestHash === record.requestHash;
+    if (!canTakeOver) return Promise.resolve(false);
+    this.database.meshRequests.set(key, {
+      ...kept,
+      attemptId: record.attemptId,
+      createdAt: record.createdAt,
+      lockedUntil: record.lockedUntil,
+    });
     return Promise.resolve(true);
   }
 
@@ -97,25 +124,37 @@ export class InMemoryMeshRequestRepository extends MeshRequestRepository {
     return Promise.resolve(structuredClone(record));
   }
 
-  saveResponse(key: MeshRequestKey, response: unknown): Promise<void> {
+  renewLease(key: MeshRequestKey, attemptId: string, lockedUntil: string): Promise<boolean> {
     const row = meshRequestKeyOf(key);
     const record = this.database.meshRequests.get(row);
-    if (record !== undefined)
-      this.database.meshRequests.set(row, { ...record, response: structuredClone(response) });
-    return Promise.resolve();
+    if (record?.attemptId !== attemptId || record.response !== undefined)
+      return Promise.resolve(false);
+    this.database.meshRequests.set(row, { ...record, lockedUntil });
+    return Promise.resolve(true);
   }
 
-  deleteByKey(key: MeshRequestKey): Promise<void> {
-    this.database.meshRequests.delete(meshRequestKeyOf(key));
-    return Promise.resolve();
+  saveResponse(key: MeshRequestKey, attemptId: string, response: unknown): Promise<boolean> {
+    const row = meshRequestKeyOf(key);
+    const record = this.database.meshRequests.get(row);
+    if (record?.attemptId !== attemptId || record.response !== undefined)
+      return Promise.resolve(false);
+    this.database.meshRequests.set(row, { ...record, response: structuredClone(response) });
+    return Promise.resolve(true);
+  }
+
+  deleteByKey(key: MeshRequestKey, attemptId: string): Promise<boolean> {
+    const row = meshRequestKeyOf(key);
+    if (this.database.meshRequests.get(row)?.attemptId !== attemptId) return Promise.resolve(false);
+    this.database.meshRequests.delete(row);
+    return Promise.resolve(true);
   }
 
   deleteExpired(now: Date): Promise<number> {
     let removed = 0;
     for (const [row, record] of this.database.meshRequests)
       if (
-        Date.parse(record.expiresAt) <=
-        now.getTime() - (record.response === undefined ? MESH_IN_PROGRESS_GRACE_MS : 0)
+        Date.parse(record.expiresAt) <= now.getTime() &&
+        (record.response !== undefined || Date.parse(record.lockedUntil) <= now.getTime())
       ) {
         this.database.meshRequests.delete(row);
         removed += 1;

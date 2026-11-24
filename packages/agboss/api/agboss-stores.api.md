@@ -1531,8 +1531,10 @@ export interface MeshRequestKey {
 
 // @public
 export interface MeshRequestRecord extends MeshRequestKey {
+    readonly attemptId: string;
     readonly createdAt: string;
     readonly expiresAt: string;
+    readonly lockedUntil: string;
     readonly requestHash: string;
     readonly response?: unknown;
     readonly tool: string;
@@ -1540,12 +1542,13 @@ export interface MeshRequestRecord extends MeshRequestKey {
 
 // @public (undocumented)
 export abstract class MeshRequestRepository {
-    abstract deleteByKey(key: MeshRequestKey): Promise<void>;
+    abstract deleteByKey(key: MeshRequestKey, attemptId: string): Promise<boolean>;
     abstract deleteExpired(now: Date): Promise<number>;
     abstract findByKey(key: MeshRequestKey): Promise<MeshRequestRecord | undefined>;
     abstract ping(): Promise<void>;
+    abstract renewLease(key: MeshRequestKey, attemptId: string, lockedUntil: string): Promise<boolean>;
     abstract saveIfAbsent(record: MeshRequestRecord): Promise<boolean>;
-    abstract saveResponse(key: MeshRequestKey, response: unknown): Promise<void>;
+    abstract saveResponse(key: MeshRequestKey, attemptId: string, response: unknown): Promise<boolean>;
 }
 
 // @public

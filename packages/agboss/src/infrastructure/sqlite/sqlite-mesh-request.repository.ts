@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { Injectable } from "../../components/decorators.js";
 import {
-  MESH_IN_PROGRESS_GRACE_MS,
   MeshRequestRepository,
   type MeshRequestKey,
   type MeshRequestRecord,
@@ -15,8 +14,10 @@ const Row = z.object({
   idempotency_key: z.string(),
   tool: z.string(),
   request_hash: z.string(),
+  attempt_id: z.string(),
   created_at: z.string(),
   expires_at: z.string(),
+  locked_until: z.string(),
   response: z.string().nullable(),
 });
 
@@ -40,19 +41,40 @@ export class SqliteMeshRequestRepository extends MeshRequestRepository {
 
   saveIfAbsent(record: MeshRequestRecord): Promise<boolean> {
     const saved = this.connection.transaction(() => {
-      const { changes } = this.connection.database
-        .prepare("INSERT OR IGNORE INTO mesh_requests VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+      const { database } = this.connection;
+      const { changes } = database
+        .prepare("INSERT OR IGNORE INTO mesh_requests VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
         .run(
           record.tenantId,
           record.peer,
           record.idempotencyKey,
           record.tool,
           record.requestHash,
+          record.attemptId,
           record.createdAt,
           record.expiresAt,
+          record.lockedUntil,
           record.response === undefined ? null : JSON.stringify(record.response),
         );
-      return Number(changes) === 1;
+      if (Number(changes) === 1) return true;
+      // a request whose lease lapsed, asked again as the same call, is taken over by this attempt
+      const taken = database
+        .prepare(
+          `UPDATE mesh_requests SET attempt_id = ?, created_at = ?, locked_until = ?
+           WHERE ${KEY} AND response IS NULL AND locked_until <= ? AND tool = ? AND request_hash = ?`,
+        )
+        .run(
+          record.attemptId,
+          record.createdAt,
+          record.lockedUntil,
+          record.tenantId,
+          record.peer,
+          record.idempotencyKey,
+          record.createdAt,
+          record.tool,
+          record.requestHash,
+        );
+      return Number(taken.changes) === 1;
     });
     return Promise.resolve(saved);
   }
@@ -69,8 +91,10 @@ export class SqliteMeshRequestRepository extends MeshRequestRepository {
       idempotencyKey: parsed.idempotency_key,
       tool: parsed.tool,
       requestHash: parsed.request_hash,
+      attemptId: parsed.attempt_id,
       createdAt: parsed.created_at,
       expiresAt: parsed.expires_at,
+      lockedUntil: parsed.locked_until,
       ...(parsed.response === null
         ? {}
         : {
@@ -87,26 +111,38 @@ export class SqliteMeshRequestRepository extends MeshRequestRepository {
     return Promise.resolve(record);
   }
 
-  saveResponse(key: MeshRequestKey, response: unknown): Promise<void> {
-    this.connection.database
-      .prepare(`UPDATE mesh_requests SET response = ? WHERE ${KEY}`)
-      .run(JSON.stringify(response), key.tenantId, key.peer, key.idempotencyKey);
-    return Promise.resolve();
+  renewLease(key: MeshRequestKey, attemptId: string, lockedUntil: string): Promise<boolean> {
+    const { changes } = this.connection.database
+      .prepare(
+        `UPDATE mesh_requests SET locked_until = ? WHERE ${KEY} AND attempt_id = ? AND response IS NULL`,
+      )
+      .run(lockedUntil, key.tenantId, key.peer, key.idempotencyKey, attemptId);
+    return Promise.resolve(Number(changes) === 1);
   }
 
-  deleteByKey(key: MeshRequestKey): Promise<void> {
-    this.connection.database
-      .prepare(`DELETE FROM mesh_requests WHERE ${KEY}`)
-      .run(key.tenantId, key.peer, key.idempotencyKey);
-    return Promise.resolve();
+  saveResponse(key: MeshRequestKey, attemptId: string, response: unknown): Promise<boolean> {
+    const { changes } = this.connection.database
+      .prepare(
+        `UPDATE mesh_requests SET response = ? WHERE ${KEY} AND attempt_id = ? AND response IS NULL`,
+      )
+      .run(JSON.stringify(response), key.tenantId, key.peer, key.idempotencyKey, attemptId);
+    return Promise.resolve(Number(changes) === 1);
+  }
+
+  deleteByKey(key: MeshRequestKey, attemptId: string): Promise<boolean> {
+    const { changes } = this.connection.database
+      .prepare(`DELETE FROM mesh_requests WHERE ${KEY} AND attempt_id = ?`)
+      .run(key.tenantId, key.peer, key.idempotencyKey, attemptId);
+    return Promise.resolve(Number(changes) === 1);
   }
 
   deleteExpired(now: Date): Promise<number> {
+    const at = now.toISOString();
     const { changes } = this.connection.database
       .prepare(
-        "DELETE FROM mesh_requests WHERE (response IS NOT NULL AND expires_at <= ?) OR expires_at <= ?",
+        "DELETE FROM mesh_requests WHERE expires_at <= ? AND (response IS NOT NULL OR locked_until <= ?)",
       )
-      .run(now.toISOString(), new Date(now.getTime() - MESH_IN_PROGRESS_GRACE_MS).toISOString());
+      .run(at, at);
     return Promise.resolve(Number(changes));
   }
 }

@@ -14,12 +14,19 @@ const key: MeshRequestKey = {
   idempotencyKey: "e1:desk:1:call_1",
 };
 /** A request admitted at `iso`, kept for `minutes` (30 by default). */
-const at = (iso: string, of: MeshRequestKey = key, minutes = 30): MeshRequestRecord => ({
+const at = (
+  iso: string,
+  of: MeshRequestKey = key,
+  attemptId = "attempt-1",
+  hash = "sha256:aa",
+): MeshRequestRecord => ({
   ...of,
   tool: "order-status-tool",
-  requestHash: "sha256:aa",
+  requestHash: hash,
+  attemptId,
   createdAt: iso,
-  expiresAt: new Date(Date.parse(iso) + minutes * 60_000).toISOString(),
+  expiresAt: new Date(Date.parse(iso) + 30 * 60_000).toISOString(),
+  lockedUntil: new Date(Date.parse(iso) + 30_000).toISOString(),
 });
 const NINE = "2026-01-05T09:00:00.000Z";
 
@@ -52,8 +59,11 @@ const MESH_CASES: readonly ContractCase<MeshRequestRepository>[] = [
       await first.saveIfAbsent(at(NINE));
       await first.saveIfAbsent(at(NINE, other));
 
-      await first.saveResponse(key, { status: "finished", output: { text: "paid" } });
-      await first.deleteByKey(other);
+      await first.saveResponse(key, "attempt-1", {
+        status: "finished",
+        output: { text: "paid" },
+      });
+      await first.deleteByKey(other, "attempt-1");
 
       expect((await second.findByKey(key))?.response).toEqual({
         status: "finished",
@@ -69,7 +79,7 @@ const MESH_CASES: readonly ContractCase<MeshRequestRepository>[] = [
       const response = { status: "finished", output: { text: NUL_TEXT } };
       await first.saveIfAbsent(at(NINE));
 
-      await first.saveResponse(key, response);
+      await first.saveResponse(key, "attempt-1", response);
 
       expect((await second.findByKey(key))?.response).toEqual(response);
     },
@@ -83,8 +93,10 @@ const MESH_CASES: readonly ContractCase<MeshRequestRepository>[] = [
         ...key,
         tool: "order-status-tool",
         requestHash: "sha256:aa",
+        attemptId: "attempt-1",
         createdAt: NINE,
         expiresAt: "2026-01-05T09:30:00.000Z",
+        lockedUntil: "2026-01-05T09:00:30.000Z",
       });
     },
   },
@@ -103,9 +115,9 @@ const MESH_CASES: readonly ContractCase<MeshRequestRepository>[] = [
     run: async ({ first, second }) => {
       const late = { ...key, idempotencyKey: "late" };
       await first.saveIfAbsent(at(NINE));
-      await first.saveResponse(key, { status: "finished" });
+      await first.saveResponse(key, "attempt-1", { status: "finished" });
       await first.saveIfAbsent(at("2026-01-05T09:40:00.000Z", late));
-      await first.saveResponse(late, { status: "finished" });
+      await first.saveResponse(late, "attempt-1", { status: "finished" });
 
       expect(await second.deleteExpired(new Date("2026-01-05T09:29:59.999Z"))).toBe(0);
       expect(await second.deleteExpired(new Date("2026-01-05T09:30:00.000Z"))).toBe(1);
@@ -115,18 +127,66 @@ const MESH_CASES: readonly ContractCase<MeshRequestRepository>[] = [
     },
   },
   {
-    name: "a request still running keeps its key inside its window and the grace after it; a crashed one is reclaimable after",
+    name: "a running request is held by its attempt: a live lease keeps the key, a lapsed one lets the same call take it over",
     run: async ({ first, second }) => {
       await first.saveIfAbsent(at(NINE));
 
-      // the window (30 minutes) has passed, the grace (1 hour) has not: the key is still taken
-      expect(await second.deleteExpired(new Date("2026-01-05T10:29:59.999Z"))).toBe(0);
-      expect(await second.saveIfAbsent(at("2026-01-05T10:29:59.999Z"))).toBe(false);
-      expect((await second.findByKey(key))?.response).toBeUndefined();
+      // inside the lease: a repeat (the same call or any) does not get the key
+      expect(await second.saveIfAbsent(at("2026-01-05T09:00:29.999Z", key, "attempt-2"))).toBe(
+        false,
+      );
+      expect((await second.findByKey(key))?.attemptId).toBe("attempt-1");
+      // once it lapsed: the same call (tool and hash) takes it over, another request does not
+      expect(
+        await second.saveIfAbsent(at("2026-01-05T09:00:30.000Z", key, "attempt-2", "sha256:bb")),
+      ).toBe(false);
+      expect(await second.saveIfAbsent(at("2026-01-05T09:00:30.000Z", key, "attempt-2"))).toBe(
+        true,
+      );
+      expect((await first.findByKey(key))?.attemptId).toBe("attempt-2");
+    },
+  },
+  {
+    name: "a handler that keeps renewing its lease is never reclaimed, and the sweep leaves its row",
+    run: async ({ first, second }) => {
+      await first.saveIfAbsent(at(NINE));
 
-      // past the window and the grace: swept, and the key may be taken again
-      expect(await second.deleteExpired(new Date("2026-01-05T10:30:00.000Z"))).toBe(1);
-      expect(await second.saveIfAbsent(at("2026-01-05T10:30:00.000Z"))).toBe(true);
+      expect(await first.renewLease(key, "attempt-1", "2026-01-05T10:00:00.000Z")).toBe(true);
+
+      expect(await second.saveIfAbsent(at("2026-01-05T09:59:59.999Z", key, "attempt-2"))).toBe(
+        false,
+      );
+      expect(await second.deleteExpired(new Date("2026-01-05T09:59:59.999Z"))).toBe(0);
+      expect((await second.findByKey(key))?.attemptId).toBe("attempt-1");
+    },
+  },
+  {
+    name: "a dead handler's request is swept once its window and its lease have both lapsed",
+    run: async ({ first, second }) => {
+      await first.saveIfAbsent(at(NINE));
+
+      // the lease lapsed but the replay window (30 minutes) has not: the row stays
+      expect(await second.deleteExpired(new Date("2026-01-05T09:29:59.999Z"))).toBe(0);
+      expect(await second.deleteExpired(new Date("2026-01-05T09:30:00.000Z"))).toBe(1);
+      expect(await first.findByKey(key)).toBeUndefined();
+    },
+  },
+  {
+    name: "a stale handler after a takeover can neither answer, renew nor forget: fenced, nothing written",
+    run: async ({ first, second }) => {
+      await first.saveIfAbsent(at(NINE));
+      await second.saveIfAbsent(at("2026-01-05T09:01:00.000Z", key, "attempt-2"));
+
+      expect(await first.saveResponse(key, "attempt-1", { status: "stale" })).toBe(false);
+      expect(await first.renewLease(key, "attempt-1", "2026-01-05T11:00:00.000Z")).toBe(false);
+      expect(await first.deleteByKey(key, "attempt-1")).toBe(false);
+
+      const kept = await second.findByKey(key);
+      expect(kept?.attemptId).toBe("attempt-2");
+      expect(kept?.response).toBeUndefined();
+      expect(await second.saveResponse(key, "attempt-2", { status: "finished" })).toBe(true);
+      expect(await first.saveResponse(key, "attempt-1", { status: "late" })).toBe(false);
+      expect((await first.findByKey(key))?.response).toEqual({ status: "finished" });
     },
   },
 ];
