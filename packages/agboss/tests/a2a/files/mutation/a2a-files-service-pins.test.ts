@@ -11,10 +11,12 @@ import { InMemoryFileRepository } from "../../../../src/infrastructure/in-memory
 import { InMemoryDatabase } from "../../../../src/infrastructure/in-memory-database.js";
 import { VirtualClock } from "../../../../src/testing/clock.js";
 import { inTestFrame } from "../../../helpers/frame.js";
+import { ComponentOptions } from "../../../../src/components/component-options.js";
 
 const clock = new VirtualClock(new Date("2026-01-05T09:00:00.000Z"));
-const inline = new Files(new InlineFileRepository(), clock);
-const stored = () => new Files(new InMemoryFileRepository(new InMemoryDatabase()), clock);
+const inline = new Files(new InlineFileRepository(), clock, ComponentOptions.none);
+const stored = () =>
+  new Files(new InMemoryFileRepository(new InMemoryDatabase()), clock, ComponentOptions.none);
 const LIMIT = 64 * 1024;
 const text = (size: number): Uint8Array => new TextEncoder().encode("a".repeat(size));
 

@@ -1,6 +1,7 @@
 import type { BudgetOverlay } from "../budgets/budget-overlay.js";
 import type { PauseTargetOverlay } from "../channels/pause-targets.js";
 import type { MemoryOverlay } from "../memory/memory.decorator.js";
+import type { FilePolicyOverlay } from "../files/file-policy.js";
 import type { LoadedProfile } from "./config-files.js";
 
 /** The named shelves of the profiles (budgets, memories, storages, mesh, pause targets), each folded left to right. */
@@ -48,5 +49,22 @@ export function budgetsOf(
   for (const layer of layers)
     for (const [name, one] of Object.entries(layer.spec.budgets ?? {}))
       found[name] = { ...found[name], ...one };
+  return found;
+}
+
+/** What each file policy allows, later profiles winning per field (the fetch pool per pool field). */
+export function filePoliciesOf(
+  layers: readonly LoadedProfile[],
+): Readonly<Record<string, FilePolicyOverlay>> {
+  const found: Record<string, FilePolicyOverlay> = {};
+  for (const layer of layers)
+    for (const [name, one] of Object.entries(layer.spec.filePolicies ?? {}))
+      found[name] = {
+        ...found[name],
+        ...one,
+        ...(one.fetchPool === undefined
+          ? {}
+          : { fetchPool: { ...found[name]?.fetchPool, ...one.fetchPool } }),
+      };
   return found;
 }

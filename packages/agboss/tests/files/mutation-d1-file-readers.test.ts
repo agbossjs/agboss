@@ -20,6 +20,7 @@ import { oneOf } from "../../src/flow/dto-wrappers.js";
 import type { RuntimeGraph } from "../../src/flow/runtime/graph-model.js";
 import type { ElementGuardrails } from "../../src/guardrails/assembly.js";
 import type { LoadedGuardrail } from "../../src/guardrails/loaded.js";
+import { DEFAULT_FILE_LIMITS } from "../../src/files/file-policy.js";
 
 class ScanDto {
   @Nested(FileDto, { prompt: "the scan" })
@@ -60,7 +61,7 @@ const filesOf = (options: Parameters<typeof ModelFiles.of>[0]): ResolvedModelFil
   resolvedFilesOf({
     agent: ModelFiles.of(options).options,
     defaults: undefined,
-    filePolicy: undefined,
+    limits: DEFAULT_FILE_LIMITS,
     hasPiiPolicy: false,
   });
 

@@ -1,5 +1,4 @@
-import type { Class } from "../components/injection.js";
-import { fileLimitsOf, type FileFetchPool } from "./file-policy.js";
+import type { FileFetchPool, FileLimits } from "./file-policy.js";
 import type { Milliseconds } from "../units/index.js";
 import {
   AnswerFiles,
@@ -54,8 +53,8 @@ export interface FileLevels {
   readonly agent: ModelFilesOptions;
   /** The workflow's `defaults.files` over its application's, field by field. */
   readonly defaults: FileDefaults | undefined;
-  /** The workflow's `@FilePolicy`: the limits, the types and the fetch of the agent's files. */
-  readonly filePolicy: Class | undefined;
+  /** The limits of the workflow's `@FilePolicy` under the profiles: the limits, the types and the fetch of the agent's files. */
+  readonly limits: FileLimits;
   /** Whether PII policies apply to the agent: its default view is then the transcription. */
   readonly hasPiiPolicy: boolean;
 }
@@ -89,7 +88,7 @@ function behaviourOf(layered: FileDefaults) {
  */
 export function resolvedFilesOf(levels: FileLevels): ResolvedModelFiles {
   const layered = mergedFileDefaults(levels.defaults, levels.agent) ?? {};
-  const limits = fileLimitsOf(levels.filePolicy);
+  const { limits } = levels;
   const fallbackView = levels.hasPiiPolicy ? FileView.Transcription : FileView.Original;
   return {
     maxFileSize: layered.maxFileSize ?? limits.maxFileSize,

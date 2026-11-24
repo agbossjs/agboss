@@ -19,6 +19,7 @@ import { implementationsOf, isInMemory, notAtomicStoresOf } from "./implementati
 import { inlineFilesWarningOf } from "../a2a/a2a-file-store-rule.js";
 import { a2aCardWarningsOf } from "../a2a/a2a-card-warnings.js";
 import type { ProviderModule } from "../components/container/registrations.js";
+import type { ComponentOptions } from "../components/component-options.js";
 
 /**
  * What an application instance logs at start, once (#261): only what the decorators say — no
@@ -43,6 +44,8 @@ export interface WarningSources {
   /** The application's name and exposes (#859): where its A2A files ride. */
   readonly name?: string;
   readonly endpoints?: readonly Class[];
+  /** The options of the components under the selected profiles (#1318c). */
+  readonly componentOptions: ComponentOptions;
   /** The application's own and its workflows' providers (#812: where an `@A2AAgent` is listed). */
   readonly modules?: readonly ProviderModule[];
 }
@@ -121,6 +124,7 @@ function inlineFilesOf(sources: WarningSources): AssemblyWarning[] {
     providers: sources.providers,
     endpoints: sources.endpoints ?? [],
     workflows: sources.workflows.map((workflow) => workflow.graph.type),
+    options: sources.componentOptions,
   });
   return message === undefined ? [] : [{ code: "a2a.inline-files-without-store", message }];
 }

@@ -19,6 +19,7 @@ import { runtimePolicyOf } from "../../src/pii/runtime-policy.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { kilobytes, megabytes, seconds } from "../../src/units/index.js";
 import { inline, PNG_BYTES } from "./reader.factory.js";
+import { DEFAULT_FILE_LIMITS } from "../../src/files/file-policy.js";
 
 let transcriptions = 0;
 
@@ -27,7 +28,7 @@ const runtime: FileRuntime = {
   settings: resolvedFilesOf({
     agent: ModelFiles.of({ views: [FileView.Transcription] }).options,
     defaults: undefined,
-    filePolicy: undefined,
+    limits: DEFAULT_FILE_LIMITS,
     hasPiiPolicy: true,
   }),
   maxResultSize: kilobytes(8),

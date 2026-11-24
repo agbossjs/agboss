@@ -23,6 +23,7 @@ import { runInFrame } from "../../src/flow/context/frame.js";
 import { hours, kilobytes } from "../../src/units/index.js";
 import { fileReviewFlow } from "../a2a/fixtures/files.application.js";
 import { testFrame } from "../helpers/frame.js";
+import { ComponentOptions } from "../../src/components/component-options.js";
 
 const NOW = new Date("2026-01-05T09:00:00.000Z");
 const fileOf = (size: number, seed: number): FileDto =>
@@ -83,7 +84,11 @@ describe("#1316c: offloading", () => {
     class Roomy {}
     @Workflow({ name: "roomy-workflow", version: "1.0.0", flow: fileReviewFlow, filePolicy: Roomy })
     class RoomyWorkflow {}
-    const files = new Files(new InlineFileRepository(), new VirtualClock(NOW));
+    const files = new Files(
+      new InlineFileRepository(),
+      new VirtualClock(NOW),
+      ComponentOptions.none,
+    );
     const frame = testFrame();
     const workflow = { ...frame.execution.workflow, type: RoomyWorkflow } as never;
     const save = (size: number) =>

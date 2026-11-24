@@ -79,6 +79,29 @@ export const PauseTargetOverlaySchema = z
     message: "give timeout and/or remindBefore",
   });
 
+const wholeFrom1 = z.number().int().positive();
+
+/** What a profile changes of one `@FilePolicy`, by its name: its limits, types, origins and fetch pool. */
+export const FilePolicyOverlaySchema = z
+  .strictObject({
+    ttl: keptFor.optional(),
+    maxFiles: wholeFrom1.optional(),
+    maxFileSize: wholeFrom1.optional(),
+    maxTotalFileSize: wholeFrom1.optional(),
+    allowedMediaTypes: z.array(z.string().min(1)).optional(),
+    allowedOrigins: z.array(z.string().min(1)).optional(),
+    fetchTimeout: wholeFrom1.optional(),
+    fetchPool: z
+      .strictObject({
+        maxConcurrent: wholeFrom1.optional(),
+        maxConcurrentPerTenant: wholeFrom1.optional(),
+        maxConcurrentPerOwner: wholeFrom1.optional(),
+        maxQueuedPerOwner: wholeFrom1.optional(),
+      })
+      .optional(),
+  })
+  .refine((one) => Object.keys(one).length > 0, { message: "give at least one limit" });
+
 /** What a profile changes of one `@DatabaseStorage`, by its name: how long its rows are kept. */
 export const DatabaseStorageOverlaySchema = z
   .strictObject({
@@ -135,6 +158,8 @@ export const ScalarOverlaySchema = z.strictObject({
   budgets: z.record(kebab, BudgetOverlaySchema).optional(),
   /** A `@Memory`'s keep time, window and compaction pace by its name. */
   memories: z.record(kebab, MemoryOverlaySchema).optional(),
+  /** What a `@FilePolicy` allows, by its name. */
+  filePolicies: z.record(kebab, FilePolicyOverlaySchema).optional(),
   /** How long a `@DatabaseStorage` keeps its audit log and ledger entries, by its name. */
   databaseStorages: z.record(kebab, DatabaseStorageOverlaySchema).optional(),
   /** The application's `@Mesh` limits, by its name. */

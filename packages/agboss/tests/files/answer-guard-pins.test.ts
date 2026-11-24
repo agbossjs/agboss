@@ -17,6 +17,7 @@ import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js
 import { VirtualClock } from "../../src/testing/clock.js";
 import { kilobytes, seconds } from "../../src/units/index.js";
 import { PNG, scriptedTransport } from "../a2a/files/support.js";
+import { DEFAULT_FILE_LIMITS } from "../../src/files/file-policy.js";
 
 const URL_OF = "https://files.example/a.png";
 const CHANGED = Buffer.concat([PNG, Buffer.from("changed")]);
@@ -28,7 +29,7 @@ const runtimeOn = (served: Record<string, { body: Uint8Array }>): FileRuntime =>
     settings: resolvedFilesOf({
       agent: ModelFiles.of({ views: [FileView.Original] }).options,
       defaults: undefined,
-      filePolicy: undefined,
+      limits: DEFAULT_FILE_LIMITS,
       hasPiiPolicy: false,
     }),
     maxResultSize: kilobytes(8),

@@ -18,6 +18,7 @@ import { VirtualClock } from "../../src/testing/clock.js";
 import { kilobytes, megabytes, seconds } from "../../src/units/index.js";
 import { PNG } from "../a2a/files/support.js";
 import { NO_REDACTION } from "./runtime-parts.js";
+import { DEFAULT_FILE_LIMITS } from "../../src/files/file-policy.js";
 
 const png = (source: Record<string, string>): FileDto => ({ mediaType: "image/png", ...source });
 const turn = (start: string, finish = "finish f: {}"): HistoryTurn => ({ start, finish });
@@ -171,7 +172,7 @@ function setup(owners: readonly string[] = ["root-1", OWNER]) {
     settings: resolvedFilesOf({
       agent: {},
       defaults: undefined,
-      filePolicy: undefined,
+      limits: DEFAULT_FILE_LIMITS,
       hasPiiPolicy: false,
     }),
     maxResultSize: megabytes(1),

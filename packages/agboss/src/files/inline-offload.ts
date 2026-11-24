@@ -5,9 +5,8 @@ import { currentFrame, rootFactsOf } from "../flow/context/frame.js";
 import { systemClock, type Clock } from "../infrastructure/clock.js";
 import { FileRepository } from "../infrastructure/file.repository.js";
 import { Ttl } from "../units/index.js";
-import { fileLimitsOf } from "./file-policy.js";
+import { ComponentOptions } from "../components/component-options.js";
 import { assertInlineFits, offloadedInlineFiles } from "./inline-cap.js";
-import { workflowFilePolicyOf } from "./workflow-file-policy.js";
 
 /**
  * The inline cap at the places a payload enters an execution (#1316): the run's input, a pause's
@@ -44,8 +43,8 @@ export interface InlineFiles {
 }
 
 /** A workflow's `@FilePolicy.ttl` as an offloaded file's own: none for ever. */
-function policyTtlOf(workflow: Class | undefined) {
-  const { ttl } = fileLimitsOf(workflowFilePolicyOf(workflow));
+function policyTtlOf(options: ComponentOptions, workflow: Class | undefined) {
+  const { ttl } = options.workflowFileLimits(workflow);
   return ttl === Ttl.Forever ? undefined : ttl;
 }
 
@@ -54,13 +53,14 @@ export function inlineFilesOf(
   store: () => FileRepository,
   clock: Pick<Clock, "now">,
   workflow: Class | undefined,
+  options: ComponentOptions,
 ): InlineFiles {
   const offload = (value: unknown, site: InlineSite) =>
     offloadedInlineFiles(fileDescriptorsIn(value), {
       store: store(),
       ...site,
       now: clock.now(),
-      ttl: policyTtlOf(workflow),
+      ttl: policyTtlOf(options, workflow),
     });
   return {
     offload,
@@ -75,6 +75,19 @@ export function inlineFilesOf(
   };
 }
 
+/** The caps over the application's file store and options, both read from its container (a workflow's run). */
+export const containerInlineFilesOf = (
+  container: { readonly get: <T>(token: Class<T>) => T },
+  clock: Pick<Clock, "now">,
+  workflow: Class | undefined,
+): InlineFiles =>
+  inlineFilesOf(
+    () => container.get(FileRepository),
+    clock,
+    workflow,
+    container.get(ComponentOptions),
+  );
+
 /** A tool's output held to the caps: its files owned by the root execution the call runs in. */
 export function toolInlineFilesOf(deps: {
   readonly container: { readonly get: <T>(token: Class<T>) => T };
@@ -87,6 +100,7 @@ export function toolInlineFilesOf(deps: {
       () => deps.container.get(FileRepository),
       deps.clock ?? systemClock,
       execution.workflow.type,
+      deps.container.get(ComponentOptions),
     ).offload(value, {
       tenantId: execution.tenant.tenantId,
       ownerId: rootFactsOf(execution).executionId,

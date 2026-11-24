@@ -1,4 +1,5 @@
 import { Injectable } from "../../components/decorators.js";
+import { ComponentOptions } from "../../components/component-options.js";
 import { FileRepository } from "../../infrastructure/file.repository.js";
 import { Clock, lazyLoad } from "../../infrastructure/clock.js";
 import type { FileDto } from "../../dto/standard/file.js";
@@ -35,7 +36,7 @@ const work = () => lazyLoad(import("./files-work.js"));
  * reference (`fromUrl`, served as a `url` part). A file is its task's: another task's is never
  * read, whatever descriptor a step holds.
  */
-@Injectable({ deps: [FileRepository, Clock] })
+@Injectable({ deps: [FileRepository, Clock, ComponentOptions] })
 export class Files {
   /**
    * @internal The container injects the application's file store and clock: left out of the
@@ -44,11 +45,12 @@ export class Files {
   constructor(
     private readonly store: FileRepository,
     private readonly clock: Clock,
+    private readonly options: ComponentOptions,
   ) {}
 
   /** Keeps a file for this execution's task; the descriptor its output holds. */
   async save(content: FileToSave): Promise<FileDto> {
-    return (await work()).savedFile(this.store, this.clock, content);
+    return (await work()).savedFile(this.store, this.clock, content, this.options);
   }
 
   /** A file by reference: its `url` is the output's part; its bytes never pass through here. */
@@ -64,6 +66,6 @@ export class Files {
 
   /** The bytes of a file of this execution's task, checked against its `sha256`. */
   async read(file: FileDto): Promise<Uint8Array> {
-    return (await work()).readFile(this.store, this.clock, file);
+    return (await work()).readFile(this.store, this.clock, file, this.options);
   }
 }

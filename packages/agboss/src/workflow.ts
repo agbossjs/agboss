@@ -1,4 +1,5 @@
 import type { BudgetOverlays } from "./budgets/budget-overlay.js";
+import type { ComponentOptions } from "./components/component-options.js";
 import type { BusinessKeyWriterUse } from "./components/container/fenced-reach.js";
 import type { JudgeInstance } from "./components/judge-decorators.js";
 import type { AgentPrompts, AgentsConfigOf } from "./config/types.js";
@@ -124,6 +125,8 @@ export interface AssembledWorkflow<TName extends string = string> {
   readonly ownFileRedactor?: Class | undefined;
   /** What the profile this workflow was assembled under changes of the budgets, so a run on its own (eval, replay) counts them as the application does. */
   readonly budgetOverlays?: BudgetOverlays | undefined;
+  /** The options of the components under the profile this workflow was assembled under: what a run on its own is bounded by. */
+  readonly componentOptions?: ComponentOptions | undefined;
   /** The application lists an `FileRepository` that keeps files (#899 §7): not the inline default. */
   readonly hasFileStore?: boolean;
   /** Its tool interceptors (#384): each agent's chain per tool, outer first. */

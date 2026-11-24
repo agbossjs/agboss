@@ -45,4 +45,5 @@ export {
   type FileFetchPool,
   type FilePolicyMeta,
   type FilePolicyOptions,
+  type FilePolicyOverlay,
 } from "../files/file-policy.js";

@@ -28,6 +28,7 @@ import {
   ReviewRequestDto,
   ReviewResultDto,
 } from "../../fixtures/files.application.js";
+import { ComponentOptions } from "../../../../src/components/component-options.js";
 
 class FilesInDto {
   @Nested(FileDto, { prompt: "f" })
@@ -89,6 +90,7 @@ const tierOf = (skills: readonly Skill[]): number =>
   fileTierSizeOf(
     skills.map((each) => each.expose),
     skills.map((each) => each.workflow),
+    ComponentOptions.none,
   );
 
 describe("fileTierSizeOf", () => {
@@ -186,7 +188,13 @@ describe("fileTierSizeOf", () => {
     }
     const real = skill(FilesInDto, TextDto);
 
-    expect(fileTierSizeOf([NotAnExpose, Undecorated, real.expose], [real.workflow])).toBe(1000);
+    expect(
+      fileTierSizeOf(
+        [NotAnExpose, Undecorated, real.expose],
+        [real.workflow],
+        ComponentOptions.none,
+      ),
+    ).toBe(1000);
   });
 
   it("an export that is no start, or no declaration, keeps no file", () => {
@@ -208,7 +216,7 @@ describe("fileTierSizeOf", () => {
     })
     class OddExpose {}
 
-    expect(fileTierSizeOf([OddExpose], [])).toBe(0);
+    expect(fileTierSizeOf([OddExpose], [], ComponentOptions.none)).toBe(0);
   });
 });
 
@@ -254,7 +262,7 @@ class MixedWorkflow {}
 
 describe("a skill whose finishes differ", () => {
   it("files in only one of its finishes count: the file limit is in", () => {
-    expect(fileTierSizeOf([FilesA2AExpose], [MixedWorkflow])).toBe(5000);
+    expect(fileTierSizeOf([FilesA2AExpose], [MixedWorkflow], ComponentOptions.none)).toBe(5000);
   });
 });
 

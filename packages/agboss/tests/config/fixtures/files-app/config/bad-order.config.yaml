@@ -1,0 +1,4 @@
+filePolicies:
+  file-review-policy:
+    maxFileSize: 100
+    maxTotalFileSize: 50

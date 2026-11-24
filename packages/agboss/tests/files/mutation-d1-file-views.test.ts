@@ -16,6 +16,7 @@ import type { UsageRecord } from "../../src/finops/usage.js";
 import { megabytes } from "../../src/units/index.js";
 import { PNG } from "../a2a/files/support.js";
 import { NO_REDACTION } from "./runtime-parts.js";
+import { DEFAULT_FILE_LIMITS } from "../../src/files/file-policy.js";
 
 const usageOf = (caller: string): UsageRecord => ({
   provider: "test-provider",
@@ -65,7 +66,7 @@ function setup(
     settings: resolvedFilesOf({
       agent: {},
       defaults: undefined,
-      filePolicy: undefined,
+      limits: DEFAULT_FILE_LIMITS,
       hasPiiPolicy: false,
     }),
     maxResultSize: megabytes(1),

@@ -21,6 +21,7 @@ import { FileView, ModelFiles } from "../../src/files/model-files.js";
 import { NO_REDACTION } from "./runtime-parts.js";
 import type { FileReadContext } from "../../src/files/file-bytes.js";
 import type { FileDto } from "../../src/dto/standard/file.js";
+import { DEFAULT_FILE_LIMITS } from "../../src/files/file-policy.js";
 
 const BYTES = Buffer.from("hello, digest");
 const DIGEST = createHash("sha256").update(BYTES).digest("hex");
@@ -94,7 +95,7 @@ describe("what an agent's visit reads (model parts, guardrails, judges, transcri
       settings: resolvedFilesOf({
         agent: ModelFiles.of({ views: [FileView.Original] }).options,
         defaults: undefined,
-        filePolicy: undefined,
+        limits: DEFAULT_FILE_LIMITS,
         hasPiiPolicy: false,
       }),
       maxResultSize: megabytes(1),

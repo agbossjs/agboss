@@ -19,6 +19,7 @@ import { InlineFileRepository } from "../../src/infrastructure/file.repository.j
 import { VirtualClock } from "../../src/testing/clock.js";
 import { inTestFrame } from "../helpers/frame.js";
 import { PDF } from "../a2a/files/support.js";
+import { ComponentOptions } from "../../src/components/component-options.js";
 
 const API = join(import.meta.dirname, "../../api");
 const reports = readdirSync(API)
@@ -112,7 +113,11 @@ describe("#1316a: FileDto and @File", () => {
 });
 
 describe("#1316a R7: Files rejects, it never throws synchronously", () => {
-  const files = new Files(new InlineFileRepository(), new VirtualClock(new Date(0)));
+  const files = new Files(
+    new InlineFileRepository(),
+    new VirtualClock(new Date(0)),
+    ComponentOptions.none,
+  );
 
   it("save and read of a bad argument are rejected promises", async () => {
     const save = files.save(undefined as never);

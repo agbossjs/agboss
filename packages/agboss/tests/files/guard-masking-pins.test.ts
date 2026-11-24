@@ -35,6 +35,7 @@ import {
   PNG_BYTES,
   readerApplication,
 } from "./reader.factory.js";
+import { DEFAULT_FILE_LIMITS } from "../../src/files/file-policy.js";
 
 const EMAIL = "bob@example.com";
 
@@ -152,7 +153,7 @@ const runtimeOn = (served: Record<string, { body: Uint8Array }>): FileRuntime =>
     settings: resolvedFilesOf({
       agent: ModelFiles.of({ views: [FileView.Original] }).options,
       defaults: undefined,
-      filePolicy: undefined,
+      limits: DEFAULT_FILE_LIMITS,
       hasPiiPolicy: false,
     }),
     maxResultSize: kilobytes(8),

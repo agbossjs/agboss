@@ -6,8 +6,8 @@ import { NodeKind } from "../../flow/ast.js";
 import { declarationOf } from "../../flow/decorators/declaration.js";
 import { listItemClassesOf, plainOutputClassOf } from "../../flow/finish-output.js";
 import { fileFieldsOf, inputClassOf } from "../../dto/standard/file.js";
-import { fileLimitsOf } from "../../files/file-policy.js";
-import { workflowFilePolicyOf, workflowOfStart } from "../../files/workflow-file-policy.js";
+import { workflowOfStart } from "../../files/workflow-file-policy.js";
+import type { ComponentOptions } from "../../components/component-options.js";
 import { skillOptionsOf, startsOfEndpoint } from "../a2a-endpoint.decorator.js";
 
 /**
@@ -56,7 +56,7 @@ export function listFinishItemsOf(
 function startSizeOf(
   start: Class,
   workflows: readonly Class[],
-  limits: ReturnType<typeof fileLimitsOf>,
+  limits: ReturnType<ComponentOptions["fileLimits"]>,
 ): number {
   const declaration = declarationOf(start);
   if (declaration?.kind !== NodeKind.Start) return 0;
@@ -69,15 +69,19 @@ function startSizeOf(
 }
 
 /** The most bytes of files any exported skill keeps: what the storage tier is chosen by. */
-export function fileTierSizeOf(endpoints: readonly Class[], workflows: readonly Class[]): number {
+export function fileTierSizeOf(
+  endpoints: readonly Class[],
+  workflows: readonly Class[],
+  options: ComponentOptions,
+): number {
   const sizes = endpoints.flatMap((expose) => {
     const meta = componentOf(expose);
     if (meta?.kind !== "a2a-endpoint") return [];
     return startsOfEndpoint(meta.meta).map((start) => {
       // Stryker disable next-line StringLiteral: equivalent: a start with no declaration gets size 0 whatever its name
       const name = declarationOf(start)?.options.name ?? "";
-      const limits = fileLimitsOf(
-        workflowFilePolicyOf(workflowOfStart(start, workflows)),
+      const limits = options.workflowFileLimits(
+        workflowOfStart(start, workflows),
         skillOptionsOf(meta.meta, name)?.filePolicy,
       );
       return startSizeOf(start, workflows, limits);

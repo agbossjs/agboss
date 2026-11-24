@@ -6,9 +6,16 @@ import type { LoadedProfile } from "./config-files.js";
 import { deepMerge } from "./deep-merge.js";
 import { TYPESCRIPT_ONLY_WORKFLOW_KEYS } from "./define-config.js";
 import type { BudgetOverlay } from "../budgets/budget-overlay.js";
-import { budgetsOf, foldedShelf, memoriesOf, pauseTargetsOf } from "./fold-shelves.js";
+import {
+  budgetsOf,
+  filePoliciesOf,
+  foldedShelf,
+  memoriesOf,
+  pauseTargetsOf,
+} from "./fold-shelves.js";
 import type { MemoryOverlay } from "../memory/memory.decorator.js";
 import type { PauseTargetOverlay } from "../channels/pause-targets.js";
+import type { FilePolicyOverlay } from "../files/file-policy.js";
 import type { DatabaseStorageOverlay, MeshOverlay } from "./overlay-types.js";
 import type { ComponentModelOverride } from "../models/model-cascade.js";
 import type {
@@ -29,10 +36,11 @@ export interface FoldedWorkflow {
   readonly prompts: Readonly<Record<string, string>>;
 }
 
-/** The classes a profile gives one workflow in place of its `@Workflow({ budget, memory })`. */
+/** The classes a profile gives one workflow in place of its `@Workflow({ budget, memory, filePolicy })`. */
 export interface WorkflowSlots {
   readonly budget?: Class | undefined;
   readonly memory?: Class | undefined;
+  readonly filePolicy?: Class | undefined;
 }
 
 /** The infrastructure classes of an application a profile replaces whole (the last profile that sets one wins). */
@@ -62,6 +70,8 @@ export interface FoldedConfig {
   readonly budgets: Readonly<Record<string, BudgetOverlay>>;
   /** What each `@Memory` keeps by its name, the profiles folded (a later one wins per field). */
   readonly memories: Readonly<Record<string, MemoryOverlay>>;
+  /** What each `@FilePolicy` allows by its name, the profiles folded (a later one wins per field). */
+  readonly filePolicies: Readonly<Record<string, FilePolicyOverlay>>;
   /** What each `@DatabaseStorage` keeps and the `@Mesh`'s limits, by name, the profiles folded. */
   readonly databaseStorages: Readonly<Record<string, DatabaseStorageOverlay>>;
   readonly mesh: Readonly<Record<string, MeshOverlay>>;
@@ -82,6 +92,7 @@ export const unchangedConfig = (profiles: readonly string[]): FoldedConfig => ({
   modelProviders: {},
   budgets: {},
   memories: {},
+  filePolicies: {},
   databaseStorages: {},
   mesh: {},
   toolApprovals: {},
@@ -161,7 +172,7 @@ function layerOf(layer: LoadedProfile): FoldedLayer {
           overlay: constantsOf(one),
           routers: one.routers ?? {},
           modelProvider: one.modelProvider,
-          slots: { budget: one.budget, memory: one.memory },
+          slots: { budget: one.budget, memory: one.memory, filePolicy: one.filePolicy },
           prompts: layer.promptTexts[name] ?? {},
         },
       ]),
@@ -204,6 +215,7 @@ export function foldedConfigOf(
     modelProviders: providersOf(layers),
     budgets: budgetsOf(layers),
     memories: memoriesOf(layers),
+    filePolicies: filePoliciesOf(layers),
     databaseStorages: foldedShelf(layers, "databaseStorages"),
     mesh: foldedShelf(layers, "mesh"),
     toolApprovals: pauseTargetsOf(layers, "toolApprovals"),

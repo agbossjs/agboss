@@ -1,3 +1,4 @@
+import { ComponentOptions } from "./component-options.js";
 import type { AssembledWorkflow, WorkflowServices } from "../workflow.js";
 import {
   bindRagRuntime,
@@ -49,6 +50,7 @@ export const CORE_TOKENS = [
   JudgeModel,
   ArbiterModel,
   SpendRecorder,
+  ComponentOptions,
 ];
 
 /**

@@ -2,9 +2,8 @@ import type { Class } from "../components/injection.js";
 import { withChildWorkflows } from "../flow/analyse/child-workflow.js";
 import { NodeKind } from "../flow/ast.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
-import { fileLimitsOf } from "../files/file-policy.js";
+import type { ComponentOptions } from "../components/component-options.js";
 import { ttlMillisOf } from "../files/file-ttl.js";
-import { workflowFilePolicyOf } from "../files/workflow-file-policy.js";
 import { minutes } from "../units/index.js";
 import type { Clock } from "../infrastructure/clock.js";
 import type { Expiry } from "../infrastructure/expiry.js";
@@ -14,12 +13,16 @@ import type { FileOwner, FileRepository } from "../infrastructure/file.repositor
  * Per workflow with a finite `@FilePolicy.ttl` (a workflow with no policy: the built-in 24 hours):
  * the moment before which an owner must have completed for its files to be up (#1316).
  */
-export function fileCutoffsOf(workflows: readonly Class[], now: Date): ReadonlyMap<string, Date> {
+export function fileCutoffsOf(
+  workflows: readonly Class[],
+  now: Date,
+  options: ComponentOptions,
+): ReadonlyMap<string, Date> {
   const cutoffs = new Map<string, Date>();
   for (const workflow of withChildWorkflows(workflows)) {
     const declaration = declarationOf(workflow);
     if (declaration?.kind !== NodeKind.Workflow) continue;
-    const ttl = ttlMillisOf(fileLimitsOf(workflowFilePolicyOf(workflow)).ttl);
+    const ttl = ttlMillisOf(options.workflowFileLimits(workflow).ttl);
     if (Number.isFinite(ttl)) cutoffs.set(declaration.options.name, new Date(now.getTime() - ttl));
   }
   return cutoffs;
@@ -40,6 +43,8 @@ export const fileExpiryOf = (sources: {
   readonly files: FileRepository;
   readonly clock: Pick<Clock, "now">;
   readonly workflows: readonly Class[];
+  /** The options of the components under the selected profiles: each workflow's effective file policy. */
+  readonly options: ComponentOptions;
   /** Whether an owner has an execution or an A2A task: what keeps its files from the orphan sweep. */
   readonly isLive: (owner: FileOwner) => Promise<boolean>;
 }): Expiry => ({
@@ -48,7 +53,7 @@ export const fileExpiryOf = (sources: {
     const now = sources.clock.now();
     const expired = await sources.files.deleteExpired({
       now,
-      cutoffsByWorkflow: fileCutoffsOf(sources.workflows, now),
+      cutoffsByWorkflow: fileCutoffsOf(sources.workflows, now, sources.options),
     });
     // a file whose owner never came to be (a crashed upload, an attempt that ran no tree)
     const orphans = await sources.files.deleteOrphans({

@@ -1677,4 +1677,16 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "the built-in SQLite full-text index of @Rag: the heading splitter and the directory callback's shape; no spend, lease, fence or cancel, no stored guarantee; covered by tests/rag/sqlite-fts.test.ts",
     ["src/rag/sqlite-fts-chunks.ts", "src/rag/sqlite-fts-directory.ts"],
   ),
+  ...reviewed(
+    "the file policy rules, moved out of `a2a-file-store-rule.ts` as they were (#1318c) to keep it under the line limit and to read the policies through the carrier of the components' options: a skill's policy only tightens its workflow's, a workflow that handles files names one; assembly rules that decide no spend, lease, fence or cancel; covered by tests/files/file-policy-1316b.test.ts, tests/a2a/files/file-ttl-1316b.test.ts and tests/config/file-policies-shelf.test.ts",
+    ["src/a2a/a2a-file-policy-rules.ts"],
+  ),
+  ...reviewed(
+    "the carrier of the components' options under the selected profiles (#1318c): each reader asks it for a class's effective options — a policy's declared options with a shelf's overlay on top, a workflow's policy a profile's slot over its declaration; it holds values and writes nothing, no spend, lease, fence or cancel decision, and what it returns is enforced by the sharded readers; covered by tests/config/file-policies-shelf.test.ts",
+    ["src/components/component-options.ts"],
+  ),
+  ...reviewed(
+    "the build of that carrier from the folded profiles and the checks that every name a shelf holds is a component the application has and leaves a valid one (#1318c): assembly-time rules that decide no spend, lease, fence or cancel; covered by tests/config/file-policies-shelf.test.ts",
+    ["src/application/option-shelves.ts"],
+  ),
 ]);

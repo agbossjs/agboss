@@ -34,6 +34,7 @@ import { WorkflowFinishTextDto } from "../../src/dto/index.js";
 import type { WorkflowDefaults } from "../../src/flow/decorators/workflow.js";
 import { onStart } from "../helpers/flow.js";
 import { BundleDto, readerApplication } from "./reader.factory.js";
+import { ComponentOptions } from "../../src/components/component-options.js";
 
 class OwnTranscriber extends FileTranscriber {
   transcribe(): Promise<never> {
@@ -147,6 +148,7 @@ const sourcesOf = (
   workflow: mini.Workflow,
   agents: [agentMetaOf(mini.Agent)],
   pii: { byElement: new Map() },
+  options: ComponentOptions.none,
   ...over,
 });
 

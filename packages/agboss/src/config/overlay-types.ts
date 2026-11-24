@@ -6,6 +6,7 @@ import type { Milliseconds, Ttl } from "../units/index.js";
 import type { BudgetOverlay } from "../budgets/budget-overlay.js";
 import type { MemoryOverlay } from "../memory/memory.decorator.js";
 import type { PauseTargetOverlay } from "../channels/pause-targets.js";
+import type { FilePolicyOverlay } from "../files/file-policy.js";
 import type { AgentSettings, AgentsConfig, CompactionSettings } from "./settings-types.js";
 
 /** Every field optional at every depth (lists stay whole: a list in a profile replaces the default one). */
@@ -70,6 +71,8 @@ export interface WorkflowConfig extends Omit<WorkflowOverlay, "routers"> {
   readonly budget?: Class;
   /** The `@Memory` of this workflow's agents and routers, instead of its `@Workflow({ memory })`. */
   readonly memory?: Class;
+  /** The `@FilePolicy` of this workflow's files, instead of its `@Workflow({ filePolicy })`. */
+  readonly filePolicy?: Class;
 }
 
 /** What a profile changes of one `@ModelProvider`, by its `name`. */
@@ -112,6 +115,12 @@ export interface ConfigSpec {
   readonly toolApprovals?: Readonly<Record<string, PauseTargetOverlay>>;
   /** The same for each `@ExternalTask`, by its `name`. */
   readonly externalTasks?: Readonly<Record<string, PauseTargetOverlay>>;
+  /**
+   * What each `@FilePolicy` allows, by its `name`: `ttl`, `maxFiles`, `maxFileSize`, `maxTotalFileSize`,
+   * `allowedMediaTypes`, `allowedOrigins`, `fetchTimeout`, `fetchPool`. A file limit is the same on every
+   * path that reads it: A2A files, `Files`, the agents' files, the inline cap, the file expiry.
+   */
+  readonly filePolicies?: Readonly<Record<string, FilePolicyOverlay>>;
   /** The model of each `@Judge` by its `name`. */
   readonly judges?: Readonly<Record<string, ComponentModelConfig>>;
   /** The model of each model `@Arbiter` by its `name`. */

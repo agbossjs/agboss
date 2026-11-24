@@ -14,9 +14,11 @@ import { InMemoryDatabase } from "../../../src/infrastructure/in-memory-database
 import { VirtualClock } from "../../../src/testing/clock.js";
 import { inTenantFrame, inTestFrame, testFrame } from "../../helpers/frame.js";
 import { PDF, TEXT } from "./support.js";
+import { ComponentOptions } from "../../../src/components/component-options.js";
 
 const clock = new VirtualClock(new Date("2026-01-05T09:00:00.000Z"));
-const stored = () => new Files(new InMemoryFileRepository(new InMemoryDatabase()), clock);
+const stored = () =>
+  new Files(new InMemoryFileRepository(new InMemoryDatabase()), clock, ComponentOptions.none);
 const reasonOf = async (work: Promise<unknown>) =>
   work.then(
     () => "read",
@@ -52,7 +54,7 @@ describe("#859: Files", () => {
   });
 
   it("with no store listed the file rides inline in its descriptor", async () => {
-    const files = new Files(new InlineFileRepository(), clock);
+    const files = new Files(new InlineFileRepository(), clock, ComponentOptions.none);
 
     const file = await inTestFrame(() => files.save({ bytes: TEXT, mediaType: "text/plain" }));
 
@@ -65,7 +67,7 @@ describe("#859: Files", () => {
     const files = stored();
     const file = await inTestFrame(() => files.save({ bytes: PDF, mediaType: "application/pdf" }));
     const inline = await inTestFrame(() =>
-      new Files(new InlineFileRepository(), clock).save({
+      new Files(new InlineFileRepository(), clock, ComponentOptions.none).save({
         bytes: TEXT,
         mediaType: "text/plain",
       }),

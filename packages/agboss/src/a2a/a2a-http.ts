@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { executionControlOf } from "../app/execution-control.js";
 import type { Class } from "../components/injection.js";
+import { ComponentOptions } from "../components/component-options.js";
 import { componentOf, ComponentError } from "../components/metadata.js";
 import { A2ATaskRepository } from "../infrastructure/a2a-task.repository.js";
 import { Clock, IdGenerator, lazyLoad } from "../infrastructure/clock.js";
@@ -135,6 +136,18 @@ const directPartsOf = (
   defaultSkill: skills.find((skill) => skill.start === defaultSkill),
 });
 
+/** What the listener\'s skills are built from: the contracts, the workflows, the endpoint and the carrier of the components\' options. */
+const skillSourcesOf = async (
+  app: A2AApp,
+  mesh: ReturnType<typeof builtAppOf>["mesh"],
+  expose: A2AEndpointMeta,
+) => ({
+  contracts: await mesh.contracts(),
+  workflows: mesh.workflows,
+  expose,
+  options: app.resolve(ComponentOptions),
+});
+
 /** Builds what the listener serves with, on its first request: the card, the handler, the stores. */
 async function bindingOf(
   app: A2AApp,
@@ -151,8 +164,7 @@ async function bindingOf(
   const { mesh, control } = builtAppOf(app);
   const expose = endpointOptionsOf(options.endpoint);
   const known = knownOf(options, checked);
-  const sources = { contracts: await mesh.contracts(), workflows: mesh.workflows, expose };
-  const skills = servedSkillsOf(startsOfEndpoint(expose), sources);
+  const skills = servedSkillsOf(startsOfEndpoint(expose), await skillSourcesOf(app, mesh, expose));
   const clock = app.resolve(Clock);
   const card = agentCardOf({
     ...cardSourceOf(mesh, expose, known),

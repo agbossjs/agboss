@@ -2110,6 +2110,7 @@ export interface ConfigSpec {
     readonly defaults?: OverlayPartial<AgentsConfig["defaults"]>;
     readonly env?: EnvOverrides<EnvContract> | readonly EnvOverrides<EnvContract>[];
     readonly externalTasks?: Readonly<Record<string, PauseTargetOverlay>>;
+    readonly filePolicies?: Readonly<Record<string, FilePolicyOverlay>>;
     readonly guardrails?: Readonly<Record<string, ComponentModelConfig>>;
     readonly healthChecks?: ApplicationOptions["healthChecks"];
     readonly judges?: Readonly<Record<string, ComponentModelConfig>>;
@@ -4015,6 +4016,9 @@ export interface FilePolicyOptions {
     readonly name?: string;
     readonly ttl?: Milliseconds | Ttl.Forever;
 }
+
+// @public
+export type FilePolicyOverlay = Omit<FilePolicyOptions, "name" | "description">;
 
 // @public
 export class FileRedactionFailedError extends StepFailedError {
@@ -11310,6 +11314,7 @@ export type WorkflowClass = Class;
 // @public
 export interface WorkflowConfig extends Omit<WorkflowOverlay, "routers"> {
     readonly budget?: Class;
+    readonly filePolicy?: Class;
     readonly memory?: Class;
     readonly modelProvider?: Class;
     readonly routers?: Readonly<Record<string, ComponentModelConfig>>;

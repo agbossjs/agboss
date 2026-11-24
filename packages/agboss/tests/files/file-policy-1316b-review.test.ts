@@ -19,6 +19,7 @@ import { VirtualClock } from "../../src/testing/clock.js";
 import { FileReviewWorkflow, FileReviewWorkflowStart } from "../a2a/fixtures/files.application.js";
 import { PDF, TEXT } from "../a2a/files/support.js";
 import { inTestFrame } from "../helpers/frame.js";
+import { ComponentOptions } from "../../src/components/component-options.js";
 
 const clock = new VirtualClock(new Date("2026-01-05T09:00:00.000Z"));
 const reasonOf = (work: Promise<unknown>) =>
@@ -34,12 +35,19 @@ const withoutDigest = <T extends { sha256?: string }>(file: T): T => {
 
 describe("#1316b review: Files.read needs a digest of a stored or inline file", () => {
   it("a stored file and an inline file with no sha256 are unavailable; with one they read", async () => {
-    const files = new Files(new InMemoryFileRepository(new InMemoryDatabase()), clock);
+    const files = new Files(
+      new InMemoryFileRepository(new InMemoryDatabase()),
+      clock,
+      ComponentOptions.none,
+    );
     const stored = await inTestFrame(() =>
       files.save({ bytes: PDF, mediaType: "application/pdf" }),
     );
     const inline = await inTestFrame(() =>
-      new Files(new InlineFileRepository(), clock).save({ bytes: TEXT, mediaType: "text/plain" }),
+      new Files(new InlineFileRepository(), clock, ComponentOptions.none).save({
+        bytes: TEXT,
+        mediaType: "text/plain",
+      }),
     );
 
     expect(await reasonOf(inTestFrame(() => files.read(withoutDigest(stored))))).toBe(
@@ -53,7 +61,11 @@ describe("#1316b review: Files.read needs a digest of a stored or inline file", 
   });
 
   it("a file by url needs no digest: it goes on to the policy's origin check", async () => {
-    const files = new Files(new InMemoryFileRepository(new InMemoryDatabase()), clock);
+    const files = new Files(
+      new InMemoryFileRepository(new InMemoryDatabase()),
+      clock,
+      ComponentOptions.none,
+    );
 
     expect(
       await reasonOf(

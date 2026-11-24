@@ -31,12 +31,13 @@ import { TestOpenRouterProvider } from "../models/providers.fixture.js";
 import { FetchedDto } from "./reader.factory.js";
 import { providerStub } from "../models/stub.js";
 import { CircuitBreakerPolicy } from "../../src/models/circuit-breaker-policy.js";
+import { DEFAULT_FILE_LIMITS } from "../../src/files/file-policy.js";
 
 const filesOf = (options: Parameters<typeof ModelFiles.of>[0], hasPiiPolicy = false) =>
   resolvedFilesOf({
     agent: ModelFiles.of(options).options,
     defaults: undefined,
-    filePolicy: undefined,
+    limits: DEFAULT_FILE_LIMITS,
     hasPiiPolicy,
   });
 

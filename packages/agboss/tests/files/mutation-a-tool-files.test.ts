@@ -31,6 +31,7 @@ import { VirtualClock } from "../../src/testing/clock.js";
 import { kilobytes, megabytes, seconds } from "../../src/units/index.js";
 import { PDF_BYTES, inline, sha256Of } from "./reader.factory.js";
 import { NO_REDACTION } from "./runtime-parts.js";
+import { DEFAULT_FILE_LIMITS } from "../../src/files/file-policy.js";
 
 class ScanQueryDto {
   @Text({ prompt: "which scan" })
@@ -74,7 +75,7 @@ function runtimeOf(
   const base = resolvedFilesOf({
     agent: ModelFiles.of({}).options,
     defaults: undefined,
-    filePolicy: undefined,
+    limits: DEFAULT_FILE_LIMITS,
     hasPiiPolicy: false,
   });
   return {

@@ -1,6 +1,7 @@
 import type { ApplicationOptions } from "../application/application.js";
 import { Idempotency } from "../app/idempotency.js";
 import { implementsContract } from "../components/container/registrations.js";
+import { ComponentOptions } from "../components/component-options.js";
 import { CONTEXT_TOKENS } from "../components/context-tokens.js";
 import { createdClassesOf, type Class, type Token } from "../components/injection.js";
 import { componentOf } from "../components/metadata.js";
@@ -48,9 +49,10 @@ export function boundClassesOf(options: ApplicationOptions): readonly Class[] {
   return [...entries(options.providers), ...entries(options.services), ...workflows];
 }
 
-/** The tokens the container itself provides to every application: the clocks, the contexts. */
+/** The tokens the container itself provides to every application: the clocks, the contexts, the options of the components (#1318c). */
 const CORE_TOKENS: ReadonlySet<Token> = new Set<Token>([
   Clock,
+  ComponentOptions,
   StoreClock,
   IdGenerator,
   ...CONTEXT_TOKENS,

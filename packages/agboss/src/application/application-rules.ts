@@ -37,7 +37,6 @@ import { storeBackendViolations } from "./implementations.js";
 import { storeDescriptorViolations } from "./store-descriptor-rule.js";
 import { a2aMessageStoreViolations, a2aTaskStoreViolations } from "../a2a/a2a-task-store-rule.js";
 import { messageSkillViolations } from "../a2a/a2a-message-skill-rule.js";
-import { a2aFileStoreViolations } from "../a2a/a2a-file-store-rule.js";
 import { nestedFileFieldViolations } from "../a2a/a2a-nested-file-rule.js";
 import { limitViolations } from "./limit-rules.js";
 import { isolatedWorkerViolations } from "./isolated-worker-rules.js";
@@ -48,9 +47,8 @@ import { storageViolations } from "../storage/storage-rules.js";
 /**
  * The rules of an `@Application` itself (#261), read from its declaration: its `name` and class end
  * with their kind, it lists workflows, its budgets are `@Budget`s that cap every workflow, every
- * tenant and the whole application, infrastructure is listed only
- * in its `providers`, its environment contract declares fields only — every field a listed
- * framework implementation reads among them — and its context subclasses' fields take no prompt.
+ * tenant and the whole application, infrastructure is listed only in its `providers`, its environment
+ * contract declares fields only (every field a listed framework implementation reads among them).
  */
 
 const nameOf = (cls: Class): string => cls.name || "(anonymous class)";
@@ -228,8 +226,6 @@ export function applicationRuleViolations(
     // a direct-reply skill is stateless, its replies kept where its tasks' ids are (#860)
     ...messageSkillViolations(options),
     ...a2aMessageStoreViolations(options),
-    // and its files where every instance reads them, within the tier no store needs (#859)
-    ...a2aFileStoreViolations(options),
     ...nestedFileFieldViolations(options),
     ...meshRuleViolations(options.name, options.mesh, options.endpoints),
     ...contractRuleViolations(options),

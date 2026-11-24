@@ -25,6 +25,7 @@ import {
   FileReviewWorkflowStart,
   fileReviewFlow,
 } from "../../../a2a/fixtures/files.application.js";
+import { ComponentOptions } from "../../../../src/components/component-options.js";
 
 const sized = (total: number): FilePolicyOptions => ({
   maxFileSize: kilobytes(total),
@@ -83,7 +84,7 @@ const optionsOf = (over: Record<string, unknown>) => {
 };
 
 const outcomeOf = (over: Record<string, unknown>) =>
-  a2aFileStoreViolations(optionsOf(over)).map((found) => ({
+  a2aFileStoreViolations(optionsOf(over), ComponentOptions.none).map((found) => ({
     code: found.code,
     nodes: found.nodes,
     message: found.message,
@@ -161,6 +162,7 @@ describe("#1366 inlineFilesWarningOf", () => {
     providers: [],
     endpoints: [PlainExpose],
     workflows: [workflowWith(sized(total))],
+    options: ComponentOptions.none,
   });
 
   it("a warning between 64 and 256 KB (both edges), showing the KB; none outside", () => {

@@ -16,8 +16,11 @@ export function workflowOfStart(start: Class, workflows: readonly Class[]): Clas
   });
 }
 
-/** The `@FilePolicy` of a workflow; `undefined` without one. */
-export function workflowFilePolicyOf(workflow: Class | undefined): Class | undefined {
+/**
+ * The `@FilePolicy` a workflow declares; `undefined` without one. What a profile's `filePolicy` slot or
+ * `filePolicies` shelf leaves of it is `ComponentOptions`' to say — every reader asks that.
+ */
+export function declaredFilePolicyOf(workflow: Class | undefined): Class | undefined {
   const declaration = workflow === undefined ? undefined : declarationOf(workflow);
   return declaration?.kind === NodeKind.Workflow ? declaration.options.filePolicy : undefined;
 }

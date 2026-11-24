@@ -18,4 +18,5 @@ export const sourcesOf = (
   ...{ modules: assembled.modules, clock: parts.clock, contexts: parts.contexts },
   ...{ idGenerator: parts.seams.idGenerator },
   storage: resolvedStorageOf(assembled.storage, parts.processEnv),
+  componentOptions: assembled.componentOptions,
 });

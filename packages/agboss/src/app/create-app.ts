@@ -1,7 +1,6 @@
 import { lazyLoad } from "../infrastructure/clock.js";
 import { runIdOf, treeControlOf, type TreeControl } from "./tree-control.js";
-import { FileRepository } from "../infrastructure/file.repository.js";
-import { inlineFilesOf } from "../files/inline-offload.js";
+import { containerInlineFilesOf } from "../files/inline-offload.js";
 import { newThreadOf } from "./new-thread.js";
 import { rememberAppWorkflow } from "./app-workflow.js";
 import { workflowIdentityOf } from "../flow/runtime/workflow-keys.js";
@@ -109,7 +108,7 @@ export async function buildApp(
   const ownerOf = async (tenantId: string, threadId: string): Promise<string | undefined> =>
     (await deps.turns.threadOwner(deps.config.name, tenantId, threadId))?.owner;
   const newThread = newThreadOf(deps, owned);
-  const inline = inlineFilesOf(() => deps.container.get(FileRepository), clock, bundle.graph.type);
+  const inline = containerInlineFilesOf(deps.container, clock, bundle.graph.type);
   const contexts = deps.contexts ?? contextsOutsideExecution(deps.config);
   let closed = false;
   let released = false;

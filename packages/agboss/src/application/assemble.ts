@@ -19,6 +19,7 @@ import {
 } from "./application.js";
 import type { BudgetOverlays, OverlaidBudgets } from "../budgets/budget-overlay.js";
 import { applicationRuleViolations, budgetsOfApplication } from "./application-rules.js";
+import { a2aFileStoreViolations } from "../a2a/a2a-file-store-rule.js";
 import { assembledRetentionsOf, retentionOf } from "./retention.js";
 import {
   idempotencyKeyViolations,
@@ -161,7 +162,7 @@ async function assembleWorkflows(
     try {
       const own = { ...owner, patch: profiles.patchOf(workflow) };
       const bundle = await workflowOf(workflow, modules, own, contexts, assembly.processEnv);
-      assembled.push(P.withBudgetOverlays(bundle, profiles));
+      assembled.push(P.withAppliedProfiles(bundle, profiles));
     } catch (error) {
       if (!(error instanceof GraphRuleError)) throw error;
       errors.push(error);
@@ -238,8 +239,9 @@ export async function applicationOf(
     assembled,
     assembly.withoutIdempotencyKeys === true,
   );
-  throwIfAny([...own, ...crossWorkflowViolations(assembled), ...keys], errors);
-  const retention = retentionOf(options.retention);
+  // and its files where every instance reads them, within the tier no store needs (#859)
+  const files = a2aFileStoreViolations(options, applied.componentOptions);
+  throwIfAny([...own, ...crossWorkflowViolations(assembled), ...keys, ...files], errors);
   return {
     application,
     name: options.name,
@@ -253,7 +255,7 @@ export async function applicationOf(
     workflows: assembled,
     ...P.profileFieldsOf(applied),
     ...limitFieldsOf(options),
-    ...assembledRetentionsOf(retention),
+    ...assembledRetentionsOf(retentionOf(options.retention)),
     ...storageFieldsOf(options.storage),
     outboundMasking: new OutboundMasking({ requiresMask: hasPiiPolicies(options, assembled) }),
     ...childFieldsOf(options),

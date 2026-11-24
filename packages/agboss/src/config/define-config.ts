@@ -2,6 +2,7 @@ import { isEnvContract } from "../environments/define-env.js";
 import { isModelProviderClass } from "../models/model-provider.decorator.js";
 import { budgetOf } from "../budgets/budget.js";
 import { memoryMetaOf } from "../memory/memory.decorator.js";
+import { filePolicyMetaOf } from "../files/file-policy.js";
 import { ProfileError, ProfileErrorReason } from "./profile-error.js";
 import { ScalarOverlaySchema } from "./overlay-schema.js";
 import type { ConfigSpec } from "./overlay-types.js";
@@ -30,7 +31,12 @@ export const COMPONENT_MODEL_SHELVES = [
 ] as const;
 
 /** The keys of one workflow's overlay only TypeScript holds. */
-export const TYPESCRIPT_ONLY_WORKFLOW_KEYS = ["modelProvider", "budget", "memory"] as const;
+export const TYPESCRIPT_ONLY_WORKFLOW_KEYS = [
+  "modelProvider",
+  "budget",
+  "memory",
+  "filePolicy",
+] as const;
 
 const isPlain = (value: unknown): value is Readonly<Record<string, unknown>> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -114,6 +120,7 @@ function checkProviders(spec: Readonly<Record<string, unknown>>): void {
 const CLASS_SLOTS: readonly (readonly [string, string, (cls: never) => unknown])[] = [
   ["budget", "@Budget", budgetOf],
   ["memory", "@Memory", memoryMetaOf],
+  ["filePolicy", "@FilePolicy", filePolicyMetaOf],
 ];
 
 /** The classes a workflow's overlay stands in for its own `budget` and `memory`. */

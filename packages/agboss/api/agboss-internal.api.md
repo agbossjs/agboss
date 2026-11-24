@@ -185,6 +185,7 @@ export interface AssembledWorkflow<TName extends string = string> {
     readonly budgetOverlays?: BudgetOverlays | undefined;
     readonly businessKeyWriter?: BusinessKeyWriterUse;
     readonly channels?: (services: WorkflowServices) => ReadonlyMap<string, PauseChannel>;
+    readonly componentOptions?: ComponentOptions | undefined;
     // (undocumented)
     readonly config: AgentsConfigOf<TName>;
     readonly graph: RuntimeGraph;

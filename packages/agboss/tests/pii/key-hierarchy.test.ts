@@ -24,6 +24,7 @@ import { VirtualClock } from "../../src/testing/clock.js";
 import { kilobytes, megabytes, seconds } from "../../src/units/index.js";
 import { inline, PNG_BYTES } from "../files/reader.factory.js";
 import { NO_REDACTION } from "../files/runtime-parts.js";
+import { DEFAULT_FILE_LIMITS } from "../../src/files/file-policy.js";
 
 const ROOT = "application-pii-key";
 const SALT = "agboss/pii-key-hierarchy";
@@ -184,7 +185,7 @@ const runtime: FileRuntime = {
   settings: resolvedFilesOf({
     agent: ModelFiles.of({ views: [FileView.Transcription] }).options,
     defaults: undefined,
-    filePolicy: undefined,
+    limits: DEFAULT_FILE_LIMITS,
     hasPiiPolicy: true,
   }),
   maxResultSize: kilobytes(8),

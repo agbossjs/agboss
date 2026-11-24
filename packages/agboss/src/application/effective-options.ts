@@ -30,6 +30,8 @@ import type { PauseTargetOverrides } from "../channels/pause-targets.js";
 import { pauseOverridesOf } from "../config/pause-overrides.js";
 import { checkComponentShelves, componentOptionsOf } from "./component-profile.js";
 import { budgetOverlaysOf } from "./budget-profile.js";
+import { optionCarrierOf } from "./option-shelves.js";
+import type { ComponentOptions } from "../components/component-options.js";
 import { checkMemories, checkPauseTargets } from "./profile-checks.js";
 import { withIsolatedStorage } from "./isolated-storage.js";
 
@@ -94,16 +96,25 @@ export function checkProviderOverlays(
 }
 
 /**
- * The workflow with the budgets the profiles give: a run of it on its own (eval, replay, compare)
- * counts them as the application does.
+ * The workflow with what the profiles give the application: its budgets and the options of its
+ * components. A run of it on its own (eval, replay, compare) counts and is bounded as the application is.
  */
-export const withBudgetOverlays = (
+export const withAppliedProfiles = (
   bundle: AssembledWorkflow,
-  { budgetOverlays }: Pick<AppliedProfiles, "budgetOverlays">,
-): AssembledWorkflow => (budgetOverlays === undefined ? bundle : { ...bundle, budgetOverlays });
+  {
+    budgetOverlays,
+    componentOptions,
+  }: Pick<AppliedProfiles, "budgetOverlays" | "componentOptions">,
+): AssembledWorkflow => ({
+  ...bundle,
+  ...(budgetOverlays === undefined ? {} : { budgetOverlays }),
+  componentOptions,
+});
 
 /** What an assembled application records of its profiles: their names and their `configureEnv` values. */
 export interface ProfileFields {
+  /** The options of the components under the profiles (#1318c): the one carrier every reader asks. */
+  readonly componentOptions: ComponentOptions;
   /** What the profiles change of the pause targets, by target name; every reader of a target's deadline sees it. */
   readonly pauseOverrides?: PauseTargetOverrides | undefined;
   readonly profiles: readonly string[];
@@ -118,6 +129,8 @@ export interface AppliedProfiles {
   readonly options: ApplicationOptions;
   /** The limits the profiles give the application's budgets, by budget name; absent when none. */
   readonly budgetOverlays?: BudgetOverlays | undefined;
+  /** The options of the components under the profiles: every reader of a component's options asks it. */
+  readonly componentOptions: ComponentOptions;
   /** What a workflow's profile overlays change while it is assembled. */
   readonly patchOf: (workflow: Class) => WorkflowPatch;
   /** What the overlays reached: what is left over after assembly is a typo. */
@@ -136,11 +149,13 @@ export async function appliedProfilesOf(
   const use = new OverlayUse();
   const options = await effectiveOptionsOf(declaration, folded, assembly.replacements);
   const budgetOverlays = budgetOverlaysOf(folded, options);
+  const componentOptions = optionCarrierOf(folded, options);
   return {
     folded,
     source: declaration.source,
     options,
     budgetOverlays,
+    componentOptions,
     patchOf: (workflow) =>
       workflowPatchOf(
         folded,
@@ -149,13 +164,15 @@ export async function appliedProfilesOf(
         [options.modelProvider, ...(options.providers ?? [])].filter(
           (cls): cls is Class => typeof cls === "function" && isModelProviderClass(cls),
         ),
+        componentOptions,
       ),
     use,
   };
 }
 
 /** What an assembled application records of its profiles. */
-export const profileFieldsOf = ({ folded }: AppliedProfiles): ProfileFields => ({
+export const profileFieldsOf = ({ folded, componentOptions }: AppliedProfiles): ProfileFields => ({
+  componentOptions,
   pauseOverrides: pauseOverridesOf(folded),
   profiles: folded.profiles,
   envOverrides: folded.env,

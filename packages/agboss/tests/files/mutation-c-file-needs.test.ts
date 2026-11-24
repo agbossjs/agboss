@@ -13,12 +13,13 @@ import {
 } from "../../src/files/file-needs.js";
 import { resolvedFilesOf, type ResolvedModelFiles } from "../../src/files/file-settings.js";
 import { FileView, type ModelFilesOptions } from "../../src/files/model-files.js";
+import { DEFAULT_FILE_LIMITS } from "../../src/files/file-policy.js";
 
 const filesOf = (options: ModelFilesOptions): ResolvedModelFiles =>
   resolvedFilesOf({
     agent: options,
     defaults: undefined,
-    filePolicy: undefined,
+    limits: DEFAULT_FILE_LIMITS,
     hasPiiPolicy: false,
   });
 

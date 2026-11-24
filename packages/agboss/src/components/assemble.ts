@@ -2,6 +2,7 @@ import { withAgentFiles } from "../files/assemble-files.js";
 import type { AgentsConfigOf } from "../config/types.js";
 import {
   memoryOf,
+  optionsOf,
   patchedConfig,
   patchedPrompts,
   profiledBundle,
@@ -211,7 +212,7 @@ export async function workflowOf(
   const mcp = mcpOf(mcpServerClassesOf(components, modules));
   checkComponents(bundle, { components, modules, mcp, contexts });
   const names = toolNames(tools, resultSizeViolations(bundle, tools));
-  const files = { ...sources, pii: policies.assembled.pii };
+  const files = { ...sources, pii: policies.assembled.pii, options: optionsOf(owner?.patch) };
   const plain = withAgentFiles(configOf(bundle, agents, names, judges, memories), files);
   const config = cascadedConfigOf(patchedConfig(plain, owner?.patch), bundle, agents, resolver);
   validateAgentsConfig(config, [...names.values()]);

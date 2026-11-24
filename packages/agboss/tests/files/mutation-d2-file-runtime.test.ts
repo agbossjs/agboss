@@ -5,7 +5,12 @@ import { describe, expect, it } from "vitest";
 import { appFileSlotsOf } from "../../src/a2a/files/a2a-file-pool.js";
 import { callerKeyOf, tenantKeyOf } from "../../src/a2a/files/a2a-file-slots.js";
 import { FileRepository } from "../../src/infrastructure/file.repository.js";
-import { DEFAULT_FILE_FETCH_TIMEOUT, FilePolicy } from "../../src/files/file-policy.js";
+import {
+  DEFAULT_FILE_FETCH_TIMEOUT,
+  FilePolicy,
+  DEFAULT_FILE_LIMITS,
+  fileLimitsOf,
+} from "../../src/files/file-policy.js";
 import { runInFrame } from "../../src/flow/context/frame.js";
 import { fileRuntimeOf } from "../../src/files/file-runtime.js";
 import {
@@ -26,7 +31,7 @@ import { sha256Of } from "./reader.factory.js";
 const settings = resolvedFilesOf({
   agent: ModelFiles.of({ maxFileSize: 4096 as never }).options,
   defaults: undefined,
-  filePolicy: undefined,
+  limits: DEFAULT_FILE_LIMITS,
   hasPiiPolicy: false,
 });
 const file = {
@@ -161,7 +166,7 @@ describe("#1269: the read context", () => {
     const own = resolvedFilesOf({
       agent: {},
       defaults: undefined,
-      filePolicy: OriginsPolicy,
+      limits: fileLimitsOf(OriginsPolicy),
       hasPiiPolicy: false,
     });
     const deps = depsOf(new Map(), { clock: new VirtualClock() });

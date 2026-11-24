@@ -30,6 +30,7 @@ import {
 } from "../a2a/fixtures/files.application.js";
 import { PDF, TEXT } from "../a2a/files/support.js";
 import { testFrame } from "../helpers/frame.js";
+import { ComponentOptions } from "../../src/components/component-options.js";
 
 const API = join(import.meta.dirname, "../../api");
 const reports = readdirSync(API)
@@ -135,10 +136,12 @@ describe("#1316b: the assembly rules", () => {
     })
     class NoPolicyWorkflow {}
 
-    expect(codes(a2aFileStoreViolations(optionsOf(NoPolicyWorkflow)))).toEqual([
-      "workflow.file-policy-required",
-    ]);
-    expect(a2aFileStoreViolations(optionsOf(FileReviewWorkflow))).toEqual([]);
+    expect(
+      codes(a2aFileStoreViolations(optionsOf(NoPolicyWorkflow), ComponentOptions.none)),
+    ).toEqual(["workflow.file-policy-required"]);
+    expect(a2aFileStoreViolations(optionsOf(FileReviewWorkflow), ComponentOptions.none)).toEqual(
+      [],
+    );
   });
 
   it("[file-policy.not-a-file-policy]: a class that is no @FilePolicy named by a workflow", () => {
@@ -153,9 +156,9 @@ describe("#1316b: the assembly rules", () => {
     })
     class PlainPolicyWorkflow {}
 
-    expect(codes(a2aFileStoreViolations(optionsOf(PlainPolicyWorkflow)))).toEqual([
-      "file-policy.not-a-file-policy",
-    ]);
+    expect(
+      codes(a2aFileStoreViolations(optionsOf(PlainPolicyWorkflow), ComponentOptions.none)),
+    ).toEqual(["file-policy.not-a-file-policy"]);
   });
 
   it("[a2a.skill-file-policy-exceeds-workflow]: a skill's policy that sets more than its workflow's", () => {
@@ -177,9 +180,11 @@ describe("#1316b: the assembly rules", () => {
 
     const wide = a2aFileStoreViolations(
       optionsOf(FileReviewWorkflow, [exposeWith("wide-a2a-expose", Wide)]),
+      ComponentOptions.none,
     );
     const narrow = a2aFileStoreViolations(
       optionsOf(FileReviewWorkflow, [exposeWith("narrow-a2a-expose", Narrow)]),
+      ComponentOptions.none,
     );
 
     expect(codes(wide)).toEqual(["a2a.skill-file-policy-exceeds-workflow"]);
@@ -190,7 +195,8 @@ describe("#1316b: the assembly rules", () => {
 
 describe("#1316b: a step's Files read the policy of its workflow", () => {
   const clock = new VirtualClock(new Date("2026-01-05T09:00:00.000Z"));
-  const files = () => new Files(new InMemoryFileRepository(new InMemoryDatabase()), clock);
+  const files = () =>
+    new Files(new InMemoryFileRepository(new InMemoryDatabase()), clock, ComponentOptions.none);
   const reasonOf = (work: Promise<unknown>) =>
     work.then(
       () => "ok",

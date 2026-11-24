@@ -1,0 +1,4 @@
+filePolicies:
+  file-review-policy:
+    allowedOrigins:
+      - http://files.example

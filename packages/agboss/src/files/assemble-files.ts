@@ -1,4 +1,5 @@
 import type { Class } from "../components/injection.js";
+import type { ComponentOptions } from "../components/component-options.js";
 import type { AgentMeta } from "../components/meta-types.js";
 import type { AgentsConfigOf } from "../config/types.js";
 import type { WorkflowDefaults } from "../flow/decorators/workflow.js";
@@ -30,6 +31,8 @@ export interface FilesSources {
   readonly agents: readonly AgentMeta[];
   /** The PII policies in effect per agent. */
   readonly pii: Pick<AssembledPii, "byElement">;
+  /** The options of the components under the selected profiles: the workflow's effective file policy. */
+  readonly options: ComponentOptions;
 }
 
 /** The application's own `FileTranscriber` (#899), not the built-in: the listed class, when there is one. */
@@ -73,7 +76,7 @@ export function agentFilesOf(
   return resolvedFilesOf({
     agent: agent.files.options,
     defaults: mergedFileDefaults(owner?.defaults?.files, declared),
-    filePolicy: workflowDeclarationOf(workflow).options.filePolicy,
+    limits: sources.options.workflowFileLimits(workflow),
     hasPiiPolicy: (sources.pii.byElement.get(agent.name) ?? []).length > 0,
   });
 }

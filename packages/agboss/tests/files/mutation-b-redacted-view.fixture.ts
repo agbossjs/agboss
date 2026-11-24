@@ -13,6 +13,7 @@ import type { PiiRefusedError } from "../../src/pii/errors.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { kilobytes, megabytes, seconds } from "../../src/units/index.js";
 import { PNG_BYTES } from "./reader.factory.js";
+import { DEFAULT_FILE_LIMITS } from "../../src/files/file-policy.js";
 
 export const AGENT = "reader-agent";
 export const OWNER = "owner-1";
@@ -48,7 +49,7 @@ export function runtimeOf(over: RuntimeOver = {}): FileRuntime {
       ...resolvedFilesOf({
         agent: ModelFiles.of({ views: [FileView.Redacted] }).options,
         defaults: undefined,
-        filePolicy: undefined,
+        limits: DEFAULT_FILE_LIMITS,
         hasPiiPolicy: true,
       }),
       maxFileSize: over.maxFileSize ?? megabytes(1),

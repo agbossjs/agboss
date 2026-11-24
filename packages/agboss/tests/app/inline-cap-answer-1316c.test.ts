@@ -16,6 +16,7 @@ import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js
 import { InMemoryFileRepository } from "../../src/infrastructure/in-memory-file.repository.js";
 import { PauseKind, PauseStatus } from "../../src/infrastructure/pause-record.js";
 import { recordedAnswer } from "../../src/app/resume.js";
+import { ComponentOptions } from "../../src/components/component-options.js";
 
 class ScanAnswerDto {
   @Text({ prompt: "a note" })
@@ -62,7 +63,12 @@ function partsOver(store: InlineFileRepository | InMemoryFileRepository) {
     tools: () => {
       throw new Error("no tools");
     },
-    inline: inlineFilesOf(() => store, { now: () => new Date(0) }, undefined),
+    inline: inlineFilesOf(
+      () => store,
+      { now: () => new Date(0) },
+      undefined,
+      ComponentOptions.none,
+    ),
   };
   return { parts, resolve };
 }

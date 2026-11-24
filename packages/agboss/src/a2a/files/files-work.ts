@@ -7,8 +7,7 @@ import { definedOf, lazyLoad, type Clock } from "../../infrastructure/clock.js";
 import { appFileSlotsOf } from "./a2a-file-pool.js";
 import { callerKeyOf, tenantKeyOf } from "./a2a-file-slots.js";
 import { MAX_INLINE_FILE_BYTES } from "../../files/inline-cap.js";
-import { fileLimitsOf } from "../../files/file-policy.js";
-import { workflowFilePolicyOf } from "../../files/workflow-file-policy.js";
+import type { ComponentOptions } from "../../components/component-options.js";
 import { FilePayloadSource, fileSourceOf, type FileDto } from "../../dto/standard/file.js";
 import {
   FileRefusal,
@@ -31,11 +30,15 @@ const sha256Of = (bytes: Uint8Array): string => createHash("sha256").update(byte
 const executionOf = (): ExecutionFacts | undefined => currentFrame()?.execution;
 
 /** A save's content checked against the application's limits; its media type's essence. */
-function checkedMediaTypeOf(execution: ExecutionFacts, content: FileToSave): string {
+function checkedMediaTypeOf(
+  execution: ExecutionFacts,
+  content: FileToSave,
+  options: ComponentOptions,
+): string {
   const mediaType = mediaTypeEssenceOf(content.mediaType);
   const sizeBytes = content.bytes.byteLength;
   // the limits of the execution's workflow `@FilePolicy` (#1316), the built-ins without one
-  const limits = fileLimitsOf(workflowFilePolicyOf(execution.workflow.type));
+  const limits = options.workflowFileLimits(execution.workflow.type);
   if (!limits.allowedMediaTypes.includes(mediaType))
     throw fileRefused({ refusal: FileRefusal.MediaType, mediaType });
   if (sizeBytes > limits.maxFileSize)
@@ -49,8 +52,12 @@ function checkedMediaTypeOf(execution: ExecutionFacts, content: FileToSave): str
  * How long a saved file is kept once its tree has ended (#1316): its own `ttl`, never longer than its
  * workflow's `@FilePolicy.ttl`; else that one. `undefined` for ever (a policy of `Ttl.Forever`, no own `ttl`).
  */
-function savedTtlOf(execution: ExecutionFacts, content: FileToSave): Milliseconds | undefined {
-  const policy = fileLimitsOf(workflowFilePolicyOf(execution.workflow.type)).ttl;
+function savedTtlOf(
+  execution: ExecutionFacts,
+  content: FileToSave,
+  options: ComponentOptions,
+): Milliseconds | undefined {
+  const policy = options.workflowFileLimits(execution.workflow.type).ttl;
   if (content.ttl === undefined) return policy === Ttl.Forever ? undefined : policy;
   if (!Number.isInteger(content.ttl) || content.ttl < 1 || content.ttl > ttlMillisOf(policy))
     throw fileRefused({ refusal: FileRefusal.TtlAbovePolicy });
@@ -62,12 +69,13 @@ export async function savedFile(
   store: FileRepository,
   clock: Pick<Clock, "now">,
   content: FileToSave,
+  options: ComponentOptions,
 ): Promise<FileDto> {
   const execution = executionOf();
   if (execution === undefined) throw fileRefused({ refusal: FileRefusal.OutsideExecution });
-  const mediaType = checkedMediaTypeOf(execution, content);
+  const mediaType = checkedMediaTypeOf(execution, content, options);
   const sha256 = sha256Of(content.bytes);
-  const ttl = savedTtlOf(execution, content);
+  const ttl = savedTtlOf(execution, content, options);
   const named = content.filename === undefined ? {} : { filename: content.filename };
   const described = { mediaType, ...named, sha256, sizeBytes: content.bytes.byteLength };
   if (isInlineFileStore(store)) {
@@ -101,10 +109,11 @@ async function bytesOf(
   clock: Pick<Clock, "now" | "sleep">,
   file: FileDto,
   execution: ExecutionFacts,
+  options: ComponentOptions,
 ): Promise<Uint8Array> {
   switch (fileSourceOf(file)) {
     case FilePayloadSource.Url:
-      return fetchedBytes(store, clock, file, execution);
+      return fetchedBytes(store, clock, file, execution, options);
     case FilePayloadSource.Inline:
       return new Uint8Array(
         Buffer.from(
@@ -143,8 +152,9 @@ async function fetchedBytes(
   clock: Pick<Clock, "now" | "sleep">,
   file: FileDto,
   execution: ExecutionFacts,
+  options: ComponentOptions,
 ): Promise<Uint8Array> {
-  const limits = fileLimitsOf(workflowFilePolicyOf(execution.workflow.type));
+  const limits = options.workflowFileLimits(execution.workflow.type);
   const { httpsFileTransport } = await lazyLoad(import("./a2a-file-transport.js"));
   const { fileContentOf } = await lazyLoad(import("../../files/file-bytes.js"));
   const { tenantId } = execution.tenant;
@@ -169,6 +179,7 @@ export async function readFile(
   store: FileRepository,
   clock: Pick<Clock, "now" | "sleep">,
   file: FileDto,
+  options: ComponentOptions,
 ): Promise<Uint8Array> {
   const execution = executionOf();
   if (execution === undefined)
@@ -177,7 +188,7 @@ export async function readFile(
   // file by url, whose bytes the origin owns, may come without one
   if (file.sha256 === undefined && fileSourceOf(file) !== FilePayloadSource.Url)
     throw fileUnavailable({ reason: FileUnavailableReason.DigestMissing });
-  const bytes = await bytesOf(store, clock, file, execution);
+  const bytes = await bytesOf(store, clock, file, execution, options);
   if (file.sha256 !== undefined && sha256Of(bytes) !== file.sha256)
     throw fileUnavailable({ reason: FileUnavailableReason.DigestMismatch });
   return bytes;

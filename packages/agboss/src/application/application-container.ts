@@ -23,6 +23,7 @@ import {
 import { IN_MEMORY_DATABASE } from "../infrastructure/in-memory-database.js";
 import { InMemoryDatabase } from "../infrastructure/in-memory-database.js";
 import { OutboundMasking } from "../app/outbound-masking.js";
+import { ComponentOptions } from "../components/component-options.js";
 import {
   CONTAINER_DEFAULTS,
   INFRASTRUCTURE_DEFAULTS,
@@ -69,6 +70,8 @@ export interface ApplicationContainerSources {
   readonly outboundMasking?: OutboundMasking | undefined;
   /** The storage components' drivers' settings, resolved (#1321): what the connections read. */
   readonly storage?: ResolvedStorage | undefined;
+  /** The options of the components as the selected profiles leave them (#1318c): what every reader asks; none = as declared. */
+  readonly componentOptions?: ComponentOptions | undefined;
 }
 
 /** The parts every container of one application instance shares (one instance per class). */
@@ -89,6 +92,7 @@ export function applicationContainerOf(
       [IdGenerator, idGenerator],
       [IN_MEMORY_DATABASE, sources.database ?? new InMemoryDatabase()],
       ...settingsEntriesOf(sources.storage),
+      [ComponentOptions, sources.componentOptions ?? ComponentOptions.none],
       // no assembled settings (a store opened on its own): fail closed, every request masked (#795)
       [OutboundMasking, sources.outboundMasking ?? new OutboundMasking({ requiresMask: true })],
       ...contextValuesOf(sources.contexts),
@@ -252,6 +256,7 @@ export function standaloneInfrastructure(
         modules,
         clock,
         storage,
+        componentOptions: bundle.componentOptions,
         contexts: contextsOutsideExecution(bundle.config, options.environment, clock),
       },
       container,

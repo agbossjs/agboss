@@ -21,6 +21,7 @@ import { bytes as byteSize, hours, minutes, Ttl } from "../../../src/units/index
 import { FileReviewWorkflow, fileReviewFlow } from "../fixtures/files.application.js";
 import { PDF } from "./support.js";
 import { testFrame } from "../../helpers/frame.js";
+import { ComponentOptions } from "../../../src/components/component-options.js";
 
 const START = new Date("2026-01-05T09:00:00.000Z");
 
@@ -33,6 +34,7 @@ function lifecycle(workflows: readonly (new () => object)[] = [FileReviewWorkflo
     files,
     clock,
     workflows,
+    options: ComponentOptions.none,
     isLive: (owner) => Promise.resolve(live.has(owner.ownerId)),
   });
   const sweep = async () =>
@@ -183,7 +185,11 @@ describe("#1316b: the tree's end marks its owner completed", () => {
 
 describe("#1316b: Files.save({ ttl })", () => {
   const files = () =>
-    new Files(new InMemoryFileRepository(new InMemoryDatabase()), new VirtualClock(START));
+    new Files(
+      new InMemoryFileRepository(new InMemoryDatabase()),
+      new VirtualClock(START),
+      ComponentOptions.none,
+    );
   const inPolicy = <T>(ttl: number | Ttl.Forever, work: () => Promise<T>): Promise<T> => {
     @FilePolicy({ ttl: ttl as never })
     class Policy {}
@@ -256,10 +262,12 @@ describe("#1316b: the ttl rules", () => {
       return { name: "rules-application", workflows: [RuleWorkflow], endpoints: [] } as never;
     };
 
-    expect(codes(a2aFileStoreViolations(appOf(NoTtl)))).toEqual([
+    expect(codes(a2aFileStoreViolations(appOf(NoTtl), ComponentOptions.none))).toEqual([
       "file-policy.ttl-required-on-workflow",
     ]);
-    expect(codes(a2aFileStoreViolations(appOf(ZeroTtl)))).toEqual(["file-policy.invalid"]);
+    expect(codes(a2aFileStoreViolations(appOf(ZeroTtl), ComponentOptions.none))).toEqual([
+      "file-policy.invalid",
+    ]);
   });
 
   it("a skill's policy may omit the ttl or shorten it, never lengthen it", () => {

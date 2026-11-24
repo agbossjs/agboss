@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_FILE_FETCH_TIMEOUT,
   DEFAULT_FILE_LIMITS,
+  fileLimitsOf,
   FilePolicy,
   type FilePolicyOptions,
 } from "../../src/files/file-policy.js";
@@ -22,7 +23,7 @@ import { kilobytes, seconds } from "../../src/units/index.js";
 const levels = (over: Partial<FileLevels> = {}): FileLevels => ({
   agent: {},
   defaults: undefined,
-  filePolicy: undefined,
+  limits: DEFAULT_FILE_LIMITS,
   hasPiiPolicy: false,
   ...over,
 });
@@ -84,12 +85,14 @@ describe("the workflow's file policy gives the limits, the types and the fetch",
   it("its size and types, narrowed to the models' kinds, not explicit", () => {
     const files = resolvedFilesOf(
       levels({
-        filePolicy: policyOf({
-          maxFileSize: kilobytes(7),
-          maxTotalFileSize: kilobytes(70),
-          maxFiles: 2,
-          allowedMediaTypes: ["text/plain"],
-        }),
+        limits: fileLimitsOf(
+          policyOf({
+            maxFileSize: kilobytes(7),
+            maxTotalFileSize: kilobytes(70),
+            maxFiles: 2,
+            allowedMediaTypes: ["text/plain"],
+          }),
+        ),
       }),
     );
 
@@ -101,7 +104,9 @@ describe("the workflow's file policy gives the limits, the types and the fetch",
   });
 
   it("a policy that sets no type leaves the built-in types", () => {
-    const files = resolvedFilesOf(levels({ filePolicy: policyOf({ maxFileSize: kilobytes(9) }) }));
+    const files = resolvedFilesOf(
+      levels({ limits: fileLimitsOf(policyOf({ maxFileSize: kilobytes(9) })) }),
+    );
 
     expect(files.maxFileSize).toBe(kilobytes(9));
     expect(files.allowedMediaTypes).toEqual([...DEFAULT_FILE_LIMITS.allowedMediaTypes]);
@@ -111,11 +116,13 @@ describe("the workflow's file policy gives the limits, the types and the fetch",
     const fetchPool = { maxConcurrent: 3, maxQueuedPerOwner: 2 };
     const files = resolvedFilesOf(
       levels({
-        filePolicy: policyOf({
-          allowedOrigins: ["https://files.example"],
-          fetchTimeout: seconds(3),
-          fetchPool,
-        }),
+        limits: fileLimitsOf(
+          policyOf({
+            allowedOrigins: ["https://files.example"],
+            fetchTimeout: seconds(3),
+            fetchPool,
+          }),
+        ),
       }),
     );
 
@@ -130,11 +137,13 @@ describe("the workflow's file policy gives the limits, the types and the fetch",
     const files = resolvedFilesOf(
       levels({
         agent: { maxFileSize: kilobytes(1), allowedMediaTypes: ["image/gif"] },
-        filePolicy: policyOf({
-          maxFileSize: kilobytes(30),
-          maxTotalFileSize: kilobytes(30),
-          allowedMediaTypes: ["application/pdf"],
-        }),
+        limits: fileLimitsOf(
+          policyOf({
+            maxFileSize: kilobytes(30),
+            maxTotalFileSize: kilobytes(30),
+            allowedMediaTypes: ["application/pdf"],
+          }),
+        ),
       }),
     );
 
@@ -149,7 +158,7 @@ describe("the built-in file model", () => {
     const files = resolvedFilesOf({
       agent: {},
       defaults: undefined,
-      filePolicy: undefined,
+      limits: DEFAULT_FILE_LIMITS,
       hasPiiPolicy: false,
     });
 

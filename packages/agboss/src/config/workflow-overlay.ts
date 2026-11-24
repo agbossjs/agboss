@@ -1,4 +1,5 @@
 import type { Class } from "../components/injection.js";
+import type { ComponentOptions } from "../components/component-options.js";
 import type { MemoryOverrides } from "../memory/memory.decorator.js";
 import type { PauseTargetOverrides } from "../channels/pause-targets.js";
 import { pauseOverridesOf } from "./pause-overrides.js";
@@ -35,6 +36,8 @@ export interface WorkflowPatch {
   readonly componentModels: ComponentModelOverrides;
   /** The providers' overlays: the model names the cascade resolves through. */
   readonly providers: Readonly<Record<string, ModelProviderOverlay>>;
+  /** The options of the components under the profiles: what the workflow's agents' files are read under. */
+  readonly componentOptions: ComponentOptions;
   /** The config with the constants of the profiles applied, validated as a whole. */
   readonly config: (config: AgentsConfigOf<string>) => AgentsConfigOf<string>;
   /** The prompts with the profiles' prompt overrides in place of the declared ones. */
@@ -154,7 +157,8 @@ function promptsOf(
 export function slotsOf(folded: FoldedConfig, workflow: string): WorkflowSlots {
   const found: { -readonly [K in keyof WorkflowSlots]: WorkflowSlots[K] } = {};
   for (const overlay of overlaysOf(folded, workflow)) {
-    for (const key of ["budget", "memory"] as const) found[key] = overlay.slots[key] ?? found[key];
+    for (const key of ["budget", "memory", "filePolicy"] as const)
+      found[key] = overlay.slots[key] ?? found[key];
   }
   return found;
 }
@@ -164,7 +168,8 @@ export function workflowPatchOf(
   folded: FoldedConfig,
   workflow: string,
   use: OverlayUse,
-  reachableProviders: readonly Class[] = [],
+  reachableProviders: readonly Class[],
+  componentOptions: ComponentOptions,
 ): WorkflowPatch {
   use.workflows.add(workflow);
   const componentModels = modelsOf(
@@ -180,6 +185,7 @@ export function workflowPatchOf(
   return {
     modelProvider: providers.at(-1),
     slots: slotsOf(folded, workflow),
+    componentOptions,
     pauseOverrides: pauseOverridesOf(folded),
     memoryOverrides:
       Object.keys(folded.memories).length === 0

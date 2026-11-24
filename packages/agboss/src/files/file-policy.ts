@@ -87,6 +87,30 @@ export const filePolicyMetaOf = (cls: Class): FilePolicyMeta | undefined => {
   return component?.kind === "file-policy" ? component.meta : undefined;
 };
 
+/**
+ * Where a policy's options are read from: the declared ones (`filePolicyMetaOf`), or those the
+ * selected profiles leave (`ComponentOptions.filePolicyMetaOf`, #1318c).
+ */
+export type FilePolicyMetaOf = (policy: Class) => FilePolicyMeta | undefined;
+
+/** What a profile changes of one `@FilePolicy`, by its `name` (`filePolicies: { "<name>": { … } }`). */
+export type FilePolicyOverlay = Omit<FilePolicyOptions, "name" | "description">;
+
+/** A policy's options with a profile's overlay on top; the pool merges field by field. */
+export const overlaidFilePolicyMeta = (
+  meta: FilePolicyMeta,
+  overlay: FilePolicyOverlay | undefined,
+): FilePolicyMeta =>
+  overlay === undefined
+    ? meta
+    : {
+        ...meta,
+        ...overlay,
+        ...(overlay.fetchPool === undefined
+          ? {}
+          : { fetchPool: { ...meta.fetchPool, ...overlay.fetchPool } }),
+      };
+
 /** The limits a file runs with: every field set. */
 export interface FileLimits {
   readonly ttl: Milliseconds | Ttl.Forever;
@@ -140,23 +164,31 @@ const setOf = (meta: FilePolicyMeta | undefined): Partial<FileLimits> =>
  * later one's fields over the earlier ones', over the built-ins. A class that is no `@FilePolicy`
  * sets nothing (the assembly rules refuse it).
  */
-export const fileLimitsOf = (...chain: readonly (Class | undefined)[]): FileLimits =>
+export const fileLimitsUnder = (
+  metaOf: FilePolicyMetaOf,
+  ...chain: readonly (Class | undefined)[]
+): FileLimits =>
   chain.reduce<FileLimits>(
     (limits, policy) => ({
       ...limits,
-      ...setOf(policy === undefined ? undefined : filePolicyMetaOf(policy)),
+      ...setOf(policy === undefined ? undefined : metaOf(policy)),
     }),
     DEFAULT_FILE_LIMITS,
   );
+
+/** The limits of a chain of policies as declared; what runs under profiles asks `ComponentOptions`. */
+export const fileLimitsOf = (...chain: readonly (Class | undefined)[]): FileLimits =>
+  fileLimitsUnder(filePolicyMetaOf, ...chain);
 
 /** `[file-policy.invalid]` of one policy class; `[file-policy.not-a-file-policy]` when it is none. */
 export function filePolicyViolations(
   where: string,
   policy: Class | undefined,
   nodes: readonly string[],
+  metaOf: FilePolicyMetaOf = filePolicyMetaOf,
 ): RuleViolation[] {
   if (policy === undefined) return [];
-  const meta = filePolicyMetaOf(policy);
+  const meta = metaOf(policy);
   if (meta === undefined)
     return [
       violation(
@@ -198,9 +230,13 @@ function exceedsOf(parent: FileLimits, child: FileLimits): readonly string[] {
  * What `child` — a policy that narrows `parent`'s, a skill's under its workflow's — sets beyond it:
  * a narrower policy only tightens, never widens.
  */
-export function filePolicyExcesses(parent: Class | undefined, child: Class): readonly string[] {
-  if (filePolicyMetaOf(child) === undefined) return [];
-  return exceedsOf(fileLimitsOf(parent), fileLimitsOf(parent, child));
+export function filePolicyExcesses(
+  parent: Class | undefined,
+  child: Class,
+  metaOf: FilePolicyMetaOf = filePolicyMetaOf,
+): readonly string[] {
+  if (metaOf(child) === undefined) return [];
+  return exceedsOf(fileLimitsUnder(metaOf, parent), fileLimitsUnder(metaOf, parent, child));
 }
 
 export { filePolicyProblemsOf };
