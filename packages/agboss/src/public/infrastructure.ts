@@ -19,6 +19,7 @@ export {
   type AuditEventStep,
   type LeaseTakeoverRecord,
   type StepHandedOverRecord,
+  type EndedTree,
 } from "../infrastructure/execution-audit-log.repository.js";
 export {
   ChildExecutionQueueRepository,

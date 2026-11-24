@@ -76,6 +76,8 @@ it give two charges. The contract suites race exactly those gaps, so a store wit
 The audit log is never written inside a lease's transaction: the framework writes the row after the
 move it records. So it may live on any backend. So may rate limits and the child queue.
 
+Its sweep, `deleteExpired(cutoff, isEnded)`, removes the rows older than `cutoff` only of the trees `isEnded` answers `true` for (ask it once per tree, before its rows go): a takeover reads the hand-over rows of a live or paused tree to charge the passes the previous holder lost, so those rows are never removed, whatever the TTL.
+
 ## One transactional backend (#526)
 
 A fenced effect checks the lease **in its own transaction**. An outbound call's `leaseStateOf`

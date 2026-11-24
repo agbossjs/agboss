@@ -22,6 +22,7 @@ export const retentionSourcesOf = (
   fencedEffects: infrastructure.fencedEffects,
   fencedEffectRetention: assembled.fencedEffects.retention,
   auditLog: infrastructure.auditLog,
+  treeRecords: infrastructure.records,
   auditLogRetention: assembled.auditLogRetention,
   expiries: a2aExpiriesOf(infrastructure, assembled),
   outboundCalls: infrastructure.outboundCalls,

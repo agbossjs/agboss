@@ -1,8 +1,9 @@
 import { Injectable } from "../components/decorators.js";
-import { IN_MEMORY_DATABASE } from "./in-memory-database.js";
+import { IN_MEMORY_DATABASE, treeKeyOf } from "./in-memory-database.js";
 import type { InMemoryDatabase } from "./in-memory-database.js";
 import type { FencedEffectOrigin } from "./fenced-effect.repository.js";
 import type { OutboundCallStatus } from "./outbound-call.repository.js";
+import type { ExecutionTree } from "./execution-tree.repository.js";
 
 /**
  * Infrastructure (#501): the audit log — an append-only record of what happened to the leases of an
@@ -276,11 +277,18 @@ export abstract class ExecutionAuditLogRepository {
   ): Promise<readonly ExecutionAuditEventRecord[]>;
 
   /**
-   * Removes every row that happened before `cutoff` (the recovery sweep, `now - retention`) and gives
-   * the number removed (`onTtlSweep`'s count).
+   * Removes the rows that happened before `cutoff` (the recovery sweep, `now - retention`; a retention
+   * of none is a cutoff of now) of the trees `isEnded` says have ended, and gives the number removed
+   * (`onTtlSweep`'s count). A row of a tree that has not ended — live or paused — is never removed,
+   * whatever its age: the takeover of a tree reads its hand-over rows to charge the passes the
+   * previous holder lost (#853). A tree that ended stays ended, so asking `isEnded` once per tree
+   * (a tree with several rows is asked once) before the rows go is safe.
    */
-  abstract deleteExpired(cutoff: Date): Promise<number>;
+  abstract deleteExpired(cutoff: Date, isEnded: EndedTree): Promise<number>;
 }
+
+/** Whether a tree has ended (finished, failed or was cancelled): terminal, it never turns live again. */
+export type EndedTree = (tree: ExecutionTree) => Promise<boolean>;
 
 /** The built-in default: the rows in this instance's memory (a test's instances share them). */
 @Injectable({ deps: [IN_MEMORY_DATABASE] })
@@ -309,11 +317,19 @@ export class InMemoryExecutionAuditLogRepository extends ExecutionAuditLogReposi
     return Promise.resolve(found.map((row) => structuredClone(row)));
   }
 
-  deleteExpired(cutoff: Date): Promise<number> {
+  async deleteExpired(cutoff: Date, isEnded: EndedTree): Promise<number> {
     const rows = this.database.executionAuditLog;
-    const kept = rows.filter((row) => Date.parse(row.occurredAt) >= cutoff.getTime());
-    const removed = rows.length - kept.length;
-    rows.splice(0, Infinity, ...kept);
-    return Promise.resolve(removed);
+    const expired = rows.filter((row) => Date.parse(row.occurredAt) < cutoff.getTime());
+    const ended = new Map<string, boolean>();
+    for (const { tenantId, rootExecutionId } of expired) {
+      const key = treeKeyOf(tenantId, rootExecutionId);
+      if (!ended.has(key)) ended.set(key, await isEnded({ tenantId, rootExecutionId }));
+    }
+    // rows saved while the tree was asked about are not in `expired`: an index is no safe handle
+    const gone = new Set(
+      expired.filter((row) => ended.get(treeKeyOf(row.tenantId, row.rootExecutionId)) === true),
+    );
+    rows.splice(0, Infinity, ...rows.filter((row) => !gone.has(row)));
+    return gone.size;
   }
 }

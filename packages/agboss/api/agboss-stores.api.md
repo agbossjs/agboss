@@ -681,6 +681,9 @@ export interface EndedChildRecord {
 }
 
 // @public
+export type EndedTree = (tree: ExecutionTree) => Promise<boolean>;
+
+// @public
 export type ErrorDetails = Readonly<Record<string, unknown>>;
 
 // @public
@@ -725,7 +728,7 @@ export type ExecutionAuditEventRecord = LeaseTakeoverRecord | StepHandedOverReco
 
 // @public (undocumented)
 export abstract class ExecutionAuditLogRepository {
-    abstract deleteExpired(cutoff: Date): Promise<number>;
+    abstract deleteExpired(cutoff: Date, isEnded: EndedTree): Promise<number>;
     abstract findAllByTenantIdAndRootExecutionIdOrderByOccurredAt(tenantId: string, rootExecutionId: string): Promise<readonly ExecutionAuditEventRecord[]>;
     abstract ping(): Promise<void>;
     abstract save(record: ExecutionAuditEventRecord): Promise<void>;

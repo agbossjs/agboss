@@ -2780,6 +2780,9 @@ export interface EndedChildRecord {
 }
 
 // @public
+export type EndedTree = (tree: ExecutionTree) => Promise<boolean>;
+
+// @public
 export interface EndEvent<U> extends NodeEvent {
     // (undocumented)
     readonly name: string;
@@ -3024,7 +3027,7 @@ export type ExecutionAuditEventRecord = LeaseTakeoverRecord | StepHandedOverReco
 
 // @public (undocumented)
 export abstract class ExecutionAuditLogRepository {
-    abstract deleteExpired(cutoff: Date): Promise<number>;
+    abstract deleteExpired(cutoff: Date, isEnded: EndedTree): Promise<number>;
     abstract findAllByTenantIdAndRootExecutionIdOrderByOccurredAt(tenantId: string, rootExecutionId: string): Promise<readonly ExecutionAuditEventRecord[]>;
     abstract ping(): Promise<void>;
     abstract save(record: ExecutionAuditEventRecord): Promise<void>;
@@ -9141,7 +9144,7 @@ export interface SqliteDriverOptions {
 export class SqliteExecutionAuditLogRepository extends ExecutionAuditLogRepository {
     constructor(connection: SqliteConnection);
     // (undocumented)
-    deleteExpired(cutoff: Date): Promise<number>;
+    deleteExpired(cutoff: Date, isEnded: EndedTree): Promise<number>;
     // (undocumented)
     findAllByTenantIdAndRootExecutionIdOrderByOccurredAt(tenantId: string, rootExecutionId: string): Promise<readonly ExecutionAuditEventRecord[]>;
     // (undocumented)

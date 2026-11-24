@@ -2,12 +2,14 @@ import { z } from "zod";
 import { Injectable } from "../../components/decorators.js";
 import {
   ExecutionAuditLogRepository,
+  type EndedTree,
   type ExecutionAuditEventRecord,
 } from "../execution-audit-log.repository.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
 import { parsedStoredJson } from "../stored-step.js";
 
 const EventRow = z.object({ record: z.string() });
+const TreeRow = z.object({ tenant_id: z.string(), root_execution_id: z.string() });
 
 /** A row's record (written by `save`: the record as JSON). */
 const recordOf = (row: unknown): ExecutionAuditEventRecord =>
@@ -61,11 +63,26 @@ export class SqliteExecutionAuditLogRepository extends ExecutionAuditLogReposito
     return Promise.resolve(rows.map(recordOf));
   }
 
-  deleteExpired(cutoff: Date): Promise<number> {
-    const { changes } = this.connection.database
-      .prepare("DELETE FROM execution_lease_events WHERE occurred_at < ?")
-      .run(cutoff.getTime());
-    return Promise.resolve(Number(changes));
+  async deleteExpired(cutoff: Date, isEnded: EndedTree): Promise<number> {
+    const { database } = this.connection;
+    const trees = database
+      .prepare(
+        `SELECT DISTINCT tenant_id, root_execution_id FROM execution_lease_events
+         WHERE occurred_at < ?`,
+      )
+      .all(cutoff.getTime())
+      .map((row) => TreeRow.parse(row));
+    const removal = database.prepare(
+      `DELETE FROM execution_lease_events
+       WHERE tenant_id = ? AND root_execution_id = ? AND occurred_at < ?`,
+    );
+    let removed = 0;
+    for (const { tenant_id: tenantId, root_execution_id: rootExecutionId } of trees) {
+      // an ended tree stays ended: asked before its rows go, never a live tree's are removed
+      if (!(await isEnded({ tenantId, rootExecutionId }))) continue;
+      removed += Number(removal.run(tenantId, rootExecutionId, cutoff.getTime()).changes);
+    }
+    return removed;
   }
 }
 

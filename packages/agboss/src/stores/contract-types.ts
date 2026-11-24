@@ -184,6 +184,7 @@ export type {
   ResumeVersions,
   ScopeValueRecord,
   StepHandedOverRecord,
+  EndedTree,
   StepRecord,
   StoreDescriptor,
   TokenUsage,

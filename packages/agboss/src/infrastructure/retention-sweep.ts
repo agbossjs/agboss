@@ -4,10 +4,14 @@ import type { PauseAnswerLog } from "./pause-answer-log.js";
 import { removeClosedPauses } from "./pause-log-repair.js";
 import type { MeshRequestRepository } from "./mesh-request.repository.js";
 import type { FencedEffectRepository } from "./fenced-effect.repository.js";
-import type { ExecutionAuditLogRepository } from "./execution-audit-log.repository.js";
+import type { EndedTree, ExecutionAuditLogRepository } from "./execution-audit-log.repository.js";
 import type { OutboundCallRepository } from "./outbound-call.repository.js";
 import type { ExecutionHistoryRepository } from "./execution-history.repository.js";
 import type { CostLedgerRepository } from "./cost-ledger.repository.js";
+import {
+  ExecutionRecordStatus,
+  type ExecutionRecordRepository,
+} from "./execution-record.repository.js";
 import type { Clock } from "./clock.js";
 import type { FrameworkLog } from "./logger.js";
 import { pauseKeyOf } from "./pause-record.js";
@@ -45,8 +49,13 @@ export interface RetentionSources {
   /** The fenced effects' results and marks (#500), removed after `retention.fencedEffects`. */
   readonly fencedEffects?: FencedEffectRepository<unknown> | undefined;
   readonly fencedEffectRetention?: Milliseconds | undefined;
-  /** The audit log (#501) and `@Application({ retention: { auditLog } })`: older rows are removed. */
+  /**
+   * The audit log (#501) and its retention (`auditLogTtl`): older rows of trees that ended are
+   * removed — never a row of a live or paused tree, whose takeover reads them (#853).
+   */
   readonly auditLog?: ExecutionAuditLogRepository | undefined;
+  /** The root records the sweep reads to tell whether a tree ended: none, no audit row is removed. */
+  readonly treeRecords?: Pick<ExecutionRecordRepository, "findByTenantIdAndRunId"> | undefined;
   readonly auditLogRetention?: Milliseconds | undefined;
   /** More kinds of rows, each with its own removal (#807: the finished A2A tasks). */
   readonly expiries?: readonly Expiry[] | undefined;
@@ -82,9 +91,40 @@ async function setAsideUnknown(sources: RetentionSources, cutoff: Date): Promise
     );
 }
 
+/** The statuses of a root record that ended (text: a record's status may be compared with them). */
+const ENDED_STATUSES: readonly string[] = [
+  ExecutionRecordStatus.Answered,
+  ExecutionRecordStatus.Failed,
+  ExecutionRecordStatus.Guarded,
+];
+
+/**
+ * Whether a tree ended, by its root's record. A tree with no record, a `running` or a `paused` one
+ * counts as live: nothing is removed on a guess.
+ */
+const endedTreeOf =
+  (records: Pick<ExecutionRecordRepository, "findByTenantIdAndRunId">): EndedTree =>
+  async ({ tenantId, rootExecutionId }) => {
+    const record = await records.findByTenantIdAndRunId(tenantId, rootExecutionId);
+    return record !== undefined && ENDED_STATUSES.includes(record.status);
+  };
+
+/** The audit log's old rows of the trees that ended; with no records to tell it by, none (#1321b). */
+const auditLogExpiry = ({
+  auditLog,
+  treeRecords,
+  auditLogRetention,
+}: RetentionSources): Expiry => ({
+  what: "the audit log's old rows",
+  remove:
+    auditLog &&
+    treeRecords &&
+    ((cutoff) => auditLog.deleteExpired(cutoff, endedTreeOf(treeRecords))),
+  retention: auditLogRetention,
+});
+
 const expiriesOf = (sources: RetentionSources): readonly Expiry[] => {
-  const { pauses, meshRequests, executionHistory, fencedEffects, auditLog, outboundCalls } =
-    sources;
+  const { pauses, meshRequests, executionHistory, fencedEffects, outboundCalls } = sources;
   return [
     {
       what: "the notices of a receiver no instance knows",
@@ -114,11 +154,7 @@ const expiriesOf = (sources: RetentionSources): readonly Expiry[] => {
       remove: fencedEffects && ((cutoff) => fencedEffects.deleteByStoredAtBefore(cutoff)),
       retention: sources.fencedEffectRetention,
     },
-    {
-      what: "the audit log's old rows",
-      remove: auditLog && ((cutoff) => auditLog.deleteExpired(cutoff)),
-      retention: sources.auditLogRetention,
-    },
+    auditLogExpiry(sources),
     {
       what: "the ended outbound calls",
       remove: outboundCalls && ((cutoff) => outboundCalls.deleteByEndedAtBefore(cutoff)),

@@ -249,7 +249,8 @@ describe("#834 AC1: the recovery sweep removes each kind past its own retention"
     const now = clock.now().getTime();
 
     for (const [field, removal, retention] of removals) {
-      expect({ field, calls: removal.mock.calls }).toEqual({
+      // (the audit log's sweep is also given the check of an ended tree: its first argument is the cutoff)
+      expect({ field, calls: removal.mock.calls.map((call) => call.slice(0, 1)) }).toEqual({
         field,
         calls: expect.arrayContaining([[new Date(now - retention)]]) as unknown,
       });
