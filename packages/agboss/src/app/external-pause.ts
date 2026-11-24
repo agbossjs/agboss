@@ -1,3 +1,9 @@
+import { currentOutputOf } from "./current-output.js";
+import type { ExecutionOutput } from "./types.js";
+import { ExecutionRecordStatus } from "../infrastructure/execution-record.repository.js";
+import type { HeldExecutionLease } from "./execution-leases.js";
+import { treeOf } from "./tree-ends.js";
+import type { TreeMoveParts, TreeState } from "./tree-move-types.js";
 import { ExecutionError } from "../core/error-families/run-errors.js";
 import type { ExecutionTree } from "../infrastructure/execution-tree.repository.js";
 import type { ExecutionLeases } from "./execution-leases.js";
@@ -32,4 +38,40 @@ export async function assertNotExternallyPaused(
     message:
       "the execution is paused from outside (app.pause): app.unpause(threadId) first, then answer its pause again",
   });
+}
+
+/**
+ * A lease just taken for a tree frozen from outside (#1341c): nothing moves it. The answer that
+ * brought the take — a channel's decision, an A2A or MCP answer — stays recorded (the pause
+ * `Resolved`, never lost); the record its mark made `running` goes back to `paused`, so that no
+ * recovery continues it and the sweep's wake (`answered-wake`) takes the answer once `app.unpause`
+ * lifts the freeze — it resumes exactly once. The lease is released; `true` when the tree is frozen.
+ */
+export async function heldWhileFrozen(
+  parts: Pick<TreeMoveParts, "deps" | "leases">,
+  state: TreeState,
+  lease: HeldExecutionLease,
+): Promise<boolean> {
+  if (!(await isExternallyPaused(parts.leases, treeOf(state)))) return false;
+  try {
+    const record = await parts.deps.turns.findByTenantIdAndRunId(state.tenantId, state.runId);
+    if (record !== undefined)
+      await parts.deps.turns.completeIfStatus(record.id, ExecutionRecordStatus.Running, {
+        ...record,
+        status: ExecutionRecordStatus.Paused,
+      });
+  } finally {
+    await lease.release();
+  }
+  return true;
+}
+
+/** `heldWhileFrozen` for a resume: the output the tree rests with (still paused), or `undefined` when it is not frozen. */
+export async function frozenOutputOf(
+  parts: Pick<TreeMoveParts, "deps" | "leases" | "paused">,
+  state: TreeState,
+  lease: HeldExecutionLease,
+): Promise<ExecutionOutput | undefined> {
+  if (!(await heldWhileFrozen(parts, state, lease))) return undefined;
+  return currentOutputOf(parts.deps, parts.paused, state);
 }

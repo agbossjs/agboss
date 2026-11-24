@@ -16,7 +16,11 @@ the status-history row are one transaction.
 `dual_paused` guards (a tree paused from outside while a business pause is open): `app.resume` of an answer
 is refused in stage 1, before it is recorded, with `ExecutionError.ExternallyPaused` — the pause stays open
 and the same answer works after the unpause; an expiry look and the sweep's wake of an answered pause skip
-the tree (a timer or an answer never undoes the operator's freeze).
+the tree (a timer or an answer never undoes the operator's freeze). Every other answer path — a channel's
+decision, an A2A or MCP answer — meets the same check at the lease take (`endedAtTake`, which a resume, a
+recovery and an expiry all pass): the answer stays recorded (the pause `Resolved`, never lost), the tree
+is not resumed and its record goes back to `paused`, and the sweep's wake takes the answer once, after
+the unpause.
 
 Not in this part (open in #1341): `app.pause` / `app.unpause` themselves — parking a running execution at its
 next checkpoint, `PausedExecutionOutput.isExternallyPaused`, `ResumeReason.Unpaused`, `PauseRequestState`,

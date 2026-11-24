@@ -47,7 +47,7 @@ export function cancelShard() {
     mutate: [
       "src/app/cancel-{marks,paused,remote,requests,resting,thread}.ts",
       // #1341b: a stop is a cancel that undoes nothing — its requests, thread call and lease marks
-      "src/app/{interrupt-requests,stop-requests,stop-thread,lease-marks,request-checks,external-pause}.ts",
+      "src/app/{interrupt-requests,stop-requests,stop-thread,lease-marks,request-checks,external-pause,take-end}.ts",
       "src/app/{lease-lost,lease-stopped,lease-releases,lease-reporting}.ts",
     ],
   };

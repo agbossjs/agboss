@@ -11,6 +11,7 @@ import type {
 import type { InterruptedRun } from "../run/continue-agent.js";
 import type { TreeResume } from "../run/resume-map.js";
 import { currentOutputOf, refusedIfFailed } from "./current-output.js";
+import { endedAtTakeOf } from "./take-end.js";
 import { isHandedOver } from "./handed-over.js";
 import { forgetTree, markedIfWithoutRecovery, passEnded, treeOf } from "./tree-ends.js";
 import type { RecordedAnswer } from "./resume.js";
@@ -171,10 +172,7 @@ class TreeMover implements TreeMoves {
     state: TreeState,
     lease: HeldExecutionLease,
   ): Promise<ExecutionOutput | Error | undefined> {
-    const cancelled = await (await cancelRequests()).endedAtTake(this.parts, state, lease);
-    if (cancelled !== undefined || !(await isUnwinding(this.parts.trees, treeOf(state))))
-      return cancelled;
-    return (await takeover()).endedUnwindingAtTake(this.parts, state, lease);
+    return endedAtTakeOf(this.parts, state, lease);
   }
 
   announce(reason: ResumeReason, resume: TreeResume | undefined, state: TreeState): Promise<void> {
