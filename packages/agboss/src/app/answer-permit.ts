@@ -1,7 +1,7 @@
 import type { AnswerPermitCall, PermitAnswer } from "../channels/pause-contexts.js";
 import type { PauseChannel } from "../flow/runtime/pause.js";
 import { isApprovalPause, type PauseRecord } from "../infrastructure/pause-record.js";
-import { PauseAnswererError } from "../run/resume-agent.js";
+import { PauseError } from "../core/error-families/pause-errors.js";
 import type { AnswerParts } from "./resume.js";
 import { ownDepsOf } from "./own-deps.js";
 import type { AppDeps } from "./app-deps.js";
@@ -9,7 +9,7 @@ import type { AppDeps } from "./app-deps.js";
 /**
  * A target's `permitAnswer` (#1307c): called by the resume once the answer is read and validated and
  * before anything is recorded or moved. Fail closed: only `true` lets the answer through — `false`,
- * a throw, a rejection, an unresolvable target and any other value refuse it with `PauseAnswererError`, and the pause stays
+ * a throw, a rejection, an unresolvable target and any other value refuse it with `PauseError.PermissionDenied`, and the pause stays
  * as it was. The message names the pause, never the hook's text.
  */
 
@@ -51,7 +51,7 @@ function permitCallOf(
   };
 }
 
-/** Throws `PauseAnswererError` unless the pause's target permits this answer (or has no `permitAnswer`). */
+/** Throws `PauseError.PermissionDenied` unless the pause's target permits this answer (or has no `permitAnswer`). */
 export async function assertAnswerPermitted(
   parts: Pick<AnswerParts, "permits">,
   pause: PauseRecord,
@@ -63,7 +63,7 @@ export async function assertAnswerPermitted(
     permit = parts.permits?.(pause);
   } catch (cause) {
     // the target cannot be resolved: whether it has a permitAnswer is unknown, so refuse
-    throw new PauseAnswererError({
+    throw new PauseError.PermissionDenied({
       message: `pause ${pause.pauseId}: its target cannot be resolved, the answer is refused`,
       cause,
     });
@@ -73,13 +73,13 @@ export async function assertAnswerPermitted(
   try {
     verdict = await permit(permitCallOf(pause, answeredBy, output));
   } catch (cause) {
-    throw new PauseAnswererError({
+    throw new PauseError.PermissionDenied({
       message: `pause ${pause.pauseId}: its target's permitAnswer failed, the answer is refused`,
       cause,
     });
   }
   if (verdict !== true)
-    throw new PauseAnswererError({
+    throw new PauseError.PermissionDenied({
       message: `pause ${pause.pauseId}: its target's permitAnswer refused the answer`,
     });
 }

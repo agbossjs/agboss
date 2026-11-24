@@ -9,7 +9,7 @@ import type {
   FieldKind,
   FieldOptions,
   FieldSettings,
-  KeyTextLimits,
+  KeyTextOptions,
   NumberLimits,
   OptionalField,
   RequiredField,
@@ -68,7 +68,7 @@ export const IsoDuration = scalar<string>("duration");
  * 200 characters, no control, invisible or look-alike characters, NFC (the rules of #538). The
  * reason names the rule, never the text.
  */
-export const KeyText = scalar<string, KeyTextLimits>("key-text");
+export const KeyText = scalar<string, KeyTextOptions>("key-text");
 /** A decimal number as a string, exact: `"19.99"`; at most `scale` digits after the point. */
 export const DecimalString = scalar<string, DecimalStringLimits>("decimal-string");
 /** An ISO 4217 currency code: `"USD"`. */

@@ -15,7 +15,9 @@ import {
   ToolCallDecision,
   ToolInterceptor,
   Workflow,
+  inline,
 } from "../../src/index.js";
+import { toolInterceptorMetaOf } from "../../src/tool-interceptors/decorator.js";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import { describeWorkflow } from "../../src/describe/describe-workflow.js";
@@ -156,7 +158,7 @@ describe("#384: the assembly rules", () => {
     @Agent({
       name: "bad-agent",
       description: "a",
-      prompt: "a",
+      prompt: inline("a"),
       model: "test/a",
       toolInterceptors: [IdleToolInterceptor, BadlyNamedInterceptor],
     })
@@ -172,7 +174,7 @@ describe("#384: the assembly rules", () => {
     @Agent({
       name: "bad-agent",
       description: "a",
-      prompt: "a",
+      prompt: inline("a"),
       model: "test/a",
       toolInterceptors: [NotAnInterceptor],
     })
@@ -190,7 +192,7 @@ describe("#384: the assembly rules", () => {
     @Agent({
       name: "bad-agent",
       description: "a",
-      prompt: "a",
+      prompt: inline("a"),
       model: "test/a",
       tools: [ExcludingTool],
       // the workflow lists it, not the application: still inherited
@@ -218,7 +220,7 @@ describe("#1295: the hook rules", () => {
     @Agent({
       name: "bad-agent",
       description: "a",
-      prompt: "a",
+      prompt: inline("a"),
       model: "test/a",
       toolInterceptors: interceptors as never,
     })
@@ -290,7 +292,7 @@ describe("#1295: the hook rules", () => {
     @Agent({
       name: "quiet-ping-agent",
       description: "a",
-      prompt: "a",
+      prompt: inline("a"),
       model: "test/a",
       tools: [PingTool],
     })
@@ -320,7 +322,7 @@ describe("#1295: the hook rules", () => {
   });
 
   it("excluding what the application does not list is [tool-interceptor.exclude-not-inherited]", async () => {
-    @Agent({ name: "bad-agent", description: "a", prompt: "a", model: "test/a" })
+    @Agent({ name: "bad-agent", description: "a", prompt: inline("a"), model: "test/a" })
     class BadAgent {}
     @Workflow({
       name: "bad-workflow",
@@ -395,5 +397,17 @@ describe("#384: describe and configHash", () => {
     ]);
     const shop = (await workflowsOf(ShopApplication))[0];
     expect(shop === undefined ? {} : configSnapshot(shop)).not.toHaveProperty("toolInterceptors");
+  });
+});
+
+describe("#1295: @ToolInterceptor without options", () => {
+  it("names the class in kebab-case", () => {
+    @ToolInterceptor()
+    class TenantScope {
+      beforeAnyTool(): ToolCallDecision {
+        return ToolCallDecision.allow();
+      }
+    }
+    expect(toolInterceptorMetaOf(TenantScope)?.name).toBe("tenant-scope");
   });
 });

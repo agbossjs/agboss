@@ -68,8 +68,8 @@ export interface NumberLimits {
   readonly max?: number;
 }
 
-/** `@KeyText`'s limits: a key is at most 200 characters; these only narrow it. */
-export interface KeyTextLimits {
+/** `@KeyText`'s options: a key is at most 200 characters of `[a-zA-Z0-9._:-]`; these only narrow it. */
+export interface KeyTextOptions {
   /** At least this many characters. */
   readonly minLength?: number;
   /** At most this many characters (never more than 200). */

@@ -163,6 +163,18 @@ describe("#1292b: @KeyText", () => {
     }
   });
 
+  it("accepts only the ASCII identifier syntax [a-zA-Z0-9._:-]+ (#1292c)", () => {
+    for (const good of ["A-1", "a.b_c:d", "ORDER:42", "0"]) {
+      expect(validate(Order, { id: good })).toEqual({ id: good });
+    }
+    for (const bad of ["a b", "a/b", "a?b", "a#b", "a%2Fb", 'a"b', "a'b", "аbc", "ａbc", "a\\b"]) {
+      const issues = issuesOf(() => validate(Order, { id: bad }));
+      expect(issues).toHaveLength(1);
+      expect(issues[0]?.path).toBe("id");
+      expect(issues[0]?.reason).not.toContain(bad);
+    }
+  });
+
   it("the options only narrow a key", () => {
     expect(validate(Order, { id: "x", slug: "ab-1" }).slug).toBe("ab-1");
     expect(() => validate(Order, { id: "x", slug: "AB" })).toThrow(DtoValidationError);

@@ -20,13 +20,15 @@ export interface ToolInterceptorMeta {
 }
 
 /** A tool interceptor: a class with `@BeforeTool` / `@AfterTool` methods, `beforeAnyTool` or `afterAnyTool`. */
-export function ToolInterceptor<const D extends readonly Token[] = []>(options: {
-  /** Kebab-case; the class name in kebab-case when left out (`TenantScope` → `tenant-scope`). */
-  readonly name?: string;
-  readonly description?: string;
-  /** Constructor dependencies, in order; checked against the constructor by the compiler. */
-  readonly deps?: D;
-}): <C extends new (...args: ResolvedAll<D>) => object>(value: C) => C {
+export function ToolInterceptor<const D extends readonly Token[] = []>(
+  options: {
+    /** Kebab-case; the class name in kebab-case when left out (`TenantScope` → `tenant-scope`). */
+    readonly name?: string;
+    readonly description?: string;
+    /** Constructor dependencies, in order; checked against the constructor by the compiler. */
+    readonly deps?: D;
+  } = {},
+): <C extends new (...args: ResolvedAll<D>) => object>(value: C) => C {
   const source = callerFile();
   return (value) => {
     const meta: ToolInterceptorMeta = {

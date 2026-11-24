@@ -1,14 +1,14 @@
 /**
  * #1307c: `permitAnswer` of a pause target is called by `app.resume` before an answer is recorded —
  * only `true` lets it through (`false`, a throw and any other value refuse it with
- * `PauseAnswererError`, the pause stays pending, the tool does not run) — and an owner's target with
+ * `PauseError.PermissionDenied`, the pause stays pending, the tool does not run) — and an owner's target with
  * no channel asks nobody and waits for the owner's resume. The guarantees of a resume stay: after the
  * deadline and on a second answer it is refused before the hook is asked.
  */
 import { describe, expect } from "vitest";
 import { ExecutionStatus } from "../../src/app/types.js";
 import {
-  PauseAnswererError,
+  PauseError,
   PauseClosedError,
   PauseStatus,
   PausedExecutionRepository,
@@ -60,7 +60,7 @@ describe("#1307c: permitAnswer gates the answer of a delegate approval", () => {
       .resume({ pauseId, decision: approve }, dana)
       .catch((error: unknown) => error);
 
-    expect(refused).toBeInstanceOf(PauseAnswererError);
+    expect(refused).toBeInstanceOf(PauseError.PermissionDenied);
     const stored = await app
       .resolve(PausedExecutionRepository)
       .findByTenantIdAndPauseId("default", pauseId);
@@ -87,7 +87,7 @@ describe("#1307c: permitAnswer gates the answer of a delegate approval", () => {
       .resume({ pauseId, decision: approve }, dana)
       .catch((error: unknown) => error);
 
-    expect(refused).toBeInstanceOf(PauseAnswererError);
+    expect(refused).toBeInstanceOf(PauseError.PermissionDenied);
     expect((refused as Error).message).not.toContain("the hook failed");
     expect((refused as Error).cause).toMatchObject({ message: "the hook failed" });
     const stored = await app
@@ -106,7 +106,7 @@ describe("#1307c: permitAnswer gates the answer of a delegate approval", () => {
       const { pauseId } = app.resolve(GatedRefundChannel).asked[0] ?? { pauseId: "" };
 
       await expect(app.resume({ pauseId, decision: approve }, dana)).rejects.toBeInstanceOf(
-        PauseAnswererError,
+        PauseError.PermissionDenied,
       );
       expect(app.resolve(PermitRefunds).refunded).toEqual([]);
     },

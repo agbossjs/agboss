@@ -7,6 +7,7 @@ import {
   maskDto,
   validate,
   type DtoCheck,
+  type KeyTextOptions,
   type ValidationIssue,
 } from "../../src/dto/index.js";
 
@@ -26,6 +27,13 @@ describe("#1292b: type pins", () => {
     }
     expectTypeOf<typeof Ok>().toBeConstructibleWith();
     expectTypeOf<typeof Wrong>().toBeConstructibleWith();
+  });
+
+  it("@KeyText(options?) takes KeyTextOptions: the bounds and a narrower pattern", () => {
+    expectTypeOf<KeyTextOptions>().toHaveProperty("pattern").toEqualTypeOf<RegExp | undefined>();
+    expectTypeOf<KeyTextOptions>().toHaveProperty("maxLength").toEqualTypeOf<number | undefined>();
+    // @ts-expect-error -- the old name is gone
+    expectTypeOf<import("../../src/dto/index.js").KeyTextLimits>().toBeObject();
   });
 
   it("@Validate takes a check of the class's own type", () => {

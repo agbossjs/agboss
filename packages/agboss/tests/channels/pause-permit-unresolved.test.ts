@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import { assertAnswerPermitted, permitsOf } from "../../src/app/answer-permit.js";
 import type { AppDeps } from "../../src/app/app-deps.js";
 import type { PauseRecord } from "../../src/infrastructure/pause-record.js";
-import { PauseAnswererError } from "../../src/index.js";
+import { PauseError } from "../../src/index.js";
 
 const pause = { pauseId: "p-1", workflow: "gone-workflow", channel: "gone-channel" } as PauseRecord;
 
@@ -26,7 +26,7 @@ describe("#1307c: an unresolvable target refuses the answer", () => {
     const refused = await assertAnswerPermitted(parts, pause, "dana", {}).catch(
       (error: unknown) => error,
     );
-    expect(refused).toBeInstanceOf(PauseAnswererError);
+    expect(refused).toBeInstanceOf(PauseError.PermissionDenied);
     expect((refused as Error).message).toBe(
       "pause p-1: its target cannot be resolved, the answer is refused",
     );
@@ -36,7 +36,7 @@ describe("#1307c: an unresolvable target refuses the answer", () => {
   it("a workflow with no channels at all", async () => {
     const parts = { permits: permitsOf(depsOf(undefined)) };
     await expect(assertAnswerPermitted(parts, pause, "dana", {})).rejects.toBeInstanceOf(
-      PauseAnswererError,
+      PauseError.PermissionDenied,
     );
   });
 
@@ -47,7 +47,7 @@ describe("#1307c: an unresolvable target refuses the answer", () => {
       },
     };
     await expect(assertAnswerPermitted(parts, pause, undefined, {})).rejects.toBeInstanceOf(
-      PauseAnswererError,
+      PauseError.PermissionDenied,
     );
   });
 

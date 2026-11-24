@@ -73,7 +73,7 @@ export declare namespace PauseError {
   /** The channel has no reply interpreter. */
   export type ChannelInterpreterMissing = ErrorVariant<
     PauseErrorKind.ChannelInterpreterMissing,
-    "pause.no-reply-interpreter"
+    "pause.channel-interpreter-missing"
   > & { readonly channel: string };
   /** A pause's expiry handler failed. */
   export type ExpiryHandlerFailed = ErrorVariant<
@@ -136,7 +136,7 @@ export const PauseError: FamilyConstructor<
     UninterpretableReply: ["a reply could not be read as an answer"],
     ChannelInterpreterMissing: [
       "the channel has no reply interpreter",
-      "pause.no-reply-interpreter",
+      "pause.channel-interpreter-missing",
     ],
     ExpiryHandlerFailed: ["a pause's expiry handler failed", "pause.expiry-handler"],
     WorkingCalendar: ["a working-calendar deadline cannot be computed"],

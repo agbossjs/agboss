@@ -103,7 +103,7 @@ export { type EnumOptions, type ListOptions } from "./decorators.js";
 export { type ToolArguments } from "./standard/framework.js";
 export {
   type DecimalStringLimits,
-  type KeyTextLimits,
+  type KeyTextOptions,
   type NumberLimits,
   type TextLimits,
 } from "./types.js";

@@ -152,7 +152,7 @@ export class UninterpretableReplyError extends AGBossError {
 
 /** A `reply` for a pause whose role declares no `replyInterpreter`: answer it with a `decision`. */
 export class ReplyInterpreterMissingError extends AGBossError {
-  static override readonly code = "pause.no-reply-interpreter" as const;
+  static override readonly code = "pause.channel-interpreter-missing" as const;
   declare readonly code: typeof ReplyInterpreterMissingError.code;
   override name = "ReplyInterpreterMissingError";
 

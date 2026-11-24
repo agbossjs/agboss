@@ -10,6 +10,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  inline,
 } from "../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
@@ -49,7 +50,7 @@ export class ScoutAnswer {}
 @Agent({
   name: "scout-agent",
   description: "Searches jobs and companies",
-  prompt: "Help with the job search.",
+  prompt: inline("Help with the job search."),
   model: "test/scout",
   tools: [JobSearchTool, CompanyTool, BoardLookupTool, PingTool],
   toolInterceptors: [MoodyToolInterceptor],
@@ -79,7 +80,7 @@ export class QuietAnswer {}
 @Agent({
   name: "quiet-agent",
   description: "Searches without an audit",
-  prompt: "Search quietly.",
+  prompt: inline("Search quietly."),
   model: "test/quiet",
   tools: [JobSearchTool, CompanyTool],
   excludeToolInterceptors: [AuditToolInterceptor],

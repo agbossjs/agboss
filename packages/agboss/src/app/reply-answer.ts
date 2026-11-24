@@ -8,7 +8,6 @@ import type { ReplyPii, ReplyReader } from "../channels/reply-reader.js";
 import { replyReaderOf } from "../channels/reply-reading.js";
 import type { UsageRecord } from "../finops/usage.js";
 import type { FrameSpec } from "../flow/context/frame.js";
-import { DEFAULT_TENANT } from "../flow/context/context-values.js";
 import type { PauseRecord } from "../infrastructure/pause-record.js";
 import { PiiPolicySet } from "../pii/policy-set.js";
 import type { AgentExecutionOutput } from "../run/types.js";
@@ -81,7 +80,7 @@ export const replyAnsweringPartsOf = (deps: AppDeps): ReplyAnsweringParts => ({
     // the paused execution's workflow under its chain (#1150), never the root's lists alone
     const { pii } = ownDepsOf(deps, pause.workflow);
     if (pii === undefined) return { policies: new PiiPolicySet([], ""), known };
-    const sensitive = pii.contextValuesOf(contextsOf(state, DEFAULT_TENANT.tenantId));
+    const sensitive = pii.contextValuesOf(contextsOf(state, pause.tenantId));
     // the tree's key (#334): the root's and its children's, one value one token
     const policies = pii.workflowPolicies.withValues(sensitive).withFieldKey(state.piiKey);
     return { policies, known };

@@ -43,11 +43,22 @@ const text = (settings: FieldSettings): z.ZodType<string> => {
   return schema;
 };
 
-/** A key's text (#538): the framework's rules, so a valid value is always usable as a key; the rule is named, never the text. */
+/** The safe identifier syntax of a `@KeyText` (#1292): ASCII letters, digits and `. _ : -`; no space, `/`, `?`, `%`, `#` or look-alike letter. */
+const KEY_TEXT_SYNTAX = /^[a-zA-Z0-9._:-]+$/;
+
+/** A key's text (#538, #1292): the framework's rules AND the ASCII identifier syntax, so a valid value is always usable as a key, a URL segment or a log key; the rule is named, never the text. */
 const keyText = (settings: FieldSettings): z.ZodType<string> =>
   text(settings).superRefine((value, ctx) => {
     const rule = keyTextRuleOf(value);
-    if (rule !== undefined) ctx.addIssue({ code: "custom", message: KEY_TEXT_RULE_TEXT[rule] });
+    if (rule !== undefined) {
+      ctx.addIssue({ code: "custom", message: KEY_TEXT_RULE_TEXT[rule] });
+      return;
+    }
+    if (!KEY_TEXT_SYNTAX.test(value))
+      ctx.addIssue({
+        code: "custom",
+        message: "it must use only the characters a-z, A-Z, 0-9, '.', '_', ':' and '-'",
+      });
   });
 
 const number = (settings: FieldSettings, isInteger: boolean): z.ZodType<number> => {
