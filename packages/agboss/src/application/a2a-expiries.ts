@@ -1,5 +1,5 @@
 import type { Class } from "../components/injection.js";
-import { componentOf } from "../components/metadata.js";
+import type { ComponentOptions } from "../components/component-options.js";
 import { a2aTaskExpiryOf } from "../infrastructure/a2a-task.repository.js";
 import type { Infrastructure } from "../infrastructure/contracts.js";
 import type { Expiry } from "../infrastructure/expiry.js";
@@ -19,11 +19,13 @@ const directMessageExpiry = () =>
 export const a2aExpiriesOf = (
   infrastructure: Pick<Infrastructure, "a2aTasks" | "a2aFiles" | "a2aDirectMessages" | "clock">,
   endpoints: readonly Class[],
+  options: ComponentOptions,
 ): readonly Expiry[] =>
   endpoints.flatMap((endpoint): readonly Expiry[] => {
-    const meta = componentOf(endpoint);
-    if (meta?.kind !== "a2a-endpoint") return [];
-    const { name, ttl } = meta.meta;
+    // the endpoint's ttl as the profiles leave it
+    const meta = options.a2aEndpointMetaOf(endpoint);
+    if (meta === undefined) return [];
+    const { name, ttl } = meta;
     return [
       ...(ttl.tasks === Ttl.Forever
         ? []

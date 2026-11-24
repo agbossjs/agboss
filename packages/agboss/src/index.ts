@@ -54,11 +54,14 @@ export type { BudgetOverlay } from "./budgets/budget-overlay.js";
 export type { MemoryOverlay } from "./memory/memory.decorator.js";
 export type { PauseTargetOverlay } from "./channels/pause-targets.js";
 export type {
+  A2AAgentOverlay,
+  A2AEndpointOverlay,
   ChannelOverlay,
   ComponentModelConfig,
   ComponentModelOverlay,
   ConfigSpec,
   DatabaseStorageOverlay,
+  McpServerOverlay,
   MeshOverlay,
   ModelProviderOverlay,
   OverlayPartial,

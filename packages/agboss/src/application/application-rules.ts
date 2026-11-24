@@ -31,7 +31,6 @@ import {
   workingCalendarViolations,
 } from "../calendar/calendar-source.js";
 import { meshRuleViolations } from "../mesh/mesh-rules.js";
-import { contractRuleViolations } from "../a2a/a2a-rules.js";
 import { providersOf } from "./listed-providers.js";
 import { storeBackendViolations } from "./implementations.js";
 import { storeDescriptorViolations } from "./store-descriptor-rule.js";
@@ -228,7 +227,6 @@ export function applicationRuleViolations(
     ...a2aMessageStoreViolations(options),
     ...nestedFileFieldViolations(options),
     ...meshRuleViolations(options.name, options.mesh, options.endpoints),
-    ...contractRuleViolations(options),
     ...contextRuleViolations(options.name, options),
     ...sharedInterpreterViolations(channelUsesOf(options.workflows)),
   ];

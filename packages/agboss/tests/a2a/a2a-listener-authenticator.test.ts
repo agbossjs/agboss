@@ -5,6 +5,7 @@
  * never a `ComponentError`. An anonymous caller owns nothing and is bound to nothing of its
  * connection: its task is reached by its id, and listing is `403`.
  */
+import { ComponentOptions } from "../../src/components/component-options.js";
 import { describe, expect, it } from "vitest";
 import { a2aHttpListener } from "../../src/a2a/a2a-http.js";
 import { ownedTask } from "../../src/a2a/server/a2a-server-parts.js";
@@ -34,7 +35,10 @@ function appOf(isBaseTenantContext: boolean): Parameters<typeof a2aHttpListener>
     contracts: () => Promise.reject(new Error("not used")),
   };
   const app = {
-    resolve: ((token: unknown) => (token === Logger ? new SilentLogger() : clock)) as never,
+    resolve: ((token: unknown) => {
+      if (token === Logger) return new SilentLogger();
+      return token === ComponentOptions ? ComponentOptions.none : clock;
+    }) as never,
   } as never;
   rememberMeshSettings(app, () => settings);
   return app;

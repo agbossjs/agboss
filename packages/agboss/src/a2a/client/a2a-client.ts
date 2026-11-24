@@ -6,6 +6,7 @@ import { lazyLoad, SystemClock, type Clock } from "../../infrastructure/clock.js
 import { accept } from "./a2a-accept.js";
 import { CardCache, type Wire } from "./a2a-card-cache.js";
 import { AgentConfig, type ResolvedAgent } from "./a2a-agent-config.js";
+import { AgentProfile } from "./a2a-agent-profile.js";
 import { boundCallOf, stepSignalOf } from "./a2a-call-bounds.js";
 import { cardCacheOf } from "./a2a-client-cache.js";
 import { taskCancelOf, taskReadOf, waitedOf, type WireOf } from "./a2a-client-reads.js";
@@ -54,8 +55,8 @@ import type { A2ADownloadOptions, FileDto } from "./a2a-download.js";
  * the deadline.
  */
 export class A2AClient<TIn extends object = object, TOut extends object = object> {
-  /** What it calls and how much a call costs: the class's `@A2AAgent`, or the `contract` option. */
-  readonly contract: A2AClientContract | undefined;
+  readonly #declared: A2AClientContract | undefined;
+  readonly #profile: AgentProfile;
 
   readonly #agent: string;
   readonly #options: A2AClientOptions;
@@ -66,9 +67,10 @@ export class A2AClient<TIn extends object = object, TOut extends object = object
 
   constructor(options: A2AClientOptions = {}) {
     this.#options = options;
-    this.contract = options.contract ?? contractOfClass(new.target);
+    this.#declared = options.contract ?? contractOfClass(new.target);
     this.#filePolicy = options.filePolicy;
     this.#agent = agentNameOf(new.target, new.target.name);
+    this.#profile = new AgentProfile(new.target, this.#agent, options);
     this.#config = new AgentConfig(this.#agent, {
       url: options.url ?? urlOf(new.target, new.target.name),
       allowedOrigins: options.allowedOrigins ?? allowedOriginsOfClass(new.target),
@@ -78,6 +80,11 @@ export class A2AClient<TIn extends object = object, TOut extends object = object
     if (this.#config.isPlain) this.#cardCache();
   }
 
+  /** What it calls and how much a call costs: its `@A2AAgent` as the profiles leave it in an application, or the `contract` option. */
+  get contract(): A2AClientContract | undefined {
+    return this.#profile.contractOf(this.#declared, this.#services());
+  }
+
   /** The agent's base URL; a `defineEnv` reference is read from the application's environment on first use. */
   get url(): string {
     return this.#resolve().url;
@@ -85,7 +92,8 @@ export class A2AClient<TIn extends object = object, TOut extends object = object
 
   /** The declared address and headers with their references read, once (the running application's environment, else the process's). */
   #resolve(): ResolvedAgent {
-    return this.#config.read(this.#services()?.env ?? process.env);
+    const services = this.#services();
+    return this.#profile.configOf(this.#config, services).read(services?.env ?? process.env);
   }
 
   /** The agent's card cache: built with the first use, once its address is known. */

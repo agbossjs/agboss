@@ -4,11 +4,14 @@ import type { EnvContract } from "../environments/env-ref.js";
 import type { Class } from "../components/injection.js";
 import type { LoadedProfile } from "./config-files.js";
 import { deepMerge } from "./deep-merge.js";
+import { replacementsOf } from "./fold-replacements.js";
 import { TYPESCRIPT_ONLY_WORKFLOW_KEYS } from "./define-config.js";
 import type { BudgetOverlay } from "../budgets/budget-overlay.js";
 import {
+  a2aEndpointsOf,
   budgetsOf,
   filePoliciesOf,
+  foldedSettings,
   foldedShelf,
   memoriesOf,
   pauseTargetsOf,
@@ -16,7 +19,14 @@ import {
 import type { MemoryOverlay } from "../memory/memory.decorator.js";
 import type { PauseTargetOverlay } from "../channels/pause-targets.js";
 import type { FilePolicyOverlay } from "../files/file-policy.js";
-import type { ChannelOverlay, DatabaseStorageOverlay, MeshOverlay } from "./overlay-types.js";
+import type {
+  A2AAgentOverlay,
+  A2AEndpointOverlay,
+  ChannelOverlay,
+  DatabaseStorageOverlay,
+  McpServerOverlay,
+  MeshOverlay,
+} from "./overlay-types.js";
 import type { ComponentModelOverride } from "../models/model-cascade.js";
 import type {
   ComponentModelConfig,
@@ -76,6 +86,11 @@ export interface FoldedConfig {
   /** What each `@DatabaseStorage` keeps and the `@Mesh`'s limits, by name, the profiles folded. */
   readonly databaseStorages: Readonly<Record<string, DatabaseStorageOverlay>>;
   readonly mesh: Readonly<Record<string, MeshOverlay>>;
+  /** How long each `@A2AEndpoint` keeps what it serves, by its name, the profiles folded. */
+  readonly a2aEndpoints: Readonly<Record<string, A2AEndpointOverlay>>;
+  /** What each `@A2AAgent` and `@McpServer` changes by its name, the profiles folded. */
+  readonly a2aAgents: Readonly<Record<string, A2AAgentOverlay>>;
+  readonly mcpServers: Readonly<Record<string, McpServerOverlay>>;
   /** What each `@Channel` changes by its name (`ttl`, `timeout`), the profiles folded. */
   readonly channels: Readonly<Record<string, ChannelOverlay>>;
   /** How long the pauses of each `@ToolApproval` / `@ExternalTask` wait, by name, the profiles folded. */
@@ -99,6 +114,9 @@ export const unchangedConfig = (profiles: readonly string[]): FoldedConfig => ({
   databaseStorages: {},
   mesh: {},
   channels: {},
+  a2aEndpoints: {},
+  a2aAgents: {},
+  mcpServers: {},
   toolApprovals: {},
   externalTasks: {},
   componentModels: {},
@@ -184,34 +202,6 @@ function layerOf(layer: LoadedProfile): FoldedLayer {
   };
 }
 
-/**
- * The last profile's value of a replacement slot. `channels` and `mesh` also hold a record of settings
- * (a shelf): only a list of classes, a class, replaces — the slot and the shelf fold independently.
- */
-function lastOf<TKey extends keyof ApplicationReplacements>(
-  layers: readonly LoadedProfile[],
-  key: TKey,
-): ApplicationReplacements[TKey] {
-  const isReplacement = (value: unknown): boolean =>
-    key === "channels" ? Array.isArray(value) : key === "mesh" ? typeof value === "function" : true;
-  return layers.reduce<ApplicationReplacements[TKey]>((found, layer) => {
-    const value: unknown = layer.spec[key];
-    return value !== undefined && isReplacement(value)
-      ? (value as ApplicationReplacements[TKey])
-      : found;
-  }, undefined);
-}
-
-const replacementsOf = (layers: readonly LoadedProfile[]): ApplicationReplacements => {
-  const keys = ["storage", "modelProvider", "channels", "mesh", "healthChecks"] as const;
-  return Object.fromEntries(
-    keys.flatMap((key) => {
-      const value = lastOf(layers, key);
-      return value === undefined ? [] : [[key, value]];
-    }),
-  );
-};
-
 /** The layers (`base` first, then the selection in order) folded left to right: a later layer wins. */
 export function foldedConfigOf(
   profiles: readonly string[],
@@ -230,6 +220,9 @@ export function foldedConfigOf(
     databaseStorages: foldedShelf(layers, "databaseStorages"),
     mesh: foldedShelf(layers, "mesh"),
     channels: foldedShelf(layers, "channels"),
+    a2aEndpoints: a2aEndpointsOf(layers),
+    a2aAgents: foldedSettings(layers, "a2aAgents"),
+    mcpServers: foldedSettings(layers, "mcpServers"),
     toolApprovals: pauseTargetsOf(layers, "toolApprovals"),
     externalTasks: pauseTargetsOf(layers, "externalTasks"),
     componentModels: componentModelsOf(layers),

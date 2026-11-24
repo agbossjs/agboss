@@ -56,9 +56,10 @@ function a2aAgentsOf(sources: WarningSources): readonly Class[] {
 
 function unpricedForeignWarnings(sources: WarningSources): AssemblyWarning[] {
   return a2aAgentsOf(sources).flatMap((agent): AssemblyWarning[] => {
-    const meta = componentOf(agent);
-    if (meta?.kind !== "a2a-agent") return [];
-    const { name, target, costPerCall } = meta.meta;
+    // the agent's price as the profiles leave it
+    const meta = sources.componentOptions.a2aAgentMetaOf(agent);
+    if (meta === undefined) return [];
+    const { name, target, costPerCall } = meta;
     if (target?.application !== undefined || costPerCall !== undefined) return [];
     return [
       {

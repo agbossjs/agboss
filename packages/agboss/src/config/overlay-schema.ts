@@ -124,6 +124,43 @@ export const ChannelOverlaySchema = z
     message: "give ttl and/or timeout",
   });
 
+/** A text, or a `defineEnv` value in a `.config.ts`. */
+const textOrEnv = z.union([z.string().min(1), envValue]);
+
+/** What a profile changes of one `@A2AEndpoint`, by its name. */
+export const A2AEndpointOverlaySchema = z.strictObject({
+  ttl: z
+    .strictObject({
+      tasks: keptFor.optional(),
+      messages: z.number().positive().optional(),
+    })
+    .refine((one) => one.tasks !== undefined || one.messages !== undefined, {
+      message: "give tasks and/or messages",
+    }),
+});
+
+/** What a profile changes of one `@A2AAgent`, by its name. */
+export const A2AAgentOverlaySchema = z
+  .strictObject({
+    url: textOrEnv.optional(),
+    allowedOrigins: z.array(textOrEnv).optional(),
+    timeout: z.number().positive().optional(),
+    costPerCall: z.number().nonnegative().optional(),
+  })
+  .refine((one) => Object.keys(one).length > 0, { message: "give at least one setting" });
+
+/** What a profile changes of one `@McpServer`, by its name. */
+export const McpServerOverlaySchema = z
+  .strictObject({
+    timeout: z.number().positive().optional(),
+    costPerCall: z.number().nonnegative().optional(),
+    maxConcurrentCalls: z.number().int().positive().optional(),
+    url: textOrEnv.optional(),
+    command: textOrEnv.optional(),
+    args: z.array(textOrEnv).optional(),
+  })
+  .refine((one) => Object.keys(one).length > 0, { message: "give at least one setting" });
+
 /** What a profile changes of the application's `@Mesh`, by its name. */
 export const MeshOverlaySchema = z
   .strictObject({
@@ -172,6 +209,12 @@ export const ScalarOverlaySchema = z.strictObject({
   filePolicies: z.record(kebab, FilePolicyOverlaySchema).optional(),
   /** How long a `@DatabaseStorage` keeps its audit log and ledger entries, by its name. */
   databaseStorages: z.record(kebab, DatabaseStorageOverlaySchema).optional(),
+  /** How long an `@A2AEndpoint` keeps what it serves, by its name. */
+  a2aEndpoints: z.record(kebab, A2AEndpointOverlaySchema).optional(),
+  /** An `@A2AAgent`'s address, call bound and price, by its name. */
+  a2aAgents: z.record(kebab, A2AAgentOverlaySchema).optional(),
+  /** An `@McpServer`'s bounds, price and address, by its name. */
+  mcpServers: z.record(kebab, McpServerOverlaySchema).optional(),
   /** The settings of an `@Channel` by its name. */
   channels: z.record(kebab, ChannelOverlaySchema).optional(),
   /** The application's `@Mesh` limits, by its name. */

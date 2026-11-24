@@ -2,7 +2,8 @@ import type { ApplicationOptions } from "../application/application.js";
 import type { EnvOverrides } from "../environments/define-env.js";
 import type { EnvContract } from "../environments/env-ref.js";
 import type { Class } from "../components/injection.js";
-import type { Milliseconds, Ttl } from "../units/index.js";
+import type { EnvRef } from "../environments/env-ref.js";
+import type { Milliseconds, Ttl, Usd } from "../units/index.js";
 import type { BudgetOverlay } from "../budgets/budget-overlay.js";
 import type { MemoryOverlay } from "../memory/memory.decorator.js";
 import type { PauseTargetOverlay } from "../channels/pause-targets.js";
@@ -45,6 +46,45 @@ export interface ChannelOverlay {
   readonly ttl?: Milliseconds;
   /** How long one call of the channel may run. */
   readonly timeout?: Milliseconds;
+}
+
+/** What a profile changes of one `@A2AEndpoint`, by its `name`: how long it keeps what it serves. */
+export interface A2AEndpointOverlay {
+  /** How long it keeps its tasks and its direct messages\' replies. */
+  readonly ttl?: {
+    /** A finished task after its last status change. */
+    readonly tasks?: Milliseconds | Ttl.Forever;
+    /** A direct message's reply, above the execution lease. */
+    readonly messages?: Milliseconds;
+  };
+}
+
+/** What a profile changes of one `@A2AAgent`, by its `name`: its address, origins, call bound and price. */
+export interface A2AAgentOverlay {
+  /** The agent's base URL; a `defineEnv` value in a `.config.ts`. */
+  readonly url?: string | EnvRef<string>;
+  /** Origins besides the `url`'s the agent's card may name; replaces the declared list. */
+  readonly allowedOrigins?: readonly (string | EnvRef<string>)[];
+  /** How long one call waits for the task at most. */
+  readonly timeout?: Milliseconds;
+  /** What one call costs by contract. */
+  readonly costPerCall?: Usd;
+}
+
+/** What a profile changes of one `@McpServer`, by its `name`: its bounds, its price and its address. */
+export interface McpServerOverlay {
+  /** How long one call may run. */
+  readonly timeout?: Milliseconds;
+  /** What one call costs by contract. */
+  readonly costPerCall?: Usd;
+  /** At most this many calls at once. */
+  readonly maxConcurrentCalls?: number;
+  /** An HTTP server's URL; a `defineEnv` value in a `.config.ts`. */
+  readonly url?: string | EnvRef<string>;
+  /** A stdio server's command. */
+  readonly command?: string | EnvRef<string>;
+  /** A stdio server's arguments; replaces the declared list. */
+  readonly args?: readonly (string | EnvRef<string>)[];
 }
 
 /** What a profile changes of the application's `@Mesh`, by its name: its limits and clock tolerance. */
@@ -133,6 +173,12 @@ export interface ConfigSpec {
    * path that reads it: A2A files, `Files`, the agents' files, the inline cap, the file expiry.
    */
   readonly filePolicies?: Readonly<Record<string, FilePolicyOverlay>>;
+  /** How long each `@A2AEndpoint` keeps its tasks and its direct messages' replies, by its `name`. */
+  readonly a2aEndpoints?: Readonly<Record<string, A2AEndpointOverlay>>;
+  /** The address, call bound and price of each `@A2AAgent`, by its `name`. */
+  readonly a2aAgents?: Readonly<Record<string, A2AAgentOverlay>>;
+  /** The bounds, price and address of each `@McpServer`, by its `name`. */
+  readonly mcpServers?: Readonly<Record<string, McpServerOverlay>>;
   /** The model of each `@Judge` by its `name`. */
   readonly judges?: Readonly<Record<string, ComponentModelConfig>>;
   /** The model of each model `@Arbiter` by its `name`. */

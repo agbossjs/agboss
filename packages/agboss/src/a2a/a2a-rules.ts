@@ -1,3 +1,4 @@
+import type { ComponentOptions } from "../components/component-options.js";
 import type { ApplicationOptions } from "../application/application.js";
 import type { Class, Provider } from "../components/injection.js";
 import { ComponentError, componentOf } from "../components/metadata.js";
@@ -62,7 +63,10 @@ function a2aEndpointProblems(
   return found;
 }
 
-function endpointViolations(options: ApplicationOptions): RuleViolation[] {
+function endpointViolations(
+  options: ApplicationOptions,
+  carrier: ComponentOptions,
+): RuleViolation[] {
   const where = options.name;
   const starts = startsOf(options.workflows);
   const seen = new Set<string>();
@@ -80,7 +84,10 @@ function endpointViolations(options: ApplicationOptions): RuleViolation[] {
     seen.add(meta.meta.name);
     return meta.kind === "mcp-endpoint"
       ? found
-      : [...found, ...a2aEndpointProblems(meta.meta, starts, where)];
+      : [
+          ...found,
+          ...a2aEndpointProblems(carrier.a2aEndpointMetaOf(endpoint) ?? meta.meta, starts, where),
+        ];
   });
 }
 
@@ -166,23 +173,29 @@ function costPerCallViolations(meta: A2AAgentMeta, where: string): RuleViolation
     : [violation("a2a.cost-per-call-invalid", `${meta.name}'s ${problem}`, [where])];
 }
 
-function a2aAgentViolations(options: ApplicationOptions): RuleViolation[] {
+function a2aAgentViolations(
+  options: ApplicationOptions,
+  carrier: ComponentOptions,
+): RuleViolation[] {
   const where = options.name;
   return [...providersOf(options)].flatMap((cls): RuleViolation[] => {
-    const meta = componentOf(cls);
-    if (meta?.kind !== "a2a-agent") return [];
-    const { name } = meta.meta;
+    const meta = carrier.a2aAgentMetaOf(cls);
+    if (meta === undefined) return [];
+    const { name } = meta;
     // #809: the target is optional — a foreign agent has no application, one skill needs no name
     return [
       ...contractNameViolations(name, "@A2AAgent", where),
-      ...targetFinishesViolations(meta.meta, where),
-      ...costPerCallViolations(meta.meta, where),
+      ...targetFinishesViolations(meta, where),
+      ...costPerCallViolations(meta, where),
     ];
   });
 }
 
 /** The declared contracts' violations of an application. */
-export const contractRuleViolations = (options: ApplicationOptions): RuleViolation[] => [
-  ...endpointViolations(options),
-  ...a2aAgentViolations(options),
+export const contractRuleViolations = (
+  options: ApplicationOptions,
+  carrier: ComponentOptions,
+): RuleViolation[] => [
+  ...endpointViolations(options, carrier),
+  ...a2aAgentViolations(options, carrier),
 ];

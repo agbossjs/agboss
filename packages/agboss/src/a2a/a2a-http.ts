@@ -2,7 +2,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { executionControlOf } from "../app/execution-control.js";
 import type { Class } from "../components/injection.js";
 import { ComponentOptions } from "../components/component-options.js";
-import { componentOf, ComponentError } from "../components/metadata.js";
+import { ComponentError } from "../components/metadata.js";
 import { A2ATaskRepository } from "../infrastructure/a2a-task.repository.js";
 import { Clock, IdGenerator, lazyLoad } from "../infrastructure/clock.js";
 import { frameworkLogOf, Logger } from "../infrastructure/logger.js";
@@ -118,14 +118,6 @@ function builtAppOf(app: A2AApp) {
   return { mesh, control };
 }
 
-/** The options of an `@A2AEndpoint` (`skillStartsOf` checked it is one). */
-function endpointOptionsOf(endpoint: Class): A2AEndpointMeta {
-  const meta = componentOf(endpoint);
-  if (meta?.kind !== "a2a-endpoint")
-    throw new ComponentError({ message: "[a2a.not-an-endpoint] not an @A2AEndpoint" });
-  return meta.meta;
-}
-
 /** What the listener's direct-reply skills work with (#860): the replies and the default skill. */
 const directPartsOf = (
   app: A2AApp,
@@ -162,7 +154,7 @@ async function bindingOf(
   const [{ servedSkillsOf }, { agentCardOf }, { A2AServerRequestHandler }, { LocalRuns }] =
     await serverModules();
   const { mesh, control } = builtAppOf(app);
-  const expose = endpointOptionsOf(options.endpoint);
+  const expose = checked.endpoint;
   const known = knownOf(options, checked);
   const skills = servedSkillsOf(startsOfEndpoint(expose), await skillSourcesOf(app, mesh, expose));
   const clock = app.resolve(Clock);

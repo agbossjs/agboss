@@ -1,0 +1,3 @@
+a2aAgents:
+  ghost-agent:
+    timeout: 1000

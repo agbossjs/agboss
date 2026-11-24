@@ -2,6 +2,7 @@ import type { AnyTenantApp } from "../../app/types.js";
 import { Idempotency } from "../../app/idempotency.js";
 import { ApplicationContext } from "../../flow/context/application-context.js";
 import { Clock } from "../../infrastructure/clock.js";
+import { ComponentOptions } from "../../components/component-options.js";
 import { Files } from "../files/files.service.js";
 import type { FileDto } from "../../dto/standard/file.js";
 import { fileUnavailable, FileUnavailableReason } from "../../files/file-errors.js";
@@ -21,6 +22,8 @@ export interface A2AClientServices {
   readonly files?: () => Files;
   /** The application's environment: what an agent's `defineEnv` references are read from. */
   readonly env?: NodeJS.ProcessEnv;
+  /** The options of the components under the selected profiles (#1318c): an agent's address, call bound and price. */
+  readonly options?: ComponentOptions;
   /** What rides a call beyond the core protocol; none → the AGBoss mesh (`AGBOSS_MESH`). */
   readonly mesh?: A2AMeshSeam;
 }
@@ -48,6 +51,7 @@ export function rememberA2AClientServicesOf(
     outboundCalls: () => app.resolve(Idempotency),
     clock: app.resolve(Clock),
     files: () => app.resolve(Files),
+    options: app.resolve(ComponentOptions),
     ...(env === undefined ? {} : { env }),
   });
 }

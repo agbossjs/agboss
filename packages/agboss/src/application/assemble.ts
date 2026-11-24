@@ -19,7 +19,7 @@ import {
 } from "./application.js";
 import type { BudgetOverlays, OverlaidBudgets } from "../budgets/budget-overlay.js";
 import { applicationRuleViolations, budgetsOfApplication } from "./application-rules.js";
-import { a2aFileStoreViolations } from "../a2a/a2a-file-store-rule.js";
+import { carrierRuleViolations } from "./carrier-rules.js";
 import { assembledRetentionsOf, retentionOf } from "./retention.js";
 import {
   idempotencyKeyViolations,
@@ -227,8 +227,8 @@ export async function applicationOf(
     assembled,
     assembly.withoutIdempotencyKeys === true,
   );
-  // and its files where every instance reads them, within the tier no store needs (#859)
-  const files = a2aFileStoreViolations(options, applied.componentOptions);
+  // its A2A contracts and the files where every instance reads them (#859, #1320), as the profiles leave them
+  const files = carrierRuleViolations(options, applied.componentOptions);
   throwIfAny([...own, ...crossWorkflowViolations(assembled), ...keys, ...files], errors);
   return {
     application,

@@ -1,3 +1,4 @@
+import type { ComponentOptions } from "../components/component-options.js";
 import { cardFileFieldsOf } from "../a2a/files/a2a-file-options.js";
 import { A2AReply } from "../a2a/a2a-message-skill-rule.js";
 import {
@@ -134,10 +135,15 @@ function foreignImportOf(base: A2AImportBase, meta: A2AAgentMeta, dtos: Dtos): A
 }
 
 /** The import of one `@A2AAgent`; none for an untyped agent of an AGBoss application (#809). */
-function a2aImportOf(client: Class, parts: readonly WorkflowParts[], dtos: Dtos): A2AImport[] {
-  const component = componentOf(client);
-  if (component?.kind !== "a2a-agent") return [];
-  const meta = component.meta;
+function a2aImportOf(
+  client: Class,
+  parts: readonly WorkflowParts[],
+  dtos: Dtos,
+  options: ComponentOptions,
+): A2AImport[] {
+  // the agent as the profiles leave it: its price is what the snapshot says
+  const meta = options.a2aAgentMetaOf(client);
+  if (meta === undefined) return [];
   const { name, target, input, output, costPerCall } = meta;
   const base = {
     kind: "a2a" as const,
@@ -173,7 +179,7 @@ function a2aImportsOf(
     (provider): provider is Class =>
       typeof provider === "function" && componentOf(provider)?.kind === "a2a-agent",
   );
-  return clients.flatMap((client) => a2aImportOf(client, parts, dtos));
+  return clients.flatMap((client) => a2aImportOf(client, parts, dtos, assembled.componentOptions));
 }
 
 function mcpImportsOf(

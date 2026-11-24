@@ -121,8 +121,12 @@ function definedOf<T extends object>(fields: { readonly [K in keyof T]: T[K] | u
 /** The contract `@A2AAgent` recorded on the class being constructed, if any. */
 export function contractOfClass(target: object): A2AClientContract | undefined {
   const meta = componentOf(target);
-  if (meta?.kind !== "a2a-agent") return undefined;
-  const { target: callee, input, output, costPerCall, timeout, mesh } = meta.meta;
+  return meta?.kind === "a2a-agent" ? contractOfMeta(meta.meta) : undefined;
+}
+
+/** The contract an `@A2AAgent`'s options make — declared, or with a profile's `a2aAgents` shelf over them. */
+export function contractOfMeta(meta: A2AAgentMeta): A2AClientContract {
+  const { target: callee, input, output, costPerCall, timeout, mesh } = meta;
   return definedOf<A2AClientContract>({
     application: callee?.application,
     skill: callee?.skill,

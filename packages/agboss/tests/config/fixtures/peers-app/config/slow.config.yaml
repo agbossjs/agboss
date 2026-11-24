@@ -1,0 +1,18 @@
+mcpServers:
+  peer-notes:
+    timeout: 20000
+    costPerCall: 0.005
+    maxConcurrentCalls: 4
+    url: https://other-notes.example/mcp
+  peer-runner:
+    command: deno
+    args:
+      - run
+      - runner.ts
+a2aAgents:
+  peer-billing:
+    url: https://other-billing.example
+    timeout: 45000
+    costPerCall: 0.05
+  peer-free:
+    costPerCall: 0.01

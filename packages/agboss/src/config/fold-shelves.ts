@@ -3,6 +3,7 @@ import type { PauseTargetOverlay } from "../channels/pause-targets.js";
 import type { MemoryOverlay } from "../memory/memory.decorator.js";
 import type { FilePolicyOverlay } from "../files/file-policy.js";
 import type { LoadedProfile } from "./config-files.js";
+import type { A2AAgentOverlay, A2AEndpointOverlay, McpServerOverlay } from "./overlay-types.js";
 
 /** The named shelves of the profiles (budgets, memories, storages, mesh, pause targets), each folded left to right. */
 
@@ -70,5 +71,28 @@ export function filePoliciesOf(
           ? {}
           : { fetchPool: { ...found[name]?.fetchPool, ...one.fetchPool } }),
       };
+  return found;
+}
+
+/** What each `@A2AEndpoint` keeps, later profiles winning per field (`ttl` per its two fields). */
+export function a2aEndpointsOf(
+  layers: readonly LoadedProfile[],
+): Readonly<Record<string, A2AEndpointOverlay>> {
+  const found: Record<string, A2AEndpointOverlay> = {};
+  for (const layer of layers)
+    for (const [name, one] of Object.entries(layer.spec.a2aEndpoints ?? {}))
+      found[name] = { ttl: { ...found[name]?.ttl, ...one.ttl } };
+  return found;
+}
+
+/** What each `@A2AAgent` and `@McpServer` changes, later profiles winning per field. */
+export function foldedSettings<TOverlay extends A2AAgentOverlay | McpServerOverlay>(
+  layers: readonly LoadedProfile[],
+  shelf: "a2aAgents" | "mcpServers",
+): Readonly<Record<string, TOverlay>> {
+  const found: Record<string, TOverlay> = {};
+  for (const layer of layers)
+    for (const [name, one] of Object.entries(layer.spec[shelf] ?? {}))
+      found[name] = { ...found[name], ...one } as TOverlay;
   return found;
 }

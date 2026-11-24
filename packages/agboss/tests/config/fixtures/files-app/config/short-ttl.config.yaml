@@ -1,0 +1,5 @@
+a2aEndpoints:
+  files-skill-a2a-expose:
+    ttl:
+      tasks: 7200000
+      messages: 600000

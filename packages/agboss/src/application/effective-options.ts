@@ -30,7 +30,7 @@ import type { PauseTargetOverrides } from "../channels/pause-targets.js";
 import { pauseOverridesOf } from "../config/pause-overrides.js";
 import { checkComponentShelves, componentOptionsOf } from "./component-profile.js";
 import { budgetOverlaysOf } from "./budget-profile.js";
-import { optionCarrierOf } from "./option-shelves.js";
+import { checkMcpServers, optionCarrierOf } from "./option-shelves.js";
 import type { ComponentOptions } from "../components/component-options.js";
 import { checkMemories, checkPauseTargets } from "./profile-checks.js";
 import { withIsolatedStorage } from "./isolated-storage.js";
@@ -195,6 +195,7 @@ export function checkAppliedProfiles(
   assembled: readonly AssembledWorkflow[],
 ): void {
   checkOverlayUse(applied.folded, applied.use);
+  checkMcpServers(applied.folded, assembled);
   checkMemories(applied.folded, assembled);
   checkComponentShelves(applied.folded, applied.options);
   checkPauseTargets(applied.folded, assembled);

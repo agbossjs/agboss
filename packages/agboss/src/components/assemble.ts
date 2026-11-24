@@ -209,10 +209,10 @@ export async function workflowOf(
   const replyInterpreters = await checkedChannelsOf(workflow, modules, owner, loader, resolver);
   const created = createdClassesOf(graph, policies.classes, replyInterpreters, memories);
   const components = componentClassesOf(bundle, agents, tools, rags, created, modules, owner);
-  const mcp = mcpOf(mcpServerClassesOf(components, modules));
+  const files = { ...sources, pii: policies.assembled.pii, options: optionsOf(owner?.patch) };
+  const mcp = mcpOf(mcpServerClassesOf(components, modules), files.options);
   checkComponents(bundle, { components, modules, mcp, contexts });
   const names = toolNames(tools, resultSizeViolations(bundle, tools));
-  const files = { ...sources, pii: policies.assembled.pii, options: optionsOf(owner?.patch) };
   const plain = withAgentFiles(configOf(bundle, agents, names, judges, memories), files);
   const config = cascadedConfigOf(patchedConfig(plain, owner?.patch), bundle, agents, resolver);
   validateAgentsConfig(config, [...names.values()]);

@@ -233,7 +233,7 @@ export class A2AClient<TIn extends object = object, TOut extends object = object
     constructor(options?: A2AClientOptions);
     agentCard(call?: Pick<A2AClientCall, "signal">): Promise<A2AAgentCard>;
     cancel(taskId: string, call?: Pick<A2AClientCall, "signal">): Promise<A2ATask>;
-    readonly contract: A2AClientContract | undefined;
+    get contract(): A2AClientContract | undefined;
     // (undocumented)
     downloadFile(file: FileDto, options?: A2ADownloadOptions): Promise<Uint8Array>;
     execute(input: TIn, given?: A2AClientCall): Promise<TOut>;

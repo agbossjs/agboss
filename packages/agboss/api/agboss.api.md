@@ -17,6 +17,22 @@ import type { RunnableConfig } from '@langchain/core/runnables';
 import type { TracerProvider } from '@opentelemetry/api';
 
 // @public
+export interface A2AAgentOverlay {
+    readonly allowedOrigins?: readonly (string | EnvRef<string>)[];
+    readonly costPerCall?: Usd;
+    readonly timeout?: Milliseconds;
+    readonly url?: string | EnvRef<string>;
+}
+
+// @public
+export interface A2AEndpointOverlay {
+    readonly ttl?: {
+        readonly tasks?: Milliseconds | Ttl.Forever;
+        readonly messages?: Milliseconds;
+    };
+}
+
+// @public
 export type A2AEndpointRuleCode = "a2a.ttl-invalid" | "a2a.duplicate-skill";
 
 // @public (undocumented)
@@ -2110,6 +2126,8 @@ export interface ConfigSnapshot {
 
 // @public
 export interface ConfigSpec {
+    readonly a2aAgents?: Readonly<Record<string, A2AAgentOverlay>>;
+    readonly a2aEndpoints?: Readonly<Record<string, A2AEndpointOverlay>>;
     readonly arbiters?: Readonly<Record<string, ComponentModelConfig>>;
     readonly budgets?: Readonly<Record<string, BudgetOverlay>>;
     readonly channelInterpreters?: Readonly<Record<string, ComponentModelConfig>>;
@@ -2122,6 +2140,7 @@ export interface ConfigSpec {
     readonly guardrails?: Readonly<Record<string, ComponentModelConfig>>;
     readonly healthChecks?: ApplicationOptions["healthChecks"];
     readonly judges?: Readonly<Record<string, ComponentModelConfig>>;
+    readonly mcpServers?: Readonly<Record<string, McpServerOverlay>>;
     readonly memories?: Readonly<Record<string, MemoryOverlay>>;
     readonly mesh?: Class | Readonly<Record<string, MeshOverlay>>;
     readonly modelProvider?: Class;
@@ -6006,6 +6025,16 @@ export interface MaxItemsOptions {
     readonly maxItems: number;
     // (undocumented)
     readonly takeFirst?: never;
+}
+
+// @public
+export interface McpServerOverlay {
+    readonly args?: readonly (string | EnvRef<string>)[];
+    readonly command?: string | EnvRef<string>;
+    readonly costPerCall?: Usd;
+    readonly maxConcurrentCalls?: number;
+    readonly timeout?: Milliseconds;
+    readonly url?: string | EnvRef<string>;
 }
 
 // @public

@@ -1703,4 +1703,12 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
       "src/graph/distinct-violations.ts",
     ],
   ),
+  ...reviewed(
+    "what an `@A2AAgent` is under the selected profiles (#1318c): the client asks the application's carrier of the components' options for its contract (the price and the call bound it charges and waits by) and its address when it is used inside an execution; the charge and the bound themselves are decided and enforced by the sharded client (a2a-call-bounds, a2a-charges), this file only says which declared or profiled values they read; covered by tests/config/peers-shelves.test.ts",
+    ["src/a2a/client/a2a-agent-profile.ts"],
+  ),
+  ...reviewed(
+    "the application rules that read the components' options under the profiles (#1318c): the A2A contracts' rules and the A2A files' rules called with the carrier, one list; assembly rules that decide no spend, lease, fence or cancel; covered by tests/config/peers-shelves.test.ts, tests/config/file-policies-shelf.test.ts and tests/a2a/a2a-agent-rules.test.ts",
+    ["src/application/carrier-rules.ts"],
+  ),
 ]);

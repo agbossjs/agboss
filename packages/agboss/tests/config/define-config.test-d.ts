@@ -53,8 +53,8 @@ describe("#1318d1: defineConfig", () => {
 
   it("refuses a key it does not have, and a wrong value", () => {
     const hot = { temperature: "hot" } as const;
-    // @ts-expect-error -- a shelf nobody has yet is no key
-    defineConfig({ mcpServers: {} });
+    // @ts-expect-error -- a shelf nobody has is no key
+    defineConfig({ servers: {} });
     // @ts-expect-error -- #1318c: a workflow's `compactions` are its `memories`
     defineConfig({ workflows: { "a-workflow": { compactions: {} } } });
     // @ts-expect-error -- #1318c: chat defaults are app-wide (`defaults`), not a workflow's overlay

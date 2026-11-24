@@ -1,3 +1,4 @@
+import { ComponentOptions } from "../components/component-options.js";
 import type { Class } from "../components/injection.js";
 import { ComponentError, requireComponent } from "../components/metadata.js";
 import { meshSettingsOf } from "../mesh/mesh-settings.js";
@@ -19,5 +20,6 @@ export function endpointOf(app: A2AApp, endpoint: Class): A2AEndpointMeta {
       message: `[application.endpoint-unlisted] ${endpoint.name} is not listed in @Application({ endpoints }) — list it there: what is served is what describe lists`,
     });
   }
-  return meta;
+  // what a profile's `a2aEndpoints` shelf leaves of its options: the ttl the card says and the sweep keeps
+  return app.resolve(ComponentOptions).a2aEndpointMetaOf(endpoint) ?? meta;
 }

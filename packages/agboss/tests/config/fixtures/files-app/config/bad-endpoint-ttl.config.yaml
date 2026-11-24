@@ -1,0 +1,4 @@
+a2aEndpoints:
+  files-skill-a2a-expose:
+    ttl:
+      messages: 10000

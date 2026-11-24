@@ -3,6 +3,7 @@ import { z } from "zod";
 import { objectSchemaOf } from "../dto/schema.js";
 import { checkToolData } from "./runtime.js";
 import type { McpServerClient, ServerTools } from "./mcp-client.js";
+import type { ComponentOptions } from "./component-options.js";
 import type { Class, Token } from "./injection.js";
 import { ComponentError, componentOf, requireComponent } from "./metadata.js";
 import { depsOf } from "./container/container.js";
@@ -110,10 +111,11 @@ export function mcpServerClassesOf(
 }
 
 /** The workflow's MCP servers, their facades and instances. */
-export function mcpOf(servers: readonly Class[]): Mcp {
+export function mcpOf(servers: readonly Class[], options: ComponentOptions): Mcp {
   const parts = servers.map((cls) => ({
     cls,
-    ...requireComponent(cls, "mcp-server", "workflowOf").meta,
+    // the declared connection and bounds, a profile's `mcpServers` shelf over them
+    ...(options.mcpServerMetaOf(cls) ?? requireComponent(cls, "mcp-server", "workflowOf").meta),
   }));
   const handles = [];
   const serverTools: McpFacade[] = [];
