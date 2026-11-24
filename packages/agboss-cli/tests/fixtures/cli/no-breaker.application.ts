@@ -3,13 +3,12 @@ import { Application, EmptyEnvironment } from "../../../../agboss/src/index.js";
 import {
   ModelCost,
   ModelProvider,
-  OpenAiCompatibleProvider,
+  OpenAiCompatibleDriver,
   PromptCaching,
   Reasoning,
   RetryPolicy,
-  type NoRequestFields,
 } from "../../../../agboss/src/models/index.js";
-import type { HttpModelProviderOptions } from "../../../../agboss/src/models/model-provider.decorator.js";
+import type { DriverModelProviderOptions } from "../../../../agboss/src/models/model-provider.decorator.js";
 import { minutes, seconds } from "../../../../agboss/src/units/index.js";
 import { TEST_BUDGETS } from "../../../../agboss/tests/flow/fixtures/budgets.js";
 import { TestWorkflow } from "../../../../agboss/tests/fixtures/test-workflow/test.workflow.js";
@@ -18,11 +17,10 @@ import { TestWorkflow } from "../../../../agboss/tests/fixtures/test-workflow/te
  * `agboss check` fixture (#521 AC1): a JS project's provider — or a cast — without the
  * `circuitBreakerPolicy` its type requires.
  */
-const complete: HttpModelProviderOptions = {
+const complete: DriverModelProviderOptions = {
   name: "unguarded-model-provider",
   description: "Every model, with no breaker",
-  serves: [/.*/],
-  baseUrl: "http://unguarded.test/v1",
+  driver: OpenAiCompatibleDriver({ baseUrl: "http://unguarded.test/v1" }),
   timeout: seconds(5),
   cost: ModelCost.fromResponse(),
   reasoning: Reasoning.modelDecides(),
@@ -36,10 +34,8 @@ const complete: HttpModelProviderOptions = {
 
 const { circuitBreakerPolicy: _dropped, ...withoutBreaker } = complete;
 
-@ModelProvider(withoutBreaker as HttpModelProviderOptions)
-export class UnguardedModelProvider extends OpenAiCompatibleProvider {
-  override readonly requestFields: NoRequestFields = {};
-}
+@ModelProvider(withoutBreaker as DriverModelProviderOptions)
+export class UnguardedModelProvider {}
 
 /** The application `agboss --application` loads: the test workflow on that provider. */
 @Application({

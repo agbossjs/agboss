@@ -16,7 +16,9 @@ import {
 } from "./pause-targets.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
 import { kebabNameProblem } from "../flow/names.js";
-import { isDecisionModel } from "../models/decision-models.js";
+import { ModelKind } from "../models/model-kind.js";
+import { providerKindsOf } from "../models/resolution.js";
+import { isModelProviderClass, modelProviderOf } from "../models/model-provider.decorator.js";
 import { componentModelOf, type ModelResolver } from "../models/model-resolver.js";
 import {
   channelInterpreterOf,
@@ -177,15 +179,16 @@ function declarationViolations({
       violation("channel-interpreter.no-interpret-method", message, [options.name]),
     ];
   }
-  // a decision model answers yes / no: an approval's `approved` only (#267 S124 a)
-  if (
-    options.model === undefined ||
-    !isDecisionModel(options.model) ||
-    !isExternalTask(target.options)
-  )
-    return found;
+  // a decision model answers yes / no: an approval's `approved` only (#267 S124 a); its own
+  // provider's driver says it is one (a provider the cascade names is checked at assembly)
+  const provider = options.modelProvider;
+  const decides =
+    provider !== undefined &&
+    isModelProviderClass(provider) &&
+    providerKindsOf([provider]).get(modelProviderOf(provider).name) === ModelKind.Decisions;
+  if (!decides || !isExternalTask(target.options)) return found;
   const answer = nameOf(answerOf(target));
-  const message = `${options.name}: ${options.model} is a decision model — it answers only yes / no (approved), but external task ${target.options.name} asks for ${answer}, whose fields a yes / no cannot give; name a chat model, or decide by code`;
+  const message = `${options.name}: ${options.modelProvider?.name ?? "its provider"} is a decisions provider — it answers only yes / no (approved), but external task ${target.options.name} asks for ${answer}, whose fields a yes / no cannot give; name a chat model, or decide by code`;
   return [...found, violation("reply-interpreter.decision-model", message, [options.name])];
 }
 

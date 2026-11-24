@@ -25,8 +25,11 @@ import {
   TestTenantDailyBudget,
 } from "../flow/fixtures/budgets.js";
 import { onStart } from "../helpers/flow.js";
-import { LocalMirrorModelProvider, LocalModelProvider } from "../models/providers.fixture.js";
-import { DecisionsModelProvider } from "../../src/models/index.js";
+import {
+  LocalMirrorModelProvider,
+  LocalModelProvider,
+  TestDecisionsProvider,
+} from "../models/providers.fixture.js";
 
 /**
  * #263: a child workflow that its application does not list is a workflow of that application all
@@ -199,7 +202,7 @@ describe("#263: an unlisted child goes through the application's rules", () => {
 
     const failure = await failureOf(
       applicationOfParent(ParentWorkflow, {
-        providers: [LocalModelProvider, LocalMirrorModelProvider, DecisionsModelProvider],
+        providers: [LocalModelProvider, LocalMirrorModelProvider, TestDecisionsProvider],
       }),
     );
 

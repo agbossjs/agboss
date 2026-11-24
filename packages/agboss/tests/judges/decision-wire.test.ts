@@ -11,13 +11,15 @@ import { Decision } from "../../src/index.js";
 import { DecisionError } from "../../src/index.js";
 import { createModelGateway } from "../../src/llm/gateway.js";
 import { resolutionProblems } from "../../src/models/check.js";
+import { providerKindsOf } from "../../src/models/resolution.js";
 import { modelUsesOf } from "../../src/models/uses.js";
-import { DEFAULT_MODEL_PROVIDERS, directoryOf } from "../../src/models/workflow-models.js";
+import { directoryOf } from "../../src/models/workflow-models.js";
 import { createSqliteTurnStore } from "../../src/turns/index.js";
 import { completion, providerStub, toolCallCompletion, type StubReply } from "../models/stub.js";
 import { answerToolName } from "../../src/flow/analyse/rules/models.js";
 import { LUNA, PNG, ImageDeskApplication } from "./fixtures/decision-judged.workflow.js";
 import { TaskStart } from "./fixtures/judged.workflow.js";
+import { TestDecisionsProvider, TestOpenRouterProvider } from "../models/providers.fixture.js";
 import { AskDto, LunaRoutedApplication } from "./fixtures/wrong-kind.workflow.js";
 import { execute } from "../helpers/flow.js";
 
@@ -198,24 +200,31 @@ describe("the default gateway's decide", () => {
   });
 });
 
-describe("the eval judge (compareProfiles) is defaults.router: any decision model, or a clear startup error", () => {
-  const config = (router: { kind: "jev" } | { kind: "llm" }) => ({
+describe("the eval judge (compareProfiles) is defaults.router: a decisions provider, or a clear startup error", () => {
+  const config = (router: { kind: "jev" } | { kind: "llm" }, modelProvider?: string) => ({
     name: "c",
     version: "1",
     defaults: {
       models: { temperature: 0, maxTokens: 100 },
-      router: { ...router, model: LUNA },
+      router: { ...router, model: LUNA, ...(modelProvider === undefined ? {} : { modelProvider }) },
       uncompactedTurns: 1,
     },
     agents: { a: { model: "x/y", description: "a" } },
   });
+  const classes = [TestDecisionsProvider, TestOpenRouterProvider];
+  const problemsOf = (modelProvider?: string) =>
+    resolutionProblems(
+      modelUsesOf(config({ kind: "jev" }, modelProvider), [], {}, providerKindsOf(classes)),
+      directoryOf(classes),
+    );
 
-  it("a decision model decides through the Decisions API; as a chat model it is model.unserved", () => {
-    const directory = directoryOf(DEFAULT_MODEL_PROVIDERS);
-
-    expect(resolutionProblems(modelUsesOf(config({ kind: "jev" }), []), directory)).toEqual([]);
-    expect(resolutionProblems(modelUsesOf(config({ kind: "llm" }), []), directory)).toMatchObject([
-      { code: "model.unserved", key: "defaults.router", model: LUNA },
+  it("a decision model decides through its decisions provider; no model name says it is one", () => {
+    expect(problemsOf("decisions-model-provider")).toEqual([]);
+    expect(problemsOf()).toMatchObject([
+      { code: "model.missing-provider", key: "defaults.router", model: LUNA },
+    ]);
+    expect(problemsOf("openrouter-model-provider")).toMatchObject([
+      { code: "model.incompatible-provider", key: "defaults.router", model: LUNA },
     ]);
   });
 });

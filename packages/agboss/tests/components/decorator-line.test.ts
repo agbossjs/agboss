@@ -10,14 +10,13 @@ import { describe, expect, it } from "vitest";
 import {
   ModelProvider,
   ModelCost,
-  OpenAiCompatibleProvider,
+  type ModelProviderRequest,
+  type ModelProviderResponse,
   PromptCaching,
   Reasoning,
   RetryPolicy,
-  type NoRequestFields,
 } from "../../src/models/index.js";
 import type { ModelCapabilities } from "../../src/models/capabilities.js";
-import type { ProviderConnection } from "../../src/models/handler.js";
 import { PiiAction, PiiKind, PiiPolicy, Tool, type PiiMatch } from "../../src/index.js";
 import { Rag, RagScope, RagSource } from "../../src/rag/index.js";
 import { Text } from "../../src/dto/index.js";
@@ -83,8 +82,6 @@ export class AnyRefusalPiiPolicy {
 
 const providerOptions = {
   description: "A local server",
-  serves: [/^narrow\//],
-  baseUrl: "http://narrow.test/v1",
   timeout: seconds(5),
   cost: ModelCost.fromResponse(),
   reasoning: Reasoning.modelDecides(),
@@ -98,14 +95,13 @@ const providerOptions = {
 
 // @ts-expect-error -- capabilities is asked about any model, not only "narrow/one"
 @ModelProvider({ ...providerOptions, name: "narrow-model-provider" })
-export class NarrowModelProvider extends OpenAiCompatibleProvider {
-  override readonly requestFields: NoRequestFields = {};
+export class NarrowModelProvider {
+  complete(request: ModelProviderRequest): Promise<ModelProviderResponse> {
+    return Promise.reject(new Error(`no call: ${request.model}`));
+  }
 
-  override capabilities(
-    model: "narrow/one",
-    connection: ProviderConnection,
-  ): Promise<ModelCapabilities | undefined> {
-    return super.capabilities(model, connection);
+  capabilities(model: "narrow/one"): Promise<ModelCapabilities | undefined> {
+    return Promise.resolve({ model });
   }
 }
 

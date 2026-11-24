@@ -15,6 +15,7 @@ import {
   type DriverModelProviderOptions,
   type ModelProblemCode,
 } from "../../src/models/index.js";
+import { seconds } from "../../src/units/index.js";
 
 /** #1313a: driver providers, the model cascade, and the one ModelKind. */
 describe("#1313a: drivers and the cascade", () => {
@@ -25,10 +26,13 @@ describe("#1313a: drivers and the cascade", () => {
     expectTypeOf<keyof typeof ModelKind>().toEqualTypeOf<"Chat" | "Decisions">();
   });
 
-  it("a driver provider has no serves, baseUrl or apiKey of its own", () => {
-    expectTypeOf<DriverModelProviderOptions["serves"]>().toEqualTypeOf<undefined>();
-    expectTypeOf<DriverModelProviderOptions["baseUrl"]>().toEqualTypeOf<undefined>();
-    expectTypeOf<DriverModelProviderOptions["apiKey"]>().toEqualTypeOf<undefined>();
+  it("a provider has no serves, baseUrl or apiKey of its own (F2: the HTTP form is gone)", () => {
+    const driver = OpenAiCompatibleDriver({ baseUrl: "http://x.test/v1" });
+    // @ts-expect-error — serves is gone: a component reaches a provider through modelProvider
+    ModelProvider({ driver, timeout: seconds(5), serves: [/^x\//] });
+    // @ts-expect-error — baseUrl and apiKey belong to the driver
+    ModelProvider({ driver, timeout: seconds(5), baseUrl: "http://x.test/v1", apiKey: "k" });
+    expectTypeOf<keyof DriverModelProviderOptions>().not.toEqualTypeOf<"serves">();
     // @ts-expect-error — a literal is no driver: only a driver function makes one
     ModelProvider({ driver: { kind: ModelKind.Chat } });
   });

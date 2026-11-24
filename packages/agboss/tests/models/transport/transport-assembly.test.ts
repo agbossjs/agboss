@@ -34,7 +34,6 @@ import { CircuitBreakerPolicy } from "../../../src/models/circuit-breaker-policy
 
 const transport = {
   description: "A transport",
-  serves: [/^bedrock\//],
   timeout: seconds(5),
   cost: ModelCost.fromResponse(),
   circuitBreakerPolicy: CircuitBreakerPolicy.fixed({

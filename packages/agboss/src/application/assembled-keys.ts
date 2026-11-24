@@ -31,7 +31,7 @@ export const keyFieldsOf = (
   options: ApplicationOptions,
 ): Pick<AssembledApplication, "piiPolicies" | "piiKeyField" | "otherKeys"> => ({
   piiPolicies: options.piiPolicies ?? [],
-  otherKeys: declaredKeysOf(options, listedClassesOf(options)),
+  otherKeys: declaredKeysOf(listedClassesOf(options)),
   ...(options.piiKeyField === undefined ? {} : { piiKeyField: options.piiKeyField }),
 });
 

@@ -1,3 +1,4 @@
+import { ModelKind } from "../../src/models/model-kind.js";
 import { usd } from "../../src/units/index.js";
 /**
  * #1366 (budget-reply shard) — the budget rules of reading one free-text reply by its interpreter, each on its own
@@ -16,7 +17,6 @@ import { readByDecision } from "../../src/channels/reply-decision.js";
 import { readByModel } from "../../src/channels/reply-reader.js";
 import { CostSource, ZERO_USAGE, type UsageRecord } from "../../src/finops/usage.js";
 import { runInFrame } from "../../src/flow/context/frame.js";
-import { isDecisionModel } from "../../src/models/decision-models.js";
 
 vi.mock("../../src/flow/context/frame.js", () => ({
   runInFrame: vi.fn((_frame: unknown, work: () => unknown) => work()),
@@ -30,7 +30,6 @@ vi.mock("../../src/channels/reply-reader.js", async (original) => ({
   ...(await original<typeof import("../../src/channels/reply-reader.js")>()),
   readByModel: vi.fn(),
 }));
-vi.mock("../../src/models/decision-models.js", () => ({ isDecisionModel: vi.fn() }));
 vi.mock("../../src/llm/registry.js", () => ({
   resolveSettings: vi.fn((settings: object, defaults: object) => ({
     ...defaults,
@@ -49,7 +48,7 @@ const record = (costUsd: number, caller = "reply"): UsageRecord => ({
 });
 
 const parts = {
-  gateway: { name: "gateway" },
+  gateway: { name: "gateway", kindOf: vi.fn((): ModelKind | undefined => undefined) },
   chatModelSettings: vi.fn((model: string) => ({ temperature: 0, from: model })),
   chatDefaults: { defaults: true },
   instanceOf: vi.fn(() => ({ name: "instance" })),
@@ -90,7 +89,7 @@ function callOf(changes: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(isDecisionModel).mockReturnValue(false);
+  vi.mocked(parts.gateway.kindOf).mockReturnValue(ModelKind.Chat);
 });
 
 describe("#1366: a model interpreter's call is checked first", () => {
@@ -125,7 +124,7 @@ describe("#1366: a model interpreter's call is checked first", () => {
 
   it("a decision model is read as one: its caller named for the interpreter, its gateway and model, and its PII", async () => {
     const { call, order } = callOf();
-    vi.mocked(isDecisionModel).mockReturnValue(true);
+    vi.mocked(parts.gateway.kindOf).mockReturnValue(ModelKind.Decisions);
     vi.mocked(readByDecision).mockImplementation(() => {
       order.push("decision");
       return Promise.resolve({ kind: "answered", answer: true, usage: [] });

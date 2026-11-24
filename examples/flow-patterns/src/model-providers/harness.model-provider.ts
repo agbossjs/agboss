@@ -20,7 +20,6 @@ const USAGE = { inputTokens: 1000, outputTokens: 100, cacheReadTokens: 0, cacheW
 @ModelProvider({
   name: "harness-model-provider",
   description: "Answers by the request, offline",
-  serves: [/^harness\//],
   timeout: seconds(5),
   cost: ModelCost.fromPrices({
     "harness/desk": { inputPerMillion: usd(1), outputPerMillion: usd(1) },

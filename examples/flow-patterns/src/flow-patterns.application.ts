@@ -1,5 +1,4 @@
 import { Application } from "@agboss/core";
-import { DecisionsModelProvider, OpenRouterModelProvider } from "@agboss/core/models";
 import { OffsiteBookingWorkflow } from "./approvals/workflows/offsite-booking/offsite-booking.workflow.js";
 import { TerminalPurchaseApprovalChannel } from "./approvals/channels/terminal-purchase-approval.channel.js";
 import {
@@ -24,6 +23,10 @@ import { InvoiceWorkflow } from "./files/workflows/invoice/invoice.workflow.js";
 import { KycWorkflow } from "./files/workflows/kyc/kyc.workflow.js";
 import { HelplineWorkflow } from "./helpline/workflows/helpline/helpline.workflow.js";
 import { HarnessModelProvider } from "./model-providers/harness.model-provider.js";
+import {
+  DecisionsModelProvider,
+  OpenRouterModelProvider,
+} from "./model-providers/openrouter.model-provider.js";
 import { OfferWorkflow } from "./offer/workflows/offer/offer.workflow.js";
 import { PanelWorkflow } from "./panel/workflows/panel/panel.workflow.js";
 import { RecruiterInboxChannel } from "./hiring/channels/recruiter-inbox.channel.js";
@@ -58,8 +61,8 @@ import { FlowPatternsDatabaseStorage } from "./storages/flow-patterns.database-s
  * leases and the tree keys —, so two pauses wait at once and survive a restart, and another instance on
  * the file continues them (#261: an in-memory ledger or pause store is an assembly warning, an error
  * under `agboss check --strict`). The storage also names the application's idempotency and PII secrets
- * (#825, #120), read through `defineEnv`. Its model providers (#266) are the built-in OpenRouter and Decisions ones — catch-alls that
- * yield `harness/…` to the transport that claims it (#454) — they read `openRouterApiKey` (and `openRouterBaseUrl`) of the environment — and the offline
+ * (#825, #120), read through `defineEnv`. Its model providers (#266, #1313) are OpenRouter (the application's own
+ * `modelProvider`) and the Decisions API, both read from `OPENROUTER_API_KEY` (`OPENROUTER_BASE_URL` points them at a proxy), and the offline
  * transport `HarnessModelProvider` for the `harness/…` models (#385), which needs no key. The
  * purchase approvals are asked in the terminal (`TerminalPurchaseApprovalChannel`, the one
  * implementation of their role).
@@ -91,10 +94,11 @@ import { FlowPatternsDatabaseStorage } from "./storages/flow-patterns.database-s
   executionLimits: { maxConcurrentSteps: 16 }, // agent, router and action steps of one instance at once (#332)
   storage: FlowPatternsDatabaseStorage,
   services: [DeskMetricsService], // the observer's
+  modelProvider: OpenRouterModelProvider, // every chat model but the desk's offline harness/… one
   providers: [
-    OpenRouterModelProvider, // every chat model but harness/… (#454: a built-in yields)
-    DecisionsModelProvider, // Jev and the other decision models
-    HarnessModelProvider, // harness/…, offline
+    OpenRouterModelProvider,
+    DecisionsModelProvider, // Jev and the other decision models: the desk router and the panel arbiter name it
+    HarnessModelProvider, // harness/…, offline: the desk agent names it
   ],
   channels: [
     TerminalPurchaseApprovalChannel,

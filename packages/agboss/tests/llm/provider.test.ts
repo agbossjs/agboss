@@ -8,7 +8,10 @@ import { TestOpenRouterProvider } from "../models/providers.fixture.js";
 const defaults: ChatDefaults = { temperature: 0 };
 
 const send = async (settings: ModelSettings): Promise<Record<string, unknown>> => {
-  const [body] = await wireBodies([TestOpenRouterProvider], [resolveSettings(settings, defaults)]);
+  const [body] = await wireBodies(
+    [TestOpenRouterProvider],
+    [resolveSettings({ modelProvider: "openrouter-model-provider", ...settings }, defaults)],
+  );
   return body ?? {};
 };
 

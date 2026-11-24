@@ -1,3 +1,4 @@
+import { secret } from "../../../src/environments/secret.js";
 import { Window5Memory } from "../../helpers/window-memory.js";
 import {
   Agent,
@@ -26,10 +27,9 @@ import { WorkflowStartTextDto } from "./dtos.js";
 import {
   ModelCost,
   ModelProvider,
-  OpenAiCompatibleProvider,
+  OpenAiCompatibleDriver,
   PromptCaching,
   Reasoning,
-  type NoRequestFields,
 } from "../../../src/models/index.js";
 import { CircuitBreakerPolicy } from "../../../src/models/circuit-breaker-policy.js";
 import { minutes, seconds } from "../../../src/units/index.js";
@@ -260,9 +260,10 @@ export class EvalEmailPiiPolicy {}
 @ModelProvider({
   name: "eval-desk-model-provider",
   description: "The desk's models",
-  serves: [/.*/],
-  baseUrl: "http://eval-desk.test/v1",
-  apiKey: "evalDeskApiKey",
+  driver: OpenAiCompatibleDriver({
+    baseUrl: "http://eval-desk.test/v1",
+    apiKey: secret("EVAL_DESK_API_KEY"),
+  }),
   timeout: seconds(5),
   cost: ModelCost.fromResponse(),
   reasoning: Reasoning.modelDecides(),
@@ -273,9 +274,7 @@ export class EvalEmailPiiPolicy {}
     openDuration: seconds(30),
   }),
 })
-export class EvalDeskModelProvider extends OpenAiCompatibleProvider {
-  override readonly requestFields: NoRequestFields = {};
-}
+export class EvalDeskModelProvider {}
 
 @Application({
   name: "eval-desk-application",

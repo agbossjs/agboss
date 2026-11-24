@@ -1,11 +1,11 @@
+import { secret } from "../../../src/environments/secret.js";
 import {
   ModelCost,
   ModelProvider,
-  OpenAiCompatibleProvider,
+  OpenAiCompatibleDriver,
   PromptCaching,
   Reasoning,
   RetryPolicy,
-  type NoRequestFields,
 } from "../../../src/models/index.js";
 import { minutes, seconds } from "../../../src/units/index.js";
 import { CircuitBreakerPolicy } from "../../../src/models/circuit-breaker-policy.js";
@@ -20,25 +20,23 @@ const breaker = CircuitBreakerPolicy.fixed({
 @ModelProvider({
   name: "keyed-model-provider",
   description: "A server that needs a key",
-  serves: [/^keyed\//],
-  baseUrl: "http://keyed.test/v1",
-  apiKey: "keyedApiKey",
+  driver: OpenAiCompatibleDriver({
+    baseUrl: "http://keyed.test/v1",
+    apiKey: secret("KEYED_API_KEY"),
+  }),
   timeout: seconds(5),
   cost: ModelCost.fromResponse(),
   reasoning: Reasoning.off(),
   promptCaching: PromptCaching.off(),
   circuitBreakerPolicy: breaker,
 })
-export class KeyedModelProvider extends OpenAiCompatibleProvider {
-  override readonly requestFields: NoRequestFields = {};
-}
+export class KeyedModelProvider {}
 
 /** A keyless local server whose breaker falls back to the keyed one (#716: a fallback is connected at start). */
 @ModelProvider({
   name: "fallback-local-model-provider",
   description: "A local server that falls back to the keyed one",
-  serves: [/^local\//],
-  baseUrl: "http://local.test/v1",
+  driver: OpenAiCompatibleDriver({ baseUrl: "http://local.test/v1" }),
   timeout: seconds(5),
   cost: ModelCost.fromResponse(),
   reasoning: Reasoning.off(),
@@ -46,6 +44,4 @@ export class KeyedModelProvider extends OpenAiCompatibleProvider {
   circuitBreakerPolicy: breaker,
   fallback: { provider: KeyedModelProvider, models: { "local/llama": "keyed/llama" } },
 })
-export class FallbackLocalModelProvider extends OpenAiCompatibleProvider {
-  override readonly requestFields: NoRequestFields = {};
-}
+export class FallbackLocalModelProvider {}

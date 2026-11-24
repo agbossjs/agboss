@@ -18,7 +18,6 @@ import { answer } from "./transport/bedrock-provider.fixture.js";
 
 const base: Omit<TransportModelProviderOptions, "name" | "circuitBreakerPolicy"> = {
   description: "A transport whose options lost their breaker",
-  serves: [/^bedrock\//],
   timeout: seconds(5),
   cost: ModelCost.fromResponse(),
 };

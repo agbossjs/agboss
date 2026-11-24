@@ -8,10 +8,16 @@ import { LocalModelProvider, TestOpenRouterProvider } from "./providers.fixture.
 
 const kimi: ResolvedModelSettings = {
   model: "moonshotai/kimi-k2.6",
+  modelProvider: "openrouter-model-provider",
   temperature: 0,
   maxTokens: 100,
 };
-const llama: ResolvedModelSettings = { model: "local/llama", temperature: 0, maxTokens: 100 };
+const llama: ResolvedModelSettings = {
+  model: "local/llama",
+  modelProvider: "local-model-provider",
+  temperature: 0,
+  maxTokens: 100,
+};
 
 describe("AC6: reasoning — Reasoning.modelDecides() | on({ effort?, budget? }) | off()", () => {
   it("AC6: on needs an effort or a budget (both allowed); a budget is a positive whole number", () => {

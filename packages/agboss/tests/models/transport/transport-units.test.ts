@@ -146,7 +146,6 @@ describe("#385: its errors and its wiring", () => {
         {
           name: "bedrock-model-provider",
           className: "BedrockModelProvider",
-          serves: ["/^bedrock\\//"],
         },
       ],
     });

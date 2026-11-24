@@ -11,11 +11,11 @@ import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import type { Class } from "../../src/components/injection.js";
 import { EmptyEnvironment } from "../../src/index.js";
 import { EnvironmentError } from "../../src/environments/errors.js";
-import { DecisionsModelProvider } from "../../src/models/index.js";
+import {} from "../../src/models/index.js";
 import { MODEL_USE_KINDS, type ModelUseKind } from "../../src/models/uses.js";
 import { workflowModelUsesOf } from "../../src/models/resolution.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { LocalModelProvider } from "./providers.fixture.js";
+import { LocalModelProvider, TestDecisionsProvider } from "./providers.fixture.js";
 import { providerStub } from "./stub.js";
 import { everyKindWorkflows, type KindModels } from "./startup-keys/components.js";
 import { FallbackLocalModelProvider, KeyedModelProvider } from "./startup-keys/providers.js";
@@ -54,7 +54,7 @@ function applicationFor(models: KindModels, providers: readonly Class[]): Class 
 }
 
 const VAULT_ONLY = [FallbackLocalModelProvider];
-const SERVERS = [LocalModelProvider, KeyedModelProvider, DecisionsModelProvider];
+const SERVERS = [LocalModelProvider, KeyedModelProvider, TestDecisionsProvider];
 const start = (application: Class) =>
   createTestAppWith(application, {
     processEnv: {},

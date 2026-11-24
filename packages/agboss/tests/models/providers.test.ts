@@ -7,15 +7,18 @@ import { describe, expect, it } from "vitest";
 import { GraphRuleError, WorkflowSettings } from "../../src/index.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import type { Class } from "../../src/components/injection.js";
-import { DecisionsModelProvider, OpenRouterModelProvider } from "../../src/models/index.js";
-import { DEFAULT_MODEL_PROVIDERS } from "../../src/models/workflow-models.js";
+import {} from "../../src/models/index.js";
 import { replyWith, testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
-import { LocalModelProvider } from "./providers.fixture.js";
+import {
+  LocalModelProvider,
+  TestDecisionsProvider,
+  TestOpenRouterProvider,
+} from "./providers.fixture.js";
 import {
   BuiltInApplication,
   LocalAgent,
-  LocalOnlyApplication,
+  EveryKindApplication,
   LocalStart,
   MisplacedProviderApplication,
 } from "./fixtures/resolution.workflow.js";
@@ -48,24 +51,23 @@ describe("#266 AC1: model providers are the application's infrastructure", () =>
     expect(builder.defaultModelProvider).toBeUndefined();
   });
 
-  it("built-ins when none listed: OpenRouter for chat, the Decisions API for Jev", async () => {
+  it("no provider listed: no built-ins either — only the providers a model names are the workflow's", async () => {
     const { workflows } = await applicationOf(BuiltInApplication);
 
-    expect(workflows.map((workflow) => workflow.modelProviders)).toEqual([DEFAULT_MODEL_PROVIDERS]);
-    expect(DEFAULT_MODEL_PROVIDERS).toEqual([OpenRouterModelProvider, DecisionsModelProvider]);
+    expect(workflows.map((workflow) => workflow.modelProviders)).toEqual([[LocalModelProvider]]);
   });
 
-  it("a listed set is complete: the built-ins are not added next to it", async () => {
-    expect(await violationsOf(LocalOnlyApplication)).toEqual([
-      "[model.unserved] local-workflow defaults.router = typesafe/jev-1.13: no listed provider serves it for decisions (listed: local-model-provider) — list a @ModelProvider that serves it in @Application({ providers })",
-    ]);
+  it("a model with no modelProvider anywhere is [model.missing-provider], whatever its name", async () => {
+    expect((await violationsOf(EveryKindApplication)).map((line) => line.slice(0, 24))).toContain(
+      "[model.missing-provider]",
+    );
   });
 
   it("a listed set is complete: the workflows get exactly the listed providers, the container none", async () => {
     const { workflows, modules } = await applicationOf(MemoryDeskApplication);
 
     expect(workflows.map((workflow) => workflow.modelProviders)).toEqual([
-      [DecisionsModelProvider, LocalModelProvider],
+      [TestDecisionsProvider, LocalModelProvider],
     ]);
     expect(modules.flatMap((module) => module.providers)).not.toContain(LocalModelProvider);
   });
@@ -74,7 +76,7 @@ describe("#266 AC1: model providers are the application's infrastructure", () =>
 describe("#266 AC1: an application's model providers serve its executions", () => {
   const test = testWith(BuiltInApplication);
 
-  test("a workflow of an application listing none runs on the built-ins (scripted)", async ({
+  test("a workflow whose agent names a provider the application does not list runs on it (scripted)", async ({
     app,
     mockLlm,
   }) => {

@@ -190,15 +190,12 @@ export type RuleCode =
   | "memory.invalid-setting"
   | "memory.uncompacted-turns-invalid"
   | "memory.conflicting-compaction"
-  // model providers (#266 PR 1): every model of the application resolves to one provider
-  | "model.unserved"
-  | "model.ambiguous-provider"
+  // model providers (#266 PR 1): every model of the application resolves to one provider through its cascade
   | "model.missing-provider"
   | "model.incompatible-provider"
   | "model.missing"
   | "model.price-invalid"
   | "model-provider.both-modes"
-  | "model-provider.request-fields-missing"
   // contexts (#261 PR 3), reported at the application's assembly
   | "context.prompt-unused"
   // pause targets (#267 PR 1, #1307): tools name their approval, a target's times and calendar

@@ -1,22 +1,22 @@
+import { secret } from "../../src/environments/secret.js";
 import {
   CachedPart,
   CacheRetention,
   ModelCost,
   ModelFailure,
   ModelProvider,
-  OpenAiCompatibleProvider,
-  OpenRouterProvider,
+  DecisionsDriver,
+  OpenAiCompatibleDriver,
+  OpenRouterDriver,
   PromptCaching,
   Reasoning,
   RetryPolicy,
-  type NoRequestFields,
-  type OpenRouterFields,
 } from "../../src/models/index.js";
 import { minutes, seconds, usd } from "../../src/units/index.js";
 import {
-  isHttpProvider,
+  isDriverOptions,
   modelProviderOf,
-  type HttpModelProviderOptions,
+  type DriverModelProviderOptions,
 } from "../../src/models/model-provider.decorator.js";
 import { CircuitBreakerPolicy } from "../../src/models/circuit-breaker-policy.js";
 
@@ -30,18 +30,17 @@ const breaker = CircuitBreakerPolicy.fixed({
 @ModelProvider({
   name: "backup-model-provider",
   description: "A backup server",
-  serves: [/^backup\//],
-  baseUrl: "http://backup.test/v1",
-  apiKey: "backupApiKey",
+  driver: OpenAiCompatibleDriver({
+    baseUrl: "http://backup.test/v1",
+    apiKey: secret("BACKUP_KEY"),
+  }),
   timeout: seconds(5),
   cost: ModelCost.fromResponse(),
   reasoning: Reasoning.modelDecides(),
   promptCaching: PromptCaching.off(),
   circuitBreakerPolicy: breaker,
 })
-export class BackupModelProvider extends OpenAiCompatibleProvider {
-  override readonly requestFields: NoRequestFields = {};
-}
+export class BackupModelProvider {}
 
 /**
  * job-scout's OpenRouter: serves every model but the local server's (one model string, one
@@ -50,9 +49,11 @@ export class BackupModelProvider extends OpenAiCompatibleProvider {
 @ModelProvider({
   name: "openrouter-model-provider",
   description: "OpenRouter",
-  serves: [/^(?!local\/)/],
-  baseUrl: "http://openrouter.test/api/v1",
-  apiKey: "openRouterApiKey",
+  driver: OpenRouterDriver({
+    baseUrl: "http://openrouter.test/api/v1",
+    apiKey: secret("OPENROUTER_API_KEY"),
+    routing: { ignore: ["Inceptron"] },
+  }),
   timeout: minutes(2),
   cost: ModelCost.fromResponse(),
   reasoning: Reasoning.modelDecides(),
@@ -73,16 +74,13 @@ export class BackupModelProvider extends OpenAiCompatibleProvider {
     models: { "moonshotai/kimi-k2.6": "backup/kimi-k2.6" },
   },
 })
-export class TestOpenRouterProvider extends OpenRouterProvider {
-  override readonly requestFields: OpenRouterFields = { provider: { ignore: ["Inceptron"] } };
-}
+export class TestOpenRouterProvider {}
 
 /** A local server with a price table: OpenAI's dialect, no key. */
 @ModelProvider({
   name: "local-model-provider",
   description: "A local OpenAI-compatible server",
-  serves: [/^local\//],
-  baseUrl: "http://local.test/v1",
+  driver: OpenAiCompatibleDriver({ baseUrl: "http://local.test/v1" }),
   timeout: seconds(10),
   cost: ModelCost.fromPrices({
     "local/llama": {
@@ -104,29 +102,40 @@ export class TestOpenRouterProvider extends OpenRouterProvider {
   }),
   circuitBreakerPolicy: breaker,
 })
-export class LocalModelProvider extends OpenAiCompatibleProvider {
-  override readonly requestFields: NoRequestFields = {};
-}
+export class LocalModelProvider {}
 
 /** A second provider serving `local/*` — two of them make a model ambiguous. */
 @ModelProvider({
   name: "local-mirror-model-provider",
   description: "A mirror of the local server",
-  serves: [/^local\//],
-  baseUrl: "http://mirror.test/v1",
+  driver: OpenAiCompatibleDriver({ baseUrl: "http://mirror.test/v1" }),
   timeout: seconds(10),
   cost: ModelCost.fromResponse(),
   reasoning: Reasoning.modelDecides(),
   promptCaching: PromptCaching.off(),
   circuitBreakerPolicy: breaker,
 })
-export class LocalMirrorModelProvider extends OpenAiCompatibleProvider {
-  override readonly requestFields: NoRequestFields = {};
-}
+export class LocalMirrorModelProvider {}
 
-/** An HTTP provider's options, to build another HTTP provider from (`{ ...httpOptionsOf(X), … }`). */
-export function httpOptionsOf(cls: object): HttpModelProviderOptions {
+/** A decisions gateway: the default of the tests that ask a decision model. */
+@ModelProvider({
+  name: "decisions-model-provider",
+  description: "Decision models on a decisions gateway",
+  driver: DecisionsDriver({
+    baseUrl: "https://openrouter.ai/api/v1",
+    apiKey: secret("OPENROUTER_API_KEY"),
+  }),
+  timeout: seconds(30),
+  cost: ModelCost.fromResponse(),
+  reasoning: Reasoning.modelDecides(),
+  promptCaching: PromptCaching.off(),
+  circuitBreakerPolicy: breaker,
+})
+export class TestDecisionsProvider {}
+
+/** A driver provider's options, to build another provider from (`{ ...driverOptionsOf(X), … }`). */
+export function driverOptionsOf(cls: object): DriverModelProviderOptions {
   const options = modelProviderOf(cls);
-  if (!isHttpProvider(options)) throw new Error(`${options.name} is not an HTTP provider`);
+  if (!isDriverOptions(options)) throw new Error(`${options.name} is not a driver provider`);
   return options;
 }

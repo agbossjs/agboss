@@ -27,7 +27,6 @@ const BREAKER = CircuitBreakerPolicy.fixed({
 const complete: TransportModelProviderOptions = {
   name: "unguarded-model-provider",
   description: "A transport whose options lost their breaker",
-  serves: [/^bedrock\//],
   timeout: seconds(5),
   cost: ModelCost.fromResponse(),
   circuitBreakerPolicy: BREAKER,

@@ -10,16 +10,19 @@ import {
 } from "../../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { Application } from "../../../src/application/application.js";
-import { DecisionsModelProvider } from "../../../src/models/index.js";
+import {} from "../../../src/models/index.js";
 import { onStart } from "../../helpers/flow.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { LocalModelProvider, TestOpenRouterProvider } from "../providers.fixture.js";
+import {
+  LocalModelProvider,
+  TestOpenRouterProvider,
+  TestDecisionsProvider,
+} from "../providers.fixture.js";
 
 /** #266 AC8: `agboss check --models` on one workflow checks every model of its application. */
 
 const defaults = {
   models: { temperature: 0, maxTokens: TokenLimit.ModelMax },
-  router: { model: "typesafe/jev-1.13" },
 } as const;
 
 @WorkflowFinish({
@@ -34,6 +37,7 @@ export class NotesFinish {}
   prompt: inline("Draft."),
   description: "Drafts",
   model: "local/llama",
+  modelProvider: LocalModelProvider,
 })
 export class DraftingAgent {}
 
@@ -62,6 +66,7 @@ export class DraftingWorkflow {}
   prompt: inline("Polish."),
   description: "Polishes",
   model: "moonshotai/kimi-k2.6",
+  modelProvider: TestOpenRouterProvider,
 })
 export class PolishingAgent {}
 
@@ -90,7 +95,7 @@ export class PolishingWorkflow {}
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [DraftingWorkflow, PolishingWorkflow],
-  providers: [TestOpenRouterProvider, DecisionsModelProvider, LocalModelProvider],
+  providers: [TestOpenRouterProvider, TestDecisionsProvider, LocalModelProvider],
   budgets: TEST_BUDGETS,
 })
 export class NotesApplication {}

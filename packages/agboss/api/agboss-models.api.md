@@ -4,7 +4,6 @@
 
 ```ts
 
-import type { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { inspect } from 'node:util';
 
 // @public
@@ -60,27 +59,7 @@ export enum CacheRetention {
 }
 
 // @public
-export interface CachingRequest {
-    // (undocumented)
-    readonly caching: PromptCaching;
-    // (undocumented)
-    readonly model: string;
-}
-
-// @public
 export type ChatModelDriver = ModelDriver<ModelKind.Chat>;
-
-// @public
-export interface ChatRequest {
-    // (undocumented)
-    readonly connection: ProviderConnection;
-    // (undocumented)
-    readonly promptCaching: PromptCaching;
-    // (undocumented)
-    readonly reasoning: Reasoning;
-    // (undocumented)
-    readonly settings: ResolvedModelSettings;
-}
 
 // @public
 export type CircuitBreakerPolicy = ({
@@ -151,14 +130,6 @@ export interface ConfigurationErrorOptions {
 }
 
 // @public
-export interface DecideRequest {
-    // (undocumented)
-    readonly connection: ProviderConnection;
-    // (undocumented)
-    readonly decision: JevDecisionRequest;
-}
-
-// @public
 export const DECISION_MODELS: readonly string[];
 
 // @public
@@ -174,19 +145,6 @@ export interface DecisionsDriverOptions extends DriverConnectionSettings {
 export type DecisionsModelDriver = ModelDriver<ModelKind.Decisions>;
 
 // @public
-export class DecisionsModelProvider implements ModelProviderHandler {
-    capabilities(model: string): Promise<ModelCapabilities | undefined>;
-    // (undocumented)
-    decide(input: ModelProviderDecisionRequest): Promise<unknown>;
-    // (undocumented)
-    readonly knownModels: readonly string[];
-    routeTo(input: DecideRequest): Promise<unknown>;
-}
-
-// @public
-export const DEFAULT_MODEL_PROVIDERS: readonly [typeof OpenRouterModelProvider, typeof DecisionsModelProvider];
-
-// @public
 export interface DriverConnectionSettings {
     readonly apiKey?: SecretRef | OptionalSecretRef;
     readonly baseUrl: TextSetting;
@@ -198,12 +156,6 @@ export type DriverHeaders = Readonly<Record<string, TextSetting | SecretRef | Op
 
 // @public
 export interface DriverModelProviderOptions {
-    // (undocumented)
-    readonly apiKey?: never;
-    // (undocumented)
-    readonly baseUrl?: never;
-    // (undocumented)
-    readonly baseUrlField?: never;
     readonly circuitBreakerPolicy?: CircuitBreakerPolicy;
     readonly cost?: ModelCost;
     // (undocumented)
@@ -219,8 +171,6 @@ export interface DriverModelProviderOptions {
     readonly rateLimitPolicy?: RateLimitPolicy;
     readonly reasoning?: Reasoning;
     readonly retryPolicy?: RetryPolicy;
-    // (undocumented)
-    readonly serves?: never;
     readonly timeout: Milliseconds;
 }
 
@@ -284,35 +234,6 @@ export interface FixedRetryOptions {
 }
 
 // @public
-export interface HttpModelProviderOptions {
-    readonly apiKey?: string;
-    readonly baseUrl: string;
-    readonly baseUrlField?: string;
-    readonly circuitBreakerPolicy?: CircuitBreakerPolicy;
-    readonly cost?: ModelCost;
-    // (undocumented)
-    readonly deps?: never;
-    // (undocumented)
-    readonly description?: string;
-    readonly fallback?: ModelFallback;
-    readonly name?: string;
-    readonly promptCaching: PromptCaching;
-    readonly rateLimitPolicy?: RateLimitPolicy;
-    readonly reasoning: Reasoning;
-    readonly retryPolicy?: RetryPolicy;
-    readonly serves: readonly RegExp[];
-    readonly timeout: Milliseconds;
-}
-
-// @public
-export type HttpModelProviderType = abstract new () => ModelProviderHandler & Required<Pick<ModelProviderHandler, "capabilities">> & {
-    readonly complete?: never;
-};
-
-// @public
-export const isDecisionModel: (model: string) => boolean;
-
-// @public
 export interface JevDecisionRequest {
     // (undocumented)
     readonly model: string;
@@ -320,12 +241,6 @@ export interface JevDecisionRequest {
     readonly questions: DecisionQuestions;
     readonly state: DecisionState;
 }
-
-// @public @deprecated (undocumented)
-export const JevModelProvider: typeof DecisionsModelProvider;
-
-// @public @deprecated (undocumented)
-export type JevModelProvider = DecisionsModelProvider;
 
 // @public
 export type MaxTokens = number | TokenLimit.ModelMax;
@@ -414,7 +329,6 @@ export interface ModelDriver<TKind extends ModelKind = ModelKind> {
     readonly [driverBrand]: true;
     readonly describes: string;
     readonly dialect: string;
-    readonly handler: ModelProviderHandler;
     readonly kind: TKind;
     readonly settings: ModelDriverSettings;
 }
@@ -549,12 +463,9 @@ export interface ModelProblem {
 }
 
 // @public
-export type ModelProblemCode = "model.unserved" | "model.ambiguous-provider" | "model.missing-provider" | "model.incompatible-provider" | "model.missing" | "model.unknown-model" | "model.unsupported-setting" | "model.no-price" | "model.fallback-unmapped" | "model.fallback-no-price" | "model.no-matching-endpoint" | "model.unsupported-input";
+export type ModelProblemCode = "model.missing-provider" | "model.incompatible-provider" | "model.missing" | "model.unknown-model" | "model.unsupported-setting" | "model.no-price" | "model.fallback-no-price" | "model.no-matching-endpoint" | "model.unsupported-input";
 
 // @public
-export function ModelProvider(options: HttpModelProviderOptions): <C extends HttpModelProviderType>(value: C) => C;
-
-// @public (undocumented)
 export function ModelProvider<const D extends readonly Token[] = []>(options: TransportModelProviderOptions<D>): <C extends TransportModelProviderType<D>>(value: C) => C;
 
 // @public (undocumented)
@@ -562,8 +473,6 @@ export function ModelProvider(options: DriverModelProviderOptions): <C extends D
 
 // @public
 export interface ModelProviderDecisionRequest {
-    // (undocumented)
-    readonly connection: ProviderConnection;
     // (undocumented)
     readonly model: string;
     // (undocumented)
@@ -603,15 +512,11 @@ export interface ModelProviderFailureOptions {
     readonly retryAfter?: Milliseconds;
 }
 
-// @public (undocumented)
+// @public
 export interface ModelProviderHandler {
-    readonly capabilities?: (model: string, connection: ProviderConnection) => Promise<ModelCapabilities | undefined>;
-    // (undocumented)
-    readonly chat?: (request: ChatRequest) => BaseChatModel;
+    readonly capabilities?: (model: string) => Promise<ModelCapabilities | undefined>;
     readonly complete?: (request: ModelProviderRequest) => Promise<ModelProviderResponse>;
     readonly decide?: (request: ModelProviderDecisionRequest) => Promise<unknown>;
-    readonly routeTo?: (request: DecideRequest) => Promise<unknown>;
-    readonly routingProblems?: (model: string, connection: ProviderConnection) => Promise<readonly RoutingProblem[]>;
     readonly stream?: (request: ModelProviderRequest) => ModelProviderStream;
 }
 
@@ -659,7 +564,7 @@ export enum ModelProviderMessageRole {
 }
 
 // @public
-export type ModelProviderOptions = HttpModelProviderOptions | TransportModelProviderOptions | DriverModelProviderOptions;
+export type ModelProviderOptions = TransportModelProviderOptions | DriverModelProviderOptions;
 
 // @public
 export type ModelProviderPart = ModelInputPart;
@@ -746,34 +651,12 @@ export interface ModelVideoPart {
 }
 
 // @public
-export type NoRequestFields = Readonly<Record<string, never>>;
-
-// @public
 export function OpenAiCompatibleDriver(options: OpenAiCompatibleDriverOptions): ChatModelDriver;
 
 // @public
 export interface OpenAiCompatibleDriverOptions extends DriverConnectionSettings {
     readonly requestFields?: Readonly<Record<string, unknown>>;
 }
-
-// @public
-export abstract class OpenAiCompatibleProvider<TFields extends object = NoRequestFields> implements ModelProviderHandler {
-    protected cachingPlan(input: CachingRequest): WirePlan;
-    // (undocumented)
-    capabilities(model: string, connection: ProviderConnection): Promise<ModelCapabilities | undefined>;
-    protected capabilitiesOf(entry: ModelEntry): ModelCapabilities;
-    chat(request: ChatRequest): BaseChatModel;
-    protected headersOf(connection: ProviderConnection): Readonly<Record<string, string>>;
-    protected reasoningFields(reasoning: Reasoning): Readonly<Record<string, unknown>>;
-    // (undocumented)
-    abstract readonly requestFields: TFields;
-    protected responseFetch(send: typeof fetch): typeof fetch;
-    protected wireFieldsOf(fields: TFields): Readonly<Record<string, unknown>>;
-    wirePlanOf(request: Pick<ChatRequest, "settings" | "reasoning" | "promptCaching">): WirePlan;
-}
-
-// @public (undocumented)
-export const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 
 // @public
 export function OpenRouterDriver(options: OpenRouterDriverOptions): ChatModelDriver;
@@ -787,33 +670,6 @@ export interface OpenRouterDriverOptions {
     readonly headers?: DriverConnectionSettings["headers"];
     readonly routing?: OpenRouterRouting;
     readonly transforms?: readonly string[];
-}
-
-// @public
-export interface OpenRouterFields {
-    // (undocumented)
-    readonly provider?: OpenRouterRouting;
-    // (undocumented)
-    readonly transforms?: readonly string[];
-}
-
-// @public
-export class OpenRouterModelProvider extends OpenRouterProvider {
-    // (undocumented)
-    readonly requestFields: OpenRouterFields;
-}
-
-// @public
-export abstract class OpenRouterProvider<TFields extends OpenRouterFields = OpenRouterFields> extends OpenAiCompatibleProvider<TFields> {
-    // (undocumented)
-    protected cachingPlan(input: CachingRequest): WirePlan;
-    // (undocumented)
-    protected capabilitiesOf(entry: ModelEntry): ModelCapabilities;
-    // (undocumented)
-    protected reasoningFields(reasoning: Reasoning): Readonly<Record<string, unknown>>;
-    protected responseFetch(send: typeof fetch): typeof fetch;
-    routingProblems(model: string, connection: ProviderConnection): Promise<readonly RoutingProblem[]>;
-    protected wireFieldsOf(fields: TFields): Readonly<Record<string, unknown>>;
 }
 
 // @public
@@ -919,18 +775,6 @@ export interface PromptCachingSupport {
     readonly retentions: readonly CacheRetention[];
     // (undocumented)
     readonly supported: boolean;
-}
-
-// @public
-export interface ProviderConnection {
-    // (undocumented)
-    readonly apiKey: string | undefined;
-    // (undocumented)
-    readonly baseUrl: string;
-    readonly fetch: typeof fetch;
-    readonly headers?: Readonly<Record<string, string>>;
-    // (undocumented)
-    readonly provider: string;
 }
 
 // @public
@@ -1175,31 +1019,25 @@ export const TRANSIENT_FAILURES: readonly ModelFailure[];
 
 // @public
 export interface TransportModelProviderOptions<D extends readonly Token[] = readonly Token[]> {
-    // (undocumented)
-    readonly apiKey?: never;
-    // (undocumented)
-    readonly baseUrl?: never;
-    // (undocumented)
-    readonly baseUrlField?: never;
     readonly circuitBreakerPolicy?: CircuitBreakerPolicy;
     readonly cost?: ModelCost;
     readonly deps?: D;
     // (undocumented)
     readonly description?: string;
+    readonly driver?: never;
     readonly fallback?: ModelFallback;
+    readonly model?: string;
+    readonly models?: Readonly<Record<string, string>>;
     readonly name?: string;
     readonly promptCaching?: PromptCaching;
     readonly rateLimitPolicy?: RateLimitPolicy;
     readonly reasoning?: Reasoning;
     readonly retryPolicy?: RetryPolicy;
-    readonly serves: readonly RegExp[];
     readonly timeout: Milliseconds;
 }
 
 // @public
-export type TransportModelProviderType<D extends readonly Token[]> = abstract new (...args: ResolvedAll<D>) => ModelProviderHandler & Required<Pick<ModelProviderHandler, "complete">> & {
-    readonly chat?: never;
-};
+export type TransportModelProviderType<D extends readonly Token[]> = abstract new (...args: ResolvedAll<D>) => ModelProviderHandler & Required<Pick<ModelProviderHandler, "complete">>;
 
 // @public (undocumented)
 export interface WireContentPart {
@@ -1333,25 +1171,8 @@ export interface WireTool {
 // src/models/cost.ts - (ae-undocumented) Missing documentation for "cacheReadPerMillion".
 // src/models/cost.ts - (ae-undocumented) Missing documentation for "cacheWritePerMillion".
 // src/models/cost.ts - (ae-undocumented) Missing documentation for "ModelCost".
-// src/models/handler.ts - (ae-undocumented) Missing documentation for "provider".
-// src/models/handler.ts - (ae-undocumented) Missing documentation for "baseUrl".
-// src/models/handler.ts - (ae-undocumented) Missing documentation for "apiKey".
-// src/models/handler.ts - (ae-undocumented) Missing documentation for "settings".
-// src/models/handler.ts - (ae-undocumented) Missing documentation for "reasoning".
-// src/models/handler.ts - (ae-undocumented) Missing documentation for "promptCaching".
-// src/models/handler.ts - (ae-undocumented) Missing documentation for "connection".
 // src/models/handler.ts - (ae-undocumented) Missing documentation for "model".
 // src/models/handler.ts - (ae-undocumented) Missing documentation for "questions".
-// src/models/handler.ts - (ae-undocumented) Missing documentation for "connection".
-// src/models/handler.ts - (ae-undocumented) Missing documentation for "decision".
-// src/models/handler.ts - (ae-undocumented) Missing documentation for "connection".
-// src/models/handler.ts - (ae-undocumented) Missing documentation for "ModelProviderHandler".
-// src/models/handler.ts - (ae-undocumented) Missing documentation for "chat".
-// src/models/jev-alias.ts - (ae-undocumented) Missing documentation for "JevModelProvider".
-// src/models/jev-alias.ts - (ae-undocumented) Missing documentation for "JevModelProvider".
-// src/models/jev.provider.ts - (ae-undocumented) Missing documentation for "OPENROUTER_BASE_URL".
-// src/models/jev.provider.ts - (ae-undocumented) Missing documentation for "knownModels".
-// src/models/jev.provider.ts - (ae-undocumented) Missing documentation for "decide".
 // src/models/messages.ts - (ae-undocumented) Missing documentation for "role".
 // src/models/messages.ts - (ae-undocumented) Missing documentation for "content".
 // src/models/messages.ts - (ae-undocumented) Missing documentation for "type".
@@ -1380,28 +1201,13 @@ export interface WireTool {
 // src/models/model-list.ts - (ae-undocumented) Missing documentation for "architecture".
 // src/models/model-list.ts - (ae-undocumented) Missing documentation for "__index".
 // src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "description".
-// src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "deps".
 // src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "description".
-// src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "baseUrl".
-// src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "baseUrlField".
-// src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "apiKey".
-// src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "description".
-// src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "serves".
-// src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "baseUrl".
-// src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "baseUrlField".
-// src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "apiKey".
 // src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "deps".
 // src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "ModelProviderError".
 // src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "code".
 // src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "code".
 // src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "name".
 // src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "ModelProvider".
-// src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "ModelProvider".
-// src/models/openai-compatible.provider.ts - (ae-undocumented) Missing documentation for "caching".
-// src/models/openai-compatible.provider.ts - (ae-undocumented) Missing documentation for "model".
-// src/models/openai-compatible.provider.ts - (ae-undocumented) Missing documentation for "requestFields".
-// src/models/openai-compatible.provider.ts - (ae-undocumented) Missing documentation for "capabilities".
-// src/models/openrouter-model.provider.ts - (ae-undocumented) Missing documentation for "requestFields".
 // src/models/openrouter-routing.ts - (ae-undocumented) Missing documentation for "Price".
 // src/models/openrouter-routing.ts - (ae-undocumented) Missing documentation for "Throughput".
 // src/models/openrouter-routing.ts - (ae-undocumented) Missing documentation for "Latency".
@@ -1414,11 +1220,6 @@ export interface WireTool {
 // src/models/openrouter-routing.ts - (ae-undocumented) Missing documentation for "Bf16".
 // src/models/openrouter-routing.ts - (ae-undocumented) Missing documentation for "Fp32".
 // src/models/openrouter-routing.ts - (ae-undocumented) Missing documentation for "sort".
-// src/models/openrouter.provider.ts - (ae-undocumented) Missing documentation for "provider".
-// src/models/openrouter.provider.ts - (ae-undocumented) Missing documentation for "transforms".
-// src/models/openrouter.provider.ts - (ae-undocumented) Missing documentation for "reasoningFields".
-// src/models/openrouter.provider.ts - (ae-undocumented) Missing documentation for "cachingPlan".
-// src/models/openrouter.provider.ts - (ae-undocumented) Missing documentation for "capabilitiesOf".
 // src/models/policies/rate-limit-policy.ts - (ae-undocumented) Missing documentation for "calls".
 // src/models/policies/rate-limit-policy.ts - (ae-undocumented) Missing documentation for "tokens".
 // src/models/policies/rate-limit-policy.ts - (ae-undocumented) Missing documentation for "perMinute".

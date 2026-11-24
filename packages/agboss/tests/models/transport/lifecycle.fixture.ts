@@ -28,7 +28,6 @@ export class LifecycleLog {
 @ModelProvider({
   name: "lifecycle-model-provider",
   description: "A transport with lifecycle hooks",
-  serves: [/^bedrock\//],
   timeout: seconds(30),
   cost: ModelCost.fromResponse(),
   circuitBreakerPolicy: CircuitBreakerPolicy.fixed({

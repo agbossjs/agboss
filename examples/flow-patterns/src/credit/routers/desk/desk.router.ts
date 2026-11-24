@@ -1,3 +1,4 @@
+import { DecisionsModelProvider } from "../../../model-providers/openrouter.model-provider.js";
 import { DecidedBy, Router, inline } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { OrderIntakeAgent } from "../../agents/order-intake/order-intake.agent.js";
@@ -9,6 +10,7 @@ import { NoOrderWorkflowFinish } from "../../workflows/credit/no-order.workflow-
   description: "Sends an order to the intake, ends on anything else",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
+  modelProvider: DecisionsModelProvider,
   prompt: inline("Pick who handles the customer's message."),
   input: {
     message: WorkflowStartTextDto,

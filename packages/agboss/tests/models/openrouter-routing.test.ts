@@ -1,3 +1,4 @@
+import { TestDecisionsProvider } from "./providers.fixture.js";
 import { usd } from "../../src/units/index.js";
 /**
  * #395 PR 6 (S8): OpenRouter's host routing — camelCase in TypeScript (`allowFallbacks`,
@@ -12,16 +13,14 @@ import { checkModelUses } from "../../src/models/check.js";
 import {
   CachedPart,
   CacheRetention,
-  DecisionsModelProvider,
   ModelCost,
   ModelProvider,
-  OpenRouterProvider,
+  OpenRouterDriver,
   PromptCaching,
   ProviderSort,
   Quantization,
   Reasoning,
   RetryPolicy,
-  type OpenRouterFields,
 } from "../../src/models/index.js";
 import { ModelProviderDirectory } from "../../src/models/resolve.js";
 import { routingProblemsOf, type ModelEndpoint } from "../../src/models/openrouter-routing.js";
@@ -33,15 +32,25 @@ import type { AgentsConfigOf } from "../../src/config/types.js";
 import { completion, KIMI_ENTRY, providerStub } from "./stub.js";
 import { createProviderGateway } from "../../src/llm/gateway.js";
 import { ENV, instanceCalls, KEYS } from "./gateway.js";
+import { handlerOf } from "./driver-handler.js";
+import { secret } from "../../src/environments/secret.js";
 import { CircuitBreakerPolicy } from "../../src/models/circuit-breaker-policy.js";
 
 /** An OpenRouter provider pinned to Fireworks at bf16, without fallbacks. */
 @ModelProvider({
   name: "pinned-openrouter-model-provider",
   description: "OpenRouter, one host at one precision",
-  serves: [/^moonshotai\//],
-  baseUrl: "http://openrouter.test/api/v1",
-  apiKey: "openRouterApiKey",
+  driver: OpenRouterDriver({
+    baseUrl: "http://openrouter.test/api/v1",
+    apiKey: secret("OPENROUTER_API_KEY"),
+    routing: {
+      only: ["fireworks"],
+      ignore: ["together"],
+      quantizations: [Quantization.Bf16],
+      allowFallbacks: false,
+      sort: ProviderSort.Throughput,
+    },
+  }),
   timeout: minutes(2),
   cost: ModelCost.fromResponse(),
   reasoning: Reasoning.modelDecides(),
@@ -55,17 +64,7 @@ import { CircuitBreakerPolicy } from "../../src/models/circuit-breaker-policy.js
     openDuration: seconds(30),
   }),
 })
-class PinnedOpenRouterProvider extends OpenRouterProvider {
-  override readonly requestFields: OpenRouterFields = {
-    provider: {
-      only: ["fireworks"],
-      ignore: ["together"],
-      quantizations: [Quantization.Bf16],
-      allowFallbacks: false,
-      sort: ProviderSort.Throughput,
-    },
-  };
-}
+class PinnedOpenRouterProvider {}
 
 const FIREWORKS_BF16: ModelEndpoint = {
   host: "Fireworks",
@@ -76,8 +75,13 @@ const TOGETHER_FP8: ModelEndpoint = { host: "Together", slug: "together", quanti
 
 describe("the routing on the wire: camelCase in, snake_case out", () => {
   it("allowFallbacks becomes allow_fallbacks; every other field as it is", () => {
-    const plan = new PinnedOpenRouterProvider().wirePlanOf({
-      settings: { model: "moonshotai/kimi-k2.6", temperature: 0, maxTokens: 10 },
+    const plan = handlerOf(PinnedOpenRouterProvider).wirePlanOf({
+      settings: {
+        model: "moonshotai/kimi-k2.6",
+        modelProvider: "openrouter-model-provider",
+        temperature: 0,
+        maxTokens: 10,
+      },
       reasoning: Reasoning.modelDecides(),
       promptCaching: PromptCaching.off(),
     });
@@ -123,10 +127,15 @@ describe("UsageRecord.servedBy: the host that served the call", () => {
       { body: { ...(completion("ok", 0.001).body as object), provider: "Fireworks" } },
     ]);
     const gateway = createProviderGateway(
-      ModelProviderDirectory.of([PinnedOpenRouterProvider, DecisionsModelProvider]),
+      ModelProviderDirectory.of([PinnedOpenRouterProvider, TestDecisionsProvider]),
       { env: ENV, environment: KEYS, calls: instanceCalls(), send: stub.fetch },
     );
-    const settings = { model: "moonshotai/kimi-k2.6", temperature: 0, maxTokens: 10 };
+    const settings = {
+      model: "moonshotai/kimi-k2.6",
+      modelProvider: "openrouter-model-provider",
+      temperature: 0,
+      maxTokens: 10,
+    };
 
     const message = await gateway
       .chatModel({ user: { kind: "agent", agent: "scout" }, settings })
@@ -357,7 +366,7 @@ describe("agboss check --models: [model.no-matching-endpoint]", () => {
 
     const problems = await checkModelUses(
       uses,
-      ModelProviderDirectory.of([PinnedOpenRouterProvider, DecisionsModelProvider]),
+      ModelProviderDirectory.of([PinnedOpenRouterProvider, TestDecisionsProvider]),
       { env: {}, send, endpoints: true },
     );
 
@@ -380,7 +389,7 @@ describe("agboss check --models: [model.no-matching-endpoint]", () => {
     ]);
     const atStartup = openRouter([]);
     const directory = () =>
-      ModelProviderDirectory.of([PinnedOpenRouterProvider, DecisionsModelProvider]);
+      ModelProviderDirectory.of([PinnedOpenRouterProvider, TestDecisionsProvider]);
 
     expect(
       await checkModelUses(uses, directory(), { env: {}, send: served.send, endpoints: true }),

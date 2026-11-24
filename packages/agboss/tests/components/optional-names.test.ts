@@ -87,7 +87,6 @@ class RefundReader {}
 class DocsRanker {}
 
 @ModelProvider({
-  serves: [/^bedrock\//],
   timeout: seconds(5),
   cost: ModelCost.fromResponse(),
   circuitBreakerPolicy: CircuitBreakerPolicy.fixed({

@@ -17,11 +17,10 @@ import { EmptyEnvironment } from "../../../src/environments/empty.js";
 import {
   ModelCost,
   ModelProvider,
-  OpenAiCompatibleProvider,
+  OpenAiCompatibleDriver,
   PromptCaching,
   Reasoning,
   RetryPolicy,
-  type NoRequestFields,
 } from "../../../src/models/index.js";
 import { minutes, seconds, usd } from "../../../src/units/index.js";
 import { ChatStart, Reply } from "../../channels/approval.workflow.js";
@@ -168,6 +167,7 @@ export function bedrockApplicationOn(parts: {
     version: "1.0.0",
     environment: EmptyEnvironment,
     workflows: [...(parts.desk ?? workflowsOn(parts.model ?? "bedrock/claude", prefix)).workflows],
+    modelProvider: (parts.providers ?? [BedrockModelProvider])[0] as Class,
     providers: [...(parts.providers ?? [BedrockModelProvider]), BedrockSdkClient],
     budgets: parts.budgets ?? TEST_BUDGETS,
     ...(parts.piiPolicies === undefined ? {} : { piiPolicies: parts.piiPolicies }),
@@ -194,8 +194,7 @@ const http = {
   ...http,
   name: "backup-385-model-provider",
   description: "An HTTP backup",
-  serves: [/^backup\//],
-  baseUrl: "http://backup-385.test/v1",
+  driver: OpenAiCompatibleDriver({ baseUrl: "http://backup-385.test/v1" }),
   cost: ModelCost.fromPrices({
     "backup/claude": { inputPerMillion: usd(10), outputPerMillion: usd(20) },
   }),
@@ -205,17 +204,14 @@ const http = {
     openDuration: minutes(1),
   }),
 })
-export class Backup385ModelProvider extends OpenAiCompatibleProvider {
-  override readonly requestFields: NoRequestFields = {};
-}
+export class Backup385ModelProvider {}
 
 /** An HTTP primary whose breaker falls back to the transport (HTTP → transport). */
 @ModelProvider({
   ...http,
   name: "primary-385-model-provider",
   description: "An HTTP primary",
-  serves: [/^primary\//],
-  baseUrl: "http://primary-385.test/v1",
+  driver: OpenAiCompatibleDriver({ baseUrl: "http://primary-385.test/v1" }),
   cost: ModelCost.fromPrices({
     "primary/model": { inputPerMillion: usd(1), outputPerMillion: usd(2) },
   }),
@@ -226,9 +222,7 @@ export class Backup385ModelProvider extends OpenAiCompatibleProvider {
   }),
   fallback: { provider: BedrockModelProvider, models: { "primary/model": "bedrock/claude" } },
 })
-export class Primary385ModelProvider extends OpenAiCompatibleProvider {
-  override readonly requestFields: NoRequestFields = {};
-}
+export class Primary385ModelProvider {}
 
 export const HttpToTransportApplication = bedrockApplicationOn({
   name: "http-to-transport-application",
@@ -240,7 +234,6 @@ export const HttpToTransportApplication = bedrockApplicationOn({
 @ModelProvider({
   name: "falling-bedrock-model-provider",
   description: "Bedrock with an HTTP backup",
-  serves: [/^bedrock\//],
   timeout: seconds(5),
   cost: ModelCost.fromPrices({
     "bedrock/claude": { inputPerMillion: usd(3), outputPerMillion: usd(15) },

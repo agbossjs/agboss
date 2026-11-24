@@ -1,40 +1,33 @@
 import { describe, expect, it } from "vitest";
 import {
   ModelFailure,
-  OpenRouterProvider,
+  OpenRouterDriver,
   QueueBalancingStrategy,
   RateLimitPolicy,
   RetryPolicy,
-  type OpenRouterFields,
 } from "../../src/models/index.js";
+import { secret } from "../../src/environments/secret.js";
 import { seconds } from "../../src/units/index.js";
 
-describe("AC6: requestFields are typed per provider (compile time)", () => {
-  it("AC6: a typo in a provider's request fields does not compile", () => {
-    abstract class Typo extends OpenRouterProvider {
-      // @ts-expect-error — `provder` is not an OpenRouter request field
-      override readonly requestFields: OpenRouterFields = { provder: { ignore: ["Inceptron"] } };
-    }
-    abstract class WrongValue extends OpenRouterProvider {
-      // @ts-expect-error — `sort` takes "price" | "throughput" | "latency"
-      override readonly requestFields: OpenRouterFields = { provider: { sort: "cheapest" } };
-    }
+describe("AC6: an OpenRouter driver's routing is typed (compile time)", () => {
+  it("AC6: a typo in the routing does not compile", () => {
+    const key = secret("OPENROUTER_API_KEY");
+    // @ts-expect-error — `provder` is not an OpenRouter option
+    const typo = () => OpenRouterDriver({ apiKey: key, provder: { ignore: ["Inceptron"] } });
+    // @ts-expect-error — `sort` takes "price" | "throughput" | "latency"
+    const wrongValue = () => OpenRouterDriver({ apiKey: key, routing: { sort: "cheapest" } });
+    // @ts-expect-error — #395 S8: the TypeScript API is camelCase (`allowFallbacks`)
+    const snake = () => OpenRouterDriver({ apiKey: key, routing: { allow_fallbacks: false } });
+    const wrongQuantization = () =>
+      OpenRouterDriver({
+        apiKey: key,
+        // @ts-expect-error — `quantizations` takes Quantization members
+        routing: { quantizations: ["bf17"] },
+      });
 
-    abstract class SnakeCase extends OpenRouterProvider {
-      // @ts-expect-error — #395 S8: the TypeScript API is camelCase (`allowFallbacks`)
-      override readonly requestFields: OpenRouterFields = { provider: { allow_fallbacks: false } };
-    }
-    abstract class WrongQuantization extends OpenRouterProvider {
-      // @ts-expect-error — `quantizations` takes Quantization members
-      override readonly requestFields: OpenRouterFields = { provider: { quantizations: ["bf17"] } };
-    }
-
-    expect([Typo.name, WrongValue.name, SnakeCase.name, WrongQuantization.name]).toEqual([
-      "Typo",
-      "WrongValue",
-      "SnakeCase",
-      "WrongQuantization",
-    ]);
+    expect([typo, wrongValue, snake, wrongQuantization].every((f) => typeof f === "function")).toBe(
+      true,
+    );
   });
 
   it("AC6: retry policies have required fields", () => {

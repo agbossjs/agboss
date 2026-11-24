@@ -251,7 +251,12 @@ describe("#266 × #279: every model call goes through the provider's gate — ar
       send: provider.fetch,
       clock,
     });
-    const settings = { model: "limited/model", temperature: 0, maxTokens: 10 };
+    const settings = {
+      model: "limited/model",
+      modelProvider: "limited-model-provider",
+      temperature: 0,
+      maxTokens: 10,
+    };
     const arbiter = () =>
       gateway
         .chatModel({ user: { kind: "arbiter", arbiter: "quality-arbiter" }, settings })

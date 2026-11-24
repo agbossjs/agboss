@@ -1,5 +1,5 @@
 /**
- * #1366: the assembly's rules on a listed `@ModelProvider` (mode, breaker, request fields, timeout, price), called
+ * #1366: the assembly's rules on a listed `@ModelProvider` (mode, breaker, timeout, price), called
  * directly: each violation's code, its exact message and the node it names, for a listed provider and for the
  * fallback of its breaker, and none when the list is empty or absent. The shard `assembly-rules` mutates them.
  */
@@ -7,19 +7,18 @@ import { describe, expect, it } from "vitest";
 import {
   ModelCost,
   ModelProvider,
+  OpenAiCompatibleDriver,
   PromptCaching,
   Reasoning,
   RetryPolicy,
   type ModelProviderHandler,
   type ModelProviderResponse,
 } from "../../src/models/index.js";
-import { OpenRouterProvider, type OpenRouterFields } from "../../src/models/openrouter.provider.js";
 import type {
-  HttpModelProviderOptions,
+  DriverModelProviderOptions,
   TransportModelProviderOptions,
 } from "../../src/models/model-provider.decorator.js";
 import {
-  providerFieldsViolations,
   providerModeViolations,
   providerPriceViolations,
   providerTimeoutViolations,
@@ -38,17 +37,15 @@ const breaker = CircuitBreakerPolicy.fixed({
 const transport = (name: string): TransportModelProviderOptions => ({
   name,
   description: "A transport",
-  serves: [/^bedrock\//],
   timeout: seconds(5),
   cost: ModelCost.fromResponse(),
   circuitBreakerPolicy: breaker,
 });
 
-const http = (name: string): HttpModelProviderOptions => ({
+const driven = (name: string): DriverModelProviderOptions => ({
   name,
   description: "An HTTP server",
-  serves: [/^http\//],
-  baseUrl: "http://server.test/v1",
+  driver: OpenAiCompatibleDriver({ baseUrl: "http://server.test/v1" }),
   timeout: seconds(5),
   cost: ModelCost.fromResponse(),
   circuitBreakerPolicy: breaker,
@@ -62,24 +59,16 @@ class Handler implements ModelProviderHandler {
   }
 }
 
-// @ts-expect-error -- a transport with a base URL and a key: both modes at once
-@ModelProvider({ ...transport("both-model-provider"), baseUrl: "http://a.test", apiKey: "aKey" })
+// a driver that also has complete(request): both modes at once (a runtime rule: the types allow a method)
+@ModelProvider(driven("both-model-provider"))
 class BothMode extends Handler {}
 
-// @ts-expect-error -- a transport that also has chat: both modes at once
-@ModelProvider(transport("chatty-model-provider"))
-class ChattyTransport extends Handler {
-  chat(): void {
-    return undefined;
-  }
-}
-
 // @ts-expect-error -- deps without complete(request): not a transport
-@ModelProvider({ ...http("deps-model-provider"), deps: [BothMode] })
+@ModelProvider({ ...transport("deps-model-provider"), deps: [BothMode] })
 class DepsOnly {}
 
-// @ts-expect-error -- neither a baseUrl nor complete(request)
-@ModelProvider({ ...http("neither-model-provider"), baseUrl: undefined })
+// @ts-expect-error -- neither a driver nor complete(request)
+@ModelProvider(transport("neither-model-provider"))
 class Neither {}
 
 @ModelProvider(transport("fine-model-provider"))
@@ -91,20 +80,6 @@ class Fine extends Handler {}
   fallback: BothMode,
 })
 class WithBadFallback extends Handler {}
-
-@ModelProvider(http("bare-model-provider"))
-// @ts-expect-error -- the abstract requestFields left out
-class BareFields extends OpenRouterProvider {}
-
-@ModelProvider(http("fielded-model-provider"))
-class FieldedFields extends OpenRouterProvider {
-  override readonly requestFields: OpenRouterFields = {};
-}
-
-@ModelProvider(http("null-fields-model-provider"))
-class NullFields extends OpenRouterProvider {
-  override readonly requestFields = null as never;
-}
 
 /** A transport whose constructor needs what the container gives it: never built to read its fields. */
 // @ts-expect-error -- a constructor that takes what the container gives it, with no deps listed
@@ -151,23 +126,12 @@ class OuterOfNegative extends Handler {}
 const APP = "rules-application";
 
 describe("#1366: providerModeViolations", () => {
-  it("names a transport that sets the HTTP fields", () => {
+  it("names a driver provider that also implements complete", () => {
     expect(providerModeViolations(APP, [BothMode])).toEqual([
       {
         code: "model-provider.both-modes",
         message:
-          "both-model-provider (BothMode) implements complete(request) and sets baseUrl, apiKey — a transport makes its own calls: remove them",
-        nodes: [APP],
-      },
-    ]);
-  });
-
-  it("names a transport that also has chat", () => {
-    expect(providerModeViolations(APP, [ChattyTransport])).toEqual([
-      {
-        code: "model-provider.both-modes",
-        message:
-          "chatty-model-provider (ChattyTransport) has both chat(request) and complete(request) — keep one: HTTP (chat) or a transport (complete)",
+          "both-model-provider (BothMode) sets a driver and implements complete(request) — the driver makes its calls: remove the method",
         nodes: [APP],
       },
     ]);
@@ -176,7 +140,7 @@ describe("#1366: providerModeViolations", () => {
   it("names deps without complete, and a provider with neither mode", () => {
     expect(providerModeViolations(APP, [DepsOnly, Neither]).map((found) => found.message)).toEqual([
       "deps-model-provider (DepsOnly) has deps but no complete(request) — only a transport provider is created by the container",
-      "neither-model-provider (Neither) has neither a baseUrl (HTTP) nor complete(request) (a transport)",
+      "neither-model-provider (Neither) has neither a driver nor complete(request) (a transport)",
     ]);
   });
 

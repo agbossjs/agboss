@@ -1,6 +1,5 @@
 import type { Class } from "../components/injection.js";
 import {
-  isDriverOptions,
   isModelProviderClass,
   modelProviderOf,
   type KeptModelProviderOptions,
@@ -20,12 +19,12 @@ export interface ProviderOverlay {
   readonly models?: Readonly<Record<string, string>> | undefined;
 }
 
-/** A provider's options with a profile's model names over its own (a driver provider only). */
+/** A provider's options with a profile's model names over its own. */
 export function overlaidProvider(
   options: KeptModelProviderOptions,
   overlay: ProviderOverlay | undefined,
 ): KeptModelProviderOptions {
-  if (overlay === undefined || !isDriverOptions(options)) return options;
+  if (overlay === undefined) return options;
   return {
     ...options,
     ...(overlay.model === undefined ? {} : { model: overlay.model }),
@@ -96,7 +95,6 @@ export function modelNamedBy(
   requested: string | undefined,
 ): string | undefined {
   const asked = requested ?? DEFAULT_MODEL_ALIAS;
-  if (!isDriverOptions(options)) return asked === DEFAULT_MODEL_ALIAS ? undefined : asked;
   const mapped = options.models?.[asked];
   if (mapped !== undefined) return mapped;
   if (asked === DEFAULT_MODEL_ALIAS) return options.model;

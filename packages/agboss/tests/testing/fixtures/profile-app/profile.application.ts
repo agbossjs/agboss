@@ -8,9 +8,9 @@ import {
 } from "../../../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../../src/dto/index.js";
 import { Application } from "../../../../src/application/application.js";
-import { DecisionsModelProvider } from "../../../../src/models/index.js";
+import {} from "../../../../src/models/index.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
-import { LocalModelProvider } from "../../../models/providers.fixture.js";
+import { LocalModelProvider, TestDecisionsProvider } from "../../../models/providers.fixture.js";
 import { onStart } from "../../../helpers/flow.js";
 
 /** The child's agent: `config/*.config.yaml` change its settings (`workflows.profile-kid-workflow.agents`). */
@@ -19,6 +19,7 @@ import { onStart } from "../../../helpers/flow.js";
   description: "Answers",
   prompt: inline("Answer."),
   model: "local/llama",
+  modelProvider: LocalModelProvider,
 })
 export class Kid {}
 
@@ -67,6 +68,6 @@ export class BossWorkflow {}
   environment: EmptyEnvironment,
   workflows: [BossWorkflow],
   budgets: TEST_BUDGETS,
-  providers: [LocalModelProvider, DecisionsModelProvider],
+  providers: [LocalModelProvider, TestDecisionsProvider],
 })
 export class ProfileApplication {}

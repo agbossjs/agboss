@@ -6,7 +6,6 @@
 import { replyAskOf } from "../infrastructure/pause-record.js";
 import { runInFrame } from "../flow/context/frame.js";
 import { resolveSettings } from "../llm/registry.js";
-import { isDecisionModel } from "../models/decision-models.js";
 import { ModelKind } from "../models/model-kind.js";
 import { ReplyInterpreterMissingError, UninterpretableReplyError } from "./decision.js";
 import type { AssembledReplyInterpreter } from "./discovery.js";
@@ -31,11 +30,9 @@ async function byModel(
   parts: ReplyReaderParts,
 ): Promise<Interpreted> {
   await call.beforeModelCall();
-  // the driver of the provider the cascade resolved says what the model is; else its name does (#1313)
+  // the driver of the provider the cascade resolved says what the model is (#1313); no name does
   const { modelProvider, unpriced } = interpreter;
-  const kind =
-    parts.gateway.kindOf?.(modelProvider) ??
-    (isDecisionModel(model) ? ModelKind.Decisions : ModelKind.Chat);
+  const kind = parts.gateway.kindOf?.(modelProvider) ?? ModelKind.Chat;
   if (kind === ModelKind.Decisions) {
     const caller = replyInterpreterCaller(interpreter.name);
     const site = { gateway: parts.gateway, model, modelProvider, caller, pii: call.pii };

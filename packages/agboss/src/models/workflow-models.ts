@@ -1,19 +1,11 @@
 import type { AgentsConfigOf, ModelSettings } from "../config/types.js";
 import { costLabel, priceOf } from "./cost.js";
-import { DecisionsModelProvider } from "./jev.provider.js";
-import { OpenRouterModelProvider } from "./openrouter-model.provider.js";
 import { promptCachingLabel } from "./prompt-caching.js";
 import { reasoningLabel } from "./reasoning.js";
 import type { ModelProviderType } from "./model-provider.decorator.js";
 import { ModelKind } from "./model-kind.js";
 import { ModelProviderDirectory } from "./resolve.js";
 import type { ModelUse } from "./uses.js";
-
-/**
- * An application that lists no `@ModelProvider` gets these: OpenRouter for chat, the Decisions API
- * for decision models. One listed makes the list complete — these are not added next to it (#266).
- */
-export const DEFAULT_MODEL_PROVIDERS = [OpenRouterModelProvider, DecisionsModelProvider] as const;
 
 /** The directory of an application's model providers (`AssembledWorkflow.modelProviders`). */
 export const directoryOf = (providers: readonly ModelProviderType[]): ModelProviderDirectory =>

@@ -1,14 +1,14 @@
+import { secret } from "../../../src/environments/secret.js";
 import {
   ModelCost,
   ModelFailure,
   ModelProvider,
-  OpenAiCompatibleProvider,
-  OpenRouterProvider,
+  OpenAiCompatibleDriver,
+  OpenRouterDriver,
   PromptCaching,
   Reasoning,
   RetryPolicy,
   TRANSIENT_FAILURES,
-  type NoRequestFields,
 } from "../../../src/models/index.js";
 import { minutes, seconds, usd } from "../../../src/units/index.js";
 import { bedrockApplicationOn, workflowsOn } from "../transport/bedrock-apps.fixture.js";
@@ -35,8 +35,7 @@ const http = {
   ...http,
   name: "stream-backup-1005-model-provider",
   description: "The backup",
-  serves: [/^backup-stream\//],
-  baseUrl: "http://backup-1005.test/v1",
+  driver: OpenAiCompatibleDriver({ baseUrl: "http://backup-1005.test/v1" }),
   cost: ModelCost.fromPrices({
     "backup-stream/model": { inputPerMillion: usd(10), outputPerMillion: usd(20) },
   }),
@@ -46,17 +45,14 @@ const http = {
     openDuration: minutes(1),
   }),
 })
-export class StreamBackupModelProvider extends OpenAiCompatibleProvider {
-  override readonly requestFields: NoRequestFields = {};
-}
+export class StreamBackupModelProvider {}
 
 /** The primary: priced by tokens, its breaker opens at two failed calls and falls back. */
 @ModelProvider({
   ...http,
   name: "stream-1005-model-provider",
   description: "A streaming HTTP provider",
-  serves: [/^stream\//],
-  baseUrl: "http://primary-1005.test/v1",
+  driver: OpenAiCompatibleDriver({ baseUrl: "http://primary-1005.test/v1" }),
   cost: ModelCost.fromPrices({
     "stream/model": { inputPerMillion: usd(1), outputPerMillion: usd(2) },
   }),
@@ -70,17 +66,14 @@ export class StreamBackupModelProvider extends OpenAiCompatibleProvider {
     models: { "stream/model": "backup-stream/model" },
   },
 })
-export class StreamModelProvider extends OpenAiCompatibleProvider {
-  override readonly requestFields: NoRequestFields = {};
-}
+export class StreamModelProvider {}
 
 /** A provider whose cost comes from its answers (OpenRouter's `usage.cost`), no fallback, no retry. */
 @ModelProvider({
   ...http,
   name: "stream-cost-1005-model-provider",
   description: "A provider that reports each call's cost",
-  serves: [/^cost-stream\//],
-  baseUrl: "http://cost-1005.test/v1",
+  driver: OpenAiCompatibleDriver({ baseUrl: "http://cost-1005.test/v1" }),
   cost: ModelCost.fromResponse(),
   circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
     failureThreshold: 2,
@@ -88,9 +81,7 @@ export class StreamModelProvider extends OpenAiCompatibleProvider {
     openDuration: minutes(1),
   }),
 })
-export class StreamCostModelProvider extends OpenAiCompatibleProvider {
-  override readonly requestFields: NoRequestFields = {};
-}
+export class StreamCostModelProvider {}
 
 export const StreamApplication = bedrockApplicationOn({
   name: "stream-1005-application",
@@ -109,8 +100,10 @@ export const StreamCostApplication = bedrockApplicationOn({
   ...http,
   name: "stream-or-1231-model-provider",
   description: "An OpenRouter that streams",
-  serves: [/^or-stream\//],
-  baseUrl: "http://or-1231.test/v1",
+  driver: OpenRouterDriver({
+    apiKey: secret.optional("OR_1231_API_KEY"),
+    baseUrl: "http://or-1231.test/v1",
+  }),
   cost: ModelCost.fromResponse(),
   circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
     failureThreshold: 2,
@@ -118,9 +111,7 @@ export const StreamCostApplication = bedrockApplicationOn({
     openDuration: minutes(1),
   }),
 })
-export class StreamOpenRouterProvider extends OpenRouterProvider {
-  override readonly requestFields = {};
-}
+export class StreamOpenRouterProvider {}
 
 export const StreamOpenRouterApplication = bedrockApplicationOn({
   name: "stream-or-1231-application",

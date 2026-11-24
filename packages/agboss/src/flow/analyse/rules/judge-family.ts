@@ -65,7 +65,7 @@ interface ServedModel {
 
 /** Where a provider's calls go: its base URL, or its driver's (an `env(…)` reference by its variable). */
 function endpointOf(options: KeptModelProviderOptions): string | undefined {
-  if (!isDriverOptions(options)) return "baseUrl" in options ? options.baseUrl : undefined;
+  if (!isDriverOptions(options)) return undefined;
   const { baseUrl } = options.driver.settings;
   return typeof baseUrl === "string" ? baseUrl : `$${baseUrl.variable}`;
 }

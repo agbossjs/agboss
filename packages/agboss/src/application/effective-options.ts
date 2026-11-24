@@ -13,11 +13,7 @@ import type { BudgetOverlays } from "../budgets/budget-overlay.js";
 import type { Class } from "../components/injection.js";
 import type { EnvOverrides } from "../environments/define-env.js";
 import type { EnvContract } from "../environments/env-ref.js";
-import {
-  isDriverOptions,
-  isModelProviderClass,
-  modelProviderOf,
-} from "../models/model-provider.decorator.js";
+import { isModelProviderClass, modelProviderOf } from "../models/model-provider.decorator.js";
 import type { ModelProviderType } from "../models/model-provider.decorator.js";
 import type { AssembledWorkflow } from "../workflow.js";
 import type { ApplicationAssembly, AssemblyReplacements } from "./assembly-options.js";
@@ -77,24 +73,19 @@ async function effectiveOptionsOf(
 const namesOf = (providers: readonly ModelProviderType[]): Map<string, ModelProviderType> =>
   new Map(providers.map((cls) => [modelProviderOf(cls).name, cls]));
 
-/** A profile's provider overlays name providers the application has, and `models` only on a driver one. */
+/** A profile's provider overlays name providers the application has. */
 export function checkProviderOverlays(
   folded: FoldedConfig,
   reachable: readonly ModelProviderType[],
 ): void {
   const byName = namesOf(reachable);
   const profiles = folded.profiles.join(",");
-  for (const [name, overlay] of Object.entries(folded.modelProviders)) {
+  for (const name of Object.keys(folded.modelProviders)) {
     const cls = byName.get(name);
     if (cls === undefined)
       throw new ProfileError({
         reason: ProfileErrorReason.Unknown,
         message: `profile ${profiles}: modelProviders.${name}: no such model provider in the application — it has: ${[...byName.keys()].join(", ") || "none"}`,
-      });
-    if (!isDriverOptions(modelProviderOf(cls)) && (overlay.model ?? overlay.models) !== undefined)
-      throw new ProfileError({
-        reason: ProfileErrorReason.Invalid,
-        message: `profile ${profiles}: modelProviders.${name}: ${name} serves models by name (serves), it has no model or models to change`,
       });
   }
 }

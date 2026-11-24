@@ -16,7 +16,6 @@ import { CircuitBreakerPolicy } from "../../../src/models/circuit-breaker-policy
 @ModelProvider({
   name: "stream-1249-model-provider",
   description: "A transport that streams and reports its cost",
-  serves: [/^stream-c\//],
   timeout: seconds(5),
   cost: ModelCost.fromResponse(),
   circuitBreakerPolicy: CircuitBreakerPolicy.fixed({

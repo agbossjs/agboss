@@ -2,18 +2,14 @@ import { priceOf } from "./cost.js";
 import { fallbackHopsOf } from "./fallback-chain.js";
 import type { ModelInputKind } from "./content.js";
 import { sharedInputs } from "./capabilities.js";
-import {
-  isDriverOptions,
-  servesModel,
-  type ModelProviderType,
-} from "./model-provider.decorator.js";
+import type { ModelProviderType } from "./model-provider.decorator.js";
 import type { ModelProblem } from "./problems.js";
 import { registeredOf, type RegisteredModelProvider } from "./resolve.js";
 import type { ModelUse } from "./uses.js";
 
 /**
  * Every provider of a provider's fallback chain must take over the model the workflow uses on it
- * (#202, #1313): serve the model it is mapped to (`fallback.models`, a role it shares, else the same
+ * (#202, #1313): be sent the model it is mapped to (`fallback.models`, a role it shares, else the same
  * name), and price it when it prices from a table — otherwise a fallback call would send a model the
  * hop does not serve or be billed at the primary's prices.
  */
@@ -30,15 +26,6 @@ export function fallbackProblems(
       supported,
     });
     const { options, model } = hop;
-    // a driver provider serves any model its server knows (the server's `/models` says at start)
-    if (!isDriverOptions(options) && !servesModel(options, model)) {
-      return [
-        problem(
-          "model.fallback-unmapped",
-          `${provider.options.name} falls back to ${options.name}: ${model} is not served — map it in fallback.models`,
-        ),
-      ];
-    }
     if (options.cost?.kind === "from-prices" && priceOf(options.cost, model) === undefined) {
       return [problem("model.fallback-no-price", `${options.name} has no price for ${model}`)];
     }

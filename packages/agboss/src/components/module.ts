@@ -4,7 +4,6 @@ import type { AgentsConfig, ChatDefaults, RouterModel } from "../config/types.js
 import { NodeKind } from "../flow/ast.js";
 import { declarationOf, type WorkflowDeclaration } from "../flow/decorators/declaration.js";
 import type { ModelDefaults, WorkflowDefaults } from "../flow/decorators/workflow.js";
-import { isDecisionModel } from "../models/decision-models.js";
 import { DEFAULT_UNCOMPACTED_TURNS, type UncompactedTurns } from "../memory/memory.decorator.js";
 import type { Class } from "./injection.js";
 import { ComponentError } from "./metadata.js";
@@ -19,9 +18,8 @@ import type { WorkflowMeta } from "./meta-types.js";
 /** A model's temperature when neither the component nor `defaults.models` sets one. */
 export const DEFAULT_TEMPERATURE = 0;
 
-/** A router model by id: a decision model, or a chat model asked for JSON. */
-export const routerModelOfId = (model: string): RouterModel =>
-  isDecisionModel(model) ? { kind: "jev", model } : { kind: "llm", model };
+/** A router model by id: a chat model asked for JSON (a decision model is told by its provider's driver at assembly). */
+export const routerModelOfId = (model: string): RouterModel => ({ kind: "llm", model });
 
 const chatDefaultsOf = (models: ModelDefaults | undefined): ChatDefaults =>
   withoutUndefined({

@@ -5,13 +5,12 @@ import {
   ModelCost,
   ModelFailure,
   ModelProvider,
-  OpenAiCompatibleProvider,
+  OpenAiCompatibleDriver,
   PromptCaching,
   QueueBalancingStrategy,
   RateLimitPolicy,
   Reasoning,
   RetryPolicy,
-  type NoRequestFields,
 } from "../../../src/models/index.js";
 import { minutes, seconds, usd } from "../../../src/units/index.js";
 import { ChatStart, Reply } from "../../channels/approval.workflow.js";
@@ -26,8 +25,7 @@ import { CircuitBreakerPolicy } from "../../../src/models/circuit-breaker-policy
 @ModelProvider({
   name: "limited-model-provider",
   description: "A provider with a plan of two concurrent calls",
-  serves: [/^limited\//],
-  baseUrl: "http://limited.test/v1",
+  driver: OpenAiCompatibleDriver({ baseUrl: "http://limited.test/v1" }),
   timeout: seconds(30),
   cost: ModelCost.fromPrices({
     "limited/model": { inputPerMillion: usd(1), outputPerMillion: usd(2) },
@@ -51,9 +49,7 @@ import { CircuitBreakerPolicy } from "../../../src/models/circuit-breaker-policy
     openDuration: seconds(1),
   }),
 })
-export class LimitedModelProvider extends OpenAiCompatibleProvider {
-  override readonly requestFields: NoRequestFields = {};
-}
+export class LimitedModelProvider {}
 
 @Agent({
   name: "limited-agent",
@@ -85,6 +81,7 @@ export class LimitedWorkflow {}
   environment: EmptyEnvironment,
   workflows: [LimitedWorkflow],
   providers: [LimitedModelProvider],
+  modelProvider: LimitedModelProvider,
   budgets: TEST_BUDGETS,
 })
 export class LimitedApplication {}

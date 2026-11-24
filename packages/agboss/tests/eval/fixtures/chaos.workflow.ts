@@ -16,11 +16,10 @@ import {
   ModelCost,
   ModelFailure,
   ModelProvider,
-  OpenAiCompatibleProvider,
+  OpenAiCompatibleDriver,
   PromptCaching,
   Reasoning,
   RetryPolicy,
-  type NoRequestFields,
 } from "../../../src/models/index.js";
 import { minutes, seconds, usd } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -124,8 +123,7 @@ export class ReleasedWorkflowFinish {}
 export class ChaosWorkflow {}
 
 const PROVIDER = {
-  serves: [/^chaos\//],
-  baseUrl: "http://chaos.test/v1",
+  driver: OpenAiCompatibleDriver({ baseUrl: "http://chaos.test/v1" }),
   timeout: seconds(5),
   cost: ModelCost.fromPrices({
     "chaos/model": { inputPerMillion: usd(1), outputPerMillion: usd(1) },
@@ -150,9 +148,7 @@ const PROVIDER = {
     retryOn: [ModelFailure.RateLimited, ModelFailure.Timeout],
   }),
 })
-export class RetryingModelProvider extends OpenAiCompatibleProvider {
-  override readonly requestFields: NoRequestFields = {};
-}
+export class RetryingModelProvider {}
 
 /** Retries nothing: a failure is the step's. */
 @ModelProvider({
@@ -160,9 +156,7 @@ export class RetryingModelProvider extends OpenAiCompatibleProvider {
   name: "fragile-model-provider",
   description: "Retries nothing",
 })
-export class FragileModelProvider extends OpenAiCompatibleProvider {
-  override readonly requestFields: NoRequestFields = {};
-}
+export class FragileModelProvider {}
 
 @Application({
   name: "retrying-chaos-application",

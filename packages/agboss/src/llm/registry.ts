@@ -4,7 +4,6 @@ import type { BaseChatModel } from "@langchain/core/language_models/chat_models"
 import { DEFAULT_MAX_TOKENS } from "../config/types.js";
 import { promptCachingOfSetting } from "../models/prompt-caching.js";
 import { reasoningOfThinking } from "../models/reasoning.js";
-import { isDecisionModel } from "../models/decision-models.js";
 import { DecisionError } from "../core/error-families/config-errors.js";
 import type { DecisionOutcome } from "./decision-response.js";
 import type { DecisionRequest } from "./decisions.js";
@@ -159,9 +158,7 @@ export function judgeBindingOf(
   config: Pick<AgentsConfigOf<string>, "defaults">,
   gateway: RegistryGateway,
 ): JudgeBinding {
-  const kind =
-    gateway.kindOf?.(settings.modelProvider) ??
-    (isDecisionModel(settings.model) ? ModelKind.Decisions : ModelKind.Chat);
+  const kind = gateway.kindOf?.(settings.modelProvider) ?? ModelKind.Chat;
   if (kind === ModelKind.Decisions)
     return decisionJudge(judge, settings.model, gateway, settings.modelProvider);
   const resolved = resolveSettings(settings, config.defaults.models);

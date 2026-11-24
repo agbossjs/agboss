@@ -68,7 +68,6 @@ class NotABudget {
 const transport = (name: string): TransportModelProviderOptions => ({
   name,
   description: "A transport",
-  serves: [/^bedrock\//],
   timeout: seconds(5),
   cost: ModelCost.fromResponse(),
   circuitBreakerPolicy: CircuitBreakerPolicy.fixed({

@@ -4,28 +4,31 @@ import {
   CircuitBreakerPolicy,
   ModelCost,
   ModelProvider,
-  OpenRouterProvider,
+  DecisionsDriver,
+  OpenRouterDriver,
   PromptCaching,
   RateLimitPolicy,
   Reasoning,
   RetryPolicy,
   TRANSIENT_FAILURES,
-  type OpenRouterFields,
 } from "@agboss/core/models";
+import { secret } from "@agboss/core";
 import { minutes, seconds } from "@agboss/core/units";
 
 /**
  * Where the application's chat models come from: OpenRouter (decision models through
- * `DecisionsModelProvider`) — both listed in `@Application({ providers })`. Both read their key from
- * `openRouterApiKey` of the application's environment (`secret("OPENROUTER_API_KEY")`).
+ * `DecisionsModelProvider`) — both listed in `@Application({ providers })`, reached through
+ * `modelProvider` (the application's, a workflow's, a component's). Both read their key from the
+ * process variable `OPENROUTER_API_KEY` (`secret("OPENROUTER_API_KEY")`), once, at start.
  */
 @ModelProvider({
   name: "openrouter-model-provider",
   description: "OpenRouter — many models behind one OpenAI-compatible API",
-  serves: [/.*/],
-  baseUrl: "https://openrouter.ai/api/v1",
-  baseUrlField: "openRouterBaseUrl", // the environment may point it at a proxy
-  apiKey: "openRouterApiKey",
+  driver: OpenRouterDriver({
+    apiKey: secret("OPENROUTER_API_KEY"),
+    // kimi-k2.6 via the provider Inceptron loops on tool-call arguments — let OpenRouter use the others
+    routing: { ignore: ["Inceptron"] },
+  }),
   timeout: minutes(2),
   // OpenRouter returns each call's cost
   cost: ModelCost.fromResponse(),
@@ -45,7 +48,25 @@ import { minutes, seconds } from "@agboss/core/units";
   rateLimitPolicy: RateLimitPolicy.of({ maxConcurrentCalls: 8 }),
   circuitBreakerPolicy: CircuitBreakerPolicy.fixed({ failureThreshold: 5, failureWindow: minutes(1), openDuration: seconds(30) }),
 })
-export class OpenRouterModelProvider extends OpenRouterProvider {
-  // kimi-k2.6 via the provider Inceptron loops on tool-call arguments — let OpenRouter use the others
-  override readonly requestFields: OpenRouterFields = { provider: { ignore: ["Inceptron"] } };
-}
+export class OpenRouterModelProvider {}
+
+/** Decision models (routers, guardrails, judges) on OpenRouter's Decisions API. */
+@ModelProvider({
+  name: "decisions-model-provider",
+  description: "Decision models on OpenRouter's Decisions API",
+  driver: DecisionsDriver({
+    baseUrl: "https://openrouter.ai/api/v1",
+    apiKey: secret("OPENROUTER_API_KEY"),
+  }),
+  timeout: seconds(30),
+  cost: ModelCost.fromResponse(),
+  retryPolicy: RetryPolicy.exponential({
+    maxAttempts: 3,
+    initialDelay: seconds(1),
+    maxDelay: seconds(10),
+    jitter: true,
+    retryOn: TRANSIENT_FAILURES,
+  }),
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({ failureThreshold: 5, failureWindow: minutes(1), openDuration: seconds(30) }),
+})
+export class DecisionsModelProvider {}

@@ -3,7 +3,6 @@ import type { ModelGateway } from "../llm/gateway.js";
 import { createRouter, type RouterEngine } from "../routers/index.js";
 import type { LoadedRouter } from "../flow/runtime/routers.js";
 
-import { isDecisionModel } from "../models/decision-models.js";
 import { ModelKind } from "../models/model-kind.js";
 import { createLaunchDecider, type LaunchDecider } from "../flow/runtime/launch/launch-decider.js";
 import { createArbiterModels, type ArbiterModels } from "../flow/runtime/launch/arbiter-call.js";
@@ -13,8 +12,6 @@ import type { ModelArbiterUse } from "../flow/runtime/launch/runtime-launch.js";
 import type { Class } from "../components/injection.js";
 import type { AssembledGuardrails } from "../guardrails/assembly.js";
 import { guardrailRuntimeOf, type GuardrailRuntime } from "../guardrails/runtime.js";
-
-export { isDecisionModel };
 
 export interface FlowRouterFactoryDeps {
   readonly gateway: ModelGateway;
@@ -30,10 +27,8 @@ export function routerModelOf(
   modelProvider?: string,
   unpriced?: true,
 ): RouterModel {
-  // the driver of the provider the cascade resolved says what the model is; else its name does (#1313)
-  const kind =
-    deps.gateway.kindOf?.(modelProvider) ??
-    (isDecisionModel(model) ? ModelKind.Decisions : ModelKind.Chat);
+  // the driver of the provider the cascade resolved says what the model is (#1313); no name does
+  const kind = deps.gateway.kindOf?.(modelProvider) ?? ModelKind.Chat;
   const named = modelProvider === undefined ? {} : { modelProvider };
   const account = unpriced === undefined ? named : { ...named, unpriced };
   return kind === ModelKind.Decisions

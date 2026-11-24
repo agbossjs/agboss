@@ -3,7 +3,7 @@ import { NO_ENVIRONMENT_VALUES } from "../environments/resolve.js";
 import { connectionOf } from "./connections.js";
 import { priceOf } from "./cost.js";
 import { fallbackProblems, fallbackUseResults } from "./fallback-check.js";
-import type { ModelProviderHandler, ProviderConnection } from "./handler.js";
+import type { ProviderConnection, ProviderHandler } from "./handler.js";
 import { inputProblems } from "./input-check.js";
 import { sharedInputs } from "./capabilities.js";
 import type { ModelInputKind } from "./content.js";
@@ -66,13 +66,13 @@ function priceProblems(use: ModelUse, provider: RegisteredModelProvider): readon
 }
 
 /**
- * The provider's instance for its capabilities: an HTTP one's own; a transport's from the
+ * The provider's instance for its capabilities: a driver's own; a transport's from the
  * container only when its class has `capabilities` (else it stays uncreated until its first call).
  */
 const handlerOf = (
   provider: RegisteredModelProvider,
   options: ModelCheckOptions,
-): ModelProviderHandler | undefined =>
+): ProviderHandler | undefined =>
   provider.handler ??
   (hasProviderMethod(provider.type, "capabilities")
     ? options.transports?.instanceOf(provider.type)
@@ -81,7 +81,7 @@ const handlerOf = (
 /** What checks a provider's models: its `capabilities`, when it has them (a transport may not, #385). */
 interface ProviderCheck {
   readonly provider: RegisteredModelProvider;
-  readonly handler: ModelProviderHandler | undefined;
+  readonly handler: ProviderHandler | undefined;
   readonly connection: ProviderConnection;
   /** Whether the routing is checked against the model's endpoints (`ModelCheckOptions.endpoints`). */
   readonly endpoints: boolean;

@@ -4,7 +4,7 @@ import type { ChatOpenAI } from "@langchain/openai";
 import { loadChatOpenAI, loadedChatOpenAI } from "./chat-openai.js";
 import { LateModel, LazyChatModel } from "./lazy-chat-model.js";
 import type { ModelCapabilities } from "./capabilities.js";
-import type { ChatRequest, ModelProviderHandler, ProviderConnection } from "./handler.js";
+import type { ChatRequest, ProviderConnection, ProviderHandler } from "./handler.js";
 import { ModelListCache, type ModelEntry } from "./model-list.js";
 import { CacheRetention, type PromptCaching } from "./prompt-caching.js";
 import type { Reasoning } from "./reasoning.js";
@@ -23,14 +23,15 @@ export interface CachingRequest {
 export const EPHEMERAL: CacheControl = { type: "ephemeral" };
 
 /**
- * Any OpenAI-compatible server. `TFields` types the provider's own request fields: a subclass sets
+ * What a driver's handler speaks to an OpenAI-compatible server (internal; the public form is
+ * `OpenAiCompatibleDriver`). `TFields` types its own request fields: a subclass sets
  * `override readonly requestFields: TFields = { … }` and a typo there is a compile error. Reasoning
  * and caching are sent in OpenAI's form (`reasoning_effort`, `prompt_cache_key`,
  * `prompt_cache_retention`); a subclass with another dialect overrides `reasoningFields` / `cachingPlan`.
  */
 export abstract class OpenAiCompatibleProvider<
   TFields extends object = NoRequestFields,
-> implements ModelProviderHandler {
+> implements ProviderHandler {
   abstract readonly requestFields: TFields;
   private readonly models = new ModelListCache();
 

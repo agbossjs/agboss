@@ -36,7 +36,6 @@ export class EchoLog {
 @ModelProvider({
   name: "echo-model-provider",
   description: "Answers by the request, offline",
-  serves: [/^echo\//],
   timeout: seconds(5),
   cost: ModelCost.fromPrices({
     "echo/first": { inputPerMillion: usd(1), outputPerMillion: usd(1) },

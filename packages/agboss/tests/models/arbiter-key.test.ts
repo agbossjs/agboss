@@ -36,6 +36,7 @@ class OutDto {
   description: "A",
   prompt: inline("A."),
   model: "local/llama",
+  modelProvider: LocalModelProvider,
   output: AnsDto,
 })
 class AnsAgent {}
@@ -43,6 +44,7 @@ class AnsAgent {}
 @Arbiter({
   name: "ans-arbiter",
   model: "moonshotai/kimi-k2.6",
+  modelProvider: TestOpenRouterProvider,
   prompt: inline("Count it."),
   criteria: [{ target: AnsAgent, prompt: "ok" }],
 })

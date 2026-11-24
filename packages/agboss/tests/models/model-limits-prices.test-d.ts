@@ -50,6 +50,6 @@ describe("#1313e: PromptCaching.on, executionLimits, cache prices, decide", () =
       [ModelProviderDecisionRequest]
     >();
     expectTypeOf<ModelProviderDecisionRequest>().toHaveProperty("model");
-    expectTypeOf<ModelProviderDecisionRequest>().toHaveProperty("connection");
+    expectTypeOf<ModelProviderDecisionRequest>().not.toHaveProperty("connection");
   });
 });

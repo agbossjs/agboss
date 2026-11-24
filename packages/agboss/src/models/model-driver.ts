@@ -1,5 +1,5 @@
 import type { EnvRef, OptionalSecretRef, SecretRef } from "../environments/env-ref.js";
-import type { ModelProviderHandler } from "./handler.js";
+import type { ProviderHandler } from "./handler.js";
 import type { ModelKind } from "./model-kind.js";
 
 /**
@@ -7,7 +7,7 @@ import type { ModelKind } from "./model-kind.js";
  * `OpenAiCompatibleDriver({ baseUrl, apiKey })`, `OpenRouterDriver({ apiKey })` and
  * `DecisionsDriver({ baseUrl })` return. It carries the protocol (`kind`: chat or decisions), the
  * connection settings with their `env(…)` / `secret(…)` references still in them (read once, at
- * start) and the handler that speaks the protocol. Built only by `defineModelDriver`, so a literal
+ * start); the handler that speaks the protocol is kept internally. Built only by `defineModelDriver`, so a literal
  * is not a driver.
  */
 
@@ -45,23 +45,36 @@ export interface ModelDriver<TKind extends ModelKind = ModelKind> {
   readonly dialect: string;
   /** Its connection settings; resolved with the process's variables when the application starts. */
   readonly settings: ModelDriverSettings;
-  /** The handler that speaks the protocol over a connection. */
-  readonly handler: ModelProviderHandler;
   /** A line for `agboss describe`: where it points, never a secret. */
   readonly describes: string;
 }
 
-/** What a driver package gives `defineModelDriver`. */
-export type ModelDriverSpec<TKind extends ModelKind> = Omit<ModelDriver<TKind>, typeof driverBrand>;
+/** What a driver package gives `defineModelDriver`: the driver's fields and the handler that speaks the protocol. */
+export type ModelDriverSpec<TKind extends ModelKind> = Omit<
+  ModelDriver<TKind>,
+  typeof driverBrand
+> & {
+  readonly handler: ProviderHandler;
+};
 
 const DRIVERS = new WeakSet<object>();
+const HANDLERS = new WeakMap<object, ProviderHandler>();
+
+/** The handler that speaks a driver's protocol over a connection (internal: no public type names it). */
+export const driverHandlerOf = (driver: ModelDriver): ProviderHandler => {
+  const handler = HANDLERS.get(driver);
+  if (handler === undefined) throw new TypeError("not a model driver");
+  return handler;
+};
 
 /** Makes a driver: what `OpenAiCompatibleDriver(…)` and the other drivers return. */
 export function defineModelDriver<TKind extends ModelKind>(
   spec: ModelDriverSpec<TKind>,
 ): ModelDriver<TKind> {
-  const driver = Object.freeze({ ...spec }) as ModelDriver<TKind>;
+  const { handler, ...fields } = spec;
+  const driver = Object.freeze(fields) as ModelDriver<TKind>;
   DRIVERS.add(driver);
+  HANDLERS.set(driver, handler);
   return driver;
 }
 

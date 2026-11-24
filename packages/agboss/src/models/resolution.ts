@@ -8,11 +8,13 @@ import { GraphRuleError, violation, type RuleViolation } from "../graph/rule-err
 import {
   isDriverOptions,
   isModelProviderClass,
+  hasProviderMethod,
   isTransportClass,
   modelProviderOf,
   type ModelProviderType,
 } from "./model-provider.decorator.js";
 import { fallbackClassesOf } from "./fallback-chain.js";
+import { ModelKind } from "./model-kind.js";
 import {
   modelUsesOf,
   type ModelNamingComponents,
@@ -21,12 +23,12 @@ import {
 } from "./uses.js";
 import type { ModelNamingInterpreter } from "./interpreter-uses.js";
 import type { ProviderKinds } from "./use-purpose.js";
-import { DEFAULT_MODEL_PROVIDERS, directoryOf } from "./workflow-models.js";
+import { directoryOf } from "./workflow-models.js";
 
 /**
- * Model providers are application infrastructure (#266): listed only in `@Application({ providers })`,
- * the built-ins only when none is listed, and every model of the application resolved to exactly one
- * of them by `serves` — at assembly, before any model call.
+ * Model providers are application infrastructure (#266): listed in `@Application({ providers })` or
+ * named by a `modelProvider`, and every model of the application resolved to one of them through its
+ * cascade — at assembly, before any model call.
  */
 
 /** The `@ModelProvider` classes an application lists in its providers: none when it lists none. */
@@ -34,14 +36,13 @@ export const listedModelProvidersOf = (
   providers: readonly Provider[] | undefined,
 ): readonly ModelProviderType[] => (providers ?? []).filter(isModelProviderClass);
 
-/** The `@ModelProvider` classes listed in an application's providers, else the built-ins. */
+/** The `@ModelProvider` classes listed in an application's providers, and those a cascade names. */
 export function modelProvidersOf(
   providers: readonly Provider[] | undefined,
   referenced: readonly ModelProviderType[] = [],
 ): readonly ModelProviderType[] {
   // a provider a cascade names is part of the application even when it is not listed (#1313)
-  const listed = [...new Set([...listedModelProvidersOf(providers), ...referenced])];
-  return listed.length === 0 ? DEFAULT_MODEL_PROVIDERS : listed;
+  return [...new Set([...listedModelProvidersOf(providers), ...referenced])];
 }
 
 /**
@@ -95,12 +96,14 @@ export interface WorkflowModels {
   readonly referencedProviders?: readonly ModelProviderType[];
 }
 
-/** What each driver provider speaks, by the provider's `name`: a use through it is that kind of model. */
+/** What each provider speaks, by its `name`: a driver's kind; a custom class that only decides is a decisions one. */
 export function providerKindsOf(classes: readonly ModelProviderType[]): ProviderKinds {
   return new Map(
-    classes.flatMap((cls) => {
+    classes.map((cls) => {
       const options = modelProviderOf(cls);
-      return isDriverOptions(options) ? [[options.name, options.driver.kind] as const] : [];
+      if (isDriverOptions(options)) return [options.name, options.driver.kind] as const;
+      const decides = hasProviderMethod(cls, "decide") && !isTransportClass(cls);
+      return [options.name, decides ? ModelKind.Decisions : ModelKind.Chat] as const;
     }),
   );
 }
@@ -144,30 +147,20 @@ function guardrailUsesOf(
   }));
 }
 
-type ResolutionRule =
-  | "model.unserved"
-  | "model.ambiguous-provider"
-  | "model.missing-provider"
-  | "model.incompatible-provider";
+type ResolutionRule = "model.missing-provider" | "model.incompatible-provider";
 
-/** The rule a directory problem is reported as; any other problem of a resolution is an ambiguity. */
+/** The rule a directory problem is reported as. */
 const ruleOf = (code: string): ResolutionRule =>
-  code === "model.unserved" ||
-  code === "model.missing-provider" ||
-  code === "model.incompatible-provider"
-    ? code
-    : "model.ambiguous-provider";
+  code === "model.incompatible-provider" ? code : "model.missing-provider";
 
 const FIX: Readonly<Record<ResolutionRule, string>> = {
-  "model.unserved": "list a @ModelProvider that serves it in @Application({ providers })",
-  "model.ambiguous-provider": "one model string per provider, each in one serves",
   "model.missing-provider":
     "set modelProvider on the component, its @Workflow or its @Application, and list the provider in @Application({ providers })",
   "model.incompatible-provider":
-    "a chat model needs a provider with a chat driver (OpenAiCompatibleDriver, OpenRouterDriver), a decision model one with DecisionsDriver",
+    "a chat model needs a provider with a chat driver (OpenAiCompatibleDriver, OpenRouterDriver) or a transport, a decision model one with DecisionsDriver",
 };
 
-/** `[model.unserved]` / `[model.ambiguous-provider]` / `[model.missing-provider]` / `[model.incompatible-provider]` for every model use no single provider serves. */
+/** `[model.missing-provider]` / `[model.incompatible-provider]` for every model use no listed provider serves. */
 function modelResolutionViolations(workflow: WorkflowModels): RuleViolation[] {
   const directory = directoryOf(workflow.modelProviders);
   return workflowModelUsesOf(workflow).flatMap((use) => {
@@ -186,7 +179,7 @@ function modelResolutionViolations(workflow: WorkflowModels): RuleViolation[] {
 
 /**
  * A workflow's models once more, after a profile changed them (#895): the models a profile names
- * are resolved as the assembly resolves them, `[model.unserved]` at assembly, not on the first call.
+ * are resolved as the assembly resolves them, `[model.missing-provider]` at assembly, not on the first call.
  */
 export function checkModelsServed(
   workflow: Pick<WorkflowModels, "config" | "routers" | "modelProviders">,
@@ -196,7 +189,7 @@ export function checkModelsServed(
 }
 
 /**
- * The model providers of a workflow — its application's (`providers`), else the built-ins — with
+ * The model providers of a workflow — its application's (`providers`) and those its cascade names — with
  * every model of it resolved to one of them; one that is not fails the workflow's assembly.
  */
 export function resolvedModelProvidersOf(

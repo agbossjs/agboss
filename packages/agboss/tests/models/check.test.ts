@@ -5,19 +5,22 @@ import { checkModelUses, resolutionProblems } from "../../src/models/check.js";
 import {
   CachedPart,
   CacheRetention,
-  DecisionsModelProvider,
   PromptCaching,
   Reasoning,
   ReasoningEffort,
 } from "../../src/models/index.js";
 import { ModelProviderDirectory } from "../../src/models/resolve.js";
 import { modelUsesOf } from "../../src/models/uses.js";
-import { LocalModelProvider, TestOpenRouterProvider } from "./providers.fixture.js";
+import {
+  LocalModelProvider,
+  TestOpenRouterProvider,
+  TestDecisionsProvider,
+} from "./providers.fixture.js";
 import { CLAUDE_ENTRY, GPT5_ENTRY, KIMI_ENTRY, providerStub } from "./stub.js";
 
 /** A fresh directory: each provider instance fetches its model list once. */
 const directoryOf = () =>
-  ModelProviderDirectory.of([TestOpenRouterProvider, DecisionsModelProvider, LocalModelProvider]);
+  ModelProviderDirectory.of([TestOpenRouterProvider, TestDecisionsProvider, LocalModelProvider]);
 const models = [
   KIMI_ENTRY,
   CLAUDE_ENTRY,

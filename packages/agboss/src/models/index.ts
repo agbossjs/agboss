@@ -1,6 +1,6 @@
 /**
- * `@agboss/core/models` — model providers: `@ModelProvider` classes (`OpenAiCompatibleProvider`,
- * `OpenRouterProvider`, `DecisionsModelProvider`, or a transport's `complete(request)`, #385),
+ * `@agboss/core/models` — model providers: `@ModelProvider` classes (a driver — `OpenAiCompatibleDriver`,
+ * `OpenRouterDriver`, `DecisionsDriver` — or a transport's `complete(request)`, #385),
  * what each model costs, how it reasons and caches, retries, rate limits and circuit breakers, and
  * the fail-fast check of settings against models.
  * Wiki → Model providers.
@@ -12,13 +12,7 @@ export {
   type ModelProviderOptions,
   type ModelProviderType,
 } from "./model-provider.decorator.js";
-export type {
-  ChatRequest,
-  DecideRequest,
-  ModelProviderDecisionRequest,
-  ModelProviderHandler,
-  ProviderConnection,
-} from "./handler.js";
+export type { ModelProviderDecisionRequest, ModelProviderHandler } from "./handler.js";
 export {
   ModelProviderMessageRole,
   type ModelProviderMessage,
@@ -63,23 +57,8 @@ export type {
 export { CliModelProvider, type CliInvocation, type CliResult } from "./cli-model-provider.js";
 export { FinishReason } from "./finish-reason.js";
 export type { ModelCapabilities, PromptCachingSupport, ReasoningSupport } from "./capabilities.js";
-export {
-  OpenAiCompatibleProvider,
-  type CachingRequest,
-  type NoRequestFields,
-} from "./openai-compatible.provider.js";
-export {
-  OpenRouterProvider,
-  type OpenRouterFields,
-  ProviderSort,
-  Quantization,
-  type OpenRouterRouting,
-} from "./openrouter.provider.js";
-export { OpenRouterModelProvider } from "./openrouter-model.provider.js";
-export { DecisionsModelProvider, OPENROUTER_BASE_URL } from "./jev.provider.js";
-export { DECISION_MODELS, isDecisionModel } from "./decision-models.js";
-// the deprecated `JevModelProvider` alias (a star export: re-exporting it by name is itself deprecated use)
-export * from "./jev-alias.js";
+export { ProviderSort, Quantization, type OpenRouterRouting } from "./openrouter-routing.js";
+export { DECISION_MODELS } from "./decision-models.js";
 export { ModelCost, type ModelPrice, type ModelPrices } from "./cost.js";
 export {
   Reasoning,
@@ -137,7 +116,6 @@ export type {
   PlainErrorOptions,
 } from "../core/errors.js";
 export { ModelKind } from "./model-kind.js";
-export { DEFAULT_MODEL_PROVIDERS } from "./workflow-models.js";
 export { toWireRequest, type WirePlan, type WireRequest } from "./wire.js";
 export { type ResolvedModelSettings } from "../config/types.js";
 export { type JevDecisionRequest } from "../llm/jev-client.js";
@@ -163,8 +141,6 @@ export {
 export {
   type DriverModelProviderOptions,
   type DriverModelProviderType,
-  type HttpModelProviderOptions,
-  type HttpModelProviderType,
   type TransportModelProviderOptions,
   type TransportModelProviderType,
 } from "./model-provider.decorator.js";

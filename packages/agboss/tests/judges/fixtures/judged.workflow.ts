@@ -21,8 +21,8 @@ import {
   WorkflowFinishTextDto,
   WorkflowStartTextDto,
 } from "../../../src/dto/index.js";
-import { DecisionsModelProvider } from "../../../src/models/index.js";
-import { LocalModelProvider } from "../../models/providers.fixture.js";
+import {} from "../../../src/models/index.js";
+import { LocalModelProvider, TestDecisionsProvider } from "../../models/providers.fixture.js";
 import { onStart } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -35,6 +35,7 @@ export const RUBRIC = new InjectionToken<string>("RUBRIC");
 @Judge({
   name: "grounded",
   model: "local/judge",
+  modelProvider: LocalModelProvider,
   output: PlainTextDto,
   deps: [RUBRIC, JudgeModel],
 })
@@ -59,6 +60,7 @@ export class Grounded implements JudgeHandler<PlainTextDto> {
   prompt: inline("Write."),
   description: "Writes an answer",
   model: "local/llama",
+  modelProvider: LocalModelProvider,
   judges: [Grounded],
   executionLimits: { maxRetries: 1 },
 })
@@ -76,11 +78,10 @@ export class Reply {}
 
 export const DEFAULTS = {
   models: { temperature: 0, maxTokens: TokenLimit.ModelMax },
-  router: { model: "typesafe/jev-1.13" },
 } as const;
 
 /** The judged applications' model providers (#266): Jev's decisions, the local chat models. */
-export const MODEL_PROVIDERS = [DecisionsModelProvider, LocalModelProvider];
+export const MODEL_PROVIDERS = [TestDecisionsProvider, LocalModelProvider];
 
 /** One agent gated by one judge, one retry. */
 @Workflow({
@@ -120,6 +121,7 @@ export class Modelless implements JudgeHandler<PlainTextDto> {
   prompt: inline("Write."),
   description: "Gated by a judge without a model",
   model: "local/llama",
+  modelProvider: LocalModelProvider,
   judges: [Modelless],
 })
 export class Careless {}

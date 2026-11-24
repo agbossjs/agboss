@@ -1,12 +1,10 @@
+import { compareNames } from "../llm/canonical-order.js";
+import type { DecisionQuestion } from "../llm/decisions.js";
 import { createJevClient } from "../llm/jev-client.js";
 import type { ModelCapabilities } from "./capabilities.js";
-import type {
-  ModelProviderDecisionRequest,
-  ModelProviderHandler,
-  ProviderConnection,
-} from "./handler.js";
+import type { ModelInputKind } from "./content.js";
+import type { DriverDecisionRequest, ProviderConnection, ProviderHandler } from "./handler.js";
 
-import { sortedOptions } from "./jev.provider.js";
 import {
   defineModelDriver,
   type ChatModelDriver,
@@ -81,13 +79,13 @@ class OpenRouterHandler extends OpenRouterProvider {
 }
 
 /** A decisions gateway: `decide` over the driver's endpoint, choice options sorted by name. */
-class DecisionsHandler implements ModelProviderHandler {
+class DecisionsHandler implements ProviderHandler {
   constructor(
     private readonly path: string | undefined,
     private readonly knownModels: readonly string[] | undefined,
   ) {}
 
-  decide({ connection, ...decision }: ModelProviderDecisionRequest): Promise<unknown> {
+  decide({ connection, ...decision }: DriverDecisionRequest): Promise<unknown> {
     const questions = Object.fromEntries(
       Object.entries(decision.questions).map(([id, question]) => [id, sortedOptions(question)]),
     );
@@ -106,9 +104,23 @@ class DecisionsHandler implements ModelProviderHandler {
   capabilities(model: string): Promise<ModelCapabilities | undefined> {
     if (this.knownModels !== undefined && !this.knownModels.includes(model))
       return Promise.resolve(undefined);
-    return Promise.resolve({ model, inputs: ["text"] });
+    return Promise.resolve({ model, inputs: decisionInputsOf(model) });
   }
 }
+
+/** A choice question's options sorted by name; yes/no and score questions as asked (a scale is ordered). */
+function sortedOptions(question: DecisionQuestion): DecisionQuestion {
+  if (question.type !== "choice") return question;
+  const criteria = Object.entries(question.criteria).sort(([a], [b]) => compareNames(a, b));
+  return { ...question, criteria: Object.fromEntries(criteria) };
+}
+
+/** Decision models that read images besides text: Luna, pplx-decider, Clef. */
+const IMAGE_DECISION_MODEL =
+  /^(?:openai\/gpt-6-luna-decisions$|perplexity\/pplx-decider|cloudflare\/clef)/;
+
+const decisionInputsOf = (model: string): readonly ModelInputKind[] =>
+  IMAGE_DECISION_MODEL.test(model) ? ["text", "image"] : ["text"];
 
 const describesUrl = (baseUrl: TextSetting): string =>
   typeof baseUrl === "string" ? baseUrl : `$${baseUrl.variable}`;

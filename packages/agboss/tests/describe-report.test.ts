@@ -4,6 +4,7 @@
  * implementation, each PII policy's refusal (the text, or `ClassName.refusal()`); and the worst
  * case of one call of each start with how each number is made up (AC5), from the decorators only.
  */
+import { TestDecisionsProvider, TestOpenRouterProvider } from "./models/providers.fixture.js";
 import { describe, expect, it } from "vitest";
 import { Application } from "../src/application/application.js";
 import { applicationOf } from "../src/application/assemble.js";
@@ -159,10 +160,10 @@ describe("#268 AC4: model providers and channels with their implementations", ()
     expect(lines.slice(at, at + 3)).toEqual([
       "model providers",
       expect.stringMatching(
-        /^ {2}openrouter-model-provider → OpenRouterModelProvider \(built-in default: none listed\) · serves /,
+        /^ {2}openrouter-model-provider → TestOpenRouterProvider \(built-in default: none listed\) · serves /,
       ),
       expect.stringMatching(
-        /^ {2}decisions-model-provider → DecisionsModelProvider \(built-in default: none listed\) · serves /,
+        /^ {2}decisions-model-provider → TestDecisionsProvider \(built-in default: none listed\) · serves /,
       ),
     ]);
   });

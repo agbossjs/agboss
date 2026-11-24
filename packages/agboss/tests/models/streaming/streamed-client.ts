@@ -2,6 +2,7 @@ import { BaseCallbackHandler } from "@langchain/core/callbacks/base";
 import type { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import { loadChatOpenAI } from "../../../src/models/chat-openai.js";
 import { PromptCaching, Reasoning } from "../../../src/models/index.js";
+import { handlerOf } from "../driver-handler.js";
 import { StreamOpenRouterProvider } from "./http-streaming.fixture.js";
 import type { SseServer } from "./sse-server.js";
 
@@ -23,7 +24,7 @@ export class StreamAsker extends BaseCallbackHandler {
  */
 export async function clientOn(server: SseServer): Promise<BaseChatModel> {
   await loadChatOpenAI(); // inside an application the client is loaded: `chat()` returns it
-  return new StreamOpenRouterProvider().chat({
+  return handlerOf(StreamOpenRouterProvider).chat({
     settings: { model: "stream/model", temperature: 0, maxTokens: 1000 },
     reasoning: Reasoning.modelDecides(),
     promptCaching: PromptCaching.off(),

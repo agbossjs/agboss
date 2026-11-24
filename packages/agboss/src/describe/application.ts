@@ -187,17 +187,13 @@ function budgetLines(described: ApplicationFacts): string[] {
   return ["budgets", ...byScope, ...described.executionBudgets.map(executionBudgetLine)];
 }
 
-/** `openrouter-model-provider → OpenRouterModelProvider (listed in @Application providers) · serves …`. */
+/** `openrouter → OpenRouterProvider (listed in @Application providers)`. */
 const modelProviderLine = (provider: DescribedModelProvider): string =>
   `  ${provider.name} → ${provider.className} (${
     provider.reason === ImplementationReason.Listed
       ? "listed in @Application providers"
-      : provider.isNamed
-        ? "named by modelProvider"
-        : "built-in default: none listed"
-  })${provider.serves.length === 0 ? "" : ` · serves ${provider.serves.join(", ")}`}${
-    provider.isTransport ? ` · transport: ${provider.className}.complete()` : ""
-  }`;
+      : "named by modelProvider"
+  })${provider.isTransport ? ` · transport: ${provider.className}.complete()` : ""}`;
 
 /** `pause listeners ledger-pause-listener (includePauseIds: sees the ids of channel pauses), …`. */
 const pauseListenerLines = (described: ApplicationFacts): string[] =>

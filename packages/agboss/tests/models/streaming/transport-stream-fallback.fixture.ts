@@ -12,7 +12,6 @@ import { StreamSdkClient, StreamingModelProvider } from "./transport-streaming.f
 @ModelProvider({
   name: "stream-fallback-1311-model-provider",
   description: "A transport that streams, with an HTTP backup",
-  serves: [/^stream-f\//],
   timeout: seconds(5),
   cost: ModelCost.fromPrices({
     "stream-f/model": { inputPerMillion: usd(1), outputPerMillion: usd(2) },

@@ -154,7 +154,12 @@ describe("AC6: retry policies — only the listed failures, Retry-After honoured
       send: stub.fetch,
       clock: new InstantClock(),
     });
-    const settings = { model: "moonshotai/kimi-k2.6", temperature: 0, maxTokens: 10 };
+    const settings = {
+      model: "moonshotai/kimi-k2.6",
+      modelProvider: "openrouter-model-provider",
+      temperature: 0,
+      maxTokens: 10,
+    };
 
     const replyWith = await gateway
       .chatModel({ user: { kind: "agent", agent: "scout" }, settings })

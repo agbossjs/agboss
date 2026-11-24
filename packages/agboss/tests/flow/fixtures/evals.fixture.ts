@@ -65,7 +65,6 @@ export class LookupTool {
 @ModelProvider({
   name: "scripted-model-provider",
   description: "Answers by the request: a lookup, then the tool's result",
-  serves: [/^cli\//],
   timeout: seconds(5),
   cost: ModelCost.fromPrices({ "cli/desk": { inputPerMillion: usd(1), outputPerMillion: usd(1) } }),
   circuitBreakerPolicy: CircuitBreakerPolicy.fixed({

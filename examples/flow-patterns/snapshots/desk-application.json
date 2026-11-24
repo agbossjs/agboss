@@ -129,9 +129,6 @@
           "name": "harness-model-provider",
           "className": "HarnessModelProvider",
           "reason": "listed",
-          "serves": [
-            "/^harness\\//"
-          ],
           "isTransport": true,
           "isNamed": false
         }

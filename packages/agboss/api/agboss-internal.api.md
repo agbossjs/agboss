@@ -665,7 +665,6 @@ export interface DescribedModelProvider {
     readonly name: string;
     // (undocumented)
     readonly reason: ImplementationReason;
-    readonly serves: readonly string[];
 }
 
 // @public

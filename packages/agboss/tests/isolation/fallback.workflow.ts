@@ -1,14 +1,13 @@
+import { TestDecisionsProvider } from "../models/providers.fixture.js";
 import { Window1Memory } from "../helpers/window-memory.js";
 import { Agent, Workflow, TokenLimit } from "../../src/index.js";
 import {
-  DecisionsModelProvider,
   ModelCost,
   ModelProvider,
-  OpenAiCompatibleProvider,
+  OpenAiCompatibleDriver,
   PromptCaching,
   Reasoning,
   RetryPolicy,
-  type NoRequestFields,
 } from "../../src/models/index.js";
 import { minutes, seconds, usd } from "../../src/units/index.js";
 import { ChatStart, Reply } from "../channels/approval.workflow.js";
@@ -36,22 +35,18 @@ const common = {
   ...common,
   name: "backup-202-model-provider",
   description: "The backup server",
-  serves: [/^backup\//],
-  baseUrl: "http://backup-202.test/v1",
+  driver: OpenAiCompatibleDriver({ baseUrl: "http://backup-202.test/v1" }),
   cost: ModelCost.fromPrices({
     "backup/model": { inputPerMillion: usd(10), outputPerMillion: usd(20) },
   }),
   circuitBreakerPolicy: breaker,
 })
-export class Backup202 extends OpenAiCompatibleProvider {
-  override readonly requestFields: NoRequestFields = {};
-}
+export class Backup202 {}
 
 const primary = {
   ...common,
   description: "The primary server",
-  serves: [/^primary\//],
-  baseUrl: "http://primary-202.test/v1",
+  driver: OpenAiCompatibleDriver({ baseUrl: "http://primary-202.test/v1" }),
   cost: ModelCost.fromPrices({
     "primary/model": { inputPerMillion: usd(1), outputPerMillion: usd(2) },
   }),
@@ -64,9 +59,7 @@ const primary = {
   circuitBreakerPolicy: breaker,
   fallback: { provider: Backup202, models: { "primary/model": "backup/model" } },
 })
-export class Primary202 extends OpenAiCompatibleProvider {
-  override readonly requestFields: NoRequestFields = {};
-}
+export class Primary202 {}
 
 /** Falls back to the backup without saying which of its models takes over. */
 @ModelProvider({
@@ -75,9 +68,7 @@ export class Primary202 extends OpenAiCompatibleProvider {
   circuitBreakerPolicy: breaker,
   fallback: Backup202,
 })
-export class Unmapped202 extends OpenAiCompatibleProvider {
-  override readonly requestFields: NoRequestFields = {};
-}
+export class Unmapped202 {}
 
 @Agent({
   name: "cashier-agent",
@@ -89,7 +80,6 @@ export class Answerer {}
 
 const defaults = {
   models: { temperature: 0, maxTokens: TokenLimit.ModelMax },
-  router: { model: "typesafe/jev-1.13" },
   tools: { maxToolCalls: 1 },
 } as const;
 
@@ -111,7 +101,7 @@ export class WithFallback {}
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [WithFallback],
-  providers: [Primary202, DecisionsModelProvider, Backup202],
+  providers: [Primary202, TestDecisionsProvider, Backup202],
   budgets: TEST_BUDGETS,
 })
 export class WithFallbackApplication {}
@@ -134,7 +124,7 @@ export class UnmappedFallback {}
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [UnmappedFallback],
-  providers: [Unmapped202, DecisionsModelProvider, Backup202],
+  providers: [Unmapped202, TestDecisionsProvider, Backup202],
   budgets: TEST_BUDGETS,
 })
 export class UnmappedFallbackApplication {}

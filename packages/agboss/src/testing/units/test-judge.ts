@@ -24,7 +24,8 @@ import type { UsageRecord } from "../../finops/usage.js";
 import { meteredModel } from "../../graph/agent-loop/judge-model.js";
 import { ModelKind } from "../../llm/decision-errors.js";
 import type { JudgeBinding } from "../../llm/registry.js";
-import { isDecisionModel } from "../../models/decision-models.js";
+import { providerKindsOf } from "../../models/resolution.js";
+import { isModelProviderClass, modelProviderOf } from "../../models/model-provider.decorator.js";
 import { judgeKeyOf } from "../scripted-gateway.js";
 import { callTimeoutOf, UnitSite } from "./unit-site.js";
 import { unitChatSettings } from "./unit-models.js";
@@ -72,9 +73,23 @@ function hydratedOutput(
   return isList ? hydratedForShape(shape as never, output) : output;
 }
 
+/** Whether the judge's own provider is a decisions one: its driver says it, no model name does. */
+const decidesThrough = (modelProvider: Class | undefined): boolean => {
+  if (modelProvider === undefined || !isModelProviderClass(modelProvider)) return false;
+  return (
+    providerKindsOf([modelProvider]).get(modelProviderOf(modelProvider).name) ===
+    ModelKind.Decisions
+  );
+};
+
 /** The judge's own model on the runner's scripts: a decision model decides, a chat model replies. */
-function bindingOf(site: UnitSite, name: string, model: string): JudgeBinding {
-  if (isDecisionModel(model)) {
+function bindingOf(
+  site: UnitSite,
+  name: string,
+  model: string,
+  modelProvider: Class | undefined,
+): JudgeBinding {
+  if (decidesThrough(modelProvider)) {
     const decide = site.gateway.decide;
     return {
       kind: ModelKind.Decisions,
@@ -116,7 +131,7 @@ export function judgeUnit<
   site.scriptModel(judgeKeyOf(meta.name), judge.name, options.model);
   const binding = isCodeJudge(meta)
     ? undefined
-    : bindingOf(site, meta.name, meta.model ?? DEFAULT_MODEL_ALIAS);
+    : bindingOf(site, meta.name, meta.model ?? DEFAULT_MODEL_ALIAS, meta.modelProvider);
   const run = async (
     given: JudgeRunnerInput<JudgeOutputOf<TJudge>>,
     call: UnitCallOptions = {},

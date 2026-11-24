@@ -150,7 +150,6 @@ export const abortedAfter =
 @ModelProvider({
   name: "stream-1011-model-provider",
   description: "A transport that streams",
-  serves: [/^stream-t\//],
   timeout: seconds(5),
   cost: ModelCost.fromPrices({
     "stream-t/model": { inputPerMillion: usd(1), outputPerMillion: usd(2) },

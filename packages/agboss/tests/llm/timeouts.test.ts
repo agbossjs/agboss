@@ -1,6 +1,7 @@
+import { TestOpenRouterProvider } from "../models/providers.fixture.js";
 import { describe, expect, it } from "vitest";
 import { createJevClient } from "../../src/llm/jev-client.js";
-import { ModelFailure, OpenRouterModelProvider, RetryPolicy } from "../../src/models/index.js";
+import { ModelFailure, RetryPolicy } from "../../src/models/index.js";
 import { modelProviderOf } from "../../src/models/model-provider.decorator.js";
 import { resilientFetch } from "../../src/models/resilient-fetch.js";
 import { milliseconds } from "../models/time.js";
@@ -64,7 +65,7 @@ describe("model calls: the provider's timeout and retries (#95, now on the provi
   });
 
   it("AC3: sensible defaults on the built-in provider: a 2-minute timeout, 3 attempts on transient failures", () => {
-    const options = modelProviderOf(OpenRouterModelProvider);
+    const options = modelProviderOf(TestOpenRouterProvider);
 
     expect(options.timeout).toBe(minutes(2));
     expect(options.retryPolicy).toMatchObject({

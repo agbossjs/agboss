@@ -1,7 +1,6 @@
 import type { Class } from "../components/injection.js";
 import { TokenLimit } from "../config/types.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
-import { isDecisionModel } from "../models/decision-models.js";
 import { Ttl } from "../units/index.js";
 import { isUncompactedTurns } from "./levels.js";
 import {
@@ -67,19 +66,11 @@ function compactionViolations(cls: Class, meta: MemoryMeta, compaction: MemoryCo
         [cls.name],
       ),
     );
-  const { summaryMaxTokens: max, summaryQueueLength: length, model } = compaction;
+  const { summaryMaxTokens: max, summaryQueueLength: length } = compaction;
   if (max !== undefined && max !== TokenLimit.ModelMax && !isCount(max))
     found.push(bad("summaryMaxTokens", max, "a whole number from 1, or TokenLimit.ModelMax"));
   if (length !== undefined && !isCount(length))
     found.push(bad("summaryQueueLength", length, "a whole number from 1"));
-  if (model !== undefined && isDecisionModel(model))
-    found.push(
-      violation(
-        "memory.invalid-setting",
-        `${meta.name}: ${model} is a decision model — a summary is written by a chat model`,
-        [cls.name],
-      ),
-    );
   return found;
 }
 

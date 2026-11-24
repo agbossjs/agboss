@@ -1,3 +1,4 @@
+import { DecisionsModelProvider } from "../../../model-providers/openrouter.model-provider.js";
 import {
   Arbiter,
   ArbiterModel,
@@ -26,7 +27,12 @@ const CRITERIA = new Map<unknown, string>([
  * code, at `$0`, first — and its reason meets the criterion of the panelist who gave it — decided by
  * the arbiter's own model, asked only about a score that is in range.
  */
-@Arbiter({ name: "panel-score-arbiter", model: "typesafe/jev-1.13", deps: [ArbiterModel] })
+@Arbiter({
+  name: "panel-score-arbiter",
+  model: "typesafe/jev-1.13",
+  modelProvider: DecisionsModelProvider,
+  deps: [ArbiterModel],
+})
 export class PanelScoreArbiter {
   constructor(private readonly arbiterModel: ArbiterModel) {}
 

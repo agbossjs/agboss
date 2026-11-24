@@ -27,8 +27,12 @@ import {
 import { Application } from "../../../src/application/application.js";
 import { onStart, toAgent } from "../../helpers/flow.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { DecisionsModelProvider } from "../../../src/models/index.js";
-import { LocalMirrorModelProvider, LocalModelProvider } from "../providers.fixture.js";
+import {} from "../../../src/models/index.js";
+import {
+  LocalMirrorModelProvider,
+  LocalModelProvider,
+  TestDecisionsProvider,
+} from "../providers.fixture.js";
 
 /**
  * #266: every model of an application resolves to exactly one of its model providers by `serves` —
@@ -56,6 +60,7 @@ export class NowhereAgent {}
   prompt: inline("Answer."),
   description: "Answers on the local server",
   model: "local/llama",
+  modelProvider: LocalModelProvider,
 })
 export class LocalAgent {}
 
@@ -122,7 +127,7 @@ export class NowhereMemory {}
 })
 export class EveryKindWorkflow {}
 
-/** Only the local server is listed: the built-ins are not added next to it. */
+/** Only the local server is listed, and nothing names it: no model has a provider. */
 @Application({
   name: "every-kind-application",
   version: "1.0.0",
@@ -140,7 +145,7 @@ export class EveryKindApplication {}
 })
 export class LocalStart {}
 
-/** One agent on `local/llama` and a Jev router default: what a local application serves. */
+/** One agent on `local/llama`, named for the local provider: what a local application serves. */
 @Workflow({
   name: "local-workflow",
   version: "1.0.0",
@@ -151,24 +156,23 @@ export class LocalStart {}
   ],
   defaults: {
     models: { temperature: 0, maxTokens: TokenLimit.ModelMax },
-    router: { model: "typesafe/jev-1.13" },
   },
   memory: Window1Memory,
 })
 export class LocalWorkflow {}
 
-/** The local server and its mirror both serve `local/llama`: neither wins. */
+/** The local server and its mirror are both listed: the agent names the local one, so neither is ambiguous. */
 @Application({
   name: "mirrored-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [LocalWorkflow],
-  providers: [LocalModelProvider, LocalMirrorModelProvider, DecisionsModelProvider],
+  providers: [LocalModelProvider, LocalMirrorModelProvider, TestDecisionsProvider],
   budgets: TEST_BUDGETS,
 })
 export class MirroredApplication {}
 
-/** Lists no model provider: the built-in OpenRouter (chat) and Decisions (Jev) serve it. */
+/** Lists no model provider: the local agent's provider is not listed. */
 @Application({
   name: "built-in-application",
   version: "1.0.0",
@@ -178,13 +182,14 @@ export class MirroredApplication {}
 })
 export class BuiltInApplication {}
 
-/** Lists only the local server: Jev's default router has no provider — the list is complete. */
+/** Lists only the local server, the one its agent names. */
 @Application({
   name: "local-only-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [LocalWorkflow],
   providers: [LocalModelProvider],
+  modelProvider: LocalModelProvider,
   budgets: TEST_BUDGETS,
 })
 export class LocalOnlyApplication {}
@@ -203,7 +208,6 @@ export class NotInfrastructure {}
   ],
   defaults: {
     models: { temperature: 0, maxTokens: TokenLimit.ModelMax },
-    router: { model: "typesafe/jev-1.13" },
   },
   memory: Window1Memory,
   providers: [NotInfrastructure, LocalModelProvider],

@@ -83,7 +83,6 @@ export const answer = (
 @ModelProvider({
   name: "bedrock-model-provider",
   description: "AWS Bedrock through its SDK",
-  serves: [/^bedrock\//],
   timeout: seconds(30),
   cost: ModelCost.fromPrices({
     "bedrock/claude": { inputPerMillion: usd(3), outputPerMillion: usd(15) },

@@ -24,11 +24,10 @@ import { EmptyEnvironment, HealthCheck, HealthCheckResult, Tool } from "../../sr
 import {
   ModelCost,
   ModelProvider,
-  OpenAiCompatibleProvider,
+  OpenAiCompatibleDriver,
   PromptCaching,
   Reasoning,
   RetryPolicy,
-  type NoRequestFields,
 } from "../../src/models/index.js";
 import { defineTool } from "../../src/tools/define-tool.js";
 import { minutes, seconds, usd, type Milliseconds } from "../../src/units/index.js";
@@ -183,8 +182,7 @@ function providerWith(timeout: Milliseconds): never {
   @ModelProvider({
     name: "wire-model-provider",
     description: "stub",
-    serves: [/^wire\//],
-    baseUrl: "http://wire.test/v1",
+    driver: OpenAiCompatibleDriver({ baseUrl: "http://wire.test/v1" }),
     timeout,
     cost: ModelCost.fromPrices({
       "wire/model": { inputPerMillion: usd(1), outputPerMillion: usd(1) },
@@ -197,9 +195,7 @@ function providerWith(timeout: Milliseconds): never {
       openDuration: seconds(30),
     }),
   })
-  class WireModelProvider extends OpenAiCompatibleProvider {
-    override readonly requestFields: NoRequestFields = {};
-  }
+  class WireModelProvider {}
   return WireModelProvider as never;
 }
 

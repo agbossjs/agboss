@@ -11,12 +11,11 @@ import { z } from "zod";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { ResolvedModelSettings } from "../../src/config/types.js";
 import type { ChatRequest } from "../../src/models/handler.js";
+import { PromptCaching, Reasoning } from "../../src/models/index.js";
 import {
   OpenAiCompatibleProvider,
-  PromptCaching,
-  Reasoning,
   type NoRequestFields,
-} from "../../src/models/index.js";
+} from "../../src/models/openai-compatible.provider.js";
 import { wireFetch } from "../../src/models/wire.js";
 
 const settings: ResolvedModelSettings = { model: "gpt-4o-mini", temperature: 0, maxTokens: 50 };
@@ -111,7 +110,8 @@ function reference(): BaseChatModel {
 /** `chat()` of a fresh module graph: nothing has loaded the client, so it is the lazy model. */
 async function direct(): Promise<BaseChatModel> {
   vi.resetModules();
-  const { OpenAiCompatibleProvider: Fresh } = await import("../../src/models/index.js");
+  const { OpenAiCompatibleProvider: Fresh } =
+    await import("../../src/models/openai-compatible.provider.js");
   class FreshLocal extends Fresh {
     override readonly requestFields: NoRequestFields = {};
   }

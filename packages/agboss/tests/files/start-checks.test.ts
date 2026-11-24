@@ -1,3 +1,4 @@
+import { secret } from "../../src/environments/secret.js";
 /**
  * #899 §4: what the files of an agent need of its models, checked at start against what the provider
  * says they take — the agent's model, the transcriber's, a fallback target — strictly for types the
@@ -15,19 +16,18 @@ import { checkedModelUses } from "../../src/models/check.js";
 import {
   CachedPart,
   CacheRetention,
-  DecisionsModelProvider,
   ModelCost,
   ModelProvider,
-  OpenRouterProvider,
+  OpenRouterDriver,
   PromptCaching,
   Reasoning,
   RetryPolicy,
-  type OpenRouterFields,
 } from "../../src/models/index.js";
 import { ModelProviderDirectory } from "../../src/models/resolve.js";
+import { providerKindsOf } from "../../src/models/resolution.js";
 import { modelUsesOf } from "../../src/models/uses.js";
 import { minutes, seconds } from "../../src/units/index.js";
-import { TestOpenRouterProvider } from "../models/providers.fixture.js";
+import { TestOpenRouterProvider, TestDecisionsProvider } from "../models/providers.fixture.js";
 import { FetchedDto } from "./reader.factory.js";
 import { providerStub } from "../models/stub.js";
 import { CircuitBreakerPolicy } from "../../src/models/circuit-breaker-policy.js";
@@ -41,11 +41,15 @@ const filesOf = (options: Parameters<typeof ModelFiles.of>[0], hasPiiPolicy = fa
     hasPiiPolicy,
   });
 
-const configOf = (model: string, files: ReturnType<typeof filesOf>): AgentsConfigOf<string> => ({
+const configOf = (
+  model: string,
+  files: ReturnType<typeof filesOf>,
+  modelProvider = "openrouter-model-provider",
+): AgentsConfigOf<string> => ({
   name: "w",
   version: "1",
   defaults: { models: { temperature: 0, maxTokens: 100 }, uncompactedTurns: 1 },
-  agents: { "reader-agent": { model, description: "reads", files } },
+  agents: { "reader-agent": { model, modelProvider, description: "reads", files } },
 });
 
 const CATALOG = [
@@ -55,8 +59,11 @@ const CATALOG = [
   { id: "silent/model" },
 ];
 
+const DECISIONS = "decisions-model-provider";
+const KINDS = providerKindsOf([TestOpenRouterProvider, TestDecisionsProvider]);
+
 const directoryOf = () =>
-  ModelProviderDirectory.of([TestOpenRouterProvider, DecisionsModelProvider]);
+  ModelProviderDirectory.of([TestOpenRouterProvider, TestDecisionsProvider]);
 
 const check = (model: string, files: ReturnType<typeof filesOf>, extra: object = {}) =>
   checkedModelUses(modelUsesOf(configOf(model, files), [], extra), directoryOf(), {
@@ -144,9 +151,7 @@ describe("AC1: a model that cannot take a file's type stops the start (when the 
 @ModelProvider({
   name: "visionless-backup-model-provider",
   description: "A backup that reads text only",
-  serves: [/^backup\//],
-  baseUrl: "http://backup.test/v1",
-  apiKey: "backupApiKey",
+  driver: OpenRouterDriver({ baseUrl: "http://backup.test/v1", apiKey: secret("BACKUP_API_KEY") }),
   timeout: seconds(5),
   cost: ModelCost.fromResponse(),
   reasoning: Reasoning.modelDecides(),
@@ -160,16 +165,15 @@ describe("AC1: a model that cannot take a file's type stops the start (when the 
     openDuration: seconds(30),
   }),
 })
-class VisionlessBackup extends OpenRouterProvider {
-  override readonly requestFields: OpenRouterFields = {};
-}
+class VisionlessBackup {}
 
 @ModelProvider({
   name: "primary-model-provider",
   description: "A primary with a fallback",
-  serves: [/^primary\//],
-  baseUrl: "http://primary.test/v1",
-  apiKey: "openRouterApiKey",
+  driver: OpenRouterDriver({
+    baseUrl: "http://primary.test/v1",
+    apiKey: secret("OPEN_ROUTER_API_KEY"),
+  }),
   timeout: seconds(5),
   cost: ModelCost.fromResponse(),
   reasoning: Reasoning.modelDecides(),
@@ -181,9 +185,7 @@ class VisionlessBackup extends OpenRouterProvider {
   }),
   fallback: { provider: VisionlessBackup, models: { "primary/vision": "backup/text" } },
 })
-class PrimaryWithFallback extends OpenRouterProvider {
-  override readonly requestFields: OpenRouterFields = {};
-}
+class PrimaryWithFallback {}
 
 describe("AC1: every fallbackModels target must read what the primary reads", () => {
   it("AC1: a fallback model without image is a start error naming the fallback model", async () => {
@@ -194,7 +196,9 @@ describe("AC1: every fallbackModels target must read what the primary reads", ()
     ];
 
     const { problems } = await checkedModelUses(
-      modelUsesOf(configOf("primary/vision", files), [], { builtInFileModels: false }),
+      modelUsesOf(configOf("primary/vision", files, "primary-model-provider"), [], {
+        builtInFileModels: false,
+      }),
       ModelProviderDirectory.of([PrimaryWithFallback, VisionlessBackup]),
       { env: {}, send: providerStub([], catalog).fetch },
     );
@@ -215,7 +219,9 @@ describe("AC1: every fallbackModels target must read what the primary reads", ()
     ];
 
     const { problems, inputs } = await checkedModelUses(
-      modelUsesOf(configOf("primary/vision", filesOf({})), [], { builtInFileModels: false }),
+      modelUsesOf(configOf("primary/vision", filesOf({}), "primary-model-provider"), [], {
+        builtInFileModels: false,
+      }),
       ModelProviderDirectory.of([PrimaryWithFallback, VisionlessBackup]),
       { env: {}, send: providerStub([], catalog).fetch },
     );
@@ -240,10 +246,15 @@ describe("AC4: a guardrail's or a judge's model that cannot take a file's type s
   ) => {
     const config = configOf("vision/full", files);
     const reads = guardrailReadersOf(config, byElement, graph).get("looks-guardrail");
-    const uses = modelUsesOf(config, [], {
-      builtInFileModels: false,
-      guardrails: [{ name: "looks-guardrail", model, reads }],
-    });
+    const uses = modelUsesOf(
+      config,
+      [],
+      {
+        builtInFileModels: false,
+        guardrails: [{ name: "looks-guardrail", model, modelProvider: DECISIONS, reads }],
+      },
+      KINDS,
+    );
     return checkedModelUses(uses, directoryOf(), {
       env: {},
       send: providerStub([], CATALOG).fetch,
@@ -292,10 +303,17 @@ describe("AC4: a guardrail's or a judge's model that cannot take a file's type s
     const reads = guardrailReadersOf(config, guardedBy("looks-guardrail"), graph).get(
       "looks-guardrail",
     );
-    const uses = modelUsesOf(config, [], {
-      builtInFileModels: false,
-      guardrails: [{ name: "looks-guardrail", model: "typesafe/jev-1.13", reads }],
-    });
+    const uses = modelUsesOf(
+      config,
+      [],
+      {
+        builtInFileModels: false,
+        guardrails: [
+          { name: "looks-guardrail", model: "typesafe/jev-1.13", modelProvider: DECISIONS, reads },
+        ],
+      },
+      KINDS,
+    );
 
     const { problems, inputs } = await checkedModelUses(uses, directoryOf(), {
       env: {},

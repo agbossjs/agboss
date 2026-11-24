@@ -6,7 +6,7 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { describe, expect, it, vi } from "vitest";
 import { nameOf } from "../../src/components/name-of.js";
-import { OpenAiCompatibleProvider } from "../../src/models/index.js";
+import { OpenAiCompatibleProvider } from "../../src/models/openai-compatible.provider.js";
 import { execute } from "../helpers/flow.js";
 import {
   OneAnswerApplication,

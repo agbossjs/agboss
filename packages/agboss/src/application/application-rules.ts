@@ -13,11 +13,7 @@ import { infrastructureContractOf } from "../infrastructure/contracts.js";
 import { environmentRuleViolations, readingClassesOf } from "../environments/contract.js";
 import { isModelProviderClass, modelProviderOf } from "../models/model-provider.decorator.js";
 import { listedModelProvidersOf } from "../models/resolution.js";
-import {
-  providerFieldsViolations,
-  providerPriceViolations,
-  providerModeViolations,
-} from "../models/provider-mode-rules.js";
+import { providerPriceViolations, providerModeViolations } from "../models/provider-mode-rules.js";
 import type { ApplicationOptions } from "./application.js";
 import { contextRuleViolations } from "../flow/context/context-rules.js";
 import { componentOf } from "../components/metadata.js";
@@ -194,7 +190,6 @@ export function applicationRuleViolations(
     ...budgetRuleViolations(budgetedOf(options, budgetOverlays)),
     ...modelProviderNameViolations(options),
     ...providerModeViolations(options.name, withNamedModelProvider(options)),
-    ...providerFieldsViolations(options.name, withNamedModelProvider(options)),
     ...providerPriceViolations(options.name, withNamedModelProvider(options)),
     ...infrastructureViolations(options),
     ...environmentRuleViolations(

@@ -2,13 +2,13 @@ import { usd } from "../../src/units/index.js";
 import { describe, expect, it } from "vitest";
 import { createProviderGateway } from "../../src/llm/gateway.js";
 import { providerClients, ProviderCapabilityError } from "../../src/llm/provider-clients.js";
-import { ConfigurationError, DecisionsModelProvider, ModelKind } from "../../src/models/index.js";
+import { ConfigurationError, ModelKind } from "../../src/models/index.js";
 import { ModelProviderDirectory } from "../../src/models/resolve.js";
 import { modelProviderOf } from "../../src/models/model-provider.decorator.js";
 import type { ProviderResolution, RegisteredModelProvider } from "../../src/models/resolve.js";
 import { request } from "../routers/fixtures.js";
 import { ENV, instanceCalls, KEYS } from "../models/gateway.js";
-import { LocalModelProvider } from "../models/providers.fixture.js";
+import { LocalModelProvider, TestDecisionsProvider } from "../models/providers.fixture.js";
 import { providerStub } from "../models/stub.js";
 
 const options = (send = providerStub().fetch) => ({
@@ -24,13 +24,17 @@ describe("AC6: the default gateway resolves each model's provider", () => {
       { body: { answers: { route: { choice: "finish" } }, usage: { cost: 0.0001 } } },
     ]);
     const gateway = createProviderGateway(
-      ModelProviderDirectory.of([DecisionsModelProvider]),
+      ModelProviderDirectory.of([TestDecisionsProvider]),
       options(stub.fetch),
     );
 
     const outcome = await gateway.routeTo({
       router: "main",
-      model: { kind: "jev", model: "typesafe/jev-1.13" },
+      model: {
+        kind: "jev",
+        model: "typesafe/jev-1.13",
+        modelProvider: "decisions-model-provider",
+      },
       request,
     });
 
@@ -45,7 +49,7 @@ describe("AC6: the default gateway resolves each model's provider", () => {
     });
   });
 
-  it("AC6: a model no provider serves fails with model.unserved at the call", async () => {
+  it("AC6: a model no provider is named for fails with model.missing-provider at the call", async () => {
     const gateway = createProviderGateway(
       ModelProviderDirectory.of([LocalModelProvider]),
       options(),
@@ -60,7 +64,11 @@ describe("AC6: the default gateway resolves each model's provider", () => {
     expect(
       await gateway.routeTo({
         router: "main",
-        model: { kind: "jev", model: "typesafe/jev-1.13" },
+        model: {
+          kind: "jev",
+          model: "typesafe/jev-1.13",
+          modelProvider: "decisions-model-provider",
+        },
         request,
       }),
     ).toMatchObject({ kind: "failed" });

@@ -87,7 +87,7 @@ const routerUse = (
   const isDecisions =
     model.kind === "jev" ||
     (model.modelProvider !== undefined &&
-      purposeOf(model.model, model.modelProvider, kinds) === ModelKind.Decisions);
+      purposeOf(model.modelProvider, kinds) === ModelKind.Decisions);
   const purpose = isDecisions ? ModelKind.Decisions : ModelKind.Chat;
   const settings = isDecisions ? {} : { settings: resolveSettings(model, config.defaults.models) };
   return { key, model: model.model, purpose, ...providerOf(model.modelProvider), ...settings };
@@ -180,7 +180,7 @@ function judgeUsesOf(
   const readers = judgeReadersOf(config);
   return Object.entries(config.judges ?? {}).map(([name, judge]): ModelUse => {
     const reads = fileReadsOf(readers.get(name));
-    return purposeOf(judge.model, judge.modelProvider, kinds) === ModelKind.Decisions
+    return purposeOf(judge.modelProvider, kinds) === ModelKind.Decisions
       ? {
           key: `judges.${name}`,
           model: judge.model,
@@ -198,7 +198,7 @@ const namedUse =
   (named: ModelNamingRouter): ModelUse => ({
     key: `${kind}.${named.name}`,
     model: named.model,
-    purpose: purposeOf(named.model, named.modelProvider, kinds),
+    purpose: purposeOf(named.modelProvider, kinds),
     ...providerOf(named.modelProvider),
   });
 
@@ -242,7 +242,7 @@ export function modelUsesOf(
     ...guardrails.map((guardrail): ModelUse => ({
       key: `guardrails.${guardrail.name}`,
       model: guardrail.model,
-      purpose: purposeOf(guardrail.model, guardrail.modelProvider, kinds),
+      purpose: purposeOf(guardrail.modelProvider, kinds),
       ...providerOf(guardrail.modelProvider),
       ...fileReadsOf(guardrail.reads),
     })),

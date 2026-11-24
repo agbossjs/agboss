@@ -12,11 +12,10 @@ import { Application } from "../../../../src/application/application.js";
 import {
   ModelCost,
   ModelProvider,
-  OpenAiCompatibleProvider,
+  OpenAiCompatibleDriver,
   PromptCaching,
   Reasoning,
   RetryPolicy,
-  type NoRequestFields,
 } from "../../../../src/models/index.js";
 import { minutes, seconds, usd } from "../../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
@@ -125,8 +124,7 @@ export class ReadingWorkflow {}
 @ModelProvider({
   name: "wire-model-provider",
   description: "An OpenAI-compatible server, stubbed",
-  serves: [/^wire\//],
-  baseUrl: "http://wire.test/v1",
+  driver: OpenAiCompatibleDriver({ baseUrl: "http://wire.test/v1" }),
   timeout: seconds(5),
   cost: ModelCost.fromPrices({
     "wire/model": { inputPerMillion: usd(1), outputPerMillion: usd(1) },
@@ -139,9 +137,7 @@ export class ReadingWorkflow {}
     openDuration: seconds(30),
   }),
 })
-export class WireModelProvider extends OpenAiCompatibleProvider {
-  override readonly requestFields: NoRequestFields = {};
-}
+export class WireModelProvider {}
 
 @Application({
   name: "one-answer-application",

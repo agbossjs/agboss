@@ -12,8 +12,8 @@ import {
   inline,
 } from "../../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
-import { DecisionsModelProvider } from "../../../src/models/index.js";
-import { LocalModelProvider } from "../../models/providers.fixture.js";
+import {} from "../../../src/models/index.js";
+import { LocalModelProvider, TestDecisionsProvider } from "../../models/providers.fixture.js";
 import { onStart } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -36,6 +36,7 @@ export class WindowDto {
   prompt: inline("Recall."),
   description: "Recalls",
   model: "local/llama",
+  modelProvider: LocalModelProvider,
   input: { message: WorkflowStartTextDto },
   output: RecallDto,
 })
@@ -46,6 +47,7 @@ export class Recaller {}
   prompt: inline("Window."),
   description: "Sees two turns",
   model: "local/llama",
+  modelProvider: LocalModelProvider,
   memory: Window2Memory,
   input: { recall: RecallDto },
   output: WindowDto,
@@ -57,6 +59,7 @@ export class Windowed {}
   prompt: inline("Note."),
   description: "Opts out of the workflow's memory",
   model: "local/llama",
+  modelProvider: LocalModelProvider,
   memory: NoMemory,
   input: { window: WindowDto },
 })
@@ -77,12 +80,11 @@ export class Recalled {}
 
 const DEFAULTS = {
   models: { temperature: 0, maxTokens: TokenLimit.ModelMax },
-  router: { model: "typesafe/jev-1.13" },
   tools: { maxToolCalls: 2 },
 } as const;
 
 /** The model providers of both applications (#266): Jev's decisions, the local chat models. */
-const MODEL_PROVIDERS = [DecisionsModelProvider, LocalModelProvider];
+const MODEL_PROVIDERS = [TestDecisionsProvider, LocalModelProvider];
 
 /** Three agents in a line: the built-in window (4 turns), a window of its own (2), no memory. */
 @Workflow({

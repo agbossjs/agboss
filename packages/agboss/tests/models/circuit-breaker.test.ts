@@ -19,7 +19,12 @@ const policy = CircuitBreakerPolicy.fixed({
   openDuration: seconds(30),
 });
 const AGENT = { kind: "agent", agent: "scout" } as const;
-const KIMI = { model: "moonshotai/kimi-k2.6", temperature: 0, maxTokens: 1 };
+const KIMI = {
+  model: "moonshotai/kimi-k2.6",
+  modelProvider: "openrouter-model-provider",
+  temperature: 0,
+  maxTokens: 1,
+};
 
 /** OpenRouter's gateway (its fallback: the backup) with its breaker already open (#385: the chat model falls back). */
 async function openedGateway(send: typeof fetch) {

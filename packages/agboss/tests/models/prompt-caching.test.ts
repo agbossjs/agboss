@@ -9,10 +9,16 @@ import {
 } from "../../src/models/index.js";
 import { promptCachingLabel, promptCachingOfSetting } from "../../src/models/prompt-caching.js";
 import { TestOpenRouterProvider } from "./providers.fixture.js";
+import { handlerOf } from "./driver-handler.js";
 import { LocalModelProvider } from "./providers.fixture.js";
 import { wireBodies } from "./gateway.js";
 
-const claude = { model: "anthropic/claude-sonnet-4.5", temperature: 0, maxTokens: 100 };
+const claude = {
+  model: "anthropic/claude-sonnet-4.5",
+  modelProvider: "openrouter-model-provider",
+  temperature: 0,
+  maxTokens: 100,
+};
 const conversation = {
   model: "anthropic/claude-sonnet-4.5",
   messages: [
@@ -24,8 +30,8 @@ const conversation = {
 };
 
 const planFor = (caching: PromptCaching, model = "anthropic/claude-sonnet-4.5") =>
-  new TestOpenRouterProvider().wirePlanOf({
-    settings: { model, temperature: 0, maxTokens: 10 },
+  handlerOf(TestOpenRouterProvider).wirePlanOf({
+    settings: { model, modelProvider: "openrouter-model-provider", temperature: 0, maxTokens: 10 },
     reasoning: Reasoning.modelDecides(),
     promptCaching: caching,
   });
@@ -105,7 +111,14 @@ describe("AC6: prompt caching — on({ retention?, cachedParts, key? }) | off()"
   it("AC6: OpenAI's dialect — prompt_cache_key and a one-day retention, no markers", async () => {
     const [body] = await wireBodies(
       [LocalModelProvider],
-      [{ model: "local/llama", temperature: 0, maxTokens: 10 }],
+      [
+        {
+          model: "local/llama",
+          modelProvider: "local-model-provider",
+          temperature: 0,
+          maxTokens: 10,
+        },
+      ],
     );
 
     expect(body).toMatchObject({ prompt_cache_key: "job-scout", prompt_cache_retention: "24h" });

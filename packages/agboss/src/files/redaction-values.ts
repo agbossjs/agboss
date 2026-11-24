@@ -1,5 +1,6 @@
 import type { AgentsConfigOf } from "../config/types.js";
-import { isHttpProvider } from "../models/model-provider.decorator.js";
+import { isDriverOptions } from "../models/model-provider.decorator.js";
+import type { DriverHeaders } from "../models/model-driver.js";
 import type { RegisteredModelProvider } from "../models/resolve.js";
 import type { ModelUse } from "../models/uses.js";
 import type { ResolvedModelFiles } from "./file-settings.js";
@@ -21,22 +22,39 @@ interface UsedProvider {
 const vendorOf = (model: string): string | undefined =>
   model.includes("/") ? model.slice(0, model.indexOf("/")) : undefined;
 
-/** Whether two provider classes are one server under one set of credentials: the same base URL and the same key field. */
+/** Whether two provider classes are one server under one key: drivers of the same dialect, base URL and key reference. */
 function isSameServerAndKey(a: RegisteredModelProvider, b: RegisteredModelProvider): boolean {
   const [x, y] = [a.options, b.options];
+  if (!isDriverOptions(x) || !isDriverOptions(y)) return false;
+  const [one, other] = [x.driver.settings, y.driver.settings];
   return (
-    // y is HTTP (a string base URL) and x has the same base URL: x is HTTP too
-    isHttpProvider(y) &&
-    x.apiKey !== undefined &&
-    x.apiKey === y.apiKey &&
-    x.baseUrl === y.baseUrl &&
-    x.baseUrlField === y.baseUrlField
+    x.driver.dialect === y.driver.dialect &&
+    one.apiKey?.variable !== undefined &&
+    one.apiKey.variable === other.apiKey?.variable &&
+    sameText(one.baseUrl, other.baseUrl) &&
+    sameHeaders(one.headers, other.headers)
   );
 }
 
+/** Two header sets are the same names with the same texts, or the same variables: another header may be another account. */
+function sameHeaders(a: DriverHeaders | undefined, b: DriverHeaders | undefined): boolean {
+  const [x, y] = [Object.entries(a ?? {}), Object.entries(b ?? {})];
+  return (
+    x.length === y.length &&
+    x.every(([name, value]) => {
+      const other = b?.[name];
+      return other !== undefined && sameText(value, other);
+    })
+  );
+}
+
+/** Two base URLs are the same text, or the same variable. */
+const sameText = (a: DriverHeaders[string], b: DriverHeaders[string]): boolean =>
+  typeof a === "string" || typeof b === "string" ? a === b : a.variable === b.variable;
+
 /**
  * Whether the redaction model is "the same provider" as the agent's own, fail-closed (#899 §6): the same
- * provider, or one on the same base URL with the same key field — never judged by a display name two
+ * provider, or one on the same base URL with the same key — never judged by a display name two
  * providers could share. It is not the same when the redaction provider's breaker can fail over to another
  * provider (the values would go there), and not when the two models are of different vendors: an aggregator
  * such as OpenRouter serves them all, and its model is the one that gets the data. In doubt: not the same.

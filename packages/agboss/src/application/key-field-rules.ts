@@ -6,37 +6,20 @@ import {
   secretFieldsReadBy,
 } from "../environments/contract.js";
 import { violation, type RuleCode, type RuleViolation } from "../graph/rule-error.js";
-import { OPENROUTER_API_KEY_FIELD } from "../models/jev.provider.js";
-import { isModelProviderClass, modelProviderOf } from "../models/model-provider.decorator.js";
 import type { ApplicationOptions } from "./application.js";
 
 /**
  * The application's key field (#825): `piiKeyField` (the PII tokens' key) names a `Secret` field of
- * the environment, and it is no other key. A key shared with a model provider's `apiKey` is rotated with
- * it, routinely, by the provider: every PII token, or every stored fingerprint, would change with it.
+ * the environment, and it is no other key. A key shared with another Secret a class reads is rotated
+ * with it: every PII token, or every stored fingerprint, would change with it.
  */
 
 /** The other keys an application declares, by field: who reads each one. */
 export type DeclaredKeys = ReadonlyMap<string, string>;
 
-/** The `apiKey` fields of the model providers the application's models go through (#266). */
-function providerKeysOf(options: ApplicationOptions): readonly (readonly [string, string])[] {
-  const listed = (options.providers ?? []).filter(isModelProviderClass);
-  // none listed → the built-in OpenRouter providers, on their key field
-  if (listed.length === 0)
-    return [[OPENROUTER_API_KEY_FIELD, "the built-in OpenRouter providers' apiKey"]];
-  return listed.flatMap((cls) => {
-    const { apiKey } = modelProviderOf(cls) as { readonly apiKey?: string };
-    return apiKey === undefined ? [] : [[apiKey, `${cls.name}'s apiKey`] as const];
-  });
-}
-
-/** Every key the application declares besides its own key fields: providers', the stores'. */
-export function declaredKeysOf(
-  options: ApplicationOptions,
-  listed: readonly Class[],
-): DeclaredKeys {
-  const keys = new Map<string, string>(providerKeysOf(options));
+/** Every key the application declares besides its own key fields: the Secrets its listed classes read. */
+export function declaredKeysOf(listed: readonly Class[]): DeclaredKeys {
+  const keys = new Map<string, string>();
   const readers = readingClassesOf(listed, depsOf).map((reading) => reading.reader);
   for (const field of secretFieldsReadBy(readers))
     if (!keys.has(field)) keys.set(field, "a Secret a listed class reads (environmentFields)");
@@ -97,6 +80,6 @@ export function keyFieldViolations(
   options: ApplicationOptions,
   listed: readonly Class[],
 ): RuleViolation[] {
-  const declared = declaredKeysOf(options, listed);
+  const declared = declaredKeysOf(listed);
   return [...missingFieldViolations(options), ...piiKeySharedViolations(options, declared)];
 }

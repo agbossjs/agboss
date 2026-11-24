@@ -1,3 +1,4 @@
+import { HarnessModelProvider } from "../../../model-providers/harness.model-provider.js";
 import { Agent } from "@agboss/core";
 import { DeskQuestionDto } from "../../dto/desk-question.dto.js";
 import { NoCredentialsGuardrail } from "../../guardrails/no-credentials/no-credentials.guardrail.js";
@@ -18,6 +19,7 @@ import { SearchShippingPolicyTool } from "../../tools/search-shipping-policy.too
   description: "Answers questions about orders",
   prompt: "./desk.prompt.md",
   model: "harness/desk",
+  modelProvider: HarnessModelProvider,
   input: { question: DeskQuestionDto },
   tools: [OrderStatusTool, CloseAccountTool, SearchShippingPolicyTool],
   guardrails: [NoCredentialsGuardrail, NoPromisesGuardrail],

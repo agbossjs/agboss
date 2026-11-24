@@ -8,14 +8,12 @@ import { minutes, seconds } from "../../../units/index.js";
 import { CircuitBreakerPolicy } from "../../../models/circuit-breaker-policy.js";
 
 /**
- * The fault fixture's only model provider (#484): its workflows call no model, so it serves no
- * model a component names (`fault/…`) and is never called. Listed so the built-in OpenRouter
- * providers, which need a key, are not: a pod runs offline.
+ * The fault fixture's only model provider (#484): its workflows call no model, so it is never
+ * called. Listed so that no provider with a key is needed: a pod runs offline.
  */
 @ModelProvider({
   name: "fault-model-provider",
   description: "Serves no model: the fault fixture calls none",
-  serves: [/^fault\//u],
   timeout: seconds(5),
   cost: ModelCost.fromResponse(),
   circuitBreakerPolicy: CircuitBreakerPolicy.fixed({

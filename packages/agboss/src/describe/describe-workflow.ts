@@ -4,7 +4,8 @@ import { memoryPlanOf, readerOf } from "../memory/plan.js";
 import { resolveAgentLimits, type AgentLimit } from "../graph/agent-loop/index.js";
 import { reasoningLabel, reasoningOfThinking } from "../models/reasoning.js";
 import { flowLines } from "../flow/print.js";
-import { isDecisionModel } from "../graph/router-model.js";
+import { ModelKind } from "../models/model-kind.js";
+import { providerKindsOf } from "../models/resolution.js";
 import { NodeKind } from "../flow/ast.js";
 import { isCodeRouterNode } from "../flow/runtime/graph-model.js";
 import { childLines, inputLines } from "./inputs.js";
@@ -102,9 +103,10 @@ const visitsLabel = (maxVisits: number | undefined): string =>
 
 /** Each router: its model (decision or chat), or `code` for one decided by its `route()` (#280). */
 function routerLines(bundle: AssembledWorkflow): string[] {
+  const kinds = providerKindsOf(bundle.modelProviders);
   const models = bundle.routers.map(
     (router) =>
-      `  ${router.name}  ${isDecisionModel(router.model) ? "decisions" : "llm"} ${router.model} ${routerModelSource(bundle, router)}${visitsLabel(router.maxVisits)} — ${router.description}`,
+      `  ${router.name}  ${router.modelProvider !== undefined && kinds.get(router.modelProvider) === ModelKind.Decisions ? "decisions" : "llm"} ${router.model} ${routerModelSource(bundle, router)}${visitsLabel(router.maxVisits)} — ${router.description}`,
   );
   const code = [...bundle.graph.nodes.values()].flatMap((node) =>
     node.declaration.kind === NodeKind.Router && isCodeRouterNode(node)
