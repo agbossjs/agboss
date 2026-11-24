@@ -1,5 +1,5 @@
 import type { Class } from "../components/injection.js";
-import { arbiterOf, isCodeArbiter } from "../flow/decorators/arbiter.js";
+import { arbiterOf, isDeclarativeArbiter } from "../flow/decorators/arbiter.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import { DecidedBy } from "../flow/decorators/router.js";
 import { QuorumKind, type ArbiterClass, type Quorum } from "../flow/ast.js";
@@ -116,7 +116,7 @@ function arbiterSnapshotOf(arbiter: ArbiterClass): ArbiterSnapshot {
   const options = arbiterOf(arbiter)?.options;
   const name = options?.name ?? arbiter.name;
   const base = { name, kind: ComponentKind.Arbiter, schemaHash: undefined };
-  if (options === undefined || isCodeArbiter(options))
+  if (options === undefined || !isDeclarativeArbiter(options))
     return { ...base, decidedBy: DecidedBy.Code, promptHash: undefined };
   return {
     ...base,

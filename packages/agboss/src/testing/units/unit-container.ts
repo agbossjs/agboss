@@ -8,6 +8,8 @@ import { contextValuesOf } from "../../components/context-tokens.js";
 import type { Token } from "../../components/injection.js";
 import { JudgeModel } from "../../components/judge-decorators.js";
 import { LiveJudgeModel } from "../../components/judge-call.js";
+import { ArbiterModel } from "../../flow/decorators/arbiter.js";
+import { LiveArbiterModel } from "../../flow/runtime/launch/arbiter-live.js";
 import { ROUTER_FACTORY } from "../../components/runtime.js";
 import { LiveSpendRecorder, SpendRecorder } from "../../components/spend-recorder.js";
 import type { RuntimeContexts } from "../../flow/context/runtime-contexts.js";
@@ -43,6 +45,7 @@ export function unitContainer(
     [ROUTER_FACTORY, noRouterFactory],
     ...contextValuesOf(contexts),
     [JudgeModel, new DependantValue((dependant) => new LiveJudgeModel(dependant))],
+    [ArbiterModel, new DependantValue((dependant) => new LiveArbiterModel(dependant))],
     [SpendRecorder, new DependantValue((dependant) => new LiveSpendRecorder(dependant))],
     [Clock, clock],
     // the runner's stores decide by its clock (#533)

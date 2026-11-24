@@ -88,10 +88,7 @@ const FIXTURES: Readonly<Record<ComponentDecoratorName, string>> = {
     '@Judge({ name: "grounded-judge", model: "moonshotai/kimi-k2.6", output: AnswerDto, deps: [JudgeModel] })',
     "async judge(): Promise<void>",
   ),
-  Arbiter: statefulClass(
-    '@Arbiter({ name: "in-range-arbiter", decidedBy: DecidedBy.Code })',
-    "isInRange(): void",
-  ),
+  Arbiter: statefulClass('@Arbiter({ name: "in-range-arbiter" })', "isInRange(): void"),
   Memory: statefulClass(
     '@Memory({ name: "graph-memory", description: "d", ttl: Ttl.Forever, turnsBetweenCompactions: 5 })',
     "async compact(): Promise<void>",
@@ -199,7 +196,7 @@ const NOT_COMPONENTS: Readonly<Record<string, string>> = {
   ChannelRole: "an abstract role: its @Channel implementation is the component",
   McpEndpoint: "what connectMcp and mcpHttpListener expose: an empty configuration class",
   A2AExpose: "what a2aHttpListener serves (#398 PR 3): an empty configuration class",
-  OnAnswer: "a method decorator (of a code @Arbiter)",
+  Arbitrate: "a method decorator (of a code @Arbiter)",
   SqliteDriver: "a driver factory (#1321): settings for a storage component, not a class",
   S3Driver: "a driver factory (#1321): settings for a storage component, not a class",
   LocalDiskDriver: "a driver factory (#1321): settings for a storage component, not a class",

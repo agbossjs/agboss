@@ -7,13 +7,19 @@ import { usd } from "../../../src/units/index.js";
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CostSource, ZERO_USAGE, type UsageRecord } from "../../../src/finops/usage.js";
+import { LiveArbiterModel } from "../../../src/flow/runtime/launch/arbiter-live.js";
 import { judgeAnswer } from "../../../src/flow/runtime/launch/arbiters.js";
 import { ArbiterError } from "../../../src/flow/runtime/launch/quorum-errors.js";
 import { LimitExceededError } from "../../../src/graph/limits.js";
 
-vi.mock("../../../src/flow/decorators/arbiter.js", () => ({
+vi.mock("../../../src/flow/decorators/arbiter.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../../src/flow/decorators/arbiter.js")>()),
   arbiterOf: vi.fn((arbiter: { declaration?: unknown }) => arbiter.declaration),
-  isCodeArbiter: vi.fn((options: { decidedBy: string }) => options.decidedBy === "code"),
+  isCodeArbiter: vi.fn((options: { criteria?: unknown }) => options.criteria === undefined),
+  hasArbiterModel: vi.fn(
+    (options: { criteria?: unknown; deps?: unknown[] }) =>
+      options.criteria !== undefined || (options.deps ?? []).length > 0,
+  ),
   answerMethodsOf: vi.fn((arbiter: { methods?: unknown }) => arbiter.methods ?? []),
 }));
 vi.mock("../../../src/flow/decorators/declaration.js", () => ({
@@ -37,18 +43,17 @@ const modelArbiter = (name: string) => ({
   name,
   declaration: {
     options: {
-      decidedBy: "model",
       name,
       prompt: "\r\n\r\nCount it.\r\n",
-      criteria: [{ agent: Agent, prompt: "\r\n\r\nBe concrete.\r\n" }],
+      criteria: [{ target: Agent, prompt: "\r\n\r\nBe concrete.\r\n" }],
     },
   },
 });
 
 const codeArbiter = (name: string, judge: (answer: unknown) => unknown) => ({
   name,
-  declaration: { options: { decidedBy: "code", name } },
-  methods: [{ agent: Agent, method: "fromSkills" }],
+  declaration: { options: { name } },
+  methods: [{ targets: [Agent], method: "fromSkills" }],
   instance: { fromSkills: judge },
 });
 
@@ -133,7 +138,7 @@ describe("#1366: a model arbiter's call is checked against the budgets, and its 
 
     expect(judge.judge).toHaveBeenCalledWith(
       {
-        agent: "skills-agent",
+        target: "skills-agent",
         answer: { score: 7 },
         criterion: "Be concrete.",
         instructions: "Count it.",
@@ -201,7 +206,7 @@ describe("#1366: a model arbiter's call is checked against the budgets, and its 
     const noCriterion = {
       ...modelArbiter("c-arbiter"),
       declaration: {
-        options: { decidedBy: "model", name: "c-arbiter", prompt: "p", criteria: [] },
+        options: { name: "c-arbiter", prompt: "p", criteria: [] },
       },
     };
     const withModel = depsOf({ "c-arbiter": modelOf({ kind: "judged", passed: true, usage: [] }) });
@@ -330,10 +335,9 @@ describe("#1366: what is wrong with an arbiter is said", () => {
       ...modelArbiter("a-arbiter"),
       declaration: {
         options: {
-          decidedBy: "model",
           name: "a-arbiter",
           prompt: "p",
-          criteria: [{ agent: other, prompt: "other" }],
+          criteria: [{ target: other, prompt: "other" }],
         },
       },
     };
@@ -353,12 +357,11 @@ describe("#1366: what is wrong with an arbiter is said", () => {
       ...modelArbiter("a-arbiter"),
       declaration: {
         options: {
-          decidedBy: "model",
           name: "a-arbiter",
           prompt: "p",
           criteria: [
-            { agent: other, prompt: "the other's" },
-            { agent: Agent, prompt: "the right one" },
+            { target: other, prompt: "the other's" },
+            { target: Agent, prompt: "the right one" },
           ],
         },
       },
@@ -386,10 +389,10 @@ describe("#1366: a code arbiter, and a launch decided while it works", () => {
     const asked: string[] = [];
     const arbiter = {
       name: "code-arbiter",
-      declaration: { options: { decidedBy: "code", name: "code-arbiter" } },
+      declaration: { options: { name: "code-arbiter" } },
       methods: [
-        { agent: other, method: "fromOther" },
-        { agent: Agent, method: "fromSkills" },
+        { targets: [other], method: "fromOther" },
+        { targets: [Agent], method: "fromSkills" },
       ],
       instance: {
         fromOther: () => {
@@ -416,7 +419,7 @@ describe("#1366: a code arbiter, and a launch decided while it works", () => {
     const notAFunction = { ...codeArbiter("b-arbiter", () => true), instance: { fromSkills: 1 } };
     const noInstance = { ...codeArbiter("c-arbiter", () => true), instance: undefined };
 
-    expect(await causeOf([step(noMethod)], deps)).toBe("no @OnAnswer method for skills-agent");
+    expect(await causeOf([step(noMethod)], deps)).toBe("no @Arbitrate method for skills-agent");
     expect(await causeOf([step(notAFunction)], deps)).toBe("fromSkills is not a method");
     expect(await causeOf([step(noInstance)], deps)).toBe("fromSkills is not a method");
     expect(await causeOf([step(codeArbiter("d-arbiter", () => "yes"))], deps)).toBe(
@@ -454,8 +457,8 @@ describe("#1366: the names an arbiter and its agent go by", () => {
     }
     const arbiter = {
       name: "code-arbiter",
-      declaration: { options: { decidedBy: "code", name: "code-arbiter" } },
-      methods: [{ agent: PlainAgent, method: "fromPlain" }],
+      declaration: { options: { name: "code-arbiter" } },
+      methods: [{ targets: [PlainAgent], method: "fromPlain" }],
       instance: { fromPlain: () => true },
     };
     const { deps } = depsOf({});
@@ -472,8 +475,8 @@ describe("#1366: the names an arbiter and its agent go by", () => {
   it("a rejection names the arbiter by its declared name, not its class's", async () => {
     const arbiter = {
       name: "ClassName",
-      declaration: { options: { decidedBy: "code", name: "declared-name" } },
-      methods: [{ agent: Agent, method: "fromSkills" }],
+      declaration: { options: { name: "declared-name" } },
+      methods: [{ targets: [Agent], method: "fromSkills" }],
       instance: { fromSkills: () => false },
     };
     const { deps } = depsOf({});
@@ -497,8 +500,8 @@ describe("#1366: the names an arbiter and its agent go by", () => {
 describe("#1366: a code arbiter's method, and the launch deciding while it works", () => {
   const codeWith = (instance: unknown) => ({
     name: "code-arbiter",
-    declaration: { options: { decidedBy: "code", name: "code-arbiter" } },
-    methods: [{ agent: Agent, method: "fromSkills" }],
+    declaration: { options: { name: "code-arbiter" } },
+    methods: [{ targets: [Agent], method: "fromSkills" }],
     instance,
   });
   const causeOf = async (arbiter: object): Promise<string> => {
@@ -556,5 +559,133 @@ describe("#1366: a code arbiter's method, and the launch deciding while it works
 
     expect(added).toHaveBeenCalledWith("abort", expect.any(Function), { once: true });
     expect(removed).toHaveBeenCalledWith("abort", added.mock.calls[0]?.[1]);
+  });
+});
+
+describe("#1283: a hybrid arbiter's own model calls are budgeted, charged and kept", () => {
+  /** An arbiter whose method calls the current `ArbiterModel` once per `asks`, then answers by `then`. */
+  const hybrid = (name: string, method: (model: LiveArbiterModel) => unknown) => {
+    const live = new LiveArbiterModel(name);
+    return {
+      name,
+      declaration: { options: { name, deps: [LiveArbiterModel] } },
+      methods: [{ targets: [Agent], method: "isCounted" }],
+      instance: { isCounted: () => method(live) },
+    };
+  };
+
+  /** Its models: each `decide` checks the budgets first, then bills `costs[i]`. */
+  const modelsOf = (costs: readonly number[], calls: string[] = []) => ({
+    judge: vi.fn(),
+    metered: (call: { spent: UsageRecord[]; beforeCall: () => Promise<void> }) => {
+      let index = 0;
+      return {
+        model: "m",
+        invoke: vi.fn(),
+        decide: async () => {
+          await call.beforeCall();
+          calls.push(`decide#${String(index)}`);
+          call.spent.push(record(costs[index] ?? 0, "arbiter:hybrid-arbiter"));
+          index += 1;
+          return { ok: { type: "boolean", probability: 0.9 } };
+        },
+      };
+    },
+  });
+
+  const ask = (live: LiveArbiterModel) => live.decide({ state: "s", questions: {} });
+
+  it("its calls are checked with what the answer spent so far, and billed into the verdict", async () => {
+    const arbiter = hybrid("hybrid-arbiter", async (live) => {
+      await ask(live);
+      await ask(live);
+      return true;
+    });
+    const { deps, seen } = depsOf({ "hybrid-arbiter": modelsOf([0.25, 0.125]) });
+
+    const out = await judgeAnswer([step(arbiter)] as never, site, deps);
+
+    expect(out.isAccepted).toBe(true);
+    expect(out.usage.map((u) => u.costUsd)).toEqual([0.25, 0.125]);
+    expect(seen).toEqual([[], ["arbiter:hybrid-arbiter"]]);
+  });
+
+  it("a method that fails after a call is an ArbiterError carrying that call's spend", async () => {
+    const arbiter = hybrid("hybrid-arbiter", async (live) => {
+      await ask(live);
+      throw new Error("not a clear score");
+    });
+    const { deps } = depsOf({ "hybrid-arbiter": modelsOf([0.25]) });
+
+    const failure = await judgeAnswer([step(arbiter)] as never, site, deps).catch(
+      (e: unknown) => e,
+    );
+
+    expect(failure).toBeInstanceOf(ArbiterError);
+    expect((failure as ArbiterError).usage.map((u) => u.costUsd)).toEqual([0.25]);
+  });
+
+  it("a limit that stops its second call passes through, the first call's spend handed to the branch", async () => {
+    const arbiter = hybrid("hybrid-arbiter", async (live) => {
+      await ask(live);
+      await ask(live);
+      return true;
+    });
+    const limit = new LimitExceededError({
+      key: "k",
+      limit: 1,
+      actual: 2,
+      path: [],
+      spentUsd: usd(0),
+      usage: [],
+    });
+    const kept: UsageRecord[][] = [];
+    const { deps, beforeModelCall } = depsOf(
+      { "hybrid-arbiter": modelsOf([0.25]) },
+      {
+        keepSpend: (usage: UsageRecord[]) => {
+          kept.push([...usage]);
+        },
+      },
+    );
+    beforeModelCall.mockResolvedValueOnce(undefined).mockRejectedValueOnce(limit);
+
+    await expect(judgeAnswer([step(arbiter)] as never, site, deps)).rejects.toBe(limit);
+
+    expect(kept.map((usage) => usage.map((u) => u.costUsd))).toEqual([[0.25]]);
+  });
+
+  it("a launch decided while its call is out waits for the call's cost, asks no more, and does not count", async () => {
+    const controller = new AbortController();
+    const calls: string[] = [];
+    const arbiter = hybrid("hybrid-arbiter", async (live) => {
+      const first = ask(live);
+      controller.abort(); // the quorum is decided while the first call is out
+      await first;
+      await ask(live); // asks no more
+      return true;
+    });
+    const { deps } = depsOf(
+      { "hybrid-arbiter": modelsOf([0.25, 0.5], calls) },
+      { signal: controller.signal },
+    );
+
+    const out = await judgeAnswer([step(arbiter)] as never, site, deps);
+
+    expect(out.isAccepted).toBe(false);
+    expect(out.usage.map((u) => u.costUsd)).toEqual([0.25]);
+    expect(calls).toEqual(["decide#0"]);
+  });
+
+  it("a hybrid arbiter without a model is an ArbiterError before any call", async () => {
+    const arbiter = hybrid("hybrid-arbiter", (live) => live.model);
+    const { deps, beforeModelCall } = depsOf({});
+
+    const failure = await judgeAnswer([step(arbiter)] as never, site, deps).catch(
+      (e: unknown) => e,
+    );
+
+    expect(failure).toBeInstanceOf(ArbiterError);
+    expect(beforeModelCall).not.toHaveBeenCalled();
   });
 });

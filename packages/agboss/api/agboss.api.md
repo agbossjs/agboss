@@ -648,7 +648,7 @@ export enum AnswerFiles {
 }
 
 // @public
-export type AnswerJudgement<This, TAgent extends Class> = (this: This, answer: ArbiterAnswerOf<TAgent>) => boolean | Promise<boolean>;
+export type AnswerJudgement<This, TTargets extends readonly Class[]> = (this: This, answer: ArbitratedAnswerOf<TTargets>) => boolean | Promise<boolean>;
 
 // @public
 export type AnswerOf<Q> = Q extends ChoiceQuestion<infer O> ? ChoiceAnswer<O> : Q extends BooleanQuestion ? BooleanAnswer : Q extends ScoreQuestion ? ScoreAnswer : never;
@@ -821,10 +821,10 @@ export interface ApprovalDecision<TInput = unknown> {
 export function Arbiter(options: ModelArbiterOptions): ArbiterDecorator<[]>;
 
 // @public
-export function Arbiter<const TDeps extends readonly Token[] = []>(options: CodeArbiterOptions<TDeps>): ArbiterDecorator<TDeps>;
+export function Arbiter<const TDeps extends readonly Token[] = []>(options?: CodeArbiterOptions<TDeps> & HybridArbiterModelOptions<TDeps>): ArbiterDecorator<TDeps>;
 
 // @public
-export type ArbiterAnswerOf<TAgent extends Class> = ProducerOutputOf<InstanceType<TAgent>>;
+export type ArbiterAnswerOf<TTarget extends Class> = ProducerOutputOf<InstanceType<TTarget>>;
 
 // @public
 export type ArbiterChoice = ArbiterClass | AnyOfArbiters;
@@ -835,9 +835,8 @@ export type ArbiterClass = Class;
 // @public
 export interface ArbiterCriterion {
     // (undocumented)
-    readonly agent: Class;
-    // (undocumented)
     readonly prompt: string;
+    readonly target: Class;
 }
 
 // @public
@@ -864,7 +863,38 @@ export interface ArbiterErrorOptions {
 }
 
 // @public
-export type ArbiterOptions = ModelArbiterOptions | CodeArbiterOptions;
+export abstract class ArbiterModel {
+    abstract decide<const Q extends DecisionQuestions>(request: DecisionRequest<Q>): Promise<AnswersOf<Q>>;
+    abstract invoke(input: string | readonly BaseMessageLike[]): Promise<string>;
+    abstract readonly model: string;
+}
+
+// @public
+export type ArbiterOptions = ModelArbiterOptions | RecordedCodeArbiterOptions;
+
+// @public
+type ArbitrableKind = NodeKind.Agent | NodeKind.Action | NodeKind.Workflow | NodeKind.Question;
+
+// @public
+export function Arbitrate<const TTargets extends readonly [Class, ...Class[]]>(...targets: TTargets & ArbitrateChecks<TTargets>): ArbitrateDecorator<TTargets>;
+
+// @public
+type ArbitrateCheck<TTarget extends Class> = KindCheck<TTarget, ArbitrableKind, "an agent, an external task, an action or a workflow"> extends infer TResult ? unknown extends TResult ? [ArbiterAnswerOf<TTarget>] extends [NoOutput] ? NoAnswerToJudge : unknown : TResult : never;
+
+// @public
+type ArbitrateChecks<TTargets extends readonly Class[]> = {
+    [K in keyof TTargets]: TTargets[K] extends Class ? ArbitrateCheck<TTargets[K]> : unknown;
+};
+
+// @public
+export type ArbitratedAnswerOf<TTargets extends readonly Class[]> = {
+    [K in keyof TTargets]: TTargets[K] extends Class ? TrackedAnswerOf<TTargets[K]> : never;
+}[number];
+
+// @public
+export type ArbitrateDecorator<TTargets extends readonly Class[]> = <This>(value: AnswerJudgement<This, TTargets>, context: ClassMethodDecoratorContext<This, AnswerJudgement<This, TTargets>> & {
+    readonly static: false;
+}) => void;
 
 // @public
 export interface AssignContext<TTarget> {
@@ -1778,15 +1808,9 @@ export interface ClusterStorageOptions {
 export interface CodeArbiterOptions<TDeps extends readonly Token[] = readonly Token[]> {
     // (undocumented)
     readonly criteria?: never;
-    // (undocumented)
-    readonly decidedBy: DecidedBy.Code;
     readonly deps?: TDeps;
     // (undocumented)
     readonly description?: string;
-    // (undocumented)
-    readonly model?: never;
-    // (undocumented)
-    readonly modelProvider?: never;
     readonly name?: string;
     // (undocumented)
     readonly prompt?: never;
@@ -4286,6 +4310,13 @@ declare namespace FlowTypes {
         GuardrailDecorator,
         ComponentSource,
         StartSource,
+        ArbitrableKind,
+        ArbitrateCheck,
+        ArbitrateChecks,
+        HybridArbiterModelOptions,
+        NoAnswerToJudge,
+        RecordedCodeArbiterOptions,
+        TrackedAnswerOf,
         CaseValueOf,
         SkipHandling,
         SkipOf,
@@ -4930,6 +4961,17 @@ export enum HttpSecuritySchemeKind {
     MutualTls = "mtls",
     OAuth2ClientCredentials = "oauth2-client-credentials"
 }
+
+// @public
+type HybridArbiterModelOptions<TDeps extends readonly Token[]> = [
+Extract<TDeps[number], typeof ArbiterModel>
+] extends [never] ? {
+    readonly model?: never;
+    readonly modelProvider?: never;
+} : {
+    readonly model?: string;
+    readonly modelProvider?: Class;
+};
 
 // @public
 export type HybridJudgeModelOptions<TDeps extends readonly Token[]> = [
@@ -6272,8 +6314,7 @@ export const Metadata: MetadataFacade;
 export interface MetadataFacade {
     // (undocumented)
     ancestors(value: object): readonly ValueMetadata[];
-    // (undocumented)
-    createdBy<TComponent extends Class>(value: Tracked<object, TComponent>): TComponent;
+    createdBy<TValue extends Tracked<object>>(value: TValue): TValue[typeof valueMetadata];
     // (undocumented)
     createdBy(value: object): Class | undefined;
     // (undocumented)
@@ -6310,8 +6351,6 @@ export interface MissingGeneratedTypes {
 // @public
 export interface ModelArbiterOptions {
     readonly criteria: readonly [ArbiterCriterion, ...ArbiterCriterion[]];
-    // (undocumented)
-    readonly decidedBy: DecidedBy.Model;
     // (undocumented)
     readonly deps?: never;
     // (undocumented)
@@ -6647,6 +6686,12 @@ export type NewTurn = Omit<Turn, "id" | "createdAt">;
 type NextHead<THead extends PathHead, TInstance> = THead extends SideHead<infer TClaims, infer TStart> ? [TClaims] extends [never] ? SideHead<ClaimsOf<TInstance>, TStart> : THead : THead;
 
 // @public
+interface NoAnswerToJudge {
+    // (undocumented)
+    readonly __error: "an @Action without an output gives an arbiter nothing to judge — give it an output";
+}
+
+// @public
 export interface NodeEvent extends ExecutionEvent {
     readonly step: StepRecord;
 }
@@ -6788,14 +6833,6 @@ export function onAction<const TClass extends Class>(source: TClass & KindCheck<
 
 // @public
 export function onAgent<const TClass extends Class>(source: TClass & KindCheck<TClass, NodeKind.Agent, KindLabel<NodeKind.Agent>>): AfterStep<InstanceType<TClass>, SourceHead>;
-
-// @public
-export function OnAnswer<const TAgent extends Class>(agent: TAgent & KindCheck<TAgent, NodeKind.Agent, KindLabel<NodeKind.Agent>>): OnAnswerDecorator<TAgent>;
-
-// @public
-export type OnAnswerDecorator<TAgent extends Class> = <This>(value: AnswerJudgement<This, TAgent>, context: ClassMethodDecoratorContext<This, AnswerJudgement<This, TAgent>> & {
-    readonly static: false;
-}) => void;
 
 // @public
 export interface OnBeforeDestroy {
@@ -8660,6 +8697,12 @@ export enum ReconciliationVerdict {
 }
 
 // @public
+type RecordedCodeArbiterOptions = CodeArbiterOptions & {
+    readonly model?: string;
+    readonly modelProvider?: Class;
+};
+
+// @public
 export interface RecordedElsewhereLedgerMark {
     // (undocumented)
     readonly state: LedgerState.RecordedElsewhere;
@@ -9088,7 +9131,7 @@ type RouteTargetKind = NodeKind.Agent | NodeKind.Action | NodeKind.Router | Node
 type RouteTargetLabel = "a route target (an agent, an action, a router, a child workflow or a finish)";
 
 // @public
-export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.one-of-not-exhaustive" | "flow.one-of-ambiguous" | "flow.duplicate-error-handler" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-max-previous" | "input.outdated-on-path" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.unjoinable-output" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "limits.timeout-invalid" | "application.store-backend-mismatch" | "application.store-backend-undeclared" | "application.store-descriptor-invalid" | "application.idempotency-key-required" | "application.pii-key-shared" | "a2a.expose-description-required" | "a2a.task-store-not-shared" | "a2a.message-store-not-shared" | "a2a.message-skill-pause" | "a2a.message-skill-effect" | "a2a.message-skill-tool" | "a2a.message-skill-compensation" | "a2a.message-skill-child" | "a2a.unknown-skill-option" | "a2a.file-options-invalid" | "a2a.file-store-required" | "a2a.file-store-not-shared" | "a2a.nested-file-field" | "a2a.unknown-finish" | "a2a.price-invalid" | "application.retention-invalid" | "mesh.not-a-mesh" | "mesh.limit-invalid" | "mesh.peer-without-keys" | "mesh.unknown-endpoint" | "mesh.duplicate-peer" | "application.not-an-expose" | "application.duplicate-expose" | "application.expose-unknown-start" | "name.kind-suffix" | "name.not-kebab-case" | "dto.name" | "dto.duplicate-name" | "dto.cyclic" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.max-steps-below-worst-case" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "limits.count-invalid" | "agent.dynamic-options" | "agent.duplicate-rag" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "pause-listener.not-a-handler" | "pause-listener.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.missing-limit" | "budget.conflicting-limit" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "environment.conflicting-field" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "rag.rerank-invalid" | "rag.scope-required" | "rag.custom-scope-missing-resolver" | "rag.not-a-reranker" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "tool-interceptor.target-not-a-tool" | "tool-interceptor.duplicate-hook" | "tool-interceptor.override-drops-target" | "tool-interceptor.unresolved-tool" | "tool-interceptor.duplicate-tool-name" | "tool-interceptor.unknown-hook" | "memory.not-a-memory" | "memory.invalid-setting" | "memory.uncompacted-turns-invalid" | "memory.conflicting-compaction" | "model.unserved" | "model.ambiguous-provider" | "model.missing-provider" | "model.incompatible-provider" | "model.missing" | "model.price-invalid" | "model-provider.both-modes" | "model-provider.request-fields-missing" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "channel.expires-in-invalid" | "channel.remind-before-invalid" | "channel.remind-before-exceeds-expiry" | "channel.remind-before-below-tick" | "channel.remind-before-working-without-working-expiry" | "channel.working-time-without-calendar" | "working-calendar.invalid" | "working-calendar.duplicate-name" | "tool.expires-in-without-channel" | "question.expires-in-conflict" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "judge.wrong-output" | "judge.same-model-family" | "judge.zero-retries" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-output" | "application.isolated-worker-invalid" | ExtraRuleCode;
+export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.one-of-not-exhaustive" | "flow.one-of-ambiguous" | "flow.duplicate-error-handler" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-max-previous" | "input.outdated-on-path" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.unjoinable-output" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "arbiter.not-an-arbiter" | "arbiter.unhandled-target" | "arbiter.unknown-target" | "arbiter.duplicate-target" | "arbiter.branch-has-no-output" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "limits.timeout-invalid" | "application.store-backend-mismatch" | "application.store-backend-undeclared" | "application.store-descriptor-invalid" | "application.idempotency-key-required" | "application.pii-key-shared" | "a2a.expose-description-required" | "a2a.task-store-not-shared" | "a2a.message-store-not-shared" | "a2a.message-skill-pause" | "a2a.message-skill-effect" | "a2a.message-skill-tool" | "a2a.message-skill-compensation" | "a2a.message-skill-child" | "a2a.unknown-skill-option" | "a2a.file-options-invalid" | "a2a.file-store-required" | "a2a.file-store-not-shared" | "a2a.nested-file-field" | "a2a.unknown-finish" | "a2a.price-invalid" | "application.retention-invalid" | "mesh.not-a-mesh" | "mesh.limit-invalid" | "mesh.peer-without-keys" | "mesh.unknown-endpoint" | "mesh.duplicate-peer" | "application.not-an-expose" | "application.duplicate-expose" | "application.expose-unknown-start" | "name.kind-suffix" | "name.not-kebab-case" | "dto.name" | "dto.duplicate-name" | "dto.cyclic" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.max-steps-below-worst-case" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "limits.count-invalid" | "agent.dynamic-options" | "agent.duplicate-rag" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "pause-listener.not-a-handler" | "pause-listener.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.missing-limit" | "budget.conflicting-limit" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "environment.conflicting-field" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "rag.rerank-invalid" | "rag.scope-required" | "rag.custom-scope-missing-resolver" | "rag.not-a-reranker" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "tool-interceptor.target-not-a-tool" | "tool-interceptor.duplicate-hook" | "tool-interceptor.override-drops-target" | "tool-interceptor.unresolved-tool" | "tool-interceptor.duplicate-tool-name" | "tool-interceptor.unknown-hook" | "memory.not-a-memory" | "memory.invalid-setting" | "memory.uncompacted-turns-invalid" | "memory.conflicting-compaction" | "model.unserved" | "model.ambiguous-provider" | "model.missing-provider" | "model.incompatible-provider" | "model.missing" | "model.price-invalid" | "model-provider.both-modes" | "model-provider.request-fields-missing" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "channel.expires-in-invalid" | "channel.remind-before-invalid" | "channel.remind-before-exceeds-expiry" | "channel.remind-before-below-tick" | "channel.remind-before-working-without-working-expiry" | "channel.working-time-without-calendar" | "working-calendar.invalid" | "working-calendar.duplicate-name" | "tool.expires-in-without-channel" | "question.expires-in-conflict" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "judge.wrong-output" | "judge.same-model-family" | "judge.zero-retries" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-output" | "application.isolated-worker-invalid" | ExtraRuleCode;
 
 // @public
 export interface RuleViolation {
@@ -10702,6 +10745,9 @@ export type Tracked<TValue extends object, TComponent extends Class = Class> = T
 };
 
 // @public
+type TrackedAnswerOf<TTarget extends Class> = ArbiterAnswerOf<TTarget> extends infer TOutput extends object ? Tracked<TOutput, TTarget> : ArbiterAnswerOf<TTarget>;
+
+// @public
 export interface TranscribeOptions {
     // (undocumented)
     readonly signal: AbortSignal;
@@ -12245,17 +12291,13 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/decorators/agent.ts - (ae-undocumented) Missing documentation for "cache".
 // src/flow/decorators/agent.ts - (ae-undocumented) Missing documentation for "maxToolCalls".
 // src/flow/decorators/agent.ts - (ae-undocumented) Missing documentation for "maxRetries".
-// src/flow/decorators/arbiter.ts - (ae-undocumented) Missing documentation for "agent".
 // src/flow/decorators/arbiter.ts - (ae-undocumented) Missing documentation for "prompt".
 // src/flow/decorators/arbiter.ts - (ae-undocumented) Missing documentation for "description".
-// src/flow/decorators/arbiter.ts - (ae-undocumented) Missing documentation for "decidedBy".
 // src/flow/decorators/arbiter.ts - (ae-undocumented) Missing documentation for "deps".
 // src/flow/decorators/arbiter.ts - (ae-undocumented) Missing documentation for "description".
-// src/flow/decorators/arbiter.ts - (ae-undocumented) Missing documentation for "decidedBy".
-// src/flow/decorators/arbiter.ts - (ae-undocumented) Missing documentation for "model".
-// src/flow/decorators/arbiter.ts - (ae-undocumented) Missing documentation for "modelProvider".
 // src/flow/decorators/arbiter.ts - (ae-undocumented) Missing documentation for "prompt".
 // src/flow/decorators/arbiter.ts - (ae-undocumented) Missing documentation for "criteria".
+// src/flow/decorators/arbiter.ts - (ae-undocumented) Missing documentation for "__error".
 // src/flow/decorators/router.ts - (ae-undocumented) Missing documentation for "spawn".
 // src/flow/decorators/router.ts - (ae-undocumented) Missing documentation for "failure".
 // src/flow/decorators/router.ts - (ae-undocumented) Missing documentation for "target".
@@ -12368,7 +12410,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/metadata.ts - (ae-undocumented) Missing documentation for "of".
 // src/flow/metadata.ts - (ae-undocumented) Missing documentation for "of".
 // src/flow/metadata.ts - (ae-undocumented) Missing documentation for "has".
-// src/flow/metadata.ts - (ae-undocumented) Missing documentation for "createdBy".
 // src/flow/metadata.ts - (ae-undocumented) Missing documentation for "createdBy".
 // src/flow/metadata.ts - (ae-undocumented) Missing documentation for "ancestors".
 // src/flow/metadata.ts - (ae-undocumented) Missing documentation for "Metadata".

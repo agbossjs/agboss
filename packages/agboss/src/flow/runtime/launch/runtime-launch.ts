@@ -1,6 +1,6 @@
 import type { ArbiterClass, Quorum } from "../../ast.js";
 import { componentModelOf, type ModelResolver } from "../../../models/model-resolver.js";
-import { arbiterOf, isCodeArbiter } from "../../decorators/arbiter.js";
+import { arbiterOf, hasArbiterModel } from "../../decorators/arbiter.js";
 import {
   EdgeKind,
   type FlowEdge,
@@ -128,7 +128,7 @@ export const modelArbitersOf = (
 ): readonly ModelArbiterUse[] =>
   arbiterClassesOf(launches).flatMap((arbiter): ModelArbiterUse[] => {
     const options = arbiterOf(arbiter)?.options;
-    if (options === undefined || isCodeArbiter(options)) return [];
+    if (options === undefined || !hasArbiterModel(options)) return [];
     const key = `arbiters.${options.name}`;
     const own = { model: options.model, provider: options.modelProvider, isRequired: true };
     return [{ name: options.name, ...componentModelOf(resolver, key, own) }];

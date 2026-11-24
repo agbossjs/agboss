@@ -120,7 +120,8 @@ export interface MetadataFacade {
   of<TComponent extends Class>(value: Tracked<object, TComponent>): ValueMetadata<TComponent>;
   of(value: object): ValueMetadata | undefined;
   has(value: object): value is Tracked<object>;
-  createdBy<TComponent extends Class>(value: Tracked<object, TComponent>): TComponent;
+  /** The class that gave `value`; for a value that is one of several tracked kinds (`@Arbitrate(A, B)`), `typeof A | typeof B`. */
+  createdBy<TValue extends Tracked<object>>(value: TValue): TValue[typeof valueMetadata];
   createdBy(value: object): Class | undefined;
   ancestors(value: object): readonly ValueMetadata[];
   /** A copy of `value` (its prototype kept) that states its metadata; `value` itself is never branded. */

@@ -9,8 +9,7 @@ import {
   toFinish,
 } from "../../../src/flow/builder.js";
 import { ExecutionContext } from "../../../src/flow/context/execution-context.js";
-import { Arbiter, OnAnswer } from "../../../src/flow/decorators/arbiter.js";
-import { DecidedBy } from "../../../src/flow/decorators/router.js";
+import { Arbiter, Arbitrate } from "../../../src/flow/decorators/arbiter.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { optional } from "../../../src/flow/dto-wrappers.js";
 import { StepFailedError } from "../../../src/graph/errors.js";
@@ -60,23 +59,22 @@ import { ScoreDto } from "./quorum-dtos.js";
 
 @Arbiter({
   name: "quick-score-arbiter",
-  decidedBy: DecidedBy.Code,
   deps: [ExecutionContext],
 })
 export class QuickScoreArbiter {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  @OnAnswer(ScoreAAgent)
+  @Arbitrate(ScoreAAgent)
   fromScoreA(answer: ScoreDto): boolean {
     return this.isScore(answer);
   }
 
-  @OnAnswer(ScoreBAgent)
+  @Arbitrate(ScoreBAgent)
   fromScoreB(answer: ScoreDto): boolean {
     return this.isScore(answer);
   }
 
-  @OnAnswer(ScoreCAgent)
+  @Arbitrate(ScoreCAgent)
   fromScoreC(answer: ScoreDto): boolean {
     return this.isScore(answer) && this.executionContext.step.copyNumber !== 0;
   }
@@ -88,13 +86,12 @@ export class QuickScoreArbiter {
 
 @Arbiter({
   name: "valid-score-arbiter",
-  decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
   prompt: "Count an answer only if it meets the criterion of the agent that gave it.",
   criteria: [
-    { agent: ScoreAAgent, prompt: "Gives a 1–10 score for technical skills, with a reason" },
-    { agent: ScoreBAgent, prompt: "Names at least two concrete risks" },
-    { agent: ScoreCAgent, prompt: "Ends with a clear hire / no hire" },
+    { target: ScoreAAgent, prompt: "Gives a 1–10 score for technical skills, with a reason" },
+    { target: ScoreBAgent, prompt: "Names at least two concrete risks" },
+    { target: ScoreCAgent, prompt: "Ends with a clear hire / no hire" },
   ],
 })
 export class ValidScoreArbiter {}
@@ -129,10 +126,9 @@ export class FitReviewWorkflow {}
 
 @Arbiter({
   name: "good-score-arbiter",
-  decidedBy: DecidedBy.Code,
 })
 export class GoodScoreArbiter {
-  @OnAnswer(CompanyVetAgent)
+  @Arbitrate(CompanyVetAgent)
   fromCompanyVet(answer: CompanyCheckDto): boolean {
     return answer.passed;
   }
@@ -140,11 +136,10 @@ export class GoodScoreArbiter {
 
 @Arbiter({
   name: "convincing-reason-arbiter",
-  decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
   prompt: "Count an answer only if it meets the criterion of the agent that gave it.",
   criteria: [
-    { agent: CompanyVetAgent, prompt: "The check names concrete facts about the company" },
+    { target: CompanyVetAgent, prompt: "The check names concrete facts about the company" },
   ],
 })
 export class ConvincingReasonArbiter {}
@@ -168,14 +163,13 @@ export class CompanySearchWorkflow {}
 
 @Arbiter({
   name: "due-diligence-arbiter",
-  decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
   prompt: "Count an answer only if it meets the criterion of the agent that gave it.",
   criteria: [
-    { agent: LegalAgent, prompt: "Names the legal risks found, or states that none were found" },
-    { agent: DealCriticAgent, prompt: "Gives at least one concrete objection" },
-    { agent: AuditorAgent, prompt: "Ends with a clear pass / fail of the audit" },
-    { agent: FastScreenAgent, prompt: "Any non-empty answer" },
+    { target: LegalAgent, prompt: "Names the legal risks found, or states that none were found" },
+    { target: DealCriticAgent, prompt: "Gives at least one concrete objection" },
+    { target: AuditorAgent, prompt: "Ends with a clear pass / fail of the audit" },
+    { target: FastScreenAgent, prompt: "Any non-empty answer" },
   ],
 })
 export class DueDiligenceArbiter {}

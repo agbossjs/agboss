@@ -74,7 +74,7 @@ class RudeWords {}
 })
 class ContactDetails {}
 
-@Arbiter({ decidedBy: DecidedBy.Code })
+@Arbiter()
 class GoodScore {}
 
 @ReplyInterpreter({ decidedBy: DecidedBy.Model, model: "test/reader" })

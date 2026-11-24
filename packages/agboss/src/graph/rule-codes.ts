@@ -50,11 +50,10 @@ export type RuleCode =
   // quorums (#279 PR 1), reported by `src/flow/analyse`
   | "flow.quorum-impossible"
   | "arbiter.not-an-arbiter"
-  | "arbiter.unhandled-agent"
-  | "arbiter.unknown-agent"
-  | "arbiter.duplicate-agent"
-  | "arbiter.answer-method-on-model"
-  | "arbiter.method-name"
+  | "arbiter.unhandled-target"
+  | "arbiter.unknown-target"
+  | "arbiter.duplicate-target"
+  | "arbiter.branch-has-no-output"
   // child workflows (#263 PR 1), reported by `src/flow/analyse`
   | "graph.no-matching-start"
   | "graph.ambiguous-start"

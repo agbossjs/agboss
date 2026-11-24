@@ -1,8 +1,14 @@
 import { describe, expectTypeOf, it } from "vitest";
 import { anyOf, group, onStart, toFinish } from "../../src/flow/builder.js";
 import { ExecutionContext } from "../../src/flow/context/execution-context.js";
-import { Arbiter, OnAnswer } from "../../src/flow/decorators/arbiter.js";
-import { DecidedBy } from "../../src/flow/decorators/router.js";
+import {
+  Arbiter,
+  ArbiterModel,
+  Arbitrate,
+  type ArbitratedAnswerOf,
+} from "../../src/flow/decorators/arbiter.js";
+import * as index from "../../src/index.js";
+import { Metadata, type Tracked } from "../../src/flow/metadata.js";
 import { listOf, optional } from "../../src/flow/dto-wrappers.js";
 import { StepFailedError } from "../../src/graph/errors.js";
 import { seconds } from "../../src/units/index.js";
@@ -123,36 +129,36 @@ describe("#279 AC7 / AC13: groups continue their own path", () => {
   });
 });
 
-describe("#279 AC6: @OnAnswer(Agent) checks the method; options by decidedBy", () => {
+describe("#279 AC6: @Arbitrate(…targets) checks the method; the options say how it decides", () => {
   it("the answer's type, the return type and one parameter", () => {
-    @Arbiter({ name: "typed-score-arbiter", decidedBy: DecidedBy.Code, deps: [ExecutionContext] })
+    @Arbiter({ name: "typed-score-arbiter", deps: [ExecutionContext] })
     class TypedScoreArbiter {
       constructor(readonly executionContext: ExecutionContext) {}
 
-      @OnAnswer(ScoreAAgent)
+      @Arbitrate(ScoreAAgent)
       fromScoreA(answer: ScoreDto): boolean {
         return answer.score > this.executionContext.step.visitNumber;
       }
 
-      @OnAnswer(ScoreBAgent)
+      @Arbitrate(ScoreBAgent)
       async fromScoreB(answer: ScoreDto): Promise<boolean> {
         return Promise.resolve(answer.score > 0);
       }
 
       // @ts-expect-error — score-c-agent answers ScoreDto, not CandidateDto
-      @OnAnswer(ScoreCAgent)
+      @Arbitrate(ScoreCAgent)
       fromScoreC(answer: CandidateDto): boolean {
         return answer.name !== "";
       }
 
       // @ts-expect-error — an arbiter answers whether the answer counts: a boolean
-      @OnAnswer(ScoreAAgent)
+      @Arbitrate(ScoreAAgent)
       scoreText(answer: ScoreDto): string {
         return String(answer.score);
       }
 
       // @ts-expect-error — one parameter, the answer
-      @OnAnswer(ScoreBAgent)
+      @Arbitrate(ScoreBAgent)
       fromTwo(answer: ScoreDto, extra: string): boolean {
         return answer.score > extra.length;
       }
@@ -161,21 +167,51 @@ describe("#279 AC6: @OnAnswer(Agent) checks the method; options by decidedBy", (
   });
 
   it("the other strategy's options do not compile", () => {
-    const criteria = [{ agent: ScoreAAgent, prompt: "p" }] as const;
-    const code = { name: "x-arbiter", decidedBy: DecidedBy.Code, criteria } as const;
-    const model = {
-      name: "y-arbiter",
-      decidedBy: DecidedBy.Model,
-      model: "m",
-      prompt: "p",
-    } as const;
+    const criteria = [{ target: ScoreAAgent, prompt: "p" }] as const;
+    const model = { name: "y-arbiter", model: "m", prompt: "p" } as const;
     const deps = [ExecutionContext] as const;
     // @ts-expect-error — a code arbiter has no criteria: its methods judge
-    Arbiter(code);
+    Arbiter({ name: "x-arbiter", criteria, deps: [] }).bind(null);
     // @ts-expect-error — a model arbiter needs its criteria
     Arbiter(model);
     // @ts-expect-error — a model arbiter has no deps
     Arbiter({ ...model, criteria, deps });
+    // @ts-expect-error — `decidedBy` is gone: criteria or @Arbitrate methods decide how it decides
+    Arbiter({ name: "z-arbiter", decidedBy: "code" });
     expectTypeOf(Arbiter).toBeFunction();
+  });
+
+  it("@Arbitrate(A, B) takes the union of their answers; the removed @OnAnswer is gone (#1283)", () => {
+    @Arbiter({ name: "union-arbiter" })
+    class UnionArbiter {
+      @Arbitrate(ScoreAAgent, ScoreBAgent)
+      isMeaningful(answer: ArbitratedAnswerOf<[typeof ScoreAAgent, typeof ScoreBAgent]>): boolean {
+        expectTypeOf(Metadata.createdBy(answer)).toEqualTypeOf<
+          typeof ScoreAAgent | typeof ScoreBAgent
+        >();
+        return answer.score > 0;
+      }
+
+      @Arbitrate(ScoreCAgent)
+      isPlain(answer: ScoreDto): boolean {
+        return answer.score > 0;
+      }
+    }
+    expectTypeOf<ArbitratedAnswerOf<[typeof ScoreAAgent, typeof ScoreBAgent]>>().toEqualTypeOf<
+      Tracked<ScoreDto, typeof ScoreAAgent> | Tracked<ScoreDto, typeof ScoreBAgent>
+    >();
+    expectTypeOf(UnionArbiter).toBeConstructibleWith();
+    // @ts-expect-error — @OnAnswer is @Arbitrate(…targets)
+    const removed: unknown = index.OnAnswer;
+    expectTypeOf(removed).toBeUnknown();
+  });
+
+  it("model / modelProvider need ArbiterModel in deps; with it they compile (#1283)", () => {
+    // @ts-expect-error — no ArbiterModel injected: a code arbiter has no model
+    Arbiter({ name: "no-model-arbiter", model: "fast" });
+    Arbiter({ name: "hybrid-arbiter", model: "fast", deps: [ArbiterModel] });
+    Arbiter();
+    Arbiter({ deps: [ExecutionContext] });
+    expectTypeOf<ArbiterModel>().toHaveProperty("decide");
   });
 });

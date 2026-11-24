@@ -1,7 +1,6 @@
 import {
   Agent,
   Arbiter,
-  DecidedBy,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
@@ -30,10 +29,9 @@ export function arbiterWorkflow(model: string): Class {
   class AnsAgent {}
   @Arbiter({
     name: "ans-arbiter",
-    decidedBy: DecidedBy.Model,
     model,
     prompt: "Count it.",
-    criteria: [{ agent: AnsAgent, prompt: "ok" }],
+    criteria: [{ target: AnsAgent, prompt: "ok" }],
   })
   class AnsArbiter {}
   @WorkflowStart({

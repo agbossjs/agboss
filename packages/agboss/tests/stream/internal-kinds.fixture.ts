@@ -6,7 +6,6 @@
 import {
   Agent,
   Arbiter,
-  DecidedBy,
   EmptyEnvironment,
   OutputGuardrail,
   Workflow,
@@ -84,10 +83,9 @@ export class OwnerAgent {}
 
 @Arbiter({
   name: "chat-arbiter",
-  decidedBy: DecidedBy.Model,
   model: "local/llama",
   prompt: "Count an answer that names an owner.",
-  criteria: [{ agent: OwnerAgent, prompt: "Names the owner" }],
+  criteria: [{ target: OwnerAgent, prompt: "Names the owner" }],
 })
 export class ChatArbiter {}
 

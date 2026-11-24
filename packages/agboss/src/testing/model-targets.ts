@@ -4,7 +4,7 @@ import type { Class } from "../components/injection.js";
 import { isCodeJudge } from "../components/judge-decorators.js";
 import { componentOf } from "../components/metadata.js";
 import { NodeKind } from "../flow/ast.js";
-import { arbiterOf, isCodeArbiter } from "../flow/decorators/arbiter.js";
+import { arbiterOf, hasArbiterModel } from "../flow/decorators/arbiter.js";
 import { isCodeRerankerClass } from "../rag/reranker.decorator.js";
 import { isCodeRouterNode, type RuntimeNode } from "../flow/runtime/graph-model.js";
 import { arbiterClassesOf } from "../flow/runtime/launch/runtime-launch.js";
@@ -97,7 +97,7 @@ export class ModelTargets {
     if (interpreter !== undefined)
       return interpreter.model === undefined ? undefined : replyInterpreterKeyOf(interpreter.name);
     const options = this.#arbiters.has(target) ? arbiterOf(target)?.options : undefined;
-    if (options !== undefined && !isCodeArbiter(options)) return arbiterKeyOf(options.name);
+    if (options !== undefined && hasArbiterModel(options)) return arbiterKeyOf(options.name);
     return this.#policyKeyOf(target);
   }
 

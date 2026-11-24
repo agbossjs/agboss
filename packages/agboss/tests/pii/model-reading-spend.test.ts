@@ -56,7 +56,7 @@ describe("#1366: the usage of a model's reading", () => {
     );
 
     const verdict = await arbiter.judge(
-      { agent: "desk", answer: "ok", criterion: "is it ok", instructions: "judge" },
+      { target: "desk", answer: "ok", criterion: "is it ok", instructions: "judge" },
       costing,
     );
 

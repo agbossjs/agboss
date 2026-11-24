@@ -11,7 +11,7 @@ import { isCustomPolicy } from "../../pii/pii-policy.decorator.js";
 import { piiPolicyMetaOf } from "../../pii/policy-checks.js";
 import { versionOf } from "../../turns/index.js";
 import type { ArbiterClass } from "../ast.js";
-import { arbiterOf, isCodeArbiter } from "../decorators/arbiter.js";
+import { arbiterOf, isDeclarativeArbiter } from "../decorators/arbiter.js";
 import { agentMetasOf } from "./agents.js";
 import type { RuntimeGraph } from "./graph-model.js";
 import { describedShapeOf, dtoSchemaHashOf } from "./join-keys.js";
@@ -62,9 +62,9 @@ const judgeRecordsOf = (graph: RuntimeGraph): ComponentRecord[] =>
 /** The hash of a model arbiter's texts — its prompt and each agent's criterion — as describe gives it. */
 export function arbiterPromptHashOf(arbiter: ArbiterClass): string | undefined {
   const options = arbiterOf(arbiter)?.options;
-  if (options === undefined || isCodeArbiter(options)) return undefined;
-  const criteria = options.criteria.map(({ agent, prompt }) => ({
-    agent: nameOf(agent),
+  if (options === undefined || !isDeclarativeArbiter(options)) return undefined;
+  const criteria = options.criteria.map(({ target, prompt }) => ({
+    target: nameOf(target),
     prompt: normalisePromptText(prompt),
   }));
   return versionOf({ prompt: normalisePromptText(options.prompt), criteria });

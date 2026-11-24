@@ -108,15 +108,17 @@ export { Agent, type AgentOptions } from "../flow/decorators/agent.js";
 export { Action, type ActionOptions } from "../flow/decorators/action.js";
 export {
   Arbiter,
-  OnAnswer,
+  ArbiterModel,
+  Arbitrate,
   type AnswerJudgement,
+  type ArbitratedAnswerOf,
   type ArbiterAnswerOf,
   type ArbiterCriterion,
   type ArbiterDecorator,
   type ArbiterOptions,
+  type ArbitrateDecorator,
   type CodeArbiterOptions,
   type ModelArbiterOptions,
-  type OnAnswerDecorator,
 } from "../flow/decorators/arbiter.js";
 export {
   DecidedBy,

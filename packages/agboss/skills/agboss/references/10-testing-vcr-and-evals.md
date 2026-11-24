@@ -360,21 +360,21 @@ export class VerdictAgent {}
 ```
 
 ```ts file=src/screening/arbiters/has-notes/has-notes.arbiter.ts
-// a code arbiter: one @OnAnswer method per agent of the launch, typed by that agent's output
-import { Arbiter, DecidedBy, OnAnswer } from "@agboss/core";
+// a code arbiter: @Arbitrate(…targets) methods, typed by those targets' output
+import { Arbiter, DecidedBy, Arbitrate } from "@agboss/core";
 import { CultureAgent } from "../../agents/culture/culture.agent.js";
 import { SkillsAgent } from "../../agents/skills/skills.agent.js";
 import { CultureReportDto } from "../../dto/culture-report.dto.js";
 import { SkillsReportDto } from "../../dto/skills-report.dto.js";
 
-@Arbiter({ name: "has-notes-arbiter", decidedBy: DecidedBy.Code })
+@Arbiter({ name: "has-notes-arbiter" })
 export class HasNotesArbiter {
-  @OnAnswer(SkillsAgent)
+  @Arbitrate(SkillsAgent)
   fromSkills(answer: SkillsReportDto): boolean {
     return answer.notes.trim() !== "";
   }
 
-  @OnAnswer(CultureAgent)
+  @Arbitrate(CultureAgent)
   fromCulture(answer: CultureReportDto): boolean {
     return answer.notes.trim() !== "";
   }

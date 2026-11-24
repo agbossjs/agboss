@@ -12,6 +12,8 @@ import { z } from "zod";
 import { schemaOf } from "../dto/schema.js";
 import { defineTool, type AnyTool, type Tool } from "../tools/index.js";
 import { accountedRouters } from "./accounted-router.js";
+import { ArbiterModel } from "../flow/decorators/arbiter.js";
+import { LiveArbiterModel } from "../flow/runtime/launch/arbiter-live.js";
 import { LiveJudgeModel } from "./judge-call.js";
 import { LiveSpendRecorder, SpendRecorder } from "./spend-recorder.js";
 import { JudgeModel } from "./judge-decorators.js";
@@ -36,9 +38,17 @@ import { IDEMPOTENCY_OUTSIDE_APPLICATION, Idempotency } from "../app/idempotency
 export const ROUTER_FACTORY = new InjectionToken<(name: string) => RouterEngine>("ROUTER_FACTORY");
 /** `deps: [JudgeModel]` in a `@Judge`: the model of the judge that is judging (#280). */
 const liveJudgeModel = new DependantValue((dependant) => new LiveJudgeModel(dependant));
+/** `deps: [ArbiterModel]` in an `@Arbiter`: the model of the arbiter that is judging (#1283). */
+const liveArbiterModel = new DependantValue((dependant) => new LiveArbiterModel(dependant));
 /** `deps: [SpendRecorder]`: what a tool or an action paid a service, into its step's spend (S43). */
 const liveSpendRecorder = new DependantValue((dependant) => new LiveSpendRecorder(dependant));
-export const CORE_TOKENS = [ROUTER_FACTORY, ...CONTEXT_TOKENS, JudgeModel, SpendRecorder];
+export const CORE_TOKENS = [
+  ROUTER_FACTORY,
+  ...CONTEXT_TOKENS,
+  JudgeModel,
+  ArbiterModel,
+  SpendRecorder,
+];
 
 /**
  * A tool component instance as the core's tool (validation, timeout, errors to the model), typed
@@ -112,6 +122,7 @@ export const containerFor = (bundle: WorkflowMeta, services: WorkflowServices): 
     [ROUTER_FACTORY, accountedRouters(services.router)],
     ...contextValuesOf(contexts),
     [JudgeModel, liveJudgeModel],
+    [ArbiterModel, liveArbiterModel],
     [SpendRecorder, liveSpendRecorder],
   ]);
   for (const [token, instance] of serverInstances.get(bundle) ?? []) core.set(token, instance);

@@ -18,30 +18,30 @@ A workflow's `flow` is a list of **paths**. A path starts at a **source**, goes 
 and ends at a finish (or at a node that has its own path). Write **one call per line** — the gate's
 `@stylistic/newline-per-chained-call` fails `onStart(A).toAgent(B)` on one line.
 
-| Form                                                                                        | What it says                                                                                                                                                                    | Rules it can hit                                                                                             |
-| ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `onStart(S)`                                                                                | where an execution begins (a `@WorkflowStart`)                                                                                                                                  | `[graph.no-workflow-start]`, `[graph.unreachable-node]`                                                      |
-| `onAgent(X)` / `onRouter(R)` / `onAction(A)` / `onWorkflow(W)`                              | the own path of a node reached from two or more places, written once                                                                                                            | `[flow.shared-node-inline]`, `[flow.single-entry-own-path]`                                                  |
-| (no `.returns`)                                                                             | what a step gives is derived from its declaration: a start its `input` (one value per field of a map), a step its `output`, a text agent its reply, a join the branches' values | `[flow.unused-output]`, `[input.missing-on-path]`                                                            |
-| `.toAgent(X)` `.toAction(A)` `.toRouter(R)` `.toWorkflow(W)` `.toFinish(F)`                 | the next step, by its kind (another kind does not compile)                                                                                                                      | `[graph.wrong-kind]`, `[graph.dead-end]`, `[graph.next-after-workflow-finish]`                               |
-| `.toRouter(R).chooseOne(route(X)…, …)`                                                      | the router's choice: exactly one `route(…)` per `@Router` route, each continued to its end                                                                                      | `[router.routes-mismatch]`, `[router.duplicate-route]`, `[graph.choose-from-non-router]`                     |
-| `.switch(caseOf(A)…, caseOf(B)…)`                                                           | a branch per variant of a `oneOf` output                                                                                                                                        | `[flow.switch-not-exhaustive]`, `[flow.switch-unknown-case]`                                                 |
-| `.toOneOf([toAction(A)…, toFinish(F)])`                                                     | a side path per variant of a `oneOf` output; each takes the variant its first step reads as input, no DTO in the flow                                                           | `[flow.one-of-not-exhaustive]`, `[flow.one-of-ambiguous]`                                                    |
-| `.toWorkflow(W).onFinish(WFinish, toAction(A)…)`                                            | one path per finish of a child workflow with two or more finishes, named by the `@WorkflowFinish` class (never a DTO), every finish once                                        | `[flow.one-of-not-exhaustive]`, `[flow.one-of-ambiguous]`                                                    |
-| `.onError(E, side path)`                                                                    | right after the step that throws: what happens when it throws `E`                                                                                                               | `[flow.duplicate-error-handler]`, `[graph.limit-handler-uses-model]`, `[flow.uncompensated-action]`          |
-| side-path starters `toAction` `toAgent` `toRouter` `toExternalTask` `toWorkflow` `toFinish` | the first step of a side path (functions, not methods)                                                                                                                          | as for the steps                                                                                             |
-| `.inParallel([toAgent(A), toAction(X).onError(E, skip()), …], { maxConcurrency })`        | a launch of branches of any kind (`toAgent`, `toAction`, `toExternalTask`, `toWorkflow`); `.onError(E, skip())` on a branch drops its failure from the join (its value is `optional(…)`) | `[launch.skip-differs]` |
-| `toRouter(R).chooseMany([toAgent(A), toAgent(B)…])` inside `.inParallel([…])`               | a router picks which of its routes run (none, some or all; `[]` is an answer), siblings always run; a code router's `route()` returns the chosen classes, `routes: [A, () => B]` is a flat list | `[router.routes-mismatch]` |
-| `.forEachItem(toAgent(A), { takeFirst: 4, maxConcurrency })` / `{ maxItems: 20 }`            | one run per item of the list the step before gives; `takeFirst` runs the first N and reports the rest dropped (`onLaunchItemsTruncated`), `maxItems` throws `LimitError.Items` before any branch and needs `.join().onError(LimitError.Items, …)` | `[launch.max-items-handler-required]`, `[launch.for-each-item-no-list]` |
-| `.toParallelAgents(A, B, B, { maxConcurrency })` / `.toParallelActions(…)`                  | a launch: each listed target runs once, a repeat is a copy                                                                                                                      | `[launch.join-required]`, `[launch.branch-continued]`                                                        |
-| `.toParallelAgents(X, { maxItems })` after a step whose output is a list                    | one run per item of the list                                                                                                                                                    | `[launch.max-items-required]`, `[launch.item-not-read]`, `[launch.max-items-without-list]`                   |
-| `.join()` → `.onError(E, …)`                                                                | where a launch's values meet; a failed branch's side path                                                                                                                       | `[launch.unjoinable-output]`, `[launch.branch-outdates-sibling]`                                             |
-| `.acceptedBy(X)` / `.acceptedBy(anyOf(X, Y))` → `.joinQuorum({ min, max, deadline })`       | count the accepted answers instead of waiting for all                                                                                                                           | `[flow.quorum-impossible]`, `[arbiter.*]`                                                                    |
-| `.joinQuorumGroups(group(A, B).priority(1)…, …, { deadline })`                              | the first complete group (by priority) continues its own path                                                                                                                   | `[flow.quorum-impossible]`                                                                                   |
-| `.toWorkflow(W)` / `route(W)` / `.toParallelWorkflows(W, { maxItems })`                     | a child workflow: one, chosen by a router, or one per item                                                                                                                      | `[graph.no-matching-start]`, `[graph.ambiguous-start]`, `[graph.child-without-failure-finish]`               |
-| `.toExternalTask(Q)` / `onExternalTask(Q)`                                                  | a question role's step (#659): reads its `ask`, pauses on its channel, gives its `answer` — `05-channels-and-human-in-the-loop.md`                                              | `[name.kind-suffix]` (`-question`), `[channel.wrong-tool]`, `[graph.cycle-without-max-visits]`               |
-| `() => Self` + `@Workflow({ maxDepth })`                                                    | the workflow launches itself                                                                                                                                                    | `[graph.recursion-without-depth]`, `[graph.recursion-without-exit]`, `[graph.mutual-recursion]`              |
-| `@Action({ compensateWith, committedBy })`                                                  | the action's undo and its commit point; side paths must run the undo                                                                                                            | `[action.*]`, `[flow.uncompensated-action]`, `[flow.compensation-out-of-order]`, `[flow.uncommitted-action]` |
+| Form                                                                                        | What it says                                                                                                                                                                                                                                      | Rules it can hit                                                                                             |
+| ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `onStart(S)`                                                                                | where an execution begins (a `@WorkflowStart`)                                                                                                                                                                                                    | `[graph.no-workflow-start]`, `[graph.unreachable-node]`                                                      |
+| `onAgent(X)` / `onRouter(R)` / `onAction(A)` / `onWorkflow(W)`                              | the own path of a node reached from two or more places, written once                                                                                                                                                                              | `[flow.shared-node-inline]`, `[flow.single-entry-own-path]`                                                  |
+| (no `.returns`)                                                                             | what a step gives is derived from its declaration: a start its `input` (one value per field of a map), a step its `output`, a text agent its reply, a join the branches' values                                                                   | `[flow.unused-output]`, `[input.missing-on-path]`                                                            |
+| `.toAgent(X)` `.toAction(A)` `.toRouter(R)` `.toWorkflow(W)` `.toFinish(F)`                 | the next step, by its kind (another kind does not compile)                                                                                                                                                                                        | `[graph.wrong-kind]`, `[graph.dead-end]`, `[graph.next-after-workflow-finish]`                               |
+| `.toRouter(R).chooseOne(route(X)…, …)`                                                      | the router's choice: exactly one `route(…)` per `@Router` route, each continued to its end                                                                                                                                                        | `[router.routes-mismatch]`, `[router.duplicate-route]`, `[graph.choose-from-non-router]`                     |
+| `.switch(caseOf(A)…, caseOf(B)…)`                                                           | a branch per variant of a `oneOf` output                                                                                                                                                                                                          | `[flow.switch-not-exhaustive]`, `[flow.switch-unknown-case]`                                                 |
+| `.toOneOf([toAction(A)…, toFinish(F)])`                                                     | a side path per variant of a `oneOf` output; each takes the variant its first step reads as input, no DTO in the flow                                                                                                                             | `[flow.one-of-not-exhaustive]`, `[flow.one-of-ambiguous]`                                                    |
+| `.toWorkflow(W).onFinish(WFinish, toAction(A)…)`                                            | one path per finish of a child workflow with two or more finishes, named by the `@WorkflowFinish` class (never a DTO), every finish once                                                                                                          | `[flow.one-of-not-exhaustive]`, `[flow.one-of-ambiguous]`                                                    |
+| `.onError(E, side path)`                                                                    | right after the step that throws: what happens when it throws `E`                                                                                                                                                                                 | `[flow.duplicate-error-handler]`, `[graph.limit-handler-uses-model]`, `[flow.uncompensated-action]`          |
+| side-path starters `toAction` `toAgent` `toRouter` `toExternalTask` `toWorkflow` `toFinish` | the first step of a side path (functions, not methods)                                                                                                                                                                                            | as for the steps                                                                                             |
+| `.inParallel([toAgent(A), toAction(X).onError(E, skip()), …], { maxConcurrency })`          | a launch of branches of any kind (`toAgent`, `toAction`, `toExternalTask`, `toWorkflow`); `.onError(E, skip())` on a branch drops its failure from the join (its value is `optional(…)`)                                                          | `[launch.skip-differs]`                                                                                      |
+| `toRouter(R).chooseMany([toAgent(A), toAgent(B)…])` inside `.inParallel([…])`               | a router picks which of its routes run (none, some or all; `[]` is an answer), siblings always run; a code router's `route()` returns the chosen classes, `routes: [A, () => B]` is a flat list                                                   | `[router.routes-mismatch]`                                                                                   |
+| `.forEachItem(toAgent(A), { takeFirst: 4, maxConcurrency })` / `{ maxItems: 20 }`           | one run per item of the list the step before gives; `takeFirst` runs the first N and reports the rest dropped (`onLaunchItemsTruncated`), `maxItems` throws `LimitError.Items` before any branch and needs `.join().onError(LimitError.Items, …)` | `[launch.max-items-handler-required]`, `[launch.for-each-item-no-list]`                                      |
+| `.toParallelAgents(A, B, B, { maxConcurrency })` / `.toParallelActions(…)`                  | a launch: each listed target runs once, a repeat is a copy                                                                                                                                                                                        | `[launch.join-required]`, `[launch.branch-continued]`                                                        |
+| `.toParallelAgents(X, { maxItems })` after a step whose output is a list                    | one run per item of the list                                                                                                                                                                                                                      | `[launch.max-items-required]`, `[launch.item-not-read]`, `[launch.max-items-without-list]`                   |
+| `.join()` → `.onError(E, …)`                                                                | where a launch's values meet; a failed branch's side path                                                                                                                                                                                         | `[launch.unjoinable-output]`, `[launch.branch-outdates-sibling]`                                             |
+| `.acceptedBy(X)` / `.acceptedBy(anyOf(X, Y))` → `.joinQuorum({ min, max, deadline })`       | count the accepted answers instead of waiting for all                                                                                                                                                                                             | `[flow.quorum-impossible]`, `[arbiter.*]`                                                                    |
+| `.joinQuorumGroups(group(A, B).priority(1)…, …, { deadline })`                              | the first complete group (by priority) continues its own path                                                                                                                                                                                     | `[flow.quorum-impossible]`                                                                                   |
+| `.toWorkflow(W)` / `route(W)` / `.toParallelWorkflows(W, { maxItems })`                     | a child workflow: one, chosen by a router, or one per item                                                                                                                                                                                        | `[graph.no-matching-start]`, `[graph.ambiguous-start]`, `[graph.child-without-failure-finish]`               |
+| `.toExternalTask(Q)` / `onExternalTask(Q)`                                                  | a question role's step (#659): reads its `ask`, pauses on its channel, gives its `answer` — `05-channels-and-human-in-the-loop.md`                                                                                                                | `[name.kind-suffix]` (`-question`), `[channel.wrong-tool]`, `[graph.cycle-without-max-visits]`               |
+| `() => Self` + `@Workflow({ maxDepth })`                                                    | the workflow launches itself                                                                                                                                                                                                                      | `[graph.recursion-without-depth]`, `[graph.recursion-without-exit]`, `[graph.mutual-recursion]`              |
+| `@Action({ compensateWith, committedBy })`                                                  | the action's undo and its commit point; side paths must run the undo                                                                                                                                                                              | `[action.*]`, `[flow.uncompensated-action]`, `[flow.compensation-out-of-order]`, `[flow.uncommitted-action]` |
 
 The wrappers (`agboss`, also re-exported by `@agboss/core/dto`): `listOf(XDto)`, `oneOf(A, B)`,
 `optional(XDto)`, `historyOf(XDto, { maxPrevious })` (an input only), `variant(XDto, value)` (tests).
@@ -1304,26 +1304,26 @@ export class PanelUndecidedWorkflowFinish {}
 ```
 
 ```ts file=src/panel/arbiters/score-range/score-range.arbiter.ts
-import { Arbiter, DecidedBy, OnAnswer } from "@agboss/core";
+import { Arbiter, DecidedBy, Arbitrate } from "@agboss/core";
 import type { ArbiterAnswerOf } from "@agboss/core";
 import { CulturePanelAgent } from "../../agents/culture-panel/culture-panel.agent.js";
 import { RiskPanelAgent } from "../../agents/risk-panel/risk-panel.agent.js";
 import { SkillsPanelAgent } from "../../agents/skills-panel/skills-panel.agent.js";
 
-// by code: one @OnAnswer(Agent) method per agent of the launch, named from<Agent class minus "Agent">
-@Arbiter({ name: "score-range-arbiter", decidedBy: DecidedBy.Code })
+// by code: @Arbitrate(…targets) methods covering every target of the launch once; the name is yours
+@Arbiter({ name: "score-range-arbiter" })
 export class ScoreRangeArbiter {
-  @OnAnswer(SkillsPanelAgent)
+  @Arbitrate(SkillsPanelAgent)
   fromSkillsPanel(answer: ArbiterAnswerOf<typeof SkillsPanelAgent>): boolean {
     return this.isInRange(answer.score);
   }
 
-  @OnAnswer(CulturePanelAgent)
+  @Arbitrate(CulturePanelAgent)
   fromCulturePanel(answer: ArbiterAnswerOf<typeof CulturePanelAgent>): boolean {
     return this.isInRange(answer.score);
   }
 
-  @OnAnswer(RiskPanelAgent)
+  @Arbitrate(RiskPanelAgent)
   fromRiskPanel(answer: ArbiterAnswerOf<typeof RiskPanelAgent>): boolean {
     return this.isInRange(answer.score);
   }
@@ -1340,41 +1340,40 @@ import { CulturePanelAgent } from "../../agents/culture-panel/culture-panel.agen
 import { RiskPanelAgent } from "../../agents/risk-panel/risk-panel.agent.js";
 import { SkillsPanelAgent } from "../../agents/skills-panel/skills-panel.agent.js";
 
-// by model: one criterion per agent of the launch
+// by model: one criterion per target of the launch
 @Arbiter({
   name: "reasoned-score-arbiter",
-  decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
   prompt: "Count an answer only if it meets the criterion of the agent that gave it.",
   criteria: [
-    { agent: SkillsPanelAgent, prompt: "The reason names a concrete technical skill" },
-    { agent: CulturePanelAgent, prompt: "The reason names a concrete trait of the team" },
-    { agent: RiskPanelAgent, prompt: "The reason names a concrete risk" },
+    { target: SkillsPanelAgent, prompt: "The reason names a concrete technical skill" },
+    { target: CulturePanelAgent, prompt: "The reason names a concrete trait of the team" },
+    { target: RiskPanelAgent, prompt: "The reason names a concrete risk" },
   ],
 })
 export class ReasonedScoreArbiter {}
 ```
 
 ```ts file=src/panel/arbiters/has-reason/has-reason.arbiter.ts
-import { Arbiter, DecidedBy, OnAnswer } from "@agboss/core";
+import { Arbiter, DecidedBy, Arbitrate } from "@agboss/core";
 import type { ArbiterAnswerOf } from "@agboss/core";
 import { CulturePanelAgent } from "../../agents/culture-panel/culture-panel.agent.js";
 import { RiskPanelAgent } from "../../agents/risk-panel/risk-panel.agent.js";
 import { SkillsPanelAgent } from "../../agents/skills-panel/skills-panel.agent.js";
 
-@Arbiter({ name: "has-reason-arbiter", decidedBy: DecidedBy.Code })
+@Arbiter({ name: "has-reason-arbiter" })
 export class HasReasonArbiter {
-  @OnAnswer(SkillsPanelAgent)
+  @Arbitrate(SkillsPanelAgent)
   fromSkillsPanel(answer: ArbiterAnswerOf<typeof SkillsPanelAgent>): boolean {
     return answer.reason.length > 40;
   }
 
-  @OnAnswer(CulturePanelAgent)
+  @Arbitrate(CulturePanelAgent)
   fromCulturePanel(answer: ArbiterAnswerOf<typeof CulturePanelAgent>): boolean {
     return answer.reason.length > 40;
   }
 
-  @OnAnswer(RiskPanelAgent)
+  @Arbitrate(RiskPanelAgent)
   fromRiskPanel(answer: ArbiterAnswerOf<typeof RiskPanelAgent>): boolean {
     return answer.reason.length > 40;
   }
@@ -1581,10 +1580,10 @@ export class DealWorkflow {}
 Quorum rules:
 
 - `.acceptedBy(…)` stands between the launch and the quorum (`.acceptedBy(…).join()` does not compile).
-- A code arbiter has exactly one `@OnAnswer(Agent)` method per agent class of the launch —
-  `[arbiter.unhandled-agent]`, `[arbiter.unknown-agent]`, `[arbiter.duplicate-agent]`, its name
-  `from<Agent>` (`[arbiter.method-name]`); a model arbiter has `criteria`, never `@OnAnswer`
-  (`[arbiter.answer-method-on-model]`); an undecorated class is `[arbiter.not-an-arbiter]`.
+- A code arbiter's `@Arbitrate(…targets)` methods cover every target class of the launch exactly
+  once — `[arbiter.unhandled-target]`, `[arbiter.unknown-target]`, `[arbiter.duplicate-target]`; a
+  void `@Action` has nothing to judge (`[arbiter.branch-has-no-output]`); an undecorated class is
+  `[arbiter.not-an-arbiter]`.
 - `.joinQuorum({ min })` with `min` below the agents launched makes a single answer
   `optional(XDto)` (a step that requires it is `[input.missing-on-path]`); `min` above what can run, or a group that can
   never complete, is `[flow.quorum-impossible]`.

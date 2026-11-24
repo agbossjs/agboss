@@ -688,25 +688,25 @@ export class TermsReviewAgent {}
 ```
 
 ```ts file=sourcing/src/arbiters/review-range/review-range.arbiter.ts
-import { Arbiter, DecidedBy, OnAnswer } from "@agboss/core";
+import { Arbiter, DecidedBy, Arbitrate } from "@agboss/core";
 import type { ArbiterAnswerOf } from "@agboss/core";
 import { PriceReviewAgent } from "../../agents/price-review/price-review.agent.js";
 import { RiskReviewAgent } from "../../agents/risk-review/risk-review.agent.js";
 import { TermsReviewAgent } from "../../agents/terms-review/terms-review.agent.js";
 
-@Arbiter({ name: "review-range-arbiter", decidedBy: DecidedBy.Code })
+@Arbiter({ name: "review-range-arbiter" })
 export class ReviewRangeArbiter {
-  @OnAnswer(PriceReviewAgent)
+  @Arbitrate(PriceReviewAgent)
   fromPriceReview(answer: ArbiterAnswerOf<typeof PriceReviewAgent>): boolean {
     return this.isUsable(answer.score, answer.reason);
   }
 
-  @OnAnswer(RiskReviewAgent)
+  @Arbitrate(RiskReviewAgent)
   fromRiskReview(answer: ArbiterAnswerOf<typeof RiskReviewAgent>): boolean {
     return this.isUsable(answer.score, answer.reason);
   }
 
-  @OnAnswer(TermsReviewAgent)
+  @Arbitrate(TermsReviewAgent)
   fromTermsReview(answer: ArbiterAnswerOf<typeof TermsReviewAgent>): boolean {
     return this.isUsable(answer.score, answer.reason);
   }
@@ -725,13 +725,12 @@ import { TermsReviewAgent } from "../../agents/terms-review/terms-review.agent.j
 
 @Arbiter({
   name: "review-grounded-arbiter",
-  decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
   prompt: "Count a review only if it meets the criterion of the agent that gave it.",
   criteria: [
-    { agent: PriceReviewAgent, prompt: "The reason compares the price with the market" },
-    { agent: RiskReviewAgent, prompt: "The reason names a concrete risk" },
-    { agent: TermsReviewAgent, prompt: "The reason names a delivery term" },
+    { target: PriceReviewAgent, prompt: "The reason compares the price with the market" },
+    { target: RiskReviewAgent, prompt: "The reason names a concrete risk" },
+    { target: TermsReviewAgent, prompt: "The reason names a delivery term" },
   ],
 })
 export class ReviewGroundedArbiter {}

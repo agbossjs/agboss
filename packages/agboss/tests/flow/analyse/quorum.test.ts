@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { checkWorkflow } from "../../../src/flow/analyse/analyse.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
-import { Arbiter, OnAnswer } from "../../../src/flow/decorators/arbiter.js";
+import { Arbiter, Arbitrate } from "../../../src/flow/decorators/arbiter.js";
 import { DecidedBy } from "../../../src/flow/decorators/router.js";
 import { Workflow, type WorkflowOptions } from "../../../src/flow/decorators/workflow.js";
 import { listOf, optional } from "../../../src/flow/dto-wrappers.js";
@@ -243,63 +243,51 @@ describe("#279 AC7 / AC13: groups continue their own paths, shapes from the laun
 
 @Arbiter({
   name: "partial-score-arbiter",
-  decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
   prompt: "Count an answer only if it meets its criterion.",
   criteria: [
-    { agent: ScoreAAgent, prompt: "A score" },
-    { agent: ScoreBAgent, prompt: "Risks" },
-    { agent: ScoreBAgent, prompt: "Risks again" },
-    { agent: LegalAgent, prompt: "Legal risks" },
+    { target: ScoreAAgent, prompt: "A score" },
+    { target: ScoreBAgent, prompt: "Risks" },
+    { target: ScoreBAgent, prompt: "Risks again" },
+    { target: LegalAgent, prompt: "Legal risks" },
   ],
 })
 class PartialScoreArbiter {}
 
-@Arbiter({ name: "two-methods-arbiter", decidedBy: DecidedBy.Code })
+@Arbiter({ name: "two-methods-arbiter" })
 class TwoMethodsArbiter {
-  @OnAnswer(ScoreAAgent)
+  @Arbitrate(ScoreAAgent)
   fromScoreA(answer: ScoreDto): boolean {
     return answer.score > 0;
   }
 
-  @OnAnswer(ScoreAAgent)
+  @Arbitrate(ScoreAAgent)
   checkScoreA(answer: ScoreDto): boolean {
     return answer.score < 11;
   }
 
-  @OnAnswer(ScoreBAgent)
+  @Arbitrate(ScoreBAgent)
   fromScoreB(answer: ScoreDto): boolean {
     return answer.score > 0;
   }
 }
 
-@Arbiter({
-  name: "method-on-model-arbiter",
-  decidedBy: DecidedBy.Model,
-  model: "typesafe/jev-1.13",
-  prompt: "Judge.",
-  criteria: [
-    { agent: ScoreAAgent, prompt: "A score" },
-    { agent: ScoreBAgent, prompt: "Risks" },
-    { agent: ScoreCAgent, prompt: "A verdict" },
-  ],
-})
-class MethodOnModelArbiter {
-  @OnAnswer(ScoreAAgent)
-  fromScoreA(answer: ScoreDto): boolean {
+@Arbiter({ name: "one-method-arbiter" })
+class OneMethodArbiter {
+  @Arbitrate(ScoreAAgent, ScoreBAgent, ScoreCAgent)
+  isMeaningful(answer: ScoreDto): boolean {
     return answer.score > 0;
   }
 }
 
 @Arbiter({
   name: "Badly_Named",
-  decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
   prompt: "Judge.",
   criteria: [
-    { agent: ScoreAAgent, prompt: "A score" },
-    { agent: ScoreBAgent, prompt: "Risks" },
-    { agent: ScoreCAgent, prompt: "A verdict" },
+    { target: ScoreAAgent, prompt: "A score" },
+    { target: ScoreBAgent, prompt: "Risks" },
+    { target: ScoreCAgent, prompt: "A verdict" },
   ],
 })
 class BadlyNamedArbiter {}
@@ -330,16 +318,16 @@ describe("#279 AC5: a model arbiter covers every agent of its launch by a criter
   it("unhandled agent, agent not in the launch, two criteria for one agent", () => {
     expect(arbiterErrorsOf(PartialScoreArbiter)).toEqual([
       {
-        code: "arbiter.duplicate-agent",
+        code: "arbiter.duplicate-target",
         message:
-          "partial-score-arbiter has 2 criteria for ScoreBAgent — one criterion per agent class",
+          "partial-score-arbiter has 2 criteria for ScoreBAgent — one criterion per target class",
       },
       {
-        code: "arbiter.unhandled-agent",
-        message: `partial-score-arbiter has no criterion for ScoreCAgent for this launch (${LAUNCH}) — add one — its prompt never stands in; an agent that needs no real check gets "Any non-empty answer"`,
+        code: "arbiter.unhandled-target",
+        message: `partial-score-arbiter has no criterion for ScoreCAgent for this launch (${LAUNCH}) — add one — its prompt never stands in; a target that needs no real check gets "Any non-empty answer"`,
       },
       {
-        code: "arbiter.unknown-agent",
+        code: "arbiter.unknown-target",
         message: `partial-score-arbiter has a criterion for LegalAgent, but ${LAUNCH} does not launch LegalAgent — remove it`,
       },
     ]);
@@ -368,7 +356,7 @@ describe("#279 AC5: a model arbiter covers every agent of its launch by a criter
           fastGroup(),
         ),
     ];
-    expect(codesOf(flow)).toEqual(["arbiter.unknown-agent"]); // the arbiter also judges auditor-agent
+    expect(codesOf(flow)).toEqual(["arbiter.unknown-target"]); // the arbiter also judges auditor-agent
   });
 
   it("the arbiter must be decorated, and named in kebab-case", () => {
@@ -376,7 +364,7 @@ describe("#279 AC5: a model arbiter covers every agent of its launch by a criter
       {
         code: "arbiter.not-an-arbiter",
         message:
-          ".acceptedBy(UndecoratedArbiter): UndecoratedArbiter has no @Arbiter decorator — decorate it with @Arbiter({ name, decidedBy, … })",
+          ".acceptedBy(UndecoratedArbiter): UndecoratedArbiter has no @Arbiter decorator — decorate it with @Arbiter({ … })",
       },
     ]);
     expect(arbiterErrorsOf(BadlyNamedArbiter)).toEqual([
@@ -392,36 +380,25 @@ describe("#279 AC5: a model arbiter covers every agent of its launch by a criter
   });
 });
 
-describe("#279 AC6: a code arbiter has one @OnAnswer(Agent) method per agent", () => {
-  it("unhandled agent, two methods for one class, a method's name", () => {
-    expect(arbiterErrorsOf(TwoMethodsArbiter)).toHaveLength(3);
+describe("#279 AC6: a code arbiter has one @Arbitrate(Agent) method per agent", () => {
+  it("unhandled target, two methods for one class", () => {
+    expect(arbiterErrorsOf(TwoMethodsArbiter)).toHaveLength(2);
     expect(arbiterErrorsOf(TwoMethodsArbiter)).toEqual(
       expect.arrayContaining([
         {
-          code: "arbiter.unhandled-agent",
-          message: `two-methods-arbiter has no @OnAnswer(ScoreCAgent) method for this launch (${LAUNCH}) — add the method`,
+          code: "arbiter.unhandled-target",
+          message: `two-methods-arbiter has no @Arbitrate(ScoreCAgent) method for this launch (${LAUNCH}) — add the method`,
         },
         {
-          code: "arbiter.duplicate-agent",
+          code: "arbiter.duplicate-target",
           message:
-            "two-methods-arbiter has 2 @OnAnswer(ScoreAAgent) methods (fromScoreA, checkScoreA) — one method per agent class; share a rule through a private method",
-        },
-        {
-          code: "arbiter.method-name",
-          message:
-            "two-methods-arbiter.checkScoreA: the @OnAnswer(ScoreAAgent) method is named fromScoreA — rename it",
+            "two-methods-arbiter has 2 @Arbitrate(ScoreAAgent) methods (fromScoreA, checkScoreA) — one method per target class; share a rule through a private method",
         },
       ]),
     );
   });
 
-  it("@OnAnswer on a model arbiter is an assembly error", () => {
-    expect(arbiterErrorsOf(MethodOnModelArbiter)).toEqual([
-      {
-        code: "arbiter.answer-method-on-model",
-        message:
-          "method-on-model-arbiter is decided by its model (DecidedBy.Model) — remove @OnAnswer from fromScoreA, or make it DecidedBy.Code",
-      },
-    ]);
+  it("a variadic @Arbitrate(A, B, C) method covers every target it names", () => {
+    expect(arbiterErrorsOf(OneMethodArbiter)).toEqual([]);
   });
 });

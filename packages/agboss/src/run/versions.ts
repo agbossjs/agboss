@@ -6,7 +6,7 @@ import { routerLaunchPromptTexts } from "../prompts/router-launch.js";
 import { arbiterPromptTexts } from "../prompts/arbiter.js";
 import { guardrailPromptTexts } from "../prompts/guardrail.js";
 import { arbiterClassesOf, modelArbitersOf } from "../flow/runtime/launch/runtime-launch.js";
-import { arbiterOf, isCodeArbiter } from "../flow/decorators/arbiter.js";
+import { arbiterOf, isDeclarativeArbiter } from "../flow/decorators/arbiter.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import type { RuntimeGraph } from "../flow/runtime/graph-model.js";
 import { routerPromptTexts } from "../routers/index.js";
@@ -60,9 +60,9 @@ const arbitersOf = (deps: Pick<AgentExecutionDeps<string>, "arbiters" | "graph">
 function arbiterTexts(graph: RuntimeGraph) {
   return arbiterClassesOf(graph.launches).flatMap((arbiter) => {
     const options = arbiterOf(arbiter)?.options;
-    if (options === undefined || isCodeArbiter(options)) return [];
-    const criteria = options.criteria.map(({ agent, prompt }) => ({
-      agent: declarationOf(agent)?.options.name ?? agent.name,
+    if (options === undefined || !isDeclarativeArbiter(options)) return [];
+    const criteria = options.criteria.map(({ target, prompt }) => ({
+      target: declarationOf(target)?.options.name ?? target.name,
       prompt: normalisePromptText(prompt),
     }));
     return [{ name: options.name, prompt: normalisePromptText(options.prompt), criteria }];

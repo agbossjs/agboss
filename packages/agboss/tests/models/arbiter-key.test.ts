@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   Agent,
   Arbiter,
-  DecidedBy,
   EmptyEnvironment,
   listOf,
   Workflow,
@@ -36,10 +35,9 @@ class AnsAgent {}
 
 @Arbiter({
   name: "ans-arbiter",
-  decidedBy: DecidedBy.Model,
   model: "moonshotai/kimi-k2.6",
   prompt: "Count it.",
-  criteria: [{ agent: AnsAgent, prompt: "ok" }],
+  criteria: [{ target: AnsAgent, prompt: "ok" }],
 })
 class AnsArbiter {}
 

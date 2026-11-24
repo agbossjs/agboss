@@ -301,25 +301,24 @@ classes follow the same convention (`SupportAgent`) without a check.
 
 ### Parallel launches and quorums
 
-| Code                               | Means                                                                                     | Before → after                                                                                       |
-| ---------------------------------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `[launch.join-required]`           | a launch not followed by a join                                                           | `.toParallelAgents(A, B).toAgent(C)` → `.toParallelAgents(A, B)` `.join()` `.toAgent(C)`             |
-| `[launch.unjoinable-output]`       | a branch's output no join value can carry (a list launched several times, a lone `oneOf`) | give each run one value, or branch the `oneOf` with `.switch(…)` before the launch                   |
-| `[launch.max-items-required]`      | a per-item launch without `maxItems`                                                      | `.toParallelAgents(X)` after `listOf(…)` → `.toParallelAgents(X, { maxItems: 20 })`                  |
-| `[launch.max-items-without-list]`  | `maxItems` on a launch that is not per item                                               | `.toParallelAgents(A, B, { maxItems: 5 })` → remove `maxItems`                                       |
-| `[launch.item-not-read]`           | the per-item target reads no field of the item's class                                    | `input: { request: RequestDto }` → add `company: CompanyDto` for `listOf(CompanyDto)`                |
-| `[launch.skip-differs]`            | one class is listed twice in `.inParallel([…])` with different `.onError(E, skip())`          |
-| `[launch.for-each-item-no-list]`   | `.forEachItem(…)` stands where the step before it gives no list                               |
-| `[launch.max-items-handler-required]` | `.forEachItem(…, { maxItems })` has no `.onError(LimitError.Items, …)` after its join         |
-| `[launch.branch-continued]`        | a launched class is continued somewhere else too                                          | `CheckAgent` launched and also `.toAgent(CheckAgent)` → a second class, or a child workflow per item |
-| `[launch.branch-outdates-sibling]` | a branch renews a value a sibling of the same launch read                                 | a branch returning a new `DraftDto` while another reads `DraftDto` → move the rewrite after the join |
-| `[flow.quorum-impossible]`         | `min` above what can run, or a group that can never complete                              | `.joinQuorum({ min: 4 })` over three agents → `min: 2`, or launch more                               |
-| `[arbiter.not-an-arbiter]`         | `.acceptedBy(X)` with an undecorated `X`                                                  | decorate it `@Arbiter({ name: "x-arbiter", decidedBy })`                                             |
-| `[arbiter.unhandled-agent]`        | a code arbiter has no method (a model arbiter no criterion) for an agent                  | add `@OnAnswer(RiskAgent) fromRisk(answer): boolean` / a `criteria` entry                            |
-| `[arbiter.unknown-agent]`          | a method or criterion for an agent the launch does not run                                | remove the `@OnAnswer(OldAgent)` method                                                              |
-| `[arbiter.duplicate-agent]`        | two methods or criteria for one agent class                                               | keep one; share a rule through a private method                                                      |
-| `[arbiter.answer-method-on-model]` | `@OnAnswer` methods on a `DecidedBy.Model` arbiter                                        | remove the methods, or make it `DecidedBy.Code`                                                      |
-| `[arbiter.method-name]`            | an `@OnAnswer(XAgent)` method not named `fromX`                                           | `@OnAnswer(SkillsAgent) check(…)` → `fromSkills(…)`                                                  |
+| Code                                  | Means                                                                                     | Before → after                                                                                       |
+| ------------------------------------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `[launch.join-required]`              | a launch not followed by a join                                                           | `.toParallelAgents(A, B).toAgent(C)` → `.toParallelAgents(A, B)` `.join()` `.toAgent(C)`             |
+| `[launch.unjoinable-output]`          | a branch's output no join value can carry (a list launched several times, a lone `oneOf`) | give each run one value, or branch the `oneOf` with `.switch(…)` before the launch                   |
+| `[launch.max-items-required]`         | a per-item launch without `maxItems`                                                      | `.toParallelAgents(X)` after `listOf(…)` → `.toParallelAgents(X, { maxItems: 20 })`                  |
+| `[launch.max-items-without-list]`     | `maxItems` on a launch that is not per item                                               | `.toParallelAgents(A, B, { maxItems: 5 })` → remove `maxItems`                                       |
+| `[launch.item-not-read]`              | the per-item target reads no field of the item's class                                    | `input: { request: RequestDto }` → add `company: CompanyDto` for `listOf(CompanyDto)`                |
+| `[launch.skip-differs]`               | one class is listed twice in `.inParallel([…])` with different `.onError(E, skip())`      |
+| `[launch.for-each-item-no-list]`      | `.forEachItem(…)` stands where the step before it gives no list                           |
+| `[launch.max-items-handler-required]` | `.forEachItem(…, { maxItems })` has no `.onError(LimitError.Items, …)` after its join     |
+| `[launch.branch-continued]`           | a launched class is continued somewhere else too                                          | `CheckAgent` launched and also `.toAgent(CheckAgent)` → a second class, or a child workflow per item |
+| `[launch.branch-outdates-sibling]`    | a branch renews a value a sibling of the same launch read                                 | a branch returning a new `DraftDto` while another reads `DraftDto` → move the rewrite after the join |
+| `[flow.quorum-impossible]`            | `min` above what can run, or a group that can never complete                              | `.joinQuorum({ min: 4 })` over three agents → `min: 2`, or launch more                               |
+| `[arbiter.not-an-arbiter]`            | `.acceptedBy(X)` with an undecorated `X`                                                  | decorate it `@Arbiter({ … })`                                                                        |
+| `[arbiter.unhandled-target]`          | a code arbiter has no method (a model arbiter no criterion) for a target                  | add `@Arbitrate(RiskAgent) isMeaningful(answer): boolean` / a `criteria` entry                       |
+| `[arbiter.unknown-target]`            | a method or criterion for a target the launch does not run                                | remove the `@Arbitrate(OldAgent)` method                                                             |
+| `[arbiter.duplicate-target]`          | two methods or criteria for one target class                                              | keep one; share a rule through a private method                                                      |
+| `[arbiter.branch-has-no-output]`      | a void `@Action` (no `output`) in a launch an arbiter judges                              | give the action an `output`, or leave it out of the launch                                           |
 
 ### Child workflows, recursion, concurrency
 

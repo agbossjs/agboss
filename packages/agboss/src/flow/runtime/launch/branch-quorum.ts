@@ -7,7 +7,7 @@ import type { UsageRecord } from "../../../finops/usage.js";
 import type { ArbiterClass } from "../../ast.js";
 import type { ExecutionLimits } from "../limits.js";
 import type { ExecutionStateType } from "../state.js";
-import type { ArbiterModel } from "./arbiter-model.js";
+import type { ArbiterModels } from "./arbiter-call.js";
 import type { ArbiterDeps } from "./arbiters.js";
 import type { BranchLaunch } from "./branch-view.js";
 import type { LaunchRegistry, LiveLaunch } from "./launch-registry.js";
@@ -19,14 +19,14 @@ import { launchPausesOf, withdrawBranchPauses, type PauseStores } from "./withdr
 /**
  * What a branch of a quorum launch runs on (#279): its launch's entry in this process — a quorum's
  * rebuilt from the checkpoint's pending writes after a resume or a crash (S26) — and its arbiters:
- * code ones from the container, model ones on their model, the execution's budgets checked before
+ * code ones from the container (with their model when they inject one), declarative ones on their model, the execution's budgets checked before
  * every model call.
  */
 
 /** What arbiters run on: their instances from the container, their models. */
 export interface BranchArbiters {
   readonly instanceOf: (arbiter: Class) => unknown;
-  readonly modelOf?: (arbiter: ArbiterClass) => ArbiterModel | undefined;
+  readonly modelOf?: (arbiter: ArbiterClass) => ArbiterModels | undefined;
   /** How a model arbiter reads an agent's answer (#708): as that agent's own model reads it. */
   readonly readingOf?: (agent: string, state: ExecutionStateType) => ModelReadingMask | undefined;
 }
@@ -49,7 +49,8 @@ export interface ArbiterSite {
   readonly arbiters?: BranchArbiters;
   readonly live: LiveLaunch;
   readonly view: ExecutionStateType;
-  readonly services: readonly UsageRecord[];
+  /** The spend the branch reports besides its outcome's: a check ended by a limit or a cancel adds to it. */
+  readonly services: UsageRecord[];
   readonly nodeId: string;
 }
 
@@ -62,6 +63,9 @@ export function arbiterDepsFor(site: ArbiterSite): ArbiterDeps {
     ...(parts?.modelOf === undefined ? {} : { modelOf: parts.modelOf }),
     reading: parts?.readingOf?.(site.nodeId, site.view),
     signal: site.live.controller.signal,
+    keepSpend: (usage) => {
+      site.services.push(...usage);
+    },
     beforeModelCall: async (spent) => {
       await budgets.refresh();
       const path = [...site.view.path, site.nodeId];

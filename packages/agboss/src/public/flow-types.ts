@@ -10,6 +10,15 @@ export { type Resolved, type ResolvedAll } from "../components/injection.js";
 export { type GuardrailDecorator } from "../components/policy-decorators.js";
 export { type ComponentSource, type StartSource } from "../flow/ast.js";
 export {
+  type ArbitrableKind,
+  type ArbitrateCheck,
+  type ArbitrateChecks,
+  type HybridArbiterModelOptions,
+  type NoAnswerToJudge,
+  type RecordedCodeArbiterOptions,
+  type TrackedAnswerOf,
+} from "../flow/decorators/arbiter.js";
+export {
   type CaseValueOf,
   type SkipHandling,
   type SkipOf,

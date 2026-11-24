@@ -1055,9 +1055,9 @@ it("looks the order up in the book it is given", async () => {
   `.chooseOne(…)`, `decideWith({ "<target>": 0.9 })` / `routeTo(…)` for the `OnDemand` routes of a
   launch; a target outside its routes is `RouterDecisionError`, a failed call `RouterFailedError`.
   A model router without its own `model` decides on a decision model, as `defaults.router` does.
-- **`testUnit`**: a code arbiter's `@OnAnswer(Agent)` method gets the answer; a model arbiter
-  asks its model with the agent's criterion (`model: decideWith({ counts: 0.9 })`, spend as
-  `arbiter:<name>`). One that throws, answers no boolean or whose model does not answer is
+- **`testUnit`**: a code arbiter's `@Arbitrate(Target)` method gets the answer, tracked as the target
+  gave it; one that injects `ArbiterModel` asks its model, and a declarative arbiter asks its model
+  with the target's criterion (`model: decideWith({ counts: 0.9 })`, spend as `arbiter:<name>`). One that throws, answers no boolean or whose model does not answer is
   `ArbiterError`, never a rejection.
 - **`testUnit`** calls `retrieve(query, { topK, signal })` (`topK` default the `@Rag`'s); its reported
   `costUsd` is the spend, as `rag:<name>`.

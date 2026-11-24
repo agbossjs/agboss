@@ -8,6 +8,7 @@ import type { BaseCallbackHandler } from '@langchain/core/callbacks/base';
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { BaseCheckpointSaver } from '@langchain/langgraph';
 import type { BaseMessage } from '@langchain/core/messages';
+import type { BaseMessageLike } from '@langchain/core/messages';
 import type { Graph } from '@langchain/core/runnables/graph';
 import { inspect } from 'node:util';
 import type { MessageContent } from '@langchain/core/messages';
@@ -1173,7 +1174,7 @@ export function goldenFromRecent(turns: TurnRecords, bundle: string, name: strin
 
 // @public
 export interface GraphDeps<TName extends string> {
-    readonly arbiterModelFor?: (arbiter: ArbiterClass) => ArbiterModel | undefined;
+    readonly arbiterModelFor?: (arbiter: ArbiterClass) => ArbiterModels | undefined;
     readonly arbiters?: readonly ModelArbiterUse[];
     readonly branchErrors?: BranchErrors;
     readonly branchScheduler?: BranchScheduler;

@@ -732,10 +732,12 @@ workflows: { placement } } })`, else `CurrentProcess`; `OtherWorker` is never cl
   classes (`arbiters/*.arbiter.ts`, `-arbiter`) decide whether an answer counts, attached with
   `.acceptedBy(X)` between the launch and the quorum (`.acceptedBy(…).join()` does not compile):
   several `.acceptedBy(…)` are an AND in path order, `.acceptedBy(anyOf(A, B))` stops at the first
-  that accepts (S57). `decidedBy: DecidedBy.Model` — `model`, `prompt` and one `criteria` entry per
-  agent of the launch; `DecidedBy.Code` — one `@OnAnswer(Agent) from<Agent>(answer: XDto): boolean`
-  method per agent class (copy / item through `deps: [ExecutionContext]`); a missing one is
-  `[arbiter.unhandled-agent]`, an extra one `[arbiter.unknown-agent]`, two `[arbiter.duplicate-agent]`.
+  that accepts (S57). `criteria: [{ target, prompt }]` with `model` and `prompt` — a model arbiter, one
+  entry per target of the launch; `@Arbitrate(A, B, …) isMeaningful(answer: XDto): boolean` — an
+  arbiter of code, a method per one or more targets (copy / item through `deps: [ExecutionContext]`);
+  `deps: [ArbiterModel]` (+ `model`) lets that code ask its own model where it must (charged under
+  `arbiter:<name>`, behind the budget check, partial spend kept); a missing target is
+  `[arbiter.unhandled-target]`, an extra one `[arbiter.unknown-target]`, two `[arbiter.duplicate-target]`.
   What the counted answers give is derived from the launch (a repeated class or a shared
   `output` → `listOf(XDto)` in every form); after `.joinQuorum({ min })` with `min` below the
   agents launched a single answer is `optional(XDto)` (a step that requires it fails
@@ -1085,7 +1087,7 @@ export const childPaths = [
 ```
 
 <!-- snippet-context
-import { Agent, Arbiter, DecidedBy, OnAnswer, Workflow, WorkflowFinish, WorkflowStart, anyOf, group, onStart } from "@agboss/core";
+import { Agent, Arbiter, Arbitrate, Workflow, WorkflowFinish, WorkflowStart, anyOf, group, onStart } from "@agboss/core";
 import { Integer, Text, listOf, optional } from "@agboss/core/dto";
 import { minutes, seconds } from "@agboss/core/units";
 
@@ -1149,20 +1151,20 @@ export class QuorumWorkflow {}
 -->
 
 ```ts
-// arbiters/in-range.arbiter.ts — by code: one @OnAnswer(Agent) method per agent of the launch
-@Arbiter({ name: "in-range-arbiter", decidedBy: DecidedBy.Code })
+// arbiters/in-range.arbiter.ts — by code: one @Arbitrate(…targets) method per target of the launch
+@Arbiter({ name: "in-range-arbiter" })
 export class InRangeArbiter {
-  @OnAnswer(ScoreAAgent)
+  @Arbitrate(ScoreAAgent)
   fromScoreA(answer: ScoreDto): boolean {
     return this.isInRange(answer);
   }
 
-  @OnAnswer(ScoreBAgent)
+  @Arbitrate(ScoreBAgent)
   fromScoreB(answer: ScoreDto): boolean {
     return this.isInRange(answer);
   }
 
-  @OnAnswer(ScoreCAgent)
+  @Arbitrate(ScoreCAgent)
   fromScoreC(answer: ScoreDto): boolean {
     return this.isInRange(answer);
   }
@@ -1175,13 +1177,12 @@ export class InRangeArbiter {
 // arbiters/valid-score.arbiter.ts — by model: a criterion for every agent of the launch
 @Arbiter({
   name: "valid-score-arbiter",
-  decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
   prompt: "Count an answer only if it meets the criterion of the agent that gave it.",
   criteria: [
-    { agent: ScoreAAgent, prompt: "Gives a 1–10 score for technical skills, with a reason" },
-    { agent: ScoreBAgent, prompt: "Names at least two concrete risks" },
-    { agent: ScoreCAgent, prompt: "Ends with a clear hire / no hire" },
+    { target: ScoreAAgent, prompt: "Gives a 1–10 score for technical skills, with a reason" },
+    { target: ScoreBAgent, prompt: "Names at least two concrete risks" },
+    { target: ScoreCAgent, prompt: "Ends with a clear hire / no hire" },
   ],
 })
 export class ValidScoreArbiter {}

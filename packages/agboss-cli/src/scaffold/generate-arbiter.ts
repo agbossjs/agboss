@@ -59,11 +59,11 @@ function launchFor(graph: WorkflowGraph, agent: string | undefined): readonly st
   throw new ScaffoldError(`${graph.module.path} ${why}`);
 }
 
-/** `fromScoreA` for `ScoreAAgent`, the name `agboss check` expects (`[arbiter.method-name]`). */
-const methodOf = (agent: string): string =>
+/** One `@Arbitrate(A, B, …)` method for every agent of the launch, its answer the union of theirs. */
+const methodOf = (agents: readonly string[]): string =>
   [
-    `  @OnAnswer(${agent})`,
-    `  from${agent.replace(/Agent$/, "")}(answer: ArbiterAnswerOf<typeof ${agent}>): boolean {`,
+    `  @Arbitrate(${agents.join(", ")})`,
+    `  isMeaningful(answer: ArbitratedAnswerOf<[${agents.map((agent) => `typeof ${agent}`).join(", ")}]>): boolean {`,
     "    return Object.keys(answer).length > 0; // TODO: whether this answer counts",
     "  }",
   ].join("\n");
@@ -93,7 +93,7 @@ export function planArbiter(root: string, name: string, o: GenerateOptions): Cha
   const imports = agents
     .map((agent) => `import { ${agent.className} } from "${importPath(path, agent.path)}";`)
     .join("\n");
-  const methods = agents.map((agent) => methodOf(agent.className)).join("\n\n");
+  const methods = methodOf(agents.map((agent) => agent.className));
   const file: FileToWrite = {
     path,
     content: render("arbiter/arbiter.ts.tmpl", { ...vars(n), imports, methods }),

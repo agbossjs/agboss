@@ -9,7 +9,6 @@ import { beforeEach, describe, expect } from "vitest";
 import {
   Agent,
   Arbiter,
-  DecidedBy,
   EmptyEnvironment,
   listOf,
   Workflow,
@@ -51,10 +50,9 @@ class ContactAnswerAgent {}
 
 @Arbiter({
   name: "contact-arbiter",
-  decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
   prompt: "Count an answer that names an owner.",
-  criteria: [{ agent: ContactAnswerAgent, prompt: "Names the owner with a contact" }],
+  criteria: [{ target: ContactAnswerAgent, prompt: "Names the owner with a contact" }],
 })
 class ContactArbiter {}
 

@@ -15,7 +15,7 @@ Which primitive to pick: `01-composition-and-architecture.md`; the flow: `02-flo
 | `@Tool` (`tools/<name>.tool.ts`, DTOs in `dto/<name>.dto.ts`)                                   | `execute(input)`: the output, or a promise of it                                   | `input`, `output`, `timeout: seconds(…)` (default 30 s), `maxResultSize: kilobytes(…)`, `channel`, `toolInterceptors`, `deps`                                                                                                                                                                                                                                                                   |
 | `@Action` (`actions/<name>.action.ts`)                                                          | `ActionHandler<Self>`: `execute(input)`                                            | `input` (fields from the scope), `output`, `compensateWith`, `committedBy`, `deps`                                                                                                                                                                                                                                                                                                              |
 | `@Router` (`routers/<name>/<name>.router.ts` (+ `<name>.prompt.md`))                            | code: `RouterHandler<Self>`: `route(input)`                                        | `decidedBy`, `input`, `routes`, `maxVisits`; model: `model`, `prompt`; code: `deps`                                                                                                                                                                                                                                                                                                             |
-| `@Arbiter` (`arbiters/<name>/<name>.arbiter.ts` (+ `<name>.prompt.md`))                         | code: one `@OnAnswer(Agent)` method per agent of the launch                        | `decidedBy`; model: `model`, `prompt`, `criteria`; code: `deps`                                                                                                                                                                                                                                                                                                                                 |
+| `@Arbiter` (`arbiters/<name>/<name>.arbiter.ts` (+ `<name>.prompt.md`))                         | code: `@Arbitrate(…targets)` methods for the targets of the launch                 | `decidedBy`; model: `model`, `prompt`, `criteria`; code: `deps`                                                                                                                                                                                                                                                                                                                                 |
 | `@Judge` (`judges/<name>/<name>.judge.ts` (+ `<name>.prompt.md`))                               | `judge(input)`, sync or async                                                      | `name`, `output` (the answer's shape), `model` / `modelProvider` (with `JudgeModel` in `deps`), `deps`                                                                                                                                                                                                                                                                                          |
 | `@Rag` (`rag/<name>.rag.ts`, `@agboss/core/rag`)                                                | `RagSource`: `retrieve(query, { topK, signal, scopeId })`                          | `name` (`-rag`), `description`, `scope`, `topK`, `reranker`, `deps`                                                                                                                                                                                                                                                                                                                             |
 | `@Memory` (`memories/<name>/<name>.memory.ts` (+ `<name>.prompt.md`))                           | none; a code compaction: a `compact(input)` method (no `implements`)               | `name` (`-memory`), `description`, `ttl`, `uncompactedTurns`, `turnsBetweenCompactions`, `compaction: { strategy, prompt, modelProvider, model, summaryQueueLength, summaryMaxTokens }` or `compact()` + `deps`; `NoMemory` is the built-in "no earlier turn"                                                                                                                                   |
@@ -622,18 +622,19 @@ export class OfferRangeJudge implements JudgeHandler<OfferDto | RefusalDto> {
 ## Arbiters in short
 
 An arbiter decides whether one branch's answer of a parallel launch counts toward a quorum
-(`.acceptedBy(X)`, reference 02). By code: one `@OnAnswer(Agent)` method per agent of the launch,
-typed by that agent's output (`[arbiter.unhandled-agent]`, `[arbiter.unknown-agent]`,
-`[arbiter.duplicate-agent]`); by model: `model`, `prompt` and one `criteria` entry per agent.
+(`.acceptedBy(X)`, reference 02). By code: `@Arbitrate(A, B)` methods covering every target of the
+launch once, typed by those targets' output (`[arbiter.unhandled-target]`, `[arbiter.unknown-target]`,
+`[arbiter.duplicate-target]`); with `deps: [ArbiterModel]` the code also asks its own model; by model:
+`model`, `prompt` and one `criteria` entry per target.
 
 ```ts file=src/desk/arbiters/has-answer/has-answer.arbiter.ts
-import { Arbiter, DecidedBy, OnAnswer } from "@agboss/core";
+import { Arbiter, Arbitrate } from "@agboss/core";
 import { SupportAgent } from "../../agents/support/support.agent.js";
 import { DeskAnswerDto } from "../../dto/desk-answer.dto.js";
 
-@Arbiter({ name: "has-answer-arbiter", decidedBy: DecidedBy.Code })
+@Arbiter({ name: "has-answer-arbiter" })
 export class HasAnswerArbiter {
-  @OnAnswer(SupportAgent)
+  @Arbitrate(SupportAgent)
   fromSupport(answer: DeskAnswerDto): boolean {
     return answer.text.trim().length > 0;
   }

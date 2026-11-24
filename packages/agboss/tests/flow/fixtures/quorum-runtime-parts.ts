@@ -5,11 +5,12 @@ import {
   Observer,
   Agent,
   Arbiter,
+  ArbiterModel,
   Clock,
-  DecidedBy,
+  Decision,
   ExecutionContext,
   listOf,
-  OnAnswer,
+  Arbitrate,
   Tool,
   WorkflowFinish,
   WorkflowStart,
@@ -213,19 +214,19 @@ async function inRange(node: string, answer: ScoreDto): Promise<boolean> {
   return answer.score === 99 || (answer.score >= 1 && answer.score <= 10);
 }
 
-@Arbiter({ name: "in-range-arbiter", decidedBy: DecidedBy.Code })
+@Arbiter({ name: "in-range-arbiter" })
 export class InRangeArbiter {
-  @OnAnswer(SkillsPanelAgent)
+  @Arbitrate(SkillsPanelAgent)
   fromSkillsPanel(answer: ScoreDto): Promise<boolean> {
     return inRange("skills", answer);
   }
 
-  @OnAnswer(RisksPanelAgent)
+  @Arbitrate(RisksPanelAgent)
   fromRisksPanel(answer: ScoreDto): Promise<boolean> {
     return inRange("risks", answer);
   }
 
-  @OnAnswer(HirePanelAgent)
+  @Arbitrate(HirePanelAgent)
   fromHirePanel(answer: ScoreDto): Promise<boolean> {
     return inRange("hire", answer);
   }
@@ -233,36 +234,56 @@ export class InRangeArbiter {
 
 @Arbiter({
   name: "panel-model-arbiter",
-  decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
   prompt: "Count an answer only if it meets the criterion of the agent that gave it.",
   criteria: [
-    { agent: SkillsPanelAgent, prompt: "Scores the technical skills" },
-    { agent: RisksPanelAgent, prompt: "Names a concrete risk" },
-    { agent: HirePanelAgent, prompt: "Ends with a clear hire / no hire" },
+    { target: SkillsPanelAgent, prompt: "Scores the technical skills" },
+    { target: RisksPanelAgent, prompt: "Names a concrete risk" },
+    { target: HirePanelAgent, prompt: "Ends with a clear hire / no hire" },
   ],
 })
 export class PanelModelArbiter {}
 
 @Arbiter({
   name: "panel-chat-arbiter",
-  decidedBy: DecidedBy.Model,
   model: "moonshotai/kimi-k2.6",
   prompt: "Count an answer only if it meets the criterion of the agent that gave it.",
   criteria: [
-    { agent: SkillsPanelAgent, prompt: "Scores the technical skills" },
-    { agent: RisksPanelAgent, prompt: "Names a concrete risk" },
-    { agent: HirePanelAgent, prompt: "Ends with a clear hire / no hire" },
+    { target: SkillsPanelAgent, prompt: "Scores the technical skills" },
+    { target: RisksPanelAgent, prompt: "Names a concrete risk" },
+    { target: HirePanelAgent, prompt: "Ends with a clear hire / no hire" },
   ],
 })
 export class PanelChatArbiter {}
 
+/**
+ * A hybrid arbiter (#1283): one method for all three agents; a clear score is decided by code at `$0`,
+ * a borderline one (4 to 7) asks its own model; 13 breaks the check after one model call.
+ */
+@Arbiter({ name: "hybrid-panel-arbiter", model: "typesafe/jev-1.13", deps: [ArbiterModel] })
+export class HybridPanelArbiter {
+  constructor(private readonly arbiterModel: ArbiterModel) {}
+
+  @Arbitrate(SkillsPanelAgent, RisksPanelAgent, HirePanelAgent)
+  async isCounted(answer: ScoreDto): Promise<boolean> {
+    panel.checks.push(`hybrid ${String(answer.score)}`);
+    if (answer.score >= 8) return true;
+    if (answer.score <= 3) return false;
+    const read = await this.arbiterModel.decide({
+      state: `score ${String(answer.score)}`,
+      questions: { acceptable: Decision.boolean("Is this score acceptable?") },
+    });
+    if (answer.score === 5) throw new Error("five is not a clear score");
+    return read.acceptable.probability > 0.7;
+  }
+}
+
 /** Per item: only the even items count — the item from `executionContext.step.itemIndex`. */
-@Arbiter({ name: "even-item-arbiter", decidedBy: DecidedBy.Code, deps: [ExecutionContext] })
+@Arbiter({ name: "even-item-arbiter", deps: [ExecutionContext] })
 export class EvenItemArbiter {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  @OnAnswer(SkillsPanelAgent)
+  @Arbitrate(SkillsPanelAgent)
   fromSkillsPanel(answer: ScoreDto): boolean {
     const { itemIndex, nodeId } = this.executionContext.step;
     panel.checks.push(`even-item ${nodeId}[${String(itemIndex)}] ${String(answer.score)}`);
@@ -271,11 +292,11 @@ export class EvenItemArbiter {
 }
 
 /** Copies: the second copy never counts — the copy from `executionContext.step.copyNumber`. */
-@Arbiter({ name: "copy-arbiter", decidedBy: DecidedBy.Code, deps: [ExecutionContext] })
+@Arbiter({ name: "copy-arbiter", deps: [ExecutionContext] })
 export class CopyArbiter {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  @OnAnswer(SkillsPanelAgent)
+  @Arbitrate(SkillsPanelAgent)
   fromSkillsPanel(): boolean {
     const { copyNumber, nodeId } = this.executionContext.step;
     panel.checks.push(`copy ${nodeId} ${String(copyNumber)}`);

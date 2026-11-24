@@ -192,9 +192,8 @@ export function arbiterApplication(modelProvider?: Class): Class {
 
   @Arbiter({
     name: "arb-arbiter",
-    decidedBy: DecidedBy.Model,
     prompt: "Count it.",
-    criteria: [{ agent: ArbAgent, prompt: "ok" }],
+    criteria: [{ target: ArbAgent, prompt: "ok" }],
     ...(modelProvider === undefined ? {} : { modelProvider }),
   })
   class ArbArbiter {}

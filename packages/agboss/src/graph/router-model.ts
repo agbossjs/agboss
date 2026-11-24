@@ -6,8 +6,8 @@ import type { LoadedRouter } from "../flow/runtime/routers.js";
 import { isDecisionModel } from "../models/decision-models.js";
 import { ModelKind } from "../models/model-kind.js";
 import { createLaunchDecider, type LaunchDecider } from "../flow/runtime/launch/launch-decider.js";
-import { createArbiterModel, type ArbiterModel } from "../flow/runtime/launch/arbiter-model.js";
-import { arbiterOf, isCodeArbiter } from "../flow/decorators/arbiter.js";
+import { createArbiterModels, type ArbiterModels } from "../flow/runtime/launch/arbiter-call.js";
+import { arbiterOf, hasArbiterModel } from "../flow/decorators/arbiter.js";
 import type { ArbiterClass } from "../flow/ast.js";
 import type { ModelArbiterUse } from "../flow/runtime/launch/runtime-launch.js";
 import type { Class } from "../components/injection.js";
@@ -64,21 +64,25 @@ export function flowLaunchDeciderFactory(
     });
 }
 
-/** A model arbiter's model (#279): its own `model`, a decision model or a chat model; none for code. */
+/**
+ * A model arbiter's model (#279): its own `model`, a decision model or a chat model — a declarative
+ * arbiter's, or the one a code arbiter injects as `ArbiterModel` (#1283); none for a code arbiter
+ * without one.
+ */
 export function flowArbiterModelFactory(
   deps: FlowRouterFactoryDeps,
   uses: readonly ModelArbiterUse[] = [],
-): (arbiter: ArbiterClass) => ArbiterModel | undefined {
-  const made = new Map<ArbiterClass, ArbiterModel>();
+): (arbiter: ArbiterClass) => ArbiterModels | undefined {
+  const made = new Map<ArbiterClass, ArbiterModels>();
   return (arbiter) => {
     const options = arbiterOf(arbiter)?.options;
-    if (options === undefined || isCodeArbiter(options)) return undefined;
+    if (options === undefined || !hasArbiterModel(options)) return undefined;
     const found = made.get(arbiter);
     if (found !== undefined) return found;
     // the model the cascade resolved (its provider, #1313); a unit's arbiter its declared one
     const use = uses.find((candidate) => candidate.name === options.name);
     const resolved = use ?? { model: options.model ?? "" };
-    const model = createArbiterModel(
+    const model = createArbiterModels(
       options.name,
       routerModelOf(resolved.model, deps, use?.modelProvider, use?.unpriced),
       { gateway: deps.gateway, chatDefaults: deps.chatDefaults },

@@ -145,7 +145,7 @@ describe("#708: a model arbiter's call", () => {
 
     const verdict = await model.judge(
       {
-        agent: "contact-agent",
+        target: "contact-agent",
         answer: { owner: EMAIL },
         criterion: `Names ${EMAIL}'s team`,
         instructions: "Count an answer that names a team.",

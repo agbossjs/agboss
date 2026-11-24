@@ -11,7 +11,7 @@ import type { AnyTool } from "../tools/index.js";
 import type { RuntimeGraph } from "../flow/runtime/graph-model.js";
 import type { LoadedRouter } from "../flow/runtime/routers.js";
 import type { LaunchDecider } from "../flow/runtime/launch/launch-decider.js";
-import type { ArbiterModel } from "../flow/runtime/launch/arbiter-model.js";
+import type { ArbiterModels } from "../flow/runtime/launch/arbiter-call.js";
 import type { BranchErrors } from "../flow/runtime/launch/branch-end.js";
 import type { BranchScheduler } from "../flow/runtime/launch/branch-schedule.js";
 import type { ArbiterClass } from "../flow/ast.js";
@@ -80,7 +80,7 @@ export interface GraphDeps<TName extends string> {
   /** The model arbiters with their models resolved through the cascade (part of the run's versions). */
   readonly arbiters?: readonly ModelArbiterUse[];
   /** A model arbiter's model (#279): one yes/no decision per answer; none for a code arbiter. */
-  readonly arbiterModelFor?: (arbiter: ArbiterClass) => ArbiterModel | undefined;
+  readonly arbiterModelFor?: (arbiter: ArbiterClass) => ArbiterModels | undefined;
   readonly observer?: ExecutionObserverManager;
   /**
    * The application's context levels (#261, framework wiring: `RuntimeContexts` is internal,

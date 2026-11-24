@@ -6,7 +6,7 @@ first five checked companies are enough, or one of several known combinations of
 the case. A **quorum** (#279) says how many answers are enough, how long to wait, which answers
 count and — with groups — which combination wins and where the execution goes next.
 
-> **Status.** #279 PR 1 (the grammar, `@Arbiter` / `@OnAnswer`, the analyser, the generated
+> **Status.** #279 PR 1 (the grammar, `@Arbiter` / `@Arbitrate`, the analyser, the generated
 > types) and PR 2 (quorums at run time: counting, cancelling the rest, the deadline on the `Clock`,
 > `QuorumNotReachedError`, `ArbiterError`, traces and `onQuorumDecided`, `agboss generate arbiter`).
 > A runnable example: `examples/flow-patterns/src/panel`.
@@ -20,7 +20,7 @@ count and — with groups — which combination wins and where the execution goe
 ## Writing it
 
 <!-- snippet-context
-import { Agent, Arbiter, DecidedBy, OnAnswer, Workflow, WorkflowFinish, WorkflowStart, anyOf, group, onStart } from "@agboss/core";
+import { Agent, Arbiter, Arbitrate, Workflow, WorkflowFinish, WorkflowStart, anyOf, group, onStart } from "@agboss/core";
 import { Integer, Text, listOf, optional } from "@agboss/core/dto";
 import { minutes, seconds } from "@agboss/core/units";
 
@@ -84,20 +84,20 @@ export class QuorumWorkflow {}
 -->
 
 ```ts
-// arbiters/in-range.arbiter.ts — by code: one @OnAnswer(Agent) method per agent of the launch
-@Arbiter({ name: "in-range-arbiter", decidedBy: DecidedBy.Code })
+// arbiters/in-range.arbiter.ts — by code: one @Arbitrate(…targets) method per target of the launch
+@Arbiter({ name: "in-range-arbiter" })
 export class InRangeArbiter {
-  @OnAnswer(ScoreAAgent)
+  @Arbitrate(ScoreAAgent)
   fromScoreA(answer: ScoreDto): boolean {
     return this.isInRange(answer);
   }
 
-  @OnAnswer(ScoreBAgent)
+  @Arbitrate(ScoreBAgent)
   fromScoreB(answer: ScoreDto): boolean {
     return this.isInRange(answer);
   }
 
-  @OnAnswer(ScoreCAgent)
+  @Arbitrate(ScoreCAgent)
   fromScoreC(answer: ScoreDto): boolean {
     return this.isInRange(answer);
   }
@@ -110,13 +110,12 @@ export class InRangeArbiter {
 // arbiters/valid-score.arbiter.ts — by model: a criterion for every agent of the launch
 @Arbiter({
   name: "valid-score-arbiter",
-  decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
   prompt: "Count an answer only if it meets the criterion of the agent that gave it.",
   criteria: [
-    { agent: ScoreAAgent, prompt: "Gives a 1–10 score for technical skills, with a reason" },
-    { agent: ScoreBAgent, prompt: "Names at least two concrete risks" },
-    { agent: ScoreCAgent, prompt: "Ends with a clear hire / no hire" },
+    { target: ScoreAAgent, prompt: "Gives a 1–10 score for technical skills, with a reason" },
+    { target: ScoreBAgent, prompt: "Names at least two concrete risks" },
+    { target: ScoreCAgent, prompt: "Ends with a clear hire / no hire" },
   ],
 })
 export class ValidScoreArbiter {}
@@ -211,21 +210,24 @@ A child workflow cannot be a quorum branch: a quorum launches agents only, so th
 
 `@Arbiter` (`arbiters/<name>.arbiter.ts`, an optional kebab-case `name`) decides **whether an
 arriving answer counts** — once per answer; it is not a router and never chooses where to go. How it
-decides is declared with `decidedBy`; nothing is inferred from its members:
+decides follows from what it declares:
 
-- `DecidedBy.Model` — `model`, `prompt` (how to judge) and `criteria: [{ agent, prompt }]`, one per
-  agent of the launch; the `prompt` never stands in for a missing criterion — an agent whose answers
-  need no real check gets an explicit one ("Any non-empty answer").
-- `DecidedBy.Code` — one `@OnAnswer(Agent) from<Agent>(answer: XDto): boolean` (or
-  `Promise<boolean>`) method per agent class; the answer is the plain DTO, which copy or item it is
-  comes from `executionContext.step.copyNumber` / `.itemIndex` (`deps: [ExecutionContext]`). The
-  decorator checks the method: a wrong answer type, a return type other than `boolean` or a second
-  required parameter does not compile. A rule shared by several agents is a private method each one
-  calls; `@OnAnswer` takes exactly one class.
+- `criteria: [{ target, prompt }]` with `model` and `prompt` (how to judge) — a model arbiter, one
+  criterion per target of the launch; the `prompt` never stands in for a missing criterion — a
+  target whose answers need no real check gets an explicit one ("Any non-empty answer").
+- `@Arbitrate(A, B, …) isMeaningful(answer: XDto): boolean` (or `Promise<boolean>`) — an arbiter of
+  code (`$0`), one method for one or more targets (`@Agent`, `@ExternalTask`, `@Action`, `@Workflow`;
+  the method name is yours); the answer is the target's output, `Metadata.createdBy(answer)` the
+  target that gave it; which copy or item it is comes from `executionContext.step.copyNumber` /
+  `.itemIndex` (`deps: [ExecutionContext]`). The decorator checks the method: a wrong answer type, a
+  return type other than `boolean` or a second required parameter does not compile.
+- `deps: [ArbiterModel]` (and an optional `model`) on a code arbiter — a hybrid: the code decides
+  what it can at `$0` and asks its own model (`arbiterModel.decide(…)` / `.invoke(…)`) only where it
+  must. Every call checks the execution's budgets first and is charged under `arbiter:<name>`, a
+  failed call's partial spend too. `model` without `ArbiterModel` in `deps` does not compile.
 
-The other strategy's options do not compile (`criteria` on a code arbiter, `deps` on a model one).
-A criterion or a method applies to every copy of a repeated agent and every item of a per-item
-launch.
+`criteria` on an arbiter with `deps` does not compile. A criterion or a method applies to every copy
+of a repeated target and every item of a per-item launch.
 
 ## Rules
 
@@ -235,11 +237,10 @@ launch.
 | `[launch.unjoinable-output]` | a branch's output no join value can carry (a list launched several times, a lone `oneOf`) |
 | `[input.missing-on-path]` | a required field whose producer may be left out — the message names the agent and the fix `optional(…)` / `listOf(…)` |
 | `[arbiter.not-an-arbiter]` | `.acceptedBy(X)` of a class without `@Arbiter` |
-| `[arbiter.unhandled-agent]` | an agent of the launch without a criterion / an `@OnAnswer` method |
-| `[arbiter.unknown-agent]` | a criterion / method for an agent the launch does not run |
-| `[arbiter.duplicate-agent]` | two criteria / methods for one agent class |
-| `[arbiter.answer-method-on-model]` | `@OnAnswer` on a `DecidedBy.Model` arbiter |
-| `[arbiter.method-name]` | the method judging `CompanyCheckAgent` is not named `fromCompanyCheck` |
+| `[arbiter.unhandled-target]` | a target of the launch without a criterion / an `@Arbitrate` method |
+| `[arbiter.unknown-target]` | a criterion / method for a target the launch does not run |
+| `[arbiter.duplicate-target]` | two criteria / methods for one target class |
+| `[arbiter.branch-has-no-output]` | a void `@Action` (no `output`) in a launch an arbiter judges |
 | `[name.not-kebab-case]` | an arbiter's `name` is not kebab-case |
 
 ## Describe
@@ -348,7 +349,7 @@ entry carries the same; the join adds a trace entry "quorum decided" and the obs
 ### `agboss generate arbiter`
 
 `agboss generate arbiter in-range-arbiter --workflow panel-workflow` writes
-`arbiters/in-range.arbiter.ts`: a code arbiter with one `@OnAnswer(Agent) from<Agent>(answer:
-ArbiterAnswerOf<typeof Agent>): boolean` method per distinct agent of the flow's launch (`--agent
+`arbiters/in-range.arbiter.ts`: a code arbiter with one `@Arbitrate(A, B) isMeaningful(answer:
+ArbitratedAnswerOf<[typeof A, typeof B]>): boolean` method for the distinct agents of the flow's launch (`--agent
 <name>-agent` picks the launch when there are several). It is not put into the flow — attach it with
 `.acceptedBy(InRangeArbiter)` where it belongs.
