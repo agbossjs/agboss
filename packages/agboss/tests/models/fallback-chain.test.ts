@@ -8,6 +8,8 @@ import type { ChatResult } from "@langchain/core/outputs";
 import { describe, expect, it } from "vitest";
 import { fallbackMarkOf } from "../../src/finops/fallback-mark.js";
 import { fallbackCycleOf, fallbackHopsOf } from "../../src/models/fallback-chain.js";
+import { ModelFailure } from "../../src/models/model-failure.js";
+import { ModelProviderFailureError } from "../../src/models/transport/failure-error.js";
 import { isFailoverError } from "../../src/models/failover-error.js";
 import { FallbackChatModel } from "../../src/models/fallback-chat-model.js";
 import {
@@ -146,6 +148,11 @@ describe("#1313c: which failures go to the fallback", () => {
   it("an error with no status and no known network class does not fail over", () => {
     expect(isFailoverError(new Error("something odd"), undefined)).toBe(false);
     expect(isFailoverError(new TypeError("x is not a function"), undefined)).toBe(false);
+  });
+
+  it("a transport's own failure (timeout, 429, server error, network) does", () => {
+    for (const failure of Object.values(ModelFailure))
+      expect(isFailoverError(new ModelProviderFailureError({ failure }), undefined)).toBe(true);
   });
 
   it("a broken connection or a timeout does, found through its causes", () => {

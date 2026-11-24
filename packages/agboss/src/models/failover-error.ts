@@ -1,4 +1,5 @@
 import { ModelCallError } from "./circuit-breaker.js";
+import { ModelProviderFailureError } from "./transport/failure-error.js";
 import { isProviderSideCode } from "./model-failure.js";
 
 /** Statuses that are always the provider's: its credential, its quota, its timeout, its load. */
@@ -87,8 +88,11 @@ function isNetworkFailure(error: unknown): boolean {
  */
 export function isFailoverError(error: unknown, caller: AbortSignal | undefined): boolean {
   if (caller?.aborted === true) return false;
-  for (const cause of causesOf(error))
+  for (const cause of causesOf(error)) {
     if (cause instanceof ModelCallError) return cause.code === "model.circuit-open";
+    // a transport says it itself: a timeout, a 429, a server error or the network, all the provider's
+    if (cause instanceof ModelProviderFailureError) return true;
+  }
   const status = statusOf(error);
   if (status === undefined) return isNetworkFailure(error);
   if (AMBIGUOUS_STATUSES.includes(status)) return namesProvider(error);
