@@ -60,7 +60,12 @@ async function firstSeen(
       tenantId: REPLAY_TENANT,
       peer: verified.peer,
       idempotencyKey: verified.jti,
+      // a seen signature is a finished request: it has its marker at once, so the sweep removes it
+      tool: "",
+      requestHash: "",
       createdAt: new Date(kept).toISOString(),
+      expiresAt: new Date(kept + settings.idempotencyRetention).toISOString(),
+      response: true,
     });
     return isNew ? undefined : refused(401, MeshRefusalCode.Replayed);
   } catch {

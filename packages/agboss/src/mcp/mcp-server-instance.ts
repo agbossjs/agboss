@@ -82,7 +82,7 @@ export function mcpServerOf(
       });
     // a trusted call with a callId runs once (#398 PR 2b): a repeat gets the kept result
     const tenantId = session.tenant?.tenantId;
-    return dedupedMcpCall(app, { peer: admission.peer, callId, tenantId }, run);
+    return dedupedMcpCall(app, { tool: name, args, peer: admission.peer, callId, tenantId }, run);
   });
 
   return mcp;

@@ -36,8 +36,10 @@ CREATE INDEX IF NOT EXISTS child_execution_queue_claims
 
 export const MESH_REQUESTS_SCHEMA = `CREATE TABLE IF NOT EXISTS mesh_requests (
   tenant_id TEXT NOT NULL, peer TEXT NOT NULL, idempotency_key TEXT NOT NULL,
-  created_at TEXT NOT NULL, response TEXT,
-  PRIMARY KEY (tenant_id, peer, idempotency_key));`;
+  tool TEXT NOT NULL, request_hash TEXT NOT NULL, created_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL, response TEXT,
+  PRIMARY KEY (tenant_id, peer, idempotency_key));
+CREATE INDEX IF NOT EXISTS mesh_requests_expires ON mesh_requests (expires_at);`;
 
 export const EXECUTION_HISTORY_SCHEMA = `CREATE TABLE IF NOT EXISTS execution_history (
   tenant_id TEXT NOT NULL, execution_id TEXT NOT NULL, thread_id TEXT NOT NULL,

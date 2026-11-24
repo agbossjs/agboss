@@ -6237,13 +6237,16 @@ export interface MeshRequestKey {
 // @public
 export interface MeshRequestRecord extends MeshRequestKey {
     readonly createdAt: string;
+    readonly expiresAt: string;
+    readonly requestHash: string;
     readonly response?: unknown;
+    readonly tool: string;
 }
 
 // @public (undocumented)
 export abstract class MeshRequestRepository {
     abstract deleteByKey(key: MeshRequestKey): Promise<void>;
-    abstract deleteExpired(cutoff: Date): Promise<number>;
+    abstract deleteExpired(now: Date): Promise<number>;
     abstract findByKey(key: MeshRequestKey): Promise<MeshRequestRecord | undefined>;
     abstract ping(): Promise<void>;
     abstract saveIfAbsent(record: MeshRequestRecord): Promise<boolean>;
@@ -9759,7 +9762,7 @@ export class SqliteMeshRequestRepository extends MeshRequestRepository {
     // (undocumented)
     deleteByKey(key: MeshRequestKey): Promise<void>;
     // (undocumented)
-    deleteExpired(cutoff: Date): Promise<number>;
+    deleteExpired(now: Date): Promise<number>;
     // (undocumented)
     findByKey(key: MeshRequestKey): Promise<MeshRequestRecord | undefined>;
     // (undocumented)

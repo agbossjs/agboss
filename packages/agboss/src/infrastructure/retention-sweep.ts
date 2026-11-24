@@ -37,10 +37,8 @@ export interface RetentionSources {
   readonly answers?: PauseAnswerLog | undefined;
   /** `@Application({ retention: { pauseRecords } })`: how long a resolved pause record is kept. */
   readonly pauseRecordRetention: Milliseconds;
-  /** The trusted mesh requests' answers (#398 PR 2): removed after their retention. */
+  /** The trusted mesh requests' answers (#398 PR 2): each removed once its own `expiresAt` has passed and it has an answer. */
   readonly meshRequests?: MeshRequestRepository | undefined;
-  /** `@Application({ retention: { meshAnswers } })`: how long an answer is kept. */
-  readonly idempotencyRetention?: number | undefined;
   /**
    * The kept root executions (#401 PR 1) and `@Application({ retention: { executionRecords } })`: a record
    * that ended longer ago than it is removed; none set → nothing is kept, nothing removed.
@@ -172,8 +170,8 @@ const expiriesOf = (sources: RetentionSources): readonly Expiry[] => {
     },
     {
       what: "the mesh requests' answers",
-      remove: meshRequests && ((cutoff) => meshRequests.deleteExpired(cutoff)),
-      retention: sources.idempotencyRetention,
+      remove: meshRequests && ((now) => meshRequests.deleteExpired(now)),
+      retention: DUE_NOW,
     },
     {
       what: "the kept execution records",

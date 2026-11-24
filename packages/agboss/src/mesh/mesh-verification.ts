@@ -20,6 +20,8 @@ export enum MeshRefusalCode {
   BodyMismatch = "mesh.body-mismatch",
   /** A trusted request of the same idempotency key still runs. */
   RequestInProgress = "mesh.request-in-progress",
+  /** The idempotency key was used before for another tool or other arguments (#1319c). */
+  IdempotencyKeyReused = "mesh.idempotency-key-reused",
   /** Its `audience` is another application (#398 PR 3): it was meant for someone else. */
   AudienceMismatch = "mesh.audience-mismatch",
   /**
@@ -49,6 +51,8 @@ export const MESH_REFUSAL_TEXT: Readonly<Record<MeshRefusalCode, string>> = {
   [MeshRefusalCode.EnvelopeExpired]: "the mesh envelope has expired or is not yet valid",
   [MeshRefusalCode.BodyMismatch]: "the mesh envelope was signed for another request body",
   [MeshRefusalCode.RequestInProgress]: "a request with this idempotency key is still running",
+  [MeshRefusalCode.IdempotencyKeyReused]:
+    "this idempotency key was used for another tool or other arguments",
   [MeshRefusalCode.AudienceMismatch]: "the mesh envelope is addressed to another application",
   [MeshRefusalCode.AudienceMissing]: "the signed mesh envelope is addressed to no application",
   [MeshRefusalCode.PeerUnknown]: "the mesh request is signed by no peer of this application",

@@ -1,3 +1,4 @@
+import { DEFAULT_IDEMPOTENCY_RETENTION } from "../../src/mesh/mesh-defaults.js";
 /**
  * #398 PR 2: `MeshRequestRepository`'s recovery sweep through an application (not a store rule: it
  * stays here). The published mesh request contract runs on the core's stores through
@@ -17,7 +18,15 @@ describe("#398 PR 2: the recovery sweep removes the answers past their retention
   test("kept 30 minutes by default, on the application's Clock", async ({ app, clock }) => {
     await app.ready();
     const requests = app.resolve(MeshRequestRepository);
-    await requests.saveIfAbsent({ ...key, createdAt: clock.now().toISOString() });
+    const createdAt = clock.now();
+    await requests.saveIfAbsent({
+      ...key,
+      tool: "order-status-tool",
+      requestHash: "sha256:aa",
+      createdAt: createdAt.toISOString(),
+      expiresAt: new Date(createdAt.getTime() + DEFAULT_IDEMPOTENCY_RETENTION).toISOString(),
+    });
+    await requests.saveResponse(key, { status: "finished" });
 
     await clock.advance(minutes(29));
     const kept = await requests.findByKey(key);

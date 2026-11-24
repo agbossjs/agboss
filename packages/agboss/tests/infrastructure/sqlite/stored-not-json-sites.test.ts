@@ -99,7 +99,13 @@ describe.each(TEXTS)("#1166: %s is the coded unreadable refusal", (_name, NOT_JS
     const connection = connectionTo(temporarySqlitePath());
     const mesh = new SqliteMeshRequestRepository(connection);
     const key = { tenantId: "default", peer: "peer-1", idempotencyKey: "key-1" };
-    await mesh.saveIfAbsent({ ...key, createdAt: iso });
+    await mesh.saveIfAbsent({
+      ...key,
+      tool: "t",
+      requestHash: "h",
+      createdAt: iso,
+      expiresAt: iso,
+    });
     await mesh.saveResponse(key, "ok");
     connection.database.prepare("UPDATE mesh_requests SET response = ?").run(NOT_JSON);
 

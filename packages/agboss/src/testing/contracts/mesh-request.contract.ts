@@ -13,9 +13,13 @@ const key: MeshRequestKey = {
   peer: "orders-application",
   idempotencyKey: "e1:desk:1:call_1",
 };
-const at = (iso: string, of: MeshRequestKey = key): MeshRequestRecord => ({
+/** A request admitted at `iso`, kept for `minutes` (30 by default). */
+const at = (iso: string, of: MeshRequestKey = key, minutes = 30): MeshRequestRecord => ({
   ...of,
+  tool: "order-status-tool",
+  requestHash: "sha256:aa",
   createdAt: iso,
+  expiresAt: new Date(Date.parse(iso) + minutes * 60_000).toISOString(),
 });
 const NINE = "2026-01-05T09:00:00.000Z";
 
@@ -71,16 +75,54 @@ const MESH_CASES: readonly ContractCase<MeshRequestRepository>[] = [
     },
   },
   {
-    name: "the sweep removes the requests admitted before its cutoff only",
+    name: "the request keeps its tool, its request hash and its expiry",
+    run: async ({ first, second }) => {
+      await first.saveIfAbsent(at(NINE));
+
+      expect(await second.findByKey(key)).toEqual({
+        ...key,
+        tool: "order-status-tool",
+        requestHash: "sha256:aa",
+        createdAt: NINE,
+        expiresAt: "2026-01-05T09:30:00.000Z",
+      });
+    },
+  },
+  {
+    name: "a record saved with its answer keeps it; it is swept once it has expired",
+    run: async ({ first, second }) => {
+      await first.saveIfAbsent({ ...at(NINE), response: true });
+
+      expect((await second.findByKey(key))?.response).toBe(true);
+      expect(await second.deleteExpired(new Date("2026-01-05T09:30:00.000Z"))).toBe(1);
+      expect(await first.findByKey(key)).toBeUndefined();
+    },
+  },
+  {
+    name: "the sweep removes the answered requests whose expiry has come, and only those",
     run: async ({ first, second }) => {
       const late = { ...key, idempotencyKey: "late" };
       await first.saveIfAbsent(at(NINE));
+      await first.saveResponse(key, { status: "finished" });
       await first.saveIfAbsent(at("2026-01-05T09:40:00.000Z", late));
+      await first.saveResponse(late, { status: "finished" });
 
-      await second.deleteExpired(new Date("2026-01-05T09:30:00.000Z"));
+      expect(await second.deleteExpired(new Date("2026-01-05T09:29:59.999Z"))).toBe(0);
+      expect(await second.deleteExpired(new Date("2026-01-05T09:30:00.000Z"))).toBe(1);
 
       expect(await first.findByKey(key)).toBeUndefined();
       expect(await first.findByKey(late)).toBeDefined();
+    },
+  },
+  {
+    name: "the sweep never removes a request still running: its key stays taken",
+    run: async ({ first, second }) => {
+      await first.saveIfAbsent(at(NINE));
+
+      expect(await second.deleteExpired(new Date("2026-01-06T09:00:00.000Z"))).toBe(0);
+
+      expect(await second.saveIfAbsent(at("2026-01-06T09:00:00.000Z"))).toBe(false);
+      expect((await second.findByKey(key))?.response).toBeUndefined();
     },
   },
 ];

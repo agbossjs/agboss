@@ -26,7 +26,10 @@ const KEY: MeshRequestKey = {
 const NINE = "2026-01-05T09:00:00.000Z";
 const at = (createdAt: string, key: MeshRequestKey = KEY): MeshRequestRecord => ({
   ...key,
+  tool: "order-status-tool",
+  requestHash: "sha256:aa",
   createdAt,
+  expiresAt: new Date(Date.parse(createdAt) + 30 * 60_000).toISOString(),
 });
 
 const stores: readonly (readonly [string, () => MeshRequestRepository])[] = [
@@ -128,20 +131,34 @@ describe.each(stores)("#1374: the mesh request store %s", (_kind, make) => {
     expect(await store.saveIfAbsent(at("2026-01-05T09:05:00.000Z"))).toBe(true);
   });
 
-  it("sweeps the requests admitted before the cutoff, never the one at it or after it", async () => {
+  it("sweeps the answered requests whose expiry is at or before now, never one after it", async () => {
     const store = make();
     const before = { ...KEY, idempotencyKey: "before" };
     const exactly = { ...KEY, idempotencyKey: "exactly" };
     const after = { ...KEY, idempotencyKey: "after" };
-    await store.saveIfAbsent(at("2026-01-05T09:29:59.999Z", before));
-    await store.saveIfAbsent(at("2026-01-05T09:30:00.000Z", exactly));
-    await store.saveIfAbsent(at("2026-01-05T09:30:00.001Z", after));
+    for (const [key, createdAt] of [
+      [before, "2026-01-05T08:59:59.999Z"],
+      [exactly, "2026-01-05T09:00:00.000Z"],
+      [after, "2026-01-05T09:00:00.001Z"],
+    ] as const) {
+      await store.saveIfAbsent(at(createdAt, key));
+      await store.saveResponse(key, "ok");
+    }
 
-    await expect(store.deleteExpired(new Date("2026-01-05T09:30:00.000Z"))).resolves.toBe(1);
+    await expect(store.deleteExpired(new Date("2026-01-05T09:30:00.000Z"))).resolves.toBe(2);
 
     expect(await store.findByKey(before)).toBeUndefined();
-    expect(await store.findByKey(exactly)).toBeDefined();
+    expect(await store.findByKey(exactly)).toBeUndefined();
     expect(await store.findByKey(after)).toBeDefined();
+  });
+
+  it("never sweeps a request that has no answer yet, however old", async () => {
+    const store = make();
+    await store.saveIfAbsent(at(NINE));
+
+    await expect(store.deleteExpired(new Date("2027-01-05T09:30:00.000Z"))).resolves.toBe(0);
+
+    expect(await store.findByKey(KEY)).toBeDefined();
   });
 
   it("sweeps nothing from an empty store", async () => {

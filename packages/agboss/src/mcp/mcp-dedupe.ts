@@ -1,5 +1,7 @@
+import { createHash } from "node:crypto";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { AnyTenantApp } from "../app/types.js";
+import { stableJson } from "../turns/index.js";
 import { keyTextRuleOf } from "../core/errors.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
 import {
@@ -23,16 +25,23 @@ import { errorResult } from "./mcp-service-helpers.js";
 
 /** What a trusted call is deduplicated by: its peer, the session's tenant and the call id. */
 export interface McpDedupeCall {
+  readonly tool: string;
+  readonly args: unknown;
   readonly peer: string | undefined;
   readonly callId: string | undefined;
   readonly tenantId: string | undefined;
 }
 
-const inProgress = (): CallToolResult => {
-  const code = MeshRefusalCode.RequestInProgress;
+const refusal = (code: MeshRefusalCode): CallToolResult => {
   const error = MESH_REFUSAL_TEXT[code];
   return { ...errorResult(error), _meta: { [MESH_ERROR_META_KEY]: { code, error } } };
 };
+
+/** `sha256:<hex>` of the call's tool and arguments: what a repeat of its key must ask again. */
+const requestHashOf = (call: McpDedupeCall): string =>
+  `sha256:${createHash("sha256")
+    .update(stableJson({ tool: call.tool, args: call.args ?? null }))
+    .digest("hex")}`;
 
 const keyOf = (call: McpDedupeCall): MeshRequestKey | undefined => {
   const tenantId = call.tenantId ?? DEFAULT_TENANT_ID;
@@ -53,10 +62,25 @@ export async function dedupedMcpCall(
   const settings = meshSettingsOf(app);
   if (key === undefined || settings === undefined) return run();
   const requests = app.resolve(MeshRequestRepository);
-  const createdAt = settings.clock.now().toISOString();
-  if (!(await requests.saveIfAbsent({ ...key, createdAt }))) {
+  const now = settings.clock.now();
+  const record = {
+    ...key,
+    tool: call.tool,
+    requestHash: requestHashOf(call),
+    createdAt: now.toISOString(),
+    expiresAt: new Date(now.getTime() + settings.idempotencyRetention).toISOString(),
+  };
+  if (!(await requests.saveIfAbsent(record))) {
     const kept = await requests.findByKey(key);
-    return kept?.response === undefined ? inProgress() : (kept.response as CallToolResult);
+    // a key that is another call's is never answered with that call's result
+    if (
+      kept !== undefined &&
+      (kept.tool !== record.tool || kept.requestHash !== record.requestHash)
+    )
+      return refusal(MeshRefusalCode.IdempotencyKeyReused);
+    return kept?.response === undefined
+      ? refusal(MeshRefusalCode.RequestInProgress)
+      : (kept.response as CallToolResult);
   }
   try {
     const result = await run();

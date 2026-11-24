@@ -27,7 +27,6 @@ export const retentionSourcesOf = (
   pauses: infrastructure.pausedExecutions,
   pauseRecordRetention: assembled.pauseRecordRetention,
   meshRequests: infrastructure.meshRequests,
-  idempotencyRetention: assembled.meshAnswerRetention,
   executionHistory: infrastructure.executionHistory,
   executionRecordRetention: assembled.executionRecordRetention,
   fencedEffects: infrastructure.fencedEffects,

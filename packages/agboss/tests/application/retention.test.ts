@@ -3,7 +3,6 @@
  * checked at assembly (`[application.retention-invalid]`) and read by the recovery sweep, which
  * removes each kind past its own retention on the `Clock`.
  */
-import { DEFAULT_IDEMPOTENCY_RETENTION } from "../../src/mesh/mesh-defaults.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
@@ -205,7 +204,7 @@ describe("#834 AC1: the recovery sweep removes each kind past its own retention"
       [
         "meshAnswers",
         vi.spyOn(app.resolve(MeshRequestRepository), "deleteExpired"),
-        DEFAULT_IDEMPOTENCY_RETENTION as Milliseconds,
+        0 as Milliseconds, // each row carries its own expiry: the store is asked with now
       ],
     ];
 

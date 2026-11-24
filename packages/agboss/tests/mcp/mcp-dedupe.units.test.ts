@@ -60,12 +60,20 @@ function appOf(requests: MeshRequestRepository, hasSettings = true): App {
     },
   };
   rememberMeshSettings(app, () =>
-    hasSettings ? ({ clock: new VirtualClock(NOW) } as never) : undefined,
+    hasSettings
+      ? ({ clock: new VirtualClock(NOW), idempotencyRetention: 60_000 } as never)
+      : undefined,
   );
   return app as never;
 }
 
-const TRUSTED: McpDedupeCall = { peer: "orders-app", callId: "c-1", tenantId: "acme" };
+const TRUSTED: McpDedupeCall = {
+  tool: "order-status-tool",
+  args: { orderId: "7" },
+  peer: "orders-app",
+  callId: "c-1",
+  tenantId: "acme",
+};
 const result = (text: string): CallToolResult => ({ content: [{ type: "text", text }] });
 
 /** A run that counts itself and answers `text`. */
@@ -91,7 +99,15 @@ describe("#1366: a trusted MCP call runs once", () => {
     expect(runs.count).toBe(1);
     expect(requests.asked).toEqual(["saveIfAbsent", "saveResponse"]);
     expect(requests.saved).toEqual([
-      { tenantId: "acme", peer: "orders-app", idempotencyKey: "c-1", createdAt: NOW.toISOString() },
+      {
+        tenantId: "acme",
+        peer: "orders-app",
+        idempotencyKey: "c-1",
+        tool: "order-status-tool",
+        requestHash: expect.stringMatching(/^sha256:[0-9a-f]{64}$/) as unknown,
+        createdAt: NOW.toISOString(),
+        expiresAt: new Date(NOW.getTime() + 60_000).toISOString(),
+      },
     ]);
     expect(
       await requests.findByKey({ tenantId: "acme", peer: "orders-app", idempotencyKey: "c-1" }),
@@ -109,6 +125,24 @@ describe("#1366: a trusted MCP call runs once", () => {
 
     expect(second).toEqual(first);
     expect(third).toEqual(first);
+    expect(runs.count).toBe(1);
+  });
+
+  it("refuses a repeat of the key that asks another tool or other arguments: mesh.idempotency-key-reused, and runs nothing", async () => {
+    const app = appOf(new ListedRequests());
+    const { run, runs } = counting();
+    await dedupedMcpCall(app, TRUSTED, run);
+
+    const otherArgs = await dedupedMcpCall(app, { ...TRUSTED, args: { orderId: "8" } }, run);
+    const otherTool = await dedupedMcpCall(app, { ...TRUSTED, tool: "refund-tool" }, run);
+    const sameAgain = await dedupedMcpCall(app, { ...TRUSTED, args: { orderId: "7" } }, run);
+
+    for (const refused of [otherArgs, otherTool])
+      expect(refused).toMatchObject({
+        isError: true,
+        _meta: { "agboss.dev/error": { code: "mesh.idempotency-key-reused" } },
+      });
+    expect(sameAgain).toEqual(result("paid 1"));
     expect(runs.count).toBe(1);
   });
 

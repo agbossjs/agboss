@@ -19,10 +19,16 @@ export interface MeshRequestKey {
   readonly idempotencyKey: string;
 }
 
-/** One request as kept: when it came, and its answer once it has one (plain JSON). */
+/** One request as kept: what it asked, when it came and until when it is kept, and its answer once it has one (plain JSON). */
 export interface MeshRequestRecord extends MeshRequestKey {
+  /** The tool the request called: a repeat of the key naming another one is a different request. */
+  readonly tool: string;
+  /** `sha256:<hex>` of the request's tool and arguments: a repeat of the key with other arguments is a different request. */
+  readonly requestHash: string;
   /** When the receiver admitted it (ISO 8601, the `Clock`). */
   readonly createdAt: string;
+  /** Until when its answer is kept (ISO 8601): `createdAt` + `@Mesh({ deduplicationTtl })`. */
+  readonly expiresAt: string;
   /** The answer sent (the MCP result, #398); `undefined` while it runs. */
   readonly response?: unknown;
 }
@@ -31,7 +37,10 @@ export abstract class MeshRequestRepository {
   /** Whether the store answers (#300): one fast round trip. */
   abstract ping(): Promise<void>;
 
-  /** Saves a request that is not kept yet; `true` when this call saved it (atomic). */
+  /**
+   * Saves a request that is not kept yet, with its `response` when the record has one (a marker
+   * that is finished at once); `true` when this call saved it (atomic).
+   */
   abstract saveIfAbsent(record: MeshRequestRecord): Promise<boolean>;
 
   /** The request of `key`; `undefined` when none is kept. */
@@ -44,10 +53,11 @@ export abstract class MeshRequestRepository {
   abstract deleteByKey(key: MeshRequestKey): Promise<void>;
 
   /**
-   * Removes every request admitted before `cutoff` (the recovery sweep, `now - retention`) and gives
-   * the number removed (`onTtlSweep`'s count).
+   * Removes every request whose `expiresAt` is at or before `now` and that has its answer (the
+   * recovery sweep), and gives the number removed (`onTtlSweep`'s count). A request still running
+   * keeps its row, so a repeat of its key meets `mesh.request-in-progress`, never a second run.
    */
-  abstract deleteExpired(cutoff: Date): Promise<number>;
+  abstract deleteExpired(now: Date): Promise<number>;
 }
 
 /** The row key of a request (`\u0000` never occurs in a name or a key). */
@@ -91,10 +101,10 @@ export class InMemoryMeshRequestRepository extends MeshRequestRepository {
     return Promise.resolve();
   }
 
-  deleteExpired(cutoff: Date): Promise<number> {
+  deleteExpired(now: Date): Promise<number> {
     let removed = 0;
     for (const [row, record] of this.database.meshRequests)
-      if (Date.parse(record.createdAt) < cutoff.getTime()) {
+      if (record.response !== undefined && Date.parse(record.expiresAt) <= now.getTime()) {
         this.database.meshRequests.delete(row);
         removed += 1;
       }
