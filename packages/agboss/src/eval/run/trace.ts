@@ -48,6 +48,9 @@ export interface EvalToolCallTrace {
   readonly isResultTruncated: boolean;
   /** Answers and tool arguments of the visit that failed validation before this call. */
   readonly validationAttempts: number;
+  /** When it started and ended, on the application's `Clock`. */
+  readonly startedAt: Date;
+  readonly endedAt: Date;
 }
 
 /** One guardrail's decision in a visit. */

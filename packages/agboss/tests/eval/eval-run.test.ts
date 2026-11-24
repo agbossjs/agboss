@@ -18,7 +18,7 @@ import {
   EvalCheckKind,
 } from "../../src/eval/index.js";
 import { evalRunReportOf } from "../../src/eval/run/read-report.js";
-import { runEvalSuite } from "../../src/eval/run/run-suite.js";
+import { runSuiteOn } from "../../src/eval/run/run-suite.js";
 import { evalSuiteWarningsOf } from "../../src/eval/suite/check-suite.js";
 import { EVAL_RUN_KIND, EVAL_RUN_SCHEMA_VERSION } from "../../src/eval/run/report.js";
 import { TestEnvironment } from "../../src/testing/environment.js";
@@ -164,7 +164,7 @@ describe("#396 PR 2: a case's history, turns and contexts", () => {
       );
     scriptJudge(env, "yes");
 
-    const report = await runEvalSuite(built, RefundsEvalSuite, { runs: 1 });
+    const report = await runSuiteOn(built, RefundsEvalSuite, { runs: 1 });
 
     const [run] = report.cases[0]?.runResults ?? [];
     expect(run?.passed).toBe(true);
@@ -197,7 +197,7 @@ describe("#396 PR 2: a case's history, turns and contexts", () => {
       );
     scriptJudge(env, "yes");
 
-    const report = await runEvalSuite(built, RefundsEvalSuite, { runs: 1 });
+    const report = await runSuiteOn(built, RefundsEvalSuite, { runs: 1 });
 
     const { records } = built.infrastructure;
     const threadId = report.cases[0]?.runResults[0]?.threadId ?? "";
@@ -220,7 +220,7 @@ describe("#396 PR 2: a case's history, turns and contexts", () => {
     const { env, built } = await evalApp();
     env.mockLlm(DeskAgent).thenReturnAlways(failWith(ModelFailure.Timeout));
 
-    const report = await runEvalSuite(built, RefundsEvalSuite, { runs: 1 });
+    const report = await runSuiteOn(built, RefundsEvalSuite, { runs: 1 });
 
     const [run] = report.cases[0]?.runResults ?? [];
     expect(run).toMatchObject({ passed: false, error: { code: "step.agent" } });
@@ -230,7 +230,7 @@ describe("#396 PR 2: a case's history, turns and contexts", () => {
   it("validates the cases' values before anything runs", async () => {
     const { built } = await evalApp();
 
-    await expect(runEvalSuite(built, InvalidEvalSuite, { runs: 1 })).rejects.toBeInstanceOf(
+    await expect(runSuiteOn(built, InvalidEvalSuite, { runs: 1 })).rejects.toBeInstanceOf(
       EvalCaseInvalidError,
     );
   });
@@ -248,7 +248,7 @@ describe("#396 PR 2: the trajectory check and the cascade", () => {
         answer("Done."),
       );
 
-    const report = await runEvalSuite(built, RefundsEvalSuite, { runs: 1 });
+    const report = await runSuiteOn(built, RefundsEvalSuite, { runs: 1 });
 
     const [run] = report.cases[0]?.runResults ?? [];
     expect(run?.passed).toBe(false);
@@ -288,7 +288,7 @@ describe("#396 PR 2: the trajectory check and the cascade", () => {
         answer("Refunded twice."),
       );
 
-    const report = await runEvalSuite(built, RefundsEvalSuite, { runs: 1 });
+    const report = await runSuiteOn(built, RefundsEvalSuite, { runs: 1 });
 
     expect(report.cases[0]?.runResults[0]?.checks.slice(1)).toEqual([
       {
@@ -311,7 +311,7 @@ describe("#396 PR 2: the trajectory check and the cascade", () => {
     env.mockLlm(DeskAgent).thenReturn(answer("Order 8 shipped."));
     scriptJudge(env, "yes");
 
-    const report = await runEvalSuite(built, RunAllEvalSuite, { runs: 1 });
+    const report = await runSuiteOn(built, RunAllEvalSuite, { runs: 1 });
 
     expect(report.cases[0]?.runResults[0]?.checks.map((check) => check.status)).toEqual([
       CheckStatus.Passed,
@@ -325,7 +325,7 @@ describe("#396 PR 2: the trajectory check and the cascade", () => {
     const { env, built } = await evalApp();
     env.mockLlm(DeskAgent).thenReturn(replyWith(HandOverDto, { reason: "not about an order" }));
 
-    const report = await runEvalSuite(built, RunAllEvalSuite, { runs: 1 });
+    const report = await runSuiteOn(built, RunAllEvalSuite, { runs: 1 });
 
     const [run] = report.cases[0]?.runResults ?? [];
     expect(run?.finish).toBe("hand-over-workflow-finish");
@@ -353,7 +353,7 @@ describe("#396 PR 2: pass@k and pass^k over k runs", () => {
       );
     scriptJudge(env, "yes", "yes");
 
-    const report = await runEvalSuite(built, FlakyEvalSuite, { runs: 3 });
+    const report = await runSuiteOn(built, FlakyEvalSuite, { runs: 3 });
 
     expect(report.cases[0]).toMatchObject({
       name: "looks-the-order-up",
@@ -384,7 +384,7 @@ describe("#396 PR 2: pass@k and pass^k over k runs", () => {
       );
     scriptJudge(env, "yes");
 
-    const report = await runEvalSuite(built, FlakyEvalSuite, { runs: 1 });
+    const report = await runSuiteOn(built, FlakyEvalSuite, { runs: 1 });
 
     expect(report).toMatchObject({
       kind: EVAL_RUN_KIND,
@@ -409,7 +409,7 @@ describe("#396 PR 2: pass@k and pass^k over k runs", () => {
   it("refuses k below 1", async () => {
     const { built } = await evalApp();
 
-    await expect(runEvalSuite(built, FlakyEvalSuite, { runs: 0 })).rejects.toThrow(
+    await expect(runSuiteOn(built, FlakyEvalSuite, { runs: 0 })).rejects.toThrow(
       "runs: a whole number from 1, got 0",
     );
   });

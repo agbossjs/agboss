@@ -34,6 +34,7 @@ import {
   RefundWorkflowStart,
   SlackRefundsApplication,
 } from "../flow/fixtures/refunds.fixture.js";
+import { EvalDeskModelProvider } from "../flow/fixtures/eval-desk.fixture.js";
 import {
   BedRequestWorkflowStart,
   BedsDto,
@@ -283,10 +284,52 @@ describe("#396: the suite's assembly rules, every violation at once", () => {
     expect(codesOf(SlackRefundsApplication, JudgedEvalSuite)).toEqual([
       "eval.judge-wrong-output",
       "eval.judge-wrong-output",
+      "eval.judge-missing-provider",
     ]);
     expect(() => checkEvalSuite(SlackRefundsApplication, JudgedEvalSuite)).toThrow(
       /judged-eval-suite: beds-judge judges BedsDto, but the runs of refund-workflow-start end at finishes with RefundCardOutputDto — it judges none of them/u,
     );
+  });
+
+  it("[eval.judge-missing-provider]: a model judge needs a provider of its own, the suite's or the application's", () => {
+    @Judge({
+      name: "unpinned-judge",
+      model: "test/judge",
+      output: RefundCardOutputDto,
+      deps: [JudgeModel],
+    })
+    class UnpinnedJudge implements JudgeHandler<RefundCardOutputDto> {
+      constructor(private readonly judgeModel: JudgeModel) {}
+      async judge(): Promise<JudgeVerdict> {
+        await this.judgeModel.invoke("?");
+        return JudgeVerdict.passed();
+      }
+    }
+    @EvalSuite({
+      name: "unpinned-eval-suite",
+      description: "a model judge with no provider pinned anywhere",
+      start: RefundWorkflowStart,
+      judges: [UnpinnedJudge],
+      cases: [],
+    })
+    class UnpinnedEvalSuite {}
+    @EvalSuite({
+      name: "pinned-eval-suite",
+      description: "the same judge, pinned by its suite",
+      start: RefundWorkflowStart,
+      judges: [UnpinnedJudge],
+      modelProvider: EvalDeskModelProvider,
+      cases: [],
+    })
+    class PinnedEvalSuite {}
+
+    expect(codesOf(SlackRefundsApplication, UnpinnedEvalSuite)).toEqual([
+      "eval.judge-missing-provider",
+    ]);
+    expect(() => checkEvalSuite(SlackRefundsApplication, UnpinnedEvalSuite)).toThrow(
+      /unpinned-judge calls a model, and no model provider is pinned for it/u,
+    );
+    expect(codesOf(SlackRefundsApplication, PinnedEvalSuite)).toEqual([]);
   });
 
   it("a judge's own rules: not a @Judge, a code judge with a model", () => {

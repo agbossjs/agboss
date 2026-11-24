@@ -2,6 +2,7 @@ import { usd, type Usd } from "../../units/index.js";
 import type { BuiltApplication } from "../../application/create-app.js";
 import type { ChaosOptions } from "../chaos/chaos-failure.js";
 import { modelChaosOf } from "../chaos/model-chaos.js";
+import { requireApplication } from "../../application/application.js";
 import { startsOfApplication } from "../../application/application-starts.js";
 import type { Class } from "../../components/injection.js";
 import { workflowIdentityOf } from "../../flow/runtime/workflow-keys.js";
@@ -51,7 +52,11 @@ export interface EvalRunOptions {
 /** The parts every run of the suite shares. */
 function partsOf(built: BuiltApplication, suite: Class, isMetamorphic: boolean): SuiteRunParts {
   const { application } = built.assembled;
-  const meta = checkEvalSuite(application, suite);
+  const checked = checkEvalSuite(application, suite);
+  // a judge's model provider: its own, else the suite's, else the application's — never the candidate's
+  const { modelProvider } = requireApplication(application, "runEvalSuite").options;
+  const pinned = checked.modelProvider ?? modelProvider;
+  const meta = pinned === undefined ? checked : { ...checked, modelProvider: pinned };
   const start = startsOfApplication(application).find((found) => found.component === meta.start);
   const workflow = built.workflows.find((found) => found.deps.config.name === start?.workflow);
   // checkEvalSuite refuses a start the application does not have ([eval.unknown-start])
@@ -100,8 +105,8 @@ function judgesOf(parts: SuiteRunParts): readonly EvalModelUse[] {
   });
 }
 
-/** Runs a suite on an application instance: its artifact. */
-export async function runEvalSuite(
+/** Runs a suite on an application instance already built: its artifact (the public `runEvalSuite` builds one). */
+export async function runSuiteOn(
   built: BuiltApplication,
   suite: Class,
   options: EvalRunOptions,

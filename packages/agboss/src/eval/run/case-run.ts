@@ -3,6 +3,7 @@ import type { AssembledWorkflow } from "../../workflow.js";
 import { ExecutionStatus, type AnyTenantApp, type ExecutionOutput } from "../../app/types.js";
 import { startLine } from "../../flow/runtime/history.js";
 import type { ApplicationStart } from "../../application/application-starts.js";
+import { usd } from "../../units/index.js";
 import { turnsOfCase, type EvalCase, type EvalTurn } from "../suite/cases.js";
 import {
   CheckStatus,
@@ -15,6 +16,7 @@ import {
 import type { EvalSuiteMeta } from "../suite/eval-suite.decorator.js";
 import { caseContextValuesOf, type CaseContextValues } from "./case-frame.js";
 import { runTurns } from "./case-turns.js";
+import { hooksOf, runHooks } from "./attempt-hooks.js";
 import { writeCaseHistory } from "./case-history.js";
 import { runJudgeCheck, type JudgedTurn } from "./judge-check.js";
 import {
@@ -35,6 +37,13 @@ import { nameOf } from "../../components/name-of.js";
  * order through the application (`app.execute`, the case's `tenant` / `execution` validated as
  * there) — then the checks on the last turn, in order, under the suite's cascade.
  */
+
+/** Which run of a case, on which thread, for whom. */
+interface RunIds {
+  readonly run: number;
+  readonly threadId: string;
+  readonly tenantId: string;
+}
 
 /** What every run of a suite runs on. */
 export interface SuiteRunParts {
@@ -146,7 +155,11 @@ const judgedTurnOf = (
   toolCalls: last.toolCalls,
 });
 
-/** One run of a case: its result, every check that ran passed or not. */
+/**
+ * One run of a case: its result, every check that ran passed or not. The `beforeAttempt` hooks run
+ * ahead of it (one that throws fails the run before it starts), the `afterAttempt` hooks after it
+ * always — also when it failed — and one that throws fails a run that passed.
+ */
 export async function runCaseOnce(
   parts: SuiteRunParts,
   written: EvalCase,
@@ -154,13 +167,47 @@ export async function runCaseOnce(
 ): Promise<EvalRunResult> {
   const values = caseContextValuesOf(parts.deps, written);
   const threadId = parts.newThreadId();
+  const ids = { run, threadId, tenantId: values.tenant.tenantId };
+  const attempt = { case: written.name, run };
+  const notStarted = await runHooks(
+    hooksOf(parts, written, "beforeAttempt"),
+    attempt,
+    "beforeAttempt",
+  );
+  let ran: EvalRunResult;
+  try {
+    ran =
+      notStarted === undefined
+        ? await runAttempt(parts, written, { values, ids })
+        : failedRunOf(ids, notStarted, usd(0));
+  } catch (error) {
+    // the run broke for a reason of its own: the cleanup still happens, and it is the one that is thrown
+    await runHooks(hooksOf(parts, written, "afterAttempt"), attempt, "afterAttempt");
+    throw error;
+  }
+  const notCleaned = await runHooks(
+    hooksOf(parts, written, "afterAttempt"),
+    attempt,
+    "afterAttempt",
+  );
+  if (notCleaned === undefined || ran.error !== undefined) return ran;
+  return { ...ran, passed: false, error: notCleaned };
+}
+
+/** The run itself: the thread, the turns, the checks. */
+async function runAttempt(
+  parts: SuiteRunParts,
+  written: EvalCase,
+  context: { readonly values: CaseContextValues; readonly ids: RunIds },
+): Promise<EvalRunResult> {
+  const { values, ids } = context;
+  const { run, threadId } = ids;
   await writeCaseHistory(
     parts.deps,
     { tenantId: values.tenant.tenantId, threadId },
     written.history ?? [],
   );
   const turns = await runTurns(parts, written, { threadId, values });
-  const ids = { run, threadId, tenantId: values.tenant.tenantId };
   if (turns.kind === "failed") return failedRunOf(ids, turns.error, turns.spentUsd);
   const { last } = turns;
   const turn = judgedTurnOf(parts, turnsOfCase(written).at(-1), last, values);

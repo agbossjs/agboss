@@ -1,9 +1,9 @@
 import { type Usd, usd } from "../../units/index.js";
 import { executeWithoutInputCheck } from "../../app/execute-without-input-check.js";
 import { ExecutionStatus, type ExecutionOutput } from "../../app/types.js";
-import { nameOf } from "../../components/name-of.js";
 import { AGBossError } from "../../core/errors.js";
 import { turnsOfCase, type EvalCase } from "../suite/cases.js";
+import { answerOpenPause } from "../suite/answer-open-pause.js";
 import type { EvalPauseScript } from "../suite/pauses.js";
 import type { CaseContextValues } from "./case-frame.js";
 import type { SuiteRunParts } from "./case-run.js";
@@ -33,33 +33,6 @@ interface TurnsOf {
   readonly values: CaseContextValues;
 }
 
-/** Answers the open pause of the script's target: its pending entry, resumed by decision or reply. */
-async function answered(
-  parts: SuiteRunParts,
-  paused: ExecutionOutput,
-  script: EvalPauseScript,
-  thread: TurnsOf,
-): Promise<ExecutionOutput> {
-  const channel = nameOf(script.target);
-  const pending = paused.pending.find((found) => found.channel === channel);
-  if (pending?.pauseId === undefined)
-    throw new PauseNotOpenError(
-      `no open pause of ${channel} to answer: ${
-        paused.pending.map((found) => found.channel).join(", ") || "none is pending"
-      }`,
-    );
-  const caller = { tenantId: thread.values.tenant.tenantId, ownerId: script.actor?.id };
-  const { pauseId } = pending;
-  return script.reply === undefined
-    ? parts.app.resume({ pauseId, decision: script.decision }, caller)
-    : parts.app.resume({ pauseId, reply: script.reply }, caller);
-}
-
-/** A scripted answer with no pause of its target to take it: the case is wrong, not the run. */
-class PauseNotOpenError extends Error {
-  override readonly name = "PauseNotOpenError";
-}
-
 /** Runs one turn, then its scripted pauses in order; the output of the last resume, or of the turn. */
 async function runTurn(
   parts: SuiteRunParts,
@@ -80,7 +53,7 @@ async function runTurn(
   outputs.push(last);
   for (const script of options.script) {
     if (last.status !== ExecutionStatus.Paused) break;
-    last = await answered(parts, last, script, thread);
+    last = await answerOpenPause(parts.app, last, script);
     outputs.push(last);
   }
   return { outputs };

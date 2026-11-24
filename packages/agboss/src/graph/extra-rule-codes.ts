@@ -1,3 +1,4 @@
+import type { EvalRuleCode } from "../eval/suite/eval-rule-codes.js";
 import type { FileRuleCode } from "../files/file-rule-codes.js";
 import type { ModelProviderRuleCode } from "../models/model-rule-codes.js";
 import type { PiiRuleCode } from "../pii/pii-rule-codes.js";
@@ -40,6 +41,7 @@ export type ParallelLaunchRuleCode =
 /** The rule codes that live beside their feature, not in the one list. */
 export type ExtraRuleCode =
   | A2AEndpointRuleCode
+  | EvalRuleCode
   | FileRuleCode
   | ModelProviderRuleCode
   | ParallelLaunchRuleCode

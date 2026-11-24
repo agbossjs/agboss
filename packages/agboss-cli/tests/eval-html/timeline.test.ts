@@ -165,6 +165,8 @@ describe("#397 PR 2: the page of a large run stays under its bound", () => {
           output: value,
           isResultTruncated: false,
           validationAttempts: 0,
+          startedAt: new Date("2026-01-05T09:00:01.000Z"),
+          endedAt: new Date("2026-01-05T09:00:02.000Z"),
         },
       ],
     });

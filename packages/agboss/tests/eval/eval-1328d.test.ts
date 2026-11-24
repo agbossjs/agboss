@@ -18,7 +18,7 @@ import {
 import { turnsOfCase } from "../../src/eval/suite/cases.js";
 import { checksOf, toolsOf } from "../../src/eval/suite/checks.js";
 import { evalSuiteOf } from "../../src/eval/suite/eval-suite.decorator.js";
-import { runEvalSuite } from "../../src/eval/run/run-suite.js";
+import { runSuiteOn } from "../../src/eval/run/run-suite.js";
 import { TestEnvironment } from "../../src/testing/environment.js";
 import { callTool, replyWith } from "../../src/testing/index.js";
 import type { BuiltApplication } from "../../src/application/create-app.js";
@@ -112,7 +112,7 @@ describe("#1328d: how the last turn must end", () => {
         replyWith(DeskAnswerDto, { text: "Order 9 shipped." }),
       );
 
-    const report = await runEvalSuite(built, SingleTurnEvalSuite, { runs: 1 });
+    const report = await runSuiteOn(built, SingleTurnEvalSuite, { runs: 1 });
     const [run] = report.cases[0]?.runResults ?? [];
 
     expect(run?.passed).toBe(true);
@@ -135,7 +135,7 @@ describe("#1328d: how the last turn must end", () => {
         replyWith(DeskAnswerDto, { text: "Order 9 shipped." }),
       );
 
-    const report = await runEvalSuite(built, SingleTurnEvalSuite, { runs: 1 });
+    const report = await runSuiteOn(built, SingleTurnEvalSuite, { runs: 1 });
     const [run] = report.cases[1]?.runResults ?? [];
 
     expect(run).toMatchObject({

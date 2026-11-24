@@ -6,6 +6,7 @@ import {
   EVAL_RUN_SCHEMA_VERSION,
   type EvalCasePasses,
   type EvalCaseReport,
+  type EvalModelUse,
   type EvalRunComparison,
   type EvalRunReport,
 } from "@agboss/core/eval";
@@ -145,4 +146,53 @@ export function regressionFailure(
   const cases = `${String(regressed.length)} case${regressed.length === 1 ? "" : "s"}`;
   const message = `${cases} regressed against ${comparison.file}: ${regressed.join(", ")}`;
   return new CliError("quality", "eval.regressed", message);
+}
+
+/** `provider/model`, how a use is named in a warning. */
+const useText = (use: EvalModelUse | undefined): string =>
+  use === undefined ? "none" : `${use.provider}/${use.model}`;
+
+/** The components whose model differs between two lists (a component in one only counts). */
+function drifted(before: readonly EvalModelUse[], now: readonly EvalModelUse[]) {
+  const names = [...new Set([...before, ...now].map((use) => use.component))];
+  return names.flatMap((component) => {
+    const was = before.find((use) => use.component === component);
+    const is = now.find((use) => use.component === component);
+    return useText(was) === useText(is) ? [] : [{ component, was, is }];
+  });
+}
+
+/** What changed in a profile, a model list or a judge list between the baseline and this run. */
+function driftOf(
+  kind: "model" | "judge",
+  before: readonly EvalModelUse[] | undefined,
+  now: readonly EvalModelUse[] | undefined,
+): string[] {
+  // a baseline that kept none (an older compact one) says nothing of them
+  if (before === undefined) return [];
+  const note =
+    kind === "judge" ? " — a changed verdict may be the judge's, not the candidate's" : "";
+  return drifted(before, now ?? []).map(
+    (found) =>
+      `${kind} drift: ${found.component} ran on ${useText(found.was)} in the baseline, on ${useText(found.is)} now${note}`,
+  );
+}
+
+/**
+ * What `--baseline` warns of besides the cases: the profile, the candidate's models and the judges
+ * the baseline ran on that this run did not. A judge that changed is the one that matters — the
+ * yardstick moved, so a case that "regressed" or "improved" may only have been judged differently.
+ */
+export function environmentWarningsOf(baseline: EvalRunReport, run: EvalRunReport): string[] {
+  const profile =
+    baseline.profile === run.profile
+      ? []
+      : [
+          `the baseline ran on profile ${baseline.profile ?? "none"}, this run on ${run.profile ?? "none"}`,
+        ];
+  return [
+    ...profile,
+    ...driftOf("model", baseline.models, run.models),
+    ...driftOf("judge", baseline.judges, run.judges),
+  ];
 }

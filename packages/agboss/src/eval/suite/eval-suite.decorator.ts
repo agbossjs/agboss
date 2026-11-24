@@ -1,4 +1,5 @@
 import type { Class } from "../../components/injection.js";
+import type { EvalAttemptHook } from "./attempts.js";
 import type { EvalCase, EvalCaseOf } from "./cases.js";
 import { EvalCascade } from "./checks.js";
 import type { EvalToolExpectations } from "./tool-expectations.js";
@@ -29,6 +30,10 @@ export interface EvalSuiteOptions<TStart extends Class = Class> {
    * none of the three is set for a model judge).
    */
   readonly modelProvider?: Class;
+  /** Before every run of every case, ahead of the case's own `beforeAttempt`. */
+  readonly beforeAttempt?: EvalAttemptHook;
+  /** After every run of every case, after the case's own `afterAttempt`, whether the run passed or not. */
+  readonly afterAttempt?: EvalAttemptHook;
   /** What a failed check does to the ones after it; default `EvalCascade.StopAtFirstFailure`. */
   readonly cascade?: EvalCascade;
   /** The cases, each name unique (`[eval.duplicate-case]`); their turns typed by `start`'s input. */

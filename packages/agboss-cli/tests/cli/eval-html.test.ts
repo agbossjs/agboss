@@ -186,6 +186,8 @@ describe("#397 PR 1: agboss eval show", () => {
           output: value,
           isResultTruncated: false,
           validationAttempts: 0,
+          startedAt: new Date("2026-01-05T09:00:01.000Z"),
+          endedAt: new Date("2026-01-05T09:00:02.000Z"),
         },
       ],
     });

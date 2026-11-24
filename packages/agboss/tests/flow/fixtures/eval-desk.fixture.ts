@@ -22,6 +22,16 @@ import {
 } from "../../../src/index.js";
 import { Integer, Enum, Text } from "../../../src/dto/index.js";
 import { WorkflowStartTextDto } from "./dtos.js";
+import {
+  ModelCost,
+  ModelProvider,
+  OpenAiCompatibleProvider,
+  PromptCaching,
+  Reasoning,
+  type NoRequestFields,
+} from "../../../src/models/index.js";
+import { CircuitBreakerPolicy } from "../../../src/models/circuit-breaker-policy.js";
+import { minutes, seconds } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { oneOf } from "../../../src/flow/dto-wrappers.js";
 import { caseOf, onStart } from "./paths.js";
@@ -250,8 +260,31 @@ export class AnswerGroundedJudge implements JudgeHandler<DeskAnswerDto> {
 })
 export class EvalEmailPiiPolicy {}
 
+/** The provider the application and its eval judges are pinned to (a scripted gateway serves it). */
+@ModelProvider({
+  name: "eval-desk-model-provider",
+  description: "The desk's models",
+  serves: [/.*/],
+  baseUrl: "http://eval-desk.test/v1",
+  apiKey: "evalDeskApiKey",
+  timeout: seconds(5),
+  cost: ModelCost.fromResponse(),
+  reasoning: Reasoning.modelDecides(),
+  promptCaching: PromptCaching.off(),
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
+    failureThreshold: 3,
+    failureWindow: minutes(1),
+    openDuration: seconds(30),
+  }),
+})
+export class EvalDeskModelProvider extends OpenAiCompatibleProvider {
+  override readonly requestFields: NoRequestFields = {};
+}
+
 @Application({
   name: "eval-desk-application",
+  modelProvider: EvalDeskModelProvider,
+  providers: [EvalDeskModelProvider],
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [EvalDeskWorkflow],

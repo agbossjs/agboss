@@ -52,6 +52,8 @@ const StepSchema = z.looseObject({
       error: ErrorSchema.optional(),
       isResultTruncated: z.boolean(),
       validationAttempts: count,
+      startedAt: DateSchema,
+      endedAt: DateSchema,
     }),
   ),
   guardrailDecisions: z.array(

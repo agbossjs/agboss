@@ -71,6 +71,8 @@ const agentStep = (orderId: string): EvalStepTrace =>
         output: { status: `order ${orderId} arrived broken`, contact: "<email>" },
         isResultTruncated: true,
         validationAttempts: 0,
+        startedAt: new Date("2026-01-05T09:00:01.000Z"),
+        endedAt: new Date("2026-01-05T09:00:02.000Z"),
       },
     ],
     guardrailDecisions: [

@@ -6,7 +6,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { BudgetScope } from "../../src/budgets/budget.js";
 import { EvalCascade, EvalSuite, evalCase, turn } from "../../src/eval/index.js";
-import { runEvalSuite } from "../../src/eval/run/run-suite.js";
+import { runSuiteOn } from "../../src/eval/run/run-suite.js";
 import { TestEnvironment } from "../../src/testing/environment.js";
 import { replyWith } from "../../src/testing/index.js";
 import { judgeKeyOf } from "../../src/testing/scripted-gateway.js";
@@ -63,7 +63,7 @@ describe("#1366: the spend of an eval run", () => {
     env.book.name(key, AnswerGroundedJudge.name);
     env.book.scriptOf(key).thenReturn(replyWith("yes", { cost: usd(0.125) }));
 
-    const report = await runEvalSuite(built, SpendEvalSuite, { runs: 1 });
+    const report = await runSuiteOn(built, SpendEvalSuite, { runs: 1 });
 
     const [run] = report.cases[0]?.runResults ?? [];
     expect(run?.checks.map((check) => [check.check, check.spentUsd])).toEqual([
@@ -78,7 +78,7 @@ describe("#1366: the spend of an eval run", () => {
       judgeUsd: run?.judgeUsd,
       totalUsd: run?.totalUsd,
     });
-    // the judge's call, made outside an execution, is in the application's budget with the turn's
+    // the judge's call is the yardstick's: the application's budget holds the candidate's turn only (#1328)
     const spent = (
       await built.infrastructure.costLedger.findUsageByCounter({
         budget: "test-application-daily-budget",
@@ -87,7 +87,7 @@ describe("#1366: the spend of an eval run", () => {
         period: "2026-01-05",
       })
     ).spent;
-    expect(spent).toBeCloseTo(0.375);
+    expect(spent).toBeCloseTo(0.25);
   });
 
   it("under --metamorphic the variants' turns are the metamorphic check's, and in the run's", async () => {
@@ -102,7 +102,7 @@ describe("#1366: the spend of an eval run", () => {
     env.book.name(key, AnswerGroundedJudge.name);
     env.book.scriptOf(key).thenReturn(replyWith("yes", { cost: usd(0.125) }));
 
-    const report = await runEvalSuite(built, SpendEvalSuite, { runs: 1, metamorphic: true });
+    const report = await runSuiteOn(built, SpendEvalSuite, { runs: 1, metamorphic: true });
 
     const [run] = report.cases[0]?.runResults ?? [];
     expect(run?.checks.map((check) => [check.check, check.spentUsd])).toEqual([

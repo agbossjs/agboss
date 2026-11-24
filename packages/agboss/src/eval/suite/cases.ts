@@ -1,6 +1,7 @@
 import type { Class } from "../../components/injection.js";
 import type { ExecutionInputOf, ExecutionOptionsOf, OutputOf } from "../../flow/generated-types.js";
 import type { ExecutionStatus } from "../../app/types.js";
+import type { EvalAttemptHook } from "./attempts.js";
 import type { EvalPauseScript } from "./pauses.js";
 import type { EvalToolExpectations } from "./tool-expectations.js";
 
@@ -53,6 +54,10 @@ export interface EvalCase {
   readonly judges?: readonly Class<object>[];
   /** Rewordings of the last turn (`--metamorphic`): the same tools, the same key arguments. */
   readonly variants?: readonly EvalTurn[];
+  /** Before each run of this case (after the suite's `beforeAttempt`): reset what the run reads. */
+  readonly beforeAttempt?: EvalAttemptHook;
+  /** After each run of this case, passed or not (before the suite's `afterAttempt`). */
+  readonly afterAttempt?: EvalAttemptHook;
 }
 
 /**

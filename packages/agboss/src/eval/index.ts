@@ -25,6 +25,7 @@ export {
   type EvalPauseOptions,
   type EvalPauseScript,
 } from "./suite/pauses.js";
+export type { EvalAttempt, EvalAttemptHook } from "./suite/attempts.js";
 export { CheckStatus, EvalCascade } from "./suite/checks.js";
 export {
   EVAL_RUN_KIND,
@@ -85,3 +86,13 @@ export {
 } from "./suite/tool-expectations.js";
 /** @beta Type machinery of the eval cases: not a contract, names may change. */
 export type * as EvalTypes from "./eval-types.js";
+export { runEvalSuite, type RunEvalSuiteOptions } from "./run/public-run.js";
+export {
+  compareEvalSuite,
+  type CompareEvalSuiteOptions,
+  type EvalComparisonVariant,
+  type EvalSuiteComparison,
+  type EvalVariantReport,
+} from "./run/compare-suite.js";
+export type { ChaosOptions } from "./chaos/chaos-failure.js";
+export type { EvalRuleCode } from "./suite/eval-rule-codes.js";

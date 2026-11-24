@@ -5,6 +5,10 @@
  */
 import { describe, expect, it } from "vitest";
 import { evalCaseDraftOf, observedExecutionOf } from "../../src/eval/case-from-execution.js";
+import { ExecutionStatus } from "../../src/app/types.js";
+import { PauseResolution } from "../../src/infrastructure/pause-record.js";
+import { PauseAnswerer } from "../../src/channels/channel-role.decorator.js";
+import { bareRecordOf, ComponentKind } from "../../src/flow/runtime/records.js";
 import { ExecutionHistoryStatus } from "../../src/infrastructure/execution-history.repository.js";
 import { historyRecordOf, REFUND_THREAD } from "./fixtures/history-records.js";
 
@@ -53,5 +57,55 @@ describe("#396 PR 8: a case drafted from a kept execution", () => {
     expect(draft).not.toHaveProperty("tenant");
     expect(draft).not.toHaveProperty("execution");
     expect(first?.status).toBe(ExecutionHistoryStatus.Finished);
+  });
+
+  it("the pauses a person answered are the turn's answers; a stopped or cancelled run expects its end", () => {
+    const pause = (resolution: PauseResolution, decision: unknown) => ({
+      pauseId: "p-1",
+      executionId: "e5",
+      step: {
+        component: bareRecordOf("refund-tool", ComponentKind.Tool),
+        nodeId: "desk-agent",
+        visitNumber: 1,
+        idempotencyKey: "e5:desk-agent:1:call-1",
+        callId: "call-1",
+        itemIndex: undefined,
+        copyNumber: 1,
+        toolLoopIteration: 1,
+        validationAttempts: 0,
+      },
+      role: "refund-approval",
+      answerer: PauseAnswerer.ThreadOwner,
+      answeredBy: "alice",
+      responder: "alice",
+      resolution,
+      askedAt: "2026-01-05T09:00:02.000Z",
+      resolvedAt: "2026-01-05T09:00:03.000Z",
+      decision,
+    });
+    const cancelled = historyRecordOf("e5", {
+      status: ExecutionHistoryStatus.Cancelled,
+      pauses: [
+        pause(PauseResolution.Replied, { approved: true }),
+        pause(PauseResolution.Decided, { approved: false }),
+        pause(PauseResolution.Withdrawn, undefined),
+      ],
+    });
+
+    const draft = evalCaseDraftOf("cancelled", observedExecutionOf(cancelled, [cancelled]));
+
+    expect(draft.turns).toEqual([
+      {
+        input: { text: "Refund order 7 for <email>" },
+        pauses: [
+          { target: "refund-approval", decision: { approved: true }, actor: { id: "alice" } },
+        ],
+      },
+    ]);
+    expect(draft.expectedStatus).toBe(ExecutionStatus.Cancelled);
+    const failed = historyRecordOf("e6", { status: ExecutionHistoryStatus.Failed });
+    expect(evalCaseDraftOf("failed", observedExecutionOf(failed, [failed]))).not.toHaveProperty(
+      "expectedStatus",
+    );
   });
 });

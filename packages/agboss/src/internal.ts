@@ -82,7 +82,9 @@ export { compareBundleProfiles } from "./eval/compare-profiles.js";
 export { formatComparison } from "./eval/compare-report.js";
 export { evaluate } from "./eval/eval.js";
 export { checkEvalSuite, evalSuiteWarningsOf } from "./eval/suite/check-suite.js";
-export { runEvalSuite, type EvalRunOptions } from "./eval/run/run-suite.js";
+export { runSuiteOn, type EvalRunOptions } from "./eval/run/run-suite.js";
+export { runEvalSuiteWith } from "./eval/run/public-run.js";
+export { compareEvalSuiteWith } from "./eval/run/compare-suite.js";
 export { loadEvalSuites, type FoundEvalSuite } from "./loader/load-eval-suites.js";
 export {
   builtApplicationOf,
@@ -97,7 +99,9 @@ export {
 export {
   evalCaseDraftOf,
   observedExecutionOf,
+  type DraftPause,
   type DraftToolCall,
+  type DraftTurn,
   type EvalCaseDraft,
   type ObservedExecution,
   type ObservedTurn,

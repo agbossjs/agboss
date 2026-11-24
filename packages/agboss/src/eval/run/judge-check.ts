@@ -1,9 +1,5 @@
 import type { AppDeps } from "../../app/app-deps.js";
 import { ComponentKind, type ComponentRecord } from "../../flow/runtime/records.js";
-import {
-  isApplicationSpendExhausted,
-  recordApplicationSpend,
-} from "../../budgets/application-spend.js";
 import { verdictOfJudge } from "../../judges/declarative-judge.js";
 import {
   isCodeJudge,
@@ -33,11 +29,12 @@ import { judgeFrameOf, type JudgedExecution } from "./case-frame.js";
 import { EvalCheckKind, type EvalCheckResult } from "./report.js";
 
 /**
- * `judgedBy(Judge)` at run time (#396 PR 2): the judge on the output of the finish the case's last
+ * A `@Judge` at run time (#396 PR 2): the judge on the output of the finish the case's last
  * turn ended at, as its DTO — created by the application's container (its services, the execution
  * through `ExecutionContext` / `TenantContext`), run in the frame of that execution. A model judge's
- * calls go through the application's models, counted in its application budgets. A run that ended
- * at no finish, or at one whose output the judge does not judge, fails the check (S5).
+ * calls go through the application's models, recorded as the run's `judgeUsd` and not billed to
+ * the application's budgets. A run that ended at no finish, or at one whose output the judge does
+ * not judge, fails the check (S5).
  */
 
 /** The last turn as a judge reads it. */
@@ -123,11 +120,9 @@ export async function runJudgeCheck(
     };
   const spent: UsageRecord[] = [];
   const binding = bindingOf(deps, meta, suiteProvider);
-  // the evaluation's budgets are checked before each model call of the judge, with its spend so far
-  const model = meteredModel({ name: meta.name, binding }, spent, undefined, [], async () => {
-    if (await isApplicationSpendExhausted(deps.evaluation.budgets))
-      throw new Error("an application budget is exhausted: the judge's model call is not made");
-  });
+  // a judge's calls are the yardstick's, not the candidate's: recorded as `judgeUsd`, never billed
+  // to the application's budgets (#1328)
+  const model = meteredModel({ name: meta.name, binding }, spent);
   const handler = deps.container.get(judge) as RunnableJudge;
   const declared = await loadedCriterionOf(meta);
   const input: AnyJudgeInput = {
@@ -147,8 +142,6 @@ export async function runJudgeCheck(
   } catch (error) {
     const reason = `${meta.name} threw: ${error instanceof Error ? error.message : String(error)}`;
     return { check: meta.name, kind: EvalCheckKind.Judge, status: CheckStatus.Failed, reason };
-  } finally {
-    await recordApplicationSpend(deps.evaluation.budgets, spent);
   }
 }
 

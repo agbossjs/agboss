@@ -1,3 +1,4 @@
+import { isCodeJudge } from "../../components/judge-decorators.js";
 import { checkedJudgeOf } from "../../components/judge-parts.js";
 import type { Class } from "../../components/injection.js";
 import type { DtoClass } from "../../dto/types.js";
@@ -27,7 +28,8 @@ import type { EvalSuiteMeta } from "./eval-suite.decorator.js";
  * start of the application (`[eval.unknown-start]`), every case name is unique
  * (`[eval.duplicate-case]`), every judge is a `@Judge` (`[judge.not-a-judge]`, its model rules) and
  * judges the output of a finish the start reaches (`[eval.judge-wrong-output]`) — one value, never a
- * list; a run that ends at a finish its judge does not judge fails that check.
+ * list; a run that ends at a finish its judge does not judge fails that check. A model judge has a
+ * provider pinned for it (`[eval.judge-missing-provider]`).
  */
 
 const CLASS_SUFFIX = "EvalSuite";
@@ -134,6 +136,22 @@ function judgesOf(meta: EvalSuiteMeta): readonly JudgeEvalCheck[] {
   return [...new Set(all)].map((judge) => ({ judge }));
 }
 
+/**
+ * A model judge runs on a provider pinned apart from the candidate's (#1328): its own
+ * `@Judge({ modelProvider })`, else the suite's, else the application's — none of the three is
+ * `[eval.judge-missing-provider]`. A code judge calls no model.
+ */
+function missingProviders(application: Class, meta: EvalSuiteMeta): RuleViolation[] {
+  const { options } = requireApplication(application, "checkEvalSuite");
+  if (meta.modelProvider !== undefined || options.modelProvider !== undefined) return [];
+  return judgesOf(meta).flatMap((check) => {
+    const judge = checkedJudgeOf(`@EvalSuite "${meta.name}"`, check.judge).meta;
+    if (isCodeJudge(judge) || judge.modelProvider !== undefined) return [];
+    const message = `${meta.name}: ${judge.name} calls a model, and no model provider is pinned for it — set @Judge({ modelProvider }), @EvalSuite({ modelProvider }) or @Application({ modelProvider })`;
+    return [violation("eval.judge-missing-provider", message, [judge.name])];
+  });
+}
+
 /** Every rule violation of a suite on its application. */
 export function evalSuiteViolations(
   application: Class,
@@ -148,5 +166,9 @@ export function evalSuiteViolations(
     const message = `${meta.name}: ${startNameOf(meta.start)} is not a start of ${application.name} — its starts: ${starts.join(", ")}`;
     return [...found, violation("eval.unknown-start", message, [meta.name])];
   }
-  return [...found, ...judgesOf(meta).flatMap((check) => wrongOutput(meta, check, outputs))];
+  return [
+    ...found,
+    ...judgesOf(meta).flatMap((check) => wrongOutput(meta, check, outputs)),
+    ...missingProviders(application, meta),
+  ];
 }

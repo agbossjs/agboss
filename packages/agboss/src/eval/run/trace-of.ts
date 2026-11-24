@@ -56,6 +56,8 @@ function toolCallOf(call: ToolCallRecord): EvalToolCallTrace {
     ...(call.error === undefined ? {} : { error: errorOf(call.error) }),
     isResultTruncated: call.isResultTruncated,
     validationAttempts: call.step.validationAttempts,
+    startedAt: new Date(call.startedAt),
+    endedAt: new Date(call.endedAt),
   };
 }
 
