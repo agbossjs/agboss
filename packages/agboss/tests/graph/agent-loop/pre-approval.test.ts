@@ -38,7 +38,7 @@ const policySet = (...rules: PiiRule[]): PiiPolicySet =>
           description: "d",
           rules,
           deps: [],
-        } as unknown as PiiPolicyMeta,
+        } as never,
         instance: {},
         key: "k",
       }),

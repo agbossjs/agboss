@@ -464,7 +464,10 @@ import { SupportMcp } from "./src/support/mcp/support.expose.js";
 import { connectMcpStdio } from "@agboss/core/mcp";
 
 const app = await createApp(SupportApplication);
-await using connection = await connectMcpStdio(app, { endpoint: SupportMcp }); // serves until closed
+await using connection = await connectMcpStdio(app, {
+  endpoint: SupportMcp,
+  session: { tenant: { tenantId: "acme" }, ownerId: "claude-desktop" }, // who the local client is
+}); // serves until closed
 ```
 
 Over A2A — an `@A2AExpose({ name, version, description, exports, skills? })`
@@ -800,7 +803,7 @@ export class OrdersWorkflow {}
 
 An application whose `@Application({ mesh })` is a `@Mesh` class signs every envelope it sends
 (JWS `EdDSA`, Ed25519), every run report it answers with and every HTTP request of its clients
-(`X-AGBoss-Mesh`); its `peers` are the applications whose signatures it checks. Keys are PEM in
+(`X-AGBoss-Mesh`); its `MeshOptions.peers` — each a `MeshPeer` — are the applications whose signatures it checks. Keys are PEM in
 process variables read through `defineEnv`: the signing key a `secret(…)` (PKCS #8), a peer's
 `verifyKeys` `secret(…)` / `secret.optional(…)` references (SPKI) — any listed key verifies, so a
 key rotation lists the old and the new one.
@@ -828,7 +831,7 @@ export class BillingMesh {}
 ```
 
 <!-- snippet-context
-import { Application } from "@agboss/core";
+import { Application, EmptyEnvironment } from "@agboss/core";
 import { BillingMesh } from "./config/mesh.config.js";
 export class BillingWorkflow {} // a @Workflow of its own
 -->
@@ -837,6 +840,7 @@ export class BillingWorkflow {} // a @Workflow of its own
 @Application({
   name: "billing-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [BillingWorkflow],
   mesh: BillingMesh,
 })
@@ -897,7 +901,7 @@ not cut). `A2AClient.cancel(taskId)` sends A2A `CancelTask` for that task only (
   recovery sweep. Only trusted MCP requests are deduplicated: a `tools/call` by its `_meta.callId` (the AGBoss client sends
   the step's key) — a repeat gets the kept result, one in flight an error result with
   `_meta["agboss.dev/error"]` `mesh.request-in-progress`.
-- `[mesh.signing-key-missing]`, `[mesh.unknown-peer-key]`, `[mesh.duplicate-peer]` at assembly;
+- `[mesh.not-a-mesh]`, `[mesh.limit-invalid]`, `[mesh.peer-without-keys]`, `[mesh.unknown-endpoint]`, `[mesh.duplicate-peer]` at assembly;
   `[mesh.invalid-key] <field> holds no …` at start (never the value).
 - The envelope's `audience` is the client's `target.application` (an `@McpServer({ target: {
 application, expose } })`'s over MCP): a receiver of another name refuses it, signed or not —

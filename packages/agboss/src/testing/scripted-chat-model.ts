@@ -156,11 +156,7 @@ export class ScriptedChatModel extends BaseChatModel {
       listening.kind === "stream" || listening.kind === "stream-failure";
     let result: ChatResult;
     try {
-      result = await this._generate(
-        messages,
-        options,
-        listening as unknown as CallbackManagerForLLMRun,
-      );
+      result = await this._generate(messages, options, listening as never);
     } catch (error) {
       if (isStream()) for (const text of told) yield emit(text);
       throw error;

@@ -28,7 +28,7 @@ const EMPTY = {
 };
 
 const warn = vi.fn();
-const deps = { log: { warn } } as unknown as AppDeps;
+const deps = { log: { warn } } as never;
 
 beforeEach(() => {
   vi.clearAllMocks();

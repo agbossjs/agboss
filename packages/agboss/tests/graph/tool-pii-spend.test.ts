@@ -42,6 +42,7 @@ describe("#1366: a refused tool result keeps what the detection cost", () => {
   const costing = (spent: UsageRecord[], refuses: boolean) => ({
     isEmpty: false,
     fieldKey: "field-key",
+    previous: {},
     maskCacheKeyOf: (text: string) => text,
     mask: (text: string) =>
       Promise.resolve({ masked: { text, blocked: [], tokens: {} }, usage: spent }),

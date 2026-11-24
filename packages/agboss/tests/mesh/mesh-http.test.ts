@@ -277,7 +277,7 @@ describe("#1320: a signed request is admitted once", () => {
   it("the request is refused, never admitted, when the store is down", async () => {
     const down = {
       saveIfAbsent: () => Promise.reject(new Error("db down")),
-    } as unknown as MeshRequestRepository;
+    } as never;
     const settings = receiverOf({ requests: () => down });
 
     const decision = await admitMeshHttp(settings, received(headerOf()), OrdersEndpoint);

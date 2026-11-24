@@ -10,7 +10,7 @@ import {
   ApplicationDailyBudget,
   ExecutionBudget,
   TenantDailyBudget,
-} from "./config/budget.config.js";
+} from "./budgets/application.budgets.js";
 import { DeskA2AExpose } from "./desk/a2a/desk.a2a-expose.js";
 import { DeskWorkflow } from "./desk/workflows/desk/desk.workflow.js";
 import { OrderDeskHealthCheck } from "./desk/health-checks/order-desk.health-check.js";

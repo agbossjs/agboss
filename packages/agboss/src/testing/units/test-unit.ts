@@ -70,7 +70,7 @@ export type UnitRunnerOf<TClass extends Class> =
             ? TClass extends Class<object>
               ? JudgeRunner<JudgeOutputOf<TClass>>
               : never
-            : InstanceType<TClass> extends RagSource<never, never>
+            : InstanceType<TClass> extends RagSource
               ? RagRunner
               : OtherUnitRunners<InstanceType<TClass>>;
 

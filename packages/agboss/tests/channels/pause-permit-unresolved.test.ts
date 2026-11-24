@@ -12,7 +12,7 @@ import { PauseAnswererError } from "../../src/index.js";
 const pause = { pauseId: "p-1", workflow: "gone-workflow", channel: "gone-channel" } as PauseRecord;
 
 const depsOf = (channelOf: unknown): AppDeps =>
-  ({ config: { name: "gone-workflow" }, channelOf }) as unknown as AppDeps;
+  ({ config: { name: "gone-workflow" }, channelOf }) as never;
 
 describe("#1307c: an unresolvable target refuses the answer", () => {
   it("a channel the workflow no longer has", async () => {

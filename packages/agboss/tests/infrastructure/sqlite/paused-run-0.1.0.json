@@ -46,7 +46,8 @@
     "inputTokens": 1,
     "outputTokens": 1,
     "cacheWriteTokens": 0,
-    "totalTokens": 2
+    "totalTokens": 2,
+    "byProvider": {}
   },
   "threadId": "t-1",
   "tenantId": "default",
@@ -149,7 +150,8 @@
           "inputTokens": 1,
           "outputTokens": 1,
           "cacheWriteTokens": 0,
-          "totalTokens": 2
+          "totalTokens": 2,
+          "byProvider": {}
         },
         "toolCalls": [],
         "steps": [],

@@ -34,10 +34,7 @@ export interface RagRunner extends UnitClock {
 export function ragUnit<
   TExecution extends ExecutionContext = ExecutionContext,
   TTenant extends TenantContext = TenantContext,
->(
-  rag: Class<RagSource<never, never>>,
-  options: UnitModelOptions<unknown, TExecution, TTenant> = {},
-): RagRunner {
+>(rag: Class<RagSource>, options: UnitModelOptions<unknown, TExecution, TTenant> = {}): RagRunner {
   const { meta } = requireComponent(rag, "rag", "testUnit");
   checkRags([rag]); // as assembly does
   const site = new UnitSite(options);

@@ -4,11 +4,10 @@ import { ProfileError, ProfileErrorReason } from "./profile-error.js";
 import { ScalarOverlaySchema } from "./overlay-schema.js";
 import type { ConfigSpec } from "./overlay-types.js";
 
-const OVERLAY = Symbol.for("agboss.config.overlay");
-declare const overlayBrand: unique symbol;
+const OVERLAY: unique symbol = Symbol.for("agboss.config.overlay");
 
 /** One profile as `defineConfig` returns it: frozen, and the only thing a `.config.ts` may export. */
-export type ConfigOverlay = Readonly<ConfigSpec> & { readonly [overlayBrand]: true };
+export type ConfigOverlay = Readonly<ConfigSpec> & { readonly [OVERLAY]: true };
 
 /** The keys only TypeScript holds: classes and `configureEnv` values — never in a `.config.yaml`. */
 export const TYPESCRIPT_ONLY_KEYS = [
@@ -106,7 +105,7 @@ export function defineConfig(spec: ConfigSpec): ConfigOverlay {
   if (!isPlain(spec)) throw invalid("defineConfig takes an object of settings");
   checkTypeScriptParts(spec);
   checkConstants(spec);
-  return Object.freeze({ ...(spec as ConfigSpec), [OVERLAY]: true }) as unknown as ConfigOverlay;
+  return Object.freeze({ ...spec, [OVERLAY]: true as const });
 }
 
 /** Whether a module's default export is what `defineConfig` returned. */

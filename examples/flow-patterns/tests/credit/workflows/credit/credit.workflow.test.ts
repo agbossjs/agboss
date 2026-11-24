@@ -6,7 +6,7 @@ import {
   ExecutionLeaseRepository,
 } from "@agboss/core";
 import { seconds, usd } from "@agboss/core/units";
-import { TenantDailyBudget } from "../../../../src/config/budget.config.js";
+import { TenantDailyBudget } from "../../../../src/budgets/application.budgets.js";
 import { replyWith, replyWithInvalidAnswer, routeTo, testWith } from "@agboss/core/testing";
 import { DeskMetricsObserver } from "../../../../src/desk/observers/desk-metrics.observer.js";
 import {

@@ -150,7 +150,7 @@ function inFrameOf<T>(tenantId: string, ownerId: string | undefined, work: () =>
   return runInFrame({ ...frame, execution: { ...frame.execution, tenant, ownerId } }, work);
 }
 
-const retrievalOf = (cls: Class<RagSource<never, never>>, reranker?: BoundReranker) => {
+const retrievalOf = (cls: Class<RagSource>, reranker?: BoundReranker) => {
   const construct: unknown = cls;
   return knowledgeRetrieveOf(
     ragMeta(cls),

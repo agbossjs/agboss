@@ -27,7 +27,7 @@ import {
   CalendarUnavailableError,
   HrCalendarService,
 } from "../../../../src/hiring/services/hr-calendar.service.js";
-import { ExecutionBudget } from "../../../../src/config/budget.config.js";
+import { ExecutionBudget } from "../../../../src/budgets/application.budgets.js";
 import { RecruiterDeskService } from "../../../../src/hiring/services/recruiter-desk.service.js";
 import { SendOfferLetterTool } from "../../../../src/hiring/tools/send-offer-letter.tool.js";
 import { OfferConfirmedWorkflowFinish } from "../../../../src/hiring/workflows/send-offer/offer-confirmed.workflow-finish.js";

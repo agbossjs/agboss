@@ -95,9 +95,12 @@ describe("#265 AC3: sqlitePath is required only when a SQLite implementation is 
       .map((contract) => app.resolve(contract))
       .map((instance) => (instance instanceof CheckedIdGenerator ? instance.minting : instance));
 
-    expect(used.map((instance) => (instance as object).constructor)).toEqual([
-      ...INFRASTRUCTURE_DEFAULTS.values(),
-    ]);
+    // the Logger is the masking wrapper (#1301b), which binds every member, `constructor` too:
+    // `bound ConsoleLogger` is the default's own class by name
+    const unbound = (name: string): string => name.replace(/^bound /, "");
+    expect(used.map((instance) => unbound((instance as object).constructor.name))).toEqual(
+      [...INFRASTRUCTURE_DEFAULTS.values()].map((implementation) => implementation.name),
+    );
     expect(used.some((instance) => isSqliteImplementation(instance as object))).toBe(false);
     await app.close();
   });

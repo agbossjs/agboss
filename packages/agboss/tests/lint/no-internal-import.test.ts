@@ -91,7 +91,7 @@ describe("#818: agboss/no-internal-import", () => {
     const eslint = new ESLint({ cwd: root });
     const [result] = await eslint.lintText(
       'import { studioOf } from "@agboss/core/internal";\nexport const graphs = studioOf;\n',
-      { filePath: `${root}examples/flow-patterns/tests/config/budget.config.test.ts` },
+      { filePath: `${root}examples/flow-patterns/tests/budgets/application.budgets.test.ts` },
     );
 
     expect((result?.messages ?? []).map((message) => message.ruleId)).toContain(RULE);

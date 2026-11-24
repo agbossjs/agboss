@@ -14,7 +14,7 @@ export function Rag<const D extends readonly Token[] = []>(options: {
     readonly topK: number;
     readonly reranker?: Class;
     readonly deps?: D;
-}): <C extends new (...args: ResolvedAll<D>) => RagSource<never, never>>(value: C) => C;
+}): <C extends new (...args: ResolvedAll<D>) => RagSource>(value: C) => C;
 
 // @public
 export interface RagIndexOptions {
@@ -119,9 +119,9 @@ export class RagSearchResultsDto {
 }
 
 // @public
-export abstract class RagSource<TFilter = never, TContext extends ExecutionContext = ExecutionContext> {
+export abstract class RagSource<TFilter = never> {
     protected index?(options: RagIndexOptions): RagIndexReport | Promise<RagIndexReport>;
-    resolveScope?(context: TContext): string;
+    resolveScope?(context: ExecutionContext): string;
     protected abstract retrieve(query: string, options: RagRetrieveOptions<TFilter>): RagRetrieval | Promise<RagRetrieval>;
     search(query: string, options?: RagSearchOptions<TFilter>): Promise<RagSearchResultsDto>;
 }

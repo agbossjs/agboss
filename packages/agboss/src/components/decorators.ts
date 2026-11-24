@@ -200,7 +200,7 @@ export function Rag<const D extends readonly Token[] = []>(options: {
   readonly reranker?: Class;
   readonly deps?: D;
 }) {
-  return <C extends new (...args: ResolvedAll<D>) => RagSource<never, never>>(value: C): C => {
+  return <C extends new (...args: ResolvedAll<D>) => RagSource>(value: C): C => {
     recordComponent(value, { kind: "rag", meta: withDeps(options) });
     return value;
   };

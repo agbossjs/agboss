@@ -1268,7 +1268,7 @@ export type UnitRunnerOf<TClass extends Class> = IsFlowNode<InstanceType<TClass>
     route(input: never): unknown;
 } ? RouterRunner<RecordedInputOf<InstanceType<TClass>>, RouterAnswerOf<InstanceType<TClass>>> : InstanceType<TClass> extends {
     judge(input: never): unknown;
-} ? TClass extends Class<object> ? JudgeRunner<JudgeOutputOf<TClass>> : never : InstanceType<TClass> extends RagSource<never, never> ? RagRunner : OtherUnitRunners<InstanceType<TClass>>;
+} ? TClass extends Class<object> ? JudgeRunner<JudgeOutputOf<TClass>> : never : InstanceType<TClass> extends RagSource ? RagRunner : OtherUnitRunners<InstanceType<TClass>>;
 
 // @public
 export const UNSCRIPTED_SUMMARY = "(summary of the earlier turns)";

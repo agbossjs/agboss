@@ -1,3 +1,4 @@
+import { ExecutionLeaseLostError } from "../../../app/lease-lost.js";
 import { validate } from "../../../dto/schema.js";
 import type { DtoClass } from "../../../dto/types.js";
 import type { GraphDeps } from "../../../graph/deps.js";
@@ -171,8 +172,12 @@ export function actionRunner(node: RuntimeNode, deps: GraphDeps<string>): NodeRu
       timeout,
       deps.clock,
     ).catch((error: unknown) => {
-      // a failure under a lease lost meanwhile is a hand-over, not the action's (#1318e)
-      if (!(error instanceof StepError.ActionOutcomeUnknown))
+      // a failure under a lease lost meanwhile is a hand-over, not the action's (#1318e); a zombie's
+      // write refused by a newer token is already that signal, as ExecutionFencedError: it stays
+      // the fenced error (the evidence and audit rows say fenced), never the plain lease-lost one
+      if (!(
+        error instanceof StepError.ActionOutcomeUnknown || error instanceof ExecutionLeaseLostError
+      ))
         currentFrame()?.execution.lease?.assertHeld();
       throw failure(node.id, error);
     });

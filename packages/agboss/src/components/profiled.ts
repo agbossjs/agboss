@@ -37,6 +37,4 @@ export const patchedPrompts = <TPrompts extends Readonly<Record<string, unknown>
   prompts: TPrompts,
   patch: WorkflowPatch | undefined,
 ): TPrompts =>
-  patch === undefined
-    ? prompts
-    : (patch.prompts(prompts as Record<string, string>) as unknown as TPrompts);
+  patch === undefined ? prompts : (patch.prompts(prompts as Record<string, string>) as TPrompts);

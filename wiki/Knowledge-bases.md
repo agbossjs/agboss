@@ -13,7 +13,7 @@ import type { RagIndexReport, RagRetrieval, RagRetrieveOptions, RagIndexOptions 
 -->
 
 ```ts
-abstract class RagSource<TFilter = never, TContext extends ExecutionContext = ExecutionContext> {
+abstract class RagSource<TFilter = never> {
   protected abstract retrieve(query: string, options: RagRetrieveOptions<TFilter>): RagRetrieval | Promise<RagRetrieval>;
   protected index?(options: RagIndexOptions): RagIndexReport | Promise<RagIndexReport>; // optional: build / update one scope's index
   resolveScope?(context: TContext): string; // RagScope.Custom only
@@ -156,7 +156,7 @@ import type { ExecutionContext } from "@agboss/core";
 ```ts
 // a custom scope: one per organisation and department
 @Rag({ name: "playbooks-rag", description: "Internal playbooks", scope: RagScope.Custom, topK: 4 })
-export class PlaybooksRag extends RagSource<never, ExecutionContext> {
+export class PlaybooksRag extends RagSource {
   override resolveScope(context: ExecutionContext): string {
     return `${context.tenant.tenantId}:${context.ownerId ?? "nobody"}`;
   }

@@ -7,6 +7,7 @@
 import { afterEach, beforeEach, describe, expect } from "vitest";
 import { StepError } from "../../src/core/error-families/step-errors.js";
 import { ExecutionContextUnavailableError } from "../../src/flow/context/errors.js";
+import { execute } from "../helpers/flow.js";
 import { testWith } from "../../src/testing/index.js";
 import { seconds } from "../../src/units/index.js";
 import {
@@ -34,7 +35,7 @@ describe("#1318e: a timed-out @Action", () => {
   });
 
   test("the signal of its context aborts at the timeout, not before", async ({ app, clock }) => {
-    const pending = app.execute(UnguardedStart, { text: "k" });
+    const pending = execute(app, UnguardedStart, { text: "k" });
     const failed = expect(pending).rejects.toBeInstanceOf(StepError.ActionOutcomeUnknown);
     await clock.advance(seconds(1));
     await flush();
@@ -49,7 +50,7 @@ describe("#1318e: a timed-out @Action", () => {
     app,
     clock,
   }) => {
-    const pending = app.execute(UnguardedStart, { text: "k" });
+    const pending = execute(app, UnguardedStart, { text: "k" });
     const failed = expect(pending).rejects.toMatchObject({
       code: "step.action.outcome-unknown",
       action: "unguarded-action",
@@ -67,7 +68,7 @@ describe("#1318e: a timed-out @Action", () => {
     app,
     clock,
   }) => {
-    const pending = app.execute(UnguardedStart, { text: "k" });
+    const pending = execute(app, UnguardedStart, { text: "k" });
     const failed = expect(pending).rejects.toBeInstanceOf(StepError.ActionOutcomeUnknown);
     await clock.advance(seconds(6));
     await failed;
@@ -79,7 +80,7 @@ describe("#1318e: a timed-out @Action", () => {
   });
 
   test("a guarded action's timeout is outcome-unknown too", async ({ app, clock }) => {
-    const first = app.execute(GuardedStart, { text: "order-1" });
+    const first = execute(app, GuardedStart, { text: "order-1" });
     const failed = expect(first).rejects.toBeInstanceOf(StepError.ActionOutcomeUnknown);
     await clock.advance(seconds(6));
     await failed;
@@ -89,7 +90,7 @@ describe("#1318e: a timed-out @Action", () => {
     app,
     clock,
   }) => {
-    const pending = app.execute(MixedStart, { text: "mixed-1" });
+    const pending = execute(app, MixedStart, { text: "mixed-1" });
     const failed = expect(pending).rejects.toBeInstanceOf(StepError.ActionOutcomeUnknown);
     await clock.advance(seconds(6));
     await failed;
@@ -105,7 +106,7 @@ describe("#1318e: a timed-out @Action", () => {
     app,
     clock,
   }) => {
-    const pending = app.execute(MixedRetryStart, { text: "mixed-2" });
+    const pending = execute(app, MixedRetryStart, { text: "mixed-2" });
     await flush();
     await clock.advance(seconds(6));
     await expect(pending).resolves.toMatchObject({ output: { text: "charged" } });
@@ -122,12 +123,12 @@ describe("#1318e: a timed-out @Action", () => {
     app,
     clock,
   }) => {
-    const first = app.execute(GuardedStart, { text: "order-2" });
+    const first = execute(app, GuardedStart, { text: "order-2" });
     const failed = expect(first).rejects.toBeInstanceOf(StepError.ActionOutcomeUnknown);
     await clock.advance(seconds(6));
     await failed;
 
-    const retry = app.execute(GuardedStart, { text: "order-2" });
+    const retry = execute(app, GuardedStart, { text: "order-2" });
     await flush();
     seen.release();
     await expect(retry).resolves.toMatchObject({ output: { text: "charged" } });

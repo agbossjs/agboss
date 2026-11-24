@@ -19,7 +19,7 @@ import {
   ExecutionBudget,
   TenantDailyBudget,
   TopicResearchExecutionBudget,
-} from "./config/budget.config.js";
+} from "./budgets/application.budgets.js";
 import { CreditWorkflow } from "./credit/workflows/credit/credit.workflow.js";
 import { PaymentLedgerRepository } from "./credit/repositories/payment-ledger.repository.js";
 import { DeskWorkflow } from "./desk/workflows/desk/desk.workflow.js";

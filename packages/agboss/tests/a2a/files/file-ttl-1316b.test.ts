@@ -208,7 +208,7 @@ describe("#1316b: Files.save({ ttl })", () => {
         mediaType: "application/pdf",
         ...(ttl === undefined ? {} : { ttl: ttl as never }),
       });
-    const store = (service as unknown as { store: InMemoryFileRepository }).store;
+    const store = Reflect.get(service, "store") as InMemoryFileRepository;
     const ttlOf = async (descriptor: { fileId?: string }) =>
       (await store.findMetadata({ tenantId: "default", fileId: descriptor.fileId ?? "" }))?.ttl;
 

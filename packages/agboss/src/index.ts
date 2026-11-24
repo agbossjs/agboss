@@ -59,8 +59,8 @@ export { Ttl } from "./units/index.js";
 export { defineConfig, type ConfigOverlay } from "./config/define-config.js";
 export type {
   ConfigSpec,
-  DeepPartial,
   ModelProviderOverlay,
+  OverlayPartial,
   PromptOverride,
   WorkflowConfig,
   WorkflowOverlay,

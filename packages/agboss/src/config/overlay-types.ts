@@ -4,11 +4,11 @@ import type { EnvContract } from "../environments/env-ref.js";
 import type { Class } from "../components/injection.js";
 import type { AgentSettings, AgentsConfig, CompactionSettings } from "./settings-types.js";
 
-/** Every field optional at every depth. */
-export type DeepPartial<TValue> = TValue extends readonly unknown[]
+/** Every field optional at every depth (lists stay whole: a list in a profile replaces the default one). */
+export type OverlayPartial<TValue> = TValue extends readonly unknown[]
   ? TValue
   : TValue extends object
-    ? { readonly [TKey in keyof TValue]?: DeepPartial<TValue[TKey]> }
+    ? { readonly [TKey in keyof TValue]?: OverlayPartial<TValue[TKey]> }
     : TValue;
 
 /** A prompt override: a `./` `../` `/` string is a file next to the profile, any other string the text. */
@@ -19,11 +19,11 @@ export interface WorkflowOverlay {
   /** The config version the workflow's runs carry under this profile. */
   readonly version?: string;
   /** Chat defaults, tools limits and the window of this workflow. */
-  readonly defaults?: DeepPartial<AgentsConfig["defaults"]>;
+  readonly defaults?: OverlayPartial<AgentsConfig["defaults"]>;
   /** A compaction's settings by its name. */
-  readonly compactions?: Readonly<Record<string, DeepPartial<CompactionSettings>>>;
+  readonly compactions?: Readonly<Record<string, OverlayPartial<CompactionSettings>>>;
   /** An agent's settings by its name: model, temperature, thinking, limits. */
-  readonly agents?: Readonly<Record<string, DeepPartial<AgentSettings>>>;
+  readonly agents?: Readonly<Record<string, OverlayPartial<AgentSettings>>>;
   /** An agent's system instructions by its name. */
   readonly prompts?: Readonly<Record<string, PromptOverride>>;
 }
@@ -51,7 +51,7 @@ export interface ConfigSpec {
   /** `configureEnv(appEnv, { region: "eu" })`, one per `defineEnv` (a later profile wins per key). */
   readonly env?: EnvOverrides<EnvContract> | readonly EnvOverrides<EnvContract>[];
   /** Chat defaults of every workflow of the application. */
-  readonly defaults?: DeepPartial<AgentsConfig["defaults"]>;
+  readonly defaults?: OverlayPartial<AgentsConfig["defaults"]>;
   /** What a profile changes of each `@ModelProvider`, by its `name`. */
   readonly modelProviders?: Readonly<Record<string, ModelProviderOverlay>>;
   /** By workflow name; `"*"` applies to every workflow first (agents it names that a workflow lacks are skipped). */

@@ -60,7 +60,7 @@ function appOf(
         ? () => ({ saveIfAbsent: () => Promise.reject(new Error("down")) })
         : () => store,
     exposes: [OrdersMcp, AdminMcp],
-  } as unknown as MeshSettings;
+  } as never;
   const app = {};
   rememberMeshSettings(app, () => settings);
   return app;
@@ -96,7 +96,7 @@ async function sent(
     method: "POST",
     url: "/mcp/messages?sessionId=1",
     headers: options.header === undefined ? {} : { "x-agboss-mesh": options.header },
-  } as unknown as IncomingMessage;
+  } as never;
   const written: { status?: number; body?: string } = {};
   const res = {
     writeHead(status: number) {
@@ -106,7 +106,7 @@ async function sent(
     end(text: string) {
       written.body = text;
     },
-  } as unknown as ServerResponse;
+  } as never;
   const admitted = await admitMcpHttp(app, endpoint, { req, res, body }, {}, options.origin);
   return { admitted, status: written.status, answer: written.body };
 }

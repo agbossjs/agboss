@@ -81,11 +81,7 @@ export const ragRuntimeOf = (source: object): RagRuntime | undefined => runtimes
  * scope resolution (a query never reads another scope's passages), reranking, PII policies,
  * spend and tokens into the budgets, tracing.
  */
-export abstract class RagSource<
-  TFilter = never,
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters -- the type of `resolveScope`'s argument, set by the subclass
-  TContext extends ExecutionContext = ExecutionContext,
-> {
+export abstract class RagSource<TFilter = never> {
   /** The scope's passages of `query`: `options.topK` of them, from `options.scopeId`'s scope only. */
   protected abstract retrieve(
     query: string,
@@ -96,7 +92,7 @@ export abstract class RagSource<
   protected index?(options: RagIndexOptions): RagIndexReport | Promise<RagIndexReport>;
 
   /** The scope's id of the current call: required by a `@Rag` with `scope: RagScope.Custom`. */
-  resolveScope?(context: TContext): string;
+  resolveScope?(context: ExecutionContext): string;
 
   /**
    * Searches this knowledge base through the framework's pipeline: inside a tool call or a step.

@@ -96,7 +96,7 @@ describe("#1366: the spend of an approval", () => {
   it("#1295c: the approver is shown the call's arguments as they were prepared (masked), never the model's own", async () => {
     const { node, requestApproval } = setup();
     const masked = {
-      ...(stateOf() as unknown as object),
+      ...(stateOf() as object),
       prepared: {
         c1: { kind: "ready", args: { to: "alice@example.com" }, shown: { to: "<email:7f3a91>" } },
       },

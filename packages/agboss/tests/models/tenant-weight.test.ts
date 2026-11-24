@@ -29,7 +29,7 @@ describe("#1313h: tenantWeight on RateLimitPolicy", () => {
       tenantWeight: (tenant) => (tenant.tenantId === "big" ? 3 : 1),
     });
     const inTenant = (tenantId: string) =>
-      runInFrame({ execution: { tenant: { tenantId } } } as unknown as FrameSpec, () =>
+      runInFrame({ execution: { tenant: { tenantId } } } as never, () =>
         ticketOf(undefined, policy.tenantWeight),
       );
 
@@ -46,7 +46,7 @@ describe("#1313h: tenantWeight on RateLimitPolicy", () => {
         tenantWeight: () => weight,
       });
       await expect(
-        runInFrame({ execution: { tenant: { tenantId: "t" } } } as unknown as FrameSpec, () =>
+        runInFrame({ execution: { tenant: { tenantId: "t" } } } as never, () =>
           ticketOf(undefined, policy.tenantWeight),
         ),
       ).rejects.toThrow(RateLimitPolicyError);

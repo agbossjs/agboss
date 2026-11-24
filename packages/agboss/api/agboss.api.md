@@ -2242,7 +2242,7 @@ export enum ConfigErrorKind {
 
 // @public
 export type ConfigOverlay = Readonly<ConfigSpec> & {
-    readonly [overlayBrand]: true;
+    readonly [OVERLAY]: true;
 };
 
 // @public
@@ -2260,7 +2260,7 @@ export interface ConfigSnapshot {
 // @public
 export interface ConfigSpec {
     readonly channels?: ApplicationOptions["channels"];
-    readonly defaults?: DeepPartial<AgentsConfig["defaults"]>;
+    readonly defaults?: OverlayPartial<AgentsConfig["defaults"]>;
     readonly env?: EnvOverrides<EnvContract> | readonly EnvOverrides<EnvContract>[];
     readonly healthChecks?: ApplicationOptions["healthChecks"];
     readonly modelProvider?: Class;
@@ -2673,11 +2673,6 @@ export interface DeclaredLimits {
     readonly maxSpend?: Usd | EnvRef<Usd>;
     readonly maxTokens?: number | EnvRef<number>;
 }
-
-// @public
-export type DeepPartial<TValue> = TValue extends readonly unknown[] ? TValue : TValue extends object ? {
-    readonly [TKey in keyof TValue]?: DeepPartial<TValue[TKey]>;
-} : TValue;
 
 // @public
 export function defineConfig(spec: ConfigSpec): ConfigOverlay;
@@ -7254,6 +7249,11 @@ export type OutputOf<TInstance> = GeneratedEntry<AGBossTypes.Outputs, TInstance>
 export type OutputShape = DtoClass | ListWrapper | OneOfWrapper;
 
 // @public
+export type OverlayPartial<TValue> = TValue extends readonly unknown[] ? TValue : TValue extends object ? {
+    readonly [TKey in keyof TValue]?: OverlayPartial<TValue[TKey]>;
+} : TValue;
+
+// @public
 export interface Page<TItem> {
     readonly items: readonly TItem[];
     readonly nextCursor?: string;
@@ -11213,9 +11213,9 @@ export interface WorkflowOptions<TName extends string = string, TFlow extends re
 
 // @public
 export interface WorkflowOverlay {
-    readonly agents?: Readonly<Record<string, DeepPartial<AgentSettings>>>;
-    readonly compactions?: Readonly<Record<string, DeepPartial<CompactionSettings>>>;
-    readonly defaults?: DeepPartial<AgentsConfig["defaults"]>;
+    readonly agents?: Readonly<Record<string, OverlayPartial<AgentSettings>>>;
+    readonly compactions?: Readonly<Record<string, OverlayPartial<CompactionSettings>>>;
+    readonly defaults?: OverlayPartial<AgentsConfig["defaults"]>;
     readonly prompts?: Readonly<Record<string, PromptOverride>>;
     readonly version?: string;
 }
