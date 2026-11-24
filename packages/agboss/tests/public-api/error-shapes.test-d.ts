@@ -24,7 +24,7 @@ describe("#890 AC3: literal codes and closed reasons", () => {
     expectTypeOf<
       OutboundCallError.Unreconciled["code"]
     >().toEqualTypeOf<"outbound-call.unreconciled">();
-    expectTypeOf(ExecutionError.Fenced.code).toEqualTypeOf<"execution.lease-lost.fenced">();
+    expectTypeOf<ExecutionError.Fenced["code"]>().toEqualTypeOf<"execution.lease-lost.fenced">();
   });
 
   it("AC3: an unreconciled call's and an unstored result's reason are closed sets of codes", () => {

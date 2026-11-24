@@ -17,7 +17,7 @@ import type { PauseAnswer, PauseRecord } from "../../src/stores/index.js";
 
 describe("AC1: answeredBy is string on every pause type; answerer is PauseAnswerer", () => {
   it("who may answer is `answerer` on the role, the pause record, the pending pause and the log entry", () => {
-    expectTypeOf<ChannelRoleOptions["answerer"]>().toEqualTypeOf<PauseAnswerer | undefined>();
+    expectTypeOf<ChannelRoleOptions["answerer"]>().toEqualTypeOf<PauseAnswerer>();
     expectTypeOf<PauseRecord["answerer"]>().toEqualTypeOf<PauseAnswerer>();
     expectTypeOf<PendingPause["answerer"]>().toEqualTypeOf<PauseAnswerer>();
     expectTypeOf<PauseAnswerRecord["answerer"]>().toEqualTypeOf<PauseAnswerer>();

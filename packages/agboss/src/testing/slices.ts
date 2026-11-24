@@ -213,7 +213,7 @@ export interface TestRunOptions {
    * one `testWith(App, { tenant })` gives. An application that declares a `tenantContext` refuses a
    * call with neither (`ValidationError.TenantRequired`); one without runs as the tenant `"default"`.
    */
-  readonly tenant?: TenantValues | undefined;
+  readonly tenant?: (TenantValues & Readonly<Record<string, unknown>>) | undefined;
 }
 
 /**

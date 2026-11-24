@@ -9,6 +9,7 @@ import { A2AAgent } from "../../../src/a2a/a2a-decorator.js";
 import { a2aCardWarningsOf } from "../../../src/a2a/a2a-card-warnings.js";
 import { A2AEndpoint } from "../../../src/a2a/a2a-endpoint.decorator.js";
 import { A2AClient } from "../../../src/a2a/client/a2a-client.js";
+import { ComponentOptions } from "../../../src/components/component-options.js";
 import { recordComponent } from "../../../src/components/metadata.js";
 import { hours, minutes, usd } from "../../../src/units/index.js";
 import { RefundWorkflowStart } from "../../a2a/fixtures/contracts.workflow.js";
@@ -19,6 +20,7 @@ const sourcesOf = (over: Partial<Sources>): Sources => ({
   providers: [],
   budgets: [],
   workflows: [],
+  componentOptions: ComponentOptions.none,
   ...over,
 });
 

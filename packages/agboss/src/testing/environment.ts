@@ -46,7 +46,7 @@ export interface TestWithOptions extends EnvironmentSelection, TestWithSeams {
    * none. An application that declares a `tenantContext` refuses a call with neither
    * (`ValidationError.TenantRequired`).
    */
-  readonly tenant?: TenantValues;
+  readonly tenant?: TenantValues & Readonly<Record<string, unknown>>;
   /** Components kept real: MCP server classes connect through their configured transports. */
   readonly real?: readonly Class[];
   /** Hosts a test may reach (`localhost` covers every loopback address); everything else is blocked. */

@@ -64,10 +64,13 @@ describe("#1341c: the sweep wakes a parked root an unpause died on", () => {
     // the first sweep marks it `running`, the next one recovers it
     await clock.advance(SWEEP_EVERY);
     await clock.advance(SWEEP_EVERY);
-    await until(
-      async () => (await records.lastTurns("default", threadId, 1))[0]?.status === "answered",
-      "the woken tree finished",
-    );
+    let answered = false;
+    await until(() => {
+      void records.lastTurns("default", threadId, 1).then((turns) => {
+        answered = turns[0]?.status === "answered";
+      });
+      return answered;
+    }, "the woken tree finished");
 
     expect(stopSeen.payments).toEqual([parked.executionId]);
     const history = await app.getStatusHistory(threadId);

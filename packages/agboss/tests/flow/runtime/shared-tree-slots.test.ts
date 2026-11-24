@@ -192,10 +192,10 @@ class OuterWorkflow {}
 
 describe("#333 PR 3: which trees share their slots", () => {
   it("a tree with a launch on any instance, at any depth or by recursion — known from its declarations", () => {
-    expect(treeLaunchesQueued(RemoteCappedWorkflow, undefined)).toBe(true);
-    expect(treeLaunchesQueued(OuterWorkflow, undefined)).toBe(true);
-    expect(treeLaunchesQueued(RemoteCountdownWorkflow, undefined)).toBe(true);
-    expect(treeLaunchesQueued(RemoteItemWorkflow, undefined)).toBe(false);
+    expect(treeLaunchesQueued(RemoteCappedWorkflow, undefined, undefined)).toBe(true);
+    expect(treeLaunchesQueued(OuterWorkflow, undefined, undefined)).toBe(true);
+    expect(treeLaunchesQueued(RemoteCountdownWorkflow, undefined, undefined)).toBe(true);
+    expect(treeLaunchesQueued(RemoteItemWorkflow, undefined, undefined)).toBe(false);
   });
 
   const [inMemory] = kinds;

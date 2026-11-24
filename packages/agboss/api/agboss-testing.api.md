@@ -1173,7 +1173,7 @@ export interface TestModuleOptions extends TestWithOptions, TestModuleApplicatio
 
 // @public
 export interface TestRunOptions {
-    readonly tenant?: TenantValues | undefined;
+    readonly tenant?: (TenantValues & Readonly<Record<string, unknown>>) | undefined;
 }
 
 // @public
@@ -1218,7 +1218,7 @@ export interface TestWithOptions extends EnvironmentSelection, TestWithSeams {
     readonly profile?: ProfileSelection | undefined;
     readonly real?: readonly Class[];
     readonly services?: readonly ServiceEntry[];
-    readonly tenant?: TenantValues;
+    readonly tenant?: TenantValues & Readonly<Record<string, unknown>>;
     readonly vcr?: VcrConfig;
 }
 
