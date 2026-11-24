@@ -311,7 +311,7 @@ import { BackupModelProvider } from "./backup.model-provider.js";
   timeout: minutes(2), // per attempt, from the moment the call has room
   cost: ModelCost.fromResponse(), // OpenRouter reports each call's cost: exact
   reasoning: Reasoning.modelDecides(), // components may override it (reasoning: Reasoning.on(…))
-  promptCaching: PromptCaching.whereSupported({
+  promptCaching: PromptCaching.on({
     retention: CacheRetention.FiveMinutes,
     cachedParts: [CachedPart.SystemPrompt, CachedPart.Tools, CachedPart.History],
   }),
@@ -541,10 +541,10 @@ wait runs on the application's `Clock` — tests move it with `clock.advance(…
 
 - `ModelCost.fromResponse()` — the provider reports each call's cost (OpenRouter's `usage.cost`, the
   Decisions API): exact. `ModelCost.fromPrices({ "<model>": { inputPerMillion: usd(…),
-outputPerMillion: usd(…), cachedInputPerMillion?: usd(…) } })` — tokens × the table; a model it does
+outputPerMillion: usd(…), cacheReadPerMillion?: usd(…), cacheWritePerMillion?: usd(…) } })` — tokens × the table; a model it does
   not price is `model.no-price` at start. A call with neither fails: never silently free.
 - `reasoning` (`Reasoning.modelDecides()`, `.on({ effort: ReasoningEffort.High })`,
-  `.on({ budget: { tokens } })`, `.off()`) and `promptCaching` (`PromptCaching.whereSupported({ … })`,
+  `.on({ budget: { tokens } })`, `.off()`) and `promptCaching` (`PromptCaching.on({ … })`,
   `.off()`) are required on an HTTP provider (a transport's default to off) and overridden by a
   component (`reasoning`, `cache`).
 - At start and with `npx agboss check --models` every model setting is checked against what its

@@ -129,11 +129,11 @@ export const codeClassesOf = (
 ];
 
 const maxVisitsOf = (declaration: ComponentDeclaration): number | undefined =>
-  declaration.kind === NodeKind.Agent ||
-  declaration.kind === NodeKind.Router ||
-  declaration.kind === NodeKind.Question
-    ? declaration.options.maxVisits
-    : undefined;
+  declaration.kind === NodeKind.Agent
+    ? declaration.options.executionLimits?.maxVisits
+    : declaration.kind === NodeKind.Router || declaration.kind === NodeKind.Question
+      ? declaration.options.maxVisits
+      : undefined;
 
 /** Where a child workflow node runs when it is not in this process (#1286); `undefined` for the current one. */
 const placementOf = (

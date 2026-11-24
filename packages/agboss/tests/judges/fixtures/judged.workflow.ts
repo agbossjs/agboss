@@ -60,7 +60,7 @@ export class Grounded implements JudgeHandler<PlainTextDto> {
   description: "Writes an answer",
   model: "local/llama",
   judges: [Grounded],
-  maxRetries: 1,
+  executionLimits: { maxRetries: 1 },
 })
 export class Writer {}
 

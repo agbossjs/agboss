@@ -1,6 +1,7 @@
 import { isCountLimit, shownLimit } from "../../../graph/count-limit.js";
 import { violation, type RuleViolation } from "../../../graph/rule-error.js";
 import { NodeKind } from "../../ast.js";
+import type { AgentExecutionLimits } from "../../decorators/agent.js";
 import type { FlowNode } from "../flow-graph.js";
 import type { AnalysisContext, LoadedModule } from "./context.js";
 
@@ -83,7 +84,7 @@ export function optionsRules(context: AnalysisContext): readonly RuleViolation[]
 
 /**
  * `[limits.count-invalid]` (#1373): the count limits of a workflow's components are whole numbers from 0 —
- * `maxVisits` of an agent, a router and a question step, `maxToolCalls` and `maxRetries` of an agent, and
+ * `maxVisits` of a router and a question step, `executionLimits` of an agent (visits, model calls, tool calls, retries), and
  * `defaults.tools.maxToolCalls` (`maxSteps` is `stepsRules`'). A `NaN` or a word would make every comparison false and
  * the limit never fire, so a build that counted it as a bound would be wrong; the run time reads the same value as a
  * bound of 0 (`countBoundOf`), so the two agree and fail closed. A message names the value by its kind, never by its
@@ -104,20 +105,25 @@ function problemOf(
   return [violation("limits.count-invalid", message, [owner])];
 }
 
+/** The violations of an agent's `executionLimits`: each cap set is a count. */
+function agentLimitProblems(
+  owner: string,
+  limits: AgentExecutionLimits | undefined,
+): readonly RuleViolation[] {
+  if (limits === undefined) return [];
+  return [
+    ...problemOf(owner, "executionLimits.maxVisits", limits.maxVisits, "maxVisits: 3"),
+    ...problemOf(owner, "executionLimits.maxModelCalls", limits.maxModelCalls, "maxModelCalls: 6"),
+    ...problemOf(owner, "executionLimits.maxToolCalls", limits.maxToolCalls, "maxToolCalls: 10"),
+    ...problemOf(owner, "executionLimits.maxRetries", limits.maxRetries, "maxRetries: 2"),
+  ];
+}
+
 export function countLimitRules(context: AnalysisContext): readonly RuleViolation[] {
   const nodes = [...context.graph.nodes.values()].flatMap((node) => {
     const { declaration } = node;
     if (declaration.kind === NodeKind.Agent)
-      return [
-        ...problemOf(node.name, "maxVisits", declaration.options.maxVisits, "maxVisits: 3"),
-        ...problemOf(
-          node.name,
-          "maxToolCalls",
-          declaration.options.maxToolCalls,
-          "maxToolCalls: 10",
-        ),
-        ...problemOf(node.name, "maxRetries", declaration.options.maxRetries, "maxRetries: 2"),
-      ];
+      return [...agentLimitProblems(node.name, declaration.options.executionLimits)];
     if (declaration.kind === NodeKind.Router || declaration.kind === NodeKind.Question)
       return problemOf(node.name, "maxVisits", declaration.options.maxVisits, "maxVisits: 3");
     return [];

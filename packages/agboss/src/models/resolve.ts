@@ -46,7 +46,7 @@ const canServe = (provider: RegisteredModelProvider, purpose: ModelKind): boolea
   if (driver !== undefined) return driver.kind === purpose;
   return purpose === ModelKind.Chat
     ? hasProviderMethod(provider.type, "chat") || hasProviderMethod(provider.type, "complete")
-    : hasProviderMethod(provider.type, "routeTo");
+    : hasProviderMethod(provider.type, "decide") || hasProviderMethod(provider.type, "routeTo");
 };
 
 /** The provider's driver, when it is a driver provider (#1313). */

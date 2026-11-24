@@ -177,6 +177,8 @@ export type DecisionsModelDriver = ModelDriver<ModelKind.Decisions>;
 export class DecisionsModelProvider implements ModelProviderHandler {
     capabilities(model: string): Promise<ModelCapabilities | undefined>;
     // (undocumented)
+    decide(input: ModelProviderDecisionRequest): Promise<unknown>;
+    // (undocumented)
     readonly knownModels: readonly string[];
     routeTo(input: DecideRequest): Promise<unknown>;
 }
@@ -509,7 +511,9 @@ export enum ModelKind {
 // @public
 export interface ModelPrice {
     // (undocumented)
-    readonly cachedInputPerMillion?: Usd;
+    readonly cacheReadPerMillion?: Usd | undefined;
+    // (undocumented)
+    readonly cacheWritePerMillion?: Usd | undefined;
     // (undocumented)
     readonly inputPerMillion: Usd;
     // (undocumented)
@@ -544,6 +548,17 @@ export function ModelProvider<const D extends readonly Token[] = []>(options: Tr
 
 // @public (undocumented)
 export function ModelProvider(options: DriverModelProviderOptions): <C extends DriverModelProviderType>(value: C) => C;
+
+// @public
+export interface ModelProviderDecisionRequest {
+    // (undocumented)
+    readonly connection: ProviderConnection;
+    // (undocumented)
+    readonly model: string;
+    // (undocumented)
+    readonly questions: DecisionQuestions;
+    readonly state: DecisionState;
+}
 
 // @public (undocumented)
 export class ModelProviderError extends AGBossError {
@@ -583,7 +598,7 @@ export interface ModelProviderHandler {
     // (undocumented)
     readonly chat?: (request: ChatRequest) => BaseChatModel;
     readonly complete?: (request: ModelProviderRequest) => Promise<ModelProviderResponse>;
-    // (undocumented)
+    readonly decide?: (request: ModelProviderDecisionRequest) => Promise<unknown>;
     readonly routeTo?: (request: DecideRequest) => Promise<unknown>;
     readonly routingProblems?: (model: string, connection: ProviderConnection) => Promise<readonly RoutingProblem[]>;
     readonly stream?: (request: ModelProviderRequest) => ModelProviderStream;
@@ -847,14 +862,14 @@ export interface Price {
 
 // @public
 export type PromptCaching = ({
-    readonly kind: "where-supported";
+    readonly kind: "on";
 } & PromptCachingOptions) | {
     readonly kind: "off";
 };
 
 // @public (undocumented)
 export const PromptCaching: {
-    whereSupported(options: PromptCachingOptions): PromptCaching;
+    on(options?: PromptCachingOnOptions): PromptCaching;
     off(): PromptCaching;
 };
 
@@ -867,6 +882,13 @@ export class PromptCachingError extends RangeError {
     readonly code: "config.prompt-caching";
     // (undocumented)
     name: string;
+}
+
+// @public
+export interface PromptCachingOnOptions {
+    readonly cachedParts?: readonly CachedPart[];
+    readonly key?: string;
+    readonly retention?: CacheRetention;
 }
 
 // @public
@@ -1263,7 +1285,8 @@ export interface WireTool {
 // src/models/content.ts - (ae-undocumented) Missing documentation for "sha256".
 // src/models/cost.ts - (ae-undocumented) Missing documentation for "inputPerMillion".
 // src/models/cost.ts - (ae-undocumented) Missing documentation for "outputPerMillion".
-// src/models/cost.ts - (ae-undocumented) Missing documentation for "cachedInputPerMillion".
+// src/models/cost.ts - (ae-undocumented) Missing documentation for "cacheReadPerMillion".
+// src/models/cost.ts - (ae-undocumented) Missing documentation for "cacheWritePerMillion".
 // src/models/cost.ts - (ae-undocumented) Missing documentation for "ModelCost".
 // src/models/handler.ts - (ae-undocumented) Missing documentation for "provider".
 // src/models/handler.ts - (ae-undocumented) Missing documentation for "baseUrl".
@@ -1272,15 +1295,18 @@ export interface WireTool {
 // src/models/handler.ts - (ae-undocumented) Missing documentation for "reasoning".
 // src/models/handler.ts - (ae-undocumented) Missing documentation for "promptCaching".
 // src/models/handler.ts - (ae-undocumented) Missing documentation for "connection".
+// src/models/handler.ts - (ae-undocumented) Missing documentation for "model".
+// src/models/handler.ts - (ae-undocumented) Missing documentation for "questions".
+// src/models/handler.ts - (ae-undocumented) Missing documentation for "connection".
 // src/models/handler.ts - (ae-undocumented) Missing documentation for "decision".
 // src/models/handler.ts - (ae-undocumented) Missing documentation for "connection".
 // src/models/handler.ts - (ae-undocumented) Missing documentation for "ModelProviderHandler".
 // src/models/handler.ts - (ae-undocumented) Missing documentation for "chat".
-// src/models/handler.ts - (ae-undocumented) Missing documentation for "routeTo".
 // src/models/jev-alias.ts - (ae-undocumented) Missing documentation for "JevModelProvider".
 // src/models/jev-alias.ts - (ae-undocumented) Missing documentation for "JevModelProvider".
 // src/models/jev.provider.ts - (ae-undocumented) Missing documentation for "OPENROUTER_BASE_URL".
 // src/models/jev.provider.ts - (ae-undocumented) Missing documentation for "knownModels".
+// src/models/jev.provider.ts - (ae-undocumented) Missing documentation for "decide".
 // src/models/model-driver.ts - (ae-undocumented) Missing documentation for "baseUrl".
 // src/models/model-driver.ts - (ae-undocumented) Missing documentation for "apiKey".
 // src/models/model-driver.ts - (ae-undocumented) Missing documentation for "headers".

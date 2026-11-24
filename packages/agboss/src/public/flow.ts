@@ -99,7 +99,7 @@ export {
   type SwitchStep,
   type ToStep,
 } from "../flow/ast.js";
-export { Agent, type AgentOptions } from "../flow/decorators/agent.js";
+export { Agent, type AgentExecutionLimits, type AgentOptions } from "../flow/decorators/agent.js";
 export { Action, type ActionOptions } from "../flow/decorators/action.js";
 export {
   Arbiter,

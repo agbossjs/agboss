@@ -65,7 +65,7 @@ function loopOf(
     model: "moonshotai/kimi-k2.6",
     input: { draft: OfferDraftDto },
     output: OfferDraftDto,
-    ...(editor as object),
+    executionLimits: editor as never,
   })
   class LimitEditAgent {}
 

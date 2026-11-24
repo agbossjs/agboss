@@ -131,7 +131,7 @@ function modelSettingsOf(
   providers: ReadonlyMap<string, string>,
 ) {
   const { defaults } = bundle.config;
-  const { limits } = resolveAgentLimits(agent.maxToolCalls, defaults.tools?.maxToolCalls);
+  const { limits } = resolveAgentLimits(agent, defaults.tools?.maxToolCalls);
   const thinking = agent.thinking ?? defaults.models.thinking;
   return {
     model: agent.model,

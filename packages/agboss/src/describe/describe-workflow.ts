@@ -127,10 +127,7 @@ function limitsLine(
   agent: AssembledWorkflow["config"]["agents"][string],
   config: AssembledWorkflow["config"],
 ): string {
-  const { limits, defaulted } = resolveAgentLimits(
-    agent.maxToolCalls,
-    config.defaults.tools?.maxToolCalls,
-  );
+  const { limits, defaulted } = resolveAgentLimits(agent, config.defaults.tools?.maxToolCalls);
   const label = (limit: AgentLimit): string =>
     `${limit} ${String(limits[limit])}${defaulted.includes(limit) ? " (default)" : ""}`;
   return `    limits: ${label("modelCalls")} · ${label("toolCalls")}`;

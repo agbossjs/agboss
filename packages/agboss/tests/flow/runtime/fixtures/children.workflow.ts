@@ -473,7 +473,7 @@ export class ConfirmReviewTool {
   description: "Reviews one item",
   prompt: inline("Review the item."),
   model: "moonshotai/kimi-k2.6",
-  maxVisits: 5,
+  executionLimits: { maxVisits: 5 },
   tools: [ConfirmReviewTool],
   input: { item: ItemDto },
   output: oneOf(ItemResultDto, ItemNoteDto),

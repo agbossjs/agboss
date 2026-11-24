@@ -149,7 +149,7 @@ describe("AC1: a model that cannot take a file's type stops the start (when the 
   timeout: seconds(5),
   cost: ModelCost.fromResponse(),
   reasoning: Reasoning.modelDecides(),
-  promptCaching: PromptCaching.whereSupported({
+  promptCaching: PromptCaching.on({
     retention: CacheRetention.FiveMinutes,
     cachedParts: [CachedPart.SystemPrompt],
   }),

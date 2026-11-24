@@ -684,7 +684,7 @@ export class AuditStoreService {
 
 ## Quality gates (judges)
 
-`@Agent({ judges: [AnswerGroundedJudge], maxRetries: 1 })` runs every judge on the agent's reply. A
+`@Agent({ judges: [AnswerGroundedJudge], executionLimits: { maxRetries: 1 } })` runs every judge on the agent's reply. A
 judge is a `@Judge({ output, deps })` class with a `judge(input)` method (sync or async); the
 container creates it with its `deps`. One that injects `JudgeModel` (`deps: [JudgeModel]`) calls its
 **own** model through the model gateway, so its spend is in the run's cost report (`judge:<name>`,

@@ -13,7 +13,15 @@ export const node = (name: string, kind: NodeKind, maxVisits?: unknown): FlowNod
   ({
     name,
     kind,
-    declaration: { kind, options: maxVisits === undefined ? {} : { maxVisits } },
+    declaration: {
+      kind,
+      options:
+        maxVisits === undefined
+          ? {}
+          : kind === NodeKind.Agent
+            ? { executionLimits: { maxVisits } }
+            : { maxVisits },
+    },
   }) as never;
 
 /** A component name, as the graph keys it. */

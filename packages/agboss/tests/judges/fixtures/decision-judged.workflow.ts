@@ -69,7 +69,7 @@ export class LooksRight implements JudgeHandler<PlainTextDto> {
   description: "Writes an answer",
   model: "local/llama",
   judges: [AnswerGrounded],
-  maxRetries: 1,
+  executionLimits: { maxRetries: 1 },
 })
 export class Writer {}
 

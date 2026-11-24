@@ -63,7 +63,7 @@ export class ReviewerAgent {}
     changes: ChangesRequestedDto,
   },
   output: OfferDraftDto,
-  maxVisits: 2,
+  executionLimits: { maxVisits: 2 },
 })
 export class EditorAgent {}
 

@@ -52,7 +52,7 @@ export class BareJudge implements JudgeHandler<PlainTextDto> {
   description: "Writes on an OpenAI model",
   model: "openai/gpt-6-mini",
   judges: [OpenAiJudge, JevJudge, LengthJudge, BareJudge],
-  maxRetries: 1,
+  executionLimits: { maxRetries: 1 },
 })
 export class FamilyWriter {}
 
@@ -106,7 +106,7 @@ export class ClaudeJudge implements JudgeHandler<PlainTextDto> {
   description: "Writes on a bare OpenAI model id",
   model: "gpt-6-mini",
   judges: [AliasJudge, ClaudeJudge],
-  maxRetries: 1,
+  executionLimits: { maxRetries: 1 },
 })
 export class AliasWriter {}
 
@@ -156,7 +156,7 @@ export class NoRetryAgent {}
   prompt: inline("Write."),
   description: "Zero retries",
   judges: [PlainJudge],
-  maxRetries: 0,
+  executionLimits: { maxRetries: 0 },
 })
 export class ZeroRetryAgent {}
 
@@ -165,7 +165,7 @@ export class ZeroRetryAgent {}
   prompt: inline("Write."),
   description: "Retries",
   judges: [PlainJudge],
-  maxRetries: 2,
+  executionLimits: { maxRetries: 2 },
 })
 export class RetryAgent {}
 

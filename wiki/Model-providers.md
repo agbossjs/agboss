@@ -30,7 +30,7 @@ import { minutes, seconds } from "@agboss/core/units";
   timeout: minutes(2),                                  // per attempt, from the moment it has room
   cost: ModelCost.fromResponse(),                       // OpenRouter returns usage.cost
   reasoning: Reasoning.modelDecides(),                  // required here; components may override
-  promptCaching: PromptCaching.whereSupported({         // required here; components may override
+  promptCaching: PromptCaching.on({         // required here; components may override
     retention: CacheRetention.FiveMinutes,
     cachedParts: [CachedPart.SystemPrompt, CachedPart.Tools, CachedPart.History],
   }),
@@ -419,7 +419,7 @@ export class AppChatModels {}
 
 - `ModelCost.fromResponse()` — the provider reports each call's cost in its answer (`usage.cost`),
   recorded as `costSource: CostSource.Api`.
-- `ModelCost.fromPrices({ "<model>": { inputPerMillion: usd(…), outputPerMillion: usd(…), cachedInputPerMillion?: usd(…) } })`
+- `ModelCost.fromPrices({ "<model>": { inputPerMillion: usd(…), outputPerMillion: usd(…), cacheReadPerMillion?: usd(…), cacheWritePerMillion?: usd(…) } })`
   — tokens × the table (`CostSource.PriceTable`); a model it does not price → `model.no-price` at startup.
 - The reported cost always comes first; a component's own `price` overrides the table. A call with
   neither fails (`ModelCostError`) — an unaccounted call is never silently free. Limits per run and
@@ -436,10 +436,10 @@ forms). Unset on the component = the provider's.
 
 ## Prompt caching
 
-`PromptCaching.whereSupported({ retention: CacheRetention.FiveMinutes | OneHour | OneDay, cachedParts: [CachedPart.SystemPrompt | Tools | History], key? })`
+`PromptCaching.on({ retention: CacheRetention.FiveMinutes | OneHour | OneDay, cachedParts: [CachedPart.SystemPrompt | Tools | History], key? })`
 · `PromptCaching.off()`. A provider that sets none caches opportunistically: the system prompt, the tools and the
 history at `FiveMinutes` wherever the model supports it, none where it does not — and, unlike an explicit
-`whereSupported`, never a startup refusal. Where the model caches automatically (OpenAI, Kimi, DeepSeek…) nothing is
+`PromptCaching.on`, which the startup check refuses where the model cannot honour it. Where the model caches automatically (OpenAI, Kimi, DeepSeek…) nothing is
 marked; Anthropic and Google models get `cache_control` after the stable prefix (the system prompt,
 which ends the tools + system prefix) and at the previous turn's end (history as a growing prefix),
 with `ttl: "1h"` for `OneHour`; OpenAI's dialect sends `prompt_cache_key` and

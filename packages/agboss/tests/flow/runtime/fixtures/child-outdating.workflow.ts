@@ -34,7 +34,7 @@ export class PickLoopWorkflowStart {}
   description: "Picks an item",
   prompt: inline("Pick an item."),
   model: "moonshotai/kimi-k2.6",
-  maxVisits: 2,
+  executionLimits: { maxVisits: 2 },
   input: { message: WorkflowStartTextDto },
   output: ItemDto,
 })

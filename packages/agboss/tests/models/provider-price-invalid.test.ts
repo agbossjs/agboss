@@ -51,8 +51,8 @@ class NegativeInputProvider implements ModelProviderHandler {
   }
 }
 
-@ModelProvider(options("nan-cached-model-provider", literal("cachedInputPerMillion", Number.NaN)))
-class NanCachedProvider implements ModelProviderHandler {
+@ModelProvider(options("nan-cache-read-model-provider", literal("cacheReadPerMillion", Number.NaN)))
+class NanCacheReadProvider implements ModelProviderHandler {
   complete(): Promise<ModelProviderResponse> {
     return Promise.resolve(answer("never"));
   }
@@ -113,13 +113,13 @@ describe("#1385: assembly refuses a provider's price that is no amount from 0", 
     const assembled = applicationOf(
       bedrockApplicationOn({
         name: "two-bad-application",
-        providers: [NegativeInputProvider, NanCachedProvider],
+        providers: [NegativeInputProvider, NanCacheReadProvider],
       }),
       {},
     );
 
     await expect(assembled).rejects.toThrow(
-      /nan-cached-model-provider \(NanCachedProvider\): cachedInputPerMillion is NaN,/,
+      /nan-cache-read-model-provider \(NanCacheReadProvider\): cacheReadPerMillion is NaN,/,
     );
     await expect(assembled).rejects.toThrow(/negative-input-model-provider/);
   });

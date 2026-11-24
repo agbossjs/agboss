@@ -511,7 +511,7 @@ import { OrderLookupTool } from "../../tools/order-lookup.tool.js";
   input: { question: ResearchQuestionDto, request: SupportRequestDto },
   output: ResearchFindingDto,
   tools: [OrderLookupTool],
-  maxToolCalls: 2,
+  executionLimits: { maxToolCalls: 2 },
 })
 export class OrderResearcherAgent {}
 ```
@@ -547,7 +547,7 @@ import { ResearchFindingDto } from "../../dto/research-finding.dto.js";
   model: "moonshotai/kimi-k2.6",
   input: { draft: historyOf(ReplyDraftDto, { maxPrevious: 2 }), findings: listOf(ResearchFindingDto) },
   output: oneOf(ChangesRequestedDto, ReplyApprovedDto), // the old `approved` flag and `critique`
-  maxVisits: 3,
+  executionLimits: { maxVisits: 3 },
 })
 export class ReplyReviewerAgent {}
 ```
@@ -564,7 +564,7 @@ import { ReplyDraftDto } from "../../dto/reply-draft.dto.js";
   model: "moonshotai/kimi-k2.6",
   input: { draft: ReplyDraftDto, changes: ChangesRequestedDto },
   output: ReplyDraftDto,
-  maxVisits: 2, // the old `revisions` counter
+  executionLimits: { maxVisits: 2 }, // the old `revisions` counter
 })
 export class ReplyEditorAgent {}
 ```
@@ -584,7 +584,7 @@ import { IssueSignedOffRefundTool } from "../../tools/issue-signed-off-refund.to
   input: { request: SupportRequestDto, draft: ReplyDraftDto },
   output: RefundIssuedDto,
   tools: [IssueSignedOffRefundTool],
-  maxToolCalls: 1,
+  executionLimits: { maxToolCalls: 1 },
 })
 export class RefundSignOffAgent {}
 ```

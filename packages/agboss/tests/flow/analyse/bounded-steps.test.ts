@@ -36,7 +36,7 @@ const OFFER_START = "offer-workflow-start" as ComponentName;
   model: "moonshotai/kimi-k2.6",
   input: { draft: OfferDraftDto },
   output: oneOf(ChangesRequestedDto, DraftApprovedDto),
-  maxVisits: 4,
+  executionLimits: { maxVisits: 4 },
 })
 class OfficerAgent {}
 
@@ -47,7 +47,7 @@ class OfficerAgent {}
   model: "moonshotai/kimi-k2.6",
   input: { draft: OfferDraftDto, changes: ChangesRequestedDto },
   output: OfferDraftDto,
-  maxVisits: 3,
+  executionLimits: { maxVisits: 3 },
 })
 class RewriterAgent {}
 

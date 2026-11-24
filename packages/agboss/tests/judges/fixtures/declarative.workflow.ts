@@ -55,7 +55,7 @@ export class ShortJudge {}
   description: "Writes an answer, gated by declarative judges",
   model: "local/llama",
   judges: [GroundedJudge, PoliteJudge],
-  maxRetries: 1,
+  executionLimits: { maxRetries: 1 },
 })
 export class DeclaredWriter {}
 
@@ -65,7 +65,7 @@ export class DeclaredWriter {}
   description: "Gated by two declarative judges, in order",
   model: "local/llama",
   judges: [GroundedJudge, ShortJudge],
-  maxRetries: 1,
+  executionLimits: { maxRetries: 1 },
 })
 export class TwoJudgesWriter {}
 

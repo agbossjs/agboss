@@ -60,6 +60,8 @@ export interface AgentMeta
   /** `{{key}}` in agent prompts is replaced with the value (assembly fails on unknown keys). */
   readonly promptVariables?: PromptVariables;
   readonly cache?: AgentSettings["cache"];
+  /** Model calls per call of the agent (`agents.<name>.limits.modelCalls`); default 12. */
+  readonly maxModelCalls?: number;
   /** Tool calls per call of the agent (`agents.<name>.limits.toolCalls`); default 20. */
   readonly maxToolCalls?: number;
   /** `@Tool` classes, and question roles (#712). */

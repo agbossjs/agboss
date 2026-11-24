@@ -117,7 +117,7 @@ const writer = {
   prompt: inline("Write the draft."),
   model: "test/writer",
   price: { inputPerMTok: 1, outputPerMTok: 2 },
-  maxVisits: 3,
+  executionLimits: { maxVisits: 3 },
   tools: [NoteTool],
   input: { message: WorkflowStartTextDto, draft: optional(DraftDto) },
   output: DraftDto,
@@ -131,7 +131,7 @@ export class WriterAgent {}
   ...writer,
   input: { message: WorkflowStartTextDto },
   judges: [PickyJudge],
-  maxRetries: 1,
+  executionLimits: { maxRetries: 1 },
 })
 export class JudgedWriterAgent {}
 

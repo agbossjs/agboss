@@ -30,7 +30,7 @@ import { minutes, seconds } from "@agboss/core/units";
   // OpenRouter returns each call's cost
   cost: ModelCost.fromResponse(),
   reasoning: Reasoning.modelDecides(),
-  promptCaching: PromptCaching.whereSupported({
+  promptCaching: PromptCaching.on({
     retention: CacheRetention.FiveMinutes,
     cachedParts: [CachedPart.SystemPrompt, CachedPart.Tools, CachedPart.History],
   }),

@@ -187,7 +187,7 @@ declare class GreenhouseJobs { execute(input: object): Promise<object> }
   promptUrls: ["./scout.prompt.md"],
   model: "moonshotai/kimi-k2.6",
   tools: [GreenhouseJobs],
-  maxToolCalls: 4,
+  executionLimits: { maxToolCalls: 4 },
 })
 export class Scout {}
 ```

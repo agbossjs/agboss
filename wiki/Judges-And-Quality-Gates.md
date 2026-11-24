@@ -447,9 +447,9 @@ as `fast` is resolved through the judge's or the agent's own `modelProvider`; on
 
 ## `[judge.zero-retries]`
 
-An agent with `judges` and `maxRetries` unset or `0` fails the run at its first rejection: the judge's
+An agent with `judges` and `executionLimits.maxRetries` unset or `0` fails the run at its first rejection: the judge's
 reason never reaches the model. That is the warning `[judge.zero-retries]` (an error under `--strict`) —
-set `maxRetries` so a rejected answer gets another try.
+set `executionLimits.maxRetries` so a rejected answer gets another try.
 
 ## Adding judges to an agent
 
@@ -465,7 +465,7 @@ import { OneSentenceJudge } from "./judges/one-sentence.judge.js";
   prompt: inline("Write the answer to the task."),
   model: "moonshotai/kimi-k2.6",
   judges: [OneSentenceJudge, CorrectnessJudge, GroundedJudge], // a text agent: all judge PlainTextDto
-  maxRetries: 2,
+  executionLimits: { maxRetries: 2 },
 })
 export class WriterAgent {}
 ```

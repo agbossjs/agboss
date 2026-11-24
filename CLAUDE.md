@@ -862,7 +862,7 @@ export class OfferWorkflowStart {}
 export class DraftAgent {}
 @Agent({ name: "reviewer-agent", description: "Reviews the draft", prompt: "Review the draft.", model: "moonshotai/kimi-k2.6", input: { draft: OfferDraftDto }, output: oneOf(ChangesRequestedDto, DraftApprovedDto) })
 export class ReviewerAgent {}
-@Agent({ name: "editor-agent", description: "Rewrites the draft", prompt: "Rewrite the draft.", model: "moonshotai/kimi-k2.6", input: { draft: OfferDraftDto, changes: ChangesRequestedDto }, output: OfferDraftDto, maxVisits: 2 })
+@Agent({ name: "editor-agent", description: "Rewrites the draft", prompt: "Rewrite the draft.", model: "moonshotai/kimi-k2.6", input: { draft: OfferDraftDto, changes: ChangesRequestedDto }, output: OfferDraftDto, executionLimits: { maxVisits: 2 } })
 export class EditorAgent {}
 @Action({ name: "notify-recruiter-action", description: "Tells the recruiter", input: { draft: OfferDraftDto } })
 export class NotifyRecruiterAction {
@@ -2220,7 +2220,7 @@ Environments has more.
 
 ### Judges and decision models
 
-`@Agent({ judges: [AnswerGroundedJudge], maxRetries: 1 })` runs each `@Judge({ output, deps })` (a class with `judge(input)`, sync or async, no `implements`) on the agent's answer **as its DTO** (#262 S115):
+`@Agent({ judges: [AnswerGroundedJudge], executionLimits: { maxRetries: 1 } })` runs each `@Judge({ output, deps })` (a class with `judge(input)`, sync or async, no `implements`) on the agent's answer **as its DTO** (#262 S115):
 `judge({ variant, output, task, attempt }: JudgeInput<Self>)` gets the validated answer object —
 `JudgeInput<T>` takes the judge class (its `output` is read from the generated `AGBossTypes.JudgeOutputs`) or the output type (`JudgeInput<PlainTextDto>`);
 `output` is a DTO class, `oneOf(A, B)` (`A | B`), `listOf(XDto)` (`readonly XDto[]`),

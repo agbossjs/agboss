@@ -90,7 +90,7 @@ export class AnswerGroundedJudge implements JudgeHandler<JobReportDto> {
   model: "local/llama",
   output: JobReportDto,
   judges: [AnswerGroundedJudge],
-  maxRetries: 1,
+  executionLimits: { maxRetries: 1 },
 })
 export class ScoutAgent {}
 
@@ -170,7 +170,7 @@ export class FairDecisionJudge implements JudgeHandler<OfferDto | RefusalDto> {
   model: "local/llama",
   output: oneOf(OfferDto, RefusalDto),
   judges: [FairDecisionJudge],
-  maxRetries: 1,
+  executionLimits: { maxRetries: 1 },
 })
 export class ScreenerAgent {}
 
@@ -352,7 +352,7 @@ export class JobsJudge implements JudgeHandler<readonly JobDto[]> {
   model: "local/llama",
   output: listOf(JobDto),
   judges: [JobsJudge],
-  maxRetries: 1,
+  executionLimits: { maxRetries: 1 },
 })
 export class JobsScoutAgent {}
 
@@ -408,7 +408,7 @@ export class DecisionsJudge implements JudgeHandler<Decisions> {
   model: "local/llama",
   output: listOf(oneOf(OfferDto, RefusalDto)),
   judges: [DecisionsJudge],
-  maxRetries: 1,
+  executionLimits: { maxRetries: 1 },
 })
 export class PanelScreenerAgent {}
 

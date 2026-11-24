@@ -1,6 +1,10 @@
 import { createJevClient } from "../llm/jev-client.js";
 import type { ModelCapabilities } from "./capabilities.js";
-import type { DecideRequest, ModelProviderHandler, ProviderConnection } from "./handler.js";
+import type {
+  ModelProviderDecisionRequest,
+  ModelProviderHandler,
+  ProviderConnection,
+} from "./handler.js";
 
 import { sortedOptions } from "./jev.provider.js";
 import {
@@ -83,7 +87,7 @@ class DecisionsHandler implements ModelProviderHandler {
     private readonly knownModels: readonly string[] | undefined,
   ) {}
 
-  routeTo({ decision, connection }: DecideRequest): Promise<unknown> {
+  decide({ connection, ...decision }: ModelProviderDecisionRequest): Promise<unknown> {
     const questions = Object.fromEntries(
       Object.entries(decision.questions).map(([id, question]) => [id, sortedOptions(question)]),
     );

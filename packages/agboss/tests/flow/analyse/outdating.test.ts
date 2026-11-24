@@ -297,7 +297,7 @@ describe("#271 rule 5: in the review loop a new draft outdates the notes, never 
   description: "Writes the draft, or rewrites it from the notes",
   prompt: inline("Write it."),
   model: "moonshotai/kimi-k2.6",
-  maxVisits: 3,
+  executionLimits: { maxVisits: 3 },
   input: { request: ArticleRequestDto, changes: optional(DraftChangesDto) },
   output: DraftDto,
 })
@@ -394,7 +394,7 @@ class ThreadWorkflowStart {}
   description: "Picks a job from the whole thread",
   prompt: inline("Pick one."),
   model: "moonshotai/kimi-k2.6",
-  maxVisits: 3,
+  executionLimits: { maxVisits: 3 },
   output: JobPickDto,
 })
 class ThreadPickerAgent {}
@@ -404,7 +404,7 @@ class ThreadPickerAgent {}
   description: "Picks a job from the message only",
   prompt: inline("Pick one."),
   model: "moonshotai/kimi-k2.6",
-  maxVisits: 3,
+  executionLimits: { maxVisits: 3 },
   input: { message: WorkflowStartTextDto },
   output: JobPickDto,
 })
@@ -467,7 +467,7 @@ describe("#271 AC7: the value of an agent without input is outdated on any renew
   description: "Reviews the draft, without saying what about",
   prompt: inline("Review it."),
   model: "moonshotai/kimi-k2.6",
-  maxVisits: 3,
+  executionLimits: { maxVisits: 3 },
   input: { draft: DraftDto },
   output: oneOf(ApprovalDto, DraftChangesDto),
 })
@@ -508,7 +508,7 @@ describe("#271 AC13: every assembly error at once, with those of #270 and #272",
   description: "Plans the article, again after an approval",
   prompt: inline("Plan it."),
   model: "moonshotai/kimi-k2.6",
-  maxVisits: 3,
+  executionLimits: { maxVisits: 3 },
   input: { request: ArticleRequestDto, approval: optional(ApprovalDto) },
   output: PlanDto,
 })
@@ -519,7 +519,7 @@ class OuterPlannerAgent {}
   description: "Writes the first draft of a plan",
   prompt: inline("Write it."),
   model: "moonshotai/kimi-k2.6",
-  maxVisits: 3,
+  executionLimits: { maxVisits: 3 },
   input: { plan: PlanDto },
   output: DraftDto,
 })
@@ -530,7 +530,7 @@ class PlanDraftAgent {}
   description: "Writes the draft, or rewrites it from the notes",
   prompt: inline("Write it."),
   model: "moonshotai/kimi-k2.6",
-  maxVisits: 6,
+  executionLimits: { maxVisits: 6 },
   input: { plan: PlanDto, changes: optional(DraftChangesDto) },
   output: DraftDto,
 })
@@ -541,7 +541,7 @@ class NotesDraftAgent {}
   description: "Rewrites the draft from the notes",
   prompt: inline("Rewrite it."),
   model: "moonshotai/kimi-k2.6",
-  maxVisits: 6,
+  executionLimits: { maxVisits: 6 },
   input: { plan: PlanDto, draft: DraftDto, changes: DraftChangesDto },
   output: DraftDto,
 })
@@ -552,7 +552,7 @@ class RewriteAgent {}
   description: "Approves the draft or asks for changes",
   prompt: inline("Review it."),
   model: "moonshotai/kimi-k2.6",
-  maxVisits: 6,
+  executionLimits: { maxVisits: 6 },
   input: { draft: DraftDto },
   output: oneOf(ApprovalDto, DraftChangesDto),
 })

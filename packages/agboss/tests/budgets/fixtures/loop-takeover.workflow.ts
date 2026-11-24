@@ -80,7 +80,7 @@ export class LoopHoldTool {
   tools: [LoopHoldTool],
   input: { item: ItemDto },
   output: ItemResultDto,
-  maxRetries: 0,
+  executionLimits: { maxRetries: 0 },
 })
 export class LoopPayAgent {}
 

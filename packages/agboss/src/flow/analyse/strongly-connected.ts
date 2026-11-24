@@ -67,13 +67,12 @@ export const isCycle = <TVertex extends string>(
 /** A node's `maxVisits`; `undefined` for a node without one. */
 function maxVisitsOf(node: FlowNode | undefined): number | undefined {
   const declaration = node?.declaration;
-  if (
-    declaration?.kind !== NodeKind.Agent &&
-    declaration?.kind !== NodeKind.Router &&
-    declaration?.kind !== NodeKind.Question
-  )
-    return undefined;
-  const { maxVisits } = declaration.options;
+  let maxVisits: number | undefined;
+  if (declaration?.kind === NodeKind.Agent)
+    maxVisits = declaration.options.executionLimits?.maxVisits;
+  else if (declaration?.kind === NodeKind.Router || declaration?.kind === NodeKind.Question)
+    maxVisits = declaration.options.maxVisits;
+  else return undefined;
   // a value that is no count is a bound of 0, as at run time (#1373)
   return maxVisits === undefined ? undefined : countBoundOf(maxVisits);
 }

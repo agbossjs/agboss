@@ -76,8 +76,8 @@ describe("config schemas", () => {
     refuses(ThinkingSchema, "bogus", { budgetTokens: 0 }, { budgetTokens: 1.5 }, 3);
   });
 
-  it("prompt caching value: where-supported with at least one cached part, or off", () => {
-    const base = { kind: "where-supported", retention: "5m", cachedParts: ["system-prompt"] };
+  it("prompt caching value: on with at least one cached part, or off", () => {
+    const base = { kind: "on", retention: "5m", cachedParts: ["system-prompt"] };
     admits(PromptCachingValueSchema, { kind: "off" }, base, { ...base, key: "abc" });
     admits(PromptCachingValueSchema, {
       ...base,

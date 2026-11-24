@@ -136,7 +136,7 @@ in call order. Calls needing approval are asked first, one per pause, in call or
 | `toolCalls` | 20 | `agents.<name>.limits.toolCalls` |
 
 Counted from the flow handing the agent its work to its answer. Until `@Agent({ limits })` (#152),
-`toolCalls` comes from `maxToolCalls` (the agent's, then `defaults.tools.maxToolCalls`) when set.
+`modelCalls` comes from `executionLimits.maxModelCalls` (default 12) and `toolCalls` from `executionLimits.maxToolCalls` (the agent's, then `defaults.tools.maxToolCalls`) when set.
 Hitting one **fails** the run with `LimitExceededError`; the loop's spend so far still reaches the
 ledger. `agboss describe` shows them: `limits: modelCalls 12 (default) · toolCalls 8`. An exhausted
 budget of the execution (#261: its own, its tenant's or the application's) ends the loop before the

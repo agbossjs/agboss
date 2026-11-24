@@ -37,15 +37,13 @@ const count = (name: string, field: string, value: string, example: string) => (
 describe("#1366: the count limits of the components", () => {
   it("names an agent's maxVisits, maxToolCalls and maxRetries, each by its field", () => {
     const agent = withOptions("busy-agent", NodeKind.Agent, {
-      maxVisits: -1,
-      maxToolCalls: 2.5,
-      maxRetries: Number.NaN,
+      executionLimits: { maxVisits: -1, maxToolCalls: 2.5, maxRetries: Number.NaN },
     });
 
     expect(shown(countLimitRules(contextOf([agent])))).toEqual([
-      count("busy-agent", "maxVisits", "-1", "maxVisits: 3"),
-      count("busy-agent", "maxToolCalls", "2.5", "maxToolCalls: 10"),
-      count("busy-agent", "maxRetries", "NaN", "maxRetries: 2"),
+      count("busy-agent", "executionLimits.maxVisits", "-1", "maxVisits: 3"),
+      count("busy-agent", "executionLimits.maxToolCalls", "2.5", "maxToolCalls: 10"),
+      count("busy-agent", "executionLimits.maxRetries", "NaN", "maxRetries: 2"),
     ]);
   });
 
@@ -63,19 +61,17 @@ describe("#1366: the count limits of the components", () => {
   });
 
   it("shows an object by its kind, and reads no limit of an action, a start or a finish", () => {
-    const agent = withOptions("odd-agent", NodeKind.Agent, { maxVisits: {} });
+    const agent = withOptions("odd-agent", NodeKind.Agent, { executionLimits: { maxVisits: {} } });
     const action = withOptions("do-action", NodeKind.Action, { maxVisits: -1, maxRetries: -1 });
 
     expect(shown(countLimitRules(contextOf([agent, action])))).toEqual([
-      count("odd-agent", "maxVisits", "an object", "maxVisits: 3"),
+      count("odd-agent", "executionLimits.maxVisits", "an object", "maxVisits: 3"),
     ]);
   });
 
   it("finds nothing in counts from 0, or in limits left out", () => {
     const agent = withOptions("fine-agent", NodeKind.Agent, {
-      maxVisits: 0,
-      maxToolCalls: 10,
-      maxRetries: 2,
+      executionLimits: { maxVisits: 0, maxModelCalls: 6, maxToolCalls: 10, maxRetries: 2 },
     });
     const bare = withOptions("bare-agent", NodeKind.Agent, {});
 

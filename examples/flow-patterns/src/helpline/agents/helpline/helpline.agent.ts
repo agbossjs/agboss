@@ -13,6 +13,6 @@ import { AskDeskTool } from "../../tools/ask-desk.tool.js";
     "Ask the help desk with ask-desk-tool, passing the caller's id and question, then repeat its answer. For returns or shipping rules, read the policy with read-policy-tool.",
   model: "moonshotai/kimi-k2.6",
   tools: [AskDeskTool, ReadPolicyTool],
-  maxToolCalls: 3,
+  executionLimits: { maxToolCalls: 3 },
 })
 export class HelplineAgent {}

@@ -61,7 +61,7 @@ export const ThinkingSchema = z.union([
 /** A `PromptCaching` value (`@agboss/core/models`). */
 export const PromptCachingValueSchema = z.discriminatedUnion("kind", [
   z.object({
-    kind: z.literal("where-supported"),
+    kind: z.literal("on"),
     retention: z.enum(CacheRetention),
     cachedParts: z.array(z.enum(CachedPart)).min(1).readonly(),
     key: z.string().min(1).optional(),
@@ -133,6 +133,8 @@ export const AgentSettingsSchema = ModelSettingsSchema.extend({
   tools: z.array(z.string()).optional(),
   /** How many recent turns of the thread the agent sees in full; default `defaults.uncompactedTurns`. */
   uncompactedTurns: UncompactedTurnsSchema.optional(),
+  /** Model calls per call of the agent; crossing it fails the run. Default 12. */
+  maxModelCalls: z.number().int().nonnegative().optional(),
   /** Tool calls per call of the agent; crossing it fails the run. Default: defaults.tools.maxToolCalls, else 20. */
   maxToolCalls: z.number().int().nonnegative().optional(),
   /** Judges of the agent's reply (names in `judges`), and how often a rejected reply is retried (default 0). */

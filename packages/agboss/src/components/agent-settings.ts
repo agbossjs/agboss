@@ -18,6 +18,7 @@ export function agentSettings(
     maxTokens: agent.maxTokens,
     cache: agent.cache,
     uncompactedTurns: agent.memory === undefined ? undefined : windowOfClass(agent.memory),
+    maxModelCalls: agent.maxModelCalls,
     maxToolCalls: agent.maxToolCalls,
     maxRetries: agent.maxRetries,
     price: agent.price,

@@ -77,7 +77,7 @@ export class ReviewDraftAction implements ActionHandler<ReviewDraftAction> {
     changes: ChangesRequestedDto,
   },
   output: OfferDraftDto,
-  maxVisits: 3,
+  executionLimits: { maxVisits: 3 },
 })
 export class DraftEditorAgent {}
 

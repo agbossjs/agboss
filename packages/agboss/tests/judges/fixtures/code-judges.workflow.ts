@@ -67,7 +67,7 @@ export class NoBannedWordsJudge implements JudgeHandler<PlainTextDto> {
   description: "Writes an answer, gated by code and by a model",
   model: "local/llama",
   judges: [NoBannedWordsJudge, Grounded],
-  maxRetries: 1,
+  executionLimits: { maxRetries: 1 },
 })
 export class PromiseAgent {}
 

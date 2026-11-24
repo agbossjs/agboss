@@ -291,7 +291,7 @@ export const isHttpProvider = (
 /** Whether a provider class has the method (its own or inherited). */
 export function hasProviderMethod(
   cls: ModelProviderType,
-  method: "capabilities" | "chat" | "complete" | "routeTo",
+  method: "capabilities" | "chat" | "complete" | "decide" | "routeTo",
 ): boolean {
   const prototype: unknown = cls.prototype;
   return (

@@ -447,6 +447,14 @@ export interface AgentAnswerInvalidErrorOptions {
 export type AgentEndEvent = EndEvent<NodeValue>;
 
 // @public
+export interface AgentExecutionLimits {
+    readonly maxModelCalls?: number;
+    readonly maxRetries?: number;
+    readonly maxToolCalls?: number;
+    readonly maxVisits?: number;
+}
+
+// @public
 export interface AgentExecutionOutput {
     // (undocumented)
     readonly budgetUsd: number;
@@ -507,17 +515,13 @@ export interface AgentOptions {
     readonly excludeGuardrails?: readonly Class[];
     readonly excludePiiPolicies?: readonly Class[];
     readonly excludeToolInterceptors?: readonly Class[];
+    readonly executionLimits?: AgentExecutionLimits;
     readonly files?: ModelFiles;
     readonly guardrails?: readonly Class[];
     readonly input?: InputFields;
     readonly judges?: readonly Class<object>[];
     // (undocumented)
-    readonly maxRetries?: number;
-    // (undocumented)
     readonly maxTokens?: MaxTokens;
-    // (undocumented)
-    readonly maxToolCalls?: number;
-    readonly maxVisits?: number;
     readonly memory?: Class;
     readonly model?: string;
     readonly modelProvider?: Class;
@@ -601,6 +605,7 @@ export interface AgentSettings extends ModelSettings {
     description: string;
     files?: ResolvedModelFiles | undefined;
     judges?: string[] | undefined;
+    maxModelCalls?: number | undefined;
     // (undocumented)
     maxRetries?: number | undefined;
     maxToolCalls?: number | undefined;
@@ -1160,7 +1165,7 @@ export type BuiltPath<THead extends PathHead> = (THead extends SourceHead ? Flow
 
 // @public
 type CacheSetting = boolean | {
-    kind: "where-supported";
+    kind: "on";
     retention: CacheRetention;
     cachedParts: readonly CachedPart[];
     key?: string | undefined;
@@ -12402,8 +12407,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/decorators/agent.ts - (ae-undocumented) Missing documentation for "temperature".
 // src/flow/decorators/agent.ts - (ae-undocumented) Missing documentation for "maxTokens".
 // src/flow/decorators/agent.ts - (ae-undocumented) Missing documentation for "cache".
-// src/flow/decorators/agent.ts - (ae-undocumented) Missing documentation for "maxToolCalls".
-// src/flow/decorators/agent.ts - (ae-undocumented) Missing documentation for "maxRetries".
 // src/flow/decorators/arbiter.ts - (ae-undocumented) Missing documentation for "prompt".
 // src/flow/decorators/arbiter.ts - (ae-undocumented) Missing documentation for "description".
 // src/flow/decorators/arbiter.ts - (ae-undocumented) Missing documentation for "deps".

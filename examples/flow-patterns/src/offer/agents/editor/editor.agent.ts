@@ -13,6 +13,6 @@ import { OfferDraftDto } from "../../dto/offer-draft.dto.js";
     changes: ChangesRequestedDto,
   },
   output: OfferDraftDto,
-  maxVisits: 2,
+  executionLimits: { maxVisits: 2 },
 })
 export class EditorAgent {}

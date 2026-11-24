@@ -539,7 +539,7 @@ import { OfferDraftDto } from "../../dto/offer-draft.dto.js";
   model: "moonshotai/kimi-k2.6",
   input: { draft: historyOf(OfferDraftDto, { maxPrevious: 2 }) }, // { current, previous } — the last two before
   output: oneOf(ChangesRequestedDto, DraftApprovedDto),
-  maxVisits: 4,
+  executionLimits: { maxVisits: 4 },
 })
 export class OfferReviewerAgent {}
 ```
@@ -556,7 +556,7 @@ import { OfferDraftDto } from "../../dto/offer-draft.dto.js";
   model: "moonshotai/kimi-k2.6",
   input: { draft: OfferDraftDto, changes: ChangesRequestedDto },
   output: OfferDraftDto,
-  maxVisits: 3,
+  executionLimits: { maxVisits: 3 },
 })
 export class OfferEditorAgent {}
 ```

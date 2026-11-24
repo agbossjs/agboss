@@ -153,15 +153,16 @@ export function judgeFamilyWarnings(context: AnalysisContext): readonly RuleViol
 
 /**
  * `[judge.zero-retries]` (#1290): an agent with `judges` and no retries. A rejected answer then fails
- * the run at once — the judge's reason never reaches the model for a second try: set `maxRetries`.
+ * the run at once — the judge's reason never reaches the model for a second try: set `executionLimits.maxRetries`.
  */
 export function judgeRetryWarnings(context: AnalysisContext): readonly RuleViolation[] {
   return [...context.graph.nodes.values()].flatMap((node) => {
     const { declaration } = node;
     if (declaration.kind !== NodeKind.Agent) return [];
-    const { judges, maxRetries } = declaration.options;
+    const { judges, executionLimits } = declaration.options;
+    const maxRetries = executionLimits?.maxRetries;
     if ((judges ?? []).length === 0 || (maxRetries ?? 0) > 0) return [];
-    const message = `${node.name}: has judges but no retries (maxRetries is ${maxRetries === undefined ? "not set" : "0"}) — a rejected answer fails the run, and the judge's reason never reaches the model: set maxRetries to give it another try`;
+    const message = `${node.name}: has judges but no retries (executionLimits.maxRetries is ${maxRetries === undefined ? "not set" : "0"}) — a rejected answer fails the run, and the judge's reason never reaches the model: set executionLimits.maxRetries to give it another try`;
     return [violation("judge.zero-retries", message, [node.name])];
   });
 }

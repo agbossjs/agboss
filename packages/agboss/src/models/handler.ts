@@ -1,5 +1,6 @@
 import type { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import type { ResolvedModelSettings } from "../config/types.js";
+import type { DecisionQuestions, DecisionState } from "../llm/decisions.js";
 import type { JevDecisionRequest } from "../llm/jev-client.js";
 import type { ModelCapabilities } from "./capabilities.js";
 import type { PromptCaching } from "./prompt-caching.js";
@@ -32,7 +33,19 @@ export interface ChatRequest {
   readonly connection: ProviderConnection;
 }
 
-/** A decision request (OpenRouter Decisions API: every decision model, choice / yes-no / score questions). */
+/**
+ * What a provider's `decide` is asked (#1313): the decision model, what is decided about, the questions (choice,
+ * yes/no, score), and how the provider is reached. Vendor-neutral: the provider puts it on its own wire.
+ */
+export interface ModelProviderDecisionRequest {
+  readonly model: string;
+  /** What the decision is made about: a text, a JSON object, or text and image parts. */
+  readonly state: DecisionState;
+  readonly questions: DecisionQuestions;
+  readonly connection: ProviderConnection;
+}
+
+/** A decision request of the older `routeTo` (until F2 removes it): `decide` takes `ModelProviderDecisionRequest`. */
 export interface DecideRequest {
   readonly decision: JevDecisionRequest;
   readonly connection: ProviderConnection;
@@ -54,6 +67,9 @@ export interface RoutingProblem {
 
 export interface ModelProviderHandler {
   readonly chat?: (request: ChatRequest) => BaseChatModel;
+  /** One decision (a router, guardrail, judge or interpreter on a decision model): the answers by question id. */
+  readonly decide?: (request: ModelProviderDecisionRequest) => Promise<unknown>;
+  /** The older name of `decide` (until F2): a provider with both is asked `decide`. */
   readonly routeTo?: (request: DecideRequest) => Promise<unknown>;
   /**
    * A custom transport (#385): one chat call, made by the class itself (an SDK, a gateway). Throw

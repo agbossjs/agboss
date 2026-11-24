@@ -77,7 +77,7 @@ describe("#1356: where a provider's cost comes from", () => {
       "local/cached": {
         inputPerMillion: usd(3),
         outputPerMillion: usd(4),
-        cachedInputPerMillion: usd(0.5),
+        cacheReadPerMillion: usd(0.5),
       },
     });
 

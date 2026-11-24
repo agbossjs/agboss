@@ -44,7 +44,7 @@ describe("v2 decorators record kind, options and the declaring file", () => {
         model: "moonshotai/kimi-k2.6",
         input: { draft: OfferDraftDto, changes: ChangesRequestedDto },
         output: OfferDraftDto,
-        maxVisits: 2,
+        executionLimits: { maxVisits: 2 },
       },
       source: expect.stringMatching(/offer\.fixture\.ts$/),
       // where the decorator is called (#1325c): what a rendered diagnostic underlines

@@ -12,7 +12,7 @@ import type { OutputShape } from "../dto-wrappers.js";
 import { declared, recordDeclaration, type InputFields } from "./declaration.js";
 
 /**
- * `@Agent` — the agent options of today plus `input` / `output` (#270) and `maxVisits`; reasoning
+ * `@Agent` — the agent options of today plus `input` / `output` (#270) and `executionLimits`; reasoning
  * only as `Reasoning.off()` / `.on({ effort })` / `.modelDecides()` (#269: no `thinking`), no
  * `compensate`. An interface, not a union, so `satisfies Omit<AgentOptions, "name" | "description">`
  * keeps every field for a shared `*.options.ts` const (#272, 2026-10-16).
@@ -39,8 +39,8 @@ export interface AgentOptions {
   readonly input?: InputFields;
   /** What it answers with; without it, text. What the answers are about is said in the flow (#299). */
   readonly output?: OutputShape;
-  /** Visits per execution; one more fails before the model call (`VisitsLimitExceededError`). */
-  readonly maxVisits?: number;
+  /** The caps of one run of the agent: its visits, model calls, tool calls and judge retries. */
+  readonly executionLimits?: AgentExecutionLimits;
   /** `@Tool` classes, and question roles (`@ChannelRole({ ask, answer })`, #712). */
   readonly tools?: readonly (
     Class<ToolHandler<never, unknown>> | Class<{ send(ask: never): Promise<unknown> }>
@@ -52,10 +52,8 @@ export interface AgentOptions {
   readonly temperature?: number;
   readonly maxTokens?: MaxTokens;
   readonly cache?: CacheSetting;
-  readonly maxToolCalls?: number;
   /** `@Judge` classes. */
   readonly judges?: readonly Class<object>[];
-  readonly maxRetries?: number;
   /** Guardrails added to the inherited ones (`@Application` → `@Workflow`): `@InputGuardrail` / `@OutputGuardrail` classes. */
   readonly guardrails?: readonly Class[];
   /** Inherited guardrails removed for this agent's own model. */
@@ -72,6 +70,21 @@ export interface AgentOptions {
   readonly memory?: Class;
   /** Files for the agent's model (#899): `ModelFiles.of({ sources, views, … })`; without it, no byte goes to the model. */
   readonly files?: ModelFiles;
+}
+
+/**
+ * What one agent may do (`@Agent({ executionLimits })`): each cap is a whole number from 0, and a cap that is
+ * left out is the framework's default (model calls 12, tool calls 20, retries 0) or, for visits, no limit.
+ */
+export interface AgentExecutionLimits {
+  /** Visits per execution; one more fails before the model call (`VisitsLimitExceededError`). */
+  readonly maxVisits?: number;
+  /** Model calls per run of the agent; crossing it fails the run (`agents.<name>.limits.modelCalls`). Default 12. */
+  readonly maxModelCalls?: number;
+  /** Tool calls per run of the agent; crossing it fails the run. Default: `defaults.tools.maxToolCalls`, else 20. */
+  readonly maxToolCalls?: number;
+  /** How often a reply a judge rejected is sent back to the model. Default 0. */
+  readonly maxRetries?: number;
 }
 
 /**

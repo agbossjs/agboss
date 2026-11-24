@@ -34,14 +34,15 @@ export type DecideOn = (
   request: JevDecisionRequest,
 ) => Promise<unknown>;
 
-/** A provider's `routeTo` over its connection: how one provider answers a decision. */
+/** A provider's `decide` (else its older `routeTo`) over its connection: how one provider answers a decision. */
 export const decideThrough =
   (connectionFor: (provider: RegisteredModelProvider) => ProviderConnection): DecideOn =>
   (provider, decision) => {
-    const routeTo = provider.handler?.routeTo?.bind(provider.handler);
-    if (routeTo === undefined)
-      throw new ProviderCapabilityError(`${provider.options.name} does not routeTo`);
-    return routeTo({ decision, connection: connectionFor(provider) });
+    const { handler } = provider;
+    const connection = connectionFor(provider);
+    if (handler?.decide !== undefined) return handler.decide({ ...decision, connection });
+    if (handler?.routeTo !== undefined) return handler.routeTo({ decision, connection });
+    throw new ProviderCapabilityError(`${provider.options.name} does not decide`);
   };
 
 /** `request` asked of `primary`, then of each provider of its fallback chain, until one answers. */

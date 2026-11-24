@@ -41,7 +41,7 @@ export class AuditJudge implements JudgeHandler<PlainTextDto> {
   description: "Writes an answer",
   model: "local/llama",
   judges: [AuditJudge],
-  maxRetries: 1,
+  executionLimits: { maxRetries: 1 },
   piiPolicies: [ContactPiiPolicy],
 })
 export class AuditWriter {}

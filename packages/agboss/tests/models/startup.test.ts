@@ -51,8 +51,8 @@ describe("AC6: the check runs at every startup, before any model call", () => {
     await deps.close();
 
     expect(deps.models).toEqual([
-      "agents.summariser-agent  local/llama · provider local-model-provider · reasoning off (inherited from local-model-provider) · caching where supported (24h; system-prompt) (inherited from local-model-provider) · cost from the price table",
-      "agents.writer-agent  moonshotai/kimi-k2.6 · provider openrouter-model-provider · reasoning off · caching where supported (5m; system-prompt, tools, history) (inherited from openrouter-model-provider) · cost from the response",
+      "agents.summariser-agent  local/llama · provider local-model-provider · reasoning off (inherited from local-model-provider) · caching on (24h; system-prompt) (inherited from local-model-provider) · cost from the price table",
+      "agents.writer-agent  moonshotai/kimi-k2.6 · provider openrouter-model-provider · reasoning off · caching on (5m; system-prompt, tools, history) (inherited from openrouter-model-provider) · cost from the response",
       "defaults.router  typesafe/jev-1.13 · provider decisions-model-provider · cost from the response",
     ]);
     expect(

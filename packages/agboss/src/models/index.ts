@@ -15,6 +15,7 @@ export {
 export type {
   ChatRequest,
   DecideRequest,
+  ModelProviderDecisionRequest,
   ModelProviderHandler,
   ProviderConnection,
 } from "./handler.js";
@@ -83,6 +84,7 @@ export {
   CacheRetention,
   PromptCaching,
   PromptCachingError,
+  type PromptCachingOnOptions,
   type PromptCachingOptions,
 } from "./prompt-caching.js";
 export {

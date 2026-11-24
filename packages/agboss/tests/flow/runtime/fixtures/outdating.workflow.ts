@@ -88,7 +88,7 @@ export class LoopResearcherAgent {}
   description: "Writes the draft, or rewrites it from the notes",
   prompt: inline("Write the draft."),
   model: "moonshotai/kimi-k2.6",
-  maxVisits: 8,
+  executionLimits: { maxVisits: 8 },
   input: {
     request: ArticleRequestDto,
     research: ResearchDto,
@@ -103,7 +103,7 @@ export class LoopWriterAgent {}
   description: "Approves the draft or asks for changes",
   prompt: inline("Review the draft."),
   model: "moonshotai/kimi-k2.6",
-  maxVisits: 8,
+  executionLimits: { maxVisits: 8 },
   tools: [AskEditorTool],
   input: { draft: DraftDto },
   output: oneOf(ApprovalDto, DraftChangesDto),
@@ -163,7 +163,7 @@ export class JobsWorkflowStart {}
   description: "Builds the candidate's profile",
   prompt: inline("Build the profile."),
   model: "moonshotai/kimi-k2.6",
-  maxVisits: 3,
+  executionLimits: { maxVisits: 3 },
   input: { message: WorkflowStartTextDto },
   output: CandidateProfileDto,
 })
@@ -174,7 +174,7 @@ export class ProfileAgent {}
   description: "Finds jobs for the profile",
   prompt: inline("Find jobs."),
   model: "moonshotai/kimi-k2.6",
-  maxVisits: 3,
+  executionLimits: { maxVisits: 3 },
   input: { profile: CandidateProfileDto },
   output: JobListDto,
 })
@@ -185,7 +185,7 @@ export class SearchAgent {}
   description: "Scores the jobs",
   prompt: inline("Score the jobs."),
   model: "moonshotai/kimi-k2.6",
-  maxVisits: 3,
+  executionLimits: { maxVisits: 3 },
   input: { jobs: JobListDto },
   output: JobScoresDto,
 })
@@ -202,7 +202,7 @@ export class AdviceDto {
   description: "Advises on the jobs",
   prompt: inline("Advise."),
   model: "moonshotai/kimi-k2.6",
-  maxVisits: 3,
+  executionLimits: { maxVisits: 3 },
   output: AdviceDto,
 })
 export class AdviceAgent {}
@@ -212,7 +212,7 @@ export class AdviceAgent {}
   description: "Picks the job to apply for",
   prompt: inline("Pick a job."),
   model: "moonshotai/kimi-k2.6",
-  maxVisits: 3,
+  executionLimits: { maxVisits: 3 },
   input: { scores: JobScoresDto, advice: AdviceDto },
   output: JobPickDto,
 })

@@ -65,7 +65,7 @@ export class ReviewKitAgent {}
     draft: OfferDraftDto,
   },
   output: OfferDraftDto,
-  maxVisits: 2,
+  executionLimits: { maxVisits: 2 },
 })
 export class EditKitAgent {}
 

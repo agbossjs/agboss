@@ -32,7 +32,7 @@ import { RecordingCostLedgerRepository } from "./application/fixtures/desks.appl
   description: "Tells",
   prompt: inline("Tell."),
   model: "test/teller",
-  maxVisits: 2,
+  executionLimits: { maxVisits: 2 },
 })
 class TellerAgent {}
 

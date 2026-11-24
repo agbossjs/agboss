@@ -56,7 +56,7 @@ export class BackupModelProvider extends OpenAiCompatibleProvider {
   timeout: minutes(2),
   cost: ModelCost.fromResponse(),
   reasoning: Reasoning.modelDecides(),
-  promptCaching: PromptCaching.whereSupported({
+  promptCaching: PromptCaching.on({
     retention: CacheRetention.FiveMinutes,
     cachedParts: [CachedPart.SystemPrompt, CachedPart.Tools, CachedPart.History],
   }),
@@ -88,11 +88,11 @@ export class TestOpenRouterProvider extends OpenRouterProvider {
     "local/llama": {
       inputPerMillion: usd(1),
       outputPerMillion: usd(2),
-      cachedInputPerMillion: usd(0.5),
+      cacheReadPerMillion: usd(0.5),
     },
   }),
   reasoning: Reasoning.off(),
-  promptCaching: PromptCaching.whereSupported({
+  promptCaching: PromptCaching.on({
     retention: CacheRetention.OneDay,
     cachedParts: [CachedPart.SystemPrompt],
     key: "job-scout",

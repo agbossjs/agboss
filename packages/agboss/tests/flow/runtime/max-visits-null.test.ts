@@ -32,7 +32,7 @@ import { inline } from "../../../src/index.js";
   model: "moonshotai/kimi-k2.6",
   input: { draft: OfferDraftDto },
   output: OfferDraftDto,
-  maxVisits: null as never,
+  executionLimits: { maxVisits: null as never },
 })
 class NullBoundEditAgent {}
 

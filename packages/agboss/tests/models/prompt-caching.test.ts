@@ -30,23 +30,21 @@ const planFor = (caching: PromptCaching, model = "anthropic/claude-sonnet-4.5") 
     promptCaching: caching,
   });
 
-const everything = PromptCaching.whereSupported({
+const everything = PromptCaching.on({
   retention: CacheRetention.FiveMinutes,
   cachedParts: [CachedPart.SystemPrompt, CachedPart.Tools, CachedPart.History],
 });
 
-describe("AC6: prompt caching — whereSupported({ retention, cachedParts, key? }) | off()", () => {
+describe("AC6: prompt caching — on({ retention?, cachedParts, key? }) | off()", () => {
   it("AC6: needs at least one cached part; the component's cache flag maps to an override", () => {
-    expect(() =>
-      PromptCaching.whereSupported({ retention: CacheRetention.OneHour, cachedParts: [] }),
-    ).toThrow(PromptCachingError);
+    expect(() => PromptCaching.on({ retention: CacheRetention.OneHour, cachedParts: [] })).toThrow(
+      PromptCachingError,
+    );
     expect(promptCachingOfSetting(undefined)).toBeUndefined();
     expect(promptCachingOfSetting(true)).toBeUndefined();
     expect(promptCachingOfSetting(false)).toEqual(PromptCaching.off());
     expect(promptCachingOfSetting(everything)).toBe(everything);
-    expect(promptCachingLabel(everything)).toBe(
-      "where supported (5m; system-prompt, tools, history)",
-    );
+    expect(promptCachingLabel(everything)).toBe("on (5m; system-prompt, tools, history)");
   });
 
   it("AC6: Anthropic through OpenRouter — cache_control after the system prompt and at the previous turn's end", () => {
@@ -69,7 +67,7 @@ describe("AC6: prompt caching — whereSupported({ retention, cachedParts, key? 
   });
 
   it("AC6: a one-hour retention sends its ttl; only the parts asked for are marked", () => {
-    const hour = PromptCaching.whereSupported({
+    const hour = PromptCaching.on({
       retention: CacheRetention.OneHour,
       cachedParts: [CachedPart.History],
     });
@@ -120,5 +118,17 @@ describe("AC6: prompt caching — whereSupported({ retention, cachedParts, key? 
     );
 
     expect(body).not.toHaveProperty("prompt_cache_key");
+  });
+});
+
+describe("PromptCaching.on() defaults", () => {
+  it("with no option it caches system prompt, tools and history for five minutes; no part is refused", () => {
+    expect(PromptCaching.on()).toEqual({
+      kind: "on",
+      retention: CacheRetention.FiveMinutes,
+      cachedParts: [CachedPart.SystemPrompt, CachedPart.Tools, CachedPart.History],
+    });
+    expect(PromptCaching.on({ key: "job" })).toMatchObject({ kind: "on", key: "job" });
+    expect(() => PromptCaching.on({ cachedParts: [] })).toThrow(PromptCachingError);
   });
 });

@@ -216,7 +216,7 @@ import { AskOrderDeskTool } from "../../tools/ask-order-desk.tool.js";
   prompt: inline("Answer the question. Search issues with search-issues-tool; ask the order desk about orders."),
   model: "moonshotai/kimi-k2.6",
   tools: [SearchIssuesTool, AskOrderDeskTool],
-  maxToolCalls: 5,
+  executionLimits: { maxToolCalls: 5 },
 })
 export class SupportAgent {}
 ```

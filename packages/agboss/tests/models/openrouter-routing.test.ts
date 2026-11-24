@@ -45,7 +45,7 @@ import { CircuitBreakerPolicy } from "../../src/models/circuit-breaker-policy.js
   timeout: minutes(2),
   cost: ModelCost.fromResponse(),
   reasoning: Reasoning.modelDecides(),
-  promptCaching: PromptCaching.whereSupported({
+  promptCaching: PromptCaching.on({
     retention: CacheRetention.FiveMinutes,
     cachedParts: [CachedPart.SystemPrompt],
   }),

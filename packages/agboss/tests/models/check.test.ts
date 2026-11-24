@@ -75,7 +75,7 @@ describe("AC6: fail fast — settings must fit their models, all problems at onc
         reviewer: {
           model: "anthropic/claude-sonnet-4.5",
           description: "r",
-          cache: PromptCaching.whereSupported({
+          cache: PromptCaching.on({
             retention: CacheRetention.OneDay,
             cachedParts: [CachedPart.History],
           }),
@@ -171,7 +171,7 @@ describe("AC6: fail fast — settings must fit their models, all problems at onc
             model: "plain/model",
             description: "p",
             thinking: "low",
-            cache: PromptCaching.whereSupported({
+            cache: PromptCaching.on({
               retention: CacheRetention.OneDay,
               cachedParts: [CachedPart.Tools],
             }),

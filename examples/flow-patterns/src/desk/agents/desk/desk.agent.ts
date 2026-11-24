@@ -23,7 +23,6 @@ import { SearchShippingPolicyTool } from "../../tools/search-shipping-policy.too
   guardrails: [NoCredentialsGuardrail, NoPromisesGuardrail],
   toolInterceptors: [DeskAuditToolInterceptor],
   judges: [QuotesLookupJudge],
-  maxRetries: 1,
-  maxToolCalls: 3,
+  executionLimits: { maxRetries: 1, maxToolCalls: 3 },
 })
 export class DeskAgent {}

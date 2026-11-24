@@ -68,7 +68,7 @@ export class EchoTool {
   guardrails: [ForbiddenWordGuardrail],
   piiPolicies: [AuditCardPiiPolicy],
   judges: [FlowJudge],
-  maxRetries: 1,
+  executionLimits: { maxRetries: 1 },
   tools: [EchoTool],
 })
 export class GuardedAgent {}

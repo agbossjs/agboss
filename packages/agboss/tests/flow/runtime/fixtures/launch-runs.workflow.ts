@@ -49,7 +49,7 @@ export class PlanLoopWorkflowStart {}
   description: "Plans",
   prompt: inline("Plan."),
   model: "moonshotai/kimi-k2.6",
-  maxVisits: 2,
+  executionLimits: { maxVisits: 2 },
   input: { message: WorkflowStartTextDto },
   output: PlanDto,
 })
@@ -195,7 +195,7 @@ export class TiredWorkflowStart {}
   description: "Plans",
   prompt: inline("Plan."),
   model: "moonshotai/kimi-k2.6",
-  maxVisits: 2,
+  executionLimits: { maxVisits: 2 },
   input: { message: WorkflowStartTextDto },
   output: PlanDto,
 })
@@ -207,7 +207,7 @@ export class TiredPlannerAgent {}
   description: "Criticises the plan, once per execution",
   prompt: inline("Criticise."),
   model: "moonshotai/kimi-k2.6",
-  maxVisits: 1,
+  executionLimits: { maxVisits: 1 },
   input: { plan: PlanDto },
   output: CritiqueDto,
 })

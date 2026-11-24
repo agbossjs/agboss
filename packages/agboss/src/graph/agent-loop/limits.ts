@@ -24,21 +24,37 @@ export interface ResolvedAgentLimits {
   readonly defaulted: readonly AgentLimit[];
 }
 
+/** The caps an agent sets (`@Agent({ executionLimits })`), as its settings hold them. */
+export interface AgentLimitSettings {
+  readonly maxModelCalls?: number | undefined;
+  readonly maxToolCalls?: number | undefined;
+}
+
 /**
- * Until `@Agent({ limits })` (#152): `toolCalls` comes from `maxToolCalls` — the agent's own, else
- * `defaults.tools.maxToolCalls` — when set; everything else is the default.
+ * `modelCalls` comes from the agent's `executionLimits.maxModelCalls`, `toolCalls` from its `maxToolCalls` — else
+ * `defaults.tools.maxToolCalls` — when set; each other is the default.
  */
 export function resolveAgentLimits(
-  agentMaxToolCalls: number | undefined,
+  agent: AgentLimitSettings | undefined,
   defaultMaxToolCalls: number | undefined,
 ): ResolvedAgentLimits {
-  const set = [agentMaxToolCalls, defaultMaxToolCalls].find((value) => value !== undefined);
   // a value that is no count (untyped code, parsed JSON) is a bound of 0: assembly refuses it
-  // (`[limits.count-invalid]`, #1373), and a call that got past still stops at the first tool call
-  const toolCalls = set === undefined ? undefined : countBoundOf(set);
+  // (`[limits.count-invalid]`, #1373), and a call that got past still stops at the first call
+  const bound = (value: number | undefined): number | undefined =>
+    value === undefined ? undefined : countBoundOf(value);
+  const modelCalls = bound(agent?.maxModelCalls);
+  const toolCalls = bound(
+    [agent?.maxToolCalls, defaultMaxToolCalls].find((value) => value !== undefined),
+  );
   return {
-    limits: { ...DEFAULT_AGENT_LIMITS, ...(toolCalls === undefined ? {} : { toolCalls }) },
-    defaulted: toolCalls === undefined ? ["modelCalls", "toolCalls"] : ["modelCalls"],
+    limits: {
+      modelCalls: modelCalls ?? DEFAULT_AGENT_LIMITS.modelCalls,
+      toolCalls: toolCalls ?? DEFAULT_AGENT_LIMITS.toolCalls,
+    },
+    defaulted: [
+      ...(modelCalls === undefined ? (["modelCalls"] as const) : []),
+      ...(toolCalls === undefined ? (["toolCalls"] as const) : []),
+    ],
   };
 }
 

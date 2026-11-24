@@ -17,7 +17,7 @@ describe("AC7: limits per call of the agent — modelCalls and toolCalls", () =>
       limits: { modelCalls: 12, toolCalls: 8 },
       defaulted: ["modelCalls"],
     });
-    expect(resolveAgentLimits(2, 8).limits.toolCalls).toBe(2);
+    expect(resolveAgentLimits({ maxToolCalls: 2 }, 8).limits.toolCalls).toBe(2);
   });
 
   it.each([
@@ -32,20 +32,20 @@ describe("AC7: limits per call of the agent — modelCalls and toolCalls", () =>
     (_kind, value) => {
       const bad = value as never;
 
-      expect(resolveAgentLimits(bad, undefined)).toEqual({
+      expect(resolveAgentLimits({ maxToolCalls: bad }, undefined)).toEqual({
         limits: { modelCalls: 12, toolCalls: 0 },
         defaulted: ["modelCalls"],
       });
       expect(resolveAgentLimits(undefined, bad).limits.toolCalls).toBe(0);
-      expect(resolveAgentLimits(bad, 8).limits.toolCalls).toBe(0);
-      expect(resolveAgentLimits(8, bad).limits.toolCalls).toBe(8);
+      expect(resolveAgentLimits({ maxToolCalls: bad }, 8).limits.toolCalls).toBe(0);
+      expect(resolveAgentLimits({ maxToolCalls: 8 }, bad).limits.toolCalls).toBe(8);
     },
   );
 
   it("#1373: a maxToolCalls of 0 stays 0, and a whole number stays itself", () => {
-    expect(resolveAgentLimits(0, 8).limits.toolCalls).toBe(0);
+    expect(resolveAgentLimits({ maxToolCalls: 0 }, 8).limits.toolCalls).toBe(0);
     expect(resolveAgentLimits(undefined, 0).limits.toolCalls).toBe(0);
-    expect(resolveAgentLimits(7, undefined).limits.toolCalls).toBe(7);
+    expect(resolveAgentLimits({ maxToolCalls: 7 }, undefined).limits.toolCalls).toBe(7);
   });
 
   it("toolCalls hit exactly at the last allowed call is allowed", async () => {
@@ -118,5 +118,13 @@ describe("AC7: limits per call of the agent — modelCalls and toolCalls", () =>
     expect((failure as BudgetExceededError).usage).toHaveLength(1);
     expect(h.effects).toEqual([]);
     expect(h.modelCalls).toEqual([0]);
+  });
+
+  it("maxModelCalls of the agent replaces the default 12, and is no longer shown as a default", () => {
+    expect(resolveAgentLimits({ maxModelCalls: 3 }, undefined)).toEqual({
+      limits: { modelCalls: 3, toolCalls: DEFAULT_AGENT_LIMITS.toolCalls },
+      defaulted: ["toolCalls"],
+    });
+    expect(resolveAgentLimits({ maxModelCalls: Number.NaN }, undefined).limits.modelCalls).toBe(0);
   });
 });

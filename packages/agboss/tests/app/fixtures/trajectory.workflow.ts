@@ -99,7 +99,7 @@ export class LookedUpJudge implements JudgeHandler<PlainTextDto> {
   model: "local/llama",
   tools: [LookupOrderTool],
   judges: [LookedUpJudge],
-  maxRetries: 1,
+  executionLimits: { maxRetries: 1 },
   guardrails: [PromptInjectionGuardrail],
 })
 export class ClerkAgent {}

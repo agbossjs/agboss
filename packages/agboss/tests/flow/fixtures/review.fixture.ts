@@ -44,7 +44,7 @@ export class ResearcherAgent {}
   description: "Writes the article, or rewrites it from the reviewer's notes",
   prompt: inline("Write the article."),
   model: "moonshotai/kimi-k2.6",
-  maxVisits: 4,
+  executionLimits: { maxVisits: 4 },
   input: {
     request: ArticleRequestDto,
     research: ResearchDto,
@@ -59,7 +59,7 @@ export class StoryWriterAgent {}
   description: "Approves the draft or asks for changes",
   prompt: inline("Review the draft."),
   model: "moonshotai/kimi-k2.6",
-  maxVisits: 4,
+  executionLimits: { maxVisits: 4 },
   input: {
     draft: DraftDto,
   },
@@ -119,7 +119,7 @@ export class StoryApplication {}
   description: "Polishes the draft by the critiques",
   prompt: inline("Polish the draft."),
   model: "moonshotai/kimi-k2.6",
-  maxVisits: 3,
+  executionLimits: { maxVisits: 3 },
   input: {
     request: ArticleRequestDto,
     critiques: optional(listOf(CritiqueDto)),

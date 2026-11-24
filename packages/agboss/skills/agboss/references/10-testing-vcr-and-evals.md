@@ -353,7 +353,7 @@ import { HiringPolicyRag } from "../../rag/hiring-policy.rag.js";
   output: VerdictDto,
   rag: [HiringPolicyRag],
   judges: [ShortReasonJudge, ReasonedVerdictJudge], // every judge runs; the code one costs nothing
-  maxRetries: 1,
+  executionLimits: { maxRetries: 1 },
   guardrails: [BiasGuardrail],
 })
 export class VerdictAgent {}

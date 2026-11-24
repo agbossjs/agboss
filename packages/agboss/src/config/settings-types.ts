@@ -47,7 +47,7 @@ export type Thinking =
 export type CacheSetting =
   | boolean
   | {
-      kind: "where-supported";
+      kind: "on";
       retention: CacheRetention;
       cachedParts: readonly CachedPart[];
       key?: string | undefined;
@@ -87,6 +87,8 @@ export interface AgentSettings extends ModelSettings {
   tools?: string[] | undefined;
   /** How many recent turns of the thread the agent sees in full. */
   uncompactedTurns?: number | TurnLimit.All | undefined;
+  /** Model calls per call of the agent; crossing it fails the run. */
+  maxModelCalls?: number | undefined;
   /** Tool calls per call of the agent; crossing it fails the run. */
   maxToolCalls?: number | undefined;
   /** Judges of the agent's reply (names in `judges`), and how often a rejected reply is retried. */

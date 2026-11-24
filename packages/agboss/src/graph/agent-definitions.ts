@@ -21,7 +21,7 @@ const limitsOf = <TName extends string>(
   config: AgentsConfigOf<TName>,
 ): Pick<AgentDefinition, "limits" | "maxResultSize" | "files"> => ({
   ...(agent?.files === undefined ? {} : { files: agent.files }),
-  limits: resolveAgentLimits(agent?.maxToolCalls, config.defaults.tools?.maxToolCalls).limits,
+  limits: resolveAgentLimits(agent, config.defaults.tools?.maxToolCalls).limits,
   maxResultSize: defaultMaxResultSizeOf(config.defaults.tools?.maxResultSize),
 });
 

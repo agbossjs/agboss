@@ -360,12 +360,11 @@ import { CustomerLookupTool } from "../../tools/customer-lookup.tool.js";
   input: { message: WorkflowStartTextDto },
   output: DeskAnswerDto,
   tools: [CustomerLookupTool],
-  maxToolCalls: 4, // per visit; over it → the step fails
+  executionLimits: { maxToolCalls: 4, maxRetries: 1 },
   rag: [HelpCenterRag], // its passages come with the input
   reasoning: Reasoning.on({ effort: ReasoningEffort.Low }), // not `thinking`
   maxTokens: TokenLimit.ModelMax, // the only way to say "no output cap"
   judges: [CitesSourceJudge],
-  maxRetries: 1, // a failed verdict's reason goes back to the agent once; then QualityGateError
   memory: ConversationMemory, // its ttl, its window of recent turns and what is older
 })
 export class SupportAgent {}

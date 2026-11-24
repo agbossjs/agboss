@@ -126,7 +126,7 @@ import { OfferLetterDto } from "../../dto/offer-letter.dto.js";
   model: "moonshotai/kimi-k2.6",
   input: { letter: historyOf(OfferLetterDto, { maxPrevious: 2 }) },
   output: oneOf(LetterChangesDto, LetterApprovedDto),
-  maxVisits: 3,
+  executionLimits: { maxVisits: 3 },
 })
 export class LetterReviewerAgent {}
 ```
@@ -143,7 +143,7 @@ import { OfferLetterDto } from "../../dto/offer-letter.dto.js";
   model: "moonshotai/kimi-k2.6",
   input: { letter: OfferLetterDto, changes: LetterChangesDto },
   output: OfferLetterDto,
-  maxVisits: 2,
+  executionLimits: { maxVisits: 2 },
 })
 export class LetterEditorAgent {}
 ```
@@ -755,7 +755,7 @@ import { PlacePurchaseTool } from "../../tools/place-purchase.tool.js";
   input: { shortlist: SupplierShortlistDto, reviews: listOf(PurchaseReviewDto) },
   output: PurchaseSummaryDto,
   tools: [PlacePurchaseTool],
-  maxToolCalls: 2,
+  executionLimits: { maxToolCalls: 2 },
 })
 export class PurchaseAgent {}
 ```
@@ -1117,7 +1117,7 @@ import { AskBillingTool } from "../../tools/ask-billing.tool.js";
   prompt: inline("Answer the question. Search articles with search-kb-tool; ask billing with ask-billing-tool."),
   model: "moonshotai/kimi-k2.6",
   tools: [SearchKbTool, AskBillingTool],
-  maxToolCalls: 4,
+  executionLimits: { maxToolCalls: 4 },
 }) // a text agent: it streams its text
 export class HelpdeskAgent {}
 ```
@@ -1654,7 +1654,7 @@ import { CreditScoreTool } from "../../tools/credit-score.tool.js";
   input: { application: LoanApplicationDto },
   output: LoanDecisionDto,
   tools: [CreditScoreTool],
-  maxToolCalls: 2,
+  executionLimits: { maxToolCalls: 2 },
 })
 export class UnderwriterAgent {}
 ```

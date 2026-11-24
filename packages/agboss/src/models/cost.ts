@@ -3,11 +3,15 @@ import { isFiniteNumber, shownLimit } from "../graph/count-limit.js";
 import { ConfigError } from "../core/error-families/config-errors.js";
 import type { Usd } from "../units/index.js";
 
-/** USD per one million tokens of a model; cached input falls back to the input price. */
+/**
+ * USD per one million tokens of a model. A cache price left out is the input price: tokens a call read from the
+ * cache cost `cacheReadPerMillion`, tokens it wrote to the cache cost `cacheWritePerMillion`.
+ */
 export interface ModelPrice {
   readonly inputPerMillion: Usd;
   readonly outputPerMillion: Usd;
-  readonly cachedInputPerMillion?: Usd;
+  readonly cacheReadPerMillion?: Usd | undefined;
+  readonly cacheWritePerMillion?: Usd | undefined;
 }
 
 /** Prices by model name. */
@@ -19,6 +23,7 @@ export type ModelCost =
   | { readonly kind: "from-prices"; readonly prices: ModelPrices };
 
 const REQUIRED_FIELDS = ["inputPerMillion", "outputPerMillion"] as const;
+const CACHE_FIELDS = ["cacheReadPerMillion", "cacheWritePerMillion"] as const;
 const AMOUNT_RULE = "not a finite number of dollars from 0 (usd(...))";
 
 const isAmount = (value: unknown): boolean => isFiniteNumber(value) && value >= 0;
@@ -37,10 +42,12 @@ export function modelPriceProblemOf(price: unknown): string | undefined {
     const value: unknown = Reflect.get(price, field);
     if (!isAmount(value)) return `${field} is ${shownLimit(value)}, ${AMOUNT_RULE}`;
   }
-  const cached: unknown = Reflect.get(price, "cachedInputPerMillion");
-  return cached === undefined || isAmount(cached)
-    ? undefined
-    : `cachedInputPerMillion is ${shownLimit(cached)}, ${AMOUNT_RULE}`;
+  for (const field of CACHE_FIELDS) {
+    const value: unknown = Reflect.get(price, field);
+    if (value !== undefined && !isAmount(value))
+      return `${field} is ${shownLimit(value)}, ${AMOUNT_RULE}`;
+  }
+  return undefined;
 }
 
 /**
@@ -63,9 +70,12 @@ const frozenPrice = (price: ModelPrice): ModelPrice =>
   Object.freeze({
     inputPerMillion: price.inputPerMillion,
     outputPerMillion: price.outputPerMillion,
-    ...(price.cachedInputPerMillion === undefined
+    ...(price.cacheReadPerMillion === undefined
       ? {}
-      : { cachedInputPerMillion: price.cachedInputPerMillion }),
+      : { cacheReadPerMillion: price.cacheReadPerMillion }),
+    ...(price.cacheWritePerMillion === undefined
+      ? {}
+      : { cacheWritePerMillion: price.cacheWritePerMillion }),
   });
 
 export const ModelCost = {
@@ -108,9 +118,12 @@ export function priceOf(cost: ModelCost, model: string): Price | undefined {
   return {
     inputPerMTok: price.inputPerMillion,
     outputPerMTok: price.outputPerMillion,
-    ...(price.cachedInputPerMillion === undefined
+    ...(price.cacheReadPerMillion === undefined
       ? {}
-      : { cacheReadPerMTok: price.cachedInputPerMillion }),
+      : { cacheReadPerMTok: price.cacheReadPerMillion }),
+    ...(price.cacheWritePerMillion === undefined
+      ? {}
+      : { cacheWritePerMTok: price.cacheWritePerMillion }),
   };
 }
 

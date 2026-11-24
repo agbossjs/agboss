@@ -6,7 +6,11 @@ import type { ModelCapabilities } from "./capabilities.js";
 import type { ModelInputKind } from "./content.js";
 import { ModelCost } from "./cost.js";
 import { DECISION_MODEL_PATTERN, DECISION_MODELS } from "./decision-models.js";
-import type { DecideRequest, ModelProviderHandler } from "./handler.js";
+import type {
+  DecideRequest,
+  ModelProviderDecisionRequest,
+  ModelProviderHandler,
+} from "./handler.js";
 import { ModelProvider } from "./model-provider.decorator.js";
 import { PromptCaching } from "./prompt-caching.js";
 import { Reasoning } from "./reasoning.js";
@@ -76,6 +80,10 @@ export class DecisionsModelProvider implements ModelProviderHandler {
 
   /** Choice options sorted by name: declaration order changes neither the request nor its fingerprint. */
   routeTo({ decision, connection }: DecideRequest): Promise<unknown> {
+    return this.decide({ ...decision, connection });
+  }
+
+  decide({ connection, ...decision }: ModelProviderDecisionRequest): Promise<unknown> {
     const questions = Object.fromEntries(
       Object.entries(decision.questions).map(([id, question]) => [id, sortedOptions(question)]),
     );

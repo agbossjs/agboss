@@ -36,7 +36,7 @@ export class A2AJudge implements JudgeHandler<PlainTextDto> {
   description: "Writes",
   model: "local/llama",
   judges: [A2AJudge],
-  maxRetries: 1,
+  executionLimits: { maxRetries: 1 },
 })
 export class A2AWriter {}
 
