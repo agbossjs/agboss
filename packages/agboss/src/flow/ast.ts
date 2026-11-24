@@ -219,7 +219,7 @@ export interface JoinErrorHandler {
 export enum QuorumKind {
   /** `.joinQuorum({ min, max, deadline })`: enough counted answers. */
   Count = "count",
-  /** `.joinQuorumGroups(group(…)…, { deadline })`: the first (highest-priority) group complete. */
+  /** `.joinQuorumGroups({ deadline })` + `.onGroup(…)`: the first (highest-priority) group complete. */
   Groups = "groups",
 }
 
@@ -235,19 +235,19 @@ export interface CountQuorum {
 }
 
 /**
- * One `group(A, B, …).priority(n).to…(…)` of `.joinQuorumGroups(…)`: the agents whose counted
- * answers complete it (a repeat is one more copy), its priority (1 is the highest; none — equal)
- * and the path it continues with.
+ * One `.onGroup([A, B], { priority }, subPath)` of `.joinQuorumGroups({ deadline })` (#1284): the
+ * targets of the launch whose counted answers complete it (a repeat is one more copy), its priority
+ * (1 is the highest; none — equal) and the path it continues with.
  */
 export interface QuorumGroup {
   /** As listed, repeats included. */
-  readonly agents: readonly Class[];
+  readonly targets: readonly Class[];
   readonly priority?: number;
   /** The group's own path. */
   readonly path: SubPath;
 }
 
-/** `.joinQuorumGroups(…, { deadline })`: each group continues its own path. */
+/** `.joinQuorumGroups({ deadline })` and its `.onGroup(…)`s: each group continues its own path. */
 export interface GroupsQuorum {
   readonly kind: QuorumKind.Groups;
   readonly groups: readonly QuorumGroup[];

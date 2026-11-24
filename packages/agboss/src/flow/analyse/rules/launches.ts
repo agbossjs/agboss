@@ -140,9 +140,9 @@ function joinViolations(join: JoinEdge): readonly RuleViolation[] {
   );
 }
 
-/** `<launch> group(A, B)` of `.joinQuorumGroups(…)`. */
+/** `<launch> .onGroup([A, B], …)` of `.joinQuorumGroups(…)`. */
 const groupLabel = (join: JoinEdge): string =>
-  `${launchLabel(join.launch)} group(${join.group?.agents.join(", ") ?? ""})`;
+  `${launchLabel(join.launch)} .onGroup([${join.group?.targets.join(", ") ?? ""}], …)`;
 
 const ROUTER_LAUNCH: RouteListing = { call: ".toParallelAgents(…)", item: "" };
 const CHOOSE_MANY: RouteListing = { call: ".chooseMany([…])", item: "" };

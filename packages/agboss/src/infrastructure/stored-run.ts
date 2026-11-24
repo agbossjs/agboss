@@ -53,7 +53,7 @@ const StoredLaunch: z.ZodType<LaunchRecord> = z.object({
   taken: count,
   branches: z.array(StoredBranch),
   isQuorumReached: z.boolean().optional(),
-  group: z.object({ agents: z.array(text), priority: count.optional() }).optional(),
+  group: z.object({ targets: z.array(text), priority: count.optional() }).optional(),
 });
 
 const StoredHandledError: z.ZodType<HandledErrorRecord> = z.object({

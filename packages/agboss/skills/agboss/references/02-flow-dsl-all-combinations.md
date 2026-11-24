@@ -37,7 +37,7 @@ and ends at a finish (or at a node that has its own path). Write **one call per 
 | `.toParallelAgents(X, { maxItems })` after a step whose output is a list                    | one run per item of the list                                                                                                                                                                                                                      | `[launch.max-items-required]`, `[launch.item-not-read]`, `[launch.max-items-without-list]`                   |
 | `.join()` → `.onError(E, …)`                                                                | where a launch's values meet; a failed branch's side path                                                                                                                                                                                         | `[launch.unjoinable-output]`, `[launch.branch-outdates-sibling]`                                             |
 | `.arbitratedBy(X)` → `.joinQuorum({ min, max, deadline })`                                  | count the accepted answers instead of waiting for all                                                                                                                                                                                             | `[flow.quorum-impossible]`, `[arbiter.*]`                                                                    |
-| `.joinQuorumGroups(group(A, B).priority(1)…, …, { deadline })`                              | the first complete group (by priority) continues its own path                                                                                                                                                                                     | `[flow.quorum-impossible]`                                                                                   |
+| `.joinQuorumGroups({ deadline })` + `.onGroup([A, B], { priority: 1 }, subPath)`            | the first complete group (by priority) continues its own path                                                                                                                                                                                     | `[flow.quorum-impossible]`                                                                                   |
 | `.toWorkflow(W)` / `route(W)` / `.toParallelWorkflows(W, { maxItems })`                     | a child workflow: one, chosen by a router, or one per item                                                                                                                                                                                        | `[graph.no-matching-start]`, `[graph.ambiguous-start]`, `[graph.child-without-failure-finish]`               |
 | `.toExternalTask(Q)` / `onExternalTask(Q)`                                                  | a question role's step (#659): reads its `ask`, pauses on its channel, gives its `answer` — `05-channels-and-human-in-the-loop.md`                                                                                                                | `[name.kind-suffix]` (`-question`), `[channel.wrong-tool]`, `[graph.cycle-without-max-visits]`               |
 | `() => Self` + `@Workflow({ maxDepth })`                                                    | the workflow launches itself                                                                                                                                                                                                                      | `[graph.recursion-without-depth]`, `[graph.recursion-without-exit]`, `[graph.mutual-recursion]`              |
@@ -1411,8 +1411,9 @@ import { PanelWorkflowStart } from "./panel.workflow-start.js";
 export class PanelWorkflow {}
 ```
 
-Groups — the first complete group, by priority (1 is the highest), continues **its own** path; nothing
-follows the groups but `.onError(…)`:
+Groups — `.joinQuorumGroups({ deadline })`, its `.onError(…)` right after it (never after a group), then
+one `.onGroup([targets], { priority }?, subPath)` per group (at least one): the first complete group, by
+priority (1 is the highest), continues **its own** path; nothing follows the groups but more `.onGroup(…)`s:
 
 ```ts file=src/deal/dto/deal.dto.ts
 import { Text } from "@agboss/core/dto";
@@ -1536,7 +1537,7 @@ export class DealUnreviewedWorkflowFinish {}
 ```
 
 ```ts file=src/deal/workflows/deal/deal.workflow.ts
-import { QuorumNotReachedError, Workflow, group, listOf, onStart, toFinish } from "@agboss/core";
+import { QuorumNotReachedError, Workflow, listOf, onStart, toAgent, toFinish } from "@agboss/core";
 import { minutes } from "@agboss/core/units";
 import { DealCriticAgent } from "../../agents/deal-critic/deal-critic.agent.js";
 import { DealLegalAgent } from "../../agents/deal-legal/deal-legal.agent.js";
@@ -1557,18 +1558,21 @@ import { DealWorkflowStart } from "./deal.workflow-start.js";
   version: "1.0.0",
   flow: [
     onStart(DealWorkflowStart)
-      .toParallelAgents(DealLegalAgent, DealCriticAgent, DealCriticAgent, DealScreenAgent)
-      .joinQuorumGroups(
-        group(DealLegalAgent, DealCriticAgent)
-          .priority(1) // deal-critic-agent is launched twice: a list, even of one
-          .toAgent(DealReportAgent)
+      .inParallel([
+        toAgent(DealLegalAgent),
+        toAgent(DealCriticAgent),
+        toAgent(DealCriticAgent),
+        toAgent(DealScreenAgent),
+      ])
+      .joinQuorumGroups({ deadline: minutes(1) })
+      .onError(QuorumNotReachedError, toFinish(DealUnreviewedWorkflowFinish))
+      .onGroup(
+        [DealLegalAgent, DealCriticAgent], // deal-critic-agent is launched twice: a list, even of one
+        { priority: 1 },
+        toAgent(DealReportAgent)
           .toFinish(DealReportWorkflowFinish),
-        group(DealScreenAgent)
-          .priority(2)
-          .toFinish(DealScreenedWorkflowFinish),
-        { deadline: minutes(1) },
       )
-      .onError(QuorumNotReachedError, toFinish(DealUnreviewedWorkflowFinish)),
+      .onGroup([DealScreenAgent], { priority: 2 }, toFinish(DealScreenedWorkflowFinish)),
   ],
 })
 export class DealWorkflow {}

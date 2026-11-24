@@ -1,19 +1,14 @@
 import type { Milliseconds } from "../units/index.js";
+import type { Class } from "../components/injection.js";
 import type { ArbiterClass, ErrorClass } from "./ast.js";
-import type {
-  BuiltPath,
-  GroupHead,
-  IsGroupPath,
-  PathHead,
-  SidePath,
-  Transitions,
-} from "./builder-types.js";
+import type { BuiltPath, PathHead, SidePath, Transitions } from "./builder-types.js";
 
 /**
  * The types of quorums (#279): after `.inParallel([…])` (or `.toParallelAgents(…)`) the launch takes
  * `.arbitratedBy(A)` — one `@Arbiter` class (#1282; then never `.join()`) — and a quorum join —
  * `.joinQuorum({ min, max, deadline })`, which goes on with `.onError(…)` and a transition, or
- * `.joinQuorumGroups(group(…)…, { deadline })`, whose groups continue their own path. What the
+ * `.joinQuorumGroups({ deadline })` and its `.onGroup([…], options?, subPath)`s, whose groups continue
+ * their own path (#1284). What the
  * counted answers give is derived by the analyser (#1270): after `.joinQuorum(…)` with `min` below
  * the agents launched a single answer is optional, and a step that requires it fails
  * `[input.missing-on-path]`.
@@ -29,9 +24,16 @@ export interface QuorumOptions {
   readonly deadline?: Milliseconds;
 }
 
-/** `.joinQuorumGroups(…, { deadline })`: `min` / `max` do not apply to groups. */
+/** `.joinQuorumGroups({ deadline })`: `min` / `max` do not apply to groups. */
 export interface QuorumGroupsOptions {
-  readonly deadline?: Milliseconds;
+  /** How long the join waits: `seconds()`, `minutes()`, `hours()` — never a bare number. */
+  readonly deadline?: Milliseconds | undefined;
+}
+
+/** `.onGroup([…], options, subPath)`: how the group ranks among the others. */
+export interface QuorumGroupOptions {
+  /** 1 is the highest; a group waits while a higher one can still complete. None: equal to the others. */
+  readonly priority?: number | undefined;
 }
 
 /** After `.joinQuorum(…)`: its `.onError(…)`, then one transition. */
@@ -39,33 +41,22 @@ export type QuorumJoined<THead extends PathHead> = {
   onError(error: ErrorClass, path: SidePath): QuorumJoined<THead>;
 } & Transitions<THead>;
 
-/** After `.joinQuorumGroups(…)`: only `.onError(…)` — each group continued its own path. */
-export type GroupsJoined<THead extends PathHead> = BuiltPath<THead> & {
-  onError(error: ErrorClass, path: SidePath): GroupsJoined<THead>;
-};
-
-/** `group(A, B, …)`: its `.priority(n)` (1 is the highest), then its own path. */
-export interface GroupStart extends Transitions<GroupHead> {
-  priority(priority: number): Transitions<GroupHead>;
+/** What `.onGroup(…)` takes: one or more classes of the launch, then its optional options and the group's own path. */
+export interface OnGroup<TNext> {
+  onGroup(targets: readonly [Class, ...Class[]], path: SidePath): TNext;
+  onGroup(targets: readonly [Class, ...Class[]], options: QuorumGroupOptions, path: SidePath): TNext;
 }
 
-/** A group continued to its own path: what `.joinQuorumGroups(…)` takes. */
-export type GroupPath = BuiltPath<GroupHead>;
+/** After the first `.onGroup(…)`: a path (each group continued its own), more groups; `.onError(…)` is no more. */
+export type GroupsJoined<THead extends PathHead> = BuiltPath<THead> & OnGroup<GroupsJoined<THead>>;
 
-/** `.joinQuorumGroups(…)`'s arguments: one or more groups, then its options. */
-export type GroupArguments =
-  readonly [GroupPath, ...GroupPath[]] | readonly [GroupPath, ...GroupPath[], QuorumGroupsOptions];
-
-/** One group checked: anything but a continued `group(…)` is refused. */
-export type GroupCheck<TPath> =
-  IsGroupPath<TPath> extends true
-    ? unknown
-    : { readonly __error: ".joinQuorumGroups(…) takes group(…).to…(…) paths" };
-
-/** Every group of the arguments checked; the options left as they are. */
-export type GroupsCheck<TArgs extends readonly unknown[]> = {
-  [K in keyof TArgs]: TArgs[K] extends { readonly steps: unknown } ? GroupCheck<TArgs[K]> : unknown;
-};
+/**
+ * After `.joinQuorumGroups({ deadline })`: not a path yet — `.onError(E, …)` takes the join's failure
+ * (only here, before the first group), and at least one `.onGroup(…)` completes it (#1284).
+ */
+export interface GroupsJoining<THead extends PathHead> extends OnGroup<GroupsJoined<THead>> {
+  onError(error: ErrorClass, path: SidePath): GroupsJoining<THead>;
+}
 
 /**
  * What `.arbitratedBy(A)` of a launch of fixed branches (`.inParallel([…])`) gives (#1282): a quorum
@@ -73,9 +64,7 @@ export type GroupsCheck<TArgs extends readonly unknown[]> = {
  */
 export interface FixedArbitratedQuorums<THead extends PathHead> {
   joinQuorum(options: QuorumOptions): QuorumJoined<THead>;
-  joinQuorumGroups<const TArgs extends GroupArguments>(
-    ...groups: TArgs & GroupsCheck<TArgs>
-  ): GroupsJoined<THead>;
+  joinQuorumGroups(options?: QuorumGroupsOptions): GroupsJoining<THead>;
 }
 
 /**

@@ -20,7 +20,7 @@ count and — with groups — which combination wins and where the execution goe
 ## Writing it
 
 <!-- snippet-context
-import { Agent, Arbiter, Arbitrate, Workflow, WorkflowFinish, WorkflowStart, group, onStart, toAgent } from "@agboss/core";
+import { Agent, Arbiter, Arbitrate, Workflow, WorkflowFinish, WorkflowStart, onStart, toAgent, toFinish } from "@agboss/core";
 import { Integer, Text, listOf, optional } from "@agboss/core/dto";
 import { minutes, seconds } from "@agboss/core/units";
 
@@ -131,17 +131,20 @@ export const quorumPaths = [
 
   // groups: the first complete one (by priority) continues its own path
   onStart(DealWorkflowStart)
-    .toParallelAgents(LegalAgent, CriticAgent, CriticAgent, FastScreenAgent)
-    .joinQuorumGroups(
-      group(LegalAgent, CriticAgent)
-        .priority(1) // critic-agent is launched twice: a list, even of one
-        .toAgent(FullReviewAgent)
+    .inParallel([
+      toAgent(LegalAgent),
+      toAgent(CriticAgent),
+      toAgent(CriticAgent),
+      toAgent(FastScreenAgent),
+    ])
+    .joinQuorumGroups({ deadline: minutes(1) })
+    .onGroup(
+      [LegalAgent, CriticAgent], // critic-agent is launched twice: a list, even of one
+      { priority: 1 },
+      toAgent(FullReviewAgent)
         .toFinish(DealReportWorkflowFinish),
-      group(FastScreenAgent)
-        .priority(2)
-        .toFinish(QuickRejectWorkflowFinish),
-      { deadline: minutes(1) },
-    ),
+    )
+    .onGroup([FastScreenAgent], { priority: 2 }, toFinish(QuickRejectWorkflowFinish)),
 ] as const;
 ```
 
@@ -153,23 +156,27 @@ export const quorumPaths = [
 | `min` | how many **counted** answers are enough to go on |
 | `max` | after how many counted answers to stop waiting and cancel the rest |
 | `deadline` | how long the join waits — `seconds()`, `minutes()`, `hours()` (`@agboss/core/units`), never a bare number |
-| `.joinQuorumGroups(group(…).priority(n)<path>, …, { deadline })` | go on when a group is complete, along **that group's own path**; `min` / `max` do not apply |
+| `.joinQuorumGroups({ deadline })` + `.onGroup([targets], { priority }?, subPath)` | go on when a group is complete, along **that group's own path**; `min` / `max` do not apply |
 | `.arbitratedBy(X)` | the one arbiter every answer passes before it counts — between the launch and the quorum; once per launch (no `anyOf`, no and / or of arbiters: the rule, and how it escalates from code to a model, lives in the class — `ArbiterModel`) |
 
 Options are always an object: `.joinQuorum(2)` does not compile and the untyped builder refuses it.
-`.arbitratedBy(…).join()` does not compile; nothing follows `.joinQuorumGroups(…)` but
-`.onError(E, <side path>)`. A quorum follows `.inParallel([…])`, `.forEachItem(…)` (`.joinQuorum(…)`
+`.arbitratedBy(…).join()` does not compile; nothing follows `.joinQuorumGroups(…)` but its
+`.onError(E, <side path>)` — written **right after the join, before the first `.onGroup(…)`**, never after
+one — and its `.onGroup(…)`s: the join is not a path until it has at least one. A quorum follows `.inParallel([…])`, `.forEachItem(…)` (`.joinQuorum(…)`
 only: every item runs one target, so there are no groups) and `.toParallelAgents(…)`.
 
 ## Groups
 
-- A group is `group(A, B, …)`; a repeated agent in it means "any of its copies", written n times n
-  copies are needed. It is complete when **all** its places are counted.
-- `.priority(n)` right after `group(…)`: **1 is the highest**; equal numbers (or none) are equal
-  groups — the first complete one wins.
-- Every group continues its own path: `group(…).priority(n).toAgent / .toAction /
-  .toRouter / .toWorkflow / .toFinish(…)`; a group without a continuation does not compile (and is
-  `[graph.dead-end]` for the untyped builder). A node reached from two groups (or a group and a
+- A group is `.onGroup([A, B, …], …)`: the targets of the launch (`@Agent`, `@ExternalTask`, `@Action`,
+  `@Workflow`, from any launch — `.inParallel([…])` included); a repeated target in it means "any of
+  its copies", written n times n copies are needed. It is complete when **all** its places are counted.
+- `{ priority: n }` (the optional second argument): **1 is the highest**; equal numbers (or none)
+  are equal groups — the first complete one wins.
+- Every group continues its own path, its last argument: `toAgent(…)` / `toAction(…)` / `toRouter(…)` /
+  `toExternalTask(…)` / `toWorkflow(…)` / `toFinish(…)` / `inParallel([…])` / `forEachItem(…)` — the
+  same starters as `.onError(E, …)`; a group without a continuation does not compile (and is
+  `[graph.dead-end]` for the untyped builder, as is a join with no `.onGroup(…)`). An open undoable
+  action is owed only on the path of the group that counted it. A node reached from two groups (or a group and a
   route, or `.onError`) has its own path, by the general rules — `onAgent(FullReviewAgent)…`.
   `.joinQuorumGroups` counts as one nesting level (`[flow.path-too-deep]`).
 
@@ -183,7 +190,7 @@ from the branches (#1270); the shape comes from **the launch**, not from the gro
 | `.join()` | required `XDto` (`optional` for an `OnDemand` / `Skip` route) | `listOf(XDto)` |
 | `.joinQuorum({ min })`, `min` = agents launched | required `XDto` | `listOf(XDto)` |
 | `.joinQuorum({ min })`, any other `min` | `optional(XDto)` | `listOf(XDto)` |
-| `group(A, B…)` of `.joinQuorumGroups(…)` | required `XDto` (the group's agents only) | `listOf(XDto)`, even when the group counts one copy |
+| `.onGroup([A, B…], …)` of `.joinQuorumGroups(…)` | required `XDto` (the group's targets only) | `listOf(XDto)`, even when the group counts one copy |
 
 Nothing is written for them: a step that requires a single answer a quorum may leave out is
 
@@ -337,7 +344,7 @@ version, and its model is a model use like a router's (`arbiters.<name>` in `agb
 
 ### What it shows
 
-`result.launches` adds, per quorum launch, `isQuorumReached`, `group` (the winning group's `agents`
+`result.launches` adds, per quorum launch, `isQuorumReached`, `group` (the winning group's `targets`
 and `priority`) and, per branch, `verdict`, `acceptedSequence` and `rejectedBy`. The branch's trace
 entry carries the same; the join adds a trace entry "quorum decided" and the observer event
 `onQuorumDecided` ([Observability](Observability#quorums)).

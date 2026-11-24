@@ -15,7 +15,7 @@ const count = (min: number, max?: number) =>
     [],
   );
 
-const groups = (...places: readonly { agents: readonly string[]; priority?: number }[]) =>
+const groups = (...places: readonly { targets: readonly string[]; priority?: number }[]) =>
   quorumRuleOf({ kind: QuorumKind.Groups, groups: [] }, places);
 
 const counted = (index: number, acceptedSequence: number) => ({
@@ -66,7 +66,7 @@ describe("QuorumState: .joinQuorum({ min, max })", () => {
 
 describe("groups: priority, ties, the outcome from the records", () => {
   it("equal priorities (none): the first completed wins", () => {
-    const rule = groups({ agents: ["a"] }, { agents: ["b"] });
+    const rule = groups({ targets: ["a"] }, { targets: ["b"] });
     const outcome = quorumOutcomeOf(rule, [counted(0, 2), counted(1, 1)], ["a", "b"]);
 
     expect(outcome).toMatchObject({ isReached: true, group: 1 });
@@ -74,7 +74,7 @@ describe("groups: priority, ties, the outcome from the records", () => {
   });
 
   it("a repeated agent needs that many copies, any of them", () => {
-    const rule = groups({ agents: ["critic", "critic"], priority: 1 });
+    const rule = groups({ targets: ["critic", "critic"], priority: 1 });
     const state = new QuorumState(rule, ["critic", "critic", "critic"]);
     state.accept(2);
 
@@ -84,7 +84,7 @@ describe("groups: priority, ties, the outcome from the records", () => {
   });
 
   it("no group complete: not reached", () => {
-    const rule = groups({ agents: ["a", "b"], priority: 1 });
+    const rule = groups({ targets: ["a", "b"], priority: 1 });
 
     expect(quorumOutcomeOf(rule, [counted(0, 1)], ["a", "b"]).isReached).toBe(false);
   });

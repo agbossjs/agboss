@@ -329,7 +329,7 @@ maximum, naming the field, and accepted at it:
 | `@FilePolicy({ fetchTimeout })`                                     | 24 hours   | `[file-policy.invalid]` at assembly                                           |
 | an A2A client call's `timeout`                                      | 24 hours   | `ComponentError` `[a2a.timeout-invalid]` before anything is sent              |
 | `a2aHttpListener({ maxTaskDuration })`                              | 24 days    | `ComponentError` `[a2a.timeout-invalid]` when the listener is made            |
-| `.joinQuorum({ deadline })`, `.joinQuorumGroups(…, { deadline })`   | 24 days    | `FlowSyntaxError` where the flow is written                                   |
+| `.joinQuorum({ deadline })`, `.joinQuorumGroups({ deadline })`   | 24 days    | `FlowSyntaxError` where the flow is written                                   |
 | `app.execute(…, { deadline })`                                      | 24 days    | `UnitError` (`config.unit`), the execution not started                        |
 
 A pause's `expiresIn` is not one timer: pause deadlines are read by the pause timers' loop every

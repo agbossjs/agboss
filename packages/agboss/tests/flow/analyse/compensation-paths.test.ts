@@ -163,6 +163,24 @@ describe("#339 AC2: a failed join's side path owes what was open before the laun
   });
 });
 
+describe("#1284: a group of .joinQuorumGroups opens only its own targets' undoable actions", () => {
+  const grouped = (): Flow => [
+    onStart(TripWorkflowStart)
+      .inParallel([toAction(BookTripAction), toAction(NotifyAgencyAction)])
+      .joinQuorumGroups()
+      .onGroup([BookTripAction], toFinish(TripBookedWorkflowFinish))
+      .onGroup([NotifyAgencyAction], toFinish(TripNotBookedWorkflowFinish)),
+  ];
+
+  it("the booking is owed (uncommitted) on the path of the group that counted it, not on the other", () => {
+    const { errors } = checked(grouped());
+
+    expect(errors.map(({ code }) => code)).toEqual(["flow.uncommitted-action"]);
+    expect(errors[0]?.message).toContain("trip-booked-workflow-finish");
+    expect(errors[0]?.message).not.toContain("trip-not-booked-workflow-finish");
+  });
+});
+
 describe("#339: committedBy — the committer or the undo on every path", () => {
   it("a path to a finish with neither is [flow.uncommitted-action]", () => {
     const flow: Flow = [

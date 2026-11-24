@@ -1,5 +1,7 @@
 import { describe, expectTypeOf, it } from "vitest";
-import { group, onStart, toFinish } from "../../src/flow/builder.js";
+import * as builder from "../../src/flow/builder.js";
+import { onStart, toAction, toAgent, toFinish } from "../../src/flow/builder.js";
+import type { FlowPath } from "../../src/flow/ast.js";
 import { ExecutionContext } from "../../src/flow/context/execution-context.js";
 import {
   Arbiter,
@@ -58,7 +60,6 @@ const deal = () =>
       maxConcurrency: 4,
     },
   );
-const fastGroup = () => group(FastScreenAgent).priority(3).toFinish(QuickRejectWorkflowFinish);
 
 describe("#279 AC11 / AC12: arbiters and quorum joins after a launch", () => {
   it("options are always an object; .arbitratedBy(…).join() does not compile", () => {
@@ -109,27 +110,48 @@ describe("#279 AC14: what follows .joinQuorum(…)", () => {
   });
 });
 
-describe("#279 AC7 / AC13: groups continue their own path", () => {
-  it("groups continue their own path", () => {
-    deal().joinQuorumGroups(
-      group(LegalAgent, DealCriticAgent).priority(1).toAgent(FullReviewAgent),
-      group(AuditorAgent).toAction(OpenDealRoomAction).toFinish(DealRoomOpenedWorkflowFinish),
-      fastGroup(),
-      { deadline: seconds(60) },
-    );
+describe("#279 AC7 / AC13, #1284: groups continue their own path", () => {
+  it(".joinQuorumGroups({ deadline }) is incomplete until a group: .onGroup([targets], options?, subPath)", () => {
+    const groups = deal()
+      .joinQuorumGroups({ deadline: seconds(60) })
+      .onError(StepFailedError, toFinish(QuickRejectWorkflowFinish))
+      .onGroup([LegalAgent, DealCriticAgent], { priority: 1 }, toAgent(FullReviewAgent))
+      .onGroup(
+        [AuditorAgent],
+        toAction(OpenDealRoomAction).toFinish(DealRoomOpenedWorkflowFinish),
+      )
+      .onGroup([FastScreenAgent], { priority: 3 }, toFinish(QuickRejectWorkflowFinish));
+    expectTypeOf(groups).toHaveProperty("onGroup");
     expectTypeOf(deal()).toHaveProperty("joinQuorumGroups");
+    deal().joinQuorumGroups().onGroup([FastScreenAgent], toFinish(QuickRejectWorkflowFinish));
   });
 
-  it("a group without a continuation does not compile; nothing follows the groups", () => {
-    // @ts-expect-error — a group continues its own path with .to…(…)
-    deal().joinQuorumGroups(group(FastScreenAgent));
+  it("without a group it is no path; min / max do not apply; .onError is only before the first group", () => {
+    const joining = deal().joinQuorumGroups({ deadline: seconds(60) });
+    // @ts-expect-error — at least one .onGroup(…) makes it a path
+    const incomplete: FlowPath = joining;
+    expectTypeOf(incomplete).toBeObject();
     // @ts-expect-error — min / max do not apply to groups
-    deal().joinQuorumGroups(fastGroup(), { min: 1 });
-    const joined = deal().joinQuorumGroups(fastGroup());
-    // @ts-expect-error — no common continuation after .joinQuorumGroups(…)
-    joined.toAgent(FullReviewAgent);
+    deal().joinQuorumGroups({ min: 1 });
+    // @ts-expect-error — a bare number is no deadline
+    deal().joinQuorumGroups({ deadline: 30 });
+    const joined = joining.onGroup([FastScreenAgent], toFinish(QuickRejectWorkflowFinish));
+    // @ts-expect-error — .onError(E, …) stands before the first .onGroup(…), never after one
     joined.onError(StepFailedError, toFinish(QuickRejectWorkflowFinish));
-    expectTypeOf(joined).toHaveProperty("onError");
+    // @ts-expect-error — no common continuation after the groups: each group continues its own path
+    joined.toAgent(FullReviewAgent);
+    // @ts-expect-error — targets are one or more classes
+    joining.onGroup([], toFinish(QuickRejectWorkflowFinish));
+    // @ts-expect-error — a group continues its own path: a path, not nothing
+    joining.onGroup([FastScreenAgent]);
+    expectTypeOf(joined).toHaveProperty("onGroup");
+    expectTypeOf(joining).toHaveProperty("onError");
+  });
+
+  it("group(…) and .priority(n) are gone", () => {
+    // @ts-expect-error — group(…).priority(n) is .onGroup([…], { priority: n }, subPath)
+    const gone: unknown = builder.group;
+    expectTypeOf(gone).toBeUnknown();
   });
 });
 

@@ -3,7 +3,7 @@ import { QuorumKind, type CountQuorum, type QuorumGroup } from "../../ast.js";
 import type { ComponentName } from "../../registry.js";
 import { itemBoundOf, type FlowLaunch } from "../flow-graph.js";
 import { launchLabel } from "../join-groups.js";
-import { groupAgentNames } from "../quorum-joins.js";
+import { groupTargetNames } from "../quorum-joins.js";
 import type { QuorumSite } from "../walked-flow.js";
 import { arbiterViolations } from "./arbiters.js";
 import type { AnalysisContext } from "./context.js";
@@ -35,17 +35,17 @@ function countViolations(launch: FlowLaunch, quorum: CountQuorum): readonly Rule
 }
 
 function groupViolations(launch: FlowLaunch, group: QuorumGroup): readonly RuleViolation[] {
-  const agents = groupAgentNames(group.agents);
+  const targets = groupTargetNames(group.targets);
   const places = new Map<ComponentName, number>();
-  for (const agent of agents) places.set(agent, (places.get(agent) ?? 0) + 1);
-  const label = `${launchLabel(launch)}: group(${agents.join(", ")})`;
-  return [...places].flatMap(([agent, needed]) => {
-    const given = answersOf(launch, agent);
+  for (const target of targets) places.set(target, (places.get(target) ?? 0) + 1);
+  const label = `${launchLabel(launch)}: .onGroup([${targets.join(", ")}], …)`;
+  return [...places].flatMap(([target, needed]) => {
+    const given = answersOf(launch, target);
     if (needed <= given) return [];
     const message =
       given === 0
-        ? `${label} lists ${agent}, which the launch does not run — it can never complete; list agents of the launch`
-        : `${label} needs ${String(needed)} counted ${agent} answers, but the launch runs ${String(given)} — it can never complete`;
+        ? `${label} lists ${target}, which the launch does not run — it can never complete; list targets of the launch`
+        : `${label} needs ${String(needed)} counted ${target} answers, but the launch runs ${String(given)} — it can never complete`;
     return [violation("flow.quorum-impossible", message, [launch.launcher])];
   });
 }

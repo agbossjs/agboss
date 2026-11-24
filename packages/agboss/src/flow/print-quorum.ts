@@ -4,7 +4,7 @@ import type { ComponentLabel } from "./print.js";
 
 /**
  * How the printout writes a quorum (#279): `.arbitratedBy(A)`, the
- * options of `.joinQuorum({ min, max, deadline })` and `.joinQuorumGroups(…, { deadline })`, a
+ * options of `.joinQuorum({ min, max, deadline })` and `.joinQuorumGroups({ deadline })`, a
  * deadline in the unit it reads best in (`seconds(30)`, `minutes(2)`, `hours(1)`).
  */
 
@@ -32,7 +32,7 @@ export function countQuorumOptions(quorum: CountQuorum): string {
   return `{ ${options.join(", ")} }`;
 }
 
-/** `{ deadline: minutes(1) }` of `.joinQuorumGroups(…)`; undefined without one. */
+/** `{ deadline: minutes(1) }` of `.joinQuorumGroups({ deadline })`; undefined without one. */
 export const groupsQuorumOptions = (quorum: GroupsQuorum): string | undefined =>
   quorum.deadline === undefined ? undefined : `{ deadline: ${durationText(quorum.deadline)} }`;
 

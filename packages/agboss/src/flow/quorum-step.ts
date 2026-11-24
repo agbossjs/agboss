@@ -10,11 +10,12 @@ import {
   type ForEachItemStep,
   type GroupsQuorum,
   type InParallelStep,
+  type JoinStep,
   type LaunchStep,
   type QuorumGroup,
   type Step,
+  type SubPath,
 } from "./ast.js";
-import type { PathStart } from "./path-start.js";
 import { FlowSyntaxError, isLaunching } from "./launch-step.js";
 
 /**
@@ -99,65 +100,82 @@ export function countQuorumOf(options: unknown): CountQuorum {
 function groupsDeadlineOf(options: object): Milliseconds | undefined {
   if (Reflect.has(options, "min") || Reflect.has(options, "max"))
     throw new FlowSyntaxError({
-      message: ".joinQuorumGroups(…, { deadline }) — min / max do not apply to groups",
+      message: ".joinQuorumGroups({ deadline }) — min / max do not apply to groups",
     });
   return deadlineOf(options, ".joinQuorumGroups");
 }
 
-/** The groups and the options of `.joinQuorumGroups(group(…)…, { deadline })`. */
-export function groupsQuorumOf(
-  args: readonly unknown[],
-  asGroup: (path: unknown) => QuorumGroup | undefined,
-): GroupsQuorum {
-  const last = args[args.length - 1];
-  const group = asGroup(last);
-  const options = group === undefined && typeof last === "object" && last !== null ? last : {};
-  const paths = group === undefined && args.length > 0 ? args.slice(0, -1) : args;
-  const groups = paths.map(asGroup);
-  if (groups.length === 0 || groups.some((found) => found === undefined))
+/** `.joinQuorumGroups({ deadline })` (#1284): the join of a launch whose groups follow as `.onGroup(…)`s. */
+export function groupsQuorumOf(options: unknown): GroupsQuorum {
+  if (options !== undefined && (typeof options !== "object" || options === null))
     throw new FlowSyntaxError({
       message:
-        ".joinQuorumGroups(…) takes group(…) paths, then { deadline } — min / max do not apply to groups",
+        ".joinQuorumGroups(…) takes its options as an object: .joinQuorumGroups({ deadline })",
     });
-  const deadline = groupsDeadlineOf(options);
+  const deadline = groupsDeadlineOf(options ?? {});
   return Object.freeze({
     kind: QuorumKind.Groups,
-    groups: Object.freeze(groups as readonly QuorumGroup[]),
+    groups: Object.freeze([]),
     ...(deadline === undefined ? {} : { deadline }),
   });
 }
 
-/** `group(…).priority(n)`: 1 is the highest. */
-export function priorityOf(priority: unknown): number {
+/** `{ priority }` of `.onGroup(…)`: 1 is the highest. */
+export function priorityOf(options: unknown): number | undefined {
+  if (options === undefined) return undefined;
+  if (typeof options !== "object" || options === null)
+    throw new FlowSyntaxError({
+      message: ".onGroup([targets], options, subPath) takes its options as an object: { priority }",
+    });
+  const priority: unknown = Reflect.get(options, "priority");
+  if (priority === undefined) return undefined;
   if (!isPositiveInteger(priority))
     throw new FlowSyntaxError({
-      message: "group(…).priority(n) takes a positive integer — 1 is the highest",
+      message: ".onGroup([…], { priority }, …) takes a positive integer — 1 is the highest",
     });
   return priority;
 }
 
-/** `group(A, B, …).priority(n)` of `.joinQuorumGroups(…)` (#279). */
-export interface GroupStart {
-  readonly kind: "group";
-  readonly agents: readonly Class[];
-  readonly priority?: number;
-}
-
-/** A group as `.joinQuorumGroups(…)` keeps it: its agents, priority and own path. */
-export function quorumGroupOf(start: GroupStart, steps: readonly Step[]): QuorumGroup {
-  const { agents, priority } = start;
-  const path = Object.freeze({ steps: Object.freeze([...steps]) });
-  const group = { agents, path };
+/** One `.onGroup([A, B], { priority }, subPath)`: its targets (one or more classes of the launch), priority and own path. */
+export function quorumGroupOf(targets: unknown, options: unknown, path: SubPath): QuorumGroup {
+  if (
+    !Array.isArray(targets) ||
+    targets.length === 0 ||
+    targets.some((target) => typeof target !== "function")
+  )
+    throw new FlowSyntaxError({
+      message:
+        ".onGroup([…], …) takes one or more classes of the launch: .onGroup([LegalAgent, CriticAgent], …)",
+    });
+  const priority = priorityOf(options);
+  const group = { targets: Object.freeze([...(targets as readonly Class[])]), path };
   return Object.freeze(priority === undefined ? group : { ...group, priority });
 }
 
-/** `group(…).priority(n)`: the group's start with its priority; written right after `group(…)`. */
-export function prioritisedStart(
-  start: PathStart,
-  steps: readonly Step[],
-  priority: unknown,
-): PathStart {
-  if (start.kind !== "group" || steps.length > 0)
-    throw new FlowSyntaxError({ message: ".priority(n) stands right after group(…)" });
-  return { ...start, priority: priorityOf(priority) };
+/** The groups' join `.onGroup(…)` extends: the last step must be a `.joinQuorumGroups(…)`, with `given` arguments after the targets. */
+export function groupsJoinOf(
+  last: Step | undefined,
+  given: number,
+): JoinStep & { readonly quorum: GroupsQuorum } {
+  if (last?.kind !== StepKind.Join || last.quorum?.kind !== QuorumKind.Groups)
+    throw new FlowSyntaxError({
+      message: ".onGroup(…) stands right after .joinQuorumGroups(…) or another .onGroup(…)",
+    });
+  if (given < 1 || given > 2)
+    throw new FlowSyntaxError({
+      message: ".onGroup(targets, subPath) or .onGroup(targets, { priority }, subPath)",
+    });
+  return last as JoinStep & { readonly quorum: GroupsQuorum };
+}
+
+/** `join` with one more group. */
+export function withGroup(
+  join: JoinStep & { readonly quorum: GroupsQuorum },
+  group: QuorumGroup,
+): JoinStep {
+  const quorum = Object.freeze({
+    ...join.quorum,
+    groups: Object.freeze([...join.quorum.groups, group]),
+  });
+  return Object.freeze({ ...join, quorum });
 }

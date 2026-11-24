@@ -36,7 +36,7 @@ export interface EdgeSnapshot {
   readonly writes: readonly EdgeValueSnapshot[];
   /** The error class an `error` / `join-error` edge takes. */
   readonly error?: string;
-  /** A join edge of `.joinQuorumGroups(…)`: the group it continues, its agents as listed. */
+  /** A join edge of `.joinQuorumGroups(…)`: the group it continues, its targets as listed. */
   readonly group?: readonly string[];
 }
 
@@ -66,7 +66,7 @@ export interface QuorumSnapshot {
   readonly max?: number;
   /** In milliseconds. */
   readonly deadline?: number;
-  readonly groups?: readonly { readonly agents: readonly string[]; readonly priority?: number }[];
+  readonly groups?: readonly { readonly targets: readonly string[]; readonly priority?: number }[];
 }
 
 /** One launch: who launches what, how wide, its quorum and its arbiter (`.arbitratedBy`). */
@@ -96,7 +96,7 @@ const edgeOf = (edge: FlowEdge): EdgeSnapshot => ({
   kind: edge.kind,
   writes: edge.writes.map(valueOf),
   ...(edge.error === undefined ? {} : { error: edge.error.name }),
-  ...(edge.join?.group === undefined ? {} : { group: edge.join.group.agents }),
+  ...(edge.join?.group === undefined ? {} : { group: edge.join.group.targets }),
 });
 
 /** Every edge of the graph, in the analyser's canonical order. */
@@ -136,7 +136,7 @@ function quorumOf(quorum: Quorum): QuorumSnapshot {
       ...deadline,
     };
   const groups = quorum.groups.map((group) => ({
-    agents: group.agents.map(nameOf),
+    targets: group.targets.map(nameOf),
     ...(group.priority === undefined ? {} : { priority: group.priority }),
   }));
   return { kind: quorum.kind, groups, ...deadline };

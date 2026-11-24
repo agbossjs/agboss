@@ -8,7 +8,6 @@ export {
   onAction,
   onAgent,
   caseOf,
-  group,
   onExternalTask,
   route,
   onRouter,
@@ -39,7 +38,6 @@ export type {
   CaseHead,
   CasePath,
   ErrorHandling,
-  GroupHead,
   PathHead,
   RouteContinuation,
   RouteHead,
@@ -66,9 +64,9 @@ export type {
 } from "../flow/launch-types.js";
 export type {
   FixedArbitratedQuorums,
-  GroupPath,
-  GroupStart,
   GroupsJoined,
+  GroupsJoining,
+  QuorumGroupOptions,
   QuorumGroupsOptions,
   QuorumJoined,
   QuorumOptions,

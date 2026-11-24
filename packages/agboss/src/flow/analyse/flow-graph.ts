@@ -102,10 +102,10 @@ export interface FlowLaunch {
   readonly arbitratedBy?: ArbiterClass;
 }
 
-/** The `group(…)` of `.joinQuorumGroups(…)` a join edge continues (#279). */
+/** The `.onGroup(…)` of `.joinQuorumGroups(…)` a join edge continues (#279, #1284). */
 export interface JoinGroupOrigin {
-  /** The group's agents as listed, repeats included. */
-  readonly agents: readonly ComponentName[];
+  /** The group's targets as listed, repeats included. */
+  readonly targets: readonly ComponentName[];
   readonly priority?: number;
 }
 

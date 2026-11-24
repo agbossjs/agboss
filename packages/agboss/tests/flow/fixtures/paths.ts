@@ -5,7 +5,6 @@ import type { ValueShape } from "../../../src/flow/dto-wrappers.js";
 import {
   fromComponent,
   fromSource,
-  groupFrom,
   subPathFrom,
   type PathBuilder,
 } from "../../../src/flow/path-builder.js";
@@ -62,6 +61,3 @@ export const toExternalTask = (target: Class, options?: unknown): PathBuilder =>
 export const toWorkflow = (target: Class): PathBuilder =>
   side()
     .toWorkflow(target);
-
-/** `group(A, B, …)` of `.joinQuorumGroups(…)` (#279). */
-export const group = (...agents: readonly Class[]): PathBuilder => groupFrom(agents);

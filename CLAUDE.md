@@ -726,9 +726,10 @@ workflows: { placement } } })`, else `CurrentProcess`; `OtherWorker` is never cl
   `agboss describe` prints `maxConcurrentSteps 32 (set)` (`--json`: `maxConcurrentSteps`).
 - **Quorums (#279):** after `.toParallelAgents(…)` a join may count answers instead of waiting for
   all — `.joinQuorum({ min, max, deadline })` (options always an object; `max` defaults to `min`,
-  `deadline` in units: `seconds()`, `minutes()`, `hours()`) or `.joinQuorumGroups(group(A, B)
-.priority(1).to…(…), …, { deadline })`, where every group continues its own path (1
-  is the highest priority; nothing follows the groups but `.onError(E, …)`). `@Arbiter`
+  `deadline` in units: `seconds()`, `minutes()`, `hours()`) or `.joinQuorumGroups({ deadline })`
+  followed by `.onGroup([A, B], { priority: 1 }, subPath)` per group (#1284: `.onError(E, …)` right after the
+  join, never after an `.onGroup`), where every group continues its own path (1 is the highest priority;
+  nothing follows the groups but `.onGroup(…)`). `@Arbiter`
   classes (`arbiters/*.arbiter.ts`, `-arbiter`) decide whether an answer counts, attached with
   `.arbitratedBy(X)` between the launch and the quorum (`.arbitratedBy(…).join()` does not compile):
   one arbiter per launch (#1282: no `anyOf`, no and / or — the rule and its escalation from code to a
@@ -1088,7 +1089,7 @@ export const childPaths = [
 ```
 
 <!-- snippet-context
-import { Agent, Arbiter, Arbitrate, Workflow, WorkflowFinish, WorkflowStart, group, onStart, toAgent } from "@agboss/core";
+import { Agent, Arbiter, Arbitrate, Workflow, WorkflowFinish, WorkflowStart, onStart, toAgent, toFinish } from "@agboss/core";
 import { Integer, Text, listOf, optional } from "@agboss/core/dto";
 import { minutes, seconds } from "@agboss/core/units";
 
@@ -1199,17 +1200,20 @@ export const quorumPaths = [
 
   // groups: the first complete one (by priority) continues its own path
   onStart(DealWorkflowStart)
-    .toParallelAgents(LegalAgent, CriticAgent, CriticAgent, FastScreenAgent)
-    .joinQuorumGroups(
-      group(LegalAgent, CriticAgent)
-        .priority(1) // critic-agent is launched twice: a list, even of one
-        .toAgent(FullReviewAgent)
+    .inParallel([
+      toAgent(LegalAgent),
+      toAgent(CriticAgent),
+      toAgent(CriticAgent),
+      toAgent(FastScreenAgent),
+    ])
+    .joinQuorumGroups({ deadline: minutes(1) })
+    .onGroup(
+      [LegalAgent, CriticAgent], // critic-agent is launched twice: a list, even of one
+      { priority: 1 },
+      toAgent(FullReviewAgent)
         .toFinish(DealReportWorkflowFinish),
-      group(FastScreenAgent)
-        .priority(2)
-        .toFinish(QuickRejectWorkflowFinish),
-      { deadline: minutes(1) },
-    ),
+    )
+    .onGroup([FastScreenAgent], { priority: 2 }, toFinish(QuickRejectWorkflowFinish)),
 ] as const;
 ```
 

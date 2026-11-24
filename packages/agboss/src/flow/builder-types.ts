@@ -47,11 +47,7 @@ export interface SideHead<TClaims = unknown, TStart = unknown> {
   /** The class the side path starts with (`toAgent(A)…` → `typeof A`): what `.onRoute(…)` subtracts. */
   readonly start?: TStart;
 }
-/** A `group(…)` of `.joinQuorumGroups(…)` (#279): the path of the group's own steps. */
-export interface GroupHead {
-  readonly group: true;
-}
-export type PathHead = SourceHead | RouteHead | CaseHead<unknown> | SideHead | GroupHead;
+export type PathHead = SourceHead | RouteHead | CaseHead<unknown> | SideHead;
 
 /** A path as built so far: a `FlowPath` from a source, a `SubPath` otherwise, its head in its type. */
 export type BuiltPath<THead extends PathHead> = (THead extends SourceHead ? FlowPath : SubPath) & {
@@ -120,13 +116,6 @@ export type TargetCheck<TClass extends Class, TKind extends NodeKind, TLabel ext
 export type CaseValueOf<TPath> = TPath extends { readonly [pathHead]?: CaseHead<infer T> }
   ? T
   : never;
-
-/** Whether a path was built from `group(…)…` (#279). */
-export type IsGroupPath<TPath> = TPath extends {
-  readonly [pathHead]?: GroupHead;
-}
-  ? true
-  : false;
 
 export type SwitchCheck<TCases extends readonly CasePath[], TOutput> = [
   CaseValueOf<TCases[number]>,

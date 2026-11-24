@@ -37,29 +37,36 @@ describe("the first complete group by priority goes on", () => {
   legalFirst(
     "the full check answers first: its group wins, the screen is cancelled",
     async ({ app, mockLlm }) => {
-      mockLlm(LegalCheckAgent).thenReturn(replyWith(LegalReviewDto, LEGAL));
-      mockLlm(FastScreenAgent).thenReturn(replyWith(FastScreenDto, SCREEN));
+      mockLlm(LegalCheckAgent)
+        .thenReturn(replyWith(LegalReviewDto, LEGAL));
+      mockLlm(FastScreenAgent)
+        .thenReturn(replyWith(FastScreenDto, SCREEN));
 
       const result = await app.execute(IntakeWorkflowStart, ANNA);
 
-      expect(result).toFinishWith(IntakeReportWorkflowFinish, LEGAL);
-      expect(result.launches[0]?.group).toEqual({ agents: ["legal-check-agent"], priority: 1 });
-      expect(result.launches[0]?.branches.map((branch) => branch.status)).toContain(
-        BranchStatus.Cancelled,
-      );
+      expect(result)
+        .toFinishWith(IntakeReportWorkflowFinish, LEGAL);
+      expect(result.launches[0]?.group)
+        .toEqual({ targets: ["legal-check-agent"], priority: 1 });
+      expect(result.launches[0]?.branches.map((branch) => branch.status))
+        .toContain(BranchStatus.Cancelled);
     },
   );
 
   screenFirst(
     "the full check's model is rate-limited: the quick screen's group goes on",
     async ({ app, mockLlm }) => {
-      mockLlm(FastScreenAgent).thenReturn(replyWith(FastScreenDto, SCREEN));
-      mockLlm(LegalCheckAgent).thenReturn(failWith(ModelFailure.RateLimited));
+      mockLlm(FastScreenAgent)
+        .thenReturn(replyWith(FastScreenDto, SCREEN));
+      mockLlm(LegalCheckAgent)
+        .thenReturn(failWith(ModelFailure.RateLimited));
 
       const result = await app.execute(IntakeWorkflowStart, ANNA);
 
-      expect(result).toFinishWith(QuickScreenWorkflowFinish, SCREEN);
-      expect(result.launches[0]?.group).toEqual({ agents: ["fast-screen-agent"], priority: 2 });
+      expect(result)
+        .toFinishWith(QuickScreenWorkflowFinish, SCREEN);
+      expect(result.launches[0]?.group)
+        .toEqual({ targets: ["fast-screen-agent"], priority: 2 });
     },
   );
 });

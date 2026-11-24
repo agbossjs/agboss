@@ -16,10 +16,10 @@ import {
  * (#279) has its quorum; `.joinQuorumGroups(…)` one way on per group.
  */
 
-/** One `group(…)` of `.joinQuorumGroups(…)`: its places and the edge its own path starts with. */
+/** One `.onGroup(…)` of `.joinQuorumGroups(…)`: its places and the edge its own path starts with. */
 export interface RuntimeGroup {
-  /** Its agents by node name as listed (repeats included). */
-  readonly agents: readonly string[];
+  /** Its targets by node name as listed (repeats included). */
+  readonly targets: readonly string[];
   readonly priority?: number;
   readonly edge: FlowEdge;
 }
@@ -63,8 +63,8 @@ const groupsOf = (joins: readonly FlowEdge[]): readonly RuntimeGroup[] =>
   joins.flatMap((edge) => {
     const group = edge.join?.group;
     if (group === undefined) return [];
-    const { agents, priority } = group;
-    return [{ agents, ...(priority === undefined ? {} : { priority }), edge }];
+    const { targets, priority } = group;
+    return [{ targets, ...(priority === undefined ? {} : { priority }), edge }];
   });
 
 function runtimeLaunchOf(launch: FlowLaunch, edges: readonly FlowEdge[]): RuntimeLaunch {

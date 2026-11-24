@@ -22,7 +22,6 @@ export {
   type CaseValueOf,
   type SkipHandling,
   type SkipOf,
-  type IsGroupPath,
   type IsOneOf,
   type IsUnion,
   type InputCheck,
@@ -73,7 +72,7 @@ export {
   type LaunchArguments,
   type LaunchCheck,
 } from "../flow/launch-types.js";
-export { type GroupArguments, type GroupCheck, type GroupsCheck } from "../flow/quorum-types.js";
+export { type OnGroup } from "../flow/quorum-types.js";
 export { type ClassOf, type UnwrapTarget } from "../flow/target-ref.js";
 export { type UntrackedLeaf } from "../flow/metadata.js";
 export { type PiiRefusalShape } from "../pii/pii-policy.decorator.js";

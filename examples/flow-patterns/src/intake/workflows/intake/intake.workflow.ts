@@ -1,4 +1,4 @@
-import { group, onStart, Workflow } from "@agboss/core";
+import { onStart, toAgent, toFinish, Workflow } from "@agboss/core";
 import { seconds } from "@agboss/core/units";
 import { FastScreenAgent } from "../../agents/fast-screen/fast-screen.agent.js";
 import { LegalCheckAgent } from "../../agents/legal-check/legal-check.agent.js";
@@ -16,16 +16,10 @@ import { IntakeWorkflowStart } from "./intake.workflow-start.js";
   version: "1.0.0",
   flow: [
     onStart(IntakeWorkflowStart)
-      .toParallelAgents(LegalCheckAgent, FastScreenAgent)
-      .joinQuorumGroups(
-        group(LegalCheckAgent)
-          .priority(1)
-          .toFinish(IntakeReportWorkflowFinish),
-        group(FastScreenAgent)
-          .priority(2)
-          .toFinish(QuickScreenWorkflowFinish),
-        { deadline: seconds(30) },
-      ),
+      .inParallel([toAgent(LegalCheckAgent), toAgent(FastScreenAgent)])
+      .joinQuorumGroups({ deadline: seconds(30) })
+      .onGroup([LegalCheckAgent], { priority: 1 }, toFinish(IntakeReportWorkflowFinish))
+      .onGroup([FastScreenAgent], { priority: 2 }, toFinish(QuickScreenWorkflowFinish)),
   ],
 })
 export class IntakeWorkflow {}

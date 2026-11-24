@@ -22,7 +22,7 @@ function rangesOf(edge: FlowEdge, slot: string): ReadonlyMap<string, CountRange>
   if (join === undefined || value === undefined || join.launch.items !== undefined) return ranges;
   for (const producer of value.producers) {
     const most = join.launch.listed.filter((name) => name === producer).length;
-    const listed = join.group?.agents.filter((name) => name === producer).length ?? 0;
+    const listed = join.group?.targets.filter((name) => name === producer).length ?? 0;
     ranges.set(producer, { least: listed, most });
   }
   return ranges;
@@ -47,7 +47,8 @@ export function quorumCounts(
       edge.kind === EdgeKind.Join &&
       edge.join?.quorum !== undefined &&
       field.isList &&
-      reachableFrom([edge.to], edges).has(node),
+      reachableFrom([edge.to], edges)
+        .has(node),
   );
   for (const edge of feeding)
     for (const [producer, range] of rangesOf(edge, field.slot))

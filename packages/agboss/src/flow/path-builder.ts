@@ -5,9 +5,9 @@ import {
   type ChooseOneRoute,
   type ErrorClass,
   type LaunchTargetKind,
+  QuorumKind,
   type PathSource,
   type Quorum,
-  type QuorumGroup,
   type Step,
   type SubPath,
   type SwitchCase,
@@ -20,9 +20,10 @@ import {
   arbitratedByOf,
   arbitratingLaunch,
   countQuorumOf,
+  groupsJoinOf,
   groupsQuorumOf,
-  prioritisedStart,
   quorumGroupOf,
+  withGroup,
 } from "./quorum-step.js";
 import { expiresInOptionOf } from "./question-options.js";
 import type { PathStart } from "./path-start.js";
@@ -35,7 +36,7 @@ import { carryStepSpan, recordStepSpan } from "./step-spans.js";
  */
 
 export { FlowSyntaxError } from "./launch-step.js";
-export { fromComponent, groupFrom } from "./path-sources.js";
+export { fromComponent } from "./path-sources.js";
 
 const syntaxError = (message: string): FlowSyntaxError => new FlowSyntaxError({ message });
 
@@ -146,13 +147,18 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
 
   /**
    * `.onError(E, side path)`: after a step it handles that step's failure; right after a join
-   * (`.join()`, `.joinQuorum(…)`, `.joinQuorumGroups(…)`) it handles the join's failure (#1281).
+   * (`.join()`, `.joinQuorum(…)`, `.joinQuorumGroups(…)`) it handles the join's failure (#1281) — after
+   * `.joinQuorumGroups(…)` only before its first `.onGroup(…)` (#1284).
    */
   onError(error: ErrorClass, path: PathBuilder | parallel.Skip): PathBuilder<TSource> {
     if (parallel.isSkip(path)) return this.withLast(parallel.skippedStepOf(this.at, error));
     const { last } = this;
     if (last?.kind !== StepKind.Join)
       return this.then({ kind: StepKind.OnError, error, path: path.asSidePath() });
+    if (last.quorum?.kind === QuorumKind.Groups && last.quorum.groups.length > 0)
+      throw syntaxError(
+        ".onError(E, …) stands right after .joinQuorumGroups(…), before its first .onGroup(…) — not after one",
+      );
     const handler = Object.freeze({ error, path: path.asSidePath() });
     return this.withLast(
       Object.freeze({ ...last, onError: Object.freeze([...last.onError, handler]) }),
@@ -216,20 +222,20 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
     return this.joined(countQuorumOf(options));
   }
 
-  /** `.joinQuorumGroups(group(…)…, { deadline })` (#279): each group continues its own path. */
-  joinQuorumGroups(...args: readonly unknown[]): PathBuilder<TSource> {
-    const asGroup = (path: unknown): QuorumGroup | undefined =>
-      path instanceof PathBuilder ? path.asGroup() : undefined;
-    return this.joined(groupsQuorumOf(args, asGroup));
+  /** `.joinQuorumGroups({ deadline })` (#1284): its groups follow as `.onGroup([…], options?, subPath)`. */
+  joinQuorumGroups(options?: unknown): PathBuilder<TSource> {
+    return this.joined(groupsQuorumOf(options));
   }
 
-  /** `group(…).priority(n)`: 1 is the highest; written right after `group(…)`. */
-  priority(priority: unknown): PathBuilder<TSource> {
-    return new PathBuilder(
-      prioritisedStart(this.start, this.steps, priority),
-      this.source,
-      this.steps,
-    );
+  /**
+   * `.onGroup([A, B], { priority }, subPath)` (#1284): the group of the launch's targets whose counted
+   * answers complete it, and the path it continues with; `{ priority }` is optional (1 is the highest).
+   */
+  onGroup(targets: unknown, ...rest: readonly unknown[]): PathBuilder<TSource> {
+    const join = groupsJoinOf(this.last, rest.length);
+    const path = PathBuilder.sideOf(rest[rest.length - 1], ".onGroup(…)");
+    const group = quorumGroupOf(targets, rest.length === 2 ? rest[0] : undefined, path);
+    return this.withLast(withGroup(join, group));
   }
 
   private launch(targetKind: LaunchTargetKind, args: readonly unknown[]): PathBuilder<TSource> {
@@ -246,11 +252,6 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
 
   private asRoute(): ChooseOneRoute {
     return routeOfPath(this.start, this.subPath());
-  }
-
-  /** A group: its agents, priority and own path. */
-  private asGroup(): QuorumGroup | undefined {
-    return this.start.kind === "group" ? quorumGroupOf(this.start, this.steps) : undefined;
   }
 
   /** A side path of `call` (`.toOneOf([…])`, `.onFinish(F, …)`), or a syntax error. */

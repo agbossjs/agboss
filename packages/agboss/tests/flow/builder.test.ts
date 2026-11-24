@@ -208,7 +208,6 @@ describe("1278a: .onRoute(subPath) builds the routes of .chooseOne(route(…)…
   it.each<[string, () => unknown]>([
     ["a case path", () => entry().onRoute(caseOf(ProfileDto).toRouter(MainRouter))],
     ["a value that is no path", () => entry().onRoute({})],
-    ["a group path", () => entry().onRoute(builder.group(ScoutAgent))],
   ])("%s is a syntax error", (_label, call) => {
     expect(call).toThrow(FlowSyntaxError);
   });
@@ -465,7 +464,6 @@ describe("AC4 / AC8: removed forms do not exist", () => {
       "FlowSyntaxError",
       "caseOf",
       "forEachItem",
-      "group",
       "inParallel",
       "onAction",
       "onAgent",

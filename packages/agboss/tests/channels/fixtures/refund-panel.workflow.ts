@@ -10,7 +10,6 @@ import {
   Action,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
-import { groupFrom } from "../../../src/flow/path-builder.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import { WaitTool } from "../../flow/fixtures/quorum-runtime-parts.js";
@@ -20,7 +19,7 @@ import {
   StampedExecutionRecordRepository,
 } from "../../infrastructure/fixtures/recovery.workflow.js";
 import { seconds } from "../../../src/units/index.js";
-import { onStart } from "../../helpers/flow.js";
+import { onStart, toAction } from "../../helpers/flow.js";
 import {
   BatchSummaryDto,
   FinanceDeskRefundApprovalChannel,
@@ -158,14 +157,17 @@ export class RefundGroupsWorkflowStart {}
   flow: [
     onStart(RefundGroupsWorkflowStart)
       .toParallelAgents(PolicyAgent, RiskAgent)
-      .joinQuorumGroups(
-        groupFrom([PolicyAgent])
-          .priority(1)
-          .toAction(RefundDecidedAction)
+      .joinQuorumGroups()
+      .onGroup(
+        [PolicyAgent],
+        { priority: 1 },
+        toAction(RefundDecidedAction)
           .toFinish(RefundDecidedWorkflowFinish),
-        groupFrom([RiskAgent])
-          .priority(2)
-          .toAction(RefundEscalatedAction)
+      )
+      .onGroup(
+        [RiskAgent],
+        { priority: 2 },
+        toAction(RefundEscalatedAction)
           .toFinish(RefundEscalatedWorkflowFinish),
       ),
   ],

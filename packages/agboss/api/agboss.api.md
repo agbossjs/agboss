@@ -4268,7 +4268,7 @@ export interface FixedArbitratedQuorums<THead extends PathHead> {
     // (undocumented)
     joinQuorum(options: QuorumOptions): QuorumJoined<THead>;
     // (undocumented)
-    joinQuorumGroups<const TArgs extends GroupArguments>(...groups: TArgs & GroupsCheck<TArgs>): GroupsJoined<THead>;
+    joinQuorumGroups(options?: QuorumGroupsOptions): GroupsJoining<THead>;
 }
 
 // @public
@@ -4311,7 +4311,6 @@ declare namespace FlowTypes {
         CaseValueOf,
         SkipHandling,
         SkipOf,
-        IsGroupPath,
         IsOneOf,
         IsUnion,
         InputCheck,
@@ -4355,9 +4354,7 @@ declare namespace FlowTypes {
         LastValue,
         LaunchArguments,
         LaunchCheck,
-        GroupArguments,
-        GroupCheck,
-        GroupsCheck,
+        OnGroup,
         ClassOf,
         UnwrapTarget,
         UntrackedLeaf,
@@ -4437,36 +4434,13 @@ export interface GraphRuleErrorOptions {
 }
 
 // @public
-export function group<const TAgents extends readonly [Class, ...Class[]]>(...agents: TAgents & LaunchCheck<TAgents, NodeKind.Agent>): GroupStart;
+export type GroupsJoined<THead extends PathHead> = BuiltPath<THead> & OnGroup<GroupsJoined<THead>>;
 
 // @public
-type GroupArguments = readonly [GroupPath, ...GroupPath[]] | readonly [GroupPath, ...GroupPath[], QuorumGroupsOptions];
-
-// @public
-type GroupCheck<TPath> = IsGroupPath<TPath> extends true ? unknown : {
-    readonly __error: ".joinQuorumGroups(…) takes group(…).to…(…) paths";
-};
-
-// @public
-export interface GroupHead {
+export interface GroupsJoining<THead extends PathHead> extends OnGroup<GroupsJoined<THead>> {
     // (undocumented)
-    readonly group: true;
+    onError(error: ErrorClass, path: SidePath): GroupsJoining<THead>;
 }
-
-// @public
-export type GroupPath = BuiltPath<GroupHead>;
-
-// @public
-type GroupsCheck<TArgs extends readonly unknown[]> = {
-    [K in keyof TArgs]: TArgs[K] extends {
-        readonly steps: unknown;
-    } ? GroupCheck<TArgs[K]> : unknown;
-};
-
-// @public
-export type GroupsJoined<THead extends PathHead> = BuiltPath<THead> & {
-    onError(error: ErrorClass, path: SidePath): GroupsJoined<THead>;
-};
 
 // @public
 export interface GroupsQuorum {
@@ -4476,12 +4450,6 @@ export interface GroupsQuorum {
     readonly groups: readonly QuorumGroup[];
     // (undocumented)
     readonly kind: QuorumKind.Groups;
-}
-
-// @public
-export interface GroupStart extends Transitions<GroupHead> {
-    // (undocumented)
-    priority(priority: number): Transitions<GroupHead>;
 }
 
 // @public
@@ -5460,11 +5428,6 @@ export interface InvalidThreadIdErrorOptions {
     // (undocumented)
     readonly rule: KeyTextRule;
 }
-
-// @public
-type IsGroupPath<TPath> = TPath extends {
-    readonly [pathHead]?: GroupHead;
-} ? true : false;
 
 // @public
 export interface IsolatedWorkerOptions {
@@ -6895,6 +6858,14 @@ export interface OnFinishStep {
 }
 
 // @public
+interface OnGroup<TNext> {
+    // (undocumented)
+    onGroup(targets: readonly [Class, ...Class[]], path: SidePath): TNext;
+    // (undocumented)
+    onGroup(targets: readonly [Class, ...Class[]], options: QuorumGroupOptions, path: SidePath): TNext;
+}
+
+// @public
 export interface OnInit {
     onInit(): Promise<void> | void;
 }
@@ -7402,7 +7373,7 @@ export interface PassedJudgeVerdictOptions {
 }
 
 // @public (undocumented)
-export type PathHead = SourceHead | RouteHead | CaseHead<unknown> | SideHead | GroupHead;
+export type PathHead = SourceHead | RouteHead | CaseHead<unknown> | SideHead;
 
 // @public
 export type PathSource = StartSource | ComponentSource;
@@ -8542,22 +8513,26 @@ export interface QuorumDecidedEvent extends NodeEvent {
 
 // @public
 export interface QuorumGroup {
-    readonly agents: readonly Class[];
     readonly path: SubPath;
     // (undocumented)
     readonly priority?: number;
+    readonly targets: readonly Class[];
+}
+
+// @public
+export interface QuorumGroupOptions {
+    readonly priority?: number | undefined;
 }
 
 // @public
 export interface QuorumGroupRecord {
-    readonly agents: readonly string[];
     readonly priority?: number;
+    readonly targets: readonly string[];
 }
 
 // @public
 export interface QuorumGroupsOptions {
-    // (undocumented)
-    readonly deadline?: Milliseconds;
+    readonly deadline?: Milliseconds | undefined;
 }
 
 // @public
@@ -12250,7 +12225,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "case".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "side".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "claims".
-// src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "group".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "PathHead".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for ""workflow-start"".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for ""workflow-finish"".
@@ -12456,8 +12430,9 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/one-of-types.ts - (ae-undocumented) Missing documentation for "__error".
 // src/flow/one-of-types.ts - (ae-undocumented) Missing documentation for "onFinish".
 // src/flow/parallel-step.ts - (ae-undocumented) Missing documentation for "[SKIP]".
-// src/flow/quorum-types.ts - (ae-undocumented) Missing documentation for "deadline".
-// src/flow/quorum-types.ts - (ae-undocumented) Missing documentation for "priority".
+// src/flow/quorum-types.ts - (ae-undocumented) Missing documentation for "onGroup".
+// src/flow/quorum-types.ts - (ae-undocumented) Missing documentation for "onGroup".
+// src/flow/quorum-types.ts - (ae-undocumented) Missing documentation for "onError".
 // src/flow/quorum-types.ts - (ae-undocumented) Missing documentation for "joinQuorum".
 // src/flow/quorum-types.ts - (ae-undocumented) Missing documentation for "joinQuorumGroups".
 // src/flow/route-types.ts - (ae-undocumented) Missing documentation for "onRoute".

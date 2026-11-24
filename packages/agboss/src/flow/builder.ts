@@ -27,19 +27,17 @@ import type {
   MaxItemsOptions,
   TakeFirstLaunched,
   TakeFirstOptions,
-  LaunchCheck,
   ParallelOptions,
 } from "./launch-types.js";
 import { fromSource, subPathFrom, type PathBuilder } from "./path-builder.js";
-import { fromComponent, groupFrom } from "./path-sources.js";
-import type { GroupStart } from "./quorum-types.js";
+import { fromComponent } from "./path-sources.js";
 import type { ClassOf, TargetRef } from "./target-ref.js";
 
 /**
  * The path builder (#272): `onStart(S)…`, `onAgent(X)…`, `onRouter(R)…`, `onAction(X)…`, `onWorkflow(W)…`
  * (#263), `onExternalTask(Q)…` (#659) begin a flow path; `route(X)…`, `caseOf(D)…` and the side-path starters `toAction(X)…`, `toAgent(A)…`,
- * `toRouter(R)…`, `toExternalTask(Q)…` (#910), `toWorkflow(W)…` (#263 S85), `toFinish(F)` of `.onError(E, …)` and `group(A, …)…` of `.joinQuorumGroups(…)`
- * (#279) begin a sub-path and return the same builder.
+ * `toRouter(R)…`, `toExternalTask(Q)…` (#910), `toWorkflow(W)…` (#263 S85), `toFinish(F)` of `.onError(E, …)` and `.onGroup([…], …)` of `.joinQuorumGroups(…)`
+ * (#279, #1284) begin a sub-path and return the same builder.
  */
 
 export { FlowSyntaxError } from "./path-builder.js";
@@ -205,16 +203,4 @@ export function forEachItem<const TStep extends SidePath>(
 ): ItemsLaunched<SideHead>;
 export function forEachItem(step: unknown, options: unknown): unknown {
   return sidePath().forEachItem(step, options);
-}
-
-/**
- * One group of `.joinQuorumGroups(…)` (#279): `group(LegalAgent, CriticAgent).priority(1)
- * .to…(…)` — complete when every place is counted (a repeat needs one more copy); it continues its
- * own path.
- */
-export function group<const TAgents extends readonly [Class, ...Class[]]>(
-  ...agents: TAgents & LaunchCheck<TAgents, NodeKind.Agent>
-): GroupStart;
-export function group(...agents: readonly Class[]): unknown {
-  return groupFrom(agents);
 }

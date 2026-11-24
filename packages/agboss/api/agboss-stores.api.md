@@ -2006,8 +2006,8 @@ export interface QueuedChildExecution {
 
 // @public
 export interface QuorumGroupRecord {
-    readonly agents: readonly string[];
     readonly priority?: number;
+    readonly targets: readonly string[];
 }
 
 // @public

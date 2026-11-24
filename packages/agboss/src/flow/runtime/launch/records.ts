@@ -134,10 +134,10 @@ export interface BranchRecord {
   readonly rejectedBy?: readonly string[];
 }
 
-/** The `group(…)` of `.joinQuorumGroups(…)` that won (#279): its agents as listed, its priority. */
+/** The `.onGroup(…)` of `.joinQuorumGroups(…)` that won (#279, #1284): its targets as listed, its priority. */
 export interface QuorumGroupRecord {
-  /** Its agents by `name`, as listed (a repeat is one more copy). */
-  readonly agents: readonly string[];
+  /** Its targets by `name`, as listed (a repeat is one more copy): `@Agent`, `@ExternalTask`, `@Action` or `@Workflow`. */
+  readonly targets: readonly string[];
   /** Its priority (1 is the highest); absent when the group has none. */
   readonly priority?: number;
 }

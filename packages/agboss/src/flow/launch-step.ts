@@ -109,11 +109,11 @@ export function launchStepOf(
 
 /**
  * What may follow a join (its `.onError(…)` is the join's own, `PathBuilder.onError`): anything but a transition is refused; nothing follows
- * `.joinQuorumGroups(…)` — each group continues its own path (#279).
+ * `.joinQuorumGroups(…)` — each `.onGroup(…)` continues its own path (#279, #1284).
  */
 function afterJoinProblem(join: JoinStep, next: Step): string | undefined {
   if (join.quorum?.kind === QuorumKind.Groups)
-    return "nothing follows .joinQuorumGroups(…) but .onError(…) — each group continues its own path";
+    return "nothing follows .joinQuorumGroups(…) but its .onError(…) and .onGroup(…)s — each group continues its own path";
   if (next.kind === StepKind.To) return undefined;
   return "after .join() the path goes on with .onError(…) and one .to…(…)";
 }

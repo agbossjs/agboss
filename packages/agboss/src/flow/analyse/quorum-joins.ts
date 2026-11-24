@@ -41,22 +41,24 @@ const required = (shape: ValueShape): ValueShape =>
 /** The values of one group: the join's values its agents give — present, a list stays a list. */
 export function groupQuorumGroupsOf(
   launch: FlowLaunch,
-  agents: readonly ComponentName[],
+  targets: readonly ComponentName[],
   nodeOf: NodeLookup,
 ): readonly JoinGroup[] {
-  const listed = new Set(agents);
-  return joinGroupsOf(launch, nodeOf).flatMap((group) => {
-    const producers = group.producers.filter((producer) => listed.has(producer));
-    if (producers.length === 0) return [];
-    const { shape } = group;
-    if (shape === undefined || group.isSeveral) return [{ ...group, producers }];
-    return [{ ...group, producers, shape: required(shape) }];
-  });
+  const listed = new Set(targets);
+  return joinGroupsOf(launch, nodeOf)
+    .flatMap((group) => {
+      const producers = group.producers.filter((producer) => listed.has(producer));
+      if (producers.length === 0) return [];
+      const { shape } = group;
+      if (shape === undefined || group.isSeveral) return [{ ...group, producers }];
+      return [{ ...group, producers, shape: required(shape) }];
+    });
 }
 
-/** A group's agents by name, as listed; an undecorated class keeps its class name. */
-export const groupAgentNames = (agents: readonly Class[]): readonly ComponentName[] =>
-  agents.map(
-    (agent) =>
-      (declarationOf(agent)?.options.name ?? (agent.name || "(anonymous class)")) as ComponentName,
+/** A group's targets by name, as listed; an undecorated class keeps its class name. */
+export const groupTargetNames = (targets: readonly Class[]): readonly ComponentName[] =>
+  targets.map(
+    (target) =>
+      (declarationOf(target)?.options.name ??
+        (target.name || "(anonymous class)")) as ComponentName,
   );

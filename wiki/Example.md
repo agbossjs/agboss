@@ -119,8 +119,8 @@ npm test
   [MCP](Mcp) server — `@McpServer` `policy-files` over stdio, its `read-policy-tool` a `@Tool` with the server in its `deps`;
   `tests/helpline/workflows/helpline/helpline-mcp.test.ts` never starts it, `mcpOf(PolicyFilesServer)` answers `read_text_file`.
 - **`src/intake/`** — a quorum by groups ([Parallel](Parallel), #279): a full legal check and a quick
-  screen side by side, `.joinQuorumGroups(group(LegalCheckAgent).priority(1)…, group(FastScreenAgent)
-  .priority(2)…, { deadline: seconds(30) })`. `tests/intake/workflows/intake/intake.workflow.test.ts` fixes the order the branches
+  screen side by side, `.joinQuorumGroups({ deadline: seconds(30) }).onGroup([LegalCheckAgent],
+  { priority: 1 }, …).onGroup([FastScreenAgent], { priority: 2 }, …)`. `tests/intake/workflows/intake/intake.workflow.test.ts` fixes the order the branches
   finish in with `TestConcurrency.inOrder([step(…), step(…)])`: the full check first wins
   (`result.launches[0].group`, the screen cancelled); the full check's model failing
   (`failWith(ModelFailure.RateLimited)`) lets the quick screen's group go on.

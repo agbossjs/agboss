@@ -1,5 +1,4 @@
 import { Application } from "../../../src/application/application.js";
-import { groupFrom } from "../../../src/flow/path-builder.js";
 import {
   ArbiterError,
   EmptyEnvironment,
@@ -221,20 +220,16 @@ export class RecoveryPanelWorkflow {}
   flow: [
     onStart(DealPanelWorkflowStart)
       .toParallelAgents(LegalPanelAgent, CriticPanelAgent, FastPanelAgent)
-      .joinQuorumGroups(
-        groupFrom([LegalPanelAgent, CriticPanelAgent])
-          .priority(1)
-          .toAgent(DealReportPanelAgent)
+      .joinQuorumGroups({ deadline: seconds(60) })
+      .onError(QuorumNotReachedError, toFinish(NoQuorumPanelWorkflowFinish))
+      .onGroup(
+        [LegalPanelAgent, CriticPanelAgent],
+        { priority: 1 },
+        toAgent(DealReportPanelAgent)
           .toFinish(DealReportPanelWorkflowFinish),
-        groupFrom([CriticPanelAgent])
-          .priority(2)
-          .toFinish(SecondOpinionPanelWorkflowFinish),
-        groupFrom([FastPanelAgent])
-          .priority(3)
-          .toFinish(QuickRejectPanelWorkflowFinish),
-        { deadline: seconds(60) },
       )
-      .onError(QuorumNotReachedError, toFinish(NoQuorumPanelWorkflowFinish)),
+      .onGroup([CriticPanelAgent], { priority: 2 }, toFinish(SecondOpinionPanelWorkflowFinish))
+      .onGroup([FastPanelAgent], { priority: 3 }, toFinish(QuickRejectPanelWorkflowFinish)),
   ],
 })
 export class DealPanelWorkflow {}

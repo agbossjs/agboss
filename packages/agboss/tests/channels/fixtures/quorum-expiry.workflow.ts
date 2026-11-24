@@ -24,10 +24,9 @@ import {
   Action,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
-import { groupFrom } from "../../../src/flow/path-builder.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { RecordingLogger } from "../../helpers/log.js";
-import { onStart, toFinish } from "../../helpers/flow.js";
+import { onStart, toAction, toFinish } from "../../helpers/flow.js";
 import { PauseExpiredError } from "../../../src/flow/runtime/pause-expired-error.js";
 import { hours, minutes } from "../../../src/units/index.js";
 import { FraudAgent, PolicyAgent, RefundScoreDto, RiskAgent } from "./refund-panel.workflow.js";
@@ -313,16 +312,18 @@ export class QuorumExpiryGroupsWorkflowStart {}
   flow: [
     onStart(QuorumExpiryGroupsWorkflowStart)
       .toParallelAgents(PolicyAgent, RiskAgent, FraudAgent, QuickScoreAgent)
-      .joinQuorumGroups(
-        groupFrom([PolicyAgent, RiskAgent, FraudAgent])
-          .priority(1)
-          .toAction(QuorumExpiryAction)
+      .joinQuorumGroups({ deadline: hours(1) })
+      .onGroup(
+        [PolicyAgent, RiskAgent, FraudAgent],
+        { priority: 1 },
+        toAction(QuorumExpiryAction)
           .toFinish(QuorumExpiryWorkflowFinish),
-        groupFrom([QuickScoreAgent])
-          .priority(2)
-          .toAction(QuorumExpirySecondAction)
+      )
+      .onGroup(
+        [QuickScoreAgent],
+        { priority: 2 },
+        toAction(QuorumExpirySecondAction)
           .toFinish(QuorumExpirySecondWorkflowFinish),
-        { deadline: hours(1) },
       ),
   ],
 })

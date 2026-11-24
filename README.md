@@ -440,8 +440,8 @@ another ends; a failed branch cancels the others and the join takes `.onError(E,
 ([Wiki → Workflow](https://github.com/agbossjs/agboss/wiki/Workflow)).
 
 Not every answer is always needed: a **quorum** (#279) counts them — `.joinQuorum({ min: 2, max: 3,
-deadline: seconds(30) })` goes on with the counted answers, `.joinQuorumGroups(group(LegalAgent,
-CriticAgent).priority(1).toAgent(…), …)` with the first complete group (by priority),
+deadline: seconds(30) })` goes on with the counted answers, `.joinQuorumGroups({ deadline }).onGroup([LegalAgent,
+CriticAgent], { priority: 1 }, toAgent(…)…)` with the first complete group (by priority),
 each group on its own path. `@Arbiter` classes decide which answers count, attached with
 `.arbitratedBy(X)` before the quorum (one arbiter per launch): by model, a criterion per target; by code, `@Arbitrate(A, B)` methods (with `ArbiterModel` injected, code that asks its own model only where it must). A single
 answer a quorum may leave out is `optional(XDto)` — a step that requires it fails `agboss check` with

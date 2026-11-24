@@ -145,25 +145,25 @@ class Printer {
     this.arbiter(step, depth);
   }
 
-  /** `.joinQuorumGroups(` each `group(…)` with its priority and path, its options `)` (#279). */
-  private groups(quorum: GroupsQuorum, depth: number): void {
-    this.line(depth, ".joinQuorumGroups(");
-    const options = groupsQuorumOptions(quorum);
-    quorum.groups.forEach((group, index) => {
-      this.line(depth + 1, `group(${group.agents.map((agent) => this.label(agent)).join(", ")})`);
-      if (group.priority !== undefined)
-        this.line(depth + 2, `.priority(${String(group.priority)})`);
-      this.steps(group.path.steps, depth + 2);
-      if (index < quorum.groups.length - 1 || options !== undefined) this.closeLast(",");
-    });
-    if (options !== undefined) this.line(depth + 1, options);
-    this.line(depth, ")");
+  /** `.joinQuorumGroups({ deadline })`; its groups follow its `.onError(…)` as `.onGroup(…)` (#1284). */
+  private groupsJoin(quorum: GroupsQuorum, depth: number): void {
+    this.line(depth, `.joinQuorumGroups(${groupsQuorumOptions(quorum) ?? ""})`);
   }
 
-  /** `.join()` / `.joinQuorum(…)` / `.joinQuorumGroups(…)`, its `.onError(…)`. */
+  /** `.onGroup([A, B], { priority: 1 }, toAgent(X)…)` of each group, in the order written. */
+  private groups(quorum: GroupsQuorum, depth: number): void {
+    for (const group of quorum.groups) {
+      const targets = group.targets.map((target) => this.label(target)).join(", ");
+      const priority =
+        group.priority === undefined ? "" : `, { priority: ${String(group.priority)} }`;
+      this.sidePath(`[${targets}]${priority}`, group.path.steps, depth, "onGroup");
+    }
+  }
+
+  /** `.join()` / `.joinQuorum(…)` / `.joinQuorumGroups(…)`, its `.onError(…)` and, for groups, its `.onGroup(…)`s. */
   private join(step: JoinStep, depth: number): void {
     const { quorum } = step;
-    if (isGroupsQuorum(quorum)) this.groups(quorum, depth);
+    if (isGroupsQuorum(quorum)) this.groupsJoin(quorum, depth);
     else
       this.line(
         depth,
@@ -171,6 +171,7 @@ class Printer {
       );
     for (const handler of step.onError)
       this.sidePath(handler.error.name, handler.path.steps, depth, "onError");
+    if (isGroupsQuorum(quorum)) this.groups(quorum, depth);
   }
 
   /** `.toOneOf([` each branch as a side path `])` (#1275). */

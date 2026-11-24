@@ -12,7 +12,7 @@ import type { ComponentName } from "../../registry.js";
 import type { FlowLaunch } from "../flow-graph.js";
 import { launchLabel } from "../join-groups.js";
 import { classLabel } from "../labels.js";
-import { groupAgentNames } from "../quorum-joins.js";
+import { groupTargetNames } from "../quorum-joins.js";
 import type { AnalysisContext } from "./context.js";
 
 /**
@@ -32,7 +32,7 @@ interface Judged {
 }
 
 const nameOf = (agent: Class): ComponentName => {
-  const [name] = groupAgentNames([agent]);
+  const [name] = groupTargetNames([agent]);
   return name ?? ("" as ComponentName);
 };
 

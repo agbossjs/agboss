@@ -1,11 +1,12 @@
 import {
   onAction,
   onAgent,
-  group,
   route,
   onStart,
   toAction,
+  toAgent,
   toFinish,
+  toRouter,
 } from "../../../src/flow/builder.js";
 import { ExecutionContext } from "../../../src/flow/context/execution-context.js";
 import { Arbiter, Arbitrate } from "../../../src/flow/decorators/arbiter.js";
@@ -186,24 +187,22 @@ export class DueDiligenceArbiter {}
         { maxConcurrency: 4 },
       )
       .arbitratedBy(DueDiligenceArbiter)
-      .joinQuorumGroups(
-        group(LegalAgent, DealCriticAgent)
-          .priority(1)
-          .toAgent(FullReviewAgent),
-        group(AuditorAgent)
-          .priority(1)
-          .toAction(OpenDealRoomAction)
+      .joinQuorumGroups({ deadline: minutes(1) })
+      .onError(StepFailedError, toAction(NotifyReviewerAction))
+      .onGroup([LegalAgent, DealCriticAgent], { priority: 1 }, toAgent(FullReviewAgent))
+      .onGroup(
+        [AuditorAgent],
+        { priority: 1 },
+        toAction(OpenDealRoomAction)
           .toFinish(DealRoomOpenedWorkflowFinish),
-        group(DealCriticAgent, DealCriticAgent)
-          .priority(2)
-          .toRouter(SecondOpinionRouter)
-          .chooseOne(route(FullReviewAgent), route(NotifyReviewerAction)),
-        group(FastScreenAgent)
-          .priority(3)
-          .toFinish(QuickRejectWorkflowFinish),
-        { deadline: minutes(1) },
       )
-      .onError(StepFailedError, toAction(NotifyReviewerAction)),
+      .onGroup(
+        [DealCriticAgent, DealCriticAgent],
+        { priority: 2 },
+        toRouter(SecondOpinionRouter)
+          .chooseOne(route(FullReviewAgent), route(NotifyReviewerAction)),
+      )
+      .onGroup([FastScreenAgent], { priority: 3 }, toFinish(QuickRejectWorkflowFinish)),
 
     onAgent(FullReviewAgent)
       .toFinish(DueDiligenceReportWorkflowFinish),
