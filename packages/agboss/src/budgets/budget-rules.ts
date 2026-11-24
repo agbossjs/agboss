@@ -206,7 +206,6 @@ function scopeRequired(
 
 export function budgetRuleViolations(application: BudgetedApplication): RuleViolation[] {
   const budgets = budgetsOfApplication(application);
-  // Stryker disable next-line ArrayDeclaration: a stray string in the list has no scope and no workflow, so every filter below drops it
   const metas = declared(budgets);
   const execution = metas.filter((meta) => meta.scope === BudgetScope.Execution);
   const defaults = execution.filter(

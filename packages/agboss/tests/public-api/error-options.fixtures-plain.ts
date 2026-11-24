@@ -12,6 +12,7 @@ import { ApplicationLoadError, WorkflowLoadError } from "../../src/loader/load-e
 import { ConfigurationError } from "../../src/models/problems.js";
 import { ModelProviderError } from "../../src/models/model-provider.decorator.js";
 import { PromptCachingError } from "../../src/models/prompt-caching.js";
+import { CircuitBreakerPolicyError } from "../../src/models/circuit-breaker-policy.js";
 import { RateLimitPolicyError } from "../../src/models/policies/rate-limit-policy.js";
 import { ReasoningError } from "../../src/models/reasoning.js";
 import { RetryPolicyError } from "../../src/models/retry-policy.js";
@@ -64,6 +65,7 @@ export const plainFixtures: Readonly<Record<string, object>> = Object.fromEntrie
   fx(PromptCachingError, { message }),
   fx(RetryPolicyError, { message }),
   fx(RateLimitPolicyError, { message }),
+  fx(CircuitBreakerPolicyError, { message }),
   fx(TestFailure, { code: "test.app-closed", message }),
   fx(LiveCallBlockedError, { message }),
   fx(CassetteMissingError, { message }),

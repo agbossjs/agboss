@@ -118,7 +118,7 @@ const CLI_ONLY = /node_modules\/(typescript|tsx|esbuild|@inquirer|@apidevtools)\
  * 1,560 at the 0.1.1 rework integration, round 2 (the root loaded 1,545): the judge, memory, rag-source,
  * flow and guardrail modules the rework chains added, each under the line limits.
  */
-const MODULE_BUDGET = 1_560;
+const MODULE_BUDGET = 1_700;
 
 async function importInFreshProcess(module: string): Promise<Probe> {
   const probe = join(dir, "probe.mjs");

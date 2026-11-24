@@ -95,6 +95,9 @@ describe("#384: testUnit", () => {
       }
     }
     expect(() => testUnit(Short)).toThrow(GraphRuleError);
-    expect(() => testUnit(JobSearchTool as never)).toThrow(TestSetupError);
+    class Plain {
+      readonly isPlain = true;
+    }
+    expect(() => testUnit(Plain as never)).toThrow(TestSetupError);
   });
 });

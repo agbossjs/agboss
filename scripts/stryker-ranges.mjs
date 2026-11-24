@@ -78,6 +78,8 @@ export function pausesShard() {
     mutate: [
       "src/infrastructure/{pause-answer-log,pause-bound,pause-closers,pause-closing,pause-log-repair,pause-mailboxes,pause-notices,pause-reassign-transition,pause-record,pause-replacement,pause-scans,pause-transitions}.ts",
       "src/infrastructure/in-memory-pause-{book,queries,store}.ts",
+      // #1307c: an answer is recorded only once its target's permitAnswer said true; fails closed
+      "src/app/{answer-permit,answer-parts}.ts",
     ],
   };
 }
@@ -129,6 +131,8 @@ export function a2aFilesShard() {
       "!src/a2a/files/a2a-file-slots.ts",
       // the files' sweep: whose ttl is up, never a live execution's (#1316)
       "src/application/file-expiry.ts",
+      // #1316: what bounds a client's downloadFile: its pool and the policy's size limit and timeout
+      "src/a2a/client/a2a-download-bounds.ts",
     ],
   };
 }

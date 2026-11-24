@@ -1,3 +1,4 @@
+import { argsDigestOf } from "../../src/graph/agent-loop/move-entries.js";
 import { usd } from "../../src/units/index.js";
 /**
  * #1366 (budget-loop shard) — the budget rules of one tool call of an agent's loop, each on its own over fakes: the
@@ -85,7 +86,14 @@ const toolOf = (changes: Record<string, unknown> = {}) => ({
   ...changes,
 });
 
-const READY = { kind: "ready", args: { q: 1 }, shown: { q: 1 }, from: "model" } as const;
+const READY = {
+  kind: "ready",
+  args: { q: 1 },
+  shown: { q: 1 },
+  from: "model",
+  tool: "lookup-tool",
+  argsDigest: argsDigestOf({ q: 1 }),
+} as const;
 
 const taskOf = (changes: Record<string, unknown> = {}): ToolTask =>
   ({

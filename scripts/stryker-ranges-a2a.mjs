@@ -56,6 +56,7 @@ export function a2aServerShard() {
       "src/mcp/mcp-http-gate.ts",
       // #1319: an MCP session belongs to the identity that opened it
       "src/mcp/mcp-http-listener.ts",
+      "src/mcp/mcp-session-identity.ts",
       // #1320: the mesh's numbers: hops from 1, a deduplication that outlives a signature
       "src/mesh/mesh-rules.ts",
     ],

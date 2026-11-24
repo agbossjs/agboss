@@ -97,6 +97,7 @@ const FIXTURES: Readonly<Record<ComponentDecoratorName, string>> = {
     '@Budget({ name: "execution-budget", scope: BudgetScope.Execution })',
     "maxSpend(): void",
   ),
+  FilePolicy: statefulClass('@FilePolicy({ name: "stateful-file-policy" })', "describe(): void"),
   HealthCheck: statefulClass(
     '@HealthCheck({ name: "crm-health-check", timeout: seconds(2) })',
     "async check(): Promise<void>",
@@ -197,6 +198,7 @@ const NOT_COMPONENTS: Readonly<Record<string, string>> = {
   McpEndpoint: "what connectMcp and mcpHttpListener expose: an empty configuration class",
   A2AExpose: "what a2aHttpListener serves (#398 PR 3): an empty configuration class",
   Arbitrate: "a method decorator (of a code @Arbiter)",
+  Mesh: "what a mesh declares (#1320): its peers and limits, an empty configuration class",
   SqliteDriver: "a driver factory (#1321): settings for a storage component, not a class",
   S3Driver: "a driver factory (#1321): settings for a storage component, not a class",
   LocalDiskDriver: "a driver factory (#1321): settings for a storage component, not a class",

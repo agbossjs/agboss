@@ -1,4 +1,5 @@
 import { beforeAll, describe, expect, it } from "vitest";
+import { ExecutionStatus } from "../../../src/app/types.js";
 import { StreamEventKind, type ExecutionStreamEvent } from "../../../src/run/types.js";
 import {
   ModelCallError,
@@ -201,7 +202,8 @@ describe("#1011: a transport provider streams its text", { timeout: 30_000 }, ()
           },
         },
       );
-      await expect(run).rejects.toThrow();
+      // a caller's abort is an outcome, not an error (#1341)
+      await expect(run).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
     };
 
     await abort();

@@ -113,7 +113,6 @@ describe("AC2: the aliases carry @deprecated", () => {
     ["pause/types.ts", "PendingPauseBase", "answeredBy"],
     ["infrastructure/pause-record.ts", "PauseRecord", "answeredBy"],
     ["flow/runtime/execution-record.ts", "PauseAnswerRecord", "responder"],
-    ["eval/run/trace.ts", "EvalPauseTrace", "responder"],
   ])("%s %s.%s", (file, owner, name) => {
     expect(deprecatedOf(file, owner, name)).toBe(true);
   });

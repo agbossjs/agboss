@@ -463,6 +463,7 @@ function outboundCallsScripted(...steps: ("send" | OutboundCallSendStatus | Erro
       if (step instanceof Error) throw step;
       const call: OutboundCall<AcceptRequest> = {
         idempotencyKey: `key-${options.name}`,
+        shortKey: (length) => `key-${options.name}`.slice(0, length),
         request: options.request,
         attempt: 1,
         target: options.target,
@@ -535,6 +536,7 @@ describe("inside an execution: through Idempotency.sendOnce", () => {
     expect(seen[0]?.options.name).toBe("a2a.desk-a2a-agent.reply");
     const lookup = {
       idempotencyKey: "key-pending",
+      shortKey: (length: number) => "key-pending".slice(0, length),
       storedRequest: JSON.stringify(acceptRequestOf(call)),
       attempt: 1,
       attemptStartedAt: undefined,

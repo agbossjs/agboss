@@ -100,7 +100,7 @@ describe("#834 AC5: internals in /internal, units in /units", () => {
     expectTypeOf<typeof DeprecatedCore>().not.toHaveProperty("ExecutionObserverManager");
     expectTypeOf<typeof Internal>().toHaveProperty("createAppDeps");
     expectTypeOf<typeof Internal>().toHaveProperty("ExecutionObserverManager");
-    expectTypeOf<typeof Internal>().toHaveProperty("createTestAppWith");
+    expectTypeOf<typeof Internal>().toHaveProperty("createAppWith");
   });
 
   it("the moved types come from /internal only", () => {

@@ -100,6 +100,9 @@ export interface A2AEndpointOwned {
 }
 
 // @public
+export type A2AEndpointRuleCode = "a2a.ttl-invalid" | "a2a.duplicate-skill";
+
+// @public
 export interface A2AMessageKey {
     // (undocumented)
     readonly messageId: string;
@@ -6518,6 +6521,9 @@ export interface ModelProviderOverlay {
     readonly model?: string;
     readonly models?: Readonly<Record<string, string>>;
 }
+
+// @public
+export type ModelProviderRuleCode = "model-provider.fallback-cycle" | "model.incompatible-fallback-provider";
 
 // @public
 export interface ModelReplyInterpreterOptions {

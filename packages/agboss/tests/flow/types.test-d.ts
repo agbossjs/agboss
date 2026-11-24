@@ -499,11 +499,11 @@ describe("#270 AC12 / AC23: handlers take InputOf<Self>", () => {
       draft: Produced<OfferDraftDto, typeof DraftAgent | typeof EditorAgent>;
     }>();
     expectTypeOf<ActionHandler<SendOfferAction>["execute"]>().returns.toEqualTypeOf<
-      Promise<OfferSentDto>
+      OfferSentDto | Promise<OfferSentDto>
     >();
-    expectTypeOf<ActionHandler<NotifyRecruiterAction>["execute"]>().returns.toEqualTypeOf<
-      Promise<void>
-    >();
+    expectTypeOf<
+      ActionHandler<NotifyRecruiterAction>["execute"]
+    >().returns.toEqualTypeOf<void | Promise<void>>();
   });
 
   it("no handler without input", () => {

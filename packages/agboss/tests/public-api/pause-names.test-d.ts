@@ -26,7 +26,8 @@ describe("AC1: answeredBy is string on every pause type; answerer is PauseAnswer
   it("who answered is `answeredBy`, a string, where a person is recorded", () => {
     expectTypeOf<PauseAnswer["answeredBy"]>().toEqualTypeOf<string | undefined>();
     expectTypeOf<PauseAnswerRecord["answeredBy"]>().toEqualTypeOf<string | undefined>();
-    expectTypeOf<EvalPauseTrace["answeredBy"]>().toEqualTypeOf<string | undefined>();
+    // the trace of a pause names who answered `actor` (#1328d), not `answeredBy`
+    expectTypeOf<EvalPauseTrace>().not.toHaveProperty("answeredBy");
     expectTypeOf<ChannelResumeOptions["answeredBy"]>().toEqualTypeOf<string>();
     expectTypeOf<ExecutionResumeEvent["answeredBy"]>().toEqualTypeOf<string | undefined>();
   });

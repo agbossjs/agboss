@@ -1,3 +1,4 @@
+import { argsDigestOf } from "../../src/graph/agent-loop/move-entries.js";
 /**
  * #1366 (budget-loop shard) — the record a tool call leaves and the frame it runs in, each on its own over fakes: the
  * record of a call that ran, was refused its arguments, was answered by an interceptor or was stopped carries exactly
@@ -75,7 +76,14 @@ const taskOf = (changes: Record<string, unknown> = {}): ToolTask =>
     tool: "lookup-tool",
     args: { q: 1 },
     runId: "run-1",
-    prepared: { kind: "ready", args: { q: 1 }, shown: { q: 1 }, from: "model" },
+    prepared: {
+      kind: "ready",
+      args: { q: 1 },
+      shown: { q: 1 },
+      from: "model",
+      tool: "lookup-tool",
+      argsDigest: argsDigestOf({ q: 1 }),
+    },
     ...changes,
   }) as ToolTask;
 

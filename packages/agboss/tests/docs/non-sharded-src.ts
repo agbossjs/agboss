@@ -1155,7 +1155,22 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
   ),
   ...reviewed("the tool's entry: exports", ["src/tool/**"]),
   ...reviewed("the tool interceptors: guardrails", ["src/tool-interceptors/**"]),
-  ...reviewed("the tools' definitions: declarations", ["src/tools/**"]),
+  ...reviewed(
+    "the tools' definitions: declarations (signed-fetch.ts is mutated by the a2a-client shard, so its directory lists the others)",
+    [
+      "src/tools/approval-channel.ts",
+      "src/tools/define-tool.ts",
+      "src/tools/index.ts",
+      "src/tools/langchain.ts",
+      "src/tools/tool-io.ts",
+      "src/tools/types.ts",
+      "src/tools/mcp/call-identity.ts",
+      "src/tools/mcp/compat.ts",
+      "src/tools/mcp/connect.ts",
+      "src/tools/mcp/facade.ts",
+      "src/tools/mcp/resolve.ts",
+    ],
+  ),
   ...reviewed("tracing: read-only", ["src/tracing/**"]),
   ...reviewed("the turns' store: no money decision", ["src/turns/**"]),
   ...reviewed("the branded and defined types: declarations, no runtime guarantee", [
@@ -1572,5 +1587,21 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
   ...reviewed(
     "the prompts of the model arbiters, read at assembly like every prompt (#1347), and the texts the arbiters' hashes are made of: file reads through the prompt loader and a hash of the text — no spend, limit, lease or fence; covered by tests/flow/arbiter-prompt.test.ts and tests/run/fingerprints.test.ts",
     ["src/flow/runtime/launch/arbiter-prompts.ts", "src/run/arbiter-snapshot.ts"],
+  ),
+  ...reviewed(
+    "the observer's plumbing: hook names are a list the compiler keeps whole, the mask tally is a metrics counter given to the observer manager; no spend, lease, fence or cancel decision; covered by tests/core/observability.test.ts",
+    ["src/core/observer-hook-names.ts", "src/core/observer-mask.ts"],
+  ),
+  ...reviewed(
+    "the report of an execution's outcome (#1341): the output a cancelled or finished execution carries, built from what the checkpoint holds; it reports spend, path and children and decides none of them (the cancel itself is the sharded tree-control); covered by tests/app/cancelled-output.test.ts",
+    ["src/app/cancelled-output.ts", "src/app/execution-output.ts"],
+  ),
+  ...reviewed(
+    "types and exports: a channel as a pause asks it (a sender and who may answer), the environment exports of the public barrel; no decision of money, a limit or a deadline",
+    ["src/flow/runtime/pause-channel.ts", "src/public/environments.ts"],
+  ),
+  ...reviewed(
+    "the built-in SQLite full-text index of @Rag: the heading splitter and the directory callback's shape; no spend, lease, fence or cancel, no stored guarantee; covered by tests/rag/sqlite-fts.test.ts",
+    ["src/rag/sqlite-fts-chunks.ts", "src/rag/sqlite-fts-directory.ts"],
   ),
 ]);

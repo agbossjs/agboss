@@ -1,4 +1,5 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { ExecutionStatus } from "../../../src/app/types.js";
 import { StreamEventKind, type ExecutionStreamEvent } from "../../../src/run/types.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
 import { ChatStart } from "../../channels/approval.workflow.js";
@@ -163,7 +164,8 @@ describe(
             },
           },
         );
-        await expect(run).rejects.toThrow();
+        // a caller's abort is an outcome, not an error (#1341)
+        await expect(run).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
       };
 
       await abort();

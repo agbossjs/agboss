@@ -97,6 +97,8 @@ export function keysAndCallsShard() {
       "src/app/outbound-call-business.ts",
       "src/app/outbound-call-endings.ts",
       "src/infrastructure/outbound-call-record.ts",
+      // #1295c: a tool call's id is its idempotency key: unique within the run
+      "src/graph/agent-loop/call-ids.ts",
     ],
   };
 }

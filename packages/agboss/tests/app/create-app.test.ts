@@ -246,7 +246,7 @@ describe("#834 AC4: createApp takes env, profile and meterProvider only", () => 
     const seams = { processEnv: {}, gateway: createScriptedGateway(new ScriptBook()) };
 
     await expect(createApp(CodeReviewApplication, seams as never)).rejects.toThrow(
-      "createApp takes only env, profile, meterProvider — not processEnv, gateway: infrastructure and settings go in @Application({ … }), test seams in testWith",
+      "createApp takes only env, profile, meterProvider, tracerProvider — not processEnv, gateway: infrastructure and settings go in @Application({ … }), test seams in testWith",
     );
   });
 
@@ -254,7 +254,7 @@ describe("#834 AC4: createApp takes env, profile and meterProvider only", () => 
     "options that are not an object of the four (%s) are refused",
     async (options) => {
       await expect(createApp(CodeReviewApplication, options as never)).rejects.toThrow(
-        /createApp takes an object of env, profile, meterProvider — not/,
+        /createApp takes an object of env, profile, meterProvider, tracerProvider — not/,
       );
     },
   );
@@ -265,7 +265,7 @@ describe("#834 AC4: createApp takes env, profile and meterProvider only", () => 
       /createApp takes an object of env/,
     );
     await expect(createApp(CodeReviewApplication, { [Symbol("seam")]: true })).rejects.toThrow(
-      /createApp takes only env, profile, meterProvider — not Symbol\(seam\)/,
+      /createApp takes only env, profile, meterProvider, tracerProvider — not Symbol\(seam\)/,
     );
   });
 

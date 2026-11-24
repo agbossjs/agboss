@@ -149,7 +149,7 @@ describe("#398 PR 1: @Mesh({ maxHops })", () => {
       mesh: HopsMesh,
     })
     class HopsApplication {}
-    return applicationOf(HopsApplication);
+    return applicationOf(HopsApplication, { withoutIdempotencyKeys: true });
   };
 
   it.each([0, -1, 2.5])("maxHops %s fails assembly", async (value) => {
@@ -160,6 +160,8 @@ describe("#398 PR 1: @Mesh({ maxHops })", () => {
 
   it("is kept as set, else 8", async () => {
     expect((await withHops(3)).maxMeshHops).toBe(3);
-    expect((await applicationOf(parts.MeshApplication)).maxMeshHops).toBe(8);
+    expect(
+      (await applicationOf(parts.MeshApplication, { withoutIdempotencyKeys: true })).maxMeshHops,
+    ).toBe(8);
   });
 });

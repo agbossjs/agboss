@@ -1,3 +1,4 @@
+import { argsDigestOf } from "../../src/graph/agent-loop/move-entries.js";
 import { usd } from "../../src/units/index.js";
 /** #1269: the files of a tool's result — read, guarded, counted and stored — called with fake deps. */
 import { z } from "zod";
@@ -149,7 +150,14 @@ const taskOf = (over: Partial<ToolTask> = {}): ToolTask => ({
   tool: "scan-tool",
   args: {},
   runId: "r1",
-  prepared: { kind: "ready", args: {}, shown: {}, from: PreparedFrom.Model },
+  prepared: {
+    kind: "ready",
+    args: {},
+    shown: {},
+    from: PreparedFrom.Model,
+    tool: "scan-tool",
+    argsDigest: argsDigestOf({}),
+  },
   ...over,
 });
 

@@ -58,8 +58,11 @@ async function failedWith(app: App): Promise<{ error: unknown; usage: readonly u
 }
 
 const chainHas = (error: unknown, cls: abstract new (...args: never[]) => Error): boolean => {
-  for (let cause: unknown = error; cause instanceof Error; cause = cause.cause)
-    if (cause instanceof cls) return true;
+  let cause: unknown = error;
+  while (cause instanceof Error) {
+    if (Object.prototype.isPrototypeOf.call(cls.prototype, cause)) return true;
+    cause = cause.cause;
+  }
   return false;
 };
 

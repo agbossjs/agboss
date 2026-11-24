@@ -46,13 +46,13 @@ class SpyClock extends VirtualClock {
 
 class Breaker {
   readonly told: string[] = [];
-  recordSuccess(): Promise<void> {
+  recordSuccess(): Promise<undefined> {
     this.told.push("success");
-    return Promise.resolve();
+    return Promise.resolve(undefined);
   }
-  recordFailure(): Promise<void> {
+  recordFailure(): Promise<undefined> {
     this.told.push("failure");
-    return Promise.resolve();
+    return Promise.resolve(undefined);
   }
 }
 

@@ -28,7 +28,7 @@ const EMPTY = {
 };
 
 const warn = vi.fn();
-const deps = { log: { warn } } as never;
+const deps = { log: { warn }, config: { name: "cancelled-workflow" } } as never;
 
 beforeEach(() => {
   vi.clearAllMocks();

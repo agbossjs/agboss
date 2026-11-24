@@ -64,9 +64,10 @@ const workflowNode = (name: string, component: abstract new () => unknown): Flow
 
 const launchOf = (more: Record<string, unknown>) => ({
   launcher: "A",
-  targetKind: NodeKind.Workflow,
+  call: "toParallelWorkflows",
   listed: ["W"],
   branches: [],
+  isRouterLaunch: false,
   ...more,
 });
 
@@ -157,7 +158,7 @@ describe("#1366: a launch that is not per item", () => {
       [
         edge("S", "A"),
         edge("A", "B", EdgeKind.Join, {
-          launch: launchOf({ targetKind: NodeKind.Agent, listed: ["B"], maxConcurrency: 3 }),
+          launch: launchOf({ call: "toParallelAgents", listed: ["B"], maxConcurrency: 3 }),
         }),
       ],
       ["S"],
@@ -178,7 +179,7 @@ describe("#1366: a launch that is not per item", () => {
       [
         edge("S", "A"),
         edge("A", "B", EdgeKind.Join, {
-          launch: launchOf({ targetKind: NodeKind.Agent, listed: ["B"], items: {}, maxItems: 7 }),
+          launch: launchOf({ call: "toParallelAgents", listed: ["B"], items: {}, maxItems: 7 }),
         }),
       ],
       ["S"],
