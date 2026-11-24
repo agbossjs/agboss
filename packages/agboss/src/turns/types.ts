@@ -177,6 +177,12 @@ export interface PauseAnswerEntry {
   readonly record: string;
 }
 
+/** Whether the execution tree of a run has ended (`true`), or is live, paused or unknown (`false`). */
+export type EndedRun = (tree: {
+  readonly tenantId: string;
+  readonly rootExecutionId: string;
+}) => Promise<boolean>;
+
 /** Durable memory of runs: threads, Turns, their quality scores and conversation summaries. */
 export interface TurnStore extends MemoryStore, ConfigStore {
   /** A new thread (`NewThread`); its id. */
@@ -224,6 +230,16 @@ export interface TurnStore extends MemoryStore, ConfigStore {
   readonly markNotTaken: (entry: PauseAnswerEntry) => Promise<void>;
   /** The `record`s of a tree's entries, in the order asked (ties in the order kept). */
   readonly pauseAnswersOf: (tenantId: string, rootExecutionId: string) => Promise<string[]>;
+  /**
+   * Removes the idle threads of each workflow — last active before its cutoff — with their Turns,
+   * summaries, owners and pause answers (#1303): the sweep of `@Memory({ ttl })`. A thread with a
+   * Turn that is `running`, `paused` or `queued`, or of a run `isEnded` does not answer `true` for, is
+   * never removed (checked again inside the removal). The number of threads removed.
+   */
+  readonly deleteIdleThreads: (
+    cutoffs: ReadonlyMap<string, Date>,
+    isEnded: EndedRun,
+  ) => Promise<number>;
   readonly close: () => void;
 }
 
@@ -233,5 +249,10 @@ export interface TurnStore extends MemoryStore, ConfigStore {
  */
 export type TurnRecords = Omit<
   TurnStore,
-  "close" | "byStatus" | "appendPauseAnswer" | "markNotTaken" | "pauseAnswersOf"
+  | "close"
+  | "byStatus"
+  | "deleteIdleThreads"
+  | "appendPauseAnswer"
+  | "markNotTaken"
+  | "pauseAnswersOf"
 >;

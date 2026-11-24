@@ -15,7 +15,7 @@ import type { ContractCase } from "./define.js";
 const STEP_KEY = "child-7:refund-agent:1:call-1";
 
 /** The answer of the refund pause at `STEP_KEY`, by `responder`, decided `approved`. */
-const answerOf = (
+export const answerOf = (
   responder: string,
   approved: boolean,
   key = STEP_KEY,

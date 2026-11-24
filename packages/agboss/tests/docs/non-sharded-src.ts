@@ -781,6 +781,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
       "src/infrastructure/execution-history-export.ts",
       "src/infrastructure/execution-history.repository.ts",
       "src/infrastructure/execution-record-status-page.ts",
+      "src/infrastructure/execution-record-status.ts",
       "src/infrastructure/execution-id-store.ts",
       "src/infrastructure/expiry.ts",
       "src/infrastructure/in-memory-file.repository.ts",

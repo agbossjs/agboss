@@ -5,6 +5,7 @@ import { z } from "zod";
 import { migrateTurnDatabase, openTurnDatabase, placeholders, toTurn } from "./schema.js";
 import { configMethods } from "./configs.js";
 import { pauseAnswerWrites, turnWrites } from "./writes.js";
+import { idleThreadMethods } from "./idle-threads.js";
 import { memoryMethods } from "./summaries.js";
 import { threadMethods, type ThreadIds } from "./threads.js";
 import type { Turn, TurnStore, VersionScore } from "./types.js";
@@ -175,6 +176,7 @@ function turnStoreOn(db: DatabaseSync, now: Now, threadIds: ThreadIds): TurnStor
     ...scoreMethods(db, now),
     ...memoryMethods(db, now),
     ...configMethods(db, now),
+    ...idleThreadMethods(db),
     close: () => {
       db.close();
     },

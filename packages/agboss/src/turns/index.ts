@@ -14,6 +14,7 @@ export {
   type TurnStep,
   type ConfigSnapshot,
   type ConfigStore,
+  type EndedRun,
   type MemoryStore,
   type NewSummary,
   type NewThread,

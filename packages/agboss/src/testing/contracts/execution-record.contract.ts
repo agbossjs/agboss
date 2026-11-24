@@ -7,6 +7,7 @@ import {
 import type { NewTurn, TurnOutcome } from "../../turns/index.js";
 import { pingOf, registerContract, type ContractCase } from "./define.js";
 import { nulCaseName, NUL_TEXT } from "./nul-text.js";
+import { executionRecordIdleSweepCases } from "./execution-record-idle-sweep.cases.js";
 import { pauseAnswerCases } from "./pause-answer-log.cases.js";
 import type { ContractTarget } from "./instance-context.js";
 
@@ -204,7 +205,7 @@ export function executionRecordContract(target: ContractTarget<ExecutionRecordRe
   registerContract(
     "execution record contract",
     target,
-    [{ cases: RECORD_CASES }, { cases: pauseAnswerCases() }],
+    [{ cases: RECORD_CASES }, { cases: pauseAnswerCases() }, executionRecordIdleSweepCases()],
     pingOf,
   );
 }

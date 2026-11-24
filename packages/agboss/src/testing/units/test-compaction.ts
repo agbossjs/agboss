@@ -123,6 +123,7 @@ const unitRunOf = (spent: UsageRecord[]): CompactionRun => ({
   tenantId: "",
   threadId: "",
   budgetLeftUsd: undefined,
+  budgetLeftTokens: undefined,
   callbacks: [],
   tokens: {},
   inFrame: (work) => work(),

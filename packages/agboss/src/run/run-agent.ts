@@ -94,6 +94,12 @@ async function knownThreadOf<TName extends string>(
   return known;
 }
 
+/** What the execution may still spend: its total in USD and the tokens its token budgets leave (`Infinity`: none). */
+const budgetLeftOf = (meter: { budgetUsd(): number; remainingTokens(): number }) => ({
+  budgetUsd: meter.budgetUsd(),
+  budgetTokensLeft: meter.remainingTokens(),
+});
+
 async function runOnce<TName extends string>(
   given: unknown,
   deps: AgentExecutionDeps<TName>,
@@ -124,10 +130,10 @@ async function runOnce<TName extends string>(
   try {
     const config = streamConfig(deps, { threadId, tenantId, runId, input }, options);
     const record = recorder(budgets.meter, spent);
-    const budgetUsd = budgets.meter.budgetUsd();
+    const { budgetUsd, budgetTokensLeft } = budgetLeftOf(budgets.meter);
     const thread = { tenantId, threadId, isNewThread: known === undefined, record };
     const inFrame = inStartFrame(deps, { ...options, ...site, threadId });
-    const before = { ...thread, budgetUsd, callbacks: config.callbacks, inFrame };
+    const before = { ...thread, budgetUsd, budgetTokensLeft, callbacks: config.callbacks, inFrame };
     // the compactions due run before the thread is read: a CompactionError fails it here (S132)
     const read = await memoryBeforeRun(deps, before);
     // the record is `running` while the tree moves: what recovery continues (#265 S30)

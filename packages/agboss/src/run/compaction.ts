@@ -7,7 +7,7 @@ import { isMemoryError, memoryError } from "../memory/memory-error.js";
 import { CUSTOM_COMPACTION, CompactionStrategy } from "../memory/memory.decorator.js";
 import { TurnLimit } from "../config/types.js";
 import type { CompactionInUse, ModelCompactionInUse, MemoryPlan } from "../memory/plan.js";
-import { recordUsage, totalCost, type UsageRecord } from "../finops/usage.js";
+import { recordUsage, totalCost, totalTokens, type UsageRecord } from "../finops/usage.js";
 import type { ModelBinding } from "../llm/registry.js";
 import { isCutAtLimit } from "../models/finish-reason.js";
 import { revealedText, type PiiTokenMap } from "../pii/tokens.js";
@@ -51,6 +51,8 @@ export interface CompactionRun {
   readonly tenantId: string;
   readonly threadId: string;
   readonly budgetLeftUsd: Usd | undefined;
+  /** The tokens the execution may still use (input plus output), `undefined` when no token budget limits it (#1318a). */
+  readonly budgetLeftTokens: number | undefined;
   readonly callbacks: BaseCallbackHandler[];
   /** The execution's PII tokens: a value already tokenised keeps its token. */
   readonly tokens: PiiTokenMap;
@@ -211,6 +213,10 @@ export interface CompactedOne {
   readonly compacted?: Compacted;
 }
 
+/** Whether the tokens left (`undefined`: no token budget) are used up after `spent` more. */
+const isTokensLeftUsed = (left: number | undefined, spent: number): boolean =>
+  left !== undefined && left - spent <= 0;
+
 /** One compaction before the execution: nothing when nothing is due. */
 async function compactOne<TName extends string>(
   deps: AgentExecutionDeps<TName>,
@@ -240,6 +246,7 @@ export async function compactDue<TName extends string>(
   const compacted: Compacted[] = [];
   for (const compaction of plan.compactions) {
     if (isBudgetLeftUsed(budgetLeftAfter(run.budgetLeftUsd, totalCost(usage)))) break;
+    if (isTokensLeftUsed(run.budgetLeftTokens, totalTokens(usage))) break;
     const one = await compactOne(deps, compaction, run);
     usage.push(...one.usage);
     if (one.compacted !== undefined) compacted.push(one.compacted);

@@ -56,6 +56,14 @@ export interface RetentionSources {
   /** The root records the sweep reads to tell whether a tree ended: none, no audit row is removed. */
   readonly treeRecords?: Pick<ExecutionRecordRepository, "findByTenantIdAndRunId"> | undefined;
   readonly auditLogRetention?: Milliseconds | undefined;
+  /**
+   * The idle threads of the workflows whose `@Memory` has a `ttl` (#1303), by workflow name: the
+   * records remove the ones idle for longer, never a thread of a live or paused tree. A workflow with
+   * `Ttl.Forever`, or none, is not listed.
+   */
+  readonly threadTtls?: ReadonlyMap<string, Milliseconds> | undefined;
+  readonly threadRecords?:
+    Pick<ExecutionRecordRepository, "deleteIdleThreads" | "findByTenantIdAndRunId"> | undefined;
   /** More kinds of rows, each with its own removal (#807: the finished A2A tasks). */
   readonly expiries?: readonly Expiry[] | undefined;
   /** The ended outbound calls (#505), each removed once its `expires_at` has come (#1317); never a pending one. */
@@ -129,6 +137,22 @@ const auditLogExpiry = ({
   retention: auditLogRetention,
 });
 
+/** The idle threads of the workflows' memories: each older than its `ttl` by the `Clock`; the count removed (#1303). */
+const idleThreadsExpiry = ({ threadRecords, threadTtls }: RetentionSources): Expiry => ({
+  what: "the idle memory threads",
+  remove:
+    threadRecords === undefined || threadTtls === undefined || threadTtls.size === 0
+      ? undefined
+      : (now) =>
+          threadRecords.deleteIdleThreads(
+            new Map([...threadTtls].map(([workflow, ttl]) => [workflow, cutoffOf(now, ttl)])),
+            endedTreeOf(threadRecords),
+          ),
+  retention: DUE_NOW,
+});
+
+const cutoffOf = (now: Date, ttl: Milliseconds): Date => new Date(now.getTime() - ttl);
+
 const expiriesOf = (sources: RetentionSources): readonly Expiry[] => {
   const { pauses, meshRequests, executionHistory, fencedEffects, outboundCalls } = sources;
   return [
@@ -161,6 +185,7 @@ const expiriesOf = (sources: RetentionSources): readonly Expiry[] => {
       retention: DUE_NOW,
     },
     auditLogExpiry(sources),
+    idleThreadsExpiry(sources),
     {
       what: "the expired outbound calls",
       remove: outboundCalls && ((now) => outboundCalls.deleteExpired(now)),

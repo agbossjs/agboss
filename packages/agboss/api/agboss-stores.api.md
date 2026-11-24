@@ -971,6 +971,7 @@ export abstract class ExecutionRecordRepository {
     // (undocumented)
     abstract configSnapshots(workflow: string, version: string): Promise<ConfigSnapshot[]>;
     abstract createThread(thread: NewThread): Promise<string>;
+    abstract deleteIdleThreads(cutoffs: ReadonlyMap<string, Date>, isEnded: EndedTree): Promise<number>;
     abstract findByStatus(query: ExecutionRecordStatusQuery): Promise<Page<Turn>>;
     abstract findByTenantIdAndRunId(tenantId: string, runId: string): Promise<Turn | undefined>;
     abstract findPauseAnswersByTenantIdAndRootExecutionId(tenantId: string, rootExecutionId: string): Promise<PauseAnswerRecord[]>;

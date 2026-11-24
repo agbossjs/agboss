@@ -17,6 +17,8 @@ export interface MemoryBeforeRun {
   readonly isNewThread: boolean;
   /** What the execution may spend in all, `Infinity` without a cost limit: what compacting may use. */
   readonly budgetUsd: number;
+  /** The tokens it may still use, `Infinity` without a token budget: what compacting may use (#1318a). */
+  readonly budgetTokensLeft: number;
   readonly callbacks: BaseCallbackHandler[];
   readonly record: (records: readonly UsageRecord[]) => Promise<void>;
   /** Runs work in the frame of the execution's start (a custom compaction's `compact()`, #382). */
@@ -51,6 +53,9 @@ export async function memoryBeforeRun<TName extends string>(
         ).compactDue(deps, plan, {
           ...run,
           budgetLeftUsd: budgetLeftOf(run.budgetUsd),
+          budgetLeftTokens: Number.isFinite(run.budgetTokensLeft)
+            ? Math.max(0, run.budgetTokensLeft)
+            : undefined,
           tokens: {},
         });
   return { ...(await threadMemoryOf(deps, thread)), ...compacted };

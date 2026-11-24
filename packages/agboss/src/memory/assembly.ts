@@ -58,6 +58,11 @@ export interface AssembledMemories {
   readonly memories: readonly LoadedMemory[];
   /** By agent / model router name. */
   readonly readers: ReadonlyMap<string, MemoryReaderOf>;
+  /**
+   * How long an idle thread of the workflow is kept: the `ttl` of the workflow's own memory (what
+   * the sweep removes a thread by, #1303); absent for a stateless workflow.
+   */
+  readonly threadTtl?: Milliseconds | Ttl.Forever;
 }
 
 /** What the workflow sets. */
@@ -189,5 +194,10 @@ export async function memoryPartsOf(
       ];
     }),
   );
-  return { memories, readers };
+  const ownMeta = own === undefined ? undefined : memoryMetaOf(own);
+  return {
+    memories,
+    readers,
+    ...(ownMeta === undefined ? {} : { threadTtl: ownMeta.ttl }),
+  };
 }

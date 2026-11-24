@@ -62,10 +62,18 @@ const record = (costUsd: number, caller = "x"): UsageRecord => ({
   costSource: CostSource.Api,
 });
 
+/** A model's answer that used `tokens` tokens (input plus output). */
+const answerOfTokens = (text: string, tokens: number): AIMessage =>
+  new AIMessage({
+    content: text,
+    response_metadata: { usage: { cost: 0.01 } },
+    usage_metadata: { input_tokens: tokens - 10, output_tokens: 10, total_tokens: tokens },
+  });
+
 /** The run, its deps and the model; every call of the model answers the next of `answers`. */
 const setup = (
   answers: readonly AIMessage[],
-  options: { due?: number; budgetLeft?: number } = {},
+  options: { due?: number; budgetLeft?: number; tokensLeft?: number } = {},
 ) => {
   const invoke = vi.fn();
   for (const one of answers) invoke.mockResolvedValueOnce(one);
@@ -99,6 +107,7 @@ const setup = (
     tenantId: "tenant-1",
     threadId: "thread-1",
     budgetLeftUsd: options.budgetLeft ?? 2,
+    budgetLeftTokens: options.tokensLeft,
     callbacks: ["cb"],
     tokens: {},
     inFrame: vi.fn(),
@@ -272,6 +281,43 @@ describe("#1366: the compactions due before an execution", () => {
     expect(invoke).toHaveBeenCalledOnce();
     expect(out.usage.map((u) => u.costUsd)).toEqual([1]);
     expect(out.compacted).toHaveLength(1);
+  });
+
+  it("budgetLeftTokens reflects token budgets: a compaction with no tokens left is skipped, the spend of the one before counted (#1318a)", async () => {
+    const { deps, run, invoke } = setup([answerOfTokens("one", 100), answerOfTokens("two", 100)], {
+      tokensLeft: 100,
+    });
+    const second = compaction({ name: "notes" });
+    const plan = { compactions: [compaction(), second, second] } as never;
+
+    const out = await compactDue(deps, plan, run);
+
+    expect(invoke).toHaveBeenCalledOnce();
+    expect(out.usage.map((u) => u.inputTokens + u.outputTokens)).toEqual([100]);
+    expect(out.compacted).toHaveLength(1);
+  });
+
+  it("tokens left above what the first compaction used leave the next one to run; none limited (undefined) never stops", async () => {
+    const limited = setup([answerOfTokens("one", 100), answerOfTokens("two", 100)], {
+      tokensLeft: 101,
+    });
+    const free = setup([answerOfTokens("one", 100), answerOfTokens("two", 100)]);
+    const plan = { compactions: [compaction(), compaction()] } as never;
+
+    await compactDue(limited.deps, plan, limited.run);
+    await compactDue(free.deps, plan, free.run);
+
+    expect(limited.invoke).toHaveBeenCalledTimes(2);
+    expect(free.invoke).toHaveBeenCalledTimes(2);
+  });
+
+  it("a token budget already spent compacts nothing", async () => {
+    const { deps, run, invoke } = setup([answerOfTokens("one", 100)], { tokensLeft: 0 });
+
+    const out = await compactDue(deps, { compactions: [compaction()] } as never, run);
+
+    expect(invoke).not.toHaveBeenCalled();
+    expect(out).toEqual({ usage: [], compacted: [] });
   });
 
   it("a budget already spent compacts nothing", async () => {

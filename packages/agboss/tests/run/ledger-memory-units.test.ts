@@ -30,12 +30,45 @@ beforeEach(() => {
   vi.resetAllMocks();
 });
 
+describe("#1303: budgetLeftTokens reflects token budgets", () => {
+  const deps = { config: { name: "c" }, memories: { name: "k" } } as never;
+  const given = (budgetTokensLeft: number) => ({
+    tenantId: "tenant-1",
+    threadId: "thread-1",
+    isNewThread: false,
+    budgetUsd: Number.POSITIVE_INFINITY,
+    budgetTokensLeft,
+    callbacks: [],
+    record: vi.fn(),
+    inFrame: vi.fn(),
+  });
+
+  it.each([
+    [1500, 1500],
+    [0, 0],
+    [Number.POSITIVE_INFINITY, undefined],
+  ])("%s tokens left of the token budgets reach the compactions as %s", async (left, expected) => {
+    vi.mocked(memoryPlanOf).mockReturnValue({ compactions: [{ name: "c1" }] } as never);
+    vi.mocked(threadMemoryOf).mockResolvedValue({ history: [], memory: {} });
+    vi.mocked(compactDue).mockResolvedValue({ usage: [], compacted: [] });
+
+    await memoryBeforeRun(deps, given(left));
+
+    expect(compactDue).toHaveBeenCalledWith(
+      deps,
+      expect.anything(),
+      expect.objectContaining({ budgetLeftTokens: expected }),
+    );
+  });
+});
+
 describe("#1366: memory before a new execution", () => {
   const runOf = (isNewThread: boolean): Record<string, unknown> => ({
     tenantId: "tenant-1",
     threadId: "thread-1",
     isNewThread,
     budgetUsd: 2,
+    budgetTokensLeft: Number.POSITIVE_INFINITY,
     callbacks: [],
     record: vi.fn(),
     inFrame: vi.fn(),
@@ -81,6 +114,7 @@ describe("#1366: memory before a new execution", () => {
     expect(compactDue).toHaveBeenCalledWith(deps, plan, {
       ...given,
       budgetLeftUsd: usd(2),
+      budgetLeftTokens: undefined,
       tokens: {},
     });
     expect(out).toEqual({

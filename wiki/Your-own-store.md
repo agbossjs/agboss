@@ -78,6 +78,8 @@ move it records. So it may live on any backend. So may rate limits and the child
 
 Its sweep, `deleteExpired(cutoff, isEnded)`, removes the rows older than `cutoff` only of the trees `isEnded` answers `true` for (ask it once per tree, before its rows go): a takeover reads the hand-over rows of a live or paused tree to charge the passes the previous holder lost, so those rows are never removed, whatever the TTL.
 
+`deleteIdleThreads(cutoffs, isEnded)` (`ExecutionRecordRepository`) is the sweep of `@Memory({ ttl })` (#1303): `cutoffs` maps a workflow name to the time before which its idle threads go. A thread's activity is a record written or completed (keep `last_active_at` on the thread, written in the same transaction as the record). In one transaction per thread remove the thread, its records, summaries, owner and the pause answers of its runs, but only if no record of it is `running`, `paused` or `queued`, none of its runs is one `isEnded` does not answer `true` for (ask once per run, before the removal), and it is still idle past the cutoff when the transaction starts. Return how many threads went; a bounded batch per workflow per call is fine, the next look takes the rest.
+
 ## One transactional backend (#526)
 
 A fenced effect checks the lease **in its own transaction**. An outbound call's `leaseStateOf`

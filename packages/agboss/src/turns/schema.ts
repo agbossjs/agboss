@@ -14,7 +14,9 @@ import { TURN_STATUSES, type Turn } from "./types.js";
  */
 const MIGRATIONS: readonly string[] = [
   `CREATE TABLE IF NOT EXISTS threads (id TEXT NOT NULL, bundle TEXT NOT NULL, created_at TEXT NOT NULL,
-     tenant_id TEXT NOT NULL DEFAULT 'default', PRIMARY KEY (tenant_id, id));
+     tenant_id TEXT NOT NULL DEFAULT 'default',
+     last_active_at TEXT NOT NULL, PRIMARY KEY (tenant_id, id));
+   CREATE INDEX IF NOT EXISTS threads_idle ON threads(bundle, last_active_at);
    CREATE TABLE IF NOT EXISTS thread_owners (tenant_id TEXT NOT NULL, thread_id TEXT NOT NULL,
      owner TEXT NOT NULL, PRIMARY KEY (tenant_id, thread_id),
      FOREIGN KEY (tenant_id, thread_id) REFERENCES threads(tenant_id, id));

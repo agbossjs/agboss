@@ -46,6 +46,7 @@ function run() {
     tenantId: "t",
     threadId: "th",
     budgetLeftUsd: usd(10),
+    budgetLeftTokens: undefined,
     callbacks: [],
     tokens: {},
     inFrame: (work) => work(),

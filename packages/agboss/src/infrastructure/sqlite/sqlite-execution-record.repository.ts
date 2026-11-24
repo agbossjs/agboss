@@ -19,6 +19,7 @@ import {
   TurnStoreRecordRepository,
   type ExecutionRecordStatusQuery,
 } from "../execution-record.repository.js";
+import type { EndedTree } from "../execution-audit-log.repository.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
 
 /**
@@ -153,6 +154,11 @@ export class SqliteExecutionRecordRepository extends ExecutionRecordRepository {
     ...args: Parameters<ExecutionRecordRepository["latestSummaries"]>
   ): Promise<Summary[]> {
     return this.#records.latestSummaries(...args);
+  }
+
+  /** The idle threads of each workflow removed (#1303); the Turn store decides, in one transaction each. */
+  deleteIdleThreads(cutoffs: ReadonlyMap<string, Date>, isEnded: EndedTree): Promise<number> {
+    return this.#records.deleteIdleThreads(cutoffs, isEnded);
   }
 
   summaryCount(tenantId: string, threadId: string, compaction: string): Promise<number> {

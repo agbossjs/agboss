@@ -55,7 +55,11 @@ async function* statesOf(...states: readonly unknown[]): AsyncGenerator {
 
 /** What the fakes hold for one pass. */
 const setup = () => {
-  const meter = { record: vi.fn(() => Promise.resolve()), budgetUsd: () => 2 };
+  const meter = {
+    record: vi.fn(() => Promise.resolve()),
+    budgetUsd: () => 2,
+    remainingTokens: () => Number.POSITIVE_INFINITY,
+  };
   const append = vi.fn((turn: Record<string, unknown>) =>
     Promise.resolve({ id: `turn-${String(append.mock.calls.length)}`, ...turn }),
   );

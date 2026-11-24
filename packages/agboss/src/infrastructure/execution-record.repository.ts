@@ -15,42 +15,15 @@ import {
   type TurnStore,
   type VersionScore,
 } from "../turns/index.js";
+import type { EndedTree } from "./execution-audit-log.repository.js";
 import { Injectable } from "../components/decorators.js";
 import type { PauseAnswerRecord } from "../flow/runtime/execution-record.js";
 import { Clock, IdGenerator, lazyLoad, mintedThreadIdsOf } from "./clock.js";
 
 export type { NewThread } from "../turns/index.js";
 
-/**
- * Where an execution's record is (#265 S30): `Running` while its tree moves — what recovery looks
- * for — then how it ended, or `Paused`.
- */
-export enum ExecutionRecordStatus {
-  /** The tree moves (or its instance died while it moved: recovery continues it). */
-  Running = "running",
-  /** It reached a workflow finish. */
-  Answered = "answered",
-  /** A guard stopped it. */
-  Guarded = "guarded",
-  /** It failed (its error in the record's `stopReason`). */
-  Failed = "failed",
-  /** It was stopped (#1341): halted where it stood, nothing undone. */
-  Stopped = "stopped",
-  /** It was cancelled (#1341): aborted and its open undoable actions undone. */
-  Cancelled = "cancelled",
-  /** It waits for a decision. */
-  Paused = "paused",
-  /**
-   * A child execution waiting in the application's queue for an instance to claim it (#333 PR 2,
-   * `ChildPlacement.AnyWorker`): a `ChildExecutionQueueRepository` row only.
-   */
-  Queued = "queued",
-  /**
-   * A past turn an eval case wrote into its thread (#396 S6: `evalCase({ history })`), never run: a
-   * turn its thread's memory reads, left out of `agboss eval score` and `agboss golden add`.
-   */
-  Written = "written",
-}
+export { ExecutionRecordStatus } from "./execution-record-status.js";
+import type { ExecutionRecordStatus } from "./execution-record-status.js";
 
 /**
  * Infrastructure (#261, S28): the records of the application's executions — threads and their
@@ -117,6 +90,16 @@ export abstract class ExecutionRecordRepository {
     promptVersion: string | undefined,
     limit: number,
   ): Promise<Turn[]>;
+  /**
+   * The sweep of `@Memory({ ttl })` (#1303): removes each workflow's threads last active before its
+   * `cutoffs` entry, with their records, summaries, owners and pause answers — never a thread with a
+   * `running`, `paused` or `queued` record, or of a run `isEnded` does not answer `true` for (asked
+   * once per run), decided again inside the removal. How many threads went (a bounded batch).
+   */
+  abstract deleteIdleThreads(
+    cutoffs: ReadonlyMap<string, Date>,
+    isEnded: EndedTree,
+  ): Promise<number>;
   abstract saveScore(turnId: string, judge: string, score: number): Promise<void>;
   abstract meanScore(turnIds: readonly string[]): Promise<number | null>;
   /** Mean score and cost per prompt version; `running` records left out (a run in flight is no result). */
@@ -230,6 +213,9 @@ export class TurnStoreRecordRepository extends ExecutionRecordRepository {
   }
   unscored(workflow: string, promptVersion: string | undefined, limit: number): Promise<Turn[]> {
     return this.store.unscored(workflow, promptVersion, limit);
+  }
+  deleteIdleThreads(cutoffs: ReadonlyMap<string, Date>, isEnded: EndedTree): Promise<number> {
+    return this.store.deleteIdleThreads(cutoffs, isEnded);
   }
   saveScore(turnId: string, judge: string, score: number): Promise<void> {
     return this.store.saveScore(turnId, judge, score);

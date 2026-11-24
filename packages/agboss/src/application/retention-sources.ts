@@ -1,3 +1,4 @@
+import { Ttl, type Milliseconds } from "../units/index.js";
 import type { Infrastructure } from "../infrastructure/contracts.js";
 import type { RetentionSources } from "../infrastructure/retention-sweep.js";
 import { fileExpiryOf } from "./file-expiry.js";
@@ -8,6 +9,15 @@ import type { AssembledApplication } from "./assemble.js";
  * What every look of the recovery sweep removes once its retention is over, and where a closed
  * pause's answer is logged before its record goes (#939): the application's stores and retentions.
  */
+/** The workflows' idle-thread ttls (#1303): each workflow whose memory keeps a thread for a duration. */
+const threadTtlsOf = (assembled: AssembledApplication): ReadonlyMap<string, Milliseconds> =>
+  new Map(
+    assembled.workflows.flatMap((workflow): [string, Milliseconds][] => {
+      const ttl = workflow.memories?.threadTtl;
+      return ttl === undefined || ttl === Ttl.Forever ? [] : [[workflow.config.name, ttl]];
+    }),
+  );
+
 export const retentionSourcesOf = (
   infrastructure: Infrastructure,
   assembled: AssembledApplication,
@@ -24,6 +34,8 @@ export const retentionSourcesOf = (
   auditLog: infrastructure.auditLog,
   treeRecords: infrastructure.records,
   auditLogRetention: assembled.auditLogRetention,
+  threadRecords: infrastructure.records,
+  threadTtls: threadTtlsOf(assembled),
   expiries: [
     ...a2aExpiriesOf(infrastructure, assembled),
     fileExpiryOf({

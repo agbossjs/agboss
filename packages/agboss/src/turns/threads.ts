@@ -44,13 +44,14 @@ export function threadMethods(
     // in a promise's executor: a refused mint (#578, #613) rejects, never throws at the call
     createThread: ({ workflow, tenantId, ownerId, threadId }) =>
       new Promise<string>((resolve) => {
+        const createdAt = now().toISOString();
         const insert = (id: string): boolean => {
           const { changes } = db
             .prepare(
-              `INSERT INTO threads (id, bundle, created_at, tenant_id) VALUES (?, ?, ?, ?)
+              `INSERT INTO threads (id, bundle, created_at, tenant_id, last_active_at) VALUES (?, ?, ?, ?, ?)
              ON CONFLICT(tenant_id, id) DO NOTHING`,
             )
-            .run(id, workflow, now().toISOString(), tenantId);
+            .run(id, workflow, createdAt, tenantId, createdAt);
           return Number(changes) === 1;
         };
         const id = threadId ?? mintedThreadId(threadIds, insert);
