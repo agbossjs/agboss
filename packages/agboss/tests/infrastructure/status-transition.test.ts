@@ -202,7 +202,7 @@ describe("#1341d: SQLite writes the mark and its row in one transaction", () => 
     const context = { instanceId: "i1" } as ApplicationContext;
     const leases = new SqliteExecutionLeaseRepository(
       connection,
-      clock as unknown as StoreClock,
+      clock as never,
       context,
     );
     const records = new SqliteExecutionRecordRepository(
