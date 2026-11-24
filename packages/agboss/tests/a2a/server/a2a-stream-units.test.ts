@@ -49,14 +49,28 @@ const SKILLS: readonly ServedSkill[] = [
     ...TEXT_SKILL,
     id: "json-out",
     outputs: [
-      { finish: FINISH, mediaType: A2AMediaType.Json, schema: null, fileFields: [], hasData: true },
+      {
+        finish: FINISH,
+        mediaType: A2AMediaType.Json,
+        schema: null,
+        fileFields: [],
+        hasData: true,
+        classes: [],
+      },
     ],
   },
   {
     ...TEXT_SKILL,
     id: "text-out",
     outputs: [
-      { finish: FINISH, mediaType: A2AMediaType.Text, schema: null, fileFields: [], hasData: true },
+      {
+        finish: FINISH,
+        mediaType: A2AMediaType.Text,
+        schema: null,
+        fileFields: [],
+        hasData: true,
+        classes: [],
+      },
     ],
   },
 ];

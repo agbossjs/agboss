@@ -10,6 +10,7 @@ import type { Turn } from "../turns/index.js";
 import { writeCancelRequest, type CancelParts } from "./cancel-requests.js";
 import { cancelledPaused } from "./cancel-paused.js";
 import { endedResultOf } from "./ended-output.js";
+import { storedOutputOf } from "../pii/final-output-mask.js";
 import { currentOutputOf } from "./current-output.js";
 import { rootRecordOf } from "./ended-tree.js";
 import {
@@ -104,16 +105,18 @@ async function restStateOf(
 ): Promise<DurableExecutionState | undefined> {
   try {
     const output = await currentOutputOf(parts.deps, parts.paused, state);
-    return output.status === ExecutionStatus.Paused
-      ? { status: DurableExecutionStatus.Paused, pending: output.pending }
-      : {
-          status: DurableExecutionStatus.Finished,
-          // Stryker disable next-line StringLiteral: the invariant's text, never read while it holds
-          finish: definedOf(output.finish, "a finished output names its finish").name,
-          output: output.output,
-          spentUsd: output.spend.totalUsd,
-          spentTokens: output.spend.totalTokens,
-        };
+    if (output.status === ExecutionStatus.Paused)
+      return { status: DurableExecutionStatus.Paused, pending: output.pending };
+    // Stryker disable next-line StringLiteral: the invariant's text, never read while it holds
+    const { name } = definedOf(output.finish, "a finished output names its finish");
+    return {
+      status: DurableExecutionStatus.Finished,
+      finish: name,
+      // a stored state's output has its finish DTO's sensitive fields masked (#1301)
+      output: storedOutputOf(parts.deps, name, output.output),
+      spentUsd: output.spend.totalUsd,
+      spentTokens: output.spend.totalTokens,
+    };
   } catch (error) {
     if (error instanceof NotPausedError) return undefined;
     throw error;

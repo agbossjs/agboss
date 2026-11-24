@@ -42,15 +42,20 @@ const isRecord = (value: unknown): value is Record<string, unknown> => isWalkabl
 const textOf = (value: unknown): string =>
   typeof value === "string" ? value : JSON.stringify(value);
 
-function maskedField(field: FieldSpec, value: unknown, mask: FieldMask): unknown {
+function maskedField(
+  field: FieldSpec,
+  value: unknown,
+  mask: FieldMask,
+  untouched?: DtoClass,
+): unknown {
   if (value === undefined || value === null) return value;
   const action = field.settings.sensitive;
   if (action !== undefined) return mask(action, fieldLabelOf(field.name), textOf(value));
   const element = field.element;
   if (element?.kind !== "dto") return value;
   return Array.isArray(value)
-    ? value.map((item: unknown) => maskedDtoValue(element.dto, item, mask))
-    : maskedDtoValue(element.dto, value, mask);
+    ? value.map((item: unknown) => maskedDtoValue(element.dto, item, mask, untouched))
+    : maskedDtoValue(element.dto, value, mask, untouched);
 }
 
 /** A DTO's fields with every `sensitive` one (nested and listed DTOs included) through `mask`. */
@@ -58,6 +63,7 @@ function maskedRecord(
   dto: DtoClass,
   value: Record<string, unknown>,
   mask: FieldMask,
+  untouched?: DtoClass,
 ): Record<string, unknown> {
   const fields = new Map(fieldsOf(dto).map((field) => [field.name, field]));
   return likeOriginal(
@@ -65,15 +71,24 @@ function maskedRecord(
     Object.fromEntries(
       Object.entries(value).map(([key, item]) => {
         const field = fields.get(key);
-        return [key, field === undefined ? item : maskedField(field, item, mask)];
+        return [key, field === undefined ? item : maskedField(field, item, mask, untouched)];
       }),
     ),
   );
 }
 
-/** A DTO's value with every `sensitive` field through `mask`; anything but an object stays. */
-export const maskedDtoValue = (dto: DtoClass, value: unknown, mask: FieldMask): unknown =>
-  isRecord(value) ? maskedRecord(dto, value, mask) : value;
+/**
+ * A DTO's value with every `sensitive` field through `mask`; anything but an object stays. `untouched`
+ * is a DTO kept as it is wherever it is nested (a stored output's files: their bytes are the
+ * file stores' and `withoutInlineBytes`', never a token).
+ */
+export const maskedDtoValue = (
+  dto: DtoClass,
+  value: unknown,
+  mask: FieldMask,
+  untouched?: DtoClass,
+): unknown =>
+  isRecord(value) && dto !== untouched ? maskedRecord(dto, value, mask, untouched) : value;
 
 /** A DTO's value as people may see it: every `sensitive` field one-way masked. */
 export const redactedDto = (dto: DtoClass, value: unknown): unknown =>

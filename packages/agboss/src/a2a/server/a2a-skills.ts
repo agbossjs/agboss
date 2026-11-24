@@ -9,7 +9,7 @@ import { declarationOf } from "../../flow/decorators/declaration.js";
 import type { WorkflowStartInput } from "../../flow/decorators/workflow-start.js";
 import { dtoSchemaHashOf } from "../../flow/runtime/join-keys.js";
 import type { DtoClass } from "../../dto/types.js";
-import { finishDtosOf } from "../files/a2a-file-tier.js";
+import { finishDtosOf, listFinishItemsOf } from "../files/a2a-file-tier.js";
 import { workflowOfStart } from "../../files/workflow-file-policy.js";
 import type { ComponentOptions } from "../../components/component-options.js";
 import { workflowPartsOf } from "../../describe/contracts-parts.js";
@@ -41,6 +41,8 @@ export interface ServedOutput {
   readonly fileFields: readonly FileField[];
   /** Whether its DTO has a field that holds no file: what its `data` part carries. */
   readonly hasData: boolean;
+  /** Its output's classes (the DTO, or a list's items): what a stored reply masks its sensitive fields by (#1301). */
+  readonly classes: readonly DtoClass[];
 }
 
 /** One exported start, as its skill. */
@@ -94,6 +96,7 @@ function outputsOf(
   contracts: ApplicationContracts,
   found: A2AExportContract,
   finishes: ReadonlyMap<string, DtoClass>,
+  lists: ReadonlyMap<string, readonly DtoClass[]>,
 ): ServedOutput[] {
   const textHash = TEXT_FINISH_HASH();
   return found.outputs.map((output) => {
@@ -104,6 +107,7 @@ function outputsOf(
       schema: schemaOf(contracts, output.dto),
       fileFields: dto === undefined ? [] : fileFieldsOf(dto),
       hasData: dataFieldCountOf(dto) > 0,
+      classes: dto === undefined ? (lists.get(output.finish) ?? []) : [dto],
     };
   });
 }
@@ -148,7 +152,12 @@ function skillOf(start: Class, sources: SkillSources): ServedSkill {
     inputMediaType: input === WorkflowStartTextDto ? A2AMediaType.Text : A2AMediaType.Json,
     inputSchema: schemaOf(contracts, found.input?.dto),
     inputSchemaHash: found.input?.schemaHash ?? null,
-    outputs: outputsOf(contracts, found, finishDtosOf(start, sources.workflows)),
+    outputs: outputsOf(
+      contracts,
+      found,
+      finishDtosOf(start, sources.workflows),
+      listFinishItemsOf(start, sources.workflows),
+    ),
     ...skillFilesOf(input, name, start, sources),
     reply: found.reply,
     cardFileFields: found.cardFileFields,

@@ -5,6 +5,9 @@ import { maskedFinishLine } from "../flow/runtime/history.js";
 import type { ExecutionStateType } from "../flow/runtime/state.js";
 import type { UsageRecord } from "../finops/usage.js";
 import type { ObservabilityMask } from "../pii/observability-mask.js";
+import type { FieldMask } from "../dto/redact.js";
+import type { RuntimeGraph } from "../flow/runtime/graph-model.js";
+import { maskedFinishOutput, storedFieldMask } from "../pii/final-output-mask.js";
 import type { TurnOutcome } from "../turns/index.js";
 import type { FinishContext } from "./execute.js";
 import type { WaitingPause } from "../pause/index.js";
@@ -24,10 +27,16 @@ export async function outcomeOf(
   usage: readonly UsageRecord[],
   paused: boolean,
   mask?: ObservabilityMask,
+  fields?: { readonly graph: Pick<RuntimeGraph, "nodes">; readonly mask: FieldMask },
 ): Promise<TurnOutcome> {
   const finished = !paused && state.finish !== "";
+  // the finish DTO's sensitive fields first (#1301): a token or a mask is all the line keeps of them
+  const stored =
+    fields === undefined
+      ? state.output
+      : maskedFinishOutput(fields.graph, state.finish, state.output, fields.mask);
   return {
-    replyWith: finished ? await maskedFinishLine(state.finish, state.output, mask) : "",
+    replyWith: finished ? await maskedFinishLine(state.finish, stored, mask) : "",
     status: paused ? "paused" : "answered",
     stopReason: paused ? "waiting for approval" : "",
     route: state.path,
@@ -112,7 +121,8 @@ export async function finishRun<TName extends string>(
   // a finish never lands over a durable stop or cancel mark (#1341b): the run ends as that
   const interrupted = paused ? undefined : await ctx.deps.compensation?.interrupted?.();
   if (interrupted !== undefined) throw interrupted;
-  const outcome = await outcomeOf(state, usage, paused, maskOf(ctx));
+  const fields = { graph: ctx.deps.graph, mask: storedFieldMask(ctx.deps.pii, state) };
+  const outcome = await outcomeOf(state, usage, paused, maskOf(ctx), fields);
   let turnId = existingTurnId;
   if (turnId === undefined) turnId = (await ctx.deps.turns.append({ ...ctx.base, ...outcome })).id;
   else await ctx.deps.turns.complete(turnId, outcome);

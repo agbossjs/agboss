@@ -3,6 +3,7 @@ import type { AppDeps } from "../../app/app-deps.js";
 import { nameOf } from "../../components/name-of.js";
 import { ExecutionRecordStatus } from "../../infrastructure/execution-record.repository.js";
 import { finishLine, startLine } from "../../flow/runtime/history.js";
+import { storedOutputOf } from "../../pii/final-output-mask.js";
 import { executionVersions } from "../../run/versions.js";
 import type { NewTurn } from "../../turns/index.js";
 import type { EvalPastTurn } from "../suite/cases.js";
@@ -29,7 +30,11 @@ function turnOf(deps: AppDeps, thread: CaseThread, past: EvalPastTurn): NewTurn 
     tenantId: thread.tenantId,
     workflow: deps.config.name,
     task: startLine(nameOf(past.start), past.input),
-    replyWith: finishLine(nameOf(past.finish), past.output),
+    // the finish DTO's sensitive fields as every stored final output holds them (#1301)
+    replyWith: finishLine(
+      nameOf(past.finish),
+      storedOutputOf(deps, nameOf(past.finish), past.output),
+    ),
     status: ExecutionRecordStatus.Written,
     stopReason: "",
     route: [],

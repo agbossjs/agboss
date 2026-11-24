@@ -83,6 +83,7 @@ export const TEXT_SKILL: ServedSkill = {
       schema: null,
       fileFields: [],
       hasData: true,
+      classes: [],
     },
   ],
   inputFiles: [],

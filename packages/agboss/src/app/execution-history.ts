@@ -10,6 +10,7 @@ import { DEFAULT_CONTEXT_VALUES } from "../flow/context/context-values.js";
 import { withChildPauses } from "../flow/runtime/child-records.js";
 import type { ExecutionStateType } from "../flow/runtime/state.js";
 import { nodeRecordIn } from "../flow/runtime/workflow-keys.js";
+import { finishPartOf } from "./history-finish.js";
 import {
   ExecutionHistoryStatus,
   type ExecutionHistoryRecord,
@@ -152,10 +153,6 @@ const recordPartOf = (values: RecordedState, end: HistoryEnd) => ({
   steps: values.stepRecords,
   ...originOf(values.contexts.mesh?.trusted),
 });
-
-/** What it finished with; nothing unless it finished. */
-const finishPartOf = (deps: AppDeps, values: RecordedState) =>
-  values.finish === "" ? {} : { finish: nodeRecordIn(deps, values.finish), output: values.output };
 
 /** Who and what the execution is: its ids, application and workflow. */
 const identityOf = (deps: AppDeps, keeper: ExecutionHistoryKeeper, state: TreeState) => ({

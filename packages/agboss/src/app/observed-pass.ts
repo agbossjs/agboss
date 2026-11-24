@@ -11,6 +11,7 @@ import { ExecutionCancelledError } from "../core/errors.js";
 import { cancelledOutputOf } from "./cancelled-output.js";
 import { isPause } from "./lease-stopped.js";
 import { parkedOutputOf } from "./parked-output.js";
+import { storedOutputOf } from "../pii/final-output-mask.js";
 
 /**
  * One pass of a tree (`tree-moves.ts`), observed and settled while its lease is held; a cancel
@@ -60,6 +61,8 @@ export function observedPass(
     () => undo.compensations ?? [],
     // a child's pause in the root's event: masked by the child's chain too (#1150)
     (pending) => maskedPendingOf(deps, pending),
+    // the end event, and the A2A task written from it, hold the finish DTO's sensitive fields masked (#1301)
+    (result) => maskedResultOutputOf(deps, result),
   );
 }
 
@@ -96,3 +99,9 @@ const interruptedOf =
       (await markedInterruptOf(parts.leases, tree));
     return request === undefined ? undefined : interruptErrorOf(request, state.threadId);
   };
+
+/** A finished result's output with its finish DTO's sensitive fields masked; the result's own stays. */
+const maskedResultOutputOf = (deps: TreeMoveParts["deps"], result: ExecutionOutput): unknown =>
+  result.finish === undefined
+    ? result.output
+    : storedOutputOf(deps, result.finish.name, result.output);

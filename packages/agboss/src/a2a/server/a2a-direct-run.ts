@@ -6,6 +6,8 @@ import type {
   A2ADirectMessageRecord,
   A2ADirectMessageReply,
 } from "../../infrastructure/a2a-direct-message.repository.js";
+import { displayMask } from "../../dto/redact.js";
+import { maskedOutputOf } from "../../pii/final-output-mask.js";
 import { definedOf } from "../../infrastructure/clock.js";
 import { withInboundMesh } from "../../mesh/inbound-mesh.js";
 import { seconds, type Milliseconds } from "../../units/index.js";
@@ -72,7 +74,7 @@ function optionsOf(
 }
 
 /** The reply of a run that reached a finish; a run that rests paused is no reply (a bug: refused). */
-function replyOf(result: ExecutionOutput): A2ADirectMessageReply {
+function replyOf(result: ExecutionOutput, skill: ServedSkill): A2ADirectMessageReply {
   // a cancel is no reply (#1341): the attempt fails as a cancel did when it rejected — its row
   // removed, the client told it was cancelled
   if (result.status === ExecutionStatus.Cancelled || result.status === ExecutionStatus.Stopped)
@@ -81,7 +83,12 @@ function replyOf(result: ExecutionOutput): A2ADirectMessageReply {
   const finish = definedOf(result.finish, "a direct skill cannot pause (assembly)");
   return {
     finish: finish.name,
-    output: result.output,
+    // stored and sent as one: the finish DTO's sensitive fields one-way masked (#1301)
+    output: maskedOutputOf(
+      skill.outputs.find((served) => served.finish === finish.name)?.classes ?? [],
+      result.output,
+      displayMask,
+    ),
     spentUsd: result.spend.totalUsd,
     spentTokens: result.spend.totalTokens,
   };
@@ -99,6 +106,7 @@ export async function ranAttempt(
     const options = optionsOf(parts, caller, attempt, signal);
     return replyOf(
       await executeWithoutInputCheck(parts.app, sent.skill.start, sent.input, options),
+      sent.skill,
     );
   } catch (error) {
     await failedAttempt(parts, attempt);

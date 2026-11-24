@@ -80,6 +80,8 @@ export async function observeLeg(
   shownPending: (pending: ExecutionOutput["pending"]) => Promise<ExecutionOutput["pending"]> = (
     pending,
   ) => Promise.resolve(pending),
+  /** What the end event shows of the output: its finish DTO's sensitive fields masked (#1301). */
+  shownOutput: (result: ExecutionOutput) => unknown = (result) => result.output,
 ): Promise<ExecutionOutput> {
   let result: ExecutionOutput;
   try {
@@ -91,6 +93,23 @@ export async function observeLeg(
     }
     throw error;
   }
+  await announcedResult(observer, event, result, { pending: shownPending, output: shownOutput });
+  return result;
+}
+
+/** What the events of a leg's result show of it: the pending pauses (#1150) and the output (#1301). */
+interface ShownResult {
+  readonly pending: (pending: ExecutionOutput["pending"]) => Promise<ExecutionOutput["pending"]>;
+  readonly output: (result: ExecutionOutput) => unknown;
+}
+
+/** The event of a leg's result: paused, finished, stopped or cancelled. */
+async function announcedResult(
+  observer: ExecutionObserverManager,
+  event: ExecutionEvent,
+  result: ExecutionOutput,
+  shown: ShownResult,
+): Promise<void> {
   // a pass that rests with answers already recorded is not a stop: the holder goes on (Q58)
   switch (result.status) {
     case ExecutionStatus.Paused:
@@ -98,7 +117,7 @@ export async function observeLeg(
       if (result.pending.length > 0 || result.isExternallyPaused)
         await observer.onExecutionPause({
           ...event,
-          pending: await shownPending(result.pending),
+          pending: await shown.pending(result.pending),
           isExternallyPaused: result.isExternallyPaused,
           ...(result.reason === undefined ? {} : { reason: result.reason }),
         });
@@ -107,7 +126,7 @@ export async function observeLeg(
       await observer.onExecutionEnd({
         ...event,
         finish: result.finish,
-        output: result.output,
+        output: shown.output(result),
         spend: result.spend,
       });
       break;
@@ -123,7 +142,6 @@ export async function observeLeg(
       });
       break;
   }
-  return result;
 }
 
 /** What a caller asked for, before the app found (or started) its execution. */
