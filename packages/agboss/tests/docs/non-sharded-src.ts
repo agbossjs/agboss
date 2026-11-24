@@ -1694,14 +1694,8 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/application/option-shelves.ts"],
   ),
   ...reviewed(
-    "the option-name rule (#1313, #1318, #1324): each decorator's key list is held equal to its options type by the compiler, the registry only collects the keys a decorator was given, and the rule names a stray key in a message; it decides no spend, limit, lease or fence and a missed key only leaves an option ignored as TypeScript already does; covered by tests/application/unknown-option-rules.test.ts and tests/application/unknown-option-families.test.ts",
-    [
-      "src/application/unknown-option-rules.ts",
-      "src/components/decorator-options.ts",
-      "src/components/option-lists/**",
-      "src/components/option-keys.ts",
-      "src/graph/distinct-violations.ts",
-    ],
+    "the distinct-violations filter of the assembly's rule list: it shows each violation once when several workflows reach one class, and decides no spend, limit, lease or fence; covered by tests/application/unknown-option-rules.test.ts",
+    ["src/graph/distinct-violations.ts"],
   ),
   ...reviewed(
     "what an `@A2AAgent` is under the selected profiles (#1318c): the client asks the application's carrier of the components' options for its contract (the price and the call bound it charges and waits by) and its address when it is used inside an execution; the charge and the bound themselves are decided and enforced by the sharded client (a2a-call-bounds, a2a-charges), this file only says which declared or profiled values they read; covered by tests/config/peers-shelves.test.ts",

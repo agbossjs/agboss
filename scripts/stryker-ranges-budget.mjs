@@ -111,6 +111,11 @@ export function assemblyRulesShard() {
       "src/app/tenant-gate.ts",
       "src/application/tenant-gated-app.ts",
       "src/application/execution-listing.ts",
+      // #1313, #1318, #1324: an option a decorator does not take is refused (a `maxToolCalls` that never limits, a
+      // `guardrail` that never guards): each decorator's key list and the rule that reads them
+      "src/application/unknown-option-rules.ts",
+      "src/components/{decorator-options,option-keys}.ts",
+      "src/components/option-lists/*.ts",
     ],
   };
 }
