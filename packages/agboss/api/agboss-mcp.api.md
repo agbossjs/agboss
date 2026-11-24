@@ -106,6 +106,7 @@ export function mcpHttpListener<TApp>(app: App<TApp>, options: McpHttpListenerOp
 
 // @public
 export interface McpHttpListenerOptions {
+    readonly allowAnonymous?: boolean;
     readonly authenticator?: Class;
     readonly base?: string;
     readonly endpoint: Class;

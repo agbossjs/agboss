@@ -1,7 +1,7 @@
 /**
  * #1319b (security): an MCP HTTP session binds to the WHOLE identity that opened it (peer, owner, the
  * tenant record, the context values) — a tenant with no ownerId included —, a caller that names no owner
- * and no tenant is bound to its connection, and each message runs with that message's own verified
+ * and no tenant is bound to its session id (never its connection), and each message runs with that message's own verified
  * identity, never the opener's.
  */
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -175,7 +175,7 @@ describe("#1319b: an MCP HTTP session binds to the whole identity", () => {
     expect(otherTenant.status).toBe(404);
   });
 
-  it("a caller that names no owner and no tenant is bound to its connection, never shared", async () => {
+  it("a caller that names no owner and no tenant is bound to its session id, never to its connection", async () => {
     const url = await listening();
     const one = new Agent({ keepAlive: true });
     const another = new Agent({ keepAlive: true });
@@ -183,8 +183,13 @@ describe("#1319b: an MCP HTTP session binds to the whole identity", () => {
       const id = await sessionOpenedOn(url, one);
 
       expect((await requestOn(url, one, { "mcp-session-id": id }, RESUME)).status).toBe(200);
-      expect((await requestOn(url, another, { "mcp-session-id": id }, RESUME)).status).toBe(404);
+      // a POST and a GET of one client may ride different connections, and a proxy pools them: the id binds
+      expect((await requestOn(url, another, { "mcp-session-id": id }, RESUME)).status).toBe(200);
       expect((await sessionOpenedOn(url, another)) === id).toBe(false);
+      expect(
+        (await requestOn(url, another, { "mcp-session-id": `${id}-guessed` }, RESUME)).status,
+      ).toBe(404);
+      expect(resumed.map(({ ownerId }) => ownerId)).toEqual([`anonymous:${id}`, `anonymous:${id}`]);
     } finally {
       one.destroy();
       another.destroy();

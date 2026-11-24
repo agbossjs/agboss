@@ -308,13 +308,20 @@ describe("#1320: an MCP HTTP session admits each message by its own verified ide
     expect(await answer.json()).toMatchObject({ code: "mesh.audience-mismatch" });
   });
 
-  it("a listener with no authenticator is made for an application with no tenantContext of its own", () => {
+  it("a listener with no authenticator is made for an application with no tenantContext of its own only with allowAnonymous", () => {
     const app = Object.assign(appOf(), {
       resolve: (token: unknown) => (token === Logger ? new SilentLogger() : new SystemClock()),
     });
 
+    expect(() => mcpHttpListener(app as never, { endpoint: OrdersMcp, publicUrl: ORIGIN })).toThrow(
+      "[http.authenticator-required-for-tenant-context]",
+    );
     expect(() =>
-      mcpHttpListener(app as never, { endpoint: OrdersMcp, publicUrl: ORIGIN }),
+      mcpHttpListener(app as never, {
+        endpoint: OrdersMcp,
+        publicUrl: ORIGIN,
+        allowAnonymous: true,
+      }),
     ).not.toThrow();
   });
 

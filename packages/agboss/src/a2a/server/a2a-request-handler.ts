@@ -28,7 +28,13 @@ import type { ServedSkill } from "./a2a-skills.js";
 import { listedTasks } from "./a2a-list-tasks.js";
 import { canceledTask } from "./a2a-cancel-task.js";
 import { followedUpTask } from "./a2a-follow-up.js";
-import { callerOf, ownedTask, type A2AServerParts } from "./a2a-server-parts.js";
+import {
+  callerOf,
+  forNewTask,
+  forTask,
+  ownedTask,
+  type A2AServerParts,
+} from "./a2a-server-parts.js";
 import { StreamEnd, taskStream } from "./a2a-stream.js";
 import { restingTask } from "./a2a-task-wait.js";
 import { wireTaskOf } from "./a2a-task-view.js";
@@ -108,7 +114,8 @@ export class A2AServerRequestHandler implements A2ARequestHandler {
 
   getTask(params: GetTaskRequest, context: ServerCallContext): Promise<Task> {
     return this.#guarded("GetTask", async () => {
-      const caller = callerOf(context, A2AOperation.GetTask, params.id);
+      const asked = callerOf(context, A2AOperation.GetTask, params.id);
+      const caller = await forTask(this.parts, asked, params.id);
       const task = await ownedTask(this.parts, caller, params.id);
       return await wireTaskOf(task, this.parts);
     });
@@ -116,7 +123,8 @@ export class A2AServerRequestHandler implements A2ARequestHandler {
 
   cancelTask(params: CancelTaskRequest, context: ServerCallContext): Promise<Task> {
     return this.#guarded("CancelTask", async () => {
-      const caller = callerOf(context, A2AOperation.CancelTask, params.id);
+      const asked = callerOf(context, A2AOperation.CancelTask, params.id);
+      const caller = await forTask(this.parts, asked, params.id);
       return await wireTaskOf(await canceledTask(this.parts, caller, params.id), this.parts);
     });
   }
@@ -126,7 +134,8 @@ export class A2AServerRequestHandler implements A2ARequestHandler {
     context: ServerCallContext,
   ): AsyncGenerator<StreamResponse, void, undefined> {
     const { caller, task } = await this.#guarded("SubscribeToTask", async () => {
-      const subscriber = callerOf(context, A2AOperation.SubscribeToTask, params.id);
+      const asked = callerOf(context, A2AOperation.SubscribeToTask, params.id);
+      const subscriber = await forTask(this.parts, asked, params.id);
       const found = await ownedTask(this.parts, subscriber, params.id);
       if (isTerminalA2ATaskState(found.status.state))
         throw unsupportedOperation("a2a.task-over", "the task is over: nothing to subscribe to");
@@ -166,11 +175,12 @@ export class A2AServerRequestHandler implements A2ARequestHandler {
     context: ServerCallContext,
   ): Promise<SentMessage> {
     const { message } = params;
-    const caller = callerOf(context, operation, message?.taskId ?? "");
+    const asked = callerOf(context, operation, message?.taskId ?? "");
     if (message === undefined) throw invalidParams("a2a.message-required", "a message is required");
     if (message.messageId === "")
       throw invalidParams("a2a.message-id-required", "messageId is required");
     if (message.taskId === "") {
+      const caller = forNewTask(asked);
       const skill = skillOfMessage(message, this.parts.skills, this.parts.direct.defaultSkill);
       if (skill.reply === A2AReply.Message)
         return { reply: await directReply(this.parts, caller, message, skill) };
@@ -182,6 +192,7 @@ export class A2AServerRequestHandler implements A2ARequestHandler {
     }
     // a direct-reply skill has no task to follow up (#860)
     if (namesDirectSkill(message, this.parts.skills)) throw taskNotFound();
+    const caller = await forTask(this.parts, asked, message.taskId);
     const { task, answered } = await followedUpTask(this.parts, caller, message);
     return { task, signal: caller.signal, answered };
   }

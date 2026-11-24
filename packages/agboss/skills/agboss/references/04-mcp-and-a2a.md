@@ -541,6 +541,10 @@ createServer(
 - An answer is built only by `HttpAuthResult` (branded: a plain object does not compile).
 - A caller that disconnects never cancels its task: it runs on, and `GetTask` / `SubscribeToTask`
   read it.
+- No authenticator needs `allowAnonymous: true` (`a2aHttpListener`, `mcpHttpListener`; only without a `tenantContext`, never
+  beside an authenticator), else `ConfigError` `[http.authenticator-required-for-tenant-context]` at start. Nothing is bound
+  to the connection: an anonymous MCP caller is `anonymous:<Mcp-Session-Id>`, a tenant with no `ownerId`
+  `mcp-session:<Mcp-Session-Id>`; in A2A a caller with no owner reaches a task by its id alone, and `ListTasks` is `403`.
 - The names: `A2AApp` (what the listener takes of `App`), `A2AHttpListenerOptions` (`endpoint`, `authenticator`, `publicUrl`,
   `onError?`), `A2AOperation`, and from the root entry `HttpAuthenticator`, `HttpAuthResult`, `HttpAuthRequest`,
   `HttpAuthKind`, `HttpCaller`, `HttpSecurity`, `HttpSecurityScheme`, `HttpSecuritySchemeKind`.

@@ -36,11 +36,20 @@ export interface A2AHttpListenerOptions {
    * Who calls (an `@HttpAuthenticator` listed in `@Application({ services })`): the listener takes
    * its instance from the application's container when it is created and asks it on every request.
    * Its `schemes` are the card's `securitySchemes`.
-   * Optional for an application with no `tenantContext` of its own: a caller without one is
-   * anonymous, bound to its connection. With a `tenantContext` the listener is not made without one
-   * (`ConfigError`, `[http.authenticator-required-for-tenant-context]`).
+   * Required, unless `allowAnonymous` is set or only signed mesh peers call (`@Mesh({ inboundMode:
+   * Strict })` with a peer that propagates its tenant): else the listener is not made (`ConfigError`,
+   * `[http.authenticator-required-for-tenant-context]`). A caller it names no owner for (a tenant's
+   * key) owns no task of its own: each of its new tasks is reached by its id alone, and listing is `403`.
    */
   readonly authenticator?: Class;
+  /**
+   * Serves callers no authenticator vouches for (default `false`): the one explicit opt-in, for an
+   * application with no `tenantContext` of its own (with one, or beside an `authenticator`, the
+   * listener is not made: `ConfigError`). An anonymous caller's each new task gets an owner of its
+   * own; the task's unpredictable id is the right to read, continue and cancel it, and `ListTasks` is
+   * `403`. Nothing is bound to the connection: callers behind one proxy connection stay apart.
+   */
+  readonly allowAnonymous?: boolean;
   /**
    * Told of an error the listener or the authenticator hit (an authenticator that threw, a request
    * that failed past its own answers) with the request: for the host's own logging; its text never
@@ -195,7 +204,7 @@ export function a2aHttpListener(
   app: A2AApp,
   options: A2AHttpListenerOptions,
 ): (req: IncomingMessage, res: ServerResponse) => void {
-  const authenticator = listenerAuthenticatorOf(app, options.authenticator);
+  const authenticator = listenerAuthenticatorOf(app, options.authenticator, options.allowAnonymous);
   const endpoint = endpointOf(app, options.endpoint);
   const base = options.base ?? "";
   // a text is checked now; a function when the first request needs it (a port known once it listens)

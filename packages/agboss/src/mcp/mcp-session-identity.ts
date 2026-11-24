@@ -42,3 +42,13 @@ export const isSameCaller = (a: McpCaller, b: McpCaller): boolean =>
   a.ownerId === b.ownerId &&
   sameValue(a.tenant, b.tenant) &&
   sameValue(a.execution, b.execution);
+
+/**
+ * The caller as the session `id` owns it: one that names no owner is the session's own — a tenant's
+ * key `mcp-session:<id>`, an anonymous caller `anonymous:<id>` — so only a client holding the id,
+ * of that tenant, is the same caller. Never made from the connection.
+ */
+export const inSession = (caller: McpCaller, id: string): McpCaller =>
+  caller.ownerId !== undefined || caller.peer !== undefined
+    ? caller
+    : { ...caller, ownerId: `${caller.tenant === undefined ? "anonymous" : "mcp-session"}:${id}` };

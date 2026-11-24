@@ -1,7 +1,9 @@
+import { randomUUID } from "node:crypto";
 import type { ServerCallContext } from "@a2a-js/sdk/server";
 import type { ExecutionControl } from "../../app/execution-control.js";
 import type { ExecutionOptions } from "../../app/types.js";
 import { EXECUTION_LEASE } from "../../app/lease-fence.js";
+import { isSyntheticOwner } from "../a2a-caller-gate.js";
 import { keyTextRuleOf } from "../../core/errors.js";
 import { DEFAULT_TENANT_ID } from "../../flow/context/tenant-context.js";
 import {
@@ -180,6 +182,37 @@ export const repairedOf = (
     },
     task,
   );
+
+/** The caller with another owner: what its tasks, messages and executions are kept under. */
+const ownedBy = (request: A2ARequestCaller, ownerId: string): A2ARequestCaller => ({
+  ...request,
+  ownerId,
+  caller: { ...request.caller, ownerId },
+});
+
+/**
+ * The caller of a new task or message: one that names no owner (anonymous, or a tenant's key) gets an
+ * owner of its own for it — unique, made at random, never from the request — so its task is its alone
+ * and a resent `messageId` of another caller finds nothing of it.
+ */
+export const forNewTask = (request: A2ARequestCaller): A2ARequestCaller =>
+  request.ownerId === undefined ? ownedBy(request, `a2a-task:${randomUUID()}`) : request;
+
+/**
+ * The caller of an operation on the task `taskId`: one that names no owner holds the task's id as the
+ * right to it — when the task was made for such a caller (its owner is one a listener made), the
+ * caller acts as that owner. Any other task is still "not found".
+ */
+export async function forTask(
+  parts: A2AServerParts,
+  request: A2ARequestCaller,
+  taskId: string,
+): Promise<A2ARequestCaller> {
+  if (request.ownerId !== undefined || keyTextRuleOf(taskId) !== undefined) return request;
+  const task = await parts.tasks.findById({ tenantId: request.tenantId, taskId });
+  if (task?.endpoint !== parts.endpoint || !isSyntheticOwner(task.ownerId)) return request;
+  return ownedBy(request, task.ownerId ?? "");
+}
 
 /** The caller's task by its id, repaired; another owner's is "not found" too (spec §3.3). */
 export async function ownedTask(

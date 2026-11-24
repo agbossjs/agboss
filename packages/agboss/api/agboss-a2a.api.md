@@ -460,6 +460,7 @@ export function a2aHttpListener(app: A2AApp, options: A2AHttpListenerOptions): (
 
 // @public
 export interface A2AHttpListenerOptions {
+    readonly allowAnonymous?: boolean;
     readonly authenticator?: Class;
     readonly base?: string;
     readonly endpoint: Class;

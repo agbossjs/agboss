@@ -3,11 +3,11 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { randomUUID } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import {
-  boundToConnection,
   listenerAuthenticatorOf,
   notifyHost,
   writeRejection,
   admitCaller,
+  type CallerGateOutcome,
 } from "../a2a/a2a-caller-gate.js";
 import { bodyWithin } from "../a2a/server/a2a-http-io.js";
 import type { AnyTenantApp, App } from "../app/types.js";
@@ -19,7 +19,7 @@ import { meshSettingsOf } from "../mesh/mesh-settings.js";
 import { kilobytes, type Bytes } from "../units/index.js";
 import { headerOf, jsonOf, pathOf } from "./mcp-http-io.js";
 import { originFn } from "./mcp-public-url.js";
-import { isSameCaller } from "./mcp-session-identity.js";
+import { inSession, isSameCaller } from "./mcp-session-identity.js";
 import { admitMcpHttp } from "./mcp-http-gate.js";
 import type { McpEndpointOptions } from "./mcp-endpoint.decorator.js";
 import { mcpServerOf, servedEndpointOf } from "./mcp-server-instance.js";
@@ -39,12 +39,21 @@ export interface McpHttpListenerOptions {
   /** The `@McpEndpoint` served, listed in `@Application({ endpoints })`. */
   readonly endpoint: Class;
   /**
-   * Who calls (an `@HttpAuthenticator` listed in `@Application({ services })`). Optional for an
-   * application with no `tenantContext` of its own: its callers without one are anonymous, each
-   * session bound to its connection. With a `tenantContext` the listener is not made without one
-   * (`ConfigError`, `[http.authenticator-required-for-tenant-context]`).
+   * Who calls (an `@HttpAuthenticator` listed in `@Application({ services })`). Required, unless
+   * `allowAnonymous` is set or only signed mesh peers call (`@Mesh({ inboundMode: Strict })` with a
+   * peer that propagates its tenant): else the listener is not made (`ConfigError`,
+   * `[http.authenticator-required-for-tenant-context]`). A tenant it names no owner for is bound,
+   * session by session, to `(tenant, Mcp-Session-Id)`: its owner is `mcp-session:<id>`.
    */
   readonly authenticator?: Class;
+  /**
+   * Serves callers no authenticator vouches for (default `false`): the one explicit opt-in, for an
+   * application with no `tenantContext` of its own (with one, or beside an `authenticator`, the
+   * listener is not made: `ConfigError`). An anonymous caller's identity is `anonymous:<Mcp-Session-Id>`,
+   * the session's own random id issued at `initialize` — never its connection, which a proxy pools
+   * and which a client's `POST` and `GET` do not share.
+   */
+  readonly allowAnonymous?: boolean;
   /**
    * Where callers reach the listener, an absolute http(s) URL without the `base` — or a function that
    * says it when asked (a port known once it listens): a peer's signature must name its origin.
@@ -68,6 +77,11 @@ interface OpenSession {
   readonly transport: StreamableHTTPServerTransport;
   readonly identity: McpCaller;
 }
+
+const UNAUTHENTICATED = {
+  code: "mcp.caller-unauthenticated",
+  error: "the request is not from a signed mesh peer",
+};
 
 const TENANT_MISSING = {
   code: "mcp.caller-anonymous",
@@ -113,6 +127,28 @@ interface Listening {
   readonly sessions: Map<string, OpenSession>;
 }
 
+/**
+ * The authenticator's caller. With none, only a listener made with `allowAnonymous` serves a caller
+ * that is no peer: an anonymous one; any other is `401`.
+ */
+async function judgedCallerOf(
+  l: Listening,
+  req: IncomingMessage,
+  res: ServerResponse,
+): Promise<CallerGateOutcome> {
+  if (l.authenticator !== undefined)
+    return admitCaller(
+      l.authenticator.instance,
+      { http: req, operation: req.method ?? "POST" },
+      res,
+      l.log,
+      l.options.onError,
+    );
+  if (l.options.allowAnonymous === true) return { isAdmitted: true, caller: {} };
+  writeRejection(res, 401, UNAUTHENTICATED);
+  return { isAdmitted: false };
+}
+
 /** The caller of this request: a verified peer, the authenticator's caller, or `undefined` once answered. */
 async function identityOf(
   l: Listening,
@@ -129,19 +165,9 @@ async function identityOf(
   );
   if (admitted === undefined) return undefined;
   if (admitted.session.peer !== undefined) return admitted.session;
-  // no authenticator (an application with no tenantContext): an anonymous caller, bound to its connection
-  const gate =
-    l.authenticator === undefined
-      ? { isAdmitted: true as const, caller: {} }
-      : await admitCaller(
-          l.authenticator.instance,
-          { http: req, operation: req.method ?? "POST" },
-          res,
-          l.log,
-          l.options.onError,
-        );
+  const gate = await judgedCallerOf(l, req, res);
   if (!gate.isAdmitted) return undefined;
-  const identity = sessionOf(boundToConnection(gate.caller, req));
+  const identity = sessionOf(gate.caller);
   if (identity.tenant === undefined && meshSettingsOf(l.app)?.isBaseTenantContext === false) {
     // an application with a tenantContext serves no caller without a tenant (fail closed)
     writeRejection(res, 403, TENANT_MISSING);
@@ -150,37 +176,40 @@ async function identityOf(
   return identity;
 }
 
-/** A new session of `identity`: its own server, kept from the SDK's `initialize` until it closes. */
-function opened(l: Listening, identity: McpCaller): StreamableHTTPServerTransport {
+/** A new session of `caller`: its own server, kept from the SDK's `initialize` until it closes. */
+function opened(l: Listening, caller: McpCaller): OpenSession {
+  const id = randomUUID();
+  const identity = inSession(caller, id);
   const transport = new StreamableHTTPServerTransport({
-    sessionIdGenerator: () => randomUUID(),
-    onsessioninitialized: (id) => {
+    sessionIdGenerator: () => id,
+    onsessioninitialized: () => {
       l.sessions.set(id, { transport, identity });
     },
   });
   transport.onclose = () => {
-    if (transport.sessionId !== undefined) l.sessions.delete(transport.sessionId);
+    l.sessions.delete(id);
   };
   void mcpServerOf(l.app, l.served, messageIdentity).connect(transport);
-  return transport;
+  return { transport, identity };
 }
 
-/** The transport of this request: the session's, or a new one for the request that opens it. */
+/** The transport of this request and who it runs as: the session's, or a new one for the request that opens it. */
 function transportOf(
   l: Listening,
   request: { req: IncomingMessage; res: ServerResponse },
-  identity: McpCaller,
-): StreamableHTTPServerTransport | undefined {
+  caller: McpCaller,
+): OpenSession | undefined {
   const { req, res } = request;
   const id = headerOf(req, SESSION_HEADER);
-  if (id === undefined && req.method === "POST") return opened(l, identity);
+  if (id === undefined && req.method === "POST") return opened(l, caller);
   const open = id === undefined ? undefined : l.sessions.get(id);
-  if (open === undefined || !isSameCaller(identity, open.identity)) {
+  const asked = id === undefined ? caller : inSession(caller, id);
+  if (open === undefined || !isSameCaller(asked, open.identity)) {
     // a stranger holding an id is told what any other id is told
     writeRejection(res, 404, NO_SESSION);
     return undefined;
   }
-  return open.transport;
+  return { transport: open.transport, identity: open.identity };
 }
 
 /** Serves one request. */
@@ -198,10 +227,10 @@ async function serve(l: Listening, req: IncomingMessage, res: ServerResponse): P
     writeRejection(res, 400, NOT_JSON);
     return;
   }
-  const transport = transportOf(l, { req, res }, identity);
-  if (transport === undefined) return;
-  carrying(req, identity); // this message runs as its own caller, equal to the session's opener
-  await transport.handleRequest(req, res, body);
+  const served = transportOf(l, { req, res }, identity);
+  if (served === undefined) return;
+  carrying(req, served.identity); // this message runs as the session's caller
+  await served.transport.handleRequest(req, res, body);
 }
 
 /** `http.createServer(mcpHttpListener(app, { endpoint, authenticator?, publicUrl, base }))`. */
@@ -213,7 +242,7 @@ export function mcpHttpListener<TApp>(
     app,
     options,
     served: servedEndpointOf(app, options.endpoint),
-    authenticator: listenerAuthenticatorOf(app, options.authenticator),
+    authenticator: listenerAuthenticatorOf(app, options.authenticator, options.allowAnonymous),
     origin: originFn(app, options.publicUrl),
     base: options.base ?? "/",
     maxBody: options.maxBodySize ?? kilobytes(1024),

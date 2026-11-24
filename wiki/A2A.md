@@ -120,11 +120,17 @@ application does not list too: `[application.endpoint-unlisted]`; a `publicUrl` 
 http(s) URL is `[a2a.public-url-invalid]`. `app` is an `A2AApp` (`execute`, `resume`, `cancel`,
 `resolve` of `App`): `createApp`'s app and `testWith`'s `app` both fit.
 
-The `authenticator` is optional for an application with no `tenantContext` of its own: a caller that is no
-signed peer is then anonymous. With a `tenantContext` and no authenticator the listener is not built:
-`ConfigError` `[http.authenticator-required-for-tenant-context]`. `mcpHttpListener` follows the same
-rule; an MCP session of an anonymous caller (no owner, no tenant) is bound to its connection, and one of an
-authenticated tenant with no `ownerId` to the whole tenant identity.
+The `authenticator` is required. The one way to serve callers nobody vouches for is
+`allowAnonymous: true` (default `false`), allowed only in an application with no `tenantContext` of its own and
+not beside an authenticator; a listener made with neither — or with `allowAnonymous` and a `tenantContext` —
+is not built: `ConfigError` `[http.authenticator-required-for-tenant-context]` (a `@Mesh({ inboundMode: Strict })`
+with a peer that propagates its tenant, which only signed peers call, needs none). Nothing is bound to the
+connection, which a proxy pools: a caller that names no owner (anonymous, or a tenant's key the authenticator
+gives no `ownerId`) owns no task — each of its new tasks has an owner of its own, the task's unpredictable id is
+the right to get, continue and cancel it, another caller's resent `messageId` finds nothing of it, and
+`ListTasks` is `403 a2a.list-forbidden`. `mcpHttpListener` follows the same rule: an anonymous caller is
+`anonymous:<Mcp-Session-Id>`, a tenant with no `ownerId` `mcp-session:<Mcp-Session-Id>` inside its tenant; the
+id is issued at `initialize`, and a `POST` and a `GET` of one client may use different connections.
 
 **The Agent Card** (`GET <base>/.well-known/agent-card.json`, `ETag`, `Last-Modified` — when the
 listener built it, at its first request (#811) —, `Cache-Control: max-age=300`):

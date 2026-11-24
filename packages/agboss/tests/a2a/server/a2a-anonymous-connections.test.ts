@@ -1,9 +1,12 @@
 /**
- * #1320 (conform): an A2A listener with no `@HttpAuthenticator` and no `tenantContext` serves
- * anonymous callers, each bound to its own connection — through the real HTTP handler, not a unit of
- * its gate. Caller A's task is not found for caller B on get, cancel, subscribe and list; A still
- * reads it.
+ * #1320 / #1316 (conform, "anonymous access is opt-in and token-bound, never socket-bound"): an A2A
+ * listener made with `allowAnonymous: true`, no `@HttpAuthenticator` and no `tenantContext`, through
+ * the real HTTP handler. An anonymous caller owns nothing and is bound to nothing of its connection:
+ * each new task has an owner of its own, the task's unpredictable id is the right to get, continue
+ * and cancel it — over any connection —, another caller's resent `messageId` finds nothing of it,
+ * and `ListTasks` is `403`. Two clients behind ONE pooled connection stay apart the same way.
  */
+import { randomUUID } from "node:crypto";
 import { Agent, request } from "node:http";
 import { afterEach, beforeEach, describe, expect } from "vitest";
 import { replyWith, testWith } from "../../../src/testing/index.js";
@@ -79,33 +82,63 @@ afterEach(() => {
   for (const each of connections.splice(0)) each.close();
 });
 
-describe("#1320: two anonymous connections of one A2A listener", () => {
-  test("B finds nothing of A's task: get, cancel, subscribe, list; A reads it", async ({
+describe("#1320: anonymous callers of one A2A listener", () => {
+  const send = (messageId: string) => ({ message: userMessage(messageId, [text("go")]) });
+  const taskIdOf = (answer: Record<string, unknown>): string =>
+    (answer.result as { task: { id: string } }).task.id;
+
+  test("two connections: a task is reached by its id, each caller's messageId is its own, listing is 403", async ({
     a2aServer,
     mockLlm,
   }) => {
-    mockLlm(Clerk).thenReturn(done);
-    const { url } = await a2aServer({ endpoint: OrdersA2AExpose });
+    mockLlm(Clerk).thenReturn(done).thenReturn(done);
+    const { url } = await a2aServer({ endpoint: OrdersA2AExpose, allowAnonymous: true });
     const a = connect(url);
     const b = connect(url);
 
-    const sent = await a.call("SendMessage", { message: userMessage("m-1", [text("go")]) });
-    const taskId = (sent.result as { task: { id: string } }).task.id;
+    const first = taskIdOf(await a.call("SendMessage", send("m-1")));
+    // the same messageId from another caller is another message: its own task, nothing of A's
+    const second = taskIdOf(await b.call("SendMessage", send("m-1")));
 
-    const own = await a.call("GetTask", { id: taskId });
-    expect((own.result as { id: string }).id).toBe(taskId);
+    expect(second).not.toBe(first);
+    // the id is the capability, over whichever connection holds it
+    for (const method of ["GetTask", "SubscribeToTask"]) {
+      const answer = await b.call(method, { id: first });
+      expect((answer.error as { code: number } | undefined)?.code, method).not.toBe(NOT_FOUND);
+    }
+    // an id that was never given out is found by no caller
     for (const method of ["GetTask", "CancelTask", "SubscribeToTask"]) {
-      const answer = await b.call(method, { id: taskId });
-      expect(answer.result, method).toBeUndefined();
+      const answer = await b.call(method, { id: randomUUID() });
       expect((answer.error as { code: number }).code, method).toBe(NOT_FOUND);
     }
-    const theirs = await b.call("ListTasks", {});
-    const mine = await a.call("ListTasks", {});
-    expect((theirs.result as { tasks?: unknown[] }).tasks ?? []).toEqual([]);
-    expect((mine.result as { tasks: { id: string }[] }).tasks.map(({ id }) => id)).toEqual([
-      taskId,
-    ]);
-    // the refusal gave B nothing of A's task
-    expect(JSON.stringify(theirs)).not.toContain(taskId);
+    // nothing lists: no caller can enumerate another's tasks
+    for (const caller of [a, b]) {
+      const listed = await caller.call("ListTasks", {});
+      expect(listed.code).toBe("a2a.list-forbidden");
+    }
+  });
+
+  test("two clients behind one pooled connection stay apart: two tasks, no listing", async ({
+    a2aServer,
+    mockLlm,
+  }) => {
+    mockLlm(Clerk).thenReturn(done).thenReturn(done);
+    const { url } = await a2aServer({ endpoint: OrdersA2AExpose, allowAnonymous: true });
+    const pooled = connect(url);
+
+    const first = taskIdOf(await pooled.call("SendMessage", send("m-1")));
+    const second = taskIdOf(await pooled.call("SendMessage", send("m-1")));
+
+    expect(second).not.toBe(first);
+    const listed = await pooled.call("ListTasks", {});
+    expect(listed.code).toBe("a2a.list-forbidden");
+  });
+
+  test("a listener with no authenticator and no allowAnonymous is not made", async ({
+    a2aServer,
+  }) => {
+    await expect(a2aServer({ endpoint: OrdersA2AExpose })).rejects.toThrow(
+      "[http.authenticator-required-for-tenant-context]",
+    );
   });
 });
