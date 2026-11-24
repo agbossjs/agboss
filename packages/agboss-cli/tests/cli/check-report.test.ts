@@ -71,12 +71,12 @@ describe("#268 AC5: the worst case per start, decorators only", () => {
 });
 
 describe("#489 AC2: #268 AC5 --env lists the process variables by name, never a value", () => {
-  it("flow-patterns' dev: secret, optional and defaulted variables, no values (M1)", () => {
+  it("flow-patterns' dev: the file's variables and the storage's (defineEnv), secret, optional and defaulted, no values (M1)", () => {
     const call = agbossProcess(["check", "--env", "dev"], FLOW_PATTERNS, {
       OPENROUTER_API_KEY: "sk-or-not-printed",
       AGBOSS_SQLITE_PATH: ":memory:",
       PII_PSEUDONYM_KEY: "pii-key-not-printed",
-      IDEMPOTENCY_KEY: "idempotency-key-not-printed",
+      AGBOSS_IDEMPOTENCY_SECRET: "idempotency-key-not-printed",
     });
 
     expect(call.code).toBe(0);
@@ -95,11 +95,11 @@ describe("#489 AC2: #268 AC5 --env lists the process variables by name, never a 
     expect(call.stdout).toContain(
       [
         "dev environment needs 5 process variables:",
-        "  OPENROUTER_API_KEY   secret",
-        "  OPENROUTER_BASE_URL  value, optional",
-        "  AGBOSS_SQLITE_PATH   value, has a default",
-        "  PII_PSEUDONYM_KEY    secret",
-        "  IDEMPOTENCY_KEY      secret",
+        "  OPENROUTER_API_KEY         secret",
+        "  OPENROUTER_BASE_URL        value, optional",
+        "  AGBOSS_SQLITE_PATH         value, has a default",
+        "  AGBOSS_IDEMPOTENCY_SECRET  secret",
+        "  PII_PSEUDONYM_KEY          secret",
         "",
       ].join("\n"),
     );
@@ -123,8 +123,8 @@ describe("#489 AC2: #268 AC5 --env lists the process variables by name, never a 
               { variable: "OPENROUTER_API_KEY", use: "secret", required: true },
               { variable: "OPENROUTER_BASE_URL", use: "value", optional: true },
               { variable: "AGBOSS_SQLITE_PATH", use: "value", required: false, optional: false },
+              { variable: "AGBOSS_IDEMPOTENCY_SECRET", use: "secret", required: true },
               { variable: "PII_PSEUDONYM_KEY", use: "secret", required: true },
-              { variable: "IDEMPOTENCY_KEY", use: "secret", required: true },
             ],
           },
         },

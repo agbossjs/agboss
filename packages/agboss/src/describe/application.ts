@@ -12,7 +12,11 @@ import {
   ImplementationReason,
   type ImplementationChoice,
 } from "../application/implementations.js";
-import { storageLinesOf, type StorageLine } from "../storage/storage-assembly.js";
+import {
+  storageLinesOf,
+  storageProvidersOf,
+  type StorageLine,
+} from "../storage/storage-assembly.js";
 import { assemblyWarningsOf, warningText, type AssemblyWarning } from "../application/start-log.js";
 import { budgetOf, BudgetScope, type BudgetMeta } from "../budgets/budget.js";
 import type { Class } from "../components/injection.js";
@@ -122,7 +126,10 @@ export function describedApplicationOf(assembled: AssembledApplication): Describ
     name: assembled.name,
     version: assembled.version,
     workflows: assembled.workflows.map((workflow) => workflow.config.name),
-    implementations: implementationsOf(assembled.providers),
+    implementations: implementationsOf(
+      assembled.providers,
+      assembled.storage === undefined ? undefined : storageProvidersOf(assembled.storage).owned,
+    ),
     ...(assembled.storage === undefined ? {} : { storage: storageLinesOf(assembled.storage) }),
     modelProviders: modelProvidersOfApplication(assembled),
     budgets: budgets.map((meta) => describedBudget(meta, nameOf)),
@@ -211,9 +218,8 @@ export function applicationLines(described: DescribedApplication): string[] {
       ? []
       : [
           "storage",
-          ...described.storage.map(
-            (line) => `  ${line.role}: ${line.name} → ${line.describes} (${line.backend})`,
-          ),
+          // `describes` already names the backend (`sqlite (AGBOSS_SQLITE_PATH)`)
+          ...described.storage.map((line) => `  ${line.role}: ${line.name} → ${line.describes}`),
         ]),
     "implementations",
     ...described.implementations.map((choice) => `  ${implementationLine(choice)}`),

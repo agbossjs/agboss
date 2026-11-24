@@ -1459,6 +1459,9 @@ export function profileProblemsOf(application: Class, where: string): Promise<re
 export type ProviderFetch = typeof fetch;
 
 // @public
+export function referencedVariablesOf(assembled: AssembledApplication): readonly ProcessVariable[];
+
+// @public
 export function renderDiagnostic(diagnostic: Diagnostic, options?: RenderOptions): string;
 
 // @public (undocumented)

@@ -71,6 +71,17 @@ describe("#1366: the implementations an application runs on", () => {
     });
   });
 
+  it("a store the storage's driver provides is said so, not listed in @Application providers", () => {
+    const [fromStorage] = implementationsOf([OwnLedger], new Set([OwnLedger])).filter(
+      (choice) => choice.contract === CostLedgerRepository,
+    );
+
+    expect(fromStorage?.reason).toBe(ImplementationReason.Storage);
+    expect(implementationLine(fromStorage as never)).toBe(
+      "CostLedgerRepository → OwnLedger (provided by the storage's driver)",
+    );
+  });
+
   it("is said in a line: the contract, its implementation and why", () => {
     const [listed] = implementationsOf([OwnLedger]).filter(
       (choice) => choice.contract === CostLedgerRepository,

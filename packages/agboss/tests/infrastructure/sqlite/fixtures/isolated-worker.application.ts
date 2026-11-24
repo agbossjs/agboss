@@ -11,22 +11,17 @@ import {
   Action,
   ApplicationContext,
   ChildPlacement,
+  DatabaseStorage,
   ExecutionContext,
   SpendRecorder,
-  SqliteCheckpointSaver,
-  SqliteChildExecutionQueueRepository,
-  SqliteCostLedgerRepository,
-  SqliteExecutionLeaseRepository,
-  SqliteExecutionRecordRepository,
-  SqliteExecutionTreeRepository,
-  SqlitePausedExecutionRepository,
-  SqliteRateLimitRepository,
+  SqliteDriver,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
   type Produced,
 } from "../../../../src/index.js";
-import { usd } from "../../../../src/units/index.js";
+import { env } from "../../../../src/environments/index.js";
+import { hours, usd } from "../../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { ItemDto, ItemResultDto } from "../../../flow/runtime/fixtures/fan-out.workflow.js";
 import { onStart } from "../../../helpers/flow.js";
@@ -202,6 +197,14 @@ export class IsolatedAskRootWorkflowStart {}
 })
 export class IsolatedAskRootWorkflow {}
 
+/** The one SQLite file the processes share. */
+@DatabaseStorage({
+  driver: SqliteDriver({ path: env("AGBOSS_SQLITE_TEST_PATH") }),
+  auditLogTtl: hours(1),
+  ledgerEntriesTtl: hours(1),
+})
+export class IsolatedProcessStorage {}
+
 @Application({
   name: "isolated-process-application",
   version: "1.0.0",
@@ -209,17 +212,8 @@ export class IsolatedAskRootWorkflow {}
   workflows: [IsolatedRunRootWorkflow, IsolatedAskRootWorkflow],
   isolatedWorker: { entry: import.meta.url },
   budgets: TEST_BUDGETS,
-  providers: [
-    SqliteCheckpointSaver,
-    SqliteCostLedgerRepository,
-    SqliteExecutionLeaseRepository,
-    SqliteExecutionRecordRepository,
-    SqliteExecutionTreeRepository,
-    SqlitePausedExecutionRepository,
-    SqliteRateLimitRepository,
-    SqliteChildExecutionQueueRepository,
-    IsolatedChannel,
-  ],
+  storage: IsolatedProcessStorage,
+  providers: [IsolatedChannel],
 })
 export class IsolatedProcessApplication {}
 

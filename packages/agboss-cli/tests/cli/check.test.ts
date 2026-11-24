@@ -9,7 +9,6 @@ import {
   fixture,
   agboss,
   ledgerWarning,
-  piiKeyWarning,
   TEST_APPLICATION_REPORT,
 } from "./agboss.js";
 
@@ -78,7 +77,7 @@ describe("#198 AC3: agboss check runs every key-free validation", () => {
 
     expect(call).toMatchObject({ code: 0, stderr: "" });
     expect(call.stdout).toBe(
-      `types: .agboss/types.d.ts\n${TEST_APPLICATION_REPORT}${ledgerWarning(WORKFLOW)}${piiKeyWarning(WORKFLOW)}ok: ${WORKFLOW} — ${CHECKS_RUN}\n`,
+      `types: .agboss/types.d.ts\n${TEST_APPLICATION_REPORT}${ledgerWarning(WORKFLOW)}ok: ${WORKFLOW} — ${CHECKS_RUN}\n`,
     );
   });
 
@@ -129,7 +128,7 @@ describe("#199 + #198: the prompts check runs on every agboss check", () => {
 
     expect(call).toMatchObject({
       code: 0,
-      stdout: `types: .agboss/types.d.ts\n${TEST_APPLICATION_REPORT}${ledgerWarning(WORKFLOW)}${piiKeyWarning(WORKFLOW)}ok: ${WORKFLOW} — ${CHECKS_RUN}\n`,
+      stdout: `types: .agboss/types.d.ts\n${TEST_APPLICATION_REPORT}${ledgerWarning(WORKFLOW)}ok: ${WORKFLOW} — ${CHECKS_RUN}\n`,
     });
   });
 });
@@ -141,6 +140,8 @@ describe("#261 AC14: the application's assembly warnings in agboss check", () =>
 
     expect(warned.code).toBe(0);
     expect(warned.stdout).toContain(ledgerWarning(WORKFLOW));
+    // #1301b: the per-execution PII key warning is gone with the removed piiKeyField
+    expect(warned.stdout).not.toContain("pii-instance-key");
     expect(strict.code).toBe(3);
     expect((envelope(strict).result as CheckResult).problems).toContainEqual({
       file: WORKFLOW,
@@ -148,17 +149,6 @@ describe("#261 AC14: the application's assembly warnings in agboss check", () =>
       message:
         "in-memory cost ledger: each application instance counts budgets on its own and the counters reset on restart",
     });
-  });
-
-  it("#120 S94: no piiKeyField — [application.pii-instance-key] printed, an error under --strict", async () => {
-    const warned = await agboss(["check", "--application", WORKFLOW], CWD);
-    const strict = await agboss(["check", "--strict", "--application", WORKFLOW, "--json"], CWD);
-
-    expect(warned.stdout).toContain(piiKeyWarning(WORKFLOW));
-    expect(strict.code).toBe(3);
-    expect((envelope(strict).result as CheckResult).problems).toContainEqual(
-      expect.objectContaining({ file: WORKFLOW, code: "application.pii-instance-key" }),
-    );
   });
 });
 

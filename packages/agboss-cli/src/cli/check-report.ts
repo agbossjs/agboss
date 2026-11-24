@@ -3,6 +3,7 @@ import {
   describedLimitsOf,
   environmentOwnerOf,
   environmentVariablesOf,
+  referencedVariablesOf,
   selectedEnvironment,
   worstCaseLimitsOf,
   worstCaseReportLines,
@@ -64,6 +65,22 @@ function environmentLines(report: EnvironmentReport): readonly string[] {
 }
 
 /**
+ * Every variable the application reads: the environment file's, then those its components name
+ * through `defineEnv` references (the storage's file and secrets, an A2A agent's url, …), once each.
+ */
+function variablesOf(
+  assembled: AssembledApplication,
+  loaded: Parameters<typeof environmentVariablesOf>[0],
+): readonly ProcessVariable[] {
+  const fromFile = environmentVariablesOf(loaded);
+  const named = new Set(fromFile.map((found) => found.variable));
+  return [
+    ...fromFile,
+    ...referencedVariablesOf(assembled).filter((found) => !named.has(found.variable)),
+  ];
+}
+
+/**
  * The `--env` environment's variables; none when it cannot be loaded — the environment check
  * reports why (`environment.not-found`, …).
  */
@@ -75,7 +92,7 @@ async function environmentReportOf(
     const loaded = await selectedEnvironment(environmentOwnerOf(assembled), envName);
     return loaded === undefined
       ? undefined
-      : { name: loaded.name, variables: environmentVariablesOf(loaded) };
+      : { name: loaded.name, variables: variablesOf(assembled, loaded) };
   } catch (error) {
     if (error instanceof EnvironmentError) return undefined;
     throw error;

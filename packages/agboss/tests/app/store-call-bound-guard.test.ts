@@ -105,11 +105,9 @@ describe("#928 AC1 guard: every method of every bounded contract is bounded", ()
       ),
     );
     expect([...found].sort()).toEqual([
-      "deleteByCreatedAtBefore",
       "deleteByMadeAtBefore",
       "deleteByResolvedAtBefore",
       "deleteExpired",
-      "deleteTerminalByStatusAtBefore",
     ]);
     expect([...found].every((name) => MAINTENANCE_METHODS.test(name))).toBe(true);
   });

@@ -1,6 +1,12 @@
 import type { Environment } from "../flow/generated-types.js";
 import { EnvironmentError, EnvironmentErrorCode } from "./errors.js";
-import { resolvedSecret, SECRET_MASK, Secret, variableOfSecret } from "./secret.js";
+import {
+  OptionalSecretReference,
+  resolvedSecret,
+  SECRET_MASK,
+  Secret,
+  variableOfSecret,
+} from "./secret.js";
 import { VariableKind, VariablePresence, VariableReference } from "./variables.js";
 import { isProcessValue, leavesOf, mapLeaves, type ProcessValue } from "./walk.js";
 
@@ -174,22 +180,35 @@ export const NO_ENVIRONMENT_VALUES: Environment = environmentOf(Object.freeze({}
 export const unitEnvironmentOf = (values: Partial<Environment>): Environment =>
   environmentOf(values);
 
+/** The process variable one reference reads: a value or a secret, required, defaulted or optional. */
+export function processVariableOf(
+  field: string,
+  value: ProcessValue | OptionalSecretReference,
+): ProcessVariable {
+  if (value instanceof OptionalSecretReference)
+    return {
+      variable: value.variable,
+      field,
+      use: VariableUse.Secret,
+      required: false,
+      optional: true,
+    };
+  const isSecret = value instanceof Secret;
+  const optional = isOptional(value);
+  return {
+    variable: variableOf(value),
+    field,
+    use: isSecret ? VariableUse.Secret : VariableUse.Value,
+    required: isSecret || (value.fallback === undefined && !optional),
+    optional,
+  };
+}
+
 /** Every process variable an environment file reads, by field. */
 export const environmentVariablesOf = (loaded: LoadedEnvironment): readonly ProcessVariable[] =>
-  leavesOf(loaded.values).flatMap(([field, value]): ProcessVariable[] => {
-    if (!isProcessValue(value)) return [];
-    const isSecret = value instanceof Secret;
-    const optional = isOptional(value);
-    return [
-      {
-        variable: variableOf(value),
-        field,
-        use: isSecret ? VariableUse.Secret : VariableUse.Value,
-        required: isSecret || (value.fallback === undefined && !optional),
-        optional,
-      },
-    ];
-  });
+  leavesOf(loaded.values).flatMap(([field, value]) =>
+    isProcessValue(value) ? [processVariableOf(field, value)] : [],
+  );
 
 /** An environment as `agboss describe` shows it: its values (missing ones unset) and printable fields. */
 export interface DescribedEnvironment {

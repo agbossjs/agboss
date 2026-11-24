@@ -34,6 +34,8 @@ export enum ImplementationReason {
   Listed = "listed",
   /** None listed: the built-in default. */
   Default = "default",
+  /** A store the application's `@DatabaseStorage` / `@ClusterStorage` driver provides. */
+  Storage = "storage",
 }
 
 /** One contract and the class that implements it. */
@@ -47,24 +49,37 @@ export interface ImplementationChoice {
 const listedClasses = (providers: readonly Provider[]): readonly Class[] =>
   providers.filter((provider): provider is Class => typeof provider === "function");
 
-/** Each contract with its implementation, in the order of the built-in defaults. */
-export function implementationsOf(providers: readonly Provider[]): readonly ImplementationChoice[] {
+/**
+ * Each contract with its implementation, in the order of the built-in defaults. `fromStorage` names
+ * the classes the application's storage drivers provide: they are in `providers` too, but no one listed
+ * them there.
+ */
+export function implementationsOf(
+  providers: readonly Provider[],
+  fromStorage: ReadonlySet<Class> = new Set(),
+): readonly ImplementationChoice[] {
   const listed = listedClasses(providers);
   return [...INFRASTRUCTURE_DEFAULTS].map(([contract, fallback]) => {
     const found = listed.find((cls) => infrastructureContractOf(cls) === contract);
-    return found === undefined
-      ? { contract, implementation: fallback, reason: ImplementationReason.Default }
-      : { contract, implementation: found, reason: ImplementationReason.Listed };
+    if (found === undefined)
+      return { contract, implementation: fallback, reason: ImplementationReason.Default };
+    const reason = fromStorage.has(found)
+      ? ImplementationReason.Storage
+      : ImplementationReason.Listed;
+    return { contract, implementation: found, reason };
   });
 }
 
+/** Why a choice is the one used, as `describe` words it. */
+const REASON_TEXT: Readonly<Record<ImplementationReason, string>> = {
+  [ImplementationReason.Listed]: "listed in @Application providers",
+  [ImplementationReason.Default]: "built-in default: none listed",
+  [ImplementationReason.Storage]: "provided by the storage's driver",
+};
+
 /** `CostLedgerRepository → SqliteCostLedgerRepository (listed in @Application providers)`. */
 export const implementationLine = (choice: ImplementationChoice): string =>
-  `${tokenName(choice.contract)} → ${tokenName(choice.implementation)} (${
-    choice.reason === ImplementationReason.Listed
-      ? "listed in @Application providers"
-      : "built-in default: none listed"
-  })`;
+  `${tokenName(choice.contract)} → ${tokenName(choice.implementation)} (${REASON_TEXT[choice.reason]})`;
 
 /**
  * The built-in in-memory classes (and LangGraph's `MemorySaver` listed as it is): lost on restart,

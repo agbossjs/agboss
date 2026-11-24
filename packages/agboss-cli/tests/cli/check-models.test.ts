@@ -6,12 +6,15 @@ import { PricedApplication } from "../../../agboss/tests/models/fixtures/priced.
 import { KIMI_ENTRY, providerStub } from "../../../agboss/tests/models/stub.js";
 import { NotesApplication } from "../../../agboss/tests/models/fixtures/two-workflows.workflow.js";
 
+/** The fallback provider's model for `moonshotai/kimi-k2.6` (#1313c: a fallback model is checked too). */
+const BACKUP_ENTRY = { id: "backup/kimi-k2.6" };
+
 describe("AC6: agboss check --models", () => {
   it("AC6: settings that fit print each model's provider and ok, exit code 0 — no API key needed", async () => {
     const report = await checkApplicationModels(
       await applicationOf(PricedApplication),
       {},
-      providerStub([], [KIMI_ENTRY, { id: "local/llama" }]).fetch,
+      providerStub([], [KIMI_ENTRY, { id: "local/llama" }, BACKUP_ENTRY]).fetch,
     );
 
     expect(report.exitCode).toBe(0);
@@ -29,9 +32,10 @@ describe("AC6: agboss check --models", () => {
     expect(report).toEqual({
       exitCode: 1,
       lines: [
-        "ConfigurationError: 2 model setting(s) do not fit their models",
+        "ConfigurationError: 3 model setting(s) do not fit their models",
         "  model.unknown-model  agents.summariser-agent = local/llama — model local/llama: local-model-provider does not list it",
         "  model.unknown-model  agents.writer-agent = moonshotai/kimi-k2.6 — model moonshotai/kimi-k2.6: openrouter-model-provider does not list it",
+        "  model.unknown-model  agents.writer-agent = backup/kimi-k2.6 — model backup/kimi-k2.6: backup-model-provider does not list it",
       ],
     });
   });
@@ -46,8 +50,9 @@ describe("AC6: agboss check --models", () => {
     expect(report).toEqual({
       exitCode: 1,
       lines: [
-        "ConfigurationError: 1 model setting(s) do not fit their models",
+        "ConfigurationError: 2 model setting(s) do not fit their models",
         "  model.unknown-model  polishing-workflow agents.polishing-agent = moonshotai/kimi-k2.6 — model moonshotai/kimi-k2.6: openrouter-model-provider does not list it",
+        "  model.unknown-model  polishing-workflow agents.polishing-agent = backup/kimi-k2.6 — model backup/kimi-k2.6: backup-model-provider does not list it",
       ],
     });
   });
@@ -56,7 +61,7 @@ describe("AC6: agboss check --models", () => {
     const report = await checkApplicationModels(
       await applicationOf(NotesApplication),
       {},
-      providerStub([], [KIMI_ENTRY, { id: "local/llama" }]).fetch,
+      providerStub([], [KIMI_ENTRY, { id: "local/llama" }, BACKUP_ENTRY]).fetch,
     );
 
     expect(report.exitCode).toBe(0);

@@ -71,6 +71,7 @@ export {
   selectedEnvironment,
   type EnvironmentOwner,
 } from "./environments/load.js";
+export { referencedVariablesOf } from "./application/referenced-variables.js";
 export {
   environmentVariablesOf,
   resolveEnvironment,

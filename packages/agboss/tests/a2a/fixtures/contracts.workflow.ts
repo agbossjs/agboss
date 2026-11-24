@@ -14,7 +14,9 @@ import {
   WorkflowStart,
 } from "../../../src/index.js";
 import { McpEndpoint } from "../../../src/mcp/index.js";
-import { usd } from "../../../src/units/index.js";
+import { defineEnv, secret } from "../../../src/environments/index.js";
+import { DatabaseStorage, SqliteDriver } from "../../../src/storage/index.js";
+import { hours, usd } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart } from "../../helpers/flow.js";
 import { HttpAuthResult, HttpAuthenticator } from "../../../src/index.js";
@@ -222,12 +224,24 @@ export class ShopMcpEndpoint {}
 })
 export class ShopApplication {}
 
+const shopSecrets = defineEnv({ idempotencySecret: secret("AGBOSS_IDEMPOTENCY_SECRET") });
+
+/** The shop's rows (#1321): its tool reaches the billing desk, so the application names a key. */
+@DatabaseStorage({
+  driver: SqliteDriver({ path: ":memory:" }),
+  auditLogTtl: hours(1),
+  ledgerEntriesTtl: hours(1),
+  idempotencySecret: shopSecrets.idempotencySecret,
+})
+export class ShopDatabaseStorage {}
+
 /** The same with a knowledge base: what `describe --json` lists (assembled, never started). */
 @Application({
   name: "shop-kb-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [QuoteWorkflow, RefundWorkflow, KbWorkflow],
+  storage: ShopDatabaseStorage,
   budgets: TEST_BUDGETS,
   endpoints: [ShopA2AExpose, ShopMcpEndpoint],
 })

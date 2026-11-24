@@ -11,7 +11,7 @@ import type { WorkflowSpec } from "../../src/scaffold/plan.js";
 import { planProject } from "../../src/scaffold/project.js";
 import { applyChanges } from "../../src/scaffold/write.js";
 import { expectStaticChecks, agbossIn, vitestOf } from "./project-checks.js";
-import { CHECKS_RUN, ledgerWarning, piiKeyWarning } from "../cli/agboss.js";
+import { CHECKS_RUN, ledgerWarning } from "../cli/agboss.js";
 
 const tmp = new URL("../../.scaffold-tmp", import.meta.url).pathname;
 const project = join(tmp, `shop-${String(process.pid)}`);
@@ -62,9 +62,7 @@ describe("#239: environments next to the workflow file, read through Application
       /^types: \.agboss\/types\.d\.ts\nshop-application 0\.1\.0, environment dev\n\nWorst case of one [a-z-]+-workflow-start call\n/,
     );
     expect(
-      check.out.endsWith(
-        `\n\n${ledgerWarning(application)}${piiKeyWarning(application)}ok: ${application} — ${CHECKS_RUN}\n`,
-      ),
+      check.out.endsWith(`\n\n${ledgerWarning(application)}ok: ${application} — ${CHECKS_RUN}\n`),
     ).toBe(true);
     const described = agbossIn(project, ["describe"]);
     expect(described.out).toContain("environment dev");

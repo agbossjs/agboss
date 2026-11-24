@@ -14,7 +14,7 @@ import { DeskCallDto, DeskReplyDto } from "../dto/desk-call.dto.js";
   target: { application: "desk-application", skill: "desk-workflow-start" },
   input: DeskCallDto,
   output: DeskReplyDto,
-  price: usd(0.001), // per call: counted in the calling tool's spend
+  costPerCall: usd(0.001), // per call: counted in the calling tool's spend
   deps: [ExecutionContext],
 })
 export class DeskA2AAgent extends A2AClient<DeskCallDto, DeskReplyDto> {
