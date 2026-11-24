@@ -58,12 +58,20 @@ async function timeoutProblemsOf(application: new () => object): Promise<string[
     .map((one) => one.message);
 }
 
-function applicationWith(options: {
+function applicationWith({
+  shutdownTimeout,
+  compensationTimeout,
+  ...options
+}: {
   readonly shutdownTimeout?: Milliseconds;
   readonly compensationTimeout?: Milliseconds;
   readonly healthChecks?: never[];
   readonly providers?: never[];
 }): new () => object {
+  const executionLimits = {
+    ...(shutdownTimeout === undefined ? {} : { shutdownTimeout }),
+    ...(compensationTimeout === undefined ? {} : { compensationTimeout }),
+  };
   class CappedApplication {
     readonly isCapped = true;
   }
@@ -73,6 +81,7 @@ function applicationWith(options: {
     environment: EmptyEnvironment,
     workflows: [ProbeWorkflow],
     budgets: TEST_BUDGETS,
+    executionLimits,
     ...options,
   })(CappedApplication);
   return CappedApplication;
@@ -111,7 +120,7 @@ describe("#1141: @Application timers", () => {
     it(`${field}: cap + 1 refused naming the field, the cap accepted`, async () => {
       const refused = await timeoutProblemsOf(applicationWith({ [field]: over(MAX_TIMEOUT) }));
       expect(refused).toHaveLength(1);
-      expect(refused[0]).toContain(`its ${field} is ${String(MAX_TIMEOUT + 1)} ms`);
+      expect(refused[0]).toContain(`its executionLimits.${field} is ${String(MAX_TIMEOUT + 1)} ms`);
       expect(await timeoutProblemsOf(applicationWith({ [field]: MAX_TIMEOUT }))).toEqual([]);
     });
   }

@@ -18,7 +18,7 @@ const tool = { app, type: Object, name: "pay" };
 
 /** The ids a call's frame holds, as its work reads them. */
 const idsOf = (callId: string | undefined) =>
-  inMcpCallFrame(tool, { callId, signal: undefined } as never, () =>
+  inMcpCallFrame(tool, { callId, signal: new AbortController().signal } as never, () =>
     Promise.resolve({
       executionId: currentFrame()?.execution.executionId,
       callId: currentFrame()?.step.callId,

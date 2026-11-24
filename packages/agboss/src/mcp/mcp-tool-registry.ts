@@ -98,7 +98,8 @@ const toolResult = (output: ToolOutput<unknown>): CallToolResult =>
     : output.kind === "ok" && isRecord(output.value)
       ? {
           content: [{ type: "text", text: renderToolResult(output) }],
-          structuredContent: output.value,
+          // the wire takes plain JSON: a validated output is a DTO class instance, which the SDK's record check refuses
+          structuredContent: JSON.parse(JSON.stringify(output.value)) as Record<string, unknown>,
         }
       : {
           content: [{ type: "text", text: renderToolResult(output) }],

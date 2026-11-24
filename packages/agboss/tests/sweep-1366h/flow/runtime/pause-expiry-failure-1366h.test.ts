@@ -47,8 +47,11 @@ const siteOf = (check: ExpirySite["budgets"]["check"] = () => undefined): Expiry
   budgets: { check },
 });
 
+/** A frame's execution always carries its signal. */
+const { signal } = new AbortController();
+
 const inFrameWithoutDeadline = <T>(work: () => Promise<T>): Promise<T> =>
-  runInFrame({ execution: {} as never, step: {} as never }, work);
+  runInFrame({ execution: { signal } as never, step: {} as never }, work);
 
 describe("#1366: the signal", () => {
   it("is named and carries its pause", () => {
@@ -79,7 +82,7 @@ describe("#1366: a run-bound pause", () => {
   });
 
   it("takes the deadline the frame's execution was given", async () => {
-    const execution = { deadline: { deadline: 90_000, at: EXPIRES } } as never;
+    const execution = { signal, deadline: { deadline: 90_000, at: EXPIRES } } as never;
     const error = await runInFrame({ execution, step: {} as never }, () =>
       Promise.resolve(expiryFailureOf(pauseOf(), siteOf())),
     );
