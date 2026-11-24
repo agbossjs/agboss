@@ -21,6 +21,7 @@ const mocks = vi.hoisted(() => ({
   forgetTree: vi.fn(),
   endRestingCancelled: vi.fn(),
   wakeAnswered: vi.fn(),
+  wakeParked: vi.fn(),
   isFailureClaimed: vi.fn(),
   hasUndoableActions: vi.fn(),
   unwoundChild: vi.fn(),
@@ -44,6 +45,7 @@ vi.mock("../../src/app/cancel-resting.js", () => ({
 }));
 vi.mock("../../src/app/answered-wake.js", () => ({
   wakeAnsweredOf: () => mocks.wakeAnswered,
+  wakeParkedOf: () => mocks.wakeParked,
 }));
 
 const record = (overrides: Record<string, unknown> = {}) =>
@@ -82,7 +84,7 @@ describe("#1366: the orphan look's end of a tree", () => {
     const release = vi.fn(() => Promise.resolve());
     const { parts, tryHold } = partsOf({ release });
 
-    expect(await orphanEndsOf(parts).closeOrphan(record({ runId: null }))).toBe(false);
+    expect(await orphanEndsOf(parts, {} as never).closeOrphan(record({ runId: null }))).toBe(false);
 
     expect(tryHold).not.toHaveBeenCalled();
     expect(mocks.forgetTree).not.toHaveBeenCalled();
@@ -93,7 +95,7 @@ describe("#1366: the orphan look's end of a tree", () => {
     const release = vi.fn(() => Promise.resolve());
     const { parts, tryHold } = partsOf({ release });
 
-    expect(await orphanEndsOf(parts).closeOrphan(record())).toBe(true);
+    expect(await orphanEndsOf(parts, {} as never).closeOrphan(record())).toBe(true);
 
     expect(tryHold).toHaveBeenCalledOnce();
     expect(tryHold).toHaveBeenCalledWith(
@@ -113,7 +115,7 @@ describe("#1366: the orphan look's end of a tree", () => {
   it("a root whose record names no version: the workflow's version is the one it started on", async () => {
     const { parts } = partsOf({ release: () => Promise.resolve() });
 
-    await orphanEndsOf(parts).closeOrphan(record({ configVersion: null }));
+    await orphanEndsOf(parts, {} as never).closeOrphan(record({ configVersion: null }));
 
     expect(mocks.forgetTree).toHaveBeenCalledWith(
       parts,
@@ -125,7 +127,7 @@ describe("#1366: the orphan look's end of a tree", () => {
   it("a cancelled root: its end is the cancel's, as app.cancel ends it", async () => {
     const { parts } = partsOf({ release: () => Promise.resolve() });
 
-    await orphanEndsOf(parts).closeOrphan(
+    await orphanEndsOf(parts, {} as never).closeOrphan(
       record({ status: ExecutionRecordStatus.Cancelled, stopReason: "the run was cancelled" }),
     );
 
@@ -136,7 +138,7 @@ describe("#1366: the orphan look's end of a tree", () => {
   it("a lease held elsewhere: false, the tree left to a later look", async () => {
     const { parts, tryHold } = partsOf(undefined);
 
-    expect(await orphanEndsOf(parts).closeOrphan(record())).toBe(false);
+    expect(await orphanEndsOf(parts, {} as never).closeOrphan(record())).toBe(false);
 
     expect(tryHold).toHaveBeenCalledOnce();
     expect(mocks.forgetTree).not.toHaveBeenCalled();
@@ -147,7 +149,9 @@ describe("#1366: the orphan look's end of a tree", () => {
     const { parts } = partsOf({ release });
     mocks.forgetTree.mockRejectedValue(new Error("the store is down"));
 
-    await expect(orphanEndsOf(parts).closeOrphan(record())).rejects.toThrow("the store is down");
+    await expect(orphanEndsOf(parts, {} as never).closeOrphan(record())).rejects.toThrow(
+      "the store is down",
+    );
 
     expect(release).toHaveBeenCalledOnce();
   });
@@ -156,7 +160,7 @@ describe("#1366: the orphan look's end of a tree", () => {
     const { parts, tryHold } = partsOf({ release: () => Promise.resolve() });
     mocks.endRestingCancelled.mockResolvedValue(false);
 
-    const ended = await orphanEndsOf(parts).closeOrphan(
+    const ended = await orphanEndsOf(parts, {} as never).closeOrphan(
       record({ status: ExecutionRecordStatus.Paused }),
     );
 
@@ -176,14 +180,17 @@ describe("#1366: the orphan look's end of a tree", () => {
     const { parts } = partsOf(undefined);
 
     expect(
-      await orphanEndsOf(parts).closeOrphan(record({ status: ExecutionRecordStatus.Paused })),
+      await orphanEndsOf(parts, {} as never).closeOrphan(
+        record({ status: ExecutionRecordStatus.Paused }),
+      ),
     ).toBe(true);
   });
 
   it("the second look is the answered-wake of the same parts", async () => {
     const { parts } = partsOf(undefined);
 
-    expect(orphanEndsOf(parts).wakeAnswered).toBe(mocks.wakeAnswered);
+    expect(orphanEndsOf(parts, {} as never).wakeAnswered).toBe(mocks.wakeAnswered);
+    expect(orphanEndsOf(parts, {} as never).wakeParked).toBe(mocks.wakeParked);
   });
 });
 

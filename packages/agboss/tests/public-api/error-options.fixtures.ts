@@ -30,6 +30,14 @@ export const fixtures: Readonly<Record<string, object>> = Object.fromEntries([
     token: 2,
     effect: "charge",
   }),
+  fx(root.ExecutionPauseFencedError, {
+    scopeKey: "acme:root-1",
+    tenantId: "acme",
+    rootExecutionId: "root-1",
+    leaseExecutionId: "child-1",
+    token: 2,
+    effect: "charge",
+  }),
   fx(root.InvalidMintedIdError, {
     generator: "G",
     method: "newThreadId",

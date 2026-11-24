@@ -20,6 +20,7 @@ interface Tree {
 const PauseRow = z.object({
   is_externally_paused: z.number(),
   external_pause_reason: z.string().nullable(),
+  external_pause_mode: z.string().nullable(),
   fenced_through_token: z.number().nullable(),
   lease_epoch: z.number(),
 });
@@ -27,7 +28,8 @@ const PauseRow = z.object({
 const rowOf = (database: DatabaseSync, tree: Tree) => {
   const row = database
     .prepare(
-      `SELECT is_externally_paused, external_pause_reason, fenced_through_token, lease_epoch
+      `SELECT is_externally_paused, external_pause_reason, external_pause_mode, fenced_through_token,
+         lease_epoch
        FROM execution_leases WHERE tenant_id = ? AND root_execution_id = ?`,
     )
     .get(tree.tenantId, tree.rootExecutionId);
@@ -43,7 +45,17 @@ export function pauseMarksOf(database: DatabaseSync, tree: Tree): PauseMarks {
       ? undefined
       : z.string().parse(JSON.parse(row.external_pause_reason));
   return {
-    ...(row.is_externally_paused === 0 ? {} : { pause: reason === undefined ? {} : { reason } }),
+    ...(row.is_externally_paused === 0
+      ? {}
+      : {
+          pause: {
+            ...(reason === undefined ? {} : { reason }),
+            mode:
+              row.external_pause_mode === InterruptMode.Immediate
+                ? InterruptMode.Immediate
+                : InterruptMode.AfterStep,
+          },
+        }),
     ...(row.fenced_through_token === null ? {} : { fencedThroughToken: row.fenced_through_token }),
   };
 }
@@ -64,14 +76,21 @@ export function markedPaused(
   database
     .prepare(
       `INSERT INTO execution_leases (tenant_id, root_execution_id, holder_instance_id, lease_epoch,
-         expires_at, released, yielded, is_externally_paused, external_pause_reason, fenced_through_token)
-       VALUES (?, ?, '', 0, 0, 1, 0, 1, ?, ?)
+         expires_at, released, yielded, is_externally_paused, external_pause_reason, fenced_through_token,
+         external_pause_mode)
+       VALUES (?, ?, '', 0, 0, 1, 0, 1, ?, ?, ?)
        ON CONFLICT (tenant_id, root_execution_id) DO UPDATE SET
          is_externally_paused = 1, external_pause_reason = excluded.external_pause_reason,
+         external_pause_mode = CASE WHEN execution_leases.is_externally_paused = 1
+           AND execution_leases.external_pause_mode = 'immediate' THEN 'immediate'
+           ELSE excluded.external_pause_mode END,
          fenced_through_token = CASE WHEN ? THEN MAX(COALESCE(execution_leases.fenced_through_token, 0),
            execution_leases.lease_epoch) ELSE execution_leases.fenced_through_token END`,
     )
-    .run(tree.tenantId, tree.rootExecutionId, reason, isImmediate ? 0 : null, isImmediate ? 1 : 0);
+    .run(
+      ...[tree.tenantId, tree.rootExecutionId, reason, isImmediate ? 0 : null],
+      ...[pause.request.mode, isImmediate ? 1 : 0],
+    );
   if (!wasPaused && pause.transition !== undefined)
     sqliteStatusLog(database).appended(pause.transition, new Date(pause.now));
 }
@@ -85,7 +104,8 @@ export function liftedPause(
   if (rowOf(database, tree)?.is_externally_paused !== 1) return;
   database
     .prepare(
-      `UPDATE execution_leases SET is_externally_paused = 0, external_pause_reason = NULL
+      `UPDATE execution_leases SET is_externally_paused = 0, external_pause_reason = NULL,
+         external_pause_mode = NULL
        WHERE tenant_id = ? AND root_execution_id = ?`,
     )
     .run(tree.tenantId, tree.rootExecutionId);

@@ -33,7 +33,7 @@ export class LeaseTable {
   /** The trees' stop marks (#1341b): the mode only escalates. */
   readonly stops = new Map<string, InterruptMode>();
   /** The trees' external pauses (#1341c) and the fences that outlive them. */
-  readonly pauses = new Map<string, { readonly reason?: string }>();
+  readonly pauses = new Map<string, { readonly reason?: string; readonly mode: InterruptMode }>();
   readonly fences = new Map<string, number>();
 }
 
@@ -88,7 +88,11 @@ export class MapExecutionLeaseRepository extends ExecutionLeaseRepository {
     request: { readonly mode: InterruptMode; readonly reason?: string | undefined },
   ): Promise<void> {
     const key = keyOf(tree.tenantId, tree.rootExecutionId);
-    this.table.pauses.set(key, request.reason === undefined ? {} : { reason: request.reason });
+    const known = this.table.pauses.get(key)?.mode;
+    this.table.pauses.set(key, {
+      ...(request.reason === undefined ? {} : { reason: request.reason }),
+      mode: known === InterruptMode.Immediate ? InterruptMode.Immediate : request.mode,
+    });
     if (request.mode === InterruptMode.Immediate) {
       const token = this.table.rows.get(key)?.token ?? 0;
       this.table.fences.set(key, Math.max(this.table.fences.get(key) ?? 0, token));

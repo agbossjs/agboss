@@ -6,7 +6,7 @@ import {
   interruptReasonOf,
   type InterruptCleanups,
 } from "./interrupt-cleanup.js";
-import type { ExecutionStopFencedError } from "../../app/lease-stopped.js";
+import type { InterruptFenced } from "../../app/lease-stopped.js";
 import type { StoreOutcomeUnknownError } from "../../infrastructure/store-call-timeout.js";
 import type { FingerprintKeys } from "../../infrastructure/fenced-effect-key.js";
 import { AsyncLocalStorage } from "node:async_hooks";
@@ -129,7 +129,7 @@ export interface FrameLease {
    * (#909, `ExecutionCancelFencedError`): the holder stops the tree as cancelled — its signal
    * aborts, the open undos run under this very lease — at once, not at its next renewal.
    */
-  cancelFound?(cause: ExecutionCancelFencedError | ExecutionStopFencedError): void;
+  cancelFound?(cause: ExecutionCancelFencedError | InterruptFenced): void;
   /**
    * The lease is not released before `attempt` settles (#508): an outbound call's attempt in flight
    * keeps it open — renewed on — so no other instance takes its pending intent for gone.

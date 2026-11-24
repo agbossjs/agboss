@@ -1,10 +1,17 @@
 import { isExternallyPaused } from "./external-pause.js";
 import { LeaseTakeoverReason } from "../infrastructure/execution-audit-log.repository.js";
-import { ExecutionRecordStatus } from "../infrastructure/execution-record.repository.js";
+import {
+  ExecutionRecordStatus,
+  type ExecutionRecordRepository,
+} from "../infrastructure/execution-record.repository.js";
 import type { Turn } from "../turns/index.js";
 import { rootTakeOf } from "./execution-leases.js";
 import { runningOutcome } from "../run/execute.js";
-import { treeResumeNow } from "./tree-resume.js";
+import { treeResumeNow, type TreeRun } from "./tree-resume.js";
+import type { TreeState } from "./tree-move-types.js";
+import type { AppDeps } from "./app-deps.js";
+import { PauseStatus } from "../infrastructure/pause-record.js";
+import { StatusTrigger, ThreadStatus } from "../turns/index.js";
 import { treeOf } from "./tree-ends.js";
 import type { TreeMoveParts } from "./tree-move-types.js";
 
@@ -49,6 +56,79 @@ export const wakeAnsweredOf =
       // a compare-and-set from `paused`: a record a holder moved meanwhile is not marked
       const outcome = runningOutcome(record.route, record.costUsd);
       return await deps.turns.completeIfStatus(record.id, ExecutionRecordStatus.Paused, outcome);
+    } finally {
+      await lease.release();
+    }
+  };
+
+/**
+ * A tree parked by `app.pause` (#1341c) whose freeze was lifted but whose record is still `paused`: an
+ * `app.unpause` died between the two writes (the mark cleared, the record not yet `running`), and no
+ * pending pause, no answer and no `running` record say that the tree has work. Under the tree's
+ * lease — a holder moves it, never raced — it is a parked orphan when its record is `paused`, its
+ * lease row carries no pause and no pause of the tree is pending or resolved (a business rest is the pauses'
+ * own, woken by `wakeAnswered` or an expiry): the record is marked `running` from itself (a
+ * compare-and-set from `paused`, the history row `Unpause`), the work recovery continues in the same
+ * sweep from the tree's checkpoint. `true` when it marked it; `false` when the lease is held, the tree
+ * is frozen (it waits for `app.unpause`), rests at a business pause, or the record moved meanwhile.
+ */
+export type WakeParked = (record: Turn) => Promise<boolean>;
+
+/** Whether a pause of the tree still waits for its decision or for a pass to take it: a business rest, not a parked tree. */
+async function isAtBusinessPause(deps: AppDeps, tree: TreeRun): Promise<boolean> {
+  const records = await deps.pause?.pauses.findAllByTenantIdAndRootExecutionId(
+    tree.tenantId,
+    tree.runId,
+  );
+  return (records ?? []).some(
+    (pause) => pause.status === PauseStatus.Pending || pause.status === PauseStatus.Resolved,
+  );
+}
+
+/** Whether the thread's last status change is an operator's pause or the lift of one (#1341d). */
+async function isUnpausing(
+  records: Pick<ExecutionRecordRepository, "statusHistory">,
+  tree: TreeState,
+): Promise<boolean> {
+  const last = (await records.statusHistory(tree.tenantId, tree.threadId)).at(-1);
+  return (
+    last?.toStatus === ThreadStatus.ExternallyPaused || last?.trigger === StatusTrigger.Unpause
+  );
+}
+
+export const wakeParkedOf =
+  (
+    parts: Pick<TreeMoveParts, "deps" | "leases">,
+    records: Pick<ExecutionRecordRepository, "statusHistory">,
+  ): WakeParked =>
+  async (record) => {
+    const { runId, threadId, tenantId } = record;
+    if (runId === null || record.status !== RESTING) return false;
+    const { deps, leases } = parts;
+    const startedVersion = record.configVersion ?? deps.config.version;
+    const state = { runId, threadId, tenantId, startedVersion };
+    // read only, before any lease is taken: a frozen tree and a business rest — most of the `paused`
+    // roots the look pages through — cost no write
+    if (await isExternallyPaused(leases, treeOf(state))) return false;
+    if (await isAtBusinessPause(deps, state)) return false;
+    // only a tree the history says an operator parked and began to unpause: a `paused` record with no
+    // pause rows is no proof (a restarted application with in-memory pauses has none of anyone's)
+    if (!(await isUnpausing(records, state))) return false;
+    const take = {
+      ...rootTakeOf(deps.pause, runId, LeaseTakeoverReason.Recovered, true),
+      isOver: async (): Promise<boolean> =>
+        (await deps.turns.byIds([record.id]))[0]?.status !== RESTING,
+    };
+    const lease = await leases.tryHold(treeOf(state), take);
+    if (lease === undefined) return false;
+    try {
+      // the lease is the one place the mark is written under: asked again now that it is held
+      if (await isExternallyPaused(leases, treeOf(state))) return false;
+      const outcome = runningOutcome(record.route, record.costUsd);
+      return await deps.turns.completeIfStatus(record.id, ExecutionRecordStatus.Paused, outcome, {
+        toStatus: ThreadStatus.Running,
+        trigger: StatusTrigger.Unpause,
+      });
     } finally {
       await lease.release();
     }

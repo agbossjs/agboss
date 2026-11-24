@@ -139,3 +139,92 @@ describe("#1187: the look wakes a paused root beside an answer no pass took", ()
     expect({ woken: ended.woken, closed: ended.closed }).toEqual({ woken: [], closed: ["run-1"] });
   });
 });
+
+describe("#1341c: the look wakes a parked root an unpause died on — found by the `paused` status, not by a pause", () => {
+  /** A store of records by status: `paused` roots, two pages of them (the first of `ORPHAN_PAGE`). */
+  function parkedLookOf(
+    roots: readonly string[],
+    known: readonly string[] = ["orders-workflow"],
+    fails: readonly string[] = [],
+  ) {
+    const woken: string[] = [];
+    const asked: { status: string; cursor?: string | undefined }[] = [];
+    const items = roots.map((runId) => turnOf(runId, "paused"));
+    const sources: OrphanSources = {
+      pauses: new InMemoryPausedExecutionRepository(),
+      records: { findByTenantIdAndRunId: () => Promise.resolve(undefined) },
+      orphans: new Map(),
+      parked: {
+        wakes: new Map(
+          known.map((bundle) => [
+            bundle,
+            (record: Turn) => {
+              if (fails.includes(record.runId ?? ""))
+                return Promise.reject(new Error("store down"));
+              woken.push(record.runId ?? "");
+              return Promise.resolve(true);
+            },
+          ]),
+        ),
+        list: {
+          findByStatus: (query) => {
+            asked.push({ status: query.status, cursor: query.cursor });
+            const from = query.cursor === undefined ? 0 : roots.indexOf(query.cursor.slice(5)) + 1;
+            const page = items.slice(from, from + (query.limit ?? 100));
+            const last = page.at(-1);
+            return Promise.resolve(
+              from + page.length < items.length && last !== undefined
+                ? { items: page, nextCursor: last.id }
+                : { items: page },
+            );
+          },
+        },
+      },
+      report: vi.fn(),
+    };
+    return { look: new OrphanLook(sources), woken, asked, report: sources.report };
+  }
+
+  it("every `paused` record of a known workflow is offered to its wake, whatever its pauses", async () => {
+    const { look, woken, asked } = parkedLookOf(["run-1", "run-2"]);
+
+    await look.lookParked(() => false);
+
+    expect(woken).toEqual(["run-1", "run-2"]);
+    expect(asked).toEqual([{ status: "paused", cursor: undefined }]);
+  });
+
+  it("a record of a workflow with no wake here is skipped; the look is off without wakes", async () => {
+    const other = parkedLookOf(["run-1"], ["another-workflow"]);
+    const none = parkedLookOf(["run-1"], []);
+
+    await other.look.lookParked(() => false);
+    await none.look.lookParked(() => false);
+
+    expect(other.woken).toEqual([]);
+    expect(none.asked).toEqual([]);
+  });
+
+  it("a wake that fails is reported and the page goes on", async () => {
+    const { look, woken, report } = parkedLookOf(["run-1", "run-2", "run-3"], undefined, ["run-2"]);
+
+    await look.lookParked(() => false);
+
+    expect(woken).toEqual(["run-1", "run-3"]);
+    expect(report).toHaveBeenCalledOnce();
+    expect(report).toHaveBeenCalledWith(expect.stringContaining("run-2"));
+    expect(report).toHaveBeenCalledWith(expect.not.stringContaining("thread-run-2"));
+  });
+
+  it("a look told to stop wakes no more of the page", async () => {
+    const { look, woken } = parkedLookOf(["run-1", "run-2", "run-3"]);
+    let calls = 0;
+
+    await look.lookParked(() => {
+      calls += 1;
+      return calls > 1;
+    });
+
+    expect(woken).toEqual(["run-1"]);
+  });
+});

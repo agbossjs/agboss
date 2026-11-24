@@ -1,5 +1,6 @@
 import { Command } from "@langchain/langgraph";
 import { isHandedOver } from "../handed-over.js";
+import { isPause } from "../lease-stopped.js";
 import type { HeldExecutionLease } from "../execution-leases.js";
 import { leasedDeps, leasedGraphDeps } from "../tree-ends.js";
 import { runIdOf, type RunContext } from "../../core/run-context.js";
@@ -201,6 +202,10 @@ export interface QueuedChildParts {
   readonly serde: Parameters<typeof decodedRun>[0];
 }
 
+/** Whether the pass ended because its tree was paused (#1341c): the error says so, or so does the abort of the worker's watch. */
+const isParked = (error: unknown, signal: AbortSignal): boolean =>
+  isPause(error) || (signal.aborted && isPause(signal.reason));
+
 /** Runs one claimed child pass under `lease`; `undefined` when handed over (row stays `Running`). */
 export async function runQueuedChild(
   parts: QueuedChildParts,
@@ -232,6 +237,9 @@ export async function runQueuedChild(
   } catch (error) {
     const cause = outcomeError(error, signal);
     if (isHandedOver(cause)) return undefined;
+    // parked by the tree's pause (#1341c): nothing is ended or recorded — the row stays `Running`,
+    // its lease is released, and the unpaused parent's wait has a worker take it from its checkpoint
+    if (isParked(error, signal)) return undefined;
     const end = { status: ExecutionRecordStatus.Failed, failure: failureTextOf(cause) } as const;
     return { end, cancelled: claimed === undefined ? undefined : cancelledOf(claimed, cause) };
   }

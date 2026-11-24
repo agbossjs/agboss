@@ -374,7 +374,7 @@ export interface BusinessKeyOptions {
 }
 
 // @public
-export const cancelFencedErrorOf: (error: unknown) => ExecutionCancelFencedError | ExecutionStopFencedError | undefined;
+export const cancelFencedErrorOf: (error: unknown) => ExecutionCancelFencedError | InterruptFenced | undefined;
 
 // @public
 export const cancelTreeOf: (key: Pick<EffectKeyFields, "tenantId" | "leaseExecutionId" | "rootExecutionId">) => {

@@ -235,7 +235,7 @@ export async function buildApp(
       live.interrupt(reason);
     },
     recover: recoverRootOf({ deps, moves, current, policy }),
-    ...orphanEndsOf({ deps, paused, trees, clock, leases }),
+    ...orphanEndsOf({ deps, paused, trees, clock, leases }, log),
     expire: expireRootOf({ deps, moves, current, policy }),
     resend: resendOf(resends),
     ...byId,

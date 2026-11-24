@@ -1,8 +1,7 @@
-import { fencedRefusalOf } from "../app/lease-lost.js";
 import { ExecutionCancelFencedError } from "../app/lease-lost.js";
 import { InjectionToken } from "../components/injection.js";
 import { InterruptMode } from "../app/interrupt-types.js";
-import { ExecutionStopFencedError } from "../app/lease-stopped.js";
+import { ExecutionPauseFencedError, ExecutionStopFencedError } from "../app/lease-stopped.js";
 import type { EffectKey } from "./effect-key.js";
 import { cancelTreeOf } from "./issued-keys.js";
 import { OutboundMasking } from "../app/outbound-masking.js";
@@ -102,15 +101,17 @@ export function checkInMemoryCancel(database: InMemoryDatabase, key: EffectKey):
   if (row?.cancelRequestedAt !== undefined) throw ExecutionCancelFencedError.of(key);
 }
 
-/** A pause fenced the root lease through a token (#1341c): its holder at or below it is stale. */
+/**
+ * A pause fenced the root lease through a token (#1341c): its holder at or below it is stale, and so
+ * is every child of the tree while the root's current token is the fenced one — a child's own token
+ * says nothing of the pause, the root row (`key.rootExecutionId`) is where every write of the tree
+ * looks. A lease taken at a higher token (an unpause, a cancel's unwind) is not fenced.
+ */
 function checkFence(row: ExecutionLeaseRow | undefined, key: EffectKey, root: string): void {
   const fenced = row?.fencedThroughToken;
-  if (fenced === undefined || key.leaseExecutionId !== root || key.token > fenced) return;
-  throw fencedRefusalOf({
-    scopeKey: key.scopeKey,
-    token: key.token,
-    observedToken: fenced,
-  });
+  if (row === undefined || fenced === undefined) return;
+  const isStale = key.leaseExecutionId === root ? key.token <= fenced : fenced >= row.lease.token;
+  if (isStale) throw ExecutionPauseFencedError.of(key);
 }
 
 /** Whether an expiry (ms; `null` = never) has come at `now`: `null` never has. */
@@ -214,7 +215,7 @@ export interface ExecutionLeaseRow {
    */
   readonly stopMode?: InterruptMode;
   /** Paused from outside (#1341c, `app.pause`), with its reason: set by `requestPause`, lifted by `unpause`. */
-  readonly externalPause?: { readonly reason?: string };
+  readonly externalPause?: { readonly reason?: string; readonly mode: InterruptMode };
   /**
    * The highest token of the root lease an `Immediate` pause fenced (#1341c): only ever raised
    * (`GREATEST`), never cleared; a write at that token or below is refused (`checkInMemoryCancel`).

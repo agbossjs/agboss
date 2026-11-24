@@ -31,7 +31,11 @@ export function pausedInMemory(
       : stored.fencedThroughToken;
   database.executionLeases.set(key, {
     ...stored,
-    externalPause: request.reason === undefined ? {} : { reason: request.reason },
+    externalPause: {
+      ...(request.reason === undefined ? {} : { reason: request.reason }),
+      // the mode only escalates: a repeat that asks `AfterStep` of an `Immediate` pause changes nothing
+      mode: stored.externalPause?.mode === Mode.Immediate ? Mode.Immediate : request.mode,
+    },
     ...(through === undefined ? {} : { fencedThroughToken: through }),
   });
   // the mark and its history row land in one synchronous step; a repeat writes none

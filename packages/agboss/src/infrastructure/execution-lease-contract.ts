@@ -311,7 +311,7 @@ export interface PauseRequest {
 /** A tree's external pause (#1341c): the mark while it is set, and the fence that outlives it. */
 export interface PauseMarks {
   /** Present while the tree is paused from outside. */
-  readonly pause?: { readonly reason?: string };
+  readonly pause?: { readonly reason?: string; readonly mode: InterruptMode };
   /** The highest token of the tree's root lease an `Immediate` pause fenced; never lowered. */
   readonly fencedThroughToken?: number;
 }

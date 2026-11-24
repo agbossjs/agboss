@@ -163,4 +163,10 @@ export {
   type FencedWriteRefusal,
 } from "./app/lease-lost.js";
 // a stop (#1341b): the abort reason of a stopped execution, and a fenced write's refusal by an Immediate stop
-export { ExecutionStopFencedError, ExecutionStoppedError } from "./app/lease-stopped.js";
+export {
+  ExecutionPausedError,
+  ExecutionPauseFencedError,
+  ExecutionStopFencedError,
+  ExecutionStoppedError,
+  type InterruptFenced,
+} from "./app/lease-stopped.js";

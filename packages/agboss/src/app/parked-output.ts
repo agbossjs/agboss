@@ -1,4 +1,5 @@
 import { CostReport } from "../finops/usage.js";
+import { ExecutionLeaseLostError } from "./lease-lost.js";
 import { compensationRecordsOf } from "../flow/compensation.js";
 import { withChildPauses } from "../flow/runtime/child-records.js";
 import { StatusTrigger, ThreadStatus } from "../turns/index.js";
@@ -65,7 +66,7 @@ export async function parkedRecord(
 ): Promise<void> {
   const { turns } = parts.deps;
   const record = await turns.findByTenantIdAndRunId(state.tenantId, state.runId);
-  if (record === undefined || record.threadId !== state.threadId) return;
+  if (record?.threadId !== state.threadId) return;
   const isDual = result.pending.length > 0;
   const context = {
     toStatus: isDual ? ThreadStatus.DualPaused : ThreadStatus.ExternallyPaused,
@@ -80,7 +81,6 @@ export async function parkedRecord(
     context,
   );
 }
-
 
 /**
  * A pass that returned paused, looked at once more under the tree's lease: parked by an operator's
@@ -99,8 +99,15 @@ export async function parkedAtRest(
     rootExecutionId: state.runId,
   });
   if (!result.isExternallyPaused && pause === undefined) return undefined;
-  const reason = result.reason ?? pause?.reason;
-  const parked = { ...result, isExternallyPaused: true, ...(reason === undefined ? {} : { reason }) };
+  // a pass that met a pause which is not there any more — a write refused by a fence the holder could
+  // not tell from its own pause (a stale one) — parks nothing: the tree is another holder's
+  if (pause === undefined) throw new ExecutionLeaseLostError({ rootExecutionId: state.runId });
+  const reason = result.reason ?? pause.reason;
+  const parked = {
+    ...result,
+    isExternallyPaused: true,
+    ...(reason === undefined ? {} : { reason }),
+  };
   await parkedRecord(parts, state, parked, lease);
   return parked;
 }

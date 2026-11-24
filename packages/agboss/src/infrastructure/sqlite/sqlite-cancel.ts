@@ -1,11 +1,10 @@
-import { fencedRefusalOf } from "../../app/lease-lost.js";
 import type { DatabaseSync } from "node:sqlite";
 import { ExecutionCancelFencedError } from "../../app/lease-lost.js";
 import { sqliteStatusLog, type NewStatusTransition } from "../../turns/index.js";
 import { z } from "zod";
 import { InterruptMode } from "../../app/interrupt-types.js";
 import {} from "../../app/lease-lost.js";
-import { ExecutionStopFencedError } from "../../app/lease-stopped.js";
+import { ExecutionPauseFencedError, ExecutionStopFencedError } from "../../app/lease-stopped.js";
 import type { EffectKey } from "../effect-key.js";
 import { cancelTreeOf } from "../issued-keys.js";
 
@@ -58,7 +57,8 @@ export function checkSqliteCancel(database: DatabaseSync, key: EffectKey): void 
   const { tenantId, rootExecutionId } = cancelTreeOf(key);
   const row = database
     .prepare(
-      `SELECT cancel_requested_at IS NOT NULL AS is_cancelled, stop_mode, fenced_through_token
+      `SELECT cancel_requested_at IS NOT NULL AS is_cancelled, stop_mode, fenced_through_token,
+         lease_epoch
        FROM execution_leases
        WHERE tenant_id = ? AND root_execution_id = ?`,
     )
@@ -68,14 +68,16 @@ export function checkSqliteCancel(database: DatabaseSync, key: EffectKey): void 
     is_cancelled: isCancelled,
     stop_mode: stopMode,
     fenced_through_token: fenced,
+    lease_epoch: epoch,
   } = FenceRow.parse(row);
-  // a pause fenced the root lease through a token (#1341c): its holder at or below it is stale
-  if (fenced !== null && key.leaseExecutionId === rootExecutionId && key.token <= fenced)
-    throw fencedRefusalOf({
-      scopeKey: key.scopeKey,
-      token: key.token,
-      observedToken: fenced,
-    });
+  // a pause fenced the root lease through a token (#1341c): its holder at or below it is stale, and
+  // so is every child's write while the root's current token is the fenced one (a child's own token
+  // says nothing of the pause: every write of the tree looks at the root's row)
+  if (fenced !== null) {
+    const isStale =
+      key.leaseExecutionId === rootExecutionId ? key.token <= fenced : fenced >= epoch;
+    if (isStale) throw ExecutionPauseFencedError.of(key);
+  }
   // a cancelled tree's undo runs; a stopped one (`immediate`) has none, and nothing of it is written
   if (!isCancelled && stopMode === InterruptMode.Immediate) throw ExecutionStopFencedError.of(key);
   if (key.isCompensation === true) return;
@@ -86,4 +88,5 @@ const FenceRow = z.object({
   is_cancelled: z.number().transform(Boolean),
   stop_mode: z.string().nullable(),
   fenced_through_token: z.number().nullable(),
+  lease_epoch: z.number(),
 });

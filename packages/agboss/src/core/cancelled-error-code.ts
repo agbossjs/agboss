@@ -4,4 +4,5 @@ export type CancelledErrorCode =
   | "execution.cancelled.fenced"
   | "execution.stopped"
   | "execution.stopped.fenced"
+  | "execution.paused.fenced"
   | "execution.paused";

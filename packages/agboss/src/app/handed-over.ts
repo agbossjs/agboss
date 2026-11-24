@@ -1,4 +1,8 @@
-import { ExecutionStopFencedError } from "./lease-stopped.js";
+import {
+  ExecutionPauseFencedError,
+  ExecutionStopFencedError,
+  type InterruptFenced,
+} from "./lease-stopped.js";
 import { currentFrame, type FrameLease, type FrameSpec } from "../flow/context/frame.js";
 import { nodeEventOf } from "../flow/observers/execution-event.js";
 import type { HandOverSite } from "../infrastructure/execution-audit-log.repository.js";
@@ -51,8 +55,10 @@ export const fencedErrorOf = (error: unknown): FencedRefusalError | undefined =>
  */
 export const cancelFencedErrorOf = (
   error: unknown,
-): ExecutionCancelFencedError | ExecutionStopFencedError | undefined =>
-  errorOfClass(error, ExecutionCancelFencedError) ?? errorOfClass(error, ExecutionStopFencedError);
+): ExecutionCancelFencedError | InterruptFenced | undefined =>
+  errorOfClass(error, ExecutionCancelFencedError) ??
+  errorOfClass(error, ExecutionStopFencedError) ??
+  errorOfClass(error, ExecutionPauseFencedError);
 
 /**
  * A step under `lease` met its tree's cancel in `error` (#909): `tell` it (the audit row and the

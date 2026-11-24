@@ -1,5 +1,5 @@
 import { orphanLookOf, type OrphanLook } from "./orphan-pauses.js";
-import type { WakeAnswered } from "../app/answered-wake.js";
+import type { WakeAnswered, WakeParked } from "../app/answered-wake.js";
 import type { CloseOrphanTree } from "../app/orphan-tree.js";
 import { isHandedOver } from "../app/handed-over.js";
 import { problemOf, type RecoverRoot, type RecoveryProblem } from "../app/recover-root.js";
@@ -61,6 +61,8 @@ export interface RecoverySources extends RetentionSources {
   readonly orphans?: ReadonlyMap<string, CloseOrphanTree> | undefined;
   /** Each workflow's wake of a `paused` root beside an untaken answer (#1187), by bundle. */
   readonly wakes?: ReadonlyMap<string, WakeAnswered> | undefined;
+  /** Each workflow's wake of a `paused` root an `app.unpause` died on (#1341c), by bundle. */
+  readonly parked?: ReadonlyMap<string, WakeParked> | undefined;
   /** Where its problems go: the application's log. */
   readonly log: FrameworkLog;
   /** Stops the recoveries in flight like the app's other executions (the shutdown timeout). */
@@ -84,7 +86,12 @@ class Sweeper implements RecoverySweep {
 
   constructor(private readonly sources: RecoverySources) {
     this.#lastSweptAt = sources.clock.now();
-    this.#orphans = orphanLookOf(sources, (text) => {
+    const { parked } = sources;
+    const looked = {
+      ...sources,
+      parked: parked === undefined ? undefined : { wakes: parked, list: sources.records },
+    };
+    this.#orphans = orphanLookOf(looked, (text) => {
       this.#log({ code: "recovery.failed", text, isBroken: true });
     });
     this.#loop = this.#run();
@@ -108,19 +115,28 @@ class Sweeper implements RecoverySweep {
     while (!this.#stopped.signal.aborted) {
       // the open pauses first: a root it woke (#1187) is `running` for this look's recoveries
       await this.#orphans?.lookSafely(() => this.#stopped.signal.aborted);
-      try {
-        await this.#sweep();
-      } catch (error) {
-        // a store that failed is asked again at the next sweep
-        this.#log({
-          code: "recovery.failed",
-          text: `recovery could not list the running executions: ${String(error)}`,
-          isBroken: true,
-        });
-      }
+      // the parked roots an unpause died on are looked at only while the store answers: marked
+      // `running` now, recovered by the next sweep
+      if (await this.#sweepSafely())
+        await this.#orphans?.lookParkedSafely(() => this.#stopped.signal.aborted);
       await this.#removeExpired();
       this.#lastSweptAt = this.sources.clock.now();
       await this.sources.clock.sleep(SWEEP_EVERY, this.#stopped.signal);
+    }
+  }
+
+  /** `#sweep`; `false` when a store failed (logged, asked again at the next sweep). */
+  async #sweepSafely(): Promise<boolean> {
+    try {
+      await this.#sweep();
+      return true;
+    } catch (error) {
+      this.#log({
+        code: "recovery.failed",
+        text: `recovery could not list the running executions: ${String(error)}`,
+        isBroken: true,
+      });
+      return false;
     }
   }
 

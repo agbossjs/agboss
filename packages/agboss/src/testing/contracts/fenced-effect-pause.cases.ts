@@ -1,6 +1,5 @@
-import { ExecutionError } from "../../core/error-families/run-errors.js";
+import { ExecutionPauseFencedError } from "../../app/lease-stopped.js";
 import { expect } from "vitest";
-import {} from "../../app/lease-lost.js";
 import { InterruptMode } from "../../app/interrupt-types.js";
 import { IdempotencyRunStatus } from "../../infrastructure/fenced-effect.repository.js";
 import type { ContractCase, ContractGroup } from "./define.js";
@@ -27,7 +26,7 @@ import {
 type Case = ContractCase<FencedEffectTarget>;
 
 const immediateFences = (): Case => ({
-  name: "#1341c: a write at the fenced token after an Immediate pause is refused — ExecutionError.Fenced, the work not run; an AfterStep pause fences nothing",
+  name: "#1341c: a write at the fenced token after an Immediate pause is refused — ExecutionPauseFencedError, the work not run; an AfterStep pause fences nothing",
   isFencing: true,
   run: async ({ first, second }) => {
     const lease = await leaseOf(first);
@@ -41,8 +40,8 @@ const immediateFences = (): Case => ({
     );
 
     expect(ran.status).toBe(IdempotencyRunStatus.Ran);
-    expect(refused).toBeInstanceOf(ExecutionError.Fenced);
-    expect(refused).toMatchObject({ token: lease.token, observedToken: lease.token });
+    expect(refused).toBeInstanceOf(ExecutionPauseFencedError);
+    expect(refused).toMatchObject({ token: lease.token, rootExecutionId: lease.rootExecutionId });
     expect(count.runs).toBe(1);
     expect(await second.rows.committed()).toEqual(["a"]);
   },
@@ -72,7 +71,7 @@ const fenceOutlivesUnpause = (): Case => ({
     });
     const ran = await first.effects.runOnce(undo, writing(first.rows, "refund", count));
 
-    expect(stale).toBeInstanceOf(ExecutionError.Fenced);
+    expect(stale).toBeInstanceOf(ExecutionPauseFencedError);
     expect(ran.status).toBe(IdempotencyRunStatus.Ran);
     expect(await second.rows.committed()).toEqual(["refund"]);
   },
@@ -99,8 +98,48 @@ const otherTreesUntouched = (): Case => ({
   },
 });
 
+const childrenAreFenced = (): Case => ({
+  name: "#1341c: an Immediate pause fences the tree's children — a write of a child lease (its own token) is refused while the root's current token is the fenced one, and runs once the root's lease is taken again at token + 1; an AfterStep pause fences no child, and another tree's child is not fenced",
+  isFencing: true,
+  run: async ({ first, second }) => {
+    const root = await leaseOf(first, "root-1");
+    const child = await leaseOf(first, "child-1");
+    const key = (rootExecutionId: string, name: string) =>
+      effectKeyForTesting(keyOf(child, name), { rootExecutionId });
+    const count: WriteCount = { runs: 0 };
+    await second.leases.requestPause(treeOf(root), { mode: InterruptMode.AfterStep });
+    const afterStep = await first.effects.runOnce(
+      key("root-1", "a"),
+      writing(first.rows, "a", count),
+    );
+
+    await second.leases.requestPause(treeOf(root), { mode: InterruptMode.Immediate });
+    const refused = await rejectionOf(
+      first.effects.runOnce(key("root-1", "b"), writing(first.rows, "b", count)),
+    );
+    const ofAnotherRoot = await first.effects.runOnce(
+      key("root-2", "c"),
+      writing(first.rows, "c", count),
+    );
+    await first.leases.release(root);
+    const next = await first.leases.acquire("default", "root-1", root.remaining);
+    if (next === undefined) throw new Error("a released lease must be taken again");
+    const afterUnpause = await first.effects.runOnce(
+      key("root-1", "d"),
+      writing(first.rows, "d", count),
+    );
+
+    expect(afterStep.status).toBe(IdempotencyRunStatus.Ran);
+    expect(refused).toBeInstanceOf(ExecutionPauseFencedError);
+    expect(refused).toMatchObject({ rootExecutionId: "root-1", leaseExecutionId: "child-1" });
+    expect(ofAnotherRoot.status).toBe(IdempotencyRunStatus.Ran);
+    expect(afterUnpause.status).toBe(IdempotencyRunStatus.Ran);
+    expect(await second.rows.committed()).toEqual(["a", "c", "d"]);
+  },
+});
+
 /** The pause as a fence of the fenced effect. */
 export const pauseCases = (): ContractGroup<FencedEffectTarget> => ({
   title: "a tree's Immediate pause is a fence (#1341c)",
-  cases: [immediateFences(), fenceOutlivesUnpause(), otherTreesUntouched()],
+  cases: [immediateFences(), fenceOutlivesUnpause(), childrenAreFenced(), otherTreesUntouched()],
 });

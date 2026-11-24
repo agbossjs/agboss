@@ -185,6 +185,12 @@ export interface InstanceStop {
   readonly timers: PauseTimers;
 }
 
+/** What the sweep's orphan look wakes, by workflow: a root beside an untaken answer (#1187), a parked root an unpause died on (#1341c). */
+const wakesOf = (workflows: readonly BuiltApp[]) => ({
+  wakes: new Map(workflows.map((one) => [one.deps.config.name, one.wakeAnswered])),
+  parked: new Map(workflows.map((one) => [one.deps.config.name, one.wakeParked])),
+});
+
 /** The instance's recovery sweep, started now (`onStart` is done, #265 S30), and its graceful stop. */
 export function stopOf(
   assembled: AssembledApplication,
@@ -204,7 +210,7 @@ export function stopOf(
       log: parts.log,
       signal: interruption.signal,
       orphans: new Map(workflows.map((one) => [one.deps.config.name, one.closeOrphan])),
-      wakes: new Map(workflows.map((one) => [one.deps.config.name, one.wakeAnswered])),
+      ...wakesOf(workflows),
       ...retentionSourcesOf(parts.infrastructure, assembled),
       ...{ capacity: parts.stepSlots, observer: parts.observer },
     });

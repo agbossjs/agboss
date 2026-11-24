@@ -1,5 +1,5 @@
 import { ExecutionCancelledError } from "../../core/errors.js";
-import { ExecutionStoppedError } from "../../app/lease-stopped.js";
+import { ExecutionPausedError, ExecutionStoppedError, isPause } from "../../app/lease-stopped.js";
 import { isStop } from "../interrupt-requests.js";
 import type { HeldExecutionLease } from "../execution-leases.js";
 import type { QueuedChildExecution } from "../../infrastructure/child-execution-queue.repository.js";
@@ -28,11 +28,15 @@ export async function executeClaimed(
   const watching = watchRunningChild(parts, row, stop, lease);
   // a write of the child refused by its root's cancel stops it at once (#909)
   lease.whenCancelFound((cause) => {
-    stop.abort(
-      isStop(cause)
-        ? new ExecutionStoppedError({ message: "the child's tree was stopped" })
-        : new ExecutionCancelledError({ message: "the child's tree was cancelled" }),
-    );
+    // a write refused by the tree's `Immediate` pause (#1341c) parks the child, as the watch does
+    if (isPause(cause))
+      stop.abort(new ExecutionPausedError({ message: "the child's tree was paused" }));
+    else
+      stop.abort(
+        isStop(cause)
+          ? new ExecutionStoppedError({ message: "the child's tree was stopped" })
+          : new ExecutionCancelledError({ message: "the child's tree was cancelled" }),
+      );
   });
   let isRetired = false;
   try {

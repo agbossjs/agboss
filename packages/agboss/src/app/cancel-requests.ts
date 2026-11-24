@@ -21,7 +21,8 @@ import {
 } from "./interrupt-requests.js";
 import { InterruptMode } from "./interrupt-types.js";
 import { writeStopRequest } from "./stop-requests.js";
-import { ExecutionPausedError } from "./lease-stopped.js";
+import { isPause } from "./lease-stopped.js";
+import { pausedErrorOf, pausedTreeOf } from "./paused-tree.js";
 import { treeOf, WITHOUT_RECOVERY_KEY } from "./tree-ends.js";
 import { LeaseTakeoverReason } from "../infrastructure/execution-audit-log.repository.js";
 import { rootTakeOf } from "./execution-leases.js";
@@ -126,21 +127,13 @@ export function cancelWatchOf(
   const controller = new AbortController();
   let held: Pick<HeldExecutionLease, "stopAfterStep" | "token"> | undefined;
   const isRequested = (): Promise<boolean> => isCancelRequested(trees, treeOf(state));
-  // an operator's pause, from the lease row — the database is the authority (D6): `Immediate` is the
-  // fence on the holder's own token, `AfterStep` lets the step in flight finish and starts none
+  // an operator's pause, from the lease row — the database is the authority (D6): `Immediate` aborts
+  // the run, `AfterStep` lets the step in flight finish and starts none
   const pauseFound = async (): Promise<void> => {
-    const marks = await leases?.pauseOf(treeOf(state)).catch(() => undefined);
-    if (marks?.pause === undefined) return;
-    const { reason } = marks.pause;
-    const error = new ExecutionPausedError({
-      message: `thread "${state.threadId}" was paused`,
-      ...(reason === undefined ? {} : { details: { reason } }),
-    });
-    const token = held?.token;
-    const isImmediate =
-      token !== undefined && marks.fencedThroughToken !== undefined && marks.fencedThroughToken >= token;
-    if (isImmediate) controller.abort(error);
-    else held?.stopAfterStep(error);
+    const paused = await pausedTreeOf(leases, treeOf(state), state.threadId);
+    if (paused === undefined) return;
+    if (paused.mode === InterruptMode.Immediate) controller.abort(paused.error);
+    else held?.stopAfterStep(paused.error);
   };
   return {
     signal: controller.signal,
@@ -149,6 +142,12 @@ export function cancelWatchOf(
       held = lease;
     },
     abortNow: (cause) => {
+      // a write refused by the tree's `Immediate` pause raced the holder's own notice (#1341c): the
+      // holder parks, as it does when told; `parkedAtRest` finds out whether the pause still stands
+      if (isPause(cause)) {
+        controller.abort(pausedErrorOf(state.threadId));
+        return;
+      }
       const kind = isStop(cause) ? InterruptKind.Stop : InterruptKind.Cancel;
       controller.abort(
         kind === InterruptKind.Cancel

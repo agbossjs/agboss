@@ -25,7 +25,9 @@ async function takenBy(store: ExecutionLeaseRepository): Promise<ExecutionLease>
 /**
  * The external pause of a tree (#1341c, `requestPause` / `unpause` / `pauseOf`): `isExternallyPaused`
  * and its reason on the tree's own lease row, durable once it resolves and idempotent — a repeat only
- * updates the reason —, changing no lease; and the fence an `Immediate` pause raises,
+ * updates the reason, and its mode only escalates (`AfterStep` becomes `Immediate`, never back until
+ * the pause is lifted: what a child's holder reads to abort at once or finish its step) —, changing
+ * no lease; and the fence an `Immediate` pause raises,
  * `fencedThroughToken = GREATEST(itself, the row's token)`: it only ever rises, `unpause` never lowers
  * it, a lease at a higher token (`release` then `acquire`, `reclaim`) is not fenced by it. What the fence
  * refuses is the fencing stores' contract (`fenced-effect-pause.cases.ts`).
@@ -38,8 +40,12 @@ export const LEASE_PAUSE_CASES: readonly ContractCase<ExecutionLeaseRepository>[
 
       await second.requestPause(TREE, { mode: InterruptMode.AfterStep, reason: "maintenance" });
 
-      expect(await first.pauseOf(TREE)).toEqual({ pause: { reason: "maintenance" } });
-      expect(await second.pauseOf(TREE)).toEqual({ pause: { reason: "maintenance" } });
+      expect(await first.pauseOf(TREE)).toEqual({
+        pause: { reason: "maintenance", mode: InterruptMode.AfterStep },
+      });
+      expect(await second.pauseOf(TREE)).toEqual({
+        pause: { reason: "maintenance", mode: InterruptMode.AfterStep },
+      });
       expect(await first.pauseOf({ ...TREE, rootExecutionId: "root-2" })).toEqual({});
       expect(await first.pauseOf({ ...TREE, tenantId: "acme" })).toEqual({});
     },
@@ -51,7 +57,10 @@ export const LEASE_PAUSE_CASES: readonly ContractCase<ExecutionLeaseRepository>[
 
       await second.requestPause(TREE, { mode: InterruptMode.Immediate });
 
-      expect(await first.pauseOf(TREE)).toEqual({ pause: {}, fencedThroughToken: held.token });
+      expect(await first.pauseOf(TREE)).toEqual({
+        pause: { mode: InterruptMode.Immediate },
+        fencedThroughToken: held.token,
+      });
       expect(await first.renew(held, LEASE)).toBe(LEASE);
       expect(await second.acquire("default", "root-1", LEASE)).toBeUndefined();
       await first.release(held);
@@ -87,7 +96,9 @@ export const LEASE_PAUSE_CASES: readonly ContractCase<ExecutionLeaseRepository>[
 
       await first.requestPause(TREE, { mode: InterruptMode.AfterStep, reason: "one" });
       await second.requestPause(TREE, { mode: InterruptMode.AfterStep, reason: "two" });
-      expect(await first.pauseOf(TREE)).toEqual({ pause: { reason: "two" } });
+      expect(await first.pauseOf(TREE)).toEqual({
+        pause: { reason: "two", mode: InterruptMode.AfterStep },
+      });
 
       await second.unpause(TREE);
       await first.unpause(TREE);
@@ -115,9 +126,27 @@ export const LEASE_PAUSE_CASES: readonly ContractCase<ExecutionLeaseRepository>[
 
       expect(await first.markedOf(TREE)).toEqual({
         isCancelRequested: true,
-        pause: { reason: "freeze" },
+        pause: { reason: "freeze", mode: InterruptMode.Immediate },
         fencedThroughToken: held.token,
       });
+    },
+  },
+  {
+    name: "#1341c: a pause's mode only escalates while it lasts — a repeat asking AfterStep of an Immediate pause keeps Immediate and the reason moves — and a pause after unpause starts again at its own mode",
+    run: async ({ first, second }: Instances): Promise<void> => {
+      await takenBy(first);
+      await second.requestPause(TREE, { mode: InterruptMode.AfterStep });
+      await second.requestPause(TREE, { mode: InterruptMode.Immediate });
+      await second.requestPause(TREE, { mode: InterruptMode.AfterStep, reason: "again" });
+      expect((await first.pauseOf(TREE)).pause).toEqual({
+        reason: "again",
+        mode: InterruptMode.Immediate,
+      });
+
+      await second.unpause(TREE);
+      await second.requestPause(TREE, { mode: InterruptMode.AfterStep });
+
+      expect((await first.pauseOf(TREE)).pause).toEqual({ mode: InterruptMode.AfterStep });
     },
   },
 ];
