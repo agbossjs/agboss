@@ -51,10 +51,10 @@ const SHELF_OF_PREFIX: Readonly<Record<string, string>> = {
   arbiters: "arbiters",
   guardrails: "guardrails",
   pii: "piiPolicies",
-  replyInterpreters: "channelInterpreters",
-  rerankers: "ragRerankers",
-  "files.transcriber": "fileTranscribers",
-  "files.redactor": "fileMaskers",
+  channelInterpreters: "channelInterpreters",
+  ragRerankers: "ragRerankers",
+  fileTranscribers: "fileTranscribers",
+  fileMaskers: "fileMaskers",
 };
 
 /** The overridden components no workflow has: a name in a shelf, a router a workflow's own overlay names. */

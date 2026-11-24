@@ -67,7 +67,7 @@ export function everyKindWorkflows(models: KindModels): {
     name: "docs-reranker",
     description: "Reranks",
     candidates: 5,
-    model: models.rerankers,
+    model: models.ragRerankers,
   })
   class DocsReranker {}
   @Rag({
@@ -93,7 +93,7 @@ export function everyKindWorkflows(models: KindModels): {
     name: "approval-reply-interpreter",
     description: "Reads a reply",
     decidedBy: DecidedBy.Model,
-    model: models.replyInterpreters,
+    model: models.channelInterpreters,
     prompt: inline("Read the reply."),
   })
   class ApprovalReplyInterpreter {}
@@ -149,7 +149,10 @@ export function everyKindWorkflows(models: KindModels): {
     prompt: inline("Read."),
     model: models.agents,
     excludeGuardrails: [InjectionGuardrail],
-    files: ModelFiles.of({ views: [FileView.Transcription] }),
+    files: ModelFiles.of({
+      views: [FileView.Transcription, FileView.Redacted],
+      allowedMediaTypes: ["image/png"],
+    }),
   })
   class DeskReaderAgent {}
   @Router({
@@ -208,7 +211,7 @@ export function everyKindWorkflows(models: KindModels): {
       router: { model: models.defaults },
       guardrail: { model: models.guardrails },
       // the built-in transcriber of files is a model use of its own (#899)
-      files: { transcriptionModel: models.files },
+      files: { transcriptionModel: models.fileTranscribers, redactionModel: models.fileMaskers },
     },
     memory: DeskMemory,
     guardrails: [InjectionGuardrail],

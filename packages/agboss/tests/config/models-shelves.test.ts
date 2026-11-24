@@ -79,9 +79,9 @@ describe("the fileTranscribers and fileMaskers shelves", () => {
       },
     };
     const byKey = new Map([
-      ["files.transcriber.reads-agent", { model: "local/t" }],
-      ["files.redactor.reads-agent", { model: "local/r" }],
-      ["files.transcriber.plain-agent", { model: "local/x" }],
+      ["fileTranscribers.reads-agent", { model: "local/t" }],
+      ["fileMaskers.reads-agent", { model: "local/r" }],
+      ["fileTranscribers.plain-agent", { model: "local/x" }],
     ]);
     const overrides = { providers: [], byKey, reached: new Set<string>() };
 
@@ -93,8 +93,8 @@ describe("the fileTranscribers and fileMaskers shelves", () => {
     });
     expect(patched.agents?.["plain-agent"]?.files?.transcriptionModel).toBe("local/llama");
     expect([...overrides.reached].sort()).toEqual([
-      "files.redactor.reads-agent",
-      "files.transcriber.reads-agent",
+      "fileMaskers.reads-agent",
+      "fileTranscribers.reads-agent",
     ]);
     expect(config.agents["reads-agent"].files.transcriptionModel).toBe("local/llama");
   });

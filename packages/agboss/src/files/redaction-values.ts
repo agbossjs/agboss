@@ -96,7 +96,7 @@ export function withRedactionValues(
         const sends = sendsValuesOf(
           files.redactionValues,
           useOf(`agents.${name}`),
-          useOf(`files.redactor.${name}`),
+          useOf(`fileMaskers.${name}`),
           providerOf,
         );
         return [name, { ...settings, files: { ...files, redactionSendsValues: sends } }];

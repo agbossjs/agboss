@@ -112,7 +112,7 @@ export function redactorValuesViolations(
       return [];
     const redactor =
       bundle.ownFileRedactor === undefined
-        ? `the built-in redactor's model on ${providers.get(`files.redactor.${name}`) ?? "an unknown provider"}`
+        ? `the built-in redactor's model on ${providers.get(`fileMaskers.${name}`) ?? "an unknown provider"}`
         : `your own FileRedactor ${bundle.ownFileRedactor.name}`;
     return [
       violation(

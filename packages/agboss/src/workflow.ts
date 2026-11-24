@@ -91,7 +91,7 @@ export interface AssembledWorkflow<TName extends string = string> {
   readonly knowledge?: (
     services: WorkflowServices,
   ) => ReadonlyMap<string, readonly KnowledgeSource[]>;
-  /** Its knowledge bases' model rerankers, by name and resolved model: model uses `rerankers.<name>`. */
+  /** Its knowledge bases' model rerankers, by name and resolved model: model uses `ragRerankers.<name>`. */
   readonly rerankers?: readonly {
     readonly name: string;
     readonly model: string;

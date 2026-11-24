@@ -30,7 +30,7 @@ function overriddenReranker(
   meta: { readonly name: string; readonly model?: string; readonly modelProvider?: Class },
   cascade: ModelCascade,
 ): typeof meta | RuleViolation {
-  const key = `rerankers.${meta.name}`;
+  const key = `ragRerankers.${meta.name}`;
   const override = cascade.componentModels?.byKey.get(key);
   if (override === undefined) return meta;
   cascade.componentModels?.reached.add(key);

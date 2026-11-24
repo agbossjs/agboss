@@ -45,7 +45,7 @@ export const OMITTED_MODEL = "(no model named)";
 
 /**
  * What a profile changes of one model-backed component, by its use key (`judges.<name>`,
- * `routers.<name>`, `arbiters.<name>`, `guardrails.<name>`, `pii.<name>`, `replyInterpreters.<name>`):
+ * `routers.<name>`, `arbiters.<name>`, `guardrails.<name>`, `pii.<name>`, `channelInterpreters.<name>`):
  * its model name, and the `@ModelProvider` that serves it — a class (a `.config.ts`) or its `name`.
  */
 export interface ComponentModelOverride {

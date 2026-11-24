@@ -113,14 +113,14 @@ describe("#267 AC8: a model interpreter is a model use of its workflow", () => {
 
     const uses = treasury === undefined ? [] : resolvedModelUsesOf(treasury);
 
-    expect(uses.filter((use) => use.key.startsWith("replyInterpreters."))).toEqual([
+    expect(uses.filter((use) => use.key.startsWith("channelInterpreters."))).toEqual([
       {
-        key: "replyInterpreters.payout-reply-interpreter",
+        key: "channelInterpreters.payout-reply-interpreter",
         model: "test/payout-reader",
         provider: "openrouter-model-provider",
       },
       {
-        key: "replyInterpreters.deposit-reply-interpreter",
+        key: "channelInterpreters.deposit-reply-interpreter",
         model: "typesafe/jev-1.13",
         provider: "decisions-model-provider",
       },

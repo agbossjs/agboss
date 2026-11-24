@@ -22,10 +22,10 @@ export function withFileModels(
     const { files } = agent;
     if (files === undefined) return [name, agent] as const;
     const transcriber = files.views.includes(FileView.Transcription)
-      ? modelOf(`files.transcriber.${name}`)
+      ? modelOf(`fileTranscribers.${name}`)
       : undefined;
     const redactor = files.views.includes(FileView.Redacted)
-      ? modelOf(`files.redactor.${name}`)
+      ? modelOf(`fileMaskers.${name}`)
       : undefined;
     return [
       name,

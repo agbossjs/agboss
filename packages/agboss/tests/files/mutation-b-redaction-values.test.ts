@@ -174,7 +174,7 @@ function sends(
 
 const pair = (agentModel: string, redactorModel: string): ModelUse[] => [
   use("agents.x-agent", agentModel),
-  use("files.redactor.x-agent", redactorModel),
+  use("fileMaskers.x-agent", redactorModel),
 ];
 
 describe("the setting decides first, the providers second", () => {
@@ -187,7 +187,7 @@ describe("the setting decides first, the providers second", () => {
   });
 
   it("a missing use of the agent or of the redactor is never the same provider", () => {
-    expect(sends(RedactionValues.SameProvider, [use("files.redactor.x-agent", "p1/b")])).toBe(
+    expect(sends(RedactionValues.SameProvider, [use("fileMaskers.x-agent", "p1/b")])).toBe(
       false,
     );
     expect(sends(RedactionValues.SameProvider, [use("agents.x-agent", "p1/a")])).toBe(false);
@@ -201,7 +201,7 @@ describe("the setting decides first, the providers second", () => {
   });
 
   it("each use is found by its own key, among the uses of other agents", () => {
-    const others = [use("agents.other", "zzz/a"), use("files.redactor.other", "p3/b")];
+    const others = [use("agents.other", "zzz/a"), use("fileMaskers.other", "p3/b")];
 
     expect(sends(RedactionValues.SameProvider, [...others, ...pair("p1/a", "p1/b")])).toBe(true);
   });

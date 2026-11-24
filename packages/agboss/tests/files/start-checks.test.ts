@@ -127,8 +127,8 @@ describe("AC1: a model that cannot take a file's type stops the start (when the 
 
     // default types: images and PDF are read raw by the transcriber's model
     expect(problems.map((problem) => [problem.key, problem.model, problem.code])).toEqual([
-      ["files.transcriber.reader-agent", "text/only", "model.unsupported-input"],
-      ["files.transcriber.reader-agent", "text/only", "model.unsupported-input"],
+      ["fileTranscribers.reader-agent", "text/only", "model.unsupported-input"],
+      ["fileTranscribers.reader-agent", "text/only", "model.unsupported-input"],
     ]);
   });
 

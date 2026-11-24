@@ -19,7 +19,7 @@ export const interpreterUsesOf = (
 ): readonly ModelUse[] =>
   interpreters.flatMap(({ name, model, modelProvider }): readonly ModelUse[] => {
     if (model === undefined) return [];
-    const key: ModelUseKey = `replyInterpreters.${name}`;
+    const key: ModelUseKey = `channelInterpreters.${name}`;
     return purposeOf(model, modelProvider, kinds) === ModelKind.Decisions
       ? [{ key, model, purpose: ModelKind.Decisions, ...providerOf(modelProvider) }]
       : [chat(key, { model, ...providerOf(modelProvider) })];

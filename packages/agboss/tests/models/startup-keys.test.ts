@@ -31,10 +31,11 @@ const ALL_LOCAL: KindModels = {
   routers: LOCAL,
   arbiters: LOCAL,
   pii: LOCAL,
-  replyInterpreters: LOCAL,
+  channelInterpreters: LOCAL,
   guardrails: LOCAL,
-  rerankers: LOCAL,
-  files: LOCAL,
+  ragRerankers: LOCAL,
+  fileMaskers: LOCAL,
+  fileTranscribers: LOCAL,
 };
 
 /** An application of every kind of model use; no environment, so no key is there. */
@@ -80,7 +81,7 @@ describe("#716: a provider only one kind of model use needs fails createApp with
     "routers",
     "arbiters",
     "judges",
-    "replyInterpreters",
+    "channelInterpreters",
     "guardrails",
   ] as const)("%s on a decision model (the Decisions provider)", async (kind) => {
     const started = start(applicationFor(using(kind, DECISION), SERVERS));

@@ -137,7 +137,7 @@ function sendsValues(
   } as never;
   const uses = [
     { key: "agents.x-agent", model: agentModel, purpose: ModelKind.Chat },
-    { key: "files.redactor.x-agent", model: redactorModel, purpose: ModelKind.Chat },
+    { key: "fileMaskers.x-agent", model: redactorModel, purpose: ModelKind.Chat },
   ] as never;
   const resolved = withRedactionValues(config, uses, (use) => {
     const resolution = directory.resolve(use);

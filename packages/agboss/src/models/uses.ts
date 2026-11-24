@@ -22,10 +22,11 @@ export const MODEL_USE_KINDS = [
   "routers",
   "arbiters",
   "pii",
-  "replyInterpreters",
+  "channelInterpreters",
   "guardrails",
-  "rerankers",
-  "files",
+  "ragRerankers",
+  "fileMaskers",
+  "fileTranscribers",
 ] as const;
 
 export type ModelUseKind = (typeof MODEL_USE_KINDS)[number];
@@ -127,7 +128,7 @@ function fileModelUsesOf(
   return Object.entries(config.agents).flatMap(([name, agent]) => {
     const files = agent.files;
     if (files?.views.includes(FileView.Transcription) !== true) return [];
-    const use = chat(`files.transcriber.${name}`, {
+    const use = chat(`fileTranscribers.${name}`, {
       model: files.transcriptionModel,
       maxTokens: files.transcriptionMaxTokens,
     });
@@ -145,7 +146,7 @@ function redactorUsesOf(
   return Object.entries(config.agents).flatMap(([name, agent]) => {
     const files = agent.files;
     if (files?.views.includes(FileView.Redacted) !== true) return [];
-    const use = chat(`files.redactor.${name}`, {
+    const use = chat(`fileMaskers.${name}`, {
       model: files.redactionModel,
       maxTokens: files.transcriptionMaxTokens,
     });
@@ -193,7 +194,7 @@ function judgeUsesOf(
 
 /** A component that names its model (and maybe its provider): a model router's or an arbiter's use. */
 const namedUse =
-  (kind: "routers" | "arbiters" | "rerankers", kinds: ProviderKinds | undefined) =>
+  (kind: "routers" | "arbiters" | "ragRerankers", kinds: ProviderKinds | undefined) =>
   (named: ModelNamingRouter): ModelUse => ({
     key: `${kind}.${named.name}`,
     model: named.model,
@@ -204,8 +205,8 @@ const namedUse =
 /**
  * Every model use of a workflow: agents, compactions, judges, the default router, flow routers,
  * model arbiters (#279), the PII policies' model detections (#120, `pii.<policy>`), model reply
- * interpreters (#267, `replyInterpreters.<name>`), the guardrails (#120, `guardrails.<name>`) and the
- * model rerankers (#703, `rerankers.<name>`).
+ * interpreters (#267, `channelInterpreters.<name>`), the guardrails (#120, `guardrails.<name>`) and the
+ * model rerankers (#703, `ragRerankers.<name>`).
  */
 export function modelUsesOf(
   config: AgentsConfigOf<string>,
@@ -245,6 +246,6 @@ export function modelUsesOf(
       ...providerOf(guardrail.modelProvider),
       ...fileReadsOf(guardrail.reads),
     })),
-    ...(components.rerankers ?? []).map(namedUse("rerankers", kinds)),
+    ...(components.rerankers ?? []).map(namedUse("ragRerankers", kinds)),
   ];
 }

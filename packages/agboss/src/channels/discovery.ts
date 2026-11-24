@@ -252,7 +252,7 @@ export async function assembledOf(
   const own = { model: options.model, provider: options.modelProvider, isRequired: true };
   return {
     ...base,
-    ...componentModelOf(resolver, `replyInterpreters.${options.name}`, own),
+    ...componentModelOf(resolver, `channelInterpreters.${options.name}`, own),
     instructions: await loader.load({ label, options, source, variables: options.promptVariables }),
   };
 }

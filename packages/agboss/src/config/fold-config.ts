@@ -154,10 +154,10 @@ const MODEL_SHELF_PREFIX = {
   arbiters: "arbiters",
   guardrails: "guardrails",
   piiPolicies: "pii",
-  channelInterpreters: "replyInterpreters",
-  ragRerankers: "rerankers",
-  fileTranscribers: "files.transcriber",
-  fileMaskers: "files.redactor",
+  channelInterpreters: "channelInterpreters",
+  ragRerankers: "ragRerankers",
+  fileTranscribers: "fileTranscribers",
+  fileMaskers: "fileMaskers",
 } as const;
 
 /** The models of every shelf as overrides by use key, later profiles winning per field. */
