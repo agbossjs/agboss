@@ -86,23 +86,14 @@ async function workflowsOf(files: readonly string[]): Promise<readonly Class[]> 
 }
 
 /** The fixtures' `@Application` classes (#261: their contexts type the starts' options). */
-async function applicationsOf(files: readonly string[]): Promise<readonly Class[]> {
-  const modules = await Promise.all(
-    files.map(async (file) => (await import(file)) as Record<string, unknown>),
-  );
-  return modules.flatMap((module) =>
-    Object.values(module).filter(
-      (value): value is Class =>
-        typeof value === "function" && applicationDeclarationOf(value as Class) !== undefined,
-    ),
-  );
-}
-
 async function requestFor(files: readonly string[]): Promise<FlowTypesRequest> {
+  // the applications the loader finds, as `agboss check` and check:types see them: each is branded
+  // with its tenantContext (#1324e)
+  const project = await loadFlowProject(files, { typescript: false });
   return {
     workflows: await workflowsOf(files),
-    applications: await applicationsOf(files),
-    components: (await loadFlowProject(files, { typescript: false })).components,
+    applications: project.applications,
+    components: project.components,
     modules: await fixtureModules(),
     outFile,
     tablesModule,

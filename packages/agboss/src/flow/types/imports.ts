@@ -16,6 +16,7 @@ export enum TablesImport {
   ComponentBrand = "agbossComponent",
   NodeKind = "NodeKind",
   DtoBrand = "agbossDto",
+  TenantContextBrand = "agbossTenantContext",
   NoInput = "NoInput",
   NoOutput = "NoOutput",
   Produced = "Produced",
@@ -54,6 +55,7 @@ export class ImportTable {
   private readonly missing = new Set<Class>();
   private readonly dtoClasses = new Set<DtoClass>();
   private readonly plain = new Set<Class>();
+  private readonly tenantContexts = new Map<Class, boolean>();
 
   constructor(
     private readonly locator: ClassLocator,
@@ -93,6 +95,20 @@ export class ImportTable {
   refPlain(component: Class): string {
     this.plain.add(component);
     return this.ref(component);
+  }
+
+  /**
+   * An `@Application` class, branded with whether it declares a `tenantContext` (#1324e): `false` lets
+   * `app.resume` / `app.execute` leave the tenant out. Nothing for an application no module exports.
+   */
+  refApplication(application: Class, hasTenantContext: boolean): void {
+    if (this.refIfExported(application) === undefined) return;
+    this.tenantContexts.set(application, hasTenantContext);
+  }
+
+  /** Whether the application declares a `tenantContext`; `undefined` for a class that is no application. */
+  tenantContextOf(component: Class): boolean | undefined {
+    return this.tenantContexts.get(component);
   }
 
   /** Whether the file brands the class (every class it mentions but the plain ones). */

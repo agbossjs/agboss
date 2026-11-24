@@ -7,6 +7,8 @@ import type {
 } from "../dto/standard/framework.js";
 
 export type { HistoryOf, Produced, VariantOf } from "./dto-wrappers.js";
+// the brand `.agboss/types.d.ts` puts on an `@Application` class (#1324e)
+export { agbossTenantContext } from "../app/tenant-args.js";
 /** The kinds a brand carries (`NodeKind.Agent`): the generated file imports it from here. */
 export type { NodeKind };
 

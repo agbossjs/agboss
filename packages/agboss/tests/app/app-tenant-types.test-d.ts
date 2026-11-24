@@ -3,9 +3,12 @@ import type {
   App,
   ExecutionHistoryRecord,
   ExecutionsQuery,
+  HasTenantContext,
   Page,
   TenantContextBranded,
 } from "../../src/index.js";
+import type { ChatApplication } from "../flow/fixtures/chat.fixture.js";
+import type { ClinicApplication } from "../flow/fixtures/clinic.fixture.js";
 
 /**
  * #1324e: `App<TApp>` asks for the tenant in its types per its application's brand: optional with
@@ -77,5 +80,25 @@ describe("App's reads", () => {
     expectTypeOf(plain.listExecutions()).toEqualTypeOf<Promise<Page<ExecutionHistoryRecord>>>();
     expectTypeOf<ExecutionsQuery["limit"]>().toEqualTypeOf<number | undefined>();
     expectTypeOf<ExecutionsQuery["startedAfter"]>().toEqualTypeOf<Date | string | undefined>();
+  });
+});
+
+/** The brand `.agboss/types.d.ts` generates on each `@Application` class (#1324e), read by `createApp`. */
+declare const generatedPlain: App<ChatApplication>;
+declare const generatedTenanted: App<ClinicApplication>;
+
+describe("App<TApp> of a generated application", () => {
+  it("one without a tenantContext: resume and execute leave the tenant out", () => {
+    void generatedPlain.resume({ pauseId: "p", decision: {} });
+    void generatedPlain.cancel("t");
+    void generatedPlain.listExecutions();
+    expectTypeOf<HasTenantContext<ChatApplication>>().toEqualTypeOf<false>();
+  });
+
+  it("one with a tenantContext: the tenant is required", () => {
+    // @ts-expect-error — the application declares a tenantContext: name the tenant
+    void generatedTenanted.resume({ pauseId: "p", decision: {} });
+    void generatedTenanted.resume({ pauseId: "p", decision: {} }, { tenantId: "acme" });
+    expectTypeOf<HasTenantContext<ClinicApplication>>().toEqualTypeOf<true>();
   });
 });

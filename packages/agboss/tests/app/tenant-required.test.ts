@@ -57,7 +57,15 @@ const rejection = async (call: Promise<unknown>): Promise<unknown> =>
 
 describe("#1324e: an application with a tenantContext refuses a call that names no tenant", () => {
   const needing: readonly [string, (app: AnyTenantApp) => Promise<unknown>][] = [
-    ["execute", (app) => app.execute(DeskWorkflowStart, { text: "hi" }, {})],
+    [
+      "execute",
+      (app) =>
+        app.execute(
+          DeskWorkflowStart,
+          { text: "hi" },
+          { tenant: { plan: "pro" }, execution: { userId: "u-1" } },
+        ),
+    ],
     ["resume", (app) => app.resume({ pauseId: "p", decision: {} })],
     ["cancel", (app) => app.cancel("thread-1")],
     ["extendPause", (app) => app.extendPause({ pauseId: "p", expiresIn: 1000 as never })],

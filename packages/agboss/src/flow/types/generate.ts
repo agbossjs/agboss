@@ -1,5 +1,6 @@
 import { dirname, relative } from "node:path";
 import type { Class } from "../../components/injection.js";
+import { brandApplications } from "./application-brands.js";
 import { violation, type RuleViolation } from "../../graph/rule-error.js";
 import { checkWorkflow, type FlowCheck } from "../analyse/analyse.js";
 import { withChildWorkflows } from "../analyse/child-workflow.js";
@@ -212,6 +213,7 @@ export function generateFlowTypes(request: FlowTypesRequest): FlowTypes {
   // a reply interpreter (#267 PR 3) is typed like a handler: `InputOf` / `OutputOf` by its name
   const channels = channelTablesOf(all, names, tables);
   brandWorkflows(all, checks, names);
+  brandApplications(request.applications ?? [], all, names);
   const contracts = [...new Set(applications.flatMap(contractOf))]
     // an empty contract (an application with no settings) adds nothing to `Environment`
     .filter((contract) => declaredFieldsOf(contract).length > 0)

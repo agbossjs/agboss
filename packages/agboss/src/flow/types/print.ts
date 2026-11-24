@@ -9,8 +9,9 @@ import { judgeComponentNameOf } from "./judge-outputs.js";
 /**
  * Prints `.agboss/types.d.ts` (#272 S3, S39): the imports, the tables augmented into the tables
  * module, and the brands — `readonly [agbossComponent]?: "<name>"` on every component class (and
- * every channel role, #267) and
- * `readonly [agbossDto]?: "<ClassName>"` on every DTO class, by module augmentation of the module
+ * every channel role, #267),
+ * `readonly [agbossDto]?: "<ClassName>"` on every DTO class and `readonly [agbossTenantContext]?: true`
+ * (or `false`) on every `@Application` class (#1324e), by module augmentation of the module
  * each is declared in. Keys and modules are sorted, so the same application gives the same bytes.
  */
 
@@ -78,6 +79,11 @@ function brandLines(imported: ClassImport, names: ImportTable): readonly string[
     toolComponentNameOf(imported.component) ??
     judgeComponentNameOf(imported.component);
   const header = `  interface ${imported.component.name} {`;
+  const hasTenantContext = names.tenantContextOf(imported.component);
+  if (hasTenantContext !== undefined) {
+    const brand = `readonly [${names.use(TablesImport.TenantContextBrand)}]?: ${String(hasTenantContext)};`;
+    return [header, `${pad(2)}${brand}`, "  }"];
+  }
   if (name !== undefined) {
     const kind = kindText(imported.component, names);
     const brand = `{ readonly name: ${JSON.stringify(name)}${kind === undefined ? "" : `; readonly kind: ${kind}`} }`;
