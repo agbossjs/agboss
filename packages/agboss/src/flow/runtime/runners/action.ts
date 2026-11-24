@@ -16,6 +16,7 @@ import { ActionFailedError, OutputInvalidError, passesThrough } from "../errors.
 import { readInput, type NodeValue } from "../scope.js";
 import { reportNodeEvent } from "../../observers/execution-event.js";
 import { currentFrame, runInFrame, type FrameSpec } from "../../context/frame.js";
+import { AGBossError } from "../../../core/errors.js";
 import { StepError } from "../../../core/error-families/step-errors.js";
 import { stepCoordinatesOf } from "../../../graph/errors.js";
 import { timeoutOn, type Clock, type ClockTimeout } from "../../../infrastructure/clock.js";
@@ -136,9 +137,18 @@ const outcomeUnknown = (action: string, timeout: Milliseconds): StepError.Action
     message: `Action "${action}" ran past its timeout of ${String(timeout)} ms: its effect may have happened — it is not retried or undone`,
   });
 
-/** A failure of the action's code; a limit, a cancel or a pause passes as it is (S22). */
+/** A variant of an error family (`LimitError.Items`, `StepError.Agent`): an `AGBossError` with a `kind`. */
+const isFamilyError = (error: unknown): boolean =>
+  error instanceof AGBossError && typeof Reflect.get(error, "kind") === "string";
+
+/**
+ * A failure of the action's code; a limit, a cancel or a pause passes as it is (S22), and so does a
+ * family's error (`LimitError.Items`, `ExecutionError.UnknownThread`): it already says what it is,
+ * and a wrapper would shadow it — `.onError` resolves to the most specific class of the ORIGINAL
+ * error (#1325). Any other error fails the step as `ActionFailedError`, the original its cause.
+ */
 const failure = (node: string, error: unknown): unknown =>
-  passesThrough(error) || error instanceof StepError.ActionOutcomeUnknown
+  passesThrough(error) || isFamilyError(error)
     ? error
     : new ActionFailedError({ action: node, cause: error });
 

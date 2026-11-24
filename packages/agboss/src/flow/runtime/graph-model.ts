@@ -221,20 +221,23 @@ function dtoIndexOf(analysis: FlowAnalysis): ReadonlyMap<string, DtoClass> {
   return new Map(shapes.flatMap(dtosOf).map((dto) => [dto.name, dto] as const));
 }
 
-/**
- * The `.onError` handler of a failure: the one whose class matches most specifically — nearest in
- * the error's class line, then nearest in its cause chain; `.onError(Error, …)` only when nothing
- * else matches. None → the failure is not handled; a failed automatic undo never is (#340 Q4).
- */
-export function errorHandlerOf(
+/** The code of `ActionFailedError`: the wrapper the action runner puts around what an action's code threw. */
+const ACTION_WRAPPER_CODE = "step.action";
+
+/** The code every framework error has: a handler on it says nothing about the original's own class. */
+const FRAMEWORK_CODE = "agboss";
+
+/** The best handler among `exits` for `record`, by distance in its class line, then in its cause chain. */
+function bestHandlerOf(
   exits: Pick<NodeExits, "errors">,
   record: ErrorRecord,
+  skip?: (code: string) => boolean,
 ): FlowEdge | undefined {
-  if (record.code === CompensationFailedError.code || isHandOverRecord(record)) return undefined;
   let best: { readonly edge: FlowEdge; readonly rank: readonly number[] } | undefined;
   for (const edge of exits.errors) {
     if (edge.error === undefined) continue;
     const code = codeOfErrorClass(edge.error);
+    if (code !== undefined && skip?.(code) === true) continue;
     const match =
       code === undefined ? { distance: Infinity, depth: Infinity } : errorMatchOf(record, code);
     if (match === undefined) continue;
@@ -242,6 +245,27 @@ export function errorHandlerOf(
     if (best === undefined || isBefore(rank, best.rank)) best = { edge, rank };
   }
   return best?.edge;
+}
+
+/**
+ * The `.onError` handler of a failure: the one whose class matches most specifically — nearest in
+ * the error's class line, then nearest in its cause chain; `.onError(Error, …)` only when nothing
+ * else matches. An action's code that threw an error of its own is routed as that ORIGINAL error
+ * (#1325): the runner's `ActionFailedError` around it does not shadow a handler on the original's
+ * class (a project's own error class), and takes it only when none matches. None → the failure is
+ * not handled; a failed automatic undo never is (#340 Q4).
+ */
+export function errorHandlerOf(
+  exits: Pick<NodeExits, "errors">,
+  record: ErrorRecord,
+): FlowEdge | undefined {
+  if (record.code === CompensationFailedError.code || isHandOverRecord(record)) return undefined;
+  const original = record.lineage[0] === ACTION_WRAPPER_CODE ? record.cause : undefined;
+  const ofOriginal =
+    original === undefined
+      ? undefined
+      : bestHandlerOf(exits, original, (code) => code === FRAMEWORK_CODE);
+  return ofOriginal ?? bestHandlerOf(exits, record);
 }
 
 const isBefore = (rank: readonly number[], other: readonly number[]): boolean =>
