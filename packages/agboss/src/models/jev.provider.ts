@@ -41,9 +41,6 @@ const IMAGE_DECISION_MODEL =
 const decisionInputsOf = (model: string): readonly ModelInputKind[] =>
   IMAGE_DECISION_MODEL.test(model) ? ["text", "image"] : ["text"];
 
-/** Jev's models (a subset of `DECISION_MODELS`, every model the Decisions API serves). */
-export const JEV_MODELS: readonly string[] = ["typesafe/jev-1.13", "typesafe/jev-router"];
-
 /**
  * OpenRouter's Decisions API: every decision model (`DECISION_MODELS` — Jev, GPT-6 Luna Decisions,
  * pplx-decider, Clef, Solar Decide, Mercury Decide) for routers, guards and judges — choice, yes/no

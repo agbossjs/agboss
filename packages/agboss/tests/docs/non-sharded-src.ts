@@ -891,6 +891,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
   ...reviewed("the LLM helpers: no money decision", [
     "src/llm/canonical-order.ts",
     "src/llm/decision-errors.ts",
+    "src/llm/decisions-failover.ts",
     "src/llm/decisions.ts",
     "src/llm/gateway.ts",
     "src/llm/jev-client.ts",

@@ -1,3 +1,4 @@
+import { servedDecisionOf } from "./decisions-failover.js";
 import { billedDecisionRecord, withDecisionSpend } from "../finops/failed-decision.js";
 import type { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import type { ResolvedModelSettings } from "../config/types.js";
@@ -130,6 +131,8 @@ export function createModelGateway(clients: ModelClients): DecidingGateway {
           name: router,
           model: model.model,
           client: (request) => clients.jevClient(request, model.modelProvider),
+          provider: model.modelProvider,
+          servedBy: servedDecisionOf,
         })
       : createLlmRouter({
           name: router,
@@ -145,11 +148,14 @@ export function createModelGateway(clients: ModelClients): DecidingGateway {
     checkDecisionRequest(request);
     const { state, questions } = request;
     const raw = await clients.jevClient({ model, state, questions }, modelProvider);
+    // a fallback that answered is who the call is recorded under, as its own model (#1313d)
+    const by = servedDecisionOf(raw);
+    const answered = { model: by?.model ?? model, provider: by?.provider ?? modelProvider };
     try {
-      return readDecision(raw, { caller, model, questions });
+      return readDecision(raw, { caller, ...answered, questions });
     } catch (error) {
       // the provider answered and billed it: the spend travels with the failure, once (#1399)
-      const call = { caller, model, provider: modelProvider };
+      const call = { caller, ...answered };
       throw withDecisionSpend(error, billedDecisionRecord(call, { state, questions }, raw));
     }
   };

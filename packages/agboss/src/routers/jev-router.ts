@@ -12,6 +12,12 @@ export interface JevRouterDeps {
   readonly name: string;
   readonly model: string;
   readonly client: JevClient;
+  /** The provider the router's cascade resolved: its calls are recorded under it. */
+  readonly provider?: string | undefined;
+  /** Who answered, when a fallback did (#1313d): the call is recorded under that provider and model. */
+  readonly servedBy?: (
+    raw: unknown,
+  ) => { readonly provider: string; readonly model: string } | undefined;
 }
 
 const JevResponseSchema = z.object({
@@ -69,16 +75,25 @@ type UsageFactory = (reportedModel: string | undefined, costUsd: Usd) => UsageRe
 
 /** Jev picks among options with calibrated probabilities; cost comes from the API response. */
 export function createJevRouter(deps: JevRouterDeps): RouterEngine {
-  const usageOf: UsageFactory = (reportedModel, costUsd) => ({
-    caller: routerCaller(deps.name),
-    model: reportedModel ?? deps.model,
-    ...ZERO_USAGE,
-    costUsd,
-    costSource: CostSource.Api,
-  });
+  const usageFor =
+    (served: { readonly provider: string; readonly model: string } | undefined): UsageFactory =>
+    (reportedModel, costUsd) => ({
+      caller: routerCaller(deps.name),
+      model: reportedModel ?? served?.model ?? deps.model,
+      ...(served?.provider === undefined && deps.provider === undefined
+        ? {}
+        : { provider: served?.provider ?? deps.provider }),
+      ...ZERO_USAGE,
+      costUsd,
+      costSource: CostSource.Api,
+    });
   const billed = (raw: unknown, request: RouteRequest): UsageRecord =>
     billedDecisionRecord(
-      { caller: routerCaller(deps.name), model: deps.model },
+      {
+        caller: routerCaller(deps.name),
+        model: deps.servedBy?.(raw)?.model ?? deps.model,
+        provider: deps.servedBy?.(raw)?.provider ?? deps.provider,
+      },
       { input: extractText(request.input), options: request.options },
       raw,
     );
@@ -98,9 +113,9 @@ export function createJevRouter(deps: JevRouterDeps): RouterEngine {
             },
           },
         });
-        return toOutcome(raw, request, usageOf, billed);
+        return toOutcome(raw, request, usageFor(deps.servedBy?.(raw)), billed);
       } catch (error) {
-        return callFailed(error, usageOf(undefined, usd(0)));
+        return callFailed(error, usageFor(undefined)(undefined, usd(0)));
       }
     },
   };

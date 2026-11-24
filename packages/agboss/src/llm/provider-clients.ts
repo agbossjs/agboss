@@ -17,13 +17,9 @@ import type { JevClient } from "./jev-client.js";
 import type * as ProviderChat from "./provider-chat.js";
 import type { TransportResolver } from "../models/transport/transport-resolver.js";
 import type { ModelFactory } from "./registry.js";
+import { decideDownChain, decideThrough } from "./decisions-failover.js";
 import { withFallback } from "./provider-fallback.js";
-import {
-  chatOfProviders,
-  connectionsOf,
-  ProviderCapabilityError,
-  registeredIn,
-} from "./provider-chat-of.js";
+import { chatOfProviders, connectionsOf, registeredIn } from "./provider-chat-of.js";
 import { loadChatOpenAI } from "../models/chat-openai.js";
 import { withFallbacks } from "../models/resolution.js";
 import { lazyLoad } from "../infrastructure/clock.js";
@@ -115,13 +111,11 @@ export function providerClients(
       chatOf,
     });
   };
-  const jevClient: JevClient = (decision, modelProvider) => {
-    const provider = providerFor(decision.model, ModelKind.Decisions, modelProvider);
-    const routeTo = provider.handler?.routeTo?.bind(provider.handler);
-    if (routeTo === undefined)
-      throw new ProviderCapabilityError(`${provider.options.name} does not routeTo`);
-    return routeTo({ decision, connection: connectionFor(provider) });
-  };
+  const jevClient: JevClient = (decision, modelProvider) =>
+    decideDownChain(providerFor(decision.model, ModelKind.Decisions, modelProvider), decision, {
+      registeredFor,
+      decideOn: decideThrough(connectionFor),
+    });
   return { chatModel, jevClient, kindOf: kindOfIn(directory) };
 }
 

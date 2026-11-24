@@ -287,9 +287,6 @@ export type HttpModelProviderType = abstract new () => ModelProviderHandler & Re
 export const isDecisionModel: (model: string) => boolean;
 
 // @public
-export const JEV_MODELS: readonly string[];
-
-// @public
 export interface JevDecisionRequest {
     // (undocumented)
     readonly model: string;

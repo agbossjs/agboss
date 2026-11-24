@@ -66,7 +66,7 @@ describe("AC6: the default gateway resolves each model's provider", () => {
     ).toMatchObject({ kind: "failed" });
   });
 
-  it("AC6: a provider without chat or decisions for a resolved model is a wiring error", () => {
+  it("AC6: a provider without chat or decisions for a resolved model is a wiring error", async () => {
     const bare: RegisteredModelProvider = {
       options: modelProviderOf(LocalModelProvider),
       type: LocalModelProvider,
@@ -82,9 +82,9 @@ describe("AC6: the default gateway resolves each model's provider", () => {
     expect(() => clients.chatModel({ model: "local/llama", temperature: 0, maxTokens: 1 })).toThrow(
       ProviderCapabilityError,
     );
-    expect(() => clients.jevClient({ model: "local/llama", state: "", questions: {} })).toThrow(
-      ProviderCapabilityError,
-    );
+    await expect(
+      clients.jevClient({ model: "local/llama", state: "", questions: {} }),
+    ).rejects.toThrow(ProviderCapabilityError);
     expect(ModelKind.Chat).toBe("chat");
   });
 });

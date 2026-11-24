@@ -47,6 +47,8 @@ export interface DecisionAsked {
   readonly caller: string;
   readonly model: string;
   readonly questions: DecisionQuestions;
+  /** The provider the call's cascade resolved; a fallback that answered is told by `served`. */
+  readonly provider?: string | undefined;
 }
 
 /** Why an answer does not fit its question, or undefined when it does. */
@@ -114,6 +116,7 @@ export function readDecision(raw: unknown, asked: DecisionAsked): DecisionOutcom
     usage: {
       caller: asked.caller,
       model: model ?? asked.model,
+      ...(asked.provider === undefined ? {} : { provider: asked.provider }),
       inputTokens: usage?.input_tokens ?? 0,
       outputTokens: usage?.output_tokens ?? 0,
       cacheReadTokens: 0,

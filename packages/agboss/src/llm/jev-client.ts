@@ -77,6 +77,27 @@ function fromWireResponse(raw: unknown): unknown {
 
 export class JevApiError extends Error {
   override name = "JevApiError";
+  /** The HTTP status; `isFailoverError` sorts the provider's faults from the request's refusals by it. */
+  readonly status?: number;
+  /** The `error` object of the provider's JSON body, when it has one (its `code`, `type`). */
+  readonly error?: unknown;
+
+  constructor(message: string, response?: { readonly status: number; readonly body: string }) {
+    super(message);
+    if (response === undefined) return;
+    this.status = response.status;
+    this.error = errorOf(response.body);
+  }
+}
+
+/** The `error` of a provider's JSON error body; `undefined` for any other body. */
+function errorOf(body: string): unknown {
+  try {
+    const parsed: unknown = JSON.parse(body);
+    return isRecord(parsed) ? parsed.error : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 export function jevDecisionsUrl(baseUrl: string, path = "/alpha/decisions"): string {
@@ -114,7 +135,11 @@ export function createJevClient(
         signal: timer.signal,
       });
       if (!response.ok) {
-        throw new JevApiError(`Decisions API ${String(response.status)}: ${await response.text()}`);
+        const body = await response.text();
+        throw new JevApiError(`Decisions API ${String(response.status)}: ${body}`, {
+          status: response.status,
+          body,
+        });
       }
       const body: unknown = await response.json();
       return fromWireResponse(body);
