@@ -1,3 +1,4 @@
+import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { randomUUID } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
@@ -16,10 +17,11 @@ import { Clock } from "../infrastructure/clock.js";
 import { frameworkLogOf, Logger } from "../infrastructure/logger.js";
 import { MESH_REFUSAL_TEXT, MeshRefusalCode } from "../mesh/mesh-verification.js";
 import { kilobytes, type Bytes } from "../units/index.js";
+import { isAnonymous, isSameCaller } from "./mcp-session-identity.js";
 import { admitMcpHttp } from "./mcp-http-gate.js";
 import type { McpEndpointOptions } from "./mcp-endpoint.decorator.js";
 import { mcpServerOf, servedEndpointOf } from "./mcp-server-instance.js";
-import type { McpSessionOptions } from "./mcp-tool-registry.js";
+import type { McpSessionOptions } from "./mcp-service-helpers.js";
 
 /**
  * `mcpHttpListener` (#1319): an `@McpEndpoint` over MCP's Streamable HTTP, symmetric with
@@ -60,12 +62,35 @@ interface OpenSession {
   readonly identity: McpSessionOptions;
 }
 
-/** Whether `a` is the identity `b` was opened for: the same peer, owner and tenant. */
-const isSameCaller = (a: McpSessionOptions, b: McpSessionOptions): boolean =>
-  a.peer === b.peer && a.ownerId === b.ownerId && a.tenant?.tenantId === b.tenant?.tenantId;
+const ANONYMOUS = {
+  code: "mcp.caller-anonymous",
+  error: "the caller names no owner: an MCP session is kept only for an identified caller",
+};
+
+/** What a request's verified identity is passed on as to the server: the SDK's `req.auth`, read back per message. */
+const verified = new WeakMap<AuthInfo, McpSessionOptions>();
+
+/** Marks `req` as carrying `identity`, for the server that handles it. */
+function carrying(req: IncomingMessage, identity: McpSessionOptions): void {
+  const info: AuthInfo = { token: "", clientId: "", scopes: [] };
+  verified.set(info, identity);
+  (req as IncomingMessage & { auth?: AuthInfo }).auth = info;
+}
+
+/** The identity of the message being served: the one its own request was verified as; none is refused. */
+function messageIdentity(extra: { readonly authInfo?: AuthInfo }): McpSessionOptions {
+  const identity = extra.authInfo === undefined ? undefined : verified.get(extra.authInfo);
+  if (identity === undefined) throw new Error("an MCP message arrived with no verified identity");
+  return identity;
+}
 
 /** The identity a host's `@HttpAuthenticator` gave, as a connection's session. */
-const sessionOf = (caller: HttpCaller): McpSessionOptions => caller;
+const sessionOf = (caller: HttpCaller): McpSessionOptions => ({
+  ownerId: caller.ownerId,
+  tenant: caller.tenant,
+  execution: caller.execution,
+  peer: caller.peer,
+});
 
 /** The origin of `publicUrl`: an absolute http(s) URL, else the listener is not made. */
 function originOf(publicUrl: string): string {
@@ -124,7 +149,14 @@ async function identityOf(
   }
   const asking = { http: req, operation: req.method ?? "POST" };
   const gate = await admitCaller(l.authenticator.instance, asking, res, l.log, l.options.onError);
-  return gate.isAdmitted ? sessionOf(gate.caller) : undefined;
+  if (!gate.isAdmitted) return undefined;
+  const identity = sessionOf(gate.caller);
+  if (isAnonymous(identity)) {
+    // two anonymous callers are one to nothing: no session is opened or continued for either
+    writeRejection(res, 403, ANONYMOUS);
+    return undefined;
+  }
+  return identity;
 }
 
 /** A new session of `identity`: its own server, kept from the SDK's `initialize` until it closes. */
@@ -138,7 +170,7 @@ function opened(l: Listening, identity: McpSessionOptions): StreamableHTTPServer
   transport.onclose = () => {
     if (transport.sessionId !== undefined) l.sessions.delete(transport.sessionId);
   };
-  void mcpServerOf(l.app, l.served, identity).connect(transport);
+  void mcpServerOf(l.app, l.served, messageIdentity).connect(transport);
   return transport;
 }
 
@@ -177,6 +209,7 @@ async function serve(l: Listening, req: IncomingMessage, res: ServerResponse): P
   }
   const transport = transportOf(l, { req, res }, identity);
   if (transport === undefined) return;
+  carrying(req, identity); // this message runs as its own caller, equal to the session's opener
   await transport.handleRequest(req, res, body);
 }
 

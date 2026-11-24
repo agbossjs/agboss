@@ -99,7 +99,8 @@ export async function connectMcp<TApp extends App>(
   options: McpConnectOptions<TApp>,
 ): Promise<McpConnection> {
   const served = servedEndpointOf(app, options.endpoint);
-  const server = mcpServerOf(app, served, options.session ?? {});
+  const session = options.session ?? {};
+  const server = mcpServerOf(app, served, () => session);
   await server.connect(new WireAdapter(options.transport));
   const close = () => server.close();
   return { close, [Symbol.asyncDispose]: close };

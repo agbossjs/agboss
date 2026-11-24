@@ -1,4 +1,5 @@
 import type { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types.js";
+import type { ExecutionOptions } from "../app/types.js";
 import type { Class } from "../components/injection.js";
 import { componentOf } from "../components/metadata.js";
 import { jsonSchemaOf } from "../dto/schema.js";
@@ -11,9 +12,25 @@ import { meshLimitBodyOf } from "../mesh/mesh-wire.js";
 
 /** Helpers for the MCP server: reading `@McpEndpoint` options, tool schemas, results and the resume tool. */
 
+/**
+ * What every call of one MCP session runs with (#261): the thread's owner and the execution's typed
+ * context values — `tenant` (a resume uses its `tenantId`) and the declared `execution` fields —
+ * taken by the transport from its authenticated caller, never from the call's arguments.
+ */
+export type McpSessionOptions = Pick<ExecutionOptions, "ownerId" | "tenant" | "execution"> & {
+  /**
+   * The mesh peer the transport authenticated (#398 PR 2), by its `@Application({ name })`: when a
+   * call's envelope carries this peer's valid signature, its budget, deadline and origin are
+   * honoured and the run's report is signed back (`_meta["agboss.dev/report"]`).
+   */
+  readonly peer?: string;
+};
+
 /** One `tools/call` as the service sees it: the raw arguments, the client's cancel signal. */
 export interface McpCall {
   readonly args: unknown;
+  /** The identity THIS call runs with (#1319b): its own message's verified caller, never a stored one. */
+  readonly session: McpSessionOptions;
   /** The client's idempotency key (`_meta.callId`), if it sent one. */
   readonly callId?: string;
   readonly signal: AbortSignal;

@@ -1,4 +1,5 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { RequestHandlerExtra } from "@modelcontextprotocol/sdk/shared/protocol.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import type { App } from "../app/types.js";
 import type { Class } from "../components/injection.js";
@@ -7,7 +8,8 @@ import { meshSettingsOf } from "../mesh/mesh-settings.js";
 import { MeshInboundMode } from "../mesh/mesh.decorator.js";
 import type { McpEndpointOptions } from "./mcp-endpoint.decorator.js";
 import { callIdOf, mcpServerOptionsOf } from "./mcp-service-helpers.js";
-import { collectTools, type McpSessionOptions } from "./mcp-tool-registry.js";
+import type { McpSessionOptions } from "./mcp-service-helpers.js";
+import { collectTools } from "./mcp-tool-registry.js";
 import { dedupedMcpCall } from "./mcp-dedupe.js";
 import { admitMcpCall } from "./mcp-mesh-gate.js";
 
@@ -37,21 +39,29 @@ export function servedEndpointOf(app: App, endpoint: Class): McpEndpointOptions 
   return options;
 }
 
-/** The MCP server of `options` for one connection of `session`. */
+/** What of a request the transport's `extra` hands the server: the identity it verified, if it does. */
+type CallExtra = Pick<RequestHandlerExtra<never, never>, "signal" | "authInfo">;
+
+/**
+ * The MCP server of `options` for one connection. `sessionOf` names the identity of each message
+ * from that message's own `extra` (#1319b): a connection that is one caller's returns it; an HTTP
+ * session returns what its listener verified for THAT request, never the opener's.
+ */
 export function mcpServerOf(
   app: App,
   options: McpEndpointOptions,
-  session: McpSessionOptions,
+  sessionOf: (extra: CallExtra) => McpSessionOptions,
 ): McpServer {
   const mcp = new McpServer(
     { name: options.name, version: options.version },
     { capabilities: { tools: {} } },
   );
-  const { tools, handlers } = collectTools(app, options.tools, session);
+  const { tools, handlers } = collectTools(app, options.tools);
 
   mcp.server.setRequestHandler(ListToolsRequestSchema, () => ({ tools }));
   mcp.server.setRequestHandler(CallToolRequestSchema, (request, extra) => {
     const { name, arguments: args, _meta } = request.params;
+    const session = sessionOf(extra);
     const handler = handlers.get(name);
     if (!handler) {
       throw new Error(`Tool not found: ${name}`);
@@ -64,6 +74,7 @@ export function mcpServerOf(
     const run = () =>
       handler({
         args,
+        session,
         signal: extra.signal,
         ...(callId === undefined ? {} : { callId }),
         ...(admission.inbound === undefined ? {} : { mesh: admission.inbound }),

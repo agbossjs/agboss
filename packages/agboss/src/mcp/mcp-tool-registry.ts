@@ -24,30 +24,14 @@ import {
   type ToolRegistry,
 } from "./mcp-service-helpers.js";
 
-/**
- * What every call of one MCP session runs with (#261): the thread's owner and the execution's typed
- * context values — `tenant` (a resume uses its `tenantId`) and the declared `execution` fields —
- * taken by the transport from its authenticated caller, never from the call's arguments.
- */
-export type McpSessionOptions = Pick<ExecutionOptions, "ownerId" | "tenant" | "execution"> & {
-  /**
-   * The mesh peer the transport authenticated (#398 PR 2), by its `@Application({ name })`: when a
-   * call's envelope carries this peer's valid signature, its budget, deadline and origin are
-   * honoured and the run's report is signed back (`_meta["agboss.dev/report"]`).
-   */
-  readonly peer?: string;
-};
+export type { McpSessionOptions } from "./mcp-service-helpers.js";
 
 /**
  * What an `@McpEndpoint` exposes: its `@Tool` exports (run through the same adapter as
  * agent tool calls — DTO validation of input and output, timeout, `callId`), its workflow starts
  * (`app.execute`), and `resume_workflow` (`app.resume`) when there is a start.
  */
-export function collectTools(
-  app: App,
-  exports: readonly Class[],
-  session: McpSessionOptions,
-): ToolRegistry {
+export function collectTools(app: App, exports: readonly Class[]): ToolRegistry {
   const registry: ToolRegistry = { tools: [], handlers: new Map() };
   let hasWorkflows = false;
   for (const exp of exports) {
@@ -56,10 +40,10 @@ export function collectTools(
       addTool(registry, { app, exp, meta });
     } else if (isStart(exp)) {
       hasWorkflows = true;
-      addWorkflowStart(registry, app, exp, session);
+      addWorkflowStart(registry, app, exp);
     }
   }
-  if (hasWorkflows) addResumeTool(registry, app, session);
+  if (hasWorkflows) addResumeTool(registry, app);
   return registry;
 }
 
@@ -135,12 +119,7 @@ function startInputSchema(declaration: WorkflowStartDeclaration): ReturnType<typ
   return typeof input === "function" ? objectSchema(input) : { type: "object" as const };
 }
 
-function addWorkflowStart(
-  registry: ToolRegistry,
-  app: App,
-  exp: Class,
-  session: McpSessionOptions,
-): void {
+function addWorkflowStart(registry: ToolRegistry, app: App, exp: Class): void {
   const declaration = startOf(exp);
   if (declaration === undefined) return;
   const { name, description } = declaration.options;
@@ -149,9 +128,10 @@ function addWorkflowStart(
     description: description || `Run workflow starting at ${name}`,
     inputSchema: startInputSchema(declaration),
   });
-  // the session's caller as the execution takes it: its peer is the transport's, not an option
-  const caller = { ownerId: session.ownerId, tenant: session.tenant, execution: session.execution };
   registry.handlers.set(name, async (call) => {
+    // the call's own caller as the execution takes it: its peer is the transport's, not an option
+    const { ownerId, tenant, execution } = call.session;
+    const caller = { ownerId, tenant, execution };
     let reported: Record<string, string> | undefined;
     const answered = await guarded(async () => {
       // the call chain the envelope brought (#398): the execution's own calls carry it on
@@ -168,13 +148,13 @@ function addWorkflowStart(
   });
 }
 
-function addResumeTool(registry: ToolRegistry, app: App, session: McpSessionOptions): void {
+function addResumeTool(registry: ToolRegistry, app: App): void {
   registry.tools.push(RESUME_TOOL);
   registry.handlers.set(RESUME_TOOL.name, (call) =>
     guarded(async () => {
       const input = isRecord(call.args) ? call.args : {};
       if (typeof input.pauseId !== "string") throw new Error("pauseId must be a string");
-      const { ownerId, tenant } = session;
+      const { ownerId, tenant } = call.session;
       const options = { ownerId, tenantId: tenant?.tenantId, signal: call.signal };
       const request = { pauseId: input.pauseId, decision: parseDecision(input.decision) };
       const result = await app.resume(request, options);
