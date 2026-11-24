@@ -9,13 +9,14 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  Mesh,
+  MeshInboundMode,
   type ExecutionEvent,
-  type MeshOptions,
 } from "../../../src/index.js";
 import { MeshEnvironment } from "./environments/mesh.environment.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import type { Class } from "../../../src/components/injection.js";
-import type { Usd } from "../../../src/units/index.js";
+import { minutes, type Usd } from "../../../src/units/index.js";
 import type { ToolClass } from "../../../src/testing/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -51,7 +52,7 @@ export interface MeshAppSpec {
   /** The agent's path takes a `MeshLoopDetectedError` to `<name>-loop-workflow-finish`. */
   readonly handlesLoop?: boolean;
   /** `@Application({ mesh })` (#398 PR 2): its keys come from `MeshEnvironment`. */
-  readonly mesh?: MeshOptions;
+  readonly mesh?: Class;
   /** The peer the listener's resolver names for every request (as if its transport proved it). */
   readonly peer?: string;
   /** More providers of its workflow (a listener's `meshVerifier`). */
@@ -72,6 +73,18 @@ export interface MeshAppParts {
   readonly seen: HttpAuthRequest[];
   /** Every execution the application started, as `onExecutionStart` saw it. */
   readonly started: ExecutionEvent[];
+}
+
+/** A `@Mesh` that only limits the call chain: nothing signed, nobody a peer. */
+function hopsMesh(maxHops: number): Class {
+  @Mesh({
+    name: "hops-mesh",
+    inboundMode: MeshInboundMode.AllowExternal,
+    deduplicationTtl: minutes(30),
+    maxHops,
+  })
+  class HopsMesh {}
+  return HopsMesh;
 }
 
 export function meshAppOf(spec: MeshAppSpec): MeshAppParts {
@@ -177,6 +190,8 @@ export function meshAppOf(spec: MeshAppSpec): MeshAppParts {
   })
   class MeshA2AExpose {}
 
+  const mesh =
+    spec.mesh ?? (spec.maxMeshHops === undefined ? undefined : hopsMesh(spec.maxMeshHops));
   // one of two contracts, as the spec says: the decorator's field types are the union's
   const environment: Class = spec.mesh === undefined ? EmptyEnvironment : MeshEnvironment;
   @Application({
@@ -187,8 +202,7 @@ export function meshAppOf(spec: MeshAppSpec): MeshAppParts {
     workflows: [MeshWorkflow],
     budgets: TEST_BUDGETS,
     observers: [StartObserver],
-    ...(spec.maxMeshHops === undefined ? {} : { maxMeshHops: spec.maxMeshHops }),
-    ...(spec.mesh === undefined ? {} : { mesh: spec.mesh }),
+    ...(mesh === undefined ? {} : { mesh }),
   })
   class MeshApplication {}
 

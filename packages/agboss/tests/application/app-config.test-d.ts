@@ -36,7 +36,6 @@ describe("#834 AC1: one retention group", () => {
       | "costLedgerEntries"
       | "fencedEffects"
       | "outboundCalls"
-      | "meshAnswers"
       | "a2aFiles"
       | "a2aTasks"
       | "a2aMessages"

@@ -2,6 +2,10 @@
 // skill answers a question in an action that pays a service, served over A2A v1.0 by the real
 // listener (P2a), its mesh signed and verifying the caller.
 import "../keys.js";
+import { Mesh, MeshInboundMode } from "../../../../../src/mesh/mesh.decorator.js";
+import { defineEnv } from "../../../../../src/environments/define-env.js";
+import { secret } from "../../../../../src/environments/secret.js";
+import { minutes } from "../../../../../src/units/index.js";
 import { A2AExpose } from "../../../../../src/a2a/a2a-expose.decorator.js";
 import { Application } from "../../../../../src/application/application.js";
 import type { Class } from "../../../../../src/components/injection.js";
@@ -207,6 +211,29 @@ export class PeerWorkflow {}
 })
 export class PeerA2AExpose {}
 
+const peerEnv = defineEnv({
+  signingKey: secret("E2E_PEER_SIGNING_KEY"),
+  callerKey: secret("E2E_CALLER_VERIFY_KEY"),
+});
+
+/** The peer's mesh: signs with its own key, verifies `caller-application`'s. */
+function peerMesh(maxHops: number): Class {
+  @Mesh({
+    name: "peer-mesh",
+    signingKey: peerEnv.signingKey,
+    inboundMode: MeshInboundMode.AllowExternal,
+    deduplicationTtl: minutes(30),
+    maxHops,
+    // the caller's clock is moved by takeover tests; the peer's own never is
+    maxClockSkew: minutes(5),
+    peers: [{ application: "caller-application", verifyKeys: [peerEnv.callerKey] }],
+  })
+  class PeerMeshClass {}
+  return PeerMeshClass;
+}
+
+const PeerMesh = peerMesh(8);
+
 const PEER_OPTIONS = {
   name: PEER_APPLICATION,
   version: "1.0.0",
@@ -216,10 +243,7 @@ const PEER_OPTIONS = {
   observers: [PeerStarts],
   exposes: [PeerA2AExpose],
   budgets: TEST_BUDGETS,
-  mesh: {
-    signingKey: "meshSigningKey",
-    peers: [{ application: "caller-application", verifyKey: "meshPeerKey" }],
-  },
+  mesh: PeerMesh,
 } as const;
 
 /** The peer: signs its run reports, verifies `caller-application`'s envelopes. */
@@ -240,7 +264,7 @@ export class PeerApplication {}
 export class KeylessPeerApplication {}
 
 /** The same peer refusing any chain of one hop or more (`maxMeshHops: 1`). */
-@Application({ ...PEER_OPTIONS, maxMeshHops: 1 })
+@Application({ ...PEER_OPTIONS, mesh: peerMesh(1) })
 export class StrictPeerApplication {}
 
 /** The in-memory task store, losing what `lossy` says. */

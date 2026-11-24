@@ -93,6 +93,7 @@ export function composeApp(
   assembled: AssembledApplication,
   workflows: readonly BuiltApp[],
   surface: InstanceSurface,
+  processEnv: NodeJS.ProcessEnv = process.env,
 ): App {
   const { stop, warnings } = surface;
   const [first] = workflows;
@@ -141,7 +142,7 @@ export function composeApp(
   if (remembered !== undefined) rememberAppWorkflow(app, remembered);
   rememberListedProviders(app, listedProviderCheckOf(assembled.modules));
   // the instance's one observer manager: every workflow's is it (#875, #860)
-  const mesh = meshSettingsFor(assembled, app);
+  const mesh = meshSettingsFor(assembled, app, processEnv);
   rememberMeshSettings(app, () => mesh);
   return app;
 }
@@ -221,6 +222,8 @@ export interface InstanceAppParts extends InstanceParts {
   readonly contexts: RuntimeContexts;
   readonly quiet: boolean | undefined;
   readonly isInstanceKey: boolean;
+  /** The process environment the instance reads its references from (the mesh's keys). */
+  readonly processEnv: NodeJS.ProcessEnv;
 }
 
 /** The instance's stop and sweep started, its start logged, its app composed. */
@@ -236,7 +239,7 @@ export function instanceAppOf(
     logStart(log, parts.contexts.application, assembled.workflows, warnings);
   const health = instanceHealthOf(assembled, workflows, { stop, sweep, timers, ...parts });
   const surface = { stop, warnings, health, ...infrastructure };
-  const app = composeApp(assembled, workflows, surface);
+  const app = composeApp(assembled, workflows, surface, parts.processEnv);
   return { app, infrastructure, closed: stop.closed, log };
 }
 

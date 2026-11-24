@@ -50,7 +50,7 @@ describe("#860: a direct reply's run report", () => {
 
     const report = verifiedRunReportOf(
       mesh?.report,
-      new Map([["unit-application", publicKey]]),
+      new Map([["unit-application", [publicKey]]]),
       "body-hash-1",
     );
 

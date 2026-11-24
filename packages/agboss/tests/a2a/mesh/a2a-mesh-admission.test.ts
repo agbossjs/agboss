@@ -261,7 +261,7 @@ describe("#810 AC4: a forged, expired or rebound envelope is 401 before anything
     const one = await servePeer(clock);
     served.push(one);
     const message = messageOf("m-1");
-    const issuedAt = new Date(clock.now().getTime() - 5 * 60_000);
+    const issuedAt = new Date(clock.now().getTime() - 10 * 60_000);
 
     const answer = await sent(one, withEnvelope(message, envelopeOf(message, { issuedAt })));
 

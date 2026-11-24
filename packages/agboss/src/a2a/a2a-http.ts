@@ -9,7 +9,8 @@ import { frameworkLogOf, Logger } from "../infrastructure/logger.js";
 import { kilobytes, type Bytes, type Milliseconds } from "../units/index.js";
 import type { A2AApp } from "./a2a-caller.js";
 import {
-  authenticatorOf,
+  listenerAuthenticatorOf,
+  listenerOf,
   notifyHost,
   writeRejection,
   type ListenerAuthenticator,
@@ -34,9 +35,11 @@ export interface A2AHttpListenerOptions {
   /**
    * Who calls (an `@HttpAuthenticator` listed in `@Application({ services })`): the listener takes
    * its instance from the application's container when it is created and asks it on every request.
-   * Its `schemes` are the card's `securitySchemes`.
+   * Its `schemes` are the card's `securitySchemes`. Optional only for an application whose `@Mesh` is
+   * `Strict` with a peer that has `propagateTenant` and whose tenant context is the base one: then
+   * only signed peers call (`[http.authenticator-required-for-tenant-context]` otherwise).
    */
-  readonly authenticator: Class;
+  readonly authenticator?: Class;
   /** Who runs the agent: the card's `provider`. */
   readonly provider?: { readonly organization: string; readonly url: string };
   /**
@@ -142,14 +145,14 @@ const directPartsOf = (
 function cardSourceOf(
   mesh: MeshSettings,
   options: A2AHttpListenerOptions,
-  checked: { readonly authenticator: ListenerAuthenticator; readonly url: string },
+  checked: { readonly authenticator: ListenerAuthenticator | undefined; readonly url: string },
 ) {
   return {
     application: mesh.application,
     url: checked.url,
     idempotencyRetention: mesh.a2aTaskRetention,
     messageIdempotencyRetention: mesh.a2aMessageRetention,
-    schemes: checked.authenticator.meta.schemes,
+    schemes: checked.authenticator?.meta.schemes ?? [],
     ...(options.provider === undefined ? {} : { provider: options.provider }),
   };
 }
@@ -159,7 +162,7 @@ async function bindingOf(
   app: A2AApp,
   options: A2AHttpListenerOptions,
   checked: {
-    readonly authenticator: ListenerAuthenticator;
+    readonly authenticator: ListenerAuthenticator | undefined;
     readonly exports: readonly Class[];
     readonly url: string;
   },
@@ -195,7 +198,7 @@ async function bindingOf(
   return {
     card,
     handler: new A2AServerRequestHandler(parts, card.card),
-    authenticator: checked.authenticator.instance,
+    ...listenerOf(options, checked),
     ...(options.onError === undefined ? {} : { onError: options.onError }),
     mesh,
     log: parts.log,
@@ -222,7 +225,7 @@ export function a2aHttpListener(
   options: A2AHttpListenerOptions,
 ): (req: IncomingMessage, res: ServerResponse) => void {
   checkedListenerTimers(options);
-  const authenticator = authenticatorOf(app, options.authenticator);
+  const authenticator = listenerAuthenticatorOf(app, options.authenticator);
   const exports = exportsOf(app, options.expose);
   const url = interfaceUrlOf(options.publicUrl, options.base ?? "");
   const log = frameworkLogOf(app.resolve(Logger), app.resolve(Clock));

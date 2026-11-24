@@ -1,6 +1,7 @@
 // #824 — the server's parts for unit tests of its modules (mutation shard `a2a-server`): the
 // in-memory task store, a scripted execution control and app, this process's runs, a virtual clock
 // and counted ids — every call recorded.
+import { MESH_DEFAULTS } from "../../../helpers/mesh-settings.js";
 import { A2ACardFileFields } from "../../../../src/a2a/files/a2a-file-options.js";
 import { FileFetches } from "../../../../src/a2a/files/a2a-file-fetches.js";
 import { fileSlotsOf } from "../../../../src/a2a/files/a2a-file-slots.js";
@@ -52,6 +53,7 @@ export const UNIT_MESH: MeshSettings = {
   application: "unit-application",
   maxMeshHops: 8,
   keys: { peers: new Map() },
+  ...MESH_DEFAULTS,
   clock: new VirtualClock(NINE),
   idempotencyRetention: 0,
   a2aTaskRetention: 0,

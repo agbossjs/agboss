@@ -4,6 +4,7 @@
  * false }` in the step's record; one with a verified report is charged it and recorded as the
  * report says; a task that did not complete, or a call that knows no task, records nothing.
  */
+import { MESH_DEFAULTS } from "../../helpers/mesh-settings.js";
 import { generateKeyPairSync } from "node:crypto";
 import { TaskState, type Task } from "@a2a-js/sdk";
 import { describe, expect, it } from "vitest";
@@ -114,7 +115,8 @@ async function settled(
   const settings: MeshSettings = {
     application: "caller-application",
     maxMeshHops: 8,
-    keys: { peers: new Map([[PEER, peerKeys.publicKey]]) },
+    keys: { peers: new Map([[PEER, [peerKeys.publicKey]]]) },
+    ...MESH_DEFAULTS,
     clock: new VirtualClock(NOW),
     idempotencyRetention: hours(1),
     a2aTaskRetention: hours(1),

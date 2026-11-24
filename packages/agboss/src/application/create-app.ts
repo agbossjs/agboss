@@ -18,6 +18,7 @@ import type { Clock } from "../infrastructure/clock.js";
 import { gatedInfrastructure } from "./lease-gate.js";
 import { applicationContainerOf, clockOf, resolveInfrastructure } from "./application-container.js";
 import { instanceAppOf } from "./compose-app.js";
+import { startMeshSigner } from "../mesh/mesh-start.js";
 import { closeOnStopSignals } from "./stop-signals.js";
 import { sourcesOf } from "./instance-sources.js";
 import { applicationOf, type AssembledApplication } from "./assemble.js";
@@ -88,6 +89,12 @@ async function buildWorkflows(
   built: BuiltApp[],
   mask: ReturnType<typeof applicationPiiMaskOf>, // each workflow's policies join its union (#1130)
 ): Promise<void> {
+  const { clock } = parts.infrastructure;
+  // #1320: the mesh's keys before any handshake; a key that is no Ed25519 key fails the start
+  startMeshSigner(assembled, parts.contexts?.application, {
+    clock,
+    processEnv: options.processEnv ?? process.env,
+  });
   const byClass = new Map<Class, GraphDeps<string>>();
   const childDepsOf = (workflow: Class): GraphDeps<string> | undefined => byClass.get(workflow);
   const bundles = new Map(assembled.workflows.map((bundle) => [bundle.graph.type, bundle]));
@@ -181,7 +188,7 @@ export async function buildApplication(
   const workflows: BuiltApp[] = [];
   const seen = { assembled, shared, log, seams, mask, created, instance, infrastructure };
   const { observer, auditLog } = await observersOf(seen, { ...container, onCreate }, options);
-  const common = { infrastructure, created, auditLog, ...instance };
+  const common = { infrastructure, created, auditLog, processEnv, ...instance };
   try {
     // #825: its business-key fingerprints' keys, a Secret of their own (a test's when unset)
     const keys = applicationIdempotencyKeysOf(assembled, environment, processEnv, testKeys);

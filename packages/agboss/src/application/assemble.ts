@@ -28,22 +28,13 @@ import { checkContextFields } from "../flow/context/context-rules.js";
 import { checkObservers } from "../components/observer-checks.js";
 import { withChildWorkflows } from "../flow/analyse/child-workflow.js";
 import { decoratedHealthChecksOf } from "../health/health-check.js";
-import { DEFAULT_MAX_MESH_HOPS } from "../mesh/mesh-defaults.js";
 import type { ApplicationAssembly } from "./assembly-options.js";
-import type { MeshOptions } from "../mesh/mesh-options.js";
+import { meshOptionsOf } from "../mesh/mesh-assembly.js";
+import type { MeshMeta } from "../mesh/mesh.decorator.js";
 import {
   FencedEffectSettings,
   OutboundCallSettings,
 } from "../infrastructure/fenced-effect-settings.js";
-
-/** `@Application({ maxMeshHops, mesh })` (#398), as assembled. */
-const meshOptionsOf = (
-  options: ApplicationOptions,
-): Pick<AssembledApplication, "maxMeshHops" | "mesh" | "exposes"> => ({
-  maxMeshHops: options.maxMeshHops ?? DEFAULT_MAX_MESH_HOPS,
-  exposes: options.exposes ?? [],
-  ...(options.mesh === undefined ? {} : { mesh: options.mesh }),
-});
 
 /**
  * The assembly of an `@Application` (#261): its own rules (names, its workflows, budgets, where the
@@ -89,7 +80,7 @@ export interface AssembledApplication extends AssembledKeyFields, StorageFields 
   readonly a2aMessageRetention: Milliseconds;
   /** How long an entry of the cost ledger is kept (`retention.costLedgerEntries`, #771). */
   readonly ledgerEntryRetention?: Milliseconds | undefined;
-  /** How long a trusted mesh request's answer is kept (`retention.meshAnswers`, #398). */
+  /** How long a trusted mesh request's answer is kept (`@Mesh({ deduplicationTtl })`, #398). */
   readonly meshAnswerRetention: Milliseconds;
   /** Each automatic undo action's bound (`@Application({ compensationTimeout })`, #340). */
   readonly compensationTimeout: Milliseconds;
@@ -99,10 +90,10 @@ export interface AssembledApplication extends AssembledKeyFields, StorageFields 
   readonly outboundCalls: OutboundCallSettings;
   /** `@Application({ maxConcurrentSteps })` (#332): the instance's cap on steps; absent = none. */
   readonly maxConcurrentSteps?: number;
-  /** `@Application({ maxMeshHops })` (#398): the longest call chain it accepts. */
+  /** `@Mesh({ maxHops })` (#398): the longest call chain it accepts. */
   readonly maxMeshHops: number;
-  /** `@Application({ mesh })` (#398 PR 2): its keys' fields and the answers' retention. */
-  readonly mesh?: MeshOptions;
+  /** `@Application({ mesh })` (#398 PR 2, #1320): its `@Mesh`, as recorded. */
+  readonly mesh?: MeshMeta;
   /** `@Application({ exposes })` (#398 PR 3): its `@A2AExpose` / `@McpExpose` contracts. */
   readonly exposes: readonly Class[];
   /** The context classes it declares (#261), else the built-in ones. */

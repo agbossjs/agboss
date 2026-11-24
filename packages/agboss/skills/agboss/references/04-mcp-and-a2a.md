@@ -459,7 +459,7 @@ import { SupportMcp } from "./src/support/mcp/support.expose.js";
 -->
 
 ```ts
-// server.ts — local clients over stdio; for HTTP: service.handleSse(res, "/mcp/messages", session)
+// server.ts — local clients over stdio; for HTTP: service.handleSse(req, res, "/mcp/messages", session)
 // and service.handleMessage(req, res, sessionId) in your HTTP framework
 import { createMcpService } from "@agboss/core/mcp";
 
@@ -753,7 +753,7 @@ without). What it does apply is the chain, before anything runs:
 | The chain the request arrives with                            | The receiver answers                                                                                                                                                           |
 | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | already passed through its own application and start (a loop) | MCP `409 { "code": "limit.mesh-loop", "error", "details": { entry, chain } }`; A2A a `REJECTED` task, nothing run, the code and details in `status.message.metadata[mesh uri]` |
-| as long as its `@Application({ maxMeshHops })` (default 8)    | MCP `409 { "code": "limit.hops", "error", "details": { maxMeshHops, hops, … } }`; A2A the same `REJECTED` task                                                                 |
+| as long as its `@Mesh({ maxHops })` (default 8)               | MCP `409 { "code": "limit.hops", "error", "details": { maxMeshHops, hops, … } }`; A2A the same `REJECTED` task                                                                 |
 | anything else                                                 | the run, whose own calls carry the chain on with its hop added                                                                                                                 |
 
 On the caller `A2AClient` rethrows them typed — `MeshLoopDetectedError` / `HopsLimitExceededError`,
@@ -793,33 +793,44 @@ export class OrdersWorkflow {}
 
 - A loop is the same `(application, skill)` twice in one chain — always, whatever the depth; another
   start of the same application is not one. An exported MCP tool is an entry like a start.
-- `maxMeshHops` counts applications: a chain that already lists `maxMeshHops` of them is refused
+- `maxMeshHops` counts applications: a chain that already lists `maxHops` of them is refused
   (`hops` = the chain + the receiver). `[limits.max-mesh-hops-invalid]` for anything but a whole
   number from 1.
 
 ### Trusted peers: signed envelopes (#398 PR 2)
 
-An application that names its keys (`@Application({ mesh })`, `MeshOptions` with its `MeshPeer`s)
-signs every envelope it sends (JWS `EdDSA`, Ed25519) and every
-run report it answers with; its `peers` are the applications whose signatures it checks. Keys are
-PEM in environment fields, named by field like a `@ModelProvider`'s `apiKey`: the private key a
-`Secret` (PKCS #8), a peer's public key a plain text field (SPKI) — it is public.
+An application whose `@Application({ mesh })` is a `@Mesh` class signs every envelope it sends
+(JWS `EdDSA`, Ed25519), every run report it answers with and every HTTP request of its clients
+(`X-AGBoss-Mesh`); its `peers` are the applications whose signatures it checks. Keys are PEM in
+process variables read through `defineEnv`: the signing key a `secret(…)` (PKCS #8), a peer's
+`verifyKeys` `secret(…)` / `secret.optional(…)` references (SPKI) — any listed key verifies, so a
+key rotation lists the old and the new one.
 
 <!-- snippet-context
-import type { Secret } from "@agboss/core";
+import { Application, Mesh, MeshInboundMode, defineEnv, secret } from "@agboss/core";
+import { minutes } from "@agboss/core/units";
+export class BillingWorkflow {} // a @Workflow of its own
 -->
 
-```ts file=billing/src/environments/billing.environment.ts
-// the contract
-export class BillingEnvironment {
-  meshSigningKey!: Secret; // secret("MESH_SIGNING_KEY") in each environment
-  ordersPublicKey!: string; // env("ORDERS_PUBLIC_KEY")
-}
+```ts file=billing/src/config/mesh.config.ts
+const meshEnv = defineEnv({
+  signingKey: secret("MESH_SIGNING_KEY"),
+  ordersKey: secret("ORDERS_PUBLIC_KEY"),
+});
+
+@Mesh({
+  signingKey: meshEnv.signingKey,
+  inboundMode: MeshInboundMode.Strict, // a request to a mesh endpoint must be a peer's, signed
+  deduplicationTtl: minutes(30), // above the lease and envelopeTtl + 2 × maxClockSkew
+  maxHops: 8,
+  peers: [{ application: "orders-application", verifyKeys: [meshEnv.ordersKey] }],
+})
+export class BillingMesh {}
 ```
 
 <!-- snippet-context
 import { Application } from "@agboss/core";
-import { BillingEnvironment } from "./environments/billing.environment.js";
+import { BillingMesh } from "./config/mesh.config.js";
 export class BillingWorkflow {} // a @Workflow of its own
 -->
 
@@ -827,15 +838,19 @@ export class BillingWorkflow {} // a @Workflow of its own
 @Application({
   name: "billing-application",
   version: "1.0.0",
-  environment: BillingEnvironment,
   workflows: [BillingWorkflow],
-  mesh: {
-    signingKey: "meshSigningKey",
-    peers: [{ application: "orders-application", verifyKey: "ordersPublicKey" }],
-  },
+  mesh: BillingMesh,
 })
 export class BillingApplication {}
 ```
+
+An HTTP request carries `X-AGBoss-Mesh`: a JWS over `{ issuer, audience, origin, jti, method, path,
+bodyHash, issuedAt, expiresIn, tenantId? }` verified by the receiver — signature with the issuer's
+keys first, then audience, origin, date window (`maxClockSkew`, `envelopeTtl` as the cap), that it
+is this request's, and each `jti` once. Refusals are fixed-text codes: `401 mesh.signature-invalid`
+/ `mesh.peer-unknown` / `mesh.signature-missing` / `mesh.envelope-expired` / `mesh.audience-mismatch`
+/ `mesh.request-mismatch` / `mesh.replayed`, `403 mesh.endpoint-forbidden` / `mesh.tenant-mismatch`,
+`503 mesh.replay-check-unavailable`. A verified peer owns its tasks as `mesh:<peer>`.
 
 These checks run where the envelope is read: an MCP call's `_meta["agboss.dev/mesh"]`, and an A2A
 `SendMessage`'s `message.metadata["https://agboss.dev/a2a/mesh/v1"].envelope` (#810), before the
@@ -879,7 +894,7 @@ smaller of it and a trusted caller's, checked before every step and model call (
 not cut). `A2AClient.cancel(taskId)` sends A2A `CancelTask` for that task only (#809).
 
 - `MeshRequestRepository` is infrastructure (in memory; `SqliteMeshRequestRepository` shares it
-  between instances), kept `retention.meshAnswers` (default `minutes(30)`), then removed by the
+  between instances), kept `@Mesh({ deduplicationTtl })` (default `minutes(30)`), then removed by the
   recovery sweep. Only trusted MCP requests are deduplicated: a `tools/call` by its `_meta.callId` (the AGBoss client sends
   the step's key) — a repeat gets the kept result, one in flight an error result with
   `_meta["agboss.dev/error"]` `mesh.request-in-progress`.

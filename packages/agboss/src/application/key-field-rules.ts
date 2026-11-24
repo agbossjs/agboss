@@ -31,14 +31,12 @@ function providerKeysOf(options: ApplicationOptions): readonly (readonly [string
   });
 }
 
-/** Every key the application declares besides its own key fields: providers', the mesh's, the stores'. */
+/** Every key the application declares besides its own key fields: providers', the stores'. */
 export function declaredKeysOf(
   options: ApplicationOptions,
   listed: readonly Class[],
 ): DeclaredKeys {
   const keys = new Map<string, string>(providerKeysOf(options));
-  const signing = options.mesh?.signingKey;
-  if (signing !== undefined) keys.set(signing, "the mesh's signingKey");
   const readers = readingClassesOf(listed, depsOf).map((reading) => reading.reader);
   for (const field of secretFieldsReadBy(readers))
     if (!keys.has(field)) keys.set(field, "a Secret a listed class reads (environmentFields)");

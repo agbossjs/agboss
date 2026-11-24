@@ -29,6 +29,14 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ],
   ),
   ...reviewed(
+    "the mesh's declarations and assembly (#1320): the `@Mesh` decorator and its options, its assembled limits and the A2A request's context — plumbing; the rules on its numbers are in mesh-rules (tests/mesh/mesh-trust.test.ts), what a request is admitted by is sharded (mesh-http, mesh-http-admission); covered by tests/mesh/mesh-trust.test.ts, tests/mesh/mesh-envelope.test.ts and tests/a2a/mesh/a2a-mesh-e2e.test.ts",
+    [
+      "src/mesh/mesh.decorator.ts",
+      "src/mesh/mesh-assembly.ts",
+      "src/a2a/server/a2a-rpc-context.ts",
+    ],
+  ),
+  ...reviewed(
     "the storage components' declarations and wiring (#1321): decorators, driver descriptors, settings and field readers, the in-memory database and the barrel — which store holds the leases, the idempotency keys and the retention is decided in the sharded storage-assembly, storage-rules, storage-secret-rules and ttl-problem (assembly-rules); covered by tests/storage/storage-application.test.ts and tests/storage/storage.test-d.ts",
     [
       "src/storage/drivers.ts",
@@ -902,8 +910,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
       "src/mesh/mesh-hop.ts",
       "src/mesh/mesh-jws.ts",
       "src/mesh/mesh-keys.ts",
-      "src/mesh/mesh-options.ts",
-      "src/mesh/mesh-rules.ts",
       "src/mesh/mesh-settings.ts",
       "src/mesh/mesh-start.ts",
     ],

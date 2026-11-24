@@ -4,7 +4,7 @@ import { amountOf, isoDurationOf } from "./mesh-durations.js";
 import { ENVELOPE_LIFETIME } from "./mesh-defaults.js";
 import type { MeshEnvelope } from "./mesh-envelope.js";
 import { encodeMeshEnvelope } from "./mesh-envelope-codec.js";
-import { contextMeshSettingsOf, signingKeyOf } from "./mesh-settings.js";
+import { contextMeshSettingsOf, signingKeyOf, type MeshSettings } from "./mesh-settings.js";
 
 /**
  * What an AGBoss client sends with a call made inside an execution (#398): the envelope, a W3C
@@ -61,8 +61,36 @@ function claimsOf(frame: Frame, now: Date): Pick<MeshEnvelope, "budget" | "deadl
   };
 }
 
+/** How long what the application signs is valid: its `@Mesh({ envelopeTtl })`, else 60 s. */
+const envelopeTtlOf = (settings: { readonly envelopeTtl: number } | undefined): number =>
+  settings?.envelopeTtl ?? ENVELOPE_LIFETIME;
+
+/**
+ * The envelope addressed to `audience` — and, for a peer with `propagateTenant`, carrying the
+ * execution's tenant (the receiver checks it against the tenant its HTTP header signed).
+ */
+function addressedOf(
+  built: MeshEnvelope,
+  audience: string | undefined,
+  settings: { readonly peers: MeshSettings["peers"] } | undefined,
+  frame: Frame,
+): MeshEnvelope {
+  if (audience === undefined) return built;
+  const propagate = settings?.peers.get(audience)?.propagateTenant === true;
+  return {
+    ...built,
+    audience,
+    ...(propagate ? { tenantId: frame.execution.tenant.tenantId } : {}),
+  };
+}
+
 /** The envelope of a call made in `frame`; `undefined` when its tree has no call chain. */
-function envelopeOf(frame: Frame, bodyHash: string, now: Date): MeshEnvelope | undefined {
+function envelopeOf(
+  frame: Frame,
+  bodyHash: string,
+  now: Date,
+  ttl: number,
+): MeshEnvelope | undefined {
   const { execution, step } = frame;
   const root = rootFactsOf(execution);
   if (root.mesh === undefined) return undefined;
@@ -84,7 +112,7 @@ function envelopeOf(frame: Frame, bodyHash: string, now: Date): MeshEnvelope | u
     },
     callChain: root.mesh.chain,
     issuedAt: now.toISOString(),
-    expiresIn: isoDurationOf(ENVELOPE_LIFETIME),
+    expiresIn: isoDurationOf(ttl),
     bodyHash,
     ...claimsOf(frame, now),
   };
@@ -108,9 +136,9 @@ export function outboundMeshOfHash(bodyHash: string, audience?: string): Outboun
   if (frame === undefined || frame.isClosed()) return undefined;
   const settings = contextMeshSettingsOf(frame.execution.tenant.application);
   const now = settings?.clock.now() ?? new Date(0);
-  const built = envelopeOf(frame, bodyHash, now);
+  const built = envelopeOf(frame, bodyHash, now, envelopeTtlOf(settings));
   if (built === undefined) return undefined;
-  const envelope = audience === undefined ? built : { ...built, audience };
+  const envelope = addressedOf(built, audience, settings, frame);
   const root = rootFactsOf(frame.execution);
   // Stryker disable next-line OptionalChaining: equivalent: `envelopeOf` answered `undefined` above for a root without `mesh`, so it is there
   const traceId = root.mesh?.traceId ?? hexOf(root.executionId, TRACE_ID_LENGTH);

@@ -4,7 +4,6 @@ import {
   DEFAULT_FENCED_EFFECT_RETENTION,
   DEFAULT_OUTBOUND_CALL_RETENTION,
 } from "../infrastructure/fenced-effect-settings.js";
-import { DEFAULT_IDEMPOTENCY_RETENTION } from "../mesh/mesh-defaults.js";
 import { hours, minutes, type Milliseconds } from "../units/index.js";
 import { shownValueOf } from "../core/shown-value.js";
 
@@ -59,11 +58,6 @@ export interface RetentionOptions {
    */
   readonly outboundCalls?: Milliseconds;
   /**
-   * A trusted mesh request's answer, kept for a repeat of its idempotency key (#398 PR 2,
-   * `MeshRequestRepository`). Default `minutes(30)`.
-   */
-  readonly meshAnswers?: Milliseconds;
-  /**
    * A finished A2A task after its last status change (#807) — and with it the ids of its messages:
    * a message resent within it gets the same task, never a second execution. An unfinished task is
    * never removed. Default `hours(24)`.
@@ -93,7 +87,6 @@ export interface ApplicationRetention {
   readonly costLedgerEntries: Milliseconds;
   readonly fencedEffects: Milliseconds;
   readonly outboundCalls: Milliseconds;
-  readonly meshAnswers: Milliseconds;
   readonly a2aTasks: Milliseconds;
   readonly a2aFiles: Milliseconds;
   readonly a2aMessages: Milliseconds;
@@ -110,7 +103,6 @@ export const DEFAULT_RETENTION: Readonly<
   costLedgerEntries: hours(24),
   fencedEffects: DEFAULT_FENCED_EFFECT_RETENTION,
   outboundCalls: DEFAULT_OUTBOUND_CALL_RETENTION,
-  meshAnswers: DEFAULT_IDEMPOTENCY_RETENTION as Milliseconds,
   a2aTasks: hours(24),
   a2aMessages: minutes(15),
 });
@@ -123,7 +115,6 @@ const RETENTION_FIELDS: readonly (keyof RetentionOptions)[] = [
   "costLedgerEntries",
   "fencedEffects",
   "outboundCalls",
-  "meshAnswers",
   "a2aTasks",
   "a2aFiles",
   "a2aMessages",
@@ -164,7 +155,6 @@ export function retentionOf(options: RetentionOptions | undefined): ApplicationR
     costLedgerEntries: given.costLedgerEntries ?? DEFAULT_RETENTION.costLedgerEntries,
     fencedEffects: given.fencedEffects ?? DEFAULT_RETENTION.fencedEffects,
     outboundCalls: given.outboundCalls ?? DEFAULT_RETENTION.outboundCalls,
-    meshAnswers: given.meshAnswers ?? DEFAULT_RETENTION.meshAnswers,
     ...a2aRetentionOf(given),
   };
 }
@@ -194,6 +184,7 @@ const hintOf = (...fields: readonly string[]): string =>
 /** A retention renamed before 0.1.1 (#889): refused naming its new name, never a silent default. */
 const RENAMED: ReadonlyMap<string, string> = new Map([
   ["leaseEvents", "the audit log's rows are kept for retention.auditLog"],
+  ["meshAnswers", "how long a trusted request's answer is kept is @Mesh({ deduplicationTtl })"],
 ]);
 
 /** Why a field `retentionViolations` does not know is refused: renamed, or a typo. */
@@ -210,7 +201,7 @@ const unknownFieldProblem = (field: string): string => {
  */
 export function retentionViolations(application: string, options: unknown): RuleViolation[] {
   if (options === undefined) return [];
-  const fail = (text: string, hint = hintOf("fencedEffects", "meshAnswers")): RuleViolation =>
+  const fail = (text: string, hint = hintOf("fencedEffects", "outboundCalls")): RuleViolation =>
     violation("application.retention-invalid", `its retention${text} — ${hint}`, [application]);
   if (!isPlainObject(options))
     return [fail(` is ${shownValueOf(options)}, not an object of retentions`)];
@@ -261,7 +252,6 @@ const MOVED: readonly MovedRetention[] = [
   { key: "ledgerEntryRetention", now: "costLedgerEntries" },
   { within: "fencedEffects", key: "retention", now: "fencedEffects" },
   { within: "outboundCalls", key: "retention", now: "outboundCalls" },
-  { within: "mesh", key: "idempotencyRetention", now: "meshAnswers" },
   { within: "a2a", key: "taskRetention", now: "a2aTasks" },
 ];
 
@@ -305,7 +295,6 @@ export interface AssembledRetentions {
   /** How long a direct A2A message's reply is kept (`retention.a2aMessages`, #860). */
   readonly a2aMessageRetention: Milliseconds;
   readonly ledgerEntryRetention: Milliseconds;
-  readonly meshAnswerRetention: Milliseconds;
 }
 
 export const assembledRetentionsOf = (retention: ApplicationRetention): AssembledRetentions => ({
@@ -318,5 +307,4 @@ export const assembledRetentionsOf = (retention: ApplicationRetention): Assemble
   a2aFileRetention: retention.a2aFiles,
   a2aMessageRetention: retention.a2aMessages,
   ledgerEntryRetention: retention.costLedgerEntries,
-  meshAnswerRetention: retention.meshAnswers,
 });

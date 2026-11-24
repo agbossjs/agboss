@@ -14,6 +14,8 @@ import {
   type HttpAuthenticatorMeta,
 } from "../http/http-authenticator.js";
 import type { FrameworkLog } from "../infrastructure/logger.js";
+import { MeshInboundMode } from "../mesh/mesh.decorator.js";
+import { meshSettingsOf, type MeshSettings } from "../mesh/mesh-settings.js";
 import { A2A_CALLER_CODES, type A2AApp } from "./a2a-caller.js";
 
 /** A refusal on the wire (#387): its code and reason. */
@@ -52,6 +54,33 @@ export function authenticatorOf(app: A2AApp, authenticator: Class): ListenerAuth
   }
   return { instance: app.resolve(authenticator) as HttpAuthenticatorHandler, meta };
 }
+
+/**
+ * The listener's authenticator, when it has one. Without it only a signed mesh peer can call, and
+ * that is allowed only when no caller needs more than a tenant id: the application's tenant context is
+ * the base one, its `@Mesh` is `Strict` and a peer's `propagateTenant` carries the tenant
+ * (`[http.authenticator-required-for-tenant-context]` otherwise, at the listener's creation).
+ */
+export function listenerAuthenticatorOf(
+  app: A2AApp,
+  authenticator: Class | undefined,
+): ListenerAuthenticator | undefined {
+  if (authenticator !== undefined) return authenticatorOf(app, authenticator);
+  const mesh = meshSettingsOf(app);
+  if (mesh === undefined || !isPeersOnly(mesh)) {
+    throw new ComponentError({
+      message:
+        "[http.authenticator-required-for-tenant-context] the listener has no authenticator: an application with a tenant context needs an @HttpAuthenticator, unless its @Mesh is MeshInboundMode.Strict with a peer that sets propagateTenant and its tenant context is the base one",
+    });
+  }
+  return undefined;
+}
+
+/** Whether signed peers alone may call: `Strict`, a peer whose tenant is trusted, the base tenant context. */
+const isPeersOnly = (mesh: MeshSettings): boolean =>
+  mesh.inboundMode === MeshInboundMode.Strict &&
+  mesh.isBaseTenantContext &&
+  [...mesh.peers.values()].some((peer) => peer.propagateTenant);
 
 /** Writes a refusal: its status, `{ code, error, … }`, a challenge for a `401`. */
 export const writeRejection = (
@@ -140,3 +169,17 @@ export async function admitCaller(
   }
   return { isAdmitted: false };
 }
+
+/** What the binding knows of its listener: its authenticator (if any), its endpoint, its origin. */
+export const listenerOf = (
+  options: { readonly expose: Class },
+  checked: { readonly authenticator: ListenerAuthenticator | undefined; readonly url: string },
+): {
+  readonly authenticator?: HttpAuthenticatorHandler;
+  readonly endpoint: Class;
+  readonly origin: string;
+} => ({
+  ...(checked.authenticator === undefined ? {} : { authenticator: checked.authenticator.instance }),
+  endpoint: options.expose,
+  origin: new URL(checked.url).origin,
+});

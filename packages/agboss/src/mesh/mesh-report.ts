@@ -62,18 +62,19 @@ export function encodeRunReport(facts: RunReportFacts, signingKey: KeyObject): s
   return encodeJws(TYP, report, signingKey);
 }
 
-/** A report signed by one of `peers` for the request of `bodyHash`; `undefined` otherwise. */
+/** A report signed by any key of one of `peers` for the request of `bodyHash`; `undefined` otherwise. */
 export function verifiedRunReportOf(
   value: unknown,
-  peers: ReadonlyMap<string, KeyObject>,
+  peers: ReadonlyMap<string, readonly KeyObject[]>,
   bodyHash: string,
 ): MeshRunReport | undefined {
   const jws = readJws(value);
   if (jws?.signed === undefined) return undefined;
   const parsed = ReportSchema.safeParse(jws.payload);
   if (!parsed.success || parsed.data.bodyHash !== bodyHash) return undefined;
-  const key = peers.get(parsed.data.issuer);
-  return key !== undefined && isSignedBy(jws.signed, key) ? parsed.data : undefined;
+  const { signed } = jws;
+  const keys = peers.get(parsed.data.issuer) ?? [];
+  return keys.some((key) => isSignedBy(signed, key)) ? parsed.data : undefined;
 }
 
 /** A contract's price of one call (#398 PR 3, Q6 c), and the application it is paid to. */

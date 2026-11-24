@@ -272,7 +272,7 @@ describe("#1366: a retention stays above the lease", () => {
     },
   );
 
-  it.each(["pauseRecords", "executionRecords", "auditLog", "meshAnswers", "a2aTasks"])(
+  it.each(["pauseRecords", "executionRecords", "auditLog", "a2aTasks"])(
     "%s is no row a fenced write relies on: a short one is fine",
     (field) => {
       expect(retentionViolations("desk-app", { [field]: 1 })).toEqual([]);
@@ -295,19 +295,19 @@ describe("#1366: a retention stays above the lease", () => {
       expect(retentionViolations("a", { fencedEffects: value })).toHaveLength(1);
     expect(retentionViolations("a", { fencedEffects: undefined })).toEqual([]);
     expect(retentionViolations("a", undefined)).toEqual([]);
-    expect(retentionViolations("a", { fencedEffects: hours(1), meshAnswers: minutes(30) })).toEqual(
+    expect(retentionViolations("a", { fencedEffects: hours(1), auditLog: minutes(30) })).toEqual(
       [],
     );
   });
 
   it("what is no retention at all names the fix to the fields that matter most", () => {
     const hint =
-      "@Application({ retention: { fencedEffects: hours(24), meshAnswers: hours(24) } })";
+      "@Application({ retention: { fencedEffects: hours(24), outboundCalls: hours(24) } })";
 
     expect(retentionViolations("desk-app", { fencedEfects: 5 })).toEqual([
       {
         code: "application.retention-invalid",
-        message: `its retention.fencedEfects is not a retention (pauseRecords, executionRecords, auditLog, costLedgerEntries, fencedEffects, outboundCalls, meshAnswers, a2aTasks, a2aFiles, a2aMessages) — ${hint}`,
+        message: `its retention.fencedEfects is not a retention (pauseRecords, executionRecords, auditLog, costLedgerEntries, fencedEffects, outboundCalls, a2aTasks, a2aFiles, a2aMessages) — ${hint}`,
         nodes: ["desk-app"],
       },
     ]);

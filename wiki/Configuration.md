@@ -298,7 +298,6 @@ export class ClaimsWorkflow {} // a @Workflow of its own
     costLedgerEntries: hours(24), // the cost ledger's entries (default hours(24))
     fencedEffects: hours(24), // idempotent writes' results and marks (default hours(24))
     outboundCalls: hours(168), // ended outbound calls (default hours(168))
-    meshAnswers: minutes(30), // trusted mesh requests' answers (default minutes(30))
     a2aTasks: hours(24), // finished A2A tasks (default hours(24))
     a2aFiles: hours(24), // a finished A2A task's files (#859; default and at most a2aTasks)
     a2aMessages: minutes(15), // a direct A2A reply and its messageId (#860; default minutes(15))

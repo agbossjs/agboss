@@ -63,6 +63,8 @@ function frameOf(setup: Setup = {}): FrameSpec {
     rememberContextMeshSettings(application, {
       clock: new VirtualClock(NOW),
       keys: { signingKey: setup.signs === false ? undefined : privateKey, peers: new Map() },
+      peers: new Map(),
+      envelopeTtl: 60_000,
     } as never);
   const root = {
     ...base.execution,

@@ -526,12 +526,12 @@ the receiver applies anyway (a caller can only make its own request fail with it
 | The chain the request arrives with                             | The answer (MCP; over A2A a `REJECTED` task, §6.1)                               |
 | -------------------------------------------------------------- | -------------------------------------------------------------------------------- |
 | already lists this application **and** this start              | `409 { "code": "limit.mesh-loop", "error", "details": { "entry", "chain" } }`    |
-| already lists `@Application({ maxMeshHops })` applications (8) | `409 { "code": "limit.hops", "error", "details": { …, "maxMeshHops", "hops" } }` |
+| already lists `@Mesh({ maxHops })` applications (8) | `409 { "code": "limit.hops", "error", "details": { …, "maxMeshHops", "hops" } }` |
 | anything else                                                  | the run — its own calls carry the chain on, its hop added                        |
 
 A refusal runs nothing (no observer event, no record), like a refused caller. A loop is the same
 `(application, start)` twice — at any depth; another start of the same application is not one.
-`maxMeshHops` counts applications (`hops` = the chain + the receiver); anything but a whole number
+`maxHops` counts applications (`hops` = the chain + the receiver); anything but a whole number
 from 1 is `[limits.max-mesh-hops-invalid]`. A resume is not checked: its execution has its chain.
 
 **On the caller** a `409` (MCP), or over A2A the `REJECTED` task's code and details ([§4](#4-the-client-side--a2a-v10-809)), is rethrown as `MeshLoopDetectedError` (`limit.mesh-loop`:
@@ -573,45 +573,65 @@ export class OrdersWorkflow {}
 
 ### Trusted peers — signed envelopes (#398 PR 2)
 
-An application that names its keys in `@Application({ mesh })` (`MeshOptions`, each peer a
-`MeshPeer`) signs every envelope it sends and
-every run report it answers with (JWS `EdDSA`, Ed25519); its `peers` are the applications whose
-signatures it checks. Keys are PEM in environment fields, named by field as a `@ModelProvider`'s
-`apiKey` is: the private key a `Secret` field (PKCS #8, `-----BEGIN PRIVATE KEY-----`), a peer's
-public key a plain text field (SPKI, `-----BEGIN PUBLIC KEY-----`) — it is public.
+An application whose `@Application({ mesh })` is a `@Mesh` class (#1320) signs every envelope it
+sends, every run report it answers with and every HTTP request of its clients (JWS `EdDSA`,
+Ed25519); its `peers` are the applications whose signatures it checks. Keys are PEM in process
+variables read through `defineEnv`: the signing key a `secret(…)` (PKCS #8,
+`-----BEGIN PRIVATE KEY-----`), a peer's public keys — `verifyKeys`, any of them verifies, so a
+rotation lists the old and the new one — `secret(…)` / `secret.optional(…)` references (SPKI,
+`-----BEGIN PUBLIC KEY-----`).
 
 <!-- snippet-context
-import { Application, type Secret } from "@agboss/core";
+import { Application, Mesh, MeshInboundMode, defineEnv, secret } from "@agboss/core";
 import { minutes } from "@agboss/core/units";
 export class BillingWorkflow {} // a @Workflow of its own
 -->
 
 ```ts
-// environments/billing.environment.ts — the contract; each environment sets
-// meshSigningKey: secret("MESH_SIGNING_KEY"), ordersPublicKey: env("ORDERS_PUBLIC_KEY")
-export class BillingEnvironment {
-  meshSigningKey!: Secret;
-  ordersPublicKey!: string;
-}
+const meshEnv = defineEnv({
+  signingKey: secret("MESH_SIGNING_KEY"),
+  ordersKey: secret("ORDERS_PUBLIC_KEY"),
+  ordersNextKey: secret.optional("ORDERS_PUBLIC_KEY_NEXT"), // set during a rotation
+});
+
+@Mesh({
+  signingKey: meshEnv.signingKey,
+  inboundMode: MeshInboundMode.Strict, // a request to a mesh endpoint must be a peer's, signed
+  deduplicationTtl: minutes(30), // how long a trusted request's answer is kept (above envelopeTtl + 2 × maxClockSkew)
+  maxHops: 8, // how many applications one call chain may pass through
+  peers: [
+    {
+      application: "orders-application",
+      verifyKeys: [meshEnv.ordersKey, meshEnv.ordersNextKey],
+      propagateTenant: true, // the peer's signed tenantId is the caller's tenant
+    },
+  ],
+})
+export class BillingMesh {}
 
 @Application({
   name: "billing-application",
   version: "1.0.0",
-  environment: BillingEnvironment,
   workflows: [BillingWorkflow],
-  mesh: {
-    signingKey: "meshSigningKey",
-    peers: [{ application: "orders-application", verifyKey: "ordersPublicKey" }],
-  },
-  retention: { meshAnswers: minutes(30) }, // how long a trusted request's answer is kept
+  mesh: BillingMesh,
 })
 export class BillingApplication {}
 ```
 
-At assembly a key field the contract lacks is `[mesh.signing-key-missing]` /
-`[mesh.unknown-peer-key]`, a peer listed twice `[mesh.duplicate-peer]`; at start a field that holds
-no Ed25519 key of its kind fails it — `[mesh.invalid-key] meshSigningKey holds no Ed25519 private
-key (PKCS #8 PEM) (…)`, never the value. `maxMeshHops` stays a setting of its own.
+Every HTTP request of an AGBoss client to a peer carries `X-AGBoss-Mesh`, a JWS over `{ issuer,
+audience, origin, jti, method, path, bodyHash, issuedAt, expiresIn, tenantId? }`: the receiver
+verifies the signature with the issuer's keys first, then the audience and origin, the date (at
+most `maxClockSkew` ahead, `expiresIn` capped by its own `envelopeTtl`) and that method, path and
+body are this request's; each `(issuer, jti)` is admitted once (`mesh.replayed`; the shared
+`MeshRequestRepository` — unavailable, nothing is admitted, `503 mesh.replay-check-unavailable`).
+A refusal is `401 { code }` (`mesh.signature-invalid`, `mesh.peer-unknown`, `mesh.envelope-expired`,
+`mesh.audience-mismatch`, `mesh.request-mismatch`, `mesh.signature-missing`) or `403`
+(`mesh.endpoint-forbidden`, `mesh.tenant-mismatch`) with a fixed text, never the peer's. A verified
+peer's tasks are owned by `mesh:<peer>`; `allowEndpoints` limits the endpoints it may call.
+At assembly: `[mesh.not-a-mesh]`, `[mesh.limit-invalid]`, `[mesh.duplicate-peer]`,
+`[mesh.peer-without-keys]`, `[mesh.unknown-endpoint]`, `[limits.max-mesh-hops-invalid]`; at start a
+key that is no Ed25519 key fails it — `[mesh.invalid-key] mesh signingKey holds no Ed25519 private
+key (PKCS #8 PEM) (…)`, never the value.
 
 A signed envelope adds `issuedAt`, `expiresIn` (`PT60S`), `bodyHash` (`sha256:<hex>` of the body),
 and the caller's claims `budget { remaining, currency: "USD" }` (what its execution has left) and

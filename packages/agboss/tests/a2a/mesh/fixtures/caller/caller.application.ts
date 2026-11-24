@@ -2,6 +2,10 @@
 // the peer through the real A2A v1.0 client (P2b) under `A2AMesh.Required`, at a contract price of
 // 1, signing its envelopes — the peer reached at `http://peer.test` through the test's routing.
 import "../keys.js";
+import { Mesh, MeshInboundMode } from "../../../../../src/mesh/mesh.decorator.js";
+import { defineEnv } from "../../../../../src/environments/define-env.js";
+import { secret } from "../../../../../src/environments/secret.js";
+import { minutes } from "../../../../../src/units/index.js";
 import { A2AAgent, A2AClient } from "../../../../../src/a2a/index.js";
 import { Application } from "../../../../../src/application/application.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../../../src/dto/index.js";
@@ -239,6 +243,22 @@ export class CallerAnswerWorkflowFinish {}
 })
 export class CallerWorkflow {}
 
+const callerEnv = defineEnv({
+  signingKey: secret("E2E_CALLER_SIGNING_KEY"),
+  peerKey: secret("E2E_PEER_VERIFY_KEY"),
+});
+
+/** The caller's mesh: signs with its own key, verifies the peer's. */
+@Mesh({
+  name: "caller-mesh",
+  signingKey: callerEnv.signingKey,
+  inboundMode: MeshInboundMode.AllowExternal,
+  deduplicationTtl: minutes(30),
+  maxHops: 8,
+  peers: [{ application: PEER_APPLICATION, verifyKeys: [callerEnv.peerKey] }],
+})
+class CallerMesh {}
+
 @Application({
   name: "caller-application",
   version: "1.0.0",
@@ -246,9 +266,6 @@ export class CallerWorkflow {}
   workflows: [CallerWorkflow],
   observers: [CallerLog],
   budgets: [TestApplicationDailyBudget, TestTenantDailyBudget, CallerExecutionBudget],
-  mesh: {
-    signingKey: "meshSigningKey",
-    peers: [{ application: PEER_APPLICATION, verifyKey: "meshPeerKey" }],
-  },
+  mesh: CallerMesh,
 })
 export class CallerApplication {}

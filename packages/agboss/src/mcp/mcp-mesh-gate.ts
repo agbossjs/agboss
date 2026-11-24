@@ -56,9 +56,10 @@ function signedRefusalOf(
   args: unknown,
 ): MeshRefusalCode | undefined {
   if (settings === undefined || read === undefined) return undefined;
-  const key = read.signed === undefined ? undefined : settings.keys.peers.get(read.envelope.issuer);
-  if (key === undefined) return undefined;
-  const refusal = signatureRefusalOf(read, key, settings.clock.now());
+  const keys =
+    read.signed === undefined ? undefined : settings.keys.peers.get(read.envelope.issuer);
+  if (keys === undefined) return undefined;
+  const refusal = signatureRefusalOf(read, keys, settings.clock.now(), settings);
   if (refusal !== undefined) return refusal;
   const isBody = read.envelope.bodyHash === bodyHashOf(JSON.stringify(args ?? {}));
   return isBody ? undefined : MeshRefusalCode.BodyMismatch;

@@ -12,11 +12,16 @@ import type { McpCaller, McpFacade, McpServerHandle } from "./facade.js";
 import { MESH_META_KEY, MESH_REPORT_META_KEY, TRACEPARENT } from "../../mesh/mesh-envelope.js";
 import { outboundMeshOf, type OutboundMesh } from "../../mesh/outbound-mesh.js";
 import { takeRunReport } from "../../mesh/mesh-report.js";
+import { signedFetch } from "./signed-fetch.js";
+import { meshHttpHeaderOf, type OutboundHttpRequest } from "../../mesh/outbound-http.js";
+import type { ApplicationContext } from "../../flow/context/application-context.js";
 
 /** What a server's handshake says of this application. */
 export interface McpIdentity {
   readonly name: string;
   readonly version: string;
+  /** The application's context: its mesh signs the handshakes before any execution runs (#1320). */
+  readonly application?: ApplicationContext;
 }
 
 /**
@@ -27,6 +32,8 @@ export type TransportFactory = (
   name: string,
   server: ResolvedMcpServer,
   headers: () => Promise<Record<string, string>>,
+  /** The `X-AGBoss-Mesh` header of one HTTP request (#1320); `undefined` → none (not a mesh server, no key). */
+  meshHeader?: (request: OutboundHttpRequest) => string | undefined,
 ) => Transport;
 
 export interface McpConnections {
@@ -43,7 +50,7 @@ interface ListedTool {
  * stdio: a process with the resolved env; http: the declared headers under the class's
  * `getHeaders()`, read on every request.
  */
-export const defaultTransport: TransportFactory = (_name, server, headers) => {
+export const defaultTransport: TransportFactory = (_name, server, headers, meshHeader) => {
   if (server.transport === McpTransport.Stdio) {
     return new StdioClientTransport({
       command: server.command,
@@ -54,7 +61,7 @@ export const defaultTransport: TransportFactory = (_name, server, headers) => {
   const withHeaders: typeof fetch = async (input, init) => {
     const own = new Headers(init?.headers);
     const merged = mergedHeaders(server.headers, await headers(), Object.fromEntries(own));
-    return fetch(input, { ...init, headers: merged });
+    return signedFetch(fetch, input, init, merged, meshHeader);
   };
   return new StreamableHTTPClientTransport(new URL(server.url), { fetch: withHeaders });
 };
@@ -160,7 +167,9 @@ export async function connectMcpServers(
       if (config === undefined) throw new McpError.Unavailable();
       const resolved = resolvedServerOf(handle.name, config, env);
       const { client, tools } = await openClient(
-        makeTransport(handle.name, resolved, handle.headers),
+        makeTransport(handle.name, resolved, handle.headers, (request) =>
+          meshHttpHeaderOf(config.target?.application, request, identity.application),
+        ),
         identity,
       );
       clients.push(client);

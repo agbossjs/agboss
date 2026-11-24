@@ -3,7 +3,7 @@
  * `piiKeyField` names a `Secret` field of the environment contract (a typo or a text field does not
  * compile; a field the contract lacks is `[environment.missing-field]` for a JavaScript caller); it
  * is no other key — a model provider's `apiKey` (the built-ins' `openRouterApiKey` when none is
- * listed), the mesh's signing key, a `Secret` a listed class reads (`[application.pii-key-shared]`).
+ * listed), a `Secret` a listed class reads (`[application.pii-key-shared]`).
  * The idempotency key is the database storage's `idempotencySecret` (`[storage.secret-shared]` when
  * it shares a variable): an application with a database storage whose components can write under
  * a business key names it (`[application.idempotency-key-required]`).
@@ -247,11 +247,6 @@ describe("#825 AC6, AC7: no key is another key", () => {
       "the PII key is the built-in providers' apiKey",
       { piiKeyField: "openRouterApiKey" },
       '[application.pii-key-shared] @Application piiKeyField "openRouterApiKey" is also the built-in OpenRouter providers\' apiKey',
-    ],
-    [
-      "the PII key is the mesh's signing key",
-      { piiKeyField: "meshSigningKey", mesh: { signingKey: "meshSigningKey" } },
-      '[application.pii-key-shared] @Application piiKeyField "meshSigningKey" is also the mesh\'s signingKey',
     ],
   ] as const)("%s", async (_what, options, expected) => {
     const found = await violationsOf(options);

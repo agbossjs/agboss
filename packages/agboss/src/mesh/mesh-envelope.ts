@@ -21,6 +21,11 @@ export interface MeshEnvelope {
    * receiver of another name refuses it (`401 mesh.audience-mismatch`) — no forwarding.
    */
   readonly audience?: string;
+  /**
+   * The caller's tenant, signed when the receiver is a peer with `propagateTenant` (#1320): it must be
+   * the tenant its `X-AGBoss-Mesh` header signed, or the request is refused (`mesh.tenant-mismatch`).
+   */
+  readonly tenantId?: string;
   /** Where in the caller the call was made — as claimed. */
   readonly origin: MeshOrigin;
   /** The applications the request passed through, the first caller first, the caller last. */

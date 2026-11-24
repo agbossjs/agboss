@@ -1,3 +1,5 @@
+import { Mesh, MeshInboundMode } from "../../src/mesh/mesh.decorator.js";
+import { minutes } from "../../src/units/index.js";
 import { describe, expect, it } from "vitest";
 import { applicationOf, type AssembledApplication } from "../../src/application/assemble.js";
 import { Application } from "../../src/application/application.js";
@@ -127,25 +129,32 @@ describe("#398 PR 1: a mesh limit on the wire", () => {
   });
 });
 
-describe("#398 PR 1: @Application({ maxMeshHops })", () => {
+describe("#398 PR 1: @Mesh({ maxHops })", () => {
   const parts = meshAppOf({ name: "hops", peerUrl: "http://unused" });
 
-  const withHops = (maxMeshHops: number): Promise<AssembledApplication> => {
+  const withHops = (maxHops: number): Promise<AssembledApplication> => {
+    @Mesh({
+      name: "hops-mesh",
+      inboundMode: MeshInboundMode.AllowExternal,
+      deduplicationTtl: minutes(30),
+      maxHops,
+    })
+    class HopsMesh {}
     @Application({
       name: "hops-invalid-application",
       version: "1.0.0",
       environment: EmptyEnvironment,
       workflows: [parts.MeshWorkflow],
       budgets: TEST_BUDGETS,
-      maxMeshHops,
+      mesh: HopsMesh,
     })
     class HopsApplication {}
     return applicationOf(HopsApplication);
   };
 
-  it.each([0, -1, 2.5])("maxMeshHops %s fails assembly", async (value) => {
+  it.each([0, -1, 2.5])("maxHops %s fails assembly", async (value) => {
     await expect(withHops(value)).rejects.toThrow(
-      `[limits.max-mesh-hops-invalid] its maxMeshHops is ${String(value)}, not a whole number of applications from 1`,
+      `[limits.max-mesh-hops-invalid] hops-mesh's maxHops is ${String(value)}, not a whole number of applications from 1`,
     );
   });
 

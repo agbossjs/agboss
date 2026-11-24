@@ -11,7 +11,6 @@ import type { ExecutionContextClass, TenantContextClass } from "../flow/context/
 import { withChildWorkflows } from "../flow/analyse/child-workflow.js";
 import type { ExecutionObserver } from "../core/observer-hooks.js";
 import type { WorkingCalendarSource } from "../calendar/working-calendar.js";
-import type { MeshOptions } from "../mesh/mesh-options.js";
 import type { RetentionOptions } from "./retention.js";
 import { withStorageProviders, type ApplicationStorage } from "../storage/storage-assembly.js";
 
@@ -116,20 +115,12 @@ export interface ApplicationOptions<TEnvironment = unknown> {
    */
   readonly maxConcurrentSteps?: number;
   /**
-   * How many applications one call chain of the mesh may pass through (#398), this one included: an
-   * A2A or MCP request whose envelope already lists `maxMeshHops` applications is refused before it
-   * runs (`HopsLimitExceededError`, `limit.hops`) — as is one whose chain already passed through
-   * this application's start (`MeshLoopDetectedError`, `limit.mesh-loop`). A whole number from 1
-   * (`[limits.max-mesh-hops-invalid]`); default 8.
-   */
-  readonly maxMeshHops?: number;
-  /**
-   * The application's identity in the mesh (#398 PR 2): its `signingKey` field (envelopes and run
-   * reports signed, JWS `EdDSA`) and the `peers` whose signatures it verifies (each a `verifyKey`
-   * field); how long trusted requests' answers are kept is `retention.meshAnswers`. A request's budget, deadline,
+   * The application's identity and rules in the mesh (#398, #1320): its `@Mesh` class — `signingKey`
+   * (envelopes, run reports and HTTP requests signed, EdDSA), `peers` whose signatures it verifies (any
+   * of their `verifyKeys`), `inboundMode`, `maxHops`, `deduplicationTtl`. A request's budget, deadline,
    * origin and idempotency key are honoured only for an authenticated peer with a valid signature.
    */
-  readonly mesh?: MeshOptions;
+  readonly mesh?: Class;
   /**
    * What the application serves to other applications (#398 PR 3): its `@A2AExpose` and
    * `@McpExpose` classes — `a2aHttpListener` serves only a listed one

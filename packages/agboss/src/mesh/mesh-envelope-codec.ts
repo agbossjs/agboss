@@ -21,6 +21,7 @@ const EnvelopeSchema = z.object({
   schema: z.literal(1),
   issuer: ID,
   audience: ID.optional(),
+  tenantId: ID.optional(),
   origin: z.object({
     rootExecutionId: ID,
     executionId: ID,

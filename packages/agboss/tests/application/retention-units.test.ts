@@ -17,7 +17,7 @@ import { hours, minutes, seconds } from "../../src/units/index.js";
 
 const CODE = "application.retention-invalid";
 const DEFAULT_HINT =
-  "@Application({ retention: { fencedEffects: hours(24), meshAnswers: hours(24) } })";
+  "@Application({ retention: { fencedEffects: hours(24), outboundCalls: hours(24) } })";
 const hint = (...fields: string[]): string =>
   `@Application({ retention: { ${fields.map((field) => `${field}: hours(24)`).join(", ")} } })`;
 const messagesOf = (application: string, options: unknown): string[] =>
@@ -39,7 +39,6 @@ describe("#1366: the retentions with their defaults", () => {
       costLedgerEntries: hours(4),
       fencedEffects: hours(5),
       outboundCalls: hours(6),
-      meshAnswers: hours(7),
       a2aTasks: hours(8),
       a2aMessages: hours(9),
     };
@@ -62,7 +61,6 @@ describe("#1366: the retentions with their defaults", () => {
       a2aFileRetention: DEFAULT_RETENTION.a2aTasks,
       a2aMessageRetention: DEFAULT_RETENTION.a2aMessages,
       ledgerEntryRetention: DEFAULT_RETENTION.costLedgerEntries,
-      meshAnswerRetention: DEFAULT_RETENTION.meshAnswers,
     });
     expect(Object.keys(none)).not.toContain("executionRecordRetention");
   });
@@ -130,16 +128,16 @@ describe("#1366: what a retention may not be", () => {
   );
 
   it("the others may be under the lease", () => {
-    expect(
-      retentionViolations("app", { pauseRecords: seconds(1), meshAnswers: seconds(1) }),
-    ).toEqual([]);
+    expect(retentionViolations("app", { pauseRecords: seconds(1), auditLog: seconds(1) })).toEqual(
+      [],
+    );
   });
 
   it("a field it does not know is a typo, a renamed one says where it went; every problem comes at once", () => {
     expect(
       messagesOf("app", { auditlog: hours(1), leaseEvents: hours(1), pauseRecords: -1 }),
     ).toEqual([
-      `its retention.auditlog is not a retention (pauseRecords, executionRecords, auditLog, costLedgerEntries, fencedEffects, outboundCalls, meshAnswers, a2aTasks, a2aFiles, a2aMessages) — ${DEFAULT_HINT}`,
+      `its retention.auditlog is not a retention (pauseRecords, executionRecords, auditLog, costLedgerEntries, fencedEffects, outboundCalls, a2aTasks, a2aFiles, a2aMessages) — ${DEFAULT_HINT}`,
       `its retention.leaseEvents is renamed: the audit log's rows are kept for retention.auditLog — ${DEFAULT_HINT}`,
       `its retention.pauseRecords is -1, not a positive duration — ${hint("pauseRecords")}`,
     ]);
@@ -205,7 +203,6 @@ describe("#1366: an option of before #834", () => {
       ledgerEntryRetention: hours(1),
       fencedEffects: { retention: hours(1) },
       outboundCalls: { retention: hours(1) },
-      mesh: { idempotencyRetention: hours(1) },
       a2a: { taskRetention: hours(1) },
     };
 
@@ -218,7 +215,6 @@ describe("#1366: an option of before #834", () => {
       "its ledgerEntryRetention is gone — @Application({ retention: { costLedgerEntries } }) sets it now",
       "its fencedEffects.retention is gone — @Application({ retention: { fencedEffects } }) sets it now",
       "its outboundCalls.retention is gone — @Application({ retention: { outboundCalls } }) sets it now",
-      "its mesh.idempotencyRetention is gone — @Application({ retention: { meshAnswers } }) sets it now",
       "its a2a.taskRetention is gone — @Application({ retention: { a2aTasks } }) sets it now",
     ]);
     expect(found.every((item) => item.code === CODE && item.nodes[0] === "desk")).toBe(true);

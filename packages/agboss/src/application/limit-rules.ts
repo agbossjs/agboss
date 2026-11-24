@@ -30,20 +30,9 @@ function stepCapViolations(options: ApplicationOptions): RuleViolation[] {
   return [violation("limits.max-concurrent-steps-invalid", message, [options.name])];
 }
 
-/** `maxMeshHops` is a whole number of applications from 1 (#398): 0 would refuse every call. */
-function meshHopsViolations(options: ApplicationOptions): RuleViolation[] {
-  const value = options.maxMeshHops;
-  if (value === undefined || (Number.isInteger(value) && value >= 1)) return [];
-  const message =
-    `its maxMeshHops is ${String(value)}, not a whole number of applications from 1 — ` +
-    "@Application({ maxMeshHops: 6 }) refuses a call chain that already passed through 6 applications";
-  return [violation("limits.max-mesh-hops-invalid", message, [options.name])];
-}
-
 /** The application's limits: its caps, its timers (#1141) and its providers' timeouts. */
 export const limitViolations = (options: ApplicationOptions): RuleViolation[] => [
   ...stepCapViolations(options),
-  ...meshHopsViolations(options),
   ...timerSettingViolations(options),
   ...providerTimeoutViolations(options.name, [
     ...(options.providers ?? []),

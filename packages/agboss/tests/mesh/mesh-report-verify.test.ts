@@ -16,7 +16,7 @@ vi.mock("../../src/mesh/mesh-jws.js", async (original) => {
 
 const peer = generateKeyPairSync("ed25519");
 const other = generateKeyPairSync("ed25519");
-const peers = new Map([["peer-app", peer.publicKey]]);
+const peers = new Map([["peer-app", [peer.publicKey]]]);
 const facts = {
   issuer: "peer-app",
   executionId: "exec-1",

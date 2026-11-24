@@ -15,6 +15,13 @@ import {
 import { collectTools, type McpSessionOptions } from "./mcp-tool-registry.js";
 import { dedupedMcpCall } from "./mcp-dedupe.js";
 import { admitMcpCall } from "./mcp-mesh-gate.js";
+import { admitMcpHttp } from "./mcp-http-gate.js";
+import { ConfigError } from "../core/error-families/config-errors.js";
+import { meshSettingsOf } from "../mesh/mesh-settings.js";
+import { MeshInboundMode } from "../mesh/mesh.decorator.js";
+import { MESH_REFUSAL_TEXT, MeshRefusalCode } from "../mesh/mesh-verification.js";
+import { bodyWithin } from "../a2a/server/a2a-http-io.js";
+import { kilobytes } from "../units/index.js";
 
 export interface McpSession {
   readonly sessionId: string;
@@ -35,13 +42,21 @@ export class McpService {
 
   constructor(
     private readonly app: App,
-    config: Class,
+    private readonly config: Class,
   ) {
     const options = mcpServerOptionsOf(config);
     if (!options) {
       throw new Error(`${config.name} is not an @McpExpose`);
     }
     this.options = options;
+    // a mesh that admits only peers gates every endpoint it serves: one the application does not
+    // list has no gate — it is not served (#1320)
+    const mesh = meshSettingsOf(app);
+    if (mesh?.inboundMode === MeshInboundMode.Strict && !mesh.exposes.includes(config)) {
+      throw new ConfigError.Environment({
+        message: `[application.expose-unlisted] ${config.name} is not in @Application({ exposes }): under a Strict @Mesh an endpoint is served only through the mesh's gate`,
+      });
+    }
   }
 
   private createServerInstance(session: McpSessionOptions): McpServer {
@@ -98,17 +113,23 @@ export class McpService {
   /**
    * Starts an SSE session for an incoming HTTP GET request.
    * Note: You must provide a messageEndpoint (e.g. "/mcp/messages") where POSTs will be routed.
+   * With a `@Mesh`, the request's `X-AGBoss-Mesh` header is checked first (`mcp-http-gate.ts`); a
+   * refused request is answered there and `undefined` comes back.
    */
   public async handleSse(
+    req: IncomingMessage,
     res: ServerResponse,
     messageEndpoint: string,
     session: McpSessionOptions = {},
-  ): Promise<McpSession> {
-    const server = this.createServerInstance(session);
+  ): Promise<McpSession | undefined> {
+    const admitted = await admitMcpHttp(this.app, this.config, { req, res, body: "" }, session);
+    if (admitted === undefined) return undefined;
+    const served = admitted.session;
+    const server = this.createServerInstance(served);
     const transport = createSseTransport(messageEndpoint, res);
     await server.connect(transport);
 
-    this.activeTransports.set(transport.sessionId, { transport, session });
+    this.activeTransports.set(transport.sessionId, { transport, session: served });
 
     res.on("close", () => {
       this.activeTransports.delete(transport.sessionId);
@@ -123,7 +144,8 @@ export class McpService {
   }
 
   /**
-   * Forwards a POSTed JSON-RPC message to the correct SSE session.
+   * Forwards a POSTed JSON-RPC message to the correct SSE session. With a `@Mesh`, this request is
+   * checked as well — its own signature, once — and must come from the peer that opened the session.
    */
   public async handleMessage(
     req: IncomingMessage,
@@ -137,7 +159,27 @@ export class McpService {
       res.end("Session not found");
       return;
     }
-    await session.transport.handlePostMessage(req, res, parsedBody);
+    if (meshSettingsOf(this.app) === undefined) {
+      await session.transport.handlePostMessage(req, res, parsedBody);
+      return;
+    }
+    const raw = await bodyWithin(req, res, kilobytes(1024));
+    if (raw === undefined) return;
+    const admitted = await admitMcpHttp(
+      this.app,
+      this.config,
+      { req, res, body: raw },
+      session.session,
+    );
+    if (admitted === undefined) return;
+    if (admitted.session.peer !== session.session.peer) {
+      const code = MeshRefusalCode.RequestMismatch;
+      res
+        .writeHead(403, { "content-type": "application/json" })
+        .end(JSON.stringify({ code, error: MESH_REFUSAL_TEXT[code] }));
+      return;
+    }
+    await session.transport.handlePostMessage(req, res, JSON.parse(raw) as unknown);
   }
 }
 

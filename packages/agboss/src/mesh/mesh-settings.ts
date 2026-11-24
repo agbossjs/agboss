@@ -4,6 +4,8 @@ import type { ApplicationContext } from "../flow/context/application-context.js"
 import type { ContractsSnapshot } from "../describe/contracts-types.js";
 import type { Clock } from "../infrastructure/clock.js";
 import type { MeshKeys } from "./mesh-keys.js";
+import type { MeshRequestRepository } from "../infrastructure/mesh-request.repository.js";
+import type { MeshInboundMode } from "./mesh.decorator.js";
 
 /**
  * What the mesh needs of an application instance (#398, internal): its name — the `application`
@@ -16,6 +18,18 @@ export interface MeshSettings {
   readonly application: string;
   readonly maxMeshHops: number;
   readonly keys: MeshKeys;
+  /** `@Mesh({ inboundMode })`: whether a request to an endpoint must be signed by a peer. */
+  readonly inboundMode: MeshInboundMode;
+  /** `@Mesh({ envelopeTtl })`, ms: the lifetime of what it signs and the longest it accepts. */
+  readonly envelopeTtl: number;
+  /** `@Mesh({ maxClockSkew })`, ms: how far a signature's date may be from this clock. */
+  readonly maxClockSkew: number;
+  /** The shared store of admitted requests: signed HTTP requests are admitted once (`jti`), answers kept. */
+  readonly requests: () => MeshRequestRepository;
+  /** Whether the application's tenant context is the base one (a `tenantId` and nothing else). */
+  readonly isBaseTenantContext: boolean;
+  /** `@Mesh({ peers })`: what each peer is allowed, by its application name. */
+  readonly peers: ReadonlyMap<string, MeshPeerRules>;
   readonly clock: Clock;
   readonly idempotencyRetention: number;
   /**
@@ -41,6 +55,34 @@ export interface MeshSettings {
    */
   readonly contracts: () => Promise<ContractsSnapshot>;
 }
+
+/** What a verified peer may do here: the endpoints it may call and whether its tenant is trusted. */
+export interface MeshPeerRules {
+  /** The `@A2AExpose` / `@McpExpose` classes it may call; `undefined` → any. */
+  readonly allowEndpoints: readonly Class[] | undefined;
+  /** Whether its signed `tenantId` is the caller's tenant. */
+  readonly propagateTenant: boolean;
+}
+
+/**
+ * What an application signs with before it has started (#1320): its name, keys, clock and peers —
+ * the part of its settings the container-startup handshakes of its MCP servers need.
+ */
+export type MeshSigner = Pick<
+  MeshSettings,
+  "application" | "keys" | "clock" | "envelopeTtl" | "peers"
+>;
+
+const signersByContext = new WeakMap<ApplicationContext, MeshSigner>();
+
+/** Remembers the application's signer at the start of its instance, before its workflows connect. */
+export function rememberContextMeshSigner(context: ApplicationContext, signer: MeshSigner): void {
+  signersByContext.set(context, signer);
+}
+
+/** The signer of an application's context; `undefined` before it is remembered. */
+export const contextMeshSignerOf = (context: ApplicationContext): MeshSigner | undefined =>
+  signersByContext.get(context);
 
 const byApp = new WeakMap<object, () => MeshSettings | undefined>();
 const byContext = new WeakMap<ApplicationContext, MeshSettings>();

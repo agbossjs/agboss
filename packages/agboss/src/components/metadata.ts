@@ -95,6 +95,8 @@ export type ComponentMeta =
       readonly kind: "memory";
       readonly meta: import("../memory/memory.decorator.js").MemoryMeta;
     }
+  /** `@Mesh` (#1320): the application's identity and rules in the mesh, listed in `@Application({ mesh })`. */
+  | { readonly kind: "mesh"; readonly meta: import("../mesh/mesh.decorator.js").MeshMeta }
   | {
       readonly kind: "judge";
       readonly meta: import("./judge-decorators.js").JudgeRecord;
@@ -189,6 +191,7 @@ const kindName: Readonly<Record<ComponentMeta["kind"], string>> = {
   "pii-policy": "@PiiPolicy",
   guardrail: "@InputGuardrail / @OutputGuardrail",
   memory: "@Memory",
+  mesh: "@Mesh",
   "tool-interceptor": "@ToolInterceptor",
   tool: "Tool",
   "mcp-server": "McpServer",

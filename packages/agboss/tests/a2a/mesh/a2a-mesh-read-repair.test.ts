@@ -52,7 +52,7 @@ afterEach(async () => {
 async function peerTaskOf(served: ServedPeer) {
   const page = await served.app
     .resolve(A2ATaskRepository)
-    .list({ tenantId: "default", ownerId: "caller-application", pageSize: 10 });
+    .list({ tenantId: "default", ownerId: "mesh:caller-application", pageSize: 10 });
   expect(page.tasks).toHaveLength(1);
   return page.tasks[0];
 }

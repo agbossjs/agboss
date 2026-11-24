@@ -239,6 +239,7 @@ export const historyKeeperOf = (
 export const mcpIdentityOf = (contexts: RuntimeContexts): McpIdentity => ({
   name: contexts.application.name,
   version: contexts.application.version,
+  application: contexts.application,
 });
 
 /** How the MCP servers of a workflow get connected by default: their configured transports. */

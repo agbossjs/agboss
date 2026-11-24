@@ -216,11 +216,7 @@ export function applicationRuleViolations(
     // and its files where every instance reads them, within the tier no store needs (#859)
     ...a2aFileStoreViolations(options),
     ...nestedFileFieldViolations(options),
-    ...meshRuleViolations(
-      options.name,
-      options.mesh,
-      (options as Partial<ApplicationOptions>).environment,
-    ),
+    ...meshRuleViolations(options.name, options.mesh, options.exposes),
     ...contractRuleViolations(options),
     ...contextRuleViolations(options.name, options),
     ...sharedInterpreterViolations(channelUsesOf(options.workflows)),

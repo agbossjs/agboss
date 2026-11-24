@@ -152,7 +152,7 @@ export interface AssembledApplication extends AssembledKeyFields, StorageFields 
     readonly ledgerEntryRetention?: Milliseconds | undefined;
     readonly maxConcurrentSteps?: number;
     readonly maxMeshHops: number;
-    readonly mesh?: MeshOptions;
+    readonly mesh?: MeshMeta;
     readonly meshAnswerRetention: Milliseconds;
     readonly modules: readonly ProviderModule[];
     // (undocumented)

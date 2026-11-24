@@ -1,7 +1,7 @@
 /**
  * #1373 — the sibling numeric limits of `maxVisits` refuse a value that is no number as well, each at its own
  * place, and name no text: a launch's `maxItems` and `maxConcurrency`, a quorum's `min`, `max` and `deadline`, a
- * workflow's `maxConcurrentExecutions` and `maxDepth`, an application's `maxConcurrentSteps` and `maxMeshHops` and
+ * workflow's `maxConcurrentExecutions` and `maxDepth`, an application's `maxConcurrentSteps` and
  * its timers. Found already refusing them (no change); this pins it, so that a value which is not a number can
  * never turn a limit off.
  */
@@ -113,17 +113,13 @@ describe("#1373: an application's caps and timers that are no numbers fail assem
       (found) => found.code,
     );
 
-  it.each(NOT_COUNTS)("%s as maxConcurrentSteps and maxMeshHops", (_kind, value) => {
+  it.each(NOT_COUNTS)("%s as maxConcurrentSteps", (_kind, value) => {
     expect(codesOf({ maxConcurrentSteps: value })).toEqual(["limits.max-concurrent-steps-invalid"]);
-    expect(codesOf({ maxMeshHops: value })).toEqual(["limits.max-mesh-hops-invalid"]);
   });
 
   it("0 is refused, a whole number from 1 is not", () => {
-    expect(codesOf({ maxConcurrentSteps: 0, maxMeshHops: 0 })).toEqual([
-      "limits.max-concurrent-steps-invalid",
-      "limits.max-mesh-hops-invalid",
-    ]);
-    expect(codesOf({ maxConcurrentSteps: 32, maxMeshHops: 6 })).toEqual([]);
+    expect(codesOf({ maxConcurrentSteps: 0 })).toEqual(["limits.max-concurrent-steps-invalid"]);
+    expect(codesOf({ maxConcurrentSteps: 32 })).toEqual([]);
   });
 
   it.each([

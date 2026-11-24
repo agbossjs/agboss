@@ -3,6 +3,7 @@
  * checked at assembly (`[application.retention-invalid]`) and read by the recovery sweep, which
  * removes each kind past its own retention on the `Clock`.
  */
+import { DEFAULT_IDEMPOTENCY_RETENTION } from "../../src/mesh/mesh-defaults.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
@@ -85,17 +86,14 @@ describe("#834 AC2: [application.retention-invalid]", () => {
   );
 
   it("the others may be under the lease", async () => {
-    const assembled = await assembledWith({ meshAnswers: seconds(5), pauseRecords: seconds(5) });
+    const assembled = await assembledWith({ pauseRecords: seconds(5) });
 
-    expect(assembled).toMatchObject({
-      meshAnswerRetention: seconds(5),
-      pauseRecordRetention: seconds(5),
-    });
+    expect(assembled).toMatchObject({ pauseRecordRetention: seconds(5) });
   });
 
   it("a field it does not know is a typo, never a silent default", async () => {
     await expect(assembledWith({ ledgerEntries: hours(1) })).rejects.toThrow(
-      "[application.retention-invalid] its retention.ledgerEntries is not a retention (pauseRecords, executionRecords, auditLog, costLedgerEntries, fencedEffects, outboundCalls, meshAnswers, a2aTasks, a2aFiles, a2aMessages)",
+      "[application.retention-invalid] its retention.ledgerEntries is not a retention (pauseRecords, executionRecords, auditLog, costLedgerEntries, fencedEffects, outboundCalls, a2aTasks, a2aFiles, a2aMessages)",
     );
   });
 
@@ -123,7 +121,6 @@ describe("#834 AC2: a retention set where it was before is refused, never droppe
     [{ ledgerEntryRetention: hours(72) }, "ledgerEntryRetention", "costLedgerEntries"],
     [{ fencedEffects: { retention: hours(48) } }, "fencedEffects.retention", "fencedEffects"],
     [{ outboundCalls: { retention: hours(720) } }, "outboundCalls.retention", "outboundCalls"],
-    [{ mesh: { idempotencyRetention: hours(6) } }, "mesh.idempotencyRetention", "meshAnswers"],
     [{ a2a: { taskRetention: hours(1) } }, "a2a.taskRetention", "a2aTasks"],
   ])("%o: its %s is gone, naming retention.%s", async (others, where, now) => {
     await expect(assembledWith(undefined, others)).rejects.toThrow(
@@ -180,7 +177,6 @@ const RETENTION = {
   costLedgerEntries: minutes(5),
   fencedEffects: minutes(6),
   outboundCalls: minutes(7),
-  meshAnswers: minutes(8),
   a2aTasks: minutes(9),
 } as const satisfies RetentionOptions;
 
@@ -234,7 +230,7 @@ describe("#834 AC1: the recovery sweep removes each kind past its own retention"
       [
         "meshAnswers",
         vi.spyOn(app.resolve(MeshRequestRepository), "deleteExpired"),
-        RETENTION.meshAnswers,
+        DEFAULT_IDEMPOTENCY_RETENTION as Milliseconds,
       ],
       [
         "a2aTasks",

@@ -27,7 +27,6 @@ describe("#1366: limitViolations", () => {
       limitViolations(
         options({
           maxConcurrentSteps: 1,
-          maxMeshHops: 1,
           shutdownTimeout: MAX_TIMEOUT,
           compensationTimeout: MAX_TIMEOUT,
         }),
@@ -41,18 +40,6 @@ describe("#1366: limitViolations", () => {
         {
           code: "limits.max-concurrent-steps-invalid",
           message: `its maxConcurrentSteps is ${String(value)}, not a whole number of steps from 1 — @Application({ maxConcurrentSteps: 32 }) lets 32 steps of this instance work at once`,
-          nodes: [NAME],
-        },
-      ]);
-    }
-  });
-
-  it("names a hop cap that is no whole number of applications from 1", () => {
-    for (const value of [0, -1, 1.5]) {
-      expect(limitViolations(options({ maxMeshHops: value }))).toEqual([
-        {
-          code: "limits.max-mesh-hops-invalid",
-          message: `its maxMeshHops is ${String(value)}, not a whole number of applications from 1 — @Application({ maxMeshHops: 6 }) refuses a call chain that already passed through 6 applications`,
           nodes: [NAME],
         },
       ]);

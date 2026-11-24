@@ -746,8 +746,7 @@ export interface ApplicationOptions<TEnvironment = unknown> {
     readonly guardrails?: readonly Class[];
     readonly healthChecks?: readonly Class[];
     readonly maxConcurrentSteps?: number;
-    readonly maxMeshHops?: number;
-    readonly mesh?: MeshOptions;
+    readonly mesh?: Class;
     readonly modelProvider?: Class;
     readonly name: string;
     readonly observers?: readonly Class<ExecutionObserver>[];
@@ -5897,6 +5896,9 @@ export type MemoryCompaction = SummaryQueueCompaction | SingleSummaryCompaction;
 export type MemoryOptions = DeclarativeMemoryOptions | CodeMemoryOptions;
 
 // @public
+export function Mesh(options: MeshOptions): <C extends Class>(value: C) => C;
+
+// @public
 export interface MeshBudgetClaim {
     // (undocumented)
     readonly currency?: "USD";
@@ -5928,11 +5930,18 @@ export interface MeshEnvelope {
     readonly issuer: string;
     readonly origin: MeshOrigin;
     readonly schema: 1;
+    readonly tenantId?: string;
 }
 
 // @public
 export interface MeshHop extends MeshEntry {
     readonly executionId: string;
+}
+
+// @public
+export enum MeshInboundMode {
+    AllowExternal = "allow-external",
+    Strict = "strict"
 }
 
 // @public
@@ -5965,8 +5974,18 @@ export interface MeshLoopDetectedErrorOptions extends Partial<MeshLimitPlace> {
 
 // @public
 export interface MeshOptions {
+    readonly deduplicationTtl: Milliseconds;
+    // (undocumented)
+    readonly description?: string;
+    readonly envelopeTtl?: Milliseconds;
+    readonly inboundMode: MeshInboundMode;
+    readonly maxClockSkew?: Milliseconds;
+    readonly maxHops: number;
+    // (undocumented)
+    readonly name?: string;
+    // (undocumented)
     readonly peers?: readonly MeshPeer[];
-    readonly signingKey?: string;
+    readonly signingKey?: SecretRef;
 }
 
 // @public
@@ -5987,8 +6006,11 @@ export interface MeshOriginStep {
 
 // @public
 export interface MeshPeer {
+    readonly allowEndpoints?: readonly Class[];
     readonly application: string;
-    readonly verifyKey: string;
+    readonly propagateTenant?: boolean;
+    // (undocumented)
+    readonly verifyKeys: readonly MeshVerifyKey[];
 }
 
 // @public
@@ -6036,6 +6058,9 @@ export interface MeshSpendReport {
     readonly total: string;
     readonly totalTokens?: number;
 }
+
+// @public
+export type MeshVerifyKey = SecretRef | OptionalSecretRef | EnvRef<string | undefined>;
 
 // @public
 export interface MessageErrorOptions extends AGBossErrorOptions {
@@ -8598,7 +8623,6 @@ export interface RetentionOptions {
     readonly costLedgerEntries?: Milliseconds;
     readonly executionRecords?: Milliseconds;
     readonly fencedEffects?: Milliseconds;
-    readonly meshAnswers?: Milliseconds;
     readonly outboundCalls?: Milliseconds;
     readonly pauseRecords?: Milliseconds;
 }
@@ -8813,7 +8837,7 @@ type RouteTargetKind = NodeKind.Agent | NodeKind.Action | NodeKind.Router | Node
 type RouteTargetLabel = "a route target (an agent, an action, a router, a child workflow or a finish)";
 
 // @public
-export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.one-of-not-exhaustive" | "flow.one-of-ambiguous" | "flow.duplicate-error-handler" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-max-previous" | "input.outdated-on-path" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.unjoinable-output" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "limits.timeout-invalid" | "application.store-backend-mismatch" | "application.store-backend-undeclared" | "application.store-descriptor-invalid" | "application.idempotency-key-required" | "application.pii-key-shared" | "a2a.expose-description-required" | "a2a.task-store-not-shared" | "a2a.message-store-not-shared" | "a2a.message-skill-pause" | "a2a.message-skill-effect" | "a2a.message-skill-tool" | "a2a.message-skill-compensation" | "a2a.message-skill-child" | "a2a.unknown-skill-option" | "a2a.file-options-invalid" | "a2a.file-store-required" | "a2a.file-store-not-shared" | "a2a.nested-file-field" | "a2a.unknown-finish" | "a2a.price-invalid" | "application.retention-invalid" | "mesh.signing-key-missing" | "mesh.unknown-peer-key" | "mesh.duplicate-peer" | "application.not-an-expose" | "application.duplicate-expose" | "application.expose-unknown-start" | "name.kind-suffix" | "name.not-kebab-case" | "dto.name" | "dto.duplicate-name" | "dto.cyclic" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.max-steps-below-worst-case" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "limits.count-invalid" | "agent.dynamic-options" | "agent.duplicate-rag" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "pause-listener.not-a-handler" | "pause-listener.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.missing-limit" | "budget.conflicting-limit" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "environment.conflicting-field" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "rag.rerank-invalid" | "rag.scope-required" | "rag.custom-scope-missing-resolver" | "rag.not-a-reranker" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "tool-interceptor.target-not-a-tool" | "tool-interceptor.duplicate-hook" | "tool-interceptor.override-drops-target" | "tool-interceptor.unresolved-tool" | "tool-interceptor.duplicate-tool-name" | "tool-interceptor.unknown-hook" | "memory.not-a-memory" | "memory.invalid-setting" | "memory.uncompacted-turns-invalid" | "memory.conflicting-compaction" | "model.unserved" | "model.ambiguous-provider" | "model.missing-provider" | "model.incompatible-provider" | "model.missing" | "model.price-invalid" | "model-provider.both-modes" | "model-provider.request-fields-missing" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "channel.expires-in-invalid" | "channel.remind-before-invalid" | "channel.remind-before-exceeds-expiry" | "channel.remind-before-below-tick" | "channel.remind-before-working-without-working-expiry" | "channel.working-time-without-calendar" | "working-calendar.invalid" | "working-calendar.duplicate-name" | "tool.expires-in-without-channel" | "question.expires-in-conflict" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "judge.wrong-output" | "judge.same-model-family" | "judge.zero-retries" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-output" | "flow.conflicting-placement" | ExtraRuleCode;
+export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.one-of-not-exhaustive" | "flow.one-of-ambiguous" | "flow.duplicate-error-handler" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-max-previous" | "input.outdated-on-path" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.unjoinable-output" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "limits.timeout-invalid" | "application.store-backend-mismatch" | "application.store-backend-undeclared" | "application.store-descriptor-invalid" | "application.idempotency-key-required" | "application.pii-key-shared" | "a2a.expose-description-required" | "a2a.task-store-not-shared" | "a2a.message-store-not-shared" | "a2a.message-skill-pause" | "a2a.message-skill-effect" | "a2a.message-skill-tool" | "a2a.message-skill-compensation" | "a2a.message-skill-child" | "a2a.unknown-skill-option" | "a2a.file-options-invalid" | "a2a.file-store-required" | "a2a.file-store-not-shared" | "a2a.nested-file-field" | "a2a.unknown-finish" | "a2a.price-invalid" | "application.retention-invalid" | "mesh.not-a-mesh" | "mesh.limit-invalid" | "mesh.peer-without-keys" | "mesh.unknown-endpoint" | "mesh.duplicate-peer" | "application.not-an-expose" | "application.duplicate-expose" | "application.expose-unknown-start" | "name.kind-suffix" | "name.not-kebab-case" | "dto.name" | "dto.duplicate-name" | "dto.cyclic" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.max-steps-below-worst-case" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "limits.count-invalid" | "agent.dynamic-options" | "agent.duplicate-rag" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "pause-listener.not-a-handler" | "pause-listener.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.missing-limit" | "budget.conflicting-limit" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "environment.conflicting-field" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "rag.rerank-invalid" | "rag.scope-required" | "rag.custom-scope-missing-resolver" | "rag.not-a-reranker" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "tool-interceptor.target-not-a-tool" | "tool-interceptor.duplicate-hook" | "tool-interceptor.override-drops-target" | "tool-interceptor.unresolved-tool" | "tool-interceptor.duplicate-tool-name" | "tool-interceptor.unknown-hook" | "memory.not-a-memory" | "memory.invalid-setting" | "memory.uncompacted-turns-invalid" | "memory.conflicting-compaction" | "model.unserved" | "model.ambiguous-provider" | "model.missing-provider" | "model.incompatible-provider" | "model.missing" | "model.price-invalid" | "model-provider.both-modes" | "model-provider.request-fields-missing" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "channel.expires-in-invalid" | "channel.remind-before-invalid" | "channel.remind-before-exceeds-expiry" | "channel.remind-before-below-tick" | "channel.remind-before-working-without-working-expiry" | "channel.working-time-without-calendar" | "working-calendar.invalid" | "working-calendar.duplicate-name" | "tool.expires-in-without-channel" | "question.expires-in-conflict" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "judge.wrong-output" | "judge.same-model-family" | "judge.zero-retries" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-output" | "flow.conflicting-placement" | ExtraRuleCode;
 
 // @public
 export interface RuleViolation {
@@ -12663,6 +12687,10 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/mesh/mesh-errors.ts - (ae-undocumented) Missing documentation for "code".
 // src/mesh/mesh-errors.ts - (ae-undocumented) Missing documentation for "code".
 // src/mesh/mesh-errors.ts - (ae-undocumented) Missing documentation for "name".
+// src/mesh/mesh.decorator.ts - (ae-undocumented) Missing documentation for "verifyKeys".
+// src/mesh/mesh.decorator.ts - (ae-undocumented) Missing documentation for "name".
+// src/mesh/mesh.decorator.ts - (ae-undocumented) Missing documentation for "description".
+// src/mesh/mesh.decorator.ts - (ae-undocumented) Missing documentation for "peers".
 // src/models/circuit-breaker.ts - (ae-undocumented) Missing documentation for "message".
 // src/models/circuit-breaker.ts - (ae-undocumented) Missing documentation for "mediaType".
 // src/models/circuit-breaker.ts - (ae-undocumented) Missing documentation for "cause".

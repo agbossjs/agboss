@@ -6,7 +6,7 @@
  */
 import { generateKeyPairSync } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
-import { CLOCK_TOLERANCE } from "../../src/mesh/mesh-defaults.js";
+import { CLOCK_SKEW } from "../../src/mesh/mesh-defaults.js";
 import { encodeJws, isSignedBy, readJws } from "../../src/mesh/mesh-jws.js";
 import type { ReadEnvelope } from "../../src/mesh/mesh-envelope-codec.js";
 import {
@@ -25,6 +25,7 @@ const issuer = generateKeyPairSync("ed25519");
 const stranger = generateKeyPairSync("ed25519");
 const ISSUED = Date.parse("2030-01-01T00:00:00.000Z");
 const LIFETIME = 60_000;
+const WINDOW = { maxClockSkew: CLOCK_SKEW, envelopeTtl: LIFETIME };
 
 const envelopeOf = (changes: object = {}) => ({
   schema: 1,
@@ -44,7 +45,7 @@ const signedBy = (key = issuer.privateKey, changes: object = {}): ReadEnvelope =
 };
 const at = (offset: number): Date => new Date(ISSUED + offset);
 const refusal = (read: ReadEnvelope, now: Date, key = issuer.publicKey) =>
-  signatureRefusalOf(read, key, now);
+  signatureRefusalOf(read, [key], now, WINDOW);
 
 describe("#1366: the signature of an envelope", () => {
   it("is the issuer's: another key's, or none, is refused as a bad signature", () => {
@@ -70,12 +71,12 @@ describe("#1366: the replay window of a signed envelope", () => {
   it("opens the clocks' tolerance before it was issued and closes the same after its lifetime, both ends in", () => {
     const read = signedBy();
 
-    expect(refusal(read, at(-CLOCK_TOLERANCE))).toBeUndefined();
-    expect(refusal(read, at(-CLOCK_TOLERANCE - 1))).toBe(MeshRefusalCode.EnvelopeExpired);
-    expect(refusal(read, at(LIFETIME + CLOCK_TOLERANCE))).toBeUndefined();
-    expect(refusal(read, at(LIFETIME + CLOCK_TOLERANCE + 1))).toBe(MeshRefusalCode.EnvelopeExpired);
+    expect(refusal(read, at(-CLOCK_SKEW))).toBeUndefined();
+    expect(refusal(read, at(-CLOCK_SKEW - 1))).toBe(MeshRefusalCode.EnvelopeExpired);
+    expect(refusal(read, at(LIFETIME + CLOCK_SKEW))).toBeUndefined();
+    expect(refusal(read, at(LIFETIME + CLOCK_SKEW + 1))).toBe(MeshRefusalCode.EnvelopeExpired);
     expect(refusal(read, at(LIFETIME / 2))).toBeUndefined();
-    expect(CLOCK_TOLERANCE).toBe(30_000);
+    expect(CLOCK_SKEW).toBe(30_000);
   });
 
   it.each([
@@ -121,9 +122,16 @@ describe("#1366: the refusals a caller reads", () => {
         "AudienceMismatch": "mesh.audience-mismatch",
         "AudienceMissing": "mesh.audience-missing",
         "BodyMismatch": "mesh.body-mismatch",
+        "EndpointForbidden": "mesh.endpoint-forbidden",
         "EnvelopeExpired": "mesh.envelope-expired",
+        "PeerUnknown": "mesh.peer-unknown",
+        "ReplayCheckUnavailable": "mesh.replay-check-unavailable",
+        "Replayed": "mesh.replayed",
         "RequestInProgress": "mesh.request-in-progress",
+        "RequestMismatch": "mesh.request-mismatch",
         "SignatureInvalid": "mesh.signature-invalid",
+        "SignatureMissing": "mesh.signature-missing",
+        "TenantMismatch": "mesh.tenant-mismatch",
       }
     `);
     expect(MESH_REFUSAL_TEXT).toMatchInlineSnapshot(`
@@ -131,9 +139,16 @@ describe("#1366: the refusals a caller reads", () => {
         "mesh.audience-mismatch": "the mesh envelope is addressed to another application",
         "mesh.audience-missing": "the signed mesh envelope is addressed to no application",
         "mesh.body-mismatch": "the mesh envelope was signed for another request body",
+        "mesh.endpoint-forbidden": "the mesh peer may not call this endpoint",
         "mesh.envelope-expired": "the mesh envelope has expired or is not yet valid",
+        "mesh.peer-unknown": "the mesh request is signed by no peer of this application",
+        "mesh.replay-check-unavailable": "the mesh could not check the request is new",
+        "mesh.replayed": "this signed mesh request was already admitted",
         "mesh.request-in-progress": "a request with this idempotency key is still running",
+        "mesh.request-mismatch": "the mesh signature was made for another request",
         "mesh.signature-invalid": "the mesh envelope's signature is not its issuer's",
+        "mesh.signature-missing": "this endpoint admits only signed mesh requests",
+        "mesh.tenant-mismatch": "the mesh peer's tenant does not match the request",
       }
     `);
   });

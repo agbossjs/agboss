@@ -415,7 +415,7 @@ export function a2aHttpListener(app: A2AApp, options: A2AHttpListenerOptions): (
 
 // @public
 export interface A2AHttpListenerOptions {
-    readonly authenticator: Class;
+    readonly authenticator?: Class;
     readonly base?: string;
     readonly expose: Class;
     readonly maxBodySize?: Bytes;

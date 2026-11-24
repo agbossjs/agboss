@@ -8,6 +8,7 @@
  * that createApp did not build (no mesh settings or no execution control) is refused with
  * `[a2a.app-required]`.
  */
+import { MESH_DEFAULTS } from "../../helpers/mesh-settings.js";
 import { describe, expect, it } from "vitest";
 import { a2aHttpListener } from "../../../src/a2a/a2a-http.js";
 import { Clock } from "../../../src/infrastructure/clock.js";
@@ -69,6 +70,7 @@ function hostOf(given: { mesh: boolean; control: boolean }): Host {
       application: "host",
       maxMeshHops: 4,
       keys: { peers: new Map() },
+      ...MESH_DEFAULTS,
       clock,
       idempotencyRetention: 1,
       a2aTaskRetention: 1,

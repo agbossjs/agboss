@@ -109,8 +109,10 @@ export type RuleCode =
   | "a2a.price-invalid"
   // every retention of @Application({ retention }) (#834)
   | "application.retention-invalid"
-  | "mesh.signing-key-missing"
-  | "mesh.unknown-peer-key"
+  | "mesh.not-a-mesh"
+  | "mesh.limit-invalid"
+  | "mesh.peer-without-keys"
+  | "mesh.unknown-endpoint"
   | "mesh.duplicate-peer"
   | "application.not-an-expose"
   | "application.duplicate-expose"

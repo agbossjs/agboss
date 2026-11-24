@@ -17,8 +17,8 @@ export interface AssembledKeyFields {
   /** `@Application({ piiKeyField })` (#120, #825): the environment field of its PII key. */
   readonly piiKeyField?: string;
   /**
-   * The other keys it declares, by field (#825): its model providers' `apiKey`s, the mesh's
-   * `signingKey`, the `Secret`s its listed classes read — what no key field may read the variable of.
+   * The other keys it declares, by field (#825): its model providers' `apiKey`s, the
+   * `Secret`s its listed classes read — what no key field may read the variable of.
    */
   readonly otherKeys?: DeclaredKeys;
 }

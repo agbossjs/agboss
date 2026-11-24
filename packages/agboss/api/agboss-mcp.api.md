@@ -120,7 +120,7 @@ export class McpService {
     connect(transport: Transport, session?: McpSessionOptions): Promise<void>;
     connectStdio(): Promise<void>;
     handleMessage(req: IncomingMessage, res: ServerResponse, sessionId: string, parsedBody?: unknown): Promise<void>;
-    handleSse(res: ServerResponse, messageEndpoint: string, session?: McpSessionOptions): Promise<McpSession>;
+    handleSse(req: IncomingMessage, res: ServerResponse, messageEndpoint: string, session?: McpSessionOptions): Promise<McpSession | undefined>;
 }
 
 // @public (undocumented)

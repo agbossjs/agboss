@@ -1277,7 +1277,7 @@ registered …`); a class in `providers` without a decorator fails with `[di.und
   `ExecutionTreeRepository` (`saveIfAbsent` / `findById` — the shared state of one request, removed
   when its tree ends), `RateLimitRepository` (slots as leases, windows and pauses — a provider's
   rate limit, 429 pause and circuit breaker, #266), `MeshRequestRepository` (the answers of trusted
-  mesh requests by idempotency key, removed after `retention.meshAnswers` by the recovery sweep,
+  mesh requests by idempotency key, removed after `@Mesh({ deduplicationTtl })` by the recovery sweep,
   #398), `ChildExecutionQueueRepository` (#333 PR 2: children launched with
   `ChildPlacement.AnyInstance`, `saveIfAbsent` / `claimFirstByStatusQueuedOrderByDepthDesc` /
   `completeByTenantIdAndExecutionId`, rows removed with their tree; #777: the optional
@@ -1786,7 +1786,7 @@ export class ArchiveAgent {}
 ```
 
 - **Knowledge bases:** a `@Rag` class extending `RagSource` (`protected retrieve(query, { topK, signal,
-  scopeId?, filter? })`, optional `protected index`, `resolveScope?(context)` for `RagScope.Custom`);
+scopeId?, filter? })`, optional `protected index`, `resolveScope?(context)` for `RagScope.Custom`);
   the one public way in is `search(query, { topK?, filter? })`, which runs the pipeline (scope,
   reranking, PII policies, `costUsd` and `tokens` into the budgets under `rag:<name>`, a reranker's
   under `reranker:<name>`) and returns a clean `RagSearchResultsDto`. `@Rag` and `@Tool` are
@@ -1800,9 +1800,9 @@ export class ArchiveAgent {}
   data-isolation boundary: every non-global scope is keyed by the pair (`tenantId`, `scopeId`) — an owner id is unique within a tenant only — and a call that cannot name its scope reads nothing (`RagScopeError`), ids are
   key's text compared as given, `describe` and `configHash` carry the scope. `topK` stays on `@Rag`;
   `reranker: Class` names a `@RagReranker({ candidates, maxCandidateLength?, onFailure?, model?,
-  modelProvider? })` (an empty class is the LLM reranker on its provider's model through the cascade —
+modelProvider? })` (an empty class is the LLM reranker on its provider's model through the cascade —
   no default model of the core's own, `[model.missing]`; a class with `rerank()` is code); `1 ≤ topK ≤
-  candidates` (`[rag.rerank-invalid]`); `onFailure` defaults to `RerankFailurePolicy.FailStep`.
+candidates` (`[rag.rerank-invalid]`); `onFailure` defaults to `RerankFailurePolicy.FailStep`.
   `SqliteFtsRagSource({ directory, path, maxChunkLength? })` keys every chunk by its scope (a
   shared source has one copy; an index file of an older version is rebuilt, never migrated; a
   `node:sqlite` without FTS5, Node 22.13–22.15, is `rag.fts5-unavailable` on first use, #1226), a
@@ -2005,8 +2005,7 @@ target.skill)` with the export whose `skill` — the exported start's name — i
   `[application.pii-instance-key]` (S94); logs and traces mask with a key of the instance.
   `piiKeyField` (#825, was `pseudonymKey`) is typed `SecretFieldOf<TEnvironment>` — only a `Secret`
   field of the contract compiles, as `@DatabaseStorage({ idempotencySecret })` does —, and a key field that is also a
-  model provider's `apiKey` (the built-ins' `openRouterApiKey` when none is listed), the mesh's
-  `signingKey`, a `Secret` a listed class reads or another key field is
+  model provider's `apiKey` (the built-ins' `openRouterApiKey` when none is listed), a `Secret` a listed class reads or another key field is
   `[application.pii-key-shared]` / `[application.idempotency-key-shared]`: a provider rotates its key
   routinely, and every token (every fingerprint) would change with it. The PII key makes tokens and
   business-key handles only — never a fingerprint (Business idempotency keys below). It is a root
@@ -2263,7 +2262,7 @@ passed (a skipped one fails it, S2 Q6).
   `createAppWith` / `builtApplicationOf` in `@agboss/core/internal`, what `testWith` and the CLI use;
   `AppDeps`, `createAppDeps`, `GraphDeps` and `ExecutionObserverManager` are internal too). How long
   each kind of row is kept is one `@Application({ retention: { pauseRecords, executionRecords,
-auditLog, costLedgerEntries, fencedEffects, outboundCalls, meshAnswers, a2aTasks, a2aFiles, a2aMessages } })` (#834,
+auditLog, costLedgerEntries, fencedEffects, outboundCalls, a2aTasks, a2aFiles, a2aMessages } })` (#834,
   `RetentionOptions`; each a positive duration, the fencing ones above the lease, an unknown key
   refused — `[application.retention-invalid]`; `executionRecords` unset keeps nothing). `app.execute(Start, input, { threadId, ownerId, signal,
 tenant, execution, onStream, deadline })` (`deadline`, #398: `DeadlineExceededError`, `limit.deadline`,
@@ -2810,11 +2809,10 @@ LimitError` narrows to the union, `switch (err.kind)` is exhaustive, `.onError(L
   `HopsLimitExceededError`, #398: an A2A or MCP call chain — the mesh envelope every call
   made inside an execution carries (`message.metadata[A2A_MESH_EXTENSION].envelope` over A2A,
   `_meta["agboss.dev/mesh"]` over MCP) — that comes back to an application's start or is longer than
-  its `@Application({ maxMeshHops })`, default 8: the receiver refuses it before it runs (MCP `409`,
+  its `@Mesh({ maxHops })`, default 8: the receiver refuses it before it runs (MCP `409`,
   A2A a `REJECTED` task), and
-  the calling tool's step fails with it, never read by the model; with `@Application({ mesh: {
-signingKey, peers } })` the envelope is a signed JWS and a peer the authenticator names whose
-  signature verifies is trusted: its budget becomes `caller-budget`, its deadline the execution's
+  the calling tool's step fails with it, never read by the model; with `@Application({ mesh: MyMesh })` (`@Mesh({ signingKey, peers, inboundMode, deduplicationTtl, maxHops, … })`, #1320; every HTTP request also carries a signed `X-AGBoss-Mesh` header, verified before anything else, each `jti` once, a verified peer owns its tasks as `mesh:<peer>`) the envelope is a signed JWS and a peer whose
+  header and signature verify is trusted: its budget becomes `caller-budget`, its deadline the execution's
   — `limit.deadline`, `DeadlineExceededError` —, its origin `executionContext.origin`, and its
   answer a signed run report the caller records as `ToolCallRecord.remote` and `a2a:<issuer>`
   spend — the larger of it and the `@A2AAgent`'s `price`; the envelope's `audience` is the client's
