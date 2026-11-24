@@ -4,7 +4,8 @@ import type { LiveQuorum } from "./quorum-branch.js";
 import type { StepSlots } from "../../../app/step-slots.js";
 import type { StepEntries } from "../step-entries.js";
 import type { Class } from "../../../components/injection.js";
-import { treeLaunchesOnAnyInstance } from "../../analyse/child-placements.js";
+import { treeLaunchesQueued } from "../../analyse/child-placements.js";
+import type { ChildPlacement } from "../../child-placement.js";
 import { SharedTreeSlots, type SharedSlotParts } from "./shared-tree-slots.js";
 import {
   holdOnce,
@@ -236,7 +237,10 @@ export class TreeSlotRegistry {
   constructor(
     readonly instance?: StepSlots,
     readonly steps?: StepEntries,
-    readonly shared?: Pick<SharedSlotParts, "rateLimits" | "clock">,
+    readonly shared?: Pick<SharedSlotParts, "rateLimits" | "clock"> & {
+      /** `@Application({ defaults: { workflows: { placement } } })`: a child that sets none runs there. */
+      readonly defaultPlacement?: ChildPlacement | undefined;
+    },
   ) {}
 
   /** The tree's slots, made on its first claim with the root's cap. */
@@ -250,7 +254,7 @@ export class TreeSlotRegistry {
 
   #madeFor(root: TreeRoot, maxConcurrentExecutions: number, clock: Clock): TreeSlotCap {
     const { shared } = this;
-    if (shared === undefined || !treeLaunchesOnAnyInstance(root.workflow.type))
+    if (shared === undefined || !treeLaunchesQueued(root.workflow.type, shared.defaultPlacement))
       return new TreeSlots(maxConcurrentExecutions, clock);
     const parts = { ...shared, tenantId: root.tenant.tenantId };
     return new SharedTreeSlots(parts, root.executionId, maxConcurrentExecutions);

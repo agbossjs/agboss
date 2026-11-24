@@ -16,7 +16,9 @@ async function stopOf(clock: VirtualClock) {
     rateLimits: {},
     pausedExecutions: {},
   };
-  const parts = await instancePartsOf(assembled as never, clock, log as never, stores as never);
+  const parts = await instancePartsOf(assembled as never, clock, log as never, stores as never, {
+    application: { instanceId: "instance" },
+  });
   return parts.stepsAtStop;
 }
 

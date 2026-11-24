@@ -8,7 +8,6 @@ import {
   type LaunchTargetKind,
   type Step,
 } from "./ast.js";
-import { placementOptionOf, type ChildPlacement } from "./child-placement.js";
 import { FlowSyntaxError } from "./flow-syntax-error.js";
 import { withTargets, type TargetRef } from "./target-ref.js";
 
@@ -28,11 +27,10 @@ export const LAUNCH_CALLS: Readonly<Record<LaunchTargetKind, string>> = {
   [NodeKind.Workflow]: "toParallelWorkflows",
 };
 
-/** `{ maxConcurrency, maxItems, placement }`, read from the last argument. */
+/** `{ maxConcurrency, maxItems }`, read from the last argument. */
 interface ReadOptions {
   readonly maxConcurrency?: number;
   readonly maxItems?: number;
-  readonly placement?: ChildPlacement;
 }
 
 const isPositiveInteger = (value: unknown): value is number =>
@@ -53,11 +51,9 @@ function optionsOf(last: unknown, call: string): ReadOptions {
     });
   const maxConcurrency = limitOf(last, "maxConcurrency", call);
   const maxItems = limitOf(last, "maxItems", call);
-  const placement = placementOptionOf(last, `${call}(…, { placement })`);
   return {
     ...(maxConcurrency === undefined ? {} : { maxConcurrency }),
     ...(maxItems === undefined ? {} : { maxItems }),
-    ...(placement === undefined ? {} : { placement }),
   };
 }
 
@@ -99,10 +95,6 @@ export function launchStepOf(
   const problem = siteProblem(targetKind, targets, site);
   if (problem !== undefined) throw new FlowSyntaxError({ message: problem });
   const options = hasOptions ? optionsOf(last, call) : {};
-  if (options.placement !== undefined && targetKind !== NodeKind.Workflow)
-    throw new FlowSyntaxError({
-      message: `${call}(…, { placement }): only a child workflow has a placement`,
-    });
   const rest = { kind: StepKind.Launch as const, targetKind, ...options };
   // a child workflow may be named by a thunk (#1287), read when the flow is analysed
   return Object.freeze(

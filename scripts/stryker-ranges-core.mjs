@@ -56,6 +56,9 @@ export function sqliteStoresShard() {
       // #1321c: the baseline DDL — the keys, primary keys and unique indexes that fence and deduplicate
       "src/infrastructure/sqlite/sqlite-tables.ts",
       "src/infrastructure/sqlite/sqlite-baseline-schema.ts",
+      // #1286: the claim of a queued child — a row an instance excludes or an isolated worker owns is never its claim
+      "src/infrastructure/sqlite/sqlite-child-execution-queue.repository.ts",
+      "src/infrastructure/sqlite/sqlite-child-queue-rows.ts",
     ],
   };
 }

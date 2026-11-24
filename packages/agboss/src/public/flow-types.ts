@@ -20,7 +20,6 @@ export {
   type KindLabels,
   type OutputContinuation,
   type ValueContinuation,
-  type RouteOptions,
   type RouteTargetKind,
   type RouteTargetLabel,
   type StepContinuation,

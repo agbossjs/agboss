@@ -24,8 +24,15 @@ async function stopOf(clock: VirtualClock) {
       warnings.push({ code, message, fields });
     },
   };
-  const stores = { executionTrees: {}, childQueue: {}, rateLimits: {}, pausedExecutions: {} };
-  const parts = await instancePartsOf(assembled as never, clock, log as never, stores as never);
+  const stores = {
+    executionTrees: {},
+    childQueue: {},
+    rateLimits: {},
+    pausedExecutions: {},
+  };
+  const parts = await instancePartsOf(assembled as never, clock, log as never, stores as never, {
+    application: { instanceId: "instance" },
+  });
   return { parts, warnings };
 }
 

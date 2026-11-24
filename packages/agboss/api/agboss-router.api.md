@@ -20,7 +20,6 @@ export interface ToStep {
     readonly expiresIn?: Milliseconds | WorkingDuration;
     // (undocumented)
     readonly kind: StepKind.To;
-    readonly placement?: ChildPlacement;
     // (undocumented)
     readonly target: Class;
     // (undocumented)

@@ -34,7 +34,7 @@ import { HoldCheckedWorkflowFinish, HoldCheckWorkflowStart } from "./child-recov
 import { RecoverableItemAction, recoveryRuns } from "./launch-recovery.workflow.js";
 
 /**
- * #333 PR 4 — remote children (`ChildPlacement.AnyInstance`) that pause, yield the parent's root
+ * #333 PR 4 — remote children (`ChildPlacement.AnyWorker`) that pause, yield the parent's root
  * lease while running, and recover per child from `<parentThreadId>/child/<id>` on a worker crash
  * or a graceful stop past `shutdownTimeout` (S7) without re-running finished siblings or finished
  * steps of the child.
@@ -72,6 +72,7 @@ export class RemotePrepItemAction {
 }
 
 @Workflow({
+  placement: ChildPlacement.AnyWorker,
   name: "remote-hold-check-workflow",
   version: "1.0.0",
   flow: [
@@ -97,7 +98,6 @@ export class RemoteHoldItemsWorkflowStart {}
     onStart(RemoteHoldItemsWorkflowStart)
       .toParallelWorkflows(RemoteHoldCheckWorkflow, {
         maxItems: 10,
-        placement: ChildPlacement.AnyInstance,
       })
       .join()
       .onError(
@@ -123,7 +123,7 @@ export class RemoteReviewOneWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(RemoteReviewOneWorkflowStart)
-      .toWorkflow(ItemReviewWorkflow, { placement: ChildPlacement.AnyInstance })
+      .toWorkflow(ItemReviewWorkflow)
       .toFinish(ItemReviewedWorkflowFinish),
   ],
 })
@@ -144,7 +144,6 @@ export class RemoteReviewItemsWorkflowStart {}
       .toParallelWorkflows(ItemReviewWorkflow, {
         maxConcurrency: 2,
         maxItems: 10,
-        placement: ChildPlacement.AnyInstance,
       })
       .join()
       .toAction(ReviewsSummaryAction)
@@ -168,6 +167,7 @@ export class RemoteReviewItemsWorkflow {}
   observers: [RecoveryLog, ChildEventLog],
   providers: [MortalExecutionLeaseRepository, StampedExecutionRecordRepository, RecordingLogger],
   budgets: TEST_BUDGETS,
+  defaults: { workflows: { placement: ChildPlacement.AnyWorker } },
 })
 export class RemoteRecoveryApplication {}
 

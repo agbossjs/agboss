@@ -2,14 +2,20 @@ import { describe, expect, it } from "vitest";
 import { checkWorkflow } from "../../../src/flow/analyse/analyse.js";
 import { applicationOf } from "../../../src/application/assemble.js";
 import { assemblyWarningsOf } from "../../../src/application/start-log.js";
+import type { Class } from "../../../src/components/injection.js";
+import {
+  placementOfWorkflow,
+  treeLaunchesQueued,
+} from "../../../src/flow/analyse/child-placements.js";
 import { ChildPlacement } from "../../../src/flow/child-placement.js";
+import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
+import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
+import { ItemDto } from "./fixtures/fan-out.workflow.js";
 import { Workflow, type WorkflowOptions } from "../../../src/flow/decorators/workflow.js";
 import { flowLines } from "../../../src/flow/print.js";
-import { FlowSyntaxError } from "../../../src/flow/path-builder.js";
-import { route, onStart } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import {
   ItemReviewedWorkflowFinish,
-  ItemReviewerAgent,
   ItemReviewWorkflow,
   ReviewOneWorkflowStart,
 } from "./fixtures/children.workflow.js";
@@ -37,85 +43,112 @@ function workflowWith(flow: Flow): abstract new () => unknown {
   return PlacementCaseWorkflow;
 }
 
-describe("#333 PR 2: placement at assembly", () => {
-  it("is printed as written (describe, the config fingerprint)", () => {
+function childWith(placement: ChildPlacement | undefined): Class {
+  count += 1;
+  @WorkflowStart({
+    name: `placed-${String(count)}-workflow-start`,
+    description: "d",
+    input: ItemDto,
+  })
+  class Start {}
+  @WorkflowFinish({
+    name: `placed-${String(count)}-workflow-finish`,
+    description: "d",
+    output: ItemDto,
+  })
+  class Finish {}
+  @Workflow({
+    name: `placed-${String(count)}-workflow`,
+    version: "1.0.0",
+    ...(placement === undefined ? {} : { placement }),
+    flow: [onStart(Start).toFinish(Finish)],
+  })
+  class Placed {}
+  return Placed;
+}
+
+describe("#1286: placement is the child's, never the flow's", () => {
+  it("the flow prints no placement (describe, the config fingerprint)", () => {
     const lines = flowLines(
       [
         onStart(RemoteOneWorkflowStart)
-          .toWorkflow(RemoteItemWorkflow, { placement: ChildPlacement.AnyInstance })
+          .toWorkflow(RemoteItemWorkflow)
           .toFinish(RemoteOneCheckedWorkflowFinish),
       ],
       (cls) => cls.name,
     );
 
-    expect(lines).toContain(
-      "  .toWorkflow(RemoteItemWorkflow, { placement: ChildPlacement.AnyInstance })",
-    );
+    expect(lines).toContain("  .toWorkflow(RemoteItemWorkflow)");
   });
 
-  it("a launch prints it with its limits", () => {
+  it("a launch prints its limits only", () => {
     const lines = flowLines(
       [
         onStart(RemoteOneWorkflowStart)
-          .toParallelWorkflows(RemoteItemWorkflow, {
-            maxItems: 3,
-            placement: ChildPlacement.AnyInstance,
-          })
+          .toParallelWorkflows(RemoteItemWorkflow, { maxItems: 3 })
           .join()
           .toFinish(RemoteOneCheckedWorkflowFinish),
       ],
       (cls) => cls.name,
     );
 
-    expect(lines).toContain(
-      "  .toParallelWorkflows(RemoteItemWorkflow, { maxItems: 3, placement: ChildPlacement.AnyInstance })",
-    );
+    expect(lines).toContain("  .toParallelWorkflows(RemoteItemWorkflow, { maxItems: 3 })");
   });
 
-  it("only a child workflow takes one; anything else is refused", () => {
-    expect(() =>
-      onStart(RemoteOneWorkflowStart).toWorkflow(RemoteItemWorkflow, { placement: "elsewhere" }),
-    ).toThrow(FlowSyntaxError);
-    expect(() =>
-      onStart(RemoteOneWorkflowStart).toParallelAgents(ItemReviewerAgent, {
-        placement: ChildPlacement.AnyInstance,
-      }),
-    ).toThrow("only a child workflow has a placement");
+  it("the child's own placement wins over the application's default, which wins over the process", () => {
+    const own = childWith(ChildPlacement.OtherWorker);
+    const bare = childWith(undefined);
+
+    expect(placementOfWorkflow(own, ChildPlacement.AnyWorker)).toBe(ChildPlacement.OtherWorker);
+    expect(placementOfWorkflow(bare, ChildPlacement.AnyWorker)).toBe(ChildPlacement.AnyWorker);
+    expect(placementOfWorkflow(bare, undefined)).toBe(ChildPlacement.CurrentProcess);
   });
 
-  it("a child that can pause may run on any instance (#333 PR 4)", () => {
+  it("a child's placement is never its parent's", () => {
+    const child = childWith(undefined);
+    const parent = workflowWith([onStart(RemoteOneWorkflowStart).toWorkflow(child)]);
+
+    expect(placementOfWorkflow(child, undefined)).toBe(ChildPlacement.CurrentProcess);
+    expect(placementOfWorkflow(parent, undefined)).toBe(ChildPlacement.CurrentProcess);
+  });
+
+  it("a tree launches through the queue when a child below it does, by its own or the default", () => {
+    const queued = childWith(ChildPlacement.AnyWorker);
+    const bare = childWith(undefined);
+    const withQueued = workflowWith([onStart(ReviewOneWorkflowStart).toWorkflow(queued)]);
+    const withBare = workflowWith([onStart(ReviewOneWorkflowStart).toWorkflow(bare)]);
+
+    expect(treeLaunchesQueued(withQueued, undefined)).toBe(true);
+    expect(treeLaunchesQueued(withBare, undefined)).toBe(false);
+    expect(treeLaunchesQueued(withBare, ChildPlacement.OtherWorker)).toBe(true);
+  });
+
+  it("IsolatedWorker fails assembly until it runs (#1286b)", () => {
     const parent = workflowWith([
-      onStart(ReviewOneWorkflowStart)
-        .toWorkflow(ItemReviewWorkflow, { placement: ChildPlacement.AnyInstance })
-        .toFinish(ItemReviewedWorkflowFinish),
-    ]);
-
-    expect(checkWorkflow(parent).errors).toEqual([]);
-  });
-
-  it("the same child on its parent's instance may pause", () => {
-    const parent = workflowWith([
-      onStart(ReviewOneWorkflowStart)
-        .toWorkflow(ItemReviewWorkflow, { placement: ChildPlacement.ParentInstance })
-        .toFinish(ItemReviewedWorkflowFinish),
-    ]);
-
-    expect(checkWorkflow(parent).errors).toEqual([]);
-  });
-
-  it("one child with two placements: [flow.conflicting-placement]", () => {
-    const parent = workflowWith([
-      onStart(RemoteOneWorkflowStart)
-        .toAgent(ItemReviewerAgent)
-        .chooseOne(
-          route(RemoteItemWorkflow, { placement: ChildPlacement.AnyInstance }),
-          route(RemoteItemWorkflow),
-        ),
+      onStart(ReviewOneWorkflowStart).toWorkflow(childWith(ChildPlacement.IsolatedWorker)),
     ]);
 
     expect(checkWorkflow(parent).errors.map((found) => found.code)).toContain(
-      "flow.conflicting-placement",
+      "workflow.isolated-worker-unavailable",
     );
+    expect(
+      checkWorkflow(
+        workflowWith([onStart(ReviewOneWorkflowStart).toWorkflow(childWith(undefined))]),
+        {
+          applicationDefaults: { workflows: { placement: ChildPlacement.IsolatedWorker } },
+        },
+      ).errors.map((found) => found.code),
+    ).toContain("workflow.isolated-worker-unavailable");
+  });
+
+  it("a child that can pause may run on any worker (#333 PR 4)", () => {
+    const parent = workflowWith([
+      onStart(ReviewOneWorkflowStart)
+        .toWorkflow(ItemReviewWorkflow)
+        .toFinish(ItemReviewedWorkflowFinish),
+    ]);
+
+    expect(checkWorkflow(parent).errors).toEqual([]);
   });
 });
 
@@ -126,7 +159,7 @@ describe("#333 PR 2: [application.in-memory-child-queue]", () => {
     expect(assemblyWarningsOf(assembled)).toContainEqual({
       code: "application.in-memory-child-queue",
       message:
-        "in-memory child queue: children launched with placement: ChildPlacement.AnyInstance run only on the instance that launched them — list SqliteChildExecutionQueueRepository (or your own ChildExecutionQueueRepository) so any instance claims them",
+        "in-memory child queue: children of a workflow with a placement other than CurrentProcess run only on the instance that launched them — list SqliteChildExecutionQueueRepository (or your own ChildExecutionQueueRepository) so another instance claims them",
     });
   });
 

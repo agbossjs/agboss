@@ -42,7 +42,7 @@ export enum ExecutionRecordStatus {
   Paused = "paused",
   /**
    * A child execution waiting in the application's queue for an instance to claim it (#333 PR 2,
-   * `ChildPlacement.AnyInstance`): a `ChildExecutionQueueRepository` row only.
+   * `ChildPlacement.AnyWorker`): a `ChildExecutionQueueRepository` row only.
    */
   Queued = "queued",
   /**

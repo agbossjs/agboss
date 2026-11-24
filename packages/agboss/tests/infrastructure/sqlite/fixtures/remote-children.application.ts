@@ -1,4 +1,5 @@
 import {
+  ChildPlacement,
   SqliteCheckpointSaver,
   SqliteChildExecutionQueueRepository,
   SqliteCostLedgerRepository,
@@ -39,6 +40,7 @@ import { SqliteTestEnvironment } from "./environments/app.environment.js";
   observers: [ChildEventLog],
   budgets: TEST_BUDGETS,
   maxConcurrentSteps: 1,
+  defaults: { workflows: { placement: ChildPlacement.AnyWorker } },
   providers: [
     SqliteCheckpointSaver,
     SqliteCostLedgerRepository,

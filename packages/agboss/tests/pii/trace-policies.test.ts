@@ -270,7 +270,7 @@ describe("#1150: a child's spans are masked by its chain", () => {
     expect(spansOf("chain-root-workflow")).toContain(CHILD_SECRET);
   });
 
-  it("AC4 spans: an AnyInstance child's spans name the child and its chain (bug 1) — never the root's mask alone", async () => {
+  it("AC4 spans: an AnyWorker child's spans name the child and its chain (bug 1) — never the root's mask alone", async () => {
     const book = new ScriptBook();
     book.scriptOf("agent:chain-far-agent").thenReturn(replyWith(`done ${CHILD_SECRET}`));
     const app = await chainAppOf(book);

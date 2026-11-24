@@ -40,7 +40,6 @@ export class MetricsBatchWorkflowStart {}
       .toParallelWorkflows(RemoteItemWorkflow, {
         maxConcurrency: 20,
         maxItems: 20,
-        placement: ChildPlacement.AnyInstance,
       })
       .join()
       .toAction(RemoteChecksAction)

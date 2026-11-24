@@ -1,5 +1,5 @@
 /**
- * #520 — a stale instance never takes the lease of an `AnyInstance` child another instance already
+ * #520 — a stale instance never takes the lease of an `AnyWorker` child another instance already
  * finished. A's parent waits for its child on B; A's reclaim of the child, asked while B still runs
  * it, freezes at A's lease store (`leases.freeze`); B ends the child — answered, failed or cancelled
  * — and finishes its lease; A resumes. Before the fix A took the free lease of the finished child
@@ -96,7 +96,7 @@ beforeEach(() => {
   resetLogged();
 });
 
-describe("#520 AC2: a stale instance does not re-claim a finished AnyInstance child", () => {
+describe("#520 AC2: a stale instance does not re-claim a finished AnyWorker child", () => {
   test("AC2: A's reclaim frozen while B answers the child takes no lease and writes no takeover of it", async ({
     apps,
     clock,

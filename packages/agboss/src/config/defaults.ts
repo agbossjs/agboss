@@ -1,4 +1,4 @@
-import type { WorkflowDefaults } from "../flow/decorators/workflow.js";
+import type { ApplicationDefaults, WorkflowDefaults } from "../flow/decorators/workflow.js";
 import { mergedFileDefaults } from "../files/file-settings.js";
 import { withoutUndefined } from "../types/defined.js";
 
@@ -24,7 +24,7 @@ export interface DefaultsLevels {
 /** One level: its name, its `defaults` and its window (`uncompactedTurns`, #120 PR 3). */
 interface DefaultsLevel_ {
   readonly name: string;
-  readonly defaults?: WorkflowDefaults;
+  readonly defaults?: ApplicationDefaults;
   readonly uncompactedTurns?: unknown;
 }
 

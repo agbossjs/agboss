@@ -1,6 +1,6 @@
 /**
  * #505 — an outbound call's request is stored masked wherever its step runs: a child workflow in
- * its parent's step (`ParentInstance`) and a child queued for any instance (`AnyInstance`, whose
+ * its parent's step (`CurrentProcess`) and a child queued for any instance (`AnyWorker`, whose
  * run context is rebuilt by the worker — it used to carry no mask, so its intent was stored raw).
  * A frame without a mask while the application lists PII policies fails closed: nothing recorded,
  * nothing sent. An operator reads a stored result masked too (the store keeps it as given, for the
@@ -57,7 +57,7 @@ const MASKED_REQUEST = '{"orderId":"order-7","amountUsd":10,"email":"<email>"}';
 const TREE = { tenantId: "default", rootExecutionId: "execution-1" };
 
 describe("#505 AC4: a child workflow's outbound call is stored masked", () => {
-  test("AC4: an AnyInstance child with a PII policy sends a call: its stored request is masked", async ({
+  test("AC4: an AnyWorker child with a PII policy sends a call: its stored request is masked", async ({
     app,
   }) => {
     const result = await execute(app, FarChargeWorkflowStart, {
@@ -72,7 +72,7 @@ describe("#505 AC4: a child workflow's outbound call is stored masked", () => {
     expect(gateway.calls).toHaveLength(1);
   });
 
-  test("AC4: a ParentInstance child's stored request is masked the same way", async ({ app }) => {
+  test("AC4: a CurrentProcess child's stored request is masked the same way", async ({ app }) => {
     await execute(app, NearChargeWorkflowStart, { text: "order-7 alice@example.com" });
 
     const [call] = await app.outboundCallsOf(TREE);

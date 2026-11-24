@@ -193,7 +193,7 @@ describe("#909: who writes the mark", () => {
   });
 });
 
-describe("#909 AC1: an AnyInstance child", () => {
+describe("#909 AC1: an AnyWorker child", () => {
   test("its charge after its root's cancel is refused, naming the root's tree — the lease is the child's own", async ({
     apps,
   }) => {

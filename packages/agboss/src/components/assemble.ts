@@ -166,7 +166,8 @@ function checkedJudgesOf(bundle: WorkflowMeta, agents: readonly AgentMeta[], loa
 
 /** The workflow's runtime graph, with the levels its defaults came from remembered (#261). */
 function graphOf(analysis: FlowAnalysis, workflow: Class, owner: WorkflowOwner | undefined) {
-  const graph = runtimeGraphOf(analysis, workflowDeclarationOf(workflow).options.flow, workflow);
+  const { flow } = workflowDeclarationOf(workflow).options;
+  const graph = runtimeGraphOf(analysis, flow, workflow, owner?.defaults?.workflows?.placement);
   rememberDefaultsLevels(graph, levelsOf(workflow, owner));
   return graph;
 }

@@ -192,7 +192,7 @@ export abstract class ExecutionLeaseRepository {
   abstract release(executionLease: ExecutionLease): Promise<void>;
 
   /**
-   * Gives the lease up for good (#520): the work under it is over — an `AnyInstance` child that
+   * Gives the lease up for good (#520): the work under it is over — an `AnyWorker` child that
    * answered or failed — so no later `acquire` of its key gets a lease, whoever asks and whenever,
    * and no takeover of finished work can follow. One atomic step, matched as `release` matches
    * (another holder's lease is kept, nothing retired); a retired lease is renewed, yielded and

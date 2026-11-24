@@ -11,7 +11,7 @@ export enum LedgerState {
   /** A pass wrote it to the ledger as it was made: an entry under its `ledgerId`, counted once. */
   Written = "written",
   /**
-   * Recorded by another instance — a call of a child that ran there (`ChildPlacement.AnyInstance`)
+   * Recorded by another instance — a call of a child that ran there (`ChildPlacement.AnyWorker`)
    * and that its pass wrote at its step's end —: in the ledger already, under no id the parent
    * knows; counted once by what it is.
    */

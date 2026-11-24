@@ -13,7 +13,6 @@ import { projectInput, type InputShape } from "./projection.js";
 import { recursionOf, type Recursion } from "./recursion.js";
 import { branchOutdatingRules } from "./rules/branch-outdating.js";
 import { childFailureWarnings } from "./rules/child-failure.js";
-import { childPlacementRules } from "./rules/child-placement.js";
 import { questionExpiryRules } from "./question-expiry.js";
 import { remindBeforeWarnings } from "./remind-before.js";
 import { judgeFamilyWarnings, judgeRetryWarnings } from "./rules/judge-family.js";
@@ -34,6 +33,7 @@ import { nameRules } from "./rules/names.js";
 import { countLimitRules, optionsRules } from "./rules/options.js";
 import { outdatedRules } from "./rules/outdated.js";
 import { placementRules } from "./rules/placement.js";
+import { childPlacementRules } from "./rules/child-placement.js";
 import { quorumRules } from "./rules/quorum.js";
 import { concurrencyErrors, concurrencyWarnings, recursionRules } from "./rules/recursion.js";
 import { routerRules } from "./rules/routers.js";
@@ -81,6 +81,7 @@ const RULES: readonly FlowRule[] = [
   dtoCycleRules,
   graphRules,
   placementRules,
+  childPlacementRules,
   cycleRules,
   countLimitRules,
   switchRules,
@@ -99,7 +100,6 @@ const RULES: readonly FlowRule[] = [
   quorumRules,
   branchOutdatingRules,
   childRules,
-  childPlacementRules,
   questionExpiryRules,
   limitHandlerRules,
   compensationRules,

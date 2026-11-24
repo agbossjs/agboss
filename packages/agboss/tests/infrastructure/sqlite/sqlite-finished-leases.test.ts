@@ -1,5 +1,5 @@
 /**
- * #520 acceptance (M2 automated, and the finish across a restart) — `AnyInstance` children on two
+ * #520 acceptance (M2 automated, and the finish across a restart) — `AnyWorker` children on two
  * instances over one SQLite file: an answered child's lease row is `released = 3` (finished) at
  * once, a paused one's `released = 1` (released, so its resume takes it again) until its end
  * finishes it; the root's own lease is never finished. Once both instances stopped, a new instance
@@ -87,7 +87,7 @@ const reviewer = (request: ModelRequest) => {
 const items = (...names: readonly string[]) =>
   names.map((name) => ({ name, delay: 0, outcome: "ok" as const }));
 
-describe("#520 M2: the lease rows of AnyInstance children on SQLite", () => {
+describe("#520 M2: the lease rows of AnyWorker children on SQLite", () => {
   test("answered: released = 3 at once; paused: released = 1 until its end finishes it; the root's never 3 — and a restart takes no finished child's lease", async ({
     apps,
     mockLlm,

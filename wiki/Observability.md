@@ -226,7 +226,7 @@ A child workflow (#263, [Workflow as a step](Workflow-as-a-step#at-run-time)) is
 its own: `onExecutionStart` once when it is first entered (a resume or a recovery that continues it
 fires none), `onExecutionEnd` (`finish`, its own `spend`) when it ends at a finish, and
 `onExecutionError` when it fails or is cancelled (FailFast: `ExecutionCancelledError`) — each at
-most once, by the pass that ended it (#562): an `AnyInstance` child's finish on the instance whose
+most once, by the pass that ended it (#562): an `AnyWorker` child's finish on the instance whose
 worker completed its queue row, a child on its parent's instance by the parent's pass that ran it,
 a remote child's failure by the parent's pass that saw it; a parent that re-enters its step after a
 takeover only reads the end and announces nothing
@@ -295,7 +295,7 @@ export class CompensationAudit {
 
 `onExecutionLeaseTakeover` tells that an instance took a tree's lease over. Like a refused request
 it names no workflow and no thread — a lease belongs to a tree: `ExecutionLeaseTakeoverEvent` has
-`tenantId`, `rootExecutionId`, `leaseExecutionId` (the root, or a `ChildPlacement.AnyInstance`
+`tenantId`, `rootExecutionId`, `leaseExecutionId` (the root, or a `ChildPlacement.AnyWorker`
 child's own lease), `scopeKey` and `token` (the new holder's `executionContext.fence`),
 `holderInstanceId`, `previousHolderInstanceId` / `previousToken` when the lease store names the
 holder whose lease expired (`ExecutionLease.takenOverFrom`), `checkpointId` (the tree's head
@@ -629,7 +629,7 @@ there):
 | ------------------------------------ | -------------------------------------------------------------------------------------------- |
 | `application.in-memory-cost-ledger`  | tenant or application budgets on the built-in in-memory ledger: each instance counts on its own, the counters reset on restart |
 | `application.in-memory-pauses`       | a workflow can pause (a tool with a channel) on the built-in in-memory paused executions or checkpoints — the message names the one left in memory (#644) |
-| `application.in-memory-child-queue`  | a child is launched with `placement: ChildPlacement.AnyInstance` on the built-in in-memory child queue: it runs only on the instances of the process that launched it (#333 PR 2) |
+| `application.in-memory-child-queue`  | a child is launched with `placement: ChildPlacement.AnyWorker` on the built-in in-memory child queue: it runs only on the instances of the process that launched it (#333 PR 2) |
 
 ## Files in events, traces and records (#899)
 

@@ -13,7 +13,7 @@ import {
   type SlotClaim,
   type SubtreeCap,
 } from "../../../src/flow/runtime/launch/launch-registry.js";
-import { treeLaunchesOnAnyInstance } from "../../../src/flow/analyse/child-placements.js";
+import { treeLaunchesQueued } from "../../../src/flow/analyse/child-placements.js";
 import type { Class } from "../../../src/components/injection.js";
 import { Workflow, WorkflowStart } from "../../../src/index.js";
 import { onStart } from "../../helpers/flow.js";
@@ -192,10 +192,10 @@ class OuterWorkflow {}
 
 describe("#333 PR 3: which trees share their slots", () => {
   it("a tree with a launch on any instance, at any depth or by recursion — known from its declarations", () => {
-    expect(treeLaunchesOnAnyInstance(RemoteCappedWorkflow)).toBe(true);
-    expect(treeLaunchesOnAnyInstance(OuterWorkflow)).toBe(true);
-    expect(treeLaunchesOnAnyInstance(RemoteCountdownWorkflow)).toBe(true);
-    expect(treeLaunchesOnAnyInstance(RemoteItemWorkflow)).toBe(false);
+    expect(treeLaunchesQueued(RemoteCappedWorkflow, undefined)).toBe(true);
+    expect(treeLaunchesQueued(OuterWorkflow, undefined)).toBe(true);
+    expect(treeLaunchesQueued(RemoteCountdownWorkflow, undefined)).toBe(true);
+    expect(treeLaunchesQueued(RemoteItemWorkflow, undefined)).toBe(false);
   });
 
   const [inMemory] = kinds;

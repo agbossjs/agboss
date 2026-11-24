@@ -21,7 +21,7 @@ export function onceChildShard() {
     mutate: [
       "src/flow/runtime/child.ts",
       "src/flow/runtime/child-value.ts",
-      "src/flow/runtime/remote/remote-child.ts",
+      "src/flow/runtime/remote/{remote-child,remote-claim}.ts",
       "src/app/remote/{child-end-event,queued-child-run}.ts",
     ],
   };

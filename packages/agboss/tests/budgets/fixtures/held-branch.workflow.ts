@@ -42,6 +42,7 @@ export class HeldBranchWorkflowFinish {}
 
 /** Booked, charged past the budgets, then the refund launched beside a memo. */
 @Workflow({
+  placement: ChildPlacement.AnyWorker,
   name: "held-branch-workflow",
   version: "1.0.0",
   flow: [
@@ -122,7 +123,7 @@ export class HeldAnyWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(HeldAnyWorkflowStart)
-      .toWorkflow(HeldBranchWorkflow, { placement: ChildPlacement.AnyInstance })
+      .toWorkflow(HeldBranchWorkflow)
       .toFinish(HeldAnyWorkflowFinish),
   ],
 })

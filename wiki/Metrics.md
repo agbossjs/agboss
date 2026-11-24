@@ -45,7 +45,7 @@ suffixes scrapes `agboss_cluster_children_oldest_queued_age_seconds`, never a do
 
 | Name (Prometheus)                                                                         | Kind  | Unit          | Value                                                                                            |
 | ----------------------------------------------------------------------------------------- | ----- | ------------- | ------------------------------------------------------------------------------------------------ |
-| `agboss.cluster.children.queued` (`agboss_cluster_children_queued`)                       | gauge | `{execution}` | children launched with `ChildPlacement.AnyInstance` waiting to be claimed, every tenant and tree |
+| `agboss.cluster.children.queued` (`agboss_cluster_children_queued`)                       | gauge | `{execution}` | children launched with `ChildPlacement.AnyWorker` waiting to be claimed, every tenant and tree |
 | `agboss.cluster.children.running` (`agboss_cluster_children_running`)                     | gauge | `{execution}` | those claimed by an instance                                                                     |
 | `agboss.cluster.children.oldest_queued.age` (`agboss_cluster_children_oldest_queued_age`) | gauge | `s`           | how long the longest-waiting queued child has waited, on the app's `Clock`; `0` when none        |
 

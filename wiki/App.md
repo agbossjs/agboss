@@ -132,7 +132,7 @@ two → `[di.ambiguous-implementation]`. A service that needs one injects the co
 | `ExecutionTreeRepository`       | the shared state of one request (`saveIfAbsent`, `findById` inside an execution; removed when the tree ends)                                                                                                                                                                                                                                                                                                                                  | in memory        |
 | `RateLimitRepository`           | concurrency slots as leases (`acquire(key, maxSlots, lease)`, `renew`, `release`) — the model providers' limits (#266)                                                                                                                                                                                                                                                                                                                        | in memory        |
 | `ExecutionHistoryRepository`    | each root execution's history, masked, only with `@Application({ retention: { executionRecords } })` (#401, [Execution history](Execution-history))                                                                                                                                                                                                                                                                                           | in memory        |
-| `ChildExecutionQueueRepository` | the children launched with `ChildPlacement.AnyInstance`, claimed by any instance (#333, [Several instances](Several-instances#children-on-any-instance-333))                                                                                                                                                                                                                                                                                  | in memory        |
+| `ChildExecutionQueueRepository` | the children launched with `ChildPlacement.AnyWorker`, claimed by any instance (#333, [Several instances](Several-instances#children-on-any-instance-333))                                                                                                                                                                                                                                                                                  | in memory        |
 
 **Ids** (#313) are infrastructure too, like the `Clock`: the `IdGenerator` contract —
 `newThreadId()` and `newExecutionId()` — gives every thread id the framework mints (`app.execute`
@@ -172,13 +172,13 @@ kept database gave a new tree an old tree's lease, fencing token, audit log and 
 result. Of two instances minting one id at once, one runs. A resume or a recovery keeps its id and is
 not a create; a create that fails after its id was kept leaves the id taken and nothing else.
 The ids of before an upgrade are kept too (#638): a SQLite file of an older version fills
-`execution_ids` from its leases (roots, `AnyInstance` children) and from its outbound calls — every
-execution that made one, a `ParentInstance` child's too, whose step-keyed key
+`execution_ids` from its leases (roots, `AnyWorker` children) and from its outbound calls — every
+execution that made one, a `CurrentProcess` child's too, whose step-keyed key
 (`<executionId>:<nodeId>:<visit>:<name>`) the other system has seen and would answer again with the
 old call's response — and (#663) from its pauses, every execution that paused and its tree: a
-pause is found by its step key, so a `ParentInstance` child of before that paused and sent nothing
+pause is found by its step key, so a `CurrentProcess` child of before that paused and sent nothing
 would otherwise be minted again and its step would find the old pause's decision; agbossjs/postgres
-does the same in migrations `0018`, `0019` and `0020`. A `ParentInstance` child of before that sent
+does the same in migrations `0018`, `0019` and `0020`. A `CurrentProcess` child of before that sent
 nothing and paused nothing shares no key with another system nor with this one's stores.
 A pause is found by its step key **in its tree** (#663: `PausedExecutionRepository.findOrCreateByStepKey`
 matches the tenant, `rootExecutionId` and step key): even an id minted again that the kept ids miss

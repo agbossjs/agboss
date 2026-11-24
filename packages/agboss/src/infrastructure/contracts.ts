@@ -162,7 +162,7 @@ export interface Infrastructure {
   readonly a2aDirectMessages: A2ADirectMessageRepository;
   /** The kept root executions (#401 PR 1): written only with `retention.executionRecords`. */
   readonly executionHistory: ExecutionHistoryRepository;
-  /** The children queued for any instance (#333 PR 2, `ChildPlacement.AnyInstance`). */
+  /** The children queued for any instance (#333 PR 2, `ChildPlacement.AnyWorker`). */
   readonly childQueue: ChildExecutionQueueRepository;
   /** The protected writes of steps (#500): their results and the scopes' marks. */
   readonly fencedEffects: FencedEffectRepository<unknown>;

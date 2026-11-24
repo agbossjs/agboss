@@ -67,7 +67,7 @@ export const environment: AppEnvironment = {
   retention: { costLedgerEntries: hours(24) }, // the ledger's entries (#771): the default, pruned by the sweep
   providers: [
     PostgresCheckpointSaver, // LangGraph's PostgresSaver on the shared pool
-    PostgresChildExecutionQueueRepository, // ChildPlacement.AnyInstance children
+    PostgresChildExecutionQueueRepository, // ChildPlacement.AnyWorker children
     PostgresCostLedgerRepository, // budgets count every pod's spend
     PostgresExecutionHistoryRepository, // agboss records export on any pod
     PostgresExecutionAuditLogRepository, // the audit log: app.auditLogOf
@@ -399,7 +399,7 @@ agbossjs/postgres's CI runs, on PostgreSQL 16, on every pull request, every push
   than the core's (#607) — split over three parallel jobs (`shard: "env"`, `AGBOSS_FAULT_SHARD`,
   #831), its sabotages included.
 - **Two-process tests** of each acceptance criterion: a pod killed mid-step and its tree taken
-  over, `AnyInstance` children claimed once, a pause answered on the other pod, a shared budget and
+  over, `AnyWorker` children claimed once, a pause answered on the other pod, a shared budget and
   rate limit, the history export, mesh deduplication, and a payment whose pod froze mid-charge
   recovered, never sent twice.
 - **Migrations**: a second run changes nothing (a schema dump compared), concurrent runs serialize, a

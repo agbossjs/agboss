@@ -229,6 +229,7 @@ export class ChainFarAgent {}
 
 /** A child queued for any instance. */
 @Workflow({
+  placement: ChildPlacement.AnyWorker,
   name: "chain-far-workflow",
   version: "1.0.0",
   flow: [onStart(ChainFarStart).toAgent(ChainFarAgent).toFinish(ChainFarFinish)],
@@ -275,9 +276,7 @@ export class ChainRootDirectFinish {}
       ),
     onStart(ChainPeekRootStart).toWorkflow(ChainPeekWorkflow).toFinish(ChainRootFinish),
     onStart(ChainOpenRootStart).toWorkflow(ChainOpenWorkflow).toFinish(ChainRootFinish),
-    onStart(ChainFarRootStart)
-      .toWorkflow(ChainFarWorkflow, { placement: ChildPlacement.AnyInstance })
-      .toFinish(ChainRootFinish),
+    onStart(ChainFarRootStart).toWorkflow(ChainFarWorkflow).toFinish(ChainRootFinish),
   ],
   piiPolicies: [RootSecretPiiPolicy],
 })

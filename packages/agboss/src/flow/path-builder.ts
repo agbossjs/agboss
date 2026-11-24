@@ -23,7 +23,6 @@ import {
   priorityOf,
   quorumGroupOf,
 } from "./quorum-step.js";
-import { placementOptionOf } from "./child-placement.js";
 import { expiresInOptionOf } from "./question-options.js";
 import type { PathStart } from "./path-start.js";
 import { withTarget, type TargetRef } from "./target-ref.js";
@@ -80,7 +79,7 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
   private to(
     target: TargetRef,
     kind: NodeKind,
-    extra: Pick<ToStep, "placement" | "expiresIn"> = {},
+    extra: Pick<ToStep, "expiresIn"> = {},
   ): PathBuilder<TSource> {
     const rest = { kind: StepKind.To as const, targetKind: kind, ...extra };
     // only a child workflow may be named by a thunk (#1287): any other target is read as written
@@ -112,10 +111,9 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
     return this.to(target, NodeKind.Question, expiresInOptionOf(options, "toExternalTask(Q, {…})"));
   }
 
-  /** `.toWorkflow(W)` (#263): one child of `W`; `.toWorkflow(W, { placement })` (#333 PR 2). */
-  toWorkflow(target: TargetRef, options?: unknown): PathBuilder<TSource> {
-    const placement = placementOptionOf(options, "toWorkflow(W, {…})");
-    return this.to(target, NodeKind.Workflow, placement === undefined ? {} : { placement });
+  /** `.toWorkflow(W)` (#263): one child of `W`; where it runs is `W`'s `placement` (#1286). */
+  toWorkflow(target: TargetRef): PathBuilder<TSource> {
+    return this.to(target, NodeKind.Workflow);
   }
 
   switch(...cases: readonly PathBuilder[]): PathBuilder<TSource> {
@@ -239,9 +237,7 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
 
   private asRoute(): ChooseOneRoute {
     if (this.start.kind !== "route") throw syntaxError(".chooseOne(…) takes route(…) paths");
-    const { target, placement } = this.start;
-    const rest = { path: this.subPath(), ...(placement && { placement }) };
-    return Object.freeze(withTarget("target", target, rest));
+    return Object.freeze(withTarget("target", this.start.target, { path: this.subPath() }));
   }
 
   /** A group: its agents, priority and own path. */

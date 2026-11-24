@@ -51,10 +51,7 @@ export function routeOf(path: unknown, side: SideOf): ChooseOneRoute {
     );
   if (first.expiresIn !== undefined)
     throw syntaxError(".onRoute(toExternalTask(Q, { expiresIn })) is no route: set it on the role");
-  const route = {
-    path: Object.freeze({ steps: Object.freeze(rest) }),
-    ...(first.placement && { placement: first.placement }),
-  };
+  const route = { path: Object.freeze({ steps: Object.freeze(rest) }) };
   return Object.freeze(
     Object.defineProperty(route, "target", { enumerable: true, get: () => first.target }),
   ) as ChooseOneRoute;

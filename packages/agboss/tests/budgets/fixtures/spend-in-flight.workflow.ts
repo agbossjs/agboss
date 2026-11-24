@@ -181,7 +181,7 @@ function doneOf(name: string) {
 const itemCost = (first: boolean) => (item: string) => (item === "a" ? (first ? 60 : 0) : 30);
 
 /** One item's child: three paid steps, then done. */
-function payItemWorkflowOf(name: string): Class {
+function payItemWorkflowOf(name: string, placement: ChildPlacement): Class {
   const PayOne = paidStep(`${name}-pay-one`, "pay-one", itemCost(true), true);
   const PayTwo = paidStep(`${name}-pay-two`, "pay-two", itemCost(false));
   const PayThree = paidStep(`${name}-pay-three`, "pay-three", itemCost(false));
@@ -193,6 +193,7 @@ function payItemWorkflowOf(name: string): Class {
   @Workflow({
     name: `${name}-workflow`,
     version: "1.0.0",
+    placement,
     flow: [
       onStart(Start)
         .toAction(PayOne)
@@ -206,8 +207,8 @@ function payItemWorkflowOf(name: string): Class {
   return PayItem;
 }
 
-const LocalPayItemWorkflow = payItemWorkflowOf("local-pay-item");
-const AnyPayItemWorkflow = payItemWorkflowOf("any-pay-item");
+const LocalPayItemWorkflow = payItemWorkflowOf("local-pay-item", ChildPlacement.CurrentProcess);
+const AnyPayItemWorkflow = payItemWorkflowOf("any-pay-item", ChildPlacement.AnyWorker);
 
 @WorkflowFinish({ name: "items-paid-workflow-finish", description: "Paid", output: ItemResultDto })
 export class ItemsPaidWorkflowFinish {}
@@ -232,7 +233,6 @@ export class AnyPayItemsWorkflowStart {}
     onStart(LocalPayItemsWorkflowStart)
       .toParallelWorkflows(LocalPayItemWorkflow, {
         maxItems: 2,
-        placement: ChildPlacement.ParentInstance,
       })
       .join()
       .toAction(SummaryAction)
@@ -248,7 +248,6 @@ export class LocalPayItemsWorkflow {}
     onStart(AnyPayItemsWorkflowStart)
       .toParallelWorkflows(AnyPayItemWorkflow, {
         maxItems: 2,
-        placement: ChildPlacement.AnyInstance,
       })
       .join()
       .toAction(SummaryAction)
@@ -266,6 +265,7 @@ class ChildPayWorkflowStart {}
 @WorkflowFinish({ name: "child-pay-workflow-finish", description: "Paid", output: ItemResultDto })
 class ChildPayWorkflowFinish {}
 @Workflow({
+  placement: ChildPlacement.AnyWorker,
   name: "child-pay-workflow",
   version: "1.0.0",
   flow: [
@@ -287,7 +287,7 @@ export class ParentPayWorkflowStart {}
   flow: [
     onStart(ParentPayWorkflowStart)
       .toAction(ParentPay)
-      .toWorkflow(ChildPayWorkflow, { placement: ChildPlacement.AnyInstance })
+      .toWorkflow(ChildPayWorkflow)
       .toFinish(ItemsPaidWorkflowFinish),
   ],
 })

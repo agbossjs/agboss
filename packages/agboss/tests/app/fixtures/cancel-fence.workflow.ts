@@ -23,7 +23,7 @@ import { gate } from "./fenced-effect.workflow.js";
 
 /**
  * #909 — an order reserved (undone by a release, itself a fenced effect), then charged: through a
- * fenced effect, through an outbound call, and in a `ChildPlacement.AnyInstance` child. The charge
+ * fenced effect, through an outbound call, and in a `ChildPlacement.AnyWorker` child. The charge
  * waits at the gate of `fenced-effect.workflow.ts` before its write — a live holder between its
  * tree's cancel request and its next renewal. Every write, request and undo is kept.
  */
@@ -292,6 +292,7 @@ export class FenceChargeWorkflow {}
 export class FencePayWorkflow {}
 
 @Workflow({
+  placement: ChildPlacement.AnyWorker,
   name: "fence-child-workflow",
   version: "1.0.0",
   flow: [
@@ -307,7 +308,7 @@ export class FenceChildWorkflow {}
   version: "1.0.0",
   flow: [
     onStart(FenceFarStart)
-      .toWorkflow(FenceChildWorkflow, { placement: ChildPlacement.AnyInstance })
+      .toWorkflow(FenceChildWorkflow)
       .toFinish(FenceFarFinish),
   ],
 })

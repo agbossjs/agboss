@@ -255,7 +255,7 @@ A double click, an HTTP request retried by a proxy, two threads of one customer.
 
 ### PS9. Parallel branches charging one aggregate
 
-Parallel branches, or `ChildPlacement.AnyInstance` children, charge one customer or draw on one
+Parallel branches, or `ChildPlacement.AnyWorker` children, charge one customer or draw on one
 balance.
 
 - **Wrong:** each branch charges by its own step key: the same charge made twice, or two charges

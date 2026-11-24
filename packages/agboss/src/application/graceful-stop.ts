@@ -19,7 +19,7 @@ import { retentionSourcesOf } from "./retention-sources.js";
 import type { PauseNoticeHub } from "./pause-notice-hub.js";
 import type { PauseTimers } from "./pause-timers.js";
 import { instanceTimersOf } from "./instance-timers.js";
-import { launchesOnAnyInstance } from "../flow/analyse/child-placements.js";
+import { launchesQueued } from "../flow/analyse/child-placements.js";
 /**
  * The graceful stop of an application instance (#261, #265 S30 / S51): no new executions anywhere,
  * its own recovery sweep stopped, `onStop` once, the running executions awaited up to the shutdown
@@ -171,7 +171,7 @@ export interface InstanceParts {
 
 /** Whether a workflow of the instance launches a child on any instance (#333 PR 2). */
 const launchesAnywhere = (workflows: readonly BuiltApp[]): boolean =>
-  workflows.some((workflow) => launchesOnAnyInstance(workflow.deps.graph.nodes.values()));
+  workflows.some((workflow) => launchesQueued(workflow.deps.graph.nodes.values()));
 
 /**
  * The instance's claims of queued children (#333 PR 2), loaded and started only when one of its

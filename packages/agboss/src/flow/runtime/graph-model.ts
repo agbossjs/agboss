@@ -6,7 +6,7 @@ import { codeOfErrorClass, errorMatchOf, type ErrorRecord } from "../../core/err
 import { isHandOverRecord } from "../../core/error-families/run-errors.js";
 import type { FlowAnalysis } from "../analyse/analyse.js";
 import type { ResolvedField } from "../analyse/fields.js";
-import { EdgeKind, type FlowEdge } from "../analyse/flow-graph.js";
+import { EdgeKind, type FlowEdge, type FlowNode } from "../analyse/flow-graph.js";
 import { NodeKind, type FlowPath } from "../ast.js";
 import { isFieldMap, type ComponentDeclaration } from "../decorators/declaration.js";
 import { isCodeRouter } from "../decorators/router.js";
@@ -21,8 +21,8 @@ import { arbiterClassesOf, launchesOf, type RuntimeLaunch } from "./launch/runti
 import { arbiterOf, isCodeArbiter } from "../decorators/arbiter.js";
 import { runtimeProvenanceOf, type RuntimeProvenance } from "./provenance.js";
 
-import type { ChildPlacement } from "../child-placement.js";
-import { childPlacementsOf, placementOfChild } from "../analyse/child-placements.js";
+import { placementOfWorkflow } from "../analyse/child-placements.js";
+import { isQueued, type ChildPlacement } from "../child-placement.js";
 import { expiresInOfQuestion, questionExpiriesOf } from "../analyse/question-expiry.js";
 /**
  * A v2 workflow as its runtime reads it (#272 → Runtime): every node with its fields and its
@@ -54,7 +54,7 @@ export interface RuntimeNode {
   readonly exits: NodeExits;
   readonly maxVisits?: number;
   /**
-   * A child workflow's node launched with `placement: ChildPlacement.AnyInstance` (#333 PR 2): its
+   * A child workflow's node launched with `placement: ChildPlacement.AnyWorker` (#333 PR 2): its
    * children are queued for any instance; absent — they run inside the parent's step.
    */
   readonly placement?: ChildPlacement;
@@ -135,18 +135,28 @@ const maxVisitsOf = (declaration: ComponentDeclaration): number | undefined =>
     ? declaration.options.maxVisits
     : undefined;
 
+/** Where a child workflow node runs when it is not in this process (#1286); `undefined` for the current one. */
+const placementOf = (
+  node: FlowNode,
+  applicationPlacement: ChildPlacement | undefined,
+): ChildPlacement | undefined => {
+  if (node.kind !== NodeKind.Workflow) return undefined;
+  const placement = placementOfWorkflow(node.component, applicationPlacement);
+  return isQueued(placement) ? placement : undefined;
+};
+
 /** The runtime's view of an analysed workflow. */
 export function runtimeGraphOf(
   analysis: FlowAnalysis,
   flow: readonly FlowPath[],
   type: Class,
+  applicationPlacement?: ChildPlacement,
 ): RuntimeGraph {
   const nodes = new Map<string, RuntimeNode>();
-  const placements = childPlacementsOf(flow);
   const expiries = questionExpiriesOf(flow);
   for (const node of analysis.graph.nodes.values()) {
     const maxVisits = maxVisitsOf(node.declaration);
-    const placement = placementOfChild(placements, node.component);
+    const placement = placementOf(node, applicationPlacement);
     const expiresIn = expiresInOfQuestion(expiries, node.component);
     const edges = analysis.graph.edges.filter((edge) => edge.from === node.name);
     nodes.set(node.name, {

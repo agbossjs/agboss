@@ -13,7 +13,7 @@ import type {
 } from "../../infrastructure/child-execution-queue.repository.js";
 
 /**
- * An `AnyInstance` child's finish, announced by its worker (#562): `onExecutionEnd` once its
+ * An `AnyWorker` child's finish, announced by its worker (#562): `onExecutionEnd` once its
  * completion of the child's queue row (`Answered`) won — the write that finishes the child. Its
  * parent, which only reads the row, never announces it, however often its step is re-entered (a
  * takeover, a recovery). A worker that stops between its completion and the announcement leaves it

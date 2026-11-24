@@ -179,6 +179,7 @@ class GrandPayWorkflowStart {}
 @WorkflowFinish({ name: "grand-pay-workflow-finish", description: "Paid", output: ItemResultDto })
 class GrandPayWorkflowFinish {}
 @Workflow({
+  placement: ChildPlacement.AnyWorker,
   name: "grand-pay-workflow",
   version: "1.0.0",
   flow: [
@@ -200,12 +201,13 @@ class SiblingItemWorkflowStart {}
 })
 class SiblingItemWorkflowFinish {}
 @Workflow({
+  placement: ChildPlacement.CurrentProcess,
   name: "sibling-item-workflow",
   version: "1.0.0",
   flow: [
     onStart(SiblingItemWorkflowStart)
       .toAction(SiblingPayAction)
-      .toWorkflow(GrandPayWorkflow, { placement: ChildPlacement.AnyInstance })
+      .toWorkflow(GrandPayWorkflow)
       .toFinish(SiblingItemWorkflowFinish),
   ],
 })
@@ -225,7 +227,6 @@ export class SiblingItemsWorkflowStart {}
     onStart(SiblingItemsWorkflowStart)
       .toParallelWorkflows(SiblingItemWorkflow, {
         maxItems: 2,
-        placement: ChildPlacement.ParentInstance,
       })
       .join()
       .toAction(SummaryAction)

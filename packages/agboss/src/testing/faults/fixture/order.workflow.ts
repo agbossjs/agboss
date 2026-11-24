@@ -17,7 +17,7 @@ import { FaultPayAction } from "./pay.action.js";
 /**
  * The fault fixture's workflows (#484): one order — reserve (undoable), charge (a fenced business
  * row), pay (a call to the gateway under the order's business key), finish — and a batch of
- * orders, each a child queued for any instance (`ChildPlacement.AnyInstance`).
+ * orders, each a child queued for any instance (`ChildPlacement.AnyWorker`).
  */
 
 /**
@@ -44,6 +44,7 @@ export class FaultOrderWorkflowFinish {}
 @Workflow({
   name: "fault-order-workflow",
   version: "1.0.0",
+  placement: ChildPlacement.AnyWorker,
   flow: [
     onStart(FaultOrderWorkflowStart)
       .toAction(FaultReserveAction)
@@ -90,7 +91,6 @@ export class FaultBatchWorkflowFinish {}
       .toParallelWorkflows(FaultOrderWorkflow, {
         maxConcurrency: 4,
         maxItems: 8,
-        placement: ChildPlacement.AnyInstance,
       })
       .join()
       .toAction(FaultBatchAction)

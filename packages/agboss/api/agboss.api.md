@@ -734,13 +734,20 @@ export abstract class ApplicationContext {
 }
 
 // @public
+export interface ApplicationDefaults extends WorkflowDefaults {
+    // (undocumented)
+    readonly workflows?: ChildWorkflowDefaults;
+}
+
+// @public
 export interface ApplicationOptions<TEnvironment = unknown> {
     readonly budgets?: readonly Class[];
     readonly channelListeners?: readonly Class[];
     readonly channels?: readonly Class[];
     readonly channelSelectors?: readonly Class[];
+    readonly childClaimTimeout?: Milliseconds;
     readonly compensationTimeout?: Milliseconds;
-    readonly defaults?: WorkflowDefaults;
+    readonly defaults?: ApplicationDefaults;
     readonly environment: Class<TEnvironment>;
     readonly executionContext?: ExecutionContextClass;
     readonly exposes?: readonly Class[];
@@ -1606,12 +1613,34 @@ export interface ChildLaunchRecord {
 
 // @public
 export enum ChildPlacement {
-    AnyInstance = "any-instance",
-    ParentInstance = "parent-instance"
+    AnyWorker = "any-worker",
+    CurrentProcess = "current-process",
+    IsolatedWorker = "isolated-worker",
+    OtherWorker = "other-worker"
 }
 
 // @public
-export interface ChildStepOptions {
+export class ChildWorkerUnavailableError extends AGBossError {
+    constructor(options: ChildWorkerUnavailableErrorOptions);
+    // (undocumented)
+    readonly childExecutionId: string;
+    // (undocumented)
+    static readonly code: "step.child.worker-unavailable";
+    // (undocumented)
+    readonly code: typeof ChildWorkerUnavailableError.code;
+    // (undocumented)
+    name: string;
+}
+
+// @public
+export interface ChildWorkerUnavailableErrorOptions {
+    readonly childExecutionId: string;
+    readonly waitedMs: number;
+    readonly workflow: string;
+}
+
+// @public
+export interface ChildWorkflowDefaults {
     readonly placement?: ChildPlacement;
 }
 
@@ -1641,7 +1670,6 @@ export interface ChoiceQuestion<O extends string = string> {
 export interface ChooseOneRoute {
     // (undocumented)
     readonly path: SubPath;
-    readonly placement?: ChildPlacement;
     // (undocumented)
     readonly target: Class;
 }
@@ -4225,7 +4253,6 @@ declare namespace FlowTypes {
         KindLabels,
         OutputContinuation,
         ValueContinuation,
-        RouteOptions,
         RouteTargetKind,
         RouteTargetLabel,
         StepContinuation,
@@ -5603,7 +5630,6 @@ export interface LaunchStep {
     readonly kind: StepKind.Launch;
     readonly maxConcurrency?: number;
     readonly maxItems?: number;
-    readonly placement?: ChildPlacement;
     // (undocumented)
     readonly targetKind: LaunchTargetKind;
     readonly targets: readonly Class[];
@@ -8278,10 +8304,12 @@ export interface QueuedChildExecution {
     readonly claimedAt?: Date | undefined;
     readonly depth: number;
     readonly endedAt?: Date | undefined;
+    readonly excludeInstanceId?: string | undefined;
     readonly executionId: string;
     readonly failure?: string | undefined;
     readonly instanceId?: string | undefined;
     readonly parentExecutionId: string;
+    readonly placement?: ChildPlacement | undefined;
     readonly queuedAt: Date;
     readonly rootExecutionId: string;
     readonly rootWorkflow: string;
@@ -8693,7 +8721,7 @@ export type ReturnedShape = ValueShape | OneOfWrapper;
 export type Route<TInstance> = GeneratedEntry<AGBossTypes.Routes, TInstance>;
 
 // @public
-export function route<const TRef extends TargetRef>(target: TRef & TargetCheck<ClassOf<TRef>, RouteTargetKind, RouteTargetLabel>, ...options: RouteOptions<ClassOf<TRef>>): RouteContinuation<InstanceType<ClassOf<TRef>>>;
+export function route<const TRef extends TargetRef>(target: TRef & TargetCheck<ClassOf<TRef>, RouteTargetKind, RouteTargetLabel>): RouteContinuation<InstanceType<ClassOf<TRef>>>;
 
 // @public
 export type RouteCheck<TPath, TRemaining> = [StartOfPath<TPath>] extends [never] ? unknown : [StartOfPath<TPath>] extends [TRemaining] ? unknown : {
@@ -8728,11 +8756,6 @@ export interface RouteOption {
     // (undocumented)
     readonly name: string;
 }
-
-// @public
-type RouteOptions<TClass extends Class> = [KindOf<InstanceType<TClass>>] extends [
-NodeKind.Workflow
-] ? readonly [options?: ChildStepOptions] : readonly [];
 
 // @public
 export type RouteOutcome = {
@@ -8896,7 +8919,7 @@ type RouteTargetKind = NodeKind.Agent | NodeKind.Action | NodeKind.Router | Node
 type RouteTargetLabel = "a route target (an agent, an action, a router, a child workflow or a finish)";
 
 // @public
-export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.one-of-not-exhaustive" | "flow.one-of-ambiguous" | "flow.duplicate-error-handler" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-max-previous" | "input.outdated-on-path" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.unjoinable-output" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "limits.timeout-invalid" | "application.store-backend-mismatch" | "application.store-backend-undeclared" | "application.store-descriptor-invalid" | "application.idempotency-key-required" | "application.pii-key-shared" | "a2a.expose-description-required" | "a2a.task-store-not-shared" | "a2a.message-store-not-shared" | "a2a.message-skill-pause" | "a2a.message-skill-effect" | "a2a.message-skill-tool" | "a2a.message-skill-compensation" | "a2a.message-skill-child" | "a2a.unknown-skill-option" | "a2a.file-options-invalid" | "a2a.file-store-required" | "a2a.file-store-not-shared" | "a2a.nested-file-field" | "a2a.unknown-finish" | "a2a.price-invalid" | "application.retention-invalid" | "mesh.not-a-mesh" | "mesh.limit-invalid" | "mesh.peer-without-keys" | "mesh.unknown-endpoint" | "mesh.duplicate-peer" | "application.not-an-expose" | "application.duplicate-expose" | "application.expose-unknown-start" | "name.kind-suffix" | "name.not-kebab-case" | "dto.name" | "dto.duplicate-name" | "dto.cyclic" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.max-steps-below-worst-case" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "limits.count-invalid" | "agent.dynamic-options" | "agent.duplicate-rag" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "pause-listener.not-a-handler" | "pause-listener.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.missing-limit" | "budget.conflicting-limit" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "environment.conflicting-field" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "rag.rerank-invalid" | "rag.scope-required" | "rag.custom-scope-missing-resolver" | "rag.not-a-reranker" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "tool-interceptor.target-not-a-tool" | "tool-interceptor.duplicate-hook" | "tool-interceptor.override-drops-target" | "tool-interceptor.unresolved-tool" | "tool-interceptor.duplicate-tool-name" | "tool-interceptor.unknown-hook" | "memory.not-a-memory" | "memory.invalid-setting" | "memory.uncompacted-turns-invalid" | "memory.conflicting-compaction" | "model.unserved" | "model.ambiguous-provider" | "model.missing-provider" | "model.incompatible-provider" | "model.missing" | "model.price-invalid" | "model-provider.both-modes" | "model-provider.request-fields-missing" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "channel.expires-in-invalid" | "channel.remind-before-invalid" | "channel.remind-before-exceeds-expiry" | "channel.remind-before-below-tick" | "channel.remind-before-working-without-working-expiry" | "channel.working-time-without-calendar" | "working-calendar.invalid" | "working-calendar.duplicate-name" | "tool.expires-in-without-channel" | "question.expires-in-conflict" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "judge.wrong-output" | "judge.same-model-family" | "judge.zero-retries" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-output" | "flow.conflicting-placement" | ExtraRuleCode;
+export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.one-of-not-exhaustive" | "flow.one-of-ambiguous" | "flow.duplicate-error-handler" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-max-previous" | "input.outdated-on-path" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.unjoinable-output" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "limits.timeout-invalid" | "application.store-backend-mismatch" | "application.store-backend-undeclared" | "application.store-descriptor-invalid" | "application.idempotency-key-required" | "application.pii-key-shared" | "a2a.expose-description-required" | "a2a.task-store-not-shared" | "a2a.message-store-not-shared" | "a2a.message-skill-pause" | "a2a.message-skill-effect" | "a2a.message-skill-tool" | "a2a.message-skill-compensation" | "a2a.message-skill-child" | "a2a.unknown-skill-option" | "a2a.file-options-invalid" | "a2a.file-store-required" | "a2a.file-store-not-shared" | "a2a.nested-file-field" | "a2a.unknown-finish" | "a2a.price-invalid" | "application.retention-invalid" | "mesh.not-a-mesh" | "mesh.limit-invalid" | "mesh.peer-without-keys" | "mesh.unknown-endpoint" | "mesh.duplicate-peer" | "application.not-an-expose" | "application.duplicate-expose" | "application.expose-unknown-start" | "name.kind-suffix" | "name.not-kebab-case" | "dto.name" | "dto.duplicate-name" | "dto.cyclic" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.max-steps-below-worst-case" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "limits.count-invalid" | "agent.dynamic-options" | "agent.duplicate-rag" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "pause-listener.not-a-handler" | "pause-listener.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.missing-limit" | "budget.conflicting-limit" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "environment.conflicting-field" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "rag.rerank-invalid" | "rag.scope-required" | "rag.custom-scope-missing-resolver" | "rag.not-a-reranker" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "tool-interceptor.target-not-a-tool" | "tool-interceptor.duplicate-hook" | "tool-interceptor.override-drops-target" | "tool-interceptor.unresolved-tool" | "tool-interceptor.duplicate-tool-name" | "tool-interceptor.unknown-hook" | "memory.not-a-memory" | "memory.invalid-setting" | "memory.uncompacted-turns-invalid" | "memory.conflicting-compaction" | "model.unserved" | "model.ambiguous-provider" | "model.missing-provider" | "model.incompatible-provider" | "model.missing" | "model.price-invalid" | "model-provider.both-modes" | "model-provider.request-fields-missing" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "channel.expires-in-invalid" | "channel.remind-before-invalid" | "channel.remind-before-exceeds-expiry" | "channel.remind-before-below-tick" | "channel.remind-before-working-without-working-expiry" | "channel.working-time-without-calendar" | "working-calendar.invalid" | "working-calendar.duplicate-name" | "tool.expires-in-without-channel" | "question.expires-in-conflict" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "judge.wrong-output" | "judge.same-model-family" | "judge.zero-retries" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-output" | "workflow.isolated-worker-unavailable" | ExtraRuleCode;
 
 // @public
 export interface RuleViolation {
@@ -10462,7 +10485,6 @@ export interface ToStep {
     readonly expiresIn?: Milliseconds | WorkingDuration;
     // (undocumented)
     readonly kind: StepKind.To;
-    readonly placement?: ChildPlacement;
     // (undocumented)
     readonly target: Class;
     // (undocumented)
@@ -10475,7 +10497,7 @@ export function totalCost(records: readonly {
 }[]): Usd;
 
 // @public
-export function toWorkflow<const TRef extends TargetRef>(target: TRef & TargetCheck<ClassOf<TRef>, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>, options?: ChildStepOptions): AfterStep<InstanceType<ClassOf<TRef>>, SideHead<ClaimsOf<InstanceType<ClassOf<TRef>>>, ClassOf<TRef>>>;
+export function toWorkflow<const TRef extends TargetRef>(target: TRef & TargetCheck<ClassOf<TRef>, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>): AfterStep<InstanceType<ClassOf<TRef>>, SideHead<ClaimsOf<InstanceType<ClassOf<TRef>>>, ClassOf<TRef>>>;
 
 // @public
 export type Tracked<TValue extends object, TComponent extends Class = Class> = TValue & {
@@ -10509,7 +10531,7 @@ export interface Transitions<THead extends PathHead> {
     toFinish<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Finish, KindLabel<NodeKind.Finish>>): BuiltPath<NextHead<THead, InstanceType<TClass>>>;
     // (undocumented)
     toRouter<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Router, KindLabel<NodeKind.Router>>): AfterStep<InstanceType<TClass>, NextHead<THead, InstanceType<TClass>>>;
-    toWorkflow<const TRef extends TargetRef>(target: TRef & TargetCheck<ClassOf<TRef>, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>, options?: ChildStepOptions): AfterStep<InstanceType<ClassOf<TRef>>, NextHead<THead, InstanceType<ClassOf<TRef>>>>;
+    toWorkflow<const TRef extends TargetRef>(target: TRef & TargetCheck<ClassOf<TRef>, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>): AfterStep<InstanceType<ClassOf<TRef>>, NextHead<THead, InstanceType<ClassOf<TRef>>>>;
 }
 
 // @public
@@ -10940,7 +10962,7 @@ export interface WorkflowIsNotAnApplication {
 }
 
 // @public
-export interface WorkflowLaunchOptions extends LaunchOptions, ChildStepOptions {
+export interface WorkflowLaunchOptions extends LaunchOptions {
     // (undocumented)
     readonly maxItems: number;
 }
@@ -10973,6 +10995,7 @@ export interface WorkflowOptions<TName extends string = string, TFlow extends re
     readonly modelProvider?: Class;
     readonly name: TName;
     readonly piiPolicies?: readonly Class[];
+    readonly placement?: ChildPlacement;
     readonly promptVariables?: PromptVariables;
     readonly providers?: readonly Provider[];
     readonly services?: readonly ServiceEntry[];
@@ -12068,6 +12091,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/decorators/workflow.ts - (ae-undocumented) Missing documentation for "guardrail".
 // src/flow/decorators/workflow.ts - (ae-undocumented) Missing documentation for "tools".
 // src/flow/decorators/workflow.ts - (ae-undocumented) Missing documentation for "flow".
+// src/flow/decorators/workflow.ts - (ae-undocumented) Missing documentation for "workflows".
 // src/flow/decorators/workflow.ts - (ae-undocumented) Missing documentation for "version".
 // src/flow/decorators/workflow.ts - (ae-undocumented) Missing documentation for "defaults".
 // src/flow/decorators/workflow.ts - (ae-undocumented) Missing documentation for "Workflow".
@@ -12164,6 +12188,10 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/runtime/child-errors.ts - (ae-undocumented) Missing documentation for "code".
 // src/flow/runtime/child-errors.ts - (ae-undocumented) Missing documentation for "code".
 // src/flow/runtime/child-errors.ts - (ae-undocumented) Missing documentation for "name".
+// src/flow/runtime/child-errors.ts - (ae-undocumented) Missing documentation for "code".
+// src/flow/runtime/child-errors.ts - (ae-undocumented) Missing documentation for "code".
+// src/flow/runtime/child-errors.ts - (ae-undocumented) Missing documentation for "name".
+// src/flow/runtime/child-errors.ts - (ae-undocumented) Missing documentation for "childExecutionId".
 // src/flow/runtime/depth-limit.ts - (ae-undocumented) Missing documentation for "path".
 // src/flow/runtime/depth-limit.ts - (ae-undocumented) Missing documentation for "cause".
 // src/flow/runtime/depth-limit.ts - (ae-undocumented) Missing documentation for "code".

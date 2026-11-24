@@ -6,7 +6,7 @@ import { ComponentError } from "../components/metadata.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import { NodeKind } from "../flow/ast.js";
 import type { Milliseconds } from "../units/index.js";
-import type { WorkflowDefaults } from "../flow/decorators/workflow.js";
+import type { ApplicationDefaults } from "../flow/decorators/workflow.js";
 import type { ExecutionContextClass, TenantContextClass } from "../flow/context/context-values.js";
 import { withChildWorkflows } from "../flow/analyse/child-workflow.js";
 import type { ExecutionObserver } from "../core/observer-hooks.js";
@@ -136,6 +136,13 @@ export interface ApplicationOptions<TEnvironment = unknown> {
    */
   readonly compensationTimeout?: Milliseconds;
   /**
+   * How long a child with `ChildPlacement.OtherWorker` waits for a worker other than the one that
+   * launched it (#1286, D9): when none claims it in time its parent's step fails with
+   * `ChildWorkerUnavailableError` — it never runs on the launching instance. Default `minutes(1)`;
+   * at most 24 hours (`[limits.timeout-invalid]`, #1141).
+   */
+  readonly childClaimTimeout?: Milliseconds;
+  /**
    * How long each kind of row the application keeps stays (#834): pause records, execution
    * records, the audit log, cost ledger entries, idempotent effects, outbound calls, mesh answers and
    * A2A tasks — the one place a retention is set, `[application.retention-invalid]`. See
@@ -197,7 +204,7 @@ export interface ApplicationOptions<TEnvironment = unknown> {
    * Defaults of every workflow (#261): merged field by field under each workflow's own `defaults`
    * — the most specific level that sets a field wins (component over workflow over application).
    */
-  readonly defaults?: WorkflowDefaults;
+  readonly defaults?: ApplicationDefaults;
 }
 
 /**

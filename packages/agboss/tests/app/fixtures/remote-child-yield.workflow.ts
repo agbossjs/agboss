@@ -30,7 +30,7 @@ import {
 } from "../../flow/runtime/fixtures/fan-out.workflow.js";
 
 /**
- * #516 — a parent waiting for its `ChildPlacement.AnyInstance` children while another instance's
+ * #516 — a parent waiting for its `ChildPlacement.AnyWorker` children while another instance's
  * recovery sweep looks for `running` roots. A child's gated step holds every item named `gate…`
  * until the test opens the gate; a review child asks for a confirmation of every item named
  * `ask…` through a channel that records the pause's id; an item whose `outcome` is `fail` fails its
@@ -188,6 +188,7 @@ export class YieldCheckWorkflowStart {}
 export class YieldCheckedWorkflowFinish {}
 
 @Workflow({
+  placement: ChildPlacement.AnyWorker,
   name: "yield-check-workflow",
   version: "1.0.0",
   flow: [
@@ -213,6 +214,7 @@ export class YieldReviewWorkflowStart {}
 export class YieldReviewedWorkflowFinish {}
 
 @Workflow({
+  placement: ChildPlacement.AnyWorker,
   name: "yield-review-workflow",
   version: "1.0.0",
   flow: [
@@ -243,7 +245,7 @@ export class YieldOneWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(YieldOneWorkflowStart)
-      .toWorkflow(YieldCheckWorkflow, { placement: ChildPlacement.AnyInstance })
+      .toWorkflow(YieldCheckWorkflow)
       .toFinish(YieldOneWorkflowFinish),
   ],
 })
@@ -264,7 +266,6 @@ export class YieldReviewsWorkflowStart {}
       .toParallelWorkflows(YieldReviewWorkflow, {
         maxConcurrency: 2,
         maxItems: 5,
-        placement: ChildPlacement.AnyInstance,
       })
       .join()
       .toAction(SummaryAction)

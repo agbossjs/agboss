@@ -43,7 +43,6 @@ export class RemoteCappedWorkflowStart {}
       .toParallelWorkflows(RemoteItemWorkflow, {
         maxConcurrency: 6,
         maxItems: 10,
-        placement: ChildPlacement.AnyInstance,
       })
       .join()
       .toAction(RemoteChecksAction)
@@ -97,6 +96,7 @@ export class RemoteSpentWorkflowFinish {}
 
 /** The child: an agent that spends, then a step that may wait. */
 @Workflow({
+  placement: ChildPlacement.AnyWorker,
   name: "remote-spender-workflow",
   version: "1.0.0",
   flow: [
@@ -128,7 +128,7 @@ export class RemoteSpendCheckedWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(RemoteSpendWorkflowStart)
-      .toWorkflow(RemoteSpenderWorkflow, { placement: ChildPlacement.AnyInstance })
+      .toWorkflow(RemoteSpenderWorkflow)
       .toFinish(RemoteSpendCheckedWorkflowFinish),
   ],
 })

@@ -23,7 +23,7 @@ shared implementation of each:
 | `ExecutionTreeRepository`   | the shared state of one request, read by its executions on any instance         |
 | `RateLimitRepository`       | a model provider's limit, its 429 pause and its circuit breaker hold on every instance (#266) |
 | `MeshRequestRepository`     | a trusted mesh request answered once, whichever instance its repeat reaches (#398) |
-| `ChildExecutionQueueRepository` | a child launched with `ChildPlacement.AnyInstance` is claimed by one instance, whichever (#333) |
+| `ChildExecutionQueueRepository` | a child launched with `ChildPlacement.AnyWorker` is claimed by one instance, whichever (#333) |
 | `ExecutionAuditLogRepository` | the audit log is read through the public API whichever instance took a lease over (#501, [below](#the-audit-log-501)) |
 
 Each contract has a ready **SQLite** implementation (#265 PR 3) and a **PostgreSQL** one
@@ -257,7 +257,7 @@ listed in `@Application({ providers })` like a SQLite one; they share one `pg` p
 | `ExecutionRecordRepository`     | `PostgresExecutionRecordRepository`     | threads, records, scores, summaries                                   |
 | `ExecutionLeaseRepository`      | `PostgresExecutionLeaseRepository`      | one holder per tree, fenced by epoch; a dead pod's tree is taken over |
 | `ExecutionTreeRepository`       | `PostgresExecutionTreeRepository`       | the shared state of one request                                       |
-| `ChildExecutionQueueRepository` | `PostgresChildExecutionQueueRepository` | an `AnyInstance` child is claimed by one pod (`FOR UPDATE SKIP LOCKED`) |
+| `ChildExecutionQueueRepository` | `PostgresChildExecutionQueueRepository` | an `AnyWorker` child is claimed by one pod (`FOR UPDATE SKIP LOCKED`) |
 | `FencedEffectRepository`        | `PostgresFencedEffectRepository`        | an effect's write fenced by the tree's lease, in one transaction      |
 | `ExecutionAuditLogRepository` | `PostgresExecutionAuditLogRepository` | the audit log, read by `app.auditLogOf` on any pod                 |
 | `CostLedgerRepository`          | `PostgresCostLedgerRepository`          | budgets count every pod's spend: a tenant's $10 day is $10 in all     |
@@ -268,7 +268,7 @@ listed in `@Application({ providers })` like a SQLite one; they share one `pg` p
 
 Each store runs its contract's published suite against PostgreSQL (`storeConformance`, the
 interleaving explorer included), the core's `faultSuite` runs on the full set, and two-process tests
-prove it across real processes: a takeover, `AnyInstance` children, a pause resumed elsewhere, a
+prove it across real processes: a takeover, `AnyWorker` children, a pause resumed elsewhere, a
 shared budget, a rate limit across pods, the history export, mesh deduplication and a payment
 reconciled after its pod froze mid-charge. The semantics are the SQLite stores' — the same
 contracts; each store's locking is in its doc comment, and a lease's expiry is decided by the
@@ -377,7 +377,7 @@ idempotency key and the lease's fencing token — and the framework gives both:
 | Member | What it is |
 | --- | --- |
 | `scopeKey` | `${encodeURIComponent(tenantId)}:${encodeURIComponent(leaseExecutionId)}` — one `:`, decodable, the same text as the ids for plain and UUID ids; the key of the high-water mark. A public format. |
-| `tenantId`, `leaseExecutionId` | The lease's key: the root for the root, its `ChildPlacement.ParentInstance` children and recursive levels; a `ChildPlacement.AnyInstance` child itself. |
+| `tenantId`, `leaseExecutionId` | The lease's key: the root for the root, its `ChildPlacement.CurrentProcess` children and recursive levels; a `ChildPlacement.AnyWorker` child itself. |
 | `token` | The lease's `token`: 1, 2, … — a counter of **this one lease key**, rising with every take (a recovery, a resume, the reclaim after remote children); never a sequence across keys. |
 | `trustedUntil` | The `Clock` time up to which the store confirmed the lease (#335). |
 | `assertHeld()` | Synchronous, no I/O: lost, or `clock.now() >= trustedUntil` → expires the lease here first, then throws `ExecutionLeaseLostError`. |
@@ -421,7 +421,7 @@ shown to the model, no failed record (it stays `running`), no `onExecutionError`
 rejects with the `ExecutionFencedError` itself, also when the lease's own expiry aborted the signal a
 moment before. A business error still takes its `.onError`.
 
-- **Key the mark by `fence.scopeKey`**, never by a shared business row. Parallel `AnyInstance`
+- **Key the mark by `fence.scopeKey`**, never by a shared business row. Parallel `AnyWorker`
   children hold independent leases: a recovered `child-1` writes with token 2 while a healthy
   `child-2` is still at 1 — a `highest_token` on one shared `releases` row would refuse the healthy
   child and send it through false recoveries. A shared aggregate needs its own locking.
@@ -435,9 +435,9 @@ moment before. A business error still takes its `.onError`.
   `root.fence` throw `ExecutionContextUnavailableError`. So does a fence kept past its step (a
   destructured `fence` in a stray promise): every member reads the current frame when it is used.
 
-**Remote children and the lease (#471).** While a parent node waits for `AnyInstance` children it
+**Remote children and the lease (#471).** While a parent node waits for `AnyWorker` children it
 yields the root's lease only when every waiting caller waits **and no other step of the tree
-runs** — a sibling `ParentInstance` branch running a step keeps the lease (before #471 it ran and
+runs** — a sibling `CurrentProcess` branch running a step keeps the lease (before #471 it ran and
 checkpointed with the lease released), and a step that starts while the lease is yielded takes it
 back first, under a new token. A step that cannot take it back (another instance took the lease
 over after it expired) is handed over.
@@ -446,7 +446,7 @@ over after it expired) is handed over.
 
 A yielded lease is **not released**: it stays the holder's in `ExecutionLeaseRepository` and is
 renewed every 7.5 s like a held one. What every instance sees of a tree whose parent waits for its
-`AnyInstance` children:
+`AnyWorker` children:
 
 | Who | What they get |
 | --- | --- |
@@ -703,7 +703,7 @@ same on every attempt, replay and holder.
   sent again at any age (it moved no money).
 - **Masked when written.** Everything an intent stores — its request, its result, its failure's text
   — is masked by the **calling frame's** mask (the application's and that workflow's PII policies,
-  also in a `ChildPlacement.AnyInstance` child) before it is written, so every read shows what is
+  also in a `ChildPlacement.AnyWorker` child) before it is written, so every read shows what is
   stored as it is: `app.outboundCallsOf`, `app.pendingOutboundCallsOf`, a kept record, an export.
   `send` and the step get the real values in memory; a **replay** gives the result as stored —
   masked — so a result should carry receipts and ids, not personal data. A lookup gets the
@@ -1198,7 +1198,7 @@ and an [`onExecutionLeaseTakeover`](Observability#lease-takeovers-501) after it:
   for a first lease. It is optional, so a store from before #501 still works — its takeovers name no
   previous holder;
 - **why** — `LeaseTakeoverReason.Recovered` (the sweep continues it), `Unwinding` (the sweep
-  finishes its undo), `Cancelled`, `Resumed`, `RemoteChild` (a worker reclaims an `AnyInstance`
+  finishes its undo), `Cancelled`, `Resumed`, `RemoteChild` (a worker reclaims an `AnyWorker`
   child), `Reclaimed` (a parent took its lease back after waiting for remote children, at a new
   token, no previous holder). A takeover is a take whose store names an expired holder, and every
   take of the recovery sweep, an undo's takeover, a reclaim and a reclaim; a lease released at a
@@ -1828,7 +1828,7 @@ export class DeskApplication {}
 ## Children on any instance (#333)
 
 A whole execution tree normally runs on the instance that holds its lease. A child launched with
-`placement: ChildPlacement.AnyInstance` ([Workflow as a step](Workflow-as-a-step#on-any-instance-333-pr-2))
+`placement: ChildPlacement.AnyWorker` ([Workflow as a step](Workflow-as-a-step#on-any-instance-333-pr-2))
 may run on **any** instance instead, through the application's `ChildExecutionQueueRepository`
 (#333 PR 2):
 

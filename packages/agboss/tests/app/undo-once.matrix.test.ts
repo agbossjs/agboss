@@ -143,7 +143,7 @@ const CASES: readonly UndoCase[] = [
     error: "BudgetExceededError",
   },
   {
-    undo: "a ParentInstance child's undo",
+    undo: "a CurrentProcess child's undo",
     start: OnceLocalWorkflowStart,
     name: "local",
     undos: 1,
@@ -151,7 +151,7 @@ const CASES: readonly UndoCase[] = [
     error: "ChildExecutionFailedError",
   },
   {
-    undo: "an AnyInstance child's undo",
+    undo: "an AnyWorker child's undo",
     start: OnceAnyWorkflowStart,
     name: "any",
     undos: 1,

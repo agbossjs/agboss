@@ -1,6 +1,6 @@
 /**
- * #471 AC1 — the lease scope of a step's fence: a root and its `ParentInstance` child share the
- * root's lease, a `ChildPlacement.AnyInstance` child fences with its own; an ancestor's fence and a
+ * #471 AC1 — the lease scope of a step's fence: a root and its `CurrentProcess` child share the
+ * root's lease, a `ChildPlacement.AnyWorker` child fences with its own; an ancestor's fence and a
  * budget's `maxSpend()` (read before the first pass) refuse with `ExecutionContextUnavailableError`.
  * `scopeKey` encodes each part, so ids with `:` neither collide nor lose their parts.
  */
@@ -26,7 +26,7 @@ beforeEach(() => {
 });
 
 describe("#471 AC1: the scope of a step's lease", () => {
-  test("a ParentInstance child fences with its root's lease; its ancestors' fences refuse", async ({
+  test("a CurrentProcess child fences with its root's lease; its ancestors' fences refuse", async ({
     app,
   }) => {
     const result = await execute(
@@ -59,7 +59,7 @@ describe("#471 AC1: the scope of a step's lease", () => {
     );
   });
 
-  test("an AnyInstance child fences with its own lease: its own execution, token 1", async ({
+  test("an AnyWorker child fences with its own lease: its own execution, token 1", async ({
     app,
   }) => {
     const result = await execute(app, FarParentWorkflowStart, { text: "far" });

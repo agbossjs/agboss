@@ -44,6 +44,7 @@ export class ChainFarChargeChildStart {}
 
 /** The same charge, as a child queued for any instance. */
 @Workflow({
+  placement: ChildPlacement.AnyWorker,
   name: "chain-far-charge-child-workflow",
   version: "1.0.0",
   flow: [
@@ -91,7 +92,7 @@ export class ChainNearChargeWorkflow {}
   version: "1.0.0",
   flow: [
     onStart(ChainFarChargeStart)
-      .toWorkflow(ChainFarChargeChildWorkflow, { placement: ChildPlacement.AnyInstance })
+      .toWorkflow(ChainFarChargeChildWorkflow)
       .toFinish(ChainChargedFinish),
   ],
   piiPolicies: [OrderIdPiiPolicy],

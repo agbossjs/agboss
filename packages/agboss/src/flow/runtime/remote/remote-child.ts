@@ -10,12 +10,14 @@ import type { Clock } from "../../../infrastructure/clock.js";
 import type { RateLimitRepository } from "../../../infrastructure/rate-limit.repository.js";
 import { treeKeyOf } from "../../../infrastructure/in-memory-database.js";
 import { seconds, type Milliseconds } from "../../../units/index.js";
+import { ChildPlacement } from "../../child-placement.js";
 import type { ExecutionGraph } from "../build.js";
 import { resumeMapOf, type ChildWaiting } from "../child-own-thread.js";
 import { asRootRun, atLeafCheckpoint, isExecutionState, rootConfigOf } from "../child-thread.js";
 import type { ExecutionStateType } from "../state.js";
 import type { BudgetMeter } from "../../../budgets/execution-budgets.js";
-import { encodedRun, type RemoteChildRun } from "./remote-child-run.js";
+import type { RemoteChildRun } from "./remote-child-run.js";
+import { checkClaimed, rowOf } from "./remote-claim.js";
 import { remoteChildSignals } from "./remote-child-signals.js";
 import { remoteFailureOf } from "./remote-failure.js";
 
@@ -37,6 +39,15 @@ export interface RemoteChildren {
   readonly queue: ChildExecutionQueueRepository;
   readonly rateLimits: RateLimitRepository;
   readonly clock: Clock;
+  /** This instance's `ApplicationContext.instanceId`: what an `OtherWorker` child excludes (#1286). */
+  readonly instanceId: string;
+  /** `@Application({ defaults: { workflows: { placement } } })`; absent = `CurrentProcess` (#1286). */
+  readonly defaultPlacement?: ChildPlacement | undefined;
+  /**
+   * How long an `OtherWorker` child may wait for a worker other than this instance to claim it
+   * before its parent fails with `ChildWorkerUnavailableError` (#1286, D9).
+   */
+  readonly claimTimeout: Milliseconds;
   /** Yields the holder's lease in `ExecutionLeaseRepository` while waiting for remote children (#333 PR 4). */
   readonly yieldWhile?: (<T>(wait: () => Promise<T>) => Promise<T>) | undefined;
 }
@@ -60,6 +71,8 @@ export interface RemoteChildSite {
   /** The parent's node of the child: its compiled graph is registered on it. */
   readonly node: string;
   readonly isRecursive: boolean;
+  /** Where the child runs (#1286): decides who may claim its row. */
+  readonly placement: ChildPlacement;
   readonly run: RemoteChildRun;
   /** The parent's step's signal: ends the wait. */
   readonly signal: AbortSignal;
@@ -81,22 +94,6 @@ const isSettled = (row: QueuedChildExecution): boolean =>
 
 class RemoteChildLostError extends Error {
   override name = "RemoteChildLostError";
-}
-
-/** A queue row for `site` with `run`. */
-async function rowOf(site: RemoteChildSite, run: RemoteChildRun): Promise<QueuedChildExecution> {
-  return {
-    tenantId: site.tenantId,
-    executionId: site.executionId,
-    rootExecutionId: site.rootExecutionId,
-    parentExecutionId: site.parentExecutionId,
-    rootWorkflow: site.rootWorkflow,
-    workflow: site.workflow,
-    depth: site.depth,
-    status: ExecutionRecordStatus.Queued,
-    run: await encodedRun(site.checkpointer.serde, run),
-    queuedAt: site.children.clock.now(),
-  };
 }
 
 /** The child's row, and whether this pass saw it before it settled — it queued it, or found it unsettled (#562). */
@@ -131,6 +128,7 @@ async function endedRow(
     if (row === undefined)
       throw new RemoteChildLostError(`child execution ${site.executionId} is no longer queued`);
     if (isSettled(row)) return row;
+    checkClaimed(site, row);
     if (row.status === ExecutionRecordStatus.Running) remoteChildSignals.running(row);
     const watch = remoteChildSignals.watchEnd(key);
     try {

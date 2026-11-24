@@ -1,7 +1,7 @@
 # Running on Redis
 
 [`@agboss/redis`](https://github.com/agbossjs/redis) keeps the **coordination stores** of several
-instances on one Redis (#527, #693): execution leases, the `AnyInstance` child queue and provider
+instances on one Redis (#527, #693): execution leases, the `AnyWorker` child queue and provider
 rate limits. Everything else — threads, checkpoints, fenced effects, outbound calls, pauses,
 records, the audit log and the kept execution ids — stays in PostgreSQL
 ([Running-on-PostgreSQL](Running-on-PostgreSQL)) or MongoDB. This page is the core's view: what it

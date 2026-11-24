@@ -622,10 +622,11 @@ name>": 0.9 })`); all no without an `Always` route → `RouterDecisionError` (S2
   parent's node interrupt with a waiting marker (`child-own-thread.ts`, no pause), its pauses read
   through it and its answers forwarded by the node (`run/waiting-pauses.ts`, `run/resume-map.ts`);
   a child started before ADR-0022 (its whole state under its task) is continued that way, for one
-  version (S4 D6). **On any instance (#333 PR 2–4, S6–S9):** `.toWorkflow(W, { placement:
-ChildPlacement.AnyInstance })`, the same on `.toParallelWorkflows(W, { …, placement })` and
-  `route(W, { placement })` (default `ParentInstance`; one class one placement,
-  `[flow.conflicting-placement]`) — the parent's node queues the child in the application's
+  version (S4 D6). **On any instance (#333 PR 2–4, S6–S9):** `@Workflow({ placement:
+ChildPlacement.AnyWorker })` on the child (#1286: never on the flow; else `@Application({ defaults: {
+workflows: { placement } } })`, else `CurrentProcess`; `OtherWorker` is never claimed by the instance that
+  queued it and fails the parent's step with `ChildWorkerUnavailableError` after `childClaimTimeout`;
+  `IsolatedWorker` is `[workflow.isolated-worker-unavailable]` until #1286b) — the parent's node queues the child in the application's
   `ChildExecutionQueueRepository` (`flow/runtime/remote/`) and waits inside its step on its row
   (woken in-process by its worker, after the worker has completed the row and announced the child's
   end while still holding the child's lease and before the lease's cleanup, #917 — else every second
@@ -1279,7 +1280,7 @@ registered …`); a class in `providers` without a decorator fails with `[di.und
   rate limit, 429 pause and circuit breaker, #266), `MeshRequestRepository` (the answers of trusted
   mesh requests by idempotency key, removed after `@Mesh({ deduplicationTtl })` by the recovery sweep,
   #398), `ChildExecutionQueueRepository` (#333 PR 2: children launched with
-  `ChildPlacement.AnyInstance`, `saveIfAbsent` / `claimFirstByStatusQueuedOrderByDepthDesc` /
+  `ChildPlacement.AnyWorker`, `saveIfAbsent` / `claimFirstByStatusQueuedOrderByDepthDesc` /
   `completeByTenantIdAndExecutionId`, rows removed with their tree; #777: the optional
   `watchQueued(onQueued)` → `ChildExecutionQueueWatch` wakes claimers when any instance queues a
   child — none on the in-memory and SQLite ones; on the in-memory one
@@ -1383,7 +1384,7 @@ path>", database: { url, reset }, timeScale?, scenarios?, shard?, sabotages?, ti
 onOperation, onHeld }) → undo`; the pods, the cluster (`FaultCluster`), the gateway, the proxy and
   the checkers are internal) runs the fixture application (`src/testing/faults/
 fixture/`: reserve with an undo, a fenced charge, a payment through `Idempotency.sendOnce` to the test's
-  gateway, a batch of `AnyInstance` children) in real `node` pods on one database (the module
+  gateway, a batch of `AnyWorker` children) in real `node` pods on one database (the module
   exports `faultStores`: providers, environment, business rows, and `storeTime` — #799:
   `FaultStoreTime.Database` for stores on the database's own clock, read at 1, `FaultStoreTime.Host`
   for the pods' clock, read at `timeScale`; none refuses the pod, `[fault-suite.store-time]`), with SIGTERM / SIGKILL / SIGSTOP /
@@ -1660,10 +1661,10 @@ description, ask: AskDto, answer: AnswerDto, answerer, replyInterpreter?, maxVis
   end became durable, whose tree another instance recovered and ended, stops at its own fence —
   `ExecutionLeaseLostError`, no announcement — at most once, as a child's). A child's end
   (#562) is announced only by the pass that ended it and only while that pass holds the tree's
-  lease (`assertAnnouncing`, `flow/runtime/child-failure.ts`): an `AnyInstance` child's finish by the worker whose
+  lease (`assertAnnouncing`, `flow/runtime/child-failure.ts`): an `AnyWorker` child's finish by the worker whose
   completion of its queue row won (`app/remote/child-end-event.ts`, on that worker's instance), one
   its worker stopped for its tree's cancel or end, whose row went with the tree, by that worker; a
-  `ParentInstance` child by the parent's pass that ran it to its finish or failure; a remote child's
+  `CurrentProcess` child by the parent's pass that ran it to its finish or failure; a remote child's
   failure by the parent's pass that saw it happen (the undo runs there) — never by a pass that
   re-enters the step after a takeover and only reads the end (an already finished child, a remote
   row already settled). A failure is claimed first in the tree's store (#596,
@@ -1674,7 +1675,7 @@ description, ask: AskDto, answer: AnswerDto, answerer, replyInterpreter?, maxVis
   failure never turns into a finish. So at most once: a holder that freezes or crashes between the
   child's durable end (a finish, a claimed failure) and the announcement leaves it unannounced. No
   order between a child's end event and its parent's continuation is promised (#917): on the
-  worker's instance the in-process wake of a parent waiting on an `AnyInstance` child comes after
+  worker's instance the in-process wake of a parent waiting on an `AnyWorker` child comes after
   the announcement, but the parent's 1 s fallback look and a parent on another instance can see the
   finished row and end the root first. A request refused
   before an execution starts or is located (another owner's thread, an unknown or answered pause,
@@ -1990,7 +1991,7 @@ target.skill)` with the export whose `skill` — the exported start's name — i
   the state's `piiTokens` channel. Logs, traces, events and `result.record` are masked by the
   application's and the workflow's lists, whatever an element excludes. A child workflow (#1150) is
   masked by its chain — the application's, the root's, every ancestor's and its own `@Workflow`
-  lists — at its models and in everything observed of it (an `AnyInstance` child by the policy
+  lists — at its models and in everything observed of it (an `AnyWorker` child by the policy
   names its launch carries; an unknown name fails it); `excludePiiPolicies` on an agent, a router or
   the child's `@Workflow` removes an inherited one at the models only; assembly checks exclusions
   and `[pii.conflicting-rules]` on every static way in, `agboss describe` prints `pii chains`. A `sensitive` action on a
@@ -2465,7 +2466,7 @@ StoreTime }`) — with `StoreTimeSource.Database` a networked store's database c
   instance with `testWith(App, { instances: [{}, { clockSkew: ClockSkew.ahead(…) }] })` (#831: one
   `TestInstanceOptions` per instance)
   (`ClockSkew`, `SkewedClock`: wall time, monotonic time and sleeps; the stores keep the test's clock).
-  While a parent node waits for `AnyInstance` children it yields the lease only when no other step
+  While a parent node waits for `AnyWorker` children it yields the lease only when no other step
   of the tree runs (#471: a running sibling keeps it, a step starting meanwhile takes it back first)
   — in the store (#516, `yield` / `reclaim`): still its holder's, renewed on, so every instance sees
   the waiting tree held, a dead holder's lease expires and normal recovery takes the tree over, and a
@@ -2480,8 +2481,8 @@ StoreTime }`) — with `StoreTimeSource.Database` a networked store's database c
   the store is asked and again once it gave the lease, which then goes back at once.
   Wiki → Several-instances.
 - **Fencing external writes (#471):** `executionContext.fence` is the lease the current step runs
-  under — the root's for a root, its `ParentInstance` children and recursive levels, an
-  `AnyInstance` child's own: `scopeKey` (each part `encodeURIComponent`-encoded, joined by one
+  under — the root's for a root, its `CurrentProcess` children and recursive levels, an
+  `AnyWorker` child's own: `scopeKey` (each part `encodeURIComponent`-encoded, joined by one
   `:`), `tenantId`, `leaseExecutionId`, `token` (the fencing token: a counter of that one
   key), `trustedUntil`, `assertHeld()` (local; past `trustedUntil` it expires the lease first),
   `renewNow()` (a renewal now: confirmed → the #360 checks; anything else aborts the lease and
@@ -2495,7 +2496,7 @@ ExecutionLeaseLostError`: `scopeKey`, `tenantId`, `leaseExecutionId`, `token`, `
   the signal's reason) — and a `HandedOver` row of the audit log with `onStepHandedOver` (#501): a
   zombie refused at a write leaves one, a zombie that never wrote again none. Exactly-once only when
   the external system checks both atomically; a mark
-  keyed by a shared aggregate fences parallel `AnyInstance` children wrongly. Frames with no lease
+  keyed by a shared aggregate fences parallel `AnyWorker` children wrongly. Frames with no lease
   (a reply interpreter, `maxSpend()`, an eval judge, an MCP-exported tool, a slice) and an
   ancestor's `parent.fence` / `root.fence` throw `ExecutionContextUnavailableError`. Wiki →
   Several-instances.

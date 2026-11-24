@@ -37,7 +37,7 @@ import { lazyLoad } from "../../infrastructure/clock.js";
 
 /**
  * Who announces a child's end (#562): the pass that ended it, never one that reads an end that came
- * before it. An `AnyInstance` child's finish is announced by the worker whose completion of its queue
+ * before it. An `AnyWorker` child's finish is announced by the worker whose completion of its queue
  * row won (`app/remote/child-end-event.ts`), never by its parent. A child on its parent's instance is
  * announced by the parent's pass that ran it to its end — its finish, or a failure of its own — and a
  * remote child's failure by the parent's pass that waited for it (the undo runs there): a pass that

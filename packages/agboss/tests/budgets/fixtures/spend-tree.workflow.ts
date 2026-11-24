@@ -70,6 +70,7 @@ export class SpendRemoteItemWorkflowFinish {}
  * other half in a child of its own, here.
  */
 @Workflow({
+  placement: ChildPlacement.AnyWorker,
   name: "spend-remote-item-workflow",
   version: "1.0.0",
   flow: [
@@ -99,7 +100,6 @@ export class SpendTreeWorkflowFinish {}
       .toAction(RemoteItemsAction)
       .toParallelWorkflows(SpendRemoteItemWorkflow, {
         maxItems: 4,
-        placement: ChildPlacement.AnyInstance,
       })
       .join()
       .toAction(PayAfterAction)
@@ -131,6 +131,7 @@ export class RemoteSpendTreeWorkflowFinish {}
 
 /** The same level, the next one on any instance. */
 @Workflow({
+  placement: ChildPlacement.AnyWorker,
   name: "remote-spend-tree-workflow",
   version: "1.0.0",
   flow: [
@@ -141,13 +142,12 @@ export class RemoteSpendTreeWorkflowFinish {}
       .toAction(RemoteItemsAction)
       .toParallelWorkflows(SpendRemoteItemWorkflow, {
         maxItems: 4,
-        placement: ChildPlacement.AnyInstance,
       })
       .join()
       .toAction(PayAfterAction)
       .switch(
         caseOf(SpendNodeDto)
-          .toWorkflow(() => RemoteSpendTreeWorkflow, { placement: ChildPlacement.AnyInstance })
+          .toWorkflow(() => RemoteSpendTreeWorkflow)
           .toAction(PayCloseAction)
           .toFinish(RemoteSpendTreeWorkflowFinish),
         caseOf(SpendNoteDto)

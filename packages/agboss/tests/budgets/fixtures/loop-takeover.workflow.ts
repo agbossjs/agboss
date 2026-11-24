@@ -90,6 +90,7 @@ export class LoopPayWorkflowStart {}
 export class LoopPaidWorkflowFinish {}
 
 @Workflow({
+  placement: ChildPlacement.AnyWorker,
   name: "loop-pay-workflow",
   version: "1.0.0",
   flow: [
@@ -111,7 +112,7 @@ export class LoopParentWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(LoopParentWorkflowStart)
-      .toWorkflow(LoopPayWorkflow, { placement: ChildPlacement.AnyInstance })
+      .toWorkflow(LoopPayWorkflow)
       .toFinish(LoopParentWorkflowFinish),
   ],
 })

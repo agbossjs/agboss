@@ -23,7 +23,7 @@ assumptions it rests on and the checker that proves it are on [Guarantees](Guara
   - charge, an idempotent write that writes one business row in the effect's transaction;
   - pay, a call to the test's payment gateway (`Idempotency.sendOnce`) under the order's business key.
 
-  A batch runs one order per child on any instance (`ChildPlacement.AnyInstance`).
+  A batch runs one order per child on any instance (`ChildPlacement.AnyWorker`).
 - **No sleep decides an order.** Each step of a scenario waits for an event of a pod: a held
   operation, a takeover, an end. Named **hold points** stop an operation where the scenario wants
   it, until the scenario releases it:
@@ -287,15 +287,15 @@ scenario by scenario: [Payment scenarios](Payment-scenarios)):
   waits for the history store's `save` before it reads.
 - A child's end is heard **at most once** (#562). It is announced only by the pass that ended the
   child, and only while that pass still holds the tree's lease:
-  - an `AnyInstance` child's `onExecutionEnd` by the worker whose completion of the child's queue
+  - an `AnyWorker` child's `onExecutionEnd` by the worker whose completion of the child's queue
     row won, on **that worker's instance**, not on its parent's;
-  - an `AnyInstance` child the worker stopped because its tree was cancelled or ended, whose row went
+  - an `AnyWorker` child the worker stopped because its tree was cancelled or ended, whose row went
     with the tree, by that worker (`onExecutionError`, `ExecutionCancelledError`);
   - a child on its parent's instance by the parent's pass that ran it to its finish or its failure;
   - a remote child's failure by the parent's pass that saw it happen; the child's undo runs there.
 
   No order is promised between a child's end event and the parent's continuation. On the worker's
-  instance, the in-process wake of a parent waiting on an `AnyInstance` child comes after the
+  instance, the in-process wake of a parent waiting on an `AnyWorker` child comes after the
   announcement; the parent's 1 s fallback look, or a parent on another instance, can read the
   finished row first and end the root before the child's end is heard.
 
@@ -314,7 +314,7 @@ scenario by scenario: [Payment scenarios](Payment-scenarios)):
   code line: the `static code` of the class and of each class above it, else the class name. A
   failure that crosses a takeover or an instance keeps that line with its message and causes (its
   record, `errorRecordOf` without `details`): a child's claimed failure, an undo's mark and an
-  `AnyInstance` child's queue row. The instance that rebuilds it routes it as the instance that saw
+  `AnyWorker` child's queue row. The instance that rebuilds it routes it as the instance that saw
   it did: a side path on `ChildExecutionFailedError`, on `StepFailedError` or on the child's own
   `PaymentDeclinedError` through the cause, whichever holder runs the parent. The rebuilt error is
   not an `instanceof` the project's class, so route on the class, never test it in a step. A cause
@@ -324,7 +324,7 @@ scenario by scenario: [Payment scenarios](Payment-scenarios)):
   a class name can change with a bundler, and two builds would then route apart.
 - **The window.** A holder that freezes or crashes between the child's durable end and its
   announcement leaves the end unannounced: the new holder only reads it. That window is:
-  - for an `AnyInstance` finish, between the worker's completion of the row and its observer call;
+  - for an `AnyWorker` finish, between the worker's completion of the row and its observer call;
   - for a child on the parent's instance, between the child's last checkpoint (or the claim of its
     failure) and the parent's observer call. A failure nobody has claimed yet is no longer in the
     window (#596): the new holder runs the step again, sees the failure, claims it and announces it;

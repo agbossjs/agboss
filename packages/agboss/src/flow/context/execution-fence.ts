@@ -17,8 +17,8 @@ export interface ExecutionFence {
   readonly scopeKey: string;
   readonly tenantId: string;
   /**
-   * The execution whose lease the step runs under: the root (and its `ParentInstance` children,
-   * recursive levels), or a `ChildPlacement.AnyInstance` child itself.
+   * The execution whose lease the step runs under: the root (and its `CurrentProcess` children,
+   * recursive levels), or a `ChildPlacement.AnyWorker` child itself.
    */
   readonly leaseExecutionId: string;
   /**

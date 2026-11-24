@@ -1,5 +1,5 @@
 /**
- * agbossjs/agboss#1302 on SQLite: a child's fenced write (a child placed `AnyInstance`, its lease
+ * agbossjs/agboss#1302 on SQLite: a child's fenced write (a child placed `AnyWorker`, its lease
  * row its own) blocks its root's cancel until the write's transaction ends. The fence is the
  * file's one writer: the write runs in a `BEGIN IMMEDIATE` transaction, and so does the cancel's
  * mark, so while the child's write is open a cancel on another connection of the file cannot

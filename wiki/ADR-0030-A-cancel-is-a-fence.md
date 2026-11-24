@@ -55,12 +55,12 @@ charge that had already left was a refund, not a prevention.
 - One more abstract method on the lease contract and a table or collection per backend (PostgreSQL
   migration, MongoDB schema +1); an older instance neither writes nor reads it, so a rolling
   deployment migrates first and rolls out after.
-- On MongoDB, fenced writes of one tree's `AnyInstance` children conflict and retry.
+- On MongoDB, fenced writes of one tree's `AnyWorker` children conflict and retry.
 
 ## Amendment (#1117): the mark is permanent and lives on the tree's lease row
 
 **Context.** The retention lifted a mark once the tree's root lease was retired (#1056). A lease of
-the tree is not only the root's: an `AnyInstance` child holds its own, keyed by its own id, and the
+the tree is not only the root's: an `AnyWorker` child holds its own, keyed by its own id, and the
 lease store does not know which tree a child's lease belongs to. A store-level probe on PostgreSQL
 retired the root's lease, swept, and a still-live child lease of the cancelled tree then wrote. In
 practice roots never retire, so marks never pruned either: the rule was both unsafe at the contract

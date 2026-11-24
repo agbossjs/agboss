@@ -1,5 +1,5 @@
 /**
- * #917 AC1 on SQLite — the parent of an `AnyInstance` child is woken by the child's completion on
+ * #917 AC1 on SQLite — the parent of an `AnyWorker` child is woken by the child's completion on
  * two instances over one file: the child's lease cleanup held, the clock never advanced.
  */
 import { describe, expect } from "vitest";

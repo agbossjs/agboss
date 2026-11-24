@@ -29,6 +29,7 @@ export const CHILD_QUEUE_SCHEMA = `CREATE TABLE IF NOT EXISTS child_execution_qu
   parent_execution_id TEXT NOT NULL, root_workflow TEXT NOT NULL, workflow TEXT NOT NULL,
   depth INTEGER NOT NULL, status TEXT NOT NULL, run TEXT NOT NULL, queued_at INTEGER NOT NULL,
   instance_id TEXT, claimed_at INTEGER, ended_at INTEGER, failure TEXT,
+  placement TEXT, exclude_instance_id TEXT,
   PRIMARY KEY (tenant_id, execution_id));
 CREATE INDEX IF NOT EXISTS child_execution_queue_claims
   ON child_execution_queue (status, depth DESC, queued_at);`;

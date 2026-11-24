@@ -127,7 +127,7 @@ export function stepFrameAt(
       values: state.contexts.execution,
       // where its request came from and its deadline (#398 PR 2): its contexts', a child's its root's
       ...meshFactsOf(state.contexts),
-      // the lease its steps run under (#471): the root's, or an AnyInstance child's own
+      // the lease its steps run under (#471): the root's, or an AnyWorker child's own
       ...(run.lease === undefined ? {} : { lease: run.lease }),
       observability: run.observability,
       correlationKey: state.piiKey ?? run.correlationKey,

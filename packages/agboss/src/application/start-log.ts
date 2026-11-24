@@ -9,7 +9,7 @@ import type { FrameworkLog } from "../infrastructure/logger.js";
 import { PausedExecutionRepository } from "../infrastructure/paused-execution.repository.js";
 import { ExecutionHistoryRepository } from "../infrastructure/execution-history.repository.js";
 import { ChildExecutionQueueRepository } from "../infrastructure/child-execution-queue.repository.js";
-import { launchesOnAnyInstance } from "../flow/analyse/child-placements.js";
+import { launchesQueued } from "../flow/analyse/child-placements.js";
 import type { AssembledWorkflow } from "../workflow.js";
 import { componentOf } from "../components/metadata.js";
 import type { DtoClass } from "../dto/types.js";
@@ -79,7 +79,7 @@ const IN_MEMORY_EXECUTION_HISTORY: AssemblyWarning = {
 const IN_MEMORY_CHILD_QUEUE: AssemblyWarning = {
   code: "application.in-memory-child-queue",
   message:
-    "in-memory child queue: children launched with placement: ChildPlacement.AnyInstance run only on the instance that launched them — list SqliteChildExecutionQueueRepository (or your own ChildExecutionQueueRepository) so any instance claims them",
+    "in-memory child queue: children of a workflow with a placement other than CurrentProcess run only on the instance that launched them — list SqliteChildExecutionQueueRepository (or your own ChildExecutionQueueRepository) so another instance claims them",
 };
 
 /** A listed fencing store that opts out of the atomic lease check (#526): what it gives up, and where to read why (#543). */
@@ -112,7 +112,7 @@ const canPause = (workflows: readonly AssembledWorkflow[]): boolean =>
 
 /** Whether a workflow launches a child on any instance (#333 PR 2). */
 const launchesAnywhere = (workflows: readonly AssembledWorkflow[]): boolean =>
-  workflows.some((workflow) => launchesOnAnyInstance(workflow.graph.nodes.values()));
+  workflows.some((workflow) => launchesQueued(workflow.graph.nodes.values()));
 
 /** `[a2a.inline-files-without-store]` (#859), when its A2A files ride inline above 64 KB. */
 function inlineFilesOf(sources: WarningSources): AssemblyWarning[] {

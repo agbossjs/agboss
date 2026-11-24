@@ -1,4 +1,5 @@
 import type { UsageRecord } from "../../finops/usage.js";
+import { AGBossError } from "../../core/errors.js";
 import { StepFailedError, stepCoordinatesOf } from "../../graph/errors.js";
 import type { WorkflowRecord } from "../context/execution-context.js";
 import { ComponentKind } from "./records.js";
@@ -51,4 +52,35 @@ export class ChildExecutionFailedError extends StepFailedError {
 /** A child workflow cannot be built: it runs only in its application, or it launches an ancestor. */
 export class ChildWorkflowUnavailableError extends Error {
   override name = "ChildWorkflowUnavailableError";
+}
+
+/** What an unclaimed child's error takes: its execution id and how long it waited. */
+export interface ChildWorkerUnavailableErrorOptions {
+  /** The queued child's own execution id. */
+  readonly childExecutionId: string;
+  /** The child workflow's `name`. */
+  readonly workflow: string;
+  /** How long the child waited, in milliseconds. */
+  readonly waitedMs: number;
+}
+
+/**
+ * A child with `ChildPlacement.OtherWorker` was claimed by no live worker other than the instance
+ * that launched it within the claim timeout (#1286, D9): the parent's step fails, caught by `.onError(…)`
+ * on this class. Never run on the launching instance — that is what `OtherWorker` forbids.
+ */
+export class ChildWorkerUnavailableError extends AGBossError {
+  static override readonly code = "step.child.worker-unavailable" as const;
+  declare readonly code: typeof ChildWorkerUnavailableError.code;
+  override name = "ChildWorkerUnavailableError";
+  readonly childExecutionId: string;
+
+  constructor(options: ChildWorkerUnavailableErrorOptions) {
+    const { childExecutionId, workflow, waitedMs } = options;
+    super(
+      `Child workflow "${workflow}" (execution ${childExecutionId}) was claimed by no other worker in ${String(waitedMs)} ms: ChildPlacement.OtherWorker never runs on the instance that launched it`,
+      { details: { childExecutionId, workflow, waitedMs } },
+    );
+    this.childExecutionId = childExecutionId;
+  }
 }

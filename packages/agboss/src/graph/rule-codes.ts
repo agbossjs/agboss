@@ -236,7 +236,7 @@ export type RuleCode =
   | "eval.unknown-start"
   | "eval.duplicate-case"
   | "eval.judge-wrong-output"
-  // child placement (#333 PR 2): one placement per child in a flow
-  | "flow.conflicting-placement"
+  // child placement (#1286): IsolatedWorker is declared, its runtime is #1286b
+  | "workflow.isolated-worker-unavailable"
   // an agent's files for its model (#899)
   | ExtraRuleCode;

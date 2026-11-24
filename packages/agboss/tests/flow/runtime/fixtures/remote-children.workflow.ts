@@ -17,7 +17,7 @@ import { onStart, toFinish, toAction } from "../../../helpers/flow.js";
 import { ItemDto, ItemFailedError, ItemResultDto, SummaryDto } from "./fan-out.workflow.js";
 
 /**
- * #333 PR 2 — children on any instance (`placement: ChildPlacement.AnyInstance`): a code child
+ * #333 PR 2 — children on any instance (`placement: ChildPlacement.AnyWorker`): a code child
  * (`remote-item-workflow`: one action that logs which instance ran it and what its
  * `ExecutionContext` says, and fails on `outcome: "fail"`), launched per item and once.
  */
@@ -138,6 +138,7 @@ export class RemoteItemCheckedWorkflowFinish {}
 
 /** The child: one item, one action. */
 @Workflow({
+  placement: ChildPlacement.AnyWorker,
   name: "remote-item-workflow",
   version: "1.0.0",
   flow: [
@@ -210,7 +211,6 @@ export class RemoteChecksFailedWorkflowFinish {}
       .toParallelWorkflows(RemoteItemWorkflow, {
         maxConcurrency: 6,
         maxItems: 10,
-        placement: ChildPlacement.AnyInstance,
       })
       .join()
       .onError(
@@ -244,7 +244,7 @@ export class RemoteOneCheckedWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(RemoteOneWorkflowStart)
-      .toWorkflow(RemoteItemWorkflow, { placement: ChildPlacement.AnyInstance })
+      .toWorkflow(RemoteItemWorkflow)
       .toFinish(RemoteOneCheckedWorkflowFinish),
   ],
 })

@@ -291,7 +291,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
   ),
   ...reviewed(
     "assembles the declared application into settings and runs the assembly rules; no run-time logic",
-    ["src/application/assemble.ts"],
+    ["src/application/assemble.ts", "src/application/child-fields.ts"],
   ),
   ...reviewed(
     "builds the application instance and its workflows and starts the components; wiring only",
@@ -842,7 +842,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
   ...reviewed(
     "the SQLite stores of history, ids and the queue, and the schema version: no spend, lease or cancel state",
     [
-      "src/infrastructure/sqlite/sqlite-child-execution-queue.repository.ts",
       "src/infrastructure/sqlite/sqlite-execution-history.repository.ts",
       "src/infrastructure/sqlite/sqlite-execution-ids.ts",
       "src/infrastructure/sqlite/sqlite-schema-version.ts",

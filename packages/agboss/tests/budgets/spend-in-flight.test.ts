@@ -46,8 +46,8 @@ const outcomeOf = (run: Promise<unknown>): Promise<Outcome> =>
 
 describe("#727: a sibling child's spend while it works on", () => {
   for (const [placement, Start] of [
-    ["ParentInstance", LocalPayItemsWorkflowStart],
-    ["AnyInstance", AnyPayItemsWorkflowStart],
+    ["CurrentProcess", LocalPayItemsWorkflowStart],
+    ["AnyWorker", AnyPayItemsWorkflowStart],
   ] as const) {
     test(`${placement}: b's pay-three is held back at $120 while a works on`, async ({
       app,

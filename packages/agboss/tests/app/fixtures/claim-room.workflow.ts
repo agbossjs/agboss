@@ -101,6 +101,7 @@ export class ClaimRoomItemWorkflowFinish {}
 
 /** The child: one item, one held action. */
 @Workflow({
+  placement: ChildPlacement.AnyWorker,
   name: "claim-room-item-workflow",
   version: "1.0.0",
   flow: [
@@ -153,7 +154,6 @@ export class ClaimRoomBatchWorkflowFinish {}
       .toParallelWorkflows(ClaimRoomItemWorkflow, {
         maxConcurrency: 12,
         maxItems: 12,
-        placement: ChildPlacement.AnyInstance,
       })
       .join()
       .toAction(ClaimRoomBatchAction)

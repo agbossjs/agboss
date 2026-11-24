@@ -40,7 +40,7 @@ import {
 import { IdempotencyKeyEnvironment } from "../../helpers/idempotency-key.environment.js";
 
 /**
- * #501 — the fence's release (fence.workflow.ts) and a parent waiting for an `AnyInstance` child
+ * #501 — the fence's release (fence.workflow.ts) and a parent waiting for an `AnyWorker` child
  * (fence-children.workflow.ts), observed by the audit log's hooks: an observer that keeps every
  * takeover event, one that throws, a lease store that names no previous holder (an external store
  * from before #501) and a audit log that cannot write.

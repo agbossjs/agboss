@@ -30,7 +30,7 @@ export {
   type Untracked,
   type ValueMetadata,
 } from "../flow/metadata.js";
-export { ChildPlacement, type ChildStepOptions } from "../flow/child-placement.js";
+export { ChildPlacement } from "../flow/child-placement.js";
 
 export type {
   AfterStep,
@@ -136,6 +136,8 @@ export {
   type ModelDefaults,
   type RouterDefaults,
   type ToolDefaults,
+  type ApplicationDefaults,
+  type ChildWorkflowDefaults,
   type WorkflowDefaults,
   type WorkflowOptions,
 } from "../flow/decorators/workflow.js";

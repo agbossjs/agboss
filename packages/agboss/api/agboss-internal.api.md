@@ -140,6 +140,8 @@ export interface AssembledApplication extends AssembledKeyFields, StorageFields,
     readonly auditLogRetention?: Milliseconds | undefined;
     // (undocumented)
     readonly budgets: readonly Class[];
+    readonly childClaimTimeout: Milliseconds;
+    readonly childPlacement?: ChildPlacement;
     readonly compensationTimeout: Milliseconds;
     readonly environment?: Class;
     // (undocumented)

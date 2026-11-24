@@ -23,7 +23,7 @@ export class ExecutionLeaseLostError extends AGBossError {
     "execution.lease-lost" | "execution.lease-lost.fenced" | "execution.lease-lost.not-started";
   override name = "ExecutionLeaseLostError";
   /**
-   * The execution whose lease was lost: the root of the tree, or a `ChildPlacement.AnyInstance`
+   * The execution whose lease was lost: the root of the tree, or a `ChildPlacement.AnyWorker`
    * child that holds a lease of its own (#333) — the historic name of `ExecutionLease.rootExecutionId`.
    */
   readonly rootExecutionId: string;
@@ -219,7 +219,7 @@ export interface ExecutionCancelFencedErrorOptions {
   readonly tenantId: string;
   /** The root of the tree whose cancel refused it. */
   readonly rootExecutionId: string;
-  /** The execution whose lease the write ran under (the root, or an `AnyInstance` child). */
+  /** The execution whose lease the write ran under (the root, or an `AnyWorker` child). */
   readonly leaseExecutionId: string;
   readonly token: number;
   /** The effect's or the call's name, never its business key. */

@@ -7,6 +7,7 @@ import type { FileDefaults } from "../../files/model-files.js";
 import type { Reasoning } from "../../models/reasoning.js";
 import type { Bytes } from "../../units/index.js";
 import { NodeKind, type FlowPath } from "../ast.js";
+import type { ChildPlacement } from "../child-placement.js";
 import { declarationOf, declared, recordDeclaration } from "./declaration.js";
 
 /** Defaults of every chat model (agents, model routers): no `thinking` strings (#269). */
@@ -64,6 +65,20 @@ export interface WorkflowDefaults {
   readonly flow?: FlowDefaults;
 }
 
+/** What `@Application({ defaults: { workflows } })` sets for the child workflows that set nothing (#1286). */
+export interface ChildWorkflowDefaults {
+  /** Where a child workflow runs unless its own `@Workflow({ placement })` says; `CurrentProcess` when absent. */
+  readonly placement?: ChildPlacement;
+}
+
+/**
+ * The defaults of `@Application`: those of every workflow, and `workflows` — the children's, which a
+ * workflow never sets for another (a child inherits nothing from its parent, #1286).
+ */
+export interface ApplicationDefaults extends WorkflowDefaults {
+  readonly workflows?: ChildWorkflowDefaults;
+}
+
 /**
  * `@Workflow` — the graph as paths (`flow`), the workflow's count limits and its module: services,
  * MCP servers, channels, PII policies, guardrails and memory; observers are the application's (`@Application({
@@ -89,6 +104,12 @@ export interface WorkflowOptions<
    */
   readonly maxConcurrentExecutions?: number;
   readonly defaults?: WorkflowDefaults;
+  /**
+   * Where this workflow runs when another launches it as a child (#1286): `CurrentProcess` (the
+   * default), `AnyWorker`, `OtherWorker` or `IsolatedWorker`. Over `@Application({ defaults: {
+   * workflows: { placement } } })`, never inherited from the parent.
+   */
+  readonly placement?: ChildPlacement;
   /**
    * The `@Budget` class that caps this workflow's executions (#1318): an execution-scope budget is its
    * own (replacing the application's default one), a tenant or application budget counts beside the

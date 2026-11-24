@@ -59,7 +59,7 @@ export interface ExecutionFacts {
   readonly quorumDeadlineAt?: string | undefined;
   /**
    * The lease the execution's steps run under here (#471): the root's for the root and its
-   * `ParentInstance` children, a `ChildPlacement.AnyInstance` child's own; `undefined` where none is
+   * `CurrentProcess` children, a `ChildPlacement.AnyWorker` child's own; `undefined` where none is
    * held (a reply interpreter, a budget's `maxSpend()`, an ancestor rebuilt on another instance).
    */
   readonly lease?: FrameLease | undefined;

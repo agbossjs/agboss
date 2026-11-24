@@ -341,7 +341,7 @@ Autoscaling.
   every external side effect, and make each undo safe to run twice.
 - **Fencing (#471).** `executionContext.fence` is the lease the step runs under: `scopeKey`
   (`${encodeURIComponent(tenantId)}:${encodeURIComponent(leaseExecutionId)}` — the root's lease for
-  the root and its `ChildPlacement.ParentInstance` children, an `AnyInstance` child's own), `token`
+  the root and its `ChildPlacement.CurrentProcess` children, an `AnyWorker` child's own), `token`
   (its `token`: 1, 2, … per lease, rising with every take), `trustedUntil`, `assertHeld()`,
   `renewNow()`, `fencedError(observedToken)`. Exactly-once only when the external system checks the
   token and the idempotency key atomically. A reply interpreter, a budget's `maxSpend()`, an eval
@@ -751,9 +751,9 @@ file (`sqlitePath: join(mkdtempSync(join(tmpdir(), "app-")), "stores.sqlite")`) 
 scopeKey, token, observedToken })` in a repository), and the framework treats that error as a
   hand-over (no `.onError`, no undo, no failed record). Call `fence.assertHeld()` right before the
   write and `await fence.renewNow()` before a call that cannot check tokens (a webhook). Never key
-  the mark by a shared business row: parallel `ChildPlacement.AnyInstance` children each fence with
+  the mark by a shared business row: parallel `ChildPlacement.AnyWorker` children each fence with
   a lease (and a token) of their own.
-- `ChildPlacement.AnyInstance` across processes: a child queued in one process wakes that process's
+- `ChildPlacement.AnyWorker` across processes: a child queued in one process wakes that process's
   workers at once, never another's — other processes find it at their workers' sweep, every 30 s.
   A worker claims queued children while it has free step slots, so the first one to look may take a
   whole launch of siblings: bound it with `@Application({ maxConcurrentSteps })`. A `Running` child

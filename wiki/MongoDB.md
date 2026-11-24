@@ -96,7 +96,7 @@ And what no setting can enforce — the assumptions of [Guarantees](Guarantees) 
   wrote; for a child's key it is its root's, seeded in the same transaction when it does not exist
   yet, so a document always exists to conflict on. The cancel either waits for a transaction that
   already wrote the document or commits first, and the transaction's later write conflicts and runs
-  again on a snapshot that holds it; the price is that fenced writes of one tree's `AnyInstance`
+  again on a snapshot that holds it; the price is that fenced writes of one tree's `AnyWorker`
   children conflict and retry. An `acquire` that finds no document and inserts the first lease can
   lose to a cancel's seed (a duplicate key): it takes the seed instead. **Schema version 4**
   (`execution-cancel-mark`): no collection, no index — run `agboss-mongodb migrate` with no

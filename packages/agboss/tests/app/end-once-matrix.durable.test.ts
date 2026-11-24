@@ -72,7 +72,7 @@ const ROOT_ENDS: readonly Window[] = [
   ...[DurablePoint.RootFinishBefore, DurablePoint.RootFinishAfter].flatMap((at) => [
     {
       at,
-      root: "ParentInstance",
+      root: "CurrentProcess",
       start: EndOnceLocalWorkflowStart,
       input: item("gate"),
       finish: "end-once-local-workflow-finish",
@@ -80,7 +80,7 @@ const ROOT_ENDS: readonly Window[] = [
     },
     {
       at,
-      root: "AnyInstance",
+      root: "AnyWorker",
       start: YieldOneWorkflowStart,
       input: item("gate"),
       finish: "yield-one-workflow-finish",
@@ -88,7 +88,7 @@ const ROOT_ENDS: readonly Window[] = [
     },
     {
       at,
-      root: "ParentInstance with an undo",
+      root: "CurrentProcess with an undo",
       start: UndoLocalWorkflowStart,
       input: item("gate"),
       finish: "undo-local-workflow-finish",
@@ -96,7 +96,7 @@ const ROOT_ENDS: readonly Window[] = [
     },
     {
       at,
-      root: "AnyInstance with an undo",
+      root: "AnyWorker with an undo",
       start: UndoOneWorkflowStart,
       input: item("gate"),
       finish: "undo-one-workflow-finish",
@@ -115,7 +115,7 @@ const ROOT_ENDS: readonly Window[] = [
   ...[DurablePoint.RootErrorBefore, DurablePoint.RootErrorAfter].flatMap((at) => [
     {
       at,
-      root: "ParentInstance",
+      root: "CurrentProcess",
       start: EndOnceLocalWorkflowStart,
       input: item("gate", "fail"),
       finish: undefined,
@@ -124,7 +124,7 @@ const ROOT_ENDS: readonly Window[] = [
     // the child's failure claimed before the freeze: the step that would now pass is not run again
     {
       at,
-      root: "ParentInstance, first run only",
+      root: "CurrentProcess, first run only",
       start: EndOnceLocalWorkflowStart,
       input: item("gate-flaky"),
       finish: undefined,
@@ -132,7 +132,7 @@ const ROOT_ENDS: readonly Window[] = [
     },
     {
       at,
-      root: "AnyInstance",
+      root: "AnyWorker",
       start: YieldOneWorkflowStart,
       input: item("gate", "fail"),
       finish: undefined,
@@ -140,7 +140,7 @@ const ROOT_ENDS: readonly Window[] = [
     },
     {
       at,
-      root: "AnyInstance, first run only",
+      root: "AnyWorker, first run only",
       start: YieldOneWorkflowStart,
       input: item("gate-flaky"),
       finish: undefined,
@@ -148,7 +148,7 @@ const ROOT_ENDS: readonly Window[] = [
     },
     {
       at,
-      root: "ParentInstance with an undo",
+      root: "CurrentProcess with an undo",
       start: UndoLocalWorkflowStart,
       input: item("gate", "fail"),
       finish: undefined,
@@ -156,7 +156,7 @@ const ROOT_ENDS: readonly Window[] = [
     },
     {
       at,
-      root: "AnyInstance with an undo",
+      root: "AnyWorker with an undo",
       start: UndoOneWorkflowStart,
       input: item("gate", "fail"),
       finish: undefined,
@@ -169,7 +169,7 @@ const CHILD_ENDS: readonly Window[] = [
   // nothing durable, nothing announced: the new holder runs the step again — its outcome is the tree's
   {
     at: DurablePoint.ChildErrorBefore,
-    root: "ParentInstance",
+    root: "CurrentProcess",
     start: EndOnceLocalWorkflowStart,
     input: item("gate", "fail"),
     finish: undefined,
@@ -177,7 +177,7 @@ const CHILD_ENDS: readonly Window[] = [
   },
   {
     at: DurablePoint.ChildErrorBefore,
-    root: "ParentInstance, first run only",
+    root: "CurrentProcess, first run only",
     start: EndOnceLocalWorkflowStart,
     input: item("gate-flaky"),
     finish: "end-once-local-workflow-finish",
@@ -186,7 +186,7 @@ const CHILD_ENDS: readonly Window[] = [
   // durable but not claimed (#596's window): the new holder runs it again, claims what it sees
   {
     at: DurablePoint.ChildErrorAfter,
-    root: "ParentInstance, first run only",
+    root: "CurrentProcess, first run only",
     start: EndOnceLocalWorkflowStart,
     input: item("gate-flaky"),
     finish: "end-once-local-workflow-finish",
@@ -202,7 +202,7 @@ const CHILD_ENDS: readonly Window[] = [
 const UNDOS: readonly Window[] = [
   {
     at: DurablePoint.ChildErrorBefore,
-    root: "ParentInstance with an undo (#605)",
+    root: "CurrentProcess with an undo (#605)",
     start: UndoLocalWorkflowStart,
     input: item("gate", "fail"),
     finish: undefined,
@@ -210,7 +210,7 @@ const UNDOS: readonly Window[] = [
   },
   {
     at: DurablePoint.ChildErrorBefore,
-    root: "ParentInstance with an undo, first run only (#605)",
+    root: "CurrentProcess with an undo, first run only (#605)",
     start: UndoLocalWorkflowStart,
     input: item("gate-flaky"),
     finish: "undo-local-workflow-finish",

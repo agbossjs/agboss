@@ -27,8 +27,8 @@ import { PaymentGateway, type ChargeReceipt } from "./payment-gateway.js";
 import { IdempotencyKeyEnvironment } from "../../helpers/idempotency-key.environment.js";
 
 /**
- * #505 — an outbound call made by a child workflow, run in its parent's step (`ParentInstance`) or
- * queued for any instance (`AnyInstance`): its request is stored masked by the application's PII
+ * #505 — an outbound call made by a child workflow, run in its parent's step (`CurrentProcess`) or
+ * queued for any instance (`AnyWorker`): its request is stored masked by the application's PII
  * policies either way. And a step whose frame has no mask while the application lists policies:
  * the call is refused, nothing recorded or sent.
  */
@@ -140,6 +140,7 @@ export class ChildChargeWorkflowStart {}
 export class ChildChargedWorkflowFinish {}
 
 @Workflow({
+  placement: ChildPlacement.AnyWorker,
   name: "child-charge-workflow",
   version: "1.0.0",
   flow: [
@@ -191,7 +192,7 @@ export class NearChargeWorkflow {}
   version: "1.0.0",
   flow: [
     onStart(FarChargeWorkflowStart)
-      .toWorkflow(ChildChargeWorkflow, { placement: ChildPlacement.AnyInstance })
+      .toWorkflow(ChildChargeWorkflow)
       .toFinish(FarChargedWorkflowFinish),
   ],
 })

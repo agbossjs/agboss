@@ -11,6 +11,7 @@ function timerSettingViolations(options: ApplicationOptions): RuleViolation[] {
   const fields = [
     ["shutdownTimeout", options.shutdownTimeout],
     ["compensationTimeout", options.compensationTimeout],
+    ["childClaimTimeout", options.childClaimTimeout],
   ] as const;
   return fields.flatMap(([field, value]) => {
     const problem = value === undefined ? undefined : timerProblemOf(field, value, MAX_TIMEOUT);

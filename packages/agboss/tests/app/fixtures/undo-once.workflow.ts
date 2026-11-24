@@ -30,7 +30,7 @@ import { IdempotencyKeyEnvironment } from "../../helpers/idempotency-key.environ
 /**
  * #607 — one tree per automatic undo: a failed join's, a root's own (failed, cancelled at its gate,
  * out of budget, its refund's branch held back by the budget — #683), a held-back refund's (#675),
- * a `ParentInstance` child's, an `AnyInstance` child's, and a recursion level's followed by its
+ * a `CurrentProcess` child's, an `AnyWorker` child's, and a recursion level's followed by its
  * root's. Each books a paid item and fails after it.
  */
 
@@ -64,6 +64,7 @@ export class OnceRemoteChildWorkflowStart {}
 export class OnceRemoteChildWorkflowFinish {}
 
 @Workflow({
+  placement: ChildPlacement.AnyWorker,
   name: "once-remote-child-workflow",
   version: "1.0.0",
   flow: [
@@ -147,7 +148,7 @@ export class OnceAnyWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(OnceAnyWorkflowStart)
-      .toWorkflow(OnceRemoteChildWorkflow, { placement: ChildPlacement.AnyInstance })
+      .toWorkflow(OnceRemoteChildWorkflow)
       .toFinish(OnceAnyWorkflowFinish),
   ],
 })

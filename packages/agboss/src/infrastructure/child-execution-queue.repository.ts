@@ -1,3 +1,4 @@
+import { ChildPlacement } from "../flow/child-placement.js";
 import { Injectable } from "../components/decorators.js";
 import { ApplicationContext } from "../flow/context/application-context.js";
 import { Clock } from "./clock.js";
@@ -35,6 +36,13 @@ export interface QueuedChildExecution {
   readonly endedAt?: Date | undefined;
   /** A failed child's error (framework data, JSON: the names, codes and messages of its chain). */
   readonly failure?: string | undefined;
+  /** Where it runs (#1286); absent = any worker claims it. An `IsolatedWorker` row is never claimed by the general workers. */
+  readonly placement?: ChildPlacement | undefined;
+  /**
+   * The instance that must not claim it (#1286, `OtherWorker`): the one that queued it. A claim by this
+   * instance skips the row; kept across a requeue.
+   */
+  readonly excludeInstanceId?: string | undefined;
 }
 
 /** How a claimed child ended its pass: finished, paused, or failed with its error. */
@@ -67,7 +75,7 @@ export interface ChildExecutionQueueWatch {
 
 /**
  * Infrastructure (#333 PR 2, ADR-0022): the queue of child executions launched with
- * `placement: ChildPlacement.AnyInstance`. The parent's node saves its child here and waits; any
+ * a queued `placement`. The parent's node saves its child here and waits; any
  * instance of the application with a free step slot (#332) claims the first queued child —
  * atomically, so of two instances exactly one gets it — runs it on its own checkpoint thread and
  * completes the row; the parent's tree then goes on. Keyed by `(tenantId, executionId)`; a tree's
@@ -91,6 +99,8 @@ export abstract class ChildExecutionQueueRepository {
   /**
    * Claims the first `Queued` child — the deepest first, then the longest waiting — for this
    * instance: `Running`, with its `instanceId` and `claimedAt`. Atomic: a child is claimed once.
+   * Skips a row whose `excludeInstanceId` is this instance (`OtherWorker`, #1286) and a row whose
+   * `placement` is `IsolatedWorker` (its own process claims it, #1286b).
    */
   abstract claimFirstByStatusQueuedOrderByDepthDesc(): Promise<QueuedChildExecution | undefined>;
   /**
@@ -194,7 +204,12 @@ export class InMemoryChildExecutionQueueRepository extends ChildExecutionQueueRe
 
   claimFirstByStatusQueuedOrderByDepthDesc(): Promise<QueuedChildExecution | undefined> {
     const [first] = [...this.database.childQueue.values()]
-      .filter((child) => child.status === ExecutionRecordStatus.Queued)
+      .filter(
+        (child) =>
+          child.status === ExecutionRecordStatus.Queued &&
+          child.placement !== ChildPlacement.IsolatedWorker &&
+          child.excludeInstanceId !== this.applicationContext.instanceId,
+      )
       .sort(claimOrder);
     if (first === undefined) return Promise.resolve(undefined);
     const claimed: QueuedChildExecution = {

@@ -14,7 +14,7 @@ import { RecordingLogger } from "../../../helpers/log.js";
 import { YieldLog, YieldOneWorkflow } from "../../../app/fixtures/remote-child-yield.workflow.js";
 import { SqliteTestEnvironment } from "./environments/app.environment.js";
 
-/** #917 — one `AnyInstance` child on two instances over one SQLite file, every store SQLite. */
+/** #917 — one `AnyWorker` child on two instances over one SQLite file, every store SQLite. */
 @Application({
   name: "remote-wake-sqlite-application",
   version: "1.0.0",

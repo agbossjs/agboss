@@ -8,6 +8,8 @@ import { GraphRuleError, type RuleViolation } from "../graph/rule-error.js";
 import { containerProvidersOf } from "../models/resolution.js";
 import * as P from "./effective-options.js";
 import { seconds, type Milliseconds } from "../units/index.js";
+import { childFieldsOf } from "./child-fields.js";
+import type { ChildPlacement } from "../flow/child-placement.js";
 import { COMPENSATION_TIMEOUT } from "../flow/compensation.js";
 import type { AssembledWorkflow } from "../workflow.js";
 import { requireApplication, type ApplicationOptions } from "./application.js";
@@ -81,6 +83,10 @@ export interface AssembledApplication extends AssembledKeyFields, StorageFields,
   readonly compensationTimeout: Milliseconds;
   /** Whether a call's request is stored only masked (#505): what `Idempotency.sendOnce` reads. */
   readonly outboundMasking: OutboundMasking;
+  /** `@Application({ childClaimTimeout })` (#1286, D9): how long an `OtherWorker` child waits to be claimed. */
+  readonly childClaimTimeout: Milliseconds;
+  /** `@Application({ defaults: { workflows: { placement } } })` (#1286); absent = `CurrentProcess`. */
+  readonly childPlacement?: ChildPlacement;
   /** `@Application({ maxConcurrentSteps })` (#332): the instance's cap on steps; absent = none. */
   readonly maxConcurrentSteps?: number;
   /** `@Mesh({ maxHops })` (#398): the longest call chain it accepts. */
@@ -233,6 +239,7 @@ export async function applicationOf(
     ...storageFieldsOf(options.storage),
     compensationTimeout: options.compensationTimeout ?? COMPENSATION_TIMEOUT,
     outboundMasking: new OutboundMasking({ requiresMask: hasPiiPolicies(options, assembled) }),
+    ...childFieldsOf(options),
     ...(options.maxConcurrentSteps === undefined
       ? {}
       : { maxConcurrentSteps: options.maxConcurrentSteps }),

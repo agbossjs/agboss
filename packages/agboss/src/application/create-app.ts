@@ -147,7 +147,7 @@ async function builtOn(
     ...{ shared, environment, processEnv, seams, contexts, clock, infrastructure },
     container: { ...container, onCreate },
   });
-  const instance = await instancePartsOf(assembled, clock, log, infrastructure);
+  const instance = await instancePartsOf(assembled, clock, log, infrastructure, contexts);
   const workflows: BuiltApp[] = [];
   const seen = { assembled, shared, log, seams, mask, created, instance, infrastructure };
   const { observer, auditLog } = await observersOf(seen, { ...container, onCreate }, options);

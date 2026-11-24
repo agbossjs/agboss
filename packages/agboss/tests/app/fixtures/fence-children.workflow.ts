@@ -20,8 +20,8 @@ import { fenceSeenOf, ReceiptDto, type FenceSeen } from "./fence.workflow.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 
 /**
- * #471 AC1 — which lease a step fences with: a root and its `ParentInstance` children share the
- * root's (`(tenantId, rootExecutionId)`), a `ChildPlacement.AnyInstance` child holds its own
+ * #471 AC1 — which lease a step fences with: a root and its `CurrentProcess` children share the
+ * root's (`(tenantId, rootExecutionId)`), a `ChildPlacement.AnyWorker` child holds its own
  * (`(tenantId, childExecutionId)`); an ancestor's fence (`parent.fence`, `root.fence`) is never
  * read, and a budget's `maxSpend()` — read before the first pass — has none.
  */
@@ -84,7 +84,7 @@ export class ScopeRootAction {
 
 @Action({
   name: "scope-near-child-action",
-  description: "Records a ParentInstance child's fence",
+  description: "Records a CurrentProcess child's fence",
   input: { message: WorkflowStartTextDto },
   output: ReceiptDto,
   deps: [ExecutionContext],
@@ -99,7 +99,7 @@ export class ScopeNearChildAction {
 
 @Action({
   name: "scope-far-child-action",
-  description: "Records an AnyInstance child's fence",
+  description: "Records an AnyWorker child's fence",
   input: { message: WorkflowStartTextDto },
   output: ReceiptDto,
   deps: [ExecutionContext],
@@ -144,6 +144,7 @@ export class FarChildWorkflowFinish {}
 export class NearChildWorkflow {}
 
 @Workflow({
+  placement: ChildPlacement.AnyWorker,
   name: "far-child-workflow",
   version: "1.0.0",
   flow: [
@@ -191,7 +192,7 @@ export class NearParentWorkflow {}
   version: "1.0.0",
   flow: [
     onStart(FarParentWorkflowStart)
-      .toWorkflow(FarChildWorkflow, { placement: ChildPlacement.AnyInstance })
+      .toWorkflow(FarChildWorkflow)
       .toFinish(FarParentWorkflowFinish),
   ],
 })

@@ -37,7 +37,7 @@ export interface StepCapacity {
   /** The slots no step holds now. */
   freeSlots(): number;
   /**
-   * Whether a step under the lease `holder` (its `scopeKey`: a root's, or an AnyInstance child's
+   * Whether a step under the lease `holder` (its `scopeKey`: a root's, or an AnyWorker child's
    * own, #471) holds a slot now (#767): what the child workers read so a claimed child at work is
    * counted once — by its slot, not again as a claim.
    */

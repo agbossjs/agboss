@@ -2,7 +2,6 @@ import type { App, ExecutionOptions, ExecutionOutput, ResumeRequest } from "../.
 import type { Class } from "../../src/components/injection.js";
 import type { DtoClass } from "../../src/dto/types.js";
 import { NodeKind, type PathSource } from "../../src/flow/ast.js";
-import { placementOptionOf } from "../../src/flow/child-placement.js";
 import {
   fromComponent,
   fromSource,
@@ -33,10 +32,8 @@ export const onAction = (source: Class): PathBuilder<PathSource> =>
 export const onWorkflow = (source: TargetRef): PathBuilder<PathSource> =>
   fromComponent(NodeKind.Workflow, source);
 
-export const route = (target: TargetRef, options?: unknown): PathBuilder<undefined> => {
-  const placement = placementOptionOf(options, "route(W, { placement })");
-  return subPathFrom({ kind: "route", target, ...(placement && { placement }) });
-};
+export const route = (target: TargetRef): PathBuilder<undefined> =>
+  subPathFrom({ kind: "route", target });
 
 export const caseOf = (dto: DtoClass): PathBuilder<undefined> => subPathFrom({ kind: "case", dto });
 

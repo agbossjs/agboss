@@ -17,7 +17,7 @@ import { ItemDto, ItemResultDto } from "../../flow/runtime/fixtures/fan-out.work
 import { GatedItemAction, YieldLog } from "./remote-child-yield.workflow.js";
 
 /**
- * #520 acceptance — a compensated `AnyInstance` child: it books its item (undone by a cancel), then
+ * #520 acceptance — a compensated `AnyWorker` child: it books its item (undone by a cancel), then
  * passes the gate of `remote-child-yield.workflow.ts` and fails there for an item to fail, so it
  * ends failed after its undo ran; an item that passes has its booking confirmed. Every booking and
  * every cancel is kept with its instance, so a test sees that nothing ran twice.
@@ -98,6 +98,7 @@ export class UndoChildWorkflowStart {}
 export class UndoChildWorkflowFinish {}
 
 @Workflow({
+  placement: ChildPlacement.AnyWorker,
   name: "undo-child-workflow",
   version: "1.0.0",
   flow: [
@@ -129,7 +130,7 @@ export class UndoOneWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(UndoOneWorkflowStart)
-      .toWorkflow(UndoChildWorkflow, { placement: ChildPlacement.AnyInstance })
+      .toWorkflow(UndoChildWorkflow)
       .toFinish(UndoOneWorkflowFinish),
   ],
 })

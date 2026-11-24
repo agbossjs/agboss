@@ -13,7 +13,7 @@ where a per-item launch of one agent (`.toParallelAgents(A)`) runs exactly one s
 > error handler (`toWorkflow(W)` side paths). Recursion — `() => Self`, `maxDepth`, the soft stop
 > — is #264 PR 1 ([below](#recursion-264)); the tree's `maxConcurrentExecutions` is #264 PR 2
 > ([FinOps → Concurrency of a tree](FinOps#concurrency-of-a-tree-264)). A child on any instance —
-> `placement: ChildPlacement.AnyInstance` — is #333 PR 2 ([below](#on-any-instance-333-pr-2)).
+> `placement: ChildPlacement.AnyWorker` — is #333 PR 2 ([below](#on-any-instance-333-pr-2)).
 > Runnable examples: `examples/flow-patterns/src/vendor/`, `examples/flow-patterns/src/topic/`.
 
 ## Writing it
@@ -474,11 +474,7 @@ import { ChildPlacement } from "@agboss/core";
 export const anyInstancePaths = [
   onStart(SupplierScreeningWorkflowStart)
     .toAgent(SupplierFinderAgent)
-    .toParallelWorkflows(SupplierCheckWorkflow, {
-      maxConcurrency: 6,
-      maxItems: 50,
-      placement: ChildPlacement.AnyInstance, // default ChildPlacement.ParentInstance
-    })
+    .toParallelWorkflows(SupplierCheckWorkflow, { maxConcurrency: 6, maxItems: 50 })
     .join()
     .onError(ChildExecutionFailedError, toFinish(ScreeningFailedWorkflowFinish))
     .toAgent(SupplierRankerAgent)
@@ -486,10 +482,14 @@ export const anyInstancePaths = [
 ] as const;
 ```
 
-- **Where it is written**: `{ placement }` on `.toWorkflow(W, { placement })`,
-  `.toParallelWorkflows(W, { …, placement })` and `route(W, { placement })`; absent is
-  `ChildPlacement.ParentInstance`. One class is one node, so all its mentions name one placement
-  (`[flow.conflicting-placement]`). `describe` and the config fingerprint print it as written.
+- **Where it is written** (#1286): never in the flow. The child's own
+  `@Workflow({ placement: ChildPlacement.AnyWorker })` says where it runs, else
+  `@Application({ defaults: { workflows: { placement } } })`, else `ChildPlacement.CurrentProcess`; a
+  child never inherits its parent's. The members: `CurrentProcess` (inside the parent's step),
+  `AnyWorker` (any live worker claims it), `OtherWorker` (a worker other than the launching instance;
+  with none, the parent's step fails with `ChildWorkerUnavailableError` after
+  `@Application({ childClaimTimeout })`, default one minute) and `IsolatedWorker` (a process of its
+  own: declared, not running yet, `[workflow.isolated-worker-unavailable]`).
 - **How the parent waits — inside its step (#333 S6, S9)**: the parent's node saves the child to the
   application's `ChildExecutionQueueRepository` (once: a re-entry after a crash finds its row and
   waits again, no second row) and waits on that row — woken at once when the child ends in the same

@@ -112,7 +112,7 @@ export interface GraphDeps<TName extends string> {
   readonly stepEntries?: StepEntries | undefined;
   /**
    * The instance's queue of children on any instance (#333 PR 2): a node launched with
-   * `placement: ChildPlacement.AnyInstance` queues its child there and waits; absent — it runs here.
+   * `placement: ChildPlacement.AnyWorker` queues its child there and waits; absent — it runs here.
    */
   readonly remoteChildren?: RemoteChildren | undefined;
   /**

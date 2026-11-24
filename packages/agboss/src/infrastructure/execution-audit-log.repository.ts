@@ -103,7 +103,7 @@ export enum LeaseTakeoverReason {
   Cancelled = "cancelled",
   /** The recovery sweep finishes its automatic undo (#340 PR 4). */
   Unwinding = "unwinding",
-  /** A worker runs or reclaims a `ChildPlacement.AnyInstance` child under its own lease (#333). */
+  /** A worker runs or reclaims a `ChildPlacement.AnyWorker` child under its own lease (#333). */
   RemoteChild = "remote-child",
   /** Its holder took its yielded lease back after waiting for remote children, at a new token. */
   Reclaimed = "reclaimed",

@@ -1,10 +1,6 @@
 import type { Class } from "../components/injection.js";
 import type { DtoClass } from "../dto/types.js";
-import {
-  placementOptionOf,
-  type ChildStepOptions,
-  type QuestionStepOptions,
-} from "./child-placement.js";
+import type { QuestionStepOptions } from "./child-placement.js";
 import { NodeKind } from "./ast.js";
 import type {
   AfterStep,
@@ -16,7 +12,6 @@ import type {
   KindLabel,
   RouteContinuation,
   RouteTargetKind,
-  RouteOptions,
   RouteTargetLabel,
   SideHead,
   SourceHead,
@@ -96,11 +91,9 @@ export function onExternalTask(source: Class): unknown {
 /** One target of `.chooseOne(…)` and what follows it. */
 export function route<const TRef extends TargetRef>(
   target: TRef & TargetCheck<ClassOf<TRef>, RouteTargetKind, RouteTargetLabel>,
-  ...options: RouteOptions<ClassOf<TRef>>
 ): RouteContinuation<InstanceType<ClassOf<TRef>>>;
-export function route(target: TargetRef, options?: unknown): PathBuilder<undefined> {
-  const placement = placementOptionOf(options, "route(W, { placement })");
-  return subPathFrom({ kind: "route", target, ...(placement && { placement }) });
+export function route(target: TargetRef): PathBuilder<undefined> {
+  return subPathFrom({ kind: "route", target });
 }
 
 /**
@@ -162,13 +155,12 @@ export function toExternalTask(target: Class, options?: unknown): unknown {
  */
 export function toWorkflow<const TRef extends TargetRef>(
   target: TRef & TargetCheck<ClassOf<TRef>, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>,
-  options?: ChildStepOptions,
 ): AfterStep<
   InstanceType<ClassOf<TRef>>,
   SideHead<ClaimsOf<InstanceType<ClassOf<TRef>>>, ClassOf<TRef>>
 >;
-export function toWorkflow(target: TargetRef, options?: unknown): unknown {
-  return sidePath().toWorkflow(target, options);
+export function toWorkflow(target: TargetRef): unknown {
+  return sidePath().toWorkflow(target);
 }
 
 /** The side path `.onError(E, toFinish(F))`: the failure ends the execution at a finish. */

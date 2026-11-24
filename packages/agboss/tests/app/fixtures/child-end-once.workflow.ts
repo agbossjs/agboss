@@ -18,7 +18,7 @@ import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart } from "../../helpers/flow.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import { ItemDto, ItemResultDto } from "../../flow/runtime/fixtures/fan-out.workflow.js";
-import { YieldCheckWorkflow, YieldOneWorkflow } from "./remote-child-yield.workflow.js";
+import { GatedItemAction, YieldOneWorkflow } from "./remote-child-yield.workflow.js";
 
 /**
  * #562 — a child's end is announced once, by the pass that ended it. The children are
@@ -56,7 +56,12 @@ export function resetEndOnce(): void {
 }
 
 /** The child workflows: the gated check, and the booking with an undo (#596). */
-const CHILDREN: ReadonlySet<string> = new Set(["yield-check-workflow", "undo-child-workflow"]);
+const CHILDREN: ReadonlySet<string> = new Set([
+  "yield-check-workflow",
+  "yield-check-local-workflow",
+  "undo-child-workflow",
+  "undo-child-local-workflow",
+]);
 
 /** The announcements of the child workflows' executions. */
 export const childrenIn = (seen: readonly Announced[]): readonly Announced[] =>
@@ -80,12 +85,38 @@ export class EndOnceLocalWorkflowStart {}
 })
 export class EndOnceLocalWorkflowFinish {}
 
+@WorkflowStart({
+  name: "yield-check-local-workflow-start",
+  description: "One item",
+  input: ItemDto,
+})
+export class YieldCheckLocalWorkflowStart {}
+
+@WorkflowFinish({
+  name: "yield-checked-local-workflow-finish",
+  description: "The item, checked",
+  output: ItemResultDto,
+})
+export class YieldCheckedLocalWorkflowFinish {}
+
+/** The gated check on the parent's instance: `yield-check-workflow`'s twin, which runs on any worker. */
+@Workflow({
+  name: "yield-check-local-workflow",
+  version: "1.0.0",
+  flow: [
+    onStart(YieldCheckLocalWorkflowStart)
+      .toAction(GatedItemAction)
+      .toFinish(YieldCheckedLocalWorkflowFinish),
+  ],
+})
+export class YieldCheckLocalWorkflow {}
+
 @Workflow({
   name: "end-once-local-workflow",
   version: "1.0.0",
   flow: [
     onStart(EndOnceLocalWorkflowStart)
-      .toWorkflow(YieldCheckWorkflow)
+      .toWorkflow(YieldCheckLocalWorkflow)
       .toFinish(EndOnceLocalWorkflowFinish),
   ],
 })

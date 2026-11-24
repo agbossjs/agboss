@@ -22,7 +22,7 @@ export interface ExecutionLeaseTakeoverEvent {
   readonly tenantId: string;
   /** The tree's root. */
   readonly rootExecutionId: string;
-  /** The execution whose lease it is: the root, or a `ChildPlacement.AnyInstance` child. */
+  /** The execution whose lease it is: the root, or a `ChildPlacement.AnyWorker` child. */
   readonly leaseExecutionId: string;
   /** `executionContext.fence.scopeKey` of the lease. */
   readonly scopeKey: string;

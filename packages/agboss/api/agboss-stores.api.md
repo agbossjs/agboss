@@ -1983,10 +1983,12 @@ export interface QueuedChildExecution {
     readonly claimedAt?: Date | undefined;
     readonly depth: number;
     readonly endedAt?: Date | undefined;
+    readonly excludeInstanceId?: string | undefined;
     readonly executionId: string;
     readonly failure?: string | undefined;
     readonly instanceId?: string | undefined;
     readonly parentExecutionId: string;
+    readonly placement?: ChildPlacement | undefined;
     readonly queuedAt: Date;
     readonly rootExecutionId: string;
     readonly rootWorkflow: string;
