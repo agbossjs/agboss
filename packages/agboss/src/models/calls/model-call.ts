@@ -1,11 +1,16 @@
 import type { Clock } from "../../infrastructure/clock.js";
 import { timeoutError, timeoutOn } from "../../infrastructure/clock.js";
 import { currentFrame } from "../../flow/context/frame.js";
-import { DEFAULT_TENANT_ID, DEFAULT_TENANT_WEIGHT } from "../../flow/context/tenant-context.js";
+import {
+  DEFAULT_TENANT_ID,
+  DEFAULT_TENANT_WEIGHT,
+  type TenantContext,
+} from "../../flow/context/tenant-context.js";
 import type { Milliseconds } from "../../units/index.js";
 import type { ModelFailure } from "../model-failure.js";
 import { FREE_PASS } from "./gate-pass.js";
 import type { GateTicket } from "./gate-waiter.js";
+import { RateLimitPolicyError, type RateLimitPolicy } from "../policies/rate-limit-policy.js";
 import type { ProviderGate } from "./provider-gate.js";
 
 /**
@@ -77,18 +82,32 @@ export interface AttemptLimits {
   readonly clock: Clock;
 }
 
+/** The weight the provider's `tenantWeight` gives a tenant: a whole number from 1 (1 without one). */
+function weightOf(tenant: TenantContext, tenantWeight: RateLimitPolicy["tenantWeight"]): number {
+  const weight = tenantWeight?.(tenant) ?? DEFAULT_TENANT_WEIGHT;
+  if (!Number.isInteger(weight) || weight < 1)
+    throw new RateLimitPolicyError({
+      message: `tenantWeight gave ${String(weight)} for tenant "${tenant.tenantId}": it must be an integer ≥ 1`,
+    });
+  return weight;
+}
+
 /**
  * Who waits for room: the current execution's tenant (`"default"`, weight 1, outside one), its
  * wait ended by the call's own signal or the execution's (`app.cancel`).
  */
-export function ticketOf(signal: AbortSignal | null | undefined): GateTicket {
+export function ticketOf(
+  signal: AbortSignal | null | undefined,
+  tenantWeight?: RateLimitPolicy["tenantWeight"],
+): GateTicket {
   const execution = currentFrame()?.execution;
   const signals = [signal ?? undefined, execution?.signal].filter(
     (each): each is AbortSignal => each !== undefined,
   );
   return {
     tenantId: execution?.tenant.tenantId ?? DEFAULT_TENANT_ID,
-    weight: execution?.tenant.weight ?? DEFAULT_TENANT_WEIGHT,
+    weight:
+      execution === undefined ? DEFAULT_TENANT_WEIGHT : weightOf(execution.tenant, tenantWeight),
     signal: signals.length === 0 ? undefined : AbortSignal.any(signals),
   };
 }
@@ -114,7 +133,10 @@ export async function attemptOnce<TAnswer>(
   limits: AttemptLimits,
   caller: AbortSignal | null | undefined,
 ): Promise<Attempt<TAnswer>> {
-  const pass = limits.gate === undefined ? FREE_PASS : await limits.gate.enter(ticketOf(caller));
+  const pass =
+    limits.gate === undefined
+      ? FREE_PASS
+      : await limits.gate.enter(ticketOf(caller, limits.gate.tenantWeight));
   let attempt: Attempt<TAnswer>;
   try {
     attempt = await sendTimed(carrier, limits, caller);

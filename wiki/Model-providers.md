@@ -495,8 +495,9 @@ no limit**, as before #266.
   - `TenantRoundRobin` (default) — round-robin between waiting tenants, FIFO inside one: one tenant's
     50-item launch does not hold up another tenant's single call until the batch is done;
   - `TenantLeastInFlight` — the waiting tenant with the fewest calls in flight;
-  - `TenantWeighted` — round-robin where a tenant gets up to its `weight` slots per round
-    (`app.execute(Start, input, { tenant: { tenantId: "enterprise-corp", weight: 3 } })`, default 1);
+  - `TenantWeighted` — round-robin where a tenant gets up to its weight in slots per round; the
+    weight is the policy's own `tenantWeight: (tenant) => tenant.plan === "enterprise" ? 3 : 1`
+    (an integer from 1; required with `TenantWeighted`, and allowed only with it);
   - `Fifo` — one queue in arrival order.
 
   Fairness is **per instance**: the queue is in-process, and between instances a slot goes to

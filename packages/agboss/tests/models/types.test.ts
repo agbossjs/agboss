@@ -68,6 +68,7 @@ describe("#266 AC9: timeouts and delays are values with units", () => {
     const balanced = RateLimitPolicy.of({
       maxConcurrentCalls: 4,
       balancing: QueueBalancingStrategy.TenantWeighted,
+      tenantWeight: () => 2,
     });
     // @ts-expect-error — the balancing strategies are a closed set: an enum, not a string
     const typo = () => RateLimitPolicy.of({ maxConcurrentCalls: 4, balancing: "weighted" });

@@ -929,11 +929,12 @@ export enum QueueBalancingStrategy {
 }
 
 // @public
-export interface RateLimitOptions {
+export interface RateLimitOptions<TTenant extends TenantContext = TenantContext> {
     readonly balancing?: QueueBalancingStrategy;
     readonly maxConcurrentCalls?: number;
     // (undocumented)
     readonly perMinute?: PerMinuteLimits;
+    readonly tenantWeight?: (tenant: TTenant) => number;
 }
 
 // @public
@@ -944,11 +945,12 @@ export interface RateLimitPolicy {
     readonly maxConcurrentCalls: number | undefined;
     // (undocumented)
     readonly perMinute: PerMinuteLimits;
+    readonly tenantWeight: ((tenant: TenantContext) => number) | undefined;
 }
 
 // @public (undocumented)
 export const RateLimitPolicy: {
-    of(options: RateLimitOptions): RateLimitPolicy;
+    of<TTenant extends TenantContext = TenantContext>(options: RateLimitOptions<TTenant>): RateLimitPolicy;
 };
 
 // @public
