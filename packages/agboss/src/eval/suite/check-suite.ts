@@ -21,7 +21,7 @@ export function checkEvalSuite(application: Class, suite: Class): EvalSuiteMeta 
   const meta = evalSuiteOf(suite);
   if (meta === undefined)
     throw new ComponentError({
-      message: `checkEvalSuite: ${suite.name || "(anonymous class)"} is not an @EvalSuite — decorate it with @EvalSuite({ name, start, checks, cases })`,
+      message: `checkEvalSuite: ${suite.name || "(anonymous class)"} is not an @EvalSuite — decorate it with @EvalSuite({ name, start, judges, cases })`,
     });
   throwIfViolated(evalSuiteViolations(application, suite, meta));
   const { options } = requireApplication(application, "checkEvalSuite");

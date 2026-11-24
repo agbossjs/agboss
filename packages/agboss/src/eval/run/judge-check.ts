@@ -1,5 +1,5 @@
 import type { AppDeps } from "../../app/app-deps.js";
-import type { ComponentRecord } from "../../flow/runtime/records.js";
+import { ComponentKind, type ComponentRecord } from "../../flow/runtime/records.js";
 import {
   isApplicationSpendExhausted,
   recordApplicationSpend,
@@ -25,9 +25,12 @@ import { DEFAULT_MODEL_ALIAS } from "../../models/model-cascade.js";
 import { modelProviderOf } from "../../models/model-provider.decorator.js";
 import type { Class } from "../../components/injection.js";
 import { judgeBindingOf, type JudgeBinding } from "../../llm/registry.js";
+import { ModelKind } from "../../models/model-kind.js";
+import type { EvalModelUse } from "./ran-on.js";
 import { CheckStatus } from "../suite/checks.js";
+
 import { judgeFrameOf, type JudgedExecution } from "./case-frame.js";
-import type { EvalCheckResult } from "./report.js";
+import { EvalCheckKind, type EvalCheckResult } from "./report.js";
 
 /**
  * `judgedBy(Judge)` at run time (#396 PR 2): the judge on the output of the finish the case's last
@@ -63,20 +66,25 @@ function notJudged(meta: JudgeRecord, output: DtoClass | undefined, finish: stri
   return `the run ended at ${finish}, whose output ${meta.name} does not judge`;
 }
 
-/** The judge's own model: an agent's binding when one lists it, else bound for the eval now. */
-function bindingOf(deps: AppDeps, meta: JudgeRecord): JudgeBinding | undefined {
+/**
+ * The judge's own model, bound for the eval and pinned: the judge's `modelProvider`, else the
+ * suite's, else the application's — never the candidate workflow's own binding of a judge, so a
+ * candidate does not grade itself.
+ */
+function bindingOf(
+  deps: AppDeps,
+  meta: JudgeRecord,
+  suiteProvider: Class | undefined,
+): JudgeBinding | undefined {
   if (isCodeJudge(meta)) return undefined;
-  const known = deps.registry.judges.get(meta.name);
-  if (known !== undefined) return known;
+  const provider = meta.modelProvider ?? suiteProvider;
   const { gateway } = deps.evaluation;
   if (gateway === undefined) throw new Error(`${meta.name}: the application has no models`);
   return judgeBindingOf(
     meta.name,
     {
       model: meta.model ?? DEFAULT_MODEL_ALIAS,
-      ...(meta.modelProvider === undefined
-        ? {}
-        : { modelProvider: modelProviderOf(meta.modelProvider).name }),
+      ...(provider === undefined ? {} : { modelProvider: modelProviderOf(provider).name }),
     },
     deps.config,
     gateway,
@@ -89,6 +97,7 @@ const verdictResult = (
   spent: readonly UsageRecord[],
 ): EvalCheckResult => ({
   check: name,
+  kind: EvalCheckKind.Judge,
   status: verdict.passed ? CheckStatus.Passed : CheckStatus.Failed,
   ...(verdict.passed ? {} : { reason: verdict.reason }),
   ...(verdict.metrics === undefined ? {} : { metrics: verdict.metrics }),
@@ -100,14 +109,20 @@ export async function runJudgeCheck(
   deps: AppDeps,
   judge: Class<object>,
   turn: JudgedTurn,
+  suiteProvider?: Class,
 ): Promise<EvalCheckResult> {
   const { meta } = checkedJudgeOf(`eval judge`, judge);
   const output = turn.finish === undefined ? undefined : finishOutputOf(deps, turn.finish.name);
   const why = notJudged(meta, output, turn.finish?.name);
   if (why !== undefined || output === undefined)
-    return { check: meta.name, status: CheckStatus.Failed, reason: why ?? "no output" };
+    return {
+      check: meta.name,
+      kind: EvalCheckKind.Judge,
+      status: CheckStatus.Failed,
+      reason: why ?? "no output",
+    };
   const spent: UsageRecord[] = [];
-  const binding = bindingOf(deps, meta);
+  const binding = bindingOf(deps, meta, suiteProvider);
   // the evaluation's budgets are checked before each model call of the judge, with its spend so far
   const model = meteredModel({ name: meta.name, binding }, spent, undefined, [], async () => {
     if (await isApplicationSpendExhausted(deps.evaluation.budgets))
@@ -131,8 +146,30 @@ export async function runJudgeCheck(
     return verdictResult(meta.name, verdict, spent);
   } catch (error) {
     const reason = `${meta.name} threw: ${error instanceof Error ? error.message : String(error)}`;
-    return { check: meta.name, status: CheckStatus.Failed, reason };
+    return { check: meta.name, kind: EvalCheckKind.Judge, status: CheckStatus.Failed, reason };
   } finally {
     await recordApplicationSpend(deps.evaluation.budgets, spent);
   }
+}
+
+/**
+ * The model a model judge of the suite runs on, as the report's `judges` says (a code judge has
+ * none): the judge's pinned provider, else the suite's, else the application's default (`default`).
+ */
+export function judgeUseOf(
+  deps: AppDeps,
+  judge: Class<object>,
+  suiteProvider: Class | undefined,
+): EvalModelUse | undefined {
+  const { meta } = checkedJudgeOf(`eval judge`, judge);
+  const binding = bindingOf(deps, meta, suiteProvider);
+  if (binding === undefined) return undefined;
+  const pinned = meta.modelProvider ?? suiteProvider;
+  const provider =
+    pinned === undefined
+      ? binding.kind === ModelKind.Chat
+        ? (binding.chat.settings.modelProvider ?? "default")
+        : "default"
+      : modelProviderOf(pinned).name;
+  return { component: meta.name, kind: ComponentKind.Judge, model: binding.model, provider };
 }

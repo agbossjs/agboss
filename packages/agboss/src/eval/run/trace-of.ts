@@ -3,12 +3,14 @@ import type { ExecutionStepRecord } from "../../flow/runtime/step-records.js";
 import type { ToolCallRecord } from "../../flow/runtime/tool-calls.js";
 import type { ChildExecutionRecord, HandledErrorRecord } from "../../flow/runtime/child-records.js";
 import type { ExecutionRecord, PauseAnswerRecord } from "../../flow/runtime/execution-record.js";
+import type { ExecutionStatus } from "../../app/types.js";
 import type { CompensationRecord } from "../../flow/compensation.js";
 import type { StepRecord } from "../../flow/context/execution-context.js";
 import type {
   EvalChildTrace,
   EvalCompensationTrace,
   EvalExecutionTrace,
+  EvalTrajectory,
   EvalPauseTrace,
   EvalStepTrace,
   EvalToolCallTrace,
@@ -24,6 +26,7 @@ import type {
 /** What the trace is built from: the masked record, and what the result keeps outside it (masked). */
 export interface TracedExecution {
   readonly executionId: string;
+  readonly status: ExecutionStatus;
   readonly record: ExecutionRecord;
   readonly handledErrors: readonly HandledErrorRecord[];
   readonly finish?: string;
@@ -94,20 +97,18 @@ function stepOf(record: ExecutionStepRecord, calls: readonly ToolCallRecord[]): 
       ...(verdict.metrics === undefined ? {} : { metrics: verdict.metrics }),
     })),
     spentUsd: record.spend.totalUsd,
-    startedAt: record.startedAt,
-    endedAt: record.endedAt,
+    startedAt: new Date(record.startedAt),
+    endedAt: new Date(record.endedAt),
     ...(record.error === undefined ? {} : { error: errorOf(record.error) }),
   };
 }
 
 const pauseOf = (pause: PauseAnswerRecord): EvalPauseTrace => ({
   nodeId: pause.step.nodeId,
-  role: pause.role,
+  target: pause.role,
   resolution: pause.resolution,
-  ...(pause.answeredBy === undefined
-    ? {}
-    : { answeredBy: pause.answeredBy, responder: pause.answeredBy }),
-  ...(pause.decision === undefined ? {} : { decision: pause.decision }),
+  ...(pause.answeredBy === undefined ? {} : { actor: { id: pause.answeredBy } }),
+  ...(pause.decision === undefined ? {} : { output: pause.decision }),
 });
 
 const compensationOf = (compensation: CompensationRecord): EvalCompensationTrace => ({
@@ -128,7 +129,7 @@ interface TracedParts {
   readonly children: readonly ChildExecutionRecord[];
 }
 
-function traceOf(parts: TracedParts): Omit<EvalExecutionTrace, "handledErrors" | "compensations"> {
+function traceOf(parts: TracedParts): Omit<EvalTrajectory, "handledErrors" | "compensations"> {
   return {
     executionId: parts.executionId,
     path: parts.path,
@@ -158,6 +159,7 @@ export function executionTraceOf(traced: TracedExecution): EvalExecutionTrace {
   const { record } = traced;
   return {
     ...traceOf({ executionId: traced.executionId, ...record }),
+    status: traced.status,
     handledErrors: traced.handledErrors.map((handled) => ({
       error: errorOf(handled.error),
       at: handled.at.name,

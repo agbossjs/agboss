@@ -37,10 +37,10 @@ export interface ObservedExecution {
   readonly toolCalls: readonly ToolCallRecord[];
 }
 
-/** A call the case requires: the tool by name and the arguments it was called with. */
+/** A call the case requires: the tool by name and the input it was called with. */
 export interface DraftToolCall {
   readonly tool: string;
-  readonly arguments: unknown;
+  readonly input: unknown;
 }
 
 /** The case, by component names: what `evalCase({ … })` will say. */
@@ -73,7 +73,7 @@ function requiredCallsOf(calls: readonly ToolCallRecord[]): readonly DraftToolCa
     const key = `${tool}\u0000${sortedJson(call.input)}`;
     if (seen.has(key)) return [];
     seen.add(key);
-    return [{ tool, arguments: call.input }];
+    return [{ tool, input: call.input }];
   });
 }
 

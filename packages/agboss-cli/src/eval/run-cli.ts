@@ -20,7 +20,8 @@ import {
 import { envOption } from "../cli/environment.js";
 import { CliError, usageError } from "../cli/errors.js";
 import { writeOutputFile } from "./output-file.js";
-import { baselineOf, compactBaselineOf, comparisonLines, regressionFailure } from "./baseline.js";
+import { baselineOf, comparisonLines, regressionFailure } from "./baseline.js";
+import { compactBaselineOf } from "./baseline-compact.js";
 import { chaosLine, chaosOf } from "./chaos-options.js";
 import { printRunTable } from "./run-report.js";
 

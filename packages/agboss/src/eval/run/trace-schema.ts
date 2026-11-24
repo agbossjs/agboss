@@ -5,6 +5,7 @@ import { ChildExecutionStatus } from "../../flow/runtime/child-records.js";
 import { ComponentKind } from "../../flow/runtime/records.js";
 import { ToolCallStatus } from "../../flow/runtime/tool-calls.js";
 import { GuardrailSide } from "../../components/policy-decorators.js";
+import { ExecutionStatus } from "../../app/types.js";
 import { PauseResolution } from "../../infrastructure/pause-record.js";
 import type { EvalCaseExpectation, EvalChildTrace, EvalExecutionTrace } from "./trace.js";
 
@@ -12,6 +13,9 @@ import type { EvalCaseExpectation, EvalChildTrace, EvalExecutionTrace } from "./
  * The run artifact's trajectories, validated by its one reader (#397 PR 2): each run's `trace` and
  * each case's `expectation` of a version 2 artifact. Unknown fields are kept, like the rest of it.
  */
+
+/** A timestamp as a trace holds it: a `Date`, written to the file as ISO 8601 text and read back. */
+export const DateSchema = z.union([z.date(), z.iso.datetime().transform((text) => new Date(text))]);
 
 const count = z.number().int().nonnegative();
 
@@ -68,35 +72,24 @@ const StepSchema = z.looseObject({
     }),
   ),
   spentUsd: storedUsd,
-  startedAt: z.string(),
-  endedAt: z.string(),
+  startedAt: DateSchema,
+  endedAt: DateSchema,
   error: ErrorSchema.optional(),
 });
 
-/** A saved pause: 0.1.0 named the person `responder`; both keys are filled, `answeredBy` first. */
-function pauseTraceOfStored<
-  T extends { answeredBy?: string | undefined; responder?: string | undefined },
->(pause: T): T {
-  const person = pause.answeredBy ?? pause.responder;
-  return person === undefined ? pause : { ...pause, answeredBy: person, responder: person };
-}
-
-const executionShape = {
+const trajectoryShape = {
   executionId: z.string(),
   path: z.array(z.string()),
   steps: z.array(StepSchema),
   handledErrors: z.array(z.looseObject({ error: ErrorSchema, at: z.string(), by: z.string() })),
   pauses: z.array(
-    z
-      .looseObject({
-        nodeId: z.string(),
-        role: z.string(),
-        resolution: z.enum(PauseResolution),
-        answeredBy: z.string().optional(),
-        responder: z.string().optional(),
-        decision: z.unknown().optional(),
-      })
-      .transform(pauseTraceOfStored),
+    z.looseObject({
+      nodeId: z.string(),
+      target: z.string(),
+      resolution: z.enum(PauseResolution),
+      actor: z.looseObject({ id: z.string(), orgId: z.string().optional() }).optional(),
+      output: z.unknown().optional(),
+    }),
   ),
   compensations: z.array(
     z.looseObject({
@@ -114,7 +107,7 @@ const executionShape = {
 };
 
 const ChildSchema: z.ZodType<EvalChildTrace> = z.looseObject({
-  ...executionShape,
+  ...trajectoryShape,
   workflow: z.string(),
   status: z.enum(ChildExecutionStatus),
   launchedBy: z.string(),
@@ -123,11 +116,14 @@ const ChildSchema: z.ZodType<EvalChildTrace> = z.looseObject({
 });
 
 /** A run's `trace`. */
-export const ExecutionTraceSchema: z.ZodType<EvalExecutionTrace> = z.looseObject(executionShape);
+export const ExecutionTraceSchema: z.ZodType<EvalExecutionTrace> = z.looseObject({
+  ...trajectoryShape,
+  status: z.enum(ExecutionStatus),
+});
 
 /** A case's `expectation`. */
 export const CaseExpectationSchema: z.ZodType<EvalCaseExpectation> = z.looseObject({
-  requiredTools: z.array(z.looseObject({ tool: z.string(), arguments: z.unknown().optional() })),
+  requiredTools: z.array(z.looseObject({ tool: z.string(), input: z.unknown().optional() })),
   forbiddenTools: z.array(z.string()),
   invariantTools: z.array(z.string()),
   checks: z.array(z.string()),

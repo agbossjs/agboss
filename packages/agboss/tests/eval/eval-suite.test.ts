@@ -19,9 +19,7 @@ import {
   CheckStatus,
   EvalCascade,
   EvalSuite,
-  checkTrajectory,
   evalCase,
-  judgedBy,
   pastTurn,
   toolCall,
   toolInvariant,
@@ -76,7 +74,7 @@ class RefundListJudge implements JudgeHandler<readonly RefundCardOutputDto[]> {
   name: "refunds-eval-suite",
   description: "Refunds: the card refunded once, never over $100",
   start: RefundWorkflowStart,
-  checks: [checkTrajectory(), judgedBy(RefundedJudge)],
+  judges: [RefundedJudge],
   cascade: EvalCascade.StopAtFirstFailure,
   cases: [
     evalCase({
@@ -100,7 +98,7 @@ class RefundListJudge implements JudgeHandler<readonly RefundCardOutputDto[]> {
       ],
       turns: [turn({ text: "And order 7?" })],
       tools: { required: [toolCall(RefundCardTool)] },
-      judges: [judgedBy(RefundedJudge)],
+      judges: [RefundedJudge],
       variants: [turn({ text: "Order 7 too, please" })],
     }),
   ],
@@ -113,7 +111,7 @@ describe("#396: @EvalSuite records the suite as written", () => {
 
     expect(meta).toBe(evalSuiteOf(RefundsEvalSuite));
     expect(meta.start).toBe(RefundWorkflowStart);
-    expect(meta.checks).toEqual([{ trajectory: true }, { judge: RefundedJudge }]);
+    expect(meta.judges).toEqual([RefundedJudge]);
     expect(meta.cascade).toBe(EvalCascade.StopAtFirstFailure);
     expect(meta.cases.map((written) => written.name)).toEqual([
       "refund-within-policy",
@@ -126,7 +124,7 @@ describe("#396: @EvalSuite records the suite as written", () => {
     const [first, second] = checkEvalSuite(SlackRefundsApplication, RefundsEvalSuite).cases;
     if (first === undefined || second === undefined) throw new Error("two cases expected");
 
-    expect(first.tools?.required).toEqual([{ tool: RefundCardTool, arguments: { orderId: "7" } }]);
+    expect(first.tools?.required).toEqual([{ tool: RefundCardTool, input: { orderId: "7" } }]);
     const [invariant] = first.tools?.invariants ?? [];
     expect(invariant?.holds({ orderId: "7", amountCents: 20_000 })).toBe(false);
     expect(second.history).toEqual([
@@ -138,7 +136,7 @@ describe("#396: @EvalSuite records the suite as written", () => {
       },
     ]);
     expect(second.tools?.required).toEqual([{ tool: RefundCardTool }]);
-    expect(Object.isFrozen(first.turns[0])).toBe(true);
+    expect(Object.isFrozen(first.turns?.[0])).toBe(true);
   });
 
   it("the closed sets are enums", () => {
@@ -175,7 +173,7 @@ describe("#396: cases are typed by the suite's start, each tool's input and the 
 
     expect(toolCall(FreeBedsTool, { ward: "3" })).toEqual({
       tool: FreeBedsTool,
-      arguments: { ward: "3" },
+      input: { ward: "3" },
     });
   });
 
@@ -184,25 +182,21 @@ describe("#396: cases are typed by the suite's start, each tool's input and the 
       name: "a-eval-suite",
       description: "a",
       start: RefundWorkflowStart,
-      checks: [],
       cases: [],
     });
     EvalSuite({
       name: "b-eval-suite",
       description: "b",
       start: RefundWorkflowStart,
-      checks: [],
       cascade: EvalCascade.RunAll,
       // @ts-expect-error -- the start takes { text }, not { message }
       cases: [evalCase({ name: "b", turns: [turn({ message: "hi" })] })],
     });
 
-    @EvalSuite({ name: "c-eval-suite", start: RefundWorkflowStart, checks: [], cases: [] })
+    @EvalSuite({ name: "c-eval-suite", start: RefundWorkflowStart, cases: [] })
     class DefaultCascade {}
     expect(evalSuiteOf(DefaultCascade)?.cascade).toBe(EvalCascade.StopAtFirstFailure);
     expect(evalSuiteOf(DefaultCascade)?.description).toBeUndefined();
-
-    expect(checkTrajectory()).toEqual({ trajectory: true });
   });
 
   it("a suite of an application with its own contexts requires them, as app.execute does", () => {
@@ -210,7 +204,6 @@ describe("#396: cases are typed by the suite's start, each tool's input and the 
       name: "c-eval-suite",
       description: "c",
       start: BedRequestWorkflowStart,
-      checks: [],
       cascade: EvalCascade.RunAll,
       // @ts-expect-error -- the clinic declares its tenant and execution contexts
       cases: [evalCase({ name: "c", turns: [turn({ text: "a bed" })] })],
@@ -237,7 +230,6 @@ describe("#396: the suite's assembly rules, every violation at once", () => {
       name: "refunds-suite",
       description: "misnamed",
       start: RefundWorkflowStart,
-      checks: [checkTrajectory()],
       cascade: EvalCascade.RunAll,
       cases: [
         evalCase({ name: "twice", turns: [turn({ text: "a" })] }),
@@ -261,7 +253,6 @@ describe("#396: the suite's assembly rules, every violation at once", () => {
       name: "beds-eval-suite",
       description: "the clinic's start on the refunds desk",
       start: BedRequestWorkflowStart,
-      checks: [],
       cascade: EvalCascade.RunAll,
       cases: [],
     })
@@ -277,13 +268,13 @@ describe("#396: the suite's assembly rules, every violation at once", () => {
       name: "judged-eval-suite",
       description: "judges of the wrong replies",
       start: RefundWorkflowStart,
-      checks: [judgedBy(BedsJudge), judgedBy(RefundedJudge)],
+      judges: [BedsJudge, RefundedJudge],
       cascade: EvalCascade.RunAll,
       cases: [
         evalCase({
           name: "listed",
           turns: [turn({ text: "a" })],
-          judges: [judgedBy(RefundListJudge), judgedBy(BedsJudge)],
+          judges: [RefundListJudge, BedsJudge],
         }),
       ],
     })
@@ -318,8 +309,8 @@ describe("#396: the suite's assembly rules, every violation at once", () => {
         name: "plain-eval-suite",
         description: "p",
         start: RefundWorkflowStart,
-        // @ts-expect-error -- judgedBy takes @Judge classes
-        checks: [judgedBy(judge)],
+        // @ts-expect-error -- a judge is a class that is a @Judge
+        judges: [judge],
         cascade: EvalCascade.RunAll,
         cases: [],
       })
@@ -342,7 +333,6 @@ describe("#396: eval.case-invalid — the cases' values, every issue at once, no
       name: "clinic-eval-suite",
       description: "a bed for the clinician",
       start: BedRequestWorkflowStart,
-      checks: [checkTrajectory()],
       cascade: EvalCascade.RunAll,
       cases: [
         evalCase({

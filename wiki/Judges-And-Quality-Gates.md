@@ -39,7 +39,7 @@ read from the generated `AGBossTypes.JudgeOutputs` table, so the class does not 
 `agboss check` it is `MissingGeneratedTypes`) or the output type directly (`JudgeInput<PlainTextDto>`,
 for a library without generated types). `WorkflowFinishTextDto` extends `PlainTextDto`, so one
 `@Judge({ output: PlainTextDto })` judges a text agent's answer, a text `@WorkflowFinish` and an eval
-suite's `judgedBy`.
+suite's `judges`.
 
 A verdict is built only with **`JudgeVerdict.passed({ metrics? })`** or
 **`JudgeVerdict.failed(reason, { metrics? })`** — a plain object does not compile (one way). A

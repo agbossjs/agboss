@@ -57,7 +57,7 @@ function runEntry(found: Extract<RunFile, { kind: "run" }>, runHref: RunHref): H
         ["Workflow", `${report.workflow.name} ${report.workflow.version}`],
         ["Config", report.configHash],
         ["Environment", report.environment],
-        ["Started", report.startedAt],
+        ["Started", report.startedAt.toISOString()],
         [`pass@${k}`, shareText(summary.passAtK, summary.cases)],
         [`pass^${k}`, shareText(summary.passHatK, summary.cases)],
         ["Unstable", String(summary.unstable)],

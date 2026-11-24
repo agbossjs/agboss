@@ -8,7 +8,7 @@ import { mkdtempSync, readFileSync, writeFileSync, existsSync, mkdirSync } from 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { CheckStatus, type EvalRunResult } from "@agboss/core/eval";
+import { CheckStatus, type EvalRunResult, EvalCheckKind } from "@agboss/core/eval";
 import { respondTo, type EvalUiRequest, type EvalUiSettings } from "../../src/eval/ui/ui-routes.js";
 import { artifactOf, caseOf } from "../eval-html/artifacts.js";
 import { usd } from "@agboss/core/units";
@@ -22,15 +22,18 @@ const judgedRun = (run: number, passed: boolean, executionId: string): EvalRunRe
   finish: "refund-workflow-finish",
   passed,
   checks: [
-    { check: "trajectory", status: CheckStatus.Passed },
+    { check: "trajectory", kind: EvalCheckKind.Tools, status: CheckStatus.Passed },
     {
       check: "answer-grounded-judge",
+      kind: EvalCheckKind.Judge,
       status: passed ? CheckStatus.Passed : CheckStatus.Failed,
       ...(passed ? {} : { reason: "not grounded" }),
       metrics: { tone: passed ? "warm" : "cold" },
     },
   ],
-  spentUsd: usd(0.01),
+  executionUsd: usd(0.01),
+  judgeUsd: usd(0),
+  totalUsd: usd(0.01),
 });
 
 const ARTIFACT = artifactOf(

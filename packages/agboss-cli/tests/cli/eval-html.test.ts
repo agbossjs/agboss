@@ -7,7 +7,7 @@ import { mkdtempSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { CheckStatus } from "@agboss/core/eval";
+import { CheckStatus, EvalCheckKind } from "@agboss/core/eval";
 import { artifactOf, caseOf, REFUNDS_ARTIFACT } from "../eval-html/artifacts.js";
 import { stepOf, traceOf } from "../eval-html/traced-artifacts.js";
 import { ComponentKind, ToolCallStatus } from "@agboss/core";
@@ -118,9 +118,9 @@ describe("#397 PR 1: agboss eval show", () => {
     ],
     [
       "an unknown schema version",
-      fileWith("version.json", JSON.stringify({ ...REFUNDS_ARTIFACT, schemaVersion: 5 })),
+      fileWith("version.json", JSON.stringify({ ...REFUNDS_ARTIFACT, schemaVersion: 4 })),
       "eval.run-invalid",
-      "schemaVersion 5 — this agboss reads 1 to 4",
+      "schemaVersion 4 — this agboss reads 5 only",
     ],
     [
       "a field missing",
@@ -147,11 +147,14 @@ describe("#397 PR 1: agboss eval show", () => {
           checks: [
             {
               check: "trajectory",
+              kind: EvalCheckKind.Tools,
               status: CheckStatus.Failed,
               reason: "x".repeat(9 * 1024 * 1024),
             },
           ],
-          spentUsd: usd(0),
+          executionUsd: usd(0),
+          judgeUsd: usd(0),
+          totalUsd: usd(0),
         },
       ]),
     ]);
@@ -190,8 +193,16 @@ describe("#397 PR 1: agboss eval show", () => {
       run: number,
       threadId: `t${String(number)}`,
       passed,
-      checks: [{ check: "trajectory", status: passed ? CheckStatus.Passed : CheckStatus.Failed }],
-      spentUsd: usd(0),
+      checks: [
+        {
+          check: "trajectory",
+          kind: EvalCheckKind.Tools,
+          status: passed ? CheckStatus.Passed : CheckStatus.Failed,
+        },
+      ],
+      executionUsd: usd(0),
+      judgeUsd: usd(0),
+      totalUsd: usd(0),
       trace: { ...traceOf(String(number)), steps: Array.from({ length: 200 }, () => step) },
     });
     const runs = Array.from({ length: 20 }, (_, index) => index + 1);
@@ -205,7 +216,7 @@ describe("#397 PR 1: agboss eval show", () => {
       ],
       20,
     );
-    const file = fileWith("big.json", JSON.stringify({ ...big, schemaVersion: 2 }));
+    const file = fileWith("big.json", JSON.stringify({ ...big, schemaVersion: 5 }));
     const html = join(CWD, "big.html");
 
     const call = await agboss(["eval", "show", file, "--html", html], CWD);

@@ -1,11 +1,17 @@
-import { usd } from "../../units/index.js";
 import type { AppDeps } from "../../app/app-deps.js";
 import type { AssembledWorkflow } from "../../workflow.js";
-import type { App, ExecutionOutput } from "../../app/types.js";
+import { ExecutionStatus, type App, type ExecutionOutput } from "../../app/types.js";
 import { startLine } from "../../flow/runtime/history.js";
 import type { ApplicationStart } from "../../application/application-starts.js";
-import type { EvalCase, EvalTurn } from "../suite/cases.js";
-import { CheckStatus, EvalCascade, isJudgeCheck, type EvalCheck } from "../suite/checks.js";
+import { turnsOfCase, type EvalCase, type EvalTurn } from "../suite/cases.js";
+import {
+  CheckStatus,
+  EvalCascade,
+  checksOf,
+  isJudgeCheck,
+  toolsOf,
+  type EvalCheck,
+} from "../suite/checks.js";
 import type { EvalSuiteMeta } from "../suite/eval-suite.decorator.js";
 import { caseContextValuesOf, type CaseContextValues } from "./case-frame.js";
 import { runTurns } from "./case-turns.js";
@@ -14,12 +20,14 @@ import { runJudgeCheck, type JudgedTurn } from "./judge-check.js";
 import {
   METAMORPHIC_CHECK,
   TRAJECTORY_CHECK,
+  EvalCheckKind,
   type EvalCheckResult,
   type EvalRunResult,
 } from "./report.js";
 import { trajectoryFailures } from "./trajectory.js";
 import { runMetamorphicCheck } from "./metamorphic.js";
 import { runTraceOf } from "./run-trace.js";
+import { failedRunOf, spendOf, statusMismatchOf } from "./case-result.js";
 import { nameOf } from "../../components/name-of.js";
 
 /**
@@ -46,16 +54,22 @@ export interface SuiteRunParts {
 export const checkNameOf = (check: EvalCheck): string =>
   isJudgeCheck(check) ? nameOf(check.judge) : TRAJECTORY_CHECK;
 
+/** What a check is: the tools expectations, or a judge. */
+const kindOf = (check: EvalCheck): EvalCheckKind =>
+  isJudgeCheck(check) ? EvalCheckKind.Judge : EvalCheckKind.Tools;
+
 async function runCheck(
   parts: SuiteRunParts,
   written: EvalCase,
   check: EvalCheck,
   turn: JudgedTurn,
 ): Promise<EvalCheckResult> {
-  if (isJudgeCheck(check)) return runJudgeCheck(parts.deps, check.judge, turn);
-  const failures = trajectoryFailures(written.tools, turn.toolCalls);
-  if (failures.length === 0) return { check: TRAJECTORY_CHECK, status: CheckStatus.Passed };
-  return { check: TRAJECTORY_CHECK, status: CheckStatus.Failed, reason: failures.join("; ") };
+  if (isJudgeCheck(check))
+    return runJudgeCheck(parts.deps, check.judge, turn, parts.suite.modelProvider);
+  const failures = trajectoryFailures(toolsOf(parts.suite.tools, written.tools), turn.toolCalls);
+  const kind = EvalCheckKind.Tools;
+  if (failures.length === 0) return { check: TRAJECTORY_CHECK, kind, status: CheckStatus.Passed };
+  return { check: TRAJECTORY_CHECK, kind, status: CheckStatus.Failed, reason: failures.join("; ") };
 }
 
 /** The suite's checks, then the case's own judges, under the cascade. */
@@ -63,14 +77,24 @@ async function runChecks(
   parts: SuiteRunParts,
   written: EvalCase,
   turn: JudgedTurn,
+  isEndExpected: boolean,
 ): Promise<readonly EvalCheckResult[]> {
   const results: EvalCheckResult[] = [];
   let failed: string | undefined;
   const isStopping = (): boolean =>
     failed !== undefined && parts.suite.cascade === EvalCascade.StopAtFirstFailure;
-  for (const check of [...parts.suite.checks, ...(written.judges ?? [])]) {
+  // a run that ends as the case expects (not `Finished`) has no finish output to judge
+  const toRun = checksOf(parts.suite, written).filter(
+    (check) => !isEndExpected || !isJudgeCheck(check),
+  );
+  for (const check of toRun) {
     if (isStopping()) {
-      results.push({ check: checkNameOf(check), status: CheckStatus.Skipped, skippedBy: failed });
+      results.push({
+        check: checkNameOf(check),
+        kind: kindOf(check),
+        status: CheckStatus.Skipped,
+        skippedBy: failed,
+      });
       continue;
     }
     const result = await runCheck(parts, written, check, turn);
@@ -98,7 +122,12 @@ async function metamorphicResultOf(
 ): Promise<EvalCheckResult | undefined> {
   if (parts.isMetamorphic !== true || (written.variants?.length ?? 0) === 0) return undefined;
   if (skippedBy !== undefined)
-    return { check: METAMORPHIC_CHECK, status: CheckStatus.Skipped, skippedBy };
+    return {
+      check: METAMORPHIC_CHECK,
+      kind: EvalCheckKind.Metamorphic,
+      status: CheckStatus.Skipped,
+      skippedBy,
+    };
   return (await runMetamorphicCheck(parts, written, turn.values, turn.toolCalls)).result;
 }
 
@@ -131,20 +160,17 @@ export async function runCaseOnce(
     written.history ?? [],
   );
   const turns = await runTurns(parts, written, { threadId, values });
-  if (turns.kind === "failed")
-    return {
-      run,
-      threadId,
-      tenantId: values.tenant.tenantId,
-      passed: false,
-      checks: [],
-      error: turns.error,
-      spentUsd: turns.spentUsd,
-    };
+  const ids = { run, threadId, tenantId: values.tenant.tenantId };
+  if (turns.kind === "failed") return failedRunOf(ids, turns.error, turns.spentUsd);
   const { last } = turns;
-  const turn = judgedTurnOf(parts, written.turns.at(-1), last, values);
-  const checks = await runChecks(parts, written, turn);
-  const judged = usd(checks.reduce((sum, check) => sum + (check.spentUsd ?? 0), 0));
+  const turn = judgedTurnOf(parts, turnsOfCase(written).at(-1), last, values);
+  const expected = written.expectedStatus ?? ExecutionStatus.Finished;
+  if (last.status !== expected)
+    return failedRunOf(ids, statusMismatchOf(last, expected), turns.spentUsd, {
+      executionId: last.executionId,
+      trace: await runTraceOf(parts, last),
+    });
+  const checks = await runChecks(parts, written, turn, expected !== ExecutionStatus.Finished);
   const trace = await runTraceOf(parts, last);
   return {
     run,
@@ -154,7 +180,7 @@ export async function runCaseOnce(
     ...(last.finish === undefined ? {} : { finish: last.finish.name }),
     passed: checks.every((check) => check.status === CheckStatus.Passed),
     checks,
-    spentUsd: usd(turns.spentUsd + judged),
+    ...spendOf(turns.spentUsd, checks),
     ...(trace === undefined ? {} : { trace }),
   };
 }

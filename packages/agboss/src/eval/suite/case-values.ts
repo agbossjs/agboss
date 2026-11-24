@@ -10,7 +10,7 @@ import {
 } from "../../flow/context/context-values.js";
 import { declarationOf } from "../../flow/decorators/declaration.js";
 import { startInputIssuesOf } from "../../flow/runtime/start-input-issues.js";
-import type { EvalCase, EvalPastTurn, EvalTurn } from "./cases.js";
+import { turnsOfCase, type EvalCase, type EvalPastTurn, type EvalTurn } from "./cases.js";
 import type { EvalCaseIssue } from "./errors.js";
 
 /**
@@ -75,10 +75,10 @@ function caseIssues(start: Class, contexts: CaseContexts, written: EvalCase): Dt
     ...(written.history ?? []).flatMap((past, index) =>
       pastTurnIssues(past, `history[${String(index)}]`),
     ),
-    ...turnIssues(start, written.turns, "turns"),
+    ...turnIssues(start, turnsOfCase(written), "turns"),
     ...turnIssues(start, written.variants ?? [], "variants"),
   ];
-  if (written.turns.length === 0)
+  if (turnsOfCase(written).length === 0)
     found.push({ path: "turns", reason: "a case runs at least one turn" });
   return found;
 }

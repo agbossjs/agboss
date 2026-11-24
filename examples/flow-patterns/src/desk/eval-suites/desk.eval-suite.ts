@@ -1,13 +1,4 @@
-import {
-  EvalCascade,
-  EvalSuite,
-  checkTrajectory,
-  evalCase,
-  judgedBy,
-  toolCall,
-  toolInvariant,
-  turn,
-} from "@agboss/core/eval";
+import { EvalCascade, EvalSuite, evalCase, toolCall, toolInvariant, turn } from "@agboss/core/eval";
 import { DeskAnswerJudge } from "../judges/desk-answer/desk-answer.judge.js";
 import { CloseAccountTool } from "../tools/close-account.tool.js";
 import { OrderStatusTool } from "../tools/order-status.tool.js";
@@ -22,7 +13,7 @@ import { DeskWorkflowStart } from "../workflows/desk/desk.workflow-start.js";
   name: "desk-eval-suite",
   description: "The desk looks the order up and says where it is",
   start: DeskWorkflowStart,
-  checks: [checkTrajectory(), judgedBy(DeskAnswerJudge)],
+  judges: [DeskAnswerJudge],
   cascade: EvalCascade.StopAtFirstFailure,
   cases: [
     evalCase({

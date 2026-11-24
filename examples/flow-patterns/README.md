@@ -50,7 +50,7 @@ PII_PSEUDONYM_KEY=offline-only npx agboss run --application src/desk.application
   --start desk-workflow-start --input '{"customerId":"c-1","question":"Where is order #7?"}'
 ```
 
-Its eval suite (`src/desk/eval-suites/desk.eval-suite.ts`: `checkTrajectory()`, then the code
+Its eval suite (`src/desk/eval-suites/desk.eval-suite.ts`: the cases' `tools`, then the code
 `desk-answer-judge`) runs the same way — `npm run eval:check` — and `npx agboss eval ui --dir
 .agboss/eval` serves its runs for labelling (`eval/failure-taxonomy.yaml` holds the tags). `agboss
 eval score` is not here: it scores with Jev, a decision model, which needs OpenRouter.

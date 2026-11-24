@@ -23,6 +23,7 @@ export async function runTraceOf(
   const handledErrors: readonly HandledErrorRecord[] = await masked(last.handledErrors);
   return executionTraceOf({
     executionId: last.executionId,
+    status: last.status,
     record,
     handledErrors,
     ...(last.finish === undefined

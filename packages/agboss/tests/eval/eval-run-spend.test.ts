@@ -1,18 +1,11 @@
 /**
- * #1366: what an eval run spent — each run's `spentUsd` is its turns' spend and its model judges', a check carries
+ * #1366: what an eval run spent — each run's `executionUsd` is its turns' spend, `judgeUsd` its model judges', a check carries
  * the spend of its own calls (a judge's, the reworded variants' under `--metamorphic`), so the report and the
  * budget agree with the ledger on what the suite cost.
  */
 import { afterEach, describe, expect, it } from "vitest";
 import { BudgetScope } from "../../src/budgets/budget.js";
-import {
-  EvalCascade,
-  EvalSuite,
-  checkTrajectory,
-  evalCase,
-  judgedBy,
-  turn,
-} from "../../src/eval/index.js";
+import { EvalCascade, EvalSuite, evalCase, turn } from "../../src/eval/index.js";
 import { runEvalSuite } from "../../src/eval/run/run-suite.js";
 import { TestEnvironment } from "../../src/testing/environment.js";
 import { replyWith } from "../../src/testing/index.js";
@@ -33,7 +26,6 @@ const TENANT = { tenantId: "eval-acme", plan: "pro" } as const;
   name: "spend-eval-suite",
   description: "A case judged by a model, with a reworded variant",
   start: DeskWorkflowStart,
-  checks: [checkTrajectory()],
   cascade: EvalCascade.RunAll,
   cases: [
     evalCase({
@@ -42,7 +34,7 @@ const TENANT = { tenantId: "eval-acme", plan: "pro" } as const;
       execution: { userId: "eval-user-1" },
       turns: [turn({ text: "Where is order 9?" })],
       variants: [turn({ text: "Order 9, where is it?" })],
-      judges: [judgedBy(AnswerGroundedJudge)],
+      judges: [AnswerGroundedJudge],
     }),
   ],
 })
@@ -75,11 +67,17 @@ describe("#1366: the spend of an eval run", () => {
 
     const [run] = report.cases[0]?.runResults ?? [];
     expect(run?.checks.map((check) => [check.check, check.spentUsd])).toEqual([
-      ["trajectory", undefined],
       ["answer-grounded-judge", 0.125],
     ]);
-    expect(run?.spentUsd).toBeCloseTo(0.375);
-    expect(report.spend.totalUsd).toBeCloseTo(0.375);
+    expect(run?.totalUsd).toBeCloseTo(0.375);
+    // #1328: the candidate's turns and the judges' calls are split, the total is their sum
+    expect(run?.executionUsd).toBeCloseTo(0.25);
+    expect(run?.judgeUsd).toBeCloseTo(0.125);
+    expect(report.spend).toEqual({
+      executionUsd: run?.executionUsd,
+      judgeUsd: run?.judgeUsd,
+      totalUsd: run?.totalUsd,
+    });
     // the judge's call, made outside an execution, is in the application's budget with the turn's
     const spent = (
       await built.infrastructure.costLedger.findUsageByCounter({
@@ -108,10 +106,12 @@ describe("#1366: the spend of an eval run", () => {
 
     const [run] = report.cases[0]?.runResults ?? [];
     expect(run?.checks.map((check) => [check.check, check.spentUsd])).toEqual([
-      ["trajectory", undefined],
       ["answer-grounded-judge", 0.125],
       ["metamorphic", 0.5],
     ]);
-    expect(run?.spentUsd).toBeCloseTo(0.875);
+    expect(run?.totalUsd).toBeCloseTo(0.875);
+    // the variants' turns are the candidate's spend, not the judges'
+    expect(run?.executionUsd).toBeCloseTo(0.75);
+    expect(run?.judgeUsd).toBeCloseTo(0.125);
   });
 });

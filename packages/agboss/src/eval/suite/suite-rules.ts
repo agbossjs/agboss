@@ -18,7 +18,7 @@ import {
 } from "../../flow/analyse/rules/judge-family.js";
 import { kindSuffixProblem, NameKind } from "../../flow/names.js";
 import { violation, type RuleViolation } from "../../graph/rule-error.js";
-import { isJudgeCheck, type JudgeEvalCheck } from "./checks.js";
+import type { JudgeEvalCheck } from "./checks.js";
 import type { EvalSuiteMeta } from "./eval-suite.decorator.js";
 
 /**
@@ -130,8 +130,8 @@ function wrongOutput(
 
 /** Every judge of the suite: its checks', then each case's, each class once. */
 function judgesOf(meta: EvalSuiteMeta): readonly JudgeEvalCheck[] {
-  const all = [...meta.checks.filter(isJudgeCheck), ...meta.cases.flatMap((c) => c.judges ?? [])];
-  return [...new Map(all.map((check) => [check.judge, check])).values()];
+  const all = [...meta.judges, ...meta.cases.flatMap((c) => c.judges ?? [])];
+  return [...new Set(all)].map((judge) => ({ judge }));
 }
 
 /** Every rule violation of a suite on its application. */

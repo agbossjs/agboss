@@ -8,7 +8,6 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   EvalCascade,
   EvalSuite,
-  checkTrajectory,
   evalCase,
   toolCall,
   toolInvariant,
@@ -38,7 +37,6 @@ import {
   name: "traced-eval-suite",
   description: "One case, looked up by order",
   start: DeskWorkflowStart,
-  checks: [checkTrajectory()],
   cascade: EvalCascade.StopAtFirstFailure,
   cases: [
     evalCase({
@@ -144,9 +142,9 @@ describe("#397 PR 2: a run's trace in the artifact", () => {
 
     const report = await runEvalSuite(built, TracedEvalSuite, { runs: 1 });
 
-    expect(report.schemaVersion).toBe(4);
+    expect(report.schemaVersion).toBe(5);
     expect(report.cases[0]?.expectation).toEqual({
-      requiredTools: [{ tool: "get-order-tool", arguments: { orderId: "9" } }],
+      requiredTools: [{ tool: "get-order-tool", input: { orderId: "9" } }],
       forbiddenTools: ["delete-order-tool"],
       invariantTools: ["refund-tool"],
       checks: ["trajectory"],
@@ -184,7 +182,7 @@ describe("#397 PR 2: a run's trace in the artifact", () => {
 
     const report = await runEvalSuite(built, TracedEvalSuite, { runs: 1, profile: "cheaper" });
 
-    expect(report.schemaVersion).toBe(4);
+    expect(report.schemaVersion).toBe(5);
     expect(report.profile).toBe("cheaper");
     expect(report.agbossVersion).toBe(frameworkVersion());
     expect(report.models).toEqual([

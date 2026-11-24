@@ -12,7 +12,7 @@ unit runner. Real-model checks are recorded cassettes (VCR) and evals.
 | a restart, a second instance                                                                                  | `recoverApp()`, `testWith(App, { instances: 2 })` → `apps`                                                                                        |
 | one tool, action, router, arbiter, knowledge base, judge, guardrail, PII policy, tool interceptor, compaction | its unit runner: `testUnit`                                                                                                                       |
 | real model answers, replayed in CI                                                                            | `testWith(App, { vcr: { cassetteName } })`                                                                                                        |
-| what a live-model run must do, case by case                                                                   | `@EvalSuite` (`@agboss/core/eval`): cases, `checkTrajectory()`, `judgedBy(Judge)`, `EvalCascade`; `npx agboss eval run --suite <name> --runs <k>` |
+| what a live-model run must do, case by case                                                                   | `@EvalSuite` (`@agboss/core/eval`): cases, case `tools`, `judges`, `EvalCascade`; `npx agboss eval run --suite <name> --runs <k>` |
 | quality over real traffic                                                                                     | `npx agboss golden add`, `npx agboss eval score`, `npx agboss compare`                                                                            |
 
 `vitest.config.ts` wraps its `test` options in `agbossVitest()` from `@agboss/core/testing/vitest`: AGBoss loaded
@@ -1596,9 +1596,7 @@ by the tool's input DTO, a past turn by its start's input and its finish's outpu
 import {
   EvalCascade,
   EvalSuite,
-  checkTrajectory,
   evalCase,
-  judgedBy,
   pastTurn,
   toolCall,
   toolInvariant,
@@ -1614,10 +1612,10 @@ import { ScreeningWorkflowStart } from "../workflows/screening/screening.workflo
   name: "screening-eval-suite",
   description: "Strong candidates are hired, the archive is looked up once",
   start: ScreeningWorkflowStart,
-  checks: [
-    checkTrajectory(), // 1. each case's `tools`: deterministic, $0
-    judgedBy(HireSavedJudge), // 2. a code judge: deterministic, $0
-    judgedBy(ReasonedVerdictJudge), // 3. a model judge: paid, runs only if the two above passed
+  // the cases' `tools` run first: deterministic, $0; then the judges in order
+  judges: [
+    HireSavedJudge, // a code judge: deterministic, $0
+    ReasonedVerdictJudge, // a model judge: paid, runs only if the checks above passed
   ],
   cascade: EvalCascade.StopAtFirstFailure, // optional: this is the default
   cases: [
@@ -1649,7 +1647,7 @@ export class ScreeningEvalSuite {}
 ```
 
 - **The cascade order is a declaration, not a convention:** free trajectory invariants first
-  (`checkTrajectory()`), then code judges (`@Judge({ })`), then model
+  (a case's `tools`), then code judges (`@Judge({ })`), then model
   judges (`@Judge({ model })`) — with `EvalCascade.StopAtFirstFailure` a paid judge runs only on a
   run the free checks passed; the rest are `CheckStatus.Skipped`, and a skipped check fails the run.
   `EvalCascade.RunAll` runs every check whatever came before.
@@ -1659,7 +1657,7 @@ export class ScreeningEvalSuite {}
   `@Router` or an `@Arbiter`, or an `@Action`.
 - An eval judge judges the output of the finish the run ended at: its `output` is a finish's
   `output` the start reaches (one value, never a list) — else `[eval.judge-wrong-output]`. A case's
-  own `judges: [judgedBy(X)]` run after the suite's checks.
+  own `judges: [X]` run after the suite's.
 - Assembled on its application before anything runs, every violation at once:
   `[name.kind-suffix]`, `[eval.unknown-start]` (the start is not one of the application's),
   `[eval.duplicate-case]` (case names key reports and baselines), `[eval.judge-wrong-output]`, the
@@ -1679,7 +1677,7 @@ npx agboss eval run --suite screening-eval-suite --runs 3 --env eval --report .a
   (several and none named, or an unknown name → `eval.unknown-suite`, exit 2, the suites listed).
 - A run: the case's `history` written into its thread (no model call), its `turns` through
   `app.execute` with the case's `tenant` / `execution` (validated as there), then the checks on the
-  last turn, in order. `checkTrajectory()` reads `result.toolCalls`: a `required` tool needs a call
+  last turn, in order. the `tools` check reads `result.toolCalls`: a `required` tool needs a call
   the tool ran (succeeded, failed or timed out) with the partial's arguments; a `forbidden` one any
   call at all; an invariant holds on every call with checked arguments.
 - A judge runs in the frame of the case's last execution, created by the application's container:
@@ -1844,7 +1842,7 @@ npx agboss generate eval-case refund-from-prod --suite refunds-eval-suite --from
   the default tenant without fields), the thread's earlier **finished** turns as `history:
 [pastTurn({ start, input, finish, output })]` (oldest first), and the tool calls it ran (succeeded,
   failed or timed out — not declined or blocked), each tool with the same arguments once, as
-  `tools: { required: [toolCall(Tool, arguments)] }`. The classes it names are imported into the
+  `tools: { required: [toolCall(Tool, input)] }`. The classes it names are imported into the
   suite's file (merged into an import of the same module), with `pastTurn` / `toolCall` / `turn`.
 - Values are the history's: **masked** as it keeps them (`<email>`, tokens), so read the case and
   replace what a turn needs real before you run it; then tighten `required` to the partials that

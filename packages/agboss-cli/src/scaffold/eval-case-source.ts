@@ -64,7 +64,7 @@ function historyOf(draft: EvalCaseDraft, classes: CaseClasses) {
   return { turns, used, skipped };
 }
 
-/** `toolCall(Tool, arguments)` per required call whose tool class is found. */
+/** `toolCall(Tool, input)` per required call whose tool class is found. */
 function requiredOf(draft: EvalCaseDraft, classes: CaseClasses) {
   const used: Component[] = [];
   const skipped: string[] = [];
@@ -75,7 +75,7 @@ function requiredOf(draft: EvalCaseDraft, classes: CaseClasses) {
       return [];
     }
     used.push(tool);
-    return [`toolCall(${tool.className}, ${literal(call.arguments)})`];
+    return [`toolCall(${tool.className}, ${literal(call.input)})`];
   });
   return { calls, used, skipped };
 }

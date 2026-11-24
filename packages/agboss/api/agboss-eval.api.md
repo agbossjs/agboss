@@ -5,6 +5,9 @@
 ```ts
 
 // @public
+export function answerPause<const TTarget extends Class>(target: TTarget, decision: PauseOutputOf<InstanceType<TTarget>>, options?: EvalPauseOptions): EvalPauseScript;
+
+// @public
 export enum CaseComparison {
     Changed = "changed",
     FlakyOnBaseline = "flaky-on-baseline",
@@ -32,13 +35,10 @@ export enum CheckStatus {
 }
 
 // @public
-export const checkTrajectory: () => TrajectoryEvalCheck;
-
-// @public
 export const EVAL_RUN_KIND = "agboss.eval-run";
 
 // @public
-export const EVAL_RUN_SCHEMA_VERSION = 4;
+export const EVAL_RUN_SCHEMA_VERSION = 5;
 
 // @public
 export interface EvalCalibration {
@@ -61,12 +61,15 @@ export enum EvalCascade {
 // @public
 export interface EvalCase {
     readonly execution?: unknown;
+    readonly expectedStatus?: ExecutionStatus;
     readonly history?: readonly EvalPastTurn[];
-    readonly judges?: readonly JudgeEvalCheck[];
+    readonly input?: unknown;
+    readonly judges?: readonly Class<object>[];
     readonly name: string;
+    readonly pauses?: readonly EvalPauseScript[];
     readonly tenant?: unknown;
     readonly tools?: EvalToolExpectations;
-    readonly turns: readonly EvalTurn[];
+    readonly turns?: readonly EvalTurn[];
     readonly variants?: readonly EvalTurn[];
 }
 
@@ -94,7 +97,7 @@ export interface EvalCaseExpectation {
 }
 
 // @public
-export type EvalCaseOf<TStart> = Omit<EvalCase, "tenant" | "execution" | "turns" | "variants"> & EvalContextsOf<TStart> & EvalTurnsOf<TStart>;
+export type EvalCaseOf<TStart> = Omit<EvalCase, "tenant" | "execution" | "turns" | "input" | "pauses" | "variants"> & EvalContextsOf<TStart> & EvalTurnsOf<TStart>;
 
 // @public
 export interface EvalCasePasses {
@@ -121,11 +124,19 @@ export interface EvalCaseReport {
 }
 
 // @public
-export type EvalCheck = TrajectoryEvalCheck | JudgeEvalCheck;
+export enum EvalCheckKind {
+    // (undocumented)
+    Judge = "judge",
+    // (undocumented)
+    Metamorphic = "metamorphic",
+    // (undocumented)
+    Tools = "tools"
+}
 
 // @public
 export interface EvalCheckResult {
     readonly check: string;
+    readonly kind: EvalCheckKind;
     readonly metrics?: JudgeMetrics;
     readonly reason?: string;
     readonly skippedBy?: string;
@@ -135,7 +146,7 @@ export interface EvalCheckResult {
 }
 
 // @public
-export interface EvalChildTrace extends EvalExecutionTrace {
+export interface EvalChildTrace extends EvalTrajectory {
     // (undocumented)
     readonly error?: EvalTraceError;
     // (undocumented)
@@ -200,30 +211,14 @@ export interface EvalDisagreement {
 }
 
 // @public
-export interface EvalExecutionTrace {
-    // (undocumented)
-    readonly children: readonly EvalChildTrace[];
-    // (undocumented)
-    readonly compensations: readonly EvalCompensationTrace[];
-    // (undocumented)
-    readonly executionId: string;
-    readonly finish?: string;
-    // (undocumented)
-    readonly handledErrors: readonly EvalHandledErrorTrace[];
-    // (undocumented)
-    readonly output?: unknown;
-    // (undocumented)
-    readonly path: readonly string[];
-    // (undocumented)
-    readonly pauses: readonly EvalPauseTrace[];
-    // (undocumented)
-    readonly steps: readonly EvalStepTrace[];
+export interface EvalExecutionTrace extends EvalTrajectory {
+    readonly status: ExecutionStatus;
 }
 
 // @public
 export interface EvalExpectedToolCallTrace {
     // (undocumented)
-    readonly arguments?: unknown;
+    readonly input?: unknown;
     // (undocumented)
     readonly tool: string;
 }
@@ -362,16 +357,32 @@ export interface EvalPastTurn {
 }
 
 // @public
+export interface EvalPauseOptions {
+    // (undocumented)
+    readonly actor?: PauseActor | undefined;
+}
+
+// @public
+export type EvalPauseScript = {
+    readonly target: Class;
+    readonly decision: unknown;
+    readonly reply?: never;
+    readonly actor?: PauseActor | undefined;
+} | {
+    readonly target: Class;
+    readonly reply: string;
+    readonly decision?: never;
+    readonly actor?: PauseActor | undefined;
+};
+
+// @public
 export interface EvalPauseTrace {
-    readonly answeredBy?: string;
-    readonly decision?: unknown;
+    readonly actor?: PauseActor | undefined;
     readonly nodeId: string;
+    readonly output?: unknown;
     // (undocumented)
     readonly resolution: PauseResolution;
-    // @deprecated (undocumented)
-    readonly responder?: string;
-    // (undocumented)
-    readonly role: string;
+    readonly target: string;
 }
 
 // @public
@@ -402,7 +413,7 @@ export interface EvalRunComparison {
     // (undocumented)
     readonly runs: number;
     // (undocumented)
-    readonly startedAt: string;
+    readonly startedAt: Date;
 }
 
 // @public
@@ -434,9 +445,10 @@ export interface EvalRunReport {
     readonly chaos?: EvalRunChaos;
     readonly configHash: string;
     // (undocumented)
-    readonly endedAt: string;
+    readonly endedAt: Date;
     // (undocumented)
     readonly environment: string;
+    readonly judges?: readonly EvalModelUse[];
     // (undocumented)
     readonly kind: typeof EVAL_RUN_KIND;
     readonly metamorphic?: boolean;
@@ -450,7 +462,7 @@ export interface EvalRunReport {
     readonly spend: EvalRunSpend;
     // (undocumented)
     readonly start: string;
-    readonly startedAt: string;
+    readonly startedAt: Date;
     // (undocumented)
     readonly suite: string;
     // (undocumented)
@@ -465,21 +477,26 @@ export interface EvalRunResult {
     readonly checks: readonly EvalCheckResult[];
     readonly error?: EvalRunError;
     readonly executionId?: string;
+    readonly executionUsd: Usd;
     readonly finish?: string;
+    readonly judgeUsd: Usd;
     readonly passed: boolean;
     readonly run: number;
-    readonly spentUsd: Usd;
     readonly tenantId?: string;
     // (undocumented)
     readonly threadId: string;
+    readonly totalUsd: Usd;
     readonly trace?: EvalExecutionTrace;
 }
 
 // @public
-export type EvalRunSchemaVersion = 1 | 2 | 3 | typeof EVAL_RUN_SCHEMA_VERSION;
+export type EvalRunSchemaVersion = typeof EVAL_RUN_SCHEMA_VERSION;
 
 // @public
 export interface EvalRunSpend {
+    readonly executionUsd: Usd;
+    // (undocumented)
+    readonly judgeUsd: Usd;
     // (undocumented)
     readonly totalUsd: Usd;
 }
@@ -512,7 +529,7 @@ export interface EvalStepTrace {
     // (undocumented)
     readonly copyNumber: number;
     // (undocumented)
-    readonly endedAt: string;
+    readonly endedAt: Date;
     readonly error?: EvalTraceError;
     // (undocumented)
     readonly guardrailDecisions: readonly EvalGuardrailDecisionTrace[];
@@ -529,7 +546,7 @@ export interface EvalStepTrace {
     // (undocumented)
     readonly spentUsd: Usd;
     // (undocumented)
-    readonly startedAt: string;
+    readonly startedAt: Date;
     // (undocumented)
     readonly toolCalls: readonly EvalToolCallTrace[];
     readonly validationAttempts: number;
@@ -541,21 +558,25 @@ export interface EvalStepTrace {
 export function EvalSuite<const TStart extends Class>(options: EvalSuiteOptions<TStart>): <C extends Class>(value: C) => C;
 
 // @public
-export interface EvalSuiteMeta extends Omit<EvalSuiteOptions, "cases" | "cascade"> {
+export interface EvalSuiteMeta extends Omit<EvalSuiteOptions, "cases" | "cascade" | "judges"> {
     // (undocumented)
     readonly cascade: EvalCascade;
     // (undocumented)
     readonly cases: readonly EvalCase[];
+    // (undocumented)
+    readonly judges: readonly Class<object>[];
 }
 
 // @public
 export interface EvalSuiteOptions<TStart extends Class = Class> {
     readonly cascade?: EvalCascade;
     readonly cases: readonly EvalCaseOf<InstanceType<TStart>>[];
-    readonly checks: readonly EvalCheck[];
     readonly description?: string;
+    readonly judges?: readonly Class<object>[];
+    readonly modelProvider?: Class;
     readonly name: string;
     readonly start: TStart;
+    readonly tools?: EvalToolExpectations;
 }
 
 // @public
@@ -589,18 +610,45 @@ export interface EvalTraceError {
 }
 
 // @public
-export interface EvalTurn<TInput = unknown> {
+export interface EvalTrajectory {
     // (undocumented)
-    readonly input: TInput;
+    readonly children: readonly EvalChildTrace[];
+    // (undocumented)
+    readonly compensations: readonly EvalCompensationTrace[];
+    // (undocumented)
+    readonly executionId: string;
+    readonly finish?: string;
+    // (undocumented)
+    readonly handledErrors: readonly EvalHandledErrorTrace[];
+    // (undocumented)
+    readonly output?: unknown;
+    // (undocumented)
+    readonly path: readonly string[];
+    // (undocumented)
+    readonly pauses: readonly EvalPauseTrace[];
+    // (undocumented)
+    readonly steps: readonly EvalStepTrace[];
 }
 
 // @public
-interface EvalTurnsOf<TStart> {
+export interface EvalTurn<TInput = unknown> {
     // (undocumented)
-    readonly turns: readonly EvalTurn<EvalValueOf<ExecutionInputOf<TStart>>>[];
-    // (undocumented)
-    readonly variants?: readonly EvalTurn<EvalValueOf<ExecutionInputOf<TStart>>>[];
+    readonly input: TInput;
+    readonly pauses?: readonly EvalPauseScript[];
 }
+
+// @public
+type EvalTurnsOf<TStart> = {
+    readonly turns: readonly EvalTurn<EvalValueOf<ExecutionInputOf<TStart>>>[];
+    readonly input?: never;
+    readonly pauses?: never;
+    readonly variants?: readonly EvalTurn<EvalValueOf<ExecutionInputOf<TStart>>>[];
+} | {
+    readonly input: EvalValueOf<ExecutionInputOf<TStart>>;
+    readonly pauses?: readonly EvalPauseScript[];
+    readonly turns?: never;
+    readonly variants?: readonly EvalTurn<EvalValueOf<ExecutionInputOf<TStart>>>[];
+};
 
 declare namespace EvalTypes {
     export {
@@ -616,18 +664,9 @@ export type EvalValueOf<TValue> = TValue extends readonly (infer TItem)[] ? read
 
 // @public
 export interface ExpectedToolCall<TTool extends Class<ToolHandler<never, unknown>> = Class<ToolHandler<never, unknown>>> {
-    readonly arguments?: ToolArgumentsOf<TTool>;
+    readonly input?: ToolInputPartialOf<TTool>;
     // (undocumented)
     readonly tool: TTool;
-}
-
-// @public
-export const judgedBy: (judge: Class<object>) => JudgeEvalCheck;
-
-// @public
-export interface JudgeEvalCheck {
-    // (undocumented)
-    readonly judge: Class<object>;
 }
 
 // @public
@@ -646,10 +685,13 @@ export interface PastTurnOptions<TStart extends Class, TFinish extends Class> {
 }
 
 // @public
-export type ToolArgumentsOf<TTool extends Class<ToolHandler<never, unknown>>> = PartialValues<ToolInputOf<InstanceType<TTool>>>;
+export function replyToPause(target: Class, reply: string, options?: EvalPauseOptions): EvalPauseScript;
 
 // @public
-export function toolCall<const TTool extends Class<ToolHandler<never, unknown>>>(tool: TTool, args?: ToolArgumentsOf<TTool>): ExpectedToolCall<TTool>;
+export function toolCall<const TTool extends Class<ToolHandler<never, unknown>>>(tool: TTool, input?: ToolInputPartialOf<TTool>): ExpectedToolCall<TTool>;
+
+// @public
+export type ToolInputPartialOf<TTool extends Class<ToolHandler<never, unknown>>> = PartialValues<ToolInputOf<InstanceType<TTool>>>;
 
 // @public
 export interface ToolInvariant<TTool extends Class<ToolHandler<never, unknown>> = Class<ToolHandler<never, unknown>>> {
@@ -662,13 +704,9 @@ export interface ToolInvariant<TTool extends Class<ToolHandler<never, unknown>> 
 export const toolInvariant: <const TTool extends Class<ToolHandler<never, unknown>>>(tool: TTool, holds: (input: ToolInputOf<InstanceType<TTool>>) => boolean) => ToolInvariant<TTool>;
 
 // @public
-export interface TrajectoryEvalCheck {
-    // (undocumented)
-    readonly trajectory: true;
-}
-
-// @public
-export const turn: <const TInput>(input: TInput) => EvalTurn<TInput>;
+export const turn: <const TInput>(input: TInput, options?: {
+    readonly pauses?: readonly EvalPauseScript[];
+}) => EvalTurn<TInput>;
 
 // Warnings were encountered during analysis:
 //
@@ -717,6 +755,9 @@ export const turn: <const TInput>(input: TInput) => EvalTurn<TInput>;
 // src/eval/run/ran-on.ts - (ae-undocumented) Missing documentation for "kind".
 // src/eval/run/ran-on.ts - (ae-undocumented) Missing documentation for "model".
 // src/eval/run/ran-on.ts - (ae-undocumented) Missing documentation for "provider".
+// src/eval/run/report.ts - (ae-undocumented) Missing documentation for "Tools".
+// src/eval/run/report.ts - (ae-undocumented) Missing documentation for "Judge".
+// src/eval/run/report.ts - (ae-undocumented) Missing documentation for "Metamorphic".
 // src/eval/run/report.ts - (ae-undocumented) Missing documentation for "status".
 // src/eval/run/report.ts - (ae-undocumented) Missing documentation for "code".
 // src/eval/run/report.ts - (ae-undocumented) Missing documentation for "message".
@@ -730,6 +771,7 @@ export const turn: <const TInput>(input: TInput) => EvalTurn<TInput>;
 // src/eval/run/report.ts - (ae-undocumented) Missing documentation for "skippedByCascade".
 // src/eval/run/report.ts - (ae-undocumented) Missing documentation for "name".
 // src/eval/run/report.ts - (ae-undocumented) Missing documentation for "version".
+// src/eval/run/report.ts - (ae-undocumented) Missing documentation for "judgeUsd".
 // src/eval/run/report.ts - (ae-undocumented) Missing documentation for "totalUsd".
 // src/eval/run/report.ts - (ae-undocumented) Missing documentation for "kind".
 // src/eval/run/report.ts - (ae-undocumented) Missing documentation for "schemaVersion".
@@ -777,9 +819,7 @@ export const turn: <const TInput>(input: TInput) => EvalTurn<TInput>;
 // src/eval/run/trace.ts - (ae-undocumented) Missing documentation for "error".
 // src/eval/run/trace.ts - (ae-undocumented) Missing documentation for "at".
 // src/eval/run/trace.ts - (ae-undocumented) Missing documentation for "by".
-// src/eval/run/trace.ts - (ae-undocumented) Missing documentation for "role".
 // src/eval/run/trace.ts - (ae-undocumented) Missing documentation for "resolution".
-// src/eval/run/trace.ts - (ae-undocumented) Missing documentation for "responder".
 // src/eval/run/trace.ts - (ae-undocumented) Missing documentation for "compensator".
 // src/eval/run/trace.ts - (ae-undocumented) Missing documentation for "reason".
 // src/eval/run/trace.ts - (ae-undocumented) Missing documentation for "status".
@@ -797,7 +837,7 @@ export const turn: <const TInput>(input: TInput) => EvalTurn<TInput>;
 // src/eval/run/trace.ts - (ae-undocumented) Missing documentation for "itemIndex".
 // src/eval/run/trace.ts - (ae-undocumented) Missing documentation for "error".
 // src/eval/run/trace.ts - (ae-undocumented) Missing documentation for "tool".
-// src/eval/run/trace.ts - (ae-undocumented) Missing documentation for "arguments".
+// src/eval/run/trace.ts - (ae-undocumented) Missing documentation for "input".
 // src/eval/run/trace.ts - (ae-undocumented) Missing documentation for "requiredTools".
 // src/eval/run/trace.ts - (ae-undocumented) Missing documentation for "forbiddenTools".
 // src/eval/suite/cases.ts - (ae-undocumented) Missing documentation for "input".
@@ -805,18 +845,16 @@ export const turn: <const TInput>(input: TInput) => EvalTurn<TInput>;
 // src/eval/suite/cases.ts - (ae-undocumented) Missing documentation for "input".
 // src/eval/suite/cases.ts - (ae-undocumented) Missing documentation for "finish".
 // src/eval/suite/cases.ts - (ae-undocumented) Missing documentation for "output".
-// src/eval/suite/cases.ts - (ae-undocumented) Missing documentation for "turns".
-// src/eval/suite/cases.ts - (ae-undocumented) Missing documentation for "variants".
 // src/eval/suite/cases.ts - (ae-undocumented) Missing documentation for "start".
 // src/eval/suite/cases.ts - (ae-undocumented) Missing documentation for "input".
 // src/eval/suite/cases.ts - (ae-undocumented) Missing documentation for "finish".
 // src/eval/suite/cases.ts - (ae-undocumented) Missing documentation for "output".
 // src/eval/suite/checks.ts - (ae-undocumented) Missing documentation for "Passed".
 // src/eval/suite/checks.ts - (ae-undocumented) Missing documentation for "Failed".
-// src/eval/suite/checks.ts - (ae-undocumented) Missing documentation for "trajectory".
-// src/eval/suite/checks.ts - (ae-undocumented) Missing documentation for "judge".
 // src/eval/suite/eval-suite.decorator.ts - (ae-undocumented) Missing documentation for "cascade".
+// src/eval/suite/eval-suite.decorator.ts - (ae-undocumented) Missing documentation for "judges".
 // src/eval/suite/eval-suite.decorator.ts - (ae-undocumented) Missing documentation for "cases".
+// src/eval/suite/pauses.ts - (ae-undocumented) Missing documentation for "actor".
 // src/eval/suite/tool-expectations.ts - (ae-undocumented) Missing documentation for "tool".
 // src/eval/suite/tool-expectations.ts - (ae-undocumented) Missing documentation for "tool".
 

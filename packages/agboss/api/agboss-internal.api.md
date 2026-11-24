@@ -724,7 +724,7 @@ export const directoryOf: (providers: readonly ModelProviderType[]) => ModelProv
 // @public
 export interface DraftToolCall {
     // (undocumented)
-    readonly arguments: unknown;
+    readonly input: unknown;
     // (undocumented)
     readonly tool: string;
 }
@@ -1237,7 +1237,7 @@ export function inputLines(analysis: FlowAnalysis): readonly string[];
 export const INTERNAL_FAILURE = "internal";
 
 // @public
-export const isJudgeCheckName: (check: string) => boolean;
+export const isJudgeResult: (check: EvalCheckResult) => boolean;
 
 // @public (undocumented)
 export const isMcpFacade: (tool: Tool) => tool is McpFacade;
@@ -1899,7 +1899,7 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/eval/case-from-execution.ts - (ae-undocumented) Missing documentation for "input".
 // src/eval/case-from-execution.ts - (ae-undocumented) Missing documentation for "execution".
 // src/eval/case-from-execution.ts - (ae-undocumented) Missing documentation for "tool".
-// src/eval/case-from-execution.ts - (ae-undocumented) Missing documentation for "arguments".
+// src/eval/case-from-execution.ts - (ae-undocumented) Missing documentation for "input".
 // src/eval/case-from-execution.ts - (ae-undocumented) Missing documentation for "name".
 // src/eval/case-from-execution.ts - (ae-undocumented) Missing documentation for "history".
 // src/eval/case-from-execution.ts - (ae-undocumented) Missing documentation for "turns".

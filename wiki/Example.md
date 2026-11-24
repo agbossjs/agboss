@@ -125,7 +125,7 @@ npm test
   (`result.launches[0].group`, the screen cancelled); the full check's model failing
   (`failWith(ModelFailure.RateLimited)`) lets the quick screen's group go on.
   The desk's [eval suite](Eval-Suites) (`src/desk/eval-suites/desk.eval-suite.ts`:
-  `checkTrajectory()`, then the code `desk-answer-judge` on the finish's text) runs on the same
+  the cases' `tools`, then the code `desk-answer-judge` on the finish's text) runs on the same
   transport: `npm run eval:check` is `agboss eval run --env offline --runs 2 --baseline
   eval/runs/desk-eval-suite.json --fail-on-regression` (no key, fake prices only), `agboss eval show
   --html` of the checked-in baseline and `agboss eval calibrate` on `eval/labels/desk-eval-suite.jsonl`

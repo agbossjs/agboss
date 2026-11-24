@@ -8,9 +8,9 @@ import { factsOf } from "./sections.js";
  */
 export function expectationView(expectation: EvalCaseExpectation): HtmlElement {
   const required = expectation.requiredTools.map((expected) =>
-    expected.arguments === undefined
+    expected.input === undefined
       ? expected.tool
-      : `${expected.tool} with ${JSON.stringify(expected.arguments)}`,
+      : `${expected.tool} with ${JSON.stringify(expected.input)}`,
   );
   return element("div", { class: "expectation" }, [
     element("p", { class: "step-part-title" }, ["Expected"]),

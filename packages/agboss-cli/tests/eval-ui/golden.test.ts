@@ -17,7 +17,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { CheckStatus, type EvalRunResult } from "@agboss/core/eval";
+import { CheckStatus, type EvalRunResult, EvalCheckKind } from "@agboss/core/eval";
 import { openExecutionHistory, type OpenedExecutionHistory } from "@agboss/core/internal";
 import { SqliteHistoryApplication } from "../../../agboss/tests/infrastructure/sqlite/fixtures/history.application.js";
 import {
@@ -63,8 +63,10 @@ const ranRun = (
   ...(executionId === undefined ? {} : { executionId }),
   finish: "desk-workflow-finish",
   passed: true,
-  checks: [{ check: "trajectory", status: CheckStatus.Passed }],
-  spentUsd: usd(0.01),
+  checks: [{ check: "trajectory", kind: EvalCheckKind.Tools, status: CheckStatus.Passed }],
+  executionUsd: usd(0.01),
+  judgeUsd: usd(0),
+  totalUsd: usd(0.01),
 });
 
 const ARTIFACT = artifactOf(

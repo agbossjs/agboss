@@ -1,19 +1,11 @@
-import {
-  EvalCascade,
-  EvalSuite,
-  checkTrajectory,
-  evalCase,
-  judgedBy,
-  toolCall,
-  turn,
-} from "../../../../src/eval/index.js";
+import { EvalCascade, EvalSuite, evalCase, toolCall, turn } from "../../../../src/eval/index.js";
 import { AskWorkflowStart, LookupTool, QuotesLookupJudge } from "../evals.fixture.js";
 
 @EvalSuite({
   name: "desk-eval-suite",
   description: "Orders are looked up and quoted",
   start: AskWorkflowStart,
-  checks: [checkTrajectory(), judgedBy(QuotesLookupJudge)],
+  judges: [QuotesLookupJudge],
   cascade: EvalCascade.StopAtFirstFailure,
   cases: [
     evalCase({

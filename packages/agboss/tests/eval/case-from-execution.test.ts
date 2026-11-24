@@ -31,8 +31,8 @@ describe("#396 PR 8: a case drafted from a kept execution", () => {
       ],
       turns: [{ input: { text: "Refund order 7 for <email>" } }],
       required: [
-        { tool: "get-order-tool", arguments: { orderId: "7" } },
-        { tool: "refund-tool", arguments: { orderId: "7", amountCents: 5000 } },
+        { tool: "get-order-tool", input: { orderId: "7" } },
+        { tool: "refund-tool", input: { orderId: "7", amountCents: 5000 } },
       ],
     });
   });

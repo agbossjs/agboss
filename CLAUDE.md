@@ -2244,10 +2244,10 @@ quality gate beside model judges, `mockLlm(CodeJudge)` names why it has no scrip
 takes no `model` (one is a `TestSetupError`). A model judge whose model has its judged agent's vendor prefix (`openai` of
 `openai/gpt-6`; a suite's judge: any agent of its start's workflow) warns `[judge.same-model-family]`
 (an error under `--strict`, #396 PR 5). **Eval suites (#396 PR 1, `@agboss/core/eval`):**
-`@EvalSuite({ name: "-eval-suite", description, start, checks, cascade, cases })` — `checks` in
-order (`checkTrajectory()`, `judgedBy(Judge)`), `cascade: EvalCascade.StopAtFirstFailure | RunAll`
-required (skipped checks are `CheckStatus.Skipped`); `evalCase({ name, tenant?, execution?, history?:
-[pastTurn(Start, input, Finish, output)], turns: [turn(input)], tools?: { required: [toolCall(Tool,
+`@EvalSuite({ name: "-eval-suite", description?, start, judges?, tools?, modelProvider?, cascade?, cases })` — the
+cases' `tools` first, then `judges` (`@Judge` classes) in order, `cascade?: EvalCascade.StopAtFirstFailure (default) | RunAll`
+(skipped checks are `CheckStatus.Skipped`); `modelProvider` pins the model judges' provider (the judge's own wins), a run's `executionUsd` / `judgeUsd` / `totalUsd` are reported apart (schema 5); `evalCase({ name, tenant?, execution?, history?:
+[pastTurn({ start, input, finish, output })], turns: [turn(input, { pauses? })] or input + pauses (`answerPause(Target, decision)`, `replyToPause(Target, reply)`), expectedStatus?, tools?: { required: [toolCall(Tool,
 partial)], forbidden: [Tool], invariants: [toolInvariant(Tool, (input) => …)] }, judges?, variants? })`,
 typed by the start's input, the application's contexts and each tool's input. Assembled on its
 application by `checkEvalSuite` (`@agboss/core/internal`; run by `runEvalSuite`, PR 2 — `agboss eval run`):
@@ -2255,9 +2255,9 @@ application by `checkEvalSuite` (`@agboss/core/internal`; run by `runEvalSuite`,
 (name and class), `[eval.unknown-start]`, `[eval.duplicate-case]`, `[eval.judge-wrong-output]` (an
 eval judge judges a finish output its start reaches, one value), then `EvalCaseInvalidError`
 (`eval.case-invalid`: tenant / execution, turns, variants and history validated, every issue, no
-value). At run time (#396 PR 2, `src/eval/run/`) `checkTrajectory()` reads the last turn's
-`result.toolCalls` (a required tool: a call it ran with the partial's arguments; a forbidden one: any
-call; an invariant: every call with checked arguments), and a judge runs in the frame of the case's last
+value). At run time (#396 PR 2, `src/eval/run/`) the `tools` check reads the last turn's
+`result.toolCalls` (a required tool: a call it ran with the partial's input; a forbidden one: any
+call; an invariant: every call with checked input), and a judge runs in the frame of the case's last
 execution, created by the application's container, on the finish's output as its DTO — a run ending at
 a finish it does not judge fails that check; a model judge no agent lists is bound through the
 application's models, counted in its application budgets. A run passes when every check that ran

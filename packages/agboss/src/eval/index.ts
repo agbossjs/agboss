@@ -20,17 +20,16 @@ export {
   type EvalValueOf,
 } from "./suite/cases.js";
 export {
-  CheckStatus,
-  checkTrajectory,
-  EvalCascade,
-  judgedBy,
-  type EvalCheck,
-  type JudgeEvalCheck,
-  type TrajectoryEvalCheck,
-} from "./suite/checks.js";
+  answerPause,
+  replyToPause,
+  type EvalPauseOptions,
+  type EvalPauseScript,
+} from "./suite/pauses.js";
+export { CheckStatus, EvalCascade } from "./suite/checks.js";
 export {
   EVAL_RUN_KIND,
   EVAL_RUN_SCHEMA_VERSION,
+  EvalCheckKind,
   type EvalCaseReport,
   type EvalCheckResult,
   type EvalRunComponent,
@@ -54,6 +53,7 @@ export type {
   EvalModelCallTrace,
   EvalPauseTrace,
   EvalStepTrace,
+  EvalTrajectory,
   EvalToolCallTrace,
   EvalTraceError,
 } from "./run/trace.js";
@@ -80,7 +80,7 @@ export {
   toolInvariant,
   type EvalToolExpectations,
   type ExpectedToolCall,
-  type ToolArgumentsOf,
+  type ToolInputPartialOf,
   type ToolInvariant,
 } from "./suite/tool-expectations.js";
 /** @beta Type machinery of the eval cases: not a contract, names may change. */

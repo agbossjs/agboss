@@ -506,7 +506,7 @@ Runtime package `@agboss/core` + dev/CI companion `@agboss/cli`; the root `@agbo
 - `@agboss/core/models` — model providers (`@ModelProvider`, `OpenRouterModelProvider`, `DecisionsModelProvider`, listed in `@Application({ providers })`)
 - `@agboss/core/testing` — `testWith`, the 10 unit runners (`testUnit`), the scripts (`replyWith`, `routeTo`, `when`, `waitFor`, …), `ToolFailure`,
   `mcpOf`, `VirtualClock`, `SequentialIdGenerator`, VCR (`+ @agboss/core/testing/setup`: the matchers)
-- `@agboss/core/eval` — `@EvalSuite`, `EvalCascade`, `evalCase`, `turn`, `pastTurn`, `toolCall`, `toolInvariant`, `checkTrajectory`, `judgedBy`
+- `@agboss/core/eval` — `@EvalSuite`, `EvalCascade`, `evalCase`, `turn`, `pastTurn`, `toolCall`, `toolInvariant`, `answerPause`, `replyToPause`
 - `@agboss/core/mcp`, `/rag`, `/a2a`, `/memory` — integrations (`@McpServer`,
   `@McpEndpoint`, `@Rag`, `@A2AAgent`, `@A2AExpose`, `a2aHttpListener`, `HttpAuthenticator`, memory)
 - `@agboss/core/eslint` — ESLint plugin (`agboss/no-component-state`, `agboss/no-direct-time`)

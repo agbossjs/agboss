@@ -111,7 +111,7 @@ export {
 export { compareEvalRuns } from "./eval/run/compare-runs.js";
 export type { ChaosOptions } from "./eval/chaos/chaos-failure.js";
 export { evalRunReportOf, type EvalRunReportRead } from "./eval/run/read-report.js";
-export { isJudgeCheckName } from "./eval/run/report.js";
+export { isJudgeResult } from "./eval/run/report.js";
 export { calibrateJudges, type EvalCalibrationResult } from "./eval/calibrate/calibrate.js";
 export {
   evalLabelOf,

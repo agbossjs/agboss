@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { ComponentKind, ToolCallStatus } from "@agboss/core";
-import { CheckStatus } from "@agboss/core/eval";
+import { CheckStatus, EvalCheckKind } from "@agboss/core/eval";
 import type { EvalCaseReport, EvalRunResult } from "@agboss/core/eval";
 import { renderEvalReportPage, TimelineDetail } from "../../src/eval/html/report-page.js";
 import { MAX_VALUE_CHARACTERS } from "../../src/eval/html/value-view.js";
@@ -110,7 +110,9 @@ describe("#397 PR 2: a run's timeline", () => {
       threadId: "t",
       passed: true,
       checks: [],
-      spentUsd: usd(0),
+      executionUsd: usd(0),
+      judgeUsd: usd(0),
+      totalUsd: usd(0),
       trace,
     };
 
@@ -170,8 +172,10 @@ describe("#397 PR 2: the page of a large run stays under its bound", () => {
       run: number,
       threadId: `t${String(number)}`,
       passed: true,
-      checks: [{ check: "trajectory", status: CheckStatus.Passed }],
-      spentUsd: usd(0),
+      checks: [{ check: "trajectory", kind: EvalCheckKind.Tools, status: CheckStatus.Passed }],
+      executionUsd: usd(0),
+      judgeUsd: usd(0),
+      totalUsd: usd(0),
       trace: { ...traceOf(String(number)), steps: Array.from({ length: 10 }, () => step) },
     });
     const cases: EvalCaseReport[] = Array.from({ length: 40 }, (_, index) =>
