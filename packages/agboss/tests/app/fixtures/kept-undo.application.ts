@@ -31,7 +31,7 @@ import {
   observers: [UnwindLog],
   providers: [MortalExecutionLeaseRepository, StampedExecutionRecordRepository, GuestInboxChannel],
   budgets: TEST_BUDGETS,
-  compensationTimeout: seconds(60),
+  executionLimits: { compensationTimeout: seconds(60) },
   retention: { executionRecords: hours(24) },
 })
 export class KeptUndoApplication {}

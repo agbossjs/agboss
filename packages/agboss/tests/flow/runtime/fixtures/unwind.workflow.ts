@@ -213,7 +213,8 @@ export class RoomsReservedAction {
     readonly rooms: readonly Produced<RoomDto, unknown>[];
   }): Promise<ReservedDto> {
     return {
-      summary: input.rooms.map((room) => room.value.roomId).join(", "),
+      summary: input.rooms.map((room) => room.value.roomId)
+        .join(", "),
     };
   }
 }
@@ -254,7 +255,8 @@ export class UnwindParentWorkflowStart {}
     onStart(UnwindParentWorkflowStart)
       .toAction(ReserveSeatAction)
       .toWorkflow(UnwindRoomWorkflow)
-      .onError(StepFailedError, toAction(ReleaseSeatAction).toFinish(NotReservedWorkflowFinish))
+      .onError(StepFailedError, toAction(ReleaseSeatAction)
+        .toFinish(NotReservedWorkflowFinish))
       .toAction(ReservedAction)
       .toFinish(ReservedWorkflowFinish),
   ],
@@ -300,6 +302,6 @@ export class UnwindLog {
   ],
   observers: [UnwindLog],
   budgets: TEST_BUDGETS,
-  compensationTimeout: seconds(5),
+  executionLimits: { compensationTimeout: seconds(5) },
 })
 export class UnwindApplication {}

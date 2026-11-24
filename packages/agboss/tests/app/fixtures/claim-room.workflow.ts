@@ -130,7 +130,8 @@ export class ClaimRoomBatchAction {
     readonly results: readonly Produced<ItemResultDto, unknown>[];
   }): Promise<SummaryDto> {
     return {
-      text: input.results.map((result) => result.value.name).join(", "),
+      text: input.results.map((result) => result.value.name)
+        .join(", "),
     };
   }
 }
@@ -167,7 +168,7 @@ export class ClaimRoomBatchWorkflow {}
   environment: EmptyEnvironment,
   workflows: [ClaimRoomBatchWorkflow, ClaimRoomItemWorkflow],
   budgets: TEST_BUDGETS,
-  maxConcurrentSteps: 3,
+  executionLimits: { maxConcurrentSteps: 3 },
 })
 export class ClaimRoomApplication {}
 

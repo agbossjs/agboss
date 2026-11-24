@@ -121,6 +121,7 @@ export function describedApplicationOf(assembled: AssembledApplication): Describ
   const budgets = budgetsOfApplication({
     budgets: assembled.budgets,
     workflows: assembled.workflows.map((workflow) => workflow.graph.type),
+    budgetOverlays: assembled.budgetOverlays,
   }).flatMap((budget) => budgetOf(budget) ?? []);
   return {
     name: assembled.name,
@@ -138,7 +139,10 @@ export function describedApplicationOf(assembled: AssembledApplication): Describ
         budgets,
         workflow.graph.type,
         workflow.config.name,
-        attachedBudgetsOf({ workflows: assembled.workflows.map((one) => one.graph.type) }),
+        attachedBudgetsOf({
+          workflows: assembled.workflows.map((one) => one.graph.type),
+          budgetOverlays: assembled.budgetOverlays,
+        }),
       ),
     ),
     observers: assembled.observers.map(tokenName),

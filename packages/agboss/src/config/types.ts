@@ -199,7 +199,7 @@ export const AgentsConfigSchema = z.object({
     uncompactedTurns: UncompactedTurnsSchema,
   }),
   /** The `@Compaction`s its agents and model routers use, by name (#120 PR 3). */
-  compactions: z.record(z.string(), CompactionSettingsSchema).optional(),
+  memories: z.record(z.string(), CompactionSettingsSchema).optional(),
   /** `@Judge` models by judge name. */
   judges: z.record(z.string(), ModelSettingsSchema).optional(),
   agents: z.record(z.string(), AgentSettingsSchema),

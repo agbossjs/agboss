@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isVariableReference } from "../environments/define-env.js";
 import { AgentsConfigSchema, AgentSettingsSchema, CompactionSettingsSchema } from "./types.js";
 
 /** Every field optional at every depth; unknown keys rejected (a typo surfaces with its path). */
@@ -28,14 +29,34 @@ export const PromptOverrideSchema = z.union([
   z.strictObject({ inline: z.string().min(1) }),
 ]);
 
+/** A model and the `name` of its provider: what a profile changes of one component's model. */
+export const ComponentModelOverlaySchema = z.strictObject({
+  model: z.string().min(1).optional(),
+  modelProvider: kebab.optional(),
+});
+
+/** A `defineEnv` value (`appEnv.dailyBudgetUsd`): a `.config.ts` holds one, a YAML file cannot. */
+const envValue = z.custom<unknown>(isVariableReference, "a number or a defineEnv value");
+
+/** The limits a profile gives one `@Budget`: a constant, or a `defineEnv` value in a `.config.ts`. */
+export const BudgetOverlaySchema = z
+  .strictObject({
+    maxSpend: z.union([z.number().positive(), envValue]).optional(),
+    maxTokens: z.union([z.number().int().positive(), envValue]).optional(),
+  })
+  .refine((one) => one.maxSpend !== undefined || one.maxTokens !== undefined, {
+    message: "give maxSpend and/or maxTokens",
+  });
+
 /** What a profile changes of one workflow's config: constants only. */
 export const WorkflowOverlaySchema = z.strictObject({
   /** The config version a profile's runs carry. */
   version: z.string().min(1).optional(),
-  defaults: deepPartial(defaultsShape),
-  /** A compaction's settings by its name: its model, turns between compactions, queue. */
-  compactions: z.record(z.string(), deepPartial(CompactionSettingsSchema)).optional(),
+  /** A `@Memory`'s compaction settings by its name: its model, turns between compactions, queue. */
+  memories: z.record(z.string(), deepPartial(CompactionSettingsSchema)).optional(),
   agents: z.record(z.string(), deepPartial(AgentSettingsSchema)).optional(),
+  /** A model router's model and provider by its node name. */
+  routers: z.record(z.string(), ComponentModelOverlaySchema).optional(),
   /** Replaces an agent's system instructions. */
   prompts: z.record(z.string(), PromptOverrideSchema).optional(),
 });
@@ -57,6 +78,13 @@ export const ScalarOverlaySchema = z.strictObject({
   /** Chat defaults of every workflow of the application. */
   defaults: deepPartial(defaultsShape),
   modelProviders: z.record(kebab, ModelProviderOverlaySchema).optional(),
+  /** The limits of each `@Budget` that declares them, by its name. */
+  budgets: z.record(kebab, BudgetOverlaySchema).optional(),
+  judges: z.record(kebab, ComponentModelOverlaySchema).optional(),
+  arbiters: z.record(kebab, ComponentModelOverlaySchema).optional(),
+  guardrails: z.record(kebab, ComponentModelOverlaySchema).optional(),
+  piiPolicies: z.record(kebab, ComponentModelOverlaySchema).optional(),
+  channelInterpreters: z.record(kebab, ComponentModelOverlaySchema).optional(),
   /** By workflow name; `"*"` applies to every workflow first. */
   workflows: z.record(z.union([kebab, z.literal("*")]), WorkflowOverlaySchema).optional(),
 });

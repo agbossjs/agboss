@@ -118,7 +118,7 @@ export function createModelRegistry(
     ),
   );
   const compactions = new Map(
-    Object.entries(config.compactions ?? {}).flatMap(([compaction, settings]) =>
+    Object.entries(config.memories ?? {}).flatMap(([compaction, settings]) =>
       settings.model === undefined
         ? []
         : [[compaction, bindFor({ kind: "compaction", compaction })(settings.model)] as const],

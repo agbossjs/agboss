@@ -3,6 +3,7 @@ import { NodeKind } from "../flow/ast.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import { violation, type RuleCode, type RuleViolation } from "../graph/rule-error.js";
 import { budgetOf, BudgetScope, type BudgetMeta } from "./budget.js";
+import { overlaidBudget, type OverlaidBudgets } from "./budget-overlay.js";
 
 /**
  * The rules of an application's budgets (#261 AC10), read from its declaration: every workflow is
@@ -12,7 +13,7 @@ import { budgetOf, BudgetScope, type BudgetMeta } from "./budget.js";
  */
 
 /** What the rules read of an application. */
-export interface BudgetedApplication {
+export interface BudgetedApplication extends OverlaidBudgets {
   readonly name: string;
   readonly workflows: readonly Class[];
   readonly budgets?: readonly Class[] | undefined;
@@ -30,23 +31,34 @@ export const attachedBudgetOf = (workflow: Class): Class | undefined => {
  * Every budget of an application (#1318): the ones it lists and the ones its workflows attach with
  * `@Workflow({ budget })` — found without being listed —, each once.
  */
-export const budgetsOfApplication = (application: {
-  readonly workflows?: readonly Class[] | undefined;
-  readonly budgets?: readonly Class[] | undefined;
-}): readonly Class[] => {
-  const listed = application.budgets ?? [];
-  const attached = (application.workflows ?? []).flatMap(
-    (workflow) => attachedBudgetOf(workflow) ?? [],
-  );
+export const budgetsOfApplication = (
+  application: {
+    readonly workflows?: readonly Class[] | undefined;
+    readonly budgets?: readonly Class[] | undefined;
+  } & OverlaidBudgets,
+): readonly Class[] => {
+  const overlays = application.budgetOverlays;
+  const listed = (application.budgets ?? []).map((budget) => overlaidBudget(budget, overlays));
+  const attached = (application.workflows ?? []).flatMap((workflow) => {
+    const budget = attachedBudgetOf(workflow);
+    return budget === undefined ? [] : [overlaidBudget(budget, overlays)];
+  });
   // a listed class stays as listed (a class listed twice is still a duplicate); an attached one once
   return [...listed, ...new Set(attached.filter((budget) => !listed.includes(budget)))];
 };
 
 /** The budget classes some workflow of the application attaches with `@Workflow({ budget })`, each once. */
-export const attachedBudgetsOf = (application: {
-  readonly workflows?: readonly Class[] | undefined;
-}): readonly Class[] => [
-  ...new Set((application.workflows ?? []).flatMap((workflow) => attachedBudgetOf(workflow) ?? [])),
+export const attachedBudgetsOf = (
+  application: {
+    readonly workflows?: readonly Class[] | undefined;
+  } & OverlaidBudgets,
+): readonly Class[] => [
+  ...new Set(
+    (application.workflows ?? []).flatMap((workflow) => {
+      const budget = attachedBudgetOf(workflow);
+      return budget === undefined ? [] : [overlaidBudget(budget, application.budgetOverlays)];
+    }),
+  ),
 ];
 
 /**
@@ -57,9 +69,12 @@ export function executionBudgetFor(
   metas: readonly BudgetMeta[],
   workflow: Class,
   attachedByAny: readonly Class[] = [],
+  budgetOverlays?: OverlaidBudgets["budgetOverlays"],
 ): { readonly meta: BudgetMeta; readonly isOwn: boolean } | undefined {
   const execution = metas.filter((meta) => meta.scope === BudgetScope.Execution);
-  const attached = attachedBudgetOf(workflow);
+  const attachedClass = attachedBudgetOf(workflow);
+  const attached =
+    attachedClass === undefined ? undefined : overlaidBudget(attachedClass, budgetOverlays);
   const attachedMeta = attached === undefined ? undefined : budgetOf(attached);
   const own =
     attachedMeta?.scope === BudgetScope.Execution

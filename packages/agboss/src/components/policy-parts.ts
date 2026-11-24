@@ -123,12 +123,12 @@ export async function policyPartsOf(sources: PolicySources): Promise<PolicyParts
 
 /**
  * A workflow's memories (#1303), for `workflowOf`: their assembly loads on first use (QUALITY.md — it
- * is not needed at import time) and gives the config's `compactions`, the settings a profile may change.
+ * is not needed at import time) and gives the config's `memories`, the settings a profile may change.
  */
 
-/** The config's `compactions` of the workflow's memories in use. */
+/** The config's `memories` of the workflow's memories in use. */
 export interface CompactionConfigPart {
-  readonly settings: NonNullable<AgentsConfigOf<string>["compactions"]>;
+  readonly settings: NonNullable<AgentsConfigOf<string>["memories"]>;
 }
 
 /** What one workflow's memories are assembled from. */

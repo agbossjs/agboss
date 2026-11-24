@@ -29,7 +29,7 @@ export function spendShard() {
       "src/models/calls/response-usage.ts",
       "src/models/cost.ts",
       "src/components/spend-recorder.ts",
-      "src/budgets/{budget,budget-period,budget-rules,budget-spend,execution-deadline}.ts",
+      "src/budgets/{budget,budget-overlay,budget-period,budget-rules,budget-spend,execution-deadline}.ts",
       "src/run/run-budgets.ts",
     ],
   };

@@ -133,8 +133,14 @@ export function faultApplicationOf(stores: FaultStoreSet, settings: FaultPodSett
     observers: [FaultObserver],
     budgets: [FaultApplicationBudget, FaultTenantBudget, FaultExecutionBudget],
     retention: { executionRecords: hours(24) },
-    ...(shutdownTimeout === undefined ? {} : { shutdownTimeout }),
-    ...(maxConcurrentSteps === undefined ? {} : { maxConcurrentSteps }),
+    ...(shutdownTimeout === undefined && maxConcurrentSteps === undefined
+      ? {}
+      : {
+          executionLimits: {
+            ...(shutdownTimeout === undefined ? {} : { shutdownTimeout }),
+            ...(maxConcurrentSteps === undefined ? {} : { maxConcurrentSteps }),
+          },
+        }),
     providers: [
       ...heldProvidersOf(stores.providers, sabotage),
       FaultPodClock,

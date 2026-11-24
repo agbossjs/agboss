@@ -1049,7 +1049,7 @@ leaves a `running` root that recovery continues with that decision, never a `pau
    flow or version — makes the roots running or paused inside it incompatible too, though the
    root's own `@Workflow({ version })` is the same.
 
-An instance that caps its steps (`@Application({ maxConcurrentSteps })`, #332) starts at most as
+An instance that caps its steps (`@Application({ executionLimits: { maxConcurrentSteps } })`, #332) starts at most as
 many recoveries per look as it has free step slots, and none while it is full
 ([An instance's cap on steps](#an-instances-cap-on-steps-332)).
 
@@ -1772,7 +1772,7 @@ while every step slot is busy.
 
 One instance has finite memory and CPU: a burst of `app.execute` calls across tenants, or trees that
 fan out into many parallel agents on the same pod, would otherwise all run in it at once.
-`@Application({ maxConcurrentSteps })` caps how many **agent, router and action steps** — each
+`@Application({ executionLimits: { maxConcurrentSteps } })` caps how many **agent, router and action steps** — each
 branch of a parallel launch is one — this instance runs at once, over every tree and every tenant:
 
 <!-- snippet-context
@@ -1790,7 +1790,7 @@ export class ExecutionBudget {}
   environment: EmptyEnvironment,
   workflows: [DeskWorkflow],
   budgets: [ApplicationDailyBudget, TenantDailyBudget, ExecutionBudget],
-  maxConcurrentSteps: 32, // this instance's agent, router and action steps at work at once
+  executionLimits: { maxConcurrentSteps: 32 }, // this instance's agent, router and action steps at work at once
 })
 export class DeskApplication {}
 ```

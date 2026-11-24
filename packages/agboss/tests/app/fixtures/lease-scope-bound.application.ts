@@ -138,7 +138,7 @@ export const HeldHistory = withHoldPoints(InMemoryExecutionHistoryRepository);
     RecordingLogger,
   ],
   budgets: TEST_BUDGETS,
-  compensationTimeout: seconds(60),
+  executionLimits: { compensationTimeout: seconds(60) },
   retention: { executionRecords: hours(24) },
 })
 export class LeaseScopeBoundApplication {}

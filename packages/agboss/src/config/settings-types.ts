@@ -131,7 +131,7 @@ export interface AgentsConfig {
     uncompactedTurns: number | TurnLimit.All;
   };
   /** The `@Compaction`s its agents and model routers use, by name. */
-  compactions?: Record<string, CompactionSettings> | undefined;
+  memories?: Record<string, CompactionSettings> | undefined;
   /** `@Judge` models by judge name. */
   judges?: Record<string, ModelSettings> | undefined;
   agents: Record<string, AgentSettings>;

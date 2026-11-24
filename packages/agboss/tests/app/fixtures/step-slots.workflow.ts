@@ -51,7 +51,7 @@ export class ItemsWorkflow {}
   environment: EmptyEnvironment,
   workflows: [ItemsWorkflow],
   budgets: TEST_BUDGETS,
-  maxConcurrentSteps: 4,
+  executionLimits: { maxConcurrentSteps: 4 },
 })
 export class StepCapApplication {}
 
@@ -62,7 +62,7 @@ export class StepCapApplication {}
   environment: EmptyEnvironment,
   workflows: [BatchWorkflow],
   budgets: TEST_BUDGETS,
-  maxConcurrentSteps: 1,
+  executionLimits: { maxConcurrentSteps: 1 },
 })
 export class SingleStepApplication {}
 
@@ -75,6 +75,6 @@ export class SingleStepApplication {}
   observers: [RecoveryLog],
   providers: [MortalExecutionLeaseRepository, StampedExecutionRecordRepository],
   budgets: TEST_BUDGETS,
-  maxConcurrentSteps: 1,
+  executionLimits: { maxConcurrentSteps: 1 },
 })
 export class StepCapRecoveryApplication {}

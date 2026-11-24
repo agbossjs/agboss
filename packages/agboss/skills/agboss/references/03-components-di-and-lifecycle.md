@@ -983,7 +983,7 @@ export class SeatWorkflow {}
 - **The automatic undo** (a failed join's finished branches; an execution that ends without a
   finish — an uncaught failure or limit, a cancel) runs each undo in its own frame: its
   `executionContext.signal` is a clean-up signal, aborted after
-  `@Application({ compensationTimeout })` (default `seconds(15)`), when the lease is lost or the
+  `@Application({ executionLimits: { compensationTimeout } })` (default `seconds(15)`), when the lease is lost or the
   instance stops; no budget refuses it; what its services cost (`SpendRecorder`) is spend under
   `action:<undo name>`. An undo that fails does not stop the others; then the execution fails with
   `CompensationFailedError` (`compensation.failed`: `failures`, `cause`).

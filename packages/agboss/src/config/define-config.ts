@@ -18,6 +18,15 @@ export const TYPESCRIPT_ONLY_KEYS = [
   "healthChecks",
 ] as const;
 
+/** The shelves whose entries may name a `@ModelProvider` by its class (`modelProvider`), which only TypeScript holds. */
+export const COMPONENT_MODEL_SHELVES = [
+  "judges",
+  "arbiters",
+  "guardrails",
+  "piiPolicies",
+  "channelInterpreters",
+] as const;
+
 /** The keys of one workflow's overlay only TypeScript holds. */
 export const TYPESCRIPT_ONLY_WORKFLOW_KEYS = ["modelProvider"] as const;
 
@@ -27,18 +36,47 @@ const isPlain = (value: unknown): value is Readonly<Record<string, unknown>> =>
 const without = (value: Readonly<Record<string, unknown>>, keys: readonly string[]) =>
   Object.fromEntries(Object.entries(value).filter(([key]) => !keys.includes(key)));
 
+/** A shelf of components without the provider classes of its entries: their names stay for the schema. */
+const withoutProviderClasses = (shelf: unknown): unknown =>
+  !isPlain(shelf)
+    ? shelf
+    : Object.fromEntries(
+        Object.entries(shelf).map(([name, entry]) => [
+          name,
+          isPlain(entry) && typeof entry.modelProvider === "function"
+            ? without(entry, ["modelProvider"])
+            : entry,
+        ]),
+      );
+
+/** One workflow's overlay without what only TypeScript holds: its provider class and its routers' provider classes. */
+const workflowConstantsOf = (workflow: unknown): unknown =>
+  !isPlain(workflow)
+    ? workflow
+    : {
+        ...without(workflow, TYPESCRIPT_ONLY_WORKFLOW_KEYS),
+        ...(workflow.routers === undefined
+          ? {}
+          : { routers: withoutProviderClasses(workflow.routers) }),
+      };
+
 /** The constant part of a spec: what the zod schema validates. */
 function constantsOf(spec: Readonly<Record<string, unknown>>): Record<string, unknown> {
-  const rest = without(spec, TYPESCRIPT_ONLY_KEYS);
+  const rest = {
+    ...without(spec, TYPESCRIPT_ONLY_KEYS),
+    ...Object.fromEntries(
+      COMPONENT_MODEL_SHELVES.filter((key) => spec[key] !== undefined).map((key) => [
+        key,
+        withoutProviderClasses(spec[key]),
+      ]),
+    ),
+  };
   const { workflows } = rest;
   if (!isPlain(workflows)) return rest;
   return {
     ...rest,
     workflows: Object.fromEntries(
-      Object.entries(workflows).map(([name, workflow]) => [
-        name,
-        isPlain(workflow) ? without(workflow, TYPESCRIPT_ONLY_WORKFLOW_KEYS) : workflow,
-      ]),
+      Object.entries(workflows).map(([name, workflow]) => [name, workflowConstantsOf(workflow)]),
     ),
   };
 }
@@ -70,6 +108,20 @@ function checkProviders(spec: Readonly<Record<string, unknown>>): void {
   }
 }
 
+/** A component's `modelProvider` is a `@ModelProvider` class or its name. */
+function checkComponentProviders(spec: Readonly<Record<string, unknown>>): void {
+  const shelves: [string, unknown][] = COMPONENT_MODEL_SHELVES.map((key) => [key, spec[key]]);
+  for (const [name, workflow] of Object.entries(isPlain(spec.workflows) ? spec.workflows : {}))
+    shelves.push([`workflows.${name}.routers`, isPlain(workflow) ? workflow.routers : undefined]);
+  for (const [where, shelf] of shelves) {
+    for (const [name, entry] of Object.entries(isPlain(shelf) ? shelf : {})) {
+      const provider = isPlain(entry) ? entry.modelProvider : undefined;
+      if (typeof provider === "function" && !isModelProviderClass(provider))
+        throw invalid(`defineConfig: ${where}.${name}.modelProvider is no @ModelProvider class`);
+    }
+  }
+}
+
 /** The lists of classes that stand in for the application's own. */
 function checkClassLists(spec: Readonly<Record<string, unknown>>): void {
   for (const key of ["channels", "healthChecks"]) {
@@ -82,6 +134,7 @@ function checkClassLists(spec: Readonly<Record<string, unknown>>): void {
 function checkTypeScriptParts(spec: Readonly<Record<string, unknown>>): void {
   checkEnv(spec.env);
   checkProviders(spec);
+  checkComponentProviders(spec);
   checkClassLists(spec);
 }
 

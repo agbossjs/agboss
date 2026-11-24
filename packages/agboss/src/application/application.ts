@@ -37,6 +37,30 @@ export interface ApplicationExecutionLimits {
    * at most 24 hours (`[limits.timeout-invalid]`, #1141).
    */
   readonly childClaimTimeout?: Milliseconds;
+  /**
+   * How long `app.close()` (and SIGTERM / SIGINT) takes at most (#265 S51): the running executions,
+   * interrupted `min(seconds(5), 20 %)` of it before its end (#367 S3: the grace for their step
+   * bodies), stay `running` for another instance. Default `seconds(25)` — under the 30 s lease.
+   * At most 24 hours (`[limits.timeout-invalid]`, #1141): a longer timer would fire at once.
+   */
+  readonly shutdownTimeout?: Milliseconds;
+  /**
+   * How many agent, router and action steps — a launch's branches too — this application instance
+   * runs at once (#332), over every tree and every tenant: a whole number from 1
+   * (`[limits.max-concurrent-steps-invalid]`). A step without a free slot waits in the instance's
+   * queue (a step closing a branch first, then the deepest) — never an error; a full instance is
+   * `Degraded` in `app.checkReadiness()` and its recovery sweep leaves orphaned executions to other
+   * instances. Unset → no cap.
+   */
+  readonly maxConcurrentSteps?: number;
+  /**
+   * How long each automatic undo action may run (#340): an `@Action({ compensateWith })` undone
+   * because no path could — its finished branches when a join fails — runs with a clean-up
+   * `executionContext.signal` that aborts after this (and on a lost lease or the app's stop), not
+   * the execution's; the wait for the launch's steps still running before the undo has the same
+   * bound. Default `seconds(15)`; at most 24 hours (`[limits.timeout-invalid]`, #1141).
+   */
+  readonly compensationTimeout?: Milliseconds;
 }
 
 /**
@@ -125,21 +149,6 @@ export interface ApplicationOptions<TEnvironment = unknown> {
    */
   readonly modelProvider?: Class;
   /**
-   * How long `app.close()` (and SIGTERM / SIGINT) takes at most (#265 S51): the running executions,
-   * interrupted `min(seconds(5), 20 %)` of it before its end (#367 S3: the grace for their step
-   * bodies), stay `running` for another instance. Default `seconds(25)` — under the 30 s lease. At most 24 hours (`[limits.timeout-invalid]`, #1141): a longer timer would fire at once.
-   */
-  readonly shutdownTimeout?: Milliseconds;
-  /**
-   * How many agent, router and action steps — a launch's branches too — this application instance
-   * runs at once (#332), over every tree and every tenant: a whole number from 1
-   * (`[limits.max-concurrent-steps-invalid]`). A step without a free slot waits in the instance's
-   * queue (a step closing a branch first, then the deepest) — never an error; a full instance is
-   * `Degraded` in `app.checkReadiness()` and its recovery sweep leaves orphaned executions to other
-   * instances. Unset → no cap.
-   */
-  readonly maxConcurrentSteps?: number;
-  /**
    * The application's identity and rules in the mesh (#398, #1320): its `@Mesh` class — `signingKey`
    * (envelopes, run reports and HTTP requests signed, EdDSA), `peers` whose signatures it verifies (any
    * of their `verifyKeys`), `inboundMode`, `maxHops`, `deduplicationTtl`. A request's budget, deadline,
@@ -152,15 +161,7 @@ export interface ApplicationOptions<TEnvironment = unknown> {
    * (`[application.endpoint-unlisted]`), and `agboss describe --json` lists them as exported contracts.
    */
   readonly endpoints?: readonly Class[];
-  /**
-   * How long each automatic undo action may run (#340): an `@Action({ compensateWith })` undone
-   * because no path could — its finished branches when a join fails — runs with a clean-up
-   * `executionContext.signal` that aborts after this (and on a lost lease or the app's stop), not
-   * the execution's; the wait for the launch's steps still running before the undo has the same
-   * bound. Default `seconds(15)`; at most 24 hours (`[limits.timeout-invalid]`, #1141).
-   */
-  readonly compensationTimeout?: Milliseconds;
-  /** The application's runtime limits, grouped (#1318c moves the others here). See `ApplicationExecutionLimits`. */
+  /** The application's runtime limits, grouped (#1318c, D9). See `ApplicationExecutionLimits`. */
   readonly executionLimits?: ApplicationExecutionLimits;
   /**
    * Where the processes of the children with `ChildPlacement.IsolatedWorker` start (#1286b, D9),

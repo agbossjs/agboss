@@ -43,6 +43,24 @@ export const DEFAULT_MODEL_ALIAS = "default";
  */
 export const OMITTED_MODEL = "(no model named)";
 
+/**
+ * What a profile changes of one model-backed component, by its use key (`judges.<name>`,
+ * `routers.<name>`, `arbiters.<name>`, `guardrails.<name>`, `pii.<name>`, `replyInterpreters.<name>`):
+ * its model name, and the `@ModelProvider` that serves it — a class (a `.config.ts`) or its `name`.
+ */
+export interface ComponentModelOverride {
+  readonly model?: string | undefined;
+  readonly modelProvider?: string | Class | undefined;
+}
+
+/** The overrides of one workflow's components, and the keys the assembly reached (a key left over is a typo). */
+export interface ComponentModelOverrides {
+  /** The `@ModelProvider` classes of the application, which an override can name by `name`. */
+  readonly providers: readonly Class[];
+  readonly byKey: ReadonlyMap<string, ComponentModelOverride>;
+  readonly reached: Set<string>;
+}
+
 /** The levels a component's provider comes from, nearest first: its workflow, its application. */
 export interface ModelCascade {
   readonly workflow?: Class | undefined;
@@ -60,6 +78,8 @@ export interface ModelCascade {
    * decorator's own options are never touched.
    */
   readonly providerOverlays?: Readonly<Record<string, ProviderOverlay>> | undefined;
+  /** What the selected profiles change of single components' models, by use key. */
+  readonly componentModels?: ComponentModelOverrides | undefined;
   readonly models?: {
     readonly workflow?: string | undefined;
     readonly application?: string | undefined;
@@ -89,9 +109,16 @@ export const providerOptionsOf = (cls: Class): KeptModelProviderOptions | undefi
 
 /** The `@ModelProvider` classes a workflow's cascade and its components name, each once. */
 export const referencedModelProvidersOf = (cascade: ModelCascade): readonly ModelProviderType[] => {
-  const named = [cascade.workflow, cascade.application, ...(cascade.components ?? [])].flatMap(
-    (cls) => (cls === undefined || !isModelProviderClass(cls) ? [] : [cls]),
+  const overridden = [...(cascade.componentModels?.byKey.values() ?? [])].map(
+    (override) => override.modelProvider,
   );
+  const named = [
+    cascade.workflow,
+    cascade.application,
+    ...(cascade.components ?? []),
+    ...(cascade.componentModels?.providers ?? []),
+    ...overridden,
+  ].flatMap((cls) => (cls === undefined || !isModelProviderClass(cls) ? [] : [cls]));
   return [...new Set(named)];
 };
 

@@ -17,7 +17,7 @@ describe("readiness: the order system's health check and the busy flag", () => {
     );
     expect(byName.get("order-desk-health-check")).toBe(HealthStatus.Healthy);
     expect(byName.has("step-slots")).toBe(false);
-    expect(report.isBusy).toBe(false); // maxConcurrentSteps: 16, none taken
+    expect(report.isBusy).toBe(false); // executionLimits.maxConcurrentSteps: 16, none taken
   });
 
   test("unhealthy when it does not, with the check's reason", async ({ app, mockOf }) => {

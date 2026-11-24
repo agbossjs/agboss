@@ -88,7 +88,7 @@ import { FlowPatternsDatabaseStorage } from "./storages/flow-patterns.database-s
   ],
   observers: [DeskMetricsObserver],
   healthChecks: [OrderDeskHealthCheck],
-  maxConcurrentSteps: 16, // agent, router and action steps of one instance at once (#332)
+  executionLimits: { maxConcurrentSteps: 16 }, // agent, router and action steps of one instance at once (#332)
   storage: FlowPatternsDatabaseStorage,
   services: [DeskMetricsService], // the observer's
   providers: [

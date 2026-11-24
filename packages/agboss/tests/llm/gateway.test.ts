@@ -105,7 +105,7 @@ describe("AC12: model clients are asked for through the gateway", () => {
     const { gateway, chatModel, model } = recordingGateway();
     const config = {
       ...testConfig,
-      compactions: {
+      memories: {
         "conversation-compaction": {
           strategy: CompactionStrategy.SummaryQueue,
           model: { model: "test/compact", price: { inputPerMTok: 1, outputPerMTok: 1 } },

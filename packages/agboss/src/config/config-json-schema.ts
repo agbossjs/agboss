@@ -5,6 +5,8 @@ import {
   ScalarOverlaySchema,
   WorkflowOverlaySchema,
 } from "./overlay-schema.js";
+import { budgetOf } from "../budgets/budget.js";
+import { budgetsOfApplication } from "../budgets/budget-rules.js";
 import { modelProviderOf } from "../models/model-provider.decorator.js";
 
 type Schema = Record<string, unknown>;
@@ -18,9 +20,14 @@ const objectOf = (properties: Readonly<Record<string, unknown>>): Schema => ({
   additionalProperties: false,
 });
 
+const budgetSchema: Schema = objectOf({
+  maxSpend: { type: "number", exclusiveMinimum: 0 },
+  maxTokens: { type: "integer", exclusiveMinimum: 0 },
+});
+
 const propertiesOf = (schema: Schema): Schema => (schema.properties ?? {}) as Schema;
 
-/** One workflow's overlay with its agents and compactions named: a typo in a name is a squiggle. */
+/** One workflow's overlay with its agents and memories named: a typo in a name is a squiggle. */
 function workflowSchema(config: AssembledApplication["workflows"][number]["config"]): Schema {
   const base = json(WorkflowOverlaySchema);
   const props = propertiesOf(base);
@@ -53,12 +60,24 @@ export function configJsonSchemaOf(assembled: AssembledApplication): Schema {
     (cls) => modelProviderOf(cls).name,
   );
   const providerSchema = json(ModelProviderOverlaySchema);
+  const budgets = budgetsOfApplication({
+    budgets: assembled.budgets,
+    workflows: assembled.workflows.map((one) => one.graph.type),
+  }).flatMap((cls) => budgetOf(cls) ?? []);
   return {
     ...base,
     properties: {
       ...props,
       workflows: objectOf({ "*": everyWorkflow, ...workflows }),
       modelProviders: objectOf(Object.fromEntries(providers.map((name) => [name, providerSchema]))),
+      // a YAML file holds numbers; a budget that reads its limits in limit() has no entry
+      budgets: objectOf(
+        Object.fromEntries(
+          budgets
+            .filter((meta) => meta.maxSpend !== undefined || meta.maxTokens !== undefined)
+            .map((meta) => [meta.name, budgetSchema]),
+        ),
+      ),
     },
   };
 }

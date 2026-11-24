@@ -79,7 +79,7 @@ export class WakeTestQueueRepository extends InMemoryChildExecutionQueueReposito
   environment: EmptyEnvironment,
   workflows: [ClaimRoomBatchWorkflow, ClaimRoomItemWorkflow],
   budgets: TEST_BUDGETS,
-  maxConcurrentSteps: 3,
+  executionLimits: { maxConcurrentSteps: 3 },
   providers: [WakeTestQueueRepository, RecordingLogger],
 })
 export class QueueWakeApplication {}

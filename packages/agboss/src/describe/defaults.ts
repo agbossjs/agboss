@@ -123,7 +123,7 @@ export function memoryLines(bundle: AssembledWorkflow): string[] {
   return [
     "memory",
     ...plan.compactions.map((compaction) =>
-      compactionLine(compaction, bundle.config.compactions?.[compaction.name]?.model?.model),
+      compactionLine(compaction, bundle.config.memories?.[compaction.name]?.model?.model),
     ),
   ];
 }

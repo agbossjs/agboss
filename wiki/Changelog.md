@@ -3063,7 +3063,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
   `StepRecord.compensates`, a clean-up signal), no slot, no budget check
   (`CompensationReason.JoinFailed`). An undo that fails → the others still run, then
   `CompensationFailedError` (`compensation.failed`, `failures`, `cause`), taken by no side path.
-- **Added — `@Application({ compensationTimeout })`** ([App](App)), default `seconds(15)`.
+- **Added — `@Application({ executionLimits: { compensationTimeout } })`** ([App](App)), default `seconds(15)`.
 - **Added — observer hooks** `onCompensationStart` / `onCompensationEnd`
   ([Observability](Observability#automatic-undo)); **matcher** `toHaveCompensated(Action, { by,
   reason?, status? })` ([Testing](Testing#asserting-an-undo)); `agboss describe` marks a launched
@@ -3116,7 +3116,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
 
 ## Unreleased — an instance's cap on steps, its queue and readiness (#332)
 
-- **Added — `@Application({ maxConcurrentSteps })`** ([Several instances → An instance's cap on steps](Several-instances#an-instances-cap-on-steps-332)):
+- **Added — `@Application({ executionLimits: { maxConcurrentSteps } })`** ([Several instances → An instance's cap on steps](Several-instances#an-instances-cap-on-steps-332)):
   how many agent, router and action steps (launch branches too) one application instance runs at
   once, over every tree and tenant — a whole number from 1 (`[limits.max-concurrent-steps-invalid]`);
   unset → no cap (no change). A step without a free slot waits in the instance's queue in the
@@ -4365,7 +4365,7 @@ tenantId, threadId)`, `threadOwner(workflow, tenantId, threadId)`; every record 
 - **Breaking — `WorkflowResumeEvent`** has a `reason: ResumeReason` (new public enum:
   `Answered` — `app.resume`; `Recovered` — recovery, `decision` only when it took one).
 - **The graceful stop**: `app.close(options?)` stops the sweep, runs `onStop`, waits for the running
-  executions up to the shutdown timeout — `@Application({ shutdownTimeout })`,
+  executions up to the shutdown timeout — `@Application({ executionLimits: { shutdownTimeout } })`,
   `app.close({ timeout })` (`CloseOptions`), default `seconds(25)` — then interrupts them: the call
   rejects with `ApplicationStoppingError`, no `onError`, the lease released at once, the record
   left `running` for recovery ([App → app.close()](App#appcloseoptions)).

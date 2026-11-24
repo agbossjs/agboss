@@ -81,7 +81,8 @@ export async function holdsParentPay(records: readonly UsageRecord[]): Promise<v
 
 /** Notes a checkpoint write that holds the parent's `parent-pay` before the ledger has it. */
 const watched = (kind: string, written: unknown): void => {
-  if (!inFlight.isParentPayWritten && JSON.stringify(written).includes("action:parent-pay-action"))
+  if (!inFlight.isParentPayWritten && JSON.stringify(written)
+    .includes("action:parent-pay-action"))
     inFlight.durableBeforeLedger.push(kind);
 };
 
@@ -309,7 +310,7 @@ export class SpendInFlightApplication {}
   environment: EmptyEnvironment,
   workflows: [AnyPayItemsWorkflow, ParentPayWorkflow],
   budgets: TEST_BUDGETS,
-  maxConcurrentSteps: 1,
+  executionLimits: { maxConcurrentSteps: 1 },
   providers: [HeldParentLedger],
 })
 export class SpendInFlightInstancesApplication {}

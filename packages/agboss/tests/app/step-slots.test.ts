@@ -128,7 +128,7 @@ describe("AC1: the cap is a whole number of steps from 1", () => {
       environment: EmptyEnvironment,
       workflows: [ItemsWorkflow],
       budgets: TEST_BUDGETS,
-      maxConcurrentSteps,
+      executionLimits: { maxConcurrentSteps },
     })
     class InvalidCapApplication {}
     return applicationOf(InvalidCapApplication);
@@ -136,7 +136,7 @@ describe("AC1: the cap is a whole number of steps from 1", () => {
 
   test.each([0, -1, 2.5])("maxConcurrentSteps %s fails assembly", async (value) => {
     await expect(capped(value)).rejects.toThrow(
-      `[limits.max-concurrent-steps-invalid] its maxConcurrentSteps is ${String(value)}, not a whole number of steps from 1`,
+      `[limits.max-concurrent-steps-invalid] its executionLimits.maxConcurrentSteps is ${String(value)}, not a whole number of steps from 1`,
     );
   });
 });

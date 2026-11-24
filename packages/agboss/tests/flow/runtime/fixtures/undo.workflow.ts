@@ -319,7 +319,8 @@ export class UndoUnhandledWorkflow {}
         UndoDeskError,
         toAction(ReleaseRoomAction)
           .toAction(ReleaseSeatAction)
-          .onError(UndoDeskError, toAction(NotifyDeskAction).toFinish(NotReservedWorkflowFinish))
+          .onError(UndoDeskError, toAction(NotifyDeskAction)
+            .toFinish(NotReservedWorkflowFinish))
           .toFinish(NotReservedWorkflowFinish),
       )
       .toAction(ConfirmSeatAction)
@@ -360,6 +361,6 @@ export class UndoApplication {}
   environment: EmptyEnvironment,
   workflows: [UndoWorkflow],
   budgets: TEST_BUDGETS,
-  compensationTimeout: seconds(2),
+  executionLimits: { compensationTimeout: seconds(2) },
 })
 export class UndoQuickApplication {}

@@ -154,7 +154,7 @@ the run step by step.
 | Setting | Value | Why |
 | --- | --- | --- |
 | The execution lease | 30 s, renewed every 7.5 s — fixed, not a setting | two renewals may fail before it expires |
-| `@Application({ shutdownTimeout })` | 25 s (the default) to 30 s; below the platform's grace less the preStop | R3 |
+| `@Application({ executionLimits: { shutdownTimeout } })` | 25 s (the default) to 30 s; below the platform's grace less the preStop | R3 |
 | `terminationGracePeriodSeconds` | preStop + `shutdownTimeout` + 10 s (45 s for 5 + 30) | R3 |
 | Readiness | every 5 s, 2 failures | a stopping pod leaves the endpoints within 10 s |
 | Liveness | every 10 s, timeout 2 s, ≥ 7 failures (≥ 70 s) | R4: longer than a takeover |

@@ -98,9 +98,11 @@ export class HungConnection {
   environment: EmptyEnvironment,
   workflows: [ClaimRoomBatchWorkflow, ClaimRoomItemWorkflow],
   budgets: TEST_BUDGETS,
-  maxConcurrentSteps: 3,
-  // below the store calls' bound (#928, 15 s): the stop gives up on a hung call first
-  shutdownTimeout: seconds(5),
+  executionLimits: {
+    maxConcurrentSteps: 3,
+    // below the store calls' bound (#928, 15 s): the stop gives up on a hung call first
+    shutdownTimeout: seconds(5),
+  },
   providers: [
     HungConnection,
     HungLeaseRepository,
@@ -118,7 +120,7 @@ export class HungStoreApplication {}
   environment: EmptyEnvironment,
   workflows: [Checkout],
   budgets: TEST_BUDGETS,
-  shutdownTimeout: seconds(5),
+  executionLimits: { shutdownTimeout: seconds(5) },
   providers: [HungConnection, HungLeaseRepository, RecordingLogger],
 })
 export class HungCheckoutApplication {}

@@ -33,10 +33,10 @@ export function withoutOperational(config: AgentsConfigOf<string>): object {
 /** The models of the judges and of the compactions that write summaries, by name. */
 export const componentModels = (config: AgentsConfigOf<string>): object => ({
   ...(config.judges === undefined ? {} : { judges: config.judges }),
-  ...(config.compactions === undefined
+  ...(config.memories === undefined
     ? {}
     : {
-        compactions: Object.entries(config.compactions).map(([name, one]) => ({
+        memories: Object.entries(config.memories).map(([name, one]) => ({
           name,
           model: one.model,
         })),

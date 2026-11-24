@@ -9,8 +9,8 @@ import type { ApplicationOptions } from "./application.js";
  */
 function timerSettingViolations(options: ApplicationOptions): RuleViolation[] {
   const fields = [
-    ["shutdownTimeout", options.shutdownTimeout],
-    ["compensationTimeout", options.compensationTimeout],
+    ["executionLimits.shutdownTimeout", options.executionLimits?.shutdownTimeout],
+    ["executionLimits.compensationTimeout", options.executionLimits?.compensationTimeout],
     ["executionLimits.childClaimTimeout", options.executionLimits?.childClaimTimeout],
   ] as const;
   return fields.flatMap(([field, value]) => {
@@ -23,11 +23,11 @@ function timerSettingViolations(options: ApplicationOptions): RuleViolation[] {
 
 /** `maxConcurrentSteps` is a whole number of steps from 1 (#332): 0 would stop the instance. */
 function stepCapViolations(options: ApplicationOptions): RuleViolation[] {
-  const value = options.maxConcurrentSteps;
+  const value = options.executionLimits?.maxConcurrentSteps;
   if (value === undefined || (Number.isInteger(value) && value >= 1)) return [];
   const message =
-    `its maxConcurrentSteps is ${String(value)}, not a whole number of steps from 1 — ` +
-    "@Application({ maxConcurrentSteps: 32 }) lets 32 steps of this instance work at once";
+    `its executionLimits.maxConcurrentSteps is ${String(value)}, not a whole number of steps from 1 — ` +
+    "@Application({ executionLimits: { maxConcurrentSteps: 32 } }) lets 32 steps of this instance work at once";
   return [violation("limits.max-concurrent-steps-invalid", message, [options.name])];
 }
 

@@ -114,12 +114,16 @@ describe("#1373: an application's caps and timers that are no numbers fail assem
     );
 
   it.each(NOT_COUNTS)("%s as maxConcurrentSteps", (_kind, value) => {
-    expect(codesOf({ maxConcurrentSteps: value })).toEqual(["limits.max-concurrent-steps-invalid"]);
+    expect(codesOf({ executionLimits: { maxConcurrentSteps: value } })).toEqual([
+      "limits.max-concurrent-steps-invalid",
+    ]);
   });
 
   it("0 is refused, a whole number from 1 is not", () => {
-    expect(codesOf({ maxConcurrentSteps: 0 })).toEqual(["limits.max-concurrent-steps-invalid"]);
-    expect(codesOf({ maxConcurrentSteps: 32 })).toEqual([]);
+    expect(codesOf({ executionLimits: { maxConcurrentSteps: 0 } })).toEqual([
+      "limits.max-concurrent-steps-invalid",
+    ]);
+    expect(codesOf({ executionLimits: { maxConcurrentSteps: 32 } })).toEqual([]);
   });
 
   it.each([
@@ -129,8 +133,7 @@ describe("#1373: an application's caps and timers that are no numbers fail assem
   ])("%s as shutdownTimeout and compensationTimeout: named by its kind", (_kind, value, shown) => {
     const found = limitViolations({
       name: "limited-application",
-      shutdownTimeout: value,
-      compensationTimeout: value,
+      executionLimits: { shutdownTimeout: value, compensationTimeout: value },
     } as never);
 
     expect(found.map((one) => one.code)).toEqual([
@@ -138,8 +141,8 @@ describe("#1373: an application's caps and timers that are no numbers fail assem
       "limits.timeout-invalid",
     ]);
     expect(found.map((one) => one.message)).toEqual([
-      `its shutdownTimeout is ${shown}, not a duration`,
-      `its compensationTimeout is ${shown}, not a duration`,
+      `its executionLimits.shutdownTimeout is ${shown}, not a duration`,
+      `its executionLimits.compensationTimeout is ${shown}, not a duration`,
     ]);
   });
 });

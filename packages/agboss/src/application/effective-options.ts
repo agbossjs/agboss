@@ -9,10 +9,19 @@ import {
   type WorkflowPatch,
 } from "../config/workflow-overlay.js";
 import { workflowDeclarationOf } from "../components/module.js";
+import { withChildWorkflows } from "../flow/analyse/child-workflow.js";
+import { budgetOf } from "../budgets/budget.js";
+import { budgetsOfApplication } from "../budgets/budget-rules.js";
+import type { BudgetOverlay, BudgetOverlays } from "../budgets/budget-overlay.js";
+import { usd } from "../units/index.js";
 import type { Class } from "../components/injection.js";
 import type { EnvOverrides } from "../environments/define-env.js";
 import type { EnvContract } from "../environments/env-ref.js";
-import { isDriverOptions, modelProviderOf } from "../models/model-provider.decorator.js";
+import {
+  isDriverOptions,
+  isModelProviderClass,
+  modelProviderOf,
+} from "../models/model-provider.decorator.js";
 import type { ModelProviderType } from "../models/model-provider.decorator.js";
 import type { AssembledWorkflow } from "../workflow.js";
 import type { ApplicationAssembly } from "./assembly-options.js";
@@ -43,6 +52,44 @@ async function effectiveOptionsOf(
   // the replaced lists go through the same step as the declared ones: a replaced `storage` replaces
   // its stores in `providers`, a replaced `channels` its channels
   return declaredOptionsOf({ ...written, ...folded.replacements });
+}
+
+/** A YAML limit is a number: the branded dollars a budget takes. */
+const limitOf = (overlay: BudgetOverlay): BudgetOverlay => ({
+  ...overlay,
+  ...(typeof overlay.maxSpend === "number" ? { maxSpend: usd(overlay.maxSpend) } : {}),
+});
+
+/**
+ * The budget limits the profiles give, by budget name: every name is a budget of the application (listed or
+ * attached), and a budget that reads its limits in `limit()` takes none — a profile cannot make it declare
+ * them. `undefined` when no profile names a budget.
+ */
+function budgetOverlaysOf(
+  folded: FoldedConfig,
+  options: ApplicationOptions,
+): BudgetOverlays | undefined {
+  const named = Object.entries(folded.budgets);
+  if (named.length === 0) return undefined;
+  const metas = budgetsOfApplication({
+    budgets: options.budgets,
+    workflows: withChildWorkflows(options.workflows),
+  }).flatMap((cls) => budgetOf(cls) ?? []);
+  const profiles = folded.profiles.join(",");
+  for (const [name] of named) {
+    const meta = metas.find((one) => one.name === name);
+    if (meta === undefined)
+      throw new ProfileError({
+        reason: ProfileErrorReason.Unknown,
+        message: `profile ${profiles}: budgets.${name}: no such budget in the application — it has: ${metas.map((one) => one.name).join(", ") || "none"}`,
+      });
+    if (meta.maxSpend === undefined && meta.maxTokens === undefined)
+      throw new ProfileError({
+        reason: ProfileErrorReason.Invalid,
+        message: `profile ${profiles}: budgets.${name}: ${name} reads its limits in limit(), a profile cannot set them — declare maxSpend / maxTokens in its @Budget`,
+      });
+  }
+  return new Map(named.map(([name, overlay]) => [name, limitOf(overlay)]));
 }
 
 /** The providers the application's workflows can reach, by their `name`. */
@@ -83,6 +130,8 @@ export interface AppliedProfiles {
   /** The file `@Application` is declared in. */
   readonly source: string | undefined;
   readonly options: ApplicationOptions;
+  /** The limits the profiles give the application's budgets, by budget name; absent when none. */
+  readonly budgetOverlays?: BudgetOverlays | undefined;
   /** What a workflow's profile overlays change while it is assembled. */
   readonly patchOf: (workflow: Class) => WorkflowPatch;
   /** What the overlays reached: what is left over after assembly is a typo. */
@@ -99,12 +148,21 @@ export async function appliedProfilesOf(
     defaultProfile: assembly.defaultProfile ?? APP_DEFAULT_PROFILE,
   });
   const use = new OverlayUse();
+  const options = await effectiveOptionsOf(declaration, folded);
   return {
     folded,
     source: declaration.source,
-    options: await effectiveOptionsOf(declaration, folded),
+    options,
+    budgetOverlays: budgetOverlaysOf(folded, options),
     patchOf: (workflow) =>
-      workflowPatchOf(folded, workflowDeclarationOf(workflow).options.name, use),
+      workflowPatchOf(
+        folded,
+        workflowDeclarationOf(workflow).options.name,
+        use,
+        [options.modelProvider, ...(options.providers ?? [])].filter(
+          (cls): cls is Class => typeof cls === "function" && isModelProviderClass(cls),
+        ),
+      ),
     use,
   };
 }

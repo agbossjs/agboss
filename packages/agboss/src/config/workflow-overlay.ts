@@ -1,8 +1,10 @@
 import type { Class } from "../components/injection.js";
+import type { ComponentModelOverrides } from "../models/model-cascade.js";
 import { deepMerge } from "./deep-merge.js";
 import type { FoldedConfig, FoldedWorkflow } from "./fold-config.js";
 import type { ModelProviderOverlay, WorkflowOverlay } from "./overlay-types.js";
 import { ProfileError, ProfileErrorReason } from "./profile-error.js";
+import { checkComponentModels, modelsOf, type WorkflowModels } from "./component-models.js";
 import { AgentsConfigSchema, type AgentsConfigOf } from "./types.js";
 
 /** The workflow key whose overlay applies to every workflow of the application, before its own. */
@@ -11,6 +13,8 @@ export const EVERY_WORKFLOW = "*";
 /** What a selection's overlays reached while the workflows were assembled: what is left over is a typo. */
 export class OverlayUse {
   readonly workflows = new Set<string>();
+  /** The component overrides each workflow was assembled with, by workflow name. */
+  readonly models = new Map<string, WorkflowModels>();
   /** `<profile>:<name>` of each agent, compaction and prompt a `"*"` overlay changed somewhere. */
   readonly everyReached = new Set<string>();
 }
@@ -18,6 +22,8 @@ export class OverlayUse {
 /** What the folded profiles change of one workflow, ready to apply while it is assembled. */
 export interface WorkflowPatch {
   readonly modelProvider: Class | undefined;
+  /** The models profiles change of single components: the shelves, and this workflow's routers. */
+  readonly componentModels: ComponentModelOverrides;
   /** The providers' overlays: the model names the cascade resolves through. */
   readonly providers: Readonly<Record<string, ModelProviderOverlay>>;
   /** The config with the constants of the profiles applied, validated as a whole. */
@@ -67,15 +73,11 @@ function constantsOf(
   at: { readonly where: Where; readonly use: OverlayUse },
 ): Record<string, unknown> {
   const agents = known(overlay.agents, config.agents, { ...at, kind: "agents" });
-  const compactions = known(overlay.compactions, config.compactions, {
-    ...at,
-    kind: "compactions",
-  });
+  const memories = known(overlay.memories, config.memories, { ...at, kind: "memories" });
   return {
     ...(overlay.version === undefined ? {} : { version: overlay.version }),
-    ...(overlay.defaults === undefined ? {} : { defaults: overlay.defaults }),
     ...(agents === undefined ? {} : { agents }),
-    ...(compactions === undefined ? {} : { compactions }),
+    ...(memories === undefined ? {} : { memories }),
   };
 }
 
@@ -144,13 +146,22 @@ export function workflowPatchOf(
   folded: FoldedConfig,
   workflow: string,
   use: OverlayUse,
+  reachableProviders: readonly Class[] = [],
 ): WorkflowPatch {
   use.workflows.add(workflow);
+  const componentModels = modelsOf(
+    folded,
+    workflow,
+    use,
+    overlaysOf(folded, workflow),
+    reachableProviders,
+  );
   const providers = folded.layers
     .flatMap((layer) => [layer.workflows[EVERY_WORKFLOW], layer.workflows[workflow]])
     .flatMap((one) => (one?.modelProvider === undefined ? [] : [one.modelProvider]));
   return {
     modelProvider: providers.at(-1),
+    componentModels,
     providers: folded.modelProviders,
     config: (config) => configOf(config, folded, use),
     prompts: (prompts) => promptsOf(prompts, folded, workflow, use),
@@ -160,6 +171,7 @@ export function workflowPatchOf(
 /** What the profiles name that no workflow has, or that no workflow `"*"` reached: a typo, found after assembly. */
 export function checkOverlayUse(folded: FoldedConfig, use: OverlayUse): void {
   const profiles = folded.profiles.join(",");
+  checkComponentModels(folded, use);
   for (const layer of folded.layers) {
     const absent = keysOf(layer.workflows).filter(
       (name) => name !== EVERY_WORKFLOW && !use.workflows.has(name),
@@ -170,11 +182,18 @@ export function checkOverlayUse(folded: FoldedConfig, use: OverlayUse): void {
         `profile ${layer.name}: workflows: no such workflow in the application: ${absent.join(", ")} — it has: ${[...use.workflows].join(", ")}`,
       );
     const every = layer.workflows[EVERY_WORKFLOW];
+    const isRouterReached = (name: string): boolean =>
+      [...use.models.values()].some((one) => one.overrides.reached.has(`routers.${name}`));
     const lost = [
-      ...keysOf(every?.overlay.agents).map((name) => `agents:${name}`),
-      ...keysOf(every?.overlay.compactions).map((name) => `compactions:${name}`),
-      ...keysOf(every?.prompts).map((name) => `prompts:${name}`),
-    ].filter((key) => !use.everyReached.has(`${layer.name}:${key}`));
+      ...[
+        ...keysOf(every?.overlay.agents).map((name) => `agents:${name}`),
+        ...keysOf(every?.overlay.memories).map((name) => `memories:${name}`),
+        ...keysOf(every?.prompts).map((name) => `prompts:${name}`),
+      ].filter((key) => !use.everyReached.has(`${layer.name}:${key}`)),
+      ...keysOf(every?.routers)
+        .filter((name) => !isRouterReached(name))
+        .map((name) => `routers:${name}`),
+    ];
     if (lost.length > 0)
       throw fail(
         ProfileErrorReason.Unknown,

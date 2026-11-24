@@ -2273,7 +2273,7 @@ after** its action.
   or limit (`ExecutionFailed`), a cancel or a `FailFast` abort (`ExecutionCancelled`) — undoes its
   open actions, newest first, before it ends. Each automatic undo runs in its own frame (its key is
   the undone step's key + `:compensation`), on a clean-up signal bounded by
-  `@Application({ compensationTimeout })` (default `seconds(15)`), with no budget check; it survives
+  `@Application({ executionLimits: { compensationTimeout } })` (default `seconds(15)`), with no budget check; it survives
   a crash (the next holder of the tree finishes it).
 - An undo that fails does not stop the others; then the execution fails with
   `CompensationFailedError` (`failures`, `cause` the original error) — no side path takes it.

@@ -50,7 +50,7 @@ export function configDiff(
     const before = a.get(key);
     const after = b.get(key);
     if (before === after) return [];
-    if (key.startsWith("prompts.") || (key.startsWith("compactions.") && key.endsWith(".prompt")))
+    if (key.startsWith("prompts.") || (key.startsWith("memories.") && key.endsWith(".prompt")))
       return [`${key}: changed`];
     return [`${key.replace(/^config\./, "")}: ${before ?? "—"} → ${after ?? "—"}`];
   });

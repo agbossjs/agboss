@@ -30,7 +30,7 @@ import { effectiveMemories, type MemoryReaderElement } from "./levels.js";
 /**
  * A workflow's memories as assembled (#1303): each reader's memory and window, and every memory in
  * use with its prompt read (its own, else its strategy's built-in one). The settings a profile may
- * change go to the config (`compactions`, by memory name); any rule broken fails the assembly, all at once.
+ * change go to the config (`memories`, by memory name); any rule broken fails the assembly, all at once.
  */
 
 /** One memory in use: what it summarises with. */
@@ -153,7 +153,7 @@ function settingsOf(cls: Class, meta: MemoryMeta): CompactionSettings | undefine
   };
 }
 
-/** The config's `compactions`: each memory that compacts, by name. */
+/** The config's `memories`: each memory that compacts, by name. */
 export const compactionSettingsOf = (
   assembled: AssembledMemories,
 ): Record<string, CompactionSettings> =>

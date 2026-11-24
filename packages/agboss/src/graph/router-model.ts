@@ -116,7 +116,7 @@ export function chatModelSettingsOf(
 ): (model: string) => ModelSettings {
   const known: readonly ModelSettings[] = [
     ...Object.values(config.agents),
-    ...Object.values(config.compactions ?? {}).flatMap((compaction) =>
+    ...Object.values(config.memories ?? {}).flatMap((compaction) =>
       compaction.model === undefined ? [] : [compaction.model],
     ),
   ];

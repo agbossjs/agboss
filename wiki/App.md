@@ -294,7 +294,7 @@ worst case of each start with how each number is made up — the [check report](
 A run that fails (a limit, a router, an agent) and that no `.onError` takes throws an `AGBossError`
 with a stable `code`; the Turn and the spend are recorded first.
 
-**`@Application({ compensationTimeout })`** (#340, default `seconds(15)`): how long each automatic
+**`@Application({ executionLimits: { compensationTimeout } })`** (#340, default `seconds(15)`): how long each automatic
 undo action may run — its clean-up `executionContext.signal` aborts after it (and when the instance
 loses the tree's lease or stops), not with the execution's; a failed join also waits this long for
 its launch's branches still running before it undoes ([Rollback](Rollback#a-failed-join-undoes-its-finished-branches)).
@@ -394,7 +394,7 @@ an execution starts, so observers get `onExecutionRejected` (`operation: Executi
    shutdown timeout and logged `app.stop-store-call-pending` (#923) — it never holds the stop;
 2. `onStop` of the components;
 3. it waits for the running executions of every workflow to finish or pause — the whole stop
-   ends within the **shutdown timeout**: `@Application({ shutdownTimeout })`, overridden by
+   ends within the **shutdown timeout**: `@Application({ executionLimits: { shutdownTimeout } })`, overridden by
    `app.close({ timeout })`, default `seconds(25)` (under the usual 30 s grace period of a
    platform and the 30 s lease). A **grace** before its end — `min(seconds(5), 20 %)` of it
    (#367 S3: `seconds(25)` → 5 s, `seconds(10)` → 2 s; not a setting) — what still runs is

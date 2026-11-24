@@ -53,6 +53,7 @@ import type { Clock } from "../infrastructure/clock.js";
 import type { BranchScheduler } from "../flow/runtime/launch/branch-schedule.js";
 import type { ApplicationBudgets } from "../budgets/execution-budgets.js";
 import type { BudgetHandler } from "../budgets/budget.js";
+import type { OverlaidBudgets } from "../budgets/budget-overlay.js";
 import type { Class } from "../components/injection.js";
 import { lifecycleOf } from "./workflow-lifecycle.js";
 import {
@@ -193,7 +194,7 @@ export interface WorkflowDepsParts {
 }
 
 /** The budgets an application lists, and its name (the key of its application budgets). */
-export interface BudgetListing {
+export interface BudgetListing extends OverlaidBudgets {
   /** Every budget: the ones listed and the ones workflows attach (#1318). */
   readonly budgets: readonly Class[];
   /** The ones some workflow attaches: never another workflow's default. */

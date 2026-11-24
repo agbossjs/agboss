@@ -1896,8 +1896,7 @@ import { LoanWorkflow } from "./workflows/loan/loan.workflow.js";
   piiKeyField: "piiPseudonymKey",
   guardrails: [OutOfScopeGuardrail],
   healthChecks: [FundsLedgerHealthCheck],
-  maxConcurrentSteps: 32,
-  shutdownTimeout: seconds(25),
+  executionLimits: { maxConcurrentSteps: 32, shutdownTimeout: seconds(25) },
 })
 export class LoansApplication {}
 ```

@@ -296,7 +296,9 @@ export class ReceiptWorkflowFinish {}
     tools: { maxToolCalls: 8 },
   },
   memory: Window1Memory,
-  flow: [onStart(OrderWorkflowStart).toAgent(Clerk).toFinish(ReceiptWorkflowFinish)],
+  flow: [onStart(OrderWorkflowStart)
+    .toAgent(Clerk)
+    .toFinish(ReceiptWorkflowFinish)],
 })
 export class RecoveryWorkflow {}
 
@@ -339,6 +341,6 @@ export class KeptRecoveryApplication {}
   observers: [RecoveryLog],
   providers,
   budgets: TEST_BUDGETS,
-  shutdownTimeout: seconds(5),
+  executionLimits: { shutdownTimeout: seconds(5) },
 })
 export class QuickStopApplication {}

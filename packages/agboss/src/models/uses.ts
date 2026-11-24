@@ -16,7 +16,7 @@ import { interpreterUsesOf, type ModelNamingInterpreter } from "./interpreter-us
  */
 export const MODEL_USE_KINDS = [
   "agents",
-  "compactions",
+  "memories",
   "judges",
   "defaults",
   "routers",
@@ -37,7 +37,7 @@ export type ModelUseKey = `${ModelUseKind}.${string}` | `${string} ${ModelUseKin
 export interface ModelUse {
   /** The agents whose files it reads besides its agent's own model (a guardrail's or a judge's model, #899): their types are narrowed to it. */
   readonly forAgents?: readonly string[];
-  /** Where it is set: `agents.scout`, `routers.main`, `defaults.router`, `compactions.conversation-compaction`, `guardrails.legal-advice-guardrail`. */
+  /** Where it is set: `agents.scout`, `routers.main`, `defaults.router`, `memories.conversation-memory`, `guardrails.legal-advice-guardrail`. */
   readonly key: ModelUseKey;
   readonly model: string;
   readonly purpose: ModelKind;
@@ -222,8 +222,8 @@ export function modelUsesOf(
     })),
     ...fileModelUsesOf(config, components.builtInFileModels !== false, chat),
     ...redactorUsesOf(config, components.builtInFileRedactor !== false, chat),
-    ...Object.entries(config.compactions ?? {}).flatMap(([name, compaction]) =>
-      compaction.model === undefined ? [] : [chat(`compactions.${name}`, compaction.model)],
+    ...Object.entries(config.memories ?? {}).flatMap(([name, compaction]) =>
+      compaction.model === undefined ? [] : [chat(`memories.${name}`, compaction.model)],
     ),
     ...judgeUsesOf(config, chat, kinds),
     ...(config.defaults.router === undefined

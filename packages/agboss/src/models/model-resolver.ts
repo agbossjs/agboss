@@ -6,8 +6,10 @@ import {
   overlaidProvider,
   providerOptionsOf,
   referencedModelProvidersOf,
+  type ComponentModelOverride,
   type ModelCascade,
 } from "./model-cascade.js";
+import { ProfileError, ProfileErrorReason } from "../config/profile-error.js";
 import { modelProviderOf, type KeptModelProviderOptions } from "./model-provider.decorator.js";
 
 /**
@@ -90,6 +92,43 @@ function modelOf(
 
 /** One use through the cascade. */
 function resolvedUse<T extends ModelUseLike>(
+  state: ResolverState,
+  named: T,
+  key: string,
+  own: OwnModel,
+): T {
+  const override = state.cascade.componentModels?.byKey.get(key);
+  if (override !== undefined) state.cascade.componentModels?.reached.add(key);
+  return overriddenUse(state, override, named, key, own);
+}
+
+/** A use under a profile's override of its component: the model it names, the provider it names. */
+function overriddenUse<T extends ModelUseLike>(
+  state: ResolverState,
+  override: ComponentModelOverride | undefined,
+  named: T,
+  key: string,
+  own: OwnModel,
+): T {
+  if (override === undefined) return resolvedThrough(state, named, key, own);
+  const provider = override.modelProvider;
+  const providerClass =
+    typeof provider === "function" ? provider : state.byName.get(provider ?? "");
+  if (typeof provider === "string" && providerClass === undefined)
+    throw new ProfileError({
+      reason: ProfileErrorReason.Unknown,
+      message: `profile: ${key}.modelProvider: no such model provider reaches ${state.workflow} — it has: ${[...state.byName.keys()].join(", ") || "none"}`,
+    });
+  const model = override.model;
+  return resolvedThrough(state, model === undefined ? named : { ...named, model }, key, {
+    ...own,
+    ...(providerClass === undefined ? {} : { provider: providerClass }),
+    ...(model === undefined ? {} : { isOmitted: false }),
+  });
+}
+
+/** One use through the cascade, its profile overrides already in. */
+function resolvedThrough<T extends ModelUseLike>(
   state: ResolverState,
   named: T,
   key: string,

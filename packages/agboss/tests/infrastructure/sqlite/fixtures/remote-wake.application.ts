@@ -22,7 +22,7 @@ import { SqliteTestEnvironment } from "./environments/app.environment.js";
   workflows: [YieldOneWorkflow],
   observers: [YieldLog],
   budgets: TEST_BUDGETS,
-  maxConcurrentSteps: 1,
+  executionLimits: { maxConcurrentSteps: 1 },
   providers: [
     RecordingLogger,
     SqliteCheckpointSaver,

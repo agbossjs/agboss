@@ -137,7 +137,9 @@ export class SqliteRecoveryApplication {}
     tools: { maxToolCalls: 8 },
   },
   memory: Window1Memory,
-  flow: [onStart(OrderWorkflowStart).toAgent(Clerk).toFinish(ReceiptWorkflowFinish)],
+  flow: [onStart(OrderWorkflowStart)
+    .toAgent(Clerk)
+    .toFinish(ReceiptWorkflowFinish)],
 })
 export class NoteWorkflow {}
 
@@ -161,6 +163,6 @@ export class SqliteNoteApplication {}
   observers: [UnwindLog],
   providers: [MortalSqliteExecutionLeaseRepository, ...SQLITE_STORES],
   budgets: TEST_BUDGETS,
-  compensationTimeout: seconds(60),
+  executionLimits: { compensationTimeout: seconds(60) },
 })
 export class SqliteUnwindApplication {}

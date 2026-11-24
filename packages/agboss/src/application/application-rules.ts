@@ -1,6 +1,7 @@
 import { movedRetentionViolations, retentionViolations } from "./retention.js";
 import { budgetOf } from "../budgets/budget.js";
 import { budgetRuleViolations, budgetsOfApplication } from "../budgets/budget-rules.js";
+import type { OverlaidBudgets } from "../budgets/budget-overlay.js";
 import { createdClassesOf, type Class, type Provider } from "../components/injection.js";
 import { depsOf } from "../components/container/container.js";
 import { moduleOf } from "../components/module.js";
@@ -101,15 +102,27 @@ function workflowListViolations(options: ApplicationOptions): RuleViolation[] {
 /** Every budget of an application: the listed ones and the ones its workflows attach (#1318). */
 export { budgetsOfApplication };
 
-function budgetViolations(options: ApplicationOptions): RuleViolation[] {
-  return budgetsOfApplication(options).flatMap((cls) => {
+/** The part of the options the budget rules read, with the limits the profiles give the budgets. */
+const budgetedOf = (
+  options: ApplicationOptions,
+  budgetOverlays: OverlaidBudgets["budgetOverlays"],
+) => ({
+  name: options.name,
+  workflows: options.workflows,
+  budgets: options.budgets,
+  tenantContext: options.tenantContext,
+  budgetOverlays,
+});
+
+function budgetViolations(budgeted: ReturnType<typeof budgetedOf>): RuleViolation[] {
+  return budgetsOfApplication(budgeted).flatMap((cls) => {
     const budget = budgetOf(cls);
     if (budget === undefined) {
       return [
         violation(
           "budget.not-a-budget",
-          `${nameOf(cls)} in ${options.name}'s budgets has no @Budget({ name, scope, … }) decorator`,
-          [options.name],
+          `${nameOf(cls)} in ${budgeted.name}'s budgets has no @Budget({ name, scope, … }) decorator`,
+          [budgeted.name],
         ),
       ];
     }
@@ -179,12 +192,13 @@ const withNamedModelProvider = (options: ApplicationOptions): readonly Provider[
 export function applicationRuleViolations(
   application: Class,
   options: ApplicationOptions,
+  budgetOverlays?: OverlaidBudgets["budgetOverlays"],
 ): RuleViolation[] {
   return [
     ...nameViolations(options.name, application, NameKind.Application, "Application"),
     ...workflowListViolations(options),
-    ...budgetViolations(options),
-    ...budgetRuleViolations(options),
+    ...budgetViolations(budgetedOf(options, budgetOverlays)),
+    ...budgetRuleViolations(budgetedOf(options, budgetOverlays)),
     ...modelProviderNameViolations(options),
     ...providerModeViolations(options.name, withNamedModelProvider(options)),
     ...providerFieldsViolations(options.name, withNamedModelProvider(options)),

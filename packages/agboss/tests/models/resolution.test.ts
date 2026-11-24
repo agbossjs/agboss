@@ -50,7 +50,7 @@ describe("#266 AC2: every model resolves to exactly one provider by serves", () 
   it("every model kind: agents, model routers, the default router, guardrails, compaction and judges — all at once", async () => {
     expect(await violationsOf(EveryKindApplication)).toEqual([
       unserved("agents.nowhere-agent", "nowhere/agent"),
-      unserved("compactions.nowhere-memory", "nowhere/compaction"),
+      unserved("memories.nowhere-memory", "nowhere/compaction"),
       unserved("judges.nowhere-judge", "nowhere/judge"),
       unserved("defaults.router", "nowhere/default-router"),
       unserved("routers.nowhere-router", "nowhere/router"),

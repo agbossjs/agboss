@@ -26,9 +26,11 @@ describe("#1366: limitViolations", () => {
     expect(
       limitViolations(
         options({
-          maxConcurrentSteps: 1,
-          shutdownTimeout: MAX_TIMEOUT,
-          compensationTimeout: MAX_TIMEOUT,
+          executionLimits: {
+            maxConcurrentSteps: 1,
+            shutdownTimeout: MAX_TIMEOUT,
+            compensationTimeout: MAX_TIMEOUT,
+          },
         }),
       ),
     ).toEqual([]);
@@ -36,10 +38,10 @@ describe("#1366: limitViolations", () => {
 
   it("names a step cap that is no whole number of steps from 1", () => {
     for (const value of [0, -3, 2.5, Number.NaN]) {
-      expect(limitViolations(options({ maxConcurrentSteps: value }))).toEqual([
+      expect(limitViolations(options({ executionLimits: { maxConcurrentSteps: value } }))).toEqual([
         {
           code: "limits.max-concurrent-steps-invalid",
-          message: `its maxConcurrentSteps is ${String(value)}, not a whole number of steps from 1 — @Application({ maxConcurrentSteps: 32 }) lets 32 steps of this instance work at once`,
+          message: `its executionLimits.maxConcurrentSteps is ${String(value)}, not a whole number of steps from 1 — @Application({ executionLimits: { maxConcurrentSteps: 32 } }) lets 32 steps of this instance work at once`,
           nodes: [NAME],
         },
       ]);
@@ -47,13 +49,17 @@ describe("#1366: limitViolations", () => {
   });
 
   it("names the shutdown and the compensation timeout above the maximum, each by its field", () => {
-    const shutdown = timerProblemOf("shutdownTimeout", over, MAX_TIMEOUT);
-    const compensation = timerProblemOf("compensationTimeout", over, MAX_TIMEOUT);
+    const shutdown = timerProblemOf("executionLimits.shutdownTimeout", over, MAX_TIMEOUT);
+    const compensation = timerProblemOf("executionLimits.compensationTimeout", over, MAX_TIMEOUT);
 
-    expect(limitViolations(options({ shutdownTimeout: over, compensationTimeout: over }))).toEqual([
+    expect(
+      limitViolations(
+        options({ executionLimits: { shutdownTimeout: over, compensationTimeout: over } }),
+      ),
+    ).toEqual([
       { code: "limits.timeout-invalid", message: `its ${String(shutdown)}`, nodes: [NAME] },
       { code: "limits.timeout-invalid", message: `its ${String(compensation)}`, nodes: [NAME] },
     ]);
-    expect(String(shutdown)).toContain("shutdownTimeout");
+    expect(String(shutdown)).toContain("executionLimits.shutdownTimeout");
   });
 });

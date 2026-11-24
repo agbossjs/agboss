@@ -241,13 +241,15 @@ import { AppEnvironment } from "./environments/app.environment.js";
     ClaimsApiService,
   ],
   healthChecks: [ClaimsApiHealthCheck],
-  shutdownTimeout: seconds(25), // under the platform's 30 s grace period and the 30 s lease
   retention: {
     pauseRecords: hours(24), // resolved pause records kept this long, then swept
     executionRecords: hours(24 * 30), // each root execution's history, 30 days after it ended
   },
-  compensationTimeout: seconds(15), // each automatic undo's clean-up signal
-  maxConcurrentSteps: 32, // agent, router and action steps of this instance at once
+  executionLimits: {
+    shutdownTimeout: seconds(25), // under the platform's 30 s grace period and the 30 s lease
+    compensationTimeout: seconds(15), // each automatic undo's clean-up signal
+    maxConcurrentSteps: 32, // agent, router and action steps of this instance at once
+  },
 })
 export class ClaimsApplication {}
 ```
@@ -370,7 +372,7 @@ Reconciliation…)` when the lookup reads the other system's own records, `Outbo
   previous secret once nothing recorded under it can be retried.
 - **Any instance answers.** A pause made on one instance is resumed on another; `app.cancel` reaches
   the tree on whichever instance moves it.
-- **The cap on steps.** `@Application({ maxConcurrentSteps })` (a whole number from 1,
+- **The cap on steps.** `@Application({ executionLimits: { maxConcurrentSteps } })` (a whole number from 1,
   `[limits.max-concurrent-steps-invalid]`; unset → no cap) bounds the agent, router and action steps
   one instance runs at once over every tree and tenant — a queue, never an error; readiness is
   `isBusy` (so not `isReady`) while every slot is taken, and the recovery sweep starts at most its free slots' worth.
@@ -384,7 +386,7 @@ Reconciliation…)` when the lookup reads the other system's own records, `Outbo
    observers get `onExecutionRejected`; `cancel` still works; liveness turns `Unhealthy`;
 2. the instance's recovery sweep stops, then every component's `onStop`;
 3. running executions are awaited until a grace before the end of the shutdown timeout
-   (`@Application({ shutdownTimeout })`, default `seconds(25)`; the grace `min(5 s, 20 %)`), then
+   (`@Application({ executionLimits: { shutdownTimeout } })`, default `seconds(25)`; the grace `min(5 s, 20 %)`), then
    interrupted — their calls reject with `ApplicationStoppingError`, their leases are released at
    once, their records stay `running`, so another instance continues them at its next sweep;
 4. the step bodies still running get the grace (a lease is released only once its tree's bodies
@@ -749,7 +751,7 @@ file (`sqlitePath: join(mkdtempSync(join(tmpdir(), "app-")), "stores.sqlite")`) 
 - `ChildPlacement.AnyWorker` across processes: a child queued in one process wakes that process's
   workers at once, never another's — other processes find it at their workers' sweep, every 30 s.
   A worker claims queued children while it has free step slots, so the first one to look may take a
-  whole launch of siblings: bound it with `@Application({ maxConcurrentSteps })`. A `Running` child
+  whole launch of siblings: bound it with `@Application({ executionLimits: { maxConcurrentSteps } })`. A `Running` child
   whose instance died is taken over by a live worker once its 30 s lease expires — automatically,
   only when the child queue and the leases are shared stores (`SqliteChildExecutionQueueRepository`
   and `SqliteExecutionLeaseRepository` on one file, or your own over a shared database).

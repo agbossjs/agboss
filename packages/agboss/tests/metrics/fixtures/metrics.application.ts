@@ -56,13 +56,13 @@ const SHAPE = {
 } as const;
 
 /** One step at a time per instance. */
-@Application({ name: "metrics-application", maxConcurrentSteps: 1, ...SHAPE })
+@Application({ name: "metrics-application", executionLimits: { maxConcurrentSteps: 1 }, ...SHAPE })
 export class MetricsApplication {}
 
 /** One step at a time, its log recorded (`logged`). */
 @Application({
   name: "logged-metrics-application",
-  maxConcurrentSteps: 1,
+  executionLimits: { maxConcurrentSteps: 1 },
   providers: [RecordingLogger],
   ...SHAPE,
 })

@@ -49,7 +49,9 @@ export class ChunkWorkflowFinish {}
 @Workflow({
   name: "chunk-workflow",
   version: "1.0.0",
-  flow: [onStart(ChunkWorkflowStart).toAgent(ChunkWorkerAgent).toFinish(ChunkWorkflowFinish)],
+  flow: [onStart(ChunkWorkflowStart)
+    .toAgent(ChunkWorkerAgent)
+    .toFinish(ChunkWorkflowFinish)],
 })
 export class ChunkWorkflow {}
 
@@ -59,6 +61,6 @@ export class ChunkWorkflow {}
   environment: EmptyEnvironment,
   workflows: [ChunkWorkflow],
   budgets: TEST_BUDGETS,
-  maxConcurrentSteps: 2,
+  executionLimits: { maxConcurrentSteps: 2 },
 })
 export class BusySlotsApplication {}

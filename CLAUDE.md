@@ -714,7 +714,7 @@ workflows: { placement } } })`, else `CurrentProcess`; `OtherWorker` is never cl
   any instance (#333 PR 3, S8): a resume or a recovery rebuilds the queue from the
   unfinished tasks; a waiter whose signal aborts (`FailFast`, a cancel) leaves it. `agboss describe`
   prints `maxConcurrentExecutions 6 (set)` for a workflow that launches children.
-- **The instance's cap on steps (#332):** `@Application({ maxConcurrentSteps })` (a whole number from
+- **The instance's cap on steps (#332):** `@Application({ executionLimits: { maxConcurrentSteps } })` (a whole number from
   1, `[limits.max-concurrent-steps-invalid]`; unset → no cap) — how many agent, router and action
   steps (branches too) one application instance runs at once, over every tree and tenant. A step
   takes its tree's slot, then one of the instance's (`StepSlots`, `src/app/step-slots.ts`, one per
@@ -779,7 +779,7 @@ workflows: { placement } } })`, else `CurrentProcess`; `OtherWorker` is never cl
   a failed join undoes its finished undoable branches before `.onError` or the failure
   (`JoinFailed`, newest first, after awaiting the launch's running branches), each in its own frame
   — key `<step key>:compensation`, `step.compensates`, a clean-up `signal` bounded by
-  `@Application({ compensationTimeout })` (default `seconds(15)`) and a lost lease, no slot, no
+  `@Application({ executionLimits: { compensationTimeout } })` (default `seconds(15)`) and a lost lease, no slot, no
   budget check, run only while its holder's own fence holds (#605: `assertHeld()` before the undo
   starts, so a holder already past its lease reports no `onCompensationStart`, and #640: again right
   before the undo action, after its awaited `onCompensationStart` / `onActionStart` — whose events are
@@ -2654,7 +2654,7 @@ ExecutionLeaseLostError`: `scopeKey`, `tenantId`, `leaseExecutionId`, `token`, `
   the interrupted step runs again; another config's root is left to a compatible instance (logged
   once). Observers: `onExecutionResume` with `reason: ResumeReason.Recovered` (`Answered` for
   `app.resume`). `app.close()` stops the sweep, `onStop`, waits up to the shutdown timeout
-  (`@Application({ shutdownTimeout })`, `app.close({ timeout })`, default `seconds(25)`), then
+  (`@Application({ executionLimits: { shutdownTimeout } })`, `app.close({ timeout })`, default `seconds(25)`), then
   interrupts what is left: its call rejects with `ApplicationStoppingError`, no `onExecutionError`, the lease
   released at once, the record stays `running`. `createApp({ handleSignals: true })` closes on SIGTERM / SIGINT
   (default `false`; the CLI passes `true`; listeners removed when `close()` finishes); `testWith` never listens.

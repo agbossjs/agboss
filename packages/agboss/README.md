@@ -1430,7 +1430,7 @@ started under another config is left to a compatible instance (logged once), unl
 defaults nothing survives a restart, so recovery needs persistent stores — the SQLite ones on one
 machine. **`app.close()`** stops
 the sweep, runs `onStop`, waits for the running executions up to the shutdown timeout —
-`@Application({ shutdownTimeout })`, `app.close({ timeout })`, default `seconds(25)` — then
+`@Application({ executionLimits: { shutdownTimeout } })`, `app.close({ timeout })`, default `seconds(25)` — then
 interrupts them: each call rejects with `ApplicationStoppingError`, without `onExecutionError`, releases its
 lease at once and stays `running`, so another instance continues it without waiting for the lease
 to expire. `createApp` calls `app.close()` on SIGTERM / SIGINT (a second signal interrupts at once)

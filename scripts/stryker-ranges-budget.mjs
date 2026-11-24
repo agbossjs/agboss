@@ -86,6 +86,7 @@ export function assemblyRulesShard() {
       "src/models/provider-mode-rules.ts",
       "src/application/application-rules.ts",
       "src/application/limit-rules.ts",
+      "src/application/limit-fields.ts",
       "src/channels/channel-rules.ts",
       "src/channels/pause-target-rules.ts",
       "src/channels/pause-setting-rules.ts",

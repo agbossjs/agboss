@@ -74,7 +74,7 @@ export function windowOfCompaction(windows: readonly UncompactedTurns[]): Uncomp
   return Number.isFinite(smallest) ? smallest : TurnLimit.All;
 }
 
-type Settings = NonNullable<AgentsConfigOf<string>["compactions"]>[string];
+type Settings = NonNullable<AgentsConfigOf<string>["memories"]>[string];
 
 const isQueue = (settings: Settings): boolean =>
   settings.strategy === CompactionStrategy.SummaryQueue;
@@ -143,8 +143,8 @@ export function memoryPlanOf(
     );
   const compactions = (assembled?.memories ?? []).flatMap((loaded) =>
     loaded.mode === CUSTOM_COMPACTION
-      ? [customInUse(loaded, config.compactions?.[loaded.name], usersOf(loaded.name))]
-      : compactionInUse(loaded, config.compactions?.[loaded.name], usersOf(loaded.name)),
+      ? [customInUse(loaded, config.memories?.[loaded.name], usersOf(loaded.name))]
+      : compactionInUse(loaded, config.memories?.[loaded.name], usersOf(loaded.name)),
   );
   const byName = new Map(compactions.map((compaction) => [compaction.name, compaction]));
   const readers = new Map(

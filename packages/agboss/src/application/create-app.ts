@@ -98,8 +98,13 @@ export const budgetsOf = (assembled: AssembledApplication): BudgetListing => {
   // the child workflows a listed one launches count too: a budget one of them attaches is the application's
   const workflows = assembled.workflows.map((one) => one.graph.type);
   return {
-    budgets: budgetsOfApplication({ budgets: assembled.budgets, workflows }),
-    attached: attachedBudgetsOf({ workflows }),
+    budgets: budgetsOfApplication({
+      budgets: assembled.budgets,
+      workflows,
+      budgetOverlays: assembled.budgetOverlays,
+    }),
+    attached: attachedBudgetsOf({ workflows, budgetOverlays: assembled.budgetOverlays }),
+    ...(assembled.budgetOverlays === undefined ? {} : { budgetOverlays: assembled.budgetOverlays }),
     applicationName: assembled.name,
   };
 };

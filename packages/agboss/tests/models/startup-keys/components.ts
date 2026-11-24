@@ -173,7 +173,7 @@ export function everyKindWorkflows(models: KindModels): {
     turnsBetweenCompactions: 2,
     compaction: {
       strategy: CompactionStrategy.SummaryQueue,
-      model: models.compactions,
+      model: models.memories,
       summaryQueueLength: 1,
       summaryMaxTokens: 200,
     },

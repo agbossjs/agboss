@@ -221,7 +221,7 @@ export interface CancelOptions {
 
 /**
  * `app.close({ timeout })`: how long the stop takes at most (#265 S51, #367 S3: interrupted a grace
- * before) — default `@Application({ shutdownTimeout })`, else `seconds(25)`.
+ * before) — default `@Application({ executionLimits: { shutdownTimeout } })`, else `seconds(25)`.
  */
 export interface CloseOptions {
   /** How long the stop takes at most (`seconds(0)`: interrupts and stops waiting at once); at most 24 hours — a longer one rejects (#1141). */

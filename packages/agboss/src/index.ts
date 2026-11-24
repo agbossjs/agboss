@@ -49,7 +49,10 @@ export {
 export { Ttl } from "./units/index.js";
 // `defineConfig` (#1318): one profile, `src/config/<name>.config.ts`
 export { defineConfig, type ConfigOverlay } from "./config/define-config.js";
+export type { BudgetOverlay } from "./budgets/budget-overlay.js";
 export type {
+  ComponentModelConfig,
+  ComponentModelOverlay,
   ConfigSpec,
   ModelProviderOverlay,
   OverlayPartial,

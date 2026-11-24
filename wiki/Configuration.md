@@ -169,12 +169,12 @@ required on a workflow that launches itself); an exhausted budget also rejects a
 `@Workflow({ maxConcurrentExecutions })` (#264, default 10) is a throttle, not a failure: how many
 executions of a tree — the root and its child workflows — work at once; the rest wait in a queue
 ([FinOps → Concurrency of a tree](FinOps#concurrency-of-a-tree-264)).
-`@Application({ maxConcurrentSteps })` (#332, unset → no cap; a whole number from 1,
+`@Application({ executionLimits: { maxConcurrentSteps } })` (#332, unset → no cap; a whole number from 1,
 `[limits.max-concurrent-steps-invalid]`) is the instance's throttle: how many agent, router and
 action steps of one application instance work at once, over every tree and tenant; the rest wait
 in its queue, a full instance is `Degraded` in readiness and leaves orphaned executions to the others
 ([Several instances → An instance's cap on steps](Several-instances#an-instances-cap-on-steps-332)).
-`@Application({ compensationTimeout })` (#340, default `seconds(15)`) bounds each automatic undo
+`@Application({ executionLimits: { compensationTimeout } })` (#340, default `seconds(15)`) bounds each automatic undo
 action: its clean-up signal aborts after it ([Rollback](Rollback#a-failed-join-undoes-its-finished-branches)).
 Details: [FinOps](FinOps).
 
@@ -318,7 +318,7 @@ maximum, naming the field, and accepted at it:
 
 | Setting                                                             | Largest    | Refused as                                                                    |
 | ------------------------------------------------------------------- | ---------- | ----------------------------------------------------------------------------- |
-| `@Application({ shutdownTimeout })`, `compensationTimeout`          | 24 hours   | `[limits.timeout-invalid]` at assembly                                        |
+| `@Application({ executionLimits: { shutdownTimeout } })`, `compensationTimeout`          | 24 hours   | `[limits.timeout-invalid]` at assembly                                        |
 | `Idempotency.sendOnce({ timeout })`                                 | 24 hours   | the call rejects with `ConfigError.Option`, nothing recorded or sent          |
 | `app.close({ timeout })`                                            | 24 hours   | the `close` promise rejects with `ConfigError.Unit` (`config.unit`), nothing stopped |
 | `@Tool` / `defineTool` `timeout`                       | 24 hours   | `[limits.timeout-invalid]` at assembly; `ConfigError.Unit` from `defineTool`         |

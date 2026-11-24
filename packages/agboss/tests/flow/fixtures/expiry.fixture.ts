@@ -309,7 +309,8 @@ export class SlowExpiryWorkflowStart {}
   flow: [
     onStart(SlowExpiryWorkflowStart)
       .toExternalTask(ManagerQuestion, { expiresIn: seconds(3) })
-      .onError(PauseExpiredError, toAction(SlowEscalationAction).toFinish(ExpiryWorkflowFinish))
+      .onError(PauseExpiredError, toAction(SlowEscalationAction)
+        .toFinish(ExpiryWorkflowFinish))
       .toAction(RecordExpiryAction)
       .toFinish(ExpiryWorkflowFinish),
   ],
@@ -450,7 +451,7 @@ export class ExpiryApplication {}
   environment: EmptyEnvironment,
   workflows: [ExpiryWorkflow, ShortExpiryWorkflow, SlowExpiryWorkflow, ReviewerWorkflow],
   budgets: TEST_BUDGETS,
-  maxConcurrentSteps: 4,
+  executionLimits: { maxConcurrentSteps: 4 },
   providers: [
     ManagerChannel,
     DirectorChannel,

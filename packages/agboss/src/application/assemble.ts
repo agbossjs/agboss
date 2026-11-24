@@ -7,16 +7,17 @@ import { declarationOf } from "../flow/decorators/declaration.js";
 import { GraphRuleError, type RuleViolation } from "../graph/rule-error.js";
 import { containerProvidersOf } from "../models/resolution.js";
 import * as P from "./effective-options.js";
-import { seconds, type Milliseconds } from "../units/index.js";
+import type { Milliseconds } from "../units/index.js";
+import { limitFieldsOf } from "./limit-fields.js";
 import { childFieldsOf } from "./child-fields.js";
 import type { ChildPlacement } from "../flow/child-placement.js";
-import { COMPENSATION_TIMEOUT } from "../flow/compensation.js";
 import type { AssembledWorkflow } from "../workflow.js";
 import {
   requireApplication,
   type ApplicationOptions,
   type IsolatedWorkerOptions,
 } from "./application.js";
+import type { BudgetOverlays, OverlaidBudgets } from "../budgets/budget-overlay.js";
 import { applicationRuleViolations, budgetsOfApplication } from "./application-rules.js";
 import { assembledRetentionsOf, retentionOf } from "./retention.js";
 import {
@@ -62,13 +63,15 @@ export interface AssembledApplication extends AssembledKeyFields, StorageFields,
   /** `@Application({ providers })` as listed (its infrastructure, its model providers). */
   readonly providers: readonly Provider[];
   readonly budgets: readonly Class[];
+  /** What the selected profiles change of the budgets' limits, by budget name; every reader of `budgets` applies it. */
+  readonly budgetOverlays?: BudgetOverlays | undefined;
   /** `@Application({ observers })`: every execution's observers, in the order listed. */
   readonly observers: readonly Class[];
   /** `@Application({ healthChecks })` (#300): the project's readiness checks, in the order listed. */
   readonly healthChecks: readonly Class[];
   /** The workflows in the order listed, then the child workflows they launch that are not listed. */
   readonly workflows: readonly AssembledWorkflow[];
-  /** How long a stop waits for the running executions (`@Application({ shutdownTimeout })`). */
+  /** How long a stop waits for the running executions (`@Application({ executionLimits: { shutdownTimeout } })`). */
   readonly shutdownTimeout: Milliseconds;
   /** How long a resolved pause record is kept (`retention.pauseRecords`, #267 S107). */
   readonly pauseRecordRetention: Milliseconds;
@@ -80,7 +83,7 @@ export interface AssembledApplication extends AssembledKeyFields, StorageFields,
   readonly ledgerEntryRetention?: Milliseconds | undefined;
   /** How long a trusted mesh request's answer is kept (`@Mesh({ deduplicationTtl })`, #398). */
   readonly meshAnswerRetention: Milliseconds;
-  /** Each automatic undo action's bound (`@Application({ compensationTimeout })`, #340). */
+  /** Each automatic undo action's bound (`@Application({ executionLimits: { compensationTimeout } })`, #340). */
   readonly compensationTimeout: Milliseconds;
   /** Whether a call's request is stored only masked (#505): what `Idempotency.sendOnce` reads. */
   readonly outboundMasking: OutboundMasking;
@@ -92,7 +95,7 @@ export interface AssembledApplication extends AssembledKeyFields, StorageFields,
   readonly isolatedWorker?: IsolatedWorkerOptions;
   /** The profiles `createApp({ profile })` named, as given: a fork is started with the same (#1286b). */
   readonly profileSelection?: ProfileSelection;
-  /** `@Application({ maxConcurrentSteps })` (#332): the instance's cap on steps; absent = none. */
+  /** `@Application({ executionLimits: { maxConcurrentSteps } })` (#332): the instance's cap on steps; absent = none. */
   readonly maxConcurrentSteps?: number;
   /** `@Mesh({ maxHops })` (#398): the longest call chain it accepts. */
   readonly maxMeshHops: number;
@@ -113,7 +116,6 @@ export interface AssembledApplication extends AssembledKeyFields, StorageFields,
 }
 
 /** The default shutdown timeout (#265 S51): under the usual 30 s grace period and the 30 s lease. */
-const SHUTDOWN_TIMEOUT: Milliseconds = seconds(25);
 
 export type { ApplicationAssembly } from "./assembly-options.js";
 
@@ -122,12 +124,15 @@ export type { ApplicationAssembly } from "./assembly-options.js";
  * creates them)
  * — not its `@ModelProvider` classes, which its workflows resolve their models to (#266).
  */
-export const applicationModule = (options: ApplicationOptions): ProviderModule => ({
+export const applicationModule = (
+  options: ApplicationOptions,
+  budgetOverlays?: OverlaidBudgets["budgetOverlays"],
+): ProviderModule => ({
   owner: options.name,
   declaredIn: "@Application",
   providers: [
     ...containerProvidersOf(options.providers),
-    ...budgetsOfApplication(options),
+    ...budgetsOfApplication({ ...options, budgetOverlays }),
     ...(options.observers ?? []),
     ...decoratedHealthChecksOf(options.healthChecks ?? []),
   ],
@@ -184,9 +189,10 @@ function throwIfAny(own: readonly RuleViolation[], errors: readonly GraphRuleErr
 /** What the application lists besides its workflows, each list empty when it lists none. */
 const listedOf = (
   options: ApplicationOptions,
+  budgetOverlays: OverlaidBudgets["budgetOverlays"],
 ): Pick<AssembledApplication, "providers" | "budgets" | "observers" | "healthChecks"> => ({
   providers: options.providers ?? [],
-  budgets: budgetsOfApplication(options),
+  budgets: budgetsOfApplication({ ...options, budgetOverlays }),
   observers: options.observers ?? [],
   healthChecks: options.healthChecks ?? [],
 });
@@ -216,13 +222,13 @@ export async function applicationOf(
   where = "createApp",
 ): Promise<AssembledApplication> {
   const applied = await P.appliedProfilesOf(requireApplication(application, where), assembly);
-  const { options, source } = applied;
+  const { options, source, budgetOverlays } = applied;
   checkContextFields(options);
   checkObservers(options.observers ?? []);
-  const own = applicationRuleViolations(application, options);
+  const own = applicationRuleViolations(application, options, budgetOverlays);
   // a child workflow is a workflow of the application, listed or not (#263 S74 c)
   const all = withChildWorkflows(options.workflows);
-  const modules = [applicationModule(options), ...workflowModules(all)];
+  const modules = [applicationModule(options, budgetOverlays), ...workflowModules(all)];
   const workflows = all.filter((workflow) => declarationOf(workflow)?.kind === NodeKind.Workflow);
   const { assembled, errors } = await assembleWorkflows(workflows, modules, assembly, applied);
   if (errors.length === 0) P.checkAppliedProfiles(applied, assembled);
@@ -241,19 +247,16 @@ export async function applicationOf(
     // required by the type; an untyped (JS) caller may leave it out — then the environment is empty
     ...withEnvironment((options as Partial<ApplicationOptions>).environment),
     modules,
-    ...listedOf(options),
+    ...listedOf(options, budgetOverlays),
+    budgetOverlays,
     workflows: assembled,
     ...P.profileFieldsOf(applied),
-    shutdownTimeout: options.shutdownTimeout ?? SHUTDOWN_TIMEOUT,
+    ...limitFieldsOf(options),
     ...assembledRetentionsOf(retention),
     ...storageFieldsOf(options.storage),
-    compensationTimeout: options.compensationTimeout ?? COMPENSATION_TIMEOUT,
     outboundMasking: new OutboundMasking({ requiresMask: hasPiiPolicies(options, assembled) }),
     ...childFieldsOf(options),
     ...(assembly.profile === undefined ? {} : { profileSelection: assembly.profile }),
-    ...(options.maxConcurrentSteps === undefined
-      ? {}
-      : { maxConcurrentSteps: options.maxConcurrentSteps }),
     ...meshOptionsOf(options),
     ...declaredContextsOf(options),
     hasTenantContext: options.tenantContext !== undefined,

@@ -31,7 +31,7 @@ import { HarnessModelProvider } from "./model-providers/harness.model-provider.j
   endpoints: [DeskA2AExpose], // served over A2A: `helpline-workflow` calls it
   observers: [DeskMetricsObserver],
   healthChecks: [OrderDeskHealthCheck],
-  maxConcurrentSteps: 16, // agent, router and action steps of one instance at once (#332)
+  executionLimits: { maxConcurrentSteps: 16 }, // agent, router and action steps of one instance at once (#332)
   retention: { executionRecords: hours(24 * 30) }, // each execution kept 30 days (#401): executions export, eval cases
   storage: DeskDatabaseStorage, // SQLite, the kept executions (#401) too
   services: [DeskMetricsService], // the observer's

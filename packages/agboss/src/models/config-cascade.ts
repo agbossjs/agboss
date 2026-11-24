@@ -29,7 +29,7 @@ const isOmitted = (settings: ModelSettings): boolean => settings.model === OMITT
 function withResolvedSettings(
   config: AgentsConfigOf<string>,
   resolver: ModelResolver,
-): Pick<AgentsConfigOf<string>, "agents" | "judges" | "compactions"> {
+): Pick<AgentsConfigOf<string>, "agents" | "judges" | "memories"> {
   const settingsOf = <T extends ModelSettings>(settings: T, key: string): T =>
     resolver.use(settings, key, { isOmitted: isOmitted(settings), isRequired: true });
   return {
@@ -49,15 +49,15 @@ function withResolvedSettings(
             ]),
           ),
         }),
-    ...(config.compactions === undefined
+    ...(config.memories === undefined
       ? {}
       : {
-          compactions: Object.fromEntries(
-            Object.entries(config.compactions).map(([name, compaction]) => [
+          memories: Object.fromEntries(
+            Object.entries(config.memories).map(([name, compaction]) => [
               name,
               compaction.model === undefined
                 ? compaction
-                : { ...compaction, model: settingsOf(compaction.model, `compactions.${name}`) },
+                : { ...compaction, model: settingsOf(compaction.model, `memories.${name}`) },
             ]),
           ),
         }),

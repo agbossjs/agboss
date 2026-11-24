@@ -23,6 +23,7 @@ export const profiledBundle = (
           ...bundle.modelCascade,
           ...(patch.modelProvider === undefined ? {} : { workflow: patch.modelProvider }),
           providerOverlays: patch.providers,
+          componentModels: patch.componentModels,
         },
       };
 

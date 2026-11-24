@@ -47,7 +47,7 @@ export class HeldParentSqliteLedger extends SqliteCostLedgerRepository {
   environment: SqliteTestEnvironment,
   workflows: [AnyPayItemsWorkflow, ParentPayWorkflow],
   budgets: TEST_BUDGETS,
-  maxConcurrentSteps: 1,
+  executionLimits: { maxConcurrentSteps: 1 },
   providers: [
     SqliteCheckpointSaver,
     HeldParentSqliteLedger,

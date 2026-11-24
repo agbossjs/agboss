@@ -28,6 +28,10 @@ const isReference = (
   value instanceof Secret ||
   value instanceof OptionalSecretReference;
 
+/** Whether `value` is a `defineEnv` value reference (`env.usd("VAR")`, `appEnv.limit`), not a secret. */
+export const isVariableReference = (value: unknown): value is VariableReference =>
+  value instanceof VariableReference;
+
 /** Whether `value` is a `defineEnv` dictionary: a dependency token for its resolved values. */
 export const isEnvContract = (value: unknown): value is EnvContract =>
   typeof value === "object" && value !== null && Reflect.has(value, CONTRACT);

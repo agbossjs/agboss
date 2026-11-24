@@ -1,0 +1,174 @@
+/**
+ * #1318c: the component shelves of a profile — budgets by name, the model of a router, a guardrail —
+ * and what every reader of a budget sees. The declared classes are never changed.
+ */
+import { describe, expect, it } from "vitest";
+import { applicationOf } from "../../src/application/assemble.js";
+import { budgetsOf } from "../../src/application/create-app.js";
+import { configJsonSchemaOf } from "../../src/config/config-json-schema.js";
+import { budgetOf } from "../../src/budgets/budget.js";
+import { limitsOf as limitsOf2 } from "../../src/budgets/budget-spend.js";
+import type { BudgetHandler } from "../../src/budgets/budget.js";
+import { budgetsOfExecution } from "../../src/budgets/budget-check.js";
+import { describedApplicationOf } from "../../src/describe/application.js";
+import { ProfileError, ProfileErrorReason } from "../../src/config/profile-error.js";
+import { modelGuardrailsOf } from "../../src/guardrails/loaded.js";
+import { usd } from "../../src/units/index.js";
+import {
+  ShelfApplication,
+  ShelfAttachedBudget,
+  ShelfListedBudget,
+  ShelfWorkflow,
+} from "./fixtures/shelves-app/shelves.application.js";
+
+const assembled = (profile?: string) =>
+  applicationOf(ShelfApplication, profile === undefined ? {} : { profile });
+
+const failure = async (attempt: Promise<unknown>): Promise<ProfileError> => {
+  try {
+    await attempt;
+  } catch (error) {
+    if (error instanceof ProfileError) return error;
+    throw error;
+  }
+  throw new Error("expected a ProfileError");
+};
+
+const limitsOf = (cls: Parameters<typeof budgetOf>[0]) => {
+  const meta = budgetOf(cls);
+  return { maxSpend: meta?.maxSpend, maxTokens: meta?.maxTokens };
+};
+
+describe("the budgets shelf", () => {
+  it("gives a declared budget the profile's limit, every other limit staying as declared", async () => {
+    const app = await assembled("tight");
+    const byName = new Map(app.budgets.map((cls) => [budgetOf(cls)?.name, limitsOf(cls)]));
+
+    expect(byName.get("shelf-attached-budget")).toEqual({ maxSpend: usd(0.5), maxTokens: 100_000 });
+    expect(byName.get("shelf-listed-budget")).toEqual({ maxSpend: undefined, maxTokens: 50 });
+  });
+
+  it("never changes the declared class, nor another assembly of it", async () => {
+    await assembled("tight");
+    const plain = await assembled();
+
+    expect(limitsOf(ShelfAttachedBudget)).toEqual({ maxSpend: usd(5), maxTokens: 100_000 });
+    expect(limitsOf(ShelfListedBudget)).toEqual({ maxSpend: undefined, maxTokens: 1_000_000 });
+    expect(plain.budgets).toContain(ShelfAttachedBudget);
+    expect(plain.budgetOverlays).toBeUndefined();
+  });
+
+  it("every path sees the same budget: the listing, the attached ones, the execution's, describe", async () => {
+    const app = await assembled("tight");
+    const listing = budgetsOf(app);
+    const attached = listing.attached?.map((cls) => budgetOf(cls)) ?? [];
+    const execution = budgetsOfExecution(listing, ShelfWorkflow);
+    const ownBudget = execution.find((one) => one.meta.name === "shelf-attached-budget");
+
+    // the attached budget is the listed one, the same class, once
+    expect(
+      listing.budgets.filter((cls) => budgetOf(cls)?.name === "shelf-attached-budget"),
+    ).toHaveLength(1);
+    expect(attached.map((meta) => meta?.maxSpend)).toEqual([usd(0.5)]);
+    expect(ownBudget?.meta.maxSpend).toBe(usd(0.5));
+    expect(ownBudget?.type).toBe(listing.attached?.[0]);
+    expect(execution.find((one) => one.meta.name === "shelf-listed-budget")?.meta.maxTokens).toBe(
+      50,
+    );
+    expect(
+      describedApplicationOf(app).executionBudgets.map((one) => [
+        one.workflow,
+        one.name,
+        one.isOwn,
+      ]),
+    ).toEqual([["shelf-workflow", "shelf-attached-budget", true]]);
+  });
+
+  it('a .config.yaml gives limits, a provider by its name and a router through "*", as constants', async () => {
+    const app = await assembled("constants");
+    const [workflow] = app.workflows;
+
+    expect(app.budgetOverlays?.get("shelf-attached-budget")?.maxSpend).toBe(usd(0.25));
+    expect(app.budgetOverlays?.size).toBe(1);
+    expect(workflow?.routers[0]).toMatchObject({ model: "other/slow" });
+    expect(
+      modelGuardrailsOf(workflow?.guardrails).find(
+        (one) => one.name === "shelf-injection-guardrail",
+      ),
+    ).toMatchObject({ model: "other/slow", modelProvider: "shelf-other-models" });
+  });
+
+  it("refuses a budget the application does not have, naming it", async () => {
+    const error = await failure(assembled("ghost-budget"));
+
+    expect(error.reason).toBe(ProfileErrorReason.Unknown);
+    expect(error.message).toMatch(/budgets\.ghost-budget: no such budget/);
+    expect(error.message).toContain("shelf-attached-budget");
+  });
+
+  it("refuses a budget that reads its limit in code", async () => {
+    const error = await failure(assembled("coded-budget"));
+
+    expect(error.reason).toBe(ProfileErrorReason.Invalid);
+    expect(error.message).toMatch(/budgets\.test-application-daily-budget: .*limit\(\)/);
+  });
+
+  it("refuses an empty limit and a defineEnv-shaped object in YAML", async () => {
+    expect((await failure(assembled("no-limit"))).message).toMatch(
+      /budgets\.shelf-attached-budget/,
+    );
+    expect((await failure(assembled("ts-in-yaml"))).message).toMatch(/maxSpend/);
+  });
+});
+
+describe("the editor schema", () => {
+  it("lists the budgets that declare their limits, as numbers", async () => {
+    const schema = configJsonSchemaOf(await assembled()) as {
+      properties: { budgets: { properties: Record<string, unknown> } };
+    };
+
+    expect(Object.keys(schema.properties.budgets.properties).sort()).toEqual([
+      "shelf-attached-budget",
+      "shelf-listed-budget",
+    ]);
+  });
+});
+
+describe("the component model shelves", () => {
+  it("moves a router and a guardrail to the profile's provider and model", async () => {
+    const app = await assembled("tight");
+    const [workflow] = app.workflows;
+    const router = workflow?.routers[0];
+    const guardrail = modelGuardrailsOf(workflow?.guardrails).find(
+      (one) => one.name === "shelf-injection-guardrail",
+    );
+
+    expect(router).toMatchObject({ model: "other/slow", modelProvider: "shelf-other-models" });
+    expect(guardrail).toMatchObject({ model: "other/slow", modelProvider: "shelf-other-models" });
+  });
+
+  it("leaves them on the application's provider without the profile", async () => {
+    const [workflow] = (await assembled()).workflows;
+
+    expect(workflow?.routers[0]).toMatchObject({ model: "base/fast" });
+  });
+
+  it("refuses a component no workflow has", async () => {
+    const error = await failure(assembled("ghost-judge"));
+
+    expect(error.reason).toBe(ProfileErrorReason.Unknown);
+    expect(error.message).toMatch(/judges\.ghost-judge: no such component/);
+  });
+
+  it("refuses a router the workflow lacks, naming the workflow", async () => {
+    const error = await failure(assembled("ghost-router"));
+
+    expect(error.message).toMatch(/workflows\.shelf-workflow: unknown routers: ghost-router/);
+  });
+
+  it("refuses a provider name the workflow cannot reach", async () => {
+    const error = await failure(assembled("ghost-provider"));
+
+    expect(error.message).toMatch(/not-a-provider|no such model provider/);
+  });
+});

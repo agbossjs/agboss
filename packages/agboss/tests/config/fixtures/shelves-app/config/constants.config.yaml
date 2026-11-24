@@ -1,0 +1,14 @@
+# the same changes, constants only: the provider by its name
+budgets:
+  shelf-attached-budget:
+    maxSpend: 0.25
+guardrails:
+  shelf-injection-guardrail:
+    model: slow
+    modelProvider: shelf-other-models
+workflows:
+  "*":
+    routers:
+      shelf-router:
+        model: slow
+        modelProvider: shelf-other-models

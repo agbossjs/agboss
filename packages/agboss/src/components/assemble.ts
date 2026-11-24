@@ -80,7 +80,7 @@ function configOf(
     name: bundle.name,
     version: bundle.version,
     defaults: bundle.defaults,
-    ...(Object.keys(memories.settings).length === 0 ? {} : { compactions: memories.settings }),
+    ...(Object.keys(memories.settings).length === 0 ? {} : { memories: memories.settings }),
     ...judgeSettingsOf(judges.classes),
     agents: Object.fromEntries(agents.map((agent) => [agent.name, agentSettings(agent, names)])),
   };

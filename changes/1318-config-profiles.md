@@ -14,7 +14,7 @@ winning per key — defaulting to `dev` (`createApp`, the CLI) and `test` (`test
 - `defineConfig({ … })` (`@agboss/core`) is what a `.config.ts` exports: `env` (`configureEnv(appEnv, …)`
   values, one per `defineEnv`, which stays the only reader of the process's variables), `defaults`,
   `modelProviders` (a provider's `model` / `models` by its name), `workflows` (by name, `"*"` for every
-  workflow first: `version`, `defaults`, `agents`, `compactions`, `prompts`) and the classes that stand in
+  workflow first: `version`, `agents`, `memories`, `routers`, `prompts`) and the classes that stand in
   for the application's own (`modelProvider`, `storage`, `channels`, `observers`, `healthChecks`; a
   workflow's `modelProvider`). A `.config.yaml` holds the constants only: no `${ENV}`, no classes.
 - The overlay is applied while the workflow is assembled, before its models resolve through the cascade

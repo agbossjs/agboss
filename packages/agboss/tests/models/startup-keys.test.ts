@@ -25,7 +25,7 @@ const KEYED = "keyed/llama";
 const DECISION = "typesafe/jev-1.13";
 const ALL_LOCAL: KindModels = {
   agents: LOCAL,
-  compactions: LOCAL,
+  memories: LOCAL,
   judges: LOCAL,
   defaults: LOCAL,
   routers: LOCAL,
