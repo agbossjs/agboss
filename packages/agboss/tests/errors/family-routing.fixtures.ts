@@ -135,11 +135,45 @@ export class OwnCaughtFinish {}
 })
 export class FamilyRouteWorkflow {}
 
+@WorkflowStart({
+  name: "narrow-route-workflow-start",
+  description: "What to throw, on a step with no StepError.Action handler",
+  input: AskDto,
+})
+export class NarrowRouteStart {}
+
+@WorkflowFinish({
+  name: "narrow-route-ok-workflow-finish",
+  description: "Nothing thrown",
+  output: OutDto,
+})
+export class NarrowOkFinish {}
+
+@WorkflowFinish({
+  name: "narrow-route-own-workflow-finish",
+  description: "A project's error caught",
+  output: AskDto,
+})
+export class NarrowOwnCaughtFinish {}
+
+/** The same action with only a project class's handler (#1325 (8)): no `StepError.Action` one. */
+@Workflow({
+  name: "narrow-route-workflow",
+  version: "1.0.0",
+  flow: [
+    onStart(NarrowRouteStart)
+      .toAction(ThrowingAction)
+      .onError(OnePaymentError, toFinish(NarrowOwnCaughtFinish))
+      .toFinish(NarrowOkFinish),
+  ],
+})
+export class NarrowRouteWorkflow {}
+
 @Application({
   name: "family-route-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
-  workflows: [FamilyRouteWorkflow],
+  workflows: [FamilyRouteWorkflow, NarrowRouteWorkflow],
   budgets: TEST_BUDGETS,
 })
 export class FamilyRouteApplication {}
@@ -150,7 +184,7 @@ export class FamilyRouteApplication {}
   version: "1.0.0",
   description: "Throws what it is asked to",
   ttl: { tasks: hours(24), messages: minutes(15) },
-  skills: [FamilyRouteStart],
+  skills: [FamilyRouteStart, NarrowRouteStart],
 })
 export class FamilyRouteA2AExpose {}
 
@@ -158,7 +192,7 @@ export class FamilyRouteA2AExpose {}
   name: "family-route-served-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
-  workflows: [FamilyRouteWorkflow],
+  workflows: [FamilyRouteWorkflow, NarrowRouteWorkflow],
   providers: [BearerAuthenticator],
   endpoints: [FamilyRouteA2AExpose],
   budgets: TEST_BUDGETS,

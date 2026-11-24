@@ -7,6 +7,7 @@
  */
 import { afterEach, beforeEach, describe, expect } from "vitest";
 import {
+  ExecutionError,
   ExecutionFencedError,
   ExecutionAuditEventKind,
   HandOverReason,
@@ -161,7 +162,7 @@ describe("#501: one hand-over, at the innermost site", () => {
       const error = await rejectionOf(execute(app, ReleaseWorkflowStart, { text: "v1" }));
       const rows = await app.auditLogOf({ tenantId: "default", rootExecutionId: firstRoot() });
 
-      expect(error).toBeInstanceOf(ExecutionFencedError);
+      expect(error).toBeInstanceOf(ExecutionError.Fenced);
       expect(rows).toHaveLength(1);
       expect(rows[0]).toMatchObject({
         kind: ExecutionAuditEventKind.HandedOver,
@@ -205,7 +206,7 @@ describe("#501: one hand-over, at the innermost site", () => {
 
     const error = await rejectionOf(execute(app, AgentReleaseWorkflowStart, { text: "stage v1" }));
 
-    expect(error).toBeInstanceOf(ExecutionFencedError);
+    expect(error).toBeInstanceOf(ExecutionError.Fenced);
     expect(leaseSeen.handOvers.map((event) => [event.reason, event.site])).toEqual([
       [HandOverReason.Fenced, HandOverSite.ToolInterceptor],
     ]);
@@ -218,7 +219,7 @@ describe("#501: one hand-over, at the innermost site", () => {
 
     const error = await rejectionOf(execute(app, BookedReleaseWorkflowStart, { text: "v1" }));
 
-    expect(error).toBeInstanceOf(ExecutionFencedError);
+    expect(error).toBeInstanceOf(ExecutionError.Fenced);
     expect(leaseSeen.handOvers.map((event) => [event.site, event.step.nodeId])).toEqual([
       [HandOverSite.Compensation, "unbook-action"],
     ]);
@@ -246,7 +247,7 @@ describe("#501: what never reaches the hand-over", () => {
 
       const error = await rejectionOf(execute(app, ReleaseWorkflowStart, { text: "v1" }));
 
-      expect(error).toBeInstanceOf(ExecutionFencedError);
+      expect(error).toBeInstanceOf(ExecutionError.Fenced);
       expect(
         await app.auditLogOf({ tenantId: "default", rootExecutionId: firstRoot() }),
       ).toHaveLength(1);
@@ -263,7 +264,7 @@ describe("#501: what never reaches the hand-over", () => {
 
       const error = await rejectionOf(execute(app, ReleaseWorkflowStart, { text: "v1" }));
 
-      expect(error).toBeInstanceOf(ExecutionFencedError);
+      expect(error).toBeInstanceOf(ExecutionError.Fenced);
       expect(leaseSeen.handOvers).toHaveLength(1);
       expect(logged.filter((entry) => entry.code === "audit-log.failed")).toHaveLength(1);
     },

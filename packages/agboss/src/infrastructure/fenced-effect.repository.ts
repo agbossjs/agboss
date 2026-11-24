@@ -1,4 +1,3 @@
-import { ExecutionError } from "../core/error-families/run-errors.js";
 import { invalidEffectName, unissuedKey } from "./idempotency-errors.js";
 import { markBusinessKeyWriter } from "../components/container/fenced-reach.js";
 import { cancelMet, fencedErrorOf } from "../app/handed-over.js";
@@ -249,8 +248,7 @@ function observedInStep<TResult>(
       return outcome;
     },
     (error: unknown) => {
-      const fenced =
-        fencedErrorOf(error) ?? (error instanceof ExecutionError.Fenced ? error : undefined);
+      const fenced = fencedErrorOf(error);
       if (fenced !== undefined)
         report(IdempotencyRunEventOutcome.Refused, { observedToken: fenced.observedToken });
       // #909: told first, then the holder stops the tree as cancelled — not a hand-over

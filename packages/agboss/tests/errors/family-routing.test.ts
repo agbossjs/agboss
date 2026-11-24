@@ -3,6 +3,8 @@
  * of the family — the nearest class in the error's line wins — and a hand-over (`LeaseLost`, `Fenced`,
  * `CancelFenced`) reaches no `.onError`, not even `.onError(ExecutionError)`. A project's error class
  * without a `static code` is caught by its own name, never by every `AGBossError` (it inherits no code).
+ * DSL review (8): an action's failure stays wrapped (`StepError.Action` with the original as `cause`);
+ * `.onError` matches the original's class first, and another project class falls to the wrapper.
  */
 import { describe, expect } from "vitest";
 import { testWith } from "../../src/testing/index.js";
@@ -20,6 +22,8 @@ import { execute } from "../helpers/flow.js";
 import {
   ExecutionCaughtFinish,
   FamilyOkFinish,
+  NarrowOwnCaughtFinish,
+  NarrowRouteStart,
   FamilyRouteApplication,
   FamilyRouteStart,
   LimitCaughtFinish,
@@ -30,6 +34,8 @@ import {
 const test = testWith(FamilyRouteApplication);
 const run = async (app: Parameters<typeof execute>[0], fail: string) =>
   execute(app, FamilyRouteStart, { fail });
+const runNarrow = async (app: Parameters<typeof execute>[0], fail: string) =>
+  execute(app, NarrowRouteStart, { fail });
 
 describe("#1325a: a family's errors take the side path of the nearest class", () => {
   test("nothing thrown: the main path", async ({ app }) => {
@@ -55,7 +61,10 @@ describe("#1325a: a family's errors take the side path of the nearest class", ()
 describe("#1325a: a hand-over reaches no .onError, not even the family's", () => {
   test("LeaseLost and Fenced reject the call: no side path, no finish", async ({ app }) => {
     await expect(run(app, "lease-lost")).rejects.toBeInstanceOf(ExecutionError.LeaseLost);
-    await expect(run(app, "fenced")).rejects.toBeInstanceOf(ExecutionError.Fenced);
+    // the family's refusal itself, never rebuilt as the legacy ExecutionFencedError around it
+    const fenced: unknown = await run(app, "fenced").catch((error: unknown) => error);
+    expect(fenced).toBeInstanceOf(ExecutionError.Fenced);
+    expect(fenced).not.toBeInstanceOf(ExecutionFencedError);
   });
 
   test("the kinds that are a hand-over, and only they, are handed over", () => {
@@ -119,9 +128,25 @@ describe("#1325a: a project's error class is caught by its own name", () => {
     expect(await run(app, "one-payment")).toFinishWith(OwnCaughtFinish);
   });
 
-  test("another project class with no code of its own is not taken by that handler", async ({
+  test("the class's handler wins over the step's StepError.Action handler", async ({ app }) => {
+    expect(await runNarrow(app, "one-payment")).toFinishWith(NarrowOwnCaughtFinish);
+  });
+
+  test("another project class with no code of its own is not taken by that handler: the action's failure is", async ({
     app,
   }) => {
-    await expect(run(app, "other-payment")).rejects.toMatchObject({ name: "OtherPaymentError" });
+    expect(await run(app, "other-payment")).toFinishWith(VariantCaughtFinish);
+  });
+
+  test("with no StepError.Action handler it rejects as the action's failure, the original its cause", async ({
+    app,
+  }) => {
+    const failure: unknown = await runNarrow(app, "other-payment").catch((error: unknown) => error);
+
+    expect(failure).toMatchObject({
+      name: "ActionFailedError",
+      code: "step.action",
+      cause: { name: "OtherPaymentError" },
+    });
   });
 });

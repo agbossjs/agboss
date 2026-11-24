@@ -18,6 +18,7 @@ import { reportNodeEvent } from "../../observers/execution-event.js";
 import { currentFrame, runInFrame, type FrameSpec } from "../../context/frame.js";
 import { AGBossError } from "../../../core/errors.js";
 import { StepError } from "../../../core/error-families/step-errors.js";
+import { ExecutionError } from "../../../core/error-families/run-errors.js";
 import { stepCoordinatesOf } from "../../../graph/errors.js";
 import { timeoutOn, type Clock, type ClockTimeout } from "../../../infrastructure/clock.js";
 import type { Milliseconds } from "../../../units/index.js";
@@ -191,7 +192,9 @@ export function actionRunner(node: RuntimeNode, deps: GraphDeps<string>): NodeRu
       // write refused by a newer token is already that signal, as ExecutionFencedError: it stays
       // the fenced error (the evidence and audit rows say fenced), never the plain lease-lost one
       if (!(
-        error instanceof StepError.ActionOutcomeUnknown || error instanceof ExecutionLeaseLostError
+        error instanceof StepError.ActionOutcomeUnknown ||
+        error instanceof ExecutionLeaseLostError ||
+        error instanceof ExecutionError.Fenced
       ))
         currentFrame()?.execution.lease?.assertHeld();
       throw failure(node.id, error);

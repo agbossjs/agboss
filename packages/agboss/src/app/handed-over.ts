@@ -23,33 +23,30 @@ export const isHandedOver = (error: unknown): boolean =>
   isHandOverError(error) ||
   fencedErrorOf(error) !== undefined;
 
-/** The two ways work is handed over. */
-export type HandedOver = ExecutionLeaseLostError | ApplicationStoppingError;
+/** A write an external system refused (#471): a store's `ExecutionFencedError`, or the family's (#1317c). */
+export type FencedRefusalError = ExecutionFencedError | ExecutionError.Fenced;
+
+/** The ways work is handed over: its lease lost, its instance stopping, a write of it fenced. */
+export type HandedOver = ExecutionLeaseLostError | ApplicationStoppingError | ExecutionError.Fenced;
 
 /** Why a signal stopped the work, when it was handed over; `undefined` otherwise. */
 export function handedOverReason(signal: AbortSignal | undefined): HandedOver | undefined {
   const reason: unknown = signal?.aborted === true ? signal.reason : undefined;
-  return reason instanceof ExecutionLeaseLostError || reason instanceof ApplicationStoppingError
+  return reason instanceof ExecutionLeaseLostError ||
+    reason instanceof ApplicationStoppingError ||
+    reason instanceof ExecutionError.Fenced
     ? reason
     : undefined;
 }
 
 /**
- * The `ExecutionFencedError` behind `error` (#471): the error itself, or one in its `cause` chain or
- * an `AggregateError`'s `errors` (a driver that wraps it, `Promise.any`) — cycles are walked once.
+ * The fenced refusal behind `error` (#471): the error itself, or one in its `cause` chain or an
+ * `AggregateError`'s `errors` (a driver that wraps it, `Promise.any`) — cycles are walked once. The
+ * error found is returned as it is: `fence.fencedError()`'s `ExecutionError.Fenced` (#1317c) stays
+ * the family's, never rebuilt as another class.
  */
-export function fencedErrorOf(error: unknown): ExecutionFencedError | undefined {
-  const legacy = errorOfClass(error, ExecutionFencedError);
-  if (legacy !== undefined) return legacy;
-  // `fence.fencedError()` builds the family's `ExecutionError.Fenced` (#1317c): the same refusal
-  const fenced = errorOfClass(error, ExecutionError.Fenced);
-  if (fenced === undefined) return undefined;
-  const { scopeKey, tenantId, leaseExecutionId, token, observedToken } = fenced;
-  return new ExecutionFencedError({
-    ...{ scopeKey, tenantId, leaseExecutionId, token, observedToken },
-    cause: fenced,
-  });
-}
+export const fencedErrorOf = (error: unknown): FencedRefusalError | undefined =>
+  errorOfClass(error, ExecutionFencedError) ?? errorOfClass(error, ExecutionError.Fenced);
 
 /**
  * The `ExecutionCancelFencedError` behind `error` (#909): the error itself, or one in its `cause`
@@ -96,7 +93,7 @@ function errorOfClass<T extends Error>(
 }
 
 /** What stops the lease a fenced write ran under (`execution-leases.ts` registers each held one). */
-type FencedHolder = (error: ExecutionFencedError) => void;
+type FencedHolder = (error: FencedRefusalError) => void;
 
 /** Keyed by scope and token; `undefined`, a holder's key before it holds, is never a key here. */
 const holders = new Map<string | undefined, FencedHolder>();

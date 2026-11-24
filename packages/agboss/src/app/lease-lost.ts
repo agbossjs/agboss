@@ -54,7 +54,9 @@ export function leaseExpiredError(rootExecutionId: string): ExecutionLeaseLostEr
  * next take has nothing to continue — it ends the run's record as failed (`NothingToRecoverError`).
  * The same class, fields and `cause` as `lost`; its `code` is `execution.lease-lost.not-started` and its message says that the run did not start.
  */
-export function leaseLostBeforeStartError(lost: ExecutionLeaseLostError): ExecutionLeaseLostError {
+export function leaseLostBeforeStartError(
+  lost: Pick<ExecutionLeaseLostError, "rootExecutionId" | "cause">,
+): ExecutionLeaseLostError {
   const error = new ExecutionLeaseLostError({
     rootExecutionId: lost.rootExecutionId,
     cause: lost.cause,

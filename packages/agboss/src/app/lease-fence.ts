@@ -1,3 +1,4 @@
+import { ExecutionError } from "../core/error-families/run-errors.js";
 import type { Clock } from "../infrastructure/clock.js";
 import type {
   ExecutionLease,
@@ -196,7 +197,9 @@ export async function renewInBackground(
     state.isRenewing = true;
     void renew()
       .catch((error: unknown) => {
-        state.isLost = error instanceof ExecutionLeaseLostError;
+        // a fenced write stops the lease with the family's refusal (#1317c): lost the same
+        state.isLost =
+          error instanceof ExecutionLeaseLostError || error instanceof ExecutionError.Fenced;
       })
       .finally(() => {
         state.isRenewing = false;
