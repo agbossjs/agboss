@@ -1,4 +1,4 @@
-import { ExecutionCancelFencedError } from "../app/lease-lost.js";
+import { ExecutionCancelFencedError, ExecutionFencedError } from "../app/lease-lost.js";
 import { InjectionToken } from "../components/injection.js";
 import { InterruptMode } from "../app/interrupt-types.js";
 import { ExecutionStopFencedError } from "../app/lease-stopped.js";
@@ -93,11 +93,23 @@ export class InMemoryDatabase {
 export function checkInMemoryCancel(database: InMemoryDatabase, key: EffectKey): void {
   const tree = cancelTreeOf(key);
   const row = database.executionLeases.get(treeKeyOf(tree.tenantId, tree.rootExecutionId));
+  checkFence(row, key, tree.rootExecutionId);
   // a cancelled tree's undo runs; a stopped one (`Immediate`) has none, and nothing of it is written
   if (row?.cancelRequestedAt === undefined && row?.stopMode === InterruptMode.Immediate)
     throw ExecutionStopFencedError.of(key);
   if (key.isCompensation === true) return;
   if (row?.cancelRequestedAt !== undefined) throw ExecutionCancelFencedError.of(key);
+}
+
+/** A pause fenced the root lease through a token (#1341c): its holder at or below it is stale. */
+function checkFence(row: ExecutionLeaseRow | undefined, key: EffectKey, root: string): void {
+  const fenced = row?.fencedThroughToken;
+  if (fenced === undefined || key.leaseExecutionId !== root || key.token > fenced) return;
+  throw ExecutionFencedError.of({
+    scopeKey: key.scopeKey,
+    token: key.token,
+    observedToken: fenced,
+  });
 }
 
 /** Whether an expiry (ms; `null` = never) has come at `now`: `null` never has. */
@@ -200,6 +212,13 @@ export interface ExecutionLeaseRow {
    * tree's new writes (`checkInMemoryCancel`).
    */
   readonly stopMode?: InterruptMode;
+  /** Paused from outside (#1341c, `app.pause`), with its reason: set by `requestPause`, lifted by `unpause`. */
+  readonly externalPause?: { readonly reason?: string };
+  /**
+   * The highest token of the root lease an `Immediate` pause fenced (#1341c): only ever raised
+   * (`GREATEST`), never cleared; a write at that token or below is refused (`checkInMemoryCancel`).
+   */
+  readonly fencedThroughToken?: number;
 }
 
 /** The row key of a tree: its tenant and its root execution (`\u0000` never occurs in an id). */

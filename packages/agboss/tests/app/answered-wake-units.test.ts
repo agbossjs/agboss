@@ -68,6 +68,8 @@ function partsOf(
     deps,
     paused: { find: () => Promise.resolve("stored" in options ? options.stored : STORED) },
     leases: {
+      // not paused from outside (#1341c)
+      pauseOf: () => Promise.resolve({}),
       tryHold: (_tree: unknown, take: LeaseTake) => {
         takes.push(take);
         return Promise.resolve(options.isHeld === true ? undefined : { release: released });

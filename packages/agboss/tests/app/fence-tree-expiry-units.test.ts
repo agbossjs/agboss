@@ -47,7 +47,8 @@ function partsOf(options: { turns?: unknown[]; found?: unknown; lease?: unknown 
   const parts = {
     deps: { turns: { completeIfStatus, byIds }, pause: undefined },
     paused: { find },
-    leases: { tryHold },
+    // not paused from outside (#1341c)
+    leases: { tryHold, pauseOf: () => Promise.resolve({}) },
     clock: { now: () => NOW },
     trees: {},
   };

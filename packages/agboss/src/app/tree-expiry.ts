@@ -1,3 +1,4 @@
+import { isExternallyPaused } from "./external-pause.js";
 import { ResumeReason } from "../core/observability.js";
 import { LeaseTakeoverReason } from "../infrastructure/execution-audit-log.repository.js";
 import { ExecutionRecordStatus } from "../infrastructure/execution-record.repository.js";
@@ -153,6 +154,11 @@ export async function expiredMove(
   if (lease === undefined) return;
   try {
     if ((await hooks.endedAtTake(state, lease)) !== undefined) return;
+    // frozen from outside (#1341c): its expiry waits for `app.unpause`, a due pause is not expired
+    if (await isExternallyPaused(parts.leases, treeOf(state))) {
+      await lease.release();
+      return;
+    }
     const resting = await isResting(parts, state, interrupted.turnId);
     // a resting tree is this instance's to move: from here the expiry is real work — the channel's
     // handler, and the pass after it — and counts against the cap (#1092); the look waits only

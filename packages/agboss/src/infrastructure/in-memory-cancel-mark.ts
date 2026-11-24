@@ -12,11 +12,18 @@ import { treeKeyOf, type ExecutionLeaseRow, type InMemoryDatabase } from "./in-m
 /** The tree's cancel mark of a stored row, for the row written in its place: kept for good. */
 export const markOf = (
   stored: ExecutionLeaseRow | undefined,
-): { readonly cancelRequestedAt?: number; readonly stopMode?: InterruptMode } => ({
+): Pick<
+  ExecutionLeaseRow,
+  "cancelRequestedAt" | "stopMode" | "externalPause" | "fencedThroughToken"
+> => ({
   ...(stored?.cancelRequestedAt === undefined
     ? {}
     : { cancelRequestedAt: stored.cancelRequestedAt }),
   ...(stored?.stopMode === undefined ? {} : { stopMode: stored.stopMode }),
+  ...(stored?.externalPause === undefined ? {} : { externalPause: stored.externalPause }),
+  ...(stored?.fencedThroughToken === undefined
+    ? {}
+    : { fencedThroughToken: stored.fencedThroughToken }),
 });
 
 /**

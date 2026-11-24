@@ -935,15 +935,18 @@ export abstract class ExecutionLeaseRepository {
     abstract claimExecutionId(identity: ExecutionIdentity): Promise<boolean>;
     abstract isCancelRequested(tree: ExecutionTree): Promise<boolean>;
     markedOf(tree: ExecutionTree): Promise<TreeMarks>;
+    abstract pauseOf(tree: ExecutionTree): Promise<PauseMarks>;
     abstract ping(): Promise<void>;
     abstract reclaim(executionLease: ExecutionLease, duration: Milliseconds): Promise<ExecutionLease | undefined>;
     abstract release(executionLease: ExecutionLease): Promise<void>;
     abstract renew(executionLease: ExecutionLease, duration: Milliseconds): Promise<Milliseconds | undefined>;
     abstract requestCancel(tree: ExecutionTree, transition?: NewStatusTransition): Promise<void>;
+    abstract requestPause(tree: ExecutionTree, request: PauseRequest, transition?: NewStatusTransition): Promise<void>;
     abstract requestStop(tree: ExecutionTree, mode: InterruptMode, transition?: NewStatusTransition): Promise<void>;
     abstract retire(executionLease: ExecutionLease): Promise<void>;
     abstract stopOf(tree: ExecutionTree): Promise<StopMark | undefined>;
     static readonly store: StoreDescriptor;
+    abstract unpause(tree: ExecutionTree, transition?: NewStatusTransition): Promise<void>;
     abstract yield(executionLease: ExecutionLease): Promise<Milliseconds | undefined>;
 }
 

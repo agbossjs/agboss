@@ -8,4 +8,6 @@ export const EXECUTION_LEASES_SCHEMA = `CREATE TABLE IF NOT EXISTS execution_lea
   lease_epoch INTEGER NOT NULL, expires_at INTEGER NOT NULL, released INTEGER NOT NULL,
   yielded INTEGER NOT NULL DEFAULT 0, cancel_requested_at INTEGER,
   stop_requested_at INTEGER, stop_mode TEXT,
+  is_externally_paused INTEGER NOT NULL DEFAULT 0, external_pause_reason TEXT,
+  fenced_through_token INTEGER,
   PRIMARY KEY (tenant_id, root_execution_id));`;

@@ -91,7 +91,7 @@ export type RenewalCheck = () => Promise<void>;
  */
 export interface ExecutionLeases extends Pick<
   ExecutionLeaseRepository,
-  "requestStop" | "stopOf" | "markedOf"
+  "requestStop" | "stopOf" | "markedOf" | "requestPause" | "unpause" | "pauseOf"
 > {
   /**
    * The tree's lease: at once when free, else once its holder releases it or its lease expires;

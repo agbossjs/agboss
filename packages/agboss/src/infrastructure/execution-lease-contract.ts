@@ -255,23 +255,65 @@ export abstract class ExecutionLeaseRepository {
   abstract stopOf(tree: ExecutionTree): Promise<StopMark | undefined>;
 
   /**
+   * Marks the tree as paused from outside (#1341c, `app.pause`): `isExternallyPaused` and its
+   * `reason` on the tree's own lease row (a seed row before the first `acquire`), durable once this
+   * resolves, idempotent — a repeat only updates the reason —, changing no lease. With
+   * `InterruptMode.Immediate` the row's `fencedThroughToken` becomes `GREATEST(itself, the row's
+   * current token)`: from then on a write of the tree's root lease at that token or below is refused
+   * with `ExecutionFencedError`, in the transaction that checks the lease — a stale step in flight
+   * is fenced, a lease taken at `token + 1` (an unpause, a cancel's unwind) is not. The fence only
+   * ever rises and is never cleared on the same token. The thread's history row is written in the
+   * same transaction, only when this call set the mark.
+   */
+  abstract requestPause(
+    tree: ExecutionTree,
+    request: PauseRequest,
+    transition?: NewStatusTransition,
+  ): Promise<void>;
+
+  /**
+   * Lifts the tree's external pause (#1341c, `app.unpause`): `isExternallyPaused` is cleared, its
+   * reason with it; `fencedThroughToken` stays — it is lifted only by a lease at a higher token. A
+   * tree not paused from outside is a no-op, no history row either.
+   */
+  abstract unpause(tree: ExecutionTree, transition?: NewStatusTransition): Promise<void>;
+
+  /** The tree's external pause and its fence (#1341c), from its own lease row. */
+  abstract pauseOf(tree: ExecutionTree): Promise<PauseMarks>;
+
+  /**
    * Both marks of the tree's lease row in one read (#1341b): what a take of the lease asks, so a
    * stop costs no round trip more than the cancel alone did. The default asks `isCancelRequested`
    * and `stopOf` together; a store that answers both from its one row overrides it.
    */
   async markedOf(tree: ExecutionTree): Promise<TreeMarks> {
-    const [isCancelRequested, stop] = await Promise.all([
+    const [isCancelRequested, stop, paused] = await Promise.all([
       this.isCancelRequested(tree),
       this.stopOf(tree),
+      this.pauseOf(tree),
     ]);
-    return { isCancelRequested, ...(stop === undefined ? {} : { stop }) };
+    return { isCancelRequested, ...(stop === undefined ? {} : { stop }), ...paused };
   }
 }
 
 /** What a tree's lease row carries: its cancel mark, and its stop mark when it has one. */
-export interface TreeMarks {
+export interface TreeMarks extends PauseMarks {
   readonly isCancelRequested: boolean;
   readonly stop?: StopMark;
+}
+
+/** How `requestPause` reaches the step in flight, and why the operator paused. */
+export interface PauseRequest {
+  readonly mode: InterruptMode;
+  readonly reason?: string | undefined;
+}
+
+/** A tree's external pause (#1341c): the mark while it is set, and the fence that outlives it. */
+export interface PauseMarks {
+  /** Present while the tree is paused from outside. */
+  readonly pause?: { readonly reason?: string };
+  /** The highest token of the tree's root lease an `Immediate` pause fenced; never lowered. */
+  readonly fencedThroughToken?: number;
 }
 
 /** A tree's stop mark: how its stop was requested. */

@@ -11,10 +11,13 @@ import {
   takenOverFromOf,
   type ExecutionIdentity,
   type ExecutionLease,
+  type PauseMarks,
+  type PauseRequest,
   type StopMark,
   type TreeMarks,
   type StoreDescriptor,
 } from "./execution-lease-contract.js";
+import { inMemoryPauseOf, pausedInMemory, unpausedInMemory } from "./in-memory-pause-mark.js";
 import {
   inMemoryStopOf,
   isInMemoryCancelMarked,
@@ -195,7 +198,34 @@ export class InMemoryExecutionLeaseRepository extends ExecutionLeaseRepository {
   override markedOf(tree: ExecutionTree): Promise<TreeMarks> {
     const stop = inMemoryStopOf(this.database, tree);
     const isCancelRequested = isInMemoryCancelMarked(this.database, tree);
-    return Promise.resolve({ isCancelRequested, ...(stop === undefined ? {} : { stop }) });
+    const paused = inMemoryPauseOf(this.database, tree);
+    return Promise.resolve({
+      isCancelRequested,
+      ...(stop === undefined ? {} : { stop }),
+      ...paused,
+    });
+  }
+
+  requestPause(
+    tree: ExecutionTree,
+    request: PauseRequest,
+    transition?: NewStatusTransition,
+  ): Promise<void> {
+    const now = this.clock.now().getTime();
+    return pausedInMemory(this.database, tree, {
+      request,
+      now,
+      ...(transition ? { transition } : {}),
+    });
+  }
+
+  unpause(tree: ExecutionTree, transition?: NewStatusTransition): Promise<void> {
+    const now = this.clock.now().getTime();
+    return unpausedInMemory(this.database, tree, { now, ...(transition ? { transition } : {}) });
+  }
+
+  pauseOf(tree: ExecutionTree): Promise<PauseMarks> {
+    return Promise.resolve(inMemoryPauseOf(this.database, tree));
   }
 
   /**

@@ -1,3 +1,4 @@
+import { isExternallyPaused } from "./external-pause.js";
 import { LeaseTakeoverReason } from "../infrastructure/execution-audit-log.repository.js";
 import { ExecutionRecordStatus } from "../infrastructure/execution-record.repository.js";
 import type { Turn } from "../turns/index.js";
@@ -42,6 +43,8 @@ export const wakeAnsweredOf =
     const lease = await leases.tryHold(treeOf(state), take);
     if (lease === undefined) return false;
     try {
+      // frozen from outside (#1341c): an answered pause does not wake it before `app.unpause`
+      if (await isExternallyPaused(leases, treeOf(state))) return false;
       if ((await treeResumeNow(deps, state)) === undefined) return false;
       // a compare-and-set from `paused`: a record a holder moved meanwhile is not marked
       const outcome = runningOutcome(record.route, record.costUsd);

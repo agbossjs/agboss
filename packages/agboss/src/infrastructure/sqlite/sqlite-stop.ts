@@ -1,6 +1,7 @@
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
 import { InterruptMode } from "../../app/interrupt-types.js";
+import type { SqliteConnection } from "./sqlite-connection.js";
 import type { TreeMarks } from "../execution-lease-contract.js";
 import { sqliteStatusLog, type NewStatusTransition } from "../../turns/index.js";
 
@@ -73,4 +74,23 @@ export function marksOf(
   if (row === undefined) return { isCancelRequested: false };
   const { is_cancelled: isCancelRequested, stop_mode: mode } = MarksRow.parse(row);
   return { isCancelRequested, ...(mode === null ? {} : { stop: { mode } }) };
+}
+
+/** `markedStopRequested` in a `BEGIN IMMEDIATE` of its own, like every fenced method, so the mark and its row serialize with them. */
+export function stopRequestedOn(
+  connection: SqliteConnection,
+  tree: { readonly tenantId: string; readonly rootExecutionId: string },
+  stop: {
+    readonly mode: InterruptMode;
+    readonly now: number;
+    readonly transition?: NewStatusTransition | undefined;
+  },
+): void {
+  connection.transaction(() => {
+    markedStopRequested(connection.database, tree, {
+      mode: stop.mode,
+      now: stop.now,
+      ...(stop.transition ? { transition: stop.transition } : {}),
+    });
+  });
 }

@@ -135,6 +135,8 @@ function partsOf(lease = leaseOf()) {
   const warn = vi.fn();
   const leases = {
     hold: vi.fn(() => Promise.resolve(lease)),
+    // not paused from outside (#1341c)
+    pauseOf: vi.fn(() => Promise.resolve({})),
     tryHold: vi.fn(() => Promise.resolve(lease)),
   };
   const paused = { find: vi.fn(() => Promise.resolve(undefined)), drop: vi.fn() };

@@ -1,3 +1,5 @@
+import { assertNotExternallyPaused } from "./external-pause.js";
+import type { ExecutionLeases } from "./execution-leases.js";
 import { answerValidatorOf, type AnswerChecks } from "../channels/decision.js";
 import { checkedCallers } from "../flow/context/context-values.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
@@ -235,6 +237,12 @@ export async function recordedAnswer(
   return { pause: resolved, run };
 }
 
+/** The tree a pause belongs to: its tenant and its root execution. */
+const treeOfPause = (pause: PauseRecord) => ({
+  tenantId: pause.tenantId,
+  rootExecutionId: pause.rootExecutionId,
+});
+
 /** What `app.resume` of one workflow's app is built from. */
 export interface ResumeParts extends AnswerParts {
   /** Observes a refused request (`onExecutionRejected`) and rethrows. */
@@ -244,6 +252,8 @@ export interface ResumeParts extends AnswerParts {
   /** The thread's owner: the resumed pass runs as it, whoever answered. */
   readonly ownerOf: (tenantId: string, threadId: string) => Promise<string | undefined>;
   readonly moves: Pick<TreeMoves, "resumed">;
+  /** The tree's lease marks (#1341c): an answer on a tree frozen by `app.pause` is refused. */
+  readonly leases?: Pick<ExecutionLeases, "pauseOf"> | undefined;
 }
 
 /**
@@ -262,9 +272,10 @@ export const resumeOf =
       answerGivenBy(request);
       return pauseOf(parts.pauses, request, tenantId);
     });
-    const answer = await parts.admit({ ...requested, threadId: pause.threadId }, () =>
-      recordAnswer(parts, pause, request, call),
-    );
+    const answer = await parts.admit({ ...requested, threadId: pause.threadId }, async () => {
+      await assertNotExternallyPaused(parts.leases, treeOfPause(pause));
+      return recordAnswer(parts, pause, request, call);
+    });
     const ownerId = await parts.ownerOf(tenantId, pause.threadId);
     return parts.moves.resumed(answer, { ...call, ownerId });
   };

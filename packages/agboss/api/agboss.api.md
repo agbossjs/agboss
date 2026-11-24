@@ -3311,15 +3311,18 @@ export abstract class ExecutionLeaseRepository {
     abstract claimExecutionId(identity: ExecutionIdentity): Promise<boolean>;
     abstract isCancelRequested(tree: ExecutionTree): Promise<boolean>;
     markedOf(tree: ExecutionTree): Promise<TreeMarks>;
+    abstract pauseOf(tree: ExecutionTree): Promise<PauseMarks>;
     abstract ping(): Promise<void>;
     abstract reclaim(executionLease: ExecutionLease, duration: Milliseconds): Promise<ExecutionLease | undefined>;
     abstract release(executionLease: ExecutionLease): Promise<void>;
     abstract renew(executionLease: ExecutionLease, duration: Milliseconds): Promise<Milliseconds | undefined>;
     abstract requestCancel(tree: ExecutionTree, transition?: NewStatusTransition): Promise<void>;
+    abstract requestPause(tree: ExecutionTree, request: PauseRequest, transition?: NewStatusTransition): Promise<void>;
     abstract requestStop(tree: ExecutionTree, mode: InterruptMode, transition?: NewStatusTransition): Promise<void>;
     abstract retire(executionLease: ExecutionLease): Promise<void>;
     abstract stopOf(tree: ExecutionTree): Promise<StopMark | undefined>;
     static readonly store: StoreDescriptor;
+    abstract unpause(tree: ExecutionTree, transition?: NewStatusTransition): Promise<void>;
     abstract yield(executionLease: ExecutionLease): Promise<Milliseconds | undefined>;
 }
 
@@ -7714,6 +7717,14 @@ export interface PauseListenerOptions<TDeps extends readonly Token[] = readonly 
 }
 
 // @public
+export interface PauseMarks {
+    readonly fencedThroughToken?: number;
+    readonly pause?: {
+        readonly reason?: string;
+    };
+}
+
+// @public
 export type PauseOutputOf<TTarget> = [TTarget] extends [never] ? never : GeneratedEntry<AGBossTypes.PauseTargets, TTarget> extends {
     readonly output: infer TOutput;
 } ? TOutput : MissingGeneratedTypes;
@@ -7749,6 +7760,14 @@ export interface PauseRecord extends PauseSite {
     // (undocumented)
     readonly status: PauseStatus;
     readonly step: string;
+}
+
+// @public
+export interface PauseRequest {
+    // (undocumented)
+    readonly mode: InterruptMode;
+    // (undocumented)
+    readonly reason?: string | undefined;
 }
 
 // @public
@@ -9332,6 +9351,8 @@ export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
     // (undocumented)
     markedOf(tree: ExecutionTree): Promise<TreeMarks>;
     // (undocumented)
+    pauseOf(tree: ExecutionTree): Promise<PauseMarks>;
+    // (undocumented)
     ping(): Promise<void>;
     // (undocumented)
     reclaim(executionLease: ExecutionLease, duration: Milliseconds): Promise<ExecutionLease | undefined>;
@@ -9342,6 +9363,8 @@ export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
     // (undocumented)
     requestCancel(tree: ExecutionTree, transition?: NewStatusTransition): Promise<void>;
     // (undocumented)
+    requestPause(tree: ExecutionTree, request: PauseRequest, transition?: NewStatusTransition): Promise<void>;
+    // (undocumented)
     requestStop(tree: ExecutionTree, mode: InterruptMode, transition?: NewStatusTransition): Promise<void>;
     // (undocumented)
     retire(executionLease: ExecutionLease): Promise<void>;
@@ -9349,6 +9372,8 @@ export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
     stopOf(tree: ExecutionTree): Promise<StopMark | undefined>;
     // (undocumented)
     static readonly store: StoreDescriptor;
+    // (undocumented)
+    unpause(tree: ExecutionTree, transition?: NewStatusTransition): Promise<void>;
     // (undocumented)
     yield(executionLease: ExecutionLease): Promise<Milliseconds | undefined>;
 }
@@ -10759,7 +10784,7 @@ export interface Transitions<THead extends PathHead> {
 }
 
 // @public
-export interface TreeMarks {
+export interface TreeMarks extends PauseMarks {
     // (undocumented)
     readonly isCancelRequested: boolean;
     // (undocumented)
@@ -12731,6 +12756,8 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/execution-lease-contract.ts - (ae-undocumented) Missing documentation for "isCancelRequested".
 // src/infrastructure/execution-lease-contract.ts - (ae-undocumented) Missing documentation for "stop".
 // src/infrastructure/execution-lease-contract.ts - (ae-undocumented) Missing documentation for "mode".
+// src/infrastructure/execution-lease-contract.ts - (ae-undocumented) Missing documentation for "reason".
+// src/infrastructure/execution-lease-contract.ts - (ae-undocumented) Missing documentation for "mode".
 // src/infrastructure/execution-record-contract.ts - (ae-undocumented) Missing documentation for "byIds".
 // src/infrastructure/execution-record-contract.ts - (ae-undocumented) Missing documentation for "saveScore".
 // src/infrastructure/execution-record-contract.ts - (ae-undocumented) Missing documentation for "meanScore".
@@ -12840,6 +12867,9 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/sqlite/sqlite-execution-lease.repository.ts - (ae-undocumented) Missing documentation for "requestStop".
 // src/infrastructure/sqlite/sqlite-execution-lease.repository.ts - (ae-undocumented) Missing documentation for "stopOf".
 // src/infrastructure/sqlite/sqlite-execution-lease.repository.ts - (ae-undocumented) Missing documentation for "markedOf".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts - (ae-undocumented) Missing documentation for "requestPause".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts - (ae-undocumented) Missing documentation for "unpause".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts - (ae-undocumented) Missing documentation for "pauseOf".
 // src/infrastructure/sqlite/sqlite-execution-lease.repository.ts - (ae-undocumented) Missing documentation for "isCancelRequested".
 // src/infrastructure/sqlite/sqlite-execution-lease.repository.ts - (ae-undocumented) Missing documentation for "reclaim".
 // src/infrastructure/sqlite/sqlite-execution-record.repository.ts - (ae-undocumented) Missing documentation for "ping".

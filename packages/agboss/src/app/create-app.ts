@@ -124,7 +124,7 @@ export async function buildApp(
   const accepting = (): void => {
     if (closed) throw new ApplicationStoppingError({ message: STOPPING });
   };
-  const resuming = { ...answers, ...replies, admit, accepting, moves, ownerOf, inline };
+  const resuming = { ...answers, ...replies, admit, accepting, moves, ownerOf, inline, leases };
   const resends = replacementSendsOf(resuming, { pauses, clock, deps });
   const app: WorkflowApp = {
     name: deps.config.name,

@@ -13,7 +13,9 @@ export function fencingShard() {
       // #1117: the cancel mark on the in-memory lease row, kept by every write of it
       "src/infrastructure/in-memory-cancel-mark.ts",
       // #1341b: the stop mark and its fence on the SQLite lease row
-      "src/infrastructure/sqlite/sqlite-stop.ts",
+      "src/infrastructure/sqlite/{sqlite-stop,sqlite-pause}.ts",
+      // #1341c: the pause mark and its fence on the in-memory lease row
+      "src/infrastructure/in-memory-pause-mark.ts",
       "src/app/{held-lease,lease-fence}.ts",
     ],
   };
