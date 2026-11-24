@@ -152,13 +152,14 @@ describe.each(stores)("#1374: the mesh request store %s", (_kind, make) => {
     expect(await store.findByKey(after)).toBeDefined();
   });
 
-  it("never sweeps a request that has no answer yet, however old", async () => {
+  it("keeps an unanswered request through its window, sweeps it after the grace", async () => {
     const store = make();
     await store.saveIfAbsent(at(NINE));
 
-    await expect(store.deleteExpired(new Date("2027-01-05T09:30:00.000Z"))).resolves.toBe(0);
-
+    await expect(store.deleteExpired(new Date("2026-01-05T10:29:59.999Z"))).resolves.toBe(0);
     expect(await store.findByKey(KEY)).toBeDefined();
+    await expect(store.deleteExpired(new Date("2026-01-05T10:30:00.000Z"))).resolves.toBe(1);
+    expect(await store.findByKey(KEY)).toBeUndefined();
   });
 
   it("sweeps nothing from an empty store", async () => {

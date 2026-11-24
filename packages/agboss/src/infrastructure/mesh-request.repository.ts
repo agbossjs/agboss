@@ -33,6 +33,13 @@ export interface MeshRequestRecord extends MeshRequestKey {
   readonly response?: unknown;
 }
 
+/**
+ * How long past its `expiresAt` a request with no answer keeps its row (1 hour): its replay window
+ * has passed by then, so a handler that crashed no longer locks its key out for good, and the table
+ * does not grow. Inside the window the row stays, so a replay is refused.
+ */
+export const MESH_IN_PROGRESS_GRACE_MS = 60 * 60_000;
+
 export abstract class MeshRequestRepository {
   /** Whether the store answers (#300): one fast round trip. */
   abstract ping(): Promise<void>;
@@ -53,9 +60,11 @@ export abstract class MeshRequestRepository {
   abstract deleteByKey(key: MeshRequestKey): Promise<void>;
 
   /**
-   * Removes every request whose `expiresAt` is at or before `now` and that has its answer (the
-   * recovery sweep), and gives the number removed (`onTtlSweep`'s count). A request still running
-   * keeps its row, so a repeat of its key meets `mesh.request-in-progress`, never a second run.
+   * Removes every request whose `expiresAt` is at or before `now` and that has its answer, and every
+   * one without an answer whose `expiresAt` is `MESH_IN_PROGRESS_GRACE_MS` or more past (the recovery
+   * sweep), and gives the number removed (`onTtlSweep`'s count). A request still running inside its
+   * window keeps its row, so a repeat of its key meets `mesh.request-in-progress`, never a second
+   * run; one whose handler crashed frees its key once the window and the grace have passed.
    */
   abstract deleteExpired(now: Date): Promise<number>;
 }
@@ -104,7 +113,10 @@ export class InMemoryMeshRequestRepository extends MeshRequestRepository {
   deleteExpired(now: Date): Promise<number> {
     let removed = 0;
     for (const [row, record] of this.database.meshRequests)
-      if (record.response !== undefined && Date.parse(record.expiresAt) <= now.getTime()) {
+      if (
+        Date.parse(record.expiresAt) <=
+        now.getTime() - (record.response === undefined ? MESH_IN_PROGRESS_GRACE_MS : 0)
+      ) {
         this.database.meshRequests.delete(row);
         removed += 1;
       }

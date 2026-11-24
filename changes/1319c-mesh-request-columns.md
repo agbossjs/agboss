@@ -10,8 +10,11 @@ the record already carries (a replayed-signature marker is finished at once). A 
 that repeats an idempotency key with another tool or other arguments is refused
 `mesh.idempotency-key-reused` (`MeshRefusalCode.IdempotencyKeyReused`), never answered with the
 other call's result. `MeshRequestRepository.deleteExpired(now)` removes the rows whose `expiresAt`
-has come **and that have an answer**: a request still running keeps its key, so a repeat meets
-`mesh.request-in-progress` and the call never runs twice. The sweep passes `now`; the `meshAnswers`
+has come and that have an answer, and those without one only `MESH_IN_PROGRESS_GRACE_MS` (1 hour)
+after it: a request still running inside its window keeps its key (a repeat meets
+`mesh.request-in-progress`, a replay is refused, a different body is `mesh.idempotency-key-reused`),
+and a crashed handler frees its key after the window plus the grace. The sweep passes `now`; the `meshAnswers`
 retention is no longer read by it. SQLite: `mesh_requests(tool, request_hash, expires_at)` in the
 baseline schema (no migration). Store follow-up: PostgreSQL and MongoDB need the same three columns
-and the guarded `deleteExpired(now)` (the 0.1.1 baseline, train T4).
+and the same `deleteExpired(now)` (answered rows at `expires_at`, unanswered ones at `expires_at` +
+grace; Redis keeps its keys with a TTL of window + grace) (the 0.1.1 baseline, train T4).

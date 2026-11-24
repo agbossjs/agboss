@@ -670,7 +670,7 @@ deadline, the earlier). `origin.step.tool` names the calling tool.
    [MCP](Mcp#4-calls-between-agboss-applications--_meta-398)): a repeat gets the kept answer
    without running, one while the first still runs an error result `mesh.request-in-progress`, one
    that asks another tool or other arguments `mesh.idempotency-key-reused`; a run that did not
-   answer is forgotten, and a row is swept only once expired and answered (#1319c). Over A2A every caller, signed or not, is deduplicated by
+   answer is forgotten, and a row is swept once expired and answered, an unanswered one an hour later (#1319c). Over A2A every caller, signed or not, is deduplicated by
    `messageId` in the task and message stores (§2);
 5. the run.
 

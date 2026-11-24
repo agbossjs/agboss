@@ -115,14 +115,18 @@ const MESH_CASES: readonly ContractCase<MeshRequestRepository>[] = [
     },
   },
   {
-    name: "the sweep never removes a request still running: its key stays taken",
+    name: "a request still running keeps its key inside its window and the grace after it; a crashed one is reclaimable after",
     run: async ({ first, second }) => {
       await first.saveIfAbsent(at(NINE));
 
-      expect(await second.deleteExpired(new Date("2026-01-06T09:00:00.000Z"))).toBe(0);
-
-      expect(await second.saveIfAbsent(at("2026-01-06T09:00:00.000Z"))).toBe(false);
+      // the window (30 minutes) has passed, the grace (1 hour) has not: the key is still taken
+      expect(await second.deleteExpired(new Date("2026-01-05T10:29:59.999Z"))).toBe(0);
+      expect(await second.saveIfAbsent(at("2026-01-05T10:29:59.999Z"))).toBe(false);
       expect((await second.findByKey(key))?.response).toBeUndefined();
+
+      // past the window and the grace: swept, and the key may be taken again
+      expect(await second.deleteExpired(new Date("2026-01-05T10:30:00.000Z"))).toBe(1);
+      expect(await second.saveIfAbsent(at("2026-01-05T10:30:00.000Z"))).toBe(true);
     },
   },
 ];

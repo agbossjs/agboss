@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { Injectable } from "../../components/decorators.js";
 import {
+  MESH_IN_PROGRESS_GRACE_MS,
   MeshRequestRepository,
   type MeshRequestKey,
   type MeshRequestRecord,
@@ -102,8 +103,10 @@ export class SqliteMeshRequestRepository extends MeshRequestRepository {
 
   deleteExpired(now: Date): Promise<number> {
     const { changes } = this.connection.database
-      .prepare("DELETE FROM mesh_requests WHERE expires_at <= ? AND response IS NOT NULL")
-      .run(now.toISOString());
+      .prepare(
+        "DELETE FROM mesh_requests WHERE (response IS NOT NULL AND expires_at <= ?) OR expires_at <= ?",
+      )
+      .run(now.toISOString(), new Date(now.getTime() - MESH_IN_PROGRESS_GRACE_MS).toISOString());
     return Promise.resolve(Number(changes));
   }
 }
