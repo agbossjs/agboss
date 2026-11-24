@@ -12,9 +12,13 @@ export function outputClassesOf(output: FinishOutput): readonly DtoClass[] {
   return typeof element === "function" ? [element] : element.variants;
 }
 
-/** The one class a finish's values are, if it has just one: its DTO, or a plain list's element. */
-export const singleOutputClassOf = (output: FinishOutput): DtoClass | undefined =>
-  outputClassesOf(output).length === 1 ? outputClassesOf(output)[0] : undefined;
+/** The DTO a finish gives as itself; undefined for a list (its values are items, never that DTO). */
+export const plainOutputClassOf = (output: FinishOutput): DtoClass | undefined =>
+  typeof output === "function" ? output : undefined;
+
+/** The classes of the items of a list output; none for a plain DTO. */
+export const listItemClassesOf = (output: FinishOutput): readonly DtoClass[] =>
+  typeof output === "function" ? [] : outputClassesOf(output);
 
 /**
  * A finished execution's output, checked against a finish's `output` as it was given (plain values,

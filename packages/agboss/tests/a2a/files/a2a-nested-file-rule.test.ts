@@ -13,6 +13,7 @@ import { A2AFileDto, nestedFileFieldsOf } from "../../../src/a2a/files/a2a-file.
 import { Application } from "../../../src/application/application.js";
 import { applicationOf } from "../../../src/application/assemble.js";
 import { List, Nested, Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
+import { listOf, oneOf, type ListWrapper } from "../../../src/flow/dto-wrappers.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
@@ -90,6 +91,69 @@ function servedWith(
   class NestedApplication {}
   return NestedApplication;
 }
+
+/** An exported start whose one finish gives a list (#1271): the list's items are below the top level. */
+function servedWithListOutput(item: ListWrapper) {
+  @WorkflowStart({
+    name: "listed-workflow-start",
+    description: "listed",
+    input: listOf(WorkflowStartTextDto),
+  })
+  class ListedStart {}
+
+  @WorkflowFinish({ name: "listed-workflow-finish", description: "done", output: item })
+  class ListedFinish {}
+
+  @Workflow({
+    name: "listed-workflow",
+    version: "1.0.0",
+    flow: [onStart(ListedStart).toFinish(ListedFinish)],
+  })
+  class ListedWorkflow {}
+
+  @A2AExpose({
+    name: "listed-a2a-expose",
+    version: "1.0.0",
+    description: "l",
+    exports: [ListedStart],
+  })
+  class ListedExpose {}
+
+  @Application({
+    name: "listed-application",
+    version: "1.0.0",
+    environment: EmptyEnvironment,
+    workflows: [ListedWorkflow],
+    exposes: [ListedExpose],
+    budgets: TEST_BUDGETS,
+  })
+  class ListedApplication {}
+  return ListedApplication;
+}
+
+describe("#1271: a list output of an exported finish never skips the file checks", () => {
+  it("items that hold a file at the top level: [a2a.nested-file-field]", async () => {
+    expect(await codesOf(servedWithListOutput(listOf(ReviewRequestDto)))).toEqual([
+      "a2a.nested-file-field",
+    ]);
+  });
+
+  it("items that hold a file in a nested DTO: [a2a.nested-file-field]", async () => {
+    expect(await codesOf(servedWithListOutput(listOf(WrappedRequestDto)))).toEqual([
+      "a2a.nested-file-field",
+    ]);
+  });
+
+  it("a oneOf variant of the items that holds a file: [a2a.nested-file-field], naming it", async () => {
+    expect(
+      await codesOf(servedWithListOutput(listOf(oneOf(WorkflowStartTextDto, ReviewRequestDto)))),
+    ).toEqual(["a2a.nested-file-field"]);
+  });
+
+  it("items without files pass", async () => {
+    expect(await codesOf(servedWithListOutput(listOf(WorkflowStartTextDto)))).toEqual([]);
+  });
+});
 
 describe("#859 AC3: A2AFileDto only at the top level of an A2A DTO", () => {
   it("the paths where a file sits below the top level, a list item's and a nested DTO's", () => {

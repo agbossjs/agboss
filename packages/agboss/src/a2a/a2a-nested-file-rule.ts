@@ -5,8 +5,8 @@ import type { DtoClass } from "../dto/types.js";
 import { NodeKind } from "../flow/ast.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
-import { nestedFileFieldsOf } from "./files/a2a-file.dto.js";
-import { finishDtosOf } from "./files/a2a-file-tier.js";
+import { hasFileAtAnyDepth, nestedFileFieldsOf } from "./files/a2a-file.dto.js";
+import { finishDtosOf, listFinishItemsOf } from "./files/a2a-file-tier.js";
 
 /**
  * Fail closed at assembly (#859): a file of an A2A message or answer is a part of its own, filled
@@ -31,6 +31,19 @@ function exportedDtosOf(options: ApplicationOptions): readonly DtoClass[] {
   });
 }
 
+/** The item classes of the list-output finishes of the exported starts, with the finish's name. */
+function listItemsOf(options: ApplicationOptions): readonly (readonly [string, DtoClass])[] {
+  return (options.exposes ?? []).flatMap((expose) => {
+    const meta = componentOf(expose);
+    if (meta?.kind !== "a2a-expose") return [];
+    return meta.meta.exports.flatMap((start) =>
+      [...listFinishItemsOf(start, options.workflows)].flatMap(([finish, items]) =>
+        items.map((item): readonly [string, DtoClass] => [finish, item]),
+      ),
+    );
+  });
+}
+
 /** The listed providers of the application and its workflows. */
 const providersOf = (options: ApplicationOptions): readonly Provider[] => [
   ...(options.providers ?? []),
@@ -48,16 +61,38 @@ const agentDtosOf = (options: ApplicationOptions): readonly DtoClass[] =>
     return [meta.meta.input, meta.meta.output].flatMap((dto) => (dto === undefined ? [] : [dto]));
   });
 
+/**
+ * A list output's items are below the top level: no file part can be filled from them, so an item
+ * class (or a `oneOf` variant) holding an `A2AFileDto` at any depth is refused, never served
+ * without the file checks.
+ */
+function listItemViolations(options: ApplicationOptions): RuleViolation[] {
+  return listItemsOf(options).flatMap(([finish, dto]) =>
+    hasFileAtAnyDepth(dto)
+      ? [
+          violation(
+            "a2a.nested-file-field",
+            `${dto.name} holds an A2AFileDto and is an item of the list output of ${finish}: an A2A file is a part of its own, filled into a top-level field — give ${finish} a DTO with the files at its top level (@List(A2AFileDto) on it)`,
+            [dto.name],
+          ),
+        ]
+      : [],
+  );
+}
+
 /** `[a2a.nested-file-field]` of an application, or none. */
 export function nestedFileFieldViolations(options: ApplicationOptions): RuleViolation[] {
   const dtos = new Set([...exportedDtosOf(options), ...agentDtosOf(options)]);
-  return [...dtos].flatMap((dto) =>
-    nestedFileFieldsOf(dto).map((path) =>
-      violation(
-        "a2a.nested-file-field",
-        `${dto.name}.${path} holds an A2AFileDto below the top level: an A2A file is a part of its own, filled into a top-level field — move it up (@Nested(A2AFileDto) / @List(A2AFileDto) on ${dto.name} itself)`,
-        [dto.name],
+  return [
+    ...listItemViolations(options),
+    ...[...dtos].flatMap((dto) =>
+      nestedFileFieldsOf(dto).map((path) =>
+        violation(
+          "a2a.nested-file-field",
+          `${dto.name}.${path} holds an A2AFileDto below the top level: an A2A file is a part of its own, filled into a top-level field — move it up (@Nested(A2AFileDto) / @List(A2AFileDto) on ${dto.name} itself)`,
+          [dto.name],
+        ),
       ),
     ),
-  );
+  ];
 }
