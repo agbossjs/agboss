@@ -20,6 +20,7 @@ import { OpenRouterProvider, type OpenRouterFields } from "../../src/models/open
 import { minutes, seconds } from "../../src/units/index.js";
 import { bedrockApplicationOn } from "./transport/bedrock-apps.fixture.js";
 import { CircuitBreakerPolicy } from "../../src/models/circuit-breaker-policy.js";
+import { AUTO_PROMPT_CACHING } from "../../src/models/prompt-caching.js";
 
 const options = {
   description: "An OpenRouter subclass",
@@ -60,13 +61,13 @@ describe("#644 (5): a provider subclass without requestFields", () => {
     );
   });
 
-  it("with requestFields it assembles; an unset promptCaching is kept as off", async () => {
+  it("with requestFields it assembles; an unset promptCaching is kept as the automatic default", async () => {
     const application = bedrockApplicationOn({
       name: "fielded-application",
       providers: [FieldedModelProvider],
     });
 
     await expect(applicationOf(application, {})).resolves.toBeDefined();
-    expect(modelProviderOf(FieldedModelProvider).promptCaching).toEqual({ kind: "off" });
+    expect(modelProviderOf(FieldedModelProvider).promptCaching).toBe(AUTO_PROMPT_CACHING);
   });
 });

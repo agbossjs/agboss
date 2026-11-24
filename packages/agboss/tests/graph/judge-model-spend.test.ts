@@ -11,6 +11,7 @@ import { ModelKind } from "../../src/llm/decision-errors.js";
 import type { ModelReadingMask } from "../../src/pii/model-boundary.js";
 
 const record = (costUsd: number, caller: string): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller,
   model: "m",

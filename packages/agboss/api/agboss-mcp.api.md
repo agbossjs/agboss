@@ -13,10 +13,10 @@ export type ArgumentsOf<TTool extends ServerTool> = TTool extends {
 } ? InstanceType<TInput> : undefined;
 
 // @public
-export function connectMcp<TApp extends AnyTenantApp>(app: TApp, options: McpConnectOptions<TApp>): Promise<McpConnection>;
+export function connectMcp<TApp>(app: App<TApp>, options: McpConnectOptions<TApp>): Promise<McpConnection>;
 
 // @public
-export function connectMcpStdio<TApp extends AnyTenantApp>(app: TApp, options: McpStdioOptions<TApp>): Promise<McpConnection>;
+export function connectMcpStdio<TApp>(app: App<TApp>, options: McpStdioOptions<TApp>): Promise<McpConnection>;
 
 // @public
 export type McpCallArguments<TTool extends ServerTool> = ArgumentsOf<TTool> extends undefined ? [options?: McpCallOptions] : [args: ArgumentsOf<TTool>, options?: McpCallOptions];
@@ -94,7 +94,7 @@ export enum McpErrorKind {
 // @public
 export interface McpHttpConfig extends McpServerCommon {
     // (undocumented)
-    readonly headers?: Readonly<Record<string, string | EnvRef<string> | SecretRef | BearerAuth>>;
+    readonly headers?: Readonly<Record<string, string | EnvRef<string> | SecretRef | HeaderSecretTemplate>>;
     // (undocumented)
     readonly transport: McpTransport.Http;
     // (undocumented)
@@ -102,7 +102,7 @@ export interface McpHttpConfig extends McpServerCommon {
 }
 
 // @public
-export function mcpHttpListener(app: AnyTenantApp, options: McpHttpListenerOptions): (req: IncomingMessage, res: ServerResponse) => void;
+export function mcpHttpListener<TApp>(app: App<TApp>, options: McpHttpListenerOptions): (req: IncomingMessage, res: ServerResponse) => void;
 
 // @public
 export interface McpHttpListenerOptions {
@@ -111,7 +111,7 @@ export interface McpHttpListenerOptions {
     readonly endpoint: Class;
     readonly maxBodySize?: Bytes;
     readonly onError?: (error: unknown, req: IncomingMessage) => void;
-    readonly publicUrl: string;
+    readonly publicUrl?: string | (() => string);
 }
 
 // @public
@@ -153,9 +153,7 @@ export interface McpServerTarget {
 }
 
 // @public
-export type McpSessionOptions = Pick<ExecutionOptions, "ownerId" | "tenant" | "execution"> & {
-    readonly peer?: string;
-};
+export type McpSessionOptions = Pick<ExecutionOptions, "ownerId" | "tenant" | "execution">;
 
 // @public
 export interface McpStdioConfig extends McpServerCommon {

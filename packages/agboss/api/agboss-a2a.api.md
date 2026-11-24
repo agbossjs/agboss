@@ -30,7 +30,7 @@ export function A2AAgent<TIn extends DtoClass, TOut extends DtoClass, const D ex
 export type A2AAgentConfig<TIn extends DtoClass = DtoClass, TOut extends DtoClass = DtoClass, D extends readonly Token[] = [], TPorts extends InjectAs = readonly []> = {
     readonly name: string;
     readonly url: string | EnvRef<string>;
-    readonly headers?: Readonly<Record<string, string | EnvRef<string> | SecretRef | BearerAuth>>;
+    readonly headers?: Readonly<Record<string, string | EnvRef<string> | SecretRef | HeaderSecretTemplate>>;
     readonly timeout?: Milliseconds;
     readonly target?: A2ATarget;
     readonly costPerCall?: Usd;

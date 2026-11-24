@@ -102,8 +102,8 @@ import {
   Workflow,
   WorkflowSettings,
   onStart,
+  ResumeDecision,
   type IncompatibleResume,
-  type ResumeDecision,
   type WorkflowDefinition,
 } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
@@ -114,7 +114,9 @@ import { ClaimWorkflowStart } from "./claim.workflow-start.js";
 
 /** A paused or running execution of another config hash is continued only when the version is the same. */
 const sameVersionOnly = (resume: IncompatibleResume): ResumeDecision =>
-  resume.paused.workflowVersion === resume.current.workflowVersion ? "resume" : "reject";
+  resume.paused.workflowVersion === resume.current.workflowVersion
+    ? ResumeDecision.Resume
+    : ResumeDecision.Reject;
 
 @Workflow({
   name: "claim-workflow",
@@ -429,7 +431,7 @@ or `secret`, `optional` / `has a default`) — the list for the manifest.
   record, event and trace) is the fingerprint of a workflow's config, flow and every text its models
   read — its child workflows' included.
 - A paused or running execution started under another hash is **not** continued by an instance of
-  the new version unless the workflow's `onIncompatibleResume` policy says `"resume"`
+  the new version unless the workflow's `onIncompatibleResume` policy says `ResumeDecision.Resume`
   (`implements WorkflowDefinition`, `settings()` above): `app.resume` rejects with
   `IncompatibleResumeError` (`resume.incompatible`) and the execution stays paused; recovery leaves
   such a root to an instance of a compatible version (logged once, `recovery.incompatible`).
@@ -758,4 +760,4 @@ file (`sqlitePath: join(mkdtempSync(join(tmpdir(), "app-")), "stores.sqlite")`) 
 - A side effect without `step.idempotencyKey`: a recovered step runs again.
 - `terminationGracePeriodSeconds` below `shutdownTimeout`: the platform kills the pod mid-drain.
 - Expecting a new version to pick up an old paused execution: it is refused unless
-  `onIncompatibleResume` says `"resume"`.
+  `onIncompatibleResume` says `ResumeDecision.Resume`.

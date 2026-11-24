@@ -26,6 +26,21 @@ export type PromptCaching =
   ({ readonly kind: "where-supported" } & PromptCachingOptions) | { readonly kind: "off" };
 
 /**
+ * The caching of a provider that sets none (#1313): the system prompt, the tools and the history at
+ * `FiveMinutes`, wherever the model supports it — and silently none where it does not, unlike an
+ * explicit `PromptCaching`, which the startup check refuses on a model that cannot honour it. A
+ * singleton, told apart by identity (`isAutoCaching`); to a transport it is its defaults.
+ */
+export const AUTO_PROMPT_CACHING: PromptCaching = Object.freeze({
+  kind: "where-supported",
+  retention: CacheRetention.FiveMinutes,
+  cachedParts: Object.freeze([CachedPart.SystemPrompt, CachedPart.Tools, CachedPart.History]),
+});
+
+/** Whether `caching` is the provider's default (see `AUTO_PROMPT_CACHING`), not a setting made on purpose. */
+export const isAutoCaching = (caching: PromptCaching): boolean => caching === AUTO_PROMPT_CACHING;
+
+/**
  * A value out of range, as the platform's `RangeError`, so `catch` keeps telling it from other errors;
  * made as every framework error is (#906): `{ message, cause }`, with a literal `code`.
  */
@@ -62,7 +77,7 @@ export function promptCachingOfSetting(
 }
 
 export function promptCachingLabel(caching: PromptCaching): string {
-  return caching.kind === "off"
-    ? "off"
-    : `where supported (${caching.retention}; ${caching.cachedParts.join(", ")})`;
+  if (caching.kind === "off") return "off";
+  if (isAutoCaching(caching)) return "auto (system prompt, tools, history; 5m, where supported)";
+  return `where supported (${caching.retention}; ${caching.cachedParts.join(", ")})`;
 }

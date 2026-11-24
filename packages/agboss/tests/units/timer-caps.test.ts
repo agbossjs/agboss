@@ -31,7 +31,7 @@ import {
   type NoRequestFields,
 } from "../../src/models/index.js";
 import { defineTool } from "../../src/tools/define-tool.js";
-import { UnitError, minutes, seconds, usd, type Milliseconds } from "../../src/units/index.js";
+import { minutes, seconds, usd, type Milliseconds } from "../../src/units/index.js";
 import {
   MAX_DEADLINE,
   MAX_TIMEOUT,
@@ -41,6 +41,7 @@ import {
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { ProbeWorkflow } from "../health/fixtures/health.application.js";
 import { CircuitBreakerPolicy } from "../../src/models/circuit-breaker-policy.js";
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 
 const over = (max: Milliseconds): Milliseconds => (max + 1) as Milliseconds;
 
@@ -86,7 +87,7 @@ describe("#1141: the caps are under the timer's limit", () => {
   });
 
   it("refuses NaN and Infinity, names the field, accepts the cap", () => {
-    expect(() => checkedTimer("x", Number.NaN, MAX_TIMEOUT)).toThrow(UnitError);
+    expect(() => checkedTimer("x", Number.NaN, MAX_TIMEOUT)).toThrow(ConfigError.Unit);
     expect(() => checkedTimer("x", Infinity, MAX_TIMEOUT)).toThrow(/x is Infinity ms/u);
     expect(checkedTimer("x", MAX_TIMEOUT, MAX_TIMEOUT)).toBe(MAX_TIMEOUT);
   });

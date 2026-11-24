@@ -40,6 +40,7 @@ vi.mock("../../src/llm/registry.js", () => ({
 }));
 
 const record = (costUsd: number, caller = "reply"): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller,
   model: "m",

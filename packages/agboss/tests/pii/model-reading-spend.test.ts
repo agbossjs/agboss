@@ -12,6 +12,7 @@ import type { ModelReadingMask } from "../../src/pii/model-boundary.js";
 import { ARBITER_ANSWER_TOOL, ARBITER_QUESTION } from "../../src/prompts/arbiter.js";
 
 const record = (costUsd: number, caller: string): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller,
   model: "m",

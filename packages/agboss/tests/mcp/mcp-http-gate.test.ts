@@ -22,6 +22,7 @@ import { InMemoryMeshRequestRepository } from "../../src/infrastructure/mesh-req
 import { signMeshHttp } from "../../src/mesh/mesh-http.js";
 import { rememberMeshSettings, type MeshSettings } from "../../src/mesh/mesh-settings.js";
 import { MeshInboundMode } from "../../src/mesh/mesh.decorator.js";
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { MESH_DEFAULTS } from "../helpers/mesh-settings.js";
 
@@ -37,7 +38,12 @@ class OrdersMcp {}
 class AdminMcp {}
 
 function appOf(
-  options: { mode?: MeshInboundMode; allow?: readonly (typeof OrdersMcp)[]; down?: boolean } = {},
+  options: {
+    mode?: MeshInboundMode;
+    allow?: readonly (typeof OrdersMcp)[];
+    down?: boolean;
+    tenantContext?: boolean;
+  } = {},
 ): object {
   const store = new InMemoryMeshRequestRepository(new InMemoryDatabase());
   const settings = {
@@ -60,6 +66,7 @@ function appOf(
         ? () => ({ saveIfAbsent: () => Promise.reject(new Error("down")) })
         : () => store,
     endpoints: [OrdersMcp, AdminMcp],
+    isBaseTenantContext: options.tenantContext !== true,
   } as never;
   const app = {};
   rememberMeshSettings(app, () => settings);
@@ -301,14 +308,24 @@ describe("#1320: an MCP HTTP session admits each message by its own verified ide
     expect(await answer.json()).toMatchObject({ code: "mesh.audience-mismatch" });
   });
 
-  it("a listener with no authenticator needs a Strict mesh with a tenant-propagating peer", () => {
+  it("a listener with no authenticator is made for an application with no tenantContext of its own", () => {
     const app = Object.assign(appOf(), {
       resolve: (token: unknown) => (token === Logger ? new SilentLogger() : new SystemClock()),
     });
 
-    expect(() => mcpHttpListener(app as never, { endpoint: OrdersMcp, publicUrl: ORIGIN })).toThrow(
-      "[http.authenticator-required-for-tenant-context]",
-    );
+    expect(() =>
+      mcpHttpListener(app as never, { endpoint: OrdersMcp, publicUrl: ORIGIN }),
+    ).not.toThrow();
+  });
+
+  it("with a tenantContext, no authenticator is a ConfigError, not a ComponentError", () => {
+    const app = Object.assign(appOf({ tenantContext: true }), {
+      resolve: (token: unknown) => (token === Logger ? new SilentLogger() : new SystemClock()),
+    });
+    const made = () => mcpHttpListener(app as never, { endpoint: OrdersMcp, publicUrl: ORIGIN });
+
+    expect(made).toThrow(ConfigError.Option);
+    expect(made).toThrow("[http.authenticator-required-for-tenant-context]");
     expect(() =>
       mcpHttpListener(app as never, {
         endpoint: OrdersMcp,

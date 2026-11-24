@@ -8,7 +8,7 @@ import { meshSettingsOf } from "../mesh/mesh-settings.js";
 import { MeshInboundMode } from "../mesh/mesh.decorator.js";
 import type { McpEndpointOptions } from "./mcp-endpoint.decorator.js";
 import { callIdOf, mcpServerOptionsOf } from "./mcp-service-helpers.js";
-import type { McpSessionOptions } from "./mcp-service-helpers.js";
+import type { McpCaller } from "./mcp-service-helpers.js";
 import { collectTools } from "./mcp-tool-registry.js";
 import { dedupedMcpCall } from "./mcp-dedupe.js";
 import { admitMcpCall } from "./mcp-mesh-gate.js";
@@ -50,7 +50,7 @@ type CallExtra = Pick<RequestHandlerExtra<never, never>, "signal" | "authInfo">;
 export function mcpServerOf(
   app: AnyTenantApp,
   options: McpEndpointOptions,
-  sessionOf: (extra: CallExtra) => McpSessionOptions,
+  sessionOf: (extra: CallExtra) => McpCaller,
 ): McpServer {
   const mcp = new McpServer(
     { name: options.name, version: options.version },

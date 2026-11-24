@@ -176,6 +176,7 @@ describe("#511 AC4: every type a public infrastructure contract names is exporte
 
 /** A call's usage record of `costUsd`. */
 const costing = (costUsd: number): UsageRecord => ({
+  provider: "test-provider",
   caller: "agent:desk-agent",
   model: "moonshotai/kimi-k2.6",
   inputTokens: 10,

@@ -10,6 +10,7 @@ import { DetectionMode } from "../../src/pii/runtime-policy.js";
 import { maskedTextOf, storedCompaction } from "../../src/run/compaction-parts.js";
 
 const record = (costUsd: number): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller: "pii",
   model: "m",

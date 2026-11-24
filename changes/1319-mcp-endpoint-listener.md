@@ -11,6 +11,6 @@ any SDK server transport with `connectMcp(app, { endpoint, transport, session? }
 `McpWireTransport`, and an application with a `tenantContext` must pass a `session` with its tenant), and over
 Streamable HTTP with `mcpHttpListener(app, { endpoint, publicUrl, authenticator?, base?, maxBodySize?, onError? })`.
 Each HTTP request is admitted on its own — a signed mesh peer (`X-AGBoss-Mesh`, for `publicUrl`'s origin) or the
-`@HttpAuthenticator`'s caller (`[http.authenticator-required-for-tenant-context]` without one, unless the `@Mesh`
-is `Strict` with a tenant-propagating peer) — and an MCP session belongs to the identity that opened it. A `Strict`
+`@HttpAuthenticator`'s caller (required with a `tenantContext`: `ConfigError`
+`[http.authenticator-required-for-tenant-context]` without one; an application with none serves anonymous callers) — and an MCP session belongs to the identity that opened it. A `Strict`
 `@Mesh` serves no endpoint `@Application({ exposes })` does not list (`[application.expose-unlisted]`).

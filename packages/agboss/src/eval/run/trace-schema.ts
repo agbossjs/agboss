@@ -36,6 +36,7 @@ const StepSchema = z.looseObject({
     z.looseObject({
       caller: z.string(),
       model: z.string(),
+      provider: z.string(),
       inputTokens: count,
       outputTokens: count,
       cacheReadTokens: count,

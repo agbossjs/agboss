@@ -8,7 +8,7 @@ import type {
   Transport,
   TransportSendOptions,
 } from "@modelcontextprotocol/sdk/shared/transport.js";
-import type { AnyTenantApp } from "../app/types.js";
+import type { App } from "../app/types.js";
 import type { HasTenantContext } from "../app/tenant-args.js";
 import type { Class } from "../components/injection.js";
 import { mcpServerOf, servedEndpointOf } from "./mcp-server-instance.js";
@@ -18,7 +18,7 @@ import type { McpSessionOptions } from "./mcp-tool-registry.js";
  * `connectMcpStdio` / `connectMcp` (#1319): an `@McpEndpoint` served over a transport that is one
  * connection — standard input/output, or any transport of the MCP SDK's server side (an in-memory
  * pair in tests). The connection's caller is the host's: `session` is its owner, tenant and context
- * values, and `peer` the application the transport proved (a trusted envelope's issuer).
+ * values; it never names a mesh peer (only `mcpHttpListener`, once it verified a signature, does).
  */
 
 /** A message of the MCP wire (JSON-RPC 2.0), as AGBoss sees it: no SDK type in the public surface. */
@@ -94,12 +94,14 @@ class WireAdapter implements Transport {
 }
 
 /** Serves `endpoint` over `transport` until the connection is closed. */
-export async function connectMcp<TApp extends AnyTenantApp>(
-  app: TApp,
+export async function connectMcp<TApp>(
+  app: App<TApp>,
   options: McpConnectOptions<TApp>,
 ): Promise<McpConnection> {
   const served = servedEndpointOf(app, options.endpoint);
-  const session = options.session ?? {};
+  // only the declared values: a `peer` a JavaScript host adds is not carried (a peer is proved by a signature)
+  const { ownerId, tenant, execution } = options.session ?? {};
+  const session: McpSessionOptions = { ownerId, tenant, execution };
   const server = mcpServerOf(app, served, () => session);
   await server.connect(new WireAdapter(options.transport));
   const close = () => server.close();
@@ -107,8 +109,8 @@ export async function connectMcp<TApp extends AnyTenantApp>(
 }
 
 /** Serves `endpoint` over the process's standard input and output (a CLI an MCP client starts). */
-export function connectMcpStdio<TApp extends AnyTenantApp>(
-  app: TApp,
+export function connectMcpStdio<TApp>(
+  app: App<TApp>,
   options: McpStdioOptions<TApp>,
 ): Promise<McpConnection> {
   // the SDK's own stdio transport is a wire transport: the adapter parses what it reads all the same

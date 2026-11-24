@@ -1,3 +1,4 @@
+import { NO_PROVIDER } from "./no-provider.js";
 import { isFiniteNumber } from "../graph/count-limit.js";
 import { checkedPrice } from "../models/cost.js";
 import type { Price, ResolvedModelSettings } from "../config/types.js";
@@ -46,10 +47,10 @@ export interface UsageRecord extends TokenUsage {
    */
   readonly servedBy?: string;
   /**
-   * The `@ModelProvider` that served the call, by its `name` (#1313); absent for a charge no model
-   * made (a tool's), for a call a fallback answered, and for a model reached by `serves`.
+   * The `@ModelProvider` that served the call, by its `name` (#1313); `NO_PROVIDER` for a charge no
+   * model provider made (a tool's, a mesh peer's) and for a model no provider names.
    */
-  readonly provider?: string;
+  readonly provider: string;
   /**
    * Where the ledger holds its cost (#333 PR 3, #727, #771): absent while it is not in the ledger
    * yet — its pass writes it —; `LedgerState.Written` once a pass wrote it as it was made, under its
@@ -68,6 +69,7 @@ export interface UsageRecord extends TokenUsage {
 
 export { CostCategory, costCategoryOf } from "./cost-category.js";
 export { CostSource } from "./cost-source.js";
+export { NO_PROVIDER } from "./no-provider.js";
 export { CostReport, tokensOf, totalCost, totalTokens } from "./cost-report.js";
 
 /** One call of the turn, in order. */
@@ -80,7 +82,7 @@ export interface CostLine extends TokenUsage {
   /** The host that served the call (`UsageRecord.servedBy`, #395 PR 6). */
   readonly servedBy?: string;
   /** The provider that served the call (`UsageRecord.provider`, #1313). */
-  readonly provider?: string;
+  readonly provider: string;
 }
 
 export const ZERO_USAGE: TokenUsage = {
@@ -137,8 +139,12 @@ function fallbackRecordOf(
   reported: Usd | undefined,
   made: Pick<UsageRecord, "servedBy" | keyof TokenUsage>,
 ): UsageRecord {
-  const provider = fallback.provider === undefined ? {} : { provider: fallback.provider };
-  const base = { caller, model: fallback.model, ...made, ...provider };
+  const base = {
+    caller,
+    model: fallback.model,
+    ...made,
+    provider: fallback.provider ?? NO_PROVIDER,
+  };
   if (reported !== undefined) {
     const costSource = fallback.priced ? CostSource.PriceTable : CostSource.Api;
     return { ...base, costUsd: reported, costSource };
@@ -165,8 +171,8 @@ export function recordUsage(
   const fallback = fallbackMarkOf(message.response_metadata);
   if (fallback !== undefined)
     return fallbackRecordOf(caller, fallback, reported, { ...usage, ...served });
-  const provider = settings.modelProvider === undefined ? {} : { provider: settings.modelProvider };
-  const made = { caller, model: settings.model, ...usage, ...served, ...provider };
+  const provider = settings.modelProvider ?? NO_PROVIDER;
+  const made = { caller, model: settings.model, ...usage, ...served, provider };
   if (reported !== undefined) return { ...made, costUsd: reported, costSource: CostSource.Api };
   if (settings.price !== undefined)
     return { ...made, ...pricedOf(caller, settings.model, settings.price, usage) };
@@ -213,6 +219,7 @@ export function recordToolCost(tool: string, costUsd: number): UsageRecord {
   return {
     caller: `tool:${tool}`,
     model: tool,
+    provider: NO_PROVIDER,
     ...ZERO_USAGE,
     costUsd: usd(costUsd),
     costSource: CostSource.Tool,

@@ -177,7 +177,7 @@ version.
   - A stopping pod waits for its running step bodies. It releases a tree's lease only once they
     returned, so no other pod reruns a step that is still running here (#367).
   - Recovery continues a tree only on a version whose config hash matches, unless the workflow's
-    `onIncompatibleResume` says `"resume"`.
+    `onIncompatibleResume` says `ResumeDecision.Resume`.
   - A changed request shape under the same business key is a different fingerprint:
     `IdempotencyError.KeyConflict`, refused, never charged.
 - **Guarantee:** P1, P3. Assumptions: A1, A6.

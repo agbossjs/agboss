@@ -4,7 +4,8 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it } from "vitest";
 import type { App } from "../../src/app/types.js";
-import { connectMcp, McpEndpoint } from "../../src/mcp/index.js";
+import { McpEndpoint } from "../../src/mcp/index.js";
+import { mcpServerOf, servedEndpointOf } from "../../src/mcp/mcp-server-instance.js";
 import { plainApp } from "../helpers/mcp-plain-app.js";
 import { encodeMeshEnvelope } from "../../src/mesh/mesh-envelope-codec.js";
 import { readJws } from "../../src/mesh/mesh-jws.js";
@@ -61,11 +62,11 @@ async function billing(book: ScriptBook, orders: MeshKeyPair, own: MeshKeyPair) 
   });
   apps.push(app);
   const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
-  await connectMcp(plainApp(app), {
-    endpoint: BillingMcp,
-    transport: serverSide,
-    session: { peer: "orders-application" },
-  });
+  // the signature of a peer is proved by the HTTP listener; here the transport vouches for it
+  const served = servedEndpointOf(plainApp(app), BillingMcp);
+  await mcpServerOf(plainApp(app), served, () => ({ peer: "orders-application" })).connect(
+    serverSide,
+  );
   const client = new Client({ name: "orders", version: "1.0.0" });
   await client.connect(clientSide);
   return { client, parts };

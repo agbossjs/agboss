@@ -18,6 +18,7 @@ import { PNG } from "../a2a/files/support.js";
 import { NO_REDACTION } from "./runtime-parts.js";
 
 const usageOf = (caller: string): UsageRecord => ({
+  provider: "test-provider",
   caller,
   model: "m/x",
   costUsd: usd(0.5),

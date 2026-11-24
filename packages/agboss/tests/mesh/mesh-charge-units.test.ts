@@ -17,7 +17,8 @@ import type { UsageRecord } from "../../src/finops/usage.js";
 import { runInFrame } from "../../src/flow/context/frame.js";
 import { chargeOf, withLedgerKey } from "../../src/mesh/mesh-report.js";
 import { testFrame } from "../helpers/frame.js";
-import { UnitError, usd } from "../../src/units/index.js";
+import { usd } from "../../src/units/index.js";
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 
 const ACCEPTED = "2026-11-04T12:00:00.000Z";
 const NOW = new Date("2026-11-04T12:05:00.000Z");
@@ -115,19 +116,24 @@ describe("#1382: a price or a charge that is no amount throws, never counts", ()
   const bad = [-1, -0.5, Number.NaN, Number.POSITIVE_INFINITY];
 
   it.each(bad)(
-    "a contract price of %s is a UnitError, not a charge of %s above the report",
+    "a contract price of %s is a ConfigError.Unit, not a charge of %s above the report",
     (price) => {
       expect(() => chargeOf(report("3"), { application: "a", price } as never, 0)).toThrow(
-        UnitError,
+        ConfigError.Unit,
       );
-      expect(() => chargeOf(undefined, { application: "a", price } as never, 0)).toThrow(UnitError);
+      expect(() => chargeOf(undefined, { application: "a", price } as never, 0)).toThrow(
+        ConfigError.Unit,
+      );
     },
   );
 
-  it.each(bad)("a call already charged %s is a UnitError, not a charge raised by it", (charged) => {
-    expect(() => chargeOf(report("3"), undefined, charged)).toThrow(UnitError);
-    expect(() => chargeOf(undefined, contract(2), charged)).toThrow(UnitError);
-  });
+  it.each(bad)(
+    "a call already charged %s is a ConfigError.Unit, not a charge raised by it",
+    (charged) => {
+      expect(() => chargeOf(report("3"), undefined, charged)).toThrow(ConfigError.Unit);
+      expect(() => chargeOf(undefined, contract(2), charged)).toThrow(ConfigError.Unit);
+    },
+  );
 
   it("a price of 0 and a charge of 0 are amounts", () => {
     expect(chargeOf(report("3"), contract(0), 0)).toEqual({
@@ -207,7 +213,7 @@ describe("#1356: a call's price", () => {
   });
 
   it.each([-1, -0.5, Number.NaN, Number.POSITIVE_INFINITY])(
-    "a price of %s is refused with a UnitError before anything is charged (#1382)",
+    "a price of %s is refused with a ConfigError.Unit before anything is charged (#1382)",
     async (price) => {
       const reported: UsageRecord[] = [];
       const frame = {
@@ -219,7 +225,7 @@ describe("#1356: a call's price", () => {
           AGBOSS_MESH.activate(card, peer, call("partner")).charge(price as never, charged);
           return Promise.resolve();
         }),
-      ).rejects.toThrow(UnitError);
+      ).rejects.toThrow(ConfigError.Unit);
       expect(reported).toEqual([]);
     },
   );

@@ -3,6 +3,7 @@ import {
   Agent,
   EmptyEnvironment,
   ExecutionContext,
+  ResumeDecision,
   Tool,
   Workflow,
   WorkflowFinish,
@@ -149,7 +150,7 @@ export class MailParentV2Migrating {
     return WorkflowSettings.builder()
       .onIncompatibleResume((resume) => {
         asked.push(resume);
-        return "resume";
+        return ResumeDecision.Resume;
       })
       .build();
   }

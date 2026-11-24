@@ -1,6 +1,8 @@
+import { randomUUID } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Class } from "../components/injection.js";
 import { ComponentError } from "../components/metadata.js";
+import { ConfigError } from "../core/error-families/config-errors.js";
 import {
   HttpAuthKind,
   isHttpAuthResult,
@@ -14,8 +16,7 @@ import {
   type HttpAuthenticatorMeta,
 } from "../http/http-authenticator.js";
 import type { FrameworkLog } from "../infrastructure/logger.js";
-import { MeshInboundMode } from "../mesh/mesh.decorator.js";
-import { meshSettingsOf, type MeshSettings } from "../mesh/mesh-settings.js";
+import { meshSettingsOf } from "../mesh/mesh-settings.js";
 import { A2A_CALLER_CODES, type A2AApp } from "./a2a-caller.js";
 
 /** A refusal on the wire (#387): its code and reason. */
@@ -56,31 +57,46 @@ export function authenticatorOf(app: A2AApp, authenticator: Class): ListenerAuth
 }
 
 /**
- * The listener's authenticator, when it has one. Without it only a signed mesh peer can call, and
- * that is allowed only when no caller needs more than a tenant id: the application's tenant context is
- * the base one, its `@Mesh` is `Strict` and a peer's `propagateTenant` carries the tenant
- * (`[http.authenticator-required-for-tenant-context]` otherwise, at the listener's creation).
+ * The listener's authenticator, when it has one. An application with no `tenantContext` of its own
+ * (the base one: a `tenantId` and nothing else) needs none: a caller that is no signed peer is
+ * anonymous, bound to its connection (`connectionOwnerOf`): its tasks and sessions are its own. An application that declares a `tenantContext` needs an `@HttpAuthenticator`
+ * to say whose tenant a caller is: without one the listener is not made
+ * (`ConfigError`, `[http.authenticator-required-for-tenant-context]`).
  */
 export function listenerAuthenticatorOf(
   app: A2AApp,
   authenticator: Class | undefined,
 ): ListenerAuthenticator | undefined {
   if (authenticator !== undefined) return authenticatorOf(app, authenticator);
-  const mesh = meshSettingsOf(app);
-  if (mesh === undefined || !isPeersOnly(mesh)) {
-    throw new ComponentError({
-      message:
-        "[http.authenticator-required-for-tenant-context] the listener has no authenticator: an application with a tenant context needs an @HttpAuthenticator, unless its @Mesh is MeshInboundMode.Strict with a peer that sets propagateTenant and its tenant context is the base one",
-    });
-  }
-  return undefined;
+  if (meshSettingsOf(app)?.isBaseTenantContext === true) return undefined;
+  throw new ConfigError.Option({
+    message:
+      "[http.authenticator-required-for-tenant-context] the listener has no authenticator: an application with a tenantContext needs an @HttpAuthenticator, listed in @Application({ services }), to say whose tenant a caller is",
+  });
 }
 
-/** Whether signed peers alone may call: `Strict`, a peer whose tenant is trusted, the base tenant context. */
-const isPeersOnly = (mesh: MeshSettings): boolean =>
-  mesh.inboundMode === MeshInboundMode.Strict &&
-  mesh.isBaseTenantContext &&
-  [...mesh.peers.values()].some((peer) => peer.propagateTenant);
+const connectionOwners = new WeakMap<object, string>();
+
+/**
+ * The owner of a caller that names no owner, no tenant and no peer: one per connection (its socket),
+ * so such a caller's tasks and sessions are never another connection's. Made at random, never from
+ * what the request says; a proxy that pools connections makes its callers one.
+ */
+export function connectionOwnerOf(req: IncomingMessage): string {
+  const key: object = req.socket;
+  let owner = connectionOwners.get(key);
+  if (owner === undefined) {
+    owner = `anonymous:${randomUUID()}`;
+    connectionOwners.set(key, owner);
+  }
+  return owner;
+}
+
+/** `caller`, bound to its connection when it names no owner, no tenant and no peer (see `connectionOwnerOf`). */
+export const boundToConnection = (caller: HttpCaller, req: IncomingMessage): HttpCaller =>
+  caller.ownerId === undefined && caller.tenant === undefined && caller.peer === undefined
+    ? { ...caller, ownerId: connectionOwnerOf(req) }
+    : caller;
 
 /** Writes a refusal: its status, `{ code, error, … }`, a challenge for a `401`. */
 export const writeRejection = (
@@ -161,7 +177,7 @@ export async function admitCaller(
   const resolution = await resolutionOf(authenticator, request, log, onError);
   if (isHttpAuthResult(resolution)) {
     if (resolution.kind === HttpAuthKind.Authenticated) {
-      return { isAdmitted: true, caller: resolution.caller };
+      return { isAdmitted: true, caller: boundToConnection(resolution.caller, request.http) };
     }
     reject(res, resolution);
   } else {

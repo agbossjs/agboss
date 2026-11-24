@@ -1,4 +1,5 @@
 import type { ResolvedModelSettings } from "../config/types.js";
+import { NO_PROVIDER } from "./no-provider.js";
 import { AIMessage } from "@langchain/core/messages";
 import { markedFallbackMessage } from "../models/fallback.js";
 import {
@@ -81,7 +82,7 @@ function unpricedOf(
     caller,
     model,
     ...usage,
-    ...(provider === undefined ? {} : { provider }),
+    provider: provider ?? NO_PROVIDER,
     costUsd: usd(0),
     costSource: CostSource.Unpriced,
   };

@@ -1,6 +1,6 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { usd } from "../../units/index.js";
-import { CostSource, ZERO_USAGE, type UsageRecord } from "../../finops/usage.js";
+import { CostSource, NO_PROVIDER, ZERO_USAGE, type UsageRecord } from "../../finops/usage.js";
 import { extractRunContext } from "../../core/run-context.js";
 import { NodeKind } from "../ast.js";
 import type { UnknownCostTally } from "../../core/observer-manager.js";
@@ -135,6 +135,7 @@ export const unknownCostRecordsOf = (
     ...ZERO_USAGE,
     caller: step.caller,
     model: "unknown",
+    provider: NO_PROVIDER,
     costUsd: usd(0),
     costSource: CostSource.Unknown,
     ledgerKey: {

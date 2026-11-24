@@ -22,6 +22,7 @@ vi.mock("../../src/pii/masking.js", async (original) => {
 });
 
 const record = (costUsd: number): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller: "pii",
   model: "m",

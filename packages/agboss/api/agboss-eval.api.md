@@ -366,6 +366,7 @@ export interface EvalModelCallTrace {
     readonly model: string;
     // (undocumented)
     readonly outputTokens: number;
+    readonly provider: string;
 }
 
 // @public

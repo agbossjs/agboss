@@ -134,7 +134,7 @@ class VerdictStreamClient extends ScriptedStreamClient {
     return Promise.resolve({
       text: "",
       toolCalls: [{ id: "c1", name: ANSWER_TOOL, arguments: VERDICT }],
-      usage: { inputTokens: 10, outputTokens: 5 },
+      usage: { inputTokens: 10, outputTokens: 5, cacheReadTokens: 0, cacheWriteTokens: 0 },
     });
   }
 }
@@ -146,6 +146,7 @@ const API = {
   costSource: "api",
 } as const;
 const MILLION = { inputTokens: 1_000_000, outputTokens: 500_000 };
+const MILLION_USAGE = { ...MILLION, cacheReadTokens: 0, cacheWriteTokens: 0 };
 const always = (wire: Wire) => (): Wire => wire;
 
 const PATHS: readonly ProviderPath[] = [
@@ -176,14 +177,14 @@ const PATHS: readonly ProviderPath[] = [
     application: BedrockApplication,
     wire: always({ ...MILLION, costUsd: usd(0.25), costSource: "api" }),
     streamed: true,
-    parts: completing({ text: "Hello there", usage: MILLION, cost: usd(0.25) }),
+    parts: completing({ text: "Hello there", usage: MILLION_USAGE, cost: usd(0.25) }),
   },
   {
     name: "transport complete() — usage only, tokens × prices (the CLI providers' answer)",
     application: BedrockApplication,
     wire: always({ ...MILLION, costUsd: usd(10.5), costSource: "price-table" }), // 1M × $3 + 0.5M × $15
     streamed: false,
-    parts: completing({ text: "Hello there", usage: MILLION }),
+    parts: completing({ text: "Hello there", usage: MILLION_USAGE }),
   },
   {
     name: "transport stream() — its usage promise, tokens × prices (with tools bound: complete())",

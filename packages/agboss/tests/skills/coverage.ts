@@ -221,7 +221,7 @@ export const SKILL_COVERAGE: SkillCoverage = {
     ...["Quantization", "OpenRouterRouting", "UsageRecord"],
     ...["ModelProviderHandler", "ModelProviderRequest", "ModelProviderResponse", "FinishReason"],
     ...["ModelProviderMessage", "ModelProviderMessageRole", "ModelProviderToolDefinition"],
-    ...["ModelProviderToolCall", "ModelProviderUsage", "ModelProviderFailureError"],
+    ...["ModelProviderToolCall", "ModelProviderFailureError"],
     ...["TRANSIENT_FAILURES", "Injectable"],
   ],
   "references/08-observability-and-tracing.md": [

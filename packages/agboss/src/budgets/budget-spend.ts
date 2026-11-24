@@ -3,7 +3,8 @@ import { totalCost, totalTokens, type UsageRecord } from "../finops/usage.js";
 import { isFiniteNumber, shownLimit } from "../graph/count-limit.js";
 import { BudgetExceededError } from "../graph/limits.js";
 import type { BudgetLimit, BudgetUsage } from "../infrastructure/cost-ledger.repository.js";
-import { UnitError, usd, type Usd } from "../units/index.js";
+import { ConfigError } from "../core/error-families/config-errors.js";
+import { usd, type Usd } from "../units/index.js";
 import { BudgetUnit, type BudgetHandler, type BudgetMeta } from "./budget.js";
 import {
   counterKeyOf,
@@ -130,7 +131,7 @@ export const budgetExceededErrorOf = (
  */
 function checkedLimit(budget: string, what: string, amount: unknown, whole: boolean): number {
   if (isFiniteNumber(amount) && amount >= 0 && (!whole || Number.isInteger(amount))) return amount;
-  throw new UnitError({
+  throw new ConfigError.Unit({
     message: `${budget}: ${what} must return a finite ${whole ? "whole number of tokens" : "number of dollars"} from 0${whole ? "" : " (usd(...))"}, it gave ${shownLimit(amount)}`,
   });
 }
@@ -140,7 +141,7 @@ function checkedLimitsOf(budget: string, limit: BudgetLimit): BudgetLimit {
   const maxSpend = limit.maxSpend;
   const maxTokens = limit.maxTokens;
   if (maxSpend === undefined && maxTokens === undefined)
-    throw new UnitError({
+    throw new ConfigError.Unit({
       message: `${budget}: it gave no maxSpend and no maxTokens: a budget must limit something`,
     });
   return {
@@ -175,7 +176,7 @@ export async function limitsOf(
   if (limit !== undefined)
     return checkedLimitsOf(meta.name, await inFrame(() => Promise.resolve(limit.call(handler))));
   if (maxSpend === undefined)
-    throw new UnitError({
+    throw new ConfigError.Unit({
       message: `${meta.name}: it declares no maxSpend or maxTokens and has no limit()`,
     });
   const amount = await inFrame(() => Promise.resolve(maxSpend.call(handler)));

@@ -1,7 +1,13 @@
 import { assertOutsideRunOnce } from "../app/idempotency-scope.js";
 import { AGBossError, type MessageErrorOptions } from "../core/errors.js";
 import { currentFrame } from "../flow/context/frame.js";
-import { CostSource, ZERO_USAGE, type TokenUsage, type UsageRecord } from "../finops/usage.js";
+import {
+  CostSource,
+  NO_PROVIDER,
+  ZERO_USAGE,
+  type TokenUsage,
+  type UsageRecord,
+} from "../finops/usage.js";
 import type { Usd } from "../units/index.js";
 
 /** What a paid service that is not a model cost one call: `{ service: "serp-api", cost: usd(0.002) }`. */
@@ -41,6 +47,7 @@ const serviceCaller = (service: string): string => `service:${service}`;
 export const serviceUsageOf = ({ service, cost, tokens }: ServiceSpend): UsageRecord => ({
   caller: serviceCaller(service),
   model: service,
+  provider: NO_PROVIDER,
   ...ZERO_USAGE,
   ...tokens,
   costUsd: cost,

@@ -24,6 +24,7 @@ class WireRequestDto {
 class PlainReader {}
 
 const masking: UsageRecord = {
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller: "pii-detector",
   model: "m",

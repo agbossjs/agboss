@@ -443,7 +443,7 @@ import { BedrockSdkClient } from "../services/bedrock-sdk-client.service.js";
     retryOn: TRANSIENT_FAILURES,
   }),
   circuitBreakerPolicy: CircuitBreakerPolicy.fixed({ failureThreshold: 5, failureWindow: minutes(1), openDuration: seconds(30) }),
-  deps: [BedrockSdkClient, TenantContext], // reasoning / promptCaching unset: off
+  deps: [BedrockSdkClient, TenantContext], // reasoning unset: off; promptCaching unset: automatic
 })
 export class BedrockModelProvider implements ModelProviderHandler {
   constructor(
@@ -470,8 +470,8 @@ export class BedrockModelProvider implements ModelProviderHandler {
   `TokenLimit.ModelMax`), `reasoning`, `promptCaching`, `signal` (pass it to the SDK; an SDK that
   ignores it is cut at `timeout` anyway, a `Timeout`).
 - **The answer** (`ModelProviderResponse`): `text`, `toolCalls?` (`ModelProviderToolCall { id,
-name, arguments }`), `usage` (`ModelProviderUsage { inputTokens, outputTokens, cacheReadTokens?,
-cacheWriteTokens? }` — the rate limit's tokens and the price table's), `cost?` (exact,
+name, arguments }`), `usage` (`TokenUsage { inputTokens, outputTokens, cacheReadTokens,
+cacheWriteTokens }`, as a streamed call's `result.usage` — the rate limit's tokens and the price table's), `cost?` (exact,
   `costSource: CostSource.Api`; else the table), `finishReason?` (`FinishReason.Length`).
 - **Streaming** (optional, #1011): `stream(request): ModelProviderStream` — `{ textStream:
 AsyncIterable<string>, result: Promise<ModelProviderStreamResult> }`, as the Vercel AI SDK's

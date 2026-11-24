@@ -84,7 +84,7 @@ export interface AssembledApplication extends AssembledKeyFields, StorageFields,
   readonly compensationTimeout: Milliseconds;
   /** Whether a call's request is stored only masked (#505): what `Idempotency.sendOnce` reads. */
   readonly outboundMasking: OutboundMasking;
-  /** `@Application({ childClaimTimeout })` (#1286, D9): how long an `OtherWorker` child waits to be claimed. */
+  /** `@Application({ executionLimits: { childClaimTimeout } })` (#1286, D9): how long an `OtherWorker` child waits to be claimed. */
   readonly childClaimTimeout: Milliseconds;
   /** `@Application({ defaults: { workflows: { placement } } })` (#1286); absent = `CurrentProcess`. */
   readonly childPlacement?: ChildPlacement;

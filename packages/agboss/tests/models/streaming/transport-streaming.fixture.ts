@@ -38,7 +38,10 @@ export class StreamSdkClient {
 
   complete(invocation: StreamInvocation): Promise<ModelProviderResponse> {
     this.completed.push(invocation);
-    return Promise.resolve({ text: "whole", usage: { inputTokens: 10, outputTokens: 5 } });
+    return Promise.resolve({
+      text: "whole",
+      usage: { inputTokens: 10, outputTokens: 5, cacheReadTokens: 0, cacheWriteTokens: 0 },
+    });
   }
 }
 

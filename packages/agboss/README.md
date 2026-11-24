@@ -1425,7 +1425,7 @@ every instance looks for `running` roots at its start and every 30 s, takes the 
 holder died (its lease expired) or stopped (released it), and continues it from its last
 checkpoint — a decision recorded meanwhile first — so only the interrupted step runs again; a root
 started under another config is left to a compatible instance (logged once), unless
-`onIncompatibleResume` says `"resume"`. Observers get `onExecutionResume` with
+`onIncompatibleResume` says `ResumeDecision.Resume`. Observers get `onExecutionResume` with
 `reason: ResumeReason.Recovered` (`ResumeReason.Answered` for `app.resume`). With the in-memory
 defaults nothing survives a restart, so recovery needs persistent stores — the SQLite ones on one
 machine. **`app.close()`** stops

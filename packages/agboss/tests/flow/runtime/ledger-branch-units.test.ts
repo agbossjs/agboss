@@ -100,6 +100,7 @@ vi.mock("../../../src/flow/context/frame.js", () => ({
 }));
 
 const record = (costUsd: number, caller = "agent:a"): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller,
   model: "m",
@@ -143,7 +144,7 @@ function setup(options: { live?: ReturnType<typeof liveOf>; runner?: () => unkno
 /** What the arbiter deps were given of the branch: the services it can push spend to. */
 const servicesOf = (): UsageRecord[] =>
   // the services are the branch's own list, which its node pushes to
-  (vi.mocked(arbiterDepsFor).mock.calls[0]?.[0].services ?? []) as UsageRecord[];
+  vi.mocked(arbiterDepsFor).mock.calls[0]?.[0].services ?? [];
 
 /** The records a branch node adds for its branch. */
 const addedOf = (out: object): Record<string, unknown>[] =>

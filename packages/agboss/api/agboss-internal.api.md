@@ -437,7 +437,7 @@ export interface CostLine extends TokenUsage {
     readonly costUsd: Usd;
     // (undocumented)
     readonly model: string;
-    readonly provider?: string;
+    readonly provider: string;
     readonly servedBy?: string;
 }
 

@@ -13,6 +13,7 @@ import { compactWithHandler } from "../../src/run/custom-compaction.js";
 import type { Turn } from "../../src/turns/index.js";
 
 const record = (costUsd: number, caller: string): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller,
   model: "m",

@@ -5,7 +5,7 @@
 import { emptyCheckpoint, type CheckpointTuple } from "@langchain/langgraph";
 import { describe, expect, it } from "vitest";
 import { withUsageRead, withUsageReadOf } from "../../src/app/restored-usage.js";
-import { CostSource, ZERO_USAGE } from "../../src/finops/usage.js";
+import { CostSource, ZERO_USAGE, NO_PROVIDER } from "../../src/finops/usage.js";
 import { LedgerState } from "../../src/finops/ledger-mark.js";
 import { costLabel, ModelCost, priceOf } from "../../src/models/cost.js";
 import {
@@ -20,6 +20,7 @@ describe("#1356: the record of a service's spend", () => {
     expect(serviceUsageOf({ service: "serp-api", cost: usd(0.002) })).toStrictEqual({
       caller: "service:serp-api",
       model: "serp-api",
+      provider: NO_PROVIDER,
       ...ZERO_USAGE,
       costUsd: usd(0.002),
       costSource: CostSource.Tool,

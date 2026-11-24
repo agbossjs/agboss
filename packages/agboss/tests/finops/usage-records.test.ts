@@ -6,7 +6,6 @@ import { usd } from "../../src/units/index.js";
 import { describe, expect, it } from "vitest";
 import { FALLBACK_MARK } from "../../src/finops/fallback-mark.js";
 import { SERVED_BY_FIELD } from "../../src/finops/served-by.js";
-import { UnitError } from "../../src/units/index.js";
 import {
   costOf,
   CostSource,
@@ -17,7 +16,9 @@ import {
   recordUsage,
   reportedCostOf,
   ZERO_USAGE,
+  NO_PROVIDER,
 } from "../../src/finops/usage.js";
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 
 const tokens = { usage_metadata: { input_tokens: 1_000_000, output_tokens: 500_000 } };
 const price = { inputPerMTok: 2, outputPerMTok: 4 };
@@ -55,6 +56,7 @@ describe("#1356: one model call's record", () => {
     expect(record).toStrictEqual({
       caller: "writer",
       model: "m/a",
+      provider: NO_PROVIDER,
       inputTokens: 1_000_000,
       outputTokens: 500_000,
       cacheReadTokens: 0,
@@ -90,6 +92,7 @@ describe("#1356: one model call's record", () => {
     expect(record).toStrictEqual({
       caller: "writer",
       model: "m/a",
+      provider: NO_PROVIDER,
       inputTokens: 1_000_000,
       outputTokens: 500_000,
       cacheReadTokens: 0,
@@ -114,6 +117,7 @@ describe("#1356: one model call's record", () => {
     expect(recordUsage("writer", { model: "m/a", price }, answered(false))).toStrictEqual({
       caller: "writer",
       model: "backup/m",
+      provider: NO_PROVIDER,
       inputTokens: 1_000_000,
       outputTokens: 500_000,
       cacheReadTokens: 0,
@@ -177,6 +181,7 @@ describe("#1356: the cost a tool reports", () => {
     expect(recordToolCost("search", 0.02)).toStrictEqual({
       caller: "tool:search",
       model: "search",
+      provider: NO_PROVIDER,
       ...ZERO_USAGE,
       costUsd: usd(0.02),
       costSource: CostSource.Tool,
@@ -214,7 +219,7 @@ describe("#1385: a price that is no amount from 0 never costs a call", () => {
   it.each(BAD)("a %s price field throws before a cost is recorded", (value) => {
     for (const field of FIELDS) {
       const bad = { ...price, [field]: value };
-      expect(() => costOf(ZERO_USAGE, bad)).toThrow(UnitError);
+      expect(() => costOf(ZERO_USAGE, bad)).toThrow(ConfigError.Unit);
       expect(() => recordUsage("w", { model: "secret-model", price: bad }, tokens)).toThrow(
         new RegExp(
           `^\\[model\\.price-invalid\\] ${field} is .*, not a finite number of dollars from 0`,
@@ -230,7 +235,7 @@ describe("#1385: a price that is no amount from 0 never costs a call", () => {
     const call = { usage_metadata: { input_tokens: 100, output_tokens: 1000 } };
     expect(() =>
       recordUsage("w", { model: "m", price: { inputPerMTok: -5, outputPerMTok: 1 } }, call),
-    ).toThrow(UnitError);
+    ).toThrow(ConfigError.Unit);
   });
 
   it("a missing input or output price throws, a missing cache price does not", () => {

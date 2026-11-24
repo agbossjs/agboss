@@ -1043,7 +1043,7 @@ leaves a `running` root that recovery continues with that decision, never a `pau
    checkpointed before the next one starts — so **only the interrupted step runs again**; a
    side-effecting tool keeps its effect once through `executionContext.step.idempotencyKey`;
 4. checks compatibility as `app.resume` does: a root started under another config hash is not
-   continued unless the workflow's `onIncompatibleResume` says `"resume"` — it is left to an
+   continued unless the workflow's `onIncompatibleResume` says `ResumeDecision.Resume` — it is left to an
    instance of a compatible version (a rolling deploy) and logged once. The root's hash covers its
    child workflows, recursively (#336): a deploy that changes only a child — its prompt, model,
    flow or version — makes the roots running or paused inside it incompatible too, though the

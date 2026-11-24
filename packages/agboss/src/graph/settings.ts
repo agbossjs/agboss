@@ -3,8 +3,8 @@ import type { IncompatibleResumePolicy } from "../run/resume-guard.js";
 /** Builds `WorkflowSettings`; each method sets one part, `build()` freezes them. */
 export interface WorkflowSettingsBuilder {
   /**
-   * Decides a resume of a run paused under another config hash (an earlier deployment): "resume"
-   * continues it on the current graph, "reject" fails with `IncompatibleResumeError` (the default).
+   * Decides a resume of a run paused under another config hash (an earlier deployment): `ResumeDecision.Resume`
+   * continues it on the current graph, `ResumeDecision.Reject` fails with `IncompatibleResumeError` (the default).
    */
   readonly onIncompatibleResume: (policy: IncompatibleResumePolicy) => WorkflowSettingsBuilder;
   readonly build: () => WorkflowSettings;

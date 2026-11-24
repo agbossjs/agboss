@@ -64,12 +64,13 @@ export const configureEnv = <TContract extends EnvContract>(
 ): EnvOverrides<TContract> => ({ contract, values });
 
 /** A bearer token header from a secret (`Authorization: Bearer …`): `bearer(appEnv.apiKey)`. */
-export interface BearerAuth {
+export interface HeaderSecretTemplate {
   readonly kind: "bearer";
   readonly secret: SecretRef;
 }
 
-export const bearer = (secret: SecretRef): BearerAuth => Object.freeze({ kind: "bearer", secret });
+export const bearer = (secret: SecretRef): HeaderSecretTemplate =>
+  Object.freeze({ kind: "bearer", secret });
 
 const present = (processEnv: NodeJS.ProcessEnv, variable: string): string | undefined => {
   const value = processEnv[variable];

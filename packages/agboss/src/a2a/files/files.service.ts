@@ -37,6 +37,10 @@ const work = () => lazyLoad(import("./files-work.js"));
  */
 @Injectable({ deps: [FileRepository, Clock] })
 export class Files {
+  /**
+   * @internal The container injects the application's file store and clock: left out of the
+   * declarations.
+   */
   constructor(
     private readonly store: FileRepository,
     private readonly clock: Clock,

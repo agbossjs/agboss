@@ -1,5 +1,4 @@
 import type { Usd } from "../units/index.js";
-import { usd } from "../units/index.js";
 
 /** What a call was for — the cost categories of a turn. */
 export enum CostCategory {
@@ -51,17 +50,21 @@ export function costCategoryOf(caller: string): CostCategory {
   return CostCategory.Agents;
 }
 
-/** Every category at nothing: what a cost report starts from. */
+/**
+ * Every category at nothing: what a cost report starts from (the plain zero, not `usd(0)`: `units`
+ * imports the error families, which import this module).
+ */
+const NONE = 0 as Usd;
 export const NO_COST_BY_CATEGORY: Readonly<Record<CostCategory, Usd>> = {
-  [CostCategory.Agents]: usd(0),
-  [CostCategory.Routing]: usd(0),
-  [CostCategory.Guardrails]: usd(0),
-  [CostCategory.Review]: usd(0),
-  [CostCategory.Tools]: usd(0),
-  [CostCategory.Memory]: usd(0),
-  [CostCategory.Rag]: usd(0),
-  [CostCategory.Files]: usd(0),
-  [CostCategory.Pii]: usd(0),
-  [CostCategory.Arbiters]: usd(0),
-  [CostCategory.Pauses]: usd(0),
+  [CostCategory.Agents]: NONE,
+  [CostCategory.Routing]: NONE,
+  [CostCategory.Guardrails]: NONE,
+  [CostCategory.Review]: NONE,
+  [CostCategory.Tools]: NONE,
+  [CostCategory.Memory]: NONE,
+  [CostCategory.Rag]: NONE,
+  [CostCategory.Files]: NONE,
+  [CostCategory.Pii]: NONE,
+  [CostCategory.Arbiters]: NONE,
+  [CostCategory.Pauses]: NONE,
 };

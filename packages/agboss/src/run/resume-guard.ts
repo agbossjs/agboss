@@ -28,10 +28,15 @@ export interface IncompatibleResumeErrorOptions extends IncompatibleResume {
   readonly cause?: unknown;
 }
 
-/** "resume": continue the paused checkpoint on the current graph; "reject": fail the resume. */
-export type ResumeDecision = "resume" | "reject";
+/** What an `onIncompatibleResume` policy decides (#1324). */
+export enum ResumeDecision {
+  /** Continue the paused checkpoint on the current graph. */
+  Resume = "resume",
+  /** Fail the resume with `IncompatibleResumeError`. */
+  Reject = "reject",
+}
 
-/** Decides an incompatible resume, e.g. `({ paused }) => paused.workflowVersion === "1.1.0" ? "resume" : "reject"`. */
+/** Decides an incompatible resume, e.g. `({ paused }) => paused.workflowVersion === "1.1.0" ? ResumeDecision.Resume : ResumeDecision.Reject`. */
 export type IncompatibleResumePolicy = (resume: IncompatibleResume) => ResumeDecision;
 
 const shortHash = (hash: string): string => hash.slice(0, 12);
@@ -73,6 +78,6 @@ export function checkResume(
   policy: IncompatibleResumePolicy | undefined,
 ): void {
   if (resume.paused.configHash === resume.current.configHash) return;
-  if (policy?.(resume) === "resume") return;
+  if (policy?.(resume) === ResumeDecision.Resume) return;
   throw new IncompatibleResumeError(resume);
 }

@@ -2,6 +2,7 @@ import { z } from "zod";
 import { usd, type Usd } from "../units/index.js";
 import { CostCategory, costCategoryOf, NO_COST_BY_CATEGORY } from "./cost-category.js";
 import { CostSource } from "./cost-source.js";
+import { NO_PROVIDER } from "./no-provider.js";
 import { withoutLedgerMarks } from "./ledger-mark.js";
 import type { CostLine, TokenUsage, UsageRecord } from "./usage.js";
 
@@ -99,8 +100,8 @@ const reportOf = (records: readonly UsageRecord[]): CostReport => {
     ) as Record<CostCategory, Usd>,
     byModel: sumBy(known, (line) => line.model),
     byProvider: sumBy(
-      known.filter((line) => line.provider !== undefined),
-      (line) => line.provider ?? "",
+      known.filter((line) => line.provider !== NO_PROVIDER),
+      (line) => line.provider,
     ),
     trace,
   };
@@ -117,7 +118,7 @@ const recordOfLine = (line: CostLine): UsageRecord => ({
   costUsd: line.costUsd,
   costSource: line.costSource,
   ...(line.servedBy === undefined ? {} : { servedBy: line.servedBy }),
-  ...(line.provider === undefined ? {} : { provider: line.provider }),
+  provider: line.provider,
 });
 
 /** Builds a `CostReport`: `fromUsage(records)`, `empty()`, `sum(reports)` (the calls of reports together). */

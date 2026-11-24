@@ -24,6 +24,7 @@ vi.mock("../../../src/flow/runtime/scope.js", () => ({
 }));
 
 const record = (costUsd: number, caller = "service"): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller,
   model: "m",

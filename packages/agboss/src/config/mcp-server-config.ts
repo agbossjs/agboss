@@ -1,4 +1,4 @@
-import type { BearerAuth } from "../environments/define-env.js";
+import type { HeaderSecretTemplate } from "../environments/define-env.js";
 import type { EnvRef, OptionalSecretRef, SecretRef } from "../environments/env-ref.js";
 import type { Milliseconds, Usd } from "../units/index.js";
 
@@ -45,7 +45,9 @@ export interface McpStdioConfig extends McpServerCommon {
 export interface McpHttpConfig extends McpServerCommon {
   readonly transport: McpTransport.Http;
   readonly url: string | EnvRef<string>;
-  readonly headers?: Readonly<Record<string, string | EnvRef<string> | SecretRef | BearerAuth>>;
+  readonly headers?: Readonly<
+    Record<string, string | EnvRef<string> | SecretRef | HeaderSecretTemplate>
+  >;
 }
 
 /** An MCP server connection: secrets are references (`defineEnv`), read once when the application starts. */

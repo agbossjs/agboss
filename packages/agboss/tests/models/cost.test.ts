@@ -10,7 +10,7 @@ import {
 } from "../../src/models/cost.js";
 import { directoryOf, withProviderPrices } from "../../src/models/workflow-models.js";
 import { replyWith, testWith } from "../../src/testing/index.js";
-import { UnitError, usd } from "../../src/units/index.js";
+import { usd } from "../../src/units/index.js";
 import {
   Priced,
   Summariser,
@@ -21,6 +21,7 @@ import {
 } from "./fixtures/priced.workflow.js";
 import { execute } from "../helpers/flow.js";
 import { BudgetExceededError } from "../../src/errors.js";
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 
 const test = testWith(PricedApplication);
 const tokens = { usage_metadata: { input_tokens: 1_000_000, output_tokens: 1_000_000 } };
@@ -107,7 +108,7 @@ describe("#1382, #1385: a price table holds finite prices from 0", () => {
 
   it.each(BAD)("a %s price is refused when the table is made, naming the field only", (value) => {
     for (const field of FIELDS) {
-      expect(() => ModelCost.fromPrices(table(field, value))).toThrow(UnitError);
+      expect(() => ModelCost.fromPrices(table(field, value))).toThrow(ConfigError.Unit);
       expect(() => ModelCost.fromPrices(table(field, value))).toThrow(
         new RegExp(
           `^\\[model\\.price-invalid\\] ${field} is .*, not a finite number of dollars from 0`,
@@ -192,7 +193,7 @@ describe("#1382, #1385: a price table holds finite prices from 0", () => {
     for (const value of BAD) {
       for (const field of FIELDS) {
         const literal: ModelCost = { kind: "from-prices", prices: table(field, value) };
-        expect(() => priceOf(literal, "local/llama")).toThrow(UnitError);
+        expect(() => priceOf(literal, "local/llama")).toThrow(ConfigError.Unit);
         expect(() => priceOf(literal, "local/llama")).toThrow(
           new RegExp(`^\\[model\\.price-invalid\\] ${field} is `),
         );
@@ -208,7 +209,7 @@ describe("#1382, #1385: a price table holds finite prices from 0", () => {
     };
     const call = { usage_metadata: { input_tokens: 100, output_tokens: 1000, total_tokens: 1100 } };
     expect(() => recordUsage("w", { model: "m", price: priceOf(literal, "m") }, call)).toThrow(
-      UnitError,
+      ConfigError.Unit,
     );
   });
 

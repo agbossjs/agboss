@@ -8,12 +8,11 @@ import type {
   ModelProviderResponse,
   ModelProviderStream,
   ModelProviderStreamResult,
-  ModelProviderUsage,
 } from "./transport/transport.js";
 
 /**
  * A model served by a command-line tool (#1313g): the class says which process one call runs
- * (`invocationOf`), the base runs it — its whole process group, ended with the call: a caller's
+ * (`buildCommand`), the base runs it — its whole process group, ended with the call: a caller's
  * cancel, the provider's `timeout` (both the request's `signal`) and a call that ends all kill it, so
  * no child outlives the call — and maps what happens to the errors the framework's retry policy,
  * breaker and fallback read: a command that cannot start is a `ModelCallError` (`model.cli-failed`:
@@ -27,19 +26,14 @@ export interface CliInvocation {
   readonly command: string;
   /** Its arguments. */
   readonly args: readonly string[];
-  /** Added to the process's minimal environment (see `inheritEnvironment`). */
+  /**
+   * Added to the process's environment. The process does not inherit the application's: it gets only
+   * `PATH`, `HOME`, `LANG`, `TMPDIR`, `SHELL`, `USER`, `LOGNAME` and `TERM` of it, plus this: name what
+   * the CLI needs here, secrets of the application never reach it otherwise.
+   */
   readonly env?: Readonly<Record<string, string>>;
   /** The working directory; default: the application's. */
   readonly cwd?: string;
-  /**
-   * Added to the process's environment. The process does not inherit the application's: it gets only
-   * `PATH`, `HOME`, `LANG`, `TMPDIR`, `SHELL`, `USER`, `LOGNAME` and `TERM` of it, plus this.
-   */
-  /**
-   * Opt in to the application's whole environment, secrets included. Default: off; name what the
-   * CLI needs in `env` instead.
-   */
-  readonly inheritEnvironment?: true;
   /** Written to the process's stdin, which is then closed. */
   readonly stdin?: string;
 }
@@ -52,18 +46,14 @@ const INHERITED = ["PATH", "HOME", "LANG", "TMPDIR", "SHELL", "USER", "LOGNAME",
 
 /** The process's environment: the allowlist of the application's, then the invocation's own. */
 function environmentOf(invocation: CliInvocation): NodeJS.ProcessEnv {
-  const base =
-    invocation.inheritEnvironment === true
-      ? process.env
-      : Object.fromEntries(
-          INHERITED.flatMap((name) => {
-            const value = process.env[name];
-            return value === undefined ? [] : [[name, value]];
-          }),
-        );
+  const base = Object.fromEntries(
+    INHERITED.flatMap((name) => {
+      const value = process.env[name];
+      return value === undefined ? [] : [[name, value]];
+    }),
+  );
   return { ...base, ...invocation.env };
 }
-const NO_USAGE: ModelProviderUsage = { inputTokens: 0, outputTokens: 0 };
 
 /** Ends the process and its children (a process group of its own, so `kill(-pid)` reaches them all). */
 function endGroup(child: ChildProcess): void {
@@ -86,14 +76,14 @@ interface Running {
 /** The base of a `@ModelProvider` class whose models are a command-line tool: a transport with `complete` and `stream`. */
 export abstract class CliModelProvider {
   /** The process `request` runs. */
-  protected abstract invocationOf(request: ModelProviderRequest): CliInvocation;
+  protected abstract buildCommand(request: ModelProviderRequest): CliInvocation;
 
   /**
    * What a finished call's whole stdout means. Default: the text, no usage. Override to read a JSON
    * result's text, tokens and cost.
    */
   protected resultOf(stdout: string): CliResult {
-    return { text: stdout.trim(), usage: NO_USAGE };
+    return { text: stdout.trim(), usage: ZERO_USAGE };
   }
 
   /**
@@ -114,7 +104,7 @@ export abstract class CliModelProvider {
   }
 
   #run(request: ModelProviderRequest): Running {
-    const invocation = this.invocationOf(request);
+    const invocation = this.buildCommand(request);
     const child = spawn(invocation.command, [...invocation.args], {
       cwd: invocation.cwd,
       env: environmentOf(invocation),

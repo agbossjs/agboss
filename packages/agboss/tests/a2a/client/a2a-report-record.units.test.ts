@@ -18,8 +18,9 @@ import type { ToolCallRemote } from "../../../src/mesh/mesh-call.js";
 import { encodeRunReport, takeRunReport } from "../../../src/mesh/mesh-report.js";
 import { rememberContextMeshSettings, type MeshSettings } from "../../../src/mesh/mesh-settings.js";
 import { VirtualClock } from "../../../src/testing/index.js";
-import { hours, UnitError, usd } from "../../../src/units/index.js";
+import { hours, usd } from "../../../src/units/index.js";
 import { scripts, SdkAgent } from "./support/sdk-agent.js";
+import { ConfigError } from "../../../src/core/error-families/config-errors.js";
 
 const PEER = "peer-application";
 const BODY = "body-hash";
@@ -169,7 +170,7 @@ describe("#1382: a settle at a price that is no amount charges nothing and throw
     async (price) => {
       await expect(
         settled(taskOf(TaskState.TASK_STATE_COMPLETED, signedReport(3)), true, { price }),
-      ).rejects.toThrow(UnitError);
+      ).rejects.toThrow(ConfigError.Unit);
     },
   );
 

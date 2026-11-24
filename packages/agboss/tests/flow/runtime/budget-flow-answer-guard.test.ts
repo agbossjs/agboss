@@ -24,6 +24,7 @@ vi.mock("../../../src/guardrails/runtime.js", () => ({ runGuardrails: vi.fn() })
 vi.mock("../../../src/pii/model-boundary.js", () => ({ maskedModelText: vi.fn() }));
 
 const record = (costUsd: number, caller = "x"): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller,
   model: "m",

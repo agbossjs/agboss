@@ -196,6 +196,7 @@ export const runText = (
 export const routeTo = (next: string, reason = "test"): string => JSON.stringify({ next, reason });
 
 export const usageRecord = (caller: string, costUsd: number): UsageRecord => ({
+  provider: "test-provider",
   caller,
   model: "test/m",
   inputTokens: 0,

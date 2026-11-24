@@ -55,6 +55,7 @@ vi.mock("../../../src/flow/runtime/launch/router-decision.js", () => ({
 vi.mock("../../../src/flow/observers/execution-event.js", () => ({ reportNodeEvent: vi.fn() }));
 
 const record = (costUsd: number, caller = "x"): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller,
   model: "m",

@@ -53,14 +53,6 @@ export interface ModelProviderToolDefinition {
   readonly parameters: Readonly<Record<string, unknown>>;
 }
 
-/** What one call used; `inputTokens` includes the cached ones (OpenAI-compatible accounting). */
-export interface ModelProviderUsage {
-  readonly inputTokens: number;
-  readonly outputTokens: number;
-  readonly cacheReadTokens?: number;
-  readonly cacheWriteTokens?: number;
-}
-
 /**
  * A streamed answer (#1011), in the shape of the Vercel AI SDK's `streamText`: the text as its chunks
  * come, and how the call ended. `result` must settle once the stream ends — also when it fails or is
@@ -100,7 +92,7 @@ export interface ModelProviderRequest {
   readonly maxTokens: number | undefined;
   /** The component's, else the provider's (`Reasoning.off()` when it sets none). */
   readonly reasoning: Reasoning;
-  /** The component's, else the provider's (`PromptCaching.off()` when it sets none). */
+  /** The component's, else the provider's (automatic caching where supported when it sets none). */
   readonly promptCaching: PromptCaching;
   /** The attempt's `timeout`, the execution's cancel and an exhausted budget: pass it to the SDK. */
   readonly signal: AbortSignal;
@@ -110,7 +102,7 @@ export interface ModelProviderRequest {
 export interface ModelProviderResponse {
   readonly text: string;
   readonly toolCalls?: readonly ModelProviderToolCall[];
-  readonly usage: ModelProviderUsage;
+  readonly usage: TokenUsage;
   /**
    * The call's exact cost (`costSource: "api"`); absent = tokens × the decorator's
    * `ModelCost.fromPrices(…)` — with `ModelCost.fromResponse()` an answer without it cannot be accounted.

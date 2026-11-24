@@ -19,7 +19,7 @@ export {
   bearer,
   configureEnv,
   defineEnv,
-  type BearerAuth,
+  type HeaderSecretTemplate,
   type EnvOverrides,
 } from "./define-env.js";
 export type {

@@ -1,4 +1,6 @@
-import { CostReport, type UsageRecord } from "../../finops/usage.js";
+// the report from its own module, not `finops/usage`: `units` reaches this file for `ConfigError.Unit`
+import { CostReport } from "../../finops/cost-report.js";
+import type { UsageRecord } from "../../finops/usage.js";
 import { AGBossError, type AGBossErrorOptions, type ErrorDetails } from "../errors.js";
 
 /**

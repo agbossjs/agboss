@@ -24,7 +24,7 @@ Multi-agent project on LangGraph + LangChain (TypeScript). Built with a three-ph
   place of `baseUrl` / `baseUrlField` / `apiKey` (both modes → a compile error and
   `[model-provider.both-modes]`; `cost`, `retryPolicy` and `circuitBreakerPolicy` are optional — none: unpriced, no retry, no breaker, #1313; an OpenAI-compatible subclass without `requestFields` is `[model-provider.request-fields-missing]`, #644): `ModelProviderRequest` (`model`, `messages:
 ModelProviderMessage[]`, `tools: ModelProviderToolDefinition[]`, `temperature`, `maxTokens`,
-  `reasoning`, `promptCaching` — off when unset —, `signal`) → `ModelProviderResponse` (`text`,
+  `reasoning`, `promptCaching` — automatic when unset: system prompt, tools and history at `FiveMinutes` where the model supports it, none where not —, `signal`) → `ModelProviderResponse` (`text`,
   `toolCalls?`, `usage`, `cost?`, `finishReason?`), a failure thrown as
   `new ModelProviderFailureError({ failure: ModelFailure.…, retryAfter?, cause? })`; its `deps` injected by the
   application's container on its first call (one instance; `TenantContext` reads the calling
@@ -2842,7 +2842,7 @@ LimitError` narrows to the union, `switch (err.kind)` is exhaustive, `.onError(L
   an error with only its text `new UnknownPauseError({ message, cause })` — and every one takes a
   `cause` (kept as `.cause`; `tests/public-api/error-options.test.ts` walks every entry of
   `package.json#exports` for every `Error` subclass — `AGBossError` or not, the `/testing` ones and
-  the platform's `RangeError` ones included (`UnitError`, `ReasoningError`, …: `{ message, cause }`,
+  the platform's `RangeError` ones included (`ReasoningError`, …: `{ message, cause }`,
   `PlainErrorOptions`, a literal `code`) — and fails for a class without a fixture, with positional
   facts, or one that drops its `cause`; only the base `new AGBossError(message, { cause, details })`
   is positional). Its instance `code` is its

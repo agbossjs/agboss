@@ -28,6 +28,7 @@ vi.mock("../../../src/flow/runtime/workflow-keys.js", () => ({
 }));
 
 const record = (costUsd: number): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller: "router",
   model: "m",

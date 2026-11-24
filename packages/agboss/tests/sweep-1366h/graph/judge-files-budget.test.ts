@@ -17,6 +17,7 @@ vi.mock("../../../src/graph/agent-loop/model-pii.js", () => ({ loopPoliciesOf: (
 const { judgedFilesOf } = await import("../../../src/graph/agent-loop/judge-files.js");
 
 const record = (costUsd: number, caller: string): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller,
   model: "m",

@@ -31,6 +31,7 @@ vi.mock("../../src/files/visit-files.js", async (original) => ({
 }));
 
 const record = (costUsd: number): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller: "x",
   model: "m",

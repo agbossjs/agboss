@@ -15,7 +15,6 @@ import { PromptCachingError } from "../../src/models/prompt-caching.js";
 import { RateLimitPolicyError } from "../../src/models/policies/rate-limit-policy.js";
 import { ReasoningError } from "../../src/models/reasoning.js";
 import { RetryPolicyError } from "../../src/models/retry-policy.js";
-import { UnitError } from "../../src/units/index.js";
 import { ModelFailure } from "../../src/models/model-failure.js";
 import {
   AppCloseTimeoutError,
@@ -61,7 +60,6 @@ export const plainFixtures: Readonly<Record<string, object>> = Object.fromEntrie
   }),
   fx(ModelProviderError, { message }),
   fx(ProfileError, { message }),
-  fx(UnitError, { message }),
   fx(ReasoningError, { message }),
   fx(PromptCachingError, { message }),
   fx(RetryPolicyError, { message }),

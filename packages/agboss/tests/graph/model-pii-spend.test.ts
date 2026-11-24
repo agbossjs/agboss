@@ -10,6 +10,7 @@ import { outgoingMove } from "../../src/graph/agent-loop/model-pii.js";
 import { DetectionMode } from "../../src/pii/runtime-policy.js";
 
 const record = (costUsd: number, caller: string): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller,
   model: "m",

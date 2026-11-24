@@ -15,13 +15,13 @@ import {
   sec,
   seconds,
   tb,
-  UnitError,
   workDays,
   workHours,
   workingHours,
   workingMinutes,
   workMin,
 } from "../../src/units/index.js";
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 
 /** #1314b-add: the concise names next to the old ones; each gives the same value as its old helper. */
 describe("#1314b-add: concise units", () => {
@@ -48,10 +48,10 @@ describe("#1314b-add: concise units", () => {
     expect(isWorkingDuration(workDays(2))).toBe(true);
   });
 
-  it("a negative or non-finite amount is a UnitError naming the unit", () => {
-    expect(() => kb(-1)).toThrow(UnitError);
+  it("a negative or non-finite amount is a ConfigError.Unit naming the unit", () => {
+    expect(() => kb(-1)).toThrow(ConfigError.Unit);
     expect(() => sec(Number.NaN)).toThrow("sec must be a finite number ≥ 0");
     expect(() => workMin(0)).toThrow("workMin must be a positive finite number");
-    expect(() => days(Number.POSITIVE_INFINITY)).toThrow(UnitError);
+    expect(() => days(Number.POSITIVE_INFINITY)).toThrow(ConfigError.Unit);
   });
 });

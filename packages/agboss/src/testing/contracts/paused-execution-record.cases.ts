@@ -23,6 +23,7 @@ type Instances = ContractInstances<PausedExecutionRepository>;
 const INTERPRETER_CALL: UsageRecord = {
   caller: "reply-interpreter:refund-reply-interpreter",
   model: "test/interpreter",
+  provider: "test-provider",
   inputTokens: 10,
   outputTokens: 2,
   cacheReadTokens: 0,

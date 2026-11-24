@@ -4,7 +4,7 @@ import type { CircuitBreakerPolicy } from "./circuit-breaker-policy.js";
 import type { ModelCost } from "./cost.js";
 import type { ModelProviderHandler } from "./handler.js";
 import { isModelDriver, type ModelDriver } from "./model-driver.js";
-import { PromptCaching } from "./prompt-caching.js";
+import { AUTO_PROMPT_CACHING, type PromptCaching } from "./prompt-caching.js";
 import type { RateLimitPolicy } from "./policies/rate-limit-policy.js";
 import { Reasoning } from "./reasoning.js";
 import type { RetryPolicy } from "./retry-policy.js";
@@ -114,7 +114,7 @@ export interface TransportModelProviderOptions<D extends readonly Token[] = read
   readonly apiKey?: never;
   /** Unset → `Reasoning.off()`; a component may override it. */
   readonly reasoning?: Reasoning;
-  /** Unset → `PromptCaching.off()`; a component may override it. */
+  /** Unset → automatic caching where supported (the system prompt, tools and history, 5 minutes); a component may override it. */
   readonly promptCaching?: PromptCaching;
   /** The constructor's dependencies, in order (compiler-checked), injected by the container. */
   readonly deps?: D;
@@ -153,7 +153,7 @@ export interface DriverModelProviderOptions {
   readonly models?: Readonly<Record<string, string>>;
   /** Components may override it (`reasoning`). Unset → `Reasoning.modelDecides()`. */
   readonly reasoning?: Reasoning;
-  /** Components may override it (`promptCaching`). Unset → `PromptCaching.off()`. */
+  /** Components may override it (`promptCaching`). Unset → the provider's: automatic caching where supported. */
   readonly promptCaching?: PromptCaching;
   readonly serves?: never;
   readonly baseUrl?: never;
@@ -207,14 +207,14 @@ export class ModelProviderError extends AGBossError {
   }
 }
 
-/** The options as kept: a transport's unset reasoning and caching are off. */
+/** The options as kept: a transport's unset reasoning is off and any unset caching is `auto`. */
 const keptOf = (options: ModelProviderOptions, name: string): KeptModelProviderOptions =>
   Object.freeze({
     ...options,
     name,
     reasoning:
       options.reasoning ?? (isDriverOptions(options) ? Reasoning.modelDecides() : Reasoning.off()),
-    promptCaching: options.promptCaching ?? PromptCaching.off(),
+    promptCaching: options.promptCaching ?? AUTO_PROMPT_CACHING,
   });
 
 /**

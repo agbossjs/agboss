@@ -9,7 +9,7 @@ import {
 } from "@agboss/core/models";
 import { minutes, seconds, usd } from "@agboss/core/units";
 
-const USAGE = { inputTokens: 1000, outputTokens: 100 };
+const USAGE = { inputTokens: 1000, outputTokens: 100, cacheReadTokens: 0, cacheWriteTokens: 0 };
 
 /**
  * A transport model provider (#385) for the `harness/…` models: it answers by the request — no

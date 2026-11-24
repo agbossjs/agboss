@@ -2,7 +2,7 @@ import { recordComponent } from "../components/metadata.js";
 import { recordInjectAs, type InjectAs, type PortInstances } from "../components/injection.js";
 import type { ResolvedAll, Token } from "../components/injection.js";
 import type { DtoClass } from "../dto/types.js";
-import type { BearerAuth } from "../environments/define-env.js";
+import type { HeaderSecretTemplate } from "../environments/define-env.js";
 import type { EnvRef, SecretRef } from "../environments/env-ref.js";
 import type { Milliseconds, Usd } from "../units/index.js";
 import type { A2AClient } from "./client/a2a-client.js";
@@ -51,7 +51,9 @@ export type A2AAgentConfig<
    * subclass's `getHeaders()` is added over them (names compared without case), and the framework's
    * own headers (`X-AGBoss-Mesh`) are never replaced.
    */
-  readonly headers?: Readonly<Record<string, string | EnvRef<string> | SecretRef | BearerAuth>>;
+  readonly headers?: Readonly<
+    Record<string, string | EnvRef<string> | SecretRef | HeaderSecretTemplate>
+  >;
   /** How long one call waits for the task at most (default: the execution's own deadline); a call's `timeout` is the other bound. */
   readonly timeout?: Milliseconds;
   /** Whom it calls: an AGBoss application and its skill (both optional). */

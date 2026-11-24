@@ -73,7 +73,7 @@ const StoredCostLine = z.object({
   costUsd: storedUsd,
   costSource: z.enum(CostSource),
   servedBy: text.optional(),
-  provider: text.optional(),
+  provider: text,
   ...tokens,
 });
 

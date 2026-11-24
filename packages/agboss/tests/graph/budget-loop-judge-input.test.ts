@@ -32,6 +32,7 @@ class BDto {
 }
 
 const record = (costUsd: number): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller: "judge",
   model: "m",

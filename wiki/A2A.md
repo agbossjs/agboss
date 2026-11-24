@@ -120,6 +120,12 @@ application does not list too: `[application.endpoint-unlisted]`; a `publicUrl` 
 http(s) URL is `[a2a.public-url-invalid]`. `app` is an `A2AApp` (`execute`, `resume`, `cancel`,
 `resolve` of `App`): `createApp`'s app and `testWith`'s `app` both fit.
 
+The `authenticator` is optional for an application with no `tenantContext` of its own: a caller that is no
+signed peer is then anonymous. With a `tenantContext` and no authenticator the listener is not built:
+`ConfigError` `[http.authenticator-required-for-tenant-context]`. `mcpHttpListener` follows the same
+rule; an MCP session of an anonymous caller (no owner, no tenant) is bound to its connection, and one of an
+authenticated tenant with no `ownerId` to the whole tenant identity.
+
 **The Agent Card** (`GET <base>/.well-known/agent-card.json`, `ETag`, `Last-Modified` — when the
 listener built it, at its first request (#811) —, `Cache-Control: max-age=300`):
 the endpoint's `name`, `description`, `version` and `provider`; one skill per listed start (its id

@@ -18,10 +18,11 @@ import {
 } from "../../src/models/index.js";
 import type { TransportModelProviderOptions } from "../../src/models/model-provider.decorator.js";
 import { directoryOf, withProviderPrices } from "../../src/models/workflow-models.js";
-import { UnitError, minutes, seconds, usd } from "../../src/units/index.js";
+import { minutes, seconds, usd } from "../../src/units/index.js";
 import { bedrockApplicationOn } from "./transport/bedrock-apps.fixture.js";
 import { answer } from "./transport/bedrock-provider.fixture.js";
 import { CircuitBreakerPolicy } from "../../src/models/circuit-breaker-policy.js";
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 
 const options = (name: string, cost: ModelCost): TransportModelProviderOptions => ({
   name,
@@ -147,7 +148,7 @@ describe("#1385: assembly refuses a provider's price that is no amount from 0", 
 });
 
 describe("#1385: at run time a bad price throws before any cost is recorded", () => {
-  it("the provider prices a model of the config through priceOf: a bad table throws a UnitError", () => {
+  it("the provider prices a model of the config through priceOf: a bad table throws a ConfigError.Unit", () => {
     const config = { agents: { a: { model: "bedrock/m" } } } as never;
     const bad: ModelCost = {
       kind: "from-prices",
@@ -161,7 +162,9 @@ describe("#1385: at run time a bad price throws before any cost is recorded", ()
       }
     }
 
-    expect(() => withProviderPrices(config, directoryOf([RunTimeProvider]))).toThrow(UnitError);
+    expect(() => withProviderPrices(config, directoryOf([RunTimeProvider]))).toThrow(
+      ConfigError.Unit,
+    );
   });
 
   it("a fallback's answer is not costed by a bad table", () => {

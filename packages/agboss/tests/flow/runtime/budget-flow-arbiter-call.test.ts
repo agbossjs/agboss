@@ -15,6 +15,7 @@ import { Decision } from "../../../src/llm/decisions.js";
 import { usd } from "../../../src/units/index.js";
 
 const record = (costUsd: number, caller = "arbiter:desk-arbiter"): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller,
   model: "m",

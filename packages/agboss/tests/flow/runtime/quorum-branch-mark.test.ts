@@ -12,6 +12,7 @@ import { cancelIfDecided, markAnswer } from "../../../src/flow/runtime/launch/qu
 vi.mock("../../../src/flow/runtime/launch/arbiters.js", () => ({ judgeAnswer: vi.fn() }));
 
 const record = (costUsd: number): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller: "arbiter",
   model: "m",

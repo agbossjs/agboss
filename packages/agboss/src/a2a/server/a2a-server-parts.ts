@@ -189,13 +189,14 @@ export async function ownedTask(
   caller: A2ARequestCaller,
   taskId: string,
 ): Promise<A2ATaskRecord> {
+  // no owner, no task: a caller with none (never made by a listener, which binds one) owns nothing
+  if (caller.ownerId === undefined) throw taskNotFound();
   const key: A2ATaskKey = { tenantId: caller.tenantId, taskId };
   // the empty id, like every other that is no key's text, names no task
   const isKey = keyTextRuleOf(taskId) === undefined;
   const task = isKey ? await parts.tasks.findById(key) : undefined;
   // another endpoint's task is "not found" too: two endpoints on one store never see each other's
-  if (task === undefined || task.ownerId !== caller.ownerId || task.endpoint !== parts.endpoint)
-    throw taskNotFound();
+  if (task?.ownerId !== caller.ownerId || task.endpoint !== parts.endpoint) throw taskNotFound();
   return repairedOf(parts, task);
 }
 

@@ -17,17 +17,18 @@ import {
   UnsettledWorkError,
 } from "../../src/testing/index.js";
 import { StoreConformanceError } from "../../src/testing/contracts/index.js";
-import { UnitError, usd } from "../../src/units/index.js";
+import { usd } from "../../src/units/index.js";
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 
 describe("#906 D1: the platform classes stay", () => {
-  it("a unit out of range is still a RangeError, with its code and cause", () => {
+  it("a unit out of range is a ConfigError.Unit, an AGBossError that Result.try catches", () => {
     const cause = new Error("the amount came from a form");
-    const error = new UnitError({ message: "usd must be a finite number ≥ 0", cause });
+    const error = new ConfigError.Unit({ message: "usd must be a finite number ≥ 0", cause });
 
-    expect(error).toBeInstanceOf(RangeError);
-    expect(error).not.toBeInstanceOf(AGBossError);
-    expect(error).toMatchObject({ name: "UnitError", code: "config.unit", cause });
-    expect(() => usd(-1)).toThrow(UnitError);
+    expect(error).toBeInstanceOf(AGBossError);
+    expect(error).not.toBeInstanceOf(RangeError);
+    expect(error).toMatchObject({ code: "config.unit", cause });
+    expect(() => usd(-1)).toThrow(ConfigError.Unit);
     expect(new ReasoningError({ message: "m" }).code).toBe("config.reasoning");
   });
 

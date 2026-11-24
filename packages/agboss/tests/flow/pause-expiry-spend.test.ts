@@ -14,6 +14,7 @@ import { PauseExpiryBound, type PauseRecord } from "../../src/infrastructure/pau
 import { DeadlineExceededError } from "../../src/budgets/execution-deadline.js";
 
 const record = (costUsd: number, caller: string): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller,
   model: "m",

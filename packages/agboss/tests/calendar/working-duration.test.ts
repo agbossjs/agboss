@@ -5,7 +5,6 @@
  */
 import { describe, expect, it } from "vitest";
 import {
-  UnitError,
   hours,
   isWorkingDuration,
   minutes,
@@ -17,6 +16,7 @@ import {
 import { durationLabel, spanLabel } from "../../src/units/duration-label.js";
 import { amountOf, isSameSpan, spanText, unitOf } from "../../src/units/working-time.js";
 import { isExpiresIn, isRemindBefore } from "../../src/channels/channel-rules.js";
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 
 describe("#944: workingHours and workingMinutes", () => {
   it("are working durations holding their amount in milliseconds", () => {
@@ -36,10 +36,10 @@ describe("#944: workingHours and workingMinutes", () => {
     expect(Object.isFrozen(workingHours(2))).toBe(true);
   });
 
-  it("a positive finite number, else RangeError (UnitError)", () => {
+  it("a positive finite number, else ConfigError.Unit", () => {
     for (const bad of [0, -1, Number.NaN, Infinity, -Infinity]) {
-      expect(() => workingHours(bad)).toThrow(RangeError);
-      expect(() => workingMinutes(bad)).toThrow(UnitError);
+      expect(() => workingHours(bad)).toThrow(ConfigError.Unit);
+      expect(() => workingMinutes(bad)).toThrow(ConfigError.Unit);
     }
     expect(() => workingHours(0)).toThrow("workingHours must be a positive finite number, got 0");
   });
@@ -118,8 +118,9 @@ describe("#1310b: workDays counts working days, not hours", () => {
     expect(spanLabel(workDays(0.5))).toBe("0.5 working days");
   });
 
-  it("a positive finite number, else UnitError", () => {
-    for (const bad of [0, -1, Number.NaN, Infinity]) expect(() => workDays(bad)).toThrow(UnitError);
+  it("a positive finite number, else ConfigError.Unit", () => {
+    for (const bad of [0, -1, Number.NaN, Infinity])
+      expect(() => workDays(bad)).toThrow(ConfigError.Unit);
     expect(() => workDays(0)).toThrow("workDays must be a positive finite number, got 0");
   });
 

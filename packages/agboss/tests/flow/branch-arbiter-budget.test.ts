@@ -9,6 +9,7 @@ import { CostSource, ZERO_USAGE, type UsageRecord } from "../../src/finops/usage
 import { arbiterDepsFor } from "../../src/flow/runtime/launch/branch-quorum.js";
 
 const record = (costUsd: number, caller: string): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller,
   model: "m",

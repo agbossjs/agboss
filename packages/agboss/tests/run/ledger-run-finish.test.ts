@@ -25,6 +25,7 @@ vi.mock("../../src/run/waiting-pauses.js", async (original) => ({
 }));
 
 const record = (costUsd: number, caller = "agent:a"): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller,
   model: "m",

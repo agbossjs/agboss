@@ -109,7 +109,7 @@ that launches another changes once** when the application or the workflow itself
 policy: its snapshot adds `handedDown`, the policies its children inherit, so an inherited policy's
 change is a change of the root. A tree of such a root paused or running before the upgrade is
 incompatible with it (`IncompatibleResumeError`, `recovery.incompatible`) unless the root's
-`onIncompatibleResume` says `"resume"` — as for any change of what its models read: the child now
+`onIncompatibleResume` says `ResumeDecision.Resume` — as for any change of what its models read: the child now
 runs under its chain's policies, which it did not under 0.1.0. Finish or drain those trees before
 the upgrade, or give the root an `onIncompatibleResume` policy. Workflows without children, and trees where
 neither the application nor a launching workflow lists a policy, keep their hash.

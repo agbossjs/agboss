@@ -14,6 +14,7 @@ import { usd } from "../../src/units/index.js";
 import { testConfig } from "../helpers.js";
 import { testFrame } from "../helpers/frame.js";
 import { request } from "../routers/fixtures.js";
+import { NO_PROVIDER } from "../../src/finops/usage.js";
 
 /**
  * #1399: a model call of a component that is not the agent loop (a judge, a router, a reranker, a
@@ -104,7 +105,7 @@ describe("#1399: the spend of a failed call of any component", () => {
     ).catch(() => undefined);
 
     expect(sunk.map((record) => [record.model, record.provider, record.outputTokens])).toEqual([
-      ["test/router", undefined, 2],
+      ["test/router", NO_PROVIDER, 2],
       ["backup/m", "backup-provider", 1],
     ]);
   });

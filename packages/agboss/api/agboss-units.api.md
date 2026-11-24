@@ -47,14 +47,6 @@ export const minutes: (amount: number) => Milliseconds;
 export const ms: (amount: number) => Milliseconds;
 
 // @public
-export interface PlainErrorOptions {
-    // (undocumented)
-    readonly cause?: unknown;
-    // (undocumented)
-    readonly message: string;
-}
-
-// @public
 export const sec: (amount: number) => Milliseconds;
 
 // @public
@@ -67,17 +59,6 @@ export const tb: (amount: number) => Bytes;
 export enum Ttl {
     Forever = "forever",
     None = "none"
-}
-
-// @public
-export class UnitError extends RangeError {
-    constructor(options: PlainErrorOptions);
-    // (undocumented)
-    static readonly code: "config.unit";
-    // (undocumented)
-    readonly code: "config.unit";
-    // (undocumented)
-    name: string;
 }
 
 // @public
@@ -110,14 +91,6 @@ export type WorkingUnit = "ms" | "days";
 
 // @public
 export const workMin: (amount: number) => WorkingDuration;
-
-// Warnings were encountered during analysis:
-//
-// src/core/error-options.ts - (ae-undocumented) Missing documentation for "message".
-// src/core/error-options.ts - (ae-undocumented) Missing documentation for "cause".
-// src/units/index.ts - (ae-undocumented) Missing documentation for "code".
-// src/units/index.ts - (ae-undocumented) Missing documentation for "code".
-// src/units/index.ts - (ae-undocumented) Missing documentation for "name".
 
 // (No @packageDocumentation comment for this package)
 

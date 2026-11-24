@@ -29,6 +29,7 @@ vi.mock("../../../src/flow/decorators/declaration.js", () => ({
 }));
 
 const record = (costUsd: number, caller = "arbiter"): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller,
   model: "m",

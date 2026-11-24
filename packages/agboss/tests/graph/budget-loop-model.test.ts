@@ -39,6 +39,7 @@ vi.mock("../../src/graph/agent-loop/model-pii.js", () => ({
 }));
 
 const record = (costUsd: number, caller = "x"): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller,
   model: "m",

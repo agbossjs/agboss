@@ -29,6 +29,7 @@ const baseSettings = resolvedFilesOf({
 });
 
 const usageOf = (caller: string): UsageRecord => ({
+  provider: "test-provider",
   caller,
   model: "m",
   costUsd: usd(0),

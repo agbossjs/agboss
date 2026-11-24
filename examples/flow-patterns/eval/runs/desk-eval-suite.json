@@ -89,6 +89,7 @@
                   {
                     "caller": "desk-agent",
                     "model": "harness/desk",
+                    "provider": "harness-model-provider",
                     "inputTokens": 1000,
                     "outputTokens": 100,
                     "cacheReadTokens": 0,
@@ -97,6 +98,7 @@
                   {
                     "caller": "desk-agent",
                     "model": "harness/desk",
+                    "provider": "harness-model-provider",
                     "inputTokens": 1000,
                     "outputTokens": 100,
                     "cacheReadTokens": 0,
@@ -236,6 +238,7 @@
                   {
                     "caller": "desk-agent",
                     "model": "harness/desk",
+                    "provider": "harness-model-provider",
                     "inputTokens": 1000,
                     "outputTokens": 100,
                     "cacheReadTokens": 0,
@@ -244,6 +247,7 @@
                   {
                     "caller": "desk-agent",
                     "model": "harness/desk",
+                    "provider": "harness-model-provider",
                     "inputTokens": 1000,
                     "outputTokens": 100,
                     "cacheReadTokens": 0,
@@ -412,6 +416,7 @@
                   {
                     "caller": "desk-agent",
                     "model": "harness/desk",
+                    "provider": "harness-model-provider",
                     "inputTokens": 1000,
                     "outputTokens": 100,
                     "cacheReadTokens": 0,
@@ -420,6 +425,7 @@
                   {
                     "caller": "desk-agent",
                     "model": "harness/desk",
+                    "provider": "harness-model-provider",
                     "inputTokens": 1000,
                     "outputTokens": 100,
                     "cacheReadTokens": 0,
@@ -557,6 +563,7 @@
                   {
                     "caller": "desk-agent",
                     "model": "harness/desk",
+                    "provider": "harness-model-provider",
                     "inputTokens": 1000,
                     "outputTokens": 100,
                     "cacheReadTokens": 0,
@@ -565,6 +572,7 @@
                   {
                     "caller": "desk-agent",
                     "model": "harness/desk",
+                    "provider": "harness-model-provider",
                     "inputTokens": 1000,
                     "outputTokens": 100,
                     "cacheReadTokens": 0,

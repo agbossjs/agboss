@@ -11,6 +11,7 @@ import { maskedRequest, outgoingMove } from "../../src/graph/agent-loop/model-pi
 import { argumentsRefusalOf, screenedArguments } from "../../src/graph/agent-loop/tool-pii.js";
 
 const record = (costUsd: number, caller: string): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller,
   model: "m",

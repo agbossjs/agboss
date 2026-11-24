@@ -58,7 +58,10 @@ import { CircuitBreakerPolicy } from "../../src/models/circuit-breaker-policy.js
 })
 class HarnessModelProvider implements ModelProviderHandler {
   complete(): Promise<ModelProviderResponse> {
-    return Promise.resolve({ text: "ok", usage: { inputTokens: 1, outputTokens: 1 } });
+    return Promise.resolve({
+      text: "ok",
+      usage: { inputTokens: 1, outputTokens: 1, cacheReadTokens: 0, cacheWriteTokens: 0 },
+    });
   }
 }
 
@@ -258,6 +261,9 @@ describe("#454 AC2: explicit claims stay exclusive", () => {
 })
 class MirrorHarnessModelProvider implements ModelProviderHandler {
   complete(): Promise<ModelProviderResponse> {
-    return Promise.resolve({ text: "ok", usage: { inputTokens: 1, outputTokens: 1 } });
+    return Promise.resolve({
+      text: "ok",
+      usage: { inputTokens: 1, outputTokens: 1, cacheReadTokens: 0, cacheWriteTokens: 0 },
+    });
   }
 }

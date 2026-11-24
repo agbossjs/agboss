@@ -13,6 +13,7 @@ import { ToolCallDecision } from "../../src/tool-interceptors/decision.js";
 import { PreparedFrom } from "../../src/graph/agent-loop/state.js";
 
 const record = (costUsd: number, caller = "x"): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller,
   model: "m",

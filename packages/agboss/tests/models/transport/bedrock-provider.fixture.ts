@@ -76,7 +76,7 @@ export const answer = (
   extra: Partial<ModelProviderResponse> = {},
 ): ModelProviderResponse => ({
   text,
-  usage: { inputTokens: 1_000_000, outputTokens: 500_000 },
+  usage: { inputTokens: 1_000_000, outputTokens: 500_000, cacheReadTokens: 0, cacheWriteTokens: 0 },
   ...extra,
 });
 

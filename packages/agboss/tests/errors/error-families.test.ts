@@ -164,6 +164,7 @@ describe("#1325a: the spend of a paid family", () => {
     {
       caller: "agent:buyer",
       model: "m",
+      provider: "p",
       costUsd: usd(0.25),
       costSource: root.CostSource.Api,
       inputTokens: 1,

@@ -1,7 +1,7 @@
 import type { AIMessageChunk, BaseMessage } from "@langchain/core/messages";
 import type { ToolDefinition } from "@langchain/core/language_models/base";
 import type { RunnableConfig } from "@langchain/core/runnables";
-import { recordUsage, type UsageRecord } from "../../finops/usage.js";
+import { NO_PROVIDER, recordUsage, type UsageRecord } from "../../finops/usage.js";
 import { withSortedKeys } from "../../flow/runtime/json.js";
 import { toolDefinitionOf } from "../../tools/index.js";
 import { AgentFailedError } from "../errors.js";
@@ -103,7 +103,13 @@ async function observedCall(
   // what the model was sent, masked: the conversation without the instructions
   const rawPayload = request.messages.slice(1);
   await reportNodeEvent((base) =>
-    deps.observer?.onModelStart({ ...base, modelName, callerName: name, rawPayload }),
+    deps.observer?.onModelStart({
+      ...base,
+      modelName,
+      provider: binding.settings.modelProvider ?? NO_PROVIDER,
+      callerName: name,
+      rawPayload,
+    }),
   );
   const counter = new ChunkCounter();
   const response = await callModel(request.messages, deps, config, attempt, counter).catch(
@@ -123,6 +129,7 @@ async function observedCall(
   const usageRecord = recordUsage(name, binding.settings, response);
   const ended = {
     model: modelName,
+    provider: usageRecord.provider,
     callerName: name,
     rawContent: response.content,
     usage: {

@@ -11,6 +11,7 @@ import { PiiRefusedError } from "../../src/pii/errors.js";
 import { kilobytes } from "../../src/units/index.js";
 
 const record = (costUsd: number, caller: string): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller,
   model: "m",

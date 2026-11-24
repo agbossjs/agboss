@@ -321,8 +321,8 @@ maximum, naming the field, and accepted at it:
 | ------------------------------------------------------------------- | ---------- | ----------------------------------------------------------------------------- |
 | `@Application({ shutdownTimeout })`, `compensationTimeout`          | 24 hours   | `[limits.timeout-invalid]` at assembly                                        |
 | `Idempotency.sendOnce({ timeout })`                                 | 24 hours   | the call rejects with `ConfigError.Option`, nothing recorded or sent          |
-| `app.close({ timeout })`                                            | 24 hours   | the `close` promise rejects with `UnitError` (`config.unit`), nothing stopped |
-| `@Tool` / `defineTool` `timeout`                       | 24 hours   | `[limits.timeout-invalid]` at assembly; `UnitError` from `defineTool`         |
+| `app.close({ timeout })`                                            | 24 hours   | the `close` promise rejects with `ConfigError.Unit` (`config.unit`), nothing stopped |
+| `@Tool` / `defineTool` `timeout`                       | 24 hours   | `[limits.timeout-invalid]` at assembly; `ConfigError.Unit` from `defineTool`         |
 | `@HealthCheck({ timeout })`                                         | 24 hours   | `[limits.timeout-invalid]` at assembly                                        |
 | `@ModelProvider({ timeout })`                                       | 24 hours   | `[limits.timeout-invalid]` at assembly                                        |
 | `RetryPolicy` `initialDelay`, `maxDelay`, `delay`                   | 24 hours   | `RetryPolicyError` (`config.retry-policy`)                                    |
@@ -330,7 +330,7 @@ maximum, naming the field, and accepted at it:
 | an A2A client call's `timeout`                                      | 24 hours   | `ComponentError` `[a2a.timeout-invalid]` before anything is sent              |
 | `a2aHttpListener({ maxTaskDuration })`                              | 24 days    | `ComponentError` `[a2a.timeout-invalid]` when the listener is made            |
 | `.joinQuorum({ deadline })`, `.joinQuorumGroups({ deadline })`   | 24 days    | `FlowSyntaxError` where the flow is written                                   |
-| `app.execute(…, { deadline })`                                      | 24 days    | `UnitError` (`config.unit`), the execution not started                        |
+| `app.execute(…, { deadline })`                                      | 24 days    | `ConfigError.Unit` (`config.unit`), the execution not started                        |
 
 A pause's `expiresIn` is not one timer: pause deadlines are read by the pause timers' loop every
 5 seconds, never by one `setTimeout`, so a long deadline is safe. The system `Clock` also waits out

@@ -14,6 +14,7 @@ import { rerankedRetrieval, type BoundReranker } from "../../src/rag/rerank.js";
 import { RerankFailurePolicy, type RerankerHandler } from "../../src/rag/types.js";
 
 const record = (costUsd: number, caller: string): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller,
   model: "m",

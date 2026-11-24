@@ -13,6 +13,7 @@ const MADE_AT = "2026-10-18T12:00:00.000Z";
 export const entry = (ledgerId: string, costUsd: number, madeAt = MADE_AT): LedgerEntry => ({
   caller: "clerk-agent",
   model: "test/clerk",
+  provider: "test-provider",
   inputTokens: 0,
   outputTokens: 0,
   cacheReadTokens: 0,

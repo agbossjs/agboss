@@ -4,9 +4,7 @@
  */
 import { shownLimit } from "../graph/count-limit.js";
 import type { Brand } from "../types/brand.js";
-import { causeOptionOf, type PlainErrorOptions } from "../core/errors.js";
-
-export type { PlainErrorOptions };
+import { ConfigError } from "../core/error-families/config-errors.js";
 
 /** An amount of money in US dollars. */
 export type Usd = Brand<number, "Usd">;
@@ -28,24 +26,10 @@ export enum Ttl {
   None = "none",
 }
 
-/**
- * A value out of range, as the platform's `RangeError`, so `catch` keeps telling it from other errors;
- * made as every framework error is (#906): `{ message, cause }`, with a literal `code`.
- */
-export class UnitError extends RangeError {
-  static readonly code = "config.unit" as const;
-  readonly code = UnitError.code;
-  override name = "UnitError";
-
-  constructor(options: PlainErrorOptions) {
-    super(options.message, causeOptionOf(options.cause));
-  }
-}
-
 function nonNegative(amount: number, unit: string): number {
   if (!Number.isFinite(amount) || amount < 0) {
     // a number is printed, anything else by its kind: what was passed may be stored text (#1373)
-    throw new UnitError({
+    throw new ConfigError.Unit({
       message: `${unit} must be a finite number ≥ 0, got ${shownLimit(amount)}`,
     });
   }
@@ -129,7 +113,7 @@ export interface WorkingDuration {
 
 function working(amount: number, name: string, unit: WorkingUnit, size: number): WorkingDuration {
   if (!Number.isFinite(amount) || amount <= 0) {
-    throw new UnitError({
+    throw new ConfigError.Unit({
       message: `${name} must be a positive finite number, got ${shownLimit(amount)}`,
     });
   }

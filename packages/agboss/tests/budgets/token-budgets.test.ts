@@ -35,6 +35,7 @@ const clock = new VirtualClock();
 
 /** A call of `tokens` tokens that cost `cost` — `0` is an unpriced CLI or local model. */
 const call = (tokens: number, cost = 0, caller = "cli-agent"): UsageRecord => ({
+  provider: "test-provider",
   caller,
   model: "local/m",
   inputTokens: tokens - Math.floor(tokens / 4),

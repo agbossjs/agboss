@@ -19,6 +19,7 @@ vi.mock("../../src/run/thread.js", async (original) => ({
 }));
 
 const record = (costUsd: number, caller = "memory"): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller,
   model: "m",

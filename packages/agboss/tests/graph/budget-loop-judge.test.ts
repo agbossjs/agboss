@@ -35,6 +35,7 @@ const listOf = <T>(value: readonly T[] | object | undefined): T[] =>
   Array.isArray(value) ? (value as T[]) : [];
 
 const record = (costUsd: number, caller = "x"): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller,
   model: "m",

@@ -1,4 +1,4 @@
-import { CostSource, ZERO_USAGE, type UsageRecord } from "../finops/usage.js";
+import { CostSource, NO_PROVIDER, ZERO_USAGE, type UsageRecord } from "../finops/usage.js";
 import { usd } from "../units/index.js";
 import type { Clock } from "../infrastructure/clock.js";
 import type { ExecutionTreeRepository } from "../infrastructure/execution-tree.repository.js";
@@ -45,6 +45,7 @@ export async function lostRunUsageOf(
     ...ZERO_USAGE,
     caller: `lost-pass:${workflow}`,
     model: "unknown",
+    provider: NO_PROVIDER,
     costUsd: usd(0),
     costSource: CostSource.Unknown,
     ledgerKey: { id: lostRunLedgerIdOf(state), madeAt: clock.now() },

@@ -56,6 +56,7 @@ const agentStep = (orderId: string): EvalStepTrace =>
       {
         caller: "refund-agent",
         model: "moonshotai/kimi-k2.6",
+        provider: "openrouter",
         inputTokens: 812,
         outputTokens: 64,
         cacheReadTokens: 512,

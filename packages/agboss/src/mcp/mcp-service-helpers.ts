@@ -17,20 +17,22 @@ import { meshLimitBodyOf } from "../mesh/mesh-wire.js";
  * context values — `tenant` (a resume uses its `tenantId`) and the declared `execution` fields —
  * taken by the transport from its authenticated caller, never from the call's arguments.
  */
-export type McpSessionOptions = Pick<ExecutionOptions, "ownerId" | "tenant" | "execution"> & {
-  /**
-   * The mesh peer the transport authenticated (#398 PR 2), by its `@Application({ name })`: when a
-   * call's envelope carries this peer's valid signature, its budget, deadline and origin are
-   * honoured and the run's report is signed back (`_meta["agboss.dev/report"]`).
-   */
-  readonly peer?: string;
-};
+export type McpSessionOptions = Pick<ExecutionOptions, "ownerId" | "tenant" | "execution">;
+
+/**
+ * The caller of one MCP message as the server runs it: a session's values and, for a signed mesh
+ * peer, the peer itself (#398 PR 2), by its `@Application({ name })` — when a call's envelope carries
+ * its valid signature, its budget, deadline and origin are honoured and the run's report is signed
+ * back (`_meta["agboss.dev/report"]`). Only the HTTP listener, after it verified the signature,
+ * makes one with a `peer`: a host's `session` never names a peer.
+ */
+export type McpCaller = McpSessionOptions & { readonly peer?: string };
 
 /** One `tools/call` as the service sees it: the raw arguments, the client's cancel signal. */
 export interface McpCall {
   readonly args: unknown;
   /** The identity THIS call runs with (#1319b): its own message's verified caller, never a stored one. */
-  readonly session: McpSessionOptions;
+  readonly session: McpCaller;
   /** The client's idempotency key (`_meta.callId`), if it sent one. */
   readonly callId?: string;
   readonly signal: AbortSignal;

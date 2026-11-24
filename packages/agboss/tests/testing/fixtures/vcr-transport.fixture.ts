@@ -64,7 +64,7 @@ export class EchoModelProvider implements ModelProviderHandler, OnInit, OnStart 
     this.echoLog.entries.push(`complete ${request.model}`);
     return Promise.resolve({
       text: `answered by ${request.model}`,
-      usage: { inputTokens: 10, outputTokens: 5 },
+      usage: { inputTokens: 10, outputTokens: 5, cacheReadTokens: 0, cacheWriteTokens: 0 },
     });
   }
 }

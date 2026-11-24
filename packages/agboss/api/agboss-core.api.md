@@ -323,6 +323,7 @@ export interface ModelEndEvent extends NodeEvent {
     readonly costUsd?: Usd;
     // (undocumented)
     readonly model: string;
+    readonly provider: string;
     // (undocumented)
     readonly rawContent: MessageContent;
     // (undocumented)
@@ -335,6 +336,7 @@ export interface ModelStartEvent extends NodeEvent {
     readonly callerName: string;
     // (undocumented)
     readonly modelName: string;
+    readonly provider: string;
     // (undocumented)
     readonly rawPayload: readonly BaseMessage[];
 }

@@ -43,6 +43,7 @@ describe("#1356: the records not yet recorded", () => {
 
   it("two equal records are the same spend, however their fields were listed", () => {
     const reordered: UsageRecord = {
+      provider: "test-provider",
       costSource: base.costSource,
       costUsd: base.costUsd,
       cacheWriteTokens: base.cacheWriteTokens,

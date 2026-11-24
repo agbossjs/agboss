@@ -30,7 +30,7 @@ const StoredUsage = z.looseObject({
   costUsd: storedUsd,
   costSource: z.enum(CostSource),
   servedBy: z.string().optional(),
-  provider: z.string().optional(),
+  provider: z.string(),
 });
 
 /** The answer a pause keeps (#267 S107): the decision, who gave it — 0.1.0 called that `answerer` —, its cost. */

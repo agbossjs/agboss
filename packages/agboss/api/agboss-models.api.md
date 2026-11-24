@@ -112,14 +112,13 @@ export interface CliInvocation {
     readonly command: string;
     readonly cwd?: string;
     readonly env?: Readonly<Record<string, string>>;
-    readonly inheritEnvironment?: true;
     readonly stdin?: string;
 }
 
 // @public
 export abstract class CliModelProvider {
+    protected abstract buildCommand(request: ModelProviderRequest): CliInvocation;
     complete(request: ModelProviderRequest): Promise<ModelProviderResponse>;
-    protected abstract invocationOf(request: ModelProviderRequest): CliInvocation;
     onInit(): Promise<void>;
     protected parseStreamLine(line: string): string | undefined;
     protected resultOf(stdout: string): CliResult;
@@ -663,7 +662,7 @@ export interface ModelProviderResponse {
     // (undocumented)
     readonly toolCalls?: readonly ModelProviderToolCall[];
     // (undocumented)
-    readonly usage: ModelProviderUsage;
+    readonly usage: TokenUsage;
 }
 
 // @public
@@ -701,18 +700,6 @@ export interface ModelProviderToolDefinition {
 
 // @public
 export type ModelProviderType = abstract new (...args: never[]) => ModelProviderHandler;
-
-// @public
-export interface ModelProviderUsage {
-    // (undocumented)
-    readonly cacheReadTokens?: number;
-    // (undocumented)
-    readonly cacheWriteTokens?: number;
-    // (undocumented)
-    readonly inputTokens: number;
-    // (undocumented)
-    readonly outputTokens: number;
-}
 
 // @public (undocumented)
 export interface ModelTextPart {
@@ -1429,10 +1416,6 @@ export interface WireTool {
 // src/models/transport/transport.ts - (ae-undocumented) Missing documentation for "text".
 // src/models/transport/transport.ts - (ae-undocumented) Missing documentation for "name".
 // src/models/transport/transport.ts - (ae-undocumented) Missing documentation for "description".
-// src/models/transport/transport.ts - (ae-undocumented) Missing documentation for "inputTokens".
-// src/models/transport/transport.ts - (ae-undocumented) Missing documentation for "outputTokens".
-// src/models/transport/transport.ts - (ae-undocumented) Missing documentation for "cacheReadTokens".
-// src/models/transport/transport.ts - (ae-undocumented) Missing documentation for "cacheWriteTokens".
 // src/models/transport/transport.ts - (ae-undocumented) Missing documentation for "textStream".
 // src/models/transport/transport.ts - (ae-undocumented) Missing documentation for "messages".
 // src/models/transport/transport.ts - (ae-undocumented) Missing documentation for "temperature".

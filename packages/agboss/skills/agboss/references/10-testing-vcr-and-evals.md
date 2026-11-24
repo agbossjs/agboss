@@ -1121,7 +1121,7 @@ import type { ModelProviderResponse } from "@agboss/core/models";
 @Injectable()
 export class SdkClientService {
   invoke(model: string, tenantId: string): Promise<ModelProviderResponse> {
-    return Promise.resolve({ text: `${model} for ${tenantId}`, usage: { inputTokens: 1, outputTokens: 1 } });
+    return Promise.resolve({ text: `${model} for ${tenantId}`, usage: { inputTokens: 1, outputTokens: 1, cacheReadTokens: 0, cacheWriteTokens: 0 } });
   }
 }
 ```
@@ -1169,7 +1169,7 @@ import { SdkModelProvider } from "../../src/model-providers/sdk.model-provider.j
 
 class FakeSdk {
   invoke(model: string, tenantId: string): Promise<ModelProviderResponse> {
-    return Promise.resolve({ text: `${model} for ${tenantId}`, usage: { inputTokens: 1, outputTokens: 1 } });
+    return Promise.resolve({ text: `${model} for ${tenantId}`, usage: { inputTokens: 1, outputTokens: 1, cacheReadTokens: 0, cacheWriteTokens: 0 } });
   }
 }
 

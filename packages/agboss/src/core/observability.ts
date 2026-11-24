@@ -114,6 +114,8 @@ export type ChannelEndEvent = EndEvent<unknown>;
 /** A model is called by an agent (`callerName`) with the conversation so far. */
 export interface ModelStartEvent extends NodeEvent {
   readonly modelName: string;
+  /** The `@ModelProvider` the call goes to, by its `name`; `(none)` when no provider names the model. */
+  readonly provider: string;
   readonly callerName: string;
   readonly rawPayload: readonly BaseMessage[];
 }
@@ -128,6 +130,8 @@ export interface ModelUsage {
 /** A model answered: its content, token usage and cost. */
 export interface ModelEndEvent extends NodeEvent {
   readonly model: string;
+  /** The `@ModelProvider` that served it (a fallback's, when one answered), by its `name`; `(none)` when none is named. */
+  readonly provider: string;
   readonly callerName: string;
   readonly rawContent: MessageContent;
   readonly usage: ModelUsage;

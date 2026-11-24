@@ -30,7 +30,7 @@ class Cli extends CliModelProvider {
   constructor(private readonly run: CliInvocation) {
     super();
   }
-  protected override invocationOf(): CliInvocation {
+  protected override buildCommand(): CliInvocation {
     return this.run;
   }
 }
@@ -51,7 +51,12 @@ describe("#1313g: CliModelProvider", () => {
     const answer = await cli.complete(requestOf());
 
     expect(answer.text).toBe("hello");
-    expect(answer.usage).toEqual({ inputTokens: 0, outputTokens: 0 });
+    expect(answer.usage).toEqual({
+      inputTokens: 0,
+      outputTokens: 0,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+    });
   });
 
   it("stream: the text of each line as it comes", async () => {
@@ -161,12 +166,6 @@ describe("#1313g: CliModelProvider", () => {
       expect(seen.APP_SECRET_FOR_TEST).toBeUndefined();
       expect(seen.NEEDED).toBe("1");
       expect(seen.PATH).toBeDefined();
-
-      const open = new Cli(
-        node("console.log(JSON.stringify(process.env))", { inheritEnvironment: true }),
-      );
-      const all = JSON.parse((await open.complete(requestOf())).text) as Record<string, string>;
-      expect(all.APP_SECRET_FOR_TEST).toBe("s3cret");
     } finally {
       delete process.env.APP_SECRET_FOR_TEST;
     }

@@ -36,9 +36,10 @@ export interface A2AHttpListenerOptions {
   /**
    * Who calls (an `@HttpAuthenticator` listed in `@Application({ services })`): the listener takes
    * its instance from the application's container when it is created and asks it on every request.
-   * Its `schemes` are the card's `securitySchemes`. Optional only for an application whose `@Mesh` is
-   * `Strict` with a peer that has `propagateTenant` and whose tenant context is the base one: then
-   * only signed peers call (`[http.authenticator-required-for-tenant-context]` otherwise).
+   * Its `schemes` are the card's `securitySchemes`.
+   * Optional for an application with no `tenantContext` of its own: a caller without one is
+   * anonymous, bound to its connection. With a `tenantContext` the listener is not made without one
+   * (`ConfigError`, `[http.authenticator-required-for-tenant-context]`).
    */
   readonly authenticator?: Class;
   /**

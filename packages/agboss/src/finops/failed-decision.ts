@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { NO_PROVIDER } from "./no-provider.js";
 import { usd } from "../units/index.js";
 import { CostSource } from "./cost-source.js";
 import { ZERO_USAGE, type UsageRecord } from "./usage.js";
@@ -83,7 +84,7 @@ export function billedDecisionRecord(
     caller: call.caller,
     model: data?.model ?? call.model,
     ...ZERO_USAGE,
-    ...(call.provider === undefined ? {} : { provider: call.provider }),
+    provider: call.provider ?? NO_PROVIDER,
   };
   const reported = data?.usage;
   const cost = reported?.cost;

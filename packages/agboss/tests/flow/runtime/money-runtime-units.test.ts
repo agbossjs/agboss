@@ -51,6 +51,7 @@ import { pausedUsageOf } from "../../../src/run/paused.js";
 import { usd } from "../../../src/units/index.js";
 
 const record = (costUsd: number, model = "m"): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller: "agent:a",
   model,

@@ -95,6 +95,7 @@ function usageOf(spec: DecisionSpec, details: DecisionDetails): UsageRecord | un
   return {
     caller: routerCaller(spec.router),
     model,
+    provider: "scripted",
     inputTokens: 0,
     outputTokens: 0,
     cacheReadTokens: 0,

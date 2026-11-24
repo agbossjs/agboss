@@ -79,7 +79,7 @@ export class ScriptedModelProvider implements ModelProviderHandler {
     const result = request.messages.find(
       (message) => message.role === ModelProviderMessageRole.Tool,
     );
-    const usage = { inputTokens: 1000, outputTokens: 100 };
+    const usage = { inputTokens: 1000, outputTokens: 100, cacheReadTokens: 0, cacheWriteTokens: 0 };
     if (result === undefined)
       return Promise.resolve({
         text: "",

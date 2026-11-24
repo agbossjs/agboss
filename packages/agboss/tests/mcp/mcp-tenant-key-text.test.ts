@@ -12,7 +12,8 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it } from "vitest";
 import type { App } from "../../src/app/types.js";
 import { MeshRequestRepository } from "../../src/infrastructure/mesh-request.repository.js";
-import { connectMcp, McpEndpoint } from "../../src/mcp/index.js";
+import { McpEndpoint } from "../../src/mcp/index.js";
+import { mcpServerOf, servedEndpointOf } from "../../src/mcp/mcp-server-instance.js";
 import { encodeMeshEnvelope } from "../../src/mesh/mesh-envelope-codec.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { offline } from "../a2a/fixtures/remote.workflow.js";
@@ -68,14 +69,12 @@ async function billing(tenantId: string) {
   });
   apps.push(app);
   const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
-  await connectMcp(app, {
-    endpoint: BillingMcp,
-    transport: serverSide,
-    session: {
-      peer: "orders-application",
-      tenant: { tenantId },
-    },
-  });
+  // the signature of a peer is proved by the HTTP listener; here the transport vouches for it
+  const served = servedEndpointOf(app, BillingMcp);
+  await mcpServerOf(app, served, () => ({
+    peer: "orders-application",
+    tenant: { tenantId },
+  })).connect(serverSide);
   const client = new Client({ name: "orders", version: "1.0.0" });
   await client.connect(clientSide);
   return { app, client, book, orders };

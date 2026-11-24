@@ -96,7 +96,7 @@ export class DeskAnswer {}
 @HttpAuthenticator()
 export class SingleTenantAuthenticator {
   authenticate(): HttpAuthResult {
-    return HttpAuthResult.authenticated({});
+    return HttpAuthResult.authenticated({ ownerId: "single-tenant-caller" });
   }
 }
 

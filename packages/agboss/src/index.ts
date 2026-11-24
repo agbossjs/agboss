@@ -72,7 +72,7 @@ export {
   bearer,
   configureEnv,
   defineEnv,
-  type BearerAuth,
+  type HeaderSecretTemplate,
   type EnvContract,
   type EnvOptions,
   type EnvOverrides,

@@ -15,9 +15,8 @@ before any step runs; a receiver verifies the signature first, then audience, or
 (shared `MeshRequestRepository`; unavailable → refused). Refusals are typed codes (`mesh.peer-unknown`,
 `mesh.signature-missing`, `mesh.request-mismatch`, `mesh.replayed`, `mesh.replay-check-unavailable`,
 `mesh.endpoint-forbidden`, `mesh.tenant-mismatch`), never a peer's text. A verified peer's tasks are
-owned by `mesh:<peer>`. `a2aHttpListener({ authenticator })` is optional for a `Strict` mesh with a
-`propagateTenant` peer on the base tenant context (`[http.authenticator-required-for-tenant-context]`
-otherwise). New rules: `[mesh.not-a-mesh]`, `[mesh.limit-invalid]`, `[mesh.peer-without-keys]`,
+owned by `mesh:<peer>`. `a2aHttpListener({ authenticator })` is optional for an application with no `tenantContext` of its own
+(`ConfigError` `[http.authenticator-required-for-tenant-context]` otherwise). New rules: `[mesh.not-a-mesh]`, `[mesh.limit-invalid]`, `[mesh.peer-without-keys]`,
 `[mesh.unknown-endpoint]`. `McpService.handleSse(req, res, …)` takes the request: with a `@Mesh` every
 HTTP request to an MCP endpoint goes through the same gate as an A2A one (an unsigned request to a
 `Strict` endpoint, an endpoint outside `allowEndpoints`, a replay: refused), and a `Strict` mesh serves

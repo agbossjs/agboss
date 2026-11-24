@@ -53,6 +53,7 @@ const guardrailsPass: NonNullable<ModelGateway["decide"]> = (spec) =>
     usage: {
       caller: spec.caller,
       model: spec.model,
+      provider: "test-provider",
       inputTokens: 0,
       outputTokens: 0,
       cacheReadTokens: 0,

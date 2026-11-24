@@ -1,11 +1,12 @@
 /**
  * #1319b (security): an MCP HTTP session binds to the WHOLE identity that opened it (peer, owner, the
- * tenant record, the context values), refuses a caller that names neither owner nor peer, and runs each
- * message with that message's own verified identity, never the opener's.
+ * tenant record, the context values) — a tenant with no ownerId included —, a caller that names no owner
+ * and no tenant is bound to its connection, and each message runs with that message's own verified
+ * identity, never the opener's.
  */
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { createServer, type Server } from "node:http";
+import { Agent, createServer, request, type IncomingHttpHeaders, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it } from "vitest";
 import { ExecutionStatus } from "../../src/app/types.js";
@@ -107,6 +108,37 @@ async function opened(url: string, headers: Record<string, string>): Promise<str
   return answer.headers.get("mcp-session-id") ?? "";
 }
 
+/** One POST over the connection `agent` keeps: what the server sees as one connection. */
+function requestOn(
+  url: string,
+  agent: Agent,
+  headers: Record<string, string>,
+  body: string,
+): Promise<{ status: number; headers: IncomingHttpHeaders; text: string }> {
+  return new Promise((resolve, reject) => {
+    const req = request(
+      url,
+      { method: "POST", agent, headers: { ...MCP, "x-auth": "1", ...headers } },
+      (res) => {
+        let text = "";
+        res.on("data", (chunk: Buffer) => (text += chunk.toString()));
+        res.on("end", () => {
+          resolve({ status: res.statusCode ?? 0, headers: res.headers, text });
+        });
+      },
+    );
+    req.on("error", reject);
+    req.end(body);
+  });
+}
+
+async function sessionOpenedOn(url: string, agent: Agent): Promise<string> {
+  const answer = await requestOn(url, agent, {}, INIT);
+  expect(answer.status).toBe(200);
+  const id = answer.headers["mcp-session-id"];
+  return typeof id === "string" ? id : "";
+}
+
 describe("#1319b: an MCP HTTP session binds to the whole identity", () => {
   it("the same tenantId with other context values is another caller: its message is refused", async () => {
     const url = await listening();
@@ -123,16 +155,40 @@ describe("#1319b: an MCP HTTP session binds to the whole identity", () => {
     expect(resumed).toEqual([]);
   });
 
-  it("two anonymous callers share nothing: no session is opened for a caller with no owner", async () => {
+  it("a tenant with no ownerId is bound to the whole tenant identity, not refused", async () => {
     const url = await listening();
+    const team = { "x-auth": "1", "x-tenant": "t1", "x-plan": "free" };
+    const id = await opened(url, team);
 
-    const first = await post(url, { "x-auth": "1" }, INIT);
-    const second = await post(url, { "x-auth": "1", "x-tenant": "t1" }, INIT);
+    const same = await post(url, { ...team, "mcp-session-id": id }, RESUME);
+    await same.text();
+    const otherPlan = await post(url, { ...team, "x-plan": "pro", "mcp-session-id": id }, RESUME);
+    const otherTenant = await post(
+      url,
+      { ...team, "x-tenant": "t2", "mcp-session-id": id },
+      RESUME,
+    );
 
-    expect(first.status).toBe(403);
-    expect(await first.json()).toMatchObject({ code: "mcp.caller-anonymous" });
-    expect(first.headers.get("mcp-session-id")).toBeNull();
-    expect(second.status).toBe(403);
+    expect(same.status).toBe(200);
+    expect(resumed).toMatchObject([{ tenantId: "t1" }]);
+    expect(otherPlan.status).toBe(404);
+    expect(otherTenant.status).toBe(404);
+  });
+
+  it("a caller that names no owner and no tenant is bound to its connection, never shared", async () => {
+    const url = await listening();
+    const one = new Agent({ keepAlive: true });
+    const another = new Agent({ keepAlive: true });
+    try {
+      const id = await sessionOpenedOn(url, one);
+
+      expect((await requestOn(url, one, { "mcp-session-id": id }, RESUME)).status).toBe(200);
+      expect((await requestOn(url, another, { "mcp-session-id": id }, RESUME)).status).toBe(404);
+      expect((await sessionOpenedOn(url, another)) === id).toBe(false);
+    } finally {
+      one.destroy();
+      another.destroy();
+    }
   });
 
   it("each message runs with its own verified caller: the owner and tenant of that message", async () => {

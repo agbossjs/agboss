@@ -6,7 +6,12 @@ import { admitMeshHttp, type MeshHttpAdmission } from "../../mesh/mesh-http-admi
 import { MESH_HTTP_HEADER } from "../../mesh/mesh-http.js";
 import type { MeshSettings } from "../../mesh/mesh-settings.js";
 import { MESH_REFUSAL_TEXT, MeshRefusalCode } from "../../mesh/mesh-verification.js";
-import { admitCaller, writeRejection, type CallerGateOutcome } from "../a2a-caller-gate.js";
+import {
+  admitCaller,
+  boundToConnection,
+  writeRejection,
+  type CallerGateOutcome,
+} from "../a2a-caller-gate.js";
 import type { A2AOperation } from "../a2a-caller.js";
 import { peerRefusalOf } from "./a2a-mesh-admission.js";
 
@@ -87,16 +92,15 @@ export const callerOfPeer = (peer: {
   ...(peer.tenantId === undefined ? {} : { tenant: { tenantId: peer.tenantId } }),
 });
 
-/** The authenticator's answer for an external caller; with none, nothing but a signed peer is admitted. */
+/** The authenticator's answer for an external caller; with none, an anonymous caller bound to its connection. */
 export async function externalCallerOf(
   binding: PeerGateBinding,
   request: PeerGateRequest,
 ): Promise<CallerGateOutcome> {
   const { req, res } = request;
-  if (binding.authenticator === undefined) {
-    refuse(res, { status: 401, code: MeshRefusalCode.SignatureMissing });
-    return { isAdmitted: false as const };
-  }
+  // no authenticator (an application with no tenantContext): an anonymous caller, bound to its connection
+  if (binding.authenticator === undefined)
+    return { isAdmitted: true as const, caller: boundToConnection({}, req) };
   const asked = {
     operation: request.operation,
     ...(request.taskId === undefined || request.taskId === "" ? {} : { taskId: request.taskId }),

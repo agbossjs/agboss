@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { usd } from "../units/index.js";
-import { CostSource, type UsageRecord } from "../finops/usage.js";
+import { CostSource, NO_PROVIDER, type UsageRecord } from "../finops/usage.js";
 import { DecisionError } from "../core/error-families/config-errors.js";
 import type { DecisionAnswer, DecisionQuestion, DecisionQuestions } from "./decisions.js";
 
@@ -116,7 +116,7 @@ export function readDecision(raw: unknown, asked: DecisionAsked): DecisionOutcom
     usage: {
       caller: asked.caller,
       model: model ?? asked.model,
-      ...(asked.provider === undefined ? {} : { provider: asked.provider }),
+      provider: asked.provider ?? NO_PROVIDER,
       inputTokens: usage?.input_tokens ?? 0,
       outputTokens: usage?.output_tokens ?? 0,
       cacheReadTokens: 0,

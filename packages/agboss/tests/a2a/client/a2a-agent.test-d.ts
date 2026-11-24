@@ -3,7 +3,7 @@ import type { A2AAgentConfig } from "../../../src/a2a/a2a-decorator.js";
 import { A2AAgent } from "../../../src/a2a/a2a-decorator.js";
 import { A2AClient } from "../../../src/a2a/client/a2a-client.js";
 import type { EnvRef, SecretRef } from "../../../src/environments/env-ref.js";
-import type { BearerAuth } from "../../../src/environments/define-env.js";
+import type { HeaderSecretTemplate } from "../../../src/environments/define-env.js";
 import type { Milliseconds, Usd } from "../../../src/units/index.js";
 import { seconds, usd } from "../../../src/units/index.js";
 
@@ -14,7 +14,7 @@ describe("#1320b: @A2AAgent's options", () => {
     expectTypeOf<A2AAgentConfig["timeout"]>().toEqualTypeOf<Milliseconds | undefined>();
     expectTypeOf<A2AAgentConfig["costPerCall"]>().toEqualTypeOf<Usd | undefined>();
     expectTypeOf<NonNullable<A2AAgentConfig["headers"]>[string]>().toEqualTypeOf<
-      string | EnvRef<string> | SecretRef | BearerAuth
+      string | EnvRef<string> | SecretRef | HeaderSecretTemplate
     >();
     expectTypeOf<A2AAgentConfig["allowedOrigins"]>().toEqualTypeOf<
       readonly (string | EnvRef<string>)[] | undefined

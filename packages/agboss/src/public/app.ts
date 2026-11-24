@@ -97,10 +97,10 @@ export {
 } from "../infrastructure/execution-history.repository.js";
 export {
   IncompatibleResumeError,
+  ResumeDecision,
   type IncompatibleResumeErrorOptions,
   type IncompatibleResume,
   type IncompatibleResumePolicy,
-  type ResumeDecision,
   type ResumeVersions,
 } from "../run/resume-guard.js";
 export { agbossTenantContext } from "../app/tenant-args.js";

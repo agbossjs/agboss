@@ -113,6 +113,7 @@ describe("finops usage", () => {
 
 describe("turn financials", () => {
   const record = (caller: string, model: string, costUsd: number): UsageRecord => ({
+    provider: "test-provider",
     caller,
     model,
     costUsd: usd(costUsd),

@@ -959,15 +959,7 @@ export enum BacktraceMode {
 }
 
 // @public (undocumented)
-export const bearer: (secret: SecretRef) => BearerAuth;
-
-// @public
-export interface BearerAuth {
-    // (undocumented)
-    readonly kind: "bearer";
-    // (undocumented)
-    readonly secret: SecretRef;
-}
+export const bearer: (secret: SecretRef) => HeaderSecretTemplate;
 
 // @public
 export function BeforeTool<const TTools extends ToolTargets>(...tools: TTools): <This>(value: BeforeToolMethod<This, TTools>, context: ClassMethodDecoratorContext<This, BeforeToolMethod<This, TTools>> & {
@@ -2399,7 +2391,7 @@ export interface CostLine extends TokenUsage {
     readonly costUsd: Usd;
     // (undocumented)
     readonly model: string;
-    readonly provider?: string;
+    readonly provider: string;
     readonly servedBy?: string;
 }
 
@@ -2883,7 +2875,12 @@ export interface EnvReaders extends EnvReader<string, string> {
         (variable: string, options: EnvTtlOptions & {
             readonly allowNone: true;
         }): EnvRef<Milliseconds | Ttl>;
-        optional(variable: string, options?: EnvTtlOptions): EnvRef<Milliseconds | Ttl | undefined>;
+        optional(variable: string, options?: EnvTtlOptions & {
+            readonly allowNone?: false;
+        }): EnvRef<Milliseconds | Ttl.Forever | undefined>;
+        optional(variable: string, options: EnvTtlOptions & {
+            readonly allowNone: true;
+        }): EnvRef<Milliseconds | Ttl | undefined>;
     };
     readonly usd: EnvReader<Usd>;
 }
@@ -4164,7 +4161,6 @@ export type FileRuleCode = "files.invalid-setting" | "files.no-redactor" | "file
 
 // @public
 export class Files {
-    constructor(store: FileRepository, clock: Clock);
     fromUrl(url: string, reference: FileReference): FileDto;
     read(file: FileDto): Promise<Uint8Array>;
     save(content: FileToSave): Promise<FileDto>;
@@ -4678,6 +4674,14 @@ export enum HandOverSite {
 
 // @public
 export type HasTenantContext<TApp> = unknown extends TApp ? true : TApp extends TenantContextBranded<infer THas> ? [THas] extends [false] ? false : true : true;
+
+// @public
+export interface HeaderSecretTemplate {
+    // (undocumented)
+    readonly kind: "bearer";
+    // (undocumented)
+    readonly secret: SecretRef;
+}
 
 // @public
 export function HealthCheck<const TDeps extends readonly Token[] = []>(options?: HealthCheckOptions<TDeps>): <TClass extends new (...args: ResolvedAll<TDeps>) => HealthCheckHandler>(value: TClass) => TClass;
@@ -6381,6 +6385,7 @@ export interface ModelEndEvent extends NodeEvent {
     readonly costUsd?: Usd;
     // (undocumented)
     readonly model: string;
+    readonly provider: string;
     // (undocumented)
     readonly rawContent: MessageContent;
     // (undocumented)
@@ -6583,6 +6588,7 @@ export interface ModelStartEvent extends NodeEvent {
     readonly callerName: string;
     // (undocumented)
     readonly modelName: string;
+    readonly provider: string;
     // (undocumented)
     readonly rawPayload: readonly BaseMessage[];
 }
@@ -8888,7 +8894,10 @@ export interface ResultFactory {
 }
 
 // @public
-export type ResumeDecision = "resume" | "reject";
+export enum ResumeDecision {
+    Reject = "reject",
+    Resume = "resume"
+}
 
 // @public
 export type ResumeOptions = ThreadOwnerResumeOptions | ChannelResumeOptions;
@@ -10973,7 +10982,7 @@ export interface UsageRecord extends TokenUsage {
     readonly ledgerKey?: LedgerKey;
     // (undocumented)
     readonly model: string;
-    readonly provider?: string;
+    readonly provider: string;
     readonly servedBy?: string;
 }
 

@@ -4,7 +4,7 @@ import { admitMeshHttp } from "../mesh/mesh-http-admission.js";
 import { MESH_HTTP_HEADER } from "../mesh/mesh-http.js";
 import { meshSettingsOf } from "../mesh/mesh-settings.js";
 import { MESH_REFUSAL_TEXT } from "../mesh/mesh-verification.js";
-import type { McpSessionOptions } from "./mcp-tool-registry.js";
+import type { McpCaller } from "./mcp-service-helpers.js";
 
 /**
  * The mesh's gate of every HTTP request to an MCP endpoint (#1320): what `a2aHttpListener` does for an
@@ -17,7 +17,7 @@ import type { McpSessionOptions } from "./mcp-tool-registry.js";
 
 /** What the gate lets through: the session the host gave, with the verified peer's identity laid over it. */
 export interface McpHttpAdmission {
-  readonly session: McpSessionOptions;
+  readonly session: McpCaller;
 }
 
 const headerOf = (req: IncomingMessage): string | undefined => {
@@ -33,7 +33,7 @@ export async function admitMcpHttp(
   app: object,
   endpoint: Class,
   request: { readonly req: IncomingMessage; readonly res: ServerResponse; readonly body: string },
-  session: McpSessionOptions,
+  session: McpCaller,
   origin?: string,
 ): Promise<McpHttpAdmission | undefined> {
   const settings = meshSettingsOf(app);

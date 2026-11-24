@@ -133,6 +133,7 @@ function outcomeOf(turn: ScriptedTurn, spec: DecideSpec, label: string): Decisio
     usage: {
       caller: spec.caller,
       model: spec.model,
+      provider: "scripted",
       inputTokens: 0,
       outputTokens: 0,
       cacheReadTokens: 0,

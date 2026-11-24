@@ -1,6 +1,6 @@
 import { extractText } from "./multimodal-utils.js";
 import { z } from "zod";
-import { CostSource, ZERO_USAGE, type UsageRecord } from "../finops/usage.js";
+import { CostSource, NO_PROVIDER, ZERO_USAGE, type UsageRecord } from "../finops/usage.js";
 import { billedDecisionRecord } from "../finops/failed-decision.js";
 import { usd, type Usd } from "../units/index.js";
 import type { JevClient } from "../llm/jev-client.js";
@@ -80,9 +80,7 @@ export function createJevRouter(deps: JevRouterDeps): RouterEngine {
     (reportedModel, costUsd) => ({
       caller: routerCaller(deps.name),
       model: reportedModel ?? served?.model ?? deps.model,
-      ...(served?.provider === undefined && deps.provider === undefined
-        ? {}
-        : { provider: served?.provider ?? deps.provider }),
+      provider: served?.provider ?? deps.provider ?? NO_PROVIDER,
       ...ZERO_USAGE,
       costUsd,
       costSource: CostSource.Api,

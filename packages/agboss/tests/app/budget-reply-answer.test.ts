@@ -16,6 +16,7 @@ vi.mock("../../src/budgets/execution-budgets.js", async (original) => ({
 }));
 
 const record = (costUsd: number, caller = "reply"): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller,
   model: "m",

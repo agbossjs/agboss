@@ -11,6 +11,7 @@ import { CostSource, ZERO_USAGE, type UsageRecord } from "../../../src/finops/us
 import { routeToActions } from "../../../src/graph/agent-loop/boundary.js";
 
 const record = (costUsd: number, caller: string): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller,
   model: "m",

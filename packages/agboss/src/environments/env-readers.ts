@@ -52,7 +52,14 @@ export interface EnvReaders extends EnvReader<string, string> {
       variable: string,
       options: EnvTtlOptions & { readonly allowNone: true },
     ): EnvRef<Milliseconds | Ttl>;
-    optional(variable: string, options?: EnvTtlOptions): EnvRef<Milliseconds | Ttl | undefined>;
+    optional(
+      variable: string,
+      options?: EnvTtlOptions & { readonly allowNone?: false },
+    ): EnvRef<Milliseconds | Ttl.Forever | undefined>;
+    optional(
+      variable: string,
+      options: EnvTtlOptions & { readonly allowNone: true },
+    ): EnvRef<Milliseconds | Ttl | undefined>;
   };
   /** `64kb`, `10mb`, `512b`, `1gb`. */
   readonly bytes: EnvReader<Bytes>;

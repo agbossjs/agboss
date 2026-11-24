@@ -462,7 +462,7 @@ import { SupportMcp } from "./src/support/mcp/support.expose.js";
 
 ```ts
 // server.ts — local clients over stdio; for HTTP: http.createServer(mcpHttpListener(app, { endpoint,
-// authenticator, publicUrl, base })) — each request is judged on its own, a session is its opener's
+// authenticator?, publicUrl, base })) — each request is judged on its own, a session is its opener's
 import { connectMcpStdio } from "@agboss/core/mcp";
 
 const app = await createApp(SupportApplication);
@@ -874,8 +874,8 @@ mTLS or a token) and the envelope carries that peer's valid signature (`signedBy
 authenticator the listener checks a signed envelope of a known issuer — its signature and its
 `issuedAt` + `expiresIn` (60 s) on the `Clock` — and refuses a bad one with `401`
 `mesh.signature-invalid` / `mesh.envelope-expired`; a trusted one must carry the body it signed
-(`bodyHash`, else `401 mesh.body-mismatch`). Over MCP, `connectMcp(app, { endpoint: X, transport, session: { peer } })` names
-the session's peer. A test signs as a peer with `signedMeshEnvelope({ issuer, audience?,
+(`bodyHash`, else `401 mesh.body-mismatch`). Over MCP only `mcpHttpListener` names a session's peer, once it verified the request's
+signature: a `session` of `connectMcp` / `connectMcpStdio` never does. A test signs as a peer with `signedMeshEnvelope({ issuer, audience?,
 signingKey, body, issuedAt, origin, callChain, budget?, deadline? })` (`@agboss/core/testing`,
 #521) for an MCP call — the framework's own encoder, the very `_meta` value a real client sends. An
 A2A call is signed by the `A2AClient` of a test application with a `mesh.signingKey`, the envelope

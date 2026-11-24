@@ -10,6 +10,7 @@ import type { ViewedFile } from "../../src/files/visit-files.js";
 import { kilobytes } from "../../src/units/index.js";
 
 const usageOf = (caller: string): UsageRecord => ({
+  provider: "test-provider",
   caller,
   model: "m",
   costUsd: usd(0),

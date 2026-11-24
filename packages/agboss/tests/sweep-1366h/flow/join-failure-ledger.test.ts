@@ -23,6 +23,7 @@ const { failedJoined } = await import("../../../src/flow/runtime/launch/join-fai
 const { BranchStatus } = await import("../../../src/flow/runtime/launch/records.js");
 
 const undoSpend: UsageRecord = {
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller: "refund-action",
   model: "m",

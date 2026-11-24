@@ -21,6 +21,7 @@ const call = (
   cost = 0,
   costSource: CostSource = CostSource.Api,
 ): UsageRecord => ({
+  provider: "test-provider",
   caller,
   model: "m",
   inputTokens: tokens.input,

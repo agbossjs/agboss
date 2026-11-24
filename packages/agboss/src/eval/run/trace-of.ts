@@ -79,6 +79,7 @@ function stepOf(record: ExecutionStepRecord, calls: readonly ToolCallRecord[]): 
     modelCalls: record.spend.trace.map((line) => ({
       caller: line.caller,
       model: line.model,
+      provider: line.provider,
       inputTokens: line.inputTokens,
       outputTokens: line.outputTokens,
       cacheReadTokens: line.cacheReadTokens,

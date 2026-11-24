@@ -156,7 +156,7 @@ export class BedrockSdkClient {
     retryOn: TRANSIENT_FAILURES,
   }),
   circuitBreakerPolicy: CircuitBreakerPolicy.fixed({ failureThreshold: 5, failureWindow: minutes(1), openDuration: seconds(30) }),
-  deps: [BedrockSdkClient, TenantContext],              // reasoning / promptCaching unset: off
+  deps: [BedrockSdkClient, TenantContext],              // reasoning unset: off; promptCaching unset: automatic
 })
 export class BedrockModelProvider implements ModelProviderHandler {
   constructor(
@@ -183,7 +183,8 @@ export class BedrockModelProvider implements ModelProviderHandler {
   (`complete`, `deps`) — both at once do not compile (the decorator's overloads) and fail assembly
   with `[model-provider.both-modes]`; so does neither. `description`, `timeout`, `cost` and
   `retryPolicy` (`RetryPolicy.exponential(…)` and the others) are required as for HTTP;
-  `reasoning` / `promptCaching` are optional — `Reasoning.off()` / `PromptCaching.off()` when unset.
+  `reasoning` / `promptCaching` are optional — `Reasoning.off()` when unset, and for `promptCaching` the
+  automatic default (below).
 - **Created by the application's container**, on its first call: one instance per application, its
   `deps` injected and checked at assembly with the components' (`Consumer: "TOKEN" is not
   registered …`). An injected `TenantContext` / `ExecutionContext` reads the execution of the call
@@ -196,8 +197,8 @@ export class BedrockModelProvider implements ModelProviderHandler {
   `reasoning`, `promptCaching`, `signal` (the attempt's timeout, a cancel, an exhausted budget — an
   SDK that ignores it is cut at `timeout` anyway, as a `Timeout`). No LangChain type in the contract.
 - **The answer** — `ModelProviderResponse`: `text`, `toolCalls?` (`ModelProviderToolCall { id, name,
-  arguments }`), `usage` (`ModelProviderUsage { inputTokens, outputTokens, cacheReadTokens?,
-  cacheWriteTokens? }`: the rate limit's tokens, the price table's), `cost?` (exact, `costSource:
+  arguments }`), `usage` (`TokenUsage { inputTokens, outputTokens, cacheReadTokens,
+  cacheWriteTokens }`, the same type as a streamed call's `result.usage`: the rate limit's tokens, the price table's), `cost?` (exact, `costSource:
   CostSource.Api`; absent → the decorator's price table), `finishReason?` (`FinishReason.Length`). An answer
   without `text` or `usage` is a `ModelProviderError`.
 - **Failures** — throw `new ModelProviderFailureError({ failure: ModelFailure.…, retryAfter?, cause? })`
@@ -436,7 +437,9 @@ forms). Unset on the component = the provider's.
 ## Prompt caching
 
 `PromptCaching.whereSupported({ retention: CacheRetention.FiveMinutes | OneHour | OneDay, cachedParts: [CachedPart.SystemPrompt | Tools | History], key? })`
-· `PromptCaching.off()`. Where the model caches automatically (OpenAI, Kimi, DeepSeek…) nothing is
+· `PromptCaching.off()`. A provider that sets none caches opportunistically: the system prompt, the tools and the
+history at `FiveMinutes` wherever the model supports it, none where it does not — and, unlike an explicit
+`whereSupported`, never a startup refusal. Where the model caches automatically (OpenAI, Kimi, DeepSeek…) nothing is
 marked; Anthropic and Google models get `cache_control` after the stable prefix (the system prompt,
 which ends the tools + system prefix) and at the previous turn's end (history as a growing prefix),
 with `ttl: "1h"` for `OneHour`; OpenAI's dialect sends `prompt_cache_key` and

@@ -15,7 +15,7 @@ import {
   type ExecutionRejectedEvent,
   inline,
 } from "../../../src/index.js";
-import type { IncompatibleResume } from "../../../src/run/resume-guard.js";
+import { ResumeDecision, type IncompatibleResume } from "../../../src/run/resume-guard.js";
 import { onStart } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -132,7 +132,9 @@ export class MailV2Migrating {
     return WorkflowSettings.builder()
       .onIncompatibleResume((resume) => {
         asked.push(resume);
-        return resume.paused.workflowVersion === "1.0.0" ? "resume" : "reject";
+        return resume.paused.workflowVersion === "1.0.0"
+          ? ResumeDecision.Resume
+          : ResumeDecision.Reject;
       })
       .build();
   }

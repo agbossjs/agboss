@@ -1,4 +1,4 @@
-import type { McpSessionOptions } from "./mcp-service-helpers.js";
+import type { McpCaller } from "./mcp-service-helpers.js";
 
 /**
  * Who an MCP session belongs to (#1319b): the WHOLE identity of the caller that opened it, compared
@@ -37,12 +37,8 @@ function sameValue(a: unknown, b: unknown): boolean {
 }
 
 /** Whether `a` is the whole identity `b` was opened for: the peer, owner, tenant record and context values. */
-export const isSameCaller = (a: McpSessionOptions, b: McpSessionOptions): boolean =>
+export const isSameCaller = (a: McpCaller, b: McpCaller): boolean =>
   a.peer === b.peer &&
   a.ownerId === b.ownerId &&
   sameValue(a.tenant, b.tenant) &&
   sameValue(a.execution, b.execution);
-
-/** A caller that names no owner and no peer: nothing tells it from any other such caller. */
-export const isAnonymous = (identity: McpSessionOptions): boolean =>
-  identity.ownerId === undefined && identity.peer === undefined;

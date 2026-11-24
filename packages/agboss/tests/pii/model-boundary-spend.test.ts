@@ -10,6 +10,7 @@ import { maskForModel, modelReadingMaskOf } from "../../src/pii/model-boundary.j
 import type { PiiPolicySet } from "../../src/pii/policy-set.js";
 
 const record = (costUsd: number, caller: string): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller,
   model: "m",

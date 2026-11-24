@@ -12,6 +12,7 @@ import { DetectionMode } from "../../src/pii/runtime-policy.js";
 import { PiiActionKind } from "../../src/pii/actions.js";
 
 const record = (costUsd: number, caller = "pii"): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller,
   model: "m",

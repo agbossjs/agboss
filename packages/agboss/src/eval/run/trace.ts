@@ -27,6 +27,8 @@ export interface EvalModelCallTrace {
   /** Who called, as the spend names it: the agent or router, `guardrail:<name>`, `judge:<name>`, … */
   readonly caller: string;
   readonly model: string;
+  /** The `@ModelProvider` that served it, by its `name`; `(none)` for a charge no provider made (a tool's). */
+  readonly provider: string;
   readonly inputTokens: number;
   readonly outputTokens: number;
   readonly cacheReadTokens: number;
