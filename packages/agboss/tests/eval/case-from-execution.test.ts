@@ -98,7 +98,7 @@ describe("#396 PR 8: a case drafted from a kept execution", () => {
       {
         input: { text: "Refund order 7 for <email>" },
         pauses: [
-          { target: "refund-approval", decision: { approved: true }, actor: { id: "alice" } },
+          { target: "refund-approval", decision: { approved: true }, actor: { id: "actor-1" } },
         ],
       },
     ]);
@@ -107,5 +107,52 @@ describe("#396 PR 8: a case drafted from a kept execution", () => {
     expect(evalCaseDraftOf("failed", observedExecutionOf(failed, [failed]))).not.toHaveProperty(
       "expectedStatus",
     );
+  });
+
+  it("the person who answered is a placeholder, one per person; a tokenized decision keeps its token only", () => {
+    const base = historyRecordOf("e7", {});
+    const answer = (answeredBy: string, decision: unknown) => ({
+      pauseId: "p-2",
+      executionId: "e7",
+      step: {
+        component: bareRecordOf("refund-tool", ComponentKind.Tool),
+        nodeId: "desk-agent",
+        visitNumber: 1,
+        idempotencyKey: "e7:desk-agent:1:call-1",
+        callId: "call-1",
+        itemIndex: undefined,
+        copyNumber: 1,
+        toolLoopIteration: 1,
+        validationAttempts: 0,
+      },
+      role: "refund-approval",
+      answerer: PauseAnswerer.ThreadOwner,
+      answeredBy,
+      responder: answeredBy,
+      resolution: PauseResolution.Replied,
+      askedAt: "2026-01-05T09:00:02.000Z",
+      resolvedAt: "2026-01-05T09:00:03.000Z",
+      decision,
+    });
+    const record = {
+      ...base,
+      pauses: [
+        answer("alice@example.com", { note: "<email:7f3a91>" }),
+        answer("bob", { note: "ok" }),
+        answer("alice@example.com", { note: "again" }),
+      ],
+    };
+
+    const draft = evalCaseDraftOf("who", observedExecutionOf(record, [record]));
+
+    expect(draft.turns[0]?.pauses?.map((each) => each.actor?.id)).toEqual([
+      "actor-1",
+      "actor-2",
+      "actor-1",
+    ]);
+    const text = JSON.stringify(draft);
+    expect(text).not.toContain("alice");
+    expect(text).not.toContain("bob");
+    expect(text).toContain("<email:7f3a91>");
   });
 });

@@ -55,7 +55,7 @@ export interface DraftToolCall {
 export interface DraftPause {
   readonly target: string;
   readonly decision: unknown;
-  /** Who answered, when the record kept it. */
+  /** Who answered, when the record kept it: a placeholder id (`actor-1`), never the real one. */
   readonly actor?: { readonly id: string };
 }
 
@@ -101,15 +101,31 @@ function requiredCallsOf(calls: readonly ToolCallRecord[]): readonly DraftToolCa
   });
 }
 
-/** The pauses a person answered: replied, with a decision kept; the target is the channel asked. */
+/**
+ * The pauses a person answered: replied, with a decision kept; the target is the channel asked.
+ * The decision is the record's, masked like its inputs and outputs (the history masks the pauses
+ * by their execution's chain). The person who answered is not masked data but an identity — an
+ * owner id or a credential: a drafted case, saved as a golden file, names a placeholder instead
+ * (`actor-1`, `actor-2` …, one per person, stable within the case).
+ */
 function pausesOf(pauses: readonly PauseAnswerRecord[]): readonly DraftPause[] {
+  const placeholders = new Map<string, string>();
+  const placeholderOf = (person: string): string => {
+    const known = placeholders.get(person);
+    if (known !== undefined) return known;
+    const made = `actor-${String(placeholders.size + 1)}`;
+    placeholders.set(person, made);
+    return made;
+  };
   return pauses.flatMap((pause) =>
     pause.resolution === PauseResolution.Replied && pause.decision !== undefined
       ? [
           {
             target: pause.role,
             decision: pause.decision,
-            ...(pause.answeredBy === undefined ? {} : { actor: { id: pause.answeredBy } }),
+            ...(pause.answeredBy === undefined
+              ? {}
+              : { actor: { id: placeholderOf(pause.answeredBy) } }),
           },
         ]
       : [],
