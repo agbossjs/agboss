@@ -1,5 +1,4 @@
 import { withAgentFiles } from "../files/assemble-files.js";
-import type { A2AFileOptions } from "../a2a/files/a2a-file-options.js";
 import type { AgentsConfigOf } from "../config/types.js";
 import { validateAgentsConfig } from "../config/types.js";
 import { analyseWorkflow, type FlowAnalysis } from "../flow/analyse/analyse.js";
@@ -68,9 +67,6 @@ type WorkflowOwner = NonNullable<DefaultsLevels["application"]> & {
   readonly workingCalendar?: WorkingCalendarSource;
   /** `@Application({ modelProvider })`: the provider of every model that names none (#1313). */
   readonly modelProvider?: Class;
-  /** `@Application({ a2aFiles, exposes })`: the limits and types the agents' files start from (#899). */
-  readonly a2aFiles?: A2AFileOptions;
-  readonly exposes?: readonly Class[];
   /** `@Application({ promptVariables })`: under every workflow's and component's own (#1347c). */
   readonly promptVariables?: PromptVariables;
 };

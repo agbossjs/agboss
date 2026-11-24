@@ -9,6 +9,7 @@
 // serves it.
 import { A2AExpose, A2AReply } from "../../src/a2a/a2a-expose.decorator.js";
 import { WorkflowFinishFileDto } from "../../src/dto/standard/file.js";
+import { FilePolicy } from "../../src/files/file-policy.js";
 import { Files } from "../../src/a2a/files/files.service.js";
 import { Application } from "../../src/application/application.js";
 import { Channel, Injectable } from "../../src/components/decorators.js";
@@ -207,9 +208,13 @@ export class TckFileFinish {}
 })
 export class TckDataFinish {}
 
+@FilePolicy({ name: "tck-file-policy" })
+export class TckFilePolicy {}
+
 @Workflow({
   name: "tck-workflow",
   version: "1.0.0",
+  filePolicy: TckFilePolicy,
   flow: [
     onStart(TckWorkflowStart)
       .toAction(TckScenarioAction)
@@ -273,6 +278,7 @@ export class TckMessageFinish {}
 @Workflow({
   name: "tck-message-workflow",
   version: "1.0.0",
+  filePolicy: TckFilePolicy,
   flow: [onStart(TckMessageWorkflowStart).toAction(TckMessageAction).toFinish(TckMessageFinish)],
 })
 export class TckMessageWorkflow {}

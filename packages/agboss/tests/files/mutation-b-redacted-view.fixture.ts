@@ -48,8 +48,7 @@ export function runtimeOf(over: RuntimeOver = {}): FileRuntime {
       ...resolvedFilesOf({
         agent: ModelFiles.of({ views: [FileView.Redacted] }).options,
         defaults: undefined,
-        skills: [],
-        a2aFiles: undefined,
+        filePolicy: undefined,
         hasPiiPolicy: true,
       }),
       maxFileSize: over.maxFileSize ?? megabytes(1),

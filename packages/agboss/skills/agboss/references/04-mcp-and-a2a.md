@@ -630,11 +630,11 @@ export class DocumentReader {
 ```
 
 - A `url` part is fetched once, at the admission, by the server — never by a step: `https:` only, on
-  `@Application({ a2aFiles: { allowedFileOrigins } })`, three redirects at most, no special-purpose
-  address (the SSRF guard), bounded by `a2aHttpListener`'s `fileFetchTimeout`; a refusal is `-32602`
+  the workflow's `@FilePolicy({ allowedOrigins })`, three redirects at most, no special-purpose
+  address (the SSRF guard), bounded by the policy's `fetchTimeout` and its `fetchPool`; a refusal is `-32602`
   (`a2a.file-origin-denied`, `a2a.file-fetch-failed`, …) before anything runs. Each file's bytes are
   checked against its declared media type (the header and the magic bytes), and its size and count
-  against `@A2AExpose({ skills: { [id]: { files } } })` over `@Application({ a2aFiles })`.
+  against the workflow's `@FilePolicy` (a skill's own `filePolicy` may only tighten it).
 - Bytes ride inline in the task's records up to 64 KB (above it with no store listed:
   `[a2a.inline-files-without-store]`, a warning; above 256 KB `[a2a.file-store-required]`); with an
   `FileRepository` listed (`InMemoryFileRepository`, `LocalDiskFileRepository`,
@@ -663,15 +663,15 @@ assemble: `[a2a.task-store-not-shared]`, `[a2a.message-store-not-shared]`,
 
 ### The assembly rules of an A2A side
 
-| Rule                                                                                                     | When                                                                                       |
-| -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| `[a2a.expose-description-required]`                                                                      | an `@A2AExpose` with a blank `description` (the card's)                                    |
-| `[a2a.skill-tags]` (warning)                                                                             | an exported skill with no `tags` (the card falls back to the application's name)           |
-| `[a2a.unpriced-foreign-peer]` (warning)                                                                  | an `@A2AAgent` without `target.application` and without `price`: its spend is invisible    |
-| `[a2a.task-store-not-shared]`                                                                            | shared leases, a task store that is not (above)                                            |
-| `[a2a.file-store-required]`, `[a2a.file-store-not-shared]`, `[a2a.inline-files-without-store]` (warning) | where files may live (above)                                                               |
-| `[a2a.message-skill-*]`, `[a2a.message-store-not-shared]`, `[a2a.unknown-skill-option]`                  | a direct reply (above)                                                                     |
-| `[a2a.unknown-finish]`, `[a2a.nested-file-field]`, `[a2a.file-options-invalid]`                          | `target.finishes`; a file below the top level of a DTO; a size or media type of `a2aFiles` |
+| Rule                                                                                                     | When                                                                                            |
+| -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `[a2a.expose-description-required]`                                                                      | an `@A2AExpose` with a blank `description` (the card's)                                         |
+| `[a2a.skill-tags]` (warning)                                                                             | an exported skill with no `tags` (the card falls back to the application's name)                |
+| `[a2a.unpriced-foreign-peer]` (warning)                                                                  | an `@A2AAgent` without `target.application` and without `price`: its spend is invisible         |
+| `[a2a.task-store-not-shared]`                                                                            | shared leases, a task store that is not (above)                                                 |
+| `[a2a.file-store-required]`, `[a2a.file-store-not-shared]`, `[a2a.inline-files-without-store]` (warning) | where files may live (above)                                                                    |
+| `[a2a.message-skill-*]`, `[a2a.message-store-not-shared]`, `[a2a.unknown-skill-option]`                  | a direct reply (above)                                                                          |
+| `[a2a.unknown-finish]`, `[a2a.nested-file-field]`, `[file-policy.invalid]`                               | `target.finishes`; a file below the top level of a DTO; a size or media type of a `@FilePolicy` |
 
 A warning is an error under `agboss check --strict`; every code is in reference 11.
 

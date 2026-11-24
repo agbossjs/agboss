@@ -152,8 +152,7 @@ const runtimeOn = (served: Record<string, { body: Uint8Array }>): FileRuntime =>
     settings: resolvedFilesOf({
       agent: ModelFiles.of({ views: [FileView.Original] }).options,
       defaults: undefined,
-      skills: [],
-      a2aFiles: undefined,
+      filePolicy: undefined,
       hasPiiPolicy: false,
     }),
     maxResultSize: kilobytes(8),

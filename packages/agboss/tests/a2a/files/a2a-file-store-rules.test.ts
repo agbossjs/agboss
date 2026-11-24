@@ -3,11 +3,12 @@
  * inline in its tasks' records silently up to 64 KB, with `[a2a.inline-files-without-store]` up to
  * 256 KB, never above (`[a2a.file-store-required]`); on leases its instances share, files above 256
  * KB in one host's store are `[a2a.file-store-not-shared]`; and the options and the retention of
- * files are checked (`[a2a.file-options-invalid]`, `[application.retention-invalid]`).
+ * files are checked (`[file-policy.invalid]`, `[application.retention-invalid]`).
  */
 import { describe, expect, it } from "vitest";
 import { A2AExpose } from "../../../src/a2a/a2a-expose.decorator.js";
-import type { A2AFileOptions } from "../../../src/a2a/files/a2a-file-options.js";
+import { FilePolicy, type FilePolicyOptions } from "../../../src/files/file-policy.js";
+import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { Application, type ApplicationOptions } from "../../../src/application/application.js";
 import { applicationOf } from "../../../src/application/assemble.js";
 import { retentionViolations } from "../../../src/application/retention.js";
@@ -26,8 +27,8 @@ import { PostgresLeases } from "../../application/fixtures/store-backends.fixtur
 import { PostgresA2ATasks } from "../fixtures/a2a-task-stores.fixture.js";
 import {
   FileCallerChannel,
-  FileReviewWorkflow,
   FileReviewWorkflowStart,
+  fileReviewFlow,
 } from "../fixtures/files.application.js";
 
 /** A file store every instance reaches (an S3 bucket, say). */
@@ -37,18 +38,27 @@ class SharedA2AFiles extends InMemoryFileRepository {
 }
 
 const appWith = (
-  files: A2AFileOptions | undefined,
+  files: FilePolicyOptions | undefined,
   providers: readonly Provider[] = [],
   more: Partial<ApplicationOptions> = {},
 ) => {
+  @FilePolicy({ name: "rules-file-policy", ...files })
+  class RulesFilePolicy {}
+
+  @Workflow({
+    name: "rules-file-review-workflow",
+    version: "1.0.0",
+    flow: fileReviewFlow,
+    filePolicy: RulesFilePolicy,
+  })
+  class RulesWorkflow {}
+
   @A2AExpose({
     name: "rules-a2a-expose",
     version: "1.0.0",
     description: "files",
     exports: [FileReviewWorkflowStart],
-    skills: {
-      "file-review-workflow-start": { tags: ["files"], ...(files === undefined ? {} : { files }) },
-    },
+    skills: { "file-review-workflow-start": { tags: ["files"] } },
   })
   class RulesA2AExpose {}
 
@@ -56,7 +66,7 @@ const appWith = (
     name: "rules-application",
     version: "1.0.0",
     environment: EmptyEnvironment,
-    workflows: [FileReviewWorkflow],
+    workflows: [RulesWorkflow],
     providers: [FileCallerChannel, ...providers],
     exposes: [RulesA2AExpose],
     budgets: TEST_BUDGETS,
@@ -67,7 +77,10 @@ const appWith = (
 };
 
 const isOwn = (code: string): boolean =>
-  code.startsWith("a2a.") || code === "application.retention-invalid";
+  code.startsWith("a2a.") ||
+  code.startsWith("file-policy.") ||
+  code.startsWith("workflow.") ||
+  code === "application.retention-invalid";
 
 /** The assembly's file rule codes, or its warnings' file codes when it assembles. */
 async function outcomeOf(application: ReturnType<typeof appWith>) {
@@ -86,7 +99,7 @@ async function outcomeOf(application: ReturnType<typeof appWith>) {
   }
 }
 
-const sized = (total: number): A2AFileOptions => ({
+const sized = (total: number): FilePolicyOptions => ({
   maxFileSize: kilobytes(total),
   maxTotalFileSize: kilobytes(total),
 });
@@ -111,8 +124,8 @@ describe("#859 AC4: the storage tier of files, with no file store listed", () =>
     });
   });
 
-  it("the application's a2aFiles count too, under the skill's own", async () => {
-    const big = appWith(undefined, [], { a2aFiles: sized(512) });
+  it("the workflow's filePolicy sizes the tier", async () => {
+    const big = appWith(sized(512));
 
     expect((await outcomeOf(big)).violations).toEqual(["a2a.file-store-required"]);
   });
@@ -145,14 +158,12 @@ describe("#859 AC4: files above 256 KB on leases the instances share", () => {
 });
 
 describe("#859: the file options and their retention, checked at assembly", () => {
-  it("[a2a.file-options-invalid] on the skill's and the application's options", async () => {
-    const app = appWith({ allowedFileOrigins: ["http://insecure.example"] }, [], {
-      a2aFiles: { maxFiles: 0 },
-    });
+  it("[file-policy.invalid] on the workflow's policy, each problem once", async () => {
+    const app = appWith({ allowedOrigins: ["http://insecure.example"], maxFiles: 0 });
 
     expect((await outcomeOf(app)).violations).toEqual([
-      "a2a.file-options-invalid",
-      "a2a.file-options-invalid",
+      "file-policy.invalid",
+      "file-policy.invalid",
     ]);
   });
 

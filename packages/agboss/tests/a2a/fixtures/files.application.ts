@@ -6,6 +6,7 @@
 import { A2AExpose } from "../../../src/a2a/a2a-expose.decorator.js";
 import { FileDto, WorkflowFinishFileDto } from "../../../src/dto/standard/file.js";
 import { Files } from "../../../src/a2a/files/files.service.js";
+import { FilePolicy } from "../../../src/files/file-policy.js";
 import { Application } from "../../../src/application/application.js";
 import { Channel } from "../../../src/components/decorators.js";
 import { ChannelOf, type ChannelAsk } from "../../../src/channels/channel-handler.js";
@@ -165,22 +166,51 @@ export class FileReviewFinish {}
 })
 export class FileReturnedFinish {}
 
+/** The files a test's skill takes: PDFs and text, by url from one origin too. */
+export const FILE_ORIGIN = "https://files.example";
+
+@FilePolicy({
+  allowedMediaTypes: ["application/pdf", "text/plain", "image/png"],
+  allowedOrigins: [FILE_ORIGIN],
+})
+export class FileReviewPolicy {}
+
+/** The same files with room for a store's bigger ones. */
+@FilePolicy({
+  allowedMediaTypes: ["application/pdf", "text/plain", "image/png"],
+  allowedOrigins: [FILE_ORIGIN],
+  maxFileSize: kilobytes(512),
+  maxTotalFileSize: kilobytes(1024),
+})
+export class StoredFileReviewPolicy {}
+
+export const fileReviewFlow = [
+  onStart(FileReviewWorkflowStart)
+    .toAction(FileReviewAction)
+    .switch(
+      caseOf(ReviewResultDto).toFinish(FileReviewFinish),
+      caseOf(ReviewAskDto)
+        .toExternalTask(FileReviewQuestion)
+        .toAction(FileAnsweredAction)
+        .toFinish(FileReturnedFinish),
+    ),
+] as const;
+
 @Workflow({
   name: "file-review-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(FileReviewWorkflowStart)
-      .toAction(FileReviewAction)
-      .switch(
-        caseOf(ReviewResultDto).toFinish(FileReviewFinish),
-        caseOf(ReviewAskDto)
-          .toExternalTask(FileReviewQuestion)
-          .toAction(FileAnsweredAction)
-          .toFinish(FileReturnedFinish),
-      ),
-  ],
+  flow: fileReviewFlow,
+  filePolicy: FileReviewPolicy,
 })
 export class FileReviewWorkflow {}
+
+@Workflow({
+  name: "stored-file-review-workflow",
+  version: "1.0.0",
+  flow: fileReviewFlow,
+  filePolicy: StoredFileReviewPolicy,
+})
+export class StoredFileReviewWorkflow {}
 
 /** The same review, one finish only: what a typed client's output DTO matches (#859 AC2). */
 @Action({
@@ -217,6 +247,7 @@ export class FileSummaryWorkflowStart {}
   name: "file-summary-workflow",
   version: "1.0.0",
   flow: [onStart(FileSummaryWorkflowStart).toAction(FileSummaryAction).toFinish(FileReviewFinish)],
+  filePolicy: FileReviewPolicy,
 })
 export class FileSummaryWorkflow {}
 
@@ -228,22 +259,11 @@ export class FileSummaryWorkflow {}
 })
 export class FileSummaryA2AExpose {}
 
-/** The files a test's skill takes: PDFs and text, by url from one origin too. */
-export const FILE_ORIGIN = "https://files.example";
-
 @A2AExpose({
   name: "files-a2a-expose",
   version: "1.0.0",
   description: "Reviews documents",
   exports: [FileReviewWorkflowStart],
-  skills: {
-    "file-review-workflow-start": {
-      files: {
-        allowedMediaTypes: ["application/pdf", "text/plain", "image/png"],
-        allowedFileOrigins: [FILE_ORIGIN],
-      },
-    },
-  },
 })
 export class FilesA2AExpose {}
 
@@ -262,10 +282,9 @@ export class FilesApplication {}
   name: "stored-files-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
-  workflows: [FileReviewWorkflow],
+  workflows: [StoredFileReviewWorkflow],
   providers: [BearerAuthenticator, FileCallerChannel, InMemoryFileRepository],
   exposes: [FilesA2AExpose],
-  a2aFiles: { maxFileSize: kilobytes(512), maxTotalFileSize: kilobytes(1024) },
   budgets: TEST_BUDGETS,
 })
 export class StoredFilesApplication {}

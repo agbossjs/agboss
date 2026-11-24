@@ -81,6 +81,6 @@ export { InMemoryA2ADirectMessageRepository } from "../infrastructure/in-memory-
 export { SqliteA2ADirectMessageRepository } from "../infrastructure/sqlite/sqlite-a2a-direct-message.repository.js";
 // #859: file parts in messages and artifacts: the wire's `Part` of a `FileDto` (#1316)
 export { A2APart } from "./client/a2a-client-files.js";
-export { DEFAULT_A2A_FILE_MEDIA_TYPES, type A2AFileOptions } from "./files/a2a-file-options.js";
+export { DEFAULT_A2A_FILE_MEDIA_TYPES } from "./files/a2a-file-options.js";
 export type { A2ADownloadOptions } from "./client/a2a-download.js";
 export { A2AError, A2AErrorKind } from "../core/error-families/remote-errors.js";

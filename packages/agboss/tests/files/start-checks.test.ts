@@ -35,8 +35,7 @@ const filesOf = (options: Parameters<typeof ModelFiles.of>[0], hasPiiPolicy = fa
   resolvedFilesOf({
     agent: ModelFiles.of(options).options,
     defaults: undefined,
-    skills: [],
-    a2aFiles: undefined,
+    filePolicy: undefined,
     hasPiiPolicy,
   });
 

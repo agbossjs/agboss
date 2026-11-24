@@ -4,10 +4,20 @@
  * stable refusal.
  */
 import { describe, expect, it } from "vitest";
-import { a2aHttpListener } from "../../../src/a2a/a2a-http.js";
+import { Application } from "../../../src/application/application.js";
+import { EmptyEnvironment } from "../../../src/index.js";
+import {
+  FilePolicy,
+  filePolicyViolations,
+  type FileFetchPool,
+} from "../../../src/files/file-policy.js";
+import { Workflow } from "../../../src/flow/decorators/workflow.js";
+import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { fetchedFile, type FileFetch } from "../../../src/a2a/files/a2a-file-fetch.js";
 import {
   DEFAULT_MAX_CONCURRENT_FILE_FETCHES,
+  DEFAULT_MAX_CONCURRENT_PER_OWNER,
+  DEFAULT_MAX_QUEUED_PER_OWNER,
   FileFetchSlots,
   callerKeyOf,
   fileSlotsOf,
@@ -22,7 +32,12 @@ import type { FileTransport } from "../../../src/a2a/files/a2a-file-transport.js
 import { testWith, type A2AServerFixture } from "../../../src/testing/index.js";
 import { until } from "../../helpers/until.js";
 import { BearerAuthenticator } from "../fixtures/bearer-authenticator.js";
-import { FILE_ORIGIN, FilesA2AExpose, FilesApplication } from "../fixtures/files.application.js";
+import {
+  FILE_ORIGIN,
+  FileCallerChannel,
+  FilesA2AExpose,
+  fileReviewFlow,
+} from "../fixtures/files.application.js";
 import { rpc } from "../server/rpc.js";
 import { fileMessage, PDF, scriptedTransport, urlPart } from "./support.js";
 
@@ -78,7 +93,7 @@ const slotsOf = (limit: number, queued: number): FileFetchSlots =>
 /** A share that never binds: the level under test is the other one. */
 const WIDE = { running: 1000, queued: 1000 };
 
-/** A caller of a tenant, with an owner or, with none, the tenant's anonymous one. */
+/** A caller of a tenant, with an owner or, with none, the tenant's share alone (#1339). */
 const callerOf = (tenant: string, owner?: string): FileCaller => ({
   tenant: tenantKeyOf(tenant),
   owner: callerKeyOf(tenant, owner),
@@ -336,7 +351,7 @@ describe("#1256: FileFetchSlots", () => {
     expect(held.asked).toEqual([`${ORIGIN}/one`, `${ORIGIN}/other`]);
   });
 
-  it("the default shares: a tenant holds a quarter of the slots, an owner a quarter of that (at least one); each with four queue places per slot", async () => {
+  it("the default shares: a tenant holds a quarter of the slots and four places per slot, an owner two (half its tenant's share at most) and eight places", async () => {
     const held = heldTransport();
     const slots = fileSlotsOf(16, undefined);
     const as = (owner: string, name: string) =>
@@ -352,17 +367,17 @@ describe("#1256: FileFetchSlots", () => {
     expect(held.asked).toHaveLength(4);
     expect(over).toMatchObject({ code: "a2a.file-fetch-busy" });
     expect(first).toHaveLength(20);
-    // one owner: its share is 1 running and 4 queued, in a tenant of 4
+    // one owner: its share is 2 running and 8 queued, in a tenant of 4
     const owned = fileSlotsOf(16, undefined);
     const alone = (name: string) =>
       settled(
         fetchedFile(fetchOf(held.transport, owned, name, { caller: callerOf("globex", "dana") })),
       );
-    const dana = Array.from({ length: 1 + 4 }, (_, at) => alone(`d${String(at)}`));
+    const dana = Array.from({ length: 2 + 8 }, (_, at) => alone(`d${String(at)}`));
     await turns();
-    expect(held.asked).toHaveLength(5);
+    expect(held.asked).toHaveLength(4 + 2);
     expect(await alone("d-over")).toMatchObject({ code: "a2a.file-fetch-busy" });
-    expect(dana).toHaveLength(5);
+    expect(dana).toHaveLength(10);
     const single = fileSlotsOf(1, undefined);
     const only = fetchedFile(
       fetchOf(held.transport, single, "solo", { caller: callerOf("t", "o") }),
@@ -403,28 +418,29 @@ describe("#1256: FileFetchSlots", () => {
 
   it("an owner's flood inside one tenant is bounded by the owner's share: its fetches past it are refused, its tenant's other owners still run", async () => {
     const held = heldTransport();
-    const slots = fileSlotsOf(undefined, undefined); // tenant 4 (queue 16), owner 1 (queue 4)
+    const slots = fileSlotsOf(undefined, undefined); // tenant 4 (queue 16), owner 2 (queue 8)
     const as = (owner: string, name: string) =>
       settled(
         fetchedFile(fetchOf(held.transport, slots, name, { caller: callerOf("acme", owner) })),
       );
 
-    const flood = Array.from({ length: 8 }, (_, at) => as("dana", `d${String(at)}`));
+    const flood = Array.from({ length: 14 }, (_, at) => as("dana", `d${String(at)}`));
     await turns();
-    const refused = await Promise.all(flood.slice(5));
+    const refused = await Promise.all(flood.slice(10));
     const eli = as("eli", "e1");
     await turns();
 
-    // dana: 1 runs, 4 wait, the other 3 are refused although the tenant has 3 slots and 12 places left
-    expect(held.asked).toEqual([`${ORIGIN}/d0`, `${ORIGIN}/e1`]);
+    // dana: 2 run, 8 wait, the other 4 are refused although the tenant has 2 slots and 8 places left
+    expect(held.asked).toEqual([`${ORIGIN}/d0`, `${ORIGIN}/d1`, `${ORIGIN}/e1`]);
     for (const outcome of refused) expect(outcome).toMatchObject({ code: "a2a.file-fetch-busy" });
     held.answer(0);
     held.answer(1);
+    held.answer(2);
     await turns();
     expect(await eli).toBe("fetched");
   });
 
-  it("an anonymous caller is an owner of its own inside its tenant: the tenant's anonymous callers share one owner's share, and it takes from the tenant's share", async () => {
+  it("an ownerless caller uses its tenant's share directly: no owner's share binds it, and it takes from the tenant's (#1339)", async () => {
     const held = heldTransport();
     const slots = fileSlotsOf(16, 4, 2);
     const as = (owner: string | undefined, name: string) =>
@@ -436,9 +452,10 @@ describe("#1256: FileFetchSlots", () => {
     const named = ["x1", "x2", "x3"].map((name) => as("x", name));
     await turns();
 
-    // 2 anonymous and 2 of x run (4 = the tenant's share); the third of each waits
-    expect(held.asked).toEqual([`${ORIGIN}/n1`, `${ORIGIN}/n2`, `${ORIGIN}/x1`, `${ORIGIN}/x2`]);
-    expect(slots.callers).toBe(2);
+    // three ownerless run (no owner's share of 2 holds them), x1 takes the tenant's fourth; x2 and x3 wait
+    expect(held.asked).toEqual([`${ORIGIN}/n1`, `${ORIGIN}/n2`, `${ORIGIN}/n3`, `${ORIGIN}/x1`]);
+    expect(slots.callers).toBe(1);
+    expect(slots.tenants).toBe(1);
     held.answer(0);
     held.answer(1);
     held.answer(2);
@@ -449,6 +466,43 @@ describe("#1256: FileFetchSlots", () => {
     expect(await Promise.all([...anonymous, ...named])).toEqual(Array(6).fill("fetched"));
     expect(slots.callers).toBe(0);
     expect(slots.tenants).toBe(0);
+  });
+
+  it("the ownerless fetches of one tenant are never one fake owner's bucket: six of them, the tenant's four run and two wait — none refused, though an owner's share is 2 (#1339)", async () => {
+    const held = heldTransport();
+    const slots = fileSlotsOf(16, undefined); // tenant 4 (queue 16), owner 2 (queue 8)
+    const alone = (name: string) =>
+      settled(fetchedFile(fetchOf(held.transport, slots, name, { caller: callerOf("acme") })));
+
+    const flood = Array.from({ length: 6 }, (_, at) => alone(`n${String(at)}`));
+    await turns();
+
+    expect(held.asked).toHaveLength(4);
+    for (let at = 0; at < 6; at += 1) {
+      held.answer(at);
+      await turns();
+    }
+    expect(await Promise.all(flood)).toEqual(Array(6).fill("fetched"));
+  });
+
+  it("a single owner of two slots in all (fileSlotsOf(2, 10)) holds one: half of its tenant's share, so two owners share it (#1366)", async () => {
+    const held = heldTransport();
+    const slots = fileSlotsOf(2, 10);
+    const as = (owner: string, name: string) =>
+      settled(
+        fetchedFile(fetchOf(held.transport, slots, name, { caller: callerOf("acme", owner) })),
+      );
+
+    const dana = [as("dana", "d1"), as("dana", "d2")];
+    const eli = as("eli", "e1");
+    await turns();
+
+    expect(held.asked).toEqual([`${ORIGIN}/d1`, `${ORIGIN}/e1`]);
+    held.answer(0);
+    held.answer(1);
+    await turns();
+    held.answer(2);
+    expect(await Promise.all([...dana, eli])).toEqual(Array(3).fill("fetched"));
   });
 
   it("the global bounds hold across callers, each under its own share: slots, a handed-over slot, the queue", async () => {
@@ -462,8 +516,8 @@ describe("#1256: FileFetchSlots", () => {
     const refused = await as("e", "e1");
     expect(held.asked).toEqual([`${ORIGIN}/a1`, `${ORIGIN}/b1`]);
     expect(refused).toMatchObject({ code: "a2a.file-fetch-busy" });
-    // two run, two only wait: all four are callers, the refused one is none
-    expect(slots.callers).toBe(4);
+    // two run, two only wait: all four are tenants (ownerless callers), the refused one is none
+    expect(slots.tenants).toBe(4);
 
     held.answer(0);
     await turns();
@@ -479,7 +533,7 @@ describe("#1256: FileFetchSlots", () => {
     await turns();
     held.answer(4);
     expect(await Promise.all([...results, afterHandOver])).toEqual(Array(5).fill("fetched"));
-    expect(slots.callers).toBe(0);
+    expect(slots.tenants).toBe(0);
   });
 
   it("a caller's share of the queue is given back when its waiters start: it can queue again", async () => {
@@ -524,96 +578,123 @@ describe("#1256: FileFetchSlots", () => {
   });
 });
 
-const test = testWith(FilesApplication);
+/** A files application whose workflow's `@FilePolicy` has this `fetchPool` (#1316): its own slots. */
+function poolApplication(fetchPool: FileFetchPool) {
+  counter += 1;
+  const id = String(counter);
+
+  @FilePolicy({
+    name: `pool-${id}-file-policy`,
+    allowedMediaTypes: ["application/pdf", "text/plain", "image/png"],
+    allowedOrigins: [FILE_ORIGIN],
+    fetchPool,
+  })
+  class PoolPolicy {}
+
+  @Workflow({
+    name: `pool-${id}-file-review-workflow`,
+    version: "1.0.0",
+    flow: fileReviewFlow,
+    filePolicy: PoolPolicy,
+  })
+  class PoolWorkflow {}
+
+  @Application({
+    name: `pool-${id}-files-application`,
+    version: "1.0.0",
+    environment: EmptyEnvironment,
+    workflows: [PoolWorkflow],
+    providers: [BearerAuthenticator, FileCallerChannel],
+    exposes: [FilesA2AExpose],
+    budgets: TEST_BUDGETS,
+  })
+  class PoolApplication {}
+  return PoolApplication;
+}
+
+let counter = 0;
+const poolTest = (fetchPool: FileFetchPool) => testWith(poolApplication(fetchPool));
 
 describe("#1256: over the wire", () => {
-  test("distinct messages share the listener's slots: maxConcurrentFileFetches: 1 asks one origin fetch at a time", async ({
-    a2aServer,
-  }) => {
-    const script = scriptedTransport({ [`${FILE_ORIGIN}/a.pdf`]: { body: PDF } });
-    let release = (): void => undefined;
-    const gate = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    const transport: FileTransport = async (url, signal) => {
-      const answer = script.transport(url, signal);
-      await gate;
-      return answer;
-    };
-    const { url } = await a2aServer(
-      withFileTransport(
-        {
-          expose: FilesA2AExpose,
-          authenticator: BearerAuthenticator,
-          maxConcurrentFileFetches: 1,
-        },
-        transport,
-      ),
-    );
-    const parts = [urlPart(`${FILE_ORIGIN}/a.pdf`, "application/pdf")];
+  poolTest({ maxConcurrent: 1 })(
+    "distinct messages share the policy's pool: maxConcurrent: 1 asks one origin fetch at a time",
+    async ({ a2aServer }) => {
+      const script = scriptedTransport({ [`${FILE_ORIGIN}/a.pdf`]: { body: PDF } });
+      let release = (): void => undefined;
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const transport: FileTransport = async (url, signal) => {
+        const answer = script.transport(url, signal);
+        await gate;
+        return answer;
+      };
+      const { url } = await a2aServer(
+        withFileTransport(
+          { expose: FilesA2AExpose, authenticator: BearerAuthenticator },
+          transport,
+        ),
+      );
+      const parts = [urlPart(`${FILE_ORIGIN}/a.pdf`, "application/pdf")];
 
-    const sends = ["m-1", "m-2", "m-3"].map((id) =>
-      rpc(url, "SendMessage", fileMessage(id, parts)),
-    );
-    await until(() => script.asked.length >= 1, "the first fetch started");
-    await new Promise((resolve) => setTimeout(resolve, 100));
-    expect(script.asked).toHaveLength(1);
-    release();
-    const answers = await Promise.all(sends);
+      const sends = ["m-1", "m-2", "m-3"].map((id) =>
+        rpc(url, "SendMessage", fileMessage(id, parts)),
+      );
+      await until(() => script.asked.length >= 1, "the first fetch started");
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      expect(script.asked).toHaveLength(1);
+      release();
+      const answers = await Promise.all(sends);
 
-    expect(script.asked).toHaveLength(3);
-    expect(answers.every((answer) => answer.body.result !== undefined)).toBe(true);
-  });
+      expect(script.asked).toHaveLength(3);
+      expect(answers.every((answer) => answer.body.result !== undefined)).toBe(true);
+    },
+  );
 });
 
 describe("#1256: a tenant's share, over the wire", () => {
-  test("maxConcurrentFileFetchesPerTenant: 3 of 8: tenant acme sends five messages, three fetch, globex's still does", async ({
-    a2aServer,
-  }) => {
-    const script = scriptedTransport({ [`${FILE_ORIGIN}/a.pdf`]: { body: PDF } });
-    let release = (): void => undefined;
-    const gate = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    const transport: FileTransport = async (url, signal) => {
-      const answer = script.transport(url, signal);
-      await gate;
-      return answer;
-    };
-    const { url } = await a2aServer(
-      withFileTransport(
-        {
-          expose: FilesA2AExpose,
-          authenticator: BearerAuthenticator,
-          maxConcurrentFileFetches: 8,
-          maxConcurrentFileFetchesPerTenant: 3,
-          maxConcurrentFileFetchesPerOwner: 3,
-        },
-        transport,
-      ),
-    );
-    const parts = [urlPart(`${FILE_ORIGIN}/a.pdf`, "application/pdf")];
-    const send = (tenant: string, id: string) =>
-      rpc(url, "SendMessage", fileMessage(id, parts), {
-        headers: { authorization: `Bearer dana`, "x-tenant": tenant },
+  poolTest({ maxConcurrent: 8, maxConcurrentPerTenant: 3, maxConcurrentPerOwner: 3 })(
+    "maxConcurrentPerTenant: 3 of 8: tenant acme sends five messages, three fetch, globex's still does",
+    async ({ a2aServer }) => {
+      const script = scriptedTransport({ [`${FILE_ORIGIN}/a.pdf`]: { body: PDF } });
+      let release = (): void => undefined;
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
       });
+      const transport: FileTransport = async (url, signal) => {
+        const answer = script.transport(url, signal);
+        await gate;
+        return answer;
+      };
+      const { url } = await a2aServer(
+        withFileTransport(
+          { expose: FilesA2AExpose, authenticator: BearerAuthenticator },
+          transport,
+        ),
+      );
+      const parts = [urlPart(`${FILE_ORIGIN}/a.pdf`, "application/pdf")];
+      const send = (tenant: string, id: string) =>
+        rpc(url, "SendMessage", fileMessage(id, parts), {
+          headers: { authorization: `Bearer dana`, "x-tenant": tenant },
+        });
 
-    const sends = [
-      ...["m-1", "m-2", "m-3", "m-4", "m-5"].map((id) => send("acme", id)),
-      send("globex", "g-1"),
-    ];
-    await until(() => script.asked.length >= 4, "three of acme's and globex's fetches started");
-    await new Promise((resolve) => setTimeout(resolve, 100));
-    expect(script.asked).toHaveLength(4);
-    release();
-    await Promise.all(sends);
+      const sends = [
+        ...["m-1", "m-2", "m-3", "m-4", "m-5"].map((id) => send("acme", id)),
+        send("globex", "g-1"),
+      ];
+      await until(() => script.asked.length >= 4, "three of acme's and globex's fetches started");
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      expect(script.asked).toHaveLength(4);
+      release();
+      await Promise.all(sends);
 
-    expect(script.asked).toHaveLength(6);
-  });
+      expect(script.asked).toHaveLength(6);
+    },
+  );
 });
 
 describe("#1297: a tenant's share bounds the sum of its owners; an owner's share is inside it", () => {
-  const held = async (a2aServer: A2AServerFixture, limits: Record<string, number>) => {
+  const held = async (a2aServer: A2AServerFixture) => {
     const script = scriptedTransport({ [`${FILE_ORIGIN}/a.pdf`]: { body: PDF } });
     let release = (): void => undefined;
     const gate = new Promise<void>((resolve) => {
@@ -625,10 +706,7 @@ describe("#1297: a tenant's share bounds the sum of its owners; an owner's share
       return answer;
     };
     const { url } = await a2aServer(
-      withFileTransport(
-        { expose: FilesA2AExpose, authenticator: BearerAuthenticator, ...limits },
-        transport,
-      ),
+      withFileTransport({ expose: FilesA2AExpose, authenticator: BearerAuthenticator }, transport),
     );
     const parts = [urlPart(`${FILE_ORIGIN}/a.pdf`, "application/pdf")];
     const send = (tenant: string | undefined, owner: string, id: string) =>
@@ -647,80 +725,75 @@ describe("#1297: a tenant's share bounds the sum of its owners; an owner's share
     };
   };
 
-  test("five owners of acme, a tenant share of 2: two fetch, the others of acme wait, globex's owner still fetches", async ({
-    a2aServer,
-  }) => {
-    const { script, release, send } = await held(a2aServer, {
-      maxConcurrentFileFetches: 8,
-      maxConcurrentFileFetchesPerTenant: 2,
-    });
+  poolTest({ maxConcurrent: 8, maxConcurrentPerTenant: 2 })(
+    "five owners of acme, a tenant share of 2: two fetch, the others of acme wait, globex's owner still fetches",
+    async ({ a2aServer }) => {
+      const { script, release, send } = await held(a2aServer);
 
-    const sends = [
-      ...["o1", "o2", "o3", "o4", "o5"].map((owner, at) => send("acme", owner, `a-${String(at)}`)),
-      send("globex", "g1", "g-1"),
-    ];
-    await until(() => script.asked.length >= 3, "two of acme's and globex's fetches started");
-    await new Promise((resolve) => setTimeout(resolve, 100));
-    expect(script.asked).toHaveLength(3);
-    release();
-    await Promise.all(sends);
+      const sends = [
+        ...["o1", "o2", "o3", "o4", "o5"].map((owner, at) =>
+          send("acme", owner, `a-${String(at)}`),
+        ),
+        send("globex", "g1", "g-1"),
+      ];
+      await until(() => script.asked.length >= 3, "two of acme's and globex's fetches started");
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      expect(script.asked).toHaveLength(3);
+      release();
+      await Promise.all(sends);
 
-    expect(script.asked).toHaveLength(6);
-  });
+      expect(script.asked).toHaveLength(6);
+    },
+  );
 
-  test("one owner of acme, an owner share of 1 in a tenant of 4: dana floods, eli of the same tenant still gets his slot", async ({
-    a2aServer,
-  }) => {
-    const { script, release, send } = await held(a2aServer, {
-      maxConcurrentFileFetches: 8,
-      maxConcurrentFileFetchesPerTenant: 4,
-      maxConcurrentFileFetchesPerOwner: 1,
-    });
+  poolTest({ maxConcurrent: 8, maxConcurrentPerTenant: 4, maxConcurrentPerOwner: 1 })(
+    "one owner of acme, an owner share of 1 in a tenant of 4: dana floods, eli of the same tenant still gets his slot",
+    async ({ a2aServer }) => {
+      const { script, release, send } = await held(a2aServer);
 
-    const sends = [
-      send(undefined, "dana", "d-1"),
-      send(undefined, "dana", "d-2"),
-      send(undefined, "dana", "d-3"),
-      send(undefined, "eli", "e-1"),
-    ];
-    await until(() => script.asked.length >= 2, "dana's and eli's fetches started");
-    await new Promise((resolve) => setTimeout(resolve, 100));
-    expect(script.asked).toHaveLength(2);
-    release();
-    await Promise.all(sends);
+      const sends = [
+        send(undefined, "dana", "d-1"),
+        send(undefined, "dana", "d-2"),
+        send(undefined, "dana", "d-3"),
+        send(undefined, "eli", "e-1"),
+      ];
+      await until(() => script.asked.length >= 2, "dana's and eli's fetches started");
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      expect(script.asked).toHaveLength(2);
+      release();
+      await Promise.all(sends);
 
-    expect(script.asked).toHaveLength(4);
+      expect(script.asked).toHaveLength(4);
+    },
+  );
+});
+
+describe("#1316: a fetchPool is checked with its policy", () => {
+  const problemsOf = (fetchPool: object) => {
+    @FilePolicy({ name: "pool-check-file-policy", fetchPool })
+    class Checked {}
+    return filePolicyViolations("app", Checked, ["app"]).map((found) => found.message);
+  };
+
+  it("0, a fraction, a text: [file-policy.invalid] naming the field", () => {
+    for (const field of [
+      "maxConcurrent",
+      "maxConcurrentPerTenant",
+      "maxConcurrentPerOwner",
+      "maxQueuedPerOwner",
+    ])
+      for (const value of [0, -1, 1.5, "8", Number.NaN])
+        expect(problemsOf({ [field]: value })).toEqual([
+          `app: pool-check-file-policy: fetchPool.${field} is not a whole number from 1`,
+        ]);
+    expect(problemsOf({ maxConcurrent: 1, maxQueuedPerOwner: 8 })).toEqual([]);
+    expect(problemsOf({})).toEqual([]);
   });
 });
 
-describe("#1256: maxConcurrentFileFetches is checked when the listener is made", () => {
-  const listener =
-    (value: unknown, perTenant?: unknown, perOwner?: unknown): (() => unknown) =>
-    () =>
-      a2aHttpListener(
-        {} as never,
-        {
-          expose: {},
-          authenticator: {},
-          publicUrl: "https://x.test",
-          maxConcurrentFileFetches: value,
-          maxConcurrentFileFetchesPerTenant: perTenant,
-          maxConcurrentFileFetchesPerOwner: perOwner,
-        } as never,
-      );
-
-  it("0, a fraction, a text: [a2a.file-fetch-limit-invalid]", () => {
-    for (const value of [0, -1, 1.5, "8", Number.NaN])
-      expect(listener(value)).toThrow(
-        /\[a2a.file-fetch-limit-invalid\].*maxConcurrentFileFetches/u,
-      );
-    for (const value of [0, 2.5, "3"])
-      expect(listener(undefined, value)).toThrow(
-        /\[a2a.file-fetch-limit-invalid\].*maxConcurrentFileFetchesPerTenant/u,
-      );
-    for (const value of [0, 2.5, "3"])
-      expect(listener(undefined, undefined, value)).toThrow(
-        /\[a2a.file-fetch-limit-invalid\].*maxConcurrentFileFetchesPerOwner/u,
-      );
+describe("#1316: a saturated pool is one error on every path", () => {
+  it("DEFAULT_MAX_CONCURRENT_PER_OWNER and the owner's queue are the pool's defaults: 2 and 8", () => {
+    expect(DEFAULT_MAX_CONCURRENT_PER_OWNER).toBe(2);
+    expect(DEFAULT_MAX_QUEUED_PER_OWNER).toBe(8);
   });
 });

@@ -39,3 +39,10 @@ export {
 export type { FileRuleCode } from "../files/file-rule-codes.js";
 export type { FileContent } from "../files/file-bytes.js";
 export type { ResolvedModelFiles } from "../files/file-settings.js";
+// what a workflow's files may be (#1316): `@FilePolicy`, named by `filePolicy` on `@Workflow`
+export {
+  FilePolicy,
+  type FileFetchPool,
+  type FilePolicyMeta,
+  type FilePolicyOptions,
+} from "../files/file-policy.js";

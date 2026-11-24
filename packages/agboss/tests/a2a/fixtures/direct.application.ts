@@ -4,6 +4,7 @@
 // the instances' environment (SqliteDirectApplication, two instances).
 import { A2AExpose, A2AReply } from "../../../src/a2a/a2a-expose.decorator.js";
 import { WorkflowFinishFileDto } from "../../../src/dto/standard/file.js";
+import { FilePolicy } from "../../../src/files/file-policy.js";
 import { Files } from "../../../src/a2a/files/files.service.js";
 import { Application } from "../../../src/application/application.js";
 import { Tool } from "../../../src/components/decorators.js";
@@ -108,9 +109,13 @@ export class QuoteFileWorkflowStart {}
 })
 export class QuoteFileWorkflowFinish {}
 
+@FilePolicy({ name: "quote-file-policy", allowedMediaTypes: ["text/plain"] })
+export class QuoteFilePolicy {}
+
 @Workflow({
   name: "quote-file-workflow",
   version: "1.0.0",
+  filePolicy: QuoteFilePolicy,
   flow: [
     onStart(QuoteFileWorkflowStart).toAction(QuoteFileAction).toFinish(QuoteFileWorkflowFinish),
   ],

@@ -1,7 +1,7 @@
 /**
  * #1312: a model's read of a file by url takes a fetch slot like an A2A listener's does, under the
  * same tenant and owner keys (#1256, #1297): the cap holds under concurrency, a read over it fails
- * as `a2a.file-fetch-busy` (here as the download's failure, the busy refusal its cause), and the
+ * as `FileError.Unavailable` with `FileUnavailableReason.FetchBusy` (#1316; the A2A wire's `a2a.file-fetch-busy` its cause), and the
  * slot goes back when the read ends — whole, refused, failed, cancelled or aborted.
  */
 import { FileError } from "../../src/core/error-families/remote-errors.js";
@@ -124,7 +124,7 @@ describe("#1312 a model's read of a file by url takes a fetch slot", () => {
 
     expect(over).toBeInstanceOf(FileError.Unavailable);
     expect(over).toMatchObject({
-      reason: FileUnavailableReason.DownloadFailed,
+      reason: FileUnavailableReason.FetchBusy,
       cause: { metadata: { code: "a2a.file-fetch-busy" } },
     });
     expect(held.state.asked).not.toContain("/over");

@@ -13,7 +13,7 @@ import { FileRefusal, fileRefused, fileUnavailable, FileUnavailableReason } from
  * Reading the bytes of a file for a model (#899 §3): one guarded path out of `a2a/server` — it works
  * under `app.execute`, the CLI and a recovery, with no listener. A stored file is read through the
  * repository for its execution's task, an inline one decoded, one by url fetched through the #859 /
- * #904 guarded fetch (`allowedFileOrigins` of `@Application({ a2aFiles })`, no private address, no
+ * #904 guarded fetch (`allowedOrigins` of the workflow's `@FilePolicy`, no private address, no
  * userinfo, redirects checked, bounded size and time). Whatever its source, the bytes are checked
  * against the descriptor's digest and the media type they declare, and their `sha256` is computed:
  * the digest every later use of the file (a transcription's cache key, a cassette) names.
@@ -59,6 +59,9 @@ const REFUSALS: ReadonlyMap<unknown, FileRefusal> = new Map([
   ["a2a.file-too-large", FileRefusal.TooLarge],
 ]);
 
+/** The code of the fetch pool's refusal (an `A2AError`'s metadata). */
+const FETCH_BUSY = "a2a.file-fetch-busy";
+
 /** The stable code of the fetch's refusal (an `A2AError`'s metadata). */
 function codeOf(error: unknown): unknown {
   const metadata: unknown =
@@ -87,6 +90,9 @@ async function downloaded(url: string, context: FileReadContext): Promise<Uint8A
   } catch (error) {
     const refusal = REFUSALS.get(codeOf(error));
     if (refusal !== undefined) throw fileRefused({ refusal, cause: error });
+    // the pool's refusal, whichever path asked: one error for all of them (#1316)
+    if (codeOf(error) === FETCH_BUSY)
+      throw fileUnavailable({ reason: FileUnavailableReason.FetchBusy, cause: error });
     throw fileUnavailable({
       reason: FileUnavailableReason.DownloadFailed,
       cause: error,

@@ -72,8 +72,7 @@ function runtimeOf(
   const base = resolvedFilesOf({
     agent: ModelFiles.of({}).options,
     defaults: undefined,
-    skills: [],
-    a2aFiles: undefined,
+    filePolicy: undefined,
     hasPiiPolicy: false,
   });
   return {

@@ -25,7 +25,7 @@ const work = () => lazyLoad(import("./files-work.js"));
  * What a step does with the files of its A2A task (#859, `deps: [Files]`): reads the bytes of a
  * file its input holds (`read`), makes one for its finish's output (`save` — kept in the
  * application's `FileRepository` under the task, or inline with none listed — bounded by
- * `@Application({ a2aFiles })`, its bytes checked against its media type), or names one by
+ * its workflow's `@FilePolicy`, its bytes checked against its media type), or names one by
  * reference (`fromUrl`, served as a `url` part). A file is its task's: another task's is never
  * read, whatever descriptor a step holds.
  */
@@ -54,6 +54,6 @@ export class Files {
 
   /** The bytes of a file of this execution's task, checked against its `sha256`. */
   async read(file: FileDto): Promise<Uint8Array> {
-    return (await work()).readFile(this.store, file);
+    return (await work()).readFile(this.store, this.clock, file);
   }
 }

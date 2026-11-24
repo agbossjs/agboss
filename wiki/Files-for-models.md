@@ -65,8 +65,8 @@ policies apply, in any view.
 `maxFiles` (source files per model call), `maxFileSize`, `maxTotalFileSize` (all views of all files of one call)
 and `allowedMediaTypes` are checked before any model call; a file over one is `ModelFileLimitError`
 (`step.model-file-limit`), never a silent truncation. The limits cascade: the agent's own, its workflow's and
-application's `defaults.files`, the `@A2AExpose` skills that reach it, `@Application({ a2aFiles })`, the
-built-ins. Every file passes the guarded path once per visit — allowed origins, no private address, no user
+application's `defaults.files`, then the workflow's `@FilePolicy` (#1316: the limits, the types, the origins, the fetch
+timeout and pool), the built-ins. Every file passes the guarded path once per visit — allowed origins, no private address, no user
 info, size, digest, magic bytes of its media type — and every model call of the visit carries the same bytes.
 
 ## Audio and video
@@ -154,7 +154,7 @@ before each call, and a copy is made once per execution for its file, redactor a
 Input guardrails and model judges see what the agent's model sees, files included; output guardrails see the
 files of the answer ([Guards](Guards)). `AnswerFiles.SeenInVisit` (default): an answer's file is `{ file: <n>
 }`, the number in the headings, mapped to the view the model saw; `AnswerFiles.Any`: the model's descriptors,
-a url only `https:` on `allowedFileOrigins`, a `fileId` only one this execution owns. Only an original can be
+a url only `https:` on the policy's `allowedOrigins`, a `fileId` only one this execution owns. Only an original can be
 returned by number: an agent that reads files only as `Redacted` or `Transcription` and answers with files is
 `[files.answer-file-unseen]`, and `AnswerFiles.Any` on an agent whose files a policy masks (without
 `FileView.Original`) is `[pii.original-file]` — the model could hand back the unmasked input.

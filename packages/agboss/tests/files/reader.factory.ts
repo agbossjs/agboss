@@ -14,7 +14,7 @@ import {
   WorkflowStart,
 } from "../../src/index.js";
 import { FileDto } from "../../src/dto/standard/file.js";
-import type { A2AFileOptions } from "../../src/a2a/files/a2a-file-options.js";
+import { FilePolicy, type FilePolicyOptions } from "../../src/files/file-policy.js";
 import { Application } from "../../src/application/application.js";
 import type { ExecutionContextClass } from "../../src/flow/context/context-values.js";
 import type { Class } from "../../src/components/injection.js";
@@ -97,7 +97,8 @@ export interface ReaderOptions {
   /** Policies the agent leaves out of the application's. */
   readonly excludePiiPolicies?: readonly Class[];
   readonly defaults?: WorkflowDefaults;
-  readonly a2aFiles?: A2AFileOptions;
+  /** The workflow's `@FilePolicy` options: its limits, types and origins (#1316). */
+  readonly filePolicy?: FilePolicyOptions;
   readonly model?: string;
   readonly guardrails?: readonly Class[];
   /** Output guardrails of the agent: attached on the agent's `guardrails` list as the classes say. */
@@ -165,10 +166,14 @@ export function readerApplication(options: ReaderOptions = {}): ReaderApp {
   })
   class ReaderFinish {}
 
+  @FilePolicy({ name: `reader-${suffix}-file-policy`, ...options.filePolicy })
+  class ReaderFilePolicy {}
+
   @Workflow({
     name: `reader-${suffix}-workflow`,
     version: "1.0.0",
     memory: Window5Memory,
+    filePolicy: ReaderFilePolicy,
     flow: [flowOf(options.output, ReaderStart, ReaderAgent, ReaderFinish)],
     defaults: { models: { temperature: 0 }, ...options.defaults },
   })
@@ -181,7 +186,6 @@ export function readerApplication(options: ReaderOptions = {}): ReaderApp {
     workflows: [ReaderWorkflow],
     providers: options.providers === undefined ? [InMemoryFileRepository] : [...options.providers],
     ...(options.piiPolicies === undefined ? {} : { piiPolicies: [...options.piiPolicies] }),
-    ...(options.a2aFiles === undefined ? {} : { a2aFiles: options.a2aFiles }),
     ...(options.executionContext === undefined
       ? {}
       : { executionContext: options.executionContext }),

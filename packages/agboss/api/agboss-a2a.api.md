@@ -394,7 +394,7 @@ export function A2AExpose(options: A2AExposeOptions): <C extends Class>(target: 
 export interface A2AExposedSkillOptions {
     readonly cardFileFields?: A2ACardFileFields;
     readonly examples?: readonly string[];
-    readonly files?: A2AFileOptions;
+    readonly filePolicy?: Class;
     readonly reply?: A2AReply;
     readonly tags?: readonly string[];
 }
@@ -411,15 +411,6 @@ export interface A2AExposeOptions {
 }
 
 // @public
-export interface A2AFileOptions {
-    readonly allowedFileOrigins?: readonly string[];
-    readonly allowedMediaTypes?: readonly string[];
-    readonly maxFiles?: number;
-    readonly maxFileSize?: Bytes;
-    readonly maxTotalFileSize?: Bytes;
-}
-
-// @public
 export function a2aHttpListener(app: A2AApp, options: A2AHttpListenerOptions): (req: IncomingMessage, res: ServerResponse) => void;
 
 // @public
@@ -427,11 +418,7 @@ export interface A2AHttpListenerOptions {
     readonly authenticator: Class;
     readonly base?: string;
     readonly expose: Class;
-    readonly fileFetchTimeout?: Milliseconds;
     readonly maxBodySize?: Bytes;
-    readonly maxConcurrentFileFetches?: number;
-    readonly maxConcurrentFileFetchesPerOwner?: number;
-    readonly maxConcurrentFileFetchesPerTenant?: number;
     readonly maxTaskDuration?: Milliseconds;
     readonly onError?: (error: unknown, req: IncomingMessage) => void;
     readonly provider?: {

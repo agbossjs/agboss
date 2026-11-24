@@ -14,6 +14,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
 } from "../../src/index.js";
+import { FilePolicy } from "../../src/files/file-policy.js";
 import { FileDto } from "../../src/dto/standard/file.js";
 import { Application } from "../../src/application/application.js";
 import { Nested, Text, WorkflowFinishTextDto } from "../../src/dto/index.js";
@@ -117,9 +118,13 @@ export class ReaderStart {}
 })
 export class ReaderFinish {}
 
+@FilePolicy({ name: "reader-file-policy" })
+export class ReaderFilePolicy {}
+
 @Workflow({
   name: "reader-workflow",
   version: "1.0.0",
+  filePolicy: ReaderFilePolicy,
   flow: [
     onStart(ReaderStart)
       .toRouter(ReaderRouter)

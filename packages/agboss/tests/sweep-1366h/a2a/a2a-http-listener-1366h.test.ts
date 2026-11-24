@@ -74,7 +74,6 @@ function hostOf(given: { mesh: boolean; control: boolean }): Host {
       a2aTaskRetention: 1,
       a2aFileRetention: 1,
       a2aMessageRetention: 1,
-      a2aFiles: undefined,
       workflows: [],
       exposes: [OrdersA2AExpose, FlippedExpose],
       contracts: () => {
@@ -144,17 +143,16 @@ describe("#1366: the listener's URL checks", () => {
     expect(refusal("https://desk.example", "")).not.toThrow();
   });
 
-  it("both timer problems of one listener are refused together as timeout-invalid", () => {
+  it("the timer problem of one listener is refused as timeout-invalid", () => {
     const host = hostOf({ mesh: true, control: true });
     const make = () =>
       a2aHttpListener(host.app, {
         expose: OrdersA2AExpose,
         authenticator: BearerAuthenticator,
         publicUrl: "https://desk.example",
-        fileFetchTimeout: 86_400_001 as never,
         maxTaskDuration: 2_073_600_001 as never,
       });
-    expect(make).toThrow(/\[a2a\.timeout-invalid\].*fileFetchTimeout.*maxTaskDuration/su);
+    expect(make).toThrow(/\[a2a\.timeout-invalid\].*maxTaskDuration/su);
   });
 });
 

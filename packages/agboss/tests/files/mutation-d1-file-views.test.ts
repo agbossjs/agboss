@@ -64,8 +64,7 @@ function setup(
     settings: resolvedFilesOf({
       agent: {},
       defaults: undefined,
-      skills: [],
-      a2aFiles: undefined,
+      filePolicy: undefined,
       hasPiiPolicy: false,
     }),
     maxResultSize: megabytes(1),

@@ -8,7 +8,7 @@ import { InMemoryA2ADirectMessageRepository } from "../../../../src/infrastructu
 import { A2AReply } from "../../../../src/a2a/a2a-expose.decorator.js";
 import { InlineFileRepository } from "../../../../src/infrastructure/file.repository.js";
 import { seconds } from "../../../../src/units/index.js";
-import { DEFAULT_A2A_FILE_LIMITS } from "../../../../src/a2a/files/a2a-file-options.js";
+import { DEFAULT_FILE_LIMITS } from "../../../../src/files/file-policy.js";
 import { Role, type Message } from "@a2a-js/sdk";
 import { dataPart, textPart } from "../../../../src/a2a/server/a2a-task-view.js";
 import { A2AOperation } from "../../../../src/a2a/a2a-caller.js";
@@ -57,7 +57,6 @@ export const UNIT_MESH: MeshSettings = {
   a2aTaskRetention: 0,
   a2aFileRetention: 0,
   a2aMessageRetention: 0,
-  a2aFiles: undefined,
   workflows: [],
   exposes: [],
   contracts: () => Promise.reject(new Error("no contracts in a unit test")),
@@ -88,8 +87,8 @@ export const TEXT_SKILL: ServedSkill = {
     },
   ],
   inputFiles: [],
-  fileLimits: DEFAULT_A2A_FILE_LIMITS,
-  outputFileMediaTypes: DEFAULT_A2A_FILE_LIMITS.allowedMediaTypes,
+  fileLimits: DEFAULT_FILE_LIMITS,
+  outputFileMediaTypes: DEFAULT_FILE_LIMITS.allowedMediaTypes,
   reply: A2AReply.Task,
   cardFileFields: A2ACardFileFields.Extension,
   callsModel: false,
@@ -152,9 +151,8 @@ export function unitParts(
     files: {
       store: new InlineFileRepository(),
       transport: undefined,
-      timeout: seconds(10),
       fetches: new FileFetches(),
-      slots: fileSlotsOf(undefined, undefined),
+      slotsOf: () => fileSlotsOf(undefined, undefined),
     },
     // #860: no direct-reply skill here, no default skill
     direct: {

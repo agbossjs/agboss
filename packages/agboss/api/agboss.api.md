@@ -93,15 +93,6 @@ export enum A2ADirectMessageState {
 }
 
 // @public
-export interface A2AFileOptions {
-    readonly allowedFileOrigins?: readonly string[];
-    readonly allowedMediaTypes?: readonly string[];
-    readonly maxFiles?: number;
-    readonly maxFileSize?: Bytes;
-    readonly maxTotalFileSize?: Bytes;
-}
-
-// @public
 export interface A2AMessageKey {
     // (undocumented)
     readonly messageId: string;
@@ -743,7 +734,6 @@ export abstract class ApplicationContext {
 
 // @public
 export interface ApplicationOptions<TEnvironment = unknown> {
-    readonly a2aFiles?: A2AFileOptions;
     readonly budgets?: readonly Class[];
     readonly channelListeners?: readonly Class[];
     readonly channels?: readonly Class[];
@@ -3941,6 +3931,14 @@ export enum FileErrorKind {
 }
 
 // @public
+export interface FileFetchPool {
+    readonly maxConcurrent?: number | undefined;
+    readonly maxConcurrentPerOwner?: number | undefined;
+    readonly maxConcurrentPerTenant?: number | undefined;
+    readonly maxQueuedPerOwner?: number | undefined;
+}
+
+// @public
 export interface FileKey {
     // (undocumented)
     readonly fileId: string;
@@ -3968,6 +3966,31 @@ export interface FileOwner {
     readonly ownerId: string;
     // (undocumented)
     readonly tenantId: string;
+}
+
+// @public
+export function FilePolicy(options?: FilePolicyOptions): <TClass extends Class>(value: TClass) => TClass;
+
+// @public
+export interface FilePolicyMeta extends FilePolicyOptions {
+    // (undocumented)
+    readonly name: string;
+    // (undocumented)
+    readonly source?: string;
+}
+
+// @public
+export interface FilePolicyOptions {
+    readonly allowedMediaTypes?: readonly string[];
+    readonly allowedOrigins?: readonly string[];
+    // (undocumented)
+    readonly description?: string;
+    readonly fetchPool?: FileFetchPool;
+    readonly fetchTimeout?: Milliseconds;
+    readonly maxFiles?: number;
+    readonly maxFileSize?: Bytes;
+    readonly maxTotalFileSize?: Bytes;
+    readonly name?: string;
 }
 
 // @public
@@ -4033,7 +4056,7 @@ export abstract class FileRepository {
 }
 
 // @public
-export type FileRuleCode = "files.invalid-setting" | "files.no-redactor" | "files.redacted-needs-store" | "files.history-needs-store" | "files.redactor-values-withheld" | "files.answer-file-unseen" | "pii.original-file" | "pii.redacted-needs-kinds";
+export type FileRuleCode = "files.invalid-setting" | "files.no-redactor" | "files.redacted-needs-store" | "files.history-needs-store" | "files.redactor-values-withheld" | "files.answer-file-unseen" | "pii.original-file" | "pii.redacted-needs-kinds" | "file-policy.invalid" | "file-policy.not-a-file-policy" | "workflow.file-policy-required" | "a2a.skill-file-policy-exceeds-workflow";
 
 // @public
 export class Files {
@@ -4080,9 +4103,9 @@ export abstract class FileTranscriber {
 
 // @public
 export enum FileUnavailableReason {
-    ByReference = "by-reference",
     DigestMismatch = "digest-mismatch",
     DownloadFailed = "download-failed",
+    FetchBusy = "fetch-busy",
     NotFound = "not-found",
     OutsideExecution = "outside-execution",
     TooLarge = "too-large"
@@ -8473,8 +8496,12 @@ type ResolvedAll<D extends readonly Token[]> = {
 export interface ResolvedModelFiles {
     // (undocumented)
     allowedMediaTypes: string[];
+    allowedOrigins: string[];
     // (undocumented)
     answerFiles: AnswerFiles;
+    fetchPool?: FileFetchPool;
+    // (undocumented)
+    fetchTimeout: Milliseconds;
     // (undocumented)
     guardToolResultFiles: boolean;
     // (undocumented)
@@ -10816,6 +10843,7 @@ export interface WorkflowOptions<TName extends string = string, TFlow extends re
     readonly defaults?: WorkflowDefaults;
     readonly excludePiiPolicies?: readonly Class[];
     readonly excludeToolInterceptors?: readonly Class[];
+    readonly filePolicy?: Class;
     readonly flow: TFlow;
     readonly guardrails?: readonly Class[];
     readonly maxConcurrentExecutions?: number;
@@ -11670,6 +11698,9 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/files/file-errors.ts - (ae-undocumented) Missing documentation for "name".
 // src/files/file-errors.ts - (ae-undocumented) Missing documentation for "agent".
 // src/files/file-errors.ts - (ae-undocumented) Missing documentation for "reason".
+// src/files/file-policy.ts - (ae-undocumented) Missing documentation for "description".
+// src/files/file-policy.ts - (ae-undocumented) Missing documentation for "name".
+// src/files/file-policy.ts - (ae-undocumented) Missing documentation for "source".
 // src/files/file-redactor.ts - (ae-undocumented) Missing documentation for "signal".
 // src/files/file-redactor.ts - (ae-undocumented) Missing documentation for "tenantId".
 // src/files/file-redactor.ts - (ae-undocumented) Missing documentation for "supports".
@@ -11682,6 +11713,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/files/file-settings.ts - (ae-undocumented) Missing documentation for "maxFiles".
 // src/files/file-settings.ts - (ae-undocumented) Missing documentation for "allowedMediaTypes".
 // src/files/file-settings.ts - (ae-undocumented) Missing documentation for "isTypesExplicit".
+// src/files/file-settings.ts - (ae-undocumented) Missing documentation for "fetchTimeout".
 // src/files/file-settings.ts - (ae-undocumented) Missing documentation for "answerFiles".
 // src/files/file-settings.ts - (ae-undocumented) Missing documentation for "guardToolResultFiles".
 // src/files/file-settings.ts - (ae-undocumented) Missing documentation for "transcriptionModel".

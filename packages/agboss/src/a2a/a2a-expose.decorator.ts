@@ -1,6 +1,5 @@
 import type { Class } from "../components/injection.js";
 import { recordComponent } from "../components/metadata.js";
-import type { A2AFileOptions } from "./files/a2a-file-options.js";
 
 // #860: how a skill answers, defined beside the assembly rule that reads it (the root import
 // loads the rule, never this decorator)
@@ -19,8 +18,8 @@ export interface A2AExposedSkillOptions {
   readonly tags?: readonly string[];
   /** Example requests. */
   readonly examples?: readonly string[];
-  /** How much it takes as files (#859), over `@Application({ a2aFiles })` field by field. */
-  readonly files?: A2AFileOptions;
+  /** A `@FilePolicy` that narrows its workflow's for this skill's files (#859, #1316): it may only tighten it. */
+  readonly filePolicy?: Class;
   /** A task (`A2AReply.Task`, the default) or a direct message (`A2AReply.Message`, #860). */
   readonly reply?: A2AReply;
   /** How its card describes its file fields (#904), over the expose's `cardFileFields`. */

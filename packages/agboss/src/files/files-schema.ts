@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { Milliseconds } from "../units/index.js";
 import type { ResolvedModelFiles } from "./file-settings.js";
 import { AnswerFiles, FileSource, FileView, RedactionValues } from "./model-files.js";
 
@@ -11,6 +12,16 @@ export const AgentFilesSchema = z.object({
   maxFiles: z.number(),
   allowedMediaTypes: z.array(z.string()),
   isTypesExplicit: z.boolean(),
+  allowedOrigins: z.array(z.string()),
+  fetchTimeout: z.number().transform((value) => value as Milliseconds),
+  fetchPool: z
+    .object({
+      maxConcurrent: z.number().optional(),
+      maxConcurrentPerTenant: z.number().optional(),
+      maxConcurrentPerOwner: z.number().optional(),
+      maxQueuedPerOwner: z.number().optional(),
+    })
+    .optional(),
   answerFiles: z.enum(AnswerFiles),
   guardToolResultFiles: z.boolean(),
   transcriptionModel: z.string(),

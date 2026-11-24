@@ -332,7 +332,7 @@ maximum, naming the field, and accepted at it:
 | `@HealthCheck({ timeout })`                                         | 24 hours   | `[limits.timeout-invalid]` at assembly                                        |
 | `@ModelProvider({ timeout })`                                       | 24 hours   | `[limits.timeout-invalid]` at assembly                                        |
 | `RetryPolicy` `initialDelay`, `maxDelay`, `delay`                   | 24 hours   | `RetryPolicyError` (`config.retry-policy`)                                    |
-| `a2aHttpListener({ fileFetchTimeout })`                             | 24 hours   | `ComponentError` `[a2a.timeout-invalid]` when the listener is made            |
+| `@FilePolicy({ fetchTimeout })`                                     | 24 hours   | `[file-policy.invalid]` at assembly                                           |
 | an A2A client call's `timeout`                                      | 24 hours   | `ComponentError` `[a2a.timeout-invalid]` before anything is sent              |
 | `a2aHttpListener({ maxTaskDuration })`                              | 24 days    | `ComponentError` `[a2a.timeout-invalid]` when the listener is made            |
 | `.joinQuorum({ deadline })`, `.joinQuorumGroups(…, { deadline })`   | 24 days    | `FlowSyntaxError` where the flow is written                                   |

@@ -10,17 +10,14 @@ import type { WorkflowStartInput } from "../../flow/decorators/workflow-start.js
 import { dtoSchemaHashOf } from "../../flow/runtime/join-keys.js";
 import type { DtoClass } from "../../dto/types.js";
 import { finishDtosOf } from "../files/a2a-file-tier.js";
+import { workflowFilePolicyOf, workflowOfStart } from "../../files/workflow-file-policy.js";
 import { workflowPartsOf } from "../../describe/contracts-parts.js";
 import { DecidedBy } from "../../flow/decorators/router.js";
 import type { A2AReply } from "../a2a-expose.decorator.js";
 import type { A2ACardFileFields } from "../files/a2a-file-options.js";
 import type { A2AExposeOptions } from "../a2a-expose.decorator.js";
 import { fileFieldsOf, type FileField } from "../../dto/standard/file.js";
-import {
-  fileLimitsOf,
-  type A2AFileLimits,
-  type A2AFileOptions,
-} from "../files/a2a-file-options.js";
+import { fileLimitsOf, type FileLimits } from "../../files/file-policy.js";
 
 /**
  * The skills a listener serves (#808, design §3): one per exported start — its id the start's
@@ -61,11 +58,11 @@ export interface ServedSkill {
   readonly outputs: readonly ServedOutput[];
   /** The input DTO's fields that hold files (#859): none — no file part is taken (`-32005`). */
   readonly inputFiles: readonly FileField[];
-  /** What its files are bounded by: the skill's own, else the application's, else the defaults. */
-  readonly fileLimits: A2AFileLimits;
+  /** What its files are bounded by: its `filePolicy` over its workflow's, over the built-ins (#1316). */
+  readonly fileLimits: FileLimits;
   /**
-   * The media types its finishes' files may be (#904): what `Files.save` takes — the
-   * application's `a2aFiles`, else the defaults; a skill's own `files` bound what it takes only.
+   * The media types its finishes' files may be (#904): what `Files.save` takes — its workflow's
+   * `filePolicy`, else the defaults; a skill's own `filePolicy` bounds what it takes only.
    */
   readonly outputFileMediaTypes: readonly string[];
   /** How it answers (#860): a task, or a direct message. */
@@ -122,8 +119,6 @@ export interface SkillSources {
   /** The application's workflows: where each start's finishes are. */
   readonly workflows: readonly Class[];
   readonly expose: A2AExposeOptions;
-  /** `@Application({ a2aFiles })`. */
-  readonly files: A2AFileOptions | undefined;
 }
 
 /** The skill of one exported start, from its declaration and the application's contracts. */
@@ -151,7 +146,7 @@ function skillOf(start: Class, sources: SkillSources): ServedSkill {
     inputSchema: schemaOf(contracts, found.input?.dto),
     inputSchemaHash: found.input?.schemaHash ?? null,
     outputs: outputsOf(contracts, found, finishDtosOf(start, sources.workflows)),
-    ...skillFilesOf(input, name, sources),
+    ...skillFilesOf(input, name, start, sources),
     reply: found.reply,
     cardFileFields: found.cardFileFields,
     callsModel: startCallsModel(start, sources.workflows),
@@ -162,12 +157,14 @@ function skillOf(start: Class, sources: SkillSources): ServedSkill {
 function skillFilesOf(
   input: WorkflowStartInput,
   name: string,
+  start: Class,
   sources: SkillSources,
 ): Pick<ServedSkill, "inputFiles" | "fileLimits" | "outputFileMediaTypes"> {
+  const workflowPolicy = workflowFilePolicyOf(workflowOfStart(start, sources.workflows));
   return {
     inputFiles: typeof input === "function" ? fileFieldsOf(input) : [],
-    fileLimits: fileLimitsOf(sources.files, sources.expose.skills?.[name]?.files),
-    outputFileMediaTypes: fileLimitsOf(sources.files, undefined).allowedMediaTypes,
+    fileLimits: fileLimitsOf(workflowPolicy, sources.expose.skills?.[name]?.filePolicy),
+    outputFileMediaTypes: fileLimitsOf(workflowPolicy).allowedMediaTypes,
   };
 }
 

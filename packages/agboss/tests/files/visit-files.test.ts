@@ -16,8 +16,7 @@ const runtime: FileRuntime = {
   settings: resolvedFilesOf({
     agent: ModelFiles.of({}).options,
     defaults: undefined,
-    skills: [],
-    a2aFiles: undefined,
+    filePolicy: undefined,
     hasPiiPolicy: false,
   }),
   maxResultSize: kilobytes(8),
@@ -68,8 +67,7 @@ describe("the redacted view of a type no redactor takes fails closed, before any
     settings: resolvedFilesOf({
       agent: ModelFiles.of({ views: [FileView.Redacted] }).options,
       defaults: undefined,
-      skills: [],
-      a2aFiles: undefined,
+      filePolicy: undefined,
       hasPiiPolicy: false,
     }),
     redact: () => Promise.reject(new Error("must not be asked")),

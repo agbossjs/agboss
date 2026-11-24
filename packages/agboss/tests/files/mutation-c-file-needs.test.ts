@@ -18,8 +18,7 @@ const filesOf = (options: ModelFilesOptions): ResolvedModelFiles =>
   resolvedFilesOf({
     agent: options,
     defaults: undefined,
-    skills: [],
-    a2aFiles: undefined,
+    filePolicy: undefined,
     hasPiiPolicy: false,
   });
 

@@ -18,7 +18,6 @@ import { NodeKind } from "../flow/ast.js";
 import { piiChainTexts } from "../describe/pii-policies.js";
 import { implementationsOf, isInMemory, notAtomicStoresOf } from "./implementations.js";
 import { inlineFilesWarningOf } from "../a2a/a2a-file-store-rule.js";
-import type { A2AFileOptions } from "../a2a/files/a2a-file-options.js";
 import { a2aCardWarningsOf } from "../a2a/a2a-card-warnings.js";
 import type { ProviderModule } from "../components/container/registrations.js";
 
@@ -52,10 +51,9 @@ export interface WarningSources {
   /** Its declared contexts: a `sensitive` field of theirs makes tokens too (#644). */
   readonly tenantContext?: Class;
   readonly executionContext?: Class;
-  /** The application's name, exposes and `a2aFiles` (#859): where its A2A files ride. */
+  /** The application's name and exposes (#859): where its A2A files ride. */
   readonly name?: string;
   readonly exposes?: readonly Class[];
-  readonly a2aFiles?: A2AFileOptions | undefined;
   /** The application's own and its workflows' providers (#812: where an `@A2AAgent` is listed). */
   readonly modules?: readonly ProviderModule[];
 }
@@ -159,7 +157,6 @@ function inlineFilesOf(sources: WarningSources): AssemblyWarning[] {
     providers: sources.providers,
     exposes: sources.exposes ?? [],
     workflows: sources.workflows.map((workflow) => workflow.graph.type),
-    a2aFiles: sources.a2aFiles,
   });
   return message === undefined ? [] : [{ code: "a2a.inline-files-without-store", message }];
 }

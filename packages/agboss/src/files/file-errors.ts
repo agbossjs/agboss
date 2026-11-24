@@ -14,8 +14,6 @@ import { ModelFileLimit } from "./model-files.js";
 export enum FileUnavailableReason {
   /** No such file in the store for this execution's task (another task's, swept, removed). */
   NotFound = "not-found",
-  /** A file by reference (`url`): its bytes are elsewhere, fetched by the step itself. */
-  ByReference = "by-reference",
   /** Its bytes do not match the `sha256` its descriptor names. */
   DigestMismatch = "digest-mismatch",
   /** A read outside an execution: a file belongs to its execution's task. */
@@ -24,6 +22,11 @@ export enum FileUnavailableReason {
   TooLarge = "too-large",
   /** The url did not answer the file: a failure, a timeout, a status. */
   DownloadFailed = "download-failed",
+  /**
+   * The fetch pool is saturated (#1316): too many files by url are being fetched now — the
+   * policy's `fetchPool`, or the application's shared one. Nothing was asked of the url: retry later.
+   */
+  FetchBusy = "fetch-busy",
 }
 
 /** Why a file is refused: `FileError.Refused`'s `refusal`. */

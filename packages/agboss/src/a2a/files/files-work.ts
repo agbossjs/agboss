@@ -2,8 +2,11 @@ import { bytes as byteSize } from "../../units/index.js";
 import { createHash } from "node:crypto";
 import { currentFrame, rootFactsOf, type ExecutionFacts } from "../../flow/context/frame.js";
 import { isInlineFileStore, type FileRepository } from "../../infrastructure/file.repository.js";
-import { definedOf, type Clock } from "../../infrastructure/clock.js";
-import { contextMeshSettingsOf } from "../../mesh/mesh-settings.js";
+import { definedOf, lazyLoad, type Clock } from "../../infrastructure/clock.js";
+import { appFileSlotsOf } from "./a2a-file-pool.js";
+import { callerKeyOf, tenantKeyOf } from "./a2a-file-slots.js";
+import { fileLimitsOf } from "../../files/file-policy.js";
+import { workflowFilePolicyOf } from "../../files/workflow-file-policy.js";
 import { FilePayloadSource, fileSourceOf, type FileDto } from "../../dto/standard/file.js";
 import {
   FileRefusal,
@@ -11,7 +14,7 @@ import {
   fileUnavailable,
   FileUnavailableReason,
 } from "../../files/file-errors.js";
-import { fileLimitsOf, mediaTypeEssenceOf } from "./a2a-file-options.js";
+import { mediaTypeEssenceOf } from "./a2a-file-options.js";
 import type { FileToSave } from "./files.service.js";
 import { isOfMediaType } from "./a2a-media-check.js";
 
@@ -29,8 +32,8 @@ const executionOf = (): ExecutionFacts | undefined => currentFrame()?.execution;
 function checkedMediaTypeOf(execution: ExecutionFacts, content: FileToSave): string {
   const mediaType = mediaTypeEssenceOf(content.mediaType);
   const sizeBytes = content.bytes.byteLength;
-  const settings = contextMeshSettingsOf(execution.tenant.application);
-  const limits = fileLimitsOf(settings?.a2aFiles, undefined);
+  // the limits of the execution's workflow `@FilePolicy` (#1316), the built-ins without one
+  const limits = fileLimitsOf(workflowFilePolicyOf(execution.workflow.type));
   if (!limits.allowedMediaTypes.includes(mediaType))
     throw fileRefused({ refusal: FileRefusal.MediaType, mediaType });
   if (sizeBytes > limits.maxFileSize)
@@ -72,12 +75,13 @@ export async function savedFile(
 /** A file's bytes as its descriptor says where they are, for this execution's task. */
 async function bytesOf(
   store: FileRepository,
+  clock: Pick<Clock, "now" | "sleep">,
   file: FileDto,
   execution: ExecutionFacts,
 ): Promise<Uint8Array> {
   switch (fileSourceOf(file)) {
     case FilePayloadSource.Url:
-      throw fileUnavailable({ reason: FileUnavailableReason.ByReference });
+      return fetchedBytes(store, clock, file, execution);
     case FilePayloadSource.Inline:
       return new Uint8Array(
         Buffer.from(
@@ -106,13 +110,48 @@ async function bytesOf(
   }
 }
 
+/**
+ * A file by url, fetched as the workflow's `@FilePolicy` says (#1316): its `allowedOrigins`, its
+ * `maxFileSize`, its `fetchTimeout`, in its `fetchPool` (else the application's shared one) —
+ * the same guarded path a model's read of a file by url takes.
+ */
+async function fetchedBytes(
+  store: FileRepository,
+  clock: Pick<Clock, "now" | "sleep">,
+  file: FileDto,
+  execution: ExecutionFacts,
+): Promise<Uint8Array> {
+  const limits = fileLimitsOf(workflowFilePolicyOf(execution.workflow.type));
+  const { httpsFileTransport } = await lazyLoad(import("./a2a-file-transport.js"));
+  const { fileContentOf } = await lazyLoad(import("../../files/file-bytes.js"));
+  const { tenantId } = execution.tenant;
+  const content = await fileContentOf(file, {
+    store,
+    tenantId,
+    ownerId: rootFactsOf(execution).executionId,
+    signal: execution.signal,
+    clock,
+    transport: httpsFileTransport,
+    allowedOrigins: limits.allowedOrigins,
+    fetchTimeout: limits.fetchTimeout,
+    maxFileSize: limits.maxFileSize,
+    slots: appFileSlotsOf(store, limits.fetchPool),
+    caller: { tenant: tenantKeyOf(tenantId), owner: callerKeyOf(tenantId, execution.ownerId) },
+  });
+  return content.bytes;
+}
+
 /** `Files.read`: the bytes of a file of this execution's task, checked against its digest. */
-export async function readFile(store: FileRepository, file: FileDto): Promise<Uint8Array> {
+export async function readFile(
+  store: FileRepository,
+  clock: Pick<Clock, "now" | "sleep">,
+  file: FileDto,
+): Promise<Uint8Array> {
   const execution = executionOf();
   if (execution === undefined)
     throw fileUnavailable({ reason: FileUnavailableReason.OutsideExecution });
-  const bytes = await bytesOf(store, file, execution);
-  if (sha256Of(bytes) !== file.sha256)
+  const bytes = await bytesOf(store, clock, file, execution);
+  if (file.sha256 !== undefined && sha256Of(bytes) !== file.sha256)
     throw fileUnavailable({ reason: FileUnavailableReason.DigestMismatch });
   return bytes;
 }

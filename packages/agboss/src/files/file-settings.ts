@@ -1,5 +1,6 @@
-import { DEFAULT_A2A_FILE_LIMITS, type A2AFileOptions } from "../a2a/files/a2a-file-options.js";
-import { megabytes } from "../units/index.js";
+import type { Class } from "../components/injection.js";
+import { fileLimitsOf, type FileFetchPool } from "./file-policy.js";
+import type { Milliseconds } from "../units/index.js";
 import {
   AnswerFiles,
   FileSource,
@@ -11,16 +12,13 @@ import {
 
 /**
  * What an agent's `files` come to (#899 §1): its own, over its workflow's and its application's
- * `defaults.files` field by field, then — for the limits and the types — the `@A2AExpose` skills that
- * reach it (the union of their types, the max of their limits), `@Application({ a2aFiles })` and the
- * built-in defaults. The result is plain data: it rides the config of the workflow.
+ * `defaults.files` field by field — and the limits, the types and the fetch of files by url from the
+ * workflow's `@FilePolicy` (#1316). The result is plain data: it rides the config of the workflow.
  */
 
 /** A cheap vision model: what the built-in transcriber and redactor call unless set. */
 export const DEFAULT_FILE_MODEL = "google/gemini-2.5-flash-lite";
 
-export const DEFAULT_MAX_FILES = 5;
-export const DEFAULT_MAX_TOTAL_FILE_SIZE = megabytes(20);
 export const DEFAULT_TRANSCRIPTION_MAX_TOKENS = 4096;
 
 /**
@@ -36,6 +34,11 @@ export interface ResolvedModelFiles {
   maxFiles: number;
   allowedMediaTypes: string[];
   isTypesExplicit: boolean;
+  /** The `https:` origins a file by url is fetched from (the policy's `allowedOrigins`). */
+  allowedOrigins: string[];
+  fetchTimeout: Milliseconds;
+  /** The policy's own pool of fetches by url; none: the application's shared one. */
+  fetchPool?: FileFetchPool;
   answerFiles: AnswerFiles;
   guardToolResultFiles: boolean;
   transcriptionModel: string;
@@ -51,9 +54,8 @@ export interface FileLevels {
   readonly agent: ModelFilesOptions;
   /** The workflow's `defaults.files` over its application's, field by field. */
   readonly defaults: FileDefaults | undefined;
-  /** The `files` options of the skills whose starts reach the agent. */
-  readonly skills: readonly A2AFileOptions[];
-  readonly a2aFiles: A2AFileOptions | undefined;
+  /** The workflow's `@FilePolicy`: the limits, the types and the fetch of the agent's files. */
+  readonly filePolicy: Class | undefined;
   /** Whether PII policies apply to the agent: its default view is then the transcription. */
   readonly hasPiiPolicy: boolean;
 }
@@ -68,38 +70,6 @@ export function mergedFileDefaults(
   return { ...application, ...workflow };
 }
 
-const unionOf = (lists: readonly (readonly string[])[]): string[] => [...new Set(lists.flat())];
-
-/** The limit and types the skills and the application give, before the built-ins. */
-function a2aLimitsOf(levels: FileLevels): {
-  readonly size: number;
-  readonly types: readonly string[];
-} {
-  const skillSizes = levels.skills.flatMap((skill) => skill.maxFileSize ?? []);
-  const skillTypes = levels.skills.map((skill) => skill.allowedMediaTypes ?? []);
-  const typeUnion = unionOf(skillTypes);
-  const own = levels.a2aFiles;
-  return {
-    size:
-      skillSizes.length > 0
-        ? Math.max(...skillSizes)
-        : (own?.maxFileSize ?? DEFAULT_A2A_FILE_LIMITS.maxFileSize),
-    types:
-      typeUnion.length > 0
-        ? typeUnion
-        : (own?.allowedMediaTypes ?? DEFAULT_A2A_FILE_LIMITS.allowedMediaTypes),
-  };
-}
-
-/** The size and count limits: the level that sets one, else the built-in. */
-function limitsOf(layered: FileDefaults, a2aSize: number) {
-  return {
-    maxFileSize: layered.maxFileSize ?? a2aSize,
-    maxTotalFileSize: layered.maxTotalFileSize ?? DEFAULT_MAX_TOTAL_FILE_SIZE,
-    maxFiles: layered.maxFiles ?? DEFAULT_MAX_FILES,
-  };
-}
-
 /** The settings that are no limit: what is allowed back, and the built-ins' models. */
 function behaviourOf(layered: FileDefaults) {
   return {
@@ -112,17 +82,27 @@ function behaviourOf(layered: FileDefaults) {
   };
 }
 
-/** One agent's files, every level applied: the agent's own over its workflow's over its application's. */
+/**
+ * One agent's files, every level applied: the agent's own over its workflow's over its application's
+ * `defaults.files`, over the workflow's `@FilePolicy` (#1316), over the built-ins. The agent's and the
+ * defaults' own limits (`ModelFiles.of`, `defaults.files`) leave with `ModelFiles` (#1314a).
+ */
 export function resolvedFilesOf(levels: FileLevels): ResolvedModelFiles {
   const layered = mergedFileDefaults(levels.defaults, levels.agent) ?? {};
-  const a2a = a2aLimitsOf(levels);
+  const limits = fileLimitsOf(levels.filePolicy);
   const fallbackView = levels.hasPiiPolicy ? FileView.Transcription : FileView.Original;
   return {
-    ...limitsOf(layered, a2a.size),
+    maxFileSize: layered.maxFileSize ?? limits.maxFileSize,
+    maxTotalFileSize: layered.maxTotalFileSize ?? limits.maxTotalFileSize,
+    maxFiles: layered.maxFiles ?? limits.maxFiles,
+    allowedMediaTypes: [...(layered.allowedMediaTypes ?? limits.allowedMediaTypes)],
+    // the policy's types are narrowed to the kinds the models take; an agent's own are checked strictly
+    isTypesExplicit: layered.allowedMediaTypes !== undefined,
+    allowedOrigins: [...limits.allowedOrigins],
+    fetchTimeout: limits.fetchTimeout,
+    ...(limits.fetchPool === undefined ? {} : { fetchPool: limits.fetchPool }),
     ...behaviourOf(layered),
     sources: [...(layered.sources ?? [FileSource.Input])],
     views: [...(layered.views ?? [fallbackView])],
-    allowedMediaTypes: [...(layered.allowedMediaTypes ?? a2a.types)],
-    isTypesExplicit: layered.allowedMediaTypes !== undefined,
   };
 }

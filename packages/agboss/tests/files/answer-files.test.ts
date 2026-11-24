@@ -226,7 +226,7 @@ describe("AC2: AnswerFiles.Any — the model's own descriptors, checked", () => 
   const any = readerApplication({
     files: ModelFiles.of({ views: [FileView.Original], answerFiles: AnswerFiles.Any }),
     output: FetchedDto,
-    a2aFiles: { allowedFileOrigins: ["https://files.example.com"] },
+    filePolicy: { allowedOrigins: ["https://files.example.com"] },
   });
 
   testWith(any.Application)(

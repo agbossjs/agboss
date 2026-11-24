@@ -116,6 +116,11 @@ export type ComponentMeta =
       readonly kind: "http-authenticator";
       readonly meta: import("../http/http-authenticator.js").HttpAuthenticatorMeta;
     }
+  /** `@FilePolicy` (#1316): what a workflow's files may be, named by `filePolicy` on `@Workflow`. */
+  | {
+      readonly kind: "file-policy";
+      readonly meta: import("../files/file-policy.js").FilePolicyMeta;
+    }
   /** `@Observer` (#1343): an execution observer, listed in `@Application({ observers })`. */
   | { readonly kind: "observer"; readonly meta: import("../core/observer-hooks.js").ObserverMeta }
   /** `@PauseListener` (#940): an application-wide listener of every pause, listed in `providers`. */
@@ -197,6 +202,7 @@ const kindName: Readonly<Record<ComponentMeta["kind"], string>> = {
   channel: "Channel",
   "channel-selector": "ChannelSelector",
   "http-authenticator": "HttpAuthenticator",
+  "file-policy": "FilePolicy",
   budget: "Budget",
   "health-check": "HealthCheck",
   observer: "Observer",

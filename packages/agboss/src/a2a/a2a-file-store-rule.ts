@@ -12,12 +12,14 @@ import { FileRepository } from "../infrastructure/file.repository.js";
 import { definedOf } from "../infrastructure/clock.js";
 import { kilobytes } from "../units/index.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
-import {
-  cardFileFieldsViolations,
-  fileOptionsViolations,
-  type A2AFileOptions,
-} from "./files/a2a-file-options.js";
+import { NodeKind } from "../flow/ast.js";
+import { flowClassesOf, withChildWorkflows } from "../flow/analyse/child-workflow.js";
+import { listItemClassesOf, plainOutputClassOf } from "../flow/finish-output.js";
+import { fileFieldsOf, inputClassOf } from "../dto/standard/file.js";
+import { cardFileFieldsViolations } from "./files/a2a-file-options.js";
 import { fileTierSizeOf } from "./files/a2a-file-tier.js";
+import { filePolicyExcesses, filePolicyViolations } from "../files/file-policy.js";
+import { workflowFilePolicyOf, workflowOfStart } from "../files/workflow-file-policy.js";
 
 /**
  * Where an application's A2A files may live (#859), read from the declarations, fail closed: with
@@ -26,7 +28,7 @@ import { fileTierSizeOf } from "./files/a2a-file-tier.js";
  * never above it (`[a2a.file-store-required]`); and on leases its instances share, files above
  * 256 KB in a store of one host (`in-memory`, `local-disk`) are `[a2a.file-store-not-shared]` — a
  * takeover on another instance would find no bytes. File options are checked too
- * (`[a2a.file-options-invalid]`).
+ * (`[file-policy.invalid]`).
  */
 
 /** Up to this, files ride inline in a task's records without a word. */
@@ -56,24 +58,90 @@ export interface FileTierSources {
   readonly providers: readonly Provider[];
   readonly exposes: readonly Class[];
   readonly workflows: readonly Class[];
-  readonly a2aFiles?: A2AFileOptions | undefined;
 }
 
 const tierOf = (sources: FileTierSources): number =>
-  fileTierSizeOf(sources.exposes, sources.workflows, sources.a2aFiles);
+  fileTierSizeOf(sources.exposes, sources.workflows);
 
 const kb = (bytes: number): string => `${String(Math.ceil(bytes / 1024))} KB`;
 
-/** The options of the application's and each expose's skills, checked. */
+/** A skill's `filePolicy`, checked, and `[a2a.skill-file-policy-exceeds-workflow]`: it only tightens its workflow's. */
+function skillPolicyViolations(
+  expose: string,
+  skill: string,
+  policy: Class | undefined,
+  start: Class | undefined,
+  workflows: readonly Class[],
+): RuleViolation[] {
+  if (policy === undefined) return [];
+  const own = filePolicyViolations(`${expose}'s skill ${skill} filePolicy`, policy, [expose]);
+  if (own.length > 0 || start === undefined) return own;
+  const excesses = filePolicyExcesses(
+    workflowFilePolicyOf(workflowOfStart(start, workflows)),
+    policy,
+  );
+  return excesses.map((excess) =>
+    violation(
+      "a2a.skill-file-policy-exceeds-workflow",
+      `${expose}'s skill ${skill} filePolicy sets more than its workflow's: ${excess}`,
+      [expose],
+    ),
+  );
+}
+
+/** Whether a node of a flow takes or gives files: a start's input or a finish's output with a `FileDto` field, an agent with `files`. */
+function nodeUsesFiles(node: Class): boolean {
+  const declaration = declarationOf(node);
+  if (declaration?.kind === NodeKind.Agent) return declaration.options.files !== undefined;
+  if (declaration?.kind === NodeKind.Start) {
+    const input = inputClassOf(declaration.options.input);
+    return input !== undefined && fileFieldsOf(input).length > 0;
+  }
+  if (declaration?.kind === NodeKind.Finish) {
+    const output = plainOutputClassOf(declaration.options.output);
+    const items = listItemClassesOf(declaration.options.output);
+    return [...(output === undefined ? [] : [output]), ...items].some(
+      (dto) => fileFieldsOf(dto).length > 0,
+    );
+  }
+  return false;
+}
+
+/** `[workflow.file-policy-required]`: a workflow that takes, gives or reads files names its `filePolicy`. */
+function policyRequiredViolations(options: ApplicationOptions): RuleViolation[] {
+  return withChildWorkflows(options.workflows).flatMap((workflow) => {
+    const declaration = declarationOf(workflow);
+    if (declaration?.kind !== NodeKind.Workflow || declaration.options.filePolicy !== undefined)
+      return [];
+    if (!flowClassesOf(declaration.options.flow).some(nodeUsesFiles)) return [];
+    return [
+      violation(
+        "workflow.file-policy-required",
+        `${declaration.options.name} takes, gives or reads files (a FileDto field, an agent's files) but names no filePolicy — add @FilePolicy({ … }) and filePolicy: X to @Workflow`,
+        [options.name],
+      ),
+    ];
+  });
+}
+
+/** The file policies of the workflows and of each expose's skills, checked. */
 function optionsViolations(options: ApplicationOptions): RuleViolation[] {
-  const own = fileOptionsViolations(`${options.name}'s a2aFiles`, options.a2aFiles, [options.name]);
+  const own = options.workflows.flatMap((workflow) => {
+    const policy = workflowFilePolicyOf(workflow);
+    const name = declarationOf(workflow)?.options.name ?? workflow.name;
+    return filePolicyViolations(`${name}'s filePolicy`, policy, [options.name]);
+  });
   const skills = (options.exposes ?? []).flatMap((expose) => {
     const meta = componentOf(expose);
     if (meta?.kind !== "a2a-expose") return [];
     const files = Object.entries(meta.meta.skills ?? {}).flatMap(([skill, settings]) =>
-      fileOptionsViolations(`${meta.meta.name}'s skill ${skill} files`, settings.files, [
+      skillPolicyViolations(
         meta.meta.name,
-      ]),
+        skill,
+        settings.filePolicy,
+        meta.meta.exports.find((start) => declarationOf(start)?.options.name === skill),
+        options.workflows,
+      ),
     );
     // #904: how its card describes file fields
     const exported = new Set(meta.meta.exports.map((start) => declarationOf(start)?.options.name));
@@ -82,7 +150,7 @@ function optionsViolations(options: ApplicationOptions): RuleViolation[] {
       ...cardFileFieldsViolations(meta.meta.name, meta.meta, exported, options.name),
     ];
   });
-  return [...own, ...skills];
+  return [...own, ...skills, ...policyRequiredViolations(options)];
 }
 
 /**
@@ -95,7 +163,6 @@ export function a2aFileStoreViolations(options: ApplicationOptions): RuleViolati
     providers: options.providers ?? [],
     exposes: options.exposes ?? [],
     workflows: options.workflows,
-    a2aFiles: options.a2aFiles,
   };
   const found = optionsViolations(options);
   const size = tierOf(sources);

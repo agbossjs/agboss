@@ -88,11 +88,11 @@ describe("FileError.Unavailable", () => {
   it("every reason has its own wire text", () => {
     expect(Object.values(FileUnavailableReason)).toEqual([
       "not-found",
-      "by-reference",
       "digest-mismatch",
       "outside-execution",
       "too-large",
       "download-failed",
+      "fetch-busy",
     ]);
   });
 });

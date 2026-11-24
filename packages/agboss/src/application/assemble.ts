@@ -1,5 +1,4 @@
 import { workflowOf } from "../components/assemble.js";
-import type { A2AFileOptions } from "../a2a/files/a2a-file-options.js";
 import type { ProviderModule } from "../components/container/registrations.js";
 import type { Class, Provider } from "../components/injection.js";
 import { moduleOf } from "../components/module.js";
@@ -106,8 +105,6 @@ export interface AssembledApplication extends AssembledKeyFields, StorageFields 
   readonly mesh?: MeshOptions;
   /** `@Application({ exposes })` (#398 PR 3): its `@A2AExpose` / `@McpExpose` contracts. */
   readonly exposes: readonly Class[];
-  /** `@Application({ a2aFiles })` (#859): what its A2A skills take as files, as given. */
-  readonly a2aFiles?: A2AFileOptions;
   /** The context classes it declares (#261), else the built-in ones. */
   readonly tenantContext: TenantContextClass;
   readonly executionContext: ExecutionContextClass;
@@ -252,7 +249,6 @@ export async function applicationOf(
       ? {}
       : { maxConcurrentSteps: options.maxConcurrentSteps }),
     ...meshOptionsOf(options),
-    ...(options.a2aFiles === undefined ? {} : { a2aFiles: options.a2aFiles }),
     ...declaredContextsOf(options),
     ...keyFieldsOf(options),
   };

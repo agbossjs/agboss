@@ -145,6 +145,12 @@ export interface WorkflowOptions<
    * an agent's or a router's own `memory` wins. Left out, the workflow is stateless across runs.
    */
   readonly memory?: Class;
+  /**
+   * The `@FilePolicy` of the workflow's files (#1316): how many, how large, of which media types,
+   * from which origins, fetched how. Required when the workflow takes or gives a `FileDto` or reads
+   * files with an agent (`[workflow.file-policy-required]`); a skill's own policy may only tighten it.
+   */
+  readonly filePolicy?: Class;
   /** Static `{{key}}` values of every prompt of the workflow, over the application's; a component's own win. */
   readonly promptVariables?: PromptVariables;
 }

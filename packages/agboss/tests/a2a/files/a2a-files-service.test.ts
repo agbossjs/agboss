@@ -61,7 +61,7 @@ describe("#859: Files", () => {
     expect(Buffer.from(await inTestFrame(() => files.read(file)))).toEqual(Buffer.from(TEXT));
   });
 
-  it("another task's file, another tenant's, a url, a wrong digest, no execution: unavailable", async () => {
+  it("another task's file, another tenant's, a url off every allowed origin, a wrong digest, no execution: unavailable or refused", async () => {
     const files = stored();
     const file = await inTestFrame(() => files.save({ bytes: PDF, mediaType: "application/pdf" }));
     const inline = await inTestFrame(() =>
@@ -90,7 +90,7 @@ describe("#859: Files", () => {
     expect(reasons).toEqual([
       FileUnavailableReason.NotFound,
       FileUnavailableReason.NotFound,
-      FileUnavailableReason.ByReference,
+      FileRefusal.OriginDenied,
       FileUnavailableReason.DigestMismatch,
       FileUnavailableReason.OutsideExecution,
     ]);

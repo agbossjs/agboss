@@ -9,6 +9,7 @@
  */
 import { describe, expect } from "vitest";
 import type { Class } from "../../../src/components/injection.js";
+import { FilePolicy } from "../../../src/files/file-policy.js";
 import { A2ACardFileFields, A2AExpose } from "../../../src/a2a/a2a-expose.decorator.js";
 import { FILE_PART_KEYWORD } from "../../../src/a2a/a2a-card-file-fields.js";
 import { checkCard } from "../../../src/a2a/client/a2a-card.js";
@@ -35,7 +36,10 @@ import {
 const REVIEW = "file-review-workflow-start";
 const SUMMARY = "file-summary-workflow-start";
 const MEDIA = ["application/pdf", "text/plain", "image/png"];
-const OUTPUT_MEDIA = ["application/pdf", "image/png", "text/plain"];
+const OUTPUT_MEDIA = ["application/pdf", "text/plain", "image/png"];
+
+@FilePolicy({ allowedMediaTypes: MEDIA })
+class MediaPolicy {}
 
 @A2AExpose({
   name: "marked-outputs-a2a-expose",
@@ -43,7 +47,7 @@ const OUTPUT_MEDIA = ["application/pdf", "image/png", "text/plain"];
   description: "Reviews and summarises documents, its file fields marked",
   exports: [FileReviewWorkflowStart, FileSummaryWorkflowStart],
   cardFileFields: A2ACardFileFields.Marker,
-  skills: { [REVIEW]: { files: { allowedMediaTypes: MEDIA } } },
+  skills: { [REVIEW]: { filePolicy: MediaPolicy } },
 })
 export class MarkedOutputsA2AExpose {}
 
@@ -62,7 +66,6 @@ export class SummaryFilesA2AExpose {}
   workflows: [FileReviewWorkflow, FileSummaryWorkflow],
   providers: [BearerAuthenticator, FileCallerChannel],
   exposes: [FilesA2AExpose, MarkedOutputsA2AExpose, SummaryFilesA2AExpose],
-  a2aFiles: { allowedMediaTypes: OUTPUT_MEDIA },
   budgets: TEST_BUDGETS,
 })
 export class CardOutputsApplication {}

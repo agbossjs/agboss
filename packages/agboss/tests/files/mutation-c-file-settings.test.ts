@@ -1,9 +1,14 @@
 /**
  * #1269: what an agent's files come to — every level applied: the agent's over its workflow's over its
- * application's, then the skills, `a2aFiles` and the built-ins.
+ * application's, over the workflow's file policy and the built-ins.
  */
 import { describe, expect, it } from "vitest";
-import { DEFAULT_A2A_FILE_LIMITS } from "../../src/a2a/files/a2a-file-options.js";
+import {
+  DEFAULT_FILE_FETCH_TIMEOUT,
+  DEFAULT_FILE_LIMITS,
+  FilePolicy,
+  type FilePolicyOptions,
+} from "../../src/files/file-policy.js";
 import {
   DEFAULT_FILE_MODEL,
   mergedFileDefaults,
@@ -11,13 +16,12 @@ import {
   type FileLevels,
 } from "../../src/files/file-settings.js";
 import { FileSource, FileView } from "../../src/files/model-files.js";
-import { kilobytes } from "../../src/units/index.js";
+import { kilobytes, seconds } from "../../src/units/index.js";
 
 const levels = (over: Partial<FileLevels> = {}): FileLevels => ({
   agent: {},
   defaults: undefined,
-  skills: [],
-  a2aFiles: undefined,
+  filePolicy: undefined,
   hasPiiPolicy: false,
   ...over,
 });
@@ -55,8 +59,8 @@ describe("the built-ins", () => {
 
     expect(files.sources).toEqual([FileSource.Input]);
     expect(files.views).toEqual([FileView.Original]);
-    expect(files.maxFileSize).toBe(DEFAULT_A2A_FILE_LIMITS.maxFileSize);
-    expect(files.allowedMediaTypes).toEqual([...DEFAULT_A2A_FILE_LIMITS.allowedMediaTypes]);
+    expect(files.maxFileSize).toBe(DEFAULT_FILE_LIMITS.maxFileSize);
+    expect(files.allowedMediaTypes).toEqual([...DEFAULT_FILE_LIMITS.allowedMediaTypes]);
     expect(files.isTypesExplicit).toBe(false);
   });
 
@@ -68,49 +72,68 @@ describe("the built-ins", () => {
   });
 });
 
-describe("the skills and a2aFiles give the size and the types", () => {
-  it("the largest size and the union of the types of the skills that set them", () => {
+/** A `@FilePolicy` class with these options. */
+const policyOf = (options: FilePolicyOptions) => {
+  @FilePolicy({ name: "settings-file-policy", ...options })
+  class Policy {}
+  return Policy;
+};
+
+describe("the workflow's file policy gives the limits, the types and the fetch", () => {
+  it("its size and types, narrowed to the models' kinds, not explicit", () => {
     const files = resolvedFilesOf(
       levels({
-        skills: [
-          { maxFileSize: kilobytes(100), allowedMediaTypes: ["image/png", "text/csv"] },
-          { maxFileSize: kilobytes(300), allowedMediaTypes: ["application/pdf", "image/png"] },
-          {},
-        ],
-        a2aFiles: { maxFileSize: kilobytes(7), allowedMediaTypes: ["text/plain"] },
-      }),
-    );
-
-    expect(files.maxFileSize).toBe(kilobytes(300));
-    expect(files.allowedMediaTypes).toEqual(["image/png", "text/csv", "application/pdf"]);
-  });
-
-  it("skills that set neither leave it to a2aFiles", () => {
-    const files = resolvedFilesOf(
-      levels({
-        skills: [{}, { maxFiles: 2 }],
-        a2aFiles: { maxFileSize: kilobytes(7), allowedMediaTypes: ["text/plain"] },
+        filePolicy: policyOf({
+          maxFileSize: kilobytes(7),
+          maxTotalFileSize: kilobytes(70),
+          maxFiles: 2,
+          allowedMediaTypes: ["text/plain"],
+        }),
       }),
     );
 
     expect(files.maxFileSize).toBe(kilobytes(7));
+    expect(files.maxTotalFileSize).toBe(kilobytes(70));
+    expect(files.maxFiles).toBe(2);
     expect(files.allowedMediaTypes).toEqual(["text/plain"]);
+    expect(files.isTypesExplicit).toBe(false);
   });
 
-  it("skills that set no type but a size, and a2aFiles with neither: the built-in types", () => {
-    const files = resolvedFilesOf(
-      levels({ skills: [{ maxFileSize: kilobytes(9) }], a2aFiles: {} }),
-    );
+  it("a policy that sets no type leaves the built-in types", () => {
+    const files = resolvedFilesOf(levels({ filePolicy: policyOf({ maxFileSize: kilobytes(9) }) }));
 
     expect(files.maxFileSize).toBe(kilobytes(9));
-    expect(files.allowedMediaTypes).toEqual([...DEFAULT_A2A_FILE_LIMITS.allowedMediaTypes]);
+    expect(files.allowedMediaTypes).toEqual([...DEFAULT_FILE_LIMITS.allowedMediaTypes]);
   });
 
-  it("a level of the settings beats them, and its types are explicit", () => {
+  it("its origins, timeout and pool ride the settings: a model's read of a file by url uses them", () => {
+    const fetchPool = { maxConcurrent: 3, maxQueuedPerOwner: 2 };
+    const files = resolvedFilesOf(
+      levels({
+        filePolicy: policyOf({
+          allowedOrigins: ["https://files.example"],
+          fetchTimeout: seconds(3),
+          fetchPool,
+        }),
+      }),
+    );
+
+    expect(files.allowedOrigins).toEqual(["https://files.example"]);
+    expect(files.fetchTimeout).toBe(seconds(3));
+    expect(files.fetchPool).toBe(fetchPool);
+    expect(resolvedFilesOf(levels()).fetchPool).toBeUndefined();
+    expect(resolvedFilesOf(levels()).fetchTimeout).toBe(DEFAULT_FILE_FETCH_TIMEOUT);
+  });
+
+  it("a level of the settings beats it, and its types are explicit", () => {
     const files = resolvedFilesOf(
       levels({
         agent: { maxFileSize: kilobytes(1), allowedMediaTypes: ["image/gif"] },
-        skills: [{ maxFileSize: kilobytes(300), allowedMediaTypes: ["application/pdf"] }],
+        filePolicy: policyOf({
+          maxFileSize: kilobytes(30),
+          maxTotalFileSize: kilobytes(30),
+          allowedMediaTypes: ["application/pdf"],
+        }),
       }),
     );
 
@@ -125,8 +148,7 @@ describe("the built-in file model", () => {
     const files = resolvedFilesOf({
       agent: {},
       defaults: undefined,
-      skills: [],
-      a2aFiles: undefined,
+      filePolicy: undefined,
       hasPiiPolicy: false,
     });
 

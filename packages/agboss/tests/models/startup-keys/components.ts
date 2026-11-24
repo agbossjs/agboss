@@ -21,6 +21,7 @@ import {
   type Class,
   type JudgeHandler,
 } from "../../../src/index.js";
+import { FilePolicy } from "../../../src/files/file-policy.js";
 import { ChannelOf, type ChannelAsk } from "../../../src/channels/channel-handler.js";
 import { Channel } from "../../../src/components/decorators.js";
 import { ChannelOutcome } from "../../../src/channels/channel-outcome.js";
@@ -188,9 +189,12 @@ export function everyKindWorkflows(models: KindModels): {
     output: WorkflowFinishTextDto,
   })
   class DeskFinish {}
+  @FilePolicy({ name: "desk-file-policy" })
+  class DeskFilePolicy {}
   @Workflow({
     name: "desk-workflow",
     version: "1.0.0",
+    filePolicy: DeskFilePolicy,
     flow: [
       onStart(DeskStart)
         .toRouter(DeskRouter)

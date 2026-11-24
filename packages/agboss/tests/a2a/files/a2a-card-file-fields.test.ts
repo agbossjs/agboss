@@ -9,6 +9,7 @@
 import { Ajv } from "ajv";
 import { describe, expect, it } from "vitest";
 import type { Class } from "../../../src/components/injection.js";
+import { FilePolicy } from "../../../src/files/file-policy.js";
 import { A2ACardFileFields, A2AExpose } from "../../../src/a2a/a2a-expose.decorator.js";
 import { FILE_PART_KEYWORD } from "../../../src/a2a/a2a-card-file-fields.js";
 import { cardFileFieldsViolations } from "../../../src/a2a/files/a2a-file-options.js";
@@ -31,7 +32,10 @@ import {
 } from "../fixtures/files.application.js";
 
 const START = "file-review-workflow-start";
-const FILES = { allowedMediaTypes: ["application/pdf", "text/plain", "image/png"] };
+const FILE_TYPES = ["application/pdf", "text/plain", "image/png"];
+
+@FilePolicy({ allowedMediaTypes: FILE_TYPES })
+class SkillFilesPolicy {}
 
 @A2AExpose({
   name: "marked-files-a2a-expose",
@@ -39,7 +43,7 @@ const FILES = { allowedMediaTypes: ["application/pdf", "text/plain", "image/png"
   description: "Reviews documents, its file fields marked",
   exports: [FileReviewWorkflowStart],
   cardFileFields: A2ACardFileFields.Marker,
-  skills: { [START]: { files: FILES } },
+  skills: { [START]: { filePolicy: SkillFilesPolicy } },
 })
 export class MarkedFilesA2AExpose {}
 
@@ -49,7 +53,9 @@ export class MarkedFilesA2AExpose {}
   description: "Reviews documents, the skill's own setting over the expose's",
   exports: [FileReviewWorkflowStart],
   cardFileFields: A2ACardFileFields.Marker,
-  skills: { [START]: { files: FILES, cardFileFields: A2ACardFileFields.Extension } },
+  skills: {
+    [START]: { filePolicy: SkillFilesPolicy, cardFileFields: A2ACardFileFields.Extension },
+  },
 })
 export class OwnFilesA2AExpose {}
 
@@ -97,8 +103,8 @@ describe("#904 item 5 AC5.1: the card's file fields", () => {
     expect(entry.input.required).toBeUndefined();
     expect(entry.cardFileFields).toBe("extension");
     expect(entry.files).toEqual({
-      document: { list: false, optional: false, mediaTypes: FILES.allowedMediaTypes },
-      pages: { list: true, optional: true, mediaTypes: FILES.allowedMediaTypes },
+      document: { list: false, optional: false, mediaTypes: FILE_TYPES },
+      pages: { list: true, optional: true, mediaTypes: FILE_TYPES },
     });
   });
 
@@ -109,11 +115,11 @@ describe("#904 item 5 AC5.1: the card's file fields", () => {
 
     expect(entry.input.properties).toMatchObject({
       document: {
-        [FILE_PART_KEYWORD]: { list: false, optional: false, mediaTypes: FILES.allowedMediaTypes },
+        [FILE_PART_KEYWORD]: { list: false, optional: false, mediaTypes: FILE_TYPES },
         description: expect.stringContaining("the document to review"),
       },
       pages: {
-        [FILE_PART_KEYWORD]: { list: true, optional: true, mediaTypes: FILES.allowedMediaTypes },
+        [FILE_PART_KEYWORD]: { list: true, optional: true, mediaTypes: FILE_TYPES },
         description: expect.stringContaining("file parts"),
       },
       note: { type: "string" },

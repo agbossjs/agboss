@@ -27,8 +27,7 @@ const runtime: FileRuntime = {
   settings: resolvedFilesOf({
     agent: ModelFiles.of({ views: [FileView.Transcription] }).options,
     defaults: undefined,
-    skills: [],
-    a2aFiles: undefined,
+    filePolicy: undefined,
     hasPiiPolicy: true,
   }),
   maxResultSize: kilobytes(8),

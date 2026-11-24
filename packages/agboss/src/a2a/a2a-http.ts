@@ -1,4 +1,4 @@
-import { MAX_DEADLINE, MAX_TIMEOUT, timerProblemOf } from "../units/timer-limits.js";
+import { MAX_DEADLINE, timerProblemOf } from "../units/timer-limits.js";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { executionControlOf } from "../app/execution-control.js";
 import type { Class } from "../components/injection.js";
@@ -21,7 +21,6 @@ import type { ServedSkill } from "./server/a2a-skills.js";
 import type { A2ADirectParts } from "./server/a2a-server-parts.js";
 import type { A2AExposeOptions } from "./a2a-expose.decorator.js";
 import { A2ADirectMessageRepository } from "../infrastructure/a2a-direct-message.repository.js";
-import { checkedFetchLimit } from "./files/a2a-file-slots.js";
 import { interfaceUrlOf } from "./a2a-public-url.js";
 import { serverFilesOf } from "./files/a2a-server-files.js";
 
@@ -58,28 +57,6 @@ export interface A2AHttpListenerOptions {
    * more when a skill takes files (#859): room for its `maxTotalFileSize` as base64 and 256 KB more.
    */
   readonly maxBodySize?: Bytes;
-  /** How long a file by `url` may take to fetch at a message's admission (#859): `seconds(10)`; at most 24 hours (`[a2a.timeout-invalid]`, #1141). */
-  readonly fileFetchTimeout?: Milliseconds;
-  /**
-   * How many files by `url` the listener fetches at once, across all messages (#1256): 16 by default.
-   * A fetch past it waits in a queue of four per slot, its wait part of `fileFetchTimeout`; past the
-   * queue it is refused (`a2a.file-fetch-busy`). A whole number from 1 (`[a2a.file-fetch-limit-invalid]`).
-   */
-  readonly maxConcurrentFileFetches?: number;
-  /**
-   * How many of those one tenant holds at once, however many owners it has (#1256, #1297): a quarter
-   * of `maxConcurrentFileFetches` by default (at least 1), with a share of the queue of four per
-   * slot; a tenant over its share is refused at once (`a2a.file-fetch-busy`), so one tenant's flood
-   * leaves the other tenants their turn.
-   */
-  readonly maxConcurrentFileFetchesPerTenant?: number;
-  /**
-   * How many of a tenant's fetches one owner of it holds at once (#1297; callers with no owner are
-   * one owner of their tenant): a quarter of the tenant's share by default (at least 1), with a share
-   * of the queue of four per slot; an owner over its share is refused at once
-   * (`a2a.file-fetch-busy`), so one owner's flood leaves the tenant's other owners their turn.
-   */
-  readonly maxConcurrentFileFetchesPerOwner?: number;
   /** Every task's execution deadline (`DeadlineExceededError` past it): a task outlives its request; at most 24 days (`[a2a.timeout-invalid]`, #1141). */
   readonly maxTaskDuration?: Milliseconds;
 }
@@ -110,12 +87,9 @@ export function maxBodySizeOf(
   return Math.max(MAX_BODY_SIZE, Math.ceil((largest * 4) / 3) + kilobytes(256)) as Bytes;
 }
 
-/** `fileFetchTimeout` and `maxTaskDuration` bound timers: above their maximum, `[a2a.timeout-invalid]` (#1141). */
+/** `maxTaskDuration` bounds a timer: above their maximum, `[a2a.timeout-invalid]` (#1141). */
 function checkedListenerTimers(options: A2AHttpListenerOptions): void {
   const problems = [
-    options.fileFetchTimeout === undefined
-      ? undefined
-      : timerProblemOf("fileFetchTimeout", options.fileFetchTimeout, MAX_TIMEOUT),
     options.maxTaskDuration === undefined
       ? undefined
       : timerProblemOf("maxTaskDuration", options.maxTaskDuration, MAX_DEADLINE),
@@ -195,7 +169,7 @@ async function bindingOf(
   const { mesh, control } = builtAppOf(app);
   const expose = exposeOptionsOf(options.expose);
   const sources = { contracts: await mesh.contracts(), workflows: mesh.workflows, expose };
-  const skills = servedSkillsOf(checked.exports, { ...sources, files: mesh.a2aFiles });
+  const skills = servedSkillsOf(checked.exports, sources);
   const clock = app.resolve(Clock);
   const card = agentCardOf({
     ...cardSourceOf(mesh, options, checked),
@@ -248,9 +222,6 @@ export function a2aHttpListener(
   options: A2AHttpListenerOptions,
 ): (req: IncomingMessage, res: ServerResponse) => void {
   checkedListenerTimers(options);
-  checkedFetchLimit("maxConcurrentFileFetches", options.maxConcurrentFileFetches);
-  checkedFetchLimit("maxConcurrentFileFetchesPerTenant", options.maxConcurrentFileFetchesPerTenant);
-  checkedFetchLimit("maxConcurrentFileFetchesPerOwner", options.maxConcurrentFileFetchesPerOwner);
   const authenticator = authenticatorOf(app, options.authenticator);
   const exports = exportsOf(app, options.expose);
   const url = interfaceUrlOf(options.publicUrl, options.base ?? "");

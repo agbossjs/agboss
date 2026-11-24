@@ -283,12 +283,6 @@ describe("#1141: A2A", () => {
         } as never,
       );
 
-  it("fileFetchTimeout: cap + 1 refused naming the field", () => {
-    expect(listener({ fileFetchTimeout: over(MAX_TIMEOUT) })).toThrow(
-      /\[a2a.timeout-invalid\].*fileFetchTimeout is 86400001 ms/u,
-    );
-  });
-
   it("maxTaskDuration: cap + 1 refused naming the field", () => {
     expect(listener({ maxTaskDuration: over(MAX_DEADLINE) })).toThrow(
       /\[a2a.timeout-invalid\].*maxTaskDuration is 2073600001 ms/u,
@@ -296,7 +290,7 @@ describe("#1141: A2A", () => {
   });
 
   it("a caps accepted: the listener's own checks go on (not the timeout's)", () => {
-    for (const options of [{ fileFetchTimeout: MAX_TIMEOUT }, { maxTaskDuration: MAX_DEADLINE }])
+    for (const options of [{ maxTaskDuration: MAX_DEADLINE }])
       expect(listener(options)).not.toThrow(/timeout-invalid/u);
   });
 

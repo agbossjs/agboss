@@ -24,8 +24,7 @@ import { NO_REDACTION } from "./runtime-parts.js";
 const baseSettings = resolvedFilesOf({
   agent: ModelFiles.of({}).options,
   defaults: undefined,
-  skills: [],
-  a2aFiles: undefined,
+  filePolicy: undefined,
   hasPiiPolicy: false,
 });
 

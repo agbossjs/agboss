@@ -171,8 +171,7 @@ function setup(owners: readonly string[] = ["root-1", OWNER]) {
     settings: resolvedFilesOf({
       agent: {},
       defaults: undefined,
-      skills: [],
-      a2aFiles: undefined,
+      filePolicy: undefined,
       hasPiiPolicy: false,
     }),
     maxResultSize: megabytes(1),

@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { appFileSlotsOf } from "../../src/a2a/files/a2a-file-pool.js";
 import { callerKeyOf, tenantKeyOf } from "../../src/a2a/files/a2a-file-slots.js";
 import { FileRepository } from "../../src/infrastructure/file.repository.js";
-import { DEFAULT_FILE_FETCH_TIMEOUT } from "../../src/a2a/files/a2a-file-options.js";
+import { DEFAULT_FILE_FETCH_TIMEOUT, FilePolicy } from "../../src/files/file-policy.js";
 import { runInFrame } from "../../src/flow/context/frame.js";
 import { fileRuntimeOf } from "../../src/files/file-runtime.js";
 import {
@@ -17,17 +17,15 @@ import { resolvedFilesOf } from "../../src/files/file-settings.js";
 import { ModelFiles } from "../../src/files/model-files.js";
 import { ExecutionRecordRepository } from "../../src/infrastructure/execution-record.repository.js";
 import { systemClock } from "../../src/infrastructure/clock.js";
-import { rememberContextMeshSettings, type MeshSettings } from "../../src/mesh/mesh-settings.js";
 import { VirtualClock } from "../../src/testing/clock.js";
-import { hours, usd } from "../../src/units/index.js";
+import { seconds, usd } from "../../src/units/index.js";
 import { testFrame } from "../helpers/frame.js";
 import { sha256Of } from "./reader.factory.js";
 
 const settings = resolvedFilesOf({
   agent: ModelFiles.of({ maxFileSize: 4096 as never }).options,
   defaults: undefined,
-  skills: [],
-  a2aFiles: undefined,
+  filePolicy: undefined,
   hasPiiPolicy: false,
 });
 const file = {
@@ -151,29 +149,35 @@ describe("#1269: the read context", () => {
     });
   });
 
-  it("the deps' clock and the application's file origins are the context's", async () => {
+  it("the deps' clock is the context's, and the workflow policy's origins, timeout and pool ride the settings", async () => {
+    @FilePolicy({
+      allowedOrigins: ["https://files.example"],
+      fetchTimeout: seconds(3),
+      fetchPool: { maxConcurrent: 2 },
+    })
+    class OriginsPolicy {}
+    const own = resolvedFilesOf({
+      agent: {},
+      defaults: undefined,
+      filePolicy: OriginsPolicy,
+      hasPiiPolicy: false,
+    });
+    const deps = depsOf(new Map(), { clock: new VirtualClock() });
+    const store = (deps as { container: { get: (token: Token) => object } }).container.get(
+      FileRepository,
+    );
     const frame = testFrame();
-    const meshSettings: MeshSettings = {
-      application: "app",
-      maxMeshHops: 8,
-      keys: { peers: new Map() },
-      clock: new VirtualClock(),
-      idempotencyRetention: hours(1),
-      a2aTaskRetention: hours(1),
-      a2aFileRetention: hours(1),
-      a2aMessageRetention: hours(1),
-      a2aFiles: { allowedFileOrigins: ["https://files.example"] },
-      workflows: [],
-      exposes: [],
-      contracts: () => Promise.reject(new Error("none")),
-    };
-    rememberContextMeshSettings(frame.execution.tenant.application, meshSettings);
-    const clock = new VirtualClock();
-    const runtime = runtimeOf(depsOf(new Map(), { clock }));
-    const context = await runInFrame(frame, () => Promise.resolve(runtime.context()));
+    const context = await runInFrame(frame, () =>
+      Promise.resolve(
+        fileRuntimeOf(deps, { name: "reader-agent", files: own } as never)?.context(),
+      ),
+    );
 
-    expect(context.clock).toBe(clock);
-    expect(context.allowedOrigins).toEqual(["https://files.example"]);
+    expect(context?.allowedOrigins).toEqual(["https://files.example"]);
+    expect(context?.fetchTimeout).toBe(seconds(3));
+    // its own pool, not the application's shared one
+    expect(context?.slots).toBe(appFileSlotsOf(store, own.fetchPool));
+    expect(context?.slots).not.toBe(appFileSlotsOf(store));
   });
 
   it("the https transport is loaded at the first download: an address never fetched from is refused", async () => {

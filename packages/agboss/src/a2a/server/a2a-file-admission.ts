@@ -76,13 +76,13 @@ function bytesReaderOf(
     const fetchOf = (signal: AbortSignal) =>
       fetchedFile({
         url,
-        allowedOrigins: skill.fileLimits.allowedFileOrigins,
+        allowedOrigins: skill.fileLimits.allowedOrigins,
         maxBytes: skill.fileLimits.maxFileSize,
         transport: parts.files.transport ?? httpsFileTransport,
         clock: parts.clock,
-        timeout: parts.files.timeout,
-        slots: parts.files.slots,
-        // two shares (#1297): the tenant's, and the owner's inside it; no owner, the tenant's one anonymous owner
+        timeout: skill.fileLimits.fetchTimeout,
+        slots: parts.files.slotsOf(skill.fileLimits),
+        // two shares (#1297): the tenant's, and the owner's inside it; no owner, the tenant's share alone (#1339)
         caller: { tenant: tenantKeyOf(tenantId), owner: callerKeyOf(tenantId, ownerId) },
         signal,
       });

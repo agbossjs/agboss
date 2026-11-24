@@ -120,7 +120,6 @@ async function settled(
     a2aTaskRetention: hours(1),
     a2aFileRetention: hours(1),
     a2aMessageRetention: hours(1),
-    a2aFiles: undefined,
     workflows: [],
     exposes: [],
     contracts: () => Promise.reject(new Error("no contracts in a unit")),

@@ -27,6 +27,7 @@ import { invalidParams, taskNotFound } from "./a2a-wire-errors.js";
 import type { FileRepository } from "../../infrastructure/file.repository.js";
 import type { FileFetches } from "../files/a2a-file-fetches.js";
 import type { FileFetchSlots } from "../files/a2a-file-slots.js";
+import type { FileLimits } from "../../files/file-policy.js";
 import type { FileTransport } from "../files/a2a-file-transport.js";
 import type { A2ADirectMessageRepository } from "../../infrastructure/a2a-direct-message.repository.js";
 
@@ -71,11 +72,10 @@ export interface A2AServerFiles {
   readonly store: FileRepository;
   /** A test's own transport; `undefined`: the built-in `node:https` one. */
   readonly transport: FileTransport | undefined;
-  readonly timeout: Milliseconds;
   /** The fetches in flight (#904): a concurrent duplicate of a message joins its file's fetch. */
   readonly fetches: FileFetches;
-  /** How many fetches run at once across messages (#1256). */
-  readonly slots: FileFetchSlots;
+  /** The slots a skill's fetches run in (#1256): its policy's own pool, else the application's shared one. */
+  readonly slotsOf: (limits: FileLimits) => FileFetchSlots;
 }
 
 /** The admitted caller of one request, and the request's own end (its connection closed). */

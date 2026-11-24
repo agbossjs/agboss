@@ -182,7 +182,7 @@ describe("[files.invalid-setting]: media types", () => {
 
   it("no type at all, named or defaulted", async () => {
     const named = await thrownBy(withFiles({ allowedMediaTypes: [] }));
-    const defaulted = await thrownBy(withFiles({}, { a2aFiles: { allowedMediaTypes: [] } }));
+    const defaulted = await thrownBy(withFiles({}, { filePolicy: { allowedMediaTypes: [] } }));
 
     for (const { name, found } of [named, defaulted])
       expect(found).toEqual([
@@ -194,9 +194,9 @@ describe("[files.invalid-setting]: media types", () => {
       ]);
   });
 
-  it("types the application's a2aFiles gave are narrowed at start, not checked strictly", async () => {
+  it("types the workflow's filePolicy gave are narrowed at start, not checked strictly", async () => {
     const { found } = await thrownBy(
-      withFiles({}, { a2aFiles: { allowedMediaTypes: ["application/zip", "image/png"] } }),
+      withFiles({}, { filePolicy: { allowedMediaTypes: ["application/zip", "image/png"] } }),
     );
 
     expect(found).toEqual([]);

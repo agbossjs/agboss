@@ -9,8 +9,7 @@ import { resolvedFilesOf } from "../../src/files/file-settings.js";
 const resolved = resolvedFilesOf({
   agent: {},
   defaults: undefined,
-  skills: [],
-  a2aFiles: undefined,
+  filePolicy: undefined,
   hasPiiPolicy: false,
 });
 

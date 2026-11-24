@@ -158,7 +158,7 @@ An agent whose output has file fields returns only files it saw: the answer tool
 the number in the headings (`file 3 of 5`, numbered once per visit across fields and sources), mapped back
 to the descriptor with the digest it was read as (`AnswerFiles.SeenInVisit`, the default). The original is
 returned only if `FileView.Original` was among its views. `AnswerFiles.Any` takes the model's own
-descriptors: a `url` only `https:` on `allowedFileOrigins`, a `fileId` only one the root execution holds.
+descriptors: a `url` only `https:` on the workflow `@FilePolicy`'s `allowedOrigins`, a `fileId` only one the root execution holds.
 `[files.answer-file-unseen]` at start for file fields in an answer whose agent saw no original to return.
 Output guardrails read the answer's files pinned to that digest; a file that changed fails closed.
 

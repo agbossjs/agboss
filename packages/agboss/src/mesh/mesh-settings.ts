@@ -4,7 +4,6 @@ import type { ApplicationContext } from "../flow/context/application-context.js"
 import type { ContractsSnapshot } from "../describe/contracts-types.js";
 import type { Clock } from "../infrastructure/clock.js";
 import type { MeshKeys } from "./mesh-keys.js";
-import type { A2AFileOptions } from "../a2a/files/a2a-file-options.js";
 
 /**
  * What the mesh needs of an application instance (#398, internal): its name — the `application`
@@ -31,8 +30,6 @@ export interface MeshSettings {
    * deduplicates a direct-reply skill's `messageId` for, its card's mesh `messageIdempotencyRetention`.
    */
   readonly a2aMessageRetention: number;
-  /** `@Application({ a2aFiles })` (#859): what the A2A skills take as files, and steps save. */
-  readonly a2aFiles: A2AFileOptions | undefined;
   /** The application's workflows (#859: where an exported start's finishes are). */
   readonly workflows: readonly Class[];
   /** `@Application({ exposes })` (#398 PR 3): the contracts a transport may serve. */

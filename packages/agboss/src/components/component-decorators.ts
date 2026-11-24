@@ -20,6 +20,7 @@ export const COMPONENT_DECORATORS = [
   "ChannelInterpreter",
   "ChannelListener",
   "HttpAuthenticator",
+  "FilePolicy",
   "InputGuardrail",
   "OutputGuardrail",
   "ToolInterceptor",
