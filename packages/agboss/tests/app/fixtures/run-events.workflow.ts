@@ -14,6 +14,7 @@ import {
   type ChannelEndEvent,
   type ChannelStartEvent,
   type ExecutionEndEvent,
+  type ExecutionCancelEvent,
   type ExecutionErrorEvent,
   type ExecutionEvent,
   type ExecutionPauseEvent,
@@ -139,6 +140,9 @@ export class RunLog {
   }
   onExecutionError(event: ExecutionErrorEvent): void {
     this.pushExecution("execution-error", event, event.error);
+  }
+  onExecutionCancel(event: ExecutionCancelEvent): void {
+    this.pushExecution("execution-cancel", event, event.compensations);
   }
   onExecutionRejected(event: ExecutionRejectedEvent): void {
     rejections.push(event);

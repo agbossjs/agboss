@@ -71,7 +71,7 @@ async function restingTree(apps: readonly TestApp[], mockText: string) {
     ends: (isCancel: boolean) =>
       records.complete(turn.id, {
         ...cancelledRecordOutcome(turn.route, turn.costUsd),
-        status: "failed",
+        status: isCancel ? "cancelled" : "failed",
         stopReason: isCancel ? CANCELLED_STOP_REASON : "the tree failed",
       }),
     pause: () => pauses.findByTenantIdAndPauseId(DEFAULT_TENANT_ID, pauseId),

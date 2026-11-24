@@ -192,5 +192,11 @@ function formatWorkflowOutput(result: ExecutionOutput): unknown {
       pending: result.pending,
     };
   }
-  return result.output ?? result;
+  if (result.status === ExecutionStatus.Finished) return result.output;
+  // stopped or cancelled by an operator (#1341): not a result, and not an error of the call
+  return {
+    status: result.status,
+    threadId: result.threadId,
+    message: `Workflow ${result.status}.`,
+  };
 }

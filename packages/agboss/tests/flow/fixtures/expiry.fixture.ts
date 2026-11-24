@@ -20,6 +20,7 @@ import type { ActionHandler } from "../../../src/flow/handlers.js";
 import { PauseExpiredError } from "../../../src/flow/runtime/pause-expired-error.js";
 import type {
   ExecutionEndEvent,
+  ExecutionCancelEvent,
   ExecutionErrorEvent,
   ExecutionResumeEvent,
 } from "../../../src/index.js";
@@ -80,6 +81,8 @@ export const expiry = {
   recorded: [] as string[],
   /** The errors executions failed with, in order. */
   errors: [] as Error[],
+  /** The executions cancelled, in order (#1341: a cancel is an outcome, not an error). */
+  cancels: [] as ExecutionCancelEvent[],
   /** Every resume the observers heard of. */
   resumes: [] as ExecutionResumeEvent[],
   /** The executions that ended at a finish. */
@@ -111,6 +114,7 @@ export function resetExpiry(): void {
   expiry.directorAsked.length = 0;
   expiry.recorded.length = 0;
   expiry.errors.length = 0;
+  expiry.cancels.length = 0;
   expiry.resumes.length = 0;
   expiry.ended.length = 0;
   expiry.stores.length = 0;
@@ -406,6 +410,10 @@ export class ExpiryLog {
 
   onExecutionError(event: ExecutionErrorEvent): void {
     expiry.errors.push(event.error);
+  }
+
+  onExecutionCancel(event: ExecutionCancelEvent): void {
+    expiry.cancels.push(event);
   }
 
   async onExecutionResume(event: ExecutionResumeEvent): Promise<void> {

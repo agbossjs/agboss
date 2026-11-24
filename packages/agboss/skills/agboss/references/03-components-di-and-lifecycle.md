@@ -813,8 +813,9 @@ await app.close(); // onStop → running executions awaited → onDestroy
 - **`executionId` vs `threadId`**: an execution is one pass of `app.execute` (or a resume); a thread
   is the conversation of many executions, keyed by `tenantId` + `threadId`. Without a `threadId` a
   new thread is made (its id in the result); an id the tenant does not have yet creates it.
-- **Cancel** by `app.cancel(threadId, { tenantId, ownerId })` (a running execution fails with
-  `ExecutionCancelledError`, a paused one is dropped) or by the `signal` you passed.
+- **Cancel** by `app.cancel(threadId, { tenantId, ownerId })` (a running execution resolves
+  `ExecutionStatus.Cancelled` — inside a step the abort surfaces as `ExecutionCancelledError`, which
+  no caller of `execute` / `resume` sees —, a paused one is dropped) or by the `signal` you passed.
 - After `app.close()` every `execute` / `resume` rejects with `ApplicationStoppingError`.
 
 ## Undoable actions: `compensateWith`, `committedBy`

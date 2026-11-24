@@ -8,6 +8,7 @@
 import type { TestAPI } from "vitest";
 import { expect, vi } from "vitest";
 import { ExecutionCancelledError } from "../../src/core/errors.js";
+import { ExecutionStatus } from "../../src/app/types.js";
 import { CANCELLED_STOP_REASON } from "../../src/app/live-runs.js";
 import {
   markUnwinding,
@@ -98,14 +99,14 @@ async function expectCancelled(tree: Resting): Promise<void> {
     resolution: PauseResolution.Cancelled,
   });
   expect(await tree.record()).toMatchObject({
-    status: "failed",
+    status: "cancelled",
     stopReason: CANCELLED_STOP_REASON,
   });
   expect(await tree.hasPausedRun()).toBe(false);
   expect(seen.charges).toEqual([]);
   // the end observed once, as a cancel (`onExecutionError`)
-  expect(seen.errors).toHaveLength(1);
-  expect(seen.errors[0]).toBeInstanceOf(ExecutionCancelledError);
+  expect(seen.errors).toEqual([]);
+  expect(seen.cancels).toHaveLength(1);
 }
 
 /** Ended as nothing: the tree still rests at its pause. */
@@ -220,16 +221,17 @@ export function cancelRestingCases(
       decision: { approved: true },
     });
     const settled = answered.then(
-      () => undefined,
+      (done: unknown) => done,
       (error: unknown) => error,
     );
     await sweeps(clock, 3);
     const refusal = await settled;
 
     // the answer never ran the cancelled tree: it was refused, with a typed error
-    expect(refusal instanceof PauseClosedError || refusal instanceof ExecutionCancelledError).toBe(
-      true,
-    );
+    expect(
+      refusal instanceof PauseClosedError ||
+        (refusal as { status?: unknown } | undefined)?.status === ExecutionStatus.Cancelled,
+    ).toBe(true);
     await expectCancelled(tree);
   });
 
@@ -320,16 +322,17 @@ export function cancelRestingCases(
     const refusal = await instance(apps, 1)
       .resume({ pauseId: tree.pauseId, decision: { approved: true } })
       .then(
-        () => undefined,
+        (done: unknown) => done,
         (error: unknown) => error,
       );
 
-    expect(refusal instanceof PauseClosedError || refusal instanceof ExecutionCancelledError).toBe(
-      true,
-    );
+    expect(
+      refusal instanceof PauseClosedError ||
+        (refusal as { status?: unknown } | undefined)?.status === ExecutionStatus.Cancelled,
+    ).toBe(true);
     expect(seen.charges).toEqual([]);
     expect(await tree.record()).toMatchObject({
-      status: "failed",
+      status: "cancelled",
       stopReason: CANCELLED_STOP_REASON,
     });
   });
@@ -366,14 +369,14 @@ export function cancelRestingCases(
 
       await sweeps(clock, 3);
 
-      expect(seen.errors).toHaveLength(1);
-      expect(seen.errors[0]).toBeInstanceOf(ExecutionCancelledError);
+      expect(seen.errors).toEqual([]);
+      expect(seen.cancels).toHaveLength(1);
       expect(seen.resumes).toEqual([]);
       expect(seen.holds).toHaveLength(1);
       const [ended] = await first
         .resolve(ExecutionRecordRepository)
         .lastTurns(DEFAULT_TENANT_ID, "t-1152r", 1);
-      expect(ended).toMatchObject({ status: "failed", stopReason: CANCELLED_STOP_REASON });
+      expect(ended).toMatchObject({ status: "cancelled", stopReason: CANCELLED_STOP_REASON });
     });
   };
 

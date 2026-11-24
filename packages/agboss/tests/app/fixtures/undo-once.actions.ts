@@ -10,6 +10,7 @@ import {
   oneOf,
   variant,
   type ExecutionEndEvent,
+  type ExecutionCancelEvent,
   type ExecutionErrorEvent,
   type ExecutionLeaseTakeoverEvent,
   type Produced,
@@ -231,6 +232,14 @@ export class UndoOnceLog {
     const { instanceId } = this.applicationContext;
     const undone = event.compensations.map((undo) => `${undo.compensated.nodeId} ${undo.status}`);
     undoOnceSeen.roots.push({ instanceId, error: event.error.name, undone });
+  }
+
+  /** A root's cancel (#1341) is its end as an error was: kept with the cancel's class name. */
+  onExecutionCancel(event: ExecutionCancelEvent): void {
+    if (event.parentExecutionId !== undefined) return;
+    const { instanceId } = this.applicationContext;
+    const undone = event.compensations.map((undo) => `${undo.compensated.nodeId} ${undo.status}`);
+    undoOnceSeen.roots.push({ instanceId, error: "ExecutionCancelledError", undone });
   }
 
   onExecutionLeaseTakeover(event: ExecutionLeaseTakeoverEvent): void {

@@ -1,22 +1,17 @@
-import type { CompensationRecord } from "../flow/compensation.js";
-import type { LaunchRecord } from "../flow/runtime/launch/records.js";
-import type { ChildExecutionRecord, HandledErrorRecord } from "../flow/runtime/child-records.js";
 import type { Class } from "../components/injection.js";
-import type { CostReport } from "../finops/usage.js";
 import type {
   ExecutionInputOf,
   ExecutionOptionsArgs,
   ExecutionOutputOf,
 } from "../flow/generated-types.js";
 import type { TenantValues } from "../flow/context/context-values.js";
-import type { ExecutionRecord } from "../flow/runtime/execution-record.js";
-import type { ToolCallRecord } from "../flow/runtime/tool-calls.js";
-import type { ComponentRecord } from "../flow/runtime/records.js";
-import type { PendingPause, PendingPauseBase } from "../pause/index.js";
+import type { PendingPauseBase } from "../pause/index.js";
 import type { PauseClosedReason, PauseKind, PauseStatus } from "../infrastructure/pause-record.js";
-import type { Compacted } from "../run/compaction.js";
 import type { ExecutionStreamEvent } from "../run/types.js";
 import type { Milliseconds, WorkingDuration } from "../units/index.js";
+import type { ExecutionOutput } from "./execution-output.js";
+
+export type * from "./execution-output.js";
 import type { HealthReport } from "../health/health-check.js";
 import type { ExecutionAuditEventRecord } from "../infrastructure/execution-audit-log.repository.js";
 import type {
@@ -25,12 +20,15 @@ import type {
 } from "../infrastructure/outbound-call.repository.js";
 
 /**
- * How an execution ended for its caller (#269, Q56): at a finish (`result.output`, `result.finish`)
- * or paused (`result.pending`). A failure is never a status — the call rejects.
+ * How an execution ended for its caller (#269, Q56, #1341): at a finish (`result.output`,
+ * `result.finish`), paused (`result.pending`), stopped (kept as it stood, nothing undone) or
+ * cancelled (what it had left undoable was undone). A failure is never a status — the call rejects.
  */
 export enum ExecutionStatus {
   Finished = "finished",
   Paused = "paused",
+  Stopped = "stopped",
+  Cancelled = "cancelled",
 }
 
 /** What every leg of an execution takes, `execute` and `resume` alike. */
@@ -224,68 +222,6 @@ export interface CancelOutput {
 }
 
 /**
- * What one execution (or resume) of the app ended with: `output` and `finish` when it reached a
- * workflow finish, `pending` when it waits for answers; `path` = the node ids it visited, `spend`
- * = its cost; `record` only with `{ record: true }`.
- */
-export interface ExecutionOutput<TOutput = unknown> {
-  readonly status: ExecutionStatus;
-  /** The execution's thread: `options.threadId` to continue it. */
-  readonly threadId: string;
-  /** The tenant of the thread (#261): `"default"` when the execution named none. */
-  readonly tenantId: string;
-  /**
-   * The execution's id: the same in its observer events, `executionContext.executionId`, its
-   * record and its trace, and kept by its resumes.
-   */
-  readonly executionId: string;
-  /** The workflow finish the execution reached. */
-  readonly finish?: ComponentRecord;
-  /** The finish's output DTO — the business result only. */
-  readonly output?: TOutput;
-  /**
-   * Every pause the execution waits for (#267 AC1) — several when parallel branches each wait;
-   * empty unless `status` is `Paused`. A `PauseAnswerer.Channel` pause comes without its `pauseId`.
-   */
-  readonly pending: readonly PendingPause[];
-  /** Node ids (component names) in the order the execution visited them. */
-  readonly path: readonly string[];
-  readonly spend: CostReport;
-  /**
-   * Its parallel launches (#273), in the order they joined: each one's id, how many items (or
-   * listed targets) there were and were launched — `{ items: 200, taken: 50 }` after `maxItems` —
-   * and how each branch ended.
-   */
-  readonly launches: readonly LaunchRecord[];
-  /**
-   * Its child executions that ended (#263), in the order they ended: each one's id, workflow, item,
-   * start, how it ended (`ChildExecutionStatus`), its finish or error, its own spend and its own
-   * children — nested records, never in the thread's conversation history.
-   */
-  readonly children: readonly ChildExecutionRecord[];
-  /** The failures an `.onError` side path took, in order (`toHaveHandledError`). */
-  readonly handledErrors: readonly HandledErrorRecord[];
-  /**
-   * The undo actions that ran (#340), in the order they ended: on a side path
-   * (`CompensationReason.SidePath`) or automatically — a failed join's finished branches
-   * (`JoinFailed`) — each with the step it undid, how it ended and when (`toHaveCompensated`).
-   */
-  readonly compensations: readonly CompensationRecord[];
-  /**
-   * Its own agents' tool calls (#395), in call order — each with its step (the tool and the agent's
-   * visit), input, output, `ToolCallStatus`, error and times; a child's are in `result.children`.
-   * Real values, like `output`; `result.record.toolCalls` holds them masked.
-   */
-  readonly toolCalls: readonly ToolCallRecord[];
-  /** What the compactions did before this execution read its thread (#120 S132), when one did. */
-  readonly compacted?: readonly Compacted[];
-  /** The conversation in the tracing UI (session = thread), when tracing is on. */
-  readonly traceUrl?: string;
-  /** The full execution record, with `app.execute(…, { record: true })`. */
-  readonly record?: ExecutionRecord;
-}
-
-/**
  * A workflow, built and started: its container, graph (all assembly errors at once) and
  * `onStart` hooks. `execute` starts at a workflow start, `resume` continues a paused thread,
  * `close` runs `onStop` hooks and closes MCP connections.
@@ -345,8 +281,10 @@ export interface App {
     options?: PauseCallerOptions,
   ): Promise<PauseReassignment>;
   /**
-   * Cancels the thread's run: a running one is aborted (`executionContext.signal`; its `execute` rejects
-   * with `ExecutionCancelledError`), a paused one is dropped (its `resume` throws `NotPausedError`).
+   * Cancels the thread's run: a running one is aborted (`executionContext.signal`; its `execute`
+   * resolves with `ExecutionStatus.Cancelled` once what it had undoable is undone — an undo that
+   * failed rejects with `ExecutionError.CompensationFailed`), a paused one is dropped (its `resume`
+   * throws `NotPausedError`).
    * A thread the tenant does not have → `UnknownThreadError`.
    */
   cancel(threadId: string, options?: CancelOptions): Promise<CancelOutput>;

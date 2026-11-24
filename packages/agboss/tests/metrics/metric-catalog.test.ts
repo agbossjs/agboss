@@ -14,9 +14,11 @@ import {
   HandOverReason,
   LeaseTakeoverReason,
   type CompensationEndEvent,
+  type ExecutionCancelEvent,
   type ExecutionEndEvent,
   type ExecutionErrorEvent,
   type ExecutionLeaseTakeoverEvent,
+  type ExecutionStopEvent,
   type StepHandedOverEvent,
 } from "../../src/index.js";
 import { testWith } from "../../src/testing/index.js";
@@ -151,6 +153,25 @@ describe("#485 AC4: the catalog", () => {
       { workflow: "remote-item-workflow", outcome: "cancelled" },
       { workflow: "remote-item-workflow", outcome: "failed" },
       { workflow: "remote-item-workflow", outcome: "failed" },
+    ]);
+  });
+});
+
+describe("#1341: a cancel and a stop are counted as their own outcomes, never as failures", () => {
+  const workflow = { name: "cw", version: "1", startedVersion: "1", configHash: "c" };
+
+  it("onExecutionCancel counts `cancelled`, onExecutionStop counts `stopped`, and neither counts `failed`", async () => {
+    const { provider, reader } = instanceMeter();
+    const observer = metricsObserverOf(provider.getMeter("test"));
+
+    await observer.onExecutionCancel?.(eventOf<ExecutionCancelEvent>({ workflow }));
+    await observer.onExecutionStop?.(eventOf<ExecutionStopEvent>({ workflow }));
+
+    const collected = await collect({ provider, reader });
+    const points = [...collected.values()].flatMap((metric) => metric.points);
+    expect(points.map((point) => point.attributes)).toEqual([
+      { workflow: "cw", outcome: "cancelled" },
+      { workflow: "cw", outcome: "stopped" },
     ]);
   });
 });

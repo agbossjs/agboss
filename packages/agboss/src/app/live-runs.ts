@@ -274,13 +274,13 @@ export const runOptionsOf = (call: TreeCall, signal: AbortSignal): AgentExecutio
 export const cancelledErrorOf = (threadId: string): ExecutionCancelledError =>
   new ExecutionCancelledError({ message: `thread "${threadId}" was cancelled` });
 
-/** The reason a cancelled execution's record gives (#807: what reads it back as cancelled). */
+/** The reason a cancelled execution's record gives. */
 export const CANCELLED_STOP_REASON = "the run was cancelled";
 
-/** The Turn outcome of a cancelled execution: the path it took and what it cost. */
+/** The Turn outcome of a cancelled execution: the path it took and what it cost (#1341: `cancelled`). */
 export const cancelledRecordOutcome = (route: readonly string[], costUsd: Usd): TurnOutcome => ({
   replyWith: "",
-  status: "failed",
+  status: "cancelled",
   stopReason: CANCELLED_STOP_REASON,
   route,
   steps: [],

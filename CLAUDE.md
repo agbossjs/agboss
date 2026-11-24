@@ -1653,7 +1653,7 @@ description, ask: AskDto, answer: AnswerDto, answerer, replyInterpreter?, maxVis
   `onExecutionPause` (`pending`, when nothing else can move — again after a partial resume) /
   `onExecutionResume` (`reason: ResumeReason`, `decision`, `answeredBy`) around a pause,
   `onExecutionEnd` once when it ends at a finish (`finish`, `spend`), `onExecutionError` when it
-  fails — also after a resume (a cancelled paused one: `ExecutionCancelledError`); a root's end only
+  fails — also after a resume (a cancel is `onExecutionCancel`, a stop `onExecutionStop`: outcomes, #1341); a root's end only
   while its pass still holds the tree's lease (#597, `observed-pass.ts`: a holder frozen after the
   end became durable, whose tree another instance recovered and ended, stops at its own fence —
   `ExecutionLeaseLostError`, no announcement — at most once, as a child's). A child's end
@@ -2358,7 +2358,7 @@ askedAt, resolvedAt, decision, asked }`, the decision PII-masked, none when with
   non-`Date` / not-after-`from` → `WorkingCalendarError`, logged `pause.working-calendar-failed`) before `send`; the question runner and the agent
   approval wrap it in `QuestionFailedError` / `AgentFailedError`. `app.extendPause` (`app/pause-extension.ts`) asks the same in `pauseFrameOf`.
   Rules: `channels/working-time-rules.ts`. `app.cancel(threadId, { tenantId, ownerId })` aborts a
-  running execution (`ExecutionCancelledError`) or drops a paused one (its pauses withdrawn); **cancel is a hard fence for effects
+  running execution (its `execute` resolves `ExecutionStatus.Cancelled`, `app/cancelled-output.ts`) or drops a paused one (its pauses withdrawn); **cancel is a hard fence for effects
   (#909):** every path that cancels a tree (a local `app.cancel`, a remote one, a paused tree's, A2A `CancelTask`) first writes the
   tree's durable mark with `ExecutionLeaseRepository.requestCancel(tree)` — in the lease store's database, keyed by the root, kept
   until its tree is over (its lease retired) and the fencing stores' retention lifts it — never by age alone: a tree not over stays fenced — and `app.cancel` resolves only once it is durable (it rejects with the store's

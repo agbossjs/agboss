@@ -2,13 +2,16 @@ import { ExecutionCancelledError } from "../core/errors.js";
 import { CompensationFailedError } from "../flow/compensation.js";
 import { writeCancelRequest, type CancelParts } from "./cancel-requests.js";
 import { endedWithoutPass, rootRecordOf } from "./ended-tree.js";
-import { endOfRecord } from "./tree-end-pauses.js";
+import { ExecutionRecordStatus } from "../infrastructure/execution-record.repository.js";
 import type { ThreadKey } from "./live-runs.js";
 import { treeOf } from "./tree-ends.js";
 import { LeaseTakeoverReason } from "../infrastructure/execution-audit-log.repository.js";
 import { rootTakeOf } from "./execution-leases.js";
 import type { ExecutionTree } from "../infrastructure/execution-tree.repository.js";
 import type { TreeState } from "./tree-move-types.js";
+
+/** The status of a cancelled root (text: a record's status may be compared with it). */
+const CANCELLED: string = ExecutionRecordStatus.Cancelled;
 
 /**
  * `app.cancel` of a thread whose tree rests paused on this application (#340 PR 3, Q6): under the
@@ -76,5 +79,5 @@ async function endedAsCancelled(
   if (record === undefined || record.status === "running" || record.status === "paused")
     return false;
   await parts.trees.deleteAllInTree(tree);
-  return record.status === "failed" && endOfRecord(record) instanceof ExecutionCancelledError;
+  return CANCELLED === record.status;
 }

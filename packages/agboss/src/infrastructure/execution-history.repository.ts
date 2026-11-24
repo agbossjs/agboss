@@ -25,6 +25,7 @@ export enum ExecutionHistoryStatus {
   Paused = "paused",
   Finished = "finished",
   Failed = "failed",
+  Stopped = "stopped",
   Cancelled = "cancelled",
 }
 

@@ -28,7 +28,7 @@ import {
 
 const PATH = ["chat-workflow-start", "main-router", "writer-agent", "reply-workflow-finish"];
 
-const run = (parts: Partial<ExecutionOutput>): ExecutionOutput => ({
+const run = (parts: Record<string, unknown>): ExecutionOutput => ({
   threadId: "thread-1",
   tenantId: "default",
   executionId: "run-1",

@@ -122,7 +122,7 @@ describe("#333 PR 2 AC5: a cancel reaches the children on every instance", () =>
     });
 
     const cancelled = await first(apps).cancel("t-cancel");
-    await expect(call).rejects.toBeInstanceOf(ExecutionCancelledError);
+    await expect(call).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
     await clock.advance(seconds(10));
 
     expect(cancelled).toEqual({ cancelled: true });

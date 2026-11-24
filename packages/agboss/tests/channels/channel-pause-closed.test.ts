@@ -230,7 +230,7 @@ describe("#940 AC2: cancel / FailFast / quorum / tree end: one notice each with 
 
       await app.cancel(ACME.threadId, { tenantId: "acme" });
 
-      await expect(run).rejects.toBeInstanceOf(ExecutionCancelledError);
+      await expect(run).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
       await until(() => seen.closed.length === 1);
       expect(seen.closed).toMatchObject([{ orderId: "7", reason: PauseClosedReason.Cancelled }]);
     },

@@ -1,6 +1,7 @@
 import {
   Observer,
   type CompensationEndEvent,
+  type ExecutionCancelEvent,
   type ExecutionEndEvent,
   type ExecutionErrorEvent,
   type ExecutionLeaseTakeoverEvent,
@@ -36,6 +37,21 @@ export class FaultObserver {
       rootExecutionId,
       tenantId,
       error: error.name,
+      compensations: compensations.length,
+    });
+  }
+
+  /**
+   * A cancelled execution (#1341) ends as a failure did: the scenarios wait for its end and count
+   * what it undid — its error is the cancel's class name.
+   */
+  onExecutionCancel(event: ExecutionCancelEvent): void {
+    const { executionId, rootExecutionId, tenantId, compensations } = event;
+    this.faultPodLink.emit("failed", {
+      executionId,
+      rootExecutionId,
+      tenantId,
+      error: "ExecutionCancelledError",
       compensations: compensations.length,
     });
   }

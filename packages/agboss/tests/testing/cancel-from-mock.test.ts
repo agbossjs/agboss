@@ -14,6 +14,7 @@ import {
   Support,
 } from "./fixtures/desk.workflow.js";
 import { execute } from "../helpers/flow.js";
+import { ExecutionStatus } from "../../src/app/types.js";
 
 const desk = testWith(DeskApplication);
 
@@ -33,7 +34,7 @@ describe("AC14: app.cancel from inside a mock", () => {
 
       const run = execute(app, ChatStart, { text: "where is 7?" }, { threadId });
 
-      await expect(run).rejects.toFailWith(ExecutionCancelledError);
+      await expect(run).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
       expect(mockOf(OrderBook).statusOf.mock.calls).toEqual([["7"]]);
     },
   );

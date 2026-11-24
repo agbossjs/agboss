@@ -15,6 +15,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type ExecutionEndEvent,
+  type ExecutionCancelEvent,
   type ExecutionErrorEvent,
   type ExecutionLease,
   type ExecutionResumeEvent,
@@ -60,6 +61,8 @@ export const seen = {
   resumes: [] as Pick<ExecutionResumeEvent, "reason" | "decision">[],
   ends: [] as EndSeen[],
   errors: [] as Error[],
+  /** The cancels (#1341): an execution cancelled is an outcome, never an error. */
+  cancels: [] as ExecutionCancelEvent[],
   leases: [] as ExecutionLease[],
 };
 
@@ -201,6 +204,9 @@ export class RecoveryLog {
   }
   onExecutionError(event: ExecutionErrorEvent): void {
     seen.errors.push(event.error);
+  }
+  onExecutionCancel(event: ExecutionCancelEvent): void {
+    seen.cancels.push(event);
   }
 }
 

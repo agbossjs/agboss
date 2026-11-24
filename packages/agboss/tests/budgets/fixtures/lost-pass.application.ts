@@ -10,6 +10,7 @@ import {
   WorkflowStart,
   type Produced,
   type ExecutionEndEvent,
+  type ExecutionCancelEvent,
   type ExecutionErrorEvent,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
@@ -102,6 +103,10 @@ export class SpendLog {
     if (event.parentExecutionId === undefined) lostPassSeen.ends.push(event.spend);
   }
   onExecutionError(event: ExecutionErrorEvent): void {
+    if (event.parentExecutionId === undefined) lostPassSeen.failures += 1;
+  }
+  /** A root's cancel (#1341) ends it as a failure did: it is counted with them. */
+  onExecutionCancel(event: ExecutionCancelEvent): void {
     if (event.parentExecutionId === undefined) lostPassSeen.failures += 1;
   }
 }

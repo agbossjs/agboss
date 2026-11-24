@@ -96,6 +96,8 @@ const ENDED_STATUSES: readonly string[] = [
   ExecutionRecordStatus.Answered,
   ExecutionRecordStatus.Failed,
   ExecutionRecordStatus.Guarded,
+  ExecutionRecordStatus.Stopped,
+  ExecutionRecordStatus.Cancelled,
 ];
 
 /**

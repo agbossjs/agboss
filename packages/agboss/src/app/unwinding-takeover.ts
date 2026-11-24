@@ -7,6 +7,7 @@ import type { CancelParts, SweptRoot } from "./cancel-requests.js";
 import { recordEndedOf } from "./recovery-pass.js";
 import type { HeldExecutionLease } from "./execution-leases.js";
 import { endedWithoutPass } from "./ended-tree.js";
+import type { ExecutionOutput } from "./types.js";
 import { treeOf } from "./tree-ends.js";
 import { LeaseTakeoverReason } from "../infrastructure/execution-audit-log.repository.js";
 import { rootTakeOf } from "./execution-leases.js";
@@ -22,27 +23,32 @@ import type { TreeState } from "./tree-move-types.js";
  * pass runs. Loaded only when a tree has the mark.
  */
 
-/** Finishes the tree's undo under its lease's `signal`; its final error (none: no mark). */
+/**
+ * Finishes the tree's undo under its lease's `signal`; its cancelled output when a cancel began the
+ * undo, else its final error (none: no mark).
+ */
 async function endedUnwinding(
   parts: CancelParts,
   state: TreeState,
   lease: HeldExecutionLease,
-): Promise<Error | undefined> {
+): Promise<ExecutionOutput | Error | undefined> {
   const mark = await unwindingOf(parts.trees, treeOf(state), UNWINDING_KEY);
   if (mark === undefined) return undefined;
   const text = `execution ${state.runId} is recovered: its automatic undo goes on, the undos done are skipped`;
   const subject = { executionId: state.runId, tenantId: state.tenantId };
   parts.deps.log.warn("compensation.recovered", text, subject);
   const end = { cause: causeOfMark(mark), signal: lease.signal, lease };
-  return (await endedWithoutPass(parts, state, end)).error;
+  const ended = await endedWithoutPass(parts, state, end);
+  // a cancelled tree resolves its caller cancelled; any other end rejects with its final error
+  return ended.output ?? ended.error;
 }
 
-/** A lease just taken of a tree with the mark: the tree ended, the lease released; its final error. */
+/** A lease just taken of a tree with the mark: the tree ended, the lease released; its output or final error. */
 export async function endedUnwindingAtTake(
   parts: CancelParts,
   state: TreeState,
   lease: HeldExecutionLease,
-): Promise<Error | undefined> {
+): Promise<ExecutionOutput | Error | undefined> {
   try {
     return await endedUnwinding(parts, state, lease);
   } finally {

@@ -89,9 +89,9 @@ describe("#939 AC4: a late answer is a PauseClosedError with its reason", () => 
     expect(seen.charges).toEqual([]);
   });
 
-  for (const [ended, reason, stopReason] of [
-    ["a tree failure", PauseClosedReason.TreeEnded, "the tree failed"],
-    ["a cancel", PauseClosedReason.Cancelled, CANCELLED_STOP_REASON],
+  for (const [ended, reason, stopReason, status] of [
+    ["a tree failure", PauseClosedReason.TreeEnded, "the tree failed", "failed"],
+    ["a cancel", PauseClosedReason.Cancelled, CANCELLED_STOP_REASON, "cancelled"],
   ] as const)
     test(`after ${ended} that left the pause open (its root's record ended): the resume finishes the end and is refused — ${reason}`, async ({
       app,
@@ -105,7 +105,7 @@ describe("#939 AC4: a late answer is a PauseClosedError with its reason", () => 
       const [record] = (await records?.lastTurns(DEFAULT_TENANT_ID, paused.threadId, 1)) ?? [];
       if (records === undefined || record === undefined) throw new Error("the pause has no record");
       const outcome = cancelledRecordOutcome(record.route, record.costUsd);
-      await records.complete(record.id, { ...outcome, status: "failed", stopReason });
+      await records.complete(record.id, { ...outcome, status, stopReason });
       await clock.advance(minutes(3));
       const closedAt = clock.now().toISOString();
 

@@ -179,4 +179,5 @@ export enum ExecutionOutcome {
   Finished = "finished",
   Failed = "failed",
   Cancelled = "cancelled",
+  Stopped = "stopped",
 }

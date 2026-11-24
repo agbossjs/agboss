@@ -22,6 +22,7 @@ import {
   LifecycleApplication,
 } from "./fixtures/lifecycle.workflow.js";
 import { execute } from "../helpers/flow.js";
+import { ExecutionStatus } from "../../src/app/types.js";
 
 beforeEach(() => {
   events.length = 0;
@@ -144,7 +145,7 @@ describe("#261 AC3: after app.close() no new execution is accepted", () => {
     gate.open();
 
     expect(cancelled).toEqual({ cancelled: true });
-    await expect(running).rejects.toBeInstanceOf(ExecutionCancelledError);
+    await expect(running).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
     await closing;
   });
 });

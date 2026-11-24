@@ -44,6 +44,7 @@ import {
   seen as fenced,
 } from "./fixtures/cancel-fence.workflow.js";
 import { appliedThenSilent, outcomeOf } from "./fixtures/bound-stubs.js";
+import { ExecutionStatus } from "../../src/app/types.js";
 
 beforeEach(() => {
   resetLease();
@@ -119,7 +120,7 @@ describe("#928 AC2: requestCancel", () => {
       await second.ready();
       gates.before = 1;
       const call = execute(first, FenceChargeStart, { text: "order-1" }, { threadId: "t-2" });
-      const moving = rejectionOf(call);
+      const moving = call;
       await frozenRuns(1);
       const mark = appliedThenSilent(
         vi.spyOn(InMemoryExecutionLeaseRepository.prototype, "requestCancel"),
@@ -140,7 +141,7 @@ describe("#928 AC2: requestCancel", () => {
 
       letAllGo();
       const ended = await moving;
-      expect(ended).toBeInstanceOf(ExecutionCancelledError);
+      expect(ended).toMatchObject({ status: ExecutionStatus.Cancelled });
       expect(fenced.refusals).toHaveLength(1);
       expect(fenced.refusals[0]).toBeInstanceOf(ExecutionCancelFencedError);
       expect(fenced.charged).toEqual([]);

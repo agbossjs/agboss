@@ -38,6 +38,7 @@ import {
   THREAD,
   resetKeptUndo,
 } from "./fixtures/kept-undo.js";
+import { ExecutionStatus } from "../../src/app/types.js";
 
 const test = testWith(KeptUndoApplication);
 
@@ -86,7 +87,7 @@ describe("#635: a root's kept record lists every undo that ran, as its error eve
 
     await app.cancel("t-1");
 
-    await expect(run).rejects.toBeInstanceOf(ExecutionCancelledError);
+    await expect(run).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
     expect(await keptAsTheEvent(app, "cancelled")).toEqual([ROOM, SEAT]);
   });
 
@@ -155,7 +156,7 @@ describe("#635: a root's kept record lists every undo that ran, as its error eve
 
     const run = execute(app, UnwindGuestWorkflowStart, GUEST, THREAD);
 
-    await expect(run).rejects.toBeInstanceOf(ExecutionCancelledError);
+    await expect(run).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
     expect(await keptAsTheEvent(app, "cancelled")).toEqual([ROOM]);
   });
 });

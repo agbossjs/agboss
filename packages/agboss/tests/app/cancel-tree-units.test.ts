@@ -297,7 +297,7 @@ describe("#1356: the cancel of a thread resting paused", () => {
 
     it("ended as cancelled by its holder: the cancel did its job, and the keys of the tree are removed", async () => {
       const { parts, trees, turns } = moved({
-        status: "failed",
+        status: "cancelled",
         threadId: "thread-1",
         stopReason: 'thread "thread-1" was cancelled',
       });
@@ -309,7 +309,7 @@ describe("#1356: the cancel of a thread resting paused", () => {
 
     it("the stop reason the framework writes for a cancel counts as one", async () => {
       const { parts } = moved({
-        status: "failed",
+        status: "cancelled",
         threadId: "thread-1",
         stopReason: "the run was cancelled",
       });

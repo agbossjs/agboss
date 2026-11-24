@@ -469,8 +469,7 @@ export interface AgentExecutionOutput {
     readonly startedVersion?: string;
     // (undocumented)
     readonly startInput: unknown;
-    // (undocumented)
-    readonly status: ExecutionStatus;
+    readonly status: ExecutionStatus.Finished | ExecutionStatus.Paused;
     readonly tenantId: string;
     // (undocumented)
     readonly threadId: string;
@@ -1152,6 +1151,20 @@ export interface CallOptions {
 export const cancelFencedErrorOf: (error: unknown) => ExecutionCancelFencedError | undefined;
 
 // @public
+export interface CancelledExecutionOutput extends ExecutionOutputBase {
+    // (undocumented)
+    readonly finish?: undefined;
+    // (undocumented)
+    readonly output?: undefined;
+    // (undocumented)
+    readonly pending: readonly [];
+    // (undocumented)
+    readonly reason?: string | undefined;
+    // (undocumented)
+    readonly status: ExecutionStatus.Cancelled;
+}
+
+// @public
 export interface CancelOptions {
     readonly ownerId?: string | undefined;
     // (undocumented)
@@ -1588,7 +1601,8 @@ export interface ChildExecutionRecord extends Omit<EndedChildRecord, "children">
 export enum ChildExecutionStatus {
     Cancelled = "cancelled",
     Failed = "failed",
-    Finished = "finished"
+    Finished = "finished",
+    Stopped = "stopped"
 }
 
 // @public
@@ -2972,6 +2986,13 @@ export interface ExecutionBudgetOptions<TDeps extends readonly Token[]> extends 
 }
 
 // @public
+export interface ExecutionCancelEvent extends ExecutionEvent {
+    readonly compensations: readonly CompensationRecord[];
+    readonly reason?: string | undefined;
+    readonly spend: CostReport;
+}
+
+// @public
 export class ExecutionCancelFencedError extends ExecutionCancelledError {
     constructor(options: ExecutionCancelFencedErrorOptions);
     // (undocumented)
@@ -3316,7 +3337,9 @@ export enum ExecutionHistoryStatus {
     // (undocumented)
     Finished = "finished",
     // (undocumented)
-    Paused = "paused"
+    Paused = "paused",
+    // (undocumented)
+    Stopped = "stopped"
 }
 
 // @public
@@ -3423,6 +3446,7 @@ export interface ExecutionObserver {
     onCompactionStart?(event: CompactionStartEvent): void | Promise<void>;
     onCompensationEnd?(event: CompensationEndEvent): void | Promise<void>;
     onCompensationStart?(event: CompensationStartEvent): void | Promise<void>;
+    onExecutionCancel?(event: ExecutionCancelEvent): void | Promise<void>;
     onExecutionEnd?(event: ExecutionEndEvent): void | Promise<void>;
     onExecutionError?(event: ExecutionErrorEvent): void | Promise<void>;
     onExecutionLeaseTakeover?(event: ExecutionLeaseTakeoverEvent): void | Promise<void>;
@@ -3430,6 +3454,7 @@ export interface ExecutionObserver {
     onExecutionRejected?(event: ExecutionRejectedEvent): void | Promise<void>;
     onExecutionResume?(event: ExecutionResumeEvent): void | Promise<void>;
     onExecutionStart?(event: ExecutionStartEvent): void | Promise<void>;
+    onExecutionStop?(event: ExecutionStopEvent): void | Promise<void>;
     // (undocumented)
     onGuardrailEnd?(event: GuardrailEndEvent): void | Promise<void>;
     // (undocumented)
@@ -3502,22 +3527,20 @@ export interface ExecutionOrigin extends MeshOrigin {
 }
 
 // @public
-export interface ExecutionOutput<TOutput = unknown> {
+export type ExecutionOutput<TOutput = unknown> = FinishedExecutionOutput<TOutput> | PausedExecutionOutput | StoppedExecutionOutput | CancelledExecutionOutput;
+
+// @public
+export interface ExecutionOutputBase {
     readonly children: readonly ChildExecutionRecord[];
     readonly compacted?: readonly Compacted[];
     readonly compensations: readonly CompensationRecord[];
     readonly executionId: string;
-    readonly finish?: ComponentRecord;
     readonly handledErrors: readonly HandledErrorRecord[];
     readonly launches: readonly LaunchRecord[];
-    readonly output?: TOutput;
     readonly path: readonly string[];
-    readonly pending: readonly PendingPause[];
     readonly record?: ExecutionRecord;
     // (undocumented)
     readonly spend: CostReport;
-    // (undocumented)
-    readonly status: ExecutionStatus;
     readonly tenantId: string;
     readonly threadId: string;
     readonly toolCalls: readonly ToolCallRecord[];
@@ -3600,11 +3623,13 @@ export abstract class ExecutionRecordRepository {
 // @public
 export enum ExecutionRecordStatus {
     Answered = "answered",
+    Cancelled = "cancelled",
     Failed = "failed",
     Guarded = "guarded",
     Paused = "paused",
     Queued = "queued",
     Running = "running",
+    Stopped = "stopped",
     Written = "written"
 }
 
@@ -3643,9 +3668,13 @@ export type ExecutionStartEvent = ExecutionEvent;
 // @public
 export enum ExecutionStatus {
     // (undocumented)
+    Cancelled = "cancelled",
+    // (undocumented)
     Finished = "finished",
     // (undocumented)
-    Paused = "paused"
+    Paused = "paused",
+    // (undocumented)
+    Stopped = "stopped"
 }
 
 // @public
@@ -3660,6 +3689,12 @@ export interface ExecutionStepRecord {
     readonly spend: CostReport;
     readonly startedAt: string;
     readonly step: StepRecord;
+}
+
+// @public
+export interface ExecutionStopEvent extends ExecutionEvent {
+    readonly reason?: string | undefined;
+    readonly spend: CostReport;
 }
 
 // @public
@@ -4058,6 +4093,19 @@ export enum FileView {
     Original = "original",
     Redacted = "redacted",
     Transcription = "transcription"
+}
+
+// @public
+export interface FinishedExecutionOutput<TOutput = unknown> extends ExecutionOutputBase {
+    readonly finish: ComponentRecord;
+    // (undocumented)
+    readonly output: TOutput;
+    // (undocumented)
+    readonly pending: readonly [];
+    // (undocumented)
+    readonly reason?: undefined;
+    // (undocumented)
+    readonly status: ExecutionStatus.Finished;
 }
 
 // @public
@@ -7154,6 +7202,19 @@ export interface PausedExecution extends ResumeVersions {
 }
 
 // @public
+export interface PausedExecutionOutput extends ExecutionOutputBase {
+    // (undocumented)
+    readonly finish?: undefined;
+    // (undocumented)
+    readonly output?: undefined;
+    readonly pending: readonly PendingPause[];
+    // (undocumented)
+    readonly reason?: undefined;
+    // (undocumented)
+    readonly status: ExecutionStatus.Paused;
+}
+
+// @public
 export abstract class PausedExecutionRepository {
     abstract ackNotice(claim: PauseNoticeClaim, at: Date): Promise<PauseNoticeClaim | undefined>;
     abstract cancelByTenantIdAndPauseId(tenantId: string, pauseId: string, resolution: PauseCancellation, at: Date, recipients: PauseRecipients): Promise<PauseRecord | undefined>;
@@ -9562,6 +9623,20 @@ export interface StepsLimitExceededErrorOptions {
 }
 
 // @public
+export interface StoppedExecutionOutput extends ExecutionOutputBase {
+    // (undocumented)
+    readonly finish?: undefined;
+    // (undocumented)
+    readonly output?: undefined;
+    // (undocumented)
+    readonly pending: readonly [];
+    // (undocumented)
+    readonly reason?: string | undefined;
+    // (undocumented)
+    readonly status: ExecutionStatus.Stopped;
+}
+
+// @public
 export type StorageRuleCode = "storage.not-a-storage" | "storage.driver-invalid" | "storage.database-required" | "storage.cluster-needs-durable-lease-store" | "storage.providers-conflict" | "storage.retention-conflict" | "storage.key-conflict" | "storage.secret-shared" | "storage.ttl-invalid";
 
 // @public
@@ -10349,7 +10424,7 @@ export enum TurnLimit {
 export type TurnOutcome = Pick<Turn, "replyWith" | "status" | "stopReason" | "route" | "steps" | "costUsd">;
 
 // @public
-export type TurnStatus = "running" | "answered" | "guarded" | "failed" | "paused" | "queued" | "written";
+export type TurnStatus = "running" | "answered" | "guarded" | "failed" | "stopped" | "cancelled" | "paused" | "queued" | "written";
 
 // @public
 export interface TurnStep {
@@ -10917,6 +10992,25 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/a2a/files/files.service.ts - (ae-undocumented) Missing documentation for "mediaType".
 // src/a2a/files/files.service.ts - (ae-undocumented) Missing documentation for "filename".
 // src/app/create-app.ts - (ae-undocumented) Missing documentation for "profileRoot".
+// src/app/execution-output.ts - (ae-undocumented) Missing documentation for "spend".
+// src/app/execution-output.ts - (ae-undocumented) Missing documentation for "status".
+// src/app/execution-output.ts - (ae-undocumented) Missing documentation for "output".
+// src/app/execution-output.ts - (ae-undocumented) Missing documentation for "pending".
+// src/app/execution-output.ts - (ae-undocumented) Missing documentation for "reason".
+// src/app/execution-output.ts - (ae-undocumented) Missing documentation for "status".
+// src/app/execution-output.ts - (ae-undocumented) Missing documentation for "finish".
+// src/app/execution-output.ts - (ae-undocumented) Missing documentation for "output".
+// src/app/execution-output.ts - (ae-undocumented) Missing documentation for "reason".
+// src/app/execution-output.ts - (ae-undocumented) Missing documentation for "status".
+// src/app/execution-output.ts - (ae-undocumented) Missing documentation for "pending".
+// src/app/execution-output.ts - (ae-undocumented) Missing documentation for "reason".
+// src/app/execution-output.ts - (ae-undocumented) Missing documentation for "finish".
+// src/app/execution-output.ts - (ae-undocumented) Missing documentation for "output".
+// src/app/execution-output.ts - (ae-undocumented) Missing documentation for "status".
+// src/app/execution-output.ts - (ae-undocumented) Missing documentation for "pending".
+// src/app/execution-output.ts - (ae-undocumented) Missing documentation for "reason".
+// src/app/execution-output.ts - (ae-undocumented) Missing documentation for "finish".
+// src/app/execution-output.ts - (ae-undocumented) Missing documentation for "output".
 // src/app/lease-lost.ts - (ae-undocumented) Missing documentation for "cause".
 // src/app/lease-lost.ts - (ae-undocumented) Missing documentation for "code".
 // src/app/lease-lost.ts - (ae-undocumented) Missing documentation for "name".
@@ -10977,6 +11071,8 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/app/tenant-args.ts - (ae-undocumented) Missing documentation for "tenantId".
 // src/app/types.ts - (ae-undocumented) Missing documentation for "Finished".
 // src/app/types.ts - (ae-undocumented) Missing documentation for "Paused".
+// src/app/types.ts - (ae-undocumented) Missing documentation for "Stopped".
+// src/app/types.ts - (ae-undocumented) Missing documentation for "Cancelled".
 // src/app/types.ts - (ae-undocumented) Missing documentation for "reply".
 // src/app/types.ts - (ae-undocumented) Missing documentation for "decision".
 // src/app/types.ts - (ae-undocumented) Missing documentation for "tenantId".
@@ -10985,8 +11081,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/app/types.ts - (ae-undocumented) Missing documentation for "ownerId".
 // src/app/types.ts - (ae-undocumented) Missing documentation for "tenantId".
 // src/app/types.ts - (ae-undocumented) Missing documentation for "cancelled".
-// src/app/types.ts - (ae-undocumented) Missing documentation for "status".
-// src/app/types.ts - (ae-undocumented) Missing documentation for "spend".
 // src/app/types.ts - (ae-undocumented) Missing documentation for "name".
 // src/app/types.ts - (ae-undocumented) Missing documentation for "version".
 // src/app/types.ts - (ae-undocumented) Missing documentation for "tenantId".
@@ -12191,6 +12285,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/execution-history.repository.ts - (ae-undocumented) Missing documentation for "Paused".
 // src/infrastructure/execution-history.repository.ts - (ae-undocumented) Missing documentation for "Finished".
 // src/infrastructure/execution-history.repository.ts - (ae-undocumented) Missing documentation for "Failed".
+// src/infrastructure/execution-history.repository.ts - (ae-undocumented) Missing documentation for "Stopped".
 // src/infrastructure/execution-history.repository.ts - (ae-undocumented) Missing documentation for "Cancelled".
 // src/infrastructure/execution-history.repository.ts - (ae-undocumented) Missing documentation for "name".
 // src/infrastructure/execution-history.repository.ts - (ae-undocumented) Missing documentation for "version".
@@ -12640,7 +12735,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/run/types.ts - (ae-undocumented) Missing documentation for "scope".
 // src/run/types.ts - (ae-undocumented) Missing documentation for "outdatedValues".
 // src/run/types.ts - (ae-undocumented) Missing documentation for "lastError".
-// src/run/types.ts - (ae-undocumented) Missing documentation for "status".
 // src/run/types.ts - (ae-undocumented) Missing documentation for "startInput".
 // src/run/types.ts - (ae-undocumented) Missing documentation for "output".
 // src/run/types.ts - (ae-undocumented) Missing documentation for "budgetUsd".

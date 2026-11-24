@@ -68,6 +68,7 @@ import { gateway, letChargesGo, resetGateway } from "./fixtures/payment-gateway.
 import { untilReached } from "../helpers/reached.js";
 import { passLive } from "../helpers/live-time.js";
 import { IdempotencyKeyEnvironment } from "../helpers/idempotency-key.environment.js";
+import { ExecutionStatus } from "../../src/app/types.js";
 
 const overrides = [override(Logger, RecordingLogger)];
 const test = testWith(BusinessKeyApplication, { overrides });
@@ -204,7 +205,7 @@ describe("#508 re-review HIGH1: a send that never returns bounds every wait on i
 
     expect(isDoneBefore).toBe(false);
     expect(isDone()).toBe(true);
-    await expect(execution).rejects.toBeInstanceOf(ExecutionCancelledError);
+    await expect(execution).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
   });
 
   two(

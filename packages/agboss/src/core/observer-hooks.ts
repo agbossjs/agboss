@@ -30,7 +30,9 @@ import type {
   RouterEndEvent,
   RouterStartEvent,
   ExecutionEndEvent,
+  ExecutionCancelEvent,
   ExecutionErrorEvent,
+  ExecutionStopEvent,
   ExecutionPauseEvent,
   ExecutionRejectedEvent,
   ExecutionResumeEvent,
@@ -62,7 +64,11 @@ export interface ExecutionObserver {
   onExecutionRejected?(event: ExecutionRejectedEvent): void | Promise<void>;
   /** The execution ended at a finish: at `execute`, or after a resume; once per execution. */
   onExecutionEnd?(event: ExecutionEndEvent): void | Promise<void>;
-  /** The execution failed (also after a resume, or cancelled while paused: `ExecutionCancelledError`), or a resume of a paused one was refused as incompatible (`IncompatibleResumeError`; it stays paused). */
+  /** The execution was stopped: halted where it stood, nothing undone; once per execution. */
+  onExecutionStop?(event: ExecutionStopEvent): void | Promise<void>;
+  /** The execution was cancelled (running or paused): aborted and its open undoable actions undone; once per execution. */
+  onExecutionCancel?(event: ExecutionCancelEvent): void | Promise<void>;
+  /** The execution failed (also after a resume), or a resume of a paused one was refused as incompatible (`IncompatibleResumeError`; it stays paused). A cancel is `onExecutionCancel`. */
   onExecutionError?(event: ExecutionErrorEvent): void | Promise<void>;
   onAgentStart?(event: AgentStartEvent): void | Promise<void>;
   onAgentEnd?(event: AgentEndEvent): void | Promise<void>;
@@ -128,45 +134,7 @@ export type ObserverHook = keyof ExecutionObserver;
 /** A class for `@Application({ observers })`: its instances implement some of the hooks. */
 export type ObserverClass = Class<ExecutionObserver>;
 
-/** Every hook name; a `Record` so a hook added to `ExecutionObserver` must be listed here. */
-const HOOKS: Readonly<Record<ObserverHook, true>> = {
-  onExecutionStart: true,
-  onExecutionPause: true,
-  onExecutionResume: true,
-  onExecutionEnd: true,
-  onExecutionError: true,
-  onExecutionRejected: true,
-  onAgentStart: true,
-  onAgentEnd: true,
-  onRouterStart: true,
-  onRouterEnd: true,
-  onToolStart: true,
-  onToolEnd: true,
-  onModelStart: true,
-  onModelEnd: true,
-  onRagStart: true,
-  onRagEnd: true,
-  onGuardrailStart: true,
-  onGuardrailEnd: true,
-  onActionStart: true,
-  onActionEnd: true,
-  onChannelStart: true,
-  onChannelEnd: true,
-  onJudgeStart: true,
-  onJudgeEnd: true,
-  onValuesOutdated: true,
-  onLaunchItemsTruncated: true,
-  onQuorumDecided: true,
-  onCompactionStart: true,
-  onCompactionEnd: true,
-  onCompensationStart: true,
-  onCompensationEnd: true,
-  onAgentRetry: true,
-  onExecutionLeaseTakeover: true,
-  onStepHandedOver: true,
-  onIdempotencyRun: true,
-  onOutboundCall: true,
-};
+import { HOOKS } from "./observer-hook-names.js";
 
 export const OBSERVER_HOOKS: readonly ObserverHook[] = Object.keys(HOOKS).filter(
   (name): name is ObserverHook => name in HOOKS,

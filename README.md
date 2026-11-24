@@ -1491,8 +1491,8 @@ channel, a guardrail or any component reads them through its injected `Execution
 (`a2aHttpListener(app, { expose, authenticator, publicUrl })`, whose authenticator returns them per
 request, #387, #808) passes them from its
 authenticated caller. `app.cancel(threadId)` aborts a running
-run — it stops before its next model or tool call and `execute` rejects with
-`ExecutionCancelledError` — or drops a paused one, whose pauses are withdrawn: their `resume` then
+run — it stops before its next model or tool call and `execute` resolves with
+`ExecutionStatus.Cancelled` — or drops a paused one, whose pauses are withdrawn: their `resume` then
 throws `PauseClosedError` (`reason: "cancelled"`);
 `cancelled` is `false` when the thread had neither (a thread the tenant does not have is
 `UnknownThreadError`). From `app.close()` on, `execute` and `resume`
@@ -1813,8 +1813,8 @@ channel, judge, `onValuesOutdated`, `onLaunchItemsTruncated`) adds `step`, a `St
 every pause it waits for — again after a partial resume), `app.resume` and recovery emit
 `onExecutionResume` (`event.reason`, `event.decision`, `event.answeredBy`), `onExecutionEnd` fires once
 when it ends at a finish (`event.finish`: a `ComponentRecord`, `event.output`, `event.spend`) and
-`onExecutionError` when it fails (`event.error`) — also after a resume; cancelling a paused
-execution is an `onExecutionError` with `ExecutionCancelledError`. A request refused before an
+`onExecutionError` when it fails (`event.error`) — also after a resume; a cancelled
+execution is `onExecutionCancel` (`event.compensations`, `event.spend`), never an error, and a stopped one `onExecutionStop`. A request refused before an
 execution starts or is located — another owner's thread, a `resume` of an unknown pause or one no
 longer waiting, an
 `execute` on an unknown thread or with an invalid input, an exhausted budget, a request after

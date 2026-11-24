@@ -93,9 +93,10 @@ export const runningOutcome = (route: readonly string[], costUsd: Usd): TurnOutc
   costUsd,
 });
 
+/** The record of an execution that ended with `error`: a cancel is `cancelled` (#1341), the rest `failed`. */
 export const failedOutcome = (error: unknown, spent: readonly UsageRecord[]): TurnOutcome => ({
   replyWith: "",
-  status: "failed",
+  status: error instanceof ExecutionCancelledError ? "cancelled" : "failed",
   stopReason: errorMessage(error),
   route: [],
   steps: [],

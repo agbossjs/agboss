@@ -203,7 +203,7 @@ describe("#516: a cancel while the parent waits", () => {
     await clock.advance(seconds(11));
 
     expect(cancelled).toEqual({ cancelled: true });
-    expect(await failure).toBeInstanceOf(ExecutionCancelledError);
+    expect(await failure).toMatchObject({ status: ExecutionStatus.Cancelled });
     openGate();
   });
 });

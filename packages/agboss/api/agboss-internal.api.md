@@ -744,6 +744,8 @@ export type DurableExecutionState = {
     readonly reason: string;
 } | {
     readonly status: DurableExecutionStatus.Cancelled;
+} | {
+    readonly status: DurableExecutionStatus.Stopped;
 };
 
 // @public
@@ -753,7 +755,8 @@ export enum DurableExecutionStatus {
     Finished = "finished",
     NotStarted = "not-started",
     Paused = "paused",
-    Running = "running"
+    Running = "running",
+    Stopped = "stopped"
 }
 
 // @public
@@ -941,6 +944,8 @@ export class ExecutionObserverManager implements Required<ExecutionObserver> {
     // (undocumented)
     onCompensationStart(event: CompensationStartEvent): Promise<void>;
     // (undocumented)
+    onExecutionCancel(event: ExecutionCancelEvent): Promise<void>;
+    // (undocumented)
     onExecutionEnd(event: ExecutionEndEvent): Promise<void>;
     // (undocumented)
     onExecutionError(event: ExecutionErrorEvent): Promise<void>;
@@ -954,6 +959,8 @@ export class ExecutionObserverManager implements Required<ExecutionObserver> {
     onExecutionResume(event: ExecutionResumeEvent): Promise<void>;
     // (undocumented)
     onExecutionStart(event: ExecutionStartEvent): Promise<void>;
+    // (undocumented)
+    onExecutionStop(event: ExecutionStopEvent): Promise<void>;
     // (undocumented)
     onGuardrailEnd(event: GuardrailEndEvent): Promise<void>;
     // (undocumented)
@@ -1762,6 +1769,8 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onExecutionPause".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onExecutionResume".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onExecutionEnd".
+// src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onExecutionStop".
+// src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onExecutionCancel".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onExecutionError".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onExecutionRejected".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onAgentStart".

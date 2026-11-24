@@ -67,8 +67,9 @@ const eventOfWorkflow = (
 /**
  * One leg of an execution (its `execute`, or a `resume`), observed: it paused →
  * `onExecutionPause`, it finished → `onExecutionEnd` (once per execution: only the leg that ends
- * at a finish), it threw → `onExecutionError` (and the error is rethrown) — except a lost lease or
- * an interruption, which is not a failure: another instance goes on with the execution (#265).
+ * at a finish), it was stopped → `onExecutionStop`, cancelled → `onExecutionCancel`, it threw →
+ * `onExecutionError` (and the error is rethrown) — except a lost lease or an interruption, which
+ * is not a failure: another instance goes on with the execution (#265).
  */
 export async function observeLeg(
   observer: ExecutionObserverManager,
@@ -91,15 +92,31 @@ export async function observeLeg(
     throw error;
   }
   // a pass that rests with answers already recorded is not a stop: the holder goes on (Q58)
-  if (result.status === ExecutionStatus.Paused && result.pending.length > 0)
-    await observer.onExecutionPause({ ...event, pending: await shownPending(result.pending) });
-  else if (result.finish !== undefined)
-    await observer.onExecutionEnd({
-      ...event,
-      finish: result.finish,
-      output: result.output,
-      spend: result.spend,
-    });
+  switch (result.status) {
+    case ExecutionStatus.Paused:
+      if (result.pending.length > 0)
+        await observer.onExecutionPause({ ...event, pending: await shownPending(result.pending) });
+      break;
+    case ExecutionStatus.Finished:
+      await observer.onExecutionEnd({
+        ...event,
+        finish: result.finish,
+        output: result.output,
+        spend: result.spend,
+      });
+      break;
+    case ExecutionStatus.Stopped:
+      await observer.onExecutionStop({ ...event, reason: result.reason, spend: result.spend });
+      break;
+    case ExecutionStatus.Cancelled:
+      await observer.onExecutionCancel({
+        ...event,
+        reason: result.reason,
+        compensations: result.compensations,
+        spend: result.spend,
+      });
+      break;
+  }
   return result;
 }
 

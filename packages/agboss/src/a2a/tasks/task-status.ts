@@ -85,7 +85,8 @@ export const rejectedStatusOf = (limit: MeshLimitError): A2ATaskStatus => ({
   errorDetails: limit.details ?? {},
 });
 
-const CANCELED: A2ATaskStatus = { state: A2ATaskState.Canceled, pendingPauses: [] };
+/** A cancel and a stop (#1341) both end a task as `canceled`: A2A has no other state for an operator's halt. */
+export const CANCELED: A2ATaskStatus = { state: A2ATaskState.Canceled, pendingPauses: [] };
 
 /**
  * An execution's error as its task's end: a cancel is `CANCELED`; anything else `FAILED` with the
@@ -121,6 +122,7 @@ export function durableStatusOf(state: DurableExecutionState): A2ATaskStatus | u
     case DurableExecutionStatus.Finished:
       return completedStatusOf(state.finish, state.output, state.spentUsd, state.spentTokens);
     case DurableExecutionStatus.Cancelled:
+    case DurableExecutionStatus.Stopped:
       return CANCELED;
     case DurableExecutionStatus.Failed:
       return failedOf(INTERNAL_FAILURE);

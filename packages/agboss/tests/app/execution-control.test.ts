@@ -173,8 +173,9 @@ describe("#807 AC2: a cancel of one execution tree", () => {
     const { call } = await holding(first);
     const outcome = await controlOf(first).cancelExecution(tree());
     expect(outcome).toBe(ExecutionCancelOutcome.Aborted);
-    await expect(call).rejects.toBeInstanceOf(ExecutionCancelledError);
-    expect(seen.errors.map((error) => error.constructor)).toEqual([ExecutionCancelledError]);
+    await expect(call).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
+    expect(seen.errors).toEqual([]);
+    expect(seen.cancels).toHaveLength(1);
   });
 
   test("running on the other instance: requested, its holder stops within one renewal", async ({
@@ -190,7 +191,7 @@ describe("#807 AC2: a cancel of one execution tree", () => {
     await clock.advance(seconds(10));
 
     expect(outcome).toBe(ExecutionCancelOutcome.Requested);
-    await expect(call).rejects.toBeInstanceOf(ExecutionCancelledError);
+    await expect(call).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
     expect(seen.steps).toEqual(["one"]);
   });
 
@@ -218,9 +219,10 @@ describe("#807 AC2: a cancel of one execution tree", () => {
     const call = reserved(first);
 
     expect(outcome).toBe(ExecutionCancelOutcome.AwaitingStart);
-    await expect(call).rejects.toBeInstanceOf(ExecutionCancelledError);
+    await expect(call).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
     expect(seen.steps).toEqual([]);
-    expect(seen.errors.map((error) => error.constructor)).toEqual([ExecutionCancelledError]);
+    expect(seen.errors).toEqual([]);
+    expect(seen.cancels).toHaveLength(1);
   });
 
   test("paused: ended here as cancelled, its pause withdrawn — a later answer is refused", async ({
@@ -301,9 +303,9 @@ describe("#807 AC2: a cancel of one execution tree", () => {
         status: DurableExecutionStatus.Paused,
         pending: [{ pauseId: paused.pending[0]?.pauseId }],
       });
-      await expect(first.resume(answerOf(paused, { approved: true }))).rejects.toBeInstanceOf(
-        ExecutionCancelledError,
-      );
+      await expect(first.resume(answerOf(paused, { approved: true }))).resolves.toMatchObject({
+        status: ExecutionStatus.Cancelled,
+      });
     },
   );
 
@@ -406,7 +408,7 @@ describe("#807 AC2: a cancel racing a resume — never both", () => {
     levers.letGo?.();
 
     expect(outcome).toBe(ExecutionCancelOutcome.Requested);
-    await expect(resumed).rejects.toBeInstanceOf(ExecutionCancelledError);
+    await expect(resumed).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
     expect(seen.charges).toEqual(["10 USD"]);
     expect(seen.steps).toEqual([]);
     expect(await controlOf(first).executionStateOf(tree())).toEqual({

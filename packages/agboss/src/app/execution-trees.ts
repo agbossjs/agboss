@@ -19,7 +19,7 @@ import {
   type ExecutionCancelRequest,
   type ExecutionTreeOfThread,
 } from "./execution-control.js";
-import { CANCELLED_STOP_REASON, cancelledErrorOf, type LiveRuns } from "./live-runs.js";
+import type { LiveRuns } from "./live-runs.js";
 import type { TreeState } from "./tree-move-types.js";
 import { ExecutionStatus } from "./types.js";
 
@@ -49,35 +49,27 @@ async function checkedTree<T>(tree: ExecutionTreeOfThread, read: () => Promise<T
   });
 }
 
-/**
- * Whether a failed record says its execution was cancelled — by the reasons the framework writes
- * itself (`cancelledErrorOf`, `cancelledRecordOutcome`), never by reading free text.
- */
-function isCancelledRecord(record: Turn, threadId: string): boolean {
-  const reasons = [cancelledErrorOf(threadId).message, CANCELLED_STOP_REASON];
-  return reasons.includes(record.stopReason);
-}
-
 /** Whether the tree's own checkpoint thread (its root execution id) has a checkpoint. */
 async function hasCheckpoint(parts: CancelParts, runId: string): Promise<boolean> {
   const snapshot = await readingGraphOf(parts.deps).getState(runConfig(runId));
   return snapshot.createdAt !== undefined;
 }
 
-/** What a tree's own record says when it runs or failed; `undefined` for any other record. */
-function recordStateOf(
-  record: Turn | undefined,
-  threadId: string,
-): DurableExecutionState | undefined {
-  if (record?.status === ExecutionRecordStatus.Running)
-    return { status: DurableExecutionStatus.Running };
-  const isFailed =
-    record?.status === ExecutionRecordStatus.Failed ||
-    record?.status === ExecutionRecordStatus.Guarded;
-  if (!isFailed) return undefined;
-  return isCancelledRecord(record, threadId)
-    ? { status: DurableExecutionStatus.Cancelled }
-    : { status: DurableExecutionStatus.Failed, reason: record.stopReason };
+/** What a tree's own record says when it runs or ended without a finish; `undefined` for any other record. */
+function recordStateOf(record: Turn | undefined): DurableExecutionState | undefined {
+  switch (record?.status) {
+    case ExecutionRecordStatus.Running:
+      return { status: DurableExecutionStatus.Running };
+    case ExecutionRecordStatus.Cancelled:
+      return { status: DurableExecutionStatus.Cancelled };
+    case ExecutionRecordStatus.Stopped:
+      return { status: DurableExecutionStatus.Stopped };
+    case ExecutionRecordStatus.Failed:
+    case ExecutionRecordStatus.Guarded:
+      return { status: DurableExecutionStatus.Failed, reason: record.stopReason };
+    default:
+      return undefined;
+  }
 }
 
 /**
@@ -115,7 +107,7 @@ async function restStateOf(
 }
 
 /**
- * Where a tree is from its durable records: its record on its thread (a failure, a cancel, a run),
+ * Where a tree is from its durable records: its record on its thread (a failure, a stop, a cancel, a run),
  * else its paused run or its last checkpoint (the finish and its output, read whatever record window
  * the thread's later turns left), else whether any checkpoint shows it began.
  */
@@ -126,7 +118,7 @@ export async function executionStateOf(
   return checkedTree(tree, async () => {
     const state = stateOf(parts, tree);
     const record = await rootRecordOf(parts.deps, state);
-    const known = recordStateOf(record, tree.threadId) ?? (await restStateOf(parts, state, record));
+    const known = recordStateOf(record) ?? (await restStateOf(parts, state, record));
     if (known !== undefined) return known;
     const isBegun = record !== undefined || (await hasCheckpoint(parts, tree.rootExecutionId));
     return { status: isBegun ? DurableExecutionStatus.Running : DurableExecutionStatus.NotStarted };

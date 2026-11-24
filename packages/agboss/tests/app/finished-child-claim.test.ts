@@ -35,6 +35,7 @@ import {
   YieldOneWorkflowStart,
   yieldSeen,
 } from "./fixtures/remote-child-yield.workflow.js";
+import { ExecutionStatus } from "../../src/app/types.js";
 
 const test = testWith(RemoteChildYieldApplication, { instances: 2 });
 
@@ -144,10 +145,10 @@ describe("#520 AC2: a stale instance does not re-claim a finished AnyInstance ch
       () => statusOf(frozen.b, frozen.child) === ExecutionRecordStatus.Failed,
       "the child stopped on B",
     );
-    const { error } = await resumed(frozen, leases);
+    const { done } = await resumed(frozen, leases);
     openGate();
 
-    expect(error).toBeInstanceOf(ExecutionCancelledError);
+    expect(done).toMatchObject({ status: ExecutionStatus.Cancelled });
     await expectNoStaleClaim(frozen);
   });
 });

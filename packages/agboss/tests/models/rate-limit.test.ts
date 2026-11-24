@@ -25,6 +25,7 @@ import { createProviderGateway } from "../../src/llm/gateway.js";
 import { ModelProviderDirectory } from "../../src/models/resolve.js";
 import { advanceUntil, instancesOf, slowProvider, warmUp } from "./slow-provider.js";
 import { completion } from "./stub.js";
+import { ExecutionStatus } from "../../src/app/types.js";
 
 const URL = "http://limited.test/v1/chat/completions";
 const LIMITED = { models: ["limited/model"], replies: [completion("done")] };
@@ -166,8 +167,8 @@ describe("#266 AC4: a call without room waits", () => {
     await clock.advance(seconds(1));
     expect(await app.cancel("thread-4")).toEqual({ cancelled: true });
     aborted.abort(new Error("the caller left"));
-    await expect(cancelled).rejects.toBeInstanceOf(ExecutionCancelledError);
-    await expect(signalled).rejects.toThrow();
+    await expect(cancelled).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
+    await expect(signalled).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
     // the waiting call got its slot after 20 s and took 20 s more: 40 s since it asked, no timeout
     const [held, waited] = await advanceUntil(clock, Promise.all([holders, waiting]));
 

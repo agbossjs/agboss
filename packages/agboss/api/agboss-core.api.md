@@ -179,6 +179,7 @@ export interface ExecutionObserver {
     onCompactionStart?(event: CompactionStartEvent): void | Promise<void>;
     onCompensationEnd?(event: CompensationEndEvent): void | Promise<void>;
     onCompensationStart?(event: CompensationStartEvent): void | Promise<void>;
+    onExecutionCancel?(event: ExecutionCancelEvent): void | Promise<void>;
     onExecutionEnd?(event: ExecutionEndEvent): void | Promise<void>;
     onExecutionError?(event: ExecutionErrorEvent): void | Promise<void>;
     onExecutionLeaseTakeover?(event: ExecutionLeaseTakeoverEvent): void | Promise<void>;
@@ -186,6 +187,7 @@ export interface ExecutionObserver {
     onExecutionRejected?(event: ExecutionRejectedEvent): void | Promise<void>;
     onExecutionResume?(event: ExecutionResumeEvent): void | Promise<void>;
     onExecutionStart?(event: ExecutionStartEvent): void | Promise<void>;
+    onExecutionStop?(event: ExecutionStopEvent): void | Promise<void>;
     // (undocumented)
     onGuardrailEnd?(event: GuardrailEndEvent): void | Promise<void>;
     // (undocumented)

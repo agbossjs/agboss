@@ -25,7 +25,7 @@ export interface ExecutionCancelRequest extends ExecutionTreeOfThread {
 
 /** What `cancelExecution` found and did; in every case the request is kept until the tree ends. */
 export enum ExecutionCancelOutcome {
-  /** It ran on this instance: its signal aborted, it rejects with `ExecutionCancelledError`. */
+  /** It ran on this instance: its signal aborted, it resolves cancelled (`ExecutionStatus.Cancelled`). */
   Aborted = "aborted",
   /** It rested paused: ended here as cancelled (its pauses withdrawn, its undo run). */
   Ended = "ended",
@@ -51,6 +51,8 @@ export enum DurableExecutionStatus {
   Failed = "failed",
   /** It was cancelled. */
   Cancelled = "cancelled",
+  /** It was stopped (#1341). */
+  Stopped = "stopped",
 }
 
 export type DurableExecutionState =
@@ -71,7 +73,8 @@ export type DurableExecutionState =
       readonly spentTokens?: number;
     }
   | { readonly status: DurableExecutionStatus.Failed; readonly reason: string }
-  | { readonly status: DurableExecutionStatus.Cancelled };
+  | { readonly status: DurableExecutionStatus.Cancelled }
+  | { readonly status: DurableExecutionStatus.Stopped };
 
 /** What a workflow's app does to one of its trees. */
 export interface WorkflowExecutionControl {

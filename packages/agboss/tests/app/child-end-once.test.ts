@@ -45,6 +45,7 @@ import {
   YieldOneWorkflowStart,
   yieldSeen,
 } from "./fixtures/remote-child-yield.workflow.js";
+import { ExecutionStatus } from "../../src/app/types.js";
 
 const test = testWith(ChildEndOnceApplication, { instances: 2 });
 const test3 = testWith(ChildEndOnceApplication, { instances: 3 });
@@ -145,7 +146,8 @@ describe("#562: a cancelled child", () => {
       await readyAll(apps);
       const thread = `thread-${placement}`;
       // its rejection is taken at once: the call ends while the test still advances the clock
-      const call = rejectionOf(execute(a, start, item("gate"), { threadId: thread }));
+      const call = execute(a, start, item("gate"), { threadId: thread });
+      call.catch(() => undefined);
       await until(() => yieldSeen.runs.length === 1, "the child at its gate");
       expect(await b.cancel(thread, { tenantId: "default" })).toEqual({ cancelled: true });
       // the holder looks for a cancel request at its renewals, a worker at its running child's (10 s)
@@ -157,7 +159,7 @@ describe("#562: a cancelled child", () => {
       await settle();
 
       const { childEnds, childErrors, rootEnds, rootErrors } = heard();
-      expect(error).toBeInstanceOf(ExecutionCancelledError);
+      expect(error).toMatchObject({ status: ExecutionStatus.Cancelled });
       expect(childEnds).toEqual([]);
       expect(childErrors).toMatchObject([{ error: "ExecutionCancelledError" }]);
       expect(rootEnds).toEqual([]);

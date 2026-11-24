@@ -153,7 +153,8 @@ export interface ExecutionData {
 
 /** How one execution (or its resume) ended for the app. Failures are thrown, not returned. */
 export interface AgentExecutionOutput {
-  readonly status: ExecutionStatus;
+  /** A pass of the core finishes or pauses; a stop and a cancel are the app's (`ExecutionOutput`). */
+  readonly status: ExecutionStatus.Finished | ExecutionStatus.Paused;
   /** The start it began at and its validated input (the thread's history line, S8). */
   readonly start: string;
   readonly startInput: unknown;

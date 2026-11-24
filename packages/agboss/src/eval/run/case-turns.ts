@@ -52,6 +52,11 @@ export async function runTurns(
       return { kind: "failed", error: errorOf(error), spentUsd };
     }
     spentUsd = usd(spentUsd + last.spend.totalUsd);
+    // a cancel or a stop of a turn (#1341) is a failed case, as the cancel that rejected was
+    if (last.status === ExecutionStatus.Cancelled || last.status === ExecutionStatus.Stopped) {
+      const message = `turn ${String(index)} was ${last.status}`;
+      return { kind: "failed", error: { code: `execution.${last.status}`, message }, spentUsd };
+    }
   }
   if (last === undefined) throw new Error(`case "${written.name}" has no turns`);
   return { kind: "ended", last, spentUsd };

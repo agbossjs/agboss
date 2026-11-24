@@ -90,6 +90,14 @@ export async function currentOutputOf(
   );
 }
 
+/** The statuses of a root record that ended without a finish (text: a record's status may be compared with them). */
+const ENDED_WITHOUT_FINISH: readonly (string | undefined)[] = [
+  ExecutionRecordStatus.Failed,
+  ExecutionRecordStatus.Guarded,
+  ExecutionRecordStatus.Stopped,
+  ExecutionRecordStatus.Cancelled,
+];
+
 /** What a resume holds once it took the tree's lease: the lease, and the pause it answered. */
 export interface ResumeTake {
   readonly lease: Pick<HeldExecutionLease, "release">;
@@ -97,8 +105,8 @@ export interface ResumeTake {
 }
 
 /**
- * A resume's take of a tree whose root's record ended without a finish — failed (a cancel too) or
- * guarded — is refused (#901): final, no pass moves the tree again, though the answer the resume
+ * A resume's take of a tree whose root's record ended without a finish — failed, guarded, stopped
+ * or cancelled — is refused (#901): final, no pass moves the tree again, though the answer the resume
  * recorded may still be `Resolved` (a drain took it and its pass stopped on a cancel) — the lease
  * held, so it first finishes the tree's end (`forgetTree`, idempotent: the answer no step took
  * closed not taken, its paused run removed), gives the lease back and refuses with
@@ -114,7 +122,7 @@ export async function refusedIfFailed(
   const record = await deps.turns.findByTenantIdAndRunId(state.tenantId, state.runId);
   const status = record?.threadId === state.threadId ? record.status : undefined;
   if (record === undefined || deps.pause === undefined) return;
-  if (status !== ExecutionRecordStatus.Failed && status !== ExecutionRecordStatus.Guarded) return;
+  if (!ENDED_WITHOUT_FINISH.includes(status)) return;
   try {
     await forgetTree(parts, state, endOfRecord(record));
     const pause = { tenantId: state.tenantId, pauseId: take.pauseId };

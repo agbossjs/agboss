@@ -127,7 +127,7 @@ describe("#633: a lease taken of a tree mid-undo", () => {
 
     const error = await endedUnwindingAtTake(parts, STATE, lease);
 
-    expect(error?.message).toBe("declined");
+    expect((error as Error | undefined)?.message).toBe("declined");
     expect(mocks.endedWithoutPass.mock.calls[0]?.[2]).toMatchObject({ signal, lease });
     expect(warn).toHaveBeenCalledWith(
       "compensation.recovered",

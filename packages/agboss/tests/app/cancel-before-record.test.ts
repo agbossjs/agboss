@@ -18,6 +18,7 @@ import {
   seen,
   stores,
 } from "../infrastructure/fixtures/recovery.workflow.js";
+import { ExecutionStatus } from "../../src/app/types.js";
 
 const test = testWith(RecoveryApplication);
 const THREAD = "t-1";
@@ -44,9 +45,10 @@ describe("#807 AC2: a cancel saved before the execution's record exists", () => 
 
     const call = execute(app, OrderWorkflowStart, { text: "step" }, { threadId: THREAD });
 
-    await expect(call).rejects.toBeInstanceOf(ExecutionCancelledError);
+    await expect(call).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
     expect(seen.steps).toEqual([]);
-    expect(seen.errors.map((error) => error.constructor)).toEqual([ExecutionCancelledError]);
+    expect(seen.errors).toEqual([]);
+    expect(seen.cancels).toHaveLength(1);
     // the request goes with the tree's keys
     expect(
       await app
@@ -58,7 +60,13 @@ describe("#807 AC2: a cancel saved before the execution's record exists", () => 
     ).toBeUndefined();
     const records = (await stores.records?.lastTurns("default", THREAD, 5)) ?? [];
     expect(records.map(({ runId, status, stopReason }) => ({ runId, status, stopReason }))).toEqual(
-      [{ runId: "execution-1", status: "failed", stopReason: `thread "${THREAD}" was cancelled` }],
+      [
+        {
+          runId: "execution-1",
+          status: "cancelled",
+          stopReason: `thread "${THREAD}" was cancelled`,
+        },
+      ],
     );
   });
 });

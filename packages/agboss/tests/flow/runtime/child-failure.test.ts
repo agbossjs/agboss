@@ -24,6 +24,7 @@ import {
   RecheckedWorkflowFinish,
   resetChildLog,
 } from "./fixtures/children.workflow.js";
+import { ExecutionStatus } from "../../../src/app/types.js";
 
 /** #263 PR 2 — a child's failure: AC8, AC9, AC13, S25, S85 (a child as an error handler). */
 
@@ -149,7 +150,7 @@ describe("AC13: StepFailedError never catches a cancellation", () => {
       controller.abort();
     }, 20);
 
-    await expect(call).rejects.toBeInstanceOf(ExecutionCancelledError);
+    await expect(call).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
   });
 });
 

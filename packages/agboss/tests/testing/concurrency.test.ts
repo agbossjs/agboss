@@ -36,6 +36,7 @@ import {
 } from "../flow/fixtures/launch.fixture.js";
 import { HelpDeskApplication } from "../flow/runtime/fixtures/launch.applications.js";
 import { LoyaltyOfferDto, OrderStatusDto } from "../flow/fixtures/data-dtos.js";
+import { ExecutionStatus } from "../../src/app/types.js";
 
 const item = (name: string, delay = 0, outcome: ItemDto["outcome"] = "ok"): ItemDto => ({
   name,
@@ -147,7 +148,7 @@ describe("AC5: inOrder orders completions through gates", () => {
     const execution = execute(app, ItemsWorkflowStart, [item("a", 60_000), item("b")], {
       threadId,
     });
-    const failed = expect(execution).rejects.toFailWith(ExecutionCancelledError);
+    const failed = expect(execution).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
     await vi.waitFor(() => {
       expect(fanOut.events).toContain("end b");
     });

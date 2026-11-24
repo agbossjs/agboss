@@ -411,21 +411,32 @@ describe("#1366: the withdrawal of a decided quorum", () => {
 });
 
 describe("#1366: how a root's ended record says its tree ended", () => {
-  it("a cancel by the reasons the framework writes itself: the cancel of the thread, never free text", () => {
-    for (const stopReason of ['thread "thread-1" was cancelled', "the run was cancelled"]) {
-      const end = endOfRecord({ stopReason, threadId: "thread-1" });
+  it("a cancel by the record's status (#1341): the cancel of the thread, whatever its reason's text", () => {
+    for (const stopReason of ['thread "thread-1" was cancelled', "the run was cancelled", ""]) {
+      const end = endOfRecord({ status: "cancelled", stopReason, threadId: "thread-1" });
       expect(end).toBeInstanceOf(ExecutionCancelledError);
       expect(end.message).toBe('thread "thread-1" was cancelled');
     }
   });
 
-  it("any other reason is the record's own, as a plain error — also one that merely says cancelled", () => {
-    const end = endOfRecord({ stopReason: "the user cancelled the order", threadId: "thread-1" });
+  it("any other status is the record's own reason, as a plain error — also a reason that merely says cancelled", () => {
+    const end = endOfRecord({
+      status: "failed",
+      stopReason: "the user cancelled the order",
+      threadId: "thread-1",
+    });
 
     expect(end).not.toBeInstanceOf(ExecutionCancelledError);
     expect(end.message).toBe("the user cancelled the order");
     expect(
-      endOfRecord({ stopReason: 'thread "thread-2" was cancelled', threadId: "thread-1" }),
+      endOfRecord({
+        status: "failed",
+        stopReason: 'thread "thread-2" was cancelled',
+        threadId: "thread-1",
+      }),
+    ).not.toBeInstanceOf(ExecutionCancelledError);
+    expect(
+      endOfRecord({ status: "failed", stopReason: "the run was cancelled", threadId: "thread-1" }),
     ).not.toBeInstanceOf(ExecutionCancelledError);
   });
 });

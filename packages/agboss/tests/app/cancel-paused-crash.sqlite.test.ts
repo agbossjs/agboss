@@ -156,7 +156,7 @@ async function expectCancelled(tree: Awaited<ReturnType<typeof restingTree>>): P
     resolution: PauseResolution.Cancelled,
   });
   expect(await tree.record()).toMatchObject({
-    status: "failed",
+    status: "cancelled",
     stopReason: CANCELLED_STOP_REASON,
   });
   expect(await tree.pausedRun()).toBeUndefined();

@@ -9,10 +9,12 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type CompensationEndEvent,
+  type ExecutionCancelEvent,
   type ExecutionErrorEvent,
   type Produced,
 } from "../../../../src/index.js";
 import { Injectable } from "../../../../src/components/decorators.js";
+import { ExecutionCancelledError } from "../../../../src/core/errors.js";
 import { Application } from "../../../../src/application/application.js";
 import { seconds } from "../../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
@@ -280,6 +282,14 @@ export class UnwindLog {
 
   onExecutionError(event: ExecutionErrorEvent): void {
     unwindSeen.errors.push(event);
+  }
+
+  /** A cancel (#1341) is the root's end as an error was: kept error-shaped, with the cancel as its error. */
+  onExecutionCancel(event: ExecutionCancelEvent): void {
+    unwindSeen.errors.push({
+      ...event,
+      error: new ExecutionCancelledError({ message: `thread "${event.threadId}" was cancelled` }),
+    });
   }
 }
 

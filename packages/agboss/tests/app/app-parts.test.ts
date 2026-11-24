@@ -83,7 +83,7 @@ describe("AC12: the app's parts", () => {
 
   it("a run's result keeps memory and trace link; the record only when asked", () => {
     const run = {
-      status: ExecutionStatus.Finished,
+      status: ExecutionStatus.Finished as const,
       start: "task-workflow-start",
       startInput: { text: "hi" },
       path: ["task-workflow-start", "coder-agent"],
@@ -93,6 +93,8 @@ describe("AC12: the app's parts", () => {
       tenantId: "default",
       turnId: "tern",
       runId: "r",
+      finish: "task-finish",
+      output: { text: "done" },
       data: { scope: {}, outdatedValues: [], lastError: null },
       compacted: [
         {

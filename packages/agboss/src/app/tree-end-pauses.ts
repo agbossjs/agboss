@@ -8,7 +8,8 @@ import {
 import { logPauseNotTaken } from "../infrastructure/pause-answer-log.js";
 import { withdrawPause, type PauseStores } from "../flow/runtime/launch/withdrawn-pauses.js";
 import type { Turn } from "../turns/index.js";
-import { CANCELLED_STOP_REASON, cancelledErrorOf } from "./live-runs.js";
+import { cancelledErrorOf } from "./live-runs.js";
+import { ExecutionRecordStatus } from "../infrastructure/execution-record.repository.js";
 import { noticesWritten, recipientsIn } from "../pause/index.js";
 import { pauseTallyOf } from "../pause/pause-tally.js";
 
@@ -45,13 +46,15 @@ function isCancel(error: unknown): boolean {
   return false;
 }
 
+/** The status of a cancelled root (text: a record's status may be compared with it). */
+const CANCELLED: string = ExecutionRecordStatus.Cancelled;
+
 /**
- * How a root's ended record says its tree ended: a cancel by the reasons the framework writes
- * itself — never free text —, else with the record's own reason.
+ * How a root's ended record says its tree ended: a cancel by its status (#1341) — never by free
+ * text —, else with the record's own reason.
  */
-export function endOfRecord(record: Pick<Turn, "stopReason" | "threadId">): Error {
-  const cancelled = [cancelledErrorOf(record.threadId).message, CANCELLED_STOP_REASON];
-  return cancelled.includes(record.stopReason)
+export function endOfRecord(record: Pick<Turn, "status" | "stopReason" | "threadId">): Error {
+  return record.status === CANCELLED
     ? cancelledErrorOf(record.threadId)
     : new Error(record.stopReason);
 }

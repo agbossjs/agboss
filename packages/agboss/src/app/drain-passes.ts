@@ -20,7 +20,7 @@ export interface DrainSteps {
 
 /**
  * The passes of a drain (Q58): each pass, the answers it took marked `Taken`, a cancel found at rest,
- * and the next answers or the due pauses' expiry (#941, I6), until the tree finishes or rests with none left — its result.
+ * and the next answers or the due pauses' expiry (#941, I6), until the tree finishes, is stopped or cancelled, or rests with none left — its result.
  */
 export async function passesOf(
   parts: TreeMoveParts,
@@ -35,11 +35,17 @@ export async function passesOf(
   const track = { passed: new Set<string>(), tried: new Set<string>() };
   do {
     result = await observedPass(parts, state, call, run.held, planned.pass);
+    // a pass a stop or a cancel ended took no answer: its pauses are closed with the tree's end
+    // (`not taken`), never marked `Taken` as a pass that returned (#1341, as the throw it was)
+    if (result.status === ExecutionStatus.Cancelled || result.status === ExecutionStatus.Stopped)
+      return result;
     if (planned.resume !== undefined) {
       await markTaken(parts.deps, planned.resume);
       for (const pauseId of planned.resume.pauseIds) track.passed.add(pauseId);
     }
-    await requests.endIfCancelledAtRest(parts, state, { result, ...run.held });
+    // a cancel found at rest ends the tree: the passes stop with its cancelled output
+    const cancelled = await requests.endIfCancelledAtRest(parts, state, { result, ...run.held });
+    if (cancelled !== undefined) return cancelled;
     const isPaused = result.status === ExecutionStatus.Paused;
     // a pass never rests on a due pause (#941, I6): the holder expires it before it lets go
     const next = isPaused ? await restedPassOf(parts, state, call, track) : undefined;

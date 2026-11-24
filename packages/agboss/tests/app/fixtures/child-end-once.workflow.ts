@@ -8,6 +8,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type ExecutionEndEvent,
+  type ExecutionCancelEvent,
   type ExecutionErrorEvent,
   type ExecutionLeaseTakeoverEvent,
 } from "../../../src/index.js";
@@ -91,6 +92,9 @@ export class EndOnceLocalWorkflowFinish {}
 export class EndOnceLocalWorkflow {}
 
 /** Every end, failure and recovery, with the instance it was heard on. */
+/** An event a root or a child ended with. */
+type Ended = ExecutionEndEvent | ExecutionErrorEvent | ExecutionCancelEvent;
+
 @Observer({ deps: [ApplicationContext] })
 export class EndOnceLog {
   constructor(private readonly applicationContext: ApplicationContext) {}
@@ -103,12 +107,17 @@ export class EndOnceLog {
     this.#heard(endOnceSeen.errors, event, event.error.name);
   }
 
+  /** A root's cancel (#1341) is its end as an error was: heard with the cancel's class name. */
+  onExecutionCancel(event: ExecutionCancelEvent): void {
+    this.#heard(endOnceSeen.errors, event, "ExecutionCancelledError");
+  }
+
   onExecutionLeaseTakeover(event: ExecutionLeaseTakeoverEvent): void {
     if (event.reason === LeaseTakeoverReason.Recovered)
       endOnceSeen.onRecovered?.(this.applicationContext.instanceId);
   }
 
-  #heard(seen: Announced[], event: ExecutionEndEvent | ExecutionErrorEvent, error?: string): void {
+  #heard(seen: Announced[], event: Ended, error?: string): void {
     const { instanceId } = this.applicationContext;
     const { executionId } = event;
     const failed = error === undefined ? {} : { error };

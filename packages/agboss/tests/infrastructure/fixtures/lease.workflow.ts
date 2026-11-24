@@ -12,6 +12,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  type ExecutionCancelEvent,
   type ExecutionErrorEvent,
   type ExecutionTreeValue,
   type PausedExecution,
@@ -45,6 +46,8 @@ export const seen = {
   recalls: [] as (ExecutionTreeValue | undefined)[],
   trees: [] as ExecutionTreeRepository[],
   errors: [] as Error[],
+  /** The cancels (#1341): an execution cancelled is an outcome, never an error. */
+  cancels: [] as ExecutionCancelEvent[],
   resumes: [] as unknown[],
   answerers: [] as (string | undefined)[],
   appended: [] as string[],
@@ -198,6 +201,9 @@ export class Clerk {}
 export class LeaseLog {
   onExecutionError(event: ExecutionErrorEvent): void {
     seen.errors.push(event.error);
+  }
+  onExecutionCancel(event: ExecutionCancelEvent): void {
+    seen.cancels.push(event);
   }
   async onExecutionResume(event: ExecutionResumeEvent): Promise<void> {
     seen.resumes.push(event.decision);

@@ -115,7 +115,7 @@ describe("#928 AC1 lease scopes: endedWithoutPass", () => {
       await passLive(clock, seconds(60));
       await until(() => unwindSeen.errors.length === 1, "the next holder ends the tree");
 
-      expect(await rootOf(b)).toEqual({ status: "failed", isUnwinding: false });
+      expect(await rootOf(b)).toEqual({ status: "cancelled", isUnwinding: false });
       expect(desk.release.mock.calls.map(([id]) => id)).toEqual(["room-1"]);
     },
   );

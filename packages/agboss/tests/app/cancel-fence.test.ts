@@ -32,6 +32,7 @@ import {
   resetSeen,
   seen,
 } from "./fixtures/cancel-fence.workflow.js";
+import { ExecutionStatus } from "../../src/app/types.js";
 
 const test = testWith(CancelFenceApplication, { instances: 2 });
 const THREAD = "t-909";
@@ -77,11 +78,11 @@ describe("#909 AC1/AC3: a live holder between the cancel request and its next re
     // no clock advance: the holder has not renewed since the cancel — the window
     expect(await second.cancel(THREAD)).toEqual({ cancelled: true });
     letAllGo();
-    const error = await rejectionOf(call);
+    const outcome = await call;
     await settle();
 
-    // the moving call rejects as for any cancel; the step saw the store's refusal
-    expect(error).toBeInstanceOf(ExecutionCancelledError);
+    // the moving call resolves cancelled; the step saw the store's refusal
+    expect(outcome).toMatchObject({ status: ExecutionStatus.Cancelled });
     expect(seen.refusals).toHaveLength(1);
     expect(seen.refusals[0]).toBeInstanceOf(ExecutionCancelFencedError);
     expect(seen.charged).toEqual([]);
@@ -101,10 +102,10 @@ describe("#909 AC1/AC3: a live holder between the cancel request and its next re
 
     await second.cancel(THREAD);
     letAllGo();
-    const error = await rejectionOf(call);
+    const outcome = await call;
     await settle();
 
-    expect(error).toBeInstanceOf(ExecutionCancelledError);
+    expect(outcome).toMatchObject({ status: ExecutionStatus.Cancelled });
     expect(seen.requests).toEqual([]);
     expect(seen.calls).toEqual([
       { name: "pay", outcome: "cancelled", status: "pending", attempt: 0 },
@@ -121,10 +122,10 @@ describe("#909 AC1/AC3: a live holder between the cancel request and its next re
 
     await second.cancel(THREAD);
     letAllGo();
-    const error = await rejectionOf(call);
+    const outcome = await call;
     await settle();
 
-    expect(error).toBeInstanceOf(ExecutionCancelledError);
+    expect(outcome).toMatchObject({ status: ExecutionStatus.Cancelled });
     expect(seen.charged).toEqual([]);
     expect(seen.released).toEqual(["reservation-order-1"]);
   });
@@ -177,12 +178,15 @@ describe("#909: who writes the mark", () => {
       rootExecutionId: "execution-1",
     });
 
-    const error = await rejectionOf(
-      execute(first, FenceChargeStart, { text: "order-3" }, { threadId: "t-3" }),
+    const outcome = await execute(
+      first,
+      FenceChargeStart,
+      { text: "order-3" },
+      { threadId: "t-3" },
     );
     await settle();
 
-    expect(error).toBeInstanceOf(ExecutionCancelledError);
+    expect(outcome).toMatchObject({ status: ExecutionStatus.Cancelled });
     expect(seen.refusals[0]).toBeInstanceOf(ExecutionCancelFencedError);
     expect(seen.charged).toEqual([]);
     expect(seen.released).toEqual(["reservation-order-3"]);
@@ -198,11 +202,11 @@ describe("#909 AC1: an AnyInstance child", () => {
 
     await second.cancel(THREAD);
     letAllGo();
-    const error = await rejectionOf(call);
+    const outcome = await call;
     await until(() => seen.refusals.length > 0, "the child's refusal");
     await settle();
 
-    expect(error).toBeInstanceOf(ExecutionCancelledError);
+    expect(outcome).toMatchObject({ status: ExecutionStatus.Cancelled });
     expect(seen.charged).toEqual([]);
     const [refusal] = seen.refusals;
     expect(refusal).toBeInstanceOf(ExecutionCancelFencedError);

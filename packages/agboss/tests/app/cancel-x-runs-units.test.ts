@@ -523,7 +523,7 @@ describe("#1366: what a cancel leaves in the record", () => {
   it("the outcome of a cancelled run: failed, no reply, the path and the cost it had", () => {
     const outcome = {
       replyWith: "",
-      status: "failed",
+      status: "cancelled",
       stopReason: "the run was cancelled",
       route: ["a", "b"],
       steps: [],

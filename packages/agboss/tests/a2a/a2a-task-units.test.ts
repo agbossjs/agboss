@@ -375,6 +375,41 @@ describe("#807: the projection on its own", () => {
     expect((await cancelled.tasks.findById(KEY))?.status.state).toBe(A2ATaskState.Canceled);
   });
 
+  it("#1341: a cancel → CANCELED and a stop → CANCELED, each only once the records show that end", async () => {
+    const cancelled = await storeWith(WORKING);
+    const early = await storeWith(WORKING);
+    const stopped = await storeWith(WORKING);
+    const wrong = await storeWith(WORKING);
+    const event = eventOf();
+
+    await projectionOf(
+      cancelled.tasks,
+      scripted([{ status: DurableExecutionStatus.Cancelled }]).control,
+    ).projection.onExecutionCancel(event);
+    // the record still runs: recovery or a holder ends it — no final status written early
+    await projectionOf(
+      early.tasks,
+      scripted([{ status: DurableExecutionStatus.Running }]).control,
+    ).projection.onExecutionCancel(event);
+    await projectionOf(
+      stopped.tasks,
+      scripted([{ status: DurableExecutionStatus.Stopped }]).control,
+    ).projection.onExecutionStop(event);
+    // a stop event whose records say another end changes nothing
+    await projectionOf(
+      wrong.tasks,
+      scripted([{ status: DurableExecutionStatus.Cancelled }]).control,
+    ).projection.onExecutionStop(event);
+
+    expect((await cancelled.tasks.findById(KEY))?.status.state).toBe(A2ATaskState.Canceled);
+    expect((await early.tasks.findById(KEY))?.version).toBe(1);
+    expect((await stopped.tasks.findById(KEY))?.status.state).toBe(A2ATaskState.Canceled);
+    expect((await wrong.tasks.findById(KEY))?.version).toBe(1);
+    expect(durableStatusOf({ status: DurableExecutionStatus.Stopped })).toEqual(
+      durableStatusOf({ status: DurableExecutionStatus.Cancelled }),
+    );
+  });
+
   it("an incompatible resume changes nothing and reads nothing; a terminal task is left", async () => {
     const { tasks } = await storeWith(WORKING);
     const errorOf = (error: Error) => ({ ...(eventOf() as object), error }) as never;

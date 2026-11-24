@@ -274,8 +274,7 @@ export interface AgentExecutionOutput {
     readonly startedVersion?: string;
     // (undocumented)
     readonly startInput: unknown;
-    // (undocumented)
-    readonly status: ExecutionStatus;
+    readonly status: ExecutionStatus.Finished | ExecutionStatus.Paused;
     readonly tenantId: string;
     // (undocumented)
     readonly threadId: string;
@@ -412,7 +411,8 @@ export interface ChildExecutionRecord extends Omit<EndedChildRecord, "children">
 export enum ChildExecutionStatus {
     Cancelled = "cancelled",
     Failed = "failed",
-    Finished = "finished"
+    Finished = "finished",
+    Stopped = "stopped"
 }
 
 // @public
@@ -891,7 +891,9 @@ export enum ExecutionHistoryStatus {
     // (undocumented)
     Finished = "finished",
     // (undocumented)
-    Paused = "paused"
+    Paused = "paused",
+    // (undocumented)
+    Stopped = "stopped"
 }
 
 // @public
@@ -997,11 +999,13 @@ export abstract class ExecutionRecordRepository {
 // @public
 export enum ExecutionRecordStatus {
     Answered = "answered",
+    Cancelled = "cancelled",
     Failed = "failed",
     Guarded = "guarded",
     Paused = "paused",
     Queued = "queued",
     Running = "running",
+    Stopped = "stopped",
     Written = "written"
 }
 
@@ -1014,9 +1018,13 @@ export interface ExecutionRecordStatusQuery extends PageQuery {
 // @public
 export enum ExecutionStatus {
     // (undocumented)
+    Cancelled = "cancelled",
+    // (undocumented)
     Finished = "finished",
     // (undocumented)
-    Paused = "paused"
+    Paused = "paused",
+    // (undocumented)
+    Stopped = "stopped"
 }
 
 // @public
@@ -2480,7 +2488,7 @@ export interface Turn {
 export type TurnOutcome = Pick<Turn, "replyWith" | "status" | "stopReason" | "route" | "steps" | "costUsd">;
 
 // @public
-export type TurnStatus = "running" | "answered" | "guarded" | "failed" | "paused" | "queued" | "written";
+export type TurnStatus = "running" | "answered" | "guarded" | "failed" | "stopped" | "cancelled" | "paused" | "queued" | "written";
 
 // @public
 export interface TurnStep {
@@ -2568,6 +2576,8 @@ export interface WrittenLedgerMark {
 // src/app/paused-runs.ts - (ae-undocumented) Missing documentation for "run".
 // src/app/types.ts - (ae-undocumented) Missing documentation for "Finished".
 // src/app/types.ts - (ae-undocumented) Missing documentation for "Paused".
+// src/app/types.ts - (ae-undocumented) Missing documentation for "Stopped".
+// src/app/types.ts - (ae-undocumented) Missing documentation for "Cancelled".
 // src/components/policy-decorators.ts - (ae-undocumented) Missing documentation for "Input".
 // src/components/policy-decorators.ts - (ae-undocumented) Missing documentation for "Output".
 // src/core/error-families/store-errors.ts - (ae-undocumented) Missing documentation for "OutcomeUnknown".
@@ -2730,6 +2740,7 @@ export interface WrittenLedgerMark {
 // src/infrastructure/execution-history.repository.ts - (ae-undocumented) Missing documentation for "Paused".
 // src/infrastructure/execution-history.repository.ts - (ae-undocumented) Missing documentation for "Finished".
 // src/infrastructure/execution-history.repository.ts - (ae-undocumented) Missing documentation for "Failed".
+// src/infrastructure/execution-history.repository.ts - (ae-undocumented) Missing documentation for "Stopped".
 // src/infrastructure/execution-history.repository.ts - (ae-undocumented) Missing documentation for "Cancelled".
 // src/infrastructure/execution-history.repository.ts - (ae-undocumented) Missing documentation for "name".
 // src/infrastructure/execution-history.repository.ts - (ae-undocumented) Missing documentation for "version".
@@ -2855,7 +2866,6 @@ export interface WrittenLedgerMark {
 // src/run/types.ts - (ae-undocumented) Missing documentation for "scope".
 // src/run/types.ts - (ae-undocumented) Missing documentation for "outdatedValues".
 // src/run/types.ts - (ae-undocumented) Missing documentation for "lastError".
-// src/run/types.ts - (ae-undocumented) Missing documentation for "status".
 // src/run/types.ts - (ae-undocumented) Missing documentation for "startInput".
 // src/run/types.ts - (ae-undocumented) Missing documentation for "output".
 // src/run/types.ts - (ae-undocumented) Missing documentation for "budgetUsd".

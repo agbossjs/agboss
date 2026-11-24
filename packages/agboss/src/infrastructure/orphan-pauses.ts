@@ -36,6 +36,8 @@ const ENDED: readonly string[] = [
   ExecutionRecordStatus.Answered,
   ExecutionRecordStatus.Failed,
   ExecutionRecordStatus.Guarded,
+  ExecutionRecordStatus.Stopped,
+  ExecutionRecordStatus.Cancelled,
 ];
 const isEnded = (status: string): boolean => ENDED.includes(status);
 const RESTING: string = ExecutionRecordStatus.Paused;

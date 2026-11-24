@@ -3,7 +3,8 @@ import { withChildPauses } from "../flow/runtime/child-records.js";
 import type { ExecutionRecord, PauseAnswerRecord } from "../flow/runtime/execution-record.js";
 import type { AgentExecutionDeps } from "../run/types.js";
 import type { AgentExecutionOutput } from "../run/types.js";
-import type { ExecutionOutput } from "./types.js";
+import { ExecutionStatus, type ExecutionOutput } from "./types.js";
+import { AGBossError } from "../core/errors.js";
 import type { ComponentRecord } from "../flow/runtime/records.js";
 import { NO_OBSERVABILITY_MASK } from "../pii/observability-mask.js";
 import { maskedEntries, maskedTreeRecordOf, treeMasksFor, type TreeDeps } from "./record-masks.js";
@@ -41,8 +42,7 @@ export function runResultOf(
   withRecord: boolean,
   finishOf: (name: string) => ComponentRecord,
 ): ExecutionOutput {
-  return {
-    status: run.status,
+  const base = {
     threadId: run.threadId,
     tenantId: run.tenantId,
     executionId: run.runId,
@@ -53,11 +53,22 @@ export function runResultOf(
     handledErrors: run.data.handledErrors ?? [],
     compensations: compensationRecordsOf(run.data.compensations),
     toolCalls: run.data.toolCalls ?? [],
-    ...(run.finish === undefined ? {} : { finish: finishOf(run.finish), output: run.output }),
-    pending: run.pending.map(visiblePauseOf),
     ...(run.compacted === undefined ? {} : { compacted: run.compacted }),
     ...(run.traceUrl === undefined ? {} : { traceUrl: run.traceUrl }),
     ...(withRecord ? { record: recordOf(run) } : {}),
+  };
+  if (run.status === ExecutionStatus.Paused)
+    return { ...base, status: ExecutionStatus.Paused, pending: run.pending.map(visiblePauseOf) };
+  if (run.finish === undefined)
+    throw new AGBossError(
+      `execution ${run.runId} ended with no finish: its graph did not end — a framework bug`,
+    );
+  return {
+    ...base,
+    status: ExecutionStatus.Finished,
+    finish: finishOf(run.finish),
+    output: run.output,
+    pending: [],
   };
 }
 

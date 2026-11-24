@@ -1292,9 +1292,9 @@ another owner, `onExecutionRejected`), then:
 The holder reads the request **after every lease renewal the store confirms** — the background one
 every 7.5 seconds and the one before each checkpoint write — and before its tree rests paused. A found
 request aborts the pass with `ExecutionCancelledError` (`thread "…" was cancelled`, the message of
-a local cancel): the tool loop starts no further model or tool call, the record is failed,
-`onExecutionError` fires once (on the holder's instance) and the holder's `execute` / `resume`
-rejects. A store error reading the request is not a failure: it is read again at the next renewal.
+a local cancel): the tool loop starts no further model or tool call, the record is `cancelled`,
+`onExecutionCancel` fires once (on the holder's instance) and the holder's `execute` / `resume`
+resolves cancelled. A store error reading the request is not a failure: it is read again at the next renewal.
 
 **Cancel is a hard fence (#909, [ADR-0030](ADR-0030-A-cancel-is-a-fence)).** Every path that
 cancels a tree — a local `app.cancel`, a remote one, a paused tree's, an A2A `CancelTask` — first
@@ -1311,13 +1311,13 @@ child's key is fenced by its **root's** cancel; the end of an attempt claimed be
 `ExecutionFencedError` — a hand-over first. The step that met the refusal stops the tree as
 cancelled **at once** (not at the next renewal): it is told (`onIdempotencyRun` / `onOutboundCall`
 with outcome `cancelled`, and the audit log), the holder aborts its own pass, the open undos run
-under its lease and the moving call rejects with `ExecutionCancelledError`. The guarantee is P7 on
+under its lease and the moving call resolves cancelled. The guarantee is P7 on
 [Guarantees](Guarantees): once `app.cancel` has resolved no effect runs for the tree but its undo's;
 a write already inside its transaction may finish first, and a send already claimed may still be
 answered and recorded. A mark is permanent (#1117): no retention lifts it, by age or otherwise, and it lives on the tree's lease row, kept as the lease rows and execution ids are (one per cancelled tree).
 
 **The request is durable.** An instance that takes a tree's lease reads it first: a waiting
-`resume` ends the tree as cancelled and rejects with `ExecutionCancelledError`; recovery ends a
+`resume` ends the tree as cancelled and resolves cancelled; recovery ends a
 `running` root with a request instead of continuing it — on an instance of **any** config version,
 since ending runs no graph (a root of another deploy without a request is still left to a compatible
 instance). Ending without a pass fails the record, drops the paused run, withdraws its pauses,
@@ -1351,7 +1351,7 @@ An execution that ends without a finish undoes its open undoable actions before 
   `resume` or a recovery at its lease take too. Found, the remaining undos run on the checkpoint
   state (pending writes applied, the children's namespaces included), the ones marked done skipped,
   then the tree ends failed with the recorded reason — its record failed, its pauses withdrawn, its
-  keys removed, `onExecutionError` once (`ExecutionCancelledError` for a cancel, an `AGBossError`
+  keys removed, `onExecutionCancel` for a cancel, `onExecutionError` once (an `AGBossError`
   with the original message for a failure; `CompensationFailedError` when an undo failed) — and no
   pass runs; the log says `compensation.recovered`;
 - **a child re-entered mid-undo** — the root's pass continued from its checkpoint, the child's step

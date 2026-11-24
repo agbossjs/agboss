@@ -94,11 +94,12 @@ describe("#860: a run no recovery continues", () => {
     await clock.advance(seconds(31));
 
     await expect(call).rejects.toBeInstanceOf(ExecutionLeaseLostError);
-    expect(seen.errors.map((error) => error.constructor)).toEqual([ExecutionCancelledError]);
+    expect(seen.errors).toEqual([]);
+    expect(seen.cancels).toHaveLength(1);
     expect(seen.resumes).toEqual([]);
     expect(seen.holds).toHaveLength(1);
     expect(mockLlm(Clerk).requests).toHaveLength(2);
-    expect(await lastStatus()).toBe("failed");
+    expect(await lastStatus()).toBe("cancelled");
   });
 
   test("its holder alive, the mark changes nothing: it ends at its finish", async ({

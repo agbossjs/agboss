@@ -1,6 +1,7 @@
 import { executeWithoutInputCheck } from "../../app/execute-without-input-check.js";
 import { withoutRecovery, withReservedExecutionId } from "../../app/tree-control.js";
-import type { ExecutionOptions, ExecutionOutput } from "../../app/types.js";
+import { ExecutionStatus, type ExecutionOptions, type ExecutionOutput } from "../../app/types.js";
+import { ExecutionCancelledError } from "../../core/errors.js";
 import type {
   A2ADirectMessageRecord,
   A2ADirectMessageReply,
@@ -73,6 +74,10 @@ function optionsOf(
 
 /** The reply of a run that reached a finish; a run that rests paused is no reply (a bug: refused). */
 function replyOf(result: ExecutionOutput): A2ADirectMessageReply {
+  // a cancel is no reply (#1341): the attempt fails as a cancel did when it rejected — its row
+  // removed, the client told it was cancelled
+  if (result.status === ExecutionStatus.Cancelled || result.status === ExecutionStatus.Stopped)
+    throw new ExecutionCancelledError({ message: "the execution was cancelled externally" });
   // Stryker disable next-line StringLiteral: the invariant's text, never read while it holds
   const finish = definedOf(result.finish, "a direct skill cannot pause (assembly)");
   return {

@@ -23,6 +23,8 @@ export enum ChildExecutionStatus {
   Failed = "failed",
   /** A sibling failed first (FailFast) or the execution was cancelled: it stopped midway. */
   Cancelled = "cancelled",
+  /** The execution was stopped (#1341): the child halted where it stood, nothing undone. */
+  Stopped = "stopped",
 }
 
 /** A child's identity as its state and its marker keep it: the same after a pause or a crash. */

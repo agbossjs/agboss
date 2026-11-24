@@ -29,6 +29,7 @@ import {
   seen,
   type HookedPausedExecutionRepository,
 } from "../infrastructure/fixtures/lease.workflow.js";
+import { ExecutionStatus } from "../../src/app/types.js";
 
 const approve = { approved: true };
 const THREAD = "t-939";
@@ -106,7 +107,7 @@ describe("#939 AC1: the drain took the answer, a cancel stopped the pass", () =>
 
     const moved = execute(first, OrderWorkflowStart, { text: "charge" }, { threadId: THREAD });
 
-    await expect(moved).rejects.toBeInstanceOf(ExecutionCancelledError);
+    await expect(moved).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
     await expect(resumed.call).rejects.toBeInstanceOf(PauseClosedError);
     await clock.advance(seconds(31));
     const left = await leftOf(stored(store.repository), root.id, THREAD);

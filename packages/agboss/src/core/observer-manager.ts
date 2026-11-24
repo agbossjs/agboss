@@ -1,4 +1,3 @@
-import { redactedFilesIn } from "../a2a/files/a2a-file-scrub.js";
 import type { ValuesOutdatedEvent } from "../flow/observers/values-outdated.js";
 import type { LaunchItemsTruncatedEvent } from "../flow/observers/launch-items-truncated.js";
 import type { CompactionEndEvent, CompactionStartEvent } from "../flow/observers/compaction.js";
@@ -31,7 +30,9 @@ import type {
   RouterEndEvent,
   RouterStartEvent,
   ExecutionEndEvent,
+  ExecutionCancelEvent,
   ExecutionErrorEvent,
+  ExecutionStopEvent,
   ExecutionPauseEvent,
   ExecutionRejectedEvent,
   ExecutionResumeEvent,
@@ -42,23 +43,8 @@ import type {
 } from "./observability.js";
 import { isWanted, type ObserverHook, type ExecutionObserver } from "./observer-hooks.js";
 
-/**
- * The instance's tally of a lost pass's Unknown-cost entries (#875): its metrics' counters, given
- * to the observer manager when the app has a meter provider — read by the runtime, never by a
- * project's observer.
- */
-export interface UnknownCostTally {
-  /** A pass recorded `count` Unknown-cost entries for a step of `workflow`, before running it again. */
-  recorded(workflow: string, count: number): void;
-  /** A pass of `workflow` could not read its tree's lost passes: their entries are not recorded. */
-  unrecorded(workflow: string): void;
-}
-
-/** What an event goes through before any observer sees it (the PII observability mask, #120). */
-export type EventMask = (event: unknown) => Promise<unknown>;
-
-/** Without policies an event is still shown without a file's bytes (#899 §0). */
-export const unmasked: EventMask = (event) => Promise.resolve(redactedFilesIn(event));
+export { unmasked, type EventMask, type UnknownCostTally } from "./observer-mask.js";
+import { unmasked, type EventMask, type UnknownCostTally } from "./observer-mask.js";
 
 /** Told when an observer's hook throws; the execution goes on. */
 export type ObserverFailure = (observer: string, hook: ObserverHook, error: unknown) => void;
@@ -131,6 +117,12 @@ export class ExecutionObserverManager implements Required<ExecutionObserver> {
   }
   onExecutionEnd(event: ExecutionEndEvent): Promise<void> {
     return this.each("onExecutionEnd", event, (o, e) => o.onExecutionEnd?.(e));
+  }
+  onExecutionStop(event: ExecutionStopEvent): Promise<void> {
+    return this.each("onExecutionStop", event, (o, e) => o.onExecutionStop?.(e));
+  }
+  onExecutionCancel(event: ExecutionCancelEvent): Promise<void> {
+    return this.each("onExecutionCancel", event, (o, e) => o.onExecutionCancel?.(e));
   }
   onExecutionError(event: ExecutionErrorEvent): Promise<void> {
     return this.each("onExecutionError", event, (o, e) => o.onExecutionError?.(e));

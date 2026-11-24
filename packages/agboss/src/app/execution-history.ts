@@ -47,12 +47,20 @@ export interface HistoryEnd {
   readonly lostUsage?: readonly UsageRecord[];
 }
 
-/** How a tree whose pass returned stands: finished, or resting paused. */
+/** The history status of each way a pass of a tree returns. */
+const HISTORY_STATUS: Readonly<Record<ExecutionStatus, ExecutionHistoryStatus>> = {
+  [ExecutionStatus.Finished]: ExecutionHistoryStatus.Finished,
+  [ExecutionStatus.Paused]: ExecutionHistoryStatus.Paused,
+  [ExecutionStatus.Stopped]: ExecutionHistoryStatus.Stopped,
+  [ExecutionStatus.Cancelled]: ExecutionHistoryStatus.Cancelled,
+};
+
+/**
+ * How a tree whose pass returned stands: finished, resting paused, stopped or cancelled — the last
+ * two ended, never kept as `Paused` with no end (#1341).
+ */
 export const historyRestOf = (status: ExecutionStatus): HistoryEnd => ({
-  status:
-    status === ExecutionStatus.Finished
-      ? ExecutionHistoryStatus.Finished
-      : ExecutionHistoryStatus.Paused,
+  status: HISTORY_STATUS[status],
 });
 
 /**
@@ -74,7 +82,7 @@ export const historyEndOf = (
 });
 
 /** The channels a record reads. */
-type RecordedState = Pick<
+export type RecordedState = Pick<
   ExecutionStateType,
   | "start"
   | "startInput"
@@ -91,10 +99,12 @@ type RecordedState = Pick<
   | "compensations"
   | "toolCalls"
   | "stepRecords"
+  | "launches"
+  | "handledErrors"
 >;
 
 /** Those channels as a state before its first write holds them. */
-const EMPTY_STATE: RecordedState = {
+export const EMPTY_STATE: RecordedState = {
   start: "",
   startInput: undefined,
   startedAt: "",
@@ -110,10 +120,12 @@ const EMPTY_STATE: RecordedState = {
   compensations: [],
   toolCalls: [],
   stepRecords: [],
+  launches: [],
+  handledErrors: [],
 };
 
 /** The root's last checkpoint state, every channel a record reads present. */
-async function checkpointStateOf(deps: AppDeps, state: TreeState): Promise<RecordedState> {
+export async function checkpointStateOf(deps: AppDeps, state: TreeState): Promise<RecordedState> {
   const snapshot = await readingGraphOf(deps).getState(runConfig(state.runId));
   // LangGraph boundary: a checkpoint's values are the flow's own state
   return { ...EMPTY_STATE, ...(snapshot.values as Partial<ExecutionStateType>) };

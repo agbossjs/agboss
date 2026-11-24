@@ -6,10 +6,12 @@ import { leasedDeps } from "./tree-ends.js";
 import type { HeldPass, TreeCall, TreeMoveParts, TreePass, TreeState } from "./tree-move-types.js";
 import { unwindingDeps } from "./tree-unwind.js";
 import type { ExecutionOutput } from "./types.js";
+import { ExecutionCancelledError } from "../core/errors.js";
+import { cancelledOutputOf } from "./cancelled-output.js";
 
 /**
  * One pass of a tree (`tree-moves.ts`), observed and settled while its lease is held; a cancel
- * request aborts it. A pass that fails undoes the tree's open undoable actions before the root's
+ * request aborts it, and the pass then returns the cancelled output (#1341). A pass that fails undoes the tree's open undoable actions before the root's
  * record is failed and its error observed (#340 PR 3, S7 3) — `ExecutionErrorEvent.compensations`
  * lists what ran; the undo stops only on a lost lease or the app's stop, never on a cancel.
  */
@@ -28,10 +30,19 @@ export function observedPass(
   const at = { signal, lease: held.lease, undo };
   const moving = unwindingDeps(leasedDeps(deps, held.lease), state, at);
   const leg = async (): Promise<ExecutionOutput> => {
-    const run = await live.track(state, AbortSignal.any(caller), (signal) => pass(moving, signal));
-    await paused.settle(run);
-    const result = runResultOf(run, call.record === true, (name) => nodeRecordIn(deps, name));
-    return maskedRecordOf(result, deps);
+    try {
+      const run = await live.track(state, AbortSignal.any(caller), (signal) =>
+        pass(moving, signal),
+      );
+      await paused.settle(run);
+      const result = runResultOf(run, call.record === true, (name) => nodeRecordIn(deps, name));
+      return await maskedRecordOf(result, deps);
+    } catch (error) {
+      if (!(error instanceof ExecutionCancelledError)) throw error;
+      // a cancel is an outcome, not a failure (#1341): its undo ran before this error, and the
+      // call resolves cancelled — an undo that failed is `CompensationFailedError`, thrown on
+      return cancelledOutputOf(deps, state, { cause: error, compensations: undo.compensations });
+    }
   };
   return observeLeg(
     deps.observer,

@@ -125,7 +125,9 @@ describe("#1366: the orphan look's end of a tree", () => {
   it("a cancelled root: its end is the cancel's, as app.cancel ends it", async () => {
     const { parts } = partsOf({ release: () => Promise.resolve() });
 
-    await orphanEndsOf(parts).closeOrphan(record({ stopReason: "the run was cancelled" }));
+    await orphanEndsOf(parts).closeOrphan(
+      record({ status: ExecutionRecordStatus.Cancelled, stopReason: "the run was cancelled" }),
+    );
 
     const [, , cause] = mocks.forgetTree.mock.calls[0] as [unknown, unknown, unknown];
     expect(cause).toBeInstanceOf(ExecutionCancelledError);

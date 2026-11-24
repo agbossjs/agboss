@@ -12,6 +12,7 @@ import {
   spendSeen,
   SpendApplication,
 } from "./fixtures/spend.workflow.js";
+import { ExecutionStatus } from "../../../src/app/types.js";
 
 beforeEach(resetSpendSeen);
 
@@ -51,7 +52,7 @@ describe("#280 S45: in a tool call, executionContext.signal is the call's", () =
       controller.abort(new ExecutionCancelledError({ message: "stop" }));
     }, 10);
 
-    await expect(run).rejects.toBeInstanceOf(ExecutionCancelledError);
+    await expect(run).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
     expect(spendSeen.aborts).toHaveLength(1);
     expect(spendSeen.aborts[0]).not.toBe("ToolTimeoutError");
   });

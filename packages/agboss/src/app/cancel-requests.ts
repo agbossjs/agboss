@@ -121,18 +121,21 @@ export function watchedBy(lease: HeldExecutionLease, watch: CancelWatch): void {
 
 /**
  * Ends a tree whose cancel was requested, under its lease and without a pass (`ended-tree.ts`): its
- * open undoable actions undone (#340 PR 3, under `signal`), its record failed as cancelled after
- * the undo (S7 3); the tree's final error — `CompensationFailedError` when an undo failed (S7 1).
+ * open undoable actions undone (#340 PR 3, under `signal`), its record ended as cancelled after
+ * the undo (S7 3); the tree's cancelled output — or `CompensationFailedError` when an undo failed
+ * (S7 1), which the moving call rejects with.
  */
 export async function endCancelled(
   parts: CancelParts,
   state: TreeState,
   lease: HeldExecutionLease,
   undo?: EndedTreeUndo,
-): Promise<Error> {
+): Promise<ExecutionOutput | Error> {
   const cause = cancelledErrorOf(state.threadId);
   const end = { cause, signal: lease.signal, lease, ...(undo === undefined ? {} : { undo }) };
-  return (await endedWithoutPass(parts, state, end)).error;
+  const ended = await endedWithoutPass(parts, state, end);
+  // a cancelled tree resolves its caller cancelled; an undo that failed rejects with its error
+  return ended.output ?? ended.error;
 }
 
 /** A lease just taken (a resume, a recovery): a tree with a request is ended, the lease released. */
@@ -140,7 +143,7 @@ export async function endedAtTake(
   parts: CancelParts,
   state: TreeState,
   lease: HeldExecutionLease,
-): Promise<Error | undefined> {
+): Promise<ExecutionOutput | Error | undefined> {
   const tree = treeOf(state);
   if (!(await isEndedAtTakeover(parts.trees, tree)) && !(await isMarkedAlive(parts, state)))
     return undefined;
@@ -151,7 +154,11 @@ export async function endedAtTake(
   }
 }
 
-/** A tree about to rest paused with a request: ended as cancelled, and the moving call rejects. */
+/**
+ * A tree about to rest paused with a request: ended as cancelled, and the moving call resolves with
+ * the cancelled output (rejects with `CompensationFailedError` when an undo failed); `undefined`
+ * when there is no request.
+ */
 export async function endIfCancelledAtRest(
   parts: CancelParts,
   state: TreeState,
@@ -162,10 +169,12 @@ export async function endIfCancelledAtRest(
     /** What its undo runs, for the record its pass keeps after (#635). */
     readonly undo: EndedTreeUndo;
   },
-): Promise<void> {
+): Promise<ExecutionOutput | undefined> {
   const { result, watch, lease, undo } = rest;
-  if (result.status !== ExecutionStatus.Paused || !(await watch.isRequested())) return;
-  throw await endCancelled(parts, state, lease, undo);
+  if (result.status !== ExecutionStatus.Paused || !(await watch.isRequested())) return undefined;
+  const ended = await endCancelled(parts, state, lease, undo);
+  if (ended instanceof Error) throw ended;
+  return ended;
 }
 
 /** A root the recovery sweep found `running`: its record (#520: ended → no takeover). */
@@ -175,13 +184,14 @@ export interface SweptRoot {
 
 /**
  * Ends a tree as cancelled once its lease is held here (waiting for a holder that rests it): its
- * final error, or `undefined` when its lease was not free.
+ * cancelled output (or the final error of an undo that failed), or `undefined` when its lease was
+ * not free.
  */
 async function endHeld(
   parts: CancelParts,
   state: TreeState,
   sweep?: SweptRoot,
-): Promise<Error | undefined> {
+): Promise<ExecutionOutput | Error | undefined> {
   const tree = treeOf(state);
   const isWaiting = sweep === undefined;
   // the sweep's take (not waiting) is a takeover of a root another pass was moving (#501), none

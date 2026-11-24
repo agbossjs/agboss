@@ -1,8 +1,10 @@
 import type { ExecutionObserver } from "../../core/observer-hooks.js";
 import type {
+  ExecutionCancelEvent,
   ExecutionEndEvent,
   ExecutionErrorEvent,
   ExecutionPauseEvent,
+  ExecutionStopEvent,
 } from "../../core/observability.js";
 import type { ExecutionEvent } from "../../flow/observers/execution-event.js";
 import { DurableExecutionStatus, type ExecutionControl } from "../../app/execution-control.js";
@@ -14,7 +16,13 @@ import {
   type A2ATaskStatus,
 } from "../../infrastructure/a2a-task.repository.js";
 import { IncompatibleResumeError } from "../../run/resume-guard.js";
-import { completedStatusOf, failedStatusOf, pausedStatusOf, WORKING } from "./task-status.js";
+import {
+  CANCELED,
+  completedStatusOf,
+  failedStatusOf,
+  pausedStatusOf,
+  WORKING,
+} from "./task-status.js";
 import { taskChanged } from "./task-changes.js";
 
 /** How many times a write lost to another writer is read and tried again. */
@@ -63,6 +71,22 @@ export class A2ATaskProjection implements ExecutionObserver {
       return state.status === DurableExecutionStatus.Finished
         ? completedStatusOf(state.finish, state.output, event.spend.totalUsd)
         : undefined;
+    });
+  }
+
+  /** A cancel is terminal once the records show it (#1341): the task is `canceled`. */
+  onExecutionCancel(event: ExecutionCancelEvent): Promise<void> {
+    return this.#move(event, async () => {
+      const { status } = await this.#durableStateOf(event);
+      return status === DurableExecutionStatus.Cancelled ? CANCELED : undefined;
+    });
+  }
+
+  /** A stop is terminal once the records show it (#1341): A2A has no stopped task, it is `canceled`. */
+  onExecutionStop(event: ExecutionStopEvent): Promise<void> {
+    return this.#move(event, async () => {
+      const { status } = await this.#durableStateOf(event);
+      return status === DurableExecutionStatus.Stopped ? CANCELED : undefined;
     });
   }
 

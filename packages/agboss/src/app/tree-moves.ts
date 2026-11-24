@@ -28,6 +28,7 @@ import { withTreeOrigin } from "./tree-origin.js";
 import { ExecutionStatus, type ExecutionOutput } from "./types.js";
 import { isUnwinding } from "../flow/runtime/compensation/unwinding-marks.js";
 import { historyEndOf, historyRestOf, keepExecutionRecord } from "./execution-history.js";
+import { cancelCauseOf } from "./cancelled-output.js";
 import type { EndedTreeUndo } from "./tree-unwind.js";
 
 /** Cancel requests (#360), loaded with the first pass. */
@@ -77,9 +78,11 @@ class TreeMover implements TreeMoves {
       // the rest a holder wrote after taking this very answer (#1179)
       const take = rootTakeOf(deps.pause, state.runId, LeaseTakeoverReason.Resumed);
       const lease = await leases.hold(treeOf(state), given.signal, take);
-      // ended at the take: the resume rejects with the tree's final error (#340 S7 1)
+      // ended at the take: a cancelled tree resolves cancelled (#1341); one whose undo failed, or
+      // that failed, rejects with its final error (#340 S7 1)
       const ended = await this.endedAtTake(state, lease);
-      if (ended !== undefined) throw ended;
+      if (ended instanceof Error) throw ended;
+      if (ended !== undefined) return ended;
       // the tree failed after the answer was recorded (#901): its holder's drain took the answer and
       // its pass stopped (a cancel request, gone with the tree's keys), the pause left `Resolved`
       // and the paused run of the rest before still stored — no pass moves an ended tree
@@ -161,12 +164,13 @@ class TreeMover implements TreeMoves {
 
   /**
    * A lease just taken: a tree with a cancel request (#360) or an undo under way (#340 PR 4) is
-   * ended without a pass and the lease released — its final error; `undefined` otherwise.
+   * ended without a pass and the lease released — its cancelled output, or its final error when it
+   * failed; `undefined` otherwise.
    */
   private async endedAtTake(
     state: TreeState,
     lease: HeldExecutionLease,
-  ): Promise<Error | undefined> {
+  ): Promise<ExecutionOutput | Error | undefined> {
     const cancelled = await (await cancelRequests()).endedAtTake(this.parts, state, lease);
     if (cancelled !== undefined || !(await isUnwinding(this.parts.trees, treeOf(state))))
       return cancelled;
@@ -204,7 +208,7 @@ class TreeMover implements TreeMoves {
     const { deps, live } = this.parts;
     // what the undo of the pass that ends the tree ran: its record lists it, as its event (#635)
     const undo: EndedTreeUndo = {};
-    // the tree's terminal record (finished, failed or cancelled) is durable (#928)
+    // the tree's terminal record (finished, failed, stopped or cancelled) is durable (#928)
     let isEnded = false;
     try {
       // a cancel requested on another instance stops the passes at a renewal (#360)
@@ -216,10 +220,10 @@ class TreeMover implements TreeMoves {
       const result = await leaseScope(lease, () =>
         passesOf(this.parts, this, { state, call }, { held: { lease, watch, undo }, first }),
       );
-      isEnded = result.status === ExecutionStatus.Finished;
+      isEnded = result.status !== ExecutionStatus.Paused;
       // #699: the kept record first — a pod killed in the cleanup's round trips keeps it
-      await keepExecutionRecord(deps, state, historyRestOf(result.status));
-      if (result.status === ExecutionStatus.Finished) await forgetTree(this.parts, state);
+      await keepExecutionRecord(deps, state, this.#restOf(result, undo));
+      if (isEnded) await forgetTree(this.parts, state, cancelCauseOf(result));
       // who answered each pause (#267 S107): read once the pauses were taken and withdrawn
       return await withPauseAnswers(result, deps);
     } catch (error) {
@@ -233,6 +237,14 @@ class TreeMover implements TreeMoves {
       await passEnded(live, deps, state);
       await this.#released(lease, state, isEnded);
     }
+  }
+
+  /** How a returned tree stands in its kept record: a cancel keeps the error and the undo it ran. */
+  #restOf(result: ExecutionOutput, undo: EndedTreeUndo) {
+    const cause = cancelCauseOf(result);
+    return cause === undefined
+      ? historyRestOf(result.status)
+      : historyEndOf(cause, undo.compensations);
   }
 
   /**

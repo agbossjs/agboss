@@ -34,6 +34,10 @@ export enum ExecutionRecordStatus {
   Guarded = "guarded",
   /** It failed (its error in the record's `stopReason`). */
   Failed = "failed",
+  /** It was stopped (#1341): halted where it stood, nothing undone. */
+  Stopped = "stopped",
+  /** It was cancelled (#1341): aborted and its open undoable actions undone. */
+  Cancelled = "cancelled",
   /** It waits for a decision. */
   Paused = "paused",
   /**

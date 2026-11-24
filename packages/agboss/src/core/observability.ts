@@ -178,7 +178,8 @@ export type ExecutionStartEvent = ExecutionEvent;
 
 /**
  * An execution ended at a finish (`onExecutionEnd`): once per execution, also when it finishes
- * after a resume — a pause is `onExecutionPause`, a failure `onExecutionError`.
+ * after a resume — a pause is `onExecutionPause`, a failure `onExecutionError`, a stop
+ * `onExecutionStop`, a cancel `onExecutionCancel`.
  */
 export interface ExecutionEndEvent extends ExecutionEvent {
   /** The workflow finish it reached. */
@@ -232,9 +233,34 @@ export interface ExecutionResumeEvent extends ExecutionEvent {
 }
 
 /**
- * An execution failed (`onExecutionError`) — also after a resume, or cancelled while paused
- * (`ExecutionCancelledError`) — or a resume of a paused one was refused as incompatible
- * (`IncompatibleResumeError`; it stays paused).
+ * An execution was stopped (`onExecutionStop`, #1341): halted where it stood, its partial results
+ * kept, nothing undone. Once per execution.
+ */
+export interface ExecutionStopEvent extends ExecutionEvent {
+  /** Why it was stopped, when the operator said. */
+  readonly reason?: string | undefined;
+  /** What it cost, all its passes together. */
+  readonly spend: CostReport;
+}
+
+/**
+ * An execution was cancelled (`onExecutionCancel`, #1341) — a running one, or one that rested
+ * paused: aborted, and what it had left undoable undone. Once per execution; a cancel whose undo
+ * failed is `onExecutionError` (`ExecutionError.CompensationFailed`).
+ */
+export interface ExecutionCancelEvent extends ExecutionEvent {
+  /** Why it was cancelled, when the operator said. */
+  readonly reason?: string | undefined;
+  /** The undo actions that ran for it (#340); `[]` when none ran. */
+  readonly compensations: readonly CompensationRecord[];
+  /** What it cost, all its passes together. */
+  readonly spend: CostReport;
+}
+
+/**
+ * An execution failed (`onExecutionError`) — also after a resume — or a resume of a paused one was
+ * refused as incompatible (`IncompatibleResumeError`; it stays paused). A cancel is
+ * `onExecutionCancel`, never an error.
  */
 export interface ExecutionErrorEvent extends ExecutionEvent {
   readonly error: Error;

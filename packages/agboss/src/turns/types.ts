@@ -3,18 +3,28 @@ import { type Usd } from "../units/index.js";
 
 /**
  * Where a Turn is: `running` while its execution moves (#265 S30: what recovery looks for), then
- * how it ended — `answered`, `guarded`, `failed` — or `paused`; `written` — a past turn an eval case
+ * how it ended — `answered`, `guarded`, `failed`, `stopped`, `cancelled` — or `paused`; `written` — a past turn an eval case
  * wrote into its thread, never run (#396 S6): a turn of the thread, never a run to score or replay;
  * `queued` — a child waiting for an instance to claim it (#333 PR 2: its queue row; no Turn is).
  */
 export type TurnStatus =
-  "running" | "answered" | "guarded" | "failed" | "paused" | "queued" | "written";
+  | "running"
+  | "answered"
+  | "guarded"
+  | "failed"
+  | "stopped"
+  | "cancelled"
+  | "paused"
+  | "queued"
+  | "written";
 /** Every {@link TurnStatus}, in that order (the SQLite store's check of a status it reads). */
 export const TURN_STATUSES = [
   "running",
   "answered",
   "guarded",
   "failed",
+  "stopped",
+  "cancelled",
   "paused",
   "queued",
   "written",

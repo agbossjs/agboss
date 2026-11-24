@@ -17,6 +17,7 @@ import {
   resetFanOut,
   type ItemDto,
 } from "./fixtures/fan-out.workflow.js";
+import { ExecutionStatus } from "../../../src/app/types.js";
 
 /** #273 AC7, S20, S22: a failed branch cancels its siblings; the join takes it, or the execution fails. */
 
@@ -103,7 +104,7 @@ describe("S21: a cancel of the execution is no branch outcome", () => {
 
       await app.cancel(fanOut.threads[0] ?? "");
 
-      await expect(run).rejects.toBeInstanceOf(ExecutionCancelledError);
+      await expect(run).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
       expect(fanOut.events).toEqual(expect.arrayContaining(["aborted a", "aborted b"]));
     },
   );

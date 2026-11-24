@@ -112,6 +112,7 @@ export type {
   TenantPointArgs,
 } from "../app/tenant-args.js";
 export type { Page, PageQuery } from "../app/page.js";
+export type * from "../app/execution-output.js";
 export {
   ExecutionStatus,
   type App,
@@ -120,7 +121,6 @@ export {
   type CancelOutput,
   type CloseOptions,
   type ExecutionOptions,
-  type ExecutionOutput,
   type ExecutionTreeQuery,
   type ExtendPauseRequest,
   type ListedPause,
