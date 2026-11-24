@@ -4,11 +4,11 @@ import { testWith } from "@agboss/core/testing";
 import { OrderDeskService } from "../../../src/desk/services/order-desk.service.js";
 import { FlowPatternsApplication } from "../../../src/flow-patterns.application.js";
 
-/** The desk's readiness: its health check and the instance's step cap. */
+/** The desk's readiness: its health check, and whether the instance is busy (#1343: `isBusy` replaces the step-slots component). */
 
 const test = testWith(FlowPatternsApplication);
 
-describe("readiness: the order system's health check and the instance's step slots", () => {
+describe("readiness: the order system's health check and the busy flag", () => {
   test("healthy when the order system answers", async ({ app }) => {
     const report = await app.checkReadiness();
 
@@ -16,7 +16,8 @@ describe("readiness: the order system's health check and the instance's step slo
       report.components.map((component) => [component.name, component.status]),
     );
     expect(byName.get("order-desk-health-check")).toBe(HealthStatus.Healthy);
-    expect(byName.get("step-slots")).toBe(HealthStatus.Healthy); // maxConcurrentSteps: 16
+    expect(byName.has("step-slots")).toBe(false);
+    expect(report.isBusy).toBe(false); // maxConcurrentSteps: 16, none taken
   });
 
   test("unhealthy when it does not, with the check's reason", async ({ app, mockOf }) => {

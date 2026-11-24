@@ -38,6 +38,8 @@ export function onceMeshShard() {
       "src/mesh/outbound-mesh.ts",
       "src/mcp/mcp-dedupe.ts",
       "src/mcp/mcp-run-report.ts",
+      // the identity and ledger key of one MCP call, keyless included: two calls never share one (#1319)
+      "src/components/mcp-call-identity.ts",
       "src/infrastructure/mesh-request.repository.ts",
       "src/infrastructure/sqlite/sqlite-mesh-request.repository.ts",
     ],

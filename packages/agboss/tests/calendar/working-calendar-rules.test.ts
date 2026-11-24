@@ -434,8 +434,10 @@ describe("#944: the other flow syntax stays plain", () => {
 
 describe("#944: a calendar class is a component like any other", () => {
   it("a dependency nobody provides fails at start, for the application's calendar and a role's", async () => {
-    @Injectable()
-    class Missing {}
+    // #1324a: a decorated class reached through deps is found by the container; an undecorated one has no provider.
+    class Missing {
+      readonly rows = 0;
+    }
     @WorkingCalendar({ name: "needy-working-calendar", deps: [Missing] })
     class Needy implements WorkingCalendarHandler {
       constructor(readonly table: Missing) {}
@@ -454,6 +456,7 @@ describe("#944: a calendar class is a component like any other", () => {
     });
     for (const { application } of [appLevel, roleLevel]) {
       const error: unknown = await assemble(application).catch((thrown: unknown) => thrown);
+      expect(String(error)).toContain("[di.unregistered-token]");
       expect(String(error)).toContain("Missing");
     }
   });

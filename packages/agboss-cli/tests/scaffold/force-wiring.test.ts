@@ -80,7 +80,8 @@ describe("#237: --force keeps the wiring", () => {
       /billing-agent .*\n\s+Bills customers\n\s+limits: .*\n\s+rag: policies-rag/,
     );
     expect(described.out).toContain("· quote-tool (local)");
-    expect(described.out).toContain("· tickets-search-tool (MCP tickets)");
+    // an MCP tool is a local tool of its server now (#1319a: the "mcp-tool" kind is gone)
+    expect(described.out).toContain("· tickets-search-tool (local) ← TicketsServer");
   }, 240_000);
 
   it("AC2: the conflict suggests --force, which keeps the wiring; wiring --force cannot keep is refused, --force --reset drops it", () => {

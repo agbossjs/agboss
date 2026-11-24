@@ -152,32 +152,33 @@ describe("#261 AC14: the application's assembly warnings in agboss check", () =>
   });
 });
 
-describe("#521 AC1: agboss check on a model provider without circuitBreakerPolicy", () => {
-  it("AC1: one [model-provider.circuit-breaker-required] problem naming the provider and the field, exit 3, no crash", async () => {
+/** The breaker is optional (#1313b): a provider without one is not a problem, only a provider that trips none. */
+const breakerProblems = (call: Awaited<ReturnType<typeof agboss>>) =>
+  (envelope(call).result as CheckResult).problems.filter(
+    (problem) =>
+      problem.code.includes("circuit-breaker") || problem.message.includes("circuitBreakerPolicy"),
+  );
+
+describe("#521 / #1313b: agboss check on a model provider without circuitBreakerPolicy", () => {
+  it("no breaker problem is raised and nothing crashes: the breaker is optional", async () => {
     const call = await agboss(["check", "--application", NO_BREAKER, "--json"], CWD);
 
-    expect(call.code).toBe(3);
-    expect((envelope(call).result as CheckResult).problems).toContainEqual({
-      file: NO_BREAKER,
-      code: "model-provider.circuit-breaker-required",
-      message:
-        "unguarded-model-provider (UnguardedModelProvider) has no circuitBreakerPolicy — set circuitBreakerPolicy: { failureThreshold, window, openFor } on its @ModelProvider",
-    });
+    expect(breakerProblems(call)).toEqual([]);
     expect(call.stderr).not.toMatch(/Cannot read properties/);
+    // the provider is still checked: it is the unserved models that fail the run, not the missing breaker
+    expect(call.code).toBe(3);
+    expect((envelope(call).result as CheckResult).problems).toContainEqual(
+      expect.objectContaining({ code: "model.unserved" }),
+    );
   });
 });
 
-describe("#521 AC1 acceptance: agboss check on circuitBreakerPolicy: null", () => {
-  it("AC1: the same named problem, exit 3, never a TypeError", async () => {
+describe("#521 / #1313b acceptance: agboss check on circuitBreakerPolicy: null", () => {
+  it("null is the same as none: no breaker problem, never a TypeError", async () => {
     const call = await agboss(["check", "--application", NULL_BREAKER, "--json"], CWD);
 
-    expect(call.code).toBe(3);
-    expect((envelope(call).result as CheckResult).problems).toContainEqual({
-      file: NULL_BREAKER,
-      code: "model-provider.circuit-breaker-required",
-      message:
-        "null-breaker-model-provider (NullBreakerModelProvider) has no circuitBreakerPolicy — set circuitBreakerPolicy: { failureThreshold, window, openFor } on its @ModelProvider",
-    });
+    expect(breakerProblems(call)).toEqual([]);
     expect(call.stderr).not.toMatch(/Cannot (read|destructure) propert/);
+    expect(call.code).toBe(3);
   });
 });

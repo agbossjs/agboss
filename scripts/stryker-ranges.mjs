@@ -61,6 +61,8 @@ export function fencedReachShard() {
       "src/app/idempotency.ts",
       "src/flow/context/execution-fence.ts",
       "src/components/container/fenced-reach.ts",
+      // the effect an A2A skill's nodes reach through their deps: a direct-reply skill must reach none (#1319)
+      "src/a2a/a2a-effect-reach.ts",
     ],
   };
 }

@@ -25,14 +25,14 @@ test("testJudge: a code judge on the tool calls of a real (scripted) visit", asy
 
   const named = await runJudge({
     variant: PlainTextDto,
-    reply: { text: "Order 7 shipped." },
+    output: { text: "Order 7 shipped." },
     task: "Answer",
     attempt: 0,
     toolCalls,
   });
   const vague = await runJudge({
     variant: PlainTextDto,
-    reply: { text: "It shipped." },
+    output: { text: "It shipped." },
     task: "Answer",
     attempt: 0,
     toolCalls,

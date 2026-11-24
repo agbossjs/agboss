@@ -95,7 +95,7 @@ describe("#489 AC2: agboss generate on flow-patterns' layout", () => {
     expect(described.out).toContain(
       "      route(OnboardingAssistantAgent)\n        .toFinish(TextWorkflowFinish),\n      route(BillingAgent)\n        .toFinish(TextWorkflowFinish)\n    )",
     );
-    expect(described.out).toContain("· read-tickets-tool (MCP tickets)");
+    expect(described.out).toContain("· read-tickets-tool (local) ← TicketsServer");
     expect(described.out).toContain("rag: policies-rag (tool, k 3, per-tenant)");
     expect(described.out).toContain("· get-pet-tool (local) ← PetsApiService");
     // #268 AC8: the new workflow is one more of the application, listed in @Application({ workflows })
@@ -152,7 +152,9 @@ describe("#489 AC2: agboss generate on flow-patterns' layout", () => {
       await applyChanges(project, plan, { force: true });
     }
     expect(text("src/agents/billing/billing.agent.ts").match(/RefundTool/g)).toHaveLength(2);
-    expect(text(module).match(/TicketsServer/g)).toHaveLength(2);
+    // #1319a: the server is found through its tool's deps, the workflow lists none; the tool is wired once
+    expect(text(module)).not.toContain("TicketsServer");
+    expect(text("src/agents/billing/billing.agent.ts").match(/ReadTicketsTool/g)).toHaveLength(2);
     const tsc = agbossIn(project, ["describe"]);
     expect(tsc.ok, tsc.out).toBe(true);
   }, 120_000);

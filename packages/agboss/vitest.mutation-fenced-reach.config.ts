@@ -16,6 +16,9 @@ export default defineConfig({
       "tests/flow/context/execution-fence-view.test.ts",
       "tests/app/{fenced-effects,execution-fence}.test.ts",
       "tests/components/fenced-reach.test.ts",
+      // the effect a direct-reply A2A skill's nodes reach (src/a2a/a2a-effect-reach.ts)
+      "tests/a2a/direct/direct-rule-units.test.ts",
+      "tests/a2a/direct/direct-rules.test.ts",
     ],
   },
 });

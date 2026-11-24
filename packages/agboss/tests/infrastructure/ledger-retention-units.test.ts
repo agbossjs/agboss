@@ -39,11 +39,16 @@ const sourcesOf = (changes: Partial<RetentionSources> = {}) => {
     auditLog: store("deleteExpired"),
     outboundCalls: store("deleteByEndedAtBefore"),
   };
+  /** The root records the audit sweep reads to tell whether a tree ended (#1321b): by default every tree has. */
+  const treeRecords = {
+    findByTenantIdAndRunId: vi.fn(() => Promise.resolve({ status: "answered" })),
+  };
   const sources = {
     clock: { now: () => NOW },
     pauses,
     pauseRecordRetention: milliseconds(1000),
     ...stores,
+    treeRecords,
     idempotencyRetention: 2000,
     executionRecordRetention: milliseconds(3000),
     fencedEffectRetention: milliseconds(4000),
@@ -53,7 +58,7 @@ const sourcesOf = (changes: Partial<RetentionSources> = {}) => {
     ledgerEntryRetention: milliseconds(7000),
     ...changes,
   };
-  return { sources: sources as RetentionSources, pauses, ledgerOwn, stores };
+  return { sources: sources as RetentionSources, pauses, ledgerOwn, stores, treeRecords };
 };
 
 const sweep = (sources: RetentionSources) => {
@@ -94,8 +99,44 @@ describe("#1366: the sweep removes each kind of rows past its retention", () => 
     expect(stores.meshRequests.deleteExpired).toHaveBeenCalledWith(cutoffOf(2000));
     expect(stores.executionHistory.deleteExpired).toHaveBeenCalledWith(cutoffOf(3000));
     expect(stores.fencedEffects.deleteByStoredAtBefore).toHaveBeenCalledWith(cutoffOf(4000));
-    expect(stores.auditLog.deleteExpired).toHaveBeenCalledWith(cutoffOf(5000));
+    expect(stores.auditLog.deleteExpired).toHaveBeenCalledWith(
+      cutoffOf(5000),
+      expect.any(Function),
+    );
     expect(stores.outboundCalls.deleteByEndedAtBefore).toHaveBeenCalledWith(cutoffOf(6000));
+  });
+
+  it("the audit log is swept with the question of whether a tree ended, answered by its root's record", async () => {
+    const { sources, stores, treeRecords } = sourcesOf();
+    const ended = (status: string | undefined) => {
+      treeRecords.findByTenantIdAndRunId.mockResolvedValue(
+        (status === undefined ? undefined : { status }) as never,
+      );
+      return sweep(sources).done.then(() => {
+        const isEnded = stores.auditLog.deleteExpired.mock.lastCall?.[1] as (tree: {
+          tenantId: string;
+          rootExecutionId: string;
+        }) => Promise<boolean>;
+        return isEnded({ tenantId: "tenant-1", rootExecutionId: "root-1" });
+      });
+    };
+
+    expect(await ended("answered")).toBe(true);
+    expect(await ended("failed")).toBe(true);
+    expect(await ended("guarded")).toBe(true);
+    // a live, a paused and an unknown tree count as live: nothing is removed on a guess
+    expect(await ended("running")).toBe(false);
+    expect(await ended("paused")).toBe(false);
+    expect(await ended(undefined)).toBe(false);
+    expect(treeRecords.findByTenantIdAndRunId).toHaveBeenLastCalledWith("tenant-1", "root-1");
+  });
+
+  it("with no records to tell an ended tree by, no audit row is removed", async () => {
+    const { sources, stores } = sourcesOf({ treeRecords: undefined });
+
+    await sweep(sources).done;
+
+    expect(stores.auditLog.deleteExpired).not.toHaveBeenCalled();
   });
 
   it("a pause record's removal writes the lost answers first when there is a log of them", async () => {
