@@ -451,7 +451,9 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "src/components/file.ts",
     "src/components/guardrail-handler.ts",
     "src/components/index.ts",
+    "src/components/decision-target.ts",
     "src/components/injection.ts",
+    "src/components/live-core-values.ts",
     "src/components/judge-call.ts",
     "src/components/judge-decorators.ts",
     "src/components/judge-parts.ts",
@@ -987,6 +989,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
   ...reviewed("the input of a run: types", ["src/input.ts"]),
   ...reviewed("an internal entry: exports", [
     "src/internal-a2a.ts",
+    "src/internal-routers.ts",
     "src/internal-run.ts",
     "src/internal.ts",
   ]),

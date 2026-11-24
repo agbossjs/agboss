@@ -28,7 +28,7 @@ export function spendShard() {
       "src/app/remote/queued-child-spend.ts",
       "src/models/calls/response-usage.ts",
       "src/models/cost.ts",
-      "src/components/spend-recorder.ts",
+      "src/components/{spend-recorder,decision-model}.ts",
       "src/application/budget-profile.ts",
       "src/budgets/{budget,budget-overlay,budget-period,budget-rules,budget-spend,execution-deadline}.ts",
       "src/run/run-budgets.ts",

@@ -46,6 +46,36 @@ describe("DecisionModel (#1313)", () => {
 
     expect(answers).toEqual({ route: { probability: 0.9 } });
     expect(reportUsage).toHaveBeenCalledOnce();
+    expect(reportUsage).toHaveBeenCalledWith(usageRecord("decision:x", 0.01));
+  });
+
+  it("asks the service under the cost caller decision:<consumer>, with the call's own options", async () => {
+    const service = vi.fn(answering);
+    const model = new LiveDecisionModel("tool:x", service);
+
+    await runInFrame(frameOf(), () =>
+      inToolCallFrame("call_1", { reportUsage: vi.fn() }, () =>
+        model.decide(request, { model: "fast" }),
+      ),
+    );
+
+    expect(service).toHaveBeenCalledWith({
+      caller: "decision:tool:x",
+      options: { model: "fast" },
+      request,
+    });
+  });
+
+  it("an application with no gateway for decisions fails closed, nothing reported", async () => {
+    const reportUsage = vi.fn();
+    const model = new LiveDecisionModel("tool:x", undefined);
+
+    await expect(
+      runInFrame(frameOf(), () =>
+        inToolCallFrame("call_1", { reportUsage }, () => model.decide(request)),
+      ),
+    ).rejects.toThrow("no model gateway for decisions");
+    expect(reportUsage).not.toHaveBeenCalled();
   });
 
   it("a billed answer that cannot be used is still spent", async () => {
