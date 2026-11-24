@@ -62,10 +62,11 @@ export class PermitRefundDoneDto {
 export class GatedRefundToolApproval {
   constructor(private readonly policy: PermitPolicy) {}
 
-  permitAnswer(ctx: AnswerPermissionContext<GatedRefundToolApproval>): unknown {
+  permitAnswer(ctx: AnswerPermissionContext<GatedRefundToolApproval>): boolean {
     this.policy.asked.push(ctx);
     if (this.policy.verdict === "throw") throw new Error("the hook failed");
-    return this.policy.verdict;
+    // the test steers any verdict, also ones that are no boolean
+    return this.policy.verdict as boolean;
   }
 }
 

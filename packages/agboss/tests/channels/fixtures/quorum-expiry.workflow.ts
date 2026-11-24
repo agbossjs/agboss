@@ -91,9 +91,7 @@ interface ScoresInput {
 const record = (input: ScoresInput): RefundDoneDto => {
   qe.finished.push(input.scores.map((score) => String(score.value.score)));
   return {
-    orderId: input.scores
-      .map((score) => String(score.value.score))
-      .join(","),
+    orderId: input.scores.map((score) => String(score.value.score)).join(","),
   };
 };
 

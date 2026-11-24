@@ -9,25 +9,26 @@ import type { AppDeps } from "./app-deps.js";
 /**
  * A target's `permitAnswer` (#1307c): called by the resume once the answer is read and validated and
  * before anything is recorded or moved. Fail closed: only `true` lets the answer through — `false`,
- * a throw, a rejection and any other value refuse it with `PauseAnswererError`, and the pause stays
+ * a throw, a rejection, an unresolvable target and any other value refuse it with `PauseAnswererError`, and the pause stays
  * as it was. The message names the pause, never the hook's text.
  */
 
-/** The pause's channel as its workflow has it now; `undefined` when a deploy removed it. */
-export function channelOfPause(deps: AppDeps, pause: PauseRecord): PauseChannel | undefined {
-  try {
-    return ownDepsOf(deps, pause.workflow).channelOf?.(pause.channel);
-  } catch {
-    // a channel this workflow no longer has: no hook to call (the resume's version check came first)
-    return undefined;
-  }
+/**
+ * The pause's channel as its workflow has it now. Fails closed: a workflow or channel that cannot be
+ * resolved (renamed, removed, a container error) throws — it is unknown whether its target has a
+ * `permitAnswer`, so the answer is refused, never let through unchecked.
+ */
+export function channelOfPause(deps: AppDeps, pause: PauseRecord): PauseChannel {
+  const channel = ownDepsOf(deps, pause.workflow).channelOf?.(pause.channel);
+  if (channel === undefined) throw new TypeError(`no channel ${pause.channel}`);
+  return channel;
 }
 
 /** A pause's `permitAnswer` as its workflow has it now; `undefined`: none. */
 export const permitsOf =
   (deps: AppDeps) =>
   (pause: PauseRecord): PermitAnswer | undefined =>
-    channelOfPause(deps, pause)?.permitAnswer;
+    channelOfPause(deps, pause).permitAnswer;
 
 /** What `permitAnswer` reads for this pause, answered by `answeredBy` with `output`. */
 function permitCallOf(
@@ -57,7 +58,16 @@ export async function assertAnswerPermitted(
   answeredBy: string | undefined,
   output: unknown,
 ): Promise<void> {
-  const permit = parts.permits?.(pause);
+  let permit: PermitAnswer | undefined;
+  try {
+    permit = parts.permits?.(pause);
+  } catch (cause) {
+    // the target cannot be resolved: whether it has a permitAnswer is unknown, so refuse
+    throw new PauseAnswererError({
+      message: `pause ${pause.pauseId}: its target cannot be resolved, the answer is refused`,
+      cause,
+    });
+  }
   if (permit === undefined) return;
   let verdict: unknown;
   try {
