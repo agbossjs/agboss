@@ -38,7 +38,7 @@ export interface ResolvedModelFiles {
   allowedOrigins: string[];
   fetchTimeout: Milliseconds;
   /** The policy's own pool of fetches by url; none: the application's shared one. */
-  fetchPool?: FileFetchPool;
+  fetchPool?: { -readonly [K in keyof FileFetchPool]: FileFetchPool[K] } | undefined;
   answerFiles: AnswerFiles;
   guardToolResultFiles: boolean;
   transcriptionModel: string;

@@ -107,6 +107,39 @@ async function uprightOf(
   }
 }
 
+/** The regions of the model's answer, strictly checked; its spend with them. */
+function answeredRegions(
+  response: Awaited<ReturnType<ModelBinding["model"]["invoke"]>>,
+  of: {
+    readonly agent: string;
+    readonly known: ReadonlySet<string>;
+    readonly maxRegions: number;
+    readonly log: FrameworkLog;
+  },
+  binding: ModelBinding,
+): { readonly regions: readonly Region[]; readonly usage: UsageRecord } {
+  const { agent, known, maxRegions, log } = of;
+  try {
+    return {
+      regions: regionsOf(response.text, known, maxRegions, (count) => {
+        // painted all the same; the model's own words are never in the line
+        log.warn(
+          UNKNOWN_TARGET_CODE,
+          `${agent}: the redaction model named ${String(count)} region(s) with a target it was not asked for — painted all the same`,
+        );
+      }),
+      usage: recordUsage("files:redactor", binding.settings, response),
+    };
+  } catch (error) {
+    // the reason is structural; the answer itself is neither in the message nor in the cause
+    const said = error instanceof RegionsAnswerError ? error.message : "unreadable";
+    throw new FileRedactionFailedError({
+      agent,
+      reason: `the redaction model's answer is not usable: ${said}`,
+    });
+  }
+}
+
 /** The regions the model names in the upright image, strictly checked; its spend with them. */
 async function regionsAsked(
   binding: ModelBinding,
@@ -142,25 +175,7 @@ async function regionsAsked(
   } catch (cause) {
     throw new FileRedactionFailedError({ agent, reason: "the redaction model call failed", cause });
   }
-  try {
-    return {
-      regions: regionsOf(response.text, known, maxRegions, (count) => {
-        // painted all the same; the model's own words are never in the line
-        log.warn(
-          UNKNOWN_TARGET_CODE,
-          `${agent}: the redaction model named ${String(count)} region(s) with a target it was not asked for — painted all the same`,
-        );
-      }),
-      usage: recordUsage("files:redactor", binding.settings, response),
-    };
-  } catch (error) {
-    // the reason is structural; the answer itself is neither in the message nor in the cause
-    const said = error instanceof RegionsAnswerError ? error.message : "unreadable";
-    throw new FileRedactionFailedError({
-      agent,
-      reason: `the redaction model's answer is not usable: ${said}`,
-    });
-  }
+  return answeredRegions(response, { agent, known, maxRegions, log }, binding);
 }
 
 /**
