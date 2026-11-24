@@ -229,6 +229,10 @@ export function reachableFrom(
   return seen;
 }
 
+/** Whether more items than the bound are an error: `.forEachItem(step, { maxItems })` (#1280); every other bound slices. */
+export const isStrictItems = (launch: Pick<FlowLaunch, "form" | "maxItems">): boolean =>
+  launch.form === "for-each-item" && launch.maxItems !== undefined;
+
 /** The most items a per-item launch runs: `maxItems` or `takeFirst` (#1280); undefined when unbounded. */
 export const itemBoundOf = (
   launch: Pick<FlowLaunch, "maxItems" | "takeFirst">,

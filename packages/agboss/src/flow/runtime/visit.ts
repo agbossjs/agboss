@@ -28,7 +28,9 @@ import { exitOf, visitWrite, type SpentOutcome, type VisitWrite } from "./visit-
 import { succeededStepsOf, type VisitAt } from "./visit-step.js";
 import { caught, visited } from "./visit-failure.js";
 import type { ExecutionObserverManager } from "../../core/observer-manager.js";
+import { itemBoundOf, type FlowEdge } from "../analyse/flow-graph.js";
 import { launchEdgeOf, launchFor, launchTicketOf, nextOfLaunch } from "./launch/launch-exit.js";
+import { itemsOverflowOf } from "./launch/items-limit.js";
 import { reportTruncation } from "./launch/launch-report.js";
 import type { LaunchTicket } from "./launch/records.js";
 import type { RuntimeLaunch } from "./launch/runtime-launch.js";
@@ -120,6 +122,10 @@ function launchedBy(
   return { launch, ticket: launchTicketOf(visit, launch) };
 }
 
+/** Where a visit goes on: its launch's branches (or join), else its exit. */
+const nextOf = (launched: Launched | undefined, exit: FlowEdge | undefined): string =>
+  launched === undefined ? (exit?.to ?? "") : nextOfLaunch(launched.launch, launched.ticket);
+
 function succeeded(
   node: RuntimeNode,
   state: ExecutionStateType,
@@ -130,15 +136,18 @@ function succeeded(
   const launch = launchFor(node, outcome);
   const exit = launch === undefined ? exitOf(node, state, outcome, deps) : launchEdgeOf(launch);
   const write = visitWrite(node, state, exit, outcome, deps.provenance);
-  const launched = launchedBy(launch, node, outcome, { state, deps, ...at }, write);
-  const next =
-    launched === undefined ? (exit?.to ?? "") : nextOfLaunch(launched.launch, launched.ticket);
+  const dispatched = launchedBy(launch, node, outcome, { state, deps, ...at }, write);
+  // a list past `.forEachItem(…, { maxItems })` (#1280): no launch, the join's handler takes the limit
+  const overflow = dispatched && itemsOverflowOf(dispatched, node, state, deps);
+  const launched = overflow === undefined ? dispatched : undefined;
+  const next = nextOf(launched, exit);
   const update = {
     ...visited(node, isWorkingNode(node)),
     ...write.update,
     next,
     ...sidePathAfter(state, node, launched === undefined ? next : undefined),
     ...(launched === undefined ? {} : { launch: launched.ticket }),
+    ...overflow,
     ...recordsOf(outcome),
     ...(outcome.fileTranscripts === undefined ? {} : { fileTranscripts: outcome.fileTranscripts }),
     ...(outcome.finish === undefined ? {} : { finish: node.id, output: outcome.finish.output }),
@@ -186,7 +195,7 @@ export function visitNode(node: RuntimeNode, runner: NodeRunner, deps: VisitDeps
       await reportOutdating(write.cascades, site);
       if (launched !== undefined) {
         const reportSite = { observer: deps.observer, config, frame };
-        await reportTruncation(reportSite, launched.ticket, launched.launch.launch.maxItems);
+        await reportTruncation(reportSite, launched.ticket, itemBoundOf(launched.launch.launch));
       }
       const after = { ...undoables, ...parts, scope: write.scope ?? state.scope, endedAt: at.now };
       const compensations = await compensationsOfVisit(after);

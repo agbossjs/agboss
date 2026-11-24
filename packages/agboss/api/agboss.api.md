@@ -2955,6 +2955,9 @@ export interface ErrorHandling<TInstance, THead extends PathHead> {
 }
 
 // @public
+type ErrorInstance<TError> = TError extends abstract new (...args: never[]) => infer TInstance ? TInstance : never;
+
+// @public
 export interface ErrorRecord {
     // (undocumented)
     readonly cause?: ErrorRecord;
@@ -4330,6 +4333,7 @@ declare namespace FlowTypes {
         BranchKind,
         BranchesCheck,
         ItemsCheck,
+        ErrorInstance,
         IsPerItem,
         IsSeveral,
         LastValue,
@@ -4362,18 +4366,13 @@ declare namespace FlowTypes {
 }
 
 // @public
-export function forEachItem<const TStep extends SidePath>(step: TStep & BranchCheck<TStep>, options: ForEachItemOptions): Launched<SideHead>;
+export function forEachItem<const TStep extends SidePath>(step: TStep & BranchCheck<TStep>, options: TakeFirstOptions): Launched<SideHead>;
+
+// @public (undocumented)
+export function forEachItem<const TStep extends SidePath>(step: TStep & BranchCheck<TStep>, options: MaxItemsOptions): ItemsLaunched<SideHead>;
 
 // @public
-export type ForEachItemOptions = {
-    readonly maxItems: number;
-    readonly takeFirst?: never;
-    readonly maxConcurrency?: number | undefined;
-} | {
-    readonly takeFirst: number;
-    readonly maxItems?: never;
-    readonly maxConcurrency?: number | undefined;
-};
+export type ForEachItemOptions = TakeFirstOptions | MaxItemsOptions;
 
 // @public
 export interface ForEachItemStep {
@@ -5466,6 +5465,12 @@ type ItemsCheck<TValue> = [LastValue<TValue>] extends [never] ? {
 };
 
 // @public
+export interface ItemsLaunched<THead extends PathHead> {
+    // (undocumented)
+    join(): NeedsItemsHandler<THead>;
+}
+
+// @public
 export type Joined<THead extends PathHead> = JoinErrorHandling<THead> & Transitions<THead>;
 
 // @public
@@ -5708,7 +5713,7 @@ export interface Launches<TValue, THead extends PathHead> extends ParallelLaunch
 export interface LaunchItemsTruncatedEvent extends NodeEvent {
     readonly items: number;
     readonly launch: string;
-    readonly maxItems: number;
+    readonly takeFirst: number;
 }
 
 // @public
@@ -6044,6 +6049,16 @@ export interface MaskPartAction {
 
 // @public
 export const MAX_DECISION_QUESTIONS = 200;
+
+// @public
+export interface MaxItemsOptions {
+    // (undocumented)
+    readonly maxConcurrency?: number | undefined;
+    // (undocumented)
+    readonly maxItems: number;
+    // (undocumented)
+    readonly takeFirst?: never;
+}
 
 // @public
 export function Memory(options: DeclarativeMemoryOptions): <C extends new () => {
@@ -6581,6 +6596,12 @@ type NameOf<T> = InstanceOrSelf<T> extends {
 
 // @public (undocumented)
 export function nameOf<TComponent extends Class>(component: TComponent): ComponentName<TComponent>;
+
+// @public
+export interface NeedsItemsHandler<THead extends PathHead> {
+    // (undocumented)
+    onError<const TError extends ErrorClass>(error: TError, path: SidePath): [LimitError.Items] extends [ErrorInstance<TError>] ? Joined<THead> : NeedsItemsHandler<THead>;
+}
 
 // @public
 export type NewA2ADirectMessage = Omit<A2ADirectMessageRecord, "state" | "reply" | "completedAt">;
@@ -7306,9 +7327,14 @@ export interface ParallelBranchStep {
 
 // @public
 export interface ParallelLaunches<TValue, THead extends PathHead> {
-    forEachItem<const TStep extends SidePath>(step: TStep & BranchCheck<TStep> & ItemsCheck<TValue>, options: ForEachItemOptions): Launched<THead>;
+    forEachItem<const TStep extends SidePath>(step: TStep & BranchCheck<TStep> & ItemsCheck<TValue>, options: TakeFirstOptions): Launched<THead>;
+    // (undocumented)
+    forEachItem<const TStep extends SidePath>(step: TStep & BranchCheck<TStep> & ItemsCheck<TValue>, options: MaxItemsOptions): ItemsLaunched<THead>;
     inParallel<const TBranches extends readonly [SidePath, ...SidePath[]]>(branches: TBranches & BranchesCheck<TBranches>, options?: ParallelOptions): Launched<THead>;
 }
+
+// @public
+export type ParallelLaunchRuleCode = "launch.skip-differs" | "launch.for-each-item-no-list" | "launch.max-items-handler-required";
 
 // @public
 export interface ParallelOptions {
@@ -10170,6 +10196,16 @@ export interface SyncWorkRequiredErrorOptions {
 }
 
 // @public
+export interface TakeFirstOptions {
+    // (undocumented)
+    readonly maxConcurrency?: number | undefined;
+    // (undocumented)
+    readonly maxItems?: never;
+    // (undocumented)
+    readonly takeFirst: number;
+}
+
+// @public
 export interface TargetChannelOptions<D extends readonly Token[] = readonly Token[]> extends ChannelOptions<D> {
     // (undocumented)
     readonly target: Class;
@@ -12182,6 +12218,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "onError".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "onError".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "chooseOne".
+// src/flow/builder.ts - (ae-undocumented) Missing documentation for "forEachItem".
 // src/flow/compensation.ts - (ae-undocumented) Missing documentation for "code".
 // src/flow/compensation.ts - (ae-undocumented) Missing documentation for "name".
 // src/flow/compensation.ts - (ae-undocumented) Missing documentation for "executionId".
@@ -12316,7 +12353,16 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/launch-types.ts - (ae-undocumented) Missing documentation for "maxItems".
 // src/flow/launch-types.ts - (ae-undocumented) Missing documentation for "join".
 // src/flow/launch-types.ts - (ae-undocumented) Missing documentation for "onError".
+// src/flow/launch-types.ts - (ae-undocumented) Missing documentation for "takeFirst".
+// src/flow/launch-types.ts - (ae-undocumented) Missing documentation for "maxItems".
+// src/flow/launch-types.ts - (ae-undocumented) Missing documentation for "maxConcurrency".
+// src/flow/launch-types.ts - (ae-undocumented) Missing documentation for "maxItems".
+// src/flow/launch-types.ts - (ae-undocumented) Missing documentation for "takeFirst".
+// src/flow/launch-types.ts - (ae-undocumented) Missing documentation for "maxConcurrency".
+// src/flow/launch-types.ts - (ae-undocumented) Missing documentation for "onError".
+// src/flow/launch-types.ts - (ae-undocumented) Missing documentation for "join".
 // src/flow/launch-types.ts - (ae-undocumented) Missing documentation for "chooseMany".
+// src/flow/launch-types.ts - (ae-undocumented) Missing documentation for "forEachItem".
 // src/flow/launch-types.ts - (ae-undocumented) Missing documentation for "toParallelAgents".
 // src/flow/launch-types.ts - (ae-undocumented) Missing documentation for "toParallelActions".
 // src/flow/launch-types.ts - (ae-undocumented) Missing documentation for "toParallelAgents".

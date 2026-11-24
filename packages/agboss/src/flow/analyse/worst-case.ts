@@ -1,3 +1,4 @@
+import { itemBoundOf } from "./flow-graph.js";
 import { NodeKind } from "../ast.js";
 import { maxStepsOf } from "./steps.js";
 import type { ComponentName } from "../registry.js";
@@ -74,7 +75,9 @@ function launchesFrom(graph: FlowGraph, start: ComponentName): readonly FlowLaun
 function launchParts(launch: FlowLaunch): readonly string[] {
   const label = launchLabel(launch);
   return [
-    ...(launch.maxItems === undefined ? [] : [`maxItems ${String(launch.maxItems)} on ${label}`]),
+    ...(itemBoundOf(launch) === undefined
+      ? []
+      : [`maxItems ${String(itemBoundOf(launch))} on ${label}`]),
     ...(launch.maxConcurrency === undefined
       ? []
       : [`maxConcurrency ${String(launch.maxConcurrency)} on ${label}`]),
@@ -124,11 +127,11 @@ interface Width {
 function widthOf(edge: FlowEdge): Width {
   const launch = edge.kind === EdgeKind.Launch ? edge.launch : undefined;
   if (launch?.items === undefined) return { count: 1, atOnce: 1 };
-  const count = launch.maxItems ?? 1;
+  const count = itemBoundOf(launch) ?? 1;
   return {
     count,
     atOnce: Math.min(launch.maxConcurrency ?? count, count),
-    ...(launch.maxItems === undefined ? {} : { maxItems: launch.maxItems }),
+    ...(itemBoundOf(launch) === undefined ? {} : { maxItems: itemBoundOf(launch) }),
     ...(launch.maxConcurrency === undefined ? {} : { maxConcurrency: launch.maxConcurrency }),
   };
 }

@@ -76,6 +76,7 @@ export interface LaunchSnapshot {
   readonly isPerItem: boolean;
   readonly maxConcurrency?: number;
   readonly maxItems?: number;
+  readonly takeFirst?: number;
   readonly quorum?: QuorumSnapshot;
   /** Each `.acceptedBy(…)` in path order (an AND); its arbiters an `anyOf` (the first that accepts). */
   readonly acceptedBy: readonly (readonly ArbiterSnapshot[])[];
@@ -147,6 +148,7 @@ const launchOf = (launch: FlowLaunch, quorum: Quorum | undefined): LaunchSnapsho
   isPerItem: launch.items !== undefined,
   ...(launch.maxConcurrency === undefined ? {} : { maxConcurrency: launch.maxConcurrency }),
   ...(launch.maxItems === undefined ? {} : { maxItems: launch.maxItems }),
+  ...(launch.takeFirst === undefined ? {} : { takeFirst: launch.takeFirst }),
   ...(quorum === undefined ? {} : { quorum: quorumOf(quorum) }),
   acceptedBy: (launch.acceptedBy ?? []).map((step) => step.arbiters.map(arbiterSnapshotOf)),
 });

@@ -126,7 +126,7 @@ describe("AC10: maxItems truncates, never fails", () => {
         executionId: result.executionId,
         launch: `${result.executionId}:items-workflow-start:1`,
         items: 6,
-        maxItems: 4,
+        takeFirst: 4,
         step: { nodeId: "items-workflow-start" },
         workflow: { name: "fan-out-workflow" },
       },

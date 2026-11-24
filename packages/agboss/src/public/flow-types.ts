@@ -57,6 +57,7 @@ export {
   type BranchKind,
   type BranchesCheck,
   type ItemsCheck,
+  type ErrorInstance,
   type IsPerItem,
   type IsSeveral,
   type LastValue,

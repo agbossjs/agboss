@@ -87,23 +87,23 @@ export interface LaunchReportSite {
 const truncatedEvent = (
   frame: FrameSpec,
   ticket: LaunchTicket,
-  maxItems: number,
+  takeFirst: number,
 ): LaunchItemsTruncatedEvent => ({
   ...nodeEventOf(frame),
   launch: ticket.launchId,
   items: ticket.items,
-  maxItems,
+  takeFirst,
 });
 
 /** A per-item launch that took fewer items than its list had: the trace entry and the event. */
 export async function reportTruncation(
   site: LaunchReportSite,
   ticket: LaunchTicket,
-  maxItems: number | undefined,
+  takeFirst: number | undefined,
 ): Promise<void> {
-  if (maxItems === undefined || ticket.items <= maxItems) return;
-  const event = truncatedEvent(site.frame, ticket, maxItems);
+  if (takeFirst === undefined || ticket.items <= takeFirst) return;
+  const event = truncatedEvent(site.frame, ticket, takeFirst);
   const { launch, items } = event;
-  await traced(site.config, "launch items truncated", { launch, items, maxItems });
+  await traced(site.config, "launch items truncated", { launch, items, takeFirst });
   await site.observer?.onLaunchItemsTruncated(event);
 }

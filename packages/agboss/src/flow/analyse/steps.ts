@@ -3,7 +3,13 @@ import { isCountLimit, shownLimit } from "../../graph/count-limit.js";
 import { violation, type RuleViolation } from "../../graph/rule-error.js";
 import { NodeKind, type ErrorClass } from "../ast.js";
 import type { ComponentName } from "../registry.js";
-import { EdgeKind, type FlowEdge, type FlowGraph, type FlowNode } from "./flow-graph.js";
+import {
+  EdgeKind,
+  itemBoundOf,
+  type FlowEdge,
+  type FlowGraph,
+  type FlowNode,
+} from "./flow-graph.js";
 import type { AnalysisContext } from "./rules/context.js";
 
 /**
@@ -192,7 +198,7 @@ export interface StepsRange {
 export function mostRunning(graph: FlowGraph, edge: FlowEdge): number | undefined {
   const launch = edge.kind === EdgeKind.Join ? edge.launch : undefined;
   if (launch === undefined) return 0;
-  const width = launch.items === undefined ? 1 : launch.maxItems;
+  const width = launch.items === undefined ? 1 : itemBoundOf(launch);
   if (width === undefined) return undefined;
   return launch.branches.reduce(
     (total, branch) => total + branch.copies * width * weightOf(graph.nodes.get(branch.node)),

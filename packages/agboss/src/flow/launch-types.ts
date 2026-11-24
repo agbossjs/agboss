@@ -1,4 +1,5 @@
 import type { Class } from "../components/injection.js";
+import type { LimitError } from "../core/error-families/limit-errors.js";
 import type { ErrorClass, NodeKind } from "./ast.js";
 import type {
   BuiltPath,
@@ -106,22 +107,42 @@ export interface ParallelOptions {
   readonly maxConcurrency?: number | undefined;
 }
 
-/**
- * `.forEachItem(step, options)` (#1280): exactly one bound — `maxItems` (more items throw
- * `LimitError.Items`, handled after the join) or `takeFirst` (the first items run, the rest are
- * dropped, recorded) — and an optional `maxConcurrency`.
- */
-export type ForEachItemOptions =
-  | {
-      readonly maxItems: number;
-      readonly takeFirst?: never;
-      readonly maxConcurrency?: number | undefined;
-    }
-  | {
-      readonly takeFirst: number;
-      readonly maxItems?: never;
-      readonly maxConcurrency?: number | undefined;
-    };
+/** `{ takeFirst, maxConcurrency }` of `.forEachItem(step, options)` (#1280): the first items run, the rest are dropped, recorded. */
+export interface TakeFirstOptions {
+  readonly takeFirst: number;
+  readonly maxItems?: never;
+  readonly maxConcurrency?: number | undefined;
+}
+
+/** `{ maxItems, maxConcurrency }`: a longer list throws `LimitError.Items`, handled after the join. */
+export interface MaxItemsOptions {
+  readonly maxItems: number;
+  readonly takeFirst?: never;
+  readonly maxConcurrency?: number | undefined;
+}
+
+/** `.forEachItem(step, options)` (#1280): exactly one bound — `maxItems` or `takeFirst`. */
+export type ForEachItemOptions = TakeFirstOptions | MaxItemsOptions;
+
+/** The errors a class catches: what its constructor makes (a family's constructor carries its variants' too). */
+export type ErrorInstance<TError> = TError extends abstract new (
+  ...args: never[]
+) => infer TInstance
+  ? TInstance
+  : never;
+
+/** After the join of a `{ maxItems }` launch: only `.onError(…)` until one catches `LimitError.Items` (`TNeedsItemsError`). */
+export interface NeedsItemsHandler<THead extends PathHead> {
+  onError<const TError extends ErrorClass>(
+    error: TError,
+    path: SidePath,
+  ): [LimitError.Items] extends [ErrorInstance<TError>] ? Joined<THead> : NeedsItemsHandler<THead>;
+}
+
+/** After a `{ maxItems }` launch: `.join()`, then the mandatory `.onError(LimitError.Items, …)`. */
+export interface ItemsLaunched<THead extends PathHead> {
+  join(): NeedsItemsHandler<THead>;
+}
 
 /** What a branch of a parallel step may start with: an agent, an action, a question role, a child workflow — or a router, which only `chooseMany([…])` completes. */
 export type BranchKind =
@@ -192,8 +213,12 @@ export interface ParallelLaunches<TValue, THead extends PathHead> {
   /** One run of `step` per item of the list the step before gives (#1280). */
   forEachItem<const TStep extends SidePath>(
     step: TStep & BranchCheck<TStep> & ItemsCheck<TValue>,
-    options: ForEachItemOptions,
+    options: TakeFirstOptions,
   ): Launched<THead>;
+  forEachItem<const TStep extends SidePath>(
+    step: TStep & BranchCheck<TStep> & ItemsCheck<TValue>,
+    options: MaxItemsOptions,
+  ): ItemsLaunched<THead>;
 }
 
 /** The launches a step's values (`TValue`, the chain's last one per item) may lead into. */

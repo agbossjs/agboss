@@ -1,8 +1,8 @@
 import type { NodeEvent } from "./execution-event.js";
 
 /**
- * A per-item launch got a longer list than its `maxItems` (#273, `onLaunchItemsTruncated`): it
- * launched the first `maxItems` items in the list's order and dropped the rest — never an error.
+ * A per-item launch got a longer list than its `takeFirst` (#273, #1280, `onLaunchItemsTruncated`): it
+ * launched the first `takeFirst` items in the list's order and dropped the rest — never an error.
  * Plain data, no item values; `step` is the launching step.
  */
 export interface LaunchItemsTruncatedEvent extends NodeEvent {
@@ -10,6 +10,6 @@ export interface LaunchItemsTruncatedEvent extends NodeEvent {
   readonly launch: string;
   /** How many items the list had. */
   readonly items: number;
-  /** How many were launched: the launch's `maxItems`. */
-  readonly maxItems: number;
+  /** How many were launched: the launch's `takeFirst` (or the older `maxItems` of a per-item `.toParallel…`). */
+  readonly takeFirst: number;
 }

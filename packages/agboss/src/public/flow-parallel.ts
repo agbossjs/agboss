@@ -11,6 +11,11 @@ export type {
 } from "../flow/ast.js";
 export type {
   ForEachItemOptions,
+  ItemsLaunched,
+  MaxItemsOptions,
+  NeedsItemsHandler,
+  TakeFirstOptions,
   ParallelLaunches,
   ParallelOptions,
 } from "../flow/launch-types.js";
+export type { ParallelLaunchRuleCode } from "../graph/extra-rule-codes.js";

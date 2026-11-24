@@ -2,7 +2,12 @@ import { requireApplication } from "../application/application.js";
 import type { AssembledApplication } from "../application/assemble.js";
 import type { Class } from "../components/injection.js";
 import { childWorkflowOf } from "../flow/analyse/child-workflow.js";
-import { EdgeKind, type FlowEdge, type FlowGraph } from "../flow/analyse/flow-graph.js";
+import {
+  EdgeKind,
+  itemBoundOf,
+  type FlowEdge,
+  type FlowGraph,
+} from "../flow/analyse/flow-graph.js";
 import { startLabel } from "../flow/analyse/rules/children.js";
 import { NodeKind } from "../flow/ast.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
@@ -54,7 +59,7 @@ function launchOf(edges: readonly FlowEdge[]): DescribedLaunch {
   return {
     from: [...new Set(edges.map((edge) => edge.from))].sort(),
     isPerItem,
-    ...(isPerItem && launch.maxItems !== undefined ? { maxItems: launch.maxItems } : {}),
+    ...(isPerItem && itemBoundOf(launch) !== undefined ? { maxItems: itemBoundOf(launch) } : {}),
     ...(isPerItem && launch.maxConcurrency !== undefined
       ? { maxConcurrency: launch.maxConcurrency }
       : {}),
@@ -135,7 +140,7 @@ export function describedTreeOf(assembled: AssembledApplication): DescribedTree 
 /** `per item from vendor-finder-agent (maxItems 20, maxConcurrency 3)`, `from triage-agent`. */
 function launchText(launch: DescribedLaunch): string {
   const limits = [
-    ...(launch.maxItems === undefined ? [] : [`maxItems ${String(launch.maxItems)}`]),
+    ...(itemBoundOf(launch) === undefined ? [] : [`maxItems ${String(itemBoundOf(launch))}`]),
     ...(launch.maxConcurrency === undefined
       ? []
       : [`maxConcurrency ${String(launch.maxConcurrency)}`]),

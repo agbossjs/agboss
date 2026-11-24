@@ -1,3 +1,4 @@
+import { isStrictItems, itemBoundOf } from "../../analyse/flow-graph.js";
 import { slotOfValue } from "../../analyse/scope.js";
 import { NodeKind } from "../../ast.js";
 import { idempotencyKeyOf } from "../../context/idempotency.js";
@@ -128,12 +129,14 @@ function counted(site: DispatchSite, planned: readonly Planned[]): readonly Bran
 
 /** The launch's ticket: its id, its branches, how many items there were and were taken. */
 export function dispatchOf(site: DispatchSite): LaunchTicket {
-  const { items: list, listed, maxItems, maxConcurrency } = site.launch.launch;
+  const { launch } = site.launch;
+  const { items: list, listed, maxConcurrency } = launch;
   const isPerItem = list !== undefined;
   const items = isPerItem ? itemsOf(site).length : listed.length;
-  const planned = isPerItem
-    ? itemBranches(site, Math.min(items, maxItems ?? items))
-    : listedBranches(site);
+  const bound = itemBoundOf(launch) ?? items;
+  // a strict `maxItems` that the list passes launches nothing: the visit raises `LimitError.Items` (#1280)
+  const taken = isStrictItems(launch) && items > bound ? 0 : Math.min(items, bound);
+  const planned = isPerItem ? itemBranches(site, taken) : listedBranches(site);
   const branches = counted(site, planned);
   const { executionId, visitNumber } = site;
   return {

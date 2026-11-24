@@ -14,7 +14,7 @@ export default defineConfig({
     expect: { requireAssertions: true },
     setupFiles: ["./src/testing/setup.ts"],
     include: [
-      "tests/flow/runtime/{compensation-*,on-error,child-failure,launch-failure,in-parallel,action-errors,*-units}.test.ts",
+      "tests/flow/runtime/{compensation-*,on-error,child-failure,launch-failure,in-parallel,for-each-item,action-errors,*-units}.test.ts",
       "tests/app/compensation/*-units.test.ts",
       "tests/app/unwinding-takeover-units.test.ts",
       "tests/app/{compensation-*,kept-undo-*,undo-*,action-fence,child-failure-once,*end-once*,finished-work*,error-class-route,zombie-evidence,cancel*,execution-fence}.test.ts",

@@ -22,7 +22,9 @@ import type { ClaimsOf } from "./one-of-types.js";
 import type {
   BranchesCheck,
   BranchCheck,
-  ForEachItemOptions,
+  ItemsLaunched,
+  MaxItemsOptions,
+  TakeFirstOptions,
   LaunchCheck,
   Launched,
   ParallelOptions,
@@ -195,8 +197,12 @@ export function inParallel(branches: unknown, options?: unknown): unknown {
 /** `forEachItem(toAgent(A), { takeFirst: 4 })` as a side path's starter (#1280). */
 export function forEachItem<const TStep extends SidePath>(
   step: TStep & BranchCheck<TStep>,
-  options: ForEachItemOptions,
+  options: TakeFirstOptions,
 ): Launched<SideHead>;
+export function forEachItem<const TStep extends SidePath>(
+  step: TStep & BranchCheck<TStep>,
+  options: MaxItemsOptions,
+): ItemsLaunched<SideHead>;
 export function forEachItem(step: unknown, options: unknown): unknown {
   return sidePath().forEachItem(step, options);
 }

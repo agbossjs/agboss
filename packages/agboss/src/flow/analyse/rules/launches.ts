@@ -1,6 +1,15 @@
 import { violation, type RuleViolation } from "../../../graph/rule-error.js";
 import { NodeKind } from "../../ast.js";
-import { EdgeKind, type FlowEdge, type FlowLaunch, type JoinEdge } from "../flow-graph.js";
+import { codeOfErrorClass, errorRecordOf, recordMatches } from "../../../core/error-record.js";
+import { LimitError } from "../../../core/error-families/limit-errors.js";
+import { usd } from "../../../units/index.js";
+import {
+  EdgeKind,
+  isStrictItems,
+  type FlowEdge,
+  type FlowLaunch,
+  type JoinEdge,
+} from "../flow-graph.js";
 import { launchLabel } from "../join-groups.js";
 import { dtoLabel, shapeLabel } from "../labels.js";
 import { slotOfDto } from "../scope.js";
@@ -19,7 +28,10 @@ import { routeSetViolations, type RouteListing } from "./routers.js";
  */
 
 /** The rules of `.inParallel([…])` and `.forEachItem(…)` (#1279, #1280). */
-function parallelViolations(launch: FlowLaunch): readonly RuleViolation[] {
+function parallelViolations(
+  context: AnalysisContext,
+  launch: FlowLaunch,
+): readonly RuleViolation[] {
   const label = launchLabel(launch);
   const nodes = [launch.launcher];
   const found: RuleViolation[] = launch.branches
@@ -39,11 +51,29 @@ function parallelViolations(launch: FlowLaunch): readonly RuleViolation[] {
         nodes,
       ),
     );
+  if (isStrictItems(launch) && !hasItemsHandler(context, launch))
+    found.push(
+      violation(
+        "launch.max-items-handler-required",
+        `${label}: { maxItems } throws LimitError.Items past it — add .onError(LimitError.Items, …) (or LimitError, AGBossError) after the join`,
+        nodes,
+      ),
+    );
   return found;
 }
 
+/** Whether a join handler of the launch catches `LimitError.Items`: its class, a parent of it, or `Error`. */
+function hasItemsHandler(context: AnalysisContext, launch: FlowLaunch): boolean {
+  const sample = errorRecordOf(
+    new LimitError.Items({ path: [], spentUsd: usd(0), node: "", limit: 0, actual: 1 }),
+  );
+  return context.walked.joinErrorHandlers.some(
+    (site) => site.launch === launch && recordMatches(sample, codeOfErrorClass(site.handler.error)),
+  );
+}
+
 function widthViolations(context: AnalysisContext, launch: FlowLaunch): readonly RuleViolation[] {
-  if (launch.form !== undefined) return parallelViolations(launch);
+  if (launch.form !== undefined) return parallelViolations(context, launch);
   const label = launchLabel(launch);
   const nodes = [launch.launcher];
   const { items, maxItems } = launch;

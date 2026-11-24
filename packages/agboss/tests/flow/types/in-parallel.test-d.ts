@@ -1,8 +1,25 @@
 import { describe, expectTypeOf, it } from "vitest";
 import type { FlowPath } from "../../../src/flow/ast.js";
-import { inParallel, onStart, skip, toAgent, toRouter } from "../../../src/flow/builder.js";
+import {
+  inParallel,
+  onStart,
+  skip,
+  toAgent,
+  toFinish,
+  toRouter,
+} from "../../../src/flow/builder.js";
 import { StepError } from "../../../src/core/error-families/step-errors.js";
-import { ArticleWriterAgent, CriticAgent, PlannerAgent } from "../fixtures/launch.fixture.js";
+import {
+  ArticleWriterAgent,
+  CompanyAuditAgent,
+  CriticAgent,
+  PlannerAgent,
+  RankerAgent,
+  RankingWorkflowFinish,
+  ScreeningAgent,
+  ScreeningWorkflowStart,
+} from "../fixtures/launch.fixture.js";
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import {
   ParallelPanelRouter,
   ParallelPanelWorkflowStart,
@@ -70,5 +87,27 @@ describe("#1279a: .inParallel([…branches], options?)", () => {
     const router = planned().toRouter(ParallelPanelRouter);
     // @ts-expect-error — a flow path's router has routes, not chooseMany
     router.chooseMany([toAgent(CriticAgent)]);
+  });
+
+  it("forEachItem takes exactly one bound; a maxItems launch needs its LimitError.Items handler (#1280)", () => {
+    const listed = onStart(ScreeningWorkflowStart).toAgent(ScreeningAgent);
+    listed
+      .forEachItem(toAgent(CompanyAuditAgent), { takeFirst: 3, maxConcurrency: 2 })
+      .join()
+      .toAgent(RankerAgent);
+    // @ts-expect-error — both bounds at once is no option
+    listed.forEachItem(toAgent(CompanyAuditAgent), { takeFirst: 3, maxItems: 4 });
+    // @ts-expect-error — neither bound is given
+    listed.forEachItem(toAgent(CompanyAuditAgent), {});
+    const needing = listed.forEachItem(toAgent(CompanyAuditAgent), { maxItems: 3 }).join();
+    expectTypeOf(needing).not.toHaveProperty("toAgent");
+    const cleared = needing.onError(LimitError.Items, toFinish(RankingWorkflowFinish));
+    expectTypeOf(cleared).toHaveProperty("toAgent");
+    expectTypeOf(needing.onError(LimitError, toFinish(RankingWorkflowFinish))).toHaveProperty(
+      "toAgent",
+    );
+    expectTypeOf(needing.onError(StepError, toFinish(RankingWorkflowFinish))).not.toHaveProperty(
+      "toAgent",
+    );
   });
 });

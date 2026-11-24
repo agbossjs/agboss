@@ -1,7 +1,7 @@
 import { violation, type RuleViolation } from "../../../graph/rule-error.js";
 import { QuorumKind, type CountQuorum, type QuorumGroup } from "../../ast.js";
 import type { ComponentName } from "../../registry.js";
-import type { FlowLaunch } from "../flow-graph.js";
+import { itemBoundOf, type FlowLaunch } from "../flow-graph.js";
 import { launchLabel } from "../join-groups.js";
 import { groupAgentNames } from "../quorum-joins.js";
 import type { QuorumSite } from "../walked-flow.js";
@@ -20,11 +20,11 @@ import type { AnalysisContext } from "./context.js";
 function answersOf(launch: FlowLaunch, agent: ComponentName): number {
   const branch = launch.branches.find((candidate) => candidate.node === agent);
   if (branch === undefined) return 0;
-  return launch.items === undefined ? branch.copies : (launch.maxItems ?? Infinity);
+  return launch.items === undefined ? branch.copies : (itemBoundOf(launch) ?? Infinity);
 }
 
 function countViolations(launch: FlowLaunch, quorum: CountQuorum): readonly RuleViolation[] {
-  const most = launch.items === undefined ? launch.listed.length : launch.maxItems;
+  const most = launch.items === undefined ? launch.listed.length : itemBoundOf(launch);
   if (most === undefined || quorum.min <= most) return [];
   const runs =
     launch.items === undefined

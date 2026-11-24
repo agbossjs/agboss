@@ -3,6 +3,15 @@ import { checkWorkflow } from "../../../src/flow/analyse/analyse.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import { Workflow, type WorkflowOptions } from "../../../src/flow/decorators/workflow.js";
 import { StepFailedError } from "../../../src/graph/errors.js";
+import { AGBossError } from "../../../src/core/errors.js";
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
+import {
+  ItemsFailedAction,
+  ItemsFailedWorkflowFinish,
+  ItemsWorkflowStart,
+  ProcessItemAction,
+  SummaryAction,
+} from "../runtime/fixtures/fan-out.workflow.js";
 import { skip } from "../../../src/flow/builder.js";
 import {
   ChooserRouter,
@@ -106,5 +115,44 @@ describe("#1279: the assembly of a parallel launch", () => {
       ]),
     ).toContain("router.routes-mismatch");
     expect(ChosenBAction.name).toBe("ChosenBAction");
+  });
+
+  it("a forEachItem with maxItems needs a handler for LimitError.Items, its parents or Error", () => {
+    const withHandler = (error: new (...args: never[]) => Error) =>
+      codesOf([
+        onStart(ItemsWorkflowStart)
+          .forEachItem(toAction(ProcessItemAction), { maxItems: 3 })
+          .join()
+          .onError(error, toAction(ItemsFailedAction).toFinish(ItemsFailedWorkflowFinish))
+          .toAction(SummaryAction)
+          .toFinish(SummaryWorkflowFinish),
+      ]);
+    expect(withHandler(LimitError.Items as never)).not.toContain(
+      "launch.max-items-handler-required",
+    );
+    expect(withHandler(LimitError as never)).not.toContain("launch.max-items-handler-required");
+    expect(withHandler(AGBossError as never)).not.toContain("launch.max-items-handler-required");
+    expect(withHandler(StepFailedError as never)).toContain("launch.max-items-handler-required");
+    expect(
+      codesOf([
+        onStart(ItemsWorkflowStart)
+          .forEachItem(toAction(ProcessItemAction), { maxItems: 3 })
+          .join()
+          .toAction(SummaryAction)
+          .toFinish(SummaryWorkflowFinish),
+      ]),
+    ).toContain("launch.max-items-handler-required");
+  });
+
+  it("takeFirst needs no handler", () => {
+    const codes = codesOf([
+      onStart(ItemsWorkflowStart)
+        .forEachItem(toAction(ProcessItemAction), { takeFirst: 3 })
+        .join()
+        .toAction(SummaryAction)
+        .toFinish(SummaryWorkflowFinish),
+    ]);
+    expect(codes).not.toContain("launch.max-items-handler-required");
+    expect(codes).not.toContain("launch.for-each-item-no-list");
   });
 });
