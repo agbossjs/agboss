@@ -134,6 +134,24 @@ const CHECKPOINT_CASES: readonly ContractCase<BaseCheckpointSaver>[] = [
       expect((await first.getTuple(thread("thread-2")))?.checkpoint.id).toBe("checkpoint-2");
     },
   },
+  {
+    name: "deleteThread of a tree's root removes its child threads at any depth, and no thread that only starts like them (#1321d)",
+    run: async ({ first, second }) => {
+      const doomed = ["root", "root/child/a", "root/child/a/child/b"];
+      // a sibling tree, a thread that continues the id, one whose id sorts next to the range's bounds
+      const kept = ["root2", "root-child", "root/children", "root/child", "other/child/root"];
+      for (const id of [...doomed, ...kept]) {
+        const config = await twoSteps(first, id);
+        await first.putWrites(config, [["messages", "pending"]], "task-1");
+      }
+
+      await second.deleteThread("root");
+
+      for (const id of doomed) expect(await first.getTuple(thread(id))).toBeUndefined();
+      for (const id of kept)
+        expect((await first.getTuple(thread(id)))?.checkpoint.id).toBe("checkpoint-2");
+    },
+  },
 ];
 
 /**

@@ -210,6 +210,10 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/public/application-limits.ts"],
   ),
   ...reviewed(
+    "a tree's checkpoint thread names (#1321d): the `<root>/child/<id>` join and the half-open range of a root's child threads, used by the savers' deleteThread; the deletion itself is checked by the checkpoint saver contract and tests/infrastructure/checkpoint-threads.test.ts",
+    ["src/infrastructure/checkpoint-threads.ts"],
+  ),
+  ...reviewed(
     "the storage settings of a container that is no application's (`agboss check`, a workflow on its own, #1321): reads the one listing application's driver settings from the process variables, leaves a missing variable out; no spend, lease, fence or limit decision of its own — which store holds them is decided in the sharded storage-assembly; covered by tests/storage/storage-application.test.ts",
     ["src/storage/standalone-storage.ts"],
   ),

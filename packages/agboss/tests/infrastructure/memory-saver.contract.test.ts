@@ -13,12 +13,28 @@ import {
   type CheckpointTuple,
 } from "@langchain/langgraph";
 import { describe } from "vitest";
+import { isChildThreadOf } from "../../src/infrastructure/checkpoint-threads.js";
 import { newestFirstOrder, stepOf } from "../../src/infrastructure/latest-by-step.js";
 import { checkpointSaverContract, StoreCapability } from "../../src/testing/contracts/index.js";
 import { inMemoryTarget, sharedInMemory } from "./contracts/store-kinds.js";
 
 /** The versions `put` is given (LangGraph's `ChannelVersions`, not re-exported by `@langchain/langgraph`). */
 type ChannelVersions = Parameters<BaseCheckpointSaver["put"]>[3];
+
+/**
+ * LangGraph's `MemorySaver` with the one thing the contract asks beyond it (#1321d): `deleteThread`
+ * of a tree's root also removes its child threads (`<root>/child/…`), as every saver of a store does.
+ */
+class ChildThreadsMemorySaver extends MemorySaver {
+  override async deleteThread(threadId: string): Promise<void> {
+    const threads = [...Object.keys(this.storage), ...Object.keys(this.writes).map(writerOf)];
+    for (const each of new Set(threads)) {
+      if (each === threadId || isChildThreadOf(threadId, each)) await super.deleteThread(each);
+    }
+  }
+}
+
+const writerOf = (key: string): string => String((JSON.parse(key) as unknown[])[0]);
 
 /** Where a blob lives: thread, namespace, channel and the version it was written at. */
 const blobKey = (config: RunnableConfig, channel: string, version: string | number): string =>
@@ -35,7 +51,7 @@ const blobKey = (config: RunnableConfig, channel: string, version: string | numb
  * read joins the checkpoint's `channel_versions` to the blobs. A channel `put` is not given a
  * version for has no value read back.
  */
-class VersionedBlobSaver extends MemorySaver {
+class VersionedBlobSaver extends ChildThreadsMemorySaver {
   readonly #blobs = new Map<string, unknown>();
 
   override async put(
@@ -79,7 +95,9 @@ class VersionedBlobLatestSaver extends VersionedBlobSaver {
 
 describe("#511 AC2: LangGraph's MemorySaver passes checkpointSaverContract", () => {
   checkpointSaverContract({
-    ...inMemoryTarget((seam) => sharedInMemory(seam, "memory-saver", () => new MemorySaver())),
+    ...inMemoryTarget((seam) =>
+      sharedInMemory(seam, "memory-saver", () => new ChildThreadsMemorySaver()),
+    ),
     name: "LangGraph MemorySaver",
   });
 });

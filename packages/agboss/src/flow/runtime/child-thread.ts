@@ -1,6 +1,7 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { AsyncLocalStorageProviderSingleton } from "@langchain/core/singletons";
 import { BaseCheckpointSaver, emptyCheckpoint } from "@langchain/langgraph";
+import { childThreadOf } from "../../infrastructure/checkpoint-threads.js";
 import type { ChildIdentityRecord } from "./child-records.js";
 import type { ExecutionStateType } from "./state.js";
 
@@ -13,9 +14,7 @@ import type { ExecutionStateType } from "./state.js";
  * after a pause or a crash finds it (the place that held the child's whole state before, #263 S24).
  */
 
-/** The child's own checkpoint thread (S4 D3). */
-export const childThreadOf = (parentThreadId: string, executionId: string): string =>
-  `${parentThreadId}/child/${executionId}`;
+export { childThreadOf };
 
 /** What the launching task's marker holds: the child's identity and its own thread. */
 export interface ChildMarker {

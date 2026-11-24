@@ -14,6 +14,7 @@ import {
   writeIndexOf,
   type PendingWrites,
 } from "./sqlite-checkpoint-rows.js";
+import { childThreadRangeOf } from "../checkpoint-threads.js";
 import type { LatestByStepCheckpointSaver } from "../latest-by-step.js";
 import { latestRowOf, newestIdOf, rowOf, stepsToRank } from "./sqlite-latest-by-step.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
@@ -156,9 +157,12 @@ export class SqliteCheckpointSaver
 
   deleteThread(threadId: string): Promise<void> {
     const { database } = this.connection;
+    const { lower, upper } = childThreadRangeOf(threadId);
+    // the thread and its child threads (#1321d): `thread_id >= '<id>/child/' AND < '<id>/child0'`
+    const where = "thread_id = ? OR (thread_id >= ? AND thread_id < ?)";
     this.connection.transaction(() => {
-      database.prepare("DELETE FROM checkpoint_writes WHERE thread_id = ?").run(threadId);
-      database.prepare("DELETE FROM checkpoints WHERE thread_id = ?").run(threadId);
+      database.prepare(`DELETE FROM checkpoint_writes WHERE ${where}`).run(threadId, lower, upper);
+      database.prepare(`DELETE FROM checkpoints WHERE ${where}`).run(threadId, lower, upper);
     });
     return Promise.resolve();
   }

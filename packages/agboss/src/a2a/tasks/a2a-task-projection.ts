@@ -64,12 +64,15 @@ export class A2ATaskProjection implements ExecutionObserver {
     return this.#move(event, () => Promise.resolve(WORKING));
   }
 
-  /** The output is no event's: read from the records, once the finish is durable. */
+  /**
+   * The finish and the output are the event's: an ended tree's checkpoints are gone with it (#1321d),
+   * so the records only say that it finished (its answered record is durable).
+   */
   onExecutionEnd(event: ExecutionEndEvent): Promise<void> {
     return this.#move(event, async () => {
       const state = await this.#durableStateOf(event);
       return state.status === DurableExecutionStatus.Finished
-        ? completedStatusOf(state.finish, state.output, event.spend.totalUsd)
+        ? completedStatusOf(event.finish.name, event.output, event.spend.totalUsd)
         : undefined;
     });
   }

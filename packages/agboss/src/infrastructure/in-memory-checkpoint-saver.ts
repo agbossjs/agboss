@@ -9,6 +9,7 @@ import {
   stepOf,
   type LatestByStepCheckpointSaver,
 } from "./latest-by-step.js";
+import { isChildThreadOf } from "./checkpoint-threads.js";
 import { newestFirstByCodePoint } from "./in-memory-checkpoint-order.js";
 
 /** The steps of a thread's namespace by checkpoint id, and the newest by `(step, id)` of them. */
@@ -62,9 +63,19 @@ export class InMemoryCheckpointSaver extends MemorySaver implements LatestByStep
     return stored;
   }
 
+  /** The thread and its child threads (#1321d: a tree's checkpoints), no other. */
   override async deleteThread(threadId: string): Promise<void> {
-    await super.deleteThread(threadId);
-    this.#threads.delete(threadId);
+    const known = new Set([...Object.keys(this.storage), ...this.#threadsOfWrites()]);
+    const doomed = [threadId, ...[...known].filter((each) => isChildThreadOf(threadId, each))];
+    for (const each of doomed) {
+      await super.deleteThread(each);
+      this.#threads.delete(each);
+    }
+  }
+
+  /** The threads that hold pending writes (a write's key is `[thread, namespace, checkpoint]`). */
+  #threadsOfWrites(): string[] {
+    return Object.keys(this.writes).map((key) => String((JSON.parse(key) as unknown[])[0]));
   }
 
   /**

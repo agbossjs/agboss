@@ -66,7 +66,7 @@ export type TreeEndParts = Pick<TreeMoveParts, "deps" | "trees" | "clock">;
 
 /**
  * The tree ended (finished, failed, cancelled): its keys removed — a cancel request among them —
- * and its pauses closed last (#267 AC10, #939): the reason follows `end`. Idempotent, so the orphan
+ * its checkpoint threads deleted (#1321d), and its pauses closed last (#267 AC10, #939): the reason follows `end`. Idempotent, so the orphan
  * look runs it again for a tree whose instance died in the middle. The root's record is terminal
  * before this runs — never earlier: the cancel request goes with the keys, and a recovery of a
  * still `running` root would run a cancelled tree's pass again (#901's class).
@@ -96,6 +96,10 @@ export async function forgetTree(
     await parts.deps.turns.forgetStatusHistory(state.tenantId, state.threadId);
   const { pause } = parts.deps;
   if (pause === undefined) return;
+  // its checkpoints, the root's thread and every child's (#1321d): an ended tree is read from its
+  // kept record from here on, never from a checkpoint; before the pauses close, so a crash between
+  // the two leaves the pause rows for the orphan look, which runs this again
+  await pause.checkpointer.deleteThread(state.runId);
   const ends = { stores: pause };
   const site = { ...treeOf(state), threadId: state.threadId };
   const end = { cause: cause instanceof Error ? cause : new Error(String(cause)) };

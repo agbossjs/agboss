@@ -87,7 +87,8 @@ describe("#633: forgetTree and passEnded", () => {
   it("with all of them: the queued children, branch errors and waiting pauses go too", async () => {
     const deleteAllByTenantIdAndRootExecutionId = vi.fn(() => Promise.resolve());
     const forgetExecution = vi.fn();
-    const pause = { pauses: {} };
+    const deleteThread = vi.fn(() => Promise.resolve());
+    const pause = { pauses: {}, checkpointer: { deleteThread } };
     mocks.closeTreePauses.mockClear();
     const deps = {
       remoteChildren: { queue: { deleteAllByTenantIdAndRootExecutionId } },
@@ -110,6 +111,8 @@ describe("#633: forgetTree and passEnded", () => {
 
     expect(deleteAllByTenantIdAndRootExecutionId).toHaveBeenCalledWith("acme", "root-1");
     expect(forgetExecution).toHaveBeenCalledWith("root-1");
+    // #1321d: the tree's checkpoint threads go, the root's with its children's (the saver's one call)
+    expect(deleteThread).toHaveBeenCalledExactlyOnceWith("root-1");
     expect(mocks.closeTreePauses).toHaveBeenCalledWith(
       expect.objectContaining({ stores: pause }),
       { tenantId: "acme", rootExecutionId: "root-1", threadId: "thread-1" },
@@ -122,7 +125,7 @@ describe("#633: forgetTree and passEnded", () => {
     mocks.closeTreePauses.mockClear();
     const parts = {
       deps: {
-        pause: { pauses: {} },
+        pause: { pauses: {}, checkpointer: { deleteThread: () => Promise.resolve() } },
         container: { get: () => ({ markOwnerCompleted: () => Promise.resolve() }) },
         config: { name: "w" },
         turns: { forgetStatusHistory: () => Promise.resolve() },
