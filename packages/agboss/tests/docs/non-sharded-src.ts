@@ -786,6 +786,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
       "src/infrastructure/expiry.ts",
       "src/infrastructure/in-memory-file.repository.ts",
       "src/infrastructure/listing-window.ts",
+      "src/infrastructure/local-disk-completions.ts",
       "src/infrastructure/local-disk-file.repository.ts",
       "src/infrastructure/logger.ts",
       "src/infrastructure/orphan-pauses.ts",

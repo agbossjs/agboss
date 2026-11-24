@@ -1,20 +1,15 @@
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { lazyLoad } from "../infrastructure/clock.js";
 import { SILENT_LOG, type FrameworkLog } from "../infrastructure/logger.js";
-import { recordUsage, type UsageRecord } from "../finops/usage.js";
+import { type UsageRecord } from "../finops/usage.js";
 import type { ModelBinding } from "../llm/registry.js";
 import { contentOf } from "../models/content.js";
 import { PiiKind, type PiiTarget } from "../pii/kinds.js";
 import { sha256Of, type FileContent } from "./file-bytes.js";
 import { FileRedactionFailedError } from "./file-errors.js";
 import type { RedactionResult, RedactOptions } from "./file-redactor.js";
-import {
-  boxOf,
-  MAX_REGIONS,
-  regionsOf,
-  RegionsAnswerError,
-  type Region,
-} from "./redaction-regions.js";
+import { boxOf, MAX_REGIONS, type Region } from "./redaction-regions.js";
+import { answeredRegions, UNKNOWN_TARGET_CODE } from "./model-image-redactor-answer.js";
 import { chargedCall, reportToFrame } from "../finops/charged-call.js";
 
 /**
@@ -24,8 +19,7 @@ import { chargedCall, reportToFrame } from "../finops/charged-call.js";
  * Anything that goes wrong is `FileRedactionFailedError`: never the unredacted file.
  */
 
-/** The log code of a region the model named with a target it was not asked for (#1301). */
-export const UNKNOWN_TARGET_CODE = "files.redactor-unknown-target";
+export { UNKNOWN_TARGET_CODE };
 
 /** The pixels of the largest image read (a decompression bomb is refused). */
 export const MAX_INPUT_PIXELS = 40e6;
@@ -104,39 +98,6 @@ async function uprightOf(
     throw cause instanceof FileRedactionFailedError
       ? cause
       : failed("the image cannot be read", cause);
-  }
-}
-
-/** The regions of the model's answer, strictly checked; its spend with them. */
-function answeredRegions(
-  response: Awaited<ReturnType<ModelBinding["model"]["invoke"]>>,
-  of: {
-    readonly agent: string;
-    readonly known: ReadonlySet<string>;
-    readonly maxRegions: number;
-    readonly log: FrameworkLog;
-  },
-  binding: ModelBinding,
-): { readonly regions: readonly Region[]; readonly usage: UsageRecord } {
-  const { agent, known, maxRegions, log } = of;
-  try {
-    return {
-      regions: regionsOf(response.text, known, maxRegions, (count) => {
-        // painted all the same; the model's own words are never in the line
-        log.warn(
-          UNKNOWN_TARGET_CODE,
-          `${agent}: the redaction model named ${String(count)} region(s) with a target it was not asked for — painted all the same`,
-        );
-      }),
-      usage: recordUsage("files:redactor", binding.settings, response),
-    };
-  } catch (error) {
-    // the reason is structural; the answer itself is neither in the message nor in the cause
-    const said = error instanceof RegionsAnswerError ? error.message : "unreadable";
-    throw new FileRedactionFailedError({
-      agent,
-      reason: `the redaction model's answer is not usable: ${said}`,
-    });
   }
 }
 
