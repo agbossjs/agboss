@@ -132,7 +132,6 @@ export class ReadingWorkflow {}
   }),
   reasoning: Reasoning.off(),
   promptCaching: PromptCaching.off(),
-  retryPolicy: RetryPolicy.none(),
   circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
     failureThreshold: 50,
     failureWindow: minutes(1),

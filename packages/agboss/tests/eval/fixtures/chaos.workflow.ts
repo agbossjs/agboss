@@ -158,7 +158,6 @@ export class RetryingModelProvider extends OpenAiCompatibleProvider {
   ...PROVIDER,
   name: "fragile-model-provider",
   description: "Retries nothing",
-  retryPolicy: RetryPolicy.none(),
 })
 export class FragileModelProvider extends OpenAiCompatibleProvider {
   override readonly requestFields: NoRequestFields = {};

@@ -1416,7 +1416,6 @@ import { minutes, seconds, usd } from "@agboss/core/units";
   cost: ModelCost.fromPrices({ "inhouse/kimi": { inputPerMillion: usd(0.4), outputPerMillion: usd(1.6) } }),
   reasoning: Reasoning.off(),
   promptCaching: PromptCaching.off(),
-  retryPolicy: RetryPolicy.none(),
   circuitBreakerPolicy: CircuitBreakerPolicy.fixed({ failureThreshold: 5, failureWindow: minutes(1), openDuration: seconds(30) }),
 })
 export class LoansBackupModelProvider extends OpenAiCompatibleProvider {

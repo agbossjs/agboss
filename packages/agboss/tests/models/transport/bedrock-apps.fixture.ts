@@ -181,7 +181,6 @@ const http = {
   timeout: seconds(5),
   reasoning: Reasoning.modelDecides(),
   promptCaching: PromptCaching.off(),
-  retryPolicy: RetryPolicy.none(),
 };
 
 /** An HTTP backup (no key) with its own prices. */
@@ -240,7 +239,6 @@ export const HttpToTransportApplication = bedrockApplicationOn({
   cost: ModelCost.fromPrices({
     "bedrock/claude": { inputPerMillion: usd(3), outputPerMillion: usd(15) },
   }),
-  retryPolicy: RetryPolicy.none(),
   circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
     failureThreshold: 1,
     failureWindow: minutes(1),

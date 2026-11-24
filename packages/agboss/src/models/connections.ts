@@ -4,7 +4,6 @@ import type { ProviderCalls } from "./calls/provider-calls.js";
 import { providerBaseUrlOf, providerHeadersOf, providerKeyOf } from "./provider-environment.js";
 import type { ProviderConnection } from "./handler.js";
 import type { KeptModelProviderOptions } from "./model-provider.decorator.js";
-import { RetryPolicy } from "./retry-policy.js";
 import { resilientFetch, type ProviderFetch, type ResilienceOptions } from "./resilient-fetch.js";
 
 /** How connections are made: the environments, whether keys must be set, the shared calls, the raw client. */
@@ -42,7 +41,7 @@ export function resilienceOf(
     provider: options.name,
     timeout: options.timeout,
     // no retryPolicy: no retry (#1313)
-    retryPolicy: options.retryPolicy ?? RetryPolicy.none(),
+    retryPolicy: options.retryPolicy,
     ...(calls === undefined || breakerPolicy === undefined
       ? {}
       : { breaker: calls.breakerOf(options.name, breakerPolicy) }),

@@ -84,7 +84,7 @@ export interface ModelProviderStreamResult {
   readonly usage: TokenUsage;
   /** The call's exact cost (`costSource: "api"`); absent = tokens x the decorator's price table. */
   readonly cost?: Usd | undefined;
-  /** Why the model stopped: `FinishReason.Length` when the answer was cut at `maxTokens`. */
+  /** Why the model stopped: `FinishReason.Stop`, `Length` (cut at `maxTokens`), `ToolCalls`, `ContentFilter`. */
   readonly finishReason?: FinishReason | undefined;
 }
 

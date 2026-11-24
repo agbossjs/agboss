@@ -250,7 +250,6 @@ describe("#262 AC12: a model call's waits run on the clock", () => {
         provider: "p",
 
         timeout: seconds(5),
-        retryPolicy: RetryPolicy.none(),
         clock,
       },
       neverAnswers,

@@ -27,7 +27,6 @@ const breaker = CircuitBreakerPolicy.fixed({
   cost: ModelCost.fromResponse(),
   reasoning: Reasoning.off(),
   promptCaching: PromptCaching.off(),
-  retryPolicy: RetryPolicy.none(),
   circuitBreakerPolicy: breaker,
 })
 export class KeyedModelProvider extends OpenAiCompatibleProvider {
@@ -44,7 +43,6 @@ export class KeyedModelProvider extends OpenAiCompatibleProvider {
   cost: ModelCost.fromResponse(),
   reasoning: Reasoning.off(),
   promptCaching: PromptCaching.off(),
-  retryPolicy: RetryPolicy.none(),
   circuitBreakerPolicy: breaker,
   fallback: { provider: KeyedModelProvider, models: { "local/llama": "keyed/llama" } },
 })

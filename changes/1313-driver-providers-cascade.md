@@ -15,7 +15,7 @@ issue: 1313
 - **Added:** `UsageRecord.provider?`, `CostLine.provider?` and `CostReport.byProvider` (what each `@ModelProvider`, by name, was paid); a provider with no `cost` makes its calls `CostSource.Unpriced` — 0 USD, the tokens recorded and counted against token budgets, never dropped (a call with no cost and no price on a provider that has a `cost` still fails closed); `FallbackMark.unpriced`; `ResolvedModelSettings.unpriced` (set by the cascade).
 - **Changed:** `cost`, `retryPolicy` and `circuitBreakerPolicy` are optional on every `@ModelProvider` — omitted: unpriced, no retry, no breaker.
 - **Removed:** the rule `[model-provider.circuit-breaker-required]` and `circuitBreakerPolicyOf`.
-- **Still there (until F2):** `@Agent({ price })`, `RetryPolicy.none()`, `routeTo`.
+- **Still there (until F2):** `@Agent({ price })`, `routeTo`.
 
 **`modelProvider` on every model-backed component, and the default model of the levels** (#1313, part c)
 

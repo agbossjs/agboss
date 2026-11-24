@@ -39,7 +39,6 @@ const breaker = CircuitBreakerPolicy.fixed({
   model: "vendor/big",
   timeout: days(2),
   cost: wrongPrices,
-  retryPolicy: RetryPolicy.none(),
   circuitBreakerPolicy: breaker,
 })
 export class BrokenModels {}
@@ -50,7 +49,6 @@ export class BrokenModels {}
   model: "vendor/big",
   timeout: seconds(5),
   cost: { kind: "from-response" },
-  retryPolicy: RetryPolicy.none(),
   circuitBreakerPolicy: breaker,
 })
 export class SoundModels {}
@@ -188,7 +186,6 @@ export class SoundApplication {}
   model: "vendor/second",
   timeout: seconds(5),
   cost: { kind: "from-response" },
-  retryPolicy: RetryPolicy.none(),
   circuitBreakerPolicy: breaker,
 })
 export class SecondModels {}
@@ -198,7 +195,6 @@ export class SecondModels {}
   model: "vendor/third",
   timeout: seconds(5),
   cost: { kind: "from-response" },
-  retryPolicy: RetryPolicy.none(),
   circuitBreakerPolicy: breaker,
 })
 export class ThirdModels {}

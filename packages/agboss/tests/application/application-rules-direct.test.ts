@@ -71,7 +71,6 @@ const transport = (name: string): TransportModelProviderOptions => ({
   serves: [/^bedrock\//],
   timeout: seconds(5),
   cost: ModelCost.fromResponse(),
-  retryPolicy: RetryPolicy.none(),
   circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
     failureThreshold: 1,
     failureWindow: minutes(1),

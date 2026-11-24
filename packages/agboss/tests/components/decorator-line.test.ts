@@ -89,7 +89,6 @@ const providerOptions = {
   cost: ModelCost.fromResponse(),
   reasoning: Reasoning.modelDecides(),
   promptCaching: PromptCaching.off(),
-  retryPolicy: RetryPolicy.none(),
   circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
     failureThreshold: 5,
     failureWindow: minutes(1),

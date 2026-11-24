@@ -103,8 +103,10 @@ describe("AC6: retry policies — only the listed failures, Retry-After honoured
     expect(waits).toEqual([]);
   });
 
-  it("AC6: RetryPolicy.none() tries once", async () => {
-    const { send, stub } = client([{ status: 503 }, completion()], RetryPolicy.none());
+  it("AC6: no retryPolicy tries once", async () => {
+    const { send, stub } = client([{ status: 503 }, completion()], exponential, {
+      retryPolicy: undefined,
+    });
 
     expect((await send()).status).toBe(503);
     expect(stub.requests).toHaveLength(1);
@@ -198,7 +200,7 @@ describe("AC6: failures, waits and policies", () => {
       1000, 2000, 4000, 20000,
     ]);
     expect(delayBefore(jittered, 1, () => 0)).toBe(500);
-    expect(delayBefore(RetryPolicy.none(), 1, () => 0)).toBe(0);
+    expect(delayBefore(undefined, 1, () => 0)).toBe(0);
     expect(exponential.backoff).toBe(Backoff.Exponential);
   });
 

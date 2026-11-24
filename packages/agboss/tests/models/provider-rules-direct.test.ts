@@ -41,7 +41,6 @@ const transport = (name: string): TransportModelProviderOptions => ({
   serves: [/^bedrock\//],
   timeout: seconds(5),
   cost: ModelCost.fromResponse(),
-  retryPolicy: RetryPolicy.none(),
   circuitBreakerPolicy: breaker,
 });
 
@@ -52,7 +51,6 @@ const http = (name: string): HttpModelProviderOptions => ({
   baseUrl: "http://server.test/v1",
   timeout: seconds(5),
   cost: ModelCost.fromResponse(),
-  retryPolicy: RetryPolicy.none(),
   circuitBreakerPolicy: breaker,
   reasoning: Reasoning.off(),
   promptCaching: PromptCaching.off(),

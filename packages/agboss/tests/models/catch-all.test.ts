@@ -49,7 +49,6 @@ import { CircuitBreakerPolicy } from "../../src/models/circuit-breaker-policy.js
   serves: [/^harness\//],
   timeout: seconds(5),
   cost: ModelCost.fromResponse(),
-  retryPolicy: RetryPolicy.none(),
   circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
     failureThreshold: 5,
     failureWindow: minutes(1),
@@ -73,7 +72,6 @@ class HarnessModelProvider implements ModelProviderHandler {
   cost: ModelCost.fromResponse(),
   reasoning: Reasoning.modelDecides(),
   promptCaching: PromptCaching.off(),
-  retryPolicy: RetryPolicy.none(),
   circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
     failureThreshold: 5,
     failureWindow: minutes(1),
@@ -251,7 +249,6 @@ describe("#454 AC2: explicit claims stay exclusive", () => {
   serves: [/^harness\//],
   timeout: seconds(5),
   cost: ModelCost.fromResponse(),
-  retryPolicy: RetryPolicy.none(),
   circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
     failureThreshold: 5,
     failureWindow: minutes(1),

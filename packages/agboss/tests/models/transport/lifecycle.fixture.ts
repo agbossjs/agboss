@@ -31,7 +31,6 @@ export class LifecycleLog {
   serves: [/^bedrock\//],
   timeout: seconds(30),
   cost: ModelCost.fromResponse(),
-  retryPolicy: RetryPolicy.none(),
   circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
     failureThreshold: 100,
     failureWindow: minutes(1),

@@ -71,11 +71,8 @@ describe("#1366: the attempts a policy admits", () => {
     ).toBe(Backoff.Exponential);
   });
 
-  it("a none policy is never retried, whatever else its object carries", () => {
-    const carrying = { ...exponentialOf(5), backoff: Backoff.None as const };
-
-    expect(isRetried(carrying, ModelFailure.Timeout, 1)).toBe(false);
-    expect(isRetried(RetryPolicy.none(), ModelFailure.Timeout, 1)).toBe(false);
+  it("no policy is never retried", () => {
+    expect(isRetried(undefined, ModelFailure.Timeout, 1)).toBe(false);
   });
 });
 
@@ -83,12 +80,12 @@ describe("#1366: the waits of a policy", () => {
   it("the longest wait of each backoff", () => {
     expect(longestWaitOf(exponentialOf(3))).toBe(seconds(8));
     expect(longestWaitOf(fixedOf(3))).toBe(seconds(2));
-    expect(longestWaitOf(RetryPolicy.none())).toBe(0);
+    expect(longestWaitOf(undefined)).toBe(0);
   });
 
   it("the wait before a retry: fixed is the delay, none is nothing, exponential doubles up to its cap", () => {
     expect(delayBefore(fixedOf(3), 2, () => 0)).toBe(seconds(2));
-    expect(delayBefore(RetryPolicy.none(), 1, () => 0)).toBe(0);
+    expect(delayBefore(undefined, 1, () => 0)).toBe(0);
     const grown = [1, 2, 3, 4, 5].map((retry) => delayBefore(exponentialOf(9), retry, () => 0));
     expect(grown).toEqual([seconds(1), seconds(2), seconds(4), seconds(8), seconds(8)]);
   });

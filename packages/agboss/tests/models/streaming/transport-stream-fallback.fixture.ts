@@ -17,7 +17,6 @@ import { StreamSdkClient, StreamingModelProvider } from "./transport-streaming.f
   cost: ModelCost.fromPrices({
     "stream-f/model": { inputPerMillion: usd(1), outputPerMillion: usd(2) },
   }),
-  retryPolicy: RetryPolicy.none(),
   circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
     failureThreshold: 1,
     failureWindow: minutes(1),

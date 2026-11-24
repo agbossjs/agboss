@@ -27,8 +27,11 @@ const complete: HttpModelProviderOptions = {
   cost: ModelCost.fromResponse(),
   reasoning: Reasoning.modelDecides(),
   promptCaching: PromptCaching.off(),
-  retryPolicy: RetryPolicy.none(),
-  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({ failureThreshold: 3, failureWindow: minutes(1), openDuration: seconds(30) }),
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
+    failureThreshold: 3,
+    failureWindow: minutes(1),
+    openDuration: seconds(30),
+  }),
 };
 
 @ModelProvider(Object.assign({}, complete, { circuitBreakerPolicy: null }))

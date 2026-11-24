@@ -20,7 +20,8 @@ import type { ProviderGate } from "./provider-gate.js";
 export interface ResilienceOptions {
   readonly provider: string;
   readonly timeout: Milliseconds;
-  readonly retryPolicy: RetryPolicy;
+  /** What it retries and how long it waits; absent: a failed call is not tried again. */
+  readonly retryPolicy?: RetryPolicy | undefined;
   /** The provider's breaker (its state in the application's `RateLimitRepository`); none = never open. */
   readonly breaker?: CircuitBreaker;
   /** The provider's `rateLimitPolicy` in this instance; none = no limit. */

@@ -21,7 +21,6 @@ const base: Omit<TransportModelProviderOptions, "name" | "circuitBreakerPolicy">
   serves: [/^bedrock\//],
   timeout: seconds(5),
   cost: ModelCost.fromResponse(),
-  retryPolicy: RetryPolicy.none(),
 };
 
 function providerWith(name: string, breaker: null | undefined): new () => ModelProviderHandler {

@@ -29,7 +29,6 @@ const common = {
   timeout: seconds(5),
   reasoning: Reasoning.modelDecides(),
   promptCaching: PromptCaching.off(),
-  retryPolicy: RetryPolicy.none(),
 };
 
 /** The fallback: its own model and its own, higher prices. */

@@ -82,7 +82,6 @@ import { CircuitBreakerPolicy } from "@agboss/core/models";
   cost: ModelCost.fromResponse(),
   reasoning: Reasoning.modelDecides(),
   promptCaching: PromptCaching.off(),
-  retryPolicy: RetryPolicy.none(),
   circuitBreakerPolicy: CircuitBreakerPolicy.fixed({ failureThreshold: 5, failureWindow: minutes(1), openDuration: seconds(30) }),
 })
 export class PinnedOpenRouterModelProvider extends OpenRouterProvider {
@@ -377,7 +376,6 @@ import { CircuitBreakerPolicy } from "@agboss/core/models";
   }),
   timeout: min(2),
   cost: ModelCost.fromResponse(),
-  retryPolicy: RetryPolicy.none(),
   circuitBreakerPolicy: CircuitBreakerPolicy.fixed({ failureThreshold: 5, failureWindow: min(1), openDuration: sec(30) }),
   models: { default: "gpt-4.1", fast: "gpt-4.1-mini" }, // or model: "gpt-4.1"
 })
@@ -461,8 +459,8 @@ structure and cost; `rateLimitPolicy` governs the provider API's capacity.
 ### `retryPolicy`
 
 - `RetryPolicy.exponential({ maxAttempts, initialDelay, maxDelay, jitter, retryOn })` ·
-  `RetryPolicy.fixed({ maxAttempts, delay, retryOn })` · `RetryPolicy.none()` — every field
-  required, delays with units (`seconds()`, `minutes()`: a bare number does not compile). Only the
+  `RetryPolicy.fixed({ maxAttempts, delay, retryOn })` — every field
+  required (omit `retryPolicy` for no retries), delays with units (`seconds()`, `minutes()`: a bare number does not compile). Only the
   listed `ModelFailure`s (`Timeout`, `RateLimited`, `ServerError`, `NetworkError`) are retried; a
   client error (4xx) is the answer. `jitter` makes each wait a random point of its upper half.
 - `Retry-After` is honoured; one longer than the policy's longest wait (`maxDelay`, or `delay`) ends

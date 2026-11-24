@@ -1146,7 +1146,6 @@ import { SdkClientService } from "../services/sdk-client.service.js";
   serves: [/^sdk\//],
   timeout: seconds(30),
   cost: ModelCost.fromResponse(),
-  retryPolicy: RetryPolicy.none(),
   circuitBreakerPolicy: CircuitBreakerPolicy.fixed({ failureThreshold: 5, failureWindow: minutes(1), openDuration: seconds(30) }),
   deps: [SdkClientService, TenantContext],
 })

@@ -41,7 +41,6 @@ export class EchoLog {
     "echo/first": { inputPerMillion: usd(1), outputPerMillion: usd(1) },
     "echo/second": { inputPerMillion: usd(1), outputPerMillion: usd(1) },
   }),
-  retryPolicy: RetryPolicy.none(),
   circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
     failureThreshold: 5,
     failureWindow: minutes(1),

@@ -153,7 +153,6 @@ describe("AC1: a model that cannot take a file's type stops the start (when the 
     retention: CacheRetention.FiveMinutes,
     cachedParts: [CachedPart.SystemPrompt],
   }),
-  retryPolicy: RetryPolicy.none(),
   circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
     failureThreshold: 3,
     failureWindow: minutes(1),
@@ -174,7 +173,6 @@ class VisionlessBackup extends OpenRouterProvider {
   cost: ModelCost.fromResponse(),
   reasoning: Reasoning.modelDecides(),
   promptCaching: PromptCaching.off(),
-  retryPolicy: RetryPolicy.none(),
   circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
     failureThreshold: 3,
     failureWindow: minutes(1),

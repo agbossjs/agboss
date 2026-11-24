@@ -28,10 +28,7 @@ const neverAnswers: typeof fetch = (_url, init) =>
 describe("model calls: the provider's timeout and retries (#95, now on the provider #151)", () => {
   it("AC1: a request that gets no replyWith fails at the provider's timeout on its clock instead of hanging", async () => {
     const clock = new VirtualClock();
-    const send = resilientFetch(
-      { provider: "p", timeout: milliseconds(50), retryPolicy: RetryPolicy.none(), clock },
-      neverAnswers,
-    );
+    const send = resilientFetch({ provider: "p", timeout: milliseconds(50), clock }, neverAnswers);
 
     const sent = send("http://p.test/chat/completions");
     const outcome = settledFlag(sent);

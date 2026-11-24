@@ -3,7 +3,6 @@ import {
   ModelCost,
   ModelProvider,
   ModelProviderMessageRole,
-  RetryPolicy,
   type ModelProviderHandler,
   type ModelProviderRequest,
   type ModelProviderResponse,
@@ -26,7 +25,6 @@ const USAGE = { inputTokens: 1000, outputTokens: 100 };
   cost: ModelCost.fromPrices({
     "harness/desk": { inputPerMillion: usd(1), outputPerMillion: usd(1) },
   }),
-  retryPolicy: RetryPolicy.none(),
   circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
     failureThreshold: 5,
     failureWindow: minutes(1),

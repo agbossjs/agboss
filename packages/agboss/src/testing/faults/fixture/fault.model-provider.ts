@@ -1,7 +1,6 @@
 import {
   ModelCost,
   ModelProvider,
-  RetryPolicy,
   type ModelProviderRequest,
   type ModelProviderResponse,
 } from "../../../models/index.js";
@@ -19,7 +18,6 @@ import { CircuitBreakerPolicy } from "../../../models/circuit-breaker-policy.js"
   serves: [/^fault\//u],
   timeout: seconds(5),
   cost: ModelCost.fromResponse(),
-  retryPolicy: RetryPolicy.none(),
   circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
     failureThreshold: 5,
     failureWindow: minutes(1),

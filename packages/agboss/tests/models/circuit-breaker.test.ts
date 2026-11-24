@@ -44,7 +44,6 @@ function breakerClient(
     {
       provider: "openrouter",
       timeout: seconds(5),
-      retryPolicy: RetryPolicy.none(),
       breaker,
       clock,
     },
@@ -180,7 +179,7 @@ describe("AC6: the circuit breaker", () => {
   it("AC6: without the instance's shared calls (the model check) a connection has no breaker", async () => {
     const failing = providerStub([{ status: 500 }]);
     const connection = connectionOf(
-      { ...modelProviderOf(TestOpenRouterProvider), retryPolicy: RetryPolicy.none() },
+      { ...modelProviderOf(TestOpenRouterProvider), retryPolicy: undefined },
       { env: ENV, environment: KEYS, requireKeys: false, send: failing.fetch },
     );
 

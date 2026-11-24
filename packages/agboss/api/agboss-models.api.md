@@ -20,9 +20,7 @@ export enum Backoff {
     // (undocumented)
     Exponential = "exponential",
     // (undocumented)
-    Fixed = "fixed",
-    // (undocumented)
-    None = "none"
+    Fixed = "fixed"
 }
 
 // @public
@@ -236,7 +234,10 @@ export interface ExponentialRetryOptions {
 
 // @public
 export enum FinishReason {
-    Length = "length"
+    ContentFilter = "content_filter",
+    Length = "length",
+    Stop = "stop",
+    ToolCalls = "tool_calls"
 }
 
 // @public
@@ -1050,15 +1051,12 @@ export type RetryPolicy = ({
     readonly backoff: Backoff.Exponential;
 } & ExponentialRetryOptions) | ({
     readonly backoff: Backoff.Fixed;
-} & FixedRetryOptions) | {
-    readonly backoff: Backoff.None;
-};
+} & FixedRetryOptions);
 
 // @public (undocumented)
 export const RetryPolicy: {
     exponential(options: ExponentialRetryOptions): RetryPolicy;
     fixed(options: FixedRetryOptions): RetryPolicy;
-    none(): RetryPolicy;
 };
 
 // @public
@@ -1375,7 +1373,6 @@ export interface WireTool {
 // src/models/reasoning.ts - (ae-undocumented) Missing documentation for "Reasoning".
 // src/models/retry-policy.ts - (ae-undocumented) Missing documentation for "Exponential".
 // src/models/retry-policy.ts - (ae-undocumented) Missing documentation for "Fixed".
-// src/models/retry-policy.ts - (ae-undocumented) Missing documentation for "None".
 // src/models/retry-policy.ts - (ae-undocumented) Missing documentation for "initialDelay".
 // src/models/retry-policy.ts - (ae-undocumented) Missing documentation for "maxDelay".
 // src/models/retry-policy.ts - (ae-undocumented) Missing documentation for "retryOn".

@@ -49,7 +49,6 @@ import { CircuitBreakerPolicy } from "../../src/models/circuit-breaker-policy.js
     retention: CacheRetention.FiveMinutes,
     cachedParts: [CachedPart.SystemPrompt],
   }),
-  retryPolicy: RetryPolicy.none(),
   circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
     failureThreshold: 3,
     failureWindow: minutes(1),

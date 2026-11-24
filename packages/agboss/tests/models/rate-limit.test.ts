@@ -46,7 +46,6 @@ function clientOf(
     {
       provider: "limited-model-provider",
       timeout: seconds(30),
-      retryPolicy: RetryPolicy.none(),
       ...(gate === undefined ? {} : { gate }),
       clock,
       ...extra,

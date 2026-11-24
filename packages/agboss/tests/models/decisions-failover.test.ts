@@ -22,7 +22,6 @@ import { providerStub, type StubReply } from "./stub.js";
 const common = {
   timeout: seconds(5),
   cost: ModelCost.fromResponse(),
-  retryPolicy: RetryPolicy.none(),
   circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
     failureThreshold: 3,
     failureWindow: minutes(1),

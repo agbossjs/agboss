@@ -32,7 +32,6 @@ const breaker = CircuitBreakerPolicy.fixed({
 const common = {
   timeout: seconds(5),
   cost: ModelCost.fromResponse(),
-  retryPolicy: RetryPolicy.none(),
   circuitBreakerPolicy: breaker,
 };
 

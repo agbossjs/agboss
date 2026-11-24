@@ -29,7 +29,6 @@ const options = (name: string, cost: ModelCost): TransportModelProviderOptions =
   serves: [/^bedrock\//],
   timeout: seconds(5),
   cost,
-  retryPolicy: RetryPolicy.none(),
   circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
     failureThreshold: 1,
     failureWindow: minutes(1),

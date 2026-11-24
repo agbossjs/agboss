@@ -77,7 +77,6 @@ export class StreamModelProvider extends OpenAiCompatibleProvider {
 /** A provider whose cost comes from its answers (OpenRouter's `usage.cost`), no fallback, no retry. */
 @ModelProvider({
   ...http,
-  retryPolicy: RetryPolicy.none(),
   name: "stream-cost-1005-model-provider",
   description: "A provider that reports each call's cost",
   serves: [/^cost-stream\//],
@@ -108,7 +107,6 @@ export const StreamCostApplication = bedrockApplicationOn({
 /** #1231: OpenRouter's dialect — the call's cost in `usage.cost`, the host in each chunk's `provider`. */
 @ModelProvider({
   ...http,
-  retryPolicy: RetryPolicy.none(),
   name: "stream-or-1231-model-provider",
   description: "An OpenRouter that streams",
   serves: [/^or-stream\//],

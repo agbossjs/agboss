@@ -30,7 +30,6 @@ const complete: TransportModelProviderOptions = {
   serves: [/^bedrock\//],
   timeout: seconds(5),
   cost: ModelCost.fromResponse(),
-  retryPolicy: RetryPolicy.none(),
   circuitBreakerPolicy: BREAKER,
 };
 

@@ -37,7 +37,6 @@ const breaker = CircuitBreakerPolicy.fixed({
   cost: ModelCost.fromResponse(),
   reasoning: Reasoning.modelDecides(),
   promptCaching: PromptCaching.off(),
-  retryPolicy: RetryPolicy.none(),
   circuitBreakerPolicy: breaker,
 })
 export class BackupModelProvider extends OpenAiCompatibleProvider {
@@ -119,7 +118,6 @@ export class LocalModelProvider extends OpenAiCompatibleProvider {
   cost: ModelCost.fromResponse(),
   reasoning: Reasoning.modelDecides(),
   promptCaching: PromptCaching.off(),
-  retryPolicy: RetryPolicy.none(),
   circuitBreakerPolicy: breaker,
 })
 export class LocalMirrorModelProvider extends OpenAiCompatibleProvider {
