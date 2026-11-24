@@ -67,12 +67,12 @@ describe("describe a workflow: children, agents and tools", () => {
     const lines = describeWorkflow(await workflowOf(CreditWorkflow));
 
     expect(section(lines, "agents").slice(0, 6)).toEqual([
-      "  approval-agent  moonshotai/kimi-k2.6 · reasoning the provider's · max 8192 tokens · uncompactedTurns 5",
+      "  approval-agent  moonshotai/kimi-k2.6 · reasoning the provider's · max 8192 tokens · uncompactedTurns 0",
       "    Approves a large order",
       "    limits: modelCalls 12 (default) · toolCalls 20 (default)",
-      "    defaults: temperature 0 (built-in) · maxTokens 8192 (built-in) · uncompactedTurns 5 (built-in)",
+      "    defaults: temperature 0 (built-in) · maxTokens 8192 (built-in) · uncompactedTurns 0 (built-in)",
       "    tools: none",
-      "  order-intake-agent  moonshotai/kimi-k2.6 · reasoning the provider's · max 8192 tokens · uncompactedTurns 5",
+      "  order-intake-agent  moonshotai/kimi-k2.6 · reasoning the provider's · max 8192 tokens · uncompactedTurns 0",
     ]);
   });
 

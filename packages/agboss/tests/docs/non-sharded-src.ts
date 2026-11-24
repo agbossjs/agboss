@@ -1047,6 +1047,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "src/routers/outcome.ts",
   ]),
   ...reviewed("the run's start, continue and finish: no spend rule beyond the sharded budgets", [
+    "src/run/compaction-events.ts",
     "src/run/compaction-input.ts",
     "src/run/file-snapshot.ts",
     "src/run/fingerprints.ts",

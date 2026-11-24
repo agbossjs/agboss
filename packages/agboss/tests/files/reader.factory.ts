@@ -1,3 +1,4 @@
+import { Window5Memory } from "../helpers/window-memory.js";
 /**
  * #899: a reader application on demand — an agent with the files setting a test gives it, a tool that
  * returns a file, a bundle of input files — so each test says only what it changes.
@@ -167,6 +168,7 @@ export function readerApplication(options: ReaderOptions = {}): ReaderApp {
   @Workflow({
     name: `reader-${suffix}-workflow`,
     version: "1.0.0",
+    memory: Window5Memory,
     flow: [flowOf(options.output, ReaderStart, ReaderAgent, ReaderFinish)],
     defaults: { models: { temperature: 0 }, ...options.defaults },
   })

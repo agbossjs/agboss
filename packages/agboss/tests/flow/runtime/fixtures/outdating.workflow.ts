@@ -1,3 +1,4 @@
+import { Window5Memory } from "../../../helpers/window-memory.js";
 import { TerminalUserChannel } from "../../../../src/channels/terminal-channel.js";
 import { Text, WorkflowStartTextDto } from "../../../../src/dto/index.js";
 import {
@@ -125,6 +126,7 @@ export class LoopWorkflowFinish {}
 @Workflow({
   name: "loop-workflow",
   version: "1.0.0",
+  memory: Window5Memory,
   maxSteps: 30,
   flow: [
     onStart(LoopWorkflowStart)
@@ -242,6 +244,7 @@ export class JobsRouter {}
 @Workflow({
   name: "jobs-workflow",
   version: "1.0.0",
+  memory: Window5Memory,
   maxSteps: 20,
   flow: [
     onStart(JobsWorkflowStart)

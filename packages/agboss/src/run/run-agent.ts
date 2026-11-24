@@ -63,6 +63,37 @@ const turnBaseOf = <TName extends string>(
 const startedAtOf = <TName extends string>(deps: AgentExecutionDeps<TName>): string =>
   (deps.clock ?? systemClock).now().toISOString();
 
+/** A thread with turns reused by a workflow without memory: its agents read none of them (#1303b, D8). */
+async function warnIfStateless<TName extends string>(
+  deps: AgentExecutionDeps<TName>,
+  subject: { readonly executionId: string; readonly tenantId: string; readonly threadId: string },
+): Promise<void> {
+  if (deps.memories === undefined || deps.memories.memories.length > 0) return;
+  const { threadId, ...logged } = subject;
+  if ((await deps.turns.lastTurns(subject.tenantId, threadId, 1)).length === 0) return;
+  deps.log?.warn(
+    "memory.thread-reuse-without-memory",
+    `${deps.config.name} has no memory: this execution reuses a thread with turns, but no agent reads its earlier turns — set memory on the workflow or an agent`,
+    logged,
+  );
+}
+
+/** The thread a request names, which must exist; a workflow without memory is warned about reusing it. */
+async function knownThreadOf<TName extends string>(
+  deps: AgentExecutionDeps<TName>,
+  request: {
+    readonly tenantId: string;
+    readonly runId: string;
+    readonly requested: string | undefined;
+  },
+): Promise<{ readonly threadId: string } | undefined> {
+  const { tenantId, runId, requested } = request;
+  if (requested === undefined) return undefined;
+  const known = await openThread(deps, tenantId, requested);
+  await warnIfStateless(deps, { executionId: runId, tenantId, threadId: known.threadId });
+  return known;
+}
+
 async function runOnce<TName extends string>(
   given: unknown,
   deps: AgentExecutionDeps<TName>,
@@ -78,7 +109,7 @@ async function runOnce<TName extends string>(
     options.executionId ??
     (await (deps.executionIds ?? unkeptExecutionIds).newExecutionId(tenantId));
   // a thread it continues must exist; a new one is created only once the budgets pass
-  const known = requested === undefined ? undefined : await openThread(deps, tenantId, requested);
+  const known = await knownThreadOf(deps, { tenantId, runId, requested });
   // before the first step: an exhausted budget rejects the execution — no thread, record or call
   const site = { executionId: runId, threadId: requested, start, contexts };
   const budgets = opened ?? (await openExecutionBudgets(deps, { ...options, ...site }));

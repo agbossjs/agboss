@@ -23,7 +23,7 @@ export enum CompactionStrategy {
   SingleSummary = "single-summary",
 }
 
-/** Recent turns a reader sees in full when its memory sets no `uncompactedTurns`. */
+/** Recent turns a reader sees in full when its memory sets no `uncompactedTurns` (a workflow without memory sees none). */
 export const DEFAULT_UNCOMPACTED_TURNS = 5;
 
 /** How many recent turns a reader sees in full: a whole number from 0, or `TurnLimit.All`. */
@@ -177,10 +177,10 @@ export const hasCompactMethod = (cls: Class): boolean =>
 export const windowOf = (meta: MemoryMeta): UncompactedTurns =>
   meta.uncompactedTurns ?? DEFAULT_UNCOMPACTED_TURNS;
 
-/** The workflow's window: its memory's, else the default. */
+/** The workflow's window: its memory's; a workflow without `memory` is stateless — no earlier turn (#1303b, D8). */
 export const workflowWindowOf = (memory: Class | undefined): UncompactedTurns => {
   const meta = memory === undefined ? undefined : memoryMetaOf(memory);
-  return meta === undefined ? DEFAULT_UNCOMPACTED_TURNS : windowOf(meta);
+  return meta === undefined ? 0 : windowOf(meta);
 };
 
 /** The window of a `@Memory` class. */
