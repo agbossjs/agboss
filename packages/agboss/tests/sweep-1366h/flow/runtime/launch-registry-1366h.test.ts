@@ -4,6 +4,7 @@
  * subtrees count executions (a released one frees exactly one place), an aborted take holds nothing, and a tree
  * that could launch on any instance still gets in-process slots when the application keeps no shared store.
  */
+import { declaredExecutionLimitsOf } from "../../../../src/flow/decorators/workflow.js";
 import { describe, expect, it } from "vitest";
 import {
   LaunchRegistry,
@@ -159,7 +160,7 @@ describe("#1366: a tree's in-process slots", () => {
   });
 
   it("a registry without a shared store gives a tree that could launch anywhere in-process slots", async () => {
-    const registry = new TreeSlotRegistry();
+    const registry = new TreeSlotRegistry(declaredExecutionLimitsOf);
     const root = {
       executionId: "root-1",
       workflow: { type: RemoteCappedWorkflow },

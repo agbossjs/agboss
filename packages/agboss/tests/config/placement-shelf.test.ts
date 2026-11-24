@@ -3,6 +3,7 @@
  * carrier of the components' options by the runtime graph, the launch registry, the isolated-worker rules
  * and the assembly warnings; a declared `@Workflow({ placement })` is never changed.
  */
+import { declaredExecutionLimitsOf } from "../../src/flow/decorators/workflow.js";
 import { describe, expect, it } from "vitest";
 import { applicationOf, type AssembledApplication } from "../../src/application/assemble.js";
 import { assemblyWarningsOf } from "../../src/application/start-log.js";
@@ -43,7 +44,7 @@ const graphPlacementOf = (app: AssembledApplication): ChildPlacement | undefined
 
 /** Whether the launch registry keeps the parent tree's slots where every instance counts them. */
 const keepsSharedSlots = (app: AssembledApplication): boolean => {
-  const registry = new TreeSlotRegistry(undefined, undefined, {
+  const registry = new TreeSlotRegistry(declaredExecutionLimitsOf, undefined, undefined, {
     rateLimits: {} as never,
     clock: { now: () => new Date(0) } as never,
     defaultPlacement: app.childPlacement,

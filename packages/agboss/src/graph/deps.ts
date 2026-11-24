@@ -74,9 +74,10 @@ export interface GraphDeps<TName extends string> {
   readonly maxSteps: number;
   /**
    * Each workflow's `executionLimits` as the profiles the application was assembled under leave them
-   * (#1318c): the tree's concurrency cap is read here, never from a decorator; absent = as declared.
+   * (#1318c): the tree's concurrency cap is read here, never from a decorator. Required: a reader that
+   * defaulted to the declared limits would bypass a profile's limit.
    */
-  readonly executionLimitsOf?: ExecutionLimitsOf | undefined;
+  readonly executionLimitsOf: ExecutionLimitsOf;
   /** Every router of the graph with its texts loaded (part of the run's versions). */
   readonly routers: readonly LoadedRouter[];
   /** The decision engine of a router: its own model (Jev or a chat model). */

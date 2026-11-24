@@ -1,0 +1,10 @@
+workflows:
+  gated-batch-workflow:
+    executionLimits:
+      maxConcurrency: 1
+  batch-workflow:
+    executionLimits:
+      maxConcurrency: 1
+  dig-workflow:
+    executionLimits:
+      maxDepth: 2

@@ -6,7 +6,7 @@ import type { StepEntries } from "../step-entries.js";
 import type { Class } from "../../../components/injection.js";
 import { treeLaunchesQueued, type Placements } from "../../analyse/child-placements.js";
 import type { ChildPlacement } from "../../child-placement.js";
-import { declaredExecutionLimitsOf, type ExecutionLimitsOf } from "../../decorators/workflow.js";
+import type { ExecutionLimitsOf } from "../../decorators/workflow.js";
 import { SharedTreeSlots, type SharedSlotParts } from "./shared-tree-slots.js";
 import {
   holdOnce,
@@ -236,6 +236,8 @@ export class TreeSlotRegistry {
    * tree that can launch on any instance are kept (#333 PR 3), when it runs in an application.
    */
   constructor(
+    /** Each workflow's `executionLimits` as the selected profiles leave them (#1318c): the assembly's carrier, never the decorator alone. */
+    readonly limitsOf: ExecutionLimitsOf,
     readonly instance?: StepSlots,
     readonly steps?: StepEntries,
     readonly shared?: Pick<SharedSlotParts, "rateLimits" | "clock"> & {
@@ -244,8 +246,6 @@ export class TreeSlotRegistry {
       /** What the selected profiles give child workflows (#1318c): their placement over the declared one. */
       readonly placements?: Placements | undefined;
     },
-    /** Each workflow's `executionLimits` as the selected profiles leave them (#1318c); as declared when absent. */
-    readonly limitsOf: ExecutionLimitsOf = declaredExecutionLimitsOf,
   ) {}
 
   /** The tree's slots, made on its first claim with the root's cap. */

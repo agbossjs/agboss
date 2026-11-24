@@ -1,3 +1,4 @@
+import { declaredExecutionLimitsOf } from "../../../src/flow/decorators/workflow.js";
 /**
  * #1366: the steps a flow's worst case counts against its `maxSteps` — the most steps of the flow when they fit
  * within `maxSteps` (a flow of exactly that many fits), the limit itself when they do not, the limit named among the
@@ -23,7 +24,12 @@ const graph = graphOf(
 );
 
 const caseWith = (maxSteps: number | undefined) =>
-  worstCasesOf(graph, maxSteps === undefined ? {} : { maxSteps }, Desk)[0];
+  worstCasesOf(
+    graph,
+    maxSteps === undefined ? {} : { maxSteps },
+    Desk,
+    declaredExecutionLimitsOf,
+  )[0];
 
 describe("#1366: the worst case of a flow against its maxSteps", () => {
   it("a flow of exactly maxSteps steps fits: its steps, not capped", () => {

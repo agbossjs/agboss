@@ -1,3 +1,4 @@
+import { ComponentOptions } from "../components/component-options.js";
 import { BranchErrors } from "../flow/runtime/launch/branch-end.js";
 import type { BranchScheduler } from "../flow/runtime/launch/branch-schedule.js";
 import type { JudgeInstance } from "../components/judge-decorators.js";
@@ -188,9 +189,7 @@ export const flowFor = (
   return {
     graph: bundle.graph,
     maxSteps: bundle.maxSteps,
-    ...(bundle.componentOptions === undefined
-      ? {}
-      : { executionLimitsOf: bundle.componentOptions.executionLimitsOf }),
+    executionLimitsOf: (bundle.componentOptions ?? ComponentOptions.none).executionLimitsOf,
     routers: bundle.routers,
     routerFor: flowRouterFactory(routerDeps),
     launchDecisionFor: flowLaunchDeciderFactory(routerDeps),

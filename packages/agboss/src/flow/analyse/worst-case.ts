@@ -4,7 +4,7 @@ import { maxStepsOf } from "./steps.js";
 import type { ComponentName } from "../registry.js";
 import type { Class } from "../../components/injection.js";
 import { declarationOf } from "../decorators/declaration.js";
-import { declaredExecutionLimitsOf, type ExecutionLimitsOf } from "../decorators/workflow.js";
+import type { ExecutionLimitsOf } from "../decorators/workflow.js";
 import type { WorkflowExecutionLimits } from "../decorators/workflow.js";
 import {
   EdgeKind,
@@ -242,7 +242,7 @@ export function worstCasesOf(
   graph: FlowGraph,
   limits: Limits,
   self: Class,
-  limitsOf: ExecutionLimitsOf = declaredExecutionLimitsOf,
+  limitsOf: ExecutionLimitsOf,
 ): readonly WorstCase[] {
   return worstCasesBelow(graph, limits, { above: [], self, depth: 1, limitsOf });
 }

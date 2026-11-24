@@ -1,3 +1,4 @@
+import { declaredExecutionLimitsOf } from "../../../../src/flow/decorators/workflow.js";
 /**
  * #1366: the worst case of one call of a start, computed from a graph built by hand whose child workflows are real:
  * the executions, the ones at once, the steps, the depth and the parts of the case with a per-item child launch (its
@@ -86,7 +87,7 @@ const caseOf = (
   graph: ReturnType<typeof parentOf>,
   limits: Limits = { maxSteps: 50 },
 ): WorstCase => {
-  const [worst] = worstCasesOf(graph, limits, Desk);
+  const [worst] = worstCasesOf(graph, limits, Desk, declaredExecutionLimitsOf);
   if (worst === undefined) throw new Error("the graph has a start");
   return worst;
 };

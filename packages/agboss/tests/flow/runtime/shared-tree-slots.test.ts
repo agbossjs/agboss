@@ -5,6 +5,7 @@
  * cap a second lease (both or none). Run against the in-memory store and SQLite (two instances on
  * one file), one clock.
  */
+import { declaredExecutionLimitsOf } from "../../../src/flow/decorators/workflow.js";
 import { describe, expect, it } from "vitest";
 import { SharedTreeSlots } from "../../../src/flow/runtime/launch/shared-tree-slots.js";
 import {
@@ -204,7 +205,10 @@ describe("#333 PR 3: which trees share their slots", () => {
   it(
     "the registry gives such a tree shared slots, any other in-process ones",
     withTarget(inMemory, async ({ clock, first }) => {
-      const registry = new TreeSlotRegistry(undefined, undefined, { rateLimits: first, clock });
+      const registry = new TreeSlotRegistry(declaredExecutionLimitsOf, undefined, undefined, {
+        rateLimits: first,
+        clock,
+      });
       const rootOf = (type: Class) => ({
         executionId: type.name,
         workflow: { type },

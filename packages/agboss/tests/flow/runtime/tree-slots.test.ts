@@ -1,3 +1,4 @@
+import { declaredExecutionLimitsOf } from "../../../src/flow/decorators/workflow.js";
 import { describe, expect, it } from "vitest";
 import { VirtualClock } from "../../../src/testing/clock.js";
 import { seconds } from "../../../src/units/index.js";
@@ -189,7 +190,7 @@ describe("AC9: the queue order — a closing parent, then the deepest, with agin
 
 describe("the trees of a pass by rootExecutionId", () => {
   it("one TreeSlots per root, made with the root's cap on its first claim", () => {
-    const registry = new TreeSlotRegistry();
+    const registry = new TreeSlotRegistry(declaredExecutionLimitsOf);
     const clock = new VirtualClock();
 
     const rootOf = (executionId: string) => ({
