@@ -395,6 +395,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "src/describe/guardrails.ts",
     "src/describe/inputs.ts",
     "src/describe/launch-counts.ts",
+    "src/describe/model-providers.ts",
   ]),
   ...reviewed(
     "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 72 mutants, 70 killed in the final run; the 10 that had lived in the first run each got a test (10), an equivalence reason (0) or was classed message text (0); covered by tests/sweep-1366h/describe/limits-1366h.test.ts, tests/describe.test.ts, tests/flow/analyse/concurrency.test.ts, tests/describe-application.test.ts; survivors listed in the #1366 round-8 notes",

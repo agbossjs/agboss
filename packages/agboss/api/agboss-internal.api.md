@@ -630,6 +630,7 @@ export function describedLimitsOf(bundle: AssembledWorkflow): DescribedLimits;
 export interface DescribedModelProvider {
     // (undocumented)
     readonly className: string;
+    readonly isNamed: boolean;
     readonly isTransport: boolean;
     // (undocumented)
     readonly name: string;
@@ -1738,9 +1739,6 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/describe/application.ts - (ae-undocumented) Missing documentation for "period".
 // src/describe/application.ts - (ae-undocumented) Missing documentation for "isOwn".
 // src/describe/application.ts - (ae-undocumented) Missing documentation for "name".
-// src/describe/application.ts - (ae-undocumented) Missing documentation for "className".
-// src/describe/application.ts - (ae-undocumented) Missing documentation for "reason".
-// src/describe/application.ts - (ae-undocumented) Missing documentation for "name".
 // src/describe/application.ts - (ae-undocumented) Missing documentation for "version".
 // src/describe/application.ts - (ae-undocumented) Missing documentation for "implementations".
 // src/describe/application.ts - (ae-undocumented) Missing documentation for "modelProviders".
@@ -1759,6 +1757,9 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/describe/limits.ts - (ae-undocumented) Missing documentation for "worstCases".
 // src/describe/limits.ts - (ae-undocumented) Missing documentation for "isMaxConcurrentExecutionsSet".
 // src/describe/limits.ts - (ae-undocumented) Missing documentation for "describedLimitsOf".
+// src/describe/model-providers.ts - (ae-undocumented) Missing documentation for "name".
+// src/describe/model-providers.ts - (ae-undocumented) Missing documentation for "className".
+// src/describe/model-providers.ts - (ae-undocumented) Missing documentation for "reason".
 // src/describe/pii-policies.ts - (ae-undocumented) Missing documentation for "name".
 // src/describe/pii-policies.ts - (ae-undocumented) Missing documentation for "rules".
 // src/describe/snapshot.ts - (ae-undocumented) Missing documentation for "configHash".

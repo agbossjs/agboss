@@ -3,6 +3,8 @@ import { modelArbitersOf } from "../flow/runtime/launch/runtime-launch.js";
 import type { RuntimeGraph } from "../flow/runtime/graph-model.js";
 import type { LoadedGuardrail } from "../guardrails/assembly.js";
 import { resolvedModelProvidersOf, type WorkflowModels } from "../models/resolution.js";
+import { GraphRuleError } from "../graph/rule-error.js";
+import { providerRuleViolations } from "../models/provider-mode-rules.js";
 import type { AssembledPii } from "../pii/assembly.js";
 import type { AssembledWorkflow } from "../workflow.js";
 import type { AgentsConfigOf } from "../config/types.js";
@@ -51,6 +53,9 @@ export function modelPartsOf(
 > {
   const arbiters = modelArbitersOf(graph.launches);
   const { replyInterpreters, rerankers } = users;
+  // a provider only a workflow or a component names is checked like a listed one (#1313)
+  const named = providerRuleViolations(models.config.name, referencedModelProvidersOf(cascade));
+  if (named.length > 0) throw new GraphRuleError({ violations: named });
   return {
     arbiters,
     // the application lists its own `FileTranscriber` (#899): the built-in's model is no use then

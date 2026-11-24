@@ -127,8 +127,8 @@ export {
   type DescribedApplication,
   type DescribedBudget,
   type DescribedExecutionBudget,
-  type DescribedModelProvider,
 } from "./describe/application.js";
+export type { DescribedModelProvider } from "./describe/model-providers.js";
 export { describedLimitsOf, worstCaseLimitsOf, type DescribedLimits } from "./describe/limits.js";
 export { stepsRangeOf, type StepsRange } from "./flow/analyse/steps.js";
 export { executeWithoutInputCheck } from "./app/execute-without-input-check.js";

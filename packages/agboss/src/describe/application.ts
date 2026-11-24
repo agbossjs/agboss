@@ -12,12 +12,7 @@ import { assemblyWarningsOf, warningText, type AssemblyWarning } from "../applic
 import { budgetOf, BudgetScope, type BudgetMeta } from "../budgets/budget.js";
 import type { Class } from "../components/injection.js";
 import { tokenName } from "../components/injection.js";
-import {
-  isModelProviderClass,
-  isTransportClass,
-  modelProviderOf,
-} from "../models/model-provider.decorator.js";
-import { modelProvidersOf } from "../models/resolution.js";
+import { modelProvidersOfApplication, type DescribedModelProvider } from "./model-providers.js";
 import { listenersOf, pauseListenerOf } from "../pause/pause-listener.js";
 
 /**
@@ -44,17 +39,6 @@ export interface DescribedExecutionBudget {
   /** The budget's name; absent when no execution budget covers it (assembly rejects that). */
   readonly name?: string;
   readonly isOwn: boolean;
-}
-
-/** One model provider of the application and why it is used. */
-export interface DescribedModelProvider {
-  readonly name: string;
-  readonly className: string;
-  readonly reason: ImplementationReason;
-  /** `serves`, each pattern as written. */
-  readonly serves: readonly string[];
-  /** It makes its own calls through `complete(request)` (#385), not over HTTP. */
-  readonly isTransport: boolean;
 }
 
 /** One listed `@PauseListener`: its name, and whether it is trusted with the ids of channel pauses. */
@@ -108,23 +92,6 @@ function executionBudgetOf(
   return fallback === undefined
     ? { workflow: name, isOwn: false }
     : { workflow: name, name: fallback.name, isOwn: false };
-}
-
-/** The application's model providers: the listed ones, else the built-ins (#266). */
-function modelProvidersOfApplication(
-  assembled: AssembledApplication,
-): readonly DescribedModelProvider[] {
-  const isListed = assembled.providers.some(isModelProviderClass);
-  return modelProvidersOf(assembled.providers).map((provider) => {
-    const options = modelProviderOf(provider);
-    return {
-      name: options.name,
-      className: provider.name,
-      reason: isListed ? ImplementationReason.Listed : ImplementationReason.Default,
-      serves: (options.serves ?? []).map(String),
-      isTransport: isTransportClass(provider),
-    };
-  });
 }
 
 /**
@@ -205,8 +172,10 @@ const modelProviderLine = (provider: DescribedModelProvider): string =>
   `  ${provider.name} → ${provider.className} (${
     provider.reason === ImplementationReason.Listed
       ? "listed in @Application providers"
-      : "built-in default: none listed"
-  }) · serves ${provider.serves.join(", ")}${
+      : provider.isNamed
+        ? "named by modelProvider"
+        : "built-in default: none listed"
+  })${provider.serves.length === 0 ? "" : ` · serves ${provider.serves.join(", ")}`}${
     provider.isTransport ? ` · transport: ${provider.className}.complete()` : ""
   }`;
 

@@ -151,3 +151,22 @@ export function providerPriceViolations(
       : [violation("model.price-invalid", `${name} (${cls.name}): ${problem}`, [application])];
   });
 }
+
+/**
+ * Every provider rule over the providers a place names (#1313): mode, breaker, request fields, timeout
+ * and price. The application runs it over its listed providers and its own `modelProvider`; a workflow's
+ * assembly runs it over every provider its cascade names (the workflow's, its agents', its components'),
+ * so a provider named only there is checked exactly like a listed one.
+ */
+export function providerRuleViolations(
+  scope: string,
+  providers: readonly Provider[] | undefined,
+): RuleViolation[] {
+  return [
+    ...providerModeViolations(scope, providers),
+    ...providerBreakerViolations(scope, providers),
+    ...providerFieldsViolations(scope, providers),
+    ...providerTimeoutViolations(scope, providers),
+    ...providerPriceViolations(scope, providers),
+  ];
+}

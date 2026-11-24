@@ -390,7 +390,9 @@ export class AppChatModels {}
   variable.
 - **The cascade:** `Component.modelProvider ?? Workflow.modelProvider ?? Application.modelProvider` —
   `@Agent`, `@Workflow` and `@Application` take `modelProvider`. A provider the cascade names is part
-  of the application even when it is not in `providers`.
+  of the application even when it is not in `providers`, and the provider rules (`timeout`, prices,
+  breaker, mode) check it exactly like a listed one, wherever it is named; `agboss describe` lists it as
+  "named by modelProvider".
 - **Roles:** a component's `model: "fast"` is the vendor's name `models.fast` maps to; a name that is
   no role goes to the server as written; a component with no `model` asks for `models.default`, else
   the provider's `model`.

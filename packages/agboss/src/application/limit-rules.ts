@@ -45,5 +45,8 @@ export const limitViolations = (options: ApplicationOptions): RuleViolation[] =>
   ...stepCapViolations(options),
   ...meshHopsViolations(options),
   ...timerSettingViolations(options),
-  ...providerTimeoutViolations(options.name, options.providers),
+  ...providerTimeoutViolations(options.name, [
+    ...(options.providers ?? []),
+    ...(options.modelProvider === undefined ? [] : [options.modelProvider]),
+  ]),
 ];
