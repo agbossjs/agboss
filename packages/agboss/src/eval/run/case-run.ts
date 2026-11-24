@@ -1,6 +1,6 @@
 import type { AppDeps } from "../../app/app-deps.js";
 import type { AssembledWorkflow } from "../../workflow.js";
-import { ExecutionStatus, type App, type ExecutionOutput } from "../../app/types.js";
+import { ExecutionStatus, type AnyTenantApp, type ExecutionOutput } from "../../app/types.js";
 import { startLine } from "../../flow/runtime/history.js";
 import type { ApplicationStart } from "../../application/application-starts.js";
 import { turnsOfCase, type EvalCase, type EvalTurn } from "../suite/cases.js";
@@ -38,7 +38,7 @@ import { nameOf } from "../../components/name-of.js";
 
 /** What every run of a suite runs on. */
 export interface SuiteRunParts {
-  readonly app: App;
+  readonly app: AnyTenantApp;
   /** The run dependencies of the workflow the suite's start opens. */
   readonly deps: AppDeps;
   /** The workflow as assembled (a profile applied): what the artifact's header reads. */

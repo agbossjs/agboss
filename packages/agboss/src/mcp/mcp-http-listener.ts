@@ -9,7 +9,7 @@ import {
   admitCaller,
 } from "../a2a/a2a-caller-gate.js";
 import { bodyWithin } from "../a2a/server/a2a-http-io.js";
-import type { App } from "../app/types.js";
+import type { AnyTenantApp } from "../app/types.js";
 import type { Class } from "../components/injection.js";
 import { ConfigError } from "../core/error-families/config-errors.js";
 import type { HttpCaller } from "../http/http-auth.js";
@@ -115,7 +115,7 @@ const pathOf = (req: IncomingMessage): string => (req.url ?? "/").split("?")[0] 
 
 /** What a listener serves with. */
 interface Listening {
-  readonly app: App;
+  readonly app: AnyTenantApp;
   readonly options: McpHttpListenerOptions;
   readonly served: McpEndpointOptions;
   readonly authenticator: ReturnType<typeof listenerAuthenticatorOf>;
@@ -215,7 +215,7 @@ async function serve(l: Listening, req: IncomingMessage, res: ServerResponse): P
 
 /** `http.createServer(mcpHttpListener(app, { endpoint, authenticator, publicUrl, base }))`. */
 export function mcpHttpListener(
-  app: App,
+  app: AnyTenantApp,
   options: McpHttpListenerOptions,
 ): (req: IncomingMessage, res: ServerResponse) => void {
   const listening: Listening = {

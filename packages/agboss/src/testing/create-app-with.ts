@@ -1,6 +1,6 @@
 import { builtApplicationOf, type BuildApplicationOptions } from "../application/create-app.js";
 import { TEST_IDEMPOTENCY_KEYS } from "../application/idempotency-key.js";
-import type { App } from "../app/types.js";
+import type { AnyTenantApp } from "../app/types.js";
 import type { Class } from "../components/injection.js";
 
 /**
@@ -12,7 +12,7 @@ import type { Class } from "../components/injection.js";
 export async function createTestAppWith(
   application: Class,
   options: BuildApplicationOptions = {},
-): Promise<App> {
+): Promise<AnyTenantApp> {
   const withTestKeys = { withoutIdempotencyKeys: true as const, ...options };
   const seams = { idempotencyTestKeys: TEST_IDEMPOTENCY_KEYS };
   return (await builtApplicationOf(application, withTestKeys, seams)).app;

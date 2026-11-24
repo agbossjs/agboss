@@ -1,4 +1,4 @@
-import type { App } from "../app/types.js";
+import type { AnyTenantApp } from "../app/types.js";
 import { rememberA2AClientServicesOf } from "../a2a/client/a2a-client-services.js";
 import type { AssembledApplication } from "../application/assemble.js";
 import { MeshRequestRepository } from "../infrastructure/mesh-request.repository.js";
@@ -61,7 +61,7 @@ const peerRulesOf = (mesh: AssembledApplication["mesh"]): MeshSettings["peers"] 
  */
 export function meshSettingsFor(
   assembled: AssembledApplication,
-  app: Pick<App, "resolve">,
+  app: Pick<AnyTenantApp, "resolve">,
   processEnv: NodeJS.ProcessEnv,
 ): MeshSettings {
   const context = app.resolve(ApplicationContext);

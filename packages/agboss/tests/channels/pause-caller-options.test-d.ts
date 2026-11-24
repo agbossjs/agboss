@@ -2,6 +2,7 @@ import { describe, expectTypeOf, it } from "vitest";
 import type {
   App,
   ChannelResumeOptions,
+  TenantContextBranded,
   PauseCallerOptions,
   ResumeOptions,
   ThreadOwnerResumeOptions,
@@ -14,7 +15,7 @@ import type {
  * `app.resume` keeps every field, and its option types stay what they were.
  */
 
-declare const app: App;
+declare const app: App<TenantContextBranded<false>>;
 const request = { pauseId: "p", expiresIn: 1000 } as never;
 
 describe("#946: app.reassignPause takes PauseCallerOptions too", () => {

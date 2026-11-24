@@ -151,6 +151,7 @@ export interface AssembledApplication extends AssembledKeyFields, StorageFields,
     readonly executionContext: ExecutionContextClass;
     readonly executionRecordRetention?: Milliseconds;
     readonly exposes: readonly Class[];
+    readonly hasTenantContext: boolean;
     readonly healthChecks: readonly Class[];
     readonly isolatedWorker?: IsolatedWorkerOptions;
     readonly ledgerEntryRetention?: Milliseconds | undefined;
@@ -282,7 +283,7 @@ export interface BuildOptions extends AppDepsOptions {
 // @public
 export interface BuiltApplication {
     // (undocumented)
-    readonly app: App;
+    readonly app: AnyTenantApp;
     // (undocumented)
     readonly assembled: AssembledApplication;
     readonly closed: Promise<void>;
@@ -473,7 +474,7 @@ export enum CostSource {
 export function createAppDeps(bundle: AssembledWorkflow, options?: AppDepsOptions): Promise<AppDeps>;
 
 // @public
-export function createAppWith(application: Class, options?: BuildApplicationOptions): Promise<App>;
+export function createAppWith(application: Class, options?: BuildApplicationOptions): Promise<AnyTenantApp>;
 
 // @public
 export function createStartComponents(bundle: AssembledWorkflow, services: WorkflowServices): void;
@@ -894,7 +895,7 @@ export type EventMask = (event: unknown) => Promise<unknown>;
 export function executeAgent<TName extends string>(input: unknown, deps: AgentExecutionDeps<TName>, options?: AgentExecutionOptions): Promise<AgentExecutionOutput>;
 
 // @public
-export const executeWithoutInputCheck: (app: Pick<App, "execute">, start: Class, input: unknown, options?: ExecutionOptions) => Promise<ExecutionOutput>;
+export const executeWithoutInputCheck: (app: Pick<AnyTenantApp, "execute">, start: Class, input: unknown, options?: ExecutionOptions) => Promise<ExecutionOutput>;
 
 // @public
 export const EXECUTION_RECORD_KIND = "agboss.execution-record";
@@ -920,7 +921,7 @@ export interface ExecutionControl extends WorkflowExecutionControl {
 }
 
 // @public
-export const executionControlOf: (instance: Pick<App, "execute"> | object) => ExecutionControl | undefined;
+export const executionControlOf: (instance: Pick<AnyTenantApp, "execute"> | object) => ExecutionControl | undefined;
 
 // @public
 export class ExecutionObserverManager implements Required<ExecutionObserver> {

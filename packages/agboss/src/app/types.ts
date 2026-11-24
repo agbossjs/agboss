@@ -10,6 +10,12 @@ import type { PauseClosedReason, PauseKind, PauseStatus } from "../infrastructur
 import type { ExecutionStreamEvent } from "../run/types.js";
 import type { Milliseconds, WorkingDuration } from "../units/index.js";
 import type { ExecutionOutput } from "./execution-output.js";
+import type { Page, PageQuery } from "./page.js";
+import type { TenantContextBranded, TenantListArgs, TenantPointArgs } from "./tenant-args.js";
+import type {
+  ExecutionHistoryRecord,
+  ExecutionHistoryStatus,
+} from "../infrastructure/execution-history.repository.js";
 
 export type * from "./execution-output.js";
 import type { HealthReport } from "../health/health-check.js";
@@ -226,7 +232,7 @@ export interface CancelOutput {
  * `onStart` hooks. `execute` starts at a workflow start, `resume` continues a paused thread,
  * `close` runs `onStop` hooks and closes MCP connections.
  */
-export interface App {
+export interface App<TApp = unknown> {
   readonly name: string;
   readonly version: string;
   /** Startup warnings, e.g. a config changed without a version bump. */
@@ -251,7 +257,10 @@ export interface App {
    * answer → `NotPausedError`) and the tree moved under its lease. With other pauses left the
    * execution pauses again with the rest. The result carries `threadId` and `executionId`.
    */
-  resume(request: ResumeRequest, options?: ResumeOptions): Promise<ExecutionOutput>;
+  resume(
+    request: ResumeRequest,
+    ...options: TenantPointArgs<TApp, ResumeOptions>
+  ): Promise<ExecutionOutput>;
   /**
    * Moves an open pause's deadline later (#942): `expiresAt = now + expiresIn`, by whoever may
    * answer it (`answeredBy` for a channel's pause, `ownerId` for its thread owner's, as `resume`).
@@ -263,7 +272,10 @@ export interface App {
    * that loses the store's compare-and-set to other writers 8 times in a row is
    * `PauseExtensionContendedError` (`pause.extension-contended`; nothing changed, retry is safe).
    */
-  extendPause(request: ExtendPauseRequest, options?: PauseCallerOptions): Promise<PauseExtension>;
+  extendPause(
+    request: ExtendPauseRequest,
+    ...options: TenantPointArgs<TApp, PauseCallerOptions>
+  ): Promise<PauseExtension>;
   /**
    * Moves an open pause to another addressee (#946): the same channel is asked again (`send`) with a
    * new pause id, `ChannelAsk.assignee` and `ChannelAsk.replaces` (the old id), and told
@@ -278,7 +290,7 @@ export interface App {
    */
   reassignPause(
     request: ReassignPauseRequest,
-    options?: PauseCallerOptions,
+    ...options: TenantPointArgs<TApp, PauseCallerOptions>
   ): Promise<PauseReassignment>;
   /**
    * Cancels the thread's run: a running one is aborted (`executionContext.signal`; its `execute`
@@ -287,7 +299,7 @@ export interface App {
    * throws `NotPausedError`).
    * A thread the tenant does not have → `UnknownThreadError`.
    */
-  cancel(threadId: string, options?: CancelOptions): Promise<CancelOutput>;
+  cancel(threadId: string, ...options: TenantPointArgs<TApp, CancelOptions>): Promise<CancelOutput>;
   /**
    * Stops the app within the shutdown timeout (#261, #265, #367): no new executions, `onStop`, the
    * running ones awaited — interrupted a grace before its end, staying `running` for another instance —
@@ -336,10 +348,42 @@ export interface App {
    * tenant's pauses are never listed; an invalid query is a `DtoValidationError` (`PausesQuery`).
    */
   listPauses(query: PausesQuery): Promise<PausesPage>;
+  /**
+   * One kept root execution of a tenant (#1324e), or `undefined` when none is kept under that id
+   * (the application keeps its history only with `historyTtl`; another tenant's execution is none).
+   * An application that declares a `tenantContext` needs `{ tenantId }`, else it rejects with
+   * `ValidationError.TenantRequired` before any store is read.
+   */
+  getExecution(
+    executionId: string,
+    ...options: TenantPointArgs<TApp>
+  ): Promise<ExecutionHistoryRecord | undefined>;
+  /**
+   * A page of the kept root executions, oldest start first (#1324e): by `startedAfter` (inclusive) /
+   * `startedBefore` (exclusive), `workflow` and `status`, from the cursor of the page before. A
+   * page holds at most `limit` records and may hold fewer while a filter drops some: go on while
+   * `nextCursor` is there. An application that declares a `tenantContext` needs `{ tenantId }` or
+   * `{ allTenants: true }`, else it rejects with `ValidationError.TenantRequired`.
+   */
+  listExecutions(
+    ...query: TenantListArgs<TApp, ExecutionsQuery>
+  ): Promise<Page<ExecutionHistoryRecord>>;
   /** Resolves a service or component from the app's internal container. */
   resolve<T>(token: Class<T>): T;
   /** Whether the workflow uses a tool of this name (local, MCP or knowledge-base search). */
   hasTool(name: string): boolean;
+}
+
+/** Which executions `app.listExecutions` reads (#1324e); the tenant is its scope, named per its application. */
+export interface ExecutionsQuery extends PageQuery {
+  /** Only those started at or after it (`Date`, or an ISO 8601 text). */
+  readonly startedAfter?: Date | string;
+  /** Only those started before it (`Date`, or an ISO 8601 text). */
+  readonly startedBefore?: Date | string;
+  /** Only the executions of the workflow of this name. */
+  readonly workflow?: string;
+  /** Only those with this status (several: any of them). */
+  readonly status?: ExecutionHistoryStatus | readonly ExecutionHistoryStatus[];
 }
 
 /** Which pending calls `app.pendingOutboundCallsOf` reads (#825): a tenant's, a page of them. */
@@ -398,11 +442,21 @@ export interface ExecutionTreeQuery {
 }
 
 /**
+ * An app whose types ask for no tenant, as the testing toolkit and the transports hold it: a call that
+ * needs a tenant may omit it for the compiler — an application that declares a `tenantContext` still
+ * refuses it at run time (`ValidationError.TenantRequired`). `createApp` returns the stricter
+ * `App<InstanceType<TApplication>>`.
+ */
+export type AnyTenantApp = App<TenantContextBranded<false>>;
+
+/**
  * One workflow of an application at run time (internal): the app without the instance's probes and
  * audit log.
  */
 export type WorkflowApp = Omit<
-  App,
+  AnyTenantApp,
+  | "getExecution"
+  | "listExecutions"
   | "checkLiveness"
   | "checkReadiness"
   | "auditLogOf"

@@ -2647,8 +2647,8 @@ ExecutionLeaseLostError`: `scopeKey`, `tenantId`, `leaseExecutionId`, `token`, `
   `app.resume`). `app.close()` stops the sweep, `onStop`, waits up to the shutdown timeout
   (`@Application({ shutdownTimeout })`, `app.close({ timeout })`, default `seconds(25)`), then
   interrupts what is left: its call rejects with `ApplicationStoppingError`, no `onExecutionError`, the lease
-  released at once, the record stays `running`. `createApp` closes on SIGTERM / SIGINT (listeners
-  removed when `close()` finishes); `testWith` never listens.
+  released at once, the record stays `running`. `createApp({ handleSignals: true })` closes on SIGTERM / SIGINT
+  (default `false`; the CLI passes `true`; listeners removed when `close()` finishes); `testWith` never listens.
 - **Metrics (#485):** `createApp(App, { meterProvider })` (`CreateAppOptions.meterProvider`, an
   `@opentelemetry/api` `MeterProvider`; `testWith(App, { instances: [{ meterProvider }, …] })` by instance, #831)
   publishes the instance's metrics on its meter `@agboss/core` — loaded only then (`src/metrics/`,

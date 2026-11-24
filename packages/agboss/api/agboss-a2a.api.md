@@ -67,7 +67,7 @@ export interface A2AAgentMeta {
 }
 
 // @public
-export type A2AApp = Pick<App, "execute" | "resume" | "cancel" | "resolve">;
+export type A2AApp = Pick<AnyTenantApp, "execute" | "resume" | "cancel" | "resolve">;
 
 // @public
 export class A2ACallDeadlineError extends AGBossError {

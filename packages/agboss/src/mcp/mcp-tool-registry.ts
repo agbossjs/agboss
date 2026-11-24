@@ -1,5 +1,5 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import type { App, ExecutionOptions, ExecutionOutput } from "../app/types.js";
+import type { AnyTenantApp, ExecutionOptions, ExecutionOutput } from "../app/types.js";
 import type { ToolHandler } from "../components/decorators.js";
 import type { Class } from "../components/injection.js";
 import { componentOf, type ToolMeta } from "../components/metadata.js";
@@ -31,7 +31,7 @@ export type { McpSessionOptions } from "./mcp-service-helpers.js";
  * agent tool calls — DTO validation of input and output, timeout, `callId`), its workflow starts
  * (`app.execute`), and `resume_workflow` (`app.resume`) when there is a start.
  */
-export function collectTools(app: App, exports: readonly Class[]): ToolRegistry {
+export function collectTools(app: AnyTenantApp, exports: readonly Class[]): ToolRegistry {
   const registry: ToolRegistry = { tools: [], handlers: new Map() };
   let hasWorkflows = false;
   for (const exp of exports) {
@@ -56,7 +56,7 @@ const isToolHandler = (value: unknown): value is ToolHandler<unknown, unknown> =
   isRecord(value) && typeof value.execute === "function";
 
 interface ExportedTool {
-  readonly app: App;
+  readonly app: AnyTenantApp;
   readonly exp: Class;
   readonly meta: ToolMeta;
 }
@@ -119,7 +119,7 @@ function startInputSchema(declaration: WorkflowStartDeclaration): ReturnType<typ
   return typeof input === "function" ? objectSchema(input) : { type: "object" as const };
 }
 
-function addWorkflowStart(registry: ToolRegistry, app: App, exp: Class): void {
+function addWorkflowStart(registry: ToolRegistry, app: AnyTenantApp, exp: Class): void {
   const declaration = startOf(exp);
   if (declaration === undefined) return;
   const { name, description } = declaration.options;
@@ -148,7 +148,7 @@ function addWorkflowStart(registry: ToolRegistry, app: App, exp: Class): void {
   });
 }
 
-function addResumeTool(registry: ToolRegistry, app: App): void {
+function addResumeTool(registry: ToolRegistry, app: AnyTenantApp): void {
   registry.tools.push(RESUME_TOOL);
   registry.handlers.set(RESUME_TOOL.name, (call) =>
     guarded(async () => {

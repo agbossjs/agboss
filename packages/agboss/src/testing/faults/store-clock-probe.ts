@@ -1,4 +1,4 @@
-import type { App } from "../../app/types.js";
+import type { AnyTenantApp } from "../../app/types.js";
 import { systemClock } from "../../infrastructure/clock.js";
 import { ExecutionLeaseRepository } from "../../infrastructure/execution-lease.repository.js";
 import { waitOf } from "../../infrastructure/clock.js";
@@ -54,7 +54,10 @@ export const probeWaitOf = (timeScale: number): number =>
 const realNow = (): number => Number(process.hrtime.bigint() / 1_000_000n);
 
 /** Takes two probe leases `waitMs` of real time apart and reads how far the store's time moved. */
-export async function readStoreClock(app: App, waitMs: number): Promise<StoreClockReading> {
+export async function readStoreClock(
+  app: AnyTenantApp,
+  waitMs: number,
+): Promise<StoreClockReading> {
   const leases = app.resolve(ExecutionLeaseRepository);
   const duration = waitOf(60_000);
   const begun = realNow();

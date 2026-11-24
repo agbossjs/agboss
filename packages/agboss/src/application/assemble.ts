@@ -107,6 +107,11 @@ export interface AssembledApplication extends AssembledKeyFields, StorageFields,
   /** The context classes it declares (#261), else the built-in ones. */
   readonly tenantContext: TenantContextClass;
   readonly executionContext: ExecutionContextClass;
+  /**
+   * Whether it declares a `tenantContext` at all (#1324e): then a call on its `App` that needs a
+   * tenant and names none is refused (`ValidationError.TenantRequired`), never run as `"default"`.
+   */
+  readonly hasTenantContext: boolean;
   /** `@Application({ piiPolicies })` (#120): every workflow's, and what its own log is masked by. */
   readonly piiPolicies: readonly Class[];
 }
@@ -255,6 +260,7 @@ export async function applicationOf(
       : { maxConcurrentSteps: options.maxConcurrentSteps }),
     ...meshOptionsOf(options),
     ...declaredContextsOf(options),
+    hasTenantContext: options.tenantContext !== undefined,
     ...keyFieldsOf(options),
   };
 }

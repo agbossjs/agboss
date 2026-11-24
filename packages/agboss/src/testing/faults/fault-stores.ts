@@ -1,4 +1,4 @@
-import type { App } from "../../app/types.js";
+import type { AnyTenantApp } from "../../app/types.js";
 import { InjectionToken, type Class } from "../../components/injection.js";
 import { optsOutOfLeaseCheck } from "../../infrastructure/execution-lease.repository.js";
 
@@ -15,7 +15,7 @@ export interface FaultBusinessRows {
   /** Writes `row` in the effect's ambient transaction (the store connection's `requireTransaction()`, #1317c). */
   insert(row: string): void | Promise<void>;
   /** The rows committed so far, read through the pod's application (its connection). */
-  committed(app: App): Promise<readonly string[]>;
+  committed(app: AnyTenantApp): Promise<readonly string[]>;
 }
 
 /** The environment the stores read: the contract, and its values with the database's address. */

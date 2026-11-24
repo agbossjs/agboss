@@ -10,7 +10,7 @@ import {
 import type { ThreadAccess } from "../run/thread.js";
 import type { AgentExecutionOutput } from "../run/types.js";
 import type { AnyTool } from "../tools/index.js";
-import type { App, ResumeOptions, ResumeRequest } from "./types.js";
+import type { AnyTenantApp, ResumeOptions, ResumeRequest } from "./types.js";
 import { lazyLoad, type Clock } from "../infrastructure/clock.js";
 import type { PauseAnswerLog } from "../infrastructure/pause-answer-log.js";
 import {
@@ -252,7 +252,7 @@ export interface ResumeParts extends AnswerParts {
  * lease, as the thread's owner (`executionContext.ownerId`).
  */
 export const resumeOf =
-  (parts: ResumeParts): App["resume"] =>
+  (parts: ResumeParts): AnyTenantApp["resume"] =>
   async (request, call = {}) => {
     const tenantId = call.tenantId ?? DEFAULT_TENANT_ID;
     const requested = { operation: ExecutionOperation.Resume, tenantId };

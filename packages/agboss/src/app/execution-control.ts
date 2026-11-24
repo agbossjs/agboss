@@ -1,7 +1,7 @@
 import { type Usd } from "../units/index.js";
 import type { ExecutionIdentity } from "../infrastructure/execution-lease.repository.js";
 import type { PendingPause } from "../pause/types.js";
-import type { App } from "./types.js";
+import type { AnyTenantApp } from "./types.js";
 
 /**
  * What a transport that runs executions under ids of its own (#807: A2A tasks, design §4.1.5,
@@ -95,7 +95,7 @@ const controls = new WeakMap<object, ExecutionControl>();
 
 /** Remembers an instance's control by its app (and by its infrastructure, for its own observers). */
 export const rememberExecutionControl = (
-  instance: Pick<App, "execute"> | object,
+  instance: Pick<AnyTenantApp, "execute"> | object,
   control: ExecutionControl,
 ): void => {
   controls.set(instance, control);
@@ -106,5 +106,5 @@ export const rememberExecutionControl = (
  * `createApp` (a test double) has none.
  */
 export const executionControlOf = (
-  instance: Pick<App, "execute"> | object,
+  instance: Pick<AnyTenantApp, "execute"> | object,
 ): ExecutionControl | undefined => controls.get(instance);

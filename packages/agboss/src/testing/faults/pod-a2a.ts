@@ -1,4 +1,4 @@
-import type { App } from "../../app/types.js";
+import type { AnyTenantApp } from "../../app/types.js";
 import { lazyLoad } from "../../infrastructure/clock.js";
 import type { FaultStoreSet } from "./fault-stores.js";
 import { FaultA2AExpose, FaultAuthenticator, keepsA2ATasks } from "./fixture/fault.a2a.js";
@@ -18,7 +18,7 @@ export interface PodA2AListener {
 
 /** Serves `app` over A2A when `stores` keep A2A tasks; the listener's URL, else `undefined`. */
 export async function podA2AListenerOf(
-  app: App,
+  app: AnyTenantApp,
   stores: FaultStoreSet,
 ): Promise<PodA2AListener | undefined> {
   if (!keepsA2ATasks(stores.providers)) return undefined;

@@ -1,4 +1,4 @@
-import type { App } from "../../app/types.js";
+import type { AnyTenantApp } from "../../app/types.js";
 import { Idempotency } from "../../app/idempotency.js";
 import { ApplicationContext } from "../../flow/context/application-context.js";
 import { Clock } from "../../infrastructure/clock.js";
@@ -38,7 +38,7 @@ export const a2aClientServicesOf = (context: ApplicationContext): A2AClientServi
   byContext.get(context);
 
 /** Remembers what an application instance's A2A calls use: its `Idempotency` (on first use), its `Clock`. */
-export function rememberA2AClientServicesOf(app: Pick<App, "resolve">): void {
+export function rememberA2AClientServicesOf(app: Pick<AnyTenantApp, "resolve">): void {
   rememberA2AClientServices(app.resolve(ApplicationContext), {
     outboundCalls: () => app.resolve(Idempotency),
     clock: app.resolve(Clock),

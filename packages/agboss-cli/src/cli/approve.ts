@@ -118,7 +118,12 @@ export async function untilDone(
     const request = resumeRequestOf(waiting.pauseId, answer);
     try {
       result = await busy((signal) =>
-        app.resume(request, { signal, ...(onStream === undefined ? {} : { onStream }) }),
+        app.resume(request, {
+          signal,
+          // the run's own tenant: a multi-tenant application never reads "default" for it
+          tenantId: result.tenantId,
+          ...(onStream === undefined ? {} : { onStream }),
+        }),
       );
       retry = "";
     } catch (error) {

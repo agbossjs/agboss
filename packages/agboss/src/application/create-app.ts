@@ -1,7 +1,7 @@
 import type { BuildOptions, WorkflowDepsParts } from "../app/app-deps.js";
 import { buildApp, type BuiltApp } from "../app/create-app.js";
 import type { CreateAppOptions } from "../app/create-app-options.js";
-import type { App } from "../app/types.js";
+import type { App, AnyTenantApp } from "../app/types.js";
 import type { ContainerOptions } from "../components/container/container.js";
 import type { Class } from "../components/injection.js";
 import { namedEnvironmentFor, type EnvironmentOwner } from "../environments/load.js";
@@ -39,7 +39,7 @@ import { isolatedPartsOf } from "./instance-workers.js";
 
 /** An application instance with the parts it was built from (the testing toolkit reads them). */
 export interface BuiltApplication {
-  readonly app: App;
+  readonly app: AnyTenantApp;
   readonly assembled: AssembledApplication;
   readonly workflows: readonly BuiltApp[];
   readonly infrastructure: Infrastructure;
@@ -192,7 +192,8 @@ export const environmentOwnerOf = (assembled: AssembledApplication): Environment
 export async function createApp<TApplication extends Class>(
   application: ApplicationClass<TApplication>,
   options: CreateAppOptions = {},
-): Promise<App> {
+): Promise<App<InstanceType<TApplication>>> {
+  // the instance enforces the tenant at run time; the type asks for it per the application's brand
   return (await builtApplicationOf(application, productionOptionsOf(options))).app;
 }
 
@@ -213,7 +214,7 @@ export interface BuildApplicationOptions
 export async function createAppWith(
   application: Class,
   options: BuildApplicationOptions = {},
-): Promise<App> {
+): Promise<AnyTenantApp> {
   return (await builtApplicationOf(application, options)).app;
 }
 
@@ -234,6 +235,7 @@ export async function builtApplicationOf(
     options.processEnv ?? process.env,
   );
   const built = await buildApplication(assembled, { ...options, ...environment }, seams);
-  closeOnStopSignals(built);
+  // the internal path (the CLI, the framework's tests) listens unless told not to; `createApp` does not unasked
+  if (options.handleSignals ?? true) closeOnStopSignals(built);
   return built;
 }

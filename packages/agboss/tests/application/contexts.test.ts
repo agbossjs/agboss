@@ -7,6 +7,7 @@
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { App } from "../../src/app/types.js";
+import { ValidationError } from "../../src/core/error-families/effect-errors.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import {
@@ -182,17 +183,17 @@ describe("#261 AC4: the values are validated before the first step and frozen", 
 });
 
 describe("#261 AC5: the default tenant; a thread's key is tenant + thread", () => {
-  test("no tenantId passed → the tenant 'default'", async ({ app, mockLlm }) => {
-    mockLlm(BedAgent).thenReturn(replyWith(BedsDto, { text: "none" }));
-
-    const result = await app.execute(
+  test("no tenantId passed on an application with a tenantContext → refused, never 'default' (#1324e)", async ({
+    app,
+  }) => {
+    const refused = app.execute(
       BedRequestWorkflowStart,
       { text: "a bed" },
       { tenant: { units: [] }, execution: levi },
     );
 
-    expect(result.tenantId).toBe("default");
-    expect(clinicSeen.readings[0]).toMatchObject({ tenantId: "default", weight: 1 });
+    await expect(refused).rejects.toBeInstanceOf(ValidationError.TenantRequired);
+    expect(clinicSeen.readings).toHaveLength(0);
   });
 
   test("another tenant's thread does not exist for the caller: its id is a thread of its own", async ({
@@ -244,7 +245,9 @@ describe("#261 AC5: the default tenant; a thread's key is tenant + thread", () =
       { tenant: haifa, execution: levi },
     );
 
-    await expect(app.resume(answerOf(paused, approve))).rejects.toBeInstanceOf(UnknownPauseError);
+    await expect(app.resume(answerOf(paused, approve))).rejects.toBeInstanceOf(
+      ValidationError.TenantRequired,
+    );
     await expect(
       app.resume(answerOf(paused, approve), { tenantId: "tel-aviv-clinic" }),
     ).rejects.toBeInstanceOf(UnknownPauseError);

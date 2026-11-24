@@ -28,7 +28,7 @@ import { pauseFrameOf, pauseTreeOf, treeStateOf } from "./pause-frame.js";
 import { pauseClosed } from "./pause-closed.js";
 import type { AnswerParts } from "./resume.js";
 import { answeredByOf, pauseOf } from "./resume.js";
-import type { App, PauseCallerOptions, ReassignPauseRequest } from "./types.js";
+import type { AnyTenantApp, PauseCallerOptions, ReassignPauseRequest } from "./types.js";
 
 /**
  * `app.reassignPause` (#946, Q5): an operator moves an open pause to another addressee — the same
@@ -181,7 +181,7 @@ async function assertOpen(parts: ReassignParts, pause: PauseRecord): Promise<voi
  * told, never thrown: the reassignment is done, and the re-send look asks again.
  */
 export const reassignPauseOf =
-  (parts: ReassignParts): App["reassignPause"] =>
+  (parts: ReassignParts): AnyTenantApp["reassignPause"] =>
   async (given, call: PauseCallerOptions = {}) => {
     parts.accepting();
     const tenantId = call.tenantId ?? DEFAULT_TENANT_ID;

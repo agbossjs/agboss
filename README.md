@@ -1321,7 +1321,10 @@ export class RefundReplyInterpreter {}
 export abstract class RefundApprovalChannel extends ChannelOf<RefundApprovalChannel> {}
 
 // a webhook passes the text as it came
-await app.resume({ pauseId: replyKey, reply: "ok, refund it" }, { answeredBy: "manager-17" });
+await app.resume(
+  { pauseId: replyKey, reply: "ok, refund it" },
+  { answeredBy: "manager-17", tenantId: "acme" },
+);
 ```
 
 <!-- snippet-context

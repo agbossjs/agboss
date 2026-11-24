@@ -1,4 +1,4 @@
-import type { App, ExecutionOutput } from "../../app/types.js";
+import type { AnyTenantApp, ExecutionOutput } from "../../app/types.js";
 import { sendToTest } from "./fixture/pod-link.js";
 import type { PodCommand } from "./pod-protocol.js";
 
@@ -33,7 +33,7 @@ export function told(tag: string, call: Promise<ExecutionOutput>, failed: string
 }
 
 /** `app.cancel` of a thread in the background: its end is an event under the call's tag. */
-function cancelled(app: App, tag: string, threadId: string): void {
+function cancelled(app: AnyTenantApp, tag: string, threadId: string): void {
   app.cancel(threadId).then(
     (done) => {
       sendToTest({ kind: "event", event: { type: "cancelled", tag, ...done } });
@@ -48,7 +48,7 @@ function cancelled(app: App, tag: string, threadId: string): void {
 }
 
 /** `app.reassignPause` in the background (#946): its end is an event under the call's tag. */
-function reassigned(app: App, tag: string, pauseId: string, assignee: string): void {
+function reassigned(app: AnyTenantApp, tag: string, pauseId: string, assignee: string): void {
   app.reassignPause({ pauseId, assignee }).then(
     () => {
       sendToTest({ kind: "event", event: { type: "reassigned", tag } });
@@ -62,7 +62,7 @@ function reassigned(app: App, tag: string, pauseId: string, assignee: string): v
 
 /** A resume (#959), a cancel (#941) or a reassignment (#946) of a pause or a thread, started in the background; its tag. */
 function calledInBackground(
-  app: App,
+  app: AnyTenantApp,
   command: Extract<PodCommand, { readonly op: "resume" | "cancel" | "reassign" }>,
 ): string {
   if (command.op === "cancel") cancelled(app, command.tag, command.threadId);
@@ -78,7 +78,7 @@ function calledInBackground(
 }
 
 /** A resume, a cancel or a reassignment started in the background: its tag; `undefined` for another command. */
-export function calledDone(app: App, command: PodCommand): string | undefined {
+export function calledDone(app: AnyTenantApp, command: PodCommand): string | undefined {
   switch (command.op) {
     case "resume":
     case "cancel":

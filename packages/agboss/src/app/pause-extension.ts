@@ -29,7 +29,7 @@ import type { AnswerParts } from "./resume.js";
 import { answeredByOf, pauseOf } from "./resume.js";
 import { pauseClosed } from "./pause-closed.js";
 import { PauseExtensionContendedError } from "./pause-closed-error.js";
-import type { App, ExtendPauseRequest, PauseCallerOptions } from "./types.js";
+import type { AnyTenantApp, ExtendPauseRequest, PauseCallerOptions } from "./types.js";
 
 /**
  * `app.extendPause` (#942, Q7): an operator moves an open pause's deadline later. Who may: as an
@@ -191,7 +191,7 @@ export const MAX_EXTEND_ATTEMPTS = 8;
  * `previousExpiresAt` is the deadline that write replaced (#1099).
  */
 export const extendPauseOf =
-  (parts: ExtendParts): App["extendPause"] =>
+  (parts: ExtendParts): AnyTenantApp["extendPause"] =>
   async (given, call: PauseCallerOptions = {}) => {
     parts.accepting();
     const tenantId = call.tenantId ?? DEFAULT_TENANT_ID;

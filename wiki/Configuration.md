@@ -341,11 +341,12 @@ bounds), so no timer of the framework overflows.
 
 ## `createApp` options (#834)
 
-`createApp(App, { env, profile, meterProvider })` — nothing else: infrastructure is
-`@Application({ providers })`, settings are `@Application` options, and a `MeterProvider` is a
-runtime object, so it comes here. The seams a test or a tool replaces (the process environment, the
-model gateway, the providers' HTTP client, MCP transports) belong to the internal build path that
-`testWith` and the CLI use; a JavaScript caller's other key is refused, naming where it goes.
+`createApp(App, { env, profile, meterProvider, tracerProvider, handleSignals, processEnv })` — nothing
+else: infrastructure is `@Application({ providers })`, settings are `@Application` options, and a
+`MeterProvider` is a runtime object, so it comes here. `handleSignals` (default `false`; the CLI passes
+`true`) makes the instance close on SIGTERM / SIGINT, and `processEnv` (default `process.env`) is where
+`defineEnv` values and secrets are read from. The seams a test or a tool replaces (the model gateway, the
+providers' HTTP client, MCP transports) belong to the internal build path that `testWith` and the CLI use; a JavaScript caller's other key is refused, naming where it goes.
 
 ## Profiles: `src/config/` (#1318)
 

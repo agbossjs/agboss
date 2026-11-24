@@ -38,4 +38,17 @@ export interface CreateAppOptions {
    * by its ancestors' too — before it is set on a span. Absent = no tracing.
    */
   readonly tracerProvider?: TracerProvider | TracingAdapter;
+  /**
+   * Whether `createApp` listens for SIGTERM and SIGINT and calls `app.close()` (the graceful stop,
+   * #265 S51; a second signal interrupts at once, and once the app has closed the signal is raised
+   * again so the process ends as it would have). Default `false`: a library never takes the
+   * process's signals unasked; `@agboss/cli` passes `true`. A host that runs its own shutdown calls
+   * `app.close()` itself.
+   */
+  readonly handleSignals?: boolean;
+  /**
+   * The environment the instance reads its `defineEnv` values and secrets from. Default
+   * `process.env`; a map of your own keeps the process's untouched (as `testWith` does).
+   */
+  readonly processEnv?: NodeJS.ProcessEnv;
 }

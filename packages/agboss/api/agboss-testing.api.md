@@ -948,7 +948,7 @@ export interface StudioOptions {
 }
 
 // @public
-export interface TestApp extends Pick<App, "execute" | "resume" | "extendPause" | "reassignPause" | "close" | "cancel" | "checkLiveness" | "checkReadiness" | "auditLogOf" | "outboundCallsOf" | "pendingOutboundCallsOf" | "listPauses" | "resolve"> {
+export interface TestApp extends Pick<AnyTenantApp, "execute" | "resume" | "extendPause" | "reassignPause" | "close" | "cancel" | "checkLiveness" | "checkReadiness" | "auditLogOf" | "outboundCallsOf" | "pendingOutboundCallsOf" | "listPauses" | "resolve"> {
     // (undocumented)
     agent(agent: Class): AgentSlice;
     // (undocumented)

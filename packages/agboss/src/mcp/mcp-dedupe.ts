@@ -1,5 +1,5 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import type { App } from "../app/types.js";
+import type { AnyTenantApp } from "../app/types.js";
 import { keyTextRuleOf } from "../core/errors.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
 import {
@@ -45,7 +45,7 @@ const keyOf = (call: McpDedupeCall): MeshRequestKey | undefined => {
 
 /** Runs `run` once per trusted call key: a repeat answered from the store. */
 export async function dedupedMcpCall(
-  app: App,
+  app: AnyTenantApp,
   call: McpDedupeCall,
   run: () => Promise<CallToolResult>,
 ): Promise<CallToolResult> {

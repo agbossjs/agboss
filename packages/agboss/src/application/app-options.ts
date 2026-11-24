@@ -7,6 +7,8 @@ const APP_OPTIONS: readonly (keyof CreateAppOptions)[] = [
   "profile",
   "meterProvider",
   "tracerProvider",
+  "handleSignals",
+  "processEnv",
 ];
 
 const REFUSED = "infrastructure and settings go in @Application({ … }), test seams in testWith";
@@ -15,6 +17,24 @@ const isPlainObject = (value: unknown): value is object =>
   typeof value === "object" &&
   value !== null &&
   [Object.prototype, null].includes(Object.getPrototypeOf(value) as object | null);
+
+/** `handleSignals` is a boolean and `processEnv` an object of variables — a JavaScript caller's others are refused. */
+function checkedProcessOptions(given: CreateAppOptions): void {
+  if (given.handleSignals !== undefined && typeof given.handleSignals !== "boolean") {
+    throw new TypeError(
+      `createApp's handleSignals is true or false — not ${shownValueOf(given.handleSignals)}`,
+    );
+  }
+  if (
+    given.processEnv !== undefined &&
+    !isPlainObject(given.processEnv) &&
+    given.processEnv !== process.env
+  ) {
+    throw new TypeError(
+      `createApp's processEnv is an object of variables, as process.env — not ${shownValueOf(given.processEnv)}`,
+    );
+  }
+}
 
 /**
  * `createApp`'s options as a fresh object of its keys only (#834) — so no seam reaches the
@@ -35,7 +55,11 @@ export function productionOptionsOf(options: unknown): CreateAppOptions {
     );
   }
   const given = options as CreateAppOptions;
+  checkedProcessOptions(given);
   return {
+    // a library takes no signals unasked (the CLI asks)
+    handleSignals: given.handleSignals ?? false,
+    ...(given.processEnv === undefined ? {} : { processEnv: given.processEnv }),
     ...(given.env === undefined ? {} : { env: given.env }),
     ...(given.profile === undefined ? {} : { profile: given.profile }),
     ...(given.meterProvider === undefined ? {} : { meterProvider: given.meterProvider }),

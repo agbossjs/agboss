@@ -1,4 +1,4 @@
-import type { App } from "../app/types.js";
+import type { AnyTenantApp } from "../app/types.js";
 import { AGBossError } from "../core/errors.js";
 
 /**
@@ -6,7 +6,7 @@ import { AGBossError } from "../core/errors.js";
  * `cancel`, and `resolve` — the listener takes its authenticator and stores from the
  * application's container. Both `createApp`'s app and `testWith`'s `app` are one.
  */
-export type A2AApp = Pick<App, "execute" | "resume" | "cancel" | "resolve">;
+export type A2AApp = Pick<AnyTenantApp, "execute" | "resume" | "cancel" | "resolve">;
 
 /**
  * The A2A v1.0 operation a request asks for (#808): its JSON-RPC method — what an authenticator

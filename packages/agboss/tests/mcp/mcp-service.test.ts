@@ -4,8 +4,8 @@ import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it } from "vitest";
+import type { AnyTenantApp as App } from "../../src/app/types.js";
 import {
-  type App,
   Agent,
   ExecutionContext,
   Workflow,

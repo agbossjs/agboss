@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { RequestHandlerExtra } from "@modelcontextprotocol/sdk/shared/protocol.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
-import type { App } from "../app/types.js";
+import type { AnyTenantApp } from "../app/types.js";
 import type { Class } from "../components/injection.js";
 import { ConfigError } from "../core/error-families/config-errors.js";
 import { meshSettingsOf } from "../mesh/mesh-settings.js";
@@ -23,7 +23,7 @@ import { admitMcpCall } from "./mcp-mesh-gate.js";
  * The `@McpEndpoint` options of `endpoint`, once it may be served: it is one, and a `Strict` mesh
  * lists it in `@Application({ exposes })` (an endpoint it does not list has no gate and is not served).
  */
-export function servedEndpointOf(app: App, endpoint: Class): McpEndpointOptions {
+export function servedEndpointOf(app: AnyTenantApp, endpoint: Class): McpEndpointOptions {
   const options = mcpServerOptionsOf(endpoint);
   if (!options) {
     throw new ConfigError.Environment({
@@ -48,7 +48,7 @@ type CallExtra = Pick<RequestHandlerExtra<never, never>, "signal" | "authInfo">;
  * session returns what its listener verified for THAT request, never the opener's.
  */
 export function mcpServerOf(
-  app: App,
+  app: AnyTenantApp,
   options: McpEndpointOptions,
   sessionOf: (extra: CallExtra) => McpSessionOptions,
 ): McpServer {

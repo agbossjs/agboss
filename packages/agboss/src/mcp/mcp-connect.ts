@@ -8,7 +8,7 @@ import type {
   Transport,
   TransportSendOptions,
 } from "@modelcontextprotocol/sdk/shared/transport.js";
-import type { App } from "../app/types.js";
+import type { AnyTenantApp } from "../app/types.js";
 import type { HasTenantContext } from "../app/tenant-args.js";
 import type { Class } from "../components/injection.js";
 import { mcpServerOf, servedEndpointOf } from "./mcp-server-instance.js";
@@ -94,7 +94,7 @@ class WireAdapter implements Transport {
 }
 
 /** Serves `endpoint` over `transport` until the connection is closed. */
-export async function connectMcp<TApp extends App>(
+export async function connectMcp<TApp extends AnyTenantApp>(
   app: TApp,
   options: McpConnectOptions<TApp>,
 ): Promise<McpConnection> {
@@ -107,7 +107,7 @@ export async function connectMcp<TApp extends App>(
 }
 
 /** Serves `endpoint` over the process's standard input and output (a CLI an MCP client starts). */
-export function connectMcpStdio<TApp extends App>(
+export function connectMcpStdio<TApp extends AnyTenantApp>(
   app: TApp,
   options: McpStdioOptions<TApp>,
 ): Promise<McpConnection> {

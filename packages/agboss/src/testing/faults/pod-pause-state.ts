@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { App } from "../../app/types.js";
+import type { AnyTenantApp } from "../../app/types.js";
 import { ExecutionRecordRepository } from "../../infrastructure/execution-record.repository.js";
 import { PausedExecutionRepository } from "../../infrastructure/paused-execution.repository.js";
 
@@ -28,7 +28,10 @@ export const FaultPauseStateSchema = z.object({
 export type FaultPauseState = z.infer<typeof FaultPauseStateSchema>;
 
 /** The tree's pause state as the pod's stores hold it now. */
-export async function pauseStateOf(app: App, rootExecutionId: string): Promise<FaultPauseState> {
+export async function pauseStateOf(
+  app: AnyTenantApp,
+  rootExecutionId: string,
+): Promise<FaultPauseState> {
   const tenantId = "default";
   const pauses = app.resolve(PausedExecutionRepository);
   const records = await pauses.findAllByTenantIdAndRootExecutionId(tenantId, rootExecutionId);

@@ -13,10 +13,10 @@ export type ArgumentsOf<TTool extends ServerTool> = TTool extends {
 } ? InstanceType<TInput> : undefined;
 
 // @public
-export function connectMcp<TApp extends App>(app: TApp, options: McpConnectOptions<TApp>): Promise<McpConnection>;
+export function connectMcp<TApp extends AnyTenantApp>(app: TApp, options: McpConnectOptions<TApp>): Promise<McpConnection>;
 
 // @public
-export function connectMcpStdio<TApp extends App>(app: TApp, options: McpStdioOptions<TApp>): Promise<McpConnection>;
+export function connectMcpStdio<TApp extends AnyTenantApp>(app: TApp, options: McpStdioOptions<TApp>): Promise<McpConnection>;
 
 // @public
 export type McpCallArguments<TTool extends ServerTool> = ArgumentsOf<TTool> extends undefined ? [options?: McpCallOptions] : [args: ArgumentsOf<TTool>, options?: McpCallOptions];
@@ -102,7 +102,7 @@ export interface McpHttpConfig extends McpServerCommon {
 }
 
 // @public
-export function mcpHttpListener(app: App, options: McpHttpListenerOptions): (req: IncomingMessage, res: ServerResponse) => void;
+export function mcpHttpListener(app: AnyTenantApp, options: McpHttpListenerOptions): (req: IncomingMessage, res: ServerResponse) => void;
 
 // @public
 export interface McpHttpListenerOptions {

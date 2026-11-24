@@ -437,8 +437,9 @@ import { seconds } from "@agboss/core/units";
 await app.close({ timeout: seconds(10) }); // interrupted at 8 s, its bodies awaited until 10 s
 ```
 
-**SIGTERM / SIGINT.** `createApp` listens for both and calls `app.close()` (a platform stopping the
-instance, Ctrl+C); a second signal while it stops interrupts at once. The listeners are removed when
+**SIGTERM / SIGINT.** `createApp(App, { handleSignals: true })` listens for both and calls `app.close()` (a
+platform stopping the instance, Ctrl+C); a second signal while it stops interrupts at once. The default is
+`false`: a library never takes the process's signals unasked (`@agboss/cli` passes `true`). The listeners are removed when
 `close()` finishes, however it was called; when nothing else listens for the signal received, it is
 then raised again, so the process ends as it would have without the app. `testWith` never listens.
 

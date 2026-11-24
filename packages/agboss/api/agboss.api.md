@@ -691,24 +691,29 @@ export interface AnyOfArbiters {
 export type AnyPiiAction = MaskingPiiAction | BlockAction;
 
 // @public
-export interface App {
+export type AnyTenantApp = App<TenantContextBranded<false>>;
+
+// @public
+export interface App<TApp = unknown> {
     auditLogOf(tree: ExecutionTreeQuery): Promise<readonly ExecutionAuditEventRecord[]>;
-    cancel(threadId: string, options?: CancelOptions): Promise<CancelOutput>;
+    cancel(threadId: string, ...options: TenantPointArgs<TApp, CancelOptions>): Promise<CancelOutput>;
     checkLiveness(): Promise<HealthReport>;
     checkReadiness(): Promise<HealthReport>;
     close(options?: CloseOptions): Promise<void>;
     execute<TStart extends Class>(start: TStart, input: ExecutionInputOf<InstanceType<TStart>>, ...options: ExecutionOptionsArgs<InstanceType<TStart>>): Promise<ExecutionOutput<ExecutionOutputOf<InstanceType<TStart>>>>;
-    extendPause(request: ExtendPauseRequest, options?: PauseCallerOptions): Promise<PauseExtension>;
+    extendPause(request: ExtendPauseRequest, ...options: TenantPointArgs<TApp, PauseCallerOptions>): Promise<PauseExtension>;
+    getExecution(executionId: string, ...options: TenantPointArgs<TApp>): Promise<ExecutionHistoryRecord | undefined>;
     hasTool(name: string): boolean;
+    listExecutions(...query: TenantListArgs<TApp, ExecutionsQuery>): Promise<Page<ExecutionHistoryRecord>>;
     listPauses(query: PausesQuery): Promise<PausesPage>;
     readonly models: readonly string[];
     // (undocumented)
     readonly name: string;
     outboundCallsOf(tree: ExecutionTreeQuery): Promise<readonly OutboundCallRecord[]>;
     pendingOutboundCallsOf(query: PendingOutboundCallsQuery): Promise<OutboundCallPage>;
-    reassignPause(request: ReassignPauseRequest, options?: PauseCallerOptions): Promise<PauseReassignment>;
+    reassignPause(request: ReassignPauseRequest, ...options: TenantPointArgs<TApp, PauseCallerOptions>): Promise<PauseReassignment>;
     resolve<T>(token: Class<T>): T;
-    resume(request: ResumeRequest, options?: ResumeOptions): Promise<ExecutionOutput>;
+    resume(request: ResumeRequest, ...options: TenantPointArgs<TApp, ResumeOptions>): Promise<ExecutionOutput>;
     readonly textStart: Class | undefined;
     // (undocumented)
     readonly version: string;
@@ -2473,12 +2478,14 @@ export interface CountQuorum {
 }
 
 // @public
-export function createApp<TApplication extends Class>(application: ApplicationClass<TApplication>, options?: CreateAppOptions): Promise<App>;
+export function createApp<TApplication extends Class>(application: ApplicationClass<TApplication>, options?: CreateAppOptions): Promise<App<InstanceType<TApplication>>>;
 
 // @public
 export interface CreateAppOptions {
     readonly env?: string | undefined;
+    readonly handleSignals?: boolean;
     readonly meterProvider?: MeterProvider;
+    readonly processEnv?: NodeJS.ProcessEnv;
     readonly profile?: ProfileSelection | undefined;
     readonly tracerProvider?: TracerProvider | TracingAdapter;
 }
@@ -3762,6 +3769,14 @@ export interface ExecutionSpanFrame {
     readonly fields: Readonly<Record<string, string | number>>;
     readonly location?: SourceSpan;
     readonly name: string;
+}
+
+// @public
+export interface ExecutionsQuery extends PageQuery {
+    readonly startedAfter?: Date | string;
+    readonly startedBefore?: Date | string;
+    readonly status?: ExecutionHistoryStatus | readonly ExecutionHistoryStatus[];
+    readonly workflow?: string;
 }
 
 // @public

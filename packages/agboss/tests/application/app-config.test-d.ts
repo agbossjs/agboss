@@ -50,11 +50,13 @@ describe("#834 AC1: one retention group", () => {
   });
 });
 
-describe("#834 AC4 / #1324f: createApp takes env, profile, meterProvider and tracerProvider only", () => {
-  it("its options are those four", () => {
+describe("#834 AC4 / #1324f / #1324e: createApp takes env, profile, the providers, handleSignals and processEnv only", () => {
+  it("its options are those six", () => {
     expectTypeOf<keyof CreateAppOptions>().toEqualTypeOf<
-      "env" | "profile" | "meterProvider" | "tracerProvider"
+      "env" | "profile" | "meterProvider" | "tracerProvider" | "handleSignals" | "processEnv"
     >();
+    expectTypeOf<CreateAppOptions["handleSignals"]>().toEqualTypeOf<boolean | undefined>();
+    expectTypeOf<CreateAppOptions["processEnv"]>().toEqualTypeOf<NodeJS.ProcessEnv | undefined>();
   });
 
   it("#1324f: tracerProvider is an OpenTelemetry TracerProvider or a TracingAdapter", () => {

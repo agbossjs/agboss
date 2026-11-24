@@ -129,6 +129,8 @@ export {
   type PauseExtension,
   type PausesPage,
   type PausesQuery,
+  type ExecutionsQuery,
+  type AnyTenantApp,
   type PauseReassignment,
   type ReassignPauseRequest,
   type PendingOutboundCallsQuery,

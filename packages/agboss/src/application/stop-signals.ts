@@ -1,4 +1,4 @@
-import type { App } from "../app/types.js";
+import type { AnyTenantApp } from "../app/types.js";
 import type { FrameworkLog } from "../infrastructure/logger.js";
 import { seconds } from "../units/index.js";
 
@@ -25,7 +25,7 @@ export interface StopSignalSource {
 
 /** What closing an app on a stop signal needs: its close, and when that has finished. */
 export interface ClosableApp {
-  readonly app: Pick<App, "close">;
+  readonly app: Pick<AnyTenantApp, "close">;
   readonly closed: Promise<void>;
   /** Where a failed close is reported: the application's log. */
   readonly log: FrameworkLog;

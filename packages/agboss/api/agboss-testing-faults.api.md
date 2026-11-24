@@ -12,7 +12,7 @@ export const FAULT_SCENARIOS: readonly FaultScenario[];
 
 // @public
 export interface FaultBusinessRows {
-    committed(app: App): Promise<readonly string[]>;
+    committed(app: AnyTenantApp): Promise<readonly string[]>;
     insert(row: string): void | Promise<void>;
 }
 

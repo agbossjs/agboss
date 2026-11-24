@@ -2,7 +2,7 @@ import { rememberExecutionControl } from "../app/execution-control.js";
 import { LeaseGate, rememberLeaseGate } from "./leases.js";
 import type { BuiltApp } from "../app/create-app.js";
 import type { BuiltApplication } from "../application/create-app.js";
-import type { App, ExecutionOutput } from "../app/types.js";
+import type { AnyTenantApp, ExecutionOutput } from "../app/types.js";
 import type { Class, Resolved, Token } from "../components/injection.js";
 import type { AgentsConfigOf } from "../config/types.js";
 import type { VirtualClock } from "./clock.js";
@@ -30,7 +30,7 @@ import { forwardedControlOf, resolvingOf } from "./test-app-parts.js";
  * after `close()` (or `recoverApp()`) but the probes (#300) fails with `test.app-closed`.
  */
 export interface TestApp extends Pick<
-  App,
+  AnyTenantApp,
   | "execute"
   | "resume"
   | "extendPause"
@@ -173,7 +173,7 @@ const settingsOf = (environment: TestEnvironment): TestApp["settings"] =>
   );
 
 /** What other parts of the framework learn of a test app: its providers, mesh, trees and gate. */
-function remembering(testApp: TestApp, readyApp: () => App, gate: LeaseGate): TestApp {
+function remembering(testApp: TestApp, readyApp: () => AnyTenantApp, gate: LeaseGate): TestApp {
   // a listener built from this app checks its providers like the built application's (#387)
   rememberListedProviders(testApp, (cls) => isListedProvider(readyApp(), cls) ?? false);
   rememberMeshSettings(testApp, () => meshSettingsOf(readyApp()));
@@ -200,7 +200,7 @@ export function createTestApp(environment: TestEnvironment): TestApp {
     ));
   };
   const probed = (): Promise<BuiltApplication> => building ?? built();
-  const readyApp = (): App => {
+  const readyApp = (): AnyTenantApp => {
     if (ready === undefined) {
       const message = "the app is not built yet — await app.ready() (or an execute) before resolve";
       throw new TestFailure({ code: "test.app-not-ready", message });

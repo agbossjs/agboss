@@ -1,5 +1,5 @@
 import { DtoValidationError } from "../dto/errors.js";
-import { tenantRead } from "../flow/context/context-values.js";
+import { tenantRead, treeRead } from "../flow/context/context-values.js";
 import { shownCallOf } from "../infrastructure/fenced-effect-key.js";
 import {
   DEFAULT_OUTBOUND_CALL_PAGE,
@@ -8,7 +8,9 @@ import {
   type OutboundCallPage,
   type OutboundCallRepository,
 } from "../infrastructure/outbound-call.repository.js";
-import type { ExecutionTreeQuery, PendingOutboundCallsQuery } from "../app/types.js";
+import type { ExecutionTreeQuery, AnyTenantApp, PendingOutboundCallsQuery } from "../app/types.js";
+import type { InstanceSurface } from "./compose-app.js";
+import { executionReadsOf } from "./execution-listing.js";
 import {
   currentAuditEventOf,
   type ExecutionAuditEventRecord,
@@ -76,5 +78,42 @@ function cursorOf(after: string | undefined): { readonly cursor?: string } {
   const reason = "a cursor is the next of a page before: a non-empty text";
   throw new DtoValidationError({ dto: PENDING_QUERY, issues: [{ path: "after", reason }] });
 }
+
+/** What an operator reads of the instance: its probes, its audit log, its outbound calls. */
+export type InstanceReads = Pick<
+  AnyTenantApp,
+  | "checkLiveness"
+  | "checkReadiness"
+  | "auditLogOf"
+  | "outboundCallsOf"
+  | "pendingOutboundCallsOf"
+  | "getExecution"
+  | "listExecutions"
+>;
+
+export const instanceReadsOf = ({
+  health,
+  auditLog,
+  outboundCalls,
+  executionHistory,
+}: InstanceSurface): InstanceReads => ({
+  ...executionReadsOf(executionHistory),
+  // every call that returns a promise is async: a failure rejects, it is never thrown at the call (#1325)
+  checkLiveness: async () => health.checkLiveness(),
+  checkReadiness: async () => health.checkReadiness(),
+  // #568, #580: a tenant id and a root execution id are keys' text here too — on UTF-8 stores
+  // t\uD800 would read t\uFFFD's rows
+  // rows written before #825 read with this version's names
+  auditLogOf: async (tree) => treeRead(tree, () => auditLogIn(auditLog, tree)),
+  // stored masked by the calling workflow's policies (#505); a business key by its handle (#508)
+  outboundCallsOf: async ({ tenantId, rootExecutionId }) =>
+    treeRead({ tenantId, rootExecutionId }, async () =>
+      (await outboundCalls.findAllByTenantIdAndRootExecutionId(tenantId, rootExecutionId)).map(
+        shownCallOf,
+      ),
+    ),
+  // #825: a page at a time, by the store's cursor — never every pending call of a tenant at once
+  pendingOutboundCallsOf: async (query) => pendingCallsOf(outboundCalls, query),
+});
 
 export { listPausesOf } from "./pause-masks.js";
