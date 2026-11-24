@@ -60,7 +60,7 @@ class TenantHolidays {
 
 @ToolInterceptor({})
 class TenantScope {
-  beforeToolCall() {
+  beforeAnyTool() {
     return ToolCallDecision.allow();
   }
 }

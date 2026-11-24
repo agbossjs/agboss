@@ -37,7 +37,7 @@ interface GuardedCall {
   readonly closed: ClosedResult;
   readonly step: StepRecord;
   readonly output?: ToolOutput<unknown>;
-  /** An interceptor's `replyToModel` message: the tool never ran. */
+  /** An interceptor's `reply` message: the tool never ran. */
   readonly replied?: string;
   readonly stop?: ToolCallStop;
 }
@@ -47,8 +47,8 @@ const callOf = (
   tool: AnyTool,
   task: ToolTask,
   context: ToolInvocationContext,
-): Promise<ToolOutput<unknown>> =>
-  questionResultOf(tool, task, () => runTool(tool, task.args, context));
+  args: unknown,
+): Promise<ToolOutput<unknown>> => questionResultOf(tool, task, () => runTool(tool, args, context));
 
 /** What the model would read of a stopped call: the loop fails the step before it reads it. */
 const stoppedContent = (stop: ToolCallStop): string =>
@@ -62,7 +62,7 @@ async function guardedCall(
   deps: AgentLoopDeps,
   tool: AnyTool,
   task: ToolTask,
-  run: () => Promise<ToolOutput<unknown>>,
+  run: (args: unknown) => Promise<ToolOutput<unknown>>,
 ): Promise<GuardedCall> {
   const progress = task.progress ?? { toolLoopIteration: 0, validationAttempts: 0 };
   const step = callStepOf(toolRecordOf(tool), task.callId, progress, deps.agent.name);
@@ -79,7 +79,10 @@ async function guardedCall(
   const keep = (error: unknown): void => {
     keepStopCause(task.runId, task.callId, error);
   };
-  const call = await interceptedCall(chain, tool, task.args, run, keep);
+  const call = await interceptedCall(chain, tool, task.args, run, keep, {
+    agent: deps.agent.name,
+    callId: task.callId,
+  });
   if (call.kind === "stopped") {
     const content = stoppedContent(call.stop);
     const none = { piiTokens: {}, piiMasked: {}, isTruncated: false };
@@ -173,8 +176,8 @@ function runTask(
       task.callId,
       { reportUsage, meshCall: mesh.services },
       () =>
-        guardedCall(deps, tool, task, () =>
-          readingAgent(deps, task, () => callOf(tool, task, context)),
+        guardedCall(deps, tool, task, (args) =>
+          readingAgent(deps, task, () => callOf(tool, task, context, args)),
         ),
       call.signal,
     ).finally(call.release);

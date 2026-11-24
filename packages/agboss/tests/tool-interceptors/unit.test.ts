@@ -33,11 +33,17 @@ describe("#384: testToolInterceptor", () => {
     const haifa = await scope.beforeToolCall(JobSearchTool, { city: "Haifa" });
 
     expect(eilat.output).toEqual(
-      ToolCallDecision.replyToModel({ message: 'City "Eilat" is not allowed for this tenant.' }),
+      ToolCallDecision.reply('City "Eilat" is not allowed for this tenant.'),
     );
     expect(eilat.output).not.toEqual(ToolCallDecision.allow());
     expect(haifa.output).toEqual(ToolCallDecision.allow());
     expect(haifa.spend.totalUsd).toBe(0);
+  });
+
+  it("a tool the class has no @BeforeTool method for passes through", async () => {
+    const ping = await scope.beforeToolCall(PingTool, { mode: "ok" });
+
+    expect(ping.output).toEqual(ToolCallDecision.allow());
   });
 
   it("afterToolCall gives the output the model would read, validated", async () => {
@@ -84,7 +90,7 @@ describe("#384: testToolInterceptor", () => {
 
     @ToolInterceptor({ name: "Short_One", description: "Not kebab-case" })
     class Short {
-      beforeToolCall(): ToolCallDecision {
+      beforeAnyTool(): ToolCallDecision {
         return ToolCallDecision.allow();
       }
     }

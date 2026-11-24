@@ -338,9 +338,9 @@ A reply interpreter turns a person's words into a decision on the call: approve,
 change, refuse, or not understood. It does not judge whether that decision is allowed. "Never above
 the amount the agent asked", "only in the call's currency", "never below 0" are rules of the call,
 and they hold only where every approval passes — whoever or whatever approved it, a button, a
-script, a model reading free text. Put them there: a tool interceptor's `beforeToolCall` sees the
+script, a model reading free text. Put them there: a tool interceptor's `@BeforeTool` / `beforeAnyTool` sees the
 call as it runs, after the approval and with any correction laid over it, and
-`ToolCallDecision.block({ reason })` fails the step with `ToolBlockedError` before the tool runs; or
+`ToolCallDecision.block(reason)` fails the step with `ToolBlockedError` before the tool runs; or
 the tool's (or action's) own check, and `min` / `max` on the input DTO's field for a plain bound,
 which the corrected call is validated against. This is deliberate, not a gap the framework leaves to fill later: "a raise",
 "another currency" or "too much" is a rule of the business, and only a check every approval passes
@@ -349,19 +349,19 @@ channel's `decided(…)`. A raise a reply made is auditable: the execution recor
 call as asked (`asked`) beside the call as it ran (`decision`).
 
 <!-- snippet-context
-import { ToolCallDecision, ToolInterceptor, type BeforeToolCall, type ToolCallContext } from "@agboss/core";
+import { ToolCallDecision, ToolInterceptor, type ToolCallContext } from "@agboss/core";
 -->
 ```ts
 @ToolInterceptor({
   name: "payout-limit-tool-interceptor",
   description: "Blocks a payout above the treasury's limit, whoever approved it",
 })
-export class PayoutLimitToolInterceptor implements BeforeToolCall {
-  beforeToolCall({ input }: ToolCallContext): ToolCallDecision {
+export class PayoutLimitToolInterceptor {
+  beforeAnyTool({ input }: ToolCallContext): ToolCallDecision {
     const amount =
       typeof input === "object" && input !== null && "amountCents" in input ? input.amountCents : 0;
     return typeof amount === "number" && amount > 150_000
-      ? ToolCallDecision.block({ reason: "a payout above $1,500" })
+      ? ToolCallDecision.block("a payout above $1,500")
       : ToolCallDecision.allow();
   }
 }

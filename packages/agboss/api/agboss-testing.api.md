@@ -1105,7 +1105,7 @@ export interface TestStepOptions {
 export function testTool<TTool extends Class<ToolInstance>, TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext>(tool: TTool, options?: UnitOptions<TExecution, TTenant>): ToolRunner<ToolInputOf<InstanceType<TTool>>, ToolOutputOf<InstanceType<TTool>>>;
 
 // @public
-export function testToolInterceptor<TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext>(interceptor: Class<BeforeToolCall | AfterToolCall>, options?: UnitOptions<TExecution, TTenant>): ToolInterceptorRunner;
+export function testToolInterceptor<TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext>(interceptor: Class, options?: UnitOptions<TExecution, TTenant>): ToolInterceptorRunner;
 
 // @public
 export function testWith<TApplication extends Class>(application: ApplicationClass<TApplication>, options?: TestWithOptions): TestAPI<WorkflowFixtures>;
@@ -1179,7 +1179,7 @@ export interface ToolInterceptorRunner extends UnitClock {
     // (undocumented)
     readonly afterToolCall: <TTool extends Class<ToolInstance>>(tool: TTool, input: ToolInputOf<InstanceType<TTool>>, output: ToolOutputOf<InstanceType<TTool>>, options?: UnitCallOptions) => Promise<UnitRun<ToolOutputOf<InstanceType<TTool>>>>;
     // (undocumented)
-    readonly beforeToolCall: <TTool extends Class<ToolInstance>>(tool: TTool, input: ToolInputOf<InstanceType<TTool>>, options?: UnitCallOptions) => Promise<UnitRun<ToolCallDecision>>;
+    readonly beforeToolCall: <TTool extends Class<ToolInstance>>(tool: TTool, input: ToolInputOf<InstanceType<TTool>>, options?: UnitCallOptions) => Promise<UnitRun<ToolCallDecision<unknown>>>;
 }
 
 // @public

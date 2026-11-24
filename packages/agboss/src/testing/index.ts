@@ -112,13 +112,8 @@ export type {
   UnitOptions,
   UnitRun,
 } from "./units/unit-types.js";
-export {
-  testTool,
-  type ToolInputOf,
-  type ToolInstance,
-  type ToolOutputOf,
-  type ToolRunner,
-} from "./units/test-tool.js";
+export { testTool, type ToolInstance, type ToolRunner } from "./units/test-tool.js";
+export type { ToolInputOf, ToolOutputOf } from "../tools/index.js";
 export {
   testAction,
   type ActionInputOf,

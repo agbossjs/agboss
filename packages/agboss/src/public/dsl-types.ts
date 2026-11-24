@@ -2,9 +2,20 @@
  * The types the options and the settings of the root API name (#895): what a user writes or reads.
  * Types only: re-exported with `export type *`, so it is no module the root import loads.
  */
-export { type ChannelOptions, type TargetChannelOptions } from "../components/decorators.js";
 export { type OnBeforeDestroy, type OnReady } from "../components/container/lifecycle.js";
 export { type InjectAs, type PortInstances, type ServiceEntry } from "../components/injection.js";
+export {
+  type ChannelOptions,
+  type TargetChannelOptions,
+  type ToolHandlerClass,
+} from "../components/decorators.js";
+export { type ToolCallContext, type ToolCallResultContext } from "../tool-interceptors/decision.js";
+export {
+  type AfterToolMethod,
+  type BeforeToolMethod,
+  type ToolTargets,
+} from "../tool-interceptors/hooks.js";
+export { type ToolInputOf, type ToolOutputOf, type UnionToIntersection } from "../tools/index.js";
 export { type CustomCompactionOptions } from "../compaction/compaction.decorator.js";
 export { type AgentSettings, type AgentSettingsOf } from "../config/types.js";
 export { type UnavailableRead } from "../flow/context/errors.js";

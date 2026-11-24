@@ -10,7 +10,6 @@ import {
   ToolCallDecision,
   ToolInterceptor,
   Workflow,
-  type BeforeToolCall,
   type ToolEndEvent,
   WorkflowFinish,
   WorkflowStart,
@@ -300,10 +299,10 @@ export class ApprovedStageTool {
   description: "Audits each call under its fence",
   deps: [ExecutionContext],
 })
-export class FenceToolInterceptor implements BeforeToolCall {
+export class FenceToolInterceptor {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  beforeToolCall(): ToolCallDecision {
+  beforeAnyTool(): ToolCallDecision {
     const { fence } = this.executionContext;
     if (levers.isInterceptorFenced) throw fence.fencedError(fence.token + 1);
     return ToolCallDecision.allow();

@@ -182,6 +182,9 @@ export type RuleCode =
   | "tool-interceptor.not-an-interceptor"
   | "tool-interceptor.exclude-not-inherited"
   | "tool-interceptor.missing-handler"
+  | "tool-interceptor.target-not-a-tool"
+  | "tool-interceptor.duplicate-hook"
+  | "tool-interceptor.unknown-hook"
   // compaction (#120 PR 3), reported at each workflow's assembly
   | "compaction.not-a-compaction"
   | "compaction.invalid-setting"

@@ -76,6 +76,7 @@ export function moduleOf(workflow: Class): WorkflowMeta {
     excludePiiPolicies: options.excludePiiPolicies,
     guardrails: options.guardrails,
     toolInterceptors: options.toolInterceptors,
+    excludeToolInterceptors: options.excludeToolInterceptors,
     compaction: options.compaction,
     uncompactedTurns: options.uncompactedTurns,
     mcp: options.mcp,

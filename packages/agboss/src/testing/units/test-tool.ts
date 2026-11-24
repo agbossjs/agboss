@@ -3,7 +3,12 @@ import type { TenantContext } from "../../flow/context/tenant-context.js";
 import type { Class } from "../../components/injection.js";
 import { componentOf, requireComponent, type ToolMeta } from "../../components/metadata.js";
 import { validate } from "../../dto/schema.js";
-import { DEFAULT_TOOL_TIMEOUT, ToolTimeoutError } from "../../tools/index.js";
+import {
+  DEFAULT_TOOL_TIMEOUT,
+  ToolTimeoutError,
+  type ToolInputOf,
+  type ToolOutputOf,
+} from "../../tools/index.js";
 import { UnitSite } from "./unit-site.js";
 import type { UnitCallOptions, UnitClock, UnitOptions, UnitRun } from "./unit-types.js";
 
@@ -11,16 +16,6 @@ import type { UnitCallOptions, UnitClock, UnitOptions, UnitRun } from "./unit-ty
 export interface ToolInstance {
   execute(input: never): unknown;
 }
-
-/** A tool's input as `execute` takes it: a plain object of its input DTO. */
-export type ToolInputOf<TTool> = TTool extends { execute(input: infer TInput): unknown }
-  ? TInput
-  : never;
-
-/** What a tool's `execute` returns (awaited): its output DTO. */
-export type ToolOutputOf<TTool> = TTool extends { execute(input: never): infer TReturn }
-  ? Awaited<TReturn>
-  : never;
 
 /**
  * One tool, run as an agent's tool call runs it: `await runSearch({ q: "TS" }, { timeout })` →

@@ -219,9 +219,9 @@ export class Scout {}
 
 A `@ToolInterceptor` (#384) wraps an agent's calls to its own `@Tool`s and `@McpTool`s — a check
 of the arguments against the tenant, an audit, a rewrite of a result — without touching the tools.
-Its class implements `BeforeToolCall`, `AfterToolCall` or both: two one-method interfaces, so a
-class never writes an empty second method. A class with neither does not compile (and is
-`[tool-interceptor.missing-handler]` at assembly); its `name` is optional (kebab-case,
+Its class has `@BeforeTool(Tool)` / `@AfterTool(Tool)` methods (the target-bound hooks, below),
+plain `beforeAnyTool(call)` / `afterAnyTool(call)` methods for every tool, or both kinds. A class
+with none is `[tool-interceptor.missing-handler]` at assembly; its `name` is optional (kebab-case,
 the class name by default); its `deps` are injected by the container like any component's.
 
 <!-- snippet-context
@@ -237,8 +237,6 @@ export class JobScoutTenantContext extends TenantContext {
 import {
   ToolCallDecision,
   ToolInterceptor,
-  type AfterToolCall,
-  type BeforeToolCall,
   type ToolCallContext,
   type ToolCallResultContext,
 } from "@agboss/core";
@@ -248,10 +246,10 @@ import {
   description: "Checks that tool arguments respect the tenant's allowed cities",
   deps: [JobScoutTenantContext],
 })
-export class TenantScopeToolInterceptor implements BeforeToolCall {
+export class TenantScopeToolInterceptor {
   constructor(private readonly jobScoutTenantContext: JobScoutTenantContext) {}
 
-  beforeToolCall(call: ToolCallContext): ToolCallDecision {
+  beforeAnyTool(call: ToolCallContext): ToolCallDecision {
     if (
       typeof call.input === "object" &&
       call.input !== null &&
@@ -259,53 +257,89 @@ export class TenantScopeToolInterceptor implements BeforeToolCall {
       typeof call.input.city === "string" &&
       !this.jobScoutTenantContext.allowedCities.includes(call.input.city)
     ) {
-      return ToolCallDecision.replyToModel({
-        message: `City "${call.input.city}" is not allowed for this tenant.`,
-      });
+      return ToolCallDecision.reply(`City "${call.input.city}" is not allowed for this tenant.`);
     }
     return ToolCallDecision.allow();
   }
 }
 
 @ToolInterceptor({ name: "result-stamp-tool-interceptor", description: "Marks results as checked" })
-export class ResultStampToolInterceptor implements AfterToolCall {
-  afterToolCall(call: ToolCallResultContext): unknown {
+export class ResultStampToolInterceptor {
+  afterAnyTool(call: ToolCallResultContext): unknown {
     return call.output; // the result the model reads: the tool's, or a replacement of its shape
   }
 }
 ```
 
+**Target-bound hooks.** `@BeforeTool(OrderStatusTool)` decides on that tool's calls with its
+validated input DTO in hand, `@AfterTool(OrderStatusTool)` reads or replaces its output (and sees the
+input); `@BeforeTool(A, B)` shares one method between tools — it takes the union of their inputs and
+may rewrite the input only to what every one of them accepts. The `before` method returns a
+`ToolCallDecision` (`ToolCallDecision<OrderLookupDto>` when it rewrites the input); a method taking
+no input runs before the arguments are validated, one taking it is skipped for invalid arguments (the
+tool answers its own invalid-input error). Which method serves which tool is read from the decorator,
+never from a name or an arity. A target that is no tool is `[tool-interceptor.target-not-a-tool]`,
+two methods for one tool and phase `[tool-interceptor.duplicate-hook]`, a method named like a hook
+that is none (the 0.1.0 `beforeToolCall`) `[tool-interceptor.unknown-hook]`. `ToolCall.typeOf(call)`
+gives the tool class of a catch-all's `call`, which also carries `agent` and `callId`.
+
+<!-- snippet-context
+declare class CityJobsTool {
+  execute(input: { readonly city: string }): { readonly listing: string };
+}
+-->
+
+```ts file=src/scout/city-jobs.tool-interceptor.ts
+import { AfterTool, BeforeTool, ToolCallDecision, ToolInterceptor } from "@agboss/core";
+
+@ToolInterceptor({ name: "city-jobs-tool-interceptor", description: "Normalises a city" })
+export class CityJobsToolInterceptor {
+  @BeforeTool(CityJobsTool)
+  trimCity({ city }: { readonly city: string }): ToolCallDecision<{ readonly city: string }> {
+    return ToolCallDecision.allow({ input: { city: city.trim() } }); // validated again, then the tool runs
+  }
+
+  @AfterTool(CityJobsTool)
+  shorten({ listing }: { readonly listing: string }): { readonly listing: string } {
+    return { listing: listing.slice(0, 200) };
+  }
+}
+```
+
 **Levels.** `toolInterceptors: [...]` on `@Application` → `@Workflow` → `@Agent` → `@Tool` /
-`@McpTool`: the lists add up, outer first, each class once. `excludeToolInterceptors: [...]` on an
+`@McpTool`: the lists add up, outer first, each class once. `@Workflow({ excludeToolInterceptors })`
+removes an application-level one for the whole workflow. `excludeToolInterceptors: [...]` on an
 agent removes one its application or workflow lists; on a tool, one listed above it (by its
 application, its workflow or an agent that calls it) — excluding one nothing above lists is
 `[tool-interceptor.exclude-not-inherited]`, a class in a list that is not a `@ToolInterceptor` is
 `[tool-interceptor.not-an-interceptor]`. A child workflow gets its own workflow's lists over the
 application's.
 
-**`beforeToolCall(call)` decides**, in list order (outer first); the first decision that is not
-`allow()` ends the chain:
+**The before hooks decide**, in list order (outer first; an interceptor's `beforeAnyTool(call)` before its
+`@BeforeTool` method); the first decision that is not `allow()` ends the chain:
 
 | Decision                                   | The tool | The step                                                                                         |
 | ------------------------------------------ | -------- | ------------------------------------------------------------------------------------------------ |
 | `ToolCallDecision.allow()`                 | runs     | goes on (the next interceptor decides first)                                                     |
-| `ToolCallDecision.replyToModel({ message })` | not called | goes on: the model reads `message` as the call's text result in its loop and may try again      |
-| `ToolCallDecision.block({ reason })`       | not called | fails at once: `ToolBlockedError` (`step.tool-blocked`, a `StepFailedError`: `agent`, `tool`, `interceptor`, `reason`) |
+| `ToolCallDecision.allow({ input })`          | runs, with `input` | goes on (validated against the tool's input DTO again; the next hooks and the tool get it) |
+| `ToolCallDecision.reply(message)`          | not called | goes on: the model reads `message` as the call's text result in its loop and may try again      |
+| `ToolCallDecision.block(reason)`           | not called | fails at once: `ToolBlockedError` (`step.tool-blocked`, a `StepFailedError`: `agent`, `tool`, `interceptor`, `reason`) |
 
 A decision is built only by its factories (a plain object does not compile); in tests compare it
-with `toEqual(ToolCallDecision.replyToModel({ message }))`. `.onError(ToolBlockedError, …)` (or
+with `toEqual(ToolCallDecision.reply(message))`. `.onError(ToolBlockedError, …)` (or
 `StepFailedError`) right after the agent takes a block; the error carries the loop's spend, so the
 record and the ledger keep it.
 
-**`afterToolCall(call)` replaces the result**, in reverse order (inner first), on a successful
+**The after hooks replace the result**, in reverse order (inner interceptor first; its `@AfterTool`
+method, then its `afterAnyTool(call)`), on a successful
 call only — a tool error goes to the model as it is. `call.output` is the tool's result (or what an
 inner interceptor gave); the value returned is validated against the tool's output DTO before the
 next one reads it.
 
-**The order of one call**: the arguments' PII block rules → each `beforeToolCall` — the arguments
+**The order of one call**: the arguments' PII block rules → each before hook — the arguments
 as the tool gets them, PII tokens revealed (`alice@example.com`, never `<email:7f3a91>`), not
-validated yet (`call.input` is `unknown`: narrow it) → the tool → each `afterToolCall` → the
-`maxResultSize` cut ([Result size](#result-size)) → the PII policies' masking. A `replyToModel`
+validated yet (`call.input` is `unknown`: narrow it) → the tool → each after hook → the
+`maxResultSize` cut ([Result size](#result-size)) → the PII policies' masking. A `reply`
 message is cut and masked the same way.
 
 **In the call's frame**: an injected `ExecutionContext` reads the tool call — `step.callId`,
@@ -315,7 +349,7 @@ message is cut and masked the same way.
 **Failures.** An interceptor that throws, returns no `ToolCallDecision` or an output its tool does
 not give fails the step: `AgentFailedError`, its error as the `cause` (`ScopeServiceDownError`,
 `TypeError`, `DtoValidationError`), so `.onError(DomainError, …)` takes it through the cause; the
-tool does not run after a failed `beforeToolCall`.
+tool does not run after a failed before hook.
 
 **What is intercepted**: an agent's calls to the project's `@Tool` / `@McpTool` classes — never
 its answer tools, a knowledge base's `search-…-tool`, or a tool called on its own (over MCP,
@@ -368,7 +402,7 @@ it("a city outside the tenant's goes back to the model", async () => {
   const { output } = await scope.beforeToolCall(CityJobsTool, { city: "Eilat" });
 
   expect(output).toEqual(
-    ToolCallDecision.replyToModel({ message: 'City "Eilat" is not allowed for this tenant.' }),
+    ToolCallDecision.reply('City "Eilat" is not allowed for this tenant.'),
   );
 });
 ```

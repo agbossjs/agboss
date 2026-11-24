@@ -93,7 +93,7 @@ function withFilesShown(
 }
 
 /**
- * The tool's output closed for the model (`tool` absent: an interceptor's `replyToModel` text,
+ * The tool's output closed for the model (`tool` absent: an interceptor's `reply` text,
  * #384); a failed call is the error text as it is. Over
  * `maxResultSize` the rendered result is cut first (#336): the policies read only the kept part, the
  * marker follows it in both forms.

@@ -9,6 +9,7 @@ import { inheritedPiiOf } from "../pii/inheritance.js";
 import {
   toolInterceptorPartsOf,
   type AssembledToolInterceptors,
+  type ToolInterceptorOwners,
 } from "../tool-interceptors/assembly.js";
 import type { Class } from "./injection.js";
 import type { AgentMeta, WorkflowMeta } from "./meta-types.js";
@@ -81,6 +82,17 @@ export interface PolicySources {
   readonly loader: PromptLoader;
 }
 
+/** The levels above the agents that list tool interceptors: the application's and the workflow's. */
+const interceptorOwnersOf = (
+  bundle: PolicySources["bundle"],
+  owner: PolicyOwner | undefined,
+): ToolInterceptorOwners => ({
+  application: owner?.toolInterceptors ?? [],
+  workflow: bundle.toolInterceptors ?? [],
+  workflowExcludes: bundle.excludeToolInterceptors ?? [],
+  workflowName: bundle.name,
+});
+
 /** The workflow's PII policies and guardrails (`defaults.guardrail.model` of its cascade). */
 export async function policyPartsOf(sources: PolicySources): Promise<PolicyParts> {
   const { bundle, owner, agents, graph } = sources;
@@ -95,14 +107,7 @@ export async function policyPartsOf(sources: PolicySources): Promise<PolicyParts
   };
   const guardrails = await guardrailPartsOf(owners, agents, graph, sources.loader);
   const guardrailClasses = guardrails.guardrails.map((guardrail) => guardrail.type);
-  const toolInterceptors = toolInterceptorPartsOf(
-    {
-      application: owner?.toolInterceptors ?? [],
-      workflow: bundle.toolInterceptors ?? [],
-      workflowName: bundle.name,
-    },
-    agents,
-  );
+  const toolInterceptors = toolInterceptorPartsOf(interceptorOwnersOf(bundle, owner), agents);
   const interceptorClasses = toolInterceptors.interceptors.map((interceptor) => interceptor.type);
   return {
     assembled: { pii, guardrails, toolInterceptors },

@@ -2,11 +2,14 @@
  * #384 — tool interceptors at assembly, in `agboss describe` and in `configHash`: the chains of the
  * four levels with their excludes, `[tool-interceptor.not-an-interceptor]`,
  * `[tool-interceptor.exclude-not-inherited]`, `[tool-interceptor.missing-handler]`,
- * `[name.not-kebab-case]`, a class without either method does not compile.
+ * `[name.not-kebab-case]`, `[tool-interceptor.target-not-a-tool]`, `[tool-interceptor.duplicate-hook]`,
+ * `[tool-interceptor.unknown-hook]` and `@Workflow({ excludeToolInterceptors })` (#1295).
  */
 import { describe, expect, it } from "vitest";
 import {
   Agent,
+  AfterTool,
+  BeforeTool,
   GraphRuleError,
   Tool,
   ToolCallDecision,
@@ -29,6 +32,7 @@ import {
   CompanyBlockToolInterceptor,
   JobQuery,
   JobList,
+  PingTool,
   StampToolInterceptor,
 } from "./components.fixture.js";
 
@@ -118,19 +122,18 @@ async function codesOf(application: object): Promise<string[]> {
   return error.violations.map((item) => item.code);
 }
 
-// @ts-expect-error -- a tool interceptor implements BeforeToolCall, AfterToolCall or both
 @ToolInterceptor({ name: "idle-tool-interceptor", description: "Does nothing" })
 class IdleToolInterceptor {}
 
 @ToolInterceptor({ name: "Badly_Named", description: "Its name is not kebab-case" })
 class BadlyNamedInterceptor {
-  beforeToolCall(): ToolCallDecision {
+  beforeAnyTool(): ToolCallDecision {
     return ToolCallDecision.allow();
   }
 }
 
 class NotAnInterceptor {
-  beforeToolCall(): ToolCallDecision {
+  beforeAnyTool(): ToolCallDecision {
     return ToolCallDecision.allow();
   }
 }
@@ -204,6 +207,141 @@ describe("#384: the assembly rules", () => {
   });
 });
 
+class NotATool {
+  execute(): JobList {
+    return { listing: "" };
+  }
+}
+
+describe("#1295: the hook rules", () => {
+  const agentWith = (...interceptors: object[]): object => {
+    @Agent({
+      name: "bad-agent",
+      description: "a",
+      prompt: "a",
+      model: "test/a",
+      toolInterceptors: interceptors as never,
+    })
+    class BadAgent {}
+    return BadAgent;
+  };
+
+  it("[tool-interceptor.unknown-hook]: the 0.1.0 method names are no hooks", async () => {
+    @ToolInterceptor({ name: "old-tool-interceptor", description: "d" })
+    class Old {
+      beforeAnyTool(): ToolCallDecision {
+        return ToolCallDecision.allow();
+      }
+
+      beforeToolCall(): ToolCallDecision {
+        return ToolCallDecision.allow();
+      }
+    }
+
+    expect(await codesOf(appWith(agentWith(Old)))).toEqual(["tool-interceptor.unknown-hook"]);
+  });
+
+  it("[tool-interceptor.target-not-a-tool]: a hook decorator's target is a tool class", async () => {
+    @ToolInterceptor({ name: "aimed-tool-interceptor", description: "d" })
+    class Aimed {
+      // @ts-expect-error -- a hook names @Tool / @McpTool classes
+      @BeforeTool(String)
+      decide(): ToolCallDecision {
+        return ToolCallDecision.allow();
+      }
+    }
+    @ToolInterceptor({ name: "plain-tool-interceptor", description: "d" })
+    class Plain {
+      @BeforeTool(NotATool)
+      decide(): ToolCallDecision {
+        return ToolCallDecision.allow();
+      }
+    }
+
+    expect(await codesOf(appWith(agentWith(Aimed, Plain)))).toEqual([
+      "tool-interceptor.target-not-a-tool",
+      "tool-interceptor.target-not-a-tool",
+    ]);
+  });
+
+  it("[tool-interceptor.duplicate-hook]: one method per tool and phase", async () => {
+    @ToolInterceptor({ name: "twice-tool-interceptor", description: "d" })
+    class Twice {
+      @BeforeTool(ExcludingTool)
+      first(): ToolCallDecision {
+        return ToolCallDecision.allow();
+      }
+
+      @BeforeTool(ExcludingTool)
+      second(): ToolCallDecision {
+        return ToolCallDecision.allow();
+      }
+
+      @AfterTool(ExcludingTool)
+      third(): JobList {
+        return { listing: "" };
+      }
+    }
+
+    expect(await codesOf(appWith(agentWith(Twice)))).toEqual(["tool-interceptor.duplicate-hook"]);
+  });
+
+  it("@Workflow({ excludeToolInterceptors }) removes an application-level interceptor", async () => {
+    @Agent({
+      name: "quiet-ping-agent",
+      description: "a",
+      prompt: "a",
+      model: "test/a",
+      tools: [PingTool],
+    })
+    class QuietPingAgent {}
+    @Workflow({
+      name: "quiet-ping-workflow",
+      version: "1.0.0",
+      flow: [onStart(ScoutStart).toAgent(QuietPingAgent).toFinish(ScoutAnswer)],
+      excludeToolInterceptors: [AuditToolInterceptor],
+    })
+    class QuietPingWorkflow {}
+    @Application({
+      name: "quiet-ping-application",
+      version: "1.0.0",
+      environment: EmptyEnvironment,
+      workflows: [QuietPingWorkflow],
+      toolInterceptors: [AuditToolInterceptor],
+      budgets: TEST_BUDGETS,
+    })
+    class QuietPingApplication {}
+
+    const workflows = await workflowsOf(QuietPingApplication);
+
+    expect(chainsOf(named(workflows, "quiet-ping-workflow"), "quiet-ping-agent")).toEqual({
+      "ping-tool": [],
+    });
+  });
+
+  it("excluding what the application does not list is [tool-interceptor.exclude-not-inherited]", async () => {
+    @Agent({ name: "bad-agent", description: "a", prompt: "a", model: "test/a" })
+    class BadAgent {}
+    @Workflow({
+      name: "bad-workflow",
+      version: "1.0.0",
+      flow: [onStart(ScoutStart).toAgent(BadAgent).toFinish(ScoutAnswer)],
+      excludeToolInterceptors: [StampToolInterceptor],
+    })
+    class BadWorkflow {}
+    @Application({
+      name: "bad-application",
+      version: "1.0.0",
+      environment: EmptyEnvironment,
+      workflows: [BadWorkflow],
+      budgets: TEST_BUDGETS,
+    })
+    class BadApplication {}
+
+    expect(await codesOf(BadApplication)).toEqual(["tool-interceptor.exclude-not-inherited"]);
+  });
+});
+
 describe("#384: describe and configHash", () => {
   it("describe prints each interceptor's methods and the agents' tools it intercepts", async () => {
     const lines = describeWorkflow(named(await workflowsOf(ScoutApplication), "scout-workflow"));
@@ -245,8 +383,10 @@ describe("#384: describe and configHash", () => {
 
     expect(snapshot.toolInterceptors.interceptors).toContainEqual({
       name: "stamp-tool-interceptor",
-      before: false,
-      after: true,
+      before: [],
+      after: [],
+      beforeAny: false,
+      afterAny: true,
     });
     expect(snapshot.toolInterceptors.chains["scout-agent"]?.["company-tool"]).toEqual([
       "tenant-scope-tool-interceptor",

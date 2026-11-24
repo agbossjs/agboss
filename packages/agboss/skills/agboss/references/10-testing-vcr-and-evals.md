@@ -725,7 +725,7 @@ tool, with its `promptHash` / `schemaHash`; `nodeId` / `visitNumber` the agent's
 its output failed its check, or a PII rule refused it — `error.code` `pii.refused`),
 `InvalidArguments` (the input check failed, or the arguments were no JSON at all — a truncated
 call; the tool never ran), `Declined` (its approval said no), `TimedOut` (past the tool's
-`timeout`), `Replied` (a tool interceptor's `replyToModel` answered instead — `output` is its
+`timeout`), `Replied` (a tool interceptor's `reply` answered instead — `output` is its
 message), `Blocked` (a tool interceptor's `block`: the step fails with `ToolBlockedError`) and
 `UnknownTool` (the model called a tool its agent does not have).
 
@@ -1351,7 +1351,7 @@ to a tool: `beforeToolCall(Tool, input)` gives the decision (compare it with `to
 output DTO. A method the class does not have is a `TestSetupError`.
 
 <!-- snippet-context
-import { TenantContext, Tool, ToolCallDecision, ToolInterceptor, type BeforeToolCall, type ToolCallContext } from "@agboss/core";
+import { TenantContext, Tool, ToolCallDecision, ToolInterceptor, type ToolCallContext } from "@agboss/core";
 import { List, Text } from "@agboss/core/dto";
 import { testToolInterceptor } from "@agboss/core/testing";
 import { expect, it } from "vitest";
@@ -1374,12 +1374,12 @@ export class CityJobsTool {
   }
 }
 @ToolInterceptor({ name: "city-scope-tool-interceptor", description: "Allowed cities only", deps: [CityTenantContext] })
-export class CityScopeToolInterceptor implements BeforeToolCall {
+export class CityScopeToolInterceptor {
   constructor(private readonly cityTenantContext: CityTenantContext) {}
-  beforeToolCall(call: ToolCallContext): ToolCallDecision {
+  beforeAnyTool(call: ToolCallContext): ToolCallDecision {
     const city = typeof call.input === "object" && call.input !== null && "city" in call.input ? call.input.city : undefined;
     return typeof city === "string" && !this.cityTenantContext.allowedCities.includes(city)
-      ? ToolCallDecision.replyToModel({ message: `City "${city}" is not allowed.` })
+      ? ToolCallDecision.reply(`City "${city}" is not allowed.`)
       : ToolCallDecision.allow();
   }
 }
@@ -1394,7 +1394,7 @@ it("testToolInterceptor: the decision for the tenant given", async () => {
 
   const { output } = await scope.beforeToolCall(CityJobsTool, { city: "Eilat" });
 
-  expect(output).toEqual(ToolCallDecision.replyToModel({ message: 'City "Eilat" is not allowed.' }));
+  expect(output).toEqual(ToolCallDecision.reply('City "Eilat" is not allowed.'));
 });
 ```
 

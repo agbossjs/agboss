@@ -101,9 +101,9 @@ function setup(
     budgets: { exhausted: exhausted.signal, tally, remaining: () => 5, deadline: undefined },
     observer: options.observer,
   };
-  vi.mocked(interceptedCall).mockImplementation(async (_chain, _tool, _args, run) => ({
+  vi.mocked(interceptedCall).mockImplementation(async (_chain, _tool, args, run) => ({
     kind: "ran" as const,
-    output: await run(),
+    output: await run(args),
   }));
   vi.mocked(runTool).mockResolvedValue({ kind: "ok", value: { ok: true } } as never);
   const tools = "tool" in options ? options.tool : toolOf();

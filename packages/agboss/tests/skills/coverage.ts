@@ -82,7 +82,7 @@ export const SKILL_COVERAGE: SkillCoverage = {
     ...["CompensationFailedError"],
     ...["CompensationStartEvent", "CompensationEndEvent"],
     "ExecutionContextUnavailableError",
-    ...["ToolInterceptor", "ToolCallDecision", "BeforeToolCall", "AfterToolCall"],
+    ...["ToolInterceptor", "ToolCallDecision", "BeforeTool", "AfterTool"],
     ...["ToolCallContext", "ToolCallResultContext", "ToolBlockedError", "AgentFailedError"],
   ],
   "references/04-mcp-and-a2a.md": [

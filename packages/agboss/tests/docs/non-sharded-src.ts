@@ -665,6 +665,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "src/graph/agent-loop/run-tool.ts",
     "src/graph/agent-loop/runner.ts",
     "src/graph/agent-loop/stored-call.ts",
+    "src/graph/agent-loop/tool-hooks.ts",
     "src/graph/agent-loop/tool-interception.ts",
     "src/graph/agent-loop/tool-result-size.ts",
     "src/graph/agent-loop/tool-stops.ts",

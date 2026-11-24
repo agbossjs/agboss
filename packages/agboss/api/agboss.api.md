@@ -362,9 +362,12 @@ export type ActionStartEvent = StartEvent<Readonly<Record<string, unknown>>>;
 export type AfterStep<TInstance, THead extends PathHead> = BuiltPath<THead> & StepContinuation<TInstance, THead>;
 
 // @public
-export interface AfterToolCall {
-    afterToolCall(call: ToolCallResultContext): unknown;
-}
+export function AfterTool<const TTools extends ToolTargets>(...tools: TTools): <This>(value: AfterToolMethod<This, TTools>, context: ClassMethodDecoratorContext<This, AfterToolMethod<This, TTools>> & {
+    readonly static: false;
+}) => void;
+
+// @public
+export type AfterToolMethod<This, TTools extends ToolTargets> = (this: This, output: ToolOutputOf<InstanceType<TTools[number]>>, input: ToolInputOf<InstanceType<TTools[number]>>) => UnionToIntersection<ToolOutputOf<InstanceType<TTools[number]>>> | Promise<UnionToIntersection<ToolOutputOf<InstanceType<TTools[number]>>>>;
 
 // @public
 export type AfterValue<TValue, THead extends PathHead> = BuiltPath<THead> & Transitions<THead> & Launches<TValue, THead> & {
@@ -992,10 +995,12 @@ export interface BearerAuth {
 }
 
 // @public
-export interface BeforeToolCall {
-    // (undocumented)
-    beforeToolCall(call: ToolCallContext): Promise<ToolCallDecision> | ToolCallDecision;
-}
+export function BeforeTool<const TTools extends ToolTargets>(...tools: TTools): <This>(value: BeforeToolMethod<This, TTools>, context: ClassMethodDecoratorContext<This, BeforeToolMethod<This, TTools>> & {
+    readonly static: false;
+}) => void;
+
+// @public
+export type BeforeToolMethod<This, TTools extends ToolTargets> = (this: This, input: ToolInputOf<InstanceType<TTools[number]>>) => ToolCallDecision<UnionToIntersection<ToolInputOf<InstanceType<TTools[number]>>>> | Promise<ToolCallDecision<UnionToIntersection<ToolInputOf<InstanceType<TTools[number]>>>>>;
 
 // @public
 export interface BlockAction {
@@ -8898,7 +8903,7 @@ type RouteTargetKind = NodeKind.Agent | NodeKind.Action | NodeKind.Router | Node
 type RouteTargetLabel = "a route target (an agent, an action, a router, a child workflow or a finish)";
 
 // @public
-export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-max-previous" | "input.outdated-on-path" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.unjoinable-output" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "limits.timeout-invalid" | "application.fenced-effects-invalid" | "application.store-backend-mismatch" | "application.store-backend-undeclared" | "application.store-descriptor-invalid" | "application.idempotency-key-required" | "application.idempotency-key-shared" | "application.pii-key-shared" | "a2a.expose-description-required" | "a2a.task-store-not-shared" | "a2a.message-store-not-shared" | "a2a.message-skill-pause" | "a2a.message-skill-effect" | "a2a.message-skill-tool" | "a2a.message-skill-compensation" | "a2a.message-skill-child" | "a2a.unknown-skill-option" | "a2a.file-options-invalid" | "a2a.file-store-required" | "a2a.file-store-not-shared" | "a2a.nested-file-field" | "a2a.unknown-finish" | "a2a.price-invalid" | "application.outbound-calls-invalid" | "application.retention-invalid" | "mesh.signing-key-missing" | "mesh.unknown-peer-key" | "mesh.duplicate-peer" | "application.not-an-expose" | "application.duplicate-expose" | "application.expose-unknown-start" | "name.kind-suffix" | "name.not-kebab-case" | "dto.name" | "dto.duplicate-name" | "dto.cyclic" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.max-steps-below-worst-case" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "limits.count-invalid" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "pause-listener.not-a-handler" | "pause-listener.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "environment.conflicting-field" | "guardrail.no-model" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "rag.rerank-invalid" | "rag.tenancy-required" | "rag.not-a-reranker" | "reranker.missing-handler" | "reranker.decision-model" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "compaction.not-a-compaction" | "compaction.invalid-setting" | "compaction.decision-model" | "compaction.uncompacted-turns-invalid" | "compaction.missing-handler" | "model.unserved" | "model.ambiguous-provider" | "model.missing-provider" | "model.incompatible-provider" | "model.missing" | "model.price-invalid" | "model-provider.both-modes" | "model-provider.circuit-breaker-required" | "model-provider.request-fields-missing" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "channel.expires-in-invalid" | "channel.remind-before-invalid" | "channel.remind-before-exceeds-expiry" | "channel.remind-before-below-tick" | "channel.remind-before-working-without-working-expiry" | "channel.working-time-without-calendar" | "working-calendar.invalid" | "working-calendar.duplicate-name" | "tool.expires-in-without-channel" | "question.expires-in-conflict" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "judge.wrong-reply" | "judge.same-model-family" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-reply" | "flow.conflicting-placement" | ExtraRuleCode;
+export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-max-previous" | "input.outdated-on-path" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.unjoinable-output" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "limits.timeout-invalid" | "application.fenced-effects-invalid" | "application.store-backend-mismatch" | "application.store-backend-undeclared" | "application.store-descriptor-invalid" | "application.idempotency-key-required" | "application.idempotency-key-shared" | "application.pii-key-shared" | "a2a.expose-description-required" | "a2a.task-store-not-shared" | "a2a.message-store-not-shared" | "a2a.message-skill-pause" | "a2a.message-skill-effect" | "a2a.message-skill-tool" | "a2a.message-skill-compensation" | "a2a.message-skill-child" | "a2a.unknown-skill-option" | "a2a.file-options-invalid" | "a2a.file-store-required" | "a2a.file-store-not-shared" | "a2a.nested-file-field" | "a2a.unknown-finish" | "a2a.price-invalid" | "application.outbound-calls-invalid" | "application.retention-invalid" | "mesh.signing-key-missing" | "mesh.unknown-peer-key" | "mesh.duplicate-peer" | "application.not-an-expose" | "application.duplicate-expose" | "application.expose-unknown-start" | "name.kind-suffix" | "name.not-kebab-case" | "dto.name" | "dto.duplicate-name" | "dto.cyclic" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.max-steps-below-worst-case" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "limits.count-invalid" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "pause-listener.not-a-handler" | "pause-listener.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "environment.conflicting-field" | "guardrail.no-model" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "rag.rerank-invalid" | "rag.tenancy-required" | "rag.not-a-reranker" | "reranker.missing-handler" | "reranker.decision-model" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "tool-interceptor.target-not-a-tool" | "tool-interceptor.duplicate-hook" | "tool-interceptor.unknown-hook" | "compaction.not-a-compaction" | "compaction.invalid-setting" | "compaction.decision-model" | "compaction.uncompacted-turns-invalid" | "compaction.missing-handler" | "model.unserved" | "model.ambiguous-provider" | "model.missing-provider" | "model.incompatible-provider" | "model.missing" | "model.price-invalid" | "model-provider.both-modes" | "model-provider.circuit-breaker-required" | "model-provider.request-fields-missing" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "channel.expires-in-invalid" | "channel.remind-before-invalid" | "channel.remind-before-exceeds-expiry" | "channel.remind-before-below-tick" | "channel.remind-before-working-without-working-expiry" | "channel.working-time-without-calendar" | "working-calendar.invalid" | "working-calendar.duplicate-name" | "tool.expires-in-without-channel" | "question.expires-in-conflict" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "judge.wrong-reply" | "judge.same-model-family" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-reply" | "flow.conflicting-placement" | ExtraRuleCode;
 
 // @public
 export interface RuleViolation {
@@ -10276,6 +10281,11 @@ export interface ToolBlockedErrorOptions {
 }
 
 // @public
+export const ToolCall: {
+    readonly typeOf: (call: ToolCallContext) => Class;
+};
+
+// @public
 export class ToolCallApprovalAskDto {
     // (undocumented)
     arguments: ToolArguments;
@@ -10289,19 +10299,20 @@ export class ToolCallApprovalAskDto {
 
 // @public
 export interface ToolCallContext {
+    readonly agent: ComponentRecord;
+    readonly callId: string;
     readonly input: unknown;
     readonly tool: ComponentRecord;
 }
 
 // @public
-export class ToolCallDecision {
+export class ToolCallDecision<out TInput = never> {
     static allow(): ToolCallDecision;
-    static block(options: {
-        readonly reason: string;
-    }): ToolCallDecision;
-    static replyToModel(options: {
-        readonly message: string;
-    }): ToolCallDecision;
+    static allow<TInput extends object>(options: {
+        readonly input: TInput;
+    }): ToolCallDecision<TInput>;
+    static block(reason: string): ToolCallDecision;
+    static reply(message: string): ToolCallDecision;
 }
 
 // @public
@@ -10374,11 +10385,19 @@ export interface ToolHandler<TInput, TOutput> {
 }
 
 // @public
+export type ToolHandlerClass = Class<ToolHandler<never, unknown>>;
+
+// @public
+export type ToolInputOf<TTool> = TTool extends {
+    execute(input: infer TInput): unknown;
+} ? TInput : never;
+
+// @public
 export function ToolInterceptor<const D extends readonly Token[] = []>(options: {
     readonly name?: string;
     readonly description?: string;
     readonly deps?: D;
-}): <C extends new (...args: ResolvedAll<D>) => BeforeToolCall | AfterToolCall>(value: C) => C;
+}): <C extends new (...args: ResolvedAll<D>) => object>(value: C) => C;
 
 // @public
 export type ToolNameOf<TTool> = [NameOf<TTool>] extends [never] ? string : NameOf<TTool>;
@@ -10410,12 +10429,20 @@ export interface ToolOptions<In extends DtoClass, Out extends DtoClass, D extend
 }
 
 // @public
+export type ToolOutputOf<TTool> = TTool extends {
+    execute(input: never): infer TReturn;
+} ? Awaited<TReturn> : never;
+
+// @public
 export interface ToolStartEvent extends NodeEvent {
     readonly agent?: string;
     // (undocumented)
     readonly input: Readonly<Record<string, unknown>>;
     readonly tool: string;
 }
+
+// @public
+export type ToolTargets = readonly [ToolHandlerClass, ...ToolHandlerClass[]];
 
 // @public
 export class ToolTimeoutError extends AGBossError {
@@ -10621,6 +10648,9 @@ export interface UninterpretableReplyErrorOptions {
     // (undocumented)
     readonly reason: string;
 }
+
+// @public
+export type UnionToIntersection<TUnion> = (TUnion extends unknown ? (value: TUnion) => void : never) extends (value: infer TIntersection) => void ? TIntersection : never;
 
 // @public
 export class UnknownPauseError extends AGBossError {
@@ -10909,6 +10939,7 @@ export interface WorkflowOptions<TName extends string = string, TFlow extends re
     // (undocumented)
     readonly defaults?: WorkflowDefaults;
     readonly excludePiiPolicies?: readonly Class[];
+    readonly excludeToolInterceptors?: readonly Class[];
     readonly flow: TFlow;
     readonly guardrails?: readonly Class[];
     readonly maxConcurrentExecutions?: number;
@@ -12935,7 +12966,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/storage/storage-decorators.ts - (ae-undocumented) Missing documentation for "description".
 // src/storage/storage-decorators.ts - (ae-undocumented) Missing documentation for "name".
 // src/storage/storage-decorators.ts - (ae-undocumented) Missing documentation for "description".
-// src/tool-interceptors/decision.ts - (ae-undocumented) Missing documentation for "beforeToolCall".
 // src/tools/define-tool.ts - (ae-undocumented) Missing documentation for "timeout".
 // src/tools/define-tool.ts - (ae-undocumented) Missing documentation for "cause".
 // src/tools/define-tool.ts - (ae-undocumented) Missing documentation for "code".

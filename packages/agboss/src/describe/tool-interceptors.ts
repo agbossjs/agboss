@@ -1,4 +1,7 @@
-import type { AssembledToolInterceptors } from "../tool-interceptors/assembly.js";
+import type {
+  AssembledToolInterceptors,
+  ToolInterceptorHooks,
+} from "../tool-interceptors/assembly.js";
 import type { AssembledWorkflow } from "../workflow.js";
 
 /**
@@ -6,8 +9,13 @@ import type { AssembledWorkflow } from "../workflow.js";
  * `tenant-scope-tool-interceptor — before · on search-agent: greenhouse-jobs-tool, lever-jobs-tool`.
  */
 
-const hooksLabel = ({ before, after }: { before: boolean; after: boolean }): string =>
-  [before ? "before" : "", after ? "after" : ""].filter((hook) => hook !== "").join(", ");
+const hooksLabel = (hooks: ToolInterceptorHooks): string =>
+  [
+    hooks.before.length > 0 || hooks.beforeAny ? "before" : "",
+    hooks.after.length > 0 || hooks.afterAny ? "after" : "",
+  ]
+    .filter((hook) => hook !== "")
+    .join(", ");
 
 /** The agents' tools one interceptor intercepts: `agent: tool, tool; agent: tool`. */
 function usersOf(assembled: AssembledToolInterceptors, type: unknown): string {

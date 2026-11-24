@@ -527,8 +527,8 @@ priceUsd })` (typed by the role's ask); `agboss describe` prints `asked at <agen
   guardrail or the action.** A reply interpreter reads intent; it is not a guardrail (#688). It does not decide whether a
   correction is allowed — "never above the call's amount", "only in the call's currency", "never
   below 0". Put such a limit where it holds whoever approved the call: a tool interceptor's
-  `beforeToolCall` on the call as it runs (after the approval, with any correction —
-  `ToolCallDecision.block({ reason })` fails the step with `ToolBlockedError`), or a check in the
+  `beforeAnyTool` / `@BeforeTool` on the call as it runs (after the approval, with any correction —
+  `ToolCallDecision.block(reason)` fails the step with `ToolBlockedError`), or a check in the
   tool's or action's own code (`min` / `max` on the input DTO's field for a plain bound). The
   payment guarantees — fenced effects, outbound calls, one charge per business key — hold whatever
   the interpreter reads.

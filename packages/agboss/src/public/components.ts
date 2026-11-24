@@ -25,13 +25,8 @@ export {
   type GuardrailHandler,
 } from "../components/guardrail-handler.js";
 export { ToolInterceptor } from "../tool-interceptors/decorator.js";
-export {
-  ToolCallDecision,
-  type AfterToolCall,
-  type BeforeToolCall,
-  type ToolCallContext,
-  type ToolCallResultContext,
-} from "../tool-interceptors/decision.js";
+export { AfterTool, BeforeTool } from "../tool-interceptors/hooks.js";
+export { ToolCall, ToolCallDecision } from "../tool-interceptors/decision.js";
 export { TokenLimit, TurnLimit } from "../config/types.js";
 export {
   Compaction,

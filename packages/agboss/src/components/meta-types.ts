@@ -111,6 +111,8 @@ export interface WorkflowMeta {
   readonly guardrails?: readonly Class[];
   /** `@ToolInterceptor` classes of every agent's tool calls, over the application's (#384). */
   readonly toolInterceptors?: readonly Class[];
+  /** Application-level tool interceptors removed for every agent of the workflow (#1295). */
+  readonly excludeToolInterceptors?: readonly Class[];
   /** `@Compaction` of every agent and model router, over the application's (#120 PR 3). */
   readonly compaction?: Class;
   /** Recent turns seen in full by every agent and model router, over the application's. */

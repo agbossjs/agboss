@@ -1,7 +1,7 @@
 import type { ToolHandler } from "../../components/decorators.js";
 import type { Class } from "../../components/injection.js";
 import type { PartialValues } from "../../testing/script-types.js";
-import type { ToolInputOf } from "../../testing/units/test-tool.js";
+import type { ToolInputOf } from "../../tools/index.js";
 
 /**
  * What a case expects of the run's tool calls (#396), checked by `checkTrajectory()`: tools it must

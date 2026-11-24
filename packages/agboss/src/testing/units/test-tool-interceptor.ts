@@ -7,16 +7,19 @@ import { bareRecordOf, ComponentKind } from "../../flow/runtime/records.js";
 import { throwIfViolated } from "../../graph/rule-error.js";
 import { toolInterceptorViolations } from "../../tool-interceptors/assembly.js";
 import {
+  decisionInputOf,
   isToolCallDecision,
-  type AfterToolCall,
-  type BeforeToolCall,
+  outcomeOf,
+  ToolCallDecision,
+  ToolCallOutcome,
+  withToolType,
   type ToolCallContext,
-  type ToolCallDecision,
 } from "../../tool-interceptors/decision.js";
 import { toolInterceptorMetaOf } from "../../tool-interceptors/decorator.js";
-import type { ToolInterceptorInstance } from "../../tool-interceptors/runtime.js";
+import { hooksOf, methodsOf } from "../../tool-interceptors/assembly.js";
+import type { ToolInputOf, ToolOutputOf } from "../../tools/index.js";
 import { TestSetupError } from "../errors.js";
-import type { ToolInputOf, ToolInstance, ToolOutputOf } from "./test-tool.js";
+import type { ToolInstance } from "./test-tool.js";
 import { callTimeoutOf, UnitSite, type UnitFrame } from "./unit-site.js";
 import type { UnitCallOptions, UnitClock, UnitOptions, UnitRun } from "./unit-types.js";
 
@@ -36,20 +39,6 @@ function checkedNameOf(interceptor: Class): string {
   return meta.name;
 }
 
-/** The method the test calls; a class without it is a mistake in the test. */
-function methodOf(
-  interceptor: Class,
-  instance: ToolInterceptorInstance,
-  method: "beforeToolCall" | "afterToolCall",
-): (call: unknown) => unknown {
-  const found = instance[method];
-  if (found === undefined)
-    throw new TestSetupError({
-      message: `testToolInterceptor(${interceptor.name}): it has no ${method}(call) — implements ${method === "beforeToolCall" ? "BeforeToolCall" : "AfterToolCall"}`,
-    });
-  return (call) => found.call(instance, call);
-}
-
 /**
  * One tool interceptor, called as an agent's loop calls it (#384): `beforeToolCall(Tool, input)` →
  * the decision, `afterToolCall(Tool, input, output)` → the output the model would read; the clock
@@ -60,7 +49,7 @@ export interface ToolInterceptorRunner extends UnitClock {
     tool: TTool,
     input: ToolInputOf<InstanceType<TTool>>,
     options?: UnitCallOptions,
-  ) => Promise<UnitRun<ToolCallDecision>>;
+  ) => Promise<UnitRun<ToolCallDecision<unknown>>>;
   readonly afterToolCall: <TTool extends Class<ToolInstance>>(
     tool: TTool,
     input: ToolInputOf<InstanceType<TTool>>,
@@ -78,50 +67,128 @@ const frameOf = (tool: Class, call: UnitCallOptions): UnitFrame => ({
 });
 
 /** What an interceptor reads of a call to `tool`. */
-const contextOf = (tool: Class, input: unknown): ToolCallContext => ({
-  tool: bareRecordOf(toolMetaOf(tool).name, ComponentKind.Tool),
-  input,
-});
+const contextOf = (tool: Class, input: unknown): ToolCallContext =>
+  withToolType(
+    {
+      tool: bareRecordOf(toolMetaOf(tool).name, ComponentKind.Tool),
+      agent: bareRecordOf("test-agent", ComponentKind.Agent),
+      callId: "test-call",
+      input,
+    },
+    tool,
+  );
+
+/** An instance's method by name. */
+const callOf = (instance: object, name: string): ((...args: unknown[]) => unknown) =>
+  (Reflect.get(instance, name) as (...args: unknown[]) => unknown).bind(instance);
+
+/** What the two phases of a runner work on: the class, its instance's site, its hooks. */
+interface Runnable {
+  readonly interceptor: Class;
+  readonly site: UnitSite;
+  readonly hooks: ReturnType<typeof hooksOf>;
+  readonly methods: ReturnType<typeof methodsOf>;
+}
+
+const needs = (interceptor: Class, has: boolean, phase: string): void => {
+  if (!has)
+    throw new TestSetupError({
+      message: `testToolInterceptor(${interceptor.name}): it has no ${phase} hook — add @BeforeTool(Tool) / @AfterTool(Tool), beforeAnyTool(call) or afterAnyTool(call)`,
+    });
+};
+
+/** The before hooks on one call: `beforeAnyTool`, then the tool's method; the first end wins. */
+async function decide(
+  { interceptor, site, hooks, methods }: Runnable,
+  tool: Class,
+  input: unknown,
+): Promise<ToolCallDecision<unknown>> {
+  const self = site.instanceOf(interceptor) as object;
+  const { input: dto } = toolMetaOf(tool);
+  const steps: { name: string; any: boolean }[] = [];
+  if (hooks.beforeAny) steps.push({ name: "beforeAnyTool", any: true });
+  const own = methods.before.get(tool);
+  if (own !== undefined) steps.push({ name: own, any: false });
+  let current = input;
+  let last: ToolCallDecision<unknown> = ToolCallDecision.allow();
+  for (const { name, any } of steps) {
+    const method = callOf(self, name);
+    const produced = await (any
+      ? method(contextOf(tool, current))
+      : method.length === 0
+        ? method()
+        : method(validate(dto, current)));
+    if (!isToolCallDecision(produced))
+      throw new TypeError(
+        `${interceptor.name}.${name} returned no ToolCallDecision — return ToolCallDecision.allow(), .allow({ input }), .reply(message) or .block(reason)`,
+      );
+    last = produced;
+    if (outcomeOf(produced) !== ToolCallOutcome.Allow) return produced;
+    current = decisionInputOf(produced)?.value ?? current;
+  }
+  return last;
+}
+
+/** The after hooks on one call: the tool's method, then `afterAnyTool`, each output validated. */
+async function rewrite(
+  { interceptor, site, hooks, methods }: Runnable,
+  tool: Class,
+  input: unknown,
+  output: unknown,
+): Promise<unknown> {
+  const self = site.instanceOf(interceptor) as object;
+  const { input: inputDto, output: dto } = toolMetaOf(tool);
+  let current: unknown = validate(dto, output);
+  const own = methods.after.get(tool);
+  if (own !== undefined)
+    current = validate(
+      dto,
+      await callOf(self, own)(validate(dto, current), validate(inputDto, input)),
+    );
+  if (hooks.afterAny) {
+    const call = withToolType({ ...contextOf(tool, input), output: current }, tool);
+    current = validate(dto, await callOf(self, "afterAnyTool")(call));
+  }
+  return current;
+}
 
 /**
- * A `@ToolInterceptor` on its own (#384): its rules checked first (`-tool-interceptor`, a method),
- * created by its own container (its `deps`, `overrides`, the `environment`); each call runs in the
- * frame of a call to `tool` (`executionContext.step.callId`, the tenant and execution given), as in
- * an agent's loop. `beforeToolCall(Tool, input)` gives the decision — compare it with
- * `toEqual(ToolCallDecision.replyToModel({ message }))`; `afterToolCall(Tool, input, output)` the
- * output the model would read, validated against the tool's output DTO (`DtoValidationError`).
+ * A `@ToolInterceptor` on its own (#384, #1295): its rules checked first, created by its own
+ * container (its `deps`, `overrides`, the `environment`); each call runs in the frame of a call to
+ * `tool` (`executionContext.step.callId`, the tenant and execution given), as in an agent's loop.
+ * `beforeToolCall(Tool, input)` gives the decision — `beforeAnyTool` first, then the tool's
+ * `@BeforeTool` method; compare it with `toEqual(ToolCallDecision.reply(message))` —,
+ * `afterToolCall(Tool, input, output)` the output the model would read (the `@AfterTool` method,
+ * then `afterAnyTool`), validated against the tool's output DTO (`DtoValidationError`). A phase the
+ * class has no hook for at all is a mistake in the test (`TestSetupError`); one it has hooks for
+ * but not for this tool passes the call through (`allow()`, the output unchanged).
  */
 export function testToolInterceptor<
   TExecution extends ExecutionContext = ExecutionContext,
   TTenant extends TenantContext = TenantContext,
->(
-  interceptor: Class<BeforeToolCall | AfterToolCall>,
-  options: UnitOptions<TExecution, TTenant> = {},
-): ToolInterceptorRunner {
+>(interceptor: Class, options: UnitOptions<TExecution, TTenant> = {}): ToolInterceptorRunner {
   checkedNameOf(interceptor);
   const site = new UnitSite(options);
-  const instance = (): ToolInterceptorInstance =>
-    site.instanceOf(interceptor) as ToolInterceptorInstance;
+  const runnable = {
+    interceptor,
+    site,
+    hooks: hooksOf(interceptor),
+    methods: methodsOf(interceptor),
+  };
+  const { hooks } = runnable;
   return {
     clock: site.clock,
     beforeToolCall: (tool, input, call = {}) => {
-      const method = methodOf(interceptor, instance(), "beforeToolCall");
-      return site.run(frameOf(tool, call), async () => {
-        const decision = await method(contextOf(tool, input));
-        if (isToolCallDecision(decision)) return decision;
-        throw new TypeError(
-          `${interceptor.name}.beforeToolCall returned no ToolCallDecision — return ToolCallDecision.allow(), .replyToModel({ message }) or .block({ reason })`,
-        );
-      });
+      needs(interceptor, hooks.before.length > 0 || hooks.beforeAny, "before");
+      return site.run(frameOf(tool, call), () => decide(runnable, tool, input));
     },
     afterToolCall: (tool, input, output, call = {}) => {
-      const method = methodOf(interceptor, instance(), "afterToolCall");
-      const { output: dto } = toolMetaOf(tool);
-      return site.run(frameOf(tool, call), async () => {
-        const given = validate(dto, output);
-        const produced = await method({ ...contextOf(tool, input), output: given });
-        return validate(dto, produced) as ToolOutputOf<InstanceType<typeof tool>>;
-      });
+      needs(interceptor, hooks.after.length > 0 || hooks.afterAny, "after");
+      return site.run(
+        frameOf(tool, call),
+        async () =>
+          (await rewrite(runnable, tool, input, output)) as ToolOutputOf<InstanceType<typeof tool>>,
+      );
     },
   };
 }

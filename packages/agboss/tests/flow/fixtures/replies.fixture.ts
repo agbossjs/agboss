@@ -2,7 +2,6 @@ import { Channel, Injectable, Tool } from "../../../src/components/decorators.js
 import {
   ToolCallDecision,
   ToolInterceptor,
-  type BeforeToolCall,
   type ToolCallContext,
 } from "../../../src/index.js";
 import { ChannelOf, type ChannelAsk } from "../../../src/channels/channel-handler.js";
@@ -269,13 +268,13 @@ export const PAYOUT_LIMIT_CENTS = 150_000;
   name: "payout-limit-tool-interceptor",
   description: "Blocks a payout above the treasury's limit, whoever approved it",
 })
-export class PayoutLimitToolInterceptor implements BeforeToolCall {
-  beforeToolCall(call: ToolCallContext): ToolCallDecision {
+export class PayoutLimitToolInterceptor {
+  beforeAnyTool(call: ToolCallContext): ToolCallDecision {
     const { input } = call;
     const amount =
       typeof input === "object" && input !== null && "amountCents" in input ? input.amountCents : 0;
     return typeof amount === "number" && amount > PAYOUT_LIMIT_CENTS
-      ? ToolCallDecision.block({ reason: `a payout above ${String(PAYOUT_LIMIT_CENTS)} cents` })
+      ? ToolCallDecision.block(`a payout above ${String(PAYOUT_LIMIT_CENTS)} cents`)
       : ToolCallDecision.allow();
   }
 }

@@ -1538,23 +1538,32 @@ export class SeenJobsRepository {
   `\n[result truncated: N bytes, the first M kept]` (`onToolEnd`'s `isResultTruncated`;
   `[tools.max-result-size-invalid]`).
 - **Tool interceptors (#384):** `@ToolInterceptor({ name, description, deps? })`
-  (`tool-interceptors/*.tool-interceptor.ts`, `-tool-interceptor`) — a class that implements
-  `BeforeToolCall`, `AfterToolCall` or both (neither does not compile,
-  `[tool-interceptor.missing-handler]`), listed in `toolInterceptors` of `@Application` →
+  (`tool-interceptors/*.tool-interceptor.ts`, `-tool-interceptor`) — a class with `@BeforeTool(Tool)`
+  / `@AfterTool(Tool)` methods (`@BeforeTool(A, B)`: one method for several tools, the union of their
+  inputs in, the intersection out) and / or plain `beforeAnyTool(call)` / `afterAnyTool(call)` (none:
+  `[tool-interceptor.missing-handler]`; a non-tool target `[tool-interceptor.target-not-a-tool]`, two
+  methods for one tool and phase `[tool-interceptor.duplicate-hook]`, a misspelt hook such as the 0.1.0
+  `beforeToolCall` `[tool-interceptor.unknown-hook]`), listed in `toolInterceptors` of `@Application` →
   `@Workflow` → `@Agent` → `@Tool` / `@McpTool` (lists add up, outer first; `excludeToolInterceptors`
   on an agent or a tool removes an inherited one, `[tool-interceptor.exclude-not-inherited]`,
-  `[tool-interceptor.not-an-interceptor]`). Runs in the tool call's frame (`step.callId`, its key and
-  signal), after the arguments' PII block rules: `beforeToolCall({ tool, input })` — arguments
-  revealed, not validated — outer first, `ToolCallDecision.allow()` / `.replyToModel({ message })`
-  (the tool is not called, the model reads `message` as its result, bounded and masked, the step
-  goes on) / `.block({ reason })` (the step fails with `ToolBlockedError`, `step.tool-blocked`, a
-  `StepFailedError`: `agent`, `tool`, `interceptor`, `reason`); `afterToolCall({ tool, input,
-output })` on a successful result, inner first, each output validated against the tool's output —
-  then `maxResultSize` and PII masking. One that throws, decides nothing or gives a wrong output
+  `[tool-interceptor.not-an-interceptor]`; `@Workflow({ excludeToolInterceptors })` removes an
+  application-level one for the workflow). Runs in the tool call's frame (`step.callId`, its key and
+  signal), after the arguments' PII block rules: `beforeAnyTool({ tool, agent, callId, input })` —
+  arguments revealed, not validated; `ToolCall.typeOf(call)` is the tool class — then the tool's
+  `@BeforeTool` method (the validated input DTO; a call with invalid arguments skips it and goes the
+  tool's own way, a method taking no input runs before the validation), outer interceptor first,
+  `ToolCallDecision.allow()` / `.allow({ input })` (the arguments the tool gets instead, validated
+  against its input DTO again) / `.reply(message)` (the tool is not called, the model reads `message`
+  as its result, bounded and masked, the step goes on) / `.block(reason)` (the step fails with
+  `ToolBlockedError`, `step.tool-blocked`, a `StepFailedError`: `agent`, `tool`, `interceptor`,
+  `reason`); `ToolCallDecision<out TInput = never>`; the tool's `@AfterTool(Tool)` method (output,
+  input) and then `afterAnyTool({ tool, agent, callId, input, output })` on a successful result,
+  inner interceptor first, each output validated against the tool's output — then `maxResultSize`
+  and PII masking. One that throws, decides nothing or gives a wrong output
   fails the step (`AgentFailedError`, its error the `cause`). Never on answer tools, knowledge-base
   search tools or a tool called on its own. `agboss describe` prints `tool interceptors`, `--json`
   each agent's chains by tool, `configHash` covers them; `testToolInterceptor(I, options)` →
-  `beforeToolCall(Tool, input)` / `afterToolCall(Tool, input, output)` → `{ output, spend }`.
+  `beforeToolCall(Tool, input)` / `afterToolCall(Tool, input, output)` → `{ output, spend }` (a phase with no hook at all: `TestSetupError`).
 - **Channels (#267)** are found through the tools that name them (`@Tool({ channel })`), like
   services through `deps` — there is no `channelClasses`. A tool names a concrete `@Channel` (used as
   is: `TerminalUserChannel`, `AutoApproveChannel`, …) or a **role**: a project's abstract class
@@ -1598,7 +1607,7 @@ description, ask: AskDto, answer: AnswerDto, answerer, replyInterpreter?, maxVis
   correction that changes the call's shape (a new key at any depth, another kind of value, a list of another length)
   is not understood; every decision's `overrideArguments` pass the tool's input strictly (an unknown key at any depth is
   refused, never dropped) — a reply interpreter may change approved arguments within the call's DTO; put money limits
-  in a guardrail or the action (a tool interceptor's `beforeToolCall` sees the corrected call before the tool runs);
+  in a guardrail or the action (a tool interceptor's `@BeforeTool` / `beforeAnyTool` sees the corrected call before the tool runs);
   `PauseAnswerRecord.asked` keeps the call as asked beside the decision), one
   call per move (`parallel_tool_calls: false`), static `prompt` / `promptUrls`; for an approval
   role a decision model too — approve / refuse only, one `Decision.boolean("approved")`, P(yes) > 0.5,

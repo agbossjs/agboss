@@ -64,7 +64,7 @@ export interface EndedCall {
   readonly output?: ToolOutput<unknown>;
   /** The PII refusal of its arguments or its result (#120). */
   readonly refusal?: Error;
-  /** An interceptor's `replyToModel` message (#384): the tool never ran. */
+  /** An interceptor's `reply` message (#384): the tool never ran. */
   readonly replied?: string;
   /** How an interceptor stopped it (#384): the tool never ran. */
   readonly stop?: ToolCallStop;

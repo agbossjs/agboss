@@ -124,6 +124,11 @@ export interface WorkflowOptions<
    */
   readonly toolInterceptors?: readonly Class[];
   /**
+   * Application-level `@ToolInterceptor` classes removed for every agent of this workflow (#1295).
+   * Excluding one its application does not list is `[tool-interceptor.exclude-not-inherited]`.
+   */
+  readonly excludeToolInterceptors?: readonly Class[];
+  /**
    * The `@Compaction` of every agent and model router, over the application's (#120: one setting,
    * the lowest level that sets it wins; none anywhere → no summaries, the window only).
    */

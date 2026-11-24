@@ -77,7 +77,7 @@ const FIXTURES: Readonly<Record<ComponentDecoratorName, string>> = {
   ),
   ToolInterceptor: statefulClass(
     '@ToolInterceptor({ name: "audit-tool-interceptor", description: "d" })',
-    "beforeToolCall(): void",
+    "beforeAnyTool(): void",
   ),
   PiiPolicy: statefulClass(
     '@PiiPolicy({ name: "order-id-pii-policy", description: "d", action: PiiAction.mask() })',
@@ -206,6 +206,8 @@ const NOT_COMPONENTS: Readonly<Record<string, string>> = {
   S3Driver: "a driver factory (#1321): settings for a storage component, not a class",
   LocalDiskDriver: "a driver factory (#1321): settings for a storage component, not a class",
   InMemoryObjectDriver: "a driver factory (#1321): settings for a storage component, not a class",
+  BeforeTool: "a method decorator (of a @ToolInterceptor)",
+  AfterTool: "a method decorator (of a @ToolInterceptor)",
   EvalSuite: "an eval suite (#396): its cases and checks as metadata, never instantiated",
 };
 

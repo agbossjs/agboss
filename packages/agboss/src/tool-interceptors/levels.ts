@@ -16,6 +16,8 @@ import { toolInterceptorMetaOf } from "./decorator.js";
 export interface ToolInterceptorLevels {
   readonly application: readonly Class[];
   readonly workflow: readonly Class[];
+  /** `@Workflow({ excludeToolInterceptors })`: the application's classes removed for its agents. */
+  readonly workflowExcludes?: readonly Class[];
   readonly workflowName: string;
   readonly agents: readonly AgentMeta[];
 }
@@ -103,8 +105,13 @@ function toolsOf(agents: readonly AgentMeta[]): Map<string, { lists: ToolLists; 
 export function effectiveToolInterceptors(
   levels: ToolInterceptorLevels,
 ): EffectiveToolInterceptors {
-  const inherited = unique([...levels.application, ...levels.workflow]);
-  const violations = notInterceptors(inherited, levels.workflowName, "toolInterceptors");
+  const workflowExcludes = levels.workflowExcludes ?? [];
+  const listed = unique([...levels.application, ...levels.workflow]);
+  const inherited = kept(listed, workflowExcludes);
+  const violations = [
+    ...notInterceptors(listed, levels.workflowName, "toolInterceptors"),
+    ...notInherited(levels.workflowName, workflowExcludes, levels.application, "its application"),
+  ];
   const tools = toolsOf(levels.agents);
   for (const { lists, above } of tools.values()) {
     violations.push(...notInterceptors(lists.toolInterceptors, lists.name, "toolInterceptors"));
@@ -130,10 +137,10 @@ export function effectiveToolInterceptors(
     }
     byAgent.set(agent.name, perTool);
   }
-  const listed = [
-    ...inherited,
+  const everyListed = [
+    ...listed,
     ...levels.agents.flatMap((agent) => agent.toolInterceptors ?? []),
     ...[...tools.values()].flatMap(({ lists }) => lists.toolInterceptors),
   ];
-  return { byAgent, classes: unique(listed).filter(isInterceptor), violations };
+  return { byAgent, classes: unique(everyListed).filter(isInterceptor), violations };
 }

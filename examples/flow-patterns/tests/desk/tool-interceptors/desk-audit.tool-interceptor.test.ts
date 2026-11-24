@@ -16,12 +16,10 @@ describe("testToolInterceptor: the decision and the output, per tool", () => {
     const recent = await interceptor.beforeToolCall(OrderStatusTool, { orderId: "7" });
 
     expect(closure.output).toEqual(
-      ToolCallDecision.block({ reason: "accounts are closed by the back office only" }),
+      ToolCallDecision.block("accounts are closed by the back office only"),
     );
     expect(archived.output).toEqual(
-      ToolCallDecision.replyToModel({
-        message: "Order A-1 is archived: ask the customer for a recent one.",
-      }),
+      ToolCallDecision.reply("Order A-1 is archived: ask the customer for a recent one."),
     );
     expect(recent.output).toEqual(ToolCallDecision.allow());
   });

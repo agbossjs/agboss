@@ -85,9 +85,9 @@ function setup(remote?: object) {
     observer: undefined,
   };
   vi.mocked(runTool).mockResolvedValue({ kind: "ok", value: { ok: true } } as never);
-  vi.mocked(interceptedCall).mockImplementation(async (_chain, _tool, _args, run) => ({
+  vi.mocked(interceptedCall).mockImplementation(async (_chain, _tool, args, run) => ({
     kind: "ran" as const,
-    output: await run(),
+    output: await run(args),
   }));
   return makeToolNode(deps as never);
 }
