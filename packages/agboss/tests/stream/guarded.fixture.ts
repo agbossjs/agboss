@@ -15,6 +15,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  type GuardrailContent,
   type GuardrailHandler,
   type PiiRefusal,
 } from "../../src/index.js";
@@ -32,7 +33,7 @@ import { FlowJudge } from "./agents.fixture.js";
   refusal: "Refused.",
 })
 export class ForbiddenWordGuardrail implements GuardrailHandler {
-  check(text: string): GuardrailVerdict {
+  check({ text }: GuardrailContent): GuardrailVerdict {
     return text.includes("FORBIDDEN") ? GuardrailVerdict.blocked() : GuardrailVerdict.passed();
   }
 }

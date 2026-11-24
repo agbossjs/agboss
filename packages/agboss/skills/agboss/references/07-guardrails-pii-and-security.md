@@ -8,7 +8,7 @@ retry an answer are judges (`03-components-di-and-lifecycle.md`); guardrails onl
 | ------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
 | refuse a request before the model reads it                         | `@InputGuardrail` — a yes / no question; P(yes) ≥ `threshold` blocks              |
 | stop an answer before it leaves the agent                          | `@OutputGuardrail`                                                                |
-| block by a rule in code (a deny list, a regex), no model           | `decidedBy: DecidedBy.Code` + `implements GuardrailHandler` (`check(text)`)       |
+| block by a rule in code (a deny list, a regex), no model           | `decidedBy: DecidedBy.Code` + a class with `check(content)`                       |
 | hide contact, government, financial or credential data from models | a declarative `@PiiPolicy({ rules: [PiiKind….mask() / .tokenize() / .block()] })` |
 | hide your own identifiers (employee ids, case numbers)             | `@PiiPolicy({ action, deps })` + `implements PiiPolicyHandler` (`findMatches`)    |
 | mask one DTO or context field wherever it goes                     | `sensitive: PiiAction.tokenize()` on its decorator                                |
@@ -80,10 +80,11 @@ export class NoDiagnosisGuardrail {}
 ```
 
 A guardrail decided by code (#383) is the same component without a model: `decidedBy:
-DecidedBy.Code` and the class's `check(text)` (`implements GuardrailHandler`) returns
-`GuardrailVerdict.passed()` or `GuardrailVerdict.blocked()` — no `prompt`, `promptUrls`, `model` or
-`threshold` (they do not compile), no model call, cost 0. Its refusal is the decorator's text or the
-class's `refusal()` (`implements GuardrailHandler, GuardrailRefusal`), as for a model guardrail:
+DecidedBy.Code` and the class's `check(content)` (`GuardrailContent`: `text`, `files`, `component`, `side`) returns
+`GuardrailVerdict.passed()` or `GuardrailVerdict.blocked(refusal?)` — no `prompt`, `promptUrls`, `model` or
+`threshold` (they do not compile), no model call, cost 0. Its refusal is the one `blocked(refusal)` gives (per call, thread-safe: never stash it on the
+instance), else the decorator's text, else the class's `refusal(content)`; none of the three fails
+closed:
 
 ```ts file=src/clinic/services/blocklist.service.ts
 import { Injectable } from "@agboss/core";
@@ -103,7 +104,7 @@ import {
   GuardrailVerdict,
   OutputGuardrail,
   TenantContext,
-  type GuardrailHandler,
+  type GuardrailContent,
 } from "@agboss/core";
 import { BlocklistService } from "../../services/blocklist.service.js";
 
@@ -114,18 +115,20 @@ import { BlocklistService } from "../../services/blocklist.service.js";
   refusal: "The response contained restricted terms.",
   deps: [TenantContext, BlocklistService],
 })
-export class TenantBlocklistGuardrail implements GuardrailHandler {
+export class TenantBlocklistGuardrail {
   constructor(
     private readonly tenantContext: TenantContext,
     private readonly blocklistService: BlocklistService,
   ) {}
 
-  async check(text: string): Promise<GuardrailVerdict> {
+  async check({ text }: GuardrailContent): Promise<GuardrailVerdict> {
     const hasForbidden = await this.blocklistService.containsBlockedTerms(
       this.tenantContext.tenantId,
       text,
     );
-    return hasForbidden ? GuardrailVerdict.blocked() : GuardrailVerdict.passed();
+    return hasForbidden
+      ? GuardrailVerdict.blocked("The response contained restricted terms.")
+      : GuardrailVerdict.passed();
   }
 }
 ```
@@ -133,7 +136,7 @@ export class TenantBlocklistGuardrail implements GuardrailHandler {
 - **What it reads**: an input guardrail reads the visit's input message of an agent or a model
   router — **masked** by that element's PII policies — before the first model call (a resume never
   checks again); an output guardrail reads the agent's answer (its text or its answer's JSON,
-  masked) as it leaves the loop. A code guardrail's `check(text)` gets the same masked text — it
+  masked) as it leaves the loop. A code guardrail's `check(content)` gets the same masked text in `content.text` — it
   sees `<email:7f3a91>`, never the address; a rule on raw values belongs in a `@PiiPolicy`
   detector.
 - **Blocked** → the execution fails with `GuardrailBlockedError` (`guardrail.blocked`: `guard`,
@@ -485,7 +488,7 @@ it("a model reads a token, its answer gets the address back", async () => {
 });
 ```
 
-A code guardrail runs its `check(text)` on its own container — no `model` option (one is a
+A code guardrail runs its `check(content)` on its own container — no `model` option (one is a
 `TestSetupError`): `testGuardrail(TenantBlocklistGuardrail, { tenant: { tenantId: "acme" } })("…")`
 → `{ isBlocked: true, probability: 1, refusal }` or `{ isBlocked: false, probability: 0 }`; in
 `testWith(App)` it is not scripted (`mockLlm` of it names why) — `mockOf()` the services its `check`
@@ -497,23 +500,23 @@ asserts it. A key field (`piiKeyField`, `idempotencyKeyField`) or a policy's `ps
 
 ## Rule codes
 
-| Code                                                                | Cause → fix                                                                                       |
-| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `[guardrail.no-model]`                                              | no `model` and no `defaults.guardrail.model` → set one (the router's is not used)                 |
-| `[guardrail.missing-refusal]` / `[guardrail.refusal-twice]`         | neither / both a `refusal` text and a `refusal()` method → exactly one                            |
-| `[guardrail.no-prompt]`                                             | no question → `prompt` or `promptUrls`                                                            |
-| `[guardrail.missing-handler]`                                       | `DecidedBy.Code` without `check(text)` → `implements GuardrailHandler`                            |
-| `[guardrail.threshold-invalid]`                                     | `threshold` outside (0, 1] → e.g. `0.8`                                                           |
-| `[guardrail.output-on-router]`                                      | an `@OutputGuardrail` on a router → on the agents                                                 |
-| `[guardrail.no-model-call]`                                         | guardrails on a code router → remove them (it calls no model)                                     |
-| `[guardrail.exclude-not-inherited]` / `[pii.exclude-not-inherited]` | excluding what the element does not inherit → remove the exclude                                  |
-| `[guardrail.not-a-guardrail]` / `[pii.not-a-policy]`                | a class without the decorator in a list → decorate it                                             |
-| `[pii.conflicting-rules]`                                           | two policies give one kind different actions → one action per kind                                |
-| `[pii.duplicate-target]`                                            | one policy names a kind or a group in two rules → one rule per target                             |
-| `[pii.missing-refusal]` / `[pii.unused-refusal]`                    | `block()` without `refusal(kind)` / a `refusal` nobody uses                                       |
-| `[pii.kind-needs-model]`                                            | a kind without a format and no `detectWithModel` → add it, or drop the kind                       |
-| `[pii.original-file]` / `[pii.redacted-needs-kinds]`                | `FileView.Original` under a masking policy / `Redacted` under your own detector → see Files above |
-| `[application.pii-instance-key]`                                    | tokens without an application key (a warning) → `@Application({ piiKeyField })`                   |
+| Code                                                                | Cause → fix                                                                                               |
+| ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `[guardrail.no-model]`                                              | no `model` and no `defaults.guardrail.model` → set one (the router's is not used)                         |
+| `[guardrail.missing-refusal]` / `[guardrail.refusal-twice]`         | a model guardrail with neither / any guardrail with both a `refusal` text and a `refusal(content)` method |
+| `[guardrail.no-prompt]`                                             | no question → `prompt` or `promptUrls`                                                                    |
+| `[guardrail.missing-handler]`                                       | `DecidedBy.Code` without `check(content)`                                                                 |
+| `[guardrail.threshold-invalid]`                                     | `threshold` outside (0, 1] → e.g. `0.8`                                                                   |
+| `[guardrail.output-on-router]`                                      | an `@OutputGuardrail` on a router → on the agents                                                         |
+| `[guardrail.no-model-call]`                                         | guardrails on a code router → remove them (it calls no model)                                             |
+| `[guardrail.exclude-not-inherited]` / `[pii.exclude-not-inherited]` | excluding what the element does not inherit → remove the exclude                                          |
+| `[guardrail.not-a-guardrail]` / `[pii.not-a-policy]`                | a class without the decorator in a list → decorate it                                                     |
+| `[pii.conflicting-rules]`                                           | two policies give one kind different actions → one action per kind                                        |
+| `[pii.duplicate-target]`                                            | one policy names a kind or a group in two rules → one rule per target                                     |
+| `[pii.missing-refusal]` / `[pii.unused-refusal]`                    | `block()` without `refusal(kind)` / a `refusal` nobody uses                                               |
+| `[pii.kind-needs-model]`                                            | a kind without a format and no `detectWithModel` → add it, or drop the kind                               |
+| `[pii.original-file]` / `[pii.redacted-needs-kinds]`                | `FileView.Original` under a masking policy / `Redacted` under your own detector → see Files above         |
+| `[application.pii-instance-key]`                                    | tokens without an application key (a warning) → `@Application({ piiKeyField })`                           |
 
 ## Pitfalls
 

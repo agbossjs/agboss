@@ -1,4 +1,4 @@
-import { type Usd } from "../units/index.js";
+import { type Bytes, type Usd } from "../units/index.js";
 import type { CompensationRecord } from "../flow/compensation.js";
 import type { GuardrailSide } from "../components/policy-decorators.js";
 import type { BaseMessage, MessageContent } from "@langchain/core/messages";
@@ -80,14 +80,14 @@ export interface GuardrailInput {
   readonly element: string;
   readonly text: string;
   /** The files it checks with the text (#899 §9): what they are, never their bytes. */
-  readonly files?: readonly GuardedFileShown[];
+  readonly files?: readonly FileSummary[];
 }
 
 /** A file a guardrail checks, as observers see it: its media type, name, size and digest. */
-export interface GuardedFileShown {
+export interface FileSummary {
   readonly mediaType: string;
   readonly filename?: string;
-  readonly sizeBytes: number;
+  readonly sizeBytes: Bytes;
   readonly sha256: string;
 }
 export type GuardrailStartEvent = StartEvent<GuardrailInput>;

@@ -1720,25 +1720,6 @@ export interface CodeChannelInterpreterOptions<TDeps extends readonly Token[] = 
 }
 
 // @public
-export interface CodeGuardrailComputedOptions<D extends readonly Token[] = readonly Token[]> {
-    // (undocumented)
-    readonly decidedBy: DecidedBy.Code;
-    readonly deps?: D;
-    // (undocumented)
-    readonly description?: string;
-    // (undocumented)
-    readonly model?: never;
-    readonly name?: string;
-    // (undocumented)
-    readonly prompt?: never;
-    // (undocumented)
-    readonly promptUrls?: never;
-    readonly refusal?: never;
-    // (undocumented)
-    readonly threshold?: never;
-}
-
-// @public
 export interface CodeGuardrailTextOptions<D extends readonly Token[] = readonly Token[]> {
     // (undocumented)
     readonly decidedBy: DecidedBy.Code;
@@ -1752,7 +1733,7 @@ export interface CodeGuardrailTextOptions<D extends readonly Token[] = readonly 
     readonly prompt?: never;
     // (undocumented)
     readonly promptUrls?: never;
-    readonly refusal: string;
+    readonly refusal?: string;
     // (undocumented)
     readonly threshold?: never;
 }
@@ -4154,6 +4135,18 @@ export enum FileSource {
 }
 
 // @public
+export interface FileSummary {
+    // (undocumented)
+    readonly filename?: string;
+    // (undocumented)
+    readonly mediaType: string;
+    // (undocumented)
+    readonly sha256: string;
+    // (undocumented)
+    readonly sizeBytes: Bytes;
+}
+
+// @public
 export interface FileToSave {
     // (undocumented)
     readonly bytes: Uint8Array;
@@ -4424,18 +4417,6 @@ export interface GroupStart extends Transitions<GroupHead> {
 }
 
 // @public
-export interface GuardedFileShown {
-    // (undocumented)
-    readonly filename?: string;
-    // (undocumented)
-    readonly mediaType: string;
-    // (undocumented)
-    readonly sha256: string;
-    // (undocumented)
-    readonly sizeBytes: number;
-}
-
-// @public
 export class GuardFailedError extends StepFailedError {
     constructor(options: GuardFailedErrorOptions);
     // (undocumented)
@@ -4509,8 +4490,10 @@ export interface GuardrailComputedOptions<D extends readonly Token[] = readonly 
 
 // @public
 export interface GuardrailContent {
+    readonly component: string;
     // (undocumented)
     readonly files: readonly FileContent[];
+    readonly side: GuardrailSide;
     // (undocumented)
     readonly text: string;
 }
@@ -4571,15 +4554,14 @@ export enum GuardrailErrorKind {
 
 // @public
 export interface GuardrailHandler {
-    readonly check: (text: string) => Promise<GuardrailVerdict> | GuardrailVerdict;
-    readonly checkContent?: (content: GuardrailContent) => Promise<GuardrailVerdict> | GuardrailVerdict;
+    readonly check: (content: GuardrailContent) => Promise<GuardrailVerdict> | GuardrailVerdict;
 }
 
 // @public
 export interface GuardrailInput {
     // (undocumented)
     readonly element: string;
-    readonly files?: readonly GuardedFileShown[];
+    readonly files?: readonly FileSummary[];
     // (undocumented)
     readonly side: GuardrailSide;
     // (undocumented)
@@ -4596,8 +4578,7 @@ export interface GuardrailOutcome {
 
 // @public
 export interface GuardrailRefusal {
-    // (undocumented)
-    readonly refusal: () => string | Promise<string>;
+    readonly refusal: (content: GuardrailContent) => string | Promise<string>;
 }
 
 // @public
@@ -4628,9 +4609,10 @@ export interface GuardrailTextOptions<D extends readonly Token[] = readonly Toke
 
 // @public
 export class GuardrailVerdict {
-    static blocked(): GuardrailVerdict;
+    static blocked(refusal?: string): GuardrailVerdict;
     readonly isBlocked: boolean;
     static passed(): GuardrailVerdict;
+    readonly refusal?: string;
 }
 
 // @public
@@ -5085,9 +5067,6 @@ export function InputGuardrail<const D extends readonly Token[] = []>(options: G
 
 // @public
 export function InputGuardrail<const D extends readonly Token[] = []>(options: CodeGuardrailTextOptions<D>): GuardrailDecorator<D, GuardrailHandler>;
-
-// @public
-export function InputGuardrail<const D extends readonly Token[] = []>(options: CodeGuardrailComputedOptions<D>): GuardrailDecorator<D, GuardrailHandler & GuardrailRefusal>;
 
 // @public
 export type InputOf<TInstance> = GeneratedEntry<AGBossTypes.Inputs, TInstance>;
@@ -7115,9 +7094,6 @@ export function OutputGuardrail<const D extends readonly Token[] = []>(options: 
 
 // @public
 export function OutputGuardrail<const D extends readonly Token[] = []>(options: CodeGuardrailTextOptions<D>): GuardrailDecorator<D, GuardrailHandler>;
-
-// @public
-export function OutputGuardrail<const D extends readonly Token[] = []>(options: CodeGuardrailComputedOptions<D>): GuardrailDecorator<D, GuardrailHandler & GuardrailRefusal>;
 
 // @public
 export class OutputInvalidError extends AGBossError {
@@ -11386,18 +11362,11 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/components/name-of.ts - (ae-undocumented) Missing documentation for "nameOf".
 // src/components/policy-decorators.ts - (ae-undocumented) Missing documentation for "Input".
 // src/components/policy-decorators.ts - (ae-undocumented) Missing documentation for "Output".
-// src/components/policy-decorators.ts - (ae-undocumented) Missing documentation for "refusal".
 // src/components/policy-decorators.ts - (ae-undocumented) Missing documentation for "description".
 // src/components/policy-decorators.ts - (ae-undocumented) Missing documentation for "promptUrls".
 // src/components/policy-decorators.ts - (ae-undocumented) Missing documentation for "description".
 // src/components/policy-decorators.ts - (ae-undocumented) Missing documentation for "promptUrls".
 // src/components/policy-decorators.ts - (ae-undocumented) Missing documentation for "refusal".
-// src/components/policy-decorators.ts - (ae-undocumented) Missing documentation for "description".
-// src/components/policy-decorators.ts - (ae-undocumented) Missing documentation for "decidedBy".
-// src/components/policy-decorators.ts - (ae-undocumented) Missing documentation for "prompt".
-// src/components/policy-decorators.ts - (ae-undocumented) Missing documentation for "promptUrls".
-// src/components/policy-decorators.ts - (ae-undocumented) Missing documentation for "model".
-// src/components/policy-decorators.ts - (ae-undocumented) Missing documentation for "threshold".
 // src/components/policy-decorators.ts - (ae-undocumented) Missing documentation for "description".
 // src/components/policy-decorators.ts - (ae-undocumented) Missing documentation for "decidedBy".
 // src/components/policy-decorators.ts - (ae-undocumented) Missing documentation for "prompt".

@@ -11,7 +11,9 @@ import { routerModelOf } from "../../graph/router-model.js";
 import { throwIfViolated } from "../../graph/rule-error.js";
 import { loadedGuardrailOf, type LoadedGuardrail } from "../../guardrails/assembly.js";
 import { guardrailViolations } from "../../guardrails/checks.js";
+import { contentOf } from "../../guardrails/code-guardrail.js";
 import { checkGuardrail, runtimeGuardrailOf } from "../../guardrails/runtime.js";
+import { GuardFailedError } from "../../graph/errors.js";
 import type { UsageRecord } from "../../finops/usage.js";
 import { TestSetupError } from "../errors.js";
 import { guardrailKeyOf } from "../scripted-gateway.js";
@@ -117,11 +119,15 @@ export function testGuardrail<
       const outcome = await checkGuardrail(runtime, checked, used, undefined);
       spent.push(...used);
       if (!outcome.isBlocked) return { isBlocked: false, probability: outcome.probability };
-      return {
-        isBlocked: true,
-        probability: outcome.probability,
-        refusal: await runtime.refusal(),
-      };
+      const refusal = outcome.refusal ?? (await runtime.refusal(contentOf(checked)));
+      if (refusal === undefined)
+        throw new GuardFailedError({
+          guard: name,
+          usage: used,
+          reason:
+            "blocked with no refusal — give blocked(refusal), the decorator { refusal } or a refusal(content) method",
+        });
+      return { isBlocked: true, probability: outcome.probability, refusal };
     });
   };
   return Object.assign(run, { clock: site.clock });

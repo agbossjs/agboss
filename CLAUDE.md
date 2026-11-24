@@ -2055,8 +2055,7 @@ export class OrderAgent {}
   element's PII policies (S84 i) — before the model is called (an agent's in its loop's input node:
   a resume never checks again); an output guardrail reads an agent's answer (its text or its
   answer's JSON, masked) as it leaves the loop. A model that does not answer fails closed
-  (`GuardFailedError`). The refusal is the decorator's text or the class's `refusal()` (`implements
-GuardrailRefusal`, its services and the execution through `deps`) — never both
+  (`GuardFailedError`). The refusal is the decorator's text or the class's `refusal(content)` (`GuardrailRefusal`, its services and the execution through `deps`) — never both
   (`[guardrail.refusal-twice]`), never neither (a compile error through the decorator's overloads,
   `[guardrail.missing-refusal]` at assembly); also `[guardrail.no-prompt]`,
   `[guardrail.threshold-invalid]`. Listed in `guardrails` of `@Application` → `@Workflow` →
@@ -2069,9 +2068,9 @@ GuardrailRefusal`, its services and the execution through `deps`) — never both
   `mockLlm(G).thenReturn(decideWith({ blocks: 0.9 }))` — unscripted, a guardrail passes. **Code
   guardrails (#383):** `decidedBy: DecidedBy.Code` (absent = `DecidedBy.Model`; options
   discriminated — `prompt` / `promptUrls` / `model` / `threshold` do not compile) decides by the
-  class's `check(text)` (`implements GuardrailHandler`) on the same masked text, returning
-  `GuardrailVerdict.passed()` / `.blocked()` (nominal: a plain object does not compile) — no model
-  call, cost 0, the same refusal (text or `refusal()`), `GuardrailBlockedError` (`probability` 1,
+  class's `check(content)` (`GuardrailContent`: masked `text` with the text of text files appended, `files` — `[]` when none —, `component`, `side`) returning
+  `GuardrailVerdict.passed()` / `.blocked(refusal?)` (the refusal of this call, thread-safe; else the decorator's text, else `refusal(content)`, else it fails closed) (nominal: a plain object does not compile) — no model
+  call, cost 0, the same refusal (text or `refusal(content)`), `GuardrailBlockedError` (`probability` 1,
   `threshold` 1), levels, `excludeGuardrails` and events (a pass `probability` 0); a `check` that
   throws or returns no verdict fails closed (`GuardFailedError`, its error the `cause`);
   `[guardrail.missing-handler]` without `check`; `agboss describe` prints `decidedBy: code`;

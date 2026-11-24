@@ -77,13 +77,13 @@ and both (a text and a `refusal()` method) is `[guardrail.refusal-twice]`.
 
 `decidedBy` names who decides, as on `@Router`, `@Arbiter` and `@ReplyInterpreter` (#383):
 `DecidedBy.Model` — the default when absent, so every guardrail above is one — or `DecidedBy.Code`,
-the class's `check(text)` (`implements GuardrailHandler`), which returns `GuardrailVerdict.passed()`
-or `GuardrailVerdict.blocked()` (the only way to build a verdict: a plain `{ isBlocked }` does not
+the class's `check(content)` (`GuardrailContent`: `text`, `files`, `component`, `side`), which returns
+`GuardrailVerdict.passed()` or `GuardrailVerdict.blocked(refusal?)` (the only way to build a verdict: a plain `{ isBlocked }` does not
 compile). The options are discriminated by it: a code guardrail takes no `prompt`, `promptUrls`,
 `model` or `threshold` (they do not compile) and needs no `defaults.guardrail.model`.
 
 <!-- snippet-context
-import { DecidedBy, GuardrailVerdict, Injectable, OutputGuardrail, TenantContext, type GuardrailHandler } from "@agboss/core";
+import { DecidedBy, GuardrailVerdict, Injectable, OutputGuardrail, TenantContext, type GuardrailContent } from "@agboss/core";
 @Injectable()
 export class BlocklistService {
   containsBlockedTerms(tenantId: string, text: string): Promise<boolean> {
@@ -101,24 +101,28 @@ export class BlocklistService {
   refusal: "The response contained restricted terms.",
   deps: [TenantContext, BlocklistService],
 })
-export class TenantBlocklistGuardrail implements GuardrailHandler {
+export class TenantBlocklistGuardrail {
   constructor(
     private readonly tenantContext: TenantContext,
     private readonly blocklistService: BlocklistService,
   ) {}
 
-  async check(text: string): Promise<GuardrailVerdict> {
+  async check({ text }: GuardrailContent): Promise<GuardrailVerdict> {
     const hasForbidden = await this.blocklistService.containsBlockedTerms(
       this.tenantContext.tenantId,
       text,
     );
-    return hasForbidden ? GuardrailVerdict.blocked() : GuardrailVerdict.passed();
+    return hasForbidden
+      ? GuardrailVerdict.blocked("The response contained restricted terms.")
+      : GuardrailVerdict.passed();
   }
 }
 ```
 
-Everything else is a model guardrail's: the refusal is the decorator's text or the class's
-`refusal()` (`implements GuardrailHandler, GuardrailRefusal`; one of them, the same rules); `check`
+Everything else is a model guardrail's: the refusal of a block is the one `blocked(refusal)` gives (it
+lives on that call's verdict, never on the shared instance — no `this.lastReason`), else the decorator's
+text, else the class's `refusal(content)`; a `blocked()` with none of the three fails closed
+(`GuardFailedError`). `check`
 reads the same text a model guardrail's model reads — **masked** (`<email:7f3a91>`, never the
 address) —, in the step's frame (its services and the execution through `deps`); the levels and
 `excludeGuardrails` are the same, and so are the placement rules (a model router takes the input
@@ -244,9 +248,9 @@ An agent with `files: ModelFiles.of({ … })` has its files checked like its tex
 
 - An input guardrail checks the content and, with `guardToolResultFiles` (default true), the files of each
   tool result, in the views the agent's model got. A model guardrail reads them as parts (a decision model:
-  png, jpeg, webp and text); never base64 as text. A code guardrail's optional
-  `checkContent(content: GuardrailContent)` gets the text and the files (`FileContent[]`) and is called
-  instead of `check` when there are files; without it `check(text)` gets the text and the text of the files.
+  png, jpeg, webp and text); never base64 as text. A code guardrail's
+  `check(content: GuardrailContent)` gets `content.files` (`FileContent[]`, `[]` when there are none) and
+  `content.text`, which carries the text of the files that are text (a transcription, a CSV).
 - A block on a tool result's files rejects that call only (the model reads the refusal as the result); a
   guardrail that cannot decide fails the step. Each decision lands in the step's `guardrailDecisions`.
 - Output guardrails check the answer's files in the views the model saw.

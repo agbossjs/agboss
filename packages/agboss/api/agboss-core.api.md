@@ -225,7 +225,7 @@ export type GuardrailEndEvent = EndEvent<GuardrailOutcome>;
 export interface GuardrailInput {
     // (undocumented)
     readonly element: string;
-    readonly files?: readonly GuardedFileShown[];
+    readonly files?: readonly FileSummary[];
     // (undocumented)
     readonly side: GuardrailSide;
     // (undocumented)

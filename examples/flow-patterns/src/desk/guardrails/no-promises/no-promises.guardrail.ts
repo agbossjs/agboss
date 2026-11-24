@@ -1,4 +1,4 @@
-import { DecidedBy, GuardrailVerdict, OutputGuardrail, type GuardrailHandler } from "@agboss/core";
+import { DecidedBy, GuardrailVerdict, OutputGuardrail, type GuardrailContent } from "@agboss/core";
 
 /** Blocks an answer that promises what the desk cannot (#383: by code, on the answer). */
 @OutputGuardrail({
@@ -7,8 +7,8 @@ import { DecidedBy, GuardrailVerdict, OutputGuardrail, type GuardrailHandler } f
   decidedBy: DecidedBy.Code,
   refusal: "We will follow up with a confirmed delivery date.",
 })
-export class NoPromisesGuardrail implements GuardrailHandler {
-  check(text: string): GuardrailVerdict {
+export class NoPromisesGuardrail {
+  check({ text }: GuardrailContent): GuardrailVerdict {
     return /\bguarantee/iu.test(text) ? GuardrailVerdict.blocked() : GuardrailVerdict.passed();
   }
 }

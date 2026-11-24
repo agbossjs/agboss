@@ -1,13 +1,17 @@
 import type { Class } from "../components/injection.js";
-import { isGuardrailVerdict, type GuardrailHandler } from "../components/guardrail-handler.js";
-import type { GuardrailOutcome } from "../core/observability.js";
+import {
+  isGuardrailVerdict,
+  type GuardrailContent,
+  type GuardrailHandler,
+} from "../components/guardrail-handler.js";
+import type { GuardrailDecided } from "./runtime.js";
 import { GuardFailedError } from "../graph/errors.js";
 import type { LoadedCodeGuardrail } from "./assembly.js";
 import { textOfGuarded, type GuardedText } from "./guarded-text.js";
 import type { GuardrailDecision } from "./runtime.js";
 
 /**
- * A code guardrail at run time (#383): its class's `check(text)` (or `checkContent` with files) on the text the guarded model reads
+ * A code guardrail at run time (#383): its class's `check(content)` on what the guarded model reads
  * (masked), in the step's frame — no model call, no spend. Its verdict is certain: blocked is
  * `probability` 1, passed 0, so its hit meets the fixed threshold `CODE_GUARDRAIL_THRESHOLD`. A
  * `check` that throws, or returns anything but a `GuardrailVerdict`, fails closed
@@ -17,8 +21,8 @@ import type { GuardrailDecision } from "./runtime.js";
 /** The threshold a code guardrail's verdict is measured against: blocked is P(yes) = 1. */
 export const CODE_GUARDRAIL_THRESHOLD = 1;
 
-const BLOCKED: GuardrailOutcome = Object.freeze({ isBlocked: true, probability: 1 });
-const PASSED: GuardrailOutcome = Object.freeze({ isBlocked: false, probability: 0 });
+const BLOCKED: GuardrailDecided = Object.freeze({ isBlocked: true, probability: 1 });
+const PASSED: GuardrailDecided = Object.freeze({ isBlocked: false, probability: 0 });
 
 const isHandler = (value: unknown): value is GuardrailHandler =>
   typeof value === "object" &&
@@ -30,16 +34,16 @@ const messageOf = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
 /**
- * What the class is asked: with files, `checkContent` when it has one (the files as they are), else `check`
- * on the text and the text of the files; without files, `check(text)` as ever.
+ * What the class is asked (#1289): one content — the masked text with the text of the files that are
+ * text appended to it (a transcription, a CSV: no coverage is lost), and every file as it is; `files`
+ * is `[]` when the model reads none.
  */
-function verdictOf(instance: GuardrailHandler, checked: GuardedText): unknown {
-  const files = checked.files ?? [];
-  if (files.length === 0) return instance.check(checked.text);
-  if (instance.checkContent !== undefined)
-    return instance.checkContent({ text: checked.text, files: files.map((file) => file.content) });
-  return instance.check(textOfGuarded(checked));
-}
+export const contentOf = (checked: GuardedText): GuardrailContent => ({
+  text: (checked.files ?? []).length === 0 ? checked.text : textOfGuarded(checked),
+  files: (checked.files ?? []).map((file) => file.content),
+  component: checked.element,
+  side: checked.side,
+});
 
 /** A code guardrail's decision on one text: the instance's verdict as an outcome. */
 export function codeGuardrailDecision(
@@ -52,11 +56,11 @@ export function codeGuardrailDecision(
       throw new GuardFailedError({
         guard: guardrail.name,
         usage: [...spent],
-        reason: "its class has no check(text)",
+        reason: "its class has no check(content)",
       });
     let verdict: unknown;
     try {
-      verdict = await verdictOf(instance, checked);
+      verdict = await instance.check(contentOf(checked));
     } catch (error: unknown) {
       throw new GuardFailedError({
         guard: guardrail.name,
@@ -70,8 +74,9 @@ export function codeGuardrailDecision(
         guard: guardrail.name,
         usage: [...spent],
         reason:
-          "check(text) returned no GuardrailVerdict — return GuardrailVerdict.passed() or .blocked()",
+          "check(content) returned no GuardrailVerdict — return GuardrailVerdict.passed() or .blocked()",
       });
-    return verdict.isBlocked ? BLOCKED : PASSED;
+    if (!verdict.isBlocked) return PASSED;
+    return verdict.refusal === undefined ? BLOCKED : { ...BLOCKED, refusal: verdict.refusal };
   };
 }

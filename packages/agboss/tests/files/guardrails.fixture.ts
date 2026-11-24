@@ -43,7 +43,7 @@ export class AnswerFilesGuardrail {}
 /** What a code guardrail was given, kept for the test to read. */
 export const given: { texts: string[]; contents: GuardrailContent[] } = { texts: [], contents: [] };
 
-/** A code guardrail with `check(text)` only: it reads the text, and what of the files is text. */
+/** A code guardrail that reads `content.text` only: the text, and what of the files is text. */
 @InputGuardrail({
   name: "text-only-guardrail",
   description: "Blocks the word FORBIDDEN",
@@ -51,13 +51,13 @@ export const given: { texts: string[]; contents: GuardrailContent[] } = { texts:
   refusal: "Forbidden word.",
 })
 export class TextOnlyGuardrail {
-  check(text: string): GuardrailVerdict {
+  check({ text }: GuardrailContent): GuardrailVerdict {
     given.texts.push(text);
     return text.includes("FORBIDDEN") ? GuardrailVerdict.blocked() : GuardrailVerdict.passed();
   }
 }
 
-/** A code guardrail with `checkContent`: it reads the files themselves. */
+/** A code guardrail that reads the files themselves. */
 @InputGuardrail({
   name: "content-guardrail",
   description: "Blocks a file whose bytes hold the word FORBIDDEN",
@@ -65,11 +65,7 @@ export class TextOnlyGuardrail {
   refusal: "Forbidden file.",
 })
 export class ContentGuardrail {
-  check(): GuardrailVerdict {
-    return GuardrailVerdict.passed();
-  }
-
-  checkContent(content: GuardrailContent): GuardrailVerdict {
+  check(content: GuardrailContent): GuardrailVerdict {
     given.contents.push(content);
     const isForbidden = content.files.some((file) =>
       Buffer.from(file.bytes).toString("latin1").includes("FORBIDDEN"),

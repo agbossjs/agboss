@@ -58,7 +58,7 @@ class TwiceCodeGuardrail implements GuardrailHandler, GuardrailRefusal {
 }
 
 describe("#383: a code guardrail's own rules", () => {
-  it("[guardrail.missing-handler]: a code guardrail's class has its check(text)", () => {
+  it("[guardrail.missing-handler]: a code guardrail's class has its check(content)", () => {
     expect(codesOf([NoCheckGuardrail])).toEqual(["guardrail.missing-handler"]);
   });
 
@@ -70,7 +70,7 @@ describe("#383: a code guardrail's own rules", () => {
     expect(codesOf([TwiceCodeGuardrail])).toEqual(["guardrail.refusal-twice"]);
   });
 
-  it("a code guardrail's model options, a missing refusal or check do not compile", () => {
+  it("a code guardrail's model options do not compile", () => {
     const code = {
       name: "a-guardrail",
       description: "a",
@@ -86,7 +86,7 @@ describe("#383: a code guardrail's own rules", () => {
     // @ts-expect-error -- DecidedBy.Code takes no promptUrls
     OutputGuardrail({ ...code, promptUrls: ["./d.md"] });
 
-    // @ts-expect-error -- no refusal in the decorator: the class implements GuardrailRefusal too
+    // no refusal in the decorator is fine: blocked(refusal) or refusal(content) gives it (#1289)
     @InputGuardrail({ name: "f-guardrail", description: "f", decidedBy: DecidedBy.Code })
     class NoRefusal implements GuardrailHandler {
       check(): GuardrailVerdict {

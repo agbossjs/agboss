@@ -1312,6 +1312,10 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/graph/nodes/knowledge.ts"],
   ),
   ...reviewed(
+    "a model guardrail's one yes / no decision, moved out of guardrails/runtime.ts (#1289): its spend goes into `spent` and the caller records it, a failed call fails closed - not mutated by a shard; covered by tests/sweep-1366h/guardrails/runtime-1366h.test.ts and tests/guardrails/runtime-spend.test.ts; the round-8 Stryker sweep of runtime.ts covered this code before the move",
+    ["src/guardrails/model-decision.ts"],
+  ),
+  ...reviewed(
     "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 125 mutants, 118 killed in the final run; the 38 that had lived in the first run each got a test (35), an equivalence reason (3) or was classed message text (0); covered by tests/sweep-1366h/guardrails/runtime-1366h.test.ts, tests/guardrails/run.test.ts, tests/guardrails/code-run.test.ts; survivors listed in the #1366 round-8 notes",
     ["src/guardrails/runtime.ts"],
   ),

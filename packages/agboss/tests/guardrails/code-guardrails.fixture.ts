@@ -20,6 +20,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type GuardrailEndEvent,
+  type GuardrailContent,
   type GuardrailHandler,
   type GuardrailRefusal,
   type GuardrailStartEvent,
@@ -65,7 +66,7 @@ export class TenantBlocklistGuardrail implements GuardrailHandler {
     private readonly blocklistService: BlocklistService,
   ) {}
 
-  async check(text: string): Promise<GuardrailVerdict> {
+  async check({ text }: GuardrailContent): Promise<GuardrailVerdict> {
     const hasForbidden = await this.blocklistService.containsBlockedTerms(
       this.shopTenantContext.shop,
       text,
@@ -84,7 +85,7 @@ export class TenantBlocklistGuardrail implements GuardrailHandler {
 export class CardNumberGuardrail implements GuardrailHandler, GuardrailRefusal {
   constructor(private readonly shopExecutionContext: ShopExecutionContext) {}
 
-  check(text: string): GuardrailVerdict {
+  check({ text }: GuardrailContent): GuardrailVerdict {
     return /\d{4} ?\d{4} ?\d{4} ?\d{4}/.test(text)
       ? GuardrailVerdict.blocked()
       : GuardrailVerdict.passed();

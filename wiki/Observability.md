@@ -635,5 +635,5 @@ there):
 
 A file in a model request, an event, a trace, the record or a cassette is shown as `{ kind, mediaType,
 filename?, sizeBytes, sha256 }` — a content part's bytes and an `FileDto`'s `inline` never leave as text.
-An input guardrail's event lists the files it checked the same way (`GuardedFileShown`). See [Files for
+An input guardrail's event lists the files it checked the same way (`FileSummary`). See [Files for
 models](Files-for-models).

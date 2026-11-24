@@ -133,7 +133,12 @@ describe("#1366: how a model guardrail asks", () => {
 describe("#1366: the refusal of a guardrail", () => {
   const refusalOf = (instance: unknown, refusal?: string) => {
     const { parts } = partsOf(YES, () => instance);
-    return runtimeGuardrailOf(modelGuardrail({ refusal }), parts).refusal();
+    return runtimeGuardrailOf(modelGuardrail({ refusal }), parts).refusal({
+      text: "",
+      files: [],
+      component: "writer-agent",
+      side: GuardrailSide.Input,
+    });
   };
 
   it("is its text when it has one", async () => {
@@ -153,8 +158,8 @@ describe("#1366: the refusal of a guardrail", () => {
     ["a text for an instance", "text"],
     ["an object without refusal", {}],
     ["a refusal that is no function", { refusal: "just text" }],
-  ])("is empty for %s", async (_name, instance) => {
-    expect(await refusalOf(instance)).toBe("");
+  ])("is none for %s: a block with no refusal fails closed (#1289)", async (_name, instance) => {
+    expect(await refusalOf(instance)).toBeUndefined();
   });
 });
 

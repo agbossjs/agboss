@@ -1,64 +1,50 @@
 import type { Class } from "../components/injection.js";
-import { GuardrailSide, type GuardrailRefusal } from "../components/policy-decorators.js";
+import { bytes } from "../units/index.js";
+import type { GuardrailRefusal } from "../components/policy-decorators.js";
 import type { RouterModel } from "../config/types.js";
 import type { GuardrailOutcome } from "../core/observability.js";
 import type { ExecutionObserverManager } from "../core/observer-manager.js";
 import type { UsageRecord } from "../finops/usage.js";
 import { GuardrailBlockedError } from "../flow/runtime/errors.js";
-import {
-  createYesNoDecider,
-  type DecisionVoice,
-  type LaunchDecider,
-  type LaunchDeciderDeps,
-} from "../flow/runtime/launch/launch-decider.js";
+import type { LaunchDeciderDeps } from "../flow/runtime/launch/launch-decider.js";
 import { reportNodeEvent } from "../flow/observers/execution-event.js";
 import { GuardFailedError } from "../graph/errors.js";
-import {
-  GUARDRAIL_ANSWER_DESCRIPTION,
-  GUARDRAIL_ANSWER_TOOL,
-  GUARDRAIL_INSTRUCTIONS,
-  GUARDRAIL_QUESTION,
-  GUARDRAIL_SYSTEM,
-  guardrailInputHeading,
-  guardrailOutputHeading,
-} from "../prompts/guardrail.js";
-import {
-  isModelGuardrail,
-  type AssembledGuardrails,
-  type LoadedGuardrail,
-  type LoadedModelGuardrail,
-} from "./assembly.js";
-import { piecesOfGuarded, type GuardedText } from "./guarded-text.js";
-import { CODE_GUARDRAIL_THRESHOLD, codeGuardrailDecision } from "./code-guardrail.js";
+import { isModelGuardrail, type AssembledGuardrails, type LoadedGuardrail } from "./assembly.js";
+import type { GuardedText } from "./guarded-text.js";
+import { CODE_GUARDRAIL_THRESHOLD, codeGuardrailDecision, contentOf } from "./code-guardrail.js";
+import type { GuardrailContent } from "../components/guardrail-handler.js";
 import { guardrailDecisionOf, type GuardrailDecisionRecord } from "../flow/runtime/step-records.js";
 import { carryRecords } from "../flow/runtime/carried-records.js";
+import { modelDecisionOf } from "./model-decision.js";
 
 /**
  * Guardrails at run time (#120): each one a yes / no decision on its own model — a decision model
  * (one `Decision.boolean`) or a chat model (one answer tool) — under the cost caller
  * `guardrail:<name>`, its `prompt` the question. Run in list order on the text; the first whose
  * P(yes) reaches its threshold fails the execution with `GuardrailBlockedError`, its refusal (the
- * decorator's text, or the class's `refusal()`) the text to send instead. A model that does not
+ * verdict's text, the decorator's text, or the class's `refusal(content)`) the text to send instead. A model that does not
  * answer fails closed (`GuardFailedError`): nothing passes unchecked. A code guardrail (#383)
- * decides by its class's `check(text)` instead — no model call, no spend (`code-guardrail.ts`).
+ * decides by its class's `check(content)` instead — no model call, no spend (`code-guardrail.ts`).
  */
 
-const headingOf = (checked: GuardedText): string =>
-  checked.side === GuardrailSide.Input
-    ? guardrailInputHeading(checked.element)
-    : guardrailOutputHeading(checked.element);
+/**
+ * What a guardrail decided on one text: its outcome, and — a code guardrail's `blocked(refusal)` —
+ * the refusal of this call. The refusal is the call's own, never read from the shared instance.
+ */
+export type GuardrailDecided = GuardrailOutcome & { readonly refusal?: string };
 
 /** How one guardrail decides on a text: its outcome; a model's spend goes into `spent`. */
 export type GuardrailDecision = (
   checked: GuardedText,
   spent: UsageRecord[],
-) => Promise<GuardrailOutcome>;
+) => Promise<GuardrailDecided>;
 
 /** One guardrail ready to check a text: its settings, its decision (model or code), its refusal. */
 export interface RuntimeGuardrail {
   readonly guardrail: LoadedGuardrail;
   readonly decide: GuardrailDecision;
-  readonly refusal: () => Promise<string>;
+  /** The text sent when it blocks without its own: the decorator's, else the class's `refusal(content)`; none = fails closed. */
+  readonly refusal: (content: GuardrailContent) => Promise<string | undefined>;
 }
 
 /** The guardrails of each agent and model router, by side. */
@@ -76,65 +62,26 @@ export interface GuardrailRuntimeParts {
   readonly deciderDeps: LaunchDeciderDeps;
 }
 
-/** The cost caller of a guardrail, also its script key in tests (`guardrailKeyOf`). */
-const guardrailCaller = (name: string): string => `guardrail:${name}`;
-
-const voiceOf = (name: string): DecisionVoice => ({
-  caller: guardrailCaller(name),
-  user: { kind: "guardrail", guardrail: name },
-  system: GUARDRAIL_SYSTEM,
-  tool: { name: GUARDRAIL_ANSWER_TOOL, description: GUARDRAIL_ANSWER_DESCRIPTION },
-});
-
 const hasRefusal = (value: unknown): value is GuardrailRefusal =>
   typeof value === "object" &&
   value !== null &&
   "refusal" in value &&
   typeof value.refusal === "function";
 
-/** The guardrail's refusal: its text, else its class's `refusal()` (checked at assembly). */
+/** The guardrail's refusal: its text, else its class's `refusal(content)`; none when it has neither. */
 function refusalOf(
   guardrail: LoadedGuardrail,
   resolve: (cls: Class) => unknown,
-): () => Promise<string> {
+): RuntimeGuardrail["refusal"] {
   const { refusal } = guardrail;
   if (refusal !== undefined) return () => Promise.resolve(refusal);
-  return async () => {
+  return async (content) => {
     const instance = resolve(guardrail.type);
-    return hasRefusal(instance) ? await instance.refusal() : "";
+    return hasRefusal(instance) ? await instance.refusal(content) : undefined;
   };
 }
 
-/** A model guardrail's decision: one yes / no on its model; a failed call fails closed. */
-function modelDecisionOf(
-  guardrail: LoadedModelGuardrail,
-  parts: GuardrailRuntimeParts,
-): GuardrailDecision {
-  const { name, prompt, threshold } = guardrail;
-  const model = parts.modelOf(guardrail.model);
-  const decider: LaunchDecider = createYesNoDecider(voiceOf(name), model, parts.deciderDeps);
-  return async (checked, spent) => {
-    const outcome = await decider.decide({
-      input: `${headingOf(checked)}\n${checked.text}`,
-      pieces: piecesOfGuarded(checked),
-      instructions: GUARDRAIL_INSTRUCTIONS,
-      questions: [{ target: GUARDRAIL_QUESTION, prompt }],
-    });
-    if (outcome.usage !== undefined) spent.push(outcome.usage);
-    if (outcome.kind === "failed")
-      throw new GuardFailedError({
-        guard: name,
-        usage: [...spent],
-        reason: outcome.reason,
-        // the call's own error: `.onError(ModelCallError, …)` finds it through the cause chain
-        ...(outcome.cause === undefined ? {} : { cause: outcome.cause }),
-      });
-    const probability = outcome.probabilities[GUARDRAIL_QUESTION] ?? 0;
-    return { isBlocked: probability >= threshold, probability };
-  };
-}
-
-/** One guardrail on its model, or on its class's `check(text)` (#383). */
+/** One guardrail on its model, or on its class's `check(content)` (#383). */
 export function runtimeGuardrailOf(
   guardrail: LoadedGuardrail,
   parts: GuardrailRuntimeParts,
@@ -171,12 +118,12 @@ export async function checkGuardrail(
   checked: GuardedText,
   spent: UsageRecord[],
   observer: ExecutionObserverManager | undefined,
-): Promise<GuardrailOutcome> {
+): Promise<GuardrailDecided> {
   const { name } = runtime.guardrail;
   const files = (checked.files ?? []).map(({ content }) => ({
     mediaType: content.mediaType,
     ...(content.filename === undefined ? {} : { filename: content.filename }),
-    sizeBytes: content.bytes.byteLength,
+    sizeBytes: bytes(content.bytes.byteLength),
     sha256: content.sha256,
   }));
   const input = {
@@ -186,9 +133,14 @@ export async function checkGuardrail(
     ...(files.length === 0 ? {} : { files }),
   };
   await reportNodeEvent((base) => observer?.onGuardrailStart({ ...base, name, input }));
-  const update = await runtime.decide(checked, spent);
+  const decided = await runtime.decide(checked, spent);
+  // observers see the outcome, never the refusal text
+  const update: GuardrailOutcome = {
+    isBlocked: decided.isBlocked,
+    probability: decided.probability,
+  };
   await reportNodeEvent((base) => observer?.onGuardrailEnd({ ...base, name, output: update }));
-  return update;
+  return decided;
 }
 
 /** Guardrails that all passed: their spend and decisions (#395 C3). */
@@ -226,7 +178,14 @@ export async function checkGuardrails(
     const { guardrail } = runtime;
     const { name } = guardrail;
     const threshold = isModelGuardrail(guardrail) ? guardrail.threshold : CODE_GUARDRAIL_THRESHOLD;
-    const refusal = await runtime.refusal();
+    const refusal = outcome.refusal ?? (await runtime.refusal(contentOf(checked)));
+    if (refusal === undefined)
+      throw new GuardFailedError({
+        guard: name,
+        usage: [...spent],
+        reason:
+          "blocked with no refusal — give blocked(refusal), the decorator { refusal } or the class a refusal(content) method",
+      });
     const blocked = { probability: outcome.probability, threshold };
     const error = new GuardrailBlockedError({ guard: name, refusal, usage: spent, ...blocked });
     carryRecords(error, { guardrailDecisions: decisions }); // the blocking one last (#395 S6)

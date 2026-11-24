@@ -2,7 +2,7 @@ import type { PromptValue } from "./prompt-source.js";
 import { callerFile } from "./call-site.js";
 import type { Class, ResolvedAll, Token } from "./injection.js";
 import { DecidedBy } from "../flow/decorators/router.js";
-import type { GuardrailHandler } from "./guardrail-handler.js";
+import type { GuardrailContent, GuardrailHandler } from "./guardrail-handler.js";
 import { componentOf, recordComponent } from "./metadata.js";
 import { resolvedName } from "../flow/names.js";
 
@@ -13,7 +13,7 @@ import { resolvedName } from "../flow/names.js";
  * guardrail's `prompt`; at P(yes) ≥ `threshold` the execution fails with `GuardrailBlockedError`
  * and its `refusal` goes to the sender. Listed in `guardrails: [...]` of `@Application`, `@Workflow`,
  * `@Agent` and `@Router` — lists add up, `excludeGuardrails` removes one for an agent or a router.
- * `decidedBy: DecidedBy.Code` (#383) decides by the class's `check(text)` instead (`GuardrailHandler`):
+ * `decidedBy: DecidedBy.Code` (#383) decides by the class's `check(content)` instead (`GuardrailHandler`):
  * no model, no question, no threshold — the same refusal, error, levels and masked text.
  */
 
@@ -28,7 +28,8 @@ export enum GuardrailSide {
  * language, wording kept in a CMS) — the execution through `deps: [ExecutionContext]`.
  */
 export interface GuardrailRefusal {
-  readonly refusal: () => string | Promise<string>;
+  /** The text sent instead; `content` is what the guardrail checked (the locale, the CMS key it reads). */
+  readonly refusal: (content: GuardrailContent) => string | Promise<string>;
 }
 
 /** A model guardrail with a fixed refusal. */
@@ -70,7 +71,11 @@ export interface GuardrailComputedOptions<D extends readonly Token[] = readonly 
   readonly refusal?: never;
 }
 
-/** A code guardrail with a fixed refusal (`implements GuardrailHandler`). */
+/**
+ * A code guardrail (`decidedBy: DecidedBy.Code`): its class has `check(content)`. `refusal` is the
+ * text sent when `GuardrailVerdict.blocked()` names none; the class's `refusal(content)` gives it
+ * instead; a `blocked()` with neither fails closed.
+ */
 export interface CodeGuardrailTextOptions<D extends readonly Token[] = readonly Token[]> {
   /** Kebab-case; the class name in kebab-case when left out (`LegalAdvice` → `legal-advice`). */
   readonly name?: string;
@@ -82,31 +87,15 @@ export interface CodeGuardrailTextOptions<D extends readonly Token[] = readonly 
   readonly promptUrls?: never;
   readonly model?: never;
   readonly threshold?: never;
-  /** The text sent instead when it blocks. */
-  readonly refusal: string;
-}
-
-/** A code guardrail whose class computes its refusal too (`implements GuardrailHandler, GuardrailRefusal`). */
-export interface CodeGuardrailComputedOptions<D extends readonly Token[] = readonly Token[]> {
-  /** Kebab-case; the class name in kebab-case when left out (`LegalAdvice` → `legal-advice`). */
-  readonly name?: string;
-  readonly description?: string;
-  /** Constructor dependencies (a `GuardrailRefusal` or `GuardrailHandler` class's services), in order. */
-  readonly deps?: D;
-  readonly decidedBy: DecidedBy.Code;
-  readonly prompt?: never;
-  readonly promptUrls?: never;
-  readonly model?: never;
-  readonly threshold?: never;
-  /** None: the class's `refusal()` gives it. */
-  readonly refusal?: never;
+  /** The text sent when `blocked()` names none. */
+  readonly refusal?: string;
 }
 
 /** A model guardrail's options, as recorded. */
 export type ModelGuardrailOptions = GuardrailTextOptions | GuardrailComputedOptions;
 
 /** A code guardrail's options, as recorded. */
-export type CodeGuardrailOptions = CodeGuardrailTextOptions | CodeGuardrailComputedOptions;
+export type CodeGuardrailOptions = CodeGuardrailTextOptions;
 
 /** Any form, as recorded: a union discriminated by `decidedBy` (absent = `DecidedBy.Model`). */
 export type GuardrailOptions = ModelGuardrailOptions | CodeGuardrailOptions;
@@ -123,7 +112,7 @@ export type GuardrailMeta = GuardrailOptions & {
 /** A recorded model guardrail. */
 export type ModelGuardrailMeta = GuardrailMeta & ModelGuardrailOptions;
 
-/** Whether a guardrail is decided by its class's `check(text)`. */
+/** Whether a guardrail is decided by its class's `check(content)`. */
 export const isCodeGuardrail = (options: GuardrailOptions): options is CodeGuardrailOptions =>
   options.decidedBy === DecidedBy.Code;
 
@@ -158,14 +147,10 @@ export function InputGuardrail<const D extends readonly Token[] = []>(
 export function InputGuardrail<const D extends readonly Token[] = []>(
   options: GuardrailComputedOptions<D>,
 ): GuardrailDecorator<D, GuardrailRefusal>;
-/** `@InputGuardrail` decided by code (#383): the class implements `GuardrailHandler`. */
+/** `@InputGuardrail` decided by code (#383): the class has `check(content)`. */
 export function InputGuardrail<const D extends readonly Token[] = []>(
   options: CodeGuardrailTextOptions<D>,
 ): GuardrailDecorator<D, GuardrailHandler>;
-/** `@InputGuardrail` decided by code, without `refusal`: `GuardrailHandler` and `GuardrailRefusal`. */
-export function InputGuardrail<const D extends readonly Token[] = []>(
-  options: CodeGuardrailComputedOptions<D>,
-): GuardrailDecorator<D, GuardrailHandler & GuardrailRefusal>;
 export function InputGuardrail(options: GuardrailOptions): <C extends Class>(value: C) => C {
   return guardrailDecorator(GuardrailSide.Input, options, callerFile());
 }
@@ -178,14 +163,10 @@ export function OutputGuardrail<const D extends readonly Token[] = []>(
 export function OutputGuardrail<const D extends readonly Token[] = []>(
   options: GuardrailComputedOptions<D>,
 ): GuardrailDecorator<D, GuardrailRefusal>;
-/** `@OutputGuardrail` decided by code (#383): the class implements `GuardrailHandler`. */
+/** `@OutputGuardrail` decided by code (#383): the class has `check(content)`. */
 export function OutputGuardrail<const D extends readonly Token[] = []>(
   options: CodeGuardrailTextOptions<D>,
 ): GuardrailDecorator<D, GuardrailHandler>;
-/** `@OutputGuardrail` decided by code, without `refusal`: `GuardrailHandler` and `GuardrailRefusal`. */
-export function OutputGuardrail<const D extends readonly Token[] = []>(
-  options: CodeGuardrailComputedOptions<D>,
-): GuardrailDecorator<D, GuardrailHandler & GuardrailRefusal>;
 export function OutputGuardrail(options: GuardrailOptions): <C extends Class>(value: C) => C {
   return guardrailDecorator(GuardrailSide.Output, options, callerFile());
 }

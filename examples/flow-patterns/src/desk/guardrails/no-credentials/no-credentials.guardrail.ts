@@ -1,4 +1,4 @@
-import { DecidedBy, GuardrailVerdict, InputGuardrail, type GuardrailHandler } from "@agboss/core";
+import { DecidedBy, GuardrailVerdict, InputGuardrail, type GuardrailContent } from "@agboss/core";
 
 const CREDENTIALS = /\b(password|passcode|cvv)\b/iu;
 
@@ -9,8 +9,8 @@ const CREDENTIALS = /\b(password|passcode|cvv)\b/iu;
   decidedBy: DecidedBy.Code,
   refusal: "Please never send passwords or card codes to the help desk.",
 })
-export class NoCredentialsGuardrail implements GuardrailHandler {
-  check(text: string): GuardrailVerdict {
+export class NoCredentialsGuardrail {
+  check({ text }: GuardrailContent): GuardrailVerdict {
     return CREDENTIALS.test(text) ? GuardrailVerdict.blocked() : GuardrailVerdict.passed();
   }
 }
