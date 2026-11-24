@@ -61,6 +61,7 @@ export type {
   ComponentModelOverlay,
   ConfigSpec,
   DatabaseStorageOverlay,
+  FileModelOverlay,
   McpServerOverlay,
   MeshOverlay,
   ModelProviderOverlay,

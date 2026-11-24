@@ -29,6 +29,11 @@ export interface ComponentModelOverlay {
   readonly modelProvider?: string;
 }
 
+/** The model of the built-in file transcriber or redactor of one agent: a model name the gateway serves. */
+export interface FileModelOverlay {
+  readonly model: string;
+}
+
 /** The same in a `.config.ts`: the provider may be its class as well. */
 export interface ComponentModelConfig {
   readonly model?: string;
@@ -182,6 +187,12 @@ export interface ConfigSpec {
   readonly a2aAgents?: Readonly<Record<string, A2AAgentOverlay>>;
   /** The bounds, price and address of each `@McpServer`, by its `name`. */
   readonly mcpServers?: Readonly<Record<string, McpServerOverlay>>;
+  /** The model the built-in file transcriber reads each agent's transcribed files with, by the agent's `name`. */
+  readonly fileTranscribers?: Readonly<Record<string, FileModelOverlay>>;
+  /** The model the built-in image redactor hides values with for each agent, by the agent's `name`. */
+  readonly fileMaskers?: Readonly<Record<string, FileModelOverlay>>;
+  /** The model of each model `@RagReranker` by its `name`. */
+  readonly ragRerankers?: Readonly<Record<string, ComponentModelConfig>>;
   /** The model of each `@Judge` by its `name`. */
   readonly judges?: Readonly<Record<string, ComponentModelConfig>>;
   /** The model of each model `@Arbiter` by its `name`. */

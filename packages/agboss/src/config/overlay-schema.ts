@@ -43,6 +43,9 @@ export const ComponentModelOverlaySchema = z.strictObject({
   modelProvider: kebab.optional(),
 });
 
+/** The model of a built-in file component: a model name, no provider (the gateway finds the one that serves it). */
+export const FileModelOverlaySchema = z.strictObject({ model: z.string().min(1) });
+
 /** A `defineEnv` value (`appEnv.dailyBudgetUsd`): a `.config.ts` holds one, a YAML file cannot. */
 const envValue = z.custom<unknown>(isVariableReference, "a number or a defineEnv value");
 
@@ -226,6 +229,9 @@ export const ScalarOverlaySchema = z.strictObject({
   toolApprovals: z.record(kebab, PauseTargetOverlaySchema).optional(),
   /** How long the pauses of an `@ExternalTask` wait, by its name. */
   externalTasks: z.record(kebab, PauseTargetOverlaySchema).optional(),
+  fileTranscribers: z.record(kebab, FileModelOverlaySchema).optional(),
+  fileMaskers: z.record(kebab, FileModelOverlaySchema).optional(),
+  ragRerankers: z.record(kebab, ComponentModelOverlaySchema).optional(),
   judges: z.record(kebab, ComponentModelOverlaySchema).optional(),
   arbiters: z.record(kebab, ComponentModelOverlaySchema).optional(),
   guardrails: z.record(kebab, ComponentModelOverlaySchema).optional(),

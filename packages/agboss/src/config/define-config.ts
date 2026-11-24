@@ -23,6 +23,7 @@ export const COMPONENT_MODEL_SHELVES = [
   "guardrails",
   "piiPolicies",
   "channelInterpreters",
+  "ragRerankers",
 ] as const;
 
 /** The keys of one workflow's overlay only TypeScript holds. */

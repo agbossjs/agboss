@@ -1,0 +1,3 @@
+fileTranscribers:
+  ghost-agent:
+    model: local/other

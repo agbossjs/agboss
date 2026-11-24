@@ -155,6 +155,9 @@ const MODEL_SHELF_PREFIX = {
   guardrails: "guardrails",
   piiPolicies: "pii",
   channelInterpreters: "replyInterpreters",
+  ragRerankers: "rerankers",
+  fileTranscribers: "files.transcriber",
+  fileMaskers: "files.redactor",
 } as const;
 
 /** The models of every shelf as overrides by use key, later profiles winning per field. */
@@ -164,7 +167,8 @@ function componentModelsOf(
   const found: Record<string, ComponentModelOverride> = {};
   for (const layer of layers) {
     for (const [shelf, prefix] of Object.entries(MODEL_SHELF_PREFIX)) {
-      const entries = layer.spec[shelf as keyof typeof MODEL_SHELF_PREFIX] ?? {};
+      const entries: Readonly<Record<string, ComponentModelOverride>> =
+        layer.spec[shelf as keyof typeof MODEL_SHELF_PREFIX] ?? {};
       for (const [name, one] of Object.entries(entries))
         found[`${prefix}.${name}`] = { ...found[`${prefix}.${name}`], ...one };
     }

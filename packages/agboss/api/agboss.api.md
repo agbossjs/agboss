@@ -2134,7 +2134,9 @@ export interface ConfigSpec {
     readonly defaults?: OverlayPartial<AgentsConfig["defaults"]>;
     readonly env?: EnvOverrides<EnvContract> | readonly EnvOverrides<EnvContract>[];
     readonly externalTasks?: Readonly<Record<string, PauseTargetOverlay>>;
+    readonly fileMaskers?: Readonly<Record<string, FileModelOverlay>>;
     readonly filePolicies?: Readonly<Record<string, FilePolicyOverlay>>;
+    readonly fileTranscribers?: Readonly<Record<string, FileModelOverlay>>;
     readonly guardrails?: Readonly<Record<string, ComponentModelConfig>>;
     readonly healthChecks?: ApplicationOptions["healthChecks"];
     readonly judges?: Readonly<Record<string, ComponentModelConfig>>;
@@ -2144,6 +2146,7 @@ export interface ConfigSpec {
     readonly modelProvider?: Class;
     readonly modelProviders?: Readonly<Record<string, ModelProviderOverlay>>;
     readonly piiPolicies?: Readonly<Record<string, ComponentModelConfig>>;
+    readonly ragRerankers?: Readonly<Record<string, ComponentModelConfig>>;
     readonly storage?: ApplicationOptions["storage"];
     readonly toolApprovals?: Readonly<Record<string, PauseTargetOverlay>>;
     readonly workflows?: Readonly<Record<string, WorkflowConfig>>;
@@ -4028,6 +4031,12 @@ export interface FileMetadata extends FileKey {
     // (undocumented)
     readonly sizeBytes: Bytes;
     readonly ttl?: Milliseconds;
+}
+
+// @public
+export interface FileModelOverlay {
+    // (undocumented)
+    readonly model: string;
 }
 
 // @public
@@ -12036,6 +12045,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/components/spend-recorder.ts - (ae-undocumented) Missing documentation for "code".
 // src/components/spend-recorder.ts - (ae-undocumented) Missing documentation for "code".
 // src/components/spend-recorder.ts - (ae-undocumented) Missing documentation for "name".
+// src/config/overlay-types.ts - (ae-undocumented) Missing documentation for "model".
 // src/config/overlay-types.ts - (ae-undocumented) Missing documentation for "model".
 // src/config/overlay-types.ts - (ae-undocumented) Missing documentation for "modelProvider".
 // src/config/overlay-types.ts - (ae-undocumented) Missing documentation for "auditLogTtl".

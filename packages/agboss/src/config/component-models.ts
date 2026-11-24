@@ -52,6 +52,9 @@ const SHELF_OF_PREFIX: Readonly<Record<string, string>> = {
   guardrails: "guardrails",
   pii: "piiPolicies",
   replyInterpreters: "channelInterpreters",
+  rerankers: "ragRerankers",
+  "files.transcriber": "fileTranscribers",
+  "files.redactor": "fileMaskers",
 };
 
 /** The overridden components no workflow has: a name in a shelf, a router a workflow's own overlay names. */
@@ -64,7 +67,8 @@ export function checkComponentModels(
   const lost = Object.keys(folded.componentModels).filter((key) => !reached.has(key));
   const [first] = lost;
   if (first !== undefined) {
-    const [prefix = "", name = ""] = first.split(/\.(.*)/s);
+    const prefix = Object.keys(SHELF_OF_PREFIX).find((one) => first.startsWith(`${one}.`)) ?? "";
+    const name = first.slice(prefix.length + 1);
     throw fail(
       ProfileErrorReason.Unknown,
       `profile ${profiles}: ${SHELF_OF_PREFIX[prefix] ?? prefix}.${name}: no such component with a model in the application`,

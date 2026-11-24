@@ -1,0 +1,3 @@
+ragRerankers:
+  ghost-reranker:
+    model: local/other

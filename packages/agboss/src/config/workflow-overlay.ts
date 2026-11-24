@@ -5,6 +5,7 @@ import type { PauseTargetOverrides } from "../channels/pause-targets.js";
 import { pauseOverridesOf } from "./pause-overrides.js";
 import type { ComponentModelOverrides } from "../models/model-cascade.js";
 import { deepMerge } from "./deep-merge.js";
+import { withFileModels } from "./file-model-overrides.js";
 import type { FoldedConfig, FoldedWorkflow, WorkflowSlots } from "./fold-config.js";
 import type { ModelProviderOverlay, WorkflowOverlay } from "./overlay-types.js";
 import { ProfileError, ProfileErrorReason } from "./profile-error.js";
@@ -196,7 +197,7 @@ export function workflowPatchOf(
         : new Map(Object.entries(folded.memories)),
     componentModels,
     providers: folded.modelProviders,
-    config: (config) => configOf(config, folded, use),
+    config: (config) => withFileModels(configOf(config, folded, use), componentModels),
     prompts: (prompts) => promptsOf(prompts, folded, workflow, use),
   };
 }

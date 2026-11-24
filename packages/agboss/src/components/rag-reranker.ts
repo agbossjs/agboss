@@ -19,6 +19,36 @@ export interface ResolvedRerankerModel {
   readonly prompt?: string;
 }
 
+/** The `@ModelProvider` class of this `name` among those the workflow reaches. */
+const providerNamed = (name: string, cascade: ModelCascade): Class | undefined =>
+  (cascade.componentModels?.providers ?? []).find(
+    (cls) => isModelProviderClass(cls) && modelProviderOf(cls).name === name,
+  );
+
+/** The reranker with what a profile's `ragRerankers` shelf changes of its model and provider; a provider named that is none is a violation. */
+function overriddenReranker(
+  meta: { readonly name: string; readonly model?: string; readonly modelProvider?: Class },
+  cascade: ModelCascade,
+): typeof meta | RuleViolation {
+  const key = `rerankers.${meta.name}`;
+  const override = cascade.componentModels?.byKey.get(key);
+  if (override === undefined) return meta;
+  cascade.componentModels?.reached.add(key);
+  const named = override.modelProvider;
+  const provider = typeof named === "string" ? providerNamed(named, cascade) : named;
+  if (typeof named === "string" && provider === undefined)
+    return violation(
+      "model.missing-provider",
+      `profile: ragRerankers.${meta.name}.modelProvider: no such model provider reaches the workflow`,
+      [meta.name],
+    );
+  return {
+    ...meta,
+    ...(override.model === undefined ? {} : { model: override.model }),
+    ...(provider === undefined ? {} : { modelProvider: provider }),
+  };
+}
+
 /**
  * A model reranker's model: its own `model`, else its provider's default — the provider it names, else
  * its workflow's, else its application's. None of them has one → `[model.missing]`; no provider
@@ -26,9 +56,12 @@ export interface ResolvedRerankerModel {
  */
 function rerankerModelOf(
   cls: Class,
-  meta: { readonly name: string; readonly model?: string; readonly modelProvider?: Class },
+  declared: { readonly name: string; readonly model?: string; readonly modelProvider?: Class },
   cascade: ModelCascade,
 ): ResolvedRerankerModel | RuleViolation {
+  const overridden = overriddenReranker(declared, cascade);
+  if ("code" in overridden) return overridden;
+  const meta = overridden;
   const level = meta.modelProvider ?? cascade.workflow ?? cascade.application;
   const options =
     level !== undefined && isModelProviderClass(level) ? modelProviderOf(level) : undefined;
