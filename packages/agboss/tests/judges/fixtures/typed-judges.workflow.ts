@@ -8,7 +8,7 @@ import {
   WorkflowFinish,
   type JudgeHandler,
   type JudgeInput,
-  inline,
+  inline, Ttl,
 } from "../../../src/index.js";
 import { EmptyEnvironment } from "../../../src/index.js";
 import { Integer, List, PlainTextDto, Text, type DtoClass } from "../../../src/dto/index.js";
@@ -95,6 +95,7 @@ export class ReportWorkflowFinish {}
 @Workflow({
   name: "typed-judge-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(TaskStart)
       .toAgent(ScoutAgent)
@@ -178,6 +179,7 @@ export class RefusalWorkflowFinish {}
 @Workflow({
   name: "variant-judge-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(TaskStart)
       .toAgent(ScreenerAgent)
@@ -259,6 +261,7 @@ export class ListJudgedScoutAgent {}
 @Workflow({
   name: "wrong-reply-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(TaskStart)
       .toAgent(OfferJudgedScreenerAgent)
@@ -277,6 +280,7 @@ export class WrongReplyWorkflow {}
 @Workflow({
   name: "wrong-report-reply-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(TaskStart)
       .toAgent(TextJudgedScoutAgent)
@@ -300,6 +304,7 @@ export class JobsSummaryAgent {}
 @Workflow({
   name: "wrong-list-reply-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(TaskStart)
       .toAgent(ListJudgedScoutAgent)
@@ -359,6 +364,7 @@ export class JobsScoutAgent {}
 @Workflow({
   name: "list-judge-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(TaskStart)
       .toAgent(JobsScoutAgent)
@@ -430,6 +436,7 @@ export class DecisionsSummaryAgent {}
 @Workflow({
   name: "variant-list-judge-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(TaskStart)
       .toAgent(PanelScreenerAgent)
@@ -465,6 +472,7 @@ export class ListJudgedReporterAgent {}
 @Workflow({
   name: "wrong-value-reply-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(TaskStart)
       .toAgent(ListJudgedReporterAgent)

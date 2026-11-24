@@ -17,7 +17,7 @@ import {
   JobPickDto,
   JobScoresDto,
 } from "../../flow/fixtures/review-dtos.js";
-import { inline } from "../../../src/index.js";
+import { inline, Ttl } from "../../../src/index.js";
 
 /** #1325c: spans of decorator calls and flow builder steps, and a broken rule drawn over them. */
 
@@ -79,6 +79,7 @@ const searchStep = onStart(SpanStart).toAgent(SpanSearchAgent);
 @Workflow({
   name: "span-stale-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(SpanStart)
       .toAgent(SpanSearchAgent)

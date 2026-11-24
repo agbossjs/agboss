@@ -3,7 +3,7 @@ import {
   EmptyEnvironment,
   Workflow,
   WorkflowFinish,
-  WorkflowStart,
+  WorkflowStart, Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { onStart, toWorkflow, toFinish } from "../../helpers/flow.js";
@@ -44,6 +44,7 @@ export class SpendItemWorkflowFinish {}
 @Workflow({
   name: "spend-item-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(SpendItemWorkflowStart)
       .toAction(PayItemAction)
@@ -73,6 +74,7 @@ export class SpendRemoteItemWorkflowFinish {}
   placement: ChildPlacement.AnyWorker,
   name: "spend-remote-item-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(SpendRemoteItemWorkflowStart)
       .toAction(PayRemoteItemAction)
@@ -92,6 +94,7 @@ export class SpendTreeWorkflowFinish {}
 @Workflow({
   name: "spend-tree-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(SpendTreeWorkflowStart)
       .toAction(PayLevelAction)
@@ -130,6 +133,7 @@ export class RemoteSpendTreeWorkflowFinish {}
   placement: ChildPlacement.AnyWorker,
   name: "remote-spend-tree-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(RemoteSpendTreeWorkflowStart)
       .toAction(PayLevelAction)

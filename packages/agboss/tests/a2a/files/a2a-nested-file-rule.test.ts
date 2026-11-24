@@ -5,7 +5,7 @@
  * exported start's input, its finishes' outputs, an `@A2AAgent`'s input and output), and a client
  * built with such a contract refuses to call.
  */
-import { hours, minutes } from "../../../src/units/index.js";
+import { hours, minutes, Ttl } from "../../../src/units/index.js";
 import { describe, expect, it } from "vitest";
 import { A2AAgent } from "../../../src/a2a/a2a-decorator.js";
 import { A2AEndpoint } from "../../../src/a2a/a2a-endpoint.decorator.js";
@@ -68,6 +68,7 @@ function servedWith(
   @Workflow({
     name: "nested-workflow",
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [onStart(NestedStart).toFinish(NestedFinish)],
   })
   class NestedWorkflow {}
@@ -109,6 +110,7 @@ function servedWithListOutput(item: ListWrapper) {
   @Workflow({
     name: "listed-workflow",
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [onStart(ListedStart).toFinish(ListedFinish)],
   })
   class ListedWorkflow {}

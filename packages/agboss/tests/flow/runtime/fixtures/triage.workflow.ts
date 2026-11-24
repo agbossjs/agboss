@@ -6,7 +6,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Tracked,
+  type Tracked, Ttl,
 } from "../../../../src/index.js";
 import { onAction, onStart, toAction } from "../../../helpers/flow.js";
 import { Metadata } from "../../../../src/flow/metadata.js";
@@ -111,6 +111,7 @@ export class TicketStart {}
 @Workflow({
   name: "triage-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(TicketStart)
       .toAction(ClassifyAction)

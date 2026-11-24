@@ -26,6 +26,7 @@ import {
   RemoteOneWorkflowStart,
 } from "./fixtures/remote-children.workflow.js";
 import { RemoteSqliteApplication } from "../../infrastructure/sqlite/fixtures/remote-children.application.js";
+import { Ttl } from "../../../src/index.js";
 
 /**
  * #333 PR 2, PR 4 — the placement of a child at assembly: printed as written, one per child
@@ -38,7 +39,12 @@ type Flow = WorkflowOptions["flow"];
 let count = 0;
 function workflowWith(flow: Flow): abstract new () => unknown {
   count += 1;
-  @Workflow({ name: `placement-case-${String(count)}-workflow`, version: "1.0.0", flow })
+  @Workflow({
+    name: `placement-case-${String(count)}-workflow`,
+    version: "1.0.0",
+    historyTtl: Ttl.Forever,
+    flow,
+  })
   class PlacementCaseWorkflow {}
   return PlacementCaseWorkflow;
 }
@@ -60,6 +66,7 @@ function childWith(placement: ChildPlacement | undefined): Class {
   @Workflow({
     name: `placed-${String(count)}-workflow`,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     ...(placement === undefined ? {} : { placement }),
     flow: [onStart(Start).toFinish(Finish)],
   })

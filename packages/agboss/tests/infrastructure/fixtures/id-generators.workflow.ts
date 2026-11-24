@@ -7,7 +7,7 @@ import {
   Injectable,
   Workflow,
   WorkflowFinish,
-  WorkflowStart,
+  WorkflowStart, Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -136,6 +136,7 @@ export class EchoWorkflowFinish {}
 @Workflow({
   name: "echo-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(EchoWorkflowStart)
       .toFinish(EchoWorkflowFinish),

@@ -113,6 +113,7 @@ export const graphDeskOn = (memory: Class, name: string): Class => {
   @Workflow({
     name: "graph-desk-workflow",
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [onStart(GraphStart).toAgent(GraphAgent).toFinish(GraphAnswer)],
     memory,
     providers: [KnowledgeGraphService],

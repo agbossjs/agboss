@@ -26,6 +26,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type OnInit,
+  Ttl,
 } from "../../src/index.js";
 import { logged, resetLogged, RecordingLogger } from "../helpers/log.js";
 import { onStart } from "../helpers/flow.js";
@@ -107,6 +108,7 @@ class NoteAction {
 @Workflow({
   name: "note-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(NoteWorkflowStart).toAction(NoteAction).toFinish(NoteWorkflowFinish)],
 })
 class NoteWorkflow {}

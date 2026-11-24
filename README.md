@@ -107,12 +107,13 @@ export class JobFitJudge {}
 
 ```ts file=src/job-scout.workflow.ts
 // src/job-scout.workflow.ts — the paths, defaults and providers; money is the application's budgets
-import { Workflow, onStart, toRouter, toFinish, toAgent } from "@agboss/core";
+import { Workflow, onStart, toRouter, toFinish, toAgent, Ttl } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 
 @Workflow({
   name: "job-scout-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ChatWorkflowStart)
       .toRouter(MainRouter) // picks one of its @Router({ routes })
@@ -657,7 +658,7 @@ One set per application, in `environments/` next to the application file (#261).
 plain class with declared fields only, declared once in the application:
 
 <!-- snippet-context
-import { Application, Workflow, WorkflowStart, onStart, WorkflowFinish } from "@agboss/core";
+import { Application, Workflow, WorkflowStart, onStart, WorkflowFinish, Ttl } from "@agboss/core";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 import { Budget, BudgetScope, BudgetPeriod, type BudgetHandler } from "@agboss/core";
 import { usd, type Usd } from "@agboss/core/units";
@@ -668,6 +669,7 @@ export class AuditWorkflowFinish {}
 @Workflow({
   name: "audit-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(AuditWorkflowStart)
       .toFinish(AuditWorkflowFinish),

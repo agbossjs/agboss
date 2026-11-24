@@ -20,6 +20,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   inline,
+  Ttl,
 } from "../src/index.js";
 import { ImplementationReason } from "../src/application/implementations.js";
 import { workflowOf } from "../src/testing/workflow-of.js";
@@ -49,6 +50,7 @@ class ToldWorkflowFinish {}
 @Workflow({
   name: "tell-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   executionLimits: { maxSteps: 2 },
   defaults: { models: { temperature: 0 } },
   memory: Window1Memory,

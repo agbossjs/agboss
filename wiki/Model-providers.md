@@ -244,7 +244,7 @@ export class AppEnvironment {
 ```
 
 <!-- snippet-context
-import { Workflow, WorkflowFinish, WorkflowStart, onStart } from "@agboss/core";
+import { Workflow, WorkflowFinish, WorkflowStart, onStart, Ttl } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 @WorkflowStart({ name: "chat-workflow-start", description: "A message", input: WorkflowStartTextDto })
 export class ChatWorkflowStart {}
@@ -253,6 +253,7 @@ export class ChatWorkflowFinish {}
 @Workflow({
   name: "job-scout-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ChatWorkflowStart)
       .toFinish(ChatWorkflowFinish),

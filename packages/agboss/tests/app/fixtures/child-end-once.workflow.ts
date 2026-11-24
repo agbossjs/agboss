@@ -10,7 +10,7 @@ import {
   type ExecutionEndEvent,
   type ExecutionCancelEvent,
   type ExecutionErrorEvent,
-  type ExecutionLeaseTakeoverEvent,
+  type ExecutionLeaseTakeoverEvent, Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { MemorySaver } from "@langchain/langgraph";
@@ -103,6 +103,7 @@ export class YieldCheckedLocalWorkflowFinish {}
 @Workflow({
   name: "yield-check-local-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(YieldCheckLocalWorkflowStart)
       .toAction(GatedItemAction)
@@ -114,6 +115,7 @@ export class YieldCheckLocalWorkflow {}
 @Workflow({
   name: "end-once-local-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(EndOnceLocalWorkflowStart)
       .toWorkflow(YieldCheckLocalWorkflow)

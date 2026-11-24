@@ -6,7 +6,7 @@ import { onStart } from "../fixtures/paths.js";
 import { DraftKitWorkflowFinish, SecondKitWorkflowStart } from "../fixtures/kit.fixture.js";
 
 /**
- * #1318: `@Workflow({ historyTtl })` is a duration above 0, `Ttl.Forever` or `Ttl.None`
+ * #1318: `@Workflow({ historyTtl })` is required, and a duration above 0, `Ttl.Forever` or `Ttl.None`
  * (`[limits.history-ttl-invalid]`): a value that is none of them would sweep the history of every
  * finished execution at once, or never — assembly refuses it, naming the kind and never the text.
  */
@@ -47,8 +47,32 @@ describe("#1318: [limits.history-ttl-invalid]", () => {
     expect(found?.message).not.toContain("soon");
   });
 
-  it("a duration above 0, Ttl.Forever, Ttl.None and none at all pass", () => {
-    for (const ttl of [1, days(90), Ttl.Forever, Ttl.None, undefined])
-      expect(errorsOf(ttl)).toEqual([]);
+  it("a duration above 0, Ttl.Forever and Ttl.None pass", () => {
+    for (const ttl of [1, days(90), Ttl.Forever, Ttl.None]) expect(errorsOf(ttl)).toEqual([]);
+  });
+});
+
+describe("#1318: [limits.history-ttl-required]", () => {
+  it("a workflow that sets no historyTtl is refused, naming the workflow", () => {
+    const [found, ...rest] = errorsOf(undefined);
+
+    expect(rest).toEqual([]);
+    expect(found?.code).toBe("limits.history-ttl-required");
+    expect(found?.message).toMatch(/^ttl-\d+-workflow sets no historyTtl/);
+  });
+
+  it("an option left out is the same as one set to undefined", () => {
+    count += 1;
+    // @ts-expect-error historyTtl is required
+    @Workflow({
+      name: `ttl-${String(count)}-workflow`,
+      version: "1.0.0",
+      flow: [onStart(SecondKitWorkflowStart).toFinish(DraftKitWorkflowFinish)],
+    })
+    class NoTtlWorkflow {}
+
+    expect(checkWorkflow(NoTtlWorkflow).errors.map(({ code }) => code)).toEqual([
+      "limits.history-ttl-required",
+    ]);
   });
 });

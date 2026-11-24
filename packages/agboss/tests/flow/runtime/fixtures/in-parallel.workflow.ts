@@ -12,7 +12,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type Tracked,
-  inline,
+  inline, Ttl,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
@@ -117,6 +117,7 @@ export class SummaryWorkflowFinish {}
 @Workflow({
   name: "in-parallel-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(InParallelWorkflowStart)
       .inParallel([
@@ -152,6 +153,7 @@ export class UnskippedWorkflowStart {}
 @Workflow({
   name: "unskipped-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(UnskippedWorkflowStart)
       .inParallel([toAction(FirstAction), toAction(SecondAction), toAgent(ThirdAgent)])
@@ -253,6 +255,7 @@ export class ChooserWorkflowStart {}
 @Workflow({
   name: "chooser-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ChooserWorkflowStart)
       .inParallel([
@@ -301,6 +304,7 @@ export class ModelChooserWorkflowStart {}
 @Workflow({
   name: "model-chooser-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ModelChooserWorkflowStart)
       .inParallel([

@@ -7,7 +7,7 @@ import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import type { InputOf, Route } from "../../../src/flow/generated-types.js";
 import type { RouterHandler } from "../../../src/flow/handlers.js";
 import { SupportIntentDto, TopicAnswerDto } from "./credit-dtos.js";
-import { inline } from "../../../src/index.js";
+import { inline, Ttl } from "../../../src/index.js";
 
 /** #280 — a code router with flat routes, continued with one `.onRoute(…)` per route. */
 
@@ -79,6 +79,7 @@ export class TopicsRouter implements RouterHandler<TopicsRouter> {
 @Workflow({
   name: "topics-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(TopicsWorkflowStart)
       .toRouter(TopicsRouter)

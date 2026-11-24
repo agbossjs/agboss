@@ -1,4 +1,4 @@
-import { hours, seconds } from "../../../src/units/index.js";
+import { hours, seconds, Ttl } from "../../../src/units/index.js";
 import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
   Agent,
@@ -90,6 +90,7 @@ export class BoundFinish {}
 @Workflow({
   name: "bound-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults: { models: { maxTokens: 100, temperature: 0 }, tools: { maxToolCalls: 3 } },
   flow: [
     onStart(BoundStart)

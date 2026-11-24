@@ -1,5 +1,5 @@
 import { Text } from "../../../src/dto/index.js";
-import { Action, Agent, Channel, ChannelOutcome, ChildPlacement, EmptyEnvironment, ExecutionContext, Observer, listOf, Tool, Workflow, WorkflowFinish, WorkflowStart, type ChannelAsk, type ExecutionEndEvent, type ExecutionStartEvent, type Tracked, inline, ToolApproval } from "../../../src/index.js";
+import { Action, Agent, Channel, ChannelOutcome, ChildPlacement, EmptyEnvironment, ExecutionContext, Observer, listOf, Tool, Workflow, WorkflowFinish, WorkflowStart, type ChannelAsk, type ExecutionEndEvent, type ExecutionStartEvent, type Tracked, inline, ToolApproval, Ttl } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart, toWorkflow } from "../../helpers/flow.js";
@@ -182,6 +182,7 @@ export class YieldCheckedWorkflowFinish {}
   placement: ChildPlacement.AnyWorker,
   name: "yield-check-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(YieldCheckWorkflowStart)
       .toAction(GatedItemAction)
@@ -208,6 +209,7 @@ export class YieldReviewedWorkflowFinish {}
   placement: ChildPlacement.AnyWorker,
   name: "yield-review-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(YieldReviewWorkflowStart)
       .toAgent(YieldReviewerAgent)
@@ -234,6 +236,7 @@ export class YieldOneWorkflowFinish {}
 @Workflow({
   name: "yield-one-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(YieldOneWorkflowStart)
       .toWorkflow(YieldCheckWorkflow)
@@ -252,6 +255,7 @@ export class YieldReviewsWorkflowStart {}
 @Workflow({
   name: "yield-reviews-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(YieldReviewsWorkflowStart)
       .forEachItem(toWorkflow(YieldReviewWorkflow), { takeFirst: 5, maxConcurrency: 2 })

@@ -12,7 +12,7 @@ import { listOf, optional } from "../../../src/flow/dto-wrappers.js";
 import { OfferDraftDto, ShortlistDto } from "../fixtures/dtos.js";
 import { DraftKitWorkflowFinish } from "../fixtures/kit.fixture.js";
 import { onStart } from "../fixtures/paths.js";
-import { inline } from "../../../src/index.js";
+import { inline, Ttl } from "../../../src/index.js";
 
 /** A start's input as a list or a map of fields (#270 AC20, AC21). */
 
@@ -45,6 +45,7 @@ class RankedWorkflowFinish {}
 @Workflow({
   name: "list-start-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(DraftsWorkflowStart).toAgent(RankDraftsAgent).toFinish(RankedWorkflowFinish)],
 })
 class ListStartWorkflow {}
@@ -78,6 +79,7 @@ const readerOf = (
   @Workflow({
     name: "map-start-workflow",
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [onStart(RedraftWorkflowStart).toAgent(RedraftAgent).toFinish(DraftKitWorkflowFinish)],
   })
   class MapStartWorkflow {}

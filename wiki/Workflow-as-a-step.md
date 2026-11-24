@@ -19,7 +19,7 @@ where a per-item launch of one agent (`.forEachItem(toAgent(A), …)`) runs exac
 ## Writing it
 
 <!-- snippet-context
-import { Action, Agent, LimitExceededError, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, onAgent, onStart, toAction, toFinish, onWorkflow } from "@agboss/core";
+import { Action, Agent, LimitExceededError, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, onAgent, onStart, toAction, toFinish, onWorkflow, Ttl } from "@agboss/core";
 import { Bool, Text, WorkflowStartTextDto } from "@agboss/core/dto";
 import { listOf, oneOf, optional } from "@agboss/core";
 
@@ -102,11 +102,11 @@ export class NoContractFailedWorkflowFinish {}
 @WorkflowFinish({ name: "check-error-workflow-finish", description: "The check failed", output: WorkflowStartTextDto })
 export class CheckErrorWorkflowFinish {}
 // @snippet
-@Workflow({ name: "vendor-screening-workflow", version: "1.0.0", flow: perItemPaths })
+@Workflow({ name: "vendor-screening-workflow", version: "1.0.0", historyTtl: Ttl.Forever, flow: perItemPaths })
 export class VendorScreeningWorkflow {}
-@Workflow({ name: "contract-workflow", version: "1.0.0", flow: inlinePaths })
+@Workflow({ name: "contract-workflow", version: "1.0.0", historyTtl: Ttl.Forever, flow: inlinePaths })
 export class ContractWorkflow {}
-@Workflow({ name: "link-contract-workflow", version: "1.0.0", flow: ownPaths })
+@Workflow({ name: "link-contract-workflow", version: "1.0.0", historyTtl: Ttl.Forever, flow: ownPaths })
 export class LinkContractWorkflow {}
 -->
 
@@ -115,6 +115,7 @@ export class LinkContractWorkflow {}
 @Workflow({
   name: "vendor-check-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(VendorCheckWorkflowStart)
       .toAgent(VendorCheckerAgent),
@@ -282,7 +283,7 @@ side path that can catch a limit stays actions and finishes only
 (`[graph.limit-handler-uses-model]`).
 
 <!-- snippet-context
-import { Action, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, onStart, toWorkflow } from "@agboss/core";
+import { Action, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, onStart, toWorkflow, Ttl } from "@agboss/core";
 import { Text } from "@agboss/core/dto";
 export class PaymentDto {
   @Text({ prompt: "the payment" })
@@ -313,6 +314,7 @@ export class InvoicedWorkflowFinish {}
 @Workflow({
   name: "payment-recovery-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(PaymentRecoveryWorkflowStart)
       .toAction(InvoiceAction)
@@ -325,7 +327,7 @@ export class PaidWorkflowFinish {}
 @WorkflowFinish({ name: "recovered-workflow-finish", description: "Paid another way", output: PaymentDoneDto })
 export class RecoveredWorkflowFinish {}
 // @snippet
-@Workflow({ name: "pay-workflow", version: "1.0.0", flow: recoveryPaths })
+@Workflow({ name: "pay-workflow", version: "1.0.0", historyTtl: Ttl.Forever, flow: recoveryPaths })
 export class PayWorkflow {}
 -->
 
@@ -419,7 +421,7 @@ instance** of the application run it instead — a fan-out of heavy children the
 instances that share the stores ([Several instances](Several-instances#children-on-any-instance-333)):
 
 <!-- snippet-context
-import { Agent, ChildExecutionFailedError, Workflow, WorkflowFinish, WorkflowStart, onStart, toFinish } from "@agboss/core";
+import { Agent, ChildExecutionFailedError, Workflow, WorkflowFinish, WorkflowStart, onStart, toFinish, Ttl } from "@agboss/core";
 import { Text, WorkflowStartTextDto } from "@agboss/core/dto";
 import { listOf } from "@agboss/core";
 export class SupplierDto {
@@ -443,6 +445,7 @@ export class SupplierScoredWorkflowFinish {}
 @Workflow({
   name: "supplier-check-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(SupplierCheckWorkflowStart)
       .toAgent(SupplierCheckerAgent)
@@ -461,7 +464,7 @@ export class SupplierRankingWorkflowFinish {}
 @WorkflowFinish({ name: "screening-failed-workflow-finish", description: "A check failed", output: WorkflowStartTextDto })
 export class ScreeningFailedWorkflowFinish {}
 // @snippet
-@Workflow({ name: "supplier-screening-workflow", version: "1.0.0", flow: anyInstancePaths })
+@Workflow({ name: "supplier-screening-workflow", version: "1.0.0", historyTtl: Ttl.Forever, flow: anyInstancePaths })
 export class SupplierScreeningWorkflow {}
 -->
 
@@ -548,7 +551,7 @@ errors and limits. It is one node, named by the workflow itself (from two places
 and each subtopic researched the same way:
 
 <!-- snippet-context
-import { Action, Agent, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, onAction, onStart, toAction, type ActionHandler, type InputOf, type OutputOf } from "@agboss/core";
+import { Action, Agent, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, onAction, onStart, toAction, type ActionHandler, type InputOf, type OutputOf, Ttl } from "@agboss/core";
 import { Integer, List, Text } from "@agboss/core/dto";
 import { listOf, oneOf } from "@agboss/core";
 
@@ -623,6 +626,7 @@ export class TopicFailedWorkflowFinish {}
 @Workflow({
   name: "topic-research-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(TopicResearchWorkflowStart)
       .toAgent(ResearcherAgent)

@@ -1,4 +1,4 @@
-import { Workflow, onStart } from "@agboss/core";
+import { Workflow, onStart, Ttl } from "@agboss/core";
 import { DeskHttpAuthenticator } from "../../a2a/desk.http-authenticator.js";
 import { DeskAgent } from "../../agents/desk/desk.agent.js";
 import { CaseNotesMemory } from "../../memories/case-notes/case-notes.memory.js";
@@ -17,6 +17,7 @@ import { DeskWorkflowStart } from "./desk.workflow-start.js";
 @Workflow({
   name: "desk-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(DeskWorkflowStart)
       .toAgent(DeskAgent)

@@ -9,7 +9,7 @@ import {
   WorkflowStart,
   listOf,
   type Class,
-  type Tracked,
+  type Tracked, Ttl,
 } from "../../../src/index.js";
 import { MemorySaver } from "@langchain/langgraph";
 import { Application } from "../../../src/application/application.js";
@@ -193,6 +193,7 @@ function payItemWorkflowOf(name: string, placement: ChildPlacement): Class {
   @Workflow({
     name: `${name}-workflow`,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     placement,
     flow: [
       onStart(Start)
@@ -229,6 +230,7 @@ export class AnyPayItemsWorkflowStart {}
 @Workflow({
   name: "local-pay-items-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(LocalPayItemsWorkflowStart)
       .forEachItem(toWorkflow(LocalPayItemWorkflow), { takeFirst: 2 })
@@ -242,6 +244,7 @@ export class LocalPayItemsWorkflow {}
 @Workflow({
   name: "any-pay-items-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(AnyPayItemsWorkflowStart)
       .forEachItem(toWorkflow(AnyPayItemWorkflow), { takeFirst: 2 })
@@ -264,6 +267,7 @@ class ChildPayWorkflowFinish {}
   placement: ChildPlacement.AnyWorker,
   name: "child-pay-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ChildPayWorkflowStart)
       .toAction(ChildOne)
@@ -280,6 +284,7 @@ export class ParentPayWorkflowStart {}
 @Workflow({
   name: "parent-pay-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ParentPayWorkflowStart)
       .toAction(ParentPay)

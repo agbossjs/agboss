@@ -22,7 +22,7 @@ import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import type { InputOf, OutputOf } from "../../../src/flow/generated-types.js";
 import type { ActionHandler } from "../../../src/flow/handlers.js";
 import { EmptyEnvironment } from "../../../src/environments/empty.js";
-import { hours, seconds, type Milliseconds, days } from "../../../src/units/index.js";
+import { hours, seconds, type Milliseconds, days, Ttl } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { ExpiryDecisionDto, ExpiryDoneDto, ExpiryOrderDto } from "./expiry.fixture.js";
 import { onStart } from "./paths.js";
@@ -291,6 +291,7 @@ export class ExtendManagerWorkflowStart {}
 @Workflow({
   name: "extend-manager-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ExtendManagerWorkflowStart)
       .toExternalTask(ExtendManagerExternalTask)
@@ -311,6 +312,7 @@ export class ExtendOwnerWorkflowStart {}
 @Workflow({
   name: "extend-owner-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ExtendOwnerWorkflowStart)
       .toExternalTask(ExtendOwnerExternalTask)
@@ -331,6 +333,7 @@ export class ExtendOpenWorkflowStart {}
 @Workflow({
   name: "extend-open-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ExtendOpenWorkflowStart)
       .toExternalTask(ExtendOpenExternalTask)

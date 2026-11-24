@@ -13,6 +13,7 @@ import {
   type IdempotencyRunStatus,
   type OutboundCallSendStatus,
   type Tracked,
+  Ttl,
 } from "../../../../src/index.js";
 import { SqliteConnection } from "../../../../src/infrastructure/sqlite/sqlite-connection.js";
 import { hours, seconds } from "../../../../src/units/index.js";
@@ -140,6 +141,7 @@ export class ReceiptFinish {}
 @Workflow({
   name: "book-order-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(BookOrderStart).toAction(BookOrderAction).toFinish(ReceiptFinish)],
 })
 export class BookOrderWorkflow {}
@@ -147,6 +149,7 @@ export class BookOrderWorkflow {}
 @Workflow({
   name: "charge-order-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(ChargeOrderStart).toAction(ChargeOrderAction).toFinish(ReceiptFinish)],
   providers: [PaymentGateway],
 })

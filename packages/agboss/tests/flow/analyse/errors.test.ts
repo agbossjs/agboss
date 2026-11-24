@@ -8,6 +8,7 @@ import {
   SecondKitWorkflowStart,
 } from "../fixtures/kit.fixture.js";
 import { side, onStart, toAction, toFinish } from "../fixtures/paths.js";
+import { Ttl } from "../../../src/index.js";
 
 /** `.onError(E, …)` right after the step that throws, one handler per class (#272 AC7). */
 
@@ -17,6 +18,7 @@ class MailError extends Error {}
 @Workflow({
   name: "two-handlers-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(SecondKitWorkflowStart)
       .toAgent(EditKitAgent)
@@ -30,6 +32,7 @@ class TwoHandlersWorkflow {}
 @Workflow({
   name: "duplicate-handler-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(SecondKitWorkflowStart)
       .toAgent(EditKitAgent)
@@ -43,6 +46,7 @@ class DuplicateHandlerWorkflow {}
 @Workflow({
   name: "empty-handler-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(SecondKitWorkflowStart)
       .toAgent(EditKitAgent)

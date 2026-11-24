@@ -12,7 +12,7 @@ import { WorkflowStartTextDto } from "./dtos.js";
 import { ArticleDraftDto } from "./launch-dtos.js";
 import { CritiqueDto, PlanDto, ResearchDto } from "./review-dtos.js";
 import { CriticAgent, PlannerAgent, PlanResearcherAgent } from "./launch.fixture.js";
-import { inline } from "../../../src/index.js";
+import { inline, Ttl } from "../../../src/index.js";
 
 /**
  * #1279 — `.inParallel([…])`: branches of any kind in one tuple, a branch's `.onError(E, skip())`
@@ -50,6 +50,7 @@ export class ParallelPanelWorkflowFinish {}
 @Workflow({
   name: "parallel-panel-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ParallelPanelWorkflowStart)
       .toAgent(PlannerAgent)
@@ -102,6 +103,7 @@ export class ChosenPanelWriterAgent {}
 @Workflow({
   name: "chosen-panel-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ParallelPanelWorkflowStart)
       .toAgent(PlannerAgent)

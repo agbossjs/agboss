@@ -16,6 +16,7 @@ import {
   ToolInterceptor,
   Workflow,
   inline,
+  Ttl,
 } from "../../src/index.js";
 import { toolInterceptorMetaOf } from "../../src/tool-interceptors/decorator.js";
 import { Application } from "../../src/application/application.js";
@@ -95,6 +96,7 @@ function appWith(agentClass: object, lists: { app?: object[]; workflow?: object[
   @Workflow({
     name: "bad-workflow",
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [
       onStart(ScoutStart)
         .toAgent(agentClass as never)
@@ -300,6 +302,7 @@ describe("#1295: the hook rules", () => {
     @Workflow({
       name: "quiet-ping-workflow",
       version: "1.0.0",
+      historyTtl: Ttl.Forever,
       flow: [onStart(ScoutStart).toAgent(QuietPingAgent).toFinish(ScoutAnswer)],
       excludeToolInterceptors: [AuditToolInterceptor],
     })
@@ -327,6 +330,7 @@ describe("#1295: the hook rules", () => {
     @Workflow({
       name: "bad-workflow",
       version: "1.0.0",
+      historyTtl: Ttl.Forever,
       flow: [onStart(ScoutStart).toAgent(BadAgent).toFinish(ScoutAnswer)],
       excludeToolInterceptors: [StampToolInterceptor],
     })

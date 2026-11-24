@@ -30,12 +30,14 @@ import {
   SupportWorkflowStart,
   SupportAction,
 } from "../fixtures/support.fixture.js";
+import { Ttl } from "../../../src/index.js";
 
 /** Position never carries meaning (#272 AC9): only the order of steps inside a path does. */
 
 @Workflow({
   name: "support-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onAction(SupportAction).toFinish(SupportWorkflowFinish),
     onAgent(ExpertAnswerAgent).toAction(SupportAction),
@@ -52,6 +54,7 @@ class ReorderedSupportWorkflow {}
 @Workflow({
   name: "offer-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onAgent(ReviewerAgent).toOneOf([
       toAction(SendOfferAction).toFinish(OfferSentWorkflowFinish),

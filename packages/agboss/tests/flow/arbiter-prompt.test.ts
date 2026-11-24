@@ -18,6 +18,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type Tracked,
+  Ttl,
 } from "../../src/index.js";
 import type { PromptSource } from "../../src/components/prompt-source.js";
 import { Text, WorkflowStartTextDto } from "../../src/dto/index.js";
@@ -79,6 +80,7 @@ function workflowWith(prompt: PromptSource) {
   @Workflow({
     name: "ans-workflow",
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     defaults: testDefaults,
     flow: [
       onStart(AnsStart)

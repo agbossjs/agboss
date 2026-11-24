@@ -4,7 +4,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Tracked,
+  type Tracked, Ttl,
 } from "../../../../src/index.js";
 import { onStart, toWorkflow } from "../../../helpers/flow.js";
 import {
@@ -61,7 +61,7 @@ const groupPath = (from: typeof GroupWorkflowStart) =>
     .toAction(CloseGroupAction)
     .toFinish(GroupDoneWorkflowFinish);
 
-@Workflow({ name: "group-workflow", version: "1.0.0", flow: [groupPath(GroupWorkflowStart)] })
+@Workflow({ name: "group-workflow", version: "1.0.0", historyTtl: Ttl.Forever, flow: [groupPath(GroupWorkflowStart)] })
 export class GroupWorkflow {}
 
 @WorkflowStart({ name: "narrow-group-workflow-start", description: "One group", input: GroupDto })
@@ -71,6 +71,7 @@ export class NarrowGroupWorkflowStart {}
 @Workflow({
   name: "narrow-group-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [groupPath(NarrowGroupWorkflowStart)],
   executionLimits: { maxConcurrency: 1 },
 })
@@ -107,6 +108,7 @@ export class GroupsDoneWorkflowFinish {}
 @Workflow({
   name: "groups-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(GroupsWorkflowStart)
       .forEachItem(toWorkflow(GroupWorkflow), { takeFirst: 10, maxConcurrency: 5 })
@@ -129,6 +131,7 @@ export class NarrowGroupsWorkflowStart {}
 @Workflow({
   name: "narrow-groups-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(NarrowGroupsWorkflowStart)
       .forEachItem(toWorkflow(NarrowGroupWorkflow), { takeFirst: 10, maxConcurrency: 5 })

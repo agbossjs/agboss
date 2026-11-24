@@ -1,6 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { inline } from "../../../src/index.js";
+import { inline, Ttl } from "../../../src/index.js";
 import type { Class } from "../../../src/components/injection.js";
 import { WorkflowStartTextDto } from "../../../src/dto/standard/framework.js";
 import type { DtoClass } from "../../../src/dto/types.js";
@@ -158,7 +158,7 @@ function graphOf(spec: GraphSpec): FlowGraph {
 }
 
 const workflowOptions = (() => {
-  @Workflow({ name: "property-workflow", version: "1.0.0", flow: [] })
+  @Workflow({ name: "property-workflow", version: "1.0.0", historyTtl: Ttl.Forever, flow: [] })
   class PropertyWorkflow {}
   const declaration = declarationOf(PropertyWorkflow);
   if (declaration?.kind !== NodeKind.Workflow) throw new TypeError("no workflow");

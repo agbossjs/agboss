@@ -1,4 +1,4 @@
-import { onStart, QuorumNotReachedError, toExternalTask, toFinish, Workflow } from "@agboss/core";
+import { onStart, QuorumNotReachedError, toExternalTask, toFinish, Workflow, Ttl } from "@agboss/core";
 import { hours } from "@agboss/core/units";
 import { SignContractAction } from "../../actions/sign-contract.action.js";
 import { SignOffArbiter } from "../../arbiters/sign-off/sign-off.arbiter.js";
@@ -19,6 +19,7 @@ import { ContractSignedWorkflowFinish } from "./contract-signed.workflow-finish.
 @Workflow({
   name: "contract-committee-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ContractCommitteeWorkflowStart)
       .inParallel([

@@ -12,6 +12,7 @@ import {
   ComponentError,
   Tool,
   inline,
+  Ttl,
 } from "../../src/index.js";
 import { workflowOf } from "../../src/testing/workflow-of.js";
 import { toolOf } from "../../src/components/runtime.js";
@@ -111,6 +112,7 @@ describe("components — errors at assembly", () => {
     @Workflow({
       ...baseBundle,
       name: "tester-workflow",
+      historyTtl: Ttl.Forever,
       flow: starOf(Tester),
     })
     class TesterFlow {}
@@ -124,6 +126,7 @@ describe("components — errors at assembly", () => {
     @Workflow({
       ...baseBundle,
       name: "no-providers-workflow",
+      historyTtl: Ttl.Forever,
       flow: starOf(GreeterAgent),
     })
     class NoProviders {}
@@ -171,7 +174,12 @@ describe("components — errors at assembly", () => {
       return A;
     };
     const bundleWith = (agentClass: Class) => {
-      @Workflow({ ...baseBundle, name: "x-workflow", flow: starOf(agentClass) })
+      @Workflow({
+        ...baseBundle,
+        name: "x-workflow",
+        historyTtl: Ttl.Forever,
+        flow: starOf(agentClass),
+      })
       class B {}
       return B;
     };

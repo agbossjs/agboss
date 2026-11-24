@@ -1,4 +1,4 @@
-import { hours, minutes } from "../../../src/units/index.js";
+import { hours, minutes, Ttl } from "../../../src/units/index.js";
 // #860 AC3 — workflows a direct-reply skill may not run (each breaks one rule of
 // `[a2a.message-skill-*]`), and an application that exposes one start of them as `A2AReply.Message`
 // on given stores.
@@ -141,6 +141,7 @@ export class BusyWorkflowFinish {}
 @Workflow({
   name: "busy-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(BusyWorkflowStart)
       .toAction(ChargeAction)

@@ -8,7 +8,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   Action,
-  inline,
+  inline, Ttl,
 } from "../../../../src/index.js";
 import { optional } from "../../../../src/flow/dto-wrappers.js";
 import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "../../../../src/index.js";
@@ -87,6 +87,7 @@ export class GateRouter {}
 @Workflow({
   name: "edit-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(EditStart)
       .toAgent(EditorAgent),
@@ -129,6 +130,7 @@ export class PatientGateRouter {}
 @Workflow({
   name: "patient-edit-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(EditStart)
       .toAgent(PatientEditorAgent),
@@ -167,6 +169,7 @@ const editPaths = [
 @Workflow({
   name: "short-edit-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   executionLimits: { maxSteps: 3 },
   flow: editPaths,
 })
@@ -182,7 +185,7 @@ export class ShortEditWorkflow {}
 export class ShortEditApplication {}
 
 /** The loop with its own execution budget of $0.015 and a tenant budget of $0.02 a day. */
-@Workflow({ name: "cheap-edit-workflow", version: "1.0.0", flow: editPaths })
+@Workflow({ name: "cheap-edit-workflow", version: "1.0.0", historyTtl: Ttl.Forever, flow: editPaths })
 export class CheapEditWorkflow {}
 
 @Budget({

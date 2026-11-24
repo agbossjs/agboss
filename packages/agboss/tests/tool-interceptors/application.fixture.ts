@@ -11,6 +11,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   inline,
+  Ttl,
 } from "../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
@@ -60,6 +61,7 @@ export class ScoutAgent {}
 @Workflow({
   name: "scout-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(ScoutStart).toAgent(ScoutAgent).toFinish(ScoutAnswer)],
   toolInterceptors: [TenantScopeToolInterceptor],
   defaults: { tools: { maxResultSize: kilobytes(1) } },
@@ -90,6 +92,7 @@ export class QuietAgent {}
 @Workflow({
   name: "quiet-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(QuietStart).toAgent(QuietAgent).toFinish(QuietAnswer)],
 })
 export class QuietWorkflow {}

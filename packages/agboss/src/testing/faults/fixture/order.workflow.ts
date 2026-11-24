@@ -13,6 +13,7 @@ import { fromSource, subPathFrom, type PathBuilder } from "../../../flow/path-bu
 import { FaultChargeAction, FaultReserveAction } from "./order.actions.js";
 import { FaultBatchDto, FaultOrderDto, FaultPaymentDto } from "./order.dto.js";
 import { FaultPayAction } from "./pay.action.js";
+import { Ttl } from "../../../index.js";
 
 /**
  * The fault fixture's workflows (#484): one order — reserve (undoable), charge (a fenced business
@@ -48,6 +49,7 @@ export class FaultOrderWorkflowFinish {}
 @Workflow({
   name: "fault-order-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   placement: ChildPlacement.AnyWorker,
   flow: [
     onStart(FaultOrderWorkflowStart)
@@ -90,6 +92,7 @@ export class FaultBatchWorkflowFinish {}
 @Workflow({
   name: "fault-batch-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(FaultBatchWorkflowStart)
       .forEachItem(toWorkflow(FaultOrderWorkflow), { takeFirst: 8, maxConcurrency: 4 })

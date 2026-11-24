@@ -8,7 +8,7 @@ import {
   Workflow,
   WorkflowStart,
   type BudgetHandler,
-  inline,
+  inline, Ttl,
 } from "../../../src/index.js";
 import { usd, type Usd } from "../../../src/units/index.js";
 import { onStart } from "../../helpers/flow.js";
@@ -50,6 +50,7 @@ export class VoucherClerk {}
 @Workflow({
   name: "vouchers-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   executionLimits: { maxSteps: 12 },
   defaults: {
     models: { maxTokens: 100, temperature: 0 },

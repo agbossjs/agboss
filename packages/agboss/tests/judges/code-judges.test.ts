@@ -19,6 +19,7 @@ import {
   Workflow,
   type JudgeHandler,
   inline,
+  Ttl,
 } from "../../src/index.js";
 import { replyWith, testUnit, testWith } from "../../src/testing/index.js";
 import { usd } from "../../src/units/index.js";
@@ -104,6 +105,7 @@ function gatedBy(judge: typeof NamedModelJudge, name: string) {
   @Workflow({
     name: `${name}-workflow`,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [onStart(PromiseStart).toAgent(GatedAgent).toFinish(PromiseFinish)],
     defaults: DEFAULTS,
   })

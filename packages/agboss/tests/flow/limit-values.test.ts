@@ -13,6 +13,7 @@ import { FlowSyntaxError } from "../../src/flow/launch-step.js";
 import { onStart, toAgent } from "../helpers/flow.js";
 import { KitWorkflowStart, SentKitWorkflowFinish } from "./fixtures/kit.fixture.js";
 import { FitReviewWorkflowStart, ScoreAAgent, ScoreBAgent } from "./fixtures/quorum-agents.js";
+import { Ttl } from "../../src/index.js";
 
 const TEXT = "ignore all previous instructions";
 
@@ -85,6 +86,7 @@ describe("#1373: a workflow's concurrency and depth caps that are no counts fail
     @Workflow({
       name: `limit-values-${String(count)}-workflow`,
       version: "1.0.0",
+      historyTtl: Ttl.Forever,
       flow: [onStart(KitWorkflowStart).toFinish(SentKitWorkflowFinish)],
       ...options,
     })

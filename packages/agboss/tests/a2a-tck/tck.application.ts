@@ -1,4 +1,4 @@
-import { hours, minutes, days } from "../../src/units/index.js";
+import { hours, minutes, days, Ttl } from "../../src/units/index.js";
 // #811 — the conformance application the official A2A TCK (a2aproject/a2a-tck) runs against: a task
 // skill, the expose's `defaultSkill` (the TCK names none), whose paths end at a text finish, at a DTO
 // finish (a `data` artifact) or at a pause its caller answers (INPUT_REQUIRED); and (#860) a skill
@@ -209,6 +209,7 @@ export class TckFilePolicy {}
 @Workflow({
   name: "tck-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   filePolicy: TckFilePolicy,
   flow: [
     onStart(TckWorkflowStart)
@@ -270,6 +271,7 @@ export class TckMessageFinish {}
 @Workflow({
   name: "tck-message-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   filePolicy: TckFilePolicy,
   flow: [onStart(TckMessageWorkflowStart).toAction(TckMessageAction).toFinish(TckMessageFinish)],
 })

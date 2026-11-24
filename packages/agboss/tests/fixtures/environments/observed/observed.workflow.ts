@@ -1,4 +1,4 @@
-import { Agent, ApplicationContext, Observer, Workflow, inline } from "../../../../src/index.js";
+import { Agent, ApplicationContext, Observer, Workflow, inline, Ttl } from "../../../../src/index.js";
 import { ChatStart, Reply, settingsDefaults } from "../app/settings.workflow.js";
 import { onStart } from "../../../helpers/flow.js";
 import { Application } from "../../../../src/application/application.js";
@@ -28,6 +28,7 @@ export class Greeter {}
 @Workflow({
   name: "observed-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ChatStart)
       .toAgent(Greeter)

@@ -12,7 +12,7 @@ import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import { oneOf } from "../../../src/flow/dto-wrappers.js";
 import type { InputOf, OutputOf, Route } from "../../../src/flow/generated-types.js";
 import type { ActionHandler, RouterHandler } from "../../../src/flow/handlers.js";
-import { EmptyEnvironment } from "../../../src/index.js";
+import { EmptyEnvironment, Ttl } from "../../../src/index.js";
 import { usd } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "./budgets.js";
 
@@ -136,6 +136,7 @@ export const quotePaths = [
 @Workflow({
   name: "quote-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: quotePaths,
   providers: [PriceListService],
 })

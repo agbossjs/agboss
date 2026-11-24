@@ -13,7 +13,7 @@ import { onStart, toAgent, toAction } from "../fixtures/paths.js";
 import type { PathSource } from "../../../src/flow/ast.js";
 import type { PathBuilder } from "../../../src/flow/path-builder.js";
 import { CritiqueDto, PlanDto, ResearchDto } from "../fixtures/review-dtos.js";
-import { inline } from "../../../src/index.js";
+import { inline, Ttl } from "../../../src/index.js";
 
 /**
  * #271 AC9 (rule 10, S13), built by #273 PR 1: a parallel branch sees the scope at the launch, and a
@@ -144,7 +144,12 @@ class SummaryWorkflowFinish {}
 let count = 0;
 function errorsOf(flow: WorkflowOptions["flow"]): readonly { code: string; message: string }[] {
   count += 1;
-  @Workflow({ name: `outdating-case-${String(count)}-workflow`, version: "1.0.0", flow })
+  @Workflow({
+    name: `outdating-case-${String(count)}-workflow`,
+    version: "1.0.0",
+    historyTtl: Ttl.Forever,
+    flow,
+  })
   class OutdatingCaseWorkflow {}
   return checkWorkflow(OutdatingCaseWorkflow).errors.map(({ code, message }) => ({
     code,

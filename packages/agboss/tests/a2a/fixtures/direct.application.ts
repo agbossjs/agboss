@@ -1,4 +1,4 @@
-import { hours, minutes } from "../../../src/units/index.js";
+import { hours, minutes, Ttl } from "../../../src/units/index.js";
 // #860 — an application with a direct-reply skill: a quote agent (one read-only tool) that answers
 // with a direct A2A `Message`, beside an ordinary task skill (an action). The quote skill is the
 // expose's `defaultSkill`. Stores: the in-memory defaults (DirectApplication), the SQLite files of
@@ -71,6 +71,7 @@ export class QuoteWorkflowFinish {}
 @Workflow({
   name: "quote-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(QuoteWorkflowStart).toAgent(QuoteAgent).toFinish(QuoteWorkflowFinish)],
 })
 export class QuoteWorkflow {}
@@ -116,6 +117,7 @@ export class QuoteFilePolicy {}
 @Workflow({
   name: "quote-file-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   filePolicy: QuoteFilePolicy,
   flow: [
     onStart(QuoteFileWorkflowStart).toAction(QuoteFileAction).toFinish(QuoteFileWorkflowFinish),
@@ -155,6 +157,7 @@ export class AckWorkflowFinish {}
 @Workflow({
   name: "ack-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(AckWorkflowStart).toAction(AckAction).toFinish(AckWorkflowFinish)],
 })
 export class AckWorkflow {}

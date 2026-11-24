@@ -18,7 +18,7 @@ import { TEST_BUDGETS } from "./budgets.js";
 import { WorkflowStartTextDto } from "./dtos.js";
 import { onExternalTask, onStart, toFinish, toExternalTask } from "./paths.js";
 import { QuestionFailedError } from "../../../src/flow/runtime/errors.js";
-import { inline, ExternalTask } from "../../../src/index.js";
+import { inline, ExternalTask, Ttl } from "../../../src/index.js";
 import { PauseRespondent } from "../../../src/pause/respondent.js";
 import { days } from "../../../src/units/index.js";
 
@@ -236,6 +236,7 @@ export class CheckLimitAction implements ActionHandler<CheckLimitAction> {
 @Workflow({
   name: "purchase-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(PurchaseWorkflowStart)
       .toAction(DraftQuestionAction)
@@ -265,6 +266,7 @@ export class OwnerPurchaseWorkflowFinish {}
 @Workflow({
   name: "owner-purchase-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(OwnerPurchaseWorkflowStart)
       .toAction(DraftQuestionAction)

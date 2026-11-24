@@ -202,6 +202,7 @@ export function everyKindWorkflows(models: KindModels): {
   @Workflow({
     name: "desk-workflow",
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     filePolicy: DeskFilePolicy,
     flow: [
       onStart(DeskStart)

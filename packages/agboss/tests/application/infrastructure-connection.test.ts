@@ -27,6 +27,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  Ttl,
 } from "../../src/index.js";
 import { SqliteConnection } from "../../src/infrastructure/sqlite/sqlite-connection.js";
 import { testWith } from "../../src/testing/index.js";
@@ -186,6 +187,7 @@ function workflowReading(dependency: object): object {
   @Workflow({
     name: "reading-workflow",
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [
       onStart(LeaseReadingWorkflowStart).toAction(ReadingAction).toFinish(LeaseReadWorkflowFinish),
     ],

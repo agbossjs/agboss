@@ -14,7 +14,7 @@ import {
   type ExecutionLease,
   type OnDestroy,
   type Tracked,
-  inline,
+  inline, Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { IN_MEMORY_DATABASE } from "../../../src/infrastructure/in-memory-database.js";
@@ -169,6 +169,7 @@ export class ToolWorkflowFinish {}
 @Workflow({
   name: "slow-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(SlowWorkflowStart)
       .toAction(SlowAction)
@@ -181,6 +182,7 @@ export class SlowWorkflow {}
 @Workflow({
   name: "tool-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults: { models: { maxTokens: 100, temperature: 0 } },
   flow: [
     onStart(ToolWorkflowStart)

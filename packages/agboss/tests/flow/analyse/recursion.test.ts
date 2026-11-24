@@ -19,6 +19,7 @@ import {
   SplitWorkflow,
   TopicResearchWorkflow,
 } from "../runtime/fixtures/recursion.workflow.js";
+import { Ttl } from "../../../src/index.js";
 
 /**
  * #264 AC2, AC5, AC11, AC12, #1287 — recursion in the analyser: a workflow launches itself with
@@ -36,8 +37,8 @@ function recursive(flowOf: Flow | ((self: () => Class) => Flow), maxDepth?: numb
   const flow = typeof flowOf === "function" ? flowOf(() => SelfCaseWorkflow) : flowOf;
   @Workflow(
     maxDepth === undefined
-      ? { name, version: "1.0.0", flow }
-      : { name, version: "1.0.0", flow, executionLimits: { maxDepth } },
+      ? { name, version: "1.0.0", historyTtl: Ttl.Forever, flow }
+      : { name, version: "1.0.0", historyTtl: Ttl.Forever, flow, executionLimits: { maxDepth } },
   )
   class SelfCaseWorkflow {}
   return SelfCaseWorkflow;
@@ -115,13 +116,21 @@ describe("AC2: [graph.recursion-without-depth], mutual recursion", () => {
       onStart(CountdownWorkflowStart).toWorkflow(other).toFinish(CountDoneWorkflowFinish),
     ];
     // declared first with no paths, its flow recorded once the other class exists
-    @Workflow({ name: "pong-workflow", version: "1.0.0", flow: [] })
+    @Workflow({ name: "pong-workflow", version: "1.0.0", historyTtl: Ttl.Forever, flow: [] })
     class PongWorkflow {}
-    @Workflow({ name: "ping-workflow", version: "1.0.0", flow: through(PongWorkflow) })
+    @Workflow({
+      name: "ping-workflow",
+      version: "1.0.0",
+      historyTtl: Ttl.Forever,
+      flow: through(PongWorkflow),
+    })
     class PingWorkflow {}
-    Workflow({ name: "pong-workflow", version: "1.0.0", flow: through(PingWorkflow) })(
-      PongWorkflow,
-    );
+    Workflow({
+      name: "pong-workflow",
+      version: "1.0.0",
+      historyTtl: Ttl.Forever,
+      flow: through(PingWorkflow),
+    })(PongWorkflow);
 
     expect(messagesOf(PingWorkflow, "graph.mutual-recursion")).toEqual([
       "ping-workflow → pong-workflow → ping-workflow: mutual recursion is not supported — a workflow launches only itself (toWorkflow(() => ItsOwnClass)); merge the two into one recursive workflow",
@@ -129,12 +138,14 @@ describe("AC2: [graph.recursion-without-depth], mutual recursion", () => {
   });
 
   it("a flow naming its own class, as a class or a thunk, is a recursion, not mutual recursion", () => {
-    @Workflow({ name: "loop-workflow", version: "1.0.0", flow: [] })
+    @Workflow({ name: "loop-workflow", version: "1.0.0", historyTtl: Ttl.Forever, flow: [] })
     class LoopWorkflow {}
     const flow: Flow = [
       onStart(CountdownWorkflowStart).toWorkflow(LoopWorkflow).toFinish(CountDoneWorkflowFinish),
     ];
-    Workflow({ name: "loop-workflow", version: "1.0.0", flow })(LoopWorkflow);
+    Workflow({ name: "loop-workflow", version: "1.0.0", historyTtl: Ttl.Forever, flow })(
+      LoopWorkflow,
+    );
 
     expect(codesOf(LoopWorkflow)).toEqual(["graph.recursion-without-depth"]);
     expect(

@@ -18,6 +18,7 @@ import {
   TaskWorkflowStart,
   WorkAction,
 } from "../runtime/fixtures/tree-task.workflow.js";
+import { Ttl } from "../../../src/index.js";
 
 /**
  * #264 PR 2 (AC8, AC11) — `@Workflow({ executionLimits: { maxConcurrency } })` at assembly: a whole number of
@@ -35,6 +36,7 @@ function tree(cap: number | undefined, child: Workflowish = TaskWorkflow): Workf
   const options: WorkflowOptions = {
     name: `cap-${String(count)}-workflow`,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [
       onStart(BatchWorkflowStart)
         .forEachItem(toWorkflow(child), { takeFirst: 10 })
@@ -54,6 +56,7 @@ function cappedTask(cap: number): Workflowish {
   @Workflow({
     name: `capped-task-${String(count)}-workflow`,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [onStart(TaskWorkflowStart).toAction(WorkAction).toFinish(TaskDoneWorkflowFinish)],
     executionLimits: { maxConcurrency: cap },
   })

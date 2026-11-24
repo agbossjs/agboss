@@ -13,7 +13,7 @@ import { ArticleDto, ArticleRequestDto } from "./dtos.js";
 import { ApprovalDto, CritiqueDto, DraftDto, ResearchDto } from "./review-dtos.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "./budgets.js";
-import { EmptyEnvironment, inline } from "../../../src/index.js";
+import { EmptyEnvironment, inline, Ttl } from "../../../src/index.js";
 
 /**
  * #271 — the review loop (`caseOf(…)` after the reviewer, #299) and a polish
@@ -104,6 +104,7 @@ export const storyPaths = [
 @Workflow({
   name: "story-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: storyPaths,
 })
 export class StoryWorkflow {}
@@ -172,6 +173,7 @@ export class CritiqueRouter {}
 @Workflow({
   name: "polish-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(StoryWorkflowStart)
       .toAgent(PolishAgent),

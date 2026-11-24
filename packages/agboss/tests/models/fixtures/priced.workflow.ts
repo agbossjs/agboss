@@ -1,5 +1,5 @@
 import { Window2Memory } from "../../helpers/window-memory.js";
-import { Agent, Workflow, TokenLimit, WorkflowFinish, WorkflowStart } from "../../../src/index.js";
+import { Agent, Workflow, TokenLimit, WorkflowFinish, WorkflowStart, Ttl } from "../../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { Reasoning } from "../../../src/models/index.js";
 import { onStart } from "../../helpers/flow.js";
@@ -58,6 +58,7 @@ export class Answer {}
 @Workflow({
   name: "priced-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(TaskStart)
       .toAgent(Summariser)

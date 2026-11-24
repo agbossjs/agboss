@@ -6,7 +6,7 @@ import {
   Injectable,
   SqliteExecutionRecordRepository,
   Workflow,
-  type NewThread,
+  type NewThread, Ttl,
 } from "../../../../src/index.js";
 import { SqliteCheckpointSaver } from "../../../../src/internal.js";
 import { SqliteConnection } from "../../../../src/infrastructure/sqlite/sqlite-connection.js";
@@ -60,6 +60,7 @@ export class AuditedSqliteExecutionRecordRepository extends SqliteExecutionRecor
 @Workflow({
   name: "audited-note-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults: {
     models: { maxTokens: 100, temperature: 0 },
     tools: { maxToolCalls: 8 },

@@ -5,7 +5,7 @@ import {
   Application,
   EmptyEnvironment,
   Workflow,
-  WorkflowFinish,
+  WorkflowFinish, Ttl,
 } from "../../../../../agboss/src/index.js";
 import { Text } from "../../../../../agboss/src/dto/index.js";
 import { TEST_BUDGETS } from "../../../../../agboss/tests/flow/fixtures/budgets.js";
@@ -35,6 +35,7 @@ export class StayWorkflowFinish {}
 @Workflow({
   name: "stay-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(HotelWorkflowStart)
       .toAction(ConfirmAction)

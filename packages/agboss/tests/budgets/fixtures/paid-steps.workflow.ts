@@ -6,7 +6,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  inline,
+  inline, Ttl,
 } from "../../../src/index.js";
 import { onStart, toAction } from "../../helpers/flow.js";
 import {
@@ -40,6 +40,7 @@ export class PaidActionWorkflowFinish {}
 @Workflow({
   name: "paid-action-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(PaidActionWorkflowStart)
       .toAction(BookOrderAction)
@@ -71,6 +72,7 @@ export class PaidRouterWorkflowFinish {}
 @Workflow({
   name: "paid-router-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(PaidRouterWorkflowStart)
       .toAction(OverspendOrderAction)
@@ -102,6 +104,7 @@ export class PaidAgentWorkflowFinish {}
 @Workflow({
   name: "paid-agent-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(PaidAgentWorkflowStart)
       .toAction(OverspendOrderAction)
@@ -121,6 +124,7 @@ export class PaidOrderWorkflowFinish {}
 @Workflow({
   name: "paid-finish-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(PaidFinishWorkflowStart)
       .toAction(OverspendOrderAction)
@@ -140,6 +144,7 @@ export class DeclinedNotedWorkflowFinish {}
 @Workflow({
   name: "paid-declined-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(PaidDeclinedWorkflowStart)
       .toAction(DeclineOrderAction)
@@ -165,6 +170,7 @@ export class OverBudgetWorkflowFinish {}
 @Workflow({
   name: "paid-limit-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(PaidLimitWorkflowStart)
       .toAction(OverspendOrderAction)

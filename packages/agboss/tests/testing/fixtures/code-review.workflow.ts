@@ -8,7 +8,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  inline,
+  inline, Ttl,
 } from "../../../src/index.js";
 import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { optional } from "../../../src/flow/dto-wrappers.js";
@@ -91,6 +91,7 @@ export class Unused {}
 @Workflow({
   name: "code-review-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(TaskStart)
       .toAgent(Coder),

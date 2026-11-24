@@ -16,6 +16,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type ActionStartEvent,
+  Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -90,6 +91,7 @@ export class SideKeptWorkflowFinish {}
 @Workflow({
   name: "side-undo-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(SideUndoWorkflowStart)
       .toAction(BookItemAction)
@@ -110,6 +112,7 @@ export class ChargedWorkflowFinish {}
 @Workflow({
   name: "charge-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ChargeWorkflowStart)
       .toAction(GatedItemAction)

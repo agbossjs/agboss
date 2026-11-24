@@ -5,6 +5,7 @@ import {
   inline,
   Workflow,
   WorkflowStart,
+  Ttl,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
@@ -48,6 +49,7 @@ export class TaskPlannerAgent {}
 @Workflow({
   name: "gated-batch-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   executionLimits: { maxConcurrency: 3 },
   flow: [
     onStart(GatedBatchWorkflowStart)

@@ -3,7 +3,7 @@ import {
   EmptyEnvironment,
   Workflow,
   WorkflowFinish,
-  WorkflowStart,
+  WorkflowStart, Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -43,6 +43,7 @@ export class UndoChildLocalWorkflowFinish {}
 @Workflow({
   name: "undo-child-local-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(UndoChildLocalWorkflowStart)
       .toAction(BookItemAction)
@@ -70,6 +71,7 @@ export class UndoLocalWorkflowFinish {}
 @Workflow({
   name: "undo-local-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(UndoLocalWorkflowStart)
       .toWorkflow(UndoChildLocalWorkflow)
@@ -102,6 +104,7 @@ export class SidePathFailedWorkflowFinish {}
 @Workflow({
   name: "side-path-local-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(SidePathLocalWorkflowStart)
       .toWorkflow(YieldCheckLocalWorkflow)

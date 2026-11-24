@@ -6,7 +6,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  inline,
+  inline, Ttl,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import {
@@ -102,6 +102,7 @@ export class ReadingWorkflowFinish {}
 @Workflow({
   name: "review-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ReviewWorkflowStart)
       .toAgent(LegalReviewAgent)
@@ -113,6 +114,7 @@ export class ReviewWorkflow {}
 @Workflow({
   name: "reading-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ReadingWorkflowStart)
       .toAgent(ClauseReaderAgent)

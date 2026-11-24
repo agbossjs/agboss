@@ -1,4 +1,4 @@
-import { onAgent, onStart, toAction, toAgent, VisitsLimitExceededError, Workflow } from "@agboss/core";
+import { onAgent, onStart, toAction, toAgent, VisitsLimitExceededError, Workflow, Ttl } from "@agboss/core";
 import { NotifyRecruiterAction } from "../../actions/notify-recruiter.action.js";
 import { SendOfferAction } from "../../actions/send-offer.action.js";
 import { DraftAgent } from "../../agents/draft/draft.agent.js";
@@ -20,6 +20,7 @@ import { OfferWorkflowStart } from "./offer.workflow-start.js";
 @Workflow({
   name: "offer-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(OfferWorkflowStart)
       .toAgent(DraftAgent)

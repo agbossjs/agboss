@@ -16,7 +16,7 @@ needs none) or a
 ([Tools → Approval channels](Tools#approval-channels)):
 
 <!-- snippet-context
-import { Agent, ExecutionStatus, PauseRespondent, Tool, ToolApproval, Workflow, WorkflowFinish, WorkflowStart, onStart } from "@agboss/core";
+import { Agent, ExecutionStatus, PauseRespondent, Tool, ToolApproval, Workflow, WorkflowFinish, WorkflowStart, onStart, Ttl } from "@agboss/core";
 import { hours } from "@agboss/core/units";
 import { Email, Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 class EmailDraft { @Email() to!: string; @Text() body!: string; }
@@ -55,6 +55,7 @@ export class Assistant {}
 @Workflow({
   name: "errands-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(TaskStart)
       .toAgent(Assistant)

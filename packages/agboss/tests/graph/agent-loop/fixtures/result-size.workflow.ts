@@ -8,7 +8,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  inline,
+  inline, Ttl,
 } from "../../../../src/index.js";
 import { Rag } from "../../../../src/components/decorators.js";
 import type { ToolEndEvent } from "../../../../src/core/observability.js";
@@ -173,6 +173,7 @@ export class PageFinish {}
 @Workflow({
   name: "page-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(PageStart)
       .toAgent(ResearchAgent)
@@ -241,6 +242,7 @@ export class ZeroBoundStart {}
 @Workflow({
   name: "zero-bound-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ZeroBoundStart)
       .toAgent(ZeroBoundAgent)

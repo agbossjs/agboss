@@ -10,6 +10,7 @@ import {
   type Tracked,
   Action,
   inline,
+  Ttl,
 } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
@@ -75,6 +76,7 @@ class AnsFinish {}
 @Workflow({
   name: "ans-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(AnsStart)
       .inParallel([toAgent(AnsAgent), toAgent(AnsAgent)])

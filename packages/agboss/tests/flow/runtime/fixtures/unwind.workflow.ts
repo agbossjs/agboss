@@ -11,7 +11,7 @@ import {
   type CompensationEndEvent,
   type ExecutionCancelEvent,
   type ExecutionErrorEvent,
-  type Tracked,
+  type Tracked, Ttl,
 } from "../../../../src/index.js";
 import { Injectable } from "../../../../src/components/decorators.js";
 import { ExecutionCancelledError } from "../../../../src/core/errors.js";
@@ -104,6 +104,7 @@ export class UnwindWorkflowStart {}
 @Workflow({
   name: "unwind-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(UnwindWorkflowStart)
       .toAction(HoldSeatAction)
@@ -128,6 +129,7 @@ export class UnwindCommittedWorkflowStart {}
 @Workflow({
   name: "unwind-committed-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(UnwindCommittedWorkflowStart)
       .toAction(HoldSeatAction)
@@ -152,6 +154,7 @@ export class UnwindSidePathWorkflowStart {}
 @Workflow({
   name: "unwind-side-path-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(UnwindSidePathWorkflowStart)
       .toAction(HoldSeatAction)
@@ -185,6 +188,7 @@ export class RoomReservedWorkflowFinish {}
 @Workflow({
   name: "unwind-room-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(UnwindRoomWorkflowStart)
       .toAction(ReserveRoomAction)
@@ -229,6 +233,7 @@ export class RoomsReservedWorkflowFinish {}
 @Workflow({
   name: "unwind-many-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(UnwindManyWorkflowStart)
       .forEachItem(toWorkflow(UnwindRoomWorkflow), { takeFirst: 5, maxConcurrency: 2 })
@@ -250,6 +255,7 @@ export class UnwindParentWorkflowStart {}
 @Workflow({
   name: "unwind-parent-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(UnwindParentWorkflowStart)
       .toAction(ReserveSeatAction)

@@ -6,7 +6,7 @@
 import { describe, expect, it } from "vitest";
 import { checkWorkflow } from "../../src/flow/analyse/analyse.js";
 import { modelFamilyOf, sameFamilyWarnings } from "../../src/flow/analyse/rules/judge-family.js";
-import { Workflow } from "../../src/index.js";
+import { Workflow, Ttl } from "../../src/index.js";
 import type { Class } from "../../src/components/injection.js";
 import { onStart } from "../helpers/flow.js";
 import {
@@ -32,6 +32,7 @@ function workflowOf(agent: Class) {
   @Workflow({
     name: "one-agent-workflow",
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [onStart(FamilyTaskStart).toAgent(agent).toFinish(FamilyReply)],
     defaults: { router: { model: "typesafe/jev-1.13" } },
   })

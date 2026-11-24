@@ -20,7 +20,7 @@ import {
   PurchaseQuestionDto,
   QuestionInbox,
 } from "./questions.fixture.js";
-import { inline, ExternalTask } from "../../../src/index.js";
+import { inline, ExternalTask, Ttl } from "../../../src/index.js";
 import { PauseRespondent } from "../../../src/pause/respondent.js";
 import { days } from "../../../src/units/index.js";
 
@@ -175,6 +175,7 @@ export class BuyerWorkflowFinish {}
 @Workflow({
   name: "buyer-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(BuyerWorkflowStart)
       .toAgent(BuyerAgent)
@@ -201,6 +202,7 @@ export class OwnerBuyerWorkflowFinish {}
 @Workflow({
   name: "owner-buyer-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(OwnerBuyerWorkflowStart)
       .toAgent(OwnerBuyerAgent)

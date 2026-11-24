@@ -9,7 +9,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  inline,
+  inline, Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -94,6 +94,7 @@ export class LoopPaidWorkflowFinish {}
   placement: ChildPlacement.AnyWorker,
   name: "loop-pay-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(LoopPayWorkflowStart)
       .toAgent(LoopPayAgent)
@@ -111,6 +112,7 @@ export class LoopParentWorkflowFinish {}
 @Workflow({
   name: "loop-parent-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(LoopParentWorkflowStart)
       .toWorkflow(LoopPayWorkflow)

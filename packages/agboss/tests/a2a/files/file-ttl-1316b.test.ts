@@ -200,6 +200,7 @@ describe("#1316b: Files.save({ ttl })", () => {
     @Workflow({
       name: `ttl-${String(ttl)}-workflow`,
       version: "1.0.0",
+      historyTtl: Ttl.Forever,
       flow: fileReviewFlow,
       filePolicy: Policy,
     })
@@ -259,6 +260,7 @@ describe("#1316b: the ttl rules", () => {
       @Workflow({
         name: `rule-${filePolicy.name}-workflow`,
         version: "1.0.0",
+        historyTtl: Ttl.Forever,
         flow: fileReviewFlow,
         filePolicy,
       })

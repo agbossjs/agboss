@@ -10,7 +10,7 @@ import {
   WorkflowStart,
   type CompensationEndEvent,
   type CompensationStartEvent,
-  type Tracked,
+  type Tracked, Ttl,
 } from "../../../../src/index.js";
 import { Injectable } from "../../../../src/components/decorators.js";
 import { Application } from "../../../../src/application/application.js";
@@ -276,6 +276,7 @@ export class SeatConfirmedWorkflowFinish {}
 @Workflow({
   name: "undo-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(UndoWorkflowStart)
       .inParallel([
@@ -296,6 +297,7 @@ export class UndoWorkflow {}
 @Workflow({
   name: "undo-unhandled-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(UndoUnhandledWorkflowStart)
       .inParallel([
@@ -318,6 +320,7 @@ export class UndoUnhandledWorkflow {}
 @Workflow({
   name: "undo-path-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(UndoPathWorkflowStart)
       .toAction(HoldSeatAction)

@@ -16,6 +16,7 @@ import {
   Injectable,
   TenantContext,
   Workflow,
+  Ttl,
 } from "../../src/index.js";
 import { ExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
 import { seconds } from "../../src/units/index.js";
@@ -67,12 +68,13 @@ class UnitNamesService {
 
 const flow = [onStart(RefundsWorkflowStart).toAgent(OrdersAgent).toFinish(OrdersWorkflowFinish)];
 
-@Workflow({ name: "plain-workflow", version: "1.0.0", flow })
+@Workflow({ name: "plain-workflow", version: "1.0.0", historyTtl: Ttl.Forever, flow })
 class PlainWorkflow {}
 
 @Workflow({
   name: "units-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow,
   providers: [UnitNamesService],
 })

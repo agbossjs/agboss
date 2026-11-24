@@ -24,6 +24,7 @@ import {
   TreasuryWorkflow,
   treasuryChannels,
 } from "../../flow/fixtures/replies.fixture.js";
+import { Ttl } from "../../../src/index.js";
 
 const applicationOver = async (...workflows: Class[]) => {
   @Application({
@@ -55,6 +56,7 @@ const perItemWorkflow = (name: string, options: { takeFirst: number; maxConcurre
   @Workflow({
     name: `${name}-workflow`,
     version: "2.0.0",
+    historyTtl: Ttl.Forever,
     flow: [
       onStart(Start)
         .toAction(SplitRequestsAction)
@@ -118,6 +120,7 @@ describe("#1366: the launch of a child in the tree", () => {
     @Workflow({
       name: "grand-workflow",
       version: "3.1.0",
+      historyTtl: Ttl.Forever,
       flow: [onStart(GrandStart).toWorkflow(TreasuryDeskWorkflow).toFinish(GrandFinish)],
     })
     class GrandWorkflow {}

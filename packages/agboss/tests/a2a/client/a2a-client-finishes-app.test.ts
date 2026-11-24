@@ -23,6 +23,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type Tracked,
+  Ttl,
 } from "../../../src/index.js";
 import { ScriptBook } from "../../../src/testing/script-book.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -92,6 +93,7 @@ class HandedOverFinish {}
 @Workflow({
   name: "ask-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(AskWorkflowStart)
       .toAction(AskPeerAction)

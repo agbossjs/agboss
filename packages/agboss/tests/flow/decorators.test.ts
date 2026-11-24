@@ -27,7 +27,7 @@ import {
 import { EditorAgent, NotifyRecruiterAction, OfferWorkflow } from "./fixtures/offer.fixture.js";
 import { OrderWorkflowFinish, OrderWorkflowStart } from "./fixtures/order.fixture.js";
 import { reviewerAgentOptions } from "./fixtures/reviewer-agent.options.js";
-import { inline } from "../../src/index.js";
+import { inline, Ttl } from "../../src/index.js";
 
 /** What the v2 decorators record (#272 → Decorators v2, #270 → typed input / output). */
 
@@ -115,6 +115,7 @@ describe("@Workflow records the flow as plain paths", () => {
     @Workflow({
       name: "limited-workflow",
       version: "2.0.0",
+      historyTtl: Ttl.Forever,
       flow: [onStart(OrderWorkflowStart)],
       executionLimits: { maxSteps: 12, maxDepth: 2, maxConcurrency: 4 },
       defaults: {
@@ -142,6 +143,7 @@ describe("#261: @Workflow keeps its own services", () => {
     @Workflow({
       name: "serviced-workflow",
       version: "1.0.0",
+      historyTtl: Ttl.Forever,
       flow: [onStart(OrderWorkflowStart)],
       providers: [OfferBook, limit],
     })

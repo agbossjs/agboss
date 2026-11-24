@@ -6,7 +6,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  inline,
+  inline, Ttl,
 } from "../../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { Application } from "../../../src/application/application.js";
@@ -99,6 +99,7 @@ const defaults = { models: { temperature: 0, maxTokens: TokenLimit.ModelMax } };
 @Workflow({
   name: "sound-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(SoundStart)
       .toAgent(SoundAgent)
@@ -113,6 +114,7 @@ export class SoundWorkflow {}
 @Workflow({
   name: "broken-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(BrokenStart)
       .toAgent(SoundAgent)
@@ -127,6 +129,7 @@ export class BrokenWorkflow {}
 @Workflow({
   name: "broken-agent-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(BrokenStart)
       .toAgent(BrokenAgent)
@@ -211,6 +214,7 @@ export class ThirdAgent {}
 @Workflow({
   name: "named-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(SoundStart)
       .toAgent(ThirdAgent)

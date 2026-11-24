@@ -1,4 +1,4 @@
-import { onStart, StepFailedError, toAction, Workflow, toFinish } from "@agboss/core";
+import { onStart, StepFailedError, toAction, Workflow, toFinish, Ttl } from "@agboss/core";
 import { MarkVendorFailedAction } from "../../actions/mark-vendor-failed.action.js";
 import { VendorCheckerAgent } from "../../agents/vendor-checker/vendor-checker.agent.js";
 import { VendorRejectedDto } from "../../dto/vendor-rejected.dto.js";
@@ -17,6 +17,7 @@ import { VendorCheckWorkflowStart } from "./vendor-check.workflow-start.js";
 @Workflow({
   name: "vendor-check-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(VendorCheckWorkflowStart)
       .toAgent(VendorCheckerAgent)

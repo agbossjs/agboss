@@ -9,6 +9,7 @@ import {
   provide,
   DecisionModel,
   Tool,
+  Ttl,
 } from "../../../src/index.js";
 import { McpServer, McpServerClient } from "../../../src/mcp/index.js";
 import { Text } from "../../../src/dto/index.js";
@@ -103,6 +104,7 @@ export class GreeterAgent {}
 @Workflow({
   name: "greetings-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults: testDefaults,
   flow: starOf(GreeterAgent),
   providers: [Greeter, provide(GREETING, "Shalom")],

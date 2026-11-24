@@ -59,6 +59,7 @@ export const FILES_APPLICATION = `import {
   BudgetPeriod,
   BudgetScope,
   EmptyEnvironment,
+  Ttl,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
@@ -88,6 +89,7 @@ export class FilesWorkflowFinish {}
 @Workflow({
   name: "files-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(FilesWorkflowStart)
       .toAction(FilesAction)

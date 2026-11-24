@@ -29,7 +29,7 @@ import {
   type Tracked,
   Action,
   inline,
-  ToolApproval,
+  ToolApproval, Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { minutes, days } from "../../../src/units/index.js";
@@ -474,6 +474,7 @@ export class DeskClerkAgent {}
 @Workflow({
   name: "desk-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(DeskWorkflowStart)
       .toAgent(DeskClerkAgent)
@@ -535,6 +536,7 @@ export class BatchWorkflowFinish {}
 @Workflow({
   name: "batch-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   executionLimits: { maxSteps: 20 },
   flow: [
     onStart(BatchWorkflowStart)
@@ -597,6 +599,7 @@ export class AuditWorkflowFinish {}
 @Workflow({
   name: "audit-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(AuditWorkflowStart)
       .inParallel([toAgent(AuditRefundAgent), toAgent(AuditCheckAgent)])

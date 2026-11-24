@@ -23,7 +23,7 @@ import { TEST_BUDGETS } from "./budgets.js";
 import { ExpiryDecisionDto, ExpiryDoneDto, ExpiryOrderDto } from "./expiry.fixture.js";
 import { AgentRefundDoneDto, AgentRefundDto } from "./agent-expiry.fixture.js";
 import { onStart } from "./paths.js";
-import { inline, ExternalTask, ToolApproval } from "../../../src/index.js";
+import { inline, ExternalTask, ToolApproval, Ttl } from "../../../src/index.js";
 import { PauseRespondent } from "../../../src/pause/respondent.js";
 import { days } from "../../../src/units/index.js";
 
@@ -150,6 +150,7 @@ export function workingParts(name: string, config: WorkingAppConfig): WorkingPar
   @Workflow({
     name: `${name}-workflow`,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [
       onStart(SomeStart)
         .toExternalTask(SomeQuestionExternalTask)
@@ -246,6 +247,7 @@ export function workingToolApp(
   @Workflow({
     name: `${name}-workflow`,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [
       onStart(SomeStart)
         .toAgent(SomeAgent)

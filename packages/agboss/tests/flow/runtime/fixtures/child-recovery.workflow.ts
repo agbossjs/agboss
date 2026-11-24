@@ -3,7 +3,7 @@ import {
   listOf,
   Workflow,
   WorkflowFinish,
-  WorkflowStart,
+  WorkflowStart, Ttl,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
@@ -45,6 +45,7 @@ export class HoldCheckedWorkflowFinish {}
 @Workflow({
   name: "hold-check-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(HoldCheckWorkflowStart)
       .toAction(RecoverableItemAction)
@@ -63,6 +64,7 @@ export class HoldItemsWorkflowStart {}
 @Workflow({
   name: "hold-items-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(HoldItemsWorkflowStart)
       .forEachItem(toWorkflow(HoldCheckWorkflow), { takeFirst: 10 })

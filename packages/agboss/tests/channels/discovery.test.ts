@@ -9,7 +9,7 @@ import { Injectable, Tool } from "../../src/components/decorators.js";
 import { Integer } from "../../src/dto/index.js";
 import { Agent } from "../../src/flow/decorators/agent.js";
 import { Workflow } from "../../src/flow/decorators/workflow.js";
-import { EmptyEnvironment, inline, ToolApproval } from "../../src/index.js";
+import { EmptyEnvironment, inline, ToolApproval, Ttl } from "../../src/index.js";
 import { callTool, replyWith } from "../../src/testing/index.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
@@ -46,6 +46,7 @@ const offline = (book = new ScriptBook()) => ({
 @Workflow({
   name: "front-desk-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(RefundWorkflowStart).toWorkflow(CardRefundsWorkflow).toFinish(RefundWorkflowFinish),
   ],
@@ -155,6 +156,7 @@ describe("#267 AC9: implementations in @Application({ providers })", () => {
     @Workflow({
       name: "misplaced-refunds-workflow",
       version: "1.0.0",
+      historyTtl: Ttl.Forever,
       flow: [onStart(RefundWorkflowStart).toAgent(RefundClerkAgent).toFinish(RefundWorkflowFinish)],
       defaults: { router: { model: "typesafe/jev-test" } },
       providers: [RefundDesk, RuleRefundApprovalChannel],
@@ -248,6 +250,7 @@ describe("#267 AC8 (PR 1 part): one interpreter belongs to one role", () => {
     @Workflow({
       name: "replies-workflow",
       version: "1.0.0",
+      historyTtl: Ttl.Forever,
       flow: [onStart(RefundWorkflowStart).toAgent(RepliesAgent).toFinish(RefundWorkflowFinish)],
       defaults: { router: { model: "typesafe/jev-test" } },
     })

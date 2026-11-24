@@ -10,7 +10,7 @@ import {
   WorkflowStart,
   listOf,
   type ExecutionStartEvent,
-  type Tracked,
+  type Tracked, Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import {
@@ -182,6 +182,7 @@ class GrandPayWorkflowFinish {}
   placement: ChildPlacement.AnyWorker,
   name: "grand-pay-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(GrandPayWorkflowStart)
       .toAction(GrandOne)
@@ -204,6 +205,7 @@ class SiblingItemWorkflowFinish {}
   placement: ChildPlacement.CurrentProcess,
   name: "sibling-item-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(SiblingItemWorkflowStart)
       .toAction(SiblingPayAction)
@@ -223,6 +225,7 @@ export class SiblingItemsWorkflowStart {}
 @Workflow({
   name: "sibling-items-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(SiblingItemsWorkflowStart)
       .forEachItem(toWorkflow(SiblingItemWorkflow), { takeFirst: 2 })

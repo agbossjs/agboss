@@ -8,7 +8,7 @@ import { ShortlistDto } from "../fixtures/dtos.js";
 import { KitWorkflowStart } from "../fixtures/kit.fixture.js";
 import { onStart } from "../fixtures/paths.js";
 import { analyseWorkflow } from "../../../src/flow/analyse/analyse.js";
-import { inline } from "../../../src/index.js";
+import { inline, Ttl } from "../../../src/index.js";
 
 /** Names (#272 AC13; #270 AC14, S5): kind suffixes, the `Dto` suffix, unique DTO names. */
 
@@ -39,6 +39,7 @@ class CritiqueWorkflowFinish {}
 @Workflow({
   name: "offer",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(KitWorkflowStart).toAgent(ScoreSummaryAgent).toFinish(CritiqueWorkflowFinish)],
 })
 class BadlyNamedWorkflow {}
@@ -66,6 +67,7 @@ class ShortlistWorkflowFinish {}
 @Workflow({
   name: "renamed-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(KitWorkflowStart).toAgent(RenamedLaterAgent).toFinish(ShortlistWorkflowFinish)],
 })
 class RenamedWorkflow {}
@@ -109,6 +111,7 @@ class ResultWorkflowFinish {}
 @Workflow({
   name: "clashing-dtos-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(KitWorkflowStart).toAgent(SearchAgent).toFinish(ResultWorkflowFinish)],
 })
 class ClashingDtosWorkflow {}

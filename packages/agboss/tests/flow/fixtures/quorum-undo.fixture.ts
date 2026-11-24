@@ -5,7 +5,7 @@ import {
   QuorumNotReachedError,
   Action,
   Workflow,
-  WorkflowStart,
+  WorkflowStart, Ttl,
 } from "../../../src/index.js";
 import { optional } from "../../../src/flow/dto-wrappers.js";
 import { Application } from "../../../src/application/application.js";
@@ -89,6 +89,7 @@ export class QuorumRefusedWorkflowStart {}
 @Workflow({
   name: "quorum-excluded-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(QuorumExcludedWorkflowStart)
       .inParallel([toAction(BookSeatAction), toAction(BookRoomAction)])
@@ -105,6 +106,7 @@ export class QuorumExcludedWorkflow {}
 @Workflow({
   name: "quorum-refused-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(QuorumRefusedWorkflowStart)
       .inParallel([toAction(BookSeatAction), toAction(BookRoomAction)])

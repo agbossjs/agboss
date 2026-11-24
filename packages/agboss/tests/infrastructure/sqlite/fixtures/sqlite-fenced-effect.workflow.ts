@@ -14,7 +14,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Tracked,
+  type Tracked, Ttl,
 } from "../../../../src/index.js";
 import { SqliteCheckpointSaver } from "../../../../src/internal.js";
 import { hours } from "../../../../src/units/index.js";
@@ -120,6 +120,7 @@ export class SqliteChargedWorkflowFinish {}
 @Workflow({
   name: "sqlite-charge-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(SqliteChargeWorkflowStart)
       .toAction(SqliteChargeOrderAction)

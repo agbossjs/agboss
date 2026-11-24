@@ -6,7 +6,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Tracked,
+  type Tracked, Ttl,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { onStart, toAction } from "../../../helpers/flow.js";
@@ -104,6 +104,7 @@ export class OneOfTicketStart {}
 @Workflow({
   name: "one-of-triage-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(OneOfTicketStart)
       .toAction(SortAction)

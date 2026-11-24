@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { workflowOf } from "../../../src/components/assemble.js";
-import { Agent, GraphRuleError, Workflow, WorkflowFinish, inline } from "../../../src/index.js";
+import {
+  Agent,
+  GraphRuleError,
+  Workflow,
+  WorkflowFinish,
+  inline,
+  Ttl,
+} from "../../../src/index.js";
 import { Text } from "../../../src/dto/index.js";
 import { replyWith, routeTo, testWith } from "../../../src/testing/index.js";
 import { Alpha, TestAnswer, TestChat, TestMain } from "../../fixtures/test-flow/test.flow.js";
@@ -29,6 +36,7 @@ class ChattyAgent {}
 @Workflow({
   name: "wrong-text-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(TestChat).toAgent(ChattyAgent).toFinish(SummaryFinish)],
 })
 class WrongTextWorkflow {}

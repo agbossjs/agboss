@@ -11,7 +11,7 @@ import {
   type BudgetHandler,
   BudgetExceededError,
   LimitExceededError,
-  inline,
+  inline, Ttl,
 } from "../../src/index.js";
 import { OwnerToolApproval } from "../flow/fixtures/owner-approval.fixture.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
@@ -112,6 +112,7 @@ const SHOP_BUDGETS = [TestApplicationDailyBudget, TestTenantDailyBudget, ShopExe
 @Workflow({
   name: "shop-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(Order)
       .toAgent(Buyer)
@@ -137,6 +138,7 @@ export class ShopApplication {}
 @Workflow({
   name: "shop-limits-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(Order)
       .toAgent(Buyer)
@@ -162,6 +164,7 @@ export class ShopCatchingLimitsApplication {}
 @Workflow({
   name: "shop-uncaught-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(Order)
       .toAgent(Buyer)

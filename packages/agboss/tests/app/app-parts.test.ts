@@ -15,6 +15,7 @@ import {
   WorkflowStart,
   type WorkflowDefinition,
   inline,
+  Ttl,
 } from "../../src/index.js";
 import { Text } from "../../src/dto/index.js";
 import { CostReport } from "../../src/finops/usage.js";
@@ -53,6 +54,7 @@ class TicketWriter {}
 @Workflow({
   name: "tickets-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(TicketStart).toAgent(TicketWriter).toFinish(Reply)],
   defaults: {
     models: { temperature: 0, cache: true },

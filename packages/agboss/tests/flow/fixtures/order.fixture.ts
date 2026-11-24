@@ -6,6 +6,7 @@ import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import type { InputOf, OutputOf } from "../../../src/flow/generated-types.js";
 import type { ActionHandler } from "../../../src/flow/handlers.js";
 import { OrderRequestDto, OrderShippedDto, StockReservationDto } from "./dtos.js";
+import { Ttl } from "../../../src/index.js";
 
 /** #272 example 3 — errors and an explicit rollback, with a branch for a failed rollback. */
 
@@ -136,6 +137,7 @@ export const orderPaths = [
 @Workflow({
   name: "order-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: orderPaths,
 })
 export class OrderWorkflow {}

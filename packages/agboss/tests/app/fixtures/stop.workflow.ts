@@ -1,4 +1,4 @@
-import { hours } from "../../../src/units/index.js";
+import { hours, Ttl } from "../../../src/units/index.js";
 import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
   Action,
@@ -127,6 +127,7 @@ export class GateFinish {}
 @Workflow({
   name: "gate-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults: { models: { maxTokens: 100, temperature: 0 }, tools: { maxToolCalls: 3 } },
   providers: [Settle],
   flow: [

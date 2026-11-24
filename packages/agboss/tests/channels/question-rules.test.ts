@@ -12,7 +12,7 @@ import type { Class } from "../../src/components/injection.js";
 import { Agent } from "../../src/flow/decorators/agent.js";
 import { Workflow } from "../../src/flow/decorators/workflow.js";
 import { GraphRuleError } from "../../src/graph/rule-error.js";
-import { EmptyEnvironment, inline, ExternalTask } from "../../src/index.js";
+import { EmptyEnvironment, inline, ExternalTask, Ttl } from "../../src/index.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
@@ -49,6 +49,7 @@ function askingApplication(name: string, role: Class, providers: readonly Class[
   @Workflow({
     name: `${name}-workflow`,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [
       onStart(PurchaseWorkflowStart)
         .toAction(DraftQuestionAction)
@@ -147,6 +148,7 @@ describe("#659 AC1: a question role's name and implementation", () => {
     @Workflow({
       name: "tool-question-workflow",
       version: "1.0.0",
+      historyTtl: Ttl.Forever,
       flow: [onStart(PurchaseWorkflowStart).toAgent(LimitAgent).toFinish(PurchaseWorkflowFinish)],
     })
     class ToolQuestionWorkflow {}

@@ -6,7 +6,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Tracked,
+  type Tracked, Ttl,
 } from "../../../src/index.js";
 import { hours, seconds } from "../../../src/units/index.js";
 import { Application } from "../../../src/application/application.js";
@@ -98,6 +98,7 @@ export class KeyedUndoWorkflowFinish {}
 @Workflow({
   name: "keyed-undo-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(KeyedUndoWorkflowStart)
       .toAction(KeyedBookingAction)
@@ -119,6 +120,7 @@ export class KeyedParentWorkflowFinish {}
 @Workflow({
   name: "keyed-parent-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(KeyedParentWorkflowStart)
       .toWorkflow(KeyedUndoWorkflow)

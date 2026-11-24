@@ -15,6 +15,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type HandledErrorRecord,
+  Ttl,
 } from "../../../src/index.js";
 import { testWith } from "../../../src/testing/index.js";
 import { execute, onStart, toAction } from "../../helpers/flow.js";
@@ -91,6 +92,7 @@ class HandledFinish {}
 @Workflow({
   name: "handled-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(HandledStart)
       .toAction(PlainAction)

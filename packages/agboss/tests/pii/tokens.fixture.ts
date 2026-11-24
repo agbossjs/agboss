@@ -7,6 +7,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   inline,
+  Ttl,
 } from "../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
@@ -73,6 +74,7 @@ export class MailFinish {}
 @Workflow({
   name: "mail-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(MailStart).toAgent(MailerAgent).toFinish(MailFinish)],
   defaults: { models: { temperature: 0 }, tools: { maxToolCalls: 2 } },
   providers: [ApprovalDesk, Outbox],

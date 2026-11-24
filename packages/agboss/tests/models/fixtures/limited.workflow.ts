@@ -1,5 +1,5 @@
 import { Window1Memory } from "../../helpers/window-memory.js";
-import { Agent, EmptyEnvironment, TokenLimit, Workflow } from "../../../src/index.js";
+import { Agent, EmptyEnvironment, TokenLimit, Workflow, Ttl } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import {
   ModelCost,
@@ -62,6 +62,7 @@ export class LimitedAgent {}
 @Workflow({
   name: "limited-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ChatStart)
       .toAgent(LimitedAgent)

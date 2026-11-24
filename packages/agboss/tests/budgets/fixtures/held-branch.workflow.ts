@@ -7,7 +7,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   listOf,
-  type Tracked,
+  type Tracked, Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -45,6 +45,7 @@ export class HeldBranchWorkflowFinish {}
   placement: ChildPlacement.AnyWorker,
   name: "held-branch-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(HeldBranchWorkflowStart)
       .toAction(BookOrderAction)
@@ -84,6 +85,7 @@ export class HeldItemsWorkflowFinish {}
 @Workflow({
   name: "held-items-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(HeldItemsWorkflowStart)
       .toAction(BookOrderAction)
@@ -104,6 +106,7 @@ export class HeldLocalWorkflowFinish {}
 @Workflow({
   name: "held-local-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(HeldLocalWorkflowStart)
       .toWorkflow(HeldBranchWorkflow)
@@ -121,6 +124,7 @@ export class HeldAnyWorkflowFinish {}
 @Workflow({
   name: "held-any-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(HeldAnyWorkflowStart)
       .toWorkflow(HeldBranchWorkflow)

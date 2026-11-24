@@ -18,6 +18,7 @@ import {
   TurnedAwayFinish,
 } from "../runtime/fixtures/on-finish.workflow.js";
 import { onStart, toAction, toFinish } from "../fixtures/paths.js";
+import { Ttl } from "../../../src/index.js";
 
 /**
  * `.onFinish(ChildFinish, subPath)` names the finish of a child workflow by its class, and covers
@@ -30,7 +31,7 @@ const expired = () => toAction(RetryLaterAction).toFinish(TurnedAwayFinish);
 const child = () => onStart(OnboardStart).toWorkflow(KycWorkflow);
 
 const check = (flow: ReturnType<typeof child>[], name: string) => {
-  @Workflow({ name, version: "1.0.0", flow })
+  @Workflow({ name, version: "1.0.0", historyTtl: Ttl.Forever, flow })
   class Checked {}
   return checkWorkflow(Checked);
 };

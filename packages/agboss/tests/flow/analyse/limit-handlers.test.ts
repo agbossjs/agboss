@@ -32,7 +32,7 @@ import {
 } from "../fixtures/children.fixture.js";
 import { WorkflowStartTextDto } from "../fixtures/dtos.js";
 import { onStart, toAction, toAgent, toFinish, toWorkflow } from "../fixtures/paths.js";
-import { inline } from "../../../src/index.js";
+import { inline, Ttl } from "../../../src/index.js";
 
 /**
  * #263 AC12: a side path that can catch a limit leads only to actions and finishes —
@@ -44,7 +44,12 @@ type Flow = WorkflowOptions["flow"];
 let count = 0;
 function workflowWith(flow: Flow): abstract new () => unknown {
   count += 1;
-  @Workflow({ name: `limit-case-${String(count)}-workflow`, version: "1.0.0", flow })
+  @Workflow({
+    name: `limit-case-${String(count)}-workflow`,
+    version: "1.0.0",
+    historyTtl: Ttl.Forever,
+    flow,
+  })
   class LimitCaseWorkflow {}
   return LimitCaseWorkflow;
 }

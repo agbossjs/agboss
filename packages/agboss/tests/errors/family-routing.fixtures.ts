@@ -1,4 +1,4 @@
-import { usd, hours, minutes } from "../../src/units/index.js";
+import { usd, hours, minutes, Ttl } from "../../src/units/index.js";
 import {
   Action,
   AGBossError,
@@ -123,6 +123,7 @@ export class OwnCaughtFinish {}
 @Workflow({
   name: "family-route-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(FamilyRouteStart)
       .toAction(ThrowingAction)
@@ -160,6 +161,7 @@ export class NarrowOwnCaughtFinish {}
 @Workflow({
   name: "narrow-route-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(NarrowRouteStart)
       .toAction(ThrowingAction)

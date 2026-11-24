@@ -8,7 +8,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   TokenLimit,
-  inline,
+  inline, Ttl,
 } from "../../../src/index.js";
 import {
   JudgeModel,
@@ -87,6 +87,7 @@ export const MODEL_PROVIDERS = [TestDecisionsProvider, LocalModelProvider];
 @Workflow({
   name: "judged-desk-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(TaskStart)
       .toAgent(Writer)
@@ -129,6 +130,7 @@ export class Careless {}
 @Workflow({
   name: "modelless-desk-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(TaskStart)
       .toAgent(Careless)

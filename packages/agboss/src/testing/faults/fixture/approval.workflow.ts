@@ -14,6 +14,7 @@ import { FaultOrderDto, FaultPaymentDto, FaultReservationDto } from "./order.dto
 import { FaultPayAction } from "./pay.action.js";
 import { PauseRespondent } from "../../../pause/respondent.js";
 import { days } from "../../../units/index.js";
+import { Ttl } from "../../../index.js";
 
 /**
  * The fault fixture's approved order (#811 AC4, served over A2A only): reserve (undoable), then a
@@ -98,6 +99,7 @@ export class FaultApprovalWorkflowFinish {}
 @Workflow({
   name: "fault-approval-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(FaultApprovalWorkflowStart)
       .toAction(FaultReserveAction)

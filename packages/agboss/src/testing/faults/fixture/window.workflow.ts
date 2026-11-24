@@ -20,6 +20,7 @@ import { FaultPayAction } from "./pay.action.js";
 import { FaultPauseExternalTask, FaultPauseWorkflow } from "./pause.workflow.js";
 import { PauseRespondent } from "../../../pause/respondent.js";
 import { days } from "../../../units/index.js";
+import { Ttl } from "../../../index.js";
 
 /**
  * The fault fixture's trees for the writes window at an answer (#1098), run on every store set:
@@ -50,6 +51,7 @@ export class FaultChildPauseWorkflowFinish {}
 @Workflow({
   name: "fault-child-pause-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(FaultChildPauseWorkflowStart)
       .toWorkflow(FaultPauseWorkflow)
@@ -119,6 +121,7 @@ export class FaultTwicePauseWorkflowFinish {}
 @Workflow({
   name: "fault-twice-pause-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(FaultTwicePauseWorkflowStart)
       .toAction(FaultReserveAction)

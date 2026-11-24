@@ -7,7 +7,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Tracked,
+  type Tracked, Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -101,6 +101,7 @@ export class UndoChildWorkflowFinish {}
   placement: ChildPlacement.AnyWorker,
   name: "undo-child-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(UndoChildWorkflowStart)
       .toAction(BookItemAction)
@@ -128,6 +129,7 @@ export class UndoOneWorkflowFinish {}
 @Workflow({
   name: "undo-one-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(UndoOneWorkflowStart)
       .toWorkflow(UndoChildWorkflow)

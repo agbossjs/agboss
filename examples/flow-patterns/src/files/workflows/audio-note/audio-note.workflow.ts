@@ -1,4 +1,4 @@
-import { Workflow, onStart } from "@agboss/core";
+import { Workflow, onStart, Ttl } from "@agboss/core";
 import { AudioNoteAgent } from "../../agents/audio-note/audio-note.agent.js";
 import { AudioNoteResultWorkflowFinish } from "./audio-note-result.workflow-finish.js";
 import { AudioNoteFilePolicy } from "../../file-policies/audio-note.file-policy.js";
@@ -8,6 +8,7 @@ import { AudioNoteWorkflowStart } from "./audio-note.workflow-start.js";
 @Workflow({
   name: "audio-note-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   filePolicy: AudioNoteFilePolicy,
   flow: [
     onStart(AudioNoteWorkflowStart)

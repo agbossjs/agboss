@@ -1,7 +1,7 @@
 /** #118 AC5: tools and MCP servers on DTOs — validation at the edge, DTO-shaped data inside. */
 import { McpTransport } from "../../src/config/mcp-server-config.js";
 import { describe, expect, it } from "vitest";
-import { Agent, Workflow, Tool } from "../../src/index.js";
+import { Agent, Workflow, Tool, Ttl } from "../../src/index.js";
 import { McpServer, McpServerClient } from "../../src/mcp/index.js";
 import { mcpServerStub } from "../../src/testing/index.js";
 import { workflowOf } from "../../src/testing/workflow-of.js";
@@ -100,6 +100,7 @@ describe("tools on DTOs (#118)", () => {
     @Workflow({
       name: "loose-workflow",
       version: "1",
+      historyTtl: Ttl.Forever,
       defaults: testDefaults,
       flow: starOf(LooseAgent),
     })

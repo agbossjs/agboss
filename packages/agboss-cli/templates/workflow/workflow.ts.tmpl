@@ -1,4 +1,5 @@
 import { Workflow, onStart, toAgent } from "@agboss/core";
+import { days } from "@agboss/core/units";
 import { TextWorkflowStart } from "./text.workflow-start.js";
 import { TextWorkflowFinish } from "./text.workflow-finish.js";
 import { {{routerClass}} } from "{{routerFrom}}";
@@ -8,6 +9,7 @@ import { {{routerClass}} } from "{{routerFrom}}";
 @Workflow({
   name: "{{kebab}}-workflow",
   version: "0.1.0",
+  historyTtl: days(90), // how long the history of finished executions is kept (Ttl.Forever, Ttl.None)
   // the graph, one path: the text goes to the main router, which picks the agent that answers
   flow: [
     onStart(TextWorkflowStart)

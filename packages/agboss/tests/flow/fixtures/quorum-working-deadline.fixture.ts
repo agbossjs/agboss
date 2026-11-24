@@ -14,7 +14,7 @@ import {
   WorkingCalendar,
   type ChannelAsk,
   type WorkingCalendarContext,
-  type WorkingCalendarHandler,
+  type WorkingCalendarHandler, Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { PauseError } from "../../../src/core/error-families/pause-errors.js";
@@ -155,6 +155,7 @@ const parties = [toExternalTask(AuditorExternalTask), toExternalTask(CounselExte
 @Workflow({
   name: "audit-hours-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   executionLimits: { maxSteps: 20 },
   flow: [
     onStart(AuditHoursWorkflowStart)
@@ -173,6 +174,7 @@ export class AuditHoursWorkflow {}
 @Workflow({
   name: "audit-days-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   executionLimits: { maxSteps: 20 },
   flow: [
     onStart(AuditDaysWorkflowStart)
@@ -191,6 +193,7 @@ export class AuditDaysWorkflow {}
 @Workflow({
   name: "audit-groups-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   executionLimits: { maxSteps: 20 },
   flow: [
     onStart(AuditGroupsWorkflowStart)
@@ -212,6 +215,7 @@ export class AuditGroupsWorkflow {}
 @Workflow({
   name: "audit-broken-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   executionLimits: { maxSteps: 20 },
   flow: [
     onStart(AuditBrokenWorkflowStart)
@@ -230,6 +234,7 @@ export class AuditBrokenWorkflow {}
 @Workflow({
   name: "audit-unhandled-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   executionLimits: { maxSteps: 20 },
   flow: [
     onStart(AuditUnhandledWorkflowStart)

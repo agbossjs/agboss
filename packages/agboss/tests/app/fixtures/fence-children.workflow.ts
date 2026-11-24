@@ -11,7 +11,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type BudgetHandler,
-  type Tracked,
+  type Tracked, Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { usd, type Usd } from "../../../src/units/index.js";
@@ -137,6 +137,7 @@ export class FarChildWorkflowFinish {}
 @Workflow({
   name: "near-child-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(NearChildWorkflowStart)
       .toAction(ScopeNearChildAction)
@@ -149,6 +150,7 @@ export class NearChildWorkflow {}
   placement: ChildPlacement.AnyWorker,
   name: "far-child-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(FarChildWorkflowStart)
       .toAction(ScopeFarChildAction)
@@ -180,6 +182,7 @@ export class FarParentWorkflowFinish {}
 @Workflow({
   name: "near-parent-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(NearParentWorkflowStart)
       .toAction(ScopeRootAction)
@@ -192,6 +195,7 @@ export class NearParentWorkflow {}
 @Workflow({
   name: "far-parent-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(FarParentWorkflowStart)
       .toWorkflow(FarChildWorkflow)

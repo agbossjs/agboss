@@ -14,7 +14,7 @@ import {
 } from "./data-dtos.js";
 import { WorkflowStartTextDto } from "./dtos.js";
 import { onAction, onAgent, onStart, toAgent } from "./paths.js";
-import { inline } from "../../../src/index.js";
+import { inline, Ttl } from "../../../src/index.js";
 
 /** #270 — the support desk: a router, an optional loyalty offer, a finish reading `fast` or `expert`. */
 
@@ -136,6 +136,7 @@ export const supportPaths = [
 @Workflow({
   name: "support-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: supportPaths,
 })
 export class SupportWorkflow {}

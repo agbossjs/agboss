@@ -13,7 +13,7 @@ import { inline } from "../../../src/components/prompt-source.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { optional } from "../../../src/flow/dto-wrappers.js";
 import { StepFailedError } from "../../../src/graph/errors.js";
-import { minutes, seconds } from "../../../src/units/index.js";
+import { minutes, seconds, Ttl } from "../../../src/units/index.js";
 import { CompanyCheckDto } from "./launch-dtos.js";
 import {
   AuditorAgent,
@@ -99,6 +99,7 @@ export class ValidScoreArbiter {}
 @Workflow({
   name: "candidate-review-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(CandidateReviewWorkflowStart)
       .inParallel([toAgent(ScoreAAgent), toAgent(ScoreBAgent), toAgent(ScoreCAgent)])
@@ -114,6 +115,7 @@ export class CandidateReviewWorkflow {}
 @Workflow({
   name: "fit-review-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(FitReviewWorkflowStart)
       .inParallel([toAgent(SkillsScoreAgent), toAgent(CultureScoreAgent), toAgent(SalaryFitAgent)])
@@ -147,6 +149,7 @@ export class ConvincingReasonArbiter {}
 @Workflow({
   name: "company-search-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   executionLimits: { maxSteps: 60 }, // a launch of up to 50 items
   flow: [
     onStart(CompanySearchWorkflowStart)
@@ -176,6 +179,7 @@ export class DueDiligenceArbiter {}
 @Workflow({
   name: "due-diligence-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(DealWorkflowStart)
       .inParallel(

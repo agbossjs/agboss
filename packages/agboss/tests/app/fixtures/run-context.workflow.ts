@@ -1,4 +1,4 @@
-import { hours } from "../../../src/units/index.js";
+import { hours, Ttl } from "../../../src/units/index.js";
 import { Window1Memory } from "../../helpers/window-memory.js";
 import { OwnerToolApproval } from "../../flow/fixtures/owner-approval.fixture.js";
 import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
@@ -174,6 +174,7 @@ const defaults = {
 @Workflow({
   name: "checkout-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults,
   memory: Window1Memory,
   providers: [Pay],

@@ -28,7 +28,7 @@ import type { AgentExecutionDeps } from "../../src/run/types.js";
 import { DEFAULT_CONTEXT_VALUES } from "../../src/flow/context/context-values.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { BudgetExceededError } from "../../src/errors.js";
-import { usd } from "../../src/units/index.js";
+import { usd, Ttl } from "../../src/units/index.js";
 import { fakeDeps } from "../helpers.js";
 
 const clock = new VirtualClock();
@@ -267,6 +267,7 @@ const workflowClasses = Array.from({ length: 5 }, (_, index) => {
   @Workflow({
     name: `tier-${String(index)}-workflow`,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [],
     budget: TierBudget,
   })

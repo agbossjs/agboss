@@ -111,10 +111,11 @@ export interface WorkflowOptions<
   readonly flow: TFlow;
   /**
    * How long the history of this workflow's finished executions is kept (#1318): a duration,
-   * `Ttl.Forever` (never swept) or `Ttl.None` (no history is kept at all). A profile may change it
+   * `Ttl.Forever` (never swept) or `Ttl.None` (no history is kept at all). Required — a workflow that
+   * leaves it out is `[limits.history-ttl-required]`. A profile may change it
    * (`workflows.<name>.historyTtl`); every reader asks the assembly's `ComponentOptions`.
    */
-  readonly historyTtl?: Milliseconds | Ttl;
+  readonly historyTtl: Milliseconds | Ttl;
   /** The caps of one execution of this workflow and of its tree (#261, #263, #264, #1278, #1318). */
   readonly executionLimits?: WorkflowExecutionLimits;
   readonly defaults?: WorkflowDefaults;

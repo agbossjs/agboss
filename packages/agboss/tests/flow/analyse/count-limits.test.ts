@@ -19,7 +19,7 @@ import { Agent } from "../../../src/flow/decorators/agent.js";
 import { Workflow, type WorkflowOptions } from "../../../src/flow/decorators/workflow.js";
 import { oneOf } from "../../../src/flow/dto-wrappers.js";
 import { GraphRuleError } from "../../../src/graph/rule-error.js";
-import { EmptyEnvironment, inline } from "../../../src/index.js";
+import { EmptyEnvironment, inline, Ttl } from "../../../src/index.js";
 import { TEST_BUDGETS } from "../fixtures/budgets.js";
 import { ChangesRequestedDto, DraftApprovedDto, OfferDraftDto } from "../fixtures/dtos.js";
 import {
@@ -82,6 +82,7 @@ function loopOf(
   @Workflow({
     name: `limit-${String(count)}-loop-workflow`,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [
       onStart(KitWorkflowStart).toAgent(DraftKitAgent).toAgent(LimitReviewAgent),
       onAgent(LimitReviewAgent).toOneOf([

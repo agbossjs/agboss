@@ -6,6 +6,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   inline,
+  Ttl,
 } from "../../../src/index.js";
 import type { OnInit } from "../../../src/components/container/lifecycle.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
@@ -109,6 +110,7 @@ export class OrdersAgent {}
 @Workflow({
   name: "orders-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults: testDefaults,
   flow: [onStart(OrdersWorkflowStart).toAgent(OrdersAgent).toFinish(OrdersWorkflowFinish)],
   providers: [DeskDirectoryService, SpendReportService],
@@ -140,6 +142,7 @@ export class RefundsAgent {}
 @Workflow({
   name: "refunds-workflow",
   version: "2.0.0",
+  historyTtl: Ttl.Forever,
   defaults: testDefaults,
   flow: [onStart(RefundsWorkflowStart).toAgent(RefundsAgent).toFinish(RefundsWorkflowFinish)],
   providers: [DeskDirectoryService],
@@ -160,6 +163,7 @@ export class DesksApplication {}
 @Workflow({
   name: "orders-copy-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults: testDefaults,
   flow: [onStart(OrdersWorkflowStart).toAgent(RefundsAgent).toFinish(RefundsWorkflowFinish)],
 })

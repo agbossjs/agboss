@@ -13,6 +13,7 @@ import {
   type WorkflowDefinition,
   Tool,
   inline,
+  Ttl,
 } from "../../src/index.js";
 import { connectMcp, McpEndpoint, type McpSessionOptions } from "../../src/mcp/index.js";
 import { plainApp } from "../helpers/mcp-plain-app.js";
@@ -101,6 +102,7 @@ class Clerk {}
 @Workflow({
   name: "clerk-desk-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(ChatStart).toAgent(Clerk).toFinish(Reply)],
   defaults: {
     models: { temperature: 0, cache: true },

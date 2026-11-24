@@ -11,7 +11,7 @@ import {
   ExecutionCancelledError,
   WorkflowStart,
   type LaunchItemsTruncatedEvent,
-  type Tracked,
+  type Tracked, Ttl,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { usd } from "../../../../src/units/index.js";
@@ -183,6 +183,7 @@ export class FanOutLog {
 @Workflow({
   name: "fan-out-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ItemsWorkflowStart)
       .forEachItem(toAction(ProcessItemAction), { takeFirst: 4, maxConcurrency: 2 })
@@ -212,6 +213,7 @@ export class FanOutApplication {}
 @Workflow({
   name: "fan-out-unbounded-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ItemsWorkflowStart)
       .forEachItem(toAction(ProcessItemAction), { takeFirst: 4 })
@@ -242,6 +244,7 @@ export class ItemResultsWorkflowFinish {}
 @Workflow({
   name: "list-finish-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   executionLimits: { maxSteps: 10 },
   flow: [
     onStart(ItemsWorkflowStart)
@@ -318,6 +321,7 @@ export class StampsWorkflowFinish {}
 @Workflow({
   name: "copies-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(OneItemWorkflowStart)
       .inParallel([toAction(StampAction), toAction(StampAction)])

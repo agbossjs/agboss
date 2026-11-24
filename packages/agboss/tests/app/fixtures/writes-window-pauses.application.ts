@@ -13,6 +13,7 @@ import {
   WorkflowStart,
   type Tracked,
   ExternalTask,
+  Ttl,
 } from "../../../src/index.js";
 import { InMemoryCheckpointSaver } from "../../../src/infrastructure/contracts.js";
 import { NodeKind, type PathSource } from "../../../src/flow/ast.js";
@@ -394,6 +395,7 @@ export class WindowChildWorkflowFinish {}
 @Workflow({
   name: "window-child-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(WindowChildWorkflowStart)
       .toAction(WindowAskAction)
@@ -421,6 +423,7 @@ export class WindowParentWorkflowFinish {}
 @Workflow({
   name: "window-parent-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(WindowParentWorkflowStart)
       .toWorkflow(WindowChildWorkflow)
@@ -449,6 +452,7 @@ export class WindowTwiceWorkflowFinish {}
 @Workflow({
   name: "window-twice-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(WindowTwiceWorkflowStart)
       .toAction(WindowAskAction)

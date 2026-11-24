@@ -39,13 +39,14 @@ import {
   SupportWorkflowStart,
   SupportAction,
 } from "../fixtures/support.fixture.js";
-import { inline } from "../../../src/index.js";
+import { inline, Ttl } from "../../../src/index.js";
 
 /** The path scope (#270 AC4) on the data-flow engine (#272 S10). */
 
 @Workflow({
   name: "overwrite-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(KitWorkflowStart)
       .toAgent(DraftKitAgent)
@@ -71,6 +72,7 @@ class DraftsKitAgent {}
 @Workflow({
   name: "list-is-not-single-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(KitWorkflowStart)
       .toAgent(DraftsKitAgent)
@@ -112,6 +114,7 @@ class StrictRouter {}
 @Workflow({
   name: "witness-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(SupportWorkflowStart)
       .toAgent(OrderAgent)
@@ -156,6 +159,7 @@ class ContractWorkflowFinish {}
 @Workflow({
   name: "contract-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ContractWorkflowStart).toAgent(ContractSummaryAgent).toFinish(ContractWorkflowFinish),
   ],
@@ -205,6 +209,7 @@ class WideWorkflowFinish {}
 @Workflow({
   name: "wide-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(WideWorkflowStart).toAction(WideAction).toFinish(WideWorkflowFinish)],
 })
 class WideWorkflow {}
@@ -258,6 +263,7 @@ class ScreenedWorkflowFinish {}
 @Workflow({
   name: "screen-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(KitWorkflowStart)
       .toAgent(ScreenAgent)
@@ -270,6 +276,7 @@ class ScreenWorkflow {}
 @Workflow({
   name: "filtered-screen-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(KitWorkflowStart)
       .toAgent(ScreenAgent)

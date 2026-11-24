@@ -3,7 +3,7 @@ import {
   ArbiterError,
   EmptyEnvironment,
   QuorumNotReachedError,
-  Workflow,
+  Workflow, Ttl,
 } from "../../../src/index.js";
 import { seconds } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "./budgets.js";
@@ -52,6 +52,7 @@ const PANEL = [SkillsPanelAgent, RisksPanelAgent, HirePanelAgent] as const;
 @Workflow({
   name: "quick-panel-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(PanelWorkflowStart)
       .inParallel(PANEL.map((agent) => toAgent(agent)))
@@ -65,6 +66,7 @@ export class QuickPanelWorkflow {}
 @Workflow({
   name: "checked-panel-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(PanelWorkflowStart)
       .inParallel(PANEL.map((agent) => toAgent(agent)))
@@ -81,6 +83,7 @@ export class CheckedPanelWorkflow {}
 @Workflow({
   name: "strict-panel-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(PanelWorkflowStart)
       .inParallel(PANEL.map((agent) => toAgent(agent)))
@@ -95,6 +98,7 @@ export class StrictPanelWorkflow {}
 @Workflow({
   name: "model-panel-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(PanelWorkflowStart)
       .inParallel(PANEL.map((agent) => toAgent(agent)))
@@ -110,6 +114,7 @@ export class ModelPanelWorkflow {}
 @Workflow({
   name: "chat-panel-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(PanelWorkflowStart)
       .inParallel(PANEL.map((agent) => toAgent(agent)))
@@ -125,6 +130,7 @@ export class ChatPanelWorkflow {}
 @Workflow({
   name: "hybrid-panel-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(PanelWorkflowStart)
       .inParallel(PANEL.map((agent) => toAgent(agent)))
@@ -141,6 +147,7 @@ export class HybridPanelWorkflow {}
 @Workflow({
   name: "arbitrated-panel-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(PanelWorkflowStart)
       .inParallel([toAgent(SkillsPanelAgent), toAgent(RisksPanelAgent), toAgent(HirePanelAgent)])
@@ -158,6 +165,7 @@ export class ArbitratedPanelWorkflow {}
 @Workflow({
   name: "each-item-panel-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   executionLimits: { maxSteps: 10 },
   flow: [
     onStart(PanelItemsWorkflowStart)
@@ -173,6 +181,7 @@ export class EachItemPanelWorkflow {}
 @Workflow({
   name: "item-panel-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   executionLimits: { maxSteps: 10 },
   flow: [
     onStart(PanelItemsWorkflowStart)
@@ -188,6 +197,7 @@ export class ItemPanelWorkflow {}
 @Workflow({
   name: "copies-panel-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(PanelWorkflowStart)
       .inParallel([toAgent(SkillsPanelAgent), toAgent(SkillsPanelAgent), toAgent(SkillsPanelAgent)])
@@ -204,6 +214,7 @@ export class CopiesPanelWorkflow {}
 @Workflow({
   name: "recovery-panel-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(PanelWorkflowStart)
       .inParallel(PANEL.map((agent) => toAgent(agent)))
@@ -217,6 +228,7 @@ export class RecoveryPanelWorkflow {}
 @Workflow({
   name: "deal-panel-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(DealPanelWorkflowStart)
       .inParallel([toAgent(LegalPanelAgent), toAgent(CriticPanelAgent), toAgent(FastPanelAgent)])

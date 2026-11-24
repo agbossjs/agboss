@@ -32,6 +32,7 @@ import {
   NoOfferRejectedWorkflowFinish,
   PickedOfferWorkflowStart,
 } from "../fixtures/children.fixture.js";
+import { Ttl } from "../../../src/index.js";
 
 /** Where a node is continued (#272 AC3, AC4): inline from one place, own path from two or more. */
 
@@ -44,6 +45,7 @@ const reviewSwitch = () =>
 @Workflow({
   name: "inline-shared-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(KitWorkflowStart)
       .toAgent(DraftKitAgent)
@@ -56,6 +58,7 @@ class InlineSharedWorkflow {}
 @Workflow({
   name: "own-path-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(KitWorkflowStart).toAgent(DraftKitAgent).toAgent(ReviewKitAgent),
     onAgent(ReviewKitAgent).toOneOf(reviewSwitch()),
@@ -66,6 +69,7 @@ class OwnPathWorkflow {}
 @Workflow({
   name: "single-entry-own-path-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(KitWorkflowStart).toAgent(DraftKitAgent),
     onAgent(DraftKitAgent).toFinish(DraftKitWorkflowFinish),
@@ -76,6 +80,7 @@ class SingleEntryOwnPathWorkflow {}
 @Workflow({
   name: "continued-twice-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(KitWorkflowStart).toAgent(DraftKitAgent).toFinish(DraftKitWorkflowFinish),
     onAgent(DraftKitAgent).toFinish(DraftKitWorkflowFinish),
@@ -142,6 +147,7 @@ describe("#263 AC4: child inline / own path", () => {
   @Workflow({
     name: "child-single-own-path-workflow",
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [
       picked().toWorkflow(CompanyReviewWorkflow),
       onWorkflow(CompanyReviewWorkflow).toOneOf(reviewCases()),
@@ -152,6 +158,7 @@ describe("#263 AC4: child inline / own path", () => {
   @Workflow({
     name: "child-shared-inline-workflow",
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [
       picked().toWorkflow(CompanyReviewWorkflow).toOneOf(reviewCases()),
       linked().toWorkflow(CompanyReviewWorkflow),

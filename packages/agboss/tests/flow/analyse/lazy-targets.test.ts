@@ -15,6 +15,7 @@ import {
   LazyWorkflowStart,
 } from "../fixtures/lazy-router.fixture.js";
 import { onStart, toAgent, toFinish } from "../fixtures/paths.js";
+import { Ttl } from "../../../src/index.js";
 
 /**
  * #1271b: `@Router({ routes })` takes `Class | (() => Class)` — the thunk for a target declared below
@@ -95,6 +96,7 @@ describe("#1271b: a router with thunk targets is one router", () => {
     @Workflow({
       name: "lazy-mismatch-workflow",
       version: "1.0.0",
+      historyTtl: Ttl.Forever,
       flow: [
         onStart(LazyWorkflowStart)
           .toRouter(LazyDeskRouter)

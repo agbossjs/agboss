@@ -37,14 +37,19 @@ import { CritiqueDto, ResearchDto } from "../../../flow/fixtures/review-dtos.js"
 import { onStart, toAction, toAgent } from "../../../flow/fixtures/paths.js";
 import { MAX_SCOPES_PER_NODE } from "../../../../src/flow/analyse/dataflow.js";
 import { toFinish } from "../../../flow/fixtures/paths.js";
-import { inline } from "../../../../src/index.js";
+import { inline, Ttl } from "../../../../src/index.js";
 
 type Flow = WorkflowOptions["flow"];
 
 let count = 0;
 const workflowWith = (flow: Flow): abstract new () => unknown => {
   count += 1;
-  @Workflow({ name: `inputs-case-${String(count)}-workflow`, version: "1.0.0", flow })
+  @Workflow({
+    name: `inputs-case-${String(count)}-workflow`,
+    version: "1.0.0",
+    historyTtl: Ttl.Forever,
+    flow,
+  })
   class InputsCaseWorkflow {}
   return InputsCaseWorkflow;
 };

@@ -1,4 +1,4 @@
-import { Workflow, onStart, toFinish, toAction } from "@agboss/core";
+import { Workflow, onStart, toFinish, toAction, Ttl } from "@agboss/core";
 import { BookFlightAction } from "../../actions/book-flight.action.js";
 import { BookHotelAction } from "../../actions/book-hotel.action.js";
 import { TripBookedAction } from "../../actions/trip-booked.action.js";
@@ -16,6 +16,7 @@ import { TripWorkflowStart } from "./trip.workflow-start.js";
 @Workflow({
   name: "trip-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(TripWorkflowStart)
       .inParallel([toAction(BookFlightAction), toAction(BookHotelAction)])

@@ -1,4 +1,4 @@
-import { onStart, toAgent, toFinish, Workflow } from "@agboss/core";
+import { onStart, toAgent, toFinish, Workflow, Ttl } from "@agboss/core";
 import { seconds } from "@agboss/core/units";
 import { FastScreenAgent } from "../../agents/fast-screen/fast-screen.agent.js";
 import { LegalCheckAgent } from "../../agents/legal-check/legal-check.agent.js";
@@ -14,6 +14,7 @@ import { IntakeWorkflowStart } from "./intake.workflow-start.js";
 @Workflow({
   name: "intake-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(IntakeWorkflowStart)
       .inParallel([toAgent(LegalCheckAgent), toAgent(FastScreenAgent)])

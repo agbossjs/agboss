@@ -22,6 +22,7 @@ import {
   WorkflowSettings,
   WorkflowStart,
   type WorkflowDefinition,
+  Ttl,
 } from "../../src/index.js";
 import { workflowOf } from "../../src/testing/workflow-of.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
@@ -173,6 +174,7 @@ describe("AC6: prompts are normalised at load and sent normalised", () => {
     @Workflow({
       name: "normalised-workflow",
       version: "1",
+      historyTtl: Ttl.Forever,
       flow: [onStart(Start).toAgent(Writer).toFinish(Finish)],
       defaults: {
         models: { temperature: 0 },

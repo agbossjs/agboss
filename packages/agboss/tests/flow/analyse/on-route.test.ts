@@ -13,12 +13,14 @@ import {
   ScoutAgent,
 } from "../fixtures/chat.fixture.js";
 import { ProfileDto, ResumeMissingDto } from "../fixtures/dtos.js";
+import { Ttl } from "../../../src/index.js";
 
 /** #1278a: `.onRoute(subPath)` is the same choice as `.chooseOne(route(…)…)`, so the same graph. */
 
 @Workflow({
   name: "chat-on-route-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(IntakeWorkflowStart).toRouter(MainRouter),
     onRouter(MainRouter)

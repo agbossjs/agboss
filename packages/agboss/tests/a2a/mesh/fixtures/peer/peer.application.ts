@@ -5,7 +5,7 @@ import "../keys.js";
 import { Mesh, MeshInboundMode } from "../../../../../src/mesh/mesh.decorator.js";
 import { defineEnv } from "../../../../../src/environments/define-env.js";
 import { secret } from "../../../../../src/environments/secret.js";
-import { minutes, hours } from "../../../../../src/units/index.js";
+import { minutes, hours, Ttl } from "../../../../../src/units/index.js";
 import { A2AEndpoint } from "../../../../../src/a2a/a2a-endpoint.decorator.js";
 import { Application } from "../../../../../src/application/application.js";
 import type { Class } from "../../../../../src/components/injection.js";
@@ -194,6 +194,7 @@ export class PeerAnswerWorkflowFinish {}
 @Workflow({
   name: "peer-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(PeerAskWorkflowStart)
       .toAction(PeerAnswerAction)

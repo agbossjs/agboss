@@ -14,6 +14,7 @@ import {
   Workflow,
   WorkflowStart,
   inline,
+  Ttl,
 } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
 import { ExecutionStatus } from "../../src/app/types.js";
@@ -46,6 +47,7 @@ class EchoNoteAction {
 @Workflow({
   name: "note-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(NoteWorkflowStart).toAction(EchoNoteAction).toFinish(Reply)],
 })
 class NoteWorkflow {}
@@ -71,6 +73,7 @@ class NoteWriterAgent {}
 @Workflow({
   name: "noted-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(NoteWorkflowStart).toAgent(NoteWriterAgent).toFinish(Reply)],
 })
 class NotedWorkflow {}

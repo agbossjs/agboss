@@ -13,7 +13,7 @@ import {
 import { McpTransport } from "../../src/config/mcp-server-config.js";
 import { McpError } from "../../src/core/error-families/remote-errors.js";
 import { Text } from "../../src/dto/index.js";
-import { Workflow } from "../../src/index.js";
+import { Workflow, Ttl } from "../../src/index.js";
 import type { Milliseconds } from "../../src/units/index.js";
 
 class Query {
@@ -103,6 +103,7 @@ describe("#1319a: the removed forms do not compile", () => {
     Workflow({
       name: "x-workflow",
       version: "1",
+      historyTtl: Ttl.Forever,
       flow: [],
       // @ts-expect-error — `mcp` is gone: a tool lists the server in its `deps`
       mcp: [KbServer],

@@ -17,6 +17,7 @@ import {
   type Tracked,
   Action,
   inline,
+  Ttl,
 } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
 import { Text, WorkflowStartTextDto } from "../../src/dto/index.js";
@@ -88,6 +89,7 @@ class OwnersFinish {}
 @Workflow({
   name: "owners-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(OwnersStart)
       .inParallel([toAgent(ContactAnswerAgent), toAgent(ContactAnswerAgent)])

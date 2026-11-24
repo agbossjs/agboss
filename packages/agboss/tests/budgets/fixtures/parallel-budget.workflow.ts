@@ -15,7 +15,7 @@ import {
   WorkflowStart,
   type BudgetHandler,
   type Tracked,
-  inline,
+  inline, Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { Injectable } from "../../../src/components/decorators.js";
@@ -212,6 +212,7 @@ const onBudget = toAction(NoteBudgetStopAction)
 @Workflow({
   name: "parallel-budget-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ParallelBudgetWorkflowStart)
       .inParallel([toAgent(SpenderAgent), toAgent(WaiterAgent)])
@@ -227,6 +228,7 @@ export class ParallelBudgetWorkflow {}
 @Workflow({
   name: "unhandled-budget-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ParallelBudgetWorkflowStart)
       .inParallel([toAgent(SpenderAgent), toAgent(WaiterAgent)])
@@ -241,6 +243,7 @@ export class UnhandledBudgetWorkflow {}
 @Workflow({
   name: "quorum-budget-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ParallelBudgetWorkflowStart)
       .inParallel([toAgent(SpenderAgent), toAgent(WaiterAgent)])
@@ -275,6 +278,7 @@ export class TaskDoneWorkflowFinish {}
 @Workflow({
   name: "task-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(TaskWorkflowStart)
       .toAgent(TaskAgent)
@@ -294,6 +298,7 @@ export class TasksWorkflowStart {}
 @Workflow({
   name: "tasks-budget-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(TasksWorkflowStart)
       .forEachItem(toWorkflow(TaskWorkflow), { takeFirst: 4 })
@@ -345,6 +350,7 @@ export class TaskAction {
 @Workflow({
   name: "task-actions-budget-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(TasksWorkflowStart)
       .forEachItem(toAction(TaskAction), { takeFirst: 4 })

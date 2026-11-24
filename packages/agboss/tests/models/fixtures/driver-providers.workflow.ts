@@ -6,7 +6,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  inline,
+  inline, Ttl,
 } from "../../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { Application } from "../../../src/application/application.js";
@@ -201,6 +201,7 @@ const defaults = { models: { temperature: 0, maxTokens: TokenLimit.ModelMax } };
 @Workflow({
   name: "fast-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(FastStart)
       .toAgent(FastAgent)
@@ -214,6 +215,7 @@ export class FastWorkflow {}
 @Workflow({
   name: "plain-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(PlainStart)
       .toAgent(PlainAgent)
@@ -227,6 +229,7 @@ export class PlainWorkflow {}
 @Workflow({
   name: "own-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(OwnStart)
       .toAgent(OwnAgent)
@@ -240,6 +243,7 @@ export class OwnWorkflow {}
 @Workflow({
   name: "literal-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(LiteralStart)
       .toAgent(LiteralAgent)
@@ -276,6 +280,7 @@ export class UnlistedApplication {}
 @Workflow({
   name: "bare-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(BareStart)
       .toAgent(PlainAgent)
@@ -300,6 +305,7 @@ export class BareApplication {}
 @Workflow({
   name: "no-provider-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(NopStart)
       .toAgent(FastAgent)
@@ -324,6 +330,7 @@ export class NoProviderApplication {}
 @Workflow({
   name: "decision-provider-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(DecStart)
       .toAgent(LiteralAgent)

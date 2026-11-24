@@ -14,6 +14,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   inline,
+  Ttl,
 } from "../../../src/index.js";
 import { InMemoryCostLedgerRepository } from "../../../src/infrastructure/cost-ledger.repository.js";
 import { InMemoryExecutionRecordRepository } from "../../../src/infrastructure/execution-record.repository.js";
@@ -136,6 +137,7 @@ export class ProbeWorkflowFinish {}
 @Workflow({
   name: "probe-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(ProbeWorkflowStart).toAgent(ProbeAgent).toFinish(ProbeWorkflowFinish)],
   providers: [CrmClient],
 })

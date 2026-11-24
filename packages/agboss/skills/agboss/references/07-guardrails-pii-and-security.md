@@ -332,7 +332,7 @@ export class ClinicWorkflowFinish {}
 ```
 
 ```ts file=src/clinic/workflows/clinic/clinic.workflow.ts
-import { Workflow, onStart, toAgent, toRouter, toFinish } from "@agboss/core";
+import { Workflow, onStart, toAgent, toRouter, toFinish, Ttl } from "@agboss/core";
 import { BillingAgent } from "../../agents/billing/billing.agent.js";
 import { ClinicAgent } from "../../agents/clinic/clinic.agent.js";
 import { PatientMessageDto } from "../../dto/patient-message.dto.js";
@@ -346,6 +346,7 @@ import { ClinicWorkflowStart } from "./clinic.workflow-start.js";
 @Workflow({
   name: "clinic-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ClinicWorkflowStart)
       .toRouter(ClinicRouter)

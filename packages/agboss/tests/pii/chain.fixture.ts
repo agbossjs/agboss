@@ -21,6 +21,7 @@ import {
   type PiiMatch,
   type PiiPolicyHandler,
   inline,
+  Ttl,
 } from "../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
@@ -149,6 +150,7 @@ export class ChainChildStart {}
 @Workflow({
   name: "chain-child-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ChainChildStart)
       .toRouter(ChainChildRouter)
@@ -177,6 +179,7 @@ export class ChainPeekFinish {}
 @Workflow({
   name: "chain-peek-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(ChainPeekStart).toAgent(ChainPeekAgent).toFinish(ChainPeekFinish)],
   piiPolicies: [ChildSecretPiiPolicy],
 })
@@ -200,6 +203,7 @@ export class ChainOpenFinish {}
 @Workflow({
   name: "chain-open-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(ChainOpenStart).toAgent(ChainOpenAgent).toFinish(ChainOpenFinish)],
   piiPolicies: [ChildSecretPiiPolicy],
   excludePiiPolicies: [RootSecretPiiPolicy],
@@ -234,6 +238,7 @@ export class ChainFarAgent {}
   placement: ChildPlacement.AnyWorker,
   name: "chain-far-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(ChainFarStart).toAgent(ChainFarAgent).toFinish(ChainFarFinish)],
   piiPolicies: [ChildSecretPiiPolicy],
 })
@@ -269,6 +274,7 @@ export class ChainRootDirectFinish {}
 @Workflow({
   name: "chain-root-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ChainRootStart)
       .toWorkflow(ChainChildWorkflow)
@@ -285,6 +291,7 @@ export class ChainRootWorkflow {}
 @Workflow({
   name: "chain-plain-root-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(ChainPlainRootStart).toWorkflow(ChainPeekWorkflow).toFinish(ChainRootFinish)],
 })
 export class ChainPlainRootWorkflow {}

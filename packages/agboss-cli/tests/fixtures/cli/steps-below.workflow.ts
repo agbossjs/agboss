@@ -2,7 +2,7 @@
 // (maxVisits 3) ↔ edit-kit-agent (maxVisits 2), worst case 5 steps — with a hand-set maxSteps of 4:
 // [limits.max-steps-below-worst-case] (#643), a warning, an error under --strict
 // the untyped builder: this package has no generated types for the framework's fixtures
-import { Application, EmptyEnvironment } from "../../../../agboss/src/index.js";
+import { Application, EmptyEnvironment, Ttl } from "../../../../agboss/src/index.js";
 import { TEST_BUDGETS } from "../../../../agboss/tests/flow/fixtures/budgets.js";
 import {
   onRouter,
@@ -25,6 +25,7 @@ export { OfferDraftDto };
 @Workflow({
   name: "steps-below-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   executionLimits: { maxSteps: 4 },
   flow: [
     onStart(SecondKitWorkflowStart)

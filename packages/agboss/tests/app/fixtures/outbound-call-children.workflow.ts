@@ -14,7 +14,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Tracked,
+  type Tracked, Ttl,
 } from "../../../src/index.js";
 import { OutboundMasking } from "../../../src/app/outbound-masking.js";
 import { hours, seconds } from "../../../src/units/index.js";
@@ -141,6 +141,7 @@ export class ChildChargedWorkflowFinish {}
   placement: ChildPlacement.AnyWorker,
   name: "child-charge-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ChildChargeWorkflowStart)
       .toAction(ChildChargeAction)
@@ -177,6 +178,7 @@ export class FarChargedWorkflowFinish {}
 @Workflow({
   name: "near-charge-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(NearChargeWorkflowStart)
       .toWorkflow(ChildChargeWorkflow)
@@ -188,6 +190,7 @@ export class NearChargeWorkflow {}
 @Workflow({
   name: "far-charge-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(FarChargeWorkflowStart)
       .toWorkflow(ChildChargeWorkflow)

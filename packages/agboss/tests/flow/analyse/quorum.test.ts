@@ -49,7 +49,7 @@ import {
   GoodScoreArbiter,
   ValidScoreArbiter,
 } from "../fixtures/quorum.fixture.js";
-import { minutes, seconds, workDays, workHours } from "../../../src/units/index.js";
+import { minutes, seconds, workDays, workHours, Ttl } from "../../../src/units/index.js";
 import { WorkingCalendar } from "../../../src/index.js";
 import { TEL_AVIV } from "../../calendar/helpers.js";
 import { onAgent, onStart, side, toAction, toAgent, toFinish } from "../fixtures/paths.js";
@@ -65,6 +65,7 @@ function workflowWith(flow: Flow): abstract new () => unknown {
   @Workflow({
     name: `quorum-case-${String(count)}-workflow`,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow,
     executionLimits: { maxSteps: 60 },
   })

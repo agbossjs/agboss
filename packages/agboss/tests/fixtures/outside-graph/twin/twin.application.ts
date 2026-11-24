@@ -1,6 +1,6 @@
 import { Application } from "../../../../src/application/application.js";
 import { Workflow } from "../../../../src/flow/decorators/workflow.js";
-import { EmptyEnvironment } from "../../../../src/index.js";
+import { EmptyEnvironment, Ttl } from "../../../../src/index.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { onStart } from "../../../helpers/flow.js";
 import { ProbeWorkflowFinish, ProbeWorkflowStart } from "../parts.js";
@@ -12,6 +12,7 @@ import { ProbeWorkflowFinish, ProbeWorkflowStart } from "../parts.js";
 @Workflow({
   name: "twin-probe-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(ProbeWorkflowStart).toFinish(ProbeWorkflowFinish)],
 })
 class TwinProbeWorkflow {}

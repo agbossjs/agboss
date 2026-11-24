@@ -13,7 +13,7 @@ import { EmptyEnvironment } from "../../../src/environments/empty.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { WorkflowStartTextDto } from "./dtos.js";
 import { onStart } from "./paths.js";
-import { inline, ToolApproval } from "../../../src/index.js";
+import { inline, ToolApproval, Ttl } from "../../../src/index.js";
 import { PauseRespondent } from "../../../src/pause/respondent.js";
 import { days } from "../../../src/units/index.js";
 
@@ -138,6 +138,7 @@ export class RefundWorkflowFinish {}
 @Workflow({
   name: "card-refunds-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(RefundWorkflowStart)
       .toAgent(RefundClerkAgent)

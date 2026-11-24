@@ -8,7 +8,7 @@ import { onStart } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { TestAnswer, TestChat, testPaths } from "./test.flow.js";
-import { EmptyEnvironment, inline } from "../../../src/index.js";
+import { EmptyEnvironment, inline, Ttl } from "../../../src/index.js";
 
 /**
  * The star test workflow (tests/fixtures/test-flow): chat → main-router ("test/router", a chat
@@ -17,6 +17,7 @@ import { EmptyEnvironment, inline } from "../../../src/index.js";
 @Workflow({
   name: "test-bundle-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: testPaths,
   defaults: {
     models: { temperature: 0, maxTokens: TokenLimit.ModelMax, cache: true },
@@ -62,6 +63,7 @@ export function toolWorkflowOf(options: ToolWorkflowOptions): Class {
   @Workflow({
     name: "tools-workflow",
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [
       onStart(TestChat)
         .toAgent(ToolAlpha)

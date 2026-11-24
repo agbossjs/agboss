@@ -16,7 +16,7 @@ import {
   WorkflowStart,
   type Tracked,
   Observer,
-  inline,
+  inline, Ttl,
 } from "../../../src/index.js";
 import { type ExecutionFence } from "../../../src/stores/index.js";
 import { fenceOf } from "../../../src/flow/context/execution-fence.js";
@@ -400,6 +400,7 @@ export class NotReleasedWorkflowFinish {}
 @Workflow({
   name: "booked-release-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(BookedReleaseWorkflowStart)
       .toAction(BookAction)
@@ -436,6 +437,7 @@ export class AgentReleaseWorkflowFinish {}
 @Workflow({
   name: "release-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ReleaseWorkflowStart)
       .toAction(ReleaseAction)
@@ -450,6 +452,7 @@ export class ReleaseWorkflow {}
 @Workflow({
   name: "agent-release-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults: { models: { maxTokens: 100, temperature: 0 } },
   flow: [
     onStart(AgentReleaseWorkflowStart)

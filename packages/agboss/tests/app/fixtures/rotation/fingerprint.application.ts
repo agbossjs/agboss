@@ -8,6 +8,7 @@ import {
   WorkflowStart,
   type IdempotencyRunStatus,
   type Tracked,
+  Ttl,
 } from "../../../../src/index.js";
 import { effectKeyOf, type EffectKey } from "../../../../src/stores/index.js";
 import { Application } from "../../../../src/application/application.js";
@@ -183,6 +184,7 @@ function bookingWorkflow(kind: string, action: (typeof ACTIONS)[number][1]) {
   @Workflow({
     name: `book-${kind}-workflow`,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [onStart(BookStart).toAction(action).toFinish(BookedFinish)],
   })
   class BookWorkflow {}

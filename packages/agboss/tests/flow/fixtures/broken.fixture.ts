@@ -6,6 +6,7 @@ import {
   OfferWorkflowStart,
 } from "./offer.fixture.js";
 import { onStart } from "./paths.js";
+import { Ttl } from "../../../src/index.js";
 
 /**
  * A workflow whose broken-agent reads what no path gives (`[input.missing-on-path]`): its generated
@@ -15,6 +16,7 @@ import { onStart } from "./paths.js";
 @Workflow({
   name: "broken-offer-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(OfferWorkflowStart)
       .toAgent(DraftAgent)

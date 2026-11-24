@@ -1,4 +1,4 @@
-import { StepFailedError, Workflow, onStart, toAction } from "@agboss/core";
+import { StepFailedError, Workflow, onStart, toAction, Ttl } from "@agboss/core";
 import { AlertRecruiterAction } from "../../actions/alert-recruiter.action.js";
 import { BookOnboardingSlotAction } from "../../actions/book-onboarding-slot.action.js";
 import { ConfirmOfferAction } from "../../actions/confirm-offer.action.js";
@@ -25,6 +25,7 @@ import { SendOfferWorkflowStart } from "./send-offer.workflow-start.js";
 @Workflow({
   name: "send-offer-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(SendOfferWorkflowStart)
       .toAction(RegisterOfferAction)

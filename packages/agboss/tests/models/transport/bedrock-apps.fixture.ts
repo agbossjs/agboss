@@ -9,6 +9,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   inline,
+  Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import type { Class, Provider } from "../../../src/components/injection.js";
@@ -121,6 +122,7 @@ export function workflowsOn(model: string, prefix: string): BedrockDesk {
   @Workflow({
     name: `${prefix}-workflow`,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [onStart(ChatStart).toAgent(TextAgent).toFinish(Reply)],
     defaults: { models: { temperature: 0, maxTokens: TokenLimit.ModelMax } },
   })
@@ -129,6 +131,7 @@ export function workflowsOn(model: string, prefix: string): BedrockDesk {
   @Workflow({
     name: `${prefix}-verdict-workflow`,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [onStart(VerdictStart).toAgent(VerdictAgent).toFinish(VerdictFinish)],
     defaults: { models: { temperature: 0, maxTokens: TokenLimit.ModelMax } },
   })
@@ -137,6 +140,7 @@ export function workflowsOn(model: string, prefix: string): BedrockDesk {
   @Workflow({
     name: `${prefix}-lookup-workflow`,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [onStart(LookupStart).toAgent(LookupAgent).toFinish(Reply)],
     defaults: { models: { temperature: 0, maxTokens: TokenLimit.ModelMax } },
   })

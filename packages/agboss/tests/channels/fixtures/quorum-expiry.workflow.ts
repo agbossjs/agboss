@@ -19,7 +19,7 @@ import {
   type QuorumDecidedEvent,
   Action,
   inline,
-  ToolApproval,
+  ToolApproval, Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -145,6 +145,7 @@ export class QuorumExpirySecondWorkflowFinish {}
 @Workflow({
   name: "quorum-expiry-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(QuorumExpiryWorkflowStart)
       .inParallel([toAgent(PolicyAgent), toAgent(RiskAgent), toAgent(FraudAgent)])
@@ -166,6 +167,7 @@ export class QuorumExpiryOneWorkflowStart {}
 @Workflow({
   name: "quorum-expiry-one-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(QuorumExpiryOneWorkflowStart)
       .inParallel([toAgent(PolicyAgent), toAgent(RiskAgent), toAgent(FraudAgent)])
@@ -261,6 +263,7 @@ export class QuorumExpiryShortWorkflowStart {}
 @Workflow({
   name: "quorum-expiry-short-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(QuorumExpiryShortWorkflowStart)
       .inParallel([toAgent(ShortPolicyAgent), toAgent(ShortRiskAgent), toAgent(ShortFraudAgent)])
@@ -281,6 +284,7 @@ export class QuorumExpiryShortOneWorkflowStart {}
 @Workflow({
   name: "quorum-expiry-short-one-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(QuorumExpiryShortOneWorkflowStart)
       .inParallel([toAgent(ShortPolicyAgent), toAgent(ShortRiskAgent), toAgent(ShortFraudAgent)])
@@ -312,6 +316,7 @@ export class QuorumExpiryGroupsWorkflowStart {}
 @Workflow({
   name: "quorum-expiry-groups-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(QuorumExpiryGroupsWorkflowStart)
       .inParallel([
@@ -355,6 +360,7 @@ export class PlainExpiryEscalatedWorkflowFinish {}
 @Workflow({
   name: "plain-expiry-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(PlainExpiryWorkflowStart)
       .inParallel([toAgent(ShortPolicyAgent), toAgent(ShortRiskAgent), toAgent(PolicyAgent)])
@@ -376,6 +382,7 @@ export class PlainExpiryHandledWorkflowStart {}
 @Workflow({
   name: "plain-expiry-handled-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(PlainExpiryHandledWorkflowStart)
       .inParallel([toAgent(ShortPolicyAgent), toAgent(ShortRiskAgent), toAgent(PolicyAgent)])
@@ -410,6 +417,7 @@ export class SkipExpiryWorkflowStart {}
 @Workflow({
   name: "skip-expiry-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(SkipExpiryWorkflowStart)
       .inParallel([

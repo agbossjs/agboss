@@ -53,7 +53,7 @@ import {
 import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { onAgent, onStart, skip, toAction, toAgent, toRouter } from "../fixtures/paths.js";
 import { CritiqueDto, PlanDto, ResearchDto } from "../fixtures/review-dtos.js";
-import { inline } from "../../../src/index.js";
+import { inline, Ttl } from "../../../src/index.js";
 
 /** #273 PR 1 — launches in the analyser: scopes, joins, policies, widths, steps. */
 
@@ -66,7 +66,13 @@ function workflowWith(
   options: Partial<WorkflowOptions> = {},
 ): abstract new () => unknown {
   count += 1;
-  @Workflow({ name: `launch-case-${String(count)}-workflow`, version: "1.0.0", flow, ...options })
+  @Workflow({
+    name: `launch-case-${String(count)}-workflow`,
+    version: "1.0.0",
+    historyTtl: Ttl.Forever,
+    flow,
+    ...options,
+  })
   class LaunchCaseWorkflow {}
   return LaunchCaseWorkflow;
 }

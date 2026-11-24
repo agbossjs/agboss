@@ -5,7 +5,7 @@ import {
   Application,
   EmptyEnvironment,
   Workflow,
-  inline,
+  inline, Ttl,
 } from "../../../../agboss/src/index.js";
 import {
   Rag,
@@ -90,6 +90,7 @@ export class WriterAgent {}
 @Workflow({
   name: "notes-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults: testDefaults,
   flow: starOf(ReaderAgent, WriterAgent),
 })

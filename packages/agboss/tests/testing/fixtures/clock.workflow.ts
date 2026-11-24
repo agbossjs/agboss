@@ -11,7 +11,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type OnStart,
-  inline,
+  inline, Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -172,7 +172,7 @@ const flow = [
 
 const defaults = { models: { maxTokens: 100, temperature: 0 }, tools: { maxToolCalls: 4 } };
 
-@Workflow({ name: "clock-workflow", version: "1.0.0", defaults, flow, providers: [StampService] })
+@Workflow({ name: "clock-workflow", version: "1.0.0", historyTtl: Ttl.Forever, defaults, flow, providers: [StampService] })
 export class ClockWorkflow {}
 
 @Application({
@@ -208,6 +208,7 @@ export class ContextClockApplication {}
 @Workflow({
   name: "clocked-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults,
   flow,
   providers: [StampService, FixedClockProvider],

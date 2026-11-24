@@ -7,6 +7,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  Ttl,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import type { App } from "../../../../src/app/types.js";
@@ -138,6 +139,7 @@ export async function callerOf(spec: CallerSpec): Promise<CallerParts> {
   @Workflow({
     name: `${name}-workflow`,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [onStart(Start).toAgent(Desk).toFinish(Answer)],
     defaults: { models: { temperature: 0 }, tools: { maxToolCalls: 2 } },
     providers: [PeerA2AAgent],

@@ -5,7 +5,7 @@ import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js"
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import { optional } from "../../../src/flow/dto-wrappers.js";
 import { onStart } from "./paths.js";
-import { inline } from "../../../src/index.js";
+import { inline, Ttl } from "../../../src/index.js";
 
 /**
  * #272 S4 — the 32-shape threshold of `InputOf`: a start whose map has 5 optional fields brings
@@ -86,6 +86,7 @@ const parts = Object.values(sixParts);
 @Workflow({
   name: "parts-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(FivePartsWorkflowStart)
       .toAgent(FivePartsAgent)

@@ -18,6 +18,7 @@ import {
   type ArbiterEndEvent,
   type ArbiterStartEvent,
   type Tracked,
+  Ttl,
 } from "../../../src/index.js";
 import { ArbiterOutcome } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
@@ -83,6 +84,7 @@ class RotaFinish {}
 @Workflow({
   name: "rota-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(RotaStart)
       .inParallel([toAgent(RotaAnswerAgent), toAgent(RotaAnswerAgent)])

@@ -9,7 +9,7 @@ import {
   WorkflowFinish,
   WorkflowSettings,
   WorkflowStart,
-  inline,
+  inline, Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -112,6 +112,7 @@ const child = { name: "mail-child-workflow", defaults: { tools: { maxToolCalls: 
 @Workflow({
   ...child,
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(MailChildStart)
       .toAgent(ChildMailerV1)
@@ -123,6 +124,7 @@ export class MailChildV1 {}
 @Workflow({
   ...child,
   version: "2.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(MailChildStart)
       .toAgent(ChildMailerV2)
@@ -135,6 +137,7 @@ export class MailChildV2 {}
 @Workflow({
   name: "mail-parent-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(MailParentStart)
       .toWorkflow(MailChildV1)
@@ -147,6 +150,7 @@ export class MailParentV1 {}
 @Workflow({
   name: "mail-parent-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(MailParentStart)
       .toWorkflow(MailChildV2)
@@ -159,6 +163,7 @@ export class MailParentV2 {}
 @Workflow({
   name: "mail-parent-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(MailParentStart)
       .toWorkflow(MailChildV2)

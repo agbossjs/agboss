@@ -392,7 +392,7 @@ export class MainRouter {}
 
 ```ts file=src/desk/desk.workflow.ts
 // desk.workflow.ts — the module: the paths (`flow`), defaults, memory, providers; money: the application's budgets
-import { Workflow, onStart, toRouter, toFinish, toAgent } from "@agboss/core";
+import { Workflow, onStart, toRouter, toFinish, toAgent, Ttl } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { SupportAgent } from "./agents/support.agent.js";
 import { MainRouter } from "./routers/main.router.js";
@@ -404,6 +404,7 @@ import { ChatWorkflowStart } from "./workflow-starts/chat.workflow-start.js";
 @Workflow({
   name: "desk-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ChatWorkflowStart) // what the step put on the path: its scope
       .toRouter(MainRouter)
@@ -543,7 +544,8 @@ provider and guardrail) and its first workflow `<project>-workflow` in `src/<pro
 ### The flow: paths
 
 `@Workflow({ flow: [...] })` is a list of paths, each from a source to its finishes — built into
-one LangGraph `StateGraph` and checked at assembly. A path reads left to right:
+one LangGraph `StateGraph` and checked at assembly. `@Workflow({ historyTtl })` is required (#1318): a duration
+(`days(90)`), `Ttl.Forever` or `Ttl.None` (no history is kept) — left out it is `[limits.history-ttl-required]`. A path reads left to right:
 
 - **Sources:** `onStart(Start)` (where an execution begins); `onAgent(X)` / `onRouter(R)` / `onAction(A)` /
   `onWorkflow(W)` (#263) / `onExternalTask(Q)` (#659) — the path of a node reached from two places (a review loop), written once.
@@ -833,7 +835,7 @@ workflows: { placement } } })`, else `CurrentProcess`; `OtherWorker` is never cl
   `onValuesOutdated` event per cascade (Wiki → Path-scope).
 
 <!-- snippet-context
-import { Action, Agent, VisitsLimitExceededError, Workflow, WorkflowFinish, WorkflowStart, onAgent, onStart, toAction, inline } from "@agboss/core";
+import { Action, Agent, VisitsLimitExceededError, Workflow, WorkflowFinish, WorkflowStart, onAgent, onStart, toAction, inline, Ttl } from "@agboss/core";
 import { Bool, Text } from "@agboss/core/dto";
 import { oneOf } from "@agboss/core";
 
@@ -880,7 +882,7 @@ export class OfferFailedWorkflowFinish {}
 @WorkflowFinish({ name: "offer-sent-workflow-finish", description: "Sent", output: OfferSentDto })
 export class OfferSentWorkflowFinish {}
 // @snippet
-@Workflow({ name: "offer-workflow", version: "1.0.0", flow: offerPaths })
+@Workflow({ name: "offer-workflow", version: "1.0.0", historyTtl: Ttl.Forever, flow: offerPaths })
 export class OfferWorkflow {}
 -->
 
@@ -908,7 +910,7 @@ export const offerPaths = [
 ```
 
 <!-- snippet-context
-import { Agent, DecidedBy, Router, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, onStart, inline, skip, toAgent, toRouter } from "@agboss/core";
+import { Agent, DecidedBy, Router, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, onStart, inline, skip, toAgent, toRouter, Ttl } from "@agboss/core";
 import { Bool, Text, WorkflowStartTextDto } from "@agboss/core/dto";
 import { listOf, optional } from "@agboss/core";
 
@@ -973,7 +975,7 @@ export class SupportWorkflowFinish {}
 })
 export class SupportRouter {}
 // @snippet
-@Workflow({ name: "launch-workflow", version: "1.0.0", flow: launchPaths, executionLimits: { maxSteps: 60 } })
+@Workflow({ name: "launch-workflow", version: "1.0.0", historyTtl: Ttl.Forever, flow: launchPaths, executionLimits: { maxSteps: 60 } })
 export class LaunchWorkflow {}
 -->
 
@@ -1003,7 +1005,7 @@ export const launchPaths = [
 ```
 
 <!-- snippet-context
-import { Action, Agent, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, onStart, toAction, inline } from "@agboss/core";
+import { Action, Agent, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, onStart, toAction, inline, Ttl } from "@agboss/core";
 import { Bool, Text, WorkflowStartTextDto } from "@agboss/core/dto";
 import { listOf, oneOf } from "@agboss/core";
 
@@ -1052,7 +1054,7 @@ export class VendorRankerAgent {}
 @WorkflowFinish({ name: "vendor-ranking-workflow-finish", description: "The ranking", output: VendorRankingDto })
 export class VendorRankingWorkflowFinish {}
 // @snippet
-@Workflow({ name: "vendor-screening-workflow", version: "1.0.0", flow: childPaths })
+@Workflow({ name: "vendor-screening-workflow", version: "1.0.0", historyTtl: Ttl.Forever, flow: childPaths })
 export class VendorScreeningWorkflow {}
 -->
 
@@ -1061,6 +1063,7 @@ export class VendorScreeningWorkflow {}
 @Workflow({
   name: "vendor-check-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(VendorCheckWorkflowStart)
       .toAgent(VendorCheckerAgent)
@@ -1087,7 +1090,7 @@ export const childPaths = [
 ```
 
 <!-- snippet-context
-import { Agent, Arbiter, Arbitrate, Workflow, WorkflowFinish, WorkflowStart, onStart, toAgent, toFinish, inline } from "@agboss/core";
+import { Agent, Arbiter, Arbitrate, Workflow, WorkflowFinish, WorkflowStart, onStart, toAgent, toFinish, inline, Ttl } from "@agboss/core";
 import { Integer, Text } from "@agboss/core/dto";
 import { listOf, optional } from "@agboss/core";
 import { minutes, seconds } from "@agboss/core/units";
@@ -1147,7 +1150,7 @@ export class DealReportWorkflowFinish {}
 @WorkflowFinish({ name: "quick-reject-workflow-finish", description: "Rejected at once", output: FastScreenDto })
 export class QuickRejectWorkflowFinish {}
 // @snippet
-@Workflow({ name: "quorum-workflow", version: "1.0.0", flow: quorumPaths })
+@Workflow({ name: "quorum-workflow", version: "1.0.0", historyTtl: Ttl.Forever, flow: quorumPaths })
 export class QuorumWorkflow {}
 -->
 
@@ -1579,9 +1582,9 @@ export class SeenJobsRepository {
   each agent's chains by tool, `configHash` covers them; `testUnit(I, options)` →
   `beforeToolCall(Tool, input)` / `afterToolCall(Tool, input, output)` → `{ output, spend }` (a phase with no hook at all: `TestSetupError`).
 - **Pause targets and channels (#267, #1307)**: a pause waits under a **target** — `@ToolApproval({ name, description,
-  respondent, timeout, remindBefore?, calendar?, channelInterpreter?, escalation…? })` for a tool call (a tool names it:
+respondent, timeout, remindBefore?, calendar?, channelInterpreter?, escalation…? })` for a tool call (a tool names it:
   `@Tool({ approval })`; its input is the tool's input) or `@ExternalTask({ name, description, input: AskDto, output:
-  AnswerDto, respondent, timeout, channelInterpreter?, maxVisits? })` for a question. `respondent` (`PauseRespondent.Owner` /
+AnswerDto, respondent, timeout, channelInterpreter?, maxVisits? })` for a question. `respondent` (`PauseRespondent.Owner` /
   `.Delegate`) and `timeout` are required, no defaults (`[limits.timeout-invalid]`); a target's `name` ends `-tool-approval` /
   `-external-task` (`[name.kind-suffix]`); one `channelInterpreter` belongs to one target (`[channel.shared-interpreter]`); a
   `@Tool` naming an `@ExternalTask` is `[channel.wrong-tool]`; a tool whose `input` is not its approval's `input` too. The

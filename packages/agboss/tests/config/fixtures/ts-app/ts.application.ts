@@ -7,6 +7,7 @@ import {
   WorkflowStart,
   type InferEnv,
   inline,
+  Ttl,
 } from "../../../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../../src/dto/index.js";
 import { Application } from "../../../../src/application/application.js";
@@ -57,6 +58,7 @@ class TsFinish {}
 @Workflow({
   name: "ts-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(TsStart).toAgent(TsAgent).toFinish(TsFinish)],
 })
 export class TsWorkflow {}

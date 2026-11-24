@@ -4,7 +4,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type Tracked,
-  Action,
+  Action, Ttl,
 } from "../../../../src/index.js";
 import { onStart, toWorkflow } from "../../../helpers/flow.js";
 import { GroupDoneDto, TaskDoneDto, TaskDto, TaskWorkflow } from "./tree-task.workflow.js";
@@ -42,6 +42,7 @@ export class BatchDoneWorkflowFinish {}
 @Workflow({
   name: "batch-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(BatchWorkflowStart)
       .forEachItem(toWorkflow(TaskWorkflow), { takeFirst: 10, maxConcurrency: 5 })
@@ -64,6 +65,7 @@ export class SerialBatchWorkflowStart {}
 @Workflow({
   name: "serial-batch-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(SerialBatchWorkflowStart)
       .forEachItem(toWorkflow(TaskWorkflow), { takeFirst: 10, maxConcurrency: 1 })
@@ -85,6 +87,7 @@ export class SingleFileWorkflowStart {}
 @Workflow({
   name: "single-file-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(SingleFileWorkflowStart)
       .forEachItem(toWorkflow(TaskWorkflow), { takeFirst: 10, maxConcurrency: 5 })

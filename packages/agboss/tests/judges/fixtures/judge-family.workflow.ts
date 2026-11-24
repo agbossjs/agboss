@@ -8,7 +8,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type JudgeHandler,
-  inline,
+  inline, Ttl,
 } from "../../../src/index.js";
 import { ModelProvider, OpenAiCompatibleDriver } from "../../../src/models/index.js";
 import { seconds } from "../../../src/units/index.js";
@@ -69,6 +69,7 @@ export class FamilyReply {}
 @Workflow({
   name: "judge-family-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(FamilyTaskStart)
       .toAgent(FamilyWriter)

@@ -1,4 +1,4 @@
-import { Agent, WorkflowFinish, WorkflowStart, inline } from "../../../../src/index.js";
+import { Agent, WorkflowFinish, WorkflowStart, inline, Ttl } from "../../../../src/index.js";
 import { WorkflowFinishTextDto } from "../../../../src/dto/index.js";
 import { ModelFiles } from "../../../../src/files/model-files.js";
 import { BundleDto } from "../../../files/reader.factory.js";
@@ -63,6 +63,7 @@ class FilesReaderFinish {}
 @Workflow({
   name: "files-reader-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   filePolicy: FilesAgentPolicy,
   flow: [onStart(FilesReaderStart).toAgent(FilesReaderAgent).toFinish(FilesReaderFinish)],
 })
@@ -93,6 +94,7 @@ export class FilesConfigApplication {}
 @Workflow({
   name: "files-bare-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: fileReviewFlow,
 })
 export class FilesBareWorkflow {}

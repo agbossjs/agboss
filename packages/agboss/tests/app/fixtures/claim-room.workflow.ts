@@ -7,7 +7,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Tracked,
+  type Tracked, Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -104,6 +104,7 @@ export class ClaimRoomItemWorkflowFinish {}
   placement: ChildPlacement.AnyWorker,
   name: "claim-room-item-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ClaimRoomItemWorkflowStart)
       .toAction(ClaimRoomHoldAction)
@@ -148,6 +149,7 @@ export class ClaimRoomBatchWorkflowFinish {}
 @Workflow({
   name: "claim-room-batch-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   executionLimits: { maxConcurrency: 30 },
   flow: [
     onStart(ClaimRoomBatchWorkflowStart)

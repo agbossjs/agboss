@@ -13,7 +13,7 @@ import {
   SentKitWorkflowFinish,
 } from "../fixtures/kit.fixture.js";
 import { CreditWorkflow } from "../fixtures/credit.fixture.js";
-import { inline } from "../../../src/index.js";
+import { inline, Ttl } from "../../../src/index.js";
 import { onRouter, onStart, toAgent, toFinish } from "../fixtures/paths.js";
 import { TopicsWorkflow } from "../fixtures/topics.fixture.js";
 
@@ -25,6 +25,7 @@ const editAgain = () => toAgent(EditKitAgent).toRouter(KitRouter);
 @Workflow({
   name: "reordered-routes-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     entry(),
     onRouter(KitRouter).onRoute(toFinish(DraftKitWorkflowFinish)).onRoute(editAgain()),
@@ -35,6 +36,7 @@ class ReorderedRoutesWorkflow {}
 @Workflow({
   name: "mismatched-routes-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     entry(),
     onRouter(KitRouter).onRoute(editAgain()).onRoute(toFinish(SentKitWorkflowFinish)),
@@ -45,6 +47,7 @@ class MismatchedRoutesWorkflow {}
 @Workflow({
   name: "duplicate-route-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     entry(),
     onRouter(KitRouter)
@@ -71,12 +74,18 @@ const blindPaths = [
   onStart(SecondKitWorkflowStart).toRouter(BlindRouter).onRoute(toFinish(DraftKitWorkflowFinish)),
 ];
 
-@Workflow({ name: "blind-router-workflow", version: "1.0.0", flow: blindPaths })
+@Workflow({
+  name: "blind-router-workflow",
+  version: "1.0.0",
+  historyTtl: Ttl.Forever,
+  flow: blindPaths,
+})
 class BlindRouterWorkflow {}
 
 @Workflow({
   name: "choose-after-agent-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(KitWorkflowStart).toAgent(DraftKitAgent).onRoute(toFinish(DraftKitWorkflowFinish)),
   ],
@@ -151,6 +160,7 @@ class BlindCodeRouter {
 @Workflow({
   name: "blind-code-router-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(SecondKitWorkflowStart)
       .toRouter(BlindCodeRouter)
@@ -173,6 +183,7 @@ class PromptlessRouter {}
 @Workflow({
   name: "promptless-router-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(SecondKitWorkflowStart)
       .toRouter(PromptlessRouter)

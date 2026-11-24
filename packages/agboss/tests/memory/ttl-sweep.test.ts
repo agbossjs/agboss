@@ -51,6 +51,7 @@ const workflowOf = (name: string, memory?: Class) => {
   @Workflow({
     name: `${name}-workflow`,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [onStart(Start).toAgent(Replier).toFinish(Finish)],
     ...(memory === undefined ? {} : { memory }),
   })

@@ -4,6 +4,7 @@ import {
   listOf,
   Workflow,
   WorkflowStart,
+  Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -34,6 +35,7 @@ export class MetricsBatchWorkflowStart {}
 @Workflow({
   name: "metrics-batch-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   executionLimits: { maxConcurrency: 30 },
   flow: [
     onStart(MetricsBatchWorkflowStart)

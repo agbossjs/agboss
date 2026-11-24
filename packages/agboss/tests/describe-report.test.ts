@@ -24,6 +24,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   inline,
+  Ttl,
 } from "../src/index.js";
 import { workflowOf } from "../src/testing/workflow-of.js";
 import type { AssembledWorkflow } from "../src/workflow.js";
@@ -69,6 +70,7 @@ class ClerkWorkflowFinish {}
 @Workflow({
   name: "clerk-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(ClerkWorkflowStart).toAgent(ClerkAgent).toFinish(ClerkWorkflowFinish)],
   piiPolicies: [CardPiiPolicy],
 })
@@ -252,6 +254,7 @@ class OwnNoteWorkflowFinish {}
 @Workflow({
   name: "own-note-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(OwnNoteWorkflowStart).toAgent(OwnNoteAgent).toFinish(OwnNoteWorkflowFinish)],
 })
 class OwnNoteWorkflow {}

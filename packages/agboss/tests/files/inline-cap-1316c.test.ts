@@ -20,7 +20,7 @@ import { VirtualClock } from "../../src/testing/clock.js";
 import { FilePolicy } from "../../src/files/file-policy.js";
 import { Workflow } from "../../src/flow/decorators/workflow.js";
 import { runInFrame } from "../../src/flow/context/frame.js";
-import { hours, kilobytes } from "../../src/units/index.js";
+import { hours, kilobytes, Ttl } from "../../src/units/index.js";
 import { fileReviewFlow } from "../a2a/fixtures/files.application.js";
 import { testFrame } from "../helpers/frame.js";
 import { ComponentOptions } from "../../src/components/component-options.js";
@@ -82,7 +82,13 @@ describe("#1316c: offloading", () => {
   it("Files.save with no store refuses a file over 64 KB; at 64 KB it rides inline", async () => {
     @FilePolicy({ ttl: hours(1), maxFileSize: kilobytes(200), maxTotalFileSize: kilobytes(200) })
     class Roomy {}
-    @Workflow({ name: "roomy-workflow", version: "1.0.0", flow: fileReviewFlow, filePolicy: Roomy })
+    @Workflow({
+      name: "roomy-workflow",
+      version: "1.0.0",
+      historyTtl: Ttl.Forever,
+      flow: fileReviewFlow,
+      filePolicy: Roomy,
+    })
     class RoomyWorkflow {}
     const files = new Files(
       new InlineFileRepository(),

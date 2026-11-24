@@ -8,7 +8,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  inline,
+  inline, Ttl,
 } from "../../../../src/index.js";
 import { seconds, usd, type Usd } from "../../../../src/units/index.js";
 import { onStart } from "../../../helpers/flow.js";
@@ -142,7 +142,7 @@ const paths = [
 ];
 
 /** start → searcher (paid search) → ship (paid courier) → shipped; the test budgets ($100 an execution). */
-@Workflow({ name: "spend-workflow", version: "1.0.0", providers: [ShipAction], flow: paths })
+@Workflow({ name: "spend-workflow", version: "1.0.0", historyTtl: Ttl.Forever, providers: [ShipAction], flow: paths })
 export class SpendWorkflow {}
 
 @Application({
@@ -155,7 +155,7 @@ export class SpendWorkflow {}
 export class SpendApplication {}
 
 /** The same with its own execution budget of $0.001: one paid search spends it. */
-@Workflow({ name: "tight-spend-workflow", version: "1.0.0", providers: [ShipAction], flow: paths })
+@Workflow({ name: "tight-spend-workflow", version: "1.0.0", historyTtl: Ttl.Forever, providers: [ShipAction], flow: paths })
 export class TightSpendWorkflow {}
 
 @Budget({

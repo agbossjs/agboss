@@ -11,7 +11,7 @@ import {
   WorkflowStart,
   Mesh,
   MeshInboundMode,
-  type ExecutionEvent,
+  type ExecutionEvent, Ttl,
 } from "../../../src/index.js";
 import { MeshEnvironment } from "./environments/mesh.environment.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
@@ -169,6 +169,7 @@ export function meshAppOf(spec: MeshAppSpec): MeshAppParts {
   @Workflow({
     name: `${name}-workflow`,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [flow],
     defaults: { models: { temperature: 0 }, tools: { maxToolCalls: 2 } },
     providers: [PeerA2AAgent, Authenticator, ...(spec.providers ?? [])],

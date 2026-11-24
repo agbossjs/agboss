@@ -294,10 +294,10 @@ describe("historyTtl: the history a finished tree keeps", () => {
     expect(
       (await assembled(["tight", "wide"])).componentOptions.historyTtlOf(LimitsKeptWorkflow),
     ).toBe(Ttl.Forever);
-    // a workflow that sets none and no profile does: no keep-time of its own
-    expect(
-      (await assembled("tight")).componentOptions.historyTtlOf(LimitsSpinWorkflow),
-    ).toBeUndefined();
+    // a workflow the profile leaves alone keeps what it declares
+    expect((await assembled("tight")).componentOptions.historyTtlOf(LimitsSpinWorkflow)).toBe(
+      Ttl.Forever,
+    );
   });
 
   keptDeclared("declared: the finished tree's record is kept", async ({ app }) => {

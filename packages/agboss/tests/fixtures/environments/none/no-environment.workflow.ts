@@ -1,4 +1,4 @@
-import { Workflow } from "../../../../src/index.js";
+import { Workflow, Ttl } from "../../../../src/index.js";
 import { ApiClient, ChatStart, Clerk, Reply, settingsDefaults } from "../app/settings.workflow.js";
 import { onStart } from "../../../helpers/flow.js";
 import { Application } from "../../../../src/application/application.js";
@@ -8,6 +8,7 @@ import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 @Workflow({
   name: "no-environment-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ChatStart)
       .toAgent(Clerk)

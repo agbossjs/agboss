@@ -1,5 +1,5 @@
 import { Text, WorkflowStartTextDto } from "../../../../src/dto/index.js";
-import { optional } from "../../../../src/index.js";
+import { optional, Ttl } from "../../../../src/index.js";
 import {
   Action,
   Agent,
@@ -137,7 +137,7 @@ export class WriterAgent {}
 export class JudgedWriterAgent {}
 
 /** Another workflow: `executionOf(Other)` inside `context-workflow` is `undefined`. */
-@Workflow({ name: "other-workflow", version: "1.0.0", flow: [] })
+@Workflow({ name: "other-workflow", version: "1.0.0", historyTtl: Ttl.Forever, flow: [] })
 export class OtherWorkflow {}
 
 /** Reads its step and the execution tree; the workflow it runs in is found with `executionOf`. */
@@ -197,6 +197,7 @@ export class ReviewRouter {}
 @Workflow({
   name: "context-workflow",
   version: "2.1.0",
+  historyTtl: Ttl.Forever,
   providers: [PublishAction],
   flow: [
     onStart(ContextStart)
@@ -225,6 +226,7 @@ export class ContextApplication {}
 @Workflow({
   name: "judged-context-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults: { router: { model: "typesafe/jev-1.13" } },
   flow: [
     onStart(ContextStart)
@@ -274,6 +276,7 @@ export class QuickWriterAgent {}
 @Workflow({
   name: "audit-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   providers: [LazyAuditService],
   flow: [
     onStart(ContextStart)
@@ -296,6 +299,7 @@ export class AuditApplication {}
 @Workflow({
   name: "eager-audit-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   providers: [EagerAuditService],
   flow: [
     onStart(ContextStart)

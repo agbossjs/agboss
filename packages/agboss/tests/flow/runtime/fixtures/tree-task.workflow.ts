@@ -7,7 +7,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Tracked,
+  type Tracked, Ttl,
 } from "../../../../src/index.js";
 import { seconds } from "../../../../src/units/index.js";
 import { onStart } from "../../../helpers/flow.js";
@@ -128,6 +128,7 @@ export class TaskDoneWorkflowFinish {}
 @Workflow({
   name: "task-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(TaskWorkflowStart)
       .toAction(WorkAction)

@@ -9,6 +9,7 @@ import {
   SecondKitWorkflowStart,
 } from "../fixtures/kit.fixture.js";
 import { onStart, toAction } from "../fixtures/paths.js";
+import { Ttl } from "../../../src/index.js";
 
 /** `[flow.path-too-deep]` (#272 AC10): a warning past 4 levels, an error under strict. */
 
@@ -65,6 +66,7 @@ const workflowNesting = (
   @Workflow({
     name: "nesting-workflow",
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
 
     // every action counts as a step (#1278): the default would warn of its worst case
     executionLimits: { maxSteps: 30, ...(maxPathDepth === undefined ? {} : { maxPathDepth }) },

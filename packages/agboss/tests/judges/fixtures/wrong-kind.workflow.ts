@@ -1,4 +1,4 @@
-import { Agent, Decision, Judge, Workflow, Router, inline } from "../../../src/index.js";
+import { Agent, Decision, Judge, Workflow, Router, inline, Ttl } from "../../../src/index.js";
 import {
   JudgeModel,
   JudgeVerdict,
@@ -60,6 +60,7 @@ export class DecisionJudged {}
 @Workflow({
   name: "chat-decider-desk-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(TaskStart)
       .toAgent(ChatJudged)
@@ -82,6 +83,7 @@ export class ChatDeciderDeskApplication {}
 @Workflow({
   name: "decision-chatter-desk-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(TaskStart)
       .toAgent(DecisionJudged)
@@ -145,6 +147,7 @@ export class Triage {}
 @Workflow({
   name: "luna-routed-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(TaskStart)
       .toAgent(Intake)

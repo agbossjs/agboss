@@ -12,6 +12,7 @@ import {
   WorkflowStart,
   secret,
   inline,
+  Ttl,
 } from "../../src/index.js";
 import { Text, WorkflowFinishTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
@@ -100,6 +101,7 @@ export class DeskRouter {}
 @Workflow({
   name: "sensitive-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(DeskStart)
       .toRouter(DeskRouter)

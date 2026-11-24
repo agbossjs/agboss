@@ -18,7 +18,7 @@ import type { ActionHandler, RouterHandler } from "../../../src/flow/handlers.js
 import { LimitExceededError } from "../../../src/errors.js";
 import { StepFailedError } from "../../../src/graph/errors.js";
 import { Integer, List, Text } from "../../../src/dto/index.js";
-import { inline } from "../../../src/index.js";
+import { inline, Ttl } from "../../../src/index.js";
 
 /**
  * #264 S112, #1287 — a workflow launching itself with a thunk, typed per path: three recursive
@@ -121,6 +121,7 @@ export class OrgChartFailedWorkflowFinish {}
 @Workflow({
   name: "org-chart-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(OrgChartWorkflowStart)
       .toAgent(OrgMapperAgent)
@@ -179,6 +180,7 @@ export class OrgDepthRouter implements RouterHandler<OrgDepthRouter> {
 @Workflow({
   name: "org-drill-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(OrgDrillWorkflowStart)
       .toRouter(OrgDepthRouter)
@@ -219,6 +221,7 @@ export class UnitCharterAgent {}
 @Workflow({
   name: "org-retry-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(OrgRetryWorkflowStart)
       .toAgent(UnitCharterAgent)

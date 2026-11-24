@@ -20,7 +20,7 @@ import {
   type ExecutionErrorEvent,
   type ExecutionLease,
   type ExecutionResumeEvent,
-  inline,
+  inline, Ttl,
 } from "../../../src/index.js";
 import { ApplicationContext, Clock } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
@@ -297,6 +297,7 @@ export class ReceiptWorkflowFinish {}
 @Workflow({
   name: "recovery-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults: {
     models: { maxTokens: 100, temperature: 0 },
     tools: { maxToolCalls: 8 },

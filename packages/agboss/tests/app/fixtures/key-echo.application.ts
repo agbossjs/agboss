@@ -14,6 +14,7 @@ import {
   type ExecutionRejectedEvent,
   type Tracked,
   Observer,
+  Ttl,
 } from "../../../src/index.js";
 import { hours, seconds } from "../../../src/units/index.js";
 import { Application } from "../../../src/application/application.js";
@@ -144,6 +145,7 @@ export class HandKeyedFinish {}
 @Workflow({
   name: "keyed-effect-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(KeyedEffectStart).toAction(KeyedEffectAction).toFinish(KeyedFinish)],
 })
 export class KeyedEffectWorkflow {}
@@ -151,6 +153,7 @@ export class KeyedEffectWorkflow {}
 @Workflow({
   name: "hand-keyed-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(HandKeyedStart).toAction(HandKeyedSendAction).toFinish(HandKeyedFinish)],
 })
 export class HandKeyedWorkflow {}

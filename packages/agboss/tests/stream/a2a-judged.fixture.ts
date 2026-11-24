@@ -1,5 +1,5 @@
 /** A judged text agent served over A2A (#1004, #1006): `a2aServer(listener)` streams its answers. */
-import { hours, minutes } from "../../src/units/index.js";
+import { hours, minutes, Ttl } from "../../src/units/index.js";
 import { Injectable } from "../../src/components/decorators.js";
 import { A2AEndpoint } from "../../src/a2a/index.js";
 import {
@@ -61,6 +61,7 @@ export class AuditAuthenticator {
 @Workflow({
   name: "a2a-audit-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(A2AStart).toAgent(A2AWriter).toFinish(A2AFinish)],
   defaults: DEFAULTS,
   providers: [AuditAuthenticator],

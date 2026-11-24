@@ -33,7 +33,7 @@ import {
 import { FlakyCheckAction } from "./side-question.fixture.js";
 import { PauseRespondent } from "../../../src/pause/respondent.js";
 import { ExternalTask } from "../../../src/channels/pause-targets.js";
-import { days } from "../../../src/units/index.js";
+import { days, Ttl } from "../../../src/units/index.js";
 
 /**
  * #933 — tests of the shipped `toQuestion` starter, and the edge case of one question role used on
@@ -51,6 +51,7 @@ export class PublicStarterWorkflowStart {}
 @Workflow({
   name: "public-starter-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     publicStart(PublicStarterWorkflowStart)
       .toAction(DraftQuestionAction)
@@ -206,6 +207,7 @@ export const inlineTwiceEdgeFlow = (
 @Workflow({
   name: "edge-once-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: sharedEdgeFlow(EdgeOnceStart, EdgeOnceExternalTask),
   providers: [QuestionInbox, EdgeCalls],
 })
@@ -214,6 +216,7 @@ export class EdgeOnceWorkflow {}
 @Workflow({
   name: "edge-twice-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: sharedEdgeFlow(EdgeTwiceStart, EdgeTwiceExternalTask),
   providers: [QuestionInbox, EdgeCalls],
 })

@@ -7,6 +7,7 @@ import {
   listOf,
   type Tracked,
   Action,
+  Ttl,
 } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
@@ -33,6 +34,7 @@ class ChildFinish {}
 @Workflow({
   name: "child-writer-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(ChildStart).toAgent(ChildWriter).toFinish(ChildFinish)],
   defaults: { models: { temperature: 0, maxTokens: 1000 } },
 })
@@ -52,6 +54,7 @@ class OnceFinish {}
 @Workflow({
   name: "once-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(OnceStart).toWorkflow(ChildWriterWorkflow).toFinish(OnceFinish)],
 })
 class OnceWorkflow {}
@@ -88,6 +91,7 @@ class FanFinish {}
 @Workflow({
   name: "fan-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(FanStart)
       .forEachItem(toWorkflow(ChildWriterWorkflow), { takeFirst: 4 })

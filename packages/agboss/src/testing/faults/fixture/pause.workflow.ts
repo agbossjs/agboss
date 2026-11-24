@@ -21,6 +21,7 @@ import { FaultPayAction } from "./pay.action.js";
 import { FaultPodLink } from "./pod-link.js";
 import { seconds, days } from "../../../units/index.js";
 import { PauseRespondent } from "../../../pause/respondent.js";
+import { Ttl } from "../../../index.js";
 
 /**
  * The fault fixture's paused order (#959): reserve (undoable), a question the order's thread owner
@@ -92,6 +93,7 @@ export class FaultPauseWorkflowFinish {}
 @Workflow({
   name: "fault-pause-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(FaultPauseWorkflowStart)
       .toAction(FaultReserveAction)
@@ -161,6 +163,7 @@ export class FaultExpiringWorkflowFinish {}
 @Workflow({
   name: "fault-expiring-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(FaultExpiringWorkflowStart)
       .toAction(FaultReserveAction)

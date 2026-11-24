@@ -13,7 +13,7 @@ import {
   WorkflowStart,
   type Tracked,
   Action,
-  inline,
+  inline, Ttl,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
@@ -106,6 +106,7 @@ export class PlanLoopRouter {
 @Workflow({
   name: "plan-loop-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(PlanLoopWorkflowStart)
       .toAgent(LoopPlannerAgent),
@@ -166,6 +167,7 @@ export class ItemClerkAgent {}
 @Workflow({
   name: "clerk-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   executionLimits: { maxSteps: 20 },
   flow: [
     onStart(ItemsWorkflowStart)
@@ -239,6 +241,7 @@ export class TiredLoopRouter {
 @Workflow({
   name: "tired-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(TiredWorkflowStart)
       .toAgent(TiredPlannerAgent),

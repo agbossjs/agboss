@@ -11,6 +11,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type ChannelAsk,
+  Ttl,
 } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
 import type { AnswerPermissionContext } from "../../src/channels/pause-contexts.js";
@@ -197,6 +198,7 @@ export class OwnerFinish {}
 @Workflow({
   name: "gated-refund-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(GatedStart).toAgent(GatedClerkAgent).toFinish(GatedFinish)],
   defaults: { models: { temperature: 0 }, tools: { maxToolCalls: 2 } },
   providers: [PermitPolicy, PermitRefunds],
@@ -206,6 +208,7 @@ export class GatedRefundWorkflow {}
 @Workflow({
   name: "owner-refund-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(OwnerStart).toAgent(OwnerClerkAgent).toFinish(OwnerFinish)],
   defaults: { models: { temperature: 0 }, tools: { maxToolCalls: 2 } },
   providers: [PermitRefunds],
@@ -215,6 +218,7 @@ export class OwnerRefundWorkflow {}
 @Workflow({
   name: "silent-purchase-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(PurchaseWorkflowStart)
       .toAction(DraftQuestionAction)

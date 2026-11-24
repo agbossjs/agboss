@@ -19,6 +19,7 @@ import { generateFlowTypes } from "../../../src/flow/types/generate.js";
 import { ClassLocator } from "../../../src/flow/types/locate.js";
 import { packageModules } from "../../../src/flow/types/write.js";
 import { onStart } from "../../helpers/flow.js";
+import { Ttl } from "../../../src/index.js";
 
 @WorkflowStart({
   name: "file-out-workflow-start",
@@ -49,6 +50,7 @@ export class FileOutWorkflowFinish {}
 @Workflow({
   name: "file-out-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(FileOutWorkflowStart).toAction(FileOutAction).toFinish(FileOutWorkflowFinish)],
 })
 export class FileOutWorkflow {}

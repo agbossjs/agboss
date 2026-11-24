@@ -11,7 +11,7 @@ import {
 import { CompanyDto } from "./data-dtos.js";
 import { WorkflowStartTextDto } from "./dtos.js";
 import { onAgent, onStart } from "./paths.js";
-import { inline } from "../../../src/index.js";
+import { inline, Ttl } from "../../../src/index.js";
 
 /**
  * #263 — a child with two starts that take one class (`[graph.ambiguous-start]`): its generated
@@ -46,6 +46,7 @@ export class CompanyGraderAgent {}
 @Workflow({
   name: "twin-grade-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(QuickGradeWorkflowStart)
       .toAgent(CompanyGraderAgent),
@@ -67,6 +68,7 @@ export class BrokenReviewWorkflowStart {}
 @Workflow({
   name: "broken-review-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(BrokenReviewWorkflowStart)
       .toAgent(CompanyPickerAgent)

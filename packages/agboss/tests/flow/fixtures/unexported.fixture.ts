@@ -4,7 +4,7 @@ import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import { onStart } from "./paths.js";
-import { inline } from "../../../src/index.js";
+import { inline, Ttl } from "../../../src/index.js";
 
 /** #272 S2 — a component and a DTO the generated types need but no module exports. */
 
@@ -34,6 +34,7 @@ export class HiddenWorkflowFinish {}
 @Workflow({
   name: "hidden-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(HiddenWorkflowStart)
       .toAgent(HiddenAgent)

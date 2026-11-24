@@ -18,6 +18,7 @@ import {
   type ChannelAsk,
   type ChannelListenerClosedEvent,
   type ChannelListenerOpenedEvent,
+  Ttl,
 } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
@@ -214,6 +215,7 @@ export class RefundChannelSelector {
 @Workflow({
   name: "purchase-targets-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(PurchaseWorkflowStart)
       .toAction(DraftQuestionAction)
@@ -228,6 +230,7 @@ export class PurchaseTargetsWorkflow {}
 @Workflow({
   name: "refund-targets-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(RefundWorkflowStart).toAgent(ClerkAgent).toFinish(RefundWorkflowFinish)],
   defaults: { models: { temperature: 0 }, tools: { maxToolCalls: 2 } },
   providers: [TargetInbox],

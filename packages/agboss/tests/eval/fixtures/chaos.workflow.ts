@@ -8,7 +8,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type Tracked,
-  inline,
+  inline, Ttl,
 } from "../../../src/index.js";
 import { Injectable } from "../../../src/components/decorators.js";
 import { Application } from "../../../src/application/application.js";
@@ -107,6 +107,7 @@ export class ReleasedWorkflowFinish {}
 @Workflow({
   name: "chaos-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ChaosWorkflowStart)
       .toAction(ReserveAction)

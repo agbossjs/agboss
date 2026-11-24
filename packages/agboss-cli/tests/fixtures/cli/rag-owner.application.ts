@@ -6,6 +6,7 @@ import {
   EmptyEnvironment,
   Workflow,
   inline,
+  Ttl,
 } from "../../../../agboss/src/index.js";
 import {
   Rag,
@@ -48,6 +49,7 @@ export class OwnerReaderAgent {}
 @Workflow({
   name: "owner-notes-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults: testDefaults,
   flow: starOf(OwnerReaderAgent),
 })

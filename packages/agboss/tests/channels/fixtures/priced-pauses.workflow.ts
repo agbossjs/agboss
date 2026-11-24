@@ -5,7 +5,7 @@ import {
   SpendRecorder,
   Tool,
   Workflow,
-  inline,
+  inline, Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { usd } from "../../../src/units/index.js";
@@ -84,6 +84,7 @@ export function costLedger(): SeenCostLedgerRepository {
 @Workflow({
   name: "priced-batch-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   executionLimits: { maxSteps: 20 },
   flow: [
     onStart(BatchWorkflowStart)

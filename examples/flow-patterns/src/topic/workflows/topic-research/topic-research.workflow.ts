@@ -6,6 +6,7 @@ import {
   Workflow,
   toWorkflow,
   toFinish,
+  Ttl,
 } from "@agboss/core";
 import { MarkTopicFailedAction } from "../../actions/mark-topic-failed.action.js";
 import { SubtopicsAction } from "../../actions/subtopics.action.js";
@@ -26,6 +27,7 @@ import { TopicResearchWorkflowStart } from "./topic-research.workflow-start.js";
 @Workflow({
   name: "topic-research-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(TopicResearchWorkflowStart)
       .toAgent(ResearcherAgent)

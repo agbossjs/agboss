@@ -109,6 +109,7 @@ export class NowhereMemory {}
 @Workflow({
   name: "every-kind-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ResolutionStart)
       .toRouter(NowhereRouter)
@@ -149,6 +150,7 @@ export class LocalStart {}
 @Workflow({
   name: "local-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(LocalStart)
       .toAgent(LocalAgent)
@@ -201,6 +203,7 @@ export class NotInfrastructure {}
 @Workflow({
   name: "misplaced-provider-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(LocalStart)
       .toAgent(LocalAgent)

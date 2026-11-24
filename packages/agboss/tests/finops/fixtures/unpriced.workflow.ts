@@ -6,7 +6,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  inline,
+  inline, Ttl,
 } from "../../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { Application } from "../../../src/application/application.js";
@@ -80,6 +80,7 @@ const defaults = { models: { temperature: 0, maxTokens: TokenLimit.ModelMax } };
 @Workflow({
   name: "unpriced-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(UnpricedStart)
       .toAgent(FreeAgent)
@@ -93,6 +94,7 @@ export class UnpricedWorkflow {}
 @Workflow({
   name: "paid-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(PaidStart)
       .toAgent(PaidAgent)

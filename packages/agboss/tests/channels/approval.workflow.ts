@@ -14,7 +14,7 @@ import {
   WorkflowStart,
   type WorkflowDefinition,
   Tool,
-  ToolApproval,
+  ToolApproval, Ttl,
 } from "../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { onStart } from "../helpers/flow.js";
@@ -166,6 +166,7 @@ class NoLimits implements WorkflowDefinition {
 @Workflow({
   name: "refunds-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ChatStart)
       .toAgent(Clerk)

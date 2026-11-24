@@ -16,7 +16,7 @@ import {
   type JudgeHandler,
   type JudgeInput,
   type ToolCallRecord,
-  inline,
+  inline, Ttl,
 } from "../../../src/index.js";
 import {
   PlainTextDto,
@@ -127,6 +127,7 @@ const DEFAULTS = {
 @Workflow({
   name: "clerk-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ClerkStart)
       .toAgent(ClerkAgent)
@@ -162,6 +163,7 @@ export class HandOverFinish {}
 @Workflow({
   name: "front-desk-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(FrontDeskStart)
       .toWorkflow(ClerkWorkflow)
@@ -194,6 +196,7 @@ export class StrictClerkStart {}
 @Workflow({
   name: "strict-clerk-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(StrictClerkStart)
       .toAgent(StrictClerkAgent)

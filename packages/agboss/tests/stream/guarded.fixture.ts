@@ -18,6 +18,7 @@ import {
   type GuardrailHandler,
   type PiiRefusal,
   inline,
+  Ttl,
 } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
@@ -108,6 +109,7 @@ class GuardedFinish {}
 @Workflow({
   name: "guarded-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(GuardedStart).toAgent(GuardedAgent).toFinish(GuardedFinish)],
   defaults: DEFAULTS,
 })
@@ -126,6 +128,7 @@ class CardFinish {}
 @Workflow({
   name: "card-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(CardStart).toAgent(CardOnlyAgent).toFinish(CardFinish)],
   defaults: DEFAULTS,
 })
@@ -148,6 +151,7 @@ class GuardrailFinish {}
 @Workflow({
   name: "guardrail-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(GuardrailStart).toAgent(GuardrailOnlyAgent).toFinish(GuardrailFinish)],
   defaults: DEFAULTS,
 })

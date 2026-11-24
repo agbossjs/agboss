@@ -31,6 +31,7 @@ import {
   ThirdAgent,
 } from "../runtime/fixtures/in-parallel.workflow.js";
 import { onStart, toAction, toAgent, toRouter } from "../../helpers/flow.js";
+import { Ttl } from "../../../src/index.js";
 
 /** #1279: `.inParallel([…])`, `skip()` and `chooseMany([…])` in the analyser. */
 
@@ -49,7 +50,12 @@ class NeedsSecondAction {
 let count = 0;
 const codesOf = (flow: WorkflowOptions["flow"]): readonly string[] => {
   count += 1;
-  @Workflow({ name: `in-parallel-case-${String(count)}-workflow`, version: "1.0.0", flow })
+  @Workflow({
+    name: `in-parallel-case-${String(count)}-workflow`,
+    version: "1.0.0",
+    historyTtl: Ttl.Forever,
+    flow,
+  })
   class InParallelCaseWorkflow {}
   return checkWorkflow(InParallelCaseWorkflow).errors.map((found) => found.code);
 };

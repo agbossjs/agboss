@@ -18,6 +18,7 @@ import {
   GraphRuleError,
   Injectable,
   Secret,
+  Ttl,
 } from "../../src/index.js";
 import { SqliteConnection } from "../../src/infrastructure/sqlite/sqlite-connection.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
@@ -68,6 +69,7 @@ class ConnectedFinish {}
 @Workflow({
   name: "connected-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(ConnectedStart).toFinish(ConnectedFinish)],
   providers: [PostgresLikeLeaseStore],
 })

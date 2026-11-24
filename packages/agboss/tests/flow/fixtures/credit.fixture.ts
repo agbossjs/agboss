@@ -14,7 +14,7 @@ import { ChargeResultDto, CreditApprovalDto, CreditOrderDto } from "./credit-dto
 import { WorkflowStartTextDto } from "./dtos.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "./budgets.js";
-import { EmptyEnvironment, inline } from "../../../src/index.js";
+import { EmptyEnvironment, inline, Ttl } from "../../../src/index.js";
 
 /** #280 — the credit-limit flow: a code router inside a model router's route. */
 
@@ -166,6 +166,7 @@ export const creditPaths = [
 @Workflow({
   name: "credit-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: creditPaths,
   providers: [CreditService],
 })
@@ -216,6 +217,7 @@ export const creditByModelPaths = [
 @Workflow({
   name: "credit-by-model-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: creditByModelPaths,
 })
 export class CreditByModelWorkflow {}

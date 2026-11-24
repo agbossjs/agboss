@@ -15,6 +15,7 @@ import {
   type JudgeHandler,
   type JudgeInput,
   inline,
+  Ttl,
 } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
 import { PlainTextDto, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
@@ -59,6 +60,7 @@ export class AuditFinish {}
 @Workflow({
   name: "audit-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(AuditStart).toAgent(AuditWriter).toFinish(AuditFinish)],
   defaults: DEFAULTS,
 })

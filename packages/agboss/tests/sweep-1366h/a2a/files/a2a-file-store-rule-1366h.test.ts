@@ -1,4 +1,4 @@
-import { hours, minutes } from "../../../../src/units/index.js";
+import { hours, minutes, Ttl } from "../../../../src/units/index.js";
 /**
  * #1366: the file store rule reports, per violation, the code and the node it names (the
  * application, or the expose whose skill options are wrong), measures the tier in KB (256 KB is the
@@ -43,6 +43,7 @@ function workflowWith(options: FilePolicyOptions) {
   @Workflow({
     name: `sized-${String(counter)}-workflow`,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: fileReviewFlow,
     filePolicy: SizedPolicy,
   })

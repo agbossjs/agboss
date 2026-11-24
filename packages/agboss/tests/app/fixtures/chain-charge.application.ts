@@ -12,6 +12,7 @@ import {
   WorkflowStart,
   type PiiMatch,
   type PiiPolicyHandler,
+  Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -47,6 +48,7 @@ export class ChainFarChargeChildStart {}
   placement: ChildPlacement.AnyWorker,
   name: "chain-far-charge-child-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ChainFarChargeChildStart)
       .toAction(ChildChargeAction)
@@ -80,6 +82,7 @@ export class ChainChargedFinish {}
 @Workflow({
   name: "chain-near-charge-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ChainNearChargeStart).toWorkflow(ChildChargeWorkflow).toFinish(ChainChargedFinish),
   ],
@@ -90,6 +93,7 @@ export class ChainNearChargeWorkflow {}
 @Workflow({
   name: "chain-far-charge-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ChainFarChargeStart)
       .toWorkflow(ChainFarChargeChildWorkflow)

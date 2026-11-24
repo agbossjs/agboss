@@ -25,7 +25,7 @@ import type {
 } from "../../../src/index.js";
 import { InMemoryPausedExecutionRepository } from "../../../src/infrastructure/in-memory-paused-execution.repository.js";
 import { Clock } from "../../../src/infrastructure/clock.js";
-import { hours, minutes, seconds, days } from "../../../src/units/index.js";
+import { hours, minutes, seconds, days, Ttl } from "../../../src/units/index.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { onStart, toAction, toExternalTask } from "./paths.js";
@@ -317,6 +317,7 @@ export class RecordEscalatedAction implements ActionHandler<RecordEscalatedActio
 @Workflow({
   name: "expiry-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ExpiryWorkflowStart)
       .toExternalTask(ManagerExternalTask)
@@ -343,6 +344,7 @@ export class ShortExpiryWorkflowStart {}
 @Workflow({
   name: "short-expiry-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ShortExpiryWorkflowStart)
       .toExternalTask(ShortManagerExternalTask)
@@ -382,6 +384,7 @@ export class SlowExpiryWorkflowStart {}
 @Workflow({
   name: "slow-expiry-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(SlowExpiryWorkflowStart)
       .toExternalTask(SlowManagerExternalTask)
@@ -400,6 +403,7 @@ export class ReviewerWorkflowStart {}
 @Workflow({
   name: "reviewer-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ReviewerWorkflowStart)
       .toExternalTask(ReviewerExternalTask)
@@ -446,6 +450,7 @@ export class OwnerWorkflowStart {}
 @Workflow({
   name: "owner-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(OwnerWorkflowStart)
       .toExternalTask(OwnerExternalTask)
@@ -470,6 +475,7 @@ export class PlainWorkflowStart {}
 @Workflow({
   name: "plain-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(PlainWorkflowStart)
       .toExternalTask(DirectorExternalTask)

@@ -1,4 +1,4 @@
-import { onStart, Workflow, toAgent } from "@agboss/core";
+import { onStart, Workflow, toAgent, Ttl } from "@agboss/core";
 import { OffsiteBookingAction } from "../../actions/offsite-booking.action.js";
 import { FlightBuyerAgent } from "../../agents/flight-buyer/flight-buyer.agent.js";
 import { VenueBuyerAgent } from "../../agents/venue-buyer/venue-buyer.agent.js";
@@ -16,6 +16,7 @@ import { OffsiteBookingWorkflowStart } from "./offsite-booking.workflow-start.js
 @Workflow({
   name: "offsite-booking-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(OffsiteBookingWorkflowStart)
       .inParallel([toAgent(VenueBuyerAgent), toAgent(FlightBuyerAgent)])

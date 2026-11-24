@@ -237,6 +237,7 @@ import {
   toAgent,
   toRouter,
   toAction,
+  Ttl,
 } from "@agboss/core";
 import { MailOfferAction } from "../../actions/mail-offer.action.js";
 import { LetterEditorAgent } from "../../agents/letter-editor/letter-editor.agent.js";
@@ -258,6 +259,7 @@ import { OfferStuckWorkflowFinish } from "./offer-stuck.workflow-finish.js";
 @Workflow({
   name: "offer-letter-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(OfferLetterWorkflowStart)
       .toAgent(LetterWriterAgent)
@@ -548,7 +550,7 @@ export class SupplierUncheckedWorkflowFinish {}
 
 ```ts file=sourcing/src/workflows/supplier-check/supplier-check.workflow.ts
 // the child: one supplier; its own failure becomes a result class, so one bad item never cancels the rest
-import { StepFailedError, Workflow, onStart, toAction, toAgent, toFinish } from "@agboss/core";
+import { StepFailedError, Workflow, onStart, toAction, toAgent, toFinish, Ttl } from "@agboss/core";
 import { MarkSupplierUncheckedAction } from "../../actions/mark-supplier-unchecked.action.js";
 import { SupplierCheckerAgent } from "../../agents/supplier-checker/supplier-checker.agent.js";
 import { SupplierScoreDto } from "../../dto/supplier-score.dto.js";
@@ -561,6 +563,7 @@ import { SupplierUncheckedWorkflowFinish } from "./supplier-unchecked.workflow-f
 @Workflow({
   name: "supplier-check-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(SupplierCheckWorkflowStart)
       .toAgent(SupplierCheckerAgent)
@@ -796,6 +799,7 @@ import {
   toFinish,
   toAgent,
   toWorkflow,
+  Ttl,
 } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { minutes } from "@agboss/core/units";
@@ -820,6 +824,7 @@ import { SourcingWorkflowStart } from "./sourcing.workflow-start.js";
 @Workflow({
   name: "sourcing-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(SourcingWorkflowStart)
       .toAgent(SupplierFinderAgent)
@@ -1148,7 +1153,7 @@ export class HelpdeskWorkflowFinish {}
 ```
 
 ```ts file=helpdesk/src/workflows/helpdesk/helpdesk.workflow.ts
-import { Workflow, onStart, toAgent, toFinish } from "@agboss/core";
+import { Workflow, onStart, toAgent, toFinish, Ttl } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { BillingDeskA2AAgent } from "../../a2a/billing-desk.a2a-agent.js";
 import { HelpdeskAgent } from "../../agents/helpdesk/helpdesk.agent.js";
@@ -1159,6 +1164,7 @@ import { HelpdeskWorkflowStart } from "./helpdesk.workflow-start.js";
 @Workflow({
   name: "helpdesk-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(HelpdeskWorkflowStart)
       .toAgent(HelpdeskAgent)
@@ -1788,7 +1794,7 @@ export class FundsLedgerHealthCheck {
 The workflow:
 
 ```ts file=loans/src/workflows/loan/loan.workflow.ts
-import { StepFailedError, Workflow, onStart, toAction, toAgent, toFinish } from "@agboss/core";
+import { StepFailedError, Workflow, onStart, toAction, toAgent, toFinish, Ttl } from "@agboss/core";
 import { ReleaseFundsAction } from "../../actions/release-funds.action.js";
 import { ReserveFundsAction } from "../../actions/reserve-funds.action.js";
 import { SendLoanOfferAction } from "../../actions/send-loan-offer.action.js";
@@ -1806,6 +1812,7 @@ import { LoanWorkflowStart } from "./loan.workflow-start.js";
 @Workflow({
   name: "loan-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(LoanWorkflowStart)
       .toAgent(UnderwriterAgent)

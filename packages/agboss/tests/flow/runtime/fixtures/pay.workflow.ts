@@ -8,7 +8,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  inline,
+  inline, Ttl,
 } from "../../../../src/index.js";
 import { onStart, toAgent, toFinish } from "../../../helpers/flow.js";
 import { Application } from "../../../../src/application/application.js";
@@ -118,6 +118,7 @@ export class DeclinedFinish {}
 @Workflow({
   name: "pay-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(PayStart)
       .toAction(ChargeAction)

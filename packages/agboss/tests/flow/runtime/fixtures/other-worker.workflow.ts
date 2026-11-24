@@ -7,7 +7,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Tracked,
+  type Tracked, Ttl,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { seconds } from "../../../../src/units/index.js";
@@ -57,6 +57,7 @@ export class OtherWorkerItemWorkflowFinish {}
 @Workflow({
   name: "other-worker-item-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   placement: ChildPlacement.OtherWorker,
   flow: [
     onStart(OtherWorkerItemWorkflowStart)
@@ -84,6 +85,7 @@ export class OtherWorkerUnavailableWorkflowFinish {}
 @Workflow({
   name: "other-worker-root-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(OtherWorkerRootWorkflowStart)
       .toWorkflow(OtherWorkerItemWorkflow)

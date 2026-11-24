@@ -1,4 +1,4 @@
-import { hours, minutes } from "../../../src/units/index.js";
+import { hours, minutes, Ttl } from "../../../src/units/index.js";
 import { A2AEndpoint } from "../../../src/a2a/index.js";
 import { Application } from "../../../src/application/application.js";
 import {
@@ -42,6 +42,7 @@ export class CompatibleBillingWorkflowFinish {}
 @Workflow({
   name: "billing-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(CompatibleBillingWorkflowStart)
       .toAgent(CompatibleBillingDeskAgent)

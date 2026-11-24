@@ -6,7 +6,7 @@ import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { ExternalTask, pauseTargetOf, ToolApproval } from "../../src/channels/pause-targets.js";
-import { hours } from "../../src/units/index.js";
+import { hours, Ttl } from "../../src/units/index.js";
 import { NodeKind } from "../../src/flow/ast.js";
 import { declarationOf } from "../../src/flow/decorators/declaration.js";
 import { Tool } from "../../src/components/decorators.js";
@@ -72,6 +72,7 @@ function applicationWith(name: string, tools: readonly (typeof ChargeTool)[]) {
   @Workflow({
     name: `${name}-workflow`,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [onStart(RefundWorkflowStart).toAgent(ToolAgent).toFinish(RefundWorkflowFinish)],
     defaults: { router: { model: "typesafe/jev-test" } },
   })

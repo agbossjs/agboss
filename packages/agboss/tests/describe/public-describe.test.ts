@@ -17,6 +17,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   inline,
+  Ttl,
 } from "../../src/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { onStart } from "../helpers/flow.js";
@@ -42,6 +43,7 @@ class GreetWorkflowFinish {}
 @Workflow({
   name: "greet-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(GreetWorkflowStart).toAgent(GreeterAgent).toFinish(GreetWorkflowFinish)],
 })
 class GreetWorkflow {}
@@ -49,6 +51,7 @@ class GreetWorkflow {}
 @Workflow({
   name: "other-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(GreetWorkflowStart).toAgent(GreeterAgent).toFinish(GreetWorkflowFinish)],
 })
 class OtherWorkflow {}

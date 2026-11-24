@@ -15,6 +15,7 @@ import {
   type Tracked,
   Action,
   inline,
+  Ttl,
 } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
@@ -58,6 +59,7 @@ class GuardedTextFinish {}
 @Workflow({
   name: "guarded-text-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(GuardedTextStart).toAgent(GuardedTextAgent).toFinish(GuardedTextFinish)],
   defaults: { models: { temperature: 0, maxTokens: 1000 } },
 })
@@ -119,6 +121,7 @@ class OwnersFinish {}
 @Workflow({
   name: "owners-quorum-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(OwnersStart)
       .inParallel([toAgent(OwnerAgent), toAgent(OwnerAgent)])

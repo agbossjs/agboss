@@ -11,7 +11,7 @@ import { Agent,
   WorkflowFinish,
   WorkflowStart,
   type ChannelAsk,
-  inline, ToolApproval } from "../../../../../agboss/src/index.js";
+  inline, ToolApproval, Ttl } from "../../../../../agboss/src/index.js";
 import {
   Text,
   WorkflowFinishTextDto,
@@ -88,6 +88,7 @@ export class PauseClerk {}
 @Workflow({
   name: "pause-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(PauseAskStart)
       .toAgent(PauseClerk)

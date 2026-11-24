@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Agent, EmptyEnvironment, Tool, Workflow, inline } from "../../../src/index.js";
+import { Agent, EmptyEnvironment, Tool, Workflow, inline, Ttl } from "../../../src/index.js";
 import { WorkflowFinish, WorkflowStart } from "../../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { Application } from "../../../src/application/application.js";
@@ -115,6 +115,7 @@ const PROVIDERS = [TenantDocsRag, SearchTenantDocsTool];
 @Workflow({
   name: "search-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(SearchStart).toAgent(SearchingAgent).toFinish(SearchFinish)],
   defaults: DEFAULTS,
   providers: PROVIDERS,
@@ -124,6 +125,7 @@ export class SearchWorkflow {}
 @Workflow({
   name: "read-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(ReadStart).toAgent(ReadingAgent).toFinish(ReadFinish)],
   defaults: DEFAULTS,
   providers: PROVIDERS,

@@ -61,7 +61,7 @@ enters a CI run (`RELEASE_CHECKLIST.md` → Dependency installs).
 
 <!--
 ```ts file=job-scout.ts
-import { Agent, Application, DecidedBy, Injectable, EmptyEnvironment, Tool, ToolApproval, PauseRespondent, Router, onStart, Workflow, WorkflowFinish, WorkflowStart, toAgent, toAction, toRouter, toFinish } from "@agboss/core";
+import { Agent, Application, DecidedBy, Injectable, EmptyEnvironment, Tool, ToolApproval, PauseRespondent, Router, onStart, Workflow, WorkflowFinish, WorkflowStart, toAgent, toAction, toRouter, toFinish, Ttl } from "@agboss/core";
 import { List, Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 import { McpServer, McpServerClient, McpTransport } from "@agboss/core/mcp";
 import { hours } from "@agboss/core/units";
@@ -123,6 +123,7 @@ export class MainRouter {}
 @Workflow({
   name: "job-scout-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ChatWorkflowStart)
       .toRouter(MainRouter)

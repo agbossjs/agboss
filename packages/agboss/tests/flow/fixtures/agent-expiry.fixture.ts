@@ -9,7 +9,7 @@ import {
   listOf,
   type Tracked,
   inline,
-  ToolApproval,
+  ToolApproval, Ttl,
 } from "../../../src/index.js";
 import {
   PauseExpiration,
@@ -232,6 +232,7 @@ export class EscalateRefundAction implements ActionHandler<EscalateRefundAction>
 @Workflow({
   name: "agent-expiry-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(AgentExpiryWorkflowStart)
       .toAgent(ExpiryRefundAgent)
@@ -256,6 +257,7 @@ export class AgentBareWorkflowStart {}
 @Workflow({
   name: "agent-bare-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(AgentBareWorkflowStart)
       .toAgent(ExpiryRefundAgent)
@@ -314,6 +316,7 @@ export class AgentBatchWorkflowFinish {}
 @Workflow({
   name: "agent-batch-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   executionLimits: { maxSteps: 20 },
   flow: [
     onStart(AgentBatchWorkflowStart)
@@ -388,6 +391,7 @@ export class AgentGatedWorkflowFinish {}
 @Workflow({
   name: "agent-gated-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(AgentGatedWorkflowStart)
       .inParallel([toAgent(ExpiryRefundAgent), toAgent(ExpiryHoldAgent)])

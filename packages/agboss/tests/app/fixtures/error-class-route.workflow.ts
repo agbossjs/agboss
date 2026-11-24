@@ -10,7 +10,7 @@ import {
   WorkflowStart,
   type ExecutionEndEvent,
   type ExecutionErrorEvent,
-  type Tracked,
+  type Tracked, Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import type { Class } from "../../../src/components/injection.js";
@@ -90,6 +90,7 @@ function declineCheckOf(where: string, placement: ChildPlacement): Class {
   @Workflow({
     name: `decline-check-${where}-workflow`,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     placement,
     flow: [
       onStart(Start)
@@ -118,6 +119,7 @@ function declineBookingOf(where: string, placement: ChildPlacement): Class {
   @Workflow({
     name: `decline-booking-${where}-workflow`,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     placement,
     flow: [
       onStart(Start)
@@ -152,6 +154,7 @@ function parentOf(name: string, child: Class) {
   @Workflow({
     name: `${name}-workflow`,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [
       onStart(ParentStart)
         .toWorkflow(child)

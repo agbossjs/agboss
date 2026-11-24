@@ -6,7 +6,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type WorkflowOptions,
+  type WorkflowOptions, Ttl,
 } from "../../../src/index.js";
 import type { Class } from "../../../src/components/injection.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
@@ -93,6 +93,7 @@ export function workflowWith(
 ): Class {
   @Workflow({
     name,
+    historyTtl: Ttl.Forever,
     flow: [
       onStart(Chat)
         .toAgent(agent)
@@ -128,6 +129,7 @@ export function applicationWith(
 /** Every kind that takes `deps`, all wired: tool, guardrail, judge, RAG, action, PII, channel, A2A. */
 @Workflow({
   name: "vault-workflow",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(Chat)
       .toAgent(Keeper)

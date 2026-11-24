@@ -142,6 +142,7 @@ export class HelpRouter {}
 @Workflow({
   name: "help-desk-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(DeskStart)
       .toRouter(HelpRouter)
@@ -173,6 +174,7 @@ export class NoteAgent {}
 @Workflow({
   name: "notes-desk-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(DeskStart).toAgent(NoteAgent).toFinish(DeskAnswer)],
   memory: NoteMemory,
 })
@@ -214,6 +216,7 @@ export class WindowRouter {}
 @Workflow({
   name: "window-desk-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(DeskStart)
       .toRouter(WindowRouter)
@@ -260,6 +263,7 @@ export class EagerAgent {}
 @Workflow({
   name: "eager-desk-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(DeskStart).toAgent(EagerAgent).toFinish(DeskAnswer)],
   memory: EagerMemory,
 })

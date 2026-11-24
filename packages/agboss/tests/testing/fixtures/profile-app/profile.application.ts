@@ -5,6 +5,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   inline,
+  Ttl,
 } from "../../../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../../src/dto/index.js";
 import { Application } from "../../../../src/application/application.js";
@@ -40,6 +41,7 @@ class KidFinish {}
 @Workflow({
   name: "profile-kid-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(KidStart).toAgent(Kid).toFinish(KidFinish)],
 })
 export class KidWorkflow {}
@@ -58,6 +60,7 @@ class BossFinish {}
 @Workflow({
   name: "profile-boss-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(BossStart).toWorkflow(KidWorkflow).toFinish(BossFinish)],
 })
 export class BossWorkflow {}

@@ -13,6 +13,7 @@ import {
   type ExecutionCancelEvent,
   type ExecutionErrorEvent,
   inline,
+  Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { EmptyEnvironment } from "../../../src/index.js";
@@ -178,6 +179,7 @@ export class HoldReportAction {
 @Workflow({
   name: "lost-pass-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults: { models: { maxTokens: 100, temperature: 0 } },
   flow: [
     onStart(LostPassWorkflowStart)
@@ -248,6 +250,7 @@ export class MergeReportAction {
 @Workflow({
   name: "lost-branch-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults: { models: { maxTokens: 100, temperature: 0 } },
   flow: [
     onStart(LostBranchWorkflowStart)

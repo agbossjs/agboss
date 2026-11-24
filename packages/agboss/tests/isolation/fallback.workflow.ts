@@ -1,6 +1,6 @@
 import { TestDecisionsProvider } from "../models/providers.fixture.js";
 import { Window1Memory } from "../helpers/window-memory.js";
-import { Agent, Workflow, TokenLimit } from "../../src/index.js";
+import { Agent, Workflow, TokenLimit, Ttl } from "../../src/index.js";
 import {
   ModelCost,
   ModelProvider,
@@ -86,6 +86,7 @@ const defaults = {
 @Workflow({
   name: "fallback-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ChatStart)
       .toAgent(Answerer)
@@ -109,6 +110,7 @@ export class WithFallbackApplication {}
 @Workflow({
   name: "unmapped-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ChatStart)
       .toAgent(Answerer)

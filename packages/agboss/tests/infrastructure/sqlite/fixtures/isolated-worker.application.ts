@@ -19,6 +19,7 @@ import {
   WorkflowStart,
   type Tracked,
   ExternalTask,
+  Ttl,
 } from "../../../../src/index.js";
 import { env } from "../../../../src/environments/index.js";
 import { hours, usd, days } from "../../../../src/units/index.js";
@@ -141,6 +142,7 @@ export class IsolatedItemWorkflowFinish {}
 @Workflow({
   name: "isolated-run-child-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   placement: ChildPlacement.IsolatedWorker,
   flow: [
     onStart(IsolatedRunWorkflowStart)
@@ -160,6 +162,7 @@ export class IsolatedRunRootWorkflowStart {}
 @Workflow({
   name: "isolated-run-root-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(IsolatedRunRootWorkflowStart)
       .toWorkflow(IsolatedRunChildWorkflow)
@@ -175,6 +178,7 @@ export class IsolatedAskWorkflowStart {}
 @Workflow({
   name: "isolated-ask-child-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   placement: ChildPlacement.IsolatedWorker,
   flow: [
     onStart(IsolatedAskWorkflowStart)
@@ -196,6 +200,7 @@ export class IsolatedAskRootWorkflowStart {}
 @Workflow({
   name: "isolated-ask-root-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(IsolatedAskRootWorkflowStart)
       .toWorkflow(IsolatedAskChildWorkflow)

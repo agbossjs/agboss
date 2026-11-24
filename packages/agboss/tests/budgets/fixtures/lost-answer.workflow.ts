@@ -7,7 +7,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   listOf,
-  type Tracked,
+  type Tracked, Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { Injectable } from "../../../src/components/decorators.js";
@@ -141,6 +141,7 @@ export class LostAnswerWorkflowFinish {}
 @Workflow({
   name: "lost-answer-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(LostAnswerWorkflowStart)
       .inParallel([toAction(PayThriceAction), toAction(WorkAction)])

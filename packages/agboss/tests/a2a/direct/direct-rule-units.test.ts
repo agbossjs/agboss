@@ -6,7 +6,7 @@
  * workflow, an export, an expose) read past without a throw; a skill option of no reply; the start
  * of no listed workflow; every violation placed on the application.
  */
-import { hours, minutes } from "../../../src/units/index.js";
+import { hours, minutes, Ttl } from "../../../src/units/index.js";
 import { describe, expect, it } from "vitest";
 import { A2AEndpoint, A2AReply } from "../../../src/a2a/a2a-endpoint.decorator.js";
 import { messageSkillViolations } from "../../../src/a2a/a2a-message-skill-rule.js";
@@ -56,7 +56,12 @@ function skillOf(nodes: readonly Class[]): { readonly start: Class; readonly wor
   let path = onStart(Start);
   for (const node of nodes)
     path = declarationOf(node)?.kind === NodeKind.Agent ? path.toAgent(node) : path.toAction(node);
-  @Workflow({ name: `${id}-workflow`, version: "1.0.0", flow: [path.toFinish(UnitRuleFinish)] })
+  @Workflow({
+    name: `${id}-workflow`,
+    version: "1.0.0",
+    historyTtl: Ttl.Forever,
+    flow: [path.toFinish(UnitRuleFinish)],
+  })
   class Made {}
   return { start: Start, workflow: Made };
 }

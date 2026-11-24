@@ -24,7 +24,7 @@ import {
   SharedExecutionRecordRepository,
   SharedPausedExecutionRepository,
 } from "../../helpers/shared-infrastructure.js";
-import { EmptyEnvironment } from "../../../src/index.js";
+import { EmptyEnvironment, Ttl } from "../../../src/index.js";
 
 /** Emails the tool really sent, in order (the tests reset it). */
 export const sent: string[] = [];
@@ -109,6 +109,7 @@ export class Finish {}
 
 const workflow = {
   name: "mail-workflow",
+  historyTtl: Ttl.Forever,
   defaults: {
     models: { maxTokens: 100, temperature: 0 },
     tools: { maxToolCalls: 2 },

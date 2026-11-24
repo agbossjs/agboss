@@ -19,7 +19,7 @@ import type { ActionHandler } from "../../../src/flow/handlers.js";
 import { StepFailedError } from "../../../src/graph/errors.js";
 import { LimitExceededError } from "../../../src/graph/limits.js";
 import { Application } from "../../../src/application/application.js";
-import { EmptyEnvironment, inline } from "../../../src/index.js";
+import { EmptyEnvironment, inline, Ttl } from "../../../src/index.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import {
   CompanyGradeDto,
@@ -122,6 +122,7 @@ export class CompanyReviewFailedWorkflowFinish {}
 @Workflow({
   name: "company-review-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(CompanyReviewWorkflowStart)
       .toAgent(CompanyReviewerAgent),
@@ -205,6 +206,7 @@ export class ScreeningStoppedWorkflowFinish {}
 @Workflow({
   name: "company-screening-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(CompanyScreeningWorkflowStart)
       .toAgent(CompanyFinderAgent) // each element enters company-review-workflow-start
@@ -281,6 +283,7 @@ export class ReviewErrorWorkflowFinish {}
 @Workflow({
   name: "job-offer-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(JobOfferWorkflowStart)
       .toAgent(CompanyPickerAgent) // enters company-review-workflow-start
@@ -315,6 +318,7 @@ export class LinkOfferWorkflowStart {}
 @Workflow({
   name: "link-offer-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(PickedOfferWorkflowStart)
       .toAgent(CompanyPickerAgent) // enters company-review-workflow-start

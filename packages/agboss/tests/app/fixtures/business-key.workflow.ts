@@ -5,7 +5,7 @@ import {
   WorkflowFinishTextDto,
   WorkflowStartTextDto,
 } from "../../../src/dto/index.js";
-import { listOf } from "../../../src/index.js";
+import { listOf, Ttl } from "../../../src/index.js";
 import {
   Action,
   Agent,
@@ -231,6 +231,7 @@ export class CashierFinish {}
 @Workflow({
   name: "cashier-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(CashierStart)
       .toAgent(CashierAgent)
@@ -258,6 +259,7 @@ export class OrderChargedFinish {}
 @Workflow({
   name: "charge-order-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ChargeOrderStart)
       .toAction(ChargeOrderAction)
@@ -283,6 +285,7 @@ export class ChargeSentFinish {}
 @Workflow({
   name: "send-charge-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(SendChargeStart)
       .toAction(SendChargeAction)
@@ -333,6 +336,7 @@ export class ChargesSentFinish {}
 @Workflow({
   name: "send-charges-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(SendChargesStart)
       .forEachItem(toAction(SendChargeAction), { takeFirst: 4 })

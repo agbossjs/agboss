@@ -7,7 +7,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  inline,
+  inline, Ttl,
 } from "../../../../../agboss/src/index.js";
 import {
   WorkflowFinishTextDto,
@@ -42,6 +42,7 @@ export class AnsweringAgent {}
 @Workflow({
   name: "ask-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(AskWorkflowStart)
       .toAgent(AnsweringAgent)

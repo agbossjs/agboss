@@ -1,4 +1,4 @@
-import { hours, minutes } from "../../../../src/units/index.js";
+import { hours, minutes, Ttl } from "../../../../src/units/index.js";
 /**
  * #1244: the storage tier's size, pinned: of each exported start, its input's files take
  * `maxTotalFileSize`, its finishes' files `maxFileSize`; the most of them all.
@@ -68,6 +68,7 @@ function skill(
   @Workflow({
     name: `${id}-workflow`,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [onStart(TierStart).toFinish(TierFinish)],
     filePolicy: TierPolicy,
   })
@@ -142,6 +143,7 @@ describe("fileTierSizeOf", () => {
     @Workflow({
       name: `${id}-workflow`,
       version: "1.0.0",
+      historyTtl: Ttl.Forever,
       flow: [onStart(MapStart).toFinish(MapFinish)],
     })
     class MapWorkflow {}
@@ -248,6 +250,7 @@ class MixedPolicy {}
 @Workflow({
   name: "tier-mixed-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   filePolicy: MixedPolicy,
   flow: [
     onStart(FileReviewWorkflowStart)

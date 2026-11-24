@@ -16,6 +16,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   inline,
+  Ttl,
 } from "../../../src/index.js";
 import { usd, type Usd } from "../../../src/units/index.js";
 import { onStart } from "../../helpers/flow.js";
@@ -129,6 +130,7 @@ export class SentWorkflowFinish {}
 @Workflow({
   name: "note-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults: { models: { temperature: 0 } },
   memory: Window1Memory,
   flow: [onStart(NoteWorkflowStart).toAgent(ScribeAgent).toFinish(NoteWorkflowFinish)],
@@ -139,6 +141,7 @@ export class NoteWorkflow {}
 @Workflow({
   name: "send-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults: { models: { temperature: 0 }, tools: { maxToolCalls: 2 } },
   memory: Window1Memory,
   flow: [onStart(SendWorkflowStart).toAgent(SenderAgent).toFinish(SentWorkflowFinish)],

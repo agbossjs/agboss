@@ -107,6 +107,7 @@ import {
   type WorkflowDefinition,
   toAgent,
   toFinish,
+  Ttl,
 } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { ClaimAssessorAgent } from "../../agents/claim-assessor/claim-assessor.agent.js";
@@ -123,6 +124,7 @@ const sameVersionOnly = (resume: IncompatibleResume): ResumeDecision =>
 @Workflow({
   name: "claim-workflow",
   version: "1.1.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ClaimWorkflowStart)
       .toAgent(ClaimAssessorAgent)

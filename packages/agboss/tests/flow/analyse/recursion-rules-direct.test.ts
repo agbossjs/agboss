@@ -19,6 +19,7 @@ import {
   CountDoneWorkflowFinish,
   CountdownWorkflowStart,
 } from "../runtime/fixtures/recursion.workflow.js";
+import { Ttl } from "../../../src/index.js";
 
 type Flow = WorkflowOptions["flow"];
 
@@ -126,11 +127,16 @@ describe("#1366: the exit of a recursive branch", () => {
 
 describe("#1366: a workflow that launches itself through another", () => {
   it("finds nothing in a workflow whose flow names its own class: that is a recursion", () => {
-    @Workflow({ name: "own-workflow", version: "1.0.0", flow: [] })
+    @Workflow({ name: "own-workflow", version: "1.0.0", historyTtl: Ttl.Forever, flow: [] })
     class OwnWorkflow {
       readonly fixture = true;
     }
-    Workflow({ name: "own-workflow", version: "1.0.0", flow: launching(OwnWorkflow) })(OwnWorkflow);
+    Workflow({
+      name: "own-workflow",
+      version: "1.0.0",
+      historyTtl: Ttl.Forever,
+      flow: launching(OwnWorkflow),
+    })(OwnWorkflow);
 
     expect(
       shown(recursionRules(contextOf(optionsOf(OwnWorkflow)), OwnWorkflow, undefined)),
@@ -138,19 +144,34 @@ describe("#1366: a workflow that launches itself through another", () => {
   });
 
   it("names the chain of two, three, and a child that is no workflow", () => {
-    @Workflow({ name: "c-workflow", version: "1.0.0", flow: [] })
+    @Workflow({ name: "c-workflow", version: "1.0.0", historyTtl: Ttl.Forever, flow: [] })
     class CWorkflow {
       readonly fixture = true;
     }
-    @Workflow({ name: "b-workflow", version: "1.0.0", flow: launching(CWorkflow) })
+    @Workflow({
+      name: "b-workflow",
+      version: "1.0.0",
+      historyTtl: Ttl.Forever,
+      flow: launching(CWorkflow),
+    })
     class BWorkflow {
       readonly fixture = true;
     }
-    @Workflow({ name: "a-workflow", version: "1.0.0", flow: launching(BWorkflow) })
+    @Workflow({
+      name: "a-workflow",
+      version: "1.0.0",
+      historyTtl: Ttl.Forever,
+      flow: launching(BWorkflow),
+    })
     class AWorkflow {
       readonly fixture = true;
     }
-    Workflow({ name: "c-workflow", version: "1.0.0", flow: launching(AWorkflow) })(CWorkflow);
+    Workflow({
+      name: "c-workflow",
+      version: "1.0.0",
+      historyTtl: Ttl.Forever,
+      flow: launching(AWorkflow),
+    })(CWorkflow);
 
     expect(shown(recursionRules(contextOf(optionsOf(AWorkflow)), AWorkflow, undefined))).toEqual([
       {
@@ -163,15 +184,25 @@ describe("#1366: a workflow that launches itself through another", () => {
   });
 
   it("finds nothing in a child that never comes back, even when two children share a grandchild", () => {
-    @Workflow({ name: "leaf-workflow", version: "1.0.0", flow: [] })
+    @Workflow({ name: "leaf-workflow", version: "1.0.0", historyTtl: Ttl.Forever, flow: [] })
     class LeafWorkflow {
       readonly fixture = true;
     }
-    @Workflow({ name: "mid-workflow", version: "1.0.0", flow: launching(LeafWorkflow) })
+    @Workflow({
+      name: "mid-workflow",
+      version: "1.0.0",
+      historyTtl: Ttl.Forever,
+      flow: launching(LeafWorkflow),
+    })
     class MidWorkflow {
       readonly fixture = true;
     }
-    @Workflow({ name: "top-workflow", version: "1.0.0", flow: launching(MidWorkflow) })
+    @Workflow({
+      name: "top-workflow",
+      version: "1.0.0",
+      historyTtl: Ttl.Forever,
+      flow: launching(MidWorkflow),
+    })
     class TopWorkflow {
       readonly fixture = true;
     }
@@ -181,18 +212,31 @@ describe("#1366: a workflow that launches itself through another", () => {
   });
 
   it("ends on a cycle among the descendants that never comes back to the workflow", () => {
-    @Workflow({ name: "ping-workflow", version: "1.0.0", flow: [] })
+    @Workflow({ name: "ping-workflow", version: "1.0.0", historyTtl: Ttl.Forever, flow: [] })
     class PingWorkflow {
       readonly fixture = true;
     }
-    @Workflow({ name: "pong-workflow", version: "1.0.0", flow: launching(PingWorkflow) })
+    @Workflow({
+      name: "pong-workflow",
+      version: "1.0.0",
+      historyTtl: Ttl.Forever,
+      flow: launching(PingWorkflow),
+    })
     class PongWorkflow {
       readonly fixture = true;
     }
-    Workflow({ name: "ping-workflow", version: "1.0.0", flow: launching(PongWorkflow) })(
-      PingWorkflow,
-    );
-    @Workflow({ name: "root-workflow", version: "1.0.0", flow: launching(PingWorkflow) })
+    Workflow({
+      name: "ping-workflow",
+      version: "1.0.0",
+      historyTtl: Ttl.Forever,
+      flow: launching(PongWorkflow),
+    })(PingWorkflow);
+    @Workflow({
+      name: "root-workflow",
+      version: "1.0.0",
+      historyTtl: Ttl.Forever,
+      flow: launching(PingWorkflow),
+    })
     class RootWorkflow {
       readonly fixture = true;
     }
@@ -230,6 +274,7 @@ describe("#1366: the tree's concurrency cap", () => {
     @Workflow({
       name: "capped-child-workflow",
       version: "1.0.0",
+      historyTtl: Ttl.Forever,
       flow: [],
       ...(childCap === undefined ? {} : { executionLimits: { maxConcurrency: childCap } }),
     })
@@ -239,6 +284,7 @@ describe("#1366: the tree's concurrency cap", () => {
     @Workflow({
       name: "capped-parent-workflow",
       version: "1.0.0",
+      historyTtl: Ttl.Forever,
       flow: launching(ChildWorkflow),
       ...(cap === undefined ? {} : { executionLimits: { maxConcurrency: cap } }),
     })

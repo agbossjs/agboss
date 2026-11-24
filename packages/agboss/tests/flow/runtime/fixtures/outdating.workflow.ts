@@ -11,7 +11,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type ValuesOutdatedEvent,
-  inline,
+  inline, Ttl,
 } from "../../../../src/index.js";
 import { oneOf, optional } from "../../../../src/flow/dto-wrappers.js";
 import { onAgent, onStart, toAgent, toFinish } from "../../../helpers/flow.js";
@@ -127,6 +127,7 @@ export class LoopWorkflowFinish {}
 @Workflow({
   name: "loop-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   memory: Window5Memory,
   executionLimits: { maxSteps: 30 },
   flow: [
@@ -243,6 +244,7 @@ export class JobsRouter {}
 @Workflow({
   name: "jobs-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   memory: Window5Memory,
   executionLimits: { maxSteps: 20 },
   flow: [

@@ -5,7 +5,7 @@ import {
   Application,
   Workflow,
   WorkflowFinish,
-  WorkflowStart,
+  WorkflowStart, Ttl,
 } from "../../../../../agboss/src/index.js";
 import {
   WorkflowFinishTextDto,
@@ -123,6 +123,7 @@ export class ScoreWorkflowFinish {}
 @Workflow({
   name: "inbox-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(InboxWorkflowStart)
       .toAction(EchoAction)
@@ -134,6 +135,7 @@ export class InboxWorkflow {}
 @Workflow({
   name: "screening-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ScreeningWorkflowStart)
       .toAction(ScreenAction)

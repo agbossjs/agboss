@@ -16,6 +16,7 @@ import {
   type PiiPolicyHandler,
   type PiiRefusal,
   inline,
+  Ttl,
 } from "../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { DatabaseStorage } from "../../src/storage/index.js";
@@ -178,6 +179,7 @@ const defaults = { models: { temperature: 0 }, tools: { maxToolCalls: 3 } } as c
 @Workflow({
   name: "pii-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(PiiStart).toAgent(SupportAgent).toFinish(PiiFinish)],
   defaults,
   piiPolicies: [CardPiiPolicy, EmployeeIdPiiPolicy],
@@ -188,6 +190,7 @@ export class PiiWorkflow {}
 @Workflow({
   name: "open-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(OpenStart).toAgent(OpenAgent).toFinish(OpenFinish)],
   defaults,
 })

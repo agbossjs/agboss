@@ -13,6 +13,7 @@ import {
 import { onStart } from "../../flow/fixtures/paths.js";
 import { OrderWorkflowStart } from "../../flow/fixtures/order.fixture.js";
 import { NotifyRecruiterAction } from "../../flow/fixtures/offer.fixture.js";
+import { Ttl } from "../../../src/index.js";
 
 class Undeclared {
   readonly undeclared = true;
@@ -21,6 +22,7 @@ class Undeclared {
 @Workflow({
   name: "capped-1366h-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(OrderWorkflowStart)],
   executionLimits: { maxConcurrency: 4 },
 })
@@ -29,6 +31,7 @@ class Capped {}
 @Workflow({
   name: "uncapped-1366h-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(OrderWorkflowStart)],
 })
 class Uncapped {}

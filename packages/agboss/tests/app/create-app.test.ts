@@ -10,6 +10,7 @@ import {
   GraphRuleError,
   WorkflowStart,
   inline,
+  Ttl,
 } from "../../src/index.js";
 import { DtoValidationError, Text } from "../../src/dto/index.js";
 import { replyWith, callTool, routeTo } from "../../src/testing/index.js";
@@ -87,6 +88,7 @@ const defaults = {
 @Workflow({
   name: "two-starts-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(TicketStart).toAgent(TicketAgent).toFinish(Reply),
     onStart(ChatStart).toAgent(Writer).toFinish(Reply),
@@ -109,6 +111,7 @@ export class TwoStartsApplication {}
 @Workflow({
   name: "broken-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(ChatStart).toAgent(Writer).toFinish(Reply), onAgent(Support).toFinish(Reply)],
   defaults,
   memory: Window2Memory,

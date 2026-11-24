@@ -9,7 +9,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Tracked,
+  type Tracked, Ttl,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
@@ -141,6 +141,7 @@ export class RemoteItemCheckedWorkflowFinish {}
   placement: ChildPlacement.AnyWorker,
   name: "remote-item-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(RemoteItemWorkflowStart)
       .toAction(RemoteCheckAction)
@@ -204,6 +205,7 @@ export class RemoteChecksFailedWorkflowFinish {}
 @Workflow({
   name: "remote-items-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(RemoteItemsWorkflowStart)
       .forEachItem(toWorkflow(RemoteItemWorkflow), { takeFirst: 10, maxConcurrency: 6 })
@@ -237,6 +239,7 @@ export class RemoteOneCheckedWorkflowFinish {}
 @Workflow({
   name: "remote-one-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(RemoteOneWorkflowStart)
       .toWorkflow(RemoteItemWorkflow)

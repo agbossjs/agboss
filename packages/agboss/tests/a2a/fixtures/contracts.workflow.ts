@@ -11,7 +11,7 @@ import {
   Tool,
   Workflow,
   WorkflowFinish,
-  WorkflowStart,
+  WorkflowStart, Ttl,
 } from "../../../src/index.js";
 import { McpEndpoint } from "../../../src/mcp/index.js";
 import { defineEnv, secret } from "../../../src/environments/index.js";
@@ -173,6 +173,7 @@ export class OpenAuthenticator {
 @Workflow({
   name: "quote-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(QuoteWorkflowStart)
       .toAgent(QuoteDeskAgent)
@@ -186,6 +187,7 @@ export class QuoteWorkflow {}
 @Workflow({
   name: "refund-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(RefundWorkflowStart)
       .toFinish(RefundWorkflowFinish),
@@ -196,6 +198,7 @@ export class RefundWorkflow {}
 @Workflow({
   name: "kb-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(KbWorkflowStart)
       .toAgent(KbDeskAgent)

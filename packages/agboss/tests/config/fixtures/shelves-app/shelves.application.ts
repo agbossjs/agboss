@@ -12,6 +12,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   inline,
+  Ttl,
 } from "../../../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../../src/dto/index.js";
 import { Application } from "../../../../src/application/application.js";
@@ -153,6 +154,7 @@ class ShelfGuardrail {}
 @Workflow({
   name: "shelf-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   budget: ShelfAttachedBudget,
   memory: ShelfMemory,
   guardrails: [ShelfGuardrail],

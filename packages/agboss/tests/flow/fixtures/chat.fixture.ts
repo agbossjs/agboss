@@ -8,7 +8,7 @@ import { oneOf, optional } from "../../../src/flow/dto-wrappers.js";
 import { OpeningsDto, ProfileDto, ResumeMissingDto, WorkflowStartTextDto } from "./dtos.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "./budgets.js";
-import { EmptyEnvironment, inline } from "../../../src/index.js";
+import { EmptyEnvironment, inline, Ttl } from "../../../src/index.js";
 
 /** #272 example 1 — chat: a router in a loop. */
 
@@ -102,6 +102,7 @@ export const chatPaths = [
 @Workflow({
   name: "chat-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: chatPaths,
 })
 export class ChatWorkflow {}

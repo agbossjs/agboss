@@ -5,7 +5,7 @@ import {
   LimitExceededError,
   Router,
   Workflow,
-  WorkflowStart,
+  WorkflowStart, Ttl,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
@@ -42,6 +42,7 @@ export class RemoteCountdownWorkflowStart {}
   placement: ChildPlacement.AnyWorker,
   name: "remote-countdown-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(RemoteCountdownWorkflowStart)
       .toAction(CountdownAction)
@@ -86,6 +87,7 @@ export class RemoteDeeperRouter {
   placement: ChildPlacement.AnyWorker,
   name: "remote-chain-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(RemoteChainWorkflowStart)
       .toRouter(RemoteDeeperRouter)

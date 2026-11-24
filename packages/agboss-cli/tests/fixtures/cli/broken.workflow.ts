@@ -1,4 +1,4 @@
-import { Application, EmptyEnvironment } from "../../../../agboss/src/index.js";
+import { Application, EmptyEnvironment, Ttl } from "../../../../agboss/src/index.js";
 import { TEST_BUDGETS } from "../../../../agboss/tests/flow/fixtures/budgets.js";
 import { Workflow } from "@agboss/core";
 import { TestAnswer, TestChat } from "../../../../agboss/tests/fixtures/test-flow/test.flow.js";
@@ -12,6 +12,7 @@ import {
 @Workflow({
   name: "broken-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults: {
     models: { temperature: 0, cache: true },
     router: { model: "typesafe/jev-1.13" },

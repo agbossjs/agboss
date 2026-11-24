@@ -7,7 +7,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type Tracked,
-  Action,
+  Action, Ttl,
 } from "../../../../src/index.js";
 import { seconds } from "../../../../src/units/index.js";
 import { onStart, toWorkflow, toAgent } from "../../../helpers/flow.js";
@@ -39,6 +39,7 @@ export class StrictVoteWorkflowStart {}
 @Workflow({
   name: "strict-vote-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(StrictVoteWorkflowStart)
       .inParallel([toAgent(FirstVoterAgent), toAgent(SecondVoterAgent)])
@@ -69,6 +70,7 @@ export class StrictMixedWorkflowStart {}
 @Workflow({
   name: "strict-mixed-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(StrictMixedWorkflowStart)
       .toRouter(StrictTaskKindRouter)
@@ -116,6 +118,7 @@ export class StrictVotingDoneWorkflowFinish {}
 @Workflow({
   name: "strict-voting-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(StrictVotingWorkflowStart)
       .forEachItem(toWorkflow(StrictMixedWorkflow), { takeFirst: 5, maxConcurrency: 5 })

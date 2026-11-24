@@ -9,6 +9,7 @@ import {
   type AgentEndEvent,
   WorkflowStart,
   WorkflowFinish,
+  Ttl,
 } from "../../src/index.js";
 import { testWith, replyWith } from "../../src/testing/index.js";
 
@@ -50,6 +51,7 @@ import { EmptyEnvironment } from "../../src/index.js";
 @Workflow({
   name: "obs-wf-workflow",
   version: "1",
+  historyTtl: Ttl.Forever,
   defaults: {
     models: { temperature: 0, cache: true },
     router: { model: "typesafe/jev-1.13" },

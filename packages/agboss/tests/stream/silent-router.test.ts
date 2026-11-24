@@ -8,6 +8,7 @@ import {
   Workflow,
   WorkflowFinish,
   inline,
+  Ttl,
 } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
 import { WorkflowStartTextDto } from "../../src/dto/index.js";
@@ -57,6 +58,7 @@ class AuditChatRouter {}
 @Workflow({
   name: "routed-audit-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ChatStart)
       .toRouter(AuditChatRouter)

@@ -5,7 +5,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  inline,
+  inline, Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -49,6 +49,7 @@ export class ChunkWorkflowFinish {}
 @Workflow({
   name: "chunk-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ChunkWorkflowStart)
       .toAgent(ChunkWorkerAgent)

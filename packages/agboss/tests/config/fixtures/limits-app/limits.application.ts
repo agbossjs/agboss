@@ -7,6 +7,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  Ttl,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { days, hours } from "../../../../src/units/index.js";
@@ -69,6 +70,7 @@ export class LimitsSpinRouter {
 @Workflow({
   name: "limits-spin-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   executionLimits: { maxSteps: 40 },
   flow: [
     onStart(LimitsSpinStart).toAction(LimitsSpinAction),

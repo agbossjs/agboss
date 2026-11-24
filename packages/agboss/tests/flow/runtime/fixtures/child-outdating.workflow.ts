@@ -7,7 +7,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type Tracked,
-  inline,
+  inline, Ttl,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
@@ -64,6 +64,7 @@ export class PickAgainRouter {
 @Workflow({
   name: "pick-loop-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(PickLoopWorkflowStart)
       .toAgent(ItemPickerAgent),

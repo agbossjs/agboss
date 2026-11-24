@@ -18,7 +18,7 @@ import {
 } from "../fixtures/history.fixture.js";
 import { onStart } from "../fixtures/paths.js";
 import { ResearchDto } from "../fixtures/review-dtos.js";
-import { inline } from "../../../src/index.js";
+import { inline, Ttl } from "../../../src/index.js";
 
 /**
  * #299 S56 (AC4, analysis): `historyOf(XDto)` needs a current `XDto` on every path into its node;
@@ -43,6 +43,7 @@ class DraftHistoryAgent {}
 @Workflow({
   name: "no-draft-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(HistoryOfferWorkflowStart)
       .toAgent(DraftHistoryAgent)
@@ -86,6 +87,7 @@ class ResearchAgainAgent {}
 @Workflow({
   name: "stale-draft-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(HistoryOfferWorkflowStart)
       .toAgent(ResearchAgent)
@@ -111,6 +113,7 @@ class LimitlessAgent {}
 @Workflow({
   name: "bad-limit-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(HistoryOfferWorkflowStart)
       .toAgent(FirstDraftAgent)

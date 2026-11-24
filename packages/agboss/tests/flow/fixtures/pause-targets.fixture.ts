@@ -20,7 +20,7 @@ import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import type { InputOf, OutputOf } from "../../../src/flow/generated-types.js";
-import { days, hours } from "../../../src/units/index.js";
+import { days, hours, Ttl } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { Application } from "../../../src/application/application.js";
 import { EmptyEnvironment } from "../../../src/environments/empty.js";
@@ -190,6 +190,7 @@ export class PtPayoutWorkflowFinish {}
 @Workflow({
   name: "pt-payout-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(PtPayoutWorkflowStart)
       .toAgent(PtPayerAgent)
@@ -207,6 +208,7 @@ export class PtLimitWorkflowFinish {}
 @Workflow({
   name: "pt-limit-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(PtLimitWorkflowStart)
       .toExternalTask(PtLimitExternalTask)

@@ -8,7 +8,7 @@ import {
   WorkflowStart,
   type Tracked,
   Action,
-  inline,
+  inline, Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -117,6 +117,7 @@ const providers = [
 @Workflow({
   name: "payout-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(PayoutWorkflowStart)
       .inParallel([toAgent(PayoutConfirmAgent), toAgent(PayoutRefundAgent)])
@@ -147,6 +148,7 @@ export class PayoutsApplication {}
 @Workflow({
   name: "payout-steps-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(PayoutWorkflowStart)
       .inParallel([toAgent(PayoutConfirmAgent), toAgent(PayoutRefundAgent)])
@@ -177,6 +179,7 @@ export class PayoutStepsApplication {}
 @Workflow({
   name: "payout-unhandled-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(PayoutWorkflowStart)
       .inParallel([toAgent(PayoutConfirmAgent), toAgent(PayoutRefundAgent)])

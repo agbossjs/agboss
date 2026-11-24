@@ -17,7 +17,7 @@ import type { InputOf, OutputOf, Route } from "../../../src/flow/generated-types
 import type { ActionHandler, RouterHandler } from "../../../src/flow/handlers.js";
 import { StepFailedError } from "../../../src/graph/errors.js";
 import { Integer, List, Text } from "../../../src/dto/index.js";
-import { inline } from "../../../src/index.js";
+import { inline, Ttl } from "../../../src/index.js";
 
 /**
  * #264 — the issue's recursive topic research in the typed builder: `forEachItem(() => Self, …)` as a per-item
@@ -117,6 +117,7 @@ export class ResearchFailedWorkflowFinish {}
 @Workflow({
   name: "deep-research-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(DeepResearchWorkflowStart)
       .toAgent(TopicResearcherAgent)
@@ -175,6 +176,7 @@ export class OutlineDepthRouter implements RouterHandler<OutlineDepthRouter> {
 @Workflow({
   name: "outline-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(OutlineWorkflowStart)
       .toRouter(OutlineDepthRouter)

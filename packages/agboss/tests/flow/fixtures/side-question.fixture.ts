@@ -19,6 +19,7 @@ import {
   SpendingLimitQuestionExternalTask,
 } from "./questions.fixture.js";
 import { onStart, toExternalTask } from "./paths.js";
+import { Ttl } from "../../../src/index.js";
 
 /**
  * #933 — `.onError(E, toExternalTask(Q)…)`: a purchase whose placing check fails asks the thread's owner
@@ -49,6 +50,7 @@ export class SideQuestionWorkflowStart {}
 @Workflow({
   name: "side-question-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(SideQuestionWorkflowStart)
       .toAction(DraftQuestionAction)

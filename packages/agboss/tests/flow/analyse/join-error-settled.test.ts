@@ -16,6 +16,7 @@ import {
 } from "../fixtures/launch.fixture.js";
 import { CritiqueDto, ResearchDto } from "../fixtures/review-dtos.js";
 import { onStart, toAction, toFinish, toAgent } from "../fixtures/paths.js";
+import { Ttl } from "../../../src/index.js";
 
 /**
  * #945 V3.6 — the settled answers on the error path: the `EdgeKind.JoinError` edge makes each branch
@@ -64,7 +65,12 @@ function codesOf(sidePath: ReturnType<typeof toAction>): readonly string[] {
       .toAgent(ArticleWriterAgent)
       .toFinish(ArticleDraftWorkflowFinish),
   ];
-  @Workflow({ name: `settled-${String(count)}-workflow`, version: "1.0.0", flow })
+  @Workflow({
+    name: `settled-${String(count)}-workflow`,
+    version: "1.0.0",
+    historyTtl: Ttl.Forever,
+    flow,
+  })
   class SettledWorkflow {}
   return checkWorkflow(SettledWorkflow).errors.map((found) => found.code);
 }

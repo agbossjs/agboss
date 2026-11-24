@@ -13,6 +13,7 @@ import { Enum, Integer, Text } from "../../src/dto/index.js";
 import { ambiguousPairOf } from "../../src/dto/ambiguity.js";
 import { onStart } from "./fixtures/paths.js";
 import { KitWorkflowStart } from "./fixtures/kit.fixture.js";
+import { Ttl } from "../../src/index.js";
 
 class ScoreDto {
   @Text() vendor!: string;
@@ -115,6 +116,7 @@ describe("#1288a: [dto.ambiguous-one-of]", () => {
     @Workflow({
       name: `${name}-workflow`,
       version: "1.0.0",
+      historyTtl: Ttl.Forever,
       flow: [onStart(KitWorkflowStart).toAction(Vendor)],
     })
     class Checked {}

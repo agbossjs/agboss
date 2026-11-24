@@ -15,7 +15,7 @@ import {
   listOf,
   type Class,
   type Tracked,
-  inline,
+  inline, Ttl,
 } from "../../../src/index.js";
 import { Text } from "../../../src/dto/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
@@ -147,6 +147,7 @@ export function componentsApplication(levels: ComponentLevels): Class {
   @Workflow({
     name: "lv-workflow",
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [
       onStart(LvStart)
         .toRouter(LvRouter)
@@ -228,6 +229,7 @@ export function arbiterApplication(modelProvider?: Class): Class {
   @Workflow({
     name: "arb-workflow",
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [
       onStart(ArbStart)
         .inParallel([toAgent(ArbAgent), toAgent(ArbAgent)])

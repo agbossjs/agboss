@@ -15,7 +15,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type Tracked,
-  inline,
+  inline, Ttl,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
@@ -167,6 +167,7 @@ export class TopicFailedWorkflowFinish {}
 @Workflow({
   name: "topic-research-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(TopicResearchWorkflowStart)
       .toAgent(ResearcherAgent)
@@ -269,6 +270,7 @@ const countdownPath = (from: typeof CountdownWorkflowStart, self: () => Class) =
 @Workflow({
   name: "countdown-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [countdownPath(CountdownWorkflowStart, () => CountdownWorkflow)],
   executionLimits: { maxDepth: 3 },
 })
@@ -281,6 +283,7 @@ export class ShallowWorkflowStart {}
 @Workflow({
   name: "shallow-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [countdownPath(ShallowWorkflowStart, () => ShallowWorkflow)],
   executionLimits: { maxDepth: 1 },
 })
@@ -335,6 +338,7 @@ export class SumAction {
 @Workflow({
   name: "split-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(SplitWorkflowStart)
       .toAction(SplitAction)
@@ -399,6 +403,7 @@ export class ChainDoneWorkflowFinish {}
 @Workflow({
   name: "chain-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ChainWorkflowStart)
       .toRouter(LinkRouter)
@@ -436,6 +441,7 @@ export class DeeperRouter {
 @Workflow({
   name: "code-chain-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(CodeChainWorkflowStart)
       .toRouter(DeeperRouter)

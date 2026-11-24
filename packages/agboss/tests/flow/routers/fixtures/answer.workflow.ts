@@ -1,4 +1,4 @@
-import { usd } from "../../../../src/units/index.js";
+import { usd, Ttl } from "../../../../src/units/index.js";
 import { Enum, Text } from "../../../../src/dto/index.js";
 import {
   Action,
@@ -123,6 +123,7 @@ export class AskRouter {
 @Workflow({
   name: "ask-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(AskWorkflowStart)
       .toRouter(AskRouter)
@@ -152,6 +153,7 @@ export class AskApplication {}
 @Workflow({
   name: "ask-caught-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(AskWorkflowStart)
       .toRouter(AskRouter)

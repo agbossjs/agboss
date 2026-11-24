@@ -1,4 +1,4 @@
-import { onAction, onStart, toFinish, Workflow, toAgent, toAction } from "@agboss/core";
+import { onAction, onStart, toFinish, Workflow, toAgent, toAction, Ttl } from "@agboss/core";
 import { ChargeCardAction } from "../../actions/charge-card.action.js";
 import { ApprovalAgent } from "../../agents/approval/approval.agent.js";
 import { OrderIntakeAgent } from "../../agents/order-intake/order-intake.agent.js";
@@ -21,6 +21,7 @@ import { CreditWorkflowStart } from "./credit.workflow-start.js";
 @Workflow({
   name: "credit-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(CreditWorkflowStart)
       .toRouter(DeskRouter)

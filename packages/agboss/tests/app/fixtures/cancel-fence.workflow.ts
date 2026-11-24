@@ -12,7 +12,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type Tracked,
-  Observer,
+  Observer, Ttl,
 } from "../../../src/index.js";
 import { hours, seconds } from "../../../src/units/index.js";
 import { Application } from "../../../src/application/application.js";
@@ -266,6 +266,7 @@ export class FenceFarFinish {}
 @Workflow({
   name: "fence-charge-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(FenceChargeStart)
       .toAction(ReserveOrderAction)
@@ -278,6 +279,7 @@ export class FenceChargeWorkflow {}
 @Workflow({
   name: "fence-pay-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(FencePayStart)
       .toAction(ReserveOrderAction)
@@ -291,6 +293,7 @@ export class FencePayWorkflow {}
   placement: ChildPlacement.AnyWorker,
   name: "fence-child-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(FenceChildStart)
       .toAction(ChargeTextAction)
@@ -302,6 +305,7 @@ export class FenceChildWorkflow {}
 @Workflow({
   name: "fence-far-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(FenceFarStart)
       .toWorkflow(FenceChildWorkflow)

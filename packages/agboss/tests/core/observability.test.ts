@@ -20,6 +20,7 @@ import {
   Router,
   WorkflowStart,
   inline,
+  Ttl,
 } from "../../src/index.js";
 import { DecidedBy, WorkflowFinish } from "../../src/index.js";
 import { Rag } from "../../src/components/decorators.js";
@@ -156,6 +157,7 @@ class ObsRouter {}
 @Workflow({
   name: "obs-test-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults: testDefaults,
   flow: [
     onStart(ObsStart)

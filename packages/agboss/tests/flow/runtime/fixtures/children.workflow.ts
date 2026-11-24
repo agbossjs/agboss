@@ -21,7 +21,7 @@ import {
   type ExecutionErrorEvent,
   type ExecutionStartEvent,
   type Tracked,
-  inline,
+  inline, Ttl,
 } from "../../../../src/index.js";
 import { Injectable } from "../../../../src/components/decorators.js";
 import { Metadata } from "../../../../src/flow/metadata.js";
@@ -191,6 +191,7 @@ export class ItemCheckedWorkflowFinish {}
 @Workflow({
   name: "item-check-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ItemCheckWorkflowStart)
       .toAction(CheckItemAction)
@@ -258,6 +259,7 @@ export class ChecksFailedWorkflowFinish {}
 @Workflow({
   name: "check-items-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(CheckItemsWorkflowStart)
       .forEachItem(toWorkflow(ItemCheckWorkflow), { takeFirst: 10, maxConcurrency: 2 })
@@ -310,6 +312,7 @@ export class OneFailedWorkflowFinish {}
 @Workflow({
   name: "check-one-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(CheckOneWorkflowStart)
       .toWorkflow(ItemCheckWorkflow)
@@ -334,6 +337,7 @@ export class CheckBareWorkflowStart {}
 @Workflow({
   name: "check-bare-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(CheckBareWorkflowStart)
       .toWorkflow(ItemCheckWorkflow)
@@ -361,6 +365,7 @@ export class ItemDeepCheckedWorkflowFinish {}
 @Workflow({
   name: "item-deep-check-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ItemDeepCheckWorkflowStart)
       .toWorkflow(ItemCheckWorkflow)
@@ -379,6 +384,7 @@ export class DeepCheckItemsWorkflowStart {}
 @Workflow({
   name: "deep-check-items-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(DeepCheckItemsWorkflowStart)
       .forEachItem(toWorkflow(ItemDeepCheckWorkflow), { takeFirst: 10 })
@@ -420,6 +426,7 @@ export class FallbackCheckedWorkflowFinish {}
 @Workflow({
   name: "fallback-check-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(FallbackCheckWorkflowStart)
       .toAction(FallbackCheckAction)
@@ -446,6 +453,7 @@ export class RecheckedWorkflowFinish {}
 @Workflow({
   name: "check-or-fallback-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(CheckOrFallbackWorkflowStart)
       .toAction(CheckItemAction)
@@ -508,6 +516,7 @@ export class ItemReviewedWorkflowFinish {}
 @Workflow({
   name: "item-review-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   executionLimits: { maxSteps: 2 },
   flow: [
     onStart(ItemReviewWorkflowStart)
@@ -571,6 +580,7 @@ export class ReviewsSummaryWorkflowFinish {}
 @Workflow({
   name: "review-items-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   executionLimits: { maxSteps: 4 },
   flow: [
     onStart(ReviewItemsWorkflowStart)
@@ -617,6 +627,7 @@ export class ReviewStoppedWorkflowFinish {}
 @Workflow({
   name: "review-one-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ReviewOneWorkflowStart)
       .toWorkflow(ItemReviewWorkflow)

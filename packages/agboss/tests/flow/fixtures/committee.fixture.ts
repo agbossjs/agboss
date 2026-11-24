@@ -16,7 +16,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   listOf,
-  type ChannelAsk,
+  type ChannelAsk, Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { Bool, PlainTextDto, Text, WorkflowFinishTextDto } from "../../../src/dto/index.js";
@@ -297,6 +297,7 @@ export class ContractRejectedWorkflowFinish {}
 @Workflow({
   name: "contract-committee-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   executionLimits: { maxSteps: 20 },
   flow: [
     onStart(ContractCommitteeWorkflowStart)
@@ -336,6 +337,7 @@ export class LoadBudgetOwnersAction {
 @Workflow({
   name: "budget-approval-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   executionLimits: { maxSteps: 30 },
   flow: [
     onStart(BudgetApprovalWorkflowStart)
@@ -355,6 +357,7 @@ export class BudgetApprovalWorkflow {}
 @Workflow({
   name: "contract-groups-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   executionLimits: { maxSteps: 30 },
   flow: [
     onStart(ContractGroupsWorkflowStart)
@@ -409,6 +412,7 @@ export class CommitteeChildWorkflowFinish {}
 @Workflow({
   name: "committee-child-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(CommitteeChildWorkflowStart)
       .toFinish(CommitteeChildWorkflowFinish),
@@ -453,6 +457,7 @@ export class CommitteeNotesWorkflowFinish {}
 @Workflow({
   name: "committee-notes-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   executionLimits: { maxSteps: 30 },
   flow: [
     onStart(CommitteeNotesWorkflowStart)

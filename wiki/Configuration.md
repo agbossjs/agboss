@@ -31,6 +31,7 @@ export class ChatWorkflowFinish {}
 @Workflow({
   name: "job-scout-workflow", // kebab-case, ends with -workflow — unique in the application
   version: "2.0.0", // labels every run; profiles set their own
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ChatWorkflowStart)
       .toAgent(ScoutAgent)
@@ -71,10 +72,11 @@ export class AskWorkflowFinish {}
 -->
 
 ```ts
-import { EmptyEnvironment, toFinish } from "@agboss/core";
+import { EmptyEnvironment, toFinish, Ttl } from "@agboss/core";
 @Workflow({
   name: "ask-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(AskWorkflowStart)
       .toFinish(AskWorkflowFinish),
@@ -155,6 +157,9 @@ guardrail with no model anywhere fails assembly: `[model.missing-provider] suppo
 prompt-injection-guardrail has no model and no modelProvider — set model or defaults.guardrail.model, or modelProvider on it, its @Workflow or its @Application` (#261, #120).
 
 ## Limits — `maxSteps`, `maxVisits`, `@Budget`, `maxConcurrency`, `maxConcurrentSteps`
+
+`@Workflow({ historyTtl })` is required (#1318): a duration such as `days(90)`, `Ttl.Forever` or `Ttl.None`; a workflow
+without it is `[limits.history-ttl-required]`.
 
 `@Workflow({ executionLimits: { maxSteps } })` — visits of agents and routers in one execution (default (agents +
 routers) × 3, checked at assembly: `[limits.max-steps-too-low]`, `[limits.branch-exceeds-max-steps]`,

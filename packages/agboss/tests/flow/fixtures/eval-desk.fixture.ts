@@ -20,7 +20,7 @@ import {
   toolCallsOf,
   type JudgeHandler,
   type JudgeInput,
-  inline,
+  inline, Ttl,
 } from "../../../src/index.js";
 import { Integer, Enum, Text } from "../../../src/dto/index.js";
 import { WorkflowStartTextDto } from "./dtos.js";
@@ -187,6 +187,7 @@ export class HandOverWorkflowFinish {}
 @Workflow({
   name: "eval-desk-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(DeskWorkflowStart)
       .toAgent(DeskAgent)

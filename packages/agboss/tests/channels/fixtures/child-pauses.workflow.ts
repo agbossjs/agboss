@@ -7,7 +7,7 @@ import {
   WorkflowStart,
   type Tracked,
   Action,
-  inline,
+  inline, Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -62,6 +62,7 @@ export class ChildRefundAgent {}
 @Workflow({
   name: "refund-one-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(RefundOneWorkflowStart)
       .toAgent(ChildRefundAgent)
@@ -88,6 +89,7 @@ export class SingleChildWorkflowFinish {}
 @Workflow({
   name: "single-child-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(SingleChildWorkflowStart)
       .toWorkflow(RefundOneWorkflow)
@@ -132,6 +134,7 @@ export class ChildBatchWorkflowFinish {}
 @Workflow({
   name: "child-batch-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ChildBatchWorkflowStart)
       .forEachItem(toWorkflow(RefundOneWorkflow), { takeFirst: 5, maxConcurrency: 3 })

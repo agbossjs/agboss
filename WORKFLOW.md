@@ -189,7 +189,7 @@ decide at once, for tests and scripts); an approval the thread's owner answers n
 all (`@ToolApproval({ respondent: PauseRespondent.Owner })`, answered by `app.resume`).
 
 <!-- snippet-context
-import { Agent, Application, EmptyEnvironment, Tool, Workflow, WorkflowFinish, WorkflowStart, onStart, inline } from "@agboss/core";
+import { Agent, Application, EmptyEnvironment, Tool, Workflow, WorkflowFinish, WorkflowStart, onStart, inline, Ttl } from "@agboss/core";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 import { DeleteUserInputDto, SlackClient, SlackUserDeletionApprovalChannel, UserDeletionToolApproval } from "./channels.js";
 export class UserDeletedDto {
@@ -205,6 +205,7 @@ export class ChatFinish {}
 @Workflow({
   name: "admin-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(ChatStart).toAgent(AdminAgent).toFinish(ChatFinish)],
   providers: [SlackClient],
 })

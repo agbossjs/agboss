@@ -1,4 +1,4 @@
-import { Agent, Application, DecidedBy, Router, Workflow, inline } from "../../../src/index.js";
+import { Agent, Application, DecidedBy, Router, Workflow, inline, Ttl } from "../../../src/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import type { PromptSource } from "../../../src/components/prompt-source.js";
 import type { Class } from "../../../src/components/injection.js";
@@ -51,6 +51,7 @@ export function workflowWith(prompts: FlowPrompts): {
   @Workflow({
     name: "prompts-workflow",
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     defaults: testDefaults,
     flow: [
       onStart(TestChat)

@@ -1,4 +1,4 @@
-import { usd } from "../../src/units/index.js";
+import { usd, Ttl } from "../../src/units/index.js";
 import { Agent, Tool, Workflow, type Class } from "../../src/index.js";
 import {
   Rag,
@@ -73,6 +73,7 @@ export function bundleWith(use: Class, reading: Reading): Class {
   @Workflow({
     ...base,
     name: "handbook-bundle-workflow",
+    historyTtl: Ttl.Forever,
     flow: starOf(Helper),
     providers: reading === "tool" ? [use, SearchHandbook] : [],
   })

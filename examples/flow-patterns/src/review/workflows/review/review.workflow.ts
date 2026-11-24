@@ -1,4 +1,4 @@
-import { onStart, StepFailedError, toFinish, Workflow, toAgent } from "@agboss/core";
+import { onStart, StepFailedError, toFinish, Workflow, toAgent, Ttl } from "@agboss/core";
 import { EditorialPlanAction } from "../../actions/editorial-plan.action.js";
 import { ReviewReportAction } from "../../actions/review-report.action.js";
 import { FactCheckerAgent } from "../../agents/fact-checker/fact-checker.agent.js";
@@ -18,6 +18,7 @@ import { ReviewWorkflowStart } from "./review.workflow-start.js";
 @Workflow({
   name: "review-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ReviewWorkflowStart)
       .toAgent(SectionSplitterAgent)

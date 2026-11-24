@@ -15,7 +15,7 @@ import {
   type ExecutionStartEvent,
   type ModelStartEvent,
   type ToolStartEvent,
-  inline,
+  inline, Ttl,
 } from "../../../src/index.js";
 import { onStart } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
@@ -145,6 +145,7 @@ export class Done {}
 @Workflow({
   name: "job-search-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults: {
     models: { maxTokens: 100, temperature: 0 },
     tools: { maxToolCalls: 3 },
@@ -184,6 +185,7 @@ export class Typo {}
 @Workflow({
   name: "typo-search-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults: { models: { maxTokens: 100, temperature: 0 } },
   memory: Window1Memory,
   flow: [

@@ -16,7 +16,7 @@ import {
 } from "../../../src/flow/runtime/launch/launch-registry.js";
 import { treeLaunchesQueued } from "../../../src/flow/analyse/child-placements.js";
 import type { Class } from "../../../src/components/injection.js";
-import { Workflow, WorkflowStart } from "../../../src/index.js";
+import { Workflow, WorkflowStart, Ttl } from "../../../src/index.js";
 import { onStart } from "../../helpers/flow.js";
 import { ItemDto } from "./fixtures/fan-out.workflow.js";
 import { RemoteItemWorkflow } from "./fixtures/remote-children.workflow.js";
@@ -183,6 +183,7 @@ class OuterWorkflowStart {}
 @Workflow({
   name: "outer-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(OuterWorkflowStart)
       .toWorkflow(RemoteSpendWorkflow)

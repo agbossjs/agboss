@@ -16,7 +16,7 @@ import { TEST_BUDGETS } from "./budgets.js";
 import type { ExecutionRejectedEvent } from "../../../src/core/observability.js";
 import { WorkflowStartTextDto } from "./dtos.js";
 import { onStart } from "./paths.js";
-import { Observer, inline } from "../../../src/index.js";
+import { Observer, inline, Ttl } from "../../../src/index.js";
 
 /**
  * #261 PR 3 — a clinic: the project's tenant level (its units) and execution level (the clinician
@@ -208,6 +208,7 @@ export class BedsWorkflowFinish {}
 @Workflow({
   name: "bed-request-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults: { models: { maxTokens: 100, temperature: 0 }, tools: { maxToolCalls: 3 } },
   providers: [UnitDirectoryService],
   flow: [

@@ -16,6 +16,7 @@ import {
   Workflow,
   WorkflowFinish,
   inline,
+  Ttl,
 } from "../../src/index.js";
 import { WorkflowFinishTextDto } from "../../src/dto/index.js";
 import { InMemoryCostLedgerRepository } from "../../src/infrastructure/cost-ledger.repository.js";
@@ -80,6 +81,7 @@ class OtherFinish {}
 @Workflow({
   name: "orders-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults: testDefaults,
   flow: [onStart(RefundsWorkflowStart).toAgent(OtherOrdersAgent).toFinish(OtherFinish)],
 })
@@ -97,6 +99,7 @@ class ClashingApplication {}
 @Workflow({
   name: "ledgered-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults: testDefaults,
   flow: [onStart(RefundsWorkflowStart).toAgent(OrdersAgent).toFinish(OrdersWorkflowFinish)],
   providers: [InMemoryCostLedgerRepository],

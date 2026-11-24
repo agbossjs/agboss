@@ -58,6 +58,7 @@ const APPLICATION = `import {
   BudgetPeriod,
   BudgetScope,
   EmptyEnvironment,
+  Ttl,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
@@ -87,6 +88,7 @@ export class EchoWorkflowFinish {}
 @Workflow({
   name: "echo-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(EchoWorkflowStart)
       .toAction(EchoAction)

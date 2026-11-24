@@ -151,6 +151,7 @@ export function deskApplicationOf(variant: DeskVariant = {}): Class {
   @Workflow({
     name: "desk-workflow",
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [
       onStart(DeskStart).toRouter(HelpRouter).onRoute(toAgent(AnswerAgent).toFinish(DeskAnswer)),
     ],

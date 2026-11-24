@@ -15,6 +15,7 @@ import {
   WorkflowStart,
   secret,
   inline,
+  Ttl,
 } from "../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
@@ -130,6 +131,7 @@ class ConflictAgent {}
 @Workflow({
   name: "cc-child-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(ConflictChildStart).toAgent(ConflictAgent).toFinish(ConflictChildFinish)],
   piiPolicies: [EmailKindPiiPolicy],
 })
@@ -156,6 +158,7 @@ class ConflictSummaryAgent {}
 @Workflow({
   name: "cc-root-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ConflictRootStart)
       .forEachItem(toWorkflow(ConflictChildWorkflow), { takeFirst: 2 })

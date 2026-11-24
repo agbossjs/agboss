@@ -26,7 +26,7 @@ import {
   SentKitWorkflowFinish,
 } from "../fixtures/kit.fixture.js";
 import { onStart, side, toAction, toAgent, toFinish } from "../fixtures/paths.js";
-import { inline } from "../../../src/index.js";
+import { inline, Ttl } from "../../../src/index.js";
 
 /**
  * `.toOneOf([…branches])` names no DTO: each branch takes the variant its entry consumer reads,
@@ -109,7 +109,7 @@ const edits = () => toAgent(ChangesEditAgent).toFinish(DraftKitWorkflowFinish);
 const sends = () => toAction(ApprovedSendAction).toFinish(SentKitWorkflowFinish);
 
 const check = (flow: ReturnType<typeof reviewed>[], name: string) => {
-  @Workflow({ name, version: "1.0.0", flow })
+  @Workflow({ name, version: "1.0.0", historyTtl: Ttl.Forever, flow })
   class Checked {}
   return checkWorkflow(Checked);
 };

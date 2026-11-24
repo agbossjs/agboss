@@ -10,7 +10,7 @@ import {
   listedClassesOf,
 } from "../../src/application/application-rules.js";
 import { Budget, BudgetPeriod, BudgetScope } from "../../src/budgets/budget.js";
-import { EmptyEnvironment, Injectable } from "../../src/index.js";
+import { EmptyEnvironment, Injectable, Ttl } from "../../src/index.js";
 import { ModelCost, ModelProvider, RetryPolicy } from "../../src/models/index.js";
 import type { TransportModelProviderOptions } from "../../src/models/model-provider.decorator.js";
 import { minutes, seconds, usd, type Usd } from "../../src/units/index.js";
@@ -99,6 +99,7 @@ class PlainService {
 @Workflow({
   name: "infra-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults: testDefaults,
   flow: [onStart(OrdersWorkflowStart).toAgent(OrdersAgent).toFinish(OrdersWorkflowFinish)],
   providers: [
@@ -246,6 +247,7 @@ describe("#1366: applicationRuleViolations", () => {
     @Workflow({
       name: "plain-workflow",
       version: "1.0.0",
+      historyTtl: Ttl.Forever,
       defaults: testDefaults,
       flow: [onStart(OrdersWorkflowStart).toAgent(OrdersAgent).toFinish(OrdersWorkflowFinish)],
       providers: [Undecorated],
@@ -256,6 +258,7 @@ describe("#1366: applicationRuleViolations", () => {
     @Workflow({
       name: "bare-workflow",
       version: "1.0.0",
+      historyTtl: Ttl.Forever,
       defaults: testDefaults,
       flow: [onStart(OrdersWorkflowStart).toAgent(OrdersAgent).toFinish(OrdersWorkflowFinish)],
     })

@@ -7,6 +7,7 @@ import { ArticleWorkflow } from "../fixtures/article.fixture.js";
 import { SecondKitWorkflowStart, SentKitWorkflowFinish } from "../fixtures/kit.fixture.js";
 import { onStart } from "../fixtures/paths.js";
 import { reviewerAgentOptions } from "../fixtures/reviewer-agent.options.js";
+import { Ttl } from "../../../src/index.js";
 
 /** Shared agent options come from a static const in an `*.options.ts` file (#272 AC16). */
 
@@ -33,6 +34,7 @@ class SpreadSendAction {
 @Workflow({
   name: "spread-action-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(SecondKitWorkflowStart).toAction(SpreadSendAction).toFinish(SentKitWorkflowFinish),
   ],

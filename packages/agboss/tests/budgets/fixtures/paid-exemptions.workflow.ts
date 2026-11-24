@@ -2,7 +2,7 @@ import {
   BudgetExceededError,
   Workflow,
   WorkflowFinish,
-  WorkflowStart,
+  WorkflowStart, Ttl,
 } from "../../../src/index.js";
 import { onAction, onStart, toAction } from "../../helpers/flow.js";
 import {
@@ -53,6 +53,7 @@ export class LimitLaunchWorkflowStart {}
 @Workflow({
   name: "limit-launch-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(LimitLaunchWorkflowStart)
       .toAction(OverspendOrderAction)
@@ -70,6 +71,7 @@ export class JoinLimitWorkflowStart {}
 @Workflow({
   name: "join-limit-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(JoinLimitWorkflowStart)
       .inParallel([toAction(ChargeOrderAction), toAction(NoteOrderAction)])
@@ -87,6 +89,7 @@ export class HeldLimitWorkflowStart {}
 @Workflow({
   name: "held-limit-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(HeldLimitWorkflowStart)
       .toAction(OverspendOrderAction)
@@ -109,6 +112,7 @@ export class HeldLaunchWorkflowStart {}
 @Workflow({
   name: "held-launch-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(HeldLaunchWorkflowStart)
       .toAction(OverspendOrderAction)
@@ -138,6 +142,7 @@ export class RefundStepWorkflowFinish {}
 @Workflow({
   name: "refund-step-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(RefundStepWorkflowStart)
       .toAction(BookOrderAction)
@@ -160,6 +165,7 @@ export class RebookWorkflowStart {}
 @Workflow({
   name: "rebook-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(RebookWorkflowStart)
       .toAction(RejectOrderAction)
@@ -184,6 +190,7 @@ export class NestedLimitWorkflowFinish {}
 @Workflow({
   name: "nested-limit-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(NestedLimitWorkflowStart)
       .toAction(OverspendOrderAction)
@@ -213,6 +220,7 @@ export class RefundToldWorkflowFinish {}
 @Workflow({
   name: "refund-handled-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(RefundHandledWorkflowStart)
       .toAction(BookOrderAction)

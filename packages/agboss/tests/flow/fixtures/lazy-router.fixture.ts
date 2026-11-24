@@ -7,7 +7,7 @@ import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import type { Route } from "../../../src/flow/generated-types.js";
 import { WorkflowStartTextDto } from "./dtos.js";
 import { ChargeResultDto } from "./credit-dtos.js";
-import { inline } from "../../../src/index.js";
+import { inline, Ttl } from "../../../src/index.js";
 
 /**
  * #1271b — a router that names the finish and the agent declared BELOW it: the thunk `() => Target`
@@ -70,6 +70,7 @@ const desk = onStart(LazyWorkflowStart)
 @Workflow({
   name: "lazy-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     desk
       .onRoute(

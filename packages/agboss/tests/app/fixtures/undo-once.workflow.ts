@@ -6,7 +6,7 @@ import {
   StepFailedError,
   Workflow,
   WorkflowFinish,
-  WorkflowStart,
+  WorkflowStart, Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -48,6 +48,7 @@ export class OnceRootWorkflowFinish {}
 @Workflow({
   name: "once-root-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(OnceRootWorkflowStart)
       .toAction(PaidBookingAction)
@@ -67,6 +68,7 @@ export class OnceRemoteChildWorkflowFinish {}
   placement: ChildPlacement.AnyWorker,
   name: "once-remote-child-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(OnceRemoteChildWorkflowStart)
       .toAction(PaidBookingAction)
@@ -85,6 +87,7 @@ export class OnceJoinWorkflowFinish {}
 @Workflow({
   name: "once-join-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(OnceJoinWorkflowStart)
       .inParallel([toAction(PaidBookingAction), toAction(GatedItemAction)])
@@ -111,6 +114,7 @@ export class OnceJoinSideFailedWorkflowFinish {}
 @Workflow({
   name: "once-join-side-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(OnceJoinSideWorkflowStart)
       .inParallel([toAction(PaidBookingAction), toAction(GatedItemAction)])
@@ -130,6 +134,7 @@ export class OnceLocalWorkflowFinish {}
 @Workflow({
   name: "once-local-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(OnceLocalWorkflowStart)
       .toWorkflow(OnceRootWorkflow)
@@ -146,6 +151,7 @@ export class OnceAnyWorkflowFinish {}
 @Workflow({
   name: "once-any-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(OnceAnyWorkflowStart)
       .toWorkflow(OnceRemoteChildWorkflow)
@@ -177,6 +183,7 @@ export class OnceBudgetRouter {
 @Workflow({
   name: "once-budget-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(OnceBudgetWorkflowStart)
       .toAction(PaidBookingAction)
@@ -202,6 +209,7 @@ export class OnceHeldWorkflowFinish {}
 @Workflow({
   name: "once-held-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(OnceHeldWorkflowStart)
       .toAction(PaidBookingAction)
@@ -225,6 +233,7 @@ export class OnceBranchWorkflowFinish {}
 @Workflow({
   name: "once-branch-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(OnceBranchWorkflowStart)
       .toAction(PaidBookingAction)
@@ -245,6 +254,7 @@ export class OnceLevelWorkflowFinish {}
 @Workflow({
   name: "once-level-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(OnceLevelWorkflowStart)
       .toAction(PaidBookingAction)

@@ -27,6 +27,7 @@ import {
   type PiiMatch,
   type PiiPolicyHandler,
   inline,
+  Ttl,
 } from "../../src/index.js";
 import { ExecutionStatus } from "../../src/app/types.js";
 import { childSourcesIn, configSnapshot } from "../../src/run/versions.js";
@@ -106,6 +107,7 @@ function deployment({ application = [], root = [], own = [] }: Policies): {
   @Workflow({
     name: "cr-child-workflow",
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [onStart(CrChildStart).toAgent(CrMailer).toFinish(CrChildFinish)],
     piiPolicies: own,
   })
@@ -114,6 +116,7 @@ function deployment({ application = [], root = [], own = [] }: Policies): {
   @Workflow({
     name: "cr-root-workflow",
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [onStart(CrRootStart).toWorkflow(CrChild).toFinish(CrRootFinish)],
     piiPolicies: root,
   })
@@ -148,6 +151,7 @@ function nested(middle: readonly Class[]): Class {
   @Workflow({
     name: "cr-leaf-workflow",
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [onStart(CrChildStart).toAgent(CrMailer).toFinish(CrChildFinish)],
   })
   class CrLeaf {}
@@ -169,6 +173,7 @@ function nested(middle: readonly Class[]): Class {
   @Workflow({
     name: "cr-middle-workflow",
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [onStart(CrMiddleStart).toWorkflow(CrLeaf).toFinish(CrMiddleFinish)],
     piiPolicies: middle,
   })
@@ -177,6 +182,7 @@ function nested(middle: readonly Class[]): Class {
   @Workflow({
     name: "cr-root-workflow",
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [onStart(CrRootStart).toWorkflow(CrMiddle).toFinish(CrRootFinish)],
   })
   class CrRoot {}

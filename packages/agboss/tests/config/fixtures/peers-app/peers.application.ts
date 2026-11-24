@@ -6,7 +6,7 @@ import { McpServerClient } from "../../../../src/components/mcp-client.js";
 import { McpTransport } from "../../../../src/config/mcp-server-config.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../../src/dto/index.js";
 import { EmptyEnvironment } from "../../../../src/environments/empty.js";
-import { Action, Workflow, WorkflowFinish, WorkflowStart } from "../../../../src/index.js";
+import { Action, Workflow, WorkflowFinish, WorkflowStart, Ttl } from "../../../../src/index.js";
 import { seconds, usd } from "../../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { onStart } from "../../../helpers/flow.js";
@@ -89,6 +89,7 @@ export class PeersAction {
 @Workflow({
   name: "peers-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(PeersStart).toAction(PeersAction).toFinish(PeersFinish)],
 })
 export class PeersWorkflow {}

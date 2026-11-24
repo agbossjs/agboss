@@ -12,6 +12,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  Ttl,
 } from "../../../src/index.js";
 import type { Class } from "../../../src/components/injection.js";
 import { checkWorkflow } from "../../../src/flow/analyse/analyse.js";
@@ -75,6 +76,7 @@ class SlicesFinish {}
 @Workflow({
   name: "slices-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(SlicesStart).toAction(CheckAction).toAction(CountAction).toFinish(SlicesFinish)],
 })
 class SlicesWorkflow {}
@@ -134,6 +136,7 @@ const flowOf = (name: string, reader: Class) => {
   @Workflow({
     name,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [onStart(SlicesStart).toAction(CheckAction).toAction(reader).toFinish(SlicesFinish)],
   })
   class Checked {}

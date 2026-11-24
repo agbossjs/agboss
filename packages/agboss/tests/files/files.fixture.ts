@@ -1,4 +1,4 @@
-import { hours } from "../../src/units/index.js";
+import { hours, Ttl } from "../../src/units/index.js";
 /**
  * #899: an agent that reads a document its start gives it and a tool that returns another file —
  * the same application with and without a PII policy; a code router in front of the agent; an
@@ -126,6 +126,7 @@ export class ReaderFilePolicy {}
 @Workflow({
   name: "reader-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   filePolicy: ReaderFilePolicy,
   flow: [
     onStart(ReaderStart)

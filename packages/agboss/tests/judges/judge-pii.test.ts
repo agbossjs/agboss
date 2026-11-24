@@ -16,6 +16,7 @@ import {
   type JudgeHandler,
   type JudgeInput,
   inline,
+  Ttl,
 } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
 import { PlainTextDto, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
@@ -68,6 +69,7 @@ class ContactFinish {}
 @Workflow({
   name: "contact-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(ContactStart).toAgent(ContactWriter).toFinish(ContactFinish)],
   defaults: DEFAULTS,
 })

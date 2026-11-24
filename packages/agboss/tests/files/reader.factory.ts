@@ -1,4 +1,4 @@
-import { hours } from "../../src/units/index.js";
+import { hours, Ttl } from "../../src/units/index.js";
 import { Window5Memory } from "../helpers/window-memory.js";
 /**
  * #899: a reader application on demand — an agent with the files setting a test gives it, a tool that
@@ -174,6 +174,7 @@ export function readerApplication(options: ReaderOptions = {}): ReaderApp {
   @Workflow({
     name: `reader-${suffix}-workflow`,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     memory: Window5Memory,
     filePolicy: ReaderFilePolicy,
     flow: [flowOf(options.output, ReaderStart, ReaderAgent, ReaderFinish)],

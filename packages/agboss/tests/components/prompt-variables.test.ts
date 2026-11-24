@@ -15,6 +15,7 @@ import {
   Router,
   secret,
   Workflow,
+  Ttl,
 } from "../../src/index.js";
 import { PromptLoader } from "../../src/components/prompt-render.js";
 import { loadedGuardrailOf } from "../../src/guardrails/assembly.js";
@@ -85,6 +86,7 @@ function applicationWith(levels: Levels): Class {
   @Workflow({
     name: "variables-workflow",
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     defaults: testDefaults,
     flow: [
       onStart(TestChat)

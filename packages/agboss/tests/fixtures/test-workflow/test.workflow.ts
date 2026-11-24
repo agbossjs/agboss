@@ -6,7 +6,7 @@ import {
   Router,
   Tool,
   Workflow,
-  inline,
+  inline, Ttl,
 } from "../../../src/index.js";
 import { Reasoning, ReasoningEffort } from "../../../src/models/index.js";
 import { IsoDateTime, TimeZone, WorkflowStartTextDto } from "../../../src/dto/index.js";
@@ -92,6 +92,7 @@ export class MainRouter {}
 @Workflow({
   name: "test-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults: {
     models: {
       temperature: 0,

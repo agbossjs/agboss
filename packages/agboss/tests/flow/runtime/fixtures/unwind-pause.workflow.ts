@@ -10,7 +10,7 @@ import { Agent,
   type ChannelAsk,
   type Tracked,
   Action,
-  inline, ToolApproval } from "../../../../src/index.js";
+  inline, ToolApproval, Ttl } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
 import { onStart } from "../../../helpers/flow.js";
@@ -90,6 +90,7 @@ export class UnwindGuestWorkflowStart {}
 @Workflow({
   name: "unwind-guest-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(UnwindGuestWorkflowStart)
       .toAction(ReserveRoomAction)
@@ -133,6 +134,7 @@ export class SeatReservedWorkflowFinish {}
 @Workflow({
   name: "unwind-paused-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(UnwindPausedWorkflowStart)
       .toAction(ReserveSeatAction)

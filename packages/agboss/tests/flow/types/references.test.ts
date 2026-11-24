@@ -10,7 +10,7 @@ import { generateFlowTypes } from "../../../src/flow/types/generate.js";
 import { ImportTable, moduleSpecifier } from "../../../src/flow/types/imports.js";
 import { ClassLocator } from "../../../src/flow/types/locate.js";
 import { onStart } from "../fixtures/paths.js";
-import { inline } from "../../../src/index.js";
+import { inline, Ttl } from "../../../src/index.js";
 
 /**
  * How the generated file names classes (#272 S2, S3): import paths from the modules that export
@@ -46,6 +46,7 @@ const workflowOf = (name: string, startClass: Class, input: DtoClass = TextDto):
   @Workflow({
     name,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [onStart(startClass).toFinish(TextWorkflowFinish)],
   })
   class SomeWorkflow {}

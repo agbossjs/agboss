@@ -713,6 +713,7 @@ import {
   toAgent,
   toRouter,
   toAction,
+  Ttl,
 } from "@agboss/core";
 import { IssueRefundAction } from "../../actions/issue-refund.action.js";
 import { OrderResearcherAgent } from "../../agents/order-researcher/order-researcher.agent.js";
@@ -740,6 +741,7 @@ import { SupportWorkflowStart } from "./support.workflow-start.js";
 @Workflow({
   name: "support-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(SupportWorkflowStart)
       .toRouter(SupportTriageRouter)

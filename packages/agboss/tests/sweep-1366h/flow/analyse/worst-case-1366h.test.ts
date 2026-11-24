@@ -28,6 +28,7 @@ import { CompanyDto } from "../../../flow/fixtures/data-dtos.js";
 import { CompanyReviewWorkflow } from "../../../flow/fixtures/children.fixture.js";
 import { onStart as pathStart } from "../../../helpers/flow.js";
 import { graphOf, edge, node } from "../../../flow/analyse/graph-fixture.js";
+import { Ttl } from "../../../../src/index.js";
 
 const Desk = Object;
 
@@ -44,6 +45,7 @@ class OneLastStart {}
 @Workflow({
   name: "mixed-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     pathStart(OneFirstStart),
     pathStart(TwoFirstStart).toWorkflow(CompanyReviewWorkflow),
@@ -347,6 +349,7 @@ describe("#1366: a workflow that launches itself inside a loop of workflows", ()
     @Workflow({
       name: "pong-case-workflow",
       version: "1.0.0",
+      historyTtl: Ttl.Forever,
       flow: [],
       executionLimits: { maxDepth: 4 },
     })
@@ -354,6 +357,7 @@ describe("#1366: a workflow that launches itself inside a loop of workflows", ()
     @Workflow({
       name: "ping-case-workflow",
       version: "1.0.0",
+      historyTtl: Ttl.Forever,
       flow: throughBoth(() => PingCase, PongCase),
       executionLimits: { maxDepth: 4 },
     })
@@ -361,6 +365,7 @@ describe("#1366: a workflow that launches itself inside a loop of workflows", ()
     Workflow({
       name: "pong-case-workflow",
       version: "1.0.0",
+      historyTtl: Ttl.Forever,
       flow: throughBoth(() => PongCase, PingCase),
       executionLimits: { maxDepth: 4 },
     })(PongCase);

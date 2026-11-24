@@ -8,7 +8,7 @@
  */
 import { OutboundCallError } from "../../src/core/error-families/effect-errors.js";
 import { beforeEach, describe, expect, it } from "vitest";
-import { OutboundCallRepository, Workflow, WorkflowStart } from "../../src/index.js";
+import { OutboundCallRepository, Workflow, WorkflowStart, Ttl } from "../../src/index.js";
 import { WorkflowStartTextDto } from "../../src/dto/index.js";
 import { onStart } from "../helpers/flow.js";
 import { applicationOf } from "../../src/application/assemble.js";
@@ -133,6 +133,7 @@ describe("#505 AC4: an operator reads a stored result masked", () => {
 @Workflow({
   name: "masked-charge-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(MaskedChargeWorkflowStart).toAction(ChargeOrderAction).toFinish(ChargedWorkflowFinish),
   ],

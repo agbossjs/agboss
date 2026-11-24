@@ -9,7 +9,7 @@ Which primitive to pick: `01-composition-and-architecture.md`; the flow: `02-flo
 | Decorator (file)                                                                                | Its contract                                                                       | Key options                                                                                                                                                                                                                                                                                                                                                                                     |
 | ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `@Application` (`<app>.application.ts`)                                                         | —                                                                                  | `name`, `version`, `environment` (required), `workflows`, `budgets`, `providers` (infrastructure), `observers`, `defaults`, `guardrails`, `toolInterceptors`, `piiPolicies`, `healthChecks`, `tenantContext`, `executionContext`, `piiKeyField`, `idempotencyKeyField`, `previousIdempotencyKeyField`, `shutdownTimeout`, `retention.pauseRecords`, `compensationTimeout`, `maxConcurrentSteps` |
-| `@Workflow` (`workflows/<workflow-name>/<workflow-name>.workflow.ts`)                           | —                                                                                  | `name` (`-workflow`), `version`, `flow`, `providers` (services), `defaults`, `maxSteps`, `maxDepth`, `maxConcurrency`, `mcp`, `guardrails`, `toolInterceptors`, `piiPolicies`, `memory`, `promptVariables`                                                                                                                                                                                      |
+| `@Workflow` (`workflows/<workflow-name>/<workflow-name>.workflow.ts`)                           | —                                                                                  | `name` (`-workflow`), `version`, `historyTtl` (required), `flow`, `providers` (services), `defaults`, `executionLimits`, `mcp`, `guardrails`, `toolInterceptors`, `piiPolicies`, `memory`, `promptVariables`                                                                                                                                                                                    |
 | `@WorkflowStart` / `@WorkflowFinish` (`workflows/<workflow-name>/*.workflow-{start,finish}.ts`) | none: a finish is a pure boundary port (no `deps`, no `input`)                     | `name`, `description`, `input` (start) / `output` (finish: a DTO or `listOf(…)`)                                                                                                                                                                                                                                                                                                                |
 | `@Agent` (`agents/<name>/<name>.agent.ts` + `<name>.prompt.md`)                                 | none: the framework runs its loop                                                  | `model`, `prompt` (+ `promptVariables`), `input`, `output`, `tools`, `maxToolCalls`, `maxVisits`, `maxTokens`, `reasoning`, `temperature`, `cache`, `rag`, `judges` + `maxRetries`, `memory`, `guardrails`, `toolInterceptors`, `piiPolicies`                                                                                                                                                   |
 | `@Tool` (`tools/<name>.tool.ts`, DTOs in `dto/<name>.dto.ts`)                                   | `execute(input)`: the output, or a promise of it                                   | `input`, `output`, `timeout: seconds(…)` (default 30 s), `maxResultSize: kilobytes(…)`, `channel`, `toolInterceptors`, `deps`                                                                                                                                                                                                                                                                   |
@@ -427,7 +427,7 @@ export class DeskWorkflowFinish {}
 ```
 
 ```ts file=src/desk/workflows/desk/desk.workflow.ts
-import { Workflow, onStart, toAgent, toFinish } from "@agboss/core";
+import { Workflow, onStart, toAgent, toFinish, Ttl } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { SupportAgent } from "../../agents/support/support.agent.js";
 import { DeskAnswerDto } from "../../dto/desk-answer.dto.js";
@@ -438,6 +438,7 @@ import { DeskWorkflowStart } from "./desk.workflow-start.js";
 @Workflow({
   name: "desk-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(DeskWorkflowStart)
       .toAgent(SupportAgent)
@@ -955,7 +956,7 @@ export class HoldSeatAction implements ActionHandler<HoldSeatAction> {
 ```
 
 ```ts file=src/booking/workflows/seat/seat.workflow.ts
-import { Workflow, onStart, toAction, toFinish } from "@agboss/core";
+import { Workflow, onStart, toAction, toFinish, Ttl } from "@agboss/core";
 import { HoldSeatAction } from "../../actions/hold-seat.action.js";
 import { IssueTicketAction } from "../../actions/issue-ticket.action.js";
 import { SeatHoldDto } from "../../dto/seat-hold.dto.js";
@@ -968,6 +969,7 @@ import { TicketIssuedWorkflowFinish } from "./ticket-issued.workflow-finish.js";
 @Workflow({
   name: "seat-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(SeatWorkflowStart)
       .toAction(HoldSeatAction)

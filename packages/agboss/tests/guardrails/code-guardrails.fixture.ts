@@ -25,6 +25,7 @@ import {
   type GuardrailRefusal,
   type GuardrailStartEvent,
   inline,
+  Ttl,
 } from "../../src/index.js";
 import { Enum, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
@@ -188,6 +189,7 @@ export class ShopRouter {}
 @Workflow({
   name: "shop-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ShopStart)
       .toRouter(ShopRouter)

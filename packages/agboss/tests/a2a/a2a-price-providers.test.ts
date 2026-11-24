@@ -13,7 +13,7 @@ import { Workflow } from "../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../src/flow/decorators/workflow-start.js";
 import { GraphRuleError } from "../../src/graph/rule-error.js";
-import { EmptyEnvironment } from "../../src/index.js";
+import { EmptyEnvironment, Ttl } from "../../src/index.js";
 import { usd } from "../../src/units/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { onStart } from "../helpers/flow.js";
@@ -61,6 +61,7 @@ async function codesOf(place: Place, price: unknown): Promise<readonly string[]>
   @Workflow({
     name: `placed-child-${n}-workflow`,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [onStart(ChildStart).toFinish(ChildFinish)],
     ...providers("child workflow"),
   })
@@ -81,6 +82,7 @@ async function codesOf(place: Place, price: unknown): Promise<readonly string[]>
   @Workflow({
     name: `placed-parent-${n}-workflow`,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [onStart(ParentStart).toWorkflow(ChildWorkflow).toFinish(ParentFinish)],
     ...providers("listed workflow"),
   })

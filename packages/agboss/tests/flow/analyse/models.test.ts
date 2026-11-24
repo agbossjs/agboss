@@ -9,7 +9,7 @@ import { ProfileDto, ShortlistDto } from "../fixtures/dtos.js";
 import { KitWorkflowStart } from "../fixtures/kit.fixture.js";
 import { OfferWorkflow } from "../fixtures/offer.fixture.js";
 import { onStart } from "../fixtures/paths.js";
-import { inline } from "../../../src/index.js";
+import { inline, Ttl } from "../../../src/index.js";
 
 /** Answer tools of agents with `output` (#272 S6): their names and the model's tool calling. */
 
@@ -40,6 +40,7 @@ class LongWorkflowFinish {}
 @Workflow({
   name: "long-answer-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(KitWorkflowStart).toAgent(LongAnswerAgent).toFinish(LongWorkflowFinish)],
 })
 class LongAnswerWorkflow {}

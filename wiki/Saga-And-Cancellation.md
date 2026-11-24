@@ -88,10 +88,10 @@ export class RefundedWorkflowFinish {}
 -->
 
 <!-- snippet-context
-import { Action, ExecutionContext, Workflow, onStart, type ActionHandler, type InputOf } from "@agboss/core";
+import { Action, ExecutionContext, Workflow, onStart, type ActionHandler, type InputOf, Ttl } from "@agboss/core";
 import { PaymentDto, RefundWorkflowStart, RefundedWorkflowFinish } from "./refund.workflow.js";
 // @snippet
-@Workflow({ name: "refund-workflow", version: "1.0.0", flow: [onStart(RefundWorkflowStart).toAction(RefundPaymentAction).toFinish(RefundedWorkflowFinish)] })
+@Workflow({ name: "refund-workflow", version: "1.0.0", historyTtl: Ttl.Forever, flow: [onStart(RefundWorkflowStart).toAction(RefundPaymentAction).toFinish(RefundedWorkflowFinish)] })
 export class RefundWorkflow {}
 -->
 

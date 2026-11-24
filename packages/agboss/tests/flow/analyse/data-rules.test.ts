@@ -20,7 +20,7 @@ import {
 } from "../fixtures/kit.fixture.js";
 import { onAction, onStart, toAgent, toAction } from "../fixtures/paths.js";
 import { OfferWorkflow } from "../fixtures/offer.fixture.js";
-import { inline } from "../../../src/index.js";
+import { inline, Ttl } from "../../../src/index.js";
 
 /** The data rules of #270 (AC7, AC19, AC22) on the abstract scopes. */
 
@@ -41,6 +41,7 @@ class NeedsUnrelatedAgent {}
 @Workflow({
   name: "missing-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(KitWorkflowStart).toAgent(NeedsUnrelatedAgent).toFinish(DraftKitWorkflowFinish)],
 })
 class MissingWorkflow {}
@@ -60,6 +61,7 @@ class RedraftKitAgent {}
 @Workflow({
   name: "dead-store-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(KitWorkflowStart)
       .toAgent(DraftKitAgent)
@@ -87,6 +89,7 @@ class BranchRouter {}
 @Workflow({
   name: "read-on-one-branch-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(KitWorkflowStart)
       .toAgent(DraftKitAgent)
@@ -147,6 +150,7 @@ class ShortlistKitWorkflowFinish {}
 @Workflow({
   name: "optional-list-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(KitWorkflowStart)
       .toRouter(DraftsRouter)
@@ -160,6 +164,7 @@ class OptionalListWorkflow {}
 @Workflow({
   name: "no-list-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(KitWorkflowStart).toAction(CollectDraftsAction).toFinish(DraftKitWorkflowFinish)],
 })
 class NoListWorkflow {}

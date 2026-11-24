@@ -8,7 +8,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type Tracked,
-  inline,
+  inline, Ttl,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
@@ -39,6 +39,7 @@ export class RemoteCappedWorkflowStart {}
 @Workflow({
   name: "remote-capped-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(RemoteCappedWorkflowStart)
       .forEachItem(toWorkflow(RemoteItemWorkflow), { takeFirst: 10, maxConcurrency: 6 })
@@ -97,6 +98,7 @@ export class RemoteSpentWorkflowFinish {}
   placement: ChildPlacement.AnyWorker,
   name: "remote-spender-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(RemoteSpenderWorkflowStart)
       .toAgent(RemoteSpenderAgent)
@@ -124,6 +126,7 @@ export class RemoteSpendCheckedWorkflowFinish {}
 @Workflow({
   name: "remote-spend-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(RemoteSpendWorkflowStart)
       .toWorkflow(RemoteSpenderWorkflow)

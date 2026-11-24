@@ -5,7 +5,7 @@ import {
   oneOf,
   Workflow,
   WorkflowFinish,
-  WorkflowStart,
+  WorkflowStart, Ttl,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { onStart, toAction, toFinish } from "../../../helpers/flow.js";
@@ -115,6 +115,7 @@ export class KycExpiredFinish {}
 @Workflow({
   name: "kyc-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(KycStart)
       .toAction(KycCheckAction)
@@ -188,6 +189,7 @@ export class TurnedAwayFinish {}
 @Workflow({
   name: "onboard-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(OnboardStart)
       .toWorkflow(KycWorkflow)

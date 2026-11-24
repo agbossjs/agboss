@@ -5,6 +5,7 @@ import {
   EmptyEnvironment,
   Workflow,
   inline,
+  Ttl,
 } from "../../../../agboss/src/index.js";
 import { Rag, RagScope, SqliteFtsRagSource } from "../../../../agboss/src/rag/index.js";
 import { TEST_BUDGETS } from "../../../../agboss/tests/flow/fixtures/budgets.js";
@@ -39,6 +40,7 @@ export class WriteReaderAgent {}
 @Workflow({
   name: "write-notes-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults: testDefaults,
   flow: starOf(WriteReaderAgent),
 })

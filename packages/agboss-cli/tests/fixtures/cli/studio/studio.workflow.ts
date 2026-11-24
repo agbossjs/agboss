@@ -5,7 +5,7 @@ import {
   Application,
   Workflow,
   WorkflowFinish,
-  WorkflowStart,
+  WorkflowStart, Ttl,
 } from "../../../../../agboss/src/index.js";
 import { Text } from "../../../../../agboss/src/dto/index.js";
 import { listOf } from "../../../../../agboss/src/flow/dto-wrappers.js";
@@ -59,6 +59,7 @@ export class ItemCheckedWorkflowFinish {}
 @Workflow({
   name: "studio-item-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(StudioItemWorkflowStart)
       .toAction(CheckItemAction)
@@ -103,6 +104,7 @@ export class SummaryWorkflowFinish {}
 @Workflow({
   name: "studio-items-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(StudioItemsWorkflowStart)
       .forEachItem(toWorkflow(StudioItemWorkflow), { takeFirst: 10, maxConcurrency: 2 })
@@ -127,6 +129,7 @@ export class OneCheckedWorkflowFinish {}
 @Workflow({
   name: "studio-one-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(StudioOneWorkflowStart)
       .toWorkflow(StudioItemWorkflow)

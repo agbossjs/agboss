@@ -15,6 +15,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   inline,
+  Ttl,
 } from "../../../src/index.js";
 import { checkWorkflow } from "../../../src/flow/analyse/analyse.js";
 import { Reasoning } from "../../../src/models/index.js";
@@ -102,6 +103,7 @@ describe("#1080: an agent's output that holds itself", () => {
     @Workflow({
       name: "diamond-workflow",
       version: "1.0.0",
+      historyTtl: Ttl.Forever,
       flow: [onStart(DiamondStart).toAgent(DiamondAgent).toFinish(DiamondFinish)],
       ...workflowDefaults,
     })
@@ -136,6 +138,7 @@ describe("#1080: an input that holds itself", () => {
     @Workflow({
       name: "keep-workflow",
       version: "1.0.0",
+      historyTtl: Ttl.Forever,
       flow: [onStart(KeepStart).toAction(Keep).toFinish(KeepFinish)],
       ...workflowDefaults,
     })

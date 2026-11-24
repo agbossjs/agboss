@@ -20,6 +20,7 @@ import {
   WorkflowStart,
   WorkflowFinish,
   inline,
+  Ttl,
 } from "../../src/index.js";
 import { WorkflowStartTextDto, WorkflowFinishTextDto, Text } from "../../src/dto/index.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
@@ -141,6 +142,7 @@ class FinishNode {}
 @Workflow({
   name: "tails-test-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults: testDefaults,
   flow: [onStart(StartNode).toAction(FormatAction).toAgent(SafeAgent).toFinish(FinishNode)],
 })

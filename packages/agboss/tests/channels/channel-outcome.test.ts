@@ -7,7 +7,7 @@ import { AutoApproveChannel, AutoRejectChannel } from "../../src/channels/test-c
 import { Channel, Tool } from "../../src/components/decorators.js";
 import { ToolApproval } from "../../src/channels/pause-targets.js";
 import { PauseRespondent } from "../../src/pause/respondent.js";
-import { days } from "../../src/units/index.js";
+import { days, Ttl } from "../../src/units/index.js";
 import type { Class } from "../../src/components/injection.js";
 import { Agent } from "../../src/flow/decorators/agent.js";
 import { Workflow } from "../../src/flow/decorators/workflow.js";
@@ -109,6 +109,7 @@ function applicationWith(name: string, channel: Class): Class {
   @Workflow({
     name: `${name}-workflow`,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [onStart(RefundWorkflowStart).toAgent(ClerkAgent).toFinish(RefundWorkflowFinish)],
     defaults: { router: { model: "typesafe/jev-test" } },
     providers: [RefundDesk],

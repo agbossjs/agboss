@@ -8,7 +8,7 @@
  * that keeps a finish from committing a booking the held branch owed (#675 handles the main path).
  */
 import { beforeEach, describe, expect, it } from "vitest";
-import { BudgetExceededError, Workflow } from "../../src/index.js";
+import { BudgetExceededError, Workflow, Ttl } from "../../src/index.js";
 import { checkWorkflow } from "../../src/flow/analyse/analyse.js";
 import type { WorkflowOptions } from "../../src/flow/decorators/workflow.js";
 import { testWith } from "../../src/testing/index.js";
@@ -102,7 +102,12 @@ let count = 0;
 /** The workflow's compensation and launch rules broken, by code. */
 function brokenRules(flow: WorkflowOptions["flow"]): readonly string[] {
   count += 1;
-  @Workflow({ name: `held-case-${String(count)}-workflow`, version: "1.0.0", flow })
+  @Workflow({
+    name: `held-case-${String(count)}-workflow`,
+    version: "1.0.0",
+    historyTtl: Ttl.Forever,
+    flow,
+  })
   class HeldCaseWorkflow {}
   return checkWorkflow(HeldCaseWorkflow).errors.map((error) => error.code);
 }

@@ -3,7 +3,7 @@ import {
   EmptyEnvironment,
   ExecutionContext,
   Workflow,
-  type Tracked,
+  type Tracked, Ttl,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
@@ -64,6 +64,7 @@ export class RecoverableItemAction {
 @Workflow({
   name: "launch-recovery-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   executionLimits: { maxSteps: 20 },
   flow: [
     onStart(ItemsWorkflowStart)

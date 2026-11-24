@@ -1,5 +1,5 @@
 import { LimitError } from "../../../../src/core/error-families/limit-errors.js";
-import { EmptyEnvironment, StepFailedError, Workflow } from "../../../../src/index.js";
+import { EmptyEnvironment, StepFailedError, Workflow, Ttl } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
 import { onStart, toAction } from "../../../helpers/flow.js";
@@ -20,6 +20,7 @@ import {
 @Workflow({
   name: "take-first-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ItemsWorkflowStart)
       .forEachItem(
@@ -51,6 +52,7 @@ export class TakeFirstApplication {}
 @Workflow({
   name: "max-items-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ItemsWorkflowStart)
       .forEachItem(toAction(ProcessItemAction), { maxItems: 3 })

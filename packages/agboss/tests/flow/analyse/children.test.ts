@@ -45,7 +45,7 @@ import {
   CompanyScoreWorkflowFinish,
 } from "../fixtures/starts.fixture.js";
 import { onAgent, onStart, toAction, toAgent, toFinish, toWorkflow } from "../fixtures/paths.js";
-import { inline } from "../../../src/index.js";
+import { inline, Ttl } from "../../../src/index.js";
 
 /** #263 PR 1 — child workflows in the analyser: the start per edge, outputs, scope, warnings. */
 
@@ -55,7 +55,12 @@ let count = 0;
 /** A workflow of one flow, named uniquely. */
 function workflowWith(flow: Flow): abstract new () => unknown {
   count += 1;
-  @Workflow({ name: `child-case-${String(count)}-workflow`, version: "1.0.0", flow })
+  @Workflow({
+    name: `child-case-${String(count)}-workflow`,
+    version: "1.0.0",
+    historyTtl: Ttl.Forever,
+    flow,
+  })
   class ChildCaseWorkflow {}
   return ChildCaseWorkflow;
 }
@@ -88,6 +93,7 @@ class SoloGraderAgent {}
 @Workflow({
   name: "solo-grade-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(SoloGradeWorkflowStart).toAgent(SoloGraderAgent).toFinish(CompanyGradedWorkflowFinish),
   ],
@@ -120,6 +126,7 @@ class FallbackGradeWorkflowFinish {}
 @Workflow({
   name: "twice-grade-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(TwiceGradeWorkflowStart)
       .toAgent(SoloGraderAgent)
@@ -143,6 +150,7 @@ class PlainCheckWorkflowStart {}
 @Workflow({
   name: "narrowed-check-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ScopedCheckWorkflowStart).toAgent(CompanyCheckAgent),
     onStart(PlainCheckWorkflowStart).toAgent(CompanyCheckAgent),
@@ -371,6 +379,7 @@ describe("#263 AC7: the child's scope is its start input", () => {
   @Workflow({
     name: "isolated-grade-workflow",
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [
       onStart(SoloGradeWorkflowStart)
         .toAgent(JobOfferAgent) // reads a CompanyGradeDto: only the parent's path has one
@@ -566,6 +575,7 @@ describe("#1271: a workflow's finishes do not mix a list with another shape", ()
   @Workflow({
     name: "mixed-outputs-workflow",
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [
       onStart(MixedOutputsWorkflowStart).toFinish(MixedListWorkflowFinish),
       onAgent(MixedScorerAgent).toFinish(MixedOneWorkflowFinish),

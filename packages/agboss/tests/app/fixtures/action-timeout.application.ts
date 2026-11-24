@@ -9,6 +9,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type Tracked,
+  Ttl,
 } from "../../../src/index.js";
 import { hours, seconds } from "../../../src/units/index.js";
 import { Application } from "../../../src/application/application.js";
@@ -204,6 +205,7 @@ export class TimeoutFinish {}
 @Workflow({
   name: "action-timeout-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(UnguardedStart).toAction(UnguardedAction).toFinish(TimeoutFinish),
     onStart(GuardedStart).toAction(GuardedAction).toFinish(TimeoutFinish),

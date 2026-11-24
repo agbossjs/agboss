@@ -8,7 +8,7 @@ import {
   WorkflowStart,
   type Tracked,
   Action,
-  inline,
+  inline, Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -136,6 +136,7 @@ export class RefundEscalatedWorkflowFinish {}
 @Workflow({
   name: "refund-panel-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(RefundPanelWorkflowStart)
       .inParallel([toAgent(PolicyAgent), toAgent(RiskAgent), toAgent(FraudAgent)])
@@ -156,6 +157,7 @@ export class RefundGroupsWorkflowStart {}
 @Workflow({
   name: "refund-groups-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(RefundGroupsWorkflowStart)
       .inParallel([toAgent(PolicyAgent), toAgent(RiskAgent)])
@@ -197,6 +199,7 @@ export class RefundRecoveryWorkflowStart {}
 @Workflow({
   name: "refund-recovery-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(RefundRecoveryWorkflowStart)
       .inParallel([toAgent(PolicyAgent), toAgent(RiskAgent), toAgent(FraudAgent)])

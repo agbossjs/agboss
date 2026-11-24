@@ -22,7 +22,7 @@ import { runInFrame } from "../../src/flow/context/frame.js";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
 import { InMemoryFileRepository } from "../../src/infrastructure/in-memory-file.repository.js";
 import { VirtualClock } from "../../src/testing/clock.js";
-import { kilobytes, hours, minutes } from "../../src/units/index.js";
+import { kilobytes, hours, minutes, Ttl } from "../../src/units/index.js";
 import {
   FileReviewWorkflow,
   FileReviewWorkflowStart,
@@ -132,6 +132,7 @@ describe("#1316b: the assembly rules", () => {
     @Workflow({
       name: "no-policy-file-review-workflow",
       version: "1.0.0",
+      historyTtl: Ttl.Forever,
       flow: fileReviewFlow,
     })
     class NoPolicyWorkflow {}
@@ -151,6 +152,7 @@ describe("#1316b: the assembly rules", () => {
     @Workflow({
       name: "plain-policy-file-review-workflow",
       version: "1.0.0",
+      historyTtl: Ttl.Forever,
       flow: fileReviewFlow,
       filePolicy: Plain,
     })
@@ -211,6 +213,7 @@ describe("#1316b: a step's Files read the policy of its workflow", () => {
     @Workflow({
       name: `policy-${policy.name.toLowerCase()}-workflow`,
       version: "1.0.0",
+      historyTtl: Ttl.Forever,
       flow: fileReviewFlow,
       filePolicy: policy,
     })

@@ -14,6 +14,7 @@ import {
   WorkflowStart,
   type GuardrailHandler,
   inline,
+  Ttl,
 } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
@@ -75,6 +76,7 @@ class MaskedHeldFinish {}
 @Workflow({
   name: "masked-held-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(MaskedHeldStart).toAgent(MaskedHeldAgent).toFinish(MaskedHeldFinish)],
   defaults: DEFAULTS,
 })
@@ -97,6 +99,7 @@ class PlainHeldFinish {}
 @Workflow({
   name: "plain-held-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(PlainHeldStart).toAgent(PlainHeldAgent).toFinish(PlainHeldFinish)],
   defaults: DEFAULTS,
 })

@@ -1,6 +1,6 @@
 import { Window2Memory } from "../../helpers/window-memory.js";
 import { Channel, Injectable, Tool } from "../../../src/components/decorators.js";
-import { ToolCallDecision, ToolInterceptor, type ToolCallContext, inline, ToolApproval, PauseRespondent } from "../../../src/index.js";
+import { ToolCallDecision, ToolInterceptor, type ToolCallContext, inline, ToolApproval, PauseRespondent, Ttl } from "../../../src/index.js";
 import { type ChannelAsk } from "../../../src/channels/channel-handler.js";
 import { ChannelOutcome } from "../../../src/channels/channel-outcome.js";
 import { ChannelInterpretation, ChannelInterpreter } from "../../../src/channels/channel-interpreter.js";
@@ -355,6 +355,7 @@ export class TreasuryWorkflowFinish {}
 @Workflow({
   name: "treasury-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(TreasuryWorkflowStart)
       .toAgent(TreasurerAgent)
@@ -384,6 +385,7 @@ export class TreasuryDeskWorkflowFinish {}
 @Workflow({
   name: "treasury-desk-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(TreasuryDeskWorkflowStart)
       .toWorkflow(TreasuryWorkflow)
@@ -435,6 +437,7 @@ export class TreasuryBatchWorkflowFinish {}
 @Workflow({
   name: "treasury-batch-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(TreasuryBatchWorkflowStart)
       .toAction(SplitRequestsAction)

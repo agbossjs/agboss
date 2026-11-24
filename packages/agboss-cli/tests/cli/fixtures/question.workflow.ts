@@ -10,7 +10,7 @@ import { TEST_BUDGETS } from "../../../../agboss/tests/flow/fixtures/budgets.js"
 import { onStart } from "../../../../agboss/tests/flow/fixtures/paths.js";
 import { PauseRespondent } from "../../../../agboss/src/pause/respondent.js";
 import { ExternalTask } from "../../../../agboss/src/channels/pause-targets.js";
-import { days } from "../../../../agboss/src/units/index.js";
+import { days, Ttl } from "../../../../agboss/src/units/index.js";
 
 /** #659 — a question the terminal answers: the limit of a purchase, typed as JSON. */
 
@@ -53,6 +53,7 @@ export class LimitWorkflowFinish {}
 @Workflow({
   name: "limit-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(LimitWorkflowStart)
       .toExternalTask(LimitExternalTask)

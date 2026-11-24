@@ -7,6 +7,7 @@ import {
   type OnInit,
   type OnStart,
   inline,
+  Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import type { Class } from "../../../src/components/injection.js";
@@ -98,6 +99,7 @@ function echoWorkflowOn(
   @Workflow({
     name: `${prefix}-workflow`,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [onStart(EchoStart).toAgent(EchoAgent).toFinish(EchoFinish)],
   })
   class EchoWorkflow {}

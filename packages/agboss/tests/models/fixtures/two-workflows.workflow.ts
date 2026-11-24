@@ -6,7 +6,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  inline,
+  inline, Ttl,
 } from "../../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { Application } from "../../../src/application/application.js";
@@ -51,6 +51,7 @@ export class DraftingStart {}
 @Workflow({
   name: "drafting-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(DraftingStart)
       .toAgent(DraftingAgent)
@@ -80,6 +81,7 @@ export class PolishingStart {}
 @Workflow({
   name: "polishing-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(PolishingStart)
       .toAgent(PolishingAgent)

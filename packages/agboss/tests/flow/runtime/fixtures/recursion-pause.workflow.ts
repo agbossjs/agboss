@@ -10,7 +10,7 @@ import {
   Workflow,
   WorkflowStart,
   type Tracked,
-  inline,
+  inline, Ttl,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
@@ -74,6 +74,7 @@ export class DiggerAgent {}
 @Workflow({
   name: "dig-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(DigWorkflowStart)
       .toAgent(DiggerAgent)
@@ -131,6 +132,7 @@ export class HoldDepthAction {
 @Workflow({
   name: "hold-depth-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(HoldDepthWorkflowStart)
       .toAction(HoldDepthAction)

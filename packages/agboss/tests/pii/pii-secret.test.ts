@@ -22,6 +22,7 @@ import {
   SqliteDriver,
   secret,
   inline,
+  Ttl,
 } from "../../src/index.js";
 import { Logger, LogLevel, type LogEntry } from "../../src/infrastructure/logger.js";
 import { TEST_PREVIOUS_PSEUDONYM_KEY, TEST_PSEUDONYM_KEY } from "../../src/pii/application-key.js";
@@ -422,6 +423,7 @@ describe("#1301b: [pii.secret-required]", () => {
     @Workflow({
       name: "token-field-workflow",
       version: "1.0.0",
+      historyTtl: Ttl.Forever,
       flow: [onStart(TokenFieldStart).toAgent(TokenFieldAgent).toFinish(TokenFieldFinish)],
       defaults: { models: { temperature: 0 } },
     })

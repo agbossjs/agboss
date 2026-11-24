@@ -14,7 +14,7 @@ import {
   type OutboundCallEvent,
   type OutboundCallSendStatus,
   type Tracked,
-  Observer,
+  Observer, Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -215,6 +215,7 @@ export class NotifiedWorkflowFinish {}
 @Workflow({
   name: "charge-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ChargeWorkflowStart)
       .toAction(ChargeOrderAction)
@@ -229,6 +230,7 @@ export class ChargeWorkflow {}
 @Workflow({
   name: "charge-and-notify-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ChargeAndNotifyWorkflowStart)
       .toAction(ChargeAndNotifyAction)
@@ -254,6 +256,7 @@ export class OutboundCallApplication {}
 @Workflow({
   name: "kept-charge-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ChargeWorkflowStart)
       .toAction(ChargeOrderAction)

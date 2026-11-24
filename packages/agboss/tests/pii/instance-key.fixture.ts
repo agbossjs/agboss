@@ -15,6 +15,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   inline,
+  Ttl,
 } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
@@ -160,6 +161,7 @@ export class FollowUpFinish {}
 @Workflow({
   name: "follow-up-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(FollowUpStart).toAgent(FollowUpAgent).toFinish(FollowUpFinish)],
   defaults,
 })
@@ -183,6 +185,7 @@ export class DeskFinish {}
 @Workflow({
   name: "instance-key-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(DeskStart).toAgent(DeskAgent).toWorkflow(FollowUpWorkflow).toFinish(DeskFinish)],
   defaults,
 })

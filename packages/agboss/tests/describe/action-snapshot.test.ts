@@ -6,7 +6,7 @@ import { describeServices } from "../../src/describe/describe-workflow.js";
 import { workflowSnapshotOf } from "../../src/describe/snapshot.js";
 import { Workflow } from "../../src/flow/decorators/workflow.js";
 import { StepFailedError } from "../../src/graph/errors.js";
-import { EmptyEnvironment } from "../../src/index.js";
+import { EmptyEnvironment, Ttl } from "../../src/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import {
   BookTripAction,
@@ -27,6 +27,7 @@ import { onStart, toAction } from "../flow/fixtures/paths.js";
 @Workflow({
   name: "booking-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(TripWorkflowStart)
       .toAction(BookTripAction)

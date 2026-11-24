@@ -1,4 +1,4 @@
-import { Workflow, WorkflowFinish, WorkflowStart } from "../../../src/index.js";
+import { Workflow, WorkflowFinish, WorkflowStart, Ttl } from "../../../src/index.js";
 import { onStart, toAction } from "../../helpers/flow.js";
 import {
   BookOrderAction,
@@ -24,6 +24,7 @@ export class PaidNestedWorkflowFinish {}
 @Workflow({
   name: "paid-nested-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(PaidNestedWorkflowStart)
       .toWorkflow(PaidActionWorkflow)
@@ -45,6 +46,7 @@ export class PaidRefundWorkflowFinish {}
 @Workflow({
   name: "paid-refund-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(PaidRefundWorkflowStart)
       .toAction(BookOrderAction)

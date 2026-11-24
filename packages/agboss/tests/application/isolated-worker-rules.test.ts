@@ -10,7 +10,7 @@ import { InMemoryDatabaseStorage } from "../../src/storage/in-memory-storage.js"
 import { assembledStorageOf } from "../../src/storage/storage-assembly.js";
 import { isolatedWorkerViolations } from "../../src/application/isolated-worker-rules.js";
 import type { Class } from "../../src/components/injection.js";
-import { EmptyEnvironment, SqliteChildExecutionQueueRepository } from "../../src/index.js";
+import { EmptyEnvironment, SqliteChildExecutionQueueRepository, Ttl } from "../../src/index.js";
 import { ChildPlacement } from "../../src/flow/child-placement.js";
 import { Workflow } from "../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../src/flow/decorators/workflow-finish.js";
@@ -37,6 +37,7 @@ function parentWith(placement: ChildPlacement | undefined): Class {
   @Workflow({
     name: `iso-${id}-child-workflow`,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     ...(placement === undefined ? {} : { placement }),
     flow: [onStart(Start).toFinish(Finish)],
   })
@@ -46,6 +47,7 @@ function parentWith(placement: ChildPlacement | undefined): Class {
   @Workflow({
     name: `iso-${id}-parent-workflow`,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [onStart(ParentStart).toWorkflow(Child).toFinish(Finish)],
   })
   class Parent {}

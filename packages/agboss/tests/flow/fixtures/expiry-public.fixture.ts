@@ -21,6 +21,7 @@ import {
   RecordEscalatedAction,
   RecordExpiryAction,
 } from "./expiry.fixture.js";
+import { Ttl } from "../../../src/index.js";
 
 /**
  * #941 (the scope note of #933's acceptance) — `.toExternalTask(Manager)` and the side
@@ -39,6 +40,7 @@ export class PublicExpiryWorkflowStart {}
 @Workflow({
   name: "public-expiry-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     publicStart(PublicExpiryWorkflowStart)
       .toExternalTask(ShortManagerExternalTask)

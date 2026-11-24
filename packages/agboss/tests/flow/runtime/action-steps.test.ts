@@ -9,6 +9,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { testWith } from "../../../src/testing/index.js";
@@ -91,12 +92,13 @@ const loop = [
 ];
 
 /** No `maxSteps`: the default is (1 action + 1 router) × 3 = 6. */
-@Workflow({ name: "spin-default-workflow", version: "1.0.0", flow: loop })
+@Workflow({ name: "spin-default-workflow", version: "1.0.0", historyTtl: Ttl.Forever, flow: loop })
 class SpinDefaultWorkflow {}
 
 @Workflow({
   name: "spin-short-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   executionLimits: { maxSteps: 5 },
   flow: loop,
 })
@@ -106,6 +108,7 @@ class SpinShortWorkflow {}
 @Workflow({
   name: "spin-recovering-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   executionLimits: { maxSteps: 5 },
   flow: [
     onStart(SpinStart).toAction(SpinAction),

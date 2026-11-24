@@ -1,6 +1,6 @@
 import { OwnerToolApproval } from "../../fixtures/owner-approval.fixture.js";
 import { Text } from "../../../../src/dto/index.js";
-import { Agent, listOf, Tool, Workflow, WorkflowStart, inline } from "../../../../src/index.js";
+import { Agent, listOf, Tool, Workflow, WorkflowStart, inline, Ttl } from "../../../../src/index.js";
 import { onStart, toWorkflow } from "../../../helpers/flow.js";
 import { BatchDoneWorkflowFinish, BatchDoneAction } from "./tree-batch.workflow.js";
 import { TaskDoneDto, TaskDoneWorkflowFinish, TaskDto } from "./tree-task.workflow.js";
@@ -42,6 +42,7 @@ export class TaskCheckWorkflowStart {}
 @Workflow({
   name: "task-check-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(TaskCheckWorkflowStart)
       .toAgent(TaskCheckerAgent)
@@ -60,6 +61,7 @@ export class ChecksWorkflowStart {}
 @Workflow({
   name: "checks-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ChecksWorkflowStart)
       .forEachItem(toWorkflow(TaskCheckWorkflow), { takeFirst: 10, maxConcurrency: 5 })

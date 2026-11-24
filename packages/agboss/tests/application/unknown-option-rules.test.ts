@@ -23,6 +23,7 @@ import {
   Memory,
   Tool,
   ToolInterceptor,
+  Ttl,
 } from "../../src/index.js";
 import { ItemDto } from "../flow/runtime/fixtures/fan-out.workflow.js";
 import { GraphRuleError } from "../../src/graph/rule-error.js";
@@ -297,6 +298,7 @@ describe("[decorator.unknown-option]: @Application", () => {
     @Workflow({
       name: "u-asm-workflow",
       version: "1.0.0",
+      historyTtl: Ttl.Forever,
       flow: [onStart(Start).toFinish(Finish)],
     })
     class Flow {}

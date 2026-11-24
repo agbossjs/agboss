@@ -9,7 +9,7 @@ import {
   BudgetScope,
   EmptyEnvironment,
   type BudgetHandler,
-  inline,
+  inline, Ttl,
 } from "../../../../agboss/src/index.js";
 import { Action } from "../../../../agboss/src/flow/decorators/action.js";
 import { Agent } from "../../../../agboss/src/flow/decorators/agent.js";
@@ -66,6 +66,7 @@ export class ItemReportWorkflowFinish {}
 @Workflow({
   name: "item-report-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ItemReportWorkflowStart)
       .toAgent(ItemReporterAgent)
@@ -113,6 +114,7 @@ export class BatchReportWorkflowFinish {}
 @Workflow({
   name: "batch-report-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(BatchReportWorkflowStart)
       .toAction(PickItemsAction)

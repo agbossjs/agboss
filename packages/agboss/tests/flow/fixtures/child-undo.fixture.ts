@@ -10,7 +10,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Tracked,
+  type Tracked, Ttl,
 } from "../../../src/index.js";
 import { optional } from "../../../src/flow/dto-wrappers.js";
 import { Injectable } from "../../../src/components/decorators.js";
@@ -122,6 +122,7 @@ export class TripChildWorkflowFinish {}
 @Workflow({
   name: "trip-child-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(TripChildWorkflowStart)
       .toAction(BookSeatAction)
@@ -144,6 +145,7 @@ export class RemoteTripWorkflowFinish {}
   placement: ChildPlacement.AnyWorker,
   name: "remote-trip-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(RemoteTripWorkflowStart)
       .toAction(BookSeatAction)
@@ -165,6 +167,7 @@ export class MiddleTripWorkflowFinish {}
 @Workflow({
   name: "middle-trip-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(MiddleTripWorkflowStart)
       .toWorkflow(TripChildWorkflow)
@@ -248,6 +251,7 @@ export class QuorumTripWorkflowStart {}
 @Workflow({
   name: "quorum-trip-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(QuorumTripWorkflowStart)
       .inParallel([toWorkflow(TripChildWorkflow), toAction(ReserveCarAction)])
@@ -266,6 +270,7 @@ export class RefusedTripWorkflowStart {}
 @Workflow({
   name: "refused-trip-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(RefusedTripWorkflowStart)
       .inParallel([toWorkflow(TripChildWorkflow), toAction(ReserveCarAction)])
@@ -284,6 +289,7 @@ export class CommitTripWorkflowStart {}
 @Workflow({
   name: "commit-trip-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(CommitTripWorkflowStart)
       .toWorkflow(TripChildWorkflow)
@@ -298,6 +304,7 @@ export class ChargedTripWorkflowStart {}
 @Workflow({
   name: "charged-trip-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ChargedTripWorkflowStart)
       .toWorkflow(TripChildWorkflow)
@@ -315,6 +322,7 @@ export class DeclinedTripWorkflowStart {}
 @Workflow({
   name: "declined-trip-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(DeclinedTripWorkflowStart)
       .toWorkflow(TripChildWorkflow)
@@ -332,6 +340,7 @@ export class NestedQuorumTripWorkflowStart {}
 @Workflow({
   name: "nested-quorum-trip-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(NestedQuorumTripWorkflowStart)
       .inParallel([toWorkflow(MiddleTripWorkflow), toAction(ReserveCarAction)])
@@ -350,6 +359,7 @@ export class NestedChargedTripWorkflowStart {}
 @Workflow({
   name: "nested-charged-trip-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(NestedChargedTripWorkflowStart)
       .toWorkflow(MiddleTripWorkflow)
@@ -366,6 +376,7 @@ export class RemoteQuorumTripWorkflowStart {}
 @Workflow({
   name: "remote-quorum-trip-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(RemoteQuorumTripWorkflowStart)
       .inParallel([toWorkflow(RemoteTripWorkflow), toAction(ReserveCarAction)])
@@ -384,6 +395,7 @@ export class RemoteChargedTripWorkflowStart {}
 @Workflow({
   name: "remote-charged-trip-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(RemoteChargedTripWorkflowStart)
       .toWorkflow(RemoteTripWorkflow)

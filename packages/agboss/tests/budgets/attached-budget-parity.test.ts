@@ -26,7 +26,7 @@ import { InMemoryCostLedgerRepository } from "../../src/infrastructure/cost-ledg
 import { openExecutionBudgets } from "../../src/run/run-budgets.js";
 import type { AgentExecutionDeps } from "../../src/run/types.js";
 import { VirtualClock } from "../../src/testing/clock.js";
-import { EmptyEnvironment } from "../../src/index.js";
+import { EmptyEnvironment, Ttl } from "../../src/index.js";
 import { WorkflowStartTextDto } from "../../src/dto/index.js";
 import { WorkflowFinish } from "../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../src/flow/decorators/workflow-start.js";
@@ -75,6 +75,7 @@ const workflowOf = (name: string, budget?: Class): Class => {
   @Workflow({
     name: `${name}-workflow`,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [onStart(Start).toFinish(Finish)],
     ...(budget === undefined ? {} : { budget }),
   })

@@ -17,7 +17,7 @@ import {
   type ExecutionTreeValue,
   type PausedExecution,
   type ExecutionResumeEvent,
-  inline,
+  inline, Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { InMemoryPausedExecutionRepository } from "../../../src/infrastructure/in-memory-paused-execution.repository.js";
@@ -265,6 +265,7 @@ export class ReceiptWorkflowFinish {}
 @Workflow({
   name: "lease-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults: {
     models: { maxTokens: 100, temperature: 0 },
     tools: { maxToolCalls: 8 },

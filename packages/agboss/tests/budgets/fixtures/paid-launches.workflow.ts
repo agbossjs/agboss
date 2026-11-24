@@ -4,7 +4,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type Tracked,
-  Action,
+  Action, Ttl,
 } from "../../../src/index.js";
 import { onStart, toAction, toWorkflow, toFinish } from "../../helpers/flow.js";
 import {
@@ -38,6 +38,7 @@ export class NoteChildWorkflowFinish {}
 @Workflow({
   name: "note-child-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(NoteChildWorkflowStart)
       .toAction(NoteOrderAction)
@@ -54,6 +55,7 @@ export class PaidChildWorkflowFinish {}
 @Workflow({
   name: "paid-child-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(PaidChildWorkflowStart)
       .toAction(OverspendOrderAction)
@@ -99,6 +101,7 @@ export class PaidItemsWorkflowFinish {}
 @Workflow({
   name: "paid-items-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(PaidItemsWorkflowStart)
       .toAction(OverspendOrdersAction)
@@ -119,6 +122,7 @@ export class PaidLevelWorkflowFinish {}
 @Workflow({
   name: "paid-level-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(PaidLevelWorkflowStart)
       .toAction(LevelOrderAction)
@@ -141,6 +145,7 @@ export class PaidLaunchWorkflowFinish {}
 @Workflow({
   name: "paid-launch-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(PaidLaunchWorkflowStart)
       .toAction(OverspendOrderAction)
@@ -160,6 +165,7 @@ export class PaidRaceWorkflowFinish {}
 @Workflow({
   name: "paid-race-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(PaidRaceWorkflowStart)
       .inParallel([toAction(ChargeOrderAction), toAction(NoteOrderAction)])
@@ -178,6 +184,7 @@ export class PaidHoldWorkflowFinish {}
 @Workflow({
   name: "paid-hold-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(PaidHoldWorkflowStart)
       .toAction(HoldOrderAction)

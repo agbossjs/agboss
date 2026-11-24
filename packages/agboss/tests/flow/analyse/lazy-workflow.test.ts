@@ -12,6 +12,7 @@ import {
   SplitWorkflow,
 } from "../runtime/fixtures/recursion.workflow.js";
 import { onStart, onWorkflow, toWorkflow } from "../../helpers/flow.js";
+import { Ttl } from "../../../src/index.js";
 
 /**
  * #1287: `.toWorkflow(() => W)`, `onWorkflow(() => W)`, `toWorkflow(() => W)` of a side path and
@@ -97,6 +98,7 @@ describe("#1287: a workflow that launches itself with a thunk", () => {
     Workflow({
       name: "lazy-self-workflow",
       version: "1.0.0",
+      historyTtl: Ttl.Forever,
       flow,
       executionLimits: { maxDepth: 2 },
     })(Never);

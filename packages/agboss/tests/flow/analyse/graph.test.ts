@@ -19,7 +19,7 @@ import {
   SentKitWorkflowFinish,
 } from "../fixtures/kit.fixture.js";
 import { onAgent, onStart, toAgent, toAction } from "../fixtures/paths.js";
-import { inline } from "../../../src/index.js";
+import { inline, Ttl } from "../../../src/index.js";
 
 /** The graph rules that stay (#272 AC11, AC14): all at once, before any model call. */
 
@@ -34,15 +34,26 @@ const reviewPaths = (editor: typeof EditKitAgent | typeof PolishKitAgent) => [
   ]),
 ];
 
-@Workflow({ name: "bounded-loop-workflow", version: "1.0.0", flow: reviewPaths(EditKitAgent) })
+@Workflow({
+  name: "bounded-loop-workflow",
+  version: "1.0.0",
+  historyTtl: Ttl.Forever,
+  flow: reviewPaths(EditKitAgent),
+})
 class BoundedLoopWorkflow {}
 
-@Workflow({ name: "unbounded-loop-workflow", version: "1.0.0", flow: reviewPaths(PolishKitAgent) })
+@Workflow({
+  name: "unbounded-loop-workflow",
+  version: "1.0.0",
+  historyTtl: Ttl.Forever,
+  flow: reviewPaths(PolishKitAgent),
+})
 class UnboundedLoopWorkflow {}
 
 @Workflow({
   name: "two-entry-cycle-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(KitWorkflowStart).toAgent(DraftKitAgent).toAgent(ReviewKitAgent),
     onStart(SecondKitWorkflowStart).toAgent(EditKitAgent),
@@ -58,6 +69,7 @@ class TwoEntryCycleWorkflow {}
 @Workflow({
   name: "broken-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(KitWorkflowStart).toAgent(DraftKitAgent).toAgent(ReviewKitAgent),
     onAgent(ReviewKitAgent).toOneOf([
@@ -72,6 +84,7 @@ class BrokenWorkflow {}
 @Workflow({
   name: "startless-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onAgent(DraftKitAgent).toFinish(DraftKitWorkflowFinish)],
 })
 class StartlessWorkflow {}
@@ -83,6 +96,7 @@ class UndecoratedAgent {
 @Workflow({
   name: "wrong-kinds-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(KitWorkflowStart).toAgent(KitRouter),
     onStart(SecondKitWorkflowStart).toAgent(UndecoratedAgent),
@@ -105,6 +119,7 @@ class SameNameAgent {}
 @Workflow({
   name: "same-name-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(KitWorkflowStart).toAgent(DraftKitAgent).toAgent(SameNameAgent)],
 })
 class SameNameWorkflow {}

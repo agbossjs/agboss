@@ -15,7 +15,7 @@ import {
   ShortlistDto,
   UnrelatedDto,
 } from "./dtos.js";
-import { inline } from "../../../src/index.js";
+import { inline, Ttl } from "../../../src/index.js";
 
 /** #272 example 2a — a review loop: a node reached from two places has its own path. */
 
@@ -143,6 +143,7 @@ export const offerPaths = [
 @Workflow({
   name: "offer-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: offerPaths,
 })
 export class OfferWorkflow {}

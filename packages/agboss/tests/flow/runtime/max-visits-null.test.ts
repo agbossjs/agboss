@@ -25,7 +25,7 @@ import {
   SentKitWorkflowFinish,
 } from "../fixtures/kit.fixture.js";
 import { onAgent, onStart, toAgent, toAction } from "../fixtures/paths.js";
-import { inline } from "../../../src/index.js";
+import { inline, Ttl } from "../../../src/index.js";
 
 @Agent({
   name: "null-bound-edit-agent",
@@ -51,6 +51,7 @@ class NullBoundReviewAgent {}
 @Workflow({
   name: "null-bound-loop-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(KitWorkflowStart).toAgent(DraftKitAgent).toAgent(NullBoundReviewAgent),
     onAgent(NullBoundReviewAgent).toOneOf([

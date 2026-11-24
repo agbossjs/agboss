@@ -15,6 +15,7 @@ import {
   WorkflowStart,
   listOf,
   inline,
+  Ttl,
 } from "../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
@@ -160,6 +161,7 @@ export class NotifyFinish {}
 @Workflow({
   name: "notify-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(NotifyStart).toAgent(NotifierAgent).toFinish(NotifyFinish)],
   defaults,
 })
@@ -182,6 +184,7 @@ export class FailingNotifyFinish {}
 @Workflow({
   name: "failing-notify-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(FailingNotifyStart)
       .toAgent(NotifierAgent)
@@ -210,6 +213,7 @@ export class HandoverFinish {}
 @Workflow({
   name: "handover-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(HandoverStart)
       .toAgent(IntakeAgent)
@@ -247,6 +251,7 @@ export class FailedHandoverRecoveredFinish {}
 @Workflow({
   name: "failed-handover-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(FailedHandoverStart)
       .toWorkflow(FailingNotifyWorkflow)
@@ -285,6 +290,7 @@ export class FailedListRecoveredFinish {}
 @Workflow({
   name: "failed-list-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(FailedListStart)
       .forEachItem(toWorkflow(FailingNotifyWorkflow), { takeFirst: 1, maxConcurrency: 1 })

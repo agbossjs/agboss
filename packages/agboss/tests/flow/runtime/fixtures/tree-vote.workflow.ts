@@ -11,7 +11,7 @@ import {
   WorkflowStart,
   type Tracked,
   Action,
-  inline,
+  inline, Ttl,
 } from "../../../../src/index.js";
 import { seconds } from "../../../../src/units/index.js";
 import { onStart, toFinish, toAction, toWorkflow, toAgent } from "../../../helpers/flow.js";
@@ -112,6 +112,7 @@ export class NotVotedWorkflowFinish {}
 @Workflow({
   name: "vote-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(VoteWorkflowStart)
       .inParallel([toAgent(FirstVoterAgent), toAgent(SecondVoterAgent)])
@@ -157,6 +158,7 @@ export class MixedNotVotedWorkflowFinish {}
 @Workflow({
   name: "mixed-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(MixedWorkflowStart)
       .toRouter(TaskKindRouter)
@@ -204,6 +206,7 @@ export class VotingDoneWorkflowFinish {}
 @Workflow({
   name: "voting-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(VotingWorkflowStart)
       .forEachItem(toWorkflow(MixedWorkflow), { takeFirst: 5, maxConcurrency: 5 })

@@ -5,7 +5,7 @@ import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js"
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import { ArticleDto, ArticleRequestDto, ReviewDto } from "./dtos.js";
 import { reviewerAgentOptions } from "./reviewer-agent.options.js";
-import { inline } from "../../../src/index.js";
+import { inline, Ttl } from "../../../src/index.js";
 
 /** #272 example 2b — the same work at two stages = two classes sharing one options const. */
 
@@ -74,6 +74,7 @@ export const articlePaths = [
 @Workflow({
   name: "article-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: articlePaths,
 })
 export class ArticleWorkflow {}

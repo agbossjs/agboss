@@ -7,7 +7,7 @@ import {
   WorkflowSettings,
   type WorkflowDefinition,
   PiiAction,
-  Tool,
+  Tool, Ttl,
 } from "../../src/index.js";
 import { Text } from "../../src/dto/index.js";
 import { usd, type Usd } from "../../src/units/index.js";
@@ -90,6 +90,7 @@ const defaults = {
 @Workflow({
   name: "payments-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ChatStart)
       .toAgent(Cashier)
@@ -159,6 +160,7 @@ export class Editor {}
 @Workflow({
   name: "capped-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ChatStart)
       .toAgent(Drafter)

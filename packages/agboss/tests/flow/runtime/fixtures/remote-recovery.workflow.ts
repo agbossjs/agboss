@@ -7,7 +7,7 @@ import {
   listOf,
   Workflow,
   WorkflowStart,
-  type Tracked,
+  type Tracked, Ttl,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
@@ -75,6 +75,7 @@ export class RemotePrepItemAction {
   placement: ChildPlacement.AnyWorker,
   name: "remote-hold-check-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(HoldCheckWorkflowStart)
       .toAction(RemotePrepItemAction)
@@ -94,6 +95,7 @@ export class RemoteHoldItemsWorkflowStart {}
 @Workflow({
   name: "remote-hold-items-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(RemoteHoldItemsWorkflowStart)
       .forEachItem(toWorkflow(RemoteHoldCheckWorkflow), { takeFirst: 10 })
@@ -119,6 +121,7 @@ export class RemoteReviewOneWorkflowStart {}
 @Workflow({
   name: "remote-review-one-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(RemoteReviewOneWorkflowStart)
       .toWorkflow(ItemReviewWorkflow)
@@ -137,6 +140,7 @@ export class RemoteReviewItemsWorkflowStart {}
 @Workflow({
   name: "remote-review-items-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(RemoteReviewItemsWorkflowStart)
       .forEachItem(toWorkflow(ItemReviewWorkflow), { takeFirst: 10, maxConcurrency: 2 })

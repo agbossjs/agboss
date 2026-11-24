@@ -6,7 +6,7 @@ import {
   Workflow,
   WorkflowStart,
   type BudgetHandler,
-  inline,
+  inline, Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { DecidedBy, Router } from "../../../src/flow/decorators/router.js";
@@ -60,6 +60,7 @@ export class OrderRouter {}
 @Workflow({
   name: "routed-charge-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(RoutedChargeWorkflowStart)
       .toRouter(OrderRouter)

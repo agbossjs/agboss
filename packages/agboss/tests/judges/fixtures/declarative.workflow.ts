@@ -5,7 +5,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  inline,
+  inline, Ttl,
 } from "../../../src/index.js";
 import {
   PlainTextDto,
@@ -86,6 +86,7 @@ export class DeclaredFinish {}
 @Workflow({
   name: "declared-desk-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(DeclaredStart)
       .toAgent(DeclaredWriter)
@@ -98,6 +99,7 @@ export class DeclaredDesk {}
 @Workflow({
   name: "two-judges-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(DeclaredStart)
       .toAgent(TwoJudgesWriter)

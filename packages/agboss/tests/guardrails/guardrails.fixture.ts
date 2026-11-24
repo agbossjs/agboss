@@ -18,6 +18,7 @@ import {
   WorkflowStart,
   type GuardrailRefusal,
   inline,
+  Ttl,
 } from "../../src/index.js";
 import { Enum, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
@@ -147,6 +148,7 @@ export class TriageRouter {}
 @Workflow({
   name: "clinic-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ClinicStart)
       .toRouter(TriageRouter)

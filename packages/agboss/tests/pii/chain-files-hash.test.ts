@@ -15,6 +15,7 @@ import {
   type PiiMatch,
   type PiiPolicyHandler,
   inline,
+  Ttl,
 } from "../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
@@ -77,6 +78,7 @@ class FhChildFinish {}
 @Workflow({
   name: "fh-child-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(FhChildStart).toAgent(FhChildAgent).toFinish(FhChildFinish)],
   piiPolicies: [OwnMaskPiiPolicy],
 })
@@ -95,6 +97,7 @@ const rootOf = (name: string, piiPolicies: readonly (new () => object)[]) => {
   @Workflow({
     name,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [onStart(RootStart).toWorkflow(FhChildWorkflow).toFinish(FhRootFinish)],
     piiPolicies,
   })

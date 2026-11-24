@@ -10,6 +10,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type Tracked,
+  Ttl,
 } from "../../../src/index.js";
 import { seconds } from "../../../src/units/index.js";
 import { Application } from "../../../src/application/application.js";
@@ -80,6 +81,7 @@ export class SlotWorkflowFinish {}
 @Workflow({
   name: "slot-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(SlotWorkflowStart).toAction(TakeSlotAction).toFinish(SlotWorkflowFinish)],
 })
 export class SlotWorkflow {}

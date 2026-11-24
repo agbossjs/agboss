@@ -1,4 +1,4 @@
-import { hours } from "../../../src/units/index.js";
+import { hours, Ttl } from "../../../src/units/index.js";
 /**
  * #1256: the fetches of files by url a listener has in flight at once are bounded across messages —
  * a slot per fetch, a bounded queue for the rest, the wait part of the fetch timeout, the overflow a
@@ -596,6 +596,7 @@ function poolApplication(fetchPool: FileFetchPool) {
   @Workflow({
     name: `pool-${id}-file-review-workflow`,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: fileReviewFlow,
     filePolicy: PoolPolicy,
   })

@@ -10,7 +10,7 @@ import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import type { InputOf, OutputOf } from "../../../src/flow/generated-types.js";
 import type { ActionHandler } from "../../../src/flow/handlers.js";
 import { EmptyEnvironment } from "../../../src/environments/empty.js";
-import { PiiKind, PiiPolicy, ExternalTask } from "../../../src/index.js";
+import { PiiKind, PiiPolicy, ExternalTask, Ttl } from "../../../src/index.js";
 import { hours, days } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { onStart } from "./paths.js";
@@ -158,6 +158,7 @@ export class ListManagerWorkflowStart {}
 @Workflow({
   name: "list-manager-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ListManagerWorkflowStart)
       .toExternalTask(ListManagerExternalTask)
@@ -174,6 +175,7 @@ export class ListOwnerWorkflowStart {}
 @Workflow({
   name: "list-owner-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ListOwnerWorkflowStart)
       .toExternalTask(ListOwnerExternalTask)
@@ -193,6 +195,7 @@ export class ListFinanceWorkflowStart {}
 @Workflow({
   name: "list-finance-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ListFinanceWorkflowStart)
       .toExternalTask(ListFinanceExternalTask)
@@ -208,6 +211,7 @@ export class ListOpenWorkflowStart {}
 @Workflow({
   name: "list-open-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ListOpenWorkflowStart)
       .toExternalTask(ListOpenExternalTask)

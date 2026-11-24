@@ -7,7 +7,7 @@ import {
   type ExecutionObserver,
   type Provider,
   WorkflowFinish,
-  WorkflowStart,
+  WorkflowStart, Ttl,
 } from "../../../src/index.js";
 import { WorkflowStartTextDto, WorkflowFinishTextDto, Text } from "../../../src/dto/index.js";
 import { onStart } from "../../helpers/flow.js";
@@ -73,6 +73,7 @@ export function workflowWith(name: string, providers: readonly Provider[] = []):
   @Workflow({
     name,
     version: "1",
+    historyTtl: Ttl.Forever,
     defaults: {
       models: { temperature: 0, cache: true },
       router: { model: "typesafe/jev-1.13" },

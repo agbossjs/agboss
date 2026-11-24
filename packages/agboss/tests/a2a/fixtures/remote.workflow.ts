@@ -1,4 +1,4 @@
-import { hours, minutes } from "../../../src/units/index.js";
+import { hours, minutes, Ttl } from "../../../src/units/index.js";
 import { Window2Memory } from "../../helpers/window-memory.js";
 import { type BuildApplicationOptions } from "../../../src/application/create-app.js";
 import { A2AEndpoint } from "../../../src/a2a/index.js";
@@ -111,6 +111,7 @@ const defaults = {
 @Workflow({
   name: "remote-desk-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(AskStart)
       .toAgent(Desk)

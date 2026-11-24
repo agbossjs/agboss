@@ -1,4 +1,4 @@
-import { Agent, Decision, Judge, Workflow, inline } from "../../../src/index.js";
+import { Agent, Decision, Judge, Workflow, inline, Ttl } from "../../../src/index.js";
 import {
   JudgeModel,
   JudgeVerdict,
@@ -86,6 +86,7 @@ export class Illustrator {}
 @Workflow({
   name: "decision-judged-desk-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(TaskStart)
       .toAgent(Writer)
@@ -109,6 +110,7 @@ export class DecisionDeskApplication {}
 @Workflow({
   name: "image-judged-desk-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(TaskStart)
       .toAgent(Illustrator)

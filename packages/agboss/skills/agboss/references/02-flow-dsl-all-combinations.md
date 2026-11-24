@@ -163,7 +163,7 @@ export class TicketFiledWorkflowFinish {}
 ```
 
 ```ts file=src/ticket/workflows/ticket/ticket.workflow.ts
-import { Workflow, optional, onStart, toAgent, toAction, toFinish } from "@agboss/core";
+import { Workflow, optional, onStart, toAgent, toAction, toFinish, Ttl } from "@agboss/core";
 import { FileTicketAction } from "../../actions/file-ticket.action.js";
 import { TicketTriageAgent } from "../../agents/ticket-triage/ticket-triage.agent.js";
 import { CustomerDto } from "../../dto/customer.dto.js";
@@ -176,6 +176,7 @@ import { TicketWorkflowStart } from "./ticket.workflow-start.js";
 @Workflow({
   name: "ticket-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(TicketWorkflowStart) // a start's map of fields: one value per field
       .toAgent(TicketTriageAgent)
@@ -396,6 +397,7 @@ import {
   toAction,
   toRouter,
   toAgent,
+  Ttl,
 } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { ChargeOrderAction } from "../../actions/charge-order.action.js";
@@ -416,6 +418,7 @@ import { OrderHeldWorkflowFinish } from "./order-held.workflow-finish.js";
 @Workflow({
   name: "credit-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(CreditWorkflowStart)
       .toRouter(CreditDeskRouter)
@@ -638,6 +641,7 @@ import {
   toAction,
   toAgent,
   toFinish,
+  Ttl,
 } from "@agboss/core";
 import { NotifyRecruiterAction } from "../../actions/notify-recruiter.action.js";
 import { SendOfferAction } from "../../actions/send-offer.action.js";
@@ -656,6 +660,7 @@ import { OfferWorkflowStart } from "./offer.workflow-start.js";
 @Workflow({
   name: "offer-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(OfferWorkflowStart)
       .toAgent(OfferDraftAgent)
@@ -945,6 +950,7 @@ import {
   toFinish,
   toAgent,
   toAction,
+  Ttl,
 } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { ArchiveArticleAction } from "../../actions/archive-article.action.js";
@@ -970,6 +976,7 @@ import { ReviewSummaryWorkflowFinish } from "./review-summary.workflow-finish.js
 @Workflow({
   name: "article-review-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ArticleReviewWorkflowStart)
       .toAgent(SectionSplitterAgent)
@@ -1156,6 +1163,7 @@ import {
   toAgent,
   toRouter,
   toFinish,
+  Ttl,
 } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { LoyaltyOfferAgent } from "../../agents/loyalty-offer/loyalty-offer.agent.js";
@@ -1173,6 +1181,7 @@ import { SupportReplyWorkflowFinish } from "./support-reply.workflow-finish.js";
 @Workflow({
   name: "support-launch-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(SupportLaunchWorkflowStart)
       .inParallel([
@@ -1411,7 +1420,7 @@ export class PanelScoreArbiter {
 ```
 
 ```ts file=src/panel/workflows/panel/panel.workflow.ts
-import { QuorumNotReachedError, Workflow, listOf, onStart, toAgent, toFinish } from "@agboss/core";
+import { QuorumNotReachedError, Workflow, listOf, onStart, toAgent, toFinish, Ttl } from "@agboss/core";
 import { seconds } from "@agboss/core/units";
 import { CulturePanelAgent } from "../../agents/culture-panel/culture-panel.agent.js";
 import { PanelVerdictAgent } from "../../agents/panel-verdict/panel-verdict.agent.js";
@@ -1428,6 +1437,7 @@ import { PanelWorkflowStart } from "./panel.workflow-start.js";
 @Workflow({
   name: "panel-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(PanelWorkflowStart)
       .inParallel([toAgent(SkillsPanelAgent), toAgent(CulturePanelAgent), toAgent(RiskPanelAgent)])
@@ -1569,7 +1579,7 @@ export class DealUnreviewedWorkflowFinish {}
 ```
 
 ```ts file=src/deal/workflows/deal/deal.workflow.ts
-import { QuorumNotReachedError, Workflow, listOf, onStart, toAgent, toFinish } from "@agboss/core";
+import { QuorumNotReachedError, Workflow, listOf, onStart, toAgent, toFinish, Ttl } from "@agboss/core";
 import { minutes } from "@agboss/core/units";
 import { DealCriticAgent } from "../../agents/deal-critic/deal-critic.agent.js";
 import { DealLegalAgent } from "../../agents/deal-legal/deal-legal.agent.js";
@@ -1588,6 +1598,7 @@ import { DealWorkflowStart } from "./deal.workflow-start.js";
 @Workflow({
   name: "deal-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(DealWorkflowStart)
       .inParallel([
@@ -1758,6 +1769,7 @@ import {
   toAction,
   toAgent,
   toFinish,
+  Ttl,
 } from "@agboss/core";
 import { MarkVendorFailedAction } from "../../actions/mark-vendor-failed.action.js";
 import { VendorCheckerAgent } from "../../agents/vendor-checker/vendor-checker.agent.js";
@@ -1773,6 +1785,7 @@ import { VendorScoredWorkflowFinish } from "./vendor-scored.workflow-finish.js";
 @Workflow({
   name: "vendor-check-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(VendorCheckWorkflowStart)
       .toAgent(VendorCheckerAgent)
@@ -1878,7 +1891,7 @@ export class VendorCrashedWorkflowFinish {}
 ```
 
 ```ts file=src/vendor/workflows/vendor-screening/vendor-screening.workflow.ts
-import { Workflow, listOf, oneOf, onStart, toAgent, toFinish, toWorkflow } from "@agboss/core";
+import { Workflow, listOf, oneOf, onStart, toAgent, toFinish, toWorkflow, Ttl } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { VendorFinderAgent } from "../../agents/vendor-finder/vendor-finder.agent.js";
 import { VendorRankerAgent } from "../../agents/vendor-ranker/vendor-ranker.agent.js";
@@ -1894,6 +1907,7 @@ import { VendorScreeningWorkflowStart } from "./vendor-screening.workflow-start.
 @Workflow({
   name: "vendor-screening-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     // one child per item: each VendorDto enters vendor-check-workflow-start; the join is the list
     // of the child's finish output classes
@@ -1916,6 +1930,7 @@ import {
   onStart,
   toFinish,
   toWorkflow,
+  Ttl,
 } from "@agboss/core";
 import { VendorCheckFailedDto } from "../../dto/vendor-check-failed.dto.js";
 import { VendorRejectedDto } from "../../dto/vendor-rejected.dto.js";
@@ -1934,6 +1949,7 @@ import { VendorCrashedWorkflowFinish } from "./vendor-crashed.workflow-finish.js
 @Workflow({
   name: "single-vendor-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(SingleVendorWorkflowStart)
       .toWorkflow(VendorCheckWorkflow)
@@ -2040,7 +2056,7 @@ export class RecoveredWorkflowFinish {}
 ```
 
 ```ts file=src/payment/workflows/payment-recovery/payment-recovery.workflow.ts
-import { Workflow, onStart, toAction, toFinish } from "@agboss/core";
+import { Workflow, onStart, toAction, toFinish, Ttl } from "@agboss/core";
 import { SendInvoiceAction } from "../../actions/send-invoice.action.js";
 import { PaymentDoneDto } from "../../dto/payment-done.dto.js";
 import { PaymentRequestDto } from "../../dto/payment-request.dto.js";
@@ -2050,6 +2066,7 @@ import { PaymentRecoveryWorkflowStart } from "./payment-recovery.workflow-start.
 @Workflow({
   name: "payment-recovery-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(PaymentRecoveryWorkflowStart)
       .toAction(SendInvoiceAction)
@@ -2060,7 +2077,7 @@ export class PaymentRecoveryWorkflow {}
 ```
 
 ```ts file=src/payment/workflows/pay/pay.workflow.ts
-import { StepFailedError, Workflow, onStart, toWorkflow, toAction, toFinish } from "@agboss/core";
+import { StepFailedError, Workflow, onStart, toWorkflow, toAction, toFinish, Ttl } from "@agboss/core";
 import { ChargeCardAction } from "../../actions/charge-card.action.js";
 import { PaymentDoneDto } from "../../dto/payment-done.dto.js";
 import { PaymentRequestDto } from "../../dto/payment-request.dto.js";
@@ -2072,6 +2089,7 @@ import { RecoveredWorkflowFinish } from "./recovered.workflow-finish.js";
 @Workflow({
   name: "pay-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(PayWorkflowStart)
       .toAction(ChargeCardAction)
@@ -2242,7 +2260,7 @@ export class TopicFailedWorkflowFinish {}
 ```
 
 ```ts file=src/topic/workflows/topic-research/topic-research.workflow.ts
-import { StepFailedError, Workflow, onAction, listOf, oneOf, onStart, toAction, toAgent, toFinish, toWorkflow } from "@agboss/core";
+import { StepFailedError, Workflow, onAction, listOf, oneOf, onStart, toAction, toAgent, toFinish, toWorkflow, Ttl } from "@agboss/core";
 import { MarkTopicFailedAction } from "../../actions/mark-topic-failed.action.js";
 import { SplitTopicAction } from "../../actions/split-topic.action.js";
 import { TopicMergeAgent } from "../../agents/topic-merge/topic-merge.agent.js";
@@ -2258,6 +2276,7 @@ import { TopicResearchWorkflowStart } from "./topic-research.workflow-start.js";
 @Workflow({
   name: "topic-research-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(TopicResearchWorkflowStart)
       .toAgent(TopicResearcherAgent)
@@ -2501,7 +2520,7 @@ export class OrderShippedWorkflowFinish {}
 ```
 
 ```ts file=src/order/workflows/order/order.workflow.ts
-import { Workflow, onAction, onStart, toAction, toFinish } from "@agboss/core";
+import { Workflow, onAction, onStart, toAction, toFinish, Ttl } from "@agboss/core";
 import { ChargeOrderCardAction } from "../../actions/charge-order-card.action.js";
 import { ConfirmOrderAction } from "../../actions/confirm-order.action.js";
 import { NotifyFinanceAction } from "../../actions/notify-finance.action.js";
@@ -2522,6 +2541,7 @@ import { OrderWorkflowStart } from "./order.workflow-start.js";
 @Workflow({
   name: "order-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(OrderWorkflowStart)
       .toAction(ReserveStockAction)
@@ -2699,7 +2719,7 @@ export class TripBookedAction implements ActionHandler<TripBookedAction> {
 ```
 
 ```ts file=src/trip/workflows/trip/trip.workflow.ts
-import { Workflow, onStart, toFinish, toAction } from "@agboss/core";
+import { Workflow, onStart, toFinish, toAction, Ttl } from "@agboss/core";
 import { BookFlightAction } from "../../actions/book-flight.action.js";
 import { BookHotelAction } from "../../actions/book-hotel.action.js";
 import { TripBookedAction } from "../../actions/trip-booked.action.js";
@@ -2714,6 +2734,7 @@ import { TripWorkflowStart } from "./trip.workflow-start.js";
 @Workflow({
   name: "trip-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(TripWorkflowStart)
       .inParallel([toAction(BookFlightAction), toAction(BookHotelAction)])

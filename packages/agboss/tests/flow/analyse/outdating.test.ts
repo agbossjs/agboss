@@ -33,7 +33,7 @@ import {
   StoryWorkflowStart,
   StoryWriterAgent,
 } from "../fixtures/review.fixture.js";
-import { inline } from "../../../src/index.js";
+import { inline, Ttl } from "../../../src/index.js";
 
 /** #271 PR 1: outdating in the analyser (S10) and `[input.outdated-on-path]` (rule 6). */
 
@@ -102,6 +102,7 @@ class ReviseStoryAction {
 @Workflow({
   name: "hub-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(StoryWorkflowStart).toRouter(EditorRouter),
     onRouter(EditorRouter)
@@ -173,6 +174,7 @@ class PickWorkflowFinish {}
 @Workflow({
   name: "stale-scores-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(JobsWorkflowStart)
       .toAgent(JobSearchAgent)
@@ -187,6 +189,7 @@ class StaleScoresWorkflow {}
 @Workflow({
   name: "fresh-scores-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(JobsWorkflowStart)
       .toAgent(ProfileEditorAgent)
@@ -211,6 +214,7 @@ class JobsRouter {}
 @Workflow({
   name: "stale-router-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(JobsWorkflowStart)
       .toAgent(JobSearchAgent)
@@ -371,6 +375,7 @@ const gateWorkflow = (name: string, publisher: object): object => {
   @Workflow({
     name: `${name}-workflow`,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [
       onStart(StoryWorkflowStart).toAgent(GateWriterAgent),
       onAgent(GateWriterAgent).toRouter(gate as never),
@@ -451,6 +456,7 @@ const pickLoop = (name: string, picker: object): object => {
   @Workflow({
     name: `${name}-workflow`,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [
       onStart(ThreadWorkflowStart).toAgent(picker as never),
       onAgent(picker as never).toRouter(PickRouter),
@@ -499,6 +505,7 @@ class LoopReviewerAgent {}
 @Workflow({
   name: "broken-review-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(StoryWorkflowStart).toAgent(GateWriterAgent),
     onAgent(GateWriterAgent)
@@ -598,6 +605,7 @@ class ReplanRouter {}
 @Workflow({
   name: "one-writer-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(StoryWorkflowStart).toAgent(OuterPlannerAgent),
     onAgent(OuterPlannerAgent).toAgent(NotesDraftAgent),
@@ -616,6 +624,7 @@ class OneWriterWorkflow {}
 @Workflow({
   name: "two-writers-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(StoryWorkflowStart).toAgent(OuterPlannerAgent),
     onAgent(OuterPlannerAgent).toAgent(PlanDraftAgent).toAgent(InnerReviewerAgent),

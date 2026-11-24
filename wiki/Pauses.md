@@ -207,7 +207,7 @@ Both new forms side by side — a decision model for a deposit return, and an ow
 code:
 
 <!-- snippet-context
-import { Agent, Channel, ChannelOutcome, DecidedBy, Injectable, PauseRespondent, ChannelInterpretation, ChannelInterpreter, Tool, Workflow, WorkflowFinish, WorkflowStart, onStart, type ChannelAsk, type InputOf, type OutputOf, type ReplyInterpreterHandler, ExternalTask, ToolApproval } from "@agboss/core";
+import { Agent, Channel, ChannelOutcome, DecidedBy, Injectable, PauseRespondent, ChannelInterpretation, ChannelInterpreter, Tool, Workflow, WorkflowFinish, WorkflowStart, onStart, type ChannelAsk, type InputOf, type OutputOf, type ReplyInterpreterHandler, ExternalTask, ToolApproval, Ttl } from "@agboss/core";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 
 export class DepositReturnDto {
@@ -330,6 +330,7 @@ export class OfficeWorkflowFinish {}
 @Workflow({
   name: "office-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(OfficeWorkflowStart)
       .toAgent(OfficeAgent)
@@ -613,7 +614,7 @@ costs it nothing. (#942: `onPauseTimeoutChanged` and `onPauseExpiring` are told 
 overrides any of the four notices has a mailbox.)
 
 <!-- snippet-context
-import { Injectable } from "@agboss/core";
+import { Injectable, Ttl } from "@agboss/core";
 import { Text } from "@agboss/core/dto";
 @Injectable()
 export class SlackClient {
@@ -645,6 +646,7 @@ export class RefundWorkflowFinish {}
 @Workflow({
   name: "refund-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(RefundWorkflowStart).toAgent(RefundAgent).toFinish(RefundWorkflowFinish)],
   providers: [SlackClient],
 })
@@ -827,7 +829,7 @@ target's `timeout`.
 the flow's `.onError(PauseExpiredError, …)` is the escalation — a question step on a side path.
 
 ```ts file=desk-flow.ts
-import { Action, Application, Channel, ChannelOutcome, EmptyEnvironment, Injectable, PauseRespondent, PauseExpiredError, Workflow, WorkflowFinish, WorkflowStart, onStart, toExternalTask, type ActionHandler, type ChannelAsk, type InputOf, type OutputOf, toAction, toFinish, ExternalTask, ToolApproval } from "@agboss/core";
+import { Action, Application, Channel, ChannelOutcome, EmptyEnvironment, Injectable, PauseRespondent, PauseExpiredError, Workflow, WorkflowFinish, WorkflowStart, onStart, toExternalTask, type ActionHandler, type ChannelAsk, type InputOf, type OutputOf, toAction, toFinish, ExternalTask, ToolApproval, Ttl } from "@agboss/core";
 import { Bool, Text } from "@agboss/core/dto";
 import { hours } from "@agboss/core/units";
 
@@ -947,6 +949,7 @@ export class RecordEscalatedDeskAction implements ActionHandler<RecordEscalatedD
 @Workflow({
   name: "desk-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(DeskWorkflowStart)
       .toExternalTask(DeskManagerExternalTask)

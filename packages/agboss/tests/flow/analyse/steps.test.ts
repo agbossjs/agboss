@@ -13,6 +13,7 @@ import {
 } from "../fixtures/kit.fixture.js";
 import { onStart, toAction, toFinish } from "../fixtures/paths.js";
 import { supportPaths } from "../fixtures/support.fixture.js";
+import { Ttl } from "../../../src/index.js";
 
 /** `maxSteps` bounds at assembly (#261 AC17): agent, router, action and external-task visits, only a hand-set value. */
 
@@ -20,6 +21,7 @@ const supportWith = (maxSteps?: number): abstract new () => unknown => {
   @Workflow({
     name: "support-steps-workflow",
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: supportPaths,
     ...(maxSteps === undefined ? {} : { executionLimits: { maxSteps } }),
   })
@@ -31,6 +33,7 @@ const actionsOnlyWith = (maxSteps: number): abstract new () => unknown => {
   @Workflow({
     name: "send-offer-workflow",
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     executionLimits: { maxSteps },
     flow: [onStart(SecondKitWorkflowStart).toAction(SendKitAction).toFinish(SentKitWorkflowFinish)],
   })
@@ -41,6 +44,7 @@ const actionsOnlyWith = (maxSteps: number): abstract new () => unknown => {
 @Workflow({
   name: "steps-handler-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   executionLimits: { maxSteps: 1 },
   flow: [
     onStart(SecondKitWorkflowStart)
@@ -99,6 +103,7 @@ describe("#261 AC17: maxSteps bounds", () => {
     @Workflow({
       name: "empty-steps-workflow",
       version: "1.0.0",
+      historyTtl: Ttl.Forever,
       executionLimits: { maxSteps: 4 },
       flow: [onStart(SecondKitWorkflowStart).toFinish(DraftKitWorkflowFinish)],
     })
@@ -142,6 +147,7 @@ const reactingWith = (maxSteps?: number): abstract new () => unknown => {
   @Workflow({
     name: "reacting-workflow",
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     ...(maxSteps === undefined ? {} : { executionLimits: { maxSteps } }),
     flow: [
       onStart(SecondKitWorkflowStart)
@@ -190,6 +196,7 @@ describe("#1278b: [limits.max-steps-above-0.1.0-default]", () => {
     @Workflow({
       name: "only-actions-workflow",
       version: "1.0.0",
+      historyTtl: Ttl.Forever,
       flow: [
         onStart(SecondKitWorkflowStart).toAction(SendKitAction).toFinish(SentKitWorkflowFinish),
       ],

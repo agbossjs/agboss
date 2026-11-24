@@ -12,7 +12,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type BudgetHandler,
-  type Tracked,
+  type Tracked, Ttl,
 } from "../../../src/index.js";
 import { effectKeyOf } from "../../../src/stores/index.js";
 import { effectKeyForTesting } from "../../../src/testing/contracts/effect-key.js";
@@ -224,6 +224,7 @@ export class NotChargedWorkflowFinish {}
 @Workflow({
   name: "charge-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ChargeWorkflowStart)
       .toAction(ChargeOrderAction)
@@ -245,6 +246,7 @@ export class DoubleChargedWorkflowFinish {}
 @Workflow({
   name: "double-charge-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(DoubleChargeWorkflowStart)
       .toAction(DoubleChargeAction)

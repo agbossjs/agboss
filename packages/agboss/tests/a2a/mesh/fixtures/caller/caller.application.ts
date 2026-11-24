@@ -5,7 +5,7 @@ import "../keys.js";
 import { Mesh, MeshInboundMode } from "../../../../../src/mesh/mesh.decorator.js";
 import { defineEnv } from "../../../../../src/environments/define-env.js";
 import { secret } from "../../../../../src/environments/secret.js";
-import { minutes } from "../../../../../src/units/index.js";
+import { minutes, Ttl } from "../../../../../src/units/index.js";
 import { A2AAgent, A2AClient } from "../../../../../src/a2a/index.js";
 import { Application } from "../../../../../src/application/application.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../../../src/dto/index.js";
@@ -238,6 +238,7 @@ export class CallerAnswerWorkflowFinish {}
 @Workflow({
   name: "caller-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(CallerWorkflowStart).toAction(AskPeerAction).toFinish(CallerAnswerWorkflowFinish)],
   providers: [PeerA2AAgent, AnyA2AAgent],
 })

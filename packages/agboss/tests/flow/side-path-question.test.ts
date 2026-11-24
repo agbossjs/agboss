@@ -37,6 +37,7 @@ import {
   SideQuestionApplication,
   SideQuestionWorkflowStart,
 } from "./fixtures/side-question.fixture.js";
+import { Ttl } from "../../src/index.js";
 
 const test = testWith(SideQuestionApplication);
 const asking = { threadId: "side-1", ownerId: "alice" };
@@ -93,6 +94,7 @@ describe("#933 AC1: assembly", () => {
     @Workflow({
       name: `side-question-case-${String(count)}-workflow`,
       version: "1.0.0",
+      historyTtl: Ttl.Forever,
       flow: [
         onStart(SideQuestionWorkflowStart)
           .toAction(DraftQuestionAction)
@@ -202,7 +204,12 @@ describe("#933 edge: the same role on the main path and on the side path", () =>
   let count = 0;
   const codesOf = (flow: ReturnType<typeof sharedEdgeFlow>) => {
     count += 1;
-    @Workflow({ name: `edge-case-${String(count)}-workflow`, version: "1.0.0", flow })
+    @Workflow({
+      name: `edge-case-${String(count)}-workflow`,
+      version: "1.0.0",
+      historyTtl: Ttl.Forever,
+      flow,
+    })
     class EdgeWorkflow {}
     return checkWorkflow(EdgeWorkflow).errors.map(({ code, message }) => `[${code}] ${message}`);
   };
@@ -223,6 +230,7 @@ describe("#933: a concrete channel class as the question", () => {
     @Workflow({
       name: "channel-class-question-workflow",
       version: "1.0.0",
+      historyTtl: Ttl.Forever,
       flow: [
         onStart(SideQuestionWorkflowStart)
           .toAction(DraftQuestionAction)

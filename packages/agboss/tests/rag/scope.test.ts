@@ -7,7 +7,7 @@
  * reviewed choice, never a source's silence. A call that cannot name its scope reads nothing.
  */
 import { describe, expect, it } from "vitest";
-import { Agent, Workflow, type Class, inline } from "../../src/index.js";
+import { Agent, Workflow, type Class, inline, Ttl } from "../../src/index.js";
 import { describeServices, describeWorkflow } from "../../src/describe/describe-workflow.js";
 import { workflowSnapshotOf } from "../../src/describe/snapshot.js";
 import {
@@ -54,6 +54,7 @@ function workflowReading(options: object): Class {
   @Workflow({
     name: "reader-workflow",
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     defaults: testDefaults,
     flow: starOf(ReaderAgent),
   })

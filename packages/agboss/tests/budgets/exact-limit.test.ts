@@ -14,6 +14,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type Tracked,
+  Ttl,
 } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
 import { isApplicationSpendExhausted } from "../../src/budgets/application-spend.js";
@@ -138,6 +139,7 @@ class DimesFinish {}
 @Workflow({
   name: "dimes-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(DimesStart).toAction(DimesAction).toFinish(DimesFinish)],
 })
 class DimesWorkflow {}

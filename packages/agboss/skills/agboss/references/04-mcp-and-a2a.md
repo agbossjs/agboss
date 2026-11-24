@@ -289,7 +289,7 @@ export class SupportWorkflowFinish {}
 ```
 
 ```ts file=src/support/workflows/support/support.workflow.ts
-import { Workflow, onStart, toAgent, toFinish } from "@agboss/core";
+import { Workflow, onStart, toAgent, toFinish, Ttl } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { OrderDeskA2AAgent } from "../../a2a/order-desk.a2a-agent.js";
 import { SupportHttpAuthenticator } from "../../a2a/support.http-authenticator.js";
@@ -301,6 +301,7 @@ import { SupportWorkflowStart } from "./support.workflow-start.js";
 @Workflow({
   name: "support-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(SupportWorkflowStart)
       .toAgent(SupportAgent)
@@ -771,7 +772,7 @@ MCP error result with `_meta["agboss.dev/error"]`. A tool that meets one
 **fails its step** (the model never reads it: retrying a loop loops again); take it on the path:
 
 <!-- snippet-context
-import { Agent, MeshLoopDetectedError, Workflow, WorkflowFinish, WorkflowStart, onStart, toFinish, inline } from "@agboss/core";
+import { Agent, MeshLoopDetectedError, Workflow, WorkflowFinish, WorkflowStart, onStart, toFinish, inline, Ttl } from "@agboss/core";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 @Agent({ name: "orders-agent", description: "Orders", prompt: inline("Answer."), model: "moonshotai/kimi-k2.6" })
 export class OrdersAgent {}
@@ -787,6 +788,7 @@ export class LoopedWorkflowFinish {}
 @Workflow({
   name: "orders-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(OrdersWorkflowStart)
       .toAgent(OrdersAgent) // its tool calls the billing application over A2A

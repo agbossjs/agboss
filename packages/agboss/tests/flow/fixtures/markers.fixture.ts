@@ -6,7 +6,7 @@ import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js"
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import { oneOf } from "../../../src/flow/dto-wrappers.js";
 import { ShortlistDto } from "./dtos.js";
-import { inline } from "../../../src/index.js";
+import { inline, Ttl } from "../../../src/index.js";
 
 /**
  * #272 S39 — two DTOs of the same shape: one type to TypeScript without their brands, so a
@@ -65,6 +65,7 @@ export const verdictPaths = [
 @Workflow({
   name: "verdict-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: verdictPaths,
 })
 export class VerdictWorkflow {}

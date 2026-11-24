@@ -1,4 +1,4 @@
-import { hours, minutes, days } from "../../../src/units/index.js";
+import { hours, minutes, days, Ttl } from "../../../src/units/index.js";
 // #859 — an application that takes files and gives them back over A2A: a start whose input holds a
 // document (and optional more pages), an action that reads its bytes through Files and answers
 // with a report file and a verdict, or — asked to — pauses for its caller first (INPUT_REQUIRED),
@@ -204,6 +204,7 @@ export const fileReviewFlow = [
 @Workflow({
   name: "file-review-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: fileReviewFlow,
   filePolicy: FileReviewPolicy,
 })
@@ -212,6 +213,7 @@ export class FileReviewWorkflow {}
 @Workflow({
   name: "stored-file-review-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: fileReviewFlow,
   filePolicy: StoredFileReviewPolicy,
 })
@@ -249,6 +251,7 @@ export class FileSummaryWorkflowStart {}
 @Workflow({
   name: "file-summary-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(FileSummaryWorkflowStart).toAction(FileSummaryAction).toFinish(FileReviewFinish)],
   filePolicy: FileReviewPolicy,
 })

@@ -90,6 +90,7 @@ const MODEL_PROVIDERS = [TestDecisionsProvider, LocalModelProvider];
 @Workflow({
   name: "memory-desk-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(TaskStart)
       .toAgent(Recaller)
@@ -132,6 +133,7 @@ export class DeskMemory {}
 @Workflow({
   name: "compacting-desk-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(TaskStart)
       .toAgent(Recaller)

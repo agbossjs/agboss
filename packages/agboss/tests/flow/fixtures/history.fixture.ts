@@ -11,7 +11,7 @@ import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { DraftChangesDto } from "./data-dtos.js";
 import { ChangesRequestedDto, DraftApprovedDto, OfferDraftDto, ShortlistDto } from "./dtos.js";
-import { EmptyEnvironment, inline } from "../../../src/index.js";
+import { EmptyEnvironment, inline, Ttl } from "../../../src/index.js";
 
 /**
  * #299 S56 — earlier versions without tags: the review loop's reviewer reads
@@ -124,6 +124,7 @@ export const historyPaths = [
 @Workflow({
   name: "history-offer-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: historyPaths,
 })
 export class HistoryOfferWorkflow {}

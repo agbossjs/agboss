@@ -14,6 +14,7 @@ import {
   WorkflowStart,
   type LogEntry,
   inline,
+  Ttl,
 } from "../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { replyWith, testWith } from "../../src/testing/index.js";
@@ -55,6 +56,7 @@ class ChatAgent {}
 @Workflow({
   name: "stateless-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(ChatStart).toAgent(ChatAgent).toFinish(ChatFinish)],
 })
 class StatelessWorkflow {}
@@ -62,6 +64,7 @@ class StatelessWorkflow {}
 @Workflow({
   name: "remembering-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(ChatStart).toAgent(ChatAgent).toFinish(ChatFinish)],
   memory: Window2Memory,
 })

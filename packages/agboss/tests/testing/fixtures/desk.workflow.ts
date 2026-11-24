@@ -15,7 +15,7 @@ import {
   Router,
   WorkflowFinish,
   WorkflowStart,
-  inline,
+  inline, Ttl,
 } from "../../../src/index.js";
 import { Reasoning } from "../../../src/models/index.js";
 import { onStart, toAgent, toFinish } from "../../helpers/flow.js";
@@ -231,6 +231,7 @@ export class MainRouter {}
 @Workflow({
   name: "desk-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   executionLimits: { maxSteps: 12 },
   flow: [
     onStart(ChatStart)

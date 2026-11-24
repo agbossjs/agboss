@@ -13,6 +13,7 @@ import {
   WorkflowStart,
   type BudgetHandler,
   inline,
+  Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { Injectable } from "../../../src/components/decorators.js";
@@ -101,6 +102,7 @@ export class ReviewerAgent {}
 @Workflow({
   name: "brief-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(BriefStart).toAgent(DrafterAgent).toAgent(ReviewerAgent).toFinish(BriefFinish)],
   defaults,
   memory: Window2Memory,

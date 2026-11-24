@@ -14,7 +14,7 @@ import {
   provide,
   type JudgeHandler,
   type JudgeInput,
-  inline,
+  inline, Ttl,
 } from "../../../src/index.js";
 import {
   PlainTextDto,
@@ -88,6 +88,7 @@ export class PromiseFinish {}
 @Workflow({
   name: "promise-desk-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(PromiseStart)
       .toAgent(PromiseAgent)

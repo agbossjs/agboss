@@ -171,7 +171,7 @@ export class ExecutionBudget implements BudgetHandler {
   such as `BillingService` — a trusted source, never the request body.
 
 <!-- snippet-context
-import { Budget, BudgetPeriod, BudgetScope, TenantContext, Workflow, WorkflowFinish, WorkflowStart, onStart, type BudgetHandler } from "@agboss/core";
+import { Budget, BudgetPeriod, BudgetScope, TenantContext, Workflow, WorkflowFinish, WorkflowStart, onStart, type BudgetHandler, Ttl } from "@agboss/core";
 import { Float, WorkflowStartTextDto } from "@agboss/core/dto";
 import { usd, type Usd } from "@agboss/core/units";
 export class ShopTenantContext extends TenantContext {
@@ -185,6 +185,7 @@ export class ScreeningWorkflowFinish {}
 @Workflow({
   name: "screening-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ScreeningWorkflowStart)
       .toFinish(ScreeningWorkflowFinish),

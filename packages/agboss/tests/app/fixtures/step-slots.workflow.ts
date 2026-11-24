@@ -1,4 +1,4 @@
-import { EmptyEnvironment, listOf, Workflow, WorkflowStart } from "../../../src/index.js";
+import { EmptyEnvironment, listOf, Workflow, WorkflowStart, Ttl } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { onStart, toAction } from "../../helpers/flow.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -32,6 +32,7 @@ export class ItemsWorkflowStart {}
 @Workflow({
   name: "items-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   // 20 branch actions are 20 steps (#1278): more than the default allows
   executionLimits: { maxSteps: 30 },
   flow: [

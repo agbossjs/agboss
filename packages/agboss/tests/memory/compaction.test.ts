@@ -215,6 +215,7 @@ class OddAgent {}
 @Workflow({
   name: "odd-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(DeskStart).toAgent(OddAgent).toFinish(DeskAnswer)],
   memory: OddWindowMemory,
 })

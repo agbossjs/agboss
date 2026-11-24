@@ -16,6 +16,7 @@ import {
 } from "../fixtures/compensation-parts.js";
 import { onStart, toAction, toFinish } from "../fixtures/paths.js";
 import type { PathBuilder } from "../../../src/flow/path-builder.js";
+import { Ttl } from "../../../src/index.js";
 
 /**
  * #339 AC2 — a side path after an undoable action reaches a finish only through its undo action,
@@ -36,7 +37,12 @@ const CODES = new Set([
 let count = 0;
 function checked(flow: Flow) {
   count += 1;
-  @Workflow({ name: `trip-case-${String(count)}-workflow`, version: "1.0.0", flow })
+  @Workflow({
+    name: `trip-case-${String(count)}-workflow`,
+    version: "1.0.0",
+    historyTtl: Ttl.Forever,
+    flow,
+  })
   class TripCaseWorkflow {}
   const strip = ({ code, message }: { code: string; message: string }) => ({
     code,

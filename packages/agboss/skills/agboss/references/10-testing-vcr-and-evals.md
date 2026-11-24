@@ -408,7 +408,7 @@ export class RejectedWorkflowFinish {}
 ```
 
 ```ts file=src/screening/workflows/screening/screening.workflow.ts
-import { Workflow, onStart, toAgent, toAction, toRouter, toFinish } from "@agboss/core";
+import { Workflow, onStart, toAgent, toAction, toRouter, toFinish, Ttl } from "@agboss/core";
 import { HireRouter } from "../../routers/hire/hire.router.js";
 import { SaveHireAction } from "../../actions/save-hire.action.js";
 import { CultureAgent } from "../../agents/culture/culture.agent.js";
@@ -429,6 +429,7 @@ import { ScreeningWorkflowStart } from "./screening.workflow-start.js";
 @Workflow({
   name: "screening-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ScreeningWorkflowStart)
       .inParallel([toAgent(SkillsAgent), toAgent(CultureAgent)])
@@ -955,7 +956,7 @@ export class RentalDeclinedWorkflowFinish {}
 ```
 
 ```ts file=src/rental/workflows/rental/rental.workflow.ts
-import { Workflow, onStart, toAction, toFinish } from "@agboss/core";
+import { Workflow, onStart, toAction, toFinish, Ttl } from "@agboss/core";
 import { CancelCarAction } from "../../actions/cancel-car.action.js";
 import { ChargeDepositAction } from "../../actions/charge-deposit.action.js";
 import { ReserveCarAction } from "../../actions/reserve-car.action.js";
@@ -971,6 +972,7 @@ import { RentalWorkflowStart } from "./rental.workflow-start.js";
 @Workflow({
   name: "rental-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(RentalWorkflowStart)
       .toAction(ReserveCarAction)

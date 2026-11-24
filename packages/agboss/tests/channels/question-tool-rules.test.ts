@@ -15,7 +15,7 @@ import { describeAssembledApplication } from "../../src/describe/describe-applic
 import { Agent } from "../../src/flow/decorators/agent.js";
 import { Workflow } from "../../src/flow/decorators/workflow.js";
 import { GraphRuleError } from "../../src/graph/rule-error.js";
-import { EmptyEnvironment, inline, ExternalTask } from "../../src/index.js";
+import { EmptyEnvironment, inline, ExternalTask, Ttl } from "../../src/index.js";
 import type { AgentToolClass } from "../../src/components/decorators.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
@@ -57,6 +57,7 @@ function buyingApplication(
   @Workflow({
     name: `${name}-workflow`,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [onStart(BuyerWorkflowStart).toAgent(BuyingAgent).toFinish(BuyerWorkflowFinish)],
   })
   class BuyingWorkflow {}

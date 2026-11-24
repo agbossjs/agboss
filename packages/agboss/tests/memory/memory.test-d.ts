@@ -109,6 +109,7 @@ describe("#1303 types", () => {
     Workflow({
       name: "old-workflow",
       version: "1.0.0",
+      historyTtl: Ttl.Forever,
       flow: [onStart(DeskStart).toFinish(DeskAnswer)],
       // @ts-expect-error -- compaction moved into @Memory
       compaction: NoMemory,

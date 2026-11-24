@@ -12,6 +12,7 @@ import {
   WorkflowStart,
   type BudgetHandler,
   inline,
+  Ttl,
 } from "../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
@@ -76,6 +77,7 @@ function childAndParent(
   @Workflow({
     name: `rules-child-${n}-workflow`,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [
       onStart(ChildStart)
         .toAgent(agent)
@@ -99,6 +101,7 @@ function childAndParent(
   @Workflow({
     name: `rules-parent-${n}-workflow`,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [onStart(ParentStart).toWorkflow(ChildWorkflow).toFinish(ParentFinish)],
   })
   class ParentWorkflow {}
@@ -164,6 +167,7 @@ describe("#263: an unlisted child goes through the application's rules", () => {
     @Workflow({
       name: "rules-other-workflow",
       version: "1.0.0",
+      historyTtl: Ttl.Forever,
       flow: [onStart(OtherStart).toWorkflow(ParentWorkflow).toFinish(OtherSharedFinish)],
     })
     class OtherWorkflow {}

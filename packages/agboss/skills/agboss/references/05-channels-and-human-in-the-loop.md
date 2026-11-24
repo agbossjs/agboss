@@ -209,7 +209,7 @@ export class RefundWorkflowFinish {}
 ```
 
 ```ts file=src/refunds/workflows/refund/refund.workflow.ts
-import { Workflow, onStart, toAgent, toFinish } from "@agboss/core";
+import { Workflow, onStart, toAgent, toFinish, Ttl } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { RefundAgent } from "../../agents/refund/refund.agent.js";
 import { SlackClientService } from "../../services/slack-client.service.js";
@@ -219,6 +219,7 @@ import { RefundWorkflowStart } from "./refund.workflow-start.js";
 @Workflow({
   name: "refund-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(RefundWorkflowStart)
       .toAgent(RefundAgent)
@@ -411,7 +412,7 @@ export class PurchaseWorkflowFinish {}
 ```
 
 ```ts file=src/purchases/workflows/purchase/purchase.workflow.ts
-import { Workflow, onStart, toFinish, toExternalTask } from "@agboss/core";
+import { Workflow, onStart, toFinish, toExternalTask, Ttl } from "@agboss/core";
 import { SpendingLimitQuestion } from "../../channels/spending-limit.channel-role.js";
 import { PurchaseDto } from "../../dto/purchase.dto.js";
 import { SpendingLimitDto } from "../../dto/spending-limit.dto.js";
@@ -422,6 +423,7 @@ import { PurchaseWorkflowStart } from "./purchase.workflow-start.js";
 @Workflow({
   name: "purchase-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(PurchaseWorkflowStart) // the ask, on the path (an agent or an action may build it)
       .toExternalTask(SpendingLimitQuestion) // pauses; .onError(QuestionFailedError, …) may follow // the typed answer: later steps read it like any value

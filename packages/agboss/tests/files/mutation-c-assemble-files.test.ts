@@ -1,4 +1,4 @@
-import { hours } from "../../src/units/index.js";
+import { hours, Ttl } from "../../src/units/index.js";
 /**
  * #1269: the files of a workflow's agents resolved from their sources (#899 §1) — the application's own
  * transcriber, redactor and file store among its providers, each agent's levels, the media types
@@ -121,6 +121,7 @@ function miniWorkflow(files?: ModelFiles, defaults?: WorkflowDefaults, filePolic
   @Workflow({
     name: `mini-${suffix}-workflow`,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [onStart(MiniStart).toAgent(MiniAgent).toFinish(MiniFinish)],
     ...(defaults === undefined ? {} : { defaults }),
     ...(filePolicy === undefined ? {} : { filePolicy }),

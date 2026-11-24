@@ -1,4 +1,4 @@
-import { onStart, Workflow, toWorkflow } from "@agboss/core";
+import { onStart, Workflow, toWorkflow, Ttl } from "@agboss/core";
 import { VendorFinderAgent } from "../../agents/vendor-finder/vendor-finder.agent.js";
 import { VendorRankerAgent } from "../../agents/vendor-ranker/vendor-ranker.agent.js";
 import { VendorCheckWorkflow } from "../vendor-check/vendor-check.workflow.js";
@@ -14,6 +14,7 @@ import { VendorScreeningWorkflowStart } from "./vendor-screening.workflow-start.
 @Workflow({
   name: "vendor-screening-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(VendorScreeningWorkflowStart)
       .toAgent(VendorFinderAgent)

@@ -24,7 +24,7 @@ import {
 } from "../fixtures/offer.fixture.js";
 import { onAgent, onStart, toAction, toAgent } from "../fixtures/paths.js";
 import type { ComponentName } from "../../../src/flow/registry.js";
-import { inline } from "../../../src/index.js";
+import { inline, Ttl } from "../../../src/index.js";
 
 const OFFER_START = "offer-workflow-start" as ComponentName;
 
@@ -67,6 +67,7 @@ function reviewWith(maxSteps: number, handled?: abstract new (...args: never[]) 
   @Workflow({
     name: "review-steps-workflow",
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     executionLimits: { maxSteps },
     flow: reviewPaths(handled),
   })
@@ -78,6 +79,7 @@ function offerWith(maxSteps: number) {
   @Workflow({
     name: "offer-steps-workflow",
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     executionLimits: { maxSteps },
     flow: offerPaths,
   })
@@ -127,7 +129,12 @@ describe("#643 AC2: what is not warned", () => {
   });
 
   it("AC2: without a hand-set maxSteps nothing new is checked", () => {
-    @Workflow({ name: "review-default-workflow", version: "1.0.0", flow: reviewPaths() })
+    @Workflow({
+      name: "review-default-workflow",
+      version: "1.0.0",
+      historyTtl: Ttl.Forever,
+      flow: reviewPaths(),
+    })
     class ReviewDefaultWorkflow {}
     expect(warningsOf(ReviewDefaultWorkflow)).toEqual([]);
   });

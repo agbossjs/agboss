@@ -19,6 +19,7 @@ import {
   type OnInit,
   type OnReady,
   inline,
+  Ttl,
 } from "../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { RateLimitRepository } from "../../src/infrastructure/rate-limit.repository.js";
@@ -107,6 +108,7 @@ const workflowOver = (
   @Workflow({
     name: `${stem}-workflow`,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     defaults: testDefaults,
     flow: [onStart(Start).toAgent(Answerer).toFinish(Finish)],
     providers: [Alerts, DirectoryReader],

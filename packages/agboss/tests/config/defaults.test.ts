@@ -29,6 +29,7 @@ import {
   WorkflowStart,
   type WorkflowDefaults,
   inline,
+  Ttl,
 } from "../../src/index.js";
 import type { AssembledWorkflow } from "../../src/workflow.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
@@ -115,6 +116,7 @@ const guardrails = [PromptInjectionGuardrail, PersonalDataGuardrail];
 @Workflow({
   name: "ask-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: flowThrough(AskRouter),
   defaults: { models: { temperature: 0.3 } },
   memory: Window7Memory,
@@ -143,6 +145,7 @@ class AskApplication {}
 @Workflow({
   name: "own-defaults-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: flowThrough(OwnRouter),
   defaults: { router: { model: "typesafe/jev-workflow" } },
   memory: Window1Memory,
@@ -163,6 +166,7 @@ class OwnDefaultsApplication {}
 @Workflow({
   name: "bare-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: flowThrough(AskRouter),
   guardrails: [PromptInjectionGuardrail],
 })
@@ -188,7 +192,12 @@ class RouterOnlyApplication {}
 class BareApplication {}
 
 /** A model router and no model anywhere: the cascade's rule, not a router's own (#1279). */
-@Workflow({ name: "bare-router-workflow", version: "1.0.0", flow: flowThrough(AskRouter) })
+@Workflow({
+  name: "bare-router-workflow",
+  version: "1.0.0",
+  historyTtl: Ttl.Forever,
+  flow: flowThrough(AskRouter),
+})
 class BareRouterWorkflow {}
 
 @Application({

@@ -21,7 +21,7 @@ import {
   ScreeningFailedDto,
 } from "./launch-dtos.js";
 import { CritiqueDto, PlanDto, ResearchDto } from "./review-dtos.js";
-import { inline } from "../../../src/index.js";
+import { inline, Ttl } from "../../../src/index.js";
 
 /**
  * #273 — the issue's four launches, each a workflow of its own: different agents (a repeated one),
@@ -98,6 +98,7 @@ export class ArticleDraftWorkflowFinish {}
 @Workflow({
   name: "research-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ResearchWorkflowStart)
       .toAgent(PlannerAgent)
@@ -187,6 +188,7 @@ export class ScreeningFailedWorkflowFinish {}
 @Workflow({
   name: "screening-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(ScreeningWorkflowStart)
       .toAgent(ScreeningAgent)
@@ -278,6 +280,7 @@ export class PaymentWorkflowFinish {}
 @Workflow({
   name: "checkout-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(CheckoutWorkflowStart)
       .toAction(ChargePaymentAction)
@@ -374,6 +377,7 @@ export class HelpDeskWorkflowFinish {}
 @Workflow({
   name: "help-desk-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(HelpDeskWorkflowStart)
       .inParallel([
@@ -437,6 +441,7 @@ export class OffersWorkflowFinish {}
 @Workflow({
   name: "offers-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(OffersWorkflowStart)
       .inParallel([

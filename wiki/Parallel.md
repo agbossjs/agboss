@@ -20,7 +20,7 @@ count and — with groups — which combination wins and where the execution goe
 ## Writing it
 
 <!-- snippet-context
-import { Agent, Arbiter, Arbitrate, Workflow, WorkflowFinish, WorkflowStart, onStart, toAgent, toFinish } from "@agboss/core";
+import { Agent, Arbiter, Arbitrate, Workflow, WorkflowFinish, WorkflowStart, onStart, toAgent, toFinish, Ttl } from "@agboss/core";
 import { Integer, Text } from "@agboss/core/dto";
 import { listOf, optional } from "@agboss/core";
 import { minutes, seconds } from "@agboss/core/units";
@@ -80,7 +80,7 @@ export class DealReportWorkflowFinish {}
 @WorkflowFinish({ name: "quick-reject-workflow-finish", description: "Rejected at once", output: FastScreenDto })
 export class QuickRejectWorkflowFinish {}
 // @snippet
-@Workflow({ name: "quorum-workflow", version: "1.0.0", flow: quorumPaths })
+@Workflow({ name: "quorum-workflow", version: "1.0.0", historyTtl: Ttl.Forever, flow: quorumPaths })
 export class QuorumWorkflow {}
 -->
 

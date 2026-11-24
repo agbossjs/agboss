@@ -37,6 +37,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  Ttl,
 } from "../../src/index.js";
 import { WorkflowStartTextDto } from "../../src/dto/index.js";
 import { onStart } from "../helpers/flow.js";
@@ -59,6 +60,7 @@ class PlainFinish {}
 @Workflow({
   name: "plain-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [onStart(PlainStart).toFinish(PlainFinish)],
 })
 class PlainWorkflow {}

@@ -1,4 +1,4 @@
-import { Agent, EmptyEnvironment, Tool, Workflow, inline } from "../../../src/index.js";
+import { Agent, EmptyEnvironment, Tool, Workflow, inline, Ttl } from "../../../src/index.js";
 import { WorkflowFinish, WorkflowStart, type Class } from "../../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { Application } from "../../../src/application/application.js";
@@ -138,6 +138,7 @@ function workflowWith(
   @Workflow({
     name: `${name}-workflow`,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [onStart(Start).toAgent(ReaderAgent).toFinish(Finish)],
     defaults: { models: { temperature: 0 }, router: { model: "typesafe/jev-1.13" } },
     providers: [rag, SearchTool],

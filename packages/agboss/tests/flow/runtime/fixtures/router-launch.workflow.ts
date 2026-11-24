@@ -8,7 +8,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type Tracked,
-  inline,
+  inline, Ttl,
 } from "../../../../src/index.js";
 import { WorkflowStartTextDto } from "../../fixtures/dtos.js";
 import { Application } from "../../../../src/application/application.js";
@@ -83,6 +83,7 @@ export class PickyWorkflowFinish {}
 @Workflow({
   name: "picky-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(PickyWorkflowStart)
       .inParallel([
@@ -138,6 +139,7 @@ export class StrictRouter {
 @Workflow({
   name: "strict-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(StrictWorkflowStart)
       .inParallel([
@@ -189,6 +191,7 @@ export class BudgetAnswerAgent {}
 @Workflow({
   name: "budget-desk-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     onStart(BudgetDeskWorkflowStart)
       .inParallel(
