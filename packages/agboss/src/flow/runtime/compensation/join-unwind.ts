@@ -41,6 +41,12 @@ export interface JoinUnwindSite {
   readonly deps: JoinDeps;
   /** The error the join fails with: the cause of a `CompensationFailedError`. */
   readonly cause: unknown;
+  /**
+   * A quorum join that went on (#1281): only the entries of these branches (their ticket indexes —
+   * completed, yet not counted) are undone, as `CompensationReason.QuorumExcluded`; absent: a failed
+   * join, every entry of the launch.
+   */
+  readonly excluded?: ReadonlySet<number> | undefined;
 }
 
 /** The undo site of the join: the launching step's execution, the instance's parts. */
@@ -60,7 +66,10 @@ function undoSiteOf(site: JoinUnwindSite): UndoSite & { readonly tree: Execution
     clock: extractRunContext(config, state.runId).clock,
     timeout: deps.compensation?.timeout ?? COMPENSATION_TIMEOUT,
     stepEntries: deps.stepEntries,
-    reason: CompensationReason.JoinFailed,
+    reason:
+      site.excluded === undefined
+        ? CompensationReason.JoinFailed
+        : CompensationReason.QuorumExcluded,
     tree,
   };
 }
@@ -69,9 +78,16 @@ function undoSiteOf(site: JoinUnwindSite): UndoSite & { readonly tree: Execution
 async function unwindSiteOf(site: JoinUnwindSite): Promise<UnwindSite> {
   const undo = undoSiteOf(site);
   const { executionId } = undo.execution;
-  const ids = new Set(site.ticket.branches.map((branch) => branch.nodeId));
+  const { excluded } = site;
+  const branches = site.ticket.branches.filter(
+    (branch) => excluded === undefined || excluded.has(branch.index),
+  );
+  const ids = new Set(branches.map((branch) => branch.nodeId));
   const covers = (entry: CompensationEntry): boolean =>
-    entry.launchId === site.ticket.launchId && entry.executionId === executionId;
+    entry.launchId === site.ticket.launchId &&
+    entry.executionId === executionId &&
+    (excluded === undefined ||
+      (entry.branchIndex !== undefined && excluded.has(entry.branchIndex)));
   const marks: UndoneMarks = { trees: site.deps.compensation?.trees, tree: undo.tree };
   return {
     tree: undo.tree,

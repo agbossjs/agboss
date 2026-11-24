@@ -1827,6 +1827,7 @@ export interface CompensationEndEvent extends CompensationStartEvent {
 // @public
 export interface CompensationEntry {
     readonly action: string;
+    readonly branchIndex?: number;
     readonly committer?: string;
     // (undocumented)
     readonly compensated: StepRecord;
@@ -1864,6 +1865,7 @@ export enum CompensationReason {
     ExecutionCancelled = "execution-cancelled",
     ExecutionFailed = "execution-failed",
     JoinFailed = "join-failed",
+    QuorumExcluded = "quorum-excluded",
     SidePath = "side-path"
 }
 
@@ -12437,8 +12439,8 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "onError".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "chooseOne".
 // src/flow/builder.ts - (ae-undocumented) Missing documentation for "forEachItem".
-// src/flow/compensation.ts - (ae-undocumented) Missing documentation for "code".
-// src/flow/compensation.ts - (ae-undocumented) Missing documentation for "name".
+// src/flow/compensation-failed.ts - (ae-undocumented) Missing documentation for "code".
+// src/flow/compensation-failed.ts - (ae-undocumented) Missing documentation for "name".
 // src/flow/compensation.ts - (ae-undocumented) Missing documentation for "executionId".
 // src/flow/compensation.ts - (ae-undocumented) Missing documentation for "compensated".
 // src/flow/compensation.ts - (ae-undocumented) Missing documentation for "status".

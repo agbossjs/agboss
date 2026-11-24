@@ -3,7 +3,7 @@ import type { GraphNode } from "../node-runner.js";
 import type { ExecutionStateUpdate } from "../state.js";
 import type { VisitDeps } from "../visit.js";
 import { finishedOf } from "./join-values.js";
-import { failedJoined, failingRecordOf } from "./join-failure.js";
+import { failedJoined, failedQuorum, failingRecordOf } from "./join-failure.js";
 import { joinedValues, type JoinContext } from "./join-write.js";
 import type { LaunchRegistry, LiveLaunch } from "./launch-registry.js";
 import type { BranchErrors } from "./branch-end.js";
@@ -14,7 +14,13 @@ import {
   type LaunchTicket,
 } from "./records.js";
 import type { PauseStores } from "./withdrawn-pauses.js";
-import { decideQuorum, quorumNotReached, reportQuorum } from "./quorum-join.js";
+import {
+  decideQuorum,
+  excludedBranchesOf,
+  quorumNotReachedError,
+  reportQuorum,
+} from "./quorum-join.js";
+import { compensationsOfFailedJoin, type FailedJoinUndo } from "../../compensation.js";
 import type { StepEntries } from "../step-entries.js";
 import type { Class } from "../../../components/injection.js";
 import type { RuntimeLaunch } from "./runtime-launch.js";
@@ -83,6 +89,17 @@ const queuedOf = (context: JoinContext, live: LiveLaunch | undefined): JoinConte
   queuedFor: live?.quorum?.queued.excluded() ?? 0,
 });
 
+/** What the excluded branches' undo adds to the join's own update: its entries and spend, after the join's. */
+function withUndone(joined: ExecutionStateUpdate, undone: FailedJoinUndo): ExecutionStateUpdate {
+  if (undone.compensations === undefined) return {};
+  const usage = [...(Array.isArray(joined.usage) ? joined.usage : []), ...(undone.usage ?? [])];
+  const compensations = [
+    ...(Array.isArray(joined.compensations) ? joined.compensations : []),
+    ...undone.compensations,
+  ];
+  return { usage, compensations };
+}
+
 /** A quorum join: decided from the records, reported, then on with the counted answers or failed. */
 async function quorumJoined(
   launch: RuntimeLaunch,
@@ -95,9 +112,21 @@ async function quorumJoined(
   const launches = [{ ...launchRecordOf(ticket, records), ...decision.extra }];
   const [record] = launches;
   if (record !== undefined) await reportQuorum(site, decision, record);
-  if (decision.reached === undefined) return { launches, ...quorumNotReached(site, decision) };
+  if (decision.reached === undefined) {
+    const failing = { state: site.state, config: site.config, ticket, deps: site.deps, records };
+    const failed = await failedQuorum(launch, quorumNotReachedError(site, decision), failing);
+    return { launches, ...failed };
+  }
   const { edge, counted } = decision.reached;
-  return { launches, ...(await joinedValues(launch, edge, ticket, counted, context)) };
+  const excluded = excludedBranchesOf(ticket, decision);
+  const unwind = { state: site.state, config: site.config, ticket, deps: site.deps };
+  // only the branches a quorum went on without are undone, once each, by their compensation keys (#1281)
+  const undone =
+    excluded.size === 0
+      ? {}
+      : await compensationsOfFailedJoin({ ...unwind, cause: undefined, excluded });
+  const joined = await joinedValues(launch, edge, ticket, counted, context);
+  return { launches, ...joined, ...withUndone(joined, undone) };
 }
 
 /** The LangGraph node joining `launch`. */

@@ -1,16 +1,13 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { RunnableLambda } from "@langchain/core/runnables";
-import { errorRecordOf } from "../../../core/error-record.js";
 import { extractRunContext } from "../../../core/run-context.js";
 import type { FlowEdge } from "../../analyse/flow-graph.js";
 import { QuorumKind } from "../../ast.js";
 import type { QuorumDecidedEvent } from "../../observers/quorum-decided.js";
 import { nodeEventOf } from "../../observers/execution-event.js";
-import { errorHandlerOf } from "../graph-model.js";
-import type { ExecutionStateType, ExecutionStateUpdate } from "../state.js";
+import type { ExecutionStateType } from "../state.js";
 import { stepFrameAt } from "../step-frame.js";
-import { handledErrorOf, recordOfNode } from "../workflow-keys.js";
-import { sidePathEntered } from "../limits.js";
+import { recordOfNode } from "../workflow-keys.js";
 import type { JoinDeps } from "./join-node.js";
 import { hasExpired } from "./deadline.js";
 import { quorumOutcomeOf, quorumRuleOf, type QuorumOutcome } from "./quorum.js";
@@ -132,11 +129,11 @@ function reasonOf(site: QuorumJoinSite): string {
     : "min can no longer be reached";
 }
 
-/** A quorum not reached: `.onError(QuorumNotReachedError, …)`, else the execution fails. */
-export function quorumNotReached(
+/** The error of a quorum not reached: what `.onError(QuorumNotReachedError, …)` takes, else the execution fails with it. */
+export function quorumNotReachedError(
   site: QuorumJoinSite,
   decision: QuorumDecision,
-): ExecutionStateUpdate {
+): QuorumNotReachedError {
   const { ticket, launch } = site;
   const step = {
     component: recordOfNode(site.deps, ticket.launcher),
@@ -158,11 +155,14 @@ export function quorumNotReached(
       ];
     }),
   };
-  const error = new QuorumNotReachedError({ launch: ticket.launchId, ...step, ...shortfall });
-  const record = errorRecordOf(error);
-  const handler = errorHandlerOf({ errors: launch.joinErrors }, record);
-  if (handler === undefined) throw error;
-  const handled = handledErrorOf(site.deps, record, ticket.launcher, handler.to);
-  const entered = sidePathEntered(site.state, record, handler.to, undefined, handled);
-  return { lastError: record, next: handler.to, handledErrors: [handled], ...entered };
+  return new QuorumNotReachedError({ launch: ticket.launchId, ...step, ...shortfall });
+}
+
+/** The indexes of the branches a quorum went on without: every branch of the launch not counted. */
+export function excludedBranchesOf(
+  ticket: LaunchTicket,
+  decision: QuorumDecision,
+): ReadonlySet<number> {
+  const counted = new Set(decision.reached?.counted.map((record) => record.index));
+  return new Set(ticket.branches.map((branch) => branch.index).filter((i) => !counted.has(i)));
 }

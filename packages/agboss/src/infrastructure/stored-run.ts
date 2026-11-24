@@ -72,6 +72,7 @@ const StoredCompensationEntry: z.ZodType<CompensationEntry> = z.object({
   compensator: text,
   committer: text.optional(),
   launchId: text.optional(),
+  branchIndex: count.optional(),
   input: StoredScope,
   status: z.enum(CompensationEntryStatus),
   undo: StoredCompensation.optional(),

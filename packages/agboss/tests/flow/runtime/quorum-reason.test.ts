@@ -3,7 +3,7 @@
  * waited in the tree's queue (#264): between the two ends the deadline has not passed, so the reason is the shortfall.
  */
 import { describe, expect, it } from "vitest";
-import { quorumNotReached } from "../../../src/flow/runtime/launch/quorum-join.js";
+import { quorumNotReachedError } from "../../../src/flow/runtime/launch/quorum-join.js";
 import { QuorumKind } from "../../../src/flow/ast.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
 import { seconds } from "../../../src/units/index.js";
@@ -32,12 +32,7 @@ function reasonAt(
   };
   const decision = { outcome: { counted: [] } };
   return clock.advance(seconds(advance)).then(() => {
-    try {
-      quorumNotReached(site as never, decision as never);
-    } catch (error) {
-      return error instanceof Error ? error.message : String(error);
-    }
-    return "no error";
+    return quorumNotReachedError(site as never, decision as never).message;
   });
 }
 

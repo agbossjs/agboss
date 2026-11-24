@@ -158,7 +158,8 @@ async function ran(run: BranchRun, runner: NodeRunner): Promise<BranchEnd> {
     },
   );
   // an undoable action's branch opens its entry as it ends (#340): a failed join undoes it
-  const branch = { launchId: run.owner.ticket.launchId, value: outcome.value };
+  const { launchId } = run.owner.ticket;
+  const branch = { launchId, branchIndex: ticket.index, value: outcome.value };
   const opened = await compensationsOfBranch({ node, view, frame, config, branch, deps });
   return answeredEnd(run, outcome, marked, opened, run.visited());
 }

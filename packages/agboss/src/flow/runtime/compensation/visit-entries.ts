@@ -90,6 +90,7 @@ function opened(site: VisitCompensationSite, facts: VisitFacts): CompensationEnt
     compensator: compensator.options.name,
     ...(committer === undefined ? {} : { committer }),
     ...(site.branch === undefined ? {} : { launchId: site.branch.launchId }),
+    ...(site.branch?.branchIndex === undefined ? {} : { branchIndex: site.branch.branchIndex }),
     input: snapshotFor(compensator, scopeAfter(site, declaration)),
     status: CompensationEntryStatus.Open,
   };

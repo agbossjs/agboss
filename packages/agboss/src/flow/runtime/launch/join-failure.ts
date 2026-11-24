@@ -1,5 +1,5 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
-import { RecordedError, type ErrorRecord } from "../../../core/error-record.js";
+import { errorRecordOf, RecordedError, type ErrorRecord } from "../../../core/error-record.js";
 import { valueWrite, type FlowEdge } from "../../analyse/flow-graph.js";
 import { compensationsOfFailedJoin } from "../../compensation.js";
 import { FailurePolicy } from "../../decorators/router.js";
@@ -31,7 +31,7 @@ export const failureRecordOf = (record: BranchOutcomeRecord): ErrorRecord =>
 async function failedJoin(
   launch: RuntimeLaunch,
   failed: {
-    readonly record: BranchOutcomeRecord;
+    readonly record: ErrorRecord;
     readonly node: string;
     readonly state: ExecutionStateType;
     readonly config: RunnableConfig | undefined;
@@ -42,7 +42,7 @@ async function failedJoin(
   },
   cause: Error,
 ): Promise<ExecutionStateUpdate> {
-  const record = failureRecordOf(failed.record);
+  const { record } = failed;
   const handler = errorHandlerOf({ errors: launch.joinErrors }, record);
   if (handler === undefined) throw cause;
   const handled = handledErrorOf(failed.deps, record, failed.node, handler.to);
@@ -118,12 +118,53 @@ export async function failedJoined(
     const undoneNodes = (undone.compensations ?? []).flatMap((entry) =>
       entry.launchId === site.ticket.launchId ? [entry.compensated.nodeId] : [],
     );
-    const entered = await failedJoin(launch, { ...site, record, node, undone: undoneNodes }, cause);
+    const failure = failureRecordOf(record);
+    const entered = await failedJoin(
+      launch,
+      { ...site, record: failure, node, undone: undoneNodes },
+      cause,
+    );
     return { ...undone, ...entered };
   } catch (error) {
     // no side path: the undo's spend reaches no state — the ledger at once (#340 S4)
     await site.deps.limits.budgets.record(undone.usage ?? []);
     throw error;
+  }
+}
+
+/**
+ * A quorum that cannot be reached fails its launch like a failed branch does (#1281): the join's
+ * finished undoable branches are undone first, then `.onError(StepError.QuorumNotReached, …)` starts
+ * with the answers settled, else the error is thrown (the undo's spend to the ledger first).
+ */
+export async function failedQuorum(
+  launch: RuntimeLaunch,
+  error: Error,
+  site: {
+    readonly state: ExecutionStateType;
+    readonly config: RunnableConfig | undefined;
+    readonly ticket: LaunchTicket;
+    readonly deps: JoinDeps;
+    readonly records: readonly BranchOutcomeRecord[];
+  },
+): Promise<ExecutionStateUpdate> {
+  const record = errorRecordOf(error);
+  await noticeJoinFailed(launchPausesOf(site.deps.pauses, site.state, site.config), {
+    ticket: site.ticket,
+    records: site.records,
+    errorCode: record.code,
+  });
+  const undone = await compensationsOfFailedJoin({ ...site, cause: error });
+  try {
+    const undoneNodes = (undone.compensations ?? []).flatMap((entry) =>
+      entry.launchId === site.ticket.launchId ? [entry.compensated.nodeId] : [],
+    );
+    const node = site.ticket.launcher;
+    const entered = await failedJoin(launch, { ...site, record, node, undone: undoneNodes }, error);
+    return { ...undone, ...entered };
+  } catch (thrown) {
+    await site.deps.limits.budgets.record(undone.usage ?? []);
+    throw thrown;
   }
 }
 

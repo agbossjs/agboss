@@ -457,6 +457,7 @@ export interface Compacted {
 // @public
 export interface CompensationEntry {
     readonly action: string;
+    readonly branchIndex?: number;
     readonly committer?: string;
     // (undocumented)
     readonly compensated: StepRecord;
@@ -484,6 +485,7 @@ export enum CompensationReason {
     ExecutionCancelled = "execution-cancelled",
     ExecutionFailed = "execution-failed",
     JoinFailed = "join-failed",
+    QuorumExcluded = "quorum-excluded",
     SidePath = "side-path"
 }
 
