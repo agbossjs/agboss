@@ -8,7 +8,7 @@ import { OfferDraftDto } from "../../dto/offer-draft.dto.js";
  * so its path is its own (`agent(ReviewerAgent).returns(oneOf(…)).switch(…)`); the flow says its
  * change requests are about the draft (`caseOf(ChangesRequestedDto, { about: OfferDraftDto })`) — a
  * rewrite outdates the old request. It reads the draft with its last earlier version
- * (`historyOf(OfferDraftDto, { limit: 1 })` — `{ current, previous }`), to judge what changed.
+ * (`historyOf(OfferDraftDto, { maxPrevious: 1 })` — `{ current, previous }`), to judge what changed.
  */
 @Agent({
   name: "reviewer-agent",
@@ -16,7 +16,7 @@ import { OfferDraftDto } from "../../dto/offer-draft.dto.js";
   promptUrls: ["./reviewer.prompt.md"],
   model: "moonshotai/kimi-k2.6",
   input: {
-    draft: historyOf(OfferDraftDto, { limit: 1 }),
+    draft: historyOf(OfferDraftDto, { maxPrevious: 1 }),
   },
   output: oneOf(ChangesRequestedDto, DraftApprovedDto),
 })

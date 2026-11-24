@@ -41,7 +41,7 @@ and ends at a finish (or at a node that has its own path). Write **one call per 
 | `@Action({ compensateWith, committedBy })`                                              | the action's undo and its commit point; side paths must run the undo                                                                                       | `[action.*]`, `[flow.uncompensated-action]`, `[flow.compensation-out-of-order]`, `[flow.uncommitted-action]` |
 
 The wrappers (`agboss`, also re-exported by `@agboss/core/dto`): `listOf(XDto)`, `oneOf(A, B)`,
-`optional(XDto)`, `historyOf(XDto, { limit })` (an input only), `variant(XDto, value)` (tests).
+`optional(XDto)`, `historyOf(XDto, { maxPrevious })` (an input only), `variant(XDto, value)` (tests).
 
 Placement rules that hold everywhere:
 
@@ -455,7 +455,7 @@ export class CreditWorkflow {}
 
 An agent with `output: oneOf(A, B)` says which outcome it is; `.returns(oneOf(A, B)).switch(…)` has
 one `caseOf(…)` per variant. In a loop whose classes are built from each other the flow says what a
-value is **about**, and `historyOf(XDto, { limit })` reads the earlier versions. Every node on a
+value is **about**, and `historyOf(XDto, { maxPrevious })` reads the earlier versions. Every node on a
 cycle needs `maxVisits` (`[graph.cycle-without-max-visits]`).
 
 ```ts file=src/offer/dto/candidate-shortlist.dto.ts
@@ -539,7 +539,7 @@ import { OfferDraftDto } from "../../dto/offer-draft.dto.js";
   description: "Approves the draft or asks for changes",
   prompt: "Approve the draft, or say what to change. Compare it with the earlier versions.",
   model: "moonshotai/kimi-k2.6",
-  input: { draft: historyOf(OfferDraftDto, { limit: 2 }) }, // { current, previous } — the last two before
+  input: { draft: historyOf(OfferDraftDto, { maxPrevious: 2 }) }, // { current, previous } — the last two before
   output: oneOf(ChangesRequestedDto, DraftApprovedDto),
   maxVisits: 4,
 })
@@ -681,8 +681,8 @@ export class OfferWorkflow {}
   it is about (`caseOf(ChangesRequestedDto, { about: OfferDraftDto })`, or
   `.returns(CritiqueDto, { about: DraftDto })` on a single class). A start's input is about nothing
   (`[io.about-on-start]`); `about` on a value a node reads twice is `[io.ambiguous-about]`.
-- **`historyOf(XDto, { limit })`** is `{ current, previous }`, `previous` oldest first, at most
-  `limit` (a positive integer, `[input.history-limit]`); it needs a current `XDto` on every path in.
+- **`historyOf(XDto, { maxPrevious })`** is `{ current, previous }`, `previous` oldest first, at most
+  `maxPrevious` (a positive integer, `[input.history-max-previous]`); it needs a current `XDto` on every path in.
 - `caseOf(…)` of a class the step does not give is `[flow.switch-unknown-case]`, a missing variant
   `[flow.switch-not-exhaustive]`; `{ about }` goes on the case, never on `.returns(oneOf(…))`.
 

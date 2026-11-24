@@ -124,7 +124,7 @@ import { OfferLetterDto } from "../../dto/offer-letter.dto.js";
   description: "Approves the letter or asks for changes",
   prompt: "Approve the letter, or say what to change. Do not ask again for what earlier versions fixed.",
   model: "moonshotai/kimi-k2.6",
-  input: { letter: historyOf(OfferLetterDto, { limit: 2 }) },
+  input: { letter: historyOf(OfferLetterDto, { maxPrevious: 2 }) },
   output: oneOf(LetterChangesDto, LetterApprovedDto),
   maxVisits: 3,
 })

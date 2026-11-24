@@ -2,7 +2,7 @@
  * #1366: the input rules of a flow (#270), by code and by the node each refusal names: a required field no path brings
  * (and one the branch of a join may not have answered), an optional one no path produces, one field where one step
  * brought several values (from a start, from a join), a `historyOf` field that a join's list does not fill, two fields
- * reading one class, a `historyOf` limit that is no positive integer, and a node reached by too many scopes. Each is
+ * reading one class, a `historyOf maxPrevious that is no positive integer, and a node reached by too many scopes. Each is
  * refused with the code and the node, a clean flow passes.
  */
 import { describe, expect, it } from "vitest";
@@ -248,7 +248,7 @@ describe("#1366: a side path of a join error reads a settled answer", () => {
   });
 });
 
-describe("#1366: two fields reading one class, a bad historyOf limit", () => {
+describe("#1366: two fields reading one class, a bad historyOf maxPrevious", () => {
   it("two fields of one class are [flow.ambiguous-field] naming the node", () => {
     const reader = agentOf("twice-1366h-agent", { first: ShortlistDto, second: ShortlistDto });
 
@@ -260,23 +260,23 @@ describe("#1366: two fields reading one class, a bad historyOf limit", () => {
   });
 
   it.each([[0], [1.5], [-2]])(
-    "a historyOf limit of %s is [input.history-limit] naming the node",
-    (limit) => {
+    "a historyOf maxPrevious of %s is [input.history-max-previous] naming the node",
+    (maxPrevious) => {
       const reader = agentOf("limit-1366h-agent", {
-        shortlist: historyOf(ShortlistDto, { limit }),
+        shortlist: historyOf(ShortlistDto, { maxPrevious }),
       });
 
       expect(
         codesAndNodes([
           kit().toAgent(reader).returns(OfferDraftDto).toFinish(DraftKitWorkflowFinish),
         ]),
-      ).toEqual([{ code: "input.history-limit", nodes: ["limit-1366h-agent"] }]);
+      ).toEqual([{ code: "input.history-max-previous", nodes: ["limit-1366h-agent"] }]);
     },
   );
 
-  it("a positive integer limit, or none, passes", () => {
+  it("a positive integer maxPrevious, or none, passes", () => {
     const limited = agentOf("limited-1366h-agent", {
-      shortlist: historyOf(ShortlistDto, { limit: 2 }),
+      shortlist: historyOf(ShortlistDto, { maxPrevious: 2 }),
     });
     const unlimited = agentOf("unlimited-1366h-agent", { shortlist: historyOf(ShortlistDto) });
 

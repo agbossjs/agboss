@@ -92,13 +92,13 @@ describe("#270 AC2: variant and isVariant", () => {
   });
 });
 
-describe("#299 S56: historyOf(Dto, { limit }) — the current value and the earlier versions", () => {
+describe("#299 S56: historyOf(Dto, { maxPrevious }) — the current value and the earlier versions", () => {
   it("is a frozen descriptor with its class and its limit", () => {
     expect(historyOf(OfferDraftDto)).toEqual({ kind: Wrapper.History, dto: OfferDraftDto });
-    expect(historyOf(OfferDraftDto, { limit: 2 })).toEqual({
+    expect(historyOf(OfferDraftDto, { maxPrevious: 2 })).toEqual({
       kind: Wrapper.History,
       dto: OfferDraftDto,
-      limit: 2,
+      maxPrevious: 2,
     });
     expect(Object.isFrozen(historyOf(OfferDraftDto))).toBe(true);
   });
@@ -112,8 +112,8 @@ describe("#299 S56: historyOf(Dto, { limit }) — the current value and the earl
 
   it("is written in messages as in code", () => {
     expect(shapeLabel(historyOf(OfferDraftDto))).toBe("historyOf(OfferDraftDto)");
-    expect(shapeLabel(historyOf(OfferDraftDto, { limit: 2 }))).toBe(
-      "historyOf(OfferDraftDto, { limit: 2 })",
+    expect(shapeLabel(historyOf(OfferDraftDto, { maxPrevious: 2 }))).toBe(
+      "historyOf(OfferDraftDto, { maxPrevious: 2 })",
     );
     expect(slotLabel("list:CritiqueDto" as SlotKey)).toBe("listOf(CritiqueDto)");
   });

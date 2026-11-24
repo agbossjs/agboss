@@ -34,6 +34,7 @@ import {
   variant,
   type Produced,
   type HistoryOf,
+  type HistoryOptions,
   type ValueOf,
 } from "../../src/flow/dto-wrappers.js";
 import type {
@@ -352,8 +353,9 @@ describe("#270 AC22: wrappers compose one way", () => {
 });
 
 describe("#299 S54 / S56: about is the flow's, historyOf an input's", () => {
-  it("historyOf names one DTO class and a limit; only an input field takes it", () => {
-    expectTypeOf(historyOf(DraftDto, { limit: 2 }).dto).toEqualTypeOf<typeof DraftDto>();
+  it("historyOf names one DTO class and a maxPrevious; only an input field takes it", () => {
+    expectTypeOf(historyOf(DraftDto, { maxPrevious: 2 }).dto).toEqualTypeOf<typeof DraftDto>();
+    expectTypeOf<HistoryOptions>().toEqualTypeOf<{ readonly maxPrevious?: number }>();
     expectTypeOf<ValueOf<ReturnType<typeof historyOf<typeof DraftDto>>>>().toEqualTypeOf<
       HistoryOf<DraftDto>
     >();
@@ -363,8 +365,10 @@ describe("#299 S54 / S56: about is the flow's, historyOf an input's", () => {
     optional(historyOf(DraftDto));
     // @ts-expect-error — a list element is a class or a oneOf
     listOf(historyOf(DraftDto));
-    // @ts-expect-error — the limit is a number of versions
-    historyOf(DraftDto, { limit: "2" });
+    // @ts-expect-error — maxPrevious is a number of versions
+    historyOf(DraftDto, { maxPrevious: "2" });
+    // @ts-expect-error — the option is maxPrevious, `limit` is gone (#1285)
+    historyOf(DraftDto, { limit: 2 });
     // @ts-expect-error — a step returns values, never a history of them
     agent(DraftAgent).returns(historyOf(OfferDraftDto));
   });
@@ -375,7 +379,7 @@ describe("#299 S54 / S56: about is the flow's, historyOf an input's", () => {
       description: "Critiques",
       prompt: "Critique it.",
       model: "moonshotai/kimi-k2.6",
-      input: { drafts: historyOf(DraftDto, { limit: 3 }) },
+      input: { drafts: historyOf(DraftDto, { maxPrevious: 3 }) },
       output: listOf(CritiqueDto),
     })
     class TypedCriticAgent {}

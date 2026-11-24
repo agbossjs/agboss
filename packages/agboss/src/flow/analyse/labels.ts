@@ -32,9 +32,9 @@ export function shapeLabel(shape: ValueShape | OutputShape | HistoryWrapper): st
     case Wrapper.OneOf:
       return `oneOf(${sortedVariants(shape).map(dtoLabel).join(", ")})`;
     case Wrapper.History:
-      return shape.limit === undefined
+      return shape.maxPrevious === undefined
         ? `historyOf(${dtoLabel(shape.dto)})`
-        : `historyOf(${dtoLabel(shape.dto)}, { limit: ${String(shape.limit)} })`;
+        : `historyOf(${dtoLabel(shape.dto)}, { maxPrevious: ${String(shape.maxPrevious)} })`;
   }
 }
 

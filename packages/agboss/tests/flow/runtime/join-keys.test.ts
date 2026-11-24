@@ -51,9 +51,9 @@ describe("#268 S93: a DTO's schemaHash is its JSON Schema's", () => {
     expect(describedShapeOf(listOf(NoteDto))).toEqual({ listOf: note });
     expect(describedShapeOf(optional(NoteDto))).toEqual({ optional: note });
     expect(describedShapeOf(oneOf(NoteDto, CountedNoteDto))).toEqual({ oneOf: [note, counted] });
-    expect(describedShapeOf(historyOf(NoteDto, { limit: 2 }))).toEqual({
+    expect(describedShapeOf(historyOf(NoteDto, { maxPrevious: 2 }))).toEqual({
       historyOf: note,
-      limit: 2,
+      maxPrevious: 2,
     });
     expect(describedShapeOf(historyOf(NoteDto))).toEqual({ historyOf: note });
     expect(describedShapeOf({ draft: NoteDto })).toEqual({ fields: { draft: note } });

@@ -11,14 +11,16 @@ import { quorumCounts } from "./quorum-counts.js";
  * Each node's inputs and who can give them (#270 AC18), as `agboss describe` prints them:
  * `prepare-offer-action ← draft: editor-agent | draft-agent (latest), legal: legal-agent (optional)`.
  * `latest` — several producers reach the field and the newest value wins; a `historyOf` field says
- * so, with its limit (#299); a list a quorum counts gives each producer's counts (`critic-agent
+ * so, with its maxPrevious (#299); a list a quorum counts gives each producer's counts (`critic-agent
  * ×1–2`, #279); nothing reaches → `none`.
  */
 
 const historyNote = (field: ResolvedField): readonly string[] => {
   if (field.history === undefined) return [];
-  const { limit } = field.history;
-  return [limit === undefined ? "historyOf" : `historyOf, limit ${String(limit)}`];
+  const { maxPrevious } = field.history;
+  return [
+    maxPrevious === undefined ? "historyOf" : `historyOf, maxPrevious ${String(maxPrevious)}`,
+  ];
 };
 
 function fieldText(

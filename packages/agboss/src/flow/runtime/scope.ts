@@ -106,14 +106,14 @@ function produced(graph: RuntimeGraph, producer: string, value: unknown, variant
   return dto === undefined ? item : withVariant(item, dto);
 }
 
-/** The earlier versions of a `historyOf` field's slot, oldest first, at most its `limit`. */
+/** The earlier versions of a `historyOf` field's slot, oldest first, at most its `maxPrevious`. */
 export function previousOf(
   field: ResolvedField,
   outdatedValues: readonly OutdatedValueRecord[],
 ): readonly OutdatedValueRecord[] {
-  const limit = field.history?.limit;
+  const maxPrevious = field.history?.maxPrevious;
   const versions = outdatedValues.filter((record) => record.slot === field.slot);
-  return limit === undefined ? versions : versions.slice(-limit);
+  return maxPrevious === undefined ? versions : versions.slice(-maxPrevious);
 }
 
 function fieldValue(
