@@ -7,6 +7,14 @@ compile; one workflow is tested through its start with `app.execute`, and a libr
 through a small test `@Application` of its own. Vitest (≥ 3.2) is an
 optional peer dependency.
 
+**A test application names its model provider (#1313, #1328).** `/testing` makes no provider of its
+own: an application that uses a model and names no `modelProvider` fails at assembly with
+`[model.missing-provider]`, in a test as in production. `TestModelProvider` (`@agboss/core/testing`)
+is the provider to name — `@Application({ modelProvider: TestModelProvider })` serves every chat
+agent, and the script (`mockLlm`, `replyWith`) answers each call before the provider is reached. A
+component that decides on a decision model (a judge, arbiter, guardrail or reply interpreter) names
+`modelProvider: TestDecisionsModelProvider`, because a decision model has its own protocol.
+
 ```ts
 // vitest.config.ts — agbossVitest() loads AGBoss in the test's module graph and registers the matchers
 import { defineConfig } from "vitest/config";

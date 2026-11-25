@@ -16,9 +16,9 @@ describe("TestModelProvider", () => {
     await expect(provider.complete({ model: "m" } as ModelProviderRequest)).rejects.toThrow(
       "a test called m with no script for it",
     );
-    await expect(
-      provider.decide({ model: "d", state: "s", questions: {} } as never),
-    ).rejects.toThrow("a test decided on d with no script for it");
+    await expect(provider.decide({ model: "d", state: "s", questions: {} })).rejects.toThrow(
+      "a test decided on d with no script for it",
+    );
     expect(modelProviderOf(TestModelProvider).name).toBe("test-model-provider");
   });
 

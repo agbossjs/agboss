@@ -13,7 +13,6 @@ import { DeskMetricsService } from "./desk/services/desk-metrics.service.js";
 import { AppEnvironment } from "./environments/app.environment.js";
 import { DeskDatabaseStorage } from "./storages/desk.database-storage.js";
 import { HarnessModelProvider } from "./model-providers/harness.model-provider.js";
-import { TestModelProvider } from "../../../packages/agboss/src/testing/test-model-provider.js";
 
 /**
  * The help desk as an application of its own — offline: its only model provider is the transport
@@ -26,7 +25,7 @@ import { TestModelProvider } from "../../../packages/agboss/src/testing/test-mod
  */
 @Application({
   name: "desk-application",
-  modelProvider: TestModelProvider,
+  modelProvider: HarnessModelProvider,
   version: "1.0.0",
   environment: AppEnvironment,
   workflows: [DeskWorkflow],

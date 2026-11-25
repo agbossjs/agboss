@@ -1073,6 +1073,10 @@ export interface TestContextOptions<TExecution extends ExecutionContext, TTenant
 }
 
 // @public
+export class TestDecisionsModelProvider {
+}
+
+// @public
 export function testDto<TDto extends DtoClass>(dto: TDto): DtoTestHarness<InstanceType<TDto>>;
 
 // @public
@@ -1154,6 +1158,14 @@ export interface TestInstanceOptions {
 export interface TestLeases {
     freeze(app: TestApp): void;
     thaw(app: TestApp): void;
+}
+
+// @public
+export class TestModelProvider {
+    // (undocumented)
+    complete(request: ModelProviderRequest): Promise<ModelProviderResponse>;
+    // (undocumented)
+    decide(request: ModelProviderDecisionRequest): Promise<unknown>;
 }
 
 // @public
@@ -1644,6 +1656,8 @@ export interface WorkflowMatchers<R = unknown> {
 // src/testing/test-agent.ts - (ae-undocumented) Missing documentation for "__call".
 // src/testing/test-agent.ts - (ae-undocumented) Missing documentation for "run".
 // src/testing/test-app.ts - (ae-undocumented) Missing documentation for "clock".
+// src/testing/test-model-provider.ts - (ae-undocumented) Missing documentation for "complete".
+// src/testing/test-model-provider.ts - (ae-undocumented) Missing documentation for "decide".
 // src/testing/test-module.ts - (ae-undocumented) Missing documentation for "mockTool".
 // src/testing/test-module.ts - (ae-undocumented) Missing documentation for "mockAction".
 // src/testing/test-module.ts - (ae-undocumented) Missing documentation for "mockService".

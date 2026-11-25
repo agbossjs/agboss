@@ -22,8 +22,7 @@ import { SequentialIdGenerator } from "./id-generator.js";
 import { TestSetupError } from "./errors.js";
 import { McpStubs, stubbedMcpConnect, type McpStub } from "./mcp-stubs.js";
 import { ScriptBook, type ModelScript } from "./script-book.js";
-import { providerKindsOf } from "../models/resolution.js";
-import { createScriptedGateway, type ModelTarget } from "./scripted-gateway.js";
+import { createScriptedGateway, kindsOf, type ModelTarget } from "./scripted-gateway.js";
 import { ModelTargets, scriptKeyOf } from "./model-targets.js";
 import { mcpServersOf, usedComponentsOf } from "./workflow-parts.js";
 import { TestMocks } from "./test-mocks.js";
@@ -182,13 +181,7 @@ export class TestEnvironment {
               (failure) => this.book.report(failure),
             ),
           }
-        : {
-            gateway: createScriptedGateway(
-              this.book,
-              this.clock,
-              providerKindsOf(workflows.flatMap((workflow) => workflow.modelProviders)),
-            ),
-          }),
+        : { gateway: createScriptedGateway(this.book, this.clock, kindsOf(workflows)) }),
       ...tracingOf(options),
       connectMcp: stubbedMcpConnect(this.mcp, labels, real),
       container: { ...this.mocks.container, replacements: bindings.replacements },

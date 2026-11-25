@@ -12,7 +12,9 @@ import type { AnalysisContext } from "./context.js";
  * profile is loaded; this is the one the decorator declares.
  */
 export function historyTtlRules(context: AnalysisContext): readonly RuleViolation[] {
-  const { historyTtl, name } = context.workflow;
+  const { name } = context.workflow;
+  // read as written: a JS caller or a profile may leave it out or give anything
+  const historyTtl: unknown = context.workflow.historyTtl;
   if (historyTtl === undefined) {
     const message =
       `${name} sets no historyTtl — @Workflow({ historyTtl: days(90) }) keeps the history of its finished ` +

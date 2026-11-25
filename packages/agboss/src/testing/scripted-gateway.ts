@@ -1,6 +1,8 @@
 import { shownContentOf } from "../models/messages.js";
 import type { ChatModelUser, DecisionSpec, ModelGateway } from "../llm/gateway.js";
 import type { ProviderKinds } from "../models/use-purpose.js";
+import type { ModelProviderType } from "../models/model-provider.decorator.js";
+import { providerKindsOf } from "../models/resolution.js";
 import { componentOf } from "../components/metadata.js";
 import type { Class } from "../components/injection.js";
 import type { Clock } from "../infrastructure/clock.js";
@@ -161,6 +163,11 @@ function unscriptedSummary(script: ComponentScript): void {
 function unscriptedRanking(script: ComponentScript): void {
   if (!script.isScripted) script.thenReturnAlways(replyWith('{"ranking":[]}'));
 }
+
+/** What each provider of the workflows speaks, by name: what the gateway tells a model's kind by. */
+export const kindsOf = (
+  workflows: readonly { readonly modelProviders: readonly ModelProviderType[] }[],
+): ProviderKinds => providerKindsOf(workflows.flatMap((workflow) => workflow.modelProviders));
 
 /**
  * The model gateway of a test: every chat model and every decision answers by script. A failure
