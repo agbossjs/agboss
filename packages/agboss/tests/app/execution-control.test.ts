@@ -4,9 +4,9 @@
  * (never its thread's other runs; honoured before the run's record exists), a sweep's fence of a
  * reserved id, and where a tree is as its durable records say.
  */
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { PauseClosedError } from "../../src/app/pause-closed-error.js";
 import { CANCEL_REQUEST_KEY } from "../../src/app/cancel-requests.js";
 import {
   DurableExecutionStatus,
@@ -244,7 +244,7 @@ describe("#807 AC2: a cancel of one execution tree", () => {
     expect(paused.status).toBe(ExecutionStatus.Paused);
     expect(outcome).toBe(ExecutionCancelOutcome.Ended);
     await expect(first.resume(answerOf(paused, { approved: true }))).rejects.toBeInstanceOf(
-      PauseClosedError,
+      PauseError.Closed,
     );
     expect(seen.charges).toEqual([]);
     expect(await controlOf(first).executionStateOf(tree())).toEqual({
@@ -388,7 +388,7 @@ describe("#807 AC2: a cancel racing a resume — never both", () => {
     await controlOf(second).cancelExecution(tree());
     const resumed = first.resume(answerOf(paused, { approved: true }));
 
-    await expect(resumed).rejects.toBeInstanceOf(PauseClosedError);
+    await expect(resumed).rejects.toBeInstanceOf(PauseError.Closed);
     expect(seen.charges).toEqual([]);
   });
 

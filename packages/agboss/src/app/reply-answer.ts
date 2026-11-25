@@ -27,7 +27,7 @@ import {
  * closed: its interpreter's model call is checked against the tree's budgets (the amounts read at
  * its start), counted in their ledger at once and traced under the pause's execution; the spend
  * goes into the answer, so the step that takes it adds it to the execution's spend. An unreadable
- * reply throws `UninterpretableReplyError` — its call is counted too — and the pause stays pending.
+ * reply throws `PauseError.UninterpretableReply` — its call is counted too — and the pause stays pending.
  * The reading runs in the pause's execution frame — its tenant, its fields, the waiting step — and
  * its model reads through the application's PII policies, the execution's tokens known. Loaded
  * with the first reply (`lazyReplyAnswering`): the root import stays lean (#205).

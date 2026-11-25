@@ -4,11 +4,12 @@
  * pause is due while its sibling still runs is refused answers (I2) and expired by the holder once
  * the pass came to rest, the launch going on per its failure policy.
  */
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { beforeEach, describe, expect } from "vitest";
 import { ExecutionStatus } from "../../src/app/types.js";
 import { PauseExpiration } from "../../src/channels/pause-expiration.js";
 import { ResumeReason } from "../../src/core/observability.js";
-import { PauseClosedError, PauseExpiredError } from "../../src/errors.js";
+import { PauseExpiredError } from "../../src/errors.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import { hours, seconds } from "../../src/units/index.js";
 import { execute } from "../helpers/flow.js";
@@ -103,7 +104,7 @@ describe("#941 I6: a branch's pause is due while its sibling still runs", () => 
         { actor: { id: "manager-17" } },
       )
       .catch((error: unknown) => error);
-    expect(refused).toBeInstanceOf(PauseClosedError);
+    expect(refused).toBeInstanceOf(PauseError.Closed);
     expect(refused).toMatchObject({ reason: "expired" });
 
     open();

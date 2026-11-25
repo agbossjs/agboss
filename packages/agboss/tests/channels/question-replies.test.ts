@@ -4,8 +4,8 @@
  * #659 AC2: a channel whose `send` throws fails the step as `QuestionFailedError`, which `.onError`
  * takes.
  */
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { describe, expect } from "vitest";
-import { UninterpretableReplyError } from "../../src/index.js";
 import { ReplyInterpreterNotUnderstoodDto } from "../../src/dto/index.js";
 import { PauseStatus, PausedExecutionRepository } from "../../src/index.js";
 import { replyWith, testWith } from "../../src/testing/index.js";
@@ -52,7 +52,7 @@ describe("#659 AC4: a code interpreter reads the reply into the answer", () => {
       .resume({ pauseId, reply: "🤷" }, owner)
       .catch((error: unknown) => error);
 
-    expect(unread).toBeInstanceOf(UninterpretableReplyError);
+    expect(unread).toBeInstanceOf(PauseError.UninterpretableReply);
     expect(unread).toMatchObject({ reason: '"🤷" names no limit' });
     const pauses = app.resolve(PausedExecutionRepository);
     expect((await pauses.findByTenantIdAndPauseId("default", pauseId))?.status).toBe(

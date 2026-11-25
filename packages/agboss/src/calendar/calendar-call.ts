@@ -1,3 +1,4 @@
+import { PauseError } from "../core/error-families/pause-errors.js";
 import { callInFrame, NoticeTimeoutError } from "../app/pause-notice-call.js";
 import type { FrameSpec } from "../flow/context/frame.js";
 import type { Clock } from "../infrastructure/clock.js";
@@ -7,7 +8,6 @@ import {
   DEFAULT_CALENDAR_TIMEOUT,
   isWorkingCalendarHandler,
   isWorkingScheduleResolver,
-  WorkingCalendarError,
   WorkingCalendarProblem,
   type WorkingCalendarContext,
   type WorkingCalendarHandler,
@@ -20,7 +20,7 @@ import { isWorkingWeek, workingTimeBefore, workingWeekProblemsOf } from "./worki
  * calendar's own timeout on the application's clock. A calendar that resolves a schedule
  * (`resolveSchedule`) is asked for it first, and the core walks it. An answer that is not a valid
  * `Date` after `from`, a schedule that is no valid `WorkingWeek`, a throw and a timeout are
- * `WorkingCalendarError`s — never a fallback to the wall clock, a deadline nobody asked for, silently.
+ * `PauseError.WorkingCalendar`s — never a fallback to the wall clock, a deadline nobody asked for, silently.
  */
 
 /** A pause's calendar, by the name its errors give. */
@@ -74,7 +74,7 @@ const requestOf = (
   ...(site.assignees === undefined ? {} : { assignees: site.assignees }),
 });
 
-/** Runs `ask` in the site's frame under the calendar's timeout, any failure as a `WorkingCalendarError`. */
+/** Runs `ask` in the site's frame under the calendar's timeout, any failure as a `PauseError.WorkingCalendar`. */
 async function asked<T>(
   site: CalendarSite,
   calendar: PauseCalendar,
@@ -111,8 +111,8 @@ function failed(
   calendar: PauseCalendar,
   problem: WorkingCalendarProblem,
   cause?: unknown,
-): WorkingCalendarError {
-  const error = new WorkingCalendarError({ calendar: calendar.name, problem, cause });
+): PauseError.WorkingCalendar {
+  const error = new PauseError.WorkingCalendar({ calendar: calendar.name, problem, cause });
   site.log?.warn("pause.working-calendar-failed", error.message, {
     tenantId: site.tenantId,
     executionId: site.frame.execution.executionId,
@@ -129,7 +129,7 @@ function calendarOf(site: CalendarSite): PauseCalendar {
   return site.calendar;
 }
 
-/** `amount` of working time after `from` by the site's calendar, or the `WorkingCalendarError` it fails with. */
+/** `amount` of working time after `from` by the site's calendar, or the `PauseError.WorkingCalendar` it fails with. */
 export async function workingTimeAfter(
   site: CalendarSite,
   from: Date,

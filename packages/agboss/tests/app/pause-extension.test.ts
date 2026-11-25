@@ -6,11 +6,6 @@
  */
 import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { beforeEach, describe, expect, vi } from "vitest";
-import {
-  PauseClosedError,
-  PauseExtensionContendedError,
-  UnknownPauseError,
-} from "../../src/errors.js";
 import { MAX_EXTEND_ATTEMPTS } from "../../src/app/pause-extension.js";
 import { DeadlineExceededError } from "../../src/budgets/execution-deadline.js";
 import { PauseError, PauseClosedReason, PauseStatus, ValidationError } from "../../src/index.js";
@@ -144,7 +139,7 @@ describe("#942 AC1: an operator extends an open approval", () => {
 });
 
 describe("#942 AC2: refused extensions", () => {
-  test("AC2: after the deadline → PauseClosedError expired (before the look expired the pause, and after)", async ({
+  test("AC2: after the deadline → PauseError.Closed expired (before the look expired the pause, and after)", async ({
     app,
     clock,
   }) => {
@@ -165,7 +160,7 @@ describe("#942 AC2: refused extensions", () => {
     );
 
     for (const refused of [early, late]) {
-      expect(refused).toBeInstanceOf(PauseClosedError);
+      expect(refused).toBeInstanceOf(PauseError.Closed);
       expect(refused).toMatchObject({ reason: PauseClosedReason.Expired, closedAt: deadline });
     }
     expect(told.notices.filter((one) => one.kind === "extended")).toEqual([]);
@@ -232,21 +227,23 @@ describe("#942 AC2: refused extensions", () => {
       ).toBeInstanceOf(ValidationError.DtoInvalid);
   });
 
-  test("AC2: another tenant's pause → UnknownPauseError", async ({ app }) => {
+  test("AC2: another tenant's pause → PauseError.UnknownPause", async ({ app }) => {
     await execute(app, managerFlow.start, ORDER, { ...THREAD, tenant: { tenantId: "acme" } });
     const request = { pauseId: pauseIdOf(), expiresIn: hours(30) };
 
-    expect(await failureOf(app.extendPause(request, manager))).toBeInstanceOf(UnknownPauseError);
+    expect(await failureOf(app.extendPause(request, manager))).toBeInstanceOf(
+      PauseError.UnknownPause,
+    );
     expect(
       await failureOf(
         app.extendPause({ ...request, pauseId: "nope" }, { ...manager, tenantId: "acme" }),
       ),
-    ).toBeInstanceOf(UnknownPauseError);
+    ).toBeInstanceOf(PauseError.UnknownPause);
     const extension = await app.extendPause(request, { ...manager, tenantId: "acme" });
     expect(extension.pauseKey).toBe(pauseKeyOf("acme", pauseIdOf()));
   });
 
-  test("a closed pause (answered) → PauseClosedError answered", async ({ app }) => {
+  test("a closed pause (answered) → PauseError.Closed answered", async ({ app }) => {
     await execute(app, managerFlow.start, ORDER, THREAD);
     await app.resume({ pauseId: pauseIdOf(), decision: { approved: true } }, manager);
 
@@ -254,7 +251,7 @@ describe("#942 AC2: refused extensions", () => {
       app.extendPause({ pauseId: pauseIdOf(), expiresIn: hours(30) }, manager),
     );
 
-    expect(refused).toBeInstanceOf(PauseClosedError);
+    expect(refused).toBeInstanceOf(PauseError.Closed);
     expect(refused).toMatchObject({ reason: PauseClosedReason.Answered });
   });
 });
@@ -299,7 +296,7 @@ describe("#942: what is refused first", () => {
       app.extendPause({ pauseId: pauseIdOf(), expiresIn: hours(1) }, manager),
     );
 
-    expect(refused).toBeInstanceOf(PauseClosedError);
+    expect(refused).toBeInstanceOf(PauseError.Closed);
     expect(refused).toMatchObject({ reason: PauseClosedReason.Answered });
   });
 });
@@ -328,7 +325,7 @@ describe("#942: extend and the expiry look at the same tick: one wins (the store
     await clock.advance(seconds(10));
     await until(async () => (await pauseOf(app, pauseIdOf())).status !== PauseStatus.Pending);
 
-    expect(refused).toBeInstanceOf(PauseClosedError);
+    expect(refused).toBeInstanceOf(PauseError.Closed);
     expect(refused).toMatchObject({ reason: PauseClosedReason.Expired });
     expect(told.notices.filter((one) => one.kind === "extended")).toEqual([]);
     expect((await pauseOf(app, pauseIdOf())).expiresAt).toBe(read.expiresAt);
@@ -405,7 +402,7 @@ describe("#1099: racing extensions: the store's compare-and-set decides, 'extend
     expect(told_.at(-1)).toBe(stored);
   });
 
-  test("AC2: a store whose extension always loses the compare-and-set: PauseExtensionContendedError (pause.update-contended) after 8 attempts, nothing told or written", async ({
+  test("AC2: a store whose extension always loses the compare-and-set: PauseError.UpdateContended (pause.update-contended) after 8 attempts, nothing told or written", async ({
     app,
     clock,
   }) => {
@@ -420,7 +417,7 @@ describe("#1099: racing extensions: the store's compare-and-set decides, 'extend
     );
 
     expect(MAX_EXTEND_ATTEMPTS).toBe(8);
-    expect(refused).toBeInstanceOf(PauseExtensionContendedError);
+    expect(refused).toBeInstanceOf(PauseError.UpdateContended);
     expect(refused).toMatchObject({
       code: "pause.update-contended",
       attempts: 8,
@@ -504,7 +501,7 @@ describe("#1099: racing extensions: the store's compare-and-set decides, 'extend
       app.extendPause({ pauseId: pauseIdOf(), expiresIn: hours(40) }, manager),
     );
 
-    expect(refused).toBeInstanceOf(PauseClosedError);
+    expect(refused).toBeInstanceOf(PauseError.Closed);
     expect(refused).toMatchObject({ reason: PauseClosedReason.Answered });
     expect(extendedNotices()).toEqual([]);
   });

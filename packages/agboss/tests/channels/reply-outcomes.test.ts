@@ -2,13 +2,14 @@
  * #267 S124 (PR 4): (a) a decision model (Jev) reads a reply for an approval role — approve / refuse
  * only, one `Decision.boolean("approved")` scripted with `decideWith({ approved: 0.9 })`, no `reason`,
  * no `overrideInput`; (b) a code interpreter returns `ChannelInterpretation.understood(decision)` or
- * `ChannelInterpretation.notUnderstood({ reason })` — the latter is `UninterpretableReplyError` with
+ * `ChannelInterpretation.notUnderstood({ reason })` — the latter is `PauseError.UninterpretableReply` with
  * that reason and the pause stays pending; a throw is a crash (its error the cause); what is neither
  * does not compile, and at run time (a JS interpreter) is a crash too.
  */
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import { ChannelInterpretation } from "../../src/channels/channel-interpreter.js";
-import { PauseStatus, UninterpretableReplyError } from "../../src/index.js";
+import { PauseStatus } from "../../src/index.js";
 import { callTool, decideWith, replyWith, testWith } from "../../src/testing/index.js";
 import { usd } from "../../src/units/index.js";
 import {
@@ -130,7 +131,7 @@ describe("#267 S124 a: a decision model reads an approval's reply", () => {
 });
 
 describe("#267 S124 b: a code interpreter returns its outcome", () => {
-  test("notUnderstood({ reason }): UninterpretableReplyError with that reason, the pause pending", async ({
+  test("notUnderstood({ reason }): PauseError.UninterpretableReply with that reason, the pause pending", async ({
     app,
     mockModel,
   }) => {
@@ -145,7 +146,7 @@ describe("#267 S124 b: a code interpreter returns its outcome", () => {
       .resume({ pauseId, reply: '{"button":"maybe"}' })
       .catch((error: unknown) => error);
 
-    expect(failed).toBeInstanceOf(UninterpretableReplyError);
+    expect(failed).toBeInstanceOf(PauseError.UninterpretableReply);
     expect(failed).toMatchObject({
       code: "pause.uninterpretable-reply",
       reason: 'not an expense button: {"button":"maybe"}',
@@ -172,7 +173,7 @@ describe("#267 S124 b: a code interpreter returns its outcome", () => {
 
     const failed = app.resume({ pauseId: paused.pending[0]?.pauseId ?? "", reply: "no" });
 
-    await expect(failed).rejects.toBeInstanceOf(UninterpretableReplyError);
+    await expect(failed).rejects.toBeInstanceOf(PauseError.UninterpretableReply);
   });
 
   test("what is neither outcome (a JS interpreter's plain object) is a crash, not a decision", async ({
@@ -189,7 +190,7 @@ describe("#267 S124 b: a code interpreter returns its outcome", () => {
       .resume({ pauseId: paused.pending[0]?.pauseId ?? "", reply: "yes" })
       .catch((error: unknown) => error);
 
-    expect(failed).toBeInstanceOf(UninterpretableReplyError);
+    expect(failed).toBeInstanceOf(PauseError.UninterpretableReply);
     expect(failed).toHaveProperty("cause", expect.any(TypeError));
     expect(replyDesk.expenses).toEqual([]);
   });

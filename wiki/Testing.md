@@ -433,7 +433,7 @@ mockModel(RefundReplyInterpreter)
 ```
 
 A text reply (`replyWith("I cannot tell")`) is the model declining: `app.resume` throws
-`UninterpretableReplyError` and the pause stays pending. `.inputs` lists what it read; its request
+`PauseError.UninterpretableReply` and the pause stays pending. `.inputs` lists what it read; its request
 is a chat request (`system`: the framework's text and its `prompt`; `input`: `### ask` and
 `### reply`). An interpreter on a decision model (an approval role's, #267 S124) answers its one
 yes / no question — `mockModel(DepositReplyInterpreter).thenReturn(decideWith({ approved: 0.9 }))`

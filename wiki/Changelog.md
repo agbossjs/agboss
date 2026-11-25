@@ -20,9 +20,9 @@ Breaking changes and notable additions, newest first. The API reports
   (`pauseKey` only: the new pause id is a capability, given to the channel's `send` and to a
   `@PauseListener({ allowAnswering })`). The same channel is asked again — `ChannelAsk.assignee` and
   `ChannelAsk.replaces` (`{ pauseId }`, the old message), absent on a first send — and `onPauseClosed` hears
-  `reason: reassigned` for the old one, in no fixed order; the old id is `PauseClosedError` (`reassigned`,
-  `PauseResolution.Reassigned`); the deadline is kept. Refusals: `PauseClosedError` (closed, expired),
-  `DtoValidationError` (`ReassignPauseRequest`: an `assignee` that is no key's text), `UnknownPauseError`;
+  `reason: reassigned` for the old one, in no fixed order; the old id is `PauseError.Closed` (`reassigned`,
+  `PauseResolution.Reassigned`); the deadline is kept. Refusals: `PauseError.Closed` (closed, expired),
+  `DtoValidationError` (`ReassignPauseRequest`: an `assignee` that is no key's text), `PauseError.UnknownPause`;
   two reassignments, or a reassignment and an answer, at once: exactly one wins.
 - **Added**: a reassignment is counted by #943's metrics: the old pause `agboss.instance.pauses.closed{reason="reassigned"}` (once, by the call whose transaction won), the replacement `agboss.instance.pauses.opened` (once it was asked) — labels `workflow` and `role` only, never an id.
 - **Added**: a step key names no question by itself — a record found by it is reused only for the question it was made for (its kind and ask); another's is refused with an internal `PauseStepKeyMismatchError` (`pause.step-key-mismatch`), never answered. A replacement's `~r<n>` is cut from a step key only for a real replacement (`reassignedFrom` set): an ordinary key a model's tool call id made end in `~r1` is never read as a chain. The failure logs of a reassignment carry error class names only, never a message or an id. Stores: `originalStepKeyOf(pause)` and `replacementStepKeyOf(pause, taken)` take the pause record.
@@ -54,9 +54,9 @@ Breaking changes and notable additions, newest first. The API reports
 ## Unreleased — 0.1.1: extend a pause, remind before its deadline — `app.extendPause`, `remindBefore` (#942, part of #910)
 
 - **Added**: `app.extendPause({ pauseId, expiresIn }, options?: PauseCallerOptions)` → `PauseExtension`
-  (`pauseKey`, `expiresAt`, `previousExpiresAt`); refusals `PauseClosedError` (closed, expired),
+  (`pauseKey`, `expiresAt`, `previousExpiresAt`); refusals `PauseError.Closed` (closed, expired),
   `DtoValidationError` (`ExtendPauseRequest`: no deadline, not later, past the run's or a quorum's deadline;
-  exactly that deadline is allowed) and `UnknownPauseError`. `PauseCallerOptions` = `ThreadOwnerPauseOptions` |
+  exactly that deadline is allowed) and `PauseError.UnknownPause`. `PauseCallerOptions` = `ThreadOwnerPauseOptions` |
   `ChannelPauseOptions` (the caller fields of `ResumeOptions`, which extends them: `app.resume` is unchanged).
 - **Added**: `@ChannelRole({ remindBefore })` (`[channel.remind-before-invalid]`, the warning
   `[channel.remind-before-exceeds-expiry]`); the reminder look of the pause timers (a keyset cursor, no lease,
@@ -73,11 +73,11 @@ Breaking changes and notable additions, newest first. The API reports
 
 - **Added**: `@ChannelRole({ expiresIn })`, `.toQuestion(Role, { expiresIn })` (and the side path), `@Tool({ channel, expiresIn })`;
   the pause's absolute deadline is fixed when it is made (the smaller of it and the run's deadline); `PendingPause.expiresAt`.
-  The deadline is hard: an answer at or after it is `PauseClosedError` (`expired`), decided in the store's compare-and-set.
+  The deadline is hard: an answer at or after it is `PauseError.Closed` (`expired`), decided in the store's compare-and-set.
   The pause timers' expiry look takes the tree under its lease and asks the channel's optional `onPauseExpired(ask)`
   (`PauseExpiryHandler<Role>`): `PauseExpiration.fail()` fails the step with `PauseExpiredError` (`step.pause-expired`,
   an agent's approval fails the agent step, its spend kept), `PauseExpiration.decide(answer)` goes on with the answer, recorded as
-  answered by the channel (`PauseResolution.DecidedOnExpiry`). A handler problem fails the expiry with an `ExpiryHandlerError`
+  answered by the channel (`PauseResolution.DecidedOnExpiry`). A handler problem fails the expiry with an `PauseError.ExpiryHandlerFailed`
   (`pause.expiry-handler`) as the cause. A pause the run's deadline bound fails the run with `DeadlineExceededError`.
 - **Added**: `ResumeReason.Expired` (every pass an expiry starts is announced once, with a decision or without),
   `LeaseTakeoverReason.Expired`, `QuestionStepOptions`; rules `[channel.expires-in-invalid]`, `[tool.expires-in-without-channel]`,
@@ -152,7 +152,7 @@ Breaking changes and notable additions, newest first. The API reports
   look, under the tree's lease). A step marks its answer `Taken` when it consumes it, before it acts; a stopped pass takes
   nothing; a recovery runs a step whose answer was taken but not stored again. Parallel branches resumed one by one no
   longer count a finished branch's loop twice.
-- **Changed — breaking**: a late answer is a `PauseClosedError` (`pause.closed`: `pauseId`, `tenantId`, `reason`,
+- **Changed — breaking**: a late answer is a `PauseError.Closed` (`pause.closed`: `pauseId`, `tenantId`, `reason`,
   `closedAt`) in place of `NotPausedError`, before a reply's interpreter is asked; `NotPausedError` stays for the
   thread-level paths. Over A2A: `-32004`, `a2a.pause-closed` with `reason` and `closedAt`, a fixed text per reason;
   `a2a.already-answered` is no longer written (a kept reply still replays).
@@ -162,7 +162,7 @@ Breaking changes and notable additions, newest first. The API reports
   moment or not".
 - **Added (fault suite)**: s18d holds `pausedRun.delete` and checks the refusal, the pause state, the paused run and
   the log; the pod command `pause-state`.
-- **Migration**: catch `PauseClosedError` where you caught `NotPausedError` for a late answer; implement the paged
+- **Migration**: catch `PauseError.Closed` where you caught `NotPausedError` for a late answer; implement the paged
   `findClosedByResolvedAtBefore` in your pause store.
 
 ## Unreleased — 0.1.1: the pause store contract v2 — deadlines, notices, not-taken answers (#935, part of #910)
@@ -223,7 +223,7 @@ Breaking changes and notable additions, newest first. The API reports
   `new A2AProtocolError({ agent, operation, …, cause })`,
   `new A2ACallerRejectedError({ httpStatus, wireCode, reason })`,
   `new ModelProviderFailureError({ failure, retryAfter })`, `new ToolTimeoutError({ timeout })`, …;
-  an error with only its text: `new UnknownPauseError({ message, cause })` (`FlowSyntaxError`,
+  an error with only its text: `new PauseError.UnknownPause({ message, cause })` (`FlowSyntaxError`,
   `NotPausedError`, `ExecutionCancelledError({ message? })`, the `DecisionError` family, …). `cause`
   was refused or dropped on ten of them (`BusinessKeyConflictError`, `ExecutionError.ThreadIdsExhausted`,
   `ExecutionError.InvalidMintedId`, `FingerprintNotJsonError`, `InvalidBusinessKeyError`,
@@ -1309,7 +1309,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
 - **Fixed**: a chat-model `@ReplyInterpreter` of an approval role gets `overrideArguments` described
   by the approved tool's input (every field optional, laid over the call's own arguments) and an
   `answer-reply-interpreter-not-understood-dto` tool: "ok but only up to $500" can be the capped
-  approval, "🤷" keeps the pause pending with `UninterpretableReplyError` instead of a refusal.
+  approval, "🤷" keeps the pause pending with `PauseError.UninterpretableReply` instead of a refusal.
   New: `ReplyInterpreterNotUnderstoodDto` (`@agboss/core/dto`). [Pauses](Pauses).
 
 ## Unreleased — 0.1.1: a question role cannot be declared (#647)
@@ -3565,12 +3565,12 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
 - **Breaking — a code interpreter returns its outcome** (S124 b): `ReplyInterpreterHandler<Self>.interpret`
   returns `ReplyInterpretation.understood(decision)` or `ReplyInterpretation.notUnderstood({ reason })`
   (sync or a promise; `ReplyInterpretationKind`, `UnderstoodReply`, `NotUnderstoodReply`); a plain
-  object does not compile. `notUnderstood` → `UninterpretableReplyError` with that `reason`, the
+  object does not compile. `notUnderstood` → `PauseError.UninterpretableReply` with that `reason`, the
   pause pending; a `throw` is a crash only (unreadable too, its error the `cause`). Migrating: wrap
   each returned decision in `ReplyInterpretation.understood(…)`, and replace a `throw` that declines
   with `return ReplyInterpretation.notUnderstood({ reason })`; a test's
   `mockOf(I).interpret.mockResolvedValue(decision)` becomes `mockReturnValue(ReplyInterpretation.understood(decision))`.
-- **New — `UninterpretableReplyError.reason`** (every unreadable reply: the interpreter's reason, or
+- **New — `PauseError.UninterpretableReply.reason`** (every unreadable reply: the interpreter's reason, or
   its error's message); its constructor takes `{ reason, cause? }` (`UninterpretableReplyErrorOptions`).
 - **New — `ChildExecutionRecord.pauses`** (S124 c, [Pauses → Who answered](Pauses)): each child's
   record in `result.children` and `result.record.children` lists the resolved pauses its own steps
@@ -3640,9 +3640,9 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
   under `reply-interpreter:<name>`. Either kind reads in the pause's execution frame (its
   `ExecutionContext`: tenant, owner, the waiting step); a model one through the application's and
   the workflow's PII policies, its answer revealed before validation (an unknown token is a decline).
-- **`UninterpretableReplyError`** (`pause.uninterpretable-reply`): a reply nobody can read — the
+- **`PauseError.UninterpretableReply`** (`pause.uninterpretable-reply`): a reply nobody can read — the
   interpreter declined, or its answer is invalid (the reason as `cause`); the pause stays `Pending`.
-  **`ReplyInterpreterMissingError`** (`pause.no-reply-interpreter`): a `reply` for a role without an
+  **`PauseError.ChannelInterpreterMissing`** (`pause.no-reply-interpreter`): a `reply` for a role without an
   interpreter, the pause untouched.
 - Assembly: `[reply-interpreter.not-an-interpreter]`, `[reply-interpreter.decision-model]`,
   `[reply-interpreter.no-interpret-method]`, `[name.kind-suffix]` for `-reply-interpreter`; model
@@ -3662,7 +3662,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
 - **Retention**: `@Application({ pauseRecordRetention })`, default `hours(24)` — resolved records
   (`Taken`, `Cancelled`) are removed by the recovery sweep through
   `PausedExecutionRepository.deleteResolvedBefore(cutoff)`; within the window a late answer is
-  `NotPausedError`, after it `UnknownPauseError`; `Pending` is never removed.
+  `NotPausedError`, after it `PauseError.UnknownPause`; `Pending` is never removed.
 - **Breaking — `PausedExecutionRepository`** (a project's own implementation changes):
   `PauseRecord.resolution` (the decision and who answered) is now **`answer: PauseAnswer`**
   (`decision`, `answerer`, `usage?`) — the interface `PauseResolution` became `PauseAnswer`, and
@@ -3823,7 +3823,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
 - **Breaking — resume by pause id:** `app.resume(threadId, decision, { tenantId, ownerId })` →
   **`app.resume({ pauseId, decision }, { tenantId, ownerId | answeredBy })`** (`ResumeRequest`,
   `ResumeOptions = ThreadOwnerResumeOptions | ChannelResumeOptions`). The pause is found by
-  `(tenantId, pauseId)` anywhere in the tree; unknown or another tenant's → **`UnknownPauseError`**
+  `(tenantId, pauseId)` anywhere in the tree; unknown or another tenant's → **`PauseError.UnknownPause`**
   (`pause.unknown`); with others left the execution pauses again with the rest. A
   `PauseAnswerer.ThreadOwner` pause lists its id and takes `ownerId`; a `PauseAnswerer.Channel` pause
   takes a non-empty `answeredBy` (recorded on the pause and in `onExecutionResume`, new field

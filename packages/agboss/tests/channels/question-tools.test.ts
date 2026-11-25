@@ -3,14 +3,10 @@
  * role like a tool (input = the role's ask), the loop pauses on the role's channel, and the typed
  * answer comes back to the model as the call's result.
  */
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { describe, expect } from "vitest";
 import { ExecutionStatus } from "../../src/app/types.js";
-import {
-  PauseStatus,
-  PausedExecutionRepository,
-  UninterpretableReplyError,
-  ValidationError,
-} from "../../src/index.js";
+import { PauseStatus, PausedExecutionRepository, ValidationError } from "../../src/index.js";
 import { PauseKind } from "../../src/pause/index.js";
 import { callTool, replyWith, testWith, type ModelRequest } from "../../src/testing/index.js";
 import {
@@ -169,7 +165,7 @@ describe("#712 AC3: the answer is validated as the role's answer DTO", () => {
     const pauseId = paused.pending[0]?.pauseId ?? "";
 
     await expect(app.resume({ pauseId, reply: "🤷" }, owner)).rejects.toBeInstanceOf(
-      UninterpretableReplyError,
+      PauseError.UninterpretableReply,
     );
     const pending = await app
       .resolve(PausedExecutionRepository)

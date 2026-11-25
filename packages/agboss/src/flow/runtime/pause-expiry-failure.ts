@@ -1,3 +1,4 @@
+import { PauseError } from "../../core/error-families/pause-errors.js";
 import { effectiveBoundOf } from "../../infrastructure/pause-bound.js";
 import type { BudgetCheck } from "../../budgets/budget-check.js";
 import { DeadlineExceededError } from "../../budgets/execution-deadline.js";
@@ -5,7 +6,7 @@ import { totalCost, type UsageRecord } from "../../finops/usage.js";
 import { PauseExpiryBound, type PauseRecord } from "../../infrastructure/pause-record.js";
 import { seconds, type Milliseconds } from "../../units/index.js";
 import { currentFrame } from "../context/frame.js";
-import { ExpiryHandlerError, PauseExpiredError } from "./pause-expired-error.js";
+import { PauseExpiredError } from "./pause-expired-error.js";
 import { ComponentKind } from "./records.js";
 
 /**
@@ -38,10 +39,10 @@ export interface ExpirySite {
 }
 
 /** The pause's expiry problem as the error it fell back with, from its record (no handler error is kept). */
-const causeOf = (pause: PauseRecord): ExpiryHandlerError | undefined =>
+const causeOf = (pause: PauseRecord): PauseError.ExpiryHandlerFailed | undefined =>
   pause.expiryProblem === undefined
     ? undefined
-    : new ExpiryHandlerError({
+    : new PauseError.ExpiryHandlerFailed({
         channel: pause.channel ?? pause.target,
         problem: pause.expiryProblem,
       });

@@ -60,25 +60,7 @@ export const fixtures: Readonly<Record<string, object>> = Object.fromEntries([
   fx(root.CostLedgerEntryExpiredError, { ledgerIds: ["l-1"], prunedBefore: new Date(0) }),
   fx(root.CostLedgerEntryInvalidError, { index: 0, reason: "no id" }),
   fx(stores.InvalidA2APageTokenError, {}),
-  fx(root.PauseExtensionContendedError, { pauseKey: "default:p-1", attempts: 8 }),
-  fx(root.UnknownPauseError, { message }),
   fx(root.NotPausedError, { message }),
-  fx(root.PauseClosedError, {
-    pauseId: "p-1",
-    tenantId: "default",
-    reason: root.PauseClosedReason.Cancelled,
-    closedAt: "2026-01-05T09:00:00.000Z",
-  }),
-  fx(root.ExpiryHandlerError, {
-    channel: "refund-approval-channel",
-    problem: root.ExpiryProblem.HandlerFailed,
-  }),
-  fx(root.WorkingCalendarError, {
-    calendar: "tenant-holidays-working-calendar",
-    problem: root.WorkingCalendarProblem.CalendarFailed,
-  }),
-  fx(root.ReplyInterpreterMissingError, { message }),
-  fx(root.UninterpretableReplyError, { message, reason: "no verdict" }),
   fx(root.EvalCaseInvalidError, {
     suite: "refund-suite",
     issues: [{ case: "c-1", path: "input", reason: "missing" }],

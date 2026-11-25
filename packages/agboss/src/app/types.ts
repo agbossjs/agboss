@@ -111,7 +111,7 @@ export interface ExecutionOptions extends CallOptions {
 /**
  * What `app.resume` answers a pause with (#267): its id and exactly one of a typed `decision` or a
  * free-text `reply` — read by the pause's role's `@ChannelInterpreter`, the pause staying pending when
- * it cannot be read (`UninterpretableReplyError`).
+ * it cannot be read (`PauseError.UninterpretableReply`).
  */
 export type ResumeRequest = DecisionResumeRequest | ReplyResumeRequest;
 
@@ -232,7 +232,7 @@ export interface App<TApp = unknown> {
   ): Promise<ExecutionOutput<ExecutionOutputOf<InstanceType<TStart>>>>;
   /**
    * Answers one pause (#267): found by `(options.tenantId, request.pauseId)` anywhere in its
-   * execution tree (unknown, or another tenant's → `UnknownPauseError`), checked against who may
+   * execution tree (unknown, or another tenant's → `PauseError.UnknownPause`), checked against who may
    * answer it, its decision validated, then recorded (`Pending → Resolved`, atomic; a second
    * answer → `NotPausedError`) and the tree moved under its lease. With other pauses left the
    * execution pauses again with the rest. The result carries `threadId` and `executionId`.
@@ -245,12 +245,12 @@ export interface App<TApp = unknown> {
    * Moves an open pause's deadline later (#942): `expiresAt = now + expiresIn`, by whoever may
    * answer it (`answeredBy` for a channel's pause, `ownerId` for its thread owner's, as `resume`).
    * The channel and the listeners hear "extended" and, `remindBefore` before the new deadline,
-   * "expiring". Refused: a pause that is closed or past its deadline (`PauseClosedError`), one with
+   * "expiring". Refused: a pause that is closed or past its deadline (`PauseError.Closed`), one with
    * no deadline, a deadline not later than the current one, or one past the deadline of the run (or
    * quorum) it was made under (`ValidationError.DtoInvalid`, `dto: "ExtendPauseRequest"`); another tenant's
-   * or an unknown pause is `UnknownPauseError`. Atomic at the store against the expiry look; a call
+   * or an unknown pause is `PauseError.UnknownPause`. Atomic at the store against the expiry look; a call
    * that loses the store's compare-and-set to other writers 8 times in a row is
-   * `PauseExtensionContendedError` (`pause.update-contended`; nothing changed, retry is safe).
+   * `PauseError.UpdateContended` (`pause.update-contended`; nothing changed, retry is safe).
    */
   extendPause(
     request: ExtendPauseRequest,
@@ -262,16 +262,16 @@ export interface App<TApp = unknown> {
    * (`PauseError.PermissionDenied` otherwise). A pause that stays with its target and channel is
    * changed in place — the same id, its `externalRef` kept, its deadline kept unless `timeout` says
    * otherwise — and its channel is told `onPauseReassigned`. One moved to another channel or target is
-   * made again: a new pause with a new id (the old id answers nothing any more, `PauseClosedError`,
+   * made again: a new pause with a new id (the old id answers nothing any more, `PauseError.Closed`,
    * reason `reassigned`) that the new channel is sent (`ChannelAsk.replaces` names the old id), while
    * the old channel is told `onPauseClosed(Reassigned)`; its chain of custody goes with it. The
    * agent and the step do not run again. The listeners and the observers hear one `onPauseReassigned`.
-   * Refused: a pause that is closed or past its deadline (`PauseClosedError`; of two reassignments, or
+   * Refused: a pause that is closed or past its deadline (`PauseError.Closed`; of two reassignments, or
    * a reassignment and an answer, at the same moment exactly one wins), one reassigned as often as
    * its `escalationLimits.maxReassignments` allow (`PauseError.EscalationLimitExceeded`), a target
    * of another kind or other DTOs (`PauseError.IncompatibleTarget`), a bad assignee list
    * (`ValidationError.DtoInvalid`, `dto: "ReassignPauseRequest"`); another tenant's or an unknown pause is
-   * `UnknownPauseError`. The new id of a moved pause is returned to no caller: only its key. The new
+   * `PauseError.UnknownPause`. The new id of a moved pause is returned to no caller: only its key. The new
    * send is made by this call; when the instance dies first, another instance's timers send it.
    */
   reassignPause(

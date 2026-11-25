@@ -1,4 +1,12 @@
+import type { ExpiryProblem, PauseClosedReason } from "../../infrastructure/pause-record.js";
+import type { WorkingCalendarProblem } from "../../calendar/working-calendar.js";
 import { defineFamily, type ErrorVariant, type FamilyConstructor } from "./family.js";
+import {
+  closedMessageOf,
+  expiryHandlerFailedMessageOf,
+  updateContendedMessageOf,
+  workingCalendarMessageOf,
+} from "./pause-error-messages.js";
 
 /** The kinds of `PauseError`: `switch (error.kind)` is exhaustive. */
 export enum PauseErrorKind {
@@ -43,7 +51,13 @@ export declare namespace PauseError {
   export type UnknownPause = ErrorVariant<PauseErrorKind.UnknownPause, "pause.unknown-pause">;
   /** The pause was closed before the answer came. */
   export type Closed = ErrorVariant<PauseErrorKind.Closed, "pause.closed"> & {
-    readonly reason: string;
+    /** The pause the caller answered: the id they passed. Never in `details`: a pause id is a credential. */
+    readonly pauseId: string;
+    /** The tenant that has the pause: with the id it makes the `pauseKey` the message names. */
+    readonly tenantId: string;
+    readonly reason: PauseClosedReason;
+    /** When it closed (ISO 8601). */
+    readonly closedAt: string;
   };
   /** The answer came from someone the pause does not wait for. */
   export type WrongRespondent = ErrorVariant<
@@ -69,27 +83,38 @@ export declare namespace PauseError {
   export type UninterpretableReply = ErrorVariant<
     PauseErrorKind.UninterpretableReply,
     "pause.uninterpretable-reply"
-  >;
+  > & {
+    /** Why the reply was not read: the interpreter's own reason, or its error's message. */
+    readonly reason?: string | undefined;
+  };
   /** The channel has no reply interpreter. */
   export type ChannelInterpreterMissing = ErrorVariant<
     PauseErrorKind.ChannelInterpreterMissing,
     "pause.channel-interpreter-missing"
-  > & { readonly channel: string };
+  > & { readonly channel?: string | undefined };
   /** A pause's expiry handler failed. */
   export type ExpiryHandlerFailed = ErrorVariant<
     PauseErrorKind.ExpiryHandlerFailed,
     "pause.expiry-handler-failed"
-  > & { readonly channel: string };
+  > & { readonly channel: string; readonly problem: ExpiryProblem };
   /** A working-calendar deadline cannot be computed. */
   export type WorkingCalendar = ErrorVariant<
     PauseErrorKind.WorkingCalendar,
     "pause.working-calendar"
-  >;
+  > & {
+    readonly calendar?: string | undefined;
+    readonly problem?: WorkingCalendarProblem | undefined;
+  };
   /** Two updates of one pause raced. */
   export type UpdateContended = ErrorVariant<
     PauseErrorKind.UpdateContended,
     "pause.update-contended"
-  >;
+  > & {
+    /** The pause's `pauseKey` (a message is logged and observed: never its bare id). */
+    readonly pauseKey?: string | undefined;
+    /** How many times the call read and tried. */
+    readonly attempts?: number | undefined;
+  };
   /** An answer is for another step than the pause's. */
   export type StepKeyMismatch = ErrorVariant<
     PauseErrorKind.StepKeyMismatch,
@@ -125,16 +150,16 @@ export const PauseError: FamilyConstructor<
   variants: {
     NotPaused: ["the thread is not paused"],
     UnknownPause: ["no such pause"],
-    Closed: ["the pause was closed before the answer came"],
+    Closed: [closedMessageOf, undefined, undefined, ["pauseId", "tenantId"]],
     WrongRespondent: ["the answer came from someone the pause does not wait for"],
     PermissionDenied: ["the caller may not answer this pause"],
     EscalationLimitExceeded: ["the pause was escalated as often as it may be"],
     IncompatibleTarget: ["the new target of a pause does not fit its kind or DTO"],
     UninterpretableReply: ["a reply could not be read as an answer"],
     ChannelInterpreterMissing: ["the channel has no reply interpreter"],
-    ExpiryHandlerFailed: ["a pause's expiry handler failed"],
-    WorkingCalendar: ["a working-calendar deadline cannot be computed"],
-    UpdateContended: ["two updates of one pause raced"],
+    ExpiryHandlerFailed: [expiryHandlerFailedMessageOf],
+    WorkingCalendar: [workingCalendarMessageOf],
+    UpdateContended: [updateContendedMessageOf],
     StepKeyMismatch: ["an answer is for another step than the pause's"],
     InvalidTimeout: ["a pause's timeout is not a valid duration"],
   },

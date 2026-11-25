@@ -1,9 +1,10 @@
 /**
  * #267 AC10: a `FailFast` failure cancels its launch, paused siblings too — their pauses are
  * withdrawn (`Cancelled`), the tree goes on to the join instead of waiting, and a late answer gets
- * `PauseClosedError`; a join's deadline counts elapsed time, pauses included (#279:
+ * `PauseError.Closed`; a join's deadline counts elapsed time, pauses included (#279:
  * `tests/flow/runtime/quorum-deadline.test.ts`).
  */
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { beforeEach, describe, expect } from "vitest";
 import { PauseClosedReason, PauseStatus } from "../../src/index.js";
 import { AgentFailedError } from "../../src/graph/errors.js";

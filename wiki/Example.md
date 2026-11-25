@@ -152,7 +152,7 @@ npm test
   (`ChannelOutcome.awaitReply()`). The execution rests with two pauses in `result.pending`; every
   store of the application is SQLite, so they wait across processes. `npm run answer -- <pauseId…>
   [--decline]` answers waiting pauses from another process — two at once, or a second press that
-  gets `PauseClosedError`. In the tests, `testWith(FlowPatternsApplication, { instances: 2 })`
+  gets `PauseError.Closed`. In the tests, `testWith(FlowPatternsApplication, { instances: 2 })`
   pauses on one instance and resumes both pauses on the other ([Several instances](Several-instances)):
   the test sets `AGBOSS_SQLITE_PATH` to one fresh file for the instances' SQLite storage, since
   `:memory:` is one database per connection.

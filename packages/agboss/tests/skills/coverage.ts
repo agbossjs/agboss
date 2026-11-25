@@ -1,3 +1,4 @@
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 /**
  * The skill matrix of #305 (AC1): the public names each skill file covers. Each name appears in
@@ -138,8 +139,13 @@ export const SKILL_COVERAGE: SkillCoverage = {
     ...["ToolCallApprovalDecisionDto"],
     ...["AutoApproveChannel", "AutoRejectChannel"],
     ...["hours"],
-    ...["NotPausedError", "PauseClosedError", "UnknownPauseError", "PauseError"],
-    ...["PauseExpiration", "PauseExpiryHandler", "PauseExpiredError", "ExpiryHandlerError"],
+    ...["NotPausedError", "PauseError.Closed", "PauseError.UnknownPause", "PauseError"],
+    ...[
+      "PauseExpiration",
+      "PauseExpiryHandler",
+      "PauseExpiredError",
+      "PauseError.ExpiryHandlerFailed",
+    ],
     ...[
       "ExtendPauseRequest",
       "PauseExtension",
@@ -153,8 +159,12 @@ export const SKILL_COVERAGE: SkillCoverage = {
       "ChannelListenerExpiringEvent",
       "ChannelListenerJoinFailedEvent",
     ],
-    ...["UninterpretableReplyError"],
-    ...["ReplyInterpreterMissingError", "ExecutionError.IncompatibleResume", "WorkflowSettings"],
+    ...["PauseError.UninterpretableReply"],
+    ...[
+      "PauseError.ChannelInterpreterMissing",
+      "ExecutionError.IncompatibleResume",
+      "WorkflowSettings",
+    ],
   ],
   "references/07-guardrails-pii-and-security.md": [
     ...["InputGuardrail", "OutputGuardrail", "GuardrailRefusal", "GuardrailBlockedError"],
@@ -261,7 +271,13 @@ export const SKILL_COVERAGE: SkillCoverage = {
       "IncompatibleResume",
       "ExecutionError.IncompatibleResume",
     ],
-    ...["ResumeDecision", "NotPausedError", "PauseClosedError", "UnknownPauseError", "createApp"],
+    ...[
+      "ResumeDecision",
+      "NotPausedError",
+      "PauseError.Closed",
+      "PauseError.UnknownPause",
+      "createApp",
+    ],
     ...["testWith"],
     ...["Clock", "ApplicationContext", "IdGenerator", "seconds", "hours"],
     ...["ExecutionHistoryRepository", "ExecutionHistoryStatus"],
@@ -298,10 +314,10 @@ export const SKILL_COVERAGE: SkillCoverage = {
       "ExecutionError.UnknownThread",
       "NotPausedError",
       "ExecutionError.InvalidThreadId",
-      "UnknownPauseError",
+      "PauseError.UnknownPause",
     ],
-    ...["PauseError", "UninterpretableReplyError", "ReplyInterpreterMissingError"],
-    ...["PauseExtensionContendedError"],
+    ...["PauseError", "PauseError.UninterpretableReply", "PauseError.ChannelInterpreterMissing"],
+    ...["PauseError.UpdateContended"],
     ...["ExecutionError.IncompatibleResume", "ValidationError", "ExecutionContextUnavailableError"],
     ...["ToolTimeoutError", "ModelCallError", "ModelKindError", "DecisionError"],
     ...["ModelProviderFailureError", "ModelProvider"],

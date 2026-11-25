@@ -3,10 +3,10 @@
  * channel's answer, a pause already closed is applied once (a no-op), and what the run did after
  * the decision — a hand-over, an end — is the run's own outcome, never a failed send.
  */
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { channelDecisionOf } from "../../src/app/channel-decision.js";
 import { ExecutionLeaseLostError } from "../../src/app/lease-lost.js";
-import { PauseClosedError } from "../../src/app/pause-closed-error.js";
 import { PauseClosedReason, PauseResolution } from "../../src/infrastructure/pause-record.js";
 import { pauseOf } from "../../src/testing/contracts/paused-execution-data.js";
 
@@ -15,7 +15,7 @@ vi.mock("../../src/app/resume.js", () => ({ recordedAnswer: recorded.fn }));
 
 const pause = pauseOf("p-1");
 const closed = () =>
-  new PauseClosedError({
+  new PauseError.Closed({
     pauseId: "p-1",
     tenantId: "default",
     reason: PauseClosedReason.Answered,

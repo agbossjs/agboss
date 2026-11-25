@@ -4,16 +4,11 @@
  * again, a cancel withdraws it, another tenant or owner cannot answer it, the role's `maxVisits`
  * bounds the calls of one visit, and a channel that fails fails the agent's step.
  */
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { describe, expect } from "vitest";
-import { UnknownPauseError } from "../../src/run/resume-agent.js";
 import { AgentFailedError } from "../../src/graph/errors.js";
-import {
-  PauseClosedError,
-  PauseStatus,
-  PausedExecutionRepository,
-  ValidationError,
-} from "../../src/index.js";
+import { PauseStatus, PausedExecutionRepository, ValidationError } from "../../src/index.js";
 import { VisitsLimitExceededError } from "../../src/flow/runtime/errors.js";
 import { callTool, callTools, replyWith, testWith } from "../../src/testing/index.js";
 import type { TestApp } from "../../src/testing/test-app.js";
@@ -55,12 +50,12 @@ const statusOf = async (app: TestApp, pauseId: string): Promise<PauseStatus | un
     ?.status;
 
 describe("#712 AC4: exactly one answer wins", () => {
-  test("AC4: a second answer after the first is PauseClosedError", async ({ app, mockModel }) => {
+  test("AC4: a second answer after the first is PauseError.Closed", async ({ app, mockModel }) => {
     mockModel(BuyerAgent).thenReturn(callTool(ApproverExternalTask, laptop), replyWith("done"));
     const paused = await execute(app, BuyerWorkflowStart, { text: "buy" }, asking);
     const done = await app.resume(answerOf(paused, yes), owner);
 
-    await expect(app.resume(answerOf(paused, no), owner)).rejects.toBeInstanceOf(PauseClosedError);
+    await expect(app.resume(answerOf(paused, no), owner)).rejects.toBeInstanceOf(PauseError.Closed);
     expect(done).toFinishWith(BuyerWorkflowFinish, { text: "done" });
     expect(mockModel(BuyerAgent).requests).toHaveLength(2);
   });
@@ -82,7 +77,7 @@ describe("#712 AC4: exactly one answer wins", () => {
     const lost = settled.flatMap((each): unknown[] =>
       each.status === "rejected" ? [each.reason] : [],
     );
-    expect(lost).toEqual([expect.any(PauseClosedError)]);
+    expect(lost).toEqual([expect.any(PauseError.Closed)]);
     // the model read the answer once: its second turn, after exactly one answer
     expect(mockModel(BuyerAgent).requests).toHaveLength(2);
   });
@@ -115,7 +110,9 @@ describe("#712 AC4: cancel, tenants and owners", () => {
     await app.cancel("buy-1", owner);
 
     expect(await statusOf(app, pauseId)).toBe(PauseStatus.Cancelled);
-    await expect(app.resume(answerOf(paused, yes), owner)).rejects.toBeInstanceOf(PauseClosedError);
+    await expect(app.resume(answerOf(paused, yes), owner)).rejects.toBeInstanceOf(
+      PauseError.Closed,
+    );
   });
 
   test("AC4: another tenant's id is unknown; another owner is refused; it stays pending", async ({
@@ -128,7 +125,7 @@ describe("#712 AC4: cancel, tenants and owners", () => {
 
     await expect(
       app.resume(answerOf(paused, yes), { tenantId: "acme", ownerId: "alice" }),
-    ).rejects.toBeInstanceOf(UnknownPauseError);
+    ).rejects.toBeInstanceOf(PauseError.UnknownPause);
     await expect(app.resume(answerOf(paused, yes), { ownerId: "mallory" })).rejects.toBeInstanceOf(
       ExecutionError.ThreadOwnerMismatch,
     );

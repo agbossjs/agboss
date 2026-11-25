@@ -73,7 +73,7 @@ export interface DeadlineSite {
 /**
  * A quorum's deadline from the moment of dispatch, in epoch milliseconds; none without one. A plain
  * duration is added to `now`; working time (`workDays(5)`) is asked of the quorum's `@WorkingCalendar`
- * (#1306), by the same call a pause's deadline is — a calendar that fails is a `WorkingCalendarError`.
+ * (#1306), by the same call a pause's deadline is — a calendar that fails is a `PauseError.WorkingCalendar`.
  */
 export async function quorumDeadlineAt(
   quorum: Quorum | undefined,
@@ -97,7 +97,7 @@ export async function quorumDeadlineAt(
 /**
  * The ticket of the launch a visit takes: its branches, counted after the step's own visit. The
  * quorum's deadline is asked of its calendar only when branches will run (a list past `maxItems`
- * dispatches none); a calendar's failure is thrown as `WorkingCalendarError`.
+ * dispatches none); a calendar's failure is thrown as `PauseError.WorkingCalendar`.
  */
 export async function launchTicketOf(
   visit: LaunchingVisit,

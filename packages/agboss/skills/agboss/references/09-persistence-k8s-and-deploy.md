@@ -510,8 +510,8 @@ or `secret`, `optional` / `has a default`) — the list for the manifest.
   versions of one workflow do not run side by side in one application — keep the old version
   deployed until its paused executions are answered, or accept them with the policy.
 - Resolved pause records are kept `retention.pauseRecords` (default `hours(24)`), then removed by the
-  sweep: a late answer is `PauseClosedError` within it (`NotPausedError` is the thread-level miss),
-  `UnknownPauseError` after. `Pending` is never
+  sweep: a late answer is `PauseError.Closed` within it (`NotPausedError` is the thread-level miss),
+  `PauseError.UnknownPause` after. `Pending` is never
   removed.
 
 ## Execution history: `retention.executionRecords` and `agboss executions export`

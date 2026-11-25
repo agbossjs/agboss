@@ -1,5 +1,6 @@
+import { PauseError } from "@agboss/core";
 import { afterEach, describe, expect, vi } from "vitest";
-import { ExecutionStatus, PauseClosedError, PauseKind, type ExecutionOutput } from "@agboss/core";
+import { ExecutionStatus, PauseKind, type ExecutionOutput } from "@agboss/core";
 import { callTool, replyWith, TestConcurrency, testWith } from "@agboss/core/testing";
 import { FlightBuyerAgent } from "../../../../src/approvals/agents/flight-buyer/flight-buyer.agent.js";
 import { VenueBuyerAgent } from "../../../../src/approvals/agents/venue-buyer/venue-buyer.agent.js";
@@ -87,7 +88,7 @@ describe("two purchases wait for the thread's owner at once", () => {
     },
   );
 
-  test("one answer pressed twice: the second gets PauseClosedError", async ({
+  test("one answer pressed twice: the second gets PauseError.Closed", async ({
     app,
     mockModel,
     mockService,
@@ -102,7 +103,7 @@ describe("two purchases wait for the thread's owner at once", () => {
     const answer = { pauseId: pauseIdOf(paused, "venue-buyer-agent"), decision: APPROVE };
     const first = await app.resume(answer, OWNER);
 
-    await expect(app.resume(answer, OWNER)).rejects.toBeInstanceOf(PauseClosedError);
+    await expect(app.resume(answer, OWNER)).rejects.toBeInstanceOf(PauseError.Closed);
     expect(first.pending.map((pause) => pause.step)).toEqual(["flight-buyer-agent"]);
   });
 

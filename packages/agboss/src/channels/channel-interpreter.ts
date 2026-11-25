@@ -32,7 +32,7 @@ export interface UnderstoodChannelInterpretation<out TOutput> {
   readonly output: TOutput;
 }
 
-/** The reply was not understood: `reason` is the `UninterpretableReplyError`'s. */
+/** The reply was not understood: `reason` is the `PauseError.UninterpretableReply`'s. */
 export interface NotUnderstoodChannelInterpretation {
   readonly [channelInterpretation]: true;
   readonly kind: ChannelInterpretationKind.NotUnderstood;
@@ -50,7 +50,7 @@ export const ChannelInterpretation = {
     const built = { kind: ChannelInterpretationKind.Understood, output } as const;
     return Object.freeze(built) as UnderstoodChannelInterpretation<TOutput>;
   },
-  /** The reply was not understood: `app.resume` throws `UninterpretableReplyError` with `reason`. */
+  /** The reply was not understood: `app.resume` throws `PauseError.UninterpretableReply` with `reason`. */
   notUnderstood(reason: string): NotUnderstoodChannelInterpretation {
     const built = { kind: ChannelInterpretationKind.NotUnderstood, reason } as const;
     return Object.freeze(built) as NotUnderstoodChannelInterpretation;

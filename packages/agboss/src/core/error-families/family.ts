@@ -98,6 +98,8 @@ export type VariantSpec = readonly [
   code?: string,
   /** Makes the facts the variant keeps (and its record's details) of the ones it was given: a remote text never gets past it. */
   keep?: (facts: never) => object,
+  /** Facts the variant keeps that stay off its record's `details` (an id that is a credential). */
+  hidden?: readonly string[],
 ];
 
 /** The names of a family constructor's variants. */
@@ -172,7 +174,7 @@ function variantOf(
   if (typeof kind !== "string" || !isVariantSpec(spec))
     throw new TypeError(`${family.name}.${variant} is not declared`);
   const kindName: string = kind;
-  const [defaultMessage, ownCode, keep] = spec;
+  const [defaultMessage, ownCode, keep, hidden = []] = spec;
   const code = ownCode ?? `${family.code}.${kind}`;
   const Variant = class extends Base {
     static override readonly code: string = code;
@@ -200,7 +202,12 @@ function variantOf(
         notes,
         help,
         suggestionPatch,
-        details: { ...detailsOf(facts), ...(isDetails(details) ? details : {}) },
+        details: {
+          ...detailsOf(
+            Object.fromEntries(Object.entries(facts).filter(([key]) => !hidden.includes(key))),
+          ),
+          ...(isDetails(details) ? details : {}),
+        },
       });
       Object.assign(this, facts);
       if (family.paid === true) this.usage ??= [];

@@ -221,7 +221,7 @@ quorum (`.joinQuorum(…)`, `.joinQuorumGroups(…)`) counts the answers the arb
 `@Arbitrate(LegalSignOffExternalTask, …)` method judges the task's output DTO, so `{ approved: false }` is
 a valid answer and no vote. Once the quorum is decided — or it can no longer be reached — the pauses
 still open are withdrawn (`PauseResolution.Withdrawn`), and a late answer to one fails with
-`PauseClosedError`. The accepted answers go on as `listOf(AnswerDto)`, which a node below must read.
+`PauseError.Closed`. The accepted answers go on as `listOf(AnswerDto)`, which a node below must read.
 
 ```text
 onStart(ContractCommitteeWorkflowStart)

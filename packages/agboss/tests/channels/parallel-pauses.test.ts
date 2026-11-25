@@ -4,10 +4,11 @@
  * every waiting pause; a pause is resumed by its id anywhere in the tree, and an execution with
  * other pauses left pauses again with the rest.
  */
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { PauseKind } from "../../src/pause/index.js";
 import { beforeEach, describe, expect } from "vitest";
 import { ExecutionStatus } from "../../src/app/types.js";
-import { PauseRespondent, UnknownPauseError } from "../../src/index.js";
+import { PauseRespondent } from "../../src/index.js";
 import { testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
 import {
@@ -96,7 +97,7 @@ describe("#267 AC2: a pause is resumed by its id; the rest keep waiting", () => 
     expect(seen.resumes.map((event) => event.actor?.id)).toEqual(["manager-17", "manager-17"]);
   });
 
-  test("an unknown pause and another tenant's are the same UnknownPauseError", async ({
+  test("an unknown pause and another tenant's are the same PauseError.UnknownPause", async ({
     app,
     mockModel,
   }) => {
@@ -112,9 +113,9 @@ describe("#267 AC2: a pause is resumed by its id; the rest keep waiting", () => 
       },
     );
 
-    await expect(otherTenant).rejects.toBeInstanceOf(UnknownPauseError);
+    await expect(otherTenant).rejects.toBeInstanceOf(PauseError.UnknownPause);
     await expect(otherTenant).rejects.not.toThrow(/acme/);
-    await expect(unknown).rejects.toBeInstanceOf(UnknownPauseError);
+    await expect(unknown).rejects.toBeInstanceOf(PauseError.UnknownPause);
     expect(seen.refunds).toEqual([]);
   });
 });

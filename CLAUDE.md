@@ -1707,9 +1707,9 @@ AnswerDto, respondent, timeout, channelInterpreter?, maxVisits? })` for a questi
   tenant, owner, the waiting step — the rate limits see the tenant); a model one reads the question
   and the reply through the application's and the workflow's PII policies, its answer revealed before
   validation (an unknown token is a decline, a block rule `PiiRefusedError`). Unreadable (not
-  understood, no answer, an invalid one, a crash) → `UninterpretableReplyError`
+  understood, no answer, an invalid one, a crash) → `PauseError.UninterpretableReply`
   (`pause.uninterpretable-reply`, `reason`, `cause` when an error is behind it), the
-  pause stays pending; a target without one → `ReplyInterpreterMissingError`
+  pause stays pending; a target without one → `PauseError.ChannelInterpreterMissing`
   (`pause.channel-interpreter-missing`); `[channel-interpreter.not-an-interpreter]`,
   `[channel-interpreter.no-interpret-method]` at assembly.
 - **Observers are registered only in `@Application({ observers: [...] })`** (#261), not discovered
@@ -2360,7 +2360,7 @@ tenant, execution, onStream, deadline })` (`deadline`, #398: `DeadlineExceededEr
   (`output` is the finish's DTO, `finish`, `path`, `spend`, `threadId`, `tenantId`, `executionId`);
   `app.resume({ pauseId, decision }, { tenantId, ownerId | actor })` answers one pause (#267) —
   by its id, never by thread, found by `(tenantId, pauseId)` anywhere in the tree (unknown or another
-  tenant's → `UnknownPauseError`); `result.pending: PendingPause[]` lists every waiting pause
+  tenant's → `PauseError.UnknownPause`); `result.pending: PendingPause[]` lists every waiting pause
   (parallel branches each pause on their own; the execution rests when nothing else can move) and
   an execution with others left pauses again with the rest. Who may answer is the target's `respondent`:
   `PauseRespondent.Owner` — `ownerId`, the id listed in `result.pending`; `PauseRespondent.Delegate` — `actor: { id, orgId? }` (`id` non-empty,
@@ -2372,7 +2372,7 @@ tenant, execution, onStream, deadline })` (`deadline`, #398: `DeadlineExceededEr
   its tree before `send` (#663: found by tenant, `rootExecutionId` and step key — never another
   tree's, so an id minted again asks again): `Pending` → `Resolved` (an answer) → `Taken` (its step went on), or `Cancelled`
   (withdrawn: a `FailFast` sibling failed, the thread was cancelled, the tree ended) — an answer to
-  any but `Pending` → `PauseClosedError` (`reason`; `NotPausedError` is the thread-level miss). `app.resume({ pauseId, reply }, …)` answers with free text
+  any but `Pending` → `PauseError.Closed` (`reason`; `NotPausedError` is the thread-level miss). `app.resume({ pauseId, reply }, …)` answers with free text
   instead (exactly one of `decision` / a non-empty `reply`, else `ValidationError.DtoInvalid`), read by the
   target's `@ChannelInterpreter` (Components above). Who answered each pause is in
   `result.record.pauses` (`{ includeRecord: true }`, #267 S107): every resolved pause of the tree in the order
@@ -2387,7 +2387,7 @@ askedAt, resolvedAt, decision, asked }`, the decision PII-masked, none when with
   operational state, never read for it. A resolved pause record (`Taken`,
   `Cancelled`) is kept `@Application({ retention: { pauseRecords } })` (default `hours(24)`), then removed by
   the recovery sweep (`PausedExecutionRepository.deleteByResolvedAtBefore(cutoff)`, on the `Clock`): a
-  late answer is `PauseClosedError` within it, `UnknownPauseError` after; `Pending` is never removed. A
+  late answer is `PauseError.Closed` within it, `PauseError.UnknownPause` after; `Pending` is never removed. A
   `Resolved` pause no step took when its tree ends (finished, failed, cancelled — an answer a cancel
   won over, #811 s18c) is marked `Taken` then, its answer kept, so it is removed the same way (#890).
   **Pause notices (#940):** every change of a sent pause writes its notices — `opened` (to listeners), `closed`, `answerNotTaken` —
@@ -2425,7 +2425,7 @@ askedAt, resolvedAt, decision, asked }`, the decision PII-masked, none when with
   warning `[channel.remind-before-exceeds-expiry]` (`flow/analyse/remind-before.ts`: a target's `timeout` ≤ its
   `remindBefore`). `app.extendPause` (`app/pause-extension.ts`; the workflow app's, routed by the composed app like `resume`):
   `actorOf` as an answer, then refusals (`ValidationError.DtoInvalid` `ExtendPauseRequest`: no deadline, not later, past `boundAt`;
-  `PauseClosedError` closed or due), `remindAtOf` recomputed, then `extendByTenantIdAndPauseId` — its CAS is the final word against the
+  `PauseError.Closed` closed or due), `remindAtOf` recomputed, then `extendByTenantIdAndPauseId` — its CAS is the final word against the
   expiry look — and `noticesWritten`; no lease, no tree move. The reminder look (`application/pause-reminder-look.ts`, a look of the
   timers, `ReminderLook`: a sweep of `findPendingByRemindAtBefore(now, 50, after)` pages with the keyset `PauseScanAfter` like the expiry
   look, only trees whose root record's `bundle` is a workflow of the instance, each pause's `remindByTenantIdAndPauseId` with
@@ -2435,14 +2435,14 @@ askedAt, resolvedAt, decision, asked }`, the decision PII-masked, none when with
   four hooks has a mailbox) and a listener's optional methods of the same names.
   **Working time (#944):** `workingHours` / `workingMinutes` (concise `workHours` / `workMin` / `workDays` and `bytes` / `kb` / `mb` / `gb` / `tb`, `ms` / `sec` / `min` / `days` since #1314b-add) (`units/index.ts`: `WorkingDuration`, a frozen `{ [Symbol.for("agboss.units.working-duration")]: true, unit: "ms" | "days", amount }` — `workDays` is `unit: "days"`, a working day of the resolved schedule, never 24 hours (#1310b);
   `units/working-time.ts`: `amountOf` (in the span's own unit), `unitOf`, `isSameSpan`, `spanText`) are accepted by a target's `timeout` / `remindBefore` and by `extendPause`. A calendar is a
-  `WorkingCalendarHandler` (`calendar/working-calendar.ts`: `@WorkingCalendar`, `WorkingCalendarError`): `WorkingWeek.of` / `WorkingWeek.anyOf` (`calendar/working-week.ts`, the grid class; `working-grid.ts`: the `Grid` seam, the registry of problems / grids / reach (`weekReaches`) read at assembly as
+  `WorkingCalendarHandler` (`calendar/working-calendar.ts`: `@WorkingCalendar`, `PauseError.WorkingCalendar`): `WorkingWeek.of` / `WorkingWeek.anyOf` (`calendar/working-week.ts`, the grid class; `working-grid.ts`: the `Grid` seam, the registry of problems / grids / reach (`weekReaches`) read at assembly as
   `[working-calendar.invalid]`; `working-walk.ts`: the walks — `walkMilliseconds` over the union of the grids a day at a time, `walkDays` per grid by local dates, both forward and (mirrored time) backward; `working-add.ts`: unit dispatch, `anyOf` days = earliest forward / latest back;
   `time-zones.ts` — `Intl` offsets with `hourCycle: "h23"`; per local date the UTC segments of `hours \ breaks` over the offset windows around it, merged), a declarative `@WorkingCalendar({ week })` class (a grid made once per class, no instance), a class with `resolveSchedule(ctx)` (the core walks the schedule it returns; an invalid or empty one is `WorkingCalendarProblem.InvalidSchedule`) or a class with `addWorkingTime(ctx)`, resolved by the container; `WorkingCalendarContext` is `{ from, amount: WorkingDuration, tenantId, target?, assignees? }`. A pause's calendar is its target's own `calendar` — there is no application-wide one (`calendar/calendar-source.ts`). `pauseStep` (`flow/runtime/pause.ts`) looks the
   step key up first when its `timeout` is working (`findByTenantIdAndRootExecutionIdAndStepKey`; a re-entry never calls the calendar), then
   `newRecordOf` (`flow/runtime/pause-record-made.ts`: `ownDeadlineOf`, `boundedDeadlineOf` — the run's deadline wall-clock, a tie to the run —,
   `reminderOf`: both working → `calendar.add(askedAt, timeout − remindBefore)`, kept only strictly between the ask and the clamped
   `expiresAt`) asks `workingTimeAfter` (`calendar/calendar-call.ts`: the step's frame, the calendar's own `timeout` (`sec(30)`) on the clock, `workingReminderAt` walks a working reminder back from the clamped deadline (a custom add-only calendar: forward, one unit, else `mixed-units`), a throw / timeout /
-  non-`Date` / not-after-`from` → `WorkingCalendarError`, logged `pause.working-calendar-failed`) before `send`; the question runner and the agent
+  non-`Date` / not-after-`from` → `PauseError.WorkingCalendar`, logged `pause.working-calendar-failed`) before `send`; the question runner and the agent
   approval wrap it in `QuestionFailedError` / `AgentFailedError`. `app.extendPause` (`app/pause-extension.ts`) asks the same in `pauseFrameOf`.
   Rules: `channels/working-time-rules.ts`. `app.cancel(threadId, { tenantId, ownerId })` aborts a
   running execution (its `execute` resolves `ExecutionStatus.Cancelled`, `app/cancelled-output.ts`) or drops a paused one (its pauses withdrawn); **cancel is a hard fence for effects
@@ -2522,7 +2522,7 @@ export class PlanService {
   fenced writes are refused, taken or not, and the holder takes the tree again only by `acquire`, a
   takeover from itself, #534). A `resume` records its decision first — the root's record of a
   resting tree goes `paused → running` (#850), then the pause `Pending → Resolved` atomically, a
-  second resume of one pause gets `PauseClosedError` — then waits for the lease (a resume that dies
+  second resume of one pause gets `PauseError.Closed` — then waits for the lease (a resume that dies
   between the two leaves a `running` root: recovery continues it with the recorded answer, once,
   under the lease; one that dies before the answer, or is refused, leaves it to recovery, which
   rests it at its pause again); the holder continues with one `Command({ resume })`
@@ -2914,7 +2914,7 @@ LimitError` narrows to the union, `switch (err.kind)` is exhaustive, `.onError(L
   `app.close()`, an `onExecutionRejected`, …); a new error
   class gets a `static code`, and **one shape (#906, #890 G8)**: it is made from one options object
   whose keys are its own properties — `new IdempotencyError.KeyConflict({ effect, businessKeyHash, cause })`,
-  an error with only its text `new UnknownPauseError({ message, cause })` — and every one takes a
+  an error with only its text `new PauseError.UnknownPause({ message, cause })` — and every one takes a
   `cause` (kept as `.cause`; `tests/public-api/error-options.test.ts` walks every entry of
   `package.json#exports` for every `Error` subclass — `AGBossError` or not, the `/testing` ones and
   the platform's `RangeError` ones included (`{ message, cause }`,

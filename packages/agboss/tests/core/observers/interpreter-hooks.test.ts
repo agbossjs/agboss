@@ -4,13 +4,13 @@
  * waiting step), before the pause is closed: Read with the spend of its model, or Unreadable, the
  * pause staying pending; never the reply, the ask or the pause's id.
  */
+import { PauseError } from "../../../src/core/error-families/pause-errors.js";
 import { beforeEach, describe, expect } from "vitest";
 import {
   Application,
   ChannelInterpreterOutcome,
   EmptyEnvironment,
   Observer,
-  UninterpretableReplyError,
   type ChannelInterpreterEndEvent,
   type ChannelInterpreterStartEvent,
 } from "../../../src/index.js";
@@ -122,7 +122,7 @@ describe("#1343: onChannelInterpreterStart / onChannelInterpreterEnd", () => {
     await execute(app, TreasuryWorkflowStart, { text: "pay ann $10" });
 
     await expect(app.resume({ pauseId: pauseId(), reply: "hmm" }, manager)).rejects.toBeInstanceOf(
-      UninterpretableReplyError,
+      PauseError.UninterpretableReply,
     );
 
     expect(events).toHaveLength(2);

@@ -1,3 +1,4 @@
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { A2AError } from "../../src/core/error-families/remote-errors.js";
 import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 /**
@@ -20,15 +21,12 @@ import type {
   LimitExceededError,
   PaidStepError,
   StepFailedError,
-  UnknownPauseError,
   BudgetExceededError,
   AgentFailedError,
   QualityGateError,
   RouterFailedError,
   DecisionError,
   ExecutionLeaseLostError,
-  ExpiryHandlerError,
-  WorkingCalendarError,
   PauseExpiredError,
 } from "../../src/index.js";
 
@@ -100,8 +98,10 @@ describe("#941: the pause deadline's errors", () => {
     expectTypeOf<PauseExpiredError["code"]>().toEqualTypeOf<"step.pause-expired">();
     expectTypeOf<PauseExpiredError["code"]>().toExtend<StepFailedError["code"]>();
     expectTypeOf<PauseExpiredError["code"]>().toExtend<PaidStepError["code"]>();
-    expectTypeOf<ExpiryHandlerError["code"]>().toEqualTypeOf<"pause.expiry-handler-failed">();
-    expectTypeOf<WorkingCalendarError["code"]>().toEqualTypeOf<"pause.working-calendar">();
+    expectTypeOf<
+      PauseError.ExpiryHandlerFailed["code"]
+    >().toEqualTypeOf<"pause.expiry-handler-failed">();
+    expectTypeOf<PauseError.WorkingCalendar["code"]>().toEqualTypeOf<"pause.working-calendar">();
   });
 });
 
@@ -109,7 +109,7 @@ type Failure =
   | IdempotencyError.KeyConflict
   | ExecutionError.ThreadIdsExhausted
   | ExecutionError.Fenced
-  | UnknownPauseError
+  | PauseError.UnknownPause
   | StepFailedError;
 
 describe("#906 AC2: switch (error.code) narrows over a union of instances", () => {
@@ -126,7 +126,7 @@ describe("#906 AC2: switch (error.code) narrows over a union of instances", () =
           expectTypeOf(error).toEqualTypeOf<ExecutionError.Fenced>();
           return error.scopeKey;
         case "pause.unknown-pause":
-          expectTypeOf(error).toEqualTypeOf<UnknownPauseError>();
+          expectTypeOf(error).toEqualTypeOf<PauseError.UnknownPause>();
           return error.message;
         default:
           // what is left: the step failures only

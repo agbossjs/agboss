@@ -4,6 +4,7 @@
  * before its pause took the answer, accepted after it (logged), or — an unexpected failure, its
  * pause still pending — the request failed (logged).
  */
+import { PauseError } from "../../../src/core/error-families/pause-errors.js";
 import { ExecutionError } from "../../../src/core/error-families/run-errors.js";
 import { ValidationError } from "../../../src/index.js";
 import { describe, expect, it } from "vitest";
@@ -13,12 +14,7 @@ import {
   settledOutcome,
   type KeptReply,
 } from "../../../src/a2a/server/a2a-follow-up-outcome.js";
-import { UnknownPauseError } from "../../../src/run/resume-agent.js";
 import { PauseClosedReason } from "../../../src/infrastructure/pause-record.js";
-import {
-  ReplyInterpreterMissingError,
-  UninterpretableReplyError,
-} from "../../../src/channels/decision.js";
 import { NotPausedError } from "../../../src/run/resume-agent.js";
 import { scriptOf, unitParts } from "./support/unit-parts.js";
 
@@ -124,15 +120,15 @@ describe("#824: a resume that settled", () => {
   });
 
   it("refused before its pause took the answer, whether the pause still waits or not", () => {
-    const reply = new UninterpretableReplyError({ message: "x", reason: "r" });
+    const reply = new PauseError.UninterpretableReply({ message: "x", reason: "r" });
     for (const isStillPending of [true, false])
       expect(
         [
           new NotPausedError({ message: "x" }),
-          new UnknownPauseError({ message: "x" }),
+          new PauseError.UnknownPause({ message: "x" }),
           new ExecutionError.ThreadOwnerMismatch({ message: "x" }),
           reply,
-          new ReplyInterpreterMissingError({ message: "x" }),
+          new PauseError.ChannelInterpreterMissing({ message: "x" }),
         ].map((error) => outcomeOf(error, isStillPending).outcome),
       ).toEqual([
         { refused: "unsupported", code: "a2a.no-pending-pause" },

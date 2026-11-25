@@ -1,6 +1,7 @@
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { beforeEach, describe, expect, vi } from "vitest";
-import { CompensationReason, PauseClosedError } from "../../src/index.js";
+import { CompensationReason } from "../../src/index.js";
 import { ExecutionCancelledError } from "../../src/core/errors.js";
 import { callTool, testWith } from "../../src/testing/index.js";
 import type { TestApp } from "../../src/testing/test-app.js";
@@ -68,7 +69,7 @@ describe("a cancel of a paused tree (Q6)", () => {
       "release-room-action",
     ]);
     await expect(app.resume(answerOf(paused, { approved: true }))).rejects.toBeInstanceOf(
-      PauseClosedError,
+      PauseError.Closed,
     );
   });
 

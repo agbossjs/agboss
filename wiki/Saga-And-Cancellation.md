@@ -21,7 +21,7 @@ onStart(OrderWorkflowStart)
 
 `app.cancel(threadId)` stops a running run **softly**: the run stops before its next model or tool call
 and `execute` resolves with `status: ExecutionStatus.Cancelled` (a cancel is an outcome, not an error, #1341). A paused run is dropped
-instead (its `resume` then throws `PauseClosedError`, `reason: cancelled`). `{ cancelled }` is `false` when the thread had
+instead (its `resume` then throws `PauseError.Closed`, `reason: cancelled`). `{ cancelled }` is `false` when the thread had
 neither.
 
 **The undo on cancel (#340 PR 3).** A cancelled execution's open undoable actions

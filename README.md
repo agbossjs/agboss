@@ -560,7 +560,7 @@ runs graphify.
 1. **[`01-hello-agboss`](https://github.com/agbossjs/agboss-examples/tree/main/01-hello-agboss)** — First-run starter, real async HTTP service DI (`PricingCatalogService` with `ExecutionContext.signal` + `step.idempotencyKey`), production HTTP server (`src/http/server.ts` with multi-tenant headers, `202 Accepted` on pauses, and `/health/live` + `/health/ready` probes), and `testWith` + `mockService`.
 2. **[`02-path-scope-proof`](https://github.com/agbossjs/agboss-examples/tree/main/02-path-scope-proof)** — Side-by-side proof of 4 production graph bugs (`[input.missing-on-path]`, `[input.outdated-on-path]`, `[launch.branch-outdates-sibling]`, `[flow.uncompensated-action]`) that pass `tsc --noEmit` in raw LangGraph `Annotation.Root` (`langgraph-broken/`) and are caught before runtime by `agboss check` (`agboss-broken/` vs `agboss-fixed/`).
 3. **[`03-support-refund-desk`](https://github.com/agbossjs/agboss-examples/tree/main/03-support-refund-desk)** — Support & refund desk proving reversible `@PiiPolicy` (`tokenize()`, `revealPii: true`, `PiiRefusedError`), `@ToolInterceptor` (`reply`, `block`), `@InputGuardrail` (`DecidedBy.Code`), `@OutputGuardrail`, in-memory BM25/TF-IDF `@Rag` (`InMemoryKnowledgeIndexService` + `RefundPolicyRetriever`), `PolicyAwareCompaction`, and a 5-loop `@EvalSuite` with compact git-tracked `eval/baseline/main-baseline.json` and `agboss eval calibrate` (Cohen's $\kappa$).
-4. **[`04-travel-booking-saga`](https://github.com/agbossjs/agboss-examples/tree/main/04-travel-booking-saga)** — Transactional multi-step saga (`compensateWith` / `committedBy`) across `payment-saga`, `budget-saga`, `quorum-saga` (`.inParallel([…]).arbitratedBy(…).joinQuorum({ min: 2, max: 2 })`), and `hitl-hold-saga` (`onPauseClosed()`, `PauseClosedError`, SQLite WAL crash recovery, and HTTP `202 Accepted` pause adapter).
+4. **[`04-travel-booking-saga`](https://github.com/agbossjs/agboss-examples/tree/main/04-travel-booking-saga)** — Transactional multi-step saga (`compensateWith` / `committedBy`) across `payment-saga`, `budget-saga`, `quorum-saga` (`.inParallel([…]).arbitratedBy(…).joinQuorum({ min: 2, max: 2 })`), and `hitl-hold-saga` (`onPauseClosed()`, `PauseError.Closed`, SQLite WAL crash recovery, and HTTP `202 Accepted` pause adapter).
 5. **[`05-cluster-work-stealing`](https://github.com/agbossjs/agboss-examples/tree/main/05-cluster-work-stealing)** — Multi-instance horizontal scaling with `ChildPlacement.AnyWorker`, `SqliteDriver`, recursive a thunk of its own class (`() => Self`) (`maxDepth: 2`), 30s SQLite leases & fencing (`ExecutionLeaseLostError`), `maxConcurrentSteps: 2` backpressure (`HealthComponentKind.StepSlots`), `@HealthCheck`, and `ExecutionError.IncompatibleResume`.
 6. **[`06-enterprise-agent-mesh`](https://github.com/agbossjs/agboss-examples/tree/main/06-enterprise-agent-mesh)** — 3-service mesh (`apps/1-order-gateway`, `apps/2-billing-a2a`, `apps/3-catalog-mcp`) over `@A2AAgent` / `@A2AEndpoint` and `@McpServer` / `@McpEndpoint`, Ed25519 mesh envelope (A2A message metadata / MCP `_meta`), the billing Agent Card tested and called by the official SDK client, `MeshLoopDetectedError` & `HopsLimitExceededError`, MCP `_meta.callId` deduplication via `SqliteMeshRequestRepository`, and `agboss check --federation` Blast Radius.
 7. **[`07-langgraph-migration`](https://github.com/agbossjs/agboss-examples/tree/main/07-langgraph-migration)** — Side-by-side comparison of raw `@langchain/langgraph` (`before-langgraph/support.graph.ts` with 15-field `Annotation.Root` God State, string-keyed `addConditionalEdges`, unbounded `Send()`, dynamic prompt interpolation) vs AGBoss (`after-agboss/src/` + `after-agboss/tests/` with 10 narrow `@Dto`s, `@Router`, bounded `.toParallelAgents()`, `@Action`, `@Channel`, and `agboss check --strict`).
@@ -1212,7 +1212,7 @@ stop its siblings, the execution pauses only when nothing else can move, and `re
 lists every waiting pause (`PendingPause`: `kind`, `respondent`, `target`, `step`, `channel?`, `itemIndex`,
 `childExecutionId`, the `input` asked with — and a `toolCall` — read after narrowing on `kind`). A pause is answered by its id, never by its thread —
 `app.resume({ pauseId, decision }, options)` — found by `(tenantId, pauseId)` anywhere in the tree
-(unknown, or another tenant's → `UnknownPauseError`, `pause.unknown`); with other pauses left the
+(unknown, or another tenant's → `PauseError.UnknownPause`, `pause.unknown`); with other pauses left the
 execution pauses again with the rest; the result carries `threadId` and `executionId`. Who may answer is
 the pause target's `respondent`: a `PauseRespondent.Owner` pause lists its `pauseId` in
 `result.pending` and is resumed with the thread's `ownerId` (another → `ExecutionError.ThreadOwnerMismatch`); a
@@ -1261,9 +1261,9 @@ tenant. A model interpreter reads the question and the reply through the applica
 workflow's PII policies, like an agent: its answer is revealed before it is validated, a token no
 map knows is a decline, a block rule throws `PiiRefusedError`. A reply nobody can read — not
 understood, a model that gives no answer, an answer the role rejects, a crash — throws
-`UninterpretableReplyError` (`pause.uninterpretable-reply`; `reason` says why, `cause` is the error
+`PauseError.UninterpretableReply` (`pause.uninterpretable-reply`; `reason` says why, `cause` is the error
 behind it, if any) and the pause stays pending, so the webhook can ask again or answer with a `decision`; a
-`reply` for a role without an interpreter is `ReplyInterpreterMissingError`
+`reply` for a role without an interpreter is `PauseError.ChannelInterpreterMissing`
 (`pause.channel-interpreter-missing`), the pause untouched.
 
 <!-- snippet-context
@@ -1361,7 +1361,7 @@ below never changes it; the pause records are operational state. A resolved paus
 record (`Taken`, `Cancelled`) is kept `@Application({ retention: { pauseRecords } })` — default
 `hours(24)` — after it was resolved, then removed by the recovery sweep
 (`PausedExecutionRepository.deleteByResolvedAtBefore(cutoff)`, on the `Clock`): within it a late answer
-is `PauseClosedError` (its `reason` and `closedAt`), after it `UnknownPauseError`; a pending pause is never removed. When a tree
+is `PauseError.Closed` (its `reason` and `closedAt`), after it `PauseError.UnknownPause`; a pending pause is never removed. When a tree
 ends, its stored paused run is removed and every pause it still has is closed: a waiting one
 `Cancelled` (a cancel) or `TreeEnded`; an answered (`Resolved`) one no step took — a cancel that won
 over the answer — closed the same way with its answer kept, and the answer log says _not taken_; one
@@ -1390,7 +1390,7 @@ or a cancel; there is no redelivery API.
 the target a deadline, fixed when the pause is made (a deploy that changes it never moves an open
 pause); the timeout is required, at least `seconds(1)` (`[limits.timeout-invalid]`), and there are no per-step or per-tool overrides.
 A run's deadline bounds every pause too: the smaller wins, a tie goes to the run. The deadline is
-hard: an answer at or after it is refused with `PauseClosedError` (`reason: expired`, `closedAt` the
+hard: an answer at or after it is refused with `PauseError.Closed` (`reason: expired`, `closedAt` the
 deadline) — atomically in the store, whoever raced — and within seconds the pause timers' expiry look
 takes the tree, asks the channel's optional `onPauseExpired(ask)` (`implements
 PauseExpiryHandler<Role>`) what the expiry means and records one decision: `PauseExpiration.fail()` —
@@ -1401,7 +1401,7 @@ recorded as answered by the channel (`PauseResolution.DecidedOnExpiry`; an appro
 `approved: true` runs its tool with no person having looked). The handler runs under the tree's lease
 in the pause's frame under the tool's timeout, once per expiry — again only after a crash before its
 decision was recorded — so it must have no effects of its own; a throw, a timeout, a value that is no
-expiration or an invalid answer fails the expiry (`ExpiryHandlerError` as the cause, `pause.expiry-handler-failed`
+expiration or an invalid answer fails the expiry (`PauseError.ExpiryHandlerFailed` as the cause, `pause.expiry-handler-failed`
 warned, never its message). A pause the run's deadline bound fails the run with
 `DeadlineExceededError` and asks nobody. A cancel always beats an expiry; `result.pending[].expiresAt`
 and `agboss describe` show the deadlines. Over A2A the task goes `WORKING`, then `FAILED`
@@ -1412,7 +1412,7 @@ hours(24) }, { actor })` (the `ownerId` for a thread owner's pause: who may answ
 moves an open pause's deadline to `now + expiresIn` and returns `PauseExtension` (`pauseKey`,
 `expiresAt`, `previousExpiresAt`); the channel's optional `onPauseTimeoutChanged(event)` and a
 `@ChannelListener`'s `onPauseTimeoutChanged` hear "extended until …". Refused: a closed pause or one past its
-deadline (`PauseClosedError`, `reason: expired`), a pause with no deadline (none is ever added), a
+deadline (`PauseError.Closed`, `reason: expired`), a pause with no deadline (none is ever added), a
 deadline not later than the current one, and one past the deadline of the run the pause was made
 under (`ValidationError.DtoInvalid`, `dto: "ExtendPauseRequest"`) — atomically in the store against the
 expiry look: one wins. `@ToolApproval({ timeout: hours(24), remindBefore: hours(2) })` makes the
@@ -1427,12 +1427,12 @@ channel is asked again — `send` gets a new `pauseId`, `ChannelAsk.assignees` a
 (`{ pauseId }` of the old message; both absent on a first send) — and its optional
 `onPauseClosed(event)` hears `reason: reassigned` for the old message, in no fixed order: the channel
 may edit the old message from `send` or from the notice. The old id answers nothing
-(`PauseClosedError`, `reason: reassigned`); the new pause keeps the deadline (extend it separately);
+(`PauseError.Closed`, `reason: reassigned`); the new pause keeps the deadline (extend it separately);
 the call returns `PauseReassignment` (`pauseKey` only: the new id is a capability, it goes to the
 channel and to a `@ChannelListener({ includePauseIds })`, never to the caller or a log). One implementation
 of the role routes on `assignee` (a Slack user, an address, a queue): no other role or implementation.
-Refused: a closed pause or one past its deadline (`PauseClosedError`), an `assignee` that is no key's text
-(`ValidationError.DtoInvalid`, `dto: "ReassignPauseRequest"`), another tenant's pause (`UnknownPauseError`); two
+Refused: a closed pause or one past its deadline (`PauseError.Closed`), an `assignee` that is no key's text
+(`ValidationError.DtoInvalid`, `dto: "ReassignPauseRequest"`), another tenant's pause (`PauseError.UnknownPause`); two
 reassignments, or a reassignment and an answer, at the same moment: exactly one wins. `send` of the new
 pause is at-least-once: an instance that dies, or a channel that fails, between the write and the send is
 made up by the pause timers of another instance within a minute.
@@ -1448,7 +1448,7 @@ own data; each target names its own `calendar`. A request at 17:30 on a Thursday
 Tel Aviv (Sunday to Thursday, 09:00–18:00, lunch 13:00–14:00) is due Sunday 10:30. The deadline is computed
 once, when the pause opens, before the channel is asked, into `expiresAt` / `remindAt` — a calendar changed
 later does not move open pauses (extend them); a calendar that fails, times out or answers a bad date
-fails the step (`QuestionFailedError` / `AgentFailedError`, cause `WorkingCalendarError`) and nobody is
+fails the step (`QuestionFailedError` / `AgentFailedError`, cause `PauseError.WorkingCalendar`) and nobody is
 asked; the run's deadline stays wall-clock. A working `remindBefore` needs a working `expiresIn`
 (`[channel.remind-before-working-without-working-expiry]`); a working duration needs a calendar
 (`[channel.working-time-without-calendar]`); `[working-calendar.invalid]`.
@@ -1469,14 +1469,14 @@ request, #387, #808) passes them from its
 authenticated caller. `app.cancel(threadId)` aborts a running
 run — it stops before its next model or tool call and `execute` resolves with
 `ExecutionStatus.Cancelled` — or drops a paused one, whose pauses are withdrawn: their `resume` then
-throws `PauseClosedError` (`reason: "cancelled"`);
+throws `PauseError.Closed` (`reason: "cancelled"`);
 `cancelled` is `false` when the thread had neither (a thread the tenant does not have is
 `ExecutionError.UnknownThread`). From `app.close()` on, `execute` and `resume`
 are refused with `ApplicationStoppingError` (`app.stopping`, an `onExecutionRejected`); running executions
 go on and `cancel` still works. An execution tree is moved by one holder at a time (#265, Q58):
 `execute` and `resume` hold its lease (`seconds(30)`, renewed every 7.5 s and before every checkpoint
 write, released when the pass ends). A `resume` first records its decision on its pause (`Pending →
-Resolved`, atomic) — of two resumes of one pause the second gets `PauseClosedError`
+Resolved`, atomic) — of two resumes of one pause the second gets `PauseError.Closed`
 (`reason: "answered"`), as does an answer to a pause its step already took (`Taken`) or one closed
 (`Cancelled`: the thread was cancelled, a sibling branch failed under `FailFast`, its tree ended) —
 with the reason and when it closed, never the pause's id — then waits while another call or instance

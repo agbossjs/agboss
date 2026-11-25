@@ -7,6 +7,7 @@
  * model): `dto.invalid` naming the field and the rule, never the id, in the error and its rejection
  * event. Undefined is no owner; anything else that is not a text is refused as `length`.
  */
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { beforeEach, describe, expect } from "vitest";
 import { KeyTextRule, PauseStatus, ValidationError } from "../../src/index.js";
@@ -82,7 +83,7 @@ describe("#589 AC1: an owner id breaking a rule is refused at execute, resume an
     const onThread = await rejectionOf(
       execute(app, KeyedEffectStart, { text: "order:1" }, { threadId: "th-1", ownerId }),
     );
-    // before the pause or the thread is looked up: not UnknownPauseError / ExecutionError.UnknownThread
+    // before the pause or the thread is looked up: not PauseError.UnknownPause / ExecutionError.UnknownThread
     const resumed = await rejectionOf(
       app.resume({ pauseId: "p-1", decision: { approved: true } }, { ownerId }),
     );

@@ -142,7 +142,7 @@ export interface ResumeTake {
  * recorded may still be `Resolved` (a drain took it and its pass stopped on a cancel) — the lease
  * held, so it first finishes the tree's end (`forgetTree`, idempotent: the answer no step took
  * closed not taken, its paused run removed), gives the lease back and refuses with
- * `PauseClosedError` and the reason the pause closed with.
+ * `PauseError.Closed` and the reason the pause closed with.
  */
 export async function refusedIfFailed(
   parts: TreeEndParts,

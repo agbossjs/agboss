@@ -496,7 +496,7 @@ answer tool, `answer-<output dto>`, and the not-understood tool; a code interpre
 `[reply-interpreter.decision-model]`). `result.pending[i].kind` is `PauseKind.ExternalTask`,
 `step` the task's step, `input` the masked question (opaque: read it after narrowing on `kind`, as
 `const fields: Readonly<Record<string, unknown>> = pending.input`). Exactly one answer wins
-(`PauseClosedError` for the second), another instance continues it, a cancel withdraws it — as any
+(`PauseError.Closed` for the second), another instance continues it, a cancel withdraws it — as any
 pause. The step is no model call and no step of `maxSteps`; the execution's budgets are checked
 before it asks. A tool that names an external task as its `approval` is `[channel.wrong-tool]`.
 
@@ -549,9 +549,9 @@ priceUsd })` (typed by the task's input); `agboss describe` prints `asked at <ag
   and answering one continues it while the rest keep waiting.
 - **`PauseStatus`**: `Pending` → `Resolved` (an answer recorded, atomically) → `Taken` (its step went
   on), or `Cancelled` (withdrawn, cancelled, its tree ended — an answer no step took is closed _not taken_).
-  An answer to anything but `Pending` → `PauseClosedError` with its `reason` and `closedAt` (a double
+  An answer to anything but `Pending` → `PauseError.Closed` with its `reason` and `closedAt` (a double
   click: `answered`; over A2A `-32004` with `code: a2a.pause-closed`); `NotPausedError` stays for the thread-level paths
-  only (a thread with no paused run); an unknown id or another tenant's → `UnknownPauseError`. Resolved records are kept
+  only (a thread with no paused run); an unknown id or another tenant's → `PauseError.UnknownPause`. Resolved records are kept
   `@Application({ retention: { pauseRecords: hours(24) } })`, then removed by the recovery sweep.
 - **`PauseAnswerRecord`** (`result.record.pauses`, with `{ includeRecord: true }`) — the permanent history:
   `pauseId`, `executionId`, `step`, `target`, `channel?`, `respondent`, `actor`, `resolution`
@@ -598,9 +598,9 @@ priceUsd })` (typed by the task's input); `agboss describe` prints `asked at <ag
   tool's or action's own code (`min` / `max` on the input DTO's field for a plain bound). The
   payment guarantees — `Idempotency.runOnce` and `sendOnce`, one charge per business key — hold whatever
   the interpreter reads.
-- **Free text** that cannot be read throws `UninterpretableReplyError` (`pause.uninterpretable-reply`,
+- **Free text** that cannot be read throws `PauseError.UninterpretableReply` (`pause.uninterpretable-reply`,
   `reason`) and the pause stays `Pending`; a target without `channelInterpreter` →
-  `ReplyInterpreterMissingError`. Exactly one of `decision` / a non-empty `reply`, else
+  `PauseError.ChannelInterpreterMissing`. Exactly one of `decision` / a non-empty `reply`, else
   `ValidationError.DtoInvalid`.
 - **A deadline for the answer** (#941): the target's `timeout` — `hours(24)`, at least
   `seconds(1)` — gives every pause of the target an absolute deadline, fixed when the pause is made (a
@@ -609,7 +609,7 @@ priceUsd })` (typed by the task's input); `agboss describe` prints `asked at <ag
   (`[limits.timeout-invalid]` for a bad value). A different deadline for one step is a different
   target — there is no per-step override. A run's deadline bounds every pause too, the smaller wins and
   a tie goes to the run. `result.pending[].expiresAt` shows it.
-  The deadline is **hard**: an answer at or after it is `PauseClosedError` (`reason: expired`,
+  The deadline is **hard**: an answer at or after it is `PauseError.Closed` (`reason: expired`,
   `closedAt` the deadline), decided atomically in the store — an answer and the expiry racing: one
   wins. Within seconds the tree is taken and the target's optional
   `onExpired(ctx)` (`implements PauseExpiryHandler<Target>`, `ctx` = `ExpiredContext`: `input`, `expiresAt`,
@@ -625,7 +625,7 @@ priceUsd })` (typed by the task's input); `agboss describe` prints `asked at <ag
   Without the method the expiry is `fail()`. The handler runs once per expiry — again only after a
   crash before its decision was recorded — so it must only read; a throw, a hang past the tool's
   `timeout`, a value that is no expiration or an invalid answer fails the expiry with an
-  `ExpiryHandlerError` as the cause (`pause.expiry-handler-failed` warned, never the error's message).
+  `PauseError.ExpiryHandlerFailed` as the cause (`pause.expiry-handler-failed` warned, never the error's message).
   A pause the run's deadline bound fails the run with `DeadlineExceededError` and asks the channel
   nothing. `app.cancel` always beats an expiry (the pause is closed `expired`, the run cancelled).
   Over A2A the task goes `WORKING`, then `FAILED` (`step.pause-expired`) or `COMPLETED`; a follow-up
@@ -647,11 +647,11 @@ expiresIn: hours(24) }, { actor })` (the `ownerId` for an owner's pause — who 
   channel's optional `onPauseTimeoutChanged(event)` (`ChannelPauseTimeoutChangedEvent`, + `previousExpiresAt`) and a
   listener's `onPauseTimeoutChanged` (`ChannelListenerTimeoutChangedEvent`) hear "moved to …", the reminder is
   made again before the new deadline. Refused: a closed pause or one past its deadline —
-  `PauseClosedError` (`reason: expired`) —, a pause with no deadline (none is ever added), a deadline
+  `PauseError.Closed` (`reason: expired`) —, a pause with no deadline (none is ever added), a deadline
   not later than the current one, and one past the deadline of the run (or quorum) the pause was made
   under (exactly that deadline is allowed) — `ValidationError.DtoInvalid` (`dto: "ExtendPauseRequest"`);
-  another tenant's pause is `UnknownPauseError`; `escalationLimits` on the target bounds the number of
-  extensions, reassignments and the total time (`PauseExtensionContendedError` when two race for one pause).
+  another tenant's pause is `PauseError.UnknownPause`; `escalationLimits` on the target bounds the number of
+  extensions, reassignments and the total time (`PauseError.UpdateContended` when two race for one pause).
   An extension and the expiry look at one tick: the store lets one win.
 - **Reassign a pause** (#946): `await app.reassignPause({ pauseId, assignees: ["deputy-3"] }, { actor })`
   (`ownerId` for an owner's pause; `PauseCallerOptions`, as `extendPause`; `ReassignPauseRequest` also takes a `target`
@@ -662,8 +662,8 @@ expiresIn: hours(24) }, { actor })` (the `ownerId` for an owner's pause — who 
   gets a new `ChannelAsk.pauseId`, `ChannelAsk.assignees` and `ChannelAsk.replaces` (`{ pauseId }`: the old
   message; both absent on a first send) and its `onPauseClosed` hears `reason: reassigned` for the old one
   (`PauseClosedReason.Reassigned`) — in no fixed order: edit the old message from `send`, or from the notice;
-  `onPauseReassigned(event)` hears the move itself. The old id gives `PauseClosedError` (`reassigned`); a closed
-  pause or one past its deadline gives `PauseClosedError`, an `assignee` that is no key's text `ValidationError.DtoInvalid`
+  `onPauseReassigned(event)` hears the move itself. The old id gives `PauseError.Closed` (`reassigned`); a closed
+  pause or one past its deadline gives `PauseError.Closed`, an `assignee` that is no key's text `ValidationError.DtoInvalid`
   (`dto: "ReassignPauseRequest"`); two reassignments, or a reassignment and an answer, at once: exactly one wins.
   A new `send` that fails or never happens (the instance died) is made up by another instance's pause timers within a minute
   (at-least-once: deduplicate by the new `pauseId`). A new `send` that returns `ChannelOutcome.decided(…)` answers the replacement at once, once.
@@ -687,7 +687,7 @@ assignees })` (returns a `WorkingWeek.of(…)` or `WorkingWeek.anyOf([…])`, th
   refuses a plain `expiresIn` there with `ValidationError.DtoInvalid`). A working duration with no `calendar` on the target is
   `[calendar.required-for-working-duration]`. A calendar that throws, times out,
   answers no `Date` or a date not after `from` fails the step — `QuestionFailedError` / `AgentFailedError` with
-  a `WorkingCalendarError` (`pause.working-calendar`) as its `cause` — and nobody is asked; an extension with
+  a `PauseError.WorkingCalendar` (`pause.working-calendar`) as its `cause` — and nobody is asked; an extension with
   it rejects with it. The run's deadline stays wall-clock (the smaller wins, a tie to the run).
 - **Expiry in parallel launches (#945):** a branch whose pause expired ends `BranchStatus.Expired`
   (its error `step.pause-expired` stays in `result.launches`). A pause asked in a quorum branch is
@@ -774,7 +774,7 @@ test("a large refund waits for the manager, then runs", async ({ app, mockModel,
 | `[pause.permit-hook-not-enforced]`                                                                           | a `permit…` hook on a target that cannot enforce it → drop it                                                                                                             |
 | `[working-calendar.invalid]`                                                                                 | a grid with an unknown zone, no days, a bad interval, a break outside the hours, no working minute; a class that is no listed `@WorkingCalendar` → fix it                 |
 | `[working-calendar.duplicate-name]`                                                                          | two listed `@WorkingCalendar` classes with one `name` → give each its own                                                                                                 |
-| `WorkingCalendarError`                                                                                       | a pause's calendar failed (`pause.working-calendar`, `calendar-failed` \| `calendar-timeout` \| `not-a-date` \| `not-after-start`) → the step's `cause`; nobody was asked |
+| `PauseError.WorkingCalendar`                                                                                       | a pause's calendar failed (`pause.working-calendar`, `calendar-failed` \| `calendar-timeout` \| `not-a-date` \| `not-after-start`) → the step's `cause`; nobody was asked |
 | `[di.ambiguous-implementation]`                                                                              | two implementations of one service → keep one (one per application)                                                                                                       |
 | `[di.infrastructure-in-workflow]`                                                                            | a channel or a provider in `@Workflow({ providers })` → `@Application({ channels })` / `({ providers })`                                                                  |
 | `[application.in-memory-pauses]`                                                                             | pauses possible on the in-memory stores (a warning; an error under `--strict`) → a durable `@DatabaseStorage`                                                             |

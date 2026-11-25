@@ -15,7 +15,7 @@ import { shownValueOf } from "../core/shown-value.js";
 export interface RetentionOptions {
   /**
    * A resolved pause record (`Taken`, `Cancelled`) after it was resolved (#267 S107): within it a
-   * late answer gets `NotPausedError`, after it `UnknownPauseError`. A pending pause is never
+   * late answer gets `NotPausedError`, after it `PauseError.UnknownPause`. A pending pause is never
    * removed. Default `hours(24)`.
    */
   readonly pauseRecords?: Milliseconds;

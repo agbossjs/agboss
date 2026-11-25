@@ -8,12 +8,7 @@
 import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { describe, expect } from "vitest";
 import { ExecutionStatus } from "../../src/app/types.js";
-import {
-  PauseError,
-  PauseClosedError,
-  PauseStatus,
-  PausedExecutionRepository,
-} from "../../src/index.js";
+import { PauseError, PauseStatus, PausedExecutionRepository } from "../../src/index.js";
 import { PauseKind } from "../../src/pause/index.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import { hours } from "../../src/units/index.js";
@@ -151,7 +146,7 @@ describe("#1307c: permitAnswer gates the answer of a delegate approval", () => {
     policy.asked.length = 0;
 
     await expect(app.resume({ pauseId, decision: approve }, dana)).rejects.toBeInstanceOf(
-      PauseClosedError,
+      PauseError.Closed,
     );
     expect(policy.asked).toEqual([]);
     expect(app.resolve(PermitRefunds).refunded).toEqual(["A-1"]);
@@ -168,7 +163,7 @@ describe("#1307c: permitAnswer gates the answer of a delegate approval", () => {
     await clock.advance(hours(5));
 
     await expect(app.resume({ pauseId, decision: approve }, dana)).rejects.toBeInstanceOf(
-      PauseClosedError,
+      PauseError.Closed,
     );
     expect(app.resolve(PermitPolicy).asked).toEqual([]);
     expect(app.resolve(PermitRefunds).refunded).toEqual([]);

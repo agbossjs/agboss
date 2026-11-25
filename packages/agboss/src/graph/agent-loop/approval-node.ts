@@ -1,5 +1,5 @@
+import { PauseError } from "../../core/error-families/pause-errors.js";
 import { ValidationError } from "../../core/error-families/effect-errors.js";
-import { WorkingCalendarError } from "../../calendar/working-calendar.js";
 import type { AsyncNode } from "../types.js";
 import { awaitingApproval } from "./boundary.js";
 import { toolNamed } from "./deps.js";
@@ -146,7 +146,7 @@ async function askedOrFailed<TAnswer>(
     return await ask();
   } catch (error) {
     // a calendar that could not answer (#944): nobody was asked, the agent's step fails
-    const isCalendar = error instanceof WorkingCalendarError;
+    const isCalendar = error instanceof PauseError.WorkingCalendar;
     if ((isQuestion && error instanceof ValidationError.DtoInvalid) || isCalendar)
       throw new AgentFailedError({ agent: deps.agent.name, usage: loopUsage(state), cause: error });
     // its pause's deadline passed (#941): the whole agent step fails, its spend kept

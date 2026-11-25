@@ -361,7 +361,7 @@ for ± lease/2, ± lease, ± 10 × lease and ± 1 % drift).
 
 **Two resumes at once.** A resume has two phases: it first records its decision on its pause (the
 pause goes `Pending → Resolved` atomically — a second resume of the same pause, a double click,
-gets `PauseClosedError`), then takes the tree's lease. While another call or instance holds it, the
+gets `PauseError.Closed`), then takes the tree's lease. While another call or instance holds it, the
 resume waits; the holder continues with one `Command({ resume })` that maps LangGraph's interrupt
 id of every answered pause of the tree, and before it lets the tree rest paused takes the decisions
 resolved meanwhile (the drain), so the waiting call then returns the tree's current
@@ -1089,7 +1089,7 @@ tenants, the resolved pause records (`Taken`, `Cancelled`) resolved more than
 `@Application({ retention: { pauseRecords } })` ago — default `hours(24)` —
 through `PausedExecutionRepository.deleteByResolvedAtBefore(cutoff)`, `cutoff` = the `Clock`'s now minus
 the retention. Every instance may run it; it is idempotent. Within the window a late answer to a
-taken or withdrawn pause gets `PauseClosedError`, after it `UnknownPauseError`; a `Pending` pause is
+taken or withdrawn pause gets `PauseError.Closed`, after it `PauseError.UnknownPause`; a `Pending` pause is
 never removed ([Pauses → a pause's life](Pauses#a-pauses-life)). A project's own
 `PausedExecutionRepository` implements `deleteByResolvedAtBefore` too — one statement over the records'
 status and `resolvedAt` (`SqlitePausedExecutionRepository`: an index on `(status, resolved_at)`). Who

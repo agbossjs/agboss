@@ -7,15 +7,11 @@
  *   is refused, nothing charged, the lease given back;
  * - C3, an ordinary resume on the other instance: finished, one charge, the record answered.
  */
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { beforeEach, describe, expect } from "vitest";
 import { cancelledRecordOutcome } from "../../src/app/cancelled-run.js";
 import { DEFAULT_TENANT_ID } from "../../src/flow/context/tenant-context.js";
-import {
-  ExecutionStatus,
-  PauseClosedError,
-  PauseStatus,
-  type ExecutionOutput,
-} from "../../src/index.js";
+import { ExecutionStatus, PauseStatus, type ExecutionOutput } from "../../src/index.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import type { TestApp } from "../../src/testing/test-app.js";
 import { answerOf, execute } from "../helpers/flow.js";
@@ -51,7 +47,7 @@ async function until(isDone: () => Promise<boolean>, what: string): Promise<void
 }
 
 describe("#901: a resume at its lease take reads whether its tree is over", () => {
-  test("C1 a tree that ended by a real failure (drain's pass threw): the waiting resume -> PauseClosedError, one charge; another tree's resume unaffected", async ({
+  test("C1 a tree that ended by a real failure (drain's pass threw): the waiting resume -> PauseError.Closed, one charge; another tree's resume unaffected", async ({
     apps,
     clock,
     mockModel,
@@ -77,7 +73,7 @@ describe("#901: a resume at its lease take reads whether its tree is over", () =
 
     const moved = execute(first, OrderWorkflowStart, { text: "charge" }, { threadId: "t-c1" });
     await expect(moved).rejects.toBeDefined();
-    await expect(resumed.call).rejects.toBeInstanceOf(PauseClosedError);
+    await expect(resumed.call).rejects.toBeInstanceOf(PauseError.Closed);
     await clock.advance(seconds(31));
     expect(seen.charges).toEqual(["10 USD"]);
     const [record] = (await seen.records[0]?.lastTurns(DEFAULT_TENANT_ID, "t-c1", 1)) ?? [];
@@ -101,7 +97,7 @@ describe("#901: a resume at its lease take reads whether its tree is over", () =
   });
 
   for (const status of ["failed", "guarded"] as const)
-    test(`C2 a pending pause whose root record is ${status}: resume -> PauseClosedError, no charge, lease free`, async ({
+    test(`C2 a pending pause whose root record is ${status}: resume -> PauseError.Closed, no charge, lease free`, async ({
       apps,
       mockModel,
     }) => {
@@ -124,7 +120,7 @@ describe("#901: a resume at its lease take reads whether its tree is over", () =
       const outcome = cancelledRecordOutcome(record.route, record.costUsd);
       await records.complete(record.id, { ...outcome, status, stopReason: `#901 ${status}` });
       await expect(other.resume(answerOf(paused, approve))).rejects.toBeInstanceOf(
-        PauseClosedError,
+        PauseError.Closed,
       );
       expect(seen.charges).toEqual([]);
       // lease free: a new tree on the other instance moves

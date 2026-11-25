@@ -81,7 +81,7 @@ console.log(result.threadId, result.executionId, result.pending.length);
 - **By its id, always** — one way, also when there is only one pause, and without a `threadId`: the
   pause is found by `(tenantId, pauseId)` anywhere in the execution tree (a parallel branch, a child
   at any depth) and the runtime wakes the chain up to the root. An unknown id, or another tenant's,
-  is the same `UnknownPauseError` (`pause.unknown-pause`), with no hint that the id exists elsewhere.
+  is the same `PauseError.UnknownPause` (`pause.unknown-pause`), with no hint that the id exists elsewhere.
 - **The rest keep waiting**: with other pauses left the execution pauses again with them
   (`status: Paused`, the rest in `pending`); the last answer lets it go on to its finish. The result
   carries `threadId` and `executionId`, so a webhook that needs them gets them back.
@@ -149,7 +149,7 @@ await app.resume({ pauseId: replyKey, reply: "ok, but only half" }, { tenantId: 
   to $500" is `{ approved: true, overrideInput: { amountUsd: 500 } }`. Beside it the model has
   `answer-reply-interpreter-not-understood-dto` (`ReplyInterpreterNotUnderstoodDto { reason }`,
   `@agboss/core/dto`) for a reply that does not answer ("🤷", off topic): never a refusal — the pause
-  stays `Pending`, `UninterpretableReplyError.reason` is "the reply does not answer the question:
+  stays `Pending`, `PauseError.UninterpretableReply.reason` is "the reply does not answer the question:
   <its reason>", as a code interpreter's `notUnderstood`. One call per move (`parallel_tool_calls:
   false`); a "not understood" call wins over an answer beside it. The framework's instructions
   and tools (#688) make a one-line `prompt` enough on a cheap model: for a tool approval the
@@ -195,10 +195,10 @@ await app.resume({ pauseId: replyKey, reply: "ok, but only half" }, { tenantId: 
 - **The pause survives a bad reply**: interpretation runs before the pause is closed. A reply that
   cannot be read as a valid answer — a code interpreter's `notUnderstood`, a model that gave no
   answer, an answer invalid for the target, an interpreter that crashed — throws
-  `UninterpretableReplyError` (`pause.uninterpretable-reply`; `reason` — the interpreter's own, or
+  `PauseError.UninterpretableReply` (`pause.uninterpretable-reply`; `reason` — the interpreter's own, or
   the error's message — and `cause` when an error is behind it), and the pause stays `Pending`: ask
   for a clearer answer, or answer with a `decision`. A `reply` for a target without `channelInterpreter` is
-  `ReplyInterpreterMissingError` (`pause.channel-interpreter-missing`), the pause untouched.
+  `PauseError.ChannelInterpreterMissing` (`pause.channel-interpreter-missing`), the pause untouched.
 - Assembly checks, all at once with the channel rules: `[name.not-kebab-case]`,
   `[reply-interpreter.not-an-interpreter]` (a `channelInterpreter` class without `@ChannelInterpreter`),
   `[reply-interpreter.no-interpret-method]`, `[channel.shared-interpreter]` (one class in two roles).
@@ -405,9 +405,9 @@ waits for `app.resume` (channel-less). Everything else is a pause like an approv
   (`PauseResolution.Decided`).
 - `app.resume({ pauseId, decision })` — the decision validated as `AnswerDto` before anything is
   recorded (`ValidationError.DtoInvalid`, the pause still pending); `{ pauseId, reply }` — read by the target's
-  interpreter into `AnswerDto` (not understood → `UninterpretableReplyError`, still pending; no
-  interpreter → `ReplyInterpreterMissingError`). Who may answer is the target's `respondent`, checked as above.
-- Exactly one answer wins (`PauseClosedError` for the second, at the same time too); another instance
+  interpreter into `AnswerDto` (not understood → `PauseError.UninterpretableReply`, still pending; no
+  interpreter → `PauseError.ChannelInterpreterMissing`). Who may answer is the target's `respondent`, checked as above.
+- Exactly one answer wins (`PauseError.Closed` for the second, at the same time too); another instance
   continues it from the checkpoint and the channel is not asked again; `app.cancel` withdraws it
   (its channel's `onPauseClosed` told); `retention.pauseRecords` and `result.record.pauses` as for any
   pause — the record's `kind` is `PauseKind.ExternalTask` (stored, never inferred), its step the
@@ -505,7 +505,7 @@ after a crash — finds the same `pauseId`:
 | `Taken`       | its step took the decision and went on — or its channel decided at once                  |
 | `Cancelled`   | closed with no answer: a sibling failed under `FailFast`, its launch's quorum was decided, the thread was cancelled, the tree ended, or the deadline passed with nobody answering |
 
-An answer to anything but `Pending` → `PauseClosedError` (`pause.closed`: `pauseId`, `tenantId`,
+An answer to anything but `Pending` → `PauseError.Closed` (`pause.closed`: `pauseId`, `tenantId`,
 `reason: PauseClosedReason` — `answered`, `expired`, `cancelled`, `withdrawn`, `tree-ended`,
 `reassigned` —, `closedAt`; its message names the pause by its `pauseKey`, never its id), checked
 before a reply's interpreter is called: a double click, a late answer to a withdrawn question. An
@@ -534,7 +534,7 @@ passed is `expired` from that moment, before the expiry look has moved its tree.
 `@Application({ retention: { pauseRecords } })` after it was resolved — default `hours(24)` — and then
 removed by the [recovery sweep](Several-instances#recovery) (every 30 s, on the `Clock`) through
 `PausedExecutionRepository.deleteByResolvedAtBefore(cutoff)`. Within the window a late answer gets
-`PauseClosedError`; after it the id is unknown — `UnknownPauseError`. A `Pending` pause (and a
+`PauseError.Closed`; after it the id is unknown — `PauseError.UnknownPause`. A `Pending` pause (and a
 `Resolved` one no pass took yet) is never removed, however old. When the tree ends — finished,
 failed or cancelled — its stored paused run is removed (only that run's, never a later run of the
 thread) and every pause it still has is closed: a waiting one `Cancelled` (`PauseResolution.Cancelled`,
@@ -604,7 +604,7 @@ once a `.joinQuorum(…)` / `.joinQuorumGroups(…)` is decided — `max` counte
 deadline passed, it can no longer be reached, or it is found decided when a resume or a recovery
 rebuilds it — every pending pause of the launch's unfinished branches is withdrawn
 (`PauseResolution.Withdrawn`): the join runs in the same call, `result.pending` is empty and a late
-answer gets `PauseClosedError` (`reason: withdrawn`). A deadline that passes while the tree rests (every branch waiting,
+answer gets `PauseError.Closed` (`reason: withdrawn`). A deadline that passes while the tree rests (every branch waiting,
 nothing running) withdraws nothing until the tree moves again: the next pass — a resume, a recovery
 — finds the quorum decided, cancels the unfinished branches and withdraws their pauses then.
 
@@ -1010,7 +1010,7 @@ The step goes on with that answer as if the manager had answered, `actor` the
 target's name in the audit trail (`PauseResolution.DecidedOnExpiry`); `decide` is typed by the target's
 answer.
 
-**The deadline is hard.** An answer at or after it is refused with `PauseClosedError` (`reason:
+**The deadline is hard.** An answer at or after it is refused with `PauseError.Closed` (`reason:
 expired`, `closedAt` the deadline) — before a reply's interpreter reads anything, and in the store's
 own compare-and-set (`expires_at > at`), so an answer and the expiry racing at the deadline leave
 exactly one winner, whatever the instances' clocks. Within seconds the tree moves.
@@ -1039,7 +1039,7 @@ may answer `onPauseExpired(ask)` — `ask` is what `send` got — with:
 The handler runs under the tree's lease in the pause's frame under the tool's `timeout`, **once per
 expiry**: a crash before its decision was recorded may run it again, and one decision is recorded —
 so it must only read. A throw, a timeout, a value that is no `PauseExpiration` or an invalid answer
-makes the expiry `fail()` with an `ExpiryHandlerError` (`pause.expiry-handler-failed`, `problem`: `handler-failed`
+makes the expiry `fail()` with an `PauseError.ExpiryHandlerFailed` (`pause.expiry-handler-failed`, `problem`: `handler-failed`
 | `handler-timeout` | `answer-invalid`) as the cause; it is logged (`pause.expiry-handler-failed`,
 never the error's message). An instance that stops (`app.close()`) while a handler waits records no
 decision: another instance's look expires the pause.
@@ -1125,14 +1125,14 @@ to `now + expiresIn` and returns `PauseExtension { pauseKey, expiresAt, previous
 optional `onPauseTimeoutChanged(event)` and a listener's `onPauseTimeoutChanged` hear "extended until `event.expiresAt`"
 (`previousExpiresAt` too), and the reminder is made again before the new deadline. It is refused:
 
-- a pause that is closed, or already past its deadline — `PauseClosedError` (`reason: expired`);
+- a pause that is closed, or already past its deadline — `PauseError.Closed` (`reason: expired`);
 - a pause with **no deadline** — none is ever added to it — and a new deadline that is not later than the
   current one — `ValidationError.DtoInvalid` (`dto: "ExtendPauseRequest"`);
 - a deadline past the one the pause was made under — its run's (or a quorum's): exactly that deadline is
   allowed, and a pause extended to it expires there as the run's own, as one made with it does — also
   `ValidationError.DtoInvalid`, naming that deadline;
-- another tenant's pause or an unknown id — `UnknownPauseError`.
-- eight lost races in a row against other extensions of the same pause — `PauseExtensionContendedError`
+- another tenant's pause or an unknown id — `PauseError.UnknownPause`.
+- eight lost races in a row against other extensions of the same pause — `PauseError.UpdateContended`
   (`pause.update-contended`; nothing changed, trying again is safe).
 
 ```ts
@@ -1186,7 +1186,7 @@ The channel decides the order: it may take the buttons off the old message from 
 `replaces`) and treat the later `onPauseClosed(reassigned)` as a no-op, or the reverse. A `@ChannelListener`
 hears the old pause `closed` (`reason: reassigned`) and the replacement `opened`.
 
-What the old id does: `app.resume` with it is `PauseClosedError` (`reason: reassigned`, `closedAt` the time
+What the old id does: `app.resume` with it is `PauseError.Closed` (`reason: reassigned`, `closedAt` the time
 of the reassignment); the record is `Cancelled` / `PauseResolution.Reassigned` with `reassignedTo`. The
 deputy's answer, with the new id, goes on: the agent's model is not called again, its loop's state and spend
 are the ones it slept with, and `result.pending` lists the live pause. A quorum's or a group's branches are
@@ -1198,11 +1198,11 @@ without `includePauseIds`.
 
 It is refused:
 
-- a pause that is closed — `PauseClosedError` with the reason of its close — or whose deadline is at or before
+- a pause that is closed — `PauseError.Closed` with the reason of its close — or whose deadline is at or before
   the write (`reason: expired`, also when the look has not expired it yet);
 - an `assignee` that is no key's text (#589: non-empty, no control or invisible characters, NFC) —
   `ValidationError.DtoInvalid` (`dto: "ReassignPauseRequest"`);
-- another tenant's pause or an unknown id — `UnknownPauseError`; a caller that may not answer it —
+- another tenant's pause or an unknown id — `PauseError.UnknownPause`; a caller that may not answer it —
   `ExecutionError.ThreadOwnerMismatch` / `PauseError.PermissionDenied`;
 - a pause its channel decided at once: it never waited, it is closed `answered`;
 - a pause whose channel is still being asked for the first time (its step's `send` has not returned) —
@@ -1230,7 +1230,7 @@ console.log(moved.pauseKey); // the new pause's key: a correlation, it answers n
 **Races.** One transaction of the store makes the old pause `Reassigned` and the replacement `Pending` (unsent,
 the old deadline and question, the step key `<original>~r<n>` — a second reassignment is `~r2`, never
 `~r1~r1`), and writes the old pause's `closed` notices: of two reassignments at once, or a reassignment and an
-answer, exactly one wins, and the loser gets `PauseClosedError` with the reason of the winner's close. A
+answer, exactly one wins, and the loser gets `PauseError.Closed` with the reason of the winner's close. A
 store of your own does the same in `reassignByTenantIdAndPauseId` (the contract suite has the cases).
 
 **A crash between the write and the new message.** After the transaction the call asks the channel in the
@@ -1312,7 +1312,7 @@ counted over the **union** of the schedules (overlapping hours once), working da
 schedule's own count, in its own zone. A holiday that must not go stale is a rule, `isHoliday(localDate)`
 (asked once per date a walk crosses), beside `holidays`. A schedule with no working time in a year (a rule
 that is always `true`) or an `anyOf([])` is refused: `[working-calendar.invalid]` at start for a declared
-week, `WorkingCalendarError` (`invalid-schedule`) at run time for a resolved one.
+week, `PauseError.WorkingCalendar` (`invalid-schedule`) at run time for a resolved one.
 
 **The grid's rule is pointwise.** An instant is working time when its local wall-clock time in `timeZone`,
 on its local date, lies in some `hours` interval `[from, to)` and in no `breaks` interval, and its local
@@ -1351,17 +1351,17 @@ it with workingHours / workingMinutes"); a pause whose channel has no calendar a
 time the same way. The pause is unchanged on every refusal. **The calendar may take seconds, the write is
 decided at its own instant:** the deadline counts from the call's start, but whether the pause is still open
 is decided with the clock read after the calendar answered (and the store's compare-and-set takes that
-instant as its `at`). A deadline that passed while the calendar computed is not moved — `PauseClosedError`,
+instant as its `at`). A deadline that passed while the calendar computed is not moved — `PauseError.Closed`,
 as for a plain extension, even when the expiry is still being handled (#1148).
 
 **A calendar that cannot answer fails closed.** A throw, a timeout (the calendar's `timeout`, `sec(30)` unless it says otherwise, on the application's
 clock), an answer that is not a valid `Date`, or a date not after `from`: the step fails and **nobody is
 asked, no pause record is made** — `QuestionFailedError` (a question step) or `AgentFailedError` (an agent's
-approval or question tool) with a `WorkingCalendarError` as its `cause` (`pause.working-calendar`;
+approval or question tool) with a `PauseError.WorkingCalendar` as its `cause` (`pause.working-calendar`;
 `calendar` its name, `problem`: `calendar-failed` | `calendar-timeout` | `not-a-date` | `not-after-start` | `invalid-schedule` | `mixed-units`;
 its message never holds the calendar's own error text, which is the cause only in-process); logged as
 `pause.working-calendar-failed`. The step's re-entry asks the calendar again (no record was made). An
-extension that meets the same rejects with that `WorkingCalendarError`. There is no fallback to wall-clock
+extension that meets the same rejects with that `PauseError.WorkingCalendar`. There is no fallback to wall-clock
 time: that would be a deadline nobody asked for, silently. A grid with no working time at all — an unknown
 time zone, no days, a bad interval, a break outside the hours, a malformed holiday, no working minute in a
 week — is `[working-calendar.invalid]` when the application starts. So is a working span the grid cannot
@@ -1378,7 +1378,7 @@ than the walk would fail). The walk itself stays bounded (25 years plus the holi
 ## Late answers (#939, #941)
 
 A pause is answered once. Whoever comes later — a double click, a webhook that retries, a manager who
-saw the message a minute after the deadline — gets `PauseClosedError` (`pause.closed`), and nothing
+saw the message a minute after the deadline — gets `PauseError.Closed` (`pause.closed`), and nothing
 moves: the error says **why** the pause is closed, so the answering side can tell the person.
 
 <!-- snippet-context
@@ -1388,13 +1388,13 @@ declare const pauseId: string;
 -->
 
 ```ts
-import { PauseClosedError, PauseClosedReason } from "@agboss/core";
+import { PauseError.Closed, PauseClosedReason } from "@agboss/core";
 
 // the Slack webhook of "Approve": the pause may be closed by now
 try {
   await app.resume({ pauseId, decision: { approved: true } }, { tenantId: "acme", actor: { id: "manager-17" } });
 } catch (error) {
-  if (!(error instanceof PauseClosedError)) throw error;
+  if (!(error instanceof PauseError.Closed)) throw error;
   const sorry =
     error.reason === PauseClosedReason.Expired
       ? `Too late: the question closed at ${error.closedAt}`
@@ -1415,13 +1415,13 @@ try {
   ([Telling the channel and the listeners](#telling-the-channel-and-the-listeners-940)). Another answer
   to such a pause is refused `answered`: one answer was recorded already.
 - **After the retention** (`retention.pauseRecords`, 24 h) the record is gone and the id is unknown:
-  `UnknownPauseError`. Over [A2A](A2A) a late follow-up is `-32004` with `a2a.pause-closed`.
+  `PauseError.UnknownPause`. Over [A2A](A2A) a late follow-up is `-32004` with `a2a.pause-closed`.
 
 ## Concurrent answers
 
 A resume has two phases (Q58): **1. record the decision** — after the credential check and the
 validation, the root's record of a resting tree is made `running`, then the pause goes from
-`Pending` to `Resolved` atomically; a second resume of the same `pauseId` gets `PauseClosedError` and
+`Pending` to `Resolved` atomically; a second resume of the same `pauseId` gets `PauseError.Closed` and
 moves nothing. A resume whose process dies after phase 1 leaves a `running` root: recovery
 ([Several instances](Several-instances#recovery)) takes its lease and continues it with the recorded
 decision, once (#850). **2. move the tree** — the call takes the tree's

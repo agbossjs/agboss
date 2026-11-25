@@ -1,3 +1,4 @@
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { Window2Memory } from "../helpers/window-memory.js";
 import { createApp, type BuildApplicationOptions } from "../../src/application/create-app.js";
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
@@ -6,7 +7,6 @@ import { NotAWorkflowStartError } from "../../src/app/create-app.js";
 import {
   Agent,
   Workflow,
-  PauseClosedError,
   GraphRuleError,
   WorkflowStart,
   inline,
@@ -198,7 +198,7 @@ describe("AC12: createApp — the real app", () => {
       threadId: paused.threadId,
     });
     await expect(app.resume(answerOf(paused, { approved: true }))).rejects.toBeInstanceOf(
-      PauseClosedError,
+      PauseError.Closed,
     );
     await app.close();
   });

@@ -1,3 +1,4 @@
+import { PauseError } from "@agboss/core";
 import { AGBossError, createApp, type ExecutionOutput } from "@agboss/core";
 import { parseArgs } from "node:util";
 import { FlowPatternsApplication } from "../flow-patterns.application.js";
@@ -5,7 +6,7 @@ import { FlowPatternsApplication } from "../flow-patterns.application.js";
 // npm run answer -- <pauseId> [<pauseId> …] [--decline]
 // Answers pauses another process left waiting — they are records in the SQLite stores — all at
 // once, from a second terminal: two answers at nearly the same time, or a second press of an
-// answer already given (PauseClosedError). The pause ids are the ones the terminal channel printed.
+// answer already given (PauseError.Closed). The pause ids are the ones the terminal channel printed.
 const { values, positionals } = parseArgs({
   allowPositionals: true,
   options: { decline: { type: "boolean", default: false } },

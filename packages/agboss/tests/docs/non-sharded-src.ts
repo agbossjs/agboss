@@ -318,7 +318,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "the pause's application-side wiring: the pause transitions themselves are the pause stores'",
     [
       "src/app/pause-respondent.ts",
-      "src/app/pause-closed-error.ts",
       "src/app/pause-closed.ts",
       "src/app/pause-frame.ts",
       "src/app/pause-join-notices.ts",
@@ -492,7 +491,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
   ),
   ...reviewed("the application's configuration reading: no money decision", ["src/config/**"]),
   ...reviewed(
-    "the error families' declarations (#1325a): enums, types and a table of codes and sentences; their behaviour is `family.ts` and the hand-over guard `hand-over.ts`, both in the takeover shard; the sentences made of the facts of `ExecutionError` are `run-error-messages.ts`, message text only, asserted by tests/core/errors-units.test.ts",
+    "the error families' declarations (#1325a): enums, types and a table of codes and sentences; their behaviour is `family.ts` and the hand-over guard `hand-over.ts`, both in the takeover shard; the sentences made of the facts of `ExecutionError` are `run-error-messages.ts`, message text only, asserted by tests/core/errors-units.test.ts; the pause errors' sentences are `pause-error-messages.ts`, asserted by tests/app/pause-closed-error.test-d.ts and tests/app/pause-extension-fresh-now.test.ts",
     [
       "src/core/error-families/a2a-errors.ts",
       "src/core/error-families/config-errors.ts",
@@ -501,6 +500,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
       "src/core/error-families/outbound-call-errors.ts",
       "src/core/error-families/pause-errors.ts",
       "src/core/error-families/remote-errors.ts",
+      "src/core/error-families/pause-error-messages.ts",
       "src/core/error-families/run-error-messages.ts",
       "src/core/error-families/run-errors.ts",
       "src/core/error-families/step-errors.ts",

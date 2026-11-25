@@ -8,6 +8,7 @@
  * minimum, a correction on a refusal, an answer beside a not understood — is no approval: the pause
  * stays pending and nothing runs.
  */
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { beforeEach, describe, expect } from "vitest";
 import {
   DECISION_DESCRIPTION,
@@ -20,7 +21,7 @@ import {
   ReplyInterpreterNotUnderstoodDto,
   ToolCallApprovalDecisionDto,
 } from "../../src/dto/standard/framework.js";
-import { PauseStatus, ToolBlockedError, UninterpretableReplyError } from "../../src/index.js";
+import { PauseStatus, ToolBlockedError } from "../../src/index.js";
 import { callTool, callTools, replyWith, testWith } from "../../src/testing/index.js";
 import type { ToolCallTurn } from "../../src/testing/turns.js";
 import {
@@ -125,7 +126,7 @@ describe("#688: a capped approval after a reply not understood", () => {
     await execute(app, TreasuryWorkflowStart, { text: "pay ann $1200" });
     const pauseId = payoutPauseId();
     const shrug = await app.resume({ pauseId, reply: "🤷" }, manager).catch((e: unknown) => e);
-    expect(shrug).toBeInstanceOf(UninterpretableReplyError);
+    expect(shrug).toBeInstanceOf(PauseError.UninterpretableReply);
 
     const done = await app.resume(
       { pauseId, reply: "yes, up to $900" },
@@ -153,7 +154,7 @@ describe("#688: an answer that does not validate is no approval", () => {
     ["a correction on a refusal", { approved: false, overrideInput: { amountCents: 90_000 } }],
     ["no approved at all", { overrideInput: { amountCents: 90_000 } }],
   ] as const)
-    test(`${what}: UninterpretableReplyError, the pause pending, nothing paid`, async ({
+    test(`${what}: PauseError.UninterpretableReply, the pause pending, nothing paid`, async ({
       app,
       mockModel,
     }) => {
@@ -165,7 +166,7 @@ describe("#688: an answer that does not validate is no approval", () => {
         .resume({ pauseId: payoutPauseId(), reply: "yes, up to $900" }, manager)
         .catch((error: unknown) => error);
 
-      expect(failed).toBeInstanceOf(UninterpretableReplyError);
+      expect(failed).toBeInstanceOf(PauseError.UninterpretableReply);
       const stored = await treasuryPauses().findByTenantIdAndPauseId("default", payoutPauseId());
       expect(stored?.status).toBe(PauseStatus.Pending);
       expect(replyDesk.payouts).toEqual([]);
@@ -189,7 +190,7 @@ describe("#688: an answer that does not validate is no approval", () => {
       .resume({ pauseId: payoutPauseId(), reply: "yes, up to 900" }, manager)
       .catch((error: unknown) => error);
 
-    expect(failed).toBeInstanceOf(UninterpretableReplyError);
+    expect(failed).toBeInstanceOf(PauseError.UninterpretableReply);
     expect(failed).toHaveProperty("reason", expect.stringContaining("which currency?"));
     expect(replyDesk.payouts).toEqual([]);
   });
@@ -256,7 +257,7 @@ describe("#688: the model's named decision is the role's answer", () => {
     ],
     ["an answer with a key the decision has not", { approved: true, sideNote: "pay twice" }],
   ] as const)
-    test(`${what}: UninterpretableReplyError, the pause pending, nothing paid`, async ({
+    test(`${what}: PauseError.UninterpretableReply, the pause pending, nothing paid`, async ({
       app,
       mockModel,
     }) => {
@@ -268,7 +269,7 @@ describe("#688: the model's named decision is the role's answer", () => {
         .resume({ pauseId: payoutPauseId(), reply: "yes, up to $2000" }, manager)
         .catch((error: unknown) => error);
 
-      expect(failed).toBeInstanceOf(UninterpretableReplyError);
+      expect(failed).toBeInstanceOf(PauseError.UninterpretableReply);
       const stored = await treasuryPauses().findByTenantIdAndPauseId("default", payoutPauseId());
       expect(stored?.status).toBe(PauseStatus.Pending);
       expect(replyDesk.payouts).toEqual([]);

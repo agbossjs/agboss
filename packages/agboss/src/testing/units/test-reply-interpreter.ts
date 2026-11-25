@@ -129,7 +129,7 @@ function readingsOf<TRole extends Class>(
       spent.push(...reading.usage);
       return reading.kind === "read"
         ? { isUnderstood: true, answer: reading.decision as PauseOutputOf<InstanceType<TRole>> }
-        : { isUnderstood: false, reason: reading.error.reason };
+        : { isUnderstood: false, reason: reading.error.reason ?? reading.error.message };
     });
   };
 }

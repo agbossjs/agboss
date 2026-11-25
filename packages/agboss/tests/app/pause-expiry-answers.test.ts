@@ -3,8 +3,8 @@
  * look expired the pause (the store's compare-and-set at the deadline) and after it, whether the
  * run moved or not; refused before the reply interpreter reads anything.
  */
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { beforeEach, describe, expect, vi } from "vitest";
-import { PauseClosedError } from "../../src/errors.js";
 import { PauseClosedReason } from "../../src/index.js";
 import { testWith } from "../../src/testing/index.js";
 import { hours, seconds } from "../../src/units/index.js";
@@ -40,7 +40,7 @@ describe("#941 AC4: a late answer is refused: expired, with the deadline", () =>
     expect(done.status).toBe("finished");
   });
 
-  test("AC4: at expiresAt it is refused PauseClosedError {expired, closedAt: expiresAt}, before the look expired the pause", async ({
+  test("AC4: at expiresAt it is refused PauseError.Closed {expired, closedAt: expiresAt}, before the look expired the pause", async ({
     app,
     clock,
   }) => {
@@ -53,7 +53,7 @@ describe("#941 AC4: a late answer is refused: expired, with the deadline", () =>
       .resume({ pauseId: pauseIdOf(), decision: ANSWER }, manager)
       .catch((error: unknown) => error);
 
-    expect(refused).toBeInstanceOf(PauseClosedError);
+    expect(refused).toBeInstanceOf(PauseError.Closed);
     expect(refused).toMatchObject({ reason: PauseClosedReason.Expired, closedAt: expiresAt });
     expect(expiry.recorded).toEqual([]);
   });
@@ -70,7 +70,7 @@ describe("#941 AC4: a late answer is refused: expired, with the deadline", () =>
       .resume({ pauseId: pauseIdOf(), reply: "yes, approved" }, manager)
       .catch((error: unknown) => error);
 
-    expect(refused).toBeInstanceOf(PauseClosedError);
+    expect(refused).toBeInstanceOf(PauseError.Closed);
     expect(refused).toMatchObject({ reason: PauseClosedReason.Expired });
   });
 
@@ -87,7 +87,7 @@ describe("#941 AC4: a late answer is refused: expired, with the deadline", () =>
       .resume({ pauseId: pauseIdOf(), decision: ANSWER }, manager)
       .catch((error: unknown) => error);
 
-    expect(refused).toBeInstanceOf(PauseClosedError);
+    expect(refused).toBeInstanceOf(PauseError.Closed);
     expect(refused).toMatchObject({ reason: PauseClosedReason.Expired, closedAt: expiresAt });
     expect(expiry.recorded).toEqual([]);
   });

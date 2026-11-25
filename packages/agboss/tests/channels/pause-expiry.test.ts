@@ -2,13 +2,14 @@
  * #941 AC1 / AC2: a pause with a deadline. At the deadline the look expires it within seconds: the
  * step fails with `PauseExpiredError` (`.onError(PauseExpiredError, …)` escalates) or goes on with
  * the answer the channel decided (`PauseExpiration.decide`), recorded as answered by the expiry;
- * a handler that throws, hangs or gives garbage fails the expiry, its cause an `ExpiryHandlerError`.
+ * a handler that throws, hangs or gives garbage fails the expiry, its cause an `PauseError.ExpiryHandlerFailed`.
  */
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { beforeEach, describe, expect } from "vitest";
 import { ExecutionStatus } from "../../src/app/types.js";
 import { ResumeReason } from "../../src/core/observability.js";
 import { PauseExpiration } from "../../src/channels/pause-expiration.js";
-import { ExpiryHandlerError, PauseExpiredError } from "../../src/errors.js";
+import { PauseExpiredError } from "../../src/errors.js";
 import { ExpiryProblem, PauseResolution, PauseStatus } from "../../src/index.js";
 import { testWith } from "../../src/testing/index.js";
 import { hours, minutes, seconds } from "../../src/units/index.js";
@@ -198,7 +199,7 @@ describe("#941 AC2: the channel decides on expiry", () => {
     ],
   ];
   for (const [what, behavior, problem] of fallbacks) {
-    test(`AC2: the handler ${what}: the expiry fails with ExpiryHandlerError(${problem}); warned without its message`, async ({
+    test(`AC2: the handler ${what}: the expiry fails with PauseError.ExpiryHandlerFailed(${problem}); warned without its message`, async ({
       app,
       clock,
     }) => {
@@ -211,7 +212,7 @@ describe("#941 AC2: the channel decides on expiry", () => {
       const [error] = expiry.errors;
       expect(error).toBeInstanceOf(PauseExpiredError);
       const cause = (error as PauseExpiredError).cause;
-      expect(cause).toBeInstanceOf(ExpiryHandlerError);
+      expect(cause).toBeInstanceOf(PauseError.ExpiryHandlerFailed);
       expect(cause).toMatchObject({ code: "pause.expiry-handler-failed", problem });
       const warnings = logged.filter((entry) => entry.code === "pause.expiry-handler-failed");
       expect(warnings).toHaveLength(1);

@@ -1,7 +1,6 @@
-import { AGBossError } from "../../core/errors.js";
 import { StepFailedError, stepCoordinatesOf } from "../../graph/errors.js";
 import type { UsageRecord } from "../../finops/usage.js";
-import type { ExpiryProblem, PauseKind } from "../../infrastructure/pause-record.js";
+import type { PauseKind } from "../../infrastructure/pause-record.js";
 import { ComponentKind } from "./records.js";
 
 /**
@@ -9,38 +8,6 @@ import { ComponentKind } from "./records.js";
  * or the agent whose tool call (or question tool) waited — so `.onError(PauseExpiredError, …)`
  * escalates. Neither error names the pause's id (an error is logged and kept, I14).
  */
-
-/** What an `ExpiryHandlerError` names. */
-export interface ExpiryHandlerErrorOptions {
-  /** The channel whose expiry decision fell back to `fail()`. */
-  readonly channel: string;
-  readonly problem: ExpiryProblem;
-  /** What went wrong, only in-process (the instance that ran the handler). */
-  readonly cause?: unknown;
-}
-
-/**
- * Why an expiry decision fell back to `fail()`: the `cause` of its `PauseExpiredError`. The
- * message never holds the handler error's text (it may hold personal data); the `cause` is given
- * only on the instance that ran the handler.
- */
-export class ExpiryHandlerError extends AGBossError {
-  static override readonly code = "pause.expiry-handler-failed" as const;
-  declare readonly code: typeof ExpiryHandlerError.code;
-  override name = "ExpiryHandlerError";
-  readonly channel: string;
-  readonly problem: ExpiryProblem;
-
-  constructor(options: ExpiryHandlerErrorOptions) {
-    const { channel, problem, cause } = options;
-    super(`channel ${channel}: its expiry decision ${problem}`, {
-      cause,
-      details: { channel, problem },
-    });
-    this.channel = channel;
-    this.problem = problem;
-  }
-}
 
 /** What a `PauseExpiredError` names. */
 export interface PauseExpiredErrorOptions {

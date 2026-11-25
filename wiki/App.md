@@ -304,7 +304,7 @@ its launch's branches still running before it undoes ([Rollback](Rollback#a-fail
 
 Answers **one pause, by its id** (#267) — never by thread: the pause is found by `(tenantId,
 pauseId)` anywhere in its execution tree (a parallel branch, later a child); an unknown id, or
-another tenant's, is the same `UnknownPauseError` (`pause.unknown-pause`). A resume takes keys and
+another tenant's, is the same `PauseError.UnknownPause` (`pause.unknown-pause`). A resume takes keys and
 credentials only — the tenant by its id (omitted → `"default"`) and who answers, as the pause's
 target says (`respondent` on `@ToolApproval` / `@ExternalTask`): `ownerId` for a `PauseRespondent.Owner`
 pause (another → `ExecutionError.ThreadOwnerMismatch`), a non-empty `actor` for a `PauseRespondent.Delegate` one;
@@ -314,14 +314,14 @@ recorded (`ValidationError.DtoInvalid`; the pause keeps waiting). The execution 
 it started with ([Context and Authorization](Context-And-Authorization#the-values-per-execution)),
 as the thread's owner; the result has the same shape — `threadId` and `executionId` included — and, when
 other pauses remain, `status: Paused` with the rest in `pending`. A pause that is closed (taken,
-withdrawn, expired, …) → `PauseClosedError` with its `reason`. A run paused under another workflow version or config is checked by
+withdrawn, expired, …) → `PauseError.Closed` with its `reason`. A run paused under another workflow version or config is checked by
 the workflow's `onIncompatibleResume` policy (`ExecutionError.IncompatibleResume`, `resume.incompatible`, an
 `AGBossError`); the config hash covers the root's child workflows, recursively (#336), so a paused
 run whose child changed is incompatible too, its pause inside the child or not. The whole model:
 [Pauses](Pauses).
 
 A resume has two phases (#265, Q58): it records the decision — the pause goes `Pending → Resolved`
-atomically, so a second resume of the same pause gets `PauseClosedError` (`reason: answered`) — then takes the tree's lease
+atomically, so a second resume of the same pause gets `PauseError.Closed` (`reason: answered`) — then takes the tree's lease
 and continues with every answer recorded for the tree. While another call or instance moves the
 tree it waits, and returns the tree's current output once the holder took its decision
 ([Several instances](Several-instances#the-execution-lease)). Observers get `onExecutionResume` —
@@ -342,9 +342,9 @@ describe` lists the listeners and marks `includePauseIds`.
 Moves an open pause's deadline to `now + expiresIn` and returns `PauseExtension { pauseKey, expiresAt,
 previousExpiresAt }`. Who may: as an answer (the `ownerId` of a thread owner's pause, the `actor` of
 a channel's). The options are `PauseCallerOptions` — the caller fields only, no `signal` / `onStream` /
-`record`: nothing runs. Refused: a closed or expired pause (`PauseClosedError`), a pause with no deadline,
+`record`: nothing runs. Refused: a closed or expired pause (`PauseError.Closed`), a pause with no deadline,
 a deadline not later than the current one or past the one the pause was made under (`ValidationError.DtoInvalid`,
-`dto: "ExtendPauseRequest"`), another tenant's pause (`UnknownPauseError`). Atomic in the store against
+`dto: "ExtendPauseRequest"`), another tenant's pause (`PauseError.UnknownPause`). Atomic in the store against
 the expiry look; no lease is taken. [Pauses → Extending a pause](Pauses#extending-a-pause-and-reminding-before-its-deadline-942).
 
 ## `app.listPauses({ tenantId, status?, target?, expiringBefore?, limit?, after? })` (#943)
@@ -368,17 +368,17 @@ union of every workflow's policies (fail closed).
 Moves an open pause to another addressee of the same channel — `send` again with a new `pauseId`,
 `ChannelAsk.assignees` and `ChannelAsk.replaces` (the old id), `onPauseClosed` told `reassigned` for the old
 message, in no fixed order — and returns `PauseReassignment { pauseKey }`: the new id goes to the channel only.
-Who may: as an answer; the options are `PauseCallerOptions`, as `extendPause`. The old id is `PauseClosedError`
+Who may: as an answer; the options are `PauseCallerOptions`, as `extendPause`. The old id is `PauseError.Closed`
 (`reassigned`) from then on; the deadline is kept; the agent and the step do not run again. Refused: a closed
-or expired pause (`PauseClosedError`), an `assignee` that is no key's text (`ValidationError.DtoInvalid`, `dto:
-"ReassignPauseRequest"`), another tenant's pause (`UnknownPauseError`); of two reassignments, or a
+or expired pause (`PauseError.Closed`), an `assignee` that is no key's text (`ValidationError.DtoInvalid`, `dto:
+"ReassignPauseRequest"`), another tenant's pause (`PauseError.UnknownPause`); of two reassignments, or a
 reassignment and an answer, at once exactly one wins. [Pauses → Reassigning a pause](Pauses#reassigning-a-pause-to-someone-else-946).
 
 ## `app.cancel(threadId, { tenantId, ownerId })`
 
 Aborts a running run — it stops before its next model or tool call and `execute` rejects with
 `ExecutionCancelledError` — or drops a paused one, whose pauses are withdrawn (their `resume` then
-throws `PauseClosedError`, `reason: cancelled`);
+throws `PauseError.Closed`, `reason: cancelled`);
 `{ cancelled }` is `false` when the thread had neither ([Cancellation and idempotency](Saga-And-Cancellation)).
 A thread the tenant does not have is `ExecutionError.UnknownThread` (#261: a thread's key is `tenantId` +
 `threadId`).

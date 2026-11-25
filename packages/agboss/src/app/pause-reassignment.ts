@@ -43,7 +43,7 @@ import type { AnyTenantApp, PauseCallerOptions } from "./types.js";
  * target's `permitReassign` when it has one (fail closed: only `true` permits). The new pause's
  * chain of custody is the old one's and a `reassigned` entry: who, when, to whom, why (the reason
  * masked by the pause's own workflow's PII policy before it is kept). A closed
- * pause, or one past its deadline, is `PauseClosedError` — judged at the instant of the write, in the
+ * pause, or one past its deadline, is `PauseError.Closed` — judged at the instant of the write, in the
  * store's one transaction, which makes the old pause `Cancelled / Reassigned`, the replacement
  * `Pending` with the old deadline, and writes the old pause's `closed (Reassigned)` notices: of two
  * reassignments, or a reassignment and an answer, exactly one wins. After the transaction the call
@@ -166,7 +166,7 @@ async function assertOpen(parts: ReassignParts, pause: PauseRecord): Promise<voi
 /**
  * `app.reassignPause` of one workflow's app. The store's one transaction decides: it applies only
  * while the pause is `Pending`, its deadline is after the instant of the write and its chain holds
- * fewer reassignments than the limit allows. A call that lost it reads why (`PauseClosedError` with
+ * fewer reassignments than the limit allows. A call that lost it reads why (`PauseError.Closed` with
  * the reason of the close that won, `PauseError.EscalationLimitExceeded`). The send after a move is
  * told, never thrown: the reassignment is done, and the re-send look asks again.
  */

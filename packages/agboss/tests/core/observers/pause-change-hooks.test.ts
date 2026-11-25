@@ -4,10 +4,10 @@
  * execution, the thread, the workflow, the channel) and
  * the deadlines; never the pause's id (the right to answer it) or the assignee.
  */
+import { PauseError } from "../../../src/core/error-families/pause-errors.js";
 import { ExtendManagerBackupChannel } from "../../flow/fixtures/pause-extension.fixture.js";
 import { beforeEach, describe, expect } from "vitest";
 import { nameOf } from "../../../src/index.js";
-import { PauseClosedError } from "../../../src/errors.js";
 import { testWith } from "../../../src/testing/index.js";
 import { hours } from "../../../src/units/index.js";
 import { execute } from "../../helpers/flow.js";
@@ -83,7 +83,7 @@ describe("#1343: onPauseReassigned", () => {
         manager,
       )
       .catch((error: unknown) => error);
-    expect(lost).toBeInstanceOf(PauseClosedError);
+    expect(lost).toBeInstanceOf(PauseError.Closed);
 
     expect(told.changes).toHaveLength(1);
     expect(told.changes[0]).toEqual({

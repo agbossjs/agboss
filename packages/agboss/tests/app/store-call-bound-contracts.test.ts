@@ -3,13 +3,9 @@
  * have taken effect, and what is done next (a retry, a resend, the sweep) finds the store as it is
  * and moves it once. Each case lets the real store apply the call and then never answers.
  */
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import {
-  ExecutionCancelFencedError,
-  PauseClosedError,
-  PauseStatus,
-  StoreCallTimeoutError,
-} from "../../src/index.js";
+import { ExecutionCancelFencedError, PauseStatus, StoreCallTimeoutError } from "../../src/index.js";
 import { ExecutionCancelledError } from "../../src/core/errors.js";
 import { STORE_CALL_BOUND } from "../../src/app/lease-fence.js";
 import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
@@ -91,7 +87,7 @@ describe("#928 AC2: a pause resolve from the answer API", () => {
 
       // the retry reads the pause: it is no longer pending, its answer was recorded
       await expect(app.resume(answerOf(paused, { approved: true }))).rejects.toBeInstanceOf(
-        PauseClosedError,
+        PauseError.Closed,
       );
       // the tree was marked running before the answer: the recovery sweep resumes it, once
       await passLive(clock, seconds(90));

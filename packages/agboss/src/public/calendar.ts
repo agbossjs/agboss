@@ -1,8 +1,6 @@
 // Working time (#944): the calendar contract, its decorator and the built-in weekly grid.
 export {
   WorkingCalendar,
-  WorkingCalendarError,
-  type WorkingCalendarErrorOptions,
   WorkingCalendarProblem,
   type WorkingCalendarHandler,
   type WorkingCalendarOptions,

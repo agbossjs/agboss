@@ -1,8 +1,8 @@
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Class } from "../../src/components/injection.js";
-import { UnknownPauseError } from "../../src/index.js";
 import { callTool, replyWith } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
@@ -157,7 +157,7 @@ describe("#201 AC2: paused runs survive an app restart with durable stores", () 
     const { paused, restarted } = await restartOn(MailV1MemoryPausesApplication);
 
     await expect(restarted.resume(answerOf(paused, approve))).rejects.toBeInstanceOf(
-      UnknownPauseError,
+      PauseError.UnknownPause,
     );
   });
 });

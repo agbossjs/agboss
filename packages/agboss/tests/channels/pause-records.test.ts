@@ -4,21 +4,16 @@
  * `Withdrawn`, `Cancelled`), the decision masked by the application's PII policies and none for a
  * pause closed without an answer, no `pauseId` for a `PauseRespondent.Delegate` pause. Resolved records
  * are kept `@Application({ retention: { pauseRecords } })` (default `hours(24)`) and then removed by the
- * recovery sweep on the `Clock`: within it a late answer is `PauseClosedError`, after it
- * `UnknownPauseError`; a pending pause is never removed.
+ * recovery sweep on the `Clock`: within it a late answer is `PauseError.Closed`, after it
+ * `PauseError.UnknownPause`; a pending pause is never removed.
  */
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { NO_RECIPIENTS } from "../../src/infrastructure/pause-notices.js";
 import { ComponentKind } from "../../src/flow/runtime/records.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import { AutoApproveChannel } from "../../src/testing/index.js";
 import { applicationOf } from "../../src/application/assemble.js";
-import {
-  PauseClosedError,
-  PauseRespondent,
-  PauseResolution,
-  PauseStatus,
-  UnknownPauseError,
-} from "../../src/index.js";
+import { PauseRespondent, PauseResolution, PauseStatus } from "../../src/index.js";
 import { callTool, replyWith, testWith, waitFor } from "../../src/testing/index.js";
 import { TEST_START } from "../../src/testing/clock.js";
 import { hours, minutes, seconds } from "../../src/units/index.js";
@@ -254,7 +249,7 @@ describe("#267 S107: ExecutionRecord.pauses — who answered each pause, and how
 
 describe("#267 S107: resolved pause records are kept retention.pauseRecords, then removed", () => {
   testWith(BriefTreasuryApplication)(
-    "within it a late answer is PauseClosedError, after it UnknownPauseError; a pending pause stays",
+    "within it a late answer is PauseError.Closed, after it PauseError.UnknownPause; a pending pause stays",
     async ({ app, clock, mockModel }) => {
       mockModel(TreasurerAgent)
         .when({ message: { text: "pay ann" } })
@@ -268,9 +263,9 @@ describe("#267 S107: resolved pause records are kept retention.pauseRecords, the
       await app.resume(answer, manager);
 
       await clock.advance(minutes(4));
-      await expect(app.resume(answer, manager)).rejects.toBeInstanceOf(PauseClosedError);
+      await expect(app.resume(answer, manager)).rejects.toBeInstanceOf(PauseError.Closed);
       await clock.advance(minutes(2));
-      await expect(app.resume(answer, manager)).rejects.toBeInstanceOf(UnknownPauseError);
+      await expect(app.resume(answer, manager)).rejects.toBeInstanceOf(PauseError.UnknownPause);
 
       const expense = { pauseId: waiting.pending[0]?.pauseId ?? "", decision: { approved: true } };
       expect(await app.resume(expense)).toMatchObject({ pending: [] });
@@ -289,7 +284,7 @@ describe("#267 S107: resolved pause records are kept retention.pauseRecords, the
       const payout = { pauseId: payoutPauseId(), decision: { approved: true } };
       const waiting = await app.resume(payout, manager);
       await clock.advance(minutes(6));
-      await expect(app.resume(payout, manager)).rejects.toBeInstanceOf(UnknownPauseError);
+      await expect(app.resume(payout, manager)).rejects.toBeInstanceOf(PauseError.UnknownPause);
 
       const expense = { pauseId: waiting.pending[0]?.pauseId ?? "", decision: { approved: true } };
       const done = await app.resume(expense, { includeRecord: true });
@@ -339,7 +334,7 @@ describe("#939: an unconsumed Resolved pause of an ended tree is closed not take
       });
       await clock.advance(minutes(6));
       await expect(app.resume({ pauseId, decision: { approved: true } })).rejects.toBeInstanceOf(
-        UnknownPauseError,
+        PauseError.UnknownPause,
       );
     },
   );

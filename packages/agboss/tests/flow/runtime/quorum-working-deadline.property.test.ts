@@ -6,11 +6,11 @@
  * weekends; the examples are the cases a deadline most often gets wrong: a start after the last
  * shift of the week, a holiday, a zone far from UTC.
  */
+import { PauseError } from "../../../src/core/error-families/pause-errors.js";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import {
   QuorumKind,
-  WorkingCalendarError,
   WorkingWeek,
   type WorkingCalendarContext,
   type WorkingCalendarHandler,
@@ -138,7 +138,7 @@ describe("#1306: the instant of a working-time quorum deadline, by examples", ()
     expect(asked[0]).not.toHaveProperty("assignees");
   });
 
-  it("a calendar that throws is a WorkingCalendarError, never a wall-clock deadline", async () => {
+  it("a calendar that throws is a PauseError.WorkingCalendar, never a wall-clock deadline", async () => {
     const broken: WorkingCalendarHandler = {
       addWorkingTime: () => {
         throw new Error("the holiday table is down");
@@ -148,17 +148,17 @@ describe("#1306: the instant of a working-time quorum deadline, by examples", ()
 
     const failure = quorumDeadlineAt(countQuorum(workDays(1)), now, siteOf(broken, now));
 
-    await expect(failure).rejects.toBeInstanceOf(WorkingCalendarError);
+    await expect(failure).rejects.toBeInstanceOf(PauseError.WorkingCalendar);
     await expect(failure).rejects.not.toThrow("holiday table");
   });
 
-  it("a calendar that answers a date not after the start is a WorkingCalendarError", async () => {
+  it("a calendar that answers a date not after the start is a PauseError.WorkingCalendar", async () => {
     const stuck: WorkingCalendarHandler = { addWorkingTime: (request) => request.from };
     const now = new Date("2026-01-05T09:00:00.000Z");
 
     await expect(
       quorumDeadlineAt(countQuorum(workHours(1)), now, siteOf(stuck, now)),
-    ).rejects.toBeInstanceOf(WorkingCalendarError);
+    ).rejects.toBeInstanceOf(PauseError.WorkingCalendar);
   });
 });
 

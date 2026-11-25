@@ -2,20 +2,15 @@
  * #267 AC8 / AC11 (PR 3): a free-text reply resumes a pause through its role's `@ChannelInterpreter`
  * — a model one (scripted with `mockModel(Interpreter).when({ reply })`) or a code one (created by
  * the container, `mockService` replaces it) — given the pause's original question; what it gives is
- * validated like a decision. A reply nobody can read throws `UninterpretableReplyError` and the
- * pause stays pending; a role without an interpreter throws `ReplyInterpreterMissingError`, the
+ * validated like a decision. A reply nobody can read throws `PauseError.UninterpretableReply` and the
+ * pause stays pending; a role without an interpreter throws `PauseError.ChannelInterpreterMissing`, the
  * pause untouched. The model call counts in the execution's spend and the tenant's ledger, once.
  */
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { beforeEach, describe, expect } from "vitest";
 import { BudgetScope } from "../../src/budgets/budget.js";
 import { ToolCallApprovalDecisionDto } from "../../src/dto/standard/framework.js";
-import {
-  BudgetExceededError,
-  PauseStatus,
-  ReplyInterpreterMissingError,
-  UninterpretableReplyError,
-  ValidationError,
-} from "../../src/index.js";
+import { BudgetExceededError, PauseStatus, ValidationError } from "../../src/index.js";
 import { ChannelInterpretation } from "../../src/channels/channel-interpreter.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import { TestSetupError } from "../../src/testing/errors.js";
@@ -134,7 +129,7 @@ describe("#267 AC8: a model interpreter reads a free-text reply", () => {
 
     const resumed = app.resume({ pauseId: payoutPauseId(), reply: "pay the other one" }, manager);
 
-    await expect(resumed).rejects.toBeInstanceOf(UninterpretableReplyError);
+    await expect(resumed).rejects.toBeInstanceOf(PauseError.UninterpretableReply);
     const stored = await treasuryPauses().findByTenantIdAndPauseId("default", payoutPauseId());
     expect(stored?.status).toBe(PauseStatus.Pending);
   });
@@ -196,7 +191,7 @@ describe("#267 AC8: a model interpreter reads a free-text reply", () => {
     await execute(app, TreasuryWorkflowStart, { text: "pay ann $10" });
     const pauseId = payoutPauseId();
     const unread = app.resume({ pauseId, reply: "hmm" }, manager);
-    await expect(unread).rejects.toBeInstanceOf(UninterpretableReplyError);
+    await expect(unread).rejects.toBeInstanceOf(PauseError.UninterpretableReply);
 
     const refused = app.resume({ pauseId, reply: "yes" }, manager);
 
@@ -206,7 +201,7 @@ describe("#267 AC8: a model interpreter reads a free-text reply", () => {
     expect(stored?.status).toBe(PauseStatus.Pending);
   });
 
-  test("a model that gives no answer: UninterpretableReplyError, the pause stays pending", async ({
+  test("a model that gives no answer: PauseError.UninterpretableReply, the pause stays pending", async ({
     app,
     mockModel,
   }) => {
@@ -218,7 +213,7 @@ describe("#267 AC8: a model interpreter reads a free-text reply", () => {
 
     const unread = app.resume({ pauseId: payoutPauseId(), reply: "let me think" }, manager);
 
-    await expect(unread).rejects.toBeInstanceOf(UninterpretableReplyError);
+    await expect(unread).rejects.toBeInstanceOf(PauseError.UninterpretableReply);
     const stored = await treasuryPauses().findByTenantIdAndPauseId("default", payoutPauseId());
     expect(stored?.status).toBe(PauseStatus.Pending);
     const done = await app.resume(
@@ -245,7 +240,7 @@ describe("#267 AC8: a model interpreter reads a free-text reply", () => {
       .resume({ pauseId: payoutPauseId(), reply: "no, pay bob a cent" }, manager)
       .catch((error: unknown) => error);
 
-    expect(failed).toBeInstanceOf(UninterpretableReplyError);
+    expect(failed).toBeInstanceOf(PauseError.UninterpretableReply);
     expect(failed).toHaveProperty("cause", expect.any(ValidationError.DtoInvalid));
     const stored = await treasuryPauses().findByTenantIdAndPauseId("default", payoutPauseId());
     expect(stored?.status).toBe(PauseStatus.Pending);
@@ -333,7 +328,7 @@ describe("#267 AC8: a code interpreter reads a reply", () => {
     ]);
   });
 
-  test("a reply it crashes on (it throws): UninterpretableReplyError, the pause stays pending", async ({
+  test("a reply it crashes on (it throws): PauseError.UninterpretableReply, the pause stays pending", async ({
     app,
     mockModel,
   }) => {
@@ -345,7 +340,7 @@ describe("#267 AC8: a code interpreter reads a reply", () => {
       .resume({ pauseId, reply: "yes please" })
       .catch((error: unknown) => error);
 
-    expect(failed).toBeInstanceOf(UninterpretableReplyError);
+    expect(failed).toBeInstanceOf(PauseError.UninterpretableReply);
     expect(failed).toHaveProperty("cause", expect.any(SyntaxError));
     const stored = await treasuryPauses().findByTenantIdAndPauseId("default", pauseId);
     expect(stored?.status).toBe(PauseStatus.Pending);
@@ -384,7 +379,7 @@ describe("#267 AC11: tests replace a code interpreter with mockService", () => {
 });
 
 describe("#267 AC2 / AC8: what a reply resume takes", () => {
-  test("a role without an interpreter: ReplyInterpreterMissingError, the pause untouched", async ({
+  test("a role without an interpreter: PauseError.ChannelInterpreterMissing, the pause untouched", async ({
     app,
     mockModel,
   }) => {
@@ -394,7 +389,7 @@ describe("#267 AC2 / AC8: what a reply resume takes", () => {
 
     const failed = app.resume({ pauseId: ask?.pauseId ?? "", reply: "yes" }, manager);
 
-    await expect(failed).rejects.toBeInstanceOf(ReplyInterpreterMissingError);
+    await expect(failed).rejects.toBeInstanceOf(PauseError.ChannelInterpreterMissing);
     const stored = await treasuryPauses().findByTenantIdAndPauseId("default", ask?.pauseId ?? "");
     expect(stored).toMatchObject({ status: PauseStatus.Pending, isSent: true });
   });

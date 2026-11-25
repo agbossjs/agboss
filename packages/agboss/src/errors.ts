@@ -4,8 +4,8 @@
  * apart. `limit` ⊃ `limit.budget`, `limit.steps`, `limit.visits`, `limit.depth` (#264), `limit.mesh-loop`, `limit.hops` (#398); `step` ⊃ `step.failed` (`StepFailedError`, #273 S22) ⊃
  * `step.agent`, `step.action`, `step.guard`, `step.router`, `step.arbiter`, `step.quorum` (#279),
  * `step.child` (`ChildExecutionFailedError`, #263) and `step.tool-blocked` (`ToolBlockedError`, #384);
- * `step.pause-expired` (`PauseExpiredError`, #941) is a pause whose deadline passed, `pause.expiry-handler-failed` (`ExpiryHandlerError`) why its expiry decision fell back to failing;
- * `pause.closed` (`PauseClosedError`, #939) is a late answer to a closed pause, with its reason.
+ * `step.pause-expired` (`PauseExpiredError`, #941) is a pause whose deadline passed, `pause.expiry-handler-failed` (`PauseError.ExpiryHandlerFailed`) why its expiry decision fell back to failing;
+ * `pause.closed` (`PauseError.Closed`, #939) is a late answer to a closed pause, with its reason.
  */
 export {
   AGBossError,
@@ -116,14 +116,8 @@ export {
   type EvalCaseInvalidErrorOptions,
   type EvalCaseIssue,
 } from "./eval/suite/errors.js";
-export * from "./app/pause-closed-error.js";
 export * from "./flow/runtime/pause-expired-error.js";
-export { NotPausedError, UnknownPauseError } from "./run/resume-agent.js";
-export {
-  ReplyInterpreterMissingError,
-  UninterpretableReplyError,
-  type UninterpretableReplyErrorOptions,
-} from "./channels/decision.js";
+export { NotPausedError } from "./run/resume-agent.js";
 export { ModelKind, ModelKindError, type ModelKindErrorOptions } from "./llm/decision-errors.js";
 export { ApplicationStoppingError } from "./core/errors.js";
 export {

@@ -2,6 +2,7 @@
  * The terminal's approval loop of `agboss run` / `agboss chat`: a paused run asks in the terminal and
  * continues in the same process — on a real app (`testWith`), its models scripted.
  */
+import { PauseError } from "@agboss/core";
 import { executeWithoutInputCheck } from "@agboss/core/internal";
 import { ExecutionStatus, StreamEventKind } from "@agboss/core";
 import { callTool, replyWith, routeTo, testWith } from "@agboss/core/testing";
@@ -134,7 +135,7 @@ describe("#659: a question pause in the terminal", () => {
       await expect(
         untilDone(paused, app, () => Promise.resolve("up to 300")),
       ).rejects.toMatchObject({
-        name: "ReplyInterpreterMissingError",
+        name: "PauseError.ChannelInterpreterMissing",
       });
     },
   );
@@ -164,7 +165,7 @@ describe("#891: the answer mode is explicit", () => {
 
       await expect(
         untilDone(paused, app, () => Promise.resolve('["approved"]')),
-      ).rejects.toMatchObject({ name: "ReplyInterpreterMissingError" });
+      ).rejects.toMatchObject({ name: "PauseError.ChannelInterpreterMissing" });
     },
   );
 });

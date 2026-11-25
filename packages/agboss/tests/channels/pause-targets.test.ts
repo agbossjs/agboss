@@ -4,13 +4,10 @@
  * question-replies and approval-channels, ported to the new names: the same pause, the same
  * answers, the same guarantees.
  */
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { describe, expect } from "vitest";
 import { ExecutionStatus } from "../../src/app/types.js";
-import {
-  PauseStatus,
-  PausedExecutionRepository,
-  UninterpretableReplyError,
-} from "../../src/index.js";
+import { PauseStatus, PausedExecutionRepository } from "../../src/index.js";
 import { PauseKind } from "../../src/pause/index.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import {
@@ -87,7 +84,7 @@ describe("#1307a: an @ExternalTask step pauses like a question and its channel i
       .resume({ pauseId, reply: "🤷" }, owner)
       .catch((error: unknown) => error);
 
-    expect(unread).toBeInstanceOf(UninterpretableReplyError);
+    expect(unread).toBeInstanceOf(PauseError.UninterpretableReply);
     expect(unread).toMatchObject({ reason: '"🤷" names no limit' });
     const pauses = app.resolve(PausedExecutionRepository);
     expect((await pauses.findByTenantIdAndPauseId("default", pauseId))?.status).toBe(

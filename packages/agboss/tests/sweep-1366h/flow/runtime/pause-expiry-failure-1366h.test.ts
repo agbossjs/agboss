@@ -1,3 +1,4 @@
+import { PauseError } from "../../../../src/core/error-families/pause-errors.js";
 import { usd } from "../../../../src/units/index.js";
 /**
  * #1366: how a step whose pause expired fails — a run-bound pause fails with the run's own deadline error (the
@@ -16,10 +17,7 @@ import {
   expiryFailureOf,
   type ExpirySite,
 } from "../../../../src/flow/runtime/pause-expiry-failure.js";
-import {
-  ExpiryHandlerError,
-  PauseExpiredError,
-} from "../../../../src/flow/runtime/pause-expired-error.js";
+import { PauseExpiredError } from "../../../../src/flow/runtime/pause-expired-error.js";
 import { runInFrame } from "../../../../src/flow/context/frame.js";
 import { seconds } from "../../../../src/units/index.js";
 import { ComponentKind } from "../../../../src/flow/runtime/records.js";
@@ -133,11 +131,13 @@ describe("#1366: a pause with its own bound", () => {
     expect(error).toBeInstanceOf(PauseExpiredError);
     expect((error as PauseExpiredError).expiresAt).toBe(EXPIRES);
     expect((error as PauseExpiredError).channel).toBe("ops");
-    expect((error as PauseExpiredError).cause).toBeInstanceOf(ExpiryHandlerError);
-    expect(((error as PauseExpiredError).cause as ExpiryHandlerError).problem).toBe(
+    expect((error as PauseExpiredError).cause).toBeInstanceOf(PauseError.ExpiryHandlerFailed);
+    expect(((error as PauseExpiredError).cause as PauseError.ExpiryHandlerFailed).problem).toBe(
       ExpiryProblem.HandlerFailed,
     );
-    expect(((error as PauseExpiredError).cause as ExpiryHandlerError).channel).toBe("ops");
+    expect(((error as PauseExpiredError).cause as PauseError.ExpiryHandlerFailed).channel).toBe(
+      "ops",
+    );
   });
 
   it("has no cause when it recorded no expiry problem", () => {

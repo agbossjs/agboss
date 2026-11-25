@@ -4,11 +4,11 @@
  * interrupted step running again (M2, automated); a pause made on one instance is resumed on the
  * other; a pause survives a restart of the only instance. Every store is a SQLite implementation.
  */
+import { PauseError } from "../../../src/core/error-families/pause-errors.js";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import {
   ExecutionLeaseLostError,
   ExecutionStatus,
-  PauseClosedError,
   PauseStatus,
   ResumeReason,
   SqlitePausedExecutionRepository,
@@ -232,7 +232,7 @@ describe("#850: a resume that died between recording its answer and moving the t
     // the store refuses the resolve, as when another resume answered between the mark and it
     atTheResolve(() => Promise.resolve(undefined));
 
-    await expect(app.resume(answerOf(paused, approve))).rejects.toBeInstanceOf(PauseClosedError);
+    await expect(app.resume(answerOf(paused, approve))).rejects.toBeInstanceOf(PauseError.Closed);
     await clock.advance(seconds(31));
     await until(() => seen.resumes.length === 1, "the recovery of the root");
     const pending = await statusOfPause(answerOf(paused, approve).pauseId);
@@ -265,7 +265,7 @@ describe("#850: a resume that died between recording its answer and moving the t
       return found && { ...found, status: PauseStatus.Resolved };
     });
 
-    await expect(app.resume(answerOf(paused, approve))).rejects.toBeInstanceOf(PauseClosedError);
+    await expect(app.resume(answerOf(paused, approve))).rejects.toBeInstanceOf(PauseError.Closed);
     await clock.advance(seconds(31));
     const resumed = await instance(apps, 1).resume(answerOf(paused, approve));
 

@@ -5,6 +5,7 @@
  * (`cancel-resting-sweep.sqlite.test.ts`): two instances, the first one's cancel "died" after
  * the request, the second one's sweeps (the orphan look, every 30 s) finish it.
  */
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import type { TestAPI } from "vitest";
 import { expect, vi } from "vitest";
 import { ExecutionCancelledError } from "../../src/core/errors.js";
@@ -20,7 +21,6 @@ import {
   ExecutionLeaseRepository,
   ExecutionRecordRepository,
   ExecutionTreeRepository,
-  PauseClosedError,
   PausedExecutionRepository,
   PauseResolution,
   PauseStatus,
@@ -229,7 +229,7 @@ export function cancelRestingCases(
 
     // the answer never ran the cancelled tree: it was refused, with a typed error
     expect(
-      refusal instanceof PauseClosedError ||
+      refusal instanceof PauseError.Closed ||
         (refusal as { status?: unknown } | undefined)?.status === ExecutionStatus.Cancelled,
     ).toBe(true);
     await expectCancelled(tree);
@@ -249,7 +249,7 @@ export function cancelRestingCases(
 
     await expect(
       instance(apps, 1).resume({ pauseId: tree.pauseId, decision: { approved: true } }),
-    ).rejects.toBeInstanceOf(PauseClosedError);
+    ).rejects.toBeInstanceOf(PauseError.Closed);
     expect(seen.charges).toEqual([]);
   });
 
@@ -328,7 +328,7 @@ export function cancelRestingCases(
       );
 
     expect(
-      refusal instanceof PauseClosedError ||
+      refusal instanceof PauseError.Closed ||
         (refusal as { status?: unknown } | undefined)?.status === ExecutionStatus.Cancelled,
     ).toBe(true);
     expect(seen.charges).toEqual([]);

@@ -1,7 +1,7 @@
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { beforeEach, describe, expect } from "vitest";
 import { ExecutionCancelledError } from "../../src/core/errors.js";
-import { PauseClosedError } from "../../src/index.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import {
   blocking,
@@ -34,7 +34,7 @@ function waitingRun(run: () => Promise<unknown>): {
 }
 
 describe("#187 AC1: after cancelling a paused run, approving it does not execute the tool", () => {
-  test("cancel drops the pause: resume throws PauseClosedError and the tool never runs", async ({
+  test("cancel drops the pause: resume throws PauseError.Closed and the tool never runs", async ({
     app,
     mockModel,
   }) => {
@@ -47,7 +47,7 @@ describe("#187 AC1: after cancelling a paused run, approving it does not execute
 
     expect(paused.status).toBe(ExecutionStatus.Paused);
     expect(cancelled).toEqual({ cancelled: true });
-    await expect(resumed).rejects.toBeInstanceOf(PauseClosedError);
+    await expect(resumed).rejects.toBeInstanceOf(PauseError.Closed);
     expect(seen.charges).toEqual([]);
     expect(seen.payments).toEqual([]);
     expect(await app.cancel(paused.threadId)).toEqual({ cancelled: false });
@@ -66,7 +66,7 @@ describe("#187 AC1: after cancelling a paused run, approving it does not execute
     const restarted = await recoverApp();
 
     await expect(restarted.resume(answerOf(paused, approve))).rejects.toBeInstanceOf(
-      PauseClosedError,
+      PauseError.Closed,
     );
     expect(seen.charges).toEqual([]);
   });
@@ -118,6 +118,6 @@ describe("#187 AC2: cancelling a running run stops it before the next model/tool
     await expect(run.done).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
     expect(seen.charges).toHaveLength(1);
     expect(mockModel(Clerk).requests).toHaveLength(2);
-    await expect(app.resume(answerOf(paused, approve))).rejects.toBeInstanceOf(PauseClosedError);
+    await expect(app.resume(answerOf(paused, approve))).rejects.toBeInstanceOf(PauseError.Closed);
   });
 });

@@ -1,6 +1,7 @@
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { beforeEach, describe, expect } from "vitest";
-import { BudgetExceededError, PauseClosedError, UnknownPauseError } from "../../src/errors.js";
+import { BudgetExceededError } from "../../src/errors.js";
 import {
   ExecutionOperation,
   NotAWorkflowStartError,
@@ -64,7 +65,11 @@ describe("#246 AC1: a thread of another owner → onExecutionRejected execution.
 
     await expect(again).rejects.toBeInstanceOf(ExecutionError.ThreadOwnerMismatch);
     expectRejected(
-      { operation: ExecutionOperation.Execute, threadId: first.threadId, code: "execution.thread-owner-mismatch" },
+      {
+        operation: ExecutionOperation.Execute,
+        threadId: first.threadId,
+        code: "execution.thread-owner-mismatch",
+      },
       [first.executionId, "alice", "mallory", "two"],
     );
     expect(workflowEvents()).toEqual([]);
@@ -85,7 +90,11 @@ describe("#246 AC1: a thread of another owner → onExecutionRejected execution.
       ExecutionError.ThreadOwnerMismatch,
     );
     expectRejected(
-      { operation: ExecutionOperation.Resume, threadId: paused.threadId, code: "execution.thread-owner-mismatch" },
+      {
+        operation: ExecutionOperation.Resume,
+        threadId: paused.threadId,
+        code: "execution.thread-owner-mismatch",
+      },
       [paused.executionId, "dana"],
     );
     resetEvents();
@@ -93,7 +102,11 @@ describe("#246 AC1: a thread of another owner → onExecutionRejected execution.
       ExecutionError.ThreadOwnerMismatch,
     );
     expectRejected(
-      { operation: ExecutionOperation.Cancel, threadId: paused.threadId, code: "execution.thread-owner-mismatch" },
+      {
+        operation: ExecutionOperation.Cancel,
+        threadId: paused.threadId,
+        code: "execution.thread-owner-mismatch",
+      },
       [paused.executionId],
     );
     expect(workflowEvents()).toEqual([]);
@@ -119,7 +132,7 @@ describe("#246 AC2: nothing to resume, an unknown thread, an invalid start → o
     const done = await app.resume(answerOf(paused, approve));
     resetEvents();
 
-    await expect(app.resume(answerOf(paused, approve))).rejects.toBeInstanceOf(PauseClosedError);
+    await expect(app.resume(answerOf(paused, approve))).rejects.toBeInstanceOf(PauseError.Closed);
     expectRejected(
       { operation: ExecutionOperation.Resume, threadId: done.threadId, code: "pause.closed" },
       [done.executionId],
@@ -130,7 +143,7 @@ describe("#246 AC2: nothing to resume, an unknown thread, an invalid start → o
   test("#267 AC2: a pause nobody made: pause.unknown-pause, no thread named", async ({ app }) => {
     const unknown = app.resume({ pauseId: "no-such-pause", decision: approve });
 
-    await expect(unknown).rejects.toBeInstanceOf(UnknownPauseError);
+    await expect(unknown).rejects.toBeInstanceOf(PauseError.UnknownPause);
     expectRejected({ operation: ExecutionOperation.Resume, code: "pause.unknown-pause" });
   });
 

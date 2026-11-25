@@ -4,6 +4,7 @@
  * and injected; their values passed per execution, validated before the first step, frozen and
  * kept by a resume; the default tenant; threads keyed by tenant + thread.
  */
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -11,11 +12,7 @@ import type { App } from "../../src/app/types.js";
 import { ValidationError } from "../../src/core/error-families/effect-errors.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
-import {
-  ExecutionContextUnavailableError,
-  TenantContext,
-  UnknownPauseError,
-} from "../../src/index.js";
+import { ExecutionContextUnavailableError, TenantContext } from "../../src/index.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import {
   BedAgent,
@@ -252,7 +249,7 @@ describe("#261 AC5: the default tenant; a thread's key is tenant + thread", () =
     );
     await expect(
       app.resume(answerOf(paused, approve), { tenantId: "tel-aviv-clinic" }),
-    ).rejects.toBeInstanceOf(UnknownPauseError);
+    ).rejects.toBeInstanceOf(PauseError.UnknownPause);
     const done = await app.resume(answerOf(paused, approve), { tenantId: "haifa-clinic" });
     expect(done.tenantId).toBe("haifa-clinic");
   });

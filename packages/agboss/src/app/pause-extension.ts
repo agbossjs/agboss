@@ -1,3 +1,4 @@
+import { PauseError } from "../core/error-families/pause-errors.js";
 import { checkedCallers } from "../flow/context/context-values.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
 import {
@@ -35,7 +36,6 @@ import type { AnswerParts } from "./resume.js";
 import { actorOf, pauseOf } from "./resume.js";
 import { assertSameKind, checked, reject, previousDeadlineOf } from "./extend-request.js";
 import { pauseClosed } from "./pause-closed.js";
-import { PauseExtensionContendedError } from "./pause-closed-error.js";
 import type {
   AnyTenantApp,
   ExtendPauseRequest,
@@ -49,12 +49,12 @@ import type {
  * deadline is `now + expiresIn`; refused when it is not later than the current one, when the pause
  * has no deadline (none is ever added), or when it is past the deadline the pause was made under —
  * its run's, or a quorum's (`boundAt`); exactly that deadline is allowed. A closed pause, or one
- * past its deadline, is `PauseClosedError` — judged at the instant of the write: a working-time
+ * past its deadline, is `PauseError.Closed` — judged at the instant of the write: a working-time
  * calendar that took seconds does not keep a deadline that passed meanwhile open (#1148). The store applies it atomically (`extend…`, its
  * compare-and-set over the deadline this call read, to a later one, while the pause is open — the
  * expiry look, an answer and another extension: one wins); the channel and the listeners are told
  * `extended` in the same transaction, once, by the winner. A call that loses the compare-and-set
- * `MAX_EXTEND_ATTEMPTS` (8) times in a row is `PauseExtensionContendedError` (`pause.update-contended`);
+ * `MAX_EXTEND_ATTEMPTS` (8) times in a row is `PauseError.UpdateContended` (`pause.update-contended`);
  * it changed nothing, retrying is safe. No lease is taken and no tree moves.
  */
 
@@ -128,7 +128,7 @@ function calendarAdder(
 }
 
 /**
- * How many times an extension reads and tries before it gives up with `PauseExtensionContendedError`.
+ * How many times an extension reads and tries before it gives up with `PauseError.UpdateContended`.
  * A lost compare-and-set means another writer moved the deadline in the same instant; each retry
  * re-reads, so losing again needs yet another writer to win in between. Eight lost rounds in a row
  * is a hot pause, not a normal race (a handful of operators clicking together settle in two or three),
@@ -159,7 +159,7 @@ export const extendPauseOf =
       // lost the compare-and-set: the expiry, an answer, a cancel or another extension won — read what it left
       pause = await pauseOf(parts.pauses, request, tenantId);
     }
-    throw new PauseExtensionContendedError({
+    throw new PauseError.UpdateContended({
       pauseKey: pauseKeyOf(tenantId, request.pauseId),
       attempts: MAX_EXTEND_ATTEMPTS,
     });

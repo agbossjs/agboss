@@ -4,15 +4,11 @@
  * — and the log says so; a tree that finishes normally changes nothing. (An answer whose step is
  * in the checkpoint is `Taken`: `tree-end-pauses-units.test.ts`.)
  */
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { beforeEach, describe, expect } from "vitest";
 import { ExecutionCancelledError } from "../../src/core/errors.js";
 import { DEFAULT_TENANT_ID } from "../../src/flow/context/tenant-context.js";
-import {
-  PauseClosedError,
-  PauseResolution,
-  PauseStatus,
-  type ExecutionOutput,
-} from "../../src/index.js";
+import { PauseResolution, PauseStatus, type ExecutionOutput } from "../../src/index.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import type { TestApp } from "../../src/testing/test-app.js";
 import { ExecutionCancelOutcome, executionControlOf } from "../../src/app/execution-control.js";
@@ -108,7 +104,7 @@ describe("#939 AC1: the drain took the answer, a cancel stopped the pass", () =>
     const moved = execute(first, OrderWorkflowStart, { text: "charge" }, { threadId: THREAD });
 
     await expect(moved).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
-    await expect(resumed.call).rejects.toBeInstanceOf(PauseClosedError);
+    await expect(resumed.call).rejects.toBeInstanceOf(PauseError.Closed);
     await clock.advance(seconds(31));
     const left = await leftOf(stored(store.repository), root.id, THREAD);
     expect(seen.charges).toEqual([]);

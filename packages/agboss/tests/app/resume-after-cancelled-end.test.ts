@@ -6,10 +6,11 @@
  * paused run of the rest before stays stored, and the request goes with the tree's keys at its end.
  * The waiting resume then takes the free lease and must read the tree's end, not run the answer.
  */
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { beforeEach, describe, expect } from "vitest";
 import { ExecutionCancelledError } from "../../src/core/errors.js";
 import { DEFAULT_TENANT_ID } from "../../src/flow/context/tenant-context.js";
-import { PauseClosedError, PauseStatus, type ExecutionOutput } from "../../src/index.js";
+import { PauseStatus, type ExecutionOutput } from "../../src/index.js";
 import { callTool, testWith } from "../../src/testing/index.js";
 import type { TestApp } from "../../src/testing/test-app.js";
 import { execute } from "../helpers/flow.js";
@@ -91,7 +92,7 @@ describe("#901: a resume taken by the holder's drain, its tree then cancelled, m
     await expect(moved).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
     expect(cancels).toEqual([ExecutionCancelOutcome.Requested]);
     // the waiting resume takes the lease the drain released: the tree ended, its answer runs nowhere
-    await expect(resumed.call).rejects.toBeInstanceOf(PauseClosedError);
+    await expect(resumed.call).rejects.toBeInstanceOf(PauseError.Closed);
     await clock.advance(seconds(31));
     expect(seen.charges).toEqual([]);
     expect(seen.completed).toEqual(["paused", "cancelled"]);

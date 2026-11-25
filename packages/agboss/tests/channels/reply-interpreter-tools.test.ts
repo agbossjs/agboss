@@ -3,15 +3,16 @@
  * describes `overrideInput` with the approved tool's input fields (every one optional: the
  * fields the reply changes, the rest kept from the call), so "ok but only up to $500" can be an
  * approval with one changed field. AC2: it can say "not understood" through a tool of its own — the
- * pause stays `Pending` and `UninterpretableReplyError` carries its reason, never a refusal.
+ * pause stays `Pending` and `PauseError.UninterpretableReply` carries its reason, never a refusal.
  */
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { beforeEach, describe, expect } from "vitest";
 import { NOT_UNDERSTOOD_TOOL } from "../../src/channels/reply-tools.js";
 import {
   ReplyInterpreterNotUnderstoodDto,
   ToolCallApprovalDecisionDto,
 } from "../../src/dto/standard/framework.js";
-import { PauseStatus, UninterpretableReplyError } from "../../src/index.js";
+import { PauseStatus } from "../../src/index.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import {
   PayOutTool,
@@ -99,7 +100,7 @@ describe("#648 AC1: overrideInput is described by the approved tool's input", ()
 });
 
 describe("#648 AC2: a model interpreter says 'not understood' through its tool", () => {
-  test("AC2: UninterpretableReplyError with its reason; the pause stays pending and is answered later", async ({
+  test("AC2: PauseError.UninterpretableReply with its reason; the pause stays pending and is answered later", async ({
     app,
     mockModel,
   }) => {
@@ -113,7 +114,7 @@ describe("#648 AC2: a model interpreter says 'not understood' through its tool",
       .resume({ pauseId: payoutPauseId(), reply: "🤷" }, manager)
       .catch((error: unknown) => error);
 
-    expect(failed).toBeInstanceOf(UninterpretableReplyError);
+    expect(failed).toBeInstanceOf(PauseError.UninterpretableReply);
     expect(failed).toHaveProperty(
       "reason",
       "the reply does not answer the question: a shrug, no decision",

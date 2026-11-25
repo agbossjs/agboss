@@ -11,7 +11,6 @@ import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { beforeEach, describe, expect, vi } from "vitest";
 import { ExecutionStatus } from "../../src/app/types.js";
 import { DurableExecutionStatus, executionControlOf } from "../../src/app/execution-control.js";
-import { PauseClosedError, UnknownPauseError } from "../../src/errors.js";
 import {
   PauseError,
   PauseClosedReason,
@@ -148,7 +147,7 @@ describe("#946 AC1: an operator reassigns an approval", () => {
       // the caller gets the new pause's key, never its id (a capability)
       expect(moved).toMatchObject({ pauseKey: pauseKeyOf("default", sent.pauseId) });
       const refused = await failureOf(app.resume({ pauseId: oldId, decision: approve }, manager));
-      expect(refused).toBeInstanceOf(PauseClosedError);
+      expect(refused).toBeInstanceOf(PauseError.Closed);
       expect(refused).toMatchObject({ reason: PauseClosedReason.Reassigned });
 
       const done = await app.resume({ pauseId: sent.pauseId, decision: approve }, manager);
@@ -517,7 +516,7 @@ describe("#946 AC2: the instance dies, or the channel fails, between the reassig
       // nothing waits: the new id answers nothing more
       expect(
         await failureOf(app.resume({ pauseId: newId, decision: approve }, manager)),
-      ).toBeInstanceOf(PauseClosedError);
+      ).toBeInstanceOf(PauseError.Closed);
     },
   );
 
@@ -636,7 +635,7 @@ describe("#946 AC3: the deadline, and the races", () => {
       );
 
       for (const refused of [early, late]) {
-        expect(refused).toBeInstanceOf(PauseClosedError);
+        expect(refused).toBeInstanceOf(PauseError.Closed);
         expect(refused).toMatchObject({ reason: PauseClosedReason.Expired, closedAt: deadline });
       }
       expect(told.sent).toHaveLength(1);
@@ -664,7 +663,7 @@ describe("#946 AC3: the deadline, and the races", () => {
       );
       look.mockRestore();
 
-      expect(refused).toBeInstanceOf(PauseClosedError);
+      expect(refused).toBeInstanceOf(PauseError.Closed);
       expect(write).not.toHaveBeenCalled();
     },
   );
@@ -690,7 +689,7 @@ describe("#946 AC3: the deadline, and the races", () => {
       const lost = rejectionsOf(results);
       expect(lost).toHaveLength(1);
       const [refused] = lost;
-      expect(refused).toBeInstanceOf(PauseClosedError);
+      expect(refused).toBeInstanceOf(PauseError.Closed);
       expect(refused).toMatchObject({ reason: PauseClosedReason.Reassigned });
       expect(told.sent.filter((ask) => ask.replaces !== undefined)).toHaveLength(1);
     },
@@ -722,7 +721,7 @@ describe("#946 AC3: the deadline, and the races", () => {
         expect(results.filter((one) => one.status === "fulfilled")).toHaveLength(1);
         const reassignedOk = told.sent.some((ask) => ask.replaces !== undefined);
         const [loser] = rejectionsOf(results);
-        expect(loser).toBeInstanceOf(PauseClosedError);
+        expect(loser).toBeInstanceOf(PauseError.Closed);
         expect(loser).toMatchObject({
           // the loser is refused with the reason of the close that won
           reason: reassignedOk ? PauseClosedReason.Reassigned : PauseClosedReason.Answered,
@@ -893,7 +892,7 @@ describe("#946: who may reassign, and what is refused", () => {
   );
 
   extension(
-    "another tenant's pause, and an unknown one, are UnknownPauseError",
+    "another tenant's pause, and an unknown one, are PauseError.UnknownPause",
     async ({ app }) => {
       await execute(
         app,
@@ -908,13 +907,13 @@ describe("#946: who may reassign, and what is refused", () => {
       };
 
       expect(await failureOf(app.reassignPause(request, manager))).toBeInstanceOf(
-        UnknownPauseError,
+        PauseError.UnknownPause,
       );
       expect(
         await failureOf(
           app.reassignPause({ ...request, pauseId: "nope" }, { ...manager, tenantId: "acme" }),
         ),
-      ).toBeInstanceOf(UnknownPauseError);
+      ).toBeInstanceOf(PauseError.UnknownPause);
       const moved = await app.reassignPause(request, { ...manager, tenantId: "acme" });
       expect(moved.pauseKey).toBeDefined();
     },
@@ -934,7 +933,7 @@ describe("#946: who may reassign, and what is refused", () => {
         ),
       );
 
-      expect(refused).toBeInstanceOf(PauseClosedError);
+      expect(refused).toBeInstanceOf(PauseError.Closed);
       expect(refused).toMatchObject({ reason: PauseClosedReason.Answered });
     },
   );

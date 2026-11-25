@@ -4,14 +4,10 @@
  * Resolved`, atomic) and then waits for the lease; the holder takes decisions resolved meanwhile
  * (the drain); a holder frozen past the lease loses it silently and the waiting call goes on.
  */
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { beforeEach, describe, expect } from "vitest";
-import {
-  ExecutionLeaseLostError,
-  PauseClosedError,
-  PauseStatus,
-  type ExecutionOutput,
-} from "../../src/index.js";
+import { ExecutionLeaseLostError, PauseStatus, type ExecutionOutput } from "../../src/index.js";
 import { ExecutionStatus } from "../../src/app/types.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import { seconds } from "../../src/units/index.js";
@@ -82,7 +78,7 @@ describe("#265 AC11 / #267 AC12: a tree is moved by one lease holder at a time",
     expect(seen.charges).toEqual(["10 USD"]);
   });
 
-  test("two resumes of one pause at once: one moves the tree, the other gets PauseClosedError", async ({
+  test("two resumes of one pause at once: one moves the tree, the other gets PauseError.Closed", async ({
     app,
     apps,
     mockModel,
@@ -100,7 +96,7 @@ describe("#265 AC11 / #267 AC12: a tree is moved by one lease holder at a time",
 
     expect(first.status).toBe("fulfilled");
     expect(double.status === "rejected" ? double.reason : double.value).toBeInstanceOf(
-      PauseClosedError,
+      PauseError.Closed,
     );
     expect(seen.charges).toEqual(["10 USD"]);
   });
