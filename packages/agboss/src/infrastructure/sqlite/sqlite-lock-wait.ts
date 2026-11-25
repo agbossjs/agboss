@@ -1,7 +1,7 @@
 import type { DatabaseSync } from "node:sqlite";
 import { ConfigError } from "../../core/error-families/config-errors.js";
 import { StoreError, StoreErrorKind } from "../../core/error-families/store-errors.js";
-import { seconds, type Milliseconds } from "../../units/index.js";
+import { ms, seconds, type Milliseconds } from "../../units/index.js";
 import { keepingAlive, systemClock, waitOf } from "../clock.js";
 import { sqliteCodeOf } from "./sqlite-outcome.js";
 
@@ -61,6 +61,10 @@ const lockTimeout = (deadline: Milliseconds, cause: unknown): StoreError.LockTim
     message: `the SQLite file stayed locked by another process for ${String(deadline)} ms: nothing was applied, the call can be tried again`,
     cause,
   });
+
+/** A startup's synchronous wait for the lock is over (`SqliteConnection.startupWork`): nothing was applied. */
+export const startupLockTimeout = (window: number, cause: unknown): StoreError.LockTimeout =>
+  lockTimeout(ms(window), cause);
 
 /** The tries after the first busy answer, until one passes or the deadline does. */
 async function retried(

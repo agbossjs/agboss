@@ -2515,6 +2515,7 @@ export class SqliteConnection implements OnDestroy {
         readonly isPriority?: boolean;
         readonly isRenewal?: boolean;
     }): Promise<Awaited<TValue>>;
+    startupWork<T>(work: () => T, window?: number): T;
     transaction<TResult>(work: () => TResult): TResult;
 }
 
