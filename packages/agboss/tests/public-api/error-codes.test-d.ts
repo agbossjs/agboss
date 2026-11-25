@@ -1,9 +1,13 @@
+import { StepError } from "../../src/core/error-families/step-errors.js";
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
+import { A2AError } from "../../src/core/error-families/remote-errors.js";
 import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 /**
  * #906 AC2 (API review G8, completing #890), at compile time: the instance `code` of every error is
  * its class's literal, so `switch (error.code)` over a union of error instances narrows; the seven
- * parents with subclasses (`PaidStepError`, `StepFailedError`, `AgentFailedError`,
- * `LimitExceededError`, `RouterFailedError`, `DecisionError`, `ExecutionLeaseLostError`) carry the
+ * parents with subclasses (`StepError`, `StepError`, `StepError.Agent`,
+ * `LimitError`, `StepError.Router`, `DecisionError`, `ExecutionLeaseLostError`) carry the
  * literal union of their family.
  */
 import {
@@ -12,26 +16,10 @@ import {
 } from "../../src/core/error-families/effect-errors.js";
 import { describe, expectTypeOf, it } from "vitest";
 import * as a2a from "../../src/a2a/index.js";
-import type { A2ATaskFailedError } from "../../src/a2a/index.js";
 import * as models from "../../src/models/index.js";
 import * as rag from "../../src/rag/index.js";
 import * as root from "../../src/index.js";
-import type {
-  LimitExceededError,
-  PaidStepError,
-  StepFailedError,
-  ThreadIdsExhaustedError,
-  UnknownPauseError,
-  BudgetExceededError,
-  AgentFailedError,
-  QualityGateError,
-  RouterFailedError,
-  DecisionError,
-  ExecutionLeaseLostError,
-  ExpiryHandlerError,
-  WorkingCalendarError,
-  PauseExpiredError,
-} from "../../src/index.js";
+import type { DecisionError, ExecutionLeaseLostError } from "../../src/index.js";
 
 type ErrorClassesOf<M> = {
   [
@@ -58,12 +46,12 @@ describe("#906 AC2: the instance code is the class's literal", () => {
     expectTypeOf<
       IdempotencyError.KeyConflict["code"]
     >().toEqualTypeOf<"idempotency.key-conflict">();
-    expectTypeOf<A2ATaskFailedError["code"]>().toEqualTypeOf<"a2a.task-failed">();
+    expectTypeOf<A2AError.TaskFailed["code"]>().toEqualTypeOf<"a2a.task-failed">();
     expectTypeOf<
       OutboundCallError.Unreconciled["code"]
     >().toEqualTypeOf<"outbound-call.unreconciled">();
-    expectTypeOf<BudgetExceededError["code"]>().toEqualTypeOf<"limit.budget">();
-    expectTypeOf<QualityGateError["code"]>().toEqualTypeOf<"step.agent.quality-gate">();
+    expectTypeOf<LimitError.Budget["code"]>().toEqualTypeOf<"limit.budget">();
+    expectTypeOf<StepError.QualityGate["code"]>().toEqualTypeOf<"step.agent.quality-gate">();
   });
 
   it("AC2: a parent's instance code is the literal union of its family", () => {
@@ -73,14 +61,11 @@ describe("#906 AC2: the instance code is the class's literal", () => {
     expectTypeOf<DecisionError["code"]>().toEqualTypeOf<
       "model.decision.invalid-request" | "model.decision.invalid-response"
     >();
-    expectTypeOf<RouterFailedError["code"]>().toEqualTypeOf<
-      "step.router" | "step.router.invalid-decision"
-    >();
-    expectTypeOf<AgentFailedError["code"]>().toEqualTypeOf<
-      "step.agent" | "step.agent.quality-gate" | "step.agent.invalid-answer"
-    >();
-    expectTypeOf<LimitExceededError["code"]>().toEqualTypeOf<
-      | "limit"
+    expectTypeOf<StepError.Router["code"]>().toEqualTypeOf<"step.router">();
+    expectTypeOf<StepError.Agent["code"]>().toEqualTypeOf<"step.agent">();
+    expectTypeOf<LimitError["code"]>().toEqualTypeOf<
+      | "limit.agent"
+      | "limit.items"
       | "limit.budget"
       | "limit.steps"
       | "limit.visits"
@@ -89,29 +74,29 @@ describe("#906 AC2: the instance code is the class's literal", () => {
       | "limit.mesh-loop"
       | "limit.hops"
     >();
-    expectTypeOf<StepFailedError["code"]>().toExtend<PaidStepError["code"]>();
-    expectTypeOf<AgentFailedError["code"]>().toExtend<StepFailedError["code"]>();
-    expectTypeOf<"step">().toExtend<PaidStepError["code"]>();
-    expectTypeOf<"step">().not.toExtend<StepFailedError["code"]>();
+    expectTypeOf<StepError["code"]>().toExtend<StepError["code"]>();
+    expectTypeOf<StepError.Agent["code"]>().toExtend<StepError["code"]>();
   });
 });
 
 describe("#941: the pause deadline's errors", () => {
   it("a pause that expired is a step failure with its own literal code; its cause's code is its own", () => {
-    expectTypeOf<PauseExpiredError["code"]>().toEqualTypeOf<"step.pause-expired">();
-    expectTypeOf<PauseExpiredError["code"]>().toExtend<StepFailedError["code"]>();
-    expectTypeOf<PauseExpiredError["code"]>().toExtend<PaidStepError["code"]>();
-    expectTypeOf<ExpiryHandlerError["code"]>().toEqualTypeOf<"pause.expiry-handler-failed">();
-    expectTypeOf<WorkingCalendarError["code"]>().toEqualTypeOf<"pause.working-calendar">();
+    expectTypeOf<StepError.PauseExpired["code"]>().toEqualTypeOf<"step.pause-expired">();
+    expectTypeOf<StepError.PauseExpired["code"]>().toExtend<StepError["code"]>();
+    expectTypeOf<StepError.PauseExpired["code"]>().toExtend<StepError["code"]>();
+    expectTypeOf<
+      PauseError.ExpiryHandlerFailed["code"]
+    >().toEqualTypeOf<"pause.expiry-handler-failed">();
+    expectTypeOf<PauseError.WorkingCalendar["code"]>().toEqualTypeOf<"pause.working-calendar">();
   });
 });
 
 type Failure =
   | IdempotencyError.KeyConflict
-  | ThreadIdsExhaustedError
+  | ExecutionError.ThreadIdsExhausted
   | ExecutionError.Fenced
-  | UnknownPauseError
-  | StepFailedError;
+  | PauseError.UnknownPause
+  | StepError;
 
 describe("#906 AC2: switch (error.code) narrows over a union of instances", () => {
   it("AC2: each case names one class, a parent drops out of the others", () => {
@@ -120,18 +105,18 @@ describe("#906 AC2: switch (error.code) narrows over a union of instances", () =
         case "idempotency.key-conflict":
           expectTypeOf(error).toEqualTypeOf<IdempotencyError.KeyConflict>();
           return error.effect;
-        case "run.thread-ids-exhausted":
-          expectTypeOf(error).toEqualTypeOf<ThreadIdsExhaustedError>();
+        case "execution.thread-ids-exhausted":
+          expectTypeOf(error).toEqualTypeOf<ExecutionError.ThreadIdsExhausted>();
           return String(error.tries);
         case "execution.lease-lost.fenced":
           expectTypeOf(error).toEqualTypeOf<ExecutionError.Fenced>();
           return error.scopeKey;
         case "pause.unknown-pause":
-          expectTypeOf(error).toEqualTypeOf<UnknownPauseError>();
+          expectTypeOf(error).toEqualTypeOf<PauseError.UnknownPause>();
           return error.message;
         default:
           // what is left: the step failures only
-          expectTypeOf(error).toEqualTypeOf<StepFailedError>();
+          expectTypeOf(error).toEqualTypeOf<StepError>();
           return error.code;
       }
     };

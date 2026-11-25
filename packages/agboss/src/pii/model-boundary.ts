@@ -126,7 +126,7 @@ export interface MaskedModelText {
 
 /**
  * One text into a model through the policies (a router's request): a `block` value in it
- * fails the execution with `PiiRefusedError`.
+ * fails the execution with `PiiError.Refused`.
  */
 export async function maskedModelText(
   set: PiiPolicySet,
@@ -142,7 +142,7 @@ export async function maskedModelText(
 /**
  * A model the framework calls on behalf of an agent (#708: the LLM reranker of its knowledge base)
  * reads what it reads as the agent's own model would: through the agent's PII policies, with its
- * execution's sensitive values and key. A block rule in a text refuses it (`PiiRefusedError`) — what
+ * execution's sensitive values and key. A block rule in a text refuses it (`PiiError.Refused`) — what
  * the agent's boundary does with the same text — so the value never reaches that model. Its answer
  * needs no reveal when it names no value (a ranking by numbers).
  */
@@ -157,7 +157,7 @@ export interface MaskedReading {
   readonly usage: readonly UsageRecord[];
 }
 
-/** Masks texts for a model read on behalf of an agent; throws `PiiRefusedError` on a block rule. */
+/** Masks texts for a model read on behalf of an agent; throws `PiiError.Refused` on a block rule. */
 export type ModelReadingMask = (texts: readonly string[]) => Promise<MaskedReading>;
 
 /** The reading through `set` (`known`: the execution's tokens so far); none without policies. */

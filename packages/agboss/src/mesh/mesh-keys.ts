@@ -1,3 +1,4 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import { createPrivateKey, createPublicKey, type KeyObject } from "node:crypto";
 import { resolveReferences } from "../environments/define-env.js";
 import { Secret } from "../environments/secret.js";
@@ -19,10 +20,6 @@ export interface MeshKeys {
 }
 
 /** A mesh key that holds no key of the expected kind, or a peer left with none. */
-export class MeshKeyError extends Error {
-  override name = "MeshKeyError";
-}
-
 const textOf = (value: unknown): string | undefined =>
   value instanceof Secret ? value.reveal() : typeof value === "string" ? value : undefined;
 
@@ -43,7 +40,9 @@ function keyOf(
     return key;
   } catch (error) {
     const why = error instanceof Error ? error.message : String(error);
-    throw new MeshKeyError(`[mesh.invalid-key] ${where} holds no ${what} (${why})`);
+    throw new ConfigError.Component({
+      message: `[mesh.invalid-key] ${where} holds no ${what} (${why})`,
+    });
   }
 }
 
@@ -61,7 +60,9 @@ function peerKeysOf(peer: MeshPeer, env: NodeJS.ProcessEnv): readonly KeyObject[
     ),
   );
   if (keys.length === 0)
-    throw new MeshKeyError(`[mesh.peer-without-keys] ${where} has no verification key set`);
+    throw new ConfigError.Component({
+      message: `[mesh.peer-without-keys] ${where} has no verification key set`,
+    });
   return keys;
 }
 

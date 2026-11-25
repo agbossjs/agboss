@@ -8,7 +8,7 @@ issue: 1382
 JSON was used as it came: a negative price was not charged at the accept and the settle added its size (a $3 report with a price
 of -1 was charged $4), and a `NaN` or `Infinity` price threw `UnitError` only after the peer had accepted the task. Assembly now
 refuses an `@A2AAgent` price that is not a finite number of dollars from 0 with `[a2a.price-invalid]`, and a client built with such
-a `contract` refuses its call with a `ComponentError` `[a2a.price-invalid]` before the card is read, anything is sent, accepted or
+a `contract` refuses its call with a `ConfigError.Component` `[a2a.price-invalid]` before the card is read, anything is sent, accepted or
 charged. The charge itself (`chargeOf`, the accept's and the settle's) throws a `UnitError` for a price or an already-charged
 amount that is no amount, never a number. The messages name the value's kind, never its text. The same hole in a sibling:
 `ModelCost.fromPrices({ … })` refuses a model price (input, output, cached input) that is negative, `NaN` or `Infinity` when the table

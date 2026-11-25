@@ -52,6 +52,9 @@ export function cancelShard() {
       // #1341b: a stop is a cancel that undoes nothing — its requests, thread call and lease marks
       "src/app/{interrupt-controls,interrupt-requests,stop-requests,stop-thread,lease-marks,request-checks,external-pause,take-end}.ts",
       "src/app/{lease-lost,lease-stopped,lease-releases,lease-reporting}.ts",
+      // #1325b: a write refused after its tree's cancel, and the one test of what ends a tree as cancelled
+      "src/app/cancel-fenced.ts",
+      "src/core/execution-cancelled.ts",
       // #1341c: an operator's pause and its lift — the command, the park, the unpause, the pause mark's reads
       "src/app/{pause-thread,unpause-thread,unpause-move,parked-output,paused-tree}.ts",
     ],

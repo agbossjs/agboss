@@ -4,6 +4,7 @@
  * every comparison with the spend false, so no spend would have reached it; the amount is read once, from a trusted
  * source that may hold it wrong.
  */
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { beforeEach, describe, expect } from "vitest";
 import {
   BriefFinish,
@@ -13,7 +14,6 @@ import {
   ReviewerAgent,
 } from "./fixtures/budgets.application.js";
 import { given, GivenApplication } from "./fixtures/max-spend-invalid.application.js";
-import { BudgetExceededError } from "../../src/graph/limits.js";
 import { replyWith, testWith } from "../../src/testing/index.js";
 import { usd } from "../../src/units/index.js";
 import { execute } from "../helpers/flow.js";
@@ -68,12 +68,12 @@ describe("#1373: a maxSpend() that is no amount of dollars refuses the execution
       (thrown: unknown) => thrown,
     );
 
-    expect(error).toBeInstanceOf(BudgetExceededError);
+    expect(error).toBeInstanceOf(LimitError.Budget);
   });
 
-  test("a finite amount runs the execution as before", async ({ app, mockLlm }) => {
-    mockLlm(DrafterAgent).thenReturn(replyWith(DraftDto, { text: "a draft" }, { cost: usd(0) }));
-    mockLlm(ReviewerAgent).thenReturn(replyWith("fine", { cost: usd(0) }));
+  test("a finite amount runs the execution as before", async ({ app, mockModel }) => {
+    mockModel(DrafterAgent).thenReturn(replyWith(DraftDto, { text: "a draft" }, { cost: usd(0) }));
+    mockModel(ReviewerAgent).thenReturn(replyWith("fine", { cost: usd(0) }));
     given.amount = usd(2);
 
     const done = await execute(app, BriefStart, { text: "a brief" }, { tenant: acme });

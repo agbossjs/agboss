@@ -1,14 +1,10 @@
+import { PauseError } from "../../core/error-families/pause-errors.js";
+import { ExecutionError } from "../../core/error-families/run-errors.js";
+import { ValidationError } from "../../core/error-families/effect-errors.js";
 import type { A2AError } from "@a2a-js/sdk/errors";
-import { NotPausedError, UnknownPauseError } from "../../run/resume-agent.js";
-import {
-  ReplyInterpreterMissingError,
-  UninterpretableReplyError,
-} from "../../channels/decision.js";
-import { DtoValidationError } from "../../dto/errors.js";
+import { NotPausedError } from "../../run/resume-agent.js";
 import type { A2ATaskKey } from "../../infrastructure/a2a-task.repository.js";
-import { PauseClosedError } from "../../app/pause-closed-error.js";
 import { PauseClosedReason } from "../../infrastructure/pause-record.js";
-import { ThreadOwnerError } from "../../core/errors.js";
 import { logSubjectOf, type A2AServerParts } from "./a2a-server-parts.js";
 import {
   A2AInternalError,
@@ -72,7 +68,7 @@ export const isKeptReply = (value: unknown): value is KeptReply =>
 
 /** A resume that threw before its pause was resolved, as its refusal; `undefined`: it was accepted. */
 function refusedResume(error: unknown, isStillPending: boolean): KeptReply | undefined {
-  if (error instanceof PauseClosedError)
+  if (error instanceof PauseError.Closed)
     return {
       refused: "unsupported",
       code: PAUSE_CLOSED,
@@ -82,14 +78,18 @@ function refusedResume(error: unknown, isStillPending: boolean): KeptReply | und
   // a thread-level miss: the tree no longer rests (a cancel dropped it) — no pause to name
   if (error instanceof NotPausedError)
     return { refused: "unsupported", code: "a2a.no-pending-pause" };
-  if (error instanceof UnknownPauseError)
+  if (error instanceof PauseError.UnknownPause)
     return { refused: "invalid-params", code: "a2a.unknown-pause" };
-  if (error instanceof ThreadOwnerError) return { refused: "not-found", code: "a2a.not-owner" };
+  if (error instanceof ExecutionError.ThreadOwnerMismatch)
+    return { refused: "not-found", code: "a2a.not-owner" };
   // read before the pause is resolved: never this answer taken, whoever took the pause since
-  if (error instanceof UninterpretableReplyError || error instanceof ReplyInterpreterMissingError)
+  if (
+    error instanceof PauseError.UninterpretableReply ||
+    error instanceof PauseError.ChannelInterpreterMissing
+  )
     return { refused: "invalid-params", code: "a2a.reply-not-understood" };
   if (!isStillPending) return undefined; // the tree moved: the run's own failure is its task's
-  if (error instanceof DtoValidationError)
+  if (error instanceof ValidationError.DtoInvalid)
     return { refused: "invalid-params", code: "a2a.decision-invalid" };
   return undefined;
 }

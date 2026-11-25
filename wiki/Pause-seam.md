@@ -89,7 +89,7 @@ if (first.status === ExecutionStatus.Paused && waiting?.pauseId !== undefined) {
 The decision is a `ToolCallApprovalDecisionDto` (`@agboss/core/dto`): `approved`, `reason?` — why,
 `overrideInput?` — only with `approved: true`, checked by the tool's input. Who answered is not
 part of it: the framework knows it from the resume (`actor`, or the thread's owner). It is
-validated before it is recorded (`DtoValidationError` otherwise; the pause keeps waiting). `agboss
+validated before it is recorded (`ValidationError.DtoInvalid` otherwise; the pause keeps waiting). `agboss
 chat` asks in the terminal; a decline carries `reason: "declined in the terminal"`. `sensitive`
 fields of the input DTO are shown masked.
 
@@ -147,7 +147,7 @@ flowchart LR
 6. **A deadline** (#941): the record carries `expiresAt` (the smaller of the tool's / role's `expiresIn` and the
    run's deadline), `expiryBound` and `boundAt`, fixed when it is made. A re-entry of an expired pause
    (`Cancelled` / `Expired`) throws the internal expiry signal and the loop's approval node fails the whole
-   agent step with `PauseExpiredError` (its spend kept) — or `DeadlineExceededError` when the run's deadline
+   agent step with `StepError.PauseExpired` (its spend kept) — or `LimitError.Deadline` when the run's deadline
    bound it; one the channel decided on expiry (`Resolved` / `DecidedOnExpiry`) gives that decision like any
    answer. See [Pauses → A deadline for the answer](Pauses#a-deadline-for-the-answer-941).
 
@@ -163,7 +163,7 @@ flowchart LR
 
 After the decision and the agent's answer the router sends the turn to its workflow finish without a
 model call (#100). Answering a pause that is closed (twice, after it was withdrawn) →
-`PauseClosedError` with its `reason` (`answered`, `withdrawn`, …). A failure after resume completes
+`PauseError.Closed` with its `reason` (`answered`, `withdrawn`, …). A failure after resume completes
 the same Turn as `failed`. Decision recorded in [ADR-0004](ADR-0004-Pause-seam).
 
 ## After the decision

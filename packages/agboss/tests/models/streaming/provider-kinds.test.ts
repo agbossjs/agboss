@@ -50,8 +50,8 @@ describe("AC6: zero deltas never happens for a text answer, on any provider kind
 
   scripted(
     "a scripted model (testWith) streams the whole answer as one delta",
-    async ({ app, mockLlm }) => {
-      mockLlm(BEDROCK_DESK.textAgent).thenReturn(replyWith("Scripted."));
+    async ({ app, mockModel }) => {
+      mockModel(BEDROCK_DESK.textAgent).thenReturn(replyWith("Scripted."));
       const events: ExecutionStreamEvent[] = [];
 
       await execute(app, ChatStart, { text: "hi" }, { onStream: (event) => events.push(event) });

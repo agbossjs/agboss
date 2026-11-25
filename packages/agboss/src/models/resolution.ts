@@ -1,10 +1,11 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import type { AgentsConfigOf } from "../config/types.js";
 import type { Provider } from "../components/injection.js";
 import { guardrailReadersOf, type FileReader } from "../files/file-readers.js";
 import type { RuntimeGraph } from "../flow/runtime/graph-model.js";
 import type { ElementGuardrails } from "../guardrails/assembly.js";
 import { modelGuardrailsOf, type LoadedGuardrail } from "../guardrails/loaded.js";
-import { GraphRuleError, violation, type RuleViolation } from "../graph/rule-error.js";
+import { violation, type RuleViolation } from "../graph/rule-error.js";
 import {
   isDriverOptions,
   isModelProviderClass,
@@ -185,7 +186,7 @@ export function checkModelsServed(
   workflow: Pick<WorkflowModels, "config" | "routers" | "modelProviders">,
 ): void {
   const found = modelResolutionViolations(workflow);
-  if (found.length > 0) throw new GraphRuleError({ violations: found });
+  if (found.length > 0) throw new ConfigError.GraphRules({ violations: found });
 }
 
 /**
@@ -203,7 +204,7 @@ export function resolvedModelProvidersOf(
     modelProviders,
     referencedProviders: referenced,
   });
-  if (found.length > 0) throw new GraphRuleError({ violations: found });
+  if (found.length > 0) throw new ConfigError.GraphRules({ violations: found });
   return modelProviders;
 }
 

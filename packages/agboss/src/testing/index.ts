@@ -1,6 +1,6 @@
 /**
  * `@agboss/core/testing` — test a workflow without models and without the network: `testWith`
- * (Vitest fixtures `app`, `mockLlm`, `mockAction`, `mockTool`, `mockOf`, `mcpOf`, `recoverApp`,
+ * (Vitest fixtures `app`, `mockModel`, `mockAction`, `mockTool`, `mockService`, `mockMcp`, `recoverApp`,
  * `clock`), scripted model turns (`replyWith`, `callTool`, `routeTo`, `decideWith`, `failWith`,
  * `waitFor`, the invalid turns `callToolWithInvalidArguments`,
  * `callToolWithTruncatedArguments`, `replyWithInvalidAnswer`, bound to inputs with `when(…)`), the schedule of parallel branches
@@ -202,7 +202,6 @@ export {
   type TestStepOptions,
 } from "./execution-context.js";
 
-export { mcpServerStub } from "../components/mcp-client.js";
 export { signedMeshEnvelope, type SignedMeshEnvelopeOptions } from "./mesh-envelope.js";
 
 export { VcrMode, type VcrConfig } from "./vcr.js";

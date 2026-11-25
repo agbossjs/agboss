@@ -3,8 +3,9 @@
  * unanswered forgetTree, kept record or audit row is an ordinary store error at 15 s, never a
  * hand-over (a hand-over there would delete `@agboss/unwinding` or release a lease too early).
  */
+import { StoreError } from "../../src/core/error-families/store-errors.js";
 import { afterEach, beforeEach, describe, expect } from "vitest";
-import { ExecutionLeaseLostError, StoreCallTimeoutError } from "../../src/index.js";
+import { ExecutionLeaseLostError } from "../../src/index.js";
 import { testWith, type WorkflowFixtures } from "../../src/testing/index.js";
 import { processHoldPoints } from "../../src/testing/faults/hold-points.js";
 import { StoreHoldPoint } from "../../src/testing/faults/store-points.js";
@@ -44,12 +45,14 @@ describe("#928 AC1 lease scopes: the cleanup after the terminal record stays out
 
   /** A failing run whose terminal record is written; `hold` then holds one call of its cleanup. */
   async function heldCleanup(
-    { apps, clock, mockOf }: Pick<WorkflowFixtures, "apps" | "clock" | "mockOf">,
+    { apps, clock, mockService }: Pick<WorkflowFixtures, "apps" | "clock" | "mockService">,
     hold: () => void,
     isHeld: () => boolean,
   ) {
-    mockOf(UndoDesk).reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
-    mockOf(UnwindGate).wait.mockRejectedValue(new UndoDeskError("the gate is down"));
+    mockService(UndoDesk).reserve.mockImplementation((kind: string) =>
+      Promise.resolve(`${kind}-1`),
+    );
+    mockService(UnwindGate).wait.mockRejectedValue(new UndoDeskError("the gate is down"));
     const [a, b] = await ready(apps);
     hold();
     const run = trackOf(execute(a, UnwindWorkflowStart, GUEST, THREAD));
@@ -64,9 +67,9 @@ describe("#928 AC1 lease scopes: the cleanup after the terminal record stays out
   const unleased = (): string | undefined =>
     logged.find((entry) => entry.code === "store.call-timeout")?.message;
 
-  two(`${name} (forgetTree)`, async ({ apps, clock, mockOf }) => {
+  two(`${name} (forgetTree)`, async ({ apps, clock, mockService }) => {
     const { run, b } = await heldCleanup(
-      { apps, clock, mockOf },
+      { apps, clock, mockService },
       () => {
         hangNext("trees.deleteAllInTree");
       },
@@ -74,14 +77,14 @@ describe("#928 AC1 lease scopes: the cleanup after the terminal record stays out
     );
 
     // an ordinary store error at 15 s, the pass's lease released as at any end: no hand-over
-    expect(run.error).toBeInstanceOf(StoreCallTimeoutError);
+    expect(run.error).toBeInstanceOf(StoreError.CallTimeout);
     expect(unleased()).toContain("unleased call");
     expect((await rootOf(b)).status).toBe("failed");
   });
 
-  two(`${name} (keepExecutionRecord)`, async ({ apps, clock, mockOf }) => {
+  two(`${name} (keepExecutionRecord)`, async ({ apps, clock, mockService }) => {
     const { run, b } = await heldCleanup(
-      { apps, clock, mockOf },
+      { apps, clock, mockService },
       () => {
         processHoldPoints.arm({ point: StoreHoldPoint.HistorySave });
       },

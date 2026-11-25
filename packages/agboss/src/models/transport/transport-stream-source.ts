@@ -1,4 +1,4 @@
-import { ModelProviderError } from "../model-provider.decorator.js";
+import { ConfigError } from "../../core/error-families/config-errors.js";
 import type { ModelProviderStream, ModelProviderStreamResult } from "./transport.js";
 
 const isAsyncIterable = (value: unknown): value is AsyncIterable<string> =>
@@ -18,7 +18,7 @@ export function sourceOf(stream: unknown, provider: string): ModelProviderStream
   const textStream: unknown = isObject ? Reflect.get(stream, "textStream") : undefined;
   const result: unknown = isObject ? Reflect.get(stream, "result") : undefined;
   if (!isAsyncIterable(textStream) || !isThenable(result))
-    throw new ModelProviderError({
+    throw new ConfigError.ModelProvider({
       message: `${provider}: stream(request) must answer { textStream: AsyncIterable<string>, result: Promise<${RESULT_SHAPE}> }`,
     });
   return {
@@ -46,7 +46,7 @@ function isResult(settled: unknown): settled is ModelProviderStreamResult {
 /** The settled `result`, checked: a malformed one fails the call, loudly. */
 function resultOf(settled: unknown, provider: string): ModelProviderStreamResult {
   if (isResult(settled)) return settled;
-  throw new ModelProviderError({
+  throw new ConfigError.ModelProvider({
     message: `${provider}: stream(request).result must settle to ${RESULT_SHAPE}`,
   });
 }

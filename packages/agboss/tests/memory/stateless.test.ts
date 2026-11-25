@@ -90,15 +90,15 @@ describe("#1303b: a workflow without memory is stateless", () => {
 
   test("the agent reads no earlier turn, and reusing the thread is warned about", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
     entries.length = 0;
-    mockLlm(ChatAgent).thenReturnAlways(replyWith("ok"));
+    mockModel(ChatAgent).thenReturnAlways(replyWith("ok"));
     const first = await execute(app, ChatStart, { text: "t1" });
 
     await execute(app, ChatStart, { text: "t2" }, { threadId: first.threadId });
 
-    const request = mockLlm(ChatAgent).lastRequest;
+    const request = mockModel(ChatAgent).lastRequest;
     const text = request.kind === "chat" ? JSON.stringify(request.messages) : "";
     expect(text).not.toContain("t1");
     const warned = entries.filter((entry) => entry.code === "memory.thread-reuse-without-memory");
@@ -110,14 +110,14 @@ describe("#1303b: a workflow without memory is stateless", () => {
 describe("#1303b: a workflow with memory is not warned", () => {
   const test = testWith(applicationOf(RememberingWorkflow, "remembering-application"));
 
-  test("the agent reads the earlier turn", async ({ app, mockLlm }) => {
+  test("the agent reads the earlier turn", async ({ app, mockModel }) => {
     entries.length = 0;
-    mockLlm(ChatAgent).thenReturnAlways(replyWith("ok"));
+    mockModel(ChatAgent).thenReturnAlways(replyWith("ok"));
     const first = await execute(app, ChatStart, { text: "t1" });
 
     await execute(app, ChatStart, { text: "t2" }, { threadId: first.threadId });
 
-    const request = mockLlm(ChatAgent).lastRequest;
+    const request = mockModel(ChatAgent).lastRequest;
     const text = request.kind === "chat" ? JSON.stringify(request.messages) : "";
     expect(text).toContain("t1");
     expect(entries.filter((entry) => entry.code === "memory.thread-reuse-without-memory")).toEqual(

@@ -81,9 +81,9 @@ describe("#265 AC12: a root left running by an instance that died", () => {
   test("is continued by the other after the lease, only the interrupted step running again", async ({
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(...stepHoldAnswer);
+    mockModel(Clerk).thenReturn(...stepHoldAnswer);
     await ready(apps);
     const dying = await holding(instance(apps, 0));
 
@@ -106,9 +106,9 @@ describe("#265 AC12: a root left running by an instance that died", () => {
   test("is not taken while its lease is valid: nothing happens before it expires", async ({
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(...stepHoldAnswer);
+    mockModel(Clerk).thenReturn(...stepHoldAnswer);
     await ready(apps);
     await holding(instance(apps, 0));
 
@@ -123,8 +123,8 @@ describe("#265 AC12: a root left running by an instance that died", () => {
 
   three(
     "two instances sweeping at once: exactly one continues it",
-    async ({ apps, clock, mockLlm }) => {
-      mockLlm(Clerk).thenReturn(...stepHoldAnswer);
+    async ({ apps, clock, mockModel }) => {
+      mockModel(Clerk).thenReturn(...stepHoldAnswer);
       await ready(apps);
       await holding(instance(apps, 0));
 
@@ -142,9 +142,9 @@ describe("#265 AC12: a root left running by an instance that died", () => {
   test("a resolved pause is taken first: the recovered tree goes on with its decision", async ({
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(
+    mockModel(Clerk).thenReturn(
       callTool(Charge, { text: "10 USD" }),
       replyWith(ReceiptDto, { text: "Charged." }),
     );
@@ -170,9 +170,9 @@ describe("#265 AC12: a root left running by an instance that died", () => {
 describe("#265 S30: why a run continues", () => {
   test("a resume answers its pause: ResumeReason.Answered, with the decision", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(
+    mockModel(Clerk).thenReturn(
       callTool(Charge, { text: "10 USD" }),
       replyWith(ReceiptDto, { text: "Charged." }),
     );
@@ -188,9 +188,9 @@ describe("#265 AC12 / S51: a graceful stop releases its leases at once", () => {
   test("the timeout interrupts the execution, which stays running; the other continues it at its next sweep", async ({
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(...stepHoldAnswer);
+    mockModel(Clerk).thenReturn(...stepHoldAnswer);
     await ready(apps);
     const stopping = await holding(instance(apps, 0));
 
@@ -218,11 +218,11 @@ describe("#265 AC12: an incompatible version", () => {
   test("is not continued: the root is left to a compatible instance, logged once by each", async ({
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
     resetLogged();
     // the root is never continued: the answer after the hold never comes
-    mockLlm(Clerk).thenReturn(...stepHoldAnswer.slice(0, 2));
+    mockModel(Clerk).thenReturn(...stepHoldAnswer.slice(0, 2));
     await ready(apps);
     await holding(instance(apps, 0));
     kill("instance-1");

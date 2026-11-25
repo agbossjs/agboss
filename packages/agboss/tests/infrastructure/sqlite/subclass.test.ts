@@ -33,10 +33,10 @@ beforeEach(() => {
 describe("#313 AC1: a project's SqliteExecutionRecordRepository, public tokens only", () => {
   test("listed in providers, it creates the threads — their ids from the IdGenerator, in the file", async ({
     app,
-    mockLlm,
+    mockModel,
     recoverApp,
   }) => {
-    mockLlm(Clerk).thenReturn(
+    mockModel(Clerk).thenReturn(
       replyWith(ReceiptDto, { text: "One." }),
       replyWith(ReceiptDto, { text: "Two." }),
       replyWith(ReceiptDto, { text: "Three." }),

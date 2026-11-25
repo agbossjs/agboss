@@ -1,3 +1,4 @@
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import { describe, expect, it } from "vitest";
 import { checkWorkflow } from "../../../src/flow/analyse/analyse.js";
 import { RecursionDecider } from "../../../src/flow/analyse/recursion.js";
@@ -205,7 +206,7 @@ describe("AC11, AC12: what describe prints; a list of subtopics never fills one 
       "recursive: maxDepth 2, on the last level: link-router → route(link-agent) only",
     ]);
     expect(lines(CountdownWorkflow)).toEqual([
-      "recursive: maxDepth 3, on the last level: countdown-action → CountDto fails (DepthLimitExceededError)",
+      "recursive: maxDepth 3, on the last level: countdown-action → CountDto fails (LimitError.Depth)",
     ]);
     expect(lines(SplitWorkflow)).toEqual(["recursive: maxDepth 2"]);
   });

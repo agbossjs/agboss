@@ -6,7 +6,7 @@ import type { PiiTokenMap } from "../pii/tokens.js";
 /**
  * How a file's text is masked where it is made (#899 §5, §7): the transcription of a file — or a text
  * format's own text — goes through the agent's PII policies once, here, and only the masked text is
- * kept (the execution's cache, its checkpoint). A block rule in it refuses (`PiiRefusedError`) before
+ * kept (the execution's cache, its checkpoint). A block rule in it refuses (`PiiError.Refused`) before
  * anything is kept or sent. Bytes are never masked: PII reads text only.
  */
 

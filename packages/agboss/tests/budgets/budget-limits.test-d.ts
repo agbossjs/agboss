@@ -1,3 +1,4 @@
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { describe, expectTypeOf, it } from "vitest";
 import { Budget, BudgetScope, BudgetUnit, type BudgetHandler } from "../../src/budgets/budget.js";
 import {
@@ -5,7 +6,6 @@ import {
   type BudgetUsage,
   type CostLedgerRepository,
 } from "../../src/infrastructure/cost-ledger.repository.js";
-import { BudgetExceededError } from "../../src/graph/limits.js";
 import type { Usd } from "../../src/units/index.js";
 
 describe("#1318a: budgets limit dollars and tokens", () => {
@@ -31,10 +31,10 @@ describe("#1318a: budgets limit dollars and tokens", () => {
   });
 
   it("a breach names its unit and both caps", () => {
-    expectTypeOf<BudgetExceededError["unit"]>().toEqualTypeOf<BudgetUnit>();
-    expectTypeOf<BudgetExceededError["maxSpend"]>().toEqualTypeOf<Usd | undefined>();
-    expectTypeOf<BudgetExceededError["maxTokens"]>().toEqualTypeOf<number | undefined>();
-    expectTypeOf<BudgetExceededError["usedTokens"]>().toEqualTypeOf<number>();
+    expectTypeOf<LimitError.Budget["unit"]>().toEqualTypeOf<BudgetUnit>();
+    expectTypeOf<LimitError.Budget["maxSpend"]>().toEqualTypeOf<Usd | undefined>();
+    expectTypeOf<LimitError.Budget["maxTokens"]>().toEqualTypeOf<number | undefined>();
+    expectTypeOf<LimitError.Budget["usedTokens"]>().toEqualTypeOf<number>();
   });
 
   it("a budget handler may have limit() returning a BudgetLimit", () => {

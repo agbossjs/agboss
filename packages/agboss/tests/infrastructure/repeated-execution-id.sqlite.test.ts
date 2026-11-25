@@ -3,10 +3,10 @@
  * refused with nothing written, two instances on one file minting one id at once run one tree, and
  * a tree's id is kept for good once it is handed out.
  */
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { DatabaseSync } from "node:sqlite";
 import { beforeEach, describe, expect } from "vitest";
 import { ExecutionStatus } from "../../src/app/types.js";
-import { DuplicateExecutionIdError } from "../../src/errors.js";
 import { replyWith, testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
 import {
@@ -55,9 +55,9 @@ function rowsOnFile(): Record<string, number> {
 describe("#591 on SQLite", () => {
   test("a repeated root id is refused with nothing written to the file", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(replyWith(ReceiptDto, { text: "One." }));
+    mockModel(Clerk).thenReturn(replyWith(ReceiptDto, { text: "One." }));
     minting.executions = ["order-tree-7", "order-tree-7"];
     const first = await execute(app, OrderWorkflowStart, { text: "a" });
     const before = rowsOnFile();
@@ -65,17 +65,17 @@ describe("#591 on SQLite", () => {
     const refused = await rejectionOf(execute(app, OrderWorkflowStart, { text: "b" }));
 
     expect(first.status).toBe(ExecutionStatus.Finished);
-    expect(refused).toBeInstanceOf(DuplicateExecutionIdError);
+    expect(refused).toBeInstanceOf(ExecutionError.DuplicateExecutionId);
     expect(rowsOnFile()).toEqual(before);
     expect(before.execution_ids).toBe(1);
   });
 
   twice(
     "two instances on one file minting one id at once: one tree runs, the other is refused",
-    async ({ apps, mockLlm }) => {
+    async ({ apps, mockModel }) => {
       const [first, second] = apps;
       if (first === undefined || second === undefined) throw new Error("two instances expected");
-      mockLlm(Clerk).thenReturn(replyWith(ReceiptDto, { text: "One." }));
+      mockModel(Clerk).thenReturn(replyWith(ReceiptDto, { text: "One." }));
       minting.executions = ["same-id", "same-id"];
 
       const outcomes = await Promise.all([
@@ -85,7 +85,7 @@ describe("#591 on SQLite", () => {
 
       expect(outcomes.filter((outcome) => outcome === undefined)).toHaveLength(1);
       expect(outcomes.find((outcome) => outcome !== undefined)).toBeInstanceOf(
-        DuplicateExecutionIdError,
+        ExecutionError.DuplicateExecutionId,
       );
     },
   );

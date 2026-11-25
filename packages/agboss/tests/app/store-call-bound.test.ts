@@ -3,12 +3,9 @@
  * at the trust's end (nothing released, the next holder reconciles), anywhere else it is a store
  * error at 15 s.
  */
+import { StoreError } from "../../src/core/error-families/store-errors.js";
 import { afterEach, beforeEach, describe, expect } from "vitest";
-import {
-  ExecutionLeaseLostError,
-  StoreCallTimeoutError,
-  StoreOutcomeSource,
-} from "../../src/index.js";
+import { ExecutionLeaseLostError, StoreOutcomeSource } from "../../src/index.js";
 import { testWith } from "../../src/testing/index.js";
 import { HoldPhase, processHoldPoints } from "../../src/testing/faults/hold-points.js";
 import { reportHeldOperations } from "../../src/testing/faults/held-stores.js";
@@ -51,7 +48,7 @@ afterEach(() => {
 
 describe("#928 AC1: a fenced write held for ever, in memory", () => {
   two(
-    "AC1: at the trust's end it rejects ExecutionLeaseLostError (cause StoreCallTimeoutError, framework); no failed record, no release; another instance charges once",
+    "AC1: at the trust's end it rejects ExecutionLeaseLostError (cause StoreError.CallTimeout, framework); no failed record, no release; another instance charges once",
     async ({ apps, clock }) => {
       const [a, b] = [instance(apps, 0), instance(apps, 1)];
       await a.ready();
@@ -66,7 +63,7 @@ describe("#928 AC1: a fenced write held for ever, in memory", () => {
 
       expect(error).toBeInstanceOf(ExecutionLeaseLostError);
       const cause = (error as ExecutionLeaseLostError).cause;
-      expect(cause).toBeInstanceOf(StoreCallTimeoutError);
+      expect(cause).toBeInstanceOf(StoreError.CallTimeout);
       expect(cause).toMatchObject({ source: StoreOutcomeSource.Framework, operation: "runOnce" });
       expect(recovery.errors).toEqual([]);
       // abandoned, never released: the lease expires in the store

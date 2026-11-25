@@ -136,12 +136,12 @@ closed, never another scope's passages.
 | ----------------- | ------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
 | `RagScope.Shared` | none (both `undefined`)                                                     | serves one corpus every tenant may read (a public help center)             |
 | `RagScope.Tenant` | the execution's tenant id, as both                                                | keeps each tenant's passages apart                                         |
-| `RagScope.Owner`  | the execution's tenant and its owner (`CallOptions.owner`; none → `rag.scope-unresolved`) | keeps each owner's passages apart                                          |
+| `RagScope.Owner`  | the execution's tenant and its owner (`CallOptions.owner`; none → `config.component`) | keeps each owner's passages apart                                          |
 | `RagScope.Custom` | what the tenant and what `resolveScope(context)` of the source returns (an org and a department, …) | keeps each scope apart; the source must have `resolveScope` (`[rag.custom-scope-missing-resolver]`) |
 
 **Every scope but `Shared` is bound to the tenant**: an owner id or a custom key is unique within a tenant only, so a call carries both `tenantId` and `scopeId` and a source keys its rows on the pair — each part compared as given, never joined into one string (`("a", "b:c")` and `("a:b", "c")` are two scopes); only the declared global `Shared` spans tenants. The id is compared **as given** — `acme`, `Acme`, `ａｃｍｅ`, `café` and `cafe` are five scopes — and
 is a key's text ([Several instances](Several-instances), #552): one that breaks a rule is refused
-before the source runs — `dto.invalid` naming the rule, never the id. A shared source is never told
+before the source runs — `validation.dto-invalid` naming the rule, never the id. A shared source is never told
 a tenant. TypeScript cannot see whether a source reads the scope, so the choice is stated where a
 reviewer reads it. Without `scope` the decorator does not compile; a JS project or a cast is
 `[rag.scope-required]` at assembly. `agboss describe` prints it — `rag: faq (k 3, tenant)` — and
@@ -272,7 +272,7 @@ provider). There is no default model of the core's own: none anywhere is `[model
 and the numbered candidates in, a JSON ranking out (`{"ranking":[27,1,2]}`) — the model names
 candidates by number, never rewrites one; the ones it does not rank follow in retrieval order. A
 candidate's `id`, `title`, `url` and `metadata` stay intact. Its retries, rate limit and breaker are
-its provider's. In tests: `mockLlm(DocsReranker).thenReturn(replyWith('{"ranking":[27,1,2]}'))`;
+its provider's. In tests: `mockModel(DocsReranker).thenReturn(replyWith('{"ranking":[27,1,2]}'))`;
 unscripted it ranks nothing (the retrieval's order).
 
 **Your own reranker** — a dedicated API such as Cohere Rerank, on its official SDK, no AGBoss

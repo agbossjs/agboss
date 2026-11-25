@@ -6,9 +6,9 @@
  * a wrong index or code, a partial save, a limit that is not the last — and on a ledger that
  * mishandles the names the cases save under (a budget, a key, an empty period).
  */
+import { StoreError } from "../../../../src/core/error-families/store-errors.js";
 import { describe, expect, it, vi } from "vitest";
 import { BudgetScope } from "../../../../src/budgets/budget.js";
-import { CostLedgerEntryInvalidError } from "../../../../src/finops/ledger-mark.js";
 import {
   CostLedgerRepository,
   InMemoryCostLedgerRepository,
@@ -139,7 +139,7 @@ class Faulty extends CostLedgerRepository {
     if (faults.claimingRefusal === true)
       await shared.inner.saveAll([JUNK], entries.slice(0, index));
     throw said.code === ""
-      ? new CostLedgerEntryInvalidError({ index: said.index, reason: "no entry" })
+      ? new StoreError.LedgerEntryInvalid({ index: said.index, reason: "no entry" })
       : Object.assign(new Error("refused"), { code: said.code, index: said.index });
   }
 

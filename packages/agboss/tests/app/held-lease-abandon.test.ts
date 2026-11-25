@@ -1,3 +1,4 @@
+import { StoreError } from "../../src/core/error-families/store-errors.js";
 import { fencedRefusalOf } from "../../src/app/lease-lost.js";
 /**
  * #928 AC1 (abandon) — a held lease handed over because a store call under it did not answer: its
@@ -15,11 +16,7 @@ import { ExecutionObserverManager } from "../../src/core/observer-manager.js";
 import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
 import { nodeEventOf } from "../../src/flow/observers/execution-event.js";
-import {
-  ExecutionLeaseLostError,
-  StoreCallTimeoutError,
-  StoreOutcomeSource,
-} from "../../src/index.js";
+import { ExecutionLeaseLostError, StoreOutcomeSource } from "../../src/index.js";
 import {
   ExecutionAuditEventKind,
   ExecutionAuditLogRepository,
@@ -69,8 +66,8 @@ class QuietAuditLog extends InMemoryExecutionAuditLogRepository {
   }
 }
 
-const unknown = (operation: string): StoreCallTimeoutError =>
-  new StoreCallTimeoutError({
+const unknown = (operation: string): StoreError.CallTimeout =>
+  new StoreError.CallTimeout({
     ...{ store: "RateLimitRepository", operation, timeout: seconds(20) },
     source: StoreOutcomeSource.Framework,
   });

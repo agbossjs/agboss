@@ -1,11 +1,12 @@
-import { GraphRuleError, violation, type RuleViolation } from "../graph/rule-error.js";
+import { ConfigError } from "../core/error-families/config-errors.js";
+import { violation, type RuleViolation } from "../graph/rule-error.js";
 import type { RagRuntime } from "../rag/rag-source.js";
 import type { RecordedRerankerMeta } from "../rag/reranker.decorator.js";
 import { RerankFailurePolicy, type KnowledgeSource } from "../rag/types.js";
 import { lazyLoad } from "../infrastructure/clock.js";
 import type { AgentsConfigOf } from "../config/types.js";
 import type { Class, Token } from "./injection.js";
-import { ComponentError, componentOf, requireComponent } from "./metadata.js";
+import { componentOf, requireComponent } from "./metadata.js";
 import type { AgentMeta, WorkflowMeta } from "./meta-types.js";
 
 export type RagMeta = Extract<ReturnType<typeof componentOf>, { kind: "rag" }>["meta"];
@@ -34,11 +35,11 @@ export function ragClassesOf(
   tools: readonly Class[] = [],
 ): Class[] {
   const duplicates = duplicateRagViolations(agents);
-  if (duplicates.length > 0) throw new GraphRuleError({ violations: duplicates });
+  if (duplicates.length > 0) throw new ConfigError.GraphRules({ violations: duplicates });
   const listed = agents.flatMap((agent) => agent.rag ?? []);
   for (const cls of listed) {
     if (componentOf(cls)?.kind !== "rag") {
-      throw new ComponentError({
+      throw new ConfigError.Component({
         message: `@Workflow "${bundle.name}": ${cls.name} in an agent's rag is not a @Rag`,
       });
     }

@@ -78,7 +78,7 @@ describe("#397 PR 2: a run's trace in the artifact", () => {
   it("the last execution step by step: kind, visit, inputHash, model calls, tool calls, output", async () => {
     const { env, built } = await evalApp();
     env
-      .mockLlm(DeskAgent)
+      .mockModel(DeskAgent)
       .thenReturn(
         callTool(GetOrderTool, { orderId: "9" }),
         answer("Order 9 shipped, mailed to alice@example.com", 0.02),
@@ -123,7 +123,7 @@ describe("#397 PR 2: a run's trace in the artifact", () => {
   it("is masked like the record: what a model read and the output, never the address", async () => {
     const { env, built } = await evalApp();
     env
-      .mockLlm(DeskAgent)
+      .mockModel(DeskAgent)
       .thenReturn(
         callTool(GetOrderTool, { orderId: "9" }),
         answer("Order 9 shipped, mailed to alice@example.com"),
@@ -140,7 +140,9 @@ describe("#397 PR 2: a run's trace in the artifact", () => {
 
   it("each case's expectation, as written: tools by name, partials, the checks in order", async () => {
     const { env, built } = await evalApp();
-    env.mockLlm(DeskAgent).thenReturn(callTool(GetOrderTool, { orderId: "9" }), answer("Shipped."));
+    env
+      .mockModel(DeskAgent)
+      .thenReturn(callTool(GetOrderTool, { orderId: "9" }), answer("Shipped."));
 
     const report = await runSuiteOn(built, TracedEvalSuite, { runs: 1 });
 
@@ -156,7 +158,7 @@ describe("#397 PR 2: a run's trace in the artifact", () => {
   it("reads back as written; an unstable case names where its runs part ways", async () => {
     const { env, built } = await evalApp();
     env
-      .mockLlm(DeskAgent)
+      .mockModel(DeskAgent)
       .thenReturn(
         callTool(GetOrderTool, { orderId: "9" }),
         answer("Shipped."),
@@ -180,7 +182,9 @@ describe("#397 PR 2: a run's trace in the artifact", () => {
 
   it("what the run ran on (#397 PR 3): profile, AGBoss version, models, the masking policies", async () => {
     const { env, built } = await evalApp();
-    env.mockLlm(DeskAgent).thenReturn(callTool(GetOrderTool, { orderId: "9" }), answer("Shipped."));
+    env
+      .mockModel(DeskAgent)
+      .thenReturn(callTool(GetOrderTool, { orderId: "9" }), answer("Shipped."));
 
     const report = await runSuiteOn(built, TracedEvalSuite, { runs: 1, profile: "cheaper" });
 

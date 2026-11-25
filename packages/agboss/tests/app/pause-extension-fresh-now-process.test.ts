@@ -1,8 +1,9 @@
 /**
  * #1148 on a real process, a real clock and a real SQLite file: a pause with a 2 s deadline is extended by
  * working time through a calendar that really takes 3 s. The deadline passes inside the calendar (the expiry
- * handler is entered), so the extension is refused with `PauseClosedError` and the stored deadline is unchanged.
+ * handler is entered), so the extension is refused with `PauseError.Closed` and the stored deadline is unchanged.
  */
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -33,7 +34,7 @@ describe("#1148: a real calendar that outlives the deadline", () => {
       storedExpiresAt: string;
     };
     expect(told.nowAtAnswer > told.deadline).toBe(true);
-    expect(told.outcome).toEqual({ ok: false, error: "PauseClosedError" });
+    expect(told.outcome).toEqual({ ok: false, error: "PauseError.Closed" });
     expect(told.storedExpiresAt).toBe(told.deadline);
   }, 60_000);
 });

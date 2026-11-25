@@ -1,7 +1,9 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import { NO_PROVIDER } from "./no-provider.js";
 import { isFiniteNumber } from "../graph/count-limit.js";
 import { checkedPrice } from "../models/cost.js";
-import type { Price, ResolvedModelSettings } from "../config/types.js";
+import type { ResolvedModelSettings } from "../config/types.js";
+import type { ModelPrice } from "../models/cost.js";
 import { usd, type Usd } from "../units/index.js";
 import { fallbackMarkOf } from "./fallback-mark.js";
 import type { CostCategory } from "./cost-category.js";
@@ -107,21 +109,17 @@ export function extractTokenUsage(message: UsageCarrier): TokenUsage {
   };
 }
 
-export function costOf(usage: TokenUsage, unchecked: Price): number {
+export function costOf(usage: TokenUsage, unchecked: ModelPrice): number {
   const price = checkedPrice(unchecked);
   const uncached = Math.max(0, usage.inputTokens - usage.cacheReadTokens - usage.cacheWriteTokens);
-  const readPrice = price.cacheReadPerMTok ?? price.inputPerMTok;
-  const writePrice = price.cacheWritePerMTok ?? price.inputPerMTok;
+  const readPrice = price.cacheReadPerMillion ?? price.inputPerMillion;
+  const writePrice = price.cacheWritePerMillion ?? price.inputPerMillion;
   const micro =
-    uncached * price.inputPerMTok +
+    uncached * price.inputPerMillion +
     usage.cacheReadTokens * readPrice +
     usage.cacheWriteTokens * writePrice +
-    usage.outputTokens * price.outputPerMTok;
+    usage.outputTokens * price.outputPerMillion;
   return micro / 1_000_000;
-}
-
-export class ModelCostError extends Error {
-  override name = "ModelCostError";
 }
 
 /** The cost the provider reported in its replyWith (`usage.cost`), when it did. */
@@ -150,7 +148,10 @@ function fallbackRecordOf(
     return { ...base, costUsd: reported, costSource };
   }
   if (fallback.unpriced) return { ...base, costUsd: usd(0), costSource: CostSource.Unpriced };
-  throw new ModelCostError(`${caller}: fallback model ${fallback.model} — no cost and no price`);
+  throw new ConfigError.ModelCost({
+    model: fallback.model,
+    message: `${caller}: fallback model ${fallback.model} — no cost and no price`,
+  });
 }
 
 /**
@@ -178,14 +179,15 @@ export function recordUsage(
     return { ...made, ...pricedOf(caller, settings.model, settings.price, usage) };
   if (settings.unpriced === true)
     return { ...made, costUsd: usd(0), costSource: CostSource.Unpriced };
-  throw new ModelCostError(
-    `${caller}: model ${settings.model} — its provider reported no cost and it has no price`,
-  );
+  throw new ConfigError.ModelCost({
+    model: settings.model,
+    message: `${caller}: model ${settings.model} — its provider reported no cost and it has no price`,
+  });
 }
 
 /**
  * The record of a call its provider answered — and billed — that `recordUsage` could not price (it
- * threw a `ModelCostError`): its tokens at 0 USD, `CostSource.Unpriced`, under the model and provider
+ * threw a `ConfigError.ModelCost`): its tokens at 0 USD, `CostSource.Unpriced`, under the model and provider
  * that served it (bughunt 2026-11-25 #2). The call still fails as it did; its tokens are never dropped,
  * so a token budget counts them.
  */
@@ -212,19 +214,17 @@ export function unpricedUsageOf(
 function pricedOf(
   caller: string,
   model: string,
-  price: Price,
+  price: ModelPrice,
   usage: TokenUsage,
 ): Pick<UsageRecord, "costUsd" | "costSource"> {
   const priced = costOf(usage, price);
   if (!Number.isFinite(priced) || priced < 0)
-    throw new ModelCostError(
-      `${caller}: model ${model} — its tokens price at no amount: ${String(priced)}`,
-    );
+    throw new ConfigError.ModelCost({
+      model,
+      field: "price",
+      message: `${caller}: model ${model} — its tokens price at no amount: ${String(priced)}`,
+    });
   return { costUsd: usd(priced), costSource: CostSource.PriceTable };
-}
-
-export class InvalidToolCostError extends Error {
-  override name = "InvalidToolCostError";
 }
 
 /** A paid tool's own cost, recorded like a model call: caller `tool:<name>`. */
@@ -239,7 +239,9 @@ export const recordReportedCost = (
 
 export function recordToolCost(tool: string, costUsd: number): UsageRecord {
   if (!Number.isFinite(costUsd) || costUsd < 0) {
-    throw new InvalidToolCostError(`Tool "${tool}" reported an invalid cost: ${String(costUsd)}`);
+    throw new ConfigError.Component({
+      message: `Tool "${tool}" reported an invalid cost: ${String(costUsd)}`,
+    });
   }
   return {
     caller: `tool:${tool}`,

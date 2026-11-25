@@ -37,10 +37,10 @@ beforeEach(resetRecovery);
 describe("#265 PR 3: records persist across processes on the SQLite file", () => {
   test("a thread is continued after a restart; a workflow run on its own reads its records", async ({
     app,
-    mockLlm,
+    mockModel,
     recoverApp,
   }) => {
-    mockLlm(Clerk).thenReturn(
+    mockModel(Clerk).thenReturn(
       replyWith(ReceiptDto, { text: "One." }),
       replyWith(ReceiptDto, { text: "Two." }),
     );
@@ -74,9 +74,9 @@ describe("#265 PR 3: records persist across processes on the SQLite file", () =>
 
   test("nothing is written outside sqlitePath: its folder holds the file and its WAL only", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(replyWith(ReceiptDto, { text: "One." }));
+    mockModel(Clerk).thenReturn(replyWith(ReceiptDto, { text: "One." }));
 
     await execute(app, OrderWorkflowStart, { text: "note one" });
 

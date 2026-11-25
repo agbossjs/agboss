@@ -1,13 +1,7 @@
+import { ConfigError } from "../../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import { workflowOf } from "../../../src/components/assemble.js";
-import {
-  Agent,
-  GraphRuleError,
-  Workflow,
-  WorkflowFinish,
-  inline,
-  Ttl,
-} from "../../../src/index.js";
+import { Agent, Workflow, WorkflowFinish, inline, Ttl } from "../../../src/index.js";
 import { Text } from "../../../src/dto/index.js";
 import { replyWith, routeTo, testWith } from "../../../src/testing/index.js";
 import { Alpha, TestAnswer, TestChat, TestMain } from "../../fixtures/test-flow/test.flow.js";
@@ -44,15 +38,15 @@ class WrongTextWorkflow {}
 describe("#270 AC10: an agent without input / output reads the message and answers with text", () => {
   star(
     "its reply is the finish's WorkflowFinishTextDto; it read the start's message",
-    async ({ app, mockLlm }) => {
-      mockLlm(TestMain).thenReturn(routeTo(Alpha));
-      mockLlm(Alpha).thenReturn(replyWith("Hello back."));
+    async ({ app, mockModel }) => {
+      mockModel(TestMain).thenReturn(routeTo(Alpha));
+      mockModel(Alpha).thenReturn(replyWith("Hello back."));
 
       const result = await execute(app, TestChat, { text: "hello" });
 
       expect(result).toFollowPath([TestChat, TestMain, Alpha, TestAnswer]);
       expect(result).toFinishWith(TestAnswer, { text: "Hello back." });
-      expect(mockLlm(Alpha).onlyRequest.input).toBe(
+      expect(mockModel(Alpha).onlyRequest.input).toBe(
         '### message (from chat-workflow-start)\n{\n  "text": "hello"\n}',
       );
     },
@@ -61,8 +55,8 @@ describe("#270 AC10: an agent without input / output reads the message and answe
   it("[flow.text-agent-target]: a text agent leading elsewhere fails assembly", async () => {
     const error = await workflowOf(WrongTextWorkflow).catch((caught: unknown) => caught);
 
-    expect(error).toBeInstanceOf(GraphRuleError);
-    expect((error as GraphRuleError).violations).toEqual(
+    expect(error).toBeInstanceOf(ConfigError.GraphRules);
+    expect((error as ConfigError.GraphRules).violations).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ code: "flow.text-agent-target", nodes: ["chatty-agent"] }),
       ]),

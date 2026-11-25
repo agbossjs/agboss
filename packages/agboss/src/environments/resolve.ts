@@ -1,5 +1,6 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import type { Environment } from "../flow/generated-types.js";
-import { EnvironmentError, EnvironmentErrorCode } from "./errors.js";
+import { EnvironmentErrorCode } from "./errors.js";
 import {
   OptionalSecretReference,
   resolvedSecret,
@@ -97,13 +98,13 @@ class Problems {
 
   throwIfAny(): void {
     if (this.missing.length > 0)
-      throw new EnvironmentError({
-        code: EnvironmentErrorCode.MissingVariables,
+      throw new ConfigError.Environment({
+        envCode: EnvironmentErrorCode.MissingVariables,
         message: this.missing.join("; "),
       });
     if (this.invalid.length > 0)
-      throw new EnvironmentError({
-        code: EnvironmentErrorCode.InvalidValue,
+      throw new ConfigError.Environment({
+        envCode: EnvironmentErrorCode.InvalidValue,
         message: this.invalid.join("; "),
       });
   }
@@ -161,8 +162,8 @@ function environmentOf(values: unknown): Environment {
     Array.isArray(values) ||
     !checkedByTsc(values)
   ) {
-    throw new EnvironmentError({
-      code: EnvironmentErrorCode.NotFound,
+    throw new ConfigError.Environment({
+      envCode: EnvironmentErrorCode.NotFound,
       message:
         "an environment file must export an object: export const environment: AppEnvironment = { … }",
     });

@@ -1,19 +1,18 @@
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { usd } from "../../src/units/index.js";
 /**
  * #1366 (budget-loop shard) — the budget rules of the quality gate after an agent's reply, each on its own over
  * fakes: what the judges' models cost is counted at once (#338) and the budgets' tallied form is the loop's
- * spend, whichever way the gate ends — a pass, a send-back for a retry, or a `QualityGateError`, which carries it.
+ * spend, whichever way the gate ends — a pass, a send-back for a retry, or a `StepError.QualityGate`, which carries it.
  */
 import { StreamDiscardReason } from "../../src/run/types.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CostSource, ZERO_USAGE, type UsageRecord } from "../../src/finops/usage.js";
 import { makeJudgeNode } from "../../src/graph/agent-loop/judge-node.js";
-import { QualityGateError } from "../../src/graph/errors.js";
 import { agentStreamOf } from "../../src/run/stream/agent-stream.js";
 import { carriedRecordsOf } from "../../src/flow/runtime/carried-records.js";
 import { meteredModel } from "../../src/graph/agent-loop/judge-model.js";
 import { judgedFilesOf } from "../../src/graph/agent-loop/judge-files.js";
-import { AgentFailedError } from "../../src/graph/errors.js";
 import { reportNodeEvent } from "../../src/flow/observers/execution-event.js";
 
 vi.mock("../../src/graph/agent-loop/judge-model.js", () => ({ meteredModel: vi.fn() }));
@@ -152,32 +151,36 @@ describe("#1366: the quality gate counts what the judges cost", () => {
     expect(out.judgeVerdicts).toHaveLength(1);
   });
 
-  it("a rejection with no retry left is a QualityGateError that carries the loop's spend and this round's judges", async () => {
+  it("a rejection with no retry left is a StepError.QualityGate that carries the loop's spend and this round's judges", async () => {
     const { node } = setup([judgeOf("j1", { passed: false, reason: "too long" })], {
       maxRetries: 1,
     });
 
     const failure = await node(stateOf({ retries: 1 }), undefined).catch((e: unknown) => e);
 
-    expect(failure).toBeInstanceOf(QualityGateError);
+    expect(failure).toBeInstanceOf(StepError.QualityGate);
     expect(failure).toMatchObject({
       retries: 1,
       rejections: [{ judge: "j1", reason: "too long" }],
     });
-    expect((failure as QualityGateError).usage.map((u) => u.costUsd)).toEqual([0.5, 0.25]);
-    expect((failure as QualityGateError).usage[1]).toMatchObject({ tallied: true });
+    expect((failure as StepError.QualityGate).usage.map((u) => u.costUsd)).toEqual([0.5, 0.25]);
+    expect((failure as StepError.QualityGate).usage[1]).toMatchObject({ tallied: true });
   });
 
   it("an agent that is allowed no retry fails at the first rejection", async () => {
     const { node } = setup([judgeOf("j1", { passed: false, reason: "no" })], { maxRetries: 0 });
 
-    await expect(node(stateOf({ retries: 0 }), undefined)).rejects.toBeInstanceOf(QualityGateError);
+    await expect(node(stateOf({ retries: 0 }), undefined)).rejects.toBeInstanceOf(
+      StepError.QualityGate,
+    );
   });
 
   it("#1373: an agent with no `maxRetries` set is allowed no retry", async () => {
     const { node } = setup([judgeOf("j1", { passed: false, reason: "no" })], { unset: true });
 
-    await expect(node(stateOf({ retries: 0 }), undefined)).rejects.toBeInstanceOf(QualityGateError);
+    await expect(node(stateOf({ retries: 0 }), undefined)).rejects.toBeInstanceOf(
+      StepError.QualityGate,
+    );
   });
 
   it.each([
@@ -195,7 +198,7 @@ describe("#1366: the quality gate counts what the judges cost", () => {
       });
 
       await expect(node(stateOf({ retries: 0 }), undefined)).rejects.toBeInstanceOf(
-        QualityGateError,
+        StepError.QualityGate,
       );
     },
   );
@@ -237,7 +240,7 @@ describe("#1366: what a rejection retracts and carries", () => {
     expect(discardLast).not.toHaveBeenCalled();
   });
 
-  it("the QualityGateError carries this round's verdicts", async () => {
+  it("the StepError.QualityGate carries this round's verdicts", async () => {
     const { node } = setup([judgeOf("j1", { passed: false, reason: "no" })], { maxRetries: 0 });
 
     const failure = await node(stateOf(), undefined).catch((e: unknown) => e);
@@ -288,13 +291,13 @@ describe("#1366: the spend of the files the judges read, and of a judge that bro
 
     const failure = await node(stateOf(), undefined).catch((e: unknown) => e);
 
-    expect(failure).toBeInstanceOf(AgentFailedError);
-    expect((failure as AgentFailedError).usage.map((u) => u.caller)).toEqual([
+    expect(failure).toBeInstanceOf(StepError.Agent);
+    expect((failure as StepError.Agent).usage.map((u) => u.caller)).toEqual([
       "loop",
       "files",
       "judge",
     ]);
-    expect((failure as AgentFailedError).cause).toEqual(new Error("model down"));
+    expect((failure as StepError.Agent).cause).toEqual(new Error("model down"));
   });
 
   it("the observer hears each judge start with the reply and end with its verdict", async () => {

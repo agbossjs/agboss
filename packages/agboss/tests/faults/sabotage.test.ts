@@ -42,6 +42,7 @@
  * gateway forgot its key; no key retention declared (#658), scenario 15's replay of an expired key
  * is a new charge — each fails effects-once with a second payment.
  */
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { FaultInvariant, FaultInvariantError } from "../../src/testing/faults/index.js";
@@ -244,7 +245,7 @@ describe("#909 AC2/AC3: a cancel that fences nothing fails the scenarios that ta
     const failure = await failureOf(s20bCancelAtPayment, unmarked);
     expect(failure.invariants).toContain(FaultInvariant.NoEffectAfterCancel);
     expect(failure.notes.join("\n")).toMatch(
-      /was to be refused \(ExecutionCancelFencedError\); it was accepted/u,
+      /was to be refused \(ExecutionError.CancelFenced\); it was accepted/u,
     );
   }, 180_000);
 });

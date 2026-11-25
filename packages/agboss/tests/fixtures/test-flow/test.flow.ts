@@ -6,8 +6,7 @@ import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import type { FlowPath } from "../../../src/flow/ast.js";
 import { onStart, toAgent, toFinish } from "../../helpers/flow.js";
 import { inline } from "../../../src/index.js";
-
-const price = { inputPerMTok: 3, outputPerMTok: 6 };
+import { usd } from "../../../src/units/index.js";
 
 @WorkflowStart({
   name: "chat-workflow-start",
@@ -22,7 +21,6 @@ export class TestChat {}
   description: "Handles alpha work",
   prompt: inline("You are alpha."),
   model: "test/alpha",
-  price,
 })
 export class Alpha {}
 
@@ -31,7 +29,6 @@ export class Alpha {}
   description: "Handles beta work",
   prompt: inline("You are beta."),
   model: "test/beta",
-  price,
 })
 export class Beta {}
 
@@ -76,13 +73,9 @@ export class TestMain {}
 export const testPaths: readonly FlowPath[] = [
   onStart(TestChat)
     .toRouter(TestMain)
-    .onRoute(
-      toAgent(Alpha)
-        .toFinish(TestAnswer),
-    )
-    .onRoute(
-      toAgent(Beta)
-        .toFinish(TestAnswer),
-    )
+    .onRoute(toAgent(Alpha)
+      .toFinish(TestAnswer))
+    .onRoute(toAgent(Beta)
+      .toFinish(TestAnswer))
     .onRoute(toFinish(NoAnswer)),
 ];

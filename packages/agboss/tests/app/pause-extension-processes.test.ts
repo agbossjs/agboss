@@ -61,7 +61,7 @@ async function extendTogether(pauseIds: readonly string[]): Promise<readonly (re
 /** The shorter extension either went first (the long one moved from its deadline) or was refused. */
 function expectOnChain(long: Told | undefined, short: Told | undefined): void {
   if (short?.ok !== true) {
-    expect(short).toMatchObject({ ok: false, error: "DtoValidationError" });
+    expect(short).toMatchObject({ ok: false, error: "ValidationError.DtoInvalid" });
     return;
   }
   expect(long?.previousExpiresAt).toBe(short.expiresAt);

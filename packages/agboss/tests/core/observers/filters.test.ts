@@ -1,3 +1,4 @@
+import { ConfigError } from "../../../src/core/error-families/config-errors.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   Observer,
@@ -18,7 +19,6 @@ import {
 import { createTestAppWith } from "../../../src/testing/create-app-with.js";
 import { ScriptBook } from "../../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../../src/testing/scripted-gateway.js";
-import { ComponentError } from "../../../src/index.js";
 import { observerOf } from "../../../src/core/observer-hooks.js";
 import { EchoTool, Start, Worker, applicationWith, workflowWith } from "./fixture.js";
 import { Application } from "../../../src/application/application.js";
@@ -104,18 +104,21 @@ const filtered = testWith(
 );
 
 describe("@Observer workflows / agents filters", () => {
-  filtered("deliver only the matching workflow's and agent's events", async ({ app, mockLlm }) => {
-    mockLlm(Worker).thenReturn(callTool(EchoTool, { text: "hi" }), replyWith("done"));
+  filtered(
+    "deliver only the matching workflow's and agent's events",
+    async ({ app, mockModel }) => {
+      mockModel(Worker).thenReturn(callTool(EchoTool, { text: "hi" }), replyWith("done"));
 
-    await execute(app, Start, { text: "hello" });
+      await execute(app, Start, { text: "hello" });
 
-    expect(ends).toEqual([
-      "tool-start:worker-agent:echo-tool",
-      'tool-end:worker-agent:{"text":"echo hi"}',
-      "every:observed-workflow",
-      "one:observed-workflow",
-    ]);
-  });
+      expect(ends).toEqual([
+        "tool-start:worker-agent:echo-tool",
+        'tool-end:worker-agent:{"text":"echo hi"}',
+        "every:observed-workflow",
+        "one:observed-workflow",
+      ]);
+    },
+  );
 });
 
 @Application({
@@ -133,8 +136,8 @@ class RetryApplication {}
 const retrying = testWith(RetryApplication);
 
 describe("@Observer onAgentRetry", () => {
-  retrying("tells an agent's tool-input retries", async ({ app, mockLlm }) => {
-    mockLlm(ClerkAgent).thenReturn(
+  retrying("tells an agent's tool-input retries", async ({ app, mockModel }) => {
+    mockModel(ClerkAgent).thenReturn(
       callToolWithInvalidArguments(LookupOrderTool, { orderId: 7 }),
       callToolWithTruncatedArguments(LookupOrderTool, { orderId: "7" }),
       callTool(LookupOrderTool, { orderId: "7" }),
@@ -153,8 +156,8 @@ describe("@Observer onAgentRetry", () => {
 });
 
 describe("@Observer onAgentRetry after a judge", () => {
-  retrying("tells a rejected reply that is retried", async ({ app, mockLlm }) => {
-    mockLlm(ClerkAgent).thenReturn(
+  retrying("tells a rejected reply that is retried", async ({ app, mockModel }) => {
+    mockModel(ClerkAgent).thenReturn(
       replyWith("It has shipped."),
       callTool(LookupOrderTool, { orderId: "7" }),
       replyWith("Order 7 has shipped."),
@@ -191,7 +194,7 @@ const assemblyError = (observers: Parameters<typeof applicationWith>[1]): Promis
       await app.close();
       return "assembled";
     },
-    (error: unknown) => (error instanceof ComponentError ? error.message : String(error)),
+    (error: unknown) => (error instanceof ConfigError.Component ? error.message : String(error)),
   );
 
 /** A class with a hook but no decorator. */

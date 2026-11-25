@@ -1,4 +1,5 @@
-import { onStart, StepFailedError, toFinish, Workflow, toAgent, Ttl } from "@agboss/core";
+import { StepError } from "@agboss/core";
+import { onStart, toFinish, Workflow, toAgent, Ttl } from "@agboss/core";
 import { EditorialPlanAction } from "../../actions/editorial-plan.action.js";
 import { ReviewReportAction } from "../../actions/review-report.action.js";
 import { FactCheckerAgent } from "../../agents/fact-checker/fact-checker.agent.js";
@@ -30,7 +31,7 @@ import { ReviewWorkflowStart } from "./review.workflow-start.js";
         { maxConcurrency: 2 },
       )
       .join()
-      .onError(StepFailedError, toFinish(ReviewIncompleteWorkflowFinish))
+      .onError(StepError, toFinish(ReviewIncompleteWorkflowFinish))
       .toAction(ReviewReportAction)
       .toFinish(ReviewWorkflowFinish),
   ],

@@ -38,6 +38,7 @@ import type { ToolCallApprovalDecisionDto } from "../../../src/dto/standard/fram
 import type { RuntimeGuardrail } from "../../../src/guardrails/runtime.js";
 import type { PiiPolicySet } from "../../../src/pii/policy-set.js";
 import type { ToolInterceptorChains } from "../../../src/tool-interceptors/runtime.js";
+import { usd } from "../../../src/units/index.js";
 
 export interface HarnessOptions {
   readonly moves: readonly ScriptedMove[];
@@ -89,10 +90,10 @@ export function harness(
     options.moves,
     options.onModelCall ?? ((move) => modelCalls.push(move)),
   );
-  const settings = resolveSettings(
-    { model: "test/coder", price: { inputPerMTok: 3, outputPerMTok: 6 } },
-    { temperature: 0, maxTokens: 1000, cache: false },
-  );
+  const settings = {
+    ...resolveSettings({ model: "test/coder" }, { temperature: 0, maxTokens: 1000, cache: false }),
+    price: { inputPerMillion: usd(3), outputPerMillion: usd(6) },
+  };
   const graph = agentLoopGraph(
     {
       agent: {

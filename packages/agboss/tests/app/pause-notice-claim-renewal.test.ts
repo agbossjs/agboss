@@ -82,10 +82,10 @@ function timedHook(
 describe("#1131 AC3: a receiver past the claim is never called twice at once", () => {
   one(
     "AC3: a 70 s receiver on one instance is called once, never beside itself",
-    async ({ app, clock, mockLlm }) => {
+    async ({ app, clock, mockModel }) => {
       const held = heldHook();
       hooks.closeWait = held.hook;
-      mockLlm(DeskClerkAgent).thenReturn(callTool(SlowRefundTool, { orderId: "7" }));
+      mockModel(DeskClerkAgent).thenReturn(callTool(SlowRefundTool, { orderId: "7" }));
       const paused = await execute(app, DeskWorkflowStart, REFUND, ACME);
 
       await app.cancel(paused.threadId, { tenantId: "acme" });
@@ -105,10 +105,10 @@ describe("#1131 AC3: a receiver past the claim is never called twice at once", (
 
   two(
     "AC3: a 70 s receiver with two instances looking is called once, never beside itself",
-    async ({ apps, clock, mockLlm }) => {
+    async ({ apps, clock, mockModel }) => {
       const held = heldHook();
       hooks.closeWait = held.hook;
-      mockLlm(DeskClerkAgent).thenReturn(callTool(SlowRefundTool, { orderId: "7" }));
+      mockModel(DeskClerkAgent).thenReturn(callTool(SlowRefundTool, { orderId: "7" }));
       const [first, second] = apps;
       if (first === undefined || second === undefined) throw new Error("two instances expected");
       for (const app of apps) await app.ready();
@@ -129,11 +129,11 @@ describe("#1131 AC3: a receiver past the claim is never called twice at once", (
 
   two(
     "AC3: a chain of notices longer than the claim: each is told once, the next only after the one before returned, in order",
-    async ({ apps, clock, mockLlm }) => {
+    async ({ apps, clock, mockModel }) => {
       // closed (answered) then answerNotTaken (cancelled): 40 s + 40 s on one claim of 60 s
       hooks.closeWait = timedHook((ms) => clock.sleep(ms), seconds(40));
       hooks.notTakenWait = timedHook((ms) => clock.sleep(ms), seconds(40));
-      mockLlm(DeskClerkAgent).thenReturn(callTool(SlowRefundTool, { orderId: "7" }));
+      mockModel(DeskClerkAgent).thenReturn(callTool(SlowRefundTool, { orderId: "7" }));
       const [first, second] = apps;
       if (first === undefined || second === undefined) throw new Error("two instances expected");
       for (const app of apps) await app.ready();
@@ -167,12 +167,12 @@ describe("#1131 AC3: a receiver past the claim is never called twice at once", (
 
   one(
     "AC3 sabotage: without the renewal the same receiver is called twice at once",
-    async ({ app, clock, mockLlm }) => {
+    async ({ app, clock, mockModel }) => {
       await app.ready();
       vi.spyOn(pauseStore(), "renewNotice").mockImplementation((claim) => Promise.resolve(claim));
       const held = heldHook();
       hooks.closeWait = held.hook;
-      mockLlm(DeskClerkAgent).thenReturn(callTool(SlowRefundTool, { orderId: "7" }));
+      mockModel(DeskClerkAgent).thenReturn(callTool(SlowRefundTool, { orderId: "7" }));
       const paused = await execute(app, DeskWorkflowStart, REFUND, ACME);
 
       await app.cancel(paused.threadId, { tenantId: "acme" });

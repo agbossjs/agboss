@@ -97,7 +97,7 @@ export async function writeCancelRequest(
 /**
  * Ends a tree whose cancel was requested, under its lease and without a pass (`ended-tree.ts`): its
  * open undoable actions undone (#340 PR 3, under `signal`), its record ended as cancelled after
- * the undo (S7 3); the tree's cancelled output — or `CompensationFailedError` when an undo failed
+ * the undo (S7 3); the tree's cancelled output — or `ExecutionError.CompensationFailed` when an undo failed
  * (S7 1), which the moving call rejects with.
  */
 export async function endCancelled(
@@ -131,7 +131,7 @@ export async function endedAtTake(
 
 /**
  * A tree about to rest paused with a request: ended as cancelled, and the moving call resolves with
- * the cancelled output (rejects with `CompensationFailedError` when an undo failed); `undefined`
+ * the cancelled output (rejects with `ExecutionError.CompensationFailed` when an undo failed); `undefined`
  * when there is no request.
  */
 export async function endIfCancelledAtRest(

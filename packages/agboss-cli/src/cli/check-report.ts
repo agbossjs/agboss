@@ -1,4 +1,4 @@
-import { EnvironmentError } from "@agboss/core";
+import { ConfigError } from "@agboss/core";
 import {
   describedLimitsOf,
   environmentOwnerOf,
@@ -94,7 +94,7 @@ async function environmentReportOf(
       ? undefined
       : { name: loaded.name, variables: variablesOf(assembled, loaded) };
   } catch (error) {
-    if (error instanceof EnvironmentError) return undefined;
+    if (error instanceof ConfigError.Environment) return undefined;
     throw error;
   }
 }

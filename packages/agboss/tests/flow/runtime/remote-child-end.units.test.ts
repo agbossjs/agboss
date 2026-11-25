@@ -1,10 +1,10 @@
-import { StoredNamesUnreadableError } from "../../../src/core/stored-json.js";
 /**
  * #1366 (shard once-child) — a child on any instance as its parent's step sees it (`remoteChildEndOf`): the
  * child's row queued once and waited for until it settles, its spend taken into the budgets as in the ledger
  * already (once, #685) before the parent's state shows it, and the end announced only by a pass that saw the
  * child end (#562). The queue is a script, the clock a hand, the budgets a spy.
  */
+import { StoreError } from "../../../src/core/error-families/store-errors.js";
 import { MemorySaver, type BaseCheckpointSaver, type StateSnapshot } from "@langchain/langgraph";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { recordToolCost, type UsageRecord } from "../../../src/finops/usage.js";
@@ -421,7 +421,7 @@ describe("#1366: the error of a failed remote child", () => {
     for (const refused of [legacy, none])
       await expect(
         remoteChildEndOf(graphOf({ usage: [] }), {}, siteOf(refused.queue).site, undefined),
-      ).rejects.toBeInstanceOf(StoredNamesUnreadableError);
+      ).rejects.toBeInstanceOf(StoreError.UnreadableRecord);
   });
 });
 

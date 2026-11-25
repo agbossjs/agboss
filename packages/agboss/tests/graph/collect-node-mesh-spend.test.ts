@@ -1,3 +1,4 @@
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { usd } from "../../src/units/index.js";
 /**
  * #1366: a mesh limit that a tool met fails the step with the loop's spend — its figure and its records — at
@@ -7,7 +8,6 @@ import { AIMessage } from "@langchain/core/messages";
 import { describe, expect, it } from "vitest";
 import { CostSource, ZERO_USAGE, type UsageRecord } from "../../src/finops/usage.js";
 import { makeCollectNode } from "../../src/graph/agent-loop/collect-node.js";
-import { HopsLimitExceededError, MeshLoopDetectedError } from "../../src/mesh/mesh-errors.js";
 
 const record = (costUsd: number, caller: string): UsageRecord => ({
   provider: "test-provider",
@@ -51,7 +51,7 @@ describe("#1366: the spend a mesh limit fails the step with", () => {
       inLoop,
     ]);
 
-    expect(error).toBeInstanceOf(MeshLoopDetectedError);
+    expect(error).toBeInstanceOf(LimitError.MeshLoop);
     expect(error).toMatchObject({ spentUsd: usd(0.75), usage: [inLoop], path: ["flow", "alpha"] });
   });
 
@@ -61,7 +61,7 @@ describe("#1366: the spend a mesh limit fails the step with", () => {
       [before, inLoop],
     );
 
-    expect(error).toBeInstanceOf(HopsLimitExceededError);
+    expect(error).toBeInstanceOf(LimitError.Hops);
     expect(error).toMatchObject({
       spentUsd: usd(0.75),
       usage: [inLoop],

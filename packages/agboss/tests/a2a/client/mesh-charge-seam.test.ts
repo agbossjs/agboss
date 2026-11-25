@@ -1,3 +1,5 @@
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
+import { A2AError } from "../../../src/core/error-families/remote-errors.js";
 /**
  * #1366 (mesh-charge shard) — what a call's mesh seam decides on its own, each rule over fakes: an agent that does not
  * declare the mesh is refused under `Required` and called without it otherwise (the price charged all the same); a call
@@ -7,7 +9,7 @@
  */
 import { HTTP_EXTENSION_HEADER, Role, TaskState, type AgentCard, type Message } from "@a2a-js/sdk";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { A2AMesh, A2AMeshUnsupportedError } from "../../../src/a2a/client/a2a-guard-errors.js";
+import { A2AMesh } from "../../../src/a2a/client/a2a-guard-errors.js";
 import {
   AGBOSS_MESH,
   priceLedgerKeyOf,
@@ -16,7 +18,6 @@ import {
 import { A2A_MESH_EXTENSION } from "../../../src/a2a/a2a-extension-uris.js";
 import { currentFrame } from "../../../src/flow/context/frame.js";
 import { TRACEPARENT } from "../../../src/mesh/mesh-envelope.js";
-import { MeshLoopDetectedError } from "../../../src/mesh/mesh-errors.js";
 import { takeRunReport } from "../../../src/mesh/mesh-report.js";
 import { currentCallChainOf, outboundMeshOfHash } from "../../../src/mesh/outbound-mesh.js";
 import { usd } from "../../../src/units/index.js";
@@ -66,7 +67,7 @@ beforeEach(() => {
 describe("#1366: a call to an agent that does not declare the mesh", () => {
   it("is refused under Required, naming the agent and the application: nothing is sent", () => {
     expect(() => AGBOSS_MESH.activate(plain, peer, callOf({ mesh: A2AMesh.Required }))).toThrow(
-      new A2AMeshUnsupportedError({ agent: "billing-agent", application: "billing" }),
+      new A2AError.MeshUnsupported({ agent: "billing-agent", application: "billing" }),
     );
   });
 
@@ -100,8 +101,8 @@ describe("#1366: the loop a call would make", () => {
     const run = () => AGBOSS_MESH.activate(meshed, peer, callOf());
 
     expect(run).toThrow(
-      new MeshLoopDetectedError({
-        entry: { application: "billing", start: "charge" },
+      new LimitError.MeshLoop({
+        meshEntry: { application: "billing", start: "charge" },
         callChain: chain,
       }),
     );
@@ -143,7 +144,7 @@ describe("#1366: the loop a call would make", () => {
   it("the loop is refused before the envelope is made", () => {
     vi.mocked(currentCallChainOf).mockReturnValue([hop("billing", "charge")] as never);
 
-    expect(() => AGBOSS_MESH.activate(meshed, peer, callOf())).toThrow(MeshLoopDetectedError);
+    expect(() => AGBOSS_MESH.activate(meshed, peer, callOf())).toThrow(LimitError.MeshLoop);
     expect(outboundMeshOfHash).not.toHaveBeenCalled();
   });
 });
@@ -186,7 +187,7 @@ describe("#1366: the mesh as it rides one call", () => {
       serviceParameters: {},
     });
     expect(() => required.sign(message)).toThrow(
-      new A2AMeshUnsupportedError({ agent: "billing-agent", application: "billing" }),
+      new A2AError.MeshUnsupported({ agent: "billing-agent", application: "billing" }),
     );
   });
 });

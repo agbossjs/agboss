@@ -9,7 +9,7 @@ import { HelplineWorkflowStart } from "../../../../src/helpline/workflows/helpli
 
 /**
  * The helpline consumes the desk over A2A (#387, #398) through the declared contract
- * `DeskA2AAgent` — replaced here by `mockOf`; the desk's side is in
+ * `DeskA2AAgent` — replaced here by `mockService`; the desk's side is in
  * tests/desk/a2a/desk.a2a-expose.test.ts.
  */
 
@@ -17,12 +17,12 @@ const test = testWith(FlowPatternsApplication);
 
 test("the helpline's tool calls the desk through its contract", async ({
   app,
-  mockLlm,
-  mockOf,
+  mockModel,
+  mockService,
 }) => {
-  const deskAgent = mockOf(DeskA2AAgent); // the remote application, replaced before the app starts
+  const deskAgent = mockService(DeskA2AAgent); // the remote application, replaced before the app starts
   deskAgent.execute.mockResolvedValue({ text: "Order 7 shipped on Monday." });
-  mockLlm(HelplineAgent).thenReturn(
+  mockModel(HelplineAgent).thenReturn(
     callTool(AskDeskTool, { customerId: "c-1", question: "Where is #7?" }),
     replyWith("The desk says order 7 shipped on Monday."),
   );

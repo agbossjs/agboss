@@ -35,9 +35,9 @@ const test = testWith(StreamChildrenApplication);
 type Deps = GraphDeps<string>;
 
 /** The deps and limits the app's own run compiled its graph from. */
-async function captured({ app, mockLlm }: Pick<WorkflowFixtures, "app" | "mockLlm">) {
-  mockLlm(ChildWriter).thenReturn(replyWith("From the child."));
-  mockLlm(FlowJudge).thenReturnAlways(replyWith("PASS: INTERNAL"));
+async function captured({ app, mockModel }: Pick<WorkflowFixtures, "app" | "mockModel">) {
+  mockModel(ChildWriter).thenReturn(replyWith("From the child."));
+  mockModel(FlowJudge).thenReturnAlways(replyWith("PASS: INTERNAL"));
   seen.calls.length = 0;
   await execute(app, OnceStart, { text: "Q" });
   const first = seen.calls[0];
@@ -64,9 +64,9 @@ class GhostChild {
 describe("#1366: the compiled graph", () => {
   test("the app's own deps compile; the graph's recursion limit is (maxSteps + nodes) x 10", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    const { deps, build } = await captured({ app, mockLlm });
+    const { deps, build } = await captured({ app, mockModel });
 
     const graph = build(deps);
 
@@ -80,9 +80,9 @@ describe("#1366: the compiled graph", () => {
 
   test("a model router the deps have no texts for is UnknownAgentError", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    const { deps, build } = await captured({ app, mockLlm });
+    const { deps, build } = await captured({ app, mockModel });
     const ghost = withNode(deps, {
       id: "ghost-router" as ComponentName,
       kind: NodeKind.Router,
@@ -92,8 +92,8 @@ describe("#1366: the compiled graph", () => {
     expect(() => build(ghost)).toThrow(expect.objectContaining({ name: "UnknownAgentError" }));
   });
 
-  test("an agent without a loop is UnknownAgentError", async ({ app, mockLlm }) => {
-    const { deps, build } = await captured({ app, mockLlm });
+  test("an agent without a loop is UnknownAgentError", async ({ app, mockModel }) => {
+    const { deps, build } = await captured({ app, mockModel });
     const ghost = withNode(deps, {
       id: "ghost-agent" as ComponentName,
       kind: NodeKind.Agent,
@@ -105,9 +105,9 @@ describe("#1366: the compiled graph", () => {
 
   test("a child workflow the application cannot reach is ChildWorkflowUnavailableError", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    const { deps, build } = await captured({ app, mockLlm });
+    const { deps, build } = await captured({ app, mockModel });
 
     const without = { ...deps, childDepsOf: undefined } as Deps;
     const none = { ...deps, childDepsOf: () => undefined } as Deps;
@@ -118,9 +118,9 @@ describe("#1366: the compiled graph", () => {
 
   test("a workflow that contains an ancestor is ChildWorkflowUnavailableError, not an endless compile", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    const { deps, build } = await captured({ app, mockLlm });
+    const { deps, build } = await captured({ app, mockModel });
     const ghost = withNode(deps, {
       id: "ghost-workflow" as ComponentName,
       kind: NodeKind.Workflow,

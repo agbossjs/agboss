@@ -22,10 +22,10 @@ import { NO_PROVIDER } from "../../src/finops/usage.js";
  * for what a provider that failed before a fallback answered billed.
  */
 
-const settings = resolveSettings(
-  { model: "test/router", price: { inputPerMTok: 1, outputPerMTok: 1 } },
-  testConfig.defaults.models,
-);
+const settings = {
+  ...resolveSettings({ model: "test/router" }, testConfig.defaults.models),
+  price: { inputPerMillion: usd(1), outputPerMillion: usd(1) },
+};
 const usage = { inputTokens: 100, outputTokens: 50, cacheReadTokens: 0, cacheWriteTokens: 0 };
 const caller = "router:main";
 

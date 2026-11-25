@@ -44,11 +44,11 @@ describe("#646 AC1: advance right after execute", () => {
   test("the app built, two executions started, advanced at once: both hold their slots", async ({
     app,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
     await app.ready();
     for (const chunk of CHUNKS) {
-      mockLlm(ChunkWorkerAgent)
+      mockModel(ChunkWorkerAgent)
         .when({ task: { text: chunk } })
         .thenReturn(...chunkTurns, replyWith(ChunkDraftDto, { summary: `${chunk} done` }));
     }
@@ -68,10 +68,10 @@ describe("#646 AC1: advance right after execute", () => {
   test("the app not built yet: its first execute builds it, its files loaded by path, before the wait", async ({
     app,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
     for (const chunk of CHUNKS) {
-      mockLlm(ChunkWorkerAgent)
+      mockModel(ChunkWorkerAgent)
         .when({ task: { text: chunk } })
         .thenReturn(...chunkTurns, replyWith(ChunkDraftDto, { summary: `${chunk} done` }));
     }

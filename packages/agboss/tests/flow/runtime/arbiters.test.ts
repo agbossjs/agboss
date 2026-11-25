@@ -1,5 +1,6 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { beforeEach, describe, expect } from "vitest";
-import { ArbiterError, BranchStatus, BranchVerdict } from "../../../src/index.js";
+import { BranchStatus, BranchVerdict } from "../../../src/index.js";
 import {
   decideWith,
   failWith,
@@ -46,7 +47,7 @@ import {
  * agent's criterion; a code arbiter by its `@Arbitrate` method, the copy and the item from
  * `ExecutionContext`; a hybrid arbiter asks its own model only for what its code cannot decide; a
  * check still running when the quorum is decided does not count; an arbiter
- * that fails is `ArbiterError`, never a rejection.
+ * that fails is `StepError.Arbiter`, never a rejection.
  */
 
 /** These tests are about the runtime's own concurrency (#262: tests default to one branch at a time). */
@@ -83,14 +84,14 @@ beforeEach(resetPanel);
 describe("AC5: a model arbiter judges each answer by its agent's criterion", () => {
   model(
     "one decision per answer: the criterion of the agent that gave it",
-    async ({ app, mockLlm }) => {
-      mockLlm(SkillsPanelAgent).thenReturn(score(7));
-      mockLlm(RisksPanelAgent).thenReturn(score(6));
-      mockLlm(HirePanelAgent).thenReturn(score(9));
-      mockLlm(PanelModelArbiter).thenAnswer(
+    async ({ app, mockModel }) => {
+      mockModel(SkillsPanelAgent).thenReturn(score(7));
+      mockModel(RisksPanelAgent).thenReturn(score(6));
+      mockModel(HirePanelAgent).thenReturn(score(9));
+      mockModel(PanelModelArbiter).respondWith(
         judgeBy({ "skills-panel-agent": 0.2, "risks-panel-agent": 0.9, "hire-panel-agent": 0.8 }),
       );
-      mockLlm(PanelSummaryAgent).thenReturn(summary);
+      mockModel(PanelSummaryAgent).thenReturn(summary);
 
       const result = await execute(app, PanelWorkflowStart, ANNA);
 
@@ -100,7 +101,7 @@ describe("AC5: a model arbiter judges each answer by its agent's criterion", () 
         { verdict: BranchVerdict.Counted },
         { verdict: BranchVerdict.Counted },
       ]);
-      const asked = mockLlm(PanelModelArbiter).requests;
+      const asked = mockModel(PanelModelArbiter).requests;
       expect(asked.map(criterionOf).sort()).toEqual([
         "Ends with a clear hire / no hire",
         "Names a concrete risk",
@@ -111,32 +112,35 @@ describe("AC5: a model arbiter judges each answer by its agent's criterion", () 
     },
   );
 
-  model("its model does not answer: ArbiterError, taken by .onError", async ({ app, mockLlm }) => {
-    mockLlm(SkillsPanelAgent).thenReturn(score(7));
-    mockLlm(RisksPanelAgent).thenReturn(score(6));
-    mockLlm(HirePanelAgent).thenReturn(score(9));
-    mockLlm(PanelModelArbiter).thenReturnAlways(failWith(ModelFailure.Timeout));
+  model(
+    "its model does not answer: StepError.Arbiter, taken by .onError",
+    async ({ app, mockModel }) => {
+      mockModel(SkillsPanelAgent).thenReturn(score(7));
+      mockModel(RisksPanelAgent).thenReturn(score(6));
+      mockModel(HirePanelAgent).thenReturn(score(9));
+      mockModel(PanelModelArbiter).thenReturnAlways(failWith(ModelFailure.Timeout));
 
-    const result = await execute(app, PanelWorkflowStart, ANNA, { includeRecord: true });
+      const result = await execute(app, PanelWorkflowStart, ANNA, { includeRecord: true });
 
-    expect(result).toFinishWith(PanelUnjudgedWorkflowFinish, ANNA);
-    expect(result.record?.lastError).toMatchObject({
-      code: "step.arbiter",
-      lineage: ["step.arbiter", "step.failed", "step", "agboss"],
-      details: { arbiter: "panel-model-arbiter" },
-    });
-  });
+      expect(result).toFinishWith(PanelUnjudgedWorkflowFinish, ANNA);
+      expect(result.record?.lastError).toMatchObject({
+        code: "step.arbiter",
+        lineage: ["step.arbiter", "step", "agboss"],
+        details: { arbiter: "panel-model-arbiter" },
+      });
+    },
+  );
 });
 
 describe("AC5: a model arbiter on a chat model", () => {
-  chat("it answers through its answer tool, a boolean per answer", async ({ app, mockLlm }) => {
-    mockLlm(SkillsPanelAgent).thenReturn(score(7));
-    mockLlm(RisksPanelAgent).thenReturn(score(6));
-    mockLlm(HirePanelAgent).thenReturn(score(9));
-    mockLlm(PanelChatArbiter).thenAnswer(
+  chat("it answers through its answer tool, a boolean per answer", async ({ app, mockModel }) => {
+    mockModel(SkillsPanelAgent).thenReturn(score(7));
+    mockModel(RisksPanelAgent).thenReturn(score(6));
+    mockModel(HirePanelAgent).thenReturn(score(9));
+    mockModel(PanelChatArbiter).respondWith(
       judgeBy({ "skills-panel-agent": 0.9, "risks-panel-agent": 0.1, "hire-panel-agent": 0.8 }),
     );
-    mockLlm(PanelSummaryAgent).thenReturn(summary);
+    mockModel(PanelSummaryAgent).thenReturn(summary);
 
     const result = await execute(app, PanelWorkflowStart, ANNA);
 
@@ -145,14 +149,14 @@ describe("AC5: a model arbiter on a chat model", () => {
       { verdict: BranchVerdict.Rejected, rejectedBy: ["panel-chat-arbiter"] },
       { verdict: BranchVerdict.Counted },
     ]);
-    expect(mockLlm(PanelChatArbiter).requests).toHaveLength(3);
+    expect(mockModel(PanelChatArbiter).requests).toHaveLength(3);
   });
 });
 
 describe("AC6: a code arbiter, the copy and the item from ExecutionContext", () => {
-  items("per item: its method sees the item's index", async ({ app, mockLlm }) => {
-    mockLlm(SkillsPanelAgent).thenReturnAlways(score(5));
-    mockLlm(PanelSummaryAgent).thenReturn(summary);
+  items("per item: its method sees the item's index", async ({ app, mockModel }) => {
+    mockModel(SkillsPanelAgent).thenReturnAlways(score(5));
+    mockModel(PanelSummaryAgent).thenReturn(summary);
     const five = ["a", "b", "c", "d", "e"].map((name) => ({ name }));
 
     const result = await execute(app, PanelItemsWorkflowStart, five);
@@ -177,9 +181,9 @@ describe("AC6: a code arbiter, the copy and the item from ExecutionContext", () 
 
   copies(
     "copies: one method for every copy, the copy number tells them apart",
-    async ({ app, mockLlm }) => {
-      mockLlm(SkillsPanelAgent).thenReturnAlways(score(5));
-      mockLlm(PanelSummaryAgent).thenReturn(summary);
+    async ({ app, mockModel }) => {
+      mockModel(SkillsPanelAgent).thenReturnAlways(score(5));
+      mockModel(PanelSummaryAgent).thenReturn(summary);
 
       const result = await execute(app, PanelWorkflowStart, ANNA);
 
@@ -197,36 +201,41 @@ describe("AC6: a code arbiter, the copy and the item from ExecutionContext", () 
     },
   );
 
-  checked("a method that throws: ArbiterError, never a rejection", async ({ app, mockLlm }) => {
-    mockLlm(SkillsPanelAgent).thenReturn(score(13));
-    mockLlm(RisksPanelAgent).thenReturn(score(6));
-    mockLlm(HirePanelAgent).thenReturn(score(9));
+  checked(
+    "a method that throws: StepError.Arbiter, never a rejection",
+    async ({ app, mockModel }) => {
+      mockModel(SkillsPanelAgent).thenReturn(score(13));
+      mockModel(RisksPanelAgent).thenReturn(score(6));
+      mockModel(HirePanelAgent).thenReturn(score(9));
 
-    const result = await execute(app, PanelWorkflowStart, ANNA, { includeRecord: true });
+      const result = await execute(app, PanelWorkflowStart, ANNA, { includeRecord: true });
 
-    expect(result).toFinishWith(PanelUnjudgedWorkflowFinish, ANNA);
-    expect(result.record?.lastError).toMatchObject({
-      code: "step.arbiter",
-      message: expect.stringContaining("thirteen is not a score") as unknown,
-      details: { arbiter: "in-range-arbiter", nodeId: "skills-panel-agent" },
-    });
-    expect(result.launches[0]?.branches[0]).toMatchObject({
-      status: BranchStatus.Failed,
-      error: { code: "step.arbiter" },
-    });
-    expect(ArbiterError.code).toBe("step.arbiter");
-  });
+      expect(result).toFinishWith(PanelUnjudgedWorkflowFinish, ANNA);
+      expect(result.record?.lastError).toMatchObject({
+        code: "step.arbiter",
+        message: expect.stringContaining("thirteen is not a score") as unknown,
+        details: { arbiter: "in-range-arbiter", nodeId: "skills-panel-agent" },
+      });
+      expect(result.launches[0]?.branches[0]).toMatchObject({
+        status: BranchStatus.Failed,
+        error: { code: "step.arbiter" },
+      });
+      expect(StepError.Arbiter.code).toBe("step.arbiter");
+    },
+  );
 });
 
 describe("AC12: one arbiter per launch — hybrid, inParallel, forEachItem, cancelled at max", () => {
   hybrid(
     "a hybrid arbiter decides at $0 what its code can and asks its own model for the rest (#1283)",
-    async ({ app, mockLlm }) => {
-      mockLlm(SkillsPanelAgent).thenReturn(score(9)); // clear: counted by code
-      mockLlm(RisksPanelAgent).thenReturn(score(6)); // borderline: its model is asked
-      mockLlm(HirePanelAgent).thenReturn(score(2)); // clear: rejected by code
-      mockLlm(HybridPanelArbiter).thenReturn(decideWith({ acceptable: 0.9 }, { cost: usd(0.002) }));
-      mockLlm(PanelSummaryAgent).thenReturn(summary);
+    async ({ app, mockModel }) => {
+      mockModel(SkillsPanelAgent).thenReturn(score(9)); // clear: counted by code
+      mockModel(RisksPanelAgent).thenReturn(score(6)); // borderline: its model is asked
+      mockModel(HirePanelAgent).thenReturn(score(2)); // clear: rejected by code
+      mockModel(HybridPanelArbiter).thenReturn(
+        decideWith({ acceptable: 0.9 }, { cost: usd(0.002) }),
+      );
+      mockModel(PanelSummaryAgent).thenReturn(summary);
 
       const result = await execute(app, PanelWorkflowStart, ANNA);
 
@@ -236,18 +245,20 @@ describe("AC12: one arbiter per launch — hybrid, inParallel, forEachItem, canc
         { verdict: BranchVerdict.Counted },
         { verdict: BranchVerdict.Rejected, rejectedBy: ["hybrid-panel-arbiter"] },
       ]);
-      expect(mockLlm(HybridPanelArbiter).requests).toHaveLength(1);
+      expect(mockModel(HybridPanelArbiter).requests).toHaveLength(1);
       expect(result.spend.byCaller["arbiter:hybrid-panel-arbiter"]).toBe(0.002);
     },
   );
 
   hybrid(
-    "a hybrid arbiter that fails after its model call is ArbiterError, and the call's spend is in the ledger (#1399)",
-    async ({ app, mockLlm }) => {
-      mockLlm(SkillsPanelAgent).thenReturn(score(5)); // asks its model, then throws
-      mockLlm(RisksPanelAgent).thenReturn(score(9));
-      mockLlm(HirePanelAgent).thenReturn(score(9));
-      mockLlm(HybridPanelArbiter).thenReturn(decideWith({ acceptable: 0.9 }, { cost: usd(0.002) }));
+    "a hybrid arbiter that fails after its model call is StepError.Arbiter, and the call's spend is in the ledger (#1399)",
+    async ({ app, mockModel }) => {
+      mockModel(SkillsPanelAgent).thenReturn(score(5)); // asks its model, then throws
+      mockModel(RisksPanelAgent).thenReturn(score(9));
+      mockModel(HirePanelAgent).thenReturn(score(9));
+      mockModel(HybridPanelArbiter).thenReturn(
+        decideWith({ acceptable: 0.9 }, { cost: usd(0.002) }),
+      );
 
       const result = await execute(app, PanelWorkflowStart, ANNA, { includeRecord: true });
 
@@ -262,11 +273,11 @@ describe("AC12: one arbiter per launch — hybrid, inParallel, forEachItem, canc
 
   arbitrated(
     ".inParallel([…]) takes .arbitratedBy(A) and a quorum, as .inParallel does (#1282)",
-    async ({ app, mockLlm }) => {
-      mockLlm(SkillsPanelAgent).thenReturn(score(11));
-      mockLlm(RisksPanelAgent).thenReturn(score(6));
-      mockLlm(HirePanelAgent).thenReturn(score(9));
-      mockLlm(PanelSummaryAgent).thenReturn(summary);
+    async ({ app, mockModel }) => {
+      mockModel(SkillsPanelAgent).thenReturn(score(11));
+      mockModel(RisksPanelAgent).thenReturn(score(6));
+      mockModel(HirePanelAgent).thenReturn(score(9));
+      mockModel(PanelSummaryAgent).thenReturn(summary);
 
       const result = await execute(app, PanelWorkflowStart, ANNA);
 
@@ -281,10 +292,10 @@ describe("AC12: one arbiter per launch — hybrid, inParallel, forEachItem, canc
 
   arbitrated(
     "an .inParallel([…]) quorum no arbiter lets reach min is not reached",
-    async ({ app, mockLlm }) => {
-      mockLlm(SkillsPanelAgent).thenReturn(score(0));
-      mockLlm(RisksPanelAgent).thenReturn(score(11));
-      mockLlm(HirePanelAgent).thenReturn(score(9));
+    async ({ app, mockModel }) => {
+      mockModel(SkillsPanelAgent).thenReturn(score(0));
+      mockModel(RisksPanelAgent).thenReturn(score(11));
+      mockModel(HirePanelAgent).thenReturn(score(9));
 
       const result = await execute(app, PanelWorkflowStart, ANNA);
 
@@ -294,9 +305,9 @@ describe("AC12: one arbiter per launch — hybrid, inParallel, forEachItem, canc
 
   eachItem(
     ".forEachItem(…) takes .arbitratedBy(A) and .joinQuorum(…): the arbiter reads the item (#1282)",
-    async ({ app, mockLlm }) => {
-      mockLlm(SkillsPanelAgent).thenReturnAlways(score(5));
-      mockLlm(PanelSummaryAgent).thenReturn(summary);
+    async ({ app, mockModel }) => {
+      mockModel(SkillsPanelAgent).thenReturnAlways(score(5));
+      mockModel(PanelSummaryAgent).thenReturn(summary);
       const six = ["a", "b", "c", "d", "e", "f"].map((name) => ({ name }));
 
       const result = await execute(app, PanelItemsWorkflowStart, six);
@@ -316,11 +327,11 @@ describe("AC12: one arbiter per launch — hybrid, inParallel, forEachItem, canc
 
   strict(
     "a check still running when max is taken is cancelled; its answer does not count",
-    async ({ app, mockLlm }) => {
-      mockLlm(SkillsPanelAgent).thenReturn(score(99)); // its check waits for a gate never opened
-      mockLlm(RisksPanelAgent).thenReturn(score(6));
-      mockLlm(HirePanelAgent).thenReturn(score(9));
-      mockLlm(PanelSummaryAgent).thenReturn(summary);
+    async ({ app, mockModel }) => {
+      mockModel(SkillsPanelAgent).thenReturn(score(99)); // its check waits for a gate never opened
+      mockModel(RisksPanelAgent).thenReturn(score(6));
+      mockModel(HirePanelAgent).thenReturn(score(9));
+      mockModel(PanelSummaryAgent).thenReturn(summary);
 
       const result = await execute(app, PanelWorkflowStart, ANNA);
 
@@ -331,16 +342,16 @@ describe("AC12: one arbiter per launch — hybrid, inParallel, forEachItem, canc
         { verdict: BranchVerdict.Counted },
       ]);
       expect(result.launches[0]?.branches[0]?.verdict).toBeUndefined();
-      expect(mockLlm(PanelSummaryAgent).requests[0]?.input).not.toContain('"score": 99');
+      expect(mockModel(PanelSummaryAgent).requests[0]?.input).not.toContain('"score": 99');
     },
   );
 
   checked(
     "the quorum unreachable after rejections: the failed finish",
-    async ({ app, mockLlm }) => {
-      mockLlm(SkillsPanelAgent).thenReturn(score(0));
-      mockLlm(RisksPanelAgent).thenReturn(score(11));
-      mockLlm(HirePanelAgent).thenReturn(score(9));
+    async ({ app, mockModel }) => {
+      mockModel(SkillsPanelAgent).thenReturn(score(0));
+      mockModel(RisksPanelAgent).thenReturn(score(11));
+      mockModel(HirePanelAgent).thenReturn(score(9));
 
       const result = await execute(app, PanelWorkflowStart, ANNA);
 

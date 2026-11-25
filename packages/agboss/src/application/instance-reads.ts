@@ -1,5 +1,6 @@
-import { InvalidThreadIdError, keyTextRuleOf } from "../core/errors.js";
-import { DtoValidationError } from "../dto/errors.js";
+import { ExecutionError } from "../core/error-families/run-errors.js";
+import { keyTextRuleOf } from "../core/errors.js";
+import { invalidDto } from "../dto/errors.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
 import { tenantRead, treeRead } from "../flow/context/context-values.js";
 import { shownCallOf } from "../infrastructure/fenced-effect-key.js";
@@ -55,30 +56,30 @@ export function pendingCallsOf(
 /** What `app.pendingOutboundCallsOf` reads (#825): its error's DTO. */
 const PENDING_QUERY = "PendingOutboundCallsQuery";
 
-/** A page's size (#825): the default, or a whole number from 1 to the largest — `dto.invalid` else. */
+/** A page's size (#825): the default, or a whole number from 1 to the largest — `validation.dto-invalid` else. */
 function pageLimitOf(limit: number | undefined): number {
   if (limit === undefined) return DEFAULT_OUTBOUND_CALL_PAGE;
   if (Number.isInteger(limit) && limit >= 1 && limit <= MAX_OUTBOUND_CALL_PAGE) return limit;
   const reason = `a page is a whole number of calls from 1 to ${String(MAX_OUTBOUND_CALL_PAGE)}`;
-  throw new DtoValidationError({ dto: PENDING_QUERY, issues: [{ path: "limit", reason }] });
+  throw invalidDto({ dto: PENDING_QUERY, issues: [{ path: "limit", reason }] });
 }
 
 /**
  * A cursor the store does not read as one of its own (its `RangeError`, the limit checked before):
- * `dto.invalid` naming `after`, as the other arguments are refused.
+ * `validation.dto-invalid` naming `after`, as the other arguments are refused.
  */
 function cursorRefused(error: unknown): never {
   if (!(error instanceof RangeError)) throw error;
   const reason = "a cursor is the next of a page before, as the store gave it";
-  throw new DtoValidationError({ dto: PENDING_QUERY, issues: [{ path: "after", reason }] });
+  throw invalidDto({ dto: PENDING_QUERY, issues: [{ path: "after", reason }] });
 }
 
-/** A page's cursor (#825): a non-empty text a page before gave as `next` — `dto.invalid` else. */
+/** A page's cursor (#825): a non-empty text a page before gave as `next` — `validation.dto-invalid` else. */
 function cursorOf(after: string | undefined): { readonly cursor?: string } {
   if (after === undefined) return {};
   if (typeof after === "string" && after !== "") return { cursor: after };
   const reason = "a cursor is the next of a page before: a non-empty text";
-  throw new DtoValidationError({ dto: PENDING_QUERY, issues: [{ path: "after", reason }] });
+  throw invalidDto({ dto: PENDING_QUERY, issues: [{ path: "after", reason }] });
 }
 
 /** What an operator reads of the instance: its probes, its audit log, its outbound calls. */
@@ -108,7 +109,7 @@ export const instanceReadsOf = ({
     const tenantId = options?.tenantId ?? DEFAULT_TENANT_ID;
     return tenantRead(tenantId, () => {
       const rule = keyTextRuleOf(threadId);
-      if (rule !== undefined) throw new InvalidThreadIdError({ rule });
+      if (rule !== undefined) throw new ExecutionError.InvalidThreadId({ rule });
       return records.statusHistory(tenantId, threadId);
     });
   },

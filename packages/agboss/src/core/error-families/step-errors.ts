@@ -1,7 +1,9 @@
 import { defineFamily, type FamilyConstructor, type PaidErrorVariant } from "./family.js";
 import type { ModelFileLimit as FileLimit } from "../../files/model-files.js";
 import type { WorkflowRecord } from "../../flow/context/execution-context.js";
-import type { JudgeRejection, StepCoordinates } from "../../graph/errors.js";
+import type { JudgeRejection, StepCoordinates } from "../../graph/step-coordinates.js";
+import { MORE_STEP_SPECS } from "./step-error-specs-more.js";
+import { STEP_SPECS, type PauseExpiredFacts, type StepDefaulted } from "./step-error-specs.js";
 import type { Milliseconds } from "../../units/index.js";
 // a paid family: its errors read their spend through the report finops/cost-report sets
 import "../../finops/cost-report.js";
@@ -86,19 +88,20 @@ export declare namespace StepError {
     StepCoordinates & { readonly action: string; readonly timeout: Milliseconds };
   /** A router's model call or its `route()` failed. */
   export type Router = PaidErrorVariant<StepErrorKind.Router, "step.router"> &
-    StepCoordinates & { readonly router: string };
+    StepCoordinates & { readonly router?: string | undefined };
   /** A router answered outside its routes. */
   export type RouterDecision = PaidErrorVariant<
     StepErrorKind.RouterDecision,
     "step.router.invalid-decision"
   > &
-    StepCoordinates & { readonly router: string; readonly reason: string };
+    StepCoordinates & { readonly router?: string | undefined; readonly reason: string };
   /** An external task failed. */
   export type ExternalTask = PaidErrorVariant<StepErrorKind.ExternalTask, "step.external-task"> &
     StepCoordinates & { readonly externalTask: string };
   /** A pause's deadline passed. */
   export type PauseExpired = PaidErrorVariant<StepErrorKind.PauseExpired, "step.pause-expired"> &
-    StepCoordinates & { readonly step: string };
+    StepCoordinates &
+    PauseExpiredFacts;
   /** An arbiter failed. */
   export type Arbiter = PaidErrorVariant<StepErrorKind.Arbiter, "step.arbiter"> &
     StepCoordinates & { readonly arbiter: string };
@@ -109,7 +112,7 @@ export declare namespace StepError {
       readonly min?: number | undefined;
       readonly counted: number;
       readonly reason: string;
-      readonly expired: readonly string[];
+      readonly expired?: readonly string[] | undefined;
     };
   /** A child workflow failed. */
   export type Child = PaidErrorVariant<StepErrorKind.Child, "step.child"> &
@@ -129,7 +132,7 @@ export declare namespace StepError {
     };
   /** A guardrail's check failed. */
   export type Guardrail = PaidErrorVariant<StepErrorKind.Guardrail, "step.guardrail"> &
-    StepCoordinates & { readonly guardrail: string };
+    StepCoordinates & { readonly guardrail: string; readonly reason?: string | undefined };
   /** A tool call was blocked by an interceptor. */
   export type ToolBlocked = PaidErrorVariant<StepErrorKind.ToolBlocked, "step.tool-blocked"> &
     StepCoordinates & {
@@ -190,44 +193,39 @@ export const StepError: FamilyConstructor<
     Memory: StepError.Memory;
     ModelFileLimit: StepError.ModelFileLimit;
     FileMaskingFailed: StepError.FileMaskingFailed;
-  }
+  },
+  StepDefaulted
 > = defineFamily({
   name: "StepError",
   code: "step",
   kinds: StepErrorKind,
   paid: true,
   variants: {
-    Agent: ["an agent's loop failed"],
-    AgentAnswerInvalid: [
-      "an agent's answer is not what its output declares",
-      "step.agent.invalid-answer",
-    ],
-    QualityGate: [
-      "an agent's reply still failed its judges after its retries",
-      "step.agent.quality-gate",
-    ],
-    Action: ["an action failed"],
+    Agent: STEP_SPECS.agent,
+    AgentAnswerInvalid: STEP_SPECS.agentAnswerInvalid,
+    QualityGate: STEP_SPECS.qualityGate,
+    Action: STEP_SPECS.action,
     ActionOutcomeUnknown: [
       "an action ran past its timeout: its effect may have happened",
       "step.action.outcome-unknown",
     ],
-    Router: ["a router's model call or its `route()` failed"],
-    RouterDecision: ["a router answered outside its routes", "step.router.invalid-decision"],
-    ExternalTask: ["an external task failed"],
-    PauseExpired: ["a pause's deadline passed"],
-    Arbiter: ["an arbiter failed"],
-    QuorumNotReached: ["a quorum cannot be reached", "step.quorum"],
-    Child: ["a child workflow failed"],
+    Router: STEP_SPECS.router,
+    RouterDecision: STEP_SPECS.routerDecision,
+    ExternalTask: STEP_SPECS.externalTask,
+    PauseExpired: MORE_STEP_SPECS.pauseExpired,
+    Arbiter: MORE_STEP_SPECS.arbiter,
+    QuorumNotReached: MORE_STEP_SPECS.quorumNotReached,
+    Child: MORE_STEP_SPECS.child,
     ChildWorkerUnavailable: [
       "a child was claimed by no other worker in time",
       "step.child-worker-unavailable",
     ],
-    Guardrail: ["a guardrail's check failed"],
-    ToolBlocked: ["a tool call was blocked by an interceptor"],
+    Guardrail: MORE_STEP_SPECS.guardrail,
+    ToolBlocked: MORE_STEP_SPECS.toolBlocked,
     ToolTimeout: ["a tool ran past its timeout"],
-    RerankFailed: ["a reranker failed"],
+    RerankFailed: MORE_STEP_SPECS.rerankFailed,
     Memory: ["a memory's compaction failed"],
-    ModelFileLimit: ["a file the model was given is over a limit"],
-    FileMaskingFailed: ["a file could not be masked before the model", "step.file-masking-failed"],
+    ModelFileLimit: MORE_STEP_SPECS.modelFileLimit,
+    FileMaskingFailed: MORE_STEP_SPECS.fileMaskingFailed,
   },
 });

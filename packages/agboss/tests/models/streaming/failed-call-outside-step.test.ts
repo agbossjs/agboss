@@ -18,7 +18,10 @@ import { request } from "../../routers/fixtures.js";
  */
 
 const settings = resolveSettings(
-  { model: "test/router", price: { inputPerMTok: 1_000_000, outputPerMTok: 1_000_000 } },
+  {
+    model: "test/router",
+    price: { inputPerMillion: usd(1_000_000), outputPerMillion: usd(1_000_000) },
+  },
   testConfig.defaults.models,
 );
 

@@ -65,7 +65,7 @@ const model = modelRerankerOf("docs-reranker", {
     model: "test/reranker",
     temperature: 0,
     maxTokens: 256,
-    price: { inputPerMTok: 1, outputPerMTok: 2 },
+    price: { inputPerMillion: usd(1), outputPerMillion: usd(2) },
   },
 });
 /** The LLM reranker, counted: every case must rerank through it, none fall back. */

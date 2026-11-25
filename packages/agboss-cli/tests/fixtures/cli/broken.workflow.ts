@@ -13,7 +13,6 @@ import { TestModelProvider } from "../../../../agboss/src/testing/test-model-pro
   name: "researcher-agent",
   description: "Finds, explains and summarizes facts",
   model: "test/researcher",
-  price: { inputPerMTok: 0.5, outputPerMTok: 3, cacheReadPerMTok: 0.1 },
   prompt: inline("Find facts."),
 })
 export class Researcher {}
@@ -22,7 +21,6 @@ export class Researcher {}
   name: "coder-agent",
   description: "Writes, reviews and explains code",
   model: "test/coder",
-  price: { inputPerMTok: 0.5, outputPerMTok: 3, cacheReadPerMTok: 0.1 },
   prompt: inline("Write code."),
 })
 export class Coder {}

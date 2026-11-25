@@ -1,17 +1,13 @@
+import { StepError } from "../../src/core/error-families/step-errors.js";
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { usd } from "../../src/units/index.js";
 import { describe, expect, it } from "vitest";
 import { bareRecordOf, ComponentKind } from "../../src/flow/runtime/records.js";
 import { ExecutionStatus, type ExecutionOutput } from "../../src/app/types.js";
 import { CostReport } from "../../src/finops/usage.js";
 import { PauseKind } from "../../src/pause/index.js";
-import { AgentFailedError } from "../../src/graph/errors.js";
-import {
-  GraphRuleError,
-  LimitExceededError,
-  nameOf,
-  RouterDecisionError,
-  RouterFailedError,
-} from "../../src/index.js";
+import { nameOf } from "../../src/index.js";
 import { replyWith, callTool, routeTo, TestFailure, testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
 import {
@@ -146,44 +142,44 @@ describe("AC12: matchers by class — a passing and a failing case, readable fai
   });
 
   it("toFailWith matches a class and its fields along the cause chain (#262 AC10)", () => {
-    const router = new RouterDecisionError({
+    const router = new StepError.RouterDecision({
       nodeId: "main-router",
       visitNumber: 1,
       reason: '"ghost-agent" is not one of its routes',
     });
-    const limit = new LimitExceededError({
+    const limit = new LimitError.Agent({
       key: "maxSteps",
       limit: 1,
       actual: 2,
       path: ["writer-agent"],
       spentUsd: usd(2),
     });
-    const agent = new AgentFailedError({
+    const agent = new StepError.Agent({
       agent: "writer-agent",
       usage: [],
       cause: new TestFailure({ code: "test.script-exhausted", message: "x" }),
     });
-    const rules = new GraphRuleError({
+    const rules = new ConfigError.GraphRules({
       violations: [{ code: "graph.unreachable-node", message: "x", nodes: ["writer-agent"] }],
     });
 
-    expect(router).toFailWith(RouterDecisionError, { nodeId: "main-router" });
-    expect(router).toFailWith(RouterFailedError, { code: "step.router.invalid-decision" });
-    expect(limit).toFailWith(LimitExceededError, { key: "maxSteps" });
-    expect(agent).toFailWith(AgentFailedError, { agent: "writer-agent", cause: TestFailure });
+    expect(router).toFailWith(StepError.RouterDecision, { nodeId: "main-router" });
+    expect(router).toFailWith(StepError.RouterDecision, { code: "step.router.invalid-decision" });
+    expect(limit).toFailWith(LimitError, { key: "maxSteps" });
+    expect(agent).toFailWith(StepError.Agent, { agent: "writer-agent", cause: TestFailure });
     expect(agent).toFailWith(TestFailure, { code: "test.script-exhausted" });
-    expect(rules).toFailWith(GraphRuleError, {
+    expect(rules).toFailWith(ConfigError.GraphRules, {
       violations: [{ code: "graph.unreachable-node", nodes: [nameOf(Writer)] }],
     });
-    expect(router).not.toFailWith(AgentFailedError);
+    expect(router).not.toFailWith(StepError.Agent);
     expect(() => {
-      expect(router).toFailWith(RouterFailedError, { nodeId: "writer-agent" });
+      expect(router).toFailWith(StepError.Router, { nodeId: "writer-agent" });
     }).toThrow(
-      'expected a failure RouterFailedError with {"nodeId":"writer-agent"} (or one it was caused by), got RouterDecisionError: Router "main-router" decided wrongly: "ghost-agent" is not one of its routes',
+      'expected a failure StepError.Router with {"nodeId":"writer-agent"} (or one it was caused by), got StepError.RouterDecision: Router "main-router" decided wrongly: "ghost-agent" is not one of its routes',
     );
     expect(() => {
-      expect(agent).toFailWith(AgentFailedError, { cause: RouterFailedError });
-    }).toThrow("got AgentFailedError");
+      expect(agent).toFailWith(StepError.Agent, { cause: StepError.Router });
+    }).toThrow("got StepError.Agent");
     expect(() => {
       expect("no error").toFailWith(Error);
     }).toThrow("expected a failure Error (or one it was caused by), got no error");
@@ -201,34 +197,34 @@ describe("AC12: matchers by class — a passing and a failing case, readable fai
     }).toThrow("toHavePausedAt: expected a run result");
     expect(() => {
       expect(run({})).toHaveScriptedToolCalls([]);
-    }).toThrow("toHaveScriptedToolCalls: expected mockLlm(…) of an agent or a router");
+    }).toThrow("toHaveScriptedToolCalls: expected mockModel(…) of an agent or a router");
     expect(() => {
       expect(run({})).toHaveBeenAskedWith({});
-    }).toThrow("toHaveBeenAskedWith: expected mockLlm(…)");
+    }).toThrow("toHaveBeenAskedWith: expected mockModel(…)");
   });
 });
 
 const test = testWith(DeskApplication);
 
-describe("AC12: matchers on mockLlm(…)", () => {
+describe("AC12: matchers on mockModel(…)", () => {
   test("toHaveScriptedToolCalls and toHaveBeenAskedWith name the class", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(MainRouter).thenReturn(routeTo(Support));
-    mockLlm(Support).thenReturn(callTool(OrderStatus, { orderId: "5" }), replyWith("Shipped."));
+    mockModel(MainRouter).thenReturn(routeTo(Support));
+    mockModel(Support).thenReturn(callTool(OrderStatus, { orderId: "5" }), replyWith("Shipped."));
 
     await execute(app, ChatStart, { text: "where is 5?" });
 
-    expect(mockLlm(Support)).toHaveScriptedToolCalls([OrderStatus]);
-    expect(mockLlm(Writer)).toHaveScriptedToolCalls([]);
+    expect(mockModel(Support)).toHaveScriptedToolCalls([OrderStatus]);
+    expect(mockModel(Writer)).toHaveScriptedToolCalls([]);
     expect(() => {
-      expect(mockLlm(Support)).toHaveScriptedToolCalls([ReadNote]);
+      expect(mockModel(Support)).toHaveScriptedToolCalls([ReadNote]);
     }).toThrow("expected Support to call read-note-tool, it called order-status-tool");
-    expect(mockLlm(Support)).toHaveBeenAskedWith({ kind: "chat", input: "where is 5?" });
-    expect(mockLlm(Support)).not.toHaveBeenAskedWith({ input: "where is 6?" });
+    expect(mockModel(Support)).toHaveBeenAskedWith({ kind: "chat", input: "where is 5?" });
+    expect(mockModel(Support)).not.toHaveBeenAskedWith({ input: "where is 6?" });
     expect(() => {
-      expect(mockLlm(Writer)).toHaveBeenAskedWith({ input: "x" });
+      expect(mockModel(Writer)).toHaveBeenAskedWith({ input: "x" });
     }).toThrow('expected Writer to be asked with {"input":"x"}, its requests: []');
   });
 });

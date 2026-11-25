@@ -4,6 +4,7 @@
  * `defaults.guardrail.model` are separate; no model anywhere → `[router.no-model]` /
  * `[model.missing-provider]`; `agboss describe` shows where each value came from.
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { Window1Memory, Window3Memory, Window7Memory } from "../helpers/window-memory.js";
 import { describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
@@ -20,7 +21,6 @@ import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index
 import {
   Agent,
   DecidedBy,
-  GraphRuleError,
   InputGuardrail,
   OutputGuardrail,
   Router,
@@ -226,8 +226,8 @@ async function violationsOf(application: Class): Promise<string[]> {
     () => undefined,
     (thrown: unknown) => thrown,
   );
-  if (!(error instanceof GraphRuleError))
-    throw new Error(`expected a GraphRuleError: ${String(error)}`);
+  if (!(error instanceof ConfigError.GraphRules))
+    throw new Error(`expected a ConfigError.GraphRules: ${String(error)}`);
   return error.violations.map((found) => `[${found.code}] ${found.message}`);
 }
 

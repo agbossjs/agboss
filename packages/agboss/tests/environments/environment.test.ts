@@ -4,6 +4,7 @@
  * { … }` in `environments/<name>.environment.ts` next to the application file. Apps default to
  * `dev`, tests to `test` — and fail without it.
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { type BuildApplicationOptions } from "../../src/application/create-app.js";
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
@@ -11,7 +12,7 @@ import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import type { Class } from "../../src/components/injection.js";
 import { EnvironmentFieldType, requireEnvironmentFields } from "../../src/environments/contract.js";
-import { EnvironmentErrorCode, GraphRuleError, Injectable, env, secret } from "../../src/index.js";
+import { EnvironmentErrorCode, Injectable, env, secret } from "../../src/index.js";
 import { InMemoryPausedExecutionRepository } from "../../src/infrastructure/in-memory-paused-execution.repository.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import { McpStubs, stubbedMcpConnect } from "../../src/testing/mcp-stubs.js";
@@ -57,8 +58,8 @@ async function violationsOf(application: Class): Promise<string[]> {
     () => undefined,
     (thrown: unknown) => thrown,
   );
-  if (!(error instanceof GraphRuleError))
-    throw new Error(`expected a GraphRuleError: ${String(error)}`);
+  if (!(error instanceof ConfigError.GraphRules))
+    throw new Error(`expected a ConfigError.GraphRules: ${String(error)}`);
   return error.violations.map((found) => `[${found.code}] ${found.message}`);
 }
 
@@ -108,7 +109,7 @@ describe("#261 AC9: a missing process variable fails the start naming it, the fi
   it("a value that is not of the field's type fails the start too", async () => {
     const vars = { ...TOKEN, FIXTURE_TIMEOUT: "soon", FIXTURE_DEBUG: "maybe" };
     await expect(createTestAppWith(SettingsApplication, offline(vars))).rejects.toMatchObject({
-      code: EnvironmentErrorCode.InvalidValue,
+      envCode: EnvironmentErrorCode.InvalidValue,
       message:
         "FIXTURE_TIMEOUT is not an integer (SettingsEnvironment.timeoutSeconds, dev); " +
         "FIXTURE_DEBUG is not a flag (true, false, 1, 0) (SettingsEnvironment.debug, dev)",
@@ -154,7 +155,7 @@ describe("#261: an application without an environment contract", () => {
     await expect(
       createTestAppWith(NoEnvironmentApplication, { ...offline(), env: "dev" }),
     ).rejects.toMatchObject({
-      code: EnvironmentErrorCode.NoContract,
+      envCode: EnvironmentErrorCode.NoContract,
       message: expect.stringContaining(
         "no-environment-application declares no environment",
       ) as string,
@@ -175,12 +176,12 @@ describe("#261 AC8: tests default to the test environment", () => {
 
   byDefault(
     "no option → test.environment.ts — the agent's tool sees it",
-    async ({ app, mockLlm }) => {
-      mockLlm(Clerk).thenReturn(callTool(ApiSettings, { what: "all" }), replyWith("done"));
+    async ({ app, mockModel }) => {
+      mockModel(Clerk).thenReturn(callTool(ApiSettings, { what: "all" }), replyWith("done"));
 
       await execute(app, ChatStart, { text: "which API?" });
 
-      expect(toolResultsOf(mockLlm(Clerk).lastRequest)).toEqual([
+      expect(toolResultsOf(mockModel(Clerk).lastRequest)).toEqual([
         JSON.stringify({ apiUrl: "https://api.test.example.com", currency: "EUR" }),
       ]);
     },

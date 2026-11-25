@@ -127,7 +127,7 @@ export class A2AClient<TIn extends object = object, TOut extends object = object
    * Runs the agent's skill with a typed input (#809 AC1): `input` validated by the input DTO and sent
    * as one data part (text for `WorkflowStartTextDto`), the COMPLETED task's artifact validated by
    * the output DTO. FAILED with an AGBoss mesh limit throws that limit; FAILED / REJECTED
-   * `A2ATaskFailedError`, CANCELED `A2ATaskCancelledError`, INPUT_REQUIRED `A2ATaskInterruptedError`.
+   * `A2AError.TaskFailed`, CANCELED `A2AError.TaskCancelled`, INPUT_REQUIRED `A2AError.TaskInterrupted`.
    * A client without both DTOs throws `[a2a.no-contract]`.
    */
   public async execute(input: TIn, given: A2AClientCall = {}): Promise<TOut> {

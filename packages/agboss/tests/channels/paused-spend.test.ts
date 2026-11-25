@@ -55,9 +55,9 @@ const lookupsIn = (ledger: SeenCostLedgerRepository): number =>
 describe("#267: spend with several paused agent loops", () => {
   test("two paused branches, each spent: the execution's spend and the ledger hold both", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(PricedRefundAgent).thenAnswer(pricedRefunder);
+    mockModel(PricedRefundAgent).respondWith(pricedRefunder);
 
     const paused = await execute(app, BatchWorkflowStart, ORDERS);
 
@@ -91,9 +91,9 @@ describe("#267: spend with several paused agent loops", () => {
 
   test("#939: three parallel pauses resumed one by one: every resume's spend is exact, the budget never sees a lookup twice", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(PricedRefundAgent).thenAnswer(pricedRefunder);
+    mockModel(PricedRefundAgent).respondWith(pricedRefunder);
     const paused = await execute(app, BatchWorkflowStart, [
       { orderId: "A" },
       { orderId: "B" },

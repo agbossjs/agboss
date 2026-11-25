@@ -36,8 +36,8 @@ const reasonsOf = async (app: TestApp, threadId: string): Promise<string[]> =>
   );
 
 describe("an operator's reason is masked by the workflow's PII policy", () => {
-  test("a cancel's", async ({ app, mockLlm }) => {
-    mockLlm(Clerk).thenReturn(callTool(Wait, { text: "a long job" }));
+  test("a cancel's", async ({ app, mockModel }) => {
+    mockModel(Clerk).thenReturn(callTool(Wait, { text: "a long job" }));
     const { threadId, run } = await blocked(app);
 
     await app.cancel(threadId, { reason: `customer ${EMAIL} withdrew` });
@@ -48,8 +48,8 @@ describe("an operator's reason is masked by the workflow's PII policy", () => {
     expect(reasons.join(" ")).not.toContain(EMAIL);
   });
 
-  test("a stop's", async ({ app, mockLlm }) => {
-    mockLlm(Clerk).thenReturn(callTool(Wait, { text: "a long job" }));
+  test("a stop's", async ({ app, mockModel }) => {
+    mockModel(Clerk).thenReturn(callTool(Wait, { text: "a long job" }));
     const { threadId, run } = await blocked(app);
 
     await app.stop(threadId, { reason: `asked by ${EMAIL}`, mode: InterruptMode.Immediate });
@@ -60,8 +60,8 @@ describe("an operator's reason is masked by the workflow's PII policy", () => {
     expect(reasons.join(" ")).not.toContain(EMAIL);
   });
 
-  test("a pause's and an unpause's", async ({ app, mockLlm }) => {
-    mockLlm(Clerk).thenReturn(callTool(Wait, { text: "a long job" }));
+  test("a pause's and an unpause's", async ({ app, mockModel }) => {
+    mockModel(Clerk).thenReturn(callTool(Wait, { text: "a long job" }));
     const { threadId, run } = await blocked(app);
 
     await app.pause(threadId, { reason: `held for ${EMAIL}`, mode: InterruptMode.Immediate });

@@ -1,3 +1,4 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import { recordOptionKeys } from "../components/option-keys.js";
 import { MODEL_PROVIDER_KEYS } from "../components/decorator-options.js";
 import type { Class, ResolvedAll, Token } from "../components/injection.js";
@@ -10,7 +11,6 @@ import { AUTO_PROMPT_CACHING, type PromptCaching } from "./prompt-caching.js";
 import type { RateLimitPolicy } from "./policies/rate-limit-policy.js";
 import { Reasoning } from "./reasoning.js";
 import type { RetryPolicy } from "./retry-policy.js";
-import { AGBossError, type MessageErrorOptions } from "../core/errors.js";
 import { resolvedName } from "../flow/names.js";
 
 /**
@@ -135,16 +135,6 @@ export type TransportModelProviderType<D extends readonly Token[]> = abstract ne
 
 const providers = new WeakMap<object, KeptModelProviderOptions>();
 
-export class ModelProviderError extends AGBossError {
-  static override readonly code = "config.model-provider" as const;
-  declare readonly code: typeof ModelProviderError.code;
-  override name = "ModelProviderError";
-
-  constructor(options: MessageErrorOptions) {
-    super(options.message, options);
-  }
-}
-
 /** The options as kept: a transport's unset reasoning is off and any unset caching is `auto`. */
 const keptOf = (options: ModelProviderOptions, name: string): KeptModelProviderOptions =>
   Object.freeze({
@@ -194,7 +184,7 @@ function driverProvider(
   options: DriverModelProviderOptions,
 ): <C extends DriverModelProviderType>(value: C) => C {
   if (!isModelDriver(options.driver)) {
-    throw new ModelProviderError({
+    throw new ConfigError.ModelProvider({
       message: `@ModelProvider${options.name === undefined ? "" : ` "${options.name}"`}: driver is no OpenAiCompatibleDriver(…), OpenRouterDriver(…) or DecisionsDriver(…)`,
     });
   }
@@ -210,7 +200,7 @@ export function modelProviderOf(cls: object): KeptModelProviderOptions {
   const options = providers.get(cls);
   if (options === undefined) {
     const name = typeof cls === "function" ? cls.name : "a value";
-    throw new ModelProviderError({ message: `${name} is not a @ModelProvider class` });
+    throw new ConfigError.ModelProvider({ message: `${name} is not a @ModelProvider class` });
   }
   return options;
 }

@@ -1,3 +1,4 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import type { Class } from "../components/injection.js";
 import { declarationOf } from "./decorators/declaration.js";
 import {
@@ -8,7 +9,6 @@ import {
   type OnFinishStep,
   type SubPath,
 } from "./ast.js";
-import { FlowSyntaxError } from "./launch-step.js";
 
 /**
  * The branching steps that name no DTO (#1275): `.toOneOf([…side paths])` for a `oneOf(…)` output and
@@ -18,7 +18,8 @@ import { FlowSyntaxError } from "./launch-step.js";
 
 export type SideOf = (path: unknown, call: string) => SubPath;
 
-const syntaxError = (message: string): FlowSyntaxError => new FlowSyntaxError({ message });
+const syntaxError = (message: string): ConfigError.FlowSyntax =>
+  new ConfigError.FlowSyntax({ message });
 
 /** `.toOneOf([…])`: an array of two or more side paths, in order. */
 export function oneOfStepOf(branches: unknown, side: SideOf): OneOfStep {

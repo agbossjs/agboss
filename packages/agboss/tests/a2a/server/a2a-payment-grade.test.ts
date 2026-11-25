@@ -128,8 +128,8 @@ async function acceptedOnly(app: TestApp, messageId: string, taskId: string) {
 describe("#808 AC3: one execution per messageId", () => {
   one(
     "the same messageId twice at once on one instance: one task, one execution",
-    async ({ a2aServer, mockLlm }) => {
-      mockLlm(Clerk).thenReturn(callTool(Step, { text: "once" }), done);
+    async ({ a2aServer, mockModel }) => {
+      mockModel(Clerk).thenReturn(callTool(Step, { text: "once" }), done);
       const { url } = await a2aServer(listener);
 
       const [first, second] = await Promise.all([
@@ -146,8 +146,8 @@ describe("#808 AC3: one execution per messageId", () => {
 
   two(
     "the same messageId on two instances at once: one task, one execution",
-    async ({ apps, a2aServer, mockLlm }) => {
-      mockLlm(Clerk).thenReturn(callTool(Step, { text: "once" }), done);
+    async ({ apps, a2aServer, mockModel }) => {
+      mockModel(Clerk).thenReturn(callTool(Step, { text: "once" }), done);
       const [, second] = apps;
       if (second === undefined) throw new Error("two instances");
       const { url: firstUrl } = await a2aServer(listener);
@@ -171,22 +171,22 @@ describe("#808 AC3: one execution per messageId", () => {
 
   one(
     "a messageId again with other content is -32602, and starts nothing",
-    async ({ a2aServer, mockLlm }) => {
-      mockLlm(Clerk).thenReturn(done);
+    async ({ a2aServer, mockModel }) => {
+      mockModel(Clerk).thenReturn(done);
       const { url } = await a2aServer(listener);
       await rpc(url, "SendMessage", go("m-1"));
 
       const reused = await rpc(url, "SendMessage", go("m-1", "something else"));
 
       expect(errorOf(reused).code).toBe(-32602);
-      expect(mockLlm(Clerk)).toHaveBeenCalledTimes(1);
+      expect(mockModel(Clerk)).toHaveBeenCalledTimes(1);
     },
   );
 
   one(
     "an authenticated caller without mesh signing is deduplicated too (#806 AC3); another caller's id is another message",
-    async ({ a2aServer, mockLlm }) => {
-      mockLlm(Clerk).thenReturn(done, done);
+    async ({ a2aServer, mockModel }) => {
+      mockModel(Clerk).thenReturn(done, done);
       const { url } = await a2aServer(listener);
 
       const dana = taskOf(await rpc(url, "SendMessage", go("m-1")));
@@ -195,7 +195,7 @@ describe("#808 AC3: one execution per messageId", () => {
 
       expect(again.id).toBe(dana.id);
       expect(eve.id).not.toBe(dana.id);
-      expect(mockLlm(Clerk)).toHaveBeenCalledTimes(2);
+      expect(mockModel(Clerk)).toHaveBeenCalledTimes(2);
     },
   );
 });
@@ -203,8 +203,8 @@ describe("#808 AC3: one execution per messageId", () => {
 describe("#808 AC3 (#806 AC1): a disconnect never cancels the task", () => {
   one(
     "a stream dropped mid-run: the task runs on to COMPLETED; a resend gets it, never a cancel",
-    async ({ a2aServer, mockLlm }) => {
-      mockLlm(Clerk).thenReturn(callTool(Hold, { text: "wait" }), done);
+    async ({ a2aServer, mockModel }) => {
+      mockModel(Clerk).thenReturn(callTool(Hold, { text: "wait" }), done);
       const { url } = await a2aServer(listener);
 
       const streamed = await sseEvents(url, "SendStreamingMessage", go("m-1"), { count: 1 });
@@ -225,8 +225,8 @@ describe("#808 AC3 (#806 AC1): a disconnect never cancels the task", () => {
 
   one(
     "a blocking SendMessage whose caller hangs up: the task runs on",
-    async ({ a2aServer, mockLlm }) => {
-      mockLlm(Clerk).thenReturn(callTool(Hold, { text: "wait" }), done);
+    async ({ a2aServer, mockModel }) => {
+      mockModel(Clerk).thenReturn(callTool(Hold, { text: "wait" }), done);
       const { url } = await a2aServer(listener);
       const hangUp = new AbortController();
 
@@ -258,8 +258,8 @@ describe("#808 AC3: cancel and resume, cancel before start", () => {
 
   one(
     "cancel first: the resume is -32004, nothing charged, the task CANCELED",
-    async ({ a2aServer, mockLlm }) => {
-      mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+    async ({ a2aServer, mockModel }) => {
+      mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
       const { url } = await a2aServer(listener);
       const task = await paused(url);
 
@@ -274,8 +274,8 @@ describe("#808 AC3: cancel and resume, cancel before start", () => {
 
   one(
     "a cancel landing between the answer's check and its resume: the resume loses (-32004), nothing charged",
-    async ({ a2aServer, app, mockLlm }) => {
-      mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+    async ({ a2aServer, app, mockModel }) => {
+      mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
       const { url } = await a2aServer(listener);
       const task = await paused(url);
       const resume = app.resume.bind(app);
@@ -295,8 +295,8 @@ describe("#808 AC3: cancel and resume, cancel before start", () => {
 
   one(
     "resume first: charged once, COMPLETED; the cancel after is -32002",
-    async ({ a2aServer, mockLlm }) => {
-      mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }), done);
+    async ({ a2aServer, mockModel }) => {
+      mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }), done);
       const { url } = await a2aServer(listener);
       const task = await paused(url);
 
@@ -311,8 +311,8 @@ describe("#808 AC3: cancel and resume, cancel before start", () => {
 
   one(
     "both at once: never both — a canceled task charged nothing, a charged one was not canceled",
-    async ({ a2aServer, app, mockLlm }) => {
-      mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }), done);
+    async ({ a2aServer, app, mockModel }) => {
+      mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }), done);
       const { url } = await a2aServer(listener);
       const task = await paused(url);
 
@@ -342,7 +342,7 @@ describe("#808 AC3: cancel and resume, cancel before start", () => {
 
   one(
     "cancel before the start: CANCELED at once, and no execution ever starts under the task's id",
-    async ({ a2aServer, app, mockLlm }) => {
+    async ({ a2aServer, app, mockModel }) => {
       const { url } = await a2aServer(listener);
       await acceptedOnly(app, "m-1", "task-unstarted");
 
@@ -354,7 +354,7 @@ describe("#808 AC3: cancel and resume, cancel before start", () => {
         id: "task-unstarted",
         status: { state: "TASK_STATE_CANCELED" },
       });
-      expect(mockLlm(Clerk)).toHaveBeenCalledTimes(0);
+      expect(mockModel(Clerk)).toHaveBeenCalledTimes(0);
       const control = executionControlOf(app);
       expect(
         await control?.claimExecutionId({ executionId: "task-unstarted", tenantId: "default" }),
@@ -364,8 +364,8 @@ describe("#808 AC3: cancel and resume, cancel before start", () => {
 
   one(
     "a cancel targets that task only: another task of its context runs on",
-    async ({ a2aServer, mockLlm }) => {
-      mockLlm(Clerk).thenReturn(callTool(Hold, { text: "wait" }), done);
+    async ({ a2aServer, mockModel }) => {
+      mockModel(Clerk).thenReturn(callTool(Hold, { text: "wait" }), done);
       const { url } = await a2aServer(listener);
       const inContext = (messageId: string) => ({
         message: userMessage(messageId, [text("go")], { contextId: "ctx-shared" }),
@@ -390,8 +390,8 @@ describe("#808 AC3: cancel and resume, cancel before start", () => {
 describe("#808 AC3 (#806 AC2): a crash between the accept and the start", () => {
   one(
     "the resend starts the accepted task under its own id, once",
-    async ({ a2aServer, app, mockLlm }) => {
-      mockLlm(Clerk).thenReturn(callTool(Step, { text: "once" }), done);
+    async ({ a2aServer, app, mockModel }) => {
+      mockModel(Clerk).thenReturn(callTool(Step, { text: "once" }), done);
       const { url } = await a2aServer(listener);
       await acceptedOnly(app, "m-1", "task-crashed");
 
@@ -425,8 +425,8 @@ describe("#808: reads repair what an update missed", () => {
 
   one(
     "SubscribeToTask after a missed update: its first event is the task as its records say",
-    async ({ a2aServer, app, clock, mockLlm }) => {
-      mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }), done);
+    async ({ a2aServer, app, clock, mockModel }) => {
+      mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }), done);
       const { url } = await a2aServer(listener);
       await app.ready();
       const lost = losing(app, [A2ATaskState.InputRequired]);
@@ -460,9 +460,9 @@ describe("#808: reads repair what an update missed", () => {
 
   one(
     "GetTask of a task whose failure was missed, after 21 later turns of its context: FAILED",
-    async ({ a2aServer, app, clock, mockLlm }) => {
+    async ({ a2aServer, app, clock, mockModel }) => {
       // the clerk's second call has no script: the execution fails
-      mockLlm(Clerk).thenReturn(callTool(Step, { text: "one" }));
+      mockModel(Clerk).thenReturn(callTool(Step, { text: "one" }));
       const { url } = await a2aServer(listener);
       await app.ready();
       const lost = losing(app, [A2ATaskState.Failed]);
@@ -475,7 +475,7 @@ describe("#808: reads repair what an update missed", () => {
       await until(() => seen.errors.length === 1, "the execution failed");
       lost.mockRestore();
       for (let turn = 0; turn < 21; turn += 1) {
-        mockLlm(Clerk).thenReturn(done);
+        mockModel(Clerk).thenReturn(done);
         await execute(
           app,
           OrderWorkflowStart,

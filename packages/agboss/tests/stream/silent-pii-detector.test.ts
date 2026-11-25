@@ -19,13 +19,13 @@ const FOUND = '{"found":[{"kind":"person-name","text":"Dana Cohen"}]}';
 describe("#1004: the PII detection model is silent", () => {
   test("AC1, AC2: neither the detector's JSON nor the value it found is on the stream", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(NamesPiiPolicy).thenAnswer((request) =>
+    mockModel(NamesPiiPolicy).respondWith((request) =>
       replyWith(requestText(request).includes("Dana Cohen") ? FOUND : '{"found":[]}'),
     );
-    mockLlm(DeskRouter).thenReturn(routeTo(DeskAgent));
-    mockLlm(DeskAgent).thenReturn(replyWith("ok"));
+    mockModel(DeskRouter).thenReturn(routeTo(DeskAgent));
+    mockModel(DeskAgent).thenReturn(replyWith("ok"));
     const events: ExecutionStreamEvent[] = [];
 
     await execute(
@@ -35,7 +35,7 @@ describe("#1004: the PII detection model is silent", () => {
       { onStream: (event) => events.push(event) },
     );
 
-    expect(mockLlm(NamesPiiPolicy).requests.length).toBeGreaterThan(0);
+    expect(mockModel(NamesPiiPolicy).requests.length).toBeGreaterThan(0);
     expect(deltas(events)).toEqual(["ok"]);
     expect(JSON.stringify(events)).not.toContain("Dana Cohen");
   });

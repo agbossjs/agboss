@@ -14,7 +14,6 @@ describe("resolveSettings", () => {
       temperature: 0,
       maxTokens: "max",
       reasoning: Reasoning.modelDecides(),
-      price: testConfig.agents.alpha.price,
     });
   });
 

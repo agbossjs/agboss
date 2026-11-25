@@ -7,6 +7,7 @@
  * is a bound of 0 at run time (`tests/flow/runtime/money-runtime-units.test.ts`): the two agree, and fail closed.
  * No message names a value's text.
  */
+import { ConfigError } from "../../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import { Application } from "../../../src/application/application.js";
 import { applicationOf } from "../../../src/application/assemble.js";
@@ -18,7 +19,6 @@ import { NodeKind } from "../../../src/flow/ast.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import { Workflow, type WorkflowOptions } from "../../../src/flow/decorators/workflow.js";
 import { oneOf } from "../../../src/flow/dto-wrappers.js";
-import { GraphRuleError } from "../../../src/graph/rule-error.js";
 import { EmptyEnvironment, inline, Ttl } from "../../../src/index.js";
 import { TEST_BUDGETS } from "../fixtures/budgets.js";
 import { ChangesRequestedDto, DraftApprovedDto, OfferDraftDto } from "../fixtures/dtos.js";
@@ -281,7 +281,7 @@ describe("#1373: a router and a question step have a maxVisits that is a whole n
 });
 
 describe("#1373: the application refuses the loop of the issue before any model is called", () => {
-  it('maxVisits "five" on both loop nodes: a GraphRuleError with [limits.count-invalid], no value quoted', async () => {
+  it('maxVisits "five" on both loop nodes: a ConfigError.GraphRules with [limits.count-invalid], no value quoted', async () => {
     const workflow = loopOf({ maxVisits: "five" }, { executionLimits: { maxSteps: 500 } });
 
     @Application({
@@ -298,9 +298,9 @@ describe("#1373: the application refuses the loop of the issue before any model 
       (thrown: unknown) => thrown,
     );
 
-    expect(error).toBeInstanceOf(GraphRuleError);
-    const found = (error as GraphRuleError).violations.map((one) => one.code);
+    expect(error).toBeInstanceOf(ConfigError.GraphRules);
+    const found = (error as ConfigError.GraphRules).violations.map((one) => one.code);
     expect(found).toContain("limits.count-invalid");
-    expect((error as GraphRuleError).message).not.toContain("five");
+    expect((error as ConfigError.GraphRules).message).not.toContain("five");
   });
 });

@@ -1,3 +1,4 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { Application } from "../../../src/application/application.js";
 import { type ChannelAsk } from "../../../src/channels/channel-handler.js";
 import { ChannelOutcome } from "../../../src/channels/channel-outcome.js";
@@ -16,7 +17,6 @@ import {
 } from "../../../src/flow/builder.js";
 import type { ActionHandler } from "../../../src/flow/handlers.js";
 import type { InputOf, OutputOf } from "../../../src/flow/generated-types.js";
-import { StepFailedError } from "../../../src/graph/errors.js";
 import type { PathSource } from "../../../src/flow/ast.js";
 import type { PathBuilder } from "../../../src/flow/path-builder.js";
 import { TEST_BUDGETS } from "./budgets.js";
@@ -60,7 +60,7 @@ export class PublicStarterWorkflowStart {}
       .toAction(DraftQuestionAction)
       .toAction(FlakyCheckAction)
       .onError(
-        StepFailedError,
+        StepError,
         publicToQuestion(SpendingLimitQuestionExternalTask)
           .toAction(PlacePurchaseAction)
           .toFinish(PurchaseWorkflowFinish),
@@ -195,7 +195,7 @@ export const sharedEdgeFlow = (
     .toExternalTask(role),
   onExternalTask(role)
     .toAction(FailFirstPlaceAction)
-    .onError(StepFailedError, toExternalTask(role))
+    .onError(StepError, toExternalTask(role))
     .toFinish(PurchaseWorkflowFinish),
 ];
 
@@ -209,7 +209,7 @@ export const inlineTwiceEdgeFlow = (
     .toExternalTask(role)
     .toAction(FailFirstPlaceAction)
     .onError(
-      StepFailedError,
+      StepError,
       toExternalTask(role)
         .toAction(PlacePurchaseAction)
         .toFinish(PurchaseWorkflowFinish),

@@ -1,5 +1,6 @@
+import { ConfigError } from "../../../src/core/error-families/config-errors.js";
 /**
- * #1366: the quorum step readers refuse malformed arguments with a FlowSyntaxError and build frozen
+ * #1366: the quorum step readers refuse malformed arguments with a ConfigError.FlowSyntax and build frozen
  * quorums that carry only the options given (no key for a missing deadline / max / priority).
  */
 import { describe, expect, it } from "vitest";
@@ -10,7 +11,6 @@ import {
   priorityOf,
   quorumGroupOf,
 } from "../../../src/flow/quorum-step.js";
-import { FlowSyntaxError } from "../../../src/flow/launch-step.js";
 import { QuorumKind, StepKind, type Step } from "../../../src/flow/ast.js";
 
 class ArbiterA {
@@ -28,22 +28,24 @@ const asArbiter = (c: unknown): never => c as never;
 describe("#1366: arbitratedBy", () => {
   it("takes one class, refuses anything else — no anyOf, no list", () => {
     expect(arbitratedByOf(ArbiterA)).toBe(ArbiterA);
-    expect(() => arbitratedByOf({ arbiters: [ArbiterA, ArbiterB] })).toThrow(FlowSyntaxError);
-    expect(() => arbitratedByOf([ArbiterA, ArbiterB])).toThrow(FlowSyntaxError);
-    expect(() => arbitratedByOf(null)).toThrow(FlowSyntaxError);
-    expect(() => arbitratedByOf(asArbiter(5))).toThrow(FlowSyntaxError);
+    expect(() => arbitratedByOf({ arbiters: [ArbiterA, ArbiterB] })).toThrow(
+      ConfigError.FlowSyntax,
+    );
+    expect(() => arbitratedByOf([ArbiterA, ArbiterB])).toThrow(ConfigError.FlowSyntax);
+    expect(() => arbitratedByOf(null)).toThrow(ConfigError.FlowSyntax);
+    expect(() => arbitratedByOf(asArbiter(5))).toThrow(ConfigError.FlowSyntax);
   });
 });
 
 describe("#1366: the count quorum", () => {
   it("options must be an object, null included", () => {
-    expect(() => countQuorumOf(null)).toThrow(FlowSyntaxError);
-    expect(() => countQuorumOf(2)).toThrow(FlowSyntaxError);
+    expect(() => countQuorumOf(null)).toThrow(ConfigError.FlowSyntax);
+    expect(() => countQuorumOf(2)).toThrow(ConfigError.FlowSyntax);
   });
 
   it("min must be a positive integer", () => {
     for (const min of [0, -1, 1.5, "2", undefined, NaN])
-      expect(() => countQuorumOf({ min })).toThrow(FlowSyntaxError);
+      expect(() => countQuorumOf({ min })).toThrow(ConfigError.FlowSyntax);
     expect(countQuorumOf({ min: 2 }).min).toBe(2);
   });
 
@@ -56,8 +58,8 @@ describe("#1366: the count quorum", () => {
   });
 
   it("a deadline that is not a number is refused", () => {
-    expect(() => countQuorumOf({ min: 1, deadline: "5" })).toThrow(FlowSyntaxError);
-    expect(() => countQuorumOf({ min: 1, deadline: Infinity })).toThrow(FlowSyntaxError);
+    expect(() => countQuorumOf({ min: 1, deadline: "5" })).toThrow(ConfigError.FlowSyntax);
+    expect(() => countQuorumOf({ min: 1, deadline: Infinity })).toThrow(ConfigError.FlowSyntax);
   });
 });
 
@@ -75,10 +77,11 @@ describe("#1366: the groups quorum", () => {
   });
 
   it("refuses options that are no object, min / max, a bad deadline", () => {
-    for (const junk of ["x", 5, null]) expect(() => groupsQuorumOf(junk)).toThrow(FlowSyntaxError);
-    expect(() => groupsQuorumOf({ max: 2 })).toThrow(FlowSyntaxError);
-    expect(() => groupsQuorumOf({ min: 2 })).toThrow(FlowSyntaxError);
-    expect(() => groupsQuorumOf({ deadline: 0 })).toThrow(FlowSyntaxError);
+    for (const junk of ["x", 5, null])
+      expect(() => groupsQuorumOf(junk)).toThrow(ConfigError.FlowSyntax);
+    expect(() => groupsQuorumOf({ max: 2 })).toThrow(ConfigError.FlowSyntax);
+    expect(() => groupsQuorumOf({ min: 2 })).toThrow(ConfigError.FlowSyntax);
+    expect(() => groupsQuorumOf({ deadline: 0 })).toThrow(ConfigError.FlowSyntax);
   });
 });
 
@@ -88,9 +91,9 @@ describe("#1366: group priority and the group's own steps", () => {
     expect(priorityOf(undefined)).toBeUndefined();
     expect(priorityOf({})).toBeUndefined();
     for (const p of [0, -2, 1.5, "1"])
-      expect(() => priorityOf({ priority: p })).toThrow(FlowSyntaxError);
-    expect(() => priorityOf("1")).toThrow(FlowSyntaxError);
-    expect(() => priorityOf(null)).toThrow(FlowSyntaxError);
+      expect(() => priorityOf({ priority: p })).toThrow(ConfigError.FlowSyntax);
+    expect(() => priorityOf("1")).toThrow(ConfigError.FlowSyntax);
+    expect(() => priorityOf(null)).toThrow(ConfigError.FlowSyntax);
   });
 
   const path = { steps: [{ kind: StepKind.To } as Step] };
@@ -112,6 +115,6 @@ describe("#1366: group priority and the group's own steps", () => {
 
   it("refuses no targets and anything but classes", () => {
     for (const targets of [[], "x", [AgentX, "y"], undefined])
-      expect(() => quorumGroupOf(targets, undefined, path)).toThrow(FlowSyntaxError);
+      expect(() => quorumGroupOf(targets, undefined, path)).toThrow(ConfigError.FlowSyntax);
   });
 });

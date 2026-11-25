@@ -1,3 +1,5 @@
+import { StepError } from "../../src/core/error-families/step-errors.js";
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { usd } from "../../src/units/index.js";
 /**
  * #1366 (budget-loop shard) — the budget rules around one model call of an agent's loop, each on its own over fakes:
@@ -17,8 +19,6 @@ import {
   maskedRequest,
   outgoingMove,
 } from "../../src/graph/agent-loop/model-pii.js";
-import { AgentFailedError } from "../../src/graph/errors.js";
-import { LimitExceededError } from "../../src/graph/limits.js";
 import { attemptOf } from "../../src/graph/agent-loop/answer-stream.js";
 import { reportNodeEvent } from "../../src/flow/observers/execution-event.js";
 
@@ -198,9 +198,9 @@ describe("#1366: the agent's limits", () => {
 
     const failure = await node(stateOf({ modelCalls: 2 }), undefined).catch((e: unknown) => e);
 
-    expect(failure).toBeInstanceOf(LimitExceededError);
+    expect(failure).toBeInstanceOf(LimitError);
     expect(failure).toMatchObject({ limit: 2, actual: 3, path: ["a", "b"], spentUsd: usd(1.5) });
-    expect((failure as LimitExceededError).usage).toEqual([record(0.5, "loop")]);
+    expect((failure as LimitError).usage).toEqual([record(0.5, "loop")]);
     expect((failure as Error).message).toContain("agents.alpha.limits.modelCalls");
     expect(invoke).not.toHaveBeenCalled();
   });
@@ -228,11 +228,9 @@ describe("#1366: the agent's limits", () => {
 
     const failure = await node(stateOf({ toolCalls: 1 }), undefined).catch((e: unknown) => e);
 
-    expect(failure).toBeInstanceOf(LimitExceededError);
+    expect(failure).toBeInstanceOf(LimitError);
     expect(failure).toMatchObject({ limit: 2, actual: 3, spentUsd: 1.5 + 0.125 + 0.25 + 0.0625 });
-    expect((failure as LimitExceededError).usage.map((u) => u.costUsd)).toEqual([
-      0.5, 0.125, 0.25, 0.0625,
-    ]);
+    expect((failure as LimitError).usage.map((u) => u.costUsd)).toEqual([0.5, 0.125, 0.25, 0.0625]);
     expect((failure as Error).message).toContain("agents.alpha.limits.toolCalls");
   });
 
@@ -485,12 +483,12 @@ describe("#1366: the spend of a call that broke", () => {
 
     const failure = await node(stateOf(), undefined).catch((e: unknown) => e);
 
-    expect(failure).toBeInstanceOf(AgentFailedError);
-    expect((failure as AgentFailedError).usage).toEqual([
+    expect(failure).toBeInstanceOf(StepError.Agent);
+    expect((failure as StepError.Agent).usage).toEqual([
       record(0.5, "loop"),
       record(0.125, "mask"),
     ]);
-    expect((failure as AgentFailedError).cause).toEqual(new Error("provider down"));
+    expect((failure as StepError.Agent).cause).toEqual(new Error("provider down"));
     expect(attempt.discard).toHaveBeenCalledWith(StreamDiscardReason.StreamBroken);
   });
 

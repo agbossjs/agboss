@@ -25,8 +25,6 @@ export interface FlowPrompts {
   readonly route?: string;
 }
 
-const price = testConfig.agents.alpha.price;
-
 /** chat → router "main-router" → agent "scout-agent" → the answer. Variables: boards, boardCount. */
 export function workflowWith(prompts: FlowPrompts): {
   workflow: Class;
@@ -38,7 +36,6 @@ export function workflowWith(prompts: FlowPrompts): {
     name: "scout-agent",
     description: "Scouts job boards",
     model: "test/alpha",
-    price,
     ...(prompts.agent ?? { prompt: inline("You scout {{boards}}.") }),
   })
   class Scout {}
@@ -67,10 +64,8 @@ export function workflowWith(prompts: FlowPrompts): {
     flow: [
       onStart(TestChat)
         .toRouter(Main)
-        .onRoute(
-          toAgent(Scout)
-            .toFinish(TestAnswer),
-        )
+        .onRoute(toAgent(Scout)
+          .toFinish(TestAnswer))
         .onRoute(toFinish(NoAnswer)),
     ],
     promptVariables: { boards: "LinkedIn, AllJobs", boardCount: "2" },

@@ -1,9 +1,9 @@
+import { PauseError } from "../core/error-families/pause-errors.js";
 import type { Clock } from "../infrastructure/clock.js";
 import type { PausedExecutionRepository } from "../infrastructure/paused-execution.repository.js";
 import type { AppDeps } from "./app-deps.js";
 import { endedByRun } from "./tree-expiry.js";
 import { isHandedOver } from "./handed-over.js";
-import { PauseClosedError } from "./pause-closed-error.js";
 import { recordedAnswer, type ResumeParts } from "./resume.js";
 import { PauseResolution, type PauseRecord } from "../infrastructure/pause-record.js";
 
@@ -43,7 +43,7 @@ export const channelDecisionOf =
       PauseResolution.Decided,
     ).catch((error: unknown) => {
       // answered, cancelled or expired meanwhile — another send's decision, or the run's own end
-      if (error instanceof PauseClosedError) return undefined;
+      if (error instanceof PauseError.Closed) return undefined;
       throw error;
     });
     if (answer === undefined) return;

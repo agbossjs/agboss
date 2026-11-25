@@ -1,6 +1,7 @@
+import { ConfigError } from "../../core/error-families/config-errors.js";
 import type { Class } from "../../components/injection.js";
 import { cascadeDefaults } from "../../config/defaults.js";
-import { GraphRuleError, violation, type RuleViolation } from "../../graph/rule-error.js";
+import { violation, type RuleViolation } from "../../graph/rule-error.js";
 import { NodeKind } from "../ast.js";
 import { declarationOf } from "../decorators/declaration.js";
 import {
@@ -55,7 +56,7 @@ import { worstCasesOf, type WorstCase } from "./worst-case.js";
 /**
  * The static analyser of a v2 workflow (#272 PR 2, #270, #271): walks the flow's paths into a graph,
  * runs the data-flow engine (with outdating) to a fixed point, and checks every rule — all violations at once, before any
- * model call, in one `GraphRuleError`. Warnings (`[flow.path-too-deep]`,
+ * model call, in one `ConfigError.GraphRules`. Warnings (`[flow.path-too-deep]`,
  * `[graph.child-without-failure-finish]`, `[flow.committer-unreachable]`, `[judge.same-model-family]`,
  * `[limits.max-steps-below-worst-case]`, `[limits.max-steps-above-0.1.0-default]`) are errors
  * under `strict`.
@@ -199,10 +200,11 @@ export function checkWorkflow(workflow: Class, options: AnalyseOptions = {}): Fl
     : { analysis, errors: canonical(errors), warnings: canonical(warnings) };
 }
 
-/** Analyses a workflow; throws one `GraphRuleError` with every violation found. */
+/** Analyses a workflow; throws one `ConfigError.GraphRules` with every violation found. */
 export function analyseWorkflow(workflow: Class, options: AnalyseOptions = {}): FlowAnalysis {
   const { analysis, errors } = checkWorkflow(workflow, options);
-  if (errors.length > 0 || analysis === undefined) throw new GraphRuleError({ violations: errors });
+  if (errors.length > 0 || analysis === undefined)
+    throw new ConfigError.GraphRules({ violations: errors });
   return analysis;
 }
 

@@ -4,8 +4,8 @@
  * never leaves it out of the ledger, a normal run writes it once, and a router over its budget stops
  * at the call, before the charge after it.
  */
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { beforeEach, describe, expect } from "vitest";
-import { BudgetExceededError } from "../../src/index.js";
 import { BudgetScope } from "../../src/budgets/budget.js";
 import { counterOf, type ExecutionBudgetRecord } from "../../src/budgets/execution-budgets.js";
 import { CostLedgerRepository } from "../../src/infrastructure/cost-ledger.repository.js";
@@ -53,9 +53,9 @@ describe("#1090: a model router's spend is tallied at its call", () => {
   test("a normal run writes the router's cost to the ledger once", async ({
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(OrderRouter).thenReturn(routeTo(ChargeOrderAction, { cost: usd(0.4) }));
+    mockModel(OrderRouter).thenReturn(routeTo(ChargeOrderAction, { cost: usd(0.4) }));
     const a = instance(apps, 0);
     await a.ready();
 
@@ -67,24 +67,24 @@ describe("#1090: a model router's spend is tallied at its call", () => {
 
   test("a router over its budget stops at its call: the charge after it never runs", async ({
     apps,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(OrderRouter).thenReturn(routeTo(ChargeOrderAction, { cost: usd(5) }));
+    mockModel(OrderRouter).thenReturn(routeTo(ChargeOrderAction, { cost: usd(5) }));
     const a = instance(apps, 0);
     await a.ready();
 
     const error = await rejectionOf(execute(a, RoutedChargeWorkflowStart, { text: "order-2" }));
 
-    expect(error).toBeInstanceOf(BudgetExceededError);
+    expect(error).toBeInstanceOf(LimitError.Budget);
     expect(book.charges).toEqual([]);
   });
 
   test("a router step whose writes were saved and whose holder lost the tree: its cost is in the ledger once", async ({
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(OrderRouter).thenReturn(routeTo(ChargeOrderAction, { cost: usd(0.4) }));
+    mockModel(OrderRouter).thenReturn(routeTo(ChargeOrderAction, { cost: usd(0.4) }));
     const [a, b] = [instance(apps, 0), instance(apps, 1)];
     await a.ready();
     await b.ready();

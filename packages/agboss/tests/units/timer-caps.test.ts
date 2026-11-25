@@ -9,12 +9,10 @@ import { a2aHttpListener } from "../../src/a2a/a2a-http.js";
 import { checkedCallTimeout } from "../../src/a2a/client/a2a-client-options.js";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
-import { ComponentError } from "../../src/components/metadata.js";
 import { testWith } from "../../src/testing/index.js";
 import { toolNameViolations } from "../../src/components/assemble-checks.js";
 import { Text } from "../../src/dto/index.js";
 import { countQuorumOf } from "../../src/flow/quorum-step.js";
-import { GraphRuleError } from "../../src/graph/rule-error.js";
 import { SystemClock } from "../../src/infrastructure/clock.js";
 import { Idempotency } from "../../src/app/idempotency.js";
 import { OutboundMasking } from "../../src/app/outbound-masking.js";
@@ -51,7 +49,7 @@ async function timeoutProblemsOf(application: new () => object): Promise<string[
     (thrown: unknown) => thrown,
   );
   if (error === undefined) return [];
-  if (!(error instanceof GraphRuleError)) throw error as Error;
+  if (!(error instanceof ConfigError.GraphRules)) throw error as Error;
   return error.violations
     .filter((one) => one.code === "limits.timeout-invalid")
     .map((one) => one.message);
@@ -296,7 +294,7 @@ describe("#1141: A2A", () => {
   it("a client call's timeout: cap + 1 refused naming the field, the cap accepted", () => {
     expect(() => {
       checkedCallTimeout("peer-a2a-agent", over(MAX_TIMEOUT));
-    }).toThrow(ComponentError);
+    }).toThrow(ConfigError.Component);
     expect(() => {
       checkedCallTimeout("peer-a2a-agent", over(MAX_TIMEOUT));
     }).toThrow(/a call's timeout is 86400001 ms/u);

@@ -3,6 +3,7 @@
  * whose records have its thread, an unknown thread by the first workflow; a fence claims through
  * the first workflow's reserved ids; an instance without a workflow is a bug.
  */
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { describe, expect, it } from "vitest";
 import { DurableExecutionStatus, ExecutionCancelOutcome } from "../../src/app/execution-control.js";
 import { executionStateOf } from "../../src/app/execution-trees.js";
@@ -91,7 +92,7 @@ describe("#807: an instance's trees by id", () => {
 });
 
 describe("#906: a tree read with a thread id that is no key names the rule", () => {
-  it("InvalidThreadIdError carries the rule it breaks", async () => {
+  it("ExecutionError.InvalidThreadId carries the rule it breaks", async () => {
     const read = executionStateOf({} as never, {
       tenantId: "acme",
       rootExecutionId: "root-1",

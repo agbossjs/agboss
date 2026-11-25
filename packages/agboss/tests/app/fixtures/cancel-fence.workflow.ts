@@ -295,11 +295,9 @@ export class FencePayWorkflow {}
   name: "fence-child-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(FenceChildStart)
-      .toAction(ChargeTextAction)
-      .toFinish(FenceChildFinish),
-  ],
+  flow: [onStart(FenceChildStart)
+    .toAction(ChargeTextAction)
+    .toFinish(FenceChildFinish)],
 })
 export class FenceChildWorkflow {}
 
@@ -307,11 +305,9 @@ export class FenceChildWorkflow {}
   name: "fence-far-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(FenceFarStart)
-      .toWorkflow(FenceChildWorkflow)
-      .toFinish(FenceFarFinish),
-  ],
+  flow: [onStart(FenceFarStart)
+    .toWorkflow(FenceChildWorkflow)
+    .toFinish(FenceFarFinish)],
 })
 export class FenceFarWorkflow {}
 

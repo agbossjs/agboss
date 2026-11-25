@@ -143,10 +143,8 @@ export class EchoWorkflowFinish {}
   name: "echo-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(EchoWorkflowStart)
-      .toFinish(EchoWorkflowFinish),
-  ],
+  flow: [onStart(EchoWorkflowStart)
+    .toFinish(EchoWorkflowFinish)],
   providers: [PrefixedIdGenerator],
 })
 export class EchoWorkflow {}

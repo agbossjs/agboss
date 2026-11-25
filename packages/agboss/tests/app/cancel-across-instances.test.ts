@@ -3,14 +3,10 @@
  * running one stops with `ExecutionCancelledError` within one lease renewal, a request made while
  * its holder is down ends it at recovery, and unknown, foreign or finished threads behave as before.
  */
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { ExecutionCancelledError } from "../../src/core/errors.js";
-import {
-  ExecutionLeaseLostError,
-  ExecutionStatus,
-  ThreadOwnerError,
-  UnknownThreadError,
-} from "../../src/index.js";
+import { ExecutionLeaseLostError, ExecutionStatus } from "../../src/index.js";
 import { InMemoryExecutionTreeRepository } from "../../src/infrastructure/execution-tree.repository.js";
 import { InMemoryPausedExecutionRepository } from "../../src/infrastructure/in-memory-paused-execution.repository.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
@@ -88,9 +84,9 @@ describe("#360 AC1: a cancel on the other instance stops the running execution",
   test("within one renewal: cancelled, observed once, no later step, the record failed", async ({
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(...stepAndHold);
+    mockModel(Clerk).thenReturn(...stepAndHold);
     const [first, second] = await pair(apps);
     const { call } = await holding(first);
     const cancelled = await second.cancel(THREAD);
@@ -110,9 +106,9 @@ describe("#360 AC1: a cancel on the other instance stops the running execution",
 
   test("a request seen at a checkpoint write stops it before the next model call", async ({
     apps,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(...stepAndHold);
+    mockModel(Clerk).thenReturn(...stepAndHold);
     const [first, second] = await pair(apps);
     const { call } = await holding(first);
 
@@ -129,9 +125,9 @@ describe("#360 AC1: a cancel on the other instance stops the running execution",
   test("a store error reading the request is retried at the next renewal, never fatal", async ({
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(...stepAndHold);
+    mockModel(Clerk).thenReturn(...stepAndHold);
     const [first, second] = await pair(apps);
     const { call } = await holding(first);
     const reads = vi
@@ -150,8 +146,8 @@ describe("#360 AC1: a cancel on the other instance stops the running execution",
     expect(seen.cancels).toHaveLength(1);
   });
 
-  test("a cancel on the holder's own instance writes no request", async ({ apps, mockLlm }) => {
-    mockLlm(Clerk).thenReturn(...stepAndHold);
+  test("a cancel on the holder's own instance writes no request", async ({ apps, mockModel }) => {
+    mockModel(Clerk).thenReturn(...stepAndHold);
     const [first] = await pair(apps);
     const { call } = await holding(first);
     const writes = requestWrites();
@@ -167,9 +163,9 @@ describe("#360 AC1: a cancel on the other instance stops the running execution",
 describe("#360: the execution moves between the request and the re-read", () => {
   test("it finished: not cancelled, the request withdrawn with the tree's keys", async ({
     apps,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(...stepAndHold, replyWith(ReceiptDto, { text: "Done." }));
+    mockModel(Clerk).thenReturn(...stepAndHold, replyWith(ReceiptDto, { text: "Done." }));
     const [first, second] = await pair(apps);
     const { call } = await holding(first);
     const records = stores.records;
@@ -193,9 +189,9 @@ describe("#360: the execution moves between the request and the re-read", () => 
 
   test("#1341b: a cancel that lands between the finish's look and its write — the stored outcome is cancelled, as the cancel answered", async ({
     apps,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(...stepAndHold, replyWith(ReceiptDto, { text: "Done." }));
+    mockModel(Clerk).thenReturn(...stepAndHold, replyWith(ReceiptDto, { text: "Done." }));
     const [first, second] = await pair(apps);
     const { call } = await holding(first);
     const records = stores.records;
@@ -220,9 +216,9 @@ describe("#360: the execution moves between the request and the re-read", () => 
 
   test("it paused: the cancel waits for the holder's lease, counted once", async ({
     apps,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(...stepAndHold);
+    mockModel(Clerk).thenReturn(...stepAndHold);
     const [first, second] = await pair(apps);
     const { call } = await holding(first);
     const records = stores.records;
@@ -243,9 +239,9 @@ describe("#360: the execution moves between the request and the re-read", () => 
 
   test("a request found before the tree rests paused: it ends cancelled instead", async ({
     apps,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+    mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
     const [first] = await pair(apps);
     // the request appears once the pass has stored its paused run: only the check at rest sees it
     const saves = vi.spyOn(InMemoryPausedExecutionRepository.prototype, "save");
@@ -269,9 +265,9 @@ describe("#360: the execution moves between the request and the re-read", () => 
 
   test("a resume that takes the lease of a requested tree ends it: the resume rejects", async ({
     apps,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+    mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
     const [first, second] = await pair(apps);
     const paused = await execute(
       first,
@@ -298,9 +294,9 @@ describe("#360 AC2: a cancel requested while the holder is down", () => {
   test("recovery ends it as cancelled instead of continuing it", async ({
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(...stepAndHold);
+    mockModel(Clerk).thenReturn(...stepAndHold);
     const [first, second] = await pair(apps);
     const { call } = await holding(first);
     kill("instance-1");
@@ -320,9 +316,9 @@ describe("#360 AC2: a cancel requested while the holder is down", () => {
   test("an instance of another config version ends it too: ending runs no graph", async ({
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(...stepAndHold);
+    mockModel(Clerk).thenReturn(...stepAndHold);
     const [first, second] = await pair(apps);
     const { call } = await holding(first);
     kill("instance-1");
@@ -342,20 +338,24 @@ describe("#360 AC2: a cancel requested while the holder is down", () => {
 describe("#360 AC3: threads with nothing to cancel behave as before on both instances", () => {
   test("unknown, another tenant's, another owner's and a finished thread", async ({
     apps,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(replyWith(ReceiptDto, { text: "Done." }));
+    mockModel(Clerk).thenReturn(replyWith(ReceiptDto, { text: "Done." }));
     const [first, second] = await pair(apps);
     await execute(first, OrderWorkflowStart, { text: "hi" }, { threadId: THREAD, ownerId: "ann" });
     const writes = requestWrites();
 
     for (const app of [first, second]) {
       expect(await app.cancel(THREAD, { ownerId: "ann" })).toEqual({ cancelled: false });
-      await expect(app.cancel("unknown-thread")).rejects.toBeInstanceOf(UnknownThreadError);
+      await expect(app.cancel("unknown-thread")).rejects.toBeInstanceOf(
+        ExecutionError.UnknownThread,
+      );
       await expect(
         app.cancel(THREAD, { tenantId: "another-tenant", ownerId: "ann" }),
-      ).rejects.toBeInstanceOf(UnknownThreadError);
-      await expect(app.cancel(THREAD, { ownerId: "bob" })).rejects.toBeInstanceOf(ThreadOwnerError);
+      ).rejects.toBeInstanceOf(ExecutionError.UnknownThread);
+      await expect(app.cancel(THREAD, { ownerId: "bob" })).rejects.toBeInstanceOf(
+        ExecutionError.ThreadOwnerMismatch,
+      );
     }
     expect(writesOf(writes)).toBe(0);
   });

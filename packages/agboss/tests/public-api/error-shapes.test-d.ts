@@ -8,7 +8,6 @@ import type {
   OutboundCallError,
 } from "../../src/core/error-families/effect-errors.js";
 import { describe, expectTypeOf, it } from "vitest";
-import { ThreadIdsExhaustedError } from "../../src/index.js";
 import type {
   OutboundCallResultNotStoredReason,
   OutboundCallUnreconciledReason,
@@ -20,7 +19,9 @@ describe("#890 AC3: literal codes and closed reasons", () => {
     expectTypeOf<
       IdempotencyError.KeyConflict["code"]
     >().toEqualTypeOf<"idempotency.key-conflict">();
-    expectTypeOf(ThreadIdsExhaustedError.code).toEqualTypeOf<"run.thread-ids-exhausted">();
+    expectTypeOf<
+      ExecutionError.ThreadIdsExhausted["code"]
+    >().toEqualTypeOf<"execution.thread-ids-exhausted">();
     expectTypeOf<
       OutboundCallError.Unreconciled["code"]
     >().toEqualTypeOf<"outbound-call.unreconciled">();

@@ -1,14 +1,10 @@
 /** #194: errors are kept as plain records; `catchError` matches records by code, after JSON too. */
+import { StepError } from "../../src/core/error-families/step-errors.js";
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { describe, expect, it } from "vitest";
 import { codeOfErrorClass, errorRecordOf, recordMatches } from "../../src/core/error-record.js";
-import {
-  AgentFailedError,
-  BudgetExceededError,
-  BudgetScope,
-  LimitExceededError,
-  PaidStepError,
-  ExecutionCancelledError,
-} from "../../src/index.js";
+import { BudgetScope } from "../../src/index.js";
+import { ExecutionCancelledError } from "../../src/core/errors.js";
 
 import { usd } from "../../src/units/index.js";
 
@@ -20,7 +16,7 @@ class CodedUserError extends BookingError {
   static override readonly code: string = "booking.flight";
 }
 
-const budget = new BudgetExceededError({
+const budget = new LimitError.Budget({
   budget: { name: "shop-execution-budget" },
   scope: BudgetScope.Execution,
   key: "run-1",
@@ -35,14 +31,14 @@ const roundTrip = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 
 describe("#194: error records", () => {
   it("a record is plain JSON with the class code, the details and the cause chain", () => {
-    const agent = new AgentFailedError({
+    const agent = new StepError.Agent({
       agent: "buyer",
       usage: [],
       cause: new FlightApiDown("down"),
     });
 
     expect(roundTrip(errorRecordOf(budget))).toEqual({
-      name: "BudgetExceededError",
+      name: "LimitError.Budget",
       code: "limit.budget",
       lineage: ["limit.budget", "limit", "agboss"],
       message: budget.message,
@@ -74,15 +70,15 @@ describe("#194: error records", () => {
   it("matches by code after a JSON round trip: the class, its parents, its causes", () => {
     const record = roundTrip(errorRecordOf(budget));
     const wrapped = roundTrip(
-      errorRecordOf(new AgentFailedError({ agent: "buyer", usage: [], cause: budget })),
+      errorRecordOf(new StepError.Agent({ agent: "buyer", usage: [], cause: budget })),
     );
 
-    expect(recordMatches(record, codeOfErrorClass(BudgetExceededError))).toBe(true);
-    expect(recordMatches(record, codeOfErrorClass(LimitExceededError))).toBe(true);
+    expect(recordMatches(record, codeOfErrorClass(LimitError.Budget))).toBe(true);
+    expect(recordMatches(record, codeOfErrorClass(LimitError))).toBe(true);
     expect(recordMatches(record, codeOfErrorClass(Error))).toBe(true);
     expect(recordMatches(record, codeOfErrorClass(ExecutionCancelledError))).toBe(false);
-    expect(recordMatches(wrapped, codeOfErrorClass(BudgetExceededError))).toBe(true);
-    expect(recordMatches(wrapped, codeOfErrorClass(PaidStepError))).toBe(true);
+    expect(recordMatches(wrapped, codeOfErrorClass(LimitError.Budget))).toBe(true);
+    expect(recordMatches(wrapped, codeOfErrorClass(StepError))).toBe(true);
   });
 
   it("a user error class matches by its static code, else by its name; its parents' codes too", () => {

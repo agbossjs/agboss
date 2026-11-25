@@ -1,4 +1,4 @@
-import { RagScopeError } from "./rag-source.js";
+import { ConfigError } from "../core/error-families/config-errors.js";
 import { RagScope, type RagScopeKey } from "./types.js";
 
 /**
@@ -30,7 +30,7 @@ export function folderOf(
   if (kind === RagScope.Shared || folder === undefined) return folder;
   const probe = `${String(tenantId)}\u0000another-tenant`;
   if (directory({ tenantId: probe, scopeId, scope: kind }) === folder)
-    throw new RagScopeError({
+    throw new ConfigError.Component({
       message: `[rag.directory-not-tenant-keyed] SqliteFtsRagSource: the directory callback answers one folder for a ${kind} scope id in two tenants — key it on the whole { tenantId, scopeId } (a scope id alone is unique within a tenant only), or give a plain folder`,
     });
   return folder;

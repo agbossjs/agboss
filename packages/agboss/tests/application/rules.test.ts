@@ -3,21 +3,14 @@
  * workflows, names are unique in the application, budgets are `@Budget`s, infrastructure is listed
  * only in `@Application({ providers })`, by inheritance — every violation at once.
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import { Budget, BudgetPeriod, BudgetScope } from "../../src/budgets/budget.js";
 import type { Class } from "../../src/components/injection.js";
-import {
-  Agent,
-  GraphRuleError,
-  Injectable,
-  Workflow,
-  WorkflowFinish,
-  inline,
-  Ttl,
-} from "../../src/index.js";
+import { Agent, Injectable, Workflow, WorkflowFinish, inline, Ttl } from "../../src/index.js";
 import { WorkflowFinishTextDto } from "../../src/dto/index.js";
 import { InMemoryCostLedgerRepository } from "../../src/infrastructure/cost-ledger.repository.js";
 import { InMemoryPausedExecutionRepository } from "../../src/infrastructure/in-memory-paused-execution.repository.js";
@@ -40,8 +33,8 @@ async function violationsOf(application: Class): Promise<string[]> {
     () => undefined,
     (thrown: unknown) => thrown,
   );
-  if (!(error instanceof GraphRuleError))
-    throw new Error(`expected a GraphRuleError: ${String(error)}`);
+  if (!(error instanceof ConfigError.GraphRules))
+    throw new Error(`expected a ConfigError.GraphRules: ${String(error)}`);
   return error.violations.map((found) => `[${found.code}] ${found.message}`);
 }
 

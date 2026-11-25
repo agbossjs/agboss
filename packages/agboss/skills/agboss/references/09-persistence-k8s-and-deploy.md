@@ -502,7 +502,7 @@ or `secret`, `optional` / `has a default`) — the list for the manifest.
 - A paused or running execution started under another hash is **not** continued by an instance of
   the new version unless the workflow's `onIncompatibleResume` policy says `ResumeDecision.Resume`
   (`implements WorkflowDefinition`, `settings()` above): `app.resume` rejects with
-  `IncompatibleResumeError` (`resume.incompatible`) and the execution stays paused; recovery leaves
+  `ExecutionError.IncompatibleResume` (`execution.incompatible-resume`) and the execution stays paused; recovery leaves
   such a root to an instance of a compatible version (logged once, `recovery.incompatible`).
 - So a rolling deploy works as: new instances start next to the old ones; old ones finish or pause
   their executions and stop gracefully; executions the policy refuses wait for an instance of their
@@ -510,8 +510,8 @@ or `secret`, `optional` / `has a default`) — the list for the manifest.
   versions of one workflow do not run side by side in one application — keep the old version
   deployed until its paused executions are answered, or accept them with the policy.
 - Resolved pause records are kept `retention.pauseRecords` (default `hours(24)`), then removed by the
-  sweep: a late answer is `PauseClosedError` within it (`NotPausedError` is the thread-level miss),
-  `UnknownPauseError` after. `Pending` is never
+  sweep: a late answer is `PauseError.Closed` within it (`NotPausedError` is the thread-level miss),
+  `PauseError.UnknownPause` after. `Pending` is never
   removed.
 
 ## Execution history: `retention.executionRecords` and `agboss executions export`
@@ -683,7 +683,7 @@ handed unchanged — a model's or a tool's answer may hold a NUL character (U+00
 PostgreSQL's `jsonb` and `text` reject: keep JSON as text there (`\u0000` is an escape in it), as
 the core's SQLite record store keeps free text (#521; each contract suite has a NUL case). A ledger
 (#817) takes `LedgerEntry` values only — calls `assertLedgerEntries(entries)` first
-(`CostLedgerEntryInvalidError` for a JS caller's record without `ledgerId`, a `madeAt` `Date` or a
+(`StoreError.LedgerEntryInvalid` for a JS caller's record without `ledgerId`, a `madeAt` `Date` or a
 `costUsd` amount), refuses what `expiredEntriesOf(entries, prunedBefore, isHeld)` names, adds what
 `unrecordedEntriesOf(entries, isNew)` keeps (dates are `Date`, to the millisecond) and sums it with
 the core's `totalCost(entries)` (`Usd`); `deleteByMadeAtBefore(cutoff)` prunes. A store imports
@@ -743,8 +743,8 @@ test("ready on its stores; a closing instance is not live", async ({ app }) => {
   expect((await app.checkLiveness()).status).toBe(HealthStatus.Unhealthy);
 });
 
-twoInstances("two instances share one set of stores", async ({ app, apps, mockLlm }) => {
-  mockLlm(ClaimAssessorAgent).thenReturn(replyWith(ClaimAssessmentDto, { assessment: "Covered." }));
+twoInstances("two instances share one set of stores", async ({ app, apps, mockModel }) => {
+  mockModel(ClaimAssessorAgent).thenReturn(replyWith(ClaimAssessmentDto, { assessment: "Covered." }));
 
   const result = await app.execute(ClaimWorkflowStart, { text: "a broken window" }); // apps[0]
 

@@ -3,9 +3,9 @@
  * `[guardrail.missing-handler]`, a code guardrail's model options do not compile and it needs no
  * model, the refusal rules as for a model guardrail, `decidedBy: code` printed, its entry hashed.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { describe, expect, it } from "vitest";
 import {
-  GuardFailedError,
   GuardrailVerdict,
   InputGuardrail,
   OutputGuardrail,
@@ -186,8 +186,8 @@ describe("#383: testUnit on a code guardrail", () => {
     });
   });
 
-  it("a check that throws fails closed: GuardFailedError", async () => {
-    await expect(testUnit(BrokenGuardrail)("Hi")).rejects.toBeInstanceOf(GuardFailedError);
+  it("a check that throws fails closed: StepError.Guardrail", async () => {
+    await expect(testUnit(BrokenGuardrail)("Hi")).rejects.toBeInstanceOf(StepError.Guardrail);
   });
 
   it("a model script for a code guardrail is a mistake in the test", () => {

@@ -1,10 +1,10 @@
-import { AGBossError } from "../core/errors.js";
+import { ExecutionError } from "../core/error-families/run-errors.js";
 
 /**
  * Resume across deployments: a paused run remembers the workflow version and config hash it paused
  * under; `app.resume` compares them with the running app and, when they differ, asks the workflow's
  * `onIncompatibleResume` policy (`WorkflowSettings.builder().onIncompatibleResume(…)`) — no policy
- * means the resume is rejected with `IncompatibleResumeError`.
+ * means the resume is rejected with `ExecutionError.IncompatibleResume`.
  */
 
 /** The workflow version (`@Workflow({ version })`) and config hash (`executionVersions`) of an app. */
@@ -23,61 +23,23 @@ export interface IncompatibleResume {
   readonly current: ResumeVersions;
 }
 
-/** What an incompatible resume takes (#906): the resume's facts and a cause. */
-export interface IncompatibleResumeErrorOptions extends IncompatibleResume {
-  readonly cause?: unknown;
-}
-
 /** What an `onIncompatibleResume` policy decides (#1324). */
 export enum ResumeDecision {
   /** Continue the paused checkpoint on the current graph. */
   Resume = "resume",
-  /** Fail the resume with `IncompatibleResumeError`. */
+  /** Fail the resume with `ExecutionError.IncompatibleResume`. */
   Reject = "reject",
 }
 
 /** Decides an incompatible resume, e.g. `({ paused }) => paused.workflowVersion === "1.1.0" ? ResumeDecision.Resume : ResumeDecision.Reject`. */
 export type IncompatibleResumePolicy = (resume: IncompatibleResume) => ResumeDecision;
 
-const shortHash = (hash: string): string => hash.slice(0, 12);
-
-const label = ({ workflowVersion, configHash }: ResumeVersions): string =>
-  `${workflowVersion} (config ${shortHash(configHash)})`;
-
-/**
- * A paused run cannot be resumed by this app: it paused under another workflow version or config —
- * its own or a child workflow's (#336: a root's `configHash` covers its children).
- */
-export class IncompatibleResumeError extends AGBossError {
-  static override readonly code = "resume.incompatible" as const;
-  declare readonly code: typeof IncompatibleResumeError.code;
-  override name = "IncompatibleResumeError";
-  readonly threadId: string;
-  readonly executionId: string;
-  readonly paused: ResumeVersions;
-  readonly current: ResumeVersions;
-
-  constructor(resume: IncompatibleResumeErrorOptions) {
-    super(
-      `[resume.incompatible] thread "${resume.threadId}" paused under ${label(resume.paused)}, ` +
-        `this app runs ${label(resume.current)} — register ` +
-        `WorkflowSettings.builder().onIncompatibleResume(…) to resume it anyway ` +
-        `(limits, ttl and provider fallback settings are not part of the config, so a profile that only tunes them never causes this)`,
-      { cause: resume.cause },
-    );
-    this.threadId = resume.threadId;
-    this.executionId = resume.executionId;
-    this.paused = resume.paused;
-    this.current = resume.current;
-  }
-}
-
-/** Throws `IncompatibleResumeError` unless the config hashes match or the policy says "resume". */
+/** Throws `ExecutionError.IncompatibleResume` unless the config hashes match or the policy says "resume". */
 export function checkResume(
   resume: IncompatibleResume,
   policy: IncompatibleResumePolicy | undefined,
 ): void {
   if (resume.paused.configHash === resume.current.configHash) return;
   if (policy?.(resume) === ResumeDecision.Resume) return;
-  throw new IncompatibleResumeError(resume);
+  throw new ExecutionError.IncompatibleResume(resume);
 }

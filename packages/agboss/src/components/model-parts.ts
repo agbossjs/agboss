@@ -1,9 +1,9 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import { hasFileStore, ownFileRedactorOf, ownFileTranscriberOf } from "../files/assemble-files.js";
 import { modelArbitersOf, type ModelArbiterUse } from "../flow/runtime/launch/runtime-launch.js";
 import type { RuntimeGraph } from "../flow/runtime/graph-model.js";
 import type { LoadedGuardrail } from "../guardrails/assembly.js";
 import { resolvedModelProvidersOf, type WorkflowModels } from "../models/resolution.js";
-import { GraphRuleError } from "../graph/rule-error.js";
 import { providerNameViolations, providerRuleViolations } from "../models/provider-mode-rules.js";
 import type { AssembledPii } from "../pii/assembly.js";
 import type { AssembledWorkflow, RerankerModelUse } from "../workflow.js";
@@ -68,7 +68,7 @@ export function modelPartsOf(
     // one name, one class among every provider the workflow reaches: listed, named, a profile's, a fallback
     ...providerNameViolations(models.config.name, [...(owner?.providers ?? []), ...referenced]),
   ];
-  if (named.length > 0) throw new GraphRuleError({ violations: named });
+  if (named.length > 0) throw new ConfigError.GraphRules({ violations: named });
   return {
     arbiters,
     // the application lists its own `FileTranscriber` (#899): the built-in's model is no use then

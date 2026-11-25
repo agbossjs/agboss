@@ -5,8 +5,7 @@ import {
   isRestError,
 } from "@a2a-js/sdk/errors";
 import { A2AError } from "../../core/error-families/remote-errors.js";
-import { A2AClientOperation, A2AProtocolError } from "./a2a-client-errors.js";
-import { A2AOriginError } from "./a2a-guard-errors.js";
+import { A2AClientOperation } from "./a2a-client-errors.js";
 import { A2ANetworkError, A2ANotSentError, HttpStatusError } from "./a2a-transport.js";
 
 /**
@@ -45,10 +44,10 @@ const CODE_OF_KIND: Readonly<Record<string, number>> = {
 
 /**
  * The A2A code one error carries: a JSON-RPC envelope's, an HTTP+JSON error's by its kind, or one
- * the client already read (`A2AProtocolError`).
+ * the client already read (`A2AError.Protocol`).
  */
 function codeOfOne(error: unknown): number | undefined {
-  if (error instanceof A2AProtocolError) return error.rpcCode;
+  if (error instanceof A2AError.Protocol) return error.rpcCode;
   if (isJsonRpcError(error)) return error.envelopeCode;
   return error instanceof SdkA2AError ? CODE_OF_KIND[error.name] : undefined;
 }
@@ -72,15 +71,46 @@ function httpStatusOf(error: unknown): number | undefined {
 /** The client's own errors, passed on as they are wherever they are in the causes. */
 const isOwn = (error: unknown): boolean =>
   error instanceof A2AError.CallerRejected ||
+  error instanceof A2AError.Unavailable ||
   error instanceof A2ANetworkError ||
   error instanceof A2ANotSentError ||
-  error instanceof A2AOriginError ||
-  error instanceof A2AProtocolError;
+  error instanceof A2AError.OriginRefused ||
+  error instanceof A2AError.Protocol;
+
+/** A request that certainly never left the client: what it needed first (a token, a signature) failed. */
+export const notSentOf = (
+  agent: string,
+  operation: A2AClientOperation,
+  cause: unknown,
+): A2AError.Unavailable =>
+  new A2AError.Unavailable({
+    agent,
+    operation,
+    sent: false,
+    message: `${agent} (${operation}): request was not sent`,
+    cause,
+  });
+
+/**
+ * The error a request that got no answer, or was never sent, leaves the client with: the transport's
+ * own signals as `A2AError.Unavailable`, the rest as they are.
+ */
+function unavailableOf(own: unknown, agent: string, operation: A2AClientOperation): unknown {
+  if (own instanceof A2ANotSentError) return notSentOf(agent, operation, own.cause ?? own);
+  if (!(own instanceof A2ANetworkError)) return own;
+  return new A2AError.Unavailable({
+    agent,
+    operation,
+    sent: true,
+    message: `${agent} (${operation}): network failure`,
+    cause: own.cause ?? own,
+  });
+}
 
 /**
  * The error a failed SDK call is translated to: the abort's own reason when `signal` ended it (a
  * lease lost, a cancel — passed on as it is), the client's own errors as they are, any other as
- * `A2AProtocolError` with its A2A code and HTTP status only — an answer the SDK could not read,
+ * `A2AError.Protocol` with its A2A code and HTTP status only — an answer the SDK could not read,
  * whose message may quote the answer, with neither.
  */
 export function wireErrorOf(
@@ -91,10 +121,10 @@ export function wireErrorOf(
 ): unknown {
   if (signal?.aborted === true) return signal.reason;
   const own = causesOf(error).find(isOwn);
-  if (own !== undefined) return own;
+  if (own !== undefined) return unavailableOf(own, agent, operation);
   const rpcCode = rpcCodeOf(error);
   const httpStatus = httpStatusOf(error);
-  return new A2AProtocolError({ agent, operation, rpcCode, httpStatus });
+  return new A2AError.Protocol({ agent, operation, rpcCode, httpStatus });
 }
 
 /**
@@ -126,14 +156,18 @@ const isRefusedStatus = (status: number): boolean =>
 
 /**
  * Whether a failed send certainly did nothing on the agent's side (#657: `isDefiniteFailure`): it
- * was never sent (`A2ANotSentError`), the caller was refused, the agent answered a code of
+ * was never sent (`A2AError.Unavailable` with `sent: false`), the caller was refused, the agent answered a code of
  * `NOTHING_DONE`, or a status `isRefusedStatus` without a code. A network failure, a 5xx, a
  * timeout, a rate limit, an abort, an unknown code or an answer that could not be read is of
  * unknown outcome: the message may have arrived.
  */
 export function isDefiniteSendFailure(error: unknown): boolean {
-  if (error instanceof A2ANotSentError || error instanceof A2AError.CallerRejected) return true;
-  if (!(error instanceof A2AProtocolError)) return false;
+  if (
+    (error instanceof A2AError.Unavailable && error.sent === false) ||
+    error instanceof A2AError.CallerRejected
+  )
+    return true;
+  if (!(error instanceof A2AError.Protocol)) return false;
   if (error.rpcCode !== undefined) return NOTHING_DONE.has(error.rpcCode);
   // Stryker disable next-line LogicalOperator: no status (`undefined`) is refused neither way
   return isRefusedStatus(error.httpStatus ?? 0);
@@ -146,8 +180,8 @@ export function isDefiniteSendFailure(error: unknown): boolean {
  */
 export function isTransientWireError(error: unknown): boolean {
   // a read never sent (a token refresh that failed) is safe to try again, as one with no answer
-  if (error instanceof A2ANetworkError || error instanceof A2ANotSentError) return true;
-  if (!(error instanceof A2AProtocolError)) return false;
+  if (error instanceof A2AError.Unavailable) return true;
+  if (!(error instanceof A2AError.Protocol)) return false;
   if (error.rpcCode !== undefined) return error.rpcCode === A2A_ERROR_CODE.INTERNAL_ERROR;
   const status = error.httpStatus;
   return status === undefined || status >= HTTP_SERVER_ERRORS || HTTP_MAYBE_DONE.has(status);

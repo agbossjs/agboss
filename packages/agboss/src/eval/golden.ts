@@ -1,3 +1,4 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import { systemClock } from "../infrastructure/clock.js";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
@@ -15,10 +16,6 @@ export const GoldenSetSchema = z.strictObject({
 
 export type GoldenSet = z.infer<typeof GoldenSetSchema>;
 
-export class GoldenSetError extends Error {
-  override name = "GoldenSetError";
-}
-
 export const goldenFile = (root: string, bundle: string, name: string): string =>
   join(root, "golden", bundle, `${name}.yaml`);
 
@@ -26,9 +23,9 @@ export async function loadGolden(file: string): Promise<GoldenSet> {
   const parsed = GoldenSetSchema.safeParse(parseYaml(await readFile(file, "utf8")));
   if (!parsed.success) {
     const issue = parsed.error.issues[0];
-    throw new GoldenSetError(
-      `${file}: ${issue?.path.join(".") ?? ""}: ${issue?.message ?? "invalid"}`,
-    );
+    throw new ConfigError.EvalCase({
+      message: `${file}: ${issue?.path.join(".") ?? ""}: ${issue?.message ?? "invalid"}`,
+    });
   }
   return parsed.data;
 }
@@ -48,6 +45,7 @@ export async function goldenFromRecent(
 ): Promise<GoldenSet> {
   const recent = await turns.recentOriginals(bundle, limit);
   const tasks = [...new Set(recent.map((turn) => turn.task))].map((task) => ({ task }));
-  if (tasks.length === 0) throw new GoldenSetError(`No answered tasks of "${bundle}" to save`);
+  if (tasks.length === 0)
+    throw new ConfigError.EvalCase({ message: `No answered tasks of "${bundle}" to save` });
   return { name, bundle, created: now().toISOString(), tasks };
 }

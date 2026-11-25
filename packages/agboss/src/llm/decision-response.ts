@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { usd } from "../units/index.js";
 import { CostSource, NO_PROVIDER, type UsageRecord } from "../finops/usage.js";
-import { DecisionError } from "../core/error-families/config-errors.js";
+import { DecisionError } from "../core/error-families/decision-errors.js";
 import type { DecisionAnswer, DecisionQuestion, DecisionQuestions } from "./decisions.js";
 
 const Probabilities = z.record(z.string(), z.number().min(0).max(1));

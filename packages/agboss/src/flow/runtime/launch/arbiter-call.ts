@@ -1,3 +1,4 @@
+import { ConfigError } from "../../../core/error-families/config-errors.js";
 import { chatMessagesOf } from "../../../models/messages.js";
 import { HumanMessage } from "@langchain/core/messages";
 import type { ResolvedModelSettings, RouterModel } from "../../../config/types.js";
@@ -5,7 +6,7 @@ import { chargedCall } from "../../../finops/charged-call.js";
 import { decisionSpendOf } from "../../../finops/failed-decision.js";
 import { recordUsage, type UsageRecord } from "../../../finops/usage.js";
 import { lazyLoad } from "../../../infrastructure/clock.js";
-import { ModelKind, ModelKindError } from "../../../llm/decision-errors.js";
+import { ModelKind } from "../../../llm/decision-errors.js";
 import type { AnswersOf, DecisionQuestions, DecisionRequest } from "../../../llm/decisions.js";
 import { resolveSettings } from "../../../llm/registry.js";
 import type { ModelReadingMask } from "../../../pii/model-boundary.js";
@@ -58,7 +59,11 @@ function invokeOf(
   return async (asGiven) => {
     const given = typeof asGiven === "string" ? asGiven : chatMessagesOf(asGiven);
     if (model.kind !== "llm")
-      throw new ModelKindError({ model: model.model, kind: ModelKind.Decisions, call: "invoke" });
+      throw new ConfigError.ModelKind({
+        model: model.model,
+        modelKind: ModelKind.Decisions,
+        call: "invoke",
+      });
     const caller = arbiterCaller(name);
     const settings: ResolvedModelSettings = resolveSettings(model, deps.chatDefaults);
     await call.beforeCall(); // a budget of the execution that is spent stops the arbiter before this call
@@ -90,7 +95,11 @@ function decideOf(
     request: DecisionRequest<Q>,
   ): Promise<AnswersOf<Q>> => {
     if (model.kind !== "jev")
-      throw new ModelKindError({ model: model.model, kind: ModelKind.Chat, call: "decide" });
+      throw new ConfigError.ModelKind({
+        model: model.model,
+        modelKind: ModelKind.Chat,
+        call: "decide",
+      });
     const { gateway } = deps;
     if (gateway.decide === undefined)
       throw new TypeError(

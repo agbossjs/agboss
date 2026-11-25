@@ -1,3 +1,4 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import { existsSync, readdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -11,7 +12,6 @@ import { declarationOf } from "../flow/decorators/declaration.js";
 import { toolComponentNameOf } from "../flow/types/agent-tools.js";
 import { channelBrandOf } from "../flow/types/pause-target-tables.js";
 import { judgeComponentNameOf } from "../flow/types/judge-outputs.js";
-import { WorkflowLoadError } from "./load-errors.js";
 import { importedModules, registerTypeScript } from "./typescript.js";
 import { lazyLoad } from "../infrastructure/clock.js";
 
@@ -94,7 +94,7 @@ export async function loadFlowProject(
   const workflows: Class[] = [];
   for (const file of files) {
     if (!existsSync(file))
-      throw new WorkflowLoadError({ message: `Workflow file not found: ${file}` });
+      throw new ConfigError.WorkflowLoad({ message: `Workflow file not found: ${file}` });
     workflows.push(...Object.values(await namespaceOf(file)).filter(isFlowWorkflow));
   }
   const own = new Set([...files, ...componentFiles(workflows)]);

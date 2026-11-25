@@ -5,6 +5,7 @@
  * one, naming the field and the class, the way `sqlitePath` always did; `SqliteConnection` declares
  * `sqlitePath` the same way.
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
@@ -15,7 +16,6 @@ import {
   WorkflowFinish,
   WorkflowStart,
   EnvironmentField,
-  GraphRuleError,
   Injectable,
   Secret,
   Ttl,
@@ -110,7 +110,7 @@ async function violationsOf(application: Class): Promise<string[]> {
     () => undefined,
     (thrown: unknown) => thrown,
   );
-  if (!(error instanceof GraphRuleError)) return [];
+  if (!(error instanceof ConfigError.GraphRules)) return [];
   return error.violations.map((found) => `[${found.code}] ${found.message}`);
 }
 

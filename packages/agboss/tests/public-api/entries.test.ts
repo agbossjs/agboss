@@ -1,3 +1,6 @@
+import { StepError } from "../../src/core/error-families/step-errors.js";
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import * as a2a from "../../src/a2a/index.js";
 import * as dto from "../../src/dto/index.js";
@@ -79,12 +82,10 @@ describe("#272 AC8: the path grammar replaces the old flow DSL in every entry", 
       "Action",
       "Agent",
       "DecidedBy",
-      "GraphRuleError",
-      "FlowSyntaxError",
-      "LimitExceededError",
+      "ConfigError",
+      "LimitError",
       "Router",
-      "RouterDecisionError",
-      "VisitsLimitExceededError",
+      "StepError",
       "Workflow",
       "WorkflowFinish",
       "WorkflowSettings",

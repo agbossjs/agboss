@@ -1,5 +1,5 @@
+import { cancelFencedOf } from "../../app/cancel-fenced.js";
 import type { DatabaseSync } from "node:sqlite";
-import { ExecutionCancelFencedError } from "../../app/lease-lost.js";
 import { sqliteStatusLog, type NewStatusTransition } from "../../turns/index.js";
 import { z } from "zod";
 import { InterruptMode } from "../../app/interrupt-types.js";
@@ -49,7 +49,7 @@ export function markedCancelRequested(
 
 /**
  * The cancel check of the SQLite stores, inside the caller's transaction: the key's tree — its
- * root's lease row — carries the mark and the key is not an undo's → `ExecutionCancelFencedError`,
+ * root's lease row — carries the mark and the key is not an undo's → `ExecutionError.CancelFenced`,
  * nothing written or sent. After the lease and mark checks and, for an effect, after the key's
  * lookup.
  */
@@ -81,7 +81,7 @@ export function checkSqliteCancel(database: DatabaseSync, key: EffectKey): void 
   // a cancelled tree's undo runs; a stopped one (`immediate`) has none, and nothing of it is written
   if (!isCancelled && stopMode === InterruptMode.Immediate) throw ExecutionStopFencedError.of(key);
   if (key.isCompensation === true) return;
-  if (isCancelled) throw ExecutionCancelFencedError.of(key);
+  if (isCancelled) throw cancelFencedOf(key);
 }
 
 const FenceRow = z.object({

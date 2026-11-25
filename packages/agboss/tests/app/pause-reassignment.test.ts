@@ -7,16 +7,17 @@
  * a reassignment and an answer, at the same moment: exactly one wins. The new id goes to the
  * channel only. The chain (V3.4): the checkpoint keeps the first id, the live pause is the last.
  */
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { beforeEach, describe, expect, vi } from "vitest";
 import { ExecutionStatus } from "../../src/app/types.js";
 import { DurableExecutionStatus, executionControlOf } from "../../src/app/execution-control.js";
 import {
-  DtoValidationError,
-  PauseClosedError,
-  ThreadOwnerError,
-  UnknownPauseError,
-} from "../../src/errors.js";
-import { PauseError, PauseClosedReason, PauseResolution, PauseStatus } from "../../src/index.js";
+  PauseError,
+  PauseClosedReason,
+  PauseResolution,
+  PauseStatus,
+  ValidationError,
+} from "../../src/index.js";
 import { pauseKeyOf } from "../../src/infrastructure/pause-record.js";
 import { PausedExecutionRepository } from "../../src/infrastructure/paused-execution.repository.js";
 import {
@@ -113,12 +114,12 @@ const failureOf = (work: Promise<unknown>): Promise<unknown> =>
 
 /** A desk agent: one refund approval, then done; counts its model's turns. */
 function scriptedClerk(
-  mockLlm: (agent: typeof DeskClerkAgent) => {
-    thenAnswer: (answer: (request: ModelRequest) => ScriptedTurn) => unknown;
+  mockModel: (agent: typeof DeskClerkAgent) => {
+    respondWith: (answer: (request: ModelRequest) => ScriptedTurn) => unknown;
   },
 ): { turns: () => number } {
   let turns = 0;
-  mockLlm(DeskClerkAgent).thenAnswer((request) => {
+  mockModel(DeskClerkAgent).respondWith((request) => {
     turns += 1;
     return isAnswered(request) ? replyWith("Refunded.") : callTool(RefundTool, { orderId: "7" });
   });
@@ -128,8 +129,8 @@ function scriptedClerk(
 describe("#946 AC1: an operator reassigns an approval", () => {
   desk(
     "AC1: the old id is refused 'reassigned', the deputy's answer goes on, the agent's model is not called again",
-    async ({ app, mockLlm }) => {
-      const clerk = scriptedClerk(mockLlm);
+    async ({ app, mockModel }) => {
+      const clerk = scriptedClerk(mockModel);
       const paused = await execute(app, DeskWorkflowStart, REFUND);
       expect(paused.status).toBe(ExecutionStatus.Paused);
       const oldId = asksAbout("7")[0]?.pauseId ?? "";
@@ -146,7 +147,7 @@ describe("#946 AC1: an operator reassigns an approval", () => {
       // the caller gets the new pause's key, never its id (a capability)
       expect(moved).toMatchObject({ pauseKey: pauseKeyOf("default", sent.pauseId) });
       const refused = await failureOf(app.resume({ pauseId: oldId, decision: approve }, manager));
-      expect(refused).toBeInstanceOf(PauseClosedError);
+      expect(refused).toBeInstanceOf(PauseError.Closed);
       expect(refused).toMatchObject({ reason: PauseClosedReason.Reassigned });
 
       const done = await app.resume({ pauseId: sent.pauseId, decision: approve }, manager);
@@ -161,8 +162,8 @@ describe("#946 AC1: an operator reassigns an approval", () => {
 
   desk(
     "AC1: the old pause is Cancelled / Reassigned, the replacement is sent; a first send carries neither assignee nor replaces",
-    async ({ app, mockLlm }) => {
-      scriptedClerk(mockLlm);
+    async ({ app, mockModel }) => {
+      scriptedClerk(mockModel);
       await execute(app, DeskWorkflowStart, REFUND);
       const [first] = asksAbout("7");
       expect(first).not.toHaveProperty("assignee");
@@ -198,8 +199,8 @@ describe("#946 AC1: an operator reassigns an approval", () => {
 
   desk(
     "AC1: the channel hears the new send and onPauseClosed(reassigned) of the old message — each once, in either order",
-    async ({ app, mockLlm }) => {
-      scriptedClerk(mockLlm);
+    async ({ app, mockModel }) => {
+      scriptedClerk(mockModel);
       await execute(app, DeskWorkflowStart, REFUND);
       const oldId = asksAbout("7")[0]?.pauseId ?? "";
 
@@ -229,8 +230,8 @@ describe("#946 AC1: an operator reassigns an approval", () => {
 
   desk(
     "AC1: one of three approvers reassigned: the other two pauses are unchanged; the pending list names the live pauses; the next answer's pass does not ask again",
-    async ({ app, mockLlm }) => {
-      mockLlm(BatchRefundAgent).thenAnswer((request) => {
+    async ({ app, mockModel }) => {
+      mockModel(BatchRefundAgent).respondWith((request) => {
         const orderId = orderOf(request);
         return isAnswered(request)
           ? replyWith(RefundDoneDto, { orderId })
@@ -285,8 +286,8 @@ describe("#946 AC1: an operator reassigns an approval", () => {
 
   priced(
     "AC1: a reassigned approval's sleeping loop keeps its spend at finishRun, and a resume counts nothing twice",
-    async ({ app, mockLlm }) => {
-      mockLlm(PricedRefundAgent).thenAnswer((request) => {
+    async ({ app, mockModel }) => {
+      mockModel(PricedRefundAgent).respondWith((request) => {
         const orderId = orderOf(request);
         const tools =
           request.kind === "chat" ? request.messages.filter((m) => m.role === "tool").length : 0;
@@ -325,8 +326,8 @@ describe("#946 AC1: an operator reassigns an approval", () => {
 
   desk(
     "AC1: the new id is in no log and no listener's notice without includePauseIds, and in no result of the call",
-    async ({ app, mockLlm }) => {
-      scriptedClerk(mockLlm);
+    async ({ app, mockModel }) => {
+      scriptedClerk(mockModel);
       await execute(app, DeskWorkflowStart, REFUND);
       const oldId = asksAbout("7")[0]?.pauseId ?? "";
 
@@ -363,8 +364,8 @@ describe("#946 AC1: an operator reassigns an approval", () => {
 describe("#946 AC2: the instance dies, or the channel fails, between the reassignment and the new send", () => {
   desk(
     "AC2: a send that fails leaves the replacement unsent; a later look sends it again with replaces and assignee, once",
-    async ({ app, mockLlm, clock }) => {
-      scriptedClerk(mockLlm);
+    async ({ app, mockModel, clock }) => {
+      scriptedClerk(mockModel);
       await execute(app, DeskWorkflowStart, REFUND);
       const oldId = asksAbout("7")[0]?.pauseId ?? "";
       hooks.beforeSendReturns = (ask) =>
@@ -407,8 +408,8 @@ describe("#946 AC2: the instance dies, or the channel fails, between the reassig
 
   desk(
     "AC2: the replacement is sent once more at most per look: a channel that keeps failing is asked once each look, never twice at once",
-    async ({ app, mockLlm, clock }) => {
-      scriptedClerk(mockLlm);
+    async ({ app, mockModel, clock }) => {
+      scriptedClerk(mockModel);
       await execute(app, DeskWorkflowStart, REFUND);
       const oldId = asksAbout("7")[0]?.pauseId ?? "";
       let release: () => void = () => undefined;
@@ -439,8 +440,8 @@ describe("#946 AC2: the instance dies, or the channel fails, between the reassig
 
   desk(
     "AC2: a slow channel's closed notice is retried while the new send went out (no order asserted)",
-    async ({ app, mockLlm, clock }) => {
-      scriptedClerk(mockLlm);
+    async ({ app, mockModel, clock }) => {
+      scriptedClerk(mockModel);
       await execute(app, DeskWorkflowStart, REFUND);
       const oldId = asksAbout("7")[0]?.pauseId ?? "";
       hooks.closeFailure = new Error("the old message cannot be edited yet");
@@ -462,8 +463,8 @@ describe("#946 AC2: the instance dies, or the channel fails, between the reassig
 
   twoDesks(
     "AC2: a failure whose message carries the new pause id reaches no log line, from the call or the re-send look",
-    async ({ apps, mockLlm, clock }) => {
-      scriptedClerk(mockLlm);
+    async ({ apps, mockModel, clock }) => {
+      scriptedClerk(mockModel);
       await execute(instance(apps, 0), DeskWorkflowStart, REFUND, THREAD);
       const oldId = asksAbout("7")[0]?.pauseId ?? "";
       const store = pauseStore();
@@ -492,8 +493,8 @@ describe("#946 AC2: the instance dies, or the channel fails, between the reassig
 
   desk(
     "AC2: a channel that decides at once for the reassigned send answers the replacement through the normal answer path, once; the run goes on",
-    async ({ app, mockLlm }) => {
-      const clerk = scriptedClerk(mockLlm);
+    async ({ app, mockModel }) => {
+      const clerk = scriptedClerk(mockModel);
       await execute(app, DeskWorkflowStart, REFUND, THREAD);
       const oldId = asksAbout("7")[0]?.pauseId ?? "";
       hooks.decideReassigned = approve;
@@ -515,14 +516,14 @@ describe("#946 AC2: the instance dies, or the channel fails, between the reassig
       // nothing waits: the new id answers nothing more
       expect(
         await failureOf(app.resume({ pauseId: newId, decision: approve }, manager)),
-      ).toBeInstanceOf(PauseClosedError);
+      ).toBeInstanceOf(PauseError.Closed);
     },
   );
 
   twoDesks(
     "AC2 (money path): a reassigned send that decides, the answer lost before it was recorded, then the re-send looks of two instances: the channel decides again and the answer applies exactly once",
-    async ({ apps, mockLlm, clock }) => {
-      const clerk = scriptedClerk(mockLlm);
+    async ({ apps, mockModel, clock }) => {
+      const clerk = scriptedClerk(mockModel);
       await execute(instance(apps, 0), DeskWorkflowStart, REFUND, THREAD);
       const oldId = asksAbout("7")[0]?.pauseId ?? "";
       hooks.decideReassigned = approve;
@@ -567,8 +568,8 @@ describe("#946 AC2: the instance dies, or the channel fails, between the reassig
 
   desk(
     "V3.4: a Resolved replacement whose first interrupt still waits is closed not taken at the tree's end, never marked Taken",
-    async ({ app, mockLlm, clock }) => {
-      scriptedClerk(mockLlm);
+    async ({ app, mockModel, clock }) => {
+      scriptedClerk(mockModel);
       await execute(app, DeskWorkflowStart, REFUND, THREAD);
       const oldId = asksAbout("7")[0]?.pauseId ?? "";
       await app.reassignPause(
@@ -634,7 +635,7 @@ describe("#946 AC3: the deadline, and the races", () => {
       );
 
       for (const refused of [early, late]) {
-        expect(refused).toBeInstanceOf(PauseClosedError);
+        expect(refused).toBeInstanceOf(PauseError.Closed);
         expect(refused).toMatchObject({ reason: PauseClosedReason.Expired, closedAt: deadline });
       }
       expect(told.sent).toHaveLength(1);
@@ -662,7 +663,7 @@ describe("#946 AC3: the deadline, and the races", () => {
       );
       look.mockRestore();
 
-      expect(refused).toBeInstanceOf(PauseClosedError);
+      expect(refused).toBeInstanceOf(PauseError.Closed);
       expect(write).not.toHaveBeenCalled();
     },
   );
@@ -688,7 +689,7 @@ describe("#946 AC3: the deadline, and the races", () => {
       const lost = rejectionsOf(results);
       expect(lost).toHaveLength(1);
       const [refused] = lost;
-      expect(refused).toBeInstanceOf(PauseClosedError);
+      expect(refused).toBeInstanceOf(PauseError.Closed);
       expect(refused).toMatchObject({ reason: PauseClosedReason.Reassigned });
       expect(told.sent.filter((ask) => ask.replaces !== undefined)).toHaveLength(1);
     },
@@ -720,7 +721,7 @@ describe("#946 AC3: the deadline, and the races", () => {
         expect(results.filter((one) => one.status === "fulfilled")).toHaveLength(1);
         const reassignedOk = told.sent.some((ask) => ask.replaces !== undefined);
         const [loser] = rejectionsOf(results);
-        expect(loser).toBeInstanceOf(PauseClosedError);
+        expect(loser).toBeInstanceOf(PauseError.Closed);
         expect(loser).toMatchObject({
           // the loser is refused with the reason of the close that won
           reason: reassignedOk ? PauseClosedReason.Reassigned : PauseClosedReason.Answered,
@@ -827,7 +828,7 @@ describe("#946: who may reassign, and what is refused", () => {
       const request = { pauseId, channel: ExtendOwnerBackupChannel, assignees: ["deputy-3"] };
 
       expect(await failureOf(app.reassignPause(request, { ownerId: "bob" }))).toBeInstanceOf(
-        ThreadOwnerError,
+        ExecutionError.ThreadOwnerMismatch,
       );
       expect(await failureOf(app.reassignPause(request, manager))).toBeInstanceOf(
         PauseError.PermissionDenied,
@@ -854,7 +855,7 @@ describe("#946: who may reassign, and what is refused", () => {
   });
 
   extension(
-    "an assignee that is no key's text is a DtoValidationError on ReassignPauseRequest",
+    "an assignee that is no key's text is a ValidationError.DtoInvalid on ReassignPauseRequest",
     async ({ app }) => {
       await execute(app, managerFlow.start, { orderId: "o-1" }, THREAD);
       const pauseId = told.sent[0]?.pauseId ?? "";
@@ -877,7 +878,7 @@ describe("#946: who may reassign, and what is refused", () => {
               manager,
             ),
           ),
-        ).toMatchObject({ name: "DtoValidationError", dto: "ReassignPauseRequest" });
+        ).toMatchObject({ name: "ValidationError.DtoInvalid", dto: "ReassignPauseRequest" });
       expect(
         await failureOf(
           app.reassignPause(
@@ -885,13 +886,13 @@ describe("#946: who may reassign, and what is refused", () => {
             manager,
           ),
         ),
-      ).toBeInstanceOf(DtoValidationError);
+      ).toBeInstanceOf(ValidationError.DtoInvalid);
       expect(told.sent).toHaveLength(1);
     },
   );
 
   extension(
-    "another tenant's pause, and an unknown one, are UnknownPauseError",
+    "another tenant's pause, and an unknown one, are PauseError.UnknownPause",
     async ({ app }) => {
       await execute(
         app,
@@ -906,13 +907,13 @@ describe("#946: who may reassign, and what is refused", () => {
       };
 
       expect(await failureOf(app.reassignPause(request, manager))).toBeInstanceOf(
-        UnknownPauseError,
+        PauseError.UnknownPause,
       );
       expect(
         await failureOf(
           app.reassignPause({ ...request, pauseId: "nope" }, { ...manager, tenantId: "acme" }),
         ),
-      ).toBeInstanceOf(UnknownPauseError);
+      ).toBeInstanceOf(PauseError.UnknownPause);
       const moved = await app.reassignPause(request, { ...manager, tenantId: "acme" });
       expect(moved.pauseKey).toBeDefined();
     },
@@ -932,7 +933,7 @@ describe("#946: who may reassign, and what is refused", () => {
         ),
       );
 
-      expect(refused).toBeInstanceOf(PauseClosedError);
+      expect(refused).toBeInstanceOf(PauseError.Closed);
       expect(refused).toMatchObject({ reason: PauseClosedReason.Answered });
     },
   );

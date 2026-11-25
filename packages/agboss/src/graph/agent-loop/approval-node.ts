@@ -1,4 +1,7 @@
-import { WorkingCalendarError } from "../../calendar/working-calendar.js";
+import { StepError } from "../../core/error-families/step-errors.js";
+import { LimitError } from "../../core/error-families/limit-errors.js";
+import { PauseError } from "../../core/error-families/pause-errors.js";
+import { ValidationError } from "../../core/error-families/effect-errors.js";
 import type { AsyncNode } from "../types.js";
 import { awaitingApproval } from "./boundary.js";
 import { toolNamed } from "./deps.js";
@@ -14,15 +17,12 @@ import {
   type CallDecision,
 } from "./state.js";
 import type { RunnableConfig } from "@langchain/core/runnables";
-import { DtoValidationError } from "../../dto/errors.js";
 import { countBoundOf } from "../count-limit.js";
 import { totalCost } from "../../finops/usage.js";
 import { currentFrame } from "../../flow/context/frame.js";
-import { VisitsLimitExceededError } from "../../flow/runtime/errors.js";
 import { ChannelSendError } from "../../flow/runtime/pause.js";
 import { expiryFailureOf, PauseExpirySignal } from "../../flow/runtime/pause-expiry-failure.js";
 import { ComponentKind } from "../../flow/runtime/records.js";
-import { AgentFailedError } from "../errors.js";
 import type { ToolCallApproval } from "./approval.js";
 import type { ToolCallRequest } from "./deps.js";
 import { redactedArguments } from "../../dto/redact.js";
@@ -109,7 +109,7 @@ function approvalOf(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType, AgentLoo
  * A question role an agent asks through its tool loop (#712), at the loop's approval step — before
  * the move's tools run, one call per pause, in the move's order. Before the ask: the role's
  * `maxVisits` (how many of its calls one visit may ask; the next one fails the step with
- * `VisitsLimitExceededError`), the execution's budgets (an exhausted one asks nobody) and the
+ * `LimitError.Visits`), the execution's budgets (an exhausted one asks nobody) and the
  * holder's fence (a holder past its lease asks nobody: a hand-over). The ask is the pause seam's:
  * its record made by the call's step key before `send`, so the re-entry on resume finds the answer
  * and asks nothing again. The answer, validated as the role's `answer`, is kept by call id: the
@@ -146,13 +146,13 @@ async function askedOrFailed<TAnswer>(
     return await ask();
   } catch (error) {
     // a calendar that could not answer (#944): nobody was asked, the agent's step fails
-    const isCalendar = error instanceof WorkingCalendarError;
-    if ((isQuestion && error instanceof DtoValidationError) || isCalendar)
-      throw new AgentFailedError({ agent: deps.agent.name, usage: loopUsage(state), cause: error });
+    const isCalendar = error instanceof PauseError.WorkingCalendar;
+    if ((isQuestion && error instanceof ValidationError.DtoInvalid) || isCalendar)
+      throw new StepError.Agent({ agent: deps.agent.name, usage: loopUsage(state), cause: error });
     // its pause's deadline passed (#941): the whole agent step fails, its spend kept
     if (error instanceof PauseExpirySignal) throw expiryOf(error, state, deps);
     if (!(error instanceof ChannelSendError)) throw error;
-    throw new AgentFailedError({
+    throw new StepError.Agent({
       agent: deps.agent.name,
       usage: loopUsage(state),
       cause: error.cause,
@@ -180,7 +180,7 @@ function checkBeforeAsking(state: AgentLoopStateType, deps: AgentLoopDeps, tool:
   const spent = totalCost(state.usage);
   // a limit that is no count is a bound of 0, as in the flow's own guard (#1373)
   if (maxVisits !== undefined && askedOf(state, tool) >= countBoundOf(maxVisits))
-    throw new VisitsLimitExceededError({
+    throw new LimitError.Visits({
       component: toolRecordOf(tool),
       maxVisits: countBoundOf(maxVisits),
       path: state.flowPath,

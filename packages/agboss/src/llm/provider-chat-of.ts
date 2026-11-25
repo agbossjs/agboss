@@ -1,3 +1,4 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import type { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import type { ResolvedModelSettings } from "../config/types.js";
 import { connectionOf } from "../models/connections.js";
@@ -10,10 +11,6 @@ import {
 } from "../models/resolve.js";
 import type { ChatExtensions, ProviderClientOptions } from "./provider-clients.js";
 import type { ChatOf } from "./provider-fallback.js";
-
-export class ProviderCapabilityError extends Error {
-  override name = "ProviderCapabilityError";
-}
 
 /** Each provider's connection, made once (its key read at the first). */
 export function connectionsOf(
@@ -54,14 +51,14 @@ export function chatOfProviders(parts: ChatParts): ChatOf {
   return (provider: RegisteredModelProvider, settings: ResolvedModelSettings): BaseChatModel => {
     if (provider.handler === undefined || isTransportClass(provider.type)) {
       if (extensions === undefined)
-        throw new ProviderCapabilityError(
+        throw new ConfigError.ModelProvider(
           `${provider.options.name}: its chat models are not loaded (chatExtensionsFor)`,
         );
       return extensions.transportChatOf(provider, settings, options);
     }
     const chat = provider.handler.chat?.bind(provider.handler);
     if (chat === undefined)
-      throw new ProviderCapabilityError(`${provider.options.name} has no chat models`);
+      throw new ConfigError.ModelProvider(`${provider.options.name} has no chat models`);
     return chat({
       settings,
       reasoning: settings.reasoning ?? provider.options.reasoning,

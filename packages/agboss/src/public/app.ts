@@ -95,9 +95,7 @@ export {
   type ExecutionHistoryRecord,
 } from "../infrastructure/execution-history.repository.js";
 export {
-  IncompatibleResumeError,
   ResumeDecision,
-  type IncompatibleResumeErrorOptions,
   type IncompatibleResume,
   type IncompatibleResumePolicy,
   type ResumeVersions,
@@ -160,7 +158,7 @@ export type {
   TenantContextClass,
   TenantValues,
 } from "../flow/context/context-values.js";
-export { loadWorkflowClass, WorkflowLoadError } from "../loader/load-workflow.js";
+export { loadWorkflowClass } from "../loader/load-workflow.js";
 export {
   compareProfiles,
   type CompareProfilesOptions,

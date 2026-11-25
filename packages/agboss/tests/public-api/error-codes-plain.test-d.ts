@@ -3,6 +3,7 @@
  * instance `code` — over every entry that exports one, so a `switch (error.code)` narrows over them
  * too. The classes of the entries are read from their modules, not listed.
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expectTypeOf, it } from "vitest";
 import * as dto from "../../src/dto/index.js";
 import * as root from "../../src/index.js";
@@ -18,7 +19,7 @@ import type {
   TestFailure,
 } from "../../src/testing/index.js";
 import type { StoreConformanceError } from "../../src/testing/contracts/index.js";
-import type { EnvironmentError, EnvironmentErrorCode } from "../../src/index.js";
+import type { EnvironmentErrorCode } from "../../src/index.js";
 
 type ErrorClassesOf<M> = {
   [K in keyof M as M[K] extends abstract new (...args: never) => Error ? K : never]: M[K];
@@ -50,7 +51,10 @@ describe("#906 D1: every error class has a literal code on its instance", () => 
     expectTypeOf<LiveCallBlockedError["code"]>().toEqualTypeOf<"test.live-call-blocked">();
     expectTypeOf<CassetteMissingError["code"]>().toEqualTypeOf<"test.cassette-missing">();
     expectTypeOf<AppCloseTimeoutError["code"]>().toEqualTypeOf<"test.close-timeout">();
-    expectTypeOf<EnvironmentError["code"]>().toEqualTypeOf<EnvironmentErrorCode>();
+    expectTypeOf<ConfigError.Environment["code"]>().toEqualTypeOf<"config.environment">();
+    expectTypeOf<ConfigError.Environment["envCode"]>().toEqualTypeOf<
+      EnvironmentErrorCode | undefined
+    >();
   });
 
   it("a store set's refusal narrows over its first problem's rule", () => {

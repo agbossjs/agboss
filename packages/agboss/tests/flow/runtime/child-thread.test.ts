@@ -48,9 +48,9 @@ beforeEach(() => {
 describe("ADR-0022: a child's state is on its own thread", () => {
   test("a paused child rests on its own thread; its parent's task keeps only its marker", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ItemReviewerAgent).thenAnswer(reviewer);
+    mockModel(ItemReviewerAgent).respondWith(reviewer);
 
     const paused = await execute(
       app,

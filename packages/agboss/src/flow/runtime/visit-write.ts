@@ -1,12 +1,12 @@
+import { StepError } from "../../core/error-families/step-errors.js";
+import { ExecutionError } from "../../core/error-families/run-errors.js";
 import type { UsageRecord } from "../../finops/usage.js";
 import type { FlowEdge } from "../analyse/flow-graph.js";
-import { OutputInvalidError } from "./errors.js";
 import type { RuntimeNode } from "./graph-model.js";
 import type { NodeOutcome } from "./node-runner.js";
 import { writeAndOutdate, type OutdatingCascade } from "./outdating.js";
 import { builtFromOf, type RuntimeProvenance } from "./provenance.js";
 import type { OutdatedValueRecord, ScopeRecords } from "./records.js";
-import { RouterDecisionError } from "./router-error.js";
 import { recordsOfWrites } from "./scope.js";
 import type { ExecutionStateType, ExecutionStateUpdate } from "./state.js";
 import { visitNumberOf } from "./step-frame.js";
@@ -65,7 +65,7 @@ function caseExitOf(node: RuntimeNode, outcome: NodeOutcome): FlowEdge {
   const variant = outcome.value?.variant ?? "";
   const branch = node.exits.cases.get(variant) ?? node.exits.cases.get(outcome.value?.finish ?? "");
   if (branch !== undefined) return branch;
-  throw new OutputInvalidError({
+  throw new ExecutionError.OutputInvalid({
     message: `${node.id} gave ${variant || "no class"}, which its .toOneOf([…]) has no branch for`,
   });
 }
@@ -84,7 +84,7 @@ export function exitOf(
     const visit = { nodeId: node.id, visitNumber: visitNumberOf(node, state) };
     const step = { ...visit, component: recordOfNode(deps, node.id) };
     const reason = `"${outcome.route}" is not one of its routes`;
-    throw new RouterDecisionError({ ...step, reason, usage: outcome.usage });
+    throw new StepError.RouterDecision({ ...step, reason, usage: outcome.usage });
   }
   if (exits.cases.size > 0) return caseExitOf(node, outcome);
   return exits.next;

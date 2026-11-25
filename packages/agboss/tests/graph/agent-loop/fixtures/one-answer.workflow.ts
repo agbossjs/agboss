@@ -104,11 +104,9 @@ export class ReadingWorkflowFinish {}
   name: "review-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(ReviewWorkflowStart)
-      .toAgent(LegalReviewAgent)
-      .toFinish(ReviewWorkflowFinish),
-  ],
+  flow: [onStart(ReviewWorkflowStart)
+    .toAgent(LegalReviewAgent)
+    .toFinish(ReviewWorkflowFinish)],
 })
 export class ReviewWorkflow {}
 
@@ -116,11 +114,9 @@ export class ReviewWorkflow {}
   name: "reading-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(ReadingWorkflowStart)
-      .toAgent(ClauseReaderAgent)
-      .toFinish(ReadingWorkflowFinish),
-  ],
+  flow: [onStart(ReadingWorkflowStart)
+    .toAgent(ClauseReaderAgent)
+    .toFinish(ReadingWorkflowFinish)],
 })
 export class ReadingWorkflow {}
 

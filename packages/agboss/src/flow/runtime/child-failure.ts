@@ -1,13 +1,13 @@
+import { isExecutionCancelled } from "../../core/execution-cancelled.js";
+import { ExecutionError } from "../../core/error-families/run-errors.js";
 import type { RunnableConfig } from "@langchain/core/runnables";
 import type { BaseCheckpointSaver } from "@langchain/langgraph";
 import type { BudgetMeter } from "../../budgets/execution-budgets.js";
-import { ExecutionCancelledError } from "../../core/errors.js";
 import type { RunContext } from "../../core/run-context.js";
 import type { GraphDeps } from "../../graph/deps.js";
 import { takeCarriedRecords } from "./carried-records.js";
 import { compensationRecordsOf, type CompensationRecord } from "../compensation.js";
 import { canHoldEntries, isChildsEntry } from "./compensation/held-entries.js";
-import { CompensationFailedError } from "../compensation.js";
 import type { Frame } from "../context/frame.js";
 import type { ExecutionEvent } from "../observers/execution-event.js";
 import type { ChildGraph } from "./child.js";
@@ -28,7 +28,7 @@ import { lazyLoad } from "../../infrastructure/clock.js";
 /**
  * A child execution that threw, as its parent's step sees it (#263 S25): undone first (#340 Q2,
  * `compensation/child-unwind.ts`, loaded only for a child whose workflow declares an undo), its
- * record and spend kept, its error event observed, its failure thrown — `CompensationFailedError`
+ * record and spend kept, its error event observed, its failure thrown — `ExecutionError.CompensationFailed`
  * as it is (S5).
  */
 
@@ -83,7 +83,7 @@ export interface ChildUndo {
 
 /**
  * A child that ended without a finish undoes its own open entries first (#340 Q2): the error its
- * parent gets — `CompensationFailedError` when an undo failed (S5) — and the entries it closed, kept
+ * parent gets — `ExecutionError.CompensationFailed` when an undo failed (S5) — and the entries it closed, kept
  * in the parent's state with the error. Loaded only for a child that can open one.
  */
 async function undoneChild(
@@ -130,8 +130,8 @@ async function keptForParent(
 ): Promise<void> {
   for (const record of failure.reported) parent.frame.services.reportUsage?.(record);
   if (
-    raised instanceof CompensationFailedError ||
-    isRecordedAs(raised, CompensationFailedError.code)
+    raised instanceof ExecutionError.CompensationFailed ||
+    isRecordedAs(raised, ExecutionError.CompensationFailed.code)
   )
     await parent.undo.budgets?.record(failure.usage);
 }
@@ -164,7 +164,7 @@ export async function failedChild(
   assertAnnouncing(frame);
   // #596: one pass of all that saw it wins the claim; its fence checked again after the round trip
   const { tenantId } = frame.execution.tenant;
-  const cause = failure.thrown instanceof ExecutionCancelledError ? failure.thrown : error;
+  const cause = isExecutionCancelled(failure.thrown) ? failure.thrown : error;
   if (!(await isFailureClaimed(parent.deps, ended.identity, tenantId, cause))) throw raised;
   assertAnnouncing(frame);
   const asError = raised instanceof Error ? raised : new Error(String(error));

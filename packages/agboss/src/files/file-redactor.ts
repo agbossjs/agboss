@@ -64,7 +64,7 @@ const work = () => lazyLoad(import("./model-image-redactor-work.js"));
  * The built-in redactor of images: one call to the agent's `redactionModel` for the regions that hold
  * the targets, then a copy of the image, its EXIF orientation applied and its metadata gone, with those
  * regions blacked out. `sharp` is an optional peer dependency: the built-in needs it, a project with its
- * own redactor does not. Any failure fails closed (`FileRedactionFailedError`): never the unredacted file.
+ * own redactor does not. Any failure fails closed (`StepError.FileMaskingFailed`): never the unredacted file.
  */
 @Injectable()
 export class ModelImageRedactor extends FileRedactor {

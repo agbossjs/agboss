@@ -5,7 +5,7 @@
 call any v1.0 agent. The 0.1.0 wire is gone, with **no shim**: its `POST <url>/execute`, `/resume`
 and `/cancel`, its `agboss-mesh` header and its `A2AExecutionResponse`. A 0.1.1 client and a 0.1.0
 server do not interoperate — upgrade both sides of an A2A call together. MCP is unchanged. A v0.3
-agent is an explicit `A2AProtocolError` naming its version.
+agent is an explicit `A2AError.Protocol` naming its version.
 
 Pauses change too: `withdraw` on a channel is gone — [`onPauseClosed`](#pauses--withdraw-is-gone-a-channel-hears-every-close)
 replaces it — and `answeredBy` on a channel role is `answerer`.
@@ -26,7 +26,7 @@ the AGBoss guarantees as two extensions
 | `a2aHttpListener(app, { endpoint, authenticator })`                      | adds `publicUrl`: where callers reach it, the card's interface URL                                                                                                                                               |
 | `@A2AExpose({ name, version, exports })`                               | `@A2AEndpoint({ name, version, description, ttl, skills })`: a `description` (`[a2a.endpoint-description-required]`), a required `ttl`, and `skills: [{ start, tags }]` for a card worth finding (`[a2a.skill-tags]`, a warning) |
 | `A2AExecutionResponse`, `A2AStatus`, `A2AEvent`, `A2AExecutionRequest` | removed; a call returns the remote output (`execute`) or an `A2ATaskResult` (`send`)                                                                                                                             |
-| `A2ARemoteError`, `A2AContract`                                        | `A2ARemoteCallError`, `A2AClientContract`; the adapter types are gone                                                                                                                                            |
+| `A2ARemoteError`, `A2AContract`                                        | `A2AError.Remote`, `A2AClientContract`; the adapter types are gone                                                                                                                                            |
 | the mesh envelope in the `agboss-mesh` header                          | `message.metadata["https://agboss.dev/a2a/mesh/v1"].envelope`                                                                                                                                                    |
 | a run report in the response body                                      | `task.metadata[uri].report`                                                                                                                                                                                      |
 | `describe --json` exports and imports by `start`                       | by `skill`; a foreign `@A2AAgent` is listed with `foreign: true` — re-save your federation snapshots (a 0.1.0 snapshot is still read)                                                                            |
@@ -108,7 +108,7 @@ observed of it ([Guards → Levels](Guards#levels)). What to check:
 that launches another changes once** when the application or the workflow itself lists a PII
 policy: its snapshot adds `handedDown`, the policies its children inherit, so an inherited policy's
 change is a change of the root. A tree of such a root paused or running before the upgrade is
-incompatible with it (`IncompatibleResumeError`, `recovery.incompatible`) unless the root's
+incompatible with it (`ExecutionError.IncompatibleResume`, `recovery.incompatible`) unless the root's
 `onIncompatibleResume` says `ResumeDecision.Resume` — as for any change of what its models read: the child now
 runs under its chain's policies, which it did not under 0.1.0. Finish or drain those trees before
 the upgrade, or give the root an `onIncompatibleResume` policy. Workflows without children, and trees where
@@ -205,7 +205,7 @@ carries it to the people. It is a hard break — no alias, nothing to keep compi
 
 A target with several channels names a `@ChannelSelector({ target })` that picks one when a pause is
 made. An `Owner` target with no channel at all waits for `app.resume`. A stored pause, run or answer entry
-written by 0.1.0 has no `target` and is refused (`StoredNamesUnreadableError`), never read.
+written by 0.1.0 has no `target` and is refused (`StoreError.UnreadableRecord`), never read.
 
 Your own `PausedExecutionRepository` or a store of another team: pauses have a deadline, a reminder and
 mailboxes of notices now, in the same transactions as their changes — a schema change in each of the
@@ -244,7 +244,7 @@ below are for a database an earlier build of the package wrote; SQLite is the co
   still works on a file 0.1.1 opened, and 0.1.1 reads what 0.1.0 wrote in order (#1035). A second
   process still on 0.1.0, or a rollback to it, does not break checkpoint writes — but it is not
   supported: the file is stamped, and **a later build** that finds a stamp above its own refuses the
-  file at open (`SqliteSchemaTooNewError`, code `sqlite.schema-too-new`, before it creates a table
+  file at open (`StoreError.SchemaTooNew`, code `store.schema-too-new`, before it creates a table
   or writes a row), as `PostgresSchemaTooNewError` and `MongoSchemaTooNewError` do. 0.1.0 is already
   released and cannot be taught that: stopping it is the rule (#1104). A pause that a 0.1.0 process
   writes without its `channel` is found by a page filtered by channel all the same, and the column is
@@ -257,3 +257,24 @@ below are for a database an earlier build of the package wrote; SQLite is the co
   [MongoDB](MongoDB#the-schema-and-its-versions).
 
 The full list of changes of the release is in the [Changelog](Changelog).
+
+## Errors — the classes are variants of families (#1325)
+
+Every error class below is gone from `@agboss/core` (no alias); catch the variant, or its family for all of them. A variant is a sibling of the others of its family, never their subclass. A record's code line is `[variant code, family code, "agboss"]` (`step.failed` is gone).
+
+| Was | Is | Code was → is |
+| --- | --- | --- |
+| `StepFailedError`, `PaidStepError` | `StepError` | `step.failed`, `step` → `step` |
+| `AgentFailedError`, `AgentAnswerInvalidError`, `QualityGateError` | `StepError.Agent`, `.AgentAnswerInvalid`, `.QualityGate` | unchanged |
+| `ActionFailedError`, `QuestionFailedError`, `GuardFailedError` | `StepError.Action`, `.ExternalTask` (`externalTask`), `.Guardrail` (`guardrail`) | `step.question` → `step.external-task`, `step.guard` → `step.guardrail` |
+| `RouterFailedError`, `RouterDecisionError` | `StepError.Router`, `StepError.RouterDecision` (no longer a subclass) | unchanged |
+| `ArbiterError`, `QuorumNotReachedError`, `ChildExecutionFailedError`, `PauseExpiredError` (`kind` → `pauseKind`), `ToolBlockedError` | `StepError.Arbiter`, `.QuorumNotReached`, `.Child`, `.PauseExpired`, `.ToolBlocked` | unchanged |
+| `GuardrailBlockedError` (`guard` → `guardrail`), `PiiRefusedError` (`kind` → `piiKind`), `PiiDetectionFailedError` | `GuardrailError.Blocked`, `PiiError.Refused`, `PiiError.DetectionFailed` | unchanged |
+| `LimitExceededError`, `BudgetExceededError`, `DeadlineExceededError`, `StepsLimitExceededError`, `VisitsLimitExceededError`, `DepthLimitExceededError`, `HopsLimitExceededError`, `MeshLoopDetectedError` | `LimitError`, `LimitError.Budget`, `.Deadline`, `.Steps`, `.Visits`, `.Depth`, `.Hops`, `.MeshLoop` (an agent's own limits: `LimitError.Agent`) | unchanged (`limit` → `limit.agent` for the last) |
+| `GraphRuleError`, `ConfigurationError`, `EnvironmentError`, `EvalCaseInvalidError`, `NotAWorkflowStartError`, `WorkflowLoadError`, `ApplicationLoadError`, `ModelKindError` | `ConfigError.GraphRules`, `.ModelSettings`, `.Environment` (`envCode`), `.EvalCase`, `.NotAWorkflowStart`, `.WorkflowLoad`, `.ApplicationLoad`, `.ModelKind` | `graph.rules`, `eval.case-invalid`, `workflow.not-a-start`, `load.*`, `model.wrong-kind` → `config.*` |
+| `UnknownThreadError`, `ThreadOwnerError`, `InvalidThreadIdError`, `DuplicateExecutionIdError`, `IncompatibleResumeError`, `CompensationFailedError`, `ExecutionCancelFencedError` | `ExecutionError.UnknownThread`, `.ThreadOwnerMismatch`, `.InvalidThreadId`, `.DuplicateExecutionId`, `.IncompatibleResume`, `.CompensationFailed`, `.CancelFenced` (a cancel, no hand-over) | `run.*`, `resume.incompatible`, `compensation.failed` → `execution.*` |
+| `PauseClosedError`, `UnknownPauseError`, `PauseExtensionContendedError`, `ExpiryHandlerError` | `PauseError.Closed`, `.UnknownPause`, `.UpdateContended`, `.ExpiryHandlerFailed` | unchanged |
+| `StoreOutcomeUnknownError`, `StoreCallTimeoutError` (no longer a subclass; `isStoreOutcomeUnknown(error)` is true for both), `StoredNamesUnreadableError`, `CostLedger*Error` | `StoreError.OutcomeUnknown`, `.CallTimeout`, `.UnreadableRecord`, `.Ledger*` | `stored.unreadable`, `cost-ledger.*` → `store.*` |
+| `A2A*Error` (client) | `A2AError.*` | unchanged |
+
+`ExecutionCancelledError` and its subclasses are internal now; `isExecutionCancelled` is in `@agboss/core/internal`.

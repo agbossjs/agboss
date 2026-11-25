@@ -3,6 +3,7 @@
  * hand-over: 15 s for an unleased call, 5 min for a retention delete or an A2A file save, even
  * inside a lease scope; and the work that goes on after the terminal record stays unleased.
  */
+import { StoreError } from "../../src/core/error-families/store-errors.js";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   FileRepository,
@@ -11,7 +12,6 @@ import {
   ExecutionLeaseRepository,
   ExecutionRecordRepository,
   PausedExecutionRepository,
-  StoreCallTimeoutError,
   StoreOutcomeSource,
 } from "../../src/index.js";
 import { A2ATaskRepository } from "../../src/stores/index.js";
@@ -62,7 +62,7 @@ const unleased = [
 
 describe("#928 AC1: an unleased call held for ever", () => {
   it.each(unleased)(
-    "AC1: %s rejects StoreCallTimeoutError after 15 s on the Clock, and not before",
+    "AC1: %s rejects StoreError.CallTimeout after 15 s on the Clock, and not before",
     async (_name, contract, operation) => {
       const { store, clock, reported } = boundedOver(contract, new SilentStore());
       const call = outcomeOf(Reflect.apply(Reflect.get(store, operation), store, []));
@@ -74,7 +74,7 @@ describe("#928 AC1: an unleased call held for ever", () => {
       await clock.advance(seconds(1));
       const error = await call;
 
-      expect(error).toBeInstanceOf(StoreCallTimeoutError);
+      expect(error).toBeInstanceOf(StoreError.CallTimeout);
       expect(error).toMatchObject({
         store: "SilentStore",
         operation,
@@ -153,7 +153,7 @@ describe("#928 AC1: a long call is bounded by 5 min and never hands over", () =>
   ] as const;
 
   it.each(long)(
-    "AC1: %s, inside a step frame's lease, rejects StoreCallTimeoutError at 5 min; no hand-over",
+    "AC1: %s, inside a step frame's lease, rejects StoreError.CallTimeout at 5 min; no hand-over",
     async (_name, contract, operation) => {
       const { store, clock, reported } = boundedOver(contract, new SilentStore());
       const { lease, abandoned } = heldLease(seconds(29));
@@ -175,7 +175,7 @@ describe("#928 AC1: a long call is bounded by 5 min and never hands over", () =>
       await clock.advance(seconds(1));
       const error = await call;
 
-      expect(error).toBeInstanceOf(StoreCallTimeoutError);
+      expect(error).toBeInstanceOf(StoreError.CallTimeout);
       expect(error).not.toBeInstanceOf(ExecutionLeaseLostError);
       expect(error).toMatchObject({ operation, timeout: LONG_CALL_BOUND, source: "framework" });
       expect(abandoned).toEqual([]);

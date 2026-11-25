@@ -1,15 +1,14 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { PromptOptions } from "./prompt-options.js";
 import { promptPiecesOf } from "./prompt-source.js";
 import { renderTemplate } from "./render-template.js";
-import { ComponentError } from "./metadata.js";
 import {
   displayPath,
   bareText,
   inputInInstructions,
   pathAsText,
-  PromptError,
   unknownVariables,
   unusedVariables,
   type PromptProblem,
@@ -137,7 +136,7 @@ export class PromptLoader {
     const template = joinPromptParts(segments.map((segment) => segment.text));
     if (this.#isBroken || this.#problems.length > before) return template;
     const unknown = (key: string) =>
-      new ComponentError({ message: `${owner.label}: unknown prompt variable {{${key}}}` });
+      new ConfigError.Component({ message: `${owner.label}: unknown prompt variable {{${key}}}` });
     return normalisePromptText(renderTemplate(template, variables, unknown));
   }
 
@@ -166,12 +165,12 @@ export class PromptLoader {
     this.#uses.set(variables, use);
   }
 
-  /** Throws `PromptError` with every problem found so far, the component keys no prompt uses included. */
+  /** Throws `ConfigError.Prompt` with every problem found so far, the component keys no prompt uses included. */
   throwIfAny(): void {
     for (const use of this.#uses.values())
       this.#problems.push(...unusedVariables(use.where, use.keys, use.texts));
     this.#uses.clear();
-    if (this.#problems.length > 0) throw new PromptError({ problems: this.#problems });
+    if (this.#problems.length > 0) throw new ConfigError.Prompt({ problems: this.#problems });
   }
 
   async #segments(owner: PromptOwner): Promise<Segment[]> {

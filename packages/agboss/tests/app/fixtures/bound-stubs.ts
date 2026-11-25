@@ -1,8 +1,9 @@
+import type { StoreOutcomeUnknown } from "../../../src/infrastructure/store-call-timeout.js";
+import { StoreError } from "../../../src/core/error-families/store-errors.js";
 import type { MockInstance } from "vitest";
 import type { Class } from "../../../src/components/injection.js";
 import type { FrameLease } from "../../../src/flow/context/frame.js";
 import type { FrameworkLog } from "../../../src/infrastructure/logger.js";
-import type { StoreOutcomeUnknownError } from "../../../src/infrastructure/store-call-timeout.js";
 import { boundedStoreOf } from "../../../src/app/store-call-bound.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
 
@@ -55,9 +56,9 @@ export const outcomeOf = (call: Promise<unknown>): Promise<unknown> =>
 /** A lease held with `left` ms of trust: the hand-overs it was asked for, and a way to lose it. */
 export function heldLease(left: number): {
   readonly lease: FrameLease;
-  readonly abandoned: StoreOutcomeUnknownError[];
+  readonly abandoned: StoreOutcomeUnknown[];
 } {
-  const abandoned: StoreOutcomeUnknownError[] = [];
+  const abandoned: StoreOutcomeUnknown[] = [];
   const lease: FrameLease = {
     tenantId: "default",
     leaseExecutionId: "root-1",

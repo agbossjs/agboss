@@ -23,8 +23,8 @@ import { compactionKeyOf, guardrailKeyOf, piiPolicyKeyOf } from "./scripted-gate
 
 /**
  * The PII policies and guardrails of an application under `testWith` (#120): a model detection and
- * a guardrail are scripted like any model (`mockLlm(ContactPiiPolicy)`,
- * `mockLlm(LegalAdviceGuardrail).thenReturn(decideWith({ blocks: 0.9 }))`), and a `piiKeyField`
+ * a guardrail are scripted like any model (`mockModel(ContactPiiPolicy)`,
+ * `mockModel(LegalAdviceGuardrail).thenReturn(decideWith({ blocks: 0.9 }))`), and a `piiKeyField`
  * whose variable the test process does not set gets a fixed test key — tests never need a real
  * secret.
  */

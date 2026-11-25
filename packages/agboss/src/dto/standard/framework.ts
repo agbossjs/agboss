@@ -81,7 +81,7 @@ export class ToolCallApprovalDecisionDto {
 /**
  * What a model reply interpreter answers when a reply does not answer its pause's question (#648):
  * unclear, off topic, a shrug — never a refusal. The pause stays pending and
- * `UninterpretableReplyError` carries the `reason`, as a code interpreter's
+ * `PauseError.UninterpretableReply` carries the `reason`, as a code interpreter's
  * `ChannelInterpretation.notUnderstood({ reason })` does. Tests script it as
  * `replyWith(ReplyInterpreterNotUnderstoodDto, { reason })`.
  */

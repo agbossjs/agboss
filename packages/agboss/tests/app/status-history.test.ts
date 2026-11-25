@@ -1,5 +1,5 @@
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { beforeEach, describe, expect, vi } from "vitest";
-import { InvalidThreadIdError } from "../../src/core/errors.js";
 import { ExecutionRecordRepository } from "../../src/index.js";
 import { DEFAULT_TENANT_ID } from "../../src/flow/context/tenant-context.js";
 import { callTool, testWith } from "../../src/testing/index.js";
@@ -23,9 +23,9 @@ beforeEach(resetSeen);
 describe("#1341d: app.getStatusHistory", () => {
   test("a cancelled run reads running, cancelling (with its reason and actor), cancelled", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(callTool(Wait, { text: "a long job" }));
+    mockModel(Clerk).thenReturn(callTool(Wait, { text: "a long job" }));
     const started = new Promise<string>((resolve) => {
       blocking.started = resolve;
     });
@@ -60,7 +60,7 @@ describe("#1341d: app.getStatusHistory", () => {
 
     const error = await app.getStatusHistory("t\uD800").catch((e: unknown) => e);
 
-    expect(error).toBeInstanceOf(InvalidThreadIdError);
+    expect(error).toBeInstanceOf(ExecutionError.InvalidThreadId);
     expect(String(error)).not.toContain("\uD800");
     expect(read).not.toHaveBeenCalled();
   });
@@ -71,8 +71,8 @@ describe("#1341d: app.getStatusHistory", () => {
 
   forgetful(
     "an application that keeps no history forgets a thread's rows when its tree ends",
-    async ({ app, mockLlm }) => {
-      mockLlm(Clerk).thenReturn(callTool(Wait, { text: "a long job" }));
+    async ({ app, mockModel }) => {
+      mockModel(Clerk).thenReturn(callTool(Wait, { text: "a long job" }));
       const started = new Promise<string>((resolve) => {
         blocking.started = resolve;
       });

@@ -1,3 +1,5 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import { describe, expect, it } from "vitest";
 import { checkWorkflow } from "../../../src/flow/analyse/analyse.js";
 import { childWorkflowOf, withChildWorkflows } from "../../../src/flow/analyse/child-workflow.js";
@@ -8,8 +10,6 @@ import { Workflow, type WorkflowOptions } from "../../../src/flow/decorators/wor
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import { listOf, oneOf } from "../../../src/flow/dto-wrappers.js";
-import { StepFailedError } from "../../../src/graph/errors.js";
-import { LimitExceededError } from "../../../src/graph/limits.js";
 import { childLines } from "../../../src/describe/inputs.js";
 import {
   CompanyGradeDto,
@@ -131,7 +131,7 @@ class FallbackGradeWorkflowFinish {}
   flow: [
     onStart(TwiceGradeWorkflowStart)
       .toAgent(SoloGraderAgent)
-      .onError(StepFailedError, toAction(FallbackGradeAction).toFinish(FallbackGradeWorkflowFinish))
+      .onError(StepError, toAction(FallbackGradeAction).toFinish(FallbackGradeWorkflowFinish))
       .toFinish(CompanyGradedWorkflowFinish),
   ],
 })
@@ -523,14 +523,14 @@ describe("#273 S68 / S74 f: the worst case counts the child executions", () => {
 });
 
 describe("S85: toWorkflow(W) starts a side path", () => {
-  const handled = (error: typeof StepFailedError | typeof LimitExceededError) =>
+  const handled = (error: typeof StepError | typeof LimitError) =>
     picked()
       .toAgent(SoloGraderAgent)
       .onError(error, toWorkflow(SoloGradeWorkflow).toFinish(CompanyGradedWorkflowFinish))
       .toFinish(CompanyGradedWorkflowFinish);
 
   it("a step failure handled by a child: its start chosen, its result continued", () => {
-    const { analysis, errors } = checked([handled(StepFailedError)]);
+    const { analysis, errors } = checked([handled(StepError)]);
     expect(errors).toEqual([]);
     expect(analysis === undefined ? [] : childLines(analysis)).toEqual([
       "solo-grader-agent → solo-grade-workflow: solo-grade-workflow-start (CompanyDto)",
@@ -538,7 +538,7 @@ describe("S85: toWorkflow(W) starts a side path", () => {
   });
 
   it("a side path that can catch a limit does not start a child", () => {
-    expect(codesOf([handled(LimitExceededError)])).toEqual(["graph.limit-handler-uses-model"]);
+    expect(codesOf([handled(LimitError)])).toEqual(["graph.limit-handler-uses-model"]);
   });
 });
 

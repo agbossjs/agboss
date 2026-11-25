@@ -1,21 +1,17 @@
 /**
  * #267 AC8 / AC11 (PR 3): a free-text reply resumes a pause through its role's `@ChannelInterpreter`
- * — a model one (scripted with `mockLlm(Interpreter).when({ reply })`) or a code one (created by
- * the container, `mockOf` replaces it) — given the pause's original question; what it gives is
- * validated like a decision. A reply nobody can read throws `UninterpretableReplyError` and the
- * pause stays pending; a role without an interpreter throws `ReplyInterpreterMissingError`, the
+ * — a model one (scripted with `mockModel(Interpreter).when({ reply })`) or a code one (created by
+ * the container, `mockService` replaces it) — given the pause's original question; what it gives is
+ * validated like a decision. A reply nobody can read throws `PauseError.UninterpretableReply` and the
+ * pause stays pending; a role without an interpreter throws `PauseError.ChannelInterpreterMissing`, the
  * pause untouched. The model call counts in the execution's spend and the tenant's ledger, once.
  */
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { beforeEach, describe, expect } from "vitest";
 import { BudgetScope } from "../../src/budgets/budget.js";
 import { ToolCallApprovalDecisionDto } from "../../src/dto/standard/framework.js";
-import {
-  BudgetExceededError,
-  DtoValidationError,
-  PauseStatus,
-  ReplyInterpreterMissingError,
-  UninterpretableReplyError,
-} from "../../src/index.js";
+import { PauseStatus, ValidationError } from "../../src/index.js";
 import { ChannelInterpretation } from "../../src/channels/channel-interpreter.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import { TestSetupError } from "../../src/testing/errors.js";
@@ -58,10 +54,10 @@ function payoutPauseId(): string {
 describe("#267 AC8: a model interpreter reads a free-text reply", () => {
   test("it gets the pause's question and the reply; its decision resumes the pause", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(TreasurerAgent).thenReturn(callTool(PayOutTool, payout), replyWith("Paid."));
-    mockLlm(PayoutReplyInterpreter)
+    mockModel(TreasurerAgent).thenReturn(callTool(PayOutTool, payout), replyWith("Paid."));
+    mockModel(PayoutReplyInterpreter)
       .when({ reply: "ok, but only half" })
       .thenReturn(
         replyWith(ToolCallApprovalDecisionDto, {
@@ -78,13 +74,13 @@ describe("#267 AC8: a model interpreter reads a free-text reply", () => {
 
     expect(done).toFinishWith(TreasuryWorkflowFinish, { text: "Paid." });
     expect(replyDesk.payouts).toEqual([{ payee: "ann", amountCents: 500 }]);
-    expect(mockLlm(PayoutReplyInterpreter).inputs).toEqual([
+    expect(mockModel(PayoutReplyInterpreter).inputs).toEqual([
       {
         ask: expect.objectContaining({ tool: "pay-out-tool", arguments: payout }),
         reply: "ok, but only half",
       },
     ]);
-    expect(mockLlm(PayoutReplyInterpreter).onlyRequest).toMatchObject({
+    expect(mockModel(PayoutReplyInterpreter).onlyRequest).toMatchObject({
       kind: "chat",
       // the question and the reply in the input message, never in the instructions (#270 Q51)
       input: expect.stringMatching(/"amountCents": 1000[\s\S]*### reply\n"ok, but only half"/),
@@ -94,11 +90,11 @@ describe("#267 AC8: a model interpreter reads a free-text reply", () => {
 
   test("its model reads the reply through the PII policies; its answer is revealed before validation", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(TreasurerAgent).thenReturn(callTool(PayOutTool, payout), replyWith("Paid."));
-    const interpreter = mockLlm(PayoutReplyInterpreter);
-    interpreter.thenAnswer((request) => {
+    mockModel(TreasurerAgent).thenReturn(callTool(PayOutTool, payout), replyWith("Paid."));
+    const interpreter = mockModel(PayoutReplyInterpreter);
+    interpreter.respondWith((request) => {
       // the model sees the phone number as a token only, and answers with that token
       const [token = ""] = /<phone:[0-9a-f]+>/.exec(requestText(request)) ?? [];
       return replyWith(ToolCallApprovalDecisionDto, {
@@ -121,10 +117,10 @@ describe("#267 AC8: a model interpreter reads a free-text reply", () => {
 
   test("an answer with a token no map knows is unreadable: the pause stays pending", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(TreasurerAgent).thenReturn(callTool(PayOutTool, payout));
-    mockLlm(PayoutReplyInterpreter).thenReturn(
+    mockModel(TreasurerAgent).thenReturn(callTool(PayOutTool, payout));
+    mockModel(PayoutReplyInterpreter).thenReturn(
       replyWith(ToolCallApprovalDecisionDto, {
         approved: true,
         overrideInput: { payee: "<phone:0123456789ab>", amountCents: 1000 },
@@ -134,17 +130,17 @@ describe("#267 AC8: a model interpreter reads a free-text reply", () => {
 
     const resumed = app.resume({ pauseId: payoutPauseId(), reply: "pay the other one" }, manager);
 
-    await expect(resumed).rejects.toBeInstanceOf(UninterpretableReplyError);
+    await expect(resumed).rejects.toBeInstanceOf(PauseError.UninterpretableReply);
     const stored = await treasuryPauses().findByTenantIdAndPauseId("default", payoutPauseId());
     expect(stored?.status).toBe(PauseStatus.Pending);
   });
 
   test("its call is in the execution's spend and the tenant's ledger, each once", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(TreasurerAgent).thenReturn(callTool(PayOutTool, payout), replyWith("Paid."));
-    mockLlm(PayoutReplyInterpreter).thenReturn(
+    mockModel(TreasurerAgent).thenReturn(callTool(PayOutTool, payout), replyWith("Paid."));
+    mockModel(PayoutReplyInterpreter).thenReturn(
       replyWith(ToolCallApprovalDecisionDto, { approved: true }, { cost: usd(0.02) }),
     );
     await execute(app, TreasuryWorkflowStart, { text: "pay ann $10" });
@@ -167,58 +163,58 @@ describe("#267 AC8: a model interpreter reads a free-text reply", () => {
 
   test("its call counts in the tenant's budget: a reply that spends what is left stops the next call", async ({
     app,
-    mockLlm,
-    mockOf,
+    mockModel,
+    mockService,
   }) => {
-    mockOf(TestTenantDailyBudget).maxSpend.mockReturnValue(usd(0.05));
-    mockLlm(TreasurerAgent).thenReturn(callTool(PayOutTool, payout));
-    mockLlm(PayoutReplyInterpreter).thenReturn(
+    mockService(TestTenantDailyBudget).maxSpend.mockReturnValue(usd(0.05));
+    mockModel(TreasurerAgent).thenReturn(callTool(PayOutTool, payout));
+    mockModel(PayoutReplyInterpreter).thenReturn(
       replyWith(ToolCallApprovalDecisionDto, { approved: true }, { cost: usd(0.06) }),
     );
     await execute(app, TreasuryWorkflowStart, { text: "pay ann $10" });
 
     const resumed = app.resume({ pauseId: payoutPauseId(), reply: "fine" }, manager);
 
-    await expect(resumed).rejects.toBeInstanceOf(BudgetExceededError);
+    await expect(resumed).rejects.toBeInstanceOf(LimitError.Budget);
     await expect(resumed).rejects.toMatchObject({ budget: { name: "test-tenant-daily-budget" } });
     // the decision is taken (the tool runs); the agent's next model call is stopped
-    expect(mockLlm(TreasurerAgent).requests).toHaveLength(1);
+    expect(mockModel(TreasurerAgent).requests).toHaveLength(1);
   });
 
   test("the budgets are checked before its call: once spent, a reply is refused and the pause stays pending", async ({
     app,
-    mockLlm,
-    mockOf,
+    mockModel,
+    mockService,
   }) => {
-    mockOf(TestTenantDailyBudget).maxSpend.mockReturnValue(usd(0.01));
-    mockLlm(TreasurerAgent).thenReturn(callTool(PayOutTool, payout));
-    mockLlm(PayoutReplyInterpreter).thenReturn(replyWith("Unclear.", { cost: usd(0.02) }));
+    mockService(TestTenantDailyBudget).maxSpend.mockReturnValue(usd(0.01));
+    mockModel(TreasurerAgent).thenReturn(callTool(PayOutTool, payout));
+    mockModel(PayoutReplyInterpreter).thenReturn(replyWith("Unclear.", { cost: usd(0.02) }));
     await execute(app, TreasuryWorkflowStart, { text: "pay ann $10" });
     const pauseId = payoutPauseId();
     const unread = app.resume({ pauseId, reply: "hmm" }, manager);
-    await expect(unread).rejects.toBeInstanceOf(UninterpretableReplyError);
+    await expect(unread).rejects.toBeInstanceOf(PauseError.UninterpretableReply);
 
     const refused = app.resume({ pauseId, reply: "yes" }, manager);
 
-    await expect(refused).rejects.toBeInstanceOf(BudgetExceededError);
-    expect(mockLlm(PayoutReplyInterpreter).requests).toHaveLength(1);
+    await expect(refused).rejects.toBeInstanceOf(LimitError.Budget);
+    expect(mockModel(PayoutReplyInterpreter).requests).toHaveLength(1);
     const stored = await treasuryPauses().findByTenantIdAndPauseId("default", pauseId);
     expect(stored?.status).toBe(PauseStatus.Pending);
   });
 
-  test("a model that gives no answer: UninterpretableReplyError, the pause stays pending", async ({
+  test("a model that gives no answer: PauseError.UninterpretableReply, the pause stays pending", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(TreasurerAgent).thenReturn(callTool(PayOutTool, payout), replyWith("Paid."));
-    mockLlm(PayoutReplyInterpreter)
+    mockModel(TreasurerAgent).thenReturn(callTool(PayOutTool, payout), replyWith("Paid."));
+    mockModel(PayoutReplyInterpreter)
       .when({ reply: "let me think" })
       .thenReturn(replyWith("I cannot tell what the manager decided."));
     await execute(app, TreasuryWorkflowStart, { text: "pay ann $10" });
 
     const unread = app.resume({ pauseId: payoutPauseId(), reply: "let me think" }, manager);
 
-    await expect(unread).rejects.toBeInstanceOf(UninterpretableReplyError);
+    await expect(unread).rejects.toBeInstanceOf(PauseError.UninterpretableReply);
     const stored = await treasuryPauses().findByTenantIdAndPauseId("default", payoutPauseId());
     expect(stored?.status).toBe(PauseStatus.Pending);
     const done = await app.resume(
@@ -230,10 +226,10 @@ describe("#267 AC8: a model interpreter reads a free-text reply", () => {
 
   test("an answer the role rejects is uninterpretable: overrideInput with approved: false", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(TreasurerAgent).thenReturn(callTool(PayOutTool, payout));
-    mockLlm(PayoutReplyInterpreter).thenReturn(
+    mockModel(TreasurerAgent).thenReturn(callTool(PayOutTool, payout));
+    mockModel(PayoutReplyInterpreter).thenReturn(
       replyWith(ToolCallApprovalDecisionDto, {
         approved: false,
         overrideInput: { payee: "bob", amountCents: 1 },
@@ -245,8 +241,8 @@ describe("#267 AC8: a model interpreter reads a free-text reply", () => {
       .resume({ pauseId: payoutPauseId(), reply: "no, pay bob a cent" }, manager)
       .catch((error: unknown) => error);
 
-    expect(failed).toBeInstanceOf(UninterpretableReplyError);
-    expect(failed).toHaveProperty("cause", expect.any(DtoValidationError));
+    expect(failed).toBeInstanceOf(PauseError.UninterpretableReply);
+    expect(failed).toHaveProperty("cause", expect.any(ValidationError.DtoInvalid));
     const stored = await treasuryPauses().findByTenantIdAndPauseId("default", payoutPauseId());
     expect(stored?.status).toBe(PauseStatus.Pending);
   });
@@ -255,9 +251,9 @@ describe("#267 AC8: a model interpreter reads a free-text reply", () => {
 describe("#267 AC8: a code interpreter reads a reply", () => {
   test("the owner's button value is read by the container's interpreter", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(TreasurerAgent).thenReturn(
+    mockModel(TreasurerAgent).thenReturn(
       callTool(BookExpenseTool, { purpose: "lunch" }),
       replyWith("Booked."),
     );
@@ -280,9 +276,9 @@ describe("#267 AC8: a code interpreter reads a reply", () => {
 
   test("it reads in the pause's execution frame: its tenant, owner and waiting step", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(TreasurerAgent).thenReturn(
+    mockModel(TreasurerAgent).thenReturn(
       callTool(BookExpenseTool, { purpose: "lunch" }),
       replyWith("Booked."),
     );
@@ -304,8 +300,11 @@ describe("#267 AC8: a code interpreter reads a reply", () => {
     ]);
   });
 
-  test("a pause inside a child workflow is read in the child's frame", async ({ app, mockLlm }) => {
-    mockLlm(TreasurerAgent).thenReturn(
+  test("a pause inside a child workflow is read in the child's frame", async ({
+    app,
+    mockModel,
+  }) => {
+    mockModel(TreasurerAgent).thenReturn(
       callTool(BookExpenseTool, { purpose: "taxi" }),
       replyWith("Booked."),
     );
@@ -330,11 +329,11 @@ describe("#267 AC8: a code interpreter reads a reply", () => {
     ]);
   });
 
-  test("a reply it crashes on (it throws): UninterpretableReplyError, the pause stays pending", async ({
+  test("a reply it crashes on (it throws): PauseError.UninterpretableReply, the pause stays pending", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(TreasurerAgent).thenReturn(callTool(BookExpenseTool, { purpose: "lunch" }));
+    mockModel(TreasurerAgent).thenReturn(callTool(BookExpenseTool, { purpose: "lunch" }));
     const paused = await execute(app, TreasuryWorkflowStart, { text: "book lunch" });
     const pauseId = paused.pending[0]?.pauseId ?? "";
 
@@ -342,23 +341,23 @@ describe("#267 AC8: a code interpreter reads a reply", () => {
       .resume({ pauseId, reply: "yes please" })
       .catch((error: unknown) => error);
 
-    expect(failed).toBeInstanceOf(UninterpretableReplyError);
+    expect(failed).toBeInstanceOf(PauseError.UninterpretableReply);
     expect(failed).toHaveProperty("cause", expect.any(SyntaxError));
     const stored = await treasuryPauses().findByTenantIdAndPauseId("default", pauseId);
     expect(stored?.status).toBe(PauseStatus.Pending);
   });
 });
 
-describe("#267 AC11: tests replace a code interpreter with mockOf", () => {
-  test("mockOf(Interpreter).interpret answers instead of the class", async ({
+describe("#267 AC11: tests replace a code interpreter with mockService", () => {
+  test("mockService(Interpreter).interpret answers instead of the class", async ({
     app,
-    mockLlm,
-    mockOf,
+    mockModel,
+    mockService,
   }) => {
-    mockOf(ExpenseReplyInterpreter).interpret.mockReturnValue(
+    mockService(ExpenseReplyInterpreter).interpret.mockReturnValue(
       ChannelInterpretation.understood({ approved: false, reason: "not this month" }),
     );
-    mockLlm(TreasurerAgent).thenReturn(
+    mockModel(TreasurerAgent).thenReturn(
       callTool(BookExpenseTool, { purpose: "lunch" }),
       replyWith("Not booked."),
     );
@@ -367,29 +366,31 @@ describe("#267 AC11: tests replace a code interpreter with mockOf", () => {
     await app.resume({ pauseId: paused.pending[0]?.pauseId ?? "", reply: "anything" });
 
     expect(replyDesk.expenses).toEqual([]);
-    expect(mockOf(ExpenseReplyInterpreter).interpret.mock.calls).toEqual([
+    expect(mockService(ExpenseReplyInterpreter).interpret.mock.calls).toEqual([
       [{ ask: expect.objectContaining({ tool: "book-expense-tool" }), reply: "anything" }],
     ]);
-    expect(JSON.stringify(mockLlm(TreasurerAgent).lastRequest)).toContain("not this month");
+    expect(JSON.stringify(mockModel(TreasurerAgent).lastRequest)).toContain("not this month");
   });
 
-  test("mockLlm of a code interpreter is a setup error: it calls no model", async ({ mockLlm }) => {
-    expect(() => mockLlm(ExpenseReplyInterpreter)).toThrow(TestSetupError);
+  test("mockModel of a code interpreter is a setup error: it calls no model", async ({
+    mockModel,
+  }) => {
+    expect(() => mockModel(ExpenseReplyInterpreter)).toThrow(TestSetupError);
   });
 });
 
 describe("#267 AC2 / AC8: what a reply resume takes", () => {
-  test("a role without an interpreter: ReplyInterpreterMissingError, the pause untouched", async ({
+  test("a role without an interpreter: PauseError.ChannelInterpreterMissing, the pause untouched", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(TreasurerAgent).thenReturn(callTool(TransferTool, { account: "DE-1" }));
+    mockModel(TreasurerAgent).thenReturn(callTool(TransferTool, { account: "DE-1" }));
     await execute(app, TreasuryWorkflowStart, { text: "transfer" });
     const [ask] = replyDesk.transfers;
 
     const failed = app.resume({ pauseId: ask?.pauseId ?? "", reply: "yes" }, manager);
 
-    await expect(failed).rejects.toBeInstanceOf(ReplyInterpreterMissingError);
+    await expect(failed).rejects.toBeInstanceOf(PauseError.ChannelInterpreterMissing);
     const stored = await treasuryPauses().findByTenantIdAndPauseId("default", ask?.pauseId ?? "");
     expect(stored).toMatchObject({ status: PauseStatus.Pending, isSent: true });
   });
@@ -401,6 +402,6 @@ describe("#267 AC2 / AC8: what a reply resume takes", () => {
     // an untyped (JS) caller: both forms, or an empty text, do not compile
     const refused = app.resume(request as never, manager);
 
-    await expect(refused).rejects.toBeInstanceOf(DtoValidationError);
+    await expect(refused).rejects.toBeInstanceOf(ValidationError.DtoInvalid);
   });
 });

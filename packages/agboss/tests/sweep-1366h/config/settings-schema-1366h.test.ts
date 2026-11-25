@@ -1,8 +1,9 @@
+import { ConfigError } from "../../../src/core/error-families/config-errors.js";
 /**
  * #1366: the config schemas admit exactly the settings they document - price, token ceiling, reasoning,
  * prompt caching, temperature, turn window, compaction, agent (with knowledge bases), router model,
  * workflow name/defaults - and a config with an unknown tool fails with
- * `UnknownAgentToolError` (an agent without tools never does).
+ * `ConfigError.Component` (an agent without tools never does).
  */
 import { describe, expect, it } from "vitest";
 import {
@@ -14,17 +15,17 @@ import {
   JevRouterModelSchema,
   MaxTokensSchema,
   ModelSettingsSchema,
-  PriceSchema,
   PromptCachingValueSchema,
   ReasoningValueSchema,
   RouterModelSchema,
   ThinkingSchema,
   UncompactedTurnsSchema,
-  UnknownAgentToolError,
   validateAgentsConfig,
   type AgentsConfigOf,
 } from "../../../src/config/types.js";
 import { testConfig } from "../../helpers.js";
+import { usd } from "../../../src/units/index.js";
+import { ComponentModelOverlaySchema } from "../../../src/config/overlay-schema.js";
 
 interface Parser {
   safeParse(value: unknown): { success: boolean };
@@ -42,18 +43,6 @@ const agent = { model: "m", description: "d" };
 const config = (patch: Record<string, unknown>) => ({ ...testConfig, ...patch });
 
 describe("config schemas", () => {
-  it("price: non-negative numbers, the cache prices optional", () => {
-    admits(PriceSchema, { inputPerMTok: 0, outputPerMTok: 1 });
-    admits(PriceSchema, {
-      inputPerMTok: 1,
-      outputPerMTok: 2,
-      cacheReadPerMTok: 0,
-      cacheWritePerMTok: 3,
-    });
-    refuses(PriceSchema, { inputPerMTok: -1, outputPerMTok: 1 }, { inputPerMTok: 1 }, {});
-    refuses(PriceSchema, { inputPerMTok: 1, outputPerMTok: 1, cacheReadPerMTok: -1 });
-  });
-
   it("max tokens: a positive integer or max", () => {
     admits(MaxTokensSchema, 1, 8192, "max");
     refuses(MaxTokensSchema, 0, -5, 1.5, "all", "");
@@ -106,11 +95,7 @@ describe("config schemas", () => {
     admits(ModelSettingsSchema, { model: "abc" }, { model: "a", temperature: 0 });
     admits(ModelSettingsSchema, { model: "abc", temperature: 1 }, { model: "abc", temperature: 2 });
     refuses(ModelSettingsSchema, { model: "" }, { model: "a", temperature: -1 }, {});
-    refuses(
-      ModelSettingsSchema,
-      { model: "a", temperature: 3 },
-      { model: "a", price: { inputPerMTok: -1, outputPerMTok: 0 } },
-    );
+    refuses(ModelSettingsSchema, { model: "a", temperature: 3 });
   });
 
   it("uncompacted turns: a whole number from 0, or all", () => {
@@ -215,7 +200,7 @@ describe("config schemas", () => {
     );
   });
 
-  it("an unknown tool fails with UnknownAgentToolError; an agent without tools never does", () => {
+  it("an unknown tool fails with ConfigError.Component; an agent without tools never does", () => {
     const withTools = (tools: string[]): AgentsConfigOf<string> => ({
       ...testConfig,
       agents: { alpha: { ...testConfig.agents.alpha, tools }, beta: testConfig.agents.beta },
@@ -230,7 +215,24 @@ describe("config schemas", () => {
       }
       return undefined;
     })();
-    expect(thrown).toBeInstanceOf(UnknownAgentToolError);
-    expect((thrown as Error).name).toBe("UnknownAgentToolError");
+    expect(thrown).toBeInstanceOf(ConfigError.Component);
+    expect((thrown as Error).name).toBe("ConfigError.Component");
+  });
+});
+
+describe("#1313: a model has no price in a config", () => {
+  // The resolved settings (`ModelSettingsSchema`) are built by the cascade from the decorators, never
+  // typed by hand, and read like every non-overlay schema of this file: unknown keys are not kept.
+  // What a person writes is the profile's overlay, which is strict — a stale `price` is refused there.
+  it("the resolved model settings do not carry a price through", () => {
+    const parsed = ModelSettingsSchema.parse({ model: "m", price: { inputPerMTok: 1 } });
+
+    expect(parsed).toEqual({ model: "m" });
+    expect("price" in parsed).toBe(false);
+  });
+
+  it("a profile's overlay of a component's model refuses a price, like every unknown key", () => {
+    refuses(ComponentModelOverlaySchema, { model: "m", price: { inputPerMTok: 1 } });
+    admits(ComponentModelOverlaySchema, { model: "m" });
   });
 });

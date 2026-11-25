@@ -346,8 +346,8 @@ export class JobScoutDatabaseStorage {}
 
 The schema is created by the package's versioned migrations, run before the new version starts —
 `agboss migrate` (a Kubernetes Job) applies them; a second run changes nothing, and an instance never
-starts on a database older or newer than its package (`PostgresSchemaMissingError`,
-`PostgresSchemaTooNewError`). Every pod's pool counts against the server's `max_connections`; a lease's
+starts on a database older or newer than its package (the PostgreSQL store's own
+`PostgresSchemaMissingError` and `PostgresSchemaTooNewError`; SQLite's are `StoreError.SchemaMissing` / `SchemaTooNew`). Every pod's pool counts against the server's `max_connections`; a lease's
 expiry is decided by the database's own `clock_timestamp()`, so the pods' clocks may disagree.
 Wiki → Running-on-PostgreSQL has the whole setup, its limits and how the stores are proved
 (`storeConformance` and `faultSuite` against a real PostgreSQL).
@@ -426,8 +426,8 @@ each group on its own path. `@Arbiter` classes decide which answers count, attac
 answer a quorum may leave out is `optional(XDto)` — a step that requires it fails `agboss check` with
 `[input.missing-on-path]`. At run time the quorum is decided as answers arrive: once `max` answers are
 counted (or a group has won, or the quorum can no longer be reached) the other branches are
-cancelled; the deadline runs on the application's `Clock`; not reached → `QuorumNotReachedError`
-into `.onError(…)`; a failing arbiter is `ArbiterError`. `result.launches` and `onQuorumDecided`
+cancelled; the deadline runs on the application's `Clock`; not reached → `StepError.QuorumNotReached`
+into `.onError(…)`; a failing arbiter is `StepError.Arbiter`. `result.launches` and `onQuorumDecided`
 show each answer as counted, rejected (and by which arbiter), surplus or cancelled, and the winning
 group; `agboss generate arbiter` writes a code arbiter for a launch
 ([Wiki → Parallel](https://github.com/agbossjs/agboss/wiki/Parallel)).
@@ -442,7 +442,7 @@ case per finish output class. `.forEachItem(toWorkflow(CompanyCheckWorkflow), { 
 reached from two places has its own path `onWorkflow(W).onError(…).toOneOf([…])`.
 At run time each child is an execution of its own — its id, steps and `maxSteps`, no history —
 inside its parent's checkpoint and budgets; an uncaught failure of its own fails the parent's step
-with `ChildExecutionFailedError`, and `result.children` holds the nested records
+with `StepError.Child`, and `result.children` holds the nested records
 ([Wiki → Workflow-as-a-step](https://github.com/agbossjs/agboss/wiki/Workflow-as-a-step)).
 
 A workflow may **launch itself** (#264, #1287): a thunk of its own class stands for it in
@@ -451,10 +451,10 @@ recursive workflow sets `@Workflow({ executionLimits: { maxDepth: 3 } })` (`[gra
 at depth 1 (`executionContext.depth`, and each child record's `depth`), so the last level is
 `depth === maxDepth`. There the framework stops it, never the prompt: an agent's `oneOf` variant
 whose `.toOneOf([…])` branch launches the workflow itself leaves its response schema, a model router does not see such
-a route, a code router returning one fails with `RouterDecisionError` — so every such branch keeps a
+a route, a code router returning one fails with `StepError.RouterDecision` — so every such branch keeps a
 way out (`[graph.recursion-without-exit]`); a launch decided by code past `maxDepth` does not start
-and fails its step with `ChildExecutionFailedError` caused by `DepthLimitExceededError`
-(`.onError(LimitExceededError, …)` takes it). Only direct recursion: a workflow launching one that
+and fails its step with `StepError.Child` caused by `LimitError.Depth`
+(`.onError(LimitError, …)` takes it). Only direct recursion: a workflow launching one that
 launches it is `[graph.mutual-recursion]`. The root's execution budget counts every level; each
 level has its own `maxSteps`; `agboss describe` prints `recursive: maxDepth 3, on the
 last level: researcher-agent → TopicReportDto only`. A launch of itself is typed like any child's:
@@ -557,16 +557,16 @@ runs graphify.
 
 14 self-contained, CI-verified applications proving AGBoss's compile-time and runtime guarantees (`npx agboss check` + `npm test` on every project, with canonical `1 class = 1 file` component folders and symmetric Spring-style `tests/` mirroring `src/`):
 
-1. **[`01-hello-agboss`](https://github.com/agbossjs/agboss-examples/tree/main/01-hello-agboss)** — First-run starter, real async HTTP service DI (`PricingCatalogService` with `ExecutionContext.signal` + `step.idempotencyKey`), production HTTP server (`src/http/server.ts` with multi-tenant headers, `202 Accepted` on pauses, and `/health/live` + `/health/ready` probes), and `testWith` + `mockOf`.
+1. **[`01-hello-agboss`](https://github.com/agbossjs/agboss-examples/tree/main/01-hello-agboss)** — First-run starter, real async HTTP service DI (`PricingCatalogService` with `ExecutionContext.signal` + `step.idempotencyKey`), production HTTP server (`src/http/server.ts` with multi-tenant headers, `202 Accepted` on pauses, and `/health/live` + `/health/ready` probes), and `testWith` + `mockService`.
 2. **[`02-path-scope-proof`](https://github.com/agbossjs/agboss-examples/tree/main/02-path-scope-proof)** — Side-by-side proof of 4 production graph bugs (`[input.missing-on-path]`, `[input.outdated-on-path]`, `[launch.branch-outdates-sibling]`, `[flow.uncompensated-action]`) that pass `tsc --noEmit` in raw LangGraph `Annotation.Root` (`langgraph-broken/`) and are caught before runtime by `agboss check` (`agboss-broken/` vs `agboss-fixed/`).
-3. **[`03-support-refund-desk`](https://github.com/agbossjs/agboss-examples/tree/main/03-support-refund-desk)** — Support & refund desk proving reversible `@PiiPolicy` (`tokenize()`, `revealPii: true`, `PiiRefusedError`), `@ToolInterceptor` (`reply`, `block`), `@InputGuardrail` (`DecidedBy.Code`), `@OutputGuardrail`, in-memory BM25/TF-IDF `@Rag` (`InMemoryKnowledgeIndexService` + `RefundPolicyRetriever`), `PolicyAwareCompaction`, and a 5-loop `@EvalSuite` with compact git-tracked `eval/baseline/main-baseline.json` and `agboss eval calibrate` (Cohen's $\kappa$).
-4. **[`04-travel-booking-saga`](https://github.com/agbossjs/agboss-examples/tree/main/04-travel-booking-saga)** — Transactional multi-step saga (`compensateWith` / `committedBy`) across `payment-saga`, `budget-saga`, `quorum-saga` (`.inParallel([…]).arbitratedBy(…).joinQuorum({ min: 2, max: 2 })`), and `hitl-hold-saga` (`onPauseClosed()`, `PauseClosedError`, SQLite WAL crash recovery, and HTTP `202 Accepted` pause adapter).
-5. **[`05-cluster-work-stealing`](https://github.com/agbossjs/agboss-examples/tree/main/05-cluster-work-stealing)** — Multi-instance horizontal scaling with `ChildPlacement.AnyWorker`, `SqliteDriver`, recursive a thunk of its own class (`() => Self`) (`maxDepth: 2`), 30s SQLite leases & fencing (`ExecutionLeaseLostError`), `maxConcurrentSteps: 2` backpressure (`HealthComponentKind.StepSlots`), `@HealthCheck`, and `IncompatibleResumeError`.
-6. **[`06-enterprise-agent-mesh`](https://github.com/agbossjs/agboss-examples/tree/main/06-enterprise-agent-mesh)** — 3-service mesh (`apps/1-order-gateway`, `apps/2-billing-a2a`, `apps/3-catalog-mcp`) over `@A2AAgent` / `@A2AEndpoint` and `@McpServer` / `@McpEndpoint`, Ed25519 mesh envelope (A2A message metadata / MCP `_meta`), the billing Agent Card tested and called by the official SDK client, `MeshLoopDetectedError` & `HopsLimitExceededError`, MCP `_meta.callId` deduplication via `SqliteMeshRequestRepository`, and `agboss check --federation` Blast Radius.
+3. **[`03-support-refund-desk`](https://github.com/agbossjs/agboss-examples/tree/main/03-support-refund-desk)** — Support & refund desk proving reversible `@PiiPolicy` (`tokenize()`, `revealPii: true`, `PiiError.Refused`), `@ToolInterceptor` (`reply`, `block`), `@InputGuardrail` (`DecidedBy.Code`), `@OutputGuardrail`, in-memory BM25/TF-IDF `@Rag` (`InMemoryKnowledgeIndexService` + `RefundPolicyRetriever`), `PolicyAwareCompaction`, and a 5-loop `@EvalSuite` with compact git-tracked `eval/baseline/main-baseline.json` and `agboss eval calibrate` (Cohen's $\kappa$).
+4. **[`04-travel-booking-saga`](https://github.com/agbossjs/agboss-examples/tree/main/04-travel-booking-saga)** — Transactional multi-step saga (`compensateWith` / `committedBy`) across `payment-saga`, `budget-saga`, `quorum-saga` (`.inParallel([…]).arbitratedBy(…).joinQuorum({ min: 2, max: 2 })`), and `hitl-hold-saga` (`onPauseClosed()`, `PauseError.Closed`, SQLite WAL crash recovery, and HTTP `202 Accepted` pause adapter).
+5. **[`05-cluster-work-stealing`](https://github.com/agbossjs/agboss-examples/tree/main/05-cluster-work-stealing)** — Multi-instance horizontal scaling with `ChildPlacement.AnyWorker`, `SqliteDriver`, recursive a thunk of its own class (`() => Self`) (`maxDepth: 2`), 30s SQLite leases & fencing (`ExecutionLeaseLostError`), `maxConcurrentSteps: 2` backpressure (`HealthComponentKind.StepSlots`), `@HealthCheck`, and `ExecutionError.IncompatibleResume`.
+6. **[`06-enterprise-agent-mesh`](https://github.com/agbossjs/agboss-examples/tree/main/06-enterprise-agent-mesh)** — 3-service mesh (`apps/1-order-gateway`, `apps/2-billing-a2a`, `apps/3-catalog-mcp`) over `@A2AAgent` / `@A2AEndpoint` and `@McpServer` / `@McpEndpoint`, Ed25519 mesh envelope (A2A message metadata / MCP `_meta`), the billing Agent Card tested and called by the official SDK client, `LimitError.MeshLoop` & `LimitError.Hops`, MCP `_meta.callId` deduplication via `SqliteMeshRequestRepository`, and `agboss check --federation` Blast Radius.
 7. **[`07-langgraph-migration`](https://github.com/agbossjs/agboss-examples/tree/main/07-langgraph-migration)** — Side-by-side comparison of raw `@langchain/langgraph` (`before-langgraph/support.graph.ts` with 15-field `Annotation.Root` God State, string-keyed `addConditionalEdges`, unbounded `Send()`, dynamic prompt interpolation) vs AGBoss (`after-agboss/src/` + `after-agboss/tests/` with 10 narrow `@Dto`s, `@Router`, bounded `.toParallelAgents()`, `@Action`, `@Channel`, and `agboss check --strict`).
 8. **[`08-job-scout`](https://github.com/agbossjs/agboss-examples/tree/main/08-job-scout)** — the job scout the snippets above come from (in this repository until #489): resume → proposed search brief → Greenhouse jobs ranked by Jev — typed child workflows, per-item launches, a quorum and a budget on a real multi-step agent; its `check`, `test` and `demo` scripts run offline at $0 against the published `@agboss/core`, `demo:live` with `OPENROUTER_API_KEY`.
 9. **[`09-review-loop-and-routing`](https://github.com/agbossjs/agboss-examples/tree/main/09-review-loop-and-routing)** — one credit application routed by a `DecidedBy.Code` router (0 calls, $0) and a `DecidedBy.Model` router onto the same routes, `[router.routes-mismatch]` on a missing route, and a critique ↔ editor loop bounded by `maxVisits` and `historyOf(CreditMemoDto, { maxPrevious: 2 })`.
-10. **[`10-quorum-groups-and-replies`](https://github.com/agbossjs/agboss-examples/tree/main/10-quorum-groups-and-replies)** — four parallel reviews in two `.joinQuorumGroups(…)` groups behind arbiter chains (`.acceptedBy(code)`, `anyOf(code, model)`) with recorded `BranchVerdict`s, `QuorumNotReachedError` on a deadline, and a free-text approval read by a `@ChannelInterpreter`.
+10. **[`10-quorum-groups-and-replies`](https://github.com/agbossjs/agboss-examples/tree/main/10-quorum-groups-and-replies)** — four parallel reviews in two `.joinQuorumGroups(…)` groups behind arbiter chains (`.acceptedBy(code)`, `anyOf(code, model)`) with recorded `BranchVerdict`s, `StepError.QuorumNotReached` on a deadline, and a free-text approval read by a `@ChannelInterpreter`.
 11. **[`11-safe-payments`](https://github.com/agbossjs/agboss-examples/tree/main/11-safe-payments)** — every payment race of the Payments taxonomy done wrong and done right against a stub gateway: a lost answer, a crash, a zombie, two executions, a duplicated webhook, a refund retried — one charge and one refund.
 12. **[`12-payment-gateways`](https://github.com/agbossjs/agboss-examples/tree/main/12-payment-gateways)** — the Payments contract on ten gateways, a verdict per gateway from its own docs, and the wiring of each supported one on its official SDK against a stub of its documented behaviour.
 13. **[`13-rag-reranking`](https://github.com/agbossjs/agboss-examples/tree/main/13-rag-reranking)** — a knowledge base reranked before the agent reads it: Cohere Rerank on its official SDK behind a code `@Reranker`, its cost in the budgets, a fallback to the retriever's order on a 503.
@@ -576,7 +576,7 @@ runs graphify.
 
 [`examples/flow-patterns`](examples/flow-patterns) — the flow's patterns with scripted tests only
 (no model key): `src/offer/` a review loop (`onAgent(ReviewerAgent).toOneOf([…])`,
-a branch that reads `ChangesRequestedDto`, `.onError(VisitsLimitExceededError, …)`), `src/credit/` a code
+a branch that reads `ChangesRequestedDto`, `.onError(LimitError.Visits, …)`), `src/credit/` a code
 router (`DecidedBy.Code`, `route(input)` through `deps`) beside a model router, `src/review/`
 parallel launches in waves (a reviewer per section, then a critic beside two fact checker copies),
 `src/topic/` a workflow that researches its subtopics itself (`() => TopicResearchWorkflow`, `maxDepth`, #264).
@@ -606,7 +606,7 @@ Runtime package `@agboss/core` + dev/CI companion `@agboss/cli`; the root `@agbo
 - `@agboss/core/units` — `usd()`, `seconds()`, `minutes()`, `hours()`, `kilobytes()`
 - `@agboss/core/models` — model providers (`@ModelProvider`, `OpenRouterDriver`, `OpenAiCompatibleDriver`, `DecisionsDriver`, named by `@Application({ modelProvider })`)
 - `@agboss/core/testing` — `testWith`, the 10 unit runners (`testUnit`), the scripts (`replyWith`, `routeTo`, `when`, `waitFor`, …), `ToolFailure`,
-  `mcpOf`, `VirtualClock`, `SequentialIdGenerator`, VCR (`+ @agboss/core/testing/setup`: the matchers;
+  `mockMcp`, `VirtualClock`, `SequentialIdGenerator`, VCR (`+ @agboss/core/testing/setup`: the matchers;
   `+ @agboss/core/testing/vitest`: `agbossVitest()`, the vitest preset)
 - `@agboss/core/eval` — `@EvalSuite`, `EvalCascade`, `evalCase`, `turn`, `pastTurn`, `toolCall`, `toolInvariant`, `answerPause`, `replyToPause`
 - `@agboss/core/mcp`, `/rag`, `/a2a`, `/memory` — integrations (`@McpServer`,
@@ -807,7 +807,7 @@ fails assembly with `[judge.wrong-output]`: a text agent with a DTO judge, a DTO
 class, a `oneOf` variant the judge does not cover, a list agent with a judge of one value or the
 other way round. A verdict is built with `JudgeVerdict.passed({ metrics? })` or
 `JudgeVerdict.failed(reason, { metrics? })` — the only way; a failed verdict's `reason` goes back to
-the agent for its retry, and once `maxRetries` retries are spent the run throws `QualityGateError`
+the agent for its retry, and once `maxRetries` retries are spent the run throws `StepError.QualityGate`
 (`code: "step.agent.quality-gate"`, `rejections: [{ judge, reason }]`). A judge without a model
 fails at app start (`[judge.no-model]`).
 
@@ -829,7 +829,7 @@ the answers are typed by them. `state` is a text, a JSON object, or text and ima
 (`Decision.image(dataUrl)` — png/jpeg/webp data URLs; Luna, pplx-decider and Clef read images). At
 most 200 questions per call; an answer that does not fit its question fails with
 `model.decision.invalid-response`. `decide` on a chat model or `invoke` on a decision model throws
-`ModelKindError` (`model.wrong-kind`).
+`ConfigError.ModelKind` (`config.model-kind`).
 
 <!-- snippet-context
 import { InjectionToken } from "@agboss/core";
@@ -898,9 +898,9 @@ export class AnswerGroundedJudge implements JudgeHandler<JobReportDto> {
 }
 ```
 
-In tests, script a chat judge like an agent — `mockLlm(Judge).thenReturn(replyWith("PASS"))` — and a
+In tests, script a chat judge like an agent — `mockModel(Judge).thenReturn(replyWith("PASS"))` — and a
 decision judge with its answers by question id (an option, P(yes), a level's index or text):
-`mockLlm(AnswerGroundedJudge).thenReturn(decideWith({ grounded: 0.9, tone: "neutral", quality: 2 }, { cost: usd(0.0002) }))`;
+`mockModel(AnswerGroundedJudge).thenReturn(decideWith({ grounded: 0.9, tone: "neutral", quality: 2 }, { cost: usd(0.0002) }))`;
 on its own, `testUnit(AnswerGroundedJudge, …)({ variant, output, task, attempt })` takes `output` as a
 plain object of its DTO, typed by the judge — another shape, or a `variant` with another class's
 value, does not compile.
@@ -979,13 +979,12 @@ test, naming its input. A script is an expectation: a `thenReturn` turn no call 
 nothing matched, fails a test whose body passed (`thenReturnAlways` never does).
 `waitFor(seconds(31))` before a turn makes the call take that long on the test's clock. A model
 reply interpreter (#267) is scripted the same way, its input the pause's `{ ask, reply }` —
-`mockLlm(RefundReplyInterpreter).when({ reply: "ok, but only half" }).thenReturn(replyWith(ToolCallApprovalDecisionDto, { approved: true, … }))`,
+`mockModel(RefundReplyInterpreter).when({ reply: "ok, but only half" }).thenReturn(replyWith(ToolCallApprovalDecisionDto, { approved: true, … }))`,
 one on a decision model with `decideWith({ approved: 0.9 })` (#267 S124);
-a code one is created by the container and replaced with `mockOf(Interpreter).interpret`
+a code one is created by the container and replaced with `mockService(Interpreter).interpret`
 (`mockReturnValue(ChannelInterpretation.understood({ approved: true }))`).
 
 <!-- snippet-context
-import { ExecutionCancelledError } from "@agboss/core";
 import { Text } from "@agboss/core/dto";
 export class ChangesRequestedDto {
   @Text({ prompt: "what to change" })
@@ -1012,37 +1011,37 @@ import { seconds, usd } from "@agboss/core/units";
 
 const test = testWith(OfferApplication);
 
-test("the reviewer asks for changes once, then approves", async ({ app, mockLlm, mockAction }) => {
-  mockLlm(ReviewerAgent)
+test("the reviewer asks for changes once, then approves", async ({ app, mockModel, mockAction }) => {
+  mockModel(ReviewerAgent)
     .when({ draft: { text: "v1" } })
     .thenReturn(replyWith(ChangesRequestedDto, { notes: "shorter" }));
-  mockLlm(ReviewerAgent)
+  mockModel(ReviewerAgent)
     .when({ draft: { text: "v2" } })
     .thenReturn(waitFor(seconds(1)), replyWith(DraftApprovedDto, {}, { cost: usd(0.01) }));
-  mockLlm(EditorAgent).thenReturn(replyWith("v2"));
+  mockModel(EditorAgent).thenReturn(replyWith("v2"));
 
   await app.execute(OfferWorkflowStart, shortlist);
 
-  expect(mockLlm(ReviewerAgent)).toHaveBeenCalledTimes(2);
-  expect(mockLlm(ReviewerAgent)).toHaveReturned(ChangesRequestedDto, { notes: "shorter" });
+  expect(mockModel(ReviewerAgent)).toHaveBeenCalledTimes(2);
+  expect(mockModel(ReviewerAgent)).toHaveReturned(ChangesRequestedDto, { notes: "shorter" });
   expect(mockAction(SendOfferAction)).toHaveBeenCalledWith({ draft: { text: "v2" } });
 });
 
-test("a cancel from inside a mock cancels the execution", async ({ app, mockOf, mockTool }) => {
+test("a cancel from inside a mock cancels the execution", async ({ app, mockService, mockTool }) => {
   mockTool(SearchJobsTool).thenFail(ToolFailure.Timeout); // the next call fails as a timeout would
-  mockOf(MailerService).send.mockImplementation(() => app.cancel("thread-1").then(() => undefined));
+  mockService(MailerService).send.mockImplementation(() => app.cancel("thread-1").then(() => undefined));
 
-  await expect(app.execute(OfferWorkflowStart, shortlist)).rejects.toFailWith(
-    ExecutionCancelledError,
-  );
+  await expect(app.execute(OfferWorkflowStart, shortlist)).rejects.toMatchObject({
+    code: "execution.cancelled",
+  });
 });
 ```
 
-Calls are checked with Vitest's names on `mockLlm(X)` and `mockAction(A)` (the action still runs):
+Calls are checked with Vitest's names on `mockModel(X)` and `mockAction(A)` (the action still runs):
 `.inputs`, `toHaveBeenCalledWith(…)` (the matcher of `when`), `toHaveBeenCalledTimes(n)` (model
 calls; an action's executions), `toHaveReturned(XDto, fields?)`; on anything else — a `vi.fn()`, a
-`mockOf(…)` method — they are Vitest's own. `toHaveBeenAskedWith` checks the prompt itself. Errors
-are caused the real way — `failWith(ModelFailure.…)`, a rejecting `mockOf(…)`,
+`mockService(…)` method — they are Vitest's own. `toHaveBeenAskedWith` checks the prompt itself. Errors
+are caused the real way — `failWith(ModelFailure.…)`, a rejecting `mockService(…)`,
 `mockTool(Tool).thenFail(ToolFailure.Timeout)`, scripts that reach a limit, `app.cancel` — and
 matched with `rejects.toFailWith(ErrorClass, { …fields, cause: CauseClass })` through the cause
 chain; the testing API has no way to create a framework error.
@@ -1188,13 +1187,13 @@ const { cancelled } = await app.cancel(threadId, { tenantId: "acme", ownerId: us
 ```
 
 A thread created with an `ownerId` belongs to it: `execute` on that thread, `resume` and `cancel`
-with another owner (or none) throw `ThreadOwnerError` (`run.thread-owner`) before anything runs or
+with another owner (or none) throw `ExecutionError.ThreadOwnerMismatch` (`execution.thread-owner-mismatch`) before anything runs or
 is read. A thread belongs to its tenant too (#261): its key is `tenantId` + `threadId`, so another
 tenant's thread does not exist for the caller. `execute` with a `threadId` the tenant does not have
 yet creates that thread — the caller's own, idempotent id (an order number, a ticket), bound to its
 `ownerId`; the same id in another tenant is another thread (#262 Q4). An id that cannot be one
-(empty, over 200 characters, a control character) is `InvalidThreadIdError`
-(`run.invalid-thread-id`); `cancel` of a thread the tenant does not have is `UnknownThreadError`.
+(empty, over 200 characters, a control character) is `ExecutionError.InvalidThreadId`
+(`execution.invalid-thread-id`); `cancel` of a thread the tenant does not have is `ExecutionError.UnknownThread`.
 `resume` and `cancel` take the tenant by its id (omitted → `"default"`), and a resumed execution
 runs on the context values it started with. With nothing declared `tenant: { tenantId?, weight? }` is
 all there is (`weight`, a positive integer, default 1, is the tenant's share for #266's
@@ -1202,7 +1201,7 @@ all there is (`weight`, a positive integer, default 1, is the tenant's share for
 `@Application({ tenantContext: ShopTenantContext, executionContext: ShopExecutionContext })` — its
 own subclasses with DTO field decorators, identity only, never secrets — gets their values typed
 per start (`tenant: ContextValues<ShopTenantContext>`, `execution: …`), checked before the first
-step (invalid → `dto.invalid`, an `onExecutionRejected`, the field named, never the value) and frozen. Tool arguments a channel shows (and `ExecutionOutput.pending[i].input`) have the input DTO's
+step (invalid → `validation.dto-invalid`, an `onExecutionRejected`, the field named, never the value) and frozen. Tool arguments a channel shows (and `ExecutionOutput.pending[i].input`) have the input DTO's
 `sensitive` fields through their action (`mask(part)` as written, a token or a kind as `<field>`,
 #120); the tool itself still gets them whole.
 
@@ -1212,16 +1211,16 @@ stop its siblings, the execution pauses only when nothing else can move, and `re
 lists every waiting pause (`PendingPause`: `kind`, `respondent`, `target`, `step`, `channel?`, `itemIndex`,
 `childExecutionId`, the `input` asked with — and a `toolCall` — read after narrowing on `kind`). A pause is answered by its id, never by its thread —
 `app.resume({ pauseId, decision }, options)` — found by `(tenantId, pauseId)` anywhere in the tree
-(unknown, or another tenant's → `UnknownPauseError`, `pause.unknown`); with other pauses left the
+(unknown, or another tenant's → `PauseError.UnknownPause`, `pause.unknown`); with other pauses left the
 execution pauses again with the rest; the result carries `threadId` and `executionId`. Who may answer is
 the pause target's `respondent`: a `PauseRespondent.Owner` pause lists its `pauseId` in
-`result.pending` and is resumed with the thread's `ownerId` (another → `ThreadOwnerError`); a
+`result.pending` and is resumed with the thread's `ownerId` (another → `ExecutionError.ThreadOwnerMismatch`); a
 `PauseRespondent.Delegate` pause's id is the right to answer it — only its channel got it
 (`ask.pauseId`), `result.pending` leaves it out — and it is resumed with `{ actor:
 "manager-17" }`, recorded on the pause and in `onExecutionResume`; the other credential (or an empty
 `actor`) is a `pause.wrong-respondent` error. The decision is validated before
 it is recorded — a `ToolCallApprovalDecisionDto` (`approved`, `reason?`, `overrideInput?`
-only with `approved: true`, checked by the tool's input), else `DtoValidationError` and the pause
+only with `approved: true`, checked by the tool's input), else `ValidationError.DtoInvalid` and the pause
 keeps waiting:
 
 <!-- snippet-context
@@ -1259,11 +1258,11 @@ compile); a `throw` is for an unexpected crash only. Either kind reads in the pa
 `ExecutionContext` has the tenant, the owner and the waiting step, and the rate limits see the
 tenant. A model interpreter reads the question and the reply through the application's and the
 workflow's PII policies, like an agent: its answer is revealed before it is validated, a token no
-map knows is a decline, a block rule throws `PiiRefusedError`. A reply nobody can read — not
+map knows is a decline, a block rule throws `PiiError.Refused`. A reply nobody can read — not
 understood, a model that gives no answer, an answer the role rejects, a crash — throws
-`UninterpretableReplyError` (`pause.uninterpretable-reply`; `reason` says why, `cause` is the error
+`PauseError.UninterpretableReply` (`pause.uninterpretable-reply`; `reason` says why, `cause` is the error
 behind it, if any) and the pause stays pending, so the webhook can ask again or answer with a `decision`; a
-`reply` for a role without an interpreter is `ReplyInterpreterMissingError`
+`reply` for a role without an interpreter is `PauseError.ChannelInterpreterMissing`
 (`pause.channel-interpreter-missing`), the pause untouched.
 
 <!-- snippet-context
@@ -1361,7 +1360,7 @@ below never changes it; the pause records are operational state. A resolved paus
 record (`Taken`, `Cancelled`) is kept `@Application({ retention: { pauseRecords } })` — default
 `hours(24)` — after it was resolved, then removed by the recovery sweep
 (`PausedExecutionRepository.deleteByResolvedAtBefore(cutoff)`, on the `Clock`): within it a late answer
-is `PauseClosedError` (its `reason` and `closedAt`), after it `UnknownPauseError`; a pending pause is never removed. When a tree
+is `PauseError.Closed` (its `reason` and `closedAt`), after it `PauseError.UnknownPause`; a pending pause is never removed. When a tree
 ends, its stored paused run is removed and every pause it still has is closed: a waiting one
 `Cancelled` (a cancel) or `TreeEnded`; an answered (`Resolved`) one no step took — a cancel that won
 over the answer — closed the same way with its answer kept, and the answer log says _not taken_; one
@@ -1390,20 +1389,20 @@ or a cancel; there is no redelivery API.
 the target a deadline, fixed when the pause is made (a deploy that changes it never moves an open
 pause); the timeout is required, at least `seconds(1)` (`[limits.timeout-invalid]`), and there are no per-step or per-tool overrides.
 A run's deadline bounds every pause too: the smaller wins, a tie goes to the run. The deadline is
-hard: an answer at or after it is refused with `PauseClosedError` (`reason: expired`, `closedAt` the
+hard: an answer at or after it is refused with `PauseError.Closed` (`reason: expired`, `closedAt` the
 deadline) — atomically in the store, whoever raced — and within seconds the pause timers' expiry look
 takes the tree, asks the channel's optional `onPauseExpired(ask)` (`implements
 PauseExpiryHandler<Role>`) what the expiry means and records one decision: `PauseExpiration.fail()` —
-the step fails with `PauseExpiredError` (`step.pause-expired`, `.onError(PauseExpiredError, …)`
+the step fails with `StepError.PauseExpired` (`step.pause-expired`, `.onError(StepError.PauseExpired, …)`
 escalates; inside an agent the whole agent step fails, its spend kept) — or
 `PauseExpiration.decide(answer)` — the step goes on with that answer, validated like a resume's and
 recorded as answered by the channel (`PauseResolution.DecidedOnExpiry`; an approval decided
 `approved: true` runs its tool with no person having looked). The handler runs under the tree's lease
 in the pause's frame under the tool's timeout, once per expiry — again only after a crash before its
 decision was recorded — so it must have no effects of its own; a throw, a timeout, a value that is no
-expiration or an invalid answer fails the expiry (`ExpiryHandlerError` as the cause, `pause.expiry-handler-failed`
+expiration or an invalid answer fails the expiry (`PauseError.ExpiryHandlerFailed` as the cause, `pause.expiry-handler-failed`
 warned, never its message). A pause the run's deadline bound fails the run with
-`DeadlineExceededError` and asks nobody. A cancel always beats an expiry; `result.pending[].expiresAt`
+`LimitError.Deadline` and asks nobody. A cancel always beats an expiry; `result.pending[].expiresAt`
 and `agboss describe` show the deadlines. Over A2A the task goes `WORKING`, then `FAILED`
 (`step.pause-expired`) or `COMPLETED`.
 
@@ -1412,9 +1411,9 @@ hours(24) }, { actor })` (the `ownerId` for a thread owner's pause: who may answ
 moves an open pause's deadline to `now + expiresIn` and returns `PauseExtension` (`pauseKey`,
 `expiresAt`, `previousExpiresAt`); the channel's optional `onPauseTimeoutChanged(event)` and a
 `@ChannelListener`'s `onPauseTimeoutChanged` hear "extended until …". Refused: a closed pause or one past its
-deadline (`PauseClosedError`, `reason: expired`), a pause with no deadline (none is ever added), a
+deadline (`PauseError.Closed`, `reason: expired`), a pause with no deadline (none is ever added), a
 deadline not later than the current one, and one past the deadline of the run the pause was made
-under (`DtoValidationError`, `dto: "ExtendPauseRequest"`) — atomically in the store against the
+under (`ValidationError.DtoInvalid`, `dto: "ExtendPauseRequest"`) — atomically in the store against the
 expiry look: one wins. `@ToolApproval({ timeout: hours(24), remindBefore: hours(2) })` makes the
 channel's optional `onPauseExpiring(event)` and a listener's `onPauseExpiring` hear "expiring at …"
 once per deadline, whatever the number of instances, and again before the new deadline after an
@@ -1427,12 +1426,12 @@ channel is asked again — `send` gets a new `pauseId`, `ChannelAsk.assignees` a
 (`{ pauseId }` of the old message; both absent on a first send) — and its optional
 `onPauseClosed(event)` hears `reason: reassigned` for the old message, in no fixed order: the channel
 may edit the old message from `send` or from the notice. The old id answers nothing
-(`PauseClosedError`, `reason: reassigned`); the new pause keeps the deadline (extend it separately);
+(`PauseError.Closed`, `reason: reassigned`); the new pause keeps the deadline (extend it separately);
 the call returns `PauseReassignment` (`pauseKey` only: the new id is a capability, it goes to the
 channel and to a `@ChannelListener({ includePauseIds })`, never to the caller or a log). One implementation
 of the role routes on `assignee` (a Slack user, an address, a queue): no other role or implementation.
-Refused: a closed pause or one past its deadline (`PauseClosedError`), an `assignee` that is no key's text
-(`DtoValidationError`, `dto: "ReassignPauseRequest"`), another tenant's pause (`UnknownPauseError`); two
+Refused: a closed pause or one past its deadline (`PauseError.Closed`), an `assignee` that is no key's text
+(`ValidationError.DtoInvalid`, `dto: "ReassignPauseRequest"`), another tenant's pause (`PauseError.UnknownPause`); two
 reassignments, or a reassignment and an answer, at the same moment: exactly one wins. `send` of the new
 pause is at-least-once: an instance that dies, or a channel that fails, between the write and the send is
 made up by the pause timers of another instance within a minute.
@@ -1448,13 +1447,13 @@ own data; each target names its own `calendar`. A request at 17:30 on a Thursday
 Tel Aviv (Sunday to Thursday, 09:00–18:00, lunch 13:00–14:00) is due Sunday 10:30. The deadline is computed
 once, when the pause opens, before the channel is asked, into `expiresAt` / `remindAt` — a calendar changed
 later does not move open pauses (extend them); a calendar that fails, times out or answers a bad date
-fails the step (`QuestionFailedError` / `AgentFailedError`, cause `WorkingCalendarError`) and nobody is
+fails the step (`StepError.ExternalTask` / `StepError.Agent`, cause `PauseError.WorkingCalendar`) and nobody is
 asked; the run's deadline stays wall-clock. A working `remindBefore` needs a working `expiresIn`
 (`[channel.remind-before-working-without-working-expiry]`); a working duration needs a calendar
 (`[channel.working-time-without-calendar]`); `[working-calendar.invalid]`.
 
 Before its first step an execution reads each of its budgets (README → FinOps): one exhausted —
-the tenant's day spent, say — refuses it with `BudgetExceededError` (`limit.budget`, an
+the tenant's day spent, say — refuses it with `LimitError.Budget` (`limit.budget`, an
 `onExecutionRejected`), before anything is written: no thread (a new one is created once the budgets pass), no record, no model call.
 
 `execute` and `resume` forward `signal`, `onStream` (the answer's text and tool-call events — see
@@ -1469,14 +1468,14 @@ request, #387, #808) passes them from its
 authenticated caller. `app.cancel(threadId)` aborts a running
 run — it stops before its next model or tool call and `execute` resolves with
 `ExecutionStatus.Cancelled` — or drops a paused one, whose pauses are withdrawn: their `resume` then
-throws `PauseClosedError` (`reason: "cancelled"`);
+throws `PauseError.Closed` (`reason: "cancelled"`);
 `cancelled` is `false` when the thread had neither (a thread the tenant does not have is
-`UnknownThreadError`). From `app.close()` on, `execute` and `resume`
+`ExecutionError.UnknownThread`). From `app.close()` on, `execute` and `resume`
 are refused with `ApplicationStoppingError` (`app.stopping`, an `onExecutionRejected`); running executions
 go on and `cancel` still works. An execution tree is moved by one holder at a time (#265, Q58):
 `execute` and `resume` hold its lease (`seconds(30)`, renewed every 7.5 s and before every checkpoint
 write, released when the pass ends). A `resume` first records its decision on its pause (`Pending →
-Resolved`, atomic) — of two resumes of one pause the second gets `PauseClosedError`
+Resolved`, atomic) — of two resumes of one pause the second gets `PauseError.Closed`
 (`reason: "answered"`), as does an answer to a pause its step already took (`Taken`) or one closed
 (`Cancelled`: the thread was cancelled, a sibling branch failed under `FailFast`, its tree ended) —
 with the reason and when it closed, never the pause's id — then waits while another call or instance
@@ -1568,7 +1567,7 @@ may wake and write after the new holder did. Domain code gets no raw fence and n
 the lease's `scopeKey` and fencing `token`, the step's `idempotencyKey` and the checks are made by
 `Idempotency` — `runOnce` for rows of the application's own database, `sendOnce` for a call that
 leaves the system (the key it sends is a 43-character HMAC of them). A write refused because the
-lease moved is `ExecutionError.Fenced` (`ExecutionFencedError`, `extends ExecutionLeaseLostError`),
+lease moved is `ExecutionError.Fenced` (`execution.lease-lost.fenced`, a variant of its own: a hand-over like `ExecutionLeaseLostError`),
 found in any cause chain: a hand-over — no `.onError`, no undo, the record stays `running` and the call
 rejects with it — and it is kept (#501): a `HandedOver` row of the audit log (`app.auditLogOf`) and
 an `onStepHandedOver` (`reason`, `site`, the step, `token`, `observedToken`); an idempotent write's call
@@ -1582,7 +1581,7 @@ step has a held lease (`fence: { token, isLost, renewNowFails }`).
 no fencing or idempotency table of the application's: the application's `Idempotency` (#890, #1317, a
 core service a component injects, over the listed `FencedEffectRepository`) `runOnce({ name, ttl,
 execute })` checks, in one transaction, the step's lease (not its epoch,
-released or expired → `ExecutionFencedError`), the scope's high-water mark (a lower token refused
+released or expired → `ExecutionError.Fenced`), the scope's high-water mark (a lower token refused
 before any key is read, so a zombie never gets the new holder's result), then the step's key —
 written before, the stored result comes back (`IdempotencyRunStatus.Replayed`) and `execute` does not run;
 else `execute` writes its rows and its result is stored with them (`Ran`). A concurrent call on one key
@@ -1753,7 +1752,7 @@ longer waiting, an
 `app.close()` — emits `onExecutionRejected` (`operation`: `ExecutionOperation.Execute | Resume |
 Cancel`, `threadId` when given, `tenantId`, the error's stable `code`, a `message` without the input
 values; never an `executionId`) and still throws. A resume refused as incompatible after a deploy
-(`IncompatibleResumeError`) is an `onExecutionError` on the paused execution; it stays paused. A
+(`ExecutionError.IncompatibleResume`) is an `onExecutionError` on the paused execution; it stays paused. A
 write that renews a value of the path scope outdates what was built from the older one:
 `onValuesOutdated` fires once per such cascade (the new value, each outdated value with its
 `OutdatedReason`; never DTO values), and `result.record.outdatedValues` keeps the values themselves.
@@ -1856,9 +1855,9 @@ context, or a service such as billing — a trusted source, never the request bo
 whole execution, a resume included; the ledger keeps the last one read. Before the first step every
 budget is checked — one exhausted rejects the execution (`onExecutionRejected`); every model call's real
 cost is then counted in all of them, and before the next step or model call the first exhausted
-stops the execution with `BudgetExceededError` — `budget` (`{ name }`), `scope`, `key` (the
+stops the execution with `LimitError.Budget` — `budget` (`{ name }`), `scope`, `key` (the
 application's name, the `tenantId` or the execution's id), `maxSpend`, `spent`, and a sentence:
-`tenant acme spent $40.05 today; tenant-daily-budget allows $40`. `.onError(BudgetExceededError, …)`
+`tenant acme spent $40.05 today; tenant-daily-budget allows $40`. `.onError(LimitError.Budget, …)`
 takes it. Nothing is reserved: a budget protects from draining money, so parallel executions of one
 tenant may overrun it a little, and a budget is exceeded by at most (#664) the calls in flight when it
 was exhausted (a cost is known after its call), plus the spend of the steps it never holds back — the
@@ -1914,9 +1913,9 @@ export class ExecutionBudget implements BudgetHandler {
 A budget is unit-tested without the container —
 `new TenantDailyBudget(testExecutionContext({ tenantContext: ShopTenantContext, tenant: { dailyBudgetUsd: 40 } }).tenant).maxSpend()`
 is `usd(40)` — and an application test reaches an exhausted one the real way:
-`mockOf(TenantDailyBudget).maxSpend.mockReturnValue(usd(0.01))` plus a scripted cost
+`mockService(TenantDailyBudget).maxSpend.mockReturnValue(usd(0.01))` plus a scripted cost
 (`replyWith(…, { cost: usd(0.02) })`). Steps are not money: `@Workflow({ executionLimits: { maxSteps } })` (default
-(agents + routers) × 3; `StepsLimitExceededError`), checked at assembly too —
+(agents + routers) × 3; `LimitError.Steps`), checked at assembly too —
 `[limits.max-steps-too-low]` when no finish fits in a hand-set `maxSteps`, or when the default
 cannot hold the worst case of a per-item launch (`maxItems` runs: set `maxSteps`),
 `[limits.branch-exceeds-max-steps]`, `[limits.max-steps-unused]`.
@@ -1965,7 +1964,7 @@ it gives back is revealed before any DTO is validated, so the scope, the checkpo
 action and finish see real values. `tokenize()` is the reversible one — a tool gets the
 address the model only saw as `<email:7f3a91>` (an HMAC of the value with the policy's `secret`, else the storage's `piiSecret`; the
 token map is kept in the execution's checkpoint). A `block` rule fails the execution
-with `PiiRefusedError` (`kind`, `refusal`) when the value comes in or is in an answer, and rejects
+with `PiiError.Refused` (`kind`, `refusal`) when the value comes in or is in an answer, and rejects
 only the call when it is in tool arguments or a tool result.
 
 <!-- snippet-context
@@ -2048,7 +2047,7 @@ Rotating a key: name the old one as `previousSecret` / `previousPiiSecret`, and 
 already tokenized under it keeps its token, so a resumed execution shows the model one token per
 value; the token map is in the checkpoint, so every old token still reveals. The `Logger` a
 component injects is masked as the framework's own log is. Under `testWith` an unset key gets a
-fixed test key, and `mockLlm(CustomerPiiPolicy)` scripts its model detection (`pii:<policy>` in
+fixed test key, and `mockModel(CustomerPiiPolicy)` scripts its model detection (`pii:<policy>` in
 the spend). Wiki → Guards (PII).
 
 ## Guardrails
@@ -2058,9 +2057,9 @@ a model router's model reads — its input message, masked by that element's PII
 model is called; an `@OutputGuardrail` checks what an agent answers. Each asks its model one yes / no
 question — its `prompt` — a decision model through one `Decision.boolean`, a chat model through one
 answer tool; its `model` or `defaults.guardrail.model` (never `defaults.router`; none →
-`[model.missing-provider]`). At P(yes) ≥ `threshold` the execution fails with `GuardrailBlockedError`
+`[model.missing-provider]`). At P(yes) ≥ `threshold` the execution fails with `GuardrailError.Blocked`
 (`guardrail.blocked`): `refusal` is the text to send instead, `key` the setting that decided
-(`guardrails.<name>.threshold`). A model that does not answer fails closed (`GuardFailedError`).
+(`guardrails.<name>.threshold`). A model that does not answer fails closed (`StepError.Guardrail`).
 
 <!-- snippet-context
 import { ExecutionContext, InputGuardrail, Injectable, OutputGuardrail, type GuardrailRefusal } from "@agboss/core";
@@ -2118,7 +2117,7 @@ is `[guardrail.missing-refusal]` at assembly), a question (`[guardrail.no-prompt
 (0, 1] (`[guardrail.threshold-invalid]`), `[guardrail.exclude-not-inherited]`,
 `[guardrail.not-a-guardrail]`, `[guardrail.output-on-router]`, `[guardrail.no-model-call]`.
 `agboss describe` prints each one's side, threshold, model, refusal and the elements it guards. In
-tests, `mockLlm(LegalAdviceGuardrail).thenReturn(decideWith({ blocks: 0.9 }))` blocks (an
+tests, `mockModel(LegalAdviceGuardrail).thenReturn(decideWith({ blocks: 0.9 }))` blocks (an
 unscripted guardrail passes), and `testUnit(LegalAdviceGuardrail, { model: decideWith({ blocks:
 0.9 }), executionContext: ClinicExecutionContext, execution: { locale: "he" } })("Can I sue?")`
 gives `{ isBlocked, probability, refusal }`.
@@ -2192,7 +2191,7 @@ the turns through the application's and the workflow's PII policies, its summary
 it is stored, and each reader's own policies mask it on the way into its model. Spend is
 `memory:<name>`; `result.compacted` says what each memory did before the execution, and
 `onCompactionStart` / `onCompactionEnd` of an observer show it as it happens. In tests,
-`mockLlm(ConversationMemory).thenReturn(replyWith("…"))` scripts it (`replyWith("…", { truncated:
+`mockModel(ConversationMemory).thenReturn(replyWith("…"))` scripts it (`replyWith("…", { truncated:
 true })` is a summary cut at the limit); unscripted, it writes a fixed summary.
 
 ## Tracing (local, optional)

@@ -2,6 +2,7 @@
  * #1356 — the budgets of a pass in the run layer: none without an application, those an execution keeps
  * met again from its state, and the recorder that writes each call's cost into their counters.
  */
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { describe, expect, it } from "vitest";
 import { BudgetPeriod, BudgetScope } from "../../src/budgets/budget.js";
 import { counterOf, type ExecutionBudgetRecord } from "../../src/budgets/budget-check.js";
@@ -19,7 +20,6 @@ import {
 import type { AgentExecutionDeps } from "../../src/run/types.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { usd } from "../../src/units/index.js";
-import { BudgetExceededError } from "../../src/errors.js";
 import { currentFrame } from "../../src/flow/context/frame.js";
 import type { ExecutionOrigin } from "../../src/mesh/mesh-envelope.js";
 import { fakeDeps, usageRecord } from "../helpers.js";
@@ -199,7 +199,7 @@ describe("#1356: the budgets of a new execution of an application", () => {
       (error: unknown) => error,
     );
 
-    expect(refused).toBeInstanceOf(BudgetExceededError);
+    expect(refused).toBeInstanceOf(LimitError.Budget);
     expect(refused).toMatchObject({
       budget: { name: "test-execution-budget" },
       spent: 0,

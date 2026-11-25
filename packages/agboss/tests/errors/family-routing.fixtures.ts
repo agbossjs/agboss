@@ -57,6 +57,7 @@ const THROWN: Readonly<Record<string, (() => Error) | undefined>> = {
   "step-agent": agentError,
   "limit-items": () =>
     new LimitError.Items({ node: "n", limit: 1, actual: 2, path: [], spentUsd: usd(0) }),
+  "cancel-fenced": () => new ExecutionError.CancelFenced(),
   "unknown-thread": () => new ExecutionError.UnknownThread(),
   "lease-lost": () => new ExecutionError.LeaseLost({ rootExecutionId: "run-1" }),
   fenced,
@@ -171,11 +172,43 @@ export class NarrowOwnCaughtFinish {}
 })
 export class NarrowRouteWorkflow {}
 
+@WorkflowStart({ name: "cancel-route-workflow-start", description: "What to throw", input: AskDto })
+export class CancelRouteStart {}
+
+@WorkflowFinish({
+  name: "cancel-route-caught-workflow-finish",
+  description: "Something caught a cancel: it must not",
+  output: AskDto,
+})
+export class CancelCaughtFinish {}
+
+@WorkflowFinish({
+  name: "cancel-route-ok-workflow-finish",
+  description: "Nothing thrown",
+  output: OutDto,
+})
+export class CancelOkFinish {}
+
+/** The widest handlers there are: a cancel reaches neither (#1413). */
+@Workflow({
+  name: "cancel-route-workflow",
+  version: "1.0.0",
+  historyTtl: Ttl.Forever,
+  flow: [
+    onStart(CancelRouteStart)
+      .toAction(ThrowingAction)
+      .onError(ExecutionError, toFinish(CancelCaughtFinish))
+      .onError(AGBossError, toFinish(CancelCaughtFinish))
+      .toFinish(CancelOkFinish),
+  ],
+})
+export class CancelRouteWorkflow {}
+
 @Application({
   name: "family-route-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
-  workflows: [FamilyRouteWorkflow, NarrowRouteWorkflow],
+  workflows: [FamilyRouteWorkflow, NarrowRouteWorkflow, CancelRouteWorkflow],
   budgets: TEST_BUDGETS,
 })
 export class FamilyRouteApplication {}

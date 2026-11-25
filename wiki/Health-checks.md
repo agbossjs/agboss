@@ -170,8 +170,8 @@ import { seconds } from "@agboss/core/units";
 
 const test = testWith(ShopApplication);
 
-test("an unreachable CRM makes the instance not ready", async ({ app, mockOf }) => {
-  mockOf(CrmClient).ping.mockResolvedValue(false);
+test("an unreachable CRM makes the instance not ready", async ({ app, mockService }) => {
+  mockService(CrmClient).ping.mockResolvedValue(false);
 
   const report = await app.checkReadiness();
 
@@ -184,9 +184,9 @@ test("an unreachable CRM makes the instance not ready", async ({ app, mockOf }) 
 test("a CRM that does not answer within its timeout counts as failed", async ({
   app,
   clock,
-  mockOf,
+  mockService,
 }) => {
-  mockOf(CrmClient).ping.mockImplementation(() => clock.sleep(seconds(5)).then(() => true));
+  mockService(CrmClient).ping.mockImplementation(() => clock.sleep(seconds(5)).then(() => true));
   await app.ready();
 
   const pending = app.checkReadiness();

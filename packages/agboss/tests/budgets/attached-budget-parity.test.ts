@@ -4,6 +4,7 @@
  * limit lookup, the checks before a call, the mesh claim and `describe`. A path that missed one
  * would let spend run past a limit it never saw.
  */
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
@@ -17,7 +18,6 @@ import {
 } from "../../src/budgets/application-spend.js";
 import type { ApplicationBudgets } from "../../src/budgets/budget-check.js";
 import { budgetRuleViolations } from "../../src/budgets/budget-rules.js";
-import { BudgetExceededError } from "../../src/errors.js";
 import type { Class } from "../../src/components/injection.js";
 import { DEFAULT_CONTEXT_VALUES } from "../../src/flow/context/context-values.js";
 import { Workflow } from "../../src/flow/decorators/workflow.js";
@@ -172,7 +172,7 @@ describe("#1318a: the spend a workflow makes counts in an application budget ano
 
     expect(() => {
       meter.check([], ["agent"]);
-    }).toThrow(BudgetExceededError);
+    }).toThrow(LimitError.Budget);
   });
 
   it("the mesh claim of that workflow is what the application cap has left", async () => {

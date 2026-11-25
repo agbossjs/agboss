@@ -155,12 +155,10 @@ export class Done {}
   },
   memory: Window1Memory,
   providers: [Shortlist],
-  flow: [
-    onStart(SearchStart)
-      .toAgent(Searcher)
-      .toAction(Shortlist)
-      .toFinish(Done),
-  ],
+  flow: [onStart(SearchStart)
+    .toAgent(Searcher)
+    .toAction(Shortlist)
+    .toFinish(Done)],
 })
 export class JobSearch {}
 
@@ -193,10 +191,8 @@ export class Typo {}
   historyTtl: Ttl.Forever,
   defaults: { models: { maxTokens: 100, temperature: 0 } },
   memory: Window1Memory,
-  flow: [
-    onStart(SearchStart)
-      .toAgent(Typo)
-      .toFinish(Done),
-  ],
+  flow: [onStart(SearchStart)
+    .toAgent(Typo)
+    .toFinish(Done)],
 })
 export class TypoSearch {}

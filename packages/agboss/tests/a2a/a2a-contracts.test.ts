@@ -1,3 +1,4 @@
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { hours, minutes } from "../../src/units/index.js";
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { afterEach, describe, expect, it } from "vitest";
@@ -7,7 +8,7 @@ import { applicationOf } from "../../src/application/assemble.js";
 import type { App } from "../../src/app/types.js";
 import { contractsOf } from "../../src/describe/contracts.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
-import { EmptyEnvironment, GraphRuleError, Injectable } from "../../src/index.js";
+import { EmptyEnvironment, Injectable } from "../../src/index.js";
 import { replyWith } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
@@ -82,7 +83,7 @@ describe("#398 PR 3: the contracts at assembly", () => {
 
     const built = applicationOf(BrokenApplication, { withoutIdempotencyKeys: true });
 
-    await expect(built).rejects.toBeInstanceOf(GraphRuleError);
+    await expect(built).rejects.toBeInstanceOf(ConfigError.GraphRules);
     const message = await built.catch((error: unknown) => String(error));
     expect(message).toContain(
       '[name.not-kebab-case] "Shop_Expose" on @A2AEndpoint — a name is kebab-case: "shop-expose"',
@@ -102,7 +103,7 @@ describe("#398 PR 3: the contracts at assembly", () => {
 });
 
 describe("#398 PR 3: describe --json lists the declared contracts", () => {
-  it("AC2: exports by expose and skill, imports (a foreign peer with foreign: true) by client and server, each DTO with its schemaHash", async () => {
+  it("AC2: exports by endpoint and skill, imports (a foreign peer with foreign: true) by client and server, each DTO with its schemaHash", async () => {
     const contracts = contractsOf(
       await applicationOf(ShopKbApplication, { withoutIdempotencyKeys: true }),
     );
@@ -110,7 +111,7 @@ describe("#398 PR 3: describe --json lists the declared contracts", () => {
     expect(contracts.exports).toEqual([
       {
         kind: "a2a",
-        expose: "shop-a2a-expose",
+        endpoint: "shop-a2a-expose",
         version: "2.0.0",
         skill: "quote-workflow-start",
         workflow: "quote-workflow",
@@ -128,7 +129,7 @@ describe("#398 PR 3: describe --json lists the declared contracts", () => {
       expect.objectContaining({ kind: "a2a", skill: "refund-workflow-start" }),
       {
         kind: "mcp",
-        expose: "shop-mcp-expose",
+        endpoint: "shop-mcp-expose",
         version: "1.0.0",
         tool: "refund-workflow-start",
         input: { dto: "WorkflowStartTextDto", schemaHash: expect.any(String) },
@@ -143,7 +144,7 @@ describe("#398 PR 3: describe --json lists the declared contracts", () => {
         usedBy: [{ workflow: "quote-workflow", tool: "ask-billing-tool" }],
         input: { dto: "InvoiceQuestionDto", schemaHash: expect.any(String) },
         output: { dto: "InvoiceAnswerDto", schemaHash: expect.any(String) },
-        price: 0.05,
+        costPerCall: 0.05,
       },
       {
         kind: "a2a",
@@ -153,7 +154,7 @@ describe("#398 PR 3: describe --json lists the declared contracts", () => {
         usedBy: [],
         input: { dto: "InvoiceQuestionDto", schemaHash: expect.any(String) },
         output: { dto: "InvoiceAnswerDto", schemaHash: expect.any(String) },
-        price: null,
+        costPerCall: null,
       },
       {
         kind: "a2a",
@@ -163,13 +164,13 @@ describe("#398 PR 3: describe --json lists the declared contracts", () => {
         usedBy: [],
         input: null,
         output: null,
-        price: null,
+        costPerCall: null,
       },
       {
         kind: "mcp",
         server: "kb",
         tool: "search",
-        target: { application: "kb-application", expose: "kb-mcp-expose" },
+        target: { application: "kb-application", endpoint: "kb-mcp-expose" },
         usedBy: [{ workflow: "kb-workflow", tool: "search-kb-tool" }],
         input: { dto: "SearchQueryDto", schemaHash: expect.any(String) },
         output: { dto: "SearchHitDto", schemaHash: expect.any(String) },

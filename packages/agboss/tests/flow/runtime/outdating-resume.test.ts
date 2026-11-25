@@ -33,20 +33,20 @@ beforeEach(resetOutdatingLog);
 describe("#271 AC11: outdating across a pause", () => {
   loop(
     "pause mid-cycle: provenance and outdated marks restored",
-    async ({ app, recoverApp, mockLlm }) => {
-      mockLlm(LoopResearcherAgent).thenReturn(replyWith(ResearchDto, { facts: "f" }));
-      mockLlm(LoopWriterAgent).thenReturn(
+    async ({ app, recoverApp, mockModel }) => {
+      mockModel(LoopResearcherAgent).thenReturn(replyWith(ResearchDto, { facts: "f" }));
+      mockModel(LoopWriterAgent).thenReturn(
         replyWith(DraftDto, { text: "v1" }),
         replyWith(DraftDto, { text: "v2" }),
         replyWith(DraftDto, { text: "v3" }),
       );
-      mockLlm(LoopReviewerAgent).thenReturn(
+      mockModel(LoopReviewerAgent).thenReturn(
         replyWith(DraftChangesDto, { changes: "first notes" }),
         callTool(AskEditorTool, { text: "is v2 fine?" }),
         replyWith(DraftChangesDto, { changes: "second notes" }),
         replyWith(ApprovalDto, { reason: "good" }),
       );
-      mockLlm(LoopPublisherAgent).thenReturn(replyWith(ArticleDto, { body: "v3, published" }));
+      mockModel(LoopPublisherAgent).thenReturn(replyWith(ArticleDto, { body: "v3, published" }));
 
       const paused = await execute(app, LoopWorkflowStart, { topic: "t" });
       const eventsBeforePause = outdatingEvents.length;
@@ -78,7 +78,7 @@ describe("#271 AC11: outdating across a pause", () => {
         (value) => value.valueId === "loop-reviewer-agent:2/DraftChangesDto",
       );
       expect(changes?.builtFrom).toEqual(["loop-writer-agent:2/DraftDto"]);
-      const publisher = mockLlm(LoopPublisherAgent).onlyRequest;
+      const publisher = mockModel(LoopPublisherAgent).onlyRequest;
       expect(publisher.kind === "chat" && publisher.input).not.toMatch(/"v1"|"v2"/);
     },
   );

@@ -25,8 +25,8 @@ beforeEach(resetRecovery);
 describe("#582: an execution interrupted by a stop", () => {
   lone(
     "on a lone instance: the next take of its lease continues it — no other instance as a fact",
-    async ({ app, clock, mockLlm }) => {
-      mockLlm(Clerk).thenReturn(callTool(Hold, { text: "a long job" }));
+    async ({ app, clock, mockModel }) => {
+      mockModel(Clerk).thenReturn(callTool(Hold, { text: "a long job" }));
       const held = new Promise<void>((resolve) => {
         levers.holdStarted = resolve;
       });

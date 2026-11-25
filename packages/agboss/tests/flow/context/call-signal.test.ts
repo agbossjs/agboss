@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect } from "vitest";
-import { ExecutionCancelledError } from "../../../src/index.js";
+import { ExecutionCancelledError } from "../../../src/core/errors.js";
 import { callTool, replyWith, testWith } from "../../../src/testing/index.js";
 import { execute } from "../../helpers/flow.js";
 import {
@@ -22,9 +22,9 @@ describe("#280 S45: in a tool call, executionContext.signal is the call's", () =
   test("a call waiting on its signal is aborted at its own timeout; the execution goes on", async ({
     app,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(SearcherAgent).thenReturn(
+    mockModel(SearcherAgent).thenReturn(
       callTool(SlowFetchTool, { query: "slow" }),
       replyWith(ResultDto, { text: "gave up on the slow page" }),
     );
@@ -39,12 +39,12 @@ describe("#280 S45: in a tool call, executionContext.signal is the call's", () =
 
     expect(spendSeen.aborts).toEqual(["ToolTimeoutError"]);
     expect(done.output).toEqual({ text: "gave up on the slow page" });
-    expect(mockLlm(SearcherAgent).requests).toHaveLength(2);
+    expect(mockModel(SearcherAgent).requests).toHaveLength(2);
     expect(spendSeen.actionSignalAborted).toEqual([false]);
   });
 
-  test("cancelling the execution aborts the call's signal too", async ({ app, mockLlm }) => {
-    mockLlm(SearcherAgent).thenReturn(callTool(SlowFetchTool, { query: "slow" }));
+  test("cancelling the execution aborts the call's signal too", async ({ app, mockModel }) => {
+    mockModel(SearcherAgent).thenReturn(callTool(SlowFetchTool, { query: "slow" }));
     const controller = new AbortController();
 
     const run = execute(app, SpendStart, { text: "fetch" }, { signal: controller.signal });

@@ -1,3 +1,4 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -8,11 +9,8 @@ import { declarationOf } from "../flow/decorators/declaration.js";
 import type { AssembledWorkflow } from "../workflow.js";
 
 import { applicationsNear } from "./application-files.js";
-import { WorkflowLoadError } from "./load-errors.js";
 import { registerTypeScript } from "./typescript.js";
 import { lazyLoad } from "../infrastructure/clock.js";
-
-export { WorkflowLoadError } from "./load-errors.js";
 
 const isWorkflowClass = (value: unknown): value is Class =>
   typeof value === "function" && declarationOf(value)?.kind === NodeKind.Workflow;
@@ -24,13 +22,13 @@ export async function loadWorkflowClass(
 ): Promise<Class> {
   const file = resolve(path);
   if (!existsSync(file))
-    throw new WorkflowLoadError({ message: `Workflow file not found: ${file}` });
+    throw new ConfigError.WorkflowLoad({ message: `Workflow file not found: ${file}` });
   if (options.typescript !== false) await registerTypeScript();
   const module = (await lazyLoad(import(pathToFileURL(file).href))) as Record<string, unknown>;
   const found = Object.values(module).filter(isWorkflowClass);
   const [workflow] = found;
   if (found.length !== 1 || workflow === undefined) {
-    throw new WorkflowLoadError({
+    throw new ConfigError.WorkflowLoad({
       message: `${file}: expected exactly one exported @Workflow class, found ${String(found.length)}`,
     });
   }

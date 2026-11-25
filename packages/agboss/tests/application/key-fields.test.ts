@@ -8,6 +8,7 @@
  * it shares a variable): an application with a database storage whose components can write under
  * a business key names it (`[application.idempotency-key-required]`).
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import { applicationOf } from "../../src/application/assemble.js";
 import {
@@ -17,7 +18,6 @@ import {
 import { createAppWith } from "../../src/application/create-app.js";
 import { IdempotencyError } from "../../src/core/error-families/effect-errors.js";
 import { Application } from "../../src/application/application.js";
-import { GraphRuleError } from "../../src/graph/rule-error.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import type { Secret } from "../../src/index.js";
@@ -106,7 +106,7 @@ async function violationsOf(options: Partial<ApplicationOptions>): Promise<reado
     await applicationOf(KeysApplication);
     return [];
   } catch (error) {
-    if (!(error instanceof GraphRuleError)) throw error;
+    if (!(error instanceof ConfigError.GraphRules)) throw error;
     return error.violations.map((found) => `[${found.code}] ${found.message}`);
   }
 }

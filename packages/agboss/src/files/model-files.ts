@@ -47,7 +47,7 @@ export enum AnswerFiles {
   Any = "any",
 }
 
-/** Which limit a file over it hit (`ModelFileLimitError.limit`). */
+/** Which limit a file over it hit (`StepError.ModelFileLimit.limit`). */
 export enum ModelFileLimit {
   /** More source files than `maxFiles`. */
   MaxFiles = "max-files",

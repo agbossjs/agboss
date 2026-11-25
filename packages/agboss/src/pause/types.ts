@@ -96,7 +96,7 @@ export interface PendingPauseBase {
   /**
    * When the pause expires (#941, ISO 8601, the application's clock): fixed when it was asked — the
    * smaller of its `expiresIn` and its run's deadline; absent: it waits without a deadline. An
-   * answer at or after it is refused (`PauseClosedError`, reason `expired`).
+   * answer at or after it is refused (`PauseError.Closed`, reason `expired`).
    */
   readonly expiresAt?: string;
 }

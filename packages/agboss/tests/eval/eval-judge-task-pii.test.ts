@@ -44,7 +44,7 @@ describe("#1301: the eval judge's task line", () => {
   it("holds the start DTO's token and mask, never a raw value", async () => {
     const env = await TestEnvironment.of(JudgedDeskApplication);
     environment = env;
-    env.mockLlm(JudgedDeskAgent).thenReturn(replyWith("Hi."));
+    env.mockModel(JudgedDeskAgent).thenReturn(replyWith("Hi."));
     const key = judgeKeyOf("task-pii-judge");
     env.book.name(key, TaskPiiJudge.name);
     const script = env.book.scriptOf(key);

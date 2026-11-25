@@ -7,7 +7,7 @@ import type { GuardrailSide } from "./policy-decorators.js";
  * decides by its class's `check(content)` instead of a model — no model call, cost 0. The content is
  * what the guarded model reads (or what the agent answered), already masked by the element's PII
  * policies; `GuardrailVerdict.blocked(refusal?)` fails the execution with the same
- * `GuardrailBlockedError` and the refusal as a model guardrail's hit.
+ * `GuardrailError.Blocked` and the refusal as a model guardrail's hit.
  */
 
 /** What a code guardrail decided on one content: built only with `passed()` / `blocked()`. */
@@ -36,9 +36,9 @@ export class GuardrailVerdict {
   }
 
   /**
-   * The content is blocked: the execution fails with `GuardrailBlockedError` and the refusal — this
+   * The content is blocked: the execution fails with `GuardrailError.Blocked` and the refusal — this
    * call's `refusal`, else the decorator's `refusal`, else the class's `refusal(content)`. With none
-   * of the three the guardrail fails closed (`GuardFailedError`).
+   * of the three the guardrail fails closed (`StepError.Guardrail`).
    */
   static blocked(refusal?: string): GuardrailVerdict {
     return new GuardrailVerdict(true, refusal);

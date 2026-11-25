@@ -168,9 +168,9 @@ vi.mock("../../src/run/versions.js", async (original) => ({
 describe("#1301 finding 2: a start DTO's sensitive fields are masked in what is stored", () => {
   test("the record's task line, the history's input and the next turn's model input hold the token and the mask", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    const agent = mockLlm(MemoryDeskAgent);
+    const agent = mockModel(MemoryDeskAgent);
     agent.thenReturn(replyWith("first"), replyWith("second"));
 
     const first = await execute(

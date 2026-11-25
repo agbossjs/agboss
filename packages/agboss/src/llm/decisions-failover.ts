@@ -1,10 +1,10 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import { fallbackHopsOf } from "../models/fallback-chain.js";
 import { isFailoverError } from "../models/failover-error.js";
 import type { ModelProviderType } from "../models/model-provider.decorator.js";
 import type { RegisteredModelProvider } from "../models/resolve.js";
 import type { ProviderConnection } from "../models/handler.js";
 import type { JevDecisionRequest } from "./jev-client.js";
-import { ProviderCapabilityError } from "./provider-chat-of.js";
 
 /**
  * A decision call down its provider's fallback chain (#1313d, #1313c): the provider asked first; when
@@ -41,7 +41,7 @@ export const decideThrough =
     const { handler } = provider;
     const connection = connectionFor(provider);
     if (handler?.decide !== undefined) return handler.decide({ ...decision, connection });
-    throw new ProviderCapabilityError(`${provider.options.name} does not decide`);
+    throw new ConfigError.ModelProvider(`${provider.options.name} does not decide`);
   };
 
 /** `request` asked of `primary`, then of each provider of its fallback chain, until one answers. */

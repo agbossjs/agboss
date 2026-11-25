@@ -4,6 +4,7 @@
  * `InvalidArguments` call the model reads about, counted in `validationAttempts`, never a silent
  * empty reply.
  */
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { HumanMessage } from "@langchain/core/messages";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
@@ -194,7 +195,7 @@ describe("a call its interceptors stopped (#384)", () => {
   const times = { startedAt: new Date(0), endedAt: new Date(0) };
   const call = { step, args: { path: "a.ts" }, isResultTruncated: false };
 
-  it("blocked: Blocked, its error a ToolBlockedError record", () => {
+  it("blocked: Blocked, its error a StepError.ToolBlocked record", () => {
     if (tool === undefined) throw new Error("no tool");
     const stop = {
       kind: ToolCallStopKind.Blocked,

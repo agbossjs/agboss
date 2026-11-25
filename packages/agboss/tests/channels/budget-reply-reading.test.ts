@@ -1,3 +1,4 @@
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { ModelKind } from "../../src/models/model-kind.js";
 import { usd } from "../../src/units/index.js";
 /**
@@ -8,10 +9,6 @@ import { usd } from "../../src/units/index.js";
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { readReplyBy, replyReaderOf } from "../../src/channels/reply-reading.js";
-import {
-  ReplyInterpreterMissingError,
-  UninterpretableReplyError,
-} from "../../src/channels/decision.js";
 import { readByCode } from "../../src/channels/reply-code.js";
 import { readByDecision } from "../../src/channels/reply-decision.js";
 import { readByModel } from "../../src/channels/reply-reader.js";
@@ -193,8 +190,8 @@ describe("#1366: the reading's spend travels with every outcome", () => {
 
     expect(out.kind).toBe("unreadable");
     expect(out.usage).toEqual([record(0.5)]);
-    const error = (out as { error: UninterpretableReplyError }).error;
-    expect(error).toBeInstanceOf(UninterpretableReplyError);
+    const error = (out as { error: PauseError.UninterpretableReply }).error;
+    expect(error).toBeInstanceOf(PauseError.UninterpretableReply);
     expect(error.message).toBe(
       "pause p1: boss-reply-interpreter could not read the reply — no idea",
     );
@@ -277,7 +274,7 @@ describe("#1366: the reader of a tree's pauses", () => {
       pause: { pauseId: "p9", target: "tg", channel: "ch", ask: {} },
     } as never).catch((e: unknown) => e);
 
-    expect(failure).toBeInstanceOf(ReplyInterpreterMissingError);
+    expect(failure).toBeInstanceOf(PauseError.ChannelInterpreterMissing);
     expect((failure as Error).message).toContain(
       "pause p9: pause target tg has no channelInterpreter",
     );

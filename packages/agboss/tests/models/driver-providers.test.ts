@@ -1,3 +1,4 @@
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 /**
  * #1313a: a `@ModelProvider({ driver })` is an independent class; a component's model is served by
  * the provider its cascade names (`Component.modelProvider ?? Workflow.modelProvider ??
@@ -5,14 +6,12 @@
  */
 import { describe, expect, it } from "vitest";
 import { applicationOf } from "../../src/application/assemble.js";
-import { GraphRuleError } from "../../src/index.js";
 import type { Class } from "../../src/components/injection.js";
 import { createProviderGateway } from "../../src/llm/gateway.js";
 import {
   DecisionsDriver,
   ModelKind,
   ModelProvider,
-  ModelProviderError,
   OpenAiCompatibleDriver,
   OpenRouterDriver,
 } from "../../src/models/index.js";
@@ -43,8 +42,8 @@ async function violationsOf(application: Class): Promise<(readonly [string, stri
     () => undefined,
     (thrown: unknown) => thrown,
   );
-  if (!(error instanceof GraphRuleError))
-    throw new Error(`expected a GraphRuleError: ${String(error)}`);
+  if (!(error instanceof ConfigError.GraphRules))
+    throw new Error(`expected a ConfigError.GraphRules: ${String(error)}`);
   return error.violations.map((found) => [found.code, found.message] as const);
 }
 
@@ -179,7 +178,7 @@ describe("#1313a: drivers and the directory", () => {
         retryPolicy: undefined,
         circuitBreakerPolicy: undefined,
       }),
-    ).toThrow(ModelProviderError);
+    ).toThrow(ConfigError.ModelProvider);
   });
 
   it("the kind of a driver: OpenAI-compatible and OpenRouter chat, Decisions decide", () => {

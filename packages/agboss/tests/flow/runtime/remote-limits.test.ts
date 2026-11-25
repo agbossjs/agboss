@@ -89,11 +89,11 @@ describe("#333 PR 3: maxConcurrentExecutions over the instances", () => {
 describe("#333 PR 3: a child's spend on any instance", () => {
   single(
     "written to the tree's counters where the child runs, before it ends — and never again",
-    async ({ app, mockLlm }) => {
+    async ({ app, mockModel }) => {
       const saveAll = vi.spyOn(InMemoryCostLedgerRepository.prototype, "saveAll");
       const written = (): readonly UsageRecord[] =>
         saveAll.mock.calls.flatMap(([, records]) => records);
-      mockLlm(RemoteSpenderAgent).thenReturn(
+      mockModel(RemoteSpenderAgent).thenReturn(
         replyWith(ItemResultDto, { name: "a" }, { cost: usd(0.01) }),
       );
       closeGate();

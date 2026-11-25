@@ -1,3 +1,4 @@
+import { StepError } from "../../core/error-families/step-errors.js";
 import type { ExecutionContext } from "../../flow/context/execution-context.js";
 import { bareRecordOf, ComponentKind } from "../../flow/runtime/records.js";
 import type { TenantContext } from "../../flow/context/tenant-context.js";
@@ -14,7 +15,6 @@ import { loadedGuardrailOf, type LoadedGuardrail } from "../../guardrails/assemb
 import { guardrailViolations } from "../../guardrails/checks.js";
 import { contentOf } from "../../guardrails/code-guardrail.js";
 import { checkGuardrail, runtimeGuardrailOf } from "../../guardrails/runtime.js";
-import { GuardFailedError } from "../../graph/errors.js";
 import type { UsageRecord } from "../../finops/usage.js";
 import { TestSetupError } from "../errors.js";
 import { guardrailKeyOf } from "../scripted-gateway.js";
@@ -85,8 +85,8 @@ function checkedScript(
  * its model answering from `model` — `decideWith({ blocks: 0.9 })` (`{ cost }` for its spend,
  * `guardrail:<name>`); unscripted, it passes. Each check runs in the frame of a step, so a
  * computed `refusal()` reads the execution (`execution`, `tenant`) as in an application; it gives
- * the verdict — a block is `isBlocked` with its refusal, never a thrown `GuardrailBlockedError`.
- * A model that does not answer rejects with `GuardFailedError`. A code guardrail (#383) runs its
+ * the verdict — a block is `isBlocked` with its refusal, never a thrown `GuardrailError.Blocked`.
+ * A model that does not answer rejects with `StepError.Guardrail`. A code guardrail (#383) runs its
  * class's `check(text)` instead — no `model` script (one is a `TestSetupError`), no spend.
  */
 export function guardrailUnit<
@@ -127,8 +127,8 @@ export function guardrailUnit<
       if (!outcome.isBlocked) return { isBlocked: false, probability: outcome.probability };
       const refusal = outcome.refusal ?? (await runtime.refusal(contentOf(checked)));
       if (refusal === undefined)
-        throw new GuardFailedError({
-          guard: name,
+        throw new StepError.Guardrail({
+          guardrail: name,
           usage: used,
           reason:
             "blocked with no refusal — give blocked(refusal), the decorator { refusal } or a refusal(content) method",

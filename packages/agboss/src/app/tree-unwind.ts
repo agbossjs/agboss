@@ -1,6 +1,6 @@
+import { ExecutionError } from "../core/error-families/run-errors.js";
 import type { FrameLease } from "../flow/context/frame.js";
 import type { CompensationRecord } from "../flow/compensation.js";
-import type { CompensationFailedError } from "../flow/compensation.js";
 import type { AppDeps } from "./app-deps.js";
 import type { TreeState } from "./tree-move-types.js";
 import { isStop } from "./interrupt-requests.js";
@@ -23,7 +23,7 @@ export interface EndedTreeUndo {
 }
 
 /**
- * The error the tree ends with once its open entries are undone — `CompensationFailedError` when
+ * The error the tree ends with once its open entries are undone — `ExecutionError.CompensationFailed` when
  * an undo failed, else `failure.error` (never a hand-over: its callers end the tree); `undo` gets
  * the records.
  */
@@ -36,7 +36,7 @@ export async function undoneTreeEnd<TError>(
     readonly lease: FrameLease;
   },
   undo: EndedTreeUndo,
-): Promise<TError | CompensationFailedError> {
+): Promise<TError | ExecutionError.CompensationFailed> {
   // a stop undoes nothing (#1341b): what the tree had done stays, its undoable actions open
   if (isStop(failure.error)) {
     undo.compensations = [];

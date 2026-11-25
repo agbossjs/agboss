@@ -3,11 +3,11 @@
  * redactor, what an answer must be to be kept, how the copy is kept (inline or in the store) and what
  * every refusal says. Called directly on a batch, with a redactor and a mask that are told what to do.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { bytes as byteSize } from "../../src/units/index.js";
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { sha256Of, type FileContent } from "../../src/files/file-bytes.js";
-import { FileRedactionFailedError } from "../../src/files/file-errors.js";
 import {
   MAX_INLINE_REDACTED,
   redactedKeyOf,
@@ -17,7 +17,6 @@ import { InMemoryFileRepository } from "../../src/infrastructure/in-memory-file.
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
 import type { NewFile } from "../../src/infrastructure/file.repository.js";
 import { PiiKind } from "../../src/pii/kinds.js";
-import { PiiRefusedError } from "../../src/pii/errors.js";
 import { PNG_BYTES } from "./reader.factory.js";
 import {
   AGENT,
@@ -48,10 +47,10 @@ class SpyStore extends InMemoryFileRepository {
   }
 }
 
-const failureOf = async (promise: Promise<unknown>): Promise<FileRedactionFailedError> => {
+const failureOf = async (promise: Promise<unknown>): Promise<StepError.FileMaskingFailed> => {
   const error = await rejection(promise);
-  expect(error).toBeInstanceOf(FileRedactionFailedError);
-  return error as FileRedactionFailedError;
+  expect(error).toBeInstanceOf(StepError.FileMaskingFailed);
+  return error as StepError.FileMaskingFailed;
 };
 
 describe("the cache key of a redacted copy", () => {

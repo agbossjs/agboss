@@ -1,3 +1,4 @@
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { describe, expectTypeOf, it } from "vitest";
 import * as builder from "../../src/flow/builder.js";
 import { onStart, toAction, toAgent, toFinish } from "../../src/flow/builder.js";
@@ -21,7 +22,6 @@ import {
 import * as index from "../../src/index.js";
 import { Metadata, type Tracked } from "../../src/flow/metadata.js";
 import { listOf, optional } from "../../src/flow/dto-wrappers.js";
-import { StepFailedError } from "../../src/graph/errors.js";
 import { seconds, workDays } from "../../src/units/index.js";
 import {
   AuditorAgent,
@@ -104,11 +104,9 @@ describe("#279 AC11 / AC12: arbiters and quorum joins after a launch", () => {
 
   it("AC4: .onError right after the quorum, .onJoinError does not compile", () => {
     const joined = scores().joinQuorum({ min: 2 });
-    joined
-      .onError(StepFailedError, toFinish(ScoreReviewFailedWorkflowFinish))
-      .toAgent(ScoreSummaryAgent);
+    joined.onError(StepError, toFinish(ScoreReviewFailedWorkflowFinish)).toAgent(ScoreSummaryAgent);
     // @ts-expect-error — the join's handler is `.onError`: `.onJoinError` is gone (#1281)
-    joined.onJoinError(StepFailedError, toFinish(ScoreReviewFailedWorkflowFinish));
+    joined.onJoinError(StepError, toFinish(ScoreReviewFailedWorkflowFinish));
     expectTypeOf(joined).toHaveProperty("onError");
   });
 });
@@ -136,7 +134,7 @@ describe("#279 AC7 / AC13, #1284: groups continue their own path", () => {
   it(".joinQuorumGroups({ deadline }) is incomplete until a group: .onGroup([targets], options?, subPath)", () => {
     const groups = deal()
       .joinQuorumGroups({ deadline: seconds(60) })
-      .onError(StepFailedError, toFinish(QuickRejectWorkflowFinish))
+      .onError(StepError, toFinish(QuickRejectWorkflowFinish))
       .onGroup([LegalAgent, DealCriticAgent], { priority: 1 }, toAgent(FullReviewAgent))
       .onGroup([AuditorAgent], toAction(OpenDealRoomAction).toFinish(DealRoomOpenedWorkflowFinish))
       .onGroup([FastScreenAgent], { priority: 3 }, toFinish(QuickRejectWorkflowFinish));
@@ -159,7 +157,7 @@ describe("#279 AC7 / AC13, #1284: groups continue their own path", () => {
     deal().joinQuorumGroups({ deadline: workDays(5), calendar: OfficeCalendar });
     const joined = joining.onGroup([FastScreenAgent], toFinish(QuickRejectWorkflowFinish));
     // @ts-expect-error — .onError(E, …) stands before the first .onGroup(…), never after one
-    joined.onError(StepFailedError, toFinish(QuickRejectWorkflowFinish));
+    joined.onError(StepError, toFinish(QuickRejectWorkflowFinish));
     // @ts-expect-error — no common continuation after the groups: each group continues its own path
     joined.toAgent(FullReviewAgent);
     // @ts-expect-error — targets are one or more classes

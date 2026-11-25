@@ -1,6 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
-import { PauseResolution, PauseStatus, type PauseRecord } from "../pause-record.js";
+import { PauseResolution, PauseStatus, pauseKeyOf, type PauseRecord } from "../pause-record.js";
 import { pauseRecordOfJson } from "../stored-pause.js";
 import { parsedStoredJson } from "../stored-step.js";
 
@@ -44,7 +44,11 @@ export function toPauseRecord(row: unknown): PauseRecord {
   const r = PauseRow.parse(row);
   return pauseRecordOfJson({
     ...JsonObject.parse(
-      parsedStoredJson({ what: "pause", text: r.pause, ids: { pauseId: r.pause_id } }),
+      parsedStoredJson({
+        what: "pause",
+        text: r.pause,
+        ids: { pause: pauseKeyOf(r.tenant_id, r.pause_id) },
+      }),
     ),
     tenantId: r.tenant_id,
     pauseId: r.pause_id,
@@ -58,7 +62,7 @@ export function toPauseRecord(row: unknown): PauseRecord {
           answer: parsedStoredJson({
             what: "pause answer",
             text: r.answer,
-            ids: { pauseId: r.pause_id },
+            ids: { pause: pauseKeyOf(r.tenant_id, r.pause_id) },
           }),
         }),
     ...resolutionOf(r),

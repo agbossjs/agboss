@@ -1,10 +1,11 @@
+import { StepError } from "../core/error-families/step-errors.js";
 import { mediaTypeEssenceOf } from "../a2a/files/a2a-file-options.js";
 import type { FileDto } from "../dto/standard/file.js";
 import type { UsageRecord } from "../finops/usage.js";
 import type { Bytes } from "../units/index.js";
 import type { PiiTokenMap } from "../pii/tokens.js";
 import { fileContentOf, type FileContent, type FileReadContext } from "./file-bytes.js";
-import { ModelFileLimitError, fileUnavailable, FileUnavailableReason } from "./file-errors.js";
+import { fileUnavailable, FileUnavailableReason } from "./file-errors.js";
 import { hasModelForm } from "./file-needs.js";
 import type { FileMask } from "./file-mask.js";
 import { headingOf, sizeOfPiece, type FilePiece, type FilePlace } from "./file-pieces.js";
@@ -119,7 +120,7 @@ function checkedDeclared(batch: FileBatch): void {
   const { settings, agent } = batch.runtime;
   const count = batch.tally.count + batch.files.length;
   if (count > settings.maxFiles)
-    throw new ModelFileLimitError({
+    throw new StepError.ModelFileLimit({
       agent,
       limit: ModelFileLimit.MaxFiles,
       actual: count,
@@ -128,7 +129,7 @@ function checkedDeclared(batch: FileBatch): void {
   for (const { descriptor } of batch.files) {
     const mediaType = mediaTypeEssenceOf(descriptor.mediaType);
     if (!settings.allowedMediaTypes.includes(mediaType) || !hasModelForm(mediaType))
-      throw new ModelFileLimitError({
+      throw new StepError.ModelFileLimit({
         agent,
         limit: ModelFileLimit.MediaType,
         actual: mediaType,
@@ -137,7 +138,7 @@ function checkedDeclared(batch: FileBatch): void {
     // a size the descriptor declares (none declared: nothing to check before the read)
     const declared = descriptor.sizeBytes ?? 0;
     if (declared > settings.maxFileSize)
-      throw new ModelFileLimitError({
+      throw new StepError.ModelFileLimit({
         agent,
         limit: ModelFileLimit.MaxFileSize,
         actual: declared,
@@ -181,7 +182,7 @@ async function gatherViews(
     const shown = await viewOf(batch, content, view, heading, known);
     gathered.bytes += shown.pieces.reduce((sum, piece) => sum + sizeOfPiece(piece), 0);
     if (gathered.bytes > settings.maxTotalFileSize)
-      throw new ModelFileLimitError({
+      throw new StepError.ModelFileLimit({
         agent,
         limit: ModelFileLimit.MaxTotalFileSize,
         actual: gathered.bytes,
@@ -209,7 +210,7 @@ function removedPiece(batch: FileBatch, source: SourceFile, index: number): File
   };
 }
 
-/** The pieces of a batch of files, in order; over a limit → `ModelFileLimitError`, before any model call. */
+/** The pieces of a batch of files, in order; over a limit → `StepError.ModelFileLimit`, before any model call. */
 export async function filePiecesOf(batch: FileBatch): Promise<FilePieces> {
   checkedDeclared(batch);
   const gathered: Gathered = {

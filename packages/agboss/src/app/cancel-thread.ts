@@ -1,9 +1,9 @@
+import { ExecutionError } from "../core/error-families/run-errors.js";
 import { ExecutionOperation } from "../core/observability.js";
 import { keyTextRuleOf } from "../core/errors.js";
 import { checkedCallerId, checkedTenantId } from "../flow/context/context-values.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
 import { type ThreadAccess } from "../run/thread.js";
-import { InvalidThreadIdError } from "../core/errors.js";
 import type { CancelParts } from "./cancel-requests.js";
 import { remoteCancel } from "./cancel-remote.js";
 import { cancelTransitionOf } from "./cancel-marks.js";
@@ -39,7 +39,7 @@ export async function cancelThread(
     // #552: the tenant id and the thread id are a key's text, as at execute — refused, never echoed
     checkedTenantId(thread.tenantId);
     const rule = keyTextRuleOf(threadId);
-    if (rule !== undefined) throw new InvalidThreadIdError({ rule });
+    if (rule !== undefined) throw new ExecutionError.InvalidThreadId({ rule });
     checkedCallerId("CancelOptions", "ownerId", options.ownerId); // #589
     return parts.known({ ...thread, ownerId: options.ownerId });
   });

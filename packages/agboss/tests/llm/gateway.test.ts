@@ -1,3 +1,4 @@
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { asDeclared } from "../../src/models/model-pricing.js";
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
@@ -10,7 +11,6 @@ import {
   type ModelGateway,
 } from "../../src/llm/gateway.js";
 import type { JevClient } from "../../src/llm/jev-client.js";
-import { EnvironmentError } from "../../src/environments/errors.js";
 import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import { ENV, KEYS } from "../models/gateway.js";
 import { TestDecisionsProvider, TestOpenRouterProvider } from "../models/providers.fixture.js";
@@ -20,12 +20,13 @@ import { CompactionStrategy } from "../../src/memory/memory.decorator.js";
 import { createRouter, type RouteOutcome } from "../../src/routers/index.js";
 import { routeTo, fakeChatFactory, testConfig, testRouter, unusedJevClient } from "../helpers.js";
 import { jevAnswer, request } from "../routers/fixtures.js";
+import { usd } from "../../src/units/index.js";
 
 const settings: ResolvedModelSettings = {
   model: "test/router",
   temperature: 0,
   maxTokens: 10,
-  price: { inputPerMTok: 1, outputPerMTok: 2 },
+  price: { inputPerMillion: usd(1), outputPerMillion: usd(2) },
 };
 
 /** A gateway that answers every decision with `next` and hands out one fake chat model. */
@@ -93,7 +94,7 @@ describe("AC12: the default model gateway", () => {
         env: {},
         environment: NO_ENVIRONMENT_VALUES,
       }),
-    ).toThrow(EnvironmentError);
+    ).toThrow(ConfigError.Environment);
     expect(
       Object.keys(
         createProviderGateway(directoryOf([TestOpenRouterProvider, TestDecisionsProvider]), {
@@ -113,7 +114,10 @@ describe("AC12: model clients are asked for through the gateway", () => {
       memories: {
         "conversation-compaction": {
           strategy: CompactionStrategy.SummaryQueue,
-          model: { model: "test/compact", price: { inputPerMTok: 1, outputPerMTok: 1 } },
+          model: {
+            model: "test/compact",
+            price: { inputPerMillion: usd(1), outputPerMillion: usd(1) },
+          },
           turnsBetweenCompactions: 4,
           summaryQueueLength: 2,
         },

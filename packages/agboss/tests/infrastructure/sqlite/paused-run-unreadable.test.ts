@@ -3,8 +3,8 @@
  * failed, the schema's error as the `cause` — never with the run in the message: its `startInput`
  * and `data` are the caller's (PII), and a message reaches the logs.
  */
+import { StoreError } from "../../../src/core/error-families/store-errors.js";
 import { describe, expect, it } from "vitest";
-import { StoredNamesUnreadableError } from "../../../src/infrastructure/stored-step.js";
 import { SqlitePausedExecutionRepository } from "../../../src/infrastructure/sqlite/sqlite-paused-execution.repository.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
 import { connectionTo, temporarySqlitePath } from "../contracts/store-kinds.js";
@@ -83,7 +83,7 @@ describe("#906 D4: an unreadable stored paused run names ids and a field, not th
     expect(error.message).toContain("threadId thread-1");
     expect(error.message).toContain("runId run-1");
     // the coded error of every unreadable stored record (#1121); its cause keeps no text either
-    expect(error).toBeInstanceOf(StoredNamesUnreadableError);
+    expect(error).toBeInstanceOf(StoreError.UnreadableRecord);
     expect(error).not.toBeInstanceOf(SyntaxError);
     for (let link: unknown = error; link instanceof Error; link = link.cause) {
       expect(link.message).not.toContain(SECRET);

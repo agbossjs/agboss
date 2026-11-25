@@ -1,5 +1,4 @@
 import { PauseError } from "../core/error-families/pause-errors.js";
-import { UnknownPauseError } from "../run/resume-agent.js";
 import type { PauseActor } from "../channels/pause-contexts.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
 import type { PausedExecutionRepository } from "../infrastructure/paused-execution.repository.js";
@@ -42,7 +41,7 @@ export async function actorOf(
   return actor;
 }
 
-/** The tenant's pause a resume answers; `UnknownPauseError` when the tenant has none of that id. */
+/** The tenant's pause a resume answers; `PauseError.UnknownPause` when the tenant has none of that id. */
 export async function pauseOf(
   pauses: PausedExecutionRepository,
   request: { readonly pauseId: string },
@@ -50,7 +49,9 @@ export async function pauseOf(
 ): Promise<PauseRecord> {
   const pause = await pauses.findByTenantIdAndPauseId(tenantId, request.pauseId);
   if (pause === undefined) {
-    throw new UnknownPauseError({ message: `tenant ${tenantId} has no pause ${request.pauseId}` });
+    throw new PauseError.UnknownPause({
+      message: `tenant ${tenantId} has no pause ${request.pauseId}`,
+    });
   }
   return pause;
 }

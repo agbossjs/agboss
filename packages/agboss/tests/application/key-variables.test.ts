@@ -2,10 +2,11 @@
  * #825 AC6 — no key field reads another key's variable, checked at start: two fields of the contract
  * given one variable are one key, whatever the field names say.
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import { applicationIdempotencyKeysOf } from "../../src/application/idempotency-key.js";
 import { assertKeyVariablesApart } from "../../src/application/key-variables.js";
-import { EnvironmentError, EnvironmentErrorCode } from "../../src/environments/errors.js";
+import { EnvironmentErrorCode } from "../../src/environments/errors.js";
 import { unitEnvironmentOf } from "../../src/environments/resolve.js";
 import { secret } from "../../src/index.js";
 
@@ -30,9 +31,9 @@ describe("#825 AC6: each key on a variable of its own", () => {
       { piiKey: secret("SHARED_KEY"), openRouterApiKey: secret("SHARED_KEY") },
     );
 
-    expect(refused).toBeInstanceOf(EnvironmentError);
+    expect(refused).toBeInstanceOf(ConfigError.Environment);
     expect(refused).toMatchObject({
-      code: EnvironmentErrorCode.InvalidValue,
+      envCode: EnvironmentErrorCode.InvalidValue,
       message:
         'keys-application: @Application({ piiKeyField: "piiKey" }) reads SHARED_KEY, as openRouterApiKey (the built-in OpenRouter providers\' apiKey) does — give it a variable of its own: rotating the other key would change every value made with this one',
     });
@@ -45,7 +46,7 @@ describe("#825 AC6: each key on a variable of its own", () => {
     };
 
     expect(refusalOf(keys, { piiKey: secret("PII"), meshSigningKey: secret("PII") })).toMatchObject(
-      { code: EnvironmentErrorCode.InvalidValue },
+      { envCode: EnvironmentErrorCode.InvalidValue },
     );
   });
 

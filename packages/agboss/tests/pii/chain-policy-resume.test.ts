@@ -3,8 +3,9 @@
  * `configHash` of the root that launches it — the application's and each ancestor's `@Workflow`
  * list, also on a workflow with no agent or router of its own — while the child's own hash stays
  * "as declared". So a tree paused inside the child is not resumed blindly under a changed policy
- * (`IncompatibleResumeError`), and a deployment that changed nothing resumes it.
+ * (`ExecutionError.IncompatibleResume`), and a deployment that changed nothing resumes it.
  */
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
@@ -17,7 +18,6 @@ import { joinKeysOf } from "../../src/flow/runtime/workflow-keys.js";
 import {
   Agent,
   EmptyEnvironment,
-  IncompatibleResumeError,
   PiiAction,
   PiiFileAction,
   PiiPolicy,
@@ -235,20 +235,20 @@ describe("#1150: a policy a child inherits is in its root's configHash", () => {
   it("an application-level policy changed between pause and resume: refused, nothing sent", async () => {
     const resumed = resumedAcross({ application: [AppAllow] }, { application: [AppMask] });
 
-    await expect(resumed).rejects.toBeInstanceOf(IncompatibleResumeError);
+    await expect(resumed).rejects.toBeInstanceOf(ExecutionError.IncompatibleResume);
     expect(sent).toEqual([]);
   });
 
   it("the policy of a parent with no agent changed: refused, nothing sent", async () => {
     const resumed = resumedAcross({ root: [RootAllow] }, { root: [RootMask] });
 
-    await expect(resumed).rejects.toBeInstanceOf(IncompatibleResumeError);
+    await expect(resumed).rejects.toBeInstanceOf(ExecutionError.IncompatibleResume);
     expect(sent).toEqual([]);
   });
 
   it("the parent's policy dropped: refused", async () => {
     await expect(resumedAcross({ root: [RootAllow] }, {})).rejects.toBeInstanceOf(
-      IncompatibleResumeError,
+      ExecutionError.IncompatibleResume,
     );
   });
 
@@ -258,7 +258,7 @@ describe("#1150: a policy a child inherits is in its root's configHash", () => {
       { root: [RootAllow], own: [OwnMask] },
     );
 
-    await expect(resumed).rejects.toBeInstanceOf(IncompatibleResumeError);
+    await expect(resumed).rejects.toBeInstanceOf(ExecutionError.IncompatibleResume);
     expect(sent).toEqual([]);
   });
 

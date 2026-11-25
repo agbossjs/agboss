@@ -1,6 +1,6 @@
+import { ValidationError } from "../../core/error-families/effect-errors.js";
 import type { Message, Part } from "@a2a-js/sdk";
 import { keyTextRuleOf } from "../../core/errors.js";
-import { DtoValidationError } from "../../dto/errors.js";
 import { validInputOf } from "../../flow/runtime/start-input.js";
 import { versionOf } from "../../turns/index.js";
 import { A2A_SKILLS_EXTENSION } from "../a2a-extension-uris.js";
@@ -103,7 +103,7 @@ export function inputOfMessage(
   try {
     return validInputOf(skill.input, skill.id, payload);
   } catch (error) {
-    if (!(error instanceof DtoValidationError)) throw error;
+    if (!(error instanceof ValidationError.DtoInvalid)) throw error;
     // the issues name the caller's own fields; the text stays fixed
     const fields = error.issues.map((issue) => issue.path).join(",");
     throw invalidParams("dto.invalid", "the input does not fit the skill's input", {

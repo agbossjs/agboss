@@ -6,6 +6,7 @@
  * `describe` prints it, and `describe --json` and the `configHash` carry it: shared content is a
  * reviewed choice, never a source's silence. A call that cannot name its scope reads nothing.
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import { Agent, Workflow, type Class, inline, Ttl } from "../../src/index.js";
 import { describeServices, describeWorkflow } from "../../src/describe/describe-workflow.js";
@@ -22,7 +23,6 @@ import { ragMeta } from "../../src/components/rag.js";
 import { knowledgeRetrieveOf } from "../../src/components/rag-retrieval.js";
 import type { WorkflowServices } from "../../src/workflow.js";
 import { runInFrame } from "../../src/flow/context/frame.js";
-import { RagScopeError } from "../../src/rag/rag-source.js";
 import { testFrame } from "../helpers/frame.js";
 import type { BoundReranker } from "../../src/rag/rerank.js";
 import { inTenantFrame } from "../helpers/frame.js";
@@ -218,7 +218,7 @@ describe("the scope id every call to a source carries", () => {
 
     await expect(
       inFrameOf("acme", undefined, () => retrieve("shipping", { topK: 1, signal: liveSignal() })),
-    ).rejects.toBeInstanceOf(RagScopeError);
+    ).rejects.toBeInstanceOf(ConfigError.Component);
     expect(seen).toEqual([]);
   });
 
@@ -239,7 +239,7 @@ describe("the scope id every call to a source carries", () => {
 
     await expect(
       inFrameOf("acme", "alice", () => retrieve("q", { topK: 1, signal: liveSignal() })),
-    ).rejects.toBeInstanceOf(RagScopeError);
+    ).rejects.toBeInstanceOf(ConfigError.Component);
     expect(seen).toEqual([]);
   });
 
@@ -249,7 +249,7 @@ describe("the scope id every call to a source carries", () => {
 
     await expect(
       inFrameOf("acme", "alice", () => retrieve("q", { topK: 1, signal: liveSignal() })),
-    ).rejects.toBeInstanceOf(RagScopeError);
+    ).rejects.toBeInstanceOf(ConfigError.Component);
     expect(seen).toEqual([]);
   });
 

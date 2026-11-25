@@ -9,9 +9,9 @@ import { ExecutionStatus } from "../../src/app/types.js";
 const shop = testWith(ShopApplication);
 
 describe("#194: a cancelled run is reported as ExecutionStatus.Cancelled", () => {
-  shop("aborting the run's signal mid-run resolves cancelled", async ({ app, mockLlm }) => {
+  shop("aborting the run's signal mid-run resolves cancelled", async ({ app, mockModel }) => {
     const controller = new AbortController();
-    mockLlm(Buyer).thenAnswer(() => {
+    mockModel(Buyer).respondWith(() => {
       controller.abort();
       return replyWith("bought");
     });
@@ -26,7 +26,7 @@ describe("#194: a cancelled run is reported as ExecutionStatus.Cancelled", () =>
     // a cancel is an outcome, not an error (#1341)
     expect(outcome).toMatchObject({ status: ExecutionStatus.Cancelled, pending: [] });
     expect(outcome).not.toBeInstanceOf(AGBossError);
-    expect(mockLlm(Checker).requests).toHaveLength(0);
+    expect(mockModel(Checker).requests).toHaveLength(0);
   });
 
   shop("a signal aborted before the run starts resolves the same way", async ({ app }) => {

@@ -95,8 +95,7 @@ export class DraftHistoryAction {
   async execute(input: InputOf<DraftHistoryAction>): Promise<OutputOf<DraftHistoryAction>> {
     const { current, previous } = input.drafts;
     return {
-      changes: [...previous, current]
-        .map((draft) => draft.text)
+      changes: [...previous, current].map((draft) => draft.text)
         .join(" → "),
     };
   }

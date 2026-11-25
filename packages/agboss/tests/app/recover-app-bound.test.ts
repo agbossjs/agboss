@@ -2,8 +2,8 @@
  * #928 AC1 recoverApp — the next app of a test reuses App 1's stores as values; App 2 bounds them
  * with its own clock and log, and never nests App 1's proxy.
  */
+import { StoreError } from "../../src/core/error-families/store-errors.js";
 import { afterEach, beforeEach, describe, expect } from "vitest";
-import { StoreCallTimeoutError } from "../../src/index.js";
 import { ExecutionRecordStatus } from "../../src/infrastructure/execution-record.repository.js";
 import { targetOf } from "../../src/app/store-call-bound.js";
 import { testWith } from "../../src/testing/index.js";
@@ -54,7 +54,7 @@ describe("#928 AC1 recoverApp: the reused stores are bounded by App 2", () => {
     await clock.advance(seconds(15));
     const error = await outcome;
 
-    expect(error).toBeInstanceOf(StoreCallTimeoutError);
+    expect(error).toBeInstanceOf(StoreError.CallTimeout);
     expect(error).toMatchObject({ operation: "findByStatus" });
     expect(timeouts(second.entries)).toBeGreaterThan(before);
     // App 1's log (its app is closed) hears nothing of App 2's call

@@ -4,10 +4,11 @@
  * check (nothing is spent yet) and may overrun the day; every call is counted, so the next
  * execution is rejected before its first call.
  */
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { describe, expect, it } from "vitest";
 import { applicationOf } from "../../src/application/assemble.js";
 import { buildApplication } from "../../src/application/create-app.js";
-import { BudgetExceededError, BudgetScope } from "../../src/index.js";
+import { BudgetScope } from "../../src/index.js";
 import { replyWith } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
@@ -46,7 +47,7 @@ describe("#261: concurrent executions of one tenant share its counters, nothing 
     ).spent;
 
     for (const reason of failed) {
-      expect(reason).toBeInstanceOf(BudgetExceededError);
+      expect(reason).toBeInstanceOf(LimitError.Budget);
       expect(reason).toMatchObject({ budget: { name: "capped-tenant-daily-budget" } });
     }
     // every call made is counted; the overrun is at most the executions already under way

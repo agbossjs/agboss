@@ -1,8 +1,9 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import { mergeTextWithContent } from "./multimodal-utils.js";
 import type { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import type { ResolvedModelSettings } from "../config/types.js";
 import type { AIMessageChunk } from "@langchain/core/messages";
-import { ModelCostError, recordUsage, unpricedUsageOf } from "../finops/usage.js";
+import { recordUsage, unpricedUsageOf } from "../finops/usage.js";
 import { compareNames } from "../llm/canonical-order.js";
 import { readRouterDecision, type ParsedDecision } from "./decision.js";
 import { callFailed, decided, failed, unknownOption } from "./outcome.js";
@@ -53,7 +54,7 @@ function failedCallUsageOf(
   try {
     return recordUsage(caller, deps.settings, answered);
   } catch (failure) {
-    if (!(failure instanceof ModelCostError)) throw failure;
+    if (!(failure instanceof ConfigError.ModelCost)) throw failure;
     return unpricedUsageOf(caller, deps.settings, answered);
   }
 }

@@ -1,11 +1,13 @@
+import { StepError } from "../../../../src/core/error-families/step-errors.js";
+import { LimitError } from "../../../../src/core/error-families/limit-errors.js";
+import { PauseError } from "../../../../src/core/error-families/pause-errors.js";
 import { usd } from "../../../../src/units/index.js";
 /**
  * #1366: how a step whose pause expired fails — a run-bound pause fails with the run's own deadline error (the
- * budgets' check first, any other error it throws goes on as it is), else with PauseExpiredError carrying the
+ * budgets' check first, any other error it throws goes on as it is), else with StepError.PauseExpired carrying the
  * pause's expiry problem as its cause; the deadline given is the frame's, else the pause's own wait.
  */
 import { describe, expect, it } from "vitest";
-import { DeadlineExceededError } from "../../../../src/budgets/execution-deadline.js";
 import {
   PauseExpiryBound,
   ExpiryProblem,
@@ -16,10 +18,6 @@ import {
   expiryFailureOf,
   type ExpirySite,
 } from "../../../../src/flow/runtime/pause-expiry-failure.js";
-import {
-  ExpiryHandlerError,
-  PauseExpiredError,
-} from "../../../../src/flow/runtime/pause-expired-error.js";
 import { runInFrame } from "../../../../src/flow/context/frame.js";
 import { seconds } from "../../../../src/units/index.js";
 import { ComponentKind } from "../../../../src/flow/runtime/records.js";
@@ -67,9 +65,9 @@ describe("#1366: a run-bound pause", () => {
   it("fails with the deadline given by the pause's own wait when no frame says one", () => {
     const error = expiryFailureOf(pauseOf(), siteOf());
 
-    expect(error).toBeInstanceOf(DeadlineExceededError);
-    expect((error as DeadlineExceededError).deadline).toBe(30_000);
-    expect((error as DeadlineExceededError).deadlineAt).toBe(EXPIRES);
+    expect(error).toBeInstanceOf(LimitError.Deadline);
+    expect((error as LimitError.Deadline).deadline).toBe(30_000);
+    expect((error as LimitError.Deadline).deadlineAt).toBe(EXPIRES);
   });
 
   it("does the same inside a frame whose execution has no deadline", async () => {
@@ -77,8 +75,8 @@ describe("#1366: a run-bound pause", () => {
       Promise.resolve(expiryFailureOf(pauseOf(), siteOf())),
     );
 
-    expect(error).toBeInstanceOf(DeadlineExceededError);
-    expect((error as DeadlineExceededError).deadline).toBe(30_000);
+    expect(error).toBeInstanceOf(LimitError.Deadline);
+    expect((error as LimitError.Deadline).deadline).toBe(30_000);
   });
 
   it("takes the deadline the frame's execution was given", async () => {
@@ -87,11 +85,11 @@ describe("#1366: a run-bound pause", () => {
       Promise.resolve(expiryFailureOf(pauseOf(), siteOf())),
     );
 
-    expect((error as DeadlineExceededError).deadline).toBe(90_000);
+    expect((error as LimitError.Deadline).deadline).toBe(90_000);
   });
 
   it("returns the deadline error the budgets' check throws", () => {
-    const own = new DeadlineExceededError({
+    const own = new LimitError.Deadline({
       deadline: seconds(1),
       deadlineAt: ASKED,
       path: [],
@@ -122,7 +120,7 @@ describe("#1366: a run-bound pause", () => {
 });
 
 describe("#1366: a pause with its own bound", () => {
-  it("fails with PauseExpiredError, its expiry problem kept as the cause", () => {
+  it("fails with StepError.PauseExpired, its expiry problem kept as the cause", () => {
     const pause = pauseOf({
       expiryBound: PauseExpiryBound.Pause,
       boundAt: "2099-01-01T00:00:00.000Z",
@@ -130,14 +128,16 @@ describe("#1366: a pause with its own bound", () => {
     });
     const error = expiryFailureOf(pause, siteOf());
 
-    expect(error).toBeInstanceOf(PauseExpiredError);
-    expect((error as PauseExpiredError).expiresAt).toBe(EXPIRES);
-    expect((error as PauseExpiredError).channel).toBe("ops");
-    expect((error as PauseExpiredError).cause).toBeInstanceOf(ExpiryHandlerError);
-    expect(((error as PauseExpiredError).cause as ExpiryHandlerError).problem).toBe(
-      ExpiryProblem.HandlerFailed,
-    );
-    expect(((error as PauseExpiredError).cause as ExpiryHandlerError).channel).toBe("ops");
+    expect(error).toBeInstanceOf(StepError.PauseExpired);
+    expect((error as StepError.PauseExpired).expiresAt).toBe(EXPIRES);
+    expect((error as StepError.PauseExpired).channel).toBe("ops");
+    expect((error as StepError.PauseExpired).cause).toBeInstanceOf(PauseError.ExpiryHandlerFailed);
+    expect(
+      ((error as StepError.PauseExpired).cause as PauseError.ExpiryHandlerFailed).problem,
+    ).toBe(ExpiryProblem.HandlerFailed);
+    expect(
+      ((error as StepError.PauseExpired).cause as PauseError.ExpiryHandlerFailed).channel,
+    ).toBe("ops");
   });
 
   it("has no cause when it recorded no expiry problem", () => {
@@ -146,6 +146,6 @@ describe("#1366: a pause with its own bound", () => {
       boundAt: "2099-01-01T00:00:00.000Z",
     });
 
-    expect((expiryFailureOf(pause, siteOf()) as PauseExpiredError).cause).toBeUndefined();
+    expect((expiryFailureOf(pause, siteOf()) as StepError.PauseExpired).cause).toBeUndefined();
   });
 });

@@ -131,7 +131,7 @@ describe("the a2aAgents shelf: one price and address on every path", () => {
       timeout: seconds(45),
       costPerCall: usd(0.05),
     });
-    expect(imports.map((one) => [one.client, one.price])).toEqual(
+    expect(imports.map((one) => [one.client, one.costPerCall])).toEqual(
       expect.arrayContaining([
         ["peer-billing", 0.05],
         ["peer-free", 0.01],

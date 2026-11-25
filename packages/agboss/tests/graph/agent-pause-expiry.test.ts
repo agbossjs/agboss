@@ -1,15 +1,15 @@
 /**
- * #941 AC5: an approval inside an agent expires: the agent step fails with `PauseExpiredError`, its
+ * #941 AC5: an approval inside an agent expires: the agent step fails with `StepError.PauseExpired`, its
  * spend kept, caught by `.onError` after the agent — none of the move's calls ran; with a decided
  * refusal the model reads it (by the channel's name) and goes on; with a decided approval the tool
  * runs. A tool's own `expiresIn` wins over its role's; a question the agent asks (#712) fails the
  * agent step the same way.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { beforeEach, describe, expect } from "vitest";
 import { ExecutionStatus } from "../../src/app/types.js";
 import { PauseExpiration } from "../../src/channels/pause-expiration.js";
 import { ResumeReason } from "../../src/core/observability.js";
-import { PauseExpiredError } from "../../src/errors.js";
 import {
   callTool,
   callTools,
@@ -44,12 +44,12 @@ beforeEach(() => {
 });
 
 describe("#941 AC5: an approval inside an agent expires", () => {
-  test("AC5: the agent step fails with PauseExpiredError, its spend kept; .onError after the agent takes it; the tool never ran", async ({
+  test("AC5: the agent step fails with StepError.PauseExpired, its spend kept; .onError after the agent takes it; the tool never ran", async ({
     app,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ExpiryRefundAgent).thenReturn(callTool(ExpiringRefundTool, ORDER));
+    mockModel(ExpiryRefundAgent).thenReturn(callTool(ExpiringRefundTool, ORDER));
     const paused = await execute(app, AgentExpiryWorkflowStart, ORDER, THREAD);
     expect(paused.status).toBe(ExecutionStatus.Paused);
 
@@ -62,35 +62,35 @@ describe("#941 AC5: an approval inside an agent expires", () => {
     expect(expiry.resumes).toMatchObject([{ reason: ResumeReason.Expired }]);
   });
 
-  test("AC5: uncaught, the run fails with PauseExpiredError: the agent, its approval's channel, the loop's usage", async ({
+  test("AC5: uncaught, the run fails with StepError.PauseExpired: the agent, its approval's channel, the loop's usage", async ({
     app,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ExpiryRefundAgent).thenReturn(callTool(ExpiringRefundTool, ORDER));
+    mockModel(ExpiryRefundAgent).thenReturn(callTool(ExpiringRefundTool, ORDER));
     await execute(app, AgentBareWorkflowStart, ORDER, THREAD);
 
     await clock.advance(hours(24));
     await until(() => expiry.errors.length === 1);
 
     const [error] = expiry.errors;
-    expect(error).toBeInstanceOf(PauseExpiredError);
+    expect(error).toBeInstanceOf(StepError.PauseExpired);
     expect(error).toMatchObject({
       step: "expiry-refund-agent",
       stepKind: "agent",
       target: "expiring-refund-approval-tool-approval",
       channel: "refund-approval-expiry-channel",
-      kind: "approval",
+      pauseKind: "approval",
     });
-    expect((error as PauseExpiredError).usage.length).toBeGreaterThan(0);
+    expect((error as StepError.PauseExpired).usage.length).toBeGreaterThan(0);
   });
 
   test("AC5: the move's first call is approved, the second expires: neither ran", async ({
     app,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ExpiryRefundAgent).thenReturn(
+    mockModel(ExpiryRefundAgent).thenReturn(
       callTools(
         callTool(ExpiringRefundTool, { orderId: "1" }),
         callTool(ExpiringRefundTool, { orderId: "2" }),
@@ -115,9 +115,9 @@ describe("#941 AC5: an approval inside an agent expires", () => {
   test("AC5: a tool's expiresIn of 4 h wins over its role's 24 h", async ({
     app,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ExpiryRefundAgent).thenReturn(callTool(UrgentRefundTool, ORDER));
+    mockModel(ExpiryRefundAgent).thenReturn(callTool(UrgentRefundTool, ORDER));
 
     const paused = await execute(app, AgentExpiryWorkflowStart, ORDER, THREAD);
 
@@ -129,10 +129,10 @@ describe("#941 AC5: an approval inside an agent expires", () => {
   test("AC5: decide({ approved: true }): the tool runs, the agent goes on", async ({
     app,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
     agentExpiry.behavior = () => PauseExpiration.decide({ approved: true });
-    mockLlm(ExpiryRefundAgent).thenReturn(callTool(ExpiringRefundTool, ORDER), done);
+    mockModel(ExpiryRefundAgent).thenReturn(callTool(ExpiringRefundTool, ORDER), done);
     await execute(app, AgentExpiryWorkflowStart, ORDER, THREAD);
 
     await clock.advance(hours(24));
@@ -147,12 +147,12 @@ describe("#941 AC5: an approval inside an agent expires", () => {
   test("AC5: decide({ approved: false, reason }): the model reads the rejection by the channel's name, the loop goes on", async ({
     app,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
     agentExpiry.behavior = () =>
       PauseExpiration.decide({ approved: false, reason: "nobody was there" });
     const seen: ModelRequest[] = [];
-    mockLlm(ExpiryRefundAgent).thenAnswer((request) => {
+    mockModel(ExpiryRefundAgent).respondWith((request) => {
       seen.push(request);
       return seen.length === 1 ? callTool(ExpiringRefundTool, ORDER) : done;
     });
@@ -170,15 +170,18 @@ describe("#941 AC5: an approval inside an agent expires", () => {
   test("AC5: a question the agent asks through its tool loop (#712) expires: the agent step fails", async ({
     app,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ExpiryRefundAgent).thenReturn(callTool(ManagerExternalTask, { orderId: "7" }));
+    mockModel(ExpiryRefundAgent).thenReturn(callTool(ManagerExternalTask, { orderId: "7" }));
     await execute(app, AgentBareWorkflowStart, ORDER, THREAD);
 
     await clock.advance(hours(24));
     await until(() => expiry.errors.length === 1);
 
-    expect(expiry.errors[0]).toBeInstanceOf(PauseExpiredError);
-    expect(expiry.errors[0]).toMatchObject({ step: "expiry-refund-agent", kind: "external-task" });
+    expect(expiry.errors[0]).toBeInstanceOf(StepError.PauseExpired);
+    expect(expiry.errors[0]).toMatchObject({
+      step: "expiry-refund-agent",
+      pauseKind: "external-task",
+    });
   });
 });

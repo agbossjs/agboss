@@ -5,6 +5,7 @@
  * still holds several answer calls is the one answer when they repeat it exactly, and refused —
  * never one of them picked — when they differ: the step fails naming the different answers.
  */
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { describe, expect, it } from "vitest";
 import { Text } from "../../../src/dto/index.js";
 import { listOf, oneOf } from "../../../src/flow/dto-wrappers.js";
@@ -13,7 +14,6 @@ import {
   NO_ANSWER_TOOLS,
   toolBindingOf,
 } from "../../../src/flow/runtime/answer-tools.js";
-import { AgentAnswerInvalidError } from "../../../src/index.js";
 import { nameOf } from "../../../src/components/name-of.js";
 import type { App } from "../../../src/app/types.js";
 import type { AnyTool } from "../../../src/tools/index.js";
@@ -126,7 +126,7 @@ describe("#649 AC2: several answer calls in one move", () => {
 
     const run = execute(app, ReviewWorkflowStart, { text: "the lease" });
 
-    await expect(run).rejects.toFailWith(AgentAnswerInvalidError, {
+    await expect(run).rejects.toFailWith(StepError.AgentAnswerInvalid, {
       code: "step.agent.invalid-answer",
     });
     await expect(run).rejects.toThrow(

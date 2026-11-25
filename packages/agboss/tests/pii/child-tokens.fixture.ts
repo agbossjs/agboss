@@ -4,10 +4,10 @@
  * the other side minted: the account of the parent's email tool (a sensitive field), the address the
  * child's notify tool echoes (an email in a tool result).
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import {
   Action,
   Agent,
-  ChildExecutionFailedError,
   ExecutionContext,
   Tool,
   Workflow,
@@ -24,8 +24,8 @@ import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { onStart, toAgent, toWorkflow } from "../helpers/flow.js";
 import { ContactPiiPolicy, Outbox, SendEmail } from "./pii.fixture.js";
 import { TestModelProvider } from "../../src/testing/test-model-provider.js";
+import { usd } from "../../src/units/index.js";
 
-const price = { inputPerMTok: 1, outputPerMTok: 10 };
 const defaults = { models: { temperature: 0 }, tools: { maxToolCalls: 2 } } as const;
 
 export class NotifyRequest {
@@ -72,7 +72,6 @@ export class NotifyTool {
   description: "Takes the request",
   prompt: inline("Take the request."),
   model: "test/intake",
-  price,
   tools: [SendEmail],
   output: IntakeDto,
 })
@@ -84,7 +83,6 @@ export class IntakeAgent {}
   description: "Notifies",
   prompt: inline("Notify."),
   model: "test/notifier",
-  price,
   tools: [NotifyTool],
   output: NoteDto,
 })
@@ -96,7 +94,6 @@ export class NotifierAgent {}
   description: "Closes the request",
   prompt: inline("Close the request."),
   model: "test/closing",
-  price,
   input: { intake: IntakeDto, answer: NoteDto },
 })
 export class ClosingAgent {}
@@ -107,7 +104,6 @@ export class ClosingAgent {}
   description: "Says what failed",
   prompt: inline("Say what failed."),
   model: "test/recovery",
-  price,
 })
 export class RecoveryAgent {}
 
@@ -117,7 +113,6 @@ export class RecoveryAgent {}
   description: "Says what failed",
   prompt: inline("Say what failed."),
   model: "test/recovery",
-  price,
   input: { messages: listOf(WorkflowStartTextDto) },
 })
 export class ListRecoveryAgent {}
@@ -128,7 +123,6 @@ export class ListRecoveryAgent {}
   description: "Sums the answers up",
   prompt: inline("Sum up."),
   model: "test/summary",
-  price,
   input: { answers: listOf(NoteDto) },
 })
 export class ListSummaryAgent {}
@@ -256,10 +250,7 @@ export class FailedHandoverRecoveredFinish {}
   flow: [
     onStart(FailedHandoverStart)
       .toWorkflow(FailingNotifyWorkflow)
-      .onError(
-        ChildExecutionFailedError,
-        toAgent(RecoveryAgent).toFinish(FailedHandoverRecoveredFinish),
-      )
+      .onError(StepError.Child, toAgent(RecoveryAgent).toFinish(FailedHandoverRecoveredFinish))
       .toFinish(FailedHandoverFinish),
   ],
   defaults,
@@ -296,10 +287,7 @@ export class FailedListRecoveredFinish {}
     onStart(FailedListStart)
       .forEachItem(toWorkflow(FailingNotifyWorkflow), { takeFirst: 1, maxConcurrency: 1 })
       .join()
-      .onError(
-        ChildExecutionFailedError,
-        toAgent(ListRecoveryAgent).toFinish(FailedListRecoveredFinish),
-      )
+      .onError(StepError.Child, toAgent(ListRecoveryAgent).toFinish(FailedListRecoveredFinish))
       .toAgent(ListSummaryAgent)
       .toFinish(FailedListFinish),
   ],

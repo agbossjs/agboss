@@ -117,7 +117,7 @@ as its `@Application({ maxMeshHops })` is refused before it runs, with an error 
 `_meta["agboss.dev/error"]` is `{ code: "limit.mesh-loop" | "limit.hops", error, details }`. An
 admitted start runs with the chain (its own calls carry it on); an execution or a tool that fails
 with one of these limits answers the same way. The AGBoss client throws such a result as
-`MeshLoopDetectedError` / `HopsLimitExceededError` — the calling step fails with it, and
+`LimitError.MeshLoop` / `LimitError.Hops` — the calling step fails with it, and
 `McpServerClient.call` passes it on as it is.
 
 **Trusted peers (#398 PR 2).** With `@Application({ mesh })` the envelope is signed

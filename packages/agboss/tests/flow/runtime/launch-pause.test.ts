@@ -44,8 +44,8 @@ const clerk = (request: ModelRequest) => {
 describe("S20: a pause inside a branch", () => {
   clerks(
     "a paused branch frees its slot: with maxConcurrency 2 every sibling finishes",
-    async ({ app, mockLlm }) => {
-      mockLlm(ItemClerkAgent).thenAnswer(clerk);
+    async ({ app, mockModel }) => {
+      mockModel(ItemClerkAgent).respondWith(clerk);
 
       const paused = await execute(app, ItemsWorkflowStart, SIX);
 
@@ -53,22 +53,22 @@ describe("S20: a pause inside a branch", () => {
       expect(paused.pending).toMatchObject([
         { step: "item-clerk-agent", itemIndex: 1, toolCall: { tool: "confirm-item-tool" } },
       ]);
-      const asked = mockLlm(ItemClerkAgent).requests.map(itemOf);
+      const asked = mockModel(ItemClerkAgent).requests.map(itemOf);
       expect([...asked].sort()).toEqual(["a", "b", "c", "d", "e", "f"]);
     },
   );
 
   clerks(
     "on resume only the paused branch goes on; the join gives every value in order",
-    async ({ app, mockLlm }) => {
-      mockLlm(ItemClerkAgent).thenAnswer(clerk);
+    async ({ app, mockModel }) => {
+      mockModel(ItemClerkAgent).respondWith(clerk);
       const paused = await execute(app, ItemsWorkflowStart, SIX);
-      const before = mockLlm(ItemClerkAgent).requests.length;
+      const before = mockModel(ItemClerkAgent).requests.length;
 
       const done = await app.resume(answerOf(paused, approve));
 
       expect(done).toFinishWith(SummaryWorkflowFinish, { text: "a, b, c, d, e, f" });
-      expect(mockLlm(ItemClerkAgent).requests.slice(before).map(itemOf)).toEqual(["b"]);
+      expect(mockModel(ItemClerkAgent).requests.slice(before).map(itemOf)).toEqual(["b"]);
       expect(done.launches).toMatchObject([{ items: 6, taken: 6 }]);
     },
   );

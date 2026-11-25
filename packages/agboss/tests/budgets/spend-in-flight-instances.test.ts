@@ -6,6 +6,7 @@
  * A child on any instance launched right after its parent paid $90 is queued only once that $90 is
  * in the ledger, wherever it runs. Every counter ends at what was paid.
  */
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { afterEach, describe, expect } from "vitest";
 import { BudgetPeriod, BudgetScope } from "../../src/budgets/budget.js";
 import { counterOf, type ExecutionBudgetRecord } from "../../src/budgets/execution-budgets.js";
@@ -122,7 +123,7 @@ describe.each(STORES)("#727, #732 on two instances, on $stores", ({ application,
     release();
     const outcome = await run;
     expect("error" in outcome ? outcome.error : outcome).toMatchObject({
-      name: "BudgetExceededError",
+      name: "LimitError.Budget",
       message: expect.stringContaining("spent $120;"),
     });
     expect(inFlight.ran).not.toContain("b:pay-three");
@@ -147,7 +148,7 @@ describe.each(STORES)("#727, #732 on two instances, on $stores", ({ application,
       release();
       const outcome = await run;
       expect("error" in outcome ? outcome.error : outcome).toMatchObject({
-        name: "BudgetExceededError",
+        name: "LimitError.Budget",
         message: expect.stringContaining("spent $120;"),
       });
       expect(inFlight.ran).toEqual(["a:parent-pay", "a:child-one"]);

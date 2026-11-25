@@ -1,3 +1,4 @@
+import { A2AError } from "../../../src/core/error-families/remote-errors.js";
 /**
  * #1366 (shard `cancel-x-runs`): the wait for a remote task on its own — its signal is the caller's until the
  * wait is over, the deadline on the `Clock` aborts it and asks the remote to cancel (bounded), the events and
@@ -6,9 +7,8 @@
 import { TaskState, type StreamResponse, type Task } from "@a2a-js/sdk";
 import { getEventListeners } from "node:events";
 import { describe, expect, it, vi } from "vitest";
-import { A2ACallDeadlineError, A2ACancelOutcome } from "../../../src/a2a/client/a2a-task-errors.js";
+import { A2ACancelOutcome } from "../../../src/a2a/client/a2a-task-errors.js";
 import { CANCEL_TIMEOUT, Waiter, type TaskWait } from "../../../src/a2a/client/a2a-waiter.js";
-import { A2ARemoteCallError } from "../../../src/a2a/client/a2a-client-errors.js";
 import type { Milliseconds } from "../../../src/units/index.js";
 
 const taskOf = (state: TaskState, overrides: Partial<Task> = {}): Task => ({
@@ -169,7 +169,7 @@ describe("#1366: the deadline", () => {
     expect(waiter.signal.aborted).toBe(true);
     const error = await waiter.aborted().catch((thrown: unknown) => thrown);
 
-    expect(error).toBeInstanceOf(A2ACallDeadlineError);
+    expect(error).toBeInstanceOf(A2AError.Deadline);
     expect(error).toMatchObject({
       agent: "peer-agent",
       taskId: "t-1",
@@ -320,7 +320,7 @@ describe("#1366: the events and polls the wait takes", () => {
       waiter.take(
         event({ $case: "task", value: taskOf(TaskState.TASK_STATE_COMPLETED, { id: "other" }) }),
       ),
-    ).toThrow(A2ARemoteCallError);
+    ).toThrow(A2AError.Remote);
     expect(onEvent).not.toHaveBeenCalled();
   });
 
@@ -356,7 +356,7 @@ describe("#1366: the events and polls the wait takes", () => {
       TaskState.TASK_STATE_FAILED,
     );
     expect(() => waiter.took(taskOf(TaskState.TASK_STATE_COMPLETED, { id: "other" }))).toThrow(
-      A2ARemoteCallError,
+      A2AError.Remote,
     );
   });
 

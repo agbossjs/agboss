@@ -1,5 +1,5 @@
+import { LimitError } from "../../../core/error-families/limit-errors.js";
 import { violation, type RuleViolation } from "../../../graph/rule-error.js";
-import { LimitExceededError } from "../../../graph/limits.js";
 import { NodeKind, type ErrorClass } from "../../ast.js";
 import type { ComponentName } from "../../registry.js";
 import { EdgeKind, reachableFrom, type FlowEdge } from "../flow-graph.js";
@@ -8,12 +8,12 @@ import type { AnalysisContext } from "./context.js";
 
 /**
  * No model call after a limit (#263, #272): an `.onError` side path that can catch
- * a `LimitExceededError` — the class, a subclass (`BudgetExceededError`, `VisitsLimitExceededError`,
+ * a `LimitError` — the class, a subclass (`LimitError.Budget`, `LimitError.Visits`,
  * …) or a parent (`AGBossError`, `Error`) — leads only to actions and finishes, no model call past
  * the limit (its actions run whatever the budgets, #634: the reaction to the limit; their spend
  * counts); one that reaches an agent, a router or a child workflow →
  * `[graph.limit-handler-uses-model]`. A child's own limit reaches its parent as
- * `ChildExecutionFailedError` (S25), so a handler of that class may lead to an agent.
+ * `StepError.Child` (S25), so a handler of that class may lead to an agent.
  */
 
 /** Whether `first` is `second` or one of its subclasses. */
@@ -27,7 +27,7 @@ function extendsClass(first: ErrorClass, second: ErrorClass): boolean {
 
 /** Whether a handler of `error` can take a limit: it is a limit's class, subclass or parent. */
 export const catchesLimit = (error: ErrorClass): boolean =>
-  extendsClass(error, LimitExceededError) || extendsClass(LimitExceededError, error);
+  extendsClass(error, LimitError) || extendsClass(LimitError, error);
 
 const SPENDS_NOTHING: ReadonlySet<NodeKind> = new Set([NodeKind.Action, NodeKind.Finish]);
 

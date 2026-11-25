@@ -3,11 +3,11 @@
  * `testWith(App)`; `app.execute(Start, …)` runs any workflow of the application by its start,
  * `resume` / `cancel` the workflow of the thread; one container for the whole application.
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { createApp } from "../../src/application/create-app.js";
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Class } from "../../src/components/injection.js";
-import { GraphRuleError } from "../../src/index.js";
 import { replyWith, testWith } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
@@ -37,9 +37,9 @@ beforeEach(() => {
 });
 
 describe("#261 AC1: app.execute runs any workflow of the application by its start", () => {
-  desks("any workflow by its start", async ({ app, mockLlm }) => {
-    mockLlm(OrdersAgent).thenReturn(replyWith("order 7 shipped"));
-    mockLlm(RefundsAgent).thenReturn(replyWith("refund sent"));
+  desks("any workflow by its start", async ({ app, mockModel }) => {
+    mockModel(OrdersAgent).thenReturn(replyWith("order 7 shipped"));
+    mockModel(RefundsAgent).thenReturn(replyWith("refund sent"));
 
     const order = await execute(app, OrdersWorkflowStart, { text: "where is order 7?" });
     const refund = await execute(app, RefundsWorkflowStart, { text: "refund order 7" });
@@ -49,8 +49,8 @@ describe("#261 AC1: app.execute runs any workflow of the application by its star
     expect(order.threadId).not.toBe(refund.threadId);
   });
 
-  desks("a thread continues in its own workflow; cancel finds it", async ({ app, mockLlm }) => {
-    mockLlm(RefundsAgent).thenReturn(replyWith("first"), replyWith("second"));
+  desks("a thread continues in its own workflow; cancel finds it", async ({ app, mockModel }) => {
+    mockModel(RefundsAgent).thenReturn(replyWith("first"), replyWith("second"));
 
     const first = await execute(app, RefundsWorkflowStart, { text: "refund" });
     const second = await execute(
@@ -77,7 +77,7 @@ describe("#261 AC1: app.execute runs any workflow of the application by its star
   it("ambiguous start: one start in two workflows fails assembly", async () => {
     const built = createTestAppWith(AmbiguousApplication, { processEnv: {} });
 
-    await expect(built).rejects.toBeInstanceOf(GraphRuleError);
+    await expect(built).rejects.toBeInstanceOf(ConfigError.GraphRules);
     await expect(built).rejects.toThrow(
       "[application.ambiguous-start] orders-workflow-start is a start of orders-workflow and orders-copy-workflow — a start is the door of one workflow; give each workflow its own",
     );
@@ -136,11 +136,11 @@ describe("#261 AC16: testWith(Application) — lazy app, budgets are components"
     expect(started).toHaveLength(2);
   });
 
-  desks("a budget of the application can be mocked", async ({ app, mockOf }) => {
-    mockOf(TestTenantDailyBudget).maxSpend.mockReturnValue(usd(0.01));
+  desks("a budget of the application can be mocked", async ({ app, mockService }) => {
+    mockService(TestTenantDailyBudget).maxSpend.mockReturnValue(usd(0.01));
 
     await app.ready();
 
-    expect(mockOf(TestTenantDailyBudget).maxSpend()).toBe(0.01);
+    expect(mockService(TestTenantDailyBudget).maxSpend()).toBe(0.01);
   });
 });

@@ -1,7 +1,7 @@
+import { StepError } from "../../../../src/core/error-families/step-errors.js";
 import {
   Action,
   ApplicationContext,
-  ChildExecutionFailedError,
   ChildPlacement,
   EmptyEnvironment,
   listOf,
@@ -102,11 +102,8 @@ export class RemoteHoldItemsWorkflowStart {}
     onStart(RemoteHoldItemsWorkflowStart)
       .forEachItem(toWorkflow(RemoteHoldCheckWorkflow), { takeFirst: 10 })
       .join()
-      .onError(
-        ChildExecutionFailedError,
-        toAction(ChecksFailedAction)
-          .toFinish(ChecksFailedWorkflowFinish),
-      )
+      .onError(StepError.Child, toAction(ChecksFailedAction)
+        .toFinish(ChecksFailedWorkflowFinish))
       .toAction(SummaryAction)
       .toFinish(SummaryWorkflowFinish),
   ],

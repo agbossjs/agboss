@@ -3,13 +3,10 @@
  * `list`): each `next()` is bounded on its own, a hung one ends the consumer's `for await`, and the
  * source's `return()` is never awaited behind it (an async generator queues it behind a running `next()`).
  */
+import { StoreError } from "../../src/core/error-families/store-errors.js";
 import { describe, expect, it } from "vitest";
 import { leaseScope } from "../../src/app/lease-scope.js";
-import {
-  ExecutionLeaseLostError,
-  StoreCallTimeoutError,
-  StoreOutcomeSource,
-} from "../../src/index.js";
+import { ExecutionLeaseLostError, StoreOutcomeSource } from "../../src/index.js";
 import { waitOf } from "../../src/infrastructure/clock.js";
 import { seconds } from "../../src/units/index.js";
 import { boundedOver, heldLease, outcomeOf, silent } from "./fixtures/bound-stubs.js";
@@ -63,7 +60,7 @@ describe("#1058: a bounded async iterable", () => {
     const error = await outcome;
 
     expect(seen).toEqual([1]);
-    expect(error).toBeInstanceOf(StoreCallTimeoutError);
+    expect(error).toBeInstanceOf(StoreError.CallTimeout);
     expect(error).toMatchObject({ operation: "list", source: StoreOutcomeSource.Framework });
     expect(reported.warned).toEqual(["store.call-timeout"]);
     expect(reported.counted).toHaveLength(1);
@@ -78,7 +75,7 @@ describe("#1058: a bounded async iterable", () => {
 
     await clock.advance(seconds(15));
 
-    expect(await outcome).toBeInstanceOf(StoreCallTimeoutError);
+    expect(await outcome).toBeInstanceOf(StoreError.CallTimeout);
   });
 
   it("hands over under a lease at the trust's end, and ends the consumer", async () => {
@@ -119,7 +116,7 @@ describe("#1058: a bounded async iterable", () => {
       const outcome = outcomeOf(drain(store.list(), []));
       await clock.advance(seconds(15));
 
-      expect(await outcome).toBeInstanceOf(StoreCallTimeoutError);
+      expect(await outcome).toBeInstanceOf(StoreError.CallTimeout);
       expect(returned).toEqual(["called"]);
       rejectReturn(new Error("closed late"));
       await new Promise((resolve) => setImmediate(resolve));
@@ -175,6 +172,6 @@ describe("#1058: a bounded async iterable", () => {
 
     await clock.advance(seconds(15));
 
-    expect(await outcome).toBeInstanceOf(StoreCallTimeoutError);
+    expect(await outcome).toBeInstanceOf(StoreError.CallTimeout);
   });
 });

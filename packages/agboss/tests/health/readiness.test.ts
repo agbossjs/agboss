@@ -147,8 +147,8 @@ describe("#300 AC2: readiness", () => {
     });
   });
 
-  test("a failing project check is unhealthy with its reason", async ({ app, mockOf }) => {
-    mockOf(CrmClient).ping.mockResolvedValue(false);
+  test("a failing project check is unhealthy with its reason", async ({ app, mockService }) => {
+    mockService(CrmClient).ping.mockResolvedValue(false);
 
     const report = await app.checkReadiness();
 
@@ -161,9 +161,9 @@ describe("#300 AC2: readiness", () => {
 
   test("a project check that throws is unhealthy with the error's message; the call resolves", async ({
     app,
-    mockOf,
+    mockService,
   }) => {
-    mockOf(CrmClient).ping.mockRejectedValue(new Error("CRM answered 503"));
+    mockService(CrmClient).ping.mockRejectedValue(new Error("CRM answered 503"));
 
     const report = await app.checkReadiness();
 
@@ -176,9 +176,9 @@ describe("#300 AC2: readiness", () => {
   test("a project check past its timeout counts as failed: timed out", async ({
     app,
     clock,
-    mockOf,
+    mockService,
   }) => {
-    mockOf(CrmClient).ping.mockImplementation(() => clock.sleep(seconds(5)).then(() => true));
+    mockService(CrmClient).ping.mockImplementation(() => clock.sleep(seconds(5)).then(() => true));
     await app.ready();
 
     const pending = app.checkReadiness();
@@ -197,11 +197,11 @@ describe("#300 AC2: readiness", () => {
 describe("#300 AC3: no check calls a model", () => {
   test("readiness reads the breakers from the store: the scripted models see no call", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
     await app.checkReadiness();
     await app.checkLiveness();
 
-    expect(mockLlm(ProbeAgent)).toHaveBeenCalledTimes(0);
+    expect(mockModel(ProbeAgent)).toHaveBeenCalledTimes(0);
   });
 });

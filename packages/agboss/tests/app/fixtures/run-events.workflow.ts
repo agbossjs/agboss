@@ -191,12 +191,10 @@ export class Done {}
   },
   memory: Window1Memory,
   providers: [FileAway],
-  flow: [
-    onStart(Ask)
-      .toAgent(Clerk)
-      .toAction(FileAway)
-      .toFinish(Done),
-  ],
+  flow: [onStart(Ask)
+    .toAgent(Clerk)
+    .toAction(FileAway)
+    .toFinish(Done)],
 })
 export class Applications {}
 

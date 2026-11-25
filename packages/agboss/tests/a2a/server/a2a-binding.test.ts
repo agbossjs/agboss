@@ -37,7 +37,7 @@ beforeEach(() => {
 describe("#808 AC2: the version check, the push methods, unknown methods", () => {
   test("no A2A-Version means 0.3: -32009 naming the version, nothing run", async ({
     a2aServer,
-    mockLlm,
+    mockModel,
   }) => {
     const { url } = await a2aServer(listener);
 
@@ -54,7 +54,7 @@ describe("#808 AC2: the version check, the push methods, unknown methods", () =>
     expect(JSON.stringify(odd.body)).not.toContain("9.9-<b>");
     expect(errorOf(legacy).code).toBe(-32009);
     expect(asked).toEqual([]);
-    expect(mockLlm(Clerk)).toHaveBeenCalledTimes(0);
+    expect(mockModel(Clerk)).toHaveBeenCalledTimes(0);
   });
 
   test("every push method is -32003; GetExtendedAgentCard, not declared, is -32004 (spec §3.3.4)", async ({
@@ -95,7 +95,7 @@ describe("#808 AC2: the version check, the push methods, unknown methods", () =>
 
   test("a body over maxBodySize is 413: nothing read further, asked or run", async ({
     a2aServer,
-    mockLlm,
+    mockModel,
   }) => {
     const { url } = await a2aServer({ ...listener, maxBodySize: kilobytes(1) });
     const big = { message: userMessage("m-1", [text("x".repeat(2048))]) };
@@ -108,13 +108,13 @@ describe("#808 AC2: the version check, the push methods, unknown methods", () =>
       error: "the request body is too large",
     });
     expect(asked).toEqual([]);
-    expect(mockLlm(Clerk)).toHaveBeenCalledTimes(0);
+    expect(mockModel(Clerk)).toHaveBeenCalledTimes(0);
   });
 });
 
 describe("#808 AC5: the caller resolver gets the operation and the task", () => {
-  test("each operation, with the task it names", async ({ a2aServer, mockLlm }) => {
-    mockLlm(Clerk).thenReturn(done);
+  test("each operation, with the task it names", async ({ a2aServer, mockModel }) => {
+    mockModel(Clerk).thenReturn(done);
     const { url } = await a2aServer(listener);
     const sent = await rpc(url, "SendMessage", send("m-1"));
     const taskId = (sent.body.result as { task: { id: string } }).task.id;
@@ -140,7 +140,7 @@ describe("#808 AC5: the caller resolver gets the operation and the task", () => 
   test("no token → 401 with the challenge: nothing run, nothing kept", async ({
     a2aServer,
     app,
-    mockLlm,
+    mockModel,
   }) => {
     const { url } = await a2aServer(listener);
 
@@ -149,7 +149,7 @@ describe("#808 AC5: the caller resolver gets the operation and the task", () => 
     expect(answer.status).toBe(401);
     expect(answer.headers.get("www-authenticate")).toBe('Bearer realm="a2a"');
     expect(answer.body).toEqual({ code: "a2a.caller-unauthenticated", error: "no token" });
-    expect(mockLlm(Clerk)).toHaveBeenCalledTimes(0);
+    expect(mockModel(Clerk)).toHaveBeenCalledTimes(0);
     const page = await app.resolve(A2ATaskRepository).list({
       endpoint: "orders-a2a-expose",
       tenantId: "default",
@@ -191,7 +191,7 @@ describe("#808 AC5: the caller resolver gets the operation and the task", () => 
 
   test("a resolver that throws → 500 without its text, nothing run", async ({
     a2aServer,
-    mockLlm,
+    mockModel,
   }) => {
     const { url } = await a2aServer(listener);
 
@@ -203,7 +203,7 @@ describe("#808 AC5: the caller resolver gets the operation and the task", () => 
       error: "the caller could not be resolved",
     });
     expect(JSON.stringify(answer.body)).not.toContain(RESOLVER_SECRET);
-    expect(mockLlm(Clerk)).toHaveBeenCalledTimes(0);
+    expect(mockModel(Clerk)).toHaveBeenCalledTimes(0);
   });
 
   test("a request activating the skills extension gets it echoed", async ({ a2aServer }) => {

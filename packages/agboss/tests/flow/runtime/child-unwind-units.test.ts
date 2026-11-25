@@ -3,8 +3,9 @@
  * #340 Q2) on its own, its unwind scripted: its own entries of its checkpoint and its last state
  * through the marks, marked under its own key, its undo actions' frame its own — its place in the
  * tree and its parent's lease when it has them —, sealed, its spend to the budgets at once, and its
- * error wrapped in `CompensationFailedError` only when an undo failed.
+ * error wrapped in `ExecutionError.CompensationFailed` only when an undo failed.
  */
+import { ExecutionError } from "../../../src/core/error-families/run-errors.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   COMPENSATION_TIMEOUT,
@@ -12,7 +13,6 @@ import {
   CompensationStatus,
   type CompensationEntry,
 } from "../../../src/flow/compensation.js";
-import { CompensationFailedError } from "../../../src/flow/compensation.js";
 import { ExecutionCancelledError } from "../../../src/core/errors.js";
 import {
   unwoundChild,
@@ -248,14 +248,14 @@ describe("#633: the child's undo's end", () => {
     await expect(unwoundChild(site, site.error)).resolves.toMatchObject({ thrown: site.error });
   });
 
-  it("an undo that failed: CompensationFailedError caused by the child's error", async () => {
+  it("an undo that failed: ExecutionError.CompensationFailed caused by the child's error", async () => {
     const { site } = siteOf();
     const failure = closedOf(ofChild("x"), CompensationStatus.Failed).undo;
     mocks.unwound.mockResolvedValue({ closed: [], usage: [], failures: [failure] });
 
     const ended = await unwoundChild(site, site.error);
 
-    expect(ended.thrown).toBeInstanceOf(CompensationFailedError);
-    expect((ended.thrown as CompensationFailedError).cause).toBe(site.error);
+    expect(ended.thrown).toBeInstanceOf(ExecutionError.CompensationFailed);
+    expect((ended.thrown as ExecutionError.CompensationFailed).cause).toBe(site.error);
   });
 });

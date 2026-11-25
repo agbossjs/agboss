@@ -14,7 +14,7 @@ import {
 import { usageRecord as record } from "./helpers.js";
 import { seconds } from "../src/units/index.js";
 
-const price = { inputPerMTok: 2, outputPerMTok: 10 };
+const price = { inputPerMillion: usd(2), outputPerMillion: usd(10) };
 const settings = {
   model: "test/m",
   temperature: 0,
@@ -38,7 +38,7 @@ describe("finops usage", () => {
       cacheReadTokens: 600_000,
       cacheWriteTokens: 100_000,
     };
-    const cachePrice = { ...price, cacheReadPerMTok: 0.5, cacheWritePerMTok: 2.5 };
+    const cachePrice = { ...price, cacheReadPerMillion: usd(0.5), cacheWritePerMillion: usd(2.5) };
 
     expect(costOf(usage, cachePrice)).toBeCloseTo(0.3 * 2 + 0.6 * 0.5 + 0.1 * 2.5);
     expect(costOf(usage, price)).toBeCloseTo(2);

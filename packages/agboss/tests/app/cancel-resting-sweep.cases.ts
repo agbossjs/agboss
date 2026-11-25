@@ -5,6 +5,7 @@
  * (`cancel-resting-sweep.sqlite.test.ts`): two instances, the first one's cancel "died" after
  * the request, the second one's sweeps (the orphan look, every 30 s) finish it.
  */
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import type { TestAPI } from "vitest";
 import { expect, vi } from "vitest";
 import { ExecutionCancelledError } from "../../src/core/errors.js";
@@ -20,7 +21,6 @@ import {
   ExecutionLeaseRepository,
   ExecutionRecordRepository,
   ExecutionTreeRepository,
-  PauseClosedError,
   PausedExecutionRepository,
   PauseResolution,
   PauseStatus,
@@ -123,9 +123,9 @@ export function cancelRestingCases(
   test("a cancel that died after its mark (no key): the sweep of another instance ends the tree as app.cancel does", async ({
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+    mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
     const tree = await restingTree(apps);
     await tree.requests(instance(apps, 0), { key: false });
     kill("instance-1");
@@ -139,9 +139,9 @@ export function cancelRestingCases(
   test("a cancel that died after its mark and its key: the sweep ends the tree the same way", async ({
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+    mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
     const tree = await restingTree(apps);
     await tree.requests(instance(apps, 0), { key: true });
     kill("instance-1");
@@ -151,8 +151,8 @@ export function cancelRestingCases(
     await expectCancelled(tree);
   });
 
-  test("a tree with no mark is left resting by every sweep", async ({ apps, clock, mockLlm }) => {
-    mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+  test("a tree with no mark is left resting by every sweep", async ({ apps, clock, mockModel }) => {
+    mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
     const tree = await restingTree(apps);
 
     await sweeps(clock, 6);
@@ -161,8 +161,8 @@ export function cancelRestingCases(
     expect(seen.errors).toEqual([]);
   });
 
-  test("a mark of another tree does not end this one", async ({ apps, clock, mockLlm }) => {
-    mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+  test("a mark of another tree does not end this one", async ({ apps, clock, mockModel }) => {
+    mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
     const tree = await restingTree(apps);
     await instance(apps, 0)
       .resolve(ExecutionLeaseRepository)
@@ -176,9 +176,9 @@ export function cancelRestingCases(
   test("the instances alive, both sweeping: the tree ends once, its end observed once", async ({
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+    mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
     const tree = await restingTree(apps);
     await tree.requests(instance(apps, 1), { key: false });
 
@@ -190,9 +190,9 @@ export function cancelRestingCases(
   test("a sweep against a retried app.cancel: one end, whoever wins", async ({
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+    mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
     const tree = await restingTree(apps);
     await tree.requests(instance(apps, 0), { key: false });
     kill("instance-1");
@@ -209,9 +209,9 @@ export function cancelRestingCases(
   test("a sweep against a late answer: the answer is refused (typed) or the tree is cancelled, nothing is charged", async ({
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+    mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
     const tree = await restingTree(apps);
     await tree.requests(instance(apps, 0), { key: false });
     kill("instance-1");
@@ -229,7 +229,7 @@ export function cancelRestingCases(
 
     // the answer never ran the cancelled tree: it was refused, with a typed error
     expect(
-      refusal instanceof PauseClosedError ||
+      refusal instanceof PauseError.Closed ||
         (refusal as { status?: unknown } | undefined)?.status === ExecutionStatus.Cancelled,
     ).toBe(true);
     await expectCancelled(tree);
@@ -238,9 +238,9 @@ export function cancelRestingCases(
   test("a late answer after the sweep ended the tree: the typed refusal of a closed pause", async ({
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+    mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
     const tree = await restingTree(apps);
     await tree.requests(instance(apps, 0), { key: false });
     kill("instance-1");
@@ -249,16 +249,16 @@ export function cancelRestingCases(
 
     await expect(
       instance(apps, 1).resume({ pauseId: tree.pauseId, decision: { approved: true } }),
-    ).rejects.toBeInstanceOf(PauseClosedError);
+    ).rejects.toBeInstanceOf(PauseError.Closed);
     expect(seen.charges).toEqual([]);
   });
 
   test("a tree that a cancel ended after the sweep read it resting: the sweep takes no lease and ends nothing again", async ({
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+    mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
     const tree = await restingTree(apps);
     const [first, second] = [instance(apps, 0), instance(apps, 1)];
     await tree.requests(first, { key: false });
@@ -294,9 +294,9 @@ export function cancelRestingCases(
   test("a lease held by a live instance is left alone; the sweep ends the tree once it is free", async ({
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+    mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
     const tree = await restingTree(apps);
     await tree.requests(instance(apps, 0), { key: false });
     // a holder (here: a lease taken straight in the store) that never renews it
@@ -312,9 +312,9 @@ export function cancelRestingCases(
 
   test("a take of the tree reads the mark itself: an answer to a tree whose cancel died after its mark is refused, nothing charged", async ({
     apps,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+    mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
     const tree = await restingTree(apps);
     await tree.requests(instance(apps, 0), { key: false });
     kill("instance-1");
@@ -328,7 +328,7 @@ export function cancelRestingCases(
       );
 
     expect(
-      refusal instanceof PauseClosedError ||
+      refusal instanceof PauseError.Closed ||
         (refusal as { status?: unknown } | undefined)?.status === ExecutionStatus.Cancelled,
     ).toBe(true);
     expect(seen.charges).toEqual([]);
@@ -339,8 +339,8 @@ export function cancelRestingCases(
   });
 
   const runningRoot = (title: string, hash: string | undefined): void => {
-    test(title, async ({ apps, clock, mockLlm }) => {
-      mockLlm(Clerk).thenReturn(
+    test(title, async ({ apps, clock, mockModel }) => {
+      mockModel(Clerk).thenReturn(
         callTool(Step, { text: "one" }),
         callTool(Hold, { text: "a long job" }),
       );
@@ -394,9 +394,9 @@ export function cancelRestingCases(
   test("a running root whose automatic undo was under way (no cancel, no mark) is finished by the recovery sweep, as the undo's own cause", async ({
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(
+    mockModel(Clerk).thenReturn(
       callTool(Step, { text: "one" }),
       callTool(Hold, { text: "a long job" }),
     );

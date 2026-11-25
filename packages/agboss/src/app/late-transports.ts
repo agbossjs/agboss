@@ -1,7 +1,7 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import { startComponents } from "../components/container/lifecycle.js";
 import type { Class } from "../components/injection.js";
 import type { ModelProviderHandler } from "../models/handler.js";
-import { ModelProviderError } from "../models/model-provider.decorator.js";
 import type { TransportResolver } from "../models/transport/transport-resolver.js";
 
 /**
@@ -36,7 +36,7 @@ export function lateTransports(): LateTransports {
   let unstarted: unknown[] = [];
   const bound = (cls: Class): TransportContainer => {
     if (container === undefined)
-      throw new ModelProviderError({
+      throw new ConfigError.ModelProvider({
         message: `${cls.name}: a transport provider is created by the application's container, which is not ready yet`,
       });
     return container;
@@ -44,7 +44,7 @@ export function lateTransports(): LateTransports {
   const instanceOf = (cls: Class): ModelProviderHandler => {
     const instance = bound(cls).resolve(cls);
     if (!isHandler(instance))
-      throw new ModelProviderError({
+      throw new ConfigError.ModelProvider({
         message: `${cls.name}: the container gave no provider instance`,
       });
     return instance;

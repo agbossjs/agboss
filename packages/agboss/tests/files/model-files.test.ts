@@ -3,9 +3,10 @@
  * call — the image and the PDF as parts, the CSV as text — pinned for every call of its visit, over the
  * limits it is held to before any call.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { FileError } from "../../src/core/error-families/remote-errors.js";
 import { describe, expect } from "vitest";
-import { ModelFileLimitError, FileRefusal } from "../../src/files/file-errors.js";
+import { FileRefusal } from "../../src/files/file-errors.js";
 import { kilobytes } from "../../src/units/index.js";
 import { FileSource, FileView, ModelFileLimit, ModelFiles } from "../../src/files/model-files.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
@@ -39,9 +40,9 @@ const test = testWith(reader.Application);
 describe("AC1: image, PDF and CSV reach the model", () => {
   test("AC1: the image and the PDF as parts, the CSV as text, every file under its heading", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    const agent = mockLlm(reader.Agent).thenReturn(replyWith("read"));
+    const agent = mockModel(reader.Agent).thenReturn(replyWith("read"));
 
     await execute(app, reader.Start, bundle());
 
@@ -70,10 +71,10 @@ describe("AC1: image, PDF and CSV reach the model", () => {
 
   test("AC1: every model call of the visit carries the same pinned bytes", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
     FETCHABLE.set("a", inline(Buffer.from("%PDF-1.4 tool-file"), "application/pdf", "t.pdf"));
-    const agent = mockLlm(reader.Agent).thenReturn(
+    const agent = mockModel(reader.Agent).thenReturn(
       callTool(FetchTool, { name: "a" }),
       replyWith("read"),
     );
@@ -139,13 +140,13 @@ describe("AC6: limits fail closed before any model call", () => {
   for (const { name, files, input, expected } of cases) {
     const limited = readerApplication({ files });
     testWith(limited.Application)(
-      `AC6: ${name} → ModelFileLimitError, no model call`,
-      async ({ app, mockLlm }) => {
-        const agent = mockLlm(limited.Agent);
+      `AC6: ${name} → StepError.ModelFileLimit, no model call`,
+      async ({ app, mockModel }) => {
+        const agent = mockModel(limited.Agent);
 
         const failure = await execute(app, limited.Start, input).catch((error: unknown) => error);
 
-        expect(failure).toBeInstanceOf(ModelFileLimitError);
+        expect(failure).toBeInstanceOf(StepError.ModelFileLimit);
         expect(failure).toMatchObject({
           code: "step.model-file-limit",
           agent: limited.Agent.name === "" ? undefined : expect.any(String),
@@ -158,8 +159,8 @@ describe("AC6: limits fail closed before any model call", () => {
 
   testWith(reader.Application)(
     "AC6: a file that is not what it says is refused by the guarded path, before any call",
-    async ({ app, mockLlm }) => {
-      const agent = mockLlm(reader.Agent);
+    async ({ app, mockModel }) => {
+      const agent = mockModel(reader.Agent);
 
       const failure = await execute(app, reader.Start, {
         document: inline(PDF_BYTES, "image/png", "lie.png"),
@@ -182,9 +183,9 @@ describe("AC1: sources — input, tool results", () => {
 
   testWith(withTools.Application)(
     "AC1: a tool result's file follows the tool message as a user message with its part",
-    async ({ app, mockLlm }) => {
+    async ({ app, mockModel }) => {
       FETCHABLE.set("scan", toolFile);
-      const agent = mockLlm(withTools.Agent).thenReturn(
+      const agent = mockModel(withTools.Agent).thenReturn(
         callTool(FetchTool, { name: "scan" }),
         replyWith("ok"),
       );
@@ -205,9 +206,9 @@ describe("AC1: sources — input, tool results", () => {
 
   testWith(inputOnly.Application)(
     "AC1: without FileSource.ToolResults a tool's file stays a description",
-    async ({ app, mockLlm }) => {
+    async ({ app, mockModel }) => {
       FETCHABLE.set("scan", toolFile);
-      const agent = mockLlm(inputOnly.Agent).thenReturn(
+      const agent = mockModel(inputOnly.Agent).thenReturn(
         callTool(FetchTool, { name: "scan" }),
         replyWith("ok"),
       );
@@ -225,10 +226,10 @@ describe("AC1: pinned bytes — a visit reads each file once", () => {
 
   testWith(counted.Application)(
     "AC1: two model calls of one visit read the stored file once",
-    async ({ app, mockLlm }) => {
+    async ({ app, mockModel }) => {
       CountingFileRepository.reads = 0;
       FETCHABLE.set("x", inline(PDF_BYTES, "application/pdf", "x.pdf"));
-      mockLlm(counted.Agent).thenReturn(callTool(FetchTool, { name: "x" }), replyWith("ok"));
+      mockModel(counted.Agent).thenReturn(callTool(FetchTool, { name: "x" }), replyWith("ok"));
 
       await execute(app, counted.Start, {
         document: {

@@ -1,7 +1,7 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { copyOfResult, type RagSearchResultDto } from "./dto.js";
 import {
-  ModelCostError,
   recordUsage,
   unpricedUsageOf,
   type UsageCarrier,
@@ -57,7 +57,7 @@ function billedUsageOf(caller: string, binding: ModelBinding, response: UsageCar
   try {
     return recordUsage(caller, binding.settings, response);
   } catch (error) {
-    if (!(error instanceof ModelCostError)) throw error;
+    if (!(error instanceof ConfigError.ModelCost)) throw error;
     throw new RerankReplyError(error.message, [
       unpricedUsageOf(caller, binding.settings, response),
     ]);

@@ -1,10 +1,7 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { beforeEach, describe, expect } from "vitest";
-import {
-  ActionFailedError,
-  BranchStatus,
-  StepFailedError,
-  ExecutionCancelledError,
-} from "../../../src/index.js";
+import { BranchStatus } from "../../../src/index.js";
+import { ExecutionCancelledError } from "../../../src/core/errors.js";
 import { testWith, TestConcurrency } from "../../../src/testing/index.js";
 import { execute } from "../../helpers/flow.js";
 import {
@@ -52,7 +49,7 @@ describe("AC7: FailFast", () => {
     },
   );
 
-  items("onError by cause chain: the domain error inside ActionFailedError", async ({ app }) => {
+  items("onError by cause chain: the domain error inside StepError.Action", async ({ app }) => {
     const result = await execute(app, ItemsWorkflowStart, [ok("a"), bad("b")], {
       includeRecord: true,
     });
@@ -77,8 +74,8 @@ describe("AC7: FailFast", () => {
   unbounded("uncaught fails the execution with the branch's error", async ({ app }) => {
     const run = execute(app, ItemsWorkflowStart, [ok("a"), bad("b", 5), ok("c", 300)]);
 
-    await expect(run).rejects.toBeInstanceOf(ActionFailedError);
-    await expect(run).rejects.toBeInstanceOf(StepFailedError);
+    await expect(run).rejects.toBeInstanceOf(StepError.Action);
+    await expect(run).rejects.toBeInstanceOf(StepError);
     await expect(run).rejects.toMatchObject({
       code: "step.action",
       nodeId: "process-item-action",

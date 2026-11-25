@@ -76,7 +76,7 @@ describe("#396 PR 7: agboss eval run --metamorphic", () => {
   it("a variant that calls the same tools with the required calls holds", async () => {
     const { env, built } = await evalApp();
     env
-      .mockLlm(DeskAgent)
+      .mockModel(DeskAgent)
       .thenReturn(lookUp, refund, answer("Refunded."), lookUp, refund, answer("Money back."));
 
     const report = await runSuiteOn(built, RewordedEvalSuite, { runs: 1, metamorphic: true });
@@ -99,7 +99,7 @@ describe("#396 PR 7: agboss eval run --metamorphic", () => {
   it("a variant that calls other tools, or misses a required call, fails the run", async () => {
     const { env, built } = await evalApp();
     env
-      .mockLlm(DeskAgent)
+      .mockModel(DeskAgent)
       .thenReturn(lookUp, refund, answer("Refunded."), lookUp, answer("I looked it up."));
 
     const report = await runSuiteOn(built, RewordedEvalSuite, { runs: 1, metamorphic: true });
@@ -118,7 +118,7 @@ describe("#396 PR 7: agboss eval run --metamorphic", () => {
   it("without --metamorphic the variants do not run, and the case's hash is another", async () => {
     const { env, built } = await evalApp();
     env
-      .mockLlm(DeskAgent)
+      .mockModel(DeskAgent)
       .thenReturn(
         lookUp,
         refund,
@@ -146,7 +146,7 @@ describe("#396 PR 7: agboss eval run --metamorphic", () => {
 
   it("the cascade that stopped skips the variants: nothing more is spent", async () => {
     const { env, built } = await evalApp();
-    env.mockLlm(DeskAgent).thenReturn(lookUp, answer("Looked it up."));
+    env.mockModel(DeskAgent).thenReturn(lookUp, answer("Looked it up."));
 
     const report = await runSuiteOn(built, StoppingRewordedEvalSuite, {
       runs: 1,

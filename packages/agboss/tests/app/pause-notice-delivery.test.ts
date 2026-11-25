@@ -46,7 +46,7 @@ describe("#940 AC4: backoff, set aside after the retention, others flow", () => 
 
   retained(
     "AC4: a receiver that fails 3 times then succeeds: warnings at growing intervals, then one delivery",
-    async ({ app, clock, mockLlm }) => {
+    async ({ app, clock, mockModel }) => {
       const at: number[] = [];
       hooks.closeWait = () => {
         at.push(clock.now().getTime());
@@ -54,7 +54,7 @@ describe("#940 AC4: backoff, set aside after the retention, others flow", () => 
       };
       hooks.listenerFailures = 0;
       hooks.closeFailure = new Error("slack is down");
-      mockLlm(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "7" }));
+      mockModel(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "7" }));
       const paused = await execute(app, DeskWorkflowStart, REFUND, ACME);
 
       await app.cancel(paused.threadId, { tenantId: "acme" });
@@ -79,11 +79,11 @@ describe("#940 AC4: backoff, set aside after the retention, others flow", () => 
 
   retained(
     "AC4: set aside after the retention: logged pause.notice-dead, countNotices dead 1, other receivers flow",
-    async ({ app, clock, mockLlm }) => {
+    async ({ app, clock, mockModel }) => {
       hooks.closeFailure = new Error("slack is down");
       await app.ready();
       const setAside = vi.spyOn(pauseStore(), "setAsideNotices");
-      mockLlm(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "7" }));
+      mockModel(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "7" }));
       const paused = await execute(app, DeskWorkflowStart, REFUND, ACME);
       await app.cancel(paused.threadId, { tenantId: "acme" });
       await until(() => seen.closed.length === 1);
@@ -112,9 +112,9 @@ describe("#940 AC4: backoff, set aside after the retention, others flow", () => 
 
   retained(
     "AC4: a hanging receiver is cut off at its tool's timeout and retried",
-    async ({ app, clock, mockLlm }) => {
+    async ({ app, clock, mockModel }) => {
       hooks.closeWait = () => new Promise<void>(() => undefined);
-      mockLlm(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "7" }));
+      mockModel(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "7" }));
       const paused = await execute(app, DeskWorkflowStart, REFUND, ACME);
       await app.cancel(paused.threadId, { tenantId: "acme" });
       await until(() => seen.closed.length === 1);
@@ -128,9 +128,9 @@ describe("#940 AC4: backoff, set aside after the retention, others flow", () => 
 
   retained(
     "AC4: the cancel never waits for a receiver: it returns while the hook hangs",
-    async ({ app, clock, mockLlm }) => {
+    async ({ app, clock, mockModel }) => {
       hooks.closeWait = () => new Promise<void>(() => undefined);
-      mockLlm(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "7" }));
+      mockModel(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "7" }));
       const paused = await execute(app, DeskWorkflowStart, REFUND, ACME);
 
       await app.cancel(paused.threadId, { tenantId: "acme" });

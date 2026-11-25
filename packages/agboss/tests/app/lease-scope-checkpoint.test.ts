@@ -2,13 +2,10 @@
  * #928 AC1 lease scopes — `LeasedCheckpointSaver`: a put is lease-held work (a hand-over when it
  * never answers), the renewal it makes first is the lease store's own and never one.
  */
+import { StoreError } from "../../src/core/error-families/store-errors.js";
 import { MemorySaver, emptyCheckpoint } from "@langchain/langgraph";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import {
-  ExecutionAuditEventKind,
-  ExecutionLeaseLostError,
-  StoreCallTimeoutError,
-} from "../../src/index.js";
+import { ExecutionAuditEventKind, ExecutionLeaseLostError } from "../../src/index.js";
 import { executionLeasesOf } from "../../src/app/execution-leases.js";
 import { LeasedCheckpointSaver } from "../../src/app/leased-checkpointer.js";
 import { boundedStoreOf } from "../../src/app/store-call-bound.js";
@@ -63,7 +60,7 @@ describe("#928 AC1 lease scopes: LeasedCheckpointSaver", () => {
       const error = await failure;
 
       expect(error).toBeInstanceOf(ExecutionLeaseLostError);
-      expect((error as ExecutionLeaseLostError).cause).toBeInstanceOf(StoreCallTimeoutError);
+      expect((error as ExecutionLeaseLostError).cause).toBeInstanceOf(StoreError.CallTimeout);
       expect(logged.map((entry) => entry.code)).toContain("execution.lease-abandoned");
       await passLive(clock, seconds(60));
       await passLive(clock, seconds(60));

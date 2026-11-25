@@ -1,6 +1,6 @@
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { describe, expect, it } from "vitest";
 import { NodeKind, StepKind, type FlowPath } from "../../src/flow/ast.js";
-import { FlowSyntaxError } from "../../src/flow/builder.js";
 import { declarationOf } from "../../src/flow/decorators/declaration.js";
 import { flowLines } from "../../src/flow/print.js";
 import { workflowOf } from "../../src/components/assemble.js";
@@ -68,7 +68,7 @@ describe("#263: a child workflow in the AST", () => {
       expect.arrayContaining([
         "  .toWorkflow(CompanyReviewWorkflow)",
         "onWorkflow(CompanyReviewWorkflow)",
-        "  .onError(StepFailedError, toFinish(ReviewErrorWorkflowFinish))",
+        "  .onError(StepError, toFinish(ReviewErrorWorkflowFinish))",
       ]),
     );
   });

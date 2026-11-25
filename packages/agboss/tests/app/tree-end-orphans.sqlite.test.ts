@@ -85,9 +85,9 @@ describe("#939 AC3: another instance finishes a tree's end", () => {
   test("killed between the root's end and forgetTree: within 3 sweeps its pause is closed, its paused run gone", async ({
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+    mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
     const tree = await restingTree(apps, "charge");
     await tree.ends(false);
     kill("instance-1");
@@ -105,9 +105,9 @@ describe("#939 AC3: another instance finishes a tree's end", () => {
   test("killed after pausedRun.delete: the cancelled tree's pause closes Cancelled", async ({
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+    mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
     const tree = await restingTree(apps, "charge");
     await tree.pauses.deleteByTenantIdAndThreadIdAndRunId(
       DEFAULT_TENANT_ID,
@@ -128,9 +128,9 @@ describe("#939 AC3: another instance finishes a tree's end", () => {
   test("killed before pause.closeUntaken: the Resolved answer is closed not taken, the log says so", async ({
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+    mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
     const tree = await restingTree(apps, "charge");
     const answer = { decision: { approved: true }, actor: { id: "manager-17" } };
     await tree.pauses.resolveByTenantIdAndPauseId(
@@ -164,9 +164,9 @@ describe("#939 AC3: another instance finishes a tree's end", () => {
   test("a root still waiting at its pause is skipped: its pause stays open, its paused run kept", async ({
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+    mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
     const tree = await restingTree(apps, "charge");
 
     for (let sweep = 0; sweep < 3; sweep += 1) await clock.advance(seconds(31));
@@ -178,9 +178,9 @@ describe("#939 AC3: another instance finishes a tree's end", () => {
   test("a root whose lease another holds is skipped until the lease is free", async ({
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+    mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
     const tree = await restingTree(apps, "charge");
     await tree.ends(false);
     const leases = instance(apps, 0).resolve(ExecutionLeaseRepository);

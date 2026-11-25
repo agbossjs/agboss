@@ -7,10 +7,10 @@
  * eight lease stores with ten A2A task stores; an application on in-memory leases, or serving no
  * A2A, is never refused.
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import { applicationOf } from "../../src/application/assemble.js";
 import type { Class, Provider } from "../../src/components/injection.js";
-import { GraphRuleError } from "../../src/graph/rule-error.js";
 import { InMemoryA2ATaskRepository } from "../../src/infrastructure/in-memory-a2a-task.repository.js";
 import { SqliteA2ATaskRepository } from "../../src/infrastructure/sqlite/sqlite-a2a-task.repository.js";
 import { SqliteExecutionLeaseRepository } from "../../src/index.js";
@@ -43,7 +43,7 @@ async function violationsOf(
     await applicationOf(a2aStoresApplication(providers, options));
     return [];
   } catch (error) {
-    if (!(error instanceof GraphRuleError)) throw error;
+    if (!(error instanceof ConfigError.GraphRules)) throw error;
     return error.violations.map((found) => `[${found.code}] ${found.message}`);
   }
 }

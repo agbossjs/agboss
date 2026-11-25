@@ -21,7 +21,7 @@ import { loopUsage, type AgentLoopStateType, type AgentLoopUpdate } from "./stat
  * The agent's side of the model boundary (#120 S38): its request masked by its policies (a block
  * rule in what came in refuses the execution), its move revealed before anything validates it — a
  * token no map knows is an invalid answer (S9) — and its final answer checked against the block
- * rules (`PiiRefusedError`).
+ * rules (`PiiError.Refused`).
  */
 
 /**

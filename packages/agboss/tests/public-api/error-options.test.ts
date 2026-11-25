@@ -71,7 +71,12 @@ describe("#906 AC1: every exported error takes one options bag with a cause", ()
     // `PauseError.PermissionDenied`; 106 once `A2ACallerRejectedError` became
     // `A2AError.CallerRejected` and the A2A stores left the root entry (#1320)
     // 104 once the five model-policy error classes folded into `ConfigError` (F2)
-    expect(classes.size).toBeGreaterThanOrEqual(104);
+    // 101 once `DtoValidationError`, `DtoError` and `SqliteSchemaTooNewError` folded into `ValidationError`,
+    // `ConfigError` and `StoreError` (F2)
+    // 91 once the ten A2A client error classes folded into `A2AError` (F2)
+    // 87 once the exported configuration errors folded into `ConfigError` (F2)
+    // 56 once the cancel's aborts went internal, after the execution, pause, configuration and store errors of #1325b folded into their families (F2)
+    expect(classes.size).toBeGreaterThanOrEqual(28);
     expect([...classes.keys()].filter((name) => !(name in fixtures)).sort()).toEqual([]);
     expect(
       Object.keys(fixtures)

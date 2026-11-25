@@ -1,3 +1,5 @@
+import { StepError } from "../../../../src/core/error-families/step-errors.js";
+import { LimitError } from "../../../../src/core/error-families/limit-errors.js";
 import type { Class } from "../../../../src/components/injection.js";
 import { Integer, List, Text } from "../../../../src/dto/index.js";
 import {
@@ -6,11 +8,9 @@ import {
   DecidedBy,
   EmptyEnvironment,
   ExecutionContext,
-  LimitExceededError,
   listOf,
   oneOf,
   Router,
-  StepFailedError,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
@@ -174,7 +174,7 @@ export class TopicFailedWorkflowFinish {}
   flow: [
     onStart(TopicResearchWorkflowStart)
       .toAgent(ResearcherAgent)
-      .onError(StepFailedError, toAction(MarkTopicFailedAction))
+      .onError(StepError, toAction(MarkTopicFailedAction))
       .toOneOf([
         toFinish(TopicReportWorkflowFinish),
         toAction(SubtopicsAction)
@@ -184,7 +184,7 @@ export class TopicFailedWorkflowFinish {}
           )
           .join()
           .toAgent(MergeAgent)
-          .onError(StepFailedError, toAction(MarkTopicFailedAction))
+          .onError(StepError, toAction(MarkTopicFailedAction))
           .toFinish(TopicReportWorkflowFinish),
       ]),
     onAction(MarkTopicFailedAction)
@@ -261,11 +261,8 @@ const countdownPath = (from: typeof CountdownWorkflowStart, self: () => Class) =
     .toAction(CountdownAction)
     .toOneOf([
       toWorkflow(self)
-        .onError(
-          LimitExceededError,
-          toAction(DepthStoppedAction)
-            .toFinish(CountStoppedWorkflowFinish),
-        )
+        .onError(LimitError, toAction(DepthStoppedAction)
+          .toFinish(CountStoppedWorkflowFinish))
         .toOneOf([toFinish(CountDoneWorkflowFinish), toFinish(CountStoppedWorkflowFinish)]),
       toFinish(CountDoneWorkflowFinish),
     ]);
@@ -350,11 +347,8 @@ export class SumAction {
         { takeFirst: 2 },
       )
       .join()
-      .onError(
-        LimitExceededError,
-        toAction(SplitStoppedAction)
-          .toFinish(CountStoppedWorkflowFinish),
-      )
+      .onError(LimitError, toAction(SplitStoppedAction)
+        .toFinish(CountStoppedWorkflowFinish))
       .toAction(SumAction)
       .toFinish(CountDoneWorkflowFinish),
   ],
@@ -411,14 +405,10 @@ export class ChainDoneWorkflowFinish {}
   flow: [
     onStart(ChainWorkflowStart)
       .toRouter(LinkRouter)
-      .onRoute(
-        toWorkflow(() => ChainWorkflow)
-          .toFinish(ChainDoneWorkflowFinish),
-      )
-      .onRoute(
-        toAgent(LinkAgent)
-          .toFinish(ChainDoneWorkflowFinish),
-      ),
+      .onRoute(toWorkflow(() => ChainWorkflow)
+        .toFinish(ChainDoneWorkflowFinish))
+      .onRoute(toAgent(LinkAgent)
+        .toFinish(ChainDoneWorkflowFinish)),
   ],
   executionLimits: { maxDepth: 2 },
 })
@@ -449,14 +439,10 @@ export class DeeperRouter {
   flow: [
     onStart(CodeChainWorkflowStart)
       .toRouter(DeeperRouter)
-      .onRoute(
-        toWorkflow(() => CodeChainWorkflow)
-          .toFinish(ChainDoneWorkflowFinish),
-      )
-      .onRoute(
-        toAgent(LinkAgent)
-          .toFinish(ChainDoneWorkflowFinish),
-      ),
+      .onRoute(toWorkflow(() => CodeChainWorkflow)
+        .toFinish(ChainDoneWorkflowFinish))
+      .onRoute(toAgent(LinkAgent)
+        .toFinish(ChainDoneWorkflowFinish)),
   ],
   executionLimits: { maxDepth: 2 },
 })

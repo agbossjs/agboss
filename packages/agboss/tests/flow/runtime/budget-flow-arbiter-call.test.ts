@@ -2,15 +2,15 @@
  * #1283 (budget-flow shard) — the `ArbiterModel` a hybrid arbiter injects: each call checks the execution's
  * budgets first (a spent one stops it before the model is asked), a decision's cost and a chat reply's cost
  * are billed into the answer's spend under `arbiter:<name>`, a decision the provider billed and the questions
- * did not fit is billed too (#1399), a kind it cannot serve is `ModelKindError`, and the model reads the
+ * did not fit is billed too (#1399), a kind it cannot serve is `ConfigError.ModelKind`, and the model reads the
  * answer masked when the answering target has PII policies (#708).
  */
+import { ConfigError } from "../../../src/core/error-families/config-errors.js";
 import { AIMessage } from "@langchain/core/messages";
 import { describe, expect, it, vi } from "vitest";
 import { CostSource, ZERO_USAGE, type UsageRecord } from "../../../src/finops/usage.js";
 import { withDecisionSpend } from "../../../src/finops/failed-decision.js";
 import { createArbiterModels } from "../../../src/flow/runtime/launch/arbiter-call.js";
-import { ModelKindError } from "../../../src/llm/decision-errors.js";
 import { Decision } from "../../../src/llm/decisions.js";
 import { usd } from "../../../src/units/index.js";
 
@@ -114,7 +114,7 @@ describe("#1283: a decision of the injected ArbiterModel", () => {
       "How to judge.",
     );
     await expect(chat.metered(call).decide({ state: "s", questions })).rejects.toBeInstanceOf(
-      ModelKindError,
+      ConfigError.ModelKind,
     );
 
     const none = createArbiterModels(
@@ -213,7 +213,9 @@ describe("#1283: a chat call of the injected ArbiterModel", () => {
       deps,
       "How to judge.",
     );
-    await expect(decision.metered(callOf()).invoke("q")).rejects.toBeInstanceOf(ModelKindError);
+    await expect(decision.metered(callOf()).invoke("q")).rejects.toBeInstanceOf(
+      ConfigError.ModelKind,
+    );
   });
 
   it("a call that fails mid-way keeps what it spent: the partial spend is billed, the failure is the call's", async () => {

@@ -1,3 +1,4 @@
+import { A2AError } from "../../../src/core/error-families/remote-errors.js";
 /**
  * #859 AC2: an `A2AClient` sends and receives file parts — `FileDto.fromBytes` / `.fromUrl`
  * in a typed input, an AGBoss agent's file artifact back into the output DTO, a foreign agent's
@@ -8,7 +9,7 @@ import { FileError } from "../../../src/core/error-families/remote-errors.js";
 import { AgentEvent } from "@a2a-js/sdk/server";
 import type { Part } from "@a2a-js/sdk";
 import { describe, expect, it } from "vitest";
-import { A2AClient, A2AOriginError, A2ARemoteCallError } from "../../../src/a2a/index.js";
+import { A2AClient } from "../../../src/a2a/index.js";
 import {
   FileDto,
   WorkflowFinishFileDto,
@@ -154,7 +155,7 @@ describe("#859 AC2: a foreign agent's file parts", () => {
     expect([result.text, result.files]).toEqual(["done", []]);
   });
 
-  it("a data part that names a file field itself is no output: A2ARemoteCallError", async () => {
+  it("a data part that names a file field itself is no output: A2AError.Remote", async () => {
     const forged = {
       file: {
         mediaType: "text/plain",
@@ -174,7 +175,7 @@ describe("#859 AC2: a foreign agent's file parts", () => {
 
     await expect(
       fileClientOf(agent, WorkflowFinishFileDto).execute({ text: "go" }),
-    ).rejects.toBeInstanceOf(A2ARemoteCallError);
+    ).rejects.toBeInstanceOf(A2AError.Remote);
   });
 });
 
@@ -223,13 +224,13 @@ describe("#859: downloadFile", () => {
     await expect(small).rejects.toMatchObject({ reason: "too-large" });
   });
 
-  it("a url on no allowed origin is refused before any request: A2AOriginError", async () => {
+  it("a url on no allowed origin is refused before any request: A2AError.OriginRefused", async () => {
     const agent = completingWith([]);
     const client = new A2AClient({ url: AGENT_URL, fetcher: serving(agent, TEXT) });
 
     await expect(
       client.downloadFile(FileDto.fromUrl(`${FILES}/a.txt`, { mediaType: "text/plain" })),
-    ).rejects.toBeInstanceOf(A2AOriginError);
+    ).rejects.toBeInstanceOf(A2AError.OriginRefused);
   });
 
   it("inline bytes that do not match their sha256: digest-mismatch", async () => {

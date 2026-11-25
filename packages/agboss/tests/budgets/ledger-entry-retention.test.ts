@@ -2,8 +2,9 @@
  * #771 — the ledger's entries are pruned by the recovery sweep after `retention.costLedgerEntries`, and a
  * write of one the ledger may have pruned is refused, never counted again: a lost answer retried
  * within the retention counts once; one retried after the sweep pruned its entry fails the pass's
- * reads with `CostLedgerEntryExpiredError` and the ledger still holds the spend once.
+ * reads with `StoreError.LedgerEntryExpired` and the ledger still holds the spend once.
  */
+import { StoreError } from "../../src/core/error-families/store-errors.js";
 import { describe, expect, it } from "vitest";
 import { BudgetScope } from "../../src/budgets/budget.js";
 import { counterOf, meterOf, type BudgetMeter } from "../../src/budgets/execution-budgets.js";
@@ -15,7 +16,6 @@ import {
   type CostCounter,
   type LedgerEntry,
 } from "../../src/infrastructure/cost-ledger.repository.js";
-import { CostLedgerEntryExpiredError } from "../../src/finops/ledger-mark.js";
 import { InMemoryPausedExecutionRepository } from "../../src/infrastructure/in-memory-paused-execution.repository.js";
 import { removeExpired } from "../../src/infrastructure/recovery.js";
 import { VirtualClock } from "../../src/testing/clock.js";
@@ -100,10 +100,10 @@ describe("#771: a lost answer retried around the sweep's prune", () => {
     await clock.advance(minutes(24 * 60 + 1));
     await sweep(clock, ledger, hours(24));
 
-    await expect(meter.settled()).rejects.toBeInstanceOf(CostLedgerEntryExpiredError);
+    await expect(meter.settled()).rejects.toBeInstanceOf(StoreError.LedgerEntryExpired);
     await expect(meter.refresh()).rejects.toMatchObject({
-      name: "CostLedgerEntryExpiredError",
-      code: "cost-ledger.entry-expired",
+      name: "StoreError.LedgerEntryExpired",
+      code: "store.ledger-entry-expired",
       ledgerIds: [kept === undefined ? undefined : writtenLedgerIdOf(kept)],
       prunedBefore: new Date(clock.now().getTime() - hours(24)),
     });

@@ -28,13 +28,13 @@ const reasoned = (request: ModelRequest) =>
 describe("a panel's quorum", () => {
   test("all three counted: the summary reads them in the order they were counted", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(SkillsScoreAgent).thenReturn(score(8, "strong in Go"));
-    mockLlm(CultureScoreAgent).thenReturn(score(7, "pairs well with the team"));
-    mockLlm(HireScoreAgent).thenReturn(score(8, "hire"));
-    mockLlm(PanelScoreArbiter).thenAnswer(reasoned);
-    mockLlm(ScoreSummaryAgent).thenReturn(review);
+    mockModel(SkillsScoreAgent).thenReturn(score(8, "strong in Go"));
+    mockModel(CultureScoreAgent).thenReturn(score(7, "pairs well with the team"));
+    mockModel(HireScoreAgent).thenReturn(score(8, "hire"));
+    mockModel(PanelScoreArbiter).respondWith(reasoned);
+    mockModel(ScoreSummaryAgent).thenReturn(review);
 
     const result = await app.execute(PanelWorkflowStart, ANNA);
 
@@ -48,12 +48,12 @@ describe("a panel's quorum", () => {
 
   test("a score out of range is rejected by code — the arbiter's model is never asked about it", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(SkillsScoreAgent).thenReturn(score(11, "off the scale"));
-    mockLlm(CultureScoreAgent).thenReturn(score(7, "pairs well with the team"));
-    mockLlm(HireScoreAgent).thenReturn(score(6, "no reason"));
-    mockLlm(PanelScoreArbiter).thenAnswer(reasoned);
+    mockModel(SkillsScoreAgent).thenReturn(score(11, "off the scale"));
+    mockModel(CultureScoreAgent).thenReturn(score(7, "pairs well with the team"));
+    mockModel(HireScoreAgent).thenReturn(score(6, "no reason"));
+    mockModel(PanelScoreArbiter).respondWith(reasoned);
 
     const result = await app.execute(PanelWorkflowStart, ANNA);
 
@@ -63,6 +63,6 @@ describe("a panel's quorum", () => {
       { verdict: BranchVerdict.Counted },
       { verdict: BranchVerdict.Rejected, rejectedBy: ["panel-score-arbiter"] },
     ]);
-    expect(mockLlm(PanelScoreArbiter).requests).toHaveLength(2);
+    expect(mockModel(PanelScoreArbiter).requests).toHaveLength(2);
   });
 });

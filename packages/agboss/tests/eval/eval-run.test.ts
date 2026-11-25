@@ -4,8 +4,8 @@
  * execution values, the trajectory check, judges in the frame of the case's last execution, the
  * cascade, pass@k / pass^k over k runs, and the run artifact.
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { afterEach, describe, expect, it } from "vitest";
-import { EvalCaseInvalidError } from "../../src/errors.js";
 import {
   CheckStatus,
   EvalCascade,
@@ -155,7 +155,7 @@ describe("#396 PR 2: a case's history, turns and contexts", () => {
   it("writes the history, runs the turns on one thread, judges the last in its frame", async () => {
     const { env, built } = await evalApp();
     env
-      .mockLlm(DeskAgent)
+      .mockModel(DeskAgent)
       .thenReturn(
         answer("Hello."),
         callTool(GetOrderTool, { orderId: "7" }),
@@ -188,7 +188,7 @@ describe("#396 PR 2: a case's history, turns and contexts", () => {
   it("history turns are written (#396 S6): turns of the thread, not runs to score or save", async () => {
     const { env, built } = await evalApp();
     env
-      .mockLlm(DeskAgent)
+      .mockModel(DeskAgent)
       .thenReturn(
         answer("Hello."),
         callTool(GetOrderTool, { orderId: "7" }),
@@ -218,7 +218,7 @@ describe("#396 PR 2: a case's history, turns and contexts", () => {
 
   it("a turn that fails ends the run with its error, no checks", async () => {
     const { env, built } = await evalApp();
-    env.mockLlm(DeskAgent).thenReturnAlways(failWith(ModelFailure.Timeout));
+    env.mockModel(DeskAgent).thenReturnAlways(failWith(ModelFailure.Timeout));
 
     const report = await runSuiteOn(built, RefundsEvalSuite, { runs: 1 });
 
@@ -231,7 +231,7 @@ describe("#396 PR 2: a case's history, turns and contexts", () => {
     const { built } = await evalApp();
 
     await expect(runSuiteOn(built, InvalidEvalSuite, { runs: 1 })).rejects.toBeInstanceOf(
-      EvalCaseInvalidError,
+      ConfigError.EvalCase,
     );
   });
 });
@@ -240,7 +240,7 @@ describe("#396 PR 2: the trajectory check and the cascade", () => {
   it("names every broken expectation, and skips the judges after it", async () => {
     const { env, built } = await evalApp();
     env
-      .mockLlm(DeskAgent)
+      .mockModel(DeskAgent)
       .thenReturn(
         answer("Hello."),
         callTool(DeleteOrderTool, { orderId: "7" }),
@@ -279,7 +279,7 @@ describe("#396 PR 2: the trajectory check and the cascade", () => {
   it("a failed code judge skips the model judge after it", async () => {
     const { env, built } = await evalApp();
     env
-      .mockLlm(DeskAgent)
+      .mockModel(DeskAgent)
       .thenReturn(
         answer("Hello."),
         callTool(GetOrderTool, { orderId: "7" }),
@@ -308,7 +308,7 @@ describe("#396 PR 2: the trajectory check and the cascade", () => {
 
   it("RunAll runs every check whatever the ones before decided", async () => {
     const { env, built } = await evalApp();
-    env.mockLlm(DeskAgent).thenReturn(answer("Order 8 shipped."));
+    env.mockModel(DeskAgent).thenReturn(answer("Order 8 shipped."));
     scriptJudge(env, "yes");
 
     const report = await runSuiteOn(built, RunAllEvalSuite, { runs: 1 });
@@ -323,7 +323,7 @@ describe("#396 PR 2: the trajectory check and the cascade", () => {
 
   it("a run that ends at a finish its judge does not judge fails that check", async () => {
     const { env, built } = await evalApp();
-    env.mockLlm(DeskAgent).thenReturn(replyWith(HandOverDto, { reason: "not about an order" }));
+    env.mockModel(DeskAgent).thenReturn(replyWith(HandOverDto, { reason: "not about an order" }));
 
     const report = await runSuiteOn(built, RunAllEvalSuite, { runs: 1 });
 
@@ -343,7 +343,7 @@ describe("#396 PR 2: pass@k and pass^k over k runs", () => {
   it("k = 3 with one failed run: pass@3, not pass^3 — unstable", async () => {
     const { env, built } = await evalApp();
     env
-      .mockLlm(DeskAgent)
+      .mockModel(DeskAgent)
       .thenReturn(
         callTool(GetOrderTool, { orderId: "9" }),
         answer("Order 9 shipped."),
@@ -377,7 +377,7 @@ describe("#396 PR 2: pass@k and pass^k over k runs", () => {
   it("the artifact says what it is, its schema, the suite and the workflow it ran on", async () => {
     const { env, built } = await evalApp();
     env
-      .mockLlm(DeskAgent)
+      .mockModel(DeskAgent)
       .thenReturn(
         callTool(GetOrderTool, { orderId: "9" }),
         replyWith(DeskAnswerDto, { text: "Order 9 shipped." }, { cost: usd(0.25) }),

@@ -1,3 +1,4 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import type { Class } from "../components/injection.js";
 import {
   NodeKind,
@@ -12,7 +13,7 @@ import {
 } from "./ast.js";
 import { oneOfStepOf, onFinishStepOf, routeOf } from "./branch-step.js";
 import * as parallel from "./parallel-step.js";
-import { FlowSyntaxError, launchOrderProblem } from "./launch-step.js";
+import { launchOrderProblem } from "./launch-step.js";
 import {
   arbitratedByOf,
   arbitratingLaunch,
@@ -31,10 +32,10 @@ import { carryStepSpan, recordStepSpan } from "./step-spans.js";
  * `builder.ts` gives it its typed entry points. Every call returns a new builder.
  */
 
-export { FlowSyntaxError } from "./launch-step.js";
 export { fromComponent } from "./path-sources.js";
 
-const syntaxError = (message: string): FlowSyntaxError => new FlowSyntaxError({ message });
+const syntaxError = (message: string): ConfigError.FlowSyntax =>
+  new ConfigError.FlowSyntax({ message });
 
 export type { PathStart } from "./path-start.js";
 

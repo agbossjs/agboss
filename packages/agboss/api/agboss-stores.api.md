@@ -372,7 +372,13 @@ export interface BusinessKeyOptions {
 }
 
 // @public
-export const cancelFencedErrorOf: (error: unknown) => ExecutionCancelFencedError | InterruptFenced | undefined;
+export const cancelFencedErrorOf: (error: unknown) => ExecutionError.CancelFenced | undefined;
+
+// @public
+export type CancelFencedKey = Pick<EffectKey, "scopeKey" | "tenantId" | "leaseExecutionId" | "token" | "name" | "rootExecutionId">;
+
+// @public
+export const cancelFencedOf: (key: CancelFencedKey) => ExecutionError.CancelFenced;
 
 // @public
 export const cancelTreeOf: (key: Pick<EffectKeyFields, "tenantId" | "leaseExecutionId" | "rootExecutionId">) => {
@@ -894,30 +900,6 @@ export abstract class ExecutionAuditLogRepository {
 }
 
 // @public
-export class ExecutionCancelFencedError extends ExecutionCancelledError {
-    constructor(options: ExecutionCancelFencedErrorOptions);
-    // (undocumented)
-    static readonly code: "execution.cancelled.fenced";
-    // (undocumented)
-    readonly code: typeof ExecutionCancelFencedError.code;
-    // (undocumented)
-    readonly effect: string;
-    // (undocumented)
-    readonly leaseExecutionId: string;
-    // (undocumented)
-    name: string;
-    static of(key: Pick<EffectKey, "scopeKey" | "tenantId" | "leaseExecutionId" | "token" | "name" | "rootExecutionId">): ExecutionCancelFencedError;
-    // (undocumented)
-    readonly rootExecutionId: string;
-    // (undocumented)
-    readonly scopeKey: string;
-    // (undocumented)
-    readonly tenantId: string;
-    // (undocumented)
-    readonly token: number;
-}
-
-// @public
 export interface ExecutionContextRecord {
     // (undocumented)
     readonly execution: Readonly<Record<string, unknown>>;
@@ -1416,6 +1398,9 @@ export interface InvalidA2APageTokenErrorOptions {
 
 // @public
 export function isKeyFingerprint(key: Pick<EffectKeyFields, "fingerprint" | "previousFingerprint">, stored: string | null | undefined): boolean;
+
+// @public
+export const isStoreOutcomeUnknown: (error: unknown) => error is StoreOutcomeUnknown;
 
 // @public
 export const isTerminalA2ATaskState: (state: A2ATaskState) => state is A2ATerminalTaskState;
@@ -2627,25 +2612,6 @@ export enum StorageRole {
 }
 
 // @public
-export class StoreCallTimeoutError extends StoreOutcomeUnknownError {
-    constructor(options: StoreCallTimeoutErrorOptions);
-    // (undocumented)
-    static readonly code: "store.call-timeout";
-    // (undocumented)
-    readonly code: typeof StoreCallTimeoutError.code;
-    // (undocumented)
-    name: string;
-    // (undocumented)
-    readonly timeout: Milliseconds;
-}
-
-// @public
-export interface StoreCallTimeoutErrorOptions extends StoreOutcomeUnknownErrorOptions {
-    // (undocumented)
-    readonly timeout: Milliseconds;
-}
-
-// @public
 export interface StoreDescriptor {
     readonly backend: string | undefined;
     readonly leaseCheck?: LeaseCheck;
@@ -2666,57 +2632,56 @@ export const storedKeyFactsOf: (key: EffectKey) => {
 };
 
 // @public
-export class StoredNamesUnreadableError extends AGBossError {
-    constructor(options: StoredNamesUnreadableErrorOptions);
-    // (undocumented)
-    static readonly code: "stored.unreadable";
-    // (undocumented)
-    readonly code: typeof StoredNamesUnreadableError.code;
-    readonly fields: string;
-    readonly ids: string;
-    // (undocumented)
-    name: string;
-    readonly record: string;
-}
-
-// @public
-export interface StoredNamesUnreadableErrorOptions {
-    // (undocumented)
-    readonly cause?: unknown;
-    // (undocumented)
-    readonly fields: string;
-    // (undocumented)
-    readonly ids: string;
-    readonly isNotJson?: boolean;
-    // (undocumented)
-    readonly record: string;
-}
-
-// @public
 export type StoreError = StoreError.OutcomeUnknown | StoreError.CallTimeout | StoreError.UnreadableRecord | StoreError.Mismatch | StoreError.LiveLeases | StoreError.SchemaMissing | StoreError.SchemaTooNew | StoreError.MigrationChanged | StoreError.SettingsInvalid | StoreError.DeploymentUnsupported | StoreError.DurabilityInsufficient | StoreError.CollationInvalid | StoreError.LedgerMarkMissing | StoreError.LeaseKeyConflict | StoreError.ObjectStorage | StoreError.LedgerCutoffInvalid | StoreError.LedgerEntryExpired | StoreError.LedgerEntryInvalid | StoreError.ClusterLeaseBehind | StoreError.LockTimeout;
 
 // @public
 export namespace StoreError {
-    export type CallTimeout = ErrorVariant<StoreErrorKind.CallTimeout, "store.call-timeout">;
+    export type CallTimeout = ErrorVariant<StoreErrorKind.CallTimeout, "store.call-timeout"> & {
+        readonly store: string;
+        readonly operation: string;
+        readonly source: StoreOutcomeSource;
+        readonly timeout: Milliseconds;
+    };
     export type ClusterLeaseBehind = ErrorVariant<StoreErrorKind.ClusterLeaseBehind, "store.cluster-lease-behind">;
     export type CollationInvalid = ErrorVariant<StoreErrorKind.CollationInvalid, "store.collation-invalid">;
     export type DeploymentUnsupported = ErrorVariant<StoreErrorKind.DeploymentUnsupported, "store.deployment-unsupported">;
     export type DurabilityInsufficient = ErrorVariant<StoreErrorKind.DurabilityInsufficient, "store.durability-insufficient">;
     export type LeaseKeyConflict = ErrorVariant<StoreErrorKind.LeaseKeyConflict, "store.lease-key-conflict">;
-    export type LedgerCutoffInvalid = ErrorVariant<StoreErrorKind.LedgerCutoffInvalid, "store.ledger-cutoff-invalid">;
-    export type LedgerEntryExpired = ErrorVariant<StoreErrorKind.LedgerEntryExpired, "store.ledger-entry-expired">;
-    export type LedgerEntryInvalid = ErrorVariant<StoreErrorKind.LedgerEntryInvalid, "store.ledger-entry-invalid">;
+    export type LedgerCutoffInvalid = ErrorVariant<StoreErrorKind.LedgerCutoffInvalid, "store.ledger-cutoff-invalid"> & {
+        readonly reason: string;
+    };
+    export type LedgerEntryExpired = ErrorVariant<StoreErrorKind.LedgerEntryExpired, "store.ledger-entry-expired"> & {
+        readonly ledgerIds: readonly string[];
+        readonly prunedBefore: Date;
+    };
+    export type LedgerEntryInvalid = ErrorVariant<StoreErrorKind.LedgerEntryInvalid, "store.ledger-entry-invalid"> & {
+        readonly index: number;
+        readonly reason: string;
+    };
     export type LedgerMarkMissing = ErrorVariant<StoreErrorKind.LedgerMarkMissing, "store.ledger-mark-missing">;
     export type LiveLeases = ErrorVariant<StoreErrorKind.LiveLeases, "store.live-leases">;
     export type LockTimeout = ErrorVariant<StoreErrorKind.LockTimeout, "store.lock-timeout">;
     export type MigrationChanged = ErrorVariant<StoreErrorKind.MigrationChanged, "store.migration-changed">;
     export type Mismatch = ErrorVariant<StoreErrorKind.Mismatch, "store.mismatch">;
     export type ObjectStorage = ErrorVariant<StoreErrorKind.ObjectStorage, "store.object-storage">;
-    export type OutcomeUnknown = ErrorVariant<StoreErrorKind.OutcomeUnknown, "store.outcome-unknown">;
+    export type OutcomeUnknown = ErrorVariant<StoreErrorKind.OutcomeUnknown, "store.outcome-unknown"> & {
+        readonly store: string;
+        readonly operation: string;
+        readonly source: StoreOutcomeSource;
+    };
     export type SchemaMissing = ErrorVariant<StoreErrorKind.SchemaMissing, "store.schema-missing">;
-    export type SchemaTooNew = ErrorVariant<StoreErrorKind.SchemaTooNew, "store.schema-too-new">;
+    export type SchemaTooNew = ErrorVariant<StoreErrorKind.SchemaTooNew, "store.schema-too-new"> & {
+        readonly applied?: number | undefined;
+        readonly expected?: number | undefined;
+        readonly store?: string | undefined;
+    };
     export type SettingsInvalid = ErrorVariant<StoreErrorKind.SettingsInvalid, "store.settings-invalid">;
-    export type UnreadableRecord = ErrorVariant<StoreErrorKind.UnreadableRecord, "store.unreadable-record">;
+    export type UnreadableRecord = ErrorVariant<StoreErrorKind.UnreadableRecord, "store.unreadable-record"> & {
+        readonly record?: string | undefined;
+        readonly ids?: string | undefined;
+        readonly fields?: string | undefined;
+        readonly isNotJson?: boolean | undefined;
+    };
 }
 
 // @public
@@ -2805,30 +2770,7 @@ export enum StoreOutcomeSource {
 }
 
 // @public
-export class StoreOutcomeUnknownError extends AGBossError {
-    constructor(options: StoreOutcomeUnknownErrorOptions & {
-        readonly message?: string;
-    });
-    // (undocumented)
-    static readonly code: string;
-    readonly code: "store.outcome-unknown" | "store.call-timeout";
-    // (undocumented)
-    name: string;
-    // (undocumented)
-    readonly operation: string;
-    // (undocumented)
-    readonly source: StoreOutcomeSource;
-    // (undocumented)
-    readonly store: string;
-}
-
-// @public
-export interface StoreOutcomeUnknownErrorOptions extends AGBossErrorOptions {
-    readonly operation: string;
-    // (undocumented)
-    readonly source: StoreOutcomeSource;
-    readonly store: string;
-}
+export type StoreOutcomeUnknown = StoreError.OutcomeUnknown | StoreError.CallTimeout;
 
 // @public
 export interface Summary {
@@ -3043,15 +2985,6 @@ export interface WrittenLedgerMark {
 
 // Warnings were encountered during analysis:
 //
-// src/app/lease-lost.ts - (ae-undocumented) Missing documentation for "code".
-// src/app/lease-lost.ts - (ae-undocumented) Missing documentation for "code".
-// src/app/lease-lost.ts - (ae-undocumented) Missing documentation for "name".
-// src/app/lease-lost.ts - (ae-undocumented) Missing documentation for "scopeKey".
-// src/app/lease-lost.ts - (ae-undocumented) Missing documentation for "tenantId".
-// src/app/lease-lost.ts - (ae-undocumented) Missing documentation for "rootExecutionId".
-// src/app/lease-lost.ts - (ae-undocumented) Missing documentation for "leaseExecutionId".
-// src/app/lease-lost.ts - (ae-undocumented) Missing documentation for "token".
-// src/app/lease-lost.ts - (ae-undocumented) Missing documentation for "effect".
 // src/app/paused-runs.ts - (ae-undocumented) Missing documentation for "run".
 // src/app/types.ts - (ae-undocumented) Missing documentation for "Finished".
 // src/app/types.ts - (ae-undocumented) Missing documentation for "Paused".
@@ -3089,13 +3022,6 @@ export interface WrittenLedgerMark {
 // src/core/errors.ts - (ae-undocumented) Missing documentation for "code".
 // src/core/errors.ts - (ae-undocumented) Missing documentation for "code".
 // src/core/errors.ts - (ae-undocumented) Missing documentation for "details".
-// src/core/stored-json.ts - (ae-undocumented) Missing documentation for "record".
-// src/core/stored-json.ts - (ae-undocumented) Missing documentation for "ids".
-// src/core/stored-json.ts - (ae-undocumented) Missing documentation for "fields".
-// src/core/stored-json.ts - (ae-undocumented) Missing documentation for "cause".
-// src/core/stored-json.ts - (ae-undocumented) Missing documentation for "code".
-// src/core/stored-json.ts - (ae-undocumented) Missing documentation for "code".
-// src/core/stored-json.ts - (ae-undocumented) Missing documentation for "name".
 // src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Agents".
 // src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Routing".
 // src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Guardrails".
@@ -3399,17 +3325,6 @@ export interface WrittenLedgerMark {
 // src/infrastructure/sqlite/sqlite-transaction.ts - (ae-undocumented) Missing documentation for "all".
 // src/infrastructure/sqlite/sqlite-transaction.ts - (ae-undocumented) Missing documentation for "prepare".
 // src/infrastructure/sqlite/sqlite-transaction.ts - (ae-undocumented) Missing documentation for "exec".
-// src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "source".
-// src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "store".
-// src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "operation".
-// src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "source".
-// src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "timeout".
-// src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "timeout".
 // src/mesh/mesh-call.ts - (ae-undocumented) Missing documentation for "application".
 // src/mesh/mesh-call.ts - (ae-undocumented) Missing documentation for "executionId".
 // src/pause/types.ts - (ae-undocumented) Missing documentation for "kind".

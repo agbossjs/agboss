@@ -91,7 +91,7 @@ And what no setting can enforce — the assumptions of [Guarantees](Guarantees) 
   (`saveIfAbsent`, `markPending`) check it in their transaction after the lease, the scope's mark
   and (for an effect) the key's stored result: the root's document is *written* first (a counter
   nothing reads — an update that changes nothing is skipped and locks nothing), then read, and a
-  set `cancelRequestedAt` refuses the write with `ExecutionCancelFencedError`; an undo's key is not
+  set `cancelRequestedAt` refuses the write with `ExecutionError.CancelFenced`; an undo's key is not
   refused. For a root's or a `SameInstance` key that document is the lease `checkFence` already
   wrote; for a child's key it is its root's, seeded in the same transaction when it does not exist
   yet, so a document always exists to conflict on. The cancel either waits for a transaction that
@@ -122,7 +122,7 @@ And what no setting can enforce — the assumptions of [Guarantees](Guarantees) 
   every single-command write of every store outside a transaction (not only a lease's), and every
   transaction's commit. A write inside a transaction is left as it is: its commit decides. Only an
   error that proves the write was not applied is known and rethrown as it is; every other one
-  rejects with `StoreOutcomeUnknownError` (source `Transport`): under a lease the holder hands the
+  rejects with `StoreError.OutcomeUnknown` (source `Transport`): under a lease the holder hands the
   tree over, the next one reads what was left, and the work is never run again for it. The client's
   `socketTimeoutMS` is forced to 300 s, so that a retry always falls inside the server's receipt of
   the first attempt.

@@ -73,9 +73,9 @@ const test = testWith(LoggedApplication);
 describe("#261 AC13: tests log no start", () => {
   test("an application under testWith writes no start line and no warning to its logger", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ScribeAgent).thenReturn(replyWith("noted"));
+    mockModel(ScribeAgent).thenReturn(replyWith("noted"));
 
     await execute(app, NoteWorkflowStart, { text: "note" });
 

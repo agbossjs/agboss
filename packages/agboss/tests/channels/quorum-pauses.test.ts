@@ -1,16 +1,16 @@
 /**
  * #337 AC1: a quorum decided while a branch waits for an answer withdraws that branch's pause
  * (`Cancelled`, `PauseResolution.Withdrawn`) — the execution goes on to its join in the same call
- * instead of resting paused, nothing is left pending and a late answer gets `PauseClosedError`. Decided
+ * instead of resting paused, nothing is left pending and a late answer gets `PauseError.Closed`. Decided
  * by an answer, by an answer in a later pass, by a winning group, or found decided on restore after
  * a crash (the deadline passed while no instance moved the tree).
  */
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { beforeEach, describe, expect } from "vitest";
 import { ExecutionStatus } from "../../src/app/types.js";
 import {
   ApplicationStoppingError,
   BranchStatus,
-  PauseClosedError,
   PauseClosedReason,
   PauseResolution,
   PauseStatus,
@@ -57,11 +57,11 @@ const storedPause = (orderId: string) =>
 describe("#337 AC1: a decided quorum withdraws its waiting branches' pauses", () => {
   test("reached while a branch waits: its pause is withdrawn, the join runs in the same call", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(PolicyAgent).thenReturn(score(7));
-    mockLlm(RiskAgent).thenReturn(callTool(RefundTool, { orderId: "R" }));
-    mockLlm(FraudAgent).thenReturn(score(9));
+    mockModel(PolicyAgent).thenReturn(score(7));
+    mockModel(RiskAgent).thenReturn(callTool(RefundTool, { orderId: "R" }));
+    mockModel(FraudAgent).thenReturn(score(9));
 
     const result = await execute(app, RefundPanelWorkflowStart, ORDER, { includeRecord: true });
 
@@ -70,17 +70,17 @@ describe("#337 AC1: a decided quorum withdraws its waiting branches' pauses", ()
     expect(result.record?.pauses).toMatchObject([{ resolution: PauseResolution.Withdrawn }]);
     expect(result.launches[0]?.branches[1]).toMatchObject({ status: BranchStatus.Cancelled });
     expect((await storedPause("R"))?.status).toBe(PauseStatus.Cancelled);
-    await expect(app.resume(answerFor("R"), manager)).rejects.toBeInstanceOf(PauseClosedError);
+    await expect(app.resume(answerFor("R"), manager)).rejects.toBeInstanceOf(PauseError.Closed);
     expect(seen.refunds).toEqual([]);
   });
 
   test("decided by an answer in a later pass: the other branch's pause is withdrawn then", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(PolicyAgent).thenReturn(callTool(RefundTool, { orderId: "P" }), score(7));
-    mockLlm(RiskAgent).thenReturn(callTool(RefundTool, { orderId: "R" }));
-    mockLlm(FraudAgent).thenReturn(score(9));
+    mockModel(PolicyAgent).thenReturn(callTool(RefundTool, { orderId: "P" }), score(7));
+    mockModel(RiskAgent).thenReturn(callTool(RefundTool, { orderId: "R" }));
+    mockModel(FraudAgent).thenReturn(score(9));
     const paused = await execute(app, RefundPanelWorkflowStart, ORDER);
     expect(paused.status).toBe(ExecutionStatus.Paused);
     expect(paused.pending).toHaveLength(2);
@@ -99,9 +99,9 @@ describe("#337 AC1: a decided quorum withdraws its waiting branches' pauses", ()
 
   real(
     "groups: the winning group withdraws the other group's pause",
-    async ({ app, clock, mockLlm }) => {
-      mockLlm(PolicyAgent).thenReturn(waitFor(seconds(5)), score(7));
-      mockLlm(RiskAgent).thenReturn(callTool(RefundTool, { orderId: "R" }));
+    async ({ app, clock, mockModel }) => {
+      mockModel(PolicyAgent).thenReturn(waitFor(seconds(5)), score(7));
+      mockModel(RiskAgent).thenReturn(callTool(RefundTool, { orderId: "R" }));
       const run = execute(app, RefundGroupsWorkflowStart, ORDER, { includeRecord: true });
       await until(() => seen.asks.length === 1);
 
@@ -122,11 +122,11 @@ describe("#337 AC1: a quorum closed by its deadline", () => {
 
   recovery(
     "the deadline passes while a branch still runs: the waiting branch's pause is withdrawn",
-    async ({ app, clock, mockLlm }) => {
-      mockLlm(PolicyAgent).thenReturn(score(7));
-      mockLlm(RiskAgent).thenReturn(callTool(RefundTool, { orderId: "R" }));
+    async ({ app, clock, mockModel }) => {
+      mockModel(PolicyAgent).thenReturn(score(7));
+      mockModel(RiskAgent).thenReturn(callTool(RefundTool, { orderId: "R" }));
       // still waiting at the deadline: cancelled there
-      mockLlm(FraudAgent).thenReturn(callTool(WaitTool, { seconds: 600 }));
+      mockModel(FraudAgent).thenReturn(callTool(WaitTool, { seconds: 600 }));
       const run = execute(app, RefundRecoveryWorkflowStart, ORDER);
       await untilWaiting(1);
       await until(() => seen.asks.length === 1);
@@ -160,11 +160,11 @@ describe("#337 AC1: a quorum found decided on restore", () => {
 
   instances(
     "after a crash the deadline has passed: the other instance withdraws the waiting pause and finishes",
-    async ({ apps, clock, mockLlm }) => {
-      mockLlm(PolicyAgent).thenReturn(score(7));
-      mockLlm(RiskAgent).thenReturn(callTool(RefundTool, { orderId: "R" }));
+    async ({ apps, clock, mockModel }) => {
+      mockModel(PolicyAgent).thenReturn(score(7));
+      mockModel(RiskAgent).thenReturn(callTool(RefundTool, { orderId: "R" }));
       // still waiting when the first instance stops; cancelled without running again
-      mockLlm(FraudAgent).thenReturn(callTool(WaitTool, { seconds: 60 }));
+      mockModel(FraudAgent).thenReturn(callTool(WaitTool, { seconds: 60 }));
       for (const app of apps) await app.ready();
       const first = instance(apps, 0);
       const call = execute(first, RefundRecoveryWorkflowStart, ORDER);

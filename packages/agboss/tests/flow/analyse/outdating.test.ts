@@ -1,3 +1,4 @@
+import { ConfigError } from "../../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import { analyseWorkflow, checkWorkflow } from "../../../src/flow/analyse/analyse.js";
 import { statesOf } from "../../../src/flow/analyse/dataflow.js";
@@ -10,7 +11,6 @@ import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js"
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import { oneOf, optional } from "../../../src/flow/dto-wrappers.js";
 import type { ComponentName } from "../../../src/flow/registry.js";
-import { GraphRuleError } from "../../../src/graph/rule-error.js";
 import { DraftChangesDto } from "../fixtures/data-dtos.js";
 import { ArticleDto, ArticleRequestDto, WorkflowStartTextDto } from "../fixtures/dtos.js";
 import { onAgent, onRouter, onStart, toAction, toAgent, toRouter } from "../fixtures/paths.js";
@@ -527,7 +527,7 @@ describe("#271 AC13: every assembly error at once, with those of #270 and #272",
   it("all errors at once with #270 / #272", () => {
     const thrown = (): unknown => analyseWorkflow(BrokenReviewWorkflow);
 
-    expect(thrown).toThrow(GraphRuleError);
+    expect(thrown).toThrow(ConfigError.GraphRules);
     expect(codesOf(BrokenReviewWorkflow)).toEqual(
       expect.arrayContaining([
         "input.missing-on-path", // #270: no profile on the path

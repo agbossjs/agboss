@@ -125,9 +125,9 @@ describe("#501 AC1: a takeover is told and kept", () => {
 
   two(
     "a lease released at a pause and taken by the resume on the other instance is no takeover",
-    async ({ apps, mockLlm }) => {
+    async ({ apps, mockModel }) => {
       const [a, b] = [instance(apps, 0), instance(apps, 1)];
-      mockLlm(ReleaseAgent).thenReturn(
+      mockModel(ReleaseAgent).thenReturn(
         callTool(ApprovedStageTool, { artifact: "v1" }),
         replyWith(ReceiptDto, { text: "staged" }),
       );

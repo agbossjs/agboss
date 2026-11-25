@@ -9,7 +9,6 @@ import {
   Injectable,
   DecisionModel,
   provide,
-  ComponentError,
   Tool,
   inline,
   Ttl,
@@ -103,7 +102,6 @@ describe("components — errors at assembly", () => {
       name: "tester-agent",
       description: "d",
       model: "test/alpha",
-      price: testConfig.agents.alpha.price,
       tools: [],
       prompt: inline("Hello {{unknown_var}}"),
       promptVariables: {},
@@ -167,7 +165,6 @@ describe("components — errors at assembly", () => {
         name: "a-agent",
         description: "d",
         model: "test/alpha",
-        price: testConfig.agents.alpha.price,
         tools,
 
         prompt: prompt,

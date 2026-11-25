@@ -3,9 +3,10 @@
  * Two tests on one SQLite file both start their `SequentialIdGenerator` at `thread-1`
  * (flow-patterns runs its files on one module graph per worker, so its `instances` environment is
  * one file per worker): `ON CONFLICT DO NOTHING` used to hand the second test the first one's
- * thread — of another workflow (`UnknownThreadError` at the pass's `openThread`), or of another
+ * thread — of another workflow (`ExecutionError.UnknownThread` at the pass's `openThread`), or of another
  * owner of the same workflow (its history joined in silence).
  */
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { describe, expect, it } from "vitest";
 import { createSqliteTurnStore } from "../../src/turns/index.js";
 

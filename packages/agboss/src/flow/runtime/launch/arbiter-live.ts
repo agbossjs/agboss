@@ -1,6 +1,6 @@
+import { ConfigError } from "../../../core/error-families/config-errors.js";
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { ModelMessage } from "../../../models/messages.js";
-import { ComponentError } from "../../../components/metadata.js";
 import type { AnswersOf, DecisionQuestions, DecisionRequest } from "../../../llm/decisions.js";
 import { ArbiterModel } from "../../decorators/arbiter.js";
 
@@ -41,7 +41,7 @@ export class LiveArbiterModel extends ArbiterModel {
   private current(member: string): ArbiterModel {
     const model = arbiting.getStore();
     if (model === undefined) {
-      throw new ComponentError({
+      throw new ConfigError.Component({
         message: `[arbiter.model-outside-arbiter] ${this.consumer} used arbiterModel.${member} outside an @Arbitrate method — inject ArbiterModel only into an @Arbiter and call it from its @Arbitrate methods`,
       });
     }

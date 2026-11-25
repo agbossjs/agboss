@@ -3,11 +3,11 @@
  * model, in the call's frame, the answer validated by the call — the reader of a tree's pauses
  * (`replyReaderOf`) and `testReplyInterpreter`'s one reading (`readReplyBy`).
  */
+import { PauseError } from "../core/error-families/pause-errors.js";
 import { replyAskOf } from "../infrastructure/pause-record.js";
 import { runInFrame } from "../flow/context/frame.js";
 import { resolveSettings } from "../llm/registry.js";
 import { ModelKind } from "../models/model-kind.js";
-import { ReplyInterpreterMissingError, UninterpretableReplyError } from "./decision.js";
 import type { AssembledReplyInterpreter } from "./discovery.js";
 import { crashed, readByCode, type Declined, type Interpreted } from "./reply-code.js";
 import { readByDecision } from "./reply-decision.js";
@@ -87,7 +87,7 @@ async function readOnce(
   const unreadable = (declined: Declined): ReplyReading => {
     const message = `${call.label}: ${interpreter.name} could not read the reply — ${declined.reason}`;
     const { reason, cause } = declined;
-    const error = new UninterpretableReplyError({ message, reason, cause });
+    const error = new PauseError.UninterpretableReply({ message, reason, cause });
     return { kind: "unreadable", error, usage: interpreted.usage };
   };
   if (interpreted.kind === "declined") return unreadable(interpreted);
@@ -104,7 +104,7 @@ export function replyReaderOf(parts: ReplyReaderParts): ReplyReader {
     const { pause, ...rest } = call;
     const interpreter = parts.interpreters.find((found) => found.target === pause.target);
     if (interpreter === undefined) {
-      throw new ReplyInterpreterMissingError({
+      throw new PauseError.ChannelInterpreterMissing({
         message: `pause ${pause.pauseId}: pause target ${pause.target} has no channelInterpreter — answer it with a decision, or name one on its @ToolApproval or @ExternalTask`,
       });
     }

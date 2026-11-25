@@ -83,9 +83,9 @@ describe("#520: the recovery sweep of a frozen instance and a finished root", ()
 describe("#520: a paused child's lease is released, not finished", () => {
   test("a child resting at a pause gives its lease back for its resume; its end finishes it", async ({
     apps,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(YieldReviewerAgent).thenAnswer(reviewer);
+    mockModel(YieldReviewerAgent).respondWith(reviewer);
     const [a, b] = await bothReady(apps);
     // the tree rests paused with its child's pause; the answer runs the child again, to its end
     const rest = await execute(a, YieldReviewsWorkflowStart, [item("ask")]);

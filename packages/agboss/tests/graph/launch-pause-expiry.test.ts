@@ -4,11 +4,12 @@
  * pause is due while its sibling still runs is refused answers (I2) and expired by the holder once
  * the pass came to rest, the launch going on per its failure policy.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { beforeEach, describe, expect } from "vitest";
 import { ExecutionStatus } from "../../src/app/types.js";
 import { PauseExpiration } from "../../src/channels/pause-expiration.js";
 import { ResumeReason } from "../../src/core/observability.js";
-import { PauseClosedError, PauseExpiredError } from "../../src/errors.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import { hours, seconds } from "../../src/units/index.js";
 import { execute } from "../helpers/flow.js";
@@ -42,10 +43,10 @@ describe("#941 I6: per-item launch", () => {
   test("I6: two items' pauses expire in one pass; each decided answer goes on with its branch", async ({
     app,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
     agentExpiry.behavior = () => PauseExpiration.decide({ approved: true });
-    mockLlm(ExpiryBatchRefundAgent).thenAnswer((request) => {
+    mockModel(ExpiryBatchRefundAgent).respondWith((request) => {
       const orderId = orderOf(request);
       const isAnswered =
         request.kind === "chat" && request.messages.some((line) => line.role === "tool");
@@ -78,14 +79,14 @@ describe("#941 I6: a branch's pause is due while its sibling still runs", () => 
   test("I6: no answer is accepted after the deadline; at the rest the holder expires it and the launch fails per its policy", async ({
     app,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
     let open: () => void = () => undefined;
     agentExpiry.gate = new Promise<void>((resolve) => {
       open = resolve;
     });
-    mockLlm(ExpiryRefundAgent).thenReturn(callTool(QuickRefundTool, { orderId: "7" }));
-    mockLlm(ExpiryHoldAgent).thenReturn(
+    mockModel(ExpiryRefundAgent).thenReturn(callTool(QuickRefundTool, { orderId: "7" }));
+    mockModel(ExpiryHoldAgent).thenReturn(
       callTool(GateTool, { what: "hold" }),
       replyWith(GateDto, { what: "held" }),
     );
@@ -103,7 +104,7 @@ describe("#941 I6: a branch's pause is due while its sibling still runs", () => 
         { actor: { id: "manager-17" } },
       )
       .catch((error: unknown) => error);
-    expect(refused).toBeInstanceOf(PauseClosedError);
+    expect(refused).toBeInstanceOf(PauseError.Closed);
     expect(refused).toMatchObject({ reason: "expired" });
 
     open();
@@ -111,7 +112,7 @@ describe("#941 I6: a branch's pause is due while its sibling still runs", () => 
 
     expect(agentExpiry.asked).toHaveLength(1);
     expect(agentExpiry.refunds).toEqual([]);
-    expect(expiry.errors[0]).toBeInstanceOf(PauseExpiredError);
+    expect(expiry.errors[0]).toBeInstanceOf(StepError.PauseExpired);
     // the pass the holder's drain started is announced Expired, not Answered
     expect(expiry.resumes.map((event) => event.reason)).toEqual([ResumeReason.Expired]);
     await running.catch(() => undefined);

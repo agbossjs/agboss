@@ -166,8 +166,8 @@ async function expectCancelled(tree: Awaited<ReturnType<typeof restingTree>>): P
 describe("#1132 AC3: an instance that dies in the middle of app.cancel of a resting tree", () => {
   test.for(POINTS.filter(([, , { sweeps }]) => sweeps))(
     "AC3: killed after %s: within a few sweeps another instance closes the pause as cancelled; a second cancel finds nothing",
-    async ([, death], { apps, clock, mockLlm }) => {
-      mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+    async ([, death], { apps, clock, mockModel }) => {
+      mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
       const tree = await restingTree(apps, death);
 
       for (let sweep = 0; sweep < 6; sweep += 1) await clock.advance(seconds(31));
@@ -179,8 +179,8 @@ describe("#1132 AC3: an instance that dies in the middle of app.cancel of a rest
 
   test.for(POINTS)(
     "AC3: killed after %s: a second cancel right after answers the truth, and the tree ends cancelled",
-    async ([, death, { second }], { apps, clock, mockLlm }) => {
-      mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+    async ([, death, { second }], { apps, clock, mockModel }) => {
+      mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
       const tree = await restingTree(apps, death);
 
       // the dead holder's lease runs out meanwhile: the cancel waits for it, never for ever

@@ -106,11 +106,11 @@ export const isCodeJudge = (meta: Pick<JudgeRecord, "deps" | "prompt">): boolean
 export abstract class JudgeModel {
   /** The model id (`@Judge({ model })`). */
   abstract readonly model: string;
-  /** One chat call; returns the reply's text. On a decision model: `ModelKindError`. */
+  /** One chat call; returns the reply's text. On a decision model: `ConfigError.ModelKind`. */
   abstract invoke(input: string | readonly ModelMessage[]): Promise<string>;
   /**
    * One decision (questions from `Decision.choice / boolean / score`), its answers typed by them. On a
-   * chat model: `ModelKindError`.
+   * chat model: `ConfigError.ModelKind`.
    */
   abstract decide<const Q extends DecisionQuestions>(
     request: DecisionRequest<Q>,

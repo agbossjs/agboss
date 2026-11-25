@@ -79,7 +79,7 @@ export const s28ReassignKill: RunnableFaultScenario = {
       (event) =>
         event.type === "resume-failed" &&
         event.tag === refused &&
-        event.error === "PauseClosedError",
+        event.error === "PauseError.Closed",
     );
     await resumeFinished(cluster, await answerOn(b, newId));
     await endedOn(cluster, order.rootExecutionId, b);

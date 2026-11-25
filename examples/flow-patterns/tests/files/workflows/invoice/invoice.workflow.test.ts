@@ -22,8 +22,8 @@ const inline = (bytes: Uint8Array, mediaType: string, filename: string) => ({
 const PDF = Buffer.from("%PDF-1.7 invoice INV-7");
 const CSV = Buffer.from("item,price\nlamp,12\n");
 
-test("the invoice PDF is a content part, its CSV is text", async ({ app, mockLlm }) => {
-  const agent = mockLlm(InvoiceReaderAgent).thenReturn(replyWith("INV-7, total 12"));
+test("the invoice PDF is a content part, its CSV is text", async ({ app, mockModel }) => {
+  const agent = mockModel(InvoiceReaderAgent).thenReturn(replyWith("INV-7, total 12"));
 
   const result = await app.execute(InvoiceWorkflowStart, {
     invoice: inline(PDF, "application/pdf", "invoice.pdf"),

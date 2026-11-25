@@ -1,6 +1,7 @@
 import { A2ACardFileFields } from "../a2a/files/a2a-file-options.js";
 import { A2AReply } from "../a2a/a2a-message-skill-rule.js";
 import { z } from "zod";
+import { usd } from "../units/index.js";
 import type { ApplicationContracts } from "../describe/contracts-types.js";
 import type { FederationMember } from "./federation-types.js";
 
@@ -11,6 +12,11 @@ import type { FederationMember } from "./federation-types.js";
  * the reason, never a guess (`[federation.snapshot-schema]`).
  */
 
+/** A price in dollars, as `usd(…)` keeps it. */
+const USD = z
+  .number()
+  .min(0)
+  .transform((amount) => usd(amount));
 const DTO = z.object({ dto: z.string(), schemaHash: z.string() });
 const USE = z.object({ workflow: z.string(), tool: z.string() });
 
@@ -18,7 +24,7 @@ const USE = z.object({ workflow: z.string(), tool: z.string() });
 const A2A_EXPORT = z
   .object({
     kind: z.literal("a2a"),
-    expose: z.string(),
+    endpoint: z.string(),
     version: z.string(),
     skill: z.string().optional(),
     start: z.string().optional(),
@@ -38,7 +44,7 @@ const A2A_EXPORT = z
 
 const MCP_EXPORT = z.object({
   kind: z.literal("mcp"),
-  expose: z.string(),
+  endpoint: z.string(),
   version: z.string(),
   tool: z.string(),
   input: DTO.nullable(),
@@ -59,7 +65,7 @@ const A2A_IMPORT = z
     usedBy: z.array(USE),
     input: DTO,
     output: DTO,
-    price: z.number().nullable(),
+    costPerCall: USD.nullable(),
   })
   .refine((entry) => entry.target.skill !== undefined || entry.target.start !== undefined, {
     path: ["target", "skill"],
@@ -79,14 +85,14 @@ const A2A_FOREIGN_IMPORT = z.object({
   usedBy: z.array(USE),
   input: DTO.nullable(),
   output: DTO.nullable(),
-  price: z.number().nullable(),
+  costPerCall: USD.nullable(),
 });
 
 const MCP_IMPORT = z.object({
   kind: z.literal("mcp"),
   server: z.string(),
   tool: z.string(),
-  target: z.object({ application: z.string(), expose: z.string() }).nullable(),
+  target: z.object({ application: z.string(), endpoint: z.string() }).nullable(),
   usedBy: z.array(USE),
   input: DTO.nullable(),
   output: DTO,
@@ -111,6 +117,34 @@ const SNAPSHOT = z.object({
   }),
 });
 
+/** Whether `value` is a plain object, for the read of a snapshot written before 0.1.1. */
+const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+/** The contracts' entries of one list of a raw snapshot, if it has them. */
+function entriesOf(
+  json: unknown,
+  list: "exports" | "imports",
+): readonly Readonly<Record<string, unknown>>[] {
+  if (!isRecord(json) || !isRecord(json.result)) return [];
+  const application = json.result.application;
+  if (!isRecord(application) || !isRecord(application.contracts)) return [];
+  const entries = application.contracts[list];
+  return Array.isArray(entries) ? entries.filter(isRecord) : [];
+}
+
+/** The 0.1.1 renames a snapshot written before still uses, as one sentence, or `undefined`. */
+function oldNamesOf(json: unknown): string | undefined {
+  const isOld =
+    entriesOf(json, "exports").some((entry) => "expose" in entry) ||
+    entriesOf(json, "imports").some(
+      (entry) => "price" in entry || (isRecord(entry.target) && "expose" in entry.target),
+    );
+  return isOld
+    ? "written by agboss before 0.1.1: re-run agboss describe --json; 0.1.1 renamed expose to endpoint and price to costPerCall"
+    : undefined;
+}
+
 /** The member a snapshot file describes, or why it is not a `describe --json` snapshot. */
 export type SnapshotReading =
   | { readonly kind: "member"; readonly member: FederationMember }
@@ -124,6 +158,8 @@ export function federationMemberOf(text: string, file: string): SnapshotReading 
   } catch {
     return { kind: "invalid", reason: "not JSON — save it with agboss describe --json" };
   }
+  const oldNames = oldNamesOf(json);
+  if (oldNames !== undefined) return { kind: "invalid", reason: oldNames };
   const parsed = SNAPSHOT.safeParse(json);
   if (!parsed.success) {
     const issue = parsed.error.issues[0];

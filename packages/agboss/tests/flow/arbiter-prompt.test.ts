@@ -1,3 +1,4 @@
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 /**
  * #1347 (conformance): a model arbiter's `prompt` is a `PromptSource` — a `./` file, `inline(…)` or a
  * list of them — read at assembly like every prompt, part of the prompt version, and what its model
@@ -13,7 +14,6 @@ import {
   Arbiter,
   inline,
   listOf,
-  PromptError,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
@@ -133,7 +133,7 @@ describe("#1347: a model arbiter's prompt", () => {
 
   it("a missing file and a bare text are prompt problems, reported with the others", async () => {
     await expect(workflowOf(workflowWith("/nowhere/judge.prompt.md").workflow)).rejects.toThrow(
-      PromptError,
+      ConfigError.Prompt,
     );
     await expect(workflowOf(workflowWith("Count it." as never).workflow)).rejects.toThrow(
       "[prompt.bare-text]",

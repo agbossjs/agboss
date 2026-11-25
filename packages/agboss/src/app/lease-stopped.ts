@@ -1,8 +1,5 @@
+import type { CancelFencedKey, ExecutionCancelFencedErrorOptions } from "./cancel-fenced.js";
 import { ExecutionCancelledError, type ExecutionCancelledErrorOptions } from "../core/errors.js";
-import {
-  ExecutionCancelFencedError,
-  type ExecutionCancelFencedErrorOptions,
-} from "./lease-lost.js";
 /**
  * The run was stopped (#1341b): `app.stop` halted it where it stood — what it had done is kept, nothing
  * is undone. It is the abort reason of a stopped execution and of the steps it interrupts (a cancel
@@ -62,7 +59,7 @@ export class ExecutionPauseFencedError extends ExecutionPausedError {
   readonly effect: string;
 
   /** The refusal of the write `key` names (never throws, never names a business key). */
-  static of(key: Parameters<typeof ExecutionCancelFencedError.of>[0]): ExecutionPauseFencedError {
+  static of(key: CancelFencedKey): ExecutionPauseFencedError {
     const { scopeKey, tenantId, leaseExecutionId, token, name } = key;
     const rootExecutionId = key.rootExecutionId ?? leaseExecutionId;
     return new ExecutionPauseFencedError({
@@ -103,7 +100,7 @@ export class ExecutionStopFencedError extends ExecutionStoppedError {
   readonly effect: string;
 
   /** The refusal of the write `key` names (never throws, never names a business key). */
-  static of(key: Parameters<typeof ExecutionCancelFencedError.of>[0]): ExecutionStopFencedError {
+  static of(key: CancelFencedKey): ExecutionStopFencedError {
     const { scopeKey, tenantId, leaseExecutionId, token, name } = key;
     const rootExecutionId = key.rootExecutionId ?? leaseExecutionId;
     return new ExecutionStopFencedError({

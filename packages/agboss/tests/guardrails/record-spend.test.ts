@@ -19,11 +19,11 @@ import {
 const test = testWith(ClinicApplication);
 
 describe("#1366: the record of a run with guardrails", () => {
-  test("states the guardrails' spend with the agent's own", async ({ app, mockLlm }) => {
-    mockLlm(TriageRouter).thenReturn(routeTo(AdviceAgent));
-    mockLlm(LegalAdviceGuardrail).thenReturn(decideWith({ blocks: 0.1 }, { cost: usd(0.125) }));
-    mockLlm(NoLegalAdviceGuardrail).thenReturn(decideWith({ blocks: 0.1 }, { cost: usd(0.25) }));
-    mockLlm(AdviceAgent).thenReturn(replyWith("Drink water.", { cost: usd(0.5) }));
+  test("states the guardrails' spend with the agent's own", async ({ app, mockModel }) => {
+    mockModel(TriageRouter).thenReturn(routeTo(AdviceAgent));
+    mockModel(LegalAdviceGuardrail).thenReturn(decideWith({ blocks: 0.1 }, { cost: usd(0.125) }));
+    mockModel(NoLegalAdviceGuardrail).thenReturn(decideWith({ blocks: 0.1 }, { cost: usd(0.25) }));
+    mockModel(AdviceAgent).thenReturn(replyWith("Drink water.", { cost: usd(0.5) }));
 
     const result = await execute(
       app,

@@ -72,9 +72,9 @@ describe("#335 AC1 / AC3: a lease store down past the lease stops the holder at 
   test("the tool loop aborts at expiry: no further model or tool call, no onError; the other instance recovers and finishes", async ({
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(...stepHoldAnswer);
+    mockModel(Clerk).thenReturn(...stepHoldAnswer);
     await ready(apps);
     const { call: cutOff } = await holding(instance(apps, 0));
 
@@ -90,7 +90,7 @@ describe("#335 AC1 / AC3: a lease store down past the lease stops the holder at 
     expect(seen.holds[0]?.reason).toBeInstanceOf(ExecutionLeaseLostError);
     expect(recovered?.output).toEqual({ text: "Done." });
     // instance-1 made two model calls (step, hold), instance-2 the answer: none after the abort
-    expect(mockLlm(Clerk)).toHaveBeenCalledTimes(3);
+    expect(mockModel(Clerk)).toHaveBeenCalledTimes(3);
     expect(seen.steps).toEqual(["one"]);
     expect(seen.holds).toHaveLength(2);
     expect(seen.resumes).toEqual([{ reason: ResumeReason.Recovered, decision: undefined }]);
@@ -102,9 +102,9 @@ describe("#335 S1: a store error within the lease", () => {
   test("lets the checkpoint writes through: the holder finishes the tree", async ({
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(...stepHoldAnswer);
+    mockModel(Clerk).thenReturn(...stepHoldAnswer);
     await ready(apps);
     const { call } = await holding(instance(apps, 0));
 
@@ -120,9 +120,9 @@ describe("#335 S1: a store error within the lease", () => {
   test("a renewal that succeeds again before expiry keeps the holder past the first lease", async ({
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(...stepHoldAnswer);
+    mockModel(Clerk).thenReturn(...stepHoldAnswer);
     await ready(apps);
     const { call } = await holding(instance(apps, 0));
 
@@ -145,9 +145,9 @@ describe("#335 AC2: tool-call idempotency keys", () => {
   test("a recovered step calls the interrupted tool with the same key", async ({
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(...stepHoldAnswer);
+    mockModel(Clerk).thenReturn(...stepHoldAnswer);
     await ready(apps);
     const { call: cutOff } = await holding(instance(apps, 0));
 

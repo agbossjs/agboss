@@ -2,6 +2,7 @@
  * #659 AC1 / AC4 / AC6: the assembly rules of a question role — its name ends with `-question`, a
  * tool never names it, its interpreter is no decision model, it has one implementation.
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
@@ -11,7 +12,6 @@ import { Channel, Tool } from "../../src/components/decorators.js";
 import type { Class } from "../../src/components/injection.js";
 import { Agent } from "../../src/flow/decorators/agent.js";
 import { Workflow } from "../../src/flow/decorators/workflow.js";
-import { GraphRuleError } from "../../src/graph/rule-error.js";
 import { EmptyEnvironment, inline, ExternalTask, Ttl } from "../../src/index.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
@@ -42,8 +42,8 @@ const assemble = (application: Class) =>
 
 const violationsOf = async (application: Class): Promise<unknown> => {
   const error: unknown = await assemble(application).catch((thrown: unknown) => thrown);
-  expect(error).toBeInstanceOf(GraphRuleError);
-  return (error as GraphRuleError).violations;
+  expect(error).toBeInstanceOf(ConfigError.GraphRules);
+  return (error as ConfigError.GraphRules).violations;
 };
 
 /** An application asking `role` from a flow step, with `providers`. */

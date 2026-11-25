@@ -1,10 +1,11 @@
 /**
  * #1366: a model interpreter's reading of a reply — one tool call per move is asked for; its system text carries no
  * stray whitespace; a model that cannot call tools is refused as such; a block rule in the request refuses it
- * (`PiiRefusedError`); a reply that is not an AI message is read by its content; a "not understood" call declines with
+ * (`PiiError.Refused`); a reply that is not an AI message is read by its content; a "not understood" call declines with
  * its reason, or with a fallback for a blank, absent or non-text reason; only a call to the answer tool is an answer; an
  * approval whose correction changes the call's shape is declined with the reason; tokens nobody gave are declined.
  */
+import { PiiError } from "../../../src/core/error-families/limit-errors.js";
 import { AIMessage, HumanMessage, type BaseMessage } from "@langchain/core/messages";
 import { describe, expect, it } from "vitest";
 import { readByModel, replyInterpreterCaller } from "../../../src/channels/reply-reader.js";
@@ -15,7 +16,6 @@ import {
 } from "../../../src/channels/reply-tools.js";
 import { Text } from "../../../src/dto/index.js";
 import { ToolCallApprovalDecisionDto } from "../../../src/dto/standard/framework.js";
-import { PiiRefusedError } from "../../../src/pii/errors.js";
 import { PiiPolicySet } from "../../../src/pii/policy-set.js";
 import { QUESTION_REPLY_INTERPRETER_SYSTEM } from "../../../src/prompts/reply-interpreter.js";
 import { Injectable } from "../../../src/components/decorators.js";
@@ -23,6 +23,7 @@ import { componentOf } from "../../../src/components/metadata.js";
 import { runtimePolicyOf } from "../../../src/pii/runtime-policy.js";
 import type { PiiPolicyMeta } from "../../../src/pii/pii-policy.decorator.js";
 import { CardPiiPolicy } from "../../pii/pii.fixture.js";
+import { usd } from "../../../src/units/index.js";
 
 class WireRequestDto {
   @Text()
@@ -67,7 +68,7 @@ const settings = {
   model: "test/wire-reader",
   temperature: 0,
   maxTokens: 100,
-  price: { inputPerMTok: 1, outputPerMTok: 1 },
+  price: { inputPerMillion: usd(1), outputPerMillion: usd(1) },
 };
 const noPolicies = { policies: new PiiPolicySet([], "field-key"), known: {} };
 
@@ -130,7 +131,7 @@ describe("#1366: how the model is asked", () => {
         { ask: ASK, reply: "my card is 4242 4242 4242 4242" },
         { gateway: gateway as never, settings, callbacks: [], pii },
       ),
-    ).rejects.toThrow(PiiRefusedError);
+    ).rejects.toThrow(PiiError.Refused);
     expect(asked).toEqual([]);
   });
 });

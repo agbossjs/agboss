@@ -219,7 +219,7 @@ export class TenantScopeToolInterceptor {
 
 const boardTools = { lookup: { input: CompanyQuery, output: CompanyInfo } };
 
-/** A job board over MCP (stubbed in tests: `mcpOf(JobBoardServer)`). */
+/** A job board over MCP (stubbed in tests: `mockMcp(JobBoardServer)`). */
 @McpServer({
   name: "board",
   transport: McpTransport.Stdio,

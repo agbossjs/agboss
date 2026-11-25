@@ -2,13 +2,14 @@
  * #1017 — which errors of SQLite leave a write's outcome unknown. A synchronous, in-process store
  * has one window: the COMMIT (or the implicit one of a single statement). An error of the COMMIT
  * statement itself — a failed sync, an I/O error, any code that does not say "still open" — may
- * have left the transaction applied or not, so it is `StoreOutcomeUnknownError`. BUSY and
+ * have left the transaction applied or not, so it is `StoreError.OutcomeUnknown`. BUSY and
  * CONSTRAINT at COMMIT leave the transaction open (it is rolled back: not applied) and a failure
  * before the COMMIT is rolled back: both stay ordinary errors. Reads never are.
  */
+import { StoreError } from "../../../src/core/error-families/store-errors.js";
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { StoreOutcomeSource, StoreOutcomeUnknownError } from "../../../src/index.js";
+import { StoreOutcomeSource } from "../../../src/index.js";
 import { inImmediateTransaction } from "../../../src/infrastructure/sqlite/sqlite-connection.js";
 import { classifiedDatabase } from "../../../src/infrastructure/sqlite/sqlite-outcome.js";
 
@@ -71,7 +72,7 @@ describe("#1017: a COMMIT that failed", () => {
         error = thrown;
       }
 
-      expect(error).toBeInstanceOf(StoreOutcomeUnknownError);
+      expect(error).toBeInstanceOf(StoreError.OutcomeUnknown);
       expect(error).toMatchObject({
         store: "SqliteConnection",
         operation: "COMMIT",
@@ -118,7 +119,7 @@ describe("#1017: a COMMIT that failed", () => {
     }
 
     expect(error).toBeInstanceOf(Error);
-    expect(error).not.toBeInstanceOf(StoreOutcomeUnknownError);
+    expect(error).not.toBeInstanceOf(StoreError.OutcomeUnknown);
     expect(opened.isTransaction).toBe(false);
   });
 
@@ -153,7 +154,7 @@ describe("#1017: a single write outside a transaction", () => {
   it("an I/O error of the implicit commit is unknown", () => {
     const cause = failure(IOERR_FSYNC, "disk I/O error");
 
-    expect(insertFailing(cause)).toThrow(StoreOutcomeUnknownError);
+    expect(insertFailing(cause)).toThrow(StoreError.OutcomeUnknown);
     expect(insertFailing(cause)).toThrow(expect.objectContaining({ cause }));
   });
 

@@ -11,7 +11,7 @@ import { testConfig } from "../helpers.js";
 import { request } from "./fixtures.js";
 
 const settings = resolveSettings(
-  { model: "test/router", price: { inputPerMTok: 1, outputPerMTok: 1 } },
+  { model: "test/router", price: { inputPerMillion: usd(1), outputPerMillion: usd(1) } },
   testConfig.defaults.models,
 );
 

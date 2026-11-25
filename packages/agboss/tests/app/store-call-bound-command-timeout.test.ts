@@ -3,14 +3,10 @@
  * and counted in `agboss.instance.store_calls.timed_out`, as the framework's bound is; a transport
  * error or any other store error is neither.
  */
+import { StoreError } from "../../src/core/error-families/store-errors.js";
 import { describe, expect, it } from "vitest";
 import { leaseScope } from "../../src/app/lease-scope.js";
-import {
-  ExecutionLeaseLostError,
-  StoreCallTimeoutError,
-  StoreOutcomeSource,
-  StoreOutcomeUnknownError,
-} from "../../src/index.js";
+import { ExecutionLeaseLostError, StoreOutcomeSource } from "../../src/index.js";
 import { waitOf } from "../../src/infrastructure/clock.js";
 import { seconds } from "../../src/units/index.js";
 import { boundedOver, heldLease, outcomeOf } from "./fixtures/bound-stubs.js";
@@ -19,8 +15,8 @@ abstract class Kv {
   abstract get(): Promise<string>;
 }
 
-const commandTimeout = (): StoreCallTimeoutError =>
-  new StoreCallTimeoutError({
+const commandTimeout = (): StoreError.CallTimeout =>
+  new StoreError.CallTimeout({
     store: "Kv",
     operation: "get",
     timeout: waitOf(10_000),
@@ -54,7 +50,7 @@ describe("#1060: a store's own command timeout is logged and counted", () => {
   });
 
   it("neither logs nor counts a transport error or an ordinary failure", async () => {
-    const transport = new StoreOutcomeUnknownError({
+    const transport = new StoreError.OutcomeUnknown({
       store: "Kv",
       operation: "get",
       source: StoreOutcomeSource.Transport,

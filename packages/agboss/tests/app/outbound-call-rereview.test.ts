@@ -9,7 +9,6 @@ import { OutboundCallError } from "../../src/core/error-families/effect-errors.j
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LeaseAttempts } from "../../src/app/lease-yields.js";
 import {
-  ExecutionCancelledError,
   ExecutionAuditEventKind,
   LeaseTakeoverReason,
   OutboundCallEventOutcome,
@@ -23,6 +22,7 @@ import {
   OutboundCallSendStatus,
   OutboundCallStatus,
 } from "../../src/index.js";
+import { ExecutionCancelledError } from "../../src/core/errors.js";
 import { type EffectKey } from "../../src/stores/index.js";
 import { maskedTextOf } from "../../src/app/outbound-call-parts.js";
 import { superseded } from "../../src/app/outbound-call-endings.js";

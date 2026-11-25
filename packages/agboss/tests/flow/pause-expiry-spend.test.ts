@@ -1,17 +1,17 @@
+import { StepError } from "../../src/core/error-families/step-errors.js";
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { usd } from "../../src/units/index.js";
 /**
  * #1366: the spend a pause's expiry fails the step with — when the run's deadline bound the pause the failure is
- * `DeadlineExceededError` with the execution's spend (its state's records and the step's own) and the step's
- * records; when the pause's own deadline did, `PauseExpiredError` carries the step's records. The budgets are
+ * `LimitError.Deadline` with the execution's spend (its state's records and the step's own) and the step's
+ * records; when the pause's own deadline did, `StepError.PauseExpired` carries the step's records. The budgets are
  * asked with the same records first.
  */
 import { describe, expect, it } from "vitest";
 import { ComponentKind } from "../../src/flow/runtime/records.js";
 import { CostSource, ZERO_USAGE, type UsageRecord } from "../../src/finops/usage.js";
-import { PauseExpiredError } from "../../src/flow/runtime/pause-expired-error.js";
 import { expiryFailureOf } from "../../src/flow/runtime/pause-expiry-failure.js";
 import { PauseExpiryBound, type PauseRecord } from "../../src/infrastructure/pause-record.js";
-import { DeadlineExceededError } from "../../src/budgets/execution-deadline.js";
 
 const record = (costUsd: number, caller: string): UsageRecord => ({
   provider: "test-provider",
@@ -63,17 +63,17 @@ describe("#1366: what a pause's expiry fails the step with", () => {
 
     const error = expiryFailureOf(pause(PauseExpiryBound.RunDeadline), given.site);
 
-    expect(error).toBeInstanceOf(DeadlineExceededError);
+    expect(error).toBeInstanceOf(LimitError.Deadline);
     expect(error).toMatchObject({ spentUsd: usd(0.75), usage: given.usage, path: ["flow", "ask"] });
     expect(given.checked).toEqual([given.state, given.usage]);
   });
 
-  it("the pause's own deadline: the step's records on a PauseExpiredError", () => {
+  it("the pause's own deadline: the step's records on a StepError.PauseExpired", () => {
     const given = site();
 
     const error = expiryFailureOf(pause(PauseExpiryBound.Pause), given.site);
 
-    expect(error).toBeInstanceOf(PauseExpiredError);
+    expect(error).toBeInstanceOf(StepError.PauseExpired);
     expect(error).toMatchObject({ usage: given.usage });
   });
 

@@ -1,3 +1,4 @@
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 /**
  * #1366 (ledger-retention shard) — what a knowledge base's file settles besides its search spend, each rule on its
  * own over fakes: the classes an agent binds or a tool injects are @Rag classes (named when not, a duplicate refused),
@@ -5,6 +6,7 @@
  * policy), the models a reranker is given, the scope every retrieval is made for (never another one), and the
  * reranker bound to a knowledge base — a model one refused without a gateway — with the retrieval that runs through it.
  */
+import { ValidationError } from "../../src/index.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   checkedRagClassesOf,
@@ -17,13 +19,11 @@ import {
 import { boundRerankerOf, rerankerModelsOf } from "../../src/components/rag-reranker.js";
 import { knowledgeRetrieveOf } from "../../src/components/rag-retrieval.js";
 import { scopeKeyOfRetrieval } from "../../src/components/rag-scope.js";
-import { ComponentError, componentOf, requireComponent } from "../../src/components/metadata.js";
-import { DtoValidationError } from "../../src/dto/errors.js";
+import { componentOf, requireComponent } from "../../src/components/metadata.js";
 import { ExecutionContextUnavailableError } from "../../src/flow/context/errors.js";
 import { currentFrame } from "../../src/flow/context/frame.js";
-import { GraphRuleError } from "../../src/graph/rule-error.js";
 import { checkRags } from "../../src/rag/rag-checks.js";
-import { RagScopeError, retrieveOf } from "../../src/rag/rag-source.js";
+import { retrieveOf } from "../../src/rag/rag-source.js";
 import { rerankedRetrieval } from "../../src/rag/rerank.js";
 import { RagScope, RerankFailurePolicy } from "../../src/rag/types.js";
 import { ModelProvider, OpenAiCompatibleDriver } from "../../src/models/index.js";
@@ -113,7 +113,7 @@ describe("#1366: the knowledge bases of a workflow", () => {
 
   it("a class that is no @Rag is refused by name, naming the workflow", () => {
     expect(() => ragClassesOf(workflow, [agentOf("a", NotAReranker)])).toThrow(
-      new ComponentError({
+      new ConfigError.Component({
         message: `@Workflow "w": NotAReranker in an agent's rag is not a @Rag`,
       }),
     );
@@ -126,13 +126,13 @@ describe("#1366: the knowledge bases of a workflow", () => {
           },
         ),
       ]),
-    ).toThrow(ComponentError);
+    ).toThrow(ConfigError.Component);
   });
 
   it("[agent.duplicate-rag]: one @Rag listed twice in one agent is refused, naming the agent", () => {
     const failed = (): unknown => ragClassesOf(workflow, [agentOf("a", JobsRag, JobsRag)]);
 
-    expect(failed).toThrow(GraphRuleError);
+    expect(failed).toThrow(ConfigError.GraphRules);
     expect(failed).toThrow(/agent\.duplicate-rag|listed twice/u);
     // two agents may list the same one
     expect(ragClassesOf(workflow, [agentOf("a", JobsRag), agentOf("b", JobsRag)])).toEqual([
@@ -224,7 +224,7 @@ describe("#1366: the rerankers of knowledge bases", () => {
   it("with no model of its own and no provider anywhere it is [model.missing-provider] — the core has no default", () => {
     rerankerMeta[ModelReranker.name] = { name: "model-reranker", candidates: 20 };
 
-    expect(() => rerankerModelsOf([DocsRag])).toThrow(GraphRuleError);
+    expect(() => rerankerModelsOf([DocsRag])).toThrow(ConfigError.GraphRules);
     expect(() => rerankerModelsOf([DocsRag])).toThrow(/names no model/u);
   });
 });
@@ -331,16 +331,22 @@ describe("#1366: the scope of a retrieval", () => {
 
     inFrame(frameOf({ tenantId: "" }));
     expect(() => scopeKeyOfRetrieval(metaOf(RagScope.Tenant), {}, services)).toThrow(
-      DtoValidationError,
+      ValidationError.DtoInvalid,
     );
   });
 
   it("Owner with no owner, a scope that is none of the four, a Custom with no resolver: fail closed", () => {
     inFrame(frameOf());
 
-    expect(() => scopeKeyOfRetrieval(metaOf(RagScope.Owner), {}, services)).toThrow(RagScopeError);
-    expect(() => scopeKeyOfRetrieval(metaOf("everyone"), {}, services)).toThrow(RagScopeError);
-    expect(() => scopeKeyOfRetrieval(metaOf(RagScope.Custom), {}, services)).toThrow(RagScopeError);
+    expect(() => scopeKeyOfRetrieval(metaOf(RagScope.Owner), {}, services)).toThrow(
+      ConfigError.Component,
+    );
+    expect(() => scopeKeyOfRetrieval(metaOf("everyone"), {}, services)).toThrow(
+      ConfigError.Component,
+    );
+    expect(() => scopeKeyOfRetrieval(metaOf(RagScope.Custom), {}, services)).toThrow(
+      ConfigError.Component,
+    );
   });
 });
 
@@ -379,7 +385,7 @@ describe("#1366: the reranker bound to a knowledge base", () => {
     const without = bound(DocsRag)?.source as { binding: () => unknown };
 
     expect(() => without.binding()).toThrow(
-      new ComponentError({
+      new ConfigError.Component({
         message: "[reranker.no-model-gateway] model-reranker: no model gateway here",
       }),
     );

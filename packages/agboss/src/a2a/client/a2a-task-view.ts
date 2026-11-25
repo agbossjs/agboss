@@ -1,3 +1,4 @@
+import { A2AError } from "../../core/error-families/remote-errors.js";
 import type {
   Artifact,
   StreamResponse,
@@ -5,7 +6,7 @@ import type {
   TaskArtifactUpdateEvent,
   TaskStatusUpdateEvent,
 } from "@a2a-js/sdk";
-import { A2ARemoteCallError, A2ARemoteCallReason } from "./a2a-client-errors.js";
+import { A2ARemoteCallReason } from "./a2a-client-errors.js";
 
 /**
  * The task a wait follows (#809), as its events and reads change it — each one checked to be of
@@ -18,8 +19,8 @@ export interface TaskViewOf {
   readonly taskId: string;
 }
 
-const malformed = (of: TaskViewOf): A2ARemoteCallError =>
-  new A2ARemoteCallError({
+const malformed = (of: TaskViewOf): A2AError.Remote =>
+  new A2AError.Remote({
     agent: of.agent,
     reason: A2ARemoteCallReason.MalformedAnswer,
     taskId: of.taskId,

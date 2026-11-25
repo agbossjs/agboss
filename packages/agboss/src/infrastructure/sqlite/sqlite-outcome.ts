@@ -1,5 +1,6 @@
+import { StoreError } from "../../core/error-families/store-errors.js";
 import type { DatabaseSync } from "node:sqlite";
-import { StoreOutcomeSource, StoreOutcomeUnknownError } from "../store-call-timeout.js";
+import { StoreOutcomeSource } from "../store-call-timeout.js";
 import { isWriteSql } from "./sqlite-write-sql.js";
 
 /**
@@ -36,8 +37,8 @@ export function sqliteCodeOf(error: unknown): number | undefined {
 }
 
 /** The error of unknown outcome that `cause`, an error of `operation`, is read as. */
-const unknownOf = (operation: string, cause: unknown): StoreOutcomeUnknownError =>
-  new StoreOutcomeUnknownError({
+const unknownOf = (operation: string, cause: unknown): StoreError.OutcomeUnknown =>
+  new StoreError.OutcomeUnknown({
     ...{ store: "SqliteConnection", operation, source: StoreOutcomeSource.Transport },
     cause,
   });

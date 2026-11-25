@@ -44,17 +44,17 @@ const LOOKUPS = [
 describe("toHaveCalledTools", () => {
   test("passes when each tool was called at least once, whatever the order and status", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ClerkAgent).thenReturn(...LOOKUPS);
+    mockModel(ClerkAgent).thenReturn(...LOOKUPS);
     const result = await execute(app, ClerkStart, { text: "where are lost and 7?" });
 
     expect(result).toHaveCalledTools([LookupOrderTool]);
     expect(result).toHaveCalledTools([]);
   });
 
-  test("fails naming what was called when one of them never was", async ({ app, mockLlm }) => {
-    mockLlm(ClerkAgent).thenReturn(...LOOKUPS);
+  test("fails naming what was called when one of them never was", async ({ app, mockModel }) => {
+    mockModel(ClerkAgent).thenReturn(...LOOKUPS);
     const result = await execute(app, ClerkStart, { text: "where are lost and 7?" });
 
     expect(() => {
@@ -66,9 +66,9 @@ describe("toHaveCalledTools", () => {
 
   test(".not passes when none of them was called, and fails when one of them was", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ClerkAgent).thenReturn(...LOOKUPS);
+    mockModel(ClerkAgent).thenReturn(...LOOKUPS);
     const result = await execute(app, ClerkStart, { text: "where are lost and 7?" });
 
     expect(result).not.toHaveCalledTools([RefundOrderTool]);
@@ -79,16 +79,16 @@ describe("toHaveCalledTools", () => {
 });
 
 describe("toHaveToolCallMatching", () => {
-  test("a partial of the input: some call matches", async ({ app, mockLlm }) => {
-    mockLlm(ClerkAgent).thenReturn(...LOOKUPS);
+  test("a partial of the input: some call matches", async ({ app, mockModel }) => {
+    mockModel(ClerkAgent).thenReturn(...LOOKUPS);
     const result = await execute(app, ClerkStart, { text: "where are lost and 7?" });
 
     expect(result).toHaveToolCallMatching(LookupOrderTool, { orderId: "7" });
     expect(result).not.toHaveToolCallMatching(LookupOrderTool, { orderId: "9" });
   });
 
-  test("a check of the input, typed by the tool's input", async ({ app, mockLlm }) => {
-    mockLlm(ClerkAgent).thenReturn(...LOOKUPS);
+  test("a check of the input, typed by the tool's input", async ({ app, mockModel }) => {
+    mockModel(ClerkAgent).thenReturn(...LOOKUPS);
     const result = await execute(app, ClerkStart, { text: "where are lost and 7?" });
 
     expect(result).toHaveToolCallMatching(LookupOrderTool, (input) => input.orderId.length > 1);
@@ -97,8 +97,8 @@ describe("toHaveToolCallMatching", () => {
     expect(result).not.toHaveToolCallMatching(LookupOrderTool, { orderId: 7 });
   });
 
-  test("fails listing the tool's calls", async ({ app, mockLlm }) => {
-    mockLlm(ClerkAgent).thenReturn(...LOOKUPS);
+  test("fails listing the tool's calls", async ({ app, mockModel }) => {
+    mockModel(ClerkAgent).thenReturn(...LOOKUPS);
     const result = await execute(app, ClerkStart, { text: "where are lost and 7?" });
 
     expect(() => {

@@ -118,6 +118,6 @@ threadId, memory)`), and each reader's own policies mask it at its boundary
 like any other ([Model providers](Model-providers)). `agboss describe` prints each memory with its
 window and strategy (`strategy: custom (GraphMemory.compact())` for a `compact()` one).
 
-In a test the summary is scripted — `mockLlm(ConversationMemory).thenReturn(replyWith("…"))`
+In a test the summary is scripted — `mockModel(ConversationMemory).thenReturn(replyWith("…"))`
 (`{ truncated: true }` = cut at the limit) — and unscripted it is a fixed text; `testUnit(Memory)` runs one
 compaction on its own ([Testing](Testing)).

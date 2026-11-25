@@ -40,14 +40,14 @@ const refund = (messageId: string, orderId: string, contextId?: string) => ({
 describe("#808: no error text on the wire", () => {
   test("a failure's text reaches no answer, read, list or stream; its code does, with the fixed text", async ({
     a2aServer,
-    mockLlm,
+    mockModel,
   }) => {
     hooks.refusals = new Map([
       ["7", new Error(SECRET)],
       ["8", new PaymentDeclinedError(SECRET)],
     ]);
-    mockLlm(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "7" }));
-    mockLlm(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "8" }));
+    mockModel(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "7" }));
+    mockModel(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "8" }));
     const { url } = await a2aServer(listener);
 
     const plain = await rpc(url, "SendMessage", refund("m-1", "7"));
@@ -102,14 +102,14 @@ describe("#808: no error text on the wire", () => {
 describe("#808 AC2: ListTasks", () => {
   test("the caller's tasks, newest first, paged; filtered by context and state; a bad token -32602", async ({
     a2aServer,
-    mockLlm,
+    mockModel,
     clock,
   }) => {
     const { seconds } = await import("../../../src/units/index.js");
     hooks.refusals = new Map([["9", new Error("refused")]]);
     for (const orderId of ["1", "2", "3"])
-      mockLlm(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId }));
-    mockLlm(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "9" }));
+      mockModel(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId }));
+    mockModel(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "9" }));
     const { url } = await a2aServer(listener);
     const ids: string[] = [];
     for (const [index, orderId] of ["1", "2", "3", "9"].entries()) {
@@ -121,7 +121,7 @@ describe("#808 AC2: ListTasks", () => {
       ids.push((sent.body.result as { task: { id: string } }).task.id);
       await clock.advance(seconds(1));
     }
-    mockLlm(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "5" }));
+    mockModel(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "5" }));
     await rpc(
       url,
       "SendMessage",

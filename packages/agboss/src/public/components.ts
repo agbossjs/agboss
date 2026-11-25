@@ -114,14 +114,8 @@ export {
 export type { ModelMessage, ShownContent, ShownModelMessage } from "../models/messages.js";
 export { DecisionModel, type DecisionModelOptions } from "../components/decision-model.js";
 export { SpendRecorder, type ServiceSpend } from "../components/spend-recorder.js";
-export { ComponentError } from "../components/metadata.js";
 export { nameOf, type ComponentName } from "../components/name-of.js";
-export {
-  PromptError,
-  type PromptErrorOptions,
-  type PromptProblem,
-  type PromptProblemCode,
-} from "../components/prompt-problems.js";
+export { type PromptProblem, type PromptProblemCode } from "../components/prompt-problems.js";
 export type { OnDestroy, OnInit, OnStart, OnStop } from "../components/container/lifecycle.js";
 export {
   InjectionToken,

@@ -26,14 +26,14 @@ const shortlist = { candidates: "Ada Lovelace, Alan Turing" };
 describe("the review loop", () => {
   test("changes requested → editor → reviewer → approved → the offer is sent", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(DraftAgent).thenReturn(draft("v1: Ada, engineer"));
-    mockLlm(ReviewerAgent).thenReturn(
+    mockModel(DraftAgent).thenReturn(draft("v1: Ada, engineer"));
+    mockModel(ReviewerAgent).thenReturn(
       changes("add the salary"),
       replyWith(DraftApprovedDto, { note: "good to go" }),
     );
-    mockLlm(EditorAgent).thenReturn(draft("v2: Ada, engineer, $150k"));
+    mockModel(EditorAgent).thenReturn(draft("v2: Ada, engineer, $150k"));
 
     const result = await app.execute(OfferWorkflowStart, shortlist);
 
@@ -49,8 +49,8 @@ describe("the review loop", () => {
     expect(result).toFinishWith(OfferSentWorkflowFinish, { delivered: true });
     // the editor reads the draft and the notes; the reviewer the latest draft and the one before
     // (historyOf: { current, previous })
-    expect(mockLlm(EditorAgent).lastRequest.input).toContain("add the salary");
-    const [first, second] = mockLlm(ReviewerAgent).inputs;
+    expect(mockModel(EditorAgent).lastRequest.input).toContain("add the salary");
+    const [first, second] = mockModel(ReviewerAgent).inputs;
     expect(first?.draft).toMatchObject({ current: { text: "v1: Ada, engineer" } });
     expect(second?.draft).toMatchObject({
       current: { text: "v2: Ada, engineer, $150k" },
@@ -58,28 +58,28 @@ describe("the review loop", () => {
     });
   });
 
-  test("approved at once: the draft is sent as it is", async ({ app, mockLlm, mockOf }) => {
-    mockOf(OfferMailer).send.mockResolvedValue(true);
-    mockLlm(DraftAgent).thenReturn(draft("v1"));
-    mockLlm(ReviewerAgent).thenReturn(replyWith(DraftApprovedDto, {}));
+  test("approved at once: the draft is sent as it is", async ({ app, mockModel, mockService }) => {
+    mockService(OfferMailer).send.mockResolvedValue(true);
+    mockModel(DraftAgent).thenReturn(draft("v1"));
+    mockModel(ReviewerAgent).thenReturn(replyWith(DraftApprovedDto, {}));
 
     const result = await app.execute(OfferWorkflowStart, shortlist);
 
     expect(result.path).not.toContain("editor-agent");
-    expect(mockOf(OfferMailer).send.mock.calls).toEqual([["v1"]]);
+    expect(mockService(OfferMailer).send.mock.calls).toEqual([["v1"]]);
   });
 });
 
 describe("the editor's maxVisits spent", () => {
-  test("VisitsLimitExceededError → .onError → notify the recruiter → the failed finish", async ({
+  test("LimitError.Visits → .onError → notify the recruiter → the failed finish", async ({
     app,
-    mockLlm,
-    mockOf,
+    mockModel,
+    mockService,
   }) => {
-    mockOf(RecruiterInbox).notify.mockResolvedValue(true);
-    mockLlm(DraftAgent).thenReturn(draft("v1"));
-    mockLlm(ReviewerAgent).thenReturnAlways(changes("still not right"));
-    mockLlm(EditorAgent).thenReturn(draft("v2"), draft("v3"));
+    mockService(RecruiterInbox).notify.mockResolvedValue(true);
+    mockModel(DraftAgent).thenReturn(draft("v1"));
+    mockModel(ReviewerAgent).thenReturnAlways(changes("still not right"));
+    mockModel(EditorAgent).thenReturn(draft("v2"), draft("v3"));
 
     const result = await app.execute(OfferWorkflowStart, shortlist, { includeRecord: true });
 
@@ -97,8 +97,10 @@ describe("the editor's maxVisits spent", () => {
     ]);
     expect(result).toFinishWith(OfferFailedWorkflowFinish, { text: "v3" });
     expect(result.record?.lastError).toMatchObject({ code: "limit.visits" });
-    expect(mockLlm(EditorAgent).requests).toHaveLength(2);
-    expect(mockOf(RecruiterInbox).notify.mock.calls).toEqual([["The offer was not approved: v3"]]);
+    expect(mockModel(EditorAgent).requests).toHaveLength(2);
+    expect(mockService(RecruiterInbox).notify.mock.calls).toEqual([
+      ["The offer was not approved: v3"],
+    ]);
   });
 });
 

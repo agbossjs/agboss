@@ -1,8 +1,8 @@
 /** #202 AC1: a thread belongs to its owner — another owner cannot continue, resume or cancel it. */
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { type BuildApplicationOptions } from "../../src/application/create-app.js";
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { describe, expect, it } from "vitest";
-import { ThreadOwnerError } from "../../src/index.js";
 import { resetSharedDatabase } from "../helpers/shared-infrastructure.js";
 import { callTool, replyWith } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
@@ -41,11 +41,11 @@ describe("#202 AC1: threads are bound to their owner", () => {
         ownerId: "bob",
       },
     );
-    await expect(intruder).rejects.toBeInstanceOf(ThreadOwnerError);
-    await expect(intruder).rejects.toMatchObject({ code: "run.thread-owner" });
+    await expect(intruder).rejects.toBeInstanceOf(ExecutionError.ThreadOwnerMismatch);
+    await expect(intruder).rejects.toMatchObject({ code: "execution.thread-owner-mismatch" });
     await expect(intruder).rejects.not.toThrow(/alice/);
     const anonymous = execute(app, ChatStart, { text: "hi" }, { threadId: first.threadId });
-    await expect(anonymous).rejects.toMatchObject({ code: "run.thread-owner" });
+    await expect(anonymous).rejects.toMatchObject({ code: "execution.thread-owner-mismatch" });
     expect(cashier.requests).toHaveLength(1);
 
     const again = await execute(
@@ -74,12 +74,14 @@ describe("#202 AC1: threads are bound to their owner", () => {
     });
 
     await expect(app.resume(answerOf(paused, approve), { ownerId: "bob" })).rejects.toBeInstanceOf(
-      ThreadOwnerError,
+      ExecutionError.ThreadOwnerMismatch,
     );
     await expect(app.cancel(paused.threadId, { ownerId: "bob" })).rejects.toBeInstanceOf(
-      ThreadOwnerError,
+      ExecutionError.ThreadOwnerMismatch,
     );
-    await expect(app.resume(answerOf(paused, approve))).rejects.toBeInstanceOf(ThreadOwnerError);
+    await expect(app.resume(answerOf(paused, approve))).rejects.toBeInstanceOf(
+      ExecutionError.ThreadOwnerMismatch,
+    );
     expect(log.owners).toEqual([]);
 
     const done = await app.resume(answerOf(paused, approve), { ownerId: "alice" });
@@ -98,7 +100,7 @@ describe("#202 AC1: threads are bound to their owner", () => {
     const open = await execute(app, ChatStart, { text: "hi" });
     expect(open.status).toBe(ExecutionStatus.Finished);
     await expect(app.cancel(open.threadId, { ownerId: "bob" })).rejects.toBeInstanceOf(
-      ThreadOwnerError,
+      ExecutionError.ThreadOwnerMismatch,
     );
     expect(await app.cancel(open.threadId)).toEqual({ cancelled: false });
     expect(app.resolve(ApprovalDesk).posted).toHaveLength(1);
@@ -125,7 +127,7 @@ describe("#202 AC1: threads are bound to their owner", () => {
       { text: "hi" },
       { threadId: thread, ownerId: "bob" },
     );
-    await expect(intruder).rejects.toBeInstanceOf(ThreadOwnerError);
+    await expect(intruder).rejects.toBeInstanceOf(ExecutionError.ThreadOwnerMismatch);
     const own = await execute(
       second,
       ChatStart,

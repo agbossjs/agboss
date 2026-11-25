@@ -96,7 +96,7 @@ async function fetchedBody(
   try {
     response = await download.fetcher(url, signal === undefined ? {} : { signal });
   } catch (error) {
-    // an origin refused by the client's policy is said as it is (`A2AOriginError`)
+    // an origin refused by the client's policy is said as it is (`A2AError.OriginRefused`)
     if (error instanceof AGBossError) throw error;
     throw unavailable(FileUnavailableReason.DownloadFailed);
   }

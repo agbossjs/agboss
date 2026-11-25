@@ -1,4 +1,5 @@
 /** What the tests of the redacted view (#1269) are built from: a batch with a redactor and a mask that are told what to do. */
+import { PiiError } from "../../src/core/error-families/limit-errors.js";
 import type { FileContent } from "../../src/files/file-bytes.js";
 import { sha256Of } from "../../src/files/file-bytes.js";
 import type { FileMask } from "../../src/files/file-mask.js";
@@ -9,7 +10,6 @@ import { NO_FILES, type FileBatch, type FileRuntime } from "../../src/files/visi
 import type { FileRepository } from "../../src/infrastructure/file.repository.js";
 import { InlineFileRepository } from "../../src/infrastructure/file.repository.js";
 import { PiiKind } from "../../src/pii/kinds.js";
-import type { PiiRefusedError } from "../../src/pii/errors.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { kilobytes, megabytes, seconds } from "../../src/units/index.js";
 import { PNG_BYTES } from "./reader.factory.js";
@@ -81,7 +81,7 @@ export interface MaskOver {
   readonly values?: readonly string[];
   readonly blocked?: readonly PiiKind[];
   readonly isModelChecked?: boolean;
-  readonly refusal?: PiiRefusedError;
+  readonly refusal?: PiiError.Refused;
 }
 
 /** A mask that names what it is told, and records the kinds it was asked to refuse. */

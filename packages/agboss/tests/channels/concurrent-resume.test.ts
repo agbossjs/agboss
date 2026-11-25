@@ -2,13 +2,14 @@
  * #267 AC12 (Q58) with two instances: two resumes of different pauses of one tree at once — both
  * decisions are taken, no step runs twice, the tree is moved by one lease holder at a time and each
  * call returns the tree's output with its decision; two resumes of one `pauseId` — one moves the
- * tree, the other gets `PauseClosedError`; a reply that arrives on another instance before `send`
+ * tree, the other gets `PauseError.Closed`; a reply that arrives on another instance before `send`
  * returns is taken by the step at once, with no pause. The lease itself:
  * `tests/infrastructure/concurrent-resume.test.ts`.
  */
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { beforeEach, describe, expect } from "vitest";
 import { ExecutionStatus, type ExecutionOutput } from "../../src/app/types.js";
-import { PauseClosedError, PauseStatus } from "../../src/index.js";
+import { PauseStatus } from "../../src/index.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import type { TestApp } from "../../src/testing/test-app.js";
 import { execute } from "../helpers/flow.js";
@@ -44,9 +45,9 @@ describe("#267 AC12: concurrent resumes of one tree", () => {
   test("two pauses answered at once on two instances: both taken, no step twice", async ({
     app,
     apps,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(BatchRefundAgent).thenAnswer(refunder(["B", "C"]));
+    mockModel(BatchRefundAgent).respondWith(refunder(["B", "C"]));
     const paused = await execute(app, BatchWorkflowStart, ORDERS);
 
     const results = await Promise.all([
@@ -64,7 +65,7 @@ describe("#267 AC12: concurrent resumes of one tree", () => {
     ]);
     expect([...seen.refunds].sort()).toEqual(["B", "C"]);
     expect(seen.asks).toHaveLength(2);
-    expect(mockLlm(BatchRefundAgent).requests.map(orderOf).sort()).toEqual([
+    expect(mockModel(BatchRefundAgent).requests.map(orderOf).sort()).toEqual([
       "A",
       "B",
       "B",
@@ -73,12 +74,15 @@ describe("#267 AC12: concurrent resumes of one tree", () => {
     ]);
   });
 
-  test("a double click: one resume moves the tree, the other gets PauseClosedError", async ({
+  test("a double click: one resume moves the tree, the other gets PauseError.Closed", async ({
     app,
     apps,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "7" }), replyWith("Done."));
+    mockModel(DeskClerkAgent).thenReturn(
+      callTool(RefundTool, { orderId: "7" }),
+      replyWith("Done."),
+    );
     await execute(app, DeskWorkflowStart, { text: "refund 7" });
 
     const [first, double] = await Promise.allSettled([
@@ -90,14 +94,14 @@ describe("#267 AC12: concurrent resumes of one tree", () => {
       settled.status === "fulfilled" ? settled.value.status : (settled.reason as unknown),
     );
     expect(outcomes).toContainEqual(ExecutionStatus.Finished);
-    expect(outcomes.find((outcome) => outcome instanceof Error)).toBeInstanceOf(PauseClosedError);
+    expect(outcomes.find((outcome) => outcome instanceof Error)).toBeInstanceOf(PauseError.Closed);
     expect(seen.refunds).toEqual(["7"]);
   });
 
   test("a reply on the other instance before send returns: the step takes it, nothing pauses", async ({
     app,
     apps,
-    mockLlm,
+    mockModel,
   }) => {
     const replies: Promise<ExecutionOutput>[] = [];
     hooks.beforeSendReturns = async (ask) => {
@@ -110,7 +114,10 @@ describe("#267 AC12: concurrent resumes of one tree", () => {
           PauseStatus.Resolved,
       );
     };
-    mockLlm(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "7" }), replyWith("Done."));
+    mockModel(DeskClerkAgent).thenReturn(
+      callTool(RefundTool, { orderId: "7" }),
+      replyWith("Done."),
+    );
 
     const done = await execute(app, DeskWorkflowStart, { text: "refund 7" });
 

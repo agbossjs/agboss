@@ -73,7 +73,7 @@ const TOKEN_CASES: readonly ContractCase<CostLedgerRepository>[] = [
       const broken = { ...tokenCall(10), outputTokens: Number.NaN } as LedgerEntry;
 
       await expect(first.saveAll([tenantDay], [broken])).rejects.toMatchObject({
-        code: "cost-ledger.entry-invalid",
+        code: "store.ledger-entry-invalid",
       });
       expect((await first.findUsageByCounter(tenantDay)).tokens).toBe(0);
     },
@@ -99,7 +99,7 @@ const TOKEN_CASES: readonly ContractCase<CostLedgerRepository>[] = [
 
       expect((await first.findUsageByCounter(tenantDay)).tokens).toBe(100);
       await expect(second.saveAll([tenantDay], [old])).rejects.toMatchObject({
-        code: "cost-ledger.entry-expired",
+        code: "store.ledger-entry-expired",
       });
       expect((await second.findUsageByCounter(tenantDay)).tokens).toBe(100);
     },

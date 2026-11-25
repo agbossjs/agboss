@@ -3,11 +3,11 @@ import type { BuiltApp } from "../app/create-app.js";
 import type { Class } from "../components/injection.js";
 import { agentDefinitions } from "../graph/agent-definitions.js";
 import { agentLoopGraph, loopInputOf, noJudges } from "../graph/agent-loop/index.js";
-import { RouterDecisionError, routerFailureOf } from "../flow/runtime/router-error.js";
+import { StepError } from "../core/error-families/step-errors.js";
+import { routerFailureOf } from "../flow/runtime/router-error.js";
 import type { ExecutionStateType } from "../flow/runtime/state.js";
 import type { ToolOutput } from "../tools/index.js";
 import { CostReport, type UsageRecord } from "../finops/usage.js";
-import type { FrameSpec } from "../flow/context/frame.js";
 import type { TenantContext } from "../flow/context/tenant-context.js";
 import type { UnitRun } from "./units/unit-types.js";
 import { TestSetupError } from "./errors.js";
@@ -15,7 +15,7 @@ import { nodeNameOf } from "./failure-facts.js";
 import { toolNameOf } from "./script.js";
 import { standaloneCallFrameOf } from "../flow/context/call-frame.js";
 import { workflowIdentityOf } from "../flow/runtime/workflow-keys.js";
-import { runInFrame } from "../flow/context/frame.js";
+import { runInFrame, type FrameSpec } from "../flow/context/frame.js";
 import { DEFAULT_CONTEXT_VALUES } from "../flow/context/context-values.js";
 import {
   contextsOutsideExecution,
@@ -110,7 +110,7 @@ export function routerSlice(built: BuiltApp, target: Class): RouterSlice {
       const chosen = built.bundle.graph.nodes.get(outcome.decision.next);
       if (chosen === undefined) {
         const reason = `"${outcome.decision.next}" is not one of its routes`;
-        throw new RouterDecisionError({ ...step, reason });
+        throw new StepError.RouterDecision({ ...step, reason });
       }
       const records = [...(outcome.usage === undefined ? [] : [outcome.usage])];
       return { output: chosen.component, spend: CostReport.fromUsage(records) };

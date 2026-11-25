@@ -1,6 +1,7 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
+import { ExecutionError } from "../../../src/core/error-families/run-errors.js";
 import { describe, expect, it } from "vitest";
 import {
-  CompensationFailedError,
   CompensationReason,
   CompensationStatus,
   type CompensationRecord,
@@ -42,9 +43,9 @@ const GUEST = { guest: "ada" };
 describe("records on the path", () => {
   test("the committer commits the seat, the finish the room: nothing undone", async ({
     app,
-    mockOf,
+    mockService,
   }) => {
-    const desk = mockOf(UndoDesk);
+    const desk = mockService(UndoDesk);
     desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
 
     const result = await execute(app, UndoPathWorkflowStart, GUEST, { includeRecord: true });
@@ -54,8 +55,11 @@ describe("records on the path", () => {
     expect(result.record?.compensations).toEqual([]);
   });
 
-  test("a side path's undo actions close the records, newest first", async ({ app, mockOf }) => {
-    const desk = mockOf(UndoDesk);
+  test("a side path's undo actions close the records, newest first", async ({
+    app,
+    mockService,
+  }) => {
+    const desk = mockService(UndoDesk);
     desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
     desk.charge.mockRejectedValue(new UndoDeskError("card declined"));
 
@@ -89,10 +93,10 @@ describe("records on the path", () => {
 
   test("an undo whose failure its own side path takes is recorded Failed", async ({
     app,
-    mockOf,
+    mockService,
     mockAction,
   }) => {
-    const desk = mockOf(UndoDesk);
+    const desk = mockService(UndoDesk);
     desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
     desk.charge.mockRejectedValue(new UndoDeskError("card declined"));
     desk.release.mockResolvedValueOnce().mockRejectedValueOnce(new UndoDeskError("seat desk down"));
@@ -105,7 +109,7 @@ describe("records on the path", () => {
       status: CompensationStatus.Failed,
     });
     expect(result).not.toHaveCompensated(HoldSeatAction, { by: ReleaseSeatAction });
-    expect(result.compensations[1]?.error).toMatchObject({ name: "ActionFailedError" });
+    expect(result.compensations[1]?.error).toMatchObject({ name: "StepError.Action" });
   });
 });
 
@@ -151,7 +155,7 @@ describe("the channel and the registry", () => {
     expect([registry.entriesOf(tree, () => true), registry.nextSequence(tree, 0)]).toEqual([[], 1]);
   });
 
-  it("CompensationFailedError names each failed undo and keeps the cause", () => {
+  it("ExecutionError.CompensationFailed names each failed undo and keeps the cause", () => {
     const failure: CompensationRecord = {
       compensated: entry("a", 1).compensated,
       compensator: bareRecordOf("release-room-action", ComponentKind.Action),
@@ -162,10 +166,10 @@ describe("the channel and the registry", () => {
     };
     const cause = new Error("card declined");
 
-    const error = new CompensationFailedError({ failures: [failure], cause });
+    const error = new ExecutionError.CompensationFailed({ failures: [failure], cause });
 
     expect([error.code, error.cause, error.failures]).toEqual([
-      "compensation.failed",
+      "execution.compensation-failed",
       cause,
       [failure],
     ]);

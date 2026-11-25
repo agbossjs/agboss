@@ -1,8 +1,8 @@
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { usd } from "../../src/units/index.js";
 /** #202 AC3: a fallback call is sent as the fallback's model and priced with the fallback's prices. */
 import { describe, expect, it } from "vitest";
 import { appWithKeys } from "../models/gateway.js";
-import { ConfigurationError } from "../../src/models/index.js";
 import type { ProviderFetch } from "../../src/models/resilient-fetch.js";
 import { createSqliteTurnStore } from "../../src/turns/index.js";
 import { ChatStart } from "../channels/approval.workflow.js";
@@ -59,7 +59,7 @@ describe("#202 AC3: the fallback provider has its own model mapping and prices",
       providerFetch: stub.fetch,
     });
 
-    await expect(start).rejects.toBeInstanceOf(ConfigurationError);
+    await expect(start).rejects.toBeInstanceOf(ConfigError.ModelSettings);
     await expect(start).rejects.toMatchObject({
       problems: [
         {

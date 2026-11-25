@@ -1,13 +1,14 @@
 /**
- * #939 (#910 AC7, the engine's part): a late answer is refused with `PauseClosedError` — the reason
+ * #939 (#910 AC7, the engine's part): a late answer is refused with `PauseError.Closed` — the reason
  * the pause closed and when, the pause named by its key in the message, never by its id — before a
  * reply's interpreter is asked.
  */
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { beforeEach, describe, expect } from "vitest";
 import { cancelledRecordOutcome, CANCELLED_STOP_REASON } from "../../src/app/cancelled-run.js";
 import { DEFAULT_TENANT_ID } from "../../src/flow/context/tenant-context.js";
 import { pauseKeyOf } from "../../src/infrastructure/pause-record.js";
-import { PauseClosedError, PauseClosedReason, UnknownPauseError } from "../../src/index.js";
+import { PauseClosedReason } from "../../src/index.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import { minutes } from "../../src/units/index.js";
 import { answerOf, execute } from "../helpers/flow.js";
@@ -27,23 +28,23 @@ const test = testWith(LeaseApplication);
 beforeEach(resetLease);
 
 /** The refusal an answer got, or a failing assertion. */
-async function refusedWith(answer: Promise<unknown>): Promise<PauseClosedError> {
+async function refusedWith(answer: Promise<unknown>): Promise<PauseError.Closed> {
   const error = await answer.then(
     () => undefined,
     (thrown: unknown) => thrown,
   );
-  expect(error).toBeInstanceOf(PauseClosedError);
-  if (!(error instanceof PauseClosedError)) throw new Error("not a PauseClosedError");
+  expect(error).toBeInstanceOf(PauseError.Closed);
+  if (!(error instanceof PauseError.Closed)) throw new Error("not a PauseError.Closed");
   return error;
 }
 
-describe("#939 AC4: a late answer is a PauseClosedError with its reason", () => {
+describe("#939 AC4: a late answer is a PauseError.Closed with its reason", () => {
   test("a second answer: answered, closedAt the first answer's time, the key in the message and the id in a field", async ({
     app,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk)
+    mockModel(Clerk)
       .thenReturn(callTool(Charge, { text: "10 USD" }))
       .thenReturn(replyWith(ReceiptDto, { text: "charged" }));
     const paused = await execute(app, OrderWorkflowStart, { text: "charge" });
@@ -70,9 +71,9 @@ describe("#939 AC4: a late answer is a PauseClosedError with its reason", () => 
   test("after app.cancel: cancelled, closedAt the cancel's time; a reply to it asks no interpreter", async ({
     app,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+    mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
     const paused = await execute(app, OrderWorkflowStart, { text: "charge" });
     const pauseId = paused.pending[0]?.pauseId ?? "";
     await clock.advance(minutes(2));
@@ -81,7 +82,7 @@ describe("#939 AC4: a late answer is a PauseClosedError with its reason", () => 
     await clock.advance(minutes(1));
 
     const error = await refusedWith(app.resume({ pauseId, decision: approve }));
-    // a reply of a role with no interpreter would be `ReplyInterpreterMissingError` if it were read
+    // a reply of a role with no interpreter would be `PauseError.ChannelInterpreterMissing` if it were read
     const reply = await refusedWith(app.resume({ pauseId, reply: "yes, go ahead" }));
 
     expect(error).toMatchObject({ reason: PauseClosedReason.Cancelled, closedAt: cancelledAt });
@@ -96,9 +97,9 @@ describe("#939 AC4: a late answer is a PauseClosedError with its reason", () => 
     test(`after ${ended} that left the pause open (its root's record ended): the resume finishes the end and is refused — ${reason}`, async ({
       app,
       clock,
-      mockLlm,
+      mockModel,
     }) => {
-      mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+      mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
       const paused = await execute(app, OrderWorkflowStart, { text: "charge" });
       const pauseId = paused.pending[0]?.pauseId ?? "";
       const records = seen.records[0];
@@ -115,9 +116,9 @@ describe("#939 AC4: a late answer is a PauseClosedError with its reason", () => 
       expect(seen.charges).toEqual([]);
     });
 
-  test("an id the tenant never had is still UnknownPauseError", async ({ app }) => {
+  test("an id the tenant never had is still PauseError.UnknownPause", async ({ app }) => {
     await expect(
       app.resume({ pauseId: "no-such-pause", decision: approve }),
-    ).rejects.toBeInstanceOf(UnknownPauseError);
+    ).rejects.toBeInstanceOf(PauseError.UnknownPause);
   });
 });

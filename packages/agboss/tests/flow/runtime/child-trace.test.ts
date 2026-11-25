@@ -83,9 +83,9 @@ beforeEach(() => {
 describe("ADR-0022: a child's trace nests under its parent's step", () => {
   test("the child's steps are runs under the parent's child node, with its tags and ids", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ItemReviewerAgent).thenReturn(replyWith(ItemResultDto, { name: "a" }));
+    mockModel(ItemReviewerAgent).thenReturn(replyWith(ItemResultDto, { name: "a" }));
 
     const result = await execute(
       app,
@@ -111,9 +111,9 @@ describe("ADR-0022: a child's trace nests under its parent's step", () => {
 
   test("a resumed child's steps nest under the resumed parent's child node", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ItemReviewerAgent).thenAnswer((request: ModelRequest) =>
+    mockModel(ItemReviewerAgent).respondWith((request: ModelRequest) =>
       request.kind === "chat" && request.messages.some((line) => line.role === "tool")
         ? replyWith(ItemResultDto, { name: "b" })
         : callTool(ConfirmReviewTool, { name: "b" }),

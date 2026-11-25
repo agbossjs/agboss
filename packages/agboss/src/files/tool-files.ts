@@ -1,10 +1,10 @@
+import { PiiError } from "../core/error-families/limit-errors.js";
 import { lazyLoad } from "../infrastructure/clock.js";
 import { bareRecordOf, ComponentKind } from "../flow/runtime/records.js";
 import type { UsageRecord } from "../finops/usage.js";
 import type { GuardrailDecisionRecord } from "../flow/runtime/step-records.js";
 import { GuardrailSide } from "../components/policy-decorators.js";
 import { checkGuardrails } from "../guardrails/runtime.js";
-import { PiiRefusedError } from "../pii/errors.js";
 import type { PiiTokenMap } from "../pii/tokens.js";
 import { refusedCall, type ClosedResult } from "../graph/agent-loop/tool-pii.js";
 import { fileMaskOf, type FileMask } from "./file-mask.js";
@@ -107,7 +107,7 @@ async function readToolFiles(
     });
     return { built };
   } catch (error) {
-    if (!(error instanceof PiiRefusedError)) throw error;
+    if (!(error instanceof PiiError.Refused)) throw error;
     const refused = { content: refusedCall(error.refusal), error };
     return { refusal: { usage: error.usage, refused } };
   }

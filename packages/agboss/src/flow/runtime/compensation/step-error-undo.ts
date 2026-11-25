@@ -1,9 +1,9 @@
+import { ExecutionError } from "../../../core/error-families/run-errors.js";
 import type { UsageRecord } from "../../../finops/usage.js";
 import type { ExecutionTree } from "../../../infrastructure/execution-tree.repository.js";
 import {
   COMPENSATION_TIMEOUT,
   CompensationEntryStatus,
-  CompensationFailedError,
   CompensationReason,
   type CompensationEntry,
 } from "../../compensation.js";
@@ -40,13 +40,13 @@ export interface StepErrorSite {
   readonly frame: FrameSpec;
   readonly deps: VisitDeps;
   readonly clock: Clock;
-  /** The failure the `.onError` took: the cause of a `CompensationFailedError`. */
+  /** The failure the `.onError` took: the cause of a `ExecutionError.CompensationFailed`. */
   readonly cause: unknown;
 }
 
 /**
  * Undoes the held child entries before the side path: the entries closed and the undo's spend for the
- * visit's update, or `CompensationFailedError` (never taken by a side path) when an undo failed.
+ * visit's update, or `ExecutionError.CompensationFailed` (never taken by a side path) when an undo failed.
  */
 export async function undoneHeldEntries(site: StepErrorSite): Promise<HeldEntriesUndone> {
   const { state, frame, deps } = site;
@@ -88,7 +88,7 @@ export async function undoneHeldEntries(site: StepErrorSite): Promise<HeldEntrie
   });
   if (failures.length > 0) {
     await record(usage);
-    throw new CompensationFailedError({ failures, cause: site.cause });
+    throw new ExecutionError.CompensationFailed({ failures, cause: site.cause });
   }
   // undone by an earlier pass of this visit: its mark closes it, nothing runs again
   const earlier = known.filter((entry) => entry.status === CompensationEntryStatus.Closed);

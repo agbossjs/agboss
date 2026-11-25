@@ -7,7 +7,7 @@ issue: 1313
 
 - **Prices.** Only agents, judges and compactions were priced by their provider's `ModelCost.fromPrices` table. A model router,
   a guardrail, an arbiter, a launch decider, a reply interpreter, a model reranker, a `detectWithModel` PII policy and the built-in
-  file transcriber and redactor on a price-table provider failed every call with a `ModelCostError` — or, when an agent on
+  file transcriber and redactor on a price-table provider failed every call with a `ConfigError.Component` — or, when an agent on
   another provider used a model of the same name, were billed at that agent's price. Each is now priced from the provider its
   cascade resolved, keyed by the provider and the model, never by the model's name alone; a provider with no `cost` makes its
   calls unpriced (0 USD, tokens counted) — the reranker now carries that mark too. A `DecisionModel` decision (and a decision

@@ -1,13 +1,12 @@
+import { StepError } from "../../../core/error-families/step-errors.js";
+import { LimitError } from "../../../core/error-families/limit-errors.js";
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { handedOverOf, recordedHandOver } from "../../../app/handed-over.js";
 import { HandOverSite } from "../../../infrastructure/execution-audit-log.repository.js";
 import { ExecutionCancelledError } from "../../../core/errors.js";
 import { extractRunContext } from "../../../core/run-context.js";
-import { StepFailedError } from "../../../graph/errors.js";
-import { LimitExceededError } from "../../../graph/limits.js";
 import { isSkippedBranch } from "./branch-skip.js";
 import type { LiveLaunch } from "./launch-registry.js";
-import { ArbiterError } from "./quorum-errors.js";
 import { BranchStatus, type BranchOutcomeRecord, type BranchTicket } from "./records.js";
 import type { ErrorRecord } from "../../../core/error-record.js";
 import type { NodeValue } from "../scope.js";
@@ -19,7 +18,7 @@ import { isExpiredPause } from "./expired-branch.js";
  * How a branch that threw ended (#273 S21, #279): `Cancelled` when its launch was aborted first (a
  * sibling failed, the quorum was decided, the deadline passed) or its pause was withdrawn (#267); `Skipped` for its own step failure
  * under `.onError(E, skip())` — or under a quorum, where a failed branch only leaves its place empty;
- * `Failed` for anything else (a limit, an `ArbiterError`), which aborts the launch. A hand-over and a
+ * `Failed` for anything else (a limit, an `StepError.Arbiter`), which aborts the launch. A hand-over and a
  * cancel of the execution are no outcome of the branch: they stop the whole execution.
  */
 
@@ -36,7 +35,7 @@ export function failedStatusOf(site: BranchFailureSite, error: unknown): BranchS
   // the quorum's deadline by then
   if (isExpiredPause(error)) return BranchStatus.Expired;
   if (site.live.controller.signal.aborted || isWithdrawn(error)) return BranchStatus.Cancelled;
-  if (error instanceof ArbiterError || !(error instanceof StepFailedError))
+  if (error instanceof StepError.Arbiter || !(error instanceof StepError))
     return BranchStatus.Failed;
   const isDropped = isSkippedBranch(site.ticket, error) || site.isQuorum;
   return isDropped ? BranchStatus.Skipped : BranchStatus.Failed;
@@ -122,10 +121,10 @@ export class BranchErrors {
 }
 
 /**
- * What a branch failed with (#338): stopped by an exhausted budget, the `BudgetExceededError` that
+ * What a branch failed with (#338): stopped by an exhausted budget, the `LimitError.Budget` that
  * aborted its calls — whatever error the abort surfaced as —; else (its own limit too) its error.
  */
 export const failureOfBranch = (budgetStop: AbortSignal | undefined, error: unknown): unknown =>
-  budgetStop?.aborted === true && !(error instanceof LimitExceededError)
+  budgetStop?.aborted === true && !(error instanceof LimitError)
     ? (budgetStop.reason as unknown)
     : error;

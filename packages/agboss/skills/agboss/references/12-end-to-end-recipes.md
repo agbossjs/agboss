@@ -10,7 +10,7 @@ read the reference each part points to.
 | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1. An offer review loop                               | `oneOf` + `switch`, `historyOf`, `maxVisits`, a code router, `.onError` side paths                                                                |
 | 2. Sourcing: children per item, a quorum, an approval | `.forEachItem(toWorkflow(…))`, a soft child failure, `.arbitratedBy(…)`, `.joinQuorum`, a tool approval, `app.resume`                             |
-| 3. A help desk on MCP and A2A, streamed               | `@McpServer` behind a tool, an `@A2AAgent` behind a tool, `onStream`, `mcpOf`, `mockOf`                                                           |
+| 3. A help desk on MCP and A2A, streamed               | `@McpServer` behind a tool, an `@A2AAgent` behind a tool, `onStream`, `mockMcp`, `mockService`                                                    |
 | 4. A production multi-tenant application              | tenant context, budgets, model providers with a fallback and `TenantWeighted`, PII, a guardrail, SQLite, health, undo, unit and integration tests |
 
 After writing any of them: `npx agboss check` (types, every rule), `npx agboss describe`, `npm test`.
@@ -228,7 +228,7 @@ The workflow wires them:
 
 ```ts file=offers/src/workflows/offer-letter/offer-letter.workflow.ts
 import {
-  VisitsLimitExceededError,
+  LimitError,
   Workflow,
   onAgent,
   oneOf,
@@ -268,12 +268,12 @@ import { OfferStuckWorkflowFinish } from "./offer-stuck.workflow-finish.js";
     onAgent(LetterReviewerAgent)
       .toOneOf([
         toAgent(LetterEditorAgent)
-          .onError(VisitsLimitExceededError, toFinish(OfferStuckWorkflowFinish)) // no model past a limit
+          .onError(LimitError.Visits, toFinish(OfferStuckWorkflowFinish)) // no model past a limit
           .toAgent(LetterReviewerAgent),
         toRouter(OfferSizeRouter)
           .onRoute(
             toAction(MailOfferAction)
-              .onError(MailerUnavailableError, toFinish(OfferForSignOffWorkflowFinish)) // through ActionFailedError's cause
+              .onError(MailerUnavailableError, toFinish(OfferForSignOffWorkflowFinish)) // through StepError.Action's cause
               .toFinish(OfferMailedWorkflowFinish),
           )
           .onRoute(toFinish(OfferForSignOffWorkflowFinish)),
@@ -380,13 +380,13 @@ const test = testWith(OffersApplication);
 
 const REQUEST = { candidate: "Ada", salary: 150_000 };
 
-test("one round of changes, then the offer is mailed", async ({ app, mockLlm }) => {
-  mockLlm(LetterWriterAgent).thenReturn(replyWith(OfferLetterDto, { text: "Dear Ada, v1" }));
-  mockLlm(LetterReviewerAgent).thenReturn(
+test("one round of changes, then the offer is mailed", async ({ app, mockModel }) => {
+  mockModel(LetterWriterAgent).thenReturn(replyWith(OfferLetterDto, { text: "Dear Ada, v1" }));
+  mockModel(LetterReviewerAgent).thenReturn(
     replyWith(LetterChangesDto, { notes: "mention the start date" }),
     replyWith(LetterApprovedDto, {}),
   );
-  mockLlm(LetterEditorAgent).thenReturn(replyWith(OfferLetterDto, { text: "Dear Ada, v2, from May 1" }));
+  mockModel(LetterEditorAgent).thenReturn(replyWith(OfferLetterDto, { text: "Dear Ada, v2, from May 1" }));
 
   const result = await app.execute(OfferLetterWorkflowStart, REQUEST);
 
@@ -402,14 +402,14 @@ test("one round of changes, then the offer is mailed", async ({ app, mockLlm }) 
   ]);
 });
 
-test("a review that never converges ends at the stuck finish", async ({ app, mockLlm }) => {
-  mockLlm(LetterWriterAgent).thenReturn(replyWith(OfferLetterDto, { text: "v1" }));
-  mockLlm(LetterReviewerAgent).thenReturn(
+test("a review that never converges ends at the stuck finish", async ({ app, mockModel }) => {
+  mockModel(LetterWriterAgent).thenReturn(replyWith(OfferLetterDto, { text: "v1" }));
+  mockModel(LetterReviewerAgent).thenReturn(
     replyWith(LetterChangesDto, { notes: "shorter" }),
     replyWith(LetterChangesDto, { notes: "longer" }),
     replyWith(LetterChangesDto, { notes: "shorter again" }),
   );
-  mockLlm(LetterEditorAgent).thenReturn(
+  mockModel(LetterEditorAgent).thenReturn(
     replyWith(OfferLetterDto, { text: "v2" }),
     replyWith(OfferLetterDto, { text: "v3" }),
   );
@@ -570,7 +570,7 @@ export class SupplierUncheckedWorkflowFinish {}
 
 ```ts file=sourcing/src/workflows/supplier-check/supplier-check.workflow.ts
 // the child: one supplier; its own failure becomes a result class, so one bad item never cancels the rest
-import { StepFailedError, Workflow, onStart, toAction, toAgent, toFinish, Ttl } from "@agboss/core";
+import { StepError, Workflow, onStart, toAction, toAgent, toFinish, Ttl } from "@agboss/core";
 import { MarkSupplierUncheckedAction } from "../../actions/mark-supplier-unchecked.action.js";
 import { SupplierCheckerAgent } from "../../agents/supplier-checker/supplier-checker.agent.js";
 import { SupplierScoreDto } from "../../dto/supplier-score.dto.js";
@@ -588,7 +588,7 @@ import { SupplierUncheckedWorkflowFinish } from "./supplier-unchecked.workflow-f
     onStart(SupplierCheckWorkflowStart)
       .toAgent(SupplierCheckerAgent)
       .onError(
-        StepFailedError,
+        StepError,
         toAction(MarkSupplierUncheckedAction)
           .toFinish(SupplierUncheckedWorkflowFinish),
       )
@@ -818,7 +818,7 @@ The parent workflow:
 
 ```ts file=sourcing/src/workflows/sourcing/sourcing.workflow.ts
 import {
-  QuorumNotReachedError,
+  StepError,
   Workflow,
   listOf,
   oneOf,
@@ -861,7 +861,7 @@ import { SourcingWorkflowStart } from "./sourcing.workflow-start.js";
       .inParallel([toAgent(PriceReviewAgent), toAgent(RiskReviewAgent), toAgent(TermsReviewAgent)])
       .arbitratedBy(ReviewRangeArbiter) // one arbiter judges every review
       .joinQuorum({ min: 2, max: 3, deadline: minutes(2) })
-      .onError(QuorumNotReachedError, toFinish(PurchaseUnreviewedWorkflowFinish))
+      .onError(StepError.QuorumNotReached, toFinish(PurchaseUnreviewedWorkflowFinish))
       .toAgent(PurchaseAgent) // its tool pauses for the buyer
       .toFinish(PurchasePlacedWorkflowFinish),
   ],
@@ -1004,16 +1004,16 @@ import { SourcingWorkflowStart } from "../../../src/workflows/sourcing/sourcing.
 
 const test = testWith(SourcingApplication);
 
-test("checked per supplier, reviewed by a quorum, placed once the buyer approves", async ({ app, mockLlm }) => {
-  mockLlm(SupplierFinderAgent).thenReturn(replyWith(SupplierDto, [{ name: "Acme" }, { name: "Globex" }]));
-  mockLlm(SupplierCheckerAgent).thenReturn(
+test("checked per supplier, reviewed by a quorum, placed once the buyer approves", async ({ app, mockModel }) => {
+  mockModel(SupplierFinderAgent).thenReturn(replyWith(SupplierDto, [{ name: "Acme" }, { name: "Globex" }]));
+  mockModel(SupplierCheckerAgent).thenReturn(
     replyWith(SupplierScoreDto, { name: "Acme", score: 8 }),
     replyWith(SupplierScoreDto, { name: "Globex", score: 6 }),
   );
-  mockLlm(SupplierShortlistAgent).thenReturn(replyWith(SupplierShortlistDto, { supplier: "Acme", price: 900 }));
+  mockModel(SupplierShortlistAgent).thenReturn(replyWith(SupplierShortlistDto, { supplier: "Acme", price: 900 }));
   for (const reviewer of [PriceReviewAgent, RiskReviewAgent, TermsReviewAgent])
-    mockLlm(reviewer).thenReturn(replyWith(PurchaseReviewDto, { score: 7, reason: "fair against the market" }));
-  mockLlm(PurchaseAgent).thenReturn(
+    mockModel(reviewer).thenReturn(replyWith(PurchaseReviewDto, { score: 7, reason: "fair against the market" }));
+  mockModel(PurchaseAgent).thenReturn(
     callTool(PlacePurchaseTool, { supplier: "Acme", price: 900 }), // pauses here
     replyWith(PurchaseSummaryDto, { text: "Ordered from Acme for $900." }), // after the resume
   );
@@ -1413,10 +1413,10 @@ import { HelpdeskWorkflowStart } from "../../../src/workflows/helpdesk/helpdesk.
 
 const test = testWith(HelpdeskApplication); // the MCP server is never started, the network blocked
 
-test("the agent reads an article and asks billing", async ({ app, mcpOf, mockLlm, mockOf }) => {
-  mcpOf(KbServer).thenReturn({ search_articles: () => Promise.resolve({ text: "Double charges are refunded in 5 days." }) });
-  mockOf(BillingDeskA2AAgent).execute.mockResolvedValue({ text: "One charge is pending; it will drop." });
-  mockLlm(HelpdeskAgent).thenReturn(
+test("the agent reads an article and asks billing", async ({ app, mockMcp, mockModel, mockService }) => {
+  mockMcp(KbServer).thenReturn({ search_articles: () => Promise.resolve({ text: "Double charges are refunded in 5 days." }) });
+  mockService(BillingDeskA2AAgent).execute.mockResolvedValue({ text: "One charge is pending; it will drop." });
+  mockModel(HelpdeskAgent).thenReturn(
     callTool(SearchKbTool, { query: "charged twice" }),
     callTool(AskBillingTool, { question: "Was customer acme charged twice?" }),
     replyWith("One charge is pending and will drop within 5 days."),
@@ -1424,10 +1424,10 @@ test("the agent reads an article and asks billing", async ({ app, mcpOf, mockLlm
 
   const result = await app.execute(HelpdeskWorkflowStart, { text: "Why was I charged twice?" });
 
-  expect(mockLlm(HelpdeskAgent)).toHaveScriptedToolCalls([SearchKbTool, AskBillingTool]); // the script, in order
+  expect(mockModel(HelpdeskAgent)).toHaveScriptedToolCalls([SearchKbTool, AskBillingTool]); // the script, in order
   expect(result).toHaveCalledTools([AskBillingTool, SearchKbTool]); // the run: each at least once, any order
   expect(result).toFinishWith(HelpdeskWorkflowFinish, { text: "One charge is pending and will drop within 5 days." });
-  expect(mockOf(BillingDeskA2AAgent).execute.mock.calls[0]?.[0]).toEqual({ question: "Was customer acme charged twice?" });
+  expect(mockService(BillingDeskA2AAgent).execute.mock.calls[0]?.[0]).toEqual({ question: "Was customer acme charged twice?" });
 });
 ```
 
@@ -1898,7 +1898,7 @@ export class FundsLedgerHealthCheck {
 The workflow:
 
 ```ts file=loans/src/workflows/loan/loan.workflow.ts
-import { StepFailedError, Workflow, onStart, toAction, toAgent, toFinish, Ttl } from "@agboss/core";
+import { StepError, Workflow, onStart, toAction, toAgent, toFinish, Ttl } from "@agboss/core";
 import { ReleaseFundsAction } from "../../actions/release-funds.action.js";
 import { ReserveFundsAction } from "../../actions/reserve-funds.action.js";
 import { SendLoanOfferAction } from "../../actions/send-loan-offer.action.js";
@@ -1923,7 +1923,7 @@ import { LoanWorkflowStart } from "./loan.workflow-start.js";
       .toAction(ReserveFundsAction)
       .toAction(SendLoanOfferAction)
       .onError(
-        StepFailedError, // the offer failed: release the funds — proved by npx agboss check
+        StepError, // the offer failed: release the funds — proved by npx agboss check
         toAction(ReleaseFundsAction)
           .toFinish(LoanNotOfferedWorkflowFinish),
       )
@@ -2071,7 +2071,7 @@ Integration tests — the whole application, models by script:
 
 ```ts file=loans/tests/workflows/loan/loan.workflow.test.ts
 import { expect } from "vitest";
-import { CompensationReason, GuardrailBlockedError, HealthStatus, nameOf } from "@agboss/core";
+import { CompensationReason, GuardrailError, HealthStatus, nameOf } from "@agboss/core";
 import { callTool, decideWith, replyWith, testWith } from "@agboss/core/testing";
 import { ReleaseFundsAction } from "../../../src/actions/release-funds.action.js";
 import { ReserveFundsAction } from "../../../src/actions/reserve-funds.action.js";
@@ -2091,8 +2091,8 @@ const LENDER = { tenant: { tenantId: "bank-a", plan: "enterprise", dailyBudgetUs
 const APPLICATION = { text: "ID 000000018, income $90k, mail dana@example.com", amount: 15000 };
 const APPROVED = { isApproved: true, rate: 0.07, reason: "a good score" };
 
-test("a pre-approved loan is offered", async ({ app, mockLlm }) => {
-  mockLlm(UnderwriterAgent).thenReturn(
+test("a pre-approved loan is offered", async ({ app, mockModel }) => {
+  mockModel(UnderwriterAgent).thenReturn(
     callTool(CreditScoreTool, { applicantId: "000000018" }),
     replyWith(LoanDecisionDto, APPROVED),
   );
@@ -2104,11 +2104,11 @@ test("a pre-approved loan is offered", async ({ app, mockLlm }) => {
   expect((await app.checkReadiness()).status).toBe(HealthStatus.Healthy);
 });
 
-test("a failed offer releases the reserved funds", async ({ app, mockLlm, mockOf }) => {
-  const ledger = mockOf(FundsLedgerService); // every method of a mocked class is a mock
+test("a failed offer releases the reserved funds", async ({ app, mockModel, mockService }) => {
+  const ledger = mockService(FundsLedgerService); // every method of a mocked class is a mock
   ledger.reserve.mockResolvedValue("reservation-1");
   ledger.sendOffer.mockRejectedValue(new Error("mail server down"));
-  mockLlm(UnderwriterAgent).thenReturn(replyWith(LoanDecisionDto, APPROVED));
+  mockModel(UnderwriterAgent).thenReturn(replyWith(LoanDecisionDto, APPROVED));
 
   const result = await app.execute(LoanWorkflowStart, APPLICATION, LENDER);
 
@@ -2117,12 +2117,12 @@ test("a failed offer releases the reserved funds", async ({ app, mockLlm, mockOf
   expect(ledger.release.mock.calls[0]?.[0]).toBe("reservation-1");
 });
 
-test("an out-of-scope message is refused before the model reads it", async ({ app, mockLlm }) => {
-  mockLlm(OutOfScopeGuardrail).thenReturn(decideWith({ blocks: 0.95 }));
+test("an out-of-scope message is refused before the model reads it", async ({ app, mockModel }) => {
+  mockModel(OutOfScopeGuardrail).thenReturn(decideWith({ blocks: 0.95 }));
 
   const run = app.execute(LoanWorkflowStart, { text: "Write me a poem", amount: 1 }, LENDER);
 
-  await expect(run).rejects.toFailWith(GuardrailBlockedError, { refusal: "I can only help with loan applications." });
+  await expect(run).rejects.toFailWith(GuardrailError.Blocked, { refusal: "I can only help with loan applications." });
 });
 ```
 

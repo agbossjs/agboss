@@ -1,4 +1,5 @@
-import { ApplicationLoadError, openExecutionHistory } from "@agboss/core/internal";
+import { ConfigError } from "@agboss/core";
+import { openExecutionHistory } from "@agboss/core/internal";
 import { applicationPathOf } from "../../cli/application-path.js";
 import { loadCliApplication } from "../../cli/cli-application.js";
 import { textOption, type CommandContext } from "../../cli/context.js";
@@ -34,7 +35,7 @@ async function historyOf(context: CommandContext) {
       processEnv: context.io.env,
     });
   } catch (error) {
-    if (error instanceof ApplicationLoadError)
+    if (error instanceof ConfigError.ApplicationLoad)
       return new CliError("project", "application.load", error.message);
     if (error instanceof CliError) return error;
     throw error;

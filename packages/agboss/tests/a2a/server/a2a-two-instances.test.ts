@@ -108,8 +108,8 @@ const losingEnds = (app: TestApp) => {
 describe("#811 AC3: two server instances", () => {
   two(
     "a resend after a lost answer lands on the other instance: the same task, one execution",
-    async ({ apps, mockLlm }) => {
-      mockLlm(Clerk).thenReturn(callTool(Step, { text: "once" }), done);
+    async ({ apps, mockModel }) => {
+      mockModel(Clerk).thenReturn(callTool(Step, { text: "once" }), done);
       const [a, b] = [instance(apps, 0), instance(apps, 1)];
       const [aUrl, bUrl] = [await serverOf(a), await serverOf(b)];
 
@@ -128,8 +128,8 @@ describe("#811 AC3: two server instances", () => {
 
   two(
     "A dies mid-run: B recovers the task's execution and B's projection completes the task",
-    async ({ apps, clock, leases, mockLlm }) => {
-      mockLlm(Clerk).thenReturn(callTool(Hold, { text: "wait" }), done);
+    async ({ apps, clock, leases, mockModel }) => {
+      mockModel(Clerk).thenReturn(callTool(Hold, { text: "wait" }), done);
       const [a, b] = [instance(apps, 0), instance(apps, 1)];
       const [aUrl, bUrl] = [await serverOf(a), await serverOf(b)];
       const sent = taskOf(await rpc(aUrl, "SendMessage", goNow("m-1")));
@@ -154,8 +154,8 @@ describe("#811 AC3: two server instances", () => {
 
   two(
     "A dies mid-run and B's end event is lost: B's read repair completes the task from the records",
-    async ({ apps, clock, leases, mockLlm }) => {
-      mockLlm(Clerk).thenReturn(callTool(Hold, { text: "wait" }), done);
+    async ({ apps, clock, leases, mockModel }) => {
+      mockModel(Clerk).thenReturn(callTool(Hold, { text: "wait" }), done);
       const [a, b] = [instance(apps, 0), instance(apps, 1)];
       const [aUrl, bUrl] = [await serverOf(a), await serverOf(b)];
       const sent = taskOf(await rpc(aUrl, "SendMessage", goNow("m-1")));

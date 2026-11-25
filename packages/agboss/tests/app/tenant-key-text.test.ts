@@ -5,9 +5,10 @@
  * Refused at `app.execute`, `app.resume` and `app.cancel` with `dto.invalid`, the field and the rule
  * named, never the id; and `app.cancel`'s thread id is held to the rules `execute`'s is.
  */
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
+import { ValidationError } from "../../src/index.js";
 import { beforeEach, describe, expect } from "vitest";
-import { DtoValidationError } from "../../src/dto/errors.js";
-import { InvalidThreadIdError, KeyTextRule } from "../../src/errors.js";
+import { KeyTextRule } from "../../src/errors.js";
 import { replyWith, testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
 import {
@@ -53,7 +54,7 @@ const rejectionOf = (call: Promise<unknown>): Promise<unknown> =>
 
 /** The error names the field and the rule, never the id. */
 function expectRefusedTenant(error: unknown, rule: KeyTextRule, tenantId: string): void {
-  expect(error).toBeInstanceOf(DtoValidationError);
+  expect(error).toBeInstanceOf(ValidationError.DtoInvalid);
   const { message } = error as Error;
   expect(message).toContain("tenantId");
   expect(message).toContain(`(${rule})`);
@@ -79,8 +80,8 @@ describe("#552 AC1: a tenant id breaking a rule is refused at execute, resume an
 describe("#552 AC1: two tenant ids UTF-8 makes one never share a thread", () => {
   sqlite(
     "t\\uFFFD's thread, then t\\uD800 on the same thread id: refused before anything is read or written",
-    async ({ app, mockLlm }) => {
-      mockLlm(Clerk).thenReturn(replyWith(ReceiptDto, { text: "One." }));
+    async ({ app, mockModel }) => {
+      mockModel(Clerk).thenReturn(replyWith(ReceiptDto, { text: "One." }));
       const first = await execute(
         app,
         OrderWorkflowStart,
@@ -101,7 +102,7 @@ describe("#552 AC1: two tenant ids UTF-8 makes one never share a thread", () => 
       expectRefusedTenant(second, KeyTextRule.LoneSurrogate, "t\uD800");
       await expect(
         app.cancel("thread-x", { tenantId: "t\uD801", ownerId: "alice" }),
-      ).rejects.toBeInstanceOf(DtoValidationError);
+      ).rejects.toBeInstanceOf(ValidationError.DtoInvalid);
     },
   );
 });
@@ -112,11 +113,11 @@ describe("#552 AC2: app.cancel's thread id is a key's text", () => {
     ["a zero-width space", KeyTextRule.FormatCharacter, "thread​-1"],
     ["a lone surrogate", KeyTextRule.LoneSurrogate, "thread-\uD800"],
   ] as const)(
-    "%s → InvalidThreadIdError, the id in no message and no event",
+    "%s → ExecutionError.InvalidThreadId, the id in no message and no event",
     async ([, rule, threadId], { app }) => {
       const error = await rejectionOf(app.cancel(threadId));
 
-      expect(error).toBeInstanceOf(InvalidThreadIdError);
+      expect(error).toBeInstanceOf(ExecutionError.InvalidThreadId);
       expect(error).toMatchObject({ rule });
       expect((error as Error).message).not.toContain(threadId);
       expect(JSON.stringify(echoSeen.events)).not.toContain(JSON.stringify(threadId).slice(1, -1));

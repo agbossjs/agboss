@@ -1,4 +1,4 @@
-import { ComponentError } from "../metadata.js";
+import { ConfigError } from "../../core/error-families/config-errors.js";
 
 /**
  * The four lifecycle hooks (#261), per application instance, of every component the container
@@ -70,8 +70,8 @@ const messageOf = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
 /** A hook that threw, as an error naming the component and the hook (the original as `cause`). */
-const hookFailure = (instance: object, hook: HookName, error: unknown): ComponentError =>
-  new ComponentError({
+const hookFailure = (instance: object, hook: HookName, error: unknown): ConfigError.Component =>
+  new ConfigError.Component({
     message: `[di.hook-failed] ${componentName(instance)}.${hook} failed: ${messageOf(error)}`,
     cause: error,
   });
@@ -136,8 +136,8 @@ async function runAll(
   instances: readonly unknown[],
   hook: "onStop" | "onBeforeDestroy" | "onDestroy",
   bound?: StopBound,
-): Promise<ComponentError[]> {
-  const failures: ComponentError[] = [];
+): Promise<ConfigError.Component[]> {
+  const failures: ConfigError.Component[] = [];
   for (const instance of [...instances].reverse()) {
     if (!hasHook(instance, hook)) continue;
     try {
@@ -152,7 +152,7 @@ async function runAll(
 }
 
 /** The failures of the stop hooks as one error, or nothing when every hook ran through. */
-const collected = (failures: readonly ComponentError[]): AggregateError | undefined =>
+const collected = (failures: readonly ConfigError.Component[]): AggregateError | undefined =>
   failures.length === 0
     ? undefined
     : new AggregateError(

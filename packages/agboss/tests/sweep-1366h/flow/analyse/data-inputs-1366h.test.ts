@@ -5,6 +5,7 @@
  * reading one class, a `historyOf maxPrevious that is no positive integer, and a node reached by too many scopes. Each is
  * refused with the code and the node, a clean flow passes.
  */
+import { StepError } from "../../../../src/core/error-families/step-errors.js";
 import { describe, expect, it } from "vitest";
 import { checkWorkflow } from "../../../../src/flow/analyse/analyse.js";
 import { Agent } from "../../../../src/flow/decorators/agent.js";
@@ -12,7 +13,6 @@ import { Workflow, type WorkflowOptions } from "../../../../src/flow/decorators/
 import { WorkflowFinish } from "../../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../../src/flow/decorators/workflow-start.js";
 import { historyOf, listOf, oneOf, optional, Wrapper } from "../../../../src/flow/dto-wrappers.js";
-import { PauseExpiredError } from "../../../../src/flow/runtime/pause-expired-error.js";
 import { ScreeningFailedDto } from "../../../flow/fixtures/launch-dtos.js";
 import { Action } from "../../../../src/flow/decorators/action.js";
 import {
@@ -213,7 +213,7 @@ describe("#1366: a side path of a join error reads a settled answer", () => {
         })
         .join()
         .onError(
-          PauseExpiredError,
+          StepError.PauseExpired,
           toAction(SettledRequiredAction).toFinish(ScreeningFailedWorkflowFinish),
         )
         .toAgent(ArticleWriterAgent)

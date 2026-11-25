@@ -1,8 +1,8 @@
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import { describe, expect, it } from "vitest";
 import { checkWorkflow } from "../../../src/flow/analyse/analyse.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
-import { LimitExceededError } from "../../../src/graph/limits.js";
 import {
   DraftKitWorkflowFinish,
   EditKitAgent,
@@ -50,7 +50,7 @@ const actionsOnlyWith = (maxSteps: number): abstract new () => unknown => {
     onStart(SecondKitWorkflowStart)
       .toAgent(EditKitAgent)
       .toAgent(PolishKitAgent)
-      .onError(LimitExceededError, toFinish(DraftKitWorkflowFinish))
+      .onError(LimitError, toFinish(DraftKitWorkflowFinish))
       .toFinish(DraftKitWorkflowFinish),
   ],
 })

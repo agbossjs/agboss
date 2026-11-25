@@ -6,11 +6,12 @@
  * three at most); a start the app refused (fenced and ended, unless another start or an execution
  * has the id).
  */
+import { ExecutionError } from "../../../src/core/error-families/run-errors.js";
 import { describe, expect, it } from "vitest";
 import { acceptedTask } from "../../../src/a2a/server/a2a-accept.js";
 import { reservedExecutionIdOf } from "../../../src/app/tree-control.js";
 import { DurableExecutionStatus } from "../../../src/app/execution-control.js";
-import { AGBossError, DuplicateExecutionIdError } from "../../../src/core/errors.js";
+import { AGBossError } from "../../../src/core/errors.js";
 import {
   A2ATaskSaveStatus,
   A2ATaskState,
@@ -203,7 +204,9 @@ describe("#824: a start the app refused", () => {
   };
 
   it("before its execution began: fenced, then FAILED with the refusal's code", async () => {
-    const { script, read } = await refusedWith(new DuplicateExecutionIdError({ generator: "G" }));
+    const { script, read } = await refusedWith(
+      new ExecutionError.DuplicateExecutionId({ generator: "G" }),
+    );
     const refused = await refusedWith(Object.assign(new Error("x"), { name: "BudgetError" }));
 
     expect(script.calls.filter((call) => call.startsWith("claim"))).toEqual([]);

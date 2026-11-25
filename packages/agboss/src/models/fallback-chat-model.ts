@@ -1,3 +1,4 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import type { BaseLanguageModelInput } from "@langchain/core/language_models/base";
 import {
   BaseChatModel,
@@ -17,7 +18,6 @@ import {
   withFailoverTrace,
   type EarlierShare,
 } from "./transport/stream-partial.js";
-import { ModelProviderError } from "./model-provider.decorator.js";
 import { markedChunk, streamedAnswer } from "./fallback-stream.js";
 import { discardStreamedText } from "./stream-discard.js";
 
@@ -91,7 +91,9 @@ export class FallbackChatModel extends BaseChatModel {
     const bound =
       this.tools.length === 0 ? model : model.bindTools?.([...this.tools], this.binding);
     if (bound === undefined)
-      throw new ModelProviderError({ message: "the fallback's chat model cannot call tools" });
+      throw new ConfigError.ModelProvider({
+        message: "the fallback's chat model cannot call tools",
+      });
     return bound;
   }
 
@@ -170,7 +172,7 @@ export class FallbackChatModel extends BaseChatModel {
   ): Promise<AIMessageChunk> {
     const [fallback] = this.parts.hops;
     if (fallback === undefined)
-      throw new ModelProviderError({ message: "the fallback chain is empty" });
+      throw new ConfigError.ModelProvider({ message: "the fallback chain is empty" });
     await this.#told(fallback, failed);
     const model = this.boundOf(fallback.chatModel());
     try {

@@ -2,6 +2,7 @@
  * #1366 (budget-flow shard) — the steps a launch's branches add to the run's `maxSteps` (a paid call past it is refused):
  * the visit a branch brings back counts its own step once, and the run's next step is checked against the steps the branches took.
  */
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import { describe, expect, it } from "vitest";
 import { CostReport } from "../../../src/finops/usage.js";
 import {
@@ -10,7 +11,6 @@ import {
 } from "../../../src/flow/runtime/child-records.js";
 import { bareRecordOf, ComponentKind } from "../../../src/flow/runtime/records.js";
 import { entryOf } from "./fixtures/compensation-entries.js";
-import { StepsLimitExceededError } from "../../../src/graph/limits.js";
 import {
   branchVisitOf,
   type BranchFrameRun,
@@ -41,30 +41,30 @@ const ranking = replyWith(RankingDto, { order: "all" });
 describe("#1366: the steps the branches of a launch add to the run", () => {
   screening(
     "eight audits and the screening agent are nine steps: the ranker would be the tenth, and its paid call is refused",
-    async ({ app, mockLlm }) => {
-      mockLlm(ScreeningAgent).thenReturn(companies(8));
-      mockLlm(CompanyAuditAgent).thenReturnAlways(check);
+    async ({ app, mockModel }) => {
+      mockModel(ScreeningAgent).thenReturn(companies(8));
+      mockModel(CompanyAuditAgent).thenReturnAlways(check);
 
       const run = app.execute(ScreeningWorkflowStart, { text: "many" });
 
-      await expect(run).rejects.toBeInstanceOf(StepsLimitExceededError);
+      await expect(run).rejects.toBeInstanceOf(LimitError.Steps);
       await expect(run).rejects.toMatchObject({ maxSteps: 9, steps: 10 });
-      expect(mockLlm(CompanyAuditAgent).requests).toHaveLength(8);
-      expect(mockLlm(RankerAgent).requests).toHaveLength(0);
+      expect(mockModel(CompanyAuditAgent).requests).toHaveLength(8);
+      expect(mockModel(RankerAgent).requests).toHaveLength(0);
     },
   );
 
   screening(
     "seven audits are eight steps: the ranker is the ninth and runs, each branch counted once",
-    async ({ app, mockLlm }) => {
-      mockLlm(ScreeningAgent).thenReturn(companies(7));
-      mockLlm(CompanyAuditAgent).thenReturnAlways(check);
-      mockLlm(RankerAgent).thenReturn(ranking);
+    async ({ app, mockModel }) => {
+      mockModel(ScreeningAgent).thenReturn(companies(7));
+      mockModel(CompanyAuditAgent).thenReturnAlways(check);
+      mockModel(RankerAgent).thenReturn(ranking);
 
       const result = await app.execute(ScreeningWorkflowStart, { text: "some" });
 
       expect(result).toFinishWith(RankingWorkflowFinish, { order: "all" });
-      expect(mockLlm(RankerAgent).requests).toHaveLength(1);
+      expect(mockModel(RankerAgent).requests).toHaveLength(1);
     },
   );
 });

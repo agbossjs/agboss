@@ -24,11 +24,11 @@ const test = testWith(StreamFlowApplication);
 describe("#1004: structures", () => {
   test("AC1: an agent chain: the DTO agent streams nothing, the text agent its answer, no judge", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Shaper).thenReturn(replyWith(ShapeDto, { shape: "round" }));
-    mockLlm(Editor).thenReturn(replyWith("An edit."));
-    mockLlm(FlowJudge).thenReturnAlways(replyWith("PASS: INTERNAL"));
+    mockModel(Shaper).thenReturn(replyWith(ShapeDto, { shape: "round" }));
+    mockModel(Editor).thenReturn(replyWith("An edit."));
+    mockModel(FlowJudge).thenReturnAlways(replyWith("PASS: INTERNAL"));
     const events: ExecutionStreamEvent[] = [];
 
     const done = await execute(
@@ -39,12 +39,12 @@ describe("#1004: structures", () => {
     );
 
     expect(done.output).toEqual({ text: "An edit." });
-    expect(mockLlm(FlowJudge).requests).toHaveLength(1);
+    expect(mockModel(FlowJudge).requests).toHaveLength(1);
     expect(deltas(events)).toEqual(["CANARY", "An edit."]); // the DTO agent: none; the judge: none
   });
 
-  test("AC1: an agent with an output DTO streams no text", async ({ app, mockLlm }) => {
-    mockLlm(Shaper).thenReturn(replyWith(ShapeDto, { shape: "round" }));
+  test("AC1: an agent with an output DTO streams no text", async ({ app, mockModel }) => {
+    mockModel(Shaper).thenReturn(replyWith(ShapeDto, { shape: "round" }));
     const events: ExecutionStreamEvent[] = [];
 
     const done = await execute(
@@ -62,17 +62,17 @@ describe("#1004: structures", () => {
 describe("#1004: parallel launch branches", () => {
   test("AC1: the branches' DTO agents and the branch judge are silent; the closing agent streams", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(LaunchShape).thenReturn(replyWith(ShapeDto, { shape: "round" }));
-    mockLlm(LaunchColor).thenReturn(replyWith(ColorDto, { color: "red" }));
-    mockLlm(ShapeJudge).thenReturn(replyWith("PASS: INTERNAL"));
-    mockLlm(Closer).thenReturn(replyWith("Done."));
+    mockModel(LaunchShape).thenReturn(replyWith(ShapeDto, { shape: "round" }));
+    mockModel(LaunchColor).thenReturn(replyWith(ColorDto, { color: "red" }));
+    mockModel(ShapeJudge).thenReturn(replyWith("PASS: INTERNAL"));
+    mockModel(Closer).thenReturn(replyWith("Done."));
     const events: ExecutionStreamEvent[] = [];
 
     await execute(app, LaunchStart, { text: "Q" }, { onStream: (event) => events.push(event) });
 
-    expect(mockLlm(ShapeJudge).requests).toHaveLength(1);
+    expect(mockModel(ShapeJudge).requests).toHaveLength(1);
     expect(deltas(events)).toEqual(["CANARY", "Done."]);
   });
 });

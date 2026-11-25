@@ -9,7 +9,7 @@ import { TopicResearchWorkflow } from "../topic/workflows/topic-research/topic-r
  * recursive level) and the default execution budget of the other workflows.
  * Each execution is checked against its budgets before its first step (one exhausted → it is
  * rejected) and every model call is counted in all of them (the first exhausted stops it with
- * `BudgetExceededError`).
+ * `LimitError.Budget`).
  */
 
 @Budget({

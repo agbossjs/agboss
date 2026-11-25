@@ -29,7 +29,7 @@ A node event (`NodeEvent`) adds `step`, a `StepRecord` — the serialized `execu
 `validationAttempts` ([Join keys](#join-keys) below). An observer interested
 in one workflow or agent says so in the decorator — `@Observer({ workflows: [SupportWorkflow], agents:
 [CriticAgent] })` — and its hooks receive only those events; otherwise it filters by name, taken
-with `nameOf(C)` (any AGBoss-decorated class; an undecorated one throws `ComponentError`):
+with `nameOf(C)` (any AGBoss-decorated class; an undecorated one throws `ConfigError.Component`):
 `event.step.component.name === nameOf(CriticAgent)` — never by parsing `nodeId`.
 
 ### Join keys
@@ -82,7 +82,7 @@ filter, and a standalone `@Tool` call through an `@McpEndpoint` has no `agent`.
 | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `onExecutionStart`                                    | `ExecutionStartEvent` (the common fields)                                                                                                                       |
 | `onExecutionEnd`                                      | `ExecutionEndEvent` (`finish`: a `ComponentRecord`, `output`, `spend`)                                                                                          |
-| `onExecutionPause` / `onExecutionResume`              | `ExecutionPauseEvent` (`pending`) / `ExecutionResumeEvent` (`reason`, `decision`, `actor`)                                                                 |
+| `onExecutionPause` / `onExecutionResume`              | `ExecutionPauseEvent` (`pending`) / `ExecutionResumeEvent` (`reason`, `decision`, `actor`)                                                                      |
 | `onExecutionError`                                    | `ExecutionErrorEvent` (`error`)                                                                                                                                 |
 | `onExecutionRejected`                                 | `ExecutionRejectedEvent` (`operation`, `threadId?`, `tenantId`, `code`, `message`)                                                                              |
 | `onAgentStart` / `onAgentEnd`                         | `AgentStartEvent` / `AgentEndEvent` (`output`)                                                                                                                  |
@@ -103,7 +103,7 @@ filter, and a standalone `@Tool` call through an `@McpEndpoint` has no `agent`.
 | `onChannelStart` / `onChannelEnd`                     | `ChannelStartEvent` / `ChannelEndEvent`                                                                                                                         |
 | `onJudgeStart` / `onJudgeEnd`                         | `JudgeStartEvent` / `JudgeEndEvent` (`judge`, `agent`, `output`)                                                                                                |
 | `onValuesOutdated`                                    | `ValuesOutdatedEvent` (step, trigger, outdated — [below](#outdated-values))                                                                                     |
-| `onLaunchItemsTruncated`                              | `LaunchItemsTruncatedEvent` (step, launch, items, takeFirst — [below](#parallel-launches))                                                                       |
+| `onLaunchItemsTruncated`                              | `LaunchItemsTruncatedEvent` (step, launch, items, takeFirst — [below](#parallel-launches))                                                                      |
 | `onQuorumDecided`                                     | `QuorumDecidedEvent` (step, launch, isReached, branches, group — [below](#quorums))                                                                             |
 | `onCompensationStart` / `onCompensationEnd`           | `CompensationStartEvent` (step, compensated, reason) / `CompensationEndEvent` (+ status, error — [below](#automatic-undo))                                      |
 | `onExecutionLeaseTakeover`                            | `ExecutionLeaseTakeoverEvent` (tenant, root, lease execution, scope key, token, holders, reason — [below](#lease-takeovers-501))                                |
@@ -131,19 +131,19 @@ for an `execute` without one), the `tenantId` it named (`"default"` otherwise), 
 `code` and a `message` without the input values. It never carries an `executionId`: no execution
 started, and another owner's is not revealed.
 
-| Refusal                                                      | Operation                     | `code`                 |
-| ------------------------------------------------------------ | ----------------------------- | ---------------------- |
-| a thread of another owner (`ThreadOwnerError`)               | `Execute`, `Resume`, `Cancel` | `run.thread-owner`     |
-| nothing paused on the thread (`NotPausedError`)              | `Resume`                      | `run.not-paused`       |
-| an unknown thread of the tenant (`UnknownThreadError`)       | `Execute`, `Cancel`           | `run.unknown-thread`   |
-| a class that is not a start of the workflow                  | `Execute`                     | `workflow.not-a-start` |
-| invalid start input or context values (`DtoValidationError`) | `Execute`                     | `dto.invalid`          |
-| an exhausted budget before the first step                    | `Execute`                     | `limit.budget`         |
-| the app is stopping (`ApplicationStoppingError`)             | `Execute`, `Resume`           | `app.stopping`         |
+| Refusal                                                              | Operation                     | `code`                   |
+| -------------------------------------------------------------------- | ----------------------------- | ------------------------ |
+| a thread of another owner (`ExecutionError.ThreadOwnerMismatch`)                       | `Execute`, `Resume`, `Cancel` | `execution.thread-owner-mismatch`       |
+| nothing paused on the thread (`NotPausedError`)                      | `Resume`                      | `run.not-paused`         |
+| an unknown thread of the tenant (`ExecutionError.UnknownThread`)               | `Execute`, `Cancel`           | `execution.unknown-thread`     |
+| a class that is not a start of the workflow                          | `Execute`                     | `config.not-a-workflow-start`   |
+| invalid start input or context values (`ValidationError.DtoInvalid`) | `Execute`                     | `validation.dto-invalid` |
+| an exhausted budget before the first step                            | `Execute`                     | `limit.budget`           |
+| the app is stopping (`ApplicationStoppingError`)                     | `Execute`, `Resume`           | `app.stopping`           |
 
 For invalid input the message names the DTO and its fields (`invalid Voucher at code`), never
 their values; the thrown error keeps the full message. A resume refused after a deploy
-(`IncompatibleResumeError`) is not a refused request: the paused execution is known, so it is an
+(`ExecutionError.IncompatibleResume`) is not a refused request: the paused execution is known, so it is an
 `onExecutionError` with its `executionId` and thread, and it stays paused — resumable by an app
 whose `onIncompatibleResume` policy accepts it.
 
@@ -283,7 +283,7 @@ finish, [Rollback](Rollback#an-execution-that-ends-without-a-finish)) is reporte
 An execution that fails (`onExecutionError`) carries them too: `ExecutionErrorEvent.compensations`
 — the `CompensationRecord`s of the undo actions that ran for it, its side paths' first, then the
 automatic undo of its end in the order they ran (`[]` when none ran); a failed undo is there with
-`status: CompensationStatus.Failed`, and the event's `error` is then `CompensationFailedError`. A
+`status: CompensationStatus.Failed`, and the event's `error` is then `ExecutionError.CompensationFailed`. A
 child's event lists its own; a root's its own and those its end undid for a paused child.
 
 ```ts
@@ -450,7 +450,7 @@ What an execution did step by step is in its result and record too (#395), not o
   `guardrail`, `side`, `isBlocked`, `probability`), `spend`, `startedAt`, `endedAt` and `error?` —
   the failure a side path took. Each child's own are in `result.children[i].steps` (#395 S6).
 - **A failed visit keeps its records** (#395 S6): an agent whose step fails — a
-  `QualityGateError`, a call a tool interceptor blocked, a guardrail's block, a limit, any error —
+  `StepError.QualityGate`, a call a tool interceptor blocked, a guardrail's block, a limit, any error —
   keeps the tool calls it made, its judges' verdicts and its guardrails' decisions (the blocking one
   last). A side path that takes the failure records them in `toolCalls` and in the visit's `steps`
   entry (with its `error`); a failed parallel branch does the same; a failure no side path takes

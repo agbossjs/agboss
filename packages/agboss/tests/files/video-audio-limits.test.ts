@@ -2,10 +2,11 @@
  * #899 AC6: audio and video follow the rules of images — read through the guarded path, checked by their
  * magic bytes, shown to the model as parts, held to the limits and the allowed types before any model call.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { FileError } from "../../src/core/error-families/remote-errors.js";
 import { describe, expect, it } from "vitest";
 import { isOfMediaType } from "../../src/a2a/files/a2a-media-check.js";
-import { ModelFileLimitError, FileRefusal } from "../../src/files/file-errors.js";
+import { FileRefusal } from "../../src/files/file-errors.js";
 import { FileView, ModelFileLimit, ModelFiles } from "../../src/files/model-files.js";
 import { replyWith, testWith } from "../../src/testing/index.js";
 import { kilobytes } from "../../src/units/index.js";
@@ -65,8 +66,8 @@ describe("AC6: audio and video reach the model as parts", () => {
 
   testWith(reader.Application)(
     "AC6: an mp3 and an mp4 are an audio and a video part, shown as { kind, mediaType, sizeBytes, sha256 }",
-    async ({ app, mockLlm }) => {
-      const agent = mockLlm(reader.Agent).thenReturn(replyWith("heard"));
+    async ({ app, mockModel }) => {
+      const agent = mockModel(reader.Agent).thenReturn(replyWith("heard"));
 
       await execute(app, reader.Start, {
         document: inline(MP3, "audio/mpeg", "note.mp3"),
@@ -94,8 +95,8 @@ describe("AC6: audio and video reach the model as parts", () => {
 
   testWith(reader.Application)(
     "AC6: bytes that are not what the type says are refused before any model call",
-    async ({ app, mockLlm }) => {
-      const agent = mockLlm(reader.Agent);
+    async ({ app, mockModel }) => {
+      const agent = mockModel(reader.Agent);
 
       const run = execute(app, reader.Start, { document: inline(WAV, "audio/mpeg", "fake.mp3") });
 
@@ -121,14 +122,14 @@ describe("AC6: the limits of size and type hold for audio and video, before any 
   });
 
   testWith(small.Application)(
-    "AC6: a video over maxFileSize is ModelFileLimitError, the model is never called",
-    async ({ app, mockLlm }) => {
-      const agent = mockLlm(small.Agent);
+    "AC6: a video over maxFileSize is StepError.ModelFileLimit, the model is never called",
+    async ({ app, mockModel }) => {
+      const agent = mockModel(small.Agent);
       const big = bytes([0, 0, 0, 24, ...ascii("ftypisom")], "y".repeat(2000));
 
       const run = execute(app, small.Start, { document: inline(big, "video/mp4", "big.mp4") });
 
-      await expect(run).rejects.toFailWith(ModelFileLimitError, {
+      await expect(run).rejects.toFailWith(StepError.ModelFileLimit, {
         limit: ModelFileLimit.MaxFileSize,
       });
       expect(agent).toHaveBeenCalledTimes(0);
@@ -136,13 +137,13 @@ describe("AC6: the limits of size and type hold for audio and video, before any 
   );
 
   testWith(mp3Only.Application)(
-    "AC6: a type that is not allowed (a video, here) is ModelFileLimitError, the model is never called",
-    async ({ app, mockLlm }) => {
-      const agent = mockLlm(mp3Only.Agent);
+    "AC6: a type that is not allowed (a video, here) is StepError.ModelFileLimit, the model is never called",
+    async ({ app, mockModel }) => {
+      const agent = mockModel(mp3Only.Agent);
 
       const run = execute(app, mp3Only.Start, { document: inline(MP4, "video/mp4", "clip.mp4") });
 
-      await expect(run).rejects.toFailWith(ModelFileLimitError, {
+      await expect(run).rejects.toFailWith(StepError.ModelFileLimit, {
         limit: ModelFileLimit.MediaType,
       });
       expect(agent).toHaveBeenCalledTimes(0);

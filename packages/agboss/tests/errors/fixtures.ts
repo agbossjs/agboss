@@ -1,3 +1,4 @@
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { Window4Memory } from "../helpers/window-memory.js";
 import {
   Agent,
@@ -9,8 +10,6 @@ import {
   Budget,
   BudgetScope,
   type BudgetHandler,
-  BudgetExceededError,
-  LimitExceededError,
   inline,
   Ttl,
 } from "../../src/index.js";
@@ -51,7 +50,6 @@ export class Pay {
   }
 }
 
-const price = { inputPerMTok: 1, outputPerMTok: 10 };
 const defaults = {
   models: { temperature: 0, maxTokens: TokenLimit.ModelMax, cache: true },
   router: { model: "typesafe/jev-1.13" },
@@ -63,7 +61,6 @@ const defaults = {
   prompt: inline("Buy what is asked."),
   description: "Buys things",
   model: "test/buyer",
-  price,
   tools: [Pay],
   input: { message: WorkflowStartTextDto },
   output: PurchaseDto,
@@ -75,7 +72,6 @@ export class Buyer {}
   prompt: inline("Check the purchase."),
   description: "Checks purchases",
   model: "test/checker",
-  price,
   input: { purchase: PurchaseDto },
 })
 export class Checker {}
@@ -119,7 +115,7 @@ const SHOP_BUDGETS = [TestApplicationDailyBudget, TestTenantDailyBudget, ShopExe
     onStart(Order)
       .toAgent(Buyer)
       .toAgent(Checker)
-      .onError(BudgetExceededError, toFinish(OverBudget))
+      .onError(LimitError.Budget, toFinish(OverBudget))
       .toFinish(Done),
   ],
   defaults,
@@ -146,7 +142,7 @@ export class ShopApplication {}
     onStart(Order)
       .toAgent(Buyer)
       .toAgent(Checker)
-      .onError(LimitExceededError, toFinish(OverBudget))
+      .onError(LimitError, toFinish(OverBudget))
       .toFinish(Done),
   ],
   defaults,
@@ -169,12 +165,10 @@ export class ShopCatchingLimitsApplication {}
   name: "shop-uncaught-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(Order)
-      .toAgent(Buyer)
-      .toAgent(Checker)
-      .toFinish(Done),
-  ],
+  flow: [onStart(Order)
+    .toAgent(Buyer)
+    .toAgent(Checker)
+    .toFinish(Done)],
   defaults,
   memory: Window4Memory,
 })

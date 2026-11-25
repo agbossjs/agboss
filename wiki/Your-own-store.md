@@ -49,7 +49,7 @@ it give two charges. The contract suites race exactly those gaps, so a store wit
 | | `claimExecutionId` (#591) | insert the execution id if **no** execution ever had it — by the id alone, whatever the tenant (a unique key); never delete it | two instances minting one id both run, or a new tree takes a finished one's id: **one lease, one token, one step key space** for two trees — an idempotent write replays the other's result |
 | | `renew`, `release`, `yield`, `reclaim`, `retire` | match the holder **and** the epoch, then write; `renew`, `yield` and `reclaim` only while the lease is live, `expires_at > now` (#534) | a zombie renews or releases the new holder's lease: the new owner loses it mid-step; a holder renews a lease the rest of the system already gave up |
 | `FencedEffectRepository` | `runOnce` | the lease check (held, at the key's token, not expired), the scope's high-water mark (raised to the token, a lower token refused), the key's stored result (replayed when there), the business rows, the result — **one transaction** | a zombie's write lands after a takeover, or two calls each find no result: a **double charge** |
-| | the cancel check (#909) | in the **same transaction**, after the lease and the mark and — for `runOnce` — after the key's lookup (a stored result replays): if the key's tree has a cancel mark — the mark on the lease row of `cancelTreeOf(key)` (`rootExecutionId`, else the key's lease), so a child's key reads its root's row — and the key is not an undo's (`isCompensation`) throw `ExecutionCancelFencedError.of(key)` before the work runs; read it so that a cancel racing the open transaction lands after it or the write is refused — on PostgreSQL a share lock on that lease row, which the cancel's write waits for; on MongoDB a read takes no lock, so the check is a write to that lease document; a child's check that may find no root row yet first inserts a seed row without a mark (token 0, released), so there is always a row to lock or to conflict on | a write after the cancel answered lands: a charge for a cancelled tree |
+| | the cancel check (#909) | in the **same transaction**, after the lease and the mark and — for `runOnce` — after the key's lookup (a stored result replays): if the key's tree has a cancel mark — the mark on the lease row of `cancelTreeOf(key)` (`rootExecutionId`, else the key's lease), so a child's key reads its root's row — and the key is not an undo's (`isCompensation`) throw `ExecutionError.CancelFenced.of(key)` before the work runs; read it so that a cancel racing the open transaction lands after it or the write is refused — on PostgreSQL a share lock on that lease row, which the cancel's write waits for; on MongoDB a read takes no lock, so the check is a write to that lease document; a child's check that may find no root row yet first inserts a seed row without a mark (token 0, released), so there is always a row to lock or to conflict on | a write after the cancel answered lands: a charge for a cancelled tree |
 | `OutboundCallRepository` | every fenced method | the same lease and mark check, in the same step as the read or the write of the intent | a zombie records or completes an intent the new holder is about to send: **two sends** |
 | | `saveIfAbsent`, `markPending` (#909) | after the fence, the same cancel check: a new intent or attempt of a cancelled tree is refused, nothing recorded or claimed; `markCompleted`, `markFailed` and `findByKey` are not refused (they record what happened) | an intent recorded or an attempt sent for a cancelled tree |
 | | `markPending`, `markCompleted`, `markFailed` | a compare-and-set on the state the caller read (status, attempt, attempt owner), one row changed | two instances both resend: **a double charge** |
@@ -63,7 +63,7 @@ it give two charges. The contract suites race exactly those gaps, so a store wit
 | | `closeUntaken…` (`closedFirst`) | a close that is not taken (the pause is already closed) changes nothing but `closedFirst { resolution, resolvedAt }`, written once, by the first close; a later close never overwrites it — the late `closed` notice from `markSent…` reads the reason and the time from it, never from the not-taken close | a pause decided by its deadline is told `answered` at a later human answer's time, or the reverse: a channel shows the wrong outcome |
 | | `claimNoticesDue`, `ackNotice`, `renewNotice`, `retryNotice`, `setAsideNotices` | one mailbox per (pause, recipient): a claim under a fresh token until `at + claimFor`; the other four check the token (`ackNotice` and `renewNotice` also `until > at`; `renewNotice` moves `until` to `at + claimFor`, never earlier, and never revives a lapsed claim) | a zombie's late ack drops a notice never delivered; a stuck receiver holds another pause's; a receiver that runs past the claim is called again beside itself |
 | | `noticeOnce…`, `deleteByResolvedAtBefore` | `noticeOnce…` appends unless the pause already has a notice of that kind (only when `isSent`); the delete keeps a pause with a live mailbox | a re-run pass writes `joinFailed` twice; a pause is removed with its notices undelivered |
-| `CostLedgerRepository` | `saveAll` (#727, #771, #817) | refuse anything but a `LedgerEntry` first (`assertLedgerEntries`), then insert each entry's `ledgerId` with its `madeAt` if absent **and** add the inserted ones' cost to every counter — after reading the pruning mark in the same step, refusing (`CostLedgerEntryExpiredError`, nothing added) an entry made before the mark that is not held | a retried save adds an entry twice, or a lost answer retried after its entry was pruned **counts the spend twice** |
+| `CostLedgerRepository` | `saveAll` (#727, #771, #817) | refuse anything but a `LedgerEntry` first (`assertLedgerEntries`), then insert each entry's `ledgerId` with its `madeAt` if absent **and** add the inserted ones' cost to every counter — after reading the pruning mark in the same step, refusing (`StoreError.LedgerEntryExpired`, nothing added) an entry made before the mark that is not held | a retried save adds an entry twice, or a lost answer retried after its entry was pruned **counts the spend twice** |
 | | `deleteByMadeAtBefore` (#771) | raise the pruning mark (never lower it) and delete the entries made before it, atomically against a save — a save that read the old mark finishes first, or sees the new one | a save that read the old mark inserts an id the prune just deleted: **counted twice** |
 | `ExecutionTreeRepository`, `MeshRequestRepository` | `saveIfAbsent` | insert if no row has the key (a unique key) | a request retried on another pod runs twice |
 | `A2ATaskRepository` (#807) | `saveIfAbsent`, `saveMessageIfAbsent` | insert the task and its first message only if no message has the key `(tenantId, ownerId, messageId)` — both or neither, in **one transaction**; a taken task id saves nothing | a resent A2A message on another pod is accepted twice: **two executions of one task** |
@@ -410,12 +410,12 @@ trusts the lease; any other call by 15 s; a retention delete (`delete…Before`)
 `FileRepository` by 5 minutes. A call that does not answer is of unknown outcome: it may have
 taken effect. Under a lease the holder hands the tree over and does not release the lease; the next
 holder replays the write's row, recovers the pending intent or resumes from the latest
-checkpoint. Anywhere else the caller gets `StoreCallTimeoutError`. So:
+checkpoint. Anywhere else the caller gets `StoreError.CallTimeout`. So:
 
 - **Time out first.** Give your driver a command timeout below 15 s (the packages use 10 s; a lease's `renew` is bounded at 5 s, so answer it faster than that or the framework's bound ends it first) and throw
-  `StoreCallTimeoutError` with `source: StoreOutcomeSource.Command`, the driver's error as the
+  `StoreError.CallTimeout` with `source: StoreOutcomeSource.Command`, the driver's error as the
   `cause`; for an error after the request was sent — a reset connection after a commit — throw
-  `StoreOutcomeUnknownError` with `source: StoreOutcomeSource.Transport` (#1017). Never turn either into "not done": retry nothing yourself, do not
+  `StoreError.OutcomeUnknown` with `source: StoreOutcomeSource.Transport` (#1017). Never turn either into "not done": retry nothing yourself, do not
   report a failure for a write you cannot tell.
 - **Classify what you cannot tell, and only that.** Unknown: an error of a *write* (or of a COMMIT)
   after the request was sent — a reset, a broken pipe, a timeout on the wire, the server going away
@@ -737,7 +737,7 @@ second charge, a lost or doubled child, an undo on a hand-over or a tree that ne
   commit whose answer was lost and learns its real outcome (MongoDB's `commitTransaction` is
   idempotent per transaction). Scenario 23 then asks that one reset leaves the charge applied once
   with no hand-over, and scenario 23b — the retry's answer lost too — is the truly unknown commit:
-  your store must read it as `StoreOutcomeUnknownError`. Leave it out when a single reset is
+  your store must read it as `StoreError.OutcomeUnknown`. Leave it out when a single reset is
   already unknown to your store (PostgreSQL, SQLite's held store): 23 asks the hand-over.
   Scenario 23c replaces the COMMIT's answer with a server error that is no reset (PostgreSQL:
   SQLSTATE 08P01, a pooler's `server conn crashed?`): an error after the COMMIT was sent is unknown
@@ -912,7 +912,7 @@ that does not load, or one that registers no case, rejects: never an empty run t
       and skips no row). Without it a page after a cursor skips a row inserted behind it.
 - [ ] The ledger takes `LedgerEntry` values only and calls `assertLedgerEntries(entries)` before
       it reads or writes anything (#817: a JS caller's record without a `ledgerId`, a `madeAt`
-      `Date` or a `costUsd` amount is `CostLedgerEntryInvalidError`, nothing added); it keeps the
+      `Date` or a `costUsd` amount is `StoreError.LedgerEntryInvalid`, nothing added); it keeps the
       dates and the mark to the millisecond, and refuses a cutoff that is no valid `Date`.
 - [ ] The ledger keeps each entry with its `madeAt` and a pruning mark: `saveAll` reads the mark
       with the insert and refuses an entry made before it that it does not hold; the prune raises

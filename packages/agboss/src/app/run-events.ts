@@ -1,12 +1,11 @@
+import { ExecutionError } from "../core/error-families/run-errors.js";
+import { ValidationError } from "../core/error-families/effect-errors.js";
 import type { CompensationRecord } from "../flow/compensation.js";
 import type { ExecutionOperation, ExecutionRejectedEvent } from "../core/observability.js";
 import type { ExecutionObserverManager } from "../core/observer-manager.js";
-import { DtoValidationError } from "../dto/errors.js";
 import type { ExecutionEvent } from "../flow/observers/execution-event.js";
 import { keyTextRuleOf } from "../core/errors.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
-import { IncompatibleResumeError } from "../run/resume-guard.js";
-import { InvalidThreadIdError } from "../core/errors.js";
 import { ExecutionStatus, type ExecutionOutput } from "./types.js";
 import { isHandedOver } from "./handed-over.js";
 import type { GraphDeps } from "../graph/deps.js";
@@ -159,7 +158,7 @@ const codeOf = (error: unknown): string =>
 
 /** The error's message without the input values: a DTO's issues name only their fields. */
 const safeMessageOf = (error: unknown): string => {
-  if (error instanceof DtoValidationError) {
+  if (error instanceof ValidationError.DtoInvalid) {
     return `invalid ${error.dto} at ${error.issues.map((issue) => issue.path).join(", ")}`;
   }
   return asError(error).message;
@@ -178,7 +177,7 @@ const shownTenantIdOf = (tenantId: string | undefined): string =>
  */
 function rejectionOf(request: ExecutionRequest, error: unknown): ExecutionRejectedEvent {
   const { operation } = request;
-  const threadId = error instanceof InvalidThreadIdError ? undefined : request.threadId;
+  const threadId = error instanceof ExecutionError.InvalidThreadId ? undefined : request.threadId;
   return {
     operation,
     ...(threadId === undefined ? {} : { threadId }),
@@ -191,7 +190,7 @@ function rejectionOf(request: ExecutionRequest, error: unknown): ExecutionReject
 /**
  * The checks a request passes before its execution starts or is located (owner, paused, input,
  * budgets). A refusal is observed and rethrown: `onExecutionRejected`; or, for a paused execution
- * this app may not resume (`IncompatibleResumeError`), `onExecutionError` on that execution — its
+ * this app may not resume (`ExecutionError.IncompatibleResume`), `onExecutionError` on that execution — its
  * id, its thread; it stays paused.
  */
 export async function admitRequest<T>(
@@ -203,7 +202,7 @@ export async function admitRequest<T>(
   try {
     return await checks();
   } catch (error) {
-    if (error instanceof IncompatibleResumeError) {
+    if (error instanceof ExecutionError.IncompatibleResume) {
       const paused = {
         runId: error.executionId,
         threadId: error.threadId,

@@ -6,11 +6,11 @@
  * on its task store's backend — `[a2a.message-store-not-shared]` otherwise, a multi-instance set
  * on shared leases included.
  */
+import { ConfigError } from "../../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import { A2AReply } from "../../../src/a2a/a2a-endpoint.decorator.js";
 import { applicationOf } from "../../../src/application/assemble.js";
 import type { Class, Provider } from "../../../src/components/injection.js";
-import { GraphRuleError } from "../../../src/graph/rule-error.js";
 import { SqliteA2ADirectMessageRepository } from "../../../src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.js";
 import { SqliteA2ATaskRepository } from "../../../src/infrastructure/sqlite/sqlite-a2a-task.repository.js";
 import { SqliteExecutionLeaseRepository } from "../../../src/index.js";
@@ -25,7 +25,7 @@ async function violationsOf(application: Class): Promise<readonly string[]> {
     await applicationOf(application);
     return [];
   } catch (error) {
-    if (!(error instanceof GraphRuleError)) throw error;
+    if (!(error instanceof ConfigError.GraphRules)) throw error;
     return error.violations
       .filter((found) => found.code.startsWith("a2a."))
       .map((found) => `[${found.code}] ${found.message}`);

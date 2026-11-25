@@ -1,3 +1,4 @@
+import { ConfigError } from "../../core/error-families/config-errors.js";
 import { recordOptionKeys } from "../../components/option-keys.js";
 import { ARBITER_KEYS } from "../../components/decorator-options.js";
 import "../../polyfills/symbol-metadata.js";
@@ -12,7 +13,6 @@ import { resolvedName } from "../names.js";
 import type { KindCheck } from "../builder-types.js";
 import type { WorkflowFinishTextDto } from "../../dto/standard/framework.js";
 import type { KindOf, NoOutput, ProducerOutputOf } from "../generated-types.js";
-import { FlowSyntaxError } from "../launch-step.js";
 import type { Tracked } from "../metadata.js";
 
 /**
@@ -62,11 +62,11 @@ export interface ModelArbiterOptions {
 export abstract class ArbiterModel {
   /** The model id (`@Arbiter({ model })`). */
   abstract readonly model: string;
-  /** One chat call; returns the reply's text. On a decision model: `ModelKindError`. */
+  /** One chat call; returns the reply's text. On a decision model: `ConfigError.ModelKind`. */
   abstract invoke(input: string | readonly ModelMessage[]): Promise<string>;
   /**
    * One decision (questions from `Decision.choice / boolean / score`), its answers typed by them. On
-   * a chat model: `ModelKindError`.
+   * a chat model: `ConfigError.ModelKind`.
    */
   abstract decide<const Q extends DecisionQuestions>(
     request: DecisionRequest<Q>,
@@ -243,7 +243,7 @@ export function Arbitrate<const TTargets extends readonly [Class, ...Class[]]>(
   return (_value, context) => {
     const { metadata } = context;
     if (metadata === undefined)
-      throw new FlowSyntaxError({
+      throw new ConfigError.FlowSyntax({
         message: `@Arbitrate on ${String(context.name)}: decorator metadata is missing — import "@agboss/core" first`,
       });
     const methods = answerMethods.get(metadata) ?? [];

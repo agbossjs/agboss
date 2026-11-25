@@ -55,8 +55,8 @@ its rows in the tenant `"default"`.
 
 **Upgrading the file** (#1104): the file carries its schema version (table `agboss_schema`; 0.1.0
 wrote none, so a file without it is a 0.1.0 file). The first process of a newer build migrates and
-stamps it; a build older than the stamp refuses the file at open (`SqliteSchemaTooNewError`,
-`sqlite.schema-too-new`) before it writes a row. The published 0.1.0 never reads the stamp and cannot
+stamps it; a build older than the stamp refuses the file at open (`StoreError.SchemaTooNew`,
+`store.schema-too-new`) before it writes a row. The published 0.1.0 never reads the stamp and cannot
 be refused, so the sequence is the same as for the other stores: **stop every process of the old
 version, then start the new one** ([ADR-0034](ADR-0034-Schema-upgrades-stop-the-old-version-first)). A
 0.1.0 process left running writes pauses without a channel (a page filtered by channel still finds
@@ -113,7 +113,7 @@ export class JobScoutDatabaseStorage {}
   the container creates it — project code never constructs it.
 - **Which errors are of unknown outcome** (#1017). SQLite answers in the process, so a statement
   either ran or threw; the one window is the commit. A COMMIT that fails with anything but
-  `SQLITE_BUSY` or `SQLITE_CONSTRAINT` (a deferred foreign key) is `StoreOutcomeUnknownError`
+  `SQLITE_BUSY` or `SQLITE_CONSTRAINT` (a deferred foreign key) is `StoreError.OutcomeUnknown`
   (`source: Transport`, the cause the driver's error): `SQLITE_IOERR` and its extended codes
   (`_FSYNC`, `_WRITE`, …), `SQLITE_FULL`, `SQLITE_NOMEM`, `SQLITE_INTERRUPT`, `SQLITE_PROTOCOL`, any
   other — the journal's or the WAL's sync may have failed before or after the commit point, and
@@ -361,7 +361,7 @@ for ± lease/2, ± lease, ± 10 × lease and ± 1 % drift).
 
 **Two resumes at once.** A resume has two phases: it first records its decision on its pause (the
 pause goes `Pending → Resolved` atomically — a second resume of the same pause, a double click,
-gets `PauseClosedError`), then takes the tree's lease. While another call or instance holds it, the
+gets `PauseError.Closed`), then takes the tree's lease. While another call or instance holds it, the
 resume waits; the holder continues with one `Command({ resume })` that maps LangGraph's interrupt
 id of every answered pause of the tree, and before it lets the tree rest paused takes the decisions
 resolved meanwhile (the drain), so the waiting call then returns the tree's current
@@ -887,12 +887,12 @@ export class ChargeOrderAction {
   stored and compared byte for byte: no case folding, no NFKC, so `Order:42`, `order 42` and
   `order:４２` are three keys. `keyTextRuleOf(text)` says which rule a text breaks;
   a refusal is `IdempotencyError.InvalidKey` (`idempotency.invalid-key`) or
-  `InvalidThreadIdError` (`run.invalid-thread-id`), with `rule` and a message naming the rule —
+  `ExecutionError.InvalidThreadId` (`execution.invalid-thread-id`), with `rule` and a message naming the rule —
   never the key, which is not echoed in `onExecutionRejected` either. Checked by
   `runOnce`, `sendOnce` and every store's entry, for a key built by hand
   (`assertBusinessKey`, for a store of your own), before anything runs; a thread id at
   `app.execute` and `app.cancel`. A tenant id is held to the same rules at `app.execute`
-  (`tenant: { tenantId }`), `app.resume` and `app.cancel` (#552: `dto.invalid` naming `tenantId` and
+  (`tenant: { tenantId }`), `app.resume` and `app.cancel` (#552: `validation.dto-invalid` naming `tenantId` and
   the rule, never the id) — `t\uD800` and `t\uD801` are both `t\uFFFD` in UTF-8, one tenant in a
   database, and an NFD or zero-width tenant id would be a second tenant of one customer. So do the
   operator's reads (#568): `app.auditLogOf`, `app.outboundCallsOf` and `app.pendingOutboundCallsOf`
@@ -900,12 +900,12 @@ export class ChargeOrderAction {
   pending charges and audit log); a trusted A2A request or MCP call under one is never deduplicated
   (its answer would be kept under `t\uFFFD`'s key); and its `onExecutionRejected` names the tenant
   `"default"`, never the id. A tree's two reads check its `rootExecutionId` the same way (#580)
-  (`dto.invalid` naming `rootExecutionId`: `r\uD800` would read root `r\uFFFD`'s audit log), and
+  (`validation.dto-invalid` naming `rootExecutionId`: `r\uD800` would read root `r\uFFFD`'s audit log), and
   `agboss executions export --tenant` and `agboss generate eval-case --tenant` refuse such a tenant id
   (exit 2, `usage.option-value`, the rule named) instead of reading nothing. Who calls is held to
   the same rules (#589): `ownerId` at `app.execute`, `app.resume` and `app.cancel`, and a `Channel`
   pause's `actor` (recorded on the pause and in the records, read by the agent), refused
-  before anything is read or written with `dto.invalid` naming the field and the rule, never the id;
+  before anything is read or written with `validation.dto-invalid` naming the field and the rule, never the id;
   a value that is not a text is `length`. Before, on SQLite and PostgreSQL an execute under
   `bob\uD800` created a thread stored as `bob\uFFFD`'s and then refused its own caller. A lone
   surrogate never reaches a step at all: the start's input is JSON, which refuses it. It is never sent to a model. The
@@ -1022,7 +1022,7 @@ takeover or is fenced after it. The step is a hand-over: no `.onError`, no undo,
 (P5). A lease renewal that does not answer is **not** a hand-over: the holder goes on while its
 fence holds: a renewal is bounded at 5 s and the renewals run on a fixed cadence of a quarter of the lease, 7.5 s (one still in flight at its tick is skipped), so of the three tries inside the 29 s of trust any two may fail and the third confirm, and three in a row cost the lease — and `fence.renewNow()` before an
 outbound send is the one renewal that hands over. Other calls (the sweep's look, a child's claim,
-`acquire`, `requestCancel`) fail with `StoreCallTimeoutError` after 15 s and run again at the next
+`acquire`, `requestCancel`) fail with `StoreError.CallTimeout` after 15 s and run again at the next
 period. [Guarantees](Guarantees) P8, A19.
 
 ## Recovery
@@ -1089,7 +1089,7 @@ tenants, the resolved pause records (`Taken`, `Cancelled`) resolved more than
 `@Application({ retention: { pauseRecords } })` ago — default `hours(24)` —
 through `PausedExecutionRepository.deleteByResolvedAtBefore(cutoff)`, `cutoff` = the `Clock`'s now minus
 the retention. Every instance may run it; it is idempotent. Within the window a late answer to a
-taken or withdrawn pause gets `PauseClosedError`, after it `UnknownPauseError`; a `Pending` pause is
+taken or withdrawn pause gets `PauseError.Closed`, after it `PauseError.UnknownPause`; a `Pending` pause is
 never removed ([Pauses → a pause's life](Pauses#a-pauses-life)). A project's own
 `PausedExecutionRepository` implements `deleteByResolvedAtBefore` too — one statement over the records'
 status and `resolvedAt` (`SqlitePausedExecutionRepository`: an index on `(status, resolved_at)`). Who
@@ -1293,7 +1293,7 @@ cannot write is a warning (`audit-log.failed`) and never reaches the takeover.
 
 `app.cancel(threadId, { tenantId, ownerId })` reaches the thread's execution on whichever instance
 moves it (#360) — behind a load balancer a cancel lands on a random instance. Access is checked as
-always (`UnknownThreadError` for another tenant's or an unknown thread, `ThreadOwnerError` for
+always (`ExecutionError.UnknownThread` for another tenant's or an unknown thread, `ExecutionError.ThreadOwnerMismatch` for
 another owner, `onExecutionRejected`), then:
 
 1. **this instance runs it** — it is aborted at once; before the abort the tree's durable **cancel
@@ -1323,7 +1323,7 @@ writes the tree's cancel mark with `ExecutionLeaseRepository.requestCancel(tree)
 lease store's database, keyed by the tree's root, idempotent, changing no lease. From then on every
 fencing store of that database refuses, in the transaction that checks the lease, a **new**
 idempotent write (`runOnce`), outbound call intent (`saveIfAbsent`) or attempt (`markPending`) of the
-tree with `ExecutionCancelFencedError` (`execution.cancelled.fenced`, an `ExecutionCancelledError`):
+tree with `ExecutionError.CancelFenced` (`execution.cancelled.fenced`, a cancel — never a hand-over):
 nothing is written or sent, so a holder that has not read the request yet — up to a renewal, 7.5 s —
 cannot charge. What stays: a result stored **before** replays; the tree's own **undo** (the key of a
 step that compensates another, `isCompensation`) is never refused, so the unwinding can refund; a
@@ -1373,7 +1373,7 @@ An execution that ends without a finish undoes its open undoable actions before 
   state (pending writes applied, the children's namespaces included), the ones marked done skipped,
   then the tree ends failed with the recorded reason — its record failed, its pauses withdrawn, its
   keys removed, `onExecutionCancel` for a cancel, `onExecutionError` once (an `AGBossError`
-  with the original message for a failure; `CompensationFailedError` when an undo failed) — and no
+  with the original message for a failure; `ExecutionError.CompensationFailed` when an undo failed) — and no
   pass runs; the log says `compensation.recovered`;
 - **a child re-entered mid-undo** — the root's pass continued from its checkpoint, the child's step
   run again — reads its own key before its next step: found, the child takes no step, finishes its
@@ -1700,7 +1700,7 @@ and `apps[1]`, each with its own container and instance id — over one set of s
 (`clock`, shared). With the in-memory defaults the instances share their rows, so the framework's
 own implementations are tested across instances; nothing is substituted, so an application that
 lists its own implementations is tested on those (against Testcontainers, or with its injected
-client replaced by `mockOf(…)`).
+client replaced by `mockService(…)`).
 
 **SQLite stores are shared only through a file** (#458). Each instance opens its own connection
 ([above](#sqlite--several-instances-on-one-machine)), and SQLite's `:memory:` is one database per connection: with
@@ -1721,8 +1721,8 @@ const test = testWith(App, { instances: 2, env: "instances" });
 ```ts no-check: the application and its workflow are a project's own (see Testing)
 const test = testWith(LeaseApplication, { instances: 2 });
 
-test("a pause made on one instance is resumed on the other", async ({ app, apps, mockLlm }) => {
-  mockLlm(ClerkAgent).thenReturn(callTool(ChargeTool, { amount: "10" }), replyWith("Charged."));
+test("a pause made on one instance is resumed on the other", async ({ app, apps, mockModel }) => {
+  mockModel(ClerkAgent).thenReturn(callTool(ChargeTool, { amount: "10" }), replyWith("Charged."));
   const paused = await app.execute(OrderWorkflowStart, { text: "charge" });
 
   const pauseId = paused.pending[0]?.pauseId ?? ""; // a ThreadOwner pause lists its id

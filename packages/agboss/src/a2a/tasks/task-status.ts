@@ -1,6 +1,7 @@
+import { isExecutionCancelled } from "../../core/execution-cancelled.js";
 import { type Usd } from "../../units/index.js";
 import { RecordedError } from "../../core/error-record.js";
-import { AGBossError, ExecutionCancelledError } from "../../core/errors.js";
+import { AGBossError } from "../../core/errors.js";
 import { DurableExecutionStatus, type DurableExecutionState } from "../../app/execution-control.js";
 import { A2ATaskState, type A2ATaskStatus } from "../../infrastructure/a2a-task.repository.js";
 import type { PendingPause } from "../../pause/types.js";
@@ -106,7 +107,7 @@ export const CANCELED: A2ATaskStatus = { state: A2ATaskState.Cancelled, pendingP
  * error's facts leave the application.
  */
 export function failedStatusOf(error: Error): A2ATaskStatus {
-  if (error instanceof ExecutionCancelledError) return CANCELED;
+  if (isExecutionCancelled(error)) return CANCELED;
   if (isMeshLimitError(error))
     return { ...failedOf(error.code), errorDetails: error.details ?? {} };
   // a recorded error whose original was no framework error (a third-party SDK's, a project's) is `internal`

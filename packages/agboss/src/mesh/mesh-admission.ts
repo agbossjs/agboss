@@ -1,18 +1,15 @@
+import { LimitError } from "../core/error-families/limit-errors.js";
 import type { InboundMesh, TrustedMesh } from "./inbound-mesh.js";
 import { dollarsOf, millisecondsOf } from "./mesh-durations.js";
 import type { ExecutionOrigin, MeshEnvelope } from "./mesh-envelope.js";
-import {
-  HopsLimitExceededError,
-  MeshLoopDetectedError,
-  type MeshLimitError,
-} from "./mesh-errors.js";
+import { type MeshLimitError } from "./mesh-errors.js";
 import type { MeshEntry } from "./mesh-hop.js";
 import { traceIdOf } from "./outbound-mesh.js";
 
 /**
  * A receiver's check of an envelope's call chain (#398 PR 1), before anything runs: its own entry
- * already in the chain → `MeshLoopDetectedError`; the chain as long as its `maxMeshHops` →
- * `HopsLimitExceededError`. Applied to any envelope — trusted or not: a caller can only make its own
+ * already in the chain → `LimitError.MeshLoop`; the chain as long as its `maxMeshHops` →
+ * `LimitError.Hops`. Applied to any envelope — trusted or not: a caller can only make its own
  * request fail with it (Security 4).
  */
 
@@ -33,9 +30,9 @@ export function meshRefusalOf(
   const isLoop = chain.some(
     (hop) => hop.application === entry.application && hop.start === entry.start,
   );
-  if (isLoop) return new MeshLoopDetectedError({ entry, callChain: chain });
+  if (isLoop) return new LimitError.MeshLoop({ meshEntry: entry, callChain: chain });
   if (chain.length >= maxMeshHops)
-    return new HopsLimitExceededError({ entry, callChain: chain, maxMeshHops });
+    return new LimitError.Hops({ meshEntry: entry, callChain: chain, maxMeshHops });
   return undefined;
 }
 

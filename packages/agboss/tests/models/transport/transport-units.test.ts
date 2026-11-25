@@ -1,3 +1,4 @@
+import { ConfigError } from "../../../src/core/error-families/config-errors.js";
 /**
  * #385 — the transport's parts on their own: LangChain's messages as `ModelProviderMessage`s (text
  * only), the answer's shape checked, `ModelProviderFailureError`, the late container binding, and a
@@ -6,11 +7,10 @@
 import { AIMessage, HumanMessage, SystemMessage, ToolMessage } from "@langchain/core/messages";
 import { describe, expect, it } from "vitest";
 import { lateTransports } from "../../../src/app/late-transports.js";
-import { providerClients, ProviderCapabilityError } from "../../../src/llm/provider-clients.js";
+import { providerClients } from "../../../src/llm/provider-clients.js";
 import {
   FinishReason,
   ModelFailure,
-  ModelProviderError,
   ModelProviderFailureError,
   ModelProviderMessageRole,
 } from "../../../src/models/index.js";
@@ -51,7 +51,7 @@ describe("#385: the transport's messages", () => {
     ]);
   });
 
-  it("an image part cannot be carried: a ModelProviderError names the provider", () => {
+  it("an image part cannot be carried: a ConfigError.ModelProvider names the provider", () => {
     const image = new HumanMessage([{ type: "image_url", image_url: { url: "data:," } }]);
 
     expect(() => providerMessagesOf([image], "bedrock-model-provider")).toThrow(
@@ -87,10 +87,10 @@ describe("#385: the transport's messages", () => {
     });
   });
 
-  it("an answer without text or usage is the project's mistake: a ModelProviderError, never a guess", () => {
+  it("an answer without text or usage is the project's mistake: a ConfigError.ModelProvider, never a guess", () => {
     expect(() =>
       aiMessageOf({ text: "no usage" }, "bedrock/claude", "bedrock-model-provider"),
-    ).toThrow(ModelProviderError);
+    ).toThrow(ConfigError.ModelProvider);
   });
 });
 
@@ -119,7 +119,9 @@ describe("#385: its errors and its wiring", () => {
     const transports = lateTransports();
     const instance = { complete: () => Promise.reject(new Error("unused")) };
 
-    expect(() => transports.resolver.instanceOf(BedrockModelProvider)).toThrow(ModelProviderError);
+    expect(() => transports.resolver.instanceOf(BedrockModelProvider)).toThrow(
+      ConfigError.ModelProvider,
+    );
     transports.bind({ resolve: () => instance, created: [] });
     expect(transports.resolver.instanceOf(BedrockModelProvider)).toBe(instance);
     transports.bind({ resolve: () => undefined, created: [] });
@@ -141,7 +143,7 @@ describe("#385: its errors and its wiring", () => {
         temperature: 0,
         maxTokens: 1,
       }),
-    ).toThrow(ProviderCapabilityError);
+    ).toThrow(ConfigError.ModelProvider);
   });
 
   it("configHash's transports: only where there is one", () => {

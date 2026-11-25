@@ -108,7 +108,7 @@ function bindingOf(
 /**
  * A `@Judge` on its own (#262 S55, S62): created by its own container (its `deps`, `overrides`,
  * the `environment`); its injected `JudgeModel` is its own `@Judge({ model })` answering from
- * `model` — `decideWith(…)` on a decision model, `replyWith(…)` on a chat model (`ModelKindError`
+ * `model` — `decideWith(…)` on a decision model, `replyWith(…)` on a chat model (`ConfigError.ModelKind`
  * for the wrong call, as at run time). Each call runs `judge(input)` in a step's frame; the
  * verdict is `output`, the model calls `spend` (`judge:<name>`). A declarative judge (#1290) has its model answer the verdict: script it with `replyWith('{"passed":true,"reason":""}')`, or `decideWith({ verdict: 0.9 })` on a decision model; unscripted it passes. A code judge (no `JudgeModel` in its `deps`)
  * runs its `judge(input)` alone — no `model` script (one is a `TestSetupError`), no spend.

@@ -7,9 +7,9 @@
  * working reminder warns; `[name.not-kebab-case]`, `[working-calendar.invalid]` for a class that is no
  * listed `@WorkingCalendar`.
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
-import { GraphRuleError } from "../../src/graph/rule-error.js";
 import type { Class } from "../../src/components/injection.js";
 import { Injectable } from "../../src/components/decorators.js";
 import {
@@ -34,8 +34,8 @@ const violationsOf = async (
   application: Class,
 ): Promise<readonly { code: string; message: string }[]> => {
   const error: unknown = await assemble(application).catch((thrown: unknown) => thrown);
-  expect(error).toBeInstanceOf(GraphRuleError);
-  return (error as GraphRuleError).violations;
+  expect(error).toBeInstanceOf(ConfigError.GraphRules);
+  return (error as ConfigError.GraphRules).violations;
 };
 
 const codesOf = async (application: Class): Promise<readonly string[]> =>

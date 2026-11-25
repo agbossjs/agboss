@@ -161,7 +161,6 @@ export class DeleteOrderTool {
   description: "Handles refunds",
   prompt: inline("Refund broken orders."),
   model: "test/desk",
-  price: { inputPerMTok: 1, outputPerMTok: 10 },
   input: { message: WorkflowStartTextDto },
   output: oneOf(DeskAnswerDto, HandOverDto),
   tools: [GetOrderTool, RefundTool, DeleteOrderTool],

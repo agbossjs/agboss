@@ -1,7 +1,7 @@
 /**
  * #262 PR 2 — `mockAction(A)` (AC9): the action still runs; its calls are recorded — what it
  * received (an error handler's input too) and what it returned — with the call matchers of
- * `mockLlm`.
+ * `mockModel`.
  */
 import { describe, expect } from "vitest";
 import { TestSetupError, testWith } from "../../src/testing/index.js";
@@ -52,8 +52,10 @@ describe("AC9: mockAction(A) runs the real action and records its calls", () => 
 
   orders(
     "what an error handler received: the carrier failed, the refund and the release ran",
-    async ({ app, mockAction, mockOf }) => {
-      mockOf(ShipOrderAction).execute.mockRejectedValue(new CarrierError("the carrier is down"));
+    async ({ app, mockAction, mockService }) => {
+      mockService(ShipOrderAction).execute.mockRejectedValue(
+        new CarrierError("the carrier is down"),
+      );
 
       const result = await app.execute(OrderWorkflowStart, { orderId: "8" });
 
@@ -67,9 +69,9 @@ describe("AC9: mockAction(A) runs the real action and records its calls", () => 
 
   offers(
     "a oneOf result is named by its variant; a historyOf input by its versions",
-    async ({ app, mockAction, mockLlm }) => {
-      mockLlm(FirstDraftAgent).thenReturn(draft("v1"));
-      mockLlm(DraftEditorAgent).thenReturn(draft("v2"), draft("v3"), draft("v4"));
+    async ({ app, mockAction, mockModel }) => {
+      mockModel(FirstDraftAgent).thenReturn(draft("v1"));
+      mockModel(DraftEditorAgent).thenReturn(draft("v2"), draft("v3"), draft("v4"));
 
       await app.execute(HistoryOfferWorkflowStart, { candidates: "Dana" });
 

@@ -1,8 +1,7 @@
+import { StepError } from "../core/error-families/step-errors.js";
 import { RunnableLambda } from "@langchain/core/runnables";
 import type { RagSearchResultDto } from "./dto.js";
 import { recordReportedCost, type UsageRecord } from "../finops/usage.js";
-import { StepFailedError, stepCoordinatesOf } from "../graph/errors.js";
-import { ComponentKind } from "../flow/runtime/records.js";
 import type { ModelBinding } from "../llm/registry.js";
 import {
   MODEL_RERANKER_USAGE,
@@ -15,7 +14,6 @@ import { observedRerank } from "./rerank-events.js";
 import { RerankOutcome } from "../flow/observers/rerank.js";
 import { modelReadingNow } from "../pii/model-boundary.js";
 import {
-  RERANK_FAILED_CODE,
   RerankFailurePolicy,
   type KnowledgeRetrieval,
   type RagRetrieval,
@@ -48,42 +46,6 @@ export interface BoundReranker {
   readonly instructions?: string | undefined;
   readonly onFailure: RerankFailurePolicy;
   readonly source: RerankerSource;
-}
-
-/** What a failed reranking was: `new RerankFailedError({ rag, reranker, cause, usage })`. */
-export interface RerankFailedErrorOptions {
-  /** The knowledge base whose reranking failed. */
-  readonly rag: string;
-  /** Its `@RagReranker`, by name. */
-  readonly reranker: string;
-  /** What the reranker threw, or why its answer was refused. */
-  readonly cause?: unknown;
-  /** The spend the failed reranking still made (a model's reply it could not read). */
-  readonly usage: readonly UsageRecord[];
-}
-
-/** A reranking that failed under `RerankFailurePolicy.FailStep`, the default: the agent's step fails. */
-export class RerankFailedError extends StepFailedError {
-  static override readonly code = RERANK_FAILED_CODE;
-  declare readonly code: "step.rerank-failed";
-  override name = "RerankFailedError";
-  /** The knowledge base whose reranking failed. */
-  readonly rag: string;
-  /** Its `@RagReranker`, by name. */
-  readonly reranker: string;
-
-  constructor({ rag, reranker, cause, usage }: RerankFailedErrorOptions) {
-    const why = cause instanceof Error ? cause.message : String(cause);
-    super({
-      message: `Knowledge base "${rag}": its reranker ${reranker} failed (${why}) — RerankFailurePolicy.FailStep fails the step`,
-      usage,
-      cause,
-      ...stepCoordinatesOf(rag, ComponentKind.Rag),
-      details: { rag, reranker },
-    });
-    this.rag = rag;
-    this.reranker = reranker;
-  }
 }
 
 /**
@@ -162,7 +124,7 @@ export interface RerankCall {
 }
 
 /**
- * The scope's `candidates` from `retrieve`, reranked, its best `topK`: on a failure `RerankFailedError`
+ * The scope's `candidates` from `retrieve`, reranked, its best `topK`: on a failure `StepError.RerankFailed`
  * (the default `FailStep`), or the retrieval's own first `topK` with a `rerank:<rag>:fallback` span under `Fallback`. An
  * aborted call stays aborted (it is no reranker's failure); an empty retrieval calls no reranker.
  */
@@ -217,7 +179,7 @@ async function rerankedOf(
     if (signal.aborted) throw error;
     const usage = [...masked.usage, ...failedSpendOf(error)];
     if (bound.onFailure === RerankFailurePolicy.FailStep)
-      throw new RerankFailedError({
+      throw new StepError.RerankFailed({
         rag: bound.rag,
         reranker: bound.reranker,
         cause: error,

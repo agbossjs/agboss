@@ -1,3 +1,4 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import { isWorkingDuration } from "../units/index.js";
 import {
   amountOf,
@@ -10,7 +11,7 @@ import type { ComponentOptions } from "../components/component-options.js";
 import type { ProviderModule } from "../components/container/registrations.js";
 import type { Class } from "../components/injection.js";
 import { isCountLimit, shownLimit } from "../graph/count-limit.js";
-import { GraphRuleError, violation, type RuleViolation } from "../graph/rule-error.js";
+import { violation, type RuleViolation } from "../graph/rule-error.js";
 import {
   channelTargetOf,
   isExternalTask,
@@ -180,5 +181,5 @@ export function checkChannels(
     ...channelRuleViolations(uses, modules, options),
     ...(isStandalone ? sharedInterpreterViolations(uses) : []),
   ];
-  if (violations.length > 0) throw new GraphRuleError({ violations });
+  if (violations.length > 0) throw new ConfigError.GraphRules({ violations });
 }

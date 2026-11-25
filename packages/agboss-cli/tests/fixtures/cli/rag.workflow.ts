@@ -74,7 +74,6 @@ export class GuidesRag extends RagSource {
   description: "Reads notes and the handbook",
   prompt: inline("Read."),
   model: "test/alpha",
-  price: testConfig.agents.alpha.price,
   rag: [NotesRag, HandbookRag],
 })
 export class ReaderAgent {}
@@ -84,7 +83,6 @@ export class ReaderAgent {}
   description: "Writes from the notes",
   prompt: inline("Write."),
   model: "test/beta",
-  price: testConfig.agents.alpha.price,
   rag: [NotesRag, GuidesRag],
 })
 export class WriterAgent {}

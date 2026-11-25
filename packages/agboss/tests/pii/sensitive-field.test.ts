@@ -19,8 +19,8 @@ const test = testWith(SensitiveApplication);
 const FOUND = '{"found":[{"kind":"person-name","text":"Dana Cohen"}]}';
 
 /** The detection model finds Dana Cohen wherever she is; nothing elsewhere. */
-function scriptDetection(mockLlm: (target: Class) => ModelScript): void {
-  mockLlm(NamesPiiPolicy).thenAnswer((request) =>
+function scriptDetection(mockModel: (target: Class) => ModelScript): void {
+  mockModel(NamesPiiPolicy).respondWith((request) =>
     replyWith(requestText(request).includes("Dana Cohen") ? FOUND : '{"found":[]}'),
   );
 }
@@ -28,12 +28,12 @@ function scriptDetection(mockLlm: (target: Class) => ModelScript): void {
 describe("#120 AC8: a sensitive DTO field goes through its action on the way into a model", () => {
   test("WorkflowStartTextDto.author is masked one-way: a placeholder for the model, never the value", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    scriptDetection(mockLlm);
-    mockLlm(DeskRouter).thenReturn(routeTo(DeskAgent));
-    const agent = mockLlm(DeskAgent);
-    agent.thenAnswer((request) => {
+    scriptDetection(mockModel);
+    mockModel(DeskRouter).thenReturn(routeTo(DeskAgent));
+    const agent = mockModel(DeskAgent);
+    agent.respondWith((request) => {
       return replyWith(
         `Hello ${requestText(request).includes("<author>") ? "<author>" : "nobody"}`,
       );
@@ -48,10 +48,10 @@ describe("#120 AC8: a sensitive DTO field goes through its action on the way int
 });
 
 describe("#120 AC13: a sensitive context field is masked wherever it appears", () => {
-  test("the execution's userId never reaches the agent's model", async ({ app, mockLlm }) => {
-    scriptDetection(mockLlm);
-    mockLlm(DeskRouter).thenReturn(routeTo(DeskAgent));
-    const agent = mockLlm(DeskAgent).thenReturn(replyWith("ok"));
+  test("the execution's userId never reaches the agent's model", async ({ app, mockModel }) => {
+    scriptDetection(mockModel);
+    mockModel(DeskRouter).thenReturn(routeTo(DeskAgent));
+    const agent = mockModel(DeskAgent).thenReturn(replyWith("ok"));
 
     await execute(
       app,
@@ -67,10 +67,13 @@ describe("#120 AC13: a sensitive context field is masked wherever it appears", (
 });
 
 describe("#120 S38: a router's model reads its input masked", () => {
-  test("the email in the message is a token in the decision request", async ({ app, mockLlm }) => {
-    scriptDetection(mockLlm);
-    const router = mockLlm(DeskRouter).thenReturn(routeTo(DeskAgent));
-    mockLlm(DeskAgent).thenReturn(replyWith("ok"));
+  test("the email in the message is a token in the decision request", async ({
+    app,
+    mockModel,
+  }) => {
+    scriptDetection(mockModel);
+    const router = mockModel(DeskRouter).thenReturn(routeTo(DeskAgent));
+    mockModel(DeskAgent).thenReturn(replyWith("ok"));
 
     await execute(app, DeskStart, { text: "write to bo@acme.com" });
 
@@ -83,11 +86,11 @@ describe("#120 S38: a router's model reads its input masked", () => {
 describe("#120 AC3: model finds names in free text", () => {
   test("the name the model found is replaced; the detection is paid under pii:<policy>", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    scriptDetection(mockLlm);
-    mockLlm(DeskRouter).thenReturn(routeTo(DeskAgent));
-    const agent = mockLlm(DeskAgent).thenReturn(replyWith("ok"));
+    scriptDetection(mockModel);
+    mockModel(DeskRouter).thenReturn(routeTo(DeskAgent));
+    const agent = mockModel(DeskAgent).thenReturn(replyWith("ok"));
 
     const result = await execute(app, DeskStart, { text: "Dana Cohen asks for a refund" });
 
@@ -95,11 +98,11 @@ describe("#120 AC3: model finds names in free text", () => {
     expect(Object.keys(result.spend.byCaller)).toContain("pii:names-pii-policy");
   });
 
-  test("an answer that is not the JSON asked for fails closed", async ({ app, mockLlm }) => {
-    mockLlm(NamesPiiPolicy).thenReturnAlways(replyWith("no idea"));
-    mockLlm(DeskRouter).thenReturn(routeTo(DeskAgent));
+  test("an answer that is not the JSON asked for fails closed", async ({ app, mockModel }) => {
+    mockModel(NamesPiiPolicy).thenReturnAlways(replyWith("no idea"));
+    mockModel(DeskRouter).thenReturn(routeTo(DeskAgent));
     // no script: the detection fails before the agent is asked (a call would fail the test)
-    const agent = mockLlm(DeskAgent);
+    const agent = mockModel(DeskAgent);
 
     const failure = await execute(app, DeskStart, { text: "Dana Cohen" }).catch(
       (error: unknown) => error,

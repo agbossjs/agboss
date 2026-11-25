@@ -44,8 +44,8 @@ const desk = testWith(PausesApplication, { instances: [{ meterProvider: meter.pr
 describe("#946 with #943: a reassignment is counted", () => {
   desk(
     "the old pause closes `reassigned` once, the replacement opens once; a refused reassignment counts nothing",
-    async ({ app, mockLlm }) => {
-      mockLlm(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "7" }));
+    async ({ app, mockModel }) => {
+      mockModel(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "7" }));
       await execute(app, DeskWorkflowStart, { text: "refund order 7" });
       const oldId = seen.asks[0]?.pauseId ?? "";
       const role = "refund-gate-tool-approval/finance-desk-refund-approval-channel";

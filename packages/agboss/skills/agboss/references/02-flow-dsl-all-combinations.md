@@ -445,7 +445,7 @@ import { OrderHeldWorkflowFinish } from "./order-held.workflow-finish.js";
         toAgent(OrderIntakeAgent)
           .toRouter(CreditLimitRouter)
           .onError(
-            CreditServiceUnavailableError, // route() threw: caught through RouterFailedError's cause
+            CreditServiceUnavailableError, // route() threw: caught through StepError.Router's cause
             toFinish(OrderHeldWorkflowFinish),
           )
           .onRoute(
@@ -470,9 +470,9 @@ export class CreditWorkflow {}
 
 - A route **to a finish** on a model router is worded as a stop instruction ("Stop and hand it over:
   …"), never "the answer is ready".
-- A router that fails fails the run unless an `.onError(…)` right after it takes it: `RouterFailedError`
+- A router that fails fails the run unless an `.onError(…)` right after it takes it: `StepError.Router`
   (the original as `cause`, so `.onError(CreditServiceUnavailableError, …)` catches it) or
-  `RouterDecisionError` (an answer outside its routes; a `RouterFailedError` too, never retried).
+  `StepError.RouterDecision` (an answer outside its routes; a sibling of `StepError.Router`, not a subclass — catch the `StepError` family for both —, never retried).
 - `.onError` stands right after the step, before `.onRoute(…)`.
 - A model router without `model` takes `defaults.router.model` (none anywhere: `[model.missing-provider]`); its `input`
   is never empty (`[router.empty-input]`); a route of a model router is `{ target, prompt }`
@@ -652,7 +652,7 @@ export class OfferFailedWorkflowFinish {}
 
 ```ts file=src/offer/workflows/offer/offer.workflow.ts
 import {
-  VisitsLimitExceededError,
+  LimitError,
   Workflow,
   onAgent,
   oneOf,
@@ -690,7 +690,7 @@ import { OfferWorkflowStart } from "./offer.workflow-start.js";
         // the editor reads the requested changes: that tells this branch apart
         toAgent(OfferEditorAgent)
           .onError(
-            VisitsLimitExceededError, // the editor's maxVisits spent: a person takes over
+            LimitError.Visits, // the editor's maxVisits spent: a person takes over
             toAction(NotifyRecruiterAction)
               .toFinish(OfferFailedWorkflowFinish),
           ) // a new draft: the old one and the changes about it are outdated
@@ -962,7 +962,7 @@ export class ReviewIncompleteWorkflowFinish {}
 
 ```ts file=src/review/workflows/article-review/article-review.workflow.ts
 import {
-  StepFailedError,
+  StepError,
   Workflow,
   listOf,
   onStart,
@@ -1008,7 +1008,7 @@ import { ReviewSummaryWorkflowFinish } from "./review-summary.workflow-finish.js
       )
       .join()
       .onError(
-        StepFailedError, // a branch failed (FailFast): the others were cancelled
+        StepError, // a branch failed (FailFast): the others were cancelled
         toFinish(ReviewIncompleteWorkflowFinish),
       ) // fact-checker-agent ran twice: a list
       .toAction(ReviewSummaryAction)
@@ -1176,7 +1176,7 @@ export class SupportLaunchRouter {}
 
 ```ts file=src/support/workflows/support-launch/support-launch.workflow.ts
 import {
-  StepFailedError,
+  StepError,
   Workflow,
   optional,
   onStart,
@@ -1208,7 +1208,7 @@ import { SupportReplyWorkflowFinish } from "./support-reply.workflow-finish.js";
       .inParallel([
         toAgent(OrderLookupAgent), // always launched
         toAgent(LoyaltyOfferAgent)
-          .onError(StepFailedError, skip()), // may drop out
+          .onError(StepError, skip()), // may drop out
         toRouter(SupportLaunchRouter)
           .chooseMany([toAgent(RefundTermsAgent)]), // exactly its routes
       ])
@@ -1237,7 +1237,7 @@ Launch rules:
   routes (`[router.routes-mismatch]`), each with its prompt on a model router (`[router.no-prompt]`).
   A code router's `route(input)` returns the targets to launch as a list, `[]` included.
 - `maxConcurrency` is a sliding window; a failed branch aborts its siblings (`FailFast`); `Skip`
-  drops only a `StepFailedError`; `app.cancel` cancels the whole execution, never a branch outcome.
+  drops only a `StepError`; `app.cancel` cancels the whole execution, never a branch outcome.
 
 ## 5. Quorums, groups and arbiters
 
@@ -1449,7 +1449,7 @@ export class PanelScoreArbiter {
 ```
 
 ```ts file=src/panel/workflows/panel/panel.workflow.ts
-import { QuorumNotReachedError, Workflow, listOf, onStart, toAgent, toFinish, Ttl } from "@agboss/core";
+import { StepError, Workflow, listOf, onStart, toAgent, toFinish, Ttl } from "@agboss/core";
 import { seconds } from "@agboss/core/units";
 import { CulturePanelAgent } from "../../agents/culture-panel/culture-panel.agent.js";
 import { PanelVerdictAgent } from "../../agents/panel-verdict/panel-verdict.agent.js";
@@ -1472,7 +1472,7 @@ import { PanelWorkflowStart } from "./panel.workflow-start.js";
       .inParallel([toAgent(SkillsPanelAgent), toAgent(CulturePanelAgent), toAgent(RiskPanelAgent)])
       .arbitratedBy(PanelScoreArbiter) // one arbiter; its code asks its own model only where it must
       .joinQuorum({ min: 2, max: 3, deadline: seconds(30) }) // two accepted answers are enough
-      .onError(QuorumNotReachedError, toFinish(PanelUndecidedWorkflowFinish)) // one output class from several agents: a list, in counting order
+      .onError(StepError.QuorumNotReached, toFinish(PanelUndecidedWorkflowFinish)) // one output class from several agents: a list, in counting order
       .toAgent(PanelVerdictAgent)
       .toFinish(PanelVerdictWorkflowFinish),
   ],
@@ -1608,7 +1608,7 @@ export class DealUnreviewedWorkflowFinish {}
 ```
 
 ```ts file=src/deal/workflows/deal/deal.workflow.ts
-import { QuorumNotReachedError, Workflow, listOf, onStart, toAgent, toFinish, Ttl } from "@agboss/core";
+import { StepError, Workflow, listOf, onStart, toAgent, toFinish, Ttl } from "@agboss/core";
 import { minutes } from "@agboss/core/units";
 import { DealCriticAgent } from "../../agents/deal-critic/deal-critic.agent.js";
 import { DealLegalAgent } from "../../agents/deal-legal/deal-legal.agent.js";
@@ -1637,7 +1637,7 @@ import { DealWorkflowStart } from "./deal.workflow-start.js";
         toAgent(DealScreenAgent),
       ])
       .joinQuorumGroups({ deadline: minutes(1) })
-      .onError(QuorumNotReachedError, toFinish(DealUnreviewedWorkflowFinish))
+      .onError(StepError.QuorumNotReached, toFinish(DealUnreviewedWorkflowFinish))
       .onGroup(
         [DealLegalAgent, DealCriticAgent], // deal-critic-agent is launched twice: a list, even of one
         { priority: 1 },
@@ -1662,7 +1662,7 @@ Quorum rules:
   never complete, is `[flow.quorum-impossible]`.
 - At run time each answer is `BranchVerdict.Counted`, `Rejected` or `Surplus`; once the quorum is
   decided the rest is cancelled (`BranchStatus.Cancelled`). A quorum not reached is
-  `QuorumNotReachedError` into `.onError(…)`; an arbiter that throws is `ArbiterError`. The time
+  `StepError.QuorumNotReached` into `.onError(…)`; an arbiter that throws is `StepError.Arbiter`. The time
   a branch waits for a tree slot does not count against the `deadline`.
 
 ## 6. Child workflows
@@ -1791,7 +1791,7 @@ export class VendorCheckFailedWorkflowFinish {}
 ```ts file=src/vendor/workflows/vendor-check/vendor-check.workflow.ts
 // the child: an ordinary @Workflow — one vendor, its own branches, a soft failure on its side path
 import {
-  StepFailedError,
+  StepError,
   Workflow,
   oneOf,
   onStart,
@@ -1819,7 +1819,7 @@ import { VendorScoredWorkflowFinish } from "./vendor-scored.workflow-finish.js";
     onStart(VendorCheckWorkflowStart)
       .toAgent(VendorCheckerAgent)
       .onError(
-        StepFailedError, // the child catches its own failure: one more result class for its parent
+        StepError, // the child catches its own failure: one more result class for its parent
         toAction(MarkVendorFailedAction)
           .toFinish(VendorCheckFailedWorkflowFinish),
       )
@@ -1953,7 +1953,7 @@ export class VendorScreeningWorkflow {}
 
 ```ts file=src/vendor/workflows/single-vendor/single-vendor.workflow.ts
 import {
-  ChildExecutionFailedError,
+  StepError,
   Workflow,
   oneOf,
   onStart,
@@ -1983,7 +1983,7 @@ import { VendorCrashedWorkflowFinish } from "./vendor-crashed.workflow-finish.js
     onStart(SingleVendorWorkflowStart)
       .toWorkflow(VendorCheckWorkflow)
       .onError(
-        ChildExecutionFailedError, // an uncaught error of the child (its step, maxSteps, maxVisits)
+        StepError.Child, // an uncaught error of the child (its step, maxSteps, maxVisits)
         toFinish(VendorCrashedWorkflowFinish),
       )
       .toOneOf([
@@ -2106,7 +2106,7 @@ export class PaymentRecoveryWorkflow {}
 ```
 
 ```ts file=src/payment/workflows/pay/pay.workflow.ts
-import { StepFailedError, Workflow, onStart, toWorkflow, toAction, toFinish, Ttl } from "@agboss/core";
+import { StepError, Workflow, onStart, toWorkflow, toAction, toFinish, Ttl } from "@agboss/core";
 import { ChargeCardAction } from "../../actions/charge-card.action.js";
 import { PaymentDoneDto } from "../../dto/payment-done.dto.js";
 import { PaymentRequestDto } from "../../dto/payment-request.dto.js";
@@ -2123,7 +2123,7 @@ import { RecoveredWorkflowFinish } from "./recovered.workflow-finish.js";
     onStart(PayWorkflowStart)
       .toAction(ChargeCardAction)
       .onError(
-        StepFailedError, // the charge failed: the recovery workflow takes it from here
+        StepError, // the charge failed: the recovery workflow takes it from here
         toWorkflow(PaymentRecoveryWorkflow)
           .toFinish(RecoveredWorkflowFinish),
       )
@@ -2141,9 +2141,9 @@ Child rules:
   subclass, `class QuickVendorDto extends VendorDto {}`). Both are compile errors too.
 - **Errors**: `.onError(E, …)` right after `.toWorkflow(W)` or `onWorkflow(W)`; `.onError(E, …)`
   right after a per-item join. An uncaught error of the child — its step, its `maxSteps`, a node's
-  `maxVisits` — is the parent's `ChildExecutionFailedError` (a `StepFailedError`: `cause`,
+  `maxVisits` — is the parent's `StepError.Child` (a `StepError`: `cause`,
   `childExecutionId`, `itemIndex`, `workflow`), so its handler may be an agent. An exhausted budget,
-  a cancel and `CompensationFailedError` stop the whole tree as they are — never wrapped.
+  a cancel and `ExecutionError.CompensationFailed` stop the whole tree as they are — never wrapped.
 - **Soft failure per item**: a child that catches its own error and ends at a failure finish gives
   one more result class; a per-item child with no finish reachable from an `.onError` side path warns
   `[graph.child-without-failure-finish]` (one failed item would cancel all the others).
@@ -2289,7 +2289,7 @@ export class TopicFailedWorkflowFinish {}
 ```
 
 ```ts file=src/topic/workflows/topic-research/topic-research.workflow.ts
-import { StepFailedError, Workflow, onAction, listOf, oneOf, onStart, toAction, toAgent, toFinish, toWorkflow, Ttl } from "@agboss/core";
+import { StepError, Workflow, onAction, listOf, oneOf, onStart, toAction, toAgent, toFinish, toWorkflow, Ttl } from "@agboss/core";
 import { MarkTopicFailedAction } from "../../actions/mark-topic-failed.action.js";
 import { SplitTopicAction } from "../../actions/split-topic.action.js";
 import { TopicMergeAgent } from "../../agents/topic-merge/topic-merge.agent.js";
@@ -2309,7 +2309,7 @@ import { TopicResearchWorkflowStart } from "./topic-research.workflow-start.js";
   flow: [
     onStart(TopicResearchWorkflowStart)
       .toAgent(TopicResearcherAgent)
-      .onError(StepFailedError, toAction(MarkTopicFailedAction)) // a failed topic ends softly
+      .onError(StepError, toAction(MarkTopicFailedAction)) // a failed topic ends softly
       .toOneOf([
         toFinish(TopicReportWorkflowFinish),
         // not offered on the last level: this case recurses
@@ -2320,7 +2320,7 @@ import { TopicResearchWorkflowStart } from "./topic-research.workflow-start.js";
           )
           .join()
           .toAgent(TopicMergeAgent)
-          .onError(StepFailedError, toAction(MarkTopicFailedAction))
+          .onError(StepError, toAction(MarkTopicFailedAction))
           .toFinish(TopicReportWorkflowFinish),
       ]),
 
@@ -2337,8 +2337,8 @@ export class TopicResearchWorkflow {}
   `[graph.recursion-without-exit]`; only direct recursion — two workflows launching each other is
   `[graph.mutual-recursion]`; a flow naming its own class (as a thunk) is the recursion itself.
 - A launch by code or data past `maxDepth` does not start: the parent's step fails with
-  `ChildExecutionFailedError` caused by `DepthLimitExceededError` — take it with
-  `.onError(LimitExceededError, …)` (actions and finishes only) right after the launch, or
+  `StepError.Child` caused by `LimitError.Depth` — take it with
+  `.onError(LimitError, …)` (actions and finishes only) right after the launch, or
   `.onError(…)` after a per-item join.
 - `@Workflow({ executionLimits: { maxConcurrency } })` (default 10, a whole number from 1,
   `[limits.max-concurrent-executions-invalid]`) is how many executions of the tree work at once; a
@@ -2364,7 +2364,7 @@ after** its action.
   `@Application({ executionLimits: { compensationTimeout } })` (default `seconds(15)`), with no budget check; it survives
   a crash (the next holder of the tree finishes it).
 - An undo that fails does not stop the others; then the execution fails with
-  `CompensationFailedError` (`failures`, `cause` the original error) — no side path takes it.
+  `ExecutionError.CompensationFailed` (`failures`, `cause` the original error) — no side path takes it.
 
 ```ts file=src/order/dto/order-request.dto.ts
 import { Text } from "@agboss/core/dto";
@@ -2810,40 +2810,38 @@ CompensationReason.JoinFailed })` (reference 10). `npx agboss describe` prints
 
 ## 9. Errors: what `.onError` can catch
 
-`.onError(E, …)` matches by class through the cause chain: a subclass is caught by its parent's side
-path, and so is an error _caused_ by `E` (an action's own exception is the `cause` of its
-`ActionFailedError`). The most specific handler wins; two for one class on one step are
+`.onError(E, …)` matches by class through the cause chain: a family's side path takes every variant of it and a variant's only that variant (variants are siblings, never subclasses of each other), and so is an error _caused_ by `E` (an action's own exception is the `cause` of its
+`StepError.Action`). The most specific handler wins; two for one class on one step are
 `[flow.duplicate-error-handler]`. Without a handler the execution fails.
 
-| Class (`code`)                                                                                  | Thrown when                                                                    | Side path may use a model?         |
-| ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | ---------------------------------- |
-| `PaidStepError` (`step`)                                                                        | the parent of a step's failures that cost money (rows below)                   | yes                                |
-| ↳ `StepFailedError` (`step.failed`)                                                             | a step's own failure — names `component`, `nodeId`, `visitNumber`, `itemIndex` | yes                                |
-| ↳↳ `AgentFailedError` (`step.agent`)                                                            | an agent's model call or loop failed                                           | yes                                |
-| ↳↳↳ `AgentAnswerInvalidError` (`step.agent.invalid-answer`)                                     | its answers stayed invalid after the retries                                   | yes                                |
-| ↳↳↳ `QualityGateError` (`step.agent.quality-gate`)                                              | its judges rejected the answer after `maxRetries`                              | yes                                |
-| ↳↳ `ActionFailedError` (`step.action`)                                                          | an action threw (the original as `cause`)                                      | yes                                |
-| ↳↳ `RouterFailedError` (`step.router`) ↳ `RouterDecisionError` (`step.router.invalid-decision`) | `route()` threw / the model failed; an answer outside the routes               | yes                                |
-| ↳↳ `GuardFailedError` (`step.guard`)                                                            | a guardrail's model did not answer (fails closed)                              | yes                                |
-| ↳↳ `ArbiterError` (`step.arbiter`), `QuorumNotReachedError` (`step.quorum`)                     | an arbiter threw; too few counted answers (`.onError`)                         | yes                                |
-| ↳↳ `ChildExecutionFailedError` (`step.child`)                                                   | a child's uncaught error (its `cause`)                                         | yes, unless the cause is a limit   |
-| ↳ `GuardrailBlockedError` (`guardrail.blocked`)                                                 | a guardrail said yes; `refusal` is the text to send instead                    | yes                                |
-| ↳ `PiiRefusedError` (`pii.refused`)                                                             | a `block()` PII rule matched                                                   | yes                                |
-| `LimitExceededError` (`limit`)                                                                  | the parent of every limit                                                      | **no** — actions and finishes only |
-| ↳ `StepsLimitExceededError` (`limit.steps`)                                                     | the workflow's `maxSteps`                                                      | no                                 |
-| ↳ `VisitsLimitExceededError` (`limit.visits`)                                                   | a node's `maxVisits`                                                           | no                                 |
-| ↳ `BudgetExceededError` (`limit.budget`)                                                        | a `@Budget`'s `maxSpend()`                                                     | no                                 |
-| ↳ `DepthLimitExceededError` (`limit.depth`)                                                     | a recursive launch past `maxDepth` (inside `ChildExecutionFailedError`)        | no                                 |
-| `ExecutionCancelledError` (`execution.cancelled`)                                               | `app.cancel` or the caller's `signal` — never taken by a side path             | —                                  |
-| `ApplicationStoppingError` (`app.stopping`)                                                     | `app.close()` interrupted it — never taken                                     | —                                  |
-| `CompensationFailedError` (`compensation.failed`)                                               | an automatic undo failed — never taken                                         | —                                  |
+| Class (`code`)                                                                                  | Thrown when                                                        | Side path may use a model?         |
+| ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ | ---------------------------------- |
+| `StepError` (`step`)                                                                            | the family of a step's failures (every `StepError.*` row)          | yes                                |
+| `StepError.Agent` (`step.agent`)                                                                | an agent's model call or loop failed                               | yes                                |
+| `StepError.AgentAnswerInvalid` (`step.agent.invalid-answer`)                                    | its answers stayed invalid after the retries                       | yes                                |
+| `StepError.QualityGate` (`step.agent.quality-gate`)                                             | its judges rejected the answer after `maxRetries`                  | yes                                |
+| `StepError.Action` (`step.action`)                                                              | an action threw (the original as `cause`)                          | yes                                |
+| `StepError.Router` (`step.router`), `StepError.RouterDecision` (`step.router.invalid-decision`) | `route()` threw / the model failed; an answer outside the routes   | yes                                |
+| `StepError.Guardrail` (`step.guardrail`)                                                        | a guardrail's model did not answer (fails closed)                  | yes                                |
+| `StepError.Arbiter` (`step.arbiter`), `StepError.QuorumNotReached` (`step.quorum`)              | an arbiter threw; too few counted answers (`.onError`)             | yes                                |
+| `StepError.Child` (`step.child`)                                                                | a child's uncaught error (its `cause`)                             | yes, unless the cause is a limit   |
+| `GuardrailError.Blocked` (`guardrail.blocked`)                                                  | a guardrail said yes; `refusal` is the text to send instead        | yes                                |
+| `PiiError.Refused` (`pii.refused`)                                                              | a `block()` PII rule matched                                       | yes                                |
+| `LimitError` (`limit`)                                                                          | the family of every limit                                          | **no** — actions and finishes only |
+| `LimitError.Steps` (`limit.steps`)                                                              | the workflow's `maxSteps`                                          | no                                 |
+| `LimitError.Visits` (`limit.visits`)                                                            | a node's `maxVisits`                                               | no                                 |
+| `LimitError.Budget` (`limit.budget`)                                                            | a `@Budget`'s `maxSpend()`                                         | no                                 |
+| `LimitError.Depth` (`limit.depth`)                                                              | a recursive launch past `maxDepth` (inside `StepError.Child`)      | no                                 |
+| `ExecutionCancelledError` (`execution.cancelled`)                                               | `app.cancel` or the caller's `signal` — never taken by a side path | —                                  |
+| `ApplicationStoppingError` (`app.stopping`)                                                     | `app.close()` interrupted it — never taken                         | —                                  |
+| `ExecutionError.CompensationFailed` (`execution.compensation-failed`)                           | an automatic undo failed — never taken                             | —                                  |
 
 `ToolTimeoutError` (`tool.timeout`) never reaches the flow: a tool call past its `timeout` is read by
 its agent's model as the tool's error, like any tool error. All of them are `AGBossError`s.
 
 Your own domain errors are plain `Error` subclasses thrown by services; catch them by class
 (`.onError(CarrierError, …)`): the framework's wrapper keeps them as `cause`. A side path that can
-catch a limit — `LimitExceededError`, a subclass, or a parent such as `AGBossError` or `Error` —
+catch a limit — `LimitError`, a subclass, or a parent such as `AGBossError` or `Error` —
 leads only to actions and finishes (`[graph.limit-handler-uses-model]`): nothing pays past a limit.
 
 ## 10. Limits the flow is checked against

@@ -91,10 +91,10 @@ const isMasked = (text: string): void => {
 describe("#1301: sensitive fields of a final output are masked in what is stored", () => {
   test("record, history, end event and a late read hold the token and the mask; the caller keeps the values", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
     ends.length = 0;
-    mockLlm(DeskRouter).thenReturn(routeTo(HandOverFinish));
+    mockModel(DeskRouter).thenReturn(routeTo(HandOverFinish));
 
     const result = await execute(
       app,

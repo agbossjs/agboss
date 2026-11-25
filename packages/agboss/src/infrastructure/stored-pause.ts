@@ -22,7 +22,7 @@ import { PauseRespondent } from "../pause/respondent.js";
 /**
  * A pause as a store keeps it as JSON (#934): every field of `PauseRecord` in the 0.1.1 shape, with
  * the answer it embeds checked inside. A row of any other shape (an old name, a missing field) is
- * `StoredNamesUnreadableError`.
+ * `StoreError.UnreadableRecord`.
  */
 
 /** What reading a reply cost (#267 S107): the fields the ledger is written from, the rest as written. */

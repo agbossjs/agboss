@@ -147,17 +147,6 @@ export interface ApplicationFacts {
 }
 
 // @public
-export class ApplicationLoadError extends AGBossError {
-    constructor(options: MessageErrorOptions);
-    // (undocumented)
-    static readonly code: "load.application";
-    // (undocumented)
-    readonly code: typeof ApplicationLoadError.code;
-    // (undocumented)
-    name: string;
-}
-
-// @public
 export function applicationModelUsesOf(workflows: readonly WorkflowModels_2[]): readonly ModelUse[];
 
 // @public (undocumented)
@@ -928,6 +917,22 @@ export const executeWithoutInputCheck: (app: Pick<AnyTenantApp, "execute">, star
 export const EXECUTION_RECORD_KIND = "agboss.execution-record";
 
 // @public
+export class ExecutionCancelledError extends AGBossError {
+    constructor(options?: ExecutionCancelledErrorOptions);
+    // (undocumented)
+    static readonly code: string;
+    readonly code: CancelledErrorCode;
+    // (undocumented)
+    name: string;
+}
+
+// @public
+export interface ExecutionCancelledErrorOptions extends AGBossErrorOptions {
+    // (undocumented)
+    readonly message?: string;
+}
+
+// @public
 export enum ExecutionCancelOutcome {
     Aborted = "aborted",
     AlreadyOver = "already-over",
@@ -1028,6 +1033,72 @@ export class ExecutionObserverManager extends ObserverHookCalls implements Requi
     onValuesOutdated(event: ValuesOutdatedEvent): Promise<void>;
     // (undocumented)
     readonly unknownCosts?: UnknownCostTally | undefined;
+}
+
+// @public
+export class ExecutionPausedError extends ExecutionStoppedError {
+    constructor(options?: ExecutionCancelledErrorOptions);
+    // (undocumented)
+    static readonly code: string;
+    // (undocumented)
+    name: string;
+}
+
+// @public
+export class ExecutionPauseFencedError extends ExecutionPausedError {
+    constructor(options: ExecutionCancelFencedErrorOptions);
+    // (undocumented)
+    static readonly code: "execution.paused.fenced";
+    // (undocumented)
+    readonly code: typeof ExecutionPauseFencedError.code;
+    // (undocumented)
+    readonly effect: string;
+    // (undocumented)
+    readonly leaseExecutionId: string;
+    // (undocumented)
+    name: string;
+    static of(key: CancelFencedKey): ExecutionPauseFencedError;
+    // (undocumented)
+    readonly rootExecutionId: string;
+    // (undocumented)
+    readonly scopeKey: string;
+    // (undocumented)
+    readonly tenantId: string;
+    // (undocumented)
+    readonly token: number;
+}
+
+// @public
+export class ExecutionStopFencedError extends ExecutionStoppedError {
+    constructor(options: ExecutionCancelFencedErrorOptions);
+    // (undocumented)
+    static readonly code: "execution.stopped.fenced";
+    // (undocumented)
+    readonly code: typeof ExecutionStopFencedError.code;
+    // (undocumented)
+    readonly effect: string;
+    // (undocumented)
+    readonly leaseExecutionId: string;
+    // (undocumented)
+    name: string;
+    static of(key: CancelFencedKey): ExecutionStopFencedError;
+    // (undocumented)
+    readonly rootExecutionId: string;
+    // (undocumented)
+    readonly scopeKey: string;
+    // (undocumented)
+    readonly tenantId: string;
+    // (undocumented)
+    readonly token: number;
+}
+
+// @public
+export class ExecutionStoppedError extends ExecutionCancelledError {
+    constructor(options?: ExecutionCancelledErrorOptions);
+    // (undocumented)
+    static readonly code: string;
+    // (undocumented)
+    name: string;
 }
 
 // @public
@@ -1266,6 +1337,9 @@ export function inputLines(analysis: FlowAnalysis): readonly string[];
 
 // @public
 export const INTERNAL_FAILURE = "internal";
+
+// @public
+export const isExecutionCancelled: (error: unknown) => error is ExecutionCancelledError | ExecutionError.CancelFenced;
 
 // @public
 export const isJudgeResult: (check: EvalCheckResult) => boolean;
@@ -1882,6 +1956,28 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/app/execution-control.ts - (ae-undocumented) Missing documentation for "threadId".
 // src/app/execution-control.ts - (ae-undocumented) Missing documentation for "ownerId".
 // src/app/execution-control.ts - (ae-undocumented) Missing documentation for "DurableExecutionState".
+// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "code".
+// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "name".
+// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "code".
+// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "name".
+// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "code".
+// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "code".
+// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "name".
+// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "scopeKey".
+// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "tenantId".
+// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "rootExecutionId".
+// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "leaseExecutionId".
+// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "token".
+// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "effect".
+// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "code".
+// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "code".
+// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "name".
+// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "scopeKey".
+// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "tenantId".
+// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "rootExecutionId".
+// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "leaseExecutionId".
+// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "token".
+// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "effect".
 // src/application/application-starts.ts - (ae-undocumented) Missing documentation for "name".
 // src/application/application-starts.ts - (ae-undocumented) Missing documentation for "description".
 // src/application/application-starts.ts - (ae-undocumented) Missing documentation for "component".
@@ -1915,6 +2011,9 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/core/error-options.ts - (ae-undocumented) Missing documentation for "cause".
 // src/core/error-options.ts - (ae-undocumented) Missing documentation for "details".
 // src/core/error-options.ts - (ae-undocumented) Missing documentation for "message".
+// src/core/errors.ts - (ae-undocumented) Missing documentation for "message".
+// src/core/errors.ts - (ae-undocumented) Missing documentation for "code".
+// src/core/errors.ts - (ae-undocumented) Missing documentation for "name".
 // src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "OBSERVER_HOOKS".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "unknownCosts".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "each".
@@ -2088,9 +2187,6 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/infrastructure/sqlite/sqlite-checkpoint-saver.ts - (ae-undocumented) Missing documentation for "list".
 // src/infrastructure/sqlite/sqlite-checkpoint-saver.ts - (ae-undocumented) Missing documentation for "put".
 // src/infrastructure/sqlite/sqlite-checkpoint-saver.ts - (ae-undocumented) Missing documentation for "putWrites".
-// src/loader/load-errors.ts - (ae-undocumented) Missing documentation for "code".
-// src/loader/load-errors.ts - (ae-undocumented) Missing documentation for "code".
-// src/loader/load-errors.ts - (ae-undocumented) Missing documentation for "name".
 // src/loader/load-eval-suites.ts - (ae-undocumented) Missing documentation for "file".
 // src/loader/load-eval-suites.ts - (ae-undocumented) Missing documentation for "suite".
 // src/loader/load-eval-suites.ts - (ae-undocumented) Missing documentation for "name".

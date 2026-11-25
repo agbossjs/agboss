@@ -132,8 +132,7 @@ export class ClaimRoomBatchAction {
     readonly results: readonly Tracked<ItemResultDto>[];
   }): Promise<SummaryDto> {
     return {
-      text: input.results
-        .map((result) => result.name)
+      text: input.results.map((result) => result.name)
         .join(", "),
     };
   }

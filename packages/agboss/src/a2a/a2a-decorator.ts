@@ -23,7 +23,7 @@ export interface A2ATarget {
   readonly skill?: string;
   /**
    * The skill's finishes a typed client takes (#916, `@WorkflowFinish` names): its `output` must
-   * accept each one's, and a task that ends at another is `A2AUnexpectedFinishError`. Unset: every
+   * accept each one's, and a task that ends at another is `A2AError.UnexpectedFinish`. Unset: every
    * finish of the skill — the output must accept them all (`[a2a.schema-mismatch]` otherwise).
    */
   readonly finishes?: readonly string[];

@@ -2,18 +2,11 @@
  * #396 PR 1 — `@agboss/core/eval`: `@EvalSuite` and the builders of its cases and checks, typed by the
  * suite's start and each tool's input, and its assembly on the application it runs on —
  * `[name.kind-suffix]`, `[eval.unknown-start]`, `[eval.duplicate-case]`, `[eval.judge-wrong-output]`,
- * then the cases' values (`eval.case-invalid`). Nothing runs: no runner yet.
+ * then the cases' values (`config.eval-case`). Nothing runs: no runner yet.
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
-import {
-  DecidedBy,
-  GraphRuleError,
-  Judge,
-  JudgeModel,
-  JudgeVerdict,
-  type JudgeHandler,
-} from "../../src/index.js";
-import { EvalCaseInvalidError } from "../../src/errors.js";
+import { DecidedBy, Judge, JudgeModel, JudgeVerdict, type JudgeHandler } from "../../src/index.js";
 import { listOf } from "../../src/flow/dto-wrappers.js";
 import {
   CheckStatus,
@@ -221,7 +214,7 @@ const codesOf = (application: new () => unknown, suite: new () => unknown): read
     checkEvalSuite(application, suite);
     return [];
   } catch (error) {
-    if (!(error instanceof GraphRuleError)) throw error;
+    if (!(error instanceof ConfigError.GraphRules)) throw error;
     return error.violations.map((found) => found.code);
   }
 };
@@ -371,7 +364,7 @@ describe("#396: the suite's assembly rules, every violation at once", () => {
   });
 });
 
-describe("#396: eval.case-invalid — the cases' values, every issue at once, no value printed", () => {
+describe("#396: config.eval-case — the cases' values, every issue at once, no value printed", () => {
   it("tenant and execution against the application's contexts, turns against the start, history against its start and finish", () => {
     @EvalSuite({
       name: "clinic-eval-suite",
@@ -429,11 +422,11 @@ describe("#396: eval.case-invalid — the cases' values, every issue at once, no
       }
     })();
 
-    if (!(failure instanceof EvalCaseInvalidError)) throw new Error("expected eval.case-invalid");
+    if (!(failure instanceof ConfigError.EvalCase)) throw new Error("expected config.eval-case");
     const invalid = failure;
-    expect(invalid.code).toBe("eval.case-invalid");
+    expect(invalid.code).toBe("config.eval-case");
     expect(invalid.suite).toBe("clinic-eval-suite");
-    expect(invalid.issues.map(({ case: name, path }) => `${name} ${path}`)).toEqual([
+    expect((invalid.issues ?? []).map(({ case: name, path }) => `${name} ${path}`)).toEqual([
       "broken tenant.units",
       "broken execution.clinician",
       "broken history[0].output.text",

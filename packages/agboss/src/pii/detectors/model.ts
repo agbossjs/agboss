@@ -1,7 +1,7 @@
+import { PiiError } from "../../core/error-families/limit-errors.js";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { z } from "zod";
 import { recordUsage, type UsageRecord } from "../../finops/usage.js";
-import { PaidStepError } from "../../graph/errors.js";
 import type { ModelBinding } from "../../llm/registry.js";
 import { piiDetectionInstructions } from "../../prompts/pii.js";
 import { SILENT_LOG, type FrameworkLog } from "../../infrastructure/logger.js";
@@ -16,13 +16,6 @@ import { chargedCall, reportToFrame } from "../../finops/charged-call.js";
  * answer that is not the JSON asked for fails closed — nothing goes to the model unmasked. A value
  * under a kind of no id is masked all the same (`<pii>`), with a warning (#1301).
  */
-
-/** The model did not answer what masking needs: the execution stops before the text is sent. */
-export class PiiDetectionFailedError extends PaidStepError {
-  static override readonly code = "pii.detection-failed" as const;
-  declare readonly code: typeof PiiDetectionFailedError.code;
-  override name = "PiiDetectionFailedError";
-}
 
 /** The log code of a model's answer that names a kind of no id. */
 export const UNKNOWN_KIND_CODE = "pii.model-unknown-kind";
@@ -102,7 +95,7 @@ export function modelDetectionOf(
     const usage: UsageRecord[] = [recordUsage(caller, binding.settings, response)];
     const answer = parsedAnswer(response.content);
     if (answer === undefined)
-      throw new PiiDetectionFailedError({
+      throw new PiiError.DetectionFailed({
         message: `${policy}: the PII detection model did not answer the JSON asked for`,
         usage,
       });

@@ -363,7 +363,7 @@ input.
 
 ## Rules
 
-Checked at assembly, all at once (`GraphRuleError`), each message naming the shortest path that
+Checked at assembly, all at once (`ConfigError.GraphRules`), each message naming the shortest path that
 breaks it:
 
 | Code | |

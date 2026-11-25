@@ -1,9 +1,9 @@
+import { LimitError } from "../../../../src/core/error-families/limit-errors.js";
 import { Text, WorkflowStartTextDto } from "../../../../src/dto/index.js";
 import {
   Agent,
   DecidedBy,
   Router,
-  VisitsLimitExceededError,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
@@ -38,7 +38,6 @@ const editor = {
   description: "Writes the draft, again after the gate's review",
   prompt: inline("Write the draft."),
   model: "test/editor",
-  price: { inputPerMTok: 1, outputPerMTok: 2 },
   executionLimits: { maxVisits: 2 },
   input: { message: WorkflowStartTextDto, draft: optional(DraftDto) },
   output: DraftDto,
@@ -132,7 +131,7 @@ export class PatientEditorAgent {}
 })
 export class PatientGateRouter {}
 
-/** The same loop, the refused visit caught: `.onError(VisitsLimitExceededError, toFinish(…))`. */
+/** The same loop, the refused visit caught: `.onError(LimitError.Visits, toFinish(…))`. */
 @Workflow({
   name: "patient-edit-workflow",
   version: "1.0.0",
@@ -141,11 +140,8 @@ export class PatientGateRouter {}
     onStart(EditStart)
       .toAgent(PatientEditorAgent),
     onAgent(PatientEditorAgent)
-      .onError(
-        VisitsLimitExceededError,
-        toAction(GaveUpAction)
-          .toFinish(GaveUpFinish),
-      )
+      .onError(LimitError.Visits, toAction(GaveUpAction)
+        .toFinish(GaveUpFinish))
       .toRouter(PatientGateRouter)
       .onRoute(toAgent(PatientEditorAgent))
       .onRoute(toFinish(DoneFinish)),

@@ -4,8 +4,9 @@
  * with `NothingToRecoverError`). The caller is told the truth — the store's own error, the run
  * failed and did not start — not that the tree was handed over and will be continued.
  */
+import { StoreError } from "../../src/core/error-families/store-errors.js";
 import { afterEach, beforeEach, describe, expect } from "vitest";
-import { ExecutionLeaseLostError, StoreCallTimeoutError } from "../../src/index.js";
+import { ExecutionLeaseLostError } from "../../src/index.js";
 import { SqliteConnection } from "../../src/infrastructure/sqlite/sqlite-connection.js";
 import { testWith } from "../../src/testing/index.js";
 import { processHoldPoints } from "../../src/testing/faults/hold-points.js";
@@ -51,7 +52,7 @@ describe("#1090 follow-up: a read that never answers before the first checkpoint
     expect(error).toBeInstanceOf(ExecutionLeaseLostError);
     expect((error as ExecutionLeaseLostError).code).toBe("execution.lease-lost.not-started");
     expect((error as ExecutionLeaseLostError).message).toContain("the run did not start");
-    expect((error as ExecutionLeaseLostError).cause).toBeInstanceOf(StoreCallTimeoutError);
+    expect((error as ExecutionLeaseLostError).cause).toBeInstanceOf(StoreError.CallTimeout);
     expect(status).toBe("failed");
   };
 

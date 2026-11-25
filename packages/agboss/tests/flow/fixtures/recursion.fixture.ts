@@ -1,3 +1,4 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import {
   onAction,
   onStart,
@@ -15,7 +16,6 @@ import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import { listOf, oneOf } from "../../../src/flow/dto-wrappers.js";
 import type { InputOf, OutputOf, Route } from "../../../src/flow/generated-types.js";
 import type { ActionHandler, RouterHandler } from "../../../src/flow/handlers.js";
-import { StepFailedError } from "../../../src/graph/errors.js";
 import { Integer, List, Text } from "../../../src/dto/index.js";
 import { inline, Ttl } from "../../../src/index.js";
 import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
@@ -123,7 +123,7 @@ export class ResearchFailedWorkflowFinish {}
   flow: [
     onStart(DeepResearchWorkflowStart)
       .toAgent(TopicResearcherAgent)
-      .onError(StepFailedError, toAction(FailTopicAction))
+      .onError(StepError, toAction(FailTopicAction))
       .toOneOf([
         toFinish(ResearchReportWorkflowFinish),
         toAction(SplitTopicAction)
@@ -133,7 +133,7 @@ export class ResearchFailedWorkflowFinish {}
           )
           .join()
           .toAgent(ReportMergerAgent)
-          .onError(StepFailedError, toAction(FailTopicAction))
+          .onError(StepError, toAction(FailTopicAction))
           .toFinish(ResearchReportWorkflowFinish),
       ]),
     onAction(FailTopicAction)
@@ -192,11 +192,8 @@ export class OutlineDepthRouter implements RouterHandler<OutlineDepthRouter> {
       )
       .onRoute(
         toAgent(OutlineAgent)
-          .onError(
-            StepFailedError,
-            toAction(FailTopicAction)
-              .toFinish(ResearchFailedWorkflowFinish),
-          )
+          .onError(StepError, toAction(FailTopicAction)
+            .toFinish(ResearchFailedWorkflowFinish))
           .toFinish(ResearchReportWorkflowFinish),
       ),
   ],

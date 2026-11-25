@@ -1,4 +1,4 @@
-import { usd } from "../../src/units/index.js";
+import { usd, type Usd } from "../../src/units/index.js";
 /**
  * #1356 — one model call's usage record: the cost the provider reported, the fallback's, else tokens ×
  * the price; a call with none of them fails; the cost a tool reports and its caller.
@@ -9,8 +9,6 @@ import { SERVED_BY_FIELD } from "../../src/finops/served-by.js";
 import {
   costOf,
   CostSource,
-  InvalidToolCostError,
-  ModelCostError,
   recordReportedCost,
   recordToolCost,
   recordUsage,
@@ -21,7 +19,7 @@ import {
 import { ConfigError } from "../../src/core/error-families/config-errors.js";
 
 const tokens = { usage_metadata: { input_tokens: 1_000_000, output_tokens: 500_000 } };
-const price = { inputPerMTok: 2, outputPerMTok: 4 };
+const price = { inputPerMillion: usd(2), outputPerMillion: usd(4) };
 
 describe("#1356: the cost a provider reported", () => {
   const of = (usage: unknown) => reportedCostOf({ response_metadata: { usage } });
@@ -137,17 +135,38 @@ describe("#1356: one model call's record", () => {
       response_metadata: { usage: { [FALLBACK_MARK]: { model: "backup/m", priced: true } } },
     };
 
-    expect(() => recordUsage("writer", { model: "m/a", price }, answered)).toThrow(ModelCostError);
+    expect(() => recordUsage("writer", { model: "m/a", price }, answered)).toThrow(
+      ConfigError.ModelCost,
+    );
     expect(() => recordUsage("writer", { model: "m/a", price }, answered)).toThrow(
       "writer: fallback model backup/m — no cost and no price",
     );
   });
 
   it("a call with neither a reported cost nor a price fails", () => {
-    expect(() => recordUsage("writer", { model: "m/a" }, tokens)).toThrow(ModelCostError);
+    expect(() => recordUsage("writer", { model: "m/a" }, tokens)).toThrow(ConfigError.ModelCost);
+    expect(() => recordUsage("writer", { model: "m/a" }, tokens)).toThrow(
+      expect.objectContaining({ code: "config.model-cost", model: "m/a" }),
+    );
     expect(() => recordUsage("writer", { model: "m/a" }, tokens)).toThrow(
       "writer: model m/a — its provider reported no cost and it has no price",
     );
+  });
+
+  it("a price that makes no amount is a ModelCost with its model and field; a tool's invalid cost is no ModelCost", () => {
+    const nan = { usage_metadata: { input_tokens: Number.NaN, output_tokens: 1 } };
+
+    expect(() => recordUsage("writer", { model: "m/a", price }, nan)).toThrow(
+      expect.objectContaining({ code: "config.model-cost", model: "m/a", field: "price" }),
+    );
+    let tool: unknown;
+    try {
+      recordToolCost("search", Number.NaN);
+    } catch (error) {
+      tool = error;
+    }
+    expect(tool).toBeInstanceOf(ConfigError.Component);
+    expect(tool).not.toBeInstanceOf(ConfigError.ModelCost);
   });
 
   it("tokens that price at no amount are never accounted", () => {
@@ -160,19 +179,22 @@ describe("#1356: one model call's record", () => {
     expect(() =>
       recordUsage(
         "writer",
-        { model: "m/a", price: { inputPerMTok: 1, outputPerMTok: 1 } },
+        { model: "m/a", price: { inputPerMillion: usd(1), outputPerMillion: usd(1) } },
         negative,
       ),
     ).toThrow("writer: model m/a — its tokens price at no amount: -0.000008");
     expect(
-      recordUsage("writer", { model: "m/a", price: { inputPerMTok: 0, outputPerMTok: 0 } }, tokens)
-        .costUsd,
+      recordUsage(
+        "writer",
+        { model: "m/a", price: { inputPerMillion: usd(0), outputPerMillion: usd(0) } },
+        tokens,
+      ).costUsd,
     ).toBe(0);
   });
 
   it("the errors are named", () => {
-    expect(new ModelCostError("x").name).toBe("ModelCostError");
-    expect(new InvalidToolCostError("x").name).toBe("InvalidToolCostError");
+    expect(new ConfigError.Component({ message: "x" }).name).toBe("ConfigError.Component");
+    expect(new ConfigError.ModelCost({ message: "x" }).name).toBe("ConfigError.ModelCost");
   });
 });
 
@@ -209,10 +231,10 @@ describe("#1356: the cost a tool reports", () => {
 
 describe("#1385: a price that is no amount from 0 never costs a call", () => {
   const FIELDS = [
-    "inputPerMTok",
-    "outputPerMTok",
-    "cacheReadPerMTok",
-    "cacheWritePerMTok",
+    "inputPerMillion",
+    "outputPerMillion",
+    "cacheReadPerMillion",
+    "cacheWritePerMillion",
   ] as const;
   const BAD = [-1, Number.NaN, Number.POSITIVE_INFINITY, "5", null, -0.000001];
 
@@ -234,24 +256,30 @@ describe("#1385: a price that is no amount from 0 never costs a call", () => {
   it("a negative input price cannot offset a positive output price (the issue's $0.0005)", () => {
     const call = { usage_metadata: { input_tokens: 100, output_tokens: 1000 } };
     expect(() =>
-      recordUsage("w", { model: "m", price: { inputPerMTok: -5, outputPerMTok: 1 } }, call),
+      recordUsage(
+        "w",
+        { model: "m", price: { inputPerMillion: -5 as Usd, outputPerMillion: usd(1) } },
+        call,
+      ),
     ).toThrow(ConfigError.Unit);
   });
 
   it("a missing input or output price throws, a missing cache price does not", () => {
-    expect(() => costOf(ZERO_USAGE, { outputPerMTok: 1 } as never)).toThrow(
-      /inputPerMTok is undefined/,
+    expect(() => costOf(ZERO_USAGE, { outputPerMillion: usd(1) } as never)).toThrow(
+      /inputPerMillion is undefined/,
     );
-    expect(() => costOf(ZERO_USAGE, { inputPerMTok: 1 } as never)).toThrow(
-      /outputPerMTok is undefined/,
+    expect(() => costOf(ZERO_USAGE, { inputPerMillion: usd(1) } as never)).toThrow(
+      /outputPerMillion is undefined/,
     );
-    expect(costOf(ZERO_USAGE, { inputPerMTok: 0, outputPerMTok: 0 })).toBe(0);
-    expect(costOf(ZERO_USAGE, { ...price, cacheReadPerMTok: 0, cacheWritePerMTok: 0 })).toBe(0);
+    expect(costOf(ZERO_USAGE, { inputPerMillion: usd(0), outputPerMillion: usd(0) })).toBe(0);
+    expect(
+      costOf(ZERO_USAGE, { ...price, cacheReadPerMillion: usd(0), cacheWritePerMillion: usd(0) }),
+    ).toBe(0);
   });
 
   it("names a value by its kind, never its text", () => {
-    expect(() => costOf(ZERO_USAGE, { ...price, inputPerMTok: "sk-secret" as never })).toThrow(
-      /inputPerMTok is a string,/,
+    expect(() => costOf(ZERO_USAGE, { ...price, inputPerMillion: "sk-secret" as never })).toThrow(
+      /inputPerMillion is a string,/,
     );
   });
 });

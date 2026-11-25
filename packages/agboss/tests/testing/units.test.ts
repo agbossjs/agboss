@@ -24,7 +24,7 @@ const free: ResolvedModelSettings = {
   model: "test/free",
   temperature: 0,
   maxTokens: 100,
-  price: { inputPerMTok: 0, outputPerMTok: 0 },
+  price: { inputPerMillion: usd(0), outputPerMillion: usd(0) },
 };
 const request = { input: "x", options: [{ name: "a", description: "A" }] };
 
@@ -146,13 +146,13 @@ describe("AC12: setup errors name what is wrong", () => {
     );
   });
 
-  it("mcpOf(X) must be an MCP server of the workflow", async () => {
+  it("mockMcp(X) must be an MCP server of the workflow", async () => {
     const environment = await TestEnvironment.of(DeskApplication);
 
     class Other extends McpServerClient<Record<string, never>> {}
 
-    expect(() => environment.mcpOf(Other)).toThrow(
-      "mcpOf(Other): not an MCP server of this application",
+    expect(() => environment.mockMcp(Other)).toThrow(
+      "mockMcp(Other): not an MCP server of this application",
     );
     await environment.close();
   });

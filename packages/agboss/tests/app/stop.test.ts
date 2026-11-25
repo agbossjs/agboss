@@ -42,9 +42,9 @@ describe("#1341b: app.stop", () => {
 
   test("an Immediate stop aborts the step in flight: the call resolves Stopped with the reason, the next step never runs, the record is `stopped`", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(GateAgent).thenReturn(callTool(Gate, { text: "a" }));
+    mockModel(GateAgent).thenReturn(callTool(Gate, { text: "a" }));
     const started = begun();
     const run = execute(app, GateStart, { text: "go" });
     const threadId = await started;
@@ -73,9 +73,9 @@ describe("#1341b: app.stop", () => {
 
   test("onInterrupted: an interrupted step's cleanups run awaited, newest first, told why; one that throws is reported and the rest still run — before the call resolves", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(GateAgent).thenReturn(callTool(Gate, { text: "a" }));
+    mockModel(GateAgent).thenReturn(callTool(Gate, { text: "a" }));
     const started = begun();
     const run = execute(app, GateStart, { text: "go" });
     const threadId = await started;
@@ -94,8 +94,11 @@ describe("#1341b: app.stop", () => {
     ]);
   });
 
-  test("onInterrupted: nothing runs when the step ends normally", async ({ app, mockLlm }) => {
-    mockLlm(GateAgent).thenReturn(callTool(Gate, { text: "a" }), replyWith(NoteDto, { text: "x" }));
+  test("onInterrupted: nothing runs when the step ends normally", async ({ app, mockModel }) => {
+    mockModel(GateAgent).thenReturn(
+      callTool(Gate, { text: "a" }),
+      replyWith(NoteDto, { text: "x" }),
+    );
     const started = begun();
     const run = execute(app, GateStart, { text: "go" });
     await started;
@@ -110,9 +113,12 @@ describe("#1341b: app.stop", () => {
 
   test("an AfterStep stop lets the step in flight finish and commit, and starts no step after it", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(GateAgent).thenReturn(callTool(Gate, { text: "a" }), replyWith(NoteDto, { text: "x" }));
+    mockModel(GateAgent).thenReturn(
+      callTool(Gate, { text: "a" }),
+      replyWith(NoteDto, { text: "x" }),
+    );
     const started = begun();
     const run = execute(app, GateStart, { text: "go" });
     const threadId = await started;
@@ -129,9 +135,9 @@ describe("#1341b: app.stop", () => {
 
   test("a stop of a thread that is not running is NotRunning, and a second stop of a stopped one changes nothing", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(GateAgent).thenReturn(callTool(Gate, { text: "a" }));
+    mockModel(GateAgent).thenReturn(callTool(Gate, { text: "a" }));
     const started = begun();
     const run = execute(app, GateStart, { text: "go" });
     const threadId = await started;
@@ -146,9 +152,12 @@ describe("#1341b: app.stop", () => {
 
   test("a finish never lands over a durable stop mark: a mark with no request key still ends the run Stopped, and its record is `stopped`", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(GateAgent).thenReturn(callTool(Gate, { text: "a" }), replyWith(NoteDto, { text: "x" }));
+    mockModel(GateAgent).thenReturn(
+      callTool(Gate, { text: "a" }),
+      replyWith(NoteDto, { text: "x" }),
+    );
     const started = begun();
     const run = execute(app, GateStart, { text: "go" });
     const threadId = await started;
@@ -165,8 +174,14 @@ describe("#1341b: app.stop", () => {
     expect(record?.status).toBe("stopped");
   });
 
-  test("a durable cancel mark wins over a finish too: Cancel > Stop", async ({ app, mockLlm }) => {
-    mockLlm(GateAgent).thenReturn(callTool(Gate, { text: "a" }), replyWith(NoteDto, { text: "x" }));
+  test("a durable cancel mark wins over a finish too: Cancel > Stop", async ({
+    app,
+    mockModel,
+  }) => {
+    mockModel(GateAgent).thenReturn(
+      callTool(Gate, { text: "a" }),
+      replyWith(NoteDto, { text: "x" }),
+    );
     const started = begun();
     const run = execute(app, GateStart, { text: "go" });
     await started;
@@ -194,8 +209,8 @@ const kept = testWith(KeptCheckoutApplication);
 describe("#1341b: app.stop of a paused execution", () => {
   kept(
     "ends it Stopped at once, closes its pause, keeps nothing undone",
-    async ({ app, mockLlm }) => {
-      mockLlm(Clerk).thenReturn(
+    async ({ app, mockModel }) => {
+      mockModel(Clerk).thenReturn(
         callTool(Probe, { text: "card" }),
         callTool(Charge, { text: "10 USD" }),
       );

@@ -6,23 +6,19 @@
  * static analysis does not see (or the other way round) would let a flow past what it was written under.
  * A declared `@Workflow` is never changed.
  */
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import { applicationOf, type AssembledApplication } from "../../src/application/assemble.js";
 import { ProfileError, ProfileErrorReason } from "../../src/config/profile-error.js";
 import { ComponentOptions } from "../../src/components/component-options.js";
 import { describedLimitsOf } from "../../src/describe/limits.js";
 import { describedTreeOf } from "../../src/describe/tree.js";
-import { GraphRuleError } from "../../src/graph/rule-error.js";
 import { declaredExecutionLimitsOf } from "../../src/flow/decorators/workflow.js";
 import { checkWorkflow } from "../../src/flow/analyse/analyse.js";
 import { historyKeeperOf } from "../../src/app/app-deps-parts.js";
 import { historySourcesOf } from "../../src/app/history-sources.js";
-import {
-  ExecutionHistoryRepository,
-  StepsLimitExceededError,
-  Workflow,
-  type DepthLimitExceededError,
-} from "../../src/index.js";
+import { ExecutionHistoryRepository, Workflow } from "../../src/index.js";
 import { ChildExecutionStatus } from "../../src/flow/runtime/child-records.js";
 import { TestConcurrency, testWith } from "../../src/testing/index.js";
 import { days, Ttl, seconds } from "../../src/units/index.js";
@@ -130,7 +126,7 @@ describe("maxSteps: one bound on every path (actions count, #1278b)", () => {
     async ({ app }) => {
       const run = execute(app, LimitsSpinStart, { text: "go" });
 
-      await expect(run).rejects.toBeInstanceOf(StepsLimitExceededError);
+      await expect(run).rejects.toBeInstanceOf(LimitError.Steps);
       await expect(run).rejects.toMatchObject({ maxSteps: 5, steps: 6 });
     },
   );
@@ -145,8 +141,8 @@ describe("maxSteps: one bound on every path (actions count, #1278b)", () => {
   it("the analysis refuses a bound the profile sets below what a run needs, as it does a declared one", async () => {
     const error = await failure(assembled("low"));
 
-    expect(error).toBeInstanceOf(GraphRuleError);
-    expect((error as GraphRuleError).violations.map((one) => one.code)).toContain(
+    expect(error).toBeInstanceOf(ConfigError.GraphRules);
+    expect((error as ConfigError.GraphRules).violations.map((one) => one.code)).toContain(
       "limits.max-steps-too-low",
     );
   });
@@ -228,8 +224,8 @@ describe("maxDepth: the recursion's level, on the run and in the analysis", () =
       expect(refused?.error?.message).toBe(
         "countdown-workflow went 3 levels deep; its maxDepth is 2",
       );
-      const error = refused?.error as Partial<DepthLimitExceededError> | undefined;
-      expect(error?.name).toBe("DepthLimitExceededError");
+      const error = refused?.error as Partial<LimitError.Depth> | undefined;
+      expect(error?.name).toBe("LimitError.Depth");
     },
   );
 });

@@ -1,6 +1,6 @@
 import type { ExecutionsQuery, AnyTenantApp } from "../app/types.js";
 import type { Page } from "../app/page.js";
-import { DtoValidationError } from "../dto/errors.js";
+import { invalidDto } from "../dto/errors.js";
 import { tenantRead } from "../flow/context/context-values.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
 import type {
@@ -29,7 +29,7 @@ export interface ExecutionListing {
 }
 
 const refused = (path: string, reason: string): never => {
-  throw new DtoValidationError({ dto: QUERY, issues: [{ path, reason }] });
+  throw invalidDto({ dto: QUERY, issues: [{ path, reason }] });
 };
 
 /** A time bound: a valid `Date`, or an ISO 8601 text. */

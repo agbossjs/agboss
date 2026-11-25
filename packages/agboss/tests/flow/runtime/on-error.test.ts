@@ -1,3 +1,4 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { describe, expect } from "vitest";
 import { ExecutionStatus } from "../../../src/app/types.js";
 import { callTool, replyWith, testWith } from "../../../src/testing/index.js";
@@ -12,7 +13,6 @@ import {
   RefundTool,
   PayApplication,
 } from "./fixtures/pay.workflow.js";
-import { ActionFailedError } from "../../../src/errors.js";
 
 const test = testWith(PayApplication);
 const approve = { approved: true };
@@ -26,9 +26,9 @@ describe("#272 AC7: .onError(E, path) right after the step that throws", () => {
 
   test("most specific handler: a declined card takes the CardDeclinedError side path", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ApologizerAgent).thenReturn(replyWith(ApologyDto, { text: "Sorry." }));
+    mockModel(ApologizerAgent).thenReturn(replyWith(ApologyDto, { text: "Sorry." }));
 
     const result = await execute(
       app,
@@ -53,26 +53,26 @@ describe("#272 AC7: .onError(E, path) right after the step that throws", () => {
     });
   });
 
-  test("a parent class handles what has no handler of its own", async ({ app, mockLlm }) => {
+  test("a parent class handles what has no handler of its own", async ({ app, mockModel }) => {
     const result = await execute(app, PayStart, { id: "8", outcome: "fail" });
 
     expect(result).toFinishWith(PaymentFailedFinish, { id: "8", outcome: "fail" });
-    expect(mockLlm(ApologizerAgent).requests).toHaveLength(0);
+    expect(mockModel(ApologizerAgent).requests).toHaveLength(0);
   });
 
   test("no handler for the failure: the execution fails", async ({ app }) => {
     const run = execute(app, PayStart, { id: "9", outcome: "crash" });
 
-    await expect(run).rejects.toFailWith(ActionFailedError, { code: "step.action" });
+    await expect(run).rejects.toFailWith(StepError.Action, { code: "step.action" });
     await expect(run).rejects.toThrow("the ledger is down");
   });
 
   test("after resume: the side path paused for an approval continues where it was", async ({
     app,
     recoverApp,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ApologizerAgent).thenReturn(
+    mockModel(ApologizerAgent).thenReturn(
       callTool(RefundTool, { id: "7" }),
       replyWith(ApologyDto, { text: "Refunded, sorry." }),
     );

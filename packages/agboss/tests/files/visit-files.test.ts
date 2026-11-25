@@ -1,7 +1,8 @@
 /** #899 §3: a later read of files already pinned is held to their digests. */
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { NO_REDACTION } from "./runtime-parts.js";
 import { describe, expect, it } from "vitest";
-import { FileRedactionFailedError, FileUnavailableReason } from "../../src/files/file-errors.js";
+import { FileUnavailableReason } from "../../src/files/file-errors.js";
 import { resolvedFilesOf } from "../../src/files/file-settings.js";
 import { NO_FILES, filePiecesOf, type FileRuntime } from "../../src/files/visit-files.js";
 import { InMemoryFileRepository } from "../../src/infrastructure/in-memory-file.repository.js";
@@ -83,9 +84,9 @@ describe("the redacted view of a type no redactor takes fails closed, before any
     refusalForKind: () => Promise.resolve(undefined),
   };
 
-  it("a PDF the redactor does not support is FileRedactionFailedError, never the original", async () => {
+  it("a PDF the redactor does not support is StepError.FileMaskingFailed, never the original", async () => {
     const run = filePiecesOf({ ...batch(), runtime: redacting, mask });
 
-    await expect(run).rejects.toBeInstanceOf(FileRedactionFailedError);
+    await expect(run).rejects.toBeInstanceOf(StepError.FileMaskingFailed);
   });
 });

@@ -45,15 +45,15 @@ describe("the external task shelf", () => {
 });
 
 describe("the tool approval shelf", () => {
-  declared("declared: four hours", async ({ app, clock, mockLlm }) => {
-    mockLlm(ClerkAgent).thenReturn(callTool(RefundTool, { orderId: "A-1" }));
+  declared("declared: four hours", async ({ app, clock, mockModel }) => {
+    mockModel(ClerkAgent).thenReturn(callTool(RefundTool, { orderId: "A-1" }));
     const paused = await execute(app, RefundWorkflowStart, { text: "refund A-1" });
 
     expect(paused.pending[0]?.expiresAt).toBe(at(clock, hours(4)));
   });
 
-  quick("a profile's timeout is the approval's deadline", async ({ app, clock, mockLlm }) => {
-    mockLlm(ClerkAgent).thenReturn(callTool(RefundTool, { orderId: "A-1" }));
+  quick("a profile's timeout is the approval's deadline", async ({ app, clock, mockModel }) => {
+    mockModel(ClerkAgent).thenReturn(callTool(RefundTool, { orderId: "A-1" }));
     const paused = await execute(app, RefundWorkflowStart, { text: "refund A-1" });
 
     expect(paused.pending[0]?.expiresAt).toBe(at(clock, hours(1)));

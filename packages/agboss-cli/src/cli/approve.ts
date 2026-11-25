@@ -84,7 +84,7 @@ async function terminalAnswer(
 function retryOf(error: unknown): string {
   const code =
     error instanceof AGBossError ? (error.constructor as { code?: string }).code : undefined;
-  if (code !== "pause.uninterpretable-reply" && code !== "dto.invalid") throw error;
+  if (code !== "pause.uninterpretable-reply" && code !== "validation.dto-invalid") throw error;
   return `${error instanceof Error ? error.message : String(error)}\n`;
 }
 

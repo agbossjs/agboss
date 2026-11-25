@@ -2,15 +2,16 @@
  * #1269 (files-pii mutation shard): what the built-in image redactor tells the redaction model, which
  * images it takes, what media type and name the copy has, and the reasons it fails closed.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { type BaseMessage } from "@langchain/core/messages";
 import { FakeListChatModel } from "@langchain/core/utils/testing";
 import sharp from "sharp";
 import { describe, expect, it } from "vitest";
 import { sha256Of, type FileContent } from "../../src/files/file-bytes.js";
-import { FileRedactionFailedError } from "../../src/files/file-errors.js";
 import { REDACTOR_SYSTEM, redacted } from "../../src/files/model-image-redactor-work.js";
 import { PiiKind } from "../../src/pii/kinds.js";
 import { seconds } from "../../src/units/index.js";
+import { usd } from "../../src/units/index.js";
 
 const settings = {
   model: "test/redactor",
@@ -20,7 +21,7 @@ const settings = {
   cache: true,
   timeout: seconds(1),
   maxRetries: 0,
-  price: { inputPerMTok: 1, outputPerMTok: 1 },
+  price: { inputPerMillion: usd(1), outputPerMillion: usd(1) },
 };
 
 /** A model that records what it is asked and answers as told (a text, or a thrown error). */
@@ -60,13 +61,13 @@ async function imageOf(format: Format, declared?: string, filename?: string): Pr
   };
 }
 
-async function reasonOf(promise: Promise<unknown>): Promise<FileRedactionFailedError> {
+async function reasonOf(promise: Promise<unknown>): Promise<StepError.FileMaskingFailed> {
   const error: unknown = await promise.then(
     () => undefined,
     (thrown: unknown) => thrown,
   );
-  expect(error).toBeInstanceOf(FileRedactionFailedError);
-  return error as FileRedactionFailedError;
+  expect(error).toBeInstanceOf(StepError.FileMaskingFailed);
+  return error as StepError.FileMaskingFailed;
 }
 
 describe("what the redaction model is told", () => {

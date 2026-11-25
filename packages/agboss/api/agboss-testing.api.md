@@ -48,6 +48,7 @@ export interface ActionRunner<TInput, TOutput> extends UnitClock {
 export interface ActionScript<TSelf = unknown> {
     readonly inputs: readonly RecordedInputOf<TSelf>[];
     readonly label: string;
+    reset(): ActionScript<TSelf>;
 }
 
 // @public
@@ -635,11 +636,9 @@ export type McpServerFixtureOptions = Omit<McpHttpListenerOptions, "endpoint" | 
 };
 
 // @public
-export function mcpServerStub<TServer extends McpServerClient<ServerTools>>(server: new () => TServer, handlers: ServerToolHandlers<ToolsOf<TServer>>): TServer;
-
-// @public
 export interface McpStub<TServer extends McpServerClient<ServerTools>> {
     readonly calls: readonly McpStubCall[];
+    reset(): McpStub<TServer>;
     thenReturn(handlers: ServerToolHandlers<ToolsOf<TServer>>): McpStub<TServer>;
 }
 
@@ -720,7 +719,8 @@ export interface ModelScript<TSelf = unknown> {
     readonly lastRequest: ModelRequest;
     readonly onlyRequest: ModelRequest;
     readonly requests: readonly ModelRequest[];
-    thenAnswer(handler: (request: ModelRequest) => ScriptedTurn): ModelScript<TSelf>;
+    reset(): ModelScript<TSelf>;
+    respondWith(handler: (request: ModelRequest) => ScriptedTurn): ModelScript<TSelf>;
     thenReturn(...turns: readonly TurnFor<TSelf>[]): ModelScript<TSelf>;
     thenReturnAlways(turn: TurnFor<TSelf>): ModelScript<TSelf>;
     readonly toolCalls: readonly string[];
@@ -1346,6 +1346,7 @@ export interface ToolRunner<TInput, TOutput> extends UnitClock {
 
 // @public
 export interface ToolScript {
+    reset(): ToolScript;
     thenFail(...failures: readonly ToolFailure[]): ToolScript;
     thenReturn(...outputs: readonly unknown[]): ToolScript;
 }
@@ -1496,13 +1497,13 @@ export interface WorkflowFixtures {
     readonly apps: readonly TestApp[];
     readonly clock: VirtualClock;
     readonly leases: TestLeases;
-    readonly mcpOf: <TServer extends McpServerClient<ServerTools>>(server: new () => TServer) => McpStub<TServer>;
     readonly mcpServer: McpServerFixture;
     readonly mockA2A: (agent: Class) => A2AStub;
     readonly mockAction: <TAction extends Class>(action: TAction) => ActionScript<InstanceType<TAction>>;
-    readonly mockLlm: <TComponent extends Class>(component: TComponent) => ModelScript<InstanceType<TComponent>>;
-    readonly mockOf: <T>(component: Class<T>) => Mocked<T>;
+    readonly mockMcp: <TServer extends McpServerClient<ServerTools>>(server: new () => TServer) => McpStub<TServer>;
+    readonly mockModel: <TComponent extends Class>(component: TComponent) => ModelScript<InstanceType<TComponent>>;
     readonly mockRag: (rag: Class) => RagStub;
+    readonly mockService: <T>(component: Class<T>) => Mocked<T>;
     readonly mockTool: (tool: Class) => ToolScript;
     readonly recoverApp: () => Promise<TestApp>;
     readonly replyToPause: (target: Class, reply: string, options?: EvalPauseOptions) => Promise<ExecutionOutput>;

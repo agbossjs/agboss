@@ -11,7 +11,7 @@ import type { ToolCallApprovalDecisionDto } from "../dto/standard/framework.js";
  *
  * Approves every call at once (`ChannelOutcome.decided`): no pause, no pause record — for tests and
  * scripts; the decision's `by` is the channel's name. A target's channel is scripted in a test with
- * `mockOf(Channel).send`.
+ * `mockService(Channel).send`.
  */
 export class AutoApproveChannel {
   /** A channel class of its own that serves `target` (named for it), to list in `@Application({ channels })`. */

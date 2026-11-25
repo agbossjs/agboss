@@ -68,30 +68,6 @@ export type DtoCheck<TDto> = (value: TDto) => undefined | boolean | ValidationIs
 export type DtoClass<T = object> = abstract new () => T;
 
 // @public
-export class DtoError extends AGBossError {
-    constructor(options: DtoErrorOptions);
-    // (undocumented)
-    static readonly code: string;
-    // (undocumented)
-    readonly code: DtoErrorCode;
-    // (undocumented)
-    name: string;
-}
-
-// @public
-export type DtoErrorCode = "dto.undecorated-field" | "dto.not-plain-data" | "dto.no-metadata" | "dto.cyclic";
-
-// @public
-export interface DtoErrorOptions {
-    // (undocumented)
-    readonly cause?: unknown;
-    // (undocumented)
-    readonly code: DtoErrorCode;
-    // (undocumented)
-    readonly message: string;
-}
-
-// @public
 export interface DtoIssue {
     // (undocumented)
     readonly path: string;
@@ -107,28 +83,6 @@ declare namespace DtoTypes {
         OptionalListField,
         PlainFieldContext
     }
-}
-
-// @public
-export class DtoValidationError extends AGBossError {
-    constructor(options: DtoValidationErrorOptions);
-    // (undocumented)
-    static readonly code: "dto.invalid";
-    // (undocumented)
-    readonly code: typeof DtoValidationError.code;
-    readonly dto: string;
-    readonly issues: readonly DtoIssue[];
-    // (undocumented)
-    name: string;
-}
-
-// @public
-export interface DtoValidationErrorOptions {
-    // (undocumented)
-    readonly cause?: unknown;
-    readonly dto: string;
-    // (undocumented)
-    readonly issues: readonly DtoIssue[];
 }
 
 // @public (undocumented)
@@ -515,19 +469,8 @@ export class WorkflowStartTextDto {
 // src/dto/decorators.ts - (ae-undocumented) Missing documentation for "__call".
 // src/dto/decorators.ts - (ae-undocumented) Missing documentation for "__call".
 // src/dto/decorators.ts - (ae-undocumented) Missing documentation for "Nested".
-// src/dto/errors.ts - (ae-undocumented) Missing documentation for "code".
-// src/dto/errors.ts - (ae-undocumented) Missing documentation for "message".
-// src/dto/errors.ts - (ae-undocumented) Missing documentation for "cause".
-// src/dto/errors.ts - (ae-undocumented) Missing documentation for "code".
-// src/dto/errors.ts - (ae-undocumented) Missing documentation for "code".
-// src/dto/errors.ts - (ae-undocumented) Missing documentation for "name".
 // src/dto/errors.ts - (ae-undocumented) Missing documentation for "path".
 // src/dto/errors.ts - (ae-undocumented) Missing documentation for "reason".
-// src/dto/errors.ts - (ae-undocumented) Missing documentation for "issues".
-// src/dto/errors.ts - (ae-undocumented) Missing documentation for "cause".
-// src/dto/errors.ts - (ae-undocumented) Missing documentation for "code".
-// src/dto/errors.ts - (ae-undocumented) Missing documentation for "code".
-// src/dto/errors.ts - (ae-undocumented) Missing documentation for "name".
 // src/dto/standard/domain.ts - (ae-undocumented) Missing documentation for "amount".
 // src/dto/standard/domain.ts - (ae-undocumented) Missing documentation for "currency".
 // src/dto/standard/domain.ts - (ae-undocumented) Missing documentation for "from".

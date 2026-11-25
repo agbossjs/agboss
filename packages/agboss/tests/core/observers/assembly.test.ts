@@ -1,6 +1,7 @@
+import { ConfigError } from "../../../src/core/error-families/config-errors.js";
 import { createTestAppWith } from "../../../src/testing/create-app-with.js";
 import { describe, expect, it } from "vitest";
-import { ComponentError, Injectable, Observer } from "../../../src/index.js";
+import { Injectable, Observer } from "../../../src/index.js";
 import { closestHook } from "../../../src/components/observer-checks.js";
 import { ScriptBook } from "../../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../../src/testing/scripted-gateway.js";
@@ -103,7 +104,7 @@ const assemblyError = async (observers: Parameters<typeof applicationWith>[1]): 
       await app.close();
       return "assembled";
     },
-    (error: unknown) => (error instanceof ComponentError ? error.message : String(error)),
+    (error: unknown) => (error instanceof ConfigError.Component ? error.message : String(error)),
   );
 
 describe("@Application observers are checked at assembly", () => {

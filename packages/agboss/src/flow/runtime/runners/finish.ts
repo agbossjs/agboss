@@ -1,10 +1,10 @@
+import { ExecutionError } from "../../../core/error-families/run-errors.js";
 import { validate } from "../../../dto/schema.js";
 import type { DtoClass } from "../../../dto/types.js";
 import { NodeKind } from "../../ast.js";
 import type { ListWrapper } from "../../dto-wrappers.js";
 import type { RuntimeNode } from "../graph-model.js";
 import type { NodeRunner } from "../node-runner.js";
-import { OutputInvalidError } from "../errors.js";
 import type { ScopeRecords } from "../records.js";
 
 /** A finish (#270 Q50, #1271): the latest value of its `output` type on the path. */
@@ -23,14 +23,14 @@ interface VariantElement {
 /** A list output checked element by element; each element of a `oneOf` list by its own class. */
 function validList(node: RuntimeNode, output: ListWrapper, value: unknown): unknown[] {
   if (!Array.isArray(value))
-    throw new OutputInvalidError({ message: `${node.id} found no list for its output` });
+    throw new ExecutionError.OutputInvalid({ message: `${node.id} found no list for its output` });
   const { element } = output;
   return (value as readonly unknown[]).map((item) => {
     if (typeof element === "function") return validate(element, item);
     const { value: inner, variant } = item as VariantElement;
     const dto: DtoClass | undefined = element.variants.find((each) => each.name === variant);
     if (dto === undefined)
-      throw new OutputInvalidError({
+      throw new ExecutionError.OutputInvalid({
         message: `${node.id}: an element of its output is none of ${element.variants.map((each) => each.name).join(", ")}`,
       });
     return validate(dto, inner);

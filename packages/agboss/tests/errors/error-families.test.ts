@@ -55,15 +55,63 @@ const FACTS: Readonly<Record<string, Readonly<Record<string, unknown>>>> = {
   "ExecutionError.LeaseLost": { rootExecutionId: "run-1" },
   "ValidationError.TenantRequired": { operation: "execute" },
   "ValidationError.DtoInvalid": { dto: "Order", issues: [{ path: "id", reason: "missing" }] },
-  "A2AError.Deadline": { deadlineAt: new Date(0) },
+  "A2AError.Contract": {
+    agent: "a",
+    rule: "a2a.unknown-skill",
+    skill: "s",
+    differences: ["input: x"],
+  },
+  "A2AError.Protocol": { agent: "a", operation: "GetTask", rpcCode: -32001 },
+  "A2AError.Remote": { agent: "a", reason: "no-output", taskId: "t" },
+  "A2AError.Deadline": {
+    agent: "a",
+    taskId: "t",
+    contextId: "c",
+    deadlineAt: new Date(0),
+    cancel: "cancelled",
+    isCancelled: true,
+  },
+  "A2AError.TaskCancelled": { agent: "a", taskId: "t", contextId: "c" },
+  "A2AError.TaskFailed": { agent: "a", taskId: "t", contextId: "c", end: "failed" },
+  "A2AError.TaskInterrupted": {
+    agent: "a",
+    taskId: "t",
+    contextId: "c",
+    interruption: "input-required",
+  },
+  "A2AError.UnexpectedFinish": { agent: "a", finish: "f", finishes: ["g"] },
+  "A2AError.MeshUnsupported": { agent: "a" },
+  "A2AError.OriginRefused": {
+    agent: "a",
+    origin: "https://x.example",
+    site: "redirect",
+    allowedOrigins: ["https://y.example"],
+  },
   "IdempotencyError.ResultTooLarge": { size: 20, maxResultSize: 10 },
   "OutboundCallError.PayloadTooLarge": { size: 20, maxPayloadSize: 10 },
 };
 
+/** The variants whose default sentence is made of their facts (the A2A client's: the agent, the task, the code). */
+const SENTENCE_OF_FACTS: ReadonlySet<string> = new Set([
+  "StepError.Agent",
+  "GuardrailError.Blocked",
+  "PiiError.Refused",
+  "A2AError.Contract",
+  "A2AError.Protocol",
+  "A2AError.Remote",
+  "A2AError.Deadline",
+  "A2AError.TaskCancelled",
+  "A2AError.TaskFailed",
+  "A2AError.TaskInterrupted",
+  "A2AError.UnexpectedFinish",
+  "A2AError.MeshUnsupported",
+  "A2AError.OriginRefused",
+]);
+
 const KEBAB = (name: string): string => name.replace(/(?<!^)(?=[A-Z])/g, "-").toLowerCase();
 
 describe("#1325a: the error families", () => {
-  it("the walk finds all sixteen families but ModelCallError (a single class)", () => {
+  it("the walk finds all the families but ModelCallError (a single class)", () => {
     expect([...FAMILIES.keys()].sort()).toEqual(
       [
         "A2AError",
@@ -136,12 +184,15 @@ describe("#1325a: the error families", () => {
 
       it("says what happened without a fact: the same sentence whatever the facts, never empty", () => {
         const plain = new Variant(facts);
-        const other = new Variant({
-          ...Object.fromEntries(Object.keys(facts).map((k) => [k, "x"])),
-        });
 
         expect(plain.message.length).toBeGreaterThan(10);
-        expect(plain.message).toBe(other.message);
+        // an A2A client error's sentence is made of its facts (the agent, the task, the code): its own test
+        if (!SENTENCE_OF_FACTS.has(`${familyName}.${variantName}`)) {
+          const other = new Variant({
+            ...Object.fromEntries(Object.keys(facts).map((k) => [k, "x"])),
+          });
+          expect(plain.message).toBe(other.message);
+        }
         expect(new Variant({ ...facts, message: "mine" }).message).toBe("mine");
       });
 

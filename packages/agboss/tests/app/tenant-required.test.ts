@@ -11,7 +11,6 @@ import {
   ExecutionHistoryStatus,
   type ExecutionHistoryRecord,
 } from "../../src/infrastructure/execution-history.repository.js";
-import { DtoValidationError } from "../../src/dto/errors.js";
 import { ValidationError } from "../../src/core/error-families/effect-errors.js";
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
@@ -273,7 +272,7 @@ describe("#1324e: listExecutions pages, filters and refuses a bad query", () => 
     try {
       const error = await rejection(app.listExecutions(query));
 
-      expect(error).toBeInstanceOf(DtoValidationError);
+      expect(error).toBeInstanceOf(ValidationError.DtoInvalid);
       expect(error).toMatchObject({ dto: "ExecutionsQuery", issues: [{ path }] });
     } finally {
       await app.close();

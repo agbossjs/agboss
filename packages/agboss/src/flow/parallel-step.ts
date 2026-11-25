@@ -1,3 +1,4 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import {
   NodeKind,
   StepKind,
@@ -10,7 +11,6 @@ import {
   type SubPath,
   type ToStep,
 } from "./ast.js";
-import { FlowSyntaxError } from "./flow-syntax-error.js";
 
 /**
  * The parallel steps of the path builder (#1279, #1280): `.inParallel([toAgent(A), toAction(X)…],
@@ -41,7 +41,8 @@ export const skip = (): Skip => MARKER;
 export const isSkip = (value: unknown): value is Skip =>
   typeof value === "object" && value !== null && Reflect.get(value, SKIP) === true;
 
-const syntaxError = (message: string): FlowSyntaxError => new FlowSyntaxError({ message });
+const syntaxError = (message: string): ConfigError.FlowSyntax =>
+  new ConfigError.FlowSyntax({ message });
 
 const PARALLEL_KINDS: readonly NodeKind[] = [
   NodeKind.Agent,

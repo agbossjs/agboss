@@ -1,7 +1,8 @@
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Class } from "../../src/components/injection.js";
-import { IncompatibleResumeError, UnknownPauseError } from "../../src/index.js";
 import { callTool, replyWith } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
@@ -66,15 +67,15 @@ beforeEach(() => {
 });
 
 describe("#201 AC1: a run paused under another workflow version is not resumed blindly", () => {
-  it("resuming on a deployment with another config hash fails with IncompatibleResumeError naming both versions", async () => {
+  it("resuming on a deployment with another config hash fails with ExecutionError.IncompatibleResume naming both versions", async () => {
     const { paused, next } = await pauseThenDeploy(MailV2Application);
 
     const resumed = next.resume(answerOf(paused, approve));
 
     expect(paused.status).toBe(ExecutionStatus.Paused);
-    await expect(resumed).rejects.toBeInstanceOf(IncompatibleResumeError);
+    await expect(resumed).rejects.toBeInstanceOf(ExecutionError.IncompatibleResume);
     await expect(resumed).rejects.toMatchObject({
-      code: "resume.incompatible",
+      code: "execution.incompatible-resume",
       threadId: paused.threadId,
       paused: { workflowVersion: "1.0.0" },
       current: { workflowVersion: "2.0.0" },
@@ -85,7 +86,9 @@ describe("#201 AC1: a run paused under another workflow version is not resumed b
 
   it("a rejected resume leaves the run paused: a deployment that accepts it continues it", async () => {
     const { paused, next, book } = await pauseThenDeploy(MailV2Application);
-    await expect(next.resume(answerOf(paused, approve))).rejects.toThrow(IncompatibleResumeError);
+    await expect(next.resume(answerOf(paused, approve))).rejects.toThrow(
+      ExecutionError.IncompatibleResume,
+    );
     await next.close();
 
     const migrating = await createTestAppWith(MailV2MigratingApplication, deploymentOf(book));
@@ -154,19 +157,19 @@ describe("#201 AC2: paused runs survive an app restart with durable stores", () 
     const { paused, restarted } = await restartOn(MailV1MemoryPausesApplication);
 
     await expect(restarted.resume(answerOf(paused, approve))).rejects.toBeInstanceOf(
-      UnknownPauseError,
+      PauseError.UnknownPause,
     );
   });
 });
 
 describe("#246 AC3: an incompatible resume is the paused run's onError; the run stays paused", () => {
-  it("onError(IncompatibleResumeError) with the paused run's id and thread, then a policy resumes it", async () => {
+  it("onError(ExecutionError.IncompatibleResume) with the paused run's id and thread, then a policy resumes it", async () => {
     const { paused, next, book } = await pauseThenDeploy(MailV2Application);
     observed.length = 0;
 
     const refused = next.resume(answerOf(paused, approve));
 
-    await expect(refused).rejects.toBeInstanceOf(IncompatibleResumeError);
+    await expect(refused).rejects.toBeInstanceOf(ExecutionError.IncompatibleResume);
     expect(observed).toEqual([
       {
         hook: "error",
@@ -199,23 +202,23 @@ describe("#336 AC2: a child workflow's change makes its root incompatible", () =
     return { paused, next: await createTestAppWith(next, deploymentOf(book)) };
   }
 
-  it("a child's prompt change makes the root incompatible: IncompatibleResumeError, nothing sent", async () => {
+  it("a child's prompt change makes the root incompatible: ExecutionError.IncompatibleResume, nothing sent", async () => {
     const { paused, next } = await pauseInChildThenDeploy(MailParentV2Application);
 
     const resumed = next.resume(answerOf(paused, approve));
 
     expect(paused.status).toBe(ExecutionStatus.Paused);
     expect(paused.pending[0]?.childExecutionId).toBeDefined();
-    await expect(resumed).rejects.toBeInstanceOf(IncompatibleResumeError);
+    await expect(resumed).rejects.toBeInstanceOf(ExecutionError.IncompatibleResume);
     // the parent is the same 1.0.0: only its config hash, which covers the child, differs
     await expect(resumed).rejects.toMatchObject({
-      code: "resume.incompatible",
+      code: "execution.incompatible-resume",
       paused: { workflowVersion: "1.0.0" },
       current: { workflowVersion: "1.0.0" },
     });
     // an AGBossError with a static code (#336 Q5)
     await expect(resumed).rejects.toBeInstanceOf(AGBossError);
-    expect(IncompatibleResumeError.code).toBe("resume.incompatible");
+    expect(ExecutionError.IncompatibleResume.code).toBe("execution.incompatible-resume");
     expect(sent).toEqual([]);
     await next.close();
   });

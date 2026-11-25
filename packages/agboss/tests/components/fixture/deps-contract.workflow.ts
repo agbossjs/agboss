@@ -31,6 +31,7 @@ import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../src/index.js";
 import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
+import { usd } from "../../../src/units/index.js";
 
 /** Scripted models and in-memory stores: nothing external. */
 export const offline = (book = new ScriptBook()): BuildApplicationOptions => ({
@@ -58,13 +59,10 @@ export { KeptDto } from "./deps-contract.components.js";
 @WorkflowFinish({ name: "kept-workflow-finish", description: "What was kept", output: KeptDto })
 export class Kept {}
 
-const price = { inputPerMTok: 1, outputPerMTok: 10 };
-
 @Agent({
   name: "keeper-agent",
   description: "Keeps the vault",
   model: "test/keeper",
-  price,
   tools: [RevealTool],
   guardrails: [AuditGuardrail],
   judges: [StrictJudge],
@@ -74,7 +72,7 @@ const price = { inputPerMTok: 1, outputPerMTok: 10 };
 })
 export class Keeper {}
 
-@Agent({ name: "plain-agent", description: "Plain", model: "test/plain", price })
+@Agent({ name: "plain-agent", description: "Plain", model: "test/plain" })
 export class Plain {}
 
 const base = {
@@ -97,11 +95,9 @@ export function workflowWith(
     name,
     modelProvider: TestModelProvider,
     historyTtl: Ttl.Forever,
-    flow: [
-      onStart(Chat)
-        .toAgent(agent)
-        .toFinish(Done),
-    ],
+    flow: [onStart(Chat)
+      .toAgent(agent)
+      .toFinish(Done)],
     ...base,
     ...extra,
   })
@@ -133,12 +129,10 @@ export function applicationWith(
 @Workflow({
   name: "vault-workflow",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(Chat)
-      .toAgent(Keeper)
-      .toAction(StampAction)
-      .toFinish(Kept),
-  ],
+  flow: [onStart(Chat)
+    .toAgent(Keeper)
+    .toAction(StampAction)
+    .toFinish(Kept)],
   ...base,
   piiPolicies: [MaskSecret],
   providers: [Vault, provide(SECRET, "s3cret"), RemoteA2AAgent],

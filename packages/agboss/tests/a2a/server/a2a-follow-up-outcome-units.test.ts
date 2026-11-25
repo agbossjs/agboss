@@ -4,6 +4,9 @@
  * before its pause took the answer, accepted after it (logged), or — an unexpected failure, its
  * pause still pending — the request failed (logged).
  */
+import { PauseError } from "../../../src/core/error-families/pause-errors.js";
+import { ExecutionError } from "../../../src/core/error-families/run-errors.js";
+import { ValidationError } from "../../../src/index.js";
 import { describe, expect, it } from "vitest";
 import {
   isKeptReply,
@@ -11,15 +14,8 @@ import {
   settledOutcome,
   type KeptReply,
 } from "../../../src/a2a/server/a2a-follow-up-outcome.js";
-import { UnknownPauseError } from "../../../src/run/resume-agent.js";
 import { PauseClosedReason } from "../../../src/infrastructure/pause-record.js";
-import {
-  ReplyInterpreterMissingError,
-  UninterpretableReplyError,
-} from "../../../src/channels/decision.js";
-import { DtoValidationError } from "../../../src/dto/errors.js";
 import { NotPausedError } from "../../../src/run/resume-agent.js";
-import { ThreadOwnerError } from "../../../src/core/errors.js";
 import { scriptOf, unitParts } from "./support/unit-parts.js";
 
 type Refusal = Exclude<KeptReply, { readonly accepted: true }>;
@@ -124,15 +120,15 @@ describe("#824: a resume that settled", () => {
   });
 
   it("refused before its pause took the answer, whether the pause still waits or not", () => {
-    const reply = new UninterpretableReplyError({ message: "x", reason: "r" });
+    const reply = new PauseError.UninterpretableReply({ message: "x", reason: "r" });
     for (const isStillPending of [true, false])
       expect(
         [
           new NotPausedError({ message: "x" }),
-          new UnknownPauseError({ message: "x" }),
-          new ThreadOwnerError({ message: "x" }),
+          new PauseError.UnknownPause({ message: "x" }),
+          new ExecutionError.ThreadOwnerMismatch({ message: "x" }),
           reply,
-          new ReplyInterpreterMissingError({ message: "x" }),
+          new PauseError.ChannelInterpreterMissing({ message: "x" }),
         ].map((error) => outcomeOf(error, isStillPending).outcome),
       ).toEqual([
         { refused: "unsupported", code: "a2a.no-pending-pause" },
@@ -144,7 +140,7 @@ describe("#824: a resume that settled", () => {
   });
 
   it("an invalid decision, its pause still waiting: refused; the pause gone: the answer was taken", () => {
-    const invalid = new DtoValidationError({ dto: "Decision", issues: [] });
+    const invalid = new ValidationError.DtoInvalid({ dto: "Decision", issues: [] });
 
     expect(outcomeOf(invalid, true).outcome).toEqual({
       refused: "invalid-params",
@@ -153,7 +149,7 @@ describe("#824: a resume that settled", () => {
     const taken = outcomeOf(invalid, false);
     expect(taken.outcome).toEqual({ accepted: true });
     expect(taken.script.warnings).toEqual([
-      `a2a.resume-failed-after-answer a resume of task task-1 failed (DtoValidationError) after it took its answer ${SUBJECT}`,
+      `a2a.resume-failed-after-answer a resume of task task-1 failed (ValidationError.DtoInvalid) after it took its answer ${SUBJECT}`,
     ]);
   });
 

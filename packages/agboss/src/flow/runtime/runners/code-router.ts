@@ -1,3 +1,4 @@
+import { StepError } from "../../../core/error-families/step-errors.js";
 import type { Class } from "../../../components/injection.js";
 import type { GraphDeps } from "../../../graph/deps.js";
 import { NodeKind } from "../../ast.js";
@@ -6,7 +7,7 @@ import { passesThrough } from "../errors.js";
 import type { RuntimeNode } from "../graph-model.js";
 import { inputMessageOf } from "../input-message.js";
 import type { NodeRunner } from "../node-runner.js";
-import { RouterDecisionError, RouterFailedError, type RouterVisit } from "../router-error.js";
+import { type RouterVisit } from "../router-error.js";
 import { readInput } from "../scope.js";
 import { visitNumberOf } from "../step-frame.js";
 import { codeRouterLaunch } from "../launch/router-decision.js";
@@ -37,7 +38,7 @@ function answerLabel(answer: unknown): string {
 
 /**
  * The node id of the one target `route()` chose after `.onRoute(…)`; anything else — a list, a
- * class outside its routes (a cast) — is `RouterDecisionError`.
+ * class outside its routes (a cast) — is `StepError.RouterDecision`.
  */
 function chosenRoute(
   node: RuntimeNode,
@@ -48,7 +49,7 @@ function chosenRoute(
   const routes = [...node.exits.routes.keys()];
   const name = isClass(answer) ? declarationOf(answer)?.options.name : undefined;
   if (name !== undefined && unready.includes(name))
-    throw new RouterDecisionError({
+    throw new StepError.RouterDecision({
       ...step,
       reason: `route() returned ${name}: on the last level (depth = maxDepth) a route that launches the workflow itself is not ready`,
     });
@@ -56,15 +57,15 @@ function chosenRoute(
   const why = Array.isArray(answer)
     ? "after .onRoute(…) it returns one target, not a list"
     : `not one of its routes (${routes.join(", ")})`;
-  throw new RouterDecisionError({
+  throw new StepError.RouterDecision({
     ...step,
     reason: `route() returned ${answerLabel(answer)}: ${why}`,
   });
 }
 
-/** What `route()` throws fails the step as `RouterFailedError` (its cause); a limit, cancel, pause pass. */
+/** What `route()` throws fails the step as `StepError.Router` (its cause); a limit, cancel, pause pass. */
 const failure = (step: RouterVisit, error: unknown): unknown =>
-  passesThrough(error) ? error : new RouterFailedError({ ...step, cause: error });
+  passesThrough(error) ? error : new StepError.Router({ ...step, cause: error });
 
 /**
  * A code router (`DecidedBy.Code`, #280): its instance from the container runs `route(input)` with
@@ -77,7 +78,7 @@ export function codeRouterRunner(node: RuntimeNode, deps: GraphDeps<string>): No
     const step = { nodeId: node.id, visitNumber: visitNumberOf(node, state) };
     const instance: unknown = deps.container.get(node.component);
     if (!isCodeRouter(instance)) {
-      throw new RouterFailedError({
+      throw new StepError.Router({
         ...step,
         cause: new TypeError(`${node.id} has no route(input)`),
       });

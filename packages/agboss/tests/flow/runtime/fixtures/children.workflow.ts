@@ -1,17 +1,16 @@
+import { StepError } from "../../../../src/core/error-families/step-errors.js";
+import { LimitError } from "../../../../src/core/error-families/limit-errors.js";
 import { OwnerToolApproval } from "../../fixtures/owner-approval.fixture.js";
 import { Text } from "../../../../src/dto/index.js";
 import {
   Observer,
   Action,
   Agent,
-  ChildExecutionFailedError,
   EmptyEnvironment,
   ExecutionContext,
   listOf,
   oneOf,
   SpendRecorder,
-  StepFailedError,
-  StepsLimitExceededError,
   TenantContext,
   Tool,
   Workflow,
@@ -223,8 +222,7 @@ export class ChecksSummaryAction {
   }): Promise<SummaryDto> {
     childLog.producers.push(...input.results.map((result) => Metadata.createdBy(result)));
     return {
-      text: input.results
-        .map((result) => result.name)
+      text: input.results.map((result) => result.name)
         .join(", "),
     };
   }
@@ -266,11 +264,8 @@ export class ChecksFailedWorkflowFinish {}
     onStart(CheckItemsWorkflowStart)
       .forEachItem(toWorkflow(ItemCheckWorkflow), { takeFirst: 10, maxConcurrency: 2 })
       .join()
-      .onError(
-        ChildExecutionFailedError,
-        toAction(ChecksFailedAction)
-          .toFinish(ChecksFailedWorkflowFinish),
-      )
+      .onError(StepError.Child, toAction(ChecksFailedAction)
+        .toFinish(ChecksFailedWorkflowFinish))
       .toAction(ChecksSummaryAction)
       .toFinish(ChecksSummaryWorkflowFinish),
   ],
@@ -318,11 +313,8 @@ export class OneFailedWorkflowFinish {}
   flow: [
     onStart(CheckOneWorkflowStart)
       .toWorkflow(ItemCheckWorkflow)
-      .onError(
-        ItemFailedError,
-        toAction(OneFailedAction)
-          .toFinish(OneFailedWorkflowFinish),
-      )
+      .onError(ItemFailedError, toAction(OneFailedAction)
+        .toFinish(OneFailedWorkflowFinish))
       .toFinish(OneCheckedWorkflowFinish),
   ],
 })
@@ -459,11 +451,8 @@ export class RecheckedWorkflowFinish {}
   flow: [
     onStart(CheckOrFallbackWorkflowStart)
       .toAction(CheckItemAction)
-      .onError(
-        StepFailedError,
-        toWorkflow(FallbackCheckWorkflow)
-          .toFinish(RecheckedWorkflowFinish),
-      )
+      .onError(StepError, toWorkflow(FallbackCheckWorkflow)
+        .toFinish(RecheckedWorkflowFinish))
       .toFinish(OneCheckedWorkflowFinish),
   ],
 })
@@ -524,7 +513,10 @@ export class ItemReviewedWorkflowFinish {}
     onStart(ItemReviewWorkflowStart)
       .toAgent(ItemReviewerAgent),
     onAgent(ItemReviewerAgent)
-      .toOneOf([toFinish(ItemReviewedWorkflowFinish), toAgent(ItemReviewerAgent)]),
+      .toOneOf([
+        toFinish(ItemReviewedWorkflowFinish),
+        toAgent(ItemReviewerAgent),
+      ]),
   ],
 })
 export class ItemReviewWorkflow {}
@@ -564,8 +556,7 @@ export class ReviewsSummaryAction {
     readonly results: readonly Tracked<ItemResultDto>[];
   }): Promise<SummaryDto> {
     return {
-      text: input.results
-        .map((result) => result.name)
+      text: input.results.map((result) => result.name)
         .join(", "),
     };
   }
@@ -588,11 +579,8 @@ export class ReviewsSummaryWorkflowFinish {}
     onStart(ReviewItemsWorkflowStart)
       .forEachItem(toWorkflow(ItemReviewWorkflow), { takeFirst: 10, maxConcurrency: 2 })
       .join()
-      .onError(
-        ChildExecutionFailedError,
-        toAgent(ReviewRescueAgent)
-          .toFinish(ReviewsWorkflowFinish),
-      )
+      .onError(StepError.Child, toAgent(ReviewRescueAgent)
+        .toFinish(ReviewsWorkflowFinish))
       .toAction(ReviewsSummaryAction)
       .toFinish(ReviewsSummaryWorkflowFinish),
   ],
@@ -634,7 +622,7 @@ export class ReviewStoppedWorkflowFinish {}
     onStart(ReviewOneWorkflowStart)
       .toWorkflow(ItemReviewWorkflow)
       .onError(
-        StepsLimitExceededError,
+        LimitError.Steps,
         toAction(ReviewStoppedAction)
           .toFinish(ReviewStoppedWorkflowFinish),
       )

@@ -1,3 +1,4 @@
+import { ConfigError } from "../../core/error-families/config-errors.js";
 import {
   AIMessage,
   ToolMessage,
@@ -7,7 +8,6 @@ import {
 import type { BindToolsInput } from "@langchain/core/language_models/chat_models";
 import { convertToOpenAITool } from "@langchain/core/utils/function_calling";
 import { partOfBlock, partsOfContent } from "../content.js";
-import { ModelProviderError } from "../model-provider.decorator.js";
 import {
   ModelProviderMessageRole,
   type ModelProviderMessage,
@@ -39,7 +39,7 @@ function textOf(content: MessageContent, provider: string): string {
     .map((block) => {
       if (block.type === "text" && typeof block.text === "string") return block.text;
       if (partOfBlock(block) !== undefined) return "";
-      throw new ModelProviderError({
+      throw new ConfigError.ModelProvider({
         message: `${provider}: a transport provider carries text and file parts only, not a "${block.type}" part`,
       });
     })
@@ -58,7 +58,7 @@ function providerMessageOf(message: BaseMessage, provider: string): ModelProvide
   const parts = partsOfContent(message.content);
   const role = ROLES[message.type];
   if (role === undefined)
-    throw new ModelProviderError({
+    throw new ConfigError.ModelProvider({
       message: `${provider}: a "${message.type}" message has no transport role`,
     });
   const text = textOf(message.content, provider);
@@ -106,7 +106,7 @@ function checkResponse(
     typeof Reflect.get(usage, "inputTokens") === "number" &&
     typeof Reflect.get(usage, "outputTokens") === "number";
   if (isObject && typeof Reflect.get(response, "text") === "string" && hasUsage) return;
-  throw new ModelProviderError({
+  throw new ConfigError.ModelProvider({
     message: `${provider}: complete(request) must answer { text, toolCalls?, usage: { inputTokens, outputTokens }, cost?, finishReason? }`,
   });
 }

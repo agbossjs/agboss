@@ -4,13 +4,13 @@
  * with the step that made it; a write that fails by itself is no outcome — its error rises as it is;
  * a frame with no lease (a reply interpreter's) tells nothing and the write still runs.
  */
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { effectKeyForTesting } from "../../src/testing/contracts/effect-key.js";
 import { describe, expect, it } from "vitest";
 import type { IdempotencyRunReport } from "../../src/app/audit-log.js";
 import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
 import { runInFrame, type FrameLease, type FrameSpec } from "../../src/flow/context/frame.js";
-import { ExecutionCancelFencedError } from "../../src/app/lease-lost.js";
 import { IdempotencyRunEventOutcome } from "../../src/infrastructure/execution-audit-log.repository.js";
 import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
 import {
@@ -151,7 +151,7 @@ describe("#909: a write of a tree that was cancelled", () => {
         }),
     ).catch((error: unknown) => error);
 
-    expect(refusal).toBeInstanceOf(ExecutionCancelFencedError);
+    expect(refusal).toBeInstanceOf(ExecutionError.CancelFenced);
     expect(found).toEqual([refusal]);
     expect(ran).toBe(false);
     expect(reports).toHaveLength(1);

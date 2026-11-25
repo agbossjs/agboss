@@ -1,5 +1,5 @@
 import { StepError } from "../core/error-families/step-errors.js";
-import { stepCoordinatesOf } from "../graph/errors.js";
+import { stepCoordinatesOf } from "../graph/step-coordinates.js";
 import { ComponentKind } from "../flow/runtime/records.js";
 import type { SummaryMaxTokens } from "./memory.decorator.js";
 

@@ -53,8 +53,6 @@ export interface AgentMeta
   readonly model?: string;
   /** The `@ModelProvider` class its model is served from (#1313); left out: its workflow's, its application's. */
   readonly modelProvider?: Class;
-  /** Overrides the model provider's price table; the provider's own reported cost comes first. */
-  readonly price?: AgentSettings["price"];
   readonly thinking?: AgentSettings["thinking"];
   readonly temperature?: number;
   readonly maxTokens?: AgentSettings["maxTokens"];

@@ -9,8 +9,8 @@ import type { AnswerTools } from "./answer-tools.js";
  * framework's stop, never the prompt's. An agent answers through the answer tools of its other
  * variants only, its answer checked against that narrowed schema (a second static request prefix,
  * so a second cache prefix for that level); a model router's model does not see its recursive
- * routes; a code router returning one is `RouterDecisionError`. A recursion launched by code past
- * the last level is the hard stop (`DepthLimitExceededError`, `recursion-launch.ts`).
+ * routes; a code router returning one is `StepError.RouterDecision`. A recursion launched by code past
+ * the last level is the hard stop (`LimitError.Depth`, `recursion-launch.ts`).
  */
 
 /** The branch of a node whose recursive options stop on the last level, if it has one. */

@@ -175,10 +175,10 @@ describe("#501: one hand-over, at the innermost site", () => {
 
   test("a fenced tool call, rethrown through the tool, the loop and the step: one HandedOver(Fenced, Tool) with the call's key", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
     levers.wrap = "cause";
-    mockLlm(ReleaseAgent).thenReturn(callTool(StageTool, { artifact: "v1" }));
+    mockModel(ReleaseAgent).thenReturn(callTool(StageTool, { artifact: "v1" }));
 
     await rejectionOf(execute(app, AgentReleaseWorkflowStart, { text: "stage v1" }));
     const rows = await app.auditLogOf({ tenantId: "default", rootExecutionId: firstRoot() });
@@ -198,10 +198,10 @@ describe("#501: one hand-over, at the innermost site", () => {
 
   test("a fenced tool interceptor: one HandedOver(Fenced, ToolInterceptor)", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
     levers.isInterceptorFenced = true;
-    mockLlm(ReleaseAgent).thenReturn(callTool(StageTool, { artifact: "v1" }));
+    mockModel(ReleaseAgent).thenReturn(callTool(StageTool, { artifact: "v1" }));
 
     const error = await rejectionOf(execute(app, AgentReleaseWorkflowStart, { text: "stage v1" }));
 

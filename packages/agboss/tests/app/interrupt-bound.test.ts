@@ -24,10 +24,10 @@ beforeEach(() => {
 describe("#1341b: onInterrupted is bounded by executionLimits.shutdownTimeout", () => {
   test("a cleanup that never returns ends the wait at the bound: the rest is not run, the failure is reported, the call resolves", async ({
     app,
-    mockLlm,
+    mockModel,
     clock,
   }) => {
-    mockLlm(BoundAgent).thenReturn(callTool(Hang, { text: "a" }));
+    mockModel(BoundAgent).thenReturn(callTool(Hang, { text: "a" }));
     const started = new Promise<string>((resolve) => {
       boundSeen.started = resolve;
     });

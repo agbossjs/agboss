@@ -1,3 +1,4 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { Application } from "../../../src/application/application.js";
 import { EmptyEnvironment } from "../../../src/environments/empty.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
@@ -6,7 +7,6 @@ import {
   onStart as publicStart,
   toExternalTask as publicToQuestion,
 } from "../../../src/flow/builder.js";
-import { PauseExpiredError } from "../../../src/flow/runtime/pause-expired-error.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import {
@@ -45,7 +45,7 @@ export class PublicExpiryWorkflowStart {}
     publicStart(PublicExpiryWorkflowStart)
       .toExternalTask(ShortManagerExternalTask)
       .onError(
-        PauseExpiredError,
+        StepError.PauseExpired,
         publicToQuestion(HourDirectorExternalTask)
           .toAction(RecordEscalatedAction)
           .toFinish(ExpiryWorkflowFinish),

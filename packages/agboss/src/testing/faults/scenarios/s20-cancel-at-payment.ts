@@ -91,8 +91,8 @@ async function cancelledAt(
   const refused = writeEnd(cluster, a, taskId, point)?.error?.name;
   expectThat(
     cluster,
-    refused === "ExecutionCancelFencedError",
-    `a's write after the cancel was to be refused (ExecutionCancelFencedError); it was ${refused ?? "accepted"}`,
+    refused === "ExecutionError.CancelFenced",
+    `a's write after the cancel was to be refused (ExecutionError.CancelFenced); it was ${refused ?? "accepted"}`,
   );
   const tree = (type: string) =>
     eventsOf(cluster, type).filter((event) => event.rootExecutionId === taskId);
@@ -139,8 +139,8 @@ export const s20bCancelAtPayment: RunnableFaultScenario = {
     const refused = writeEnd(cluster, a, taskId, SaveIfAbsent)?.error?.name;
     expectThat(
       cluster,
-      refused === "ExecutionCancelFencedError",
-      `a's intent after the cancel was to be refused (ExecutionCancelFencedError); it was ${refused ?? "accepted"}`,
+      refused === "ExecutionError.CancelFenced",
+      `a's intent after the cancel was to be refused (ExecutionError.CancelFenced); it was ${refused ?? "accepted"}`,
     );
     const paid = eventsOf(cluster, "step").filter(
       (step) => step.rootExecutionId === taskId && step.point === FaultStepPoint.PayAfter,

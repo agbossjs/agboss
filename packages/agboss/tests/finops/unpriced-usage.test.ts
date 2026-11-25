@@ -1,16 +1,11 @@
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 /**
  * #1313b: a provider with no `cost` is unpriced — its call is recorded at 0 USD with its tokens
  * (`CostSource.Unpriced`) and the provider's name, never dropped; any other call with no cost and
  * no price still fails closed.
  */
 import { describe, expect, it } from "vitest";
-import {
-  CostReport,
-  CostSource,
-  ModelCostError,
-  recordUsage,
-  tokensOf,
-} from "../../src/finops/usage.js";
+import { CostReport, CostSource, recordUsage, tokensOf } from "../../src/finops/usage.js";
 import { FALLBACK_MARK } from "../../src/finops/fallback-mark.js";
 import { usd } from "../../src/units/index.js";
 import { applicationOf } from "../../src/application/assemble.js";
@@ -44,7 +39,11 @@ describe("#1313b: an unpriced call", () => {
     );
     const priced = recordUsage(
       "writer",
-      { model: "m/a", modelProvider: "p", price: { inputPerMTok: 1_000, outputPerMTok: 0 } },
+      {
+        model: "m/a",
+        modelProvider: "p",
+        price: { inputPerMillion: usd(1_000), outputPerMillion: usd(0) },
+      },
       tokens,
     );
 
@@ -58,7 +57,7 @@ describe("#1313b: an unpriced call", () => {
 
   it("a call with no cost, no price and a provider that has a cost fails closed", () => {
     expect(() => recordUsage("writer", { model: "m/a", modelProvider: "p" }, tokens)).toThrow(
-      ModelCostError,
+      ConfigError.ModelCost,
     );
   });
 

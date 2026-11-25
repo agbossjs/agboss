@@ -1,8 +1,8 @@
+import { ExecutionError } from "../../core/error-families/run-errors.js";
 import { randomUUID } from "node:crypto";
 import type { Message } from "@a2a-js/sdk";
 import { executeWithoutInputCheck } from "../../app/execute-without-input-check.js";
 import { DurableExecutionStatus } from "../../app/execution-control.js";
-import { DuplicateExecutionIdError } from "../../core/errors.js";
 import { failedStatusOf, rejectedStatusOf } from "../tasks/task-status.js";
 import type { MeshLimitError } from "../../mesh/mesh-errors.js";
 import { withInboundMesh } from "../../mesh/inbound-mesh.js";
@@ -107,7 +107,7 @@ async function refusedStart(
   task: A2ATaskRecord,
   error: unknown,
 ): Promise<void> {
-  if (error instanceof DuplicateExecutionIdError) return;
+  if (error instanceof ExecutionError.DuplicateExecutionId) return;
   const tree = { tenantId: task.tenantId, rootExecutionId: task.taskId, threadId: task.contextId };
   await parts.control.claimExecutionId({ executionId: task.taskId, tenantId: task.tenantId });
   const state = await parts.control.executionStateOf(tree);

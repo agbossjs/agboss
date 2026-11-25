@@ -1,6 +1,5 @@
 import { recordOptionKeys } from "../components/option-keys.js";
 import { WORKING_CALENDAR_KEYS } from "../components/decorator-options.js";
-import { AGBossError } from "../core/errors.js";
 import type { Class, ResolvedAll, Token } from "../components/injection.js";
 import { componentOf, recordComponent } from "../components/metadata.js";
 import { resolvedName } from "../flow/names.js";
@@ -165,36 +164,4 @@ export enum WorkingCalendarProblem {
   MixedUnits = "mixed-units",
   /** Its `resolveSchedule` answered no valid schedule: an invalid or empty `WorkingWeek`, or no calendar at all. */
   InvalidSchedule = "invalid-schedule",
-}
-
-/** What a `WorkingCalendarError` names. */
-export interface WorkingCalendarErrorOptions {
-  /** The calendar's name: its `@WorkingCalendar` name, or `working-week` for the built-in grid. */
-  readonly calendar: string;
-  readonly problem: WorkingCalendarProblem;
-  /** What went wrong, only in-process: never in the message (it may hold personal data). */
-  readonly cause?: unknown;
-}
-
-/**
- * A pause's calendar could not answer (#944): the step that asked failed and nobody was asked —
- * `QuestionFailedError` / `AgentFailedError` with this as its `cause` — or `app.extendPause` was
- * refused and the pause is unchanged. The message never holds the calendar's own error text.
- */
-export class WorkingCalendarError extends AGBossError {
-  static override readonly code = "pause.working-calendar" as const;
-  declare readonly code: typeof WorkingCalendarError.code;
-  override name = "WorkingCalendarError";
-  readonly calendar: string;
-  readonly problem: WorkingCalendarProblem;
-
-  constructor(options: WorkingCalendarErrorOptions) {
-    const { calendar, problem, cause } = options;
-    super(`working calendar ${calendar}: ${problem}`, {
-      cause,
-      details: { calendar, problem },
-    });
-    this.calendar = calendar;
-    this.problem = problem;
-  }
 }

@@ -44,9 +44,9 @@ export interface WorkflowFixtures {
   readonly recoverApp: () => Promise<TestApp>;
   /**
    * The script of an agent, a router or a `@Judge`'s model (by class):
-   * `mockLlm(Scout).thenReturn(replyWith("…"))`, `mockLlm(AnswerGrounded).thenReturn(replyWith("PASS"))`.
+   * `mockModel(Scout).thenReturn(replyWith("…"))`, `mockModel(AnswerGrounded).thenReturn(replyWith("PASS"))`.
    */
-  readonly mockLlm: <TComponent extends Class>(
+  readonly mockModel: <TComponent extends Class>(
     component: TComponent,
   ) => ModelScript<InstanceType<TComponent>>;
   /**
@@ -62,9 +62,9 @@ export interface WorkflowFixtures {
    */
   readonly mockTool: (tool: Class) => ToolScript;
   /** A typed mock injected instead of a component; the same instance the app uses. */
-  readonly mockOf: <T>(component: Class<T>) => Mocked<T>;
-  /** The stub of an MCP server: `mcpOf(ShortlistServer).thenReturn({ write_file: … })`. */
-  readonly mcpOf: <TServer extends McpServerClient<ServerTools>>(
+  readonly mockService: <T>(component: Class<T>) => Mocked<T>;
+  /** The stub of an MCP server: `mockMcp(ShortlistServer).thenReturn({ write_file: … })`. */
+  readonly mockMcp: <TServer extends McpServerClient<ServerTools>>(
     server: new () => TServer,
   ) => McpStub<TServer>;
   /**
@@ -151,7 +151,7 @@ interface Internal {
  * A Vitest `test` for an application, like Spring's test context — the only form (#261): each test
  * gets the whole application assembled, with its real container, components, graph rules and the
  * infrastructure it lists (else the in-memory defaults), new per test, as `app`; models scripted
- * (`mockLlm`), MCP servers stubbed (`mcpOf`), the network blocked (`allowNetwork` to open hosts),
+ * (`mockModel`), MCP servers stubbed (`mockMcp`), the network blocked (`allowNetwork` to open hosts),
  * deterministic ids and a controllable clock. One workflow is tested through its start with
  * `app.execute`. `onStop` of real components runs after the test, also when it failed.
  * `const test = testWith(JobScoutApplication)`.
@@ -187,8 +187,8 @@ export function testWith<TApplication extends Class>(
         return current;
       });
     },
-    mockLlm: async ({ environment }, use) => {
-      await use((component) => environment.mockLlm(component));
+    mockModel: async ({ environment }, use) => {
+      await use((component) => environment.mockModel(component));
     },
     mockAction: async ({ environment }, use) => {
       await use((action) => environment.mocks.mockAction(action));
@@ -196,11 +196,11 @@ export function testWith<TApplication extends Class>(
     mockTool: async ({ environment }, use) => {
       await use((tool) => environment.mocks.mockTool(tool));
     },
-    mockOf: async ({ environment }, use) => {
-      await use((component) => environment.mocks.mockOf(component));
+    mockService: async ({ environment }, use) => {
+      await use((component) => environment.mocks.mockService(component));
     },
-    mcpOf: async ({ environment }, use) => {
-      await use((server) => environment.mcpOf(server));
+    mockMcp: async ({ environment }, use) => {
+      await use((server) => environment.mockMcp(server));
     },
     ...pauseAndBoundaryFixtures,
     leases: ({ environment }, use) => withTestLeases(environment, use),

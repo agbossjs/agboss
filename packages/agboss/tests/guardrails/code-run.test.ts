@@ -1,11 +1,12 @@
 /**
  * #383 — code guardrails at run time: `decidedBy: DecidedBy.Code` decides by the class's
  * `check(text)` on the text the model reads (masked); `GuardrailVerdict.blocked()` fails the
- * execution with the same `GuardrailBlockedError` and the refusal (static or computed); the
+ * execution with the same `GuardrailError.Blocked` and the refusal (static or computed); the
  * levels and `excludeGuardrails` work as for a model guardrail; no model call, no spend.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
+import { GuardrailError } from "../../src/core/error-families/limit-errors.js";
 import { describe, expect } from "vitest";
-import { GuardFailedError, GuardrailBlockedError } from "../../src/index.js";
 import { decideWith, replyWith, routeTo, testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
 import {
@@ -27,16 +28,16 @@ const toys = { tenant: { tenantId: "acme", shop: "toys" }, execution: { locale: 
 describe("#383: a code guardrail blocks with the same error and its refusal", () => {
   test("an output code guardrail blocks the answer: the decorator's refusal, probability 1", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ShopRouter).thenReturn(routeTo(SalesAgent));
-    mockLlm(SalesAgent).thenReturn(replyWith("Our best knife is on sale."));
+    mockModel(ShopRouter).thenReturn(routeTo(SalesAgent));
+    mockModel(SalesAgent).thenReturn(replyWith("Our best knife is on sale."));
 
     const run = execute(app, ShopStart, { text: "What is on sale?" }, toys);
 
-    await expect(run).rejects.toFailWith(GuardrailBlockedError, {
+    await expect(run).rejects.toFailWith(GuardrailError.Blocked, {
       code: "guardrail.blocked",
-      guard: "tenant-blocklist-guardrail",
+      guardrail: "tenant-blocklist-guardrail",
       refusal: "The response contained restricted terms.",
       probability: 1,
       threshold: 1,
@@ -45,7 +46,7 @@ describe("#383: a code guardrail blocks with the same error and its refusal", ()
 
   test("an input code guardrail blocks before the router's model: the class's refusal, in the sender's language", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
     const run = execute(
       app,
@@ -54,20 +55,20 @@ describe("#383: a code guardrail blocks with the same error and its refusal", ()
       { ...toys, execution: { locale: "he" } },
     );
 
-    await expect(run).rejects.toFailWith(GuardrailBlockedError, {
-      guard: "card-number-guardrail",
+    await expect(run).rejects.toFailWith(GuardrailError.Blocked, {
+      guardrail: "card-number-guardrail",
       refusal: "אל תשלחו מספרי כרטיס.",
     });
-    expect(mockLlm(ShopRouter)).toHaveBeenCalledTimes(0);
+    expect(mockModel(ShopRouter)).toHaveBeenCalledTimes(0);
   });
 
   test("passed: the execution goes on, the code guardrails cost nothing", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ShopRouter).thenReturn(routeTo(SalesAgent));
-    mockLlm(PromptInjectionGuardrail).thenReturn(decideWith({ blocks: 0.1 }));
-    mockLlm(SalesAgent).thenReturn(replyWith("A teddy bear."));
+    mockModel(ShopRouter).thenReturn(routeTo(SalesAgent));
+    mockModel(PromptInjectionGuardrail).thenReturn(decideWith({ blocks: 0.1 }));
+    mockModel(SalesAgent).thenReturn(replyWith("A teddy bear."));
 
     const result = await execute(app, ShopStart, { text: "A gift for a child?" }, toys);
 
@@ -80,35 +81,35 @@ describe("#383: a code guardrail blocks with the same error and its refusal", ()
     );
   });
 
-  test("a check that throws fails closed: GuardFailedError with the error as its cause", async ({
+  test("a check that throws fails closed: StepError.Guardrail with the error as its cause", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ShopRouter).thenReturn(routeTo(FragileAgent));
+    mockModel(ShopRouter).thenReturn(routeTo(FragileAgent));
 
     const run = execute(app, ShopStart, { text: "Hello" }, toys);
 
-    await expect(run).rejects.toFailWith(GuardFailedError, {
-      code: "step.guard",
-      guard: "broken-guardrail",
+    await expect(run).rejects.toFailWith(StepError.Guardrail, {
+      code: "step.guardrail",
+      guardrail: "broken-guardrail",
       message: 'Guard "broken-guardrail" failed: the blocklist is unreachable',
       cause: Error,
     });
-    expect(mockLlm(FragileAgent)).toHaveBeenCalledTimes(0);
+    expect(mockModel(FragileAgent)).toHaveBeenCalledTimes(0);
   });
 });
 
 describe("#383: check(text) reads the masked text, on the levels that list it", () => {
   test("the output guardrail reads the answer masked: a token, never the address", async ({
     app,
-    mockLlm,
-    mockOf,
+    mockModel,
+    mockService,
   }) => {
-    const blocklist = mockOf(BlocklistService);
+    const blocklist = mockService(BlocklistService);
     blocklist.containsBlockedTerms.mockResolvedValue(false);
-    mockLlm(ShopRouter).thenReturn(routeTo(SalesAgent));
-    mockLlm(PromptInjectionGuardrail).thenReturn(decideWith({ blocks: 0.1 }));
-    mockLlm(SalesAgent).thenReturn(replyWith("We will write to bob@example.com."));
+    mockModel(ShopRouter).thenReturn(routeTo(SalesAgent));
+    mockModel(PromptInjectionGuardrail).thenReturn(decideWith({ blocks: 0.1 }));
+    mockModel(SalesAgent).thenReturn(replyWith("We will write to bob@example.com."));
 
     await execute(app, ShopStart, { text: "Contact me." }, toys);
 
@@ -122,28 +123,28 @@ describe("#383: check(text) reads the masked text, on the levels that list it", 
 
   test("excludeGuardrails: the notes agent's answer and input are checked by none of them", async ({
     app,
-    mockLlm,
-    mockOf,
+    mockModel,
+    mockService,
   }) => {
-    mockOf(BlocklistService); // spied from the start: its calls are read after the execution
-    mockLlm(ShopRouter).thenReturn(routeTo(NotesAgent));
-    mockLlm(NotesAgent).thenReturn(replyWith("Knife order noted."));
+    mockService(BlocklistService); // spied from the start: its calls are read after the execution
+    mockModel(ShopRouter).thenReturn(routeTo(NotesAgent));
+    mockModel(NotesAgent).thenReturn(replyWith("Knife order noted."));
 
     const result = await execute(app, ShopStart, { text: "Note my knife order." }, toys);
 
     expect(result.output).toEqual({ text: "Knife order noted." });
-    expect(mockOf(BlocklistService).containsBlockedTerms.mock.calls).toEqual([]);
+    expect(mockService(BlocklistService).containsBlockedTerms.mock.calls).toEqual([]);
   });
 });
 
 describe("#383: observers see a code guardrail's decision", () => {
   test("onGuardrailStart / onGuardrailEnd fire with the masked text; a pass is probability 0", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
     guardrailEvents.length = 0;
-    mockLlm(ShopRouter).thenReturn(routeTo(NotesAgent));
-    mockLlm(NotesAgent).thenReturn(replyWith("Noted."));
+    mockModel(ShopRouter).thenReturn(routeTo(NotesAgent));
+    mockModel(NotesAgent).thenReturn(replyWith("Noted."));
 
     await execute(app, ShopStart, { text: "Call me at bob@example.com." }, toys);
 

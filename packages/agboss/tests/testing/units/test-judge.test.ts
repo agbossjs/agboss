@@ -3,8 +3,9 @@
  * model answering by script (`decideWith` on a decision model, `replyWith` on a chat model).
  * PR 4 (S115): its `reply` is a plain object of the judge's `reply` DTO, typed by the judge.
  */
+import { ConfigError } from "../../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
-import { Injectable, JudgeVerdict, ModelKindError } from "../../../src/index.js";
+import { Injectable, JudgeVerdict } from "../../../src/index.js";
 import {
   decideWith,
   failWith,
@@ -71,12 +72,12 @@ describe("testUnit", () => {
     await expect(runJudge(input)).rejects.toThrow();
   });
 
-  it("the wrong call for its model's kind is ModelKindError, as at run time", async () => {
+  it("the wrong call for its model's kind is ConfigError.ModelKind, as at run time", async () => {
     // GroundedJudge decides; scripted as a chat reply it never gets one
     const runJudge = testUnit(GroundedJudge, { model: replyWith("PASS") });
 
     await expect(runJudge(input)).rejects.toThrow("decides on typesafe/jev-1.13");
-    expect(ModelKindError.name).toBe("ModelKindError");
+    expect(ConfigError.ModelKind.name).toBe("ConfigError.ModelKind");
   });
 
   it("a judge with no script has no live model to call", async () => {

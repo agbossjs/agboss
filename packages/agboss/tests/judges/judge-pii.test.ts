@@ -92,16 +92,16 @@ const test = testWith(ContactJudgeApplication);
 describe("#708: a model judge reads as its agent's model reads", () => {
   test("its model reads the address as a token; judge() reads the reply revealed", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
     seen.length = 0;
-    mockLlm(ContactWriter).thenReturn(replyWith(`Write to ${EMAIL}.`));
+    mockModel(ContactWriter).thenReturn(replyWith(`Write to ${EMAIL}.`));
     // the judge's model echoes what it read: the token, which the framework reveals for judge()
-    mockLlm(ContactJudge).thenReturn(replyWith("ECHO"));
+    mockModel(ContactJudge).thenReturn(replyWith("ECHO"));
 
     await execute(app, ContactStart, { text: "Who handles on-call?" });
 
-    const read = requestText(mockLlm(ContactJudge).onlyRequest);
+    const read = requestText(mockModel(ContactJudge).onlyRequest);
     expect(read).not.toContain(EMAIL);
     expect(tokensIn(read, "email")).toHaveLength(1);
     expect(seen).toEqual(["ECHO"]);

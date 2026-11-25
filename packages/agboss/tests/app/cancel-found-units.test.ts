@@ -3,12 +3,12 @@
  * and stops the tree through the lease for a refusal by the cancel only (also one a driver wrapped),
  * and the hooks run each listener once a refusal is told, none before.
  */
+import { cancelFencedOf } from "../../src/app/cancel-fenced.js";
 import { describe, expect, it, vi } from "vitest";
 import { cancelMet } from "../../src/app/handed-over.js";
 import { CancelFoundHooks } from "../../src/app/lease-yields.js";
-import { ExecutionCancelFencedError } from "../../src/app/lease-lost.js";
 
-const REFUSAL = ExecutionCancelFencedError.of({
+const REFUSAL = cancelFencedOf({
   scopeKey: "default:execution-1",
   tenantId: "default",
   leaseExecutionId: "execution-1",

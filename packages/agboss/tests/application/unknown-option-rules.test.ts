@@ -3,6 +3,7 @@
  * came behind a spread, an untyped variable or from JS. The message names the option and the decorator,
  * never the value. No shard mutates it (tests/docs/non-sharded-src.ts gives the reason).
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, expectTypeOf, it } from "vitest";
 import { Application, requireApplication } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
@@ -26,7 +27,6 @@ import {
   Ttl,
 } from "../../src/index.js";
 import { ItemDto } from "../flow/runtime/fixtures/fan-out.workflow.js";
-import { GraphRuleError } from "../../src/graph/rule-error.js";
 import { onStart } from "../helpers/flow.js";
 
 /** A value no message may carry. */
@@ -101,6 +101,16 @@ describe("[decorator.unknown-option]: flow decorators", () => {
       expect(found.some((m) => m.includes(`${key} is not an option of @Agent`))).toBe(true);
     }
     expect(found.every((m) => m.includes("move it into executionLimits"))).toBe(true);
+  });
+
+  it("an @Agent given price (gone in 0.1.1: a provider's cost is its table) is named, not ignored", () => {
+    @Agent(loose({ name: "a-priced-agent", description: "d", price: { inputPerMTok: 1 } }))
+    class Priced {}
+
+    const found = messagesOf(Priced);
+
+    expect(found).toHaveLength(1);
+    expect(found[0]).toContain("price is not an option of @Agent");
   });
 
   it("finds a stray key behind a spread, and suggests the nearest option", () => {
@@ -318,8 +328,8 @@ describe("[decorator.unknown-option]: @Application", () => {
       (error: unknown) => error,
     );
 
-    if (!(failure instanceof GraphRuleError)) throw failure;
-    expect(failure).toBeInstanceOf(GraphRuleError);
+    if (!(failure instanceof ConfigError.GraphRules)) throw failure;
+    expect(failure).toBeInstanceOf(ConfigError.GraphRules);
     const violations = failure.violations;
     expect(
       violations.map((one) => one.code).filter((code) => code === "decorator.unknown-option"),

@@ -12,7 +12,7 @@ import { minutes, seconds } from "../units/index.js";
 /**
  * The model provider of a test application (#1328): `modelProvider: TestModelProvider` on its
  * `@Application` serves every model use of its workflows — chat agents, routers and judges on
- * `decide`, arbiters, and the default models of the levels. A test script (`mockLlm`, `replyWith`,
+ * `decide`, arbiters, and the default models of the levels. A test script (`mockModel`, `replyWith`,
  * `routeTo`) answers every call before the provider is reached, so it never goes anywhere: a call
  * that gets through unscripted fails and says so. `/testing` makes no provider of its own — an
  * application that names none is `[model.missing-provider]`.

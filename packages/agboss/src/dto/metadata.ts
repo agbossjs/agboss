@@ -1,5 +1,5 @@
 import { METADATA_KEY } from "../polyfills/symbol-metadata.js";
-import { DtoError } from "./errors.js";
+import { dtoClassError } from "./errors.js";
 import type { DtoCheck, DtoClass, FieldSpec } from "./types.js";
 
 type FieldTable = Map<string, FieldSpec>;
@@ -18,7 +18,7 @@ function ownTable(metadata: DecoratorMetadataObject): FieldTable {
 /** Called by every field decorator at class definition. */
 export function recordField(metadata: DecoratorMetadataObject | undefined, spec: FieldSpec): void {
   if (metadata === undefined) {
-    throw new DtoError({
+    throw dtoClassError({
       code: "dto.no-metadata",
       message: `field "${spec.name}": decorator metadata is missing — import "@agboss/core/dto" before declaring DTOs`,
     });
@@ -35,7 +35,7 @@ export function recordCheck(
   check: DtoCheck<never>,
 ): void {
   if (metadata === undefined) {
-    throw new DtoError({
+    throw dtoClassError({
       code: "dto.no-metadata",
       message: `@Validate: decorator metadata is missing — import "@agboss/core/dto" before declaring DTOs`,
     });
@@ -116,7 +116,7 @@ export function registerDto(dto: DtoClass): readonly FieldSpec[] {
     (key) => !decorated.has(key),
   );
   if (undecorated.length > 0) {
-    throw new DtoError({
+    throw dtoClassError({
       code: "dto.undecorated-field",
       message: `${dto.name}: every field needs a field decorator — ${undecorated.join(", ")}`,
     });
@@ -126,7 +126,7 @@ export function registerDto(dto: DtoClass): readonly FieldSpec[] {
     ...fields.filter((field) => field.isPrivate).map((field) => field.name),
   ];
   if (notPlain.length > 0) {
-    throw new DtoError({
+    throw dtoClassError({
       code: "dto.not-plain-data",
       message: `${dto.name}: a DTO is plain data, without methods or private fields — ${notPlain.join(", ")}`,
     });

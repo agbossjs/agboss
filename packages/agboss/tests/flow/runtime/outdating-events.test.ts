@@ -34,19 +34,19 @@ const loop = testWith(LoopApplication);
 beforeEach(resetOutdatingLog);
 
 describe("#271 AC10: onValuesOutdated", () => {
-  loop("one event per cascade, never empty, no values", async ({ app, mockLlm }) => {
-    mockLlm(LoopResearcherAgent).thenReturn(replyWith(ResearchDto, { facts: "secret facts" }));
-    mockLlm(LoopWriterAgent).thenReturn(
+  loop("one event per cascade, never empty, no values", async ({ app, mockModel }) => {
+    mockModel(LoopResearcherAgent).thenReturn(replyWith(ResearchDto, { facts: "secret facts" }));
+    mockModel(LoopWriterAgent).thenReturn(
       replyWith(DraftDto, { text: "secret v1" }),
       replyWith(DraftDto, { text: "secret v2" }),
       replyWith(DraftDto, { text: "secret v3" }),
     );
-    mockLlm(LoopReviewerAgent).thenReturn(
+    mockModel(LoopReviewerAgent).thenReturn(
       replyWith(DraftChangesDto, { changes: "secret notes 1" }),
       replyWith(DraftChangesDto, { changes: "secret notes 2" }),
       replyWith(ApprovalDto, { reason: "secret ok" }),
     );
-    mockLlm(LoopPublisherAgent).thenReturn(replyWith(ArticleDto, { body: "secret article" }));
+    mockModel(LoopPublisherAgent).thenReturn(replyWith(ArticleDto, { body: "secret article" }));
 
     const result = await execute(app, LoopWorkflowStart, { topic: "t" }, { includeRecord: true });
 
@@ -74,17 +74,17 @@ describe("#271 AC10: onValuesOutdated", () => {
     expect(JSON.stringify(outdatingEvents)).not.toContain("secret");
   });
 
-  loop("the common execution fields and the step that wrote", async ({ app, mockLlm }) => {
-    mockLlm(LoopResearcherAgent).thenReturn(replyWith(ResearchDto, { facts: "f" }));
-    mockLlm(LoopWriterAgent).thenReturn(
+  loop("the common execution fields and the step that wrote", async ({ app, mockModel }) => {
+    mockModel(LoopResearcherAgent).thenReturn(replyWith(ResearchDto, { facts: "f" }));
+    mockModel(LoopWriterAgent).thenReturn(
       replyWith(DraftDto, { text: "v1" }),
       replyWith(DraftDto, { text: "v2" }),
     );
-    mockLlm(LoopReviewerAgent).thenReturn(
+    mockModel(LoopReviewerAgent).thenReturn(
       replyWith(DraftChangesDto, { changes: "n" }),
       replyWith(ApprovalDto, { reason: "ok" }),
     );
-    mockLlm(LoopPublisherAgent).thenReturn(replyWith(ArticleDto, { body: "a" }));
+    mockModel(LoopPublisherAgent).thenReturn(replyWith(ArticleDto, { body: "a" }));
 
     const result = await execute(app, LoopWorkflowStart, { topic: "t" });
 
@@ -113,11 +113,11 @@ describe("#271 AC10: onValuesOutdated", () => {
     ]);
   });
 
-  loop("a first write fires nothing", async ({ app, mockLlm }) => {
-    mockLlm(LoopResearcherAgent).thenReturn(replyWith(ResearchDto, { facts: "f" }));
-    mockLlm(LoopWriterAgent).thenReturn(replyWith(DraftDto, { text: "v1" }));
-    mockLlm(LoopReviewerAgent).thenReturn(replyWith(ApprovalDto, { reason: "ok" }));
-    mockLlm(LoopPublisherAgent).thenReturn(replyWith(ArticleDto, { body: "a" }));
+  loop("a first write fires nothing", async ({ app, mockModel }) => {
+    mockModel(LoopResearcherAgent).thenReturn(replyWith(ResearchDto, { facts: "f" }));
+    mockModel(LoopWriterAgent).thenReturn(replyWith(DraftDto, { text: "v1" }));
+    mockModel(LoopReviewerAgent).thenReturn(replyWith(ApprovalDto, { reason: "ok" }));
+    mockModel(LoopPublisherAgent).thenReturn(replyWith(ArticleDto, { body: "a" }));
 
     const result = await execute(app, LoopWorkflowStart, { topic: "t" }, { includeRecord: true });
 

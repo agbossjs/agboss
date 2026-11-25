@@ -3,11 +3,10 @@
  * tree wakes by itself, the branch ends `Expired` (not `Cancelled`, not `Skipped`) and counts as
  * "did not vote".
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { beforeEach, describe, expect } from "vitest";
 import { ExecutionStatus } from "../../src/app/types.js";
 import { BranchStatus, PauseClosedReason, PauseResolution, PauseStatus } from "../../src/index.js";
-import { PauseExpiredError } from "../../src/flow/runtime/pause-expired-error.js";
-import { QuorumNotReachedError } from "../../src/flow/runtime/launch/quorum-errors.js";
 import { callTool, decideWith, replyWith, testWith } from "../../src/testing/index.js";
 import { hours, minutes } from "../../src/units/index.js";
 import { execute } from "../helpers/flow.js";
@@ -55,11 +54,11 @@ describe("AC1: min 2, max 3, two answered, the third never: at the deadline the 
   test("AC1: at the quorum deadline the join runs with two answers, the third branch Expired with step.pause-expired", async ({
     app,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(PolicyAgent).thenReturn(callTool(RefundTool, { orderId: "P" }), score(7));
-    mockLlm(RiskAgent).thenReturn(callTool(RefundTool, { orderId: "R" }), score(9));
-    mockLlm(FraudAgent).thenReturn(callTool(RefundTool, { orderId: "F" }));
+    mockModel(PolicyAgent).thenReturn(callTool(RefundTool, { orderId: "P" }), score(7));
+    mockModel(RiskAgent).thenReturn(callTool(RefundTool, { orderId: "R" }), score(9));
+    mockModel(FraudAgent).thenReturn(callTool(RefundTool, { orderId: "F" }));
     const paused = await execute(app, QuorumExpiryWorkflowStart, ORDER);
     expect(paused.status).toBe(ExecutionStatus.Paused);
     await app.resume(answerFor("P"), manager);
@@ -96,11 +95,11 @@ describe("AC1: min 2, max 3, two answered, the third never: at the deadline the 
 
   test("AC1: the pause of a quorum branch is bound by the quorum's deadline", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(PolicyAgent).thenReturn(callTool(RefundTool, { orderId: "P" }));
-    mockLlm(RiskAgent).thenReturn(score(9));
-    mockLlm(FraudAgent).thenReturn(score(5));
+    mockModel(PolicyAgent).thenReturn(callTool(RefundTool, { orderId: "P" }));
+    mockModel(RiskAgent).thenReturn(score(9));
+    mockModel(FraudAgent).thenReturn(score(5));
     await execute(app, QuorumExpiryWorkflowStart, ORDER);
 
     const pause = await stored("P");
@@ -113,12 +112,12 @@ describe("AC1: min 2, max 3, two answered, the third never: at the deadline the 
   test("AC1: groups — the priority group waits for its third member, the other group is complete", async ({
     app,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(PolicyAgent).thenReturn(score(7));
-    mockLlm(RiskAgent).thenReturn(score(9));
-    mockLlm(FraudAgent).thenReturn(callTool(RefundTool, { orderId: "F" }));
-    mockLlm(QuickScoreAgent).thenReturn(score(1));
+    mockModel(PolicyAgent).thenReturn(score(7));
+    mockModel(RiskAgent).thenReturn(score(9));
+    mockModel(FraudAgent).thenReturn(callTool(RefundTool, { orderId: "F" }));
+    mockModel(QuickScoreAgent).thenReturn(score(1));
     const paused = await execute(app, QuorumExpiryGroupsWorkflowStart, ORDER);
     expect(paused.status).toBe(ExecutionStatus.Paused);
 
@@ -132,11 +131,11 @@ describe("AC1: min 2, max 3, two answered, the third never: at the deadline the 
   test("AC1: an answer before the deadline wins the race: the branch is not Expired", async ({
     app,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(PolicyAgent).thenReturn(callTool(RefundTool, { orderId: "P" }), score(7));
-    mockLlm(RiskAgent).thenReturn(score(9));
-    mockLlm(FraudAgent).thenReturn(score(5));
+    mockModel(PolicyAgent).thenReturn(callTool(RefundTool, { orderId: "P" }), score(7));
+    mockModel(RiskAgent).thenReturn(score(9));
+    mockModel(FraudAgent).thenReturn(score(5));
     await execute(app, QuorumExpiryWorkflowStart, ORDER);
 
     await clock.advance(minutes(59));
@@ -149,14 +148,14 @@ describe("AC1: min 2, max 3, two answered, the third never: at the deadline the 
 });
 
 describe("AC2: one answers, two never (their own deadlines pass)", () => {
-  test("AC2: QuorumNotReachedError { counted: 1, expired: [two node ids] }", async ({
+  test("AC2: StepError.QuorumNotReached { counted: 1, expired: [two node ids] }", async ({
     app,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ShortPolicyAgent).thenReturn(callTool(ShortRefundTool, { orderId: "P" }));
-    mockLlm(ShortRiskAgent).thenReturn(callTool(ShortRefundTool, { orderId: "R" }));
-    mockLlm(ShortFraudAgent).thenReturn(score(5));
+    mockModel(ShortPolicyAgent).thenReturn(callTool(ShortRefundTool, { orderId: "P" }));
+    mockModel(ShortRiskAgent).thenReturn(callTool(ShortRefundTool, { orderId: "R" }));
+    mockModel(ShortFraudAgent).thenReturn(score(5));
     const paused = await execute(app, QuorumExpiryShortWorkflowStart, ORDER);
     expect(paused.status).toBe(ExecutionStatus.Paused);
 
@@ -164,7 +163,7 @@ describe("AC2: one answers, two never (their own deadlines pass)", () => {
     await until(() => qe.errors.length === 1);
 
     const [error] = qe.errors;
-    expect(error).toBeInstanceOf(QuorumNotReachedError);
+    expect(error).toBeInstanceOf(StepError.QuorumNotReached);
     expect(error).toMatchObject({
       counted: 1,
       expired: ["short-policy-agent", "short-risk-agent"],
@@ -172,10 +171,10 @@ describe("AC2: one answers, two never (their own deadlines pass)", () => {
     expect(error?.message).toContain("1 counted, need 2, 2 expired");
   });
 
-  test("AC2: with min 1 it goes on", async ({ app, clock, mockLlm }) => {
-    mockLlm(ShortPolicyAgent).thenReturn(callTool(ShortRefundTool, { orderId: "P" }));
-    mockLlm(ShortRiskAgent).thenReturn(callTool(ShortRefundTool, { orderId: "R" }));
-    mockLlm(ShortFraudAgent).thenReturn(score(5));
+  test("AC2: with min 1 it goes on", async ({ app, clock, mockModel }) => {
+    mockModel(ShortPolicyAgent).thenReturn(callTool(ShortRefundTool, { orderId: "P" }));
+    mockModel(ShortRiskAgent).thenReturn(callTool(ShortRefundTool, { orderId: "R" }));
+    mockModel(ShortFraudAgent).thenReturn(score(5));
     await execute(app, QuorumExpiryShortOneWorkflowStart, ORDER);
 
     await clock.advance(minutes(30));
@@ -194,11 +193,11 @@ describe("AC3: an expired reviewer never fails the panel", () => {
   test("AC3: FailFast quorum (the default): an expired branch never fails the launch", async ({
     app,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(PolicyAgent).thenReturn(score(7));
-    mockLlm(RiskAgent).thenReturn(score(9));
-    mockLlm(FraudAgent).thenReturn(callTool(RefundTool, { orderId: "F" }));
+    mockModel(PolicyAgent).thenReturn(score(7));
+    mockModel(RiskAgent).thenReturn(score(9));
+    mockModel(FraudAgent).thenReturn(callTool(RefundTool, { orderId: "F" }));
     await execute(app, QuorumExpiryOneWorkflowStart, ORDER);
 
     await clock.advance(hours(1));
@@ -210,21 +209,21 @@ describe("AC3: an expired reviewer never fails the panel", () => {
 });
 
 describe("Q11: a plain .join() follows its FailurePolicy", () => {
-  test("AC3: plain + FailFast: the launch fails with PauseExpiredError; the waiting sibling is withdrawn, no hang", async ({
+  test("AC3: plain + FailFast: the launch fails with StepError.PauseExpired; the waiting sibling is withdrawn, no hang", async ({
     app,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ShortPolicyAgent).thenReturn(callTool(ShortRefundTool, { orderId: "S" }));
-    mockLlm(ShortRiskAgent).thenReturn(score(9));
-    mockLlm(PolicyAgent).thenReturn(callTool(RefundTool, { orderId: "W" }));
+    mockModel(ShortPolicyAgent).thenReturn(callTool(ShortRefundTool, { orderId: "S" }));
+    mockModel(ShortRiskAgent).thenReturn(score(9));
+    mockModel(PolicyAgent).thenReturn(callTool(RefundTool, { orderId: "W" }));
     const paused = await execute(app, PlainExpiryWorkflowStart, ORDER);
     expect(paused.status).toBe(ExecutionStatus.Paused);
 
     await clock.advance(minutes(30));
     await until(() => qe.errors.length === 1);
 
-    expect(qe.errors[0]).toBeInstanceOf(PauseExpiredError);
+    expect(qe.errors[0]).toBeInstanceOf(StepError.PauseExpired);
     expect(qe.shortAsks).toHaveLength(1);
     expect(await stored("W")).toMatchObject({
       status: PauseStatus.Cancelled,
@@ -235,11 +234,11 @@ describe("Q11: a plain .join() follows its FailurePolicy", () => {
   test("AC3: Expired under FailFast in a plain join enters .onError, not the main path", async ({
     app,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ShortPolicyAgent).thenReturn(callTool(ShortRefundTool, { orderId: "S" }));
-    mockLlm(ShortRiskAgent).thenReturn(score(9));
-    mockLlm(PolicyAgent).thenReturn(callTool(RefundTool, { orderId: "W" }));
+    mockModel(ShortPolicyAgent).thenReturn(callTool(ShortRefundTool, { orderId: "S" }));
+    mockModel(ShortRiskAgent).thenReturn(score(9));
+    mockModel(PolicyAgent).thenReturn(callTool(RefundTool, { orderId: "W" }));
     await execute(app, PlainExpiryHandledWorkflowStart, ORDER);
 
     await clock.advance(minutes(30));
@@ -255,11 +254,11 @@ describe("Q11: a plain .join() with FailurePolicy.Skip", () => {
   test("AC3: plain + Skip: the expired branch is dropped, the launch goes on", async ({
     app,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(SkipPanelRouter).thenReturn(decideWith({ "short-risk-agent": 0.9 }));
-    mockLlm(ShortPolicyAgent).thenReturn(callTool(ShortRefundTool, { orderId: "S" }));
-    mockLlm(ShortRiskAgent).thenReturn(score(9));
+    mockModel(SkipPanelRouter).thenReturn(decideWith({ "short-risk-agent": 0.9 }));
+    mockModel(ShortPolicyAgent).thenReturn(callTool(ShortRefundTool, { orderId: "S" }));
+    mockModel(ShortRiskAgent).thenReturn(score(9));
     const paused = await execute(app, SkipExpiryWorkflowStart, ORDER);
     expect(paused.status).toBe(ExecutionStatus.Paused);
 

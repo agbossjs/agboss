@@ -1,4 +1,5 @@
-import { checkResume, IncompatibleResumeError } from "../run/resume-guard.js";
+import { ExecutionError } from "../core/error-families/run-errors.js";
+import { checkResume } from "../run/resume-guard.js";
 import type { Turn } from "../turns/index.js";
 import type { RecoverRootParts } from "./recover-root.js";
 import { withTreeOrigin } from "./tree-origin.js";
@@ -29,7 +30,7 @@ export const expireRootOf =
     try {
       checkResume({ threadId, executionId: runId, paused: started, current }, policy);
     } catch (error) {
-      if (error instanceof IncompatibleResumeError) return;
+      if (error instanceof ExecutionError.IncompatibleResume) return;
       throw error;
     }
     const facts = { runId, threadId, tenantId, turnId: record.id, startedVersion };

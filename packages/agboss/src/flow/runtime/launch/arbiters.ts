@@ -1,3 +1,4 @@
+import { StepError } from "../../../core/error-families/step-errors.js";
 import type { ModelReadingMask } from "../../../pii/model-boundary.js";
 import type { Class } from "../../../components/injection.js";
 import { normalisePromptText } from "../../../components/prompt-render.js";
@@ -16,7 +17,6 @@ import { Metadata } from "../../metadata.js";
 import { passesThrough } from "../errors.js";
 import type { ArbiterModels } from "./arbiter-call.js";
 import { runArbiterCall } from "./arbiter-live.js";
-import { ArbiterError } from "./quorum-errors.js";
 import { observedJudging } from "./arbiter-events.js";
 
 /**
@@ -25,7 +25,7 @@ import { observedJudging } from "./arbiter-events.js";
  * `@Arbitrate(…targets)` method gets the answer (tracked as given by that target); with
  * `ArbiterModel` injected it may ask its own model; a declarative arbiter asks its model with the
  * target's criterion. An arbiter that throws, returns something other than a boolean or whose model
- * does not answer fails the branch with `ArbiterError` — never a rejection — carrying what its model
+ * does not answer fails the branch with `StepError.Arbiter` — never a rejection — carrying what its model
  * calls spent. A limit or a cancel passes through as it is, its spend handed to `keepSpend`. Once
  * the launch is decided (its signal aborted) the check stops: a running code check is abandoned at
  * once; a model check's call, which cannot be stopped, is awaited for its cost — either way the
@@ -193,7 +193,7 @@ async function byModel(
   );
   spent.push(...verdict.usage);
   if (verdict.kind === "failed")
-    throw new ArbiterError({
+    throw new StepError.Arbiter({
       arbiter: options.name,
       cause: verdict.cause ?? verdict.reason,
       usage: [...spent],
@@ -216,8 +216,12 @@ async function judgeOnce(
       ? await byCode(arbiter, site, spent, deps)
       : await byModel(arbiter, options, site, spent, deps);
   } catch (error) {
-    if (passesThrough(error) || error instanceof ArbiterError) throw error;
-    throw new ArbiterError({ arbiter: arbiterNameOf(arbiter), cause: error, usage: [...spent] });
+    if (passesThrough(error) || error instanceof StepError.Arbiter) throw error;
+    throw new StepError.Arbiter({
+      arbiter: arbiterNameOf(arbiter),
+      cause: error,
+      usage: [...spent],
+    });
   }
 }
 

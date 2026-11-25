@@ -2,20 +2,20 @@
  * #261 AC10 (PR 5): budgets at run time — every workflow, every tenant and the whole application
  * capped (assembly), `maxSpend()` read once per execution (in the execution's context), every
  * budget checked before the first step (an exhausted one rejects the execution) and counted after
- * every model call (the first exhausted stops it with `BudgetExceededError`).
+ * every model call (the first exhausted stops it with `LimitError.Budget`).
  */
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import { periodStartOf } from "../../src/budgets/budget-period.js";
 import {
   Budget,
-  BudgetExceededError,
   BudgetPeriod,
   BudgetScope,
   CostLedgerRepository,
   EmptyEnvironment,
-  GraphRuleError,
   type BudgetHandler,
 } from "../../src/index.js";
 import { replyWith, routeTo, testExecutionContext, testWith } from "../../src/testing/index.js";
@@ -67,9 +67,9 @@ beforeEach(() => {
 describe("#261 AC10: maxSpend() is read once per execution, in its context", () => {
   shop(
     "one read per budget at the start, the tenant's own amount, the start step's frame",
-    async ({ app, mockLlm }) => {
-      mockLlm(DrafterAgent).thenReturn(draft(0.001));
-      mockLlm(ReviewerAgent).thenReturn(replyWith("fine", { cost: usd(0.001) }));
+    async ({ app, mockModel }) => {
+      mockModel(DrafterAgent).thenReturn(draft(0.001));
+      mockModel(ReviewerAgent).thenReturn(replyWith("fine", { cost: usd(0.001) }));
 
       await execute(app, BriefStart, { text: "a brief" }, { tenant: acme });
 
@@ -80,9 +80,9 @@ describe("#261 AC10: maxSpend() is read once per execution, in its context", () 
     },
   );
 
-  shop("each execution reads its own amounts", async ({ app, mockLlm }) => {
-    mockLlm(DrafterAgent).thenReturnAlways(draft(0));
-    mockLlm(ReviewerAgent).thenReturnAlways(replyWith("fine"));
+  shop("each execution reads its own amounts", async ({ app, mockModel }) => {
+    mockModel(DrafterAgent).thenReturnAlways(draft(0));
+    mockModel(ReviewerAgent).thenReturnAlways(replyWith("fine"));
 
     await execute(app, BriefStart, { text: "one" }, { tenant: acme });
     await execute(app, BriefStart, { text: "two" }, { tenant: { ...acme, tenantId: "globex" } });
@@ -95,9 +95,9 @@ describe("#261 AC10: maxSpend() is read once per execution, in its context", () 
 
   shop(
     "the ledger keeps the last maxSpend() of each budget: the last known limit",
-    async ({ app, mockLlm }) => {
-      mockLlm(DrafterAgent).thenReturn(draft(0));
-      mockLlm(ReviewerAgent).thenReturn(replyWith("fine"));
+    async ({ app, mockModel }) => {
+      mockModel(DrafterAgent).thenReturn(draft(0));
+      mockModel(ReviewerAgent).thenReturn(replyWith("fine"));
 
       await execute(app, BriefStart, { text: "a brief" }, { tenant: acme });
 
@@ -115,12 +115,12 @@ describe("#261 AC10: maxSpend() is read once per execution, in its context", () 
 describe("#261 AC10: every budget is checked before the first step", () => {
   shop(
     "an exhausted tenant budget rejects the execution: no record, no model call",
-    async ({ app, mockLlm, mockOf }) => {
-      mockOf(ShopTenantDailyBudget).maxSpend.mockReturnValue(usd(0));
+    async ({ app, mockModel, mockService }) => {
+      mockService(ShopTenantDailyBudget).maxSpend.mockReturnValue(usd(0));
 
       const run = execute(app, BriefStart, { text: "a brief" }, { tenant: acme });
 
-      await expect(run).rejects.toBeInstanceOf(BudgetExceededError);
+      await expect(run).rejects.toBeInstanceOf(LimitError.Budget);
       await expect(run).rejects.toMatchObject({
         budget: { name: "shop-tenant-daily-budget" },
         scope: BudgetScope.Tenant,
@@ -132,7 +132,7 @@ describe("#261 AC10: every budget is checked before the first step", () => {
       await expect(run).rejects.toThrow(
         "tenant acme spent $0 today; shop-tenant-daily-budget allows $0",
       );
-      expect(mockLlm(DrafterAgent).requests).toHaveLength(0);
+      expect(mockModel(DrafterAgent).requests).toHaveLength(0);
       // a refused request leaves no trace: not even the amounts it read
       const account = {
         budget: "shop-tenant-daily-budget",
@@ -145,15 +145,15 @@ describe("#261 AC10: every budget is checked before the first step", () => {
 
   shop(
     "an application budget spent by earlier executions rejects the next one",
-    async ({ app, mockLlm, mockOf }) => {
-      mockOf(ShopApplicationDailyBudget).maxSpend.mockReturnValue(usd(0.01));
-      mockLlm(DrafterAgent).thenReturnAlways(draft(0.02));
-      mockLlm(ReviewerAgent).thenReturnAlways(replyWith("fine"));
+    async ({ app, mockModel, mockService }) => {
+      mockService(ShopApplicationDailyBudget).maxSpend.mockReturnValue(usd(0.01));
+      mockModel(DrafterAgent).thenReturnAlways(draft(0.02));
+      mockModel(ReviewerAgent).thenReturnAlways(replyWith("fine"));
 
       // the first one passes the check (nothing spent yet) and spends $0.02 in its one paid call
       await expect(
         execute(app, BriefStart, { text: "one" }, { tenant: acme }),
-      ).rejects.toBeInstanceOf(BudgetExceededError);
+      ).rejects.toBeInstanceOf(LimitError.Budget);
       const second = execute(
         app,
         BriefStart,
@@ -164,7 +164,7 @@ describe("#261 AC10: every budget is checked before the first step", () => {
       await expect(second).rejects.toThrow(
         "shop-application spent $0.02 today; shop-application-daily-budget allows $0.01",
       );
-      expect(mockLlm(DrafterAgent).requests).toHaveLength(1);
+      expect(mockModel(DrafterAgent).requests).toHaveLength(1);
     },
   );
 });
@@ -172,8 +172,8 @@ describe("#261 AC10: every budget is checked before the first step", () => {
 describe("#261 AC10: every model call is counted in all of the execution's budgets", () => {
   shop(
     "the first exhausted budget stops the execution before the next call",
-    async ({ app, mockLlm }) => {
-      mockLlm(DrafterAgent).thenReturn(draft(0.06));
+    async ({ app, mockModel }) => {
+      mockModel(DrafterAgent).thenReturn(draft(0.06));
 
       const run = execute(app, BriefStart, { text: "a brief" }, { tenant: acme });
 
@@ -185,13 +185,13 @@ describe("#261 AC10: every model call is counted in all of the execution's budge
         maxSpend: 0.05,
         path: ["brief-workflow-start", "drafter-agent", "reviewer-agent"],
       });
-      expect(mockLlm(ReviewerAgent).requests).toHaveLength(0);
+      expect(mockModel(ReviewerAgent).requests).toHaveLength(0);
     },
   );
 
-  shop("each call's cost lands in every counter of the execution", async ({ app, mockLlm }) => {
-    mockLlm(DrafterAgent).thenReturn(draft(0.01));
-    mockLlm(ReviewerAgent).thenReturn(replyWith("fine", { cost: usd(0.02) }));
+  shop("each call's cost lands in every counter of the execution", async ({ app, mockModel }) => {
+    mockModel(DrafterAgent).thenReturn(draft(0.01));
+    mockModel(ReviewerAgent).thenReturn(replyWith("fine", { cost: usd(0.02) }));
 
     const result = await execute(app, BriefStart, { text: "a brief" }, { tenant: acme });
 
@@ -222,10 +222,10 @@ describe("#261 AC10: every model call is counted in all of the execution's budge
 
   cheap(
     "the execution budget stops a loop; the tenant's day stops the next execution, then rejects one",
-    async ({ app, mockLlm }) => {
+    async ({ app, mockModel }) => {
       const edit = (cost: number) => replyWith(EditDraftDto, { text: "v" }, { cost: usd(cost) });
-      mockLlm(GateRouter).thenReturnAlways(routeTo(EditorAgent));
-      mockLlm(EditorAgent).thenReturn(edit(0.016), edit(0.003), edit(0.003));
+      mockModel(GateRouter).thenReturnAlways(routeTo(EditorAgent));
+      mockModel(EditorAgent).thenReturn(edit(0.016), edit(0.003), edit(0.003));
 
       // $0.016 > the execution's $0.015: the gate after the editor never runs
       const first = execute(app, EditStart, { text: "one" });
@@ -244,7 +244,7 @@ describe("#261 AC10: every model call is counted in all of the execution's budge
       await expect(third).rejects.toThrow(
         "tenant default spent $0.022 today; cheap-tenant-daily-budget allows $0.02",
       );
-      expect(mockLlm(EditorAgent).requests).toHaveLength(3);
+      expect(mockModel(EditorAgent).requests).toHaveLength(3);
     },
   );
 });
@@ -308,7 +308,7 @@ async function violationsOf(application: new () => object): Promise<readonly str
     () => undefined,
     (failure: unknown) => failure,
   );
-  if (!(error instanceof GraphRuleError)) throw new Error("expected the assembly to fail");
+  if (!(error instanceof ConfigError.GraphRules)) throw new Error("expected the assembly to fail");
   return error.violations.map((violation) => `[${violation.code}] ${violation.message}`);
 }
 

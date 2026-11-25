@@ -1,3 +1,4 @@
+import { PiiError } from "../../src/core/error-families/limit-errors.js";
 import { usd } from "../../src/units/index.js";
 /**
  * #1366 (files-pii shard) — what a set of PII policies decides on its own, each rule over fake policies: the known
@@ -10,7 +11,6 @@ import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { CostSource, ZERO_USAGE, type UsageRecord } from "../../src/finops/usage.js";
 import { PiiActionKind, type AnyPiiAction } from "../../src/pii/actions.js";
 import { PiiKind } from "../../src/pii/kinds.js";
-import { PiiRefusedError } from "../../src/pii/errors.js";
 import { maskedText, type PiiFinding } from "../../src/pii/masking.js";
 import { PiiFileAction } from "../../src/pii/pii-policy.decorator.js";
 import { PiiPolicySet, type SensitiveValue } from "../../src/pii/policy-set.js";
@@ -270,9 +270,9 @@ describe("#1366: the refusals of a set", () => {
 
     const refused = await set.refusalForKind(PiiKind.CardNumber);
 
-    expect(refused).toBeInstanceOf(PiiRefusedError);
+    expect(refused).toBeInstanceOf(PiiError.Refused);
     expect(refused).toMatchObject({
-      kind: PiiKind.CardNumber.id,
+      piiKind: PiiKind.CardNumber.id,
       refusal: `refused ${PiiKind.CardNumber.id}`,
     });
     expect(await set.refusalForKind(PiiKind.Email)).toBeUndefined();
@@ -290,9 +290,9 @@ describe("#1366: the refusals of a set", () => {
 
     const refused = await set.refusalError([blocked, finding({ policy: "p1" })], [record(0.25)]);
 
-    expect(refused).toBeInstanceOf(PiiRefusedError);
+    expect(refused).toBeInstanceOf(PiiError.Refused);
     expect(refused).toMatchObject({
-      kind: "card",
+      piiKind: "card",
       refusal: `refused ${PiiKind.CardNumber.id}`,
     });
     expect(refused?.usage.map((u) => u.costUsd)).toEqual([0.25]);

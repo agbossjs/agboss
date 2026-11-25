@@ -59,8 +59,8 @@ deskTest("the desk's Agent Card names its one skill", async ({ a2aServer }) => {
 
 deskTest(
   "the desk answers an A2A task with its finish's output",
-  async ({ a2aServer, mockLlm }) => {
-    mockLlm(DeskAgent).thenReturn(
+  async ({ a2aServer, mockModel }) => {
+    mockModel(DeskAgent).thenReturn(
       callTool(OrderStatusTool, { orderId: "7" }),
       replyWith("Order 7 shipped on Monday."),
     );
@@ -79,7 +79,7 @@ deskTest(
 
 deskTest(
   "a caller naming no tenant is refused, and nothing runs",
-  async ({ a2aServer, mockLlm }) => {
+  async ({ a2aServer, mockModel }) => {
     const { url } = await a2aServer(desk);
 
     const refused = await sendMessage(url);
@@ -89,6 +89,6 @@ deskTest(
       code: "a2a.caller-unauthenticated",
       error: "no x-tenant-id header",
     });
-    expect(mockLlm(DeskAgent)).toHaveBeenCalledTimes(0);
+    expect(mockModel(DeskAgent)).toHaveBeenCalledTimes(0);
   },
 );

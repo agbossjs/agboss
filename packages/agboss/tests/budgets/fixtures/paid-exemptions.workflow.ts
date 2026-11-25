@@ -1,10 +1,5 @@
-import {
-  BudgetExceededError,
-  Workflow,
-  WorkflowFinish,
-  WorkflowStart,
-  Ttl,
-} from "../../../src/index.js";
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
+import { Workflow, WorkflowFinish, WorkflowStart, Ttl } from "../../../src/index.js";
 import { onAction, onStart, toAction } from "../../helpers/flow.js";
 import {
   AuditOrderAction,
@@ -59,7 +54,7 @@ export class LimitLaunchWorkflowStart {}
     onStart(LimitLaunchWorkflowStart)
       .toAction(OverspendOrderAction)
       .toAction(NoteOrderAction)
-      .onError(BudgetExceededError, launchedAfterLimit)
+      .onError(LimitError.Budget, launchedAfterLimit)
       .toFinish(LimitNotedWorkflowFinish),
   ],
 })
@@ -77,7 +72,7 @@ export class JoinLimitWorkflowStart {}
     onStart(JoinLimitWorkflowStart)
       .inParallel([toAction(ChargeOrderAction), toAction(NoteOrderAction)])
       .join()
-      .onError(BudgetExceededError, launchedAfterLimit)
+      .onError(LimitError.Budget, launchedAfterLimit)
       .toFinish(LimitNotedWorkflowFinish),
   ],
 })
@@ -96,7 +91,7 @@ export class HeldLimitWorkflowStart {}
       .toAction(OverspendOrderAction)
       .toAction(NoteOrderAction)
       .onError(
-        BudgetExceededError,
+        LimitError.Budget,
         toAction(HoldOrderAction)
           .toAction(NotifyOrderAction)
           .toFinish(LimitNotedWorkflowFinish),
@@ -119,7 +114,7 @@ export class HeldLaunchWorkflowStart {}
       .toAction(OverspendOrderAction)
       .toAction(NoteOrderAction)
       .onError(
-        BudgetExceededError,
+        LimitError.Budget,
         toAction(HoldOrderAction)
           .inParallel([toAction(MemoOrderAction), toAction(AuditOrderAction)])
           .join()
@@ -197,7 +192,7 @@ export class NestedLimitWorkflowFinish {}
       .toAction(OverspendOrderAction)
       .toAction(NoteOrderAction)
       .onError(
-        BudgetExceededError,
+        LimitError.Budget,
         toAction(RejectOrderAction)
           .onError(
             OrderDeclinedError,
@@ -227,11 +222,8 @@ export class RefundToldWorkflowFinish {}
       .toAction(BookOrderAction)
       .toAction(CheckOrderAction)
       .toAction(RefundOrderAction)
-      .onError(
-        BudgetExceededError,
-        toAction(TellOrderAction)
-          .toFinish(RefundToldWorkflowFinish),
-      )
+      .onError(LimitError.Budget, toAction(TellOrderAction)
+        .toFinish(RefundToldWorkflowFinish))
       .toFinish(RefundStepWorkflowFinish),
   ],
 })

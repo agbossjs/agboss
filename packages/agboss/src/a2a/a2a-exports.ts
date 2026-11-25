@@ -1,6 +1,7 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import { ComponentOptions } from "../components/component-options.js";
 import type { Class } from "../components/injection.js";
-import { ComponentError, requireComponent } from "../components/metadata.js";
+import { requireComponent } from "../components/metadata.js";
 import { meshSettingsOf } from "../mesh/mesh-settings.js";
 import type { A2AApp } from "./a2a-caller.js";
 import type { A2AEndpointMeta } from "./a2a-endpoint.decorator.js";
@@ -16,7 +17,7 @@ export function endpointOf(app: A2AApp, endpoint: Class): A2AEndpointMeta {
   const { meta } = requireComponent(endpoint, "a2a-endpoint", "a2aHttpListener endpoint");
   const listed = meshSettingsOf(app)?.endpoints;
   if (listed !== undefined && !listed.includes(endpoint)) {
-    throw new ComponentError({
+    throw new ConfigError.Component({
       message: `[application.endpoint-unlisted] ${endpoint.name} is not listed in @Application({ endpoints }) — list it there: what is served is what describe lists`,
     });
   }

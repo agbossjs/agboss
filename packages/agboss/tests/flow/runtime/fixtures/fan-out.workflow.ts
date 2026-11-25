@@ -1,3 +1,4 @@
+import { StepError } from "../../../../src/core/error-families/step-errors.js";
 import { AGBossError } from "../../../../src/core/errors.js";
 import { Integer, Enum, Text } from "../../../../src/dto/index.js";
 import {
@@ -8,12 +9,12 @@ import {
   SpendRecorder,
   Workflow,
   WorkflowFinish,
-  ExecutionCancelledError,
   WorkflowStart,
   type LaunchItemsTruncatedEvent,
   type Tracked,
   Ttl,
 } from "../../../../src/index.js";
+import { ExecutionCancelledError } from "../../../../src/core/errors.js";
 import { Application } from "../../../../src/application/application.js";
 import { usd } from "../../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
@@ -47,7 +48,7 @@ export class SummaryDto {
   text!: string;
 }
 
-/** An item could not be processed: the domain error inside `ActionFailedError`. */
+/** An item could not be processed: the domain error inside `StepError.Action`. */
 export class ItemFailedError extends AGBossError {
   static override readonly code: string = "test.item-failed";
 }

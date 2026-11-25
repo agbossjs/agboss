@@ -6,6 +6,7 @@
  * `[application.lease-check-not-atomic]` at the start (`app.warnings`, `agboss check`, an error
  * under `--strict`), naming the store and the guarantee it gives up.
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { describe, expect, it } from "vitest";
 import { applicationOf } from "../../src/application/assemble.js";
@@ -13,7 +14,6 @@ import { Application } from "../../src/application/application.js";
 import { assemblyWarningsOf } from "../../src/application/start-log.js";
 import type { Provider } from "../../src/components/injection.js";
 import { applicationWarningsOf } from "../../src/describe/application.js";
-import { GraphRuleError } from "../../src/graph/rule-error.js";
 import { IN_MEMORY_DATABASE } from "../../src/infrastructure/in-memory-database.js";
 import {
   ApplicationContext,
@@ -62,7 +62,7 @@ async function codesOf(providers: readonly Provider[]): Promise<readonly string[
     await applicationOf(storesApplication(providers));
     return [];
   } catch (error) {
-    if (!(error instanceof GraphRuleError)) throw error;
+    if (!(error instanceof ConfigError.GraphRules)) throw error;
     return error.violations.map((found) => found.code);
   }
 }

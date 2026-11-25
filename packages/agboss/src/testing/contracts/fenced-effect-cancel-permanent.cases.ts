@@ -1,5 +1,5 @@
+import { ExecutionError } from "../../core/error-families/run-errors.js";
 import { expect } from "vitest";
-import { ExecutionCancelFencedError } from "../../app/lease-lost.js";
 import type { ExecutionLease } from "../../infrastructure/execution-lease.repository.js";
 import type { EffectKey } from "../../infrastructure/fenced-effect.repository.js";
 import type { Clock } from "../../infrastructure/clock.js";
@@ -58,8 +58,8 @@ const childFencedAfterRootRetired = (): Case => ({
       first.effects.runOnce(childKey(later), writing(first.rows, "later", count)),
     );
 
-    expect(ofChild).toBeInstanceOf(ExecutionCancelFencedError);
-    expect(ofLater).toBeInstanceOf(ExecutionCancelFencedError);
+    expect(ofChild).toBeInstanceOf(ExecutionError.CancelFenced);
+    expect(ofLater).toBeInstanceOf(ExecutionError.CancelFenced);
     expect(count.runs).toBe(0);
     expect(await first.rows.committed()).toEqual([]);
   },
@@ -87,8 +87,8 @@ const markSurvivesLeaseMoves = (): Case => ({
     );
 
     expect([taken.token, over.token]).toEqual([2, 3]);
-    expect(ofTaken).toBeInstanceOf(ExecutionCancelFencedError);
-    expect(ofOver).toBeInstanceOf(ExecutionCancelFencedError);
+    expect(ofTaken).toBeInstanceOf(ExecutionError.CancelFenced);
+    expect(ofOver).toBeInstanceOf(ExecutionError.CancelFenced);
     expect(count.runs).toBe(0);
   },
 });
@@ -109,7 +109,7 @@ const earlyCancelSurvivesRetention = (): Case => ({
 
     expect(lease.token).toBe(1);
     expect(lease.takenOverFrom).toBeUndefined();
-    expect(refused).toBeInstanceOf(ExecutionCancelFencedError);
+    expect(refused).toBeInstanceOf(ExecutionError.CancelFenced);
     expect(count.runs).toBe(0);
   },
 });

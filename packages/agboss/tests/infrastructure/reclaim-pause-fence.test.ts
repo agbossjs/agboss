@@ -8,8 +8,8 @@
  * on a SQLite file shared by two connections (the instances). A cancel or stop mark fences by the
  * row, whatever the token, so a reclaim under one is refused as well (the cancel's undo still runs).
  */
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { describe, expect, it } from "vitest";
-import { ExecutionCancelFencedError } from "../../src/app/lease-lost.js";
 import { InterruptMode } from "../../src/app/interrupt-types.js";
 import {
   ExecutionPauseFencedError,
@@ -162,8 +162,8 @@ describe.each([
     const ofChild = await rejectionOf(holder.effects.runOnce(childKey, charge));
     const undone = await holder.effects.runOnce(undo, charge);
 
-    expect(cancelled).toBeInstanceOf(ExecutionCancelFencedError);
-    expect(ofChild).toBeInstanceOf(ExecutionCancelFencedError);
+    expect(cancelled).toBeInstanceOf(ExecutionError.CancelFenced);
+    expect(ofChild).toBeInstanceOf(ExecutionError.CancelFenced);
     expect(undone.status).toBe(IdempotencyRunStatus.Ran);
 
     const [stopHolder, stopper] = pair();

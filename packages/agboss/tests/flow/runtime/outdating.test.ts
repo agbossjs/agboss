@@ -60,17 +60,17 @@ const drafts = Array.from({ length: ROUNDS + 1 }, (_, round) => `draft v${String
 describe("#271 AC1/AC3: the review loop at run time", () => {
   loop(
     "builtFrom per kind: input fields, the about target, never the notes about the old draft",
-    async ({ app, mockLlm }) => {
-      mockLlm(LoopResearcherAgent).thenReturn(replyWith(ResearchDto, { facts: "f" }));
-      mockLlm(LoopWriterAgent).thenReturn(
+    async ({ app, mockModel }) => {
+      mockModel(LoopResearcherAgent).thenReturn(replyWith(ResearchDto, { facts: "f" }));
+      mockModel(LoopWriterAgent).thenReturn(
         replyWith(DraftDto, { text: "v1" }),
         replyWith(DraftDto, { text: "v2" }),
       );
-      mockLlm(LoopReviewerAgent).thenReturn(
+      mockModel(LoopReviewerAgent).thenReturn(
         replyWith(DraftChangesDto, { changes: "shorter" }),
         replyWith(ApprovalDto, { reason: "good" }),
       );
-      mockLlm(LoopPublisherAgent).thenReturn(replyWith(ArticleDto, { body: "v2, published" }));
+      mockModel(LoopPublisherAgent).thenReturn(replyWith(ArticleDto, { body: "v2, published" }));
 
       const result = await execute(app, LoopWorkflowStart, { topic: "t" }, { includeRecord: true });
 
@@ -95,17 +95,17 @@ describe("#271 AC1/AC3: the review loop at run time", () => {
 
   loop(
     "outdated in record, never in input: the old draft and its notes leave the scope with reasons",
-    async ({ app, mockLlm }) => {
-      mockLlm(LoopResearcherAgent).thenReturn(replyWith(ResearchDto, { facts: "f" }));
-      mockLlm(LoopWriterAgent).thenReturn(
+    async ({ app, mockModel }) => {
+      mockModel(LoopResearcherAgent).thenReturn(replyWith(ResearchDto, { facts: "f" }));
+      mockModel(LoopWriterAgent).thenReturn(
         replyWith(DraftDto, { text: "v1" }),
         replyWith(DraftDto, { text: "v2" }),
       );
-      mockLlm(LoopReviewerAgent).thenReturn(
+      mockModel(LoopReviewerAgent).thenReturn(
         replyWith(DraftChangesDto, { changes: "shorter" }),
         replyWith(ApprovalDto, { reason: "good" }),
       );
-      mockLlm(LoopPublisherAgent).thenReturn(replyWith(ArticleDto, { body: "v2, published" }));
+      mockModel(LoopPublisherAgent).thenReturn(replyWith(ArticleDto, { body: "v2, published" }));
 
       const result = await execute(app, LoopWorkflowStart, { topic: "t" }, { includeRecord: true });
 
@@ -131,7 +131,7 @@ describe("#271 AC1/AC3: the review loop at run time", () => {
         "DraftDto",
         "ResearchDto",
       ]);
-      const publisher = mockLlm(LoopPublisherAgent).onlyRequest;
+      const publisher = mockModel(LoopPublisherAgent).onlyRequest;
       expect(publisher.kind === "chat" && publisher.input).not.toContain('"v1"');
       expect(result).toFinishWith(LoopWorkflowFinish, { body: "v2, published" });
     },
@@ -139,20 +139,20 @@ describe("#271 AC1/AC3: the review loop at run time", () => {
 
   loop(
     `a loop of ${String(ROUNDS)} rounds: after each, one current draft and only values about it`,
-    async ({ app, mockLlm }) => {
-      mockLlm(LoopResearcherAgent).thenReturn(replyWith(ResearchDto, { facts: "f" }));
-      mockLlm(LoopWriterAgent).thenReturn(...drafts.map((text) => replyWith(DraftDto, { text })));
-      mockLlm(LoopReviewerAgent).thenReturn(
+    async ({ app, mockModel }) => {
+      mockModel(LoopResearcherAgent).thenReturn(replyWith(ResearchDto, { facts: "f" }));
+      mockModel(LoopWriterAgent).thenReturn(...drafts.map((text) => replyWith(DraftDto, { text })));
+      mockModel(LoopReviewerAgent).thenReturn(
         ...drafts
           .slice(0, ROUNDS)
           .map((_, round) => replyWith(DraftChangesDto, { changes: `notes ${String(round + 1)}` })),
         replyWith(ApprovalDto, { reason: "good" }),
       );
-      mockLlm(LoopPublisherAgent).thenReturn(replyWith(ArticleDto, { body: "published" }));
+      mockModel(LoopPublisherAgent).thenReturn(replyWith(ArticleDto, { body: "published" }));
 
       const result = await execute(app, LoopWorkflowStart, { topic: "t" }, { includeRecord: true });
 
-      const reviews = mockLlm(LoopReviewerAgent).requests;
+      const reviews = mockModel(LoopReviewerAgent).requests;
       expect(
         reviews.map((request) =>
           drafts.filter(
@@ -160,7 +160,7 @@ describe("#271 AC1/AC3: the review loop at run time", () => {
           ),
         ),
       ).toEqual(drafts.map((text) => [text]));
-      const writes = mockLlm(LoopWriterAgent).requests.slice(1);
+      const writes = mockModel(LoopWriterAgent).requests.slice(1);
       expect(
         writes.map((request) =>
           [1, 2, 3, 4, 5].filter(
@@ -180,20 +180,20 @@ describe("#271 AC1/AC3: the review loop at run time", () => {
 
   loop(
     "a second execution on the thread starts with its start input only",
-    async ({ app, mockLlm }) => {
-      mockLlm(LoopResearcherAgent).thenReturn(
+    async ({ app, mockModel }) => {
+      mockModel(LoopResearcherAgent).thenReturn(
         replyWith(ResearchDto, { facts: "first" }),
         replyWith(ResearchDto, { facts: "second" }),
       );
-      mockLlm(LoopWriterAgent).thenReturn(
+      mockModel(LoopWriterAgent).thenReturn(
         replyWith(DraftDto, { text: "first draft" }),
         replyWith(DraftDto, { text: "second draft" }),
       );
-      mockLlm(LoopReviewerAgent).thenReturn(
+      mockModel(LoopReviewerAgent).thenReturn(
         replyWith(ApprovalDto, { reason: "ok" }),
         replyWith(ApprovalDto, { reason: "ok" }),
       );
-      mockLlm(LoopPublisherAgent).thenReturn(
+      mockModel(LoopPublisherAgent).thenReturn(
         replyWith(ArticleDto, { body: "one" }),
         replyWith(ArticleDto, { body: "two" }),
       );
@@ -211,7 +211,7 @@ describe("#271 AC1/AC3: the review loop at run time", () => {
       expect(second.record?.scope.map((value) => value.value)).not.toContainEqual({
         text: "first draft",
       });
-      const research = mockLlm(LoopResearcherAgent).lastRequest;
+      const research = mockModel(LoopResearcherAgent).lastRequest;
       expect(research.kind === "chat" && research.input).toContain('"two"');
       expect(research.kind === "chat" && research.input).not.toContain('"one"');
     },
@@ -221,28 +221,28 @@ describe("#271 AC1/AC3: the review loop at run time", () => {
 describe("#271 AC1/AC3: outdating without a cycle — the jobs for an old profile", () => {
   jobs(
     "a new profile outdates the jobs, their scores and the pick: a chain of three levels, one root",
-    async ({ app, mockLlm }) => {
-      mockLlm(ProfileAgent).thenReturn(
+    async ({ app, mockModel }) => {
+      mockModel(ProfileAgent).thenReturn(
         replyWith(CandidateProfileDto, { summary: "junior" }),
         replyWith(CandidateProfileDto, { summary: "senior" }),
       );
-      mockLlm(SearchAgent).thenReturn(
+      mockModel(SearchAgent).thenReturn(
         replyWith(JobListDto, { jobs: "junior jobs" }),
         replyWith(JobListDto, { jobs: "senior jobs" }),
       );
-      mockLlm(ScoreAgent).thenReturn(
+      mockModel(ScoreAgent).thenReturn(
         replyWith(JobScoresDto, { scores: "junior scores" }),
         replyWith(JobScoresDto, { scores: "senior scores" }),
       );
-      mockLlm(AdviceAgent).thenReturn(
+      mockModel(AdviceAgent).thenReturn(
         replyWith(AdviceDto, { advice: "junior advice" }),
         replyWith(AdviceDto, { advice: "senior advice" }),
       );
-      mockLlm(PickAgent).thenReturn(
+      mockModel(PickAgent).thenReturn(
         replyWith(JobPickDto, { job: "junior pick" }),
         replyWith(JobPickDto, { job: "senior pick" }),
       );
-      mockLlm(JobsRouter).thenReturn(routeTo(ProfileAgent), routeTo(JobsWorkflowFinish));
+      mockModel(JobsRouter).thenReturn(routeTo(ProfileAgent), routeTo(JobsWorkflowFinish));
 
       const result = await execute(app, JobsWorkflowStart, { text: "me" }, { includeRecord: true });
 
@@ -272,20 +272,20 @@ describe("#271 AC1/AC3: outdating without a cycle — the jobs for an old profil
         ],
       );
       expect(result).toFinishWith(JobsWorkflowFinish, { job: "senior pick" });
-      const pick = mockLlm(PickAgent).lastRequest;
+      const pick = mockModel(PickAgent).lastRequest;
       expect(pick.kind === "chat" && pick.input).not.toContain("junior");
     },
   );
 
   jobs(
     "an agent without input is built from every current value before it (rule 8)",
-    async ({ app, mockLlm }) => {
-      mockLlm(ProfileAgent).thenReturn(replyWith(CandidateProfileDto, { summary: "s" }));
-      mockLlm(SearchAgent).thenReturn(replyWith(JobListDto, { jobs: "j" }));
-      mockLlm(ScoreAgent).thenReturn(replyWith(JobScoresDto, { scores: "sc" }));
-      mockLlm(AdviceAgent).thenReturn(replyWith(AdviceDto, { advice: "a" }));
-      mockLlm(PickAgent).thenReturn(replyWith(JobPickDto, { job: "p" }));
-      mockLlm(JobsRouter).thenReturn(routeTo(JobsWorkflowFinish));
+    async ({ app, mockModel }) => {
+      mockModel(ProfileAgent).thenReturn(replyWith(CandidateProfileDto, { summary: "s" }));
+      mockModel(SearchAgent).thenReturn(replyWith(JobListDto, { jobs: "j" }));
+      mockModel(ScoreAgent).thenReturn(replyWith(JobScoresDto, { scores: "sc" }));
+      mockModel(AdviceAgent).thenReturn(replyWith(AdviceDto, { advice: "a" }));
+      mockModel(PickAgent).thenReturn(replyWith(JobPickDto, { job: "p" }));
+      mockModel(JobsRouter).thenReturn(routeTo(JobsWorkflowFinish));
 
       const result = await execute(app, JobsWorkflowStart, { text: "me" }, { includeRecord: true });
 
@@ -303,19 +303,19 @@ describe("#271 AC1/AC3: outdating without a cycle — the jobs for an old profil
 describe("#271 S40 (c): the record shows the live sources only", () => {
   edit(
     "a value that read a source its own write outdated: that source is absent from its builtFrom",
-    async ({ app, mockLlm }) => {
-      mockLlm(EditorAgent).thenReturn(
+    async ({ app, mockModel }) => {
+      mockModel(EditorAgent).thenReturn(
         replyWith(EditDraftDto, { text: "v1" }),
         replyWith(EditDraftDto, { text: "v2" }),
       );
-      mockLlm(GateRouter).thenReturn(routeTo(EditorAgent), routeTo(DoneFinish));
+      mockModel(GateRouter).thenReturn(routeTo(EditorAgent), routeTo(DoneFinish));
 
       const result = await execute(app, EditStart, { text: "write" }, { includeRecord: true });
 
       const draft = result.record?.scope.find((value) => value.slot === "DraftDto");
       expect(draft?.valueId).toBe("editor-agent:2/DraftDto");
       expect(draft?.builtFrom).toEqual(["edit-workflow-start:1/WorkflowStartTextDto"]);
-      const request = mockLlm(EditorAgent).lastRequest;
+      const request = mockModel(EditorAgent).lastRequest;
       expect(request.kind === "chat" && request.input).toContain('"v1"');
       expect(result.record?.outdatedValues.map((value) => value.valueId)).toEqual([
         "editor-agent:1/DraftDto",

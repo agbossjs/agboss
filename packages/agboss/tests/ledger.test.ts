@@ -1,7 +1,7 @@
 /** #261 PR 5: an execution's budgets at the run layer — opened before the first call, counted after each. */
+import { LimitError } from "../src/core/error-families/limit-errors.js";
 import { describe, expect, it } from "vitest";
 import { BudgetScope } from "../src/budgets/budget.js";
-import { BudgetExceededError } from "../src/graph/limits.js";
 import {
   routeTo,
   fakeDeps,
@@ -33,7 +33,7 @@ describe("an execution's budgets", () => {
 
     const failure = runText("Anything", deps);
 
-    await expect(failure).rejects.toBeInstanceOf(BudgetExceededError);
+    await expect(failure).rejects.toBeInstanceOf(LimitError.Budget);
     await expect(failure).rejects.toMatchObject({
       budget: { name: "test-tenant-daily-budget" },
       key: "default",

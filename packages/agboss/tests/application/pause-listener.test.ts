@@ -101,8 +101,8 @@ beforeEach(() => {
 describe("#940 AC5: what a listener hears", () => {
   desk(
     "AC5: opened carries every field of the base event, the question masked",
-    async ({ app, mockLlm }) => {
-      mockLlm(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "7" }));
+    async ({ app, mockModel }) => {
+      mockModel(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "7" }));
 
       const paused = await execute(app, DeskWorkflowStart, { text: "refund order 7" }, ACME);
 
@@ -135,8 +135,8 @@ describe("#940 AC5: what a listener hears", () => {
 
   desk(
     "AC5: a Channel pause: pauseKey and no pauseId; a trusted listener (includePauseIds) gets the id",
-    async ({ app, mockLlm }) => {
-      mockLlm(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "7" }));
+    async ({ app, mockModel }) => {
+      mockModel(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "7" }));
       await execute(app, DeskWorkflowStart, { text: "refund order 7" }, ACME);
 
       await until(() => seen.heard.length === 2);
@@ -213,9 +213,9 @@ describe("#940 AC5: what a listener hears", () => {
 describe("#940 AC5: deliveryId is the receiver's dedupe key", () => {
   desk(
     "AC5: the same on redelivery, different for every other notice",
-    async ({ app, clock, mockLlm }) => {
+    async ({ app, clock, mockModel }) => {
       hooks.listenerFailures = 1;
-      mockLlm(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "7" }));
+      mockModel(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "7" }));
       const paused = await execute(app, DeskWorkflowStart, { text: "refund order 7" }, ACME);
       await until(() => seen.heard.length >= 2);
 

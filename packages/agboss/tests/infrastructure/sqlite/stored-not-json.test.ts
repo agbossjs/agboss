@@ -1,9 +1,11 @@
 /**
  * #1121 (#906 D4 remnant): a stored record whose text is not JSON is refused as a stored record that
- * fails its schema is — `StoredNamesUnreadableError`, `code: "stored.unreadable"`, the record and the
+ * fails its schema is — `StoreError.UnreadableRecord`, `code: "store.unreadable-record"`, the record and the
  * row's ids — and, as D4-b has it, quotes no stored text: not in the message, not in the stack, not in
  * the cause (a parser's own message quotes the text it failed on).
  */
+import { pauseKeyOf } from "../../../src/infrastructure/pause-record.js";
+import { StoreError } from "../../../src/core/error-families/store-errors.js";
 import { inspect } from "node:util";
 import { describe, expect, it } from "vitest";
 import { decodePausedRun } from "../../../src/app/paused-runs.js";
@@ -15,7 +17,6 @@ import { PAUSES_SCHEMA } from "../../../src/infrastructure/sqlite/sqlite-pause-s
 import {
   parsedStoredJson,
   pauseAnswerRecordOfJson,
-  StoredNamesUnreadableError,
 } from "../../../src/infrastructure/stored-step.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
 import { applicationOn, connectionTo, temporarySqlitePath } from "../contracts/store-kinds.js";
@@ -46,9 +47,9 @@ async function thrownBy(read: () => unknown): Promise<unknown> {
 /** The refusal: the coded class, its record and ids, the parse error as its cause, no text anywhere. */
 async function refused(read: () => unknown, record: string, ids: string): Promise<void> {
   const error = await thrownBy(read);
-  expect(error).toBeInstanceOf(StoredNamesUnreadableError);
-  if (!(error instanceof StoredNamesUnreadableError)) throw new TypeError("not the coded error");
-  expect(error.code).toBe("stored.unreadable");
+  expect(error).toBeInstanceOf(StoreError.UnreadableRecord);
+  if (!(error instanceof StoreError.UnreadableRecord)) throw new TypeError("not the coded error");
+  expect(error.code).toBe("store.unreadable-record");
   expect(error.record).toBe(record);
   expect(error.ids).toBe(ids);
   expect(error.message).toContain("not valid JSON");
@@ -119,11 +120,15 @@ describe.each(TEXTS)("#1121: %s is the coded unreadable refusal", (_name, NOT_JS
     insert.run("p2", "run-1:s:2", pauseJson, NOT_JSON);
     const pauses = new SqlitePausedExecutionRepository(connectionTo(path), clock);
 
-    await refused(() => pauses.findByTenantIdAndPauseId("default", "p1"), "pause", "pauseId p1");
+    await refused(
+      () => pauses.findByTenantIdAndPauseId("default", "p1"),
+      "pause",
+      `pause ${pauseKeyOf("default", "p1")}`,
+    );
     await refused(
       () => pauses.findByTenantIdAndPauseId("default", "p2"),
       "pause answer",
-      "pauseId p2",
+      `pause ${pauseKeyOf("default", "p2")}`,
     );
   });
 

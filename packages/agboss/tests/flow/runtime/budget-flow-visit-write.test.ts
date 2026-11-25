@@ -1,3 +1,5 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
+import { ExecutionError } from "../../../src/core/error-families/run-errors.js";
 import { usd } from "../../../src/units/index.js";
 /**
  * #1366 (budget-flow shard) — what a visit writes when it leaves by an edge, and which edge it leaves by, each rule
@@ -7,10 +9,8 @@ import { usd } from "../../../src/units/index.js";
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CostSource, ZERO_USAGE, type UsageRecord } from "../../../src/finops/usage.js";
-import { OutputInvalidError } from "../../../src/flow/runtime/errors.js";
 import { writeAndOutdate } from "../../../src/flow/runtime/outdating.js";
 import { builtFromOf } from "../../../src/flow/runtime/provenance.js";
-import { RouterDecisionError } from "../../../src/flow/runtime/router-error.js";
 import { recordsOfWrites } from "../../../src/flow/runtime/scope.js";
 import { exitOf, visitWrite } from "../../../src/flow/runtime/visit-write.js";
 
@@ -142,7 +142,7 @@ describe("#1366: the edge a visit leaves by", () => {
   it("a route it does not have fails with the spend of the decision that named it", () => {
     const run = () => leave(exits({ routes: new Map() }), { route: "gone", usage: [record(0.25)] });
 
-    expect(run).toThrow(RouterDecisionError);
+    expect(run).toThrow(StepError.RouterDecision);
     try {
       run();
     } catch (error) {
@@ -171,7 +171,7 @@ describe("#1366: the edge a visit leaves by", () => {
     const cases = new Map([["ADto", { to: "a" }]]);
 
     expect(() => leave(exits({ cases }), { value: { variant: "BDto" }, usage: [] })).toThrow(
-      new OutputInvalidError({
+      new ExecutionError.OutputInvalid({
         message: "clerk gave BDto, which its .toOneOf([…]) has no branch for",
       }),
     );

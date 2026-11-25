@@ -1,5 +1,5 @@
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import { describe, expect, it } from "vitest";
-import { BudgetExceededError } from "../../../src/index.js";
 import { CostLedgerRepository } from "../../../src/infrastructure/cost-ledger.repository.js";
 import { CostSource } from "../../../src/finops/cost-source.js";
 import { ModelFailure, ModelProviderFailureError } from "../../../src/models/index.js";
@@ -130,8 +130,8 @@ describe(
       );
 
       expect(chainHas(first.error, ModelProviderFailureError)).toBe(true);
-      expect(chainHas(first.error, BudgetExceededError)).toBe(false); // the error stays the stream's own
-      expect(second).toBeInstanceOf(BudgetExceededError);
+      expect(chainHas(first.error, LimitError.Budget)).toBe(false); // the error stays the stream's own
+      expect(second).toBeInstanceOf(LimitError.Budget);
       await app.close();
     });
   },
@@ -156,7 +156,7 @@ describe("#1399: partial spend, as the error carries it", () => {
 
 describe("#1399: the record of a partial spend", () => {
   const call = { requestChars: 40, answerChars: 9 };
-  const priced = { model: "m", price: { inputPerMTok: 1, outputPerMTok: 2 } };
+  const priced = { model: "m", price: { inputPerMillion: usd(1), outputPerMillion: usd(2) } };
 
   it("a call that cannot be priced is unpriced tokens, never dropped", () => {
     const error = withPartialSpend(new Error("x"), {

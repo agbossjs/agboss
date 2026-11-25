@@ -1,12 +1,13 @@
 /**
  * #675 — the money goes back. A main-path refund that is also the booking's undo, held back by the
- * exhausted budget, with its own `.onError(BudgetExceededError, …)`: the forward visit stays stopped
+ * exhausted budget, with its own `.onError(LimitError.Budget, …)`: the forward visit stays stopped
  * (#656), and the booking it would have closed is undone at once as an undo — its own key, past the
  * budget — before the side path goes on. Its record is `Failed` only when the undo itself fails,
  * never because the budget is exhausted.
  */
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { beforeEach, describe, expect } from "vitest";
-import { BudgetExceededError, CompensationReason, CompensationStatus } from "../../src/index.js";
+import { CompensationReason, CompensationStatus } from "../../src/index.js";
 import { testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
 import { PaidExemptionsApplication } from "./fixtures/paid-exemptions.application.js";
@@ -44,7 +45,7 @@ describe("#675: a held-back refund's booking is undone as an undo", () => {
         error: { message: "the gateway refused the refund" },
       },
     ]);
-    expect(done.compensations[0]?.error?.name).not.toBe(BudgetExceededError.name);
+    expect(done.compensations[0]?.error?.name).not.toBe(LimitError.Budget.name);
   });
 
   test("its undo's spend is the execution's: counted once, with the paid check's", async ({

@@ -153,10 +153,8 @@ export const creditPaths = [
       toAgent(OrderIntakeAgent)
         .toRouter(CreditLimitRouter)
         .onError(CreditServiceUnavailableError, toFinish(OrderHeldWorkflowFinish))
-        .onRoute(
-          toAgent(ApprovalAgent)
-            .toAction(ChargeCardAction),
-        )
+        .onRoute(toAgent(ApprovalAgent)
+          .toAction(ChargeCardAction))
         .onRoute(toAction(ChargeCardAction)),
     )
     .onRoute(toFinish(NoOrderWorkflowFinish)),
@@ -208,10 +206,8 @@ export const creditByModelPaths = [
     .onRoute(
       toAgent(OrderIntakeAgent)
         .toRouter(CreditLimitByModelRouter)
-        .onRoute(
-          toAgent(ApprovalAgent)
-            .toAction(ChargeCardAction),
-        )
+        .onRoute(toAgent(ApprovalAgent)
+          .toAction(ChargeCardAction))
         .onRoute(toAction(ChargeCardAction)),
     )
     .onRoute(toFinish(NoOrderWorkflowFinish)),

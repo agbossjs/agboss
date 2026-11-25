@@ -9,6 +9,7 @@
  * which depends on the checkout, is masked). A change to the desk or to describe updates the
  * snapshot (`npx vitest run -u`), reviewed like code.
  */
+import { LimitError } from "@agboss/core";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { agboss, envelope } from "./agboss.js";
@@ -168,7 +169,7 @@ describe("#268 S93: agboss describe --json is the declarative snapshot the recor
             onError: [
               {
                 at: "editor-agent",
-                error: "VisitsLimitExceededError",
+                error: "LimitError.Visits",
                 by: "notify-recruiter-action",
                 kind: "error",
               },

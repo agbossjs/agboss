@@ -184,7 +184,6 @@ export { migratedDatabaseOf, type DatabaseMigrationRun } from "./storage/storage
 export { environmentOwnerOf } from "./application/create-app.js";
 export { startsOfApplication, type ApplicationStart } from "./application/application-starts.js";
 export { startInputIssuesOf } from "./flow/runtime/start-input-issues.js";
-export { ApplicationLoadError } from "./loader/load-errors.js";
 // public in `@agboss/core/testing` too (#818); the CLI's `agboss studio` takes it from here
 export { studioOf, studioOfWith, type StudioGraphs, type StudioOptions } from "./studio.js";
 export { compareProfilesWith } from "./eval/compare-profiles.js";
@@ -209,3 +208,4 @@ export { toolOf } from "./components/runtime.js";
 export { OBSERVER_HOOKS, type ObserverClass, type ObserverHook } from "./core/observer-hooks.js";
 export type { HookResult } from "./core/hook-result.js";
 export type { AuditLogHooks } from "./flow/observers/audit-log.js";
+export * from "./internal-cancel.js";

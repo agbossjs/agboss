@@ -7,7 +7,8 @@ import { fencedRefusalOf } from "../../../src/app/lease-lost.js";
  * listener) left once the undo returned.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { Action, ExecutionCancelledError } from "../../../src/index.js";
+import { Action } from "../../../src/index.js";
+import { ExecutionCancelledError } from "../../../src/core/errors.js";
 import { ExecutionLeaseLostError, scopeKeyOf } from "../../../src/app/lease-lost.js";
 import {
   CompensationEntryStatus,

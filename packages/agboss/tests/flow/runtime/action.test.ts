@@ -1,3 +1,4 @@
+import { ExecutionError } from "../../../src/core/error-families/run-errors.js";
 import { beforeEach, describe, expect } from "vitest";
 import { testWith } from "../../../src/testing/index.js";
 import { execute } from "../../helpers/flow.js";
@@ -10,7 +11,6 @@ import {
   TicketStart,
   TriageApplication,
 } from "./fixtures/triage.workflow.js";
-import { OutputInvalidError } from "../../../src/errors.js";
 
 const test = testWith(TriageApplication);
 
@@ -43,7 +43,7 @@ describe("#272: an @Action runs execute(input) with its fields from the path sco
   }) => {
     const run = execute(app, TicketStart, { text: "?", kind: "unmarked" });
 
-    await expect(run).rejects.toFailWith(OutputInvalidError);
+    await expect(run).rejects.toFailWith(ExecutionError.OutputInvalid);
     await expect(run).rejects.toThrow("return a value of exactly one of them");
   });
 

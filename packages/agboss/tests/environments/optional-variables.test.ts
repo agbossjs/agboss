@@ -3,8 +3,9 @@
  * that may be unset. Unset (or empty) is `undefined`, not a missing variable; a set value is still
  * checked; `agboss check --env` and `agboss describe` mark it optional.
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, expectTypeOf, it } from "vitest";
-import { EnvironmentError, EnvironmentErrorCode } from "../../src/environments/errors.js";
+import { EnvironmentErrorCode } from "../../src/environments/errors.js";
 import {
   describedEnvironment,
   environmentVariablesOf,
@@ -68,13 +69,13 @@ describe("#266 S90: optional environment variables", () => {
       return undefined;
     };
     const integer = failure({ PORT: "eighty" });
-    expect(integer).toBeInstanceOf(EnvironmentError);
+    expect(integer).toBeInstanceOf(ConfigError.Environment);
     expect(integer).toMatchObject({
-      code: EnvironmentErrorCode.InvalidValue,
+      envCode: EnvironmentErrorCode.InvalidValue,
       message: "PORT is not an integer (C.port, dev)",
     });
     expect(failure({ DEBUG: "maybe" })).toMatchObject({
-      code: EnvironmentErrorCode.InvalidValue,
+      envCode: EnvironmentErrorCode.InvalidValue,
       message: "DEBUG is not a flag (true, false, 1, 0) (C.debug, dev)",
     });
   });

@@ -89,7 +89,7 @@ holds from its type**, not guess it from the name.
   `@WorkflowFinish`. Each node reads its `input` from the path's scope; `.agboss/types.d.ts`
   (`agboss check`) types it.
   Assembly rules run at assembly, before any model call, and report **all** violations at once
-  (`GraphRuleError` with stable codes). A new rule gets a code and a test.
+  (`ConfigError.GraphRules` with stable codes). A new rule gets a code and a test.
 - **Config-driven.** Agents, models, reasoning and caching live in the workflow's components
   (`@Agent`, `@Router`, `@Workflow`), assembled into the config and validated at startup; steps
   live in `@Workflow({ executionLimits: { maxSteps } })` and money in the application's `@Budget`s, not in config.
@@ -132,8 +132,8 @@ holds from its type**, not guess it from the name.
   **to a workflow finish** is worded as a stop instruction ("Stop and send the answer: …") — worded as
   "the answer is ready", Jev kept sending the turn back to the last agent (#116).
 - **A router failure fails the run** unless an `.onError(…)` right after it takes it (#280 S19):
-  `RouterFailedError` (`step.router` — its model call or its `route()` failed, the cause kept) or
-  `RouterDecisionError` (`step.router.invalid-decision` — an answer outside its routes, never
+  `StepError.Router` (`step.router` — its model call or its `route()` failed, the cause kept) or
+  `StepError.RouterDecision` (`step.router.invalid-decision` — an answer outside its routes, never
   retried). No guessing, no fallback route; its spend is kept.
 - **Classification is not generation**: routing, guardrails and detection use a decision model
   (Jev) — calibrated probabilities over fixed options; chat models produce content.
@@ -178,7 +178,7 @@ period?, workflow?, deps? })` + `implements BudgetHandler` (`maxSpend(): Usd | P
     application's name, the `tenantId`, the execution's id) and period; every call's cost is added
     to all of the execution's counters while it streams, so a crashed execution's spend still counts.
   - Before the first step every budget is checked: one exhausted **rejects** the execution
-    (`BudgetExceededError`, an `onExecutionRejected`; no thread, no record, no call — a refused request leaves no trace). Before every step that can
+    (`LimitError.Budget`, an `onExecutionRejected`; no thread, no record, no call — a refused request leaves no trace). Before every step that can
     spend or reach out (#634: an agent, a router, an action, a child workflow or a recursion's
     level, each branch of a launch, a side path's action) the counters are read again (the
     tenant's other executions count) and every budget is checked; before every model call too.
@@ -190,10 +190,10 @@ period?, workflow?, deps? })` + `implements BudgetHandler` (`maxSpend(): Usd | P
     other way (a step of the main path that is also some entry's undo) is checked — and when the
     budget holds such a step back and its `.onError` takes the error, the entry it would have
     closed is undone at once as an undo (#675: the money goes back; never `Failed` for the budget). The first exhausted **fails the execution** — never a quiet stop,
-    unless the path's `.onError(BudgetExceededError, …)` takes it — with `budget`, `scope`, `key`,
+    unless the path's `.onError(LimitError.Budget, …)` takes it — with `budget`, `scope`, `key`,
     `maxSpend`, `spent` and a sentence (`tenant acme spent $40.05 today; tenant-daily-budget allows
-$40`). Limit errors are one class per limit, all `LimitExceededError`s: `StepsLimitExceededError`
-    (`workflow`, `maxSteps`, `steps`), `VisitsLimitExceededError`, `BudgetExceededError`.
+$40`). Limit errors are one class per limit, all `LimitError`s: `LimitError.Steps`
+    (`workflow`, `maxSteps`, `steps`), `LimitError.Visits`, `LimitError.Budget`.
   - **Nothing is reserved**: a budget protects from draining money, it is not exact accounting —
     parallel executions of one tenant may overrun it a little, and a budget is exceeded by at most
     the calls in flight when it was exhausted (their cost is known only after them; with
@@ -208,14 +208,14 @@ $40`). Limit errors are one class per limit, all `LimitExceededError`s: `StepsLi
     a remote child's spend, in the ledger before its parent's state, is taken in with a read) — so a branch of a parallel launch sees its
     siblings' spend while they run; a tally that exhausts a budget aborts the in-flight model and
     tool calls of every branch through `executionContext.signal` (an aborted call's partial cost is
-    unknown and not recorded), the branches fail with that `BudgetExceededError` and the launch
-    with it, into a code-only `.onError(BudgetExceededError, …)`. Other instances see the spend
+    unknown and not recorded), the branches fail with that `LimitError.Budget` and the launch
+    with it, into a code-only `.onError(LimitError.Budget, …)`. Other instances see the spend
     through the ledger only. A call that exhausts a budget runs none of the tools its move asks for.
   - `maxSteps` is checked at assembly: `[limits.max-steps-too-low]` (no finish fits in a hand-set
     `maxSteps`, or the default (agents + routers) × 3 cannot hold the worst case of a per-item
     launch — set `maxSteps`), `[limits.branch-exceeds-max-steps]`, `[limits.max-steps-unused]`; a hand-set `maxSteps` below the
     worst case of a flow whose every loop `maxVisits` bounds warns `[limits.max-steps-below-worst-case]`
-    (#643: the run would fail with `StepsLimitExceededError` before the loop's `.onError(VisitsLimitExceededError, …)` ends it; an error under `--strict`).
+    (#643: the run would fail with `LimitError.Steps` before the loop's `.onError(LimitError.Visits, …)` ends it; an error under `--strict`).
   - A provider's fallback (`circuitBreakerPolicy.fallback`) maps each used model to its own
     (`fallbackModels`, checked at startup: `model.fallback-unmapped` / `model.fallback-no-price`);
     a fallback call is sent and recorded as that model, at the fallback's prices.

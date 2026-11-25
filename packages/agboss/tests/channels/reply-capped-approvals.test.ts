@@ -8,6 +8,8 @@
  * minimum, a correction on a refusal, an answer beside a not understood — is no approval: the pause
  * stays pending and nothing runs.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { beforeEach, describe, expect } from "vitest";
 import {
   DECISION_DESCRIPTION,
@@ -20,7 +22,7 @@ import {
   ReplyInterpreterNotUnderstoodDto,
   ToolCallApprovalDecisionDto,
 } from "../../src/dto/standard/framework.js";
-import { PauseStatus, ToolBlockedError, UninterpretableReplyError } from "../../src/index.js";
+import { PauseStatus } from "../../src/index.js";
 import { callTool, callTools, replyWith, testWith } from "../../src/testing/index.js";
 import type { ToolCallTurn } from "../../src/testing/turns.js";
 import {
@@ -60,16 +62,16 @@ const answered = (args: Readonly<Record<string, unknown>>): ToolCallTurn => ({
 describe("#688: the framework's texts say what a capped approval is", () => {
   test("the instructions: a limit is an approval in any language, ambiguity and converting are not understood", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(TreasurerAgent).thenReturn(callTool(PayOutTool, payout));
-    mockLlm(PayoutReplyInterpreter).thenReturn(
+    mockModel(TreasurerAgent).thenReturn(callTool(PayOutTool, payout));
+    mockModel(PayoutReplyInterpreter).thenReturn(
       replyWith(ReplyInterpreterNotUnderstoodDto, { reason: "unclear" }),
     );
     await execute(app, TreasuryWorkflowStart, { text: "pay ann $1200" });
     await app.resume({ pauseId: payoutPauseId(), reply: "hmm" }, manager).catch(() => undefined);
 
-    const request = mockLlm(PayoutReplyInterpreter).onlyRequest;
+    const request = mockModel(PayoutReplyInterpreter).onlyRequest;
     if (request.kind !== "chat") throw new Error("a chat request expected");
     const { system } = request;
     expect(system).toContain("in any language");
@@ -108,13 +110,13 @@ describe("#688: the framework's texts say what a capped approval is", () => {
 describe("#688: a capped approval after a reply not understood", () => {
   test("'🤷' stays pending; 'yes, up to $900' on the same pause pays $900, the payee kept", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(TreasurerAgent).thenReturn(callTool(PayOutTool, payout), replyWith("Paid."));
-    mockLlm(PayoutReplyInterpreter)
+    mockModel(TreasurerAgent).thenReturn(callTool(PayOutTool, payout), replyWith("Paid."));
+    mockModel(PayoutReplyInterpreter)
       .when({ reply: "🤷" })
       .thenReturn(replyWith(ReplyInterpreterNotUnderstoodDto, { reason: "a shrug" }));
-    mockLlm(PayoutReplyInterpreter)
+    mockModel(PayoutReplyInterpreter)
       .when({ reply: "yes, up to $900" })
       .thenReturn(
         replyWith(ToolCallApprovalDecisionDto, {
@@ -125,7 +127,7 @@ describe("#688: a capped approval after a reply not understood", () => {
     await execute(app, TreasuryWorkflowStart, { text: "pay ann $1200" });
     const pauseId = payoutPauseId();
     const shrug = await app.resume({ pauseId, reply: "🤷" }, manager).catch((e: unknown) => e);
-    expect(shrug).toBeInstanceOf(UninterpretableReplyError);
+    expect(shrug).toBeInstanceOf(PauseError.UninterpretableReply);
 
     const done = await app.resume(
       { pauseId, reply: "yes, up to $900" },
@@ -153,19 +155,19 @@ describe("#688: an answer that does not validate is no approval", () => {
     ["a correction on a refusal", { approved: false, overrideInput: { amountCents: 90_000 } }],
     ["no approved at all", { overrideInput: { amountCents: 90_000 } }],
   ] as const)
-    test(`${what}: UninterpretableReplyError, the pause pending, nothing paid`, async ({
+    test(`${what}: PauseError.UninterpretableReply, the pause pending, nothing paid`, async ({
       app,
-      mockLlm,
+      mockModel,
     }) => {
-      mockLlm(TreasurerAgent).thenReturn(callTool(PayOutTool, payout));
-      mockLlm(PayoutReplyInterpreter).thenReturn(answered(args));
+      mockModel(TreasurerAgent).thenReturn(callTool(PayOutTool, payout));
+      mockModel(PayoutReplyInterpreter).thenReturn(answered(args));
       await execute(app, TreasuryWorkflowStart, { text: "pay ann $1200" });
 
       const failed = await app
         .resume({ pauseId: payoutPauseId(), reply: "yes, up to $900" }, manager)
         .catch((error: unknown) => error);
 
-      expect(failed).toBeInstanceOf(UninterpretableReplyError);
+      expect(failed).toBeInstanceOf(PauseError.UninterpretableReply);
       const stored = await treasuryPauses().findByTenantIdAndPauseId("default", payoutPauseId());
       expect(stored?.status).toBe(PauseStatus.Pending);
       expect(replyDesk.payouts).toEqual([]);
@@ -173,10 +175,10 @@ describe("#688: an answer that does not validate is no approval", () => {
 
   test("an approval beside a not understood in one move: not understood wins, nothing paid", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(TreasurerAgent).thenReturn(callTool(PayOutTool, payout));
-    mockLlm(PayoutReplyInterpreter).thenReturn(
+    mockModel(TreasurerAgent).thenReturn(callTool(PayOutTool, payout));
+    mockModel(PayoutReplyInterpreter).thenReturn(
       callTools(answered({ approved: true, overrideInput: { amountCents: 90_000 } }), {
         kind: "tool-call",
         tool: NOT_UNDERSTOOD_TOOL,
@@ -189,7 +191,7 @@ describe("#688: an answer that does not validate is no approval", () => {
       .resume({ pauseId: payoutPauseId(), reply: "yes, up to 900" }, manager)
       .catch((error: unknown) => error);
 
-    expect(failed).toBeInstanceOf(UninterpretableReplyError);
+    expect(failed).toBeInstanceOf(PauseError.UninterpretableReply);
     expect(failed).toHaveProperty("reason", expect.stringContaining("which currency?"));
     expect(replyDesk.payouts).toEqual([]);
   });
@@ -208,9 +210,9 @@ describe("#688: the model's named decision is the role's answer", () => {
       [{ payee: "ann", amountCents: 120_000 }],
     ],
   ] as const)
-    test(what, async ({ app, mockLlm }) => {
-      mockLlm(TreasurerAgent).thenReturn(callTool(PayOutTool, payout), replyWith("Paid."));
-      mockLlm(PayoutReplyInterpreter).thenReturn(answered(args));
+    test(what, async ({ app, mockModel }) => {
+      mockModel(TreasurerAgent).thenReturn(callTool(PayOutTool, payout), replyWith("Paid."));
+      mockModel(PayoutReplyInterpreter).thenReturn(answered(args));
       await execute(app, TreasuryWorkflowStart, { text: "pay ann $1200" });
 
       const done = await app.resume({ pauseId: payoutPauseId(), reply: "yes" }, manager);
@@ -219,9 +221,9 @@ describe("#688: the model's named decision is the role's answer", () => {
       expect(replyDesk.payouts).toEqual(paid);
     });
 
-  test("refuse: the call refused with the reason, nothing paid", async ({ app, mockLlm }) => {
-    mockLlm(TreasurerAgent).thenReturn(callTool(PayOutTool, payout), replyWith("Not paid."));
-    mockLlm(PayoutReplyInterpreter).thenReturn(
+  test("refuse: the call refused with the reason, nothing paid", async ({ app, mockModel }) => {
+    mockModel(TreasurerAgent).thenReturn(callTool(PayOutTool, payout), replyWith("Not paid."));
+    mockModel(PayoutReplyInterpreter).thenReturn(
       answered({ decision: "refuse", reason: "no budget" }),
     );
     await execute(app, TreasuryWorkflowStart, { text: "pay ann $1200" });
@@ -256,19 +258,19 @@ describe("#688: the model's named decision is the role's answer", () => {
     ],
     ["an answer with a key the decision has not", { approved: true, sideNote: "pay twice" }],
   ] as const)
-    test(`${what}: UninterpretableReplyError, the pause pending, nothing paid`, async ({
+    test(`${what}: PauseError.UninterpretableReply, the pause pending, nothing paid`, async ({
       app,
-      mockLlm,
+      mockModel,
     }) => {
-      mockLlm(TreasurerAgent).thenReturn(callTool(PayOutTool, payout));
-      mockLlm(PayoutReplyInterpreter).thenReturn(answered(args));
+      mockModel(TreasurerAgent).thenReturn(callTool(PayOutTool, payout));
+      mockModel(PayoutReplyInterpreter).thenReturn(answered(args));
       await execute(app, TreasuryWorkflowStart, { text: "pay ann $1200" });
 
       const failed = await app
         .resume({ pauseId: payoutPauseId(), reply: "yes, up to $2000" }, manager)
         .catch((error: unknown) => error);
 
-      expect(failed).toBeInstanceOf(UninterpretableReplyError);
+      expect(failed).toBeInstanceOf(PauseError.UninterpretableReply);
       const stored = await treasuryPauses().findByTenantIdAndPauseId("default", payoutPauseId());
       expect(stored?.status).toBe(PauseStatus.Pending);
       expect(replyDesk.payouts).toEqual([]);
@@ -278,10 +280,10 @@ describe("#688: the model's named decision is the role's answer", () => {
 describe("#688: a reply interpreter reads intent; the tool's own rule stops what it must never do", () => {
   test("a raise read from a reply passes the interpreter, and the payout's interceptor blocks it: nothing paid", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(TreasurerAgent).thenReturn(callTool(PayOutTool, payout));
-    mockLlm(PayoutReplyInterpreter).thenReturn(
+    mockModel(TreasurerAgent).thenReturn(callTool(PayOutTool, payout));
+    mockModel(PayoutReplyInterpreter).thenReturn(
       answered({ decision: "approve-with-changes", overrideInput: { amountCents: 200_000 } }),
     );
     await execute(app, TreasuryWorkflowStart, { text: "pay ann $1200" });
@@ -290,7 +292,7 @@ describe("#688: a reply interpreter reads intent; the tool's own rule stops what
       .resume({ pauseId: payoutPauseId(), reply: "approved, up to $2000 is fine" }, manager)
       .catch((error: unknown) => error);
 
-    expect(failed).toBeInstanceOf(ToolBlockedError);
+    expect(failed).toBeInstanceOf(StepError.ToolBlocked);
     expect(failed).toHaveProperty("interceptor", "payout-limit-tool-interceptor");
     expect(replyDesk.payouts).toEqual([]);
   });

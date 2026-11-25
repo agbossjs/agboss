@@ -23,8 +23,8 @@ const test = testWith(FlowPatternsApplication);
 
 const REQUEST = { destination: "Lisbon", nights: 3 };
 
-test("both booked: the finish commits them, nothing is undone", async ({ app, mockOf }) => {
-  const desk = mockOf(BookingDeskService);
+test("both booked: the finish commits them, nothing is undone", async ({ app, mockService }) => {
+  const desk = mockService(BookingDeskService);
   desk.bookFlight.mockResolvedValue("flight-1");
   desk.bookHotel.mockResolvedValue("hotel-1");
 
@@ -40,9 +40,9 @@ test("both booked: the finish commits them, nothing is undone", async ({ app, mo
 
 test("the hotel refused: the booked flight is cancelled before the side path", async ({
   app,
-  mockOf,
+  mockService,
 }) => {
-  const desk = mockOf(BookingDeskService);
+  const desk = mockService(BookingDeskService);
   desk.bookFlight.mockResolvedValue("flight-1");
   desk.bookHotel.mockRejectedValue(new BookingFailedError("no rooms"));
 

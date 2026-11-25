@@ -1,3 +1,5 @@
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
+import { A2AError } from "../../../src/core/error-families/remote-errors.js";
 /**
  * #810 — the client's mesh facts one unit at a time: the echo of the extension (what the agent
  * activated), what an accept stores to charge the same on every pass, the charges' identity, and the
@@ -24,11 +26,8 @@ import type { A2AMeshActivation } from "../../../src/a2a/client/a2a-mesh-seam.js
 import { meshRefusalOf, untypedResultOf } from "../../../src/a2a/client/a2a-outcome.js";
 import {
   A2AClientOperation,
-  A2AProtocolError,
-  A2ARemoteCallError,
   A2ARemoteCallReason,
 } from "../../../src/a2a/client/a2a-client-errors.js";
-import { HopsLimitExceededError } from "../../../src/index.js";
 import { A2APeerKind } from "../../../src/a2a/client/a2a-card.js";
 import { currentFrame, runInFrame } from "../../../src/flow/context/frame.js";
 import type { ToolCallRemote } from "../../../src/mesh/mesh-call.js";
@@ -241,17 +240,17 @@ describe("#849: a stored refusal is read back once, fail-closed", () => {
 
   it("still refused: the limit thrown, recorded, nothing charged", async () => {
     const done = await refusedWith("t-1", taskOf("t-1", TaskState.TASK_STATE_REJECTED, LIMIT));
-    expect(done.error).toBeInstanceOf(HopsLimitExceededError);
+    expect(done.error).toBeInstanceOf(LimitError.Hops);
     expect(done).toMatchObject({ charged: 0, recorded: 1, reads: ["t-1"] });
   });
 
-  it("completed now, or another task's refusal: charged, A2AProtocolError, nothing recorded", async () => {
+  it("completed now, or another task's refusal: charged, A2AError.Protocol, nothing recorded", async () => {
     for (const read of [
       taskOf("t-1", TaskState.TASK_STATE_COMPLETED),
       taskOf("t-2", TaskState.TASK_STATE_REJECTED, LIMIT),
     ]) {
       const done = await refusedWith("t-1", read);
-      expect(done.error).toBeInstanceOf(A2AProtocolError);
+      expect(done.error).toBeInstanceOf(A2AError.Protocol);
       expect(done.error).toMatchObject({
         agent: "peer-a2a-agent",
         operation: A2AClientOperation.GetTask,
@@ -262,14 +261,14 @@ describe("#849: a stored refusal is read back once, fail-closed", () => {
 
   it("no task to read: a malformed answer, nothing read, charged or recorded", async () => {
     const done = await refusedWith(undefined, taskOf("t-1", TaskState.TASK_STATE_REJECTED, LIMIT));
-    expect(done.error).toBeInstanceOf(A2ARemoteCallError);
+    expect(done.error).toBeInstanceOf(A2AError.Remote);
     expect(done.error).toMatchObject({ reason: A2ARemoteCallReason.MalformedAnswer });
     expect(done).toMatchObject({ charged: 0, recorded: 0, reads: [] });
   });
 
   it("a mesh refusal is a REJECTED task with a mesh limit only — not a FAILED one, nor one of no status", () => {
     expect(meshRefusalOf(taskOf("t-1", TaskState.TASK_STATE_REJECTED, LIMIT))).toBeInstanceOf(
-      HopsLimitExceededError,
+      LimitError.Hops,
     );
     expect(meshRefusalOf(taskOf("t-1", TaskState.TASK_STATE_FAILED, LIMIT))).toBeUndefined();
     expect(

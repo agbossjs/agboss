@@ -2,12 +2,13 @@
  * #1069 — the abandonment on its own: its cause until it is abandoned and after, one hand-over for
  * any number of askers, and the line a release says, with its names, or nothing where no log is.
  */
+import { StoreError } from "../../src/core/error-families/store-errors.js";
 import { describe, expect, it } from "vitest";
 import { Abandonment } from "../../src/app/lease-abandon.js";
 import type { FrameworkLog } from "../../src/infrastructure/logger.js";
-import { StoreOutcomeSource, StoreOutcomeUnknownError } from "../../src/index.js";
+import { StoreOutcomeSource } from "../../src/index.js";
 
-const cause = new StoreOutcomeUnknownError({
+const cause = new StoreError.OutcomeUnknown({
   store: "RateLimitRepository",
   operation: "acquire",
   source: StoreOutcomeSource.Framework,
@@ -20,7 +21,7 @@ describe("#1069: Abandonment", () => {
 
     await abandonment.run(cause, () => Promise.resolve());
     await abandonment.run(
-      new StoreOutcomeUnknownError({
+      new StoreError.OutcomeUnknown({
         store: "Other",
         operation: "x",
         source: StoreOutcomeSource.Transport,

@@ -68,7 +68,6 @@ class EchoMcp {}
   prompt: inline("x"),
   description: "x",
   model: "test/clerk",
-  price: { inputPerMTok: 1, outputPerMTok: 2 },
   tools: [TenantEchoTool],
 })
 class EchoAgent {}

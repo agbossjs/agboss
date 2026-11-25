@@ -72,9 +72,9 @@ export {
   type StoredKeyFacts,
 } from "../infrastructure/fenced-effect-key.js";
 // the cancel as a fence (#909): the tree a key's cancel fences, the refusal a store throws with
-// `ExecutionCancelFencedError.of(key)`, and finding it in a cause chain
-export { ExecutionCancelFencedError } from "../app/lease-lost.js";
+// `cancelFencedOf(key)`, and finding it in a cause chain
 export { cancelFencedErrorOf } from "../app/handed-over.js";
+export { cancelFencedOf, type CancelFencedKey } from "../app/cancel-fenced.js";
 export { cancelTreeOf } from "../infrastructure/issued-keys.js";
 // a store call whose outcome is unknown (#928): what a store throws when a command did not answer
 export * from "../infrastructure/store-call-timeout.js";
@@ -112,17 +112,13 @@ export {
 export { idGeneratorNameOf } from "../infrastructure/clock.js";
 // what a store reads of a pause, a log entry or a kept history record, given the parsed JSON it
 // holds (#934): every field they read is checked, only the 0.1.1 shape is read, and any other value
-// throws `StoredNamesUnreadableError`, naming the record's id and the field
+// throws `StoreError.UnreadableRecord`, naming the record's id and the field
 export { executionHistoryRecordOfJson } from "../infrastructure/stored-history.js";
 export { pauseAnswerRecordOfValue } from "../infrastructure/stored-step.js";
 export { pauseRecordOfJson } from "../infrastructure/stored-pause.js";
 export { pausedRunOfValue } from "../infrastructure/stored-run.js";
 // a stored text that is no JSON is refused the same way (#1121): the coded error, no text in it
-export {
-  parsedStoredJson,
-  StoredNamesUnreadableError,
-  type StoredNamesUnreadableErrorOptions,
-} from "../infrastructure/stored-step.js";
+export { parsedStoredJson } from "../infrastructure/stored-step.js";
 
 // the step of a checkpoint (#962): the pure functions of the latest-by-step read; the saver
 // capability itself holds LangGraph types and stays in `@agboss/core/internal` (#1324)

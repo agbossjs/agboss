@@ -2,13 +2,13 @@
  * #591 — an `IdGenerator` that repeats an execution id never makes two trees one: every new
  * execution's id — a root, a child, a recursion level (here or on any instance) — is kept by the
  * lease store before anything of it is written (`claimExecutionId`), and an id any earlier
- * execution had, of a tree running, paused, finished or cancelled, is `DuplicateExecutionIdError`
- * (`run.duplicate-execution-id`: the generator named, never the id). A resume and a recovery keep
+ * execution had, of a tree running, paused, finished or cancelled, is `ExecutionError.DuplicateExecutionId`
+ * (`execution.duplicate-execution-id`: the generator named, never the id). A resume and a recovery keep
  * their id: they are not a create.
  */
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { beforeEach, describe, expect } from "vitest";
 import { ExecutionStatus } from "../../src/app/types.js";
-import { DuplicateExecutionIdError } from "../../src/errors.js";
 import { ExecutionRecordRepository, ExecutionRecordStatus, type App } from "../../src/index.js";
 import { callTool, replyWith, testWith, type ModelRequest } from "../../src/testing/index.js";
 import { usd } from "../../src/units/index.js";
@@ -48,10 +48,10 @@ const rejectionOf = (call: Promise<unknown>): Promise<unknown> =>
     (error: unknown) => error,
   );
 
-/** The `DuplicateExecutionIdError` in `error`'s cause chain (or `error` itself). */
+/** The `ExecutionError.DuplicateExecutionId` in `error`'s cause chain (or `error` itself). */
 function duplicateIn(error: unknown): unknown {
   for (let at: unknown = error; at instanceof Error; at = at.cause) {
-    if (at instanceof DuplicateExecutionIdError) return at;
+    if (at instanceof ExecutionError.DuplicateExecutionId) return at;
   }
   return error;
 }
@@ -59,14 +59,16 @@ function duplicateIn(error: unknown): unknown {
 /** The refusal names the generator, never the id. */
 function expectRefused(error: unknown, id: string): void {
   const refused = duplicateIn(error);
-  expect(refused).toBeInstanceOf(DuplicateExecutionIdError);
+  expect(refused).toBeInstanceOf(ExecutionError.DuplicateExecutionId);
   expect(refused).toMatchObject({
-    code: "run.duplicate-execution-id",
+    code: "execution.duplicate-execution-id",
     generator: "PlannedIdGenerator",
   });
   expect((refused as Error).message).toContain("PlannedIdGenerator.newExecutionId()");
   expect((refused as Error).message).not.toContain(id);
-  expect(JSON.stringify((refused as DuplicateExecutionIdError).details)).not.toContain(id);
+  expect(JSON.stringify((refused as ExecutionError.DuplicateExecutionId).details)).not.toContain(
+    id,
+  );
   if (error !== refused) expect(String(error)).not.toContain(id);
 }
 
@@ -109,9 +111,9 @@ describe("#591: a repeated root id is refused before anything of the new tree is
 
   test("while the first tree is paused: its root's and its child's ids are refused as roots; the paused tree resumes to its own finish", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ChildRefundAgent).thenAnswer(confirmer);
+    mockModel(ChildRefundAgent).respondWith(confirmer);
     minting.executions = ["root-p", "child-p"];
     const paused = await execute(app, SingleChildWorkflowStart, { orderId: "A" });
     minting.executions = ["root-p", "child-p"];
@@ -123,14 +125,14 @@ describe("#591: a repeated root id is refused before anything of the new tree is
     expectRefused(asRoot, "root-p");
     expectRefused(asChild, "child-p");
     expect(done).toMatchObject({ status: ExecutionStatus.Finished, executionId: "root-p" });
-    expect(mockLlm(ChildRefundAgent).requests.map(orderOf)).toEqual(["A", "A"]);
+    expect(mockModel(ChildRefundAgent).requests.map(orderOf)).toEqual(["A", "A"]);
   });
 
   test("after the first tree was cancelled: its root's and its child's ids are refused", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ChildRefundAgent).thenAnswer(confirmer);
+    mockModel(ChildRefundAgent).respondWith(confirmer);
     minting.executions = ["root-c", "child-c"];
     const paused = await execute(app, SingleChildWorkflowStart, { orderId: "A" });
     await app.cancel(paused.threadId);
@@ -145,9 +147,9 @@ describe("#591: a repeated root id is refused before anything of the new tree is
 
   test("a create that fails after its id was kept (a budget's maxSpend() throws): the id stays taken, nothing is left to recover, a new id runs", async ({
     app,
-    mockOf,
+    mockService,
   }) => {
-    mockOf(TestExecutionBudget)
+    mockService(TestExecutionBudget)
       .maxSpend.mockResolvedValue(usd(1000))
       .mockRejectedValueOnce(new Error("billing is down"));
     minting.executions = ["half-made", "half-made"];
@@ -156,7 +158,7 @@ describe("#591: a repeated root id is refused before anything of the new tree is
     const repeated = await rejectionOf(execute(app, CountdownWorkflowStart, { left: 0 }));
 
     expect(crashed).toBeInstanceOf(Error);
-    expect(duplicateIn(crashed)).not.toBeInstanceOf(DuplicateExecutionIdError);
+    expect(duplicateIn(crashed)).not.toBeInstanceOf(ExecutionError.DuplicateExecutionId);
     expectRefused(repeated, "half-made");
     expect((await runningRoots(app)).items).toEqual([]);
     expect((await execute(app, CountdownWorkflowStart, { left: 0 })).status).toBe(
@@ -168,16 +170,16 @@ describe("#591: a repeated root id is refused before anything of the new tree is
 describe("#591: a child's or a level's id colliding with another execution fails its launch before it starts", () => {
   test("a child whose id is an earlier root's: the launch fails with the refusal, the child's agent is never called", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ChildRefundAgent).thenAnswer(confirmer);
+    mockModel(ChildRefundAgent).respondWith(confirmer);
     await finishedRoot(app, "tree-a");
     minting.executions = ["root-b", "tree-a"];
 
     const failed = await rejectionOf(execute(app, SingleChildWorkflowStart, { orderId: "B" }));
 
     expectRefused(failed, "tree-a");
-    expect(mockLlm(ChildRefundAgent).requests).toHaveLength(0);
+    expect(mockModel(ChildRefundAgent).requests).toHaveLength(0);
   });
 
   test("a recursion level whose id is its own root's, or an earlier tree's level: refused", async ({

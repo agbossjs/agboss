@@ -20,8 +20,7 @@ import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../src/index.js";
 import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
-
-const price = { inputPerMTok: 1, outputPerMTok: 2 };
+import { usd } from "../../../src/units/index.js";
 
 /** The coder's change. */
 export class CodeDto {
@@ -40,7 +39,6 @@ export class ReviewDto {
   prompt: "./coder.prompt.md",
   description: "Writes the code",
   model: "test/coder",
-  price,
   input: { task: WorkflowStartTextDto, review: optional(ReviewDto) },
   output: CodeDto,
 })
@@ -51,7 +49,6 @@ export class Coder {}
   prompt: "./reviewer.prompt.md",
   description: "Reviews the code",
   model: "test/reviewer",
-  price,
   input: { code: CodeDto },
   output: ReviewDto,
 })
@@ -87,7 +84,7 @@ export class PullRequest {}
 })
 export class ReviewGate {}
 
-/** A class the workflow never uses (mockOf of it is a test setup error). */
+/** A class the workflow never uses (mockService of it is a test setup error). */
 @Injectable()
 export class Unused {}
 

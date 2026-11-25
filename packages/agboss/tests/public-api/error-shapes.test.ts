@@ -1,10 +1,11 @@
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { fencedRefusalOf } from "../../src/app/lease-lost.js";
 import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 /**
  * #890 AC3 (API review G8, A-runtime Part 9): the errors of 0.1.1 have one shape — an options bag for
  * two facts or more, its keys the error's own fields (`effect` on a fenced effect's, `call` on an
  * outbound call's, `cause` among them), a literal `static code` so `switch (error.code)` narrows —
- * and names that say what failed: `IdempotencyError.KeyConflict`, `ThreadIdsExhaustedError`.
+ * and names that say what failed: `IdempotencyError.KeyConflict`, `ExecutionError.ThreadIdsExhausted`.
  */
 import {
   IdempotencyError,
@@ -12,19 +13,14 @@ import {
 } from "../../src/core/error-families/effect-errors.js";
 import { describe, expect, it } from "vitest";
 import * as root from "../../src/index.js";
-import {
-  InvalidMintedIdError,
-  KeyTextRule,
-  QuestionFailedError,
-  ThreadIdsExhaustedError,
-} from "../../src/index.js";
+import { KeyTextRule } from "../../src/index.js";
 
 describe("#890 AC3: the errors say what failed", () => {
-  it("AC3: IdempotencyError.KeyConflict, ThreadIdsExhaustedError, with codes by mechanism", () => {
+  it("AC3: IdempotencyError.KeyConflict, ExecutionError.ThreadIdsExhausted, with codes by mechanism", () => {
     expect(new IdempotencyError.KeyConflict({ effect: "charge" }).code).toBe(
       "idempotency.key-conflict",
     );
-    expect(ThreadIdsExhaustedError.code).toBe("run.thread-ids-exhausted");
+    expect(ExecutionError.ThreadIdsExhausted.code).toBe("execution.thread-ids-exhausted");
   });
 
   it("AC3: the old names are gone from the root entry, no aliases", () => {
@@ -76,14 +72,20 @@ describe("#890 AC3: an options bag, its keys the error's fields", () => {
     const cause = new Error("send failed");
 
     expect(
-      new InvalidMintedIdError({ generator: "G", method: "newThreadId", rule: KeyTextRule.Length }),
+      new ExecutionError.InvalidMintedId({
+        generator: "G",
+        method: "newThreadId",
+        rule: KeyTextRule.Length,
+      }),
     ).toMatchObject({ generator: "G", method: "newThreadId", rule: KeyTextRule.Length });
-    expect(new ThreadIdsExhaustedError({ generator: "G", tries: 100 })).toMatchObject({
+    expect(new ExecutionError.ThreadIdsExhausted({ generator: "G", tries: 100 })).toMatchObject({
       generator: "G",
       tries: 100,
     });
-    expect(new QuestionFailedError({ question: "limit-external-task", cause })).toMatchObject({
-      question: "limit-external-task",
+    expect(
+      new StepError.ExternalTask({ externalTask: "limit-external-task", cause }),
+    ).toMatchObject({
+      externalTask: "limit-external-task",
       cause,
     });
   });

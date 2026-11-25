@@ -30,14 +30,6 @@ export function starOf(...agents: readonly [Class, ...Class[]]): readonly FlowPa
   const stop = onStart(TestChat)
     .toRouter(MainRouter)
     .onRoute(toFinish(NoAnswer));
-  return [
-    agents.reduce(
-      (path, agent) =>
-        path.onRoute(
-          toAgent(agent)
-            .toFinish(TestAnswer),
-        ),
-      stop,
-    ),
-  ];
+  return [agents.reduce((path, agent) => path.onRoute(toAgent(agent)
+    .toFinish(TestAnswer)), stop)];
 }

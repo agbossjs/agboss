@@ -1,5 +1,5 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { beforeEach, describe, expect } from "vitest";
-import { ChildExecutionFailedError, RouterDecisionError } from "../../../src/index.js";
 import { replyWith, routeTo, testWith, type ModelRequest } from "../../../src/testing/index.js";
 import { execute } from "../../helpers/flow.js";
 import {
@@ -24,7 +24,7 @@ import {
  * #264 AC4 — the soft stop: on the last level (`depth === maxDepth`) a choice that launches
  * the workflow itself is not offered. The researcher's `TopicTooBroadDto` leaves its response schema
  * (its answer tool is not bound), a model router's model does not see its recursive route, a code
- * router that returns it fails with `RouterDecisionError`.
+ * router that returns it fails with `StepError.RouterDecision`.
  */
 
 const test = testWith(RecursionApplication);
@@ -54,10 +54,10 @@ beforeEach(() => {
 describe("AC4: an agent's recursive variant leaves its schema on the last level", () => {
   test("levels 1 and 2 may answer TopicTooBroadDto, level 3 only TopicReportDto", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ResearcherAgent).thenAnswer(deeper);
-    mockLlm(MergeAgent).thenAnswer((request) =>
+    mockModel(ResearcherAgent).respondWith(deeper);
+    mockModel(MergeAgent).respondWith((request) =>
       replyWith(TopicReportDto, {
         title: "merged",
         text: textOf(request).slice(0, 10),
@@ -67,7 +67,7 @@ describe("AC4: an agent's recursive variant leaves its schema on the last level"
     const result = await execute(app, TopicResearchWorkflowStart, { title: "t", level: 0 });
 
     expect(result).toFinishWith(TopicReportWorkflowFinish, expect.anything());
-    const asked = mockLlm(ResearcherAgent).requests.map(toolsOf);
+    const asked = mockModel(ResearcherAgent).requests.map(toolsOf);
     expect(asked).toEqual([
       ["answer-topic-report-dto", "answer-topic-too-broad-dto"],
       ["answer-topic-report-dto", "answer-topic-too-broad-dto"],
@@ -80,16 +80,18 @@ describe("AC4: an agent's recursive variant leaves its schema on the last level"
 describe("AC4: a model router does not see a recursive route on the last level", () => {
   test("depth 1 sees both routes; at depth 2 (maxDepth) only the exit is left", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(LinkRouter).thenReturn(routeTo(ChainWorkflow));
-    mockLlm(LinkAgent).thenReturn(replyWith(LinkDoneDto, { name: "end" }));
+    mockModel(LinkRouter).thenReturn(routeTo(ChainWorkflow));
+    mockModel(LinkAgent).thenReturn(replyWith(LinkDoneDto, { name: "end" }));
 
     const result = await execute(app, ChainWorkflowStart, { name: "a" });
 
     expect(result).toFinishWith(ChainDoneWorkflowFinish, { name: "end" });
     // one model call: on the last level the one route left needs no model (a single option)
-    expect(mockLlm(LinkRouter).requests.map(optionsOf)).toEqual([["chain-workflow", "link-agent"]]);
+    expect(mockModel(LinkRouter).requests.map(optionsOf)).toEqual([
+      ["chain-workflow", "link-agent"],
+    ]);
     expect(result.children.map((child) => [child.depth, child.path])).toEqual([
       [2, ["chain-workflow-start", "link-router", "link-agent", "chain-done-workflow-finish"]],
     ]);
@@ -97,13 +99,13 @@ describe("AC4: a model router does not see a recursive route on the last level",
 });
 
 describe("AC4: a code router returning a recursive route on the last level", () => {
-  test("fails with RouterDecisionError: the route is not ready", async ({ app }) => {
+  test("fails with StepError.RouterDecision: the route is not ready", async ({ app }) => {
     const run = execute(app, CodeChainWorkflowStart, { name: "a" });
 
     // the child at depth 2 (maxDepth) fails its step; the root sees the child's failure
-    await expect(run).rejects.toFailWith(ChildExecutionFailedError, { cause: RouterDecisionError });
+    await expect(run).rejects.toFailWith(StepError.Child, { cause: StepError.RouterDecision });
     await expect(execute(app, CodeChainWorkflowStart, { name: "b" })).rejects.toFailWith(
-      RouterDecisionError,
+      StepError.RouterDecision,
       { message: expect.stringContaining("is not ready") },
     );
   });

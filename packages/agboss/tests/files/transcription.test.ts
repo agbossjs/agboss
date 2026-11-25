@@ -1,6 +1,6 @@
 /**
  * #899 §6, §7: the transcription view — the built-in on the agent's vision model (scripted as
- * `mockLlm(FileTranscriber)`), a project's own, a text format that needs none — cached once per file
+ * `mockModel(FileTranscriber)`), a project's own, a text format that needs none — cached once per file
  * across the calls of a visit and the visits of an execution, billed under `files:transcriber`.
  */
 import { describe, expect } from "vitest";
@@ -33,9 +33,9 @@ const withTools = readerApplication({
 describe("AC5: the built-in transcriber runs on the agent's vision model", () => {
   testWith(builtIn.Application)(
     "AC5: the model reads the transcription, no bytes; it is billed under files:transcriber",
-    async ({ app, mockLlm }) => {
-      const transcriber = mockLlm(FileTranscriber).thenReturn(replyWith("TOTAL 12.50"));
-      const agent = mockLlm(builtIn.Agent).thenReturn(replyWith("ok"));
+    async ({ app, mockModel }) => {
+      const transcriber = mockModel(FileTranscriber).thenReturn(replyWith("TOTAL 12.50"));
+      const agent = mockModel(builtIn.Agent).thenReturn(replyWith("ok"));
 
       const result = await execute(app, builtIn.Start, {
         document: inline(PNG_BYTES, "image/png", "receipt.png"),
@@ -55,10 +55,10 @@ describe("AC5: the built-in transcriber runs on the agent's vision model", () =>
 
   testWith(withTools.Application)(
     "AC5: one transcription of a file seen twice in the execution, cached by file hash",
-    async ({ app, mockLlm }) => {
-      const transcriber = mockLlm(FileTranscriber).thenReturn(replyWith("TEXT"));
+    async ({ app, mockModel }) => {
+      const transcriber = mockModel(FileTranscriber).thenReturn(replyWith("TEXT"));
       FETCHABLE.set("q", inline(PNG_BYTES, "image/png", "same.png"));
-      mockLlm(withTools.Agent).thenReturn(callTool(FetchTool, { name: "q" }), replyWith("ok"));
+      mockModel(withTools.Agent).thenReturn(callTool(FetchTool, { name: "q" }), replyWith("ok"));
 
       await execute(app, withTools.Start, {
         document: inline(PNG_BYTES, "image/png", "receipt.png"),
@@ -70,9 +70,9 @@ describe("AC5: the built-in transcriber runs on the agent's vision model", () =>
 
   testWith(builtIn.Application)(
     "a text format is its own transcription: no model call",
-    async ({ app, mockLlm }) => {
-      const transcriber = mockLlm(FileTranscriber);
-      const agent = mockLlm(builtIn.Agent).thenReturn(replyWith("ok"));
+    async ({ app, mockModel }) => {
+      const transcriber = mockModel(FileTranscriber);
+      const agent = mockModel(builtIn.Agent).thenReturn(replyWith("ok"));
 
       await execute(app, builtIn.Start, { document: inline(CSV_BYTES, "text/csv", "items.csv") });
 
@@ -98,9 +98,9 @@ describe("AC5: a project replaces the transcriber (no model call)", () => {
   const ownApp = testWith(own.Application);
   ownApp(
     "AC5: the agent reads the project's text; its price is billed under files:transcriber as a tool cost",
-    async ({ app, mockLlm }) => {
+    async ({ app, mockModel }) => {
       OcrTranscriber.calls = 0;
-      const agent = mockLlm(own.Agent).thenReturn(replyWith("ok"));
+      const agent = mockModel(own.Agent).thenReturn(replyWith("ok"));
 
       const result = await execute(app, own.Start, {
         document: inline(PDF_BYTES, "application/pdf", "a.pdf"),

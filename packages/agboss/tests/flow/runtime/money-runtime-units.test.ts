@@ -5,6 +5,14 @@
  * (#1090), the ledger ids of lost passes (#853), the spend a failure carries and the run's drain of it, what a
  * paused run has spent (#267).
  */
+import { StepError } from "../../../src/core/error-families/step-errors.js";
+import {
+  GuardrailError,
+  LimitError,
+  PiiError,
+} from "../../../src/core/error-families/limit-errors.js";
+import { isPaidError } from "../../../src/core/error-families/paid.js";
+import { ExecutionError } from "../../../src/core/error-families/run-errors.js";
 import { GraphInterrupt } from "@langchain/langgraph";
 import { describe, expect, it, vi } from "vitest";
 import { BudgetMeter } from "../../../src/budgets/execution-budgets.js";
@@ -14,11 +22,7 @@ import { ApplicationStoppingError, ExecutionCancelledError } from "../../../src/
 import { errorRecordOf, RecordedError } from "../../../src/core/error-record.js";
 import { CostSource, ZERO_USAGE, type UsageRecord } from "../../../src/finops/usage.js";
 import { NodeKind } from "../../../src/flow/ast.js";
-import {
-  CompensationEntryStatus,
-  CompensationFailedError,
-} from "../../../src/flow/compensation.js";
-import { ChildExecutionFailedError } from "../../../src/flow/runtime/child-errors.js";
+import { CompensationEntryStatus } from "../../../src/flow/compensation.js";
 import {
   childFailureOf,
   isRecordedAs,
@@ -38,14 +42,7 @@ import {
   unknownLedgerIdOf,
 } from "../../../src/flow/runtime/lost-pass-records.js";
 import { unrecordedSpendOf } from "../../../src/flow/runtime/node-runner.js";
-import { VisitsLimitExceededError } from "../../../src/flow/runtime/errors.js";
 import { counterOf } from "../../../src/flow/runtime/runners/router.js";
-import {
-  StepsLimitExceededError,
-  BudgetExceededError,
-  LimitExceededError,
-} from "../../../src/graph/limits.js";
-import { PaidStepError } from "../../../src/graph/errors.js";
 import { BudgetScope } from "../../../src/index.js";
 import { drainRun } from "../../../src/run/execute.js";
 import { pausedUsageOf } from "../../../src/run/paused.js";
@@ -141,7 +138,7 @@ describe("#1356: the limits of a visit", () => {
       visit(stateOf({ visits: { clerk: 2 } }), node("clerk", NodeKind.Agent, 2), limits),
     );
 
-    expect(error).toBeInstanceOf(VisitsLimitExceededError);
+    expect(error).toBeInstanceOf(LimitError.Visits);
     expect(error).toMatchObject({
       maxVisits: 2,
       visits: 3,
@@ -163,7 +160,7 @@ describe("#1356: the limits of a visit", () => {
     ).resolves.toBe(true);
     expect(
       await caught(() => visit(stateOf(), node("clerk", NodeKind.Agent, 0), limits)),
-    ).toBeInstanceOf(VisitsLimitExceededError);
+    ).toBeInstanceOf(LimitError.Visits);
   });
 
   it("#1365: refuses a node whose maxVisits is null on its first visit, with a bound of 0", async () => {
@@ -177,7 +174,7 @@ describe("#1356: the limits of a visit", () => {
 
     const error = await caught(() => visit(stateOf(), nullBound, limits));
 
-    expect(error).toBeInstanceOf(VisitsLimitExceededError);
+    expect(error).toBeInstanceOf(LimitError.Visits);
     expect(error).toMatchObject({ maxVisits: 0, visits: 1, path: ["start", "clerk"] });
   });
 
@@ -206,7 +203,7 @@ describe("#1356: the limits of a visit", () => {
 
         const error = await caught(() => visit(stateOf(), bad, limits));
 
-        expect(error).toBeInstanceOf(VisitsLimitExceededError);
+        expect(error).toBeInstanceOf(LimitError.Visits);
         expect(error).toMatchObject({ maxVisits: 0, visits: 1, path: ["start", "clerk"] });
         expect((error as Error).message).not.toContain("five");
       }
@@ -230,7 +227,7 @@ describe("#1356: the limits of a visit", () => {
       for (const kind of [NodeKind.Agent, NodeKind.Router, NodeKind.Action, NodeKind.Question]) {
         const error = await caught(() => visit(stateOf(), node("clerk", kind), limits));
 
-        expect(error).toBeInstanceOf(StepsLimitExceededError);
+        expect(error).toBeInstanceOf(LimitError.Steps);
         expect(error).toMatchObject({ maxSteps: 0, steps: 1, path: ["start", "clerk"] });
         expect((error as Error).message).not.toContain("five");
       }
@@ -243,7 +240,7 @@ describe("#1356: the limits of a visit", () => {
 
     expect(
       await caught(() => visit(stateOf(), node("clerk", NodeKind.Agent), zero)),
-    ).toBeInstanceOf(StepsLimitExceededError);
+    ).toBeInstanceOf(LimitError.Steps);
     await expect(visit(stateOf({ steps: 2 }), node("clerk", NodeKind.Agent), three)).resolves.toBe(
       true,
     );
@@ -255,7 +252,7 @@ describe("#1356: the limits of a visit", () => {
 
     expect(
       await caught(() => visit(state, node("ask", NodeKind.Question, 3), limits)),
-    ).toBeInstanceOf(VisitsLimitExceededError);
+    ).toBeInstanceOf(LimitError.Visits);
     await expect(visit(state, node("act", NodeKind.Action), limits)).resolves.toBe(true);
     await expect(visit(state, node("begin", NodeKind.Start, 1), limits)).resolves.toBe(false);
   });
@@ -267,18 +264,18 @@ describe("#1356: the limits of a visit", () => {
       visit(stateOf({ steps: 3, startedVersion: "v1" }), node("clerk", NodeKind.Agent), limits),
     );
 
-    expect(error).toBeInstanceOf(StepsLimitExceededError);
+    expect(error).toBeInstanceOf(LimitError.Steps);
     expect(error).toMatchObject({
       maxSteps: 3,
       steps: 4,
       path: ["start", "clerk"],
       spentUsd: usd(0.75),
-      workflow: { name: "flow", version: "v2", startedVersion: "v1", configHash: "hash" },
+      workflow: "flow",
     });
     const fresh = await caught(() =>
       visit(stateOf({ steps: 3 }), node("route", NodeKind.Router), limits),
     );
-    expect(fresh).toMatchObject({ workflow: { startedVersion: "v2" } });
+    expect(fresh).toMatchObject({ workflowRecord: { startedVersion: "v2" } });
     await expect(visit(stateOf({ steps: 2 }), node("clerk", NodeKind.Agent), limits)).resolves.toBe(
       true,
     );
@@ -290,7 +287,7 @@ describe("#1356: the limits of a visit", () => {
     for (const kind of [NodeKind.Question, NodeKind.Action])
       expect(
         await caught(() => visit(stateOf({ steps: 5 }), node("x", kind), limits)),
-      ).toBeInstanceOf(StepsLimitExceededError);
+      ).toBeInstanceOf(LimitError.Steps);
     await expect(visit(stateOf({ steps: 5 }), node("begin", NodeKind.Start), limits)).resolves.toBe(
       false,
     );
@@ -305,7 +302,7 @@ describe("#1356: the limits of a visit", () => {
       visit(stateOf({ steps: 5, visits: { clerk: 1 } }), node("clerk", NodeKind.Agent, 1), limits),
     );
 
-    expect(error).toBeInstanceOf(VisitsLimitExceededError);
+    expect(error).toBeInstanceOf(LimitError.Visits);
   });
 });
 
@@ -524,7 +521,7 @@ describe("#1356: the spend a failure carries", () => {
   const spent = [record(1)];
 
   it("is a paid step's or a limit's own usage, and none for any other error or a non-error", () => {
-    const limit = new BudgetExceededError({
+    const limit = new LimitError.Budget({
       budget: { name: "b" },
       scope: BudgetScope.Tenant,
       key: "acme",
@@ -536,12 +533,30 @@ describe("#1356: the spend a failure carries", () => {
     });
 
     expect(
-      unrecordedSpendOf(new PaidStepError({ message: "p", usage: spent, cause: undefined })),
+      unrecordedSpendOf(
+        new StepError.Agent({ agent: "x", message: "p", usage: spent, cause: undefined }),
+      ),
     ).toBe(spent);
     expect(unrecordedSpendOf(limit)).toBe(limit.usage);
     expect(unrecordedSpendOf(new Error("plain"))).toEqual([]);
     expect(unrecordedSpendOf({ usage: spent })).toEqual([]);
     expect(unrecordedSpendOf(undefined)).toEqual([]);
+  });
+
+  it("is a guardrail's and a PII refusal's own usage too, so the ledger counts them once (#1413)", () => {
+    const blocked = new GuardrailError.Blocked({
+      guardrail: "g",
+      refusal: "no",
+      probability: 1,
+      threshold: 0.5,
+      usage: spent,
+    });
+    const refused = new PiiError.Refused({ piiKind: "email", refusal: "no", usage: spent });
+
+    expect(unrecordedSpendOf(blocked)).toBe(spent);
+    expect(unrecordedSpendOf(refused)).toBe(spent);
+    expect(isPaidError(blocked)).toBe(true);
+    expect(isPaidError(refused)).toBe(true);
   });
 
   it("is recorded by a run's drain before the failure rises, a paid one's and a limit's; a plain failure records none", async () => {
@@ -551,7 +566,12 @@ describe("#1356: the spend a failure carries", () => {
         yield { __interrupt__: [] } as never;
         throw error;
       })();
-    const paid = new PaidStepError({ message: "p", usage: [record(7)], cause: undefined });
+    const paid = new StepError.Agent({
+      agent: "x",
+      message: "p",
+      usage: [record(7)],
+      cause: undefined,
+    });
     for (const [error, expected] of [
       [paid, [record(7)]],
       [new Error("plain"), []],
@@ -572,7 +592,7 @@ describe("#1356: the spend a failure carries", () => {
   });
 
   it("records a limit's spend too, and returns the last state of a run that ends", async () => {
-    const limit = new LimitExceededError({
+    const limit = new LimitError.Agent({
       key: "k",
       limit: 1,
       actual: 2,
@@ -658,7 +678,7 @@ describe("#1356: how a child's failure reaches its parent", () => {
   };
   const spent = [record(1)];
   const budgetError = (usage: UsageRecord[] = [record(2)]) =>
-    new BudgetExceededError({
+    new LimitError.Budget({
       budget: { name: "b" },
       scope: BudgetScope.Tenant,
       key: "acme",
@@ -687,7 +707,12 @@ describe("#1356: how a child's failure reaches its parent", () => {
 
   it("gives a cancellation's error as it is, its spend and the child's reported to the parent", () => {
     const cancelled = new ExecutionCancelledError({ message: "stop" });
-    const own = new PaidStepError({ message: "p", usage: [record(3)], cause: undefined });
+    const own = new StepError.Agent({
+      agent: "x",
+      message: "p",
+      usage: [record(3)],
+      cause: undefined,
+    });
 
     expect(through(cancelled)).toEqual({
       thrown: cancelled,
@@ -731,7 +756,10 @@ describe("#1356: how a child's failure reaches its parent", () => {
   });
 
   it("gives a failed undo's error, built or rebuilt, as it is and reports nothing", () => {
-    const undo = new CompensationFailedError({ failures: [], cause: new Error("declined") });
+    const undo = new ExecutionError.CompensationFailed({
+      failures: [],
+      cause: new Error("declined"),
+    });
     const rebuilt = new RecordedError(errorRecordOf(undo));
 
     for (const error of [undo, rebuilt])
@@ -744,11 +772,16 @@ describe("#1356: how a child's failure reaches its parent", () => {
   });
 
   it("wraps any other failure in the child's failed execution, with its cause and the spend, reporting nothing", () => {
-    const cause = new PaidStepError({ message: "p", usage: [record(3)], cause: undefined });
+    const cause = new StepError.Agent({
+      agent: "x",
+      message: "p",
+      usage: [record(3)],
+      cause: undefined,
+    });
 
     const failure = through(cause);
 
-    expect(failure.thrown).toBeInstanceOf(ChildExecutionFailedError);
+    expect(failure.thrown).toBeInstanceOf(StepError.Child);
     expect(failure.thrown).toMatchObject({
       childExecutionId: "child-1",
       cause,
@@ -760,15 +793,15 @@ describe("#1356: how a child's failure reaches its parent", () => {
       usage: [record(1), record(3)],
       reported: [],
     });
-    expect(through("text").thrown).toBeInstanceOf(ChildExecutionFailedError);
+    expect(through("text").thrown).toBeInstanceOf(StepError.Child);
   });
 
   it("knows a rebuilt error by its class line, and no other error or text", () => {
     const rebuilt = new RecordedError(errorRecordOf(budgetError()));
 
-    expect(isRecordedAs(rebuilt, BudgetExceededError.code)).toBe(true);
-    expect(isRecordedAs(rebuilt, CompensationFailedError.code)).toBe(false);
-    expect(isRecordedAs(budgetError(), BudgetExceededError.code)).toBe(false);
-    expect(isRecordedAs("limit.budget", BudgetExceededError.code)).toBe(false);
+    expect(isRecordedAs(rebuilt, LimitError.Budget.code)).toBe(true);
+    expect(isRecordedAs(rebuilt, ExecutionError.CompensationFailed.code)).toBe(false);
+    expect(isRecordedAs(budgetError(), LimitError.Budget.code)).toBe(false);
+    expect(isRecordedAs("limit.budget", LimitError.Budget.code)).toBe(false);
   });
 });

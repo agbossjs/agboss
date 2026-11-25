@@ -236,7 +236,7 @@ policies](Guards#pii-policies)) and `example`.
 
 - **The compiler checks**: the decorator fits the field's type (`@Text` on a `number`), `optional: true`
   ↔ `name?:` both ways, `@Enum` values ≡ the field's union, the element type of `@List` / `@Nested`.
-- **At runtime** (a `DtoValidationError` with the field path and the reason): integer vs decimal,
+- **At runtime** (a `ValidationError.DtoInvalid` with the field path and the reason): integer vs decimal,
   formats, lengths, ranges, list sizes, code lists, cross-field rules of the standard DTOs.
 - **At startup**: a field without a decorator → `dto.undecorated-field`; methods, accessors or
   `#private` fields → `dto.not-plain-data`. A DTO is plain data, so object literals fit it.
@@ -336,7 +336,7 @@ export class ChargeAction implements ActionHandler<ChargeAction> {
 ```
 
 An action gets only its input; the execution comes through `deps: [ExecutionContext]`. What it
-throws is the step's failure (`ActionFailedError`, the original in `cause`), taken by an
+throws is the step's failure (`StepError.Action`, the original in `cause`), taken by an
 `.onError(…)` right after it ([Rollback](Rollback)).
 
 ## An arbiter
@@ -508,8 +508,7 @@ export class SaveShortlist implements ToolHandler<ChosenJobs, SavedJobs> {
   fields), validated and parsed by the declared DTOs.
 - At startup every declared server tool must exist on the server with a compatible input schema, or
   the app stops naming it.
-- Test without a process: `mcpServerStub(ShortlistServer, { write_file: … })` in a unit test, or
-  `mcpOf(ShortlistServer)` in a workflow test ([Testing](Testing)).
+- Test without a process: `mockMcp(ShortlistServer).thenReturn({ write_file: … })` in a workflow test, a `testModule` or a `testAgent` ([Testing](Testing)).
 
 ## A knowledge base
 

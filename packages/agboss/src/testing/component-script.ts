@@ -61,7 +61,7 @@ export class ComponentScript implements ModelScript {
     return this;
   }
 
-  thenAnswer(handler: (request: ModelRequest) => ScriptedTurn): this {
+  respondWith(handler: (request: ModelRequest) => ScriptedTurn): this {
     this.#handler = handler;
     return this;
   }
@@ -74,12 +74,23 @@ export class ComponentScript implements ModelScript {
   when(partial: RecordedInput): WhenScript {
     if (!this.bindsInput) {
       throw new TestSetupError({
-        message: `mockLlm(${this.label}).when(…): only agents, model routers and reply interpreters are called with an input`,
+        message: `mockModel(${this.label}).when(…): only agents, model routers and reply interpreters are called with an input`,
       });
     }
     const entry = new WhenEntry(partial);
     this.#whens.push(entry);
     return entry;
+  }
+
+  reset(): this {
+    this.#queue.reset();
+    this.#whens.length = 0;
+    this.#handler = undefined;
+    this.requests.length = 0;
+    this.toolCalls.length = 0;
+    this.inputs.length = 0;
+    this.returned.length = 0;
+    return this;
   }
 
   get isScripted(): boolean {
@@ -99,7 +110,7 @@ export class ComponentScript implements ModelScript {
     if (this.#handler !== undefined) return this.#answered(this.#handler, request);
     if (!this.isScripted) {
       throw new LiveCallBlockedError({
-        message: `${this.label} has no script — a live model call is blocked in tests; script it with mockLlm(${this.label}).thenReturn(…)`,
+        message: `${this.label} has no script — a live model call is blocked in tests; script it with mockModel(${this.label}).thenReturn(…)`,
       });
     }
     const matching =
@@ -121,26 +132,26 @@ export class ComponentScript implements ModelScript {
         message: queue.exhausted(this.label),
       });
     }
-    const message = `no script of mockLlm(${this.label}) matches the input ${inputText(input)}`;
+    const message = `no script of mockModel(${this.label}) matches the input ${inputText(input)}`;
     throw new TestFailure({ code: "test.no-matching-script", message });
   }
 
-  /** A `thenAnswer(…)` call: the handler's turn for the request. */
+  /** A `respondWith(…)` call: the handler's turn for the request. */
   #answered(
     handler: (request: ModelRequest) => ScriptedTurn,
     request: ModelRequest | undefined,
   ): ScriptedCall {
     if (request === undefined)
-      throw new TestSetupError({ message: "thenAnswer(…) needs the request" });
+      throw new TestSetupError({ message: "respondWith(…) needs the request" });
     const turn = handler(request);
     if (turn.kind === "wait")
-      throw new TestSetupError({ message: "thenAnswer(…) answers, it does not wait" });
+      throw new TestSetupError({ message: "respondWith(…) answers, it does not wait" });
     return { turn, delay: 0 };
   }
 
   /** What the test left unused: `thenReturn` turns no call took, `when(…)` nothing matched. */
   leftovers(): readonly string[] {
-    const label = `mockLlm(${this.label})`;
+    const label = `mockModel(${this.label})`;
     const own = this.#queue.leftoverText(label);
     const whens = this.#whens.flatMap((entry) => {
       const named = `${label}.when(${inputText(entry.partial)})`;
@@ -156,7 +167,7 @@ export class ComponentScript implements ModelScript {
     if (only === undefined || rest.length > 0) {
       throw new TestFailure({
         code: "test.wrong-script",
-        message: `mockLlm(${this.label}).onlyRequest: expected exactly one request, got ${String(this.requests.length)}`,
+        message: `mockModel(${this.label}).onlyRequest: expected exactly one request, got ${String(this.requests.length)}`,
       });
     }
     return only;
@@ -167,7 +178,7 @@ export class ComponentScript implements ModelScript {
     if (last === undefined) {
       throw new TestFailure({
         code: "test.wrong-script",
-        message: `mockLlm(${this.label}): no request was sent`,
+        message: `mockModel(${this.label}): no request was sent`,
       });
     }
     return last;

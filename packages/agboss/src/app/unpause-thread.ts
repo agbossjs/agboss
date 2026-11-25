@@ -1,5 +1,5 @@
 import { ExecutionOperation } from "../core/observability.js";
-import { InvalidThreadIdError, keyTextRuleOf } from "../core/errors.js";
+import { keyTextRuleOf } from "../core/errors.js";
 import { ExecutionError } from "../core/error-families/run-errors.js";
 import { PauseError } from "../core/error-families/pause-errors.js";
 import { checkedCallerId, checkedTenantId } from "../flow/context/context-values.js";
@@ -31,7 +31,7 @@ export async function unpauseThread(
   await parts.admit({ operation: ExecutionOperation.Unpause, ...thread }, () => {
     checkedTenantId(thread.tenantId);
     const rule = keyTextRuleOf(threadId);
-    if (rule !== undefined) throw new InvalidThreadIdError({ rule });
+    if (rule !== undefined) throw new ExecutionError.InvalidThreadId({ rule });
     checkedCallerId("UnpauseExecutionOptions", "ownerId", options.ownerId);
     return parts.known({ ...thread, ownerId: options.ownerId });
   });

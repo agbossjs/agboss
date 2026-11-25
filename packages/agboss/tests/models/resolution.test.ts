@@ -4,9 +4,10 @@
  * `[model.missing-provider]`, all at once at assembly (`serves` and `[model.unserved]` /
  * `[model.ambiguous-provider]` are gone); `agboss describe` prints `model → provider` next to each.
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import { describeWorkflow } from "../../src/describe/describe-workflow.js";
-import { createApp, GraphRuleError } from "../../src/index.js";
+import { createApp } from "../../src/index.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import type { Class } from "../../src/components/injection.js";
 import {
@@ -21,8 +22,8 @@ async function violationsOf(application: Class): Promise<(readonly [string, stri
     () => undefined,
     (thrown: unknown) => thrown,
   );
-  if (!(error instanceof GraphRuleError))
-    throw new Error(`expected a GraphRuleError: ${String(error)}`);
+  if (!(error instanceof ConfigError.GraphRules))
+    throw new Error(`expected a ConfigError.GraphRules: ${String(error)}`);
   return error.violations.map((found) => [found.code, found.message] as const);
 }
 

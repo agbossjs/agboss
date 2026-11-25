@@ -8,7 +8,7 @@ where a per-item launch of one agent (`.forEachItem(toAgent(A), …)`) runs exac
 ([Workflow → Parallel launches](Workflow#parallel-launches)).
 
 > **Status.** #263 PR 1 — the grammar, the analyser and the generated types; PR 2 — children at run
-> time: a subgraph node of the parent, their own executions, `ChildExecutionFailedError`, nested
+> time: a subgraph node of the parent, their own executions, `StepError.Child`, nested
 > records (`result.children`), `toHaveChildExecutions` / `toHaveHandledError`, and a child as an
 > error handler (`toWorkflow(W)` side paths). Recursion — `() => Self`, `maxDepth`, the soft stop
 > — is #264 PR 1 ([below](#recursion-264)); the tree's `maxConcurrency` is #264 PR 2
@@ -20,7 +20,7 @@ where a per-item launch of one agent (`.forEachItem(toAgent(A), …)`) runs exac
 
 <!-- snippet-context
 import { toAgent, toWorkflow } from "@agboss/core";
-import { inline, Action, Agent, LimitExceededError, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, onAgent, onStart, toAction, toFinish, onWorkflow, Ttl } from "@agboss/core";
+import { inline, Action, Agent, LimitError, StepError, Workflow, WorkflowFinish, WorkflowStart, onAgent, onStart, toAction, toFinish, onWorkflow, Ttl } from "@agboss/core";
 import { Bool, Text, WorkflowStartTextDto } from "@agboss/core/dto";
 import { listOf, oneOf, optional } from "@agboss/core";
 
@@ -124,7 +124,7 @@ export class LinkContractWorkflow {}
       .toAgent(VendorCheckerAgent),
     onAgent(VendorCheckerAgent) // two ways in (two starts) → its own path
       .onError(
-        StepFailedError, // caught inside the child: one more result class for the parent
+        StepError, // caught inside the child: one more result class for the parent
         toAction(MarkVendorFailedAction)
           .toFinish(VendorCheckFailedWorkflowFinish),
       )
@@ -141,7 +141,7 @@ export const perItemPaths = [
     .forEachItem(toWorkflow(VendorCheckWorkflow), { takeFirst: 50, maxConcurrency: 3 })
     .join()
     .onError(
-      LimitExceededError, // a limit: only actions and finishes after it
+      LimitError, // a limit: only actions and finishes after it
       toAction(NotifyOperatorAction)
         .toFinish(ScreeningStoppedWorkflowFinish),
     )
@@ -154,7 +154,7 @@ export const inlinePaths = [
   onStart(ContractWorkflowStart)
     .toAgent(VendorPickerAgent) // enters vendor-check-workflow-start
     .toWorkflow(VendorCheckWorkflow)
-    .onError(StepFailedError, toFinish(CheckErrorWorkflowFinish))
+    .onError(StepError, toFinish(CheckErrorWorkflowFinish))
     .toOneOf([
       toAgent(ContractAgent)
         .toFinish(ContractWorkflowFinish),
@@ -171,7 +171,7 @@ export const ownPaths = [
   onStart(LinkContractWorkflowStart) // enters vendor-link-check-workflow-start
     .toWorkflow(VendorCheckWorkflow),
   onWorkflow(VendorCheckWorkflow)
-    .onError(StepFailedError, toFinish(CheckErrorWorkflowFinish))
+    .onError(StepError, toFinish(CheckErrorWorkflowFinish))
     .toOneOf([
       toAgent(ContractAgent)
         .toFinish(ContractWorkflowFinish),
@@ -247,27 +247,27 @@ children
 | Per item | `.onError(E, path)` right after the join; not between the launch and its join |
 | Soft failure | an error the child catches itself, ending at a failure finish (`VendorCheckFailedDto` above), is one more ordinary result class for the parent — the way to skip a failed item and go on |
 | No soft failure | a per-item child with no finish reachable from one of its `.onError` side paths warns `[graph.child-without-failure-finish]` — one failed item would cancel the others (FailFast); an error under `agboss check --strict`; no flag silences it |
-| After a limit | a side path that can catch a `LimitExceededError` — the class, a subclass (`BudgetExceededError`, `VisitsLimitExceededError`, …) or a parent (`AGBossError`, `Error`) — leads only to actions and finishes, no model call past the limit — its actions run whatever the budgets, as the reaction to the limit, their spend counted ([FinOps](FinOps#at-run-time), #634): `[graph.limit-handler-uses-model]` when it reaches an agent, a router or a child workflow. This holds for every `.onError`, not only a child's |
+| After a limit | a side path that can catch a `LimitError` — the class, a subclass (`LimitError.Budget`, `LimitError.Visits`, …) or a parent (`AGBossError`, `Error`) — leads only to actions and finishes, no model call past the limit — its actions run whatever the budgets, as the reaction to the limit, their spend counted ([FinOps](FinOps#at-run-time), #634): `[graph.limit-handler-uses-model]` when it reaches an agent, a router or a child workflow. This holds for every `.onError`, not only a child's |
 
 ### At run time: whose limit it is (S25)
 
 An uncaught error of the child fails it, and the parent's step fails with
-**`ChildExecutionFailedError`** (`step.child`, a `StepFailedError`): `cause` — the child's error,
+**`StepError.Child`** (`step.child`, a `StepError`): `cause` — the child's error,
 `childExecutionId`, `itemIndex` (a per-item run's), `workflow`, and the step's coordinates
 (`component`, `nodeId`, `visitNumber`). The child's **own limits** are failures of the child and
-wrapped the same way: its `maxSteps` (`StepsLimitExceededError` in `cause`), the `maxVisits` of its
-nodes. So `.onError(StepFailedError, …)`, `.onError(ChildExecutionFailedError, …)` and
+wrapped the same way: its `maxSteps` (`LimitError.Steps` in `cause`), the `maxVisits` of its
+nodes. So `.onError(StepError, …)`, `.onError(StepError.Child, …)` and
 `.onError(…)` at the parent take them, and their side path may lead to an agent — the parent's
 steps and the tree's money are not spent. A handler naming the cause (`.onError(ItemFailedError,
-…)`, `.onError(StepsLimitExceededError, …)`) catches it through the cause chain; naming a limit, it
+…)`, `.onError(LimitError.Steps, …)`) catches it through the cause chain; naming a limit, it
 leads only to actions and finishes.
 
-**Tree-wide limits are never wrapped**: an exhausted budget (`BudgetExceededError`) and a
-cancellation (`ExecutionCancelledError`) stop the whole execution as they are — `.onError(StepFailedError, …)`
+**Tree-wide limits are never wrapped**: an exhausted budget (`LimitError.Budget`) and a
+cancellation (`ExecutionCancelledError`) stop the whole execution as they are — `.onError(StepError, …)`
 never takes them. Every call of the tree is counted the moment it is made (#338): when one child's
 call exhausts a budget, the model and tool calls in flight of its sibling children (and of every
-other branch of the tree) are aborted at once, those children fail with that `BudgetExceededError`
-and their spend so far, and the join takes `.onError(BudgetExceededError, …)`
+other branch of the tree) are aborted at once, those children fail with that `LimitError.Budget`
+and their spend so far, and the join takes `.onError(LimitError.Budget, …)`
 ([FinOps → At run time](FinOps#at-run-time)). Per item, FailFast holds: the running children are cancelled (their spend stays
 counted, their observers get `onExecutionError` with `ExecutionCancelledError`), no new one starts,
 and the join takes `.onError(…)` against the parent's scope **as it was before the launch** —
@@ -284,7 +284,7 @@ side path that can catch a limit stays actions and finishes only
 (`[graph.limit-handler-uses-model]`).
 
 <!-- snippet-context
-import { Action, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, onStart, toWorkflow, Ttl } from "@agboss/core";
+import { Action, StepError, Workflow, WorkflowFinish, WorkflowStart, onStart, toWorkflow, Ttl } from "@agboss/core";
 import { Text } from "@agboss/core/dto";
 export class PaymentDto {
   @Text({ prompt: "the payment" })
@@ -337,7 +337,7 @@ export const recoveryPaths = [
   onStart(PayWorkflowStart)
     .toAction(ChargeCardAction)
     .onError(
-      StepFailedError, // the charge failed: the recovery workflow takes it from here
+      StepError, // the charge failed: the recovery workflow takes it from here
       toWorkflow(PaymentRecoveryWorkflow)
         .toFinish(RecoveredWorkflowFinish),
     )
@@ -397,8 +397,8 @@ newest first, in its parent's step before its error reaches the parent (#340 PR 
 `ExecutionFailed` / `ExecutionCancelled`): its records come from its checkpoint and the instance's
 registry, never from the last state the parent saw; the undone records go into the parent's state
 with the error, so a later pass never undoes them again; its `onExecutionError` lists them
-(`compensations`). If one of its undo actions fails, its error is `CompensationFailedError`, which
-passes the boundary as it is — never `ChildExecutionFailedError`, like a cancel or an exhausted
+(`compensations`). If one of its undo actions fails, its error is `ExecutionError.CompensationFailed`, which
+passes the boundary as it is — never `StepError.Child`, like a cancel or an exhausted
 budget — so no `.onError` of the parent takes it; the parent, getting it uncaught,
 undoes its own open actions in turn. [Rollback](Rollback#an-execution-that-ends-without-a-finish).
 
@@ -422,7 +422,7 @@ instance** of the application run it instead — a fan-out of heavy children the
 instances that share the stores ([Several instances](Several-instances#children-on-any-instance-333)):
 
 <!-- snippet-context
-import { inline, Agent, ChildExecutionFailedError, Workflow, WorkflowFinish, WorkflowStart, onStart, toAgent, toFinish, toWorkflow, Ttl } from "@agboss/core";
+import { inline, Agent, StepError, Workflow, WorkflowFinish, WorkflowStart, onStart, toAgent, toFinish, toWorkflow, Ttl } from "@agboss/core";
 import { Text, WorkflowStartTextDto } from "@agboss/core/dto";
 import { listOf } from "@agboss/core";
 export class SupplierDto {
@@ -477,7 +477,7 @@ export const anyInstancePaths = [
     .toAgent(SupplierFinderAgent)
     .forEachItem(toWorkflow(SupplierCheckWorkflow), { takeFirst: 50, maxConcurrency: 6 })
     .join()
-    .onError(ChildExecutionFailedError, toFinish(ScreeningFailedWorkflowFinish))
+    .onError(StepError.Child, toFinish(ScreeningFailedWorkflowFinish))
     .toAgent(SupplierRankerAgent)
     .toFinish(SupplierRankingWorkflowFinish),
 ] as const;
@@ -524,9 +524,9 @@ export const anyInstancePaths = [
   crash or a graceful stop past `shutdownTimeout` (S7), the queue row stays `Running`; once the
   child's lease in `ExecutionLeaseRepository` is free, another instance reclaims only that child and
   continues it from its last checkpoint without re-running finished siblings.
-- **Its failure** reaches the parent as `ChildExecutionFailedError`, its cause the child's error
+- **Its failure** reaches the parent as `StepError.Child`, its cause the child's error
   rebuilt from its durable record (#598: class line by code, message and causes, kept in the queue
-  row): a side path on `ChildExecutionFailedError`, `StepFailedError` or the child's own error
+  row): a side path on `StepError.Child`, `StepError` or the child's own error
   class through the cause takes it, as for a child on the parent's instance, on every instance. A
   row written before 0.1.1 (names, codes and messages only) matches no project class.
 - **A cancel or the tree's end** stops a child running on another instance at its next look (every
@@ -553,7 +553,7 @@ and each subtopic researched the same way:
 
 <!-- snippet-context
 import { toFinish, toWorkflow } from "@agboss/core";
-import { inline, Action, Agent, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, onAction, onStart, toAction, type ActionHandler, type InputOf, type OutputOf, Ttl } from "@agboss/core";
+import { inline, Action, Agent, StepError, Workflow, WorkflowFinish, WorkflowStart, onAction, onStart, toAction, type ActionHandler, type InputOf, type OutputOf, Ttl } from "@agboss/core";
 import { Integer, List, Text } from "@agboss/core/dto";
 import { listOf, oneOf } from "@agboss/core";
 
@@ -632,7 +632,7 @@ export class TopicFailedWorkflowFinish {}
   flow: [
     onStart(TopicResearchWorkflowStart)
       .toAgent(ResearcherAgent)
-      .onError(StepFailedError, toAction(MarkTopicFailedAction)) // a failed topic is skipped softly
+      .onError(StepError, toAction(MarkTopicFailedAction)) // a failed topic is skipped softly
       .toOneOf([
         toFinish(TopicReportWorkflowFinish),
         // the action reads the too-broad topic: left out of the researcher's schema on the last level
@@ -643,7 +643,7 @@ export class TopicFailedWorkflowFinish {}
           )
           .join()
           .toAgent(MergeAgent)
-          .onError(StepFailedError, toAction(MarkTopicFailedAction))
+          .onError(StepError, toAction(MarkTopicFailedAction))
           .toFinish(TopicReportWorkflowFinish),
       ]),
 
@@ -672,17 +672,17 @@ the workflow itself before the next branch are not offered:
 | --- | --- |
 | an agent's `oneOf` answer | the recursive variants' answer tools are not bound and the answer is checked against the narrowed schema — a second static request prefix, so a second cache prefix for that level ([Agents](Agents)) |
 | a model router | its model does not see the recursive routes (one route left: chosen without a model call) |
-| a code router | `route()` returning one fails with `RouterDecisionError` — "not ready on the last level" |
+| a code router | `route()` returning one fails with `StepError.RouterDecision` — "not ready on the last level" |
 | code or data (an action's or a child's `oneOf`, a launch with no branch) | the launch past `maxDepth` does not start: the hard stop below |
 
 So every branch with a recursive option keeps one that is not (`[graph.recursion-without-exit]`); a
 path with no branch at all — an action whose list of subtopics comes back empty — ends by its data.
 
 **The hard stop.** A launch decided by code past `maxDepth` does not start — no execution, no
-`onExecutionStart` — and fails the launching step with `ChildExecutionFailedError` caused by
-`DepthLimitExceededError` (`limit.depth`; `workflow`, `maxDepth`, `depth`: `topic-research-workflow
-went 5 levels deep; its maxDepth is 4`). It is a child's own limit (S25): `.onError(LimitExceededError,
-…)` right after `.toWorkflow(() => Self)`, or `.onError(LimitExceededError, …)` after a per-item
+`onExecutionStart` — and fails the launching step with `StepError.Child` caused by
+`LimitError.Depth` (`limit.depth`; `workflow`, `maxDepth`, `depth`: `topic-research-workflow
+went 5 levels deep; its maxDepth is 4`). It is a child's own limit (S25): `.onError(LimitError,
+…)` right after `.toWorkflow(() => Self)`, or `.onError(LimitError, …)` after a per-item
 launch's join, takes it — leading only to actions and finishes (`[graph.limit-handler-uses-model]`).
 The refused launch is a failed child record with an empty path.
 
@@ -721,10 +721,10 @@ child, and several recursive workflows with different finishes live in one proje
 ```ts no-check: the matchers on a result of the vendor screening above
 expect(result).toHaveChildExecutions(VendorCheckWorkflow, [
   { item: { name: "Acme" }, finish: VendorScoredWorkflowFinish },
-  { item: { name: "Globex" }, failedWith: StepsLimitExceededError },
+  { item: { name: "Globex" }, failedWith: LimitError.Steps },
   { item: { name: "Initech" }, cancelled: true },
 ]);
-expect(result).toHaveHandledError(ChildExecutionFailedError, {
+expect(result).toHaveHandledError(StepError.Child, {
   at: VendorCheckWorkflow,
   by: NotifyOperatorAction,
 });

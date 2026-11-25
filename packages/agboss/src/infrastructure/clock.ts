@@ -1,12 +1,7 @@
+import { ExecutionError } from "../core/error-families/run-errors.js";
 import { randomUUID } from "node:crypto";
 import { Injectable } from "../components/decorators.js";
-import {
-  DuplicateExecutionIdError,
-  ThreadIdsExhaustedError,
-  InvalidMintedIdError,
-  KeyTextRule,
-  keyTextRuleOf,
-} from "../core/errors.js";
+import { KeyTextRule, keyTextRuleOf } from "../core/errors.js";
 import type { ExecutionIdentity, ExecutionLeaseRepository } from "./execution-lease.repository.js";
 import type { Milliseconds } from "../units/index.js";
 import { MAX_TIMER_DELAY } from "../units/timer-limits.js";
@@ -184,7 +179,7 @@ export const hostMonotonicNanoseconds = (): bigint => process.hrtime.bigint();
  * answer credential, a random 128-bit token outside it. An id is never repeated over the life of
  * the application's stores (#591): every execution id minted is kept by the lease store before use
  * (`claimExecutionId`) and one any execution had — of any tenant, running or over — fails
- * the new execution with `DuplicateExecutionIdError` before it is written; a minted thread id the
+ * the new execution with `ExecutionError.DuplicateExecutionId` before it is written; a minted thread id the
  * tenant already has is minted again (#550).
  */
 export abstract class IdGenerator {
@@ -211,7 +206,7 @@ export class RandomIdGenerator extends IdGenerator {
 
 /**
  * The application's `IdGenerator` as the framework mints through it (#578): every id a key's text
- * (`keyTextRuleOf`), else `InvalidMintedIdError` before the id is used — a project's own generator
+ * (`keyTextRuleOf`), else `ExecutionError.InvalidMintedId` before the id is used — a project's own generator
  * minting `x\uD800` and `x\uDFFF` would make two trees one lease on a UTF-8 store.
  */
 export class CheckedIdGenerator extends IdGenerator {
@@ -231,7 +226,11 @@ export class CheckedIdGenerator extends IdGenerator {
     // a JavaScript project's generator may return anything: no text is no key's length
     const rule = typeof id === "string" ? keyTextRuleOf(id) : KeyTextRule.Length;
     if (rule === undefined) return id as string;
-    throw new InvalidMintedIdError({ generator: this.minting.constructor.name, method, rule });
+    throw new ExecutionError.InvalidMintedId({
+      generator: this.minting.constructor.name,
+      method,
+      rule,
+    });
   }
 }
 
@@ -243,11 +242,11 @@ export const randomIdGenerator: IdGenerator = new RandomIdGenerator();
  * application's `IdGenerator` mints it (checked, #578) and the lease store keeps it
  * (`claimExecutionId`) before anything else of the execution is written — its budgets'
  * amounts, its thread, its lease, its marker, its checkpoint. An id another execution ever had is
- * `DuplicateExecutionIdError`: two trees never share a lease, a fencing token, a audit log or a step
+ * `ExecutionError.DuplicateExecutionId`: two trees never share a lease, a fencing token, a audit log or a step
  * key, whatever the generator does. A resume and a recovery keep their id and never come here.
  */
 export interface ExecutionIds {
-  /** A new execution's id for `tenantId`, kept; `DuplicateExecutionIdError` when it was taken. */
+  /** A new execution's id for `tenantId`, kept; `ExecutionError.DuplicateExecutionId` when it was taken. */
   newExecutionId(tenantId: string): Promise<string>;
 }
 
@@ -264,11 +263,11 @@ export interface MintedThreadIds {
   exhausted(tries: number): Error;
 }
 
-/** `idGenerator`'s thread ids for a record store: `ThreadIdsExhaustedError` once every try is taken. */
+/** `idGenerator`'s thread ids for a record store: `ExecutionError.ThreadIdsExhausted` once every try is taken. */
 export const mintedThreadIdsOf = (idGenerator: IdGenerator): MintedThreadIds => ({
   newThreadId: () => idGenerator.newThreadId(),
   exhausted: (tries) =>
-    new ThreadIdsExhaustedError({ generator: idGeneratorNameOf(idGenerator), tries }),
+    new ExecutionError.ThreadIdsExhausted({ generator: idGeneratorNameOf(idGenerator), tries }),
 });
 
 /** The ids of an application instance: minted by `idGenerator`, kept in `leases`. */
@@ -279,7 +278,7 @@ export const executionIdsOf = (
   async newExecutionId(tenantId: string): Promise<string> {
     const executionId = idGenerator.newExecutionId();
     if (await leases.claimExecutionId({ executionId, tenantId })) return executionId;
-    throw new DuplicateExecutionIdError({ generator: idGeneratorNameOf(idGenerator) });
+    throw new ExecutionError.DuplicateExecutionId({ generator: idGeneratorNameOf(idGenerator) });
   },
 });
 
@@ -292,7 +291,7 @@ export const executionIdsOf = (
 export interface ReservedExecutionIds {
   /** Keeps the id now: `true` when this call kept it, `false` when it was kept before. */
   claim(identity: ExecutionIdentity): Promise<boolean>;
-  /** The id, kept now for its execution; `DuplicateExecutionIdError` when it was kept before. */
+  /** The id, kept now for its execution; `ExecutionError.DuplicateExecutionId` when it was kept before. */
   keep(identity: ExecutionIdentity): Promise<string>;
 }
 
@@ -304,7 +303,7 @@ export const reservedExecutionIdsOf = (
   claim: (identity) => leases.claimExecutionId(identity),
   async keep(identity: ExecutionIdentity): Promise<string> {
     if (await leases.claimExecutionId(identity)) return identity.executionId;
-    throw new DuplicateExecutionIdError({ generator: idGeneratorNameOf(idGenerator) });
+    throw new ExecutionError.DuplicateExecutionId({ generator: idGeneratorNameOf(idGenerator) });
   },
 });
 

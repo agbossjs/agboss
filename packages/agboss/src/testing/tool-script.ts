@@ -23,6 +23,8 @@ export interface ToolScript {
    * failure no call took fails the test at its end.
    */
   thenFail(...failures: readonly ToolFailure[]): ToolScript;
+  /** Forgets what is scripted: the next calls run the real tool. */
+  reset(): ToolScript;
 }
 
 /** One scripted call: an output to return, or a failure to throw. */
@@ -61,6 +63,12 @@ class ToolCalls implements ToolScript, ScriptedExpectation {
 
   thenFail(...failures: readonly ToolFailure[]): this {
     this.#calls.push(...failures.map((fails) => ({ fails })));
+    return this;
+  }
+
+  reset(): this {
+    this.#calls.length = 0;
+    this.#position = 0;
     return this;
   }
 

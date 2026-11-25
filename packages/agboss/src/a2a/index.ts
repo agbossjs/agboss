@@ -12,40 +12,11 @@ export type {
 export { A2APeerKind, type A2ARemotePeer } from "./client/a2a-card.js";
 export {
   A2AClientOperation,
-  A2AContractError,
   A2AContractRule,
-  A2AProtocolError,
-  A2ARemoteCallError,
   A2ARemoteCallReason,
-  type A2AContractErrorOptions,
-  type A2AProtocolErrorOptions,
-  type A2ARemoteCallErrorOptions,
 } from "./client/a2a-client-errors.js";
-export {
-  A2ACallDeadlineError,
-  A2ACancelOutcome,
-  A2ATaskCancelledError,
-  A2ATaskEnd,
-  A2ATaskFailedError,
-  A2ATaskInterruptedError,
-  A2ATaskInterruption,
-  type A2ACallDeadlineErrorOptions,
-  type A2ATaskErrorOptions,
-  type A2ATaskFailedErrorOptions,
-  type A2ATaskInterruptedErrorOptions,
-} from "./client/a2a-task-errors.js";
-export {
-  A2AUnexpectedFinishError,
-  type A2AUnexpectedFinishErrorOptions,
-} from "./client/a2a-finish.js";
-export {
-  A2AMesh,
-  A2AMeshUnsupportedError,
-  A2AOriginError,
-  A2AOriginSite,
-  type A2AMeshUnsupportedErrorOptions,
-  type A2AOriginErrorOptions,
-} from "./client/a2a-guard-errors.js";
+export { A2ACancelOutcome, A2ATaskEnd, A2ATaskInterruption } from "./client/a2a-task-errors.js";
+export { A2AMesh, A2AOriginSite } from "./client/a2a-guard-errors.js";
 // the spec's types as AGBoss's own, discriminated by `kind`, with `Date` times (#1320): the official
 // SDK's generated types are not part of this entry
 export {

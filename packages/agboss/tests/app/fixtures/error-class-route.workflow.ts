@@ -93,11 +93,9 @@ function declineCheckOf(where: string, placement: ChildPlacement): Class {
     version: "1.0.0",
     historyTtl: Ttl.Forever,
     placement,
-    flow: [
-      onStart(Start)
-        .toAction(DeclinableChargeAction)
-        .toFinish(Finish),
-    ],
+    flow: [onStart(Start)
+      .toAction(DeclinableChargeAction)
+      .toFinish(Finish)],
   })
   class Check {}
   return Check;

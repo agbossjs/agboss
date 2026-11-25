@@ -44,7 +44,7 @@ function routerOf(router: Class): UnitRouter {
 /**
  * A `@Router` on its own (#262 S89): its input is what its step reads — its fields as plain
  * `{ producer, value }` objects — and its output what it chose, checked as its step checks it (a
- * target outside its routes is `RouterDecisionError`). A code router (`DecidedBy.Code`) is created
+ * target outside its routes is `StepError.RouterDecision`). A code router (`DecidedBy.Code`) is created
  * by its own container (`deps`, `overrides`, the `environment`) and its `route(input)` runs in the
  * frame of its step, at no cost; a model router's texts are loaded and its model answers from
  * `model` — `routeTo(X)` after `.onRoute(…)`, `decideWith(…)` / `routeTo(…)` of none or several

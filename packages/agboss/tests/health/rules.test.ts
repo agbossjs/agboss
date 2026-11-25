@@ -4,13 +4,13 @@
  * (`[name.not-kebab-case]`) and is unique (`[health.duplicate-name]`) — all at once, before any model
  * call; and a `HealthCheckResult` is built only by its builders.
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import type { Class } from "../../src/components/injection.js";
 import {
   EmptyEnvironment,
-  GraphRuleError,
   HealthCheck,
   HealthCheckResult,
   HealthStatus,
@@ -27,8 +27,8 @@ async function violationsOf(application: Class): Promise<string[]> {
     () => undefined,
     (thrown: unknown) => thrown,
   );
-  if (!(error instanceof GraphRuleError))
-    throw new Error(`expected a GraphRuleError: ${String(error)}`);
+  if (!(error instanceof ConfigError.GraphRules))
+    throw new Error(`expected a ConfigError.GraphRules: ${String(error)}`);
   return error.violations.map((found) => `[${found.code}] ${found.message}`);
 }
 

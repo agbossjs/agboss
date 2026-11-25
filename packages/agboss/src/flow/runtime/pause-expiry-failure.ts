@@ -1,17 +1,18 @@
+import { StepError } from "../../core/error-families/step-errors.js";
+import { LimitError } from "../../core/error-families/limit-errors.js";
+import { PauseError } from "../../core/error-families/pause-errors.js";
 import { effectiveBoundOf } from "../../infrastructure/pause-bound.js";
 import type { BudgetCheck } from "../../budgets/budget-check.js";
-import { DeadlineExceededError } from "../../budgets/execution-deadline.js";
 import { totalCost, type UsageRecord } from "../../finops/usage.js";
 import { PauseExpiryBound, type PauseRecord } from "../../infrastructure/pause-record.js";
 import { seconds, type Milliseconds } from "../../units/index.js";
 import { currentFrame } from "../context/frame.js";
-import { ExpiryHandlerError, PauseExpiredError } from "./pause-expired-error.js";
 import { ComponentKind } from "./records.js";
 
 /**
  * How a step that finds its pause expired fails (#941, D6, D8): the pause step throws the internal
  * `PauseExpirySignal`, the site that asked — a question step, an agent's approval or question call —
- * turns it into the step's failure: `PauseExpiredError`, or `DeadlineExceededError` when the run's
+ * turns it into the step's failure: `StepError.PauseExpired`, or `LimitError.Deadline` when the run's
  * deadline bound the pause (D8: the run's deadline has the final word).
  */
 
@@ -38,10 +39,10 @@ export interface ExpirySite {
 }
 
 /** The pause's expiry problem as the error it fell back with, from its record (no handler error is kept). */
-const causeOf = (pause: PauseRecord): ExpiryHandlerError | undefined =>
+const causeOf = (pause: PauseRecord): PauseError.ExpiryHandlerFailed | undefined =>
   pause.expiryProblem === undefined
     ? undefined
-    : new ExpiryHandlerError({
+    : new PauseError.ExpiryHandlerFailed({
         channel: pause.channel ?? pause.target,
         problem: pause.expiryProblem,
       });
@@ -72,10 +73,10 @@ export function expiryFailureOf(pause: PauseRecord, site: ExpirySite): Error {
     try {
       site.budgets.check(site.state, site.path, site.usage);
     } catch (error) {
-      if (error instanceof DeadlineExceededError) return error;
+      if (error instanceof LimitError.Deadline) return error;
       throw error;
     }
-    return new DeadlineExceededError({
+    return new LimitError.Deadline({
       deadline: givenDeadline(pause, expiresAt),
       deadlineAt: expiresAt,
       path: site.path,
@@ -83,12 +84,12 @@ export function expiryFailureOf(pause: PauseRecord, site: ExpirySite): Error {
       usage: site.usage,
     });
   }
-  return new PauseExpiredError({
+  return new StepError.PauseExpired({
     step: site.step,
     stepKind: site.stepKind,
     target: pause.target,
     channel: pause.channel,
-    kind: pause.kind,
+    pauseKind: pause.kind,
     expiresAt,
     usage: site.usage,
     cause: causeOf(pause),

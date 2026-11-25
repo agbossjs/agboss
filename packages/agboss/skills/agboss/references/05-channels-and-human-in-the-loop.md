@@ -355,10 +355,10 @@ await app.resume(
 await app.resume({ pauseId, reply: "reject: duplicate" }, { tenantId: "acme", actor: { id: "manager-17" } });
 ```
 
-| `respondent` of the target | `app.resume` takes                                       | Where the `pauseId` is              |
-| -------------------------- | -------------------------------------------------------- | ----------------------------------- |
-| `PauseRespondent.Owner`    | `ownerId` — the thread's owner (else `ThreadOwnerError`) | `result.pending[i].pauseId`         |
-| `PauseRespondent.Delegate` | `actor` — non-empty, recorded                            | only in the channel's `ask.pauseId` |
+| `respondent` of the target | `app.resume` takes                                                         | Where the `pauseId` is              |
+| -------------------------- | -------------------------------------------------------------------------- | ----------------------------------- |
+| `PauseRespondent.Owner`    | `ownerId` — the thread's owner (else `ExecutionError.ThreadOwnerMismatch`) | `result.pending[i].pauseId`         |
+| `PauseRespondent.Delegate` | `actor` — non-empty, recorded                                              | only in the channel's `ask.pauseId` |
 
 `respondent` is who _may_ answer; `actor` is who _did_ (a `PauseActor`, kept on the pause, its answer
 record and its trail). The wrong credential for the target is `PauseError.PermissionDenied`. The
@@ -479,7 +479,7 @@ import { PurchaseWorkflowStart } from "./purchase.workflow-start.js";
   historyTtl: Ttl.Forever,
   flow: [
     onStart(PurchaseWorkflowStart) // the input, on the path (an agent or an action may build it)
-      .toExternalTask(SpendingLimitExternalTask) // pauses; .onError(QuestionFailedError, …) may follow
+      .toExternalTask(SpendingLimitExternalTask) // pauses; .onError(StepError.ExternalTask, …) may follow
       .toFinish(PurchaseWorkflowFinish), // the typed output: later steps read it like any value
   ],
 })
@@ -496,15 +496,15 @@ answer tool, `answer-<output dto>`, and the not-understood tool; a code interpre
 `[reply-interpreter.decision-model]`). `result.pending[i].kind` is `PauseKind.ExternalTask`,
 `step` the task's step, `input` the masked question (opaque: read it after narrowing on `kind`, as
 `const fields: Readonly<Record<string, unknown>> = pending.input`). Exactly one answer wins
-(`PauseClosedError` for the second), another instance continues it, a cancel withdraws it — as any
+(`PauseError.Closed` for the second), another instance continues it, a cancel withdraws it — as any
 pause. The step is no model call and no step of `maxSteps`; the execution's budgets are checked
 before it asks. A tool that names an external task as its `approval` is `[channel.wrong-tool]`.
 
-A task may also start an `.onError` side path (#933): `.onError(StepFailedError,
+A task may also start an `.onError` side path (#933): `.onError(StepError,
 toExternalTask(DirectorExternalTask)…)` — the failure is handled by asking, the task reads its
 input from the path as it stood before the failed step (field rules as for `.toExternalTask`), and
 its output goes on the path. One task is one node: its `maxVisits` counts the main path and the side
-path together. A side path that can catch a limit (`LimitExceededError`, `BudgetExceededError`, a
+path together. A side path that can catch a limit (`LimitError`, `LimitError.Budget`, a
 parent such as `AGBossError`) still leads only to actions and finishes — a task there is
 `[graph.limit-handler-uses-model]` (a reply interpreter may call a model).
 
@@ -529,9 +529,9 @@ the call runs no tool). `result.pending[i]` is `kind: PauseKind.ExternalTask`, `
 agent, `target` the task; every guarantee of an external-task step holds (one answer wins, another
 instance resumes it without asking again, a cancel withdraws it, tenant and owner checks). The task's
 `maxVisits` bounds how many times one visit of the agent asks it (the next call fails the step with
-`VisitsLimitExceededError` before it is asked); the budgets and the holder's fence are checked
+`LimitError.Visits` before it is asked); the budgets and the holder's fence are checked
 before every ask. A `send` that throws, or an invalid `decided(…)`, fails the agent's step
-(`AgentFailedError`, the cause kept). A `@ToolApproval` in `tools` is
+(`StepError.Agent`, the cause kept). A `@ToolApproval` in `tools` is
 `[channel.approval-role-as-tool]`. Tests script the call as `callTool(SpendingLimitExternalTask, { item,
 priceUsd })` (typed by the task's input); `agboss describe` prints `asked at <agent>'s tool loop
 (<workflow>)`.
@@ -549,15 +549,15 @@ priceUsd })` (typed by the task's input); `agboss describe` prints `asked at <ag
   and answering one continues it while the rest keep waiting.
 - **`PauseStatus`**: `Pending` → `Resolved` (an answer recorded, atomically) → `Taken` (its step went
   on), or `Cancelled` (withdrawn, cancelled, its tree ended — an answer no step took is closed _not taken_).
-  An answer to anything but `Pending` → `PauseClosedError` with its `reason` and `closedAt` (a double
+  An answer to anything but `Pending` → `PauseError.Closed` with its `reason` and `closedAt` (a double
   click: `answered`; over A2A `-32004` with `code: a2a.pause-closed`); `NotPausedError` stays for the thread-level paths
-  only (a thread with no paused run); an unknown id or another tenant's → `UnknownPauseError`. Resolved records are kept
+  only (a thread with no paused run); an unknown id or another tenant's → `PauseError.UnknownPause`. Resolved records are kept
   `@Application({ retention: { pauseRecords: hours(24) } })`, then removed by the recovery sweep.
 - **`PauseAnswerRecord`** (`result.record.pauses`, with `{ includeRecord: true }`) — the permanent history:
   `pauseId`, `executionId`, `step`, `target`, `channel?`, `respondent`, `actor`, `resolution`
   (`PauseResolution.Decided` | `Replied` | `Withdrawn` | `Cancelled`), `askedAt`, `resolvedAt`, the
   masked `decision`, `trail`. A child's own are in its `ChildExecutionRecord.pauses`. A pause record a
-  0.1.0 build wrote has no `target` and is refused (`StoredNamesUnreadableError`), never read.
+  0.1.0 build wrote has no `target` and is refused (`StoreError.UnreadableRecord`), never read.
 - **`onPauseClosed(event)`** (`ChannelPauseClosedEvent`: `pauseId`, `input`, `reason`
   (`PauseClosedReason.Answered` | `Expired` | `Cancelled` | `Withdrawn` | `TreeEnded` | `Reassigned`), `closedAt`,
   `actor?`, the masked `answer?`, `deliveryId`) is called **at least once** whenever a pause the
@@ -594,14 +594,14 @@ priceUsd })` (typed by the task's input); `agboss describe` prints `asked at <ag
   correction is allowed — "never above the call's amount", "only in the call's currency", "never
   below 0". Put such a limit where it holds whoever approved the call: a tool interceptor's
   `beforeAnyTool` / `@BeforeTool` on the call as it runs (after the approval, with any correction —
-  `ToolCallDecision.block(reason)` fails the step with `ToolBlockedError`), or a check in the
+  `ToolCallDecision.block(reason)` fails the step with `StepError.ToolBlocked`), or a check in the
   tool's or action's own code (`min` / `max` on the input DTO's field for a plain bound). The
   payment guarantees — `Idempotency.runOnce` and `sendOnce`, one charge per business key — hold whatever
   the interpreter reads.
-- **Free text** that cannot be read throws `UninterpretableReplyError` (`pause.uninterpretable-reply`,
+- **Free text** that cannot be read throws `PauseError.UninterpretableReply` (`pause.uninterpretable-reply`,
   `reason`) and the pause stays `Pending`; a target without `channelInterpreter` →
-  `ReplyInterpreterMissingError`. Exactly one of `decision` / a non-empty `reply`, else
-  `DtoValidationError`.
+  `PauseError.ChannelInterpreterMissing`. Exactly one of `decision` / a non-empty `reply`, else
+  `ValidationError.DtoInvalid`.
 - **A deadline for the answer** (#941): the target's `timeout` — `hours(24)`, at least
   `seconds(1)` — gives every pause of the target an absolute deadline, fixed when the pause is made (a
   deploy that changes `timeout` never moves an open pause; a profile's `toolApprovals` / `externalTasks`
@@ -609,12 +609,12 @@ priceUsd })` (typed by the task's input); `agboss describe` prints `asked at <ag
   (`[limits.timeout-invalid]` for a bad value). A different deadline for one step is a different
   target — there is no per-step override. A run's deadline bounds every pause too, the smaller wins and
   a tie goes to the run. `result.pending[].expiresAt` shows it.
-  The deadline is **hard**: an answer at or after it is `PauseClosedError` (`reason: expired`,
+  The deadline is **hard**: an answer at or after it is `PauseError.Closed` (`reason: expired`,
   `closedAt` the deadline), decided atomically in the store — an answer and the expiry racing: one
   wins. Within seconds the tree is taken and the target's optional
   `onExpired(ctx)` (`implements PauseExpiryHandler<Target>`, `ctx` = `ExpiredContext`: `input`, `expiresAt`,
-  `trail`, …) says what the expiry means: `PauseExpiration.fail()` — the step fails with `PauseExpiredError`
-  (`step.pause-expired`, `step`, `stepKind`, `target`, `kind`, `expiresAt`; `.onError(PauseExpiredError, …)`
+  `trail`, …) says what the expiry means: `PauseExpiration.fail()` — the step fails with `StepError.PauseExpired`
+  (`step.pause-expired`, `step`, `stepKind`, `target`, `kind`, `expiresAt`; `.onError(StepError.PauseExpired, …)`
   escalates; an agent's approval or task call fails the whole agent step, its spend kept) — or
   `PauseExpiration.decide(answer)` — the step goes on with that answer, validated like a resume's,
   recorded as answered by the framework (`PauseResolution.DecidedOnExpiry`, `ResumeReason.Expired`;
@@ -625,8 +625,8 @@ priceUsd })` (typed by the task's input); `agboss describe` prints `asked at <ag
   Without the method the expiry is `fail()`. The handler runs once per expiry — again only after a
   crash before its decision was recorded — so it must only read; a throw, a hang past the tool's
   `timeout`, a value that is no expiration or an invalid answer fails the expiry with an
-  `ExpiryHandlerError` as the cause (`pause.expiry-handler-failed` warned, never the error's message).
-  A pause the run's deadline bound fails the run with `DeadlineExceededError` and asks the channel
+  `PauseError.ExpiryHandlerFailed` as the cause (`pause.expiry-handler-failed` warned, never the error's message).
+  A pause the run's deadline bound fails the run with `LimitError.Deadline` and asks the channel
   nothing. `app.cancel` always beats an expiry (the pause is closed `expired`, the run cancelled).
   Over A2A the task goes `WORKING`, then `FAILED` (`step.pause-expired`) or `COMPLETED`; a follow-up
   before the look is `-32004 a2a.pause-closed` `reason: expired`.
@@ -647,11 +647,11 @@ expiresIn: hours(24) }, { actor })` (the `ownerId` for an owner's pause — who 
   channel's optional `onPauseTimeoutChanged(event)` (`ChannelPauseTimeoutChangedEvent`, + `previousExpiresAt`) and a
   listener's `onPauseTimeoutChanged` (`ChannelListenerTimeoutChangedEvent`) hear "moved to …", the reminder is
   made again before the new deadline. Refused: a closed pause or one past its deadline —
-  `PauseClosedError` (`reason: expired`) —, a pause with no deadline (none is ever added), a deadline
+  `PauseError.Closed` (`reason: expired`) —, a pause with no deadline (none is ever added), a deadline
   not later than the current one, and one past the deadline of the run (or quorum) the pause was made
-  under (exactly that deadline is allowed) — `DtoValidationError` (`dto: "ExtendPauseRequest"`);
-  another tenant's pause is `UnknownPauseError`; `escalationLimits` on the target bounds the number of
-  extensions, reassignments and the total time (`PauseExtensionContendedError` when two race for one pause).
+  under (exactly that deadline is allowed) — `ValidationError.DtoInvalid` (`dto: "ExtendPauseRequest"`);
+  another tenant's pause is `PauseError.UnknownPause`; `escalationLimits` on the target bounds the number of
+  extensions, reassignments and the total time (`PauseError.UpdateContended` when two race for one pause).
   An extension and the expiry look at one tick: the store lets one win.
 - **Reassign a pause** (#946): `await app.reassignPause({ pauseId, assignees: ["deputy-3"] }, { actor })`
   (`ownerId` for an owner's pause; `PauseCallerOptions`, as `extendPause`; `ReassignPauseRequest` also takes a `target`
@@ -662,8 +662,8 @@ expiresIn: hours(24) }, { actor })` (the `ownerId` for an owner's pause — who 
   gets a new `ChannelAsk.pauseId`, `ChannelAsk.assignees` and `ChannelAsk.replaces` (`{ pauseId }`: the old
   message; both absent on a first send) and its `onPauseClosed` hears `reason: reassigned` for the old one
   (`PauseClosedReason.Reassigned`) — in no fixed order: edit the old message from `send`, or from the notice;
-  `onPauseReassigned(event)` hears the move itself. The old id gives `PauseClosedError` (`reassigned`); a closed
-  pause or one past its deadline gives `PauseClosedError`, an `assignee` that is no key's text `DtoValidationError`
+  `onPauseReassigned(event)` hears the move itself. The old id gives `PauseError.Closed` (`reassigned`); a closed
+  pause or one past its deadline gives `PauseError.Closed`, an `assignee` that is no key's text `ValidationError.DtoInvalid`
   (`dto: "ReassignPauseRequest"`); two reassignments, or a reassignment and an answer, at once: exactly one wins.
   A new `send` that fails or never happens (the instance died) is made up by another instance's pause timers within a minute
   (at-least-once: deduplicate by the new `pauseId`). A new `send` that returns `ChannelOutcome.decided(…)` answers the replacement at once, once.
@@ -684,18 +684,18 @@ assignees })` (returns a `WorkingWeek.of(…)` or `WorkingWeek.anyOf([…])`, th
   (before the channel is asked), into `expiresAt` / `remindAt`; a calendar changed later never moves an open
   pause — change its deadline. Reminder: both working → `calendar.add(askedAt, timeout − remindBefore)`; a working
   `remindBefore` needs a working `timeout` (`[pause.remind-before-working-without-working-timeout]`; `extendPause`
-  refuses a plain `expiresIn` there with `DtoValidationError`). A working duration with no `calendar` on the target is
+  refuses a plain `expiresIn` there with `ValidationError.DtoInvalid`). A working duration with no `calendar` on the target is
   `[calendar.required-for-working-duration]`. A calendar that throws, times out,
-  answers no `Date` or a date not after `from` fails the step — `QuestionFailedError` / `AgentFailedError` with
-  a `WorkingCalendarError` (`pause.working-calendar`) as its `cause` — and nobody is asked; an extension with
+  answers no `Date` or a date not after `from` fails the step — `StepError.ExternalTask` / `StepError.Agent` with
+  a `PauseError.WorkingCalendar` (`pause.working-calendar`) as its `cause` — and nobody is asked; an extension with
   it rejects with it. The run's deadline stays wall-clock (the smaller wins, a tie to the run).
 - **Expiry in parallel launches (#945):** a branch whose pause expired ends `BranchStatus.Expired`
   (its error `step.pause-expired` stays in `result.launches`). A pause asked in a quorum branch is
   bound by the quorum's deadline (`PauseExpiryBound.Quorum`): at it the tree wakes by itself and the
   quorum decides — an expired branch did not vote, never fails the launch, whatever its
-  its `skip()`; `QuorumNotReachedError.expired` lists the node ids that expired. In a plain
+  its `skip()`; `StepError.QuorumNotReached.expired` lists the node ids that expired. In a plain
   `.join()` an expired branch follows its `.onError(E, skip())`: a skipped one is dropped, else it fails the
-  launch with its `PauseExpiredError` for `.onError(…)`, and the branches still waiting are
+  launch with its `StepError.PauseExpired` for `.onError(…)`, and the branches still waiting are
   withdrawn. The side path of `.onError(…)` reads the answers already settled as `optional(XDto)`
   inputs of its first step (a per-item list stays a list); each branch that had answered hears
   `onPauseJoinFailed(event)` (`ChannelPauseJoinFailedEvent`: `launch`, `errorCode`, `at`) on its channel
@@ -721,16 +721,16 @@ import { RefundTool } from "./src/refunds/tools/refund.tool.js";
 ```ts
 const test = testWith(RefundsApplication);
 
-test("a large refund waits for the manager, then runs", async ({ app, mockLlm, mockOf }) => {
-  mockOf(SlackRefundChannel).send.mockResolvedValue(ChannelOutcome.awaitReply());
-  mockLlm(RefundAgent).thenReturn(
+test("a large refund waits for the manager, then runs", async ({ app, mockModel, mockService }) => {
+  mockService(SlackRefundChannel).send.mockResolvedValue(ChannelOutcome.awaitReply());
+  mockModel(RefundAgent).thenReturn(
     callTool(RefundTool, { orderId: "7", amountCents: 90_000 }),
     replyWith("Refunded order 7."),
   );
 
   const paused = await app.execute(RefundWorkflowStart, { text: "refund order 7" });
   expect(paused.pending).toHaveLength(1);
-  const [ask] = mockOf(SlackRefundChannel).send.mock.calls[0] ?? [];
+  const [ask] = mockService(SlackRefundChannel).send.mock.calls[0] ?? [];
 
   const done = await app.resume(
     { pauseId: ask?.pauseId ?? "", decision: { approved: true } },
@@ -740,12 +740,12 @@ test("a large refund waits for the manager, then runs", async ({ app, mockLlm, m
 });
 ```
 
-- `mockOf(Channel).send.mockResolvedValue(ChannelOutcome.decided({ approved: true }))` decides
+- `mockService(Channel).send.mockResolvedValue(ChannelOutcome.decided({ approved: true }))` decides
   at once; `testWith(App, { channels: [AutoApproveChannel.for(RefundToolApproval)] })`
   replaces the target's channel for the whole test (`AutoRejectChannel.for(…)` refuses).
 - The fixtures `answerPause(Target, decision)` and `replyToPause(Target, "text")` answer a pause of
   a target in an eval or a test script; `listPauses({ target })` reads what waits.
-- A model reply interpreter is scripted by its input: `mockLlm(Interpreter).when({ reply: "ok" })
+- A model reply interpreter is scripted by its input: `mockModel(Interpreter).when({ reply: "ok" })
 .thenReturn(replyWith(ToolCallApprovalDecisionDto, { approved: true }))`; one on a decision model
   with `decideWith({ approved: 0.9 })`.
 
@@ -764,8 +764,8 @@ test("a large refund waits for the manager, then runs", async ({ app, mockLlm, m
 | `[channel.shared-interpreter]`                                                                               | one `@ChannelInterpreter` on two targets → one each                                                                                                                       |
 | `[reply-interpreter.decision-model]`                                                                         | an external task's interpreter on a decision model → a chat model, or a code interpreter                                                                                  |
 | `[channel-listener.missing-handler]`, `[channel-listener.unknown-hook]`, `[channel-listener.duplicate-name]` | a `@ChannelListener` with no hook, a hook it does not know, or one name twice → fix it                                                                                    |
-| `QuestionFailedError`                                                                                        | a task's `send` threw or `decided(…)` was not the output DTO (`step.question`, `question`) → `.onError`                                                                   |
-| `PauseExpiredError`                                                                                          | a pause's deadline passed with no answer (`step.pause-expired`) → `.onError(PauseExpiredError, …)`, or `onExpired` → `PauseExpiration.decide(…)` / `.reassign(…)`         |
+| `StepError.ExternalTask`                                                                                     | a task's `send` threw or `decided(…)` was not the output DTO (`step.external-task`, `question`) → `.onError`                                                              |
+| `StepError.PauseExpired`                                                                                     | a pause's deadline passed with no answer (`step.pause-expired`) → `.onError(StepError.PauseExpired, …)`, or `onExpired` → `PauseExpiration.decide(…)` / `.reassign(…)`    |
 | `[limits.timeout-invalid]`                                                                                   | a target's `timeout` under `seconds(1)`, over 5 years or no finite duration → `hours(4)`                                                                                  |
 | `[pause.remind-before-invalid]`                                                                              | `remindBefore` is not a positive duration shorter than the `timeout` → `hours(2)` under `hours(24)`                                                                       |
 | `[pause.remind-before-below-tick]`                                                                           | `remindBefore` is shorter than the pause timers' 5 s tick (a warning): the reminder can be skipped → at least 5 s                                                         |
@@ -774,12 +774,12 @@ test("a large refund waits for the manager, then runs", async ({ app, mockLlm, m
 | `[pause.permit-hook-not-enforced]`                                                                           | a `permit…` hook on a target that cannot enforce it → drop it                                                                                                             |
 | `[working-calendar.invalid]`                                                                                 | a grid with an unknown zone, no days, a bad interval, a break outside the hours, no working minute; a class that is no listed `@WorkingCalendar` → fix it                 |
 | `[working-calendar.duplicate-name]`                                                                          | two listed `@WorkingCalendar` classes with one `name` → give each its own                                                                                                 |
-| `WorkingCalendarError`                                                                                       | a pause's calendar failed (`pause.working-calendar`, `calendar-failed` \| `calendar-timeout` \| `not-a-date` \| `not-after-start`) → the step's `cause`; nobody was asked |
+| `PauseError.WorkingCalendar`                                                                                 | a pause's calendar failed (`pause.working-calendar`, `calendar-failed` \| `calendar-timeout` \| `not-a-date` \| `not-after-start`) → the step's `cause`; nobody was asked |
 | `[di.ambiguous-implementation]`                                                                              | two implementations of one service → keep one (one per application)                                                                                                       |
 | `[di.infrastructure-in-workflow]`                                                                            | a channel or a provider in `@Workflow({ providers })` → `@Application({ channels })` / `({ providers })`                                                                  |
 | `[application.in-memory-pauses]`                                                                             | pauses possible on the in-memory stores (a warning; an error under `--strict`) → a durable `@DatabaseStorage`                                                             |
 | `PauseError.PermissionDenied`                                                                                | `ownerId` for a Delegate target or `actor` for an Owner target → the other credential                                                                                     |
-| `IncompatibleResumeError`                                                                                    | resumed on an app with another config hash → `WorkflowSettings.builder().onIncompatibleResume(…)`                                                                         |
+| `ExecutionError.IncompatibleResume`                                                                          | resumed on an app with another config hash → `WorkflowSettings.builder().onIncompatibleResume(…)`                                                                         |
 
 ## Pitfalls
 

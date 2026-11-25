@@ -4,10 +4,11 @@
  * every waiting pause; a pause is resumed by its id anywhere in the tree, and an execution with
  * other pauses left pauses again with the rest.
  */
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { PauseKind } from "../../src/pause/index.js";
 import { beforeEach, describe, expect } from "vitest";
 import { ExecutionStatus } from "../../src/app/types.js";
-import { PauseRespondent, UnknownPauseError } from "../../src/index.js";
+import { PauseRespondent } from "../../src/index.js";
 import { testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
 import {
@@ -28,9 +29,9 @@ beforeEach(resetPauses);
 describe("#267 AC1: a paused branch does not stop its siblings", () => {
   test("the siblings finish in the same pass; pending lists every pause with its item", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(BatchRefundAgent).thenAnswer(refunder(["B", "C"]));
+    mockModel(BatchRefundAgent).respondWith(refunder(["B", "C"]));
 
     const paused = await execute(app, BatchWorkflowStart, ORDERS);
 
@@ -51,7 +52,7 @@ describe("#267 AC1: a paused branch does not stop its siblings", () => {
         trail: [expect.objectContaining({ action: "opened" })],
       })),
     );
-    expect(mockLlm(BatchRefundAgent).requests.map(orderOf).sort()).toEqual(["A", "B", "C"]);
+    expect(mockModel(BatchRefundAgent).requests.map(orderOf).sort()).toEqual(["A", "B", "C"]);
     expect(seen.asks.map((ask) => ask.orderId).sort()).toEqual(["B", "C"]);
     expect(seen.pauses).toHaveLength(1);
     expect(seen.pauses[0]?.pending).toHaveLength(2);
@@ -61,9 +62,9 @@ describe("#267 AC1: a paused branch does not stop its siblings", () => {
 describe("#267 AC2: a pause is resumed by its id; the rest keep waiting", () => {
   test("one answer resumes its branch only: the execution pauses again with the other", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(BatchRefundAgent).thenAnswer(refunder(["B", "C"]));
+    mockModel(BatchRefundAgent).respondWith(refunder(["B", "C"]));
     const paused = await execute(app, BatchWorkflowStart, ORDERS);
 
     const again = await app.resume(answerFor("B"), manager);
@@ -81,9 +82,9 @@ describe("#267 AC2: a pause is resumed by its id; the rest keep waiting", () => 
 
   test("the last answer finishes it: each tool ran once, each channel was asked once", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(BatchRefundAgent).thenAnswer(refunder(["B", "C"]));
+    mockModel(BatchRefundAgent).respondWith(refunder(["B", "C"]));
     await execute(app, BatchWorkflowStart, ORDERS);
     await app.resume(answerFor("B"), manager);
 
@@ -96,11 +97,11 @@ describe("#267 AC2: a pause is resumed by its id; the rest keep waiting", () => 
     expect(seen.resumes.map((event) => event.actor?.id)).toEqual(["manager-17", "manager-17"]);
   });
 
-  test("an unknown pause and another tenant's are the same UnknownPauseError", async ({
+  test("an unknown pause and another tenant's are the same PauseError.UnknownPause", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(BatchRefundAgent).thenAnswer(refunder(["B"]));
+    mockModel(BatchRefundAgent).respondWith(refunder(["B"]));
     await execute(app, BatchWorkflowStart, ORDERS, { tenant: { tenantId: "acme" } });
 
     const otherTenant = app.resume(answerFor("B"), { ...manager, tenantId: "globex" });
@@ -112,9 +113,9 @@ describe("#267 AC2: a pause is resumed by its id; the rest keep waiting", () => 
       },
     );
 
-    await expect(otherTenant).rejects.toBeInstanceOf(UnknownPauseError);
+    await expect(otherTenant).rejects.toBeInstanceOf(PauseError.UnknownPause);
     await expect(otherTenant).rejects.not.toThrow(/acme/);
-    await expect(unknown).rejects.toBeInstanceOf(UnknownPauseError);
+    await expect(unknown).rejects.toBeInstanceOf(PauseError.UnknownPause);
     expect(seen.refunds).toEqual([]);
   });
 });

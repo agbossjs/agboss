@@ -3,12 +3,12 @@
  * time, is refused; another instance continues it; a cancel withdraws it; another tenant or owner
  * cannot answer it; a cycle asks it at most `maxVisits` times.
  */
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { describe, expect } from "vitest";
 import { ExecutionStatus } from "../../src/app/types.js";
-import { UnknownPauseError } from "../../src/run/resume-agent.js";
-import { PauseClosedError, PauseStatus, PausedExecutionRepository } from "../../src/index.js";
-import { ThreadOwnerError } from "../../src/core/errors.js";
-import { VisitsLimitExceededError } from "../../src/flow/runtime/errors.js";
+import { PauseStatus, PausedExecutionRepository } from "../../src/index.js";
 import { testWith } from "../../src/testing/index.js";
 import type { TestApp } from "../../src/testing/test-app.js";
 import {
@@ -38,7 +38,7 @@ const statusOf = async (app: TestApp, pauseId: string): Promise<PauseStatus | un
     ?.status;
 
 describe("#659 AC5: exactly one answer wins", () => {
-  test("AC5: a second answer after the first is PauseClosedError; the first one's answer stays", async ({
+  test("AC5: a second answer after the first is PauseError.Closed; the first one's answer stays", async ({
     app,
   }) => {
     const paused = await execute(app, PurchaseWorkflowStart, { text: "laptop for 900" }, asking);
@@ -46,7 +46,7 @@ describe("#659 AC5: exactly one answer wins", () => {
 
     await expect(
       app.resume(answerOf(paused, { approved: false, limitUsd: 0 }), owner),
-    ).rejects.toBeInstanceOf(PauseClosedError);
+    ).rejects.toBeInstanceOf(PauseError.Closed);
     expect(done).toFinishWith(PurchaseWorkflowFinish, {
       status: "placed laptop at 900 within 1000",
     });
@@ -68,7 +68,7 @@ describe("#659 AC5: exactly one answer wins", () => {
     const won = settled.filter((each) => each.status === "fulfilled");
     const lost = settled.filter((each) => each.status === "rejected");
     expect(won).toHaveLength(1);
-    expect(lost.map((each): unknown => each.reason)).toEqual([expect.any(PauseClosedError)]);
+    expect(lost.map((each): unknown => each.reason)).toEqual([expect.any(PauseError.Closed)]);
     const placed = [
       ...app.resolve(QuestionInbox).placed,
       ...second(apps).resolve(QuestionInbox).placed,
@@ -109,7 +109,9 @@ describe("#659 AC5: cancel, tenants and owners", () => {
     await app.cancel("purchase-1", owner);
 
     expect(await statusOf(app, pauseId)).toBe(PauseStatus.Cancelled);
-    await expect(app.resume(answerOf(paused, yes), owner)).rejects.toBeInstanceOf(PauseClosedError);
+    await expect(app.resume(answerOf(paused, yes), owner)).rejects.toBeInstanceOf(
+      PauseError.Closed,
+    );
     expect(app.resolve(QuestionInbox).placed).toEqual([]);
   });
 
@@ -121,9 +123,9 @@ describe("#659 AC5: cancel, tenants and owners", () => {
 
     await expect(
       app.resume(answerOf(paused, yes), { tenantId: "acme", ownerId: "alice" }),
-    ).rejects.toBeInstanceOf(UnknownPauseError);
+    ).rejects.toBeInstanceOf(PauseError.UnknownPause);
     await expect(app.resume(answerOf(paused, yes), { ownerId: "mallory" })).rejects.toBeInstanceOf(
-      ThreadOwnerError,
+      ExecutionError.ThreadOwnerMismatch,
     );
     await expect(app.resume(answerOf(paused, yes), { actor: { id: "alice" } })).rejects.toThrow(
       /pass ownerId, not actor/,
@@ -150,7 +152,7 @@ describe("#659 AC5: maxVisits on a cycle", () => {
 
     await expect(
       app.resume({ pauseId: pauseIdOf(1), decision: { approved: true, limitUsd: 600 } }, by),
-    ).rejects.toBeInstanceOf(VisitsLimitExceededError);
+    ).rejects.toBeInstanceOf(LimitError.Visits);
     expect(inbox.ownerAsked).toHaveLength(2);
   });
 

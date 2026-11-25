@@ -582,7 +582,7 @@ export class DeskApplication {}
 ## Your own errors
 
 A domain error is an `AGBossError` subclass in `errors/<name>.error.ts`, its name ending with `Error`
-and a stable `code` of its own — never a `StepFailedError` (the framework's wrapper of a step's
+and a stable `code` of its own — never a `StepError` (the framework's wrapper of a step's
 failure, with the original as its `cause`): `.onError(OrderNotFoundError, …)` after the step that
 throws it takes it through that cause.
 
@@ -607,7 +607,7 @@ Injected like any dependency, read only while a step runs (outside → `Executio
 | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ExecutionContext`                     | `executionId`, `threadId`, `ownerId`, `tenant` (`tenantId`, `weight`, `.application`), `signal` (the execution's, and in a tool call the call's timeout too), `workflow` (`name`, `version`, `configHash`), `step` (`nodeId`, `visitNumber`, `itemIndex`, `copyNumber`, `callId`, `idempotencyKey`), the tree (`parent`, `root`, `depth`, `executionOf(W)`) |
 | `SpendRecorder`                        | `record({ service, cost: usd(…) })` — a non-model cost of a tool or action, counted in the budgets (`[spend.outside-step]` outside a step)                                                                                                                                                                                                                  |
-| `JudgeModel`                           | a judge's own model: `invoke(text)` on a chat model, `decide({ state, questions })` on a decision model (else `ModelKindError`)                                                                                                                                                                                                                             |
+| `JudgeModel`                           | a judge's own model: `invoke(text)` on a chat model, `decide({ state, questions })` on a decision model (else `ConfigError.ModelKind`)                                                                                                                                                                                                                      |
 | `ApplicationContext` / `TenantContext` | the levels above: `environment`, `environmentName`, `instanceId`, `startedAt`; the tenant's `tenantId`, `weight` and the project's fields                                                                                                                                                                                                                   |
 | `DecisionModel`                        | closed questions to a decision model from a tool or an action: `decide({ state, questions }, { model?, modelProvider? })` — its cost is the step's (budgets, ledger, `decision:<consumer>` in the spend); the provider is the cascade's, so a decisions `modelProvider` is named on the workflow or in the options                                          |
 
@@ -687,7 +687,7 @@ export class TriageTicketAction {
   (`threshold` in `(0, 1]`: the model scores, the answer passes at `score >= threshold`; else pass or fail). No `judge()`, no `deps`; the
   budgets are checked before each of its model calls; in tests an unscripted one passes. `[judge.zero-retries]` warns for an agent with judges and no `maxRetries`.
 - Verdicts only through `JudgeVerdict.passed({ metrics? })` / `JudgeVerdict.failed(reason)`; when
-  `maxRetries` are spent the step fails with `QualityGateError` (`rejections: [{ judge, reason }]`).
+  `maxRetries` are spent the step fails with `StepError.QualityGate` (`rejections: [{ judge, reason }]`).
 
 <!-- snippet-context
 import { Judge, JudgeModel, JudgeVerdict, oneOf, type JudgeHandler, type JudgeInput } from "@agboss/core";
@@ -808,8 +808,8 @@ export class AuditToolInterceptor {
   input DTO again) for the next hooks and the tool; `ToolCallDecision.reply(message)` — the tool is
   not called, the model reads `message` as the call's result and may try again (the step goes on);
   `ToolCallDecision.block(reason)` — the tool is not called and the agent's step fails with
-  `ToolBlockedError` (`step.tool-blocked`, a `StepFailedError`: `agent`, `tool`, `interceptor`,
-  `reason`; `.onError(ToolBlockedError, …)` after the agent takes it).
+  `StepError.ToolBlocked` (`step.tool-blocked`, a `StepError`: `agent`, `tool`, `interceptor`,
+  `reason`; `.onError(StepError.ToolBlocked, …)` after the agent takes it).
 - **The after hooks replace the result**, inner interceptor first, the tool's `@AfterTool` method (output, input) before `afterAnyTool`, on a successful call only (a tool error goes
   to the model as it is); each output is validated against the tool's output DTO.
 - **The order**: the arguments checked against the tool's input → PII block rules on the arguments → the before hooks (`beforeAnyTool` gets the arguments with PII tokens
@@ -818,7 +818,7 @@ export class AuditToolInterceptor {
 - **In the call's frame**: an injected `ExecutionContext` reads the tool call
   (`step.callId`, `step.idempotencyKey` with the call id, the call's `signal`).
 - An interceptor that throws, returns no `ToolCallDecision` or an output its tool does not give
-  fails the step — `AgentFailedError`, its error as the `cause` (`.onError(DomainError, …)` takes it
+  fails the step — `StepError.Agent`, its error as the `cause` (`.onError(DomainError, …)` takes it
   through the cause).
 - Only the project's own `@Tool` calls are intercepted — never an answer tool, a
   knowledge base's search tool or a tool called on its own (over MCP).
@@ -867,7 +867,7 @@ const first = await app.execute(
   {
     tenant: { tenantId: "acme" },
     threadId: "ticket-4821", // the caller's own id: the next turn of the same conversation
-    ownerId: "customer-17", // another owner on this thread → ThreadOwnerError
+    ownerId: "customer-17", // another owner on this thread → ExecutionError.ThreadOwnerMismatch
     signal: controller.signal,
     onStream: (event) => {
       if (event.kind === StreamEventKind.ToolCall) return; // the name only: a "working…" hint
@@ -1085,7 +1085,7 @@ export class SeatWorkflow {}
   `@Application({ executionLimits: { compensationTimeout } })` (default `seconds(15)`), when the lease is lost or the
   instance stops; no budget refuses it; what its services cost (`SpendRecorder`) is spend under
   `action:<undo name>`. An undo that fails does not stop the others; then the execution fails with
-  `CompensationFailedError` (`compensation.failed`: `failures`, `cause`).
+  `ExecutionError.CompensationFailed` (`execution.compensation-failed`: `failures`, `cause`).
 - **Observers** see the automatic ones through `onCompensationStart` / `onCompensationEnd`
   (`CompensationStartEvent`: `step`, `compensated`, `reason`; `CompensationEndEvent` adds `status`,
   `error`), around the undo action's own `onActionStart` / `onActionEnd`; `onExecutionError`'s

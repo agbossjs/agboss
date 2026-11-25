@@ -117,7 +117,6 @@ export class RefundCardTool {
   model: "test/refund-clerk",
   input: { message: WorkflowStartTextDto },
   output: RefundCardOutputDto,
-  price: { inputPerMTok: 1, outputPerMTok: 10 },
   tools: [RefundCardTool],
 })
 export class RefundClerkAgent {}
@@ -140,11 +139,9 @@ export class RefundWorkflowFinish {}
   name: "card-refunds-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(RefundWorkflowStart)
-      .toAgent(RefundClerkAgent)
-      .toFinish(RefundWorkflowFinish),
-  ],
+  flow: [onStart(RefundWorkflowStart)
+    .toAgent(RefundClerkAgent)
+    .toFinish(RefundWorkflowFinish)],
   defaults: { router: { model: "typesafe/jev-test" } },
   memory: Window2Memory,
   providers: [RefundDesk],

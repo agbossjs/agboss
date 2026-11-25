@@ -33,7 +33,7 @@ export { ModelFailure };
  * An agent's model answers: with text — `replyWith("3 jobs found", { cost: usd(0.002) })` — or, for
  * an agent with `output`, through the answer tool of a class (#272 S6) — `replyWith(OfferDraftDto,
  * { text: "…" })`, a list output with an array of values. The class and the fields are checked
- * against the agent's generated output by `mockLlm(Agent).thenReturn(…)` (a class outside its
+ * against the agent's generated output by `mockModel(Agent).thenReturn(…)` (a class outside its
  * `oneOf` does not compile); `{ cost }` is added to the execution's spend.
  */
 export function replyWith(text: string, details?: AnswerDetails): ReplyTurn;
@@ -124,7 +124,7 @@ export function callTools<const TCalls extends readonly [ToolCallTurn, ...ToolCa
 }
 
 /**
- * What a model router chose (Q55), checked against the router `mockLlm(R)` scripts: after
+ * What a model router chose (Q55), checked against the router `mockModel(R)` scripts: after
  * `.onRoute(…)` exactly one target — `routeTo(ProfilerAgent)`, `routeTo(ChatWorkflowFinish, {
  * cost })`; in `toRouter(R).chooseMany([…])` the targets it launches — `routeTo()` (none),
  * `routeTo(CultureScoreAgent)`. A target outside the router's routes or a wrong count does not

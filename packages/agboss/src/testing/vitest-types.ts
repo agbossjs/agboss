@@ -9,13 +9,13 @@ import type { CompensationMatchers } from "./compensation-matchers.js";
 import type { ToolCallMatchers } from "./tool-call-matchers.js";
 
 /**
- * The call matchers of `mockLlm(X)` and `mockAction(A)` (#262 AC9), typed by the component's
+ * The call matchers of `mockModel(X)` and `mockAction(A)` (#262 AC9), typed by the component's
  * generated types: Vitest's names, its mock matchers of the same names on anything else.
  */
 export interface CallMatchers<TSelf> {
   /** A call's input matched this partial (the matcher of `when(…)`): `PartialValues<InputOf<X>>`. */
   toHaveBeenCalledWith(partial: InputMatcherOf<TSelf>): void;
-  /** How many calls: model calls of `mockLlm(X)`, executions of `mockAction(A)`. */
+  /** How many calls: model calls of `mockModel(X)`, executions of `mockAction(A)`. */
   toHaveBeenCalledTimes(times: number): void;
   /** It returned a value of this class (and, given, with these fields; a list output: the list). */
   toHaveReturned<TDto extends DtoClass>(
@@ -24,7 +24,7 @@ export interface CallMatchers<TSelf> {
   ): void;
 }
 
-/** `expect(mockLlm(X))`: Vitest's assertion with the call matchers typed for X. */
+/** `expect(mockModel(X))`: Vitest's assertion with the call matchers typed for X. */
 export type CallAssertion<TReceived, TSelf> = Omit<
   Assertion<TReceived>,
   keyof CallMatchers<TSelf> | "not"

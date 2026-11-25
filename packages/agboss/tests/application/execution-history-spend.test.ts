@@ -22,8 +22,8 @@ const contexts = {
 describe("#1366: the spend of a kept execution record", () => {
   testWith(HistoryDeskApplication)(
     "is what the run's model calls cost",
-    async ({ app, mockLlm }) => {
-      mockLlm(DeskAgent).thenReturn(
+    async ({ app, mockModel }) => {
+      mockModel(DeskAgent).thenReturn(
         callTool(GetOrderTool, { orderId: "7" }),
         replyWith(DeskAnswerDto, { text: "Order 7 shipped." }, { cost: usd(0.25) }),
       );

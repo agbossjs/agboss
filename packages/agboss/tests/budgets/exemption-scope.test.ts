@@ -5,8 +5,9 @@
  * budget only as an undo — on a side path entered with the step it undoes open —, never as a step
  * of the main path that happens to be some entry's undo (AC2). Every exemption still holds (AC3).
  */
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { beforeEach, describe, expect } from "vitest";
-import { BudgetExceededError, CompensationReason, CompensationStatus } from "../../src/index.js";
+import { CompensationReason, CompensationStatus } from "../../src/index.js";
 import { testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
 import { PaidExemptionsApplication } from "./fixtures/paid-exemptions.application.js";
@@ -48,9 +49,9 @@ describe("#656 AC1: a launch ends the side path that took the budget's limit", (
   test("its own action tells the team; the branches it launches are held back", async ({ app }) => {
     const run = execute(app, LimitLaunchWorkflowStart, order);
 
-    await expect(run).rejects.toBeInstanceOf(BudgetExceededError);
+    await expect(run).rejects.toBeInstanceOf(LimitError.Budget);
     expect(paidSteps.ran).toEqual(["charge", "tell"]);
-    expect(exemptions.ended).toEqual(["BudgetExceededError"]);
+    expect(exemptions.ended).toEqual(["LimitError.Budget"]);
   });
 
   test("the side path of a failed join: its action runs, its launch's branches do not", async ({
@@ -58,7 +59,7 @@ describe("#656 AC1: a launch ends the side path that took the budget's limit", (
   }) => {
     const run = execute(app, JoinLimitWorkflowStart, order);
 
-    await expect(run).rejects.toBeInstanceOf(BudgetExceededError);
+    await expect(run).rejects.toBeInstanceOf(LimitError.Budget);
     expect(paidSteps.ran).toEqual(["charge", "tell"]);
   });
 
@@ -76,10 +77,10 @@ describe("#656 AC2: an undo action is exempt only as an undo", () => {
   test("a step of the main path that is also the booking's undo is held back", async ({ app }) => {
     const run = execute(app, RefundStepWorkflowStart, order);
 
-    await expect(run).rejects.toBeInstanceOf(BudgetExceededError);
+    await expect(run).rejects.toBeInstanceOf(LimitError.Budget);
     // refunded once: by the execution's automatic undo, never by the step held back
     expect(paidSteps.ran).toEqual(["book", "check", "refund o1"]);
-    expect(exemptions.ended).toEqual(["BudgetExceededError"]);
+    expect(exemptions.ended).toEqual(["LimitError.Budget"]);
   });
 
   test("the same action as the side path's undo runs past the budget", async ({ app }) => {
@@ -109,7 +110,7 @@ describe("#656 AC2: an undo action is exempt only as an undo", () => {
     expect(done.compensations).toMatchObject([
       { reason: CompensationReason.SidePath, status: CompensationStatus.Compensated },
     ]);
-    expect(done).toHaveHandledError(BudgetExceededError, {
+    expect(done).toHaveHandledError(LimitError.Budget, {
       at: RefundOrderAction,
       by: TellOrderAction,
     });
@@ -120,7 +121,7 @@ describe("#656 AC2: an undo action is exempt only as an undo", () => {
   }) => {
     const run = execute(app, RebookWorkflowStart, order);
 
-    await expect(run).rejects.toBeInstanceOf(BudgetExceededError);
+    await expect(run).rejects.toBeInstanceOf(LimitError.Budget);
     expect(paidSteps.ran).toEqual(["reject", "book", "charge", "refund o1"]);
   });
 });
@@ -131,7 +132,7 @@ describe("#656 AC3: what the budget's side path leads to step by step still runs
 
     expect(done).toFinishWith(LimitNotedWorkflowFinish, { note: "notify" });
     expect(paidSteps.ran).toEqual(["charge", "hold", "notify"]);
-    expect(done).toHaveHandledError(BudgetExceededError, {
+    expect(done).toHaveHandledError(LimitError.Budget, {
       at: NoteOrderAction,
       by: HoldOrderAction,
     });

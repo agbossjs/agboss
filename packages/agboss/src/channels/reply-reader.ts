@@ -1,3 +1,4 @@
+import { PauseError } from "../core/error-families/pause-errors.js";
 import type { BaseCallbackHandler } from "@langchain/core/callbacks/base";
 import { AIMessage, HumanMessage, SystemMessage } from "@langchain/core/messages";
 import type { ChatDefaults, ModelSettings, ResolvedModelSettings } from "../config/types.js";
@@ -15,7 +16,6 @@ import {
   REPLY_INTERPRETER_SYSTEM,
   replyInputMessage,
 } from "../prompts/reply-interpreter.js";
-import { UninterpretableReplyError } from "./decision.js";
 import type { AssembledReplyInterpreter } from "./discovery.js";
 import { replyToolsOf, withCorrectedCall } from "./reply-tools.js";
 import type { ToolBinding } from "../flow/runtime/answer-tools.js";
@@ -26,14 +26,14 @@ import { chargedCall, reportToFrame } from "../finops/charged-call.js";
  * original question and the reply, and what it gives is validated like a decision. A reply nobody
  * can read — a code interpreter's `ChannelInterpretation.notUnderstood({ reason })` (S124 b) or its
  * crash (a throw), a model that gives no answer, an answer that is not valid — is `unreadable`: the
- * caller throws `UninterpretableReplyError` and the pause stays pending. What a model interpreter
+ * caller throws `PauseError.UninterpretableReply` and the pause stays pending. What a model interpreter
  * spent is reported either way. A decision-model interpreter makes one `Decision.boolean` (S124 a,
  * `reply-decision.ts`); a chat-model interpreter makes one chat call under the cost caller
  * `reply-interpreter:<name>` — its instructions after the framework's system text, the question and
  * the reply in the input message, one answer tool of the role's answer DTO; no answer is a decline.
  * Its model reads them through the application's PII policies and its answer is revealed before
  * validation, like an agent's (#120): a token no map knows is a decline, a `block` value
- * in them throws `PiiRefusedError`. Either kind reads in the pause's execution frame — its step's
+ * in them throws `PiiError.Refused`. Either kind reads in the pause's execution frame — its step's
  * `ExecutionContext`, its tenant for the rate limits.
  */
 
@@ -174,7 +174,7 @@ export type ReplyReading =
   | { readonly kind: "read"; readonly decision: unknown; readonly usage: readonly UsageRecord[] }
   | {
       readonly kind: "unreadable";
-      readonly error: UninterpretableReplyError;
+      readonly error: PauseError.UninterpretableReply;
       readonly usage: readonly UsageRecord[];
     };
 

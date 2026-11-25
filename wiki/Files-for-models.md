@@ -64,7 +64,7 @@ policies apply, in any view.
 ## Limits fail closed
 
 `maxFiles` (source files per model call), `maxFileSize`, `maxTotalFileSize` (all views of all files of one call)
-and `allowedMediaTypes` are checked before any model call; a file over one is `ModelFileLimitError`
+and `allowedMediaTypes` are checked before any model call; a file over one is `StepError.ModelFileLimit`
 (`step.model-file-limit`), never a silent truncation. The limits cascade: the agent's own, its workflow's and
 application's `defaults.files`, then the workflow's `@FilePolicy` (#1316: the limits, the types, the origins, the fetch
 timeout and pool), the built-ins. Every file passes the guarded path once per visit — allowed origins, no private address, no user
@@ -90,11 +90,11 @@ narrowed to what the models take. Where the provider cannot say, the call fails 
 `@PiiPolicy({ files: PiiFileAction.Mask | PiiFileAction.AllowOriginal })`, default `Mask`:
 
 - a transcription is masked by the rules where it is made, a block rule refusing before anything is kept;
-- a redacted copy has every kind the rules name blacked out; any failure is `FileRedactionFailedError` — never
+- a redacted copy has every kind the rules name blacked out; any failure is `StepError.FileMaskingFailed` — never
   the unredacted file;
 - **a block rule refuses an image whole by default.** Which kinds an image holds is a model's judgement, and a
   text in the image can talk a model into silence ("no personal data here"). So where a policy has a block rule,
-  an image in the redacted view is refused (`PiiRefusedError`, the policy's text) before any model is asked.
+  an image in the redacted view is refused (`PiiError.Refused`, the policy's text) before any model is asked.
   `PiiFileAction.RedactWithModel` on the policy is the explicit opt-in to let the redaction model decide: a kind
   a block rule names that it finds refuses the file, an empty, malformed or truncated answer fails closed — and
   a model that obeys the text in the image lets it through. **Model-checked images are a guardrail, not a
@@ -116,7 +116,7 @@ provider's circuit breaker can fail over to another provider. In doubt it is not
 values only on `Always`. Values that cannot be sent never leave a gap: where the contexts hold `sensitive` fields
 and the redactor may not be told them the application does not start (`[files.redactor-values-withheld]`, naming
 both providers and the opt-in), and at run time a redaction with values it may not send, or with nothing at all
-to look for, fails closed (`FileRedactionFailedError`) — an unchanged re-encode is never passed off as redacted.
+to look for, fails closed (`StepError.FileMaskingFailed`) — an unchanged re-encode is never passed off as redacted.
 A redacted copy is cached for the policies and the exact value set it was made for (one HMAC of both under the
 file-cache key, [Guards → the PII key hierarchy](Guards#the-pii-key-hierarchy), and a "kinds only" marker when no
 value is sent), in the state of one execution; a masked transcription by its policies' keyed hash.
@@ -167,5 +167,5 @@ files: seen-in-visit`) and `describe --json` carries `AgentSnapshot.files`. The 
 settings, each policy's file action and the application's own `FileRedactor` and `FileTranscriber` by class name
 (#1269: another one is another configuration — a paused run is not resumed blindly under it). A request shows a file as `{ kind, mediaType, sizeBytes, sha256 }` in
 events, traces, records and cassettes — never its bytes ([Observability](Observability)); tests script
-`mockLlm(FileTranscriber)` and `mockLlm(FileRedactor)` ([Testing](Testing)). The examples are `invoice-workflow`,
+`mockModel(FileTranscriber)` and `mockModel(FileRedactor)` ([Testing](Testing)). The examples are `invoice-workflow`,
 `kyc-workflow` and `audio-note-workflow` of `examples/flow-patterns`.

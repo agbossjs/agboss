@@ -26,22 +26,22 @@ const everything = (request: unknown): string => JSON.stringify(request);
 describe("#271 AC8: history never holds an outdated value", () => {
   loop(
     "an agent never sees an outdated draft, in this execution or the one before",
-    async ({ app, mockLlm }) => {
-      mockLlm(LoopResearcherAgent).thenReturn(
+    async ({ app, mockModel }) => {
+      mockModel(LoopResearcherAgent).thenReturn(
         replyWith(ResearchDto, { facts: "f1" }),
         replyWith(ResearchDto, { facts: "f2" }),
       );
-      mockLlm(LoopWriterAgent).thenReturn(
+      mockModel(LoopWriterAgent).thenReturn(
         replyWith(DraftDto, { text: "first-run draft" }),
         replyWith(DraftDto, { text: "old draft" }),
         replyWith(DraftDto, { text: "new draft" }),
       );
-      mockLlm(LoopReviewerAgent).thenReturn(
+      mockModel(LoopReviewerAgent).thenReturn(
         replyWith(ApprovalDto, { reason: "ok" }),
         replyWith(DraftChangesDto, { changes: "rewrite it" }),
         replyWith(ApprovalDto, { reason: "ok now" }),
       );
-      mockLlm(LoopPublisherAgent).thenReturn(
+      mockModel(LoopPublisherAgent).thenReturn(
         replyWith(ArticleDto, { body: "article one" }),
         replyWith(ArticleDto, { body: "article two" }),
       );
@@ -49,9 +49,9 @@ describe("#271 AC8: history never holds an outdated value", () => {
       const first = await execute(app, LoopWorkflowStart, { topic: "one" });
       await execute(app, LoopWorkflowStart, { topic: "two" }, { threadId: first.threadId });
 
-      const [, , lastReview] = mockLlm(LoopReviewerAgent).requests;
-      const lastWrite = mockLlm(LoopWriterAgent).lastRequest;
-      const publish = mockLlm(LoopPublisherAgent).lastRequest;
+      const [, , lastReview] = mockModel(LoopReviewerAgent).requests;
+      const lastWrite = mockModel(LoopWriterAgent).lastRequest;
+      const publish = mockModel(LoopPublisherAgent).lastRequest;
       for (const request of [lastReview, lastWrite, publish]) {
         expect(everything(request)).not.toContain("old draft");
         expect(everything(request)).not.toContain("first-run draft");

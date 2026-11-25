@@ -1,9 +1,10 @@
-import { CompensationFailedError } from "../compensation.js";
+import { ExecutionCancelledError } from "../../core/errors.js";
+import { ExecutionError } from "../../core/error-families/run-errors.js";
 import type { Class } from "../../components/injection.js";
 import type { DtoClass } from "../../dto/types.js";
 import type { ErrorRecord } from "../../core/error-record.js";
 import { bestHandlerOf } from "./error-handler-rank.js";
-import { isHandOverRecord } from "../../core/error-families/run-errors.js";
+import { isHandOverRecord } from "../../core/error-families/hand-over.js";
 import type { FlowAnalysis } from "../analyse/analyse.js";
 import type { ResolvedField } from "../analyse/fields.js";
 import { EdgeKind, type FlowEdge, type FlowNode } from "../analyse/flow-graph.js";
@@ -223,17 +224,23 @@ function dtoIndexOf(analysis: FlowAnalysis): ReadonlyMap<string, DtoClass> {
   return new Map(shapes.flatMap(dtosOf).map((dto) => [dto.name, dto] as const));
 }
 
-/** The code of `ActionFailedError`: the wrapper the action runner puts around what an action's code threw. */
+/** The code of `StepError.Action`: the wrapper the action runner puts around what an action's code threw. */
 const ACTION_WRAPPER_CODE = "step.action";
 
 /** The code every framework error has: a handler on it says nothing about the original's own class. */
 const FRAMEWORK_CODE = "agboss";
 
+/** A record of a cancel (`execution.cancelled`, or a fenced write after it): no `.onError` takes it (#1413). */
+const isCancelRecord = (record: ErrorRecord): boolean =>
+  record.lineage.some(
+    (code) => code === ExecutionCancelledError.code || code === ExecutionError.CancelFenced.code,
+  );
+
 /**
  * The `.onError` handler of a failure: the one whose class matches most specifically — nearest in
  * the error's class line, then nearest in its cause chain; `.onError(Error, …)` only when nothing
  * else matches. An action's code that threw an error of its own is routed as that ORIGINAL error
- * (#1325): the runner's `ActionFailedError` around it does not shadow a handler on the original's
+ * (#1325): the runner's `StepError.Action` around it does not shadow a handler on the original's
  * class (a project's own error class), and takes it only when none matches. None → the failure is
  * not handled; a failed automatic undo never is (#340 Q4).
  */
@@ -241,7 +248,12 @@ export function errorHandlerOf(
   exits: Pick<NodeExits, "errors">,
   record: ErrorRecord,
 ): FlowEdge | undefined {
-  if (record.code === CompensationFailedError.code || isHandOverRecord(record)) return undefined;
+  if (
+    record.code === ExecutionError.CompensationFailed.code ||
+    isHandOverRecord(record) ||
+    isCancelRecord(record)
+  )
+    return undefined;
   const original = record.lineage[0] === ACTION_WRAPPER_CODE ? record.cause : undefined;
   const ofOriginal =
     original === undefined

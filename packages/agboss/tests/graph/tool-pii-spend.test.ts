@@ -1,3 +1,4 @@
+import { PiiError } from "../../src/core/error-families/limit-errors.js";
 import { usd } from "../../src/units/index.js";
 /**
  * #1366: the spend of the tool task's PII reading — what a detection cost is on the closed result when a block
@@ -7,7 +8,6 @@ import { describe, expect, it } from "vitest";
 import { CostSource, ZERO_USAGE, type UsageRecord } from "../../src/finops/usage.js";
 import { closedResult } from "../../src/graph/agent-loop/tool-pii.js";
 import { errorRecordOf } from "../../src/core/error-record.js";
-import { PiiRefusedError } from "../../src/pii/errors.js";
 import { kilobytes } from "../../src/units/index.js";
 
 const record = (costUsd: number, caller: string): UsageRecord => ({
@@ -22,7 +22,11 @@ const record = (costUsd: number, caller: string): UsageRecord => ({
 describe("#1366: a refused tool result keeps what the detection cost", () => {
   it("the refusal of a model the call made carries that model's usage", async () => {
     const spent = [record(0.125, "detector")];
-    const cause = new PiiRefusedError({ kind: "card-number", refusal: "no cards", usage: spent });
+    const cause = new PiiError.Refused({
+      piiKind: "card-number",
+      refusal: "no cards",
+      usage: spent,
+    });
 
     const closed = await closedResult(
       undefined,
@@ -50,7 +54,7 @@ describe("#1366: a refused tool result keeps what the detection cost", () => {
     refusalError: () =>
       Promise.resolve(
         refuses
-          ? new PiiRefusedError({ kind: "card", refusal: "no cards", usage: spent })
+          ? new PiiError.Refused({ piiKind: "card", refusal: "no cards", usage: spent })
           : undefined,
       ),
   });
@@ -80,6 +84,6 @@ describe("#1366: a refused tool result keeps what the detection cost", () => {
     );
 
     expect(closed.usage).toEqual(spent);
-    expect(closed.refusal).toMatchObject({ name: "PiiRefusedError" });
+    expect(closed.refusal).toMatchObject({ name: "PiiError.Refused" });
   });
 });

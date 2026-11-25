@@ -81,9 +81,9 @@ async function streamed(url: string) {
 describe("#833: the stream's artifacts are GetTask's", () => {
   test("AC: a text answer streamed — applied as the spec says, the stream ends with GetTask's artifacts", async ({
     a2aServer,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Desk).thenReturn(replyWith("Shipped."));
+    mockModel(Desk).thenReturn(replyWith("Shipped."));
     const { url } = await a2aServer(listener);
 
     const { events, built, read } = await streamed(url);
@@ -100,9 +100,9 @@ describe("#833: the stream's artifacts are GetTask's", () => {
 
   test("a tool call, then the answer: one artifact, the answer once", async ({
     a2aServer,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Desk).thenReturn(
+    mockModel(Desk).thenReturn(
       callTool(QuickLookup, { orderId: "7" }),
       replyWith("Order 7 shipped."),
     );
@@ -131,9 +131,9 @@ const workingTextsOf = (events: readonly StreamResponse[]): string[] =>
 describe("#848: an agent's own tool call is streamed — no event injected", () => {
   test("AC: SendStreamingMessage on the real server: a `calling quick-lookup-tool` WORKING update, before the answer", async ({
     a2aServer,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Desk).thenReturn(
+    mockModel(Desk).thenReturn(
       callTool(QuickLookup, { orderId: "7" }),
       replyWith("Order 7 shipped."),
     );
@@ -156,9 +156,9 @@ describe("#848: an agent's own tool call is streamed — no event injected", () 
 
   test("AC: `app.execute(…, { onStream })`: the agent's tool call is a `toolCall` event, once, before the answer's text", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Desk).thenReturn(
+    mockModel(Desk).thenReturn(
       callTool(QuickLookup, { orderId: "7" }),
       replyWith("Order 7 shipped."),
     );
@@ -187,9 +187,9 @@ describe("#848: an agent's own tool call is streamed — no event injected", () 
 
   test("a listener that throws on the tool call never fails the run: the tool runs, the run finishes", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Desk).thenReturn(
+    mockModel(Desk).thenReturn(
       callTool(QuickLookup, { orderId: "7" }),
       replyWith("Order 7 shipped."),
     );

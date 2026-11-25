@@ -1,3 +1,4 @@
+import { StepError } from "../../../core/error-families/step-errors.js";
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { RunnableLambda } from "@langchain/core/runnables";
 import type { Class } from "../../../components/injection.js";
@@ -5,7 +6,7 @@ import type { UsageRecord } from "../../../finops/usage.js";
 import { declarationOf } from "../../decorators/declaration.js";
 import type { FlowLaunch } from "../../analyse/flow-graph.js";
 import type { RuntimeNode } from "../graph-model.js";
-import { RouterDecisionError, routerFailureOf, type RouterVisit } from "../router-error.js";
+import { routerFailureOf, type RouterVisit } from "../router-error.js";
 import type { LoadedRouter } from "../routers.js";
 import type { LaunchDecider } from "./launch-decider.js";
 
@@ -13,7 +14,7 @@ import type { LaunchDecider } from "./launch-decider.js";
  * A router in a parallel launch (`toRouter(R).chooseMany([…])`, #1279b): it decides which of its
  * routes run — the siblings of the router in `.inParallel([…])` run anyway. A model router asks its
  * model (S23, `launch-decider.ts`); a code router's `route()` returns the list of targets to launch,
- * `[]` included. A target outside its routes is a `RouterDecisionError`.
+ * `[]` included. A target outside its routes is a `StepError.RouterDecision`.
  */
 
 /** What a router decided for its launch: the routes to launch, and what it cost. */
@@ -82,7 +83,7 @@ export function codeRouterLaunch(
   answer: unknown,
 ): readonly string[] {
   if (!Array.isArray(answer))
-    throw new RouterDecisionError({
+    throw new StepError.RouterDecision({
       ...step,
       reason: "in toRouter(R).chooseMany([…]) route() returns a list of its routes' targets",
     });
@@ -92,7 +93,7 @@ export function codeRouterLaunch(
   );
   const outside = names.find((name) => !allowed.includes(name));
   if (outside !== undefined)
-    throw new RouterDecisionError({
+    throw new StepError.RouterDecision({
       ...step,
       reason: `route() returned ${outside}: not one of its routes (${allowed.join(", ")})`,
     });

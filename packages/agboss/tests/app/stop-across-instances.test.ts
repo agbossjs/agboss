@@ -59,9 +59,9 @@ describe("#1341b: a stop on the other instance", () => {
   test("Immediate: within one renewal the holder's call resolves Stopped, nothing is cancelled or undone, the record is `stopped`", async ({
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(...stepAndHold);
+    mockModel(Clerk).thenReturn(...stepAndHold);
     const [first, second] = await pair(apps);
     const { call } = await holding(first);
 
@@ -85,9 +85,9 @@ describe("#1341b: a stop on the other instance", () => {
   test("AfterStep: the step in flight is not aborted; once it returns no step starts, the call resolves Stopped", async ({
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(...stepAndHold, replyWith(ReceiptDto, { text: "done" }));
+    mockModel(Clerk).thenReturn(...stepAndHold, replyWith(ReceiptDto, { text: "done" }));
     const [first, second] = await pair(apps);
     const { call } = await holding(first);
 
@@ -106,9 +106,9 @@ describe("#1341b: a stop on the other instance", () => {
   test("a stop asked twice writes its request once and ends the execution once", async ({
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(...stepAndHold);
+    mockModel(Clerk).thenReturn(...stepAndHold);
     const [first, second] = await pair(apps);
     const { call } = await holding(first);
 

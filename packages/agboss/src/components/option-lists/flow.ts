@@ -21,7 +21,6 @@ export const AGENT_KEYS = optionKeys<AgentOptions>()(
     "tools",
     "reasoning",
     "rag",
-    "price",
     "temperature",
     "maxTokens",
     "cache",

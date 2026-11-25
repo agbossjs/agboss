@@ -15,7 +15,7 @@ import { shownValueOf } from "../core/shown-value.js";
 export interface RetentionOptions {
   /**
    * A resolved pause record (`Taken`, `Cancelled`) after it was resolved (#267 S107): within it a
-   * late answer gets `NotPausedError`, after it `UnknownPauseError`. A pending pause is never
+   * late answer gets `NotPausedError`, after it `PauseError.UnknownPause`. A pending pause is never
    * removed. Default `hours(24)`.
    */
   readonly pauseRecords?: Milliseconds;
@@ -39,7 +39,7 @@ export interface RetentionOptions {
    * An entry of the cost ledger after its spend was made (#771, `CostLedgerRepository`): every
    * tallied spend is an entry under its `ledgerId` so that a write retried after a lost answer
    * counts once; older entries are pruned (the counters never), and a write retried later than this
-   * is refused (`CostLedgerEntryExpiredError`), never counted twice. Above the lease. Default
+   * is refused (`StoreError.LedgerEntryExpired`), never counted twice. Above the lease. Default
    * `hours(24)`.
    */
   readonly costLedgerEntries?: Milliseconds;

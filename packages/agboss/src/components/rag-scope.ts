@@ -1,8 +1,8 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import { checkedCallerId, checkedTenantId } from "../flow/context/context-values.js";
 import { ExecutionContextUnavailableError } from "../flow/context/errors.js";
 import { currentFrame, type Frame } from "../flow/context/frame.js";
 import { liveExecutionContextOf } from "../flow/context/live-context.js";
-import { RagScopeError } from "../rag/rag-source.js";
 import { RagScope, type RagScopeKey } from "../rag/types.js";
 import type { WorkflowServices } from "../workflow.js";
 import type { RagMeta } from "./rag.js";
@@ -24,8 +24,8 @@ const tenantScope = ({ frame }: ScopeCall): string => {
 const ownerScope = ({ consumer, frame }: ScopeCall): string => {
   const { ownerId } = frame.execution;
   if (ownerId === undefined)
-    throw new RagScopeError({
-      message: `[rag.scope-unresolved] ${consumer} has scope RagScope.Owner and this execution has no owner — pass owner in the call's options`,
+    throw new ConfigError.Component({
+      message: `[config.component] ${consumer} has scope RagScope.Owner and this execution has no owner — pass owner in the call's options`,
     });
   checkedCallerId(consumer, "owner", ownerId);
   return ownerId;
@@ -34,14 +34,14 @@ const ownerScope = ({ consumer, frame }: ScopeCall): string => {
 const customScope = ({ consumer, source, services }: ScopeCall): string => {
   const resolve: unknown = Reflect.get(source, "resolveScope");
   if (typeof resolve !== "function")
-    throw new RagScopeError({
+    throw new ConfigError.Component({
       message: `[rag.custom-scope-missing-resolver] ${consumer} has scope RagScope.Custom and no resolveScope(context)`,
     });
   const context = liveExecutionContextOf(services.contexts?.executionContext, consumer);
   const id: unknown = Reflect.apply(resolve, source, [context]);
   if (typeof id !== "string" || id === "")
-    throw new RagScopeError({
-      message: `[rag.scope-unresolved] ${consumer}: resolveScope returned no scope id — a custom scope names one on every call`,
+    throw new ConfigError.Component({
+      message: `[config.component] ${consumer}: resolveScope returned no scope id — a custom scope names one on every call`,
     });
   checkedCallerId(consumer, "scopeId", id);
   return id;
@@ -56,7 +56,7 @@ const RESOLVERS: Readonly<Partial<Record<RagScope, (call: ScopeCall) => string>>
 
 /**
  * The scope's key of a retrieval — its tenant and its id within it, none for `Shared` — resolved from the frame of the step or tool call that runs it, and
- * checked as a key's text (`dto.invalid` naming the rule, never the id). No open frame →
+ * checked as a key's text (`validation.dto-invalid` naming the rule, never the id). No open frame →
  * `context.unavailable`. A scope the call cannot resolve (an owner-scoped source without an owner, a
  * custom scope that returns nothing, a scope that is none of the four) fails closed — never another
  * scope's passages.
@@ -75,7 +75,7 @@ export function scopeKeyOfRetrieval(
   if (meta.scope === RagScope.Shared) return {};
   const resolve = RESOLVERS[meta.scope];
   if (resolve === undefined)
-    throw new RagScopeError({
+    throw new ConfigError.Component({
       message: `[rag.scope-required] ${consumer} declares no known scope — scope: RagScope.Shared, Tenant, Owner or Custom`,
     });
   // every non-global scope is bound to the tenant: an owner id or a custom key is unique within one

@@ -43,7 +43,7 @@ describe("the eval judge's output", () => {
   it("holds the token of an email, never the email", async () => {
     const env = await TestEnvironment.of(JudgedDeskApplication);
     environment = env;
-    env.mockLlm(JudgedDeskAgent).thenReturn(replyWith(`Write to ${OUT_EMAIL}.`));
+    env.mockModel(JudgedDeskAgent).thenReturn(replyWith(`Write to ${OUT_EMAIL}.`));
     const key = judgeKeyOf("task-pii-judge");
     env.book.name(key, TaskPiiJudge.name);
     const script = env.book.scriptOf(key);

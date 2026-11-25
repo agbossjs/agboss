@@ -1,4 +1,4 @@
-import { CompensationFailedError } from "../flow/compensation.js";
+import { ExecutionError } from "../core/error-families/run-errors.js";
 import type { Turn } from "../turns/index.js";
 import type { AppDeps } from "./app-deps.js";
 import { endHeld, writeCancelRequest, type CancelParts } from "./cancel-requests.js";
@@ -29,7 +29,7 @@ export enum InterruptSettlement {
 
 /**
  * What became of a requested tree after the request: one this call ended (`Ended`) whose undo
- * failed rejects with `CompensationFailedError` (#340 S7 1); a `running` one is its holder's
+ * failed rejects with `ExecutionError.CompensationFailed` (#340 S7 1); a `running` one is its holder's
  * (`Requested`).
  */
 async function settled(parts: CancelParts, record: Turn): Promise<InterruptSettlement> {
@@ -38,7 +38,7 @@ async function settled(parts: CancelParts, record: Turn): Promise<InterruptSettl
   if (record.status === "running") return InterruptSettlement.Requested;
   if (record.status === "paused") {
     const ended = await endHeld(parts, state);
-    if (ended instanceof CompensationFailedError) throw ended;
+    if (ended instanceof ExecutionError.CompensationFailed) throw ended;
     return ended === undefined ? InterruptSettlement.None : InterruptSettlement.Ended;
   }
   // it ended between the request and now: the request is withdrawn with the tree's keys

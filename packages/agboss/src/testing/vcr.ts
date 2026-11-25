@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { DecisionError } from "../core/error-families/config-errors.js";
+import { DecisionError } from "../core/error-families/decision-errors.js";
 import type { DecisionOutcome } from "../llm/decision-response.js";
 import type { GatewayOverProviders } from "../app/models.js";
 import { providerKindsOf } from "../models/resolution.js";

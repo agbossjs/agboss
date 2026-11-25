@@ -4,13 +4,13 @@
  * `KEY_TEXT_PRECEDENCE`. Every set of two or more breaches, each written after the one it outranks,
  * and a property over random sets, orders and fillers against an oracle of its own.
  */
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { IdempotencyError } from "../../src/core/error-families/effect-errors.js";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { WorkflowStartTextDto } from "../../src/dto/index.js";
-import { DtoValidationError } from "../../src/dto/errors.js";
-import { InvalidThreadIdError, KeyTextRule, keyTextRuleOf } from "../../src/errors.js";
-import { Action, ExecutionContext, type Tracked } from "../../src/index.js";
+import { KeyTextRule, keyTextRuleOf } from "../../src/errors.js";
+import { Action, ExecutionContext, type Tracked, ValidationError } from "../../src/index.js";
 import { effectKeyOf } from "../../src/stores/index.js";
 import { testUnit, testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
@@ -201,10 +201,10 @@ describe("#547 acceptance: every entry point names the same rule for a text brea
       expect(businessKey).toBeInstanceOf(IdempotencyError.InvalidKey);
       expect(businessKey).toMatchObject({ rule: expected });
       for (const thread of [executed, cancelled]) {
-        expect(thread).toBeInstanceOf(InvalidThreadIdError);
+        expect(thread).toBeInstanceOf(ExecutionError.InvalidThreadId);
         expect(thread).toMatchObject({ rule: expected });
       }
-      expect(tenant).toBeInstanceOf(DtoValidationError);
+      expect(tenant).toBeInstanceOf(ValidationError.DtoInvalid);
       expect((tenant as Error).message).toContain(`(${expected})`);
     },
   );

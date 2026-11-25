@@ -33,6 +33,7 @@ export * from "./public/files.js";
 export * from "./errors.js";
 // the error families (#1325): each a type, a namespace of variants and a constructor
 export * from "./core/error-families/config-errors.js";
+export * from "./core/error-families/decision-errors.js";
 export * from "./core/error-families/effect-errors.js";
 export * from "./core/error-families/limit-errors.js";
 export * from "./core/error-families/pause-errors.js";
@@ -43,10 +44,6 @@ export * from "./core/error-families/step-errors.js";
 export type * as ErrorTypes from "./public/error-types.js";
 export { Result, type TryOutcome } from "./core/result.js";
 export * from "./infrastructure/store-call-timeout.js";
-export {
-  SqliteSchemaTooNewError,
-  type SqliteSchemaTooNewErrorOptions,
-} from "./infrastructure/sqlite/sqlite-schema-version.js";
 export { Ttl } from "./units/index.js";
 // `defineConfig` (#1318): one profile, `src/config/<name>.config.ts`
 export { defineConfig, type ConfigOverlay } from "./config/define-config.js";

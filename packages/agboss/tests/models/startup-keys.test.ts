@@ -7,13 +7,13 @@
  * (`defaults.router`, the built-in file models, a guardrail's default) take the workflow's or the
  * agent's.
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import type { Class } from "../../src/components/injection.js";
 import { EmptyEnvironment } from "../../src/index.js";
-import { EnvironmentError } from "../../src/environments/errors.js";
 import { MODEL_USE_KINDS, type ModelUseKind } from "../../src/models/uses.js";
 import { workflowModelUsesOf } from "../../src/models/resolution.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
@@ -113,7 +113,7 @@ describe("#716: a provider only one kind of model use needs fails createApp with
 
     const started = start(application);
 
-    await expect(started).rejects.toBeInstanceOf(EnvironmentError);
+    await expect(started).rejects.toBeInstanceOf(ConfigError.Environment);
     await expect(started).rejects.toThrow(/KEYED_API_KEY is not set/);
   });
 
@@ -133,7 +133,7 @@ describe("#716: a provider only one kind of model use needs fails createApp with
     expect([...ofKind]).toEqual(["decisions-model-provider"]);
     const started = start(application);
 
-    await expect(started).rejects.toBeInstanceOf(EnvironmentError);
+    await expect(started).rejects.toBeInstanceOf(ConfigError.Environment);
     await expect(started).rejects.toThrow(/OPENROUTER_API_KEY is not set/);
   });
 
@@ -145,7 +145,7 @@ describe("#716: a provider only one kind of model use needs fails createApp with
       ]),
     );
 
-    await expect(started).rejects.toBeInstanceOf(EnvironmentError);
+    await expect(started).rejects.toBeInstanceOf(ConfigError.Environment);
     await expect(started).rejects.toThrow(/KEYED_API_KEY is not set/);
   });
 
@@ -156,7 +156,7 @@ describe("#716: a provider only one kind of model use needs fails createApp with
       ]),
     );
 
-    await expect(started).rejects.toBeInstanceOf(EnvironmentError);
+    await expect(started).rejects.toBeInstanceOf(ConfigError.Environment);
     await expect(started).rejects.toThrow(/KEYED_API_KEY is not set/);
   });
 });

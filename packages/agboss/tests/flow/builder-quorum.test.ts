@@ -1,3 +1,4 @@
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import { workflowOf } from "../../src/components/assemble.js";
 import { checkWorkflow } from "../../src/flow/analyse/analyse.js";
@@ -10,7 +11,6 @@ import {
 } from "../../src/flow/ast.js";
 import { declarationOf } from "../../src/flow/decorators/declaration.js";
 import { flowLines } from "../../src/flow/print.js";
-import { FlowSyntaxError } from "../../src/flow/launch-step.js";
 import { inputLines } from "../../src/describe/inputs.js";
 import { hours, minutes, seconds } from "../../src/units/index.js";
 import {
@@ -167,7 +167,7 @@ describe("#279 AC11 / AC12: the untyped builder refuses the wrong forms", () => 
       "nothing follows",
     ],
   ])("%s", (_case, build, message) => {
-    expect(build).toThrow(FlowSyntaxError);
+    expect(build).toThrow(ConfigError.FlowSyntax);
     expect(build).toThrow(message);
   });
 });

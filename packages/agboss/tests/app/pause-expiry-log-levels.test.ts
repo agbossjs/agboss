@@ -4,9 +4,9 @@
  * says, and the observers heard it: the expiry did its job, so `pause.expiry-failed` is not logged.
  * It stays for a real failure of the expiry machinery (the store the look reads from).
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { DeadlineExceededError } from "../../src/budgets/execution-deadline.js";
-import { PauseExpiredError } from "../../src/flow/runtime/pause-expired-error.js";
 import { testWith } from "../../src/testing/index.js";
 import { hours, minutes } from "../../src/units/index.js";
 import { execute } from "../helpers/flow.js";
@@ -40,7 +40,7 @@ afterEach(() => {
 });
 
 describe("#1074: a run's own end after an expiry is not a warning", () => {
-  test("the run deadline reached after the expiry: the run fails with DeadlineExceededError, nothing is warned", async ({
+  test("the run deadline reached after the expiry: the run fails with LimitError.Deadline, nothing is warned", async ({
     app,
     clock,
   }) => {
@@ -54,11 +54,11 @@ describe("#1074: a run's own end after an expiry is not a warning", () => {
     await clock.advance(minutes(6));
     await until(() => expiry.errors.length === 1);
 
-    expect(expiry.errors[0]).toBeInstanceOf(DeadlineExceededError);
+    expect(expiry.errors[0]).toBeInstanceOf(LimitError.Deadline);
     expect(logged.filter((entry) => entry.code === EXPIRY_FAILED)).toEqual([]);
   });
 
-  test("an uncaught fail() of the expiry (no .onError): the run fails with PauseExpiredError, nothing is warned", async ({
+  test("an uncaught fail() of the expiry (no .onError): the run fails with StepError.PauseExpired, nothing is warned", async ({
     app,
     clock,
   }) => {
@@ -67,7 +67,7 @@ describe("#1074: a run's own end after an expiry is not a warning", () => {
     await clock.advance(hours(1));
     await until(() => expiry.errors.length === 1);
 
-    expect(expiry.errors[0]).toBeInstanceOf(PauseExpiredError);
+    expect(expiry.errors[0]).toBeInstanceOf(StepError.PauseExpired);
     expect(logged.filter((entry) => entry.code === EXPIRY_FAILED)).toEqual([]);
     expect(logged.filter((entry) => entry.code.startsWith("pause."))).toEqual([]);
   });

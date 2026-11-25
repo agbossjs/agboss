@@ -3,13 +3,11 @@
  * have taken effect, and what is done next (a retry, a resend, the sweep) finds the store as it is
  * and moves it once. Each case lets the real store apply the call and then never answers.
  */
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
+import { StoreError } from "../../src/core/error-families/store-errors.js";
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import {
-  ExecutionCancelFencedError,
-  PauseClosedError,
-  PauseStatus,
-  StoreCallTimeoutError,
-} from "../../src/index.js";
+import { PauseStatus } from "../../src/index.js";
 import { ExecutionCancelledError } from "../../src/core/errors.js";
 import { STORE_CALL_BOUND } from "../../src/app/lease-fence.js";
 import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
@@ -62,8 +60,8 @@ const leased = testWith(LeaseApplication);
 describe("#928 AC2: a pause resolve from the answer API", () => {
   leased(
     "AC2: unanswered: store.call-timeout; the retry finds it resolved; the tree resumes once",
-    async ({ app, clock, mockLlm }) => {
-      mockLlm(Clerk).thenReturn(
+    async ({ app, clock, mockModel }) => {
+      mockModel(Clerk).thenReturn(
         callTool(Charge, { text: "10 USD" }),
         replyWith(ReceiptDto, { text: "Done." }),
       );
@@ -77,7 +75,7 @@ describe("#928 AC2: a pause resolve from the answer API", () => {
       await clock.advance(STORE_CALL_BOUND);
       const error = await first;
 
-      expect(error).toBeInstanceOf(StoreCallTimeoutError);
+      expect(error).toBeInstanceOf(StoreError.CallTimeout);
       expect(error).toMatchObject({
         code: "store.call-timeout",
         operation: "resolveByTenantIdAndPauseId",
@@ -91,7 +89,7 @@ describe("#928 AC2: a pause resolve from the answer API", () => {
 
       // the retry reads the pause: it is no longer pending, its answer was recorded
       await expect(app.resume(answerOf(paused, { approved: true }))).rejects.toBeInstanceOf(
-        PauseClosedError,
+        PauseError.Closed,
       );
       // the tree was marked running before the answer: the recovery sweep resumes it, once
       await passLive(clock, seconds(90));
@@ -112,7 +110,7 @@ const cancelMarksOf = (app: Parameters<typeof databaseOf>[0]): readonly number[]
 
 describe("#928 AC2: requestCancel", () => {
   fence(
-    "AC2: unanswered: app.cancel rejects; the retry writes the mark once; the next fenced write is refused ExecutionCancelFencedError",
+    "AC2: unanswered: app.cancel rejects; the retry writes the mark once; the next fenced write is refused ExecutionError.CancelFenced",
     async ({ apps }) => {
       const [first, second] = apps;
       if (first === undefined || second === undefined) throw new Error("two instances");
@@ -131,7 +129,7 @@ describe("#928 AC2: requestCancel", () => {
       await first.clock.advance(STORE_CALL_BOUND);
       const error = await unanswered;
 
-      expect(error).toBeInstanceOf(StoreCallTimeoutError);
+      expect(error).toBeInstanceOf(StoreError.CallTimeout);
       expect(error).toMatchObject({ operation: "requestCancel", code: "store.call-timeout" });
       const [written] = cancelMarksOf(first);
       // the retry (another instance): the mark is there, written again as it is
@@ -143,7 +141,7 @@ describe("#928 AC2: requestCancel", () => {
       const ended = await moving;
       expect(ended).toMatchObject({ status: ExecutionStatus.Cancelled });
       expect(fenced.refusals).toHaveLength(1);
-      expect(fenced.refusals[0]).toBeInstanceOf(ExecutionCancelFencedError);
+      expect(fenced.refusals[0]).toBeInstanceOf(ExecutionError.CancelFenced);
       expect(fenced.charged).toEqual([]);
     },
   );

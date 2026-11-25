@@ -1,3 +1,4 @@
+import { LimitError } from "../../core/error-families/limit-errors.js";
 import type { RunnableConfig } from "@langchain/core/runnables";
 import type { InterruptReason } from "../../app/interrupt-types.js";
 import { nodeEventOf } from "../observers/execution-event.js";
@@ -13,7 +14,6 @@ import type { CompensationParts } from "./compensation/registry.js";
 import type { Class } from "../../components/injection.js";
 import type { GraphDeps } from "../../graph/deps.js";
 import type { StepEntries } from "./step-entries.js";
-import { LimitExceededError } from "../../graph/limits.js";
 import type { Milliseconds } from "../../units/index.js";
 import { reportOutdating } from "./outdating-report.js";
 import type { RuntimeProvenance } from "./provenance.js";
@@ -196,7 +196,7 @@ export function visitNode(node: RuntimeNode, runner: NodeRunner, deps: VisitDeps
       const visit = { frame, node, state, startedAt, endedAt: clock.now() };
       const handled = caught(deps, visit, error, { ranAsStep, reported }, config?.signal);
       // #675: a limit thrown before the node ran held the visit back — it ran nothing
-      const isHeldBack = !limitsChecked.isDone && error instanceof LimitExceededError;
+      const isHeldBack = !limitsChecked.isDone && error instanceof LimitError;
       const failed = { ...undoables, ...parts, scope: state.scope, endedAt: clock.now() };
       const site = { ...failed, state, failure: error, isHeldBack, clock, deps, reported };
       return { ...(await handledFailure(handled, site)), ...kept };

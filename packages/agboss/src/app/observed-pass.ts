@@ -1,3 +1,4 @@
+import { isExecutionCancelled } from "../core/execution-cancelled.js";
 import { interruptErrorOf, interruptOf, markedInterruptOf } from "./interrupt-requests.js";
 import { nodeRecordIn } from "../flow/runtime/workflow-keys.js";
 import { maskedRecordOf, runResultOf } from "./result.js";
@@ -7,7 +8,6 @@ import { leasedDeps, treeOf } from "./tree-ends.js";
 import type { HeldPass, TreeCall, TreeMoveParts, TreePass, TreeState } from "./tree-move-types.js";
 import { unwindingDeps } from "./tree-unwind.js";
 import type { ExecutionOutput } from "./types.js";
-import { ExecutionCancelledError } from "../core/errors.js";
 import { cancelledOutputOf } from "./cancelled-output.js";
 import { isPause } from "./lease-stopped.js";
 import { parkedOutputOf } from "./parked-output.js";
@@ -45,12 +45,12 @@ export function observedPass(
       );
       return await maskedRecordOf(result, deps);
     } catch (error) {
-      if (!(error instanceof ExecutionCancelledError)) throw error;
+      if (!isExecutionCancelled(error)) throw error;
       // an operator's pause parks the tree (#1341c): nothing undone, no record ended — the pass
       // returns the paused output and the drain writes the rest (`passesOf`)
       if (isPause(error)) return parkedOutputOf(deps, state, error);
       // a cancel is an outcome, not a failure (#1341): its undo ran before this error, and the
-      // call resolves cancelled — an undo that failed is `CompensationFailedError`, thrown on
+      // call resolves cancelled — an undo that failed is `ExecutionError.CompensationFailed`, thrown on
       return cancelledOutputOf(deps, state, { cause: error, compensations: undo.compensations });
     }
   };

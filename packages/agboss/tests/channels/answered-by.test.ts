@@ -4,9 +4,10 @@
  * pause and in `onExecutionResume`; the other credential is refused, and a refused resume leaves the
  * pause waiting. A `Channel` pause's id is never listed to the caller (only its channel has it).
  */
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { beforeEach, describe, expect } from "vitest";
 import { ExecutionStatus } from "../../src/app/types.js";
-import { PauseRespondent, PauseError, PauseStatus, ThreadOwnerError } from "../../src/index.js";
+import { PauseRespondent, PauseError, PauseStatus } from "../../src/index.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import { answerOf, execute } from "../helpers/flow.js";
 import {
@@ -29,9 +30,9 @@ beforeEach(resetPauses);
 describe("#267 AC4: a ThreadOwner pause is answered by the thread's owner", () => {
   test("its id is listed; another owner, or answeredBy, is refused and it keeps waiting", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(DeskClerkAgent).thenReturn(
+    mockModel(DeskClerkAgent).thenReturn(
       callTool(ConfirmOrderTool, { orderId: "7" }),
       replyWith("Confirmed."),
     );
@@ -48,7 +49,7 @@ describe("#267 AC4: a ThreadOwner pause is answered by the thread's owner", () =
       respondent: PauseRespondent.Owner,
     });
     await expect(app.resume(answerOf(paused, approve), { ownerId: "bob" })).rejects.toBeInstanceOf(
-      ThreadOwnerError,
+      ExecutionError.ThreadOwnerMismatch,
     );
     await expect(app.resume(answerOf(paused, approve), manager)).rejects.toBeInstanceOf(
       PauseError.PermissionDenied,
@@ -61,8 +62,8 @@ describe("#267 AC4: a ThreadOwner pause is answered by the thread's owner", () =
 });
 
 describe("#267 AC3 / AC4: a Channel pause is answered through its channel", () => {
-  test("the caller never sees its id: the channel was sent it", async ({ app, mockLlm }) => {
-    mockLlm(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "7" }));
+  test("the caller never sees its id: the channel was sent it", async ({ app, mockModel }) => {
+    mockModel(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "7" }));
 
     const paused = await execute(app, DeskWorkflowStart, { text: "refund 7" });
 
@@ -73,8 +74,8 @@ describe("#267 AC3 / AC4: a Channel pause is answered through its channel", () =
     expect(askFor("7").pauseId).toMatch(/^[0-9a-f]{32}$/);
   });
 
-  test("ownerId, or no answeredBy, is refused; it keeps waiting", async ({ app, mockLlm }) => {
-    mockLlm(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "7" }));
+  test("ownerId, or no answeredBy, is refused; it keeps waiting", async ({ app, mockModel }) => {
+    mockModel(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "7" }));
     await execute(app, DeskWorkflowStart, { text: "refund 7" }, { ownerId: "alice" });
 
     const asOwner = app.resume(answerFor("7"), { ownerId: "alice" });
@@ -91,9 +92,12 @@ describe("#267 AC3 / AC4: a Channel pause is answered through its channel", () =
 
   test("answeredBy is recorded on the pause and in onExecutionResume; the agent reads it", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "7" }), replyWith("Done."));
+    mockModel(DeskClerkAgent).thenReturn(
+      callTool(RefundTool, { orderId: "7" }),
+      replyWith("Done."),
+    );
     await execute(app, DeskWorkflowStart, { text: "refund 7" }, { ownerId: "alice" });
 
     const done = await app.resume(answerFor("7", { approved: false, reason: "too late" }), manager);
@@ -105,7 +109,7 @@ describe("#267 AC3 / AC4: a Channel pause is answered through its channel", () =
       answer: { actor: { id: "manager-17" }, decision: { approved: false, reason: "too late" } },
     });
     expect(seen.resumes).toMatchObject([{ actor: { id: "manager-17" } }]);
-    expect(JSON.stringify(mockLlm(DeskClerkAgent).requests[1])).toContain(
+    expect(JSON.stringify(mockModel(DeskClerkAgent).requests[1])).toContain(
       "the call was rejected by manager-17: too late",
     );
     expect(seen.refunds).toEqual([]);

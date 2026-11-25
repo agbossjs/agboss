@@ -1,6 +1,6 @@
+import { ValidationError } from "../../src/index.js";
 import { describe, expect, it } from "vitest";
 import {
-  DtoValidationError,
   Integer,
   KeyText,
   MoneyDto,
@@ -18,7 +18,7 @@ const issuesOf = (run: () => unknown): readonly DtoIssue[] => {
   try {
     run();
   } catch (error) {
-    if (error instanceof DtoValidationError) return error.issues;
+    if (error instanceof ValidationError.DtoInvalid) return error.issues;
     throw error;
   }
   throw new Error("expected a validation failure");
@@ -74,7 +74,7 @@ describe("#1292b: @Validate", () => {
       @Integer()
       n!: number;
     }
-    expect(() => validate(Probe, { n: "x" })).toThrow(DtoValidationError);
+    expect(() => validate(Probe, { n: "x" })).toThrow(ValidationError.DtoInvalid);
     expect(seen).toEqual([]);
   });
 
@@ -177,8 +177,10 @@ describe("#1292b: @KeyText", () => {
 
   it("the options only narrow a key", () => {
     expect(validate(Order, { id: "x", slug: "ab-1" }).slug).toBe("ab-1");
-    expect(() => validate(Order, { id: "x", slug: "AB" })).toThrow(DtoValidationError);
-    expect(() => validate(Order, { id: "x", slug: "a".repeat(13) })).toThrow(DtoValidationError);
+    expect(() => validate(Order, { id: "x", slug: "AB" })).toThrow(ValidationError.DtoInvalid);
+    expect(() => validate(Order, { id: "x", slug: "a".repeat(13) })).toThrow(
+      ValidationError.DtoInvalid,
+    );
   });
 
   it("keeps the prompt in the JSON Schema", () => {

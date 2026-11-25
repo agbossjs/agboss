@@ -30,12 +30,12 @@ const picky = testWith(PickyApplication);
 describe("#1004: a chat-model launch decider is silent", () => {
   picky(
     "AC1: the decider's canary is not heard, the answer agent's is",
-    async ({ app, mockLlm }) => {
-      mockLlm(PickyRouter).thenReturn(
+    async ({ app, mockModel }) => {
+      mockModel(PickyRouter).thenReturn(
         decideWith({ "refund-policy-agent": 0, "loyalty-offer-agent": 1 }),
       );
-      mockLlm(LoyaltyOfferAgent).thenReturn(replyWith(LoyaltyOfferDto, { offer: "10% off" }));
-      mockLlm(PickyAnswerAgent).thenReturn(
+      mockModel(LoyaltyOfferAgent).thenReturn(replyWith(LoyaltyOfferDto, { offer: "10% off" }));
+      mockModel(PickyAnswerAgent).thenReturn(
         replyWith(CustomerReplyDto, { text: "Here you go.", holdForReview: false }),
       );
       const events: ExecutionStreamEvent[] = [];
@@ -47,7 +47,7 @@ describe("#1004: a chat-model launch decider is silent", () => {
         { onStream: (event) => events.push(event) },
       );
 
-      expect(mockLlm(PickyRouter).requests).toHaveLength(1);
+      expect(mockModel(PickyRouter).requests).toHaveLength(1);
       expect(canaries(events)).toBe(0); // both agents answer with answer tools: no text at all
       expect(events).toEqual([]);
     },

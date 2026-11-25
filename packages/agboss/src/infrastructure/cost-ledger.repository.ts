@@ -1,11 +1,7 @@
+import { StoreError } from "../core/error-families/store-errors.js";
 import { isDate } from "node:util/types";
 import type { BudgetScope } from "../budgets/budget.js";
 import { Injectable } from "../components/decorators.js";
-import {
-  CostLedgerCutoffInvalidError,
-  CostLedgerEntryExpiredError,
-  CostLedgerEntryInvalidError,
-} from "../finops/ledger-mark.js";
 import { totalCost, totalTokens, type UsageRecord } from "../finops/usage.js";
 import { usd, type Usd } from "../units/index.js";
 
@@ -90,11 +86,11 @@ export abstract class CostLedgerRepository {
    * on any instance and also one that races it, adds nothing — and kept, dated by its `madeAt`
    * (#771), with the counters it was added to, in one atomic write. Only a `LedgerEntry` is taken:
    * a record without an id does not compile, and a JS caller's is refused
-   * (`CostLedgerEntryInvalidError`, `assertLedgerEntries`) before anything is added.
+   * (`StoreError.LedgerEntryInvalid`, `assertLedgerEntries`) before anything is added.
    *
    * An entry dated before the store's pruning mark (the latest cutoff of `deleteByMadeAtBefore`)
    * that the store does not hold may have been pruned after it was counted: the save rejects with
-   * `CostLedgerEntryExpiredError` and adds nothing — never counted again. The mark is read with the
+   * `StoreError.LedgerEntryExpired` and adds nothing — never counted again. The mark is read with the
    * insert, atomically against a prune (#771).
    */
   abstract saveAll(
@@ -152,17 +148,17 @@ function tokenInvalidityOf(entry: object): string | undefined {
 /** The refusal of a save of `entries` (#817): of the first that is no `LedgerEntry`, if any. */
 export function invalidLedgerEntryErrorOf(
   entries: readonly unknown[],
-): CostLedgerEntryInvalidError | undefined {
+): StoreError.LedgerEntryInvalid | undefined {
   for (const [index, entry] of entries.entries()) {
     const reason = invalidityOf(entry);
-    if (reason !== undefined) return new CostLedgerEntryInvalidError({ index, reason });
+    if (reason !== undefined) return new StoreError.LedgerEntryInvalid({ index, reason });
   }
   return undefined;
 }
 
 /**
  * Refuses a save of anything but `LedgerEntry` values (#817) — what a store calls first in
- * `saveAll`, before it reads or writes anything: throws `CostLedgerEntryInvalidError` for the
+ * `saveAll`, before it reads or writes anything: throws `StoreError.LedgerEntryInvalid` for the
  * first that lacks an id, a valid `madeAt` or a valid `costUsd`. The core only saves entries; a
  * JS caller (or a cast) is the one this stops.
  */
@@ -185,7 +181,7 @@ export function assertValidDate(date: unknown, what: string): asserts date is Da
 /**
  * Refuses a prune's cutoff that is no valid `Date` (#869) — what a store calls first in
  * `deleteByMadeAtBefore`, before it reads or writes anything: throws
- * `CostLedgerCutoffInvalidError`.
+ * `StoreError.LedgerCutoffInvalid`.
  */
 export function assertLedgerCutoff(cutoff: unknown): asserts cutoff is Date {
   const refused = invalidLedgerCutoffErrorOf(cutoff);
@@ -195,11 +191,11 @@ export function assertLedgerCutoff(cutoff: unknown): asserts cutoff is Date {
 /** The refusal of a prune's `cutoff` (#869) when it is no valid `Date`, else `undefined`. */
 export function invalidLedgerCutoffErrorOf(
   cutoff: unknown,
-): CostLedgerCutoffInvalidError | undefined {
+): StoreError.LedgerCutoffInvalid | undefined {
   const invalid = invalidDateErrorOf(cutoff, "the cutoff");
   return invalid === undefined
     ? undefined
-    : new CostLedgerCutoffInvalidError({ reason: invalid.message });
+    : new StoreError.LedgerCutoffInvalid({ reason: invalid.message });
 }
 
 /** The refusal of `date` as `what` (#817) when it is no valid `Date`, else `undefined`. */
@@ -285,7 +281,7 @@ export class InMemoryCostLedgerRepository extends CostLedgerRepository {
       mark !== undefined
     )
       return Promise.reject(
-        new CostLedgerEntryExpiredError({ ledgerIds: expired, prunedBefore: mark }),
+        new StoreError.LedgerEntryExpired({ ledgerIds: expired, prunedBefore: mark }),
       );
     const added = unrecordedEntriesOf(entries, (id, madeAt) =>
       this.#isNewEntry(id, madeAt.getTime()),

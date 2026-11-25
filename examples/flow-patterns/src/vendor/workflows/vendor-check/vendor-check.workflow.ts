@@ -1,4 +1,5 @@
-import { onStart, StepFailedError, toAction, Workflow, toFinish, Ttl } from "@agboss/core";
+import { StepError } from "@agboss/core";
+import { onStart, toAction, Workflow, toFinish, Ttl } from "@agboss/core";
 import { MarkVendorFailedAction } from "../../actions/mark-vendor-failed.action.js";
 import { VendorCheckerAgent } from "../../agents/vendor-checker/vendor-checker.agent.js";
 import { VendorCheckFailedWorkflowFinish } from "./vendor-check-failed.workflow-finish.js";
@@ -20,7 +21,7 @@ import { VendorCheckWorkflowStart } from "./vendor-check.workflow-start.js";
     onStart(VendorCheckWorkflowStart)
       .toAgent(VendorCheckerAgent)
       .onError(
-        StepFailedError, // the child catches its own failure: one more class for its parent
+        StepError, // the child catches its own failure: one more class for its parent
         toAction(MarkVendorFailedAction)
           .toFinish(VendorCheckFailedWorkflowFinish),
       )

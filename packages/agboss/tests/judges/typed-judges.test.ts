@@ -6,10 +6,11 @@
  * validated as — from the answer tool the agent used — and `JudgeInput<A | B>` a discriminated union
  * on it; a `listOf(A, B)` judge reads each item as an instance of its class.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { describe, expect, it } from "vitest";
 import { checkWorkflow } from "../../src/flow/analyse/analyse.js";
-import { JudgeVerdict, QualityGateError, type JudgeInput } from "../../src/index.js";
+import { JudgeVerdict, type JudgeInput } from "../../src/index.js";
 import { PlainTextDto } from "../../src/dto/index.js";
 import { replyWith, testUnit, testWith, type ModelRequest } from "../../src/testing/index.js";
 import { offline } from "../components/fixture/deps-contract.workflow.js";
@@ -75,36 +76,48 @@ const salaryOf = (input: JudgeInput<OfferDto | RefusalDto>): number | undefined 
 describe("a DTO judge", () => {
   const test = testWith(TypedJudgeApplication);
 
-  test("reads the answer as its validated DTO, not as text", async ({ app, mockLlm, mockOf }) => {
-    mockOf(JobSearch).exists.mockResolvedValue(true);
-    mockLlm(ScoutAgent).thenReturn(replyWith(JobReportDto, REPORT));
+  test("reads the answer as its validated DTO, not as text", async ({
+    app,
+    mockModel,
+    mockService,
+  }) => {
+    mockService(JobSearch).exists.mockResolvedValue(true);
+    mockModel(ScoutAgent).thenReturn(replyWith(JobReportDto, REPORT));
 
     const result = await execute(app, TaskStart, { text: "find a TS job" });
 
     expect(result).toFinishWith(ReportWorkflowFinish, REPORT);
-    expect(mockOf(JobSearch).exists.mock.calls).toEqual([["https://jobs.example/acme/1"]]);
+    expect(mockService(JobSearch).exists.mock.calls).toEqual([["https://jobs.example/acme/1"]]);
   });
 
-  test("its variant is its one class, the class itself", async ({ app, mockLlm, mockOf }) => {
-    const log = mockOf(VariantLog);
-    mockOf(JobSearch).exists.mockResolvedValue(true);
-    mockLlm(ScoutAgent).thenReturn(replyWith(JobReportDto, REPORT));
+  test("its variant is its one class, the class itself", async ({
+    app,
+    mockModel,
+    mockService,
+  }) => {
+    const log = mockService(VariantLog);
+    mockService(JobSearch).exists.mockResolvedValue(true);
+    mockModel(ScoutAgent).thenReturn(replyWith(JobReportDto, REPORT));
 
     await execute(app, TaskStart, { text: "find a TS job" });
 
     expect(seenOf(log.seen.mock.calls)).toEqual([JobReportDto]);
   });
 
-  test("a failed verdict's reason reaches the agent's retry", async ({ app, mockLlm, mockOf }) => {
-    mockOf(JobSearch).exists.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
-    mockLlm(ScoutAgent)
+  test("a failed verdict's reason reaches the agent's retry", async ({
+    app,
+    mockModel,
+    mockService,
+  }) => {
+    mockService(JobSearch).exists.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    mockModel(ScoutAgent)
       .thenReturn(replyWith(JobReportDto, { jobs: [{ title: "Gone", url: "https://gone" }] }))
       .thenReturn(replyWith(JobReportDto, REPORT));
 
     const result = await execute(app, TaskStart, { text: "find a TS job" });
 
     expect(result).toFinishWith(ReportWorkflowFinish, REPORT);
-    const [first, second] = mockLlm(ScoutAgent).requests;
+    const [first, second] = mockModel(ScoutAgent).requests;
     expect(textsOf(first).join("\n")).not.toContain("the first job does not exist");
     expect(textsOf(second).at(-1)).toContain(
       "[answer-grounded-judge] the first job does not exist",
@@ -113,15 +126,15 @@ describe("a DTO judge", () => {
 
   test("spent retries fail the run with every rejection's reason", async ({
     app,
-    mockLlm,
-    mockOf,
+    mockModel,
+    mockService,
   }) => {
-    mockOf(JobSearch).exists.mockResolvedValue(false);
-    mockLlm(ScoutAgent).thenReturnAlways(replyWith(JobReportDto, REPORT));
+    mockService(JobSearch).exists.mockResolvedValue(false);
+    mockModel(ScoutAgent).thenReturnAlways(replyWith(JobReportDto, REPORT));
 
     const run = execute(app, TaskStart, { text: "find a TS job" });
 
-    await expect(run).rejects.toBeInstanceOf(QualityGateError);
+    await expect(run).rejects.toBeInstanceOf(StepError.QualityGate);
     await expect(run).rejects.toMatchObject({
       retries: 1,
       rejections: [{ judge: "answer-grounded-judge", reason: "the first job does not exist" }],
@@ -132,8 +145,8 @@ describe("a DTO judge", () => {
 describe("a oneOf judge", () => {
   const test = testWith(VariantJudgeApplication);
 
-  test("judges the variant the agent answered with", async ({ app, mockLlm }) => {
-    mockLlm(ScreenerAgent)
+  test("judges the variant the agent answered with", async ({ app, mockModel }) => {
+    mockModel(ScreenerAgent)
       .thenReturn(replyWith(OfferDto, { salary: 0 }))
       .thenReturn(replyWith(RefusalDto, { why: "no TypeScript" }));
 
@@ -141,17 +154,17 @@ describe("a oneOf judge", () => {
 
     expect(result).toFollowPath([TaskStart, ScreenerAgent, RefusalWorkflowFinish]);
     expect(result).toFinishWith(RefusalWorkflowFinish, { why: "no TypeScript" });
-    const [, retry] = mockLlm(ScreenerAgent).requests;
+    const [, retry] = mockModel(ScreenerAgent).requests;
     expect(textsOf(retry).at(-1)).toContain("[fair-decision-judge] an offer pays something");
   });
 
   test("reads variant: the class of the answer tool the agent used", async ({
     app,
-    mockLlm,
-    mockOf,
+    mockModel,
+    mockService,
   }) => {
-    const log = mockOf(VariantLog);
-    mockLlm(ScreenerAgent)
+    const log = mockService(VariantLog);
+    mockModel(ScreenerAgent)
       .thenReturn(replyWith(OfferDto, { salary: 0 }))
       .thenReturn(replyWith(RefusalDto, { why: "no TypeScript" }));
 
@@ -163,9 +176,13 @@ describe("a oneOf judge", () => {
     expect(variants[1]).toBe(RefusalDto);
   });
 
-  test("a refusal that says nothing goes back to the agent", async ({ app, mockLlm, mockOf }) => {
-    const log = mockOf(VariantLog);
-    mockLlm(ScreenerAgent)
+  test("a refusal that says nothing goes back to the agent", async ({
+    app,
+    mockModel,
+    mockService,
+  }) => {
+    const log = mockService(VariantLog);
+    mockModel(ScreenerAgent)
       .thenReturn(replyWith(RefusalDto, { why: " " }))
       .thenReturn(replyWith(OfferDto, { salary: 5 }));
 
@@ -173,7 +190,7 @@ describe("a oneOf judge", () => {
 
     expect(result).toFinishWith(OfferWorkflowFinish, { salary: 5 });
     expect(seenOf(log.seen.mock.calls)).toEqual([RefusalDto, OfferDto]);
-    const [, retry] = mockLlm(ScreenerAgent).requests;
+    const [, retry] = mockModel(ScreenerAgent).requests;
     expect(textsOf(retry).at(-1)).toContain("[fair-decision-judge] a refusal says why");
   });
 
@@ -216,21 +233,29 @@ describe("a oneOf judge", () => {
 describe("a list judge", () => {
   const test = testWith(ListJudgeApplication);
 
-  test("reads the list of DTOs; its reason reaches the retry", async ({ app, mockLlm, mockOf }) => {
-    const log = mockOf(VariantLog);
-    mockOf(JobSearch).exists.mockImplementation((url: string) =>
+  test("reads the list of DTOs; its reason reaches the retry", async ({
+    app,
+    mockModel,
+    mockService,
+  }) => {
+    const log = mockService(VariantLog);
+    mockService(JobSearch).exists.mockImplementation((url: string) =>
       Promise.resolve(url !== "https://gone"),
     );
-    mockLlm(JobsScoutAgent)
+    mockModel(JobsScoutAgent)
       .thenReturn(replyWith(JobDto, [JOB, { title: "Gone", url: "https://gone" }]))
       .thenReturn(replyWith(JobDto, [JOB]));
-    mockLlm(JobsSummaryAgent).thenReturn(replyWith("One TS job."));
+    mockModel(JobsSummaryAgent).thenReturn(replyWith("One TS job."));
 
     const result = await execute(app, TaskStart, { text: "find TS jobs" });
 
     expect(result.output).toEqual({ text: "One TS job." });
-    expect(mockOf(JobSearch).exists.mock.calls).toEqual([[JOB.url], ["https://gone"], [JOB.url]]);
-    const [, retry] = mockLlm(JobsScoutAgent).requests;
+    expect(mockService(JobSearch).exists.mock.calls).toEqual([
+      [JOB.url],
+      ["https://gone"],
+      [JOB.url],
+    ]);
+    const [, retry] = mockModel(JobsScoutAgent).requests;
     expect(textsOf(retry).at(-1)).toContain("[jobs-judge] every job must still be posted");
     expect(seenOf(log.seen.mock.calls)).toEqual([JobDto, JobDto]);
   });
@@ -250,17 +275,17 @@ describe("a list judge", () => {
 describe("a list-of-oneOf judge", () => {
   const test = testWith(VariantListJudgeApplication);
 
-  test("reads each item's variant and value", async ({ app, mockLlm, mockOf }) => {
-    const log = mockOf(VariantLog);
-    mockLlm(PanelScreenerAgent)
+  test("reads each item's variant and value", async ({ app, mockModel, mockService }) => {
+    const log = mockService(VariantLog);
+    mockModel(PanelScreenerAgent)
       .thenReturn(replyWith(OfferDto, [{ salary: 1 }, { salary: 2 }]))
       .thenReturn(replyWith(RefusalDto, [{ why: "no TypeScript" }]));
-    mockLlm(DecisionsSummaryAgent).thenReturn(replyWith("One refusal."));
+    mockModel(DecisionsSummaryAgent).thenReturn(replyWith("One refusal."));
 
     const result = await execute(app, TaskStart, { text: "screen the panel" });
 
     expect(result.output).toEqual({ text: "One refusal." });
-    const [, retry] = mockLlm(PanelScreenerAgent).requests;
+    const [, retry] = mockModel(PanelScreenerAgent).requests;
     expect(textsOf(retry).at(-1)).toContain("[decisions-judge] make at most one offer");
     const variants = seenOf(log.seen.mock.calls);
     expect(variants).toEqual([OfferDto, OfferDto, RefusalDto]);

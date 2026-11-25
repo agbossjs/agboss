@@ -139,7 +139,7 @@ export function workingCalendarViolations(
 /**
  * The rules of the `@WorkingCalendar` classes an application lists (#944), like a listener's: a name
  * that is kebab-case (`[name.not-kebab-case]`) and one class per name
- * (`[working-calendar.duplicate-name]`) — the name is what a `WorkingCalendarError` says.
+ * (`[working-calendar.duplicate-name]`) — the name is what a `PauseError.WorkingCalendar` says.
  */
 export function workingCalendarNameViolations(
   application: string,

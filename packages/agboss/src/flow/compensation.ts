@@ -22,7 +22,7 @@ import type { ExecutionLimits } from "./runtime/limits.js";
  * Declared action compensation at run time (#340): what an undo of an `@Action({ compensateWith })`
  * is recorded as (`result.compensations`, `CompensationRecord`), why it ran (`CompensationReason`),
  * how it ended (`CompensationStatus`) and the error of an automatic undo that failed
- * (`CompensationFailedError`). The runtime that opens, closes and runs them is loaded lazily
+ * (`ExecutionError.CompensationFailed`). The runtime that opens, closes and runs them is loaded lazily
  * (`flow/runtime/compensation/`); this module keeps only the public names and the state channel's
  * entry, which the root import needs (QUALITY.md → Design).
  */
@@ -57,7 +57,7 @@ export enum CompensationStatus {
   Failed = "failed",
 }
 
-/** One undo action that ran (`result.compensations`, `CompensationFailedError.failures`). */
+/** One undo action that ran (`result.compensations`, `ExecutionError.CompensationFailed.failures`). */
 export interface CompensationRecord {
   /** The step it undoes: the action's visit (its key, its copy or item). */
   readonly compensated: StepRecord;
@@ -74,11 +74,6 @@ export interface CompensationRecord {
   /** When it ended (ISO 8601, the application's `Clock`). */
   readonly endedAt: string;
 }
-
-export {
-  CompensationFailedError,
-  type CompensationFailedErrorOptions,
-} from "./compensation-failed.js";
 
 /** Where an entry of the `compensations` channel stands. */
 export enum CompensationEntryStatus {

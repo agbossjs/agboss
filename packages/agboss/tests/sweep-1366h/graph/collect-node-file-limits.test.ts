@@ -1,11 +1,11 @@
 /**
  * #1366: the files of a move's tool results are counted over the whole conversation, never per call: the
  * files and the bytes of the calls before add to the next one's, and over `maxFiles` or `maxTotalFileSize`
- * the step fails with `ModelFileLimitError` before any model call.
+ * the step fails with `StepError.ModelFileLimit` before any model call.
  */
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { AIMessage } from "@langchain/core/messages";
 import { describe, expect, it, vi } from "vitest";
-import { ModelFileLimitError } from "../../../src/files/file-errors.js";
 import { ModelFileLimit } from "../../../src/files/model-files.js";
 
 const { filePiecesOf } = vi.hoisted(() => ({
@@ -87,7 +87,7 @@ describe("#1366: the files of the conversation are counted across calls", () => 
       },
     );
 
-    expect(outcome).toBeInstanceOf(ModelFileLimitError);
+    expect(outcome).toBeInstanceOf(StepError.ModelFileLimit);
     expect(outcome).toMatchObject({ limit: ModelFileLimit.MaxFiles, actual: 4, allowed: 3 });
   });
 
@@ -128,7 +128,7 @@ describe("#1366: the files of the conversation are counted across calls", () => 
       },
     );
 
-    expect(outcome).toBeInstanceOf(ModelFileLimitError);
+    expect(outcome).toBeInstanceOf(StepError.ModelFileLimit);
     expect(outcome).toMatchObject({
       limit: ModelFileLimit.MaxTotalFileSize,
       actual: 1200,

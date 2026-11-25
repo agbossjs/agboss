@@ -1,9 +1,9 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
   Action,
   Agent,
   EmptyEnvironment,
-  StepFailedError,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
@@ -113,11 +113,8 @@ export class ReleasedWorkflowFinish {}
     onStart(ChaosWorkflowStart)
       .toAction(ReserveAction)
       .toAgent(ConfirmAgent)
-      .onError(
-        StepFailedError,
-        toAction(ReleaseAction)
-          .toFinish(ReleasedWorkflowFinish),
-      )
+      .onError(StepError, toAction(ReleaseAction)
+        .toFinish(ReleasedWorkflowFinish))
       .toFinish(ConfirmedWorkflowFinish),
   ],
   providers: [ChaosDesk],

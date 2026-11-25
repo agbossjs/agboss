@@ -47,8 +47,6 @@ import { reassignPauseOf, replacementSendsOf, resendOf } from "./pause-reassignm
 import { meshContextValuesOf } from "../mesh/mesh-context-values.js";
 import { checkedCallerId } from "../flow/context/context-values.js";
 
-export { NotAWorkflowStartError } from "./starts.js";
-
 /** Why an execution or a resume is refused once `app.close()` has begun. */
 const STOPPING = "the app is stopping: app.close() was called, no new execution is accepted";
 

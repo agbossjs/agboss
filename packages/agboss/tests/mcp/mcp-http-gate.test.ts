@@ -325,7 +325,7 @@ describe("#1320: an MCP HTTP session admits each message by its own verified ide
     ).not.toThrow();
   });
 
-  it("with a tenantContext, no authenticator is a ConfigError, not a ComponentError", () => {
+  it("with a tenantContext, no authenticator is a ConfigError, not a ConfigError.Component", () => {
     const app = Object.assign(appOf({ tenantContext: true }), {
       resolve: (token: unknown) => (token === Logger ? new SilentLogger() : new SystemClock()),
     });

@@ -4,6 +4,7 @@
  * the branches it waits for, never a seal, the undo's spend written before the error, each undo
  * marked in the tree's store, and the entries an earlier pass undid closed by the join's update.
  */
+import { ExecutionError } from "../../../src/core/error-families/run-errors.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   COMPENSATION_TIMEOUT,
@@ -12,7 +13,6 @@ import {
   CompensationStatus,
   type CompensationEntry,
 } from "../../../src/flow/compensation.js";
-import { CompensationFailedError } from "../../../src/flow/compensation.js";
 import {
   unwoundJoin,
   type JoinUnwindSite,
@@ -174,14 +174,14 @@ describe("#633: the join's unwind", () => {
     expect((undo.compensations ?? []).map((entry) => entry.key)).toEqual(["mine"]);
   });
 
-  it("an undo that failed: its spend written first, then CompensationFailedError caused by the branch's", async () => {
+  it("an undo that failed: its spend written first, then ExecutionError.CompensationFailed caused by the branch's", async () => {
     const { site, record } = siteOf([inLaunch("mine")]);
     const failure = closedOf(inLaunch("mine"), CompensationStatus.Failed).undo;
     mocks.unwound.mockResolvedValue({ closed: [], usage: [USAGE], failures: [failure] });
 
     const failing = unwoundJoin(site);
 
-    await expect(failing).rejects.toBeInstanceOf(CompensationFailedError);
+    await expect(failing).rejects.toBeInstanceOf(ExecutionError.CompensationFailed);
     await expect(failing).rejects.toMatchObject({ cause: site.cause });
     expect(record).toHaveBeenCalledWith([USAGE]);
   });

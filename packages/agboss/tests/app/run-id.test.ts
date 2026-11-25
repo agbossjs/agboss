@@ -27,9 +27,9 @@ const idsSeen = (): string[] => [
 describe("#238: one run id per run", () => {
   test("AC1: observer events (the action's too), a tool's executionContext.executionId, the Turn and the result carry the same id", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Searcher).thenReturn(
+    mockModel(Searcher).thenReturn(
       callTool(Lookup, { text: "rust" }),
       replyWith(ShortlistDto, { text: "2 jobs." }),
     );
@@ -51,9 +51,9 @@ describe("#238: one run id per run", () => {
 
   test("AC1: across a pause and its resume — the same id before and after", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Searcher).thenReturn(
+    mockModel(Searcher).thenReturn(
       callTool(Apply, { text: "job 1" }),
       replyWith(ShortlistDto, { text: "Applied." }),
     );
@@ -70,8 +70,8 @@ describe("#238: one run id per run", () => {
     expect(idsSeen()).toEqual([paused.executionId]);
   });
 
-  test("two runs get two ids", async ({ app, mockLlm }) => {
-    mockLlm(Searcher).thenReturn(
+  test("two runs get two ids", async ({ app, mockModel }) => {
+    mockModel(Searcher).thenReturn(
       replyWith(ShortlistDto, { text: "One." }),
       replyWith(ShortlistDto, { text: "Two." }),
     );

@@ -195,7 +195,7 @@ describe("#904 item 5 AC5.1: the setting, checked and described", () => {
 
     expect(
       contracts.exports.map((each) =>
-        each.kind === "a2a" ? [each.expose, each.cardFileFields] : [],
+        each.kind === "a2a" ? [each.endpoint, each.cardFileFields] : [],
       ),
     ).toEqual([
       ["files-a2a-expose", "extension"],

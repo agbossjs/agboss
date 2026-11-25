@@ -4,7 +4,7 @@
  * data, and the observability mask only reaches the strings an event carries as plain data.
  */
 export interface ObservedFailure {
-  /** The error's class name (`"ModelCallError"`, `"RerankFailedError"`). */
+  /** The error's class name (`"ModelCallError"`, `"StepError.RerankFailed"`). */
   readonly name: string;
   /** Its stable code (`model.circuit-open`), when it has one. */
   readonly code: string | undefined;

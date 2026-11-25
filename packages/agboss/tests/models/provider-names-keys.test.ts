@@ -4,10 +4,10 @@
  * variable read by the provider; (2) a provider's `name` ends with `-model-provider`
  * (`[name.not-kebab-case]`), the built-ins' too.
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
-import { EnvironmentError } from "../../src/environments/errors.js";
 import {
   NO_ENVIRONMENT_VALUES,
   resolveEnvironment,
@@ -15,7 +15,7 @@ import {
 } from "../../src/environments/resolve.js";
 import { Secret, secret } from "../../src/environments/secret.js";
 import { env } from "../../src/environments/env-readers.js";
-import { EmptyEnvironment, GraphRuleError } from "../../src/index.js";
+import { EmptyEnvironment } from "../../src/index.js";
 import { ModelProvider, OpenAiCompatibleDriver } from "../../src/models/index.js";
 import { modelProviderOf } from "../../src/models/model-provider.decorator.js";
 import { providerBaseUrlOf, providerKeyOf } from "../../src/models/provider-environment.js";
@@ -55,8 +55,8 @@ describe("#266 S73 c: provider names are kebab-case", () => {
       (thrown: unknown) => thrown,
     );
 
-    expect(error).toBeInstanceOf(GraphRuleError);
-    expect(error instanceof GraphRuleError ? error.violations : []).toEqual([
+    expect(error).toBeInstanceOf(ConfigError.GraphRules);
+    expect(error instanceof ConfigError.GraphRules ? error.violations : []).toEqual([
       expect.objectContaining({
         code: "name.not-kebab-case",
         message: '"Local_Server" on @ModelProvider — a name is kebab-case: "local-server"',
@@ -80,11 +80,11 @@ describe("#1313: a driver provider's key and base URL are references read from t
   });
 
   it("a missing key fails when the provider will be called, naming the variable", () => {
-    expect(() => providerKeyOf(openRouter, source({}), true)).toThrow(EnvironmentError);
+    expect(() => providerKeyOf(openRouter, source({}), true)).toThrow(ConfigError.Environment);
     expect(() => providerKeyOf(openRouter, source({}), true)).toThrow("OPENROUTER_API_KEY");
     expect(providerKeyOf(openRouter, source({}), false)).toBeUndefined();
     expect(() => providerKeyOf(openRouter, source({ OPENROUTER_API_KEY: "" }), true)).toThrow(
-      EnvironmentError,
+      ConfigError.Environment,
     );
   });
 
@@ -102,7 +102,7 @@ describe("#1313: a driver provider's key and base URL are references read from t
     expect(providerBaseUrlOf(proxied, source({ LOCAL_URL: "http://stub.test/v1" }))).toBe(
       "http://stub.test/v1",
     );
-    expect(() => providerBaseUrlOf(proxied, source({}))).toThrow(EnvironmentError);
+    expect(() => providerBaseUrlOf(proxied, source({}))).toThrow(ConfigError.Environment);
   });
 });
 

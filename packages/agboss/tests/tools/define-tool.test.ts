@@ -1,14 +1,10 @@
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { fencedRefusalOf } from "../../src/app/lease-lost.js";
 import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { ExecutionLeaseLostError } from "../../src/index.js";
-import {
-  defineTool,
-  InvalidToolNameError,
-  ToolTimeoutError,
-  type ToolInvocationContext,
-} from "../../src/tools/index.js";
+import { defineTool, ToolTimeoutError, type ToolInvocationContext } from "../../src/tools/index.js";
 import { seconds } from "../../src/units/index.js";
 
 const ctx = (signal: AbortSignal = new AbortController().signal): ToolInvocationContext => ({
@@ -127,7 +123,7 @@ describe("defineTool", () => {
         output: z.string(),
         run: () => Promise.resolve(""),
       }),
-    ).toThrow(InvalidToolNameError);
+    ).toThrow(ConfigError.Component);
   });
 });
 

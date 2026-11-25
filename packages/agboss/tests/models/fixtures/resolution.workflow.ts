@@ -113,10 +113,8 @@ export class NowhereMemory {}
   flow: [
     onStart(ResolutionStart)
       .toRouter(NowhereRouter)
-      .onRoute(
-        toAgent(NowhereAgent)
-          .toFinish(ResolutionFinish),
-      ),
+      .onRoute(toAgent(NowhereAgent)
+        .toFinish(ResolutionFinish)),
   ],
   defaults: {
     models: { temperature: 0, maxTokens: TokenLimit.ModelMax },
@@ -151,11 +149,9 @@ export class LocalStart {}
   name: "local-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(LocalStart)
-      .toAgent(LocalAgent)
-      .toFinish(ResolutionFinish),
-  ],
+  flow: [onStart(LocalStart)
+    .toAgent(LocalAgent)
+    .toFinish(ResolutionFinish)],
   defaults: {
     models: { temperature: 0, maxTokens: TokenLimit.ModelMax },
   },
@@ -204,11 +200,9 @@ export class NotInfrastructure {}
   name: "misplaced-provider-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(LocalStart)
-      .toAgent(LocalAgent)
-      .toFinish(ResolutionFinish),
-  ],
+  flow: [onStart(LocalStart)
+    .toAgent(LocalAgent)
+    .toFinish(ResolutionFinish)],
   defaults: {
     models: { temperature: 0, maxTokens: TokenLimit.ModelMax },
   },

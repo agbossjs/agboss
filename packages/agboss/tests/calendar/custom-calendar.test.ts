@@ -6,20 +6,19 @@
  * the step that asked: nobody is asked, no pause is recorded; an extension with it is refused and the
  * pause stays. A calendar changed later never moves an open pause.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { beforeEach, describe, expect } from "vitest";
 import { ExecutionStatus } from "../../src/app/types.js";
 import { Injectable } from "../../src/components/decorators.js";
 import { currentFrame } from "../../src/flow/context/frame.js";
 import {
   WorkingCalendar,
-  WorkingCalendarError,
   WorkingCalendarProblem,
   WorkingWeek,
   type WorkingCalendarHandler,
   type WorkingCalendarContext,
 } from "../../src/index.js";
-import { QuestionFailedError } from "../../src/flow/runtime/errors.js";
-import { AgentFailedError } from "../../src/graph/errors.js";
 import { PausedExecutionRepository } from "../../src/infrastructure/paused-execution.repository.js";
 import { callTool, testWith } from "../../src/testing/index.js";
 import type { VirtualClock } from "../../src/testing/clock.js";
@@ -252,16 +251,16 @@ describe("#944 AC5: a calendar that cannot answer asks nobody", () => {
   };
 
   flakyTest(
-    "AC5: throws → the step fails with QuestionFailedError, cause a WorkingCalendarError; nobody is asked; no record",
+    "AC5: throws → the step fails with StepError.ExternalTask, cause a PauseError.WorkingCalendar; nobody is asked; no record",
     async ({ app, clock }) => {
       flaky.mode = "throw";
       await moveTo(clock, "2026-01-08T15:30:00.000Z");
 
       const failed = await failureOf(app);
 
-      expect(failed).toBeInstanceOf(QuestionFailedError);
-      const cause = (failed as QuestionFailedError).cause;
-      expect(cause).toBeInstanceOf(WorkingCalendarError);
+      expect(failed).toBeInstanceOf(StepError.ExternalTask);
+      const cause = (failed as StepError.ExternalTask).cause;
+      expect(cause).toBeInstanceOf(PauseError.WorkingCalendar);
       expect(cause).toMatchObject({
         calendar: "flaky-working-calendar",
         problem: WorkingCalendarProblem.CalendarFailed,
@@ -287,8 +286,8 @@ describe("#944 AC5: a calendar that cannot answer asks nobody", () => {
         const failed = await execute(app, flakyDesk.start, ORDER, { threadId: `t-${mode}` }).catch(
           (error: unknown) => error,
         );
-        expect(failed).toBeInstanceOf(QuestionFailedError);
-        expect((failed as QuestionFailedError).cause).toMatchObject({ problem });
+        expect(failed).toBeInstanceOf(StepError.ExternalTask);
+        expect((failed as StepError.ExternalTask).cause).toMatchObject({ problem });
       }
       expect(flakyDesk.told.sent).toEqual([]);
     },
@@ -308,8 +307,8 @@ describe("#944 AC5: a calendar that cannot answer asks nobody", () => {
       for (let step = 0; step < 4; step += 1) await clock.advance(seconds(10));
       const failed = await running;
 
-      expect(failed).toBeInstanceOf(QuestionFailedError);
-      expect((failed as QuestionFailedError).cause).toMatchObject({
+      expect(failed).toBeInstanceOf(StepError.ExternalTask);
+      expect((failed as StepError.ExternalTask).cause).toMatchObject({
         problem: WorkingCalendarProblem.CalendarTimeout,
       });
       expect(flakyDesk.told.sent).toEqual([]);
@@ -317,7 +316,7 @@ describe("#944 AC5: a calendar that cannot answer asks nobody", () => {
   );
 
   flakyTest(
-    "AC5: extendPause with a failing calendar rejects with the WorkingCalendarError, the pause unchanged",
+    "AC5: extendPause with a failing calendar rejects with the PauseError.WorkingCalendar, the pause unchanged",
     async ({ app, clock }) => {
       await moveTo(clock, "2026-01-08T15:30:00.000Z");
       const paused = await execute(app, flakyDesk.start, ORDER, { threadId: "t-1" });
@@ -330,7 +329,7 @@ describe("#944 AC5: a calendar that cannot answer asks nobody", () => {
         .extendPause({ pauseId, expiresIn: workingHours(8) }, manager)
         .catch((error: unknown) => error);
 
-      expect(refused).toBeInstanceOf(WorkingCalendarError);
+      expect(refused).toBeInstanceOf(PauseError.WorkingCalendar);
       expect(refused).toMatchObject({ problem: WorkingCalendarProblem.CalendarFailed });
       expect(await pauseOf(app, pauseId)).toEqual(before);
     },
@@ -345,11 +344,11 @@ const toolTest = testWith(toolDesk.application);
 
 describe("#944 AC5: an agent's approval with a failing calendar", () => {
   toolTest(
-    "AC5: the agent step fails with AgentFailedError, cause a WorkingCalendarError; the tool never ran",
-    async ({ app, clock, mockLlm }) => {
+    "AC5: the agent step fails with StepError.Agent, cause a PauseError.WorkingCalendar; the tool never ran",
+    async ({ app, clock, mockModel }) => {
       flaky.mode = "throw";
       await moveTo(clock, "2026-01-08T15:30:00.000Z");
-      mockLlm(toolDesk.agent as never).thenReturn(
+      mockModel(toolDesk.agent as never).thenReturn(
         callTool(toolDesk.tool as never, { orderId: "7" } as never),
       );
 
@@ -360,8 +359,8 @@ describe("#944 AC5: an agent's approval with a failing calendar", () => {
         { threadId: "t-1" },
       ).catch((error: unknown) => error);
 
-      expect(failed).toBeInstanceOf(AgentFailedError);
-      expect((failed as AgentFailedError).cause).toBeInstanceOf(WorkingCalendarError);
+      expect(failed).toBeInstanceOf(StepError.Agent);
+      expect((failed as StepError.Agent).cause).toBeInstanceOf(PauseError.WorkingCalendar);
       expect(
         await app.resolve(PausedExecutionRepository).findOpenAfter(undefined, 10),
       ).toMatchObject({ pauses: [] });

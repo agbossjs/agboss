@@ -45,18 +45,18 @@ describe("AC4: the settled answers reach the .onError path", () => {
   test("AC4: legal and finance approved, the CFO's approval expired: the CEO is shown both, nobody is asked again, the COO is withdrawn", async ({
     app,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(LegalApproverAgent).thenReturn(
+    mockModel(LegalApproverAgent).thenReturn(
       callTool(ApproveTool, { what: "legal" }),
       replyWith(LegalDecisionDto, { approved: true }),
     );
-    mockLlm(FinanceApproverAgent).thenReturn(
+    mockModel(FinanceApproverAgent).thenReturn(
       callTool(ApproveTool, { what: "finance" }),
       replyWith(FinanceDecisionDto, { approved: true }),
     );
-    mockLlm(CfoApproverAgent).thenReturn(callTool(ApproveInThirtyTool, { what: "cfo" }));
-    mockLlm(CooApproverAgent).thenReturn(callTool(ApproveTool, { what: "coo" }));
+    mockModel(CfoApproverAgent).thenReturn(callTool(ApproveInThirtyTool, { what: "cfo" }));
+    mockModel(CooApproverAgent).thenReturn(callTool(ApproveTool, { what: "coo" }));
     const paused = await execute(app, JoinExpiryWorkflowStart, THING);
     expect(paused.status).toBe(ExecutionStatus.Paused);
     expect(je.sent).toHaveLength(4);
@@ -96,14 +96,14 @@ const twoInstances = testWith(JoinExpiryApplication, { instances: 2 });
 describe("AC4: two instances, exactly once", () => {
   twoInstances(
     "both instances look at the expiry: one join, one escalation, joinFailed once per answered pause",
-    async ({ apps, clock, mockLlm }) => {
-      mockLlm(LegalApproverAgent).thenReturn(
+    async ({ apps, clock, mockModel }) => {
+      mockModel(LegalApproverAgent).thenReturn(
         callTool(ApproveTool, { what: "legal" }),
         replyWith(LegalDecisionDto, { approved: true }),
       );
-      mockLlm(FinanceApproverAgent).thenReturn(callTool(ApproveTool, { what: "finance" }));
-      mockLlm(CfoApproverAgent).thenReturn(callTool(ApproveInThirtyTool, { what: "cfo" }));
-      mockLlm(CooApproverAgent).thenReturn(callTool(ApproveTool, { what: "coo" }));
+      mockModel(FinanceApproverAgent).thenReturn(callTool(ApproveTool, { what: "finance" }));
+      mockModel(CfoApproverAgent).thenReturn(callTool(ApproveInThirtyTool, { what: "cfo" }));
+      mockModel(CooApproverAgent).thenReturn(callTool(ApproveTool, { what: "coo" }));
       for (const app of apps) await app.ready();
       const [first, second] = apps;
       if (first === undefined || second === undefined) throw new Error("two instances");

@@ -1,5 +1,6 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import type { Class } from "../components/injection.js";
-import { GraphRuleError, violation, type RuleViolation } from "../graph/rule-error.js";
+import { violation, type RuleViolation } from "../graph/rule-error.js";
 import { RagScope } from "./types.js";
 
 const SCOPES: ReadonlySet<unknown> = new Set(Object.values(RagScope));
@@ -26,5 +27,5 @@ export function checkScopes(
     }
     return [];
   });
-  if (found.length > 0) throw new GraphRuleError({ violations: found });
+  if (found.length > 0) throw new ConfigError.GraphRules({ violations: found });
 }

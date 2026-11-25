@@ -3,6 +3,7 @@
  * `make check`); an `@ts-expect-error` on a line that compiles would fail the build. The removed
  * forms (`tenancy`, `rerank`, `mode`, `RagConnector`, `@Reranker`) are pinned too.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { describe, expect, expectTypeOf, it } from "vitest";
 import { Agent, Tool } from "../../src/index.js";
 import {
@@ -89,7 +90,6 @@ class Reranked extends Plain {}
   name: "a",
   description: "d",
   model: "m",
-  price: testConfig.agents.alpha.price,
   rag: [Reranked, NoK],
   prompt: "./x.md",
 })
@@ -99,7 +99,6 @@ class Reads {}
   name: "b",
   description: "d",
   model: "m",
-  price: testConfig.agents.alpha.price,
   // @ts-expect-error — `{ use, mode }` is gone: `rag` is a list of classes
   rag: [{ use: NoK, mode: "tool" }],
   prompt: "./x.md",
@@ -153,7 +152,7 @@ describe("knowledge bases — compile-time checks", () => {
       "DecidedBy",
       "SqliteFtsConnector",
       "DEFAULT_RERANKER_MODEL",
-      "RerankFailedError",
+      "StepError.RerankFailed",
       "RagFts5UnavailableError",
       "RagIndexVersionError",
     ])

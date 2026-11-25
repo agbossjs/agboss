@@ -2,7 +2,7 @@
  * #1320: `a2aHttpListener` serves callers no authenticator vouches for only with `allowAnonymous:
  * true`, only in an application with no `tenantContext` of its own, and not beside an authenticator;
  * else the listener is not made: a `ConfigError` (`[http.authenticator-required-for-tenant-context]`),
- * never a `ComponentError`. An anonymous caller owns nothing and is bound to nothing of its
+ * never a `ConfigError.Component`. An anonymous caller owns nothing and is bound to nothing of its
  * connection: its task is reached by its id, and listing is `403`.
  */
 import { ComponentOptions } from "../../src/components/component-options.js";
@@ -12,7 +12,6 @@ import { ownedTask } from "../../src/a2a/server/a2a-server-parts.js";
 import { A2AOperation } from "../../src/a2a/a2a-caller.js";
 import { forNewTask, forTask } from "../../src/a2a/server/a2a-server-parts.js";
 import { externalCallerOf } from "../../src/a2a/server/a2a-peer-gate.js";
-import { ComponentError } from "../../src/components/metadata.js";
 import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { Logger, SilentLogger } from "../../src/infrastructure/logger.js";
 import { rememberMeshSettings, type MeshSettings } from "../../src/mesh/mesh-settings.js";
@@ -48,12 +47,12 @@ const options = { endpoint: OrdersA2AExpose, publicUrl: "https://desk.example" }
 const CODE = "[http.authenticator-required-for-tenant-context]";
 
 describe("#1320: the A2A listener's authenticator", () => {
-  it("is required unless allowAnonymous is set: a forgotten one is a ConfigError, not a ComponentError", () => {
+  it("is required unless allowAnonymous is set: a forgotten one is a ConfigError, not a ConfigError.Component", () => {
     const made = () => a2aHttpListener(appOf(true), options);
 
     expect(made).toThrow(ConfigError.Option);
     expect(made).toThrow(CODE);
-    expect(made).not.toThrow(ComponentError);
+    expect(made).not.toThrow(ConfigError.Component);
   });
 
   it("allowAnonymous: true serves an application with no tenantContext of its own", () => {

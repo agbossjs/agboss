@@ -2,15 +2,16 @@
  * #578 — an id the application's own `IdGenerator` mints is held to the key-text rules (#538, #547,
  * #556) at the mint, like every id that comes in: `x\uD800` and `x\uDFFF` are both `x�` in UTF-8, so
  * two trees would share one lease, one audit log, one queue row and one fenced-effect scope. A
- * minted id breaking a rule is `InvalidMintedIdError` — the generator's class, the method and the
+ * minted id breaking a rule is `ExecutionError.InvalidMintedId` — the generator's class, the method and the
  * rule named, never the id — and is never used nor stored.
  */
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { DatabaseSync } from "node:sqlite";
 import { beforeEach, describe, expect, it } from "vitest";
 import { applicationOf } from "../../src/application/assemble.js";
 import { buildApplication } from "../../src/application/create-app.js";
 import { ExecutionStatus } from "../../src/app/types.js";
-import { InvalidMintedIdError, KeyTextRule, keyTextRuleOf } from "../../src/errors.js";
+import { KeyTextRule, keyTextRuleOf } from "../../src/errors.js";
 import { RandomIdGenerator } from "../../src/index.js";
 import { replyWith, SequentialIdGenerator, testWith } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
@@ -58,9 +59,9 @@ const rejectionOf = (call: Promise<unknown>): Promise<unknown> =>
 
 /** The error names the generator, the method and the rule — never the id, nor a part of it. */
 function expectRefusedMint(error: unknown, method: string, rule: KeyTextRule, id: unknown): void {
-  expect(error).toBeInstanceOf(InvalidMintedIdError);
+  expect(error).toBeInstanceOf(ExecutionError.InvalidMintedId);
   expect(error).toMatchObject({
-    code: "run.invalid-minted-id",
+    code: "execution.invalid-minted-id",
     generator: "PlannedIdGenerator",
     method,
     rule,
@@ -70,7 +71,7 @@ function expectRefusedMint(error: unknown, method: string, rule: KeyTextRule, id
   expect(message).toContain(`${method}()`);
   expect(message).toContain(`(${rule})`);
   if (typeof id === "string" && id.length > 0) expect(message).not.toContain(id);
-  expect(JSON.stringify((error as InvalidMintedIdError).details)).not.toContain("x\\ud8");
+  expect(JSON.stringify((error as ExecutionError.InvalidMintedId).details)).not.toContain("x\\ud8");
 }
 
 /** The rows of every table of the test's SQLite file. */
@@ -112,8 +113,8 @@ const confirmer = (request: ModelRequest) =>
 describe("#578 AC1: on SQLite, a minted id that is no key fails the execution before anything is stored", () => {
   sqlite(
     "newExecutionId() → x\\uD800, then x\\uDFFF: both refused, nothing on the file; the next valid id runs",
-    async ({ app, mockLlm }) => {
-      mockLlm(Clerk).thenReturn(replyWith(ReceiptDto, { text: "One." }));
+    async ({ app, mockModel }) => {
+      mockModel(Clerk).thenReturn(replyWith(ReceiptDto, { text: "One." }));
       await app.ready();
       await untilSweepMarked();
       const before = rowsOnFile();
@@ -133,8 +134,8 @@ describe("#578 AC1: on SQLite, a minted id that is no key fails the execution be
 
   sqlite(
     "newThreadId() → x\\uD800: refused before the thread is created — only the execution's kept id (#591) and its admitted budgets' maxSpend() are kept",
-    async ({ app, mockLlm }) => {
-      mockLlm(Clerk).thenReturn(replyWith(ReceiptDto, { text: "One." }));
+    async ({ app, mockModel }) => {
+      mockModel(Clerk).thenReturn(replyWith(ReceiptDto, { text: "One." }));
       await app.ready();
       await untilSweepMarked();
       const before = rowsOnFile();
@@ -159,8 +160,8 @@ describe("#578 AC1: on SQLite, a minted id that is no key fails the execution be
 
   sqlite(
     "a caller's own threadId mints no thread id: the generator is not asked",
-    async ({ app, mockLlm }) => {
-      mockLlm(Clerk).thenReturn(replyWith(ReceiptDto, { text: "One." }));
+    async ({ app, mockModel }) => {
+      mockModel(Clerk).thenReturn(replyWith(ReceiptDto, { text: "One." }));
       minting.threads = ["x\uD800"];
 
       const done = await execute(app, OrderWorkflowStart, { text: "a" }, { threadId: "order-a" });
@@ -174,20 +175,20 @@ describe("#578 AC1: on SQLite, a minted id that is no key fails the execution be
 describe("#578 AC1: a child's minted execution id", () => {
   planned(
     "x\\uD800 for the child: the launch fails with it in the cause chain, the child never starts",
-    async ({ app, mockLlm }) => {
-      mockLlm(ChildRefundAgent).thenAnswer(confirmer);
+    async ({ app, mockModel }) => {
+      mockModel(ChildRefundAgent).respondWith(confirmer);
       minting.executions = ["root-1", "x\uD800"];
 
       const failed = await rejectionOf(execute(app, SingleChildWorkflowStart, { orderId: "A" }));
 
       expect(failed).toBeInstanceOf(Error);
       expectRefusedMint(causeOf(failed), "newExecutionId", KeyTextRule.LoneSurrogate, "x\uD800");
-      expect(mockLlm(ChildRefundAgent).requests).toHaveLength(0);
+      expect(mockModel(ChildRefundAgent).requests).toHaveLength(0);
     },
   );
 
-  planned("a valid child id still pauses and finishes", async ({ app, mockLlm }) => {
-    mockLlm(ChildRefundAgent).thenAnswer(confirmer);
+  planned("a valid child id still pauses and finishes", async ({ app, mockModel }) => {
+    mockModel(ChildRefundAgent).respondWith(confirmer);
     minting.executions = ["root-1", "child-1"];
 
     const paused = await execute(app, SingleChildWorkflowStart, { orderId: "A" });
@@ -198,10 +199,10 @@ describe("#578 AC1: a child's minted execution id", () => {
   });
 });
 
-/** The `InvalidMintedIdError` in `error`'s cause chain (or `error` itself). */
+/** The `ExecutionError.InvalidMintedId` in `error`'s cause chain (or `error` itself). */
 function causeOf(error: unknown): unknown {
   for (let at: unknown = error; at instanceof Error; at = at.cause) {
-    if (at instanceof InvalidMintedIdError) return at;
+    if (at instanceof ExecutionError.InvalidMintedId) return at;
   }
   return error;
 }

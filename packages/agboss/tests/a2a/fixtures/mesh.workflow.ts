@@ -1,10 +1,10 @@
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import { A2AAgent, A2AClient, A2AEndpoint } from "../../../src/a2a/index.js";
 import {
   Agent,
   EmptyEnvironment,
   Injectable,
   Observer,
-  MeshLoopDetectedError,
   Tool,
   Workflow,
   WorkflowFinish,
@@ -51,7 +51,7 @@ export interface MeshAppSpec {
   /** The peer agent's contract price of one call (#398 PR 3). */
   readonly price?: Usd;
   readonly maxMeshHops?: number;
-  /** The agent's path takes a `MeshLoopDetectedError` to `<name>-loop-workflow-finish`. */
+  /** The agent's path takes a `LimitError.MeshLoop` to `<name>-loop-workflow-finish`. */
   readonly handlesLoop?: boolean;
   /** `@Application({ mesh })` (#398 PR 2): its keys come from `MeshEnvironment`. */
   readonly mesh?: Class;
@@ -124,7 +124,6 @@ export function meshAppOf(spec: MeshAppSpec): MeshAppParts {
     name: `${name}-desk-agent`,
     description: "Answers with the peer's help",
     model: `test/${name}`,
-    price: { inputPerMTok: 1, outputPerMTok: 2 },
     tools: [CallPeer],
   })
   class MeshDesk {}
@@ -162,7 +161,7 @@ export function meshAppOf(spec: MeshAppSpec): MeshAppParts {
     spec.handlesLoop === true
       ? onStart(MeshStart)
           .toAgent(MeshDesk)
-          .onError(MeshLoopDetectedError, toFinish(LoopFinish))
+          .onError(LimitError.MeshLoop, toFinish(LoopFinish))
           .toFinish(MeshAnswer)
       : onStart(MeshStart)
           .toAgent(MeshDesk)

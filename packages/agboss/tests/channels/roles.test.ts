@@ -2,6 +2,7 @@
  * #267 PR 1 (AC4, AC6): a channel role's form and the tools it may approve. #659 (AC1): a question
  * role (`ask` / `answer`) is declared again — a flow step asks it; a tool that names it is wrong.
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
@@ -13,7 +14,6 @@ import { Tool } from "../../src/components/decorators.js";
 import { Text } from "../../src/dto/index.js";
 import { Agent } from "../../src/flow/decorators/agent.js";
 import { Workflow } from "../../src/flow/decorators/workflow.js";
-import { GraphRuleError } from "../../src/graph/rule-error.js";
 import { EmptyEnvironment, inline } from "../../src/index.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
@@ -104,7 +104,7 @@ describe("#267 AC6: a tool's input is its approval's input", () => {
       (thrown: unknown) => thrown,
     );
 
-    expect(error).toBeInstanceOf(GraphRuleError);
+    expect(error).toBeInstanceOf(ConfigError.GraphRules);
     expect(error).toMatchObject({
       violations: [
         {

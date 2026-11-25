@@ -1,4 +1,5 @@
-import { EnvironmentError, EnvironmentErrorCode } from "../environments/errors.js";
+import { ConfigError } from "../core/error-families/config-errors.js";
+import { EnvironmentErrorCode } from "../environments/errors.js";
 import type { OptionalSecretRef, SecretRef } from "../environments/env-ref.js";
 import {
   isResolvedSecret,
@@ -8,7 +9,7 @@ import {
   variableOfSecretRef,
 } from "../environments/secret.js";
 import type { Environment } from "../flow/generated-types.js";
-import { GraphRuleError, violation } from "../graph/rule-error.js";
+import { violation } from "../graph/rule-error.js";
 
 /**
  * The application's PII key (#120, #1301, #1321): `@DatabaseStorage({ piiSecret })`, the same on
@@ -64,15 +65,15 @@ function keyValueOf(source: ApplicationKeySource, field: string): string | undef
 }
 
 /** The start's error for `piiKeyField` naming a field with no `Secret`, or one whose variable is unset. */
-function namedKeyMissing(source: ApplicationKeySource, field: string): EnvironmentError {
+function namedKeyMissing(source: ApplicationKeySource, field: string): ConfigError.Environment {
   const option = `@Application({ piiKeyField: "${field}" })`;
   return Reflect.get(source.environment, field) instanceof Secret
-    ? new EnvironmentError({
-        code: EnvironmentErrorCode.MissingVariables,
+    ? new ConfigError.Environment({
+        envCode: EnvironmentErrorCode.MissingVariables,
         message: `${source.application}: ${option} has no value — set ${field}: secret("…") in the environment and its variable`,
       })
-    : new EnvironmentError({
-        code: EnvironmentErrorCode.InvalidValue,
+    : new ConfigError.Environment({
+        envCode: EnvironmentErrorCode.InvalidValue,
         message: `${source.application}: ${option} names no Secret — set ${field}: secret("…") in the environment`,
       });
 }
@@ -94,15 +95,18 @@ function storageSecretOf(
   const variable = variableOfSecretRef(ref);
   const value = variableIn(source.env, variable) ?? fallback;
   if (value !== undefined || ref instanceof OptionalSecretReference) return value;
-  throw new EnvironmentError({
-    code: EnvironmentErrorCode.MissingVariables,
+  throw new ConfigError.Environment({
+    envCode: EnvironmentErrorCode.MissingVariables,
     message: `${source.application}: @DatabaseStorage({ ${option} }) has no value — ${variable} is not set`,
   });
 }
 
 /** `[pii.secret-required]`: something tokenizes and no key is named. Names only, never a value. */
-const secretRequiredError = (application: string, tokenizing: readonly string[]): GraphRuleError =>
-  new GraphRuleError({
+const secretRequiredError = (
+  application: string,
+  tokenizing: readonly string[],
+): ConfigError.GraphRules =>
+  new ConfigError.GraphRules({
     violations: [
       violation(
         "pii.secret-required",

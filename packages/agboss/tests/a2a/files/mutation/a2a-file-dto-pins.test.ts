@@ -2,6 +2,7 @@
  * #1244: the file DTO, pinned: the descriptor's rule (which field and which reason), the scrubbed
  * shape, and the file fields of a DTO at the top level and below it.
  */
+import { ValidationError } from "../../../../src/index.js";
 import { describe, expect, it } from "vitest";
 import {
   FileDto,
@@ -13,7 +14,6 @@ import {
   redactedFileOf,
 } from "../../../../src/dto/standard/file.js";
 import { Nested, Text } from "../../../../src/dto/decorators.js";
-import { DtoValidationError } from "../../../../src/dto/errors.js";
 import { fieldsOf, recordField } from "../../../../src/dto/metadata.js";
 import { validate } from "../../../../src/dto/schema.js";
 import { METADATA_KEY } from "../../../../src/polyfills/symbol-metadata.js";
@@ -25,7 +25,7 @@ function issuesOf(raw: unknown): readonly { path: string; reason: string }[] {
   try {
     validate(FileDto, raw);
   } catch (error) {
-    if (error instanceof DtoValidationError) return error.issues;
+    if (error instanceof ValidationError.DtoInvalid) return error.issues;
     throw error;
   }
   return [];

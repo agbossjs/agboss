@@ -11,11 +11,9 @@ import { TestModelProvider } from "../../../../src/testing/test-model-provider.j
   name: "untested-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(ChatStart)
-      .toAgent(Clerk)
-      .toFinish(Reply),
-  ],
+  flow: [onStart(ChatStart)
+    .toAgent(Clerk)
+    .toFinish(Reply)],
   defaults: settingsDefaults,
   providers: [ApiClient],
 })

@@ -78,9 +78,9 @@ async function frozenCharges(count: number): Promise<void> {
 describe("#508 AC1: the model calls the charge tool twice", () => {
   test("AC1: the model calls the charge tool twice for one order → charged once, second call Replayed", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(CashierAgent).thenReturn(
+    mockModel(CashierAgent).thenReturn(
       callTool(ChargeOrderTool, { orderId: "42", amountUsd: 10 }),
       callTool(ChargeOrderTool, { orderId: "42", amountUsd: 10 }),
       replyWith("Charged."),
@@ -98,9 +98,9 @@ describe("#508 AC1: the model calls the charge tool twice", () => {
 
   test("AC3: the model charges the same order with another amount → the second call fails with the conflict, nothing more charged", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(CashierAgent).thenReturn(
+    mockModel(CashierAgent).thenReturn(
       callTool(ChargeOrderTool, { orderId: "42", amountUsd: 10 }),
       callTool(ChargeOrderTool, { orderId: "42", amountUsd: 12 }),
       replyWith("The second charge was refused."),
@@ -319,9 +319,9 @@ describe("#508: an invalid business key", () => {
 describe("#508: one owner per attempt — calls of one execution never race", () => {
   real(
     "AC1: two parallel tool calls in one execution charging one business key → one send, the other Joined",
-    async ({ app, mockLlm }) => {
+    async ({ app, mockModel }) => {
       const charge = { orderId: "42", amountUsd: 10 };
-      mockLlm(CashierAgent).thenReturn(
+      mockModel(CashierAgent).thenReturn(
         callTools(callTool(SendChargeTool, charge), callTool(SendChargeTool, charge)),
         replyWith("Charged once."),
       );

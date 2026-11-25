@@ -99,7 +99,7 @@ await app.close(); // onStop hooks, the running executions (up to the shutdown t
 
 ## The application's rules
 
-Checked at assembly, all at once (`GraphRuleError`, stable codes): `name` ends with `-application`
+Checked at assembly, all at once (`ConfigError.GraphRules`, stable codes): `name` ends with `-application`
 and the class with `Application` (`[name.kind-suffix]`); it lists workflows
 (`[application.no-workflows]`, `[application.not-a-workflow]`); workflow names are unique in the
 application (`[application.duplicate-workflow]`), and so is every component name
@@ -150,7 +150,7 @@ Every id it mints is a key's text (#578), checked at the mint by the rules every
 follows (`keyTextRuleOf`: 1–200 characters, no lone surrogate, control, format, invisible,
 private-use, unassigned or blank-looking character, no space but single inner U+0020, NFC — see
 [Several instances → Business keys](Several-instances#business-idempotency-keys-508)): one that breaks a rule, or is no string,
-fails the execution with `InvalidMintedIdError` (`run.invalid-minted-id`; `generator`, `method`,
+fails the execution with `ExecutionError.InvalidMintedId` (`execution.invalid-minted-id`; `generator`, `method`,
 `rule`, never the id) before it is used or stored — a generator minting `x\uD800` and then
 `x\uDFFF` would otherwise make two trees one lease on SQLite and PostgreSQL, both `x�` in UTF-8. A
 thread id is minted once the budgets passed, so their `maxSpend()` is kept as for any admitted
@@ -165,8 +165,8 @@ An id is never handed out twice (#591), whatever the generator does: every execu
 a root's, a child's, a recursion level's — is kept by the lease store before anything else of the
 execution is written (`ExecutionLeaseRepository.claimExecutionId`: one insert-if-absent by
 the id alone, across tenants, never removed). An id any execution had — running, paused, finished,
-failed or cancelled, of any tenant — fails the new one with `DuplicateExecutionIdError`
-(`run.duplicate-execution-id`; `generator`, never the id): a root before its budgets, its thread or
+failed or cancelled, of any tenant — fails the new one with `ExecutionError.DuplicateExecutionId`
+(`execution.duplicate-execution-id`; `generator`, never the id): a root before its budgets, its thread or
 its lease, a child or a level before it starts. Without it, a sequential generator restarted on a
 kept database gave a new tree an old tree's lease, fencing token, audit log and step keys
 (`<executionId>:<nodeId>:<visit>`), and an idempotent write or an outbound call replayed the other tree's
@@ -190,8 +190,8 @@ generator can give a new tree an old root's id, and with it that tree's pauses; 
 on the same database as the pause store.
 
 A minted **thread** id the tenant already has is minted again (#550), up to 100 times; a generator
-that never gives a free one fails the execution with `ThreadIdsExhaustedError`
-(`run.thread-ids-exhausted`; `generator`, `tries`, never an id, #613) before any thread is written.
+that never gives a free one fails the execution with `ExecutionError.ThreadIdsExhausted`
+(`execution.thread-ids-exhausted`; `generator`, `tries`, never an id, #613) before any thread is written.
 `idGeneratorNameOf(generator)` (`@agboss/core/stores`, #890) names the project's class (never the framework's check) for a store of
 your own that refuses a minted id the same way.
 
@@ -257,16 +257,16 @@ worst case of each start with how each number is made up — the [check report](
 ## `app.execute(Start, input, options?)`
 
 - `Start` is a `@WorkflowStart` of any workflow of the application: the execution runs the
-  workflow that start opens (else `NotAWorkflowStartError`); `input` is
+  workflow that start opens (else `ConfigError.NotAWorkflowStart`); `input` is
   typed by the generated `.agboss/types.d.ts` (`agboss check`) and checked against the start's
-  `input` before any call (`DtoValidationError`, the field named, never the value).
+  `input` before any call (`ValidationError.DtoInvalid`, the field named, never the value).
 - Options: `threadId` continues a conversation (without it a new thread is created; its id is in
   the result). An id the tenant does not have yet creates that thread (#262 Q4): the caller's own,
   idempotent id — an order number, a ticket — keyed by `tenantId` + `threadId` (the same id in
   another tenant is another thread) and bound to `ownerId`; it is created only once the budgets
   pass, so a refused execution leaves nothing. An id that cannot be one (empty, over 200
-  characters, a control character) is `InvalidThreadIdError` (`run.invalid-thread-id`, an
-  `onExecutionRejected`). `ownerId` (a thread created with an owner rejects another one — `ThreadOwnerError`),
+  characters, a control character) is `ExecutionError.InvalidThreadId` (`execution.invalid-thread-id`, an
+  `onExecutionRejected`). `ownerId` (a thread created with an owner rejects another one — `ExecutionError.ThreadOwnerMismatch`),
   `tenant` / `execution` (the typed values of the context levels), `signal`, `onStream` (the answer's text and
   tool-call events — `{ kind: StreamEventKind.TextDelta, delta, step }` of an `@Agent`'s own answering model call, and `{ kind: StreamEventKind.ToolCall, tool, step }` as an
   agent's tool call starts, its name only, never its arguments, #848, under the step of the model call that asked for it, #1311; **never** a router's, judge's, guardrail's, arbiter's, PII detector's, compaction's, reranker's, reply interpreter's or launch decider's model — the stream is no callback of the run, only the answering call is marked, and an agent with an `output` DTO streams no text, #1004; every `textDelta` carries `step: { agent, visit, branch, attempt }` and `{ kind: "discarded", step, reason }` retracts the text of a step — a judge's rejection, the text before a tool call, a refused move, a broken call, a failed visit —, the kept deltas joined are the reply; an agent with an output guardrail or a PII block rule has its text held until its checks passed, #1006; the stream is revealed and trimmed as the reply is — a PII token the model wrote is shown as its value, also when written in pieces, a made-up token as its kind (`<email>`), the kept deltas joined are exactly `output`, #1007; a listener that throws — or an `async` one whose promise rejects; it is never awaited — never fails the run: the first failure of a run is logged once through the `Logger` as `stream.listener-failed`, #1008, #1124; a held agent's call still goes out as a stream, its answer reaches the listener once the checks passed, #1122; a provider's `timeout` also bounds a streamed answer's silence after its first token, #1125), `configurable` (extra LangGraph keys), `record`. There is no untyped
@@ -274,7 +274,7 @@ worst case of each start with how each number is made up — the [check report](
   calls read the typed contexts (an A2A request's from its `@HttpAuthenticator`, [A2A](A2A)). See
   [Context and Authorization](Context-And-Authorization).
 - Before the first step (#261 PR 5) each budget of the execution is read once (`maxSpend()`, in the
-  execution's context) and checked: one exhausted refuses it with `BudgetExceededError`
+  execution's context) and checked: one exhausted refuses it with `LimitError.Budget`
   (`limit.budget`) and an `onExecutionRejected` — no record, no model call ([FinOps](FinOps#at-run-time)).
 
 ## The result — `ExecutionOutput`
@@ -304,24 +304,24 @@ its launch's branches still running before it undoes ([Rollback](Rollback#a-fail
 
 Answers **one pause, by its id** (#267) — never by thread: the pause is found by `(tenantId,
 pauseId)` anywhere in its execution tree (a parallel branch, later a child); an unknown id, or
-another tenant's, is the same `UnknownPauseError` (`pause.unknown-pause`). A resume takes keys and
+another tenant's, is the same `PauseError.UnknownPause` (`pause.unknown-pause`). A resume takes keys and
 credentials only — the tenant by its id (omitted → `"default"`) and who answers, as the pause's
 target says (`respondent` on `@ToolApproval` / `@ExternalTask`): `ownerId` for a `PauseRespondent.Owner`
-pause (another → `ThreadOwnerError`), a non-empty `actor` for a `PauseRespondent.Delegate` one;
+pause (another → `ExecutionError.ThreadOwnerMismatch`), a non-empty `actor` for a `PauseRespondent.Delegate` one;
 the other credential → `PauseError.PermissionDenied`. The decision is a `ToolCallApprovalDecisionDto`
 (`approved`, `reason?`, `overrideInput?` only with `approved: true`), validated before it is
-recorded (`DtoValidationError`; the pause keeps waiting). The execution runs on the context values
+recorded (`ValidationError.DtoInvalid`; the pause keeps waiting). The execution runs on the context values
 it started with ([Context and Authorization](Context-And-Authorization#the-values-per-execution)),
 as the thread's owner; the result has the same shape — `threadId` and `executionId` included — and, when
 other pauses remain, `status: Paused` with the rest in `pending`. A pause that is closed (taken,
-withdrawn, expired, …) → `PauseClosedError` with its `reason`. A run paused under another workflow version or config is checked by
-the workflow's `onIncompatibleResume` policy (`IncompatibleResumeError`, `resume.incompatible`, an
+withdrawn, expired, …) → `PauseError.Closed` with its `reason`. A run paused under another workflow version or config is checked by
+the workflow's `onIncompatibleResume` policy (`ExecutionError.IncompatibleResume`, `execution.incompatible-resume`, an
 `AGBossError`); the config hash covers the root's child workflows, recursively (#336), so a paused
 run whose child changed is incompatible too, its pause inside the child or not. The whole model:
 [Pauses](Pauses).
 
 A resume has two phases (#265, Q58): it records the decision — the pause goes `Pending → Resolved`
-atomically, so a second resume of the same pause gets `PauseClosedError` (`reason: answered`) — then takes the tree's lease
+atomically, so a second resume of the same pause gets `PauseError.Closed` (`reason: answered`) — then takes the tree's lease
 and continues with every answer recorded for the tree. While another call or instance moves the
 tree it waits, and returns the tree's current output once the holder took its decision
 ([Several instances](Several-instances#the-execution-lease)). Observers get `onExecutionResume` —
@@ -342,9 +342,9 @@ describe` lists the listeners and marks `includePauseIds`.
 Moves an open pause's deadline to `now + expiresIn` and returns `PauseExtension { pauseKey, expiresAt,
 previousExpiresAt }`. Who may: as an answer (the `ownerId` of a thread owner's pause, the `actor` of
 a channel's). The options are `PauseCallerOptions` — the caller fields only, no `signal` / `onStream` /
-`record`: nothing runs. Refused: a closed or expired pause (`PauseClosedError`), a pause with no deadline,
-a deadline not later than the current one or past the one the pause was made under (`DtoValidationError`,
-`dto: "ExtendPauseRequest"`), another tenant's pause (`UnknownPauseError`). Atomic in the store against
+`record`: nothing runs. Refused: a closed or expired pause (`PauseError.Closed`), a pause with no deadline,
+a deadline not later than the current one or past the one the pause was made under (`ValidationError.DtoInvalid`,
+`dto: "ExtendPauseRequest"`), another tenant's pause (`PauseError.UnknownPause`). Atomic in the store against
 the expiry look; no lease is taken. [Pauses → Extending a pause](Pauses#extending-a-pause-and-reminding-before-its-deadline-942).
 
 ## `app.listPauses({ tenantId, status?, target?, expiringBefore?, limit?, after? })` (#943)
@@ -359,7 +359,7 @@ channel pause's id stays with its channel), its `pauseKey` always, `kind`, `step
 `answerer`, `status`, `rootExecutionId`, `threadId`, `askedAt`, `expiresAt`; a closed one also `reason`
 (`PauseClosedReason`), `closedAt` and `actor` (who answered; absent when its channel decided). Its
 `ask` is masked by the policies of the workflow it waits in. Another tenant's pauses are never listed; an
-invalid query is a `DtoValidationError` (`dto: "PausesQuery"`). On the application the method finds each
+invalid query is a `ValidationError.DtoInvalid` (`dto: "PausesQuery"`). On the application the method finds each
 pause's workflow by its root's; a pause of a workflow the application no longer lists is masked with the
 union of every workflow's policies (fail closed).
 
@@ -368,19 +368,19 @@ union of every workflow's policies (fail closed).
 Moves an open pause to another addressee of the same channel — `send` again with a new `pauseId`,
 `ChannelAsk.assignees` and `ChannelAsk.replaces` (the old id), `onPauseClosed` told `reassigned` for the old
 message, in no fixed order — and returns `PauseReassignment { pauseKey }`: the new id goes to the channel only.
-Who may: as an answer; the options are `PauseCallerOptions`, as `extendPause`. The old id is `PauseClosedError`
+Who may: as an answer; the options are `PauseCallerOptions`, as `extendPause`. The old id is `PauseError.Closed`
 (`reassigned`) from then on; the deadline is kept; the agent and the step do not run again. Refused: a closed
-or expired pause (`PauseClosedError`), an `assignee` that is no key's text (`DtoValidationError`, `dto:
-"ReassignPauseRequest"`), another tenant's pause (`UnknownPauseError`); of two reassignments, or a
+or expired pause (`PauseError.Closed`), an `assignee` that is no key's text (`ValidationError.DtoInvalid`, `dto:
+"ReassignPauseRequest"`), another tenant's pause (`PauseError.UnknownPause`); of two reassignments, or a
 reassignment and an answer, at once exactly one wins. [Pauses → Reassigning a pause](Pauses#reassigning-a-pause-to-someone-else-946).
 
 ## `app.cancel(threadId, { tenantId, ownerId })`
 
 Aborts a running run — it stops before its next model or tool call and `execute` rejects with
 `ExecutionCancelledError` — or drops a paused one, whose pauses are withdrawn (their `resume` then
-throws `PauseClosedError`, `reason: cancelled`);
+throws `PauseError.Closed`, `reason: cancelled`);
 `{ cancelled }` is `false` when the thread had neither ([Cancellation and idempotency](Saga-And-Cancellation)).
-A thread the tenant does not have is `UnknownThreadError` (#261: a thread's key is `tenantId` +
+A thread the tenant does not have is `ExecutionError.UnknownThread` (#261: a thread's key is `tenantId` +
 `threadId`).
 
 ## `app.close(options?)`

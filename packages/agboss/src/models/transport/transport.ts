@@ -9,7 +9,7 @@ import type { Reasoning } from "../reasoning.js";
  * A custom transport (#385): what a `@ModelProvider` that `implements ModelProviderHandler` with
  * `complete(request)` reads and answers — the framework's own plain data, no LangChain type. The
  * gateway around it (serves, budgets and the ledger, the rate limit and its 429 pause, retries,
- * the breaker and its fallback, PII, answer tools, traces, `mockLlm`) is the same as for HTTP.
+ * the breaker and its fallback, PII, answer tools, traces, `mockModel`) is the same as for HTTP.
  */
 
 /** Who wrote a message of a request. */

@@ -1,3 +1,4 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import { workflowWindowOf } from "../memory/memory.decorator.js";
 import { withoutUndefined } from "../types/defined.js";
 import type { AgentsConfig, ChatDefaults, RouterModel } from "../config/types.js";
@@ -6,7 +7,6 @@ import { declarationOf, type WorkflowDeclaration } from "../flow/decorators/decl
 import type { ModelDefaults, WorkflowDefaults } from "../flow/decorators/workflow.js";
 import { DEFAULT_UNCOMPACTED_TURNS, type UncompactedTurns } from "../memory/memory.decorator.js";
 import type { Class } from "./injection.js";
-import { ComponentError } from "./metadata.js";
 import type { WorkflowMeta } from "./meta-types.js";
 
 /**
@@ -51,7 +51,7 @@ const modules = new WeakMap<Class, WorkflowMeta>();
 export function workflowDeclarationOf(workflow: Class): WorkflowDeclaration {
   const declaration = declarationOf(workflow);
   if (declaration?.kind !== NodeKind.Workflow) {
-    throw new ComponentError({
+    throw new ConfigError.Component({
       message: `${workflow.name || "(anonymous class)"} is not a @Workflow class — decorate it with @Workflow({ name, version, flow })`,
     });
   }

@@ -1,10 +1,11 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import { existsSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { Class } from "../components/injection.js";
 import type { Environment } from "../flow/generated-types.js";
 import { declaredFieldsOf } from "./contract.js";
-import { EnvironmentError, EnvironmentErrorCode } from "./errors.js";
+import { EnvironmentErrorCode } from "./errors.js";
 import {
   describedEnvironment,
   resolveEnvironment,
@@ -73,14 +74,14 @@ async function notFound(owner: EnvironmentOwner, dir: string, name: string): Pro
   const path = join(dir, `${name}.environment.ts`);
   const contract = owner.contract?.name ?? "Environment";
   if (name === TEST_DEFAULT_ENVIRONMENT) {
-    throw new EnvironmentError({
-      code: EnvironmentErrorCode.NotFound,
+    throw new ConfigError.Environment({
+      envCode: EnvironmentErrorCode.NotFound,
       message: `Environment "test" not found: ${path} — tests run on the test environment, never on dev's values: create it (export const environment: ${contract} = { … })`,
     });
   }
   const available = await availableEnvironments(dir);
-  throw new EnvironmentError({
-    code: EnvironmentErrorCode.NotFound,
+  throw new ConfigError.Environment({
+    envCode: EnvironmentErrorCode.NotFound,
     message: `Environment "${name}" not found: ${path}. Available: ${available.length === 0 ? "none" : available.join(", ")}`,
   });
 }
@@ -93,8 +94,8 @@ async function loadValues(owner: EnvironmentOwner, dir: string, name: string): P
   if ("environment" in module) return module.environment;
   const contract = owner.contract?.name ?? "Environment";
   const isContract = owner.contract !== undefined && Object.values(module).includes(owner.contract);
-  throw new EnvironmentError({
-    code: EnvironmentErrorCode.NotFound,
+  throw new ConfigError.Environment({
+    envCode: EnvironmentErrorCode.NotFound,
     message: isContract
       ? `${file} holds the contract ${contract}, not an environment — name another environment`
       : `${file} must export the environment: export const environment: ${contract} = { … }`,
@@ -110,8 +111,8 @@ export async function selectedEnvironment(
   const { contract } = owner;
   if (contract === undefined) {
     if (env === undefined) return undefined;
-    throw new EnvironmentError({
-      code: EnvironmentErrorCode.NoContract,
+    throw new ConfigError.Environment({
+      envCode: EnvironmentErrorCode.NoContract,
       message: `Environment "${env}": ${owner.application} declares no environment — add @Application({ environment: AppEnvironment }) and environments/${env}.environment.ts next to the application file`,
     });
   }
@@ -123,8 +124,8 @@ export async function selectedEnvironment(
     if (file === undefined) return { name, contract: contract.name, values: {} };
   }
   if (owner.source === undefined) {
-    throw new EnvironmentError({
-      code: EnvironmentErrorCode.NotFound,
+    throw new ConfigError.Environment({
+      envCode: EnvironmentErrorCode.NotFound,
       message: `Environment "${name}" not found: the file of ${owner.application} is unknown`,
     });
   }

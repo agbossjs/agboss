@@ -1,43 +1,4 @@
-import { AGBossError } from "./errors.js";
-
-/** What a refusal knows: the record, its ids and the failing fields — never a value. */
-export interface StoredNamesUnreadableErrorOptions {
-  readonly record: string;
-  readonly ids: string;
-  readonly fields: string;
-  readonly cause?: unknown;
-  /** The text is no JSON at all (#1121): the message says so, not "the field(s) … missing". */
-  readonly isNotJson?: boolean;
-}
-
-/**
- * One meaning per name (#934): a store reads only the 0.1.1 shape and returns the value the schema
- * parsed, never the input. The schemas of the stored shapes do it (`PauseAnswerRecordSchema`,
- * `StoredPause`, the history record's): a value of any other shape — a 0.1.0 name, a missing field —
- * is refused with `StoredNamesUnreadableError`, naming the record's id and the field, never a value.
- * Nothing is migrated and no old name is read.
- */
-export class StoredNamesUnreadableError extends AGBossError {
-  static override readonly code = "stored.unreadable" as const;
-  declare readonly code: typeof StoredNamesUnreadableError.code;
-  override name = "StoredNamesUnreadableError";
-  /** What was stored: `pause`, `pause answer`, `execution history record`. */
-  declare readonly record: string;
-  /** The ids that name it (`pauseId p1, executionId run-1`); empty when none is readable. */
-  declare readonly ids: string;
-  /** The field paths that failed (`pauses.0.respondent`) — never a value. */
-  declare readonly fields: string;
-
-  constructor(options: StoredNamesUnreadableErrorOptions) {
-    const { record, ids, fields, cause, isNotJson } = options;
-    const why =
-      isNotJson === true
-        ? "the text is not valid JSON"
-        : `the field(s) ${fields} missing or not what the framework wrote`;
-    super(`a stored ${record} is not readable${ids === "" ? "" : ` (${ids})`}: ${why}`, { cause });
-    Object.assign(this, { record, ids, fields });
-  }
-}
+import { StoreError } from "./error-families/store-errors.js";
 
 /**
  * The cause of a text that is no JSON: a parser's own message quotes the text it failed on
@@ -55,7 +16,7 @@ function noJsonCause(parseError: unknown): SyntaxError {
 
 /**
  * The text a store kept as JSON (#1121), or unreadable: a text that is no JSON is refused as a value
- * that fails its schema is — `StoredNamesUnreadableError`, `what` and `ids` (the store's own keys of
+ * that fails its schema is — `StoreError.UnreadableRecord`, `what` and `ids` (the store's own keys of
  * the row, `undefined` ones left out) named, never the text. The `cause` is a `SyntaxError` of the
  * parse without the text the parser quotes.
  */
@@ -71,7 +32,7 @@ export function parsedStoredJson(options: {
   try {
     return JSON.parse(text, reviver) as unknown;
   } catch (error) {
-    throw new StoredNamesUnreadableError({
+    throw new StoreError.UnreadableRecord({
       record: what,
       ids: Object.entries(ids)
         .flatMap(([key, id]) => (id === undefined ? [] : [`${key} ${id}`]))

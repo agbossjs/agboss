@@ -1,3 +1,4 @@
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import {
   Agent,
@@ -15,7 +16,6 @@ import {
 import { Application } from "../../src/application/application.js";
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { Text, WorkflowStartTextDto } from "../../src/dto/index.js";
-import { EnvironmentError } from "../../src/environments/errors.js";
 import {
   BackupModelProvider,
   LocalModelProvider,
@@ -107,7 +107,7 @@ describe("#716: an arbiter-only provider", () => {
       providerFetch: providerStub([], [{ id: "local/llama" }]).fetch,
     });
 
-    await expect(started).rejects.toBeInstanceOf(EnvironmentError);
+    await expect(started).rejects.toBeInstanceOf(ConfigError.Environment);
     await expect(started).rejects.toThrow(/OPENROUTER_API_KEY is not set/);
   });
 });

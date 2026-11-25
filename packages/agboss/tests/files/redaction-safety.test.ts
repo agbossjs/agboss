@@ -5,6 +5,8 @@
  * answer still refuses. The execution's exact PII values reach a redaction model only where the provider
  * or the setting allows it.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
+import { PiiError } from "../../src/core/error-families/limit-errors.js";
 import { createHash, createHmac, hkdfSync } from "node:crypto";
 import sharp from "sharp";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -14,14 +16,12 @@ import { FileView, ModelFiles, RedactionValues } from "../../src/files/model-fil
 import { redactedKeyOf } from "../../src/files/redacted-view.js";
 import { valuesForRedactor } from "../../src/files/redaction-values.js";
 import {
-  FileRedactionFailedError,
   ExecutionContext,
   Injectable,
   PiiAction,
   PiiFileAction,
   PiiKind,
   PiiPolicy,
-  PiiRefusedError,
   type FileContent,
   type RedactionResult,
   type RedactOptions,
@@ -80,13 +80,13 @@ const trusting = readerApplication({ files: FILES, piiPolicies: [ModelCardsPolic
 describe("AC3: under a block rule an image is refused whole by default", () => {
   testWith(refusing.Application)(
     "AC3: a photo that claims no personal data and holds a card number is refused; no model is asked",
-    async ({ app, mockLlm }) => {
-      const redactor = mockLlm(FileRedactor);
-      const agent = mockLlm(refusing.Agent);
+    async ({ app, mockModel }) => {
+      const redactor = mockModel(FileRedactor);
+      const agent = mockModel(refusing.Agent);
 
       const run = execute(app, refusing.Start, { document: asFile(await injectedPhoto()) });
 
-      await expect(run).rejects.toBeInstanceOf(PiiRefusedError);
+      await expect(run).rejects.toBeInstanceOf(PiiError.Refused);
       await expect(run).rejects.toMatchObject({ refusal: "No cards, please." });
       expect(redactor).toHaveBeenCalledTimes(0);
       expect(agent).toHaveBeenCalledTimes(0);
@@ -97,10 +97,10 @@ describe("AC3: under a block rule an image is refused whole by default", () => {
 describe("AC3: with the opt-in a model decides — a guardrail, not a guarantee", () => {
   testWith(trusting.Application)(
     "a model that obeys the text in the image answers no regions: the image goes through unredacted (documented)",
-    async ({ app, mockLlm }) => {
+    async ({ app, mockModel }) => {
       const photo = await injectedPhoto();
-      mockLlm(FileRedactor).thenReturn(replyWith('{"regions":[]}'));
-      const agent = mockLlm(trusting.Agent).thenReturn(replyWith("a photo"));
+      mockModel(FileRedactor).thenReturn(replyWith('{"regions":[]}'));
+      const agent = mockModel(trusting.Agent).thenReturn(replyWith("a photo"));
 
       await execute(app, trusting.Start, { document: asFile(photo) });
 
@@ -112,32 +112,32 @@ describe("AC3: with the opt-in a model decides — a guardrail, not a guarantee"
 
   testWith(trusting.Application)(
     "a model that finds the card number refuses the image with the policy's text",
-    async ({ app, mockLlm }) => {
-      mockLlm(FileRedactor).thenReturn(
+    async ({ app, mockModel }) => {
+      mockModel(FileRedactor).thenReturn(
         replyWith('{"regions":[{"target":"card-number","x":0.02,"y":0.5,"w":0.5,"h":0.25}]}'),
       );
-      const agent = mockLlm(trusting.Agent);
+      const agent = mockModel(trusting.Agent);
 
       const run = execute(app, trusting.Start, { document: asFile(await injectedPhoto()) });
 
-      await expect(run).rejects.toBeInstanceOf(PiiRefusedError);
+      await expect(run).rejects.toBeInstanceOf(PiiError.Refused);
       expect(agent).toHaveBeenCalledTimes(0);
     },
   );
 
   testWith(trusting.Application)(
     "an empty, malformed or partial answer is refused, never passed",
-    async ({ app, mockLlm }) => {
-      const agent = mockLlm(trusting.Agent);
+    async ({ app, mockModel }) => {
+      const agent = mockModel(trusting.Agent);
       for (const answer of [
         "",
         "no regions found",
         '{"regions":[{"target":"card-number","x":0.1',
         "{}",
       ]) {
-        mockLlm(FileRedactor).thenReturn(replyWith(answer));
+        mockModel(FileRedactor).thenReturn(replyWith(answer));
         const run = execute(app, trusting.Start, { document: asFile(await injectedPhoto()) });
-        await expect(run).rejects.toBeInstanceOf(FileRedactionFailedError);
+        await expect(run).rejects.toBeInstanceOf(StepError.FileMaskingFailed);
       }
       expect(agent).toHaveBeenCalledTimes(0);
     },
@@ -147,9 +147,9 @@ describe("AC3: with the opt-in a model decides — a guardrail, not a guarantee"
 describe("AC3: the system prompt tells the redaction model that the image's text is data", () => {
   testWith(trusting.Application)(
     "the request holds the hardening, the kinds and no value that was not allowed",
-    async ({ app, mockLlm }) => {
-      const redactor = mockLlm(FileRedactor).thenReturn(replyWith('{"regions":[]}'));
-      mockLlm(trusting.Agent).thenReturn(replyWith("ok"));
+    async ({ app, mockModel }) => {
+      const redactor = mockModel(FileRedactor).thenReturn(replyWith('{"regions":[]}'));
+      mockModel(trusting.Agent).thenReturn(replyWith("ok"));
 
       await execute(app, trusting.Start, { document: asFile(await injectedPhoto()) });
 
@@ -216,9 +216,9 @@ const noValues = readerApplication({
 describe("AC3: the exact values reach a redactor only where allowed", () => {
   testWith(noValues.Application)(
     "with no value to redact a project's own redactor gets the kinds, and no value",
-    async ({ app, mockLlm }) => {
+    async ({ app, mockModel }) => {
       asked.length = 0;
-      mockLlm(noValues.Agent).thenReturn(replyWith("ok"));
+      mockModel(noValues.Agent).thenReturn(replyWith("ok"));
 
       await execute(app, noValues.Start, { document: asFile(await injectedPhoto()) });
 
@@ -243,9 +243,9 @@ describe("AC3: the exact values reach a redactor only where allowed", () => {
   const always = redactingWith(RedactionValues.Always);
   testWith(always.Application)(
     "RedactionValues.Always sends them: an explicit decision",
-    async ({ app, mockLlm }) => {
+    async ({ app, mockModel }) => {
       asked.length = 0;
-      mockLlm(always.Agent).thenReturn(replyWith("ok"));
+      mockModel(always.Agent).thenReturn(replyWith("ok"));
 
       await execute(app, always.Start, { document: asFile(await injectedPhoto()) }, asPerson);
 
@@ -272,9 +272,9 @@ describe("AC3: the exact values reach a redactor only where allowed", () => {
   });
   testWith(builtIn.Application)(
     "the built-in on the agent's own provider gets them in its request",
-    async ({ app, mockLlm }) => {
-      const redactor = mockLlm(FileRedactor).thenReturn(replyWith('{"regions":[]}'));
-      mockLlm(builtIn.Agent).thenReturn(replyWith("ok"));
+    async ({ app, mockModel }) => {
+      const redactor = mockModel(FileRedactor).thenReturn(replyWith('{"regions":[]}'));
+      mockModel(builtIn.Agent).thenReturn(replyWith("ok"));
 
       await execute(app, builtIn.Start, { document: asFile(await injectedPhoto()) }, asPerson);
 
@@ -315,14 +315,14 @@ describe("AC3: the exact values reach a redactor only where allowed", () => {
   it("backstop: values to redact that cannot be sent fail closed, the redactor is never asked", async () => {
     const run = viewWith([SECRET], ["card-number"], false);
 
-    await expect(run).rejects.toBeInstanceOf(FileRedactionFailedError);
+    await expect(run).rejects.toBeInstanceOf(StepError.FileMaskingFailed);
     await expect(run).rejects.not.toThrow(NO_REDACTOR_CALL);
   });
 
   it("backstop: nothing to look for (no kind, no value sent) fails closed, never an unchanged re-encode", async () => {
     const run = viewWith([], [], true);
 
-    await expect(run).rejects.toBeInstanceOf(FileRedactionFailedError);
+    await expect(run).rejects.toBeInstanceOf(StepError.FileMaskingFailed);
     await expect(run).rejects.not.toThrow(NO_REDACTOR_CALL);
   });
 
@@ -415,9 +415,9 @@ describe("AC3: a redacted copy is cached for the exact values it was made for", 
   const sendingValues = redactingWith(RedactionValues.Always);
   testWith(sendingValues.Application)(
     "two executions on the same image with different values each get a redaction made for their own",
-    async ({ app, mockLlm }) => {
+    async ({ app, mockModel }) => {
       asked.length = 0;
-      mockLlm(sendingValues.Agent).thenReturn(replyWith("a"), replyWith("b"));
+      mockModel(sendingValues.Agent).thenReturn(replyWith("a"), replyWith("b"));
       const photo = asFile(await injectedPhoto());
 
       await execute(

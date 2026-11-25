@@ -1,9 +1,10 @@
+import { ConfigError } from "../../core/error-families/config-errors.js";
 import { MAX_TIMEOUT, timerProblemOf } from "../../units/timer-limits.js";
 import type { Class } from "../../components/injection.js";
 import { nestedFileFieldsOf } from "../../dto/standard/file.js";
 import type { FileDto } from "../../dto/standard/file.js";
 import { checkedCostPerCall } from "../a2a-rules.js";
-import { ComponentError, componentOf } from "../../components/metadata.js";
+import { componentOf } from "../../components/metadata.js";
 import type { DtoClass } from "../../dto/types.js";
 import type { A2AAgentMeta } from "../a2a-decorator.js";
 import { currentFrame } from "../../flow/context/frame.js";
@@ -76,7 +77,7 @@ export interface A2AClientCall {
   readonly onEvent?: (event: A2AStreamEvent) => void;
   /**
    * How long the call waits for the task at most — the execution's deadline is the other bound,
-   * the earlier wins; then a best-effort CancelTask and `A2ACallDeadlineError`. At most 24 hours
+   * the earlier wins; then a best-effort CancelTask and `A2AError.Deadline`. At most 24 hours
    * (`[a2a.timeout-invalid]`, #1141).
    */
   readonly timeout?: Milliseconds;
@@ -106,7 +107,7 @@ export interface A2ATaskResult {
 export function urlOf(target: object, name: string): A2AAgentMeta["url"] {
   const meta = componentOf(target);
   if (meta?.kind !== "a2a-agent") {
-    throw new ComponentError({
+    throw new ConfigError.Component({
       message: `[a2a.no-url] ${name} has no @A2AAgent({ url }) and no url option — the remote agent's address is unknown`,
     });
   }
@@ -162,7 +163,9 @@ export function checkedCallTimeout(agent: string, timeout: number | undefined): 
   const problem =
     timeout === undefined ? undefined : timerProblemOf("timeout", timeout, MAX_TIMEOUT);
   if (problem !== undefined)
-    throw new ComponentError({ message: `[a2a.timeout-invalid] ${agent}: a call's ${problem}` });
+    throw new ConfigError.Component({
+      message: `[a2a.timeout-invalid] ${agent}: a call's ${problem}`,
+    });
 }
 
 /** A call's `key` and `timeout` and its contract's `costPerCall`, checked before anything is sent or charged; the key. */
@@ -179,7 +182,7 @@ export function checkedCall(
 /** A call's `key`: part of an outbound call's name, so of its charset (`[A-Za-z0-9._-]`, 1–40). */
 function checkedCallKey(agent: string, key: string | undefined): string | undefined {
   if (key === undefined || /^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$/u.test(key)) return key;
-  throw new ComponentError({
+  throw new ConfigError.Component({
     message: `[a2a.call-key-invalid] ${agent}: a call's key is 1–40 letters, digits, ".", "_" or "-", a letter or digit first`,
   });
 }
@@ -212,12 +215,12 @@ export function typedContractOf(
       nestedFileFieldsOf(dto).map((path) => `${dto.name}.${path}`),
     );
     if (nested.length > 0)
-      throw new ComponentError({
+      throw new ConfigError.Component({
         message: `[a2a.nested-file-field] ${name}: ${nested.join(", ")} holds a FileDto below the top level — an A2A file is a part of its own, in a top-level field`,
       });
     return { ...contract, input: contract.input, output: contract.output };
   }
-  throw new ComponentError({
+  throw new ConfigError.Component({
     message: `[a2a.no-contract] ${name} declares no typed contract — @A2AAgent({ input, output }) on its class, or the contract option; send(message) runs without one`,
   });
 }

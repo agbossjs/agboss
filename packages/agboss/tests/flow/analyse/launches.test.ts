@@ -1,3 +1,4 @@
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import { describe, expect, it } from "vitest";
 import { checkWorkflow } from "../../../src/flow/analyse/analyse.js";
 import { worstCaseLine } from "../../../src/flow/analyse/worst-case.js";
@@ -7,7 +8,6 @@ import { listOf, oneOf, optional } from "../../../src/flow/dto-wrappers.js";
 import { workflowOf } from "../../../src/components/assemble.js";
 import { NodeKind } from "../../../src/flow/ast.js";
 import { declarationOf } from "../../../src/flow/decorators/declaration.js";
-import { LimitExceededError } from "../../../src/graph/limits.js";
 import { BrokenScreeningWorkflow } from "../fixtures/broken-launch.fixture.js";
 import {
   CompanyDto,
@@ -302,14 +302,14 @@ describe("#273 AC4: a launch is joined, and its branches end at the join", () =>
       screened()
         .forEachItem(toAgent(CompanyAuditAgent), { takeFirst: 3 })
         .join()
-        .onError(LimitExceededError, side())
-        .onError(LimitExceededError, side())
+        .onError(LimitError, side())
+        .onError(LimitError, side())
         .toAgent(RankerAgent)
         .toFinish(RankingWorkflowFinish),
     ];
     expect(errorsOf(flow)).toContainEqual({
       code: "flow.duplicate-error-handler",
-      message: `launch-case-${String(count)}-workflow: the join of screening-agent → forEachItem(company-audit-agent) has 2 handlers for LimitExceededError — one .onError(LimitExceededError, …) per class on a join`,
+      message: `launch-case-${String(count)}-workflow: the join of screening-agent → forEachItem(company-audit-agent) has 2 handlers for LimitError — one .onError(LimitError, …) per class on a join`,
     });
   });
 });

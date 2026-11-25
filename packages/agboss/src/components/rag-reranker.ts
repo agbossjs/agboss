@@ -1,3 +1,4 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import type { ModelCascade } from "../models/model-cascade.js";
 import { componentModelOf, modelResolverOf, type ModelResolver } from "../models/model-resolver.js";
 import type { BoundReranker } from "../rag/rerank.js";
@@ -6,7 +7,6 @@ import type { PromptLoader } from "./prompt-render.js";
 import { RerankFailurePolicy } from "../rag/types.js";
 import type { WorkflowServices } from "../workflow.js";
 import type { Class } from "./injection.js";
-import { ComponentError } from "./metadata.js";
 import { ragMeta, rerankedBy, type RagMeta } from "./rag.js";
 
 /** A model reranker's model as the cascade resolves it, the provider that serves it and its price mark. */
@@ -116,7 +116,7 @@ export function boundRerankerOf(
     const resolved = rerankerModelOf(resolver, reranker);
     resolver.check();
     if (services.rerankModel === undefined)
-      throw new ComponentError({
+      throw new ConfigError.Component({
         message: `[reranker.no-model-gateway] ${reranker.name}: no model gateway here`,
       });
     return services.rerankModel(resolved);

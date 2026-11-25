@@ -1,8 +1,8 @@
+import { ExecutionError } from "../src/core/error-families/run-errors.js";
 import { asDeclared } from "../src/models/model-pricing.js";
 import { FakeListChatModel } from "@langchain/core/utils/testing";
 import { describe, expect, it } from "vitest";
 import { formatHistory } from "../src/flow/runtime/history.js";
-import { UnknownThreadError } from "../src/index.js";
 import type { AgentExecutionDeps } from "../src/run/types.js";
 import { createModelRegistry } from "../src/llm/registry.js";
 import { ScriptedChatModel } from "./fakes/scripted-model.js";
@@ -69,7 +69,7 @@ describe("threads and history (#272 S8: a turn is its start input and finish out
     const { deps, routed } = await setup(["never"], { defaults: 2 });
 
     await expect(runText("Hi", deps, { threadId: "ghost" })).rejects.toBeInstanceOf(
-      UnknownThreadError,
+      ExecutionError.UnknownThread,
     );
     expect(routed).toEqual([]);
   });

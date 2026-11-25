@@ -45,9 +45,9 @@ const yes = '{"approved":true}';
 describe("#267 S124 c: a single child's record lists its own pauses", () => {
   test("the child's pause is in its record, in result.children and in the root's record", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(TreasurerAgent).thenReturn(
+    mockModel(TreasurerAgent).thenReturn(
       callTool(BookExpenseTool, { purpose: "taxi" }),
       replyWith("Booked."),
     );
@@ -78,15 +78,15 @@ describe("#267 S124 c: a single child's record lists its own pauses", () => {
 describe("#267 S124 c: each per-item child's record lists its own pauses", () => {
   test("two children pause on their own: each record holds one, the root's holds both", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(TreasurerAgent)
+    mockModel(TreasurerAgent)
       .when({ message: { text: "book lunch" } })
       .thenReturn(callTool(BookExpenseTool, { purpose: "lunch" }), replyWith("Lunch booked."));
-    mockLlm(TreasurerAgent)
+    mockModel(TreasurerAgent)
       .when({ message: { text: "book a taxi" } })
       .thenReturn(callTool(BookExpenseTool, { purpose: "taxi" }), replyWith("Taxi booked."));
-    mockLlm(BatchSummaryAgent).thenReturn(replyWith("Both booked."));
+    mockModel(BatchSummaryAgent).thenReturn(replyWith("Both booked."));
     const paused = await execute(
       app,
       TreasuryBatchWorkflowStart,

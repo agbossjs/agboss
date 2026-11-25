@@ -118,7 +118,6 @@ export async function callerOf(spec: CallerSpec): Promise<CallerParts> {
     name: `${name}-desk-agent`,
     description: "Answers with the agent's help",
     model: `test/${name}`,
-    price: { inputPerMTok: 1, outputPerMTok: 2 },
     tools: [Ask],
   })
   class Desk {}

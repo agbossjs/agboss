@@ -25,7 +25,7 @@ import { newPiiKey } from "../pii/tokens.js";
 
 /**
  * Public entry point: validates the input, opens or continues a thread, opens the execution's
- * budgets (each `maxSpend()` once; one exhausted → `BudgetExceededError` before any record or
+ * budgets (each `maxSpend()` once; one exhausted → `LimitError.Budget` before any record or
  * call), runs the graph within its limits from the given start, records spend into the budgets as
  * it happens and writes a Turn for every outcome — finished, paused or failed.
  */

@@ -1,3 +1,6 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
+import { ExecutionError } from "../../../src/core/error-families/run-errors.js";
 import { usd } from "../../../src/units/index.js";
 /**
  * #1366 (budget-flow shard) — what a node's visit does with the budgets, each rule on its own over fakes: the
@@ -8,13 +11,10 @@ import { usd } from "../../../src/units/index.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CostSource, ZERO_USAGE, type UsageRecord } from "../../../src/finops/usage.js";
 import { compensationsOfHeldVisit, compensationsOfVisit } from "../../../src/flow/compensation.js";
-import { LimitExceededError } from "../../../src/graph/limits.js";
 import { checkVisit } from "../../../src/flow/runtime/limits.js";
 import { caught } from "../../../src/flow/runtime/visit-failure.js";
 import { inTreeSlot } from "../../../src/flow/runtime/step-frame.js";
 import { visitNode } from "../../../src/flow/runtime/visit.js";
-import { RouterDecisionError } from "../../../src/flow/runtime/router-error.js";
-import { OutputInvalidError } from "../../../src/flow/runtime/errors.js";
 import { visitNumberOf } from "../../../src/flow/runtime/step-frame.js";
 import { recordOfNode } from "../../../src/flow/runtime/workflow-keys.js";
 import { recordsOf } from "../../../src/flow/runtime/node-runner.js";
@@ -149,7 +149,7 @@ describe("#1366: the limits of a visit", () => {
 
   it("a limit refuses the node: it never runs, and the failure is handled with the spend so far", async () => {
     const { deps } = setup();
-    const limit = new LimitExceededError({
+    const limit = new LimitError.Agent({
       key: "k",
       limit: 1,
       actual: 2,
@@ -272,7 +272,7 @@ describe("#1366: a failed visit's spend and its owed undo's", () => {
   it("a visit held back by a limit runs its owed undo, not the plain one", async () => {
     const { deps } = setup();
     vi.mocked(checkVisit).mockRejectedValue(
-      new LimitExceededError({
+      new LimitError.Agent({
         key: "k",
         limit: 1,
         actual: 2,
@@ -301,7 +301,7 @@ describe("#1366: a failed visit's spend and its owed undo's", () => {
     const { deps } = setup();
     vi.mocked(caught).mockReturnValue({});
     vi.mocked(compensationsOfVisit).mockResolvedValue({});
-    const limit = new LimitExceededError({
+    const limit = new LimitError.Agent({
       key: "k",
       limit: 1,
       actual: 2,
@@ -426,12 +426,12 @@ describe("#1366: the spend of a router whose decision names no route of its own"
     await visitNode(node as never, runner as never, deps as never)(stateOf(), undefined);
 
     const failure = vi.mocked(caught).mock.calls[0]?.[2];
-    expect(failure).toBeInstanceOf(RouterDecisionError);
-    expect((failure as RouterDecisionError).usage).toEqual([
+    expect(failure).toBeInstanceOf(StepError.RouterDecision);
+    expect((failure as StepError.RouterDecision).usage).toEqual([
       record(0.5, "router"),
       record(0.125, "service"),
     ]);
-    expect((failure as RouterDecisionError).message).toContain(
+    expect((failure as StepError.RouterDecision).message).toContain(
       '"nowhere" is not one of its routes',
     );
   });
@@ -483,9 +483,9 @@ describe("#1366: the way out of a visit, and what the visit writes", () => {
 
     const { error } = await run(node, { read: [], route: "nowhere" }, deps);
 
-    expect(error).toBeInstanceOf(RouterDecisionError);
+    expect(error).toBeInstanceOf(StepError.RouterDecision);
     expect(error).toMatchObject({ nodeId: "n", visitNumber: 3 });
-    expect((error as RouterDecisionError).component).toMatchObject({ name: "n" });
+    expect((error as StepError.RouterDecision).component).toMatchObject({ name: "n" });
     expect(vi.mocked(recordOfNode).mock.calls[0]?.[1]).toBe("n");
   });
 
@@ -503,7 +503,7 @@ describe("#1366: the way out of a visit, and what the visit writes", () => {
     const unknown = await run(withCases, { read: [], value: { variant: "Z" } }, setup().deps);
     const none = await run(withCases, { read: [] }, setup().deps);
 
-    expect(unknown.error).toBeInstanceOf(OutputInvalidError);
+    expect(unknown.error).toBeInstanceOf(ExecutionError.OutputInvalid);
     expect((unknown.error as Error).message).toBe(
       "n gave Z, which its .toOneOf([…]) has no branch for",
     );

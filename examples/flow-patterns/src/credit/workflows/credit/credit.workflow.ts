@@ -14,7 +14,7 @@ import { CreditWorkflowStart } from "./credit.workflow-start.js";
 /**
  * A code router inside a model router's route (#280): the desk router (Jev) sends an order to the
  * intake, the credit-limit router's `route()` sends it for approval or straight to the charge. A
- * credit service that is down (`CreditServiceUnavailableError`, the `RouterFailedError`'s cause)
+ * credit service that is down (`CreditServiceUnavailableError`, the `StepError.Router`'s cause)
  * holds the order; any other error fails the run. The charge is a side effect made once per
  * step: `ChargeCardAction` writes it as a fenced effect (#500) on the application's SQLite file.
  */

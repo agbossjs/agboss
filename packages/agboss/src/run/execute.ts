@@ -1,3 +1,5 @@
+import { isPaidError } from "../core/error-families/paid.js";
+import { isExecutionCancelled } from "../core/execution-cancelled.js";
 import { type Usd } from "../units/index.js";
 import { ExecutionCancelledError } from "../core/errors.js";
 import { ExecutionStoppedError, isPause } from "../app/lease-stopped.js";
@@ -6,8 +8,6 @@ import { drainRecordingUsage } from "../finops/record-stream.js";
 import { totalCost, type UsageRecord } from "../finops/usage.js";
 import type { ExecutionGraph } from "../flow/runtime/build.js";
 import type { ExecutionStateType } from "../flow/runtime/state.js";
-import { PaidStepError } from "../graph/errors.js";
-import { LimitExceededError } from "../graph/limits.js";
 import type { NewTurn, TurnOutcome } from "../turns/index.js";
 import type { BaseCallbackHandler } from "@langchain/core/callbacks/base";
 import type { AgentExecutionDeps } from "./types.js";
@@ -58,7 +58,7 @@ export const outcomeError = (error: unknown, signal: AbortSignal | undefined): u
   // a fenced write behind the error first (#471): the moving call rejects with it, as it is
   const handedOver = handedOverOf(error, signal);
   if (handedOver !== undefined) return handedOver;
-  return signal?.aborted === true && !(error instanceof ExecutionCancelledError)
+  return signal?.aborted === true && !isExecutionCancelled(error)
     ? new ExecutionCancelledError({ message: "the run was cancelled" })
     : error;
 };
@@ -67,7 +67,7 @@ export const outcomeError = (error: unknown, signal: AbortSignal | undefined): u
  * Writes the failed record of a run that failed (#265: a lost lease or an interruption writes
  * nothing — the record stays `running`, another instance owns it) and returns the error to throw.
  * A tree's pass first undoes the root (#340 S7 3, `unwind`): the record stays `running` until the
- * undo ended, then gets its final error (`CompensationFailedError` when an undo failed); an undo
+ * undo ended, then gets its final error (`ExecutionError.CompensationFailed` when an undo failed); an undo
  * handed over meanwhile writes nothing.
  */
 export async function recordFailure(
@@ -101,7 +101,7 @@ export const failedOutcome = (error: unknown, spent: readonly UsageRecord[]): Tu
   status:
     error instanceof ExecutionStoppedError
       ? "stopped"
-      : error instanceof ExecutionCancelledError
+      : isExecutionCancelled(error)
         ? "cancelled"
         : "failed",
   stopReason: errorMessage(error),
@@ -121,7 +121,7 @@ async function* statesOnly(
 
 /** Spend a failure carries that the run's state does not hold yet. */
 const unrecordedSpendOf = (error: unknown): readonly UsageRecord[] =>
-  error instanceof PaidStepError || error instanceof LimitExceededError ? error.usage : [];
+  isPaidError(error) ? error.usage : [];
 
 /** Drains the graph stream; a paid failure (agent, guard, router, an agent's limit) still records its spend. */
 export function drainRun(

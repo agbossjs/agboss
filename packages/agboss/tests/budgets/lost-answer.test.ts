@@ -4,8 +4,9 @@
  * pays $25 and $1, each written with a read of the counters, while its sibling works on. $86 of
  * $100: the execution finishes, its sibling is never stopped, and the ledger holds $86. Before
  * #770 the read after the lost answer held the $60 that the tally still counted: the $1's tally
- * saw $146 and stopped the launch with `BudgetExceededError`.
+ * saw $146 and stopped the launch with `LimitError.Budget`.
  */
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { describe, expect } from "vitest";
 import { BudgetScope } from "../../src/budgets/budget.js";
 import { counterOf } from "../../src/budgets/execution-budgets.js";

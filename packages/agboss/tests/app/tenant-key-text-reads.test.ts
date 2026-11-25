@@ -7,8 +7,7 @@
  * rejection event of such an id names the tenant `"default"`, as its documentation says — never the id.
  */
 import { afterEach, beforeEach, describe, expect } from "vitest";
-import { DtoValidationError } from "../../src/dto/errors.js";
-import { OutboundCallStatus } from "../../src/index.js";
+import { OutboundCallStatus, ValidationError } from "../../src/index.js";
 import type { TestApp } from "../../src/testing/test-app.js";
 import { testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
@@ -73,7 +72,7 @@ describe("#552 acceptance: a tenant id at the operator's reads", () => {
       for (const surrogate of ["t\uD800", "t\uDFFF"])
         for (const [read, made] of reads(app, surrogate)) {
           const error = await rejectionOf(made);
-          expect(error, read).toBeInstanceOf(DtoValidationError);
+          expect(error, read).toBeInstanceOf(ValidationError.DtoInvalid);
           expect((error as Error).message, read).toContain("tenantId");
           expect((error as Error).message, read).toContain("(lone-surrogate)");
           expect((error as Error).message, read).not.toContain(surrogate);
@@ -87,7 +86,7 @@ describe("#552 acceptance: a tenant id at the operator's reads", () => {
       await app.ready();
       for (const [read, made] of reads(app, tenantId)) {
         const error = await rejectionOf(made);
-        expect(error, read).toBeInstanceOf(DtoValidationError);
+        expect(error, read).toBeInstanceOf(ValidationError.DtoInvalid);
         const { message } = error as Error;
         expect(message, read).toContain("tenantId");
         expect(message, read).toContain(`(${rule})`);
@@ -119,7 +118,7 @@ describe("#552 acceptance, #568: the rejection event of a tenant id that is no k
 
       expect(echoSeen.events).toHaveLength(3);
       for (const event of echoSeen.events)
-        expect(event).toMatchObject({ code: "dto.invalid", tenantId: "default" });
+        expect(event).toMatchObject({ code: "validation.dto-invalid", tenantId: "default" });
       expect(JSON.stringify(echoSeen.events)).not.toContain(JSON.stringify(tenantId).slice(1, -1));
     },
   );

@@ -1,3 +1,4 @@
+import { A2AError } from "../../../src/core/error-families/remote-errors.js";
 /**
  * #1366 (ledger-a2a-client shard) — what the A2A client does besides a call that charges, each rule on its own over
  * a fake card cache: it is built on its url, agent name, contract and origins (its own, and what it allows), with the
@@ -7,7 +8,7 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { A2AClient } from "../../../src/a2a/client/a2a-client.js";
-import { A2AClientOperation, A2AProtocolError } from "../../../src/a2a/client/a2a-client-errors.js";
+import { A2AClientOperation } from "../../../src/a2a/client/a2a-client-errors.js";
 import { CardCache } from "../../../src/a2a/client/a2a-card-cache.js";
 import { currentFrame } from "../../../src/flow/context/frame.js";
 import { kilobytes } from "../../../src/units/index.js";
@@ -170,7 +171,7 @@ describe("#1366: the card and the tasks a client reads", () => {
     const read = await client.getTask("t-1").catch((error: unknown) => error);
     const cancel = await client.cancel("t-1").catch((error: unknown) => error);
 
-    expect(read).toBeInstanceOf(A2AProtocolError);
+    expect(read).toBeInstanceOf(A2AError.Protocol);
     expect(read).toMatchObject({ agent: "PeerClient", operation: A2AClientOperation.GetTask });
     expect(cancel).toMatchObject({ agent: "PeerClient", operation: A2AClientOperation.CancelTask });
   });

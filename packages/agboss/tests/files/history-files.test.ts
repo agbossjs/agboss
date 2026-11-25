@@ -67,8 +67,8 @@ const partsOf = (request: { kind: string; parts?: readonly { sha256: string }[] 
 describe("AC2: the files of the turns the agent remembers", () => {
   testWith(reader.Application)(
     "AC2: a file of an earlier turn of the thread reaches the model, under its heading",
-    async ({ app, mockLlm }) => {
-      const agent = mockLlm(reader.Agent).thenReturn(replyWith("first"), replyWith("second"));
+    async ({ app, mockModel }) => {
+      const agent = mockModel(reader.Agent).thenReturn(replyWith("first"), replyWith("second"));
       const first = await execute(app, reader.Start, { document: named() }, { threadId: "chat-1" });
       await keep(first.executionId);
 
@@ -84,8 +84,8 @@ describe("AC2: the files of the turns the agent remembers", () => {
 
   testWith(reader.Application)(
     "AC2: another thread's file, and another tenant's, are never read: they render as removed",
-    async ({ app, mockLlm }) => {
-      const agent = mockLlm(reader.Agent).thenReturn(replyWith("first"), replyWith("second"));
+    async ({ app, mockModel }) => {
+      const agent = mockModel(reader.Agent).thenReturn(replyWith("first"), replyWith("second"));
       const first = await execute(app, reader.Start, { document: named() }, { threadId: "chat-2" });
       // the file belongs to an execution of no turn of this thread
       await keep("someone-elses-execution");
@@ -100,8 +100,8 @@ describe("AC2: the files of the turns the agent remembers", () => {
 
   testWith(reader.Application)(
     "AC2: a file retention removed is its descriptor, (removed): the visit goes on",
-    async ({ app, mockLlm }) => {
-      const agent = mockLlm(reader.Agent).thenReturn(replyWith("first"), replyWith("second"));
+    async ({ app, mockModel }) => {
+      const agent = mockModel(reader.Agent).thenReturn(replyWith("first"), replyWith("second"));
       await execute(app, reader.Start, { document: named("gone") }, { threadId: "chat-3" });
 
       const result = await execute(
@@ -130,8 +130,8 @@ describe("AC2: a history file handed back in an answer is a copy this execution 
 
   testWith(answering.Application)(
     "AC2: the answer's file is read under the answering execution, same bytes and digest",
-    async ({ app, mockLlm }) => {
-      mockLlm(answering.Agent).thenReturn(
+    async ({ app, mockModel }) => {
+      mockModel(answering.Agent).thenReturn(
         replyWith(MaybeFileDto, {} as never),
         replyWith(MaybeFileDto, { file: { file: 1 } } as never),
       );

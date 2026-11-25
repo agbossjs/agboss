@@ -1,3 +1,5 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import {
   onAction,
   onAgent,
@@ -16,8 +18,6 @@ import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import { listOf, oneOf, optional } from "../../../src/flow/dto-wrappers.js";
 import type { InputOf, OutputOf } from "../../../src/flow/generated-types.js";
 import type { ActionHandler } from "../../../src/flow/handlers.js";
-import { StepFailedError } from "../../../src/graph/errors.js";
-import { LimitExceededError } from "../../../src/graph/limits.js";
 import { Application } from "../../../src/application/application.js";
 import { EmptyEnvironment, inline, Ttl } from "../../../src/index.js";
 import { TEST_BUDGETS } from "./budgets.js";
@@ -136,9 +136,9 @@ export class CompanyReviewFailedWorkflowFinish {}
     onAgent(CompanyReviewerAgent)
       .toOneOf([
         toAgent(DeepDiveAgent)
-          .onError(StepFailedError, toAction(MarkReviewFailedAction))
+          .onError(StepError, toAction(MarkReviewFailedAction))
           .toAgent(GraderAgent)
-          .onError(StepFailedError, toAction(MarkReviewFailedAction))
+          .onError(StepError, toAction(MarkReviewFailedAction))
           .toFinish(CompanyGradedWorkflowFinish),
         toFinish(CompanyRejectedWorkflowFinish),
       ]),
@@ -215,7 +215,7 @@ export class ScreeningStoppedWorkflowFinish {}
       .forEachItem(toWorkflow(CompanyReviewWorkflow), { takeFirst: 50, maxConcurrency: 3 })
       .join()
       .onError(
-        LimitExceededError,
+        LimitError,
         toAction(NotifyReviewStoppedAction)
           .toFinish(ScreeningStoppedWorkflowFinish),
       )
@@ -291,7 +291,7 @@ export class ReviewErrorWorkflowFinish {}
     onStart(JobOfferWorkflowStart)
       .toAgent(CompanyPickerAgent) // enters company-review-workflow-start
       .toWorkflow(CompanyReviewWorkflow)
-      .onError(StepFailedError, toFinish(ReviewErrorWorkflowFinish))
+      .onError(StepError, toFinish(ReviewErrorWorkflowFinish))
       .toOneOf([
         toAgent(JobOfferAgent)
           .toFinish(JobOfferWorkflowFinish),
@@ -332,7 +332,7 @@ export class LinkOfferWorkflowStart {}
 
     // two ways in → its own path
     onWorkflow(CompanyReviewWorkflow)
-      .onError(StepFailedError, toFinish(ReviewErrorWorkflowFinish))
+      .onError(StepError, toFinish(ReviewErrorWorkflowFinish))
       .toOneOf([
         toAgent(JobOfferAgent)
           .toFinish(JobOfferWorkflowFinish),

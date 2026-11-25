@@ -11,8 +11,8 @@ import { checker } from "../support/vendor-checker.js";
 const test = testWith(FlowPatternsApplication);
 
 describe("a child workflow per vendor", () => {
-  test("the child runs alone with the same result", async ({ app, mockLlm }) => {
-    mockLlm(VendorCheckerAgent).thenAnswer(checker);
+  test("the child runs alone with the same result", async ({ app, mockModel }) => {
+    mockModel(VendorCheckerAgent).respondWith(checker);
 
     const result = await app.execute(VendorCheckWorkflowStart, { name: "Acme" });
 

@@ -65,7 +65,7 @@ interface ExpiredLike extends Error {
 }
 
 const isExpired = (error: unknown): error is ExpiredLike =>
-  error instanceof Error && Reflect.get(error, "code") === "cost-ledger.entry-expired";
+  error instanceof Error && Reflect.get(error, "code") === "store.ledger-entry-expired";
 
 interface Shared {
   readonly inner: InMemoryCostLedgerRepository;

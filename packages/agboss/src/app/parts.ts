@@ -1,3 +1,4 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import { ComponentOptions } from "../components/component-options.js";
 import { BranchErrors } from "../flow/runtime/launch/branch-end.js";
 import type { BranchScheduler } from "../flow/runtime/launch/branch-schedule.js";
@@ -23,7 +24,6 @@ import type { EvalDeps } from "../eval/eval.js";
 import type { AgentExecutionDeps } from "../run/types.js";
 import type { ModelGateway } from "../llm/gateway.js";
 import { createRouter, type RouterEngine } from "../routers/index.js";
-import { ComponentError } from "../components/metadata.js";
 import type { AnyTool } from "../tools/index.js";
 import type { PauseNotices, PauseSeam } from "../pause/index.js";
 import type { PausedExecutionRepository } from "../infrastructure/paused-execution.repository.js";
@@ -35,16 +35,15 @@ import type { Class } from "../components/injection.js";
 import { decisionServiceOf } from "../components/decision-target.js";
 import type { ModelPricing } from "../models/model-pricing.js";
 
-export class UnknownToolError extends Error {
-  override name = "UnknownToolError";
-}
+/** The lookup's miss: only this is "no such tool" — any other `ConfigError.Component` is a real failure (#1413 M4). */
+export class UnknownToolError extends ConfigError.Component {}
 
 /** Tool lookup for the graph; an unknown name is a wiring bug. */
 export const toolLookup = (tools: readonly AnyTool[]): ((name: string) => AnyTool) => {
   const byName = new Map(tools.map((tool) => [tool.name, tool] as const));
   return (name) => {
     const tool = byName.get(name);
-    if (tool === undefined) throw new UnknownToolError(`Unknown tool "${name}"`);
+    if (tool === undefined) throw new UnknownToolError({ message: `Unknown tool "${name}"` });
     return tool;
   };
 };
@@ -146,13 +145,6 @@ export const policiesFor = (
   toolInterceptors: toolInterceptorRuntimeOf(bundle.toolInterceptors, bundle.resolve(services)),
 });
 
-/** A model is needed for it, and `defaults.router.model` is not set. */
-export class NoDefaultRouterError extends ComponentError {
-  static override readonly code = "component.no-default-router" as const;
-  declare readonly code: typeof NoDefaultRouterError.code;
-  override name = "NoDefaultRouterError";
-}
-
 /**
  * A router on the workflow's `defaults.router.model` (guards, `ROUTER_FACTORY`, eval). Without a
  * default it fails when asked to decide, naming the fix — not at start, when nothing uses it.
@@ -165,7 +157,7 @@ export function defaultRouterOf(
   const model = config.defaults.router;
   if (model !== undefined) return createRouter(name, model, config.defaults.models, gateway);
   const message = `${name} decides on the workflow's default router, but @Workflow({ defaults: { router: { model } } }) is not set`;
-  return { name, route: () => Promise.reject(new NoDefaultRouterError({ message })) };
+  return { name, route: () => Promise.reject(new ConfigError.NoDefaultRouter({ message })) };
 }
 
 /** The workflow's graph, steps limit and routers; each router decides on its own model. */

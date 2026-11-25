@@ -1,3 +1,4 @@
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import { beforeEach, describe, expect } from "vitest";
 import { BranchStatus } from "../../../src/index.js";
 import { replyWith, testWith, TestConcurrency } from "../../../src/testing/index.js";
@@ -40,30 +41,30 @@ const check = (name: string) => replyWith(CompanyCheckDto, { name, passed: true 
 beforeEach(resetFanOut);
 
 describe("AC2: an agent per item", () => {
-  screening("one run per item, its own item", async ({ app, mockLlm }) => {
-    mockLlm(ScreeningAgent).thenReturn(companies("Acme", "Globex", "Initech"));
-    mockLlm(CompanyAuditAgent).thenReturn(check("Acme"), check("Globex"), check("Initech"));
-    mockLlm(RankerAgent).thenReturn(replyWith(RankingDto, { order: "Acme, Globex, Initech" }));
+  screening("one run per item, its own item", async ({ app, mockModel }) => {
+    mockModel(ScreeningAgent).thenReturn(companies("Acme", "Globex", "Initech"));
+    mockModel(CompanyAuditAgent).thenReturn(check("Acme"), check("Globex"), check("Initech"));
+    mockModel(RankerAgent).thenReturn(replyWith(RankingDto, { order: "Acme, Globex, Initech" }));
 
     const result = await app.execute(ScreeningWorkflowStart, { text: "tea makers" });
 
     expect(result).toFinishWith(RankingWorkflowFinish, { order: "Acme, Globex, Initech" });
-    const asked = mockLlm(CompanyAuditAgent).requests.map((request) => request.input);
+    const asked = mockModel(CompanyAuditAgent).requests.map((request) => request.input);
     expect(asked).toHaveLength(3);
     for (const name of ["Acme", "Globex", "Initech"]) {
       expect(asked.filter((input) => JSON.stringify(input).includes(name))).toHaveLength(1);
     }
     expect(result.path.filter((node) => node === "company-audit-agent")).toHaveLength(3);
-    const ranked = JSON.stringify(mockLlm(RankerAgent).requests[0]?.input);
+    const ranked = JSON.stringify(mockModel(RankerAgent).requests[0]?.input);
     expect(ranked).toContain("Initech");
   });
 
   screening(
-    "a limit reached in a branch fails the launch into .onError(LimitExceededError, …)",
-    async ({ app, mockLlm }) => {
+    "a limit reached in a branch fails the launch into .onError(LimitError, …)",
+    async ({ app, mockModel }) => {
       const names = ["a", "b", "c", "d", "e", "f", "g", "h", "i"];
-      mockLlm(ScreeningAgent).thenReturn(companies(...names));
-      mockLlm(CompanyAuditAgent).thenReturnAlways(check("x"));
+      mockModel(ScreeningAgent).thenReturn(companies(...names));
+      mockModel(CompanyAuditAgent).thenReturnAlways(check("x"));
 
       const result = await app.execute(ScreeningWorkflowStart, { text: "many" });
 

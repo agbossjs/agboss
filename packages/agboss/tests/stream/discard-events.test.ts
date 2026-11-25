@@ -2,8 +2,8 @@
  * #1006 AC1, AC2: every delta names its step; what a judge rejects, a refused move or a broken call
  * produced is retracted by a `discarded` event, once; the kept deltas, joined, are the reply.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { describe, expect } from "vitest";
-import { QualityGateError } from "../../src/index.js";
 import {
   StreamDiscardReason,
   StreamEventKind,
@@ -27,10 +27,10 @@ const stepOf = (executionId: string, attempt: number): StreamStep => ({
 describe("#1006: a judge rejects an attempt", () => {
   test("AC1, AC2: delta(1), discarded(1, judge-rejected), delta(2); the kept text is the output", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(AuditWriter).thenReturn(replyWith("BAD DRAFT"), replyWith("Good answer."));
-    mockLlm(AuditJudge).thenReturn(replyWith("FAIL"), replyWith("PASS"));
+    mockModel(AuditWriter).thenReturn(replyWith("BAD DRAFT"), replyWith("Good answer."));
+    mockModel(AuditJudge).thenReturn(replyWith("FAIL"), replyWith("PASS"));
     const events: ExecutionStreamEvent[] = [];
 
     const done = await execute(
@@ -52,10 +52,10 @@ describe("#1006: a judge rejects an attempt", () => {
 
   test("AC1: the last rejection fails the run — the draft is retracted once, never twice", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(AuditWriter).thenReturn(replyWith("ONE"), replyWith("TWO"));
-    mockLlm(AuditJudge).thenReturn(replyWith("FAIL"), replyWith("FAIL"));
+    mockModel(AuditWriter).thenReturn(replyWith("ONE"), replyWith("TWO"));
+    mockModel(AuditJudge).thenReturn(replyWith("FAIL"), replyWith("FAIL"));
     const events: ExecutionStreamEvent[] = [];
 
     const failure = await execute(
@@ -68,7 +68,7 @@ describe("#1006: a judge rejects an attempt", () => {
       (error: unknown) => error,
     );
 
-    expect(failure).toBeInstanceOf(QualityGateError);
+    expect(failure).toBeInstanceOf(StepError.QualityGate);
     expect(
       events.map((event) =>
         event.kind === StreamEventKind.ToolCall
@@ -81,10 +81,10 @@ describe("#1006: a judge rejects an attempt", () => {
 
   test("AC1: a judge that cannot answer fails the visit — the reply is retracted as failed", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(AuditWriter).thenReturn(replyWith("A reply."));
-    mockLlm(AuditJudge).thenReturn(failWith(ModelFailure.Timeout));
+    mockModel(AuditWriter).thenReturn(replyWith("A reply."));
+    mockModel(AuditJudge).thenReturn(failWith(ModelFailure.Timeout));
     const events: ExecutionStreamEvent[] = [];
 
     await expect(
@@ -102,10 +102,10 @@ describe("#1006: a judge rejects an attempt", () => {
 describe("#1006: a refused move", () => {
   test("AC1: a PII token nobody gave — the attempt is discarded as invalid, the retry is the answer", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(AuditWriter).thenReturn(replyWith("Write to <email:abcdef>."), replyWith("Fine."));
-    mockLlm(AuditJudge).thenReturn(replyWith("PASS"));
+    mockModel(AuditWriter).thenReturn(replyWith("Write to <email:abcdef>."), replyWith("Fine."));
+    mockModel(AuditJudge).thenReturn(replyWith("PASS"));
     const events: ExecutionStreamEvent[] = [];
 
     const done = await execute(

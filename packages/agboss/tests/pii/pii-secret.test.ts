@@ -3,6 +3,7 @@
  * `@DatabaseStorage`, key rotation (one value keeps its token, old tokens still reveal),
  * `[pii.secret-required]`, no key from `InMemoryDatabaseStorage`, the test key only through the test seam, the masked `Logger`.
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { afterEach, describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
@@ -12,7 +13,6 @@ import { createAppWithoutPiiKey } from "./without-pii-key.js";
 import { Injectable } from "../../src/components/decorators.js";
 import { Text } from "../../src/dto/index.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
-import { GraphRuleError } from "../../src/graph/rule-error.js";
 import {
   DatabaseStorage,
   InMemoryDatabaseStorage,
@@ -305,12 +305,12 @@ describe("#1301b: the application's key from the storage", () => {
 describe("#1301b: [pii.secret-required]", () => {
   const offline = { processEnv: {}, gateway: createScriptedGateway(new ScriptBook()) };
 
-  const failureOf = async (application: new () => object): Promise<GraphRuleError> => {
+  const failureOf = async (application: new () => object): Promise<ConfigError.GraphRules> => {
     const failure = await createAppWithoutPiiKey(application as never, offline).catch(
       (error: unknown) => error,
     );
-    expect(failure).toBeInstanceOf(GraphRuleError);
-    return failure as GraphRuleError;
+    expect(failure).toBeInstanceOf(ConfigError.GraphRules);
+    return failure as ConfigError.GraphRules;
   };
 
   it("a real storage without piiSecret and a tokenize() policy: the start fails, naming the policy", async () => {
@@ -350,7 +350,7 @@ describe("#1301b: [pii.secret-required]", () => {
       (error: unknown) => error,
     );
 
-    expect(app).not.toBeInstanceOf(GraphRuleError);
+    expect(app).not.toBeInstanceOf(ConfigError.GraphRules);
   });
 
   it("InMemoryDatabaseStorage supplies no key: a non-test app that tokenizes fails the start", async () => {
@@ -360,7 +360,7 @@ describe("#1301b: [pii.secret-required]", () => {
     );
 
     expect(() => applicationPiiKeyOf(assembled, { environment: {} as never, env: {} })).toThrow(
-      GraphRuleError,
+      ConfigError.GraphRules,
     );
   });
 
@@ -377,7 +377,7 @@ describe("#1301b: [pii.secret-required]", () => {
     });
     expect(() =>
       applicationPiiKeyOf(assembled, { ...source, env: { NODE_ENV: "production" } }),
-    ).toThrow(GraphRuleError);
+    ).toThrow(ConfigError.GraphRules);
   });
 
   it("the storage's piiSecret is not rescued by the test key in production either", async () => {
@@ -414,7 +414,6 @@ describe("#1301b: [pii.secret-required]", () => {
       description: "a",
       prompt: inline("p"),
       model: "test/m",
-      price: { inputPerMTok: 1, outputPerMTok: 1 },
       input: { who: TokenFieldDto },
     })
     class TokenFieldAgent {}

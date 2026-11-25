@@ -10,7 +10,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   ChildExecutionQueueRepository,
   CompensationStatus,
-  ExecutionCancelledError,
   HandOverReason,
   LeaseTakeoverReason,
   type CompensationEndEvent,
@@ -21,6 +20,7 @@ import {
   type ExecutionStopEvent,
   type StepHandedOverEvent,
 } from "../../src/index.js";
+import { ExecutionCancelledError } from "../../src/core/errors.js";
 import { testWith } from "../../src/testing/index.js";
 import { seconds } from "../../src/units/index.js";
 import { METRICS, MetricKind } from "../../src/metrics/metric-catalog.js";

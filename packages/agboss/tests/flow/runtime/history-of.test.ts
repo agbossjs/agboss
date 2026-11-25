@@ -37,10 +37,10 @@ describe("#299 AC4: historyOf at run time", () => {
 
   test("the reviewer's history: v1 / [], v2 / [v1], v3 / [v1, v2], v4 / [v2, v3]; the finish all", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(FirstDraftAgent).thenReturn(replyWith(OfferDraftDto, { text: "v1" }));
-    mockLlm(DraftEditorAgent).thenReturn(
+    mockModel(FirstDraftAgent).thenReturn(replyWith(OfferDraftDto, { text: "v1" }));
+    mockModel(DraftEditorAgent).thenReturn(
       replyWith(OfferDraftDto, { text: "v2" }),
       replyWith(OfferDraftDto, { text: "v3" }),
       replyWith(OfferDraftDto, { text: "v4" }),

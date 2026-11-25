@@ -87,14 +87,3 @@ export async function resumeAgent<TName extends string>(
     drainRun(await moving.stream(new Command({ resume: resume.values }), streaming), record, spent),
   );
 }
-
-/** A pause id the tenant does not have — unknown, or another tenant's: the same error, no hint. */
-export class UnknownPauseError extends AGBossError {
-  static override readonly code = "pause.unknown-pause" as const;
-  declare readonly code: typeof UnknownPauseError.code;
-  override name = "UnknownPauseError";
-
-  constructor(options: MessageErrorOptions) {
-    super(options.message, options);
-  }
-}

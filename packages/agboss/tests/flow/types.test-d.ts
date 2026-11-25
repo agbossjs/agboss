@@ -1,3 +1,4 @@
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { describe, expectTypeOf, it } from "vitest";
 import type { FlowPath } from "../../src/flow/ast.js";
 import type { IsOneOf } from "../../src/flow/builder-types.js";
@@ -91,7 +92,6 @@ import {
   OfferWorkflowStart,
   ReviewerAgent,
   SendOfferAction,
-  VisitsLimitExceededError,
 } from "./fixtures/offer.fixture.js";
 import { Text } from "../../src/dto/index.js";
 import {
@@ -158,8 +158,6 @@ import {
   ReviewRankerAgent,
 } from "./fixtures/children.fixture.js";
 import { TwinGradeWorkflow } from "./fixtures/broken-children.fixture.js";
-import { StepFailedError } from "../../src/graph/errors.js";
-import { LimitExceededError } from "../../src/graph/limits.js";
 
 /**
  * Compile-time checks of the v2 flow (#272 PR 1, S3). Checked by `tsc` (the gate's typecheck), not
@@ -337,12 +335,9 @@ describe("1278a: .onRoute(subPath) names each route of the router once", () => {
 
 describe("AC7: .onError stands right after the step that throws", () => {
   it("onError takes a toAction side path and does not follow .returns", () => {
-    const edited = onAgent(EditorAgent).onError(
-      VisitsLimitExceededError,
-      toAction(NotifyRecruiterAction),
-    );
+    const edited = onAgent(EditorAgent).onError(LimitError.Visits, toAction(NotifyRecruiterAction));
     // @ts-expect-error — the side path is toAction(…)…, not a route
-    onAgent(EditorAgent).onError(VisitsLimitExceededError, route(EditorAgent));
+    onAgent(EditorAgent).onError(LimitError.Visits, route(EditorAgent));
     expectTypeOf(edited).toHaveProperty("toAgent");
   });
 });
@@ -350,7 +345,7 @@ describe("AC7: .onError stands right after the step that throws", () => {
 describe("AC7: a side path starts with any transition, kinds checked", () => {
   it("toAction, toAgent, toRouter and toFinish begin a side path", () => {
     const edited = onAgent(EditorAgent)
-      .onError(VisitsLimitExceededError, toFinish(OfferSentWorkflowFinish))
+      .onError(LimitError.Visits, toFinish(OfferSentWorkflowFinish))
       .onError(Error, toAgent(DraftAgent).toAgent(ReviewerAgent))
       .onError(
         RangeError,
@@ -759,7 +754,7 @@ describe("#273: parallel launches and their joins", () => {
     // @ts-expect-error — a launch is followed by .join(), never by a transition
     launched.toAgent(ArticleWriterAgent);
     // @ts-expect-error — `.onError` is the join's handler: it is not offered between a launch and its join (#1281)
-    launched.onError(StepFailedError, toFinish(ScreeningFailedWorkflowFinish));
+    launched.onError(StepError, toFinish(ScreeningFailedWorkflowFinish));
     const flow: readonly FlowPath[] = [
       // @ts-expect-error — a path that stops at a launch is not a path
       onStart(OfferWorkflowStart)
@@ -789,7 +784,7 @@ describe("#273: parallel launches and their joins", () => {
       .join();
     joined.toAgent(ArticleWriterAgent);
     // @ts-expect-error — the join's handler is `.onError`: `.onJoinError` is gone (#1281)
-    joined.onJoinError(LimitExceededError, toFinish(ScreeningFailedWorkflowFinish));
+    joined.onJoinError(LimitError, toFinish(ScreeningFailedWorkflowFinish));
     // @ts-expect-error — no launch right after a join's values
     joined.inParallel([toAgent(CriticAgent)]);
     expectTypeOf(joined).toHaveProperty("onError");
@@ -799,7 +794,7 @@ describe("#273: parallel launches and their joins", () => {
     screened()
       .forEachItem(toAgent(CompanyAuditAgent), { takeFirst: 50, maxConcurrency: 3 })
       .join()
-      .onError(LimitExceededError, toAction(NotifyOperatorAction))
+      .onError(LimitError, toAction(NotifyOperatorAction))
       .toAgent(RankerAgent);
     const audited = screened().forEachItem(toAgent(CompanyAuditAgent), { takeFirst: 50 }).join();
     // @ts-expect-error — item-blind-agent reads no CompanyDto: [launch.item-not-read]
@@ -861,14 +856,14 @@ describe("#263: child workflows", () => {
   it("AC12: onError placement — right after .toWorkflow(W) and after the join, not between a launch and its join", () => {
     picked()
       .toWorkflow(CompanyReviewWorkflow)
-      .onError(StepFailedError, toFinish(ReviewErrorWorkflowFinish))
+      .onError(StepError, toFinish(ReviewErrorWorkflowFinish))
       .toOneOf([graded(), rejected(), failed()]);
     const single = picked().toWorkflow(CompanyReviewWorkflow);
-    single.onError(StepFailedError, toFinish(ReviewErrorWorkflowFinish));
+    single.onError(StepError, toFinish(ReviewErrorWorkflowFinish));
     const joined = found().forEachItem(toWorkflow(CompanyReviewWorkflow), { takeFirst: 5 }).join();
     // @ts-expect-error — the join's handler is `.onError`: `.onJoinError` is gone (#1281)
-    joined.onJoinError(StepFailedError, toFinish(ReviewErrorWorkflowFinish));
-    joined.onError(StepFailedError, toFinish(ReviewErrorWorkflowFinish)).toAgent(ReviewRankerAgent);
+    joined.onJoinError(StepError, toFinish(ReviewErrorWorkflowFinish));
+    joined.onError(StepError, toFinish(ReviewErrorWorkflowFinish)).toAgent(ReviewRankerAgent);
     expectTypeOf(joined).toHaveProperty("onError");
   });
 
@@ -886,7 +881,7 @@ describe("#263: child workflows", () => {
 
   it("own path onWorkflow(W), the kind of every child checked, the start choice a compile error", () => {
     onWorkflow(CompanyReviewWorkflow)
-      .onError(StepFailedError, toFinish(ReviewErrorWorkflowFinish))
+      .onError(StepError, toFinish(ReviewErrorWorkflowFinish))
       .toOneOf([graded(), rejected(), failed()]);
     // @ts-expect-error — company-picker-agent is not a workflow
     onWorkflow(CompanyPickerAgent);

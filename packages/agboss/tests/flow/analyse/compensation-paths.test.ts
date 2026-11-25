@@ -1,7 +1,7 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { describe, expect, it } from "vitest";
 import { checkWorkflow } from "../../../src/flow/analyse/analyse.js";
 import { Workflow, type WorkflowOptions } from "../../../src/flow/decorators/workflow.js";
-import { StepFailedError } from "../../../src/graph/errors.js";
 import {
   BookTripAction,
   CancelBookingAction,
@@ -61,7 +61,7 @@ const booked = (side: PathBuilder): Flow => [
     .toAction(BookTripAction)
     .toAction(ChargeAction)
     .toAgent(TripLetterAgent)
-    .onError(StepFailedError, side)
+    .onError(StepError, side)
     .toAction(ConfirmTripAction)
     .toFinish(TripBookedWorkflowFinish),
 ];
@@ -84,7 +84,7 @@ describe("#339 AC2: a side path undoes what is open, newest first", () => {
       {
         code: "flow.uncompensated-action",
         message:
-          "the .onError(StepFailedError, …) side path after trip-letter-agent reaches trip-not-booked-workflow-finish without refund-action (compensates charge-action) and cancel-booking-action (compensates book-trip-action); add them to the side path, newest first, or commit the actions before it",
+          "the .onError(StepError, …) side path after trip-letter-agent reaches trip-not-booked-workflow-finish without refund-action (compensates charge-action) and cancel-booking-action (compensates book-trip-action); add them to the side path, newest first, or commit the actions before it",
       },
     ]);
   });
@@ -96,7 +96,7 @@ describe("#339 AC2: a side path undoes what is open, newest first", () => {
       {
         code: "flow.uncompensated-action",
         message:
-          "the .onError(StepFailedError, …) side path after trip-letter-agent reaches trip-not-booked-workflow-finish without cancel-booking-action (compensates book-trip-action); add it to the side path, or commit the action before it",
+          "the .onError(StepError, …) side path after trip-letter-agent reaches trip-not-booked-workflow-finish without cancel-booking-action (compensates book-trip-action); add it to the side path, or commit the action before it",
       },
     ]);
   });
@@ -121,7 +121,7 @@ describe("#339 AC2: a side path undoes what is open, newest first", () => {
         .toAction(BookTripAction)
         .toAction(ConfirmTripAction)
         .toAgent(TripLetterAgent)
-        .onError(StepFailedError, toFinish(TripNotBookedWorkflowFinish))
+        .onError(StepError, toFinish(TripNotBookedWorkflowFinish))
         .toFinish(TripBookedWorkflowFinish),
     ];
 
@@ -133,10 +133,7 @@ describe("#339 AC2: a side path undoes what is open, newest first", () => {
       onStart(TripWorkflowStart)
         .toAction(BookTripAction)
         .toAction(ChargeAction)
-        .onError(
-          StepFailedError,
-          toAction(CancelBookingAction).toFinish(TripNotBookedWorkflowFinish),
-        )
+        .onError(StepError, toAction(CancelBookingAction).toFinish(TripNotBookedWorkflowFinish))
         .toAction(ConfirmTripAction)
         .toFinish(TripBookedWorkflowFinish),
     ];
@@ -151,7 +148,7 @@ describe("#339 AC2: a failed join's side path owes what was open before the laun
       .toAction(BookTripAction)
       .inParallel([toAction(ChargeAction), toAction(NotifyAgencyAction)])
       .join()
-      .onError(StepFailedError, side)
+      .onError(StepError, side)
       .toAction(ConfirmTripAction)
       .toFinish(TripBookedWorkflowFinish),
   ];
@@ -161,7 +158,7 @@ describe("#339 AC2: a failed join's side path owes what was open before the laun
       {
         code: "flow.uncompensated-action",
         message:
-          "the .onError(StepFailedError, …) side path after the join of book-trip-action → inParallel(charge-action, notify-agency-action) reaches trip-not-booked-workflow-finish without cancel-booking-action (compensates book-trip-action); add it to the side path, or commit the action before it",
+          "the .onError(StepError, …) side path after the join of book-trip-action → inParallel(charge-action, notify-agency-action) reaches trip-not-booked-workflow-finish without cancel-booking-action (compensates book-trip-action); add it to the side path, or commit the action before it",
       },
     ]);
     const undone = toAction(CancelBookingAction).toFinish(TripNotBookedWorkflowFinish);

@@ -1,8 +1,8 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { describe, expect, it } from "vitest";
 import { checkWorkflow } from "../../../src/flow/analyse/analyse.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import { Workflow, type WorkflowOptions } from "../../../src/flow/decorators/workflow.js";
-import { StepFailedError } from "../../../src/graph/errors.js";
 import { AGBossError } from "../../../src/core/errors.js";
 import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import {
@@ -72,7 +72,7 @@ describe("#1279: the assembly of a parallel launch", () => {
       onStart(InParallelWorkflowStart)
         .inParallel([
           toAction(FirstAction),
-          toAction(SecondAction).onError(StepFailedError, skip()),
+          toAction(SecondAction).onError(StepError, skip()),
           toAgent(ThirdAgent),
         ])
         .join()
@@ -86,10 +86,7 @@ describe("#1279: the assembly of a parallel launch", () => {
     expect(
       codesOf([
         onStart(InParallelWorkflowStart)
-          .inParallel([
-            toAction(SecondAction),
-            toAction(SecondAction).onError(StepFailedError, skip()),
-          ])
+          .inParallel([toAction(SecondAction), toAction(SecondAction).onError(StepError, skip())])
           .join()
           .toFinish(SummaryWorkflowFinish),
       ]),
@@ -138,7 +135,7 @@ describe("#1279: the assembly of a parallel launch", () => {
     );
     expect(withHandler(LimitError as never)).not.toContain("launch.max-items-handler-required");
     expect(withHandler(AGBossError as never)).not.toContain("launch.max-items-handler-required");
-    expect(withHandler(StepFailedError as never)).toContain("launch.max-items-handler-required");
+    expect(withHandler(StepError as never)).toContain("launch.max-items-handler-required");
     expect(
       codesOf([
         onStart(ItemsWorkflowStart)

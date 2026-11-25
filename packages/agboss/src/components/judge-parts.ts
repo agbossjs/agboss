@@ -1,3 +1,4 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import type { AgentsConfigOf } from "../config/types.js";
 import type { AssembledWorkflow, WorkflowServices } from "../workflow.js";
 import { DEFAULT_MODEL_ALIAS } from "../models/model-cascade.js";
@@ -10,7 +11,7 @@ import {
   type RunnableJudge,
 } from "./judge-decorators.js";
 import { tokenName, type Class } from "./injection.js";
-import { ComponentError, componentOf } from "./metadata.js";
+import { componentOf } from "./metadata.js";
 import type { AgentMeta, WorkflowMeta } from "./meta-types.js";
 import { containerFor } from "./runtime.js";
 import { PromptLoader } from "./prompt-render.js";
@@ -84,12 +85,12 @@ function declarativeProblemOf(cls: Class, meta: JudgeRecord): string | undefined
 export function checkedJudgeOf(where: string, cls: Class): JudgeClass {
   const component = componentOf(cls);
   if (component?.kind !== "judge") {
-    throw new ComponentError({
+    throw new ConfigError.Component({
       message: `[judge.not-a-judge] ${where}: ${tokenName(cls)} in judges is not a @Judge class`,
     });
   }
   const problem = modelProblemOf(cls, component.meta);
-  if (problem !== undefined) throw new ComponentError({ message: problem });
+  if (problem !== undefined) throw new ConfigError.Component({ message: problem });
   return { cls, meta: component.meta };
 }
 
@@ -111,7 +112,7 @@ export function judgeClassesOf(agents: readonly AgentMeta[]): ReadonlyMap<string
       const judge = judgeClassOf(agent.name, cls);
       const known = byName.get(judge.meta.name);
       if (known !== undefined && known.cls !== cls) {
-        throw new ComponentError({
+        throw new ConfigError.Component({
           message: `[judge.duplicate-name] @Judge "${judge.meta.name}": declared by ${tokenName(known.cls)} and ${tokenName(cls)}`,
         });
       }

@@ -1,11 +1,11 @@
+import { ConfigError } from "../../core/error-families/config-errors.js";
 import { HumanMessage, type BaseMessage } from "@langchain/core/messages";
 import { chatMessagesOf, type ModelMessage } from "../../models/messages.js";
 import { decisionStateWith } from "../../files/decision-parts.js";
 import { contentWithPieces, type FilePiece } from "../../files/file-pieces.js";
 import type { JudgeModel } from "../../components/judge-decorators.js";
-import { ComponentError } from "../../components/metadata.js";
 import { recordUsage, type UsageRecord } from "../../finops/usage.js";
-import { ModelKind, ModelKindError } from "../../llm/decision-errors.js";
+import { ModelKind } from "../../llm/decision-errors.js";
 import type { AnswersOf, DecisionQuestions, DecisionRequest } from "../../llm/decisions.js";
 import type { JudgeBinding } from "../../llm/registry.js";
 import type { AgentJudge } from "./deps.js";
@@ -52,7 +52,11 @@ function invokeOf(
   return async (given: string | readonly ModelMessage[]) => {
     const input = withPiecesIn(typeof given === "string" ? given : chatMessagesOf(given), pieces);
     if (binding.kind !== ModelKind.Chat) {
-      throw new ModelKindError({ model: binding.model, kind: ModelKind.Decisions, call: "invoke" });
+      throw new ConfigError.ModelKind({
+        model: binding.model,
+        modelKind: ModelKind.Decisions,
+        call: "invoke",
+      });
     }
     const { model, settings } = binding.chat;
     await beforeCall(); // a budget of the execution that is spent stops the judge before this call
@@ -85,7 +89,11 @@ function decideOf(
     request: DecisionRequest<Q>,
   ): Promise<AnswersOf<Q>> => {
     if (binding.kind !== ModelKind.Decisions) {
-      throw new ModelKindError({ model: binding.model, kind: ModelKind.Chat, call: "decide" });
+      throw new ConfigError.ModelKind({
+        model: binding.model,
+        modelKind: ModelKind.Chat,
+        call: "decide",
+      });
     }
     await beforeCall(); // a budget of the execution that is spent stops the judge before this call
     const reading = mask === undefined ? undefined : await judgeReadingOf(mask);
@@ -112,7 +120,7 @@ function decideOf(
 /** The model of a code judge (#396): it has none, so every call is a mistake, named. */
 function noModelOf(judge: string): JudgeModel {
   const refuse = (member: string): never => {
-    throw new ComponentError({
+    throw new ConfigError.Component({
       message: `[judge.model-on-code-judge] judge "${judge}" is decided by code and has no model — judgeModel.${member} is not available`,
     });
   };

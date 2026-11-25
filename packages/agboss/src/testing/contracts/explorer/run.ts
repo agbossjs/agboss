@@ -1,13 +1,11 @@
+import { StoreError } from "../../../core/error-families/store-errors.js";
 import { NO_ENVIRONMENT_VALUES } from "../../../environments/resolve.js";
 import { applicationContextOf } from "../../../flow/context/application-context.js";
 import { TEST_START, VirtualClock } from "../../clock.js";
 import { SkewedClock } from "../../clock-skew.js";
 import { StoreClock, StoreTimeSource } from "../../../infrastructure/clock.js";
 import { STORE_CALL_BOUND } from "../../../app/lease-fence.js";
-import {
-  StoreCallTimeoutError,
-  StoreOutcomeSource,
-} from "../../../infrastructure/store-call-timeout.js";
+import { StoreOutcomeSource } from "../../../infrastructure/store-call-timeout.js";
 import type { ContractTarget, StoreInstanceContext } from "../instance-context.js";
 import { trackedStore } from "../tracked-store.js";
 import { actionWatchdog } from "./action-watchdog.js";
@@ -112,7 +110,7 @@ export class ExplorerRun {
   #bounded(action: ExplorerAction): Promise<string> {
     const timeout = this.world.callBound ?? STORE_CALL_BOUND;
     const timedOut = (): Error =>
-      new StoreCallTimeoutError({
+      new StoreError.CallTimeout({
         ...{ store: "the store set", operation: describe(action), timeout },
         source: StoreOutcomeSource.Framework,
       });
@@ -153,7 +151,7 @@ export const isFenced = (error: unknown): boolean =>
 
 /** Whether `error` is the cancel's refusal (#909): the answer a new write of a cancelled tree gets. */
 export const isCancelFenced = (error: unknown): boolean =>
-  error instanceof Error && error.name === "ExecutionCancelFencedError";
+  error instanceof Error && error.name === "ExecutionError.CancelFenced";
 
 /** An action as the printed schedule names it. */
 export function describe(action: ExplorerAction): string {

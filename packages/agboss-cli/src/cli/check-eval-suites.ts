@@ -1,5 +1,5 @@
 import { relative } from "node:path";
-import { ComponentError, EvalCaseInvalidError, GraphRuleError, type Class } from "@agboss/core";
+import { ConfigError, type Class } from "@agboss/core";
 import {
   checkEvalSuite,
   evalSuiteWarningsOf,
@@ -26,16 +26,24 @@ export interface EvalSuitesCheck {
 
 const RULE_CODE = /^\[([\w.-]+)\]\s*/;
 
-function problemsOf(file: string, error: unknown): CheckProblem[] {
-  if (error instanceof GraphRuleError)
+export function problemsOf(file: string, error: unknown): CheckProblem[] {
+  if (error instanceof ConfigError.GraphRules)
     return error.violations.map((found) => ({ file, code: found.code, message: found.message }));
-  if (error instanceof EvalCaseInvalidError)
-    return error.issues.map((issue) => ({
+  if (error instanceof ConfigError.EvalCase) {
+    const { issues, suite } = error;
+    if (issues === undefined)
+      return [{ file, code: ConfigError.EvalCase.code, message: error.message }];
+    return issues.map((issue) => ({
       file,
-      code: EvalCaseInvalidError.code,
-      message: `${error.suite}: case "${issue.case}": ${issue.path} — ${issue.reason}`,
+      code: ConfigError.EvalCase.code,
+      message: `${suite ?? ""}: case "${issue.case}": ${issue.path} — ${issue.reason}`,
     }));
-  if (error instanceof ComponentError) {
+  }
+  if (
+    error instanceof ConfigError.Component ||
+    error instanceof ConfigError.Prompt ||
+    error instanceof ConfigError.NoDefaultRouter
+  ) {
     const code = RULE_CODE.exec(error.message)?.[1] ?? "workflow.assembly";
     return [{ file, code, message: error.message.replace(RULE_CODE, "") }];
   }

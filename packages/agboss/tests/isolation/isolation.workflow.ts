@@ -70,14 +70,11 @@ export class Pay {
   }
 }
 
-const price = { inputPerMTok: 1, outputPerMTok: 10 };
-
 @Agent({
   name: "cashier-agent",
   prompt: "./cashier.prompt.md",
   description: "Takes payments",
   model: "test/cashier",
-  price,
   tools: [Pay],
 })
 export class Cashier {}
@@ -93,11 +90,9 @@ const defaults = {
   name: "payments-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(ChatStart)
-      .toAgent(Cashier)
-      .toFinish(Reply),
-  ],
+  flow: [onStart(ChatStart)
+    .toAgent(Cashier)
+    .toFinish(Reply)],
   defaults,
   memory: Window2Memory,
   providers: [ApprovalDesk, PaymentLog],
@@ -144,7 +139,6 @@ export class DraftDto {
   prompt: "./cashier.prompt.md",
   description: "Drafts",
   model: "test/drafter",
-  price,
   input: { message: WorkflowStartTextDto },
   output: DraftDto,
 })
@@ -155,7 +149,6 @@ export class Drafter {}
   prompt: "./cashier.prompt.md",
   description: "Edits",
   model: "test/editor",
-  price,
   input: { draft: DraftDto },
 })
 export class Editor {}
@@ -165,12 +158,10 @@ export class Editor {}
   name: "capped-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(ChatStart)
-      .toAgent(Drafter)
-      .toAgent(Editor)
-      .toFinish(Reply),
-  ],
+  flow: [onStart(ChatStart)
+    .toAgent(Drafter)
+    .toAgent(Editor)
+    .toFinish(Reply)],
   defaults,
   memory: Window2Memory,
 })

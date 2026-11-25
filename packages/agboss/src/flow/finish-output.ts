@@ -23,7 +23,7 @@ export const listItemClassesOf = (output: FinishOutput): readonly DtoClass[] =>
 /**
  * A finished execution's output, checked against a finish's `output` as it was given (plain values,
  * not the scope's `{ value, variant }`): an element of a `oneOf` list must fit one of its classes.
- * Throws the first `DtoValidationError`.
+ * Throws the first `ValidationError.DtoInvalid`.
  */
 export function validOutput(output: FinishOutput, value: unknown): unknown {
   if (typeof output === "function") return validate(output, value);

@@ -1,9 +1,10 @@
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 /**
  * Bughunt 2026-11-25 #2 (regression), per kind of model use: each is priced by the provider its
  * cascade resolved, for its own model, keyed by both — a guardrail, an arbiter, a launch decider and a
  * router (they all take `routerModelOf`), a reply interpreter, a `detectWithModel` PII policy, the built-in
  * file transcriber and redactor, a model reranker and a `DecisionModel` decision. Before, only agents,
- * judges and compactions were: the others failed with a `ModelCostError` on a price-table provider, or
+ * judges and compactions were: the others failed with a `ConfigError.Component` on a price-table provider, or
  * were billed at an agent's price for a model of the same name on another provider. Each record
  * prices as the table says, and a provider with no `cost` marks the use unpriced.
  */
@@ -73,7 +74,7 @@ const directory = directoryOf([
   PricedDecisionsProvider,
 ]);
 const pricing = modelPricingOf(directory);
-const PRICE = { inputPerMTok: 10, outputPerMTok: 20 };
+const PRICE = { inputPerMillion: usd(10), outputPerMillion: usd(20) };
 /** 1M tokens in, 1M out: $10 + $20 at the priced table. */
 const MILLION = { usage_metadata: { input_tokens: 1_000_000, output_tokens: 1_000_000 } };
 
@@ -89,7 +90,6 @@ const config: AgentsConfigOf<string> = {
       description: "Answers elsewhere",
       model: "p/model",
       modelProvider: "other-model-provider",
-      price: { inputPerMTok: 1000, outputPerMTok: 2000 },
     },
   },
 };

@@ -120,15 +120,15 @@ describe("AC8: at most maxConcurrentExecutions executions of the tree work at on
 
   test("a paused child holds no slot: its siblings work while it waits", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(TaskCheckerAgent).thenAnswer(checker);
+    mockModel(TaskCheckerAgent).respondWith(checker);
 
     const paused = await execute(app, ChecksWorkflowStart, [task("p"), task("a"), task("b")]);
     const resumed = await app.resume(answerOf(paused, { approved: true }));
 
     expect(paused.status).toBe(ExecutionStatus.Paused);
-    expect(mockLlm(TaskCheckerAgent).requests.map(nameIn)).toEqual(["p", "a", "b", "p"]);
+    expect(mockModel(TaskCheckerAgent).requests.map(nameIn)).toEqual(["p", "a", "b", "p"]);
     expect(resumed).toFinishWith(BatchDoneWorkflowFinish, { name: "p, a, b" });
   });
 

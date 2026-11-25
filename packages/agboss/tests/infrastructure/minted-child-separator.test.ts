@@ -1,9 +1,10 @@
 /**
  * #1321d: an id the application's `IdGenerator` mints is refused when it holds the child
- * separator, as an id a caller picks is: `InvalidMintedIdError` naming the rule, never the id.
+ * separator, as an id a caller picks is: `ExecutionError.InvalidMintedId` naming the rule, never the id.
  */
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { describe, expect, it } from "vitest";
-import { InvalidMintedIdError, KeyTextRule } from "../../src/errors.js";
+import { KeyTextRule } from "../../src/errors.js";
 import { CheckedIdGenerator, IdGenerator } from "../../src/infrastructure/clock.js";
 
 class EvilIds extends IdGenerator {
@@ -30,7 +31,7 @@ describe("#1321d: a minted id never holds the child separator", () => {
       thrown = error;
     }
 
-    expect(thrown).toBeInstanceOf(InvalidMintedIdError);
+    expect(thrown).toBeInstanceOf(ExecutionError.InvalidMintedId);
     expect(thrown).toMatchObject({ method, rule: KeyTextRule.ReservedSeparator });
     expect((thrown as Error).message).not.toContain("x-evil");
   });

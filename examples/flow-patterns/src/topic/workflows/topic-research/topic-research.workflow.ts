@@ -1,7 +1,7 @@
+import { StepError } from "@agboss/core";
 import {
   onAction,
   onStart,
-  StepFailedError,
   toAction,
   Workflow,
   toWorkflow,
@@ -29,7 +29,7 @@ import { TopicResearchWorkflowStart } from "./topic-research.workflow-start.js";
   flow: [
     onStart(TopicResearchWorkflowStart)
       .toAgent(ResearcherAgent)
-      .onError(StepFailedError, toAction(MarkTopicFailedAction)) // a failed topic is skipped softly
+      .onError(StepError, toAction(MarkTopicFailedAction)) // a failed topic is skipped softly
       .toOneOf([
         toFinish(TopicReportWorkflowFinish),
         // the action reads the too-broad topic: left out of the schema on the last level
@@ -40,7 +40,7 @@ import { TopicResearchWorkflowStart } from "./topic-research.workflow-start.js";
           )
           .join()
           .toAgent(MergeAgent)
-          .onError(StepFailedError, toAction(MarkTopicFailedAction))
+          .onError(StepError, toAction(MarkTopicFailedAction))
           .toFinish(TopicReportWorkflowFinish),
       ]),
 

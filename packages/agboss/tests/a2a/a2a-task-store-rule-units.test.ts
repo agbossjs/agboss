@@ -5,6 +5,7 @@
  * `@A2AEndpoint` named; never a refusal for an application serving MCP only, with no endpoints, or
  * with two lease stores (their ambiguity is reported, nothing thrown).
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { hours, minutes } from "../../src/units/index.js";
 import { describe, expect, it } from "vitest";
 import { a2aTaskStoreViolations } from "../../src/a2a/a2a-task-store-rule.js";
@@ -12,7 +13,6 @@ import { A2AEndpoint } from "../../src/a2a/a2a-endpoint.decorator.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import type { ApplicationOptions } from "../../src/application/application.js";
 import type { Provider } from "../../src/components/injection.js";
-import { GraphRuleError } from "../../src/graph/rule-error.js";
 import { ApplicationContext, Clock, StoreClock, Injectable } from "../../src/index.js";
 import { IN_MEMORY_DATABASE } from "../../src/infrastructure/in-memory-database.js";
 import { InMemoryA2ATaskRepository } from "../../src/infrastructure/in-memory-a2a-task.repository.js";
@@ -122,7 +122,7 @@ describe("#824 AC3: no refusal where no A2A task is served", () => {
     const codes = await applicationOf(a2aStoresApplication([PostgresLeases, BillingLeases])).then(
       () => [],
       (error: unknown) => {
-        if (!(error instanceof GraphRuleError)) throw error;
+        if (!(error instanceof ConfigError.GraphRules)) throw error;
         return error.violations.map(({ code }) => code);
       },
     );

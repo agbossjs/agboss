@@ -1,13 +1,13 @@
+import { A2AError } from "../../../src/core/error-families/remote-errors.js";
 /**
  * #1396, #1397: a remote card is untrusted input. A malformed `skills`, `capabilities` or interface
- * is `A2AProtocolError` (never a `TypeError`, none of the card's text in it); a card over the size
+ * is `A2AError.Protocol` (never a `TypeError`, none of the card's text in it); a card over the size
  * bound is cut off while it is read; one with more interfaces than a card may list is refused, and
  * a card at the limit is read in linear time.
  */
 import { describe, expect, it } from "vitest";
 import { fetchCard } from "../../../src/a2a/client/a2a-card.js";
 import { MAX_CARD_BYTES } from "../../../src/a2a/client/a2a-card-shape.js";
-import { A2AProtocolError } from "../../../src/a2a/client/a2a-client-errors.js";
 
 const URL_OK = "http://agent.test/a2a";
 const POLICY = { agent: "peer", origins: ["http://agent.test"] };
@@ -70,7 +70,7 @@ describe("#1396: a malformed part of a card is a protocol error, not a TypeError
   ])("%s", async (_name, over) => {
     const error = await refusal(jsonOf(goodCard({ ...over, description: SECRET })));
 
-    expect(error).toBeInstanceOf(A2AProtocolError);
+    expect(error).toBeInstanceOf(A2AError.Protocol);
     expect(JSON.stringify(error)).not.toContain(SECRET);
     expect((error as Error).message).not.toContain(SECRET);
   });
@@ -81,7 +81,7 @@ describe("#1396: a malformed part of a card is a protocol error, not a TypeError
       securitySchemes: { a: null },
     });
 
-    expect(await refusal(jsonOf(proto))).toBeInstanceOf(A2AProtocolError);
+    expect(await refusal(jsonOf(proto))).toBeInstanceOf(A2AError.Protocol);
   });
 
   it("a well-formed card is read", async () => {
@@ -105,7 +105,7 @@ describe("#1397: a card is bounded", () => {
 
     const error = await refusal(answering(body, { "content-length": String(MAX_CARD_BYTES + 1) }));
 
-    expect(error).toBeInstanceOf(A2AProtocolError);
+    expect(error).toBeInstanceOf(A2AError.Protocol);
     expect(isCancelled).toBe(true);
   });
 
@@ -121,12 +121,12 @@ describe("#1397: a card is bounded", () => {
 
     const error = await refusal(answering(body));
 
-    expect(error).toBeInstanceOf(A2AProtocolError);
+    expect(error).toBeInstanceOf(A2AError.Protocol);
     expect(pulled).toBeLessThan(MAX_CARD_BYTES * 2);
   });
 
   it("a card that is no JSON is a protocol error", async () => {
-    expect(await refusal(answering("{ not json"))).toBeInstanceOf(A2AProtocolError);
+    expect(await refusal(answering("{ not json"))).toBeInstanceOf(A2AError.Protocol);
   });
 
   it("a card with more interfaces than a card may list is refused", async () => {
@@ -135,7 +135,7 @@ describe("#1397: a card is bounded", () => {
     );
 
     expect(await refusal(jsonOf(goodCard({ supportedInterfaces: many })))).toBeInstanceOf(
-      A2AProtocolError,
+      A2AError.Protocol,
     );
   });
 

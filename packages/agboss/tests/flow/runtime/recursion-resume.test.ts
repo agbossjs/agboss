@@ -66,8 +66,11 @@ beforeEach(() => {
 });
 
 describe("AC3: depth across a pause", () => {
-  test("a pause at depth 2 resumes at depth 2; its child is depth 3", async ({ app, mockLlm }) => {
-    mockLlm(DiggerAgent).thenAnswer(digger);
+  test("a pause at depth 2 resumes at depth 2; its child is depth 3", async ({
+    app,
+    mockModel,
+  }) => {
+    mockModel(DiggerAgent).respondWith(digger);
 
     const paused = await execute(app, DigWorkflowStart, { left: 2 });
     const done = await app.resume(answerOf(paused, { approved: true }), {
@@ -84,9 +87,9 @@ describe("AC3: depth across a pause", () => {
   test("after a restart the new instance resumes it at depth 2", async ({
     app,
     recoverApp,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(DiggerAgent).thenAnswer(digger);
+    mockModel(DiggerAgent).respondWith(digger);
     const paused = await execute(app, DigWorkflowStart, { left: 2 });
 
     const restarted = await recoverApp();

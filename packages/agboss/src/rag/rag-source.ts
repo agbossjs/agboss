@@ -1,4 +1,4 @@
-import { AGBossError, type MessageErrorOptions } from "../core/errors.js";
+import { ConfigError } from "../core/error-families/config-errors.js";
 import type { ExecutionContext } from "../flow/context/execution-context.js";
 import { ExecutionContextUnavailableError } from "../flow/context/errors.js";
 import { currentFrame, type Frame } from "../flow/context/frame.js";
@@ -13,17 +13,6 @@ import type {
   RagRetrieveOptions,
   RagSearchOptions,
 } from "./types.js";
-
-/** A source whose scope cannot be resolved for this call: it fails closed, it never reads another scope. */
-export class RagScopeError extends AGBossError {
-  static override readonly code = "rag.scope-unresolved" as const;
-  declare readonly code: typeof RagScopeError.code;
-  override name = "RagScopeError";
-
-  constructor(options: MessageErrorOptions) {
-    super(options.message, options);
-  }
-}
 
 /** What the core wires into a source it created: the retrieval pipeline of its `@Rag` (internal). */
 export interface RagRuntime {
@@ -102,7 +91,7 @@ export abstract class RagSource<TFilter = never> {
   async search(query: string, options?: RagSearchOptions<TFilter>): Promise<RagSearchResultsDto> {
     const runtime = runtimes.get(this);
     if (runtime === undefined)
-      throw new RagScopeError({
+      throw new ConfigError.Component({
         message: `[rag.unbound] ${this.constructor.name}.search() ran on an instance the application did not create — inject it (deps: [${this.constructor.name}]) instead of constructing it`,
       });
     const frame = openFrameOf(runtime.name);

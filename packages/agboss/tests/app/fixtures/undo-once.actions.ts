@@ -1,3 +1,4 @@
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import { MemorySaver } from "@langchain/langgraph";
 import {
   Action,
@@ -141,7 +142,7 @@ export class PaidBookingAction {
   }
 }
 
-/** Spends past every budget: the next step is refused with `BudgetExceededError`. */
+/** Spends past every budget: the next step is refused with `LimitError.Budget`. */
 @Action({
   name: "overspend-action",
   description: "Calls a paid service that costs more than the budgets allow",

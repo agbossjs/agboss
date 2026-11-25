@@ -1,7 +1,7 @@
+import { StepError } from "../../core/error-families/step-errors.js";
 import { HumanMessage, ToolMessage, type BaseMessage } from "@langchain/core/messages";
 import { invalidArgumentsMessage } from "../../prompts/agents.js";
 import { readAnswer, type AnswerCall } from "../../flow/runtime/answer-tools.js";
-import { AgentAnswerInvalidError } from "../../flow/runtime/errors.js";
 import { sortedJson } from "../../flow/runtime/json.js";
 import type { AsyncNode } from "../types.js";
 import {
@@ -34,7 +34,7 @@ export async function invalidAnswer(
 ): Promise<AgentLoopUpdate> {
   const attempts = state.invalidAnswers + 1;
   if (attempts >= MAX_ANSWER_ATTEMPTS) {
-    throw new AgentAnswerInvalidError({
+    throw new StepError.AgentAnswerInvalid({
       agent: deps.agent.name,
       attempts,
       usage: loopUsage(state),

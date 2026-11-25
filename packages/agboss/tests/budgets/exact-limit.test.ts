@@ -4,10 +4,10 @@
  * check and tally, at a new execution's admission and for the application's spend outside an
  * execution —, and a spend a micro-dollar under the limit still passes.
  */
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { describe, expect, it } from "vitest";
 import {
   Action,
-  BudgetExceededError,
   EmptyEnvironment,
   SpendRecorder,
   Workflow,
@@ -53,7 +53,7 @@ describe("#728 AC1: eight $0.10 calls exhaust $0.80", () => {
     expect(meter.exhausted.aborted).toBe(true);
     expect(() => {
       meter.check(0, []);
-    }).toThrow(BudgetExceededError);
+    }).toThrow(LimitError.Budget);
   });
 
   it("the application's spend outside an execution, held to the last known limit", async () => {
@@ -156,13 +156,13 @@ describe("#728 AC1: a new execution's admission", () => {
   const test = testWith(DimesApplication);
   test("the tenant spent $0.80 in eight dimes of its $0.80: the next execution is rejected", async ({
     app,
-    mockOf,
+    mockService,
   }) => {
-    mockOf(TestTenantDailyBudget).maxSpend.mockReturnValue(usd(0.8));
+    mockService(TestTenantDailyBudget).maxSpend.mockReturnValue(usd(0.8));
     const item = { name: "a", delay: 0, outcome: "ok" };
     await execute(app, DimesStart, item);
 
-    await expect(execute(app, DimesStart, item)).rejects.toFailWith(BudgetExceededError, {
+    await expect(execute(app, DimesStart, item)).rejects.toFailWith(LimitError.Budget, {
       scope: BudgetScope.Tenant,
     });
   });

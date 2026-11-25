@@ -1,3 +1,4 @@
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { fenceOf } from "../../src/flow/context/execution-fence.js";
 /**
  * #471 — `executionContext.fence` (internal now): the lease a step runs under, as an external system fences a
@@ -81,9 +82,9 @@ describe("#471 AC1: the fence of a step", () => {
 
   test("a tool call in an agent's loop reads the same lease, with its call's key", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ReleaseAgent).thenReturn(
+    mockModel(ReleaseAgent).thenReturn(
       callTool(StageTool, { artifact: "v1" }),
       replyWith(ReceiptDto, { text: "staged" }),
     );
@@ -170,25 +171,25 @@ describe("#471 AC6: a fenced error is a hand-over wherever it is found", () => {
 describe("#471 AC6: a fenced error inside an agent's loop and in an undo", () => {
   test("a fenced tool call ends the loop: no onToolEnd, the model reads nothing, the call rejects with it", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
     levers.wrap = "cause";
-    mockLlm(ReleaseAgent).thenReturn(callTool(StageTool, { artifact: "v1" }));
+    mockModel(ReleaseAgent).thenReturn(callTool(StageTool, { artifact: "v1" }));
 
     const error = await rejectionOf(execute(app, AgentReleaseWorkflowStart, { text: "stage v1" }));
 
     expect(error).toBeInstanceOf(ExecutionError.Fenced);
     expect(seen.toolEnds).toEqual([]);
-    expect(mockLlm(ReleaseAgent)).toHaveBeenCalledTimes(1);
+    expect(mockModel(ReleaseAgent)).toHaveBeenCalledTimes(1);
     expect(recovery.errors).toEqual([]);
   });
 
   test("a fenced tool interceptor is a hand-over, never the interceptor's failure", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
     levers.isInterceptorFenced = true;
-    mockLlm(ReleaseAgent).thenReturn(callTool(StageTool, { artifact: "v1" }));
+    mockModel(ReleaseAgent).thenReturn(callTool(StageTool, { artifact: "v1" }));
 
     const error = await rejectionOf(execute(app, AgentReleaseWorkflowStart, { text: "stage v1" }));
 
@@ -198,7 +199,7 @@ describe("#471 AC6: a fenced error inside an agent's loop and in an undo", () =>
     expect(recovery.errors).toEqual([]);
   });
 
-  test("an undo fenced while the failed tree unwinds is a hand-over: no CompensationFailedError, no onExecutionError", async ({
+  test("an undo fenced while the failed tree unwinds is a hand-over: no ExecutionError.CompensationFailed, no onExecutionError", async ({
     app,
   }) => {
     levers.isUndoFenced = true;
@@ -214,7 +215,7 @@ describe("#471 AC6: a fenced error inside an agent's loop and in an undo", () =>
     const result = await rejectionOf(execute(app, BookedReleaseWorkflowStart, { text: "v1" }));
 
     expect(result).toMatchObject({
-      name: "ActionFailedError",
+      name: "StepError.Action",
       cause: { name: "ReleaseRefusedError" },
     });
     expect(seen.undone).toHaveLength(1);
@@ -239,9 +240,9 @@ describe("#471 AC6: a fenced error inside an agent's loop and in an undo", () =>
 describe("#471 AC4: the token across passes; a replayed write is deduplicated", () => {
   test("a pause and its resume: the step after the resume fences with token 2, and its write passes", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ReleaseAgent).thenReturn(
+    mockModel(ReleaseAgent).thenReturn(
       callTool(ApprovedStageTool, { artifact: "v1" }),
       replyWith(ReceiptDto, { text: "staged" }),
     );

@@ -165,7 +165,6 @@ export class RefundTool {
   prompt: "./clerk.prompt.md",
   description: "Refunds orders",
   model: "test/clerk",
-  price: { inputPerMTok: 1, outputPerMTok: 10 },
   tools: [RefundTool],
 })
 export class ClerkAgent {}

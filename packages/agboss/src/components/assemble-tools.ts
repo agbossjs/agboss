@@ -1,3 +1,4 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import { mcpServer, type McpFacade } from "../tools/index.js";
 import { z } from "zod";
 import { objectSchemaOf } from "../dto/schema.js";
@@ -5,7 +6,7 @@ import { checkToolData } from "./runtime.js";
 import type { McpServerClient, ServerTools } from "./mcp-client.js";
 import type { ComponentOptions } from "./component-options.js";
 import type { Class, Token } from "./injection.js";
-import { ComponentError, componentOf, requireComponent } from "./metadata.js";
+import { componentOf, requireComponent } from "./metadata.js";
 import { depsOf } from "./container/container.js";
 import type { ProviderModule } from "./container/registrations.js";
 import type { AgentMeta, WorkflowMeta } from "./meta-types.js";
@@ -80,7 +81,7 @@ export function toolsOf(bundle: WorkflowMeta, agents: readonly AgentMeta[]): Too
   for (const cls of classes) {
     if (asked.includes(cls)) continue;
     const kind = componentOf(cls)?.kind;
-    if (kind !== "tool") throw new ComponentError({ message: notAToolMessage(bundle, cls) });
+    if (kind !== "tool") throw new ConfigError.Component({ message: notAToolMessage(bundle, cls) });
     checkToolData(cls);
   }
   return {

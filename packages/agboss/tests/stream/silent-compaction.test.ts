@@ -14,9 +14,9 @@ import { deltas } from "./writer.fixture.js";
 const test = testWith(EagerDeskApplication);
 
 describe("#1004: compaction is silent", () => {
-  test("AC1: the summary is not a delta, the answer is", async ({ app, mockLlm }) => {
-    mockLlm(EagerAgent).thenReturn(replyWith("answer 1"), replyWith("answer 2"));
-    mockLlm(EagerMemory).thenReturn(replyWith("SUMMARY OF EARLIER TURNS"));
+  test("AC1: the summary is not a delta, the answer is", async ({ app, mockModel }) => {
+    mockModel(EagerAgent).thenReturn(replyWith("answer 1"), replyWith("answer 2"));
+    mockModel(EagerMemory).thenReturn(replyWith("SUMMARY OF EARLIER TURNS"));
     const first = await execute(app, DeskStart, { text: "t1" });
     const events: ExecutionStreamEvent[] = [];
 
@@ -27,7 +27,7 @@ describe("#1004: compaction is silent", () => {
       { threadId: first.threadId, onStream: (event) => events.push(event) },
     );
 
-    expect(mockLlm(EagerMemory).requests.length).toBeGreaterThan(0);
+    expect(mockModel(EagerMemory).requests.length).toBeGreaterThan(0);
     expect(deltas(events)).toEqual(["answer 2"]);
   });
 });

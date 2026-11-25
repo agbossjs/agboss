@@ -27,7 +27,6 @@ import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import { onStart, skip, toAction, toFinish, toAgent, toRouter } from "../../helpers/flow.js";
 import { StepError } from "../../../src/core/error-families/step-errors.js";
-import { PauseExpiredError } from "../../../src/flow/runtime/pause-expired-error.js";
 import { hours, minutes, days } from "../../../src/units/index.js";
 import { FraudAgent, PolicyAgent, RefundScoreDto, RiskAgent } from "./refund-panel.workflow.js";
 import {
@@ -93,8 +92,7 @@ interface ScoresInput {
 const record = (input: ScoresInput): RefundDoneDto => {
   qe.finished.push(input.scores.map((score) => String(score.score)));
   return {
-    orderId: input.scores
-      .map((score) => String(score.score))
+    orderId: input.scores.map((score) => String(score.score))
       .join(","),
   };
 };
@@ -381,7 +379,7 @@ export class PlainExpiryWorkflow {}
 })
 export class PlainExpiryHandledWorkflowStart {}
 
-/** The same join with `.onError(PauseExpiredError, …)`. */
+/** The same join with `.onError(StepError.PauseExpired, …)`. */
 @Workflow({
   name: "plain-expiry-handled-workflow",
   version: "1.0.0",
@@ -390,7 +388,7 @@ export class PlainExpiryHandledWorkflowStart {}
     onStart(PlainExpiryHandledWorkflowStart)
       .inParallel([toAgent(ShortPolicyAgent), toAgent(ShortRiskAgent), toAgent(PolicyAgent)])
       .join()
-      .onError(PauseExpiredError, toFinish(PlainExpiryEscalatedWorkflowFinish))
+      .onError(StepError.PauseExpired, toFinish(PlainExpiryEscalatedWorkflowFinish))
       .toAction(QuorumExpiryAction)
       .toFinish(QuorumExpiryWorkflowFinish),
   ],

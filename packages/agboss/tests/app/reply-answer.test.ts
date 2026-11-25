@@ -2,11 +2,11 @@
  * #267 PR 3: a reply read outside an application's budgets (a workflow run on its own) — no meter,
  * the reader called with the trace's callbacks; an unreadable reply throws its error.
  */
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { BaseCallbackHandler } from "@langchain/core/callbacks/base";
 import { describe, expect, it } from "vitest";
 import { replyAnsweringOf, type ReplyAnsweringParts } from "../../src/app/reply-answer.js";
 import type { ReplyCall, ReplyReading } from "../../src/channels/reply-reader.js";
-import { UninterpretableReplyError } from "../../src/channels/decision.js";
 import { PauseKind, PauseStatus, type PauseRecord } from "../../src/infrastructure/pause-record.js";
 import { PiiPolicySet } from "../../src/pii/policy-set.js";
 import { testFrame } from "../helpers/frame.js";
@@ -78,7 +78,10 @@ describe("#267 PR 3: a reply read without budgets", () => {
   });
 
   it("an unreadable reply throws the reader's error", async () => {
-    const error = new UninterpretableReplyError({ message: "no answer", reason: "no answer" });
+    const error = new PauseError.UninterpretableReply({
+      message: "no answer",
+      reason: "no answer",
+    });
     const reader = (): Promise<ReplyReading> =>
       Promise.resolve({ kind: "unreadable", error, usage: [] });
 

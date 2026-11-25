@@ -1,4 +1,4 @@
-import { DtoValidationError, type DtoIssue } from "../dto/errors.js";
+import { type DtoIssue, invalidDto } from "../dto/errors.js";
 import { tenantIdReason } from "../flow/context/context-values.js";
 import type { ObservabilityMask } from "../pii/observability-mask.js";
 import type { PausedExecutionRepository } from "../infrastructure/paused-execution.repository.js";
@@ -84,10 +84,10 @@ const checkAfter: Check = (after) =>
     ? []
     : issue("after", "a cursor is the next of a page before: a non-empty text");
 
-/** The query as an untyped (JS) caller may pass it, checked all at once: `dto.invalid` else. */
+/** The query as an untyped (JS) caller may pass it, checked all at once: `validation.dto-invalid` else. */
 function checked(query: unknown): CheckedQuery {
   if (typeof query !== "object" || query === null)
-    throw new DtoValidationError({
+    throw invalidDto({
       dto: DTO,
       issues: issue("", "a query is an object with a tenantId"),
     });
@@ -102,7 +102,7 @@ function checked(query: unknown): CheckedQuery {
     ...checkLimit(limit),
     ...checkAfter(field("after")),
   );
-  if (issues.length > 0) throw new DtoValidationError({ dto: DTO, issues });
+  if (issues.length > 0) throw invalidDto({ dto: DTO, issues });
   const [target, before] = [
     field("target") as string | undefined,
     field("expiringBefore") as Date | undefined,
@@ -194,7 +194,7 @@ export async function listPausesIn(listing: PauseListing, query: unknown): Promi
       if (after === undefined || !(error instanceof TypeError || error instanceof RangeError))
         throw error;
       const reason = "a cursor is the next of a page before, as it was given";
-      throw new DtoValidationError({ dto: DTO, issues: [{ path: "after", reason }], cause: error });
+      throw invalidDto({ dto: DTO, issues: [{ path: "after", reason }], cause: error });
     });
   const pauses: ListedPause[] = [];
   for (const pause of page.pauses) pauses.push(await listedOf(pause, await listing.maskOf(pause)));

@@ -5,10 +5,10 @@
  * that token only: no `new`, no second lease store (`[di.ambiguous-implementation]`), and the
  * one-backend rule still refuses a fenced-effect or outbound-call store beside the coordination leases.
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import { applicationOf } from "../../src/application/assemble.js";
 import type { Provider } from "../../src/components/injection.js";
-import { GraphRuleError } from "../../src/graph/rule-error.js";
 import { testWith } from "../../src/testing/index.js";
 import { ExecutionLeaseRepository, SqliteExecutionLeaseRepository } from "../../src/index.js";
 import {
@@ -23,7 +23,7 @@ async function violationsOf(providers: readonly Provider[]): Promise<readonly st
     await applicationOf(storesApplication(providers));
     return [];
   } catch (error) {
-    if (!(error instanceof GraphRuleError)) throw error;
+    if (!(error instanceof ConfigError.GraphRules)) throw error;
     return error.violations.map((found) => `[${found.code}] ${found.message}`);
   }
 }

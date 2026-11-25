@@ -4,14 +4,10 @@
  * Resolved`, atomic) and then waits for the lease; the holder takes decisions resolved meanwhile
  * (the drain); a holder frozen past the lease loses it silently and the waiting call goes on.
  */
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { beforeEach, describe, expect } from "vitest";
-import {
-  ExecutionLeaseLostError,
-  PauseClosedError,
-  PauseStatus,
-  type ExecutionOutput,
-} from "../../src/index.js";
+import { ExecutionLeaseLostError, PauseStatus, type ExecutionOutput } from "../../src/index.js";
 import { ExecutionStatus } from "../../src/app/types.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import { seconds } from "../../src/units/index.js";
@@ -68,8 +64,8 @@ function answerNextPauseFrom(other: TestApp): { call: Promise<ExecutionOutput> |
 }
 
 describe("#265 AC11 / #267 AC12: a tree is moved by one lease holder at a time", () => {
-  test("a pause made on one instance is resumed on the other", async ({ app, apps, mockLlm }) => {
-    mockLlm(Clerk).thenReturn(
+  test("a pause made on one instance is resumed on the other", async ({ app, apps, mockModel }) => {
+    mockModel(Clerk).thenReturn(
       callTool(Charge, { text: "10 USD" }),
       replyWith(ReceiptDto, { text: "Charged." }),
     );
@@ -82,12 +78,12 @@ describe("#265 AC11 / #267 AC12: a tree is moved by one lease holder at a time",
     expect(seen.charges).toEqual(["10 USD"]);
   });
 
-  test("two resumes of one pause at once: one moves the tree, the other gets PauseClosedError", async ({
+  test("two resumes of one pause at once: one moves the tree, the other gets PauseError.Closed", async ({
     app,
     apps,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(
+    mockModel(Clerk).thenReturn(
       callTool(Charge, { text: "10 USD" }),
       replyWith(ReceiptDto, { text: "Charged." }),
     );
@@ -100,7 +96,7 @@ describe("#265 AC11 / #267 AC12: a tree is moved by one lease holder at a time",
 
     expect(first.status).toBe("fulfilled");
     expect(double.status === "rejected" ? double.reason : double.value).toBeInstanceOf(
-      PauseClosedError,
+      PauseError.Closed,
     );
     expect(seen.charges).toEqual(["10 USD"]);
   });
@@ -110,9 +106,9 @@ describe("#267 AC12 (Q58): a resume while the tree moves waits; the holder takes
   test("the holder drains the decision recorded meanwhile; both calls return the tree's output", async ({
     app,
     apps,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(
+    mockModel(Clerk).thenReturn(
       callTool(Charge, { text: "first" }),
       callTool(Charge, { text: "second" }),
       replyWith(ReceiptDto, { text: "Charged twice." }),
@@ -137,9 +133,9 @@ describe("#265 AC11 (Q58): a holder frozen past the lease loses it, the waiting 
     app,
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(
+    mockModel(Clerk).thenReturn(
       callTool(Charge, { text: "first" }),
       callTool(Charge, { text: "second" }),
       callTool(Hold, { text: "a long job" }),
@@ -172,9 +168,9 @@ describe("#265 S66 h: a resume's late `running` write never lands over the holde
     app,
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(
+    mockModel(Clerk).thenReturn(
       callTool(Charge, { text: "first" }),
       callTool(Charge, { text: "second" }),
       replyWith(ReceiptDto, { text: "Charged twice." }),
@@ -215,9 +211,9 @@ describe("#1098: a waiting resume whose answer the holder took, the tree resting
   test("B's take finds the tree at rest, not mid-pass: it reports it paused at the next pause and moves nothing (no recovery pass, no resume event)", async ({
     app,
     apps,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(
+    mockModel(Clerk).thenReturn(
       callTool(Charge, { text: "first" }),
       callTool(Charge, { text: "second" }),
       callTool(Charge, { text: "third" }),

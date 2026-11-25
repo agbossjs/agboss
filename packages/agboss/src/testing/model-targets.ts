@@ -43,7 +43,7 @@ const isCodeJudgeClass = (target: ModelTarget): boolean => {
 };
 
 /**
- * What `mockLlm(X)` scripts in one application (#262): an agent or a model router (a node), a
+ * What `mockModel(X)` scripts in one application (#262): an agent or a model router (a node), a
  * `@Judge`, a model arbiter (#279), a PII policy's model detection or a guardrail (#120) or a
  * model reply interpreter (#267) or a compaction that writes summaries (#120 PR 3) — each by its script key; a component that calls no model is named with why.
  */
@@ -56,7 +56,7 @@ export function scriptKeyOf(node: RuntimeNode): string | undefined {
 }
 
 /** The model-calling components of an application, by class. */
-/** The script key of the built-in transcriber (`mockLlm(FileTranscriber)`) or redactor (`mockLlm(FileRedactor)`) of files (#899). */
+/** The script key of the built-in transcriber (`mockModel(FileTranscriber)`) or redactor (`mockModel(FileRedactor)`) of files (#899). */
 function fileKeyOf(target: ModelTarget): string | undefined {
   if (target === FileTranscriber || target === ModelFileTranscriber) return FILE_TRANSCRIBER_KEY;
   return target === FileRedactor || target === ModelImageRedactor ? FILE_REDACTOR_KEY : undefined;
@@ -115,19 +115,19 @@ export class ModelTargets {
   whyNoScript(target: ModelTarget): string {
     const node = this.nodes.find((item) => item.component === target);
     if (node !== undefined && isCodeRouterNode(node))
-      return "a code router calls no model — mockOf() the services its route() uses";
+      return "a code router calls no model — mockService() the services its route() uses";
     if (this.#arbiters.has(target))
-      return "a code arbiter calls no model — mockOf() it, or the services its methods use";
+      return "a code arbiter calls no model — mockService() it, or the services its methods use";
     if (this.#interpreters.has(target))
-      return "a code reply interpreter calls no model — mockOf() it, or the services its interpret() uses";
+      return "a code reply interpreter calls no model — mockService() it, or the services its interpret() uses";
     if (isCodeJudgeClass(target))
-      return "a code judge calls no model — mockOf() the services its judge() uses";
+      return "a code judge calls no model — mockService() the services its judge() uses";
     if (isCodeGuardrailOf(target, this.assembled))
-      return "a code guardrail calls no model — mockOf() the services its check() uses";
+      return "a code guardrail calls no model — mockService() the services its check() uses";
     if (componentOf(target)?.kind === "reranker")
-      return "a code reranker calls no model — mockOf() it, or the services its rerank() uses";
+      return "a code reranker calls no model — mockService() it, or the services its rerank() uses";
     if (isCustomCompactionIn(target, this.assembled))
-      return "a custom compaction calls no model — mockOf() it, or the services its compact() uses";
+      return "a custom compaction calls no model — mockService() it, or the services its compact() uses";
     return "not an agent, router, judge, model arbiter, model reply interpreter, PII detection, guardrail or compaction that writes summaries of this application";
   }
 }

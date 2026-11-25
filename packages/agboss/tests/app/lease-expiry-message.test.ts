@@ -26,16 +26,16 @@ const chat = testWith(ChatApplication);
 describe("#534 acceptance: a lone holder past its lease's expiry", () => {
   chat(
     "one jump of 31 s over a 31 s model call: the lease is over, and the error says so, never that another instance took it",
-    async ({ app, mockLlm, clock }) => {
-      mockLlm(MainRouter).thenReturn(routeTo(ScoutAgent));
-      mockLlm(ScoutAgent).thenReturn(
+    async ({ app, mockModel, clock }) => {
+      mockModel(MainRouter).thenReturn(routeTo(ScoutAgent));
+      mockModel(ScoutAgent).thenReturn(
         waitFor(seconds(31)),
         replyWith(OpeningsDto, { openings: "late" }),
       );
       await app.ready();
       const run = app.execute(IntakeWorkflowStart, { text: "jobs?" });
       run.catch(() => undefined);
-      await until(() => mockLlm(ScoutAgent).inputs.length === 1, "the scout's call in flight");
+      await until(() => mockModel(ScoutAgent).inputs.length === 1, "the scout's call in flight");
 
       await clock.advance(seconds(31));
       const error = await run.then(
@@ -51,15 +51,15 @@ describe("#534 acceptance: a lone holder past its lease's expiry", () => {
 
   chat(
     "the same 31 s passed in steps shorter than the lease: the holder renews on and the call finishes",
-    async ({ app, mockLlm, clock }) => {
-      mockLlm(MainRouter).thenReturn(routeTo(ScoutAgent));
-      mockLlm(ScoutAgent).thenReturn(
+    async ({ app, mockModel, clock }) => {
+      mockModel(MainRouter).thenReturn(routeTo(ScoutAgent));
+      mockModel(ScoutAgent).thenReturn(
         waitFor(seconds(31)),
         replyWith(OpeningsDto, { openings: "late" }),
       );
       await app.ready();
       const run = app.execute(IntakeWorkflowStart, { text: "jobs?" });
-      await until(() => mockLlm(ScoutAgent).inputs.length === 1, "the scout's call in flight");
+      await until(() => mockModel(ScoutAgent).inputs.length === 1, "the scout's call in flight");
 
       await passLive(clock, seconds(31));
 

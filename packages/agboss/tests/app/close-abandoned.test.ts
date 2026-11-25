@@ -106,8 +106,8 @@ describe("#954 AC3: an abandoned resume() settles with a typed error", () => {
 
   resumeTest(
     "AC3: resume() blocked in a lease release nobody answers rejects ApplicationStoppingError",
-    async ({ app, clock, mockLlm }) => {
-      mockLlm(Clerk).thenReturn(
+    async ({ app, clock, mockModel }) => {
+      mockModel(Clerk).thenReturn(
         callTool(Probe, { text: "card" }),
         callTool(Charge, { text: "10 USD" }),
         replyWith(ReceiptDto, { text: "Charged." }),

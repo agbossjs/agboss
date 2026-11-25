@@ -1,3 +1,4 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import {
   Action,
   Agent,
@@ -11,7 +12,6 @@ import {
   inline,
   Metadata,
   PauseRespondent,
-  QuorumNotReachedError,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
@@ -311,7 +311,7 @@ export class ContractRejectedWorkflowFinish {}
       ])
       .arbitratedBy(SignOffArbiter)
       .joinQuorum({ min: 2, deadline: hours(2) })
-      .onError(QuorumNotReachedError, toFinish(ContractRejectedWorkflowFinish))
+      .onError(StepError.QuorumNotReached, toFinish(ContractRejectedWorkflowFinish))
       .toAction(SignContractAction)
       .toFinish(ContractSignedWorkflowFinish),
   ],
@@ -329,8 +329,7 @@ export class LoadBudgetOwnersAction {
     readonly message: WorkflowStartTextDto;
   }): Promise<readonly OwnerAskDto[]> {
     await Promise.resolve();
-    return input.message.text
-      .split(",")
+    return input.message.text.split(",")
       .map((owner) => ({ owner: owner.trim() }));
   }
 }
@@ -348,7 +347,7 @@ export class LoadBudgetOwnersAction {
       .arbitratedBy(BudgetApprovalArbiter)
       .joinQuorum({ min: 2, deadline: hours(2) })
       .onError(LimitError.Items, toFinish(ContractRejectedWorkflowFinish))
-      .onError(QuorumNotReachedError, toFinish(ContractRejectedWorkflowFinish))
+      .onError(StepError.QuorumNotReached, toFinish(ContractRejectedWorkflowFinish))
       .toAction(SignContractAction)
       .toFinish(ContractSignedWorkflowFinish),
   ],
@@ -371,7 +370,7 @@ export class BudgetApprovalWorkflow {}
       ])
       .arbitratedBy(SignOffArbiter)
       .joinQuorumGroups({ deadline: hours(2) })
-      .onError(QuorumNotReachedError, toFinish(ContractRejectedWorkflowFinish))
+      .onError(StepError.QuorumNotReached, toFinish(ContractRejectedWorkflowFinish))
       .onGroup(
         [FinanceDirectorExternalTask],
         { priority: 1 },
@@ -415,10 +414,8 @@ export class CommitteeChildWorkflowFinish {}
   name: "committee-child-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(CommitteeChildWorkflowStart)
-      .toFinish(CommitteeChildWorkflowFinish),
-  ],
+  flow: [onStart(CommitteeChildWorkflowStart)
+    .toFinish(CommitteeChildWorkflowFinish)],
 })
 export class CommitteeChildWorkflow {}
 
@@ -467,7 +464,7 @@ export class CommitteeNotesWorkflowFinish {}
       .inParallel([toAgent(CommitteeNoteAgent), toWorkflow(CommitteeChildWorkflow)])
       .arbitratedBy(NoteArbiter)
       .joinQuorum({ min: 1 })
-      .onError(QuorumNotReachedError, toFinish(ContractRejectedWorkflowFinish))
+      .onError(StepError.QuorumNotReached, toFinish(ContractRejectedWorkflowFinish))
       .toAction(ReviewNotesAction)
       .toFinish(ContractSignedWorkflowFinish),
   ],

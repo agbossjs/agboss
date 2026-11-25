@@ -1,3 +1,4 @@
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { usd } from "../../src/units/index.js";
 /**
  * #633 (recovery shard) — moving a tree (`tree-moves.ts`) on its own, every collaborator scripted:
@@ -9,7 +10,6 @@ import { usd } from "../../src/units/index.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ResumeReason } from "../../src/core/observability.js";
 import { ExecutionLeaseLostError } from "../../src/app/lease-lost.js";
-import { PauseClosedError } from "../../src/app/pause-closed-error.js";
 import type { HeldExecutionLease } from "../../src/app/execution-leases.js";
 import type { RecordedAnswer } from "../../src/app/resume.js";
 import { treeMovesOf, type TreeMoveParts } from "../../src/app/tree-moves.js";
@@ -339,14 +339,16 @@ describe("#633: a root that is ending", () => {
 
 describe("#901: a resume whose tree failed after its answer was recorded", () => {
   it.each(["failed", "guarded"])(
-    "its root's record %s at the take: the lease given back, PauseClosedError, no pass",
+    "its root's record %s at the take: the lease given back, PauseError.Closed, no pass",
     async (status) => {
       const { moves, paused, lease, turns } = partsOf();
       turns.findByTenantIdAndRunId.mockResolvedValue({ threadId: "thread-1", status });
       mocks.treeResumeNow.mockResolvedValue(resumeOf("pause-1"));
       paused.find.mockResolvedValue(restOf());
 
-      await expect(moves.resumed(answerOf("1.0.0"), call)).rejects.toBeInstanceOf(PauseClosedError);
+      await expect(moves.resumed(answerOf("1.0.0"), call)).rejects.toBeInstanceOf(
+        PauseError.Closed,
+      );
       expect(lease.released()).toBe(1);
       expect(mocks.observedPass).not.toHaveBeenCalled();
       expect(mocks.treeResumeNow).not.toHaveBeenCalled();

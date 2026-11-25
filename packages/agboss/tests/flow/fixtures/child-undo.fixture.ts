@@ -5,7 +5,6 @@ import {
   Arbitrate,
   ChildPlacement,
   EmptyEnvironment,
-  QuorumNotReachedError,
   StepError,
   Workflow,
   WorkflowFinish,
@@ -258,7 +257,7 @@ export class QuorumTripWorkflowStart {}
       .inParallel([toWorkflow(TripChildWorkflow), toAction(ReserveCarAction)])
       .arbitratedBy(CarOnlyArbiter)
       .joinQuorum({ min: 1, max: 2 })
-      .onError(QuorumNotReachedError, toFinish(TripNotReservedWorkflowFinish))
+      .onError(StepError.QuorumNotReached, toFinish(TripNotReservedWorkflowFinish))
       .toAction(ReviewTripAction)
       .toFinish(TripReviewedWorkflowFinish),
   ],
@@ -277,7 +276,7 @@ export class RefusedTripWorkflowStart {}
       .inParallel([toWorkflow(TripChildWorkflow), toAction(ReserveCarAction)])
       .arbitratedBy(RefuseTripArbiter)
       .joinQuorum({ min: 1, max: 2 })
-      .onError(QuorumNotReachedError, toFinish(TripNotReservedWorkflowFinish))
+      .onError(StepError.QuorumNotReached, toFinish(TripNotReservedWorkflowFinish))
       .toAction(ReviewTripAction)
       .toFinish(TripReviewedWorkflowFinish),
   ],
@@ -347,7 +346,7 @@ export class NestedQuorumTripWorkflowStart {}
       .inParallel([toWorkflow(MiddleTripWorkflow), toAction(ReserveCarAction)])
       .arbitratedBy(CarOverMiddleArbiter)
       .joinQuorum({ min: 1, max: 2 })
-      .onError(QuorumNotReachedError, toFinish(TripNotReservedWorkflowFinish))
+      .onError(StepError.QuorumNotReached, toFinish(TripNotReservedWorkflowFinish))
       .toAction(ReviewTripAction)
       .toFinish(TripReviewedWorkflowFinish),
   ],
@@ -383,7 +382,7 @@ export class RemoteQuorumTripWorkflowStart {}
       .inParallel([toWorkflow(RemoteTripWorkflow), toAction(ReserveCarAction)])
       .arbitratedBy(CarOverRemoteArbiter)
       .joinQuorum({ min: 1, max: 2 })
-      .onError(QuorumNotReachedError, toFinish(TripNotReservedWorkflowFinish))
+      .onError(StepError.QuorumNotReached, toFinish(TripNotReservedWorkflowFinish))
       .toAction(ReviewTripAction)
       .toFinish(TripReviewedWorkflowFinish),
   ],

@@ -1,6 +1,5 @@
 import { ExecutionError } from "../../core/error-families/run-errors.js";
 import { expect } from "vitest";
-import { ExecutionCancelFencedError } from "../../app/lease-lost.js";
 import { IdempotencyRunStatus } from "../../infrastructure/fenced-effect.repository.js";
 import type { ContractCase, ContractGroup } from "./define.js";
 import { effectKeyForTesting } from "./effect-key.js";
@@ -43,7 +42,7 @@ const childRefusedByRoot = (): Case => ({
     );
 
     expect(refused).toMatchObject({
-      name: "ExecutionCancelFencedError",
+      name: "ExecutionError.CancelFenced",
       rootExecutionId: "root-1",
       leaseExecutionId: "child-1",
     });
@@ -70,8 +69,8 @@ const staleTokenIsHandOver = (): Case => ({
     );
 
     expect(zombie).toBeInstanceOf(ExecutionError.Fenced);
-    expect(zombie).not.toBeInstanceOf(ExecutionCancelFencedError);
-    expect(holder).toBeInstanceOf(ExecutionCancelFencedError);
+    expect(zombie).not.toBeInstanceOf(ExecutionError.CancelFenced);
+    expect(holder).toBeInstanceOf(ExecutionError.CancelFenced);
     expect(count.runs).toBe(0);
   },
 });
@@ -89,7 +88,7 @@ const cancelBeforeFirstAcquire = (): Case => ({
     );
 
     expect(lease.token).toBe(1);
-    expect(refused).toBeInstanceOf(ExecutionCancelFencedError);
+    expect(refused).toBeInstanceOf(ExecutionError.CancelFenced);
     expect(count.runs).toBe(0);
   },
 });

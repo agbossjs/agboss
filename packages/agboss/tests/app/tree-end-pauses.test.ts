@@ -4,15 +4,11 @@
  * — and the log says so; a tree that finishes normally changes nothing. (An answer whose step is
  * in the checkpoint is `Taken`: `tree-end-pauses-units.test.ts`.)
  */
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { beforeEach, describe, expect } from "vitest";
 import { ExecutionCancelledError } from "../../src/core/errors.js";
 import { DEFAULT_TENANT_ID } from "../../src/flow/context/tenant-context.js";
-import {
-  PauseClosedError,
-  PauseResolution,
-  PauseStatus,
-  type ExecutionOutput,
-} from "../../src/index.js";
+import { PauseResolution, PauseStatus, type ExecutionOutput } from "../../src/index.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import type { TestApp } from "../../src/testing/test-app.js";
 import { ExecutionCancelOutcome, executionControlOf } from "../../src/app/execution-control.js";
@@ -75,9 +71,9 @@ describe("#939 AC1: the drain took the answer, a cancel stopped the pass", () =>
   test("#910 AC1: the drain took the answer, a cancel stopped the pass — no Resolved pause, no paused run, log not taken", async ({
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+    mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
     const [first, other] = pair(apps);
     const root = { id: "" };
     const store: { repository?: HookedPausedExecutionRepository } = {};
@@ -108,7 +104,7 @@ describe("#939 AC1: the drain took the answer, a cancel stopped the pass", () =>
     const moved = execute(first, OrderWorkflowStart, { text: "charge" }, { threadId: THREAD });
 
     await expect(moved).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
-    await expect(resumed.call).rejects.toBeInstanceOf(PauseClosedError);
+    await expect(resumed.call).rejects.toBeInstanceOf(PauseError.Closed);
     await clock.advance(seconds(31));
     const left = await leftOf(stored(store.repository), root.id, THREAD);
     expect(seen.charges).toEqual([]);
@@ -124,10 +120,10 @@ describe("#939 AC1: the drain took the answer, a cancel stopped the pass", () =>
 describe("#939: an answer a step consumed is Taken, whatever fails after", () => {
   test("the tool ran and its node failed after it: the pause is Taken, the log says taken, nothing is closed not-taken", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
     // the charge's turn only: the node after the approved charge finds the script exhausted
-    mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+    mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
     const store: { repository?: HookedPausedExecutionRepository } = {};
     hooks.afterSave = (_paused, repository) => {
       store.repository = repository;
@@ -151,9 +147,9 @@ describe("#939: an answer a step consumed is Taken, whatever fails after", () =>
 describe("#939 AC2: a tree that ends normally", () => {
   test("#910 AC2: a finished tree: its Taken pause untouched, its log entry taken, no paused run", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk)
+    mockModel(Clerk)
       .thenReturn(callTool(Charge, { text: "10 USD" }))
       .thenReturn(replyWith(ReceiptDto, { text: "charged" }));
     const store: { repository?: HookedPausedExecutionRepository } = {};
@@ -177,9 +173,9 @@ describe("#939 AC2: a tree that ends normally", () => {
 
   test("a cancel of a resting tree: its waiting pause is Cancelled, its paused run gone", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+    mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
     const store: { repository?: HookedPausedExecutionRepository } = {};
     hooks.afterSave = (_paused, repository) => {
       store.repository = repository;

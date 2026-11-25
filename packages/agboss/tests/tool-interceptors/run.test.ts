@@ -1,20 +1,15 @@
 /**
  * #384 — tool interceptors at run time on the whole application: `allow()` runs the tool,
  * `reply(message)` answers the model instead (the step goes on), `block(reason)`
- * fails the step with `ToolBlockedError`; `` / `afterAnyTool` replaces the result (inner first), which
+ * fails the step with `StepError.ToolBlocked`; `` / `afterAnyTool` replaces the result (inner first), which
  * is then bounded by `maxResultSize` and masked by the PII policies; `beforeAnyTool` reads the
  * arguments revealed; the four levels and their excludes; MCP tools; a misbehaving interceptor
  * fails the step with its error as the cause.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import type { ShownContent } from "../../src/models/messages.js";
 import { beforeEach, describe, expect } from "vitest";
-import {
-  AgentFailedError,
-  DtoValidationError,
-  StepFailedError,
-  ToolBlockedError,
-  ToolCallStatus,
-} from "../../src/index.js";
+import { ToolCallStatus, ValidationError } from "../../src/index.js";
 import { callTool, replyWith, testWith, type ModelRequest } from "../../src/testing/index.js";
 import type { ModelScript } from "../../src/testing/model-script.js";
 import { execute } from "../helpers/flow.js";
@@ -61,9 +56,12 @@ beforeEach(() => {
 describe("#384: the before hooks decide", () => {
   test("allow(): the tool runs; befores outer first, afters inner first, in the call's frame", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ScoutAgent).thenReturn(callTool(JobSearchTool, { city: "Haifa" }), replyWith("Found."));
+    mockModel(ScoutAgent).thenReturn(
+      callTool(JobSearchTool, { city: "Haifa" }),
+      replyWith("Found."),
+    );
 
     const result = await execute(app, ScoutStart, { text: "jobs in Haifa" }, acme);
 
@@ -84,9 +82,9 @@ describe("#384: the before hooks decide", () => {
 
   test("reply(): the tool does not run, the model reads the message and goes on", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ScoutAgent).thenReturn(
+    mockModel(ScoutAgent).thenReturn(
       callTool(JobSearchTool, { city: "Eilat" }),
       replyWith("Eilat is not allowed."),
     );
@@ -95,7 +93,9 @@ describe("#384: the before hooks decide", () => {
 
     expect(result.output).toEqual({ text: "Eilat is not allowed." });
     expect(toolRuns).toEqual([]);
-    expect(toolMessageOf(mockLlm(ScoutAgent))).toBe('City "Eilat" is not allowed for this tenant.');
+    expect(toolMessageOf(mockModel(ScoutAgent))).toBe(
+      'City "Eilat" is not allowed for this tenant.',
+    );
     expect(byOf()).toEqual(["audit:before job-search-tool", "scope:before job-search-tool"]);
     // the trajectory keeps it (#395): replied, the message as its output
     expect(result.toolCalls).toMatchObject([
@@ -107,15 +107,15 @@ describe("#384: the before hooks decide", () => {
     ]);
   });
 
-  test("block(): the tool does not run, the step fails with ToolBlockedError and the loop's spend", async ({
+  test("block(): the tool does not run, the step fails with StepError.ToolBlocked and the loop's spend", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ScoutAgent).thenReturn(callTool(CompanyTool, { company: "evil-corp" }));
+    mockModel(ScoutAgent).thenReturn(callTool(CompanyTool, { company: "evil-corp" }));
 
     const run = execute(app, ScoutStart, { text: "about evil-corp" }, acme);
 
-    await expect(run).rejects.toFailWith(ToolBlockedError, {
+    await expect(run).rejects.toFailWith(StepError.ToolBlocked, {
       code: "step.tool-blocked",
       agent: "scout-agent",
       tool: "company-tool",
@@ -123,49 +123,49 @@ describe("#384: the before hooks decide", () => {
       reason: "evil-corp is sanctioned",
     });
     const error: unknown = await run.catch((thrown: unknown) => thrown);
-    expect(error).toBeInstanceOf(StepFailedError);
+    expect(error).toBeInstanceOf(StepError);
     // the loop's model call is in the error's spend, so the record and the ledger keep it
-    expect((error as ToolBlockedError).usage.map((record) => record.caller)).toEqual([
+    expect((error as StepError.ToolBlocked).usage.map((record) => record.caller)).toEqual([
       "scout-agent",
     ]);
     expect(toolRuns).toEqual([]);
     // the tool excludes the application's audit: only the workflow's, the agent's and its own
     expect(byOf()).toEqual(["block:before company-tool"]);
-    expect(mockLlm(ScoutAgent).requests).toHaveLength(1);
+    expect(mockModel(ScoutAgent).requests).toHaveLength(1);
   });
 });
 
 describe("#384: a misbehaving interceptor fails the step", () => {
-  test("one that throws: AgentFailedError, its error the cause", async ({ app, mockLlm }) => {
-    mockLlm(ScoutAgent).thenReturn(callTool(PingTool, { mode: "throw" }));
+  test("one that throws: StepError.Agent, its error the cause", async ({ app, mockModel }) => {
+    mockModel(ScoutAgent).thenReturn(callTool(PingTool, { mode: "throw" }));
 
     const run = execute(app, ScoutStart, { text: "ping" }, acme);
 
-    await expect(run).rejects.toFailWith(AgentFailedError, { cause: ScopeServiceDownError });
+    await expect(run).rejects.toFailWith(StepError.Agent, { cause: ScopeServiceDownError });
     expect(toolRuns).toEqual([]);
   });
 
-  test("one that decides nothing: AgentFailedError naming the factories", async ({
+  test("one that decides nothing: StepError.Agent naming the factories", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ScoutAgent).thenReturn(callTool(PingTool, { mode: "nothing" }));
+    mockModel(ScoutAgent).thenReturn(callTool(PingTool, { mode: "nothing" }));
 
     const run = execute(app, ScoutStart, { text: "ping" }, acme);
 
     await expect(run).rejects.toThrow(/returned no ToolCallDecision/);
-    await expect(run).rejects.toBeInstanceOf(AgentFailedError);
+    await expect(run).rejects.toBeInstanceOf(StepError.Agent);
   });
 
-  test("an afterToolCall output its tool does not give: DtoValidationError as the cause", async ({
+  test("an afterToolCall output its tool does not give: ValidationError.DtoInvalid as the cause", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ScoutAgent).thenReturn(callTool(PingTool, { mode: "shape" }));
+    mockModel(ScoutAgent).thenReturn(callTool(PingTool, { mode: "shape" }));
 
     const run = execute(app, ScoutStart, { text: "ping" }, acme);
 
-    await expect(run).rejects.toFailWith(AgentFailedError, { cause: DtoValidationError });
+    await expect(run).rejects.toFailWith(StepError.Agent, { cause: ValidationError.DtoInvalid });
     expect(toolRuns).toEqual(["ping-tool:shape"]);
   });
 });
@@ -173,10 +173,10 @@ describe("#384: a misbehaving interceptor fails the step", () => {
 describe("#384: the order around PII and maxResultSize", () => {
   test("beforeAnyTool reads the arguments revealed; the result is masked after the interceptors", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    const script = mockLlm(ScoutAgent);
-    script.thenAnswer((request) => {
+    const script = mockModel(ScoutAgent);
+    script.respondWith((request) => {
       const [token] = tokensIn(requestText(request), "email");
       return script.requests.length === 1
         ? callTool(CompanyTool, { company: token ?? "" })
@@ -194,13 +194,13 @@ describe("#384: the order around PII and maxResultSize", () => {
 
   test("an afterToolCall's output is cut at maxResultSize, then masked", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ScoutAgent).thenReturn(callTool(PingTool, { mode: "big" }), replyWith("Long."));
+    mockModel(ScoutAgent).thenReturn(callTool(PingTool, { mode: "big" }), replyWith("Long."));
 
     await execute(app, ScoutStart, { text: "ping" }, acme);
 
-    const read = toolMessageOf(mockLlm(ScoutAgent));
+    const read = toolMessageOf(mockModel(ScoutAgent));
     expect(read).toContain("[result truncated:");
     expect(
       Buffer.byteLength(read.split("\n[result truncated")[0] ?? "", "utf8"),
@@ -211,9 +211,9 @@ describe("#384: the order around PII and maxResultSize", () => {
 describe("#384: levels, excludes and MCP tools", () => {
   test("an agent that excludes the application's interceptor: only its tool's own runs", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(QuietAgent).thenReturn(callTool(JobSearchTool, { city: "Eilat" }), replyWith("Ok."));
+    mockModel(QuietAgent).thenReturn(callTool(JobSearchTool, { city: "Eilat" }), replyWith("Ok."));
 
     await execute(app, QuietStart, { text: "jobs in Eilat" }, acme);
 
@@ -224,20 +224,20 @@ describe("#384: levels, excludes and MCP tools", () => {
 
   test("a @Tool that calls an MCP server is intercepted: allowed, and blocked before its server", async ({
     app,
-    mockLlm,
-    mcpOf,
+    mockModel,
+    mockMcp,
   }) => {
-    const board = mcpOf(JobBoardServer).thenReturn({
+    const board = mockMcp(JobBoardServer).thenReturn({
       lookup: () => Promise.resolve({ summary: "acme hires" }),
     });
-    mockLlm(ScoutAgent).thenReturn(
+    mockModel(ScoutAgent).thenReturn(
       callTool(BoardLookupTool, { company: "acme" }),
       callTool(BoardLookupTool, { company: "evil-corp" }),
     );
 
     const run = execute(app, ScoutStart, { text: "acme and evil-corp" }, acme);
 
-    await expect(run).rejects.toFailWith(ToolBlockedError, { tool: "board-lookup-tool" });
+    await expect(run).rejects.toFailWith(StepError.ToolBlocked, { tool: "board-lookup-tool" });
     expect(board.calls.map((call) => call.tool)).toEqual(["lookup"]);
     expect(byOf().slice(0, 3)).toEqual([
       "audit:before board-lookup-tool",

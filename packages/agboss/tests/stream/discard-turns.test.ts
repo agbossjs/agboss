@@ -31,8 +31,8 @@ describe("#1006: text before a tool call", () => {
 
   desk(
     "AC1: the turn's text is discarded as a tool turn; the next turn is attempt 2",
-    async ({ app, mockLlm }) => {
-      mockLlm(Desk).thenReturn(
+    async ({ app, mockModel }) => {
+      mockModel(Desk).thenReturn(
         callTool(QuickLookup, { orderId: "7" }),
         replyWith("Order 7 shipped."),
       );

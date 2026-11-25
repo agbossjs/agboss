@@ -23,7 +23,6 @@ export function agentSettings(
     maxModelCalls: agent.maxModelCalls,
     maxToolCalls: agent.maxToolCalls,
     maxRetries: agent.maxRetries,
-    price: agent.price,
   };
   const rag = ragSettings(agent);
   const judges = judgeNamesOf(agent);

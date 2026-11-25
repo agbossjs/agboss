@@ -1,10 +1,7 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
+import { ExecutionError } from "../../../src/core/error-families/run-errors.js";
 import { beforeEach, describe, expect, vi } from "vitest";
-import {
-  ActionFailedError,
-  CompensationFailedError,
-  CompensationReason,
-  CompensationStatus,
-} from "../../../src/index.js";
+import { CompensationReason, CompensationStatus } from "../../../src/index.js";
 import { testWith } from "../../../src/testing/index.js";
 import { execute } from "../../helpers/flow.js";
 import { seconds } from "../../../src/units/index.js";
@@ -29,7 +26,7 @@ import {
  * #340 PR 2 — a failed join undoes its finished undoable branches (Q3, `JoinFailed`): newest first,
  * each in its own frame on a clean-up signal bounded by `compensationTimeout`, before the
  * `.onError` side path runs or the branch's error fails the execution; an undo that fails does
- * not stop the others, then `CompensationFailedError` (Q4), which no side path takes.
+ * not stop the others, then `ExecutionError.CompensationFailed` (Q4), which no side path takes.
  */
 
 const test = testWith(UndoApplication);
@@ -42,8 +39,8 @@ beforeEach(() => {
 });
 
 describe("a failed join undoes its finished branches", () => {
-  test("newest first, before the side path, each recorded", async ({ app, mockOf }) => {
-    const desk = mockOf(UndoDesk);
+  test("newest first, before the side path, each recorded", async ({ app, mockService }) => {
+    const desk = mockService(UndoDesk);
     desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
     desk.charge.mockRejectedValue(new UndoDeskError("card declined"));
 
@@ -68,9 +65,9 @@ describe("a failed join undoes its finished branches", () => {
 
   test("each undo runs in its own frame: its key, the step it undoes, a live signal", async ({
     app,
-    mockOf,
+    mockService,
   }) => {
-    const desk = mockOf(UndoDesk);
+    const desk = mockService(UndoDesk);
     desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
     desk.charge.mockRejectedValue(new UndoDeskError("card declined"));
 
@@ -88,8 +85,8 @@ describe("a failed join undoes its finished branches", () => {
     });
   });
 
-  test("onCompensationStart / onCompensationEnd around each undo", async ({ app, mockOf }) => {
-    const desk = mockOf(UndoDesk);
+  test("onCompensationStart / onCompensationEnd around each undo", async ({ app, mockService }) => {
+    const desk = mockService(UndoDesk);
     desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
     desk.charge.mockRejectedValue(new UndoDeskError("card declined"));
 
@@ -120,9 +117,9 @@ describe("a failed join undoes its finished branches", () => {
 
   test("an undo's spend is the execution's: its service under the undo action", async ({
     app,
-    mockOf,
+    mockService,
   }) => {
-    const desk = mockOf(UndoDesk);
+    const desk = mockService(UndoDesk);
     desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
     desk.charge.mockRejectedValue(new UndoDeskError("card declined"));
 
@@ -133,23 +130,23 @@ describe("a failed join undoes its finished branches", () => {
 
   test("no side path: undone, then the execution fails with the branch's error", async ({
     app,
-    mockOf,
+    mockService,
   }) => {
-    const desk = mockOf(UndoDesk);
+    const desk = mockService(UndoDesk);
     desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
     desk.charge.mockRejectedValue(new UndoDeskError("card declined"));
 
     const run = execute(app, UndoUnhandledWorkflowStart, GUEST);
 
-    await expect(run).rejects.toFailWith(ActionFailedError, { cause: UndoDeskError });
+    await expect(run).rejects.toFailWith(StepError.Action, { cause: UndoDeskError });
     expect(desk.release.mock.calls.map(([id]) => id)).toEqual(["room-1", "seat-1"]);
   });
 
   test("every branch finished: nothing is undone, the finish commits them", async ({
     app,
-    mockOf,
+    mockService,
   }) => {
-    const desk = mockOf(UndoDesk);
+    const desk = mockService(UndoDesk);
     desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
 
     const result = await execute(app, UndoWorkflowStart, GUEST);
@@ -161,18 +158,18 @@ describe("a failed join undoes its finished branches", () => {
 });
 
 describe("an undo that fails (Q4)", () => {
-  test("the rest still runs, then CompensationFailedError — never the side path", async ({
+  test("the rest still runs, then ExecutionError.CompensationFailed — never the side path", async ({
     app,
-    mockOf,
+    mockService,
   }) => {
-    const desk = mockOf(UndoDesk);
+    const desk = mockService(UndoDesk);
     desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
     desk.charge.mockRejectedValue(new UndoDeskError("card declined"));
     desk.release.mockRejectedValueOnce(new UndoDeskError("room desk down"));
 
     const run = execute(app, UndoWorkflowStart, GUEST);
 
-    await expect(run).rejects.toFailWith(CompensationFailedError, {
+    await expect(run).rejects.toFailWith(ExecutionError.CompensationFailed, {
       failures: [
         {
           compensated: expect.objectContaining({
@@ -182,7 +179,7 @@ describe("an undo that fails (Q4)", () => {
           reason: CompensationReason.JoinFailed,
         },
       ],
-      cause: ActionFailedError,
+      cause: StepError.Action,
     });
     await expect(run).rejects.toFailWith(UndoDeskError);
     expect(desk.release.mock.calls.map(([id]) => id)).toEqual(["room-1", "seat-1"]);
@@ -192,8 +189,8 @@ describe("an undo that fails (Q4)", () => {
 describe("the clean-up signal (AC3)", () => {
   quick(
     "an undo's signal aborts after compensationTimeout; the undo fails with it",
-    async ({ app, mockOf, clock }) => {
-      const desk = mockOf(UndoDesk);
+    async ({ app, mockService, clock }) => {
+      const desk = mockService(UndoDesk);
       desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
       desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
       desk.charge.mockRejectedValue(new UndoDeskError("card declined"));
@@ -218,7 +215,7 @@ describe("the clean-up signal (AC3)", () => {
       });
       await clock.advance(seconds(2));
 
-      await expect(run).rejects.toFailWith(CompensationFailedError, {
+      await expect(run).rejects.toFailWith(ExecutionError.CompensationFailed, {
         failures: [
           expect.objectContaining({ status: CompensationStatus.Failed }) as unknown,
           expect.objectContaining({ status: CompensationStatus.Failed }) as unknown,

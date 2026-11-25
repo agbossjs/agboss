@@ -28,7 +28,7 @@ import { PauseRespondent } from "../pause/respondent.js";
 /**
  * A paused run as a store keeps it as JSON (`PausedExecution.run`), read whole and version tolerant
  * like the history record: only the 0.1.1 shape is read (no 0.1.0 name, no default for a missing
- * field: such a row is `StoredNamesUnreadableError`); a key the type does not know is dropped. `budgetUsd` may be `Infinity` (a run without a cost limit: the store's JSON tags it and
+ * field: such a row is `StoreError.UnreadableRecord`); a key the type does not know is dropped. `budgetUsd` may be `Infinity` (a run without a cost limit: the store's JSON tags it and
  * the decoded value comes here). Parsing a value reads it: the type is asserted nowhere.
  */
 

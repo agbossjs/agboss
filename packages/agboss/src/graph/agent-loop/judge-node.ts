@@ -1,6 +1,5 @@
 import { HumanMessage } from "@langchain/core/messages";
 import { verdictOfJudge } from "../../judges/declarative-judge.js";
-import { BudgetExceededError } from "../limits.js";
 import type {
   AnyJudgeInput,
   JudgeOutputShape,
@@ -11,7 +10,10 @@ import type { DtoClass } from "../../dto/types.js";
 import { isWrapper, Wrapper } from "../../flow/dto-wrappers.js";
 import { hydratedIfDto as asInstance } from "../../dto/hydrate.js";
 import type { UsageRecord } from "../../finops/usage.js";
-import { AgentFailedError, QualityGateError, type JudgeRejection } from "../errors.js";
+import { StepError } from "../../core/error-families/step-errors.js";
+import { LimitError } from "../../core/error-families/limit-errors.js";
+import type { JudgeRejection } from "../step-coordinates.js";
+import { retryPrompt } from "./judge-retry-prompt.js";
 import type { AsyncNode } from "../types.js";
 import type { AgentJudge, AgentLoopDeps } from "./deps.js";
 import { reportNodeEvent } from "../../flow/observers/execution-event.js";
@@ -161,8 +163,8 @@ async function rejectionsOf(
     );
     const verdict: JudgeVerdict = await verdictOfJudge(judge, input, model).catch(
       (error: unknown) => {
-        if (error instanceof BudgetExceededError) throw error;
-        throw new AgentFailedError({
+        if (error instanceof LimitError.Budget) throw error;
+        throw new StepError.Agent({
           agent,
           usage: [...loopUsage(state), ...spent.usage],
           cause: error,
@@ -178,17 +180,10 @@ async function rejectionsOf(
   return rejected;
 }
 
-/** What the agent reads before its retry: every rejecting judge's reason. */
-export const retryPrompt = (rejected: readonly JudgeRejection[]): string =>
-  [
-    "Your reply did not pass the quality gate. Fix the following and reply again:",
-    ...rejected.map((r) => `- [${r.judge}] ${r.reason}`),
-  ].join("\n");
-
 /**
  * The quality gate after the agent's reply: every `@Judge` of the agent judges its answer, as its
  * DTO, with its own model (spend recorded as `judge:<name>`). All pass → the reply is the agent's answer. A rejection
- * sends its reason back to the model for a retry; after `maxRetries` retries → `QualityGateError`.
+ * sends its reason back to the model for a retry; after `maxRetries` retries → `StepError.QualityGate`.
  */
 export function makeJudgeNode(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType, AgentLoopUpdate> {
   const { name: agent, judges = [] } = deps.agent;
@@ -211,7 +206,7 @@ export function makeJudgeNode(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType
     // what the reply streamed is retracted, whether a retry follows or the agent fails (#1006)
     agentStreamOf(config)?.discardLast(StreamDiscardReason.JudgeRejected);
     if (state.retries >= maxRetries) {
-      const error = new QualityGateError({
+      const error = new StepError.QualityGate({
         agent,
         usage: [...loopUsage(state), ...usage],
         rejections: rejected,

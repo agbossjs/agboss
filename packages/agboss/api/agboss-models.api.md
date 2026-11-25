@@ -98,27 +98,6 @@ export abstract class CliModelProvider {
 export type CliResult = Omit<ModelProviderResponse, "toolCalls">;
 
 // @public
-export class ConfigurationError extends AGBossError {
-    constructor(options: ConfigurationErrorOptions);
-    // (undocumented)
-    static readonly code: "config.model-settings";
-    // (undocumented)
-    readonly code: typeof ConfigurationError.code;
-    // (undocumented)
-    name: string;
-    // (undocumented)
-    readonly problems: readonly ModelProblem[];
-}
-
-// @public
-export interface ConfigurationErrorOptions {
-    // (undocumented)
-    readonly cause?: unknown;
-    // (undocumented)
-    readonly problems: readonly ModelProblem[];
-}
-
-// @public
 export const DECISION_MODELS: readonly string[];
 
 // @public
@@ -470,17 +449,6 @@ export interface ModelProviderDecisionRequest {
     readonly state: DecisionState;
 }
 
-// @public (undocumented)
-export class ModelProviderError extends AGBossError {
-    constructor(options: MessageErrorOptions);
-    // (undocumented)
-    static readonly code: "config.model-provider";
-    // (undocumented)
-    readonly code: typeof ModelProviderError.code;
-    // (undocumented)
-    name: string;
-}
-
 // @public
 export class ModelProviderFailureError extends AGBossError {
     constructor(options: ModelProviderFailureOptions);
@@ -706,18 +674,6 @@ export interface PlainErrorOptions {
 }
 
 // @public
-export interface Price {
-    // (undocumented)
-    cacheReadPerMTok?: number | undefined;
-    // (undocumented)
-    cacheWritePerMTok?: number | undefined;
-    // (undocumented)
-    inputPerMTok: number;
-    // (undocumented)
-    outputPerMTok: number;
-}
-
-// @public
 export type PromptCaching = ({
     readonly kind: "on";
 } & PromptCachingOptions) | {
@@ -883,7 +839,7 @@ export interface ResolvedModelSettings {
     // (undocumented)
     readonly model: string;
     readonly modelProvider?: string | undefined;
-    readonly price?: Price | undefined;
+    readonly price?: ModelPrice | undefined;
     // (undocumented)
     readonly promptCaching?: PromptCaching | undefined;
     // (undocumented)
@@ -1044,10 +1000,6 @@ export interface WireTool {
 
 // Warnings were encountered during analysis:
 //
-// src/config/settings-types.ts - (ae-undocumented) Missing documentation for "inputPerMTok".
-// src/config/settings-types.ts - (ae-undocumented) Missing documentation for "outputPerMTok".
-// src/config/settings-types.ts - (ae-undocumented) Missing documentation for "cacheReadPerMTok".
-// src/config/settings-types.ts - (ae-undocumented) Missing documentation for "cacheWritePerMTok".
 // src/config/types.ts - (ae-undocumented) Missing documentation for "model".
 // src/config/types.ts - (ae-undocumented) Missing documentation for "temperature".
 // src/config/types.ts - (ae-undocumented) Missing documentation for "maxTokens".
@@ -1146,10 +1098,6 @@ export interface WireTool {
 // src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "description".
 // src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "description".
 // src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "deps".
-// src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "ModelProviderError".
-// src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "code".
-// src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "code".
-// src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "name".
 // src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "ModelProvider".
 // src/models/openrouter-routing.ts - (ae-undocumented) Missing documentation for "Price".
 // src/models/openrouter-routing.ts - (ae-undocumented) Missing documentation for "Throughput".
@@ -1175,12 +1123,6 @@ export interface WireTool {
 // src/models/problems.ts - (ae-undocumented) Missing documentation for "value".
 // src/models/problems.ts - (ae-undocumented) Missing documentation for "model".
 // src/models/problems.ts - (ae-undocumented) Missing documentation for "supported".
-// src/models/problems.ts - (ae-undocumented) Missing documentation for "problems".
-// src/models/problems.ts - (ae-undocumented) Missing documentation for "cause".
-// src/models/problems.ts - (ae-undocumented) Missing documentation for "code".
-// src/models/problems.ts - (ae-undocumented) Missing documentation for "code".
-// src/models/problems.ts - (ae-undocumented) Missing documentation for "name".
-// src/models/problems.ts - (ae-undocumented) Missing documentation for "problems".
 // src/models/prompt-caching.ts - (ae-undocumented) Missing documentation for "FiveMinutes".
 // src/models/prompt-caching.ts - (ae-undocumented) Missing documentation for "OneHour".
 // src/models/prompt-caching.ts - (ae-undocumented) Missing documentation for "OneDay".

@@ -2,27 +2,25 @@
  * #906 AC1: each exported error's documented options (without `cause`), typed by its constructor —
  * `tsc` checks them — and keyed by the class's name. Part two: `error-options.fixtures-flow.ts`.
  */
-import * as a2a from "../../src/a2a/index.js";
+import { StoreError } from "../../src/core/error-families/store-errors.js";
 import * as root from "../../src/index.js";
+import * as internal from "../../src/internal.js";
 import * as stores from "../../src/stores/index.js";
 import * as models from "../../src/models/index.js";
 import { ModelKind } from "../../src/llm/decision-errors.js";
 import { seconds } from "../../src/units/index.js";
 import { ModelFailure } from "../../src/models/model-failure.js";
-import { StoredNamesUnreadableError } from "../../src/infrastructure/stored-step.js";
 import { fx } from "./error-options.fx.js";
 import { flowFixtures } from "./error-options.fixtures-flow.js";
 
-const task = { agent: "refund-agent", taskId: "t-1", contextId: "c-1" };
 const message = "it went wrong";
 
 export const fixtures: Readonly<Record<string, object>> = Object.fromEntries([
   fx(root.ApplicationStoppingError, { message }),
-  fx(root.DuplicateExecutionIdError, { generator: "SequentialIds" }),
-  fx(root.ExecutionCancelledError, { message }),
-  fx(root.ExecutionStoppedError, { message }),
-  fx(root.ExecutionPausedError, { message }),
-  fx(root.ExecutionStopFencedError, {
+  fx(internal.ExecutionCancelledError, { message }),
+  fx(internal.ExecutionStoppedError, { message }),
+  fx(internal.ExecutionPausedError, { message }),
+  fx(internal.ExecutionStopFencedError, {
     scopeKey: "acme:root-1",
     tenantId: "acme",
     rootExecutionId: "root-1",
@@ -30,7 +28,7 @@ export const fixtures: Readonly<Record<string, object>> = Object.fromEntries([
     token: 2,
     effect: "charge",
   }),
-  fx(root.ExecutionPauseFencedError, {
+  fx(internal.ExecutionPauseFencedError, {
     scopeKey: "acme:root-1",
     tenantId: "acme",
     rootExecutionId: "root-1",
@@ -38,129 +36,14 @@ export const fixtures: Readonly<Record<string, object>> = Object.fromEntries([
     token: 2,
     effect: "charge",
   }),
-  fx(root.InvalidMintedIdError, {
-    generator: "G",
-    method: "newThreadId",
-    rule: root.KeyTextRule.Length,
-  }),
-  fx(root.ThreadIdsExhaustedError, { generator: "G", tries: 100 }),
-  fx(StoredNamesUnreadableError, { record: "pause", ids: "pauseId p1", fields: "respondent" }),
   fx(root.ExecutionLeaseLostError, { rootExecutionId: "root-1" }),
-  fx(root.SqliteSchemaTooNewError, { applied: 2, expected: 1 }),
-  fx(root.StoreOutcomeUnknownError, {
-    store: "PgFencedEffectRepository",
-    operation: "runOnce",
-    source: root.StoreOutcomeSource.Transport,
-  }),
-  fx(root.StoreCallTimeoutError, {
-    store: "PgFencedEffectRepository",
-    operation: "runOnce",
-    source: root.StoreOutcomeSource.Command,
-    timeout: seconds(10),
-  }),
-  fx(root.ExecutionCancelFencedError, {
-    scopeKey: "acme:root-1",
-    tenantId: "acme",
-    rootExecutionId: "root-1",
-    leaseExecutionId: "child-1",
-    token: 2,
-    effect: "charge",
-  }),
-  fx(root.CostLedgerCutoffInvalidError, { reason: "not a Date" }),
-  fx(root.CostLedgerEntryExpiredError, { ledgerIds: ["l-1"], prunedBefore: new Date(0) }),
-  fx(root.CostLedgerEntryInvalidError, { index: 0, reason: "no id" }),
   fx(stores.InvalidA2APageTokenError, {}),
-  fx(root.PauseExtensionContendedError, { pauseKey: "default:p-1", attempts: 8 }),
-  fx(root.UnknownPauseError, { message }),
   fx(root.NotPausedError, { message }),
-  fx(root.PauseClosedError, {
-    pauseId: "p-1",
-    tenantId: "default",
-    reason: root.PauseClosedReason.Cancelled,
-    closedAt: "2026-01-05T09:00:00.000Z",
-  }),
-  fx(root.ExpiryHandlerError, {
-    channel: "refund-approval-channel",
-    problem: root.ExpiryProblem.HandlerFailed,
-  }),
-  fx(root.WorkingCalendarError, {
-    calendar: "tenant-holidays-working-calendar",
-    problem: root.WorkingCalendarProblem.CalendarFailed,
-  }),
-  fx(root.UnknownThreadError, { message }),
-  fx(root.ThreadOwnerError, { message }),
-  fx(root.InvalidThreadIdError, { rule: root.KeyTextRule.Length }),
-  fx(root.IncompatibleResumeError, {
-    threadId: "t-1",
-    executionId: "e-1",
-    paused: { workflowVersion: "1", configHash: "a" },
-    current: { workflowVersion: "2", configHash: "b" },
-  }),
-  fx(root.ReplyInterpreterMissingError, { message }),
-  fx(root.UninterpretableReplyError, { message, reason: "no verdict" }),
-  fx(root.DtoValidationError, { dto: "Order", issues: [{ path: "id", reason: "missing" }] }),
-  fx(root.EvalCaseInvalidError, {
-    suite: "refund-suite",
-    issues: [{ case: "c-1", path: "input", reason: "missing" }],
-  }),
-  fx(root.ModelKindError, { model: "gpt", kind: ModelKind.Chat, call: "decide" }),
   fx(models.ModelProviderFailureError, { failure: ModelFailure.Timeout, retryAfter: seconds(1) }),
   fx(root.ModelCallError, { code: "model.circuit-open", provider: "openai", message }),
   fx(models.ModelProviderInputError, { kind: "image", mediaType: "image/png" }),
-  fx(root.ModelFileLimitError, {
-    agent: "reader-agent",
-    limit: root.ModelFileLimit.MaxFiles,
-    actual: 6,
-    allowed: 5,
-  }),
-  fx(root.FileRedactionFailedError, {
-    agent: "reader-agent",
-    reason: "the model's answer is not usable",
-  }),
   fx(root.ToolTimeoutError, { timeout: seconds(1) }),
   fx(root.SpendOutsideStepError, { message }),
-  fx(root.NotAWorkflowStartError, { message }),
-  fx(root.FlowSyntaxError, { message }),
   fx(root.ExecutionContextUnavailableError, { message }),
-  fx(root.OutputInvalidError, { message }),
-  fx(a2a.A2AContractError, {
-    agent: "refund-agent",
-    rule: a2a.A2AContractRule.UnknownSkill,
-    skill: "refund",
-    differences: ["input: currency"],
-  }),
-  fx(a2a.A2AProtocolError, {
-    agent: "refund-agent",
-    operation: a2a.A2AClientOperation.GetTask,
-    rpcCode: -32001,
-    httpStatus: 500,
-    protocolVersions: ["0.3"],
-  }),
-  fx(a2a.A2ARemoteCallError, {
-    agent: "refund-agent",
-    reason: a2a.A2ARemoteCallReason.NoOutput,
-    taskId: "t-1",
-  }),
-  fx(a2a.A2AUnexpectedFinishError, {
-    agent: "refund-agent",
-    finish: "other-finish",
-    finishes: ["refund-finish"],
-    taskId: "t-1",
-  }),
-  fx(a2a.A2AMeshUnsupportedError, { agent: "refund-agent", application: "refunds" }),
-  fx(a2a.A2AOriginError, {
-    agent: "refund-agent",
-    origin: "https://x.example",
-    site: a2a.A2AOriginSite.Redirect,
-    allowedOrigins: ["https://y.example"],
-  }),
-  fx(a2a.A2ACallDeadlineError, {
-    ...task,
-    deadlineAt: new Date("2026-01-01T00:00:00.000Z"),
-    cancel: a2a.A2ACancelOutcome.Cancelled,
-  }),
-  fx(a2a.A2ATaskCancelledError, task),
-  fx(a2a.A2ATaskFailedError, { ...task, end: a2a.A2ATaskEnd.Failed, remoteCode: "limit.hops" }),
-  fx(a2a.A2ATaskInterruptedError, { ...task, interruption: a2a.A2ATaskInterruption.InputRequired }),
   ...Object.entries(flowFixtures),
 ]);

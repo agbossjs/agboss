@@ -2,6 +2,7 @@
  * #120 PR 2 — guardrails at assembly (AC1, AC2, AC4, AC11): names, models, refusals, levels. Every
  * rule broken fails the application's assembly, all at once.
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import {
   DecidedBy,
@@ -22,7 +23,6 @@ import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import type { Class } from "../../src/components/injection.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
-import { GraphRuleError } from "../../src/graph/rule-error.js";
 import { guardrailViolations } from "../../src/guardrails/checks.js";
 import { effectiveGuardrails, GuardedElementKind } from "../../src/guardrails/levels.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
@@ -274,13 +274,13 @@ class GuardedWorkflow {}
 class GuardedApplication {}
 
 describe("#120: the application's assembly reports every guardrail rule at once", () => {
-  it("names, models, refusals and levels — one GraphRuleError", async () => {
+  it("names, models, refusals and levels — one ConfigError.GraphRules", async () => {
     const error: unknown = await applicationOf(GuardedApplication).catch(
       (thrown: unknown) => thrown,
     );
 
-    if (!(error instanceof GraphRuleError))
-      throw new Error(`expected a GraphRuleError: ${String(error)}`);
+    if (!(error instanceof ConfigError.GraphRules))
+      throw new Error(`expected a ConfigError.GraphRules: ${String(error)}`);
     expect(error.violations.map((item) => item.code)).toEqual([
       "guardrail.exclude-not-inherited",
       "guardrail.output-on-router",

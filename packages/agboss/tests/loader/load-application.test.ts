@@ -1,6 +1,6 @@
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import { loadApplicationClass } from "../../src/loader/load-application.js";
-import { ApplicationLoadError } from "../../src/loader/load-errors.js";
 import { SoloApplication } from "../fixtures/loader/apps/solo.application.js";
 
 /** #268 AC1: the application of `agboss --application <path>` / `"agboss": { "application" }`. */
@@ -19,10 +19,10 @@ describe("#268 AC1: the application module", () => {
     expect(found).toBe(SoloApplication);
   });
 
-  it("a missing file is an ApplicationLoadError naming it", async () => {
+  it("a missing file is an ConfigError.ApplicationLoad naming it", async () => {
     const loading = loadApplicationClass(fixture("fixtures/loader/nope.application.ts"), options);
 
-    await expect(loading).rejects.toBeInstanceOf(ApplicationLoadError);
+    await expect(loading).rejects.toBeInstanceOf(ConfigError.ApplicationLoad);
     await expect(loading).rejects.toThrow(/Application file not found: .*nope\.application\.ts/);
   });
 

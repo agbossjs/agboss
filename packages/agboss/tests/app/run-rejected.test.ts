@@ -1,17 +1,12 @@
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { beforeEach, describe, expect } from "vitest";
-import { DtoValidationError } from "../../src/dto/index.js";
-import {
-  BudgetExceededError,
-  InvalidThreadIdError,
-  PauseClosedError,
-  ThreadOwnerError,
-  UnknownPauseError,
-  UnknownThreadError,
-} from "../../src/errors.js";
 import {
   ExecutionOperation,
-  NotAWorkflowStartError,
   type ExecutionRejectedEvent,
+  ValidationError,
 } from "../../src/index.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import { usd } from "../../src/units/index.js";
@@ -57,20 +52,24 @@ function expectRejected(
   return event;
 }
 
-describe("#246 AC1: a thread of another owner → onExecutionRejected run.thread-owner, no runId", () => {
+describe("#246 AC1: a thread of another owner → onExecutionRejected execution.thread-owner-mismatch, no runId", () => {
   test("execute on alice's thread as mallory: rejected before any run event", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(replyWith(AnswerDto, { text: "One." }));
+    mockModel(Clerk).thenReturn(replyWith(AnswerDto, { text: "One." }));
     const first = await execute(app, Ask, { text: "one" }, alice);
     resetEvents();
 
     const again = execute(app, Ask, { text: "two" }, { threadId: first.threadId, ...mallory });
 
-    await expect(again).rejects.toBeInstanceOf(ThreadOwnerError);
+    await expect(again).rejects.toBeInstanceOf(ExecutionError.ThreadOwnerMismatch);
     expectRejected(
-      { operation: ExecutionOperation.Execute, threadId: first.threadId, code: "run.thread-owner" },
+      {
+        operation: ExecutionOperation.Execute,
+        threadId: first.threadId,
+        code: "execution.thread-owner-mismatch",
+      },
       [first.executionId, "alice", "mallory", "two"],
     );
     expect(workflowEvents()).toEqual([]);
@@ -78,24 +77,36 @@ describe("#246 AC1: a thread of another owner → onExecutionRejected run.thread
 
   test("resume and cancel of alice's paused run as mallory: rejected, the run stays paused", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(
+    mockModel(Clerk).thenReturn(
       callTool(Apply, { text: "job 1" }),
       replyWith(AnswerDto, { text: "Applied." }),
     );
     const paused = await execute(app, Ask, { text: "apply" }, alice);
     resetEvents();
 
-    await expect(app.resume(answerOf(paused, approve), mallory)).rejects.toThrow(ThreadOwnerError);
+    await expect(app.resume(answerOf(paused, approve), mallory)).rejects.toThrow(
+      ExecutionError.ThreadOwnerMismatch,
+    );
     expectRejected(
-      { operation: ExecutionOperation.Resume, threadId: paused.threadId, code: "run.thread-owner" },
+      {
+        operation: ExecutionOperation.Resume,
+        threadId: paused.threadId,
+        code: "execution.thread-owner-mismatch",
+      },
       [paused.executionId, "dana"],
     );
     resetEvents();
-    await expect(app.cancel(paused.threadId, mallory)).rejects.toThrow(ThreadOwnerError);
+    await expect(app.cancel(paused.threadId, mallory)).rejects.toThrow(
+      ExecutionError.ThreadOwnerMismatch,
+    );
     expectRejected(
-      { operation: ExecutionOperation.Cancel, threadId: paused.threadId, code: "run.thread-owner" },
+      {
+        operation: ExecutionOperation.Cancel,
+        threadId: paused.threadId,
+        code: "execution.thread-owner-mismatch",
+      },
       [paused.executionId],
     );
     expect(workflowEvents()).toEqual([]);
@@ -111,9 +122,9 @@ describe("#246 AC1: a thread of another owner → onExecutionRejected run.thread
 describe("#246 AC2: nothing to resume, an unknown thread, an invalid start → onExecutionRejected", () => {
   test("#267: a second answer to a pause its run already took: pause.closed", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(
+    mockModel(Clerk).thenReturn(
       callTool(Apply, { text: "job 1" }),
       replyWith(AnswerDto, { text: "Applied." }),
     );
@@ -121,7 +132,7 @@ describe("#246 AC2: nothing to resume, an unknown thread, an invalid start → o
     const done = await app.resume(answerOf(paused, approve));
     resetEvents();
 
-    await expect(app.resume(answerOf(paused, approve))).rejects.toBeInstanceOf(PauseClosedError);
+    await expect(app.resume(answerOf(paused, approve))).rejects.toBeInstanceOf(PauseError.Closed);
     expectRejected(
       { operation: ExecutionOperation.Resume, threadId: done.threadId, code: "pause.closed" },
       [done.executionId],
@@ -132,40 +143,40 @@ describe("#246 AC2: nothing to resume, an unknown thread, an invalid start → o
   test("#267 AC2: a pause nobody made: pause.unknown-pause, no thread named", async ({ app }) => {
     const unknown = app.resume({ pauseId: "no-such-pause", decision: approve });
 
-    await expect(unknown).rejects.toBeInstanceOf(UnknownPauseError);
+    await expect(unknown).rejects.toBeInstanceOf(PauseError.UnknownPause);
     expectRejected({ operation: ExecutionOperation.Resume, code: "pause.unknown-pause" });
   });
 
-  test("execute with an id that cannot be a thread: run.invalid-thread-id, before onWorkflowStart", async ({
+  test("execute with an id that cannot be a thread: execution.invalid-thread-id, before onWorkflowStart", async ({
     app,
   }) => {
     // an id the tenant does not have yet is the caller's own new thread (#262 Q4); a bad one is not
     const run = execute(app, Ask, { text: "hello" }, { threadId: "bad\nid" });
 
-    await expect(run).rejects.toBeInstanceOf(InvalidThreadIdError);
+    await expect(run).rejects.toBeInstanceOf(ExecutionError.InvalidThreadId);
     // #538: an id refused for its text is never echoed: the event names the rule, not the id
-    expectRejected({ operation: ExecutionOperation.Execute, code: "run.invalid-thread-id" }, [
+    expectRejected({ operation: ExecutionOperation.Execute, code: "execution.invalid-thread-id" }, [
       "bad",
     ]);
     expect(workflowEvents()).toEqual([]);
   });
 
-  test("cancel of an unknown thread: run.unknown-thread", async ({ app }) => {
-    await expect(app.cancel("no-such-thread")).rejects.toBeInstanceOf(UnknownThreadError);
+  test("cancel of an unknown thread: execution.unknown-thread", async ({ app }) => {
+    await expect(app.cancel("no-such-thread")).rejects.toBeInstanceOf(ExecutionError.UnknownThread);
     expectRejected({
       operation: ExecutionOperation.Cancel,
       threadId: "no-such-thread",
-      code: "run.unknown-thread",
+      code: "execution.unknown-thread",
     });
   });
 
-  test("execute from a class that is not a start of the workflow: workflow.not-a-start", async ({
+  test("execute from a class that is not a start of the workflow: config.not-a-workflow-start", async ({
     app,
   }) => {
     const run = execute(app, Redeem, { text: "hi", code: "V-1" });
 
-    await expect(run).rejects.toBeInstanceOf(NotAWorkflowStartError);
-    expectRejected({ operation: ExecutionOperation.Execute, code: "workflow.not-a-start" });
+    await expect(run).rejects.toBeInstanceOf(ConfigError.NotAWorkflowStart);
+    expectRejected({ operation: ExecutionOperation.Execute, code: "config.not-a-workflow-start" });
   });
 
   vouchers(
@@ -175,13 +186,13 @@ describe("#246 AC2: nothing to resume, an unknown thread, an invalid start → o
 
       const run = execute(app, Redeem, input);
 
-      await expect(run).rejects.toBeInstanceOf(DtoValidationError);
+      await expect(run).rejects.toBeInstanceOf(ValidationError.DtoInvalid);
       // the caller still gets the whole error, value included
       await expect(run).rejects.toThrow(/SECRET-4471/);
-      const event = expectRejected({ operation: ExecutionOperation.Execute, code: "dto.invalid" }, [
-        input.code,
-        input.text,
-      ]);
+      const event = expectRejected(
+        { operation: ExecutionOperation.Execute, code: "validation.dto-invalid" },
+        [input.code, input.text],
+      );
       expect(event.message).toBe("invalid VoucherDto at code");
       expect(workflowEvents()).toEqual([]);
     },
@@ -191,8 +202,8 @@ describe("#246 AC2: nothing to resume, an unknown thread, an invalid start → o
 describe("#261 AC10: a tenant's day spent before the execution → it is rejected before its first step", () => {
   vouchers(
     "the next execution never starts: onExecutionRejected with limit.budget, no start, no model call",
-    async ({ app, mockLlm }) => {
-      mockLlm(VoucherClerk).thenReturn(
+    async ({ app, mockModel }) => {
+      mockModel(VoucherClerk).thenReturn(
         replyWith(AnswerDto, { text: "Too dear." }, { cost: usd(0.06) }),
       );
       // the execution's one reply spends more than the tenant's day allows
@@ -201,52 +212,57 @@ describe("#261 AC10: a tenant's day spent before the execution → it is rejecte
 
       const run = execute(app, Redeem, { text: "two", code: "V-2" });
 
-      await expect(run).rejects.toBeInstanceOf(BudgetExceededError);
+      await expect(run).rejects.toBeInstanceOf(LimitError.Budget);
       await expect(run).rejects.toThrow(
         "tenant default spent $0.06 today; vouchers-tenant-daily-budget allows $0.05",
       );
       expectRejected({ operation: ExecutionOperation.Execute, code: "limit.budget" });
       expect(workflowEvents()).toEqual([]);
-      expect(mockLlm(VoucherClerk).requests).toHaveLength(1);
+      expect(mockModel(VoucherClerk).requests).toHaveLength(1);
     },
   );
 });
 
 /** No thread was created: the first id the store would hand out is still unknown. */
 async function expectNoNewThread(app: Pick<TestApp, "cancel">): Promise<void> {
-  await expect(app.cancel("thread-1")).rejects.toBeInstanceOf(UnknownThreadError);
+  await expect(app.cancel("thread-1")).rejects.toBeInstanceOf(ExecutionError.UnknownThread);
 }
 
 describe("#261: a request refused before it starts leaves no trace — no thread, no record", () => {
-  vouchers("a budget exhausted on a new thread", async ({ app, mockLlm, mockOf }) => {
-    mockOf(VouchersTenantDailyBudget).maxSpend.mockReturnValue(usd(0));
+  vouchers("a budget exhausted on a new thread", async ({ app, mockModel, mockService }) => {
+    mockService(VouchersTenantDailyBudget).maxSpend.mockReturnValue(usd(0));
 
     await expect(execute(app, Redeem, { text: "one", code: "V-1" })).rejects.toBeInstanceOf(
-      BudgetExceededError,
+      LimitError.Budget,
     );
 
     await expectNoNewThread(app);
-    expect(mockLlm(VoucherClerk).requests).toHaveLength(0);
+    expect(mockModel(VoucherClerk).requests).toHaveLength(0);
     expect(workflowEvents()).toEqual([]);
   });
 
   vouchers("an invalid start input", async ({ app }) => {
     await expect(execute(app, Redeem, { text: "redeem", code: "BAD" })).rejects.toBeInstanceOf(
-      DtoValidationError,
+      ValidationError.DtoInvalid,
     );
 
     await expectNoNewThread(app);
   });
 
-  vouchers("a later admitted execution gets the first thread", async ({ app, mockLlm, mockOf }) => {
-    mockOf(VouchersTenantDailyBudget).maxSpend.mockReturnValueOnce(usd(0)).mockReturnValue(usd(1));
-    mockLlm(VoucherClerk).thenReturn(replyWith(AnswerDto, { text: "Redeemed." }));
+  vouchers(
+    "a later admitted execution gets the first thread",
+    async ({ app, mockModel, mockService }) => {
+      mockService(VouchersTenantDailyBudget)
+        .maxSpend.mockReturnValueOnce(usd(0))
+        .mockReturnValue(usd(1));
+      mockModel(VoucherClerk).thenReturn(replyWith(AnswerDto, { text: "Redeemed." }));
 
-    await expect(execute(app, Redeem, { text: "one", code: "V-1" })).rejects.toBeInstanceOf(
-      BudgetExceededError,
-    );
-    const admitted = await execute(app, Redeem, { text: "two", code: "V-2" });
+      await expect(execute(app, Redeem, { text: "one", code: "V-1" })).rejects.toBeInstanceOf(
+        LimitError.Budget,
+      );
+      const admitted = await execute(app, Redeem, { text: "two", code: "V-2" });
 
-    expect(admitted.threadId).toBe("thread-1");
-  });
+      expect(admitted.threadId).toBe("thread-1");
+    },
+  );
 });

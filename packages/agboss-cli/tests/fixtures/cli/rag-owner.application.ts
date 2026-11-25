@@ -42,7 +42,6 @@ export class OwnerNotesRag extends RagSource {
   description: "Reads an owner's notes",
   prompt: inline("Read."),
   model: "test/alpha",
-  price: testConfig.agents.alpha.price,
   rag: [OwnerNotesRag],
 })
 export class OwnerReaderAgent {}

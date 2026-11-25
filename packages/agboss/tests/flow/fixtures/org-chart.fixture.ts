@@ -1,3 +1,5 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import {
   onStart,
   toAction,
@@ -15,8 +17,6 @@ import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import { listOf, oneOf } from "../../../src/flow/dto-wrappers.js";
 import type { InputOf, OutputOf, Route } from "../../../src/flow/generated-types.js";
 import type { ActionHandler, RouterHandler } from "../../../src/flow/handlers.js";
-import { LimitExceededError } from "../../../src/errors.js";
-import { StepFailedError } from "../../../src/graph/errors.js";
 import { Integer, List, Text } from "../../../src/dto/index.js";
 import { inline, Ttl } from "../../../src/index.js";
 
@@ -134,7 +134,7 @@ export class OrgChartFailedWorkflowFinish {}
           )
           .join()
           .onError(
-            LimitExceededError,
+            LimitError,
             toAction(MarkUnitFailedAction)
               .toFinish(OrgChartFailedWorkflowFinish),
           )
@@ -187,14 +187,14 @@ export class OrgDepthRouter implements RouterHandler<OrgDepthRouter> {
       .onRoute(toWorkflow(() => OrgDrillWorkflow))
       .onRoute(
         toAgent(UnitPickerAgent)
-          .toOneOf([toFinish(TeamChartWorkflowFinish), toWorkflow(() => OrgDrillWorkflow)]),
+          .toOneOf([
+            toFinish(TeamChartWorkflowFinish),
+            toWorkflow(() => OrgDrillWorkflow),
+          ]),
       ),
     onWorkflow(() => OrgDrillWorkflow)
-      .onError(
-        StepFailedError,
-        toAction(MarkUnitFailedAction)
-          .toFinish(OrgChartFailedWorkflowFinish),
-      )
+      .onError(StepError, toAction(MarkUnitFailedAction)
+        .toFinish(OrgChartFailedWorkflowFinish))
       .toOneOf([toFinish(TeamChartWorkflowFinish), toFinish(OrgChartFailedWorkflowFinish)]),
   ],
   executionLimits: { maxDepth: 3 },
@@ -226,9 +226,12 @@ export class UnitCharterAgent {}
     onStart(OrgRetryWorkflowStart)
       .toAgent(UnitCharterAgent)
       .onError(
-        StepFailedError,
+        StepError,
         toWorkflow(() => OrgRetryWorkflow)
-          .toOneOf([toFinish(TeamChartWorkflowFinish), toFinish(OrgChartFailedWorkflowFinish)]),
+          .toOneOf([
+            toFinish(TeamChartWorkflowFinish),
+            toFinish(OrgChartFailedWorkflowFinish),
+          ]),
       )
       .toFinish(TeamChartWorkflowFinish),
   ],

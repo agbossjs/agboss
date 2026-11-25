@@ -1,6 +1,7 @@
 /** #118 AC5: the startup check of a DTO class — every field decorated, plain data only. */
+import { ConfigError } from "../../src/index.js";
 import { describe, expect, it } from "vitest";
-import { DtoError, Text } from "../../src/dto/index.js";
+import { Text } from "../../src/dto/index.js";
 import { recordField, registerDto } from "../../src/dto/metadata.js";
 import { schemaOf } from "../../src/dto/schema.js";
 
@@ -9,7 +10,7 @@ const codeOf = (work: () => unknown): string => {
     work();
     return "";
   } catch (error) {
-    return error instanceof DtoError ? error.code : String(error);
+    return error instanceof ConfigError.Dto ? String(error.details?.reason) : String(error);
   }
 };
 

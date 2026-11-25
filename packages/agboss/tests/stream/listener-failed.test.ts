@@ -32,11 +32,11 @@ const test = testWith(ListenerLogApplication);
 describe("#1008 AC3: a listener that throws", () => {
   test("is logged once with its code and the ids, never the text; the run completes and every event is still delivered", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
     resetLogged();
-    mockLlm(AuditWriter).thenReturn(replyWith("Shipped on Friday."));
-    mockLlm(AuditJudge).thenReturn(replyWith("PASS"));
+    mockModel(AuditWriter).thenReturn(replyWith("Shipped on Friday."));
+    mockModel(AuditJudge).thenReturn(replyWith("PASS"));
     const heard: ExecutionStreamEvent[] = [];
 
     const done = await execute(
@@ -65,11 +65,11 @@ describe("#1008 AC3: a listener that throws", () => {
 
   test("#1124 AC1: an async listener that rejects is logged once the same way, without the text", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
     resetLogged();
-    mockLlm(AuditWriter).thenReturn(replyWith("Shipped on Friday."));
-    mockLlm(AuditJudge).thenReturn(replyWith("PASS"));
+    mockModel(AuditWriter).thenReturn(replyWith("Shipped on Friday."));
+    mockModel(AuditJudge).thenReturn(replyWith("PASS"));
     const heard: ExecutionStreamEvent[] = [];
 
     const done = await execute(

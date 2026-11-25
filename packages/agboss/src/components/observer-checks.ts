@@ -1,8 +1,8 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import { OBSERVER_HOOKS, type ObserverHook } from "../core/observer-hooks.js";
 import { observerOf } from "../core/observer-hooks.js";
 import { kebabNameProblem } from "../flow/names.js";
 import { tokenName, type Class } from "./injection.js";
-import { ComponentError } from "./metadata.js";
 
 /** Component lifecycle hooks (`OnReady`, …): an observer may have them, they are not observer hooks. */
 const LIFECYCLE_HOOKS: ReadonlySet<string> = new Set([
@@ -103,5 +103,5 @@ function listingViolations(observers: readonly Class[]): string[] {
  */
 export function checkObservers(observers: readonly Class[]): void {
   const violations = [...listingViolations(observers), ...observers.flatMap(observerViolations)];
-  if (violations.length > 0) throw new ComponentError({ message: violations.join("\n") });
+  if (violations.length > 0) throw new ConfigError.Component({ message: violations.join("\n") });
 }

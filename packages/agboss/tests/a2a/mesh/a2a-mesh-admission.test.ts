@@ -6,6 +6,7 @@
  * message as the server decodes it. Each refusal is `401 { code }` and nothing runs. A chain the
  * application refuses is a REJECTED task carrying the limit's code and facts.
  */
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import "./fixtures/keys.js";
 import type { KeyObject } from "node:crypto";
 import { Message } from "@a2a-js/sdk";
@@ -16,7 +17,6 @@ import { encodeMeshEnvelope } from "../../../src/mesh/mesh-envelope-codec.js";
 import type { MeshEnvelope } from "../../../src/mesh/mesh-envelope.js";
 import type { MeshHop } from "../../../src/mesh/mesh-hop.js";
 import { meshLimitErrorOf } from "../../../src/mesh/mesh-wire.js";
-import { MeshLoopDetectedError } from "../../../src/index.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
 import { resetCaller } from "./fixtures/caller/caller.application.js";
 import { CALLER_KEYS, STRANGER_KEYS } from "./fixtures/keys.js";
@@ -322,7 +322,7 @@ describe("#810 AC1: a refused chain is a REJECTED task with the limit's facts", 
       code: "limit.mesh-loop",
       details: { entry: { application: PEER_APPLICATION } },
     });
-    expect(meshLimitErrorOf(facts)).toBeInstanceOf(MeshLoopDetectedError);
+    expect(meshLimitErrorOf(facts)).toBeInstanceOf(LimitError.MeshLoop);
     expect(taskOf(again).id).toBe(task.id);
     expect(peer.runs).toEqual([]);
   });

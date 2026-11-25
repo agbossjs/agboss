@@ -15,10 +15,12 @@ export interface McpStubCall {
   readonly args: unknown;
 }
 
-/** A stubbed MCP server: `mcpOf(ShortlistServer).thenReturn({ read_text_file: async () => ({ … }) })`. */
+/** A stubbed MCP server: `mockMcp(ShortlistServer).thenReturn({ read_text_file: async () => ({ … }) })`. */
 export interface McpStub<TServer extends McpServerClient<ServerTools>> {
   /** Adds (or replaces) handlers per server tool. */
   thenReturn(handlers: ServerToolHandlers<ToolsOf<TServer>>): McpStub<TServer>;
+  /** Forgets the handlers and the calls: the next call is a blocked live one until scripted again. */
+  reset(): McpStub<TServer>;
   /** Every call the server got, in order. */
   readonly calls: readonly McpStubCall[];
 }
@@ -45,6 +47,11 @@ export class McpStubs {
         }
         return stub;
       },
+      reset: () => {
+        handlers.clear();
+        calls.length = 0;
+        return stub;
+      },
       calls,
     };
     return stub;
@@ -59,7 +66,7 @@ export class McpStubs {
       if (handler === undefined) {
         throw this.book.report(
           new LiveCallBlockedError({
-            message: `MCP server "${server}" tool "${tool}" has no stub; add mcpOf(${label}).thenReturn({ ${tool}: … })`,
+            message: `MCP server "${server}" tool "${tool}" has no stub; add mockMcp(${label}).thenReturn({ ${tool}: … })`,
           }),
         );
       }

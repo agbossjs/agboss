@@ -9,13 +9,13 @@ import { describe, expect, it } from "vitest";
 import { createTestAppWith } from "../../../src/testing/create-app-with.js";
 import {
   Agent,
-  GraphRuleError,
   Tool,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
   inline,
   Ttl,
+  ConfigError,
 } from "../../../src/index.js";
 import { checkWorkflow } from "../../../src/flow/analyse/analyse.js";
 import { Reasoning } from "../../../src/models/index.js";
@@ -24,7 +24,7 @@ import { Action } from "../../../src/flow/decorators/action.js";
 import { workflowOf } from "../../../src/testing/workflow-of.js";
 import { applicationWith, workflowWith } from "../../components/fixture/deps-contract.workflow.js";
 import type { DtoClass } from "../../../src/dto/types.js";
-import { DtoError, Text } from "../../../src/dto/index.js";
+import { Text } from "../../../src/dto/index.js";
 import { DiamondDto, PingDto, SelfDto, TreeDto } from "../../dto/fixtures-cycles.js";
 import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
@@ -44,8 +44,8 @@ const agentWith = (options: Partial<Parameters<typeof Agent>[0]>) => {
 };
 
 const cyclicOf = async (error: unknown): Promise<string[]> => {
-  expect(error).toBeInstanceOf(GraphRuleError);
-  return error instanceof GraphRuleError
+  expect(error).toBeInstanceOf(ConfigError.GraphRules);
+  return error instanceof ConfigError.GraphRules
     ? error.violations.filter((found) => found.code === "dto.cyclic").map((found) => found.message)
     : [];
 };
@@ -82,7 +82,7 @@ describe("#1080: an agent's output that holds itself", () => {
       createTestAppWith(applicationWith("cyc-workflow", {}, agent), { processEnv: {} }),
     );
 
-    expect(error).toBeInstanceOf(GraphRuleError);
+    expect(error).toBeInstanceOf(ConfigError.GraphRules);
     expect(String(error)).toContain("PingDto → PongDto → PingDto");
   });
 
@@ -96,7 +96,6 @@ describe("#1080: an agent's output that holds itself", () => {
       description: "d",
       prompt: inline("p"),
       model: "test/r",
-      price: { inputPerMTok: 1, outputPerMTok: 10 },
       input: { diamond: DiamondDto },
       output: DiamondDto,
     })
@@ -177,8 +176,8 @@ describe("#1080: a tool's DTOs", () => {
 
     const error = await failureOf(() => workflowOf(workflowWith("cyc-workflow", {}, agent)));
 
-    expect(error).toBeInstanceOf(DtoError);
-    expect(error).toMatchObject({ code: "dto.cyclic" });
+    expect(error).toBeInstanceOf(ConfigError.Dto);
+    expect(error).toMatchObject({ details: { reason: "dto.cyclic" } });
     expect(String(error)).toContain("PingDto → PongDto → PingDto");
   });
 
@@ -187,7 +186,7 @@ describe("#1080: a tool's DTOs", () => {
 
     const error = await failureOf(() => workflowOf(workflowWith("cyc-workflow", {}, agent)));
 
-    expect(error).toMatchObject({ code: "dto.cyclic" });
+    expect(error).toMatchObject({ details: { reason: "dto.cyclic" } });
     expect(String(error)).toContain("TreeDto → TreeDto");
   });
 

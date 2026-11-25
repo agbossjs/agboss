@@ -35,7 +35,7 @@ describe("#825 AC6: a named PII key", () => {
 
   it("its variable unset: the start fails naming the field, no key of the instance", () => {
     expect(refusalOf(sourceOf({ piiKey: secret("UNSET_PII_KEY") }))).toMatchObject({
-      code: EnvironmentErrorCode.MissingVariables,
+      envCode: EnvironmentErrorCode.MissingVariables,
       message:
         'pii-application: @Application({ piiKeyField: "piiKey" }) has no value — set piiKey: secret("…") in the environment and its variable',
     });
@@ -44,7 +44,7 @@ describe("#825 AC6: a named PII key", () => {
   it("a field that holds no Secret, or none: refused naming it", () => {
     for (const values of [{ piiKey: "a literal key" }, {}])
       expect(refusalOf(sourceOf(values))).toMatchObject({
-        code: EnvironmentErrorCode.InvalidValue,
+        envCode: EnvironmentErrorCode.InvalidValue,
         message: expect.stringContaining('@Application({ piiKeyField: "piiKey" }) names no Secret'),
       });
   });

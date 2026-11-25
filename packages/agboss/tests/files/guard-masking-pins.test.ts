@@ -58,9 +58,9 @@ describe("AC4: a PDF's name is personal data too — a guardrail's model reads i
 
   testWith(named.Application)(
     "AC4: the file part of the guardrail's request carries the token, not the address",
-    async ({ app, mockLlm }) => {
-      mockLlm(named.Agent).thenReturn(replyWith("ok"));
-      const guardrail = mockLlm(IgnoreRulesGuardrail).thenReturnAlways(
+    async ({ app, mockModel }) => {
+      mockModel(named.Agent).thenReturn(replyWith("ok"));
+      const guardrail = mockModel(IgnoreRulesGuardrail).thenReturnAlways(
         decideWith({ blocks: 0.01 }),
       );
 
@@ -92,9 +92,9 @@ describe("AC4: the output guardrails and the judges read the files as the agent'
 
   testWith(guarded.Application)(
     "AC4: an answer file named after an address reaches an output guardrail's model as the token",
-    async ({ app, mockLlm }) => {
-      mockLlm(guarded.Agent).thenReturn(replyWith(FetchedDto, asAnswer({ file: { file: 1 } })));
-      const guardrail = mockLlm(AnswerFilesGuardrail).thenReturn(decideWith({ blocks: 0.1 }));
+    async ({ app, mockModel }) => {
+      mockModel(guarded.Agent).thenReturn(replyWith(FetchedDto, asAnswer({ file: { file: 1 } })));
+      const guardrail = mockModel(AnswerFilesGuardrail).thenReturn(decideWith({ blocks: 0.1 }));
 
       await execute(app, guarded.Start, {
         document: inline(CSV_BYTES, "text/csv", `${EMAIL}.csv`),
@@ -113,10 +113,10 @@ describe("AC4: the output guardrails and the judges read the files as the agent'
 
   testWith(transcribed.Application)(
     "AC4: a judge reads the masked transcription the agent read: made once, never again raw",
-    async ({ app, mockLlm }) => {
-      const transcriber = mockLlm(FileTranscriber).thenReturnAlways(replyWith(`mail ${EMAIL}`));
-      mockLlm(transcribed.Agent).thenReturn(replyWith("ok"));
-      const judge = mockLlm(GroundedJudge).thenReturn(replyWith("yes"));
+    async ({ app, mockModel }) => {
+      const transcriber = mockModel(FileTranscriber).thenReturnAlways(replyWith(`mail ${EMAIL}`));
+      mockModel(transcribed.Agent).thenReturn(replyWith("ok"));
+      const judge = mockModel(GroundedJudge).thenReturn(replyWith("yes"));
 
       await execute(app, transcribed.Start, {
         document: inline(PNG_BYTES, "image/png", "scan.png"),
@@ -130,9 +130,9 @@ describe("AC4: the output guardrails and the judges read the files as the agent'
 
   testWith(judged.Application)(
     "AC4: a judge's model reads a file's text masked, never the address in it",
-    async ({ app, mockLlm }) => {
-      mockLlm(judged.Agent).thenReturn(replyWith("ok"));
-      const judge = mockLlm(GroundedJudge).thenReturn(replyWith("yes"));
+    async ({ app, mockModel }) => {
+      mockModel(judged.Agent).thenReturn(replyWith("ok"));
+      const judge = mockModel(GroundedJudge).thenReturn(replyWith("yes"));
 
       await execute(app, judged.Start, {
         document: inline(Buffer.from(`who\n${EMAIL}\n`), "text/csv", "mail.csv"),

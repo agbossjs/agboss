@@ -3,12 +3,12 @@
  * (`resolveSchedule`) leaves the DST and interval arithmetic to the core; a declared week is a grid;
  * a reminder of a working deadline is walked back along the resolved schedule from the (clamped)
  * deadline, or, for a calendar that can only add, forward in one unit. A calendar that cannot answer
- * is a `WorkingCalendarError` with no calendar text in its message.
+ * is a `PauseError.WorkingCalendar` with no calendar text in its message.
  */
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { describe, expect, it } from "vitest";
 import {
   WorkingCalendar,
-  WorkingCalendarError,
   WorkingCalendarProblem,
   WorkingWeek,
   type WorkingCalendarContext,
@@ -104,7 +104,7 @@ describe("#1310b: resolveSchedule", () => {
       (error: unknown) => error,
     );
 
-    expect(failed).toBeInstanceOf(WorkingCalendarError);
+    expect(failed).toBeInstanceOf(PauseError.WorkingCalendar);
     expect(failed).toMatchObject({ problem: WorkingCalendarProblem.InvalidSchedule });
     expect((failed as Error).message).toBe("working calendar resolving-calendar: invalid-schedule");
   });

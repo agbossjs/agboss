@@ -1,3 +1,5 @@
+import { StepError } from "../../core/error-families/step-errors.js";
+import { ConfigError } from "../../core/error-families/config-errors.js";
 import type { AIMessageChunk, BaseMessage } from "@langchain/core/messages";
 import { shownMessagesOf } from "../../models/messages.js";
 import type { ToolDefinition } from "@langchain/core/language_models/base";
@@ -5,7 +7,6 @@ import type { RunnableConfig } from "@langchain/core/runnables";
 import { NO_PROVIDER, recordUsage, type UsageRecord } from "../../finops/usage.js";
 import { withSortedKeys } from "../../flow/runtime/json.js";
 import { toolDefinitionOf } from "../../tools/index.js";
-import { AgentFailedError } from "../errors.js";
 import type { AsyncNode } from "../types.js";
 import {
   callsOf,
@@ -26,10 +27,6 @@ import type { AttemptStream } from "../../run/stream/agent-stream.js";
 import { StreamDiscardReason } from "../../run/types.js";
 import { answering, attemptOf } from "./answer-stream.js";
 import { ChunkCounter, earlierSpendOf, partialSpendOf, withChunkCounter } from "./chunk-counter.js";
-
-export class ToolCallingUnsupportedError extends Error {
-  override name = "ToolCallingUnsupportedError";
-}
 
 /**
  * The agent's tools as the model sees them — its own and its answer tools (S6), sorted by name,
@@ -68,14 +65,16 @@ async function callModel(
   const tools = toolDefinitionsOf(deps.agent);
   if (tools.length === 0) return binding.model.invoke([...messages], call);
   if (binding.model.bindTools === undefined) {
-    throw new ToolCallingUnsupportedError(`The model of agent "${name}" cannot call tools`);
+    throw new ConfigError.ModelKind({
+      message: `The model of agent "${name}" cannot call tools`,
+    });
   }
   return binding.model.bindTools([...tools], toolBindingOf(deps.agent)).invoke([...messages], call);
 }
 
 /**
  * A budget of the execution is exhausted: no more model calls — the execution stops with
- * `BudgetExceededError` (the loop's spend so far travels with it to the ledger).
+ * `LimitError.Budget` (the loop's spend so far travels with it to the ledger).
  */
 function checkBudget(state: AgentLoopStateType, deps: AgentLoopDeps): void {
   deps.budgets.check(state.usage, state.flowPath, loopUsage(state));
@@ -119,7 +118,7 @@ async function observedCall(
       attempt?.discard(StreamDiscardReason.StreamBroken);
       // what it had used is spent all the same (#1399): counted in the budgets, carried to the ledger
       const spent = partialSpendOf(deps, state.flowPath, request.messages, error, counter);
-      throw new AgentFailedError({
+      throw new StepError.Agent({
         agent: name,
         usage: [...loopUsage(state), ...request.usage, ...spent],
         cause: error,

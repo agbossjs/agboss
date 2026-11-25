@@ -49,10 +49,10 @@ describe.each(applications)(
     for (const back of [50, 3_600_000])
       test(`back ${String(back)} ms before the pause: the approved charge runs, once; nothing runs again`, async ({
         app,
-        mockLlm,
+        mockModel,
       }) => {
         stepTheClockBackAtTheLookUp(back);
-        mockLlm(Clerk).thenReturn(
+        mockModel(Clerk).thenReturn(
           callTool(Probe, { text: "card" }),
           callTool(Charge, { text: "10 USD" }),
           replyWith(ReceiptDto, { text: "Charged." }),
@@ -72,11 +72,11 @@ describe("#682: a resume on a restarted instance after the wall clock stepped ba
 
   test("the new instance reads the thread's mark: the approved charge runs, once", async ({
     app,
-    mockLlm,
+    mockModel,
     recoverApp,
   }) => {
     stepTheClockBackAtTheLookUp(50);
-    mockLlm(Clerk).thenReturn(
+    mockModel(Clerk).thenReturn(
       callTool(Probe, { text: "card" }),
       callTool(Charge, { text: "10 USD" }),
       replyWith(ReceiptDto, { text: "Charged." }),

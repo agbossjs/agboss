@@ -5,16 +5,12 @@
  * answer of a call that gave up changing nothing, a hook or a symbol never bounded, a synchronous
  * throw, and a rejection that cannot even be turned into text still settling the call.
  */
+import { StoreError } from "../../src/core/error-families/store-errors.js";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { boundedStoreOf } from "../../src/app/store-call-bound.js";
 import { leaseScope } from "../../src/app/lease-scope.js";
 import type { FrameworkLog } from "../../src/infrastructure/logger.js";
-import {
-  ExecutionLeaseLostError,
-  StoreCallTimeoutError,
-  StoreOutcomeSource,
-  StoreOutcomeUnknownError,
-} from "../../src/index.js";
+import { ExecutionLeaseLostError, StoreOutcomeSource } from "../../src/index.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { seconds } from "../../src/units/index.js";
 import { heldLease, outcomeOf, rejectWith, silent } from "./fixtures/bound-stubs.js";
@@ -62,8 +58,8 @@ async function drain<T>(items: AsyncIterable<T>): Promise<T[]> {
 }
 const flush = (): Promise<void> => new Promise((done) => setTimeout(done, 20));
 
-const unknownError = (source = StoreOutcomeSource.Transport): StoreOutcomeUnknownError =>
-  new StoreOutcomeUnknownError({ store: "Kv", operation: "get", source });
+const unknownError = (source = StoreOutcomeSource.Transport): StoreError.OutcomeUnknown =>
+  new StoreError.OutcomeUnknown({ store: "Kv", operation: "get", source });
 
 abstract class Kv {
   abstract get(): Promise<string>;
@@ -149,7 +145,7 @@ describe("#1069: an async iterator", () => {
 
     const reading = outcomeOf(drain(store.items()));
     await clock.advance(seconds(16));
-    expect(await reading).toBeInstanceOf(StoreCallTimeoutError);
+    expect(await reading).toBeInstanceOf(StoreError.CallTimeout);
     await flush();
 
     expect(entries.filter((entry) => entry.code === "store.call-close-failed")).toEqual([
@@ -204,7 +200,7 @@ describe("#1069: an async iterator", () => {
     const reading = outcomeOf(drain(store.items()));
     await clock.advance(seconds(16));
 
-    expect(await reading).toBeInstanceOf(StoreCallTimeoutError);
+    expect(await reading).toBeInstanceOf(StoreError.CallTimeout);
     await flush();
     expect(unhandled).toEqual([]);
   });
@@ -262,9 +258,9 @@ describe("#1069: the answer of a call that gave up changes nothing more", () => 
 
     const call = outcomeOf(store.get());
     await clock.advance(seconds(16));
-    expect(await call).toBeInstanceOf(StoreCallTimeoutError);
+    expect(await call).toBeInstanceOf(StoreError.CallTimeout);
     rejectLate(
-      new StoreCallTimeoutError({
+      new StoreError.CallTimeout({
         store: "Kv",
         operation: "get",
         timeout: 1000 as never,

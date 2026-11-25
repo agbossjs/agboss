@@ -4,6 +4,7 @@
  * longest way on over the components and the warning's exact message. The shard `assembly-rules` mutates
  * `strongly-connected.ts` whole.
  */
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import { describe, expect, it } from "vitest";
 import { EdgeKind } from "../../../src/flow/analyse/flow-graph.js";
 import {
@@ -13,7 +14,6 @@ import {
   worstCaseStepsWarnings,
 } from "../../../src/flow/analyse/strongly-connected.js";
 import { NodeKind } from "../../../src/flow/ast.js";
-import { StepsLimitExceededError } from "../../../src/graph/limits.js";
 import { branch, named, contextOf, edge, graphOf, join, node } from "./graph-fixture.js";
 
 const start = (name: string) => node(name, NodeKind.Start);
@@ -215,7 +215,7 @@ describe("#1366: [limits.max-steps-below-worst-case]", () => {
       {
         code: "limits.max-steps-below-worst-case",
         message:
-          "the worst case from S takes 7 steps — through A (maxVisits 3), but maxSteps is 5: a run that long fails with StepsLimitExceededError before its maxVisits ends it — set maxSteps: 7",
+          "the worst case from S takes 7 steps — through A (maxVisits 3), but maxSteps is 5: a run that long fails with LimitError.Steps before its maxVisits ends it — set maxSteps: 7",
         nodes: ["S"],
       },
     ]);
@@ -229,7 +229,7 @@ describe("#1366: [limits.max-steps-below-worst-case]", () => {
     );
 
     expect(warned(chain, 1).map((one) => one.message)).toEqual([
-      "the worst case from S takes 2 steps, but maxSteps is 1: a run that long fails with StepsLimitExceededError before its maxVisits ends it — set maxSteps: 2",
+      "the worst case from S takes 2 steps, but maxSteps is 1: a run that long fails with LimitError.Steps before its maxVisits ends it — set maxSteps: 2",
     ]);
   });
 
@@ -253,8 +253,8 @@ describe("#1366: [limits.max-steps-below-worst-case]", () => {
         ["S"],
       );
 
-    expect(warned(handled(StepsLimitExceededError), 5)).toEqual([]);
-    expect(warned(handled(Object.getPrototypeOf(StepsLimitExceededError)), 5)).toEqual([]);
+    expect(warned(handled(LimitError.Steps), 5)).toEqual([]);
+    expect(warned(handled(Object.getPrototypeOf(LimitError.Steps)), 5)).toEqual([]);
     expect(warned(handled(RangeError), 5)).toHaveLength(1);
     expect(warned(handled(undefined), 5)).toHaveLength(1);
   });

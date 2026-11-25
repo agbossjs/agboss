@@ -1,3 +1,4 @@
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { OutboundCallError } from "../../src/core/error-families/effect-errors.js";
 import { SilentLogger } from "../../src/infrastructure/logger.js";
 /**
@@ -28,7 +29,7 @@ import {
 } from "../../src/index.js";
 import { OutboundMasking } from "../../src/app/outbound-masking.js";
 import { type EffectKey } from "../../src/stores/index.js";
-import { ExecutionCancelFencedError, type OutboundCallIntent } from "../../src/stores/index.js";
+import { type OutboundCallIntent } from "../../src/stores/index.js";
 import {
   InMemoryExecutionLeaseRepository,
   type ExecutionLease,
@@ -341,7 +342,7 @@ describe("#909: a call whose tree was cancelled", () => {
 
     const refusal = await send(frame, options).catch((error: unknown) => error);
 
-    expect(refusal).toBeInstanceOf(ExecutionCancelFencedError);
+    expect(refusal).toBeInstanceOf(ExecutionError.CancelFenced);
     expect(found).toEqual([refusal]);
     expect(movesOf(reports)).toEqual([
       [OutboundCallEventOutcome.Cancelled, OutboundCallStatus.Pending, 0],
@@ -355,7 +356,7 @@ describe("#909: a call whose tree was cancelled", () => {
     const frame = await frameIn("execution-1");
     await cancelled(leases);
 
-    await expect(send(frame, options)).rejects.toBeInstanceOf(ExecutionCancelFencedError);
+    await expect(send(frame, options)).rejects.toBeInstanceOf(ExecutionError.CancelFenced);
     expect(movesOf(reports)).toEqual([
       [OutboundCallEventOutcome.Cancelled, OutboundCallStatus.Pending, 0],
     ]);

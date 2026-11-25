@@ -5,9 +5,10 @@
  * write is recognised from its prepared SQL and classified whichever method runs it — `run`,
  * `get` or `all` (an `UPDATE … RETURNING` is read through `get`/`all`) — and a read never is.
  */
+import { StoreError } from "../../../src/core/error-families/store-errors.js";
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { StoreOutcomeSource, StoreOutcomeUnknownError } from "../../../src/index.js";
+import { StoreOutcomeSource } from "../../../src/index.js";
 import { classifiedDatabase } from "../../../src/infrastructure/sqlite/sqlite-outcome.js";
 
 const failure = (errcode: number, errstr: string): Error =>
@@ -102,7 +103,7 @@ describe("#1017: an autocommit write is classified by whitelist, whichever metho
     const cause = failure(code, "refused");
     const call = failing(WRITES[1] ?? "", method, cause);
 
-    expect(call).toThrow(StoreOutcomeUnknownError);
+    expect(call).toThrow(StoreError.OutcomeUnknown);
     expect(call).toThrow(
       expect.objectContaining({
         store: "SqliteConnection",
@@ -125,12 +126,12 @@ describe("#1017: an autocommit write is classified by whitelist, whichever metho
 
   it.each(WRITES)("recognised as a write: %s", (sql) => {
     expect(failing(sql, "get", failure(13, "database or disk is full"))).toThrow(
-      StoreOutcomeUnknownError,
+      StoreError.OutcomeUnknown,
     );
   });
 
   it("an unrecognised error (not SQLite's, no code) is unknown too: nothing says it was applied or not", () => {
-    expect(failing(WRITES[0] ?? "", "run", new Error("boom"))).toThrow(StoreOutcomeUnknownError);
+    expect(failing(WRITES[0] ?? "", "run", new Error("boom"))).toThrow(StoreError.OutcomeUnknown);
   });
 
   it.each(READS.flatMap((sql) => METHODS.map((method): [string, Method] => [sql, method])))(

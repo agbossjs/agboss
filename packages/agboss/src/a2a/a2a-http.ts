@@ -1,8 +1,8 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { executionControlOf } from "../app/execution-control.js";
 import type { Class } from "../components/injection.js";
 import { ComponentOptions } from "../components/component-options.js";
-import { ComponentError } from "../components/metadata.js";
 import { A2ATaskRepository } from "../infrastructure/a2a-task.repository.js";
 import { Clock, IdGenerator, lazyLoad } from "../infrastructure/clock.js";
 import { frameworkLogOf, Logger } from "../infrastructure/logger.js";
@@ -112,7 +112,7 @@ function builtAppOf(app: A2AApp) {
   const mesh = meshSettingsOf(app);
   const control = executionControlOf(app);
   if (mesh === undefined || control === undefined)
-    throw new ComponentError({
+    throw new ConfigError.Component({
       message: "[a2a.app-required] a2aHttpListener serves an app createApp or testWith built",
     });
   return { mesh, control };
@@ -233,7 +233,7 @@ export function a2aHttpListener(
     served.catch((error: unknown) => {
       // a failure past the binding's own answers (its build, a broken socket): logged by its class
       // (a framework error by its own fixed text), never an error's text on the wire
-      const what = error instanceof ComponentError ? error.message : nameOf(error);
+      const what = error instanceof ConfigError.Component ? error.message : nameOf(error);
       log.error("a2a.listener-failed", `the A2A listener failed to serve a request: ${what}`);
       notifyHost(options.onError, error, req);
       if (res.headersSent) res.destroy();

@@ -1,8 +1,8 @@
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import {
   Action,
   Agent,
   Budget,
-  BudgetExceededError,
   BudgetPeriod,
   BudgetScope,
   EmptyEnvironment,
@@ -131,14 +131,11 @@ export class WaitForAbortTool {
   }
 }
 
-const price = { inputPerMTok: 1, outputPerMTok: 2 };
-
 @Agent({
   name: "spender-agent",
   description: "Answers with a costly call once the waiter waits",
   prompt: inline("Hold for the waiter, then answer."),
   model: "test/spender",
-  price,
   tools: [HoldForWaiterTool],
   input: { message: WorkflowStartTextDto },
   output: NoteDto,
@@ -150,7 +147,6 @@ export class SpenderAgent {}
   description: "Waits on a slow service",
   prompt: inline("Wait."),
   model: "test/waiter",
-  price,
   tools: [WaitForAbortTool],
   input: { message: WorkflowStartTextDto },
   output: NoteDto,
@@ -173,8 +169,7 @@ export class ParallelBudgetWorkflowStart {}
 export class NotesAction {
   async execute(input: { readonly notes: readonly Tracked<NoteDto>[] }): Promise<NoteDto> {
     return {
-      text: input.notes
-        .map((note) => note.text)
+      text: input.notes.map((note) => note.text)
         .join("; "),
     };
   }
@@ -219,7 +214,7 @@ const onBudget = toAction(NoteBudgetStopAction)
     onStart(ParallelBudgetWorkflowStart)
       .inParallel([toAgent(SpenderAgent), toAgent(WaiterAgent)])
       .join()
-      .onError(BudgetExceededError, onBudget)
+      .onError(LimitError.Budget, onBudget)
       .toAction(NotesAction)
       .toFinish(NotesWorkflowFinish),
   ],
@@ -250,7 +245,7 @@ export class UnhandledBudgetWorkflow {}
     onStart(ParallelBudgetWorkflowStart)
       .inParallel([toAgent(SpenderAgent), toAgent(WaiterAgent)])
       .joinQuorum({ min: 2 })
-      .onError(BudgetExceededError, onBudget)
+      .onError(LimitError.Budget, onBudget)
       .toAction(NotesAction)
       .toFinish(NotesWorkflowFinish),
   ],
@@ -263,7 +258,6 @@ export class QuorumBudgetWorkflow {}
   description: "Does one task",
   prompt: inline("Do the task."),
   model: "test/task",
-  price,
   tools: [HoldForWaiterTool, WaitForAbortTool],
   input: { task: TaskDto },
   output: NoteDto,
@@ -281,11 +275,9 @@ export class TaskDoneWorkflowFinish {}
   name: "task-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(TaskWorkflowStart)
-      .toAgent(TaskAgent)
-      .toFinish(TaskDoneWorkflowFinish),
-  ],
+  flow: [onStart(TaskWorkflowStart)
+    .toAgent(TaskAgent)
+    .toFinish(TaskDoneWorkflowFinish)],
 })
 export class TaskWorkflow {}
 
@@ -305,7 +297,7 @@ export class TasksWorkflowStart {}
     onStart(TasksWorkflowStart)
       .forEachItem(toWorkflow(TaskWorkflow), { takeFirst: 4 })
       .join()
-      .onError(BudgetExceededError, onBudget)
+      .onError(LimitError.Budget, onBudget)
       .toAction(NotesAction)
       .toFinish(NotesWorkflowFinish),
   ],
@@ -357,7 +349,7 @@ export class TaskAction {
     onStart(TasksWorkflowStart)
       .forEachItem(toAction(TaskAction), { takeFirst: 4 })
       .join()
-      .onError(BudgetExceededError, onBudget)
+      .onError(LimitError.Budget, onBudget)
       .toAction(NotesAction)
       .toFinish(NotesWorkflowFinish),
   ],

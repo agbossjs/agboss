@@ -1,14 +1,11 @@
+import { StoreError } from "../core/error-families/store-errors.js";
 import { z } from "zod";
-import {
-  StoredNamesUnreadableError,
-  type StoredNamesUnreadableErrorOptions,
-  parsedStoredJson,
-} from "../core/stored-json.js";
+import { parsedStoredJson } from "../core/stored-json.js";
 import { ComponentKind, type ComponentRecord } from "../flow/runtime/records.js";
 import type { StepRecord } from "../flow/context/execution-context.js";
 import type { PauseAnswerRecord } from "../flow/runtime/execution-record.js";
 import type { PauseActor } from "../channels/pause-contexts.js";
-import { PauseResolution, type PauseTrailRecord } from "./pause-record.js";
+import { PauseResolution, pauseKeyOf, type PauseTrailRecord } from "./pause-record.js";
 import { PauseRespondent } from "../pause/respondent.js";
 
 const optionalText = z.string().optional();
@@ -57,7 +54,7 @@ export const StoredTrailEntry = z
 
 // The error and the text parser live in core (#1194: the turn store reads its texts with them and
 // may import nothing above core); every importer of this module keeps its path.
-export { StoredNamesUnreadableError, type StoredNamesUnreadableErrorOptions, parsedStoredJson };
+export { parsedStoredJson };
 
 /** A component record as JSON stored it (`undefined` hashes are left out by JSON): every hash present. */
 export const StoredComponent = z
@@ -95,12 +92,20 @@ const StoredStep = z
   }));
 
 /** The ids that name a stored value in an error: its keys, never its content. */
+/** A pause id answers for the pause (a credential): it is named by the pause's key, never as it is (#1413 H2). */
+const idTextOf = (key: string, id: string, value: unknown): string => {
+  if (key !== "pauseId") return `${key} ${id}`;
+  const tenant: unknown =
+    typeof value === "object" && value !== null ? Reflect.get(value, "tenantId") : "";
+  return `pause ${pauseKeyOf(typeof tenant === "string" ? tenant : "", id)}`;
+};
+
 const idsOf = (value: unknown, keys: readonly string[]): string =>
   keys
     .flatMap((key) => {
       const id: unknown =
         typeof value === "object" && value !== null ? Reflect.get(value, key) : "";
-      return typeof id === "string" ? [`${key} ${id}`] : [];
+      return typeof id === "string" ? [idTextOf(key, id, value)] : [];
     })
     .join(", ");
 
@@ -119,7 +124,7 @@ export function readStored<S extends z.ZodType>(
   const parsed = schema.safeParse(value);
   if (parsed.success) return parsed.data;
   const ids = idsOf(value, idKeys);
-  throw new StoredNamesUnreadableError({
+  throw new StoreError.UnreadableRecord({
     record: what,
     ids,
     // what an error names instead of the value (#906 D4)

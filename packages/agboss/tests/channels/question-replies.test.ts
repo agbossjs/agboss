@@ -1,11 +1,12 @@
 /**
  * #659 AC4: a free-text reply to a question is read by its role's interpreter into the role's
  * `answer` DTO — by code or by a chat model; a reply it does not understand keeps the pause pending.
- * #659 AC2: a channel whose `send` throws fails the step as `QuestionFailedError`, which `.onError`
+ * #659 AC2: a channel whose `send` throws fails the step as `StepError.ExternalTask`, which `.onError`
  * takes.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { describe, expect } from "vitest";
-import { UninterpretableReplyError } from "../../src/index.js";
 import { ReplyInterpreterNotUnderstoodDto } from "../../src/dto/index.js";
 import { PauseStatus, PausedExecutionRepository } from "../../src/index.js";
 import { replyWith, testWith } from "../../src/testing/index.js";
@@ -52,7 +53,7 @@ describe("#659 AC4: a code interpreter reads the reply into the answer", () => {
       .resume({ pauseId, reply: "🤷" }, owner)
       .catch((error: unknown) => error);
 
-    expect(unread).toBeInstanceOf(UninterpretableReplyError);
+    expect(unread).toBeInstanceOf(PauseError.UninterpretableReply);
     expect(unread).toMatchObject({ reason: '"🤷" names no limit' });
     const pauses = app.resolve(PausedExecutionRepository);
     expect((await pauses.findByTenantIdAndPauseId("default", pauseId))?.status).toBe(
@@ -66,9 +67,9 @@ describe("#659 AC4: a code interpreter reads the reply into the answer", () => {
 describe("#659 AC4: a chat-model interpreter answers with the answer DTO's tool", () => {
   test("AC4: the model reads the question and the reply; its answer resumes", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(BudgetOwnerReplyInterpreter)
+    mockModel(BudgetOwnerReplyInterpreter)
       .when({ reply: "fine, up to eight hundred" })
       .thenReturn(replyWith(SpendingLimitAnswerDto, { approved: true, limitUsd: 800 }));
     await execute(app, OwnerPurchaseWorkflowStart, { text: "desk for 700" });
@@ -77,7 +78,7 @@ describe("#659 AC4: a chat-model interpreter answers with the answer DTO's tool"
     const done = await app.resume({ pauseId, reply: "fine, up to eight hundred" }, by);
 
     expect(done).toFinishWith(OwnerPurchaseWorkflowFinish, { status: "placed within 800" });
-    const interpreter = mockLlm(BudgetOwnerReplyInterpreter);
+    const interpreter = mockModel(BudgetOwnerReplyInterpreter);
     expect(interpreter.inputs).toEqual([
       {
         ask: expect.objectContaining({ item: "desk", priceUsd: 700 }),
@@ -96,8 +97,11 @@ describe("#659 AC4: a chat-model interpreter answers with the answer DTO's tool"
     expect(JSON.stringify(interpreter.onlyRequest)).not.toContain("alice");
   });
 
-  test("AC4: the model's not-understood tool keeps the pause pending", async ({ app, mockLlm }) => {
-    mockLlm(BudgetOwnerReplyInterpreter).thenReturn(
+  test("AC4: the model's not-understood tool keeps the pause pending", async ({
+    app,
+    mockModel,
+  }) => {
+    mockModel(BudgetOwnerReplyInterpreter).thenReturn(
       replyWith(ReplyInterpreterNotUnderstoodDto, { reason: "a shrug" }),
     );
     await execute(app, OwnerPurchaseWorkflowStart, { text: "desk for 700" });
@@ -125,7 +129,7 @@ const down = testWith(QuestionsApplication, {
 });
 
 describe("#659 AC2: a send that throws is the step's failure", () => {
-  down("AC2: QuestionFailedError, taken by .onError right after the step", async ({ app }) => {
+  down("AC2: StepError.ExternalTask, taken by .onError right after the step", async ({ app }) => {
     const done = await execute(app, PurchaseWorkflowStart, { text: "laptop for 900" }, asking);
 
     expect(done).toFinishWith(PurchaseUnaskedWorkflowFinish, {
@@ -136,9 +140,11 @@ describe("#659 AC2: a send that throws is the step's failure", () => {
     expect(done.handledErrors).toEqual([
       expect.objectContaining({
         error: expect.objectContaining({
-          code: "step.question",
+          code: "step.external-task",
           message: expect.stringContaining("inbox unreachable"),
-          details: expect.objectContaining({ question: "spending-limit-question-external-task" }),
+          details: expect.objectContaining({
+            externalTask: "spending-limit-question-external-task",
+          }),
         }),
       }),
     ]);

@@ -6,10 +6,11 @@
  * `effectKeyOf`, a key built by hand at `OutboundCalls.send` and at a store's entry, and a
  * thread id at `app.execute`.
  */
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { IdempotencyError } from "../../src/core/error-families/effect-errors.js";
 import { describe, expect, it } from "vitest";
 import { WorkflowStartTextDto } from "../../src/dto/index.js";
-import { InvalidThreadIdError, KeyTextRule, keyTextRuleOf } from "../../src/errors.js";
+import { KeyTextRule, keyTextRuleOf } from "../../src/errors.js";
 import { Action, ExecutionContext, type Tracked } from "../../src/index.js";
 import { effectKeyOf } from "../../src/stores/index.js";
 import { testUnit, testWith } from "../../src/testing/index.js";
@@ -82,7 +83,7 @@ describe("#538 AC1: effectKeyOf refuses each class, naming the rule, never the k
 
 describe("#538 AC1: a thread id at app.execute refuses each class, naming the rule, never the id", () => {
   app.for(REFUSED_KEYS)(
-    "%s → InvalidThreadIdError(%s), nothing created",
+    "%s → ExecutionError.InvalidThreadId(%s), nothing created",
     async ([, rule, text], { app: desk }) => {
       const error: unknown = await execute(
         desk,
@@ -91,7 +92,7 @@ describe("#538 AC1: a thread id at app.execute refuses each class, naming the ru
         { threadId: text },
       ).catch((thrown: unknown) => thrown);
 
-      expect(error).toBeInstanceOf(InvalidThreadIdError);
+      expect(error).toBeInstanceOf(ExecutionError.InvalidThreadId);
       expect(error).toMatchObject({ rule, details: { rule } });
       const { message } = error as Error;
       expect(message).toContain(`(${rule})`);

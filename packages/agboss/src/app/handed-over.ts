@@ -7,8 +7,9 @@ import { currentFrame, type FrameLease, type FrameSpec } from "../flow/context/f
 import { nodeEventOf } from "../flow/observers/execution-event.js";
 import type { HandOverSite } from "../infrastructure/execution-audit-log.repository.js";
 import { ApplicationStoppingError } from "../core/errors.js";
-import { ExecutionError, isHandOverError } from "../core/error-families/run-errors.js";
-import { ExecutionCancelFencedError, ExecutionLeaseLostError } from "./lease-lost.js";
+import { isHandOverError } from "../core/error-families/hand-over.js";
+import { ExecutionError } from "../core/error-families/run-errors.js";
+import { ExecutionLeaseLostError } from "./lease-lost.js";
 
 /**
  * Work that stopped without failing (#265): its instance lost the tree's lease
@@ -46,17 +47,17 @@ export function handedOverReason(signal: AbortSignal | undefined): HandedOver | 
  * the family's, never rebuilt as another class.
  */
 export const fencedErrorOf = (error: unknown): FencedRefusalError | undefined =>
-  errorOfClass(error, ExecutionError.Fenced) ?? errorOfClass(error, ExecutionError.Fenced);
+  errorOfClass(error, ExecutionError.Fenced);
 
 /**
- * The `ExecutionCancelFencedError` behind `error` (#909): the error itself, or one in its `cause`
+ * The cancel's, a stop's or a pause's fenced refusal behind `error` (#909): the error itself, or one in its `cause`
  * chain or an `AggregateError`'s `errors` — a store's refusal of a write after its tree's cancel,
  * however a driver or a step wrapped it.
  */
-export const cancelFencedErrorOf = (
+export const interruptFencedOf = (
   error: unknown,
-): ExecutionCancelFencedError | InterruptFenced | undefined =>
-  errorOfClass(error, ExecutionCancelFencedError) ??
+): ExecutionError.CancelFenced | InterruptFenced | undefined =>
+  errorOfClass(error, ExecutionError.CancelFenced) ??
   errorOfClass(error, ExecutionStopFencedError) ??
   errorOfClass(error, ExecutionPauseFencedError);
 
@@ -69,7 +70,7 @@ export function cancelMet(
   lease: Pick<FrameLease, "cancelFound">,
   tell: () => void,
 ): void {
-  const cancelled = cancelFencedErrorOf(error);
+  const cancelled = interruptFencedOf(error);
   if (cancelled === undefined) return;
   tell();
   lease.cancelFound?.(cancelled);
@@ -165,3 +166,7 @@ export function recordedHandOver<T extends HandedOver>(
   lease.recordHandOver({ event: nodeEventOf(frame), error: handedOver, site });
   return handedOver;
 }
+
+/** The `ExecutionError.CancelFenced` behind `error` (#909): the error itself, or one in its `cause` chain. */
+export const cancelFencedErrorOf = (error: unknown): ExecutionError.CancelFenced | undefined =>
+  errorOfClass(error, ExecutionError.CancelFenced);

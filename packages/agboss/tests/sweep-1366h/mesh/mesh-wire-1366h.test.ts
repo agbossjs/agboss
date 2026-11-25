@@ -3,8 +3,8 @@
  * class with their entry, chain (each hop with its execution) and maxMeshHops; a body with another code, a name
  * empty or over 128 (an application or a start), an execution id empty, over 200 or not a key's text, a chain over 64 hops, or a maxMeshHops that is not an integer of at least 1 is no mesh limit.
  */
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import { describe, expect, it } from "vitest";
-import { HopsLimitExceededError, MeshLoopDetectedError } from "../../../src/index.js";
 import { meshLimitErrorOf } from "../../../src/mesh/mesh-wire.js";
 
 const entry = { application: "orders-application", start: "orders-workflow-start" };
@@ -17,17 +17,21 @@ describe("#1366: a mesh limit read off the wire", () => {
   it("the loop: its class, entry and chain with the executions", () => {
     const error = meshLimitErrorOf(loop({ entry, chain: [hop(1), hop(2)] }));
 
-    expect(error).toBeInstanceOf(MeshLoopDetectedError);
-    expect(error).toMatchObject({ code: "limit.mesh-loop", entry, callChain: [hop(1), hop(2)] });
+    expect(error).toBeInstanceOf(LimitError.MeshLoop);
+    expect(error).toMatchObject({
+      code: "limit.mesh-loop",
+      meshEntry: entry,
+      callChain: [hop(1), hop(2)],
+    });
   });
 
   it("the hops refusal: its class, entry, chain and maxMeshHops", () => {
     const error = meshLimitErrorOf(hops({ entry, chain: [hop(1), hop(2)], maxMeshHops: 2 }));
 
-    expect(error).toBeInstanceOf(HopsLimitExceededError);
+    expect(error).toBeInstanceOf(LimitError.Hops);
     expect(error).toMatchObject({
       code: "limit.hops",
-      entry,
+      meshEntry: entry,
       callChain: [hop(1), hop(2)],
       maxMeshHops: 2,
       hops: 3,
@@ -39,8 +43,8 @@ describe("#1366: a mesh limit read off the wire", () => {
     const body = (name: string) =>
       hops({ entry: named(name), chain: [{ ...named(name), executionId: "e-1" }], maxMeshHops: 1 });
 
-    expect(meshLimitErrorOf(body("a"))).toBeInstanceOf(HopsLimitExceededError);
-    expect(meshLimitErrorOf(body("a".repeat(128)))).toBeInstanceOf(HopsLimitExceededError);
+    expect(meshLimitErrorOf(body("a"))).toBeInstanceOf(LimitError.Hops);
+    expect(meshLimitErrorOf(body("a".repeat(128)))).toBeInstanceOf(LimitError.Hops);
     expect(meshLimitErrorOf(body(""))).toBeUndefined();
     expect(meshLimitErrorOf(body("a".repeat(129)))).toBeUndefined();
     expect(
@@ -57,8 +61,8 @@ describe("#1366: a mesh limit read off the wire", () => {
       meshLimitErrorOf(hops({ entry, chain: [withId(executionId)], maxMeshHops: 1 }));
 
     for (const id of ["x".repeat(200), "заказ №1 ✓", "-lead", "a b", "e/1#2"]) {
-      expect(loopOf(id)).toBeInstanceOf(MeshLoopDetectedError);
-      expect(hopsOf(id)).toBeInstanceOf(HopsLimitExceededError);
+      expect(loopOf(id)).toBeInstanceOf(LimitError.MeshLoop);
+      expect(hopsOf(id)).toBeInstanceOf(LimitError.Hops);
     }
     for (const id of ["", "x".repeat(201), " padded", "tab\there", "nul\u0000"]) {
       expect(loopOf(id)).toBeUndefined();
@@ -69,12 +73,10 @@ describe("#1366: a mesh limit read off the wire", () => {
   it("a chain of 64 hops is read, one of 65 is not (the loop and the hops alike)", () => {
     const chain = (length: number) => Array.from({ length }, (_, index) => hop(index));
 
-    expect(meshLimitErrorOf(loop({ entry, chain: chain(64) }))).toBeInstanceOf(
-      MeshLoopDetectedError,
-    );
+    expect(meshLimitErrorOf(loop({ entry, chain: chain(64) }))).toBeInstanceOf(LimitError.MeshLoop);
     expect(meshLimitErrorOf(loop({ entry, chain: chain(65) }))).toBeUndefined();
     expect(meshLimitErrorOf(hops({ entry, chain: chain(64), maxMeshHops: 8 }))).toBeInstanceOf(
-      HopsLimitExceededError,
+      LimitError.Hops,
     );
     expect(meshLimitErrorOf(hops({ entry, chain: chain(65), maxMeshHops: 8 }))).toBeUndefined();
   });
@@ -82,8 +84,8 @@ describe("#1366: a mesh limit read off the wire", () => {
   it("maxMeshHops is an integer of at least 1", () => {
     const withMax = (maxMeshHops: unknown) => hops({ entry, chain: [hop(1)], maxMeshHops });
 
-    expect(meshLimitErrorOf(withMax(1))).toBeInstanceOf(HopsLimitExceededError);
-    expect(meshLimitErrorOf(withMax(8))).toBeInstanceOf(HopsLimitExceededError);
+    expect(meshLimitErrorOf(withMax(1))).toBeInstanceOf(LimitError.Hops);
+    expect(meshLimitErrorOf(withMax(8))).toBeInstanceOf(LimitError.Hops);
     for (const bad of [0, -1, 1.5, "2", undefined])
       expect(meshLimitErrorOf(withMax(bad))).toBeUndefined();
   });

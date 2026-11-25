@@ -1,12 +1,8 @@
+import { StepError } from "@agboss/core";
+import { LimitError } from "@agboss/core";
+import { ExecutionError } from "@agboss/core";
 import { expect } from "vitest";
-import {
-  BudgetExceededError,
-  ChannelOutcome,
-  CompensationFailedError,
-  CompensationReason,
-  CompensationStatus,
-  StepFailedError,
-} from "@agboss/core";
+import { ChannelOutcome, CompensationReason, CompensationStatus } from "@agboss/core";
 import { callTool, failWith, ModelFailure, replyWith, testWith } from "@agboss/core/testing";
 import { usd } from "@agboss/core/units";
 import { AlertRecruiterAction } from "../../../../src/hiring/actions/alert-recruiter.action.js";
@@ -49,15 +45,17 @@ const REQUEST = { candidateId: "ada", role: "SRE" };
 
 test("happy path: confirm commits both actions, nothing is undone", async ({
   app,
-  mockLlm,
-  mockOf,
+  mockModel,
+  mockService,
   mockAction,
 }) => {
-  mockOf(AtsClientService).registerOffer.mockResolvedValue("offer-7");
-  mockOf(HrCalendarService).bookSlot.mockResolvedValue("slot-3");
-  mockOf(RecruiterInboxChannel).send.mockResolvedValue(ChannelOutcome.decided({ approved: true }));
-  mockLlm(OfferLetterAgent).thenReturn(replyWith(OfferLetterDto, { text: "Dear Ada…" }));
-  mockLlm(OfferSenderAgent).thenReturn(
+  mockService(AtsClientService).registerOffer.mockResolvedValue("offer-7");
+  mockService(HrCalendarService).bookSlot.mockResolvedValue("slot-3");
+  mockService(RecruiterInboxChannel).send.mockResolvedValue(
+    ChannelOutcome.decided({ approved: true }),
+  );
+  mockModel(OfferLetterAgent).thenReturn(replyWith(OfferLetterDto, { text: "Dear Ada…" }));
+  mockModel(OfferSenderAgent).thenReturn(
     callTool(SendOfferLetterTool, { text: "Dear Ada…" }),
     replyWith(OfferLetterSentDto, { messageId: "m-1" }),
   );
@@ -80,14 +78,14 @@ test("happy path: confirm commits both actions, nothing is undone", async ({
 
 test("a handled failure: the side path undoes both, newest first", async ({
   app,
-  mockLlm,
-  mockOf,
+  mockModel,
+  mockService,
 }) => {
-  const ats = mockOf(AtsClientService);
-  const calendar = mockOf(HrCalendarService);
+  const ats = mockService(AtsClientService);
+  const calendar = mockService(HrCalendarService);
   ats.registerOffer.mockResolvedValue("offer-7");
   calendar.bookSlot.mockResolvedValue("slot-3");
-  mockLlm(OfferLetterAgent).thenReturn(failWith(ModelFailure.Timeout));
+  mockModel(OfferLetterAgent).thenReturn(failWith(ModelFailure.Timeout));
 
   const result = await app.execute(SendOfferWorkflowStart, REQUEST);
 
@@ -118,15 +116,15 @@ test("a handled failure: the side path undoes both, newest first", async ({
 
 test("an undo that fails: its own side path hands the offer to a person", async ({
   app,
-  mockLlm,
-  mockOf,
+  mockModel,
+  mockService,
 }) => {
-  const ats = mockOf(AtsClientService);
+  const ats = mockService(AtsClientService);
   ats.registerOffer.mockResolvedValue("offer-7");
   ats.withdrawOffer.mockRejectedValue(new AtsUnavailableError("ATS answered 503"));
-  mockOf(HrCalendarService).bookSlot.mockResolvedValue("slot-3");
-  const desk = mockOf(RecruiterDeskService);
-  mockLlm(OfferLetterAgent).thenReturn(failWith(ModelFailure.Timeout));
+  mockService(HrCalendarService).bookSlot.mockResolvedValue("slot-3");
+  const desk = mockService(RecruiterDeskService);
+  mockModel(OfferLetterAgent).thenReturn(failWith(ModelFailure.Timeout));
 
   const result = await app.execute(SendOfferWorkflowStart, REQUEST);
 
@@ -151,36 +149,38 @@ test("an undo that fails: its own side path hands the offer to a person", async 
 
 test("an uncaught failure: undone automatically, newest first, then the run fails", async ({
   app,
-  mockLlm,
-  mockOf,
+  mockModel,
+  mockService,
 }) => {
-  mockOf(AtsClientService).registerOffer.mockResolvedValue("offer-7");
-  mockOf(HrCalendarService).bookSlot.mockResolvedValue("slot-3");
-  mockLlm(OfferLetterAgent).thenReturn(replyWith(OfferLetterDto, { text: "Dear Ada…" }));
-  mockLlm(OfferSenderAgent).thenReturn(failWith(ModelFailure.Timeout));
+  mockService(AtsClientService).registerOffer.mockResolvedValue("offer-7");
+  mockService(HrCalendarService).bookSlot.mockResolvedValue("slot-3");
+  mockModel(OfferLetterAgent).thenReturn(replyWith(OfferLetterDto, { text: "Dear Ada…" }));
+  mockModel(OfferSenderAgent).thenReturn(failWith(ModelFailure.Timeout));
 
   const run = app.execute(SendOfferWorkflowStart, REQUEST);
 
-  await expect(run).rejects.toFailWith(StepFailedError);
-  const [released] = mockOf(HrCalendarService).releaseSlot.mock.invocationCallOrder;
-  const [withdrawn] = mockOf(AtsClientService).withdrawOffer.mock.invocationCallOrder;
+  await expect(run).rejects.toFailWith(StepError);
+  const [released] = mockService(HrCalendarService).releaseSlot.mock.invocationCallOrder;
+  const [withdrawn] = mockService(AtsClientService).withdrawOffer.mock.invocationCallOrder;
   expect(released).toBeLessThan(withdrawn ?? 0);
 });
 
-test("an undo that fails: the rest still runs, the run fails with CompensationFailedError", async ({
+test("an undo that fails: the rest still runs, the run fails with ExecutionError.CompensationFailed", async ({
   app,
-  mockLlm,
-  mockOf,
+  mockModel,
+  mockService,
 }) => {
-  mockOf(AtsClientService).registerOffer.mockResolvedValue("offer-7");
-  mockOf(HrCalendarService).bookSlot.mockResolvedValue("slot-3");
-  mockOf(HrCalendarService).releaseSlot.mockRejectedValue(new CalendarUnavailableError("down"));
-  mockLlm(OfferLetterAgent).thenReturn(replyWith(OfferLetterDto, { text: "Dear Ada…" }));
-  mockLlm(OfferSenderAgent).thenReturn(failWith(ModelFailure.Timeout));
+  mockService(AtsClientService).registerOffer.mockResolvedValue("offer-7");
+  mockService(HrCalendarService).bookSlot.mockResolvedValue("slot-3");
+  mockService(HrCalendarService).releaseSlot.mockRejectedValue(
+    new CalendarUnavailableError("down"),
+  );
+  mockModel(OfferLetterAgent).thenReturn(replyWith(OfferLetterDto, { text: "Dear Ada…" }));
+  mockModel(OfferSenderAgent).thenReturn(failWith(ModelFailure.Timeout));
 
   const run = app.execute(SendOfferWorkflowStart, REQUEST);
 
-  await expect(run).rejects.toFailWith(CompensationFailedError, {
+  await expect(run).rejects.toFailWith(ExecutionError.CompensationFailed, {
     failures: [
       expect.objectContaining({
         compensated: expect.objectContaining({
@@ -190,47 +190,47 @@ test("an undo that fails: the rest still runs, the run fails with CompensationFa
         reason: CompensationReason.ExecutionFailed,
       }) as unknown,
     ],
-    cause: StepFailedError,
+    cause: StepError,
   });
-  expect(mockOf(AtsClientService).withdrawOffer.mock.calls).toHaveLength(1); // the older one still undone
+  expect(mockService(AtsClientService).withdrawOffer.mock.calls).toHaveLength(1); // the older one still undone
 });
 
 test("a cancel while paused: the pause is withdrawn, both undone, then cancelled", async ({
   app,
-  mockLlm,
-  mockOf,
+  mockModel,
+  mockService,
 }) => {
-  mockOf(AtsClientService).registerOffer.mockResolvedValue("offer-7");
-  mockOf(HrCalendarService).bookSlot.mockResolvedValue("slot-3");
-  mockLlm(OfferLetterAgent).thenReturn(replyWith(OfferLetterDto, { text: "Dear Ada…" }));
-  mockLlm(OfferSenderAgent).thenReturn(callTool(SendOfferLetterTool, { text: "Dear Ada…" }));
+  mockService(AtsClientService).registerOffer.mockResolvedValue("offer-7");
+  mockService(HrCalendarService).bookSlot.mockResolvedValue("slot-3");
+  mockModel(OfferLetterAgent).thenReturn(replyWith(OfferLetterDto, { text: "Dear Ada…" }));
+  mockModel(OfferSenderAgent).thenReturn(callTool(SendOfferLetterTool, { text: "Dear Ada…" }));
   const paused = await app.execute(SendOfferWorkflowStart, REQUEST, { threadId: "t-1" });
   expect(paused.pending).toHaveLength(1);
 
   const cancel = await app.cancel(paused.threadId); // waits for the undo, each bounded by compensationTimeout
 
   expect(cancel).toEqual({ cancelled: true });
-  expect(mockOf(HrCalendarService).releaseSlot.mock.calls).toHaveLength(1);
-  expect(mockOf(AtsClientService).withdrawOffer.mock.calls).toHaveLength(1);
+  expect(mockService(HrCalendarService).releaseSlot.mock.calls).toHaveLength(1);
+  expect(mockService(AtsClientService).withdrawOffer.mock.calls).toHaveLength(1);
 });
 
-test("an exhausted budget: no model call after it, both undone, then BudgetExceededError", async ({
+test("an exhausted budget: no model call after it, both undone, then LimitError.Budget", async ({
   app,
-  mockLlm,
-  mockOf,
+  mockModel,
+  mockService,
 }) => {
-  mockOf(ExecutionBudget).maxSpend.mockReturnValue(usd(0.01));
-  mockOf(AtsClientService).registerOffer.mockResolvedValue("offer-7");
-  mockOf(HrCalendarService).bookSlot.mockResolvedValue("slot-3");
-  mockLlm(OfferLetterAgent).thenReturn(
+  mockService(ExecutionBudget).maxSpend.mockReturnValue(usd(0.01));
+  mockService(AtsClientService).registerOffer.mockResolvedValue("offer-7");
+  mockService(HrCalendarService).bookSlot.mockResolvedValue("slot-3");
+  mockModel(OfferLetterAgent).thenReturn(
     replyWith(OfferLetterDto, { text: "Dear Ada…" }, { cost: usd(0.02) }),
   );
 
   const run = app.execute(SendOfferWorkflowStart, REQUEST);
 
-  await expect(run).rejects.toFailWith(BudgetExceededError, {
+  await expect(run).rejects.toFailWith(LimitError.Budget, {
     budget: expect.objectContaining({ name: "execution-budget" }) as unknown,
   });
-  expect(mockOf(HrCalendarService).releaseSlot.mock.calls).toHaveLength(1);
-  expect(mockOf(AtsClientService).withdrawOffer.mock.calls).toHaveLength(1);
+  expect(mockService(HrCalendarService).releaseSlot.mock.calls).toHaveLength(1);
+  expect(mockService(AtsClientService).withdrawOffer.mock.calls).toHaveLength(1);
 });

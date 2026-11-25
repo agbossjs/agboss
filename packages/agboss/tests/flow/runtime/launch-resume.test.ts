@@ -52,8 +52,8 @@ beforeEach(() => {
 describe("S20: after a restart only the unfinished branches run again", () => {
   clerks(
     "a paused branch survives a restart: the new instance resumes only it",
-    async ({ app, recoverApp, mockLlm }) => {
-      mockLlm(ItemClerkAgent).thenAnswer((request) => {
+    async ({ app, recoverApp, mockModel }) => {
+      mockModel(ItemClerkAgent).respondWith((request) => {
         const name = nameIn(request);
         const confirmed =
           request.kind === "chat" && request.messages.some((line) => line.role === "tool");
@@ -62,13 +62,13 @@ describe("S20: after a restart only the unfinished branches run again", () => {
           : replyWith(ItemResultDto, { name });
       });
       const paused = await execute(app, ItemsWorkflowStart, [item("a"), item("b"), item("c")]);
-      const before = mockLlm(ItemClerkAgent).requests.length;
+      const before = mockModel(ItemClerkAgent).requests.length;
 
       const restarted = await recoverApp();
       const done = await restarted.resume(answerOf(paused, approve));
 
       expect(done).toFinishWith(SummaryWorkflowFinish, { text: "a, b, c" });
-      expect(mockLlm(ItemClerkAgent).requests.slice(before).map(nameIn)).toEqual(["b"]);
+      expect(mockModel(ItemClerkAgent).requests.slice(before).map(nameIn)).toEqual(["b"]);
     },
   );
 

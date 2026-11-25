@@ -1,14 +1,10 @@
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { Mesh, MeshInboundMode } from "../../src/mesh/mesh.decorator.js";
 import { minutes } from "../../src/units/index.js";
 import { describe, expect, it } from "vitest";
 import { applicationOf, type AssembledApplication } from "../../src/application/assemble.js";
 import { Application } from "../../src/application/application.js";
-import {
-  EmptyEnvironment,
-  HopsLimitExceededError,
-  LimitExceededError,
-  MeshLoopDetectedError,
-} from "../../src/index.js";
+import { EmptyEnvironment } from "../../src/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { meshAppOf } from "../a2a/fixtures/mesh.workflow.js";
 import { meshRefusalOf, inboundMeshOfRequest } from "../../src/mesh/mesh-admission.js";
@@ -72,7 +68,7 @@ describe("#398 PR 1: the receiver's check of the call chain", () => {
   it("its own (application, start) in the chain is a loop; another start of it is not", () => {
     const other = { ...receiver, entry: { ...receiver.entry, start: "refunds-workflow-start" } };
 
-    expect(meshRefusalOf(receiver, envelope)).toBeInstanceOf(MeshLoopDetectedError);
+    expect(meshRefusalOf(receiver, envelope)).toBeInstanceOf(LimitError.MeshLoop);
     expect(meshRefusalOf(other, envelope)).toBeUndefined();
     expect(meshRefusalOf(receiver, undefined)).toBeUndefined();
   });
@@ -93,7 +89,7 @@ describe("#398 PR 1: the receiver's check of the call chain", () => {
       hops: 4,
       key: "maxMeshHops",
     });
-    expect(refused).toBeInstanceOf(LimitExceededError);
+    expect(refused).toBeInstanceOf(LimitError);
     expect(meshRefusalOf(billing, { ...envelope, callChain: [hop(1), hop(2)] })).toBeUndefined();
   });
 
@@ -113,15 +109,15 @@ describe("#398 PR 1: the receiver's check of the call chain", () => {
 describe("#398 PR 1: a mesh limit on the wire", () => {
   it("round-trips both limits with their facts; other errors carry none", () => {
     const entry = { application: "billing-application", start: "billing-workflow-start" };
-    const loop = new MeshLoopDetectedError({ entry, callChain: envelope.callChain });
-    const hops = new HopsLimitExceededError({
-      entry,
+    const loop = new LimitError.MeshLoop({ meshEntry: entry, callChain: envelope.callChain });
+    const hops = new LimitError.Hops({
+      meshEntry: entry,
       callChain: envelope.callChain,
       maxMeshHops: 1,
     });
 
     expect(meshLimitErrorOf(meshLimitBodyOf(loop))).toMatchObject({
-      entry,
+      meshEntry: entry,
       callChain: envelope.callChain,
     });
     expect(meshLimitErrorOf(meshLimitBodyOf(hops))).toMatchObject({ maxMeshHops: 1, hops: 2 });

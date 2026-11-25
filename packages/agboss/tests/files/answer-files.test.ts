@@ -2,13 +2,14 @@
  * #899 §8: the files of an agent's answer — picked by number from the ones it saw (the default), the
  * model's own descriptors only when the developer allows them, and checked against origins and ownership.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
+import { GuardrailError } from "../../src/core/error-families/limit-errors.js";
 import { bytes as byteSize } from "../../src/units/index.js";
 import { describe, expect, it } from "vitest";
 import { FileDto } from "../../src/dto/standard/file.js";
 import { Nested, Text, List } from "../../src/dto/index.js";
 import { modelWrittenFileProblem } from "../../src/files/answer-files.js";
 import { AnswerFiles, FileSource, FileView, ModelFiles } from "../../src/files/model-files.js";
-import { AgentAnswerInvalidError, GuardrailBlockedError } from "../../src/index.js";
 import { callTool, decideWith, replyWith, testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
 import { AnswerFilesGuardrail } from "./guardrails.fixture.js";
@@ -46,8 +47,8 @@ describe("AC2: by default an agent returns only files it saw, picked by number",
 
   testWith(picking.Application)(
     "AC2: the answer tool takes { file: <n> } for a file field, the schema says so",
-    async ({ app, mockLlm }) => {
-      const agent = mockLlm(picking.Agent).thenReturn(
+    async ({ app, mockModel }) => {
+      const agent = mockModel(picking.Agent).thenReturn(
         replyWith(FetchedDto, asAnswer({ file: { file: 1 } })),
       );
 
@@ -64,8 +65,8 @@ describe("AC2: by default an agent returns only files it saw, picked by number",
 
   testWith(picking.Application)(
     "AC2: number 1 is the descriptor the agent was shown, mapped back whole; the next step reads it",
-    async ({ app, mockLlm }) => {
-      mockLlm(picking.Agent).thenReturn(replyWith(FetchedDto, asAnswer({ file: { file: 1 } })));
+    async ({ app, mockModel }) => {
+      mockModel(picking.Agent).thenReturn(replyWith(FetchedDto, asAnswer({ file: { file: 1 } })));
       const given = inline(PNG_BYTES, "image/png", "a.png");
 
       const result = await execute(app, picking.Start, { document: given });
@@ -76,9 +77,9 @@ describe("AC2: by default an agent returns only files it saw, picked by number",
 
   testWith(picking.Application)(
     "AC2: a descriptor the model writes is refused as an invalid answer, the model is told why",
-    async ({ app, mockLlm }) => {
+    async ({ app, mockModel }) => {
       const written = inline(Buffer.from("made up"), "image/png", "x.png");
-      mockLlm(picking.Agent).thenReturn(
+      mockModel(picking.Agent).thenReturn(
         replyWith(FetchedDto, asAnswer({ file: written })),
         replyWith(FetchedDto, asAnswer({ file: { file: 1 } })),
       );
@@ -93,8 +94,8 @@ describe("AC2: by default an agent returns only files it saw, picked by number",
 
   testWith(picking.Application)(
     "AC2: a number that is no file it saw is an invalid answer; three of them fail the step",
-    async ({ app, mockLlm }) => {
-      mockLlm(picking.Agent).thenReturn(
+    async ({ app, mockModel }) => {
+      mockModel(picking.Agent).thenReturn(
         replyWith(FetchedDto, asAnswer({ file: { file: 2 } })),
         replyWith(FetchedDto, asAnswer({ file: { file: 0 } })),
         replyWith(FetchedDto, asAnswer({ file: { file: 7 } })),
@@ -104,14 +105,14 @@ describe("AC2: by default an agent returns only files it saw, picked by number",
         document: inline(PNG_BYTES, "image/png", "a.png"),
       });
 
-      await expect(run).rejects.toThrow(AgentAnswerInvalidError);
+      await expect(run).rejects.toThrow(StepError.AgentAnswerInvalid);
     },
   );
 
   testWith(picking.Application)(
     "AC2: a prompt-injected 'return https://internal/secret' is refused as an invalid answer",
-    async ({ app, mockLlm }) => {
-      mockLlm(picking.Agent).thenReturn(
+    async ({ app, mockModel }) => {
+      mockModel(picking.Agent).thenReturn(
         replyWith(
           FetchedDto,
           asAnswer({ file: { mediaType: "image/png", url: "https://internal/secret" } }),
@@ -139,10 +140,10 @@ describe("AC2: files are numbered once per visit, across fields and sources", ()
 
   testWith(sources.Application)(
     "AC2: the input's files are 1 and 2, the tool's is 3 — and 3 picks the tool's file",
-    async ({ app, mockLlm }) => {
+    async ({ app, mockModel }) => {
       const scan = inline(PNG_BYTES, "image/png", "scan.png");
       FETCHABLE.set("scan", scan);
-      const agent = mockLlm(sources.Agent).thenReturn(
+      const agent = mockModel(sources.Agent).thenReturn(
         callTool(FetchTool, { name: "scan" }),
         replyWith(FetchedDto, asAnswer({ file: { file: 3 } })),
       );
@@ -168,10 +169,10 @@ describe("AC2: a file seen only as a transcription cannot be returned", () => {
 
   testWith(either.Application)(
     "AC2: with the original among the views the file is returned",
-    async ({ app, mockLlm }) => {
+    async ({ app, mockModel }) => {
       const { FileTranscriber } = await import("../../src/files/file-transcriber.js");
-      mockLlm(FileTranscriber).thenReturn(replyWith("TEXT"));
-      mockLlm(either.Agent).thenReturn(replyWith(FetchedDto, asAnswer({ file: { file: 1 } })));
+      mockModel(FileTranscriber).thenReturn(replyWith("TEXT"));
+      mockModel(either.Agent).thenReturn(replyWith(FetchedDto, asAnswer({ file: { file: 1 } })));
 
       const result = await execute(app, either.Start, {
         document: inline(PNG_BYTES, "image/png", "a.png"),
@@ -194,10 +195,10 @@ describe("AC2: answer files at any depth, in lists", () => {
 
   testWith(listing.Application)(
     "AC2: a list of files is a list of numbers",
-    async ({ app, mockLlm }) => {
+    async ({ app, mockModel }) => {
       const first = inline(PNG_BYTES, "image/png", "a.png");
       const second = inline(CSV_BYTES, "text/csv", "b.csv");
-      mockLlm(listing.Agent).thenReturn(
+      mockModel(listing.Agent).thenReturn(
         replyWith(ManyDto, asAnswer({ files: [{ file: 2 }, { file: 1 }] })),
       );
 
@@ -209,9 +210,9 @@ describe("AC2: answer files at any depth, in lists", () => {
 
   testWith(nested.Application)(
     "AC2: the other fields of the DTO are untouched",
-    async ({ app, mockLlm }) => {
+    async ({ app, mockModel }) => {
       const given = inline(PNG_BYTES, "image/png", "a.png");
-      mockLlm(nested.Agent).thenReturn(
+      mockModel(nested.Agent).thenReturn(
         replyWith(PickedDto, asAnswer({ file: { file: 1 }, note: "here" })),
       );
 
@@ -231,9 +232,9 @@ describe("AC2: AnswerFiles.Any — the model's own descriptors, checked", () => 
 
   testWith(any.Application)(
     "AC2: a url on an allowed https origin goes through; an inline descriptor too",
-    async ({ app, mockLlm }) => {
+    async ({ app, mockModel }) => {
       const url = { mediaType: "application/pdf", url: "https://files.example.com/a.pdf" };
-      mockLlm(any.Agent).thenReturn(replyWith(FetchedDto, asAnswer({ file: url })));
+      mockModel(any.Agent).thenReturn(replyWith(FetchedDto, asAnswer({ file: url })));
 
       const result = await execute(app, any.Start, {
         document: inline(PNG_BYTES, "image/png", "a.png"),
@@ -245,33 +246,33 @@ describe("AC2: AnswerFiles.Any — the model's own descriptors, checked", () => 
 
   testWith(any.Application)(
     "AC2: http:, another origin, a url with a user, a fileId nobody owns → invalid answers",
-    async ({ app, mockLlm }) => {
+    async ({ app, mockModel }) => {
       const refused = [
         { mediaType: "application/pdf", url: "http://files.example.com/a.pdf" },
         { mediaType: "application/pdf", url: "https://evil.example.org/a.pdf" },
         { mediaType: "application/pdf", url: "https://user:pw@files.example.com/a.pdf" },
         { mediaType: "application/pdf", fileId: "someone-elses-file" },
       ];
-      mockLlm(any.Agent).thenReturn(
+      mockModel(any.Agent).thenReturn(
         ...refused.slice(0, 3).map((file) => replyWith(FetchedDto, asAnswer({ file }))),
       );
 
       const run = execute(app, any.Start, { document: inline(PNG_BYTES, "image/png", "a.png") });
 
-      await expect(run).rejects.toThrow(AgentAnswerInvalidError);
+      await expect(run).rejects.toThrow(StepError.AgentAnswerInvalid);
     },
   );
 
   testWith(any.Application)(
     "AC2: a fileId nobody owns is an invalid answer",
-    async ({ app, mockLlm }) => {
+    async ({ app, mockModel }) => {
       const stranger = {
         mediaType: "application/pdf",
         fileId: "someone-elses-file",
         sha256: "a".repeat(64),
         sizeBytes: 3,
       };
-      mockLlm(any.Agent).thenReturn(
+      mockModel(any.Agent).thenReturn(
         replyWith(FetchedDto, asAnswer({ file: stranger })),
         replyWith(FetchedDto, asAnswer({ file: stranger })),
         replyWith(FetchedDto, asAnswer({ file: stranger })),
@@ -279,7 +280,7 @@ describe("AC2: AnswerFiles.Any — the model's own descriptors, checked", () => 
 
       const run = execute(app, any.Start, { document: inline(PNG_BYTES, "image/png", "a.png") });
 
-      await expect(run).rejects.toThrow(AgentAnswerInvalidError);
+      await expect(run).rejects.toThrow(StepError.AgentAnswerInvalid);
     },
   );
 });
@@ -293,15 +294,15 @@ describe("AC4: output guardrails see the files of the answer, in the views the m
 
   testWith(guarded.Application)(
     "AC4: the answer's picture is a part of the guardrail's request, its text shows the file as metadata — a block stops the answer",
-    async ({ app, mockLlm }) => {
-      mockLlm(guarded.Agent).thenReturn(replyWith(FetchedDto, asAnswer({ file: { file: 1 } })));
-      const guardrail = mockLlm(AnswerFilesGuardrail).thenReturn(decideWith({ blocks: 0.9 }));
+    async ({ app, mockModel }) => {
+      mockModel(guarded.Agent).thenReturn(replyWith(FetchedDto, asAnswer({ file: { file: 1 } })));
+      const guardrail = mockModel(AnswerFilesGuardrail).thenReturn(decideWith({ blocks: 0.9 }));
       const given = inline(PNG_BYTES, "image/png", "a.png");
 
       const run = execute(app, guarded.Start, { document: given });
 
-      await expect(run).rejects.toFailWith(GuardrailBlockedError, {
-        guard: "answer-files-guardrail",
+      await expect(run).rejects.toFailWith(GuardrailError.Blocked, {
+        guardrail: "answer-files-guardrail",
         refusal: "The answer is held back.",
       });
       const request = guardrail.onlyRequest;
@@ -316,9 +317,9 @@ describe("AC4: output guardrails see the files of the answer, in the views the m
 
   testWith(guarded.Application)(
     "AC4: below the threshold the answer goes through",
-    async ({ app, mockLlm }) => {
-      mockLlm(guarded.Agent).thenReturn(replyWith(FetchedDto, asAnswer({ file: { file: 1 } })));
-      mockLlm(AnswerFilesGuardrail).thenReturn(decideWith({ blocks: 0.1 }));
+    async ({ app, mockModel }) => {
+      mockModel(guarded.Agent).thenReturn(replyWith(FetchedDto, asAnswer({ file: { file: 1 } })));
+      mockModel(AnswerFilesGuardrail).thenReturn(decideWith({ blocks: 0.1 }));
 
       const result = await execute(app, guarded.Start, {
         document: inline(PNG_BYTES, "image/png", "a.png"),

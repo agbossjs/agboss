@@ -37,9 +37,9 @@ describe("#1090: an own-thread child cut off after its input checkpoint", () => 
   test("the child's thread holds only its input: the next holder runs the child from it, the tree finishes at its finish", async ({
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ItemReviewerAgent).thenReturn(replyWith(ItemResultDto, { name: "b" }));
+    mockModel(ItemReviewerAgent).thenReturn(replyWith(ItemResultDto, { name: "b" }));
     const [a, b] = [instance(apps, 0), instance(apps, 1)];
     await a.ready();
     await b.ready();

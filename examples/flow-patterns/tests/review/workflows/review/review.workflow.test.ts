@@ -39,12 +39,12 @@ const reviewer = (request: ModelRequest) => {
 describe("a reviewer per section, then the critics side by side", () => {
   test("each join gives the next step its values; copies of one agent give a list", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(SectionSplitterAgent).thenReturn(sections("Intro", "Method", "Results"));
-    mockLlm(SectionReviewerAgent).thenAnswer(reviewer);
-    mockLlm(StyleCriticAgent).thenReturn(replyWith(StyleNotesDto, { notes: "shorter" }));
-    mockLlm(FactCheckerAgent).thenReturn(
+    mockModel(SectionSplitterAgent).thenReturn(sections("Intro", "Method", "Results"));
+    mockModel(SectionReviewerAgent).respondWith(reviewer);
+    mockModel(StyleCriticAgent).thenReturn(replyWith(StyleNotesDto, { notes: "shorter" }));
+    mockModel(FactCheckerAgent).thenReturn(
       replyWith(FactCheckDto, { claim: "the sample size" }),
       replyWith(FactCheckDto, { claim: "none" }),
     );
@@ -78,29 +78,29 @@ describe("a reviewer per section, then the critics side by side", () => {
 
   test("more sections than maxItems: the first 20 are reviewed, without an error", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
     const titles = Array.from({ length: 22 }, (_, index) => `Part ${String(index + 1)}`);
-    mockLlm(SectionSplitterAgent).thenReturn(sections(...titles));
-    mockLlm(SectionReviewerAgent).thenAnswer(reviewer);
-    mockLlm(StyleCriticAgent).thenReturn(replyWith(StyleNotesDto, { notes: "fine" }));
-    mockLlm(FactCheckerAgent).thenReturnAlways(replyWith(FactCheckDto, { claim: "none" }));
+    mockModel(SectionSplitterAgent).thenReturn(sections(...titles));
+    mockModel(SectionReviewerAgent).respondWith(reviewer);
+    mockModel(StyleCriticAgent).thenReturn(replyWith(StyleNotesDto, { notes: "fine" }));
+    mockModel(FactCheckerAgent).thenReturnAlways(replyWith(FactCheckDto, { claim: "none" }));
 
     const result = await app.execute(ReviewWorkflowStart, { text: "a long manuscript" });
 
     expect(result).toFinishWith(ReviewWorkflowFinish);
     expect(result.launches[0]).toMatchObject({ items: 22, taken: 20 });
-    expect(mockLlm(SectionReviewerAgent).requests).toHaveLength(20);
+    expect(mockModel(SectionReviewerAgent).requests).toHaveLength(20);
   });
 
-  test("a critic that fails takes .onError(StepFailedError, …): the plan, unreviewed", async ({
+  test("a critic that fails takes .onError(StepError, …): the plan, unreviewed", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(SectionSplitterAgent).thenReturn(sections("Intro", "Method"));
-    mockLlm(SectionReviewerAgent).thenAnswer(reviewer);
-    mockLlm(StyleCriticAgent).thenReturn(replyWith(StyleNotesDto, { notes: "shorter" }));
-    mockLlm(FactCheckerAgent).thenReturnAlways(failWith(ModelFailure.Timeout));
+    mockModel(SectionSplitterAgent).thenReturn(sections("Intro", "Method"));
+    mockModel(SectionReviewerAgent).respondWith(reviewer);
+    mockModel(StyleCriticAgent).thenReturn(replyWith(StyleNotesDto, { notes: "shorter" }));
+    mockModel(FactCheckerAgent).thenReturnAlways(failWith(ModelFailure.Timeout));
 
     const result = await app.execute(ReviewWorkflowStart, { text: "the manuscript" });
 

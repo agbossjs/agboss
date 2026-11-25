@@ -4,7 +4,8 @@
  * orders completions through gates: races, `FailFast` and quorums reproduced on every run.
  */
 import { beforeEach, describe, expect, vi } from "vitest";
-import { BranchStatus, BranchVerdict, ExecutionCancelledError } from "../../src/index.js";
+import { BranchStatus, BranchVerdict } from "../../src/index.js";
+import { ExecutionCancelledError } from "../../src/core/errors.js";
 import { decideWith, replyWith, step, TestConcurrency, testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
 import { ScoreDto, ScoreReviewDto } from "../flow/fixtures/quorum-dtos.js";
@@ -79,11 +80,11 @@ describe("AC5: inOrder orders completions through gates", () => {
     concurrency: TestConcurrency.inOrder([step(HirePanelAgent), step(RisksPanelAgent)]),
   })(
     "a quorum counts the listed steps in their order; the last waiting is cancelled at its gate",
-    async ({ app, mockLlm }) => {
-      mockLlm(SkillsPanelAgent).thenReturn(score(7));
-      mockLlm(RisksPanelAgent).thenReturn(score(6));
-      mockLlm(HirePanelAgent).thenReturn(score(9));
-      mockLlm(PanelSummaryAgent).thenReturn(summary);
+    async ({ app, mockModel }) => {
+      mockModel(SkillsPanelAgent).thenReturn(score(7));
+      mockModel(RisksPanelAgent).thenReturn(score(6));
+      mockModel(HirePanelAgent).thenReturn(score(9));
+      mockModel(PanelSummaryAgent).thenReturn(summary);
 
       const result = await execute(app, PanelWorkflowStart, ANNA);
 
@@ -99,11 +100,11 @@ describe("AC5: inOrder orders completions through gates", () => {
     concurrency: TestConcurrency.inOrder([step(SkillsPanelAgent), step(HirePanelAgent)]),
   })(
     "the other order counts the others: the same scripts, another race",
-    async ({ app, mockLlm }) => {
-      mockLlm(SkillsPanelAgent).thenReturn(score(7));
-      mockLlm(RisksPanelAgent).thenReturn(score(6));
-      mockLlm(HirePanelAgent).thenReturn(score(9));
-      mockLlm(PanelSummaryAgent).thenReturn(summary);
+    async ({ app, mockModel }) => {
+      mockModel(SkillsPanelAgent).thenReturn(score(7));
+      mockModel(RisksPanelAgent).thenReturn(score(6));
+      mockModel(HirePanelAgent).thenReturn(score(9));
+      mockModel(PanelSummaryAgent).thenReturn(summary);
 
       const result = await execute(app, PanelWorkflowStart, ANNA);
 
@@ -176,10 +177,10 @@ describe("AC5: inOrder orders completions through gates", () => {
     concurrency: TestConcurrency.inOrder([step(RefundPolicyAgent), step(OrderLookupAgent)]),
   })(
     "a step the router never launches fails the test at once, naming it",
-    async ({ app, mockLlm }) => {
-      mockLlm(HelpDeskRouter).thenReturn(decideWith({ "refund-policy-agent": 0.1 }));
-      mockLlm(OrderLookupAgent).thenReturn(replyWith(OrderStatusDto, { status: "shipped" }));
-      mockLlm(LoyaltyOfferAgent).thenReturn(replyWith(LoyaltyOfferDto, { offer: "10% off" }));
+    async ({ app, mockModel }) => {
+      mockModel(HelpDeskRouter).thenReturn(decideWith({ "refund-policy-agent": 0.1 }));
+      mockModel(OrderLookupAgent).thenReturn(replyWith(OrderStatusDto, { status: "shipped" }));
+      mockModel(LoyaltyOfferAgent).thenReturn(replyWith(LoyaltyOfferDto, { offer: "10% off" }));
 
       const execution = execute(app, HelpDeskWorkflowStart, { text: "where is my order?" });
 

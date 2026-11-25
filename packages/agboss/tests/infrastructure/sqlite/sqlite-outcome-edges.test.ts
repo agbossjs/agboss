@@ -4,9 +4,10 @@
  * ROLLBACK that fails too, the operation a single write is named by, and what the database's and a
  * statement's proxies hand back untouched (only `exec`, and `run` of a statement from `prepare`).
  */
+import { StoreError } from "../../../src/core/error-families/store-errors.js";
 import { DatabaseSync } from "node:sqlite";
 import { describe, expect, it } from "vitest";
-import { StoreOutcomeSource, StoreOutcomeUnknownError } from "../../../src/index.js";
+import { StoreOutcomeSource } from "../../../src/index.js";
 import {
   afterFailedCommit,
   classifiedDatabase,
@@ -51,8 +52,8 @@ describe("#1069: a failed COMMIT, the transaction already gone", () => {
     );
 
     expect(rolledBack).toEqual([]);
-    expect(outcome).toBeInstanceOf(StoreOutcomeUnknownError);
-    expect((outcome as StoreOutcomeUnknownError).cause).toBe(error);
+    expect(outcome).toBeInstanceOf(StoreError.OutcomeUnknown);
+    expect((outcome as StoreError.OutcomeUnknown).cause).toBe(error);
   });
 });
 
@@ -68,9 +69,9 @@ describe("#1069: a ROLLBACK that fails after a failed COMMIT", () => {
   it("leaves the outcome unknown, with both errors", () => {
     const error = failure(IOERR);
 
-    const outcome = afterFailedCommit(broken, error) as StoreOutcomeUnknownError;
+    const outcome = afterFailedCommit(broken, error) as StoreError.OutcomeUnknown;
 
-    expect(outcome).toBeInstanceOf(StoreOutcomeUnknownError);
+    expect(outcome).toBeInstanceOf(StoreError.OutcomeUnknown);
     expect(outcome.operation).toBe("COMMIT");
     expect(outcome.store).toBe("SqliteConnection");
     expect(outcome.source).toBe(StoreOutcomeSource.Transport);
@@ -121,9 +122,9 @@ describe("#1069: a single write outside a transaction", () => {
       thrown = caught;
     }
 
-    expect(thrown).toBeInstanceOf(StoreOutcomeUnknownError);
-    expect((thrown as StoreOutcomeUnknownError).operation).toBe("write");
-    expect((thrown as StoreOutcomeUnknownError).cause).toBe(error);
+    expect(thrown).toBeInstanceOf(StoreError.OutcomeUnknown);
+    expect((thrown as StoreError.OutcomeUnknown).operation).toBe("write");
+    expect((thrown as StoreError.OutcomeUnknown).cause).toBe(error);
   });
 
   it("another error of `exec` is its own, and one inside a transaction too", () => {
@@ -165,12 +166,12 @@ describe("#1069: a single write outside a transaction", () => {
     const write = database.prepare("insert into t values (1)");
     const read = database.prepare("select 1");
 
-    expect(() => write.run()).toThrow(StoreOutcomeUnknownError);
-    expect(() => write.get()).toThrow(StoreOutcomeUnknownError);
-    expect(() => write.all()).toThrow(StoreOutcomeUnknownError);
+    expect(() => write.run()).toThrow(StoreError.OutcomeUnknown);
+    expect(() => write.get()).toThrow(StoreError.OutcomeUnknown);
+    expect(() => write.all()).toThrow(StoreError.OutcomeUnknown);
     expect(() => read.all()).toThrow(error);
-    expect(() => read.all()).not.toThrow(StoreOutcomeUnknownError);
-    expect(() => read.run()).not.toThrow(StoreOutcomeUnknownError);
+    expect(() => read.all()).not.toThrow(StoreError.OutcomeUnknown);
+    expect(() => read.run()).not.toThrow(StoreError.OutcomeUnknown);
   });
 
   it("iterate of a write statement is classified too (#1017)", () => {
@@ -182,7 +183,7 @@ describe("#1069: a single write outside a transaction", () => {
     );
 
     expect(() => database.prepare("update t set a = 1").iterate()).toThrow(
-      StoreOutcomeUnknownError,
+      StoreError.OutcomeUnknown,
     );
   });
 

@@ -76,20 +76,20 @@ export interface ExecutionOptions extends CallOptions {
    * id it does not have yet is created as the caller's own new thread (#262 Q4) — an idempotent id
    * the caller picked; the same id in another tenant is another thread. Created only once the
    * budgets pass: a refused execution creates nothing. A key's text (#538, `KeyTextRule`: 1–200
-   * characters, no control or format character, no lone surrogate, NFC), else `InvalidThreadIdError`. Omitted → a new thread with an id of its own.
+   * characters, no control or format character, no lone surrogate, NFC), else `ExecutionError.InvalidThreadId`. Omitted → a new thread with an id of its own.
    */
   readonly threadId?: string | undefined;
   /**
    * Who the thread belongs to (its access key, `executionContext.ownerId`). A new thread is bound
    * to it; continuing, resuming or cancelling a thread with another owner (or none for an owned
-   * thread) throws `ThreadOwnerError` before anything runs. A key's text (#589: `keyTextRuleOf`),
-   * else `dto.invalid` naming `ownerId` and the rule, never the id.
+   * thread) throws `ExecutionError.ThreadOwnerMismatch` before anything runs. A key's text (#589: `keyTextRuleOf`),
+   * else `validation.dto-invalid` naming `ownerId` and the rule, never the id.
    */
   readonly ownerId?: string | undefined;
   /**
    * The tenant's values (`ContextValues<T>` of the declared `TenantContext`): with nothing declared
    * `{ tenantId?, weight? }`, omitted → the tenant `"default"`. Validated before the first step
-   * (invalid → `dto.invalid`, `onRunRejected`), frozen, inherited by child executions.
+   * (invalid → `validation.dto-invalid`, `onRunRejected`), frozen, inherited by child executions.
    */
   readonly tenant?: TenantValues;
   /** The values of the declared `ExecutionContext` subclass; with the built-in class none. */
@@ -97,7 +97,7 @@ export interface ExecutionOptions extends CallOptions {
   /**
    * How long the execution may take (#398 PR 2), `seconds(30)`: fixed on the application's `Clock`
    * at its start (a pause counts as time); past it the execution fails with
-   * `DeadlineExceededError` (`limit.deadline`) before its next step or model call. A trusted mesh
+   * `LimitError.Deadline` (`limit.deadline`) before its next step or model call. A trusted mesh
    * caller's remaining time sets it too — the smaller wins. Omitted → none. At most 24 days (#1141).
    */
   readonly deadline?: Milliseconds;
@@ -111,7 +111,7 @@ export interface ExecutionOptions extends CallOptions {
 /**
  * What `app.resume` answers a pause with (#267): its id and exactly one of a typed `decision` or a
  * free-text `reply` — read by the pause's role's `@ChannelInterpreter`, the pause staying pending when
- * it cannot be read (`UninterpretableReplyError`).
+ * it cannot be read (`PauseError.UninterpretableReply`).
  */
 export type ResumeRequest = DecisionResumeRequest | ReplyResumeRequest;
 
@@ -152,7 +152,7 @@ export type PauseCallerOptions = OwnerPauseOptions | DelegatePauseOptions;
 /** The caller of a `PauseRespondent.Owner` pause: checked against the thread's `ownerId`. */
 export interface OwnerPauseOptions {
   readonly tenantId?: string | undefined;
-  /** The thread's owner (omitted for a thread without one; another → `ThreadOwnerError`); a key's text (#589). */
+  /** The thread's owner (omitted for a thread without one; another → `ExecutionError.ThreadOwnerMismatch`); a key's text (#589). */
   readonly ownerId?: string | undefined;
   readonly actor?: never;
 }
@@ -232,7 +232,7 @@ export interface App<TApp = unknown> {
   ): Promise<ExecutionOutput<ExecutionOutputOf<InstanceType<TStart>>>>;
   /**
    * Answers one pause (#267): found by `(options.tenantId, request.pauseId)` anywhere in its
-   * execution tree (unknown, or another tenant's → `UnknownPauseError`), checked against who may
+   * execution tree (unknown, or another tenant's → `PauseError.UnknownPause`), checked against who may
    * answer it, its decision validated, then recorded (`Pending → Resolved`, atomic; a second
    * answer → `NotPausedError`) and the tree moved under its lease. With other pauses left the
    * execution pauses again with the rest. The result carries `threadId` and `executionId`.
@@ -245,12 +245,12 @@ export interface App<TApp = unknown> {
    * Moves an open pause's deadline later (#942): `expiresAt = now + expiresIn`, by whoever may
    * answer it (`answeredBy` for a channel's pause, `ownerId` for its thread owner's, as `resume`).
    * The channel and the listeners hear "extended" and, `remindBefore` before the new deadline,
-   * "expiring". Refused: a pause that is closed or past its deadline (`PauseClosedError`), one with
+   * "expiring". Refused: a pause that is closed or past its deadline (`PauseError.Closed`), one with
    * no deadline, a deadline not later than the current one, or one past the deadline of the run (or
-   * quorum) it was made under (`DtoValidationError`, `dto: "ExtendPauseRequest"`); another tenant's
-   * or an unknown pause is `UnknownPauseError`. Atomic at the store against the expiry look; a call
+   * quorum) it was made under (`ValidationError.DtoInvalid`, `dto: "ExtendPauseRequest"`); another tenant's
+   * or an unknown pause is `PauseError.UnknownPause`. Atomic at the store against the expiry look; a call
    * that loses the store's compare-and-set to other writers 8 times in a row is
-   * `PauseExtensionContendedError` (`pause.update-contended`; nothing changed, retry is safe).
+   * `PauseError.UpdateContended` (`pause.update-contended`; nothing changed, retry is safe).
    */
   extendPause(
     request: ExtendPauseRequest,
@@ -262,16 +262,16 @@ export interface App<TApp = unknown> {
    * (`PauseError.PermissionDenied` otherwise). A pause that stays with its target and channel is
    * changed in place — the same id, its `externalRef` kept, its deadline kept unless `timeout` says
    * otherwise — and its channel is told `onPauseReassigned`. One moved to another channel or target is
-   * made again: a new pause with a new id (the old id answers nothing any more, `PauseClosedError`,
+   * made again: a new pause with a new id (the old id answers nothing any more, `PauseError.Closed`,
    * reason `reassigned`) that the new channel is sent (`ChannelAsk.replaces` names the old id), while
    * the old channel is told `onPauseClosed(Reassigned)`; its chain of custody goes with it. The
    * agent and the step do not run again. The listeners and the observers hear one `onPauseReassigned`.
-   * Refused: a pause that is closed or past its deadline (`PauseClosedError`; of two reassignments, or
+   * Refused: a pause that is closed or past its deadline (`PauseError.Closed`; of two reassignments, or
    * a reassignment and an answer, at the same moment exactly one wins), one reassigned as often as
    * its `escalationLimits.maxReassignments` allow (`PauseError.EscalationLimitExceeded`), a target
    * of another kind or other DTOs (`PauseError.IncompatibleTarget`), a bad assignee list
-   * (`DtoValidationError`, `dto: "ReassignPauseRequest"`); another tenant's or an unknown pause is
-   * `UnknownPauseError`. The new id of a moved pause is returned to no caller: only its key. The new
+   * (`ValidationError.DtoInvalid`, `dto: "ReassignPauseRequest"`); another tenant's or an unknown pause is
+   * `PauseError.UnknownPause`. The new id of a moved pause is returned to no caller: only its key. The new
    * send is made by this call; when the instance dies first, another instance's timers send it.
    */
   reassignPause(
@@ -283,7 +283,7 @@ export interface App<TApp = unknown> {
    * resolves with `ExecutionStatus.Cancelled` once what it had undoable is undone — an undo that
    * failed rejects with `ExecutionError.CompensationFailed`), a paused one is dropped (its `resume`
    * throws `NotPausedError`).
-   * A thread the tenant does not have → `UnknownThreadError`.
+   * A thread the tenant does not have → `ExecutionError.UnknownThread`.
    */
   cancel(threadId: string, ...options: TenantPointArgs<TApp, CancelOptions>): Promise<CancelOutput>;
   /**
@@ -295,7 +295,7 @@ export interface App<TApp = unknown> {
    * every new write of the tree is refused. A paused execution is ended at once (its open pauses
    * close as `TreeEnded`). The call returns `{ state }`: `Stopped` (halted before it returned),
    * `Stopping` (durable; its holder winds down) or `NotRunning` (nothing to stop, or already over).
-   * Idempotent, and `Cancel > Stop`. A thread the tenant does not have → `UnknownThreadError`.
+   * Idempotent, and `Cancel > Stop`. A thread the tenant does not have → `ExecutionError.UnknownThread`.
    */
   stop(threadId: string, ...options: TenantPointArgs<TApp, StopOptions>): Promise<StopOutput>;
   /**
@@ -308,7 +308,7 @@ export interface App<TApp = unknown> {
    * `app.unpause` (`app.resume` of an answer → `ExecutionError.ExternallyPaused`). The call returns
    * `{ state }`: `Paused` (frozen before it returned), `Pausing` (durable; its holder parks) or
    * `NotRunning`. Idempotent; `Cancel > Stop > Pause` (a thread being cancelled or stopped →
-   * `ExecutionError.AlreadyTerminal`). A thread the tenant does not have → `UnknownThreadError`.
+   * `ExecutionError.AlreadyTerminal`). A thread the tenant does not have → `ExecutionError.UnknownThread`.
    */
   pause(
     threadId: string,
@@ -370,7 +370,7 @@ export interface App<TApp = unknown> {
    * order, so a pause that opens or closes between two pages never makes another skipped or
    * repeated. A pause's id is shown as `result.pending` shows it (only a `ThreadOwner` pause's),
    * its `pauseKey` always; its `ask` is masked by its workflow's observability policies. Another
-   * tenant's pauses are never listed; an invalid query is a `DtoValidationError` (`PausesQuery`).
+   * tenant's pauses are never listed; an invalid query is a `ValidationError.DtoInvalid` (`PausesQuery`).
    */
   listPauses(query: PausesQuery): Promise<PausesPage>;
   /**

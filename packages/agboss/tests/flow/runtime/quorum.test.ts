@@ -1,5 +1,6 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { beforeEach, describe, expect } from "vitest";
-import { BranchStatus, BranchVerdict, QuorumNotReachedError } from "../../../src/index.js";
+import { BranchStatus, BranchVerdict } from "../../../src/index.js";
 import { callTool, replyWith, testWith, TestConcurrency } from "../../../src/testing/index.js";
 import { seconds, usd } from "../../../src/units/index.js";
 import { execute } from "../../helpers/flow.js";
@@ -48,11 +49,11 @@ beforeEach(resetPanel);
 describe("AC1: min counted → go on, the rest cancelled", () => {
   quick(
     "two of three counted: the third is cancelled, the summary reads the two",
-    async ({ app, mockLlm }) => {
-      mockLlm(SkillsPanelAgent).thenReturn(score(7));
-      mockLlm(RisksPanelAgent).thenReturn(score(6));
-      mockLlm(HirePanelAgent).thenReturn(cancelledWhileWaiting());
-      mockLlm(PanelSummaryAgent).thenReturn(summary);
+    async ({ app, mockModel }) => {
+      mockModel(SkillsPanelAgent).thenReturn(score(7));
+      mockModel(RisksPanelAgent).thenReturn(score(6));
+      mockModel(HirePanelAgent).thenReturn(cancelledWhileWaiting());
+      mockModel(PanelSummaryAgent).thenReturn(summary);
 
       const result = await execute(app, PanelWorkflowStart, ANNA);
 
@@ -72,8 +73,8 @@ describe("AC1: min counted → go on, the rest cancelled", () => {
       ]);
       expect(result.launches[0]?.branches[2]?.verdict).toBeUndefined();
       expect(result.launches[0]?.isQuorumReached).toBe(true);
-      expect(mockLlm(HirePanelAgent).requests).toHaveLength(1);
-      const input = mockLlm(PanelSummaryAgent).requests[0]?.input;
+      expect(mockModel(HirePanelAgent).requests).toHaveLength(1);
+      const input = mockModel(PanelSummaryAgent).requests[0]?.input;
       expect(input).toContain('"score": 7');
       expect(input).toContain('"score": 6');
       expect(input).not.toContain('"score": 9');
@@ -84,10 +85,10 @@ describe("AC1: min counted → go on, the rest cancelled", () => {
 describe("AC3: min unreachable fails at once", () => {
   checked(
     "two answers rejected: the third is not waited for, the side path is taken",
-    async ({ app, mockLlm }) => {
-      mockLlm(SkillsPanelAgent).thenReturn(score(11));
-      mockLlm(RisksPanelAgent).thenReturn(score(12));
-      mockLlm(HirePanelAgent).thenReturn(cancelledWhileWaiting());
+    async ({ app, mockModel }) => {
+      mockModel(SkillsPanelAgent).thenReturn(score(11));
+      mockModel(RisksPanelAgent).thenReturn(score(12));
+      mockModel(HirePanelAgent).thenReturn(cancelledWhileWaiting());
 
       const result = await execute(app, PanelWorkflowStart, ANNA, { includeRecord: true });
 
@@ -100,7 +101,7 @@ describe("AC3: min unreachable fails at once", () => {
       ]);
       expect(result.record?.lastError).toMatchObject({
         code: "step.quorum",
-        lineage: ["step.quorum", "step.failed", "step", "agboss"],
+        lineage: ["step.quorum", "step", "agboss"],
       });
       expect(result.record?.lastError?.message).toContain("min can no longer be reached");
     },
@@ -108,14 +109,14 @@ describe("AC3: min unreachable fails at once", () => {
 });
 
 describe("AC4: without .onError the execution fails", () => {
-  strict("QuorumNotReachedError names the launching step", async ({ app, mockLlm }) => {
-    mockLlm(SkillsPanelAgent).thenReturn(score(0));
-    mockLlm(RisksPanelAgent).thenReturn(score(7));
-    mockLlm(HirePanelAgent).thenReturn(score(42));
+  strict("StepError.QuorumNotReached names the launching step", async ({ app, mockModel }) => {
+    mockModel(SkillsPanelAgent).thenReturn(score(0));
+    mockModel(RisksPanelAgent).thenReturn(score(7));
+    mockModel(HirePanelAgent).thenReturn(score(42));
 
     const failure = execute(app, PanelWorkflowStart, ANNA);
 
-    await expect(failure).rejects.toBeInstanceOf(QuorumNotReachedError);
+    await expect(failure).rejects.toBeInstanceOf(StepError.QuorumNotReached);
     await expect(failure).rejects.toMatchObject({
       nodeId: "panel-workflow-start",
       counted: 1,
@@ -125,16 +126,16 @@ describe("AC4: without .onError the execution fails", () => {
 });
 
 describe("AC8: only counted answers enter the path scope", () => {
-  checked("a rejected answer never reaches the next step", async ({ app, mockLlm }) => {
-    mockLlm(SkillsPanelAgent).thenReturn(score(11));
-    mockLlm(RisksPanelAgent).thenReturn(score(7));
-    mockLlm(HirePanelAgent).thenReturn(score(8));
-    mockLlm(PanelSummaryAgent).thenReturn(summary);
+  checked("a rejected answer never reaches the next step", async ({ app, mockModel }) => {
+    mockModel(SkillsPanelAgent).thenReturn(score(11));
+    mockModel(RisksPanelAgent).thenReturn(score(7));
+    mockModel(HirePanelAgent).thenReturn(score(8));
+    mockModel(PanelSummaryAgent).thenReturn(summary);
 
     const result = await execute(app, PanelWorkflowStart, ANNA);
 
     expect(result).toFinishWith(PanelReviewWorkflowFinish);
-    const input = mockLlm(PanelSummaryAgent).requests[0]?.input;
+    const input = mockModel(PanelSummaryAgent).requests[0]?.input;
     expect(input).toContain('"score": 7');
     expect(input).toContain('"score": 8');
     expect(input).not.toContain('"score": 11');
@@ -144,11 +145,11 @@ describe("AC8: only counted answers enter the path scope", () => {
 describe("regression: the join's order and the spend", () => {
   quick(
     "the join lists the counted answers by acceptedSequence, never by listed order",
-    async ({ app, mockLlm, clock }) => {
-      mockLlm(SkillsPanelAgent).thenReturn(...slow(7, 5));
-      mockLlm(RisksPanelAgent).thenReturn(score(6));
-      mockLlm(HirePanelAgent).thenReturn(cancelledWhileWaiting());
-      mockLlm(PanelSummaryAgent).thenReturn(summary);
+    async ({ app, mockModel, clock }) => {
+      mockModel(SkillsPanelAgent).thenReturn(...slow(7, 5));
+      mockModel(RisksPanelAgent).thenReturn(score(6));
+      mockModel(HirePanelAgent).thenReturn(cancelledWhileWaiting());
+      mockModel(PanelSummaryAgent).thenReturn(summary);
 
       const execution = execute(app, PanelWorkflowStart, ANNA);
       await untilWaiting(2);
@@ -160,18 +161,20 @@ describe("regression: the join's order and the spend", () => {
         { nodeId: "risks-panel-agent", verdict: BranchVerdict.Counted, acceptedSequence: 1 },
         { nodeId: "hire-panel-agent", status: BranchStatus.Cancelled },
       ]);
-      const input = textOf(mockLlm(PanelSummaryAgent).requests[0]);
+      const input = textOf(mockModel(PanelSummaryAgent).requests[0]);
       expect(input.indexOf('"score": 6')).toBeLessThan(input.indexOf('"score": 7'));
     },
   );
 
   quick(
     "two answers for the last place at once: one counted, one surplus — both paid",
-    async ({ app, mockLlm }) => {
-      mockLlm(SkillsPanelAgent).thenReturn(replyWith(ScoreDto, { score: 7 }, { cost: usd(0.01) }));
-      mockLlm(RisksPanelAgent).thenReturn(replyWith(ScoreDto, { score: 6 }, { cost: usd(0.02) }));
-      mockLlm(HirePanelAgent).thenReturn(replyWith(ScoreDto, { score: 9 }, { cost: usd(0.04) }));
-      mockLlm(PanelSummaryAgent).thenReturn(summary);
+    async ({ app, mockModel }) => {
+      mockModel(SkillsPanelAgent).thenReturn(
+        replyWith(ScoreDto, { score: 7 }, { cost: usd(0.01) }),
+      );
+      mockModel(RisksPanelAgent).thenReturn(replyWith(ScoreDto, { score: 6 }, { cost: usd(0.02) }));
+      mockModel(HirePanelAgent).thenReturn(replyWith(ScoreDto, { score: 9 }, { cost: usd(0.04) }));
+      mockModel(PanelSummaryAgent).thenReturn(summary);
 
       const result = await execute(app, PanelWorkflowStart, ANNA);
 
@@ -182,15 +185,15 @@ describe("regression: the join's order and the spend", () => {
         BranchVerdict.Surplus,
       ]);
       expect(result.spend.totalUsd).toBeCloseTo(0.07);
-      expect(mockLlm(PanelSummaryAgent).requests[0]?.input).not.toContain('"score": 9');
+      expect(mockModel(PanelSummaryAgent).requests[0]?.input).not.toContain('"score": 9');
     },
   );
 
-  quick("the quorum's outcome is told to observers", async ({ app, mockLlm }) => {
-    mockLlm(SkillsPanelAgent).thenReturn(score(7));
-    mockLlm(RisksPanelAgent).thenReturn(score(6));
-    mockLlm(HirePanelAgent).thenReturn(cancelledWhileWaiting());
-    mockLlm(PanelSummaryAgent).thenReturn(summary);
+  quick("the quorum's outcome is told to observers", async ({ app, mockModel }) => {
+    mockModel(SkillsPanelAgent).thenReturn(score(7));
+    mockModel(RisksPanelAgent).thenReturn(score(6));
+    mockModel(HirePanelAgent).thenReturn(cancelledWhileWaiting());
+    mockModel(PanelSummaryAgent).thenReturn(summary);
 
     const result = await execute(app, PanelWorkflowStart, ANNA);
 

@@ -80,8 +80,8 @@ beforeEach(() => {
 });
 
 describe("maxConcurrency lowered by a profile: the queue holds it", () => {
-  declared("declared cap 3: the three tasks work at once", async ({ app, clock, mockLlm }) => {
-    mockLlm(TaskPlannerAgent).thenAnswer(planner);
+  declared("declared cap 3: the three tasks work at once", async ({ app, clock, mockModel }) => {
+    mockModel(TaskPlannerAgent).respondWith(planner);
     const paused = await execute(app, GatedBatchWorkflowStart, { text: "go" });
     const run = app.resume(answerOf(paused, { approved: true }), { tenantId: "default" });
     await untilLogged("start c");
@@ -91,8 +91,8 @@ describe("maxConcurrency lowered by a profile: the queue holds it", () => {
     expect(treeLog.mostWorking).toBe(3);
   });
 
-  narrow("a profile's cap 1: one task at a time", async ({ app, clock, mockLlm }) => {
-    mockLlm(TaskPlannerAgent).thenAnswer(planner);
+  narrow("a profile's cap 1: one task at a time", async ({ app, clock, mockModel }) => {
+    mockModel(TaskPlannerAgent).respondWith(planner);
     const paused = await execute(app, GatedBatchWorkflowStart, { text: "go" });
     const run = app.resume(answerOf(paused, { approved: true }), { tenantId: "default" });
     for (const name of ["a", "b", "c"]) {
@@ -107,8 +107,8 @@ describe("maxConcurrency lowered by a profile: the queue holds it", () => {
 
   narrow(
     "after a resume in a fresh container the profile's cap 1 still holds",
-    async ({ app, recoverApp, clock, mockLlm }) => {
-      mockLlm(TaskPlannerAgent).thenAnswer(planner);
+    async ({ app, recoverApp, clock, mockModel }) => {
+      mockModel(TaskPlannerAgent).respondWith(planner);
       const paused = await execute(app, GatedBatchWorkflowStart, { text: "go" });
       expect(paused.status).toBe(ExecutionStatus.Paused);
 
@@ -140,8 +140,8 @@ describe("maxConcurrency lowered by a profile: the queue holds it", () => {
 describe("maxDepth lowered by a profile: a child launch holds it", () => {
   declaredDepth(
     "declared 3: the pause at level 2 resumes into a level 3",
-    async ({ app, mockLlm }) => {
-      mockLlm(DiggerAgent).thenAnswer(digger);
+    async ({ app, mockModel }) => {
+      mockModel(DiggerAgent).respondWith(digger);
       const paused = await execute(app, DigWorkflowStart, { left: 2 });
       const done = await app.resume(answerOf(paused, { approved: true }), { tenantId: "default" });
 
@@ -151,8 +151,8 @@ describe("maxDepth lowered by a profile: a child launch holds it", () => {
 
   narrowDepth(
     "a profile's 2: the level-2 execution launches no level 3",
-    async ({ app, mockLlm }) => {
-      mockLlm(DiggerAgent).thenAnswer(digger);
+    async ({ app, mockModel }) => {
+      mockModel(DiggerAgent).respondWith(digger);
       const paused = await execute(app, DigWorkflowStart, { left: 2 });
       const done = await app.resume(answerOf(paused, { approved: true }), { tenantId: "default" });
 
@@ -163,8 +163,8 @@ describe("maxDepth lowered by a profile: a child launch holds it", () => {
 
   narrowDepth(
     "after a resume in a fresh container the profile's 2 still holds",
-    async ({ app, recoverApp, mockLlm }) => {
-      mockLlm(DiggerAgent).thenAnswer(digger);
+    async ({ app, recoverApp, mockModel }) => {
+      mockModel(DiggerAgent).respondWith(digger);
       const paused = await execute(app, DigWorkflowStart, { left: 2 });
 
       const restarted = await recoverApp();

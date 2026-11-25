@@ -15,7 +15,7 @@ const USAGE = { inputTokens: 1000, outputTokens: 100, cacheReadTokens: 0, cacheW
  * A transport model provider (#385) for the `harness/…` models: it answers by the request — no
  * network, no key — so `agboss eval run` and a real `agboss run` work at $0. The first call of a
  * visit looks the `#<id>` order up with `order-status-tool`; once the tool answered, it quotes it.
- * Scripted tests answer above it (`mockLlm`): `complete()` runs only outside them.
+ * Scripted tests answer above it (`mockModel`): `complete()` runs only outside them.
  */
 @ModelProvider({
   name: "harness-model-provider",

@@ -59,11 +59,9 @@ export class VoucherClerk {}
     tools: { maxToolCalls: 3 },
   },
   memory: Window1Memory,
-  flow: [
-    onStart(Redeem)
-      .toAgent(VoucherClerk)
-      .toFinish(Done),
-  ],
+  flow: [onStart(Redeem)
+    .toAgent(VoucherClerk)
+    .toFinish(Done)],
 })
 export class Vouchers {}
 

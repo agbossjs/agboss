@@ -1,8 +1,8 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import {
   Arbiter,
   Arbitrate,
   EmptyEnvironment,
-  QuorumNotReachedError,
   Action,
   Workflow,
   WorkflowStart,
@@ -96,7 +96,7 @@ export class QuorumRefusedWorkflowStart {}
       .inParallel([toAction(BookSeatAction), toAction(BookRoomAction)])
       .arbitratedBy(RoomOnlyArbiter)
       .joinQuorum({ min: 1 })
-      .onError(QuorumNotReachedError, toFinish(TripNotReservedWorkflowFinish))
+      .onError(StepError.QuorumNotReached, toFinish(TripNotReservedWorkflowFinish))
       .toAction(ReviewReservationsAction)
       .toFinish(TripReviewedWorkflowFinish),
   ],
@@ -113,7 +113,7 @@ export class QuorumExcludedWorkflow {}
       .inParallel([toAction(BookSeatAction), toAction(BookRoomAction)])
       .arbitratedBy(RefuseAllArbiter)
       .joinQuorum({ min: 1 })
-      .onError(QuorumNotReachedError, toFinish(TripNotReservedWorkflowFinish))
+      .onError(StepError.QuorumNotReached, toFinish(TripNotReservedWorkflowFinish))
       .toAction(ReviewReservationsAction)
       .toFinish(TripReviewedWorkflowFinish),
   ],

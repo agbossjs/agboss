@@ -5,10 +5,10 @@
  * only strictly between the ask and the clamped deadline, and a calendar that cannot answer asks
  * nobody. Every time is explicit on the virtual clock; the calendar here is a scripted fake.
  */
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { describe, expect, it, vi } from "vitest";
 import { ChannelOutcome } from "../../src/channels/channel-outcome.js";
 import {
-  WorkingCalendarError,
   WorkingCalendarProblem,
   type WorkingCalendarHandler,
   type WorkingCalendarContext,
@@ -273,7 +273,7 @@ describe("#944 AC1, AC4: the record of a working deadline", () => {
     });
 
     // the lead's answer is not after askedAt: the calendar contract refuses it (`not-after-start`)
-    expect(await enter()).toBeInstanceOf(WorkingCalendarError);
+    expect(await enter()).toBeInstanceOf(PauseError.WorkingCalendar);
   });
 
   it("the run-deadline tie rule (#941 D8) holds under working time: a deadline equal to the run's goes to the run", async () => {
@@ -355,12 +355,12 @@ describe("#944 AC5: a calendar that cannot answer asks nobody", () => {
     return { ...world, calendar, failed };
   };
 
-  it("AC5: throws → WorkingCalendarError calendar-failed, no send, no record; its message has no calendar text", async () => {
+  it("AC5: throws → PauseError.WorkingCalendar calendar-failed, no send, no record; its message has no calendar text", async () => {
     const { failed, sends, records, warn } = await failing(() => {
       throw new Error("holiday table for patient Jane Doe is gone");
     });
 
-    expect(failed).toBeInstanceOf(WorkingCalendarError);
+    expect(failed).toBeInstanceOf(PauseError.WorkingCalendar);
     expect(failed).toMatchObject({
       code: "pause.working-calendar",
       calendar: "fake-working-calendar",
@@ -449,7 +449,7 @@ describe("#944 AC5: a calendar that cannot answer asks nobody", () => {
       calendar: calendar.calendar,
     });
 
-    expect(await enter()).toBeInstanceOf(WorkingCalendarError);
+    expect(await enter()).toBeInstanceOf(PauseError.WorkingCalendar);
     healthy = true;
     await enter();
 
@@ -473,7 +473,7 @@ describe("#944 AC5: a calendar that cannot answer asks nobody", () => {
     stop.abort(new Error("the instance stops"));
     const failed = await pending;
 
-    expect(failed).not.toBeInstanceOf(WorkingCalendarError);
+    expect(failed).not.toBeInstanceOf(PauseError.WorkingCalendar);
     expect(await records()).toHaveLength(0);
   });
 

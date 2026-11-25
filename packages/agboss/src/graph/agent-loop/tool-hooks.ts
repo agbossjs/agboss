@@ -1,6 +1,7 @@
+import { ValidationError } from "../../core/error-families/effect-errors.js";
 import { handedOverOf, recordedHandOver } from "../../app/handed-over.js";
 import { HandOverSite } from "../../infrastructure/execution-audit-log.repository.js";
-import { DtoValidationError, pathOf } from "../../dto/errors.js";
+import { pathOf, invalidDto } from "../../dto/errors.js";
 import { bareRecordOf, ComponentKind } from "../../flow/runtime/records.js";
 import type { Class } from "../../components/injection.js";
 import { componentOf } from "../../components/metadata.js";
@@ -86,7 +87,7 @@ function hydrated(
   try {
     return { value: validate(dto, raw) };
   } catch (error) {
-    if (error instanceof DtoValidationError) return undefined;
+    if (error instanceof ValidationError.DtoInvalid) return undefined;
     throw error;
   }
 }
@@ -139,7 +140,7 @@ function rewritten(
   }));
   throw new InterceptorFailure(
     interceptor.name,
-    new DtoValidationError({ dto: `${site.tool.name} input from a before hook`, issues }),
+    invalidDto({ dto: `${site.tool.name} input from a before hook`, issues }),
   );
 }
 
@@ -195,7 +196,7 @@ function validOutput(interceptor: RuntimeToolInterceptor, site: CallSite, produc
   }));
   throw new InterceptorFailure(
     interceptor.name,
-    new DtoValidationError({ dto: `${site.tool.name} output from an after hook`, issues }),
+    invalidDto({ dto: `${site.tool.name} output from an after hook`, issues }),
   );
 }
 

@@ -1,4 +1,5 @@
-import { A2AOriginError, A2AOriginSite } from "./a2a-guard-errors.js";
+import { A2AError } from "../../core/error-families/remote-errors.js";
+import { A2AOriginSite } from "./a2a-guard-errors.js";
 
 /**
  * The origins an A2A client talks to (#809, security): its `url`'s and the ones it lists in
@@ -49,9 +50,9 @@ export function originRefusalOf(
   policy: OriginPolicy,
   url: string,
   site: A2AOriginSite,
-): A2AOriginError | undefined {
+): A2AError.OriginRefused | undefined {
   if (isAllowedOrigin(policy, url)) return undefined;
-  return new A2AOriginError({
+  return new A2AError.OriginRefused({
     agent: policy.agent,
     origin: originOf(url) ?? "(no origin)",
     site,

@@ -3,6 +3,7 @@
  * fails closed; a `$0` call with tokens is spend; a budget's counter is the budget's, never a
  * workflow's; pruning the ledger cannot reset a token counter.
  */
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { describe, expect, it } from "vitest";
 import { Budget, BudgetPeriod, BudgetScope, BudgetUnit } from "../../src/budgets/budget.js";
 import {
@@ -27,7 +28,6 @@ import {
 import type { AgentExecutionDeps } from "../../src/run/types.js";
 import { DEFAULT_CONTEXT_VALUES } from "../../src/flow/context/context-values.js";
 import { VirtualClock } from "../../src/testing/clock.js";
-import { BudgetExceededError } from "../../src/errors.js";
 import { usd, Ttl } from "../../src/units/index.js";
 import { fakeDeps } from "../helpers.js";
 
@@ -87,11 +87,11 @@ const start = {
   contexts: DEFAULT_CONTEXT_VALUES,
 };
 
-const breachOf = (run: () => void): BudgetExceededError => {
+const breachOf = (run: () => void): LimitError.Budget => {
   try {
     run();
   } catch (error) {
-    if (error instanceof BudgetExceededError) return error;
+    if (error instanceof LimitError.Budget) return error;
     throw error;
   }
   throw new Error("no budget was exhausted");
@@ -138,7 +138,7 @@ describe("#1318a: a token budget counts tokens, and a $0 call is spend", () => {
     meter.tally([call(80)], ["agent"]);
 
     expect(meter.exhausted.aborted).toBe(true);
-    expect(meter.exhausted.reason).toBeInstanceOf(BudgetExceededError);
+    expect(meter.exhausted.reason).toBeInstanceOf(LimitError.Budget);
     await meter.settled();
     expect(meter.remainingTokens()).toBe(-30);
   });

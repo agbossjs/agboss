@@ -1,5 +1,7 @@
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { beforeEach, describe, expect, vi } from "vitest";
-import { CompensationFailedError, CompensationReason, PauseClosedError } from "../../src/index.js";
+import { CompensationReason } from "../../src/index.js";
 import { ExecutionCancelledError } from "../../src/core/errors.js";
 import { callTool, testWith } from "../../src/testing/index.js";
 import type { TestApp } from "../../src/testing/test-app.js";
@@ -43,10 +45,14 @@ const releasedIds = (desk: { release: { mock: { calls: unknown[][] } } }): unkno
   desk.release.mock.calls.map(([id]) => id);
 
 describe("a cancel of a paused tree (Q6)", () => {
-  test("withdraws the pause, undoes, then returns cancelled", async ({ app, mockLlm, mockOf }) => {
-    const desk = mockOf(UndoDesk);
+  test("withdraws the pause, undoes, then returns cancelled", async ({
+    app,
+    mockModel,
+    mockService,
+  }) => {
+    const desk = mockService(UndoDesk);
     desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
-    mockLlm(GuestAgent).thenReturn(callTool(AskGuestTool, GUEST));
+    mockModel(GuestAgent).thenReturn(callTool(AskGuestTool, GUEST));
     const paused = await execute(app, UnwindGuestWorkflowStart, GUEST, THREAD);
     expect(paused.pending).toHaveLength(1);
 
@@ -63,18 +69,18 @@ describe("a cancel of a paused tree (Q6)", () => {
       "release-room-action",
     ]);
     await expect(app.resume(answerOf(paused, { approved: true }))).rejects.toBeInstanceOf(
-      PauseClosedError,
+      PauseError.Closed,
     );
   });
 
   test("a paused child's actions are undone with its parent's, newest first", async ({
     app,
-    mockLlm,
-    mockOf,
+    mockModel,
+    mockService,
   }) => {
-    const desk = mockOf(UndoDesk);
+    const desk = mockService(UndoDesk);
     desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
-    mockLlm(GuestAgent).thenReturn(callTool(AskGuestTool, GUEST));
+    mockModel(GuestAgent).thenReturn(callTool(AskGuestTool, GUEST));
     const paused = await execute(app, UnwindPausedWorkflowStart, GUEST, THREAD);
     expect(paused.pending).toHaveLength(1);
 
@@ -88,23 +94,23 @@ describe("a cancel of a paused tree (Q6)", () => {
     );
   });
 
-  test("an undo that fails: the cancel rejects with CompensationFailedError (S7 1)", async ({
+  test("an undo that fails: the cancel rejects with ExecutionError.CompensationFailed (S7 1)", async ({
     app,
-    mockLlm,
-    mockOf,
+    mockModel,
+    mockService,
   }) => {
-    const desk = mockOf(UndoDesk);
+    const desk = mockService(UndoDesk);
     desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
     desk.release.mockRejectedValue(new Error("room desk down"));
-    mockLlm(GuestAgent).thenReturn(callTool(AskGuestTool, GUEST));
+    mockModel(GuestAgent).thenReturn(callTool(AskGuestTool, GUEST));
     await execute(app, UnwindGuestWorkflowStart, GUEST, THREAD);
 
     const cancel = app.cancel("t-1");
 
-    await expect(cancel).rejects.toFailWith(CompensationFailedError, {
+    await expect(cancel).rejects.toFailWith(ExecutionError.CompensationFailed, {
       cause: ExecutionCancelledError,
     });
-    expect(unwindSeen.errors[0]?.error.name).toBe("CompensationFailedError");
+    expect(unwindSeen.errors[0]?.error.name).toBe("ExecutionError.CompensationFailed");
     // the tree ended all the same: a second cancel finds nothing to cancel
     await expect(app.cancel("t-1")).resolves.toEqual({ cancelled: false });
   });
@@ -122,11 +128,11 @@ async function both(apps: readonly TestApp[]): Promise<readonly [TestApp, TestAp
 describe("a cancel from another instance (#360)", () => {
   pair(
     "returns once recorded; the holder undoes before the tree ends",
-    async ({ apps, clock, mockOf }) => {
-      const desk = mockOf(UndoDesk);
+    async ({ apps, clock, mockService }) => {
+      const desk = mockService(UndoDesk);
       desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
       let open = (): void => undefined;
-      mockOf(UnwindGate).wait.mockImplementation(
+      mockService(UnwindGate).wait.mockImplementation(
         () =>
           new Promise<void>((resolve) => {
             open = resolve;
@@ -136,7 +142,7 @@ describe("a cancel from another instance (#360)", () => {
       const run = execute(first, UnwindWorkflowStart, GUEST, THREAD);
       run.catch(() => undefined);
       await vi.waitFor(() => {
-        expect(mockOf(UnwindGate).wait.mock.calls.length).toBeGreaterThan(0);
+        expect(mockService(UnwindGate).wait.mock.calls.length).toBeGreaterThan(0);
       });
 
       const cancel = await second.cancel("t-1");

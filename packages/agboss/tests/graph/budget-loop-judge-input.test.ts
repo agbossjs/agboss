@@ -1,3 +1,5 @@
+import { StepError } from "../../src/core/error-families/step-errors.js";
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { usd } from "../../src/units/index.js";
 /**
  * #1366 (budget-loop shard) — what a judge of the quality gate reads and what the gate records, each rule on its own
@@ -13,8 +15,8 @@ import { judgedFilesOf } from "../../src/graph/agent-loop/judge-files.js";
 import { meteredModel } from "../../src/graph/agent-loop/judge-model.js";
 import { loopPoliciesOf } from "../../src/graph/agent-loop/model-pii.js";
 import { modelReadingMaskOf } from "../../src/pii/model-boundary.js";
-import { BudgetExceededError } from "../../src/graph/limits.js";
-import { makeJudgeNode, retryPrompt } from "../../src/graph/agent-loop/judge-node.js";
+import { makeJudgeNode } from "../../src/graph/agent-loop/judge-node.js";
+import { retryPrompt } from "../../src/graph/agent-loop/judge-retry-prompt.js";
 import { reportNodeEvent } from "../../src/flow/observers/execution-event.js";
 
 vi.mock("../../src/graph/agent-loop/judge-model.js", () => ({ meteredModel: vi.fn(() => ({})) }));
@@ -133,7 +135,7 @@ describe("#1290: the budgets are checked before each model call of a judge", () 
   });
 
   it("a spent budget the check throws is the run's error as it is; any other throw fails the agent", async () => {
-    const spent = Object.create(BudgetExceededError.prototype) as BudgetExceededError;
+    const spent = Object.create(LimitError.Budget.prototype) as LimitError.Budget;
     const other = new Error("a judge's own throw");
     const { judge } = judgeOf("j", PlainTextDto);
 
@@ -146,7 +148,7 @@ describe("#1290: the budgets are checked before each model call of a judge", () 
       throw other;
     });
     await expect(nodeOf([judge], single)(stateOf(), undefined)).rejects.toMatchObject({
-      name: "AgentFailedError",
+      name: "StepError.Agent",
       cause: other,
     });
   });

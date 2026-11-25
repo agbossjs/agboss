@@ -1,7 +1,8 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import type { Class } from "../components/injection.js";
 import { componentOf } from "../components/metadata.js";
 import { kebabNameProblem } from "../flow/names.js";
-import { GraphRuleError, violation, type RuleViolation } from "../graph/rule-error.js";
+import { violation, type RuleViolation } from "../graph/rule-error.js";
 
 /**
  * The assembly rules of a knowledge base's reranking, loaded only when one reranks: `reranker` is a
@@ -51,5 +52,5 @@ export function checkRerankings(rags: readonly Class[]): void {
     const { name, topK, reranker } = meta.meta;
     return rerankerViolations(name, topK, reranker);
   });
-  if (found.length > 0) throw new GraphRuleError({ violations: found });
+  if (found.length > 0) throw new ConfigError.GraphRules({ violations: found });
 }

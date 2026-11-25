@@ -1,4 +1,3 @@
-import { WorkingCalendarError } from "../../../calendar/working-calendar.js";
 import { PauseError } from "../../../core/error-families/pause-errors.js";
 import type { NodeOutcome } from "../node-runner.js";
 import type { RuntimeGraph, RuntimeNode } from "../graph-model.js";
@@ -58,7 +57,7 @@ export async function launchAttemptOf(
     const launched = { launch, ticket: await launchTicketOf(visit, launch) };
     return itemsOverflowOf(launched, node, state, deps) ?? { launched };
   } catch (error) {
-    if (!(error instanceof WorkingCalendarError)) throw error;
+    if (!(error instanceof PauseError.WorkingCalendar)) throw error;
     const failure = new PauseError.WorkingCalendar({
       message: `${node.id}: the deadline of the quorum could not be counted: ${error.message}`,
       cause: error,

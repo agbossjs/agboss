@@ -1,6 +1,6 @@
+import { ExecutionError } from "../core/error-families/run-errors.js";
 import { InterruptKind, interruptErrorOf } from "./interrupt-requests.js";
 import type { InterruptMode } from "./interrupt-types.js";
-import { CompensationFailedError } from "../flow/compensation.js";
 import { writeCancelRequest, type CancelParts } from "./cancel-requests.js";
 import { endedWithoutPass, rootRecordOf } from "./ended-tree.js";
 import { ExecutionRecordStatus } from "../infrastructure/execution-record.repository.js";
@@ -30,7 +30,7 @@ const STOPPED: string = ExecutionRecordStatus.Stopped;
  * undoable actions are undone (each bounded by `compensationTimeout`) while its record is `running`
  * (S7 3), then its record is failed as cancelled, its keys removed and `onExecutionError` observed.
  * The cancel returns after the undo; `false` when the thread rests paused no more. An undo that
- * failed — the others ran — rejects the cancel with `CompensationFailedError`, its cause the
+ * failed — the others ran — rejects the cancel with `ExecutionError.CompensationFailed`, its cause the
  * `ExecutionCancelledError` (S7 1). With `runId`, only that execution's paused run (#807).
  */
 export async function cancelledPaused(
@@ -65,7 +65,7 @@ export async function cancelledPaused(
     const state = { ...tree, startedVersion: run.startedVersion ?? deps.config.version };
     const cause = pausedCauseOf(command, thread);
     const ended = await endedWithoutPass(parts, state, { cause, signal: lease.signal, lease });
-    if (ended.error instanceof CompensationFailedError) throw ended.error;
+    if (ended.error instanceof ExecutionError.CompensationFailed) throw ended.error;
     return true;
   } finally {
     await lease.release();

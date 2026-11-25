@@ -1,6 +1,6 @@
+import { LimitError } from "../../core/error-families/limit-errors.js";
 import { countBoundOf, isCountLimit } from "../../graph/count-limit.js";
 import { definedOf } from "../../infrastructure/clock.js";
-import { StepsLimitExceededError } from "../../graph/limits.js";
 import { violation, type RuleViolation } from "../../graph/rule-error.js";
 import { NodeKind } from "../ast.js";
 import type { ComponentName } from "../registry.js";
@@ -55,13 +55,13 @@ export const isCycle = <TVertex extends string>(
 /**
  * The worst case of a hand-set `maxSteps` (#643): a flow whose every cycle is bounded by `maxVisits`
  * has a finite worst case, and a `maxSteps` below it turns the designed end of a loop — its
- * `.onError(VisitsLimitExceededError, …)` side path — into `StepsLimitExceededError`. The bound is
+ * `.onError(LimitError.Visits, …)` side path — into `LimitError.Steps`. The bound is
  * the longest path over the flow's strongly connected components, each counted at the most its
  * visits allow: its bounded nodes `maxVisits` times each, and between two of their visits (every
  * cycle passes one) at most the longest path through its other nodes. A component with a launch
  * inside, or a cycle no `maxVisits` stops, has no bound: `maxSteps` is its only one, as before.
  * `[limits.max-steps-below-worst-case]` is a warning (an error under `--strict`); a flow that takes
- * the steps limit itself (`.onError(StepsLimitExceededError, …)`) is not checked.
+ * the steps limit itself (`.onError(LimitError.Steps, …)`) is not checked.
  */
 
 /** A node's `maxVisits`; `undefined` for a node without one. */
@@ -211,7 +211,7 @@ const takesStepsLimit = (graph: FlowGraph): boolean =>
   graph.edges.some(
     ({ error }) =>
       error !== undefined &&
-      (error === StepsLimitExceededError || StepsLimitExceededError.prototype instanceof error),
+      (error === LimitError.Steps || LimitError.Steps.prototype instanceof error),
   );
 
 /** `[limits.max-steps-below-worst-case]` for each start whose bounded worst case `maxSteps` cuts. */
@@ -226,7 +226,7 @@ export function worstCaseStepsWarnings(context: AnalysisContext): readonly RuleV
     const through = worst.loops.length === 0 ? "" : ` — through ${worst.loops.join(", ")}`;
     const message =
       `the worst case from ${start} takes ${String(worst.most)} steps${through}, but maxSteps is ` +
-      `${String(maxSteps)}: a run that long fails with StepsLimitExceededError before its ` +
+      `${String(maxSteps)}: a run that long fails with LimitError.Steps before its ` +
       `maxVisits ends it — set maxSteps: ${String(worst.most)}`;
     return [violation("limits.max-steps-below-worst-case", message, [start])];
   });

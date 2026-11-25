@@ -87,10 +87,10 @@ describe("#808: the skill and the input of a new message", () => {
   test("a DTO skill takes one data part, checked: an invalid one is -32602 with the schema, nothing run", async ({
     a2aServer,
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(AuditRefundAgent).thenReturn(replyWith(RefundDoneDto, { orderId: "7" }));
-    mockLlm(AuditCheckAgent).thenReturn(replyWith(BatchSummaryDto, { text: "ok" }));
+    mockModel(AuditRefundAgent).thenReturn(replyWith(RefundDoneDto, { orderId: "7" }));
+    mockModel(AuditCheckAgent).thenReturn(replyWith(BatchSummaryDto, { text: "ok" }));
     const { url } = await a2aServer(listener);
 
     const invalid = await rpc(url, "SendMessage", {
@@ -117,8 +117,8 @@ describe("#808: the skill and the input of a new message", () => {
     expect((await keptTasks(app)).length).toBe(1);
   });
 
-  test("a text skill answers its text finish as a text part", async ({ a2aServer, mockLlm }) => {
-    mockLlm(DeskClerkAgent).thenReturn(replyWith("Hello."));
+  test("a text skill answers its text finish as a text part", async ({ a2aServer, mockModel }) => {
+    mockModel(DeskClerkAgent).thenReturn(replyWith("Hello."));
     const { url } = await a2aServer(listener);
 
     const answer = await rpc(url, "SendMessage", {
@@ -151,9 +151,9 @@ describe("#808: the skill and the input of a new message", () => {
 
   test("the client's contextId is the task's; a bad one is -32602, never replaced", async ({
     a2aServer,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(DeskClerkAgent).thenReturn(replyWith("Hello."));
+    mockModel(DeskClerkAgent).thenReturn(replyWith("Hello."));
     const { url } = await a2aServer(listener);
 
     const own = await rpc(url, "SendMessage", {
@@ -171,9 +171,9 @@ describe("#808: the skill and the input of a new message", () => {
 describe("#808: a start the app refuses", () => {
   test("another owner's context: FAILED at once with the refusal's code, no execution", async ({
     a2aServer,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(DeskClerkAgent).thenReturn(replyWith("Hello."));
+    mockModel(DeskClerkAgent).thenReturn(replyWith("Hello."));
     const { url } = await a2aServer(listener);
     const message = (messageId: string) =>
       userMessage(messageId, [text("hi")], { metadata: DESK, contextId: "ctx-eve" });
@@ -183,18 +183,18 @@ describe("#808: a start the app refuses", () => {
 
     expect(refused.status).toMatchObject({
       state: "TASK_STATE_FAILED",
-      message: { parts: [{ text: "the task failed: run.thread-owner" }] },
+      message: { parts: [{ text: "the task failed: execution.thread-owner-mismatch" }] },
     });
-    expect(mockLlm(DeskClerkAgent)).toHaveBeenCalledTimes(1);
+    expect(mockModel(DeskClerkAgent)).toHaveBeenCalledTimes(1);
   });
 });
 
 describe("#808 AC4: pauses and follow-ups", () => {
   test("a pause its caller answers → INPUT_REQUIRED with it; a data decision with the taskId resumes it", async ({
     a2aServer,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(DeskClerkAgent).thenReturn(
+    mockModel(DeskClerkAgent).thenReturn(
       callTool(ConfirmOrderTool, { orderId: "7" }),
       replyWith("Confirmed."),
     );
@@ -227,9 +227,9 @@ describe("#808 AC4: pauses and follow-ups", () => {
 
   test("a resend of the follow-up replays it; a pause not pending on the task is -32602", async ({
     a2aServer,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(DeskClerkAgent).thenReturn(
+    mockModel(DeskClerkAgent).thenReturn(
       callTool(ConfirmOrderTool, { orderId: "7" }),
       replyWith("Confirmed."),
     );
@@ -267,9 +267,9 @@ describe("#808 AC4: pauses and follow-ups", () => {
 
   test("a text reply without the role's interpreter is -32602; the pause stays pending", async ({
     a2aServer,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(DeskClerkAgent).thenReturn(callTool(ConfirmOrderTool, { orderId: "7" }));
+    mockModel(DeskClerkAgent).thenReturn(callTool(ConfirmOrderTool, { orderId: "7" }));
     const { url } = await a2aServer(listener);
     const paused = taskOf(
       await rpc(url, "SendMessage", {
@@ -289,9 +289,9 @@ describe("#808 AC4: pauses and follow-ups", () => {
 
   test("a channel-only pause → WORKING, awaiting its channel out of band; a follow-up is -32004", async ({
     a2aServer,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "7" }));
+    mockModel(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "7" }));
     const { url } = await a2aServer(listener);
 
     const sent = taskOf(
@@ -325,9 +325,9 @@ describe("#808 AC4: pauses and follow-ups", () => {
 
   test("an unknown taskId, or another caller's task, is -32001; a contextId not the task's -32602", async ({
     a2aServer,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(DeskClerkAgent).thenReturn(callTool(ConfirmOrderTool, { orderId: "7" }));
+    mockModel(DeskClerkAgent).thenReturn(callTool(ConfirmOrderTool, { orderId: "7" }));
     const { url } = await a2aServer(listener);
     const paused = taskOf(
       await rpc(url, "SendMessage", {
@@ -361,9 +361,9 @@ describe("#808 (review): a follow-up resend whose first outcome was lost", () =>
   test("is decided again, never told accepted: its pause still waits → resumed, once", async ({
     a2aServer,
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(DeskClerkAgent).thenReturn(
+    mockModel(DeskClerkAgent).thenReturn(
       callTool(ConfirmOrderTool, { orderId: "7" }),
       replyWith("Confirmed."),
     );

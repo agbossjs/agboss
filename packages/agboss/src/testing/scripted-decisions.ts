@@ -146,7 +146,7 @@ function outcomeOf(turn: ScriptedTurn, spec: DecideSpec, label: string): Decisio
 
 /**
  * A decision in a test — a judge's, a model arbiter's, a router's before a launch: answered by its
- * script (`mockLlm(Judge).thenReturn(decideWith(…))`), the request recorded, after its
+ * script (`mockModel(Judge).thenReturn(decideWith(…))`), the request recorded, after its
  * `waitFor(…)`. A script that does not fit the questions fails the test.
  */
 export async function scriptedDecide(

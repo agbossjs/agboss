@@ -11,10 +11,10 @@
  * - a compensated child (it booked, then failed): A's frozen reclaim takes nothing, the booking ran
  *   once on B and its undo once, in the parent's node on A.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { beforeEach, describe, expect } from "vitest";
 import {
   ApplicationContext,
-  ChildExecutionFailedError,
   Clock,
   StoreClock,
   ExecutionLeaseRepository,
@@ -180,7 +180,7 @@ describe("#520 acceptance: a compensated child — undone, then failed — is no
       // booking in its node once it reclaimed its own lease (#340 PR 3)
       const onB = yieldSeen.runs[0]?.instanceId ?? "";
       const onA = onB === "instance-1" ? "instance-2" : "instance-1";
-      expect(error).toBeInstanceOf(ChildExecutionFailedError);
+      expect(error).toBeInstanceOf(StepError.Child);
       expect(leaseRowOf(b, child.executionId)).toMatchObject({
         released: true,
         isRetired: true,

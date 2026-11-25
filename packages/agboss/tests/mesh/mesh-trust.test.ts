@@ -1,8 +1,10 @@
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { generateKeyPairSync } from "node:crypto";
 import { afterEach, describe, expect, it } from "vitest";
 import type { App } from "../../src/app/types.js";
-import { DeadlineExceededError, GraphRuleError, type MeshOptions } from "../../src/index.js";
+import { type MeshOptions } from "../../src/index.js";
 import { callTool, replyWith } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { seconds } from "../../src/units/index.js";
@@ -45,7 +47,7 @@ describe("#398 PR 2: @Application({ mesh }) at assembly and start", () => {
       { processEnv: {} },
     );
 
-    await expect(twice).rejects.toBeInstanceOf(GraphRuleError);
+    await expect(twice).rejects.toBeInstanceOf(ConfigError.GraphRules);
     await expect(twice).rejects.toThrow(/\[mesh\.duplicate-peer\] .*orders-application twice/);
     await expect(twice).rejects.toThrow(
       /\[mesh\.peer-without-keys\] .*orders-application lists no verifyKeys/,
@@ -106,14 +108,14 @@ describe("#398 PR 2: @Application({ mesh }) at assembly and start", () => {
 });
 
 describe("#398 PR 2: app.execute(…, { deadline })", () => {
-  it("an execution past its deadline fails before its next step with DeadlineExceededError", async () => {
+  it("an execution past its deadline fails before its next step with LimitError.Deadline", async () => {
     const book = new ScriptBook();
     const app = await createTestAppWith(RemoteDeskApplication, offline(book));
     apps.push(app);
 
     const run = execute(app, AskStart, { text: "hi" }, { deadline: seconds(0) });
 
-    await expect(run).rejects.toFailWith(DeadlineExceededError, {
+    await expect(run).rejects.toFailWith(LimitError.Deadline, {
       code: "limit.deadline",
       deadline: 0,
     });

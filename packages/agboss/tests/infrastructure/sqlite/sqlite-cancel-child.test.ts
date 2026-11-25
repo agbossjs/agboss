@@ -6,8 +6,8 @@
  * commit (with SQLite's busy timeout it waits; at 0 it is refused at once, as here) and no reader
  * sees a mark. Once the write committed, the cancel commits, and the child's next write is refused.
  */
+import { ExecutionError } from "../../../src/core/error-families/run-errors.js";
 import { describe, expect, it } from "vitest";
-import { ExecutionCancelFencedError } from "../../../src/app/lease-lost.js";
 import { NO_ENVIRONMENT_VALUES } from "../../../src/environments/resolve.js";
 import { applicationContextOf } from "../../../src/flow/context/application-context.js";
 import { IdempotencyRunStatus } from "../../../src/infrastructure/fenced-effect.repository.js";
@@ -89,7 +89,7 @@ describe("agbossjs/agboss#1302: a child's open fenced write blocks its root's ca
       await two.leases.requestCancel(TREE);
       expect(await one.leases.isCancelRequested(TREE)).toBe(true);
       const later = await rejectionOf(one.effects.runOnce(keyFor("later"), () => ({ r: 2 })));
-      expect(later).toBeInstanceOf(ExecutionCancelFencedError);
+      expect(later).toBeInstanceOf(ExecutionError.CancelFenced);
     },
   );
 });

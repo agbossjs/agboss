@@ -7,11 +7,11 @@
  * amount" is a guardrail's or the tool's own (the payout interceptor test in
  * `reply-capped-approvals.test.ts`).
  */
+import { ValidationError } from "../../src/index.js";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { validDecisionOf } from "../../src/channels/decision.js";
 import { withCorrectedCall } from "../../src/channels/reply-tools.js";
-import { DtoValidationError } from "../../src/dto/errors.js";
 import { defineTool } from "../../src/tools/index.js";
 
 /** The approved call: a payee, an amount, limits nested two deep, a split. */
@@ -153,7 +153,7 @@ describe("#688: a decision's overrideInput pass the tool's input strictly", () =
         }
       })();
 
-      expect(refused).toBeInstanceOf(DtoValidationError);
+      expect(refused).toBeInstanceOf(ValidationError.DtoInvalid);
       expect(refused).toHaveProperty("issues", [
         { path, reason: "is no field of the tool's input" },
       ]);
@@ -190,6 +190,6 @@ describe("#688: a decision's overrideInput pass the tool's input strictly", () =
   it("a value the tool's input refuses is refused: its validation decides what a value may be", () => {
     expect(() =>
       validDecisionOf(approvedWith({ ...ask.arguments, amountCents: -5 }), payOutTool),
-    ).toThrow(DtoValidationError);
+    ).toThrow(ValidationError.DtoInvalid);
   });
 });

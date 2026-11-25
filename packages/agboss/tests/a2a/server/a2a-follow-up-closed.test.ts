@@ -4,6 +4,7 @@
  * never an error's own message (#807); the refusal is kept and replayed to a resend; a resend whose
  * reply was lost still gets the task; a kept reply of before (`a2a.already-answered`) still replays.
  */
+import { PauseError } from "../../../src/core/error-families/pause-errors.js";
 import { describe, expect, it } from "vitest";
 import { followedUpTask } from "../../../src/a2a/server/a2a-follow-up.js";
 import { requestHashOf } from "../../../src/a2a/server/a2a-message-input.js";
@@ -11,7 +12,6 @@ import {
   DurableExecutionStatus,
   type DurableExecutionState,
 } from "../../../src/app/execution-control.js";
-import { PauseClosedError } from "../../../src/app/pause-closed-error.js";
 import {
   A2ATaskState,
   type A2AMessageKey,
@@ -65,8 +65,8 @@ async function refusedWith(run: Promise<unknown>) {
   return { name, message, metadata };
 }
 
-const closed = (reason: PauseClosedReason): PauseClosedError =>
-  new PauseClosedError({ pauseId: "p-1", tenantId: "acme", reason, closedAt: CLOSED_AT });
+const closed = (reason: PauseClosedReason): PauseError.Closed =>
+  new PauseError.Closed({ pauseId: "p-1", tenantId: "acme", reason, closedAt: CLOSED_AT });
 
 /** A script whose pause `p-1` waits (as the task's records say) and whose resume is refused as closed. */
 const refusing = (reason: PauseClosedReason): Script =>

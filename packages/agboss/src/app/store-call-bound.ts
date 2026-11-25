@@ -1,5 +1,5 @@
 import type { Class } from "../components/injection.js";
-import { StoreOutcomeUnknownError } from "../infrastructure/store-call-timeout.js";
+import { isStoreOutcomeUnknown } from "../infrastructure/store-call-timeout.js";
 import {
   errorOf,
   failure,
@@ -17,7 +17,7 @@ export { LONG_CONTRACTS, MAINTENANCE_METHODS } from "./store-call-kind.js";
  * Every store call the framework awaits is bounded (#928): a Proxy over the store the container
  * creates races each call against its bound, on the application's `Clock`. A call that does not
  * answer is of unknown outcome: under a lease the holder hands the tree over (`abandon`), anywhere
- * else the caller gets `StoreCallTimeoutError`. The late answer is dropped.
+ * else the caller gets `StoreError.CallTimeout`. The late answer is dropped.
  */
 
 const targets = new WeakMap<object, object>();
@@ -146,7 +146,7 @@ function boundedCall(parts: StoreCallParts, facts: CallFacts, apply: () => unkno
   try {
     return boundedResult(parts, facts, apply());
   } catch (error) {
-    if (facts.lease === undefined || !(error instanceof StoreOutcomeUnknownError)) throw error;
+    if (facts.lease === undefined || !isStoreOutcomeUnknown(error)) throw error;
     return failure(parts, facts, error).then((handedOver) => Promise.reject(handedOver));
   }
 }

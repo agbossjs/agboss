@@ -1,5 +1,6 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
-import { ComponentError, componentOf, requireComponent } from "./metadata.js";
+import { componentOf, requireComponent } from "./metadata.js";
 import { tokenName, type Class, type Provider } from "./injection.js";
 import { isModelProviderClass } from "../models/model-provider.decorator.js";
 import { transportProviderClassesOf } from "../models/resolution.js";
@@ -50,7 +51,7 @@ export const toolNames = (
   const add = (cls: Class, name: string): void => {
     const existing = byName.get(name);
     if (existing !== undefined && existing !== cls) {
-      throw new ComponentError({
+      throw new ConfigError.Component({
         message: `[tool.duplicate-name] Duplicate tool name "${name}" found in classes ${tokenName(existing)} and ${tokenName(cls)}. Tool names must be unique across the workflow.`,
       });
     }
@@ -148,7 +149,7 @@ const isDecorated = (cls: Class): boolean =>
 export function checkProviderClasses(bundle: WorkflowMeta): void {
   for (const cls of providerClassesOf(bundle)) {
     if (!isDecorated(cls)) {
-      throw new ComponentError({
+      throw new ConfigError.Component({
         message: `[di.undecorated-provider] @Workflow "${bundle.name}": ${tokenName(cls)} in providers has no decorator — add @Injectable({ deps }) (or the component's own decorator), or register a value with provide(token, value).`,
       });
     }

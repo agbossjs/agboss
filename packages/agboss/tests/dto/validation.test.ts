@@ -1,4 +1,5 @@
 /** #118 AC5: runtime validation — formats, lengths, ranges, list sizes; each issue with its path and reason. */
+import { ValidationError } from "../../src/index.js";
 import { describe, expect, it } from "vitest";
 import {
   CountryCode,
@@ -8,7 +9,6 @@ import {
   Float,
   DecimalString,
   IsoDuration,
-  DtoValidationError,
   Email,
   Bool,
   Integer,
@@ -73,7 +73,7 @@ function pathsOf(raw: unknown): string[] {
     validate(Everything, raw);
     return [];
   } catch (error) {
-    if (!(error instanceof DtoValidationError)) throw error;
+    if (!(error instanceof ValidationError.DtoInvalid)) throw error;
     return error.issues.map((issue) => issue.path);
   }
 }

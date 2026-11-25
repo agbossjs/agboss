@@ -7,6 +7,7 @@
  * that see the failure announces it, and a re-entry that finds the claim repeats the failure without
  * running the step.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { beforeEach, describe, expect } from "vitest";
 import { ExecutionLeaseLostError } from "../../src/index.js";
 import { testWith } from "../../src/testing/index.js";
@@ -93,7 +94,7 @@ describe("#596 AC1: a child whose failure was announced does not finish after a 
 });
 
 describe("#596 AC2: the side path that takes the failure takes it again", () => {
-  test("a ChildExecutionFailedError side path: the child's failure heard once, the root ends at its failed finish", async ({
+  test("a StepError.Child side path: the child's failure heard once, the root ends at its failed finish", async ({
     apps,
     clock,
     leases,

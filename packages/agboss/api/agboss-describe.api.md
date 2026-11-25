@@ -8,7 +8,7 @@
 export interface A2AExportContract {
     readonly cardFileFields: A2ACardFileFields;
     // (undocumented)
-    readonly expose: string;
+    readonly endpoint: string;
     readonly input: ContractDto | null;
     // (undocumented)
     readonly kind: "a2a";
@@ -40,9 +40,9 @@ export interface A2AForeignImportContract extends A2AImportBase {
 export interface A2AImportBase {
     // (undocumented)
     readonly client: string;
+    readonly costPerCall: Usd | null;
     // (undocumented)
     readonly kind: "a2a";
-    readonly price: number | null;
     // (undocumented)
     readonly usedBy: readonly ContractUse[];
 }
@@ -564,7 +564,7 @@ export interface LaunchSnapshot {
 // @public
 export interface McpExportContract {
     // (undocumented)
-    readonly expose: string;
+    readonly endpoint: string;
     // (undocumented)
     readonly input: ContractDto | null;
     // (undocumented)
@@ -586,7 +586,7 @@ export interface McpImportContract {
     readonly server: string;
     readonly target: {
         readonly application: string;
-        readonly expose: string;
+        readonly endpoint: string;
     } | null;
     // (undocumented)
     readonly tool: string;
@@ -772,12 +772,12 @@ export interface WorstCaseChild {
 // src/describe/contracts-types.ts - (ae-undocumented) Missing documentation for "dto".
 // src/describe/contracts-types.ts - (ae-undocumented) Missing documentation for "schemaHash".
 // src/describe/contracts-types.ts - (ae-undocumented) Missing documentation for "kind".
-// src/describe/contracts-types.ts - (ae-undocumented) Missing documentation for "expose".
+// src/describe/contracts-types.ts - (ae-undocumented) Missing documentation for "endpoint".
 // src/describe/contracts-types.ts - (ae-undocumented) Missing documentation for "version".
 // src/describe/contracts-types.ts - (ae-undocumented) Missing documentation for "workflow".
 // src/describe/contracts-types.ts - (ae-undocumented) Missing documentation for "outputs".
 // src/describe/contracts-types.ts - (ae-undocumented) Missing documentation for "kind".
-// src/describe/contracts-types.ts - (ae-undocumented) Missing documentation for "expose".
+// src/describe/contracts-types.ts - (ae-undocumented) Missing documentation for "endpoint".
 // src/describe/contracts-types.ts - (ae-undocumented) Missing documentation for "version".
 // src/describe/contracts-types.ts - (ae-undocumented) Missing documentation for "tool".
 // src/describe/contracts-types.ts - (ae-undocumented) Missing documentation for "input".

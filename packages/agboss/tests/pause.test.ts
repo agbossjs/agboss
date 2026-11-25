@@ -1,8 +1,8 @@
 import { FakeListChatModel } from "@langchain/core/utils/testing";
 import { describe, expect, it } from "vitest";
 import { OwnerToolApproval } from "./flow/fixtures/owner-approval.fixture.js";
-import { DtoValidationError, Text } from "../src/dto/index.js";
-import { NotPausedError, Tool } from "../src/index.js";
+import { Text } from "../src/dto/index.js";
+import { NotPausedError, Tool, ValidationError } from "../src/index.js";
 import { ScriptedChatModel, type Reply } from "./fakes/scripted-model.js";
 import { toolWorkflowOf } from "./fixtures/test-flow/star.workflow.js";
 import { fakeDeps, memoryLedger, resumeWith, runText } from "./helpers.js";
@@ -178,7 +178,7 @@ describe("resume decisions", () => {
     const paused = await runText(task, deps);
     const old: unknown = { approve: true };
 
-    await expect(resumeWith(paused, old, deps)).rejects.toBeInstanceOf(DtoValidationError);
+    await expect(resumeWith(paused, old, deps)).rejects.toBeInstanceOf(ValidationError.DtoInvalid);
     expect(sent).toEqual([]);
   });
 });

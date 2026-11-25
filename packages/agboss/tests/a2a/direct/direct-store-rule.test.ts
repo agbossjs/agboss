@@ -4,13 +4,14 @@
  * an undeclared one, one of a kind no rule knows; several exposes named; an application with no
  * direct-reply skill (or no `@A2AEndpoint` at all) never checked.
  */
+import { ConfigError } from "../../../src/core/error-families/config-errors.js";
 import { hours, minutes } from "../../../src/units/index.js";
 import { describe, expect, it } from "vitest";
 import { A2AEndpoint, A2AReply } from "../../../src/a2a/a2a-endpoint.decorator.js";
 import { Application } from "../../../src/application/application.js";
 import { applicationOf } from "../../../src/application/assemble.js";
 import type { Class, Provider } from "../../../src/components/injection.js";
-import { GraphRuleError, type RuleViolation } from "../../../src/graph/rule-error.js";
+import { type RuleViolation } from "../../../src/graph/rule-error.js";
 import { InMemoryA2ADirectMessageRepository } from "../../../src/infrastructure/in-memory-a2a-direct-message.repository.js";
 import { IN_MEMORY_DATABASE } from "../../../src/infrastructure/in-memory-database.js";
 import { Injectable, type StoreDescriptor } from "../../../src/index.js";
@@ -63,7 +64,7 @@ async function storeViolationsOf(application: Class): Promise<readonly RuleViola
     await applicationOf(application);
     return [];
   } catch (error) {
-    if (!(error instanceof GraphRuleError)) throw error;
+    if (!(error instanceof ConfigError.GraphRules)) throw error;
     return error.violations.filter((found) => found.code === "a2a.message-store-not-shared");
   }
 }

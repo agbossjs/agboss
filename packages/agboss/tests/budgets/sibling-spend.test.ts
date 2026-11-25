@@ -7,6 +7,7 @@
  * Without that `settled()` it is queued at once, and its worker pays $50 twice beside the pending
  * $60 — $160 of $100.
  */
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { afterEach, describe, expect } from "vitest";
 import { BudgetScope } from "../../src/budgets/budget.js";
 import { counterOf } from "../../src/budgets/execution-budgets.js";
@@ -60,7 +61,7 @@ describe("#776: a sibling's spend in flight, a grandchild on any instance about 
       const outcome = await run;
 
       expect("error" in outcome ? outcome.error : outcome).toMatchObject({
-        name: "BudgetExceededError",
+        name: "LimitError.Budget",
         message: expect.stringContaining("spent $110;"),
       });
       expect(siblingSpend.ran).toEqual(["a:sibling-pay", "b:grand-one"]);

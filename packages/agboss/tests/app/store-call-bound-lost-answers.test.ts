@@ -3,8 +3,9 @@
  * call, its caller hears an error at once), the twin holds it and never releases it (a silent
  * peer): the bound turns it into the same error at 15 s, and the same end follows.
  */
+import { StoreError } from "../../src/core/error-families/store-errors.js";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { ChildExecutionQueueRepository, StoreCallTimeoutError } from "../../src/index.js";
+import { ChildExecutionQueueRepository } from "../../src/index.js";
 import { STORE_CALL_BOUND } from "../../src/app/lease-fence.js";
 import { testWith } from "../../src/testing/index.js";
 import { HoldPhase, HoldPoints, processHoldPoints } from "../../src/testing/faults/hold-points.js";
@@ -60,7 +61,7 @@ describe("#720 twin (hold-points): a held answer, never released, is bounded", (
     await clock.advance(STORE_CALL_BOUND);
 
     for (const error of [await first, await second]) {
-      expect(error).toBeInstanceOf(StoreCallTimeoutError);
+      expect(error).toBeInstanceOf(StoreError.CallTimeout);
       expect(error).toMatchObject({
         operation: "claim",
         timeout: STORE_CALL_BOUND,

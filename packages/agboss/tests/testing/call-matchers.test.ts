@@ -1,5 +1,5 @@
 /**
- * #262 PR 2 — verifying calls (AC9): `mockLlm(X).inputs`, `toHaveBeenCalledWith` (the matcher of
+ * #262 PR 2 — verifying calls (AC9): `mockModel(X).inputs`, `toHaveBeenCalledWith` (the matcher of
  * `when`), `toHaveBeenCalledTimes`, `toHaveReturned` under Vitest's names; anything that is not a
  * script still gets Vitest's own mock matchers; `toHaveBeenAskedWith` checks the prompt itself.
  */
@@ -31,72 +31,75 @@ const desk = testWith(DeskApplication);
 const profiled = (summary: string) => replyWith(ProfileDto, { summary });
 
 describe("AC9: what a model was called with, how often, what it returned", () => {
-  chat("inputs: the node's input of every call, as it read it", async ({ app, mockLlm }) => {
-    mockLlm(MainRouter).thenReturn(routeTo(ProfilerAgent), routeTo(ScoutAgent));
-    mockLlm(ProfilerAgent).thenReturn(profiled("TS backend"));
-    mockLlm(ScoutAgent).thenReturn(replyWith(OpeningsDto, { openings: "3" }));
+  chat("inputs: the node's input of every call, as it read it", async ({ app, mockModel }) => {
+    mockModel(MainRouter).thenReturn(routeTo(ProfilerAgent), routeTo(ScoutAgent));
+    mockModel(ProfilerAgent).thenReturn(profiled("TS backend"));
+    mockModel(ScoutAgent).thenReturn(replyWith(OpeningsDto, { openings: "3" }));
 
     await app.execute(IntakeWorkflowStart, { text: "my resume" });
 
-    expect(mockLlm(ScoutAgent).inputs).toEqual([{ profile: { summary: "TS backend" } }]);
-    expect(mockLlm(MainRouter).inputs).toHaveLength(2);
+    expect(mockModel(ScoutAgent).inputs).toEqual([{ profile: { summary: "TS backend" } }]);
+    expect(mockModel(MainRouter).inputs).toHaveLength(2);
   });
 
-  chat("toHaveBeenCalledWith takes the when(…) matcher", async ({ app, mockLlm }) => {
-    mockLlm(MainRouter).thenReturn(routeTo(ProfilerAgent), routeTo(ScoutAgent));
-    mockLlm(ProfilerAgent).thenReturn(profiled("TS backend"));
-    mockLlm(ScoutAgent).thenReturn(replyWith(OpeningsDto, { openings: "3" }));
+  chat("toHaveBeenCalledWith takes the when(…) matcher", async ({ app, mockModel }) => {
+    mockModel(MainRouter).thenReturn(routeTo(ProfilerAgent), routeTo(ScoutAgent));
+    mockModel(ProfilerAgent).thenReturn(profiled("TS backend"));
+    mockModel(ScoutAgent).thenReturn(replyWith(OpeningsDto, { openings: "3" }));
 
     await app.execute(IntakeWorkflowStart, { text: "my resume" });
 
-    expect(mockLlm(ScoutAgent)).toHaveBeenCalledWith({ profile: { summary: "TS backend" } });
-    expect(mockLlm(ScoutAgent)).not.toHaveBeenCalledWith({ profile: undefined });
-    expect(mockLlm(MainRouter)).toHaveBeenCalledWith({ message: { text: "my resume" } });
+    expect(mockModel(ScoutAgent)).toHaveBeenCalledWith({ profile: { summary: "TS backend" } });
+    expect(mockModel(ScoutAgent)).not.toHaveBeenCalledWith({ profile: undefined });
+    expect(mockModel(MainRouter)).toHaveBeenCalledWith({ message: { text: "my resume" } });
     expect(() => {
-      expect(mockLlm(ScoutAgent)).toHaveBeenCalledWith({ profile: { summary: "Go" } });
+      expect(mockModel(ScoutAgent)).toHaveBeenCalledWith({ profile: { summary: "Go" } });
     }).toThrow(
-      'expected mockLlm(ScoutAgent) to have been called with {"profile":{"summary":"Go"}}, its inputs: {"profile":{"summary":"TS backend"}}',
+      'expected mockModel(ScoutAgent) to have been called with {"profile":{"summary":"Go"}}, its inputs: {"profile":{"summary":"TS backend"}}',
     );
   });
 
-  chat("toHaveBeenCalledTimes counts model calls", async ({ app, mockLlm }) => {
-    mockLlm(MainRouter).thenReturn(routeTo(ProfilerAgent), routeTo(ScoutAgent));
-    mockLlm(ProfilerAgent).thenReturn(profiled("TS"));
-    mockLlm(ScoutAgent).thenReturn(replyWith(OpeningsDto, { openings: "3" }));
+  chat("toHaveBeenCalledTimes counts model calls", async ({ app, mockModel }) => {
+    mockModel(MainRouter).thenReturn(routeTo(ProfilerAgent), routeTo(ScoutAgent));
+    mockModel(ProfilerAgent).thenReturn(profiled("TS"));
+    mockModel(ScoutAgent).thenReturn(replyWith(OpeningsDto, { openings: "3" }));
 
     await app.execute(IntakeWorkflowStart, { text: "my resume" });
 
-    expect(mockLlm(ScoutAgent)).toHaveBeenCalledTimes(1);
-    expect(mockLlm(MainRouter)).toHaveBeenCalledTimes(2);
+    expect(mockModel(ScoutAgent)).toHaveBeenCalledTimes(1);
+    expect(mockModel(MainRouter)).toHaveBeenCalledTimes(2);
     expect(() => {
-      expect(mockLlm(ScoutAgent)).toHaveBeenCalledTimes(2);
+      expect(mockModel(ScoutAgent)).toHaveBeenCalledTimes(2);
     }).toThrow(
-      "expected mockLlm(ScoutAgent) to have been called 2 time(s), it was called 1 time(s)",
+      "expected mockModel(ScoutAgent) to have been called 2 time(s), it was called 1 time(s)",
     );
   });
 
-  chat("toHaveReturned names the class and some fields of an answer", async ({ app, mockLlm }) => {
-    mockLlm(MainRouter).thenReturn(routeTo(ProfilerAgent));
-    mockLlm(ProfilerAgent).thenReturn(replyWith(ResumeMissingDto, { reason: "no file" }));
+  chat(
+    "toHaveReturned names the class and some fields of an answer",
+    async ({ app, mockModel }) => {
+      mockModel(MainRouter).thenReturn(routeTo(ProfilerAgent));
+      mockModel(ProfilerAgent).thenReturn(replyWith(ResumeMissingDto, { reason: "no file" }));
 
-    await app.execute(IntakeWorkflowStart, { text: "hi" });
+      await app.execute(IntakeWorkflowStart, { text: "hi" });
 
-    expect(mockLlm(ProfilerAgent)).toHaveReturned(ResumeMissingDto);
-    expect(mockLlm(ProfilerAgent)).toHaveReturned(ResumeMissingDto, { reason: "no file" });
-    expect(mockLlm(ProfilerAgent)).not.toHaveReturned(ProfileDto);
-    expect(() => {
-      expect(mockLlm(ProfilerAgent)).toHaveReturned(ResumeMissingDto, { reason: "other" });
-    }).toThrow('it returned ResumeMissingDto {"reason":"no file"}');
-  });
+      expect(mockModel(ProfilerAgent)).toHaveReturned(ResumeMissingDto);
+      expect(mockModel(ProfilerAgent)).toHaveReturned(ResumeMissingDto, { reason: "no file" });
+      expect(mockModel(ProfilerAgent)).not.toHaveReturned(ProfileDto);
+      expect(() => {
+        expect(mockModel(ProfilerAgent)).toHaveReturned(ResumeMissingDto, { reason: "other" });
+      }).toThrow('it returned ResumeMissingDto {"reason":"no file"}');
+    },
+  );
 
-  desk("a text reply is a WorkflowFinishTextDto", async ({ app, mockLlm }) => {
-    mockLlm(DeskRouter).thenReturn(routeTo(Writer));
-    mockLlm(Writer).thenReturn(replyWith("Hello."));
+  desk("a text reply is a WorkflowFinishTextDto", async ({ app, mockModel }) => {
+    mockModel(DeskRouter).thenReturn(routeTo(Writer));
+    mockModel(Writer).thenReturn(replyWith("Hello."));
 
     await execute(app, ChatStart, { text: "hi" });
 
-    expect(mockLlm(Writer)).toHaveReturned(WorkflowFinishTextDto, { text: "Hello." });
-    expect(mockLlm(DeskRouter)).toHaveBeenAskedWith({ input: "hi" });
+    expect(mockModel(Writer)).toHaveReturned(WorkflowFinishTextDto, { text: "Hello." });
+    expect(mockModel(DeskRouter)).toHaveBeenAskedWith({ input: "hi" });
   });
 });
 
@@ -114,15 +117,15 @@ describe("AC9: anything that is not a script keeps Vitest's own matchers", () =>
   });
 
   desk(
-    "a mockOf(…) method is a vi.fn(): the same matchers apply to it",
-    async ({ app, mockLlm, mockOf }) => {
-      mockOf(OrderBook).statusOf.mockResolvedValue("lost");
-      mockLlm(DeskRouter).thenReturn(routeTo(Support));
-      mockLlm(Support).thenReturn(callTool(OrderStatus, { orderId: "7" }), replyWith("Lost."));
+    "a mockService(…) method is a vi.fn(): the same matchers apply to it",
+    async ({ app, mockModel, mockService }) => {
+      mockService(OrderBook).statusOf.mockResolvedValue("lost");
+      mockModel(DeskRouter).thenReturn(routeTo(Support));
+      mockModel(Support).thenReturn(callTool(OrderStatus, { orderId: "7" }), replyWith("Lost."));
 
       await execute(app, ChatStart, { text: "where is 7?" });
 
-      expect(mockOf(OrderBook).statusOf.mock.calls).toEqual([["7"]]);
+      expect(mockService(OrderBook).statusOf.mock.calls).toEqual([["7"]]);
     },
   );
 });

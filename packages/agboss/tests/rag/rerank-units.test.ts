@@ -1,7 +1,7 @@
 /**
  * #703 — reranking in the test kit: `testUnit(R)` reranks as an agent's search does (a code reranker
  * from its container, a model one on `model: replyWith(…)`, unscripted the retrieval's order), and
- * `mockLlm(Reranker)` scripts a model reranker in `testWith`; a code reranker has no script, named.
+ * `mockModel(Reranker)` scripts a model reranker in `testWith`; a code reranker has no script, named.
  */
 import { describe, expect } from "vitest";
 import type { Class } from "../../src/index.js";
@@ -47,14 +47,14 @@ describe("#703: testUnit reranks", () => {
   });
 });
 
-describe("#703: mockLlm(Reranker)", () => {
-  test("scripts the model reranker of the application", async ({ app, mockLlm }) => {
+describe("#703: mockModel(Reranker)", () => {
+  test("scripts the model reranker of the application", async ({ app, mockModel }) => {
     // a search tool over the knowledge base is a @Tool: callTool names it by its class
     const search = callTool(MODEL_TOOL.tool as Class<{ execute(input: RagQueryDto): unknown }>, {
       query: "on-call",
     });
-    mockLlm(DocsReranker).thenReturn(replyWith('{"ranking":[27]}'));
-    mockLlm(MODEL_TOOL.agent).thenReturn(search, replyWith("done"));
+    mockModel(DocsReranker).thenReturn(replyWith('{"ranking":[27]}'));
+    mockModel(MODEL_TOOL.agent).thenReturn(search, replyWith("done"));
 
     const result = await execute(app, MODEL_TOOL.start, { text: "on-call?" });
 
@@ -62,7 +62,7 @@ describe("#703: mockLlm(Reranker)", () => {
     expect(output.results[0]?.source).toBe(ANSWER.source);
   });
 
-  test("a code reranker calls no model: mockLlm says so", ({ mockLlm }) => {
-    expect(() => mockLlm(KeywordReranker)).toThrow(/a code reranker calls no model/u);
+  test("a code reranker calls no model: mockModel says so", ({ mockModel }) => {
+    expect(() => mockModel(KeywordReranker)).toThrow(/a code reranker calls no model/u);
   });
 });

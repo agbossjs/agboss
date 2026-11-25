@@ -1,6 +1,17 @@
-import type { ErrorRecord } from "../error-record.js";
 import { defineFamily, type ErrorVariant, type FamilyConstructor } from "./family.js";
-import type { KeyTextRule } from "../errors.js";
+import type { CancelFencedFacts } from "./run-error-facts.js";
+import type { KeyTextRule } from "../key-text-rule.js";
+import {
+  cancelFencedMessageOf,
+  compensationFailedMessageOf,
+  duplicateExecutionIdMessageOf,
+  incompatibleResumeMessageOf,
+  invalidMintedIdMessageOf,
+  invalidThreadIdMessageOf,
+  threadIdsExhaustedMessageOf,
+} from "./run-error-messages.js";
+import type { CompensationRecord } from "../../flow/compensation.js";
+import type { ResumeVersions } from "../../run/resume-guard.js";
 
 /** The kinds of `ExecutionError`: `switch (error.kind)` is exhaustive. */
 export enum ExecutionErrorKind {
@@ -25,7 +36,7 @@ export enum ExecutionErrorKind {
   RemoteChildLost = "remote-child-lost",
 }
 
-/** An execution or a thread could not be started, continued or settled. `CancelFenced`, `LeaseLost` and `Fenced` are hand-overs: they reach no `.onError`. */
+/** An execution or a thread could not be started, continued or settled. `LeaseLost`, `Fenced` and `ApplicationStopping` are hand-overs; `CancelFenced` is a cancel: both reach no `.onError`. */
 export type ExecutionError =
   | ExecutionError.CancelFenced
   | ExecutionError.LeaseLost
@@ -49,11 +60,12 @@ export type ExecutionError =
 
 /** The variants of `ExecutionError`, each with the facts it carries. */
 export declare namespace ExecutionError {
-  /** The execution was cancelled and its writes are fenced. */
+  /** The execution was cancelled and its writes are fenced: a cancel, unwound under the lease the instance still holds — no hand-over. */
   export type CancelFenced = ErrorVariant<
     ExecutionErrorKind.CancelFenced,
     "execution.cancelled.fenced"
-  >;
+  > &
+    CancelFencedFacts;
   /** The instance lost the lease of the tree it was moving. */
   export type LeaseLost = ErrorVariant<ExecutionErrorKind.LeaseLost, "execution.lease-lost"> & {
     readonly rootExecutionId: string;
@@ -80,7 +92,14 @@ export declare namespace ExecutionError {
   export type IncompatibleResume = ErrorVariant<
     ExecutionErrorKind.IncompatibleResume,
     "execution.incompatible-resume"
-  >;
+  > & {
+    readonly threadId: string;
+    readonly executionId: string;
+    /** What the paused run was made under. */
+    readonly paused: ResumeVersions;
+    /** What this application runs. */
+    readonly current: ResumeVersions;
+  };
   /** No such thread. */
   export type UnknownThread = ErrorVariant<
     ExecutionErrorKind.UnknownThread,
@@ -134,7 +153,10 @@ export declare namespace ExecutionError {
   export type CompensationFailed = ErrorVariant<
     ExecutionErrorKind.CompensationFailed,
     "execution.compensation-failed"
-  >;
+  > & {
+    /** The undo actions that failed, newest first (each `CompensationStatus.Failed`). */
+    readonly failures: readonly CompensationRecord[];
+  };
   /** The execution's output is not what its finish declares. */
   export type OutputInvalid = ErrorVariant<
     ExecutionErrorKind.OutputInvalid,
@@ -181,57 +203,24 @@ export const ExecutionError: FamilyConstructor<
   code: "execution",
   kinds: ExecutionErrorKind,
   variants: {
-    CancelFenced: [
-      "the execution was cancelled and its writes are fenced",
-      "execution.cancelled.fenced",
-    ],
+    CancelFenced: [cancelFencedMessageOf, "execution.cancelled.fenced"],
     LeaseLost: ["the instance lost the lease of the tree it was moving"],
     Fenced: ["an external system refused a write of this execution", "execution.lease-lost.fenced"],
     ExternallyPaused: ["the execution is paused from outside"],
     AlreadyTerminal: ["the execution already ended"],
-    IncompatibleResume: ["the execution cannot be resumed by this version"],
+    IncompatibleResume: [incompatibleResumeMessageOf],
     UnknownThread: ["no such thread"],
-    InvalidThreadId: ["the thread id is not a key"],
-    InvalidMintedId: ["an id the IdGenerator minted is not a key"],
-    ThreadIdsExhausted: ["the IdGenerator minted only ids the tenant already has"],
+    InvalidThreadId: [invalidThreadIdMessageOf],
+    InvalidMintedId: [invalidMintedIdMessageOf],
+    ThreadIdsExhausted: [threadIdsExhaustedMessageOf],
     ThreadOwnerMismatch: ["the thread belongs to another owner"],
-    DuplicateExecutionId: ["the IdGenerator minted an execution id another execution already has"],
+    DuplicateExecutionId: [duplicateExecutionIdMessageOf],
     ContextUnavailable: ["there is no execution to read here"],
     SpendOutsideStep: ["spend was recorded outside a step"],
     ApplicationStopping: ["the application is stopping and takes no new execution"],
-    CompensationFailed: ["an automatic undo failed"],
+    CompensationFailed: [compensationFailedMessageOf],
     OutputInvalid: ["the execution's output is not what its finish declares"],
     NothingToRecover: ["the run stored nothing to continue"],
     RemoteChildLost: ["a remote child run was lost"],
   },
 });
-
-/**
- * The kinds of `ExecutionError` that are a hand-over, not a failure (#265, #471): the instance lost the
- * tree's lease, an external system fenced one of its writes, a cancel fenced them, or the application
- * is stopping. Another instance continues the tree: such an error reaches neither `.onError` nor the
- * record — so a user's `.onError(ExecutionError, …)` never catches it and a stale worker cannot hold on
- * to a lease it lost.
- */
-export const HAND_OVER_KINDS: ReadonlySet<ExecutionErrorKind> = new Set([
-  ExecutionErrorKind.CancelFenced,
-  ExecutionErrorKind.LeaseLost,
-  ExecutionErrorKind.Fenced,
-  ExecutionErrorKind.ApplicationStopping,
-]);
-
-/** The codes of those kinds: what a record's class line names. */
-const HAND_OVER_CODES: ReadonlySet<string> = new Set([
-  ExecutionError.CancelFenced.code,
-  ExecutionError.LeaseLost.code,
-  ExecutionError.Fenced.code,
-  ExecutionError.ApplicationStopping.code,
-]);
-
-/** Whether `error` is an `ExecutionError` of a hand-over kind. */
-export const isHandOverError = (error: unknown): error is ExecutionError =>
-  error instanceof ExecutionError && HAND_OVER_KINDS.has(error.kind);
-
-/** Whether a record's class line holds a hand-over code: no `.onError` takes it. */
-export const isHandOverRecord = (record: ErrorRecord): boolean =>
-  record.lineage.some((code) => HAND_OVER_CODES.has(code));

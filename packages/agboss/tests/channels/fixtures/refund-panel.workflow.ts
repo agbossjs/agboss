@@ -92,8 +92,7 @@ interface RefundScoresInput {
 }
 
 const scoresOf = (input: RefundScoresInput): BatchSummaryDto => ({
-  text: input.scores
-    .map((score) => String(score.score))
+  text: input.scores.map((score) => String(score.score))
     .join(", "),
 });
 

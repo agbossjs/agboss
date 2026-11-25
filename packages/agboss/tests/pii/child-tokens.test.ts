@@ -31,16 +31,16 @@ const tokenSeen = (requests: readonly Parameters<typeof requestText>[0][], label
 describe("#120 × #263: PII tokens across a child workflow", () => {
   test("parent → child → parent: each side reveals a token only the other side minted", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    const intake = mockLlm(IntakeAgent);
+    const intake = mockModel(IntakeAgent);
     intake.thenReturn(
       callTool(SendEmail, { to: "dana@acme.com", body: "hi" }),
       replyWith(IntakeDto, { text: "noted" }),
     );
     let account = "";
-    const notifier = mockLlm(NotifierAgent);
-    notifier.thenAnswer(() => {
+    const notifier = mockModel(NotifierAgent);
+    notifier.respondWith(() => {
       if (notifier.requests.length === 1) {
         // the parent's account token: in the intake's last request, never in the child's
         account = tokenSeen(intake.requests, "account");
@@ -49,8 +49,8 @@ describe("#120 × #263: PII tokens across a child workflow", () => {
       return replyWith(NoteDto, { text: `ref ${account}` });
     });
     let lee = "";
-    const closing = mockLlm(ClosingAgent);
-    closing.thenAnswer(() => {
+    const closing = mockModel(ClosingAgent);
+    closing.respondWith(() => {
       lee = tokenSeen(notifier.requests, "email");
       return replyWith(`notified ${lee}`);
     });
@@ -71,15 +71,15 @@ describe("#120 × #263: PII tokens across a child workflow", () => {
 
   test("a failed child's tokens come back with its error: the side path reveals them", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    const notifier = mockLlm(NotifierAgent);
+    const notifier = mockModel(NotifierAgent);
     notifier.thenReturn(
       callTool(NotifyTool, { to: "lee@acme.com" }),
       replyWith(NoteDto, { text: "done" }),
     );
-    const recovery = mockLlm(RecoveryAgent);
-    recovery.thenAnswer(() => replyWith(`failed for ${tokenSeen(notifier.requests, "email")}`));
+    const recovery = mockModel(RecoveryAgent);
+    recovery.respondWith(() => replyWith(`failed for ${tokenSeen(notifier.requests, "email")}`));
 
     const result = await execute(app, FailedHandoverStart, { text: "notify lee" });
 
@@ -90,15 +90,15 @@ describe("#120 × #263: PII tokens across a child workflow", () => {
 
   test("a failed per-item child's tokens come back with the branch's error, to the join's side path", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    const notifier = mockLlm(NotifierAgent);
+    const notifier = mockModel(NotifierAgent);
     notifier.thenReturn(
       callTool(NotifyTool, { to: "lee@acme.com" }),
       replyWith(NoteDto, { text: "done" }),
     );
-    const recovery = mockLlm(ListRecoveryAgent);
-    recovery.thenAnswer(() => replyWith(`failed for ${tokenSeen(notifier.requests, "email")}`));
+    const recovery = mockModel(ListRecoveryAgent);
+    recovery.respondWith(() => replyWith(`failed for ${tokenSeen(notifier.requests, "email")}`));
 
     const result = await execute(app, FailedListStart, [{ text: "notify lee" }]);
 

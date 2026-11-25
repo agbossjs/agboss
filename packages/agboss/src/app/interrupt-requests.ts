@@ -1,3 +1,4 @@
+import { isExecutionCancelled } from "../core/execution-cancelled.js";
 import { ExecutionCancelledError } from "../core/errors.js";
 import { ExecutionStoppedError } from "../app/lease-stopped.js";
 import type {
@@ -136,7 +137,7 @@ const detailsOf = (
 
 /** The operator's reason a cancel or stop error carries, when it was given one. */
 export function reasonOfError(error: unknown): string | undefined {
-  const reason = error instanceof ExecutionCancelledError ? error.details?.reason : undefined;
+  const reason = isExecutionCancelled(error) ? error.details?.reason : undefined;
   return typeof reason === "string" ? reason : undefined;
 }
 

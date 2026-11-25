@@ -40,9 +40,9 @@ const quote = (messageId: string, words = "price of sku-1?", fields = {}) => ({
 describe("#860 AC2: a direct reply over SendMessage", () => {
   test("AC2: the skill answers with a Message of its finish's text, no task", async ({
     a2aServer,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(QuoteAgent).thenReturn(replyWith("sku-1 costs 12.50 EUR."));
+    mockModel(QuoteAgent).thenReturn(replyWith("sku-1 costs 12.50 EUR."));
     const { url } = await a2aServer(listener);
 
     const reply = messageOf(await rpc(url, "SendMessage", quote("m-1")));
@@ -60,9 +60,9 @@ describe("#860 AC2: a direct reply over SendMessage", () => {
   test("AC2: a resend of the messageId gets the same message; the model is called and charged once", async ({
     a2aServer,
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(QuoteAgent).thenReturn(replyWith("12.50 EUR."));
+    mockModel(QuoteAgent).thenReturn(replyWith("12.50 EUR."));
     const { url } = await a2aServer(listener);
 
     const first = messageOf(await rpc(url, "SendMessage", quote("m-1")));
@@ -76,7 +76,7 @@ describe("#860 AC2: a direct reply over SendMessage", () => {
 
     expect(again).toEqual(first);
     expect(immediate).toEqual(first);
-    expect(mockLlm(QuoteAgent).requests).toHaveLength(1);
+    expect(mockModel(QuoteAgent).requests).toHaveLength(1);
     const kept = await app
       .resolve(A2ADirectMessageRepository)
       .findByKey({ tenantId: "default", ownerId: "dana", messageId: "m-1" });
@@ -85,9 +85,9 @@ describe("#860 AC2: a direct reply over SendMessage", () => {
 
   test("AC2: two concurrent sends of one messageId: one run, one model call, the same message", async ({
     a2aServer,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(QuoteAgent).thenReturn(replyWith("12.50 EUR."));
+    mockModel(QuoteAgent).thenReturn(replyWith("12.50 EUR."));
     const { url } = await a2aServer(listener);
 
     const [one, two] = await Promise.all([
@@ -96,14 +96,14 @@ describe("#860 AC2: a direct reply over SendMessage", () => {
     ]);
 
     expect(messageOf(two)).toEqual(messageOf(one));
-    expect(mockLlm(QuoteAgent).requests).toHaveLength(1);
+    expect(mockModel(QuoteAgent).requests).toHaveLength(1);
   });
 
   test("AC2: the same messageId with other content is -32602, the reply kept as it was", async ({
     a2aServer,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(QuoteAgent).thenReturn(replyWith("12.50 EUR."));
+    mockModel(QuoteAgent).thenReturn(replyWith("12.50 EUR."));
     const { url } = await a2aServer(listener);
 
     await rpc(url, "SendMessage", quote("m-1"));
@@ -111,14 +111,14 @@ describe("#860 AC2: a direct reply over SendMessage", () => {
 
     expect(errorOf(other).code).toBe(-32602);
     expect(errorInfoOf(other)?.code).toBe("a2a.message-id-reused");
-    expect(mockLlm(QuoteAgent).requests).toHaveLength(1);
+    expect(mockModel(QuoteAgent).requests).toHaveLength(1);
   });
 
   test("AC2: one messageId is one message across reply modes: a task's id or a reply's is -32602 for the other", async ({
     a2aServer,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(QuoteAgent).thenReturn(replyWith("12.50 EUR."));
+    mockModel(QuoteAgent).thenReturn(replyWith("12.50 EUR."));
     const { url } = await a2aServer(listener);
 
     await rpc(url, "SendMessage", {
@@ -132,14 +132,14 @@ describe("#860 AC2: a direct reply over SendMessage", () => {
 
     expect(errorInfoOf(toDirect)?.code).toBe("a2a.message-id-reused");
     expect(errorInfoOf(toTask)?.code).toBe("a2a.message-id-reused");
-    expect(mockLlm(QuoteAgent).requests).toHaveLength(1);
+    expect(mockModel(QuoteAgent).requests).toHaveLength(1);
   });
 
   test("AC2: a direct skill has no task: GetTask of its reply and a follow-up naming it are -32001", async ({
     a2aServer,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(QuoteAgent).thenReturn(replyWith("12.50 EUR."));
+    mockModel(QuoteAgent).thenReturn(replyWith("12.50 EUR."));
     const { url } = await a2aServer(listener);
 
     const reply = messageOf(await rpc(url, "SendMessage", quote("m-1")));
@@ -152,9 +152,9 @@ describe("#860 AC2: a direct reply over SendMessage", () => {
 
   test("AC2: a message that names no skill runs the defaultSkill", async ({
     a2aServer,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(QuoteAgent).thenReturn(replyWith("12.50 EUR."));
+    mockModel(QuoteAgent).thenReturn(replyWith("12.50 EUR."));
     const { url } = await a2aServer(listener);
 
     const reply = messageOf(

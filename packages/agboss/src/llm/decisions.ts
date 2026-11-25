@@ -1,4 +1,4 @@
-import { DecisionError } from "../core/error-families/config-errors.js";
+import { DecisionError } from "../core/error-families/decision-errors.js";
 
 /** How closely a decision model looks at an image (`Auto` when omitted, #269). */
 export enum ImageDetail {

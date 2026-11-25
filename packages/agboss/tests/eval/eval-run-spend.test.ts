@@ -57,7 +57,7 @@ describe("#1366: the spend of an eval run", () => {
   it("is the turns' and the judge's: each check carries its own, the run the sum", async () => {
     const { env, built } = await evalApp();
     env
-      .mockLlm(DeskAgent)
+      .mockModel(DeskAgent)
       .thenReturn(replyWith(DeskAnswerDto, { text: "Order 9 shipped." }, { cost: usd(0.25) }));
     const key = judgeKeyOf("answer-grounded-judge");
     env.book.name(key, AnswerGroundedJudge.name);
@@ -93,7 +93,7 @@ describe("#1366: the spend of an eval run", () => {
   it("under --metamorphic the variants' turns are the metamorphic check's, and in the run's", async () => {
     const { env, built } = await evalApp();
     env
-      .mockLlm(DeskAgent)
+      .mockModel(DeskAgent)
       .thenReturn(
         replyWith(DeskAnswerDto, { text: "Order 9 shipped." }, { cost: usd(0.25) }),
         replyWith(DeskAnswerDto, { text: "Shipped." }, { cost: usd(0.5) }),

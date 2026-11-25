@@ -172,14 +172,11 @@ export class ReadNote {
   }
 }
 
-const price = { inputPerMTok: 1, outputPerMTok: 10 };
-
 @Agent({
   name: "support-agent",
   prompt: "./support.prompt.md",
   description: "Answers questions about orders and keeps notes",
   model: "test/support",
-  price,
   tools: [OrderStatus, ReadNote, SaveNote],
 })
 export class Support {}
@@ -189,7 +186,6 @@ export class Support {}
   prompt: "./writer.prompt.md",
   description: "Writes replies",
   model: "test/writer",
-  price,
 })
 export class Writer {}
 
@@ -253,14 +249,10 @@ export class MainRouter {}
   flow: [
     onStart(ChatStart)
       .toRouter(MainRouter)
-      .onRoute(
-        toAgent(Support)
-          .toFinish(Reply),
-      )
-      .onRoute(
-        toAgent(Writer)
-          .toFinish(Reply),
-      )
+      .onRoute(toAgent(Support)
+        .toFinish(Reply))
+      .onRoute(toAgent(Writer)
+        .toFinish(Reply))
       .onRoute(toFinish(NoReply)),
   ],
   defaults: {

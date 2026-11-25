@@ -1,3 +1,4 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import type { ResolvedModelSettings } from "../config/types.js";
 import { NO_PROVIDER } from "./no-provider.js";
 import { AIMessage } from "@langchain/core/messages";
@@ -12,7 +13,6 @@ import { fallbackMarkOf } from "./fallback-mark.js";
 import { usd, type Usd } from "../units/index.js";
 import { CostSource } from "./cost-source.js";
 import {
-  ModelCostError,
   ZERO_USAGE,
   recordUsage,
   type TokenUsage,
@@ -120,7 +120,7 @@ function shareRecordOf(
     });
     return recordUsage(caller, settings, markedFallbackMessage(message, server));
   } catch (failure) {
-    if (!(failure instanceof ModelCostError)) throw failure;
+    if (!(failure instanceof ConfigError.ModelCost)) throw failure;
     return server === undefined
       ? unpricedOf(caller, settings.model, settings.modelProvider, usage)
       : unpricedOf(caller, server.model, server.provider, usage);

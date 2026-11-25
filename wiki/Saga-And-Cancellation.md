@@ -21,7 +21,7 @@ onStart(OrderWorkflowStart)
 
 `app.cancel(threadId)` stops a running run **softly**: the run stops before its next model or tool call
 and `execute` resolves with `status: ExecutionStatus.Cancelled` (a cancel is an outcome, not an error, #1341). A paused run is dropped
-instead (its `resume` then throws `PauseClosedError`, `reason: cancelled`). `{ cancelled }` is `false` when the thread had
+instead (its `resume` then throws `PauseError.Closed`, `reason: cancelled`). `{ cancelled }` is `false` when the thread had
 neither.
 
 **The undo on cancel (#340 PR 3).** A cancelled execution's open undoable actions
@@ -32,7 +32,7 @@ under its lease: its pauses are withdrawn first (their channels told, #337), the
 each undo action bounded by `compensationTimeout` — and `app.cancel` returns `{ cancelled: true }`
 only after it; a paused child's actions are undone with its parent's. An undo that fails does not
 stop the others (#340 S7): when `app.cancel` runs the undo itself — a paused tree, where
-`{ cancelled: true }` means every undo succeeded — it **rejects with `CompensationFailedError`**
+`{ cancelled: true }` means every undo succeeded — it **rejects with `ExecutionError.CompensationFailed`**
 (the tree is cancelled all the same, its record failed
 with that error and `onExecutionError` given it); when it only aborts or requests the stop of a
 running pass, the holder's `app.execute` / `app.resume` rejects with it. Committed actions and

@@ -1,3 +1,4 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { describe, expectTypeOf, it } from "vitest";
 import type { Class } from "../../../src/components/injection.js";
 import { onStart, onWorkflow, toAction, toWorkflow, toFinish } from "../../../src/flow/builder.js";
@@ -5,7 +6,6 @@ import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import type { InputOf } from "../../../src/flow/generated-types.js";
 import type { ClassOf } from "../../../src/flow/target-ref.js";
 import * as flowEntry from "../../../src/public/flow.js";
-import { StepFailedError } from "../../../src/graph/errors.js";
 import {
   MarkUnitFailedAction,
   OrgChartFailedDto,
@@ -36,7 +36,7 @@ describe("#1287: a thunk is a workflow target", () => {
     const retry = onStart(OrgRetryWorkflowStart)
       .toAgent(UnitCharterAgent)
       .onError(
-        StepFailedError,
+        StepError,
         toWorkflow(() => OrgRetryWorkflow).toOneOf([
           toFinish(TeamChartWorkflowFinish),
           toFinish(OrgChartFailedWorkflowFinish),

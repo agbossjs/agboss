@@ -5,15 +5,10 @@
  * no channel asks nobody and waits for the owner's resume. The guarantees of a resume stay: after the
  * deadline and on a second answer it is refused before the hook is asked.
  */
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { describe, expect } from "vitest";
 import { ExecutionStatus } from "../../src/app/types.js";
-import {
-  PauseError,
-  PauseClosedError,
-  PauseStatus,
-  PausedExecutionRepository,
-  ThreadOwnerError,
-} from "../../src/index.js";
+import { PauseError, PauseStatus, PausedExecutionRepository } from "../../src/index.js";
 import { PauseKind } from "../../src/pause/index.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import { hours } from "../../src/units/index.js";
@@ -45,9 +40,9 @@ const approve = { approved: true } as const;
 describe("#1307c: permitAnswer gates the answer of a delegate approval", () => {
   test("false refuses it: the pause keeps waiting, the tool does not run; a permitted answer then goes through", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(GatedClerkAgent).thenReturn(
+    mockModel(GatedClerkAgent).thenReturn(
       callTool(GatedRefundTool, { orderId: "A-1" }),
       replyWith("Refunded."),
     );
@@ -76,9 +71,9 @@ describe("#1307c: permitAnswer gates the answer of a delegate approval", () => {
 
   test("a throw refuses it too: the error names the pause, not the hook's text", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(GatedClerkAgent).thenReturn(callTool(GatedRefundTool, { orderId: "A-1" }));
+    mockModel(GatedClerkAgent).thenReturn(callTool(GatedRefundTool, { orderId: "A-1" }));
     await execute(app, GatedStart, { text: "refund A-1" });
     app.resolve(PermitPolicy).verdict = "throw";
     const { pauseId } = app.resolve(GatedRefundChannel).asked[0] ?? { pauseId: "" };
@@ -99,8 +94,8 @@ describe("#1307c: permitAnswer gates the answer of a delegate approval", () => {
 
   test.for([undefined, "yes", 1, null])(
     "a verdict that is not true (%s) refuses it",
-    async (verdict, { app, mockLlm }) => {
-      mockLlm(GatedClerkAgent).thenReturn(callTool(GatedRefundTool, { orderId: "A-1" }));
+    async (verdict, { app, mockModel }) => {
+      mockModel(GatedClerkAgent).thenReturn(callTool(GatedRefundTool, { orderId: "A-1" }));
       await execute(app, GatedStart, { text: "refund A-1" });
       app.resolve(PermitPolicy).verdict = verdict;
       const { pauseId } = app.resolve(GatedRefundChannel).asked[0] ?? { pauseId: "" };
@@ -114,9 +109,9 @@ describe("#1307c: permitAnswer gates the answer of a delegate approval", () => {
 
   test("the hook reads who answered, the tool call, its arguments and the decision", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(GatedClerkAgent).thenReturn(
+    mockModel(GatedClerkAgent).thenReturn(
       callTool(GatedRefundTool, { orderId: "A-1" }),
       replyWith("Refunded."),
     );
@@ -138,9 +133,9 @@ describe("#1307c: permitAnswer gates the answer of a delegate approval", () => {
 
   test("a second answer is refused as closed, before the hook is asked again", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(GatedClerkAgent).thenReturn(
+    mockModel(GatedClerkAgent).thenReturn(
       callTool(GatedRefundTool, { orderId: "A-1" }),
       replyWith("Refunded."),
     );
@@ -151,7 +146,7 @@ describe("#1307c: permitAnswer gates the answer of a delegate approval", () => {
     policy.asked.length = 0;
 
     await expect(app.resume({ pauseId, decision: approve }, dana)).rejects.toBeInstanceOf(
-      PauseClosedError,
+      PauseError.Closed,
     );
     expect(policy.asked).toEqual([]);
     expect(app.resolve(PermitRefunds).refunded).toEqual(["A-1"]);
@@ -159,16 +154,16 @@ describe("#1307c: permitAnswer gates the answer of a delegate approval", () => {
 
   test("an answer after the deadline is refused as closed, before the hook is asked", async ({
     app,
-    mockLlm,
+    mockModel,
     clock,
   }) => {
-    mockLlm(GatedClerkAgent).thenReturn(callTool(GatedRefundTool, { orderId: "A-1" }));
+    mockModel(GatedClerkAgent).thenReturn(callTool(GatedRefundTool, { orderId: "A-1" }));
     await execute(app, GatedStart, { text: "refund A-1" });
     const { pauseId } = app.resolve(GatedRefundChannel).asked[0] ?? { pauseId: "" };
     await clock.advance(hours(5));
 
     await expect(app.resume({ pauseId, decision: approve }, dana)).rejects.toBeInstanceOf(
-      PauseClosedError,
+      PauseError.Closed,
     );
     expect(app.resolve(PermitPolicy).asked).toEqual([]);
     expect(app.resolve(PermitRefunds).refunded).toEqual([]);
@@ -178,9 +173,9 @@ describe("#1307c: permitAnswer gates the answer of a delegate approval", () => {
 describe("#1307c: an owner's target with no channel asks nobody", () => {
   test("a tool approval waits for the owner's resume: recorded as sent, no channel was called", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(OwnerClerkAgent).thenReturn(
+    mockModel(OwnerClerkAgent).thenReturn(
       callTool(OwnerRefundTool, { orderId: "B-2" }),
       replyWith("Refunded."),
     );
@@ -204,7 +199,7 @@ describe("#1307c: an owner's target with no channel asks nobody", () => {
     expect(stored).toMatchObject({ status: PauseStatus.Pending, isSent: true });
     await expect(
       app.resume({ pauseId: pending?.pauseId ?? "", decision: approve }, { ownerId: "bob" }),
-    ).rejects.toBeInstanceOf(ThreadOwnerError);
+    ).rejects.toBeInstanceOf(ExecutionError.ThreadOwnerMismatch);
     expect(app.resolve(PermitRefunds).refunded).toEqual([]);
 
     const done = await app.resume(

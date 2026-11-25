@@ -9,7 +9,7 @@ import type { EvalToolExpectations } from "./tool-expectations.js";
  * The cases of an eval suite (#396): each one a thread of its own — `history` written into it
  * without running (past turns the memory and its compaction read), then `turns` run on it in order
  * through the suite's start; the checks judge the last turn. `tenant` / `execution` are the
- * execution's context values, typed and validated like `app.execute`'s (`eval.case-invalid`).
+ * execution's context values, typed and validated like `app.execute`'s (`config.eval-case`).
  */
 
 /** One turn a case runs: the input of the suite's start (`app.execute(Start, input)`). */

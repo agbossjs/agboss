@@ -5,10 +5,10 @@
  * holder's next renewal, up to 10 s later. The step stops, the tree unwinds as cancelled, its undo
  * runs under the lease the holder still has; nothing was written or sent after the cancel.
  */
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { LiveRuns } from "../../src/app/live-runs.js";
 import { ExecutionCancelledError } from "../../src/core/errors.js";
-import { ExecutionCancelFencedError } from "../../src/index.js";
 import { ExecutionLeaseRepository } from "../../src/index.js";
 import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
 import { testWith } from "../../src/testing/index.js";
@@ -84,7 +84,7 @@ describe("#909 AC1/AC3: a live holder between the cancel request and its next re
     // the moving call resolves cancelled; the step saw the store's refusal
     expect(outcome).toMatchObject({ status: ExecutionStatus.Cancelled });
     expect(seen.refusals).toHaveLength(1);
-    expect(seen.refusals[0]).toBeInstanceOf(ExecutionCancelFencedError);
+    expect(seen.refusals[0]).toBeInstanceOf(ExecutionError.CancelFenced);
     expect(seen.charged).toEqual([]);
     expect(seen.reserved).toEqual(["order-1"]);
     expect(seen.released).toEqual(["reservation-order-1"]);
@@ -190,7 +190,7 @@ describe("#909: who writes the mark", () => {
     await settle();
 
     expect(outcome).toMatchObject({ status: ExecutionStatus.Cancelled });
-    expect(seen.refusals[0]).toBeInstanceOf(ExecutionCancelFencedError);
+    expect(seen.refusals[0]).toBeInstanceOf(ExecutionError.CancelFenced);
     expect(seen.charged).toEqual([]);
     expect(seen.released).toEqual(["reservation-order-3"]);
   });
@@ -212,8 +212,8 @@ describe("#909 AC1: an AnyWorker child", () => {
     expect(outcome).toMatchObject({ status: ExecutionStatus.Cancelled });
     expect(seen.charged).toEqual([]);
     const [refusal] = seen.refusals;
-    expect(refusal).toBeInstanceOf(ExecutionCancelFencedError);
+    expect(refusal).toBeInstanceOf(ExecutionError.CancelFenced);
     expect(refusal).toMatchObject({ rootExecutionId: "execution-1" });
-    expect((refusal as ExecutionCancelFencedError).leaseExecutionId).not.toBe("execution-1");
+    expect((refusal as ExecutionError.CancelFenced).leaseExecutionId).not.toBe("execution-1");
   });
 });

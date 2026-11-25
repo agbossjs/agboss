@@ -35,9 +35,9 @@ const remote = testWith(RemoteDeskApplication);
 describe("#1006 AC4: a judge retry on the A2A stream", () => {
   judged(
     "the retry's first chunk replaces the draft; the output closes the artifact",
-    async ({ a2aServer, mockLlm }) => {
-      mockLlm(A2AWriter).thenReturn(replyWith("BAD DRAFT"), replyWith("Good."));
-      mockLlm(A2AJudge).thenReturn(replyWith("FAIL judge says"), replyWith("PASS judge says"));
+    async ({ a2aServer, mockModel }) => {
+      mockModel(A2AWriter).thenReturn(replyWith("BAD DRAFT"), replyWith("Good."));
+      mockModel(A2AJudge).thenReturn(replyWith("FAIL judge says"), replyWith("PASS judge says"));
       const { url } = await a2aServer(judgedListener);
 
       const events = await streamed(url, "m-retry");
@@ -56,9 +56,9 @@ describe("#1006 AC4: a judge retry on the A2A stream", () => {
 
   judged(
     "a FAILED task ends with an empty last chunk before its status; GetTask agrees",
-    async ({ a2aServer, mockLlm }) => {
-      mockLlm(A2AWriter).thenReturn(replyWith("ONE"), replyWith("TWO"));
-      mockLlm(A2AJudge).thenReturn(replyWith("FAIL"), replyWith("FAIL"));
+    async ({ a2aServer, mockModel }) => {
+      mockModel(A2AWriter).thenReturn(replyWith("ONE"), replyWith("TWO"));
+      mockModel(A2AJudge).thenReturn(replyWith("FAIL"), replyWith("FAIL"));
       const { url } = await a2aServer(judgedListener);
 
       const events = await streamed(url, "m-failed");
@@ -97,8 +97,8 @@ describe("#1006 AC4: a CANCELED task", () => {
 
   remote(
     "its stream's view is emptied before the CANCELED status",
-    async ({ a2aServer, mockLlm }) => {
-      mockLlm(Desk).thenReturn(callTool(SlowLookup, { orderId: "7" }));
+    async ({ a2aServer, mockModel }) => {
+      mockModel(Desk).thenReturn(callTool(SlowLookup, { orderId: "7" }));
       let started = false;
       slowLookups.started = () => {
         started = true;

@@ -38,7 +38,7 @@ const toolMetaOf = (tool: Class): ToolMeta => requireComponent(tool, "tool", "te
  * input DTO, runs `execute` in the frame of a tool call — `executionContext.signal` aborts after
  * `timeout` (default the tool's `timeout`) on the runner's clock, `SpendRecorder` records into
  * the call's `spend` as `tool:<name>` — and validates the output. A failure rejects as it was
- * thrown: the tool's own error, `ToolTimeoutError`, or `DtoValidationError` for an input or output
+ * thrown: the tool's own error, `ToolTimeoutError`, or `ValidationError.DtoInvalid` for an input or output
  * that does not fit.
  */
 export function toolUnit<

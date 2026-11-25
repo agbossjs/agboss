@@ -6,19 +6,22 @@
  * DSL review (8): an action's failure stays wrapped (`StepError.Action` with the original as `cause`);
  * `.onError` matches the original's class first, and another project class falls to the wrapper.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { describe, expect } from "vitest";
 import { testWith } from "../../src/testing/index.js";
 import { errorRecordOf } from "../../src/core/error-record.js";
-import { isHandOverRecord } from "../../src/core/error-families/run-errors.js";
+import { isHandOverRecord } from "../../src/core/error-families/hand-over.js";
 import {
   ApplicationStoppingError,
-  ExecutionCancelFencedError,
   ExecutionError,
   ExecutionLeaseLostError,
 } from "../../src/index.js";
+import { isExecutionCancelled } from "../../src/core/execution-cancelled.js";
+import { ExecutionStatus } from "../../src/index.js";
 import { isHandedOver } from "../../src/app/handed-over.js";
 import { execute } from "../helpers/flow.js";
 import {
+  CancelRouteStart,
   ExecutionCaughtFinish,
   FamilyOkFinish,
   NarrowOwnCaughtFinish,
@@ -68,7 +71,6 @@ describe("#1325a: a hand-over reaches no .onError, not even the family's", () =>
   test("the kinds that are a hand-over, and only they, are handed over", () => {
     const handedOver = [
       new ExecutionError.LeaseLost({ rootExecutionId: "r" }),
-      new ExecutionError.CancelFenced(),
       new ExecutionError.ApplicationStopping(),
       new ExecutionError.Fenced({
         scopeKey: "t:r",
@@ -80,6 +82,8 @@ describe("#1325a: a hand-over reaches no .onError, not even the family's", () =>
 
     for (const error of handedOver) expect(isHandedOver(error), error.name).toBe(true);
     expect(isHandedOver(new ExecutionError.UnknownThread())).toBe(false);
+    // a cancel unwound under the held lease, not a hand-over
+    expect(isHandedOver(new ExecutionError.CancelFenced())).toBe(false);
     expect(isHandedOver(new ExecutionLeaseLostError({ rootExecutionId: "r" }))).toBe(true);
   });
 });
@@ -93,26 +97,16 @@ describe("#1325a: the legacy hand-overs and the family's are guarded alike while
       tenantId: "t",
       leaseExecutionId: "r",
     }),
-    new ExecutionCancelFencedError({
-      scopeKey: "t:r",
-      tenantId: "t",
-      rootExecutionId: "r",
-      leaseExecutionId: "r",
-      token: 1,
-      effect: "charge",
-    }),
   ];
 
   test("the record of each legacy hand-over, and of each family one, is a hand-over record", () => {
     for (const error of legacy)
       expect(isHandOverRecord(errorRecordOf(error)), error.name).toBe(true);
-    const family = [
-      new ExecutionError.LeaseLost({ rootExecutionId: "r" }),
-      new ExecutionError.CancelFenced(),
-    ];
+    const family = [new ExecutionError.LeaseLost({ rootExecutionId: "r" })];
     for (const error of family)
       expect(isHandOverRecord(errorRecordOf(error)), error.name).toBe(true);
     expect(isHandOverRecord(errorRecordOf(new ExecutionError.UnknownThread()))).toBe(false);
+    expect(isHandOverRecord(errorRecordOf(new ExecutionError.CancelFenced()))).toBe(false);
   });
 
   test("the legacy lease-lost, fenced and stopping errors are handed over (a cancel-fenced one is read by `cancelFencedErrorOf`)", () => {
@@ -142,9 +136,27 @@ describe("#1325a: a project's error class is caught by its own name", () => {
     const failure: unknown = await runNarrow(app, "other-payment").catch((error: unknown) => error);
 
     expect(failure).toMatchObject({
-      name: "ActionFailedError",
+      name: "StepError.Action",
       code: "step.action",
       cause: { name: "OtherPaymentError" },
     });
+  });
+});
+
+describe("#1413: a cancel unwound under the lease reaches no .onError", () => {
+  test("CancelFenced thrown by an action goes past .onError(ExecutionError) and .onError(AGBossError)", async ({
+    app,
+  }) => {
+    const ended: unknown = await execute(app, CancelRouteStart, { fail: "cancel-fenced" }).then(
+      (result) => result,
+      (error: unknown) => error,
+    );
+
+    // ended as a cancel — a cancelled result or the cancel itself — never at the handlers' finish
+    expect(ended).not.toMatchObject({ finish: { name: "cancel-route-caught-workflow-finish" } });
+    const cancelled =
+      isExecutionCancelled(ended) ||
+      (ended as { status?: string }).status === ExecutionStatus.Cancelled;
+    expect(cancelled).toBe(true);
   });
 });

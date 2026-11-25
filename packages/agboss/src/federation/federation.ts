@@ -40,7 +40,7 @@ const nameOfImport = (contract: Import): string =>
 const targetName = (contract: Import): string =>
   contract.kind === "a2a"
     ? `${contract.target.application} › ${contract.target.skill}`
-    : `${contract.target?.application ?? ""} › ${contract.target?.expose ?? ""} ${contract.tool}`;
+    : `${contract.target?.application ?? ""} › ${contract.target?.endpoint ?? ""} ${contract.tool}`;
 
 /** The export a consumed contract names, in its target application. */
 function exportOf(target: FederationMember, contract: Import): Export | undefined {
@@ -49,7 +49,7 @@ function exportOf(target: FederationMember, contract: Import): Export | undefine
       return exported.kind === "a2a" && exported.skill === contract.target.skill;
     return (
       exported.kind === "mcp" &&
-      exported.expose === contract.target?.expose &&
+      exported.endpoint === contract.target?.endpoint &&
       exported.tool === contract.tool
     );
   });

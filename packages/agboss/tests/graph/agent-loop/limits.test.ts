@@ -1,6 +1,6 @@
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_AGENT_LIMITS, resolveAgentLimits } from "../../../src/graph/agent-loop/index.js";
-import { BudgetExceededError, LimitExceededError } from "../../../src/graph/limits.js";
 import { replyWith, callTools, harness, read, runLoop, startInput } from "./fixtures.js";
 
 describe("AC7: limits per call of the agent — modelCalls and toolCalls", () => {
@@ -65,14 +65,14 @@ describe("AC7: limits per call of the agent — modelCalls and toolCalls", () =>
 
     const failure = await runLoop(h.graph, startInput(), "t").catch((error: unknown) => error);
 
-    expect(failure).toBeInstanceOf(LimitExceededError);
+    expect(failure).toBeInstanceOf(LimitError);
     expect(failure).toMatchObject({
       key: "agents.coder.limits.toolCalls",
       limit: 2,
       actual: 3,
       path: ["chat-workflow-start", "main-router", "coder"],
     });
-    expect((failure as LimitExceededError).usage).toHaveLength(2);
+    expect((failure as LimitError).usage).toHaveLength(2);
     expect(h.effects).toEqual(["read a.ts"]);
   });
 
@@ -97,7 +97,7 @@ describe("AC7: limits per call of the agent — modelCalls and toolCalls", () =>
 
     const end = runLoop(h.graph, startInput(), "t");
 
-    await expect(end).rejects.toBeInstanceOf(BudgetExceededError);
+    await expect(end).rejects.toBeInstanceOf(LimitError.Budget);
     await expect(end).rejects.toMatchObject({
       budget: { name: "test-execution-budget" },
       key: "test-execution",
@@ -114,8 +114,8 @@ describe("AC7: limits per call of the agent — modelCalls and toolCalls", () =>
 
     const failure = await runLoop(h.graph, startInput(), "t").catch((error: unknown) => error);
 
-    expect(failure).toBeInstanceOf(BudgetExceededError);
-    expect((failure as BudgetExceededError).usage).toHaveLength(1);
+    expect(failure).toBeInstanceOf(LimitError.Budget);
+    expect((failure as LimitError.Budget).usage).toHaveLength(1);
     expect(h.effects).toEqual([]);
     expect(h.modelCalls).toEqual([0]);
   });

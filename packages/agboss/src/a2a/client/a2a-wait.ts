@@ -12,7 +12,7 @@ export type { TaskWait } from "./a2a-waiter.js";
  * crash — `SubscribeToTask` when the card streams, re-opened when the stream drops, else `GetTask`
  * polled on the application's `Clock` (250 ms doubling to 5 s). It ends at a terminal or
  * interrupted state; a task that works — a pause answered out of band included — is waited for up
- * to the deadline (`Waiter`: a best-effort `CancelTask`, `A2ACallDeadlineError`). The caller's
+ * to the deadline (`Waiter`: a best-effort `CancelTask`, `A2AError.Deadline`). The caller's
  * signal ends it with its own reason and cancels nothing: a lost lease hands the call over, and the
  * next holder waits on the same task. Only what the agent answers is judged — one rule for the
  * stream and the poll (`isTransientWireError`); a malformed event or the caller's own `onEvent`

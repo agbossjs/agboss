@@ -1,9 +1,11 @@
 /**
  * #1166 (#1121, #906 D4-b): every other core read of a stored text that is no JSON is the coded
- * `StoredNamesUnreadableError` (`code: "stored.unreadable"`, the record, the row's ids) and quotes no
+ * `StoreError.UnreadableRecord` (`code: "store.unreadable-record"`, the record, the row's ids) and quotes no
  * stored text — not in the message, the stack or the cause. A site that goes back to a bare
  * `JSON.parse` fails its case: the parser's `SyntaxError` quotes the planted secret and has no code.
  */
+import { pauseKeyOf } from "../../../src/infrastructure/pause-record.js";
+import { StoreError } from "../../../src/core/error-families/store-errors.js";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
@@ -30,7 +32,6 @@ import { SqliteOutboundCallRepository } from "../../../src/infrastructure/sqlite
 import { directMessageOf } from "../../../src/infrastructure/sqlite/sqlite-a2a-direct-message-rows.js";
 import { messageOf, taskOf } from "../../../src/infrastructure/sqlite/sqlite-a2a-task-rows.js";
 import { toMailbox } from "../../../src/infrastructure/sqlite/sqlite-pause-notice-schema.js";
-import { StoredNamesUnreadableError } from "../../../src/infrastructure/stored-step.js";
 import { NO_ENVIRONMENT_VALUES } from "../../../src/environments/resolve.js";
 import { applicationContextOf } from "../../../src/flow/context/application-context.js";
 import { businessKeyOf, keyOf } from "../../../src/testing/contracts/fenced-effect-data.js";
@@ -63,9 +64,9 @@ async function thrownBy(read: () => unknown): Promise<unknown> {
 /** The refusal: the coded class, its record and ids, a cause of no text, no text anywhere. */
 async function refused(read: () => unknown, record: string, ids: string): Promise<void> {
   const error = await thrownBy(read);
-  expect(error).toBeInstanceOf(StoredNamesUnreadableError);
-  if (!(error instanceof StoredNamesUnreadableError)) throw new TypeError("not the coded error");
-  expect(error.code).toBe("stored.unreadable");
+  expect(error).toBeInstanceOf(StoreError.UnreadableRecord);
+  if (!(error instanceof StoreError.UnreadableRecord)) throw new TypeError("not the coded error");
+  expect(error.code).toBe("store.unreadable-record");
   expect(error.record).toBe(record);
   expect(error.ids).toBe(ids);
   expect(error.message).toContain("not valid JSON");
@@ -269,7 +270,11 @@ describe.each(TEXTS)("#1166: %s is the coded unreadable refusal", (_name, NOT_JS
       claimed_until: null,
     };
 
-    await refused(() => toMailbox(row), "pause notice mailbox", "pauseId p1");
+    await refused(
+      () => toMailbox(row),
+      "pause notice mailbox",
+      `pause ${pauseKeyOf("default", "p1")}`,
+    );
   });
 
   it("an a2a file's metadata on disk", async () => {

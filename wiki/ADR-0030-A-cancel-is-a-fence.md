@@ -23,7 +23,7 @@ charge that had already left was a refund, not a prevention.
 - **Every fencing store reads it in the transaction that checks the lease**, after the lease and the
   scope's mark and — for an effect — after the key's lookup: a stored result replays; a new effect, a
   new intent (`saveIfAbsent`) or a new attempt (`markPending`) is refused with
-  `ExecutionCancelFencedError` (`execution.cancelled.fenced`, an `ExecutionCancelledError`),
+  `ExecutionError.CancelFenced` (`execution.cancelled.fenced`, a cancel — never a hand-over),
   nothing written or sent. What ends or reads an attempt claimed before — `markCompleted`,
   `markFailed`, `findByKey` — is accepted. A stale token is still `ExecutionError.Fenced`, a
   hand-over, before any cancel is looked at.

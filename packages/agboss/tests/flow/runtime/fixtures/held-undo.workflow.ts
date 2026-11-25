@@ -9,7 +9,6 @@ import {
   Decision,
   EmptyEnvironment,
   Observer,
-  QuorumNotReachedError,
   StepError,
   Workflow,
   WorkflowStart,
@@ -215,7 +214,7 @@ export class ArbiterThrowsWorkflowStart {}
       .inParallel([toAction(BookSeatAction), toAction(BookRoomAction)])
       .arbitratedBy(ThrowingSeatArbiter)
       .joinQuorum({ min: 1 })
-      .onError(QuorumNotReachedError, toFinish(TripNotReservedWorkflowFinish))
+      .onError(StepError.QuorumNotReached, toFinish(TripNotReservedWorkflowFinish))
       .toAction(ReviewBookingAction)
       .toFinish(TripReviewedWorkflowFinish),
   ],
@@ -234,7 +233,7 @@ export class ArbiterThrowsChildWorkflowStart {}
       .inParallel([toWorkflow(TripChildWorkflow), toAction(ReserveCarAction)])
       .arbitratedBy(ThrowingTripArbiter)
       .joinQuorum({ min: 1 })
-      .onError(QuorumNotReachedError, toFinish(TripNotReservedWorkflowFinish))
+      .onError(StepError.QuorumNotReached, toFinish(TripNotReservedWorkflowFinish))
       .toAction(ReviewTripAction)
       .toFinish(TripReviewedWorkflowFinish),
   ],
@@ -253,7 +252,7 @@ export class ArbiterOutOfBudgetWorkflowStart {}
       .inParallel([toAction(BookSeatAction), toAction(BookRoomAction)])
       .arbitratedBy(AskingSeatArbiter)
       .joinQuorum({ min: 1 })
-      .onError(QuorumNotReachedError, toFinish(TripNotReservedWorkflowFinish))
+      .onError(StepError.QuorumNotReached, toFinish(TripNotReservedWorkflowFinish))
       .toAction(ReviewBookingAction)
       .toFinish(TripReviewedWorkflowFinish),
   ],
@@ -294,7 +293,7 @@ export class QuorumMissedTripWorkflowStart {}
       .inParallel([toAction(ReserveCarAction), toAction(ReserveCarAction)])
       .arbitratedBy(RefuseCarsArbiter)
       .joinQuorum({ min: 1 })
-      .onError(QuorumNotReachedError, toFinish(TripNotReservedWorkflowFinish))
+      .onError(StepError.QuorumNotReached, toFinish(TripNotReservedWorkflowFinish))
       .toAction(ReviewCarsAction)
       .toFinish(TripReviewedWorkflowFinish),
   ],

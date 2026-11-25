@@ -36,28 +36,22 @@ export const side = (): PathBuilder => subPathFrom({ kind: "side" });
 
 export { skip } from "../../../src/flow/parallel-step.js";
 
-export const toAction = (target: Class): PathBuilder =>
-  side()
-    .toAction(target);
+export const toAction = (target: Class): PathBuilder => side()
+  .toAction(target);
 
-export const toRouter = (target: Class): PathBuilder =>
-  side()
-    .toRouter(target);
+export const toRouter = (target: Class): PathBuilder => side()
+  .toRouter(target);
 
-export const toAgent = (target: Class): PathBuilder =>
-  side()
-    .toAgent(target);
+export const toAgent = (target: Class): PathBuilder => side()
+  .toAgent(target);
 
-export const toFinish = (target: Class): PathBuilder =>
-  side()
-    .toFinish(target);
+export const toFinish = (target: Class): PathBuilder => side()
+  .toFinish(target);
 
 /** The side path `.onError(E, toExternalTask(Q)…)` (#910). */
-export const toExternalTask = (target: Class): PathBuilder =>
-  side()
-    .toExternalTask(target);
+export const toExternalTask = (target: Class): PathBuilder => side()
+  .toExternalTask(target);
 
 /** The side path `.onError(E, toWorkflow(W)…)` (#263 S85). */
-export const toWorkflow = (target: Class): PathBuilder =>
-  side()
-    .toWorkflow(target);
+export const toWorkflow = (target: Class): PathBuilder => side()
+  .toWorkflow(target);

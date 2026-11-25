@@ -61,7 +61,6 @@ export class SlowRag extends RagSource {
   description: "Reads the slow knowledge base",
   prompt: inline("Read."),
   model: "test/alpha",
-  price: testConfig.agents.alpha.price,
   rag: [SlowRag],
 })
 export class SlowReaderAgent {}

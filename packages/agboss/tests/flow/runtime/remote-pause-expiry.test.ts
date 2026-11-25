@@ -1,9 +1,10 @@
 /**
  * #941 I17: a pause of an any-instance child (`ChildPlacement.AnyWorker`) expires through its
  * root — the root's lease, the root's record, the root's drain; its deadline is the run's, the
- * child's frame carries the root's. The root fails with `DeadlineExceededError`, the child's pause
+ * child's frame carries the root's. The root fails with `LimitError.Deadline`, the child's pause
  * is `Expired`, the instance that did not start the run may be the one that expires it.
  */
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import { beforeEach, describe, expect } from "vitest";
 import {
   ExecutionRecordRepository,
@@ -45,12 +46,12 @@ beforeEach(() => {
 });
 
 describe("#941 I17: an any-instance child's pause expires through its root", () => {
-  test("bound by the run's deadline: the pause is expired, the root fails with DeadlineExceededError", async ({
+  test("bound by the run's deadline: the pause is expired, the root fails with LimitError.Deadline", async ({
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ItemReviewerAgent).thenAnswer((request) => {
+    mockModel(ItemReviewerAgent).respondWith((request) => {
       const confirmed =
         request.kind === "chat" && request.messages.some((line) => line.role === "tool");
       return nameIn(request) === "b" && !confirmed

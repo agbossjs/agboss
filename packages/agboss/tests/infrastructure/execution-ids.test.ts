@@ -4,8 +4,8 @@
  * own generator class whether or not the framework's check (#578) wraps it; and the ids of a graph
  * run with no application: random, kept nowhere.
  */
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { describe, expect, it } from "vitest";
-import { DuplicateExecutionIdError } from "../../src/errors.js";
 import {
   CheckedIdGenerator,
   executionIdsOf,
@@ -53,11 +53,11 @@ describe("#591: ExecutionIds", () => {
   ])("a refused id names the project's class, through %s", async (_through, generator) => {
     const refused = executionIdsOf(generator, idsStore(false)).newExecutionId("acme");
 
-    await expect(refused).rejects.toBeInstanceOf(DuplicateExecutionIdError);
+    await expect(refused).rejects.toBeInstanceOf(ExecutionError.DuplicateExecutionId);
     await expect(refused).rejects.toMatchObject({
-      code: "run.duplicate-execution-id",
+      code: "execution.duplicate-execution-id",
       generator: "FixedIdGenerator",
-      details: { generator: "FixedIdGenerator", method: "newExecutionId" },
+      details: { generator: "FixedIdGenerator" },
     });
   });
 
@@ -95,13 +95,13 @@ describe("#807: ReservedExecutionIds — an id reserved before its execution sta
     expect(store.asked).toEqual([identity]);
   });
 
-  it("an id kept before is DuplicateExecutionIdError naming the project's generator", async () => {
+  it("an id kept before is ExecutionError.DuplicateExecutionId naming the project's generator", async () => {
     const generator = new CheckedIdGenerator(new FixedIdGenerator());
 
     const refused = reservedExecutionIdsOf(generator, idsStore(false)).keep(identity);
 
     await expect(refused).rejects.toMatchObject({
-      code: "run.duplicate-execution-id",
+      code: "execution.duplicate-execution-id",
       generator: "FixedIdGenerator",
     });
   });

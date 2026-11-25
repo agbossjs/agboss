@@ -1,3 +1,4 @@
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import { usd } from "../../../src/units/index.js";
 /**
  * #1366 (money-runtime shard) — the side path an execution is on after an `.onError` took a failure (#656), each rule on
@@ -14,7 +15,6 @@ import {
   sidePathEntered,
   sidePathOf,
 } from "../../../src/flow/runtime/limits.js";
-import { LimitExceededError } from "../../../src/graph/limits.js";
 
 const node = (id: string) => ({ id }) as never;
 const entry = (key: string, compensator: string, sequence: number, status = "open") => ({
@@ -27,7 +27,7 @@ const stateOf = (changes: Record<string, unknown> = {}) =>
   ({ sidePath: null, compensations: [], ...changes }) as never;
 
 const limit = errorRecordOf(
-  new LimitExceededError({ key: "k", limit: 1, actual: 2, path: [], spentUsd: usd(0), usage: [] }),
+  new LimitError.Agent({ key: "k", limit: 1, actual: 2, path: [], spentUsd: usd(0), usage: [] }),
 );
 const plain = errorRecordOf(new Error("boom"));
 

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { PauseClosedReason } from "../pause-record.js";
+import { PauseClosedReason, pauseKeyOf } from "../pause-record.js";
 import type { StoredMailbox } from "../pause-mailboxes.js";
 import { PauseNoticeKind } from "../pause-notices.js";
 import { definedOf } from "../clock.js";
@@ -50,7 +50,7 @@ export function toMailbox(row: unknown): StoredMailbox {
       parsedStoredJson({
         what: "pause notice mailbox",
         text: r.notices,
-        ids: { pauseId: r.pause_id },
+        ids: { pause: pauseKeyOf(r.tenant_id, r.pause_id) },
       }),
     ),
     delivered: r.delivered,

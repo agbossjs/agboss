@@ -54,12 +54,10 @@ export const testConfig: AgentsConfigOf<TestAgent> = {
     alpha: {
       model: "test/alpha",
       description: "Handles alpha work",
-      price: { inputPerMTok: 3, outputPerMTok: 6 },
     },
     beta: {
       model: "test/beta",
       description: "Handles beta work",
-      price: { inputPerMTok: 3, outputPerMTok: 6 },
     },
   },
 };

@@ -40,9 +40,9 @@ describe("#340 AC4 on SQLite: an undo interrupted by a stop", () => {
   test("is finished by the other instance; the undo done is not run again", async ({
     apps,
     clock,
-    mockOf,
+    mockService,
   }) => {
-    const desk = mockOf(UndoDesk);
+    const desk = mockService(UndoDesk);
     let isSeatHeld = true;
     desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
     desk.release.mockImplementation((id: string, _key: string, signal: AbortSignal) => {
@@ -50,7 +50,7 @@ describe("#340 AC4 on SQLite: an undo interrupted by a stop", () => {
       isSeatHeld = false;
       return untilAborted(signal);
     });
-    mockOf(UnwindGate).wait.mockImplementation((_guest: string, signal: AbortSignal) =>
+    mockService(UnwindGate).wait.mockImplementation((_guest: string, signal: AbortSignal) =>
       untilAborted(signal),
     );
     const [first, second] = apps;
@@ -60,7 +60,7 @@ describe("#340 AC4 on SQLite: an undo interrupted by a stop", () => {
     const run = execute(first, UnwindWorkflowStart, { guest: "ada" }, { threadId: "t-1" });
     run.catch(() => undefined);
     await vi.waitFor(() => {
-      expect(mockOf(UnwindGate).wait.mock.calls).toHaveLength(1);
+      expect(mockService(UnwindGate).wait.mock.calls).toHaveLength(1);
     });
 
     await first.cancel("t-1");

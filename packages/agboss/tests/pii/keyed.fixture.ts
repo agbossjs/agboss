@@ -67,7 +67,6 @@ export class AppKeyPiiPolicy {}
   description: "Answers",
   prompt: inline("Answer."),
   model: "test/keyed",
-  price: { inputPerMTok: 1, outputPerMTok: 10 },
 })
 export class KeyedAgent {}
 

@@ -44,10 +44,10 @@ const merger = (request: ModelRequest) =>
 describe("a workflow that researches its subtopics itself", () => {
   test("three levels; a failed subtopic is its own result; the last level only reports", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ResearcherAgent).thenAnswer(researcher);
-    mockLlm(MergeAgent).thenAnswer(merger);
+    mockModel(ResearcherAgent).respondWith(researcher);
+    mockModel(MergeAgent).respondWith(merger);
 
     const result = await app.execute(TopicResearchWorkflowStart, { title: "ai", level: 0 });
 

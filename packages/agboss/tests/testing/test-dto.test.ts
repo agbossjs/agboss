@@ -1,6 +1,7 @@
 /** #1328b: `testDto(Dto)` validates, masks and describes a DTO at `$0`, with no application. */
+import { ValidationError } from "../../src/index.js";
 import { describe, expect, expectTypeOf, it } from "vitest";
-import { DtoValidationError, Integer, Nested, Text } from "../../src/dto/index.js";
+import { Integer, Nested, Text } from "../../src/dto/index.js";
 import { PiiAction } from "../../src/pii/actions.js";
 import { testDto } from "../../src/testing/index.js";
 
@@ -29,7 +30,7 @@ describe("#1328b: testDto", () => {
   });
 
   it("validate names every issue of data that does not fit", () => {
-    expect(() => account.validate({ name: "Ann", age: "old" })).toThrow(DtoValidationError);
+    expect(() => account.validate({ name: "Ann", age: "old" })).toThrow(ValidationError.DtoInvalid);
   });
 
   it("mask hides the sensitive fields, nested ones too", () => {

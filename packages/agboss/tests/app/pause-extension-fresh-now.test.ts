@@ -5,9 +5,9 @@
  * working deadline itself still counts from the call's start. Tel Aviv, IST = UTC+2 in November: the
  * pause opens Thursday 2026-11-19 17:30 (15:30Z), 2 working hours → Sunday 10:30 (08:30:00Z).
  */
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { beforeEach, describe, expect } from "vitest";
 import { PauseExpiration } from "../../src/channels/pause-expiration.js";
-import { PauseClosedError } from "../../src/app/pause-closed-error.js";
 import {
   WorkingCalendar,
   WorkingWeek,
@@ -100,7 +100,7 @@ async function pausedThenSlow(
 }
 
 describe("#1148: an extension in working time is decided when it is written", () => {
-  test("a deadline that passes while the calendar computes is not moved: PauseClosedError, the deadline unchanged", async ({
+  test("a deadline that passes while the calendar computes is not moved: PauseError.Closed, the deadline unchanged", async ({
     app,
     clock,
   }) => {
@@ -118,7 +118,7 @@ describe("#1148: an extension in working time is decided when it is written", ()
     release();
 
     expect(clock.now().toISOString()).toBe("2026-11-22T08:30:10.000Z");
-    expect(refused).toBeInstanceOf(PauseClosedError);
+    expect(refused).toBeInstanceOf(PauseError.Closed);
     await until(async () => (await pauseOf(app, pauseId)).status !== PauseStatus.Pending);
     expect((await pauseOf(app, pauseId)).expiresAt).toBe(DEADLINE);
   });

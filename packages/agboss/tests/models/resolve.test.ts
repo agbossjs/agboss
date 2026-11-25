@@ -1,5 +1,6 @@
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
-import { ModelKind, ModelProviderError } from "../../src/models/index.js";
+import { ModelKind } from "../../src/models/index.js";
 import { ModelProviderDirectory } from "../../src/models/resolve.js";
 import { modelProviderOf } from "../../src/models/model-provider.decorator.js";
 import {
@@ -78,7 +79,7 @@ describe("which provider serves a model (the cascade names it, F2: no serves pat
   });
 
   it("a plain class is not a provider", () => {
-    expect(() => modelProviderOf(Date)).toThrow(ModelProviderError);
+    expect(() => modelProviderOf(Date)).toThrow(ConfigError.ModelProvider);
     expect(() => modelProviderOf({})).toThrow("a value is not a @ModelProvider class");
   });
 });

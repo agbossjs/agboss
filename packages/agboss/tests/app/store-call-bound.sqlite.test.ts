@@ -4,12 +4,12 @@
  * synchronous is bounded too, where a test's hold or a stalled file keeps a call); a synchronous
  * return is not wrapped.
  */
+import { StoreError } from "../../src/core/error-families/store-errors.js";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   ChildExecutionQueueRepository,
   ExecutionLeaseLostError,
   OutboundCallRepository,
-  StoreCallTimeoutError,
   StoreOutcomeSource,
 } from "../../src/index.js";
 import { effectKeyForTesting } from "../../src/testing/contracts/effect-key.js";
@@ -67,7 +67,7 @@ describe("#928 AC1: the SQLite stores are bounded", () => {
     const error = await failure;
 
     expect(error).toBeInstanceOf(ExecutionLeaseLostError);
-    expect(error).toMatchObject({ cause: expect.any(StoreCallTimeoutError) });
+    expect(error).toMatchObject({ cause: expect.any(StoreError.CallTimeout) });
     expect(recovery.errors).toEqual([]);
   });
 
@@ -87,7 +87,7 @@ describe("#928 AC1: the SQLite stores are bounded", () => {
     await clock.advance(seconds(15));
 
     for (const error of [await marking, await claiming]) {
-      expect(error).toBeInstanceOf(StoreCallTimeoutError);
+      expect(error).toBeInstanceOf(StoreError.CallTimeout);
       expect(error).toMatchObject({ source: StoreOutcomeSource.Framework, timeout: seconds(15) });
     }
   });

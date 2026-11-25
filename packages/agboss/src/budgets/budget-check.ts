@@ -22,7 +22,7 @@ import type { ExecutionDeadline } from "./execution-deadline.js";
 /** What a check of an execution's budgets needs: no I/O, the counters as last read. */
 export interface BudgetCheck {
   /**
-   * Throws the first exhausted budget's `BudgetExceededError`; `state` is the execution's spend as
+   * Throws the first exhausted budget's `LimitError.Budget`; `state` is the execution's spend as
    * its state holds it — its records (so spend an earlier pass wrote as it was made counts once,
    * #727), or their total.
    */
@@ -42,7 +42,7 @@ export interface BudgetCheck {
     records: readonly UsageRecord[],
     path?: readonly string[],
   ) => readonly UsageRecord[];
-  /** Aborted, with its `BudgetExceededError` as the reason, when a tally exhausts a budget. */
+  /** Aborted, with its `LimitError.Budget` as the reason, when a tally exhausts a budget. */
   readonly exhausted: AbortSignal;
   /**
    * What the execution may still spend, in USD — the least any of its budgets has left (#398: the

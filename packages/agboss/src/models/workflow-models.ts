@@ -15,7 +15,7 @@ export const directoryOf = (providers: readonly ModelProviderType[]): ModelProvi
 /** The pricing of an application's model providers. */
 export function modelPricingOf(directory: ModelProviderDirectory): ModelPricing {
   return (settings) => {
-    if (settings.price !== undefined || settings.modelProvider === undefined) return settings;
+    if (settings.modelProvider === undefined) return settings;
     // the provider its cascade resolved (a chat or a decisions one), not one that lists the model (#1313)
     const provider = directory.named(settings.modelProvider);
     if (provider === undefined) return settings;
@@ -26,7 +26,7 @@ export function modelPricingOf(directory: ModelProviderDirectory): ModelPricing 
   };
 }
 
-/** The config with every chat model priced by its provider's table where it sets no price itself. */
+/** The config with every chat model priced by its provider's table. */
 export function withProviderPrices(
   config: AgentsConfigOf<string>,
   directory: ModelProviderDirectory,

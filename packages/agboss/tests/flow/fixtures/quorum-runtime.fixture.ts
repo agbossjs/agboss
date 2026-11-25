@@ -1,11 +1,6 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { Application } from "../../../src/application/application.js";
-import {
-  ArbiterError,
-  EmptyEnvironment,
-  QuorumNotReachedError,
-  Workflow,
-  Ttl,
-} from "../../../src/index.js";
+import { EmptyEnvironment, Workflow, Ttl } from "../../../src/index.js";
 import { seconds } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import {
@@ -74,8 +69,8 @@ export class QuickPanelWorkflow {}
       .inParallel(PANEL.map((agent) => toAgent(agent)))
       .arbitratedBy(InRangeArbiter)
       .joinQuorum({ min: 2, max: 3, deadline: seconds(30) })
-      .onError(QuorumNotReachedError, toFinish(PanelFailedWorkflowFinish))
-      .onError(ArbiterError, toFinish(PanelUnjudgedWorkflowFinish))
+      .onError(StepError.QuorumNotReached, toFinish(PanelFailedWorkflowFinish))
+      .onError(StepError.Arbiter, toFinish(PanelUnjudgedWorkflowFinish))
       .toAgent(PanelSummaryAgent)
       .toFinish(PanelReviewWorkflowFinish),
   ],
@@ -106,7 +101,7 @@ export class StrictPanelWorkflow {}
       .inParallel(PANEL.map((agent) => toAgent(agent)))
       .arbitratedBy(PanelModelArbiter)
       .joinQuorum({ min: 2, max: 3 })
-      .onError(ArbiterError, toFinish(PanelUnjudgedWorkflowFinish))
+      .onError(StepError.Arbiter, toFinish(PanelUnjudgedWorkflowFinish))
       .toAgent(PanelSummaryAgent)
       .toFinish(PanelReviewWorkflowFinish),
   ],
@@ -138,7 +133,7 @@ export class ChatPanelWorkflow {}
       .inParallel(PANEL.map((agent) => toAgent(agent)))
       .arbitratedBy(HybridPanelArbiter)
       .joinQuorum({ min: 1, max: 3 })
-      .onError(ArbiterError, toFinish(PanelUnjudgedWorkflowFinish))
+      .onError(StepError.Arbiter, toFinish(PanelUnjudgedWorkflowFinish))
       .toAgent(PanelSummaryAgent)
       .toFinish(PanelReviewWorkflowFinish),
   ],
@@ -155,8 +150,8 @@ export class HybridPanelWorkflow {}
       .inParallel([toAgent(SkillsPanelAgent), toAgent(RisksPanelAgent), toAgent(HirePanelAgent)])
       .arbitratedBy(InRangeArbiter)
       .joinQuorum({ min: 2, max: 3 })
-      .onError(QuorumNotReachedError, toFinish(PanelFailedWorkflowFinish))
-      .onError(ArbiterError, toFinish(PanelUnjudgedWorkflowFinish))
+      .onError(StepError.QuorumNotReached, toFinish(PanelFailedWorkflowFinish))
+      .onError(StepError.Arbiter, toFinish(PanelUnjudgedWorkflowFinish))
       .toAgent(PanelSummaryAgent)
       .toFinish(PanelReviewWorkflowFinish),
   ],
@@ -205,7 +200,7 @@ export class ItemPanelWorkflow {}
       .inParallel([toAgent(SkillsPanelAgent), toAgent(SkillsPanelAgent), toAgent(SkillsPanelAgent)])
       .arbitratedBy(CopyArbiter)
       .joinQuorum({ min: 2, max: 3 })
-      .onError(QuorumNotReachedError, toFinish(PanelFailedWorkflowFinish))
+      .onError(StepError.QuorumNotReached, toFinish(PanelFailedWorkflowFinish))
       .toAgent(PanelSummaryAgent)
       .toFinish(PanelReviewWorkflowFinish),
   ],
@@ -235,7 +230,7 @@ export class RecoveryPanelWorkflow {}
     onStart(DealPanelWorkflowStart)
       .inParallel([toAgent(LegalPanelAgent), toAgent(CriticPanelAgent), toAgent(FastPanelAgent)])
       .joinQuorumGroups({ deadline: seconds(60) })
-      .onError(QuorumNotReachedError, toFinish(NoQuorumPanelWorkflowFinish))
+      .onError(StepError.QuorumNotReached, toFinish(NoQuorumPanelWorkflowFinish))
       .onGroup(
         [LegalPanelAgent, CriticPanelAgent],
         { priority: 1 },

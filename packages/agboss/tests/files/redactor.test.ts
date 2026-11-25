@@ -3,13 +3,13 @@
  * black in a copy that is upright and has no metadata; everything that goes wrong fails closed, never the
  * unredacted file.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { FakeListChatModel } from "@langchain/core/utils/testing";
 import sharp from "sharp";
 import { crc32, deflateSync } from "node:zlib";
 import { inspect } from "node:util";
 import { describe, expect, it, vi } from "vitest";
 import { sha256Of, type FileContent } from "../../src/files/file-bytes.js";
-import { FileRedactionFailedError } from "../../src/files/file-errors.js";
 import {
   MAX_INPUT_PIXELS,
   REDACTOR_SYSTEM,
@@ -20,6 +20,7 @@ import { SILENT_LOG } from "../../src/infrastructure/logger.js";
 import { PiiKind } from "../../src/pii/kinds.js";
 import { seconds } from "../../src/units/index.js";
 import { runNodeReporting } from "../helpers/process.js";
+import { usd } from "../../src/units/index.js";
 
 const settings = {
   model: "test/redactor",
@@ -29,7 +30,7 @@ const settings = {
   cache: true,
   timeout: seconds(1),
   maxRetries: 0,
-  price: { inputPerMTok: 1, outputPerMTok: 1 },
+  price: { inputPerMillion: usd(1), outputPerMillion: usd(1) },
 };
 
 const bindingAnswering = (...answers: string[]) => ({
@@ -122,7 +123,7 @@ async function failure(
   answer: string,
   file?: FileContent,
   options = OPTIONS,
-): Promise<FileRedactionFailedError> {
+): Promise<StepError.FileMaskingFailed> {
   const error = await redacted(
     bindingAnswering(answer),
     "reader-agent",
@@ -132,8 +133,8 @@ async function failure(
     () => undefined,
     (thrown: unknown) => thrown,
   );
-  expect(error).toBeInstanceOf(FileRedactionFailedError);
-  return error as FileRedactionFailedError;
+  expect(error).toBeInstanceOf(StepError.FileMaskingFailed);
+  return error as StepError.FileMaskingFailed;
 }
 
 describe("AC3: everything that goes wrong fails closed, never the unredacted file", () => {
@@ -403,8 +404,8 @@ describe("#1257: the work is bound by the image's header and the number of regio
       (thrown: unknown) => thrown,
     );
 
-    expect(error).toBeInstanceOf(FileRedactionFailedError);
-    expect((error as FileRedactionFailedError).reason).toContain("more than 40000000 pixels");
+    expect(error).toBeInstanceOf(StepError.FileMaskingFailed);
+    expect((error as StepError.FileMaskingFailed).reason).toContain("more than 40000000 pixels");
     expect(invoke).not.toHaveBeenCalled();
   });
 
@@ -421,8 +422,8 @@ describe("#1257: the work is bound by the image's header and the number of regio
     }).catch((thrown: unknown) => thrown);
 
     expect(read.found).toEqual([PiiKind.CardNumber]);
-    expect(refused).toBeInstanceOf(FileRedactionFailedError);
-    expect((refused as FileRedactionFailedError).reason).toContain("more than 19999 pixels");
+    expect(refused).toBeInstanceOf(StepError.FileMaskingFailed);
+    expect((refused as StepError.FileMaskingFailed).reason).toContain("more than 19999 pixels");
   });
 
   it("the cap on regions is 200: 200 are painted, 201 fail the redaction with their count and none of the answer", async () => {
@@ -448,8 +449,8 @@ describe("#1257: the work is bound by the image's header and the number of regio
       { maxPixels: MAX_INPUT_PIXELS, maxRegions: 2 },
     ).catch((thrown: unknown) => thrown);
 
-    expect(error).toBeInstanceOf(FileRedactionFailedError);
-    expect((error as FileRedactionFailedError).reason).toContain(
+    expect(error).toBeInstanceOf(StepError.FileMaskingFailed);
+    expect((error as StepError.FileMaskingFailed).reason).toContain(
       "3 regions, more than the 2 taken",
     );
   });

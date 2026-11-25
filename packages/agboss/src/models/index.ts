@@ -7,7 +7,6 @@
  */
 export {
   ModelProvider,
-  ModelProviderError,
   type ModelFallback,
   type ModelProviderOptions,
   type ModelProviderType,
@@ -98,12 +97,7 @@ export {
   type PerMinuteLimits,
   type RateLimitOptions,
 } from "./policies/rate-limit-policy.js";
-export {
-  ConfigurationError,
-  type ConfigurationErrorOptions,
-  type ModelProblem,
-  type ModelProblemCode,
-} from "./problems.js";
+export { type ModelProblem, type ModelProblemCode } from "./problems.js";
 export type {
   AGBossErrorOptions,
   ErrorDetails,
@@ -140,5 +134,5 @@ export {
   type TransportModelProviderType,
 } from "./model-provider.decorator.js";
 export { type CacheControl, type WireMessage, type WireTool } from "./wire.js";
-export { type MaxTokens, type Price } from "../config/types.js";
+export { type MaxTokens } from "../config/types.js";
 export { type WireContentPart, type WireFunction } from "./wire.js";

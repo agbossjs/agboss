@@ -1,7 +1,8 @@
+import { LimitError } from "../../core/error-families/limit-errors.js";
+import { A2AError } from "../../core/error-families/remote-errors.js";
 import { HTTP_EXTENSION_HEADER, Message, TaskState, type AgentCard, type Task } from "@a2a-js/sdk";
 import { serviceUsageOf } from "../../components/spend-recorder.js";
 import { currentFrame } from "../../flow/context/frame.js";
-import { MeshLoopDetectedError } from "../../mesh/mesh-errors.js";
 import { TRACEPARENT } from "../../mesh/mesh-envelope.js";
 import { takeRunReport, type RunReportIdentity } from "../../mesh/mesh-report.js";
 import { currentCallChainOf, outboundMeshOfHash } from "../../mesh/outbound-mesh.js";
@@ -10,7 +11,7 @@ import { usd, type Usd } from "../../units/index.js";
 import { A2A_MESH_EXTENSION } from "../a2a-extension-uris.js";
 import { meshBodyHashOf, meshReportTextOf } from "../a2a-mesh-message.js";
 import { cardExtensionsOf, type A2ARemotePeer } from "./a2a-card.js";
-import { A2AMesh, A2AMeshUnsupportedError } from "./a2a-guard-errors.js";
+import { A2AMesh } from "./a2a-guard-errors.js";
 
 /**
  * What rides an A2A call beyond the core protocol (#809, design §4.2 "AGBoss guarantees ride as
@@ -19,7 +20,7 @@ import { A2AMesh, A2AMeshUnsupportedError } from "./a2a-guard-errors.js";
  * its signature) in `message.metadata[mesh-uri]`, the extension activated by `A2A-Extensions`, and
  * the signed run report read back from `task.metadata[mesh-uri]`. A seam (P3 #810 extends it: the
  * step record's `mesh: false`, the echo header); explicit when it is not there: an agent without
- * the extension is refused under `A2AMesh.Required` (`A2AMeshUnsupportedError`), called without it
+ * the extension is refused under `A2AMesh.Required` (`A2AError.MeshUnsupported`), called without it
  * under `IfSupported` (`peer.mesh: false`) and charged the client's own `price`.
  */
 
@@ -137,7 +138,7 @@ const declaresMesh = (card: AgentCard): boolean =>
 
 /**
  * A call to an entry the calling tree already passed through is a loop: refused before sending,
- * whatever the agent would check (the same `MeshLoopDetectedError` its refusal rebuilds).
+ * whatever the agent would check (the same `LimitError.MeshLoop` its refusal rebuilds).
  */
 function refuseLoop(call: A2AMeshCall): void {
   const chain = currentCallChainOf();
@@ -146,7 +147,7 @@ function refuseLoop(call: A2AMeshCall): void {
   const isLoop = chain.some(
     (hop) => hop.application === entry.application && hop.start === entry.start,
   );
-  if (isLoop) throw new MeshLoopDetectedError({ entry, callChain: chain });
+  if (isLoop) throw new LimitError.MeshLoop({ meshEntry: entry, callChain: chain });
 }
 
 /**
@@ -220,7 +221,7 @@ function withMesh(peer: A2ARemotePeer, call: A2AMeshCall): A2AMeshActivation {
       const outbound = outboundMeshOfHash(hash, call.application);
       if (outbound === undefined) {
         if (call.mesh === A2AMesh.Required && currentFrame() !== undefined) {
-          throw new A2AMeshUnsupportedError({ agent: call.agent, application: call.application });
+          throw new A2AError.MeshUnsupported({ agent: call.agent, application: call.application });
         }
         return NOTHING;
       }
@@ -243,7 +244,7 @@ export const AGBOSS_MESH: A2AMeshSeam = {
   activate: (card, peer, call) => {
     if (!declaresMesh(card)) {
       if (call.mesh === A2AMesh.Required) {
-        throw new A2AMeshUnsupportedError({ agent: call.agent, application: call.application });
+        throw new A2AError.MeshUnsupported({ agent: call.agent, application: call.application });
       }
       return withoutMesh(peer, call);
     }

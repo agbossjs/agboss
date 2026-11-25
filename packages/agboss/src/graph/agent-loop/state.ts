@@ -233,7 +233,7 @@ export const AgentLoopState = Annotation.Root({
   answeredWith: Annotation<number[]>({ reducer: replace, default: () => [] }),
   /** Judge rejections retried so far. */
   retries: Annotation<number>({ reducer: add, default: () => 0 }),
-  /** Invalid answers so far (S9: 2 retries, then `AgentAnswerInvalidError`). */
+  /** Invalid answers so far (S9: 2 retries, then `StepError.AgentAnswerInvalid`). */
   invalidAnswers: Annotation<number>({ reducer: add, default: () => 0 }),
   /** Tool calls whose arguments failed their tool's input check so far (#268 S93). */
   invalidArguments: Annotation<number>({ reducer: add, default: () => 0 }),

@@ -2,9 +2,10 @@
  * #899 §5, §6, §7 (AC3, AC5): the redacted view — a project's redactor and the built-in on a real image,
  * what the model is shown, the cache, the spend, a block rule's refusal, and every way it fails closed.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
+import { PiiError } from "../../src/core/error-families/limit-errors.js";
 import { describe, expect } from "vitest";
 import {
-  FileRedactionFailedError,
   FileSource,
   FileView,
   Injectable,
@@ -12,7 +13,6 @@ import {
   PiiFileAction,
   PiiKind,
   PiiPolicy,
-  PiiRefusedError,
   type FileContent,
   type RedactionResult,
   type RedactOptions,
@@ -128,9 +128,9 @@ const partsOf = (request: { kind: string; parts?: readonly { sha256: string }[] 
 describe("AC3: the model reads the redacted copy, never the original", () => {
   testWith(stored.Application)(
     "AC3: the copy's digest is in the model's request; the redactor was asked for the policy's kinds",
-    async ({ app, mockLlm }) => {
+    async ({ app, mockModel }) => {
       resetSpy();
-      const agent = mockLlm(stored.Agent).thenReturn(replyWith("ok"));
+      const agent = mockModel(stored.Agent).thenReturn(replyWith("ok"));
 
       const result = await execute(app, stored.Start, {
         document: inline(PNG_BYTES, "image/png", "card.png"),
@@ -148,9 +148,9 @@ describe("AC3: the model reads the redacted copy, never the original", () => {
 
   testWith(stored.Application)(
     "AC3: a text format in the redacted view is its masked text, no redactor call",
-    async ({ app, mockLlm }) => {
+    async ({ app, mockModel }) => {
       resetSpy();
-      const agent = mockLlm(stored.Agent).thenReturn(replyWith("ok"));
+      const agent = mockModel(stored.Agent).thenReturn(replyWith("ok"));
 
       await execute(app, stored.Start, {
         document: inline(Buffer.from("card 4242 4242 4242 4242\n"), "text/csv", "c.csv"),
@@ -163,9 +163,9 @@ describe("AC3: the model reads the redacted copy, never the original", () => {
 
   testWith(noPolicy.Application)(
     "AC3: with nothing to hide (no policy, no sensitive value) the redacted view is the file itself",
-    async ({ app, mockLlm }) => {
+    async ({ app, mockModel }) => {
       resetSpy();
-      const agent = mockLlm(noPolicy.Agent).thenReturn(replyWith("ok"));
+      const agent = mockModel(noPolicy.Agent).thenReturn(replyWith("ok"));
 
       await execute(app, noPolicy.Start, { document: inline(PNG_BYTES, "image/png", "a.png") });
 
@@ -178,10 +178,10 @@ describe("AC3: the model reads the redacted copy, never the original", () => {
 describe("AC5: a redacted copy is made once per execution", () => {
   testWith(toolFiles.Application)(
     "AC5: the same file in the input and in a tool's result is redacted once; every model call reads the copy",
-    async ({ app, mockLlm }) => {
+    async ({ app, mockModel }) => {
       resetSpy();
       FETCHABLE.set("again", inline(PNG_BYTES, "image/png", "again.png"));
-      const agent = mockLlm(toolFiles.Agent).thenReturn(
+      const agent = mockModel(toolFiles.Agent).thenReturn(
         callTool(FetchTool, { name: "again" }),
         replyWith("ok"),
       );
@@ -199,17 +199,17 @@ describe("AC5: a redacted copy is made once per execution", () => {
 
 describe("AC3: a block rule's kind found in the file refuses it", () => {
   testWith(blocking.Application)(
-    "AC3: the redactor found an SSN: PiiRefusedError with the policy's text, the model is never called",
-    async ({ app, mockLlm }) => {
+    "AC3: the redactor found an SSN: PiiError.Refused with the policy's text, the model is never called",
+    async ({ app, mockModel }) => {
       resetSpy();
       spy.found = [PiiKind.UsSsn];
-      const agent = mockLlm(blocking.Agent);
+      const agent = mockModel(blocking.Agent);
 
       const run = execute(app, blocking.Start, {
         document: inline(PNG_BYTES, "image/png", "id.png"),
       });
 
-      await expect(run).rejects.toBeInstanceOf(PiiRefusedError);
+      await expect(run).rejects.toBeInstanceOf(PiiError.Refused);
       await expect(run).rejects.toMatchObject({ refusal: "No SSN please." });
       expect(agent).toHaveBeenCalledTimes(0);
     },
@@ -217,10 +217,10 @@ describe("AC3: a block rule's kind found in the file refuses it", () => {
 
   testWith(blocking.Application)(
     "AC3: a kind no block rule names is blacked out, not refused",
-    async ({ app, mockLlm }) => {
+    async ({ app, mockModel }) => {
       resetSpy();
       spy.found = [PiiKind.CardNumber];
-      mockLlm(blocking.Agent).thenReturn(replyWith("ok"));
+      mockModel(blocking.Agent).thenReturn(replyWith("ok"));
 
       const result = await execute(app, blocking.Start, {
         document: inline(PNG_BYTES, "image/png", "id.png"),
@@ -237,10 +237,10 @@ describe("AC3: it fails closed — never the unredacted file in its place", () =
 
   testWith(stored.Application)(
     "a service that throws fails the step; the model is never called",
-    async ({ app, mockLlm }) => {
+    async ({ app, mockModel }) => {
       resetSpy();
       spy.mode = "throw";
-      const agent = mockLlm(stored.Agent);
+      const agent = mockModel(stored.Agent);
 
       await expect(visit(app, stored)).rejects.toThrow();
       expect(agent).toHaveBeenCalledTimes(0);
@@ -248,13 +248,13 @@ describe("AC3: it fails closed — never the unredacted file in its place", () =
   );
 
   testWith(stored.Application)(
-    "an answer of another type, bytes that are not a png, or an empty file is FileRedactionFailedError",
-    async ({ app, mockLlm }) => {
-      const agent = mockLlm(stored.Agent);
+    "an answer of another type, bytes that are not a png, or an empty file is StepError.FileMaskingFailed",
+    async ({ app, mockModel }) => {
+      const agent = mockModel(stored.Agent);
       for (const mode of ["other-type", "junk", "empty"] as const) {
         resetSpy();
         spy.mode = mode;
-        await expect(visit(app, stored)).rejects.toBeInstanceOf(FileRedactionFailedError);
+        await expect(visit(app, stored)).rejects.toBeInstanceOf(StepError.FileMaskingFailed);
       }
       expect(agent).toHaveBeenCalledTimes(0);
     },
@@ -262,21 +262,21 @@ describe("AC3: it fails closed — never the unredacted file in its place", () =
 
   testWith(inlineMode.Application)(
     "without a file store a copy over 64 KB does not fit the execution's state",
-    async ({ app, mockLlm }) => {
+    async ({ app, mockModel }) => {
       resetSpy();
       spy.mode = "big";
-      const agent = mockLlm(inlineMode.Agent);
+      const agent = mockModel(inlineMode.Agent);
 
-      await expect(visit(app, inlineMode)).rejects.toBeInstanceOf(FileRedactionFailedError);
+      await expect(visit(app, inlineMode)).rejects.toBeInstanceOf(StepError.FileMaskingFailed);
       expect(agent).toHaveBeenCalledTimes(0);
     },
   );
 
   testWith(inlineMode.Application)(
     "without a file store a small copy is kept inline and read",
-    async ({ app, mockLlm }) => {
+    async ({ app, mockModel }) => {
       resetSpy();
-      const agent = mockLlm(inlineMode.Agent).thenReturn(replyWith("ok"));
+      const agent = mockModel(inlineMode.Agent).thenReturn(replyWith("ok"));
 
       await visit(app, inlineMode);
 

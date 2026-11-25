@@ -5,6 +5,7 @@
  * one store never see each other's tasks or message ids, a card advertises its endpoint's ttl, a
  * `publicUrl` may be a function.
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   A2AEndpoint,
@@ -17,7 +18,6 @@ import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import { assemblyWarningsOf } from "../../src/application/start-log.js";
 import { componentOf } from "../../src/components/metadata.js";
-import { GraphRuleError } from "../../src/graph/rule-error.js";
 import { EmptyEnvironment } from "../../src/index.js";
 import { callTool, testWith } from "../../src/testing/index.js";
 import { hours, minutes, seconds, Ttl } from "../../src/units/index.js";
@@ -102,7 +102,7 @@ describe("#1320a: @A2AEndpoint is checked at assembly", () => {
 
     if (isValid) await expect(built).resolves.toBeDefined();
     else {
-      await expect(built).rejects.toBeInstanceOf(GraphRuleError);
+      await expect(built).rejects.toBeInstanceOf(ConfigError.GraphRules);
       await expect(built).rejects.toThrow(/\[a2a\.ttl-invalid\] refunds's ttl\./u);
     }
   });
@@ -179,9 +179,9 @@ async function startedTask(url: string, messageId: string): Promise<string> {
 describe("#1320a: two endpoints on one store", () => {
   test("a task of one endpoint is not found, listed or cancelled through the other", async ({
     a2aServer,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+    mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
     const a = await a2aServer({
       endpoint: OrdersAEndpoint,
       authenticator: BearerAuthenticator,
@@ -209,9 +209,9 @@ describe("#1320a: two endpoints on one store", () => {
 
   test("a message id used at one endpoint is another message at the other", async ({
     a2aServer,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+    mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
     const a = await a2aServer({
       endpoint: OrdersAEndpoint,
       authenticator: BearerAuthenticator,

@@ -1,10 +1,10 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import { recordOptionKeys } from "../components/option-keys.js";
 import { APPLICATION_KEYS } from "../components/decorator-options.js";
 import type { Secret } from "../environments/secret.js";
 import type { PromptVariables } from "../components/prompt-variables.js";
 import { callerFile } from "../components/call-site.js";
 import type { Class, Provider, ServiceEntry } from "../components/injection.js";
-import { ComponentError } from "../components/metadata.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import { NodeKind } from "../flow/ast.js";
 import type { Milliseconds } from "../units/index.js";
@@ -316,7 +316,7 @@ export function requireApplication(cls: Class, where: string): ApplicationDeclar
     declarationOf(cls)?.kind === NodeKind.Workflow
       ? `${name} is a @Workflow — list it in an @Application({ name, version, workflows: [${name}] }) and pass the application`
       : `decorate ${name} with @Application({ name, version, workflows })`;
-  throw new ComponentError({ message: `${where} takes an @Application class: ${fix}` });
+  throw new ConfigError.Component({ message: `${where} takes an @Application class: ${fix}` });
 }
 
 /** The applications loaded so far that list `workflow` (the CLI's commands on one workflow, eval). */

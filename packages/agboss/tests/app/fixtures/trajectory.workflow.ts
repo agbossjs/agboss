@@ -1,12 +1,11 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import {
   Agent,
-  ChildExecutionFailedError,
   EmptyEnvironment,
   Injectable,
   Judge,
   JudgeModel,
   JudgeVerdict,
-  QualityGateError,
   Tool,
   ToolCallStatus,
   toolCallsOf,
@@ -64,7 +63,7 @@ export class LookupOrderTool {
   }
 }
 
-/** What the judge saw on each call: the test reads it through `mockOf`. */
+/** What the judge saw on each call: the test reads it through `mockService`. */
 @Injectable()
 export class TrajectoryLog {
   seen(toolCalls: readonly ToolCallRecord[]): readonly ToolCallRecord[] {
@@ -130,11 +129,9 @@ const DEFAULTS = {
   name: "clerk-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(ClerkStart)
-      .toAgent(ClerkAgent)
-      .toFinish(ClerkFinish),
-  ],
+  flow: [onStart(ClerkStart)
+    .toAgent(ClerkAgent)
+    .toFinish(ClerkFinish)],
   defaults: DEFAULTS,
   providers: [TrajectoryLog],
 })
@@ -169,14 +166,14 @@ export class HandOverFinish {}
   flow: [
     onStart(FrontDeskStart)
       .toWorkflow(ClerkWorkflow)
-      .onError(ChildExecutionFailedError, toFinish(HandOverFinish))
+      .onError(StepError.Child, toFinish(HandOverFinish))
       .toFinish(FrontDeskFinish),
   ],
   defaults: DEFAULTS,
 })
 export class FrontDeskWorkflow {}
 
-/** A clerk without retries: an answer its judge fails is a QualityGateError at once. */
+/** A clerk without retries: an answer its judge fails is a StepError.QualityGate at once. */
 @Agent({
   name: "strict-clerk-agent",
   prompt: inline("Answer questions about orders."),
@@ -202,7 +199,7 @@ export class StrictClerkStart {}
   flow: [
     onStart(StrictClerkStart)
       .toAgent(StrictClerkAgent)
-      .onError(QualityGateError, toFinish(HandOverFinish))
+      .onError(StepError.QualityGate, toFinish(HandOverFinish))
       .toFinish(ClerkFinish),
   ],
   defaults: DEFAULTS,

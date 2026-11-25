@@ -2,12 +2,12 @@
  * #1269 (files-pii mutation shard): what stops a file before a redactor is asked, and what an answer must
  * be to be taken — each refusal with its agent and its reason, each limit at its edge.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
+import { PiiError } from "../../src/core/error-families/limit-errors.js";
 import { describe, expect, it } from "vitest";
 import { sha256Of, type FileContent } from "../../src/files/file-bytes.js";
-import { FileRedactionFailedError } from "../../src/files/file-errors.js";
 import type { RedactionPlan } from "../../src/files/file-redactor.js";
 import { redactedViewOf } from "../../src/files/redacted-view.js";
-import { PiiRefusedError } from "../../src/pii/errors.js";
 import { PiiKind } from "../../src/pii/kinds.js";
 import {
   AGENT,
@@ -22,10 +22,10 @@ import {
 
 const HEADING = "### card";
 
-const failureOf = async (promise: Promise<unknown>): Promise<FileRedactionFailedError> => {
+const failureOf = async (promise: Promise<unknown>): Promise<StepError.FileMaskingFailed> => {
   const error = await rejection(promise);
-  expect(error).toBeInstanceOf(FileRedactionFailedError);
-  return error as FileRedactionFailedError;
+  expect(error).toBeInstanceOf(StepError.FileMaskingFailed);
+  return error as StepError.FileMaskingFailed;
 };
 
 /** A redactor that records what it is asked and answers `answer`. */
@@ -42,7 +42,7 @@ function redactorAnswering(answer: (file: FileContent) => FileContent = (file) =
   return { asked, events, over };
 }
 
-const refusal = new PiiRefusedError({ kind: PiiKind.UsSsn.id, refusal: "No SSN please." });
+const refusal = new PiiError.Refused({ piiKind: PiiKind.UsSsn.id, refusal: "No SSN please." });
 
 describe("what stops a file before any redactor is asked", () => {
   it("a type no redactor takes has no redacted view, and no model is asked", async () => {

@@ -1,3 +1,4 @@
+import { PiiError } from "../../src/core/error-families/limit-errors.js";
 import { argsDigestOf } from "../../src/graph/agent-loop/move-entries.js";
 import { usd } from "../../src/units/index.js";
 /**
@@ -459,7 +460,7 @@ describe("#1366: what a guarded call gives, with what its guardrails spent", () 
   it("a call refused by its arguments: the refusal's text and error as prepared, nothing tokenised or truncated, nothing run", async () => {
     const { node } = setup();
     const refusal = {
-      name: "PiiRefusedError",
+      name: "PiiError.Refused",
       code: "pii.refused",
       lineage: [],
       message: "blocked",

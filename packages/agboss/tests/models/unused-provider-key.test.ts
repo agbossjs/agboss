@@ -5,6 +5,7 @@
  * all, while one that does use a model still fails at `createApp`, naming the missing field, before
  * any model call (#266 S73 c).
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { describe, expect, it } from "vitest";
 import {
@@ -19,7 +20,6 @@ import {
 import { Application } from "../../src/application/application.js";
 import { ExecutionStatus } from "../../src/app/types.js";
 import { Text, WorkflowFinishTextDto } from "../../src/dto/index.js";
-import { EnvironmentError } from "../../src/environments/errors.js";
 import { execute, onStart } from "../helpers/flow.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { Reply } from "../testing/fixtures/desk.workflow.js";
@@ -107,7 +107,7 @@ describe("#716: a provider that serves no model of the application needs no key"
   it("an application that uses a model still fails at createApp without its key, naming the variable", async () => {
     const started = createTestAppWith(ModelUsingApplication, { processEnv: NO_KEYS });
 
-    await expect(started).rejects.toBeInstanceOf(EnvironmentError);
+    await expect(started).rejects.toBeInstanceOf(ConfigError.Environment);
     await expect(started).rejects.toThrow(
       "OPENROUTER_API_KEY is not set (openrouter-model-provider driver.apiKey)",
     );

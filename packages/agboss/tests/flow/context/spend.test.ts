@@ -1,6 +1,7 @@
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import { LiveSpendRecorder } from "../../../src/components/spend-recorder.js";
-import { BudgetExceededError, SpendOutsideStepError, SpendRecorder } from "../../../src/index.js";
+import { SpendOutsideStepError, SpendRecorder } from "../../../src/index.js";
 import { callTool, replyWith, testWith } from "../../../src/testing/index.js";
 import { usd } from "../../../src/units/index.js";
 import { execute } from "../../helpers/flow.js";
@@ -23,9 +24,9 @@ const tight = testWith(TightSpendApplication);
 describe("#280 S43: SpendRecorder — what a tool or an action paid a service", () => {
   test("record inside a tool and inside an action: both in the result's spend", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(SearcherAgent).thenReturn(
+    mockModel(SearcherAgent).thenReturn(
       callTool(SerpSearchTool, { query: "jobs" }),
       replyWith(ResultDto, { text: "found" }),
     );
@@ -48,15 +49,15 @@ describe("#280 S43: SpendRecorder — what a tool or an action paid a service", 
   });
 
   tight(
-    "over budget: the next check fails the run with BudgetExceededError",
-    async ({ app, mockLlm }) => {
-      mockLlm(SearcherAgent).thenReturn(callTool(SerpSearchTool, { query: "jobs" }));
+    "over budget: the next check fails the run with LimitError.Budget",
+    async ({ app, mockModel }) => {
+      mockModel(SearcherAgent).thenReturn(callTool(SerpSearchTool, { query: "jobs" }));
 
       const run = execute(app, SpendStart, { text: "find jobs" });
 
-      await expect(run).rejects.toBeInstanceOf(BudgetExceededError);
+      await expect(run).rejects.toBeInstanceOf(LimitError.Budget);
       await expect(run).rejects.toMatchObject({ budget: { name: "tight-spend-execution-budget" } });
-      expect(mockLlm(SearcherAgent).requests).toHaveLength(1);
+      expect(mockModel(SearcherAgent).requests).toHaveLength(1);
     },
   );
 

@@ -1,3 +1,4 @@
+import { A2AError } from "../../core/error-families/remote-errors.js";
 import { createHash } from "node:crypto";
 import { Message, Part, Role, type SendMessageRequest, type Task } from "@a2a-js/sdk";
 import type { Client } from "@a2a-js/sdk/client";
@@ -5,15 +6,10 @@ import type { Clock } from "../../infrastructure/clock.js";
 import { A2A_SKILLS_EXTENSION } from "../a2a-extension-uris.js";
 import { A2APeerKind, type A2ARemotePeer } from "./a2a-card.js";
 import { meshRefusalOf } from "./a2a-outcome.js";
-import {
-  A2AClientOperation,
-  A2ARemoteCallError,
-  A2ARemoteCallReason,
-} from "./a2a-client-errors.js";
+import { A2AClientOperation, A2ARemoteCallReason } from "./a2a-client-errors.js";
 import type { A2AMeshSigned } from "./a2a-mesh-seam.js";
 import { hasSafeIds, safeTaskIdOf } from "./a2a-task-errors.js";
-import { A2ANotSentError } from "./a2a-transport.js";
-import { wireErrorOf } from "./a2a-wire-errors.js";
+import { notSentOf, wireErrorOf } from "./a2a-wire-errors.js";
 import { parsedStoredJson } from "../../infrastructure/stored-step.js";
 
 /**
@@ -141,7 +137,7 @@ function signedOf(
   try {
     signed = call.sign(message);
   } catch (error) {
-    throw new A2ANotSentError(error); // the envelope could not be made: nothing went out
+    throw notSentOf(call.agent, A2AClientOperation.SendMessage, error); // the envelope could not be made: nothing went out
   }
   const metadata = { ...message.metadata, ...signed.metadata };
   return {
@@ -176,7 +172,7 @@ function resultOf(
   const taskId = isMessage ? undefined : safeTaskIdOf(answer.id);
   const contextId = safeTaskIdOf(answer.contextId);
   if (taskId === undefined || contextId === undefined) {
-    throw new A2ARemoteCallError({ agent, reason: A2ARemoteCallReason.MalformedAnswer });
+    throw new A2AError.Remote({ agent, reason: A2ARemoteCallReason.MalformedAnswer });
   }
   return { kind: "task", taskId, contextId, mesh, ...facts };
 }

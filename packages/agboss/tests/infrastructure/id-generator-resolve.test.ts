@@ -4,8 +4,9 @@
  * through — and `app.resolve(<the listed class>)` the listed instance itself, unchecked, the same
  * object the check wraps. A component mints through `IdGenerator`, never through its own class.
  */
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { beforeEach, describe, expect } from "vitest";
-import { InvalidMintedIdError, KeyTextRule } from "../../src/errors.js";
+import { KeyTextRule } from "../../src/errors.js";
 import { CheckedIdGenerator, IdGenerator } from "../../src/infrastructure/clock.js";
 import { testWith } from "../../src/testing/index.js";
 import {
@@ -29,7 +30,7 @@ describe("#614: the IdGenerator an application resolves", () => {
 
     expect(checked).toBeInstanceOf(CheckedIdGenerator);
     expect((checked as CheckedIdGenerator).minting).toBeInstanceOf(PlannedIdGenerator);
-    expect(() => checked.newExecutionId()).toThrow(InvalidMintedIdError);
+    expect(() => checked.newExecutionId()).toThrow(ExecutionError.InvalidMintedId);
     expect(() => {
       minting.threads = ["x\uD800"];
       checked.newThreadId();

@@ -4,7 +4,7 @@ import type { DtoClass } from "../dto/types.js";
 
 /** One DTO on its own (#1328): what the framework does with its data, at `$0`. */
 export interface DtoTestHarness<TDto extends object> {
-  /** The raw data as the DTO takes it: the validated value, or `DtoValidationError` naming every issue. */
+  /** The raw data as the DTO takes it: the validated value, or `ValidationError.DtoInvalid` naming every issue. */
   validate(raw: unknown): TDto;
   /** The value as logs and traces show it: every `sensitive` field one-way masked, nested DTOs too. */
   mask(value: TDto): Record<string, unknown>;

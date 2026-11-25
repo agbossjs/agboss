@@ -28,14 +28,7 @@ export {
   Validate,
   type ListItem,
 } from "./decorators.js";
-export {
-  DtoError,
-  DtoValidationError,
-  type DtoValidationErrorOptions,
-  type DtoErrorCode,
-  type DtoErrorOptions,
-  type DtoIssue,
-} from "./errors.js";
+export { type DtoIssue } from "./errors.js";
 export { maskDto } from "./redact.js";
 export { jsonSchemaOf, validate } from "./schema.js";
 export type {

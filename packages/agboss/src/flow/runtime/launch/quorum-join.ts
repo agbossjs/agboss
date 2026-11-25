@@ -1,3 +1,4 @@
+import { StepError } from "../../../core/error-families/step-errors.js";
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { RunnableLambda } from "@langchain/core/runnables";
 import { extractRunContext } from "../../../core/run-context.js";
@@ -11,7 +12,6 @@ import { recordOfNode } from "../workflow-keys.js";
 import type { JoinDeps } from "./join-node.js";
 import { hasExpired } from "./deadline.js";
 import { quorumOutcomeOf, quorumRuleOf, type QuorumOutcome } from "./quorum.js";
-import { QuorumNotReachedError } from "./quorum-errors.js";
 import {
   BranchStatus,
   type BranchOutcomeRecord,
@@ -25,7 +25,7 @@ import type { RuntimeLaunch } from "./runtime-launch.js";
  * The join of a quorum (#279 S26): the outcome rebuilt from the branches' records only — the counted
  * answers in counting order, the winning group — reported once (a trace entry "quorum decided" and
  * `onQuorumDecided`), then either the way on (the join's edge, or the winning group's own path) with
- * the counted answers only, or `QuorumNotReachedError` into `.onError(…)`, else the execution
+ * the counted answers only, or `StepError.QuorumNotReached` into `.onError(…)`, else the execution
  * fails with it.
  */
 
@@ -129,11 +129,11 @@ function reasonOf(site: QuorumJoinSite): string {
     : "min can no longer be reached";
 }
 
-/** The error of a quorum not reached: what `.onError(QuorumNotReachedError, …)` takes, else the execution fails with it. */
+/** The error of a quorum not reached: what `.onError(StepError.QuorumNotReached, …)` takes, else the execution fails with it. */
 export function quorumNotReachedError(
   site: QuorumJoinSite,
   decision: QuorumDecision,
-): QuorumNotReachedError {
+): StepError.QuorumNotReached {
   const { ticket, launch } = site;
   const step = {
     component: recordOfNode(site.deps, ticket.launcher),
@@ -155,7 +155,7 @@ export function quorumNotReachedError(
       ];
     }),
   };
-  return new QuorumNotReachedError({ launch: ticket.launchId, ...step, ...shortfall });
+  return new StepError.QuorumNotReached({ launch: ticket.launchId, ...step, ...shortfall });
 }
 
 /** The indexes of the branches a quorum went on without: every branch of the launch not counted. */

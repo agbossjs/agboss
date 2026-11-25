@@ -1,5 +1,5 @@
+import { isExecutionCancelled } from "../core/execution-cancelled.js";
 import type { FrameLease } from "../flow/context/frame.js";
-import { ExecutionCancelledError } from "../core/errors.js";
 import { ExecutionRecordStatus } from "../infrastructure/execution-record.repository.js";
 import { runningOutcome } from "../run/execute.js";
 import type { Turn, TurnOutcome } from "../turns/index.js";
@@ -23,7 +23,7 @@ import type { CancelledExecutionOutput, StoppedExecutionOutput } from "./types.j
  * tree, #340 PR 4's interrupted undo): its undo is marked under way and its record is `running`
  * while it runs (#340 S7 3: a crash mid-undo is found by the recovery sweep), its paused run dropped
  * (its pauses withdrawn, #337), its open undoable actions undone, then its record ended — cancelled,
- * or failed with `CompensationFailedError` when an undo failed —, its keys and pauses forgotten and
+ * or failed with `ExecutionError.CompensationFailed` when an undo failed —, its keys and pauses forgotten and
  * `onExecutionCancel` (`onExecutionError` for a failure) observed once, only when this call ended
  * the record. A cancel is an outcome, not an error: it is reported as a cancelled output (#1341).
  */
@@ -44,7 +44,7 @@ export async function rootRecordOf(deps: AppDeps, state: TreeState): Promise<Tur
 function endedOutcomeOf(record: Turn, error: Error): TurnOutcome {
   const outcome = cancelledRecordOutcome(record.route, record.costUsd);
   if (isStop(error)) return { ...outcome, status: "stopped", stopReason: STOPPED_STOP_REASON };
-  return error instanceof ExecutionCancelledError
+  return isExecutionCancelled(error)
     ? outcome
     : { ...outcome, status: "failed", stopReason: error.message };
 }
@@ -103,10 +103,9 @@ export async function endedWithoutPass(
   if (isEnded) await keepExecutionRecord(deps, state, historyEndOf(error, compensations, lost));
   if (isEnded) tallyLostRun(deps, state, lost);
   // read before the tree's keys go: what it spent and undid, as the caller and the event report it
-  const output =
-    error instanceof ExecutionCancelledError
-      ? await cancelledOutputOf(deps, state, { cause: error, compensations, lostUsage: lost })
-      : undefined;
+  const output = isExecutionCancelled(error)
+    ? await cancelledOutputOf(deps, state, { cause: error, compensations, lostUsage: lost })
+    : undefined;
   await forgetTree(parts, state, error);
   if (isEnded) {
     const event = executionEventAt(state, deps);

@@ -1,3 +1,4 @@
+import { StepError } from "../core/error-families/step-errors.js";
 import { bytes as byteSize } from "../units/index.js";
 import { createHash } from "node:crypto";
 import { isOfMediaType } from "../a2a/files/a2a-media-check.js";
@@ -5,7 +6,7 @@ import type { UsageRecord } from "../finops/usage.js";
 import { InlineFileRepository } from "../infrastructure/file.repository.js";
 import { kindsOf } from "../pii/kinds.js";
 import { fileContentOf, sha256Of, type FileContent } from "./file-bytes.js";
-import { FileRedactionFailedError, fileUnavailable, FileUnavailableReason } from "./file-errors.js";
+import { fileUnavailable, FileUnavailableReason } from "./file-errors.js";
 import { originalPieces, type MadeEntry } from "./file-pieces.js";
 import type { FileMask } from "./file-mask.js";
 import { valuesForRedactor } from "./redaction-values.js";
@@ -15,7 +16,7 @@ import type { FileBatch } from "./visit-files.js";
  * A file in the redacted view (#899 §5, §7): a copy with every personal datum the agent's policies name
  * blacked out, made once per execution. Never the unredacted file in its place: a redactor that fails,
  * an answer that is not a file of the same type, a type no redactor takes, a copy that cannot be kept —
- * each is `FileRedactionFailedError`; a block rule's kind found in the file is the policy's refusal.
+ * each is `StepError.FileMaskingFailed`; a block rule's kind found in the file is the policy's refusal.
  */
 
 /** The most bytes of a redacted copy kept in the execution's state when there is no file store (#899 §7). */
@@ -78,7 +79,7 @@ async function keptOf(batch: FileBatch, copy: FileContent): Promise<KeptRedacted
   const base = { mediaType: copy.mediaType, sha256: copy.sha256, filename: copy.filename };
   if (context.store instanceof InlineFileRepository) {
     if (copy.bytes.byteLength > MAX_INLINE_REDACTED)
-      throw new FileRedactionFailedError({
+      throw new StepError.FileMaskingFailed({
         agent: batch.runtime.agent,
         reason: `the redacted copy is ${String(copy.bytes.byteLength)} bytes, over the ${String(MAX_INLINE_REDACTED)} an execution keeps without a file store`,
       });
@@ -111,7 +112,7 @@ export interface RedactedView {
 /** The copy checked: a file of the media type the redactor said it takes, of the bytes that type has. */
 function checkedCopy(batch: FileBatch, copy: FileContent): FileContent {
   const fail = (reason: string) =>
-    new FileRedactionFailedError({ agent: batch.runtime.agent, reason });
+    new StepError.FileMaskingFailed({ agent: batch.runtime.agent, reason });
   if (!batch.runtime.supportsRedaction(copy.mediaType))
     throw fail("the redactor answered a file of another media type");
   if (copy.bytes.byteLength === 0 || !isOfMediaType(copy.mediaType, copy.bytes))
@@ -136,13 +137,13 @@ async function askedOf(batch: FileBatch, mask: FileMask) {
   }
   const sent = valuesForRedactor(batch.runtime.settings, values);
   if (values.length > 0 && sent.length === 0)
-    throw new FileRedactionFailedError({
+    throw new StepError.FileMaskingFailed({
       agent,
       reason:
         "the execution has values to redact that the redactor may not be told (defaults.files.redactionValues)",
     });
   if (kinds.length === 0 && sent.length === 0)
-    throw new FileRedactionFailedError({
+    throw new StepError.FileMaskingFailed({
       agent,
       reason: "the policies name no kind and no value for the redactor to look for",
     });
@@ -164,7 +165,7 @@ export async function redactedViewOf(
   });
   if (mask === undefined) return shown(content);
   if (!runtime.supportsRedaction(content.mediaType))
-    throw new FileRedactionFailedError({
+    throw new StepError.FileMaskingFailed({
       agent: runtime.agent,
       reason: `no redactor takes ${content.mediaType}`,
     });
@@ -181,8 +182,8 @@ export async function redactedViewOf(
   }
   const copy = checkedCopy(batch, result.file);
   const kept = await keptOf(batch, copy).catch((error: unknown) => {
-    if (error instanceof FileRedactionFailedError) throw error;
-    throw new FileRedactionFailedError({
+    if (error instanceof StepError.FileMaskingFailed) throw error;
+    throw new StepError.FileMaskingFailed({
       agent: runtime.agent,
       reason: "the redacted copy cannot be kept",
       cause: error,

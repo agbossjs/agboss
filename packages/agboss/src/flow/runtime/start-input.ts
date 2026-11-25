@@ -1,5 +1,5 @@
-import { AGBossError, type MessageErrorOptions } from "../../core/errors.js";
-import { DtoValidationError } from "../../dto/errors.js";
+import { ConfigError } from "../../core/error-families/config-errors.js";
+import { invalidDto } from "../../dto/errors.js";
 import { validate } from "../../dto/schema.js";
 import type { DtoClass } from "../../dto/types.js";
 import { WorkflowStartTextDto } from "../../dto/standard/framework.js";
@@ -12,7 +12,7 @@ import type { RuntimeGraph, RuntimeNode } from "./graph-model.js";
 /**
  * A start's input (#270 → Starts and finishes): one DTO, a list of them, or a map of fields. The
  * payload of `app.execute(Start, payload)` is checked against it before the first step — an invalid
- * one is rejected (`dto.invalid`, the field named, never the value).
+ * one is rejected (`validation.dto-invalid`, the field named, never the value).
  */
 
 const elementClass = (list: ListWrapper): DtoClass | undefined =>
@@ -21,7 +21,7 @@ const elementClass = (list: ListWrapper): DtoClass | undefined =>
 function validList(list: ListWrapper, value: unknown, field: string): unknown[] {
   const dto = elementClass(list);
   if (!Array.isArray(value) || dto === undefined) {
-    throw new DtoValidationError({
+    throw invalidDto({
       dto: field,
       issues: [{ path: "(root)", reason: "expected a list" }],
     });
@@ -74,22 +74,11 @@ export function textStartOf(graph: RuntimeGraph): RuntimeNode | undefined {
   );
 }
 
-/** `app.execute` from a class (or a name) that is not a `@WorkflowStart` of the app's workflow. */
-export class NotAWorkflowStartError extends AGBossError {
-  static override readonly code = "workflow.not-a-start" as const;
-  declare readonly code: typeof NotAWorkflowStartError.code;
-  override name = "NotAWorkflowStartError";
-
-  constructor(options: MessageErrorOptions) {
-    super(options.message, options);
-  }
-}
-
-/** The start of the graph by its `name`; anything else is a `NotAWorkflowStartError`. */
+/** The start of the graph by its `name`; anything else is a `ConfigError.NotAWorkflowStart`. */
 export function startNamed(graph: RuntimeGraph, name: string): RuntimeNode {
   const node = graph.nodes.get(name);
   if (node?.kind !== NodeKind.Start) {
-    throw new NotAWorkflowStartError({
+    throw new ConfigError.NotAWorkflowStart({
       message: `${name} is not a workflow start of "${graph.workflow}"`,
     });
   }
@@ -102,11 +91,11 @@ export interface StartRequest {
   readonly input: unknown;
 }
 
-/** A text for the graph's text start (eval tasks, `agboss run "…"`); none → `NotAWorkflowStartError`. */
+/** A text for the graph's text start (eval tasks, `agboss run "…"`); none → `ConfigError.NotAWorkflowStart`. */
 export function textRequestOf(graph: RuntimeGraph, text: string): StartRequest {
   const start = textStartOf(graph);
   if (start === undefined) {
-    throw new NotAWorkflowStartError({
+    throw new ConfigError.NotAWorkflowStart({
       message: `"${graph.workflow}" has no workflow start with input WorkflowStartTextDto — a text cannot start it`,
     });
   }

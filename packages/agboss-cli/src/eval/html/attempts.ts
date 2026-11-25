@@ -12,7 +12,7 @@ export enum AttemptStatus {
   Limit = "limit",
 }
 
-/** The error codes of every limit (`LimitExceededError`) start with it. */
+/** The error codes of every limit (`LimitError`) start with it. */
 const LIMIT_CODE = /^limit(\.|$)/u;
 
 export function attemptStatusOf(result: EvalRunResult): AttemptStatus {

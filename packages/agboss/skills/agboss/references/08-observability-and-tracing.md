@@ -439,8 +439,8 @@ import { DeskWorkflowStart } from "../../../../src/desk/workflows/desk/desk.work
 
 const test = testWith(DeskApplication);
 
-test("the record shows the path, the scope and the spend", async ({ app, mockLlm }) => {
-  mockLlm(DeskAgent).thenReturn(replyWith(DeskAnswerDto, { text: "We are on it." }));
+test("the record shows the path, the scope and the spend", async ({ app, mockModel }) => {
+  mockModel(DeskAgent).thenReturn(replyWith(DeskAnswerDto, { text: "We are on it." }));
 
   const result = await app.execute(DeskWorkflowStart, { text: "my order is late" }, { includeRecord: true });
 

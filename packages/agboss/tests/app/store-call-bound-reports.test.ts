@@ -3,6 +3,7 @@
  * its counter, the unknown outcome's line, a failed abandon's line, the error a rejection of any
  * value becomes, and the error of a call whose lease was lost while it hung.
  */
+import { StoreError } from "../../src/core/error-families/store-errors.js";
 import { describe, expect, it } from "vitest";
 import { boundedStoreOf } from "../../src/app/store-call-bound.js";
 import { StoreCallKind } from "../../src/app/store-call-kind.js";
@@ -10,12 +11,7 @@ import { failure, lostOf, type CallFacts } from "../../src/app/store-call-outcom
 import { leaseScope } from "../../src/app/lease-scope.js";
 import type { FrameLease } from "../../src/flow/context/frame.js";
 import type { FrameworkLog } from "../../src/infrastructure/logger.js";
-import {
-  ExecutionLeaseLostError,
-  StoreCallTimeoutError,
-  StoreOutcomeSource,
-  StoreOutcomeUnknownError,
-} from "../../src/index.js";
+import { ExecutionLeaseLostError, StoreOutcomeSource } from "../../src/index.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { seconds } from "../../src/units/index.js";
 import { heldLease, outcomeOf, rejectWith, silent } from "./fixtures/bound-stubs.js";
@@ -48,8 +44,8 @@ class MemoryKv extends Kv {
   }
 }
 
-const unknownError = (source: StoreOutcomeSource): StoreOutcomeUnknownError =>
-  new StoreOutcomeUnknownError({ store: "Kv", operation: "get", source });
+const unknownError = (source: StoreOutcomeSource): StoreError.OutcomeUnknown =>
+  new StoreError.OutcomeUnknown({ store: "Kv", operation: "get", source });
 
 const factsOf = (lease: FrameLease | undefined): CallFacts => ({
   kind: lease === undefined ? StoreCallKind.Unleased : StoreCallKind.Leased,
@@ -75,7 +71,7 @@ describe("#1069: the line and the counter of a call given up", () => {
     await clock.advance(seconds(16));
     const error = await call;
 
-    expect(error).toBeInstanceOf(StoreCallTimeoutError);
+    expect(error).toBeInstanceOf(StoreError.CallTimeout);
     expect(entries).toEqual([
       {
         code: "store.call-timeout",
@@ -108,7 +104,7 @@ describe("#1069: the line and the counter of a call given up", () => {
 
   it("the store's own command timeout is said as the store's", async () => {
     const { entries, log } = recorder();
-    const own = new StoreCallTimeoutError({
+    const own = new StoreError.CallTimeout({
       store: "Kv",
       operation: "get",
       timeout: seconds(3),

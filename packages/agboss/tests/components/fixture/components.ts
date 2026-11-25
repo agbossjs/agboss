@@ -94,7 +94,6 @@ export class ReadFile {
   name: "greeter-agent",
   description: "Greets people",
   model: "test/alpha",
-  price: testConfig.agents.alpha.price,
   reasoning: Reasoning.on({ effort: ReasoningEffort.Low }),
   tools: [GreetTool, ReadFile],
   prompt: "./greeter.prompt.md",

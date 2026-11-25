@@ -1,10 +1,7 @@
+import { StepError } from "../../src/core/error-families/step-errors.js";
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { beforeEach, describe, expect } from "vitest";
-import {
-  ActionFailedError,
-  ChildExecutionFailedError,
-  ExecutionCancelledError,
-  StepsLimitExceededError,
-} from "../../src/index.js";
+import { ExecutionCancelledError } from "../../src/core/errors.js";
 import {
   replyWith,
   TestConcurrency,
@@ -67,7 +64,7 @@ describe("toHaveChildExecutions", () => {
     ]);
     expect(result).toHaveChildExecutions(ItemCheckWorkflow, [
       { cancelled: true },
-      { failedWith: ChildExecutionFailedError },
+      { failedWith: StepError.Child },
     ]);
   });
 
@@ -142,12 +139,12 @@ describe("toHaveHandledError", () => {
   }) => {
     const result = await execute(app, CheckItemsWorkflowStart, [item("bad", 0, "fail")], who);
 
-    expect(result).toHaveHandledError(ChildExecutionFailedError, {
+    expect(result).toHaveHandledError(StepError.Child, {
       at: ItemCheckWorkflow,
       by: ChecksFailedAction,
     });
     expect(result).toHaveHandledError(ItemFailedError);
-    expect(result).toHaveHandledError(ActionFailedError, { at: ItemCheckWorkflow });
+    expect(result).toHaveHandledError(StepError.Action, { at: ItemCheckWorkflow });
     expect(result).not.toHaveHandledError(ExecutionCancelledError);
     expect(result).not.toHaveHandledError(ItemFailedError, { by: OneFailedAction });
     expect(result).not.toHaveHandledError(ItemFailedError, { at: CheckItemAction });
@@ -155,14 +152,14 @@ describe("toHaveHandledError", () => {
 
   test("a single child's failure, and a child's limit taken by an agent", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ItemReviewerAgent).thenAnswer((request: ModelRequest) =>
+    mockModel(ItemReviewerAgent).respondWith((request: ModelRequest) =>
       JSON.stringify(request.input).includes("loop")
         ? replyWith(ItemNoteDto, { note: "again" }, { cost: usd(0.001) })
         : replyWith(ItemResultDto, { name: "x" }),
     );
-    mockLlm(ReviewRescueAgent).thenReturn(replyWith(SummaryDto, { text: "skip" }));
+    mockModel(ReviewRescueAgent).thenReturn(replyWith(SummaryDto, { text: "skip" }));
 
     const one = await execute(app, CheckOneWorkflowStart, item("bad", 0, "fail"), who);
     const reviews = await execute(app, ReviewItemsWorkflowStart, [item("loop")], who);
@@ -172,13 +169,11 @@ describe("toHaveHandledError", () => {
       at: ItemCheckWorkflow,
       by: OneFailedAction,
     });
-    expect(reviews).toHaveHandledError(StepsLimitExceededError, {
+    expect(reviews).toHaveHandledError(LimitError.Steps, {
       at: ItemReviewWorkflow,
       by: ReviewRescueAgent,
     });
-    expect(reviews).toHaveChildExecutions(ItemReviewWorkflow, [
-      { failedWith: StepsLimitExceededError },
-    ]);
+    expect(reviews).toHaveChildExecutions(ItemReviewWorkflow, [{ failedWith: LimitError.Steps }]);
     expect(none).not.toHaveHandledError(Error);
   });
 });

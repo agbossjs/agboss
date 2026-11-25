@@ -4,11 +4,11 @@ import type { BaseChatModel } from "@langchain/core/language_models/chat_models"
 import { DEFAULT_MAX_TOKENS } from "../config/types.js";
 import { promptCachingOfSetting } from "../models/prompt-caching.js";
 import { reasoningOfThinking } from "../models/reasoning.js";
-import { DecisionError } from "../core/error-families/config-errors.js";
+import { DecisionError } from "../core/error-families/decision-errors.js";
 import type { DecisionOutcome } from "./decision-response.js";
 import type { DecisionRequest } from "./decisions.js";
 import type { ChatModelUser, ModelGateway } from "./gateway.js";
-import type { ModelPricing } from "../models/model-pricing.js";
+import type { ModelPricing, PricedModelSettings } from "../models/model-pricing.js";
 import type { RerankerModelUse } from "../workflow.js";
 import type {
   AgentsConfigOf,
@@ -55,7 +55,7 @@ export interface ModelRegistry {
 
 /** What a model's settings say of its price and its provider, as they are. */
 const ownAccountOf = (
-  settings: ModelSettings,
+  settings: PricedModelSettings,
 ): Pick<ResolvedModelSettings, "price" | "modelProvider" | "unpriced"> => ({
   ...(settings.price === undefined ? {} : { price: settings.price }),
   ...(settings.modelProvider === undefined ? {} : { modelProvider: settings.modelProvider }),
@@ -67,7 +67,7 @@ const ownAccountOf = (
  * nowhere stay unset: the model provider's own apply.
  */
 export function resolveSettings(
-  settings: ModelSettings,
+  settings: PricedModelSettings,
   defaults: ChatDefaults,
 ): ResolvedModelSettings {
   const thinking = settings.thinking ?? defaults.thinking;

@@ -1,28 +1,20 @@
 /**
  * The errors a run can fail with — every one a `AGBossError` with a stable `code`, so a flow
  * can `.onError(<class>, …)` it (also after a resume from a checkpoint) and a caller can tell them
- * apart. `limit` ⊃ `limit.budget`, `limit.steps`, `limit.visits`, `limit.depth` (#264), `limit.mesh-loop`, `limit.hops` (#398); `step` ⊃ `step.failed` (`StepFailedError`, #273 S22) ⊃
- * `step.agent`, `step.action`, `step.guard`, `step.router`, `step.arbiter`, `step.quorum` (#279),
- * `step.child` (`ChildExecutionFailedError`, #263) and `step.tool-blocked` (`ToolBlockedError`, #384);
- * `step.pause-expired` (`PauseExpiredError`, #941) is a pause whose deadline passed, `pause.expiry-handler-failed` (`ExpiryHandlerError`) why its expiry decision fell back to failing;
- * `pause.closed` (`PauseClosedError`, #939) is a late answer to a closed pause, with its reason.
+ * apart. `limit` ⊃ `limit.budget`, `limit.steps`, `limit.visits`, `limit.depth` (#264), `limit.mesh-loop`, `limit.hops` (#398); `step` (`StepError`, #273 S22) is the family of
+ * `step.agent`, `step.action`, `step.guardrail`, `step.router`, `step.arbiter`, `step.quorum` (#279),
+ * `step.child` (`StepError.Child`, #263) and `step.tool-blocked` (`StepError.ToolBlocked`, #384);
+ * `step.pause-expired` (`StepError.PauseExpired`, #941) is a pause whose deadline passed, `pause.expiry-handler-failed` (`PauseError.ExpiryHandlerFailed`) why its expiry decision fell back to failing;
+ * `pause.closed` (`PauseError.Closed`, #939) is a late answer to a closed pause, with its reason.
  */
 export {
   AGBossError,
-  DuplicateExecutionIdError,
-  type DuplicateExecutionIdErrorOptions,
-  ThreadIdsExhaustedError,
-  ExecutionCancelledError,
-  type ExecutionCancelledErrorOptions,
-  InvalidMintedIdError,
   KeyTextRule,
   keyTextRuleOf,
   type ErrorDetails,
   type AGBossErrorOptions,
   type MessageErrorOptions,
   type PlainErrorOptions,
-  type InvalidMintedIdErrorOptions,
-  type ThreadIdsExhaustedErrorOptions,
 } from "./core/errors.js";
 export { errorRecordOf, type ErrorRecord } from "./core/error-record.js";
 // diagnostics and backtraces (#1325c)
@@ -30,91 +22,13 @@ export { BacktraceMode } from "./core/diagnostics/backtrace.js";
 export type { ErrorDiagnostics, ErrorFormatOptions } from "./core/diagnostics/error-report.js";
 export type { ExecutionSpanFrame } from "./core/diagnostics/span-trace.js";
 export type { LabeledSpan, SourceSpan } from "./core/diagnostics/source-span.js";
-export {
-  GraphRuleError,
-  type GraphRuleErrorOptions,
-  type RuleCode,
-  type RuleViolation,
-} from "./graph/rule-error.js";
-export { FlowSyntaxError } from "./flow/path-builder.js";
-export {
-  BudgetExceededError,
-  type BudgetExceededErrorOptions,
-  LimitExceededError,
-  type LimitExceededErrorOptions,
-  StepsLimitExceededError,
-  type StepsLimitExceededErrorOptions,
-  type BudgetBreach,
-} from "./graph/limits.js";
-export {
-  AgentFailedError,
-  type AgentFailedErrorOptions,
-  GuardFailedError,
-  type GuardFailedErrorOptions,
-  PaidStepError,
-  type PaidStepErrorOptions,
-  QualityGateError,
-  type QualityGateErrorOptions,
-  StepFailedError,
-  type StepFailedErrorOptions,
-  type JudgeRejection,
-  type StepCoordinates,
-} from "./graph/errors.js";
-export {
-  RouterDecisionError,
-  type RouterDecisionErrorOptions,
-  RouterFailedError,
-  type RouterFailedErrorOptions,
-  type RouterVisit,
-} from "./flow/runtime/router-error.js";
-export {
-  ActionFailedError,
-  type ActionFailedErrorOptions,
-  QuestionFailedError,
-  type QuestionFailedErrorOptions,
-  AgentAnswerInvalidError,
-  type AgentAnswerInvalidErrorOptions,
-  GuardrailBlockedError,
-  type GuardrailBlockedErrorOptions,
-  OutputInvalidError,
-  VisitsLimitExceededError,
-  type VisitsLimitExceededErrorOptions,
-} from "./flow/runtime/errors.js";
-export {
-  ArbiterError,
-  type ArbiterErrorOptions,
-  QuorumNotReachedError,
-  type QuorumNotReachedErrorOptions,
-  type QuorumShortfall,
-} from "./flow/runtime/launch/quorum-errors.js";
-export { ToolBlockedError, type ToolBlockedErrorOptions } from "./graph/tool-blocked-error.js";
-export { NotAWorkflowStartError } from "./flow/runtime/start-input.js";
-export { PiiRefusedError, type PiiRefusedErrorOptions } from "./pii/errors.js";
-export { PiiDetectionFailedError } from "./pii/detectors/model.js";
-export {
-  ChildExecutionFailedError,
-  type ChildExecutionFailedErrorOptions,
-} from "./flow/runtime/child-errors.js";
-export {
-  DepthLimitExceededError,
-  type DepthLimitExceededErrorOptions,
-} from "./flow/runtime/depth-limit.js";
-export {
-  DeadlineExceededError,
-  type DeadlineExceededErrorOptions,
-  type ExecutionDeadline,
-} from "./budgets/execution-deadline.js";
-export {
-  HopsLimitExceededError,
-  type HopsLimitExceededErrorOptions,
-  MeshLoopDetectedError,
-  type MeshLoopDetectedErrorOptions,
-  type MeshLimitPlace,
-} from "./mesh/mesh-errors.js";
-export {
-  CompensationFailedError,
-  type CompensationFailedErrorOptions,
-} from "./flow/compensation.js";
+export { type RuleCode, type RuleViolation } from "./graph/rule-error.js";
+export { type BudgetBreach } from "./graph/limits.js";
+export { type JudgeRejection, type StepCoordinates } from "./graph/step-coordinates.js";
+export { type RouterVisit } from "./flow/runtime/router-error.js";
+export { type QuorumShortfall } from "./flow/runtime/launch/quorum-errors.js";
+export { type ExecutionDeadline } from "./budgets/execution-deadline.js";
+export { type MeshLimitPlace } from "./mesh/mesh-errors.js";
 export { ExecutionContextUnavailableError } from "./flow/context/errors.js";
 export { SpendOutsideStepError } from "./components/spend-recorder.js";
 export {
@@ -123,50 +37,17 @@ export {
   type ModelCallErrorCode,
 } from "./models/circuit-breaker.js";
 export { ToolTimeoutError, type ToolTimeoutErrorOptions } from "./tools/index.js";
-export { DtoValidationError, type DtoValidationErrorOptions } from "./dto/errors.js";
-export {
-  EvalCaseInvalidError,
-  type EvalCaseInvalidErrorOptions,
-  type EvalCaseIssue,
-} from "./eval/suite/errors.js";
-export * from "./app/pause-closed-error.js";
-export * from "./flow/runtime/pause-expired-error.js";
-export { NotPausedError, UnknownPauseError } from "./run/resume-agent.js";
-export {
-  ReplyInterpreterMissingError,
-  UninterpretableReplyError,
-  type UninterpretableReplyErrorOptions,
-} from "./channels/decision.js";
-export {
-  InvalidThreadIdError,
-  type InvalidThreadIdErrorOptions,
-  ThreadOwnerError,
-  UnknownThreadError,
-} from "./core/errors.js";
-export { ModelKind, ModelKindError, type ModelKindErrorOptions } from "./llm/decision-errors.js";
+export { type EvalCaseIssue } from "./eval/suite/errors.js";
+export { NotPausedError } from "./run/resume-agent.js";
+export { ModelKind } from "./llm/decision-errors.js";
 export { ApplicationStoppingError } from "./core/errors.js";
-export {
-  CostLedgerCutoffInvalidError,
-  type CostLedgerCutoffInvalidErrorOptions,
-  CostLedgerEntryExpiredError,
-  CostLedgerEntryInvalidError,
-  type CostLedgerEntryExpiredErrorOptions,
-  type CostLedgerEntryInvalidErrorOptions,
-} from "./finops/ledger-mark.js";
 export { cancelFencedErrorOf } from "./app/handed-over.js";
+export type { CancelFencedFacts } from "./core/error-families/run-error-facts.js";
+export type { DefaultedOptions } from "./core/error-families/family.js";
+export type { PauseExpiredFacts, StepDefaulted } from "./core/error-families/step-error-specs.js";
 export {
-  ExecutionCancelFencedError,
   fencedRefusalOf,
   ExecutionLeaseLostError,
-  type ExecutionCancelFencedErrorOptions,
   type ExecutionLeaseLostErrorOptions,
   type FencedWriteRefusal,
 } from "./app/lease-lost.js";
-// a stop (#1341b): the abort reason of a stopped execution, and a fenced write's refusal by an Immediate stop
-export {
-  ExecutionPausedError,
-  ExecutionPauseFencedError,
-  ExecutionStopFencedError,
-  ExecutionStoppedError,
-  type InterruptFenced,
-} from "./app/lease-stopped.js";

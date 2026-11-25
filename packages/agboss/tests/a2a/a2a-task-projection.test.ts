@@ -78,8 +78,8 @@ function controlOf(app: TestApp): ExecutionControl {
 }
 
 describe("#807 AC3: the projection moves the task with its execution", () => {
-  exposed("start → WORKING → COMPLETED with the finish's output", async ({ app, mockLlm }) => {
-    mockLlm(Clerk).thenReturn(callTool(Step, { text: "one" }), done);
+  exposed("start → WORKING → COMPLETED with the finish's output", async ({ app, mockModel }) => {
+    mockModel(Clerk).thenReturn(callTool(Step, { text: "one" }), done);
     await accepted(app);
 
     await run(app);
@@ -98,8 +98,8 @@ describe("#807 AC3: the projection moves the task with its execution", () => {
 
   exposed(
     "a pause → INPUT_REQUIRED with it; its answer, on the other instance → COMPLETED",
-    async ({ apps, mockLlm }) => {
-      mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }), done);
+    async ({ apps, mockModel }) => {
+      mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }), done);
       const [first, second] = apps;
       if (first === undefined || second === undefined) throw new Error("two instances");
       await accepted(first);
@@ -132,9 +132,9 @@ describe("#807 AC3: the projection moves the task with its execution", () => {
 
   exposed(
     "a failure → FAILED with its code and that code's fixed text, never the error's",
-    async ({ app, mockLlm }) => {
+    async ({ app, mockModel }) => {
       // the agent's second model call has no script: its step fails
-      mockLlm(Clerk).thenReturn(callTool(Step, { text: "one" }));
+      mockModel(Clerk).thenReturn(callTool(Step, { text: "one" }));
       await accepted(app);
 
       await expect(run(app)).rejects.toThrow();
@@ -156,8 +156,8 @@ describe("#807 AC3: the projection moves the task with its execution", () => {
     },
   );
 
-  exposed("a cancel of the paused task → CANCELED, and it stays so", async ({ app, mockLlm }) => {
-    mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+  exposed("a cancel of the paused task → CANCELED, and it stays so", async ({ app, mockModel }) => {
+    mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
     await accepted(app);
     await run(app);
 
@@ -173,8 +173,8 @@ describe("#807 AC3: the projection moves the task with its execution", () => {
     });
   });
 
-  exposed("an execution that is no task writes no task", async ({ app, mockLlm }) => {
-    mockLlm(Clerk).thenReturn(done);
+  exposed("an execution that is no task writes no task", async ({ app, mockModel }) => {
+    mockModel(Clerk).thenReturn(done);
     await app.ready();
 
     await execute(app, OrderWorkflowStart, { text: "go" }, { threadId: "ctx-1" });
@@ -188,8 +188,8 @@ describe("#807 AC3: the projection moves the task with its execution", () => {
     expect(page.tasks).toEqual([]);
   });
 
-  internal("an application that exposes no A2A projects nothing", async ({ app, mockLlm }) => {
-    mockLlm(Clerk).thenReturn(done);
+  internal("an application that exposes no A2A projects nothing", async ({ app, mockModel }) => {
+    mockModel(Clerk).thenReturn(done);
     await accepted(app);
 
     await run(app);
@@ -204,8 +204,8 @@ describe("#807 AC3: the projection moves the task with its execution", () => {
 describe("#807 AC3: a status the events missed is repaired on read", () => {
   internal(
     "a missed finish → COMPLETED from the records (an ended tree keeps no output, #1321d), once a lease period passed",
-    async ({ app, clock, mockLlm }) => {
-      mockLlm(Clerk).thenReturn(done);
+    async ({ app, clock, mockModel }) => {
+      mockModel(Clerk).thenReturn(done);
       await accepted(app);
       await run(app);
       const parts = {
@@ -229,8 +229,8 @@ describe("#807 AC3: a status the events missed is repaired on read", () => {
     },
   );
 
-  internal("a missed pause → INPUT_REQUIRED with the pause", async ({ app, clock, mockLlm }) => {
-    mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+  internal("a missed pause → INPUT_REQUIRED with the pause", async ({ app, clock, mockModel }) => {
+    mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
     await accepted(app);
     const paused = await run(app);
     await clock.advance(seconds(30));
@@ -273,7 +273,7 @@ describe("#807 AC3: a status the events missed is repaired on read", () => {
         state: A2ATaskState.Failed,
         errorCode: "a2a.start-lost",
       });
-      await expect(run(app)).rejects.toMatchObject({ code: "run.duplicate-execution-id" });
+      await expect(run(app)).rejects.toMatchObject({ code: "execution.duplicate-execution-id" });
     },
   );
 });

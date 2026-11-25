@@ -1,3 +1,4 @@
+import { A2AError } from "../../core/error-families/remote-errors.js";
 import type { AgentCard, AgentExtension } from "@a2a-js/sdk";
 import { AGENT_CARD_PATH } from "@a2a-js/sdk";
 import { DefaultAgentCardResolver } from "@a2a-js/sdk/client";
@@ -10,12 +11,8 @@ import {
   unknownFinishesOf,
   type SchemaExpectation,
 } from "./a2a-card-schemas.js";
-import {
-  A2AClientOperation,
-  A2AContractError,
-  A2AContractRule,
-  A2AProtocolError,
-} from "./a2a-client-errors.js";
+import { A2AClientOperation, A2AContractRule } from "./a2a-client-errors.js";
+import { versionsShownOf } from "./a2a-error-messages.js";
 import { A2AOriginSite } from "./a2a-guard-errors.js";
 import { originRefusalOf, type OriginPolicy } from "./a2a-origins.js";
 import { wireErrorOf } from "./a2a-wire-errors.js";
@@ -133,9 +130,9 @@ export function peerOf(card: AgentCard): A2ARemotePeer {
 }
 
 /**
- * Fetches and checks the card at `url`: a failed answer is `A2AProtocolError` (its status), a card
- * without an A2A 1.0 interface `A2AProtocolError` naming the versions it declares (a v0.3 agent),
- * one with a usable interface outside the client's origins `A2AOriginError`.
+ * Fetches and checks the card at `url`: a failed answer is `A2AError.Protocol` (its status), a card
+ * without an A2A 1.0 interface `A2AError.Protocol` naming the versions it declares (a v0.3 agent),
+ * one with a usable interface outside the client's origins `A2AError.OriginRefused`.
  */
 export async function fetchCard(
   url: string,
@@ -152,19 +149,23 @@ export async function fetchCard(
       ...(signal === undefined ? {} : { signal }),
     });
     if (!response.ok) {
-      throw new A2AProtocolError({ agent, operation, httpStatus: response.status });
+      throw new A2AError.Protocol({ agent, operation, httpStatus: response.status });
     }
     raw = await boundedJsonOf(response);
   } catch (error) {
     throw wireErrorOf(error, agent, operation, signal);
   }
-  if (!isRecord(raw)) throw new A2AProtocolError({ agent, operation });
+  if (!isRecord(raw)) throw new A2AError.Protocol({ agent, operation });
   const usable = usableInterfaceUrlsOf(raw);
   if (usable.length === 0) {
-    throw new A2AProtocolError({ agent, operation, protocolVersions: versionsOf(raw) });
+    throw new A2AError.Protocol({
+      agent,
+      operation,
+      protocolVersions: versionsShownOf(versionsOf(raw)),
+    });
   }
   // #1394, #1396: a remote card is untrusted — any malformed part refuses it (fail closed, none of its text said)
-  if (!cardWellFormed(raw)) throw new A2AProtocolError({ agent, operation });
+  if (!cardWellFormed(raw)) throw new A2AError.Protocol({ agent, operation });
   // #809 security: an interface elsewhere would get the client's headers — the card is refused
   for (const interfaceUrl of usable) {
     const refused = originRefusalOf(policy, interfaceUrl, A2AOriginSite.CardInterface);
@@ -184,7 +185,7 @@ function normalizedCardOf(
   try {
     normalized = new DefaultAgentCardResolver().normalizeAgentCard(raw);
   } catch {
-    throw new A2AProtocolError(who);
+    throw new A2AError.Protocol(who);
   }
   const urls = new Set(usable);
   return {
@@ -227,10 +228,11 @@ export function checkCard(card: AgentCard, expected: CardExpectation): void {
   const skill = skillOf(card, expected);
   if (skill === undefined) return;
   if (!card.skills.some((declared) => declared.id === skill)) {
-    throw new A2AContractError({
+    throw new A2AError.Contract({
       agent: expected.agent,
       rule: A2AContractRule.UnknownSkill,
       skill,
+      differences: [],
     });
   }
   const entry = skillEntryOf(card, skill);
@@ -239,7 +241,7 @@ export function checkCard(card: AgentCard, expected: CardExpectation): void {
   const unknown = unknownFinishesOf(schemas, expected.finishes);
   const differences = unknown.length > 0 ? unknown : schemaDifferencesOf(schemas, expected);
   if (differences.length === 0) return;
-  throw new A2AContractError({
+  throw new A2AError.Contract({
     agent: expected.agent,
     rule: unknown.length > 0 ? A2AContractRule.UnknownFinish : A2AContractRule.SchemaMismatch,
     skill,

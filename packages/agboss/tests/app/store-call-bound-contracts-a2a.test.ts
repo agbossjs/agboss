@@ -40,8 +40,8 @@ const KEY = { tenantId: "default", ownerId: "dana", messageId: "m-1" };
 describe("#928 AC2: an A2A accept (saveIfAbsent) unanswered", () => {
   orders(
     "AC2: -32603; the resend of the messageId gets the same task, one execution",
-    async ({ a2aServer, app, clock, mockLlm }) => {
-      mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+    async ({ a2aServer, app, clock, mockModel }) => {
+      mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
       const { url } = await a2aServer({
         endpoint: OrdersA2AExpose,
         authenticator: BearerAuthenticator,
@@ -72,7 +72,7 @@ describe("#928 AC2: an A2A accept (saveIfAbsent) unanswered", () => {
         pageSize: 10,
       });
       expect(all).toHaveLength(1);
-      expect(mockLlm(Clerk).requests).toHaveLength(1);
+      expect(mockModel(Clerk).requests).toHaveLength(1);
     },
   );
 });
@@ -84,8 +84,8 @@ const replyTextOf = (answer: { readonly body: Record<string, unknown> }): string
 describe("#928 AC2: a direct message's completeIfInFlight unanswered", () => {
   quotes(
     "AC2: the reply was kept: the attempt's caller fails; a resend reads the kept reply, no second run, one reply",
-    async ({ a2aServer, app, clock, mockLlm }) => {
-      mockLlm(QuoteAgent).thenReturn(replyWith("12.50 EUR."));
+    async ({ a2aServer, app, clock, mockModel }) => {
+      mockModel(QuoteAgent).thenReturn(replyWith("12.50 EUR."));
       const { url } = await a2aServer({
         endpoint: QuotesA2AExpose,
         authenticator: BearerAuthenticator,
@@ -104,14 +104,14 @@ describe("#928 AC2: a direct message's completeIfInFlight unanswered", () => {
       expect(replyTextOf(resent)).toContain("12.50 EUR.");
       const kept = await app.resolve(A2ADirectMessageRepository).findByKey(KEY);
       expect(kept?.reply?.finish).toBe("quote-workflow-finish");
-      expect(mockLlm(QuoteAgent).requests).toHaveLength(1);
+      expect(mockModel(QuoteAgent).requests).toHaveLength(1);
     },
   );
 
   quotes(
     "AC2: the reply was not kept: past expiresAt a resend retakes the attempt once; one reply, kept and replayed",
-    async ({ a2aServer, app, clock, mockLlm }) => {
-      mockLlm(QuoteAgent).thenReturn(replyWith("12.50 EUR."), replyWith("13.00 EUR."));
+    async ({ a2aServer, app, clock, mockModel }) => {
+      mockModel(QuoteAgent).thenReturn(replyWith("12.50 EUR."), replyWith("13.00 EUR."));
       const { url } = await a2aServer({
         endpoint: QuotesA2AExpose,
         authenticator: BearerAuthenticator,
@@ -140,7 +140,7 @@ describe("#928 AC2: a direct message's completeIfInFlight unanswered", () => {
       expect(replyTextOf(again)).toContain("13.00 EUR.");
       const kept = await app.resolve(A2ADirectMessageRepository).findByKey(KEY);
       expect(kept?.reply?.finish).toBe("quote-workflow-finish");
-      expect(mockLlm(QuoteAgent).requests).toHaveLength(2);
+      expect(mockModel(QuoteAgent).requests).toHaveLength(2);
     },
   );
 });

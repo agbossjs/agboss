@@ -2,13 +2,14 @@
  * #1366: an eval replay or compare stops as "budget exhausted" only on a budget of a period — a tenant's or the
  * application's — and never on the one execution's own budget, nor on an error that is no budget's.
  */
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { describe, expect, it } from "vitest";
 import { BudgetPeriod, BudgetScope } from "../../src/budgets/budget.js";
-import { BudgetExceededError, isPeriodBudgetExhausted } from "../../src/graph/limits.js";
+import { isPeriodBudgetExhausted } from "../../src/graph/limits.js";
 import { usd } from "../../src/units/index.js";
 
 const breachOf = (scope: BudgetScope) =>
-  new BudgetExceededError({
+  new LimitError.Budget({
     budget: { name: "shop-budget" },
     scope,
     period: scope === BudgetScope.Execution ? undefined : BudgetPeriod.Day,

@@ -70,14 +70,14 @@ const judged = testWith(JudgedContextApplication);
 describe("#280 AC7: the key differs on every pass of a cycle and every tool call", () => {
   loop(
     "each pass of the writer has its own visit number, each call its own key",
-    async ({ app, mockLlm }) => {
-      mockLlm(WriterAgent).thenReturn(
+    async ({ app, mockModel }) => {
+      mockModel(WriterAgent).thenReturn(
         callTool(NoteTool, { text: "first" }),
         replyWith(DraftDto, { text: "v1" }),
         callTool(NoteTool, { text: "second" }),
         replyWith(DraftDto, { text: "v2" }),
       );
-      mockLlm(ReviewRouter).thenReturn(routeTo(WriterAgent), routeTo(PublishAction));
+      mockModel(ReviewRouter).thenReturn(routeTo(WriterAgent), routeTo(PublishAction));
 
       const done = await execute(app, ContextStart, { text: "a post" });
 
@@ -97,8 +97,8 @@ describe("#280 AC7: the key differs on every pass of a cycle and every tool call
 describe("#280 AC7: a retry keeps the visit number", () => {
   judged(
     "regression: a judge's retry runs in the same visit — visitNumber not increased",
-    async ({ app, mockLlm }) => {
-      mockLlm(JudgedWriterAgent).thenReturn(
+    async ({ app, mockModel }) => {
+      mockModel(JudgedWriterAgent).thenReturn(
         callTool(NoteTool, { text: "try 1" }),
         replyWith(DraftDto, { text: "v1" }),
         callTool(NoteTool, { text: "try 2" }),

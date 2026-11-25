@@ -1,5 +1,7 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import { beforeEach, describe, expect } from "vitest";
-import { ArbiterError, BudgetExceededError, CompensationReason } from "../../../src/index.js";
+import { CompensationReason } from "../../../src/index.js";
 import { decideWith, testWith } from "../../../src/testing/index.js";
 import { usd } from "../../../src/units/index.js";
 import { TestExecutionBudget } from "../fixtures/budgets.js";
@@ -50,13 +52,13 @@ const reservedOf = (desk: { reserve: { mock: { calls: string[][] } } }): string[
 describe("#1281: an arbiter that fails a branch after its node answered", () => {
   test("a throw on an undoable action's answer: the seat is released by the join", async ({
     app,
-    mockOf,
+    mockService,
   }) => {
-    const desk = mockOf(TripBookingDesk);
+    const desk = mockService(TripBookingDesk);
     desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
 
     await expect(execute(app, ArbiterThrowsWorkflowStart, GUEST)).rejects.toBeInstanceOf(
-      ArbiterError,
+      StepError.Arbiter,
     );
 
     // the room's branch was cancelled by the seat's failure, or finished and undone with it
@@ -67,13 +69,13 @@ describe("#1281: an arbiter that fails a branch after its node answered", () => 
 
   test("a throw on a child workflow's answer: the child's seat and room are released by the join", async ({
     app,
-    mockOf,
+    mockService,
   }) => {
-    const desk = mockOf(TripBookingDesk);
+    const desk = mockService(TripBookingDesk);
     desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
 
     await expect(execute(app, ArbiterThrowsChildWorkflowStart, GUEST)).rejects.toBeInstanceOf(
-      ArbiterError,
+      StepError.Arbiter,
     );
 
     expect(released(desk)).toEqual(["room-1", "seat-1"]);
@@ -83,18 +85,18 @@ describe("#1281: an arbiter that fails a branch after its node answered", () => 
 
   test("its model call meets a spent budget: the seat is released by the join", async ({
     app,
-    mockLlm,
-    mockOf,
+    mockModel,
+    mockService,
   }) => {
-    mockOf(TestExecutionBudget).maxSpend.mockReturnValue(usd(0.5));
+    mockService(TestExecutionBudget).maxSpend.mockReturnValue(usd(0.5));
     // the first decision spends past the budget: the second is refused before the model is asked
-    mockLlm(AskingSeatArbiter).thenReturn(decideWith({ fine: 0.9 }, { cost: usd(0.9) }));
-    const desk = mockOf(TripBookingDesk);
+    mockModel(AskingSeatArbiter).thenReturn(decideWith({ fine: 0.9 }, { cost: usd(0.9) }));
+    const desk = mockService(TripBookingDesk);
     desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
 
     const run = execute(app, ArbiterOutOfBudgetWorkflowStart, GUEST);
 
-    await expect(run).rejects.toBeInstanceOf(BudgetExceededError);
+    await expect(run).rejects.toBeInstanceOf(LimitError.Budget);
     expect(released(desk)).toContain("seat-1");
     expect(released(desk)).toEqual(reservedOf(desk));
     expect(new Set(undoReasons)).toEqual(new Set([CompensationReason.JoinFailed]));
@@ -104,11 +106,11 @@ describe("#1281: an arbiter that fails a branch after its node answered", () => 
 describe("#1281 (10): a failed join's .onError undoes what an earlier child held, first", () => {
   test("a branch that failed: the child's seat and room are released before the side path", async ({
     app,
-    mockOf,
+    mockService,
   }) => {
-    const desk = mockOf(TripBookingDesk);
+    const desk = mockService(TripBookingDesk);
     desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
-    mockOf(TripDesk).charge.mockRejectedValue(new Error("the card is declined"));
+    mockService(TripDesk).charge.mockRejectedValue(new Error("the card is declined"));
 
     const result = await execute(app, JoinDeclinedTripWorkflowStart, GUEST);
 
@@ -126,9 +128,9 @@ describe("#1281 (10): a failed join's .onError undoes what an earlier child held
 
   test("a quorum not reached: the child's seat and room are released before the side path", async ({
     app,
-    mockOf,
+    mockService,
   }) => {
-    const desk = mockOf(TripBookingDesk);
+    const desk = mockService(TripBookingDesk);
     desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
 
     const result = await execute(app, QuorumMissedTripWorkflowStart, GUEST);
@@ -139,9 +141,9 @@ describe("#1281 (10): a failed join's .onError undoes what an earlier child held
 
   test("a list past maxItems: the child's seat and room are released before the side path", async ({
     app,
-    mockOf,
+    mockService,
   }) => {
-    const desk = mockOf(TripBookingDesk);
+    const desk = mockService(TripBookingDesk);
     desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
 
     const result = await execute(app, TooManyCarsTripWorkflowStart, GUEST);
@@ -154,8 +156,8 @@ describe("#1281 (10): a failed join's .onError undoes what an earlier child held
     ]);
   });
 
-  test("a join that succeeds commits them: nothing is released", async ({ app, mockOf }) => {
-    const desk = mockOf(TripBookingDesk);
+  test("a join that succeeds commits them: nothing is released", async ({ app, mockService }) => {
+    const desk = mockService(TripBookingDesk);
     desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
 
     await execute(app, JoinDeclinedTripWorkflowStart, GUEST);

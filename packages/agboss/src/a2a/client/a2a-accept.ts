@@ -1,3 +1,5 @@
+import { ConfigError } from "../../core/error-families/config-errors.js";
+import { A2AError } from "../../core/error-families/remote-errors.js";
 import { randomUUID } from "node:crypto";
 import {
   OutboundCallSendStatus,
@@ -5,13 +7,12 @@ import {
   type OutboundCallOutcome,
   type IdempotencySendOptions,
 } from "../../app/outbound-call-types.js";
-import { ComponentError } from "../../components/metadata.js";
 import { currentFrame } from "../../flow/context/frame.js";
 import { liveExecutionContextOf } from "../../flow/context/live-context.js";
 import { stableJson } from "../../turns/index.js";
 import { hours, minutes, seconds, type Milliseconds } from "../../units/index.js";
 import { A2APeerKind, type A2ARemotePeer } from "./a2a-card.js";
-import { A2AContractError, A2AContractRule, A2AProtocolError } from "./a2a-client-errors.js";
+import { A2AContractRule } from "./a2a-client-errors.js";
 import { a2aClientServicesOf } from "./a2a-client-services.js";
 import { acceptRequestOf, recoveryOf, type AcceptRequest } from "./a2a-reconcile.js";
 import {
@@ -22,7 +23,6 @@ import {
   type Accepted,
   type AcceptResult,
 } from "./a2a-message.js";
-import { A2ANetworkError } from "./a2a-transport.js";
 import { isDefiniteSendFailure } from "./a2a-wire-errors.js";
 
 /**
@@ -40,8 +40,8 @@ const RETRY_DELAY = seconds(0.25);
 
 /** Whether a send's error is of unknown outcome — the message may have arrived. */
 export const isAmbiguous = (error: unknown): boolean =>
-  error instanceof A2ANetworkError ||
-  (error instanceof A2AProtocolError && !isDefiniteSendFailure(error));
+  (error instanceof A2AError.Unavailable && error.sent !== false) ||
+  (error instanceof A2AError.Protocol && !isDefiniteSendFailure(error));
 
 /** The names of the calls a frame made, with their requests: a second, other call is refused. */
 const callsOfFrame = new WeakMap<object, Map<string, string>>();
@@ -61,10 +61,11 @@ export function claimCallName(
   const hash = stableJson(request);
   const earlier = made.get(name);
   if (earlier !== undefined && earlier !== hash) {
-    throw new A2AContractError({
+    throw new A2AError.Contract({
       agent: call.agent,
       rule: A2AContractRule.RepeatedCall,
       skill: call.skill ?? "",
+      differences: [],
     });
   }
   made.set(name, hash);
@@ -190,8 +191,8 @@ export async function accept(call: AcceptCall): Promise<Accepted> {
   if (frame === undefined) return acceptedDirectly(call);
   const services = a2aClientServicesOf(frame.execution.tenant.application);
   if (services === undefined) {
-    throw new ComponentError({
-      message: `[a2a.outside-application] ${call.agent} was called in a step of no application (a unit runner's): its call cannot be recorded, so it is not sent — mock the client (mockOf), or run the step in testWith`,
+    throw new ConfigError.Component({
+      message: `[a2a.outside-application] ${call.agent} was called in a step of no application (a unit runner's): its call cannot be recorded, so it is not sent — mock the client (mockService), or run the step in testWith`,
     });
   }
   const executionContext = liveExecutionContextOf(undefined, call.agent);

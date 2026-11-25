@@ -3,11 +3,11 @@
  * `defaults.tools` (application → workflow), else 128 KB — cut before PII masking, with a marker;
  * error results and context-mode knowledge blocks too; `onToolEnd` says whether it was cut.
  */
+import { ConfigError } from "../../../src/core/error-families/config-errors.js";
 import type { ShownContent } from "../../../src/models/messages.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import { applicationOf } from "../../../src/application/assemble.js";
 import { describeWorkflow } from "../../../src/describe/describe-workflow.js";
-import { GraphRuleError } from "../../../src/index.js";
 import { truncatedResultMarker } from "../../../src/prompts/agents.js";
 import { callTool, replyWith, testUnit, testWith } from "../../../src/testing/index.js";
 import type { ModelScript } from "../../../src/testing/model-script.js";
@@ -53,64 +53,64 @@ describe("#336 AC3: tool results bounded by maxResultSize", () => {
   const test = testWith(PageApplication);
   const bounded = testWith(BoundedPageApplication);
 
-  test("cut at the built-in 128 KB, with the marker", async ({ app, mockLlm, mockOf }) => {
-    mockOf(PageReader).textOf.mockResolvedValue(page);
-    mockLlm(ResearchAgent).thenReturn(
+  test("cut at the built-in 128 KB, with the marker", async ({ app, mockModel, mockService }) => {
+    mockService(PageReader).textOf.mockResolvedValue(page);
+    mockModel(ResearchAgent).thenReturn(
       callTool(ReadNotesTool, { url: "https://example.com" }),
       replyWith("Done."),
     );
 
     await execute(app, PageStart, { text: "summarise example.com" });
 
-    const message = toolMessageOf(mockLlm(ResearchAgent));
+    const message = toolMessageOf(mockModel(ResearchAgent));
     expect(message.endsWith(truncatedResultMarker(renderedSize, 131_072))).toBe(true);
     expect(message).toContain("[result truncated: 1,048,587 bytes, the first 131,072 kept]");
   });
 
-  bounded("the tool's own wins over defaults.tools", async ({ app, mockLlm, mockOf }) => {
-    mockOf(PageReader).textOf.mockResolvedValue(page);
-    mockLlm(ResearchAgent).thenReturn(
+  bounded("the tool's own wins over defaults.tools", async ({ app, mockModel, mockService }) => {
+    mockService(PageReader).textOf.mockResolvedValue(page);
+    mockModel(ResearchAgent).thenReturn(
       callTool(FetchPageTool, { url: "https://example.com" }),
       replyWith("Done."),
     );
 
     await execute(app, PageStart, { text: "summarise example.com" });
 
-    expect(toolMessageOf(mockLlm(ResearchAgent))).toContain("the first 262,144 kept]");
+    expect(toolMessageOf(mockModel(ResearchAgent))).toContain("the first 262,144 kept]");
   });
 
   bounded(
     "a tool without its own reads the application's defaults.tools",
-    async ({ app, mockLlm, mockOf }) => {
-      mockOf(PageReader).textOf.mockResolvedValue(page);
-      mockLlm(ResearchAgent).thenReturn(
+    async ({ app, mockModel, mockService }) => {
+      mockService(PageReader).textOf.mockResolvedValue(page);
+      mockModel(ResearchAgent).thenReturn(
         callTool(ReadNotesTool, { url: "https://example.com" }),
         replyWith("Done."),
       );
 
       await execute(app, PageStart, { text: "summarise example.com" });
 
-      expect(toolMessageOf(mockLlm(ResearchAgent))).toContain("the first 65,536 kept]");
+      expect(toolMessageOf(mockModel(ResearchAgent))).toContain("the first 65,536 kept]");
     },
   );
 
-  bounded("an error result is bounded", async ({ app, mockLlm, mockOf }) => {
-    mockOf(PageReader).textOf.mockResolvedValue(page);
-    mockLlm(ResearchAgent).thenReturn(
+  bounded("an error result is bounded", async ({ app, mockModel, mockService }) => {
+    mockService(PageReader).textOf.mockResolvedValue(page);
+    mockModel(ResearchAgent).thenReturn(
       callTool(BrokenPageTool, { url: "https://example.com" }),
       replyWith("Done."),
     );
 
     await execute(app, PageStart, { text: "summarise example.com" });
 
-    const message = toolMessageOf(mockLlm(ResearchAgent));
+    const message = toolMessageOf(mockModel(ResearchAgent));
     expect(message.startsWith("Tool error: xxx")).toBe(true);
     expect(message).toContain(`bytes, the first 65,536 kept]`);
   });
 
-  test("PII masking reads only the kept part", async ({ app, mockLlm, mockOf }) => {
-    mockOf(PageReader).textOf.mockResolvedValue(page);
-    mockLlm(ResearchAgent).thenReturn(
+  test("PII masking reads only the kept part", async ({ app, mockModel, mockService }) => {
+    mockService(PageReader).textOf.mockResolvedValue(page);
+    mockModel(ResearchAgent).thenReturn(
       callTool(ReadNotesTool, { url: "https://example.com" }),
       replyWith("Done."),
     );
@@ -126,22 +126,24 @@ describe("#336 AC3: tool results bounded by maxResultSize", () => {
 
   bounded(
     "a knowledge base's context block is bounded by the agent's maxResultSize",
-    async ({ app, mockLlm, mockOf }) => {
-      mockOf(PageReader).textOf.mockResolvedValue(page);
-      mockLlm(ContextAgent).thenReturn(replyWith("Done."));
+    async ({ app, mockModel, mockService }) => {
+      mockService(PageReader).textOf.mockResolvedValue(page);
+      mockModel(ContextAgent).thenReturn(replyWith("Done."));
 
       await execute(app, ContextStart, { text: "what does the page say?" });
 
-      const request = mockLlm(ContextAgent).requests[0];
+      const request = mockModel(ContextAgent).requests[0];
       const input = request?.kind === "chat" ? textOf(request.input) : "";
       expect(input).toContain("bytes, the first 65,536 kept]");
       expect(input.length).toBeLessThan(MEGABYTE / 8);
     },
   );
 
-  test("onToolEnd says whether the result was cut", async ({ app, mockLlm, mockOf }) => {
-    mockOf(PageReader).textOf.mockResolvedValueOnce(page).mockResolvedValueOnce("a short page");
-    mockLlm(ResearchAgent).thenReturn(
+  test("onToolEnd says whether the result was cut", async ({ app, mockModel, mockService }) => {
+    mockService(PageReader)
+      .textOf.mockResolvedValueOnce(page)
+      .mockResolvedValueOnce("a short page");
+    mockModel(ResearchAgent).thenReturn(
       callTool(ReadNotesTool, { url: "https://example.com/long" }),
       callTool(ReadNotesTool, { url: "https://example.com/short" }),
       replyWith("Done."),
@@ -169,8 +171,9 @@ describe("#336 AC3: the bound's settings", () => {
       (thrown: unknown) => thrown,
     );
 
-    expect(error).toBeInstanceOf(GraphRuleError);
-    const codes = error instanceof GraphRuleError ? error.violations.map((v) => v.message) : [];
+    expect(error).toBeInstanceOf(ConfigError.GraphRules);
+    const codes =
+      error instanceof ConfigError.GraphRules ? error.violations.map((v) => v.message) : [];
     expect(codes).toEqual([
       expect.stringContaining("zero-bound-workflow: defaults.tools.maxResultSize is 102.4 bytes"),
       expect.stringContaining("ZeroBoundTool: its maxResultSize is 0 bytes"),

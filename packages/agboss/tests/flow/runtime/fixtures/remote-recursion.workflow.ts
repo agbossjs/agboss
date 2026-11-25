@@ -1,8 +1,8 @@
+import { LimitError } from "../../../../src/core/error-families/limit-errors.js";
 import {
   ChildPlacement,
   DecidedBy,
   EmptyEnvironment,
-  LimitExceededError,
   Router,
   Workflow,
   WorkflowStart,
@@ -50,11 +50,8 @@ export class RemoteCountdownWorkflowStart {}
       .toAction(CountdownAction)
       .toOneOf([
         toWorkflow(() => RemoteCountdownWorkflow)
-          .onError(
-            LimitExceededError,
-            toAction(DepthStoppedAction)
-              .toFinish(CountStoppedWorkflowFinish),
-          )
+          .onError(LimitError, toAction(DepthStoppedAction)
+            .toFinish(CountStoppedWorkflowFinish))
           .toOneOf([toFinish(CountDoneWorkflowFinish), toFinish(CountStoppedWorkflowFinish)]),
         toFinish(CountDoneWorkflowFinish),
       ]),
@@ -93,14 +90,10 @@ export class RemoteDeeperRouter {
   flow: [
     onStart(RemoteChainWorkflowStart)
       .toRouter(RemoteDeeperRouter)
-      .onRoute(
-        toWorkflow(() => RemoteChainWorkflow)
-          .toFinish(ChainDoneWorkflowFinish),
-      )
-      .onRoute(
-        toAgent(LinkAgent)
-          .toFinish(ChainDoneWorkflowFinish),
-      ),
+      .onRoute(toWorkflow(() => RemoteChainWorkflow)
+        .toFinish(ChainDoneWorkflowFinish))
+      .onRoute(toAgent(LinkAgent)
+        .toFinish(ChainDoneWorkflowFinish)),
   ],
   executionLimits: { maxDepth: 2 },
 })

@@ -7,11 +7,8 @@
  * was checkpointed, and the instance that took the tree over heard it again.
  */
 import { beforeEach, describe, expect } from "vitest";
-import {
-  ExecutionCancelledError,
-  ExecutionLeaseLostError,
-  ExecutionRecordStatus,
-} from "../../src/index.js";
+import { ExecutionLeaseLostError, ExecutionRecordStatus } from "../../src/index.js";
+import { ExecutionCancelledError } from "../../src/core/errors.js";
 import { testWith } from "../../src/testing/index.js";
 import { seconds } from "../../src/units/index.js";
 import { execute } from "../helpers/flow.js";
