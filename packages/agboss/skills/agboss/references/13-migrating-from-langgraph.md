@@ -98,10 +98,10 @@ The result — one row per DTO, its producer and its readers — is the plan for
 | `Send` to several different nodes, "first N answers win"       | `.inParallel([toAgent(A), toAgent(B), toAgent(C)])` + `.join()`, or `.arbitratedBy(Arbiter).joinQuorum({ min, max, deadline })`                                                                         |
 | a reducer (`(a, b) => a.concat(b)`, `operator.add`)            | the join's `listOf(…)` — values are never merged by hand                                                                                                                                                |
 | a subgraph                                                     | a child `@Workflow`: `.toWorkflow(Child)`, its own scope (only its start's input), its finishes' outputs as the step's result                                                                           |
-| `interrupt(payload)` + `Command({ resume })`                   | a `@Tool({ channel: Role })` whose call needs an answer: a `@ChannelRole` (`extends ChannelOf<Self>`) and its `@Channel` returning `ChannelOutcome.awaitReply()`; `app.resume({ pauseId, decision })`   |
+| `interrupt(payload)` + `Command({ resume })`                   | a `@Tool({ approval: Target })` whose call needs an answer: a `@ToolApproval` target and its `@Channel({ target })` returning `ChannelOutcome.awaitReply()`; `app.resume({ pauseId, decision })`        |
 | `thread_id` in `configurable`                                  | `app.execute(Start, input, { threadId, ownerId })`                                                                                                                                                      |
 | `MessagesAnnotation`, a messages reducer                       | across executions, the thread's turns: each agent sees its `@Memory`'s last `uncompactedTurns`, older ones through its compaction; within one, an agent's tool loop keeps its own messages              |
-| `MemorySaver`, `PostgresSaver`                                 | infrastructure in `@Application({ providers })`: `SqlitePausedExecutionRepository`, … (the checkpointer comes with the storage driver) (in-memory by default)                                           |
+| `MemorySaver`, `PostgresSaver`                                 | the application's `@DatabaseStorage({ driver })` in `@Application({ storage })` (the checkpointer comes with the driver; in-memory by default)                                                          |
 | `streamMode: "updates"`                                        | `app.execute(…, { onStream })`; observers in `@Application({ observers })` for events                                                                                                                   |
 
 There is no pause step in an AGBoss flow: a pause is always a tool call through a channel. An
@@ -358,7 +358,7 @@ export class OrderFactsDto {
 }
 ```
 
-The services the old nodes called are injected, the `interrupt()` becomes a channel role on the tool
+The services the old nodes called are injected, the `interrupt()` becomes an approval target on the tool
 that issues a large refund:
 
 ```ts file=src/support/services/order-book.service.ts
@@ -396,33 +396,40 @@ export class SupervisorQueueService {
 }
 ```
 
-```ts file=src/support/channels/refund-sign-off.channel-role.ts
-// interrupt({ draft, refundCents }) → the role: what is approved and who answers
-import { ChannelOf, ChannelRole, PauseAnswerer } from "@agboss/core";
+```ts file=src/support/tool-approvals/refund-sign-off.tool-approval.ts
+// interrupt({ draft, refundCents }) → the target: what is approved and who answers
+import { PauseRespondent, ToolApproval } from "@agboss/core";
+import { days } from "@agboss/core/units";
 import { RefundOrderDto } from "../dto/refund-order.dto.js";
 
-@ChannelRole({
-  name: "refund-sign-off-channel",
+@ToolApproval({
+  name: "refund-sign-off-tool-approval",
   description: "A supervisor signs off a large refund before it is issued",
-  approves: RefundOrderDto, // the input of the tool that names the role
-  answerer: PauseAnswerer.ThreadOwner,
+  input: RefundOrderDto, // the input of the tool that names the target
+  respondent: PauseRespondent.Owner,
+  timeout: days(2),
 })
-export abstract class RefundSignOffChannel extends ChannelOf<RefundSignOffChannel> {}
+export class RefundSignOffToolApproval {}
 ```
 
 ```ts file=src/support/channels/supervisor-queue-refund-sign-off.channel.ts
 import { Channel, ChannelOutcome } from "@agboss/core";
 import type { ChannelAsk } from "@agboss/core";
+import { days } from "@agboss/core/units";
 import { SupervisorQueueService } from "../services/supervisor-queue.service.js";
-import { RefundSignOffChannel } from "./refund-sign-off.channel-role.js";
+import { RefundSignOffToolApproval } from "../tool-approvals/refund-sign-off.tool-approval.js";
 
-@Channel({ name: "supervisor-queue-refund-sign-off-channel", description: "Puts the refund in the supervisors' queue", deps: [SupervisorQueueService] })
-export class SupervisorQueueRefundSignOffChannel extends RefundSignOffChannel {
-  constructor(private readonly supervisorQueueService: SupervisorQueueService) {
-    super();
-  }
+@Channel({
+  name: "supervisor-queue-refund-sign-off-channel",
+  description: "Puts the refund in the supervisors' queue",
+  target: RefundSignOffToolApproval,
+  ttl: days(7),
+  deps: [SupervisorQueueService],
+})
+export class SupervisorQueueRefundSignOffChannel {
+  constructor(private readonly supervisorQueueService: SupervisorQueueService) {}
 
-  async send(ask: ChannelAsk<RefundSignOffChannel>): Promise<ChannelOutcome<RefundSignOffChannel>> {
+  async send(ask: ChannelAsk<RefundSignOffToolApproval>): Promise<ChannelOutcome<RefundSignOffToolApproval>> {
     const { orderId, amountCents } = ask.input;
     await this.supervisorQueueService.notify(ask.pauseId, `Refund ${String(amountCents)} cents on order ${orderId}?`);
     return ChannelOutcome.awaitReply(); // Command({ resume }) becomes app.resume({ pauseId, decision })
@@ -451,7 +458,7 @@ promise of it; it needs no `implements`, the decorator checks the method against
 
 ```ts file=src/support/tools/issue-signed-off-refund.tool.ts
 import { ExecutionContext, Tool } from "@agboss/core";
-import { RefundSignOffChannel } from "../channels/refund-sign-off.channel-role.js";
+import { RefundSignOffToolApproval } from "../tool-approvals/refund-sign-off.tool-approval.js";
 import { RefundIssuedDto } from "../dto/refund-issued.dto.js";
 import { RefundOrderDto } from "../dto/refund-order.dto.js";
 import { RefundApiService } from "../services/refund-api.service.js";
@@ -461,7 +468,7 @@ import { RefundApiService } from "../services/refund-api.service.js";
   description: "Issues a large refund — a supervisor signs it off first",
   input: RefundOrderDto,
   output: RefundIssuedDto,
-  channel: RefundSignOffChannel, // the role, never its implementation
+  approval: RefundSignOffToolApproval, // the target, never its channel
   deps: [RefundApiService, ExecutionContext],
 })
 export class IssueSignedOffRefundTool {
@@ -625,7 +632,25 @@ import { SupportRequestDto } from "../../dto/support-request.dto.js";
 export class ReplyStuckWorkflowFinish {}
 ```
 
+A decision model (Jev) is served by a decisions provider — a component naming one says so with `modelProvider`:
+
+```ts file=src/model-providers/decisions.model-provider.ts
+import { secret } from "@agboss/core";
+import { DecisionsDriver, ModelCost, ModelProvider } from "@agboss/core/models";
+import { seconds } from "@agboss/core/units";
+
+@ModelProvider({
+  name: "decisions-model-provider",
+  description: "Jev and the other decision models, on OpenRouter's Decisions API",
+  driver: DecisionsDriver({ baseUrl: "https://openrouter.ai/api/v1", apiKey: secret("OPENROUTER_API_KEY") }),
+  timeout: seconds(30),
+  cost: ModelCost.fromResponse(),
+})
+export class DecisionsModelProvider {}
+```
+
 ```ts file=src/support/routers/support-triage/support-triage.router.ts
+import { DecisionsModelProvider } from "../../../model-providers/decisions.model-provider.js";
 import { DecidedBy, Router, inline } from "@agboss/core";
 import { ResearchPlannerAgent } from "../../agents/research-planner/research-planner.agent.js";
 import { SupportRequestDto } from "../../dto/support-request.dto.js";
@@ -637,6 +662,7 @@ import { HandOverWorkflowFinish } from "../../workflows/support/hand-over.workfl
   decidedBy: DecidedBy.Model,
   prompt: inline("Decide whether the customer asks for a refund."),
   model: "typesafe/jev-1.13",
+  modelProvider: DecisionsModelProvider,
   input: { request: SupportRequestDto },
   routes: [
     { prompt: "The customer asks for a refund", target: ResearchPlannerAgent },
@@ -778,8 +804,8 @@ export class SupportWorkflow {}
 ```
 
 The `compile({ checkpointer })` call becomes the application: its workflows, budgets and
-infrastructure — here the channel's implementation; in production also
-`SqlitePausedExecutionRepository` and a storage driver, so a pause survives a restart (`09-persistence-k8s-and-deploy.md`).
+infrastructure — here the approval's channel; in production also a `@DatabaseStorage`
+with a driver in `storage`, so a pause survives a restart (`09-persistence-k8s-and-deploy.md`).
 Its budgets, one per file in `budgets/`:
 
 ```ts file=src/support/budgets/support-application.budget.ts
@@ -818,7 +844,25 @@ export class SupportExecutionBudget implements BudgetHandler {
 }
 ```
 
+The chat provider — every application names its `modelProvider` explicitly (a driver provider; no built-ins):
+
+```ts file=src/model-providers/openrouter.model-provider.ts
+import { secret } from "@agboss/core";
+import { ModelCost, ModelProvider, OpenRouterDriver } from "@agboss/core/models";
+import { minutes } from "@agboss/core/units";
+
+@ModelProvider({
+  name: "openrouter-model-provider",
+  description: "OpenRouter — every chat model of the application",
+  driver: OpenRouterDriver({ apiKey: secret("OPENROUTER_API_KEY") }),
+  timeout: minutes(2),
+  cost: ModelCost.fromResponse(),
+})
+export class OpenRouterModelProvider {}
+```
+
 ```ts file=src/support.application.ts
+import { OpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
 import { Application, EmptyEnvironment } from "@agboss/core";
 import { SupportApplicationBudget } from "./support/budgets/support-application.budget.js";
 import { SupportExecutionBudget } from "./support/budgets/support-execution.budget.js";
@@ -828,12 +872,14 @@ import { SupervisorQueueService } from "./support/services/supervisor-queue.serv
 import { SupportWorkflow } from "./support/workflows/support/support.workflow.js";
 
 @Application({
+  modelProvider: OpenRouterModelProvider,
   name: "support-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [SupportWorkflow],
   budgets: [SupportApplicationBudget, SupportTenantBudget, SupportExecutionBudget],
-  providers: [SupervisorQueueRefundSignOffChannel, SupervisorQueueService],
+  providers: [OpenRouterModelProvider, SupervisorQueueService],
+  channels: [SupervisorQueueRefundSignOffChannel],
 })
 export class SupportApplication {}
 ```
@@ -968,7 +1014,7 @@ behaviour a live model must keep goes in an `@EvalSuite` — both in `10-testing
 2. One DTO per producer, ending with `Dto`; no field optional only because "some node may not have
    set it".
 3. Each node a component of its kind: agent (a model), action (code), router (a decision of its own),
-   child workflow (a subgraph); every `interrupt()` a tool with a channel role.
+   child workflow (a subgraph); every `interrupt()` a tool with an approval target (`@ToolApproval`).
 4. Prompts static; what changes per execution in `input`.
 5. The flow: one path per node reached from two places; `historyOf` on every loop;
    `maxItems` on every launch; `maxVisits` on every node of a loop; each way out a finish.

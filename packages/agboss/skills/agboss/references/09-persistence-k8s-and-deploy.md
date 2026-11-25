@@ -4,56 +4,89 @@ Read this when you make an application durable (its stores), run it as several i
 health probes, stop it gracefully, or deploy a new version while executions are paused or running.
 Budgets' counters are in reference 06, pauses in reference 05, the undo's durability in reference 02.
 
-## The stores
+## Storage: where the rows go
 
-Every store is an **infrastructure contract** with a built-in **in-memory** default, listed only in
-`@Application({ providers })` and found by inheritance (a class that `extends` the contract; two →
-`[di.ambiguous-implementation]`, in a workflow's `providers` → `[di.infrastructure-in-workflow]`).
-In memory nothing is shared between instances and nothing survives a restart.
+An application's durable rows go where its `storage` says (#1321): `@Application({ storage:
+AppDatabaseStorage })` — a class decorated `@DatabaseStorage({ driver, auditLogTtl, ledgerEntriesTtl })`
+— or `storage: { database, cluster?, objects? }` with a `@ClusterStorage({ driver })` (the rows that
+coordinate instances — leases, the child queue, rate limits) and an `@ObjectStorage({ driver })` (files:
+`S3Driver`, `LocalDiskDriver`). A **driver** holds its connection settings with `env(…)` / `secret(…)`
+references, read once when the application starts, so `@Application` carries no host or password:
+`SqliteDriver({ path })` is the core's; `PostgresDriver`, `MongoDriver` and `RedisDriver` come from the
+store packages (`@agboss/postgres`, `@agboss/mongodb`, `@agboss/redis`). The stores come from the drivers
+— a store class listed in `providers` beside `storage` is `[storage.providers-conflict]`, a workflow's
+`providers` is `[di.infrastructure-in-workflow]`. With no `storage` the built-in in-memory stores run
+(`InMemoryDatabaseStorage`): nothing shared between instances, nothing survives a restart, and the
+`[application.in-memory-…]` warnings say so (an error under `--strict`).
 
-| Contract                            | Holds                                                                         | SQLite implementation              |
-| ----------------------------------- | ----------------------------------------------------------------------------- | ---------------------------------- |
-| `BaseCheckpointSaver` (LangGraph's) | every step's checkpoint: a pause, a crash and a resume continue from it       | the storage driver's (internal)    |
-| `ExecutionRecordRepository`         | threads, owners, execution records, who answered each pause, summaries        | `SqliteExecutionRecordRepository`  |
-| `PausedExecutionRepository`         | each pause's record (`Pending → Resolved → Taken`, or `Cancelled`)            | `SqlitePausedExecutionRepository`  |
-| `CostLedgerRepository`              | the budgets' counters (reference 06)                                          | `SqliteCostLedgerRepository`       |
-| `ExecutionLeaseRepository`          | one lease per execution tree: who moves it                                    | `SqliteExecutionLeaseRepository`   |
-| `ExecutionTreeRepository`           | the shared state of one request (cancel requests, the undo's progress marks)  | `SqliteExecutionTreeRepository`    |
-| `RateLimitRepository`               | a provider's slots, per-minute windows, 429 pause and circuit breaker         | `SqliteRateLimitRepository`        |
-| `ExecutionHistoryRepository`        | each root execution's history, only with `retention.executionRecords` (below) | `SqliteExecutionHistoryRepository` |
+| What the database holds              | Used by                                                                        |
+| ------------------------------------ | ------------------------------------------------------------------------------ |
+| checkpoints                          | every step's checkpoint: a pause, a crash and a resume continue from it        |
+| execution records                    | threads, owners, execution records, who answered each pause, summaries         |
+| pauses (`PausedExecutionRepository`) | each pause's record (`Pending → Resolved → Taken`, or `Cancelled`) and notices |
+| cost ledger                          | the budgets' counters (reference 06); `ledgerEntriesTtl` keeps its entries     |
+| leases, execution trees              | one lease per execution tree: who moves it; cancel requests, the undo's marks  |
+| rate limits                          | a provider's slots, per-minute windows, 429 pause and circuit breaker          |
+| execution history                    | each root execution's history, only with `retention.executionRecords` (below)  |
+| audit log                            | every takeover of a lease and every step handed over; kept `auditLogTtl`       |
+| fenced effects, outbound calls       | `Idempotency.runOnce` / `sendOnce` (below)                                     |
 
-The SQLite ones share **one file**, the environment's `sqlitePath` (required only when one is
-listed: `[environment.missing-field]`), over one `node:sqlite` connection per instance (the
+`@DatabaseStorage` requires `auditLogTtl` (a duration, `Ttl.Forever` or `Ttl.None`) and `ledgerEntriesTtl`
+(above the 30 s lease) — `[storage.ttl-invalid]` — and names its keys: `idempotencySecret`,
+`piiSecret` (reference 07), each a `secret(…)` of its own (`[storage.secret-shared]`,
+`[storage.key-conflict]`). `retention.auditLog` and `retention.costLedgerEntries` beside `storage` are
+`[storage.retention-conflict]`. A `@ClusterStorage` needs a database whose driver keeps durable lease
+rows (`[storage.cluster-needs-durable-lease-store]`) and a database beside it
+(`[storage.database-required]`). A class in `storage` without its decorator is
+`[storage.not-a-storage]`, a bad driver `[storage.driver-invalid]`.
+
+The SQLite driver shares **one file** over one `node:sqlite` connection per instance (the
 `SqliteConnection` token), in WAL mode with a 5 s busy timeout; every atomic operation runs in one
 `BEGIN IMMEDIATE`, every time value comes from the application's `Clock`. SQLite shares state
-between **processes on one machine** (one volume). Several machines need a shared store: list your
-own implementation of each contract (below) over Postgres, Redis or the like.
+between **processes on one machine** (one volume). Several machines need a networked database:
+`PostgresDriver` or `MongoDriver` for the rows, `RedisDriver` as the `@ClusterStorage`. A schema change
+of a networked store is `npx agboss migrate db` (stop the old version first; live leases refuse it unless
+`--allow-live-leases`); SQLite creates its schema when it opens the file.
 
 ## The worked example: a durable application
 
 ```ts file=src/environments/app.environment.ts
-import type { Secret } from "@agboss/core";
-
-export class AppEnvironment {
-  sqlitePath!: string; // required because SQLite stores are listed
-  openRouterApiKey?: Secret;
-}
+export class AppEnvironment {} // the storage's path and the keys are env(…) / secret(…) in its decorator
 ```
 
 ```ts file=src/environments/prod.environment.ts
-import { env, secret } from "@agboss/core";
 import type { AppEnvironment } from "./app.environment.js";
 
-export const environment: AppEnvironment = {
-  sqlitePath: env("AGBOSS_SQLITE_PATH", { default: "/data/claims.sqlite" }), // a persistent volume
-  openRouterApiKey: secret("OPENROUTER_API_KEY"),
-};
+export const environment: AppEnvironment = {};
 ```
 
 ```ts file=src/environments/test.environment.ts
 import type { AppEnvironment } from "./app.environment.js";
 
-export const environment: AppEnvironment = { sqlitePath: ":memory:" };
+export const environment: AppEnvironment = {};
+```
+
+The storage: SQLite in the file `AGBOSS_SQLITE_PATH` names (a persistent volume), the keys from the
+process. A test sets the variable to `:memory:` in its vitest config (`agbossVitest({ env: {
+AGBOSS_SQLITE_PATH: ":memory:" } })`); `testWith` has keys of its own.
+
+```ts file=src/claims/storages/claims.database-storage.ts
+import { DatabaseStorage, SqliteDriver, defineEnv, env, secret } from "@agboss/core";
+import { hours } from "@agboss/core/units";
+
+const databaseEnv = defineEnv({
+  path: env("AGBOSS_SQLITE_PATH", { default: "/data/claims.sqlite" }), // a persistent volume
+  idempotencySecret: secret("AGBOSS_IDEMPOTENCY_SECRET"),
+});
+
+@DatabaseStorage({
+  name: "claims-database-storage",
+  driver: SqliteDriver({ path: databaseEnv.path }),
+  auditLogTtl: hours(24 * 30),
+  ledgerEntriesTtl: hours(24),
+  idempotencySecret: databaseEnv.idempotencySecret, // a key of its own: business keys of Idempotency
+})
+export class ClaimsDatabaseStorage {}
 ```
 
 ```ts file=src/claims/dto/claim-assessment.dto.ts
@@ -205,43 +238,46 @@ export class ExecutionBudget implements BudgetHandler {
 }
 ```
 
+The chat provider — every application names its `modelProvider` explicitly (a driver provider; no built-ins):
+
+```ts file=src/model-providers/openrouter.model-provider.ts
+import { secret } from "@agboss/core";
+import { ModelCost, ModelProvider, OpenRouterDriver } from "@agboss/core/models";
+import { minutes } from "@agboss/core/units";
+
+@ModelProvider({
+  name: "openrouter-model-provider",
+  description: "OpenRouter — every chat model of the application",
+  driver: OpenRouterDriver({ apiKey: secret("OPENROUTER_API_KEY") }),
+  timeout: minutes(2),
+  cost: ModelCost.fromResponse(),
+})
+export class OpenRouterModelProvider {}
+```
+
 ```ts file=src/claims.application.ts
-import {
-  Application,
-  SqliteCostLedgerRepository,
-  SqliteExecutionHistoryRepository,
-  SqliteExecutionLeaseRepository,
-  SqliteExecutionRecordRepository,
-  SqliteExecutionTreeRepository,
-  SqlitePausedExecutionRepository,
-  SqliteRateLimitRepository,
-} from "@agboss/core";
+import { OpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
+import { Application } from "@agboss/core";
 import { hours, seconds } from "@agboss/core/units";
 import { ApplicationDailyBudget } from "./claims/budgets/application-daily.budget.js";
 import { ExecutionBudget } from "./claims/budgets/execution.budget.js";
 import { TenantDailyBudget } from "./claims/budgets/tenant-daily.budget.js";
 import { ClaimsApiHealthCheck } from "./claims/health-checks/claims-api.health-check.js";
 import { ClaimsApiService } from "./claims/services/claims-api.service.js";
+import { ClaimsDatabaseStorage } from "./claims/storages/claims.database-storage.js";
 import { ClaimWorkflow } from "./claims/workflows/claim/claim.workflow.js";
 import { AppEnvironment } from "./environments/app.environment.js";
 
 @Application({
+  modelProvider: OpenRouterModelProvider,
   name: "claims-application",
   version: "1.1.0",
   environment: AppEnvironment,
   workflows: [ClaimWorkflow],
   budgets: [ApplicationDailyBudget, TenantDailyBudget, ExecutionBudget],
-  providers: [
-    // every store durable and shared: no [application.in-memory-…] warning
-    SqliteExecutionRecordRepository,
-    SqlitePausedExecutionRepository,
-    SqliteCostLedgerRepository,
-    SqliteExecutionLeaseRepository,
-    SqliteExecutionTreeRepository,
-    SqliteRateLimitRepository,
-    SqliteExecutionHistoryRepository,
-    ClaimsApiService,
-  ],
+  // every store durable and shared: no [application.in-memory-…] warning
+  storage: ClaimsDatabaseStorage,
+  providers: [OpenRouterModelProvider, ClaimsApiService],
   healthChecks: [ClaimsApiHealthCheck],
   retention: {
     pauseRecords: hours(24), // resolved pause records kept this long, then swept
@@ -352,10 +388,10 @@ Autoscaling.
   interpreter, a budget's `maxSpend()` and an eval judge have no lease (`ExecutionContextUnavailableError`).
 - **The idempotent write (#500).** For rows in the store's own database, one call does the fencing and
   the deduplication: inject `Idempotency` (#890, never a store's class) and call
-  `runOnce({ name: "charge", ttl: hours(24), execute: (database: DatabaseSync) => … })` — on the listed
-  `SqliteFencedEffectRepository` (listed with `SqliteExecutionLeaseRepository`; `execute` is
-  synchronous) or the built-in in-memory store — the lease, the scope's mark and the step's key
-  checked in the write's transaction; a replay gets the stored result, a zombie `ExecutionError.Fenced`.
+  `runOnce({ name: "charge", ttl: hours(24), execute: () => repository.write(…) })` — on the
+  application's database storage (the SQLite one, a networked one, or the in-memory default) — the lease,
+  the scope's mark and the step's key checked in the write's transaction, which your repository joins
+  (`sqliteConnection.requireTransaction()`; `execute` gets no transaction argument and is synchronous); a replay gets the stored result, a zombie `ExecutionError.Fenced`.
   No fencing or idempotency table of your own.
 - **Calls that leave the system (#505).** `idempotency.sendOnce({ name: "charge", target, request,
 timeout, ttl, send, recovery })` records the intent first
@@ -378,7 +414,7 @@ Reconciliation…)` when the lookup reads the other system's own records, `Outbo
   `[limits.max-concurrent-steps-invalid]`; unset → no cap) bounds the agent, router and action steps
   one instance runs at once over every tree and tenant — a queue, never an error; readiness is
   `isBusy` (so not `isReady`) while every slot is taken, and the recovery sweep starts at most its free slots' worth.
-- **PII tokens** are the same on every instance only with `@Application({ piiKeyField })` (reference 07).
+- **PII tokens** are the same on every instance only with `@DatabaseStorage({ piiSecret })` (reference 07).
 
 ## Stop, pause, unpause and cancel an execution
 
@@ -496,8 +532,7 @@ warning in the log (`execution-history.failed`), never the execution's failure; 
 (a lost lease, the app's stop) saves nothing — the next holder does.
 
 On the built-in in-memory store it warns `[application.in-memory-execution-history]` (another
-instance and the CLI do not see it); list `SqliteExecutionHistoryRepository` (or your own) to keep
-it. Export it without running anything — the application's stores opened, no workflow built, no
+instance and the CLI do not see it); a durable `@DatabaseStorage` keeps it. Export it without running anything — the application's stores opened, no workflow built, no
 sweep:
 
 ```
@@ -533,7 +568,7 @@ npx agboss hub show hub/ --html .artifacts/mesh.html
   when a snapshot describes it, dashed when only records or runs name it), the **observed edges** — a
   caller's `toolCalls[].remote` and a receiver's `origin`, one call counted once by its step's
   `idempotencyKey` (never by tenant) — and a card per application: its workflows with their agents,
-  routers, actions, child workflows, tools and MCP servers, its channel roles, and its **health from
+  routers, actions, child workflows, tools and MCP servers, its pause targets and channels, and its **health from
   its files only**: executions, failure rate, p95 duration, spend and spend per day from its records,
   the `limit.*` / `mesh.*` codes they failed with, and the latest run of each eval suite (pass^k,
   pass@k, unstable). Nothing live: probes stay the orchestrator's (`app.checkReadiness()`).
@@ -576,13 +611,15 @@ Every class with a direct database connection or store contract lives in `reposi
 `schemas/<name>.schema.ts` using a typed ORM / query builder (such as Drizzle ORM), and never build
 queries with string interpolation (`SELECT … ${clause}`).
 
-A repository of the project's own tables injects `SqliteConnection` and uses its `database` (a
-`node:sqlite` `DatabaseSync`) — never an internal helper of `@agboss/core`. Both are listed in
-`@Application({ providers })` — `SqliteConnection` too, beside the SQLite stores — never in a
-workflow's `providers`: there `SqliteConnection` is not registered. Its DDL is a `.sql` file
-read once, applied by `ensureSchema`; its statements take `?` parameters; a write transaction is
-`sqliteConnection.transaction(() => …)` — synchronous, no `await` inside, so two instances on one
-event loop (`testWith(App, { instances: 2 })`) never wait on each other's open lock:
+A repository of the project's own tables injects `SqliteConnection` (of `@agboss/core/stores`: the
+application's SQLite storage driver provides it, one connection for the stores and your tables) and
+uses its `database` (a `node:sqlite` `DatabaseSync`) — never an internal helper of `@agboss/core`.
+The repository is a service — in the workflow's `providers` (or the application's `services`). Its
+DDL is a `.sql` file read once, applied by `ensureSchema`; its statements take `?` parameters; a write
+transaction is `sqliteConnection.transaction(() => …)` — synchronous, no `await` inside, so two instances
+on one event loop (`testWith(App, { instances: 2 })`) never wait on each other's open lock. A write that
+must commit with a fenced effect uses `sqliteConnection.requireTransaction()` inside the `execute` of
+`Idempotency.runOnce`, never a transaction of its own:
 
 ```sql file=src/claims/sql/claim-notes.sql
 CREATE TABLE IF NOT EXISTS claim_notes (
@@ -630,50 +667,13 @@ such as Drizzle ORM the same rules hold — its table in `schemas/`, its queries
 and a write transaction stays synchronous: an async driver over `DatabaseSync`
 (`drizzle-orm/sqlite-proxy`) must not hold a transaction open across an `await`.
 
-A project's store implementation `extends` the contract (or a SQLite one, with `override`) and is
-listed in `@Application({ providers })` **instead of** it. A SQLite subclass takes the base's `deps`
-first — `SqliteConnection`, `Clock`, `ApplicationContext` (and `IdGenerator` for the records):
-
-```ts file=src/claims/services/lease-audit.service.ts
-import { Injectable, type ExecutionLease } from "@agboss/core";
-
-@Injectable()
-export class LeaseAuditService {
-  taken(lease: ExecutionLease): void {
-    void lease;
-  }
-}
-```
-
-```ts file=src/claims/repositories/audited-lease.repository.ts
-import { ApplicationContext, Injectable, SqliteExecutionLeaseRepository, StoreClock, type ExecutionLease } from "@agboss/core";
-import { SqliteConnection } from "@agboss/core/stores";
-import type { Milliseconds } from "@agboss/core/units";
-import { LeaseAuditService } from "../services/lease-audit.service.js";
-
-/** The SQLite leases, each one taken written to the audit log as well. */
-@Injectable({ deps: [SqliteConnection, StoreClock, ApplicationContext, LeaseAuditService] })
-export class AuditedSqliteExecutionLeaseRepository extends SqliteExecutionLeaseRepository {
-  constructor(
-    connection: SqliteConnection,
-    clock: StoreClock,
-    applicationContext: ApplicationContext,
-    private readonly leaseAuditService: LeaseAuditService,
-  ) {
-    super(connection, clock, applicationContext);
-  }
-
-  override async acquire(
-    tenantId: string,
-    rootExecutionId: string,
-    duration: Milliseconds,
-  ): Promise<ExecutionLease | undefined> {
-    const taken = await super.acquire(tenantId, rootExecutionId, duration);
-    if (taken !== undefined) this.leaseAuditService.taken(taken);
-    return taken;
-  }
-}
-```
+A store of your own is a **storage driver**: `defineStorageDriver({ role, backend, describes, settings,
+providers, … })` (of `@agboss/core/stores`) returns what `@DatabaseStorage({ driver })` takes, with the
+store classes — each `extends` its contract — in its `providers`, as `PostgresDriver`, `MongoDriver` and
+`RedisDriver` do; a driver with a `migrate` is what `npx agboss migrate db` runs. A test replaces one
+store of an application with `testWith(App, { services: [MyLeaseRepository] })`. A SQLite-based store takes
+its base's `deps` first — `SqliteConnection`, `Clock`, `ApplicationContext` (and `IdGenerator` for the records) —
+and a lease store hands back an `ExecutionLease`.
 
 An implementation over another store keeps every operation atomic, takes every time value from the
 framework (durations as parameters; a lease or fenced store reads now from its `StoreClock` — the
@@ -731,7 +731,7 @@ import { ClaimAssessorAgent } from "../src/claims/agents/claim-assessor/claim-as
 import { ClaimAssessmentDto } from "../src/claims/dto/claim-assessment.dto.js";
 import { ClaimWorkflowStart } from "../src/claims/workflows/claim/claim.workflow-start.js";
 
-const test = testWith(ClaimsApplication); // the test environment: sqlitePath ":memory:"
+const test = testWith(ClaimsApplication); // the storage's path is :memory: in the vitest config
 const twoInstances = testWith(ClaimsApplication, { instances: 2 });
 
 test("ready on its stores; a closing instance is not live", async ({ app }) => {
@@ -757,17 +757,17 @@ twoInstances("two instances share one set of stores", async ({ app, apps, mockLl
 `testWith(App, { instances: 2 })` gives `apps` — two instances, each its own container, over one set
 of stores and one `clock`: a pause resumed on the other instance, a lease taken over after
 `await clock.advance(seconds(31))`, a recovery at the next sweep. The in-memory defaults are shared
-between the instances; listed SQLite stores are shared only through a file. Each instance opens its
-own connection, and `sqlitePath: ":memory:"` is one database per connection, so on `:memory:` the
-two instances see nothing of each other. A multi-instance test runs on an environment with a temp
-file (`sqlitePath: join(mkdtempSync(join(tmpdir(), "app-")), "stores.sqlite")`) —
-`testWith(App, { instances: 2, env: "instances" })` (#458).
+between the instances; SQLite stores are shared only through a file. Each instance opens its own
+connection, and `:memory:` is one database per connection, so on `:memory:` the two instances see
+nothing of each other: a multi-instance test runs on a temp file (a storage with
+`SqliteDriver.inMemory()` — one temporary file shared by every instance made from it, removed at
+exit — or a path in the test's `env`).
 
 ## Pitfalls
 
 - In-memory stores in production: pauses vanish on restart (`[application.in-memory-pauses]`),
   budgets count per instance (`[application.in-memory-cost-ledger]`).
-- SQLite across machines: one file is one machine; several nodes need shared implementations.
+- SQLite across machines: one file is one machine; several nodes need a networked storage driver (`PostgresDriver`, `MongoDriver`, with `RedisDriver` as the cluster).
 - Holding a `node:sqlite` (`DatabaseSync`) `BEGIN IMMEDIATE` write lock across an `await` (for
   example through an async ORM proxy): when `testWith(App, { instances: 2 })` runs two instances on
   one Node.js event loop over one SQLite file, the sibling connection blocks synchronously inside
@@ -784,8 +784,8 @@ file (`sqlitePath: join(mkdtempSync(join(tmpdir(), "app-")), "stores.sqlite")`) 
   A worker claims queued children while it has free step slots, so the first one to look may take a
   whole launch of siblings: bound it with `@Application({ executionLimits: { maxConcurrentSteps } })`. A `Running` child
   whose instance died is taken over by a live worker once its 30 s lease expires — automatically,
-  only when the child queue and the leases are shared stores (`SqliteChildExecutionQueueRepository`
-  and `SqliteExecutionLeaseRepository` on one file, or your own over a shared database).
+  only when the child queue and the leases are shared stores (one SQLite file, or a networked
+  database storage with the `@ClusterStorage` beside it).
 - Missing non-TypeScript assets in `dist/`: `tsc` does not copy `*.prompt.md` (a `prompt` path) or
   `sql/*.sql` files, so a compiled `node dist/…` in a container fails at start with
   `[prompt.missing-file]` — make the project's build copy every non-`.ts` file of `src/` next to its

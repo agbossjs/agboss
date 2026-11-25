@@ -643,7 +643,7 @@ const STATED: readonly (readonly [string, string, readonly string[]])[] = [
       "never inline `CREATE TABLE`",
       "never string-interpolated SQL",
       "`sqliteConnection.database`",
-      "listed in `@Application({ providers })`, never a workflow's",
+      "the application's SQLite storage provides it",
       "`sqliteConnection.transaction(() => …)`",
       "no `await` inside",
     ],
@@ -654,7 +654,7 @@ const STATED: readonly (readonly [string, string, readonly string[]])[] = [
     [
       "`SqliteConnection`",
       "never an internal helper",
-      "Both are listed in `@Application({ providers })` — `SqliteConnection` too",
+      "the application's SQLite storage driver provides it",
       "`ensureSchema`",
       "`?` parameters",
       "never build queries with string interpolation",
@@ -679,7 +679,7 @@ const STATED: readonly (readonly [string, string, readonly string[]])[] = [
       "every 30 s",
       "`@Application({ executionLimits: { maxConcurrentSteps } })`",
       "once its 30 s lease expires",
-      "`SqliteChildExecutionQueueRepository`",
+      "`@ClusterStorage` beside it",
     ],
   ],
 ];

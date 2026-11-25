@@ -20,6 +20,11 @@ export interface WorkflowPlacement {
   readonly application: { readonly className: string; readonly path: string };
   /** `agboss create` (#239): the project's `ApiService` module, which its tools inject. */
   readonly service?: string;
+  /**
+   * `agboss create`: the module of the project's `DecisionsModelProvider`, which its main router
+   * names as its `modelProvider` (a project that lists none leaves a router's model to its cascade).
+   */
+  readonly decisionsProvider?: string;
 }
 
 interface PlannedAgent {
@@ -148,6 +153,12 @@ export function planWorkflow(spec: WorkflowSpec, at: WorkflowPlacement): FileToW
     MAIN_ROUTER,
     agents.map((a) => agentRoute(a.names, a.spec.description)),
     `${workflow.kebab}-main`,
+    at.decisionsProvider === undefined
+      ? undefined
+      : importPath(
+          `${srcDir}/routers/${routerNames.kebab}/${routerNames.kebab}.router.ts`,
+          at.decisionsProvider,
+        ),
   );
   const module = render("workflow/workflow.ts.tmpl", {
     ...vars(workflow),

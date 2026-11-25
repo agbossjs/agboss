@@ -36,7 +36,7 @@ and ends at a finish (or at a node that has its own path). Write **one call per 
 | `.arbitratedBy(X)` → `.joinQuorum({ min, max, deadline })`                                  | count the accepted answers instead of waiting for all                                                                                                                                                                                             | `[flow.quorum-impossible]`, `[arbiter.*]`                                                                    |
 | `.joinQuorumGroups({ deadline })` + `.onGroup([A, B], { priority: 1 }, subPath)`            | the first complete group (by priority) continues its own path                                                                                                                                                                                     | `[flow.quorum-impossible]`                                                                                   |
 | `.toWorkflow(W)` / `route(W)` / `.forEachItem(toWorkflow(W), { takeFirst })`                | a child workflow: one, chosen by a router, or one per item                                                                                                                                                                                        | `[graph.no-matching-start]`, `[graph.ambiguous-start]`, `[graph.child-without-failure-finish]`               |
-| `.toExternalTask(Q)` / `onExternalTask(Q)`                                                  | a question role's step (#659): reads its `ask`, pauses on its channel, gives its `answer` — `05-channels-and-human-in-the-loop.md`                                                                                                                | `[name.kind-suffix]` (`-question`), `[channel.wrong-tool]`, `[graph.cycle-without-max-visits]`               |
+| `.toExternalTask(Q)` / `onExternalTask(Q)`                                                  | an external task's step (#659): reads its `input`, pauses on its channel, gives its `output` — `05-channels-and-human-in-the-loop.md`                                                                                                             | `[name.kind-suffix]` (`-external-task`), `[channel.wrong-tool]`, `[graph.cycle-without-max-visits]`          |
 | `() => Self` + `@Workflow({ executionLimits: { maxDepth } })`                               | the workflow launches itself                                                                                                                                                                                                                      | `[graph.recursion-without-depth]`, `[graph.recursion-without-exit]`, `[graph.mutual-recursion]`              |
 | `@Action({ compensateWith, committedBy })`                                                  | the action's undo and its commit point; side paths must run the undo                                                                                                                                                                              | `[action.*]`, `[flow.uncompensated-action]`, `[flow.compensation-out-of-order]`, `[flow.uncommitted-action]` |
 
@@ -343,7 +343,25 @@ import { CreditOrderDto } from "../../dto/credit-order.dto.js";
 export class OrderHeldWorkflowFinish {}
 ```
 
+A decision model (Jev) is served by a decisions provider — a component naming one says so with `modelProvider`:
+
+```ts file=src/model-providers/decisions.model-provider.ts
+import { secret } from "@agboss/core";
+import { DecisionsDriver, ModelCost, ModelProvider } from "@agboss/core/models";
+import { seconds } from "@agboss/core/units";
+
+@ModelProvider({
+  name: "decisions-model-provider",
+  description: "Jev and the other decision models, on OpenRouter's Decisions API",
+  driver: DecisionsDriver({ baseUrl: "https://openrouter.ai/api/v1", apiKey: secret("OPENROUTER_API_KEY") }),
+  timeout: seconds(30),
+  cost: ModelCost.fromResponse(),
+})
+export class DecisionsModelProvider {}
+```
+
 ```ts file=src/credit/routers/credit-desk/credit-desk.router.ts
+import { DecisionsModelProvider } from "../../../model-providers/decisions.model-provider.js";
 import { DecidedBy, Router, inline } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { CreditQuestionAgent } from "../../agents/credit-question/credit-question.agent.js";
@@ -354,6 +372,7 @@ import { OrderIntakeAgent } from "../../agents/order-intake/order-intake.agent.j
   description: "Sends an order to intake, a question to the answering agent",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
+  modelProvider: DecisionsModelProvider,
   prompt: inline("Pick who handles the customer's message."),
   input: { message: WorkflowStartTextDto },
   maxVisits: 1,
@@ -1135,6 +1154,7 @@ export class SupportReplyWorkflowFinish {}
 ```
 
 ```ts file=src/support/routers/support-launch/support-launch.router.ts
+import { DecisionsModelProvider } from "../../../model-providers/decisions.model-provider.js";
 import { DecidedBy, Router, inline } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { LoyaltyOfferAgent } from "../../agents/loyalty-offer/loyalty-offer.agent.js";
@@ -1146,6 +1166,7 @@ import { RefundTermsAgent } from "../../agents/refund-terms/refund-terms.agent.j
   description: "Picks everyone the customer's message needs",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
+  modelProvider: DecisionsModelProvider,
   prompt: inline("Pick everyone needed to answer the customer's message."),
   input: { message: WorkflowStartTextDto },
   routes: [{ target: RefundTermsAgent, prompt: "The message is about a return" }], // the one the model decides
@@ -1369,6 +1390,7 @@ export class ScoreRangeArbiter {
 ```
 
 ```ts file=src/panel/arbiters/reasoned-score/reasoned-score.arbiter.ts
+import { DecisionsModelProvider } from "../../../model-providers/decisions.model-provider.js";
 import { Arbiter, inline } from "@agboss/core";
 import { CulturePanelAgent } from "../../agents/culture-panel/culture-panel.agent.js";
 import { RiskPanelAgent } from "../../agents/risk-panel/risk-panel.agent.js";
@@ -1378,6 +1400,7 @@ import { SkillsPanelAgent } from "../../agents/skills-panel/skills-panel.agent.j
 @Arbiter({
   name: "reasoned-score-arbiter",
   model: "typesafe/jev-1.13",
+  modelProvider: DecisionsModelProvider,
   prompt: inline("Count an answer only if it meets the criterion of the agent that gave it."),
   criteria: [
     { target: SkillsPanelAgent, prompt: "The reason names a concrete technical skill" },
@@ -1393,12 +1416,18 @@ A code arbiter that lists `ArbiterModel` in `deps` decides what it can at `$0` a
 must — one class for the whole rule, so the flow names _which_ rule applies, never how it escalates:
 
 ```ts file=src/panel/arbiters/panel-score/panel-score.arbiter.ts
+import { DecisionsModelProvider } from "../../../model-providers/decisions.model-provider.js";
 import { Arbiter, ArbiterModel, Arbitrate, Decision, type ArbitratedAnswerOf } from "@agboss/core";
 import { CulturePanelAgent } from "../../agents/culture-panel/culture-panel.agent.js";
 import { RiskPanelAgent } from "../../agents/risk-panel/risk-panel.agent.js";
 import { SkillsPanelAgent } from "../../agents/skills-panel/skills-panel.agent.js";
 
-@Arbiter({ name: "panel-score-arbiter", model: "typesafe/jev-1.13", deps: [ArbiterModel] })
+@Arbiter({
+  name: "panel-score-arbiter",
+  model: "typesafe/jev-1.13",
+  modelProvider: DecisionsModelProvider,
+  deps: [ArbiterModel],
+})
 export class PanelScoreArbiter {
   constructor(private readonly arbiterModel: ArbiterModel) {}
 
@@ -2281,19 +2310,25 @@ import { TopicResearchWorkflowStart } from "./topic-research.workflow-start.js";
     onStart(TopicResearchWorkflowStart)
       .toAgent(TopicResearcherAgent)
       .onError(StepFailedError, toAction(MarkTopicFailedAction)) // a failed topic ends softly
-      .toOneOf([toFinish(TopicReportWorkflowFinish),  // not offered on the last level: this case recurses
-          .toAction(SplitTopicAction)
-          .forEachItem(toWorkflow(() => TopicResearchWorkflow), { takeFirst: 3, maxConcurrency: 3 })
+      .toOneOf([
+        toFinish(TopicReportWorkflowFinish),
+        // not offered on the last level: this case recurses
+        toAction(SplitTopicAction)
+          .forEachItem(
+            toWorkflow(() => TopicResearchWorkflow),
+            { takeFirst: 3, maxConcurrency: 3 },
+          )
           .join()
           .toAgent(TopicMergeAgent)
           .onError(StepFailedError, toAction(MarkTopicFailedAction))
-          .toFinish(TopicReportWorkflowFinish)]),
+          .toFinish(TopicReportWorkflowFinish),
+      ]),
 
     // two ways in (the researcher's error, the merge's error): its own path
     onAction(MarkTopicFailedAction)
       .toFinish(TopicFailedWorkflowFinish),
   ],
-  executionLimits: { maxDepth: 3, maxConcurrency: 4 }, // executions at depth 1 (the root) to 3 // executions of the whole tree at work at once
+  executionLimits: { maxDepth: 3, maxConcurrency: 4 }, // depth 1 (the root) to 3; at most four executions of the tree work at once
 })
 export class TopicResearchWorkflow {}
 ```

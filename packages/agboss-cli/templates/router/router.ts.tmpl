@@ -9,7 +9,7 @@ import { WorkflowStartTextDto } from "@agboss/core/dto";
   decidedBy: DecidedBy.Model,
   prompt: inline("{{prompt}}"),
   model: "typesafe/jev-1.13",
-  // what its model decides on: the message the run started with
+{{modelProvider}}  // what its model decides on: the message the run started with
   input: { message: WorkflowStartTextDto },
   maxVisits: {{maxVisits}},
   routes: [

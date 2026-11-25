@@ -143,7 +143,7 @@ export function addAgentToFlow(
   };
 }
 
-/** Wires an agent into the workflow's flow and imports it (with the `toAgent` / `toFinish` it writes). */
+/** Wires an agent into the workflow's flow and imports it (with the `toAgent` it writes; `.toFinish(…)` is a method). */
 export const wireAgentIntoFlow = (
   file: FileToWrite,
   agent: { readonly className: string; readonly from: string },
@@ -152,9 +152,5 @@ export const wireAgentIntoFlow = (
 ): FileToWrite => {
   const flowed = addAgentToFlow(file, agent.className, router, finish);
   const imported = addImport(flowed.content, file.path, agent.className, agent.from);
-  const builders = ["toAgent", "toFinish"].reduce(
-    (content, name) => addImport(content, file.path, name, "@agboss/core"),
-    imported,
-  );
-  return { ...flowed, content: builders };
+  return { ...flowed, content: addImport(imported, file.path, "toAgent", "@agboss/core") };
 };

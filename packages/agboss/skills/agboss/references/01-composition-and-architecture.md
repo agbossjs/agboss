@@ -300,7 +300,25 @@ export class ExecutionBudget implements BudgetHandler {
 }
 ```
 
+The chat provider — every application names its `modelProvider` explicitly (a driver provider; no built-ins):
+
+```ts file=src/model-providers/openrouter.model-provider.ts
+import { secret } from "@agboss/core";
+import { ModelCost, ModelProvider, OpenRouterDriver } from "@agboss/core/models";
+import { minutes } from "@agboss/core/units";
+
+@ModelProvider({
+  name: "openrouter-model-provider",
+  description: "OpenRouter — every chat model of the application",
+  driver: OpenRouterDriver({ apiKey: secret("OPENROUTER_API_KEY") }),
+  timeout: minutes(2),
+  cost: ModelCost.fromResponse(),
+})
+export class OpenRouterModelProvider {}
+```
+
 ```ts file=src/shortlist.application.ts
+import { OpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
 // shortlist.application.ts — what createApp, testWith and the CLI take
 import { Application, EmptyEnvironment } from "@agboss/core";
 import { ApplicationDailyBudget } from "./shortlist/budgets/application-daily.budget.js";
@@ -309,6 +327,8 @@ import { TenantDailyBudget } from "./shortlist/budgets/tenant-daily.budget.js";
 import { ShortlistWorkflow } from "./shortlist/workflows/shortlist/shortlist.workflow.js";
 
 @Application({
+  modelProvider: OpenRouterModelProvider,
+  providers: [OpenRouterModelProvider],
   name: "shortlist-application",
   version: "1.0.0",
   environment: EmptyEnvironment, // no settings; see reference 03 for an environment contract
@@ -323,7 +343,7 @@ What this shows:
 - **The scope, not arguments.** `SaveShortlistAction` and `ShortlistSizeRouter` read `shortlist`
   because the step's `oneOf(ShortlistDto, NoMatchDto)` output and the `.toOneOf([…])` branch that reads it put a `ShortlistDto`
   on that path; a field no path brings is `[input.missing-on-path]`. Each input field arrives as
-  the DTO itself — `input.shortlist.jobs`; `Metadata.createdBy(input.shortlist)` is the class that gave it.
+  the DTO itself — `input.shortlist.jobs` — a `Tracked` value, an instance of its DTO class that remembers its producer: `Metadata.createdBy(input.shortlist)` is the class that gave it.
 - **A marker class for an outcome.** `NoMatchDto` has no fields: the class is the answer, and the
   `switch` routes on it. `oneOf` outputs become one answer tool per class for the model.
 - **Finishes are pure boundary ports.** A `@WorkflowFinish({ name, description, output })` is an empty class: it hands back

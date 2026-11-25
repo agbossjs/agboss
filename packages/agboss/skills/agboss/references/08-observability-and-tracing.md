@@ -35,7 +35,7 @@ audit, your own tracer), replace the framework's log, or send traces to Langfuse
 `valueId`, `slot`, `producer`, `builtFrom`, the value), `outdatedValues`
 (`OutdatedValueRecord`, each with its `OutdatedReason`), `lastError` (an `ErrorRecord`: `name`,
 `code`, `message`, `lineage`, `cause`), `spend`, `children`, `compensations` and `pauses` — who
-answered each resolved pause of the tree (`PauseAnswerRecord`: `pauseId`, `role`, `answerer`,
+answered each resolved pause of the tree (`PauseAnswerRecord`: `pauseId`, `target`, `channel`, `respondent`,
 `actor`, `resolution: PauseResolution.Decided | Replied | Withdrawn | Cancelled`, `askedAt`,
 `resolvedAt`, the masked `decision`). The record, events, logs and traces are masked by the
 application's and the workflow's PII policies.
@@ -290,7 +290,25 @@ export class ExecutionBudget implements BudgetHandler {
 }
 ```
 
+The chat provider — every application names its `modelProvider` explicitly (a driver provider; no built-ins):
+
+```ts file=src/model-providers/openrouter.model-provider.ts
+import { secret } from "@agboss/core";
+import { ModelCost, ModelProvider, OpenRouterDriver } from "@agboss/core/models";
+import { minutes } from "@agboss/core/units";
+
+@ModelProvider({
+  name: "openrouter-model-provider",
+  description: "OpenRouter — every chat model of the application",
+  driver: OpenRouterDriver({ apiKey: secret("OPENROUTER_API_KEY") }),
+  timeout: minutes(2),
+  cost: ModelCost.fromResponse(),
+})
+export class OpenRouterModelProvider {}
+```
+
 ```ts file=src/desk.application.ts
+import { OpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
 import { Application, EmptyEnvironment } from "@agboss/core";
 import { ApplicationDailyBudget } from "./desk/budgets/application-daily.budget.js";
 import { ExecutionBudget } from "./desk/budgets/execution.budget.js";
@@ -302,13 +320,14 @@ import { MetricsService } from "./desk/services/metrics.service.js";
 import { DeskWorkflow } from "./desk/workflows/desk/desk.workflow.js";
 
 @Application({
+  modelProvider: OpenRouterModelProvider,
   name: "desk-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [DeskWorkflow],
   budgets: [ApplicationDailyBudget, TenantDailyBudget, ExecutionBudget],
   observers: [ExecutionMetricsObserver, CompensationAuditObserver], // the only place observers go
-  providers: [JsonLogger, MetricsService], // a Logger is infrastructure: listed in the application
+  providers: [OpenRouterModelProvider, JsonLogger, MetricsService], // a Logger is infrastructure: listed in the application
 })
 export class DeskApplication {}
 ```

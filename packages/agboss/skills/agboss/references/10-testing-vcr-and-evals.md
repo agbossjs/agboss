@@ -170,11 +170,35 @@ export class HiringPolicyRag extends RagSource {
 
 The judges, the guardrail and the PII policy:
 
+A decision model (Jev) is served by a decisions provider — a component naming one says so with `modelProvider`:
+
+```ts file=src/model-providers/decisions.model-provider.ts
+import { secret } from "@agboss/core";
+import { DecisionsDriver, ModelCost, ModelProvider } from "@agboss/core/models";
+import { seconds } from "@agboss/core/units";
+
+@ModelProvider({
+  name: "decisions-model-provider",
+  description: "Jev and the other decision models, on OpenRouter's Decisions API",
+  driver: DecisionsDriver({ baseUrl: "https://openrouter.ai/api/v1", apiKey: secret("OPENROUTER_API_KEY") }),
+  timeout: seconds(30),
+  cost: ModelCost.fromResponse(),
+})
+export class DecisionsModelProvider {}
+```
+
 ```ts file=src/screening/judges/reasoned-verdict/reasoned-verdict.judge.ts
+import { DecisionsModelProvider } from "../../../model-providers/decisions.model-provider.js";
 import { Decision, Judge, JudgeModel, JudgeVerdict, type JudgeHandler, type JudgeInput } from "@agboss/core";
 import { VerdictDto } from "../../dto/verdict.dto.js";
 
-@Judge({ name: "reasoned-verdict-judge", model: "typesafe/jev-1.13", output: VerdictDto, deps: [JudgeModel] })
+@Judge({
+  name: "reasoned-verdict-judge",
+  model: "typesafe/jev-1.13",
+  modelProvider: DecisionsModelProvider,
+  output: VerdictDto,
+  deps: [JudgeModel],
+})
 export class ReasonedVerdictJudge implements JudgeHandler<VerdictDto> {
   constructor(private readonly judgeModel: JudgeModel) {}
 
@@ -226,6 +250,7 @@ export class HireSavedJudge implements JudgeHandler<HireSavedDto> {
 ```
 
 ```ts file=src/screening/guardrails/bias/bias.guardrail.ts
+import { DecisionsModelProvider } from "../../../model-providers/decisions.model-provider.js";
 import { OutputGuardrail, inline } from "@agboss/core";
 
 @OutputGuardrail({
@@ -233,6 +258,7 @@ import { OutputGuardrail, inline } from "@agboss/core";
   description: "Blocks verdicts that rest on protected traits",
   prompt: inline("Does the verdict rest on age, gender, origin or religion?"),
   model: "typesafe/jev-1.13",
+  modelProvider: DecisionsModelProvider,
   threshold: 0.7,
   refusal: "The verdict was withheld for review.",
 })
@@ -487,7 +513,25 @@ export class ExecutionBudget implements BudgetHandler {
 }
 ```
 
+The chat provider — every application names its `modelProvider` explicitly (a driver provider; no built-ins):
+
+```ts file=src/model-providers/openrouter.model-provider.ts
+import { secret } from "@agboss/core";
+import { ModelCost, ModelProvider, OpenRouterDriver } from "@agboss/core/models";
+import { minutes } from "@agboss/core/units";
+
+@ModelProvider({
+  name: "openrouter-model-provider",
+  description: "OpenRouter — every chat model of the application",
+  driver: OpenRouterDriver({ apiKey: secret("OPENROUTER_API_KEY") }),
+  timeout: minutes(2),
+  cost: ModelCost.fromResponse(),
+})
+export class OpenRouterModelProvider {}
+```
+
 ```ts file=src/screening.application.ts
+import { OpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
 import { Application, EmptyEnvironment } from "@agboss/core";
 import { ApplicationDailyBudget } from "./screening/budgets/application-daily.budget.js";
 import { ExecutionBudget } from "./screening/budgets/execution.budget.js";
@@ -496,6 +540,8 @@ import { ContactPiiPolicy } from "./screening/pii-policies/contact.pii-policy.js
 import { ScreeningWorkflow } from "./screening/workflows/screening/screening.workflow.js";
 
 @Application({
+  modelProvider: OpenRouterModelProvider,
+  providers: [OpenRouterModelProvider],
   name: "screening-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
@@ -612,8 +658,8 @@ raceTest("an answer without notes leaves the quorum short", async ({ app, mockLl
   profiles applied from the read-only `app.settings` (by workflow name):
   `expect(app.settings["scout-workflow"]?.agents["scout-agent"]?.thinking).toBe("low")`, and
   `.version` is the profile's. An unknown profile is a `ProfileError` listing the profiles that
-  exist, a model a profile switches to one no listed provider serves fails the assembly with
-  `[model.unserved]`, not the first call.
+  exist, a model a profile switches to one its provider does not serve fails the assembly with
+  `[model.missing-provider]` / `[model.incompatible-provider]`, not the first call.
 - **MCP**: `mcpOf(Server).thenReturn({ server_tool: (args) => result })`, `.calls`; **network** is
   blocked except `allowNetwork: ["localhost"]`.
 - **A2A**: `const { url } = await a2aServer({ endpoint, authenticator })` serves the test's `app` through
@@ -665,13 +711,13 @@ import { SkillsAgent } from "./src/screening/agents/skills/skills.agent.js";
 import { ScreeningWorkflowStart } from "./src/screening/workflows/screening/screening.workflow-start.js";
 import { ScreeningApplication } from "./src/screening.application.js";
 declare const ScreeningHttpAuthenticator: new () => HttpAuthenticatorHandler;
-declare const ScreeningA2AExpose: new () => object;
+declare const ScreeningA2AEndpoint: new () => object;
 const test = testWith(ScreeningApplication);
 const candidate = { name: "Dana", cv: "TypeScript, 6 years" };
 -->
 
 ```ts
-const screening = { endpoint: ScreeningA2AExpose, authenticator: ScreeningHttpAuthenticator };
+const screening = { endpoint: ScreeningA2AEndpoint, authenticator: ScreeningHttpAuthenticator };
 
 /** A JSON-RPC `SendMessage` of one data part: what any A2A v1.0 client sends. */
 const sendMessage = (url: string, data: object, headers: Record<string, string> = {}) =>
@@ -1028,6 +1074,7 @@ export class RentalExecutionBudget implements BudgetHandler {
 ```
 
 ```ts file=src/rental.application.ts
+import { OpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
 import { Application, EmptyEnvironment } from "@agboss/core";
 import { RentalApplicationBudget } from "./rental/budgets/rental-application.budget.js";
 import { RentalExecutionBudget } from "./rental/budgets/rental-execution.budget.js";
@@ -1035,6 +1082,8 @@ import { RentalTenantBudget } from "./rental/budgets/rental-tenant.budget.js";
 import { RentalWorkflow } from "./rental/workflows/rental/rental.workflow.js";
 
 @Application({
+  modelProvider: OpenRouterModelProvider,
+  providers: [OpenRouterModelProvider],
   name: "rental-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
@@ -1146,7 +1195,7 @@ import { SdkClientService } from "../services/sdk-client.service.js";
 @ModelProvider({
   name: "sdk-model-provider",
   description: "A model behind an SDK",
-  serves: [/^sdk\//],
+  model: "sdk/claude", // the default of a component that names no model
   timeout: seconds(30),
   cost: ModelCost.fromResponse(),
   circuitBreakerPolicy: CircuitBreakerPolicy.fixed({ failureThreshold: 5, failureWindow: minutes(1), openDuration: seconds(30) }),

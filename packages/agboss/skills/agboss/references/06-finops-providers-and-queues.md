@@ -208,65 +208,47 @@ export class TaxRateTool {
 ## Model providers
 
 A workflow and its components name **models** only; the application lists the **providers** that
-serve them, in `@Application({ providers })` (never a workflow's: `[di.infrastructure-in-workflow]`).
+serve them, in `@Application({ providers })` (never a workflow's: `[di.infrastructure-in-workflow]`),
+and names its default chat provider in `@Application({ modelProvider })`. There are no built-in
+providers and no `serves` patterns: a provider is a class you write, an empty one with a **driver**
+or a transport with `complete(request)`.
 
-- **None listed** → the built-in `OpenRouterModelProvider` (every chat model, its key the `Secret`
-  field `openRouterApiKey` of the environment) and `DecisionsModelProvider` (the decision models,
-  `DECISION_MODELS`: Jev and the others — routers, guardrails, decision judges).
-- **At least one listed** → the list is complete: the built-ins are not added. An application that
-  lists its own chat provider and uses Jev lists `DecisionsModelProvider` too.
-- Every model of the application must resolve to exactly one listed provider by `serves`, for its
-  purpose (chat or decision): `[model.unserved]`, `[model.ambiguous-provider]` — one model through two
-  providers is two model strings. `npx agboss describe` prints `model: … → <provider>`.
+- **The cascade**: a component's `modelProvider`, else its `@Workflow({ modelProvider })`, else the
+  application's. A model nothing in the cascade serves, or a component that names no model and no
+  provider, is `[model.missing-provider]`, at assembly, before any call.
+- **A model's kind is its provider's**: a `ModelDriver` (what the three driver functions return) speaks chat (`OpenRouterDriver`,
+  `OpenAiCompatibleDriver`, or a transport class) or decisions (`DecisionsDriver` — Jev and the
+  other decision models in `DECISION_MODELS`, for routers, guardrails, decision judges and arbiters). A chat model
+  on a decisions provider, or a decision model on a chat one, is `[model.incompatible-provider]`. So
+  the application's `modelProvider` is the chat one, and a router, guardrail or arbiter on Jev names
+  `modelProvider: DecisionsModelProvider` itself (or its workflow's `modelProvider` does).
+- **`model` and `models`** on the provider: `model` is the default of a component that names none,
+  `models` maps role names to vendor names (`{ default: "gpt-4.1", fast: "gpt-4.1-mini" }`: a component's
+  `model: "fast"` is the vendor's `gpt-4.1-mini`; any other name goes to the server as written).
 - A provider's `name` is optional: kebab-case, the class name in kebab-case by default (`[name.not-kebab-case]`).
-
-```ts file=src/environments/app.environment.ts
-import type { Secret } from "@agboss/core";
-
-export class AppEnvironment {
-  openRouterApiKey?: Secret; // optional: the test environment leaves the keys out
-  backupApiKey?: Secret;
-  openRouterBaseUrl?: string; // a proxy or a stub; unset → the decorator's baseUrl
-}
-```
-
-```ts file=src/environments/dev.environment.ts
-import { env, secret } from "@agboss/core";
-import type { AppEnvironment } from "./app.environment.js";
-
-export const environment: AppEnvironment = {
-  openRouterApiKey: secret("OPENROUTER_API_KEY"),
-  backupApiKey: secret("BACKUP_API_KEY"),
-  openRouterBaseUrl: env.optional("OPENROUTER_BASE_URL"),
-};
-```
-
-```ts file=src/environments/test.environment.ts
-import type { AppEnvironment } from "./app.environment.js";
-
-export const environment: AppEnvironment = {}; // tests script every model: no key
-```
+  `npx agboss describe` prints `model: … → <provider>`.
 
 ```ts file=src/billing/model-providers/backup.model-provider.ts
 // model-providers/backup.model-provider.ts — an OpenAI-compatible server, priced from a table
+import { env, secret } from "@agboss/core";
 import {
   CircuitBreakerPolicy,
   ModelCost,
   ModelProvider,
-  OpenAiCompatibleProvider,
+  OpenAiCompatibleDriver,
   PromptCaching,
   Reasoning,
-  RetryPolicy,
-  type NoRequestFields,
 } from "@agboss/core/models";
 import { minutes, seconds, usd } from "@agboss/core/units";
 
 @ModelProvider({
   name: "backup-model-provider",
   description: "Our own inference server, used while OpenRouter's breaker is open",
-  serves: [/^backup\//],
-  baseUrl: "http://inference.internal:8000/v1",
-  apiKey: "backupApiKey", // a Secret field of the application's environment
+  driver: OpenAiCompatibleDriver({
+    baseUrl: env("BACKUP_BASE_URL", { default: "http://inference.internal:8000/v1" }),
+    apiKey: secret("BACKUP_API_KEY"),
+  }),
+  models: { default: "backup/kimi" },
   timeout: minutes(1),
   cost: ModelCost.fromPrices({
     "backup/kimi": { inputPerMillion: usd(0.4), outputPerMillion: usd(1.6) },
@@ -275,13 +257,12 @@ import { minutes, seconds, usd } from "@agboss/core/units";
   promptCaching: PromptCaching.off(),
   circuitBreakerPolicy: CircuitBreakerPolicy.fixed({ failureThreshold: 5, failureWindow: minutes(1), openDuration: seconds(30) }),
 })
-export class BackupModelProvider extends OpenAiCompatibleProvider {
-  override readonly requestFields: NoRequestFields = {};
-}
+export class BackupModelProvider {}
 ```
 
 ```ts file=src/billing/model-providers/openrouter.model-provider.ts
 // model-providers/openrouter.model-provider.ts — every policy of one provider, app-wide
+import { env, secret } from "@agboss/core";
 import {
   CircuitBreakerPolicy,
   CachedPart,
@@ -289,14 +270,13 @@ import {
   ModelCost,
   ModelFailure,
   ModelProvider,
-  OpenRouterProvider,
+  OpenRouterDriver,
   PromptCaching,
   ProviderSort,
   QueueBalancingStrategy,
   RateLimitPolicy,
   Reasoning,
   RetryPolicy,
-  type OpenRouterFields,
 } from "@agboss/core/models";
 import { minutes, seconds } from "@agboss/core/units";
 import { BackupModelProvider } from "./backup.model-provider.js";
@@ -304,10 +284,11 @@ import { BackupModelProvider } from "./backup.model-provider.js";
 @ModelProvider({
   name: "openrouter-model-provider",
   description: "OpenRouter — the chat models",
-  serves: [/^moonshotai\//, /^deepseek\//],
-  baseUrl: "https://openrouter.ai/api/v1", // the default…
-  baseUrlField: "openRouterBaseUrl", // …unless this text field of the environment sets one
-  apiKey: "openRouterApiKey",
+  driver: OpenRouterDriver({
+    apiKey: secret("OPENROUTER_API_KEY"), // read once, at start; a test needs none
+    baseUrl: env("OPENROUTER_BASE_URL", { default: "https://openrouter.ai/api/v1" }), // a proxy or a stub
+    routing: { sort: ProviderSort.Price }, // OpenRouter's routing between upstreams
+  }),
   timeout: minutes(2), // per attempt, from the moment the call has room
   cost: ModelCost.fromResponse(), // OpenRouter reports each call's cost: exact
   reasoning: Reasoning.modelDecides(), // components may override it (reasoning: Reasoning.on(…))
@@ -335,32 +316,71 @@ import { BackupModelProvider } from "./backup.model-provider.js";
   }),
   fallback: { provider: BackupModelProvider, models: { "moonshotai/kimi-k2.6": "backup/kimi" } },
 })
-export class AppOpenRouterModelProvider extends OpenRouterProvider {
-  override readonly requestFields: OpenRouterFields = {
-    provider: { sort: ProviderSort.Price }, // OpenRouter's routing between upstreams
-  };
-}
+export class AppOpenRouterModelProvider {}
 ```
 
-**Pinning the host (#395):** `OpenRouterRouting` — `order`, `only`, `ignore` (hosts by OpenRouter's
+```ts file=src/billing/model-providers/decisions.model-provider.ts
+// model-providers/decisions.model-provider.ts — Jev and the other decision models
+import { env, secret } from "@agboss/core";
+import { DecisionsDriver, ModelCost, ModelProvider } from "@agboss/core/models";
+import { seconds } from "@agboss/core/units";
+
+@ModelProvider({
+  name: "decisions-model-provider",
+  description: "Decision models on OpenRouter's Decisions API",
+  driver: DecisionsDriver({
+    apiKey: secret("OPENROUTER_API_KEY"),
+    baseUrl: env("OPENROUTER_BASE_URL", { default: "https://openrouter.ai/api/v1" }),
+  }),
+  timeout: seconds(30),
+  cost: ModelCost.fromResponse(),
+})
+export class DecisionsModelProvider {}
+```
+
+The application's environment declares only what the code reads through `ApplicationContext`; the keys
+and URLs of the providers are `secret(…)` / `env(…)` in their drivers, read once at start (a test sets none:
+it scripts every model).
+
+```ts file=src/environments/app.environment.ts
+export class AppEnvironment {}
+```
+
+```ts file=src/environments/dev.environment.ts
+import type { AppEnvironment } from "./app.environment.js";
+
+export const environment: AppEnvironment = {};
+```
+
+```ts file=src/environments/test.environment.ts
+import type { AppEnvironment } from "./app.environment.js";
+
+export const environment: AppEnvironment = {}; // tests script every model: no key
+```
+
+**Pinning the host (#395):** `OpenRouterRouting` (the driver's `routing`) — `order`, `only`, `ignore` (hosts by OpenRouter's
 slug, `fireworks`), `sort` (`ProviderSort`), `quantizations` (`Quantization.Bf16`, `Fp8`, …) and
 `allowFallbacks` — is camelCase in TypeScript; only the request body is OpenRouter's snake_case
 (`allow_fallbacks`). Pin the host and precision when results must not drift between upstreams
-(evals, a benchmark): `provider: { only: ["fireworks"], quantizations: [Quantization.Bf16],
+(evals, a benchmark): `routing: { only: ["fireworks"], quantizations: [Quantization.Bf16],
 allowFallbacks: false }`. Every call's `UsageRecord.servedBy` names the host that served it
 (OpenRouter's `provider`, a plain or a streamed answer). `npx agboss check --models` checks each
 served model's endpoints: a pinned host that does not serve it, or no allowed host at a pinned
-quantization, is `[model.no-matching-endpoint]`; the endpoints are never asked at start.
+quantization, is `[model.no-matching-endpoint]`; the endpoints are never asked at start. Other drivers'
+options: `OpenAiCompatibleDriver({ baseUrl, apiKey?, headers?, requestFields? })` (the request fields an
+OpenAI-compatible server takes beyond the Chat Completions ones), `DecisionsDriver({ baseUrl, apiKey?, headers?, path?, knownModels? })`.
+A fallback hop must be of the same kind as its provider (`[model.incompatible-fallback-provider]`),
+and a chain may not loop (`[model-provider.fallback-cycle]`).
 
 ### A custom transport: `complete(request)`
 
 A provider that is not an OpenAI-compatible HTTP server — AWS Bedrock through its SDK, Vertex AI,
 a corporate gateway with its own authorisation — `implements ModelProviderHandler` with
-`complete(request)` (#385): no `baseUrl`, `baseUrlField` or `apiKey` (both modes at once do not
+`complete(request)` (#385): no `driver` (both at once do not
 compile and fail assembly with `[model-provider.both-modes]`), its services through `deps`. The
 application's container creates it on its first call — one instance per application — and an
 injected `TenantContext` reads the calling execution. Everything of the gateway runs around
-`complete()` unchanged: `serves`, the budgets before the call and the ledger after it, the
+`complete()` unchanged: the cascade, the budgets before the call and the ledger after it, the
 `rateLimitPolicy` queue and its 429 pause, `retryPolicy`, `circuitBreakerPolicy` (readiness
 `Degraded`, its `fallback` either way between HTTP and transport providers), PII masking, the answer
 tools of a DTO agent, traces, and `mockLlm` in `testWith` (which answers above it: `complete()` is
@@ -426,7 +446,7 @@ import { BedrockSdkClient } from "../services/bedrock-sdk-client.service.js";
 @ModelProvider({
   name: "bedrock-model-provider",
   description: "AWS Bedrock through its SDK",
-  serves: [/^bedrock\//],
+  model: "bedrock/claude", // the default model of a component that names none
   timeout: minutes(2), // per attempt: request.signal aborts at it
   cost: ModelCost.fromPrices({
     "bedrock/claude": { inputPerMillion: usd(3), outputPerMillion: usd(15) },
@@ -495,7 +515,7 @@ AsyncIterable<string>, result: Promise<ModelProviderStreamResult> }`, as the Ver
 - `capabilities(model, connection)` is optional on a transport: given, it is checked at start like
   an HTTP provider's; absent, its models' settings are not checked (`npx agboss check --models`
   never creates a transport). `npx agboss describe` prints `bedrock-model-provider →
-BedrockModelProvider (…) · serves /^bedrock\// · transport: BedrockModelProvider.complete()`
+BedrockModelProvider (…) · transport: BedrockModelProvider.complete()`
   and each `model: bedrock/claude → bedrock-model-provider`; the class is in `configHash`.
 
 ### The three policies
@@ -545,7 +565,7 @@ outputPerMillion: usd(…), cacheReadPerMillion?: usd(…), cacheWritePerMillion
   not price is `model.no-price` at start. A call with neither fails: never silently free.
 - `reasoning` (`Reasoning.modelDecides()`, `.on({ effort: ReasoningEffort.High })`,
   `.on({ budget: { tokens } })`, `.off()`) and `promptCaching` (`PromptCaching.on({ … })`,
-  `.off()`) are required on an HTTP provider (a transport's default to off) and overridden by a
+  `.off()`) are the provider's defaults (unset: reasoning `modelDecides()`, caching automatic where supported; a transport's off) and overridden by a
   component (`reasoning`, `cache`).
 - At start and with `npx agboss check --models` every model setting is checked against what its
   model supports — all problems at once (`model.unsupported-setting`, `model.unknown-model`; with
@@ -647,8 +667,8 @@ import { AppEnvironment } from "./environments/app.environment.js";
     ExecutionBudget,
     InvoiceExecutionBudget,
   ],
-  // the list is complete: no built-in provider is added (no decision model is used here)
-  providers: [AppOpenRouterModelProvider, BackupModelProvider],
+  modelProvider: AppOpenRouterModelProvider, // explicit: the chat provider of every agent here
+  providers: [AppOpenRouterModelProvider, BackupModelProvider], // the fallback is listed too
 })
 export class BillingApplication {}
 ```
@@ -744,6 +764,6 @@ which stops the execution before its next agent or router step.
 - Retries in a service around a model call: the provider's `retryPolicy` is the only backoff.
 - A rate limit per tenant through budgets: budgets are money; capacity is `rateLimitPolicy` and its
   `balancing`.
-- Listing one provider and forgetting `DecisionsModelProvider` while using Jev: `[model.unserved]`.
+- Naming no `modelProvider` on the application, or a Jev router without its decisions provider: `[model.missing-provider]` or `[model.incompatible-provider]`.
 - Expecting the in-memory ledger to share counters: each instance counts alone — list
   `SqliteCostLedgerRepository` (or your own) in production.

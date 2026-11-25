@@ -124,6 +124,7 @@ export function planProject(spec: WorkflowSpec): FileToWrite[] {
       routerName: "main",
       application: { className: `${project.pascal}Application`, path: applicationPathOf(project) },
       service: "src/services/api.service.ts",
+      decisionsProvider: "src/model-providers/openrouter.model-provider.ts",
     }),
   ];
   return placeTestsWithPatterns(DEFAULT_TEST_PATTERNS, files);

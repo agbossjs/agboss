@@ -7,10 +7,10 @@ import { {{pascal}}Tool } from "./{{kebab}}.tool.js";
 const test = testWith({{application}});
 
 test("{{kebab}}-tool answers a query on the environment's API", async ({ app }) => {
-  const result = await app.runTool({{pascal}}Tool, { query: "example" });
+  const { output } = await app.runTool({{pascal}}Tool, { query: "example" });
 
-  expect(result.kind).toBe("ok");
-  expect(result.kind === "ok" ? result.value.result : result.message).toContain(
+  expect(output.kind).toBe("ok");
+  expect(output.kind === "ok" ? output.value.result : output.message).toContain(
     "https://api.test.example.com/{{kebab}}",
   );
 });

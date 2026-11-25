@@ -313,7 +313,7 @@ import { SupportWorkflowStart } from "./support.workflow-start.js";
 export class SupportWorkflow {}
 ```
 
-```ts file=src/support/a2a/support.a2a-expose.ts
+```ts file=src/support/a2a/support.a2a-endpoint.ts
 // what the application serves over A2A (#398 PR 3): the starts a caller may run
 import { A2AEndpoint } from "@agboss/core/a2a";
 import { hours, minutes } from "@agboss/core/units";
@@ -326,7 +326,7 @@ import { SupportWorkflowStart } from "../workflows/support/support.workflow-star
   ttl: { tasks: hours(24), messages: minutes(15) },
   skills: [SupportWorkflowStart],
 })
-export class SupportA2AExpose {}
+export class SupportA2AEndpoint {}
 ```
 
 ```ts file=src/support/budgets/application-daily.budget.ts
@@ -365,21 +365,41 @@ export class ExecutionBudget implements BudgetHandler {
 }
 ```
 
+The chat provider — every application names its `modelProvider` explicitly (a driver provider; no built-ins):
+
+```ts file=src/model-providers/openrouter.model-provider.ts
+import { secret } from "@agboss/core";
+import { ModelCost, ModelProvider, OpenRouterDriver } from "@agboss/core/models";
+import { minutes } from "@agboss/core/units";
+
+@ModelProvider({
+  name: "openrouter-model-provider",
+  description: "OpenRouter — every chat model of the application",
+  driver: OpenRouterDriver({ apiKey: secret("OPENROUTER_API_KEY") }),
+  timeout: minutes(2),
+  cost: ModelCost.fromResponse(),
+})
+export class OpenRouterModelProvider {}
+```
+
 ```ts file=src/support.application.ts
+import { OpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
 import { Application, EmptyEnvironment } from "@agboss/core";
-import { SupportA2AExpose } from "./support/a2a/support.a2a-expose.js";
+import { SupportA2AEndpoint } from "./support/a2a/support.a2a-endpoint.js";
 import { ApplicationDailyBudget } from "./support/budgets/application-daily.budget.js";
 import { ExecutionBudget } from "./support/budgets/execution.budget.js";
 import { TenantDailyBudget } from "./support/budgets/tenant-daily.budget.js";
 import { SupportWorkflow } from "./support/workflows/support/support.workflow.js";
 
 @Application({
+  modelProvider: OpenRouterModelProvider,
+  providers: [OpenRouterModelProvider],
   name: "support-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [SupportWorkflow],
   budgets: [ApplicationDailyBudget, TenantDailyBudget, ExecutionBudget],
-  endpoints: [SupportA2AExpose], // describe --json lists it among the exported contracts
+  endpoints: [SupportA2AEndpoint], // describe --json lists it among the exported contracts
 })
 export class SupportApplication {}
 ```
@@ -425,7 +445,7 @@ export class SupportApplication {}
   the calling tool's spend records the larger (`a2a:<target application>`), so the budgets count it.
   Pass `executionContext.signal` so a cancel or a timeout aborts the HTTP call.
 - `agboss describe --json` lists every `@A2AAgent` under `application.contracts.imports` (target,
-  `usedBy`, input and output with their `schemaHash`, price) and every listed `@A2AExpose` /
+  `usedBy`, input and output with their `schemaHash`, price) and every listed `@A2AEndpoint` /
   `@McpEndpoint` under `exports` (an A2A export by its `skill` — the start's name). Save each
   neighbour's as a file and run `npx agboss check --federation snapshots/`: no network, every
   consumed contract whose target is among the snapshots compared field by field — an `@A2AAgent`
@@ -453,6 +473,23 @@ import { SearchIssuesTool } from "./search-issues.mcp.js";
   tools: [SearchIssuesTool, SupportWorkflowStart], // tools of the workflow, and its starts
 })
 export class SupportMcp {}
+```
+
+The chat provider — every application names its `modelProvider` explicitly (a driver provider; no built-ins):
+
+```ts file=billing/src/model-providers/openrouter.model-provider.ts
+import { secret } from "@agboss/core";
+import { ModelCost, ModelProvider, OpenRouterDriver } from "@agboss/core/models";
+import { minutes } from "@agboss/core/units";
+
+@ModelProvider({
+  name: "openrouter-model-provider",
+  description: "OpenRouter — every chat model of the application",
+  driver: OpenRouterDriver({ apiKey: secret("OPENROUTER_API_KEY") }),
+  timeout: minutes(2),
+  cost: ModelCost.fromResponse(),
+})
+export class OpenRouterModelProvider {}
 ```
 
 <!-- snippet-context
@@ -507,7 +544,7 @@ its `operation` and `taskId` only — nothing of it acted on before the authenti
 <!-- snippet-context
 import { createApp } from "@agboss/core";
 import { SupportApplication } from "./src/support.application.js";
-import { SupportA2AExpose } from "./src/support/a2a/support.a2a-expose.js";
+import { SupportA2AEndpoint } from "./src/support/a2a/support.a2a-endpoint.js";
 import { SupportHttpAuthenticator } from "./src/support/a2a/support.http-authenticator.js";
 -->
 
@@ -518,7 +555,7 @@ import { a2aHttpListener } from "@agboss/core/a2a";
 const app = await createApp(SupportApplication, { env: "prod" });
 createServer(
   a2aHttpListener(app, {
-    endpoint: SupportA2AExpose, // listed in @Application({ endpoints })
+    endpoint: SupportA2AEndpoint, // listed in @Application({ endpoints })
     authenticator: SupportHttpAuthenticator, // the class: its instance is the container's
     publicUrl: "https://support.example", // where callers reach it: the card's interface URL
     base: "/a2a",
@@ -564,7 +601,7 @@ import { WorkflowStartTextDto } from "@agboss/core/dto";
 export class LookupWorkflowStart {}
 ```
 
-```ts file=src/support/a2a/lookup.a2a-expose.ts
+```ts file=src/support/a2a/lookup.a2a-endpoint.ts
 import { A2AEndpoint, A2AReply } from "@agboss/core/a2a";
 import { hours, minutes } from "@agboss/core/units";
 import { LookupWorkflowStart } from "../workflows/lookup/lookup.workflow-start.js";
@@ -581,7 +618,7 @@ import { SupportWorkflowStart } from "../workflows/support/support.workflow-star
   ],
   defaultSkill: LookupWorkflowStart,
 })
-export class LookupA2AExpose {}
+export class LookupA2AEndpoint {}
 ```
 
 - The workflow must be stateless, checked at assembly on every node: no pause (`[a2a.message-skill-pause]`),
@@ -675,7 +712,7 @@ assemble: `[a2a.task-store-not-shared]`, `[a2a.message-store-not-shared]`,
 
 | Rule                                                                                                     | When                                                                                            |
 | -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `[a2a.endpoint-description-required]`                                                                    | an `@A2AExpose` with a blank `description` (the card's)                                         |
+| `[a2a.endpoint-description-required]`                                                                    | an `@A2AEndpoint` with a blank `description` (the card's)                                       |
 | `[a2a.skill-tags]` (warning)                                                                             | an exported skill with no `tags` (the card falls back to the application's name)                |
 | `[a2a.unpriced-foreign-peer]` (warning)                                                                  | an `@A2AAgent` without `target.application` and without `price`: its spend is invisible         |
 | `[a2a.task-store-not-shared]`                                                                            | shared leases, a task store that is not (above)                                                 |
@@ -706,7 +743,7 @@ import { Injectable } from "@agboss/core";
 import { testWith } from "@agboss/core/testing";
 import { ApiKeyDirectory, type ApiKeyGrant } from "../../../src/support/services/api-key-directory.service.js";
 import { SupportHttpAuthenticator } from "../../../src/support/a2a/support.http-authenticator.js";
-import { SupportA2AExpose } from "../../../src/support/a2a/support.a2a-expose.js";
+import { SupportA2AEndpoint } from "../../../src/support/a2a/support.a2a-endpoint.js";
 import { SupportAgent } from "../../../src/support/agents/support/support.agent.js";
 import { SupportApplication } from "../../../src/support.application.js";
 
@@ -720,7 +757,7 @@ class NoKeysDirectory extends ApiKeyDirectory {
 const test = testWith(SupportApplication, { services: [NoKeysDirectory] });
 
 test("an unknown key is 401 and never runs", async ({ a2aServer, mockLlm }) => {
-  const { url } = await a2aServer({ endpoint: SupportA2AExpose, authenticator: SupportHttpAuthenticator });
+  const { url } = await a2aServer({ endpoint: SupportA2AEndpoint, authenticator: SupportHttpAuthenticator });
 
   // any A2A v1.0 client calls the listener; a plain JSON-RPC `SendMessage` is the smallest one
   const sent = await fetch(url, {
@@ -846,7 +883,10 @@ export class BillingWorkflow {} // a @Workflow of its own
 -->
 
 ```ts file=billing/src/billing.application.ts
+import { OpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
 @Application({
+  modelProvider: OpenRouterModelProvider,
+  providers: [OpenRouterModelProvider],
   name: "billing-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
@@ -933,7 +973,7 @@ application, expose } })`'s over MCP): a receiver of another name refuses it, si
 | `OutboundCallError.Unreconciled` (`foreign A2A peer`)          | a send to a foreign agent got no answer: check the agent, then decide (`app.pendingOutboundCallsOf`) |
 | `[a2a.no-url]`                                                 | the client class lacks `@A2AAgent({ url })`                                                          |
 | `[a2a.no-contract]`                                            | `execute` on a client without `@A2AAgent({ input, output })`: declare them, or use `send`            |
-| `[application.endpoint-unlisted]`                              | list the `@A2AExpose` in `@Application({ endpoints })`                                               |
+| `[application.endpoint-unlisted]`                              | list the `@A2AEndpoint` in `@Application({ endpoints })`                                             |
 | `400 a2a.unknown-start`                                        | name an exported start (`target.start`), or export only one                                          |
 | `[mesh.audience-mismatch] …`                                   | the client's `target.application` is not the application at its `url`                                |
 | `mesh.audience-missing`                                        | a signed envelope names no application: sign only with an audience (`target.application`)            |

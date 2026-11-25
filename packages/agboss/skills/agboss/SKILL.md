@@ -16,7 +16,7 @@ agents, routers, actions, finishes — wired by a dependency-injection container
 and a CLI. This file is always read first; it routes every task to one reference below. Read that
 reference before writing code: the names here are the installed version's, and older names you may
 remember (`thinking`, `timeoutMs`, `createApp(Workflow)`, `ctx`, zod schemas, `ToolFailedError`,
-`@Guardrail`) do not exist.
+`@Guardrail`, `@ChannelRole`, `@PauseListener`, `@A2AExpose`, built-in model providers) do not exist.
 
 ## The 10 invariants
 
@@ -43,10 +43,10 @@ remember (`thinking`, `timeoutMs`, `createApp(Workflow)`, `ctx`, zod schemas, `T
    `services/<name>.service.ts`, `repositories/<name>.repository.ts`, `schemas/<name>.schema.ts`,
    `sql/<name>.sql`, `errors/<name>.error.ts`, `observers/<name>.observer.ts`,
    `budgets/<name>.budget.ts`, `tool-interceptors/<name>.tool-interceptor.ts`,
-   `channels/<name>.channel-role.ts`, `channels/<name>.channel.ts`,
+   `tool-approvals/<name>.tool-approval.ts`, `external-tasks/<name>.external-task.ts`, `channels/<name>.channel.ts`,
    `pii-policies/<name>.pii-policy.ts`, `rag/<name>.rag.ts`, `rerankers/<name>.reranker.ts`, `retrievers/<name>.retriever.ts`,
    `mcp/<name>.mcp-server.ts`, `mcp/<name>.mcp-expose.ts`,
-   `a2a/<name>.a2a-agent.ts`, `a2a/<name>.a2a-expose.ts`, `model-providers/<name>.model-provider.ts`,
+   `a2a/<name>.a2a-agent.ts`, `a2a/<name>.a2a-endpoint.ts`, `model-providers/<name>.model-provider.ts`,
    `storages/<name>.database-storage.ts`, `file-policies/<name>.file-policy.ts`,
    `health-checks/<name>.health-check.ts`, `eval-suites/<name>.eval-suite.ts`,
    `contexts/<name>.context.ts`, `infrastructure/<name>.<contract>.ts` (your own `Logger`, `IdGenerator`,
@@ -78,10 +78,12 @@ remember (`thinking`, `timeoutMs`, `createApp(Workflow)`, `ctx`, zod schemas, `T
    that outlive a step go through the path (a step's `output`) or your own service over external storage.
 7. **Values carry units.** `seconds(30)`, `minutes(5)`, `hours(24)`, `usd(0.05)`, `kilobytes(256)`
    from `@agboss/core/units` — `timeout: seconds(5)`, never `timeoutMs: 5000`.
-8. **Infrastructure lives in the application only.** Stores (`Sqlite…Repository`), `Clock`,
-   `IdGenerator`, `Logger`, model providers, channel implementations and observers are listed in
-   `@Application({ providers | observers })`; a workflow's `providers` are its services
-   (`[di.infrastructure-in-workflow]`). A contract gets the one listed class that `extends` it.
+8. **Infrastructure lives in the application only.** Where the rows go is `@Application({ storage })`
+   (`@DatabaseStorage` with a driver, `storages/<name>.database-storage.ts`); the model providers
+   (`@ModelProvider({ driver })`, the default one named by `@Application({ modelProvider })` — there are
+   no built-ins), `Clock`, `IdGenerator`, `Logger` are in `providers`; channels, selectors and listeners in
+   `channels` / `channelSelectors` / `channelListeners`; observers in `observers`. A workflow's `providers`
+   are its services (`[di.infrastructure-in-workflow]`). A contract gets the one listed class that `extends` it.
 9. **Failures are typed and handled in the flow.** Every error is an `AGBossError` subclass with a
    stable `code` (`static override readonly code`) — never a `StepFailedError`, the framework's
    wrapper of a step's failure; `.onError(ErrorClass, side path)` right after a step catches that class, its
@@ -176,8 +178,8 @@ suppression budget, and a project made by `npx agboss create` lints with the sam
   over a typed ORM / query builder (such as Drizzle ORM) with table definitions in
   `schemas/<name>.schema.ts` and DDL migrations in `sql/<name>.sql` — never inline `CREATE TABLE`
   strings in TypeScript, never string-interpolated SQL (`SELECT … ${clause}`), and never database
-  connections, schemas, or errors inside `services/`. A repository injects `SqliteConnection` (both listed in
-  `@Application({ providers })`, never a workflow's) and uses `sqliteConnection.database` (never an internal helper of `@agboss/core`), and a write
+  connections, schemas, or errors inside `services/`. A repository injects `SqliteConnection` (of `@agboss/core/stores`; the application's
+  SQLite storage provides it, and the repository is a service listed in a workflow's `providers`) and uses `sqliteConnection.database` (never an internal helper of `@agboss/core`), and a write
   transaction is `sqliteConnection.transaction(() => …)` — synchronous, no `await` inside: two
   instances on one event loop (`testWith(App, { instances: 2 })`) would wait on each other's lock
   (reference 09).
@@ -185,7 +187,7 @@ suppression budget, and a project made by `npx agboss create` lints with the sam
   copy its folders and names as they are.
 - Imports only from the public entries: `agboss`, `@agboss/core/dto`, `@agboss/core/units`, `@agboss/core/models`,
   `@agboss/core/testing` (+ `@agboss/core/testing/setup`, `@agboss/core/testing/vitest`), `@agboss/core/mcp`, `@agboss/core/rag`, `@agboss/core/a2a`,
-  `@agboss/core/memory`, `@agboss/core/eval`, and `@agboss/core/eslint` in `eslint.config.js` — never `@agboss/core/internal`
+  `@agboss/core/stores`, `@agboss/core/describe`, `@agboss/core/eval`, and `@agboss/core/eslint` in `eslint.config.js` — never `@agboss/core/internal`
   (`agboss/no-internal-import`; `studioOf`, the graphs `agboss studio` draws, is in `@agboss/core/testing`),
   `agboss/dist/…` or LangGraph directly.
 
@@ -254,7 +256,7 @@ answer the rest — then read only the files it names; after changing code, `gra
 | Budgets, model providers, retries, rate limits, circuit breakers                                                            | `references/06-finops-providers-and-queues.md`    |
 | Input / output guardrails, PII masking                                                                                      | `references/07-guardrails-pii-and-security.md`    |
 | Execution records, observers, OpenTelemetry traces (`tracerProvider`, `@agboss/langfuse`)                                   | `references/08-observability-and-tracing.md`      |
-| SQLite stores, recovery, graceful shutdown, health probes, rolling deploys                                                  | `references/09-persistence-k8s-and-deploy.md`     |
+| Storage (`@DatabaseStorage`), recovery, graceful shutdown, health probes, rolling deploys                                   | `references/09-persistence-k8s-and-deploy.md`     |
 | Tests: `testWith`, unit runners (`testUnit`), races, VCR cassettes, `@EvalSuite`, code judges                               | `references/10-testing-vcr-and-evals.md`          |
 | A CLI command, LangGraph Studio, a `[rule.code]` error                                                                      | `references/11-cli-studio-and-error-catalog.md`   |
 | A whole feature or application from scratch                                                                                 | `references/12-end-to-end-recipes.md`             |

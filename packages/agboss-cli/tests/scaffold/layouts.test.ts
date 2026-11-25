@@ -61,9 +61,9 @@ describe("#489 AC2: agboss generate on flow-patterns' layout", () => {
 
     // targets resolved from the workflow module: its agents folder, its router, its finish
     expect(existsSync(join(project, "src/agents/billing/billing.agent.ts"))).toBe(true);
-    // #272: the router's choice in the flow gets the agent's path, its routes the agent
+    // #272: each route of the router in the flow gets the agent's path
     expect(text(module)).toMatch(
-      /route\(OnboardingAssistantAgent\)\n {10}\.toFinish\(TextWorkflowFinish\),\n {8}route\(BillingAgent\)\n {10}\.toFinish\(TextWorkflowFinish\),\n/,
+      /\.onRoute\(\n {8}toAgent\(OnboardingAssistantAgent\)\n {10}\.toFinish\(TextWorkflowFinish\),\n {6}\)\n {6}\.onRoute\(\n {8}toAgent\(BillingAgent\)\n {10}\.toFinish\(TextWorkflowFinish\),\n {6}\),\n/,
     );
     // the new route goes after the last one, one per line
     expect(text(router)).toMatch(

@@ -9,7 +9,7 @@ read the reference each part points to.
 | Recipe                                                | Shows                                                                                                                                             |
 | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1. An offer review loop                               | `oneOf` + `switch`, `historyOf`, `maxVisits`, a code router, `.onError` side paths                                                                |
-| 2. Sourcing: children per item, a quorum, an approval | `.forEachItem(toWorkflow(…))`, a soft child failure, `.arbitratedBy(…)`, `.joinQuorum`, a channel role, `app.resume`                              |
+| 2. Sourcing: children per item, a quorum, an approval | `.forEachItem(toWorkflow(…))`, a soft child failure, `.arbitratedBy(…)`, `.joinQuorum`, a tool approval, `app.resume`                             |
 | 3. A help desk on MCP and A2A, streamed               | `@McpServer` behind a tool, an `@A2AAgent` behind a tool, `onStream`, `mcpOf`, `mockOf`                                                           |
 | 4. A production multi-tenant application              | tenant context, budgets, model providers with a fallback and `TenantWeighted`, PII, a guardrail, SQLite, health, undo, unit and integration tests |
 
@@ -323,7 +323,25 @@ export class OffersExecutionBudget implements BudgetHandler {
 }
 ```
 
+The chat provider — every application names its `modelProvider` explicitly (a driver provider; no built-ins):
+
+```ts file=offers/src/model-providers/openrouter.model-provider.ts
+import { secret } from "@agboss/core";
+import { ModelCost, ModelProvider, OpenRouterDriver } from "@agboss/core/models";
+import { minutes } from "@agboss/core/units";
+
+@ModelProvider({
+  name: "openrouter-model-provider",
+  description: "OpenRouter — every chat model of the application",
+  driver: OpenRouterDriver({ apiKey: secret("OPENROUTER_API_KEY") }),
+  timeout: minutes(2),
+  cost: ModelCost.fromResponse(),
+})
+export class OpenRouterModelProvider {}
+```
+
 ```ts file=offers/src/offers.application.ts
+import { OpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
 import { Application, EmptyEnvironment } from "@agboss/core";
 import { OffersApplicationBudget } from "./budgets/offers-application.budget.js";
 import { OffersExecutionBudget } from "./budgets/offers-execution.budget.js";
@@ -331,6 +349,8 @@ import { OffersTenantBudget } from "./budgets/offers-tenant.budget.js";
 import { OfferLetterWorkflow } from "./workflows/offer-letter/offer-letter.workflow.js";
 
 @Application({
+  modelProvider: OpenRouterModelProvider,
+  providers: [OpenRouterModelProvider],
   name: "offers-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
@@ -578,20 +598,22 @@ import { SupplierUncheckedWorkflowFinish } from "./supplier-unchecked.workflow-f
 export class SupplierCheckWorkflow {}
 ```
 
-The approval: the role, and its implementation over the buyer's inbox:
+The approval: the target, and its channel over the buyer's inbox:
 
-```ts file=sourcing/src/channels/purchase-approval.channel-role.ts
-// the role: what it approves and who answers; its implementation is infrastructure
-import { ChannelOf, ChannelRole, PauseAnswerer } from "@agboss/core";
+```ts file=sourcing/src/tool-approvals/purchase.tool-approval.ts
+// the target: what it approves and who answers; its channel is infrastructure
+import { PauseRespondent, ToolApproval } from "@agboss/core";
+import { days } from "@agboss/core/units";
 import { PurchaseOrderDto } from "../dto/purchase-order.dto.js";
 
-@ChannelRole({
-  name: "purchase-approval-channel",
+@ToolApproval({
+  name: "purchase-tool-approval",
   description: "The buyer approves every purchase order",
-  approves: PurchaseOrderDto, // the input of the tool that names the role
-  answerer: PauseAnswerer.ThreadOwner, // app.resume(…, { ownerId }); the pauseId is in result.pending
+  input: PurchaseOrderDto, // the input of the tool that names the target
+  respondent: PauseRespondent.Owner, // app.resume(…, { ownerId }); the pauseId is in result.pending
+  timeout: days(3),
 })
-export abstract class PurchaseApprovalChannel extends ChannelOf<PurchaseApprovalChannel> {}
+export class PurchaseToolApproval {}
 ```
 
 ```ts file=sourcing/src/services/buyer-inbox.service.ts
@@ -607,19 +629,24 @@ export class BuyerInboxService {
 }
 ```
 
-```ts file=sourcing/src/channels/buyer-inbox-purchase-approval.channel.ts
+```ts file=sourcing/src/channels/buyer-inbox-purchase.channel.ts
 import { Channel, ChannelOutcome } from "@agboss/core";
 import type { ChannelAsk } from "@agboss/core";
+import { days } from "@agboss/core/units";
 import { BuyerInboxService } from "../services/buyer-inbox.service.js";
-import { PurchaseApprovalChannel } from "./purchase-approval.channel-role.js";
+import { PurchaseToolApproval } from "../tool-approvals/purchase.tool-approval.js";
 
-@Channel({ name: "buyer-inbox-purchase-approval-channel", description: "Tells the buyer in their inbox", deps: [BuyerInboxService] })
-export class BuyerInboxPurchaseApprovalChannel extends PurchaseApprovalChannel {
-  constructor(private readonly buyerInboxService: BuyerInboxService) {
-    super();
-  }
+@Channel({
+  name: "buyer-inbox-purchase-channel",
+  description: "Tells the buyer in their inbox",
+  target: PurchaseToolApproval,
+  ttl: days(7),
+  deps: [BuyerInboxService],
+})
+export class BuyerInboxPurchaseChannel {
+  constructor(private readonly buyerInboxService: BuyerInboxService) {}
 
-  async send(ask: ChannelAsk<PurchaseApprovalChannel>): Promise<ChannelOutcome<PurchaseApprovalChannel>> {
+  async send(ask: ChannelAsk<PurchaseToolApproval>): Promise<ChannelOutcome<PurchaseToolApproval>> {
     const { supplier, price } = ask.input;
     await this.buyerInboxService.notify(ask.pauseId, `Order from ${supplier} for $${String(price)}?`);
     return ChannelOutcome.awaitReply(); // the execution rests until app.resume
@@ -730,7 +757,7 @@ export class ReviewRangeArbiter {
 
 ```ts file=sourcing/src/tools/place-purchase.tool.ts
 import { ExecutionContext, Tool } from "@agboss/core";
-import { PurchaseApprovalChannel } from "../channels/purchase-approval.channel-role.js";
+import { PurchaseToolApproval } from "../tool-approvals/purchase.tool-approval.js";
 import { PurchaseOrderDto } from "../dto/purchase-order.dto.js";
 import { PurchasePlacedDto } from "../dto/purchase-placed.dto.js";
 
@@ -739,7 +766,7 @@ import { PurchasePlacedDto } from "../dto/purchase-placed.dto.js";
   description: "Places the purchase order — the buyer approves it first",
   input: PurchaseOrderDto,
   output: PurchasePlacedDto,
-  channel: PurchaseApprovalChannel, // the role, never the implementation
+  approval: PurchaseToolApproval, // the target, never the channel
   deps: [ExecutionContext],
 })
 export class PlacePurchaseTool {
@@ -846,15 +873,31 @@ export class SourcingWorkflow {}
 The environments, the budgets and the application:
 
 ```ts file=sourcing/src/environments/app.environment.ts
-export class SourcingEnvironment {
-  sqlitePath!: string; // pauses must survive a restart
-}
+export class SourcingEnvironment {} // the storage's path is env(…) in its decorator
 ```
 
 ```ts file=sourcing/src/environments/test.environment.ts
 import type { SourcingEnvironment } from "./app.environment.js";
 
-export const environment: SourcingEnvironment = { sqlitePath: ":memory:" };
+export const environment: SourcingEnvironment = {};
+```
+
+```ts file=sourcing/src/storages/sourcing.database-storage.ts
+// pauses must survive a restart: SQLite in a file (":memory:" in the tests' env)
+import { DatabaseStorage, SqliteDriver, defineEnv, env } from "@agboss/core";
+import { hours } from "@agboss/core/units";
+
+const storageEnv = defineEnv({
+  path: env("AGBOSS_SQLITE_PATH", { default: "/data/sourcing.sqlite" }),
+});
+
+@DatabaseStorage({
+  name: "sourcing-database-storage",
+  driver: SqliteDriver({ path: storageEnv.path }),
+  auditLogTtl: hours(24 * 7),
+  ledgerEntriesTtl: hours(24),
+})
+export class SourcingDatabaseStorage {}
 ```
 
 ```ts file=sourcing/src/budgets/sourcing-application.budget.ts
@@ -893,23 +936,45 @@ export class SourcingExecutionBudget implements BudgetHandler {
 }
 ```
 
+The chat provider — every application names its `modelProvider` explicitly (a driver provider; no built-ins):
+
+```ts file=sourcing/src/model-providers/openrouter.model-provider.ts
+import { secret } from "@agboss/core";
+import { ModelCost, ModelProvider, OpenRouterDriver } from "@agboss/core/models";
+import { minutes } from "@agboss/core/units";
+
+@ModelProvider({
+  name: "openrouter-model-provider",
+  description: "OpenRouter — every chat model of the application",
+  driver: OpenRouterDriver({ apiKey: secret("OPENROUTER_API_KEY") }),
+  timeout: minutes(2),
+  cost: ModelCost.fromResponse(),
+})
+export class OpenRouterModelProvider {}
+```
+
 ```ts file=sourcing/src/sourcing.application.ts
-import { Application, SqlitePausedExecutionRepository } from "@agboss/core";
+import { OpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
+import { Application } from "@agboss/core";
 import { SourcingApplicationBudget } from "./budgets/sourcing-application.budget.js";
 import { SourcingExecutionBudget } from "./budgets/sourcing-execution.budget.js";
 import { SourcingTenantBudget } from "./budgets/sourcing-tenant.budget.js";
-import { BuyerInboxPurchaseApprovalChannel } from "./channels/buyer-inbox-purchase-approval.channel.js";
+import { BuyerInboxPurchaseChannel } from "./channels/buyer-inbox-purchase.channel.js";
 import { SourcingEnvironment } from "./environments/app.environment.js";
 import { BuyerInboxService } from "./services/buyer-inbox.service.js";
+import { SourcingDatabaseStorage } from "./storages/sourcing.database-storage.js";
 import { SourcingWorkflow } from "./workflows/sourcing/sourcing.workflow.js";
 
 @Application({
+  modelProvider: OpenRouterModelProvider,
   name: "sourcing-application",
   version: "1.0.0",
   environment: SourcingEnvironment,
   workflows: [SourcingWorkflow], // the child need not be listed: it belongs to its parent
   budgets: [SourcingApplicationBudget, SourcingTenantBudget, SourcingExecutionBudget],
-  providers: [BuyerInboxPurchaseApprovalChannel, BuyerInboxService, SqlitePausedExecutionRepository],
+  storage: SourcingDatabaseStorage, // the pauses survive a restart
+  providers: [OpenRouterModelProvider, BuyerInboxService],
+  channels: [BuyerInboxPurchaseChannel], // the approval target's channel
 })
 export class SourcingApplication {}
 ```
@@ -1195,7 +1260,7 @@ export class HelpdeskHttpAuthenticator {
 }
 ```
 
-```ts file=helpdesk/src/a2a/helpdesk.a2a-expose.ts
+```ts file=helpdesk/src/a2a/helpdesk.a2a-endpoint.ts
 import { A2AEndpoint } from "@agboss/core/a2a";
 import { hours, minutes } from "@agboss/core/units";
 import { HelpdeskWorkflowStart } from "../workflows/helpdesk/helpdesk.workflow-start.js";
@@ -1208,7 +1273,7 @@ import { HelpdeskWorkflowStart } from "../workflows/helpdesk/helpdesk.workflow-s
   ttl: { tasks: hours(24), messages: minutes(15) },
   skills: [HelpdeskWorkflowStart],
 })
-export class HelpdeskA2AExpose {}
+export class HelpdeskA2AEndpoint {}
 ```
 
 The budgets and the application:
@@ -1249,23 +1314,43 @@ export class HelpdeskExecutionBudget implements BudgetHandler {
 }
 ```
 
+The chat provider — every application names its `modelProvider` explicitly (a driver provider; no built-ins):
+
+```ts file=helpdesk/src/model-providers/openrouter.model-provider.ts
+import { secret } from "@agboss/core";
+import { ModelCost, ModelProvider, OpenRouterDriver } from "@agboss/core/models";
+import { minutes } from "@agboss/core/units";
+
+@ModelProvider({
+  name: "openrouter-model-provider",
+  description: "OpenRouter — every chat model of the application",
+  driver: OpenRouterDriver({ apiKey: secret("OPENROUTER_API_KEY") }),
+  timeout: minutes(2),
+  cost: ModelCost.fromResponse(),
+})
+export class OpenRouterModelProvider {}
+```
+
 ```ts file=helpdesk/src/helpdesk.application.ts
+import { OpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
 import { Application, EmptyEnvironment } from "@agboss/core";
 import { HelpdeskHttpAuthenticator } from "./a2a/helpdesk.http-authenticator.js";
-import { HelpdeskA2AExpose } from "./a2a/helpdesk.a2a-expose.js";
+import { HelpdeskA2AEndpoint } from "./a2a/helpdesk.a2a-endpoint.js";
 import { HelpdeskApplicationBudget } from "./budgets/helpdesk-application.budget.js";
 import { HelpdeskExecutionBudget } from "./budgets/helpdesk-execution.budget.js";
 import { HelpdeskTenantBudget } from "./budgets/helpdesk-tenant.budget.js";
 import { HelpdeskWorkflow } from "./workflows/helpdesk/helpdesk.workflow.js";
 
 @Application({
+  modelProvider: OpenRouterModelProvider,
+  providers: [OpenRouterModelProvider],
   name: "helpdesk-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [HelpdeskWorkflow],
   services: [HelpdeskHttpAuthenticator], // an @HttpAuthenticator is a service: the listener resolves it
   budgets: [HelpdeskApplicationBudget, HelpdeskTenantBudget, HelpdeskExecutionBudget],
-  endpoints: [HelpdeskA2AExpose],
+  endpoints: [HelpdeskA2AEndpoint],
 })
 export class HelpdeskApplication {}
 ```
@@ -1277,7 +1362,7 @@ import { createServer } from "node:http";
 import { createApp, StreamEventKind } from "@agboss/core";
 import { a2aHttpListener } from "@agboss/core/a2a";
 import { HelpdeskHttpAuthenticator } from "../a2a/helpdesk.http-authenticator.js";
-import { HelpdeskA2AExpose } from "../a2a/helpdesk.a2a-expose.js";
+import { HelpdeskA2AEndpoint } from "../a2a/helpdesk.a2a-endpoint.js";
 import { HelpdeskApplication } from "../helpdesk.application.js";
 import { HelpdeskWorkflowStart } from "../workflows/helpdesk/helpdesk.workflow-start.js";
 
@@ -1306,7 +1391,7 @@ console.log("\n", result.output?.text, result.spend.totalUsd); // the kept steps
 // /a2a/.well-known/agent-card.json, JSON-RPC at POST /a2a — each request's tenant from the authenticator
 // the application lists (reference 04)
 const listener = a2aHttpListener(app, {
-  endpoint: HelpdeskA2AExpose,
+  endpoint: HelpdeskA2AEndpoint,
   authenticator: HelpdeskHttpAuthenticator,
   publicUrl: "https://helpdesk.example",
   base: "/a2a",
@@ -1350,7 +1435,7 @@ test("the agent reads an article and asks billing", async ({ app, mcpOf, mockLlm
 
 Loan pre-approval for many lenders (tenants): each tenant's own daily budget and queue weight, PII
 masked before any model reads it, a guardrail that refuses out-of-scope requests, a reservation of
-funds that is undone when a later step fails, SQLite stores, readiness probes, unit and integration
+funds that is undone when a later step fails, a SQLite database storage, readiness probes, unit and integration
 tests. Production also needs `main.ts` with the probes and the Kubernetes manifest of reference 09.
 
 ```ts file=loans/src/contexts/lender.context.ts
@@ -1367,79 +1452,85 @@ export class LenderTenantContext extends TenantContext {
 ```
 
 ```ts file=loans/src/environments/app.environment.ts
-import type { Secret } from "@agboss/core";
+export class LoansEnvironment {} // the keys and the file are env(…) / secret(…) in the providers and the storage
+```
 
-export class LoansEnvironment {
-  sqlitePath!: string;
-  openRouterApiKey?: Secret;
-  backupApiKey?: Secret;
-  piiPseudonymKey?: Secret; // one PII token per value on every instance
-}
+```ts file=loans/src/storages/loans.database-storage.ts
+import { DatabaseStorage, SqliteDriver, defineEnv, env, secret } from "@agboss/core";
+import { hours } from "@agboss/core/units";
+
+const storageEnv = defineEnv({
+  path: env("AGBOSS_SQLITE_PATH", { default: "/data/loans.sqlite" }), // a persistent volume; ":memory:" in tests
+  piiSecret: secret("PII_PSEUDONYM_KEY"), // one PII token per value on every instance
+});
+
+@DatabaseStorage({
+  name: "loans-database-storage",
+  driver: SqliteDriver({ path: storageEnv.path }),
+  auditLogTtl: hours(24 * 30),
+  ledgerEntriesTtl: hours(24),
+  piiSecret: storageEnv.piiSecret,
+})
+export class LoansDatabaseStorage {}
 ```
 
 ```ts file=loans/src/environments/prod.environment.ts
-import { env, secret } from "@agboss/core";
 import type { LoansEnvironment } from "./app.environment.js";
 
-export const environment: LoansEnvironment = {
-  sqlitePath: env("AGBOSS_SQLITE_PATH", { default: "/data/loans.sqlite" }),
-  openRouterApiKey: secret("OPENROUTER_API_KEY"),
-  backupApiKey: secret("BACKUP_API_KEY"),
-  piiPseudonymKey: secret("PII_PSEUDONYM_KEY"),
-};
+export const environment: LoansEnvironment = {};
 ```
 
 ```ts file=loans/src/environments/test.environment.ts
 import type { LoansEnvironment } from "./app.environment.js";
 
-export const environment: LoansEnvironment = { sqlitePath: ":memory:" }; // no keys: models are scripted
+export const environment: LoansEnvironment = {}; // no keys: models are scripted
 ```
 
-The model providers, one per file — the backup first, since OpenRouter's breaker falls back to it:
+The model providers, one per file — the backup first, since OpenRouter's breaker falls back to it, and
+the Decisions one for the guardrail's Jev model:
 
 ```ts file=loans/src/model-providers/loans-backup.model-provider.ts
+import { env, secret } from "@agboss/core";
 import {
   CircuitBreakerPolicy,
   ModelCost,
   ModelProvider,
-  OpenAiCompatibleProvider,
+  OpenAiCompatibleDriver,
   PromptCaching,
   Reasoning,
-  RetryPolicy,
-  type NoRequestFields,
 } from "@agboss/core/models";
 import { minutes, seconds, usd } from "@agboss/core/units";
 
 @ModelProvider({
   name: "loans-backup-model-provider",
   description: "The in-house server, while OpenRouter is down",
-  serves: [/^inhouse\//],
-  baseUrl: "http://inference.internal:8000/v1",
-  apiKey: "backupApiKey",
+  driver: OpenAiCompatibleDriver({
+    baseUrl: env("BACKUP_BASE_URL", { default: "http://inference.internal:8000/v1" }),
+    apiKey: secret("BACKUP_API_KEY"),
+  }),
+  models: { default: "inhouse/kimi" },
   timeout: minutes(1),
   cost: ModelCost.fromPrices({ "inhouse/kimi": { inputPerMillion: usd(0.4), outputPerMillion: usd(1.6) } }),
   reasoning: Reasoning.off(),
   promptCaching: PromptCaching.off(),
   circuitBreakerPolicy: CircuitBreakerPolicy.fixed({ failureThreshold: 5, failureWindow: minutes(1), openDuration: seconds(30) }),
 })
-export class LoansBackupModelProvider extends OpenAiCompatibleProvider {
-  override readonly requestFields: NoRequestFields = {};
-}
+export class LoansBackupModelProvider {}
 ```
 
 ```ts file=loans/src/model-providers/loans-openrouter.model-provider.ts
+import { secret } from "@agboss/core";
 import {
   CircuitBreakerPolicy,
   ModelCost,
   ModelFailure,
   ModelProvider,
-  OpenRouterProvider,
+  OpenRouterDriver,
   PromptCaching,
   QueueBalancingStrategy,
   RateLimitPolicy,
   Reasoning,
   RetryPolicy,
-  type OpenRouterFields,
 } from "@agboss/core/models";
 import { minutes, seconds } from "@agboss/core/units";
 import type { LenderTenantContext } from "../contexts/lender.context.js";
@@ -1448,9 +1539,7 @@ import { LoansBackupModelProvider } from "./loans-backup.model-provider.js";
 @ModelProvider({
   name: "loans-openrouter-model-provider",
   description: "OpenRouter: the chat models",
-  serves: [/^moonshotai\//],
-  baseUrl: "https://openrouter.ai/api/v1",
-  apiKey: "openRouterApiKey",
+  driver: OpenRouterDriver({ apiKey: secret("OPENROUTER_API_KEY") }),
   timeout: minutes(2),
   cost: ModelCost.fromResponse(),
   reasoning: Reasoning.modelDecides(),
@@ -1475,9 +1564,22 @@ import { LoansBackupModelProvider } from "./loans-backup.model-provider.js";
   }),
   fallback: { provider: LoansBackupModelProvider, models: { "moonshotai/kimi-k2.6": "inhouse/kimi" } },
 })
-export class LoansOpenRouterModelProvider extends OpenRouterProvider {
-  override readonly requestFields: OpenRouterFields = {};
-}
+export class LoansOpenRouterModelProvider {}
+```
+
+```ts file=loans/src/model-providers/loans-decisions.model-provider.ts
+import { secret } from "@agboss/core";
+import { DecisionsDriver, ModelCost, ModelProvider } from "@agboss/core/models";
+import { seconds } from "@agboss/core/units";
+
+@ModelProvider({
+  name: "loans-decisions-model-provider",
+  description: "Jev and the other decision models: the guardrail's",
+  driver: DecisionsDriver({ baseUrl: "https://openrouter.ai/api/v1", apiKey: secret("OPENROUTER_API_KEY") }),
+  timeout: seconds(30),
+  cost: ModelCost.fromResponse(),
+})
+export class LoansDecisionsModelProvider {}
 ```
 
 The safety — a PII policy and a guardrail:
@@ -1500,12 +1602,14 @@ export class ApplicantPiiPolicy {}
 
 ```ts file=loans/src/guardrails/out-of-scope/out-of-scope.guardrail.ts
 import { InputGuardrail, inline } from "@agboss/core";
+import { LoansDecisionsModelProvider } from "../../model-providers/loans-decisions.model-provider.js";
 
 @InputGuardrail({
   name: "out-of-scope-guardrail",
   description: "Refuses requests that are not about a loan application",
   prompt: inline("Is the message about something other than applying for a loan?"),
   model: "typesafe/jev-1.13",
+  modelProvider: LoansDecisionsModelProvider, // a decision model needs a decisions provider
   threshold: 0.8,
   refusal: "I can only help with loan applications.",
 })
@@ -1873,16 +1977,7 @@ export class LoansExecutionBudget implements BudgetHandler {
 ```
 
 ```ts file=loans/src/loans.application.ts
-import {
-  Application,
-  SqliteCostLedgerRepository,
-  SqliteExecutionLeaseRepository,
-  SqliteExecutionRecordRepository,
-  SqliteExecutionTreeRepository,
-  SqlitePausedExecutionRepository,
-  SqliteRateLimitRepository,
-} from "@agboss/core";
-import { DecisionsModelProvider } from "@agboss/core/models";
+import { Application } from "@agboss/core";
 import { seconds } from "@agboss/core/units";
 import { LenderDailyBudget } from "./budgets/lender-daily.budget.js";
 import { LoansApplicationBudget } from "./budgets/loans-application.budget.js";
@@ -1892,8 +1987,10 @@ import { LoansEnvironment } from "./environments/app.environment.js";
 import { OutOfScopeGuardrail } from "./guardrails/out-of-scope/out-of-scope.guardrail.js";
 import { FundsLedgerHealthCheck } from "./health-checks/funds-ledger.health-check.js";
 import { LoansBackupModelProvider } from "./model-providers/loans-backup.model-provider.js";
+import { LoansDecisionsModelProvider } from "./model-providers/loans-decisions.model-provider.js";
 import { LoansOpenRouterModelProvider } from "./model-providers/loans-openrouter.model-provider.js";
 import { ApplicantPiiPolicy } from "./pii-policies/applicant.pii-policy.js";
+import { LoansDatabaseStorage } from "./storages/loans.database-storage.js";
 import { LoanWorkflow } from "./workflows/loan/loan.workflow.js";
 
 @Application({
@@ -1903,19 +2000,10 @@ import { LoanWorkflow } from "./workflows/loan/loan.workflow.js";
   tenantContext: LenderTenantContext,
   workflows: [LoanWorkflow],
   budgets: [LoansApplicationBudget, LenderDailyBudget, LoansExecutionBudget],
-  providers: [
-    LoansOpenRouterModelProvider,
-    LoansBackupModelProvider,
-    DecisionsModelProvider, // the guardrail's decision model: one listed → the list is complete
-    SqliteExecutionRecordRepository,
-    SqlitePausedExecutionRepository,
-    SqliteCostLedgerRepository,
-    SqliteExecutionLeaseRepository,
-    SqliteExecutionTreeRepository,
-    SqliteRateLimitRepository,
-  ],
+  storage: LoansDatabaseStorage, // every store durable and shared; the PII key is its piiSecret
+  modelProvider: LoansOpenRouterModelProvider, // the chat provider of every agent
+  providers: [LoansOpenRouterModelProvider, LoansBackupModelProvider, LoansDecisionsModelProvider],
   piiPolicies: [ApplicantPiiPolicy], // every agent and router of every workflow
-  piiKeyField: "piiPseudonymKey",
   guardrails: [OutOfScopeGuardrail],
   healthChecks: [FundsLedgerHealthCheck],
   executionLimits: { maxConcurrentSteps: 32, shutdownTimeout: seconds(25) },

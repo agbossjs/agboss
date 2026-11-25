@@ -39,7 +39,25 @@ export class RefusalTextService {
 }
 ```
 
+A decision model (Jev) is served by a decisions provider — a component naming one says so with `modelProvider`:
+
+```ts file=src/model-providers/decisions.model-provider.ts
+import { secret } from "@agboss/core";
+import { DecisionsDriver, ModelCost, ModelProvider } from "@agboss/core/models";
+import { seconds } from "@agboss/core/units";
+
+@ModelProvider({
+  name: "decisions-model-provider",
+  description: "Jev and the other decision models, on OpenRouter's Decisions API",
+  driver: DecisionsDriver({ baseUrl: "https://openrouter.ai/api/v1", apiKey: secret("OPENROUTER_API_KEY") }),
+  timeout: seconds(30),
+  cost: ModelCost.fromResponse(),
+})
+export class DecisionsModelProvider {}
+```
+
 ```ts file=src/clinic/guardrails/legal-advice/legal-advice.guardrail.ts
+import { DecisionsModelProvider } from "../../../model-providers/decisions.model-provider.js";
 // a computed refusal: the sender's language, from a service
 import { InputGuardrail, type GuardrailRefusal, inline } from "@agboss/core";
 import { ClinicExecutionContext } from "../../contexts/clinic-execution.context.js";
@@ -50,6 +68,7 @@ import { RefusalTextService } from "../../services/refusal-text.service.js";
   description: "Blocks requests for legal advice",
   prompt: inline("Does the message ask for legal advice?"),
   model: "typesafe/jev-1.13", // a decision model: one Decision.boolean; a chat model: one answer tool
+  modelProvider: DecisionsModelProvider,
   threshold: 0.8,
   deps: [ClinicExecutionContext, RefusalTextService],
 })
@@ -232,11 +251,26 @@ export class PatientIdPiiPolicy implements PiiPolicyHandler {
 ```
 
 ```ts file=src/environments/app.environment.ts
-import type { Secret } from "@agboss/core";
+export class ClinicEnvironment {} // the PII key is the storage's piiSecret, below
+```
 
-export class ClinicEnvironment {
-  piiPseudonymKey?: Secret; // the HMAC key of tokens: one token per value on every instance
-}
+```ts file=src/clinic/storages/clinic.database-storage.ts
+import { DatabaseStorage, SqliteDriver, defineEnv, env, secret } from "@agboss/core";
+import { hours } from "@agboss/core/units";
+
+const storageEnv = defineEnv({
+  path: env("AGBOSS_SQLITE_PATH", { default: ".agboss/clinic.sqlite" }),
+  piiSecret: secret("PII_PSEUDONYM_KEY"), // the HMAC key of tokens: one token per value on every instance
+});
+
+@DatabaseStorage({
+  name: "clinic-database-storage",
+  driver: SqliteDriver({ path: storageEnv.path }),
+  auditLogTtl: hours(24 * 7),
+  ledgerEntriesTtl: hours(24),
+  piiSecret: storageEnv.piiSecret, // no storage supplies a key; a test's testWith has its own
+})
+export class ClinicDatabaseStorage {}
 ```
 
 ```ts file=src/environments/test.environment.ts
@@ -295,6 +329,7 @@ export class BillingAgent {}
 ```
 
 ```ts file=src/clinic/routers/clinic/clinic.router.ts
+import { DecisionsModelProvider } from "../../../model-providers/decisions.model-provider.js";
 import { DecidedBy, Router, inline } from "@agboss/core";
 import { BillingAgent } from "../../agents/billing/billing.agent.js";
 import { ClinicAgent } from "../../agents/clinic/clinic.agent.js";
@@ -305,6 +340,7 @@ import { PatientMessageDto } from "../../dto/patient-message.dto.js";
   description: "Sends a message to the agent that answers it",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
+  modelProvider: DecisionsModelProvider,
   prompt: inline("Pick who answers the patient."),
   input: { message: PatientMessageDto }, // read masked: the policies apply to routers too
   routes: [
@@ -402,7 +438,25 @@ export class ExecutionBudget implements BudgetHandler {
 }
 ```
 
+The chat provider — every application names its `modelProvider` explicitly (a driver provider; no built-ins):
+
+```ts file=src/model-providers/openrouter.model-provider.ts
+import { secret } from "@agboss/core";
+import { ModelCost, ModelProvider, OpenRouterDriver } from "@agboss/core/models";
+import { minutes } from "@agboss/core/units";
+
+@ModelProvider({
+  name: "openrouter-model-provider",
+  description: "OpenRouter — every chat model of the application",
+  driver: OpenRouterDriver({ apiKey: secret("OPENROUTER_API_KEY") }),
+  timeout: minutes(2),
+  cost: ModelCost.fromResponse(),
+})
+export class OpenRouterModelProvider {}
+```
+
 ```ts file=src/clinic.application.ts
+import { OpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
 import { Application } from "@agboss/core";
 import { ApplicationDailyBudget } from "./clinic/budgets/application-daily.budget.js";
 import { ExecutionBudget } from "./clinic/budgets/execution.budget.js";
@@ -410,20 +464,23 @@ import { TenantDailyBudget } from "./clinic/budgets/tenant-daily.budget.js";
 import { ClinicExecutionContext } from "./clinic/contexts/clinic-execution.context.js";
 import { NoDiagnosisGuardrail } from "./clinic/guardrails/no-diagnosis/no-diagnosis.guardrail.js";
 import { ContactPiiPolicy } from "./clinic/pii-policies/contact.pii-policy.js";
+import { ClinicDatabaseStorage } from "./clinic/storages/clinic.database-storage.js";
 import { ClinicWorkflow } from "./clinic/workflows/clinic/clinic.workflow.js";
 import { ClinicEnvironment } from "./environments/app.environment.js";
 
 @Application({
+  modelProvider: OpenRouterModelProvider,
+  providers: [OpenRouterModelProvider],
   name: "clinic-application",
   version: "1.0.0",
   environment: ClinicEnvironment,
   executionContext: ClinicExecutionContext, // execute(…, { execution: { locale } })
-  piiKeyField: "piiPseudonymKey", // names the Secret field of the environment
+  storage: ClinicDatabaseStorage, // its piiSecret is the PII key of the tokens
   workflows: [ClinicWorkflow],
   budgets: [ApplicationDailyBudget, TenantDailyBudget, ExecutionBudget],
   guardrails: [NoDiagnosisGuardrail], // every agent of every workflow
   piiPolicies: [ContactPiiPolicy], // every agent and router of every workflow
-  defaults: { guardrail: { model: "typesafe/jev-1.13" } }, // guardrails without their own model
+  defaults: { guardrail: { model: "typesafe/jev-1.13" } }, // the model of guardrails without their own; each still names its decisions `modelProvider`
 })
 export class ClinicApplication {}
 ```

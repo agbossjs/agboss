@@ -125,9 +125,11 @@ describe("agboss create / agboss generate end to end", () => {
     );
     // #142: the main router of a new workflow is on the star's cycle, so it declares maxVisits
     expect(desk("routers/main/main.router.ts")).toContain("maxVisits: 3,");
-    expect(
-      readFileSync(join(project, "src/agents/answerer/answerer.agent.ts"), "utf8"),
-    ).not.toContain("prompt:");
+    // its Jev model is served by the project's decisions provider, named explicitly
+    expect(desk("routers/main/main.router.ts")).toContain("modelProvider: DecisionsModelProvider,");
+    expect(readFileSync(join(project, "src/agents/answerer/answerer.agent.ts"), "utf8")).toContain(
+      'prompt: "./answerer.prompt.md"',
+    );
     // #268 AC1: the application's path is set once in package.json; the scripts name no path
     expect(JSON.parse(readFileSync(join(project, "package.json"), "utf8"))).toMatchObject({
       agboss: { application: "src/desk.application.ts" },

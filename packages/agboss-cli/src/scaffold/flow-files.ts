@@ -70,8 +70,14 @@ export function routerFile(
   spec: RouterFileSpec,
   routes: readonly RouteSpec[],
   id: string = router.kebab,
+  decisionsFrom?: string,
 ): FileToWrite {
-  const imports = routes.map((r) => `import { ${r.target} } from "${r.from}";`).join("\n");
+  const imports = [
+    ...(decisionsFrom === undefined
+      ? []
+      : [`import { DecisionsModelProvider } from "${decisionsFrom}";`]),
+    ...routes.map((r) => `import { ${r.target} } from "${r.from}";`),
+  ].join("\n");
   return {
     path: `${folder}/${router.kebab}/${router.kebab}.router.ts`,
     content: render("router/router.ts.tmpl", {
@@ -81,6 +87,8 @@ export function routerFile(
       prompt: quoted(spec.prompt),
       maxVisits: String(spec.maxVisits),
       imports,
+      modelProvider:
+        decisionsFrom === undefined ? "" : "  modelProvider: DecisionsModelProvider,\n",
       routes: routes.map((r) => `    ${routeLine(r.target, r.text)},`).join("\n"),
     }),
   };

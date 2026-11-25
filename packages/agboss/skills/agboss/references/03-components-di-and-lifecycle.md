@@ -6,28 +6,32 @@ Which primitive to pick: `01-composition-and-architecture.md`; the flow: `02-flo
 
 ## The decorators
 
-| Decorator (file)                                                                                | Its contract                                                                       | Key options                                                                                                                                                                                                                                                                                                                                                                                     |
-| ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@Application` (`<app>.application.ts`)                                                         | —                                                                                  | `name`, `version`, `environment` (required), `workflows`, `budgets`, `providers` (infrastructure), `observers`, `defaults`, `guardrails`, `toolInterceptors`, `piiPolicies`, `healthChecks`, `tenantContext`, `executionContext`, `piiKeyField`, `idempotencyKeyField`, `previousIdempotencyKeyField`, `shutdownTimeout`, `retention.pauseRecords`, `compensationTimeout`, `maxConcurrentSteps` |
-| `@Workflow` (`workflows/<workflow-name>/<workflow-name>.workflow.ts`)                           | —                                                                                  | `name` (`-workflow`), `version`, `historyTtl` (required), `flow`, `providers` (services), `defaults`, `executionLimits`, `mcp`, `guardrails`, `toolInterceptors`, `piiPolicies`, `memory`, `promptVariables`                                                                                                                                                                                    |
-| `@WorkflowStart` / `@WorkflowFinish` (`workflows/<workflow-name>/*.workflow-{start,finish}.ts`) | none: a finish is a pure boundary port (no `deps`, no `input`)                     | `name`, `description`, `input` (start) / `output` (finish: a DTO or `listOf(…)`)                                                                                                                                                                                                                                                                                                                |
-| `@Agent` (`agents/<name>/<name>.agent.ts` + `<name>.prompt.md`)                                 | none: the framework runs its loop                                                  | `model`, `prompt` (+ `promptVariables`), `input`, `output`, `tools`, `maxToolCalls`, `maxVisits`, `maxTokens`, `reasoning`, `temperature`, `cache`, `rag`, `judges` + `maxRetries`, `memory`, `guardrails`, `toolInterceptors`, `piiPolicies`                                                                                                                                                   |
-| `@Tool` (`tools/<name>.tool.ts`, DTOs in `dto/<name>.dto.ts`)                                   | `execute(input)`: the output, or a promise of it                                   | `input`, `output`, `timeout: seconds(…)` (default 30 s), `maxResultSize: kilobytes(…)`, `channel`, `toolInterceptors`, `deps`                                                                                                                                                                                                                                                                   |
-| `@Action` (`actions/<name>.action.ts`)                                                          | `ActionHandler<Self>`: `execute(input)`                                            | `input` (fields from the scope), `output`, `compensateWith`, `committedBy`, `deps`                                                                                                                                                                                                                                                                                                              |
-| `@Router` (`routers/<name>/<name>.router.ts` (+ `<name>.prompt.md`))                            | code: `RouterHandler<Self>`: `route(input)`                                        | `decidedBy`, `input`, `routes`, `maxVisits`; model: `model`, `prompt`; code: `deps`                                                                                                                                                                                                                                                                                                             |
-| `@Arbiter` (`arbiters/<name>/<name>.arbiter.ts` (+ `<name>.prompt.md`))                         | code: `@Arbitrate(…targets)` methods for the targets of the launch                 | `decidedBy`; model: `model`, `prompt`, `criteria`; code: `deps`                                                                                                                                                                                                                                                                                                                                 |
-| `@Judge` (`judges/<name>/<name>.judge.ts` (+ `<name>.prompt.md`))                               | `judge(input)`, sync or async                                                      | `name`, `output` (the answer's shape), `model` / `modelProvider` (with `JudgeModel` in `deps`), `deps`                                                                                                                                                                                                                                                                                          |
-| `@Rag` (`rag/<name>.rag.ts`, `@agboss/core/rag`)                                                | `RagSource`: `retrieve(query, { topK, signal, scopeId })`                          | `name` (`-rag`), `description`, `scope`, `topK`, `reranker`, `deps`                                                                                                                                                                                                                                                                                                                             |
-| `@Memory` (`memories/<name>/<name>.memory.ts` (+ `<name>.prompt.md`))                           | none; a code compaction: a `compact(input)` method (no `implements`)               | `name` (`-memory`), `description`, `ttl`, `uncompactedTurns`, `turnsBetweenCompactions`, `compaction: { strategy, prompt, modelProvider, model, summaryQueueLength, summaryMaxTokens }` or `compact()` + `deps`; `NoMemory` is the built-in "no earlier turn"                                                                                                                                   |
-| `@InputGuardrail` / `@OutputGuardrail` (`guardrails/<name>/<name>.guardrail.ts`)                | code: `InputGuardrailHandler` / `OutputGuardrailHandler`                           | `name`, `description`, `decidedBy`; model: `model`, `prompt`, `refusalMessage`; code: `deps`                                                                                                                                                                                                                                                                                                    |
-| `@ReplyInterpreter` (`reply-interpreters/<name>/<name>.reply-interpreter.ts`)                   | —                                                                                  | `name?`, `model`, `prompt`, `decision`                                                                                                                                                                                                                                                                                                                                                          |
-| `@Budget` (`budgets/<name>.budget.ts`)                                                          | `BudgetHandler`: `maxSpend()`                                                      | `name` (`-budget`), `scope`, `period`, `deps`                                                                                                                                                                                                                                                                                                                                                   |
-| `@HealthCheck` (`health-checks/<name>.health-check.ts`)                                         | `check(ctx?: HealthCheckContext)`                                                  | `name?`, `timeout?` (5 s), `deps`                                                                                                                                                                                                                                                                                                                                                               |
-| `@ToolInterceptor` (`tool-interceptors/<name>.tool-interceptor.ts`)                             | `@BeforeTool(Tool)` / `@AfterTool(Tool)` methods, `beforeAnyTool` / `afterAnyTool` | `name?`, `description?`, `deps`                                                                                                                                                                                                                                                                                                                                                                 |
-| `@Injectable` service (`services/<name>.service.ts`)                                            | domain / API / filesystem orchestration (no direct DB/SQL)                         | `deps` (`services/` holds **only** `*.service.ts`)                                                                                                                                                                                                                                                                                                                                              |
-| `@Injectable` repository (`repositories/<name>.repository.ts`)                                  | direct DB access via typed ORM (e.g. Drizzle) or store impl                        | `deps` (uses `schemas/<name>.schema.ts` & `sql/<name>.sql`, zero string-interpolated SQL)                                                                                                                                                                                                                                                                                                       |
-| `@Injectable` observer (`observers/<name>.observer.ts`)                                         | `ExecutionObserver` hooks                                                          | `deps`                                                                                                                                                                                                                                                                                                                                                                                          |
-| `AGBossError` subclass (`errors/<name>.error.ts`)                                               | `static override readonly code = "…"`                                              | caught in flows via `.onError(MyError, …)`                                                                                                                                                                                                                                                                                                                                                      |
+| Decorator (file)                                                                                   | Its contract                                                                                                                    | Key options                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@Application` (`<app>.application.ts`)                                                            | —                                                                                                                               | `name`, `version`, `environment` (required), `workflows`, `budgets`, `storage` (`@DatabaseStorage`, …), `modelProvider`, `providers` (infrastructure, model providers), `services`, `channels` / `channelSelectors` / `channelListeners`, `endpoints` (`@A2AEndpoint`), `mesh`, `observers`, `defaults`, `guardrails`, `toolInterceptors`, `piiPolicies`, `healthChecks`, `tenantContext`, `executionContext`, `executionLimits` (`shutdownTimeout`, `compensationTimeout`, `maxConcurrentSteps`, `childClaimTimeout`), `retention.pauseRecords` / `executionRecords`, `isolatedWorker`, `promptVariables` |
+| `@Workflow` (`workflows/<workflow-name>/<workflow-name>.workflow.ts`)                              | —                                                                                                                               | `name` (`-workflow`), `version`, `historyTtl` (required), `flow`, `providers` / `services`, `modelProvider`, `defaults`, `executionLimits` (`maxSteps`, `maxDepth`, `maxConcurrency`, `maxPathDepth`), `placement`, `budget`, `filePolicy`, `guardrails`, `toolInterceptors`, `piiPolicies`, `memory`, `promptVariables`                                                                                                                                                                                                                                                                                   |
+| `@WorkflowStart` / `@WorkflowFinish` (`workflows/<workflow-name>/*.workflow-{start,finish}.ts`)    | none: a finish is a pure boundary port (no `deps`, no `input`)                                                                  | `name`, `description`, `input` (start) / `output` (finish: a DTO or `listOf(…)`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `@Agent` (`agents/<name>/<name>.agent.ts` + `<name>.prompt.md`)                                    | none: the framework runs its loop                                                                                               | `model`, `modelProvider`, `prompt` (+ `promptVariables`), `input`, `output`, `tools`, `executionLimits` (`maxToolCalls`, `maxVisits`, `maxRetries`, `maxModelCalls`), `maxTokens`, `reasoning`, `temperature`, `cache`, `files`, `rag`, `judges`, `memory`, `guardrails`, `toolInterceptors`, `piiPolicies`                                                                                                                                                                                                                                                                                                |
+| `@Tool` (`tools/<name>.tool.ts`, DTOs in `dto/<name>.dto.ts`)                                      | `execute(input)`: the output, or a promise of it                                                                                | `input`, `output`, `timeout: seconds(…)` (default 30 s), `maxResultSize: kilobytes(…)`, `approval` (a `@ToolApproval` target), `readOnly`, `toolInterceptors`, `deps`                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `@Action` (`actions/<name>.action.ts`)                                                             | `ActionHandler<Self>`: `execute(input)`, sync or async                                                                          | `input` (fields from the scope), `output`, `timeout` (none by default), `compensateWith`, `committedBy`, `deps`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `@Router` (`routers/<name>/<name>.router.ts` (+ `<name>.prompt.md`))                               | code: `RouterHandler<Self>`: `route(input)`                                                                                     | `decidedBy`, `input`, `routes`, `maxVisits`; model: `model`, `modelProvider`, `prompt`; code: `deps`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `@Arbiter` (`arbiters/<name>/<name>.arbiter.ts` (+ `<name>.prompt.md`))                            | code: `@Arbitrate(…targets)` methods for the targets of the launch                                                              | model: `model`, `modelProvider`, `prompt`, `criteria`; code: `deps` (an `ArbiterModel` for the hard cases)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `@Judge` (`judges/<name>/<name>.judge.ts` (+ `<name>.prompt.md`))                                  | `judge(input)`, sync or async                                                                                                   | `name`, `output` (the answer's shape), `prompt`, `threshold`, `model` / `modelProvider` (with `JudgeModel` in `deps`), `deps`                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `@Rag` (`rag/<name>.rag.ts`, `@agboss/core/rag`)                                                   | `RagSource`: `retrieve(query, { topK, signal, scopeId })`                                                                       | `name` (`-rag`), `description`, `scope`, `topK`, `reranker`, `deps`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `@Memory` (`memories/<name>/<name>.memory.ts` (+ `<name>.prompt.md`))                              | none; a code compaction: a `compact(input)` method (no `implements`)                                                            | `name` (`-memory`), `description`, `ttl`, `uncompactedTurns`, `turnsBetweenCompactions`, `compaction: { strategy, prompt, modelProvider, model, summaryQueueLength, summaryMaxTokens }` or `compact()` + `deps`; `NoMemory` is the built-in "no earlier turn"                                                                                                                                                                                                                                                                                                                                              |
+| `@InputGuardrail` / `@OutputGuardrail` (`guardrails/<name>/<name>.guardrail.ts`)                   | code: `InputGuardrailHandler` / `OutputGuardrailHandler`                                                                        | `name`, `description`; model: `model`, `modelProvider`, `prompt`, `threshold`, `refusal`; code: `deps`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `@ToolApproval` / `@ExternalTask` (`channels/<name>.tool-approval.ts` / `<name>.external-task.ts`) | an empty class; optional hooks `assign`, `resolveTimeout`, `permitAnswer`, `permitTimeoutChange`, `permitReassign`, `onExpired` | `name` (`-tool-approval` / `-external-task`), `description`, `respondent`, `timeout` (required), `input` (+ `output`, `maxVisits` for a task), `remindBefore`, `calendar`, `escalatesTo`, `escalationLimits`, `channelInterpreter`, `deps`                                                                                                                                                                                                                                                                                                                                                                 |
+| `@Channel` / `@ChannelSelector` / `@ChannelListener` (`channels/<name>.channel.ts`)                | `send(ask)` (+ the `onPause…` hooks) / `selectChannel(ctx)` / the `onPause…` hooks                                              | `name`, `description`, `target`, `ttl` (a channel); `target` (a selector); `includePauseIds` (a listener); `deps`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `@ChannelInterpreter` (`channels/<name>.channel-interpreter.ts`)                                   | code: `ChannelInterpreterHandler<Self>`: `interpret(input)`; model: an empty class                                              | `name?`, `description?`; model: `model`, `modelProvider`, `prompt`, `promptVariables`; code: `deps`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `@ModelProvider` (`model-providers/<name>.model-provider.ts`)                                      | an empty class with a `driver`; or a transport: `complete(request)`                                                             | `name?`, `driver` (`OpenRouterDriver`, `OpenAiCompatibleDriver`, `DecisionsDriver`), `timeout` (required), `cost`, `model` / `models`, `retryPolicy`, `rateLimitPolicy`, `circuitBreakerPolicy`, `fallback`, `reasoning`, `promptCaching`                                                                                                                                                                                                                                                                                                                                                                  |
+| `@DatabaseStorage` / `@ClusterStorage` / `@ObjectStorage` (`storages/<name>.<kind>-storage.ts`)    | an empty class                                                                                                                  | `name?`, `driver`; a database: `auditLogTtl`, `ledgerEntriesTtl` (required), `idempotencySecret`, `piiSecret`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `@Budget` (`budgets/<name>.budget.ts`)                                                             | `BudgetHandler`: `maxSpend()`                                                                                                   | `name` (`-budget`), `scope`, `period`, `deps`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `@HealthCheck` (`health-checks/<name>.health-check.ts`)                                            | `check(ctx?: HealthCheckContext)`                                                                                               | `name?`, `timeout?` (5 s), `deps`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `@ToolInterceptor` (`tool-interceptors/<name>.tool-interceptor.ts`)                                | `@BeforeTool(Tool)` / `@AfterTool(Tool)` methods, `beforeAnyTool` / `afterAnyTool`                                              | `name?`, `description?`, `deps`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `@Injectable` service (`services/<name>.service.ts`)                                               | domain / API / filesystem orchestration (no direct DB/SQL)                                                                      | `deps` (`services/` holds **only** `*.service.ts`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `@Injectable` repository (`repositories/<name>.repository.ts`)                                     | direct DB access via typed ORM (e.g. Drizzle) or store impl                                                                     | `deps` (uses `schemas/<name>.schema.ts` & `sql/<name>.sql`, zero string-interpolated SQL)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `@Injectable` observer (`observers/<name>.observer.ts`)                                            | `ExecutionObserver` hooks                                                                                                       | `deps`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `AGBossError` subclass (`errors/<name>.error.ts`)                                                  | `static override readonly code = "…"`                                                                                           | caught in flows via `.onError(MyError, …)`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 
 `npx agboss generate` (alias `g`) writes workflows (`w`), agents (`a`), routers (`r`), arbiters (`ar`),
 tools (`t`), MCP servers (`m`), knowledge bases (`rag`), OpenAPI clients (`oa`) and eval cases (`ec`);
@@ -48,8 +52,7 @@ One class per file in a project, each in the folder of its kind.
 import type { Secret } from "@agboss/core";
 
 export class AppEnvironment {
-  openRouterApiKey?: Secret; // read by the built-in model providers; tests leave it out
-  crmUrl!: string;
+   crmUrl!: string;
   crmApiKey?: Secret; // prints as ***; only .reveal() gives the value; optional: tests leave it out
   crmRetries!: number;
 }
@@ -61,7 +64,6 @@ import { env, secret } from "@agboss/core";
 import type { AppEnvironment } from "./app.environment.js";
 
 export const environment: AppEnvironment = {
-  openRouterApiKey: secret("OPENROUTER_API_KEY"),
   crmUrl: env("CRM_URL", { default: "http://localhost:4000" }),
   crmApiKey: secret("CRM_API_KEY"), // no default: a literal secret does not compile
   crmRetries: env.integer("CRM_RETRIES", { default: 2 }), // also env.flag, env.optional, env.integer.optional
@@ -315,7 +317,25 @@ export class GraphMemory {
 }
 ```
 
+A decision model (Jev) is served by a decisions provider — a component naming one says so with `modelProvider`:
+
+```ts file=src/model-providers/decisions.model-provider.ts
+import { secret } from "@agboss/core";
+import { DecisionsDriver, ModelCost, ModelProvider } from "@agboss/core/models";
+import { seconds } from "@agboss/core/units";
+
+@ModelProvider({
+  name: "decisions-model-provider",
+  description: "Jev and the other decision models, on OpenRouter's Decisions API",
+  driver: DecisionsDriver({ baseUrl: "https://openrouter.ai/api/v1", apiKey: secret("OPENROUTER_API_KEY") }),
+  timeout: seconds(30),
+  cost: ModelCost.fromResponse(),
+})
+export class DecisionsModelProvider {}
+```
+
 ```ts file=src/desk/judges/cites-source/cites-source.judge.ts
+import { DecisionsModelProvider } from "../../../model-providers/decisions.model-provider.js";
 // judges/cites-source/cites-source.judge.ts — runs on the agent's answer, as its DTO
 import { Decision, Judge, JudgeModel, JudgeVerdict, type JudgeHandler, type JudgeInput } from "@agboss/core";
 import { DeskAnswerDto } from "../../dto/desk-answer.dto.js";
@@ -323,6 +343,7 @@ import { DeskAnswerDto } from "../../dto/desk-answer.dto.js";
 @Judge({
   name: "cites-source-judge",
   model: "typesafe/jev-1.13", // a decision model: judgeModel.decide; a chat model: judgeModel.invoke
+  modelProvider: DecisionsModelProvider,
   output: DeskAnswerDto, // the agent's output shape: a DTO, oneOf(A, B), listOf(X) or PlainTextDto
   deps: [JudgeModel],
 })
@@ -487,7 +508,25 @@ export class ExecutionBudget implements BudgetHandler {
 }
 ```
 
+The chat provider — every application names its `modelProvider` explicitly (a driver provider; no built-ins):
+
+```ts file=src/model-providers/openrouter.model-provider.ts
+import { secret } from "@agboss/core";
+import { ModelCost, ModelProvider, OpenRouterDriver } from "@agboss/core/models";
+import { minutes } from "@agboss/core/units";
+
+@ModelProvider({
+  name: "openrouter-model-provider",
+  description: "OpenRouter — every chat model of the application",
+  driver: OpenRouterDriver({ apiKey: secret("OPENROUTER_API_KEY") }),
+  timeout: minutes(2),
+  cost: ModelCost.fromResponse(),
+})
+export class OpenRouterModelProvider {}
+```
+
 ```ts file=src/desk.application.ts
+import { OpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
 import { Application } from "@agboss/core";
 import { ApplicationDailyBudget } from "./desk/budgets/application-daily.budget.js";
 import { ExecutionBudget } from "./desk/budgets/execution.budget.js";
@@ -498,17 +537,18 @@ import { DeskWorkflow } from "./desk/workflows/desk/desk.workflow.js";
 import { AppEnvironment } from "./environments/app.environment.js";
 
 @Application({
+  modelProvider: OpenRouterModelProvider,
   name: "desk-application",
   version: "1.0.0",
   environment: AppEnvironment,
   workflows: [DeskWorkflow],
   budgets: [ApplicationDailyBudget, TenantDailyBudget, ExecutionBudget],
-  providers: [PrefixedIdGenerator], // infrastructure: stores, Clock, IdGenerator, Logger, channels
+  providers: [OpenRouterModelProvider, PrefixedIdGenerator], // infrastructure: stores, Clock, IdGenerator, Logger, channels
   healthChecks: [CrmHealthCheck],
   defaults: {
     models: { temperature: 0 },
-    router: { model: "typesafe/jev-1.13" }, // model routers without their own
-    guardrail: { model: "typesafe/jev-1.13" }, // guardrails without their own, never the router's
+    router: { model: "typesafe/jev-1.13" }, // model routers without their own (each names its decisions `modelProvider`)
+    guardrail: { model: "typesafe/jev-1.13" }, // guardrails without their own, never the router's (same: a decisions `modelProvider`)
   },
 })
 export class DeskApplication {}
@@ -523,8 +563,9 @@ export class DeskApplication {}
   place a `new` is written); a value goes in with `provide(TOKEN, value)` in `providers`.
   `provide(SomeClass, instance)` is `[di.instance-provider]` — no instances, the container makes them.
 - **Replacement by inheritance**: a dependency on a contract (`Clock`, `IdGenerator`, `Logger`, a
-  store, a channel role, a base service) gets the one listed class that `extends` it; two →
-  `[di.ambiguous-implementation]`, none for a role → `[di.missing-implementation]`. Infrastructure
+  base service) gets the one listed class that `extends` it; two →
+  `[di.ambiguous-implementation]`. Stores come from the application's storage drivers and a channel
+  is bound to its target (`@Channel({ target })`), neither by inheritance. Infrastructure
   in a workflow's `providers` → `[di.infrastructure-in-workflow]`; a class in `providers` without a
   decorator → `[di.undecorated-provider]`.
 - **In tests** a class is replaced by a class, never by an instance:
@@ -568,6 +609,63 @@ Injected like any dependency, read only while a step runs (outside → `Executio
 | `SpendRecorder`                        | `record({ service, cost: usd(…) })` — a non-model cost of a tool or action, counted in the budgets (`[spend.outside-step]` outside a step)                                                                                                                                                                                                                  |
 | `JudgeModel`                           | a judge's own model: `invoke(text)` on a chat model, `decide({ state, questions })` on a decision model (else `ModelKindError`)                                                                                                                                                                                                                             |
 | `ApplicationContext` / `TenantContext` | the levels above: `environment`, `environmentName`, `instanceId`, `startedAt`; the tenant's `tenantId`, `weight` and the project's fields                                                                                                                                                                                                                   |
+| `DecisionModel`                        | closed questions to a decision model from a tool or an action: `decide({ state, questions }, { model?, modelProvider? })` — its cost is the step's (budgets, ledger, `decision:<consumer>` in the spend); the provider is the cascade's, so a decisions `modelProvider` is named on the workflow or in the options                                          |
+
+A closed decision from your own code — "is this ticket urgent?" without a router — injects `DecisionModel`
+(`deps: [DecisionModel]`), in a `@Tool` or an `@Action` (or a service of theirs):
+
+```ts file=src/desk/dto/ticket.dto.ts
+import { Text } from "@agboss/core/dto";
+
+export class TicketDto {
+  @Text({ prompt: "the ticket's id" })
+  id!: string;
+
+  @Text({ prompt: "what the customer wrote" })
+  text!: string;
+}
+```
+
+```ts file=src/desk/dto/triage.dto.ts
+import { Bool, Text } from "@agboss/core/dto";
+
+export class TriageDto {
+  @Bool({ prompt: "whether the ticket is urgent" })
+  isUrgent!: boolean;
+
+  @Text({ prompt: "the ticket's id" })
+  ticketId!: string;
+}
+```
+
+```ts file=src/desk/actions/triage-ticket.action.ts
+import { Action, Decision, DecisionModel } from "@agboss/core";
+import { DecisionsModelProvider } from "../../model-providers/decisions.model-provider.js";
+import { TicketDto } from "../dto/ticket.dto.js";
+import { TriageDto } from "../dto/triage.dto.js";
+
+@Action({
+  name: "triage-ticket-action",
+  description: "Decides whether a ticket is urgent",
+  input: { ticket: TicketDto },
+  output: TriageDto,
+  deps: [DecisionModel],
+})
+export class TriageTicketAction {
+  constructor(private readonly decisionModel: DecisionModel) {}
+
+  async execute({ ticket }: { readonly ticket: TicketDto }): Promise<TriageDto> {
+    const answers = await this.decisionModel.decide(
+      {
+        state: { text: ticket.text },
+        questions: { urgent: Decision.boolean("Does the ticket describe an outage?") },
+      },
+      { modelProvider: DecisionsModelProvider }, // a decisions provider: the application's is the chat one
+    );
+    return { isUrgent: answers.urgent.probability >= 0.5, ticketId: ticket.id };
+  }
+}
+```
 
 - **`step.idempotencyKey`** = `${executionId}:${nodeId}:${visitNumber}[:${itemIndex}][:${callId}]`
   — the same when a step runs again after a crash. Pass it to every external side effect.
@@ -739,7 +837,7 @@ export class AuditToolInterceptor {
   `thinking` option.
 - **Units** (`@agboss/core/units`): `seconds()`, `minutes()`, `hours()` for every timeout, deadline and
   retention; `usd()` for money (`Usd`); `kilobytes()` for sizes. A bare number does not compile.
-- **Prompts**: `prompt` inline or a file; `prompt` also takes a file path (`"./support.prompt.md"`, `../`, `/`), `inline("…")` / `` inline`…` `` (the tagged form drops the common indentation) or a list of them, read in order and joined with one blank line, `{{variables}}` from
+- **Prompts**: a `prompt` is a `PromptSource` (the type of every prompt option: agent, router, arbiter, judge, guardrail, memory compaction, channel interpreter): a file path (`"./support.prompt.md"`, `../`, `/`), `inline("…")` / `` inline`…` `` (the tagged form drops the common indentation) or a list of them, read in order and joined with one blank line, `{{variables}}` from
   `promptVariables` (texts or `defineEnv` references; `@Application` → `@Workflow` → the component, nearest wins) checked at assembly (`[prompt.unknown-variable]`). What a node reads arrives in its
   input message (`### message (from desk-workflow-start)`) — never write `{{input.…}}` in a prompt
   (`[prompt.input-in-instructions]`).
@@ -1006,7 +1104,7 @@ export class SeatWorkflow {}
 | `[di.infrastructure-in-workflow]`          | a store, `Clock`, `IdGenerator`, channel or model provider in `@Workflow({ providers })` → move it to `@Application({ providers })` |
 | `[di.ambiguous-implementation]`            | two listed classes `extends` one contract → keep one                                                                                |
 | `[environment.contract-value]`             | a default value in the contract class → move it to `<name>.environment.ts`                                                          |
-| `[environment.missing-field]`              | a listed implementation reads a field the contract lacks (`sqlitePath`) → declare it                                                |
+| `[environment.missing-field]`              | a listed class (or one its `deps` reach) reads an environment field the contract lacks → declare it                                 |
 | `[prompt.input-in-instructions]`           | `{{input.message}}` in a prompt → delete it: the input message carries the field                                                    |
 | `[prompt.secret-in-instructions]`          | a `secret(…)` in any `promptVariables` → a text or an `env(…)`: a secret never reaches a model                                      |
 | `[prompt.unused-variable]`                 | a component's `promptVariables.tone` no `{{tone}}` uses → delete it                                                                 |
