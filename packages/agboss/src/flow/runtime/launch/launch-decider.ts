@@ -105,6 +105,7 @@ const failedOf = (error: unknown, usage?: UsageRecord): LaunchDecisionOutcome =>
 async function decideOnDecisionModel(
   voice: DecisionVoice,
   model: string,
+  modelProvider: string | undefined,
   gateway: ModelGateway,
   request: LaunchDecisionRequest,
 ): Promise<LaunchDecisionOutcome> {
@@ -119,7 +120,13 @@ async function decideOnDecisionModel(
     const text = `${request.instructions}\n\n${request.input}`;
     const state = decisionStateWith(text, request.pieces ?? [], { caller: voice.caller, model });
     const { caller } = voice;
-    const outcome = await gateway.decide({ caller, model, request: { state, questions } });
+    const outcome = await gateway.decide({
+      caller,
+      model,
+      // the provider its cascade resolved: without it the call has none to go to (#1313)
+      ...(modelProvider === undefined ? {} : { modelProvider }),
+      request: { state, questions },
+    });
     const probabilities = Object.fromEntries(
       Object.entries(outcome.answers).map(([id, answer]) => [
         id,
@@ -209,7 +216,7 @@ export function createYesNoDecider(
   return {
     decide: (request) =>
       model.kind === "jev"
-        ? decideOnDecisionModel(voice, model.model, deps.gateway, request)
+        ? decideOnDecisionModel(voice, model.model, model.modelProvider, deps.gateway, request)
         : decideOnChatModel(
             voice,
             resolveSettings(model, deps.chatDefaults),

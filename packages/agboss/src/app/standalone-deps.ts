@@ -1,7 +1,7 @@
 import { stopComponents, startComponents } from "../components/container/lifecycle.js";
 import {
   standaloneBudgetsOf,
-  standaloneInfrastructure,
+  standaloneApplicationOf,
 } from "../application/application-container.js";
 import type { AssembledWorkflow } from "../workflow.js";
 import { createWorkflowDeps, type AppDeps, type AppDepsOptions } from "./app-deps.js";
@@ -18,18 +18,24 @@ export async function createAppDeps(
   options: AppDepsOptions = {},
 ): Promise<AppDeps> {
   const opened: unknown[] = [];
-  const infrastructure = standaloneInfrastructure(bundle, options, (instance) => {
+  const { application, infrastructure } = standaloneApplicationOf(bundle, options, (instance) => {
     opened.push(instance);
   });
   await startComponents(opened);
+  // the workflows' components are created in the application's container, as `createApp` does:
+  // they share the storage's connection and its stores
+  const shared: AppDepsOptions = {
+    ...options,
+    container: { ...options.container, application },
+  };
   const budgets = standaloneBudgetsOf(bundle);
   const parts = { infrastructure, ...(budgets === undefined ? {} : { budgets }) };
   const built = async (): Promise<readonly [AppDeps, StandaloneChildren]> => {
     const children = await standaloneChildrenOf(bundle, (child, childDepsOf) =>
-      createWorkflowDeps(child, options, { ...parts, childDepsOf }),
+      createWorkflowDeps(child, shared, { ...parts, childDepsOf }),
     );
     const own = { ...parts, childDepsOf: children.childDepsOf };
-    return [await createWorkflowDeps(bundle, options, own), children];
+    return [await createWorkflowDeps(bundle, shared, own), children];
   };
   const [deps, children] = await built().catch(async (error: unknown) => {
     await stopComponents(opened);

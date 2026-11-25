@@ -240,27 +240,42 @@ export function standaloneInfrastructure(
   bundle: AssembledWorkflow,
   options: {
     readonly environment?: Environment | undefined;
+    readonly processEnv?: NodeJS.ProcessEnv | undefined;
   },
   onCreate?: (instance: unknown) => void,
 ): Infrastructure {
+  return standaloneApplicationOf(bundle, options, onCreate).infrastructure;
+}
+
+/**
+ * The application container of a workflow run on its own, and the infrastructure built on it: what
+ * the workflow's components share — the storage's settings (`SqliteConnection` reads its path) and
+ * its stores — as in `createApp`, the storage read from `options.processEnv` (default: the process's).
+ */
+export function standaloneApplicationOf(
+  bundle: AssembledWorkflow,
+  options: {
+    readonly environment?: Environment | undefined;
+    readonly processEnv?: NodeJS.ProcessEnv | undefined;
+  },
+  onCreate?: (instance: unknown) => void,
+): { readonly application: ApplicationContainer; readonly infrastructure: Infrastructure } {
   const modules = [applicationProvidersOf(bundle)];
   const container = onCreate === undefined ? {} : { onCreate };
   const clock = clockOf(modules, container);
   const storage = resolvedStorageOfOptions(
     listingApplicationOf(bundle)?.options.storage,
-    process.env,
+    options.processEnv ?? process.env,
   );
-  return resolveInfrastructure(
-    applicationContainerOf(
-      {
-        modules,
-        clock,
-        storage,
-        componentOptions: bundle.componentOptions,
-        contexts: contextsOutsideExecution(bundle.config, options.environment, clock),
-      },
-      container,
-    ),
+  const application = applicationContainerOf(
+    {
+      modules,
+      clock,
+      storage,
+      componentOptions: bundle.componentOptions,
+      contexts: contextsOutsideExecution(bundle.config, options.environment, clock),
+    },
     container,
   );
+  return { application, infrastructure: resolveInfrastructure(application, container) };
 }
