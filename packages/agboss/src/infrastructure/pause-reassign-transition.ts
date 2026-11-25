@@ -41,6 +41,7 @@ const isAsSeen = (pause: PauseRecord, seen: PauseSeen | undefined): boolean =>
   seen === undefined ||
   (pause.trail.length === seen.trailLength &&
     pause.expiresAt === seen.expiresAt &&
+    pause.isSent === seen.isSent &&
     sameAssignees(pause.assignees, seen.assignees));
 
 /**

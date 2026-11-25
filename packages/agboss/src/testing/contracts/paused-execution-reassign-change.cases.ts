@@ -92,4 +92,59 @@ export const REASSIGN_CHANGE_CASES: readonly ContractCase<PausedExecutionReposit
       expect(sent?.trail.at(-1)?.externalRef).toBe("SAP-9");
     },
   },
+  {
+    name: "a replacement made with a new deadline counts as an extension: a `timeout-changed` entry after its `reassigned`, and maxExtensions refuses the next one atomically, moved or in place",
+    run: async ({ first, second }: Instances): Promise<void> => {
+      await first.findOrCreateByStepKey(expiringPauseOf("pause-a"));
+      const limited = { countsAsExtension: true as const, maxExtensions: 1 };
+      const to = { target: "tier-one-external-task", respondent: "delegate" as never };
+
+      const made = await second.reassignByTenantIdAndPauseId(
+        "default",
+        "pause-a",
+        {
+          pauseId: "pause-b",
+          to: { ...to, channel: "backup" },
+          timeout: { expiresAt: "2026-01-05T12:00:00.000Z" },
+          ...limited,
+        },
+        MID,
+        RECIPIENTS,
+      );
+      expect(made?.trail.map((entry) => entry.action)).toEqual([
+        "opened",
+        "reassigned",
+        "timeout-changed",
+      ]);
+      expect(made?.trail.at(-1)).toMatchObject({ channel: "backup" });
+
+      // the chain holds one extension: no second, moved back or changed in place
+      const again = {
+        timeout: { expiresAt: "2026-01-05T14:00:00.000Z" },
+        ...limited,
+      };
+      expect(
+        await first.reassignByTenantIdAndPauseId(
+          "default",
+          "pause-b",
+          { pauseId: "pause-c", to: { ...to, channel: "main" }, ...again },
+          MID,
+          R,
+        ),
+      ).toBeUndefined();
+      expect(
+        await first.reassignByTenantIdAndPauseId(
+          "default",
+          "pause-b",
+          { assignees: ["deputy-3"], ...again },
+          MID,
+          R,
+        ),
+      ).toBeUndefined();
+      expect(await first.findByTenantIdAndPauseId("default", "pause-c")).toBeUndefined();
+      expect((await first.findByTenantIdAndPauseId("default", "pause-b"))?.expiresAt).toBe(
+        "2026-01-05T12:00:00.000Z",
+      );
+    },
+  },
 ];

@@ -5,6 +5,7 @@ import { runningOutcome } from "../run/execute.js";
 import { StatusTrigger, ThreadStatus, type NewStatusTransition } from "../turns/index.js";
 import { ExecutionRecordStatus } from "../infrastructure/execution-record.repository.js";
 import { LeaseTakeoverReason } from "../infrastructure/execution-audit-log.repository.js";
+import { isAtBusinessPause } from "./answered-wake.js";
 import { currentOutputOf } from "./current-output.js";
 import { rootRecordOf } from "./ended-tree.js";
 import { rootTakeOf, type HeldExecutionLease } from "./execution-leases.js";
@@ -87,7 +88,7 @@ export async function unpausedMove(
   call: TreeCall,
   command: UnpauseCommand,
 ): Promise<ExecutionOutput> {
-  const { deps, leases, paused } = parts;
+  const { deps, leases } = parts;
   const tree = treeOf(state);
   const lease = await leases.hold(
     tree,
@@ -110,8 +111,9 @@ export async function unpausedMove(
         message: `thread "${state.threadId}" is not paused from outside`,
       });
     }
-    const isBusiness = (await paused.find(state))?.run.runId === state.runId;
-    if (isBusiness) return await liftedAtRest(parts, hooks, { state, call, command, lease });
+    // from the tree's open pauses: a park after a resume leaves the earlier rest's paused run behind
+    if (await isAtBusinessPause(deps, state))
+      return await liftedAtRest(parts, hooks, { state, call, command, lease });
     // parked at a step boundary, or left `running` by a holder that died before it parked
     if (record.status === "paused") {
       const outcome = runningOutcome(record.route, record.costUsd);

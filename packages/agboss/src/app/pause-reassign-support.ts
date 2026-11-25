@@ -35,6 +35,28 @@ export function ownTargetOf(deps: AppDeps, pause: PauseRecord): PauseTarget {
   }
 }
 
+/**
+ * Whether the pause's first send may still be in flight: a pause no reassignment made, its channel
+ * not yet marked asked, and a channel of its target the step asks (or none: an owner's, marked at
+ * once). The step that opened it acts on what `send` returns — a move or an in-place change written
+ * meanwhile is one it never sees: it would take the moved pause for withdrawn, or the channel would
+ * never hear of the new assignees. A replacement waiting for the re-send look, or a pause whose
+ * channel a deploy removed (no step asks it), is not in a send.
+ */
+function isInFirstSend(pause: PauseRecord, target: PauseTarget): boolean {
+  if (pause.isSent || pause.reassignedFrom !== undefined || pause.status !== PauseStatus.Pending)
+    return false;
+  return pause.channel === undefined || target.channels.has(pause.channel);
+}
+
+/** A reassignment of a pause whose first send may be in flight: refused, retry is safe once the send returned. */
+export function assertNotInFirstSend(pause: PauseRecord, target: PauseTarget): void {
+  if (!isInFirstSend(pause, target)) return;
+  throw new PauseError.UpdateContended({
+    message: `pause ${pauseKeyOf(pause.tenantId, pause.pauseId)}: its channel is still being asked; retry is safe once the send returned`,
+  });
+}
+
 /** Why the store did not apply a reassignment: the pause closed, its limit was reached, or a writer won. */
 export async function refusedReassignment(
   parts: { readonly pauses: PausedExecutionRepository; readonly clock: Clock },

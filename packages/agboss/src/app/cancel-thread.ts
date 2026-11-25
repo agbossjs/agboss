@@ -9,6 +9,7 @@ import { remoteCancel } from "./cancel-remote.js";
 import { cancelTransitionOf } from "./cancel-marks.js";
 import type { LiveRuns } from "./live-runs.js";
 import { cancelledPaused } from "./cancel-paused.js";
+import { maskedOperatorReason } from "./interrupt-requests.js";
 import type { ExecutionRequest } from "./run-events.js";
 import type { CancelOptions, CancelOutput } from "./types.js";
 
@@ -42,11 +43,13 @@ export async function cancelThread(
     checkedCallerId("CancelOptions", "ownerId", options.ownerId); // #589
     return parts.known({ ...thread, ownerId: options.ownerId });
   });
+  // the reason is kept by the tree (history, mark, key): masked by the workflow's PII policy
+  const reason = await maskedOperatorReason(parts.deps, options.reason);
   // #909: the cancel is durable — fencing every instance — before the run here is aborted; a
   // failed write rejects the cancel, nothing aborted (a retry is idempotent)
   const transition = cancelTransitionOf(thread, {
     ownerId: options.ownerId ?? null,
-    reason: options.reason,
+    reason,
   });
   for (const tree of live.treesOf(thread)) await parts.leases.requestCancel(tree, transition);
   const running = live.abort(thread);
@@ -56,6 +59,7 @@ export async function cancelThread(
     return { cancelled: true };
   }
   // paused (its run in the shared store): withdrawn, undone (#340), cancelled — after the undo
-  if (await cancelledPaused(parts, thread, undefined, options)) return { cancelled: true };
-  return { cancelled: await remoteCancel(parts, thread, options.ownerId, options.reason) };
+  if (await cancelledPaused(parts, thread, undefined, { ...options, reason }))
+    return { cancelled: true };
+  return { cancelled: await remoteCancel(parts, thread, options.ownerId, reason) };
 }

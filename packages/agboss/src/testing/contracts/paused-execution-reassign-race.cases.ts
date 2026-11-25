@@ -92,7 +92,7 @@ export const REASSIGN_RACE_CASES: readonly ContractCase<PausedExecutionRepositor
     name: "a reassignment planned against a pause that has changed since — another reassignment, an extension — is refused whole, in place or as a replacement (#1307)",
     run: async ({ first, second }: Instances): Promise<void> => {
       await first.findOrCreateByStepKey(expiringPauseOf("pause-a"));
-      const seen = { trailLength: 1, expiresAt: DEADLINE.toISOString() };
+      const seen = { trailLength: 1, expiresAt: DEADLINE.toISOString(), isSent: false };
       const inPlace = (store: PausedExecutionRepository, who: string) =>
         store.reassignByTenantIdAndPauseId(
           "default",
@@ -125,6 +125,7 @@ export const REASSIGN_RACE_CASES: readonly ContractCase<PausedExecutionRepositor
         trailLength: stored?.trail.length ?? 0,
         assignees: ["deputy-1"],
         expiresAt: DEADLINE.toISOString(),
+        isSent: false,
       };
       expect(
         (
@@ -137,6 +138,37 @@ export const REASSIGN_RACE_CASES: readonly ContractCase<PausedExecutionRepositor
           )
         )?.assignees,
       ).toEqual(["deputy-4"]);
+    },
+  },
+  {
+    name: "a reassignment planned against an unsent pause is refused once its channel was marked asked — in place or as a replacement — and applies when planned against the sent pause",
+    run: async ({ first, second }: Instances): Promise<void> => {
+      await first.findOrCreateByStepKey(expiringPauseOf("pause-a"));
+      const unsent = { trailLength: 1, expiresAt: DEADLINE.toISOString(), isSent: false };
+      // the step's send returned meanwhile: its markSent landed between the plan and the write
+      await first.markSentByTenantIdAndPauseId("default", "pause-a", RECIPIENTS, "JIRA-1");
+      const change = (store: PausedExecutionRepository, seen: typeof unsent, pauseId?: string) =>
+        store.reassignByTenantIdAndPauseId(
+          "default",
+          "pause-a",
+          pauseId === undefined
+            ? { assignees: ["deputy-1"], seen }
+            : { pauseId, assignees: ["deputy-1"], seen },
+          BEFORE_DEADLINE,
+          RECIPIENTS,
+        );
+
+      expect(await change(second, unsent)).toBeUndefined();
+      expect(await change(second, unsent, "pause-b")).toBeUndefined();
+      const stored = await first.findByTenantIdAndPauseId("default", "pause-a");
+      expect(stored).toMatchObject({ status: PauseStatus.Pending, isSent: true });
+      expect(stored?.assignees).toBeUndefined();
+      expect(stored?.trail).toHaveLength(1);
+      expect(await first.findByTenantIdAndPauseId("default", "pause-b")).toBeUndefined();
+
+      // planned against the sent pause: applies
+      const sent = { ...unsent, isSent: true };
+      expect((await change(second, sent, "pause-b"))?.reassignedFrom).toBe("pause-a");
     },
   },
   {

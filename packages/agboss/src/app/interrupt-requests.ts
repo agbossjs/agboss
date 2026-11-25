@@ -43,6 +43,21 @@ export interface RequestValue {
   readonly reason?: string | undefined;
 }
 
+/**
+ * An operator's reason (a cancel's, a stop's, a pause's or an unpause's) as the tree keeps it: through
+ * the mask of the workflow's PII policy, as a reassignment's is — the status history, the lease row
+ * and the request key never hold it raw.
+ */
+export async function maskedOperatorReason(
+  deps: { readonly pii?: { readonly observability: { value(value: unknown): Promise<unknown> } } },
+  reason: string | undefined,
+): Promise<string | undefined> {
+  const mask = deps.pii?.observability;
+  return reason === undefined || mask === undefined
+    ? reason
+    : ((await mask.value(reason)) as string);
+}
+
 /** The value a request key keeps: the fields it has, never an `undefined`. */
 export const requestValueOf = (request: RequestValue): ExecutionTreeValue => ({
   ...(request.kind === InterruptKind.Stop ? { kind: request.kind } : {}),

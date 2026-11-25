@@ -1204,7 +1204,14 @@ It is refused:
   `DtoValidationError` (`dto: "ReassignPauseRequest"`);
 - another tenant's pause or an unknown id — `UnknownPauseError`; a caller that may not answer it —
   `ThreadOwnerError` / `PauseError.PermissionDenied`;
-- a pause its channel decided at once: it never waited, it is closed `answered`.
+- a pause its channel decided at once: it never waited, it is closed `answered`;
+- a pause whose channel is still being asked for the first time (its step's `send` has not returned) —
+  `PauseError.UpdateContended` (`pause.update-contended`; nothing changed, trying again once the send returned
+  is safe): the step acts on what `send` returns, so a change written meanwhile is one it would never see;
+- a change planned against a pause that changed before the write (another reassignment, an extension, its
+  channel marked asked) — `PauseError.UpdateContended` too. A call that sets a `timeout` counts as an
+  extension against `escalationLimits.maxExtensions` whether it changes the pause in place or moves it to
+  another target or channel — `PauseError.EscalationLimitExceeded` past it.
 
 ```ts
 import type { App, PauseReassignment } from "@agboss/core";

@@ -5,7 +5,9 @@ import { checkedCallerId, checkedTenantId } from "../flow/context/context-values
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
 import { StatusTrigger, ThreadStatus, type NewStatusTransition } from "../turns/index.js";
 import type { ExecutionTree } from "../infrastructure/execution-tree.repository.js";
+import { isAtBusinessPause } from "./answered-wake.js";
 import type { CancelThreadParts } from "./cancel-thread.js";
+import { maskedOperatorReason } from "./interrupt-requests.js";
 import { requestChecksOf } from "./request-checks.js";
 import {
   InterruptMode,
@@ -41,10 +43,12 @@ export async function pauseThread(
     return parts.known({ ...thread, ownerId: options.ownerId });
   });
   const mode = options.mode ?? InterruptMode.AfterStep;
-  const request = { mode, ...(options.reason === undefined ? {} : { reason: options.reason }) };
+  // the reason is kept by the tree (history, lease row): masked by the workflow's PII policy
+  const reason = await maskedOperatorReason(parts.deps, options.reason);
+  const request = { mode, ...(reason === undefined ? {} : { reason }) };
   const mark: Mark = async (tree, status) => {
     await assertNotEnding(leases, tree, threadId);
-    const transition = pauseTransitionOf(thread, status, options);
+    const transition = pauseTransitionOf(thread, status, { ownerId: options.ownerId, reason });
     await leases.requestPause(tree, request, transition);
   };
   // a tree moved here: marked first, then its holder is told at once
@@ -78,8 +82,12 @@ async function storedRootsMarked(
       await mark(tree, ThreadStatus.Pausing);
       state = PauseRequestState.Pausing;
     } else if (record.status === "paused") {
-      // a business pause open (the paused run is stored) or a tree parked by an earlier pause
-      const isBusiness = (await parts.paused.find(thread))?.run.runId === record.runId;
+      // a business pause open (a pause of the tree pending or answered) or a tree parked by an
+      // earlier pause — never read from the paused run, which a park after a resume leaves stale
+      const isBusiness = await isAtBusinessPause(parts.deps, {
+        tenantId: thread.tenantId,
+        runId: record.runId,
+      });
       await mark(tree, isBusiness ? ThreadStatus.DualPaused : ThreadStatus.ExternallyPaused);
       if (state !== PauseRequestState.Pausing) state = PauseRequestState.Paused;
     }
