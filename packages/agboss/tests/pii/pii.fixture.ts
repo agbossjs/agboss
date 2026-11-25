@@ -27,6 +27,7 @@ import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { onStart } from "../helpers/flow.js";
 import { TestModelProvider } from "../../src/testing/test-model-provider.js";
+import { usd } from "../../src/units/index.js";
 
 /** The variable the test key is read from. */
 export const PII_KEY_VARIABLE = "PII_TEST_PSEUDONYM_KEY";
@@ -125,14 +126,11 @@ export class SendEmail {
   }
 }
 
-const price = { inputPerMTok: 1, outputPerMTok: 10 };
-
 @Agent({
   name: "support-agent",
   description: "Answers customers",
   prompt: inline("Answer the customer."),
   model: "test/support",
-  price,
   tools: [SendEmail],
 })
 export class SupportAgent {}
@@ -142,7 +140,6 @@ export class SupportAgent {}
   description: "Sees contact details",
   prompt: inline("Answer the customer."),
   model: "test/open",
-  price,
   excludePiiPolicies: [ContactPiiPolicy],
 })
 export class OpenAgent {}

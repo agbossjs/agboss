@@ -1,12 +1,16 @@
-import type { Price } from "../config/types.js";
+import type { ModelSettings } from "../config/types.js";
+import type { ModelPrice } from "./cost.js";
 
 /** What a model use says of its account: its model, the provider its cascade resolved, its own price. */
 export interface PricedUse {
   readonly model: string;
   readonly modelProvider?: string | undefined;
-  readonly price?: Price | undefined;
+  readonly price?: ModelPrice | undefined;
   readonly unpriced?: true | undefined;
 }
+
+/** A model's settings with the price its provider's table gives it (set by the pricing, never by hand). */
+export type PricedModelSettings = ModelSettings & Pick<PricedUse, "price">;
 
 /**
  * Prices a model use by its own provider and model (bughunt 2026-11-25 #2): the price its settings

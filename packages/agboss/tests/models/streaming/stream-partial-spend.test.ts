@@ -156,7 +156,7 @@ describe("#1399: partial spend, as the error carries it", () => {
 
 describe("#1399: the record of a partial spend", () => {
   const call = { requestChars: 40, answerChars: 9 };
-  const priced = { model: "m", price: { inputPerMTok: 1, outputPerMTok: 2 } };
+  const priced = { model: "m", price: { inputPerMillion: usd(1), outputPerMillion: usd(2) } };
 
   it("a call that cannot be priced is unpriced tokens, never dropped", () => {
     const error = withPartialSpend(new Error("x"), {

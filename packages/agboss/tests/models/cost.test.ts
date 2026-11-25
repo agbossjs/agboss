@@ -62,12 +62,12 @@ describe("AC6: cost — from the provider's response, a price table as the fallb
     const bundle = await workflowOf(Priced);
     const priced = withProviderPrices(bundle.config, directoryOf(bundle.modelProviders));
 
-    expect(priced.agents["summariser-agent"]?.price).toEqual({
-      inputPerMTok: 1,
-      outputPerMTok: 2,
-      cacheReadPerMTok: 0.5,
+    expect(Reflect.get(priced.agents["summariser-agent"] ?? {}, "price")).toEqual({
+      inputPerMillion: usd(1),
+      outputPerMillion: usd(2),
+      cacheReadPerMillion: usd(0.5),
     });
-    expect(priced.agents["writer-agent"]?.price).toBeUndefined();
+    expect(Reflect.get(priced.agents["writer-agent"] ?? {}, "price")).toBeUndefined();
     expect(priceOf(ModelCost.fromResponse(), "x")).toBeUndefined();
     expect(priceOf(ModelCost.fromPrices({}), "x")).toBeUndefined();
     expect(costLabel(ModelCost.fromResponse())).toBe("cost from the response");
@@ -171,18 +171,18 @@ describe("#1382, #1385: a price table holds finite prices from 0", () => {
       "c/d": { inputPerMillion: usd(1), outputPerMillion: usd(2), cacheReadPerMillion: usd(0) },
     });
     expect(priceOf(cost, "c/d")).toEqual({
-      inputPerMTok: 1,
-      outputPerMTok: 2,
-      cacheReadPerMTok: 0,
+      inputPerMillion: usd(1),
+      outputPerMillion: usd(2),
+      cacheReadPerMillion: usd(0),
     });
-    expect(priceOf(cost, "a/b")).toEqual({ inputPerMTok: 0, outputPerMTok: 0 });
+    expect(priceOf(cost, "a/b")).toEqual({ inputPerMillion: usd(0), outputPerMillion: usd(0) });
   });
 
   it("the table keeps its own frozen copy of each entry: the caller's object cannot change it", () => {
     const mine = { inputPerMillion: usd(1), outputPerMillion: usd(2), extra: "x" };
     const cost = ModelCost.fromPrices({ m: mine });
     (mine as { inputPerMillion: number }).inputPerMillion = -5;
-    expect(priceOf(cost, "m")).toEqual({ inputPerMTok: 1, outputPerMTok: 2 });
+    expect(priceOf(cost, "m")).toEqual({ inputPerMillion: usd(1), outputPerMillion: usd(2) });
     if (cost.kind !== "from-prices") throw new Error("not a table");
     expect(Object.isFrozen(cost.prices)).toBe(true);
     expect(Object.isFrozen(cost.prices.m)).toBe(true);
@@ -221,7 +221,7 @@ describe("#1382, #1385: a price table holds finite prices from 0", () => {
   it("a table changed after it was checked is refused at its next use", () => {
     const mutable = { m: { inputPerMillion: usd(1), outputPerMillion: usd(1) } };
     const literal: ModelCost = { kind: "from-prices", prices: mutable };
-    expect(priceOf(literal, "m")).toEqual({ inputPerMTok: 1, outputPerMTok: 1 });
+    expect(priceOf(literal, "m")).toEqual({ inputPerMillion: usd(1), outputPerMillion: usd(1) });
     (mutable.m as { inputPerMillion: number }).inputPerMillion = -5;
     expect(() => priceOf(literal, "m")).toThrow(/\[model\.price-invalid\] inputPerMillion is -5,/);
   });
@@ -284,10 +284,10 @@ describe("ModelPrice: a cached read is priced at cacheReadPerMillion, a cache wr
 
   it("maps both cache prices into the call's price", () => {
     expect(priceOf(priced, "cache/model")).toEqual({
-      inputPerMTok: 3,
-      outputPerMTok: 15,
-      cacheReadPerMTok: 0.3,
-      cacheWritePerMTok: 3.75,
+      inputPerMillion: usd(3),
+      outputPerMillion: usd(15),
+      cacheReadPerMillion: usd(0.3),
+      cacheWritePerMillion: usd(3.75),
     });
   });
 });

@@ -142,7 +142,6 @@ export class OwnerRefundTool {
   prompt: "./clerk.prompt.md",
   description: "Refunds orders",
   model: "test/clerk",
-  price: { inputPerMTok: 1, outputPerMTok: 10 },
   tools: [GatedRefundTool],
 })
 export class GatedClerkAgent {}
@@ -152,7 +151,6 @@ export class GatedClerkAgent {}
   prompt: "./clerk.prompt.md",
   description: "Refunds orders the owner confirms",
   model: "test/clerk",
-  price: { inputPerMTok: 1, outputPerMTok: 10 },
   tools: [OwnerRefundTool],
 })
 export class OwnerClerkAgent {}

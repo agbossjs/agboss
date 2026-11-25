@@ -17,10 +17,10 @@ import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../src/index.js";
 import { PersonalDataGuardrail, PromptInjectionGuardrail } from "../guardrails.js";
-import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
+import { PricedTestModelProvider } from "../priced-test-model-provider.js";
 import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
+import { usd } from "../../../src/units/index.js";
 
-const price = { inputPerMTok: 0.5, outputPerMTok: 3, cacheReadPerMTok: 0.1 };
 class ClockQuery {
   @TimeZone({ prompt: "IANA time zone, e.g. Asia/Tokyo", default: "UTC" })
   timeZone!: string;
@@ -59,7 +59,6 @@ export class Clock {
   name: "researcher-agent",
   description: "Finds, explains and summarizes facts",
   model: "test/researcher",
-  price,
   tools: [Clock],
   prompt: "./researcher.prompt.md",
 })
@@ -69,7 +68,6 @@ export class Researcher {}
   name: "coder-agent",
   description: "Writes, reviews and explains code",
   model: "test/coder",
-  price,
   reasoning: Reasoning.on({ effort: ReasoningEffort.Low }),
   prompt: "./coder.prompt.md",
 })
@@ -128,7 +126,7 @@ export class TestWorkflow {}
 
 @Application({
   name: "test-application",
-  modelProvider: TestModelProvider,
+  modelProvider: PricedTestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [TestWorkflow],

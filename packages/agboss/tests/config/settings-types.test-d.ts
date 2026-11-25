@@ -5,14 +5,12 @@ import type {
   AgentsConfigSchema,
   CompactionSettingsSchema,
   MaxTokensSchema,
-  PriceSchema,
 } from "../../src/config/types.js";
 import type {
   AgentSettings,
   AgentsConfig,
   CompactionSettings,
   MaxTokens,
-  Price,
 } from "../../src/config/settings-types.js";
 
 /**
@@ -32,10 +30,6 @@ type Plain<T> = T extends string
       : T;
 
 describe("#895: each settings type equals what its schema infers", () => {
-  it("Price", () => {
-    expectTypeOf<Plain<z.infer<typeof PriceSchema>>>().toEqualTypeOf<Plain<Price>>();
-  });
-
   it("MaxTokens", () => {
     expectTypeOf<Plain<z.infer<typeof MaxTokensSchema>>>().toEqualTypeOf<Plain<MaxTokens>>();
   });

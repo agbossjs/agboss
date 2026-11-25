@@ -14,7 +14,6 @@ import {
   JevRouterModelSchema,
   MaxTokensSchema,
   ModelSettingsSchema,
-  PriceSchema,
   PromptCachingValueSchema,
   ReasoningValueSchema,
   RouterModelSchema,
@@ -25,6 +24,7 @@ import {
   type AgentsConfigOf,
 } from "../../../src/config/types.js";
 import { testConfig } from "../../helpers.js";
+import { usd } from "../../../src/units/index.js";
 
 interface Parser {
   safeParse(value: unknown): { success: boolean };
@@ -42,18 +42,6 @@ const agent = { model: "m", description: "d" };
 const config = (patch: Record<string, unknown>) => ({ ...testConfig, ...patch });
 
 describe("config schemas", () => {
-  it("price: non-negative numbers, the cache prices optional", () => {
-    admits(PriceSchema, { inputPerMTok: 0, outputPerMTok: 1 });
-    admits(PriceSchema, {
-      inputPerMTok: 1,
-      outputPerMTok: 2,
-      cacheReadPerMTok: 0,
-      cacheWritePerMTok: 3,
-    });
-    refuses(PriceSchema, { inputPerMTok: -1, outputPerMTok: 1 }, { inputPerMTok: 1 }, {});
-    refuses(PriceSchema, { inputPerMTok: 1, outputPerMTok: 1, cacheReadPerMTok: -1 });
-  });
-
   it("max tokens: a positive integer or max", () => {
     admits(MaxTokensSchema, 1, 8192, "max");
     refuses(MaxTokensSchema, 0, -5, 1.5, "all", "");
@@ -106,11 +94,7 @@ describe("config schemas", () => {
     admits(ModelSettingsSchema, { model: "abc" }, { model: "a", temperature: 0 });
     admits(ModelSettingsSchema, { model: "abc", temperature: 1 }, { model: "abc", temperature: 2 });
     refuses(ModelSettingsSchema, { model: "" }, { model: "a", temperature: -1 }, {});
-    refuses(
-      ModelSettingsSchema,
-      { model: "a", temperature: 3 },
-      { model: "a", price: { inputPerMTok: -1, outputPerMTok: 0 } },
-    );
+    refuses(ModelSettingsSchema, { model: "a", temperature: 3 });
   });
 
   it("uncompacted turns: a whole number from 0, or all", () => {

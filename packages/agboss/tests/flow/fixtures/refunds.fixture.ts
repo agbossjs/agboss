@@ -117,7 +117,6 @@ export class RefundCardTool {
   model: "test/refund-clerk",
   input: { message: WorkflowStartTextDto },
   output: RefundCardOutputDto,
-  price: { inputPerMTok: 1, outputPerMTok: 10 },
   tools: [RefundCardTool],
 })
 export class RefundClerkAgent {}

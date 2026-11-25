@@ -11,14 +11,6 @@ import type { ReasoningEffort } from "../models/reasoning.js";
 import type { RagScope, RerankFailurePolicy } from "../rag/types.js";
 import type { TokenLimit, TurnLimit } from "./types.js";
 
-/** USD per 1M tokens — take from openrouter.ai/models. Cache prices fall back to input price. */
-export interface Price {
-  inputPerMTok: number;
-  outputPerMTok: number;
-  cacheReadPerMTok?: number | undefined;
-  cacheWritePerMTok?: number | undefined;
-}
-
 /** An output ceiling: a whole number of tokens, or `TokenLimit.ModelMax` — what the model allows. */
 export type MaxTokens = number | TokenLimit.ModelMax;
 
@@ -61,8 +53,6 @@ export interface ModelSettings {
   maxTokens?: MaxTokens | undefined;
   thinking?: Thinking | undefined;
   cache?: CacheSetting | undefined;
-  /** Overrides the provider's price table; the provider's own cost comes first. */
-  price?: Price | undefined;
   /** The `@ModelProvider` this model is served from, by `name` (#1313); absent = by `serves`. */
   modelProvider?: string | undefined;
   /** The provider has no `cost`: a call left unpriced is `CostSource.Unpriced` (#1313). */

@@ -1,6 +1,7 @@
 import { AgentFilesSchema } from "../files/files-schema.js";
 import type { PromptInput } from "../components/prompt-input.js";
-import type { AgentSettings, AgentsConfig, MaxTokens, Price } from "./settings-types.js";
+import type { AgentSettings, AgentsConfig, MaxTokens } from "./settings-types.js";
+import type { ModelPrice } from "../models/cost.js";
 
 import { z } from "zod";
 import { ReasoningEffort, type Reasoning } from "../models/reasoning.js";
@@ -22,14 +23,6 @@ export enum TurnLimit {
 
 /** OpenRouter `reasoning.effort` levels. "none" disables thinking (not accepted by every model). */
 export const THINKING_EFFORTS = ["none", "minimal", "low", "medium", "high", "xhigh"] as const;
-
-/** USD per 1M tokens — take from openrouter.ai/models. Cache prices fall back to input price. */
-export const PriceSchema = z.object({
-  inputPerMTok: z.number().nonnegative(),
-  outputPerMTok: z.number().nonnegative(),
-  cacheReadPerMTok: z.number().nonnegative().optional(),
-  cacheWritePerMTok: z.number().nonnegative().optional(),
-});
 
 export const MaxTokensSchema = z.union([
   z.number().int().positive(),
@@ -93,8 +86,6 @@ export const ModelSettingsSchema = z.object({
   maxTokens: MaxTokensSchema.optional(),
   thinking: ThinkingSchema.optional(),
   cache: CacheSettingSchema.optional(),
-  /** Overrides the provider's price table; the provider's own cost comes first. */
-  price: PriceSchema.optional(),
   /**
    * The `@ModelProvider` this model is served from, by its `name` (#1313): the component's own, else
    * its workflow's, else its application's. Absent: the older providers' `serves` patterns decide.
@@ -214,7 +205,6 @@ export type {
   CompactionSettings,
   MaxTokens,
   ModelSettings,
-  Price,
   Thinking,
 } from "./settings-types.js";
 
@@ -248,8 +238,8 @@ export interface ResolvedModelSettings {
   readonly maxTokens: MaxTokens;
   readonly reasoning?: Reasoning | undefined;
   readonly promptCaching?: PromptCaching | undefined;
-  /** The price table entry (the component's, else the provider's); none = the provider reports the cost. */
-  readonly price?: Price | undefined;
+  /** The provider's price table entry for the model; none = the provider reports the cost. */
+  readonly price?: ModelPrice | undefined;
   /** The provider's `name` its cascade resolved (#1313); absent = by `serves`. */
   readonly modelProvider?: string | undefined;
   /** The provider has no `cost`: a call it leaves unpriced is `CostSource.Unpriced` (#1313). */

@@ -33,7 +33,6 @@ export class WriteRag extends SqliteFtsRagSource {
   description: "Reads the knowledge base",
   prompt: inline("Read."),
   model: "test/alpha",
-  price: testConfig.agents.alpha.price,
   rag: [WriteRag],
 })
 export class WriteReaderAgent {}

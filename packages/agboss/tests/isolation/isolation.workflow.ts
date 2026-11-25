@@ -70,14 +70,11 @@ export class Pay {
   }
 }
 
-const price = { inputPerMTok: 1, outputPerMTok: 10 };
-
 @Agent({
   name: "cashier-agent",
   prompt: "./cashier.prompt.md",
   description: "Takes payments",
   model: "test/cashier",
-  price,
   tools: [Pay],
 })
 export class Cashier {}
@@ -144,7 +141,6 @@ export class DraftDto {
   prompt: "./cashier.prompt.md",
   description: "Drafts",
   model: "test/drafter",
-  price,
   input: { message: WorkflowStartTextDto },
   output: DraftDto,
 })
@@ -155,7 +151,6 @@ export class Drafter {}
   prompt: "./cashier.prompt.md",
   description: "Edits",
   model: "test/editor",
-  price,
   input: { draft: DraftDto },
 })
 export class Editor {}

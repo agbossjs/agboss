@@ -9,6 +9,7 @@ import { FileRedactionFailedError } from "../../src/files/file-errors.js";
 import { redacted } from "../../src/files/model-image-redactor-work.js";
 import { PiiKind } from "../../src/pii/kinds.js";
 import { seconds } from "../../src/units/index.js";
+import { usd } from "../../src/units/index.js";
 
 vi.mock("sharp", () => {
   throw new Error("Cannot find module 'sharp'");
@@ -22,7 +23,7 @@ const settings = {
   cache: true,
   timeout: seconds(1),
   maxRetries: 0,
-  price: { inputPerMTok: 1, outputPerMTok: 1 },
+  price: { inputPerMillion: usd(1), outputPerMillion: usd(1) },
 };
 
 describe("sharp is not installed", () => {

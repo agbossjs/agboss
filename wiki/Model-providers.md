@@ -355,7 +355,7 @@ export class AppChatModels {}
   recorded as `costSource: CostSource.Api`.
 - `ModelCost.fromPrices({ "<model>": { inputPerMillion: usd(…), outputPerMillion: usd(…), cacheReadPerMillion?: usd(…), cacheWritePerMillion?: usd(…) } })`
   — tokens × the table (`CostSource.PriceTable`); a model it does not price → `model.no-price` at startup.
-- The reported cost always comes first; a component's own `price` overrides the table. A call with
+- The reported cost always comes first, then the provider's table; a component has no price of its own. A call with
   neither fails (`ModelCostError`) — an unaccounted call is never silently free. Limits per run and
   per day ([FinOps](FinOps)) use these costs.
 

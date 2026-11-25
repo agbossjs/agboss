@@ -9,7 +9,7 @@ import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { TestAnswer, TestChat, testPaths } from "./test.flow.js";
 import { EmptyEnvironment, inline, Ttl } from "../../../src/index.js";
-import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
+import { PricedTestModelProvider } from "../priced-test-model-provider.js";
 
 /**
  * The star test workflow (tests/fixtures/test-flow): chat → main-router ("test/router", a chat
@@ -17,7 +17,7 @@ import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
  */
 @Workflow({
   name: "test-bundle-workflow",
-  modelProvider: TestModelProvider,
+  modelProvider: PricedTestModelProvider,
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: testPaths,
@@ -31,7 +31,7 @@ export class StarWorkflow {}
 
 @Application({
   name: "test-bundle-application",
-  modelProvider: TestModelProvider,
+  modelProvider: PricedTestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [StarWorkflow],
@@ -55,7 +55,6 @@ export function toolWorkflowOf(options: ToolWorkflowOptions): Class {
     description: "Handles alpha work with tools",
     prompt: inline("You are alpha."),
     model: "test/alpha",
-    price: { inputPerMTok: 3, outputPerMTok: 6 },
     tools: options.tools,
     ...(options.maxToolCalls === undefined
       ? {}
@@ -65,7 +64,7 @@ export function toolWorkflowOf(options: ToolWorkflowOptions): Class {
 
   @Workflow({
     name: "tools-workflow",
-    modelProvider: TestModelProvider,
+    modelProvider: PricedTestModelProvider,
     version: "1.0.0",
     historyTtl: Ttl.Forever,
     flow: [

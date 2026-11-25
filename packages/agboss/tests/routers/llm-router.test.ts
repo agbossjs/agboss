@@ -4,9 +4,10 @@ import { resolveSettings } from "../../src/llm/registry.js";
 import { createLlmRouter } from "../../src/routers/index.js";
 import { routeTo, testConfig } from "../helpers.js";
 import { request } from "./fixtures.js";
+import { usd } from "../../src/units/index.js";
 
 const settings = resolveSettings(
-  { model: "test/router", price: { inputPerMTok: 1, outputPerMTok: 1 } },
+  { model: "test/router", price: { inputPerMillion: usd(1), outputPerMillion: usd(1) } },
   testConfig.defaults.models,
 );
 const llm = (responses: string[]) =>

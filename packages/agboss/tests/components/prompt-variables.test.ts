@@ -48,8 +48,6 @@ const ENV: NodeJS.ProcessEnv = {
   PROMPT_API_KEY: SECRET_VALUE,
 };
 
-const price = testConfig.agents.alpha.price;
-
 interface Levels {
   readonly application?: Readonly<Record<string, unknown>>;
   readonly workflow?: Readonly<Record<string, unknown>>;
@@ -64,7 +62,6 @@ function applicationWith(levels: Levels): Class {
     name: "scout-agent",
     description: "Scouts",
     model: "test/alpha",
-    price,
     prompt: inline(levels.prompt ?? "You work for {{company}}."),
     promptVariables: levels.agent as never,
   })

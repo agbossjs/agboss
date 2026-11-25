@@ -131,14 +131,11 @@ export class WaitForAbortTool {
   }
 }
 
-const price = { inputPerMTok: 1, outputPerMTok: 2 };
-
 @Agent({
   name: "spender-agent",
   description: "Answers with a costly call once the waiter waits",
   prompt: inline("Hold for the waiter, then answer."),
   model: "test/spender",
-  price,
   tools: [HoldForWaiterTool],
   input: { message: WorkflowStartTextDto },
   output: NoteDto,
@@ -150,7 +147,6 @@ export class SpenderAgent {}
   description: "Waits on a slow service",
   prompt: inline("Wait."),
   model: "test/waiter",
-  price,
   tools: [WaitForAbortTool],
   input: { message: WorkflowStartTextDto },
   output: NoteDto,
@@ -263,7 +259,6 @@ export class QuorumBudgetWorkflow {}
   description: "Does one task",
   prompt: inline("Do the task."),
   model: "test/task",
-  price,
   tools: [HoldForWaiterTool, WaitForAbortTool],
   input: { task: TaskDto },
   output: NoteDto,

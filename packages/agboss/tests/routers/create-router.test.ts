@@ -3,6 +3,7 @@ import type { JevClient } from "../../src/llm/jev-client.js";
 import { createRouter } from "../../src/routers/index.js";
 import { fakeChatFactory, fakeGateway, testConfig, testRouter } from "../helpers.js";
 import { jevAnswer, request } from "./fixtures.js";
+import { usd } from "../../src/units/index.js";
 
 describe("createRouter", () => {
   it("builds a Jev router for kind jev", async () => {
@@ -25,7 +26,7 @@ describe("createRouter", () => {
     const model = {
       kind: "llm",
       model: "test/router",
-      price: { inputPerMTok: 1, outputPerMTok: 2 },
+      price: { inputPerMillion: usd(1), outputPerMillion: usd(2) },
     } as const;
 
     await createRouter("main", model, testConfig.defaults.models, fakeGateway(chatModel)).route(

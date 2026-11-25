@@ -20,6 +20,7 @@ import { SILENT_LOG } from "../../src/infrastructure/logger.js";
 import { PiiKind } from "../../src/pii/kinds.js";
 import { seconds } from "../../src/units/index.js";
 import { runNodeReporting } from "../helpers/process.js";
+import { usd } from "../../src/units/index.js";
 
 const settings = {
   model: "test/redactor",
@@ -29,7 +30,7 @@ const settings = {
   cache: true,
   timeout: seconds(1),
   maxRetries: 0,
-  price: { inputPerMTok: 1, outputPerMTok: 1 },
+  price: { inputPerMillion: usd(1), outputPerMillion: usd(1) },
 };
 
 const bindingAnswering = (...answers: string[]) => ({

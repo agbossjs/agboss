@@ -292,8 +292,6 @@ export interface AgentOptions {
     readonly output?: OutputShape;
     readonly piiPolicies?: readonly Class[];
     // (undocumented)
-    readonly price?: Price;
-    // (undocumented)
     readonly prompt?: PromptSource;
     readonly promptVariables?: PromptVariables;
     readonly rag?: readonly Class[];
@@ -6452,7 +6450,6 @@ interface ModelSettings {
     // (undocumented)
     model: string;
     modelProvider?: string | undefined;
-    price?: Price | undefined;
     // (undocumented)
     temperature?: number | undefined;
     // (undocumented)
@@ -12064,7 +12061,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/decorators/agent.ts - (ae-undocumented) Missing documentation for "description".
 // src/flow/decorators/agent.ts - (ae-undocumented) Missing documentation for "prompt".
 // src/flow/decorators/agent.ts - (ae-undocumented) Missing documentation for "reasoning".
-// src/flow/decorators/agent.ts - (ae-undocumented) Missing documentation for "price".
 // src/flow/decorators/agent.ts - (ae-undocumented) Missing documentation for "temperature".
 // src/flow/decorators/agent.ts - (ae-undocumented) Missing documentation for "maxTokens".
 // src/flow/decorators/agent.ts - (ae-undocumented) Missing documentation for "cache".

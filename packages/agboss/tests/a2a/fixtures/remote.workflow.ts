@@ -75,7 +75,6 @@ export class QuickLookup {
   name: "desk-agent",
   description: "Answers order questions",
   model: "test/desk",
-  price: { inputPerMTok: 1, outputPerMTok: 2 },
   tools: [SlowLookup, QuickLookup],
 })
 export class Desk {}

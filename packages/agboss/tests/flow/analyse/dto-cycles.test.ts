@@ -96,7 +96,6 @@ describe("#1080: an agent's output that holds itself", () => {
       description: "d",
       prompt: inline("p"),
       model: "test/r",
-      price: { inputPerMTok: 1, outputPerMTok: 10 },
       input: { diamond: DiamondDto },
       output: DiamondDto,
     })

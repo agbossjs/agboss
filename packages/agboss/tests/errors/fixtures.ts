@@ -51,7 +51,6 @@ export class Pay {
   }
 }
 
-const price = { inputPerMTok: 1, outputPerMTok: 10 };
 const defaults = {
   models: { temperature: 0, maxTokens: TokenLimit.ModelMax, cache: true },
   router: { model: "typesafe/jev-1.13" },
@@ -63,7 +62,6 @@ const defaults = {
   prompt: inline("Buy what is asked."),
   description: "Buys things",
   model: "test/buyer",
-  price,
   tools: [Pay],
   input: { message: WorkflowStartTextDto },
   output: PurchaseDto,
@@ -75,7 +73,6 @@ export class Buyer {}
   prompt: inline("Check the purchase."),
   description: "Checks purchases",
   model: "test/checker",
-  price,
   input: { purchase: PurchaseDto },
 })
 export class Checker {}

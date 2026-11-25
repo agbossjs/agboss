@@ -91,7 +91,6 @@ export class PaidRouterWorkflow {}
   description: "Reviews the order",
   prompt: inline("Review the order."),
   model: "test/reviewer",
-  price: { inputPerMTok: 1, outputPerMTok: 2 },
   input: { order: OrderDto },
   output: OrderNoteDto,
 })

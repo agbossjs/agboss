@@ -7,6 +7,7 @@ import { FakeListChatModel } from "@langchain/core/utils/testing";
 import sharp from "sharp";
 import { sha256Of } from "../../src/files/file-bytes.js";
 import { redacted } from "../../src/files/model-image-redactor-work.js";
+import { usd } from "../../src/units/index.js";
 
 const count = Number(process.argv[2]);
 const SIDE = 6324;
@@ -30,7 +31,7 @@ const settings = {
   cache: true,
   timeout: 1000,
   maxRetries: 0,
-  price: { inputPerMTok: 1, outputPerMTok: 1 },
+  price: { inputPerMillion: usd(1), outputPerMillion: usd(1) },
 };
 sharp.cache(false);
 const result = await redacted(

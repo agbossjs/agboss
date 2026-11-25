@@ -94,7 +94,6 @@ class Broken {
   prompt: inline("Answer questions about orders and keep notes."),
   description: "Orders and notes",
   model: "test/clerk",
-  price: { inputPerMTok: 1, outputPerMTok: 2 },
   tools: [OrderStatus, EchoCall, Broken, SaveNote],
 })
 class Clerk {}

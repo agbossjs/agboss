@@ -65,7 +65,6 @@ export function bundleWith(use: Class, reading: Reading): Class {
     name: "helper-agent",
     description: "Helps",
     model: "test/alpha",
-    price: testConfig.agents.alpha.price,
     ...(reading === "tool" ? { tools: [SearchHandbook] } : { rag: [use] }),
     prompt,
     promptVariables: { language: "English" },

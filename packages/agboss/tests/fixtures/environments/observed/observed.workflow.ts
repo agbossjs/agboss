@@ -28,7 +28,6 @@ export class RunLog {
   description: "Greets",
   prompt: inline("Greet the user."),
   model: "test/greeter",
-  price: { inputPerMTok: 1, outputPerMTok: 10 },
 })
 export class Greeter {}
 

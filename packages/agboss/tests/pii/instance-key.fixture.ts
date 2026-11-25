@@ -29,6 +29,7 @@ import {
   StampedExecutionRecordRepository,
 } from "../infrastructure/fixtures/recovery.workflow.js";
 import { TestModelProvider } from "../../src/testing/test-model-provider.js";
+import { usd } from "../../src/units/index.js";
 
 /** Who the desk talks to: a token field of the execution's context (the built-in author is masked one-way). */
 export class DeskExecutionContext extends ExecutionContext {
@@ -120,7 +121,6 @@ export class DeskNoteDto {
   author!: string;
 }
 
-const price = { inputPerMTok: 1, outputPerMTok: 10 };
 const defaults = { models: { temperature: 0 }, tools: { maxToolCalls: 4 } } as const;
 
 @Agent({
@@ -128,7 +128,6 @@ const defaults = { models: { temperature: 0 }, tools: { maxToolCalls: 4 } } as c
   description: "Looks the author up",
   prompt: inline("Look the author up."),
   model: "test/desk",
-  price,
   tools: [LookupTool, SlowLookupTool],
   output: DeskNoteDto,
 })
@@ -140,7 +139,6 @@ export class DeskAgent {}
   description: "Follows up",
   prompt: inline("Follow up."),
   model: "test/follow-up",
-  price,
   input: { note: DeskNoteDto },
 })
 export class FollowUpAgent {}

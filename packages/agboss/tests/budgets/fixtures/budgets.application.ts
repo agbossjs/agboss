@@ -78,14 +78,12 @@ const defaults = {
   models: { temperature: 0, maxTokens: TokenLimit.ModelMax, cache: true },
   tools: { maxToolCalls: 2 },
 } as const;
-const price = { inputPerMTok: 1, outputPerMTok: 10 };
 
 @Agent({
   name: "drafter-agent",
   description: "Drafts",
   prompt: inline("Draft it."),
   model: "test/drafter",
-  price,
   output: DraftDto,
 })
 export class DrafterAgent {}
@@ -95,7 +93,6 @@ export class DrafterAgent {}
   description: "Reviews",
   prompt: inline("Review it."),
   model: "test/reviewer",
-  price,
   input: { draft: DraftDto },
 })
 export class ReviewerAgent {}

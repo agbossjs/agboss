@@ -92,7 +92,6 @@ describe("tools on DTOs (#118)", () => {
       name: "a-agent",
       description: "d",
       model: "test/alpha",
-      price: testConfig.agents.alpha.price,
       tools: [LooseTool],
       prompt: "./fixture/greeter.prompt.md",
     })

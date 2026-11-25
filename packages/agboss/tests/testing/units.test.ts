@@ -24,7 +24,7 @@ const free: ResolvedModelSettings = {
   model: "test/free",
   temperature: 0,
   maxTokens: 100,
-  price: { inputPerMTok: 0, outputPerMTok: 0 },
+  price: { inputPerMillion: usd(0), outputPerMillion: usd(0) },
 };
 const request = { input: "x", options: [{ name: "a", description: "A" }] };
 

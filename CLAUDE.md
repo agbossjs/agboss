@@ -1896,7 +1896,7 @@ candidates` (`[rag.rerank-invalid]`); `onFailure` defaults to `RerankFailurePoli
   (`extends McpServerClient`) listed in the `deps` of the `@Tool`s that call it (connected at start, no `mcp: [...]`; `McpTransport`, `defineEnv` references, `call(name, args, { key, signal, timeout })`, `McpError`).
   **A2A (#387, #398 PR 3, #809) — declared contracts:** a call to an A2A v1.0 agent (another AGBoss
   application or a foreign one, on the official `@a2a-js/sdk`, exact pin) is an
-  `@A2AAgent({ name: "-a2a-agent", url, target?: { application?, skill?, finishes? }, input?, output?, price?, mesh?, allowedOrigins?, deps })`
+  `@A2AAgent({ name: "-a2a-agent", url, target?: { application?, skill?, finishes? }, input?, output?, costPerCall?, mesh?, allowedOrigins?, deps })`
   on a `…A2AAgent` class that `extends A2AClient<In, Out>` (`a2a/*.a2a-agent.ts`; `[name.kind-suffix]`),
   in `providers` — `execute(input)` is typed and validated both ways (one data part, text for
   `WorkflowStartTextDto`; the COMPLETED task's artifact), `send(message)` untyped (`A2ATaskResult`),
@@ -1930,7 +1930,7 @@ candidates` (`[rag.rerank-invalid]`); `onFailure` defaults to `RerankFailurePoli
   bound to the message by `meshBodyHashOf` (`src/a2a/a2a-mesh-message.ts`), signed only with an
   `audience` (`audienceRefusalOf`, `src/mesh/mesh-verification.ts`: a signed one without is
   `mesh.audience-missing`, another's `mesh.audience-mismatch`, before its signature is checked — on
-  MCP's receiver and the A2A server's), a loop refused before sending; `price` charged when no
+  MCP's receiver and the A2A server's), a loop refused before sending; `costPerCall` charged when no
   verified run report says more (the report must name the call's task). The mesh is on only when
   the agent echoes the extension in its answer's `A2A-Extensions` (#810, spec §4.6); a call without
   it is said in the tool call's record (`remote: { application, executionId: <task>, mesh: false }`;
@@ -2043,7 +2043,7 @@ target.skill)` with the export whose `skill` — the exported start's name — i
   compared — `check --federation` skips it and `[federation.missing-target]` does not apply to it.
   The assembly rules of an A2A side: `[a2a.endpoint-description-required]` (a blank `description`),
   `[a2a.skill-tags]` (a warning: a skill with no `tags`, its card says the application's name),
-  `[a2a.unpriced-foreign-peer]` (a warning: a foreign `@A2AAgent` without `price`), with the store,
+  `[a2a.unpriced-foreign-peer]` (a warning: a foreign `@A2AAgent` without `costPerCall`), with the store,
   file and direct-reply rules above; a resend of a follow-up whose reply was lost is told apart by
   its kept message and gets its task, not `a2a.task-over` (#939). The wire is A2A v1: `target.skill` names the
   callee's skill, `cancel(taskId)` cancels a task, `A2AOperation` names the call (`SendMessage` with a `taskId` is a
@@ -2900,7 +2900,7 @@ LimitError` narrows to the union, `switch (err.kind)` is exhaustive, `.onError(L
   header and signature verify is trusted: its budget becomes `caller-budget`, its deadline the execution's
   — `limit.deadline`, `DeadlineExceededError` —, its origin `executionContext.origin`, and its
   answer a signed run report the caller records as `ToolCallRecord.remote` and `a2a:<issuer>`
-  spend — the larger of it and the `@A2AAgent`'s `price`; the envelope's `audience` is the client's
+  spend — the larger of it and the `@A2AAgent`'s `costPerCall`; the envelope's `audience` is the client's
   `target.application`, another receiver refuses it, `401 mesh.audience-mismatch`), `step` ⊃ `step.failed` — `StepFailedError`, a step's own failure naming it (`component`, `nodeId`,
   `visitNumber`, `itemIndex`, #273 S22) — ⊃ `step.agent` / `step.action` (`ActionFailedError`, the
   action's error as `cause`) / `step.guard` (`GuardFailedError`: a guardrail's model did not answer —

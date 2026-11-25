@@ -13,6 +13,7 @@ import {
   RerankReplyError,
 } from "../../src/rag/llm-reranker.js";
 import type { ModelBinding } from "../../src/llm/registry.js";
+import { usd } from "../../src/units/index.js";
 
 const candidates = ["a", "b", "c", "d"].map((name) => ({ source: `${name}.md`, text: name }));
 const options = { topK: 3, tenantId: "default", signal: new AbortController().signal };
@@ -22,7 +23,7 @@ const bindingOf = (reply: string): ModelBinding => ({
     model: "test/reranker",
     temperature: 0,
     maxTokens: 256,
-    price: { inputPerMTok: 1, outputPerMTok: 2 },
+    price: { inputPerMillion: usd(1), outputPerMillion: usd(2) },
   },
 });
 
@@ -76,7 +77,7 @@ describe("#703: the LLM reranker's reply", () => {
         model: "test/reranker",
         temperature: 0,
         maxTokens: 256,
-        price: { inputPerMTok: 1, outputPerMTok: 2 },
+        price: { inputPerMillion: usd(1), outputPerMillion: usd(2) },
       },
     });
 

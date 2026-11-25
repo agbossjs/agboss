@@ -5,6 +5,7 @@ import { ModelFileTranscriber } from "../../src/files/file-transcriber.js";
 import { TRANSCRIBER_SYSTEM, transcribed } from "../../src/files/model-file-transcriber-work.js";
 import type { ModelBinding } from "../../src/llm/registry.js";
 import { sha256Of } from "./reader.factory.js";
+import { usd } from "../../src/units/index.js";
 
 interface Call {
   readonly messages: readonly BaseMessage[];
@@ -26,7 +27,7 @@ function binding(calls: Call[]): ModelBinding {
   };
   return {
     model,
-    settings: { model: "vision-1", price: { inputPerMTok: 1, outputPerMTok: 2 } },
+    settings: { model: "vision-1", price: { inputPerMillion: usd(1), outputPerMillion: usd(2) } },
   } as never;
 }
 

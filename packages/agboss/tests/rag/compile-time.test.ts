@@ -89,7 +89,6 @@ class Reranked extends Plain {}
   name: "a",
   description: "d",
   model: "m",
-  price: testConfig.agents.alpha.price,
   rag: [Reranked, NoK],
   prompt: "./x.md",
 })
@@ -99,7 +98,6 @@ class Reads {}
   name: "b",
   description: "d",
   model: "m",
-  price: testConfig.agents.alpha.price,
   // @ts-expect-error — `{ use, mode }` is gone: `rag` is a list of classes
   rag: [{ use: NoK, mode: "tool" }],
   prompt: "./x.md",

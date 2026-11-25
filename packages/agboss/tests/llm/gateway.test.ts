@@ -20,12 +20,13 @@ import { CompactionStrategy } from "../../src/memory/memory.decorator.js";
 import { createRouter, type RouteOutcome } from "../../src/routers/index.js";
 import { routeTo, fakeChatFactory, testConfig, testRouter, unusedJevClient } from "../helpers.js";
 import { jevAnswer, request } from "../routers/fixtures.js";
+import { usd } from "../../src/units/index.js";
 
 const settings: ResolvedModelSettings = {
   model: "test/router",
   temperature: 0,
   maxTokens: 10,
-  price: { inputPerMTok: 1, outputPerMTok: 2 },
+  price: { inputPerMillion: usd(1), outputPerMillion: usd(2) },
 };
 
 /** A gateway that answers every decision with `next` and hands out one fake chat model. */
@@ -113,7 +114,10 @@ describe("AC12: model clients are asked for through the gateway", () => {
       memories: {
         "conversation-compaction": {
           strategy: CompactionStrategy.SummaryQueue,
-          model: { model: "test/compact", price: { inputPerMTok: 1, outputPerMTok: 1 } },
+          model: {
+            model: "test/compact",
+            price: { inputPerMillion: usd(1), outputPerMillion: usd(1) },
+          },
           turnsBetweenCompactions: 4,
           summaryQueueLength: 2,
         },

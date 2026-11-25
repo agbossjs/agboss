@@ -1,4 +1,3 @@
-import type { Price } from "../config/types.js";
 import { isFiniteNumber, shownLimit } from "../graph/count-limit.js";
 import { ConfigError } from "../core/error-families/config-errors.js";
 import type { Usd } from "../units/index.js";
@@ -107,7 +106,7 @@ export const ModelCost = {
  * not list. The entry is checked here, at its use (#1385): a literal `ModelCost` or a table changed after it was
  * made throws a `ConfigError.Unit` `[model.price-invalid]` before any cost is computed.
  */
-export function priceOf(cost: ModelCost, model: string): Price | undefined {
+export function priceOf(cost: ModelCost, model: string): ModelPrice | undefined {
   if (cost.kind === "from-response") return undefined;
   const table: unknown = cost.prices;
   if (!isObject(table)) throw priceError(notATable(table));
@@ -115,34 +114,25 @@ export function priceOf(cost: ModelCost, model: string): Price | undefined {
   if (price === undefined) return undefined;
   const problem = modelPriceProblemOf(price);
   if (problem !== undefined) throw priceError(problem);
-  return {
-    inputPerMTok: price.inputPerMillion,
-    outputPerMTok: price.outputPerMillion,
-    ...(price.cacheReadPerMillion === undefined
-      ? {}
-      : { cacheReadPerMTok: price.cacheReadPerMillion }),
-    ...(price.cacheWritePerMillion === undefined
-      ? {}
-      : { cacheWritePerMTok: price.cacheWritePerMillion }),
-  };
+  return price;
 }
 
-/** The fields of a `Price`, each with whether it must be set. */
+/** The fields of a `ModelPrice`, each with whether it must be set. */
 const PRICE_FIELDS = [
-  ["inputPerMTok", true],
-  ["outputPerMTok", true],
-  ["cacheReadPerMTok", false],
-  ["cacheWritePerMTok", false],
+  ["inputPerMillion", true],
+  ["outputPerMillion", true],
+  ["cacheReadPerMillion", false],
+  ["cacheWritePerMillion", false],
 ] as const;
 
 /**
- * A price a call is costed by (#1385), whichever way it came — a config `price`, a provider's table, a
+ * A price a call is costed by (#1385), whichever way it came — a provider's table, a
  * fallback's: every field is a finite number of dollars from 0, or (a cache price) unset. A negative price would
  * take from the cost of the tokens another price adds. A price that is none throws a `ConfigError.Unit`
  * `[model.price-invalid]` before any cost is computed; the message names the field and the value's kind, never
  * the model.
  */
-export function checkedPrice(price: Price): Price {
+export function checkedPrice(price: ModelPrice): ModelPrice {
   for (const [field, required] of PRICE_FIELDS) {
     const value: unknown = Reflect.get(price, field);
     if (!required && value === undefined) continue;

@@ -38,7 +38,6 @@ const editor = {
   description: "Writes the draft, again after the gate's review",
   prompt: inline("Write the draft."),
   model: "test/editor",
-  price: { inputPerMTok: 1, outputPerMTok: 2 },
   executionLimits: { maxVisits: 2 },
   input: { message: WorkflowStartTextDto, draft: optional(DraftDto) },
   output: DraftDto,

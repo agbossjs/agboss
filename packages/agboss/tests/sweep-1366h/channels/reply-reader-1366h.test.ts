@@ -23,6 +23,7 @@ import { componentOf } from "../../../src/components/metadata.js";
 import { runtimePolicyOf } from "../../../src/pii/runtime-policy.js";
 import type { PiiPolicyMeta } from "../../../src/pii/pii-policy.decorator.js";
 import { CardPiiPolicy } from "../../pii/pii.fixture.js";
+import { usd } from "../../../src/units/index.js";
 
 class WireRequestDto {
   @Text()
@@ -67,7 +68,7 @@ const settings = {
   model: "test/wire-reader",
   temperature: 0,
   maxTokens: 100,
-  price: { inputPerMTok: 1, outputPerMTok: 1 },
+  price: { inputPerMillion: usd(1), outputPerMillion: usd(1) },
 };
 const noPolicies = { policies: new PiiPolicySet([], "field-key"), known: {} };
 

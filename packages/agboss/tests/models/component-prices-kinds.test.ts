@@ -73,7 +73,7 @@ const directory = directoryOf([
   PricedDecisionsProvider,
 ]);
 const pricing = modelPricingOf(directory);
-const PRICE = { inputPerMTok: 10, outputPerMTok: 20 };
+const PRICE = { inputPerMillion: usd(10), outputPerMillion: usd(20) };
 /** 1M tokens in, 1M out: $10 + $20 at the priced table. */
 const MILLION = { usage_metadata: { input_tokens: 1_000_000, output_tokens: 1_000_000 } };
 
@@ -89,7 +89,6 @@ const config: AgentsConfigOf<string> = {
       description: "Answers elsewhere",
       model: "p/model",
       modelProvider: "other-model-provider",
-      price: { inputPerMTok: 1000, outputPerMTok: 2000 },
     },
   },
 };

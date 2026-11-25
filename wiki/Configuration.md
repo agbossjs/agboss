@@ -116,8 +116,8 @@ of values are enums (`Reasoning`, …), never strings.
 | `cache`       | override of the provider's caching: `true` = the provider's · `false` = off · a `PromptCaching` value                                                       | the provider's |
 
 Timeouts, retries, circuit breakers, request fields (e.g. OpenRouter's `provider: { ignore: [...] }`)
-and costs belong to the **model provider** — see [Model providers](Model-providers); `price` on an
-agent is an optional override of the provider's price table. Every setting is checked against its
+and costs belong to the **model provider** — see [Model providers](Model-providers); an agent has
+no price of its own. Every setting is checked against its
 model at startup and by `agboss check --models`.
 
 ## `defaults.tools`
@@ -219,7 +219,7 @@ Tasks are kept `@A2AEndpoint({ ttl: { tasks } })` after they end, a direct reply
 From `@Agent` classes: `model`, `description` (shown to routers), `prompt` /
 `promptVariables`, `tools` (class references — a missing one does not compile), `executionLimits` (`maxVisits`, `maxModelCalls`, `maxToolCalls`, `maxRetries`),
 `memory`, `judges`, `rag`, `input` / `output`,
-`price`, and any `defaults.models` field as an override.
+and any `defaults.models` field as an override.
 
 ## `guardrails`
 

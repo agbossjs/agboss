@@ -57,7 +57,6 @@ export class ApiSettings {
   name: "clerk-agent",
   description: "Answers with the API settings",
   model: "test/clerk",
-  price: { inputPerMTok: 1, outputPerMTok: 10 },
   tools: [ApiSettings],
   prompt: "./clerk.prompt.md",
 })

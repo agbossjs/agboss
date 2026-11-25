@@ -449,7 +449,7 @@ the 0.1.0 wire is gone, on both sides ([Upgrading to 0.1.1](Upgrading-to-0.1.1))
   the agent echoed the extension in its answer's `A2A-Extensions` (#810, spec §4.6) — an agent that
   does not is called without the mesh, said in the tool call's record (`remote: { application,
 executionId: <task id>, mesh: false }`) and in `agboss describe` (`a2a agents`: `mesh: required` /
-  `mesh: not guaranteed (foreign peer)`). The `price` is charged to the step (`a2a:<application>`)
+  `mesh: not guaranteed (foreign peer)`). The `costPerCall` is charged to the step (`a2a:<application>`)
   when the call is accepted — a call that later runs out of time or fails there is charged too; a
   call the agent refused before anything ran (its task `REJECTED` at the accept: a mesh loop, a
   chain past its `maxMeshHops`) is charged nothing, its price neither, on any pass, a takeover's
@@ -805,7 +805,7 @@ input, output } })` (`A2AClientContract`, #809); without its DTOs, `execute` thr
   `[a2a.no-contract]` (`send` needs none).
 - Names: kebab-case, no suffix needed (`[name.not-kebab-case]`); `target` is optional (#809: a foreign agent has no application) and names a
   `skill` (was `start`). Files: `a2a/<name>.a2a-agent.ts`.
-- **The price**: the calling tool's spend records the larger of `price` and the spend a
+- **The price**: the calling tool's spend records the larger of `costPerCall` and the spend a
   trusted peer's signed run report gives — the price alone without one — as `a2a:<application>`;
   nothing for a call the agent `REJECTED` before anything ran (#849).
 - **The audience**: the envelope's `audience` is `target.application` (over MCP an `@McpServer({
@@ -860,7 +860,7 @@ export class BillingApplication {}
 - `[a2a.endpoint-description-required]` (a blank `description`), and two warnings, errors under
   `--strict`: `[a2a.skill-tags]` (a skill with no `skills: { [start]: { tags } }`; the card says the
   application's name) and `[a2a.unpriced-foreign-peer]` (an `@A2AAgent` without `target.application`
-  and without `price`: a foreign peer's spend is invisible to the budgets) (#812).
+  and without `costPerCall`: a foreign peer's spend is invisible to the budgets) (#812).
 
 **`describe --json`** — `application.contracts`:
 

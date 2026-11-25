@@ -265,7 +265,10 @@ describe("#1269: the built-in transcriber", () => {
         }),
       ),
   };
-  const binding = { model, settings: { model: "v", price: { inputPerMTok: 1, outputPerMTok: 1 } } };
+  const binding = {
+    model,
+    settings: { model: "v", price: { inputPerMillion: usd(1), outputPerMillion: usd(1) } },
+  };
 
   it("runs on the agent's bound model", async () => {
     const runtime = runtimeOf(

@@ -1,7 +1,8 @@
 import { NO_PROVIDER } from "./no-provider.js";
 import { isFiniteNumber } from "../graph/count-limit.js";
 import { checkedPrice } from "../models/cost.js";
-import type { Price, ResolvedModelSettings } from "../config/types.js";
+import type { ResolvedModelSettings } from "../config/types.js";
+import type { ModelPrice } from "../models/cost.js";
 import { usd, type Usd } from "../units/index.js";
 import { fallbackMarkOf } from "./fallback-mark.js";
 import type { CostCategory } from "./cost-category.js";
@@ -107,16 +108,16 @@ export function extractTokenUsage(message: UsageCarrier): TokenUsage {
   };
 }
 
-export function costOf(usage: TokenUsage, unchecked: Price): number {
+export function costOf(usage: TokenUsage, unchecked: ModelPrice): number {
   const price = checkedPrice(unchecked);
   const uncached = Math.max(0, usage.inputTokens - usage.cacheReadTokens - usage.cacheWriteTokens);
-  const readPrice = price.cacheReadPerMTok ?? price.inputPerMTok;
-  const writePrice = price.cacheWritePerMTok ?? price.inputPerMTok;
+  const readPrice = price.cacheReadPerMillion ?? price.inputPerMillion;
+  const writePrice = price.cacheWritePerMillion ?? price.inputPerMillion;
   const micro =
-    uncached * price.inputPerMTok +
+    uncached * price.inputPerMillion +
     usage.cacheReadTokens * readPrice +
     usage.cacheWriteTokens * writePrice +
-    usage.outputTokens * price.outputPerMTok;
+    usage.outputTokens * price.outputPerMillion;
   return micro / 1_000_000;
 }
 
@@ -212,7 +213,7 @@ export function unpricedUsageOf(
 function pricedOf(
   caller: string,
   model: string,
-  price: Price,
+  price: ModelPrice,
   usage: TokenUsage,
 ): Pick<UsageRecord, "costUsd" | "costSource"> {
   const priced = costOf(usage, price);

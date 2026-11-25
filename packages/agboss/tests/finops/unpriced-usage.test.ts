@@ -44,7 +44,11 @@ describe("#1313b: an unpriced call", () => {
     );
     const priced = recordUsage(
       "writer",
-      { model: "m/a", modelProvider: "p", price: { inputPerMTok: 1_000, outputPerMTok: 0 } },
+      {
+        model: "m/a",
+        modelProvider: "p",
+        price: { inputPerMillion: usd(1_000), outputPerMillion: usd(0) },
+      },
       tokens,
     );
 

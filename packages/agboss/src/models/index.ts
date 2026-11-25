@@ -140,5 +140,5 @@ export {
   type TransportModelProviderType,
 } from "./model-provider.decorator.js";
 export { type CacheControl, type WireMessage, type WireTool } from "./wire.js";
-export { type MaxTokens, type Price } from "../config/types.js";
+export { type MaxTokens } from "../config/types.js";
 export { type WireContentPart, type WireFunction } from "./wire.js";

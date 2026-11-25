@@ -81,11 +81,14 @@ describe("#1356: where a provider's cost comes from", () => {
       },
     });
 
-    expect(priceOf(cost, "local/llama")).toStrictEqual({ inputPerMTok: 1, outputPerMTok: 2 });
+    expect(priceOf(cost, "local/llama")).toStrictEqual({
+      inputPerMillion: usd(1),
+      outputPerMillion: usd(2),
+    });
     expect(priceOf(cost, "local/cached")).toStrictEqual({
-      inputPerMTok: 3,
-      outputPerMTok: 4,
-      cacheReadPerMTok: 0.5,
+      inputPerMillion: usd(3),
+      outputPerMillion: usd(4),
+      cacheReadPerMillion: usd(0.5),
     });
     expect(priceOf(cost, "other/model")).toBeUndefined();
   });

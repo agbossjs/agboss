@@ -22,9 +22,9 @@ const YES_NO_TOOLS: ReadonlySet<string> = new Set([
 
 /** Output tokens that cost `usd` at the model's output price (no price or a free model → none). */
 const tokensFor = (usd: number, settings: ResolvedModelSettings): number =>
-  settings.price === undefined || settings.price.outputPerMTok === 0
+  settings.price === undefined || settings.price.outputPerMillion === 0
     ? 0
-    : (usd * 1_000_000) / settings.price.outputPerMTok;
+    : (usd * 1_000_000) / settings.price.outputPerMillion;
 
 /** A model without a price reports its cost in the reply, as the provider would. */
 const costMetadataOf = (usd: number, settings: ResolvedModelSettings) =>

@@ -244,7 +244,7 @@ describe("#703 AC2, AC3: the trace", () => {
           model: "test/reranker",
           temperature: 0,
           maxTokens: 256,
-          price: { inputPerMTok: 1, outputPerMTok: 2 },
+          price: { inputPerMillion: usd(1), outputPerMillion: usd(2) },
         },
       }),
     });

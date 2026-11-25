@@ -20,7 +20,7 @@ const usage = { inputTokens: 100, outputTokens: 50, cacheReadTokens: 0, cacheWri
 const primary = {
   model: "primary/m",
   modelProvider: "primary-provider",
-  price: { inputPerMTok: 1, outputPerMTok: 2 },
+  price: { inputPerMillion: usd(1), outputPerMillion: usd(2) },
 };
 const backup: FallbackServer = {
   provider: "backup-provider",

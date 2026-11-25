@@ -9,6 +9,7 @@ import {
 } from "../src/config/types.js";
 import { TokenLimit } from "../src/config/types.js";
 import { testConfig } from "./helpers.js";
+import { usd } from "../src/units/index.js";
 
 describe("validateAgentsConfig", () => {
   it("accepts the shipped config: the default router is served by the workflow's provider, model-max output", async () => {
@@ -28,41 +29,6 @@ describe("validateAgentsConfig", () => {
     expect(validateAgentsConfig(config).agents).toEqual({});
   });
 
-  it.each([Number.NaN, Number.POSITIVE_INFINITY, -0.5, "five", null])(
-    "#1382: rejects a price field of %s (input, output, cache read, cache write)",
-    (value) => {
-      for (const field of [
-        "inputPerMTok",
-        "outputPerMTok",
-        "cacheReadPerMTok",
-        "cacheWritePerMTok",
-      ]) {
-        const config: AgentsConfigOf<string> = {
-          ...testConfig,
-          agents: {
-            alpha: {
-              ...testConfig.agents.alpha,
-              price: { inputPerMTok: 1, outputPerMTok: 2, [field]: value },
-            },
-          },
-        };
-
-        expect(() => validateAgentsConfig(config)).toThrow();
-      }
-    },
-  );
-
-  it("rejects a negative price", () => {
-    const config: AgentsConfigOf<string> = {
-      ...testConfig,
-      agents: {
-        alpha: { ...testConfig.agents.alpha, price: { inputPerMTok: -1, outputPerMTok: 0 } },
-      },
-    };
-
-    expect(() => validateAgentsConfig(config)).toThrow();
-  });
-
   it("rejects an agent tool the registry does not know", () => {
     const config: AgentsConfigOf<string> = {
       ...testConfig,
@@ -79,7 +45,6 @@ describe("validateAgentsConfig", () => {
     const agent: AgentsConfigOf<"a", "current-time-tool">["agents"]["a"] = {
       model: "m",
       description: "d",
-      price: { inputPerMTok: 0, outputPerMTok: 0 },
       // @ts-expect-error — "ghost" is not a registered tool
       tools: ["ghost"],
     };

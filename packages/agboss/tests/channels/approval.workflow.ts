@@ -132,7 +132,6 @@ export class Refund {
   prompt: "./clerk.prompt.md",
   description: "Refunds orders",
   model: "test/clerk",
-  price: { inputPerMTok: 1, outputPerMTok: 10 },
   tools: [Refund],
 })
 export class Clerk {}

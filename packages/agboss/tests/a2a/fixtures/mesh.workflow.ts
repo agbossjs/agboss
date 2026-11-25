@@ -124,7 +124,6 @@ export function meshAppOf(spec: MeshAppSpec): MeshAppParts {
     name: `${name}-desk-agent`,
     description: "Answers with the peer's help",
     model: `test/${name}`,
-    price: { inputPerMTok: 1, outputPerMTok: 2 },
     tools: [CallPeer],
   })
   class MeshDesk {}

@@ -53,7 +53,6 @@ export class SendApprovedEmail {
   description: "Sends approved emails",
   prompt: inline("Send the email."),
   model: "test/mailer",
-  price: { inputPerMTok: 1, outputPerMTok: 10 },
   tools: [SendApprovedEmail],
 })
 export class MailerAgent {}

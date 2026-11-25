@@ -119,7 +119,6 @@ export class ShipAction {
   description: "Searches",
   prompt: inline("Search."),
   model: "test/searcher",
-  price: { inputPerMTok: 1, outputPerMTok: 2 },
   tools: [SerpSearchTool, SlowFetchTool],
   input: { message: WorkflowStartTextDto },
   output: ResultDto,

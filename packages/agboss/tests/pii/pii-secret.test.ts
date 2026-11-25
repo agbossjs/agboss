@@ -414,7 +414,6 @@ describe("#1301b: [pii.secret-required]", () => {
       description: "a",
       prompt: inline("p"),
       model: "test/m",
-      price: { inputPerMTok: 1, outputPerMTok: 1 },
       input: { who: TokenFieldDto },
     })
     class TokenFieldAgent {}

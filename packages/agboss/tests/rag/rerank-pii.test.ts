@@ -45,6 +45,7 @@ import {
   RerankPiiApplication,
   USER_ID,
 } from "./fixtures/rerank-pii.application.js";
+import { usd } from "../../src/units/index.js";
 
 const QUESTION = "Who do I write to about on-call?";
 const RANKING = '{"ranking":[1,3,2]}';
@@ -193,7 +194,7 @@ describe("#708: the reranking's trace holds the masked text only", () => {
           model: "test/reranker",
           temperature: 0,
           maxTokens: 256,
-          price: { inputPerMTok: 1, outputPerMTok: 2 },
+          price: { inputPerMillion: usd(1), outputPerMillion: usd(2) },
         },
       }),
     };

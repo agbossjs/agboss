@@ -7,7 +7,7 @@ import { callerFile } from "../../components/call-site.js";
 import { captureCallSite } from "../../core/diagnostics/source-span.js";
 import type { Class } from "../../components/injection.js";
 import type { AgentToolClass } from "../../components/decorators.js";
-import type { CacheSetting, MaxTokens, Price } from "../../config/settings-types.js";
+import type { CacheSetting, MaxTokens } from "../../config/settings-types.js";
 import type { Reasoning } from "../../models/reasoning.js";
 import { NodeKind } from "../ast.js";
 import type { OutputShape } from "../dto-wrappers.js";
@@ -47,7 +47,6 @@ export interface AgentOptions {
   readonly reasoning?: Reasoning;
   /** `@Rag` classes: their passages come with the input, before the first model call (a tool injects a `@Rag` through `deps`). */
   readonly rag?: readonly Class[];
-  readonly price?: Price;
   readonly temperature?: number;
   readonly maxTokens?: MaxTokens;
   readonly cache?: CacheSetting;

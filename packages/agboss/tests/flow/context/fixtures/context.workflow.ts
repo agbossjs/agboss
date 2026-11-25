@@ -26,6 +26,7 @@ import { TEST_BUDGETS } from "../../fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../../src/index.js";
 import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 import { TestDecisionsModelProvider } from "../../../../src/testing/test-model-provider.js";
+import { usd } from "../../../../src/units/index.js";
 
 /** What the components read of their execution, in order (reset by `resetSeen`). */
 export const seen = {
@@ -119,7 +120,6 @@ const writer = {
   description: "Writes the draft with notes",
   prompt: inline("Write the draft."),
   model: "test/writer",
-  price: { inputPerMTok: 1, outputPerMTok: 2 },
   executionLimits: { maxVisits: 3 },
   tools: [NoteTool],
   input: { message: WorkflowStartTextDto, draft: optional(DraftDto) },
@@ -271,7 +271,6 @@ export class LazyAuditService {
   description: "Writes a draft",
   prompt: inline("Write the draft."),
   model: "test/writer",
-  price: { inputPerMTok: 1, outputPerMTok: 2 },
   input: { message: WorkflowStartTextDto },
   output: DraftDto,
 })

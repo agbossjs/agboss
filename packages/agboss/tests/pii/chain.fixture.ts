@@ -31,6 +31,7 @@ import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { onStart, toAgent, toFinish } from "../helpers/flow.js";
 import { ContactPiiPolicy } from "./pii.fixture.js";
 import { TestModelProvider } from "../../src/testing/test-model-provider.js";
+import { usd } from "../../src/units/index.js";
 
 export const ROOT_SECRET = "ROOT-7731";
 export const CHILD_SECRET = "CHILD-5512";
@@ -81,14 +82,11 @@ export class ChainObserver {
   }
 }
 
-const price = { inputPerMTok: 1, outputPerMTok: 10 };
-
 @Agent({
   name: "chain-child-agent",
   description: "Answers in the child",
   prompt: inline("Answer."),
   model: "test/chain-child",
-  price,
 })
 export class ChainChildAgent {}
 
@@ -97,7 +95,6 @@ export class ChainChildAgent {}
   description: "Sees the root's secret at its model",
   prompt: inline("Answer."),
   model: "test/chain-peek",
-  price,
   excludePiiPolicies: [RootSecretPiiPolicy],
 })
 export class ChainPeekAgent {}
@@ -107,7 +104,6 @@ export class ChainPeekAgent {}
   description: "Its workflow excludes the root's secret at its models",
   prompt: inline("Answer."),
   model: "test/chain-open",
-  price,
 })
 export class ChainOpenAgent {}
 
@@ -230,7 +226,6 @@ export class ChainFarFinish {}
   description: "Answers in a child on any instance",
   prompt: inline("Answer."),
   model: "test/chain-far",
-  price,
 })
 export class ChainFarAgent {}
 

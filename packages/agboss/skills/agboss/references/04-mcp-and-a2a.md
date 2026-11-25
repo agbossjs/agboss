@@ -441,7 +441,7 @@ export class SupportApplication {}
 - Names: `name` is kebab-case (`[name.not-kebab-case]`; no suffix needed). Its file is
   `a2a/<name>.a2a-agent.ts`.
 - `call.onEvent` gets each event of the remote task while the call waits (`A2AStreamEvent`).
-- The remote's cost: `price` per call, and — from a trusted peer (below) — its signed run report;
+- The remote's cost: `costPerCall`, and — from a trusted peer (below) — its signed run report;
   the calling tool's spend records the larger (`a2a:<target application>`), so the budgets count it.
   Pass `executionContext.signal` so a cancel or a timeout aborts the HTTP call.
 - `agboss describe --json` lists every `@A2AAgent` under `application.contracts.imports` (target,
@@ -714,7 +714,7 @@ assemble: `[a2a.task-store-not-shared]`, `[a2a.message-store-not-shared]`,
 | -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | `[a2a.endpoint-description-required]`                                                                    | an `@A2AEndpoint` with a blank `description` (the card's)                                       |
 | `[a2a.skill-tags]` (warning)                                                                             | an exported skill with no `tags` (the card falls back to the application's name)                |
-| `[a2a.unpriced-foreign-peer]` (warning)                                                                  | an `@A2AAgent` without `target.application` and without `price`: its spend is invisible         |
+| `[a2a.unpriced-foreign-peer]` (warning)                                                                  | an `@A2AAgent` without `target.application` and without `costPerCall`: its spend is invisible   |
 | `[a2a.task-store-not-shared]`                                                                            | shared leases, a task store that is not (above)                                                 |
 | `[a2a.file-store-required]`, `[a2a.file-store-not-shared]`, `[a2a.inline-files-without-store]` (warning) | where files may live (above)                                                                    |
 | `[a2a.message-skill-*]`, `[a2a.message-store-not-shared]`, `[a2a.unknown-skill-option]`                  | a direct reply (above)                                                                          |

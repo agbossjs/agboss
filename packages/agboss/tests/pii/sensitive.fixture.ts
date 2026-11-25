@@ -59,7 +59,6 @@ export class NamesPiiPolicy {}
   prompt: inline("Answer."),
   input: { message: DeskMessageDto },
   model: "test/desk",
-  price: { inputPerMTok: 1, outputPerMTok: 10 },
   piiPolicies: [NamesPiiPolicy],
 })
 export class DeskAgent {}

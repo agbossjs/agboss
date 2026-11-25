@@ -13,7 +13,7 @@ keeps its `…Usd: number` fields.
   USD, `costSource`) per call, accumulated in graph state.
 - **Cost source** — the call's [model provider](Model-providers#cost): a cost the provider reports
   in its answer (Jev, OpenRouter's `usage.cost`) is exact (`CostSource.Api`) and always comes first; else the
-  provider's price table (`ModelCost.fromPrices`) or the component's own `price` (`CostSource.PriceTable`):
+  provider's price table (`ModelCost.fromPrices`, `CostSource.PriceTable`):
   uncached input × input price + cache read/write × cache prices (fallback: input price) + output ×
   output price. A call with neither fails — never silently free; a reported cost below zero, or
   tokens that price at no amount, fail it too (#817) — never subtracted from the budgets.

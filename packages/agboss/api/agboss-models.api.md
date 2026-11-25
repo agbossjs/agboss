@@ -706,18 +706,6 @@ export interface PlainErrorOptions {
 }
 
 // @public
-export interface Price {
-    // (undocumented)
-    cacheReadPerMTok?: number | undefined;
-    // (undocumented)
-    cacheWritePerMTok?: number | undefined;
-    // (undocumented)
-    inputPerMTok: number;
-    // (undocumented)
-    outputPerMTok: number;
-}
-
-// @public
 export type PromptCaching = ({
     readonly kind: "on";
 } & PromptCachingOptions) | {
@@ -883,7 +871,7 @@ export interface ResolvedModelSettings {
     // (undocumented)
     readonly model: string;
     readonly modelProvider?: string | undefined;
-    readonly price?: Price | undefined;
+    readonly price?: ModelPrice | undefined;
     // (undocumented)
     readonly promptCaching?: PromptCaching | undefined;
     // (undocumented)
@@ -1044,10 +1032,6 @@ export interface WireTool {
 
 // Warnings were encountered during analysis:
 //
-// src/config/settings-types.ts - (ae-undocumented) Missing documentation for "inputPerMTok".
-// src/config/settings-types.ts - (ae-undocumented) Missing documentation for "outputPerMTok".
-// src/config/settings-types.ts - (ae-undocumented) Missing documentation for "cacheReadPerMTok".
-// src/config/settings-types.ts - (ae-undocumented) Missing documentation for "cacheWritePerMTok".
 // src/config/types.ts - (ae-undocumented) Missing documentation for "model".
 // src/config/types.ts - (ae-undocumented) Missing documentation for "temperature".
 // src/config/types.ts - (ae-undocumented) Missing documentation for "maxTokens".
