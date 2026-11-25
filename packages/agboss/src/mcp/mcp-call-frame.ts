@@ -34,12 +34,8 @@ export function inMcpCallFrame<TResult>(
     execution: call.session.execution,
   });
   const callId = call.callId ?? `mcp_${name}_${randomUUID()}`;
-  const executionId = scopedExecutionId(
-    tenant.tenantId,
-    call.session.ownerId ?? call.session.peer,
-    name,
-    callId,
-  );
+  const { ownerId, peer } = call.session;
+  const executionId = scopedExecutionId({ tenantId: tenant.tenantId, ownerId, peer, name, callId });
   // the tool is this application's entry of the call chain (#398): its own calls carry it on
   const entry = { application: tenant.application.name, start: name };
   const frame = standaloneCallFrameOf({
@@ -57,15 +53,20 @@ export function inMcpCallFrame<TResult>(
   return runInFrame(frame, work);
 }
 
-/** `mcp_` + a hash of (tenant, caller, tool, callId): a client cannot pick another's id. */
-function scopedExecutionId(
-  tenantId: string,
-  caller: string | undefined,
-  tool: string,
-  callId: string,
-): string {
+/**
+ * `mcp_` + a hash of (tenant, owner, peer, tool, callId), each in a slot of its own (an owner named
+ * like a peer is not that peer): a client cannot pick another's id.
+ */
+function scopedExecutionId(parts: {
+  readonly tenantId: string;
+  readonly ownerId: string | undefined;
+  readonly peer: string | undefined;
+  readonly name: string;
+  readonly callId: string;
+}): string {
+  const { tenantId, ownerId, peer, name, callId } = parts;
   const digest = createHash("sha256")
-    .update(JSON.stringify([tenantId, caller ?? null, tool, callId]))
+    .update(JSON.stringify([tenantId, ownerId ?? null, peer ?? null, name, callId]))
     .digest("hex");
   return `mcp_${digest.slice(0, 32)}`;
 }

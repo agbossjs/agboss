@@ -60,4 +60,12 @@ describe("#1366: the frame of an MCP call", () => {
     expect(new Set([acme.executionId, globex.executionId, eve.executionId]).size).toBe(3);
     expect(again.key).toBe(acme.key);
   });
+
+  it("keeps an owner and a peer of the same name apart", async () => {
+    const owner = await idsOf("c-1", { ownerId: "x" });
+    const peer = await idsOf("c-1", { peer: "x" });
+
+    expect(owner.key).not.toBe(peer.key);
+    expect(owner.executionId).not.toBe(peer.executionId);
+  });
 });
