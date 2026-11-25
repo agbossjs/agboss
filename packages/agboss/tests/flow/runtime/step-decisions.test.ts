@@ -23,10 +23,10 @@ const HASHED = /^answer:[0-9a-f]{64}$/u;
 describe("#401 PR 5: record.steps[].decision", () => {
   testWith(EditApplication)(
     "a router's route, an agent's answer by its hash — one answer, one hash; a finish decides nothing",
-    async ({ app, mockLlm }) => {
+    async ({ app, mockModel }) => {
       // the editor writes first, the gate sends it back once, then stops
-      mockLlm(GateRouter).thenReturn(routeTo(EditorAgent), routeTo(DoneFinish));
-      mockLlm(EditorAgent).thenReturn(
+      mockModel(GateRouter).thenReturn(routeTo(EditorAgent), routeTo(DoneFinish));
+      mockModel(EditorAgent).thenReturn(
         replyWith(DraftDto, { text: "v1" }),
         replyWith(DraftDto, { text: "v1" }),
       );

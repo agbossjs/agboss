@@ -721,16 +721,16 @@ import { RefundTool } from "./src/refunds/tools/refund.tool.js";
 ```ts
 const test = testWith(RefundsApplication);
 
-test("a large refund waits for the manager, then runs", async ({ app, mockLlm, mockOf }) => {
-  mockOf(SlackRefundChannel).send.mockResolvedValue(ChannelOutcome.awaitReply());
-  mockLlm(RefundAgent).thenReturn(
+test("a large refund waits for the manager, then runs", async ({ app, mockModel, mockService }) => {
+  mockService(SlackRefundChannel).send.mockResolvedValue(ChannelOutcome.awaitReply());
+  mockModel(RefundAgent).thenReturn(
     callTool(RefundTool, { orderId: "7", amountCents: 90_000 }),
     replyWith("Refunded order 7."),
   );
 
   const paused = await app.execute(RefundWorkflowStart, { text: "refund order 7" });
   expect(paused.pending).toHaveLength(1);
-  const [ask] = mockOf(SlackRefundChannel).send.mock.calls[0] ?? [];
+  const [ask] = mockService(SlackRefundChannel).send.mock.calls[0] ?? [];
 
   const done = await app.resume(
     { pauseId: ask?.pauseId ?? "", decision: { approved: true } },
@@ -740,12 +740,12 @@ test("a large refund waits for the manager, then runs", async ({ app, mockLlm, m
 });
 ```
 
-- `mockOf(Channel).send.mockResolvedValue(ChannelOutcome.decided({ approved: true }))` decides
+- `mockService(Channel).send.mockResolvedValue(ChannelOutcome.decided({ approved: true }))` decides
   at once; `testWith(App, { channels: [AutoApproveChannel.for(RefundToolApproval)] })`
   replaces the target's channel for the whole test (`AutoRejectChannel.for(…)` refuses).
 - The fixtures `answerPause(Target, decision)` and `replyToPause(Target, "text")` answer a pause of
   a target in an eval or a test script; `listPauses({ target })` reads what waits.
-- A model reply interpreter is scripted by its input: `mockLlm(Interpreter).when({ reply: "ok" })
+- A model reply interpreter is scripted by its input: `mockModel(Interpreter).when({ reply: "ok" })
 .thenReturn(replyWith(ToolCallApprovalDecisionDto, { approved: true }))`; one on a decision model
   with `decideWith({ approved: 0.9 })`.
 

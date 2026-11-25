@@ -110,9 +110,9 @@ describe("#1307a: an @ExternalTask step pauses like a question and its channel i
 describe("#1307a: a @ToolApproval gates a tool named by `approval`", () => {
   test("the tool call is asked of the channel serving the approval, answered and run", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ClerkAgent).thenReturn(
+    mockModel(ClerkAgent).thenReturn(
       callTool(RefundTool, { orderId: "A-1" }),
       replyWith("Refunded."),
     );
@@ -140,8 +140,8 @@ describe("#1307a: a @ToolApproval gates a tool named by `approval`", () => {
     expect(inbox.refunded).toEqual(["A-1"]);
   });
 
-  test("a rejection resumes the run without the tool", async ({ app, mockLlm }) => {
-    mockLlm(ClerkAgent).thenReturn(
+  test("a rejection resumes the run without the tool", async ({ app, mockModel }) => {
+    mockModel(ClerkAgent).thenReturn(
       callTool(RefundTool, { orderId: "A-1" }),
       replyWith("Not refunded."),
     );

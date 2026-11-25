@@ -42,9 +42,9 @@ beforeEach(resetClinicSeen);
 describe("#261 AC4: the levels link up; the project's subclasses are declared and injected", () => {
   test("a tool reads its execution, its tenant and the application through one object", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(BedAgent).thenReturn(
+    mockModel(BedAgent).thenReturn(
       callTool(FreeBedsTool, { ward: "icu" }),
       replyWith(BedsDto, { text: "2 beds" }),
     );
@@ -68,9 +68,9 @@ describe("#261 AC4: the levels link up; the project's subclasses are declared an
 
   test("the base tokens give the declared levels: one tenant object, frozen, linked to the one application", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(BedAgent).thenReturn(replyWith(BedsDto, { text: "none" }));
+    mockModel(BedAgent).thenReturn(replyWith(BedsDto, { text: "none" }));
 
     await app.execute(
       BedRequestWorkflowStart,
@@ -102,7 +102,7 @@ describe("#261 AC4: the levels link up; the project's subclasses are declared an
 describe("#261 AC4: the values are validated before the first step and frozen", () => {
   test("an invalid value is dto.invalid and onRunRejected: the field named, never the value", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
     // no script: a model call would fail the test as a blocked live call
     const tenant = { tenantId: "haifa-clinic", units: [{ unitId: 4711, name: "ICU" }] };
@@ -122,7 +122,7 @@ describe("#261 AC4: the values are validated before the first step and frozen", 
     await expect(refused).rejects.not.toThrow(/4711/);
     expect(clinicSeen.rejections).toMatchObject([{ operation: "execute", code: "dto.invalid" }]);
     expect(clinicSeen.rejections[0]?.message).not.toContain("4711");
-    expect(mockLlm(BedAgent).requests).toHaveLength(0);
+    expect(mockModel(BedAgent).requests).toHaveLength(0);
   });
 
   test("a missing execution field, a weight that is not a positive integer: rejected", async ({
@@ -148,9 +148,9 @@ describe("#261 AC4: the values are validated before the first step and frozen", 
 
   test("frozen: the tenant and everything in it; the caller's own object is not touched", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(BedAgent).thenReturn(replyWith(BedsDto, { text: "none" }));
+    mockModel(BedAgent).thenReturn(replyWith(BedsDto, { text: "none" }));
     const tenant = { tenantId: "haifa-clinic", units: [{ unitId: "icu", name: "ICU" }] };
 
     await app.execute(BedRequestWorkflowStart, { text: "a bed" }, { tenant, execution: levi });
@@ -163,9 +163,9 @@ describe("#261 AC4: the values are validated before the first step and frozen", 
 
   test("a resume runs on the values the execution started with; it takes only the tenant's id", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(BedAgent).thenReturn(
+    mockModel(BedAgent).thenReturn(
       callTool(BookBedTool, { ward: "icu" }),
       replyWith(BedsDto, { text: "booked" }),
     );
@@ -198,9 +198,9 @@ describe("#261 AC5: the default tenant; a thread's key is tenant + thread", () =
 
   test("another tenant's thread does not exist for the caller: its id is a thread of its own", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(BedAgent).thenReturn(
+    mockModel(BedAgent).thenReturn(
       replyWith(BedsDto, { text: "none" }),
       replyWith(BedsDto, { text: "none either" }),
     );
@@ -219,7 +219,7 @@ describe("#261 AC5: the default tenant; a thread's key is tenant + thread", () =
 
     // the same id in tel-aviv is a new thread of tel-aviv's (#262 Q4): haifa's turns are not in it
     expect((await continued).threadId).toBe(first.threadId);
-    const [inHaifa, inTelAviv] = mockLlm(BedAgent).requests;
+    const [inHaifa, inTelAviv] = mockModel(BedAgent).requests;
     expect(inTelAviv?.kind === "chat" && inTelAviv.messages.length).toBe(
       inHaifa?.kind === "chat" && inHaifa.messages.length,
     );
@@ -234,8 +234,8 @@ describe("#261 AC5: the default tenant; a thread's key is tenant + thread", () =
     });
   });
 
-  test("another tenant cannot resume a pause; its own tenant does", async ({ app, mockLlm }) => {
-    mockLlm(BedAgent).thenReturn(
+  test("another tenant cannot resume a pause; its own tenant does", async ({ app, mockModel }) => {
+    mockModel(BedAgent).thenReturn(
       callTool(BookBedTool, { ward: "icu" }),
       replyWith(BedsDto, { text: "booked" }),
     );

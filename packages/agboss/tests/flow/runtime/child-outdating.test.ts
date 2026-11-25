@@ -26,8 +26,8 @@ const who = {
 beforeEach(resetChildLog);
 
 describe("#271 AC12: outdating across a child", () => {
-  test("a renewed start input outdates the child's result", async ({ app, mockLlm }) => {
-    mockLlm(ItemPickerAgent).thenReturn(
+  test("a renewed start input outdates the child's result", async ({ app, mockModel }) => {
+    mockModel(ItemPickerAgent).thenReturn(
       replyWith(ItemDto, { name: "retry", delay: 0, outcome: "ok" }),
       replyWith(ItemDto, { name: "keeper", delay: 0, outcome: "ok" }),
     );
@@ -52,9 +52,9 @@ describe("#271 AC12: outdating across a child", () => {
 
   test("a child in a loop: a new execution each pass, its start input only", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ItemPickerAgent).thenReturn(
+    mockModel(ItemPickerAgent).thenReturn(
       replyWith(ItemDto, { name: "retry", delay: 0, outcome: "ok" }),
       replyWith(ItemDto, { name: "keeper", delay: 0, outcome: "ok" }),
     );

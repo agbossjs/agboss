@@ -108,19 +108,19 @@ const test = testWith(Templated.application);
 describe("#199: router and route prompts are templated", () => {
   test("the router's model gets its prompt and route texts with the variables filled", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Templated.router).thenReturn(routeTo(Templated.scout));
-    mockLlm(Templated.scout).thenReturn(replyWith("3 boards scouted"));
+    mockModel(Templated.router).thenReturn(routeTo(Templated.scout));
+    mockModel(Templated.scout).thenReturn(replyWith("3 boards scouted"));
 
     await execute(app, TestChat, { text: "find jobs" });
 
-    expect(mockLlm(Templated.router).requests[0]).toMatchObject({
+    expect(mockModel(Templated.router).requests[0]).toMatchObject({
       kind: "decision",
       instructions: "Pick who handles it; the boards are LinkedIn, AllJobs.",
       routes: { "scout-agent": "Scouting LinkedIn, AllJobs" },
     });
-    expect(mockLlm(Templated.scout).onlyRequest).toMatchObject({
+    expect(mockModel(Templated.scout).onlyRequest).toMatchObject({
       kind: "chat",
       system: expect.stringContaining("You scout LinkedIn, AllJobs.") as string,
     });

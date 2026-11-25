@@ -373,18 +373,18 @@ A failed undo is not marked: the next holder runs it again (its key `<step key>:
 makes that safe).
 
 ```ts no-check: the send-offer example's test (examples/flow-patterns/tests/hiring/workflows/send-offer/send-offer.workflow.test.ts), shown here as the case it proves
-test("a cancel while paused: the pause is withdrawn, both undone, then cancelled", async ({ app, mockLlm, mockOf }) => {
-  mockOf(AtsClientService).registerOffer.mockResolvedValue("offer-7");
-  mockOf(HrCalendarService).bookSlot.mockResolvedValue("slot-3");
-  mockLlm(OfferLetterAgent).thenReturn(replyWith(OfferLetterDto, { text: "Dear Ada…" }));
-  mockLlm(OfferSenderAgent).thenReturn(callTool(SendOfferLetterTool, { text: "Dear Ada…" }));
+test("a cancel while paused: the pause is withdrawn, both undone, then cancelled", async ({ app, mockModel, mockService }) => {
+  mockService(AtsClientService).registerOffer.mockResolvedValue("offer-7");
+  mockService(HrCalendarService).bookSlot.mockResolvedValue("slot-3");
+  mockModel(OfferLetterAgent).thenReturn(replyWith(OfferLetterDto, { text: "Dear Ada…" }));
+  mockModel(OfferSenderAgent).thenReturn(callTool(SendOfferLetterTool, { text: "Dear Ada…" }));
   const paused = await app.execute(SendOfferWorkflowStart, REQUEST, { threadId: "t-1" });
 
   const cancel = await app.cancel(paused.threadId); // waits for the undo, each bounded by compensationTimeout
 
   expect(cancel).toEqual({ cancelled: true });
-  expect(mockOf(HrCalendarService).releaseSlot.mock.calls).toHaveLength(1);
-  expect(mockOf(AtsClientService).withdrawOffer.mock.calls).toHaveLength(1);
+  expect(mockService(HrCalendarService).releaseSlot.mock.calls).toHaveLength(1);
+  expect(mockService(AtsClientService).withdrawOffer.mock.calls).toHaveLength(1);
 });
 ```
 

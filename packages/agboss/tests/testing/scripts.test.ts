@@ -53,17 +53,19 @@ const ranked = (score: string) => replyWith(CompanyScoreDto, { score });
 describe("AC6: when(…) binds a script to the node's input values", () => {
   chat(
     "the scout answers by what it reads, in any order of the calls",
-    async ({ app, mockLlm }) => {
-      mockLlm(MainRouter).thenReturn(
+    async ({ app, mockModel }) => {
+      mockModel(MainRouter).thenReturn(
         routeTo(ProfilerAgent),
         routeTo(ScoutAgent),
         routeTo(ScoutAgent),
       );
-      mockLlm(ProfilerAgent).thenReturn(replyWith(ProfileDto, { summary: "TS backend" }));
-      mockLlm(ScoutAgent)
+      mockModel(ProfilerAgent).thenReturn(replyWith(ProfileDto, { summary: "TS backend" }));
+      mockModel(ScoutAgent)
         .when({ profile: { summary: "TS backend" } })
         .thenReturn(openings("3 TypeScript roles"));
-      mockLlm(ScoutAgent).when({ profile: undefined }).thenReturn(openings("send a resume first"));
+      mockModel(ScoutAgent)
+        .when({ profile: undefined })
+        .thenReturn(openings("send a resume first"));
 
       const withProfile = await app.execute(IntakeWorkflowStart, { text: "my resume" });
       const without = await app.execute(IntakeWorkflowStart, { text: "any jobs?" });
@@ -73,19 +75,19 @@ describe("AC6: when(…) binds a script to the node's input values", () => {
     },
   );
 
-  chat("an omitted key is not checked: when({}) matches every call", async ({ app, mockLlm }) => {
-    mockLlm(MainRouter).when({}).thenReturn(routeTo(ScoutAgent));
-    mockLlm(ScoutAgent).when({}).thenReturn(openings("any"));
+  chat("an omitted key is not checked: when({}) matches every call", async ({ app, mockModel }) => {
+    mockModel(MainRouter).when({}).thenReturn(routeTo(ScoutAgent));
+    mockModel(ScoutAgent).when({}).thenReturn(openings("any"));
 
     const result = await app.execute(IntakeWorkflowStart, { text: "jobs?" });
 
     expect(result).toFinishWith(ChatWorkflowFinish, { openings: "any" });
   });
 
-  chat("a call no script matches fails the test, naming its input", async ({ app, mockLlm }) => {
-    mockLlm(MainRouter).thenReturn(routeTo(ProfilerAgent), routeTo(ScoutAgent));
-    mockLlm(ProfilerAgent).thenReturn(replyWith(ProfileDto, { summary: "Go backend" }));
-    mockLlm(ScoutAgent)
+  chat("a call no script matches fails the test, naming its input", async ({ app, mockModel }) => {
+    mockModel(MainRouter).thenReturn(routeTo(ProfilerAgent), routeTo(ScoutAgent));
+    mockModel(ProfilerAgent).thenReturn(replyWith(ProfileDto, { summary: "Go backend" }));
+    mockModel(ScoutAgent)
       .when({ profile: { summary: "TS" } })
       .thenReturnAlways(openings("never"));
 
@@ -93,13 +95,13 @@ describe("AC6: when(…) binds a script to the node's input values", () => {
 
     await expect(run).rejects.toFailWith(TestFailure, { code: "test.no-matching-script" });
     await expect(run).rejects.toThrow(
-      'no script of mockLlm(ScoutAgent) matches the input {"profile":{"summary":"Go backend"}}',
+      'no script of mockModel(ScoutAgent) matches the input {"profile":{"summary":"Go backend"}}',
     );
   });
 
-  chat("a when(…) that ran out fails as an exhausted script", async ({ app, mockLlm }) => {
-    mockLlm(MainRouter).thenReturnAlways(routeTo(ScoutAgent));
-    mockLlm(ScoutAgent).when({ profile: undefined }).thenReturn(openings("once"));
+  chat("a when(…) that ran out fails as an exhausted script", async ({ app, mockModel }) => {
+    mockModel(MainRouter).thenReturnAlways(routeTo(ScoutAgent));
+    mockModel(ScoutAgent).when({ profile: undefined }).thenReturn(openings("once"));
     const first = await app.execute(IntakeWorkflowStart, { text: "jobs?" });
 
     const again = app.execute(IntakeWorkflowStart, { text: "more?" }, { threadId: first.threadId });
@@ -111,10 +113,10 @@ describe("AC6: when(…) binds a script to the node's input values", () => {
 
   chat(
     "a loop's visits: the router's own turns by position, the scout's by its input",
-    async ({ app, mockLlm }) => {
-      mockLlm(MainRouter).thenReturn(routeTo(ProfilerAgent), routeTo(ScoutAgent));
-      mockLlm(ProfilerAgent).thenReturn(replyWith(ProfileDto, { summary: "Rust" }));
-      mockLlm(ScoutAgent)
+    async ({ app, mockModel }) => {
+      mockModel(MainRouter).thenReturn(routeTo(ProfilerAgent), routeTo(ScoutAgent));
+      mockModel(ProfilerAgent).thenReturn(replyWith(ProfileDto, { summary: "Rust" }));
+      mockModel(ScoutAgent)
         .when({ profile: { summary: "Rust" } })
         .thenReturn(openings("2 Rust roles"));
 
@@ -128,18 +130,18 @@ describe("AC6: when(…) binds a script to the node's input values", () => {
         ScoutAgent,
         ChatWorkflowFinish,
       ]);
-      expect(mockLlm(MainRouter).inputs).toHaveLength(2);
+      expect(mockModel(MainRouter).inputs).toHaveLength(2);
     },
   );
 
   companies(
     "a listOf field is compared by length and position; [] matches an empty list",
-    async ({ app, mockLlm }) => {
-      mockLlm(BatchRankAgent).when({ companies: [] }).thenReturn(ranked("none"));
-      mockLlm(BatchRankAgent)
+    async ({ app, mockModel }) => {
+      mockModel(BatchRankAgent).when({ companies: [] }).thenReturn(ranked("none"));
+      mockModel(BatchRankAgent)
         .when({ companies: [{ name: "Acme" }] })
         .thenReturn(ranked("one"));
-      mockLlm(BatchRankAgent)
+      mockModel(BatchRankAgent)
         .when({ companies: [{ name: "Acme" }, { name: "Beta" }] })
         .thenReturn(ranked("two"));
 
@@ -163,10 +165,10 @@ describe("AC6: when(…) binds a script to the node's input values", () => {
 const failedWith: string[] = [];
 
 describe("AC7: a script is an expectation", { shuffle: false }, () => {
-  chat.fails("an unused when(…) fails the test at its end", async ({ app, mockLlm }) => {
-    mockLlm(MainRouter).thenReturn(routeTo(ScoutAgent));
-    mockLlm(ScoutAgent).thenReturn(openings("3"));
-    mockLlm(ScoutAgent)
+  chat.fails("an unused when(…) fails the test at its end", async ({ app, mockModel }) => {
+    mockModel(MainRouter).thenReturn(routeTo(ScoutAgent));
+    mockModel(ScoutAgent).thenReturn(openings("3"));
+    mockModel(ScoutAgent)
       .when({ profile: { summary: "never sent" } })
       .thenReturn(openings("x"));
 
@@ -177,9 +179,9 @@ describe("AC7: a script is an expectation", { shuffle: false }, () => {
 
   chat.fails(
     "a thenReturn turn never taken fails the test at its end",
-    async ({ app, mockLlm }) => {
-      mockLlm(MainRouter).thenReturn(routeTo(ScoutAgent), routeTo(ScoutAgent));
-      mockLlm(ScoutAgent).thenReturn(openings("3"));
+    async ({ app, mockModel }) => {
+      mockModel(MainRouter).thenReturn(routeTo(ScoutAgent), routeTo(ScoutAgent));
+      mockModel(ScoutAgent).thenReturn(openings("3"));
 
       expect(await app.execute(IntakeWorkflowStart, { text: "jobs?" })).toFinishWith(
         ChatWorkflowFinish,
@@ -187,10 +189,10 @@ describe("AC7: a script is an expectation", { shuffle: false }, () => {
     },
   );
 
-  chat("thenReturnAlways is never a leftover, under when(…) too", async ({ app, mockLlm }) => {
-    mockLlm(MainRouter).thenReturnAlways(routeTo(ScoutAgent));
-    mockLlm(ScoutAgent).thenReturnAlways(openings("3"));
-    mockLlm(ScoutAgent)
+  chat("thenReturnAlways is never a leftover, under when(…) too", async ({ app, mockModel }) => {
+    mockModel(MainRouter).thenReturnAlways(routeTo(ScoutAgent));
+    mockModel(ScoutAgent).thenReturnAlways(openings("3"));
+    mockModel(ScoutAgent)
       .when({ profile: { summary: "never sent" } })
       .thenReturnAlways(openings("x"));
 
@@ -199,11 +201,11 @@ describe("AC7: a script is an expectation", { shuffle: false }, () => {
     );
   });
 
-  chat.fails("a test that already failed reports its own failure", async ({ mockLlm }) => {
+  chat.fails("a test that already failed reports its own failure", async ({ mockModel }) => {
     onTestFailed(({ task }) => {
       failedWith.push(...(task.result?.errors ?? []).map((error) => error.message));
     });
-    mockLlm(ScoutAgent).thenReturn(openings("never asked"));
+    mockModel(ScoutAgent).thenReturn(openings("never asked"));
 
     expect.fail("the test's own failure");
   });
@@ -214,9 +216,11 @@ describe("AC7: a script is an expectation", { shuffle: false }, () => {
 });
 
 describe("AC8: a scripted cost is the execution's spend", () => {
-  chat("replyWith(Dto, fields, { cost }) adds the cost", async ({ app, mockLlm }) => {
-    mockLlm(MainRouter).thenReturn(routeTo(ScoutAgent, { cost: usd(0.001) }));
-    mockLlm(ScoutAgent).thenReturn(replyWith(OpeningsDto, { openings: "3" }, { cost: usd(0.03) }));
+  chat("replyWith(Dto, fields, { cost }) adds the cost", async ({ app, mockModel }) => {
+    mockModel(MainRouter).thenReturn(routeTo(ScoutAgent, { cost: usd(0.001) }));
+    mockModel(ScoutAgent).thenReturn(
+      replyWith(OpeningsDto, { openings: "3" }, { cost: usd(0.03) }),
+    );
 
     const result = await app.execute(IntakeWorkflowStart, { text: "jobs?" });
 
@@ -227,17 +231,17 @@ describe("AC8: a scripted cost is the execution's spend", () => {
 describe("AC8 (Q55): routeTo(…) of a router before a launch", () => {
   desk(
     "on a decision model: the OnDemand targets it names are launched, routeTo() none",
-    async ({ app, mockLlm }) => {
+    async ({ app, mockModel }) => {
       const reply = replyWith(CustomerReplyDto, { text: "Here.", holdForReview: false });
-      mockLlm(HelpDeskRouter).thenReturn(routeTo(RefundPolicyAgent), routeTo());
-      mockLlm(OrderLookupAgent).thenReturn(
+      mockModel(HelpDeskRouter).thenReturn(routeTo(RefundPolicyAgent), routeTo());
+      mockModel(OrderLookupAgent).thenReturn(
         ...[1, 2].map(() => replyWith(OrderStatusDto, { status: "shipped" })),
       );
-      mockLlm(RefundPolicyAgent).thenReturn(replyWith(RefundPolicyDto, { policy: "30 days" }));
-      mockLlm(LoyaltyOfferAgent).thenReturn(
+      mockModel(RefundPolicyAgent).thenReturn(replyWith(RefundPolicyDto, { policy: "30 days" }));
+      mockModel(LoyaltyOfferAgent).thenReturn(
         ...[1, 2].map(() => replyWith(LoyaltyOfferDto, { offer: "10% off" })),
       );
-      mockLlm(AnswerAgent).thenReturn(reply, reply);
+      mockModel(AnswerAgent).thenReturn(reply, reply);
 
       const refund = await app.execute(HelpDeskWorkflowStart, { text: "a refund?" });
       const plain = await app.execute(HelpDeskWorkflowStart, { text: "where is it?" });
@@ -249,10 +253,10 @@ describe("AC8 (Q55): routeTo(…) of a router before a launch", () => {
     },
   );
 
-  picky("on a chat model: a yes for each target it names", async ({ app, mockLlm }) => {
-    mockLlm(PickyRouter).thenReturn(routeTo(LoyaltyOfferAgent));
-    mockLlm(LoyaltyOfferAgent).thenReturn(replyWith(LoyaltyOfferDto, { offer: "10% off" }));
-    mockLlm(PickyAnswerAgent).thenReturn(
+  picky("on a chat model: a yes for each target it names", async ({ app, mockModel }) => {
+    mockModel(PickyRouter).thenReturn(routeTo(LoyaltyOfferAgent));
+    mockModel(LoyaltyOfferAgent).thenReturn(replyWith(LoyaltyOfferDto, { offer: "10% off" }));
+    mockModel(PickyAnswerAgent).thenReturn(
       replyWith(CustomerReplyDto, { text: "Here.", holdForReview: false }),
     );
 
@@ -262,8 +266,8 @@ describe("AC8 (Q55): routeTo(…) of a router before a launch", () => {
     expect(result.path).not.toContain("refund-policy-agent");
   });
 
-  picky("a target it does not launch fails the test", async ({ app, mockLlm }) => {
-    mockLlm(PickyRouter).thenReturn(routeTo(PickyAnswerAgent));
+  picky("a target it does not launch fails the test", async ({ app, mockModel }) => {
+    mockModel(PickyRouter).thenReturn(routeTo(PickyAnswerAgent));
 
     const run = execute(app, PickyWorkflowStart, { text: "hi" });
 
@@ -274,9 +278,9 @@ describe("AC8 (Q55): routeTo(…) of a router before a launch", () => {
 });
 
 describe("waitFor(…): a call takes time on the test's clock", () => {
-  chat("the answer comes only when the clock reaches it", async ({ app, mockLlm, clock }) => {
-    mockLlm(MainRouter).thenReturn(routeTo(ScoutAgent));
-    mockLlm(ScoutAgent).thenReturn(waitFor(seconds(31)), openings("late"));
+  chat("the answer comes only when the clock reaches it", async ({ app, mockModel, clock }) => {
+    mockModel(MainRouter).thenReturn(routeTo(ScoutAgent));
+    mockModel(ScoutAgent).thenReturn(waitFor(seconds(31)), openings("late"));
     let settled = false;
 
     const run = app.execute(IntakeWorkflowStart, { text: "jobs?" }).finally(() => {

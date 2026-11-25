@@ -96,10 +96,10 @@ describe("AC9: time in the queue does not count toward a quorum's deadline", () 
   test("a quorum's deadline excludes the time its voters wait for a slot (#279)", async ({
     app,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(FirstVoterAgent).thenReturn(replyWith(VoteDto, { yes: true }));
-    mockLlm(SecondVoterAgent).thenReturn(replyWith(VoteDto, { yes: true }));
+    mockModel(FirstVoterAgent).thenReturn(replyWith(VoteDto, { yes: true }));
+    mockModel(SecondVoterAgent).thenReturn(replyWith(VoteDto, { yes: true }));
     const items = [{ name: "w", seconds: 40, outcome: "ok" }, instant("v")];
 
     const execution = execute(app, VotingWorkflowStart, items);
@@ -115,10 +115,10 @@ describe("AC9: time in the queue does not count toward a quorum's deadline", () 
   test("past the moved deadline the reason names it: the ticket's plus the time in the queue", async ({
     app,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(FirstVoterAgent).thenReturn(replyWith(VoteDto, { yes: true }));
-    mockLlm(SecondVoterAgent).thenReturn(waitFor(seconds(31)), replyWith(VoteDto, { yes: true }));
+    mockModel(FirstVoterAgent).thenReturn(replyWith(VoteDto, { yes: true }));
+    mockModel(SecondVoterAgent).thenReturn(waitFor(seconds(31)), replyWith(VoteDto, { yes: true }));
     const items = [{ name: "w", seconds: 40, outcome: "ok" }, instant("v")];
 
     const execution = execute(app, StrictVotingWorkflowStart, items);

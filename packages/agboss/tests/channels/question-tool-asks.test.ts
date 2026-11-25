@@ -43,9 +43,9 @@ describe("#712: invalid question arguments ask nobody", () => {
   for (const [what, args] of INVALID_ASKS) {
     test(`${what}: no pause, no send, the model reads a tool error and goes on`, async ({
       app,
-      mockLlm,
+      mockModel,
     }) => {
-      mockLlm(BuyerAgent).thenReturn(
+      mockModel(BuyerAgent).thenReturn(
         callTool(ApproverExternalTask, malformed(args)),
         replyWith("could not ask"),
       );
@@ -59,7 +59,7 @@ describe("#712: invalid question arguments ask nobody", () => {
         .resolve(PausedExecutionRepository)
         .findAllByTenantIdAndRootExecutionId("default", done.executionId);
       expect(pauses).toEqual([]);
-      const [, afterCall] = mockLlm(BuyerAgent).requests;
+      const [, afterCall] = mockModel(BuyerAgent).requests;
       const [result = ""] = toolResultsOf(afterCall);
       expect(result).toMatch(/^Tool error: /);
       expect(result).not.toContain("DE89");
@@ -69,9 +69,9 @@ describe("#712: invalid question arguments ask nobody", () => {
 
   test("invalid calls count against maxVisits: the next valid one is past it, asked of nobody", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(BuyerAgent).thenReturn(
+    mockModel(BuyerAgent).thenReturn(
       callTool(ApproverExternalTask, malformed({ item: "laptop" })),
       callTool(ApproverExternalTask, malformed({ item: "laptop", priceUsd: "a lot" })),
       callTool(ApproverExternalTask, { item: "laptop", priceUsd: 900 }),

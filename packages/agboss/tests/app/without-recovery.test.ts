@@ -83,10 +83,10 @@ describe("#860: a run no recovery continues", () => {
   test("its holder down, recovery ends it as cancelled: no pass, no model called again", async ({
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
     // the script is the expectation: a call past it fails the test (no model called again)
-    mockLlm(Clerk).thenReturn(...stepAndHold);
+    mockModel(Clerk).thenReturn(...stepAndHold);
     const [first] = await pair(apps);
     const { call } = await holding(first, true);
     kill("instance-1");
@@ -98,15 +98,15 @@ describe("#860: a run no recovery continues", () => {
     expect(seen.cancels).toHaveLength(1);
     expect(seen.resumes).toEqual([]);
     expect(seen.holds).toHaveLength(1);
-    expect(mockLlm(Clerk).requests).toHaveLength(2);
+    expect(mockModel(Clerk).requests).toHaveLength(2);
     expect(await lastStatus()).toBe("cancelled");
   });
 
   test("its holder alive, the mark changes nothing: it ends at its finish", async ({
     apps,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(...stepAndHold, replyWith(ReceiptDto, { text: "Done." }));
+    mockModel(Clerk).thenReturn(...stepAndHold, replyWith(ReceiptDto, { text: "Done." }));
     const [first] = await pair(apps);
     const { call } = await holding(first, true);
 
@@ -119,9 +119,9 @@ describe("#860: a run no recovery continues", () => {
   test("the same run without the mark is recovered: the bite of the case above", async ({
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(
+    mockModel(Clerk).thenReturn(
       ...stepAndHold,
       callTool(Hold, { text: "a long job" }),
       replyWith(ReceiptDto, { text: "Done." }),
@@ -140,9 +140,9 @@ describe("#860: a run no recovery continues", () => {
 
   test("the mark is the reserved tree key @agboss/without-recovery, written once, before the first pass — none without it", async ({
     apps,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(...stepAndHold, replyWith(ReceiptDto, { text: "Done." }));
+    mockModel(Clerk).thenReturn(...stepAndHold, replyWith(ReceiptDto, { text: "Done." }));
     const saves = vi.spyOn(InMemoryExecutionTreeRepository.prototype, "saveIfAbsentInTree");
     const [first] = await pair(apps);
     const { call } = await holding(first, true);
@@ -166,8 +166,8 @@ async function keptRecordOn(app: TestApp) {
 describe("#860 D1: a lost run no recovery continues is one call of unknown cost, where #853's are", () => {
   kept(
     "its kept record ends cancelled with one call of unknown cost and no amount",
-    async ({ apps, clock, mockLlm }) => {
-      mockLlm(Clerk).thenReturn(...stepAndHold);
+    async ({ apps, clock, mockModel }) => {
+      mockModel(Clerk).thenReturn(...stepAndHold);
       const [first, second] = await pair(apps);
       const { call } = await holding(first, true);
       kill("instance-1");
@@ -190,8 +190,8 @@ describe("#860 D1: a lost run no recovery continues is one call of unknown cost,
 
   kept(
     "a run that calls no model is lost with no Unknown-cost call",
-    async ({ apps, clock, mockLlm }) => {
-      mockLlm(Clerk).thenReturn(...stepAndHold);
+    async ({ apps, clock, mockModel }) => {
+      mockModel(Clerk).thenReturn(...stepAndHold);
       const [first, second] = await pair(apps);
       const { call } = await holding(first, true, false);
       kill("instance-1");

@@ -100,7 +100,6 @@ export const SKILL_COVERAGE: SkillCoverage = {
       "connectMcp",
       "connectMcpStdio",
       "mcpHttpListener",
-      "mcpServerStub",
     ],
     ...["A2AAgent", "A2AClient", "a2aHttpListener", "A2ARemoteCallError"],
     ...["HttpAuthenticator", "HttpAuthResult", "A2AOperation", "A2AError"],

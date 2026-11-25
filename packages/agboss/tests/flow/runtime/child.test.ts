@@ -36,9 +36,9 @@ const test = testWith(CompanyReviewApplication);
 const rejected = replyWith(CompanyRejectedDto, { reason: "too small" });
 
 describe("AC1: a child runs alone and as a step, with the same output", () => {
-  test("same output alone and as a step", async ({ app, mockLlm }) => {
-    mockLlm(CompanyReviewerAgent).thenReturn(rejected, rejected);
-    mockLlm(CompanyPickerAgent).thenReturn(replyWith(CompanyDto, { name: "Acme" }));
+  test("same output alone and as a step", async ({ app, mockModel }) => {
+    mockModel(CompanyReviewerAgent).thenReturn(rejected, rejected);
+    mockModel(CompanyPickerAgent).thenReturn(replyWith(CompanyDto, { name: "Acme" }));
 
     const alone = await app.execute(CompanyReviewWorkflowStart, { name: "Acme" });
     const asStep = await app.execute(JobOfferWorkflowStart, { text: "an offer for Acme" });
@@ -55,26 +55,28 @@ describe("AC1: a child runs alone and as a step, with the same output", () => {
 
   test("the switch after the child takes the case of its finish's class", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(CompanyPickerAgent).thenReturn(replyWith(CompanyDto, { name: "Acme" }));
-    mockLlm(CompanyReviewerAgent).thenReturn(replyWith(PromisingCompanyDto, { reason: "growing" }));
-    mockLlm(DeepDiveAgent).thenReturn(replyWith(DeepDiveDto, { findings: "solid" }));
-    mockLlm(GraderAgent).thenReturn(replyWith(CompanyGradeDto, { grade: "A" }));
-    mockLlm(JobOfferAgent).thenReturn(replyWith(JobOfferDto, { text: "join Acme" }));
+    mockModel(CompanyPickerAgent).thenReturn(replyWith(CompanyDto, { name: "Acme" }));
+    mockModel(CompanyReviewerAgent).thenReturn(
+      replyWith(PromisingCompanyDto, { reason: "growing" }),
+    );
+    mockModel(DeepDiveAgent).thenReturn(replyWith(DeepDiveDto, { findings: "solid" }));
+    mockModel(GraderAgent).thenReturn(replyWith(CompanyGradeDto, { grade: "A" }));
+    mockModel(JobOfferAgent).thenReturn(replyWith(JobOfferDto, { text: "join Acme" }));
 
     const result = await app.execute(JobOfferWorkflowStart, { text: "an offer for Acme" });
 
     expect(result).toFinishWith(JobOfferWorkflowFinish, { text: "join Acme" });
-    const asked = JSON.stringify(mockLlm(JobOfferAgent).requests[0]?.input);
+    const asked = JSON.stringify(mockModel(JobOfferAgent).requests[0]?.input);
     expect(asked).toContain("company-review-workflow");
   });
 });
 
 describe("AC14: a nested record", () => {
-  test("nested record, inheritance, not in history", async ({ app, mockLlm }) => {
-    mockLlm(CompanyPickerAgent).thenReturn(replyWith(CompanyDto, { name: "Acme" }));
-    mockLlm(CompanyReviewerAgent).thenReturn(rejected);
+  test("nested record, inheritance, not in history", async ({ app, mockModel }) => {
+    mockModel(CompanyPickerAgent).thenReturn(replyWith(CompanyDto, { name: "Acme" }));
+    mockModel(CompanyReviewerAgent).thenReturn(rejected);
 
     const result = await app.execute(JobOfferWorkflowStart, { text: "an offer for Acme" });
 
@@ -104,16 +106,16 @@ describe("AC14: a nested record", () => {
 });
 
 describe("AC5 / AC6: one child per item", () => {
-  test("one child per item, the join's list in item order", async ({ app, mockLlm }) => {
+  test("one child per item, the join's list in item order", async ({ app, mockModel }) => {
     const names = ["Acme", "Globex", "Initech"];
-    mockLlm(CompanyFinderAgent).thenReturn(
+    mockModel(CompanyFinderAgent).thenReturn(
       replyWith(
         CompanyDto,
         names.map((name) => ({ name })),
       ),
     );
-    mockLlm(CompanyReviewerAgent).thenReturnAlways(rejected);
-    mockLlm(ReviewRankerAgent).thenReturn(replyWith(GradedShortlistDto, { order: "none" }));
+    mockModel(CompanyReviewerAgent).thenReturnAlways(rejected);
+    mockModel(ReviewRankerAgent).thenReturn(replyWith(GradedShortlistDto, { order: "none" }));
 
     const result = await app.execute(CompanyScreeningWorkflowStart, { text: "tea makers" });
 
@@ -124,7 +126,7 @@ describe("AC5 / AC6: one child per item", () => {
         .sort((a, b) => (a.itemIndex ?? 0) - (b.itemIndex ?? 0))
         .map((c) => c.input),
     ).toEqual(names.map((name) => ({ name })));
-    const ranked = JSON.stringify(mockLlm(ReviewRankerAgent).requests[0]?.input);
+    const ranked = JSON.stringify(mockModel(ReviewRankerAgent).requests[0]?.input);
     expect(ranked).toContain("too small");
     expect(result.launches[0]?.branches).toHaveLength(3);
     expect(result).toFollowPath([
@@ -138,12 +140,14 @@ describe("AC5 / AC6: one child per item", () => {
     ]);
   });
 
-  test("a child's graded result reaches the ranker", async ({ app, mockLlm }) => {
-    mockLlm(CompanyFinderAgent).thenReturn(replyWith(CompanyDto, [{ name: "Acme" }]));
-    mockLlm(CompanyReviewerAgent).thenReturn(replyWith(PromisingCompanyDto, { reason: "growing" }));
-    mockLlm(DeepDiveAgent).thenReturn(replyWith(DeepDiveDto, { findings: "solid" }));
-    mockLlm(GraderAgent).thenReturn(replyWith(CompanyGradeDto, { grade: "A" }));
-    mockLlm(ReviewRankerAgent).thenReturn(replyWith(GradedShortlistDto, { order: "Acme" }));
+  test("a child's graded result reaches the ranker", async ({ app, mockModel }) => {
+    mockModel(CompanyFinderAgent).thenReturn(replyWith(CompanyDto, [{ name: "Acme" }]));
+    mockModel(CompanyReviewerAgent).thenReturn(
+      replyWith(PromisingCompanyDto, { reason: "growing" }),
+    );
+    mockModel(DeepDiveAgent).thenReturn(replyWith(DeepDiveDto, { findings: "solid" }));
+    mockModel(GraderAgent).thenReturn(replyWith(CompanyGradeDto, { grade: "A" }));
+    mockModel(ReviewRankerAgent).thenReturn(replyWith(GradedShortlistDto, { order: "Acme" }));
 
     const result = await app.execute(CompanyScreeningWorkflowStart, { text: "tea makers" });
 

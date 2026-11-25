@@ -43,16 +43,16 @@ const EMAIL = "alice@example.com";
 describe("#1007 AC1: a token the model writes is revealed in the stream", () => {
   writer(
     "the stream shows the address, never the token, at every piece size",
-    async ({ app, mockLlm }) => {
-      mockLlm(AuditWriter).thenReturn(replyWith("probe"));
-      mockLlm(AuditJudge).thenReturnAlways(replyWith("PASS"));
+    async ({ app, mockModel }) => {
+      mockModel(AuditWriter).thenReturn(replyWith("probe"));
+      mockModel(AuditJudge).thenReturnAlways(replyWith("PASS"));
       await execute(app, AuditStart, { text: `Mail ${EMAIL}` });
-      const [token] = tokensIn(requestText(firstRequestOf(mockLlm(AuditWriter))), "email");
+      const [token] = tokensIn(requestText(firstRequestOf(mockModel(AuditWriter))), "email");
       expect(token).toBeDefined();
 
       for (const size of [1, 2, 3, 5, 8, 1000]) {
         chunks.size = size;
-        mockLlm(AuditWriter).thenReturn(replyWith(`Write to ${token ?? ""}.`));
+        mockModel(AuditWriter).thenReturn(replyWith(`Write to ${token ?? ""}.`));
         const events: ExecutionStreamEvent[] = [];
         const done = await execute(
           app,
@@ -72,10 +72,13 @@ describe("#1007 AC1: a token the model writes is revealed in the stream", () => 
 describe("#1007 AC2: a made-up token is never shown as written", () => {
   writer(
     "it is shown as its kind, the attempt is refused, the retry is the answer",
-    async ({ app, mockLlm }) => {
+    async ({ app, mockModel }) => {
       chunks.size = 3;
-      mockLlm(AuditWriter).thenReturn(replyWith("Write to <email:abcdef12>."), replyWith("Fine."));
-      mockLlm(AuditJudge).thenReturn(replyWith("PASS"));
+      mockModel(AuditWriter).thenReturn(
+        replyWith("Write to <email:abcdef12>."),
+        replyWith("Fine."),
+      );
+      mockModel(AuditJudge).thenReturn(replyWith("PASS"));
       const events: ExecutionStreamEvent[] = [];
 
       const done = await execute(
@@ -96,13 +99,13 @@ describe("#1007 AC2: a made-up token is never shown as written", () => {
 });
 
 describe("#1007 AC3: stream and output agree for every PII action", () => {
-  writer("tokenize: the revealed address", async ({ app, mockLlm }) => {
-    mockLlm(AuditWriter).thenReturn(replyWith("probe"));
-    mockLlm(AuditJudge).thenReturnAlways(replyWith("PASS"));
+  writer("tokenize: the revealed address", async ({ app, mockModel }) => {
+    mockModel(AuditWriter).thenReturn(replyWith("probe"));
+    mockModel(AuditJudge).thenReturnAlways(replyWith("PASS"));
     await execute(app, AuditStart, { text: `Mail ${EMAIL}, bo@acme.com` });
-    const tokens = tokensIn(requestText(firstRequestOf(mockLlm(AuditWriter))), "email");
+    const tokens = tokensIn(requestText(firstRequestOf(mockModel(AuditWriter))), "email");
     chunks.size = 4;
-    mockLlm(AuditWriter).thenReturn(replyWith(`  ${tokens.join(" and ")}  \n`));
+    mockModel(AuditWriter).thenReturn(replyWith(`  ${tokens.join(" and ")}  \n`));
     const events: ExecutionStreamEvent[] = [];
 
     const done = await execute(
@@ -118,10 +121,10 @@ describe("#1007 AC3: stream and output agree for every PII action", () => {
 
   writer(
     "mask(part): what the model writes of the masked number is the output",
-    async ({ app, mockLlm }) => {
+    async ({ app, mockModel }) => {
       chunks.size = 2;
-      mockLlm(AuditWriter).thenReturn(replyWith("Call me: ********67 <ok>"));
-      mockLlm(AuditJudge).thenReturn(replyWith("PASS"));
+      mockModel(AuditWriter).thenReturn(replyWith("Call me: ********67 <ok>"));
+      mockModel(AuditJudge).thenReturn(replyWith("PASS"));
       const events: ExecutionStreamEvent[] = [];
 
       const done = await execute(
@@ -136,11 +139,11 @@ describe("#1007 AC3: stream and output agree for every PII action", () => {
     },
   );
 
-  desk("mask: the kind the model wrote is the output", async ({ app, mockLlm }) => {
+  desk("mask: the kind the model wrote is the output", async ({ app, mockModel }) => {
     chunks.size = 3;
-    mockLlm(NamesPiiPolicy).thenReturnAlways(replyWith('{"found":[]}'));
-    mockLlm(DeskRouter).thenReturn(routeTo(DeskAgent));
-    mockLlm(DeskAgent).thenReturn(replyWith("Hello <person-name>, welcome."));
+    mockModel(NamesPiiPolicy).thenReturnAlways(replyWith('{"found":[]}'));
+    mockModel(DeskRouter).thenReturn(routeTo(DeskAgent));
+    mockModel(DeskAgent).thenReturn(replyWith("Hello <person-name>, welcome."));
     const events: ExecutionStreamEvent[] = [];
 
     const done = await execute(
@@ -154,9 +157,9 @@ describe("#1007 AC3: stream and output agree for every PII action", () => {
     expect(deltas(events).join("")).toBe("Hello <person-name>, welcome.");
   });
 
-  writer("an address the model writes itself streams as written", async ({ app, mockLlm }) => {
-    mockLlm(AuditWriter).thenReturn(replyWith("Write to bob@example.org."));
-    mockLlm(AuditJudge).thenReturn(replyWith("PASS"));
+  writer("an address the model writes itself streams as written", async ({ app, mockModel }) => {
+    mockModel(AuditWriter).thenReturn(replyWith("Write to bob@example.org."));
+    mockModel(AuditJudge).thenReturn(replyWith("PASS"));
     const events: ExecutionStreamEvent[] = [];
 
     await execute(app, AuditStart, { text: "Q" }, { onStream: (event) => events.push(event) });
@@ -166,11 +169,11 @@ describe("#1007 AC3: stream and output agree for every PII action", () => {
 });
 
 describe("#1007 AC4: a sensitive field's token is revealed like any other", () => {
-  desk("a sensitive DTO field", async ({ app, mockLlm }) => {
+  desk("a sensitive DTO field", async ({ app, mockModel }) => {
     chunks.size = 2;
-    mockLlm(NamesPiiPolicy).thenReturnAlways(replyWith('{"found":[]}'));
-    mockLlm(DeskRouter).thenReturn(routeTo(DeskAgent));
-    mockLlm(DeskAgent).thenAnswer((request) => {
+    mockModel(NamesPiiPolicy).thenReturnAlways(replyWith('{"found":[]}'));
+    mockModel(DeskRouter).thenReturn(routeTo(DeskAgent));
+    mockModel(DeskAgent).respondWith((request) => {
       const [token] = tokensIn(requestText(request), "reporter");
       return replyWith(`Hello ${token ?? "nobody"}`);
     });
@@ -187,11 +190,11 @@ describe("#1007 AC4: a sensitive field's token is revealed like any other", () =
     expect(deltas(events).join("")).toBe("Hello zoe-7");
   });
 
-  desk("a sensitive context field", async ({ app, mockLlm }) => {
+  desk("a sensitive context field", async ({ app, mockModel }) => {
     chunks.size = 3;
-    mockLlm(NamesPiiPolicy).thenReturnAlways(replyWith('{"found":[]}'));
-    mockLlm(DeskRouter).thenReturn(routeTo(DeskAgent));
-    mockLlm(DeskAgent).thenAnswer((request) => {
+    mockModel(NamesPiiPolicy).thenReturnAlways(replyWith('{"found":[]}'));
+    mockModel(DeskRouter).thenReturn(routeTo(DeskAgent));
+    mockModel(DeskAgent).respondWith((request) => {
       const [token] = tokensIn(requestText(request), "user-id");
       return replyWith(`You are ${token ?? "nobody"}!`);
     });

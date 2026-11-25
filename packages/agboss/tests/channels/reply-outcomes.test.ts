@@ -42,13 +42,13 @@ function depositPauseId(): string {
 describe("#267 S124 a: a decision model reads an approval's reply", () => {
   test("P(yes) above one half approves: one Decision.boolean about the question and the reply", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(TreasurerAgent).thenReturn(
+    mockModel(TreasurerAgent).thenReturn(
       callTool(ReturnDepositTool, { leaseId: "L-9" }),
       replyWith("Returned."),
     );
-    mockLlm(DepositReplyInterpreter).thenReturn(decideWith({ approved: 0.9 }));
+    mockModel(DepositReplyInterpreter).thenReturn(decideWith({ approved: 0.9 }));
     await execute(app, TreasuryWorkflowStart, { text: "return the deposit of L-9" });
 
     const done = await app.resume(
@@ -58,7 +58,7 @@ describe("#267 S124 a: a decision model reads an approval's reply", () => {
 
     expect(done).toFinishWith(TreasuryWorkflowFinish, { text: "Returned." });
     expect(replyDesk.deposits).toEqual(["L-9"]);
-    expect(mockLlm(DepositReplyInterpreter).onlyRequest).toMatchObject({
+    expect(mockModel(DepositReplyInterpreter).onlyRequest).toMatchObject({
       kind: "decide",
       state: expect.stringMatching(/"leaseId": "L-9"[\s\S]*### reply\n"sure, go ahead"/),
       questions: {
@@ -74,13 +74,13 @@ describe("#267 S124 a: a decision model reads an approval's reply", () => {
 
   test("P(yes) at or below one half refuses: the tool does not run, the agent hears the refusal", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(TreasurerAgent).thenReturn(
+    mockModel(TreasurerAgent).thenReturn(
       callTool(ReturnDepositTool, { leaseId: "L-9" }),
       replyWith("Not returned."),
     );
-    mockLlm(DepositReplyInterpreter).thenReturn(decideWith({ approved: 0.2 }));
+    mockModel(DepositReplyInterpreter).thenReturn(decideWith({ approved: 0.2 }));
     await execute(app, TreasuryWorkflowStart, { text: "return the deposit of L-9" });
 
     const done = await app.resume(
@@ -95,13 +95,13 @@ describe("#267 S124 a: a decision model reads an approval's reply", () => {
 
   test("its call is counted under reply-interpreter:<name> in the execution's spend", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(TreasurerAgent).thenReturn(
+    mockModel(TreasurerAgent).thenReturn(
       callTool(ReturnDepositTool, { leaseId: "L-9" }),
       replyWith("Returned."),
     );
-    mockLlm(DepositReplyInterpreter).thenReturn(
+    mockModel(DepositReplyInterpreter).thenReturn(
       decideWith({ approved: 0.95 }, { cost: usd(0.003) }),
     );
     await execute(app, TreasuryWorkflowStart, { text: "return the deposit of L-9" });
@@ -113,17 +113,17 @@ describe("#267 S124 a: a decision model reads an approval's reply", () => {
     });
   });
 
-  test("it reads the reply through the PII policies", async ({ app, mockLlm }) => {
-    mockLlm(TreasurerAgent).thenReturn(
+  test("it reads the reply through the PII policies", async ({ app, mockModel }) => {
+    mockModel(TreasurerAgent).thenReturn(
       callTool(ReturnDepositTool, { leaseId: "L-9" }),
       replyWith("Returned."),
     );
-    mockLlm(DepositReplyInterpreter).thenReturn(decideWith({ approved: 0.9 }));
+    mockModel(DepositReplyInterpreter).thenReturn(decideWith({ approved: 0.9 }));
     await execute(app, TreasuryWorkflowStart, { text: "return the deposit of L-9" });
 
     await app.resume({ pauseId: depositPauseId(), reply: "yes — ann@example.com" }, clerk);
 
-    const { state } = mockLlm(DepositReplyInterpreter).onlyRequest as { readonly state: string };
+    const { state } = mockModel(DepositReplyInterpreter).onlyRequest as { readonly state: string };
     expect(state).toContain("yes — <email>");
     expect(state).not.toContain("ann@example.com");
   });
@@ -132,9 +132,9 @@ describe("#267 S124 a: a decision model reads an approval's reply", () => {
 describe("#267 S124 b: a code interpreter returns its outcome", () => {
   test("notUnderstood({ reason }): UninterpretableReplyError with that reason, the pause pending", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(TreasurerAgent).thenReturn(
+    mockModel(TreasurerAgent).thenReturn(
       callTool(BookExpenseTool, { purpose: "lunch" }),
       replyWith("Booked."),
     );
@@ -160,14 +160,14 @@ describe("#267 S124 b: a code interpreter returns its outcome", () => {
 
   test("understood(decision): the decision is validated like any other", async ({
     app,
-    mockLlm,
-    mockOf,
+    mockModel,
+    mockService,
   }) => {
-    mockOf(ExpenseReplyInterpreter).interpret.mockReturnValue(
+    mockService(ExpenseReplyInterpreter).interpret.mockReturnValue(
       // an untyped (JS) interpreter: overrideInput without approved: true is not a decision
       ChannelInterpretation.understood({ approved: false, overrideInput: { purpose: "x" } }),
     );
-    mockLlm(TreasurerAgent).thenReturn(callTool(BookExpenseTool, { purpose: "lunch" }));
+    mockModel(TreasurerAgent).thenReturn(callTool(BookExpenseTool, { purpose: "lunch" }));
     const paused = await execute(app, TreasuryWorkflowStart, { text: "book lunch" });
 
     const failed = app.resume({ pauseId: paused.pending[0]?.pauseId ?? "", reply: "no" });
@@ -177,12 +177,12 @@ describe("#267 S124 b: a code interpreter returns its outcome", () => {
 
   test("what is neither outcome (a JS interpreter's plain object) is a crash, not a decision", async ({
     app,
-    mockLlm,
-    mockOf,
+    mockModel,
+    mockService,
   }) => {
     // an untyped (JS) interpreter: a plain object does not compile (below)
-    mockOf(ExpenseReplyInterpreter).interpret.mockReturnValue({ approved: true } as never);
-    mockLlm(TreasurerAgent).thenReturn(callTool(BookExpenseTool, { purpose: "lunch" }));
+    mockService(ExpenseReplyInterpreter).interpret.mockReturnValue({ approved: true } as never);
+    mockModel(TreasurerAgent).thenReturn(callTool(BookExpenseTool, { purpose: "lunch" }));
     const paused = await execute(app, TreasuryWorkflowStart, { text: "book lunch" });
 
     const failed: unknown = await app

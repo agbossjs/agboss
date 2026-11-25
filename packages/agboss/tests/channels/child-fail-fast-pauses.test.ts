@@ -40,9 +40,9 @@ const refundOrFail = (request: ModelRequest) =>
 describe("#337 Bug B: FailFast withdraws a paused sibling child's pause", () => {
   test("a child fails while its sibling child waits: the pause is withdrawn, the execution fails", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ChildRefundAgent).thenAnswer(refundOrFail);
+    mockModel(ChildRefundAgent).respondWith(refundOrFail);
 
     const run = execute(app, ChildBatchWorkflowStart, [{ orderId: "A" }, { orderId: "B" }]);
 

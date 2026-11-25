@@ -58,8 +58,11 @@ const search = testWith(LifecycleApplication);
 describe("#261 AC3: lifecycle hooks — order", () => {
   search(
     "onInit (dependencies first) → onStart → onStop → the running execution → onDestroy (dependants first)",
-    async ({ app, mockLlm }) => {
-      mockLlm(ScoutAgent).thenReturn(callTool(SearchJobsTool, { text: "TS" }), replyWith("found"));
+    async ({ app, mockModel }) => {
+      mockModel(ScoutAgent).thenReturn(
+        callTool(SearchJobsTool, { text: "TS" }),
+        replyWith("found"),
+      );
 
       const running = execute(app, SearchWorkflowStart, { text: "find jobs" });
       await gate.entered;

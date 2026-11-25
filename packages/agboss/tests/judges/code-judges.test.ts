@@ -41,12 +41,12 @@ describe("#396: a code judge in an agent's quality gate", () => {
 
   test("rejects by code, its reason goes back for the retry; no model call, no spend of its own", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(PromiseAgent)
+    mockModel(PromiseAgent)
       .thenReturn(replyWith("We guarantee it.", { cost: usd(0.002) }))
       .thenReturn(replyWith("We will try.", { cost: usd(0.002) }));
-    mockLlm(Grounded)
+    mockModel(Grounded)
       .thenReturn(replyWith("PASS", { cost: usd(0.0005) }))
       .thenReturn(replyWith("PASS", { cost: usd(0.0005) }));
 
@@ -54,7 +54,7 @@ describe("#396: a code judge in an agent's quality gate", () => {
 
     expect(result.status).toBe(ExecutionStatus.Finished);
     expect(result.output).toEqual({ text: "We will try." });
-    const [, second] = mockLlm(PromiseAgent).requests;
+    const [, second] = mockModel(PromiseAgent).requests;
     expect(JSON.stringify(second)).toContain("[no-banned-words-judge] never say guarantee");
     expect(result.spend.trace.map((line) => line.caller)).not.toContain(
       "judge:no-banned-words-judge",
@@ -64,18 +64,18 @@ describe("#396: a code judge in an agent's quality gate", () => {
 
   test("a code judge that keeps rejecting ends the run with QualityGateError", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(PromiseAgent).thenReturnAlways(replyWith("A guarantee."));
-    mockLlm(Grounded).thenReturnAlways(replyWith("PASS"));
+    mockModel(PromiseAgent).thenReturnAlways(replyWith("A guarantee."));
+    mockModel(Grounded).thenReturnAlways(replyWith("PASS"));
 
     await expect(execute(app, PromiseStart, { text: "?" })).rejects.toBeInstanceOf(
       QualityGateError,
     );
   });
 
-  test("mockLlm on a code judge names why: it calls no model", ({ mockLlm }) => {
-    expect(() => mockLlm(NoBannedWordsJudge)).toThrow(/a code judge calls no model/u);
+  test("mockModel on a code judge names why: it calls no model", ({ mockModel }) => {
+    expect(() => mockModel(NoBannedWordsJudge)).toThrow(/a code judge calls no model/u);
   });
 });
 

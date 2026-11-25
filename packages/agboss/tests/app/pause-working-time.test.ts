@@ -374,11 +374,11 @@ const toolTest = testWith(toolDesk.application);
 describe("#944: an agent's approval with a working-time deadline of its tool", () => {
   toolTest(
     "the tool's workingHours(4) over the role's plain 24 h, counted by the calendar",
-    async ({ app, clock, mockLlm }) => {
+    async ({ app, clock, mockModel }) => {
       await app.ready();
       // Sunday 2026-01-11 15:00 IST = 13:00Z: 3 h that day (to 18:00), Monday 09:00 + 1 h → 10:00 IST = 08:00Z
       await moveTo(clock, "2026-01-11T13:00:00.000Z");
-      mockLlm(toolDesk.agent as never).thenReturn(
+      mockModel(toolDesk.agent as never).thenReturn(
         callTool(toolDesk.tool as never, { orderId: "7" } as never),
       );
 

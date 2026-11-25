@@ -518,7 +518,7 @@ of another version, which Claude Code prefers, is `[skills.shadowed]`. A problem
 
 8 self-contained, CI-verified applications proving AGBoss's compile-time and runtime guarantees (`npx agboss check` + `npm test` on every project, with canonical `1 class = 1 file` component folders and symmetric Spring-style `tests/` mirroring `src/`):
 
-1. **[`01-hello-agboss`](https://github.com/agbossjs/agboss-examples/tree/main/01-hello-agboss)** — First-run starter, real async HTTP service DI (`PricingCatalogService` with `ExecutionContext.signal` + `step.idempotencyKey`), production HTTP server (`src/http/server.ts` with multi-tenant headers, `202 Accepted` on pauses, and `/health/live` + `/health/ready` probes), and `testWith` + `mockOf`.
+1. **[`01-hello-agboss`](https://github.com/agbossjs/agboss-examples/tree/main/01-hello-agboss)** — First-run starter, real async HTTP service DI (`PricingCatalogService` with `ExecutionContext.signal` + `step.idempotencyKey`), production HTTP server (`src/http/server.ts` with multi-tenant headers, `202 Accepted` on pauses, and `/health/live` + `/health/ready` probes), and `testWith` + `mockService`.
 2. **[`02-path-scope-proof`](https://github.com/agbossjs/agboss-examples/tree/main/02-path-scope-proof)** — Side-by-side proof of 4 production graph bugs (`[input.missing-on-path]`, `[input.outdated-on-path]`, `[launch.branch-outdates-sibling]`, `[flow.uncompensated-action]`) that pass `tsc --noEmit` in raw LangGraph `Annotation.Root` (`langgraph-broken/`) and are caught before runtime by `agboss check` (`agboss-broken/` vs `agboss-fixed/`).
 3. **[`03-support-refund-desk`](https://github.com/agbossjs/agboss-examples/tree/main/03-support-refund-desk)** — Support & refund desk proving reversible `@PiiPolicy` (`tokenize()`, `revealPii: true`, `PiiRefusedError`), `@ToolInterceptor` (`reply`, `block`), `@InputGuardrail` (`DecidedBy.Code`), `@OutputGuardrail`, in-memory BM25/TF-IDF `@Rag` (`InMemoryKnowledgeIndexService` + `RefundPolicyRetriever`), `PolicyAwareCompaction`, and a 5-loop `@EvalSuite` with compact git-tracked `eval/baseline/main-baseline.json` and `agboss eval calibrate` (Cohen's $\kappa$).
 4. **[`04-travel-booking-saga`](https://github.com/agbossjs/agboss-examples/tree/main/04-travel-booking-saga)** — Transactional multi-step saga (`compensateWith` / `committedBy`) across `payment-saga`, `budget-saga`, `quorum-saga` (`.inParallel([…]).arbitratedBy(…).joinQuorum({ min: 2, max: 2 })`), and `hitl-hold-saga` (`onPauseClosed()`, `PauseClosedError`, SQLite WAL crash recovery, and HTTP `202 Accepted` pause adapter).
@@ -567,7 +567,7 @@ Runtime package `@agboss/core` + dev/CI companion `@agboss/cli`; the root `@agbo
 - `@agboss/core/units` — `usd()`, `seconds()`, `minutes()`, `hours()`, `kilobytes()`
 - `@agboss/core/models` — model providers (`@ModelProvider`, `OpenRouterDriver`, `OpenAiCompatibleDriver`, `DecisionsDriver`, named by `@Application({ modelProvider })`)
 - `@agboss/core/testing` — `testWith`, the 10 unit runners (`testUnit`), the scripts (`replyWith`, `routeTo`, `when`, `waitFor`, …), `ToolFailure`,
-  `mcpOf`, `VirtualClock`, `SequentialIdGenerator`, VCR (`+ @agboss/core/testing/setup`: the matchers)
+  `mockMcp`, `VirtualClock`, `SequentialIdGenerator`, VCR (`+ @agboss/core/testing/setup`: the matchers)
 - `@agboss/core/eval` — `@EvalSuite`, `EvalCascade`, `evalCase`, `turn`, `pastTurn`, `toolCall`, `toolInvariant`, `answerPause`, `replyToPause`
 - `@agboss/core/mcp`, `/rag`, `/a2a`, `/memory` — integrations (`@McpServer`,
   `@McpEndpoint`, `@Rag`, `@A2AAgent`, `@A2AEndpoint`, `a2aHttpListener`, `HttpAuthenticator`, memory)
@@ -856,9 +856,9 @@ export class AnswerGroundedJudge implements JudgeHandler<JobReportDto> {
 }
 ```
 
-In tests, script a chat judge like an agent — `mockLlm(Judge).thenReturn(replyWith("PASS"))` — and a
+In tests, script a chat judge like an agent — `mockModel(Judge).thenReturn(replyWith("PASS"))` — and a
 decision judge with its answers by question id (an option, P(yes), a level's index or text):
-`mockLlm(AnswerGroundedJudge).thenReturn(decideWith({ grounded: 0.9, tone: "neutral", quality: 2 }, { cost: usd(0.0002) }))`;
+`mockModel(AnswerGroundedJudge).thenReturn(decideWith({ grounded: 0.9, tone: "neutral", quality: 2 }, { cost: usd(0.0002) }))`;
 on its own, `testUnit(AnswerGroundedJudge, …)({ variant, output, task, attempt })` takes `output` as a
 plain object of its DTO, typed by the judge — another shape, or a `variant` with another class's
 value, does not compile.
@@ -918,9 +918,9 @@ test, naming its input. A script is an expectation: a `thenReturn` turn no call 
 nothing matched, fails a test whose body passed (`thenReturnAlways` never does).
 `waitFor(seconds(31))` before a turn makes the call take that long on the test's clock. A model
 reply interpreter (#267) is scripted the same way, its input the pause's `{ ask, reply }` —
-`mockLlm(RefundReplyInterpreter).when({ reply: "ok, but only half" }).thenReturn(replyWith(ToolCallApprovalDecisionDto, { approved: true, … }))`,
+`mockModel(RefundReplyInterpreter).when({ reply: "ok, but only half" }).thenReturn(replyWith(ToolCallApprovalDecisionDto, { approved: true, … }))`,
 one on a decision model with `decideWith({ approved: 0.9 })` (#267 S124);
-a code one is created by the container and replaced with `mockOf(Interpreter).interpret`
+a code one is created by the container and replaced with `mockService(Interpreter).interpret`
 (`mockReturnValue(ChannelInterpretation.understood({ approved: true }))`).
 
 <!-- snippet-context
@@ -951,25 +951,25 @@ import { seconds, usd } from "@agboss/core/units";
 
 const test = testWith(OfferApplication);
 
-test("the reviewer asks for changes once, then approves", async ({ app, mockLlm, mockAction }) => {
-  mockLlm(ReviewerAgent)
+test("the reviewer asks for changes once, then approves", async ({ app, mockModel, mockAction }) => {
+  mockModel(ReviewerAgent)
     .when({ draft: { text: "v1" } })
     .thenReturn(replyWith(ChangesRequestedDto, { notes: "shorter" }));
-  mockLlm(ReviewerAgent)
+  mockModel(ReviewerAgent)
     .when({ draft: { text: "v2" } })
     .thenReturn(waitFor(seconds(1)), replyWith(DraftApprovedDto, {}, { cost: usd(0.01) }));
-  mockLlm(EditorAgent).thenReturn(replyWith("v2"));
+  mockModel(EditorAgent).thenReturn(replyWith("v2"));
 
   await app.execute(OfferWorkflowStart, shortlist);
 
-  expect(mockLlm(ReviewerAgent)).toHaveBeenCalledTimes(2);
-  expect(mockLlm(ReviewerAgent)).toHaveReturned(ChangesRequestedDto, { notes: "shorter" });
+  expect(mockModel(ReviewerAgent)).toHaveBeenCalledTimes(2);
+  expect(mockModel(ReviewerAgent)).toHaveReturned(ChangesRequestedDto, { notes: "shorter" });
   expect(mockAction(SendOfferAction)).toHaveBeenCalledWith({ draft: { text: "v2" } });
 });
 
-test("a cancel from inside a mock cancels the execution", async ({ app, mockOf, mockTool }) => {
+test("a cancel from inside a mock cancels the execution", async ({ app, mockService, mockTool }) => {
   mockTool(SearchJobsTool).thenFail(ToolFailure.Timeout); // the next call fails as a timeout would
-  mockOf(MailerService).send.mockImplementation(() => app.cancel("thread-1").then(() => undefined));
+  mockService(MailerService).send.mockImplementation(() => app.cancel("thread-1").then(() => undefined));
 
   await expect(app.execute(OfferWorkflowStart, shortlist)).rejects.toFailWith(
     ExecutionCancelledError,
@@ -977,11 +977,11 @@ test("a cancel from inside a mock cancels the execution", async ({ app, mockOf, 
 });
 ```
 
-Calls are checked with Vitest's names on `mockLlm(X)` and `mockAction(A)` (the action still runs):
+Calls are checked with Vitest's names on `mockModel(X)` and `mockAction(A)` (the action still runs):
 `.inputs`, `toHaveBeenCalledWith(…)` (the matcher of `when`), `toHaveBeenCalledTimes(n)` (model
 calls; an action's executions), `toHaveReturned(XDto, fields?)`; on anything else — a `vi.fn()`, a
-`mockOf(…)` method — they are Vitest's own. `toHaveBeenAskedWith` checks the prompt itself. Errors
-are caused the real way — `failWith(ModelFailure.…)`, a rejecting `mockOf(…)`,
+`mockService(…)` method — they are Vitest's own. `toHaveBeenAskedWith` checks the prompt itself. Errors
+are caused the real way — `failWith(ModelFailure.…)`, a rejecting `mockService(…)`,
 `mockTool(Tool).thenFail(ToolFailure.Timeout)`, scripts that reach a limit, `app.cancel` — and
 matched with `rejects.toFailWith(ErrorClass, { …fields, cause: CauseClass })` through the cause
 chain; the testing API has no way to create a framework error.
@@ -1834,7 +1834,7 @@ export class ExecutionBudget implements BudgetHandler {
 A budget is unit-tested without the container —
 `new TenantDailyBudget(testExecutionContext({ tenantContext: ShopTenantContext, tenant: { dailyBudgetUsd: 40 } }).tenant).maxSpend()`
 is `usd(40)` — and an application test reaches an exhausted one the real way:
-`mockOf(TenantDailyBudget).maxSpend.mockReturnValue(usd(0.01))` plus a scripted cost
+`mockService(TenantDailyBudget).maxSpend.mockReturnValue(usd(0.01))` plus a scripted cost
 (`replyWith(…, { cost: usd(0.02) })`). Steps are not money: `@Workflow({ executionLimits: { maxSteps } })` (default
 (agents + routers) × 3; `StepsLimitExceededError`), checked at assembly too —
 `[limits.max-steps-too-low]` when no finish fits in a hand-set `maxSteps`, or when the default
@@ -1968,7 +1968,7 @@ Rotating a key: name the old one as `previousSecret` / `previousPiiSecret`, and 
 already tokenized under it keeps its token, so a resumed execution shows the model one token per
 value; the token map is in the checkpoint, so every old token still reveals. The `Logger` a
 component injects is masked as the framework's own log is. Under `testWith` an unset key gets a
-fixed test key, and `mockLlm(CustomerPiiPolicy)` scripts its model detection (`pii:<policy>` in
+fixed test key, and `mockModel(CustomerPiiPolicy)` scripts its model detection (`pii:<policy>` in
 the spend). Wiki → Guards (PII).
 
 ## Guardrails
@@ -2038,7 +2038,7 @@ is `[guardrail.missing-refusal]` at assembly), a question (`[guardrail.no-prompt
 (0, 1] (`[guardrail.threshold-invalid]`), `[guardrail.exclude-not-inherited]`,
 `[guardrail.not-a-guardrail]`, `[guardrail.output-on-router]`, `[guardrail.no-model-call]`.
 `agboss describe` prints each one's side, threshold, model, refusal and the elements it guards. In
-tests, `mockLlm(LegalAdviceGuardrail).thenReturn(decideWith({ blocks: 0.9 }))` blocks (an
+tests, `mockModel(LegalAdviceGuardrail).thenReturn(decideWith({ blocks: 0.9 }))` blocks (an
 unscripted guardrail passes), and `testUnit(LegalAdviceGuardrail, { model: decideWith({ blocks:
 0.9 }), executionContext: ClinicExecutionContext, execution: { locale: "he" } })("Can I sue?")`
 gives `{ isBlocked, probability, refusal }`.
@@ -2112,7 +2112,7 @@ the turns through the application's and the workflow's PII policies, its summary
 it is stored, and each reader's own policies mask it on the way into its model. Spend is
 `memory:<name>`; `result.compacted` says what each memory did before the execution, and
 `onCompactionStart` / `onCompactionEnd` of an observer show it as it happens. In tests,
-`mockLlm(ConversationMemory).thenReturn(replyWith("…"))` scripts it (`replyWith("…", { truncated:
+`mockModel(ConversationMemory).thenReturn(replyWith("…"))` scripts it (`replyWith("…", { truncated:
 true })` is a summary cut at the limit); unscripted, it writes a fixed summary.
 
 ## Tracing (local, optional)

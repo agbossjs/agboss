@@ -1,7 +1,7 @@
 /**
  * #267 AC11: tests answer channels without people — a tool that names `AutoApproveChannel` runs at
  * once (its channel decides, nothing pauses), and a role's implementation is scripted with
- * `mockOf(Implementation).send` (`tests/channels/validation.test.ts`) or replaced in the
+ * `mockService(Implementation).send` (`tests/channels/validation.test.ts`) or replaced in the
  * container with `testWith(App, { services: [AutoApproveChannel.for(Role)] })` (#267 S104).
  * Scripted reply interpreters come with #267 PR 3.
  */
@@ -37,9 +37,9 @@ beforeEach(resetPauses);
 describe("#267 AC11: AutoApproveChannel decides at once", () => {
   test("the tool runs with no pause: its record is closed as Decided at once", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(DeskClerkAgent).thenReturn(
+    mockModel(DeskClerkAgent).thenReturn(
       callTool(AutoRefundTool, { orderId: "7" }),
       replyWith("Refunded."),
     );
@@ -67,8 +67,8 @@ const slack = testWith(SlackRefundsApplication, {
 describe("#267 S104: a role replaced by AutoApproveChannel.for(Role)", () => {
   slack(
     "the role's tool goes on at once with decided({ approved: true }): no pause",
-    async ({ app, mockLlm }) => {
-      mockLlm(RefundClerkAgent).thenReturn(
+    async ({ app, mockModel }) => {
+      mockModel(RefundClerkAgent).thenReturn(
         callTool(RefundCardTool, { orderId: "8", amountCents: 900 }),
         replyWith(RefundCardOutputDto, { status: "refunded 8" }),
       );

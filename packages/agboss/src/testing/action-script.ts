@@ -15,6 +15,8 @@ export interface ActionScript<TSelf = unknown> {
   readonly inputs: readonly RecordedInputOf<TSelf>[];
   /** How the test names the action (its class). */
   readonly label: string;
+  /** Forgets the calls recorded so far. */
+  reset(): ActionScript<TSelf>;
 }
 
 /** One action's recorded calls. */
@@ -23,6 +25,12 @@ export class ActionCalls implements ActionScript {
   readonly returned: ReturnedValue[] = [];
 
   constructor(readonly label: string) {}
+
+  reset(): this {
+    this.inputs.length = 0;
+    this.returned.length = 0;
+    return this;
+  }
 }
 
 /** The class an action's result is: its declared output's (a list's element). */

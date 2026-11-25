@@ -31,6 +31,14 @@ export class TurnQueue {
     return this.#turns.length > 0 || this.#always !== undefined;
   }
 
+  /** Forgets every turn, the always turn, and what was taken. */
+  reset(): void {
+    this.#turns.length = 0;
+    this.#always = undefined;
+    this.#position = 0;
+    this.#taken = 0;
+  }
+
   /** How many calls took a turn so far. */
   get taken(): number {
     return this.#taken;

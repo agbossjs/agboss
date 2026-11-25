@@ -144,7 +144,7 @@ export class GroundedAnswerJudge {}
 - The execution's budgets are checked **before each model call** of a judge: once a judge's call spends them, the
   next judge makes none and the run stops with `BudgetExceededError`.
 - In `testUnit` and in `testWith` a declarative judge nobody scripted **passes** (`replyWith` /
-  `decideWith({ verdict: … })` script it); it is still asked, so `mockLlm(Judge).requests` shows what it read.
+  `decideWith({ verdict: … })` script it); it is still asked, so `mockModel(Judge).requests` shows what it read.
 
 ## A code judge: no model
 
@@ -182,8 +182,8 @@ export class OneSentenceJudge implements JudgeHandler<PlainTextDto> {
 }
 ```
 
-In tests a code judge has no script — `mockLlm(OneSentenceJudge)` fails, naming why ("a code judge
-calls no model — mockOf() the services its judge() uses"); `testUnit(OneSentenceJudge)` runs it with
+In tests a code judge has no script — `mockModel(OneSentenceJudge)` fails, naming why ("a code judge
+calls no model — mockService() the services its judge() uses"); `testUnit(OneSentenceJudge)` runs it with
 no `model` (one is a `TestSetupError`) and no spend.
 
 ## A judge of a DTO answer
@@ -478,9 +478,9 @@ answering agent's policies the same way — every copy of a launch (`critic-agen
 agent's, and an element no list names through the workflow's policies, never through none. An eval suite's judge runs outside any agent and is not
 masked.
 
-In tests, script a chat judge like an agent — `mockLlm(CorrectnessJudge).thenReturn(replyWith("PASS"))`
+In tests, script a chat judge like an agent — `mockModel(CorrectnessJudge).thenReturn(replyWith("PASS"))`
 — and a decision judge with its answers by question id:
-`mockLlm(GroundedJudge).thenReturn(decideWith({ grounded: 0.9, quality: 2 }))`. On its own,
+`mockModel(GroundedJudge).thenReturn(decideWith({ grounded: 0.9, quality: 2 }))`. On its own,
 `testUnit(AnswerGroundedJudge, …)({ variant: JobReportDto, output, task, attempt })` takes `output` as
 a plain object of the judge's DTO, typed by the judge — a `variant` with another class's value
 (`{ variant: OfferDto, output: { why } }`) does not compile ([Testing](Testing#unit-runners--one-component-on-its-own)).

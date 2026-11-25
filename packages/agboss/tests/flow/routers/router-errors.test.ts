@@ -100,8 +100,8 @@ describe(".onError(RouterFailedError) takes both: a decision error is a router f
 describe("a model router: a failed call is RouterFailedError (S19)", () => {
   credit(
     "a failed model call is RouterFailedError with the call's error as cause",
-    async ({ app, mockLlm }) => {
-      mockLlm(DeskRouter).thenReturn(failWith(ModelFailure.Timeout));
+    async ({ app, mockModel }) => {
+      mockModel(DeskRouter).thenReturn(failWith(ModelFailure.Timeout));
 
       const run = app.execute(CreditWorkflowStart, { text: "tea" });
 

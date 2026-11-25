@@ -938,19 +938,19 @@ const test = testWith(SupportApplication);
 
 const REQUEST = { orderId: "7", message: "My order came late, refund it please" };
 
-test("a small refund: one round of changes, then issued at once", async ({ app, mockLlm }) => {
-  mockLlm(SupportTriageRouter).thenReturn(routeTo(ResearchPlannerAgent));
-  mockLlm(ResearchPlannerAgent).thenReturn(replyWith(ResearchQuestionDto, [{ question: "Was it late?" }]));
-  mockLlm(OrderResearcherAgent).thenReturn(
+test("a small refund: one round of changes, then issued at once", async ({ app, mockModel }) => {
+  mockModel(SupportTriageRouter).thenReturn(routeTo(ResearchPlannerAgent));
+  mockModel(ResearchPlannerAgent).thenReturn(replyWith(ResearchQuestionDto, [{ question: "Was it late?" }]));
+  mockModel(OrderResearcherAgent).thenReturn(
     callTool(OrderLookupTool, { orderId: "7" }),
     replyWith(ResearchFindingDto, { question: "Was it late?", answer: "yes, by four days" }),
   );
-  mockLlm(ReplyWriterAgent).thenReturn(replyWith(ReplyDraftDto, { text: "Sorry — refund on its way.", refundCents: 2_500 }));
-  mockLlm(ReplyReviewerAgent).thenReturn(
+  mockModel(ReplyWriterAgent).thenReturn(replyWith(ReplyDraftDto, { text: "Sorry — refund on its way.", refundCents: 2_500 }));
+  mockModel(ReplyReviewerAgent).thenReturn(
     replyWith(ChangesRequestedDto, { notes: "say how many days late" }),
     replyWith(ReplyApprovedDto, {}),
   );
-  mockLlm(ReplyEditorAgent).thenReturn(replyWith(ReplyDraftDto, { text: "Four days late — sorry, refund on its way.", refundCents: 2_500 }));
+  mockModel(ReplyEditorAgent).thenReturn(replyWith(ReplyDraftDto, { text: "Four days late — sorry, refund on its way.", refundCents: 2_500 }));
 
   const result = await app.execute(SupportWorkflowStart, REQUEST);
 
@@ -969,15 +969,15 @@ test("a small refund: one round of changes, then issued at once", async ({ app, 
   ]);
 });
 
-test("a large refund pauses for sign-off and is issued after app.resume", async ({ app, mockLlm }) => {
-  mockLlm(SupportTriageRouter).thenReturn(routeTo(ResearchPlannerAgent));
-  mockLlm(ResearchPlannerAgent).thenReturn(replyWith(ResearchQuestionDto, [{ question: "Was it late?" }]));
-  mockLlm(OrderResearcherAgent).thenReturn(
+test("a large refund pauses for sign-off and is issued after app.resume", async ({ app, mockModel }) => {
+  mockModel(SupportTriageRouter).thenReturn(routeTo(ResearchPlannerAgent));
+  mockModel(ResearchPlannerAgent).thenReturn(replyWith(ResearchQuestionDto, [{ question: "Was it late?" }]));
+  mockModel(OrderResearcherAgent).thenReturn(
     replyWith(ResearchFindingDto, { question: "Was it late?", answer: "yes, by four days" }),
   );
-  mockLlm(ReplyWriterAgent).thenReturn(replyWith(ReplyDraftDto, { text: "Full refund.", refundCents: 25_000 }));
-  mockLlm(ReplyReviewerAgent).thenReturn(replyWith(ReplyApprovedDto, {}));
-  mockLlm(RefundSignOffAgent).thenReturn(
+  mockModel(ReplyWriterAgent).thenReturn(replyWith(ReplyDraftDto, { text: "Full refund.", refundCents: 25_000 }));
+  mockModel(ReplyReviewerAgent).thenReturn(replyWith(ReplyApprovedDto, {}));
+  mockModel(RefundSignOffAgent).thenReturn(
     callTool(IssueSignedOffRefundTool, { orderId: "7", amountCents: 25_000 }), // interrupt() was here
     replyWith(RefundIssuedDto, { refundId: "refund-7" }),
   );

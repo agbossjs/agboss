@@ -30,10 +30,10 @@ describe("#267 AC10: FailFast drops the paused siblings' pauses", () => {
   test("a sibling fails after a branch paused: the pause is withdrawn, the execution fails with the sibling's error", async ({
     app,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(AuditRefundAgent).thenReturn(callTool(RefundTool, { orderId: "7" }));
-    mockLlm(AuditCheckAgent).thenReturn(waitFor(seconds(5)), failWith(ModelFailure.Timeout));
+    mockModel(AuditRefundAgent).thenReturn(callTool(RefundTool, { orderId: "7" }));
+    mockModel(AuditCheckAgent).thenReturn(waitFor(seconds(5)), failWith(ModelFailure.Timeout));
     const run = execute(app, AuditWorkflowStart, { orderId: "7" });
     run.catch(() => undefined);
     await until(() => seen.asks.length === 1);

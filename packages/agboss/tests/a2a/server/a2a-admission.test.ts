@@ -43,9 +43,9 @@ const stateOf = async (url: string, id: string): Promise<string> =>
 describe("#808: the resolver sees the request the handler acts on", () => {
   test("a follow-up naming its task as task_id is a resume for the resolver: 403, nothing resumed", async ({
     a2aServer,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+    mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
     const { url } = await a2aServer(listener);
     const taskId = await pausedTask(url);
     resetAsked();
@@ -65,9 +65,9 @@ describe("#808: the resolver sees the request the handler acts on", () => {
 
   test("a taskId given twice is the one the handler reads (the last): 403, nothing resumed", async ({
     a2aServer,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+    mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
     const { url } = await a2aServer(listener);
     const taskId = await pausedTask(url);
     resetAsked();

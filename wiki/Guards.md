@@ -226,14 +226,14 @@ other (`guardrails.<name>` in `[model.unserved]`).
 ### Testing
 
 Under `testWith` an unscripted guardrail passes — content checks are not what most tests are about;
-`mockLlm(LegalAdviceGuardrail).thenReturn(decideWith({ blocks: 0.9 }))` blocks (a chat-model
-guardrail is scripted the same way: P(yes) > 0.5 is `true`), and `mockLlm(G).requests` shows the
+`mockModel(LegalAdviceGuardrail).thenReturn(decideWith({ blocks: 0.9 }))` blocks (a chat-model
+guardrail is scripted the same way: P(yes) > 0.5 is `true`), and `mockModel(G).requests` shows the
 masked text it read. On its own, `testUnit(G, options)(text, { element })` checks one text —
 its rules first, its refusal computed in a step's frame — and gives `{ isBlocked, probability,
 refusal? }` ([Testing](Testing)). A code guardrail is never scripted: `testUnit(G)` runs its
 `check(text)` on its own container (a `model` option is a `TestSetupError`), `{ isBlocked: true,
-probability: 1, refusal }` or `{ isBlocked: false, probability: 0 }`; under `testWith`, `mockLlm(G)`
-says it calls no model — `mockOf()` the services its `check` uses.
+probability: 1, refusal }` or `{ isBlocked: false, probability: 0 }`; under `testWith`, `mockModel(G)`
+says it calls no model — `mockService()` the services its `check` uses.
 
 ### Before #120 PR 2
 
@@ -502,6 +502,6 @@ kind field as `<field-name>`.
 
 Under `testWith` a `secret` (a policy's, or the storage's `piiSecret`) whose variable is unset gets a
 fixed test key (a `previousSecret` another one), and
-`mockLlm(ContactPiiPolicy)` scripts a policy's model detection like any model.
+`mockModel(ContactPiiPolicy)` scripts a policy's model detection like any model.
 
 **Standalone executable proof:** [`03-support-refund-desk`](https://github.com/agbossjs/agboss-examples/tree/main/03-support-refund-desk) in [`agbossjs/agboss-examples`](https://github.com/agbossjs/agboss-examples) — see [Example](Example#standalone-verified-applications-agbossjsagboss-examples).

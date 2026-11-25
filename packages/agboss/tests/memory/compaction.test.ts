@@ -113,9 +113,9 @@ async function converse(
 }
 
 /** The help desk's router sends every message to the answer agent, which says "ok". */
-function answerOk(mockLlm: (target: Class) => ModelScript): void {
-  mockLlm(HelpRouter).thenReturnAlways(routeTo(AnswerAgent));
-  mockLlm(AnswerAgent).thenReturnAlways(replyWith("ok"));
+function answerOk(mockModel: (target: Class) => ModelScript): void {
+  mockModel(HelpRouter).thenReturnAlways(routeTo(AnswerAgent));
+  mockModel(AnswerAgent).thenReturnAlways(replyWith("ok"));
 }
 
 const violationsOf = async (application: object): Promise<string[]> => {
@@ -325,10 +325,10 @@ describe("#120 AC10: a queue summarises what is older than the smallest window",
 
   test("before turn 4 the two turns older than the router's window become one summary", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    answerOk(mockLlm);
-    mockLlm(QueueMemory).thenReturn(replyWith("t1 and t2 were asked", { cost: usd(0.002) }));
+    answerOk(mockModel);
+    mockModel(QueueMemory).thenReturn(replyWith("t1 and t2 were asked", { cost: usd(0.002) }));
 
     const [first, second, third, fourth] = await conversation(app, 4);
 
@@ -349,19 +349,19 @@ describe("#120 AC10: a queue summarises what is older than the smallest window",
     expect(fourth?.spend.byCaller["memory:queue-memory"]).toBeCloseTo(0.002, 6);
     expect(fourth?.spend.byCategory.memory).toBeCloseTo(0.002, 6);
     expect(fourth?.spend.trace.map((line) => line.caller)[0]).toBe("memory:queue-memory");
-    expect(textOf(mockLlm(QueueMemory).onlyRequest)).toContain("Turns to compact:\nstart");
+    expect(textOf(mockModel(QueueMemory).onlyRequest)).toContain("Turns to compact:\nstart");
   });
 
   test("no one loses a turn: the router and the agent read the summary and t3", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    answerOk(mockLlm);
-    mockLlm(QueueMemory).thenReturn(replyWith("t1 and t2 were asked"));
+    answerOk(mockModel);
+    mockModel(QueueMemory).thenReturn(replyWith("t1 and t2 were asked"));
 
     await converse(app, 4);
 
-    for (const reader of [mockLlm(HelpRouter).lastRequest, mockLlm(AnswerAgent).lastRequest]) {
+    for (const reader of [mockModel(HelpRouter).lastRequest, mockModel(AnswerAgent).lastRequest]) {
       expect(textOf(reader)).toContain("Earlier in this conversation:\n[1] t1 and t2 were asked");
       expect(turnsSeen(reader)).toEqual(["t3"]);
     }
@@ -369,15 +369,15 @@ describe("#120 AC10: a queue summarises what is older than the smallest window",
 
   test("the queue keeps its latest summaryQueueLength summaries: the oldest leaves first", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    answerOk(mockLlm);
-    mockLlm(QueueMemory).thenReturn(replyWith("S1"), replyWith("S2"), replyWith("S3"));
+    answerOk(mockModel);
+    mockModel(QueueMemory).thenReturn(replyWith("S1"), replyWith("S2"), replyWith("S3"));
 
     const seventh = await converse(app, 7);
     await execute(app, DeskStart, { text: "t8" }, { threadId: seventh.threadId });
 
-    const router = textOf(mockLlm(HelpRouter).lastRequest);
+    const router = textOf(mockModel(HelpRouter).lastRequest);
     expect(router).toContain("[1] S2");
     expect(router).toContain("[2] S3");
     expect(router).not.toContain("S1");
@@ -385,30 +385,32 @@ describe("#120 AC10: a queue summarises what is older than the smallest window",
 
   test("a summary cut at summaryMaxTokens is asked once more, shorter", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    answerOk(mockLlm);
-    mockLlm(QueueMemory).thenReturn(
+    answerOk(mockModel);
+    mockModel(QueueMemory).thenReturn(
       replyWith("a summary that goes on and", { truncated: true }),
       replyWith("short"),
     );
 
     await converse(app, 4);
 
-    const [first, shorter] = mockLlm(QueueMemory).requests;
-    expect(textOf(first ?? mockLlm(QueueMemory).lastRequest)).not.toContain(
+    const [first, shorter] = mockModel(QueueMemory).requests;
+    expect(textOf(first ?? mockModel(QueueMemory).lastRequest)).not.toContain(
       SHORTER_SUMMARY_REQUEST,
     );
-    expect(textOf(shorter ?? mockLlm(QueueMemory).lastRequest)).toContain(SHORTER_SUMMARY_REQUEST);
-    expect(textOf(mockLlm(HelpRouter).lastRequest)).toContain("[1] short");
+    expect(textOf(shorter ?? mockModel(QueueMemory).lastRequest)).toContain(
+      SHORTER_SUMMARY_REQUEST,
+    );
+    expect(textOf(mockModel(HelpRouter).lastRequest)).toContain("[1] short");
   });
 
   test("cut again: StepError.Memory, never a cut summary — the turns stay for the next one", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    answerOk(mockLlm);
-    mockLlm(QueueMemory).thenReturn(
+    answerOk(mockModel);
+    mockModel(QueueMemory).thenReturn(
       replyWith("cut", { truncated: true }),
       replyWith("cut again", { truncated: true }),
       replyWith("t1 and t2 were asked"),
@@ -424,16 +426,16 @@ describe("#120 AC10: a queue summarises what is older than the smallest window",
     // the failed execution is no turn: the next one compacts t1 and t2 (the failed record read as none)
     const retried = await execute(app, DeskStart, { text: "t4" }, { threadId: third.threadId });
     expect(retried.compacted).toMatchObject([{ memory: "queue-memory", fromTurn: 1 }]);
-    expect(turnsSeen(mockLlm(QueueMemory).lastRequest)).toEqual(["t1", "t2"]);
+    expect(turnsSeen(mockModel(QueueMemory).lastRequest)).toEqual(["t1", "t2"]);
   });
 
   // replaces #77 AC5 (a compaction failure swallowed, the next turn retrying): S132
   test("a failed model call is a StepError.Memory with the failure as its cause", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    answerOk(mockLlm);
-    mockLlm(QueueMemory).thenReturn(failWith(ModelFailure.ServerError));
+    answerOk(mockModel);
+    mockModel(QueueMemory).thenReturn(failWith(ModelFailure.ServerError));
     const third = await converse(app, 3);
 
     await expect(
@@ -447,17 +449,17 @@ describe("#120 S84 (i): the compaction's model reads the turns masked, no raw va
 
   test("the compactor sees a token, the store keeps no raw address, each reader reads the mask", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(HelpRouter).thenReturn(
+    mockModel(HelpRouter).thenReturn(
       routeTo(AnswerAgent),
       routeTo(AnswerAgent),
       routeTo(AnswerAgent),
       routeTo(ContactAgent),
     );
-    mockLlm(AnswerAgent).thenReturnAlways(replyWith("ok"));
-    mockLlm(ContactAgent).thenReturn(replyWith("written"));
-    mockLlm(QueueMemory).thenAnswer((request) => {
+    mockModel(AnswerAgent).thenReturnAlways(replyWith("ok"));
+    mockModel(ContactAgent).thenReturn(replyWith("written"));
+    mockModel(QueueMemory).respondWith((request) => {
       const token = /<email:[0-9a-f]+>/u.exec(textOf(request))?.[0] ?? "(no token)";
       return replyWith(`the user's address is ${token}`);
     });
@@ -466,16 +468,16 @@ describe("#120 S84 (i): the compaction's model reads the turns masked, no raw va
       turn === 1 ? "write to alice@example.com" : `t${String(turn)}`,
     );
 
-    const compactor = textOf(mockLlm(QueueMemory).onlyRequest);
+    const compactor = textOf(mockModel(QueueMemory).onlyRequest);
     expect(compactor).not.toContain("alice@example.com");
     expect(compactor).toMatch(/<email:[0-9a-f]+>/u);
     // the router's policies mask the stored summary at its boundary
-    const router = textOf(mockLlm(HelpRouter).lastRequest);
+    const router = textOf(mockModel(HelpRouter).lastRequest);
     expect(router).toMatch(/the user's address is <email:[0-9a-f]+>/u);
     expect(router).not.toContain("alice@example.com");
     // the turn lines are stored masked by the observability policies (#1301): no raw address is stored,
     // so even the contact agent, which excludes the policy, never reads it — only the mask
-    const contact = textOf(mockLlm(ContactAgent).onlyRequest);
+    const contact = textOf(mockModel(ContactAgent).onlyRequest);
     expect(contact).not.toContain("alice@example.com");
     expect(contact).toMatch(/the user's address is <email:[0-9a-f]+>/u);
   });
@@ -484,19 +486,22 @@ describe("#120 S84 (i): the compaction's model reads the turns masked, no raw va
 describe("#120 AC10: a single summary is rewritten from the previous one and the new turns", () => {
   const test = testWith(NotesDeskApplication);
 
-  test("the note covers the thread; its reader sees only the latest", async ({ app, mockLlm }) => {
-    mockLlm(NoteAgent).thenReturnAlways(replyWith("ok"));
-    mockLlm(NoteMemory).thenReturn(replyWith("note 1"), replyWith("note 2"));
+  test("the note covers the thread; its reader sees only the latest", async ({
+    app,
+    mockModel,
+  }) => {
+    mockModel(NoteAgent).thenReturnAlways(replyWith("ok"));
+    mockModel(NoteMemory).thenReturn(replyWith("note 1"), replyWith("note 2"));
 
     const [, , third] = await conversation(app, 4);
 
     // before turns 3 and 4 — none after the last turn
-    const [first, second] = mockLlm(NoteMemory).requests;
-    expect(mockLlm(NoteMemory).requests).toHaveLength(2);
-    expect(textOf(first ?? mockLlm(NoteMemory).lastRequest)).toContain(
+    const [first, second] = mockModel(NoteMemory).requests;
+    expect(mockModel(NoteMemory).requests).toHaveLength(2);
+    expect(textOf(first ?? mockModel(NoteMemory).lastRequest)).toContain(
       "Current summary:\n(none yet)",
     );
-    expect(textOf(second ?? mockLlm(NoteMemory).lastRequest)).toContain(
+    expect(textOf(second ?? mockModel(NoteMemory).lastRequest)).toContain(
       "Current summary:\nnote 1\n\nTurns to add:",
     );
     expect(third?.compacted).toMatchObject([
@@ -507,10 +512,10 @@ describe("#120 AC10: a single summary is rewritten from the previous one and the
         summaries: 1,
       },
     ]);
-    const agent = textOf(mockLlm(NoteAgent).lastRequest);
+    const agent = textOf(mockModel(NoteAgent).lastRequest);
     expect(agent).toContain("[1] note 2");
     expect(agent).not.toContain("note 1");
-    expect(turnsSeen(mockLlm(NoteAgent).lastRequest)).toEqual(["t3"]);
+    expect(turnsSeen(mockModel(NoteAgent).lastRequest)).toEqual(["t3"]);
   });
 });
 
@@ -519,10 +524,10 @@ describe("#120 S132: compaction runs before the next turn reads its thread, neve
 
   test("a failing compaction on turn 2 keeps turn 1 and fails turn 2 before its agent runs", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(EagerAgent).thenReturn(replyWith("answer 1"), replyWith("answer 2"));
-    mockLlm(EagerMemory).thenReturn(
+    mockModel(EagerAgent).thenReturn(replyWith("answer 1"), replyWith("answer 2"));
+    mockModel(EagerMemory).thenReturn(
       replyWith("cut", { truncated: true }),
       replyWith("cut again", { truncated: true }),
       replyWith("t1 was asked"),
@@ -533,25 +538,25 @@ describe("#120 S132: compaction runs before the next turn reads its thread, neve
 
     await expect(second).rejects.toFailWith(StepError.Memory, { memory: "eager-memory" });
     expect(first.output).toEqual({ text: "answer 1" }); // a finished turn's answer is kept
-    expect(mockLlm(EagerAgent).requests).toHaveLength(1); // no model call, no step of turn 2
+    expect(mockModel(EagerAgent).requests).toHaveLength(1); // no model call, no step of turn 2
     // turn 1 is still the thread's only turn: the retry compacts it, then answers
     const retried = await execute(app, DeskStart, { text: "t2" }, { threadId: first.threadId });
     expect(retried.output).toEqual({ text: "answer 2" });
-    expect(turnsSeen(mockLlm(EagerMemory).lastRequest)).toEqual(["t1"]);
-    expect(textOf(mockLlm(EagerAgent).lastRequest)).toContain("[1] t1 was asked");
+    expect(turnsSeen(mockModel(EagerMemory).lastRequest)).toEqual(["t1"]);
+    expect(textOf(mockModel(EagerAgent).lastRequest)).toContain("[1] t1 was asked");
   });
 
   test("a thread that ends never pays for a compaction after its last turn", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(EagerAgent).thenReturn(replyWith("answer 1"));
+    mockModel(EagerAgent).thenReturn(replyWith("answer 1"));
 
     const only = await execute(app, DeskStart, { text: "t1" });
 
     expect(only.compacted).toBeUndefined();
     expect(only.spend.byCategory.memory).toBe(0);
-    expect(mockLlm(EagerMemory).requests).toEqual([]);
+    expect(mockModel(EagerMemory).requests).toEqual([]);
   });
 });
 
@@ -560,16 +565,16 @@ describe("#120 AC10: None writes no summaries; TurnLimit.All sees every turn", (
 
   test("the router sees its window only, the archive agent the whole thread", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(WindowRouter).thenReturnAlways(routeTo(ArchiveAgent));
-    mockLlm(ArchiveAgent).thenReturnAlways(replyWith("ok"));
+    mockModel(WindowRouter).thenReturnAlways(routeTo(ArchiveAgent));
+    mockModel(ArchiveAgent).thenReturnAlways(replyWith("ok"));
 
     const result = await converse(app, 8);
 
     expect(result.compacted).toBeUndefined();
-    expect(turnsSeen(mockLlm(WindowRouter).lastRequest)).toEqual(["t7"]);
-    expect(turnsSeen(mockLlm(ArchiveAgent).lastRequest)).toEqual([
+    expect(turnsSeen(mockModel(WindowRouter).lastRequest)).toEqual(["t7"]);
+    expect(turnsSeen(mockModel(ArchiveAgent).lastRequest)).toEqual([
       "t1",
       "t2",
       "t3",
@@ -578,7 +583,7 @@ describe("#120 AC10: None writes no summaries; TurnLimit.All sees every turn", (
       "t6",
       "t7",
     ]);
-    expect(() => mockLlm(WindowOnlyMemory)).toThrow("compaction that writes summaries");
+    expect(() => mockModel(WindowOnlyMemory)).toThrow("compaction that writes summaries");
   });
 });
 
@@ -611,11 +616,11 @@ describe("#1303: onCompactionStart / onCompactionEnd", () => {
 
   test("a compaction with turns due is announced before and after, with its spend", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
     events.length = 0;
-    mockLlm(NoteAgent).thenReturnAlways(replyWith("ok"));
-    mockLlm(NoteMemory).thenReturn(replyWith("note 1", { cost: usd(0.003) }));
+    mockModel(NoteAgent).thenReturnAlways(replyWith("ok"));
+    mockModel(NoteMemory).thenReturn(replyWith("note 1", { cost: usd(0.003) }));
 
     await conversation(app, 3);
 

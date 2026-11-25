@@ -2,7 +2,7 @@ import { usd } from "../../../src/units/index.js";
 /**
  * #385 — a breaker's fallback at the chat model: transport → HTTP and HTTP → transport, each call
  * sent as the fallback's model and priced by its table; PII masked in what `complete()` reads; and
- * `mockLlm` of `testWith` answers above the transport (its `complete()` is never called).
+ * `mockModel` of `testWith` answers above the transport (its `complete()` is never called).
  */
 import { describe, expect, it } from "vitest";
 import { replyWith, testWith } from "../../../src/testing/index.js";
@@ -99,9 +99,9 @@ describe("#385: what complete() reads and who answers in tests", () => {
   const scripted = testWith(BedrockApplication);
 
   scripted(
-    "mockLlm answers above the transport: complete() is never called",
-    async ({ app, mockLlm }) => {
-      mockLlm(BEDROCK_DESK.textAgent).thenReturn(replyWith("scripted"));
+    "mockModel answers above the transport: complete() is never called",
+    async ({ app, mockModel }) => {
+      mockModel(BEDROCK_DESK.textAgent).thenReturn(replyWith("scripted"));
 
       const result = await execute(app, ChatStart, { text: "hi" });
 

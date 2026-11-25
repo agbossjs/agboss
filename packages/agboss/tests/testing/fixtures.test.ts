@@ -27,72 +27,74 @@ import { execute } from "../helpers/flow.js";
 const test = testWith(DeskApplication);
 const review = testWith(CodeReviewApplication);
 
-describe("AC12: mockOf — a typed mock injected instead of the class", () => {
-  test("the app's tool gets the mock; mockOf returns the same instance the app uses", async ({
+describe("AC12: mockService — a typed mock injected instead of the class", () => {
+  test("the app's tool gets the mock; mockService returns the same instance the app uses", async ({
     app,
-    mockLlm,
-    mockOf,
+    mockModel,
+    mockService,
   }) => {
-    mockOf(OrderBook).statusOf.mockResolvedValue("order lost");
-    mockLlm(MainRouter).thenReturn(routeTo(Support));
-    mockLlm(Support).thenReturn(callTool(OrderStatus, { orderId: "7" }), replyWith("Lost."));
+    mockService(OrderBook).statusOf.mockResolvedValue("order lost");
+    mockModel(MainRouter).thenReturn(routeTo(Support));
+    mockModel(Support).thenReturn(callTool(OrderStatus, { orderId: "7" }), replyWith("Lost."));
 
     await execute(app, ChatStart, { text: "where is 7?" });
 
-    expect(mockOf(OrderBook).statusOf.mock.calls).toEqual([["7"]]);
-    expect(toolResultsOf(mockLlm(Support).lastRequest)).toEqual(['{"status":"order lost"}']);
+    expect(mockService(OrderBook).statusOf.mock.calls).toEqual([["7"]]);
+    expect(toolResultsOf(mockModel(Support).lastRequest)).toEqual(['{"status":"order lost"}']);
   });
 
-  review("mockOf of a class the workflow does not use fails clearly", ({ mockOf }) => {
-    expect(() => mockOf(Unused)).toThrow(TestSetupError);
-    expect(() => mockOf(Unused)).toThrow("mockOf(Unused): not a component of this application");
+  review("mockService of a class the workflow does not use fails clearly", ({ mockService }) => {
+    expect(() => mockService(Unused)).toThrow(TestSetupError);
+    expect(() => mockService(Unused)).toThrow(
+      "mockService(Unused): not a component of this application",
+    );
   });
 
-  test("mockOf after the app started fails clearly", async ({ app, mockOf }) => {
+  test("mockService after the app started fails clearly", async ({ app, mockService }) => {
     await app.runTool(OrderStatus, { orderId: "1" });
 
-    expect(() => mockOf(OrderBook)).toThrow(/mockOf\(OrderBook\) after the app started/);
+    expect(() => mockService(OrderBook)).toThrow(/mockService\(OrderBook\) after the app started/);
   });
 });
 
-describe("AC12: mockLlm — what a component sent its model", () => {
+describe("AC12: mockModel — what a component sent its model", () => {
   test("onlyRequest and lastRequest; toHaveBeenAskedWith matches parts", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(MainRouter).thenReturn(routeTo(Writer));
-    mockLlm(Writer).thenReturn(replyWith("Hello!"));
+    mockModel(MainRouter).thenReturn(routeTo(Writer));
+    mockModel(Writer).thenReturn(replyWith("Hello!"));
 
     await execute(app, ChatStart, { text: "say hello" });
 
-    expect(mockLlm(Writer).onlyRequest).toMatchObject({
+    expect(mockModel(Writer).onlyRequest).toMatchObject({
       kind: "chat",
       system: expect.stringContaining("You write short replies.") as string,
     });
-    expect(mockLlm(Writer)).toHaveBeenAskedWith({ input: "say hello" });
-    expect(mockLlm(MainRouter).lastRequest).toMatchObject({
+    expect(mockModel(Writer)).toHaveBeenAskedWith({ input: "say hello" });
+    expect(mockModel(MainRouter).lastRequest).toMatchObject({
       kind: "decision",
       options: ["no-reply-workflow-finish", "support-agent", "writer-agent"],
     });
-    expect(mockLlm(MainRouter)).toHaveBeenAskedWith({ instructions: "Pick who handles" });
+    expect(mockModel(MainRouter)).toHaveBeenAskedWith({ instructions: "Pick who handles" });
   });
 
   test("onlyRequest fails unless there was exactly one; lastRequest fails with none", ({
-    mockLlm,
+    mockModel,
   }) => {
-    expect(() => mockLlm(Writer).onlyRequest).toThrow(
-      "mockLlm(Writer).onlyRequest: expected exactly one request, got 0",
+    expect(() => mockModel(Writer).onlyRequest).toThrow(
+      "mockModel(Writer).onlyRequest: expected exactly one request, got 0",
     );
-    expect(() => mockLlm(Writer).lastRequest).toThrow("mockLlm(Writer): no request was sent");
+    expect(() => mockModel(Writer).lastRequest).toThrow("mockModel(Writer): no request was sent");
   });
 
   review(
-    "mockLlm of a class that is not an agent or router of the workflow fails",
-    ({ mockLlm }) => {
-      expect(() => mockLlm(Unused)).toThrow(
-        "mockLlm(Unused): not an agent, router, judge, model arbiter, model reply interpreter, PII detection, guardrail or compaction that writes summaries of this application",
+    "mockModel of a class that is not an agent or router of the workflow fails",
+    ({ mockModel }) => {
+      expect(() => mockModel(Unused)).toThrow(
+        "mockModel(Unused): not an agent, router, judge, model arbiter, model reply interpreter, PII detection, guardrail or compaction that writes summaries of this application",
       );
-      expect(() => mockLlm(Writer)).toThrow(TestSetupError);
+      expect(() => mockModel(Writer)).toThrow(TestSetupError);
     },
   );
 });
@@ -107,25 +109,25 @@ describe("AC12: slices — one component of the real app on its own", () => {
 
   test("app.runRouter(X, …) decides on a text and returns the chosen node", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(MainRouter).thenReturn(routeTo(Writer));
+    mockModel(MainRouter).thenReturn(routeTo(Writer));
 
     expect((await app.runRouter(MainRouter, "write a reply")).output).toBe(Writer);
-    expect(mockLlm(MainRouter).onlyRequest).toMatchObject({ input: "write a reply" });
+    expect(mockModel(MainRouter).onlyRequest).toMatchObject({ input: "write a reply" });
   });
 
   test("app.runAgent(X, …) answers a task with its own model, prompt and tools", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Support).thenReturn(
+    mockModel(Support).thenReturn(
       callTool(OrderStatus, { orderId: "3" }),
       replyWith("Order 3 shipped."),
     );
 
     expect((await app.runAgent(Support, "where is 3?")).output).toBe("Order 3 shipped.");
-    expect(mockLlm(Support)).toHaveScriptedToolCalls([OrderStatus]);
+    expect(mockModel(Support)).toHaveScriptedToolCalls([OrderStatus]);
   });
 
   test("a slice of something the workflow does not have fails clearly", async ({ app }) => {
@@ -137,8 +139,11 @@ describe("AC12: slices — one component of the real app on its own", () => {
     );
   });
 
-  test("app.runRouter(X, …) fails like the flow when its model fails", async ({ app, mockLlm }) => {
-    mockLlm(MainRouter).thenReturn(failWith(ModelFailure.ServerError));
+  test("app.runRouter(X, …) fails like the flow when its model fails", async ({
+    app,
+    mockModel,
+  }) => {
+    mockModel(MainRouter).thenReturn(failWith(ModelFailure.ServerError));
 
     await expect(app.runRouter(MainRouter, "x")).rejects.toFailWith(RouterFailedError, {
       nodeId: nameOf(MainRouter),

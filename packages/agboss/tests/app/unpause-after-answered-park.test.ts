@@ -40,9 +40,9 @@ async function parkedAfterAnswer(app: TestApp) {
 describe("a tree parked after its business pause was answered", () => {
   test("app.unpause continues it to its finish; the history says running/unpause", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(
+    mockModel(Clerk).thenReturn(
       callTool(Charge, { text: "10 USD" }),
       callTool(Slow, { text: "s" }),
       callTool(Probe, { text: "p" }),

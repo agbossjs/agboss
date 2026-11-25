@@ -127,13 +127,13 @@ beforeEach(() => {
 describe("#708: a model arbiter reads every copy's answer through the agent's policies", () => {
   test("two copies of one agent: each answer reaches the arbiter's model with the address as a token", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ContactAnswerAgent).thenReturn(
+    mockModel(ContactAnswerAgent).thenReturn(
       replyWith(OwnerAnswerDto, { owner: `Ann, ${EMAIL}` }),
       replyWith(OwnerAnswerDto, { owner: `Ann again, ${EMAIL}` }),
     );
-    mockLlm(ContactArbiter).thenAnswer((request: ModelRequest) => {
+    mockModel(ContactArbiter).respondWith((request: ModelRequest) => {
       read.push(requestText(request));
       return decideWith({ counts: 0.9 });
     });

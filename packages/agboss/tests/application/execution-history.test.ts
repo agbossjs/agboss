@@ -72,8 +72,8 @@ const historyOf = (app: Pick<App, "resolve">): ExecutionHistoryRepository =>
 describe("#401 PR 1: the history of root executions", () => {
   testWith(HistoryDeskApplication)(
     "a finished execution: its record with who and what it was, masked",
-    async ({ app, mockLlm }) => {
-      mockLlm(DeskAgent).thenReturn(...refundScript);
+    async ({ app, mockModel }) => {
+      mockModel(DeskAgent).thenReturn(...refundScript);
 
       const done = await execute(app, DeskWorkflowStart, { text: REFUND }, contexts);
       const kept = await historyOf(app).findByTenantIdAndExecutionId("acme", done.executionId);
@@ -106,8 +106,8 @@ describe("#401 PR 1: the history of root executions", () => {
 
   testWith(EvalDeskApplication)(
     "without retention.executionRecords nothing is kept",
-    async ({ app, mockLlm }) => {
-      mockLlm(DeskAgent).thenReturn(...refundScript);
+    async ({ app, mockModel }) => {
+      mockModel(DeskAgent).thenReturn(...refundScript);
       const { tenant, execution } = contexts;
 
       const done = await execute(app, DeskWorkflowStart, { text: REFUND }, { tenant, execution });
@@ -118,8 +118,8 @@ describe("#401 PR 1: the history of root executions", () => {
 
   testWith(HistoryDeskApplication)(
     "a failed execution is kept failed, with its error",
-    async ({ app, mockLlm }) => {
-      mockLlm(DeskAgent).thenReturnAlways(failWith(ModelFailure.Timeout));
+    async ({ app, mockModel }) => {
+      mockModel(DeskAgent).thenReturnAlways(failWith(ModelFailure.Timeout));
 
       await expect(execute(app, DeskWorkflowStart, { text: REFUND }, contexts)).rejects.toThrow();
       const {
@@ -138,8 +138,8 @@ describe("#401 PR 1: the history of root executions", () => {
 
   testWith(HistoryDeskApplication)(
     "the sweep removes a record once it ended longer ago than its retention",
-    async ({ app, clock, mockLlm }) => {
-      mockLlm(DeskAgent).thenReturn(...refundScript);
+    async ({ app, clock, mockModel }) => {
+      mockModel(DeskAgent).thenReturn(...refundScript);
       const done = await execute(app, DeskWorkflowStart, { text: REFUND }, contexts);
 
       await clock.advance(hours(23));
@@ -153,8 +153,8 @@ describe("#401 PR 1: the history of root executions", () => {
 
 testWith(BrokenHistoryDeskApplication)(
   "#401 PR 1: a history that cannot be saved is a warning, never the execution's failure",
-  async ({ app, mockLlm }) => {
-    mockLlm(DeskAgent).thenReturn(...refundScript);
+  async ({ app, mockModel }) => {
+    mockModel(DeskAgent).thenReturn(...refundScript);
 
     const done = await execute(app, DeskWorkflowStart, { text: REFUND }, contexts);
 
@@ -165,8 +165,8 @@ testWith(BrokenHistoryDeskApplication)(
 
 testWith(HistorySensitiveApplication)(
   "#401 PR 1: a context field marked sensitive is hidden in the history",
-  async ({ app, mockLlm }) => {
-    mockLlm(DeskRouter).thenReturn(routeTo(HandOverFinish));
+  async ({ app, mockModel }) => {
+    mockModel(DeskRouter).thenReturn(routeTo(HandOverFinish));
 
     const done = await execute(
       app,
@@ -192,8 +192,8 @@ describe("#401 PR 1: a paused tree's history", () => {
 
   testWith(HistoryTreasuryApplication)(
     "kept paused while it rests (no end, never swept), then finished with who answered",
-    async ({ app, clock, mockLlm }) => {
-      mockLlm(TreasurerAgent).thenReturn(
+    async ({ app, clock, mockModel }) => {
+      mockModel(TreasurerAgent).thenReturn(
         callTool(PayOutTool, { payee: "ann", amountCents: 1000 }),
         replyWith("Paid."),
       );
@@ -223,8 +223,10 @@ describe("#401 PR 1: a paused tree's history", () => {
 
   testWith(HistoryTreasuryApplication)(
     "a paused tree cancelled is kept cancelled",
-    async ({ app, mockLlm }) => {
-      mockLlm(TreasurerAgent).thenReturn(callTool(PayOutTool, { payee: "ann", amountCents: 1000 }));
+    async ({ app, mockModel }) => {
+      mockModel(TreasurerAgent).thenReturn(
+        callTool(PayOutTool, { payee: "ann", amountCents: 1000 }),
+      );
       const paused = await execute(app, TreasuryWorkflowStart, { text: "pay ann $10" });
 
       await app.cancel(paused.threadId, {});
@@ -238,12 +240,12 @@ describe("#401 PR 1: a paused tree's history", () => {
 
 testWith(EndOrderDeskApplication)(
   "#699: a tree's kept record is saved before the tree is forgotten — a pod killed in the cleanup keeps it",
-  async ({ app, mockLlm }) => {
+  async ({ app, mockModel }) => {
     endOrder.length = 0;
-    mockLlm(DeskAgent).thenReturn(...refundScript);
+    mockModel(DeskAgent).thenReturn(...refundScript);
 
     await execute(app, DeskWorkflowStart, { text: REFUND }, contexts);
-    mockLlm(DeskAgent).thenReturn(failWith(ModelFailure.ServerError));
+    mockModel(DeskAgent).thenReturn(failWith(ModelFailure.ServerError));
     await execute(app, DeskWorkflowStart, { text: REFUND }, contexts).catch(() => undefined);
 
     expect(endOrder).toEqual(["history finished", "forgotten", "history failed", "forgotten"]);
@@ -252,8 +254,8 @@ testWith(EndOrderDeskApplication)(
 
 testWith(EndOrderTreasuryApplication)(
   "#699: a tree ended without a pass (a paused tree cancelled) keeps its record before it is forgotten",
-  async ({ app, mockLlm }) => {
-    mockLlm(TreasurerAgent).thenReturn(callTool(PayOutTool, { payee: "ann", amountCents: 1000 }));
+  async ({ app, mockModel }) => {
+    mockModel(TreasurerAgent).thenReturn(callTool(PayOutTool, { payee: "ann", amountCents: 1000 }));
     const paused = await execute(app, TreasuryWorkflowStart, { text: "pay ann $10" });
     endOrder.length = 0;
 

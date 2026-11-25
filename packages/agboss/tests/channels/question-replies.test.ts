@@ -66,9 +66,9 @@ describe("#659 AC4: a code interpreter reads the reply into the answer", () => {
 describe("#659 AC4: a chat-model interpreter answers with the answer DTO's tool", () => {
   test("AC4: the model reads the question and the reply; its answer resumes", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(BudgetOwnerReplyInterpreter)
+    mockModel(BudgetOwnerReplyInterpreter)
       .when({ reply: "fine, up to eight hundred" })
       .thenReturn(replyWith(SpendingLimitAnswerDto, { approved: true, limitUsd: 800 }));
     await execute(app, OwnerPurchaseWorkflowStart, { text: "desk for 700" });
@@ -77,7 +77,7 @@ describe("#659 AC4: a chat-model interpreter answers with the answer DTO's tool"
     const done = await app.resume({ pauseId, reply: "fine, up to eight hundred" }, by);
 
     expect(done).toFinishWith(OwnerPurchaseWorkflowFinish, { status: "placed within 800" });
-    const interpreter = mockLlm(BudgetOwnerReplyInterpreter);
+    const interpreter = mockModel(BudgetOwnerReplyInterpreter);
     expect(interpreter.inputs).toEqual([
       {
         ask: expect.objectContaining({ item: "desk", priceUsd: 700 }),
@@ -96,8 +96,11 @@ describe("#659 AC4: a chat-model interpreter answers with the answer DTO's tool"
     expect(JSON.stringify(interpreter.onlyRequest)).not.toContain("alice");
   });
 
-  test("AC4: the model's not-understood tool keeps the pause pending", async ({ app, mockLlm }) => {
-    mockLlm(BudgetOwnerReplyInterpreter).thenReturn(
+  test("AC4: the model's not-understood tool keeps the pause pending", async ({
+    app,
+    mockModel,
+  }) => {
+    mockModel(BudgetOwnerReplyInterpreter).thenReturn(
       replyWith(ReplyInterpreterNotUnderstoodDto, { reason: "a shrug" }),
     );
     await execute(app, OwnerPurchaseWorkflowStart, { text: "desk for 700" });

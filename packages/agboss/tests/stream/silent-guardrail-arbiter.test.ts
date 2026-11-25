@@ -22,10 +22,10 @@ const test = testWith(InternalKindsApplication);
 describe("#1004: a chat-model guardrail and arbiter are silent", () => {
   test("AC1: the guardrail's canary is not heard; the agent's own is, once", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(GuardedTextAgent).thenReturn(replyWith("A fine answer."));
-    mockLlm(ChatGuardrail).thenReturn(decideWith({ blocks: 0.1 }));
+    mockModel(GuardedTextAgent).thenReturn(replyWith("A fine answer."));
+    mockModel(ChatGuardrail).thenReturn(decideWith({ blocks: 0.1 }));
     const events: ExecutionStreamEvent[] = [];
 
     await execute(
@@ -35,20 +35,20 @@ describe("#1004: a chat-model guardrail and arbiter are silent", () => {
       { onStream: (event) => events.push(event) },
     );
 
-    expect(mockLlm(ChatGuardrail).requests).toHaveLength(1);
+    expect(mockModel(ChatGuardrail).requests).toHaveLength(1);
     expect(canaries(events)).toBe(1);
     expect(deltas(events)).toEqual(["CANARY", "A fine answer."]);
   });
 
   test("AC1: the arbiter's canary is not heard (the quorum's agents answer with a tool: no text)", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(OwnerAgent).thenReturn(
+    mockModel(OwnerAgent).thenReturn(
       replyWith(OwnerDto, { owner: "Ann" }),
       replyWith(OwnerDto, { owner: "Bo" }),
     );
-    mockLlm(ChatArbiter).thenReturnAlways(decideWith({ counts: 0.9 }));
+    mockModel(ChatArbiter).thenReturnAlways(decideWith({ counts: 0.9 }));
     const events: ExecutionStreamEvent[] = [];
 
     await execute(
@@ -58,7 +58,7 @@ describe("#1004: a chat-model guardrail and arbiter are silent", () => {
       { onStream: (event) => events.push(event) },
     );
 
-    expect(mockLlm(ChatArbiter).requests.length).toBeGreaterThan(0);
+    expect(mockModel(ChatArbiter).requests.length).toBeGreaterThan(0);
     expect(events).toEqual([]);
   });
 });

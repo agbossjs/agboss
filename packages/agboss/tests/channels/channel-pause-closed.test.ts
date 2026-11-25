@@ -77,8 +77,8 @@ const failedNotices = () => logged.filter((entry) => entry.code === "pause.notic
 describe("#940 AC1: the channel that asked hears an answer given elsewhere", () => {
   desk(
     "AC1: answered elsewhere: the channel hears answered, answeredBy, the masked answer",
-    async ({ app, mockLlm }) => {
-      mockLlm(DeskClerkAgent).thenReturn(
+    async ({ app, mockModel }) => {
+      mockModel(DeskClerkAgent).thenReturn(
         callTool(RefundTool, { orderId: "7" }),
         replyWith("Done."),
       );
@@ -106,8 +106,8 @@ describe("#940 AC1: the channel that asked hears an answer given elsewhere", () 
     },
   );
 
-  desk("AC1: the event's value is the question as send got it", async ({ app, mockLlm }) => {
-    mockLlm(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "7" }));
+  desk("AC1: the event's value is the question as send got it", async ({ app, mockModel }) => {
+    mockModel(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "7" }));
     await execute(app, DeskWorkflowStart, REFUND, ACME);
 
     await app.cancel(ACME.threadId, { tenantId: "acme" });
@@ -121,10 +121,10 @@ describe("#940 AC1: the channel that asked hears an answer given elsewhere", () 
 describe("#940 AC2: cancel / FailFast / quorum / tree end: one notice each with its reason", () => {
   panel(
     "AC2: a decided quorum: the surplus branch's pause is withdrawn, its channel told once",
-    async ({ app, mockLlm }) => {
-      mockLlm(PolicyAgent).thenReturn(score(7));
-      mockLlm(RiskAgent).thenReturn(callTool(RefundTool, { orderId: "7" }));
-      mockLlm(FraudAgent).thenReturn(score(9));
+    async ({ app, mockModel }) => {
+      mockModel(PolicyAgent).thenReturn(score(7));
+      mockModel(RiskAgent).thenReturn(callTool(RefundTool, { orderId: "7" }));
+      mockModel(FraudAgent).thenReturn(score(9));
 
       const result = await execute(
         app,
@@ -145,9 +145,9 @@ describe("#940 AC2: cancel / FailFast / quorum / tree end: one notice each with 
 
   desk(
     "AC2: a FailFast sibling: Withdrawn, in the pause's execution and step",
-    async ({ app, clock, mockLlm }) => {
-      mockLlm(AuditRefundAgent).thenReturn(callTool(RefundTool, { orderId: "7" }));
-      mockLlm(AuditCheckAgent).thenReturn(waitFor(seconds(5)), failWith(ModelFailure.Timeout));
+    async ({ app, clock, mockModel }) => {
+      mockModel(AuditRefundAgent).thenReturn(callTool(RefundTool, { orderId: "7" }));
+      mockModel(AuditCheckAgent).thenReturn(waitFor(seconds(5)), failWith(ModelFailure.Timeout));
       const run = execute(app, AuditWorkflowStart, { orderId: "7" }, ACME);
       run.catch(() => undefined);
       await until(() => seen.asks.length === 1);
@@ -173,8 +173,8 @@ describe("#940 AC2: cancel / FailFast / quorum / tree end: one notice each with 
 
   desk(
     "AC2: app.cancel of a paused execution: Cancelled, in the pause's frame",
-    async ({ app, mockLlm }) => {
-      mockLlm(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "7" }));
+    async ({ app, mockModel }) => {
+      mockModel(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "7" }));
       const paused = await execute(app, DeskWorkflowStart, REFUND, ACME);
       expect(paused.status).toBe(ExecutionStatus.Paused);
 
@@ -195,8 +195,8 @@ describe("#940 AC2: cancel / FailFast / quorum / tree end: one notice each with 
 
   testWith(ChildPausesApplication)(
     "AC2: app.cancel of a pause inside a child: told in the child's execution",
-    async ({ app, mockLlm }) => {
-      mockLlm(ChildRefundAgent).thenReturn(callTool(RefundTool, { orderId: "A" }));
+    async ({ app, mockModel }) => {
+      mockModel(ChildRefundAgent).thenReturn(callTool(RefundTool, { orderId: "A" }));
       const paused = await execute(app, SingleChildWorkflowStart, { orderId: "A" }, ACME);
       expect(paused.status).toBe(ExecutionStatus.Paused);
 
@@ -216,9 +216,9 @@ describe("#940 AC2: cancel / FailFast / quorum / tree end: one notice each with 
 
   desk(
     "AC2: app.cancel while a sibling still runs: the tree ends, the pause is Cancelled",
-    async ({ app, mockLlm }) => {
-      mockLlm(AuditRefundAgent).thenReturn(callTool(RefundTool, { orderId: "7" }));
-      mockLlm(AuditCheckAgent).thenReturn(waitFor(seconds(60)), failWith(ModelFailure.Timeout));
+    async ({ app, mockModel }) => {
+      mockModel(AuditRefundAgent).thenReturn(callTool(RefundTool, { orderId: "7" }));
+      mockModel(AuditCheckAgent).thenReturn(waitFor(seconds(60)), failWith(ModelFailure.Timeout));
       const run = execute(app, AuditWorkflowStart, { orderId: "7" }, ACME);
       run.catch(() => undefined);
       await until(() => seen.asks.length === 1);
@@ -231,9 +231,9 @@ describe("#940 AC2: cancel / FailFast / quorum / tree end: one notice each with 
     },
   );
 
-  desk("AC2: a pause never sent (its send threw) → no notice", async ({ app, mockLlm }) => {
+  desk("AC2: a pause never sent (its send threw) → no notice", async ({ app, mockModel }) => {
     hooks.refusals = new Map([["7", new Error("the desk is closed")]]);
-    mockLlm(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "7" }));
+    mockModel(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "7" }));
 
     await expect(execute(app, DeskWorkflowStart, REFUND, ACME)).rejects.toThrow();
 
@@ -246,7 +246,7 @@ describe("#940 AC2: cancel / FailFast / quorum / tree end: one notice each with 
 
   desk(
     "AC2: closed while send returned: the listeners hear opened then closed, the channel closed — once each",
-    async ({ app, clock, mockLlm }) => {
+    async ({ app, clock, mockModel }) => {
       hooks.beforeSendReturns = async (sent) => {
         await pauseStore().cancelByTenantIdAndPauseId(
           "acme",
@@ -256,7 +256,7 @@ describe("#940 AC2: cancel / FailFast / quorum / tree end: one notice each with 
           NO_RECIPIENTS,
         );
       };
-      mockLlm(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "7" }));
+      mockModel(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "7" }));
 
       await expect(execute(app, DeskWorkflowStart, REFUND, ACME)).rejects.toThrow();
 
@@ -271,8 +271,8 @@ describe("#940 AC2: cancel / FailFast / quorum / tree end: one notice each with 
 
   twoInstances(
     "AC2: two instances cancel at once: the channel is told once",
-    async ({ apps, mockLlm }) => {
-      mockLlm(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "7" }));
+    async ({ apps, mockModel }) => {
+      mockModel(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "7" }));
       const [first, second] = apps;
       if (first === undefined || second === undefined) throw new Error("two instances expected");
       const paused = await execute(first, DeskWorkflowStart, REFUND, ACME);
@@ -294,8 +294,8 @@ describe("#940 AC2: cancel / FailFast / quorum / tree end: one notice each with 
 describe("#940 Q2: an answer recorded and never applied", () => {
   desk(
     "AC2: the drain took the answer, a cancel ended the tree before the step: closed answered, then answerNotTaken cancelled with the answer — to the channel and the listeners",
-    async ({ app, clock, mockLlm }) => {
-      mockLlm(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "7" }));
+    async ({ app, clock, mockModel }) => {
+      mockModel(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "7" }));
       await execute(app, DeskWorkflowStart, REFUND, ACME);
       const pauseId = askFor("7").pauseId;
       const recipients = {
@@ -342,11 +342,11 @@ describe("#940 Q2: an answer recorded and never applied", () => {
 });
 
 describe("#940 AC4: a failing receiver changes nothing else", () => {
-  panel("AC4: the join goes on: the quorum's execution finishes", async ({ app, mockLlm }) => {
+  panel("AC4: the join goes on: the quorum's execution finishes", async ({ app, mockModel }) => {
     hooks.closeFailure = new Error("slack is down");
-    mockLlm(PolicyAgent).thenReturn(score(7));
-    mockLlm(RiskAgent).thenReturn(callTool(RefundTool, { orderId: "7" }));
-    mockLlm(FraudAgent).thenReturn(score(9));
+    mockModel(PolicyAgent).thenReturn(score(7));
+    mockModel(RiskAgent).thenReturn(callTool(RefundTool, { orderId: "7" }));
+    mockModel(FraudAgent).thenReturn(score(9));
 
     const result = await execute(app, RefundPanelWorkflowStart, { orderId: "7" });
 
@@ -360,11 +360,11 @@ describe("#940 AC4: a failing receiver changes nothing else", () => {
 
   testWith(PayoutsApplication)(
     "AC4: .onError goes on: the failed branch's handler finishes the execution",
-    async ({ app, clock, mockLlm }) => {
+    async ({ app, clock, mockModel }) => {
       hooks.closeFailure = new Error("the customer's app is offline");
       hooks.refusals = new Map([["7", new PaymentDeclinedError("the card was declined")]]);
-      mockLlm(PayoutConfirmAgent).thenReturn(callTool(ConfirmOrderTool, { orderId: "7" }));
-      mockLlm(PayoutRefundAgent).thenReturn(
+      mockModel(PayoutConfirmAgent).thenReturn(callTool(ConfirmOrderTool, { orderId: "7" }));
+      mockModel(PayoutRefundAgent).thenReturn(
         waitFor(seconds(5)),
         callTool(RefundTool, { orderId: "7" }),
       );
@@ -382,9 +382,9 @@ describe("#940 AC4: a failing receiver changes nothing else", () => {
     },
   );
 
-  desk("AC4: app.cancel goes on", async ({ app, mockLlm }) => {
+  desk("AC4: app.cancel goes on", async ({ app, mockModel }) => {
     hooks.closeFailure = new Error("slack is down");
-    mockLlm(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "7" }));
+    mockModel(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "7" }));
     const paused = await execute(app, DeskWorkflowStart, REFUND, ACME);
 
     await app.cancel(paused.threadId, { tenantId: "acme" });

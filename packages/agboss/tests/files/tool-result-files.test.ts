@@ -29,7 +29,7 @@ describe("a tool result's files are refused before they are read", () => {
   });
   testWith(counted.Application)(
     "over maxFiles, a stored file of a tool result is never read",
-    async ({ app, mockLlm }) => {
+    async ({ app, mockModel }) => {
       CountingFileRepository.reads = 0;
       FETCHABLE.set("stored", {
         mediaType: "application/pdf",
@@ -37,7 +37,7 @@ describe("a tool result's files are refused before they are read", () => {
         sha256: sha256Of(PDF_BYTES),
         sizeBytes: PDF_BYTES.byteLength,
       });
-      mockLlm(counted.Agent).thenReturn(callTool(FetchTool, { name: "stored" }));
+      mockModel(counted.Agent).thenReturn(callTool(FetchTool, { name: "stored" }));
 
       const failure = await execute(app, counted.Start, {
         document: inline(PNG_BYTES, "image/png", "a.png"),
@@ -53,9 +53,9 @@ describe("a tool result's files obey the visit's limits before any read", () => 
   const limited = readerApplication({ files: ModelFiles.of({ sources: SOURCES, maxFiles: 1 }) });
   testWith(limited.Application)(
     "a second file from a tool over maxFiles is refused before it is read; no second model call",
-    async ({ app, mockLlm }) => {
+    async ({ app, mockModel }) => {
       FETCHABLE.set("one", inline(PDF_BYTES, "application/pdf", "one.pdf"));
-      const agent = mockLlm(limited.Agent).thenReturn(callTool(FetchTool, { name: "one" }));
+      const agent = mockModel(limited.Agent).thenReturn(callTool(FetchTool, { name: "one" }));
 
       const failure = await execute(app, limited.Start, {
         document: inline(PNG_BYTES, "image/png", "a.png"),
@@ -72,10 +72,10 @@ describe("a tool result's files in the stored call and the trace", () => {
   const reader = readerApplication({ files: ModelFiles.of({ sources: SOURCES }) });
   testWith(reader.Application)(
     "the call stores digests, not bytes; the model receives the file",
-    async ({ app, mockLlm }) => {
+    async ({ app, mockModel }) => {
       const bytes = Buffer.from("%PDF-1.4 SECRET-TOOL-BYTES");
       FETCHABLE.set("s", inline(bytes, "application/pdf", "s.pdf"));
-      const agent = mockLlm(reader.Agent).thenReturn(
+      const agent = mockModel(reader.Agent).thenReturn(
         callTool(FetchTool, { name: "s" }),
         replyWith("ok"),
       );

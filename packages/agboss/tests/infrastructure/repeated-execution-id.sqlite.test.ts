@@ -55,9 +55,9 @@ function rowsOnFile(): Record<string, number> {
 describe("#591 on SQLite", () => {
   test("a repeated root id is refused with nothing written to the file", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(replyWith(ReceiptDto, { text: "One." }));
+    mockModel(Clerk).thenReturn(replyWith(ReceiptDto, { text: "One." }));
     minting.executions = ["order-tree-7", "order-tree-7"];
     const first = await execute(app, OrderWorkflowStart, { text: "a" });
     const before = rowsOnFile();
@@ -72,10 +72,10 @@ describe("#591 on SQLite", () => {
 
   twice(
     "two instances on one file minting one id at once: one tree runs, the other is refused",
-    async ({ apps, mockLlm }) => {
+    async ({ apps, mockModel }) => {
       const [first, second] = apps;
       if (first === undefined || second === undefined) throw new Error("two instances expected");
-      mockLlm(Clerk).thenReturn(replyWith(ReceiptDto, { text: "One." }));
+      mockModel(Clerk).thenReturn(replyWith(ReceiptDto, { text: "One." }));
       minting.executions = ["same-id", "same-id"];
 
       const outcomes = await Promise.all([

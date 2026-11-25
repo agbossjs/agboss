@@ -132,23 +132,23 @@ describe("#1290b: a declarative judge in an agent's quality gate", () => {
 
   test("reads the criterion from the file next to the class; the model sees the task and the answer", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(DeclaredWriter).thenReturn(replyWith("It ships Monday.", { cost: usd(0.002) }));
-    mockLlm(GroundedJudge).thenReturnAlways(replyWith(PASSED, { cost: usd(0.001) }));
-    mockLlm(PoliteJudge).thenReturnAlways(replyWith(scored(0.9), { cost: usd(0.001) }));
+    mockModel(DeclaredWriter).thenReturn(replyWith("It ships Monday.", { cost: usd(0.002) }));
+    mockModel(GroundedJudge).thenReturnAlways(replyWith(PASSED, { cost: usd(0.001) }));
+    mockModel(PoliteJudge).thenReturnAlways(replyWith(scored(0.9), { cost: usd(0.001) }));
 
     const result = await execute(app, DeclaredStart, { text: "when does it ship?" });
 
     expect(result.status).toBe(ExecutionStatus.Finished);
-    const [asked] = mockLlm(GroundedJudge).requests;
+    const [asked] = mockModel(GroundedJudge).requests;
     expect(asked?.kind).toBe("chat");
     const sent = JSON.stringify(asked);
     expect(sent).toContain("The reply is grounded in the task");
     expect(sent).toContain("when does it ship?");
     expect(sent).toContain("It ships Monday.");
-    expect(mockLlm(PoliteJudge).onlyRequest.kind).toBe("chat");
-    expect(JSON.stringify(mockLlm(PoliteJudge).onlyRequest)).toContain("The reply is polite.");
+    expect(mockModel(PoliteJudge).onlyRequest.kind).toBe("chat");
+    expect(JSON.stringify(mockModel(PoliteJudge).onlyRequest)).toContain("The reply is polite.");
     expect(result.spend.trace.map((line) => line.caller)).toEqual(
       expect.arrayContaining(["judge:grounded-judge", "judge:polite-judge"]),
     );
@@ -156,30 +156,30 @@ describe("#1290b: a declarative judge in an agent's quality gate", () => {
 
   test("a failed verdict's reason goes back to the agent; the retry is judged again", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(DeclaredWriter)
+    mockModel(DeclaredWriter)
       .thenReturn(replyWith("It ships in 2019."))
       .thenReturn(replyWith("It ships Monday."));
-    mockLlm(GroundedJudge)
+    mockModel(GroundedJudge)
       .thenReturn(replyWith(failed("the date is invented")))
       .thenReturn(replyWith(PASSED));
-    mockLlm(PoliteJudge).thenReturnAlways(replyWith(scored(1)));
+    mockModel(PoliteJudge).thenReturnAlways(replyWith(scored(1)));
 
     const result = await execute(app, DeclaredStart, { text: "when?" });
 
     expect(result.output).toEqual({ text: "It ships Monday." });
-    const [, retry] = mockLlm(DeclaredWriter).requests;
+    const [, retry] = mockModel(DeclaredWriter).requests;
     expect(JSON.stringify(retry)).toContain("[grounded-judge] the date is invented");
   });
 
   test("a score under the threshold fails the gate; every judge ran, every reason is given", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(DeclaredWriter).thenReturnAlways(replyWith("Whatever."));
-    mockLlm(GroundedJudge).thenReturnAlways(replyWith(PASSED));
-    mockLlm(PoliteJudge).thenReturnAlways(replyWith(scored(0.4, "curt")));
+    mockModel(DeclaredWriter).thenReturnAlways(replyWith("Whatever."));
+    mockModel(GroundedJudge).thenReturnAlways(replyWith(PASSED));
+    mockModel(PoliteJudge).thenReturnAlways(replyWith(scored(0.4, "curt")));
 
     const run = execute(app, DeclaredStart, { text: "?" });
 
@@ -189,23 +189,23 @@ describe("#1290b: a declarative judge in an agent's quality gate", () => {
     });
   });
 
-  test("an unscripted declarative judge passes", async ({ app, mockLlm }) => {
-    mockLlm(DeclaredWriter).thenReturn(replyWith("Fine."));
+  test("an unscripted declarative judge passes", async ({ app, mockModel }) => {
+    mockModel(DeclaredWriter).thenReturn(replyWith("Fine."));
 
     const result = await execute(app, DeclaredStart, { text: "?" });
 
     expect(result.status).toBe(ExecutionStatus.Finished);
-    expect(mockLlm(GroundedJudge).requests).toHaveLength(1);
-    expect(mockLlm(PoliteJudge).requests).toHaveLength(1);
+    expect(mockModel(GroundedJudge).requests).toHaveLength(1);
+    expect(mockModel(PoliteJudge).requests).toHaveLength(1);
   });
 
   test("a model answer that is no verdict fails the agent closed, its text in no message", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(DeclaredWriter).thenReturnAlways(replyWith("Fine."));
-    mockLlm(GroundedJudge).thenReturnAlways(replyWith("PASS, secret-marker-123"));
-    mockLlm(PoliteJudge).thenReturnAlways(replyWith(scored(1)));
+    mockModel(DeclaredWriter).thenReturnAlways(replyWith("Fine."));
+    mockModel(GroundedJudge).thenReturnAlways(replyWith("PASS, secret-marker-123"));
+    mockModel(PoliteJudge).thenReturnAlways(replyWith(scored(1)));
 
     const run = execute(app, DeclaredStart, { text: "?" });
 
@@ -222,30 +222,30 @@ describe("#1290b: the budget is checked before each model call of a judge", () =
 
   test("the second judge makes no call once the first one spent the execution's budget", async ({
     app,
-    mockLlm,
-    mockOf,
+    mockModel,
+    mockService,
   }) => {
-    mockOf(TestExecutionBudget).maxSpend.mockReturnValue(usd(0.005));
-    mockLlm(TwoJudgesWriter).thenReturn(replyWith("Fine.", { cost: usd(0.001) }));
-    mockLlm(GroundedJudge).thenReturn(replyWith(PASSED, { cost: usd(0.01) }));
-    mockLlm(ShortJudge).thenReturnAlways(replyWith(PASSED, { cost: usd(0.001) }));
+    mockService(TestExecutionBudget).maxSpend.mockReturnValue(usd(0.005));
+    mockModel(TwoJudgesWriter).thenReturn(replyWith("Fine.", { cost: usd(0.001) }));
+    mockModel(GroundedJudge).thenReturn(replyWith(PASSED, { cost: usd(0.01) }));
+    mockModel(ShortJudge).thenReturnAlways(replyWith(PASSED, { cost: usd(0.001) }));
 
     const run = execute(app, DeclaredStart, { text: "?" });
 
     await expect(run).rejects.toBeInstanceOf(BudgetExceededError);
-    expect(mockLlm(GroundedJudge).requests).toHaveLength(1);
-    expect(mockLlm(ShortJudge).requests).toHaveLength(0);
+    expect(mockModel(GroundedJudge).requests).toHaveLength(1);
+    expect(mockModel(ShortJudge).requests).toHaveLength(0);
   });
 
-  test("with budget left both judges ask", async ({ app, mockLlm }) => {
-    mockLlm(TwoJudgesWriter).thenReturn(replyWith("Fine.", { cost: usd(0.001) }));
-    mockLlm(GroundedJudge).thenReturn(replyWith(PASSED, { cost: usd(0.001) }));
-    mockLlm(ShortJudge).thenReturn(replyWith(PASSED, { cost: usd(0.001) }));
+  test("with budget left both judges ask", async ({ app, mockModel }) => {
+    mockModel(TwoJudgesWriter).thenReturn(replyWith("Fine.", { cost: usd(0.001) }));
+    mockModel(GroundedJudge).thenReturn(replyWith(PASSED, { cost: usd(0.001) }));
+    mockModel(ShortJudge).thenReturn(replyWith(PASSED, { cost: usd(0.001) }));
 
     const result = await execute(app, DeclaredStart, { text: "?" });
 
     expect(result.status).toBe(ExecutionStatus.Finished);
-    expect(mockLlm(ShortJudge).requests).toHaveLength(1);
+    expect(mockModel(ShortJudge).requests).toHaveLength(1);
   });
 });
 

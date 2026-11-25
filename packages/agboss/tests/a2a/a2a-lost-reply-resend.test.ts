@@ -108,9 +108,9 @@ for (const [name, test, expose] of CASES) {
     test("AC4: an accepted follow-up (task now COMPLETED): the resend gets the task, charged once", async ({
       a2aServer,
       app,
-      mockLlm,
+      mockModel,
     }) => {
-      mockLlm(Clerk).thenReturn(
+      mockModel(Clerk).thenReturn(
         callTool(Charge, { text: "10 USD" }),
         replyWith(ReceiptDto, { text: "Done." }),
       );
@@ -137,9 +137,9 @@ for (const [name, test, expose] of CASES) {
     test("AC4: a refused follow-up (pause closed by a cancel, task now CANCELED): the resend gets the task", async ({
       a2aServer,
       app,
-      mockLlm,
+      mockModel,
     }) => {
-      mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+      mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
       const { url } = await a2aServer({ endpoint: expose, authenticator: BearerAuthenticator });
       const task = taskOf(
         await rpc(url, "SendMessage", { message: userMessage("m-1", [text("go")]) }),

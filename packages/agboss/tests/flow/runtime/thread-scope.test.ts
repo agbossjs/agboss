@@ -22,22 +22,22 @@ import {
 const loop = testWith(LoopApplication);
 
 describe("#336 AC1: a second execution on one thread", () => {
-  loop("starts with an empty scope; only history carries over", async ({ app, mockLlm }) => {
-    mockLlm(LoopResearcherAgent).thenReturn(
+  loop("starts with an empty scope; only history carries over", async ({ app, mockModel }) => {
+    mockModel(LoopResearcherAgent).thenReturn(
       replyWith(ResearchDto, { facts: "first facts" }),
       replyWith(ResearchDto, { facts: "second facts" }),
     );
-    mockLlm(LoopWriterAgent).thenReturn(
+    mockModel(LoopWriterAgent).thenReturn(
       replyWith(DraftDto, { text: "first draft" }),
       replyWith(DraftDto, { text: "first draft, shorter" }),
       replyWith(DraftDto, { text: "second draft" }),
     );
-    mockLlm(LoopReviewerAgent).thenReturn(
+    mockModel(LoopReviewerAgent).thenReturn(
       replyWith(DraftChangesDto, { changes: "shorter" }),
       replyWith(ApprovalDto, { reason: "good" }),
       replyWith(ApprovalDto, { reason: "fine" }),
     );
-    mockLlm(LoopPublisherAgent).thenReturn(
+    mockModel(LoopPublisherAgent).thenReturn(
       replyWith(ArticleDto, { body: "one" }),
       replyWith(ArticleDto, { body: "two" }),
     );
@@ -76,11 +76,11 @@ describe("#336 AC1: a second execution on one thread", () => {
       { body: "two" },
     ]);
     // no step of the second execution reads a value of the first
-    const writer = mockLlm(LoopWriterAgent).lastRequest;
+    const writer = mockModel(LoopWriterAgent).lastRequest;
     expect(writer.kind === "chat" && writer.input).toContain("second facts");
     expect(writer.kind === "chat" && writer.input).not.toContain("first");
     // the thread's history does: the first turn is in what the researcher's model reads
-    const research = mockLlm(LoopResearcherAgent).lastRequest;
+    const research = mockModel(LoopResearcherAgent).lastRequest;
     const history = research.kind === "chat" ? JSON.stringify(research.messages) : "";
     expect(history).toContain("alpha");
     expect(history).not.toContain("first draft, shorter");

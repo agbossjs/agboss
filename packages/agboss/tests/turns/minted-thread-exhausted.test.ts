@@ -94,8 +94,8 @@ describe("#613: a minted thread id that never finds a free one", () => {
 
   sqlite(
     "execute on SQLite: refused after 100 taken ids, nothing of the refused call on the file but its kept execution id and budgets",
-    async ({ app, mockLlm }) => {
-      mockLlm(Clerk).thenReturn(replyWith(ReceiptDto, { text: "One." }));
+    async ({ app, mockModel }) => {
+      mockModel(Clerk).thenReturn(replyWith(ReceiptDto, { text: "One." }));
       await execute(app, OrderWorkflowStart, { text: "a" }, { threadId: "thread-taken" });
       const before = rowsOnFile();
       minting.threads = Array.from({ length: 100 }, () => "thread-taken");

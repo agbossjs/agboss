@@ -11,9 +11,9 @@ const test = testWith(FlowPatternsApplication);
 
 test("testUnit: a code judge on the tool calls of a real (scripted) visit", async ({
   app,
-  mockLlm,
+  mockModel,
 }) => {
-  mockLlm(DeskAgent).thenReturn(
+  mockModel(DeskAgent).thenReturn(
     callTool(OrderStatusTool, { orderId: "7" }),
     replyWith("Order 7 shipped."),
   );

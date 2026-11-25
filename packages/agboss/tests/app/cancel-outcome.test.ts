@@ -22,9 +22,9 @@ beforeEach(resetSeen);
 describe("#1341: a cancelled execution resolves with ExecutionStatus.Cancelled", () => {
   test("the output names the execution and its thread, lists nothing pending and finished nothing; its record is `cancelled`", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(callTool(Wait, { text: "a long job" }));
+    mockModel(Clerk).thenReturn(callTool(Wait, { text: "a long job" }));
     const started = new Promise<string>((resolve) => {
       blocking.started = resolve;
     });
@@ -51,9 +51,9 @@ describe("#1341: a cancelled execution resolves with ExecutionStatus.Cancelled",
 
   test("a second cancel of it finds nothing to cancel, and never changes what the first said", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(callTool(Wait, { text: "a long job" }));
+    mockModel(Clerk).thenReturn(callTool(Wait, { text: "a long job" }));
     const started = new Promise<string>((resolve) => {
       blocking.started = resolve;
     });

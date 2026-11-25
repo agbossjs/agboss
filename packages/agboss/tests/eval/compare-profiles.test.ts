@@ -35,7 +35,7 @@ function judge(request: RouteRequest): RouteOutcome {
 /** Scripted models: the coder answers by its (profiled) prompt; the eval judge as above or none. */
 function scriptedGateway(judging: boolean): ModelGateway {
   const book = new ScriptBook();
-  book.scriptOf("agent:coder-agent").thenAnswer((req) =>
+  book.scriptOf("agent:coder-agent").respondWith((req) =>
     replyWith(CodeDto, {
       text: req.kind === "chat" && req.system.includes("tersely") ? "diff, terse" : "diff, long",
     }),

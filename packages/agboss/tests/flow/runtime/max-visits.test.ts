@@ -24,10 +24,10 @@ const drafts = (...texts: string[]) => texts.map((text) => replyWith(DraftDto, {
 describe("#272 AC14: a visit past maxVisits fails before the node runs", () => {
   edit(
     "visit past maxVisits fails before the call: the third edit is refused",
-    async ({ app, mockLlm }) => {
-      mockLlm(GateRouter).thenReturnAlways(routeTo(EditorAgent));
+    async ({ app, mockModel }) => {
+      mockModel(GateRouter).thenReturnAlways(routeTo(EditorAgent));
       // the third visit is refused before its call: two drafts are all the editor writes
-      mockLlm(EditorAgent).thenReturn(...drafts("v1", "v2"));
+      mockModel(EditorAgent).thenReturn(...drafts("v1", "v2"));
 
       const run = execute(app, EditStart, { text: "a poem" });
 
@@ -42,16 +42,16 @@ describe("#272 AC14: a visit past maxVisits fails before the node runs", () => {
         visits: 3,
       });
       expect(error.message).toContain("editor-agent was visited 3 times; its maxVisits is 2");
-      expect(mockLlm(EditorAgent).requests).toHaveLength(2);
-      expect(mockLlm(GateRouter).requests).toHaveLength(2);
+      expect(mockModel(EditorAgent).requests).toHaveLength(2);
+      expect(mockModel(GateRouter).requests).toHaveLength(2);
     },
   );
 
   edit(
     "within its visits the loop finishes; the gate reads the latest draft",
-    async ({ app, mockLlm }) => {
-      mockLlm(GateRouter).thenReturn(routeTo(EditorAgent), routeTo(DoneFinish));
-      mockLlm(EditorAgent).thenReturn(...drafts("v1", "v2"));
+    async ({ app, mockModel }) => {
+      mockModel(GateRouter).thenReturn(routeTo(EditorAgent), routeTo(DoneFinish));
+      mockModel(EditorAgent).thenReturn(...drafts("v1", "v2"));
 
       const result = await execute(app, EditStart, { text: "a poem" });
 
@@ -64,16 +64,16 @@ describe("#272 AC14: a visit past maxVisits fails before the node runs", () => {
         DoneFinish,
       ]);
       expect(result).toFinishWith(DoneFinish, { text: "v2" });
-      expect(mockLlm(GateRouter).lastRequest.input).toContain('"text": "v2"');
-      expect(mockLlm(EditorAgent).lastRequest.input).toContain('"text": "v1"');
+      expect(mockModel(GateRouter).lastRequest.input).toContain('"text": "v2"');
+      expect(mockModel(EditorAgent).lastRequest.input).toContain('"text": "v1"');
     },
   );
 
   patient(
     "caught by .onError(VisitsLimitExceededError, …) right after the step",
-    async ({ app, mockLlm }) => {
-      mockLlm(PatientGateRouter).thenReturnAlways(routeTo(PatientEditorAgent));
-      mockLlm(PatientEditorAgent).thenReturn(...drafts("v1", "v2"));
+    async ({ app, mockModel }) => {
+      mockModel(PatientGateRouter).thenReturnAlways(routeTo(PatientEditorAgent));
+      mockModel(PatientEditorAgent).thenReturn(...drafts("v1", "v2"));
 
       const result = await execute(app, EditStart, { text: "a poem" }, { includeRecord: true });
 

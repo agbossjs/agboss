@@ -130,8 +130,8 @@ describe("#941 AC6: the run's deadline bounds a pause", () => {
 
   agent(
     "AC6 (V5): the run's deadline bounds an agent's tool approval: the agent's visit fails with DeadlineExceededError at the deadline",
-    async ({ app, clock, mockLlm }) => {
-      mockLlm(ExpiryRefundAgent).thenReturn(callTool(ExpiringRefundTool, { orderId: "7" }));
+    async ({ app, clock, mockModel }) => {
+      mockModel(ExpiryRefundAgent).thenReturn(callTool(ExpiringRefundTool, { orderId: "7" }));
       await execute(
         app,
         AgentBareWorkflowStart,
@@ -152,8 +152,8 @@ describe("#941 AC6: the run's deadline bounds a pause", () => {
 
   child(
     "AC6: a child's pause is bounded by the root's deadline and expires through the root",
-    async ({ app, clock, mockLlm }) => {
-      mockLlm(ChildRefundAgent).thenReturn(callTool(RefundTool, { orderId: "A" }));
+    async ({ app, clock, mockModel }) => {
+      mockModel(ChildRefundAgent).thenReturn(callTool(RefundTool, { orderId: "A" }));
       const paused = await execute(
         app,
         SingleChildWorkflowStart,

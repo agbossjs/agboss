@@ -44,15 +44,15 @@ class WrongTextWorkflow {}
 describe("#270 AC10: an agent without input / output reads the message and answers with text", () => {
   star(
     "its reply is the finish's WorkflowFinishTextDto; it read the start's message",
-    async ({ app, mockLlm }) => {
-      mockLlm(TestMain).thenReturn(routeTo(Alpha));
-      mockLlm(Alpha).thenReturn(replyWith("Hello back."));
+    async ({ app, mockModel }) => {
+      mockModel(TestMain).thenReturn(routeTo(Alpha));
+      mockModel(Alpha).thenReturn(replyWith("Hello back."));
 
       const result = await execute(app, TestChat, { text: "hello" });
 
       expect(result).toFollowPath([TestChat, TestMain, Alpha, TestAnswer]);
       expect(result).toFinishWith(TestAnswer, { text: "Hello back." });
-      expect(mockLlm(Alpha).onlyRequest.input).toBe(
+      expect(mockModel(Alpha).onlyRequest.input).toBe(
         '### message (from chat-workflow-start)\n{\n  "text": "hello"\n}',
       );
     },

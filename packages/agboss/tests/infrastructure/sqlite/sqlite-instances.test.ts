@@ -64,9 +64,9 @@ describe("#265 M2 (automated): recovery on SQLite after an instance died", () =>
   test("the other instance continues the root from its last checkpoint; only the interrupted step runs again", async ({
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(
+    mockModel(Clerk).thenReturn(
       callTool(Step, { text: "one" }),
       callTool(Hold, { text: "a long job" }),
       replyWith(ReceiptDto, { text: "Done." }),
@@ -92,8 +92,8 @@ describe("#265 M2 (automated): recovery on SQLite after an instance died", () =>
 });
 
 describe("#265 PR 3: a pause on the SQLite file", () => {
-  test("made on one instance, it is resumed on the other", async ({ app, apps, mockLlm }) => {
-    mockLlm(Clerk).thenReturn(
+  test("made on one instance, it is resumed on the other", async ({ app, apps, mockModel }) => {
+    mockModel(Clerk).thenReturn(
       callTool(Charge, { text: "10 USD" }),
       replyWith(ReceiptDto, { text: "Charged." }),
     );
@@ -108,8 +108,8 @@ describe("#265 PR 3: a pause on the SQLite file", () => {
 
   single(
     "it survives a restart: the new instance opens the file and resumes it",
-    async ({ app, mockLlm, recoverApp }) => {
-      mockLlm(Clerk).thenReturn(
+    async ({ app, mockModel, recoverApp }) => {
+      mockModel(Clerk).thenReturn(
         callTool(Charge, { text: "10 USD" }),
         replyWith(ReceiptDto, { text: "Charged." }),
       );
@@ -160,9 +160,9 @@ describe("#850: a resume that died between recording its answer and moving the t
     app,
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(
+    mockModel(Clerk).thenReturn(
       callTool(Charge, { text: "10 USD" }),
       replyWith(ReceiptDto, { text: "Charged." }),
     );
@@ -192,9 +192,9 @@ describe("#850: a resume that died between recording its answer and moving the t
     app,
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(
+    mockModel(Clerk).thenReturn(
       callTool(Charge, { text: "10 USD" }),
       replyWith(ReceiptDto, { text: "Charged." }),
     );
@@ -221,9 +221,9 @@ describe("#850: a resume that died between recording its answer and moving the t
     app,
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(
+    mockModel(Clerk).thenReturn(
       callTool(Charge, { text: "10 USD" }),
       replyWith(ReceiptDto, { text: "Charged." }),
     );
@@ -247,9 +247,9 @@ describe("#850: a resume that died between recording its answer and moving the t
     app,
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(
+    mockModel(Clerk).thenReturn(
       callTool(Charge, { text: "10 USD" }),
       replyWith(ReceiptDto, { text: "Charged." }),
     );

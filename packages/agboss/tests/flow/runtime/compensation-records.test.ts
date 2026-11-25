@@ -42,9 +42,9 @@ const GUEST = { guest: "ada" };
 describe("records on the path", () => {
   test("the committer commits the seat, the finish the room: nothing undone", async ({
     app,
-    mockOf,
+    mockService,
   }) => {
-    const desk = mockOf(UndoDesk);
+    const desk = mockService(UndoDesk);
     desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
 
     const result = await execute(app, UndoPathWorkflowStart, GUEST, { includeRecord: true });
@@ -54,8 +54,11 @@ describe("records on the path", () => {
     expect(result.record?.compensations).toEqual([]);
   });
 
-  test("a side path's undo actions close the records, newest first", async ({ app, mockOf }) => {
-    const desk = mockOf(UndoDesk);
+  test("a side path's undo actions close the records, newest first", async ({
+    app,
+    mockService,
+  }) => {
+    const desk = mockService(UndoDesk);
     desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
     desk.charge.mockRejectedValue(new UndoDeskError("card declined"));
 
@@ -89,10 +92,10 @@ describe("records on the path", () => {
 
   test("an undo whose failure its own side path takes is recorded Failed", async ({
     app,
-    mockOf,
+    mockService,
     mockAction,
   }) => {
-    const desk = mockOf(UndoDesk);
+    const desk = mockService(UndoDesk);
     desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
     desk.charge.mockRejectedValue(new UndoDeskError("card declined"));
     desk.release.mockResolvedValueOnce().mockRejectedValueOnce(new UndoDeskError("seat desk down"));

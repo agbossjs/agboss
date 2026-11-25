@@ -477,7 +477,7 @@ application, executionId, report: false }`, #844). **Exactly once across
 `testWith`'s `a2aServer({ endpoint, authenticator, base? })` serves the test's `app` through
 `a2aHttpListener` on `127.0.0.1:0` and returns `{ url }` (`A2ATestServer`); the loopback is open
 for it (no `allowNetwork` needed) and the server is closed at the test's end. The authenticator comes
-from the test app's container, so `FixedApiKeyDirectory` and `mockOf`
+from the test app's container, so `FixedApiKeyDirectory` and `mockService`
 reach it.
 
 ```ts no-check: ShopApplication and its workflow are not written out on this page

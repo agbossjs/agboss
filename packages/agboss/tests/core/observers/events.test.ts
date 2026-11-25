@@ -39,9 +39,9 @@ beforeEach(resetEvents);
 describe("#261 AC7, AC15: every event carries the execution's common fields", () => {
   test("start, pause, resume and end name the execution, its root, thread, tenant and WorkflowRecord", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(
+    mockModel(Clerk).thenReturn(
       callTool(Apply, { text: "job 1" }),
       replyWith(AnswerDto, { text: "Applied." }),
     );
@@ -64,9 +64,9 @@ describe("#261 AC7, AC15: every event carries the execution's common fields", ()
 
   test("a WorkflowRecord is plain data: no class, the same after a JSON round trip", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(replyWith(AnswerDto, { text: "One." }));
+    mockModel(Clerk).thenReturn(replyWith(AnswerDto, { text: "One." }));
 
     await execute(app, Ask, { text: "one" });
 
@@ -76,8 +76,8 @@ describe("#261 AC7, AC15: every event carries the execution's common fields", ()
     }
   });
 
-  test("no event carries the internal state", async ({ app, mockLlm }) => {
-    mockLlm(Clerk).thenReturn(
+  test("no event carries the internal state", async ({ app, mockModel }) => {
+    mockModel(Clerk).thenReturn(
       callTool(Lookup, { text: "rust" }),
       replyWith(AnswerDto, { text: "2 jobs." }),
     );
@@ -91,9 +91,9 @@ describe("#261 AC7, AC15: every event carries the execution's common fields", ()
 
   test("onExecutionEnd gives the finish as a ComponentRecord and the spend", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(replyWith(AnswerDto, { text: "One." }));
+    mockModel(Clerk).thenReturn(replyWith(AnswerDto, { text: "One." }));
 
     const done = await execute(app, Ask, { text: "one" });
 
@@ -107,9 +107,9 @@ describe("#261 AC7, AC15: every event carries the execution's common fields", ()
 describe("#261 AC15: node events carry their step (StepRecord)", () => {
   test("agent, model, tool and action events name the step by component name, node, visit and key", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(
+    mockModel(Clerk).thenReturn(
       callTool(Lookup, { text: "rust" }),
       replyWith(AnswerDto, { text: "2 jobs." }),
     );
@@ -184,8 +184,8 @@ describe("#261 AC15: observers are registered only in @Application", () => {
 });
 
 describe("#261 AC7: nameOf(C) — the name of any AGBoss-decorated class", () => {
-  test("serialized events are filtered by the names of the classes", async ({ app, mockLlm }) => {
-    mockLlm(Clerk).thenReturn(replyWith(AnswerDto, { text: "One." }));
+  test("serialized events are filtered by the names of the classes", async ({ app, mockModel }) => {
+    mockModel(Clerk).thenReturn(replyWith(AnswerDto, { text: "One." }));
 
     await execute(app, Ask, { text: "one" });
 

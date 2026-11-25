@@ -175,12 +175,12 @@ describe("#261 AC8: tests default to the test environment", () => {
 
   byDefault(
     "no option → test.environment.ts — the agent's tool sees it",
-    async ({ app, mockLlm }) => {
-      mockLlm(Clerk).thenReturn(callTool(ApiSettings, { what: "all" }), replyWith("done"));
+    async ({ app, mockModel }) => {
+      mockModel(Clerk).thenReturn(callTool(ApiSettings, { what: "all" }), replyWith("done"));
 
       await execute(app, ChatStart, { text: "which API?" });
 
-      expect(toolResultsOf(mockLlm(Clerk).lastRequest)).toEqual([
+      expect(toolResultsOf(mockModel(Clerk).lastRequest)).toEqual([
         JSON.stringify({ apiUrl: "https://api.test.example.com", currency: "EUR" }),
       ]);
     },

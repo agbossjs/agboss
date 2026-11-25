@@ -19,11 +19,11 @@ const test = testWith(MailApplication);
 describe("#120: tokens survive a pause, a resume and a recovery", () => {
   test("the tool after the approval and the reply after the recovery get the real email", async ({
     app,
-    mockLlm,
+    mockModel,
     recoverApp,
   }) => {
-    const script = mockLlm(MailerAgent);
-    script.thenAnswer((request) => {
+    const script = mockModel(MailerAgent);
+    script.respondWith((request) => {
       const [token] = tokensIn(requestText(request), "email");
       return script.requests.length === 1
         ? callTool(SendApprovedEmail, { to: token ?? "", body: "hi" })

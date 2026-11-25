@@ -42,10 +42,10 @@ describe("#941 I6: per-item launch", () => {
   test("I6: two items' pauses expire in one pass; each decided answer goes on with its branch", async ({
     app,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
     agentExpiry.behavior = () => PauseExpiration.decide({ approved: true });
-    mockLlm(ExpiryBatchRefundAgent).thenAnswer((request) => {
+    mockModel(ExpiryBatchRefundAgent).respondWith((request) => {
       const orderId = orderOf(request);
       const isAnswered =
         request.kind === "chat" && request.messages.some((line) => line.role === "tool");
@@ -78,14 +78,14 @@ describe("#941 I6: a branch's pause is due while its sibling still runs", () => 
   test("I6: no answer is accepted after the deadline; at the rest the holder expires it and the launch fails per its policy", async ({
     app,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
     let open: () => void = () => undefined;
     agentExpiry.gate = new Promise<void>((resolve) => {
       open = resolve;
     });
-    mockLlm(ExpiryRefundAgent).thenReturn(callTool(QuickRefundTool, { orderId: "7" }));
-    mockLlm(ExpiryHoldAgent).thenReturn(
+    mockModel(ExpiryRefundAgent).thenReturn(callTool(QuickRefundTool, { orderId: "7" }));
+    mockModel(ExpiryHoldAgent).thenReturn(
       callTool(GateTool, { what: "hold" }),
       replyWith(GateDto, { what: "held" }),
     );

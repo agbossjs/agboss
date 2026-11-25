@@ -54,11 +54,11 @@ beforeEach(resetPanel);
 describe("S26: a pause and a resume inside a quorum", () => {
   checked(
     "resumed before the deadline: counting goes on from the records",
-    async ({ app, mockLlm, clock }) => {
-      mockLlm(SkillsPanelAgent).thenReturn(score(7));
-      mockLlm(RisksPanelAgent).thenReturn(callTool(ConfirmScoreTool, { score: 6 }), score(6));
-      mockLlm(HirePanelAgent).thenReturn(score(9));
-      mockLlm(PanelSummaryAgent).thenReturn(summary);
+    async ({ app, mockModel, clock }) => {
+      mockModel(SkillsPanelAgent).thenReturn(score(7));
+      mockModel(RisksPanelAgent).thenReturn(callTool(ConfirmScoreTool, { score: 6 }), score(6));
+      mockModel(HirePanelAgent).thenReturn(score(9));
+      mockModel(PanelSummaryAgent).thenReturn(summary);
 
       const paused = await execute(app, PanelWorkflowStart, ANNA);
       expect(paused.status).toBe(ExecutionStatus.Paused);
@@ -71,9 +71,9 @@ describe("S26: a pause and a resume inside a quorum", () => {
         { nodeId: "risks-panel-agent", verdict: BranchVerdict.Counted, acceptedSequence: 3 },
         { nodeId: "hire-panel-agent", verdict: BranchVerdict.Counted, acceptedSequence: 2 },
       ]);
-      expect(mockLlm(SkillsPanelAgent).requests).toHaveLength(1);
-      expect(mockLlm(HirePanelAgent).requests).toHaveLength(1);
-      const input = textOf(mockLlm(PanelSummaryAgent).requests[0]);
+      expect(mockModel(SkillsPanelAgent).requests).toHaveLength(1);
+      expect(mockModel(HirePanelAgent).requests).toHaveLength(1);
+      const input = textOf(mockModel(PanelSummaryAgent).requests[0]);
       expect(input.indexOf('"score": 9')).toBeLessThan(input.indexOf('"score": 6'));
     },
   );
@@ -122,11 +122,11 @@ describe("S26: a crash inside a quorum", () => {
 
   instances(
     "after a crash the other instance runs only the unfinished branch: the same counts",
-    async ({ apps, clock, mockLlm }) => {
-      mockLlm(SkillsPanelAgent).thenReturn(score(7));
-      mockLlm(RisksPanelAgent).thenReturn(callTool(WaitTool, { seconds: 60 }), score(6));
-      mockLlm(HirePanelAgent).thenReturn(score(9));
-      mockLlm(PanelSummaryAgent).thenReturn(summary);
+    async ({ apps, clock, mockModel }) => {
+      mockModel(SkillsPanelAgent).thenReturn(score(7));
+      mockModel(RisksPanelAgent).thenReturn(callTool(WaitTool, { seconds: 60 }), score(6));
+      mockModel(HirePanelAgent).thenReturn(score(9));
+      mockModel(PanelSummaryAgent).thenReturn(summary);
 
       const { call, recovered } = await crashAndRecover(apps, clock, 20, true);
 
@@ -137,19 +137,19 @@ describe("S26: a crash inside a quorum", () => {
         { verdict: BranchVerdict.Counted, acceptedSequence: 3 },
         { verdict: BranchVerdict.Counted, acceptedSequence: 2 },
       ]);
-      expect(mockLlm(SkillsPanelAgent).requests).toHaveLength(1);
-      expect(mockLlm(RisksPanelAgent).requests).toHaveLength(2);
+      expect(mockModel(SkillsPanelAgent).requests).toHaveLength(1);
+      expect(mockModel(RisksPanelAgent).requests).toHaveLength(2);
     },
   );
 
   instances(
     "an expired deadlineAt cancels the unfinished branch without running it",
-    async ({ apps, clock, mockLlm }) => {
-      mockLlm(SkillsPanelAgent).thenReturn(score(7));
+    async ({ apps, clock, mockModel }) => {
+      mockModel(SkillsPanelAgent).thenReturn(score(7));
       // cancelled without running again after the crash: its answer never comes
-      mockLlm(RisksPanelAgent).thenReturn(callTool(WaitTool, { seconds: 60 }));
-      mockLlm(HirePanelAgent).thenReturn(score(9));
-      mockLlm(PanelSummaryAgent).thenReturn(summary);
+      mockModel(RisksPanelAgent).thenReturn(callTool(WaitTool, { seconds: 60 }));
+      mockModel(HirePanelAgent).thenReturn(score(9));
+      mockModel(PanelSummaryAgent).thenReturn(summary);
 
       const { recovered } = await crashAndRecover(apps, clock, 300, false);
 
@@ -159,7 +159,7 @@ describe("S26: a crash inside a quorum", () => {
         { nodeId: "risks-panel-agent", status: BranchStatus.Cancelled },
         { verdict: BranchVerdict.Counted, acceptedSequence: 2 },
       ]);
-      expect(mockLlm(RisksPanelAgent).requests).toHaveLength(1);
+      expect(mockModel(RisksPanelAgent).requests).toHaveLength(1);
     },
   );
 });

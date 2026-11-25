@@ -11,7 +11,7 @@ optional peer dependency.
 own: an application that uses a model and names no `modelProvider` fails at assembly with
 `[model.missing-provider]`, in a test as in production. `TestModelProvider` (`@agboss/core/testing`)
 is the provider to name — `@Application({ modelProvider: TestModelProvider })` serves every chat
-agent, and the script (`mockLlm`, `replyWith`) answers each call before the provider is reached. A
+agent, and the script (`mockModel`, `replyWith`) answers each call before the provider is reached. A
 component that decides on a decision model (a judge, arbiter, guardrail or reply interpreter) names
 `modelProvider: TestDecisionsModelProvider`, because a decision model has its own protocol.
 
@@ -175,10 +175,10 @@ import { expect } from "vitest";
 
 const test = testWith(JobScoutApplication);
 
-test("saving waits for approval; after it the agent's answer ends the turn", async ({ app, mockLlm, mcpOf }) => {
-  mockLlm(MainRouter).thenReturn(routeTo(Shortlist)); // one router call: the agent's answer finishes the turn
-  mockLlm(Shortlist).thenReturn(callTool(SaveShortlist, { jobs: [job] }), replyWith("Saved 1 job."));
-  mcpOf(ShortlistServer).thenReturn({
+test("saving waits for approval; after it the agent's answer ends the turn", async ({ app, mockModel, mockMcp }) => {
+  mockModel(MainRouter).thenReturn(routeTo(Shortlist)); // one router call: the agent's answer finishes the turn
+  mockModel(Shortlist).thenReturn(callTool(SaveShortlist, { jobs: [job] }), replyWith("Saved 1 job."));
+  mockMcp(ShortlistServer).thenReturn({
     read_text_file: () => Promise.reject(new Error("ENOENT")),
     write_file: () => Promise.resolve({ content: "ok" }),
   });
@@ -189,7 +189,7 @@ test("saving waits for approval; after it the agent's answer ends the turn", asy
 
   expect(paused).toHavePausedAt(Shortlist);
   expect(done).toFinishWith(ChatWorkflowFinish, { text: "Saved 1 job." });
-  expect(mockLlm(MainRouter).requests).toHaveLength(1);
+  expect(mockModel(MainRouter).requests).toHaveLength(1);
 });
 ```
 
@@ -201,10 +201,10 @@ A Vitest `test` whose fixtures are:
 
 | Fixture   | What it is                                                                                 |
 | --------- | ------------------------------------------------------------------------------------------ |
-| `app`     | the application's [App](App) (`execute`, `resume`, `cancel`, `close`) — built on first use (`execute`, or `await app.ready()` for a test that executes nothing; a second `ready()` does nothing), so `mockOf` in the test body takes effect; plus `app.clock` and slices |
-| `mockLlm` | the script of an agent or a router: `mockLlm(Scout).thenReturn(…)`                            |
-| `mockOf`  | a typed mock injected instead of a component (a budget too: `mockOf(TenantDailyBudget).maxSpend`) |
-| `mcpOf`   | the stub of an MCP server                                                                  |
+| `app`     | the application's [App](App) (`execute`, `resume`, `cancel`, `close`) — built on first use (`execute`, or `await app.ready()` for a test that executes nothing; a second `ready()` does nothing), so `mockService` in the test body takes effect; plus `app.clock` and slices |
+| `mockModel` | the script of an agent or a router: `mockModel(Scout).thenReturn(…)`                            |
+| `mockService`  | a typed mock injected instead of a component (a budget too: `mockService(TenantDailyBudget).maxSpend`) |
+| `mockMcp`   | the stub of an MCP server                                                                  |
 | `apps`    | with `testWith(App, { instances: 2 })`: every instance of the application (`apps[0]` is `app`), each its own container and instance id, over one set of stores and one clock — listed SQLite stores only through a file, not `:memory:` ([Several instances](Several-instances#testing-several-instances)) |
 | `clock`   | the test's [`VirtualClock`](#the-clock) — the application's `Clock`, shared by its instances: `await clock.advance(seconds(31))` |
 | `leases`  | a frozen process (#471): `leases.freeze(apps[0])` holds that instance's lease store calls and lease timers while its steps run on, `leases.thaw(apps[0])` lets them go ([Several instances](Several-instances#testing-several-instances)) |
@@ -221,10 +221,10 @@ the next.
 ### Everything external is replaced
 
 - **Models** → scripted (the model gateway is replaced). An agent or router without a script is a
-  blocked live call. Guardrails nobody scripted **pass** (`mockLlm(G).thenReturn(decideWith({ blocks:
+  blocked live call. Guardrails nobody scripted **pass** (`mockModel(G).thenReturn(decideWith({ blocks:
   0.9 }))` blocks); a `@Memory` that compacts, if nobody scripted it, writes a fixed summary
-  (`mockLlm(ConversationMemory).thenReturn(replyWith("…"))` scripts it, #120 PR 3).
-- **MCP servers** → stubs: `mcpOf(Server).thenReturn({ <server tool>: handler })`; `.calls` lists what
+  (`mockModel(ConversationMemory).thenReturn(replyWith("…"))` scripts it, #120 PR 3).
+- **MCP servers** → stubs: `mockMcp(Server).thenReturn({ <server tool>: handler })`; `.calls` lists what
   the server got. A server tool without a handler fails the test with the server's and the tool's
   name. `real: [Server]` connects that server for real (an integration test).
 - **Network** → blocked: any `fetch` or `node:http(s)` request to a host not in `allowNetwork` fails
@@ -253,16 +253,16 @@ and a model a profile switches to one no listed provider serves fails the assemb
 <!-- snippet-context
 import { ModelFailure, callTool, failWith, replyWith, routeTo, testWith } from "@agboss/core/testing";
 import { ChatWorkflowFinish, ChatWorkflowStart, GreenhouseJobs, JobScout, JobScoutApplication, MainRouter, OrderBook, OrderStatus, Reviewer, SaveShortlist, Scout, Shortlist, ShortlistServer, Writer } from "./job-scout.js";
-testWith(JobScoutApplication)("scripts", ({ mockLlm }) => {
+testWith(JobScoutApplication)("scripts", ({ mockModel }) => {
 // @snippet
 });
 -->
 
 ```ts
-mockLlm(Scout).thenReturn(callTool(GreenhouseJobs, { query: "TypeScript" }), replyWith("3 jobs found"));
-mockLlm(MainRouter).thenReturn(routeTo(Scout), routeTo(Writer)); // one decision per run
-mockLlm(Writer).thenReturn(replyWith("first")).thenReturnAlways(replyWith("again"));
-mockLlm(Reviewer).thenReturn(failWith(ModelFailure.Timeout));
+mockModel(Scout).thenReturn(callTool(GreenhouseJobs, { query: "TypeScript" }), replyWith("3 jobs found"));
+mockModel(MainRouter).thenReturn(routeTo(Scout), routeTo(Writer)); // one decision per run
+mockModel(Writer).thenReturn(replyWith("first")).thenReturnAlways(replyWith("again"));
+mockModel(Reviewer).thenReturn(failWith(ModelFailure.Timeout));
 ```
 
 | Turn                                              | Meaning                                                                       |
@@ -299,14 +299,14 @@ A tool call or an answer that does not validate is scripted as is, no cast (#395
 import { callTool, callToolWithInvalidArguments, callToolWithTruncatedArguments, replyWith, routeTo, testWith } from "@agboss/core/testing";
 import { expect } from "vitest";
 import { ChatWorkflowStart, JobScoutApplication, MainRouter, OrderStatus, Scout } from "./job-scout.js";
-testWith(JobScoutApplication)("invalid turns", async ({ app, mockLlm }) => {
+testWith(JobScoutApplication)("invalid turns", async ({ app, mockModel }) => {
 // @snippet
 });
 -->
 
 ```ts
-mockLlm(MainRouter).thenReturn(routeTo(Scout));
-mockLlm(Scout).thenReturn(
+mockModel(MainRouter).thenReturn(routeTo(Scout));
+mockModel(Scout).thenReturn(
   callToolWithInvalidArguments(OrderStatus, { orderId: 7 }), // refused by its input check
   callToolWithTruncatedArguments(OrderStatus, { orderId: "7" }), // cut JSON: {"orderId":"7
   callTool(OrderStatus, { orderId: "7" }),
@@ -323,7 +323,7 @@ with `AgentAnswerInvalidError` — `rejects.toFailWith(AgentAnswerInvalidError, 
 
 ### Binding turns to the input — `when(…)`
 
-`mockLlm(X).when(partial)` gives its turns to the calls whose input matches, whatever their order or
+`mockModel(X).when(partial)` gives its turns to the calls whose input matches, whatever their order or
 depth; the calls no `when(…)` matches take the script's own turns. The partial is over **values**,
 typed by `PartialValues<InputOf<X>>` (#262): a deep partial of each field's `value` — the producer
 is not compared (where a value came from is `toFollowPath`'s and `agboss describe`'s), so moving a
@@ -333,16 +333,16 @@ only.
 <!-- snippet-context
 import { replyWith, routeTo, testWith } from "@agboss/core/testing";
 import { JobScoutApplication, MainRouter, Scout, Writer } from "./job-scout.js";
-testWith(JobScoutApplication)("when", ({ mockLlm }) => {
+testWith(JobScoutApplication)("when", ({ mockModel }) => {
 // @snippet
 });
 -->
 
 ```ts
-mockLlm(MainRouter).when({ message: { text: "find jobs" } }).thenReturn(routeTo(Scout));
-mockLlm(MainRouter).when({ message: { text: "write it up" } }).thenReturn(routeTo(Writer));
-mockLlm(Scout).thenReturn(replyWith("3 jobs found"));
-mockLlm(Writer).thenReturn(replyWith("A summary."));
+mockModel(MainRouter).when({ message: { text: "find jobs" } }).thenReturn(routeTo(Scout));
+mockModel(MainRouter).when({ message: { text: "write it up" } }).thenReturn(routeTo(Writer));
+mockModel(Scout).thenReturn(replyWith("3 jobs found"));
+mockModel(Writer).thenReturn(replyWith("A summary."));
 ```
 
 - A key left out is not checked; a key given as `undefined` matches only an absent field —
@@ -353,14 +353,14 @@ mockLlm(Writer).thenReturn(replyWith("A summary."));
   `historyOf` field takes `{ current?, previous? }`. Vitest's asymmetric matchers
   (`expect.stringContaining(…)`) work anywhere.
 - A call no script matches fails the test, naming its input: `test.no-matching-script` —
-  `no script of mockLlm(Scout) matches the input {"profile":{"summary":"Go"}}`; a `when(…)` that ran
+  `no script of mockModel(Scout) matches the input {"profile":{"summary":"Go"}}`; a `when(…)` that ran
   out fails as `test.script-exhausted`.
 
 ### A script is an expectation
 
 When the test's body passed, a `thenReturn` turn no call took, a `when(…)` nothing matched and a
 `mockTool(…).thenFail(…)` no call caused fail the test at its end (`test.unused-script`, each one
-named: `mockLlm(MainRouter): 1 scripted turn never used`). A `thenReturnAlways` turn is never one —
+named: `mockModel(MainRouter): 1 scripted turn never used`). A `thenReturnAlways` turn is never one —
 use it for a call that may or may not come (a router with one route decides without its model). A
 test that already failed reports its own failure, not the leftovers. A branch cancelled while it
 waits never answers: script only what it gets to.
@@ -375,21 +375,21 @@ model and on a chat model alike (for a chat model, above 0.5 is `true` in its an
 <!-- snippet-context
 import { decideWith, testWith } from "@agboss/core/testing";
 import { JobScoutApplication, MainRouter } from "./job-scout.js";
-testWith(JobScoutApplication)("launch decisions", ({ mockLlm }) => {
+testWith(JobScoutApplication)("launch decisions", ({ mockModel }) => {
 // @snippet
 });
 -->
 
 ```ts no-check: MainRouter of this page chooses one route; a launching router takes the same lines
-mockLlm(SupportRouter).thenReturn(routeTo(RefundPolicyAgent), routeTo());
-mockLlm(SupportRouter).thenReturn(decideWith({ "refund-policy-agent": 0.9, "loyalty-agent": 0.1 }));
+mockModel(SupportRouter).thenReturn(routeTo(RefundPolicyAgent), routeTo());
+mockModel(SupportRouter).thenReturn(decideWith({ "refund-policy-agent": 0.9, "loyalty-agent": 0.1 }));
 ```
 
 Branches run one at a time in a test, in listed / item order
 ([Parallel branches](#parallel-branches--testconcurrency)), so the copies of one agent (and the
 runs of a per-item launch) take their turns by copy and item; under `TestConcurrency.Real` they take
 them in the order they call their model. When a reply must fit the item, answer by the request with
-`.thenAnswer(…)` (below), or bind it to the item with `when(…)`. The join's values keep listed / item order
+`.respondWith(…)` (below), or bind it to the item with `when(…)`. The join's values keep listed / item order
 whatever order the branches answered in; assert on `result.launches` (`items`, `taken`, each
 branch's `status`) and on `result.path`, where a copy is `critic-agent#2` — `toFollowPath` takes
 the class for each copy (`[…, CriticAgent, CriticAgent, …]`).
@@ -397,10 +397,10 @@ the class for each copy (`[…, CriticAgent, CriticAgent, …]`).
 ### Quorums and arbiters
 
 A model arbiter (#279) is scripted like a decision model, by its class, with one answer per arriving
-answer — the question's key is `counts`: `mockLlm(ValidScoreArbiter).thenReturn(decideWith({ counts:
+answer — the question's key is `counts`: `mockModel(ValidScoreArbiter).thenReturn(decideWith({ counts:
 0.9 }))` (on a chat model alike: above 0.5 is `true`). Its requests show what it judged: the
 criterion (`questions.counts.instructions`) and the answer under `### answer (from <agent>)`; answer
-by the agent with `.thenAnswer(…)`. A code arbiter calls no model — it runs as written; `mockOf(Arbiter)`
+by the agent with `.respondWith(…)`. A code arbiter calls no model — it runs as written; `mockService(Arbiter)`
 replaces it. The answers arrive in the order the branches complete: one at a time by default, in
 the order a test gives with `TestConcurrency.inOrder([step(A), step(B)])`
 ([Parallel branches](#parallel-branches--testconcurrency)) — or, for one late answer past a
@@ -417,12 +417,12 @@ A model reply interpreter (#267 PR 3) is scripted by its class, its input the pa
 <!-- snippet-context
 import { ToolCallApprovalDecisionDto } from "@agboss/core/dto";
 import { replyWith, type ModelScript } from "@agboss/core/testing";
-declare function mockLlm(target: unknown): ModelScript;
+declare function mockModel(target: unknown): ModelScript;
 declare class RefundReplyInterpreter {}
 -->
 
 ```ts
-mockLlm(RefundReplyInterpreter)
+mockModel(RefundReplyInterpreter)
   .when({ reply: "ok, but only half" })
   .thenReturn(
     replyWith(ToolCallApprovalDecisionDto, {
@@ -436,16 +436,16 @@ A text reply (`replyWith("I cannot tell")`) is the model declining: `app.resume`
 `UninterpretableReplyError` and the pause stays pending. `.inputs` lists what it read; its request
 is a chat request (`system`: the framework's text and its `prompt`; `input`: `### ask` and
 `### reply`). An interpreter on a decision model (an approval role's, #267 S124) answers its one
-yes / no question — `mockLlm(DepositReplyInterpreter).thenReturn(decideWith({ approved: 0.9 }))`
+yes / no question — `mockModel(DepositReplyInterpreter).thenReturn(decideWith({ approved: 0.9 }))`
 approves (P(yes) > 0.5), `decideWith({ approved: 0.2 })` refuses, `{ cost: usd(…) }` its spend; its
 request is `{ kind: "decide", state, questions: { approved: { type: "boolean", … } } }`, the state the
-masked `### ask` / `### reply`. A code interpreter calls no model (`mockLlm` of it is a setup error) —
-the container creates it as written, and `mockOf(Interpreter).interpret.mockReturnValue(ChannelInterpretation.understood({ approved: false }))`
+masked `### ask` / `### reply`. A code interpreter calls no model (`mockModel` of it is a setup error) —
+the container creates it as written, and `mockService(Interpreter).interpret.mockReturnValue(ChannelInterpretation.understood({ approved: false }))`
 (or `ChannelInterpretation.notUnderstood({ reason })`) replaces it; a plain object does not compile.
 
 ### What a component sent its model
 
-`mockLlm(X).requests` (every request, in order), `.onlyRequest` (fails unless exactly one),
+`mockModel(X).requests` (every request, in order), `.onlyRequest` (fails unless exactly one),
 `.lastRequest`, `.toolCalls`. An agent's request is `{ kind: "chat", system, input, messages }`
 (`messages`: `{ role, text }` — tool results have role `tool`); a router's is
 `{ kind: "decision", input, options, routes, instructions }`; a decision judge's
@@ -508,11 +508,11 @@ const test = testWith(PanelApplication, {
   concurrency: TestConcurrency.inOrder([step(HireAgent), step(RisksAgent)]),
 });
 
-test("the first two answers count, the third is cancelled at its gate", async ({ app, mockLlm }) => {
-  mockLlm(SkillsAgent).thenReturn(replyWith(ScoreDto, { score: 7 }));
-  mockLlm(RisksAgent).thenReturn(replyWith(ScoreDto, { score: 6 }));
-  mockLlm(HireAgent).thenReturn(replyWith(ScoreDto, { score: 9 }));
-  mockLlm(PanelSummaryAgent).thenReturn(replyWith(ScoreReviewDto, { text: "summed up" }));
+test("the first two answers count, the third is cancelled at its gate", async ({ app, mockModel }) => {
+  mockModel(SkillsAgent).thenReturn(replyWith(ScoreDto, { score: 7 }));
+  mockModel(RisksAgent).thenReturn(replyWith(ScoreDto, { score: 6 }));
+  mockModel(HireAgent).thenReturn(replyWith(ScoreDto, { score: 9 }));
+  mockModel(PanelSummaryAgent).thenReturn(replyWith(ScoreReviewDto, { text: "summed up" }));
 
   const result = await app.execute(PanelWorkflowStart, candidate);
 
@@ -528,24 +528,24 @@ A surplus answer — two answers for the last place at once — exists only unde
 `TestConcurrency.Real`: under `inOrder` the second waits at its gate and the decided quorum cancels
 it there.
 
-## `mockOf(Class)`
+## `mockService(Class)`
 
-A typed mock (`vi.fn()` per method), injected instead of the class; inside the test `mockOf(X)`
+A typed mock (`vi.fn()` per method), injected instead of the class; inside the test `mockService(X)`
 returns the same instance the app uses:
 
 <!-- snippet-context
 import { expect } from "vitest";
 import { testWith } from "@agboss/core/testing";
 import { ChatWorkflowFinish, ChatWorkflowStart, GreenhouseJobs, JobScout, JobScoutApplication, MainRouter, OrderBook, OrderStatus, Reviewer, SaveShortlist, Scout, Shortlist, ShortlistServer, Writer } from "./job-scout.js";
-testWith(JobScoutApplication)("a mock", ({ mockOf }) => {
+testWith(JobScoutApplication)("a mock", ({ mockService }) => {
 // @snippet
 });
 -->
 
 ```ts
-mockOf(OrderBook).statusOf.mockResolvedValue("order lost");
+mockService(OrderBook).statusOf.mockResolvedValue("order lost");
 // … run …
-expect(mockOf(OrderBook).statusOf.mock.calls).toEqual([["7"]]);
+expect(mockService(OrderBook).statusOf.mock.calls).toEqual([["7"]]);
 ```
 
 Call it before the first `app.execute` (after it is a clear error). A class the workflow does not use
@@ -553,7 +553,7 @@ Call it before the first `app.execute` (after it is a clear error). A class the 
 
 **Channels** (#267): a tool that names `AutoApproveChannel` / `AutoRejectChannel` decides at once —
 no pause, no pause record. A role's implementation listed in the application is scripted like any
-class: `mockOf(SlackRefundApprovalChannel).send.mockResolvedValue(ChannelOutcome.decided({ approved:
+class: `mockService(SlackRefundApprovalChannel).send.mockResolvedValue(ChannelOutcome.decided({ approved:
 true }))` goes on at once; left as written, it pauses and the test answers like a webhook —
 `app.resume({ pauseId, decision }, { actor })` with the `pauseId` the channel was sent (a
 `ThreadOwner` pause: `result.pending[0].pauseId`, with the thread's `ownerId`). Two pauses of one
@@ -568,7 +568,7 @@ its container creates `Replacement` instead, over any class the application list
 replacement's own `deps`; `provide(TOKEN, value)` binds a value to an `InjectionToken`. They are the
 same `services` the [unit runners](#unit-runners--one-component-on-its-own) take. A channel role is
 answered in a test without its transport with `AutoApproveChannel.for(Role)` (or `AutoRejectChannel`),
-or with a channel class that `extends` the role. There is no `channels` option; `mockOf(Implementation).send`
+or with a channel class that `extends` the role. There is no `channels` option; `mockService(Implementation).send`
 scripts the role's own implementation instead.
 
 `testWith(App, { only: [CreditWorkflow] })` assembles the application with those workflows and the
@@ -602,15 +602,15 @@ to a `tracerProvider` of the test's own.
 import { expect } from "vitest";
 import { callTool, replyWith, routeTo, testWith, ToolFailure } from "@agboss/core/testing";
 import { ChatWorkflowStart, JobScoutApplication, MainRouter, OrderStatus, Scout } from "./job-scout.js";
-testWith(JobScoutApplication)("a tool timeout", async ({ app, mockLlm, mockTool }) => {
+testWith(JobScoutApplication)("a tool timeout", async ({ app, mockModel, mockTool }) => {
 // @snippet
 });
 -->
 
 ```ts
 mockTool(OrderStatus).thenFail(ToolFailure.Timeout);
-mockLlm(MainRouter).thenReturn(routeTo(Scout));
-mockLlm(Scout).thenReturn(
+mockModel(MainRouter).thenReturn(routeTo(Scout));
+mockModel(Scout).thenReturn(
   callTool(OrderStatus, { orderId: "7" }), // times out
   callTool(OrderStatus, { orderId: "7" }), // runs the tool
   replyWith("Shipped, after a retry."),
@@ -618,7 +618,7 @@ mockLlm(Scout).thenReturn(
 
 await app.execute(ChatWorkflowStart, { text: "where is order 7?" });
 
-expect(mockLlm(Scout)).toHaveBeenCalledTimes(3);
+expect(mockModel(Scout)).toHaveBeenCalledTimes(3);
 ```
 
 ## Slices
@@ -674,20 +674,20 @@ pause is `test.no-open-pause`.
 | `toStopWith(reason?)`                            | a run result             | it ended `ExecutionStatus.Stopped` (`app.stop`; nothing undone), for that `reason` when given (#1341) |
 | `toCancelWith(reason?)`                          | a run result             | it ended `ExecutionStatus.Cancelled` (`app.cancel`; its undo done), for that `reason` when given (#1341) |
 | `toFailWith(ErrorClass, { …fields, cause? })`    | an error (`.rejects`)    | the error or one it was caused by is of that class (a subclass too) with those fields (deep partials); `cause` names a class further down the chain (#262) |
-| `toHaveBeenCalledWith(partial)`                  | `mockLlm(X)`, `mockAction(A)` | a call's input matched — the `when(…)` matcher, typed by `InputOf<X>` |
-| `toHaveBeenCalledTimes(n)`                       | `mockLlm(X)`, `mockAction(A)` | model calls of X (an agent that calls a tool and answers: 2), executions of A |
-| `toHaveReturned(XDto, fields?)`                  | `mockLlm(X)`, `mockAction(A)` | it returned a value of that class (a text agent: `WorkflowFinishTextDto`) with those fields |
-| `toHaveScriptedToolCalls([Tool, …])`             | `mockLlm(Agent)`         | its model called exactly these tools, in order (was `toHaveCalledTools`, #395) |
+| `toHaveBeenCalledWith(partial)`                  | `mockModel(X)`, `mockAction(A)` | a call's input matched — the `when(…)` matcher, typed by `InputOf<X>` |
+| `toHaveBeenCalledTimes(n)`                       | `mockModel(X)`, `mockAction(A)` | model calls of X (an agent that calls a tool and answers: 2), executions of A |
+| `toHaveReturned(XDto, fields?)`                  | `mockModel(X)`, `mockAction(A)` | it returned a value of that class (a text agent: `WorkflowFinishTextDto`) with those fields |
+| `toHaveScriptedToolCalls([Tool, …])`             | `mockModel(Agent)`         | its model called exactly these tools, in order (was `toHaveCalledTools`, #395) |
 | `toHaveCalledTools([Tool, …])`                   | a run result             | each tool was called at least once by the root's agents, in any order, whatever its status; `.not`: none of them was (#395) |
 | `toHaveToolCallMatching(Tool, partialOrCheck)`   | a run result             | some call of `Tool` has an input matching the deep partial, or the check `(input) => boolean` (run on calls whose input passed the tool's input check); `.not`: none does (#395) |
-| `toHaveBeenAskedWith({ input?, system?, … })`      | `mockLlm(X)`             | some request has these parts (strings as substrings) |
+| `toHaveBeenAskedWith({ input?, system?, … })`      | `mockModel(X)`             | some request has these parts (strings as substrings) |
 | `toHaveChildExecutions(W, [{ item, finish \| failedWith \| cancelled }, …])` | a run result | the executions of child workflow `W` in the result's tree, in item order, are exactly these (#263) |
 | `toHaveHandledError(E, { at?, by? })`             | a run result             | an error of `E` (or caused by one) happened at `at` and the side path starting at `by` took it (#263) |
 | `toHaveCompensated(Action, { by, reason?, status? })` | a run result         | a step of `Action` was undone by the undo action `by` — for `reason` (`CompensationReason.SidePath`, `JoinFailed`), ending `status` (default `CompensationStatus.Compensated`) — read from `result.compensations` (#340) |
 
 Failure messages name the classes: `expected the path ChatStart → MainRouter → Support, it was …`.
 The call matchers keep Vitest's names; on anything that is not a script — a `vi.fn()`, a
-`mockOf(…)` method — they are Vitest's own. `mockLlm(X).inputs` lists X's input of every call.
+`mockService(…)` method — they are Vitest's own. `mockModel(X).inputs` lists X's input of every call.
 
 ### Asserting the tool calls
 
@@ -767,10 +767,10 @@ expect(result.compensations.map((record) => record.status)).toEqual([Compensatio
 ### Errors, caused the real way
 
 The testing API cannot create a framework error by name: a test causes it — `failWith(ModelFailure.…)`,
-a rejecting `mockOf(…)` method, `mockTool(T).thenFail(ToolFailure.Timeout)`, judges via
-`decideWith`, a budget via `mockOf(Budget).maxSpend.mockReturnValue(usd(0.01))` plus a scripted cost,
+a rejecting `mockService(…)` method, `mockTool(T).thenFail(ToolFailure.Timeout)`, judges via
+`decideWith`, a budget via `mockService(Budget).maxSpend.mockReturnValue(usd(0.01))` plus a scripted cost,
 `maxSteps` / `maxVisits` by scripts that reach them, a cancellation by `app.cancel` / `signal` (also
-from inside a mock: `mockOf(MailerService).send.mockImplementation(() => app.cancel(threadId))`).
+from inside a mock: `mockService(MailerService).send.mockImplementation(() => app.cancel(threadId))`).
 An application test checks its own reaction — its `.onError` path and its finish — not the
 framework's counting; there is no `limits` option on `testWith`.
 
@@ -779,13 +779,13 @@ import { expect } from "vitest";
 import { RouterFailedError } from "@agboss/core";
 import { failWith, ModelCallFailedError, ModelFailure, testWith } from "@agboss/core/testing";
 import { ChatWorkflowStart, JobScoutApplication, MainRouter } from "./job-scout.js";
-testWith(JobScoutApplication)("a failed router", async ({ app, mockLlm }) => {
+testWith(JobScoutApplication)("a failed router", async ({ app, mockModel }) => {
 // @snippet
 });
 -->
 
 ```ts
-mockLlm(MainRouter).thenReturn(failWith(ModelFailure.Timeout));
+mockModel(MainRouter).thenReturn(failWith(ModelFailure.Timeout));
 
 await expect(app.execute(ChatWorkflowStart, { text: "hi" })).rejects.toFailWith(RouterFailedError, {
   nodeId: "main-router",
@@ -819,13 +819,13 @@ expect(result.record?.scope.find((value) => value.slot === "DraftDto")?.value).t
 ```
 
 An observer listed in `@Workflow({ observers })` sees each cascade as one `onValuesOutdated` event
-([Observability](Observability#outdated-values)); `mockLlm(X).lastRequest.input` shows that no
+([Observability](Observability#outdated-values)); `mockModel(X).lastRequest.input` shows that no
 outdated value reached the model.
 
 ### Child workflows
 
 A child workflow (#263, [Workflow as a step](Workflow-as-a-step)) runs fully inside its parent:
-script its agents with `mockLlm(…)` like the parent's. `result.children` holds a nested record per
+script its agents with `mockModel(…)` like the parent's. `result.children` holds a nested record per
 child execution (`ChildExecutionRecord`), `result.handledErrors` every failure a side path took;
 the two matchers read them:
 
@@ -1056,7 +1056,7 @@ runner is made — else the default tenant), `executionContext.signal` aborting
 after `timeout` on the runner's `VirtualClock` (`run.clock`), `SpendRecorder` and the component's
 model calls into the call's `spend`. A component that calls a model answers from `model` — one turn
 per call, a list for several (`replyWith`, `decideWith`, `routeTo`, `failWith`, typed like
-`mockLlm(X).thenReturn(…)`). DTO values are plain objects; a step's input fields are
+`mockModel(X).thenReturn(…)`). DTO values are plain objects; a step's input fields are
 plain DTOs (tracked by default: `Metadata.with(dto, { createdBy: Producer })` states a producer). Every call gives `{ output, spend }`; a
 failure rejects as the component threw it.
 
@@ -1238,7 +1238,7 @@ signal, the cost ([Knowledge bases](Knowledge-bases#prove-it--ragsourcecontract)
 ## Lower level
 
 A class created by hand — a budget's `maxSpend()`, a service — takes `testExecutionContext()`;
-an MCP server's stub is `mcpServerStub(Server, handlers)`; fakes come from
+an MCP server's stub is `mockMcp(Server).thenReturn(handlers)` on a `testModule`; fakes come from
 `@langchain/core/utils/testing`.
 
 ### `testExecutionContext({ … })`
@@ -1290,28 +1290,30 @@ test("the receipt is keyed by the step", () => {
 ```
 
 
-## Dynamic answers — `.thenAnswer()`
+## Dynamic answers — `.respondWith()`
 
 When the answer depends on the request, script a function instead of a list of turns:
 
 <!-- snippet-context
 import { callTool, replyWith, routeTo, testWith } from "@agboss/core/testing";
 import { ChatWorkflowFinish, ChatWorkflowStart, GreenhouseJobs, JobScout, JobScoutApplication, MainRouter, OrderBook, OrderStatus, Reviewer, SaveShortlist, Scout, Shortlist, ShortlistServer, Writer } from "./job-scout.js";
-testWith(JobScoutApplication)("answers", ({ mockLlm }) => {
+testWith(JobScoutApplication)("answers", ({ mockModel }) => {
 // @snippet
 });
 -->
 
 ```ts
-mockLlm(Scout).thenAnswer((request) =>
+mockModel(Scout).respondWith((request) =>
   request.kind === "chat" && request.messages.some((line) => line.role === "tool")
     ? replyWith("Here are the jobs.")
     : callTool(GreenhouseJobs, { query: String(request.input) }),
 );
-mockLlm(MainRouter).thenAnswer((request) =>
+mockModel(MainRouter).respondWith((request) =>
   String(request.input).includes("save") ? routeTo(Shortlist) : routeTo(Scout),
 );
 ```
+
+`.reset()` on a `mockModel`, `mockTool`, `mockAction` or `mockMcp` script (as on `mockRag` and `mockA2A`) forgets what was scripted and what was called, so one test can script a second round from nothing.
 
 ## Blind spots
 
@@ -1319,7 +1321,7 @@ mockLlm(MainRouter).thenAnswer((request) =>
    `toHaveChildExecutions` / `toHaveHandledError` check how each child ended
    ([below](#child-workflows)).
 2. **Side effects outside the container**: code that calls `fetch` directly is blocked like any live
-   call and cannot be replaced with `mockOf` — put side effects in `@Injectable` services.
+   call and cannot be replaced with `mockService` — put side effects in `@Injectable` services.
 3. **The graph is tested by running it**: assembly rules are checked when the test starts; the paths
    a run can take are proven by the runs you script (`toFollowPath`).
 
@@ -1404,11 +1406,11 @@ hashes: it still replays, without stale detection, and prints a hint once per ru
 re-records a version 1 cassette whole. A recorded reply keeps its unparsable tool calls
 (`invalid_tool_calls`) too.
 
-## Files — `mockLlm(FileTranscriber)`, `mockLlm(FileRedactor)` (#899)
+## Files — `mockModel(FileTranscriber)`, `mockModel(FileRedactor)` (#899)
 
-An agent that reads files makes its model calls as ever: `mockLlm(Agent)`'s `requests[i].parts` lists each
+An agent that reads files makes its model calls as ever: `mockModel(Agent)`'s `requests[i].parts` lists each
 file part as `{ kind, mediaType, filename?, sizeBytes, sha256 }` — never its bytes. The built-in transcriber
-and redactor run on a model of their own, scripted as `mockLlm(FileTranscriber)` (a text) and
-`mockLlm(FileRedactor)` (the regions as JSON, `{"regions":[{"target":"card-number","x":0.1,"y":0.2,"w":0.3,"h":0.1}]}`);
+and redactor run on a model of their own, scripted as `mockModel(FileTranscriber)` (a text) and
+`mockModel(FileRedactor)` (the regions as JSON, `{"regions":[{"target":"card-number","x":0.1,"y":0.2,"w":0.3,"h":0.1}]}`);
 a project's own `FileRedactor` is listed in `providers` and runs as written. A cassette hashes a part as
 `{ kind, mediaType, sha256 }` and keeps no bytes. See [Files for models](Files-for-models).

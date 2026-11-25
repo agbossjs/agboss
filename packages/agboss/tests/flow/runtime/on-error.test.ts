@@ -26,9 +26,9 @@ describe("#272 AC7: .onError(E, path) right after the step that throws", () => {
 
   test("most specific handler: a declined card takes the CardDeclinedError side path", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ApologizerAgent).thenReturn(replyWith(ApologyDto, { text: "Sorry." }));
+    mockModel(ApologizerAgent).thenReturn(replyWith(ApologyDto, { text: "Sorry." }));
 
     const result = await execute(
       app,
@@ -53,11 +53,11 @@ describe("#272 AC7: .onError(E, path) right after the step that throws", () => {
     });
   });
 
-  test("a parent class handles what has no handler of its own", async ({ app, mockLlm }) => {
+  test("a parent class handles what has no handler of its own", async ({ app, mockModel }) => {
     const result = await execute(app, PayStart, { id: "8", outcome: "fail" });
 
     expect(result).toFinishWith(PaymentFailedFinish, { id: "8", outcome: "fail" });
-    expect(mockLlm(ApologizerAgent).requests).toHaveLength(0);
+    expect(mockModel(ApologizerAgent).requests).toHaveLength(0);
   });
 
   test("no handler for the failure: the execution fails", async ({ app }) => {
@@ -70,9 +70,9 @@ describe("#272 AC7: .onError(E, path) right after the step that throws", () => {
   test("after resume: the side path paused for an approval continues where it was", async ({
     app,
     recoverApp,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ApologizerAgent).thenReturn(
+    mockModel(ApologizerAgent).thenReturn(
       callTool(RefundTool, { id: "7" }),
       replyWith(ApologyDto, { text: "Refunded, sorry." }),
     );

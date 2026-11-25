@@ -33,10 +33,10 @@ describe("testWith(App, { instances: 2 })", () => {
     app,
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
     // the run pauses at the charge's approval and is cancelled there: the receipt never comes
-    mockLlm(Clerk).thenReturn(callTool(Charge, { text: "1 USD" }));
+    mockModel(Clerk).thenReturn(callTool(Charge, { text: "1 USD" }));
     const paused = await execute(app, OrderWorkflowStart, { text: "charge" });
 
     const cancelled = await apps[1]?.cancel(paused.threadId);

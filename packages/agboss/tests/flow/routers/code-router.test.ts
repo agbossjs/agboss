@@ -34,10 +34,10 @@ beforeEach(() => {
 });
 
 describe("AC1: route() decides", () => {
-  test("a small order is charged, a large one goes for approval", async ({ app, mockLlm }) => {
-    mockLlm(DeskRouter).thenReturn(routeTo(OrderIntakeAgent), routeTo(OrderIntakeAgent));
-    mockLlm(OrderIntakeAgent).thenReturn(order(50), order(500));
-    mockLlm(ApprovalAgent).thenReturn(replyWith(CreditApprovalDto, { approved: true }));
+  test("a small order is charged, a large one goes for approval", async ({ app, mockModel }) => {
+    mockModel(DeskRouter).thenReturn(routeTo(OrderIntakeAgent), routeTo(OrderIntakeAgent));
+    mockModel(OrderIntakeAgent).thenReturn(order(50), order(500));
+    mockModel(ApprovalAgent).thenReturn(replyWith(CreditApprovalDto, { approved: true }));
 
     const small = await app.execute(CreditWorkflowStart, { text: "50 dollars of tea" });
     const large = await app.execute(CreditWorkflowStart, { text: "500 dollars of tea" });
@@ -64,24 +64,27 @@ describe("AC1: route() decides", () => {
 
   test("model and code routers in one flow: only the model router calls a model", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(DeskRouter).thenReturn(routeTo(OrderIntakeAgent));
-    mockLlm(OrderIntakeAgent).thenReturn(order(50));
+    mockModel(DeskRouter).thenReturn(routeTo(OrderIntakeAgent));
+    mockModel(OrderIntakeAgent).thenReturn(order(50));
 
     const result = await app.execute(CreditWorkflowStart, { text: "tea" });
 
     expect(result.spend.trace.map((line) => line.caller)).not.toContain(
       "router:credit-limit-router",
     );
-    expect(() => mockLlm(CreditLimitRouter)).toThrow(
-      "mockLlm(CreditLimitRouter): a code router calls no model — mockOf() the services its route() uses",
+    expect(() => mockModel(CreditLimitRouter)).toThrow(
+      "mockModel(CreditLimitRouter): a code router calls no model — mockService() the services its route() uses",
     );
   });
 
-  test("route() reads its execution through deps: [ExecutionContext]", async ({ app, mockLlm }) => {
-    mockLlm(DeskRouter).thenReturn(routeTo(OrderIntakeAgent));
-    mockLlm(OrderIntakeAgent).thenReturn(order(50));
+  test("route() reads its execution through deps: [ExecutionContext]", async ({
+    app,
+    mockModel,
+  }) => {
+    mockModel(DeskRouter).thenReturn(routeTo(OrderIntakeAgent));
+    mockModel(OrderIntakeAgent).thenReturn(order(50));
 
     const result = await app.execute(CreditWorkflowStart, { text: "tea" });
 
@@ -96,29 +99,29 @@ describe("AC1: route() decides", () => {
 
   test("the service route() calls is the router's dependency: a mock replaces it", async ({
     app,
-    mockLlm,
-    mockOf,
+    mockModel,
+    mockService,
   }) => {
-    mockOf(CreditService).limitOf.mockResolvedValue(1_000);
-    mockLlm(DeskRouter).thenReturn(routeTo(OrderIntakeAgent));
-    mockLlm(OrderIntakeAgent).thenReturn(order(500));
+    mockService(CreditService).limitOf.mockResolvedValue(1_000);
+    mockModel(DeskRouter).thenReturn(routeTo(OrderIntakeAgent));
+    mockModel(OrderIntakeAgent).thenReturn(order(500));
 
     const result = await app.execute(CreditWorkflowStart, { text: "tea" });
 
     expect(result.path).not.toContain("approval-agent");
-    expect(mockOf(CreditService).limitOf.mock.calls).toEqual([["c-1"]]);
+    expect(mockService(CreditService).limitOf.mock.calls).toEqual([["c-1"]]);
   });
 });
 
 describe("AC1 (S19): a failing route() is RouterFailedError, its cause caught by .onError", () => {
   test("the service's domain error takes the router's .onError through the cause", async ({
     app,
-    mockLlm,
-    mockOf,
+    mockModel,
+    mockService,
   }) => {
-    mockOf(CreditService).limitOf.mockRejectedValue(new CreditServiceUnavailableError("down"));
-    mockLlm(DeskRouter).thenReturn(routeTo(OrderIntakeAgent));
-    mockLlm(OrderIntakeAgent).thenReturn(order(50));
+    mockService(CreditService).limitOf.mockRejectedValue(new CreditServiceUnavailableError("down"));
+    mockModel(DeskRouter).thenReturn(routeTo(OrderIntakeAgent));
+    mockModel(OrderIntakeAgent).thenReturn(order(50));
 
     const result = await app.execute(CreditWorkflowStart, { text: "tea" }, { includeRecord: true });
 
@@ -134,12 +137,12 @@ describe("AC1 (S19): a failing route() is RouterFailedError, its cause caught by
 
   test("another error fails the execution naming the router, the original as its cause", async ({
     app,
-    mockLlm,
-    mockOf,
+    mockModel,
+    mockService,
   }) => {
-    mockOf(CreditService).limitOf.mockRejectedValue(new Error("the credit database is down"));
-    mockLlm(DeskRouter).thenReturn(routeTo(OrderIntakeAgent));
-    mockLlm(OrderIntakeAgent).thenReturn(order(50));
+    mockService(CreditService).limitOf.mockRejectedValue(new Error("the credit database is down"));
+    mockModel(DeskRouter).thenReturn(routeTo(OrderIntakeAgent));
+    mockModel(OrderIntakeAgent).thenReturn(order(50));
 
     const run = app.execute(CreditWorkflowStart, { text: "tea" });
 
@@ -158,10 +161,10 @@ describe("AC1 (S19): a failing route() is RouterFailedError, its cause caught by
 describe("AC5: the same flow for both kinds", () => {
   byModel(
     "a model router in the code router's place takes the same paths",
-    async ({ app, mockLlm }) => {
-      mockLlm(DeskRouter).thenReturn(routeTo(OrderIntakeAgent));
-      mockLlm(OrderIntakeAgent).thenReturn(order(50));
-      mockLlm(CreditLimitByModelRouter).thenReturn(routeTo(ChargeCardAction));
+    async ({ app, mockModel }) => {
+      mockModel(DeskRouter).thenReturn(routeTo(OrderIntakeAgent));
+      mockModel(OrderIntakeAgent).thenReturn(order(50));
+      mockModel(CreditLimitByModelRouter).thenReturn(routeTo(ChargeCardAction));
 
       const result = await app.execute(CreditWorkflowStart, { text: "tea" });
 

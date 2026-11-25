@@ -60,11 +60,11 @@ beforeEach(resetPanel);
 describe("AC7: groups with priority", () => {
   deal(
     "a lower group complete waits while a higher can still complete",
-    async ({ app, mockLlm, clock }) => {
-      mockLlm(LegalPanelAgent).thenReturn(wait(10), legal);
-      mockLlm(CriticPanelAgent).thenReturn(wait(5), critique);
-      mockLlm(FastPanelAgent).thenReturn(screen);
-      mockLlm(DealReportPanelAgent).thenReturn(report);
+    async ({ app, mockModel, clock }) => {
+      mockModel(LegalPanelAgent).thenReturn(wait(10), legal);
+      mockModel(CriticPanelAgent).thenReturn(wait(5), critique);
+      mockModel(FastPanelAgent).thenReturn(screen);
+      mockModel(DealReportPanelAgent).thenReturn(report);
 
       const execution = execute(app, DealPanelWorkflowStart, ACME);
       await untilWaiting(2);
@@ -85,10 +85,10 @@ describe("AC7: groups with priority", () => {
     },
   );
 
-  deal("at the deadline the highest complete group is taken", async ({ app, mockLlm, clock }) => {
-    mockLlm(LegalPanelAgent).thenReturn(wait(120)); // cancelled at the deadline: no answer
-    mockLlm(CriticPanelAgent).thenReturn(wait(10), critique);
-    mockLlm(FastPanelAgent).thenReturn(screen);
+  deal("at the deadline the highest complete group is taken", async ({ app, mockModel, clock }) => {
+    mockModel(LegalPanelAgent).thenReturn(wait(120)); // cancelled at the deadline: no answer
+    mockModel(CriticPanelAgent).thenReturn(wait(10), critique);
+    mockModel(FastPanelAgent).thenReturn(screen);
 
     const execution = execute(app, DealPanelWorkflowStart, ACME);
     await untilWaiting(2);
@@ -102,11 +102,11 @@ describe("AC7: groups with priority", () => {
     expect(result.launches[0]?.branches[0]).not.toHaveProperty("error");
   });
 
-  deal("one answer completing two groups: the higher wins", async ({ app, mockLlm, clock }) => {
-    mockLlm(LegalPanelAgent).thenReturn(legal);
-    mockLlm(CriticPanelAgent).thenReturn(wait(5), critique);
-    mockLlm(FastPanelAgent).thenReturn(wait(60)); // cancelled once a group won: no answer
-    mockLlm(DealReportPanelAgent).thenReturn(report);
+  deal("one answer completing two groups: the higher wins", async ({ app, mockModel, clock }) => {
+    mockModel(LegalPanelAgent).thenReturn(legal);
+    mockModel(CriticPanelAgent).thenReturn(wait(5), critique);
+    mockModel(FastPanelAgent).thenReturn(wait(60)); // cancelled once a group won: no answer
+    mockModel(DealReportPanelAgent).thenReturn(report);
 
     const execution = execute(app, DealPanelWorkflowStart, ACME);
     await untilWaiting(2);
@@ -121,10 +121,10 @@ describe("AC7: groups with priority", () => {
 
   deal(
     "no group can complete any more: QuorumNotReachedError at once",
-    async ({ app, mockLlm }) => {
-      mockLlm(LegalPanelAgent).thenReturn(wait(60)); // cancelled: no group can complete
-      mockLlm(CriticPanelAgent).thenReturnAlways(failWith(ModelFailure.Timeout));
-      mockLlm(FastPanelAgent).thenReturnAlways(failWith(ModelFailure.Timeout));
+    async ({ app, mockModel }) => {
+      mockModel(LegalPanelAgent).thenReturn(wait(60)); // cancelled: no group can complete
+      mockModel(CriticPanelAgent).thenReturnAlways(failWith(ModelFailure.Timeout));
+      mockModel(FastPanelAgent).thenReturnAlways(failWith(ModelFailure.Timeout));
 
       const result = await execute(app, DealPanelWorkflowStart, ACME, { includeRecord: true });
 
@@ -142,16 +142,16 @@ describe("AC7: groups with priority", () => {
 describe("AC9: which group won, and what was counted", () => {
   deal(
     "the winner's path and the producers; the event names the group",
-    async ({ app, mockLlm }) => {
-      mockLlm(LegalPanelAgent).thenReturn(legal);
-      mockLlm(CriticPanelAgent).thenReturn(critique);
-      mockLlm(FastPanelAgent).thenReturn(wait(60)); // cancelled once a group won: no answer
-      mockLlm(DealReportPanelAgent).thenReturn(report);
+    async ({ app, mockModel }) => {
+      mockModel(LegalPanelAgent).thenReturn(legal);
+      mockModel(CriticPanelAgent).thenReturn(critique);
+      mockModel(FastPanelAgent).thenReturn(wait(60)); // cancelled once a group won: no answer
+      mockModel(DealReportPanelAgent).thenReturn(report);
 
       const result = await execute(app, DealPanelWorkflowStart, ACME);
 
       expect(result).toFinishWith(DealReportPanelWorkflowFinish);
-      const input = textOf(mockLlm(DealReportPanelAgent).requests[0]);
+      const input = textOf(mockModel(DealReportPanelAgent).requests[0]);
       expect(input).toContain("(from legal-panel-agent)");
       expect(input).toContain("(from critic-panel-agent)");
       expect(panel.decided).toMatchObject([

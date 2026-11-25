@@ -18,9 +18,9 @@ const draft = (text: string) => replyWith(DraftDto, { text });
 describe("the execution's steps are checked before a working node runs (QUALITY → FinOps)", () => {
   short(
     "maxSteps: the visit after the last allowed step fails with StepsLimitExceededError",
-    async ({ app, mockLlm }) => {
-      mockLlm(GateRouter).thenReturnAlways(routeTo(EditorAgent));
-      mockLlm(EditorAgent).thenReturn(draft("v1"), draft("v2"));
+    async ({ app, mockModel }) => {
+      mockModel(GateRouter).thenReturnAlways(routeTo(EditorAgent));
+      mockModel(EditorAgent).thenReturn(draft("v1"), draft("v2"));
 
       const run = execute(app, EditStart, { text: "a poem" });
 
@@ -34,13 +34,13 @@ describe("the execution's steps are checked before a working node runs (QUALITY 
         steps: 4,
         path: ["edit-workflow-start", "editor-agent", "gate-router", "editor-agent", "gate-router"],
       });
-      expect(mockLlm(GateRouter).requests).toHaveLength(1);
+      expect(mockModel(GateRouter).requests).toHaveLength(1);
     },
   );
 
-  short("an execution within its steps finishes", async ({ app, mockLlm }) => {
-    mockLlm(GateRouter).thenReturn(routeTo(DoneFinish));
-    mockLlm(EditorAgent).thenReturn(draft("v1"));
+  short("an execution within its steps finishes", async ({ app, mockModel }) => {
+    mockModel(GateRouter).thenReturn(routeTo(DoneFinish));
+    mockModel(EditorAgent).thenReturn(draft("v1"));
 
     await expect(execute(app, EditStart, { text: "a poem" })).resolves.toFinishWith(DoneFinish);
   });

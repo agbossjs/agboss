@@ -47,9 +47,9 @@ describe("#941 AC5: an approval inside an agent expires", () => {
   test("AC5: the agent step fails with PauseExpiredError, its spend kept; .onError after the agent takes it; the tool never ran", async ({
     app,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ExpiryRefundAgent).thenReturn(callTool(ExpiringRefundTool, ORDER));
+    mockModel(ExpiryRefundAgent).thenReturn(callTool(ExpiringRefundTool, ORDER));
     const paused = await execute(app, AgentExpiryWorkflowStart, ORDER, THREAD);
     expect(paused.status).toBe(ExecutionStatus.Paused);
 
@@ -65,9 +65,9 @@ describe("#941 AC5: an approval inside an agent expires", () => {
   test("AC5: uncaught, the run fails with PauseExpiredError: the agent, its approval's channel, the loop's usage", async ({
     app,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ExpiryRefundAgent).thenReturn(callTool(ExpiringRefundTool, ORDER));
+    mockModel(ExpiryRefundAgent).thenReturn(callTool(ExpiringRefundTool, ORDER));
     await execute(app, AgentBareWorkflowStart, ORDER, THREAD);
 
     await clock.advance(hours(24));
@@ -88,9 +88,9 @@ describe("#941 AC5: an approval inside an agent expires", () => {
   test("AC5: the move's first call is approved, the second expires: neither ran", async ({
     app,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ExpiryRefundAgent).thenReturn(
+    mockModel(ExpiryRefundAgent).thenReturn(
       callTools(
         callTool(ExpiringRefundTool, { orderId: "1" }),
         callTool(ExpiringRefundTool, { orderId: "2" }),
@@ -115,9 +115,9 @@ describe("#941 AC5: an approval inside an agent expires", () => {
   test("AC5: a tool's expiresIn of 4 h wins over its role's 24 h", async ({
     app,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ExpiryRefundAgent).thenReturn(callTool(UrgentRefundTool, ORDER));
+    mockModel(ExpiryRefundAgent).thenReturn(callTool(UrgentRefundTool, ORDER));
 
     const paused = await execute(app, AgentExpiryWorkflowStart, ORDER, THREAD);
 
@@ -129,10 +129,10 @@ describe("#941 AC5: an approval inside an agent expires", () => {
   test("AC5: decide({ approved: true }): the tool runs, the agent goes on", async ({
     app,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
     agentExpiry.behavior = () => PauseExpiration.decide({ approved: true });
-    mockLlm(ExpiryRefundAgent).thenReturn(callTool(ExpiringRefundTool, ORDER), done);
+    mockModel(ExpiryRefundAgent).thenReturn(callTool(ExpiringRefundTool, ORDER), done);
     await execute(app, AgentExpiryWorkflowStart, ORDER, THREAD);
 
     await clock.advance(hours(24));
@@ -147,12 +147,12 @@ describe("#941 AC5: an approval inside an agent expires", () => {
   test("AC5: decide({ approved: false, reason }): the model reads the rejection by the channel's name, the loop goes on", async ({
     app,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
     agentExpiry.behavior = () =>
       PauseExpiration.decide({ approved: false, reason: "nobody was there" });
     const seen: ModelRequest[] = [];
-    mockLlm(ExpiryRefundAgent).thenAnswer((request) => {
+    mockModel(ExpiryRefundAgent).respondWith((request) => {
       seen.push(request);
       return seen.length === 1 ? callTool(ExpiringRefundTool, ORDER) : done;
     });
@@ -170,9 +170,9 @@ describe("#941 AC5: an approval inside an agent expires", () => {
   test("AC5: a question the agent asks through its tool loop (#712) expires: the agent step fails", async ({
     app,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ExpiryRefundAgent).thenReturn(callTool(ManagerExternalTask, { orderId: "7" }));
+    mockModel(ExpiryRefundAgent).thenReturn(callTool(ManagerExternalTask, { orderId: "7" }));
     await execute(app, AgentBareWorkflowStart, ORDER, THREAD);
 
     await clock.advance(hours(24));

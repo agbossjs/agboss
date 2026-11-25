@@ -29,9 +29,9 @@ beforeEach(resetSeen);
 describe("#1341c: an answer on a tree paused from outside", () => {
   test("is refused with ExecutionError.ExternallyPaused, leaves the pause open, and is accepted after the unpause", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(
+    mockModel(Clerk).thenReturn(
       callTool(Probe, { text: "card" }),
       callTool(Charge, { text: "10 USD" }),
       replyWith(ReceiptDto, { text: "Charged." }),

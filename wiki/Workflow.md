@@ -458,9 +458,9 @@ class ChatApplication {}
 
 const test = testWith(ChatApplication); // an application, never the workflow itself
 
-test("a question about openings goes to the scout", async ({ app, mockLlm }) => {
-  mockLlm(MainRouter).thenReturn(routeTo(ScoutAgent));
-  mockLlm(ScoutAgent).thenReturn(replyWith(OpeningsDto, { openings: "Backend at Acme" }));
+test("a question about openings goes to the scout", async ({ app, mockModel }) => {
+  mockModel(MainRouter).thenReturn(routeTo(ScoutAgent));
+  mockModel(ScoutAgent).thenReturn(replyWith(OpeningsDto, { openings: "Backend at Acme" }));
 
   const result = await app.execute(IntakeWorkflowStart, { text: "any backend jobs?" });
 

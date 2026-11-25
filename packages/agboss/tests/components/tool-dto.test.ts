@@ -3,7 +3,7 @@ import { McpTransport } from "../../src/config/mcp-server-config.js";
 import { describe, expect, it } from "vitest";
 import { Agent, Workflow, Tool, Ttl } from "../../src/index.js";
 import { McpServer, McpServerClient } from "../../src/mcp/index.js";
-import { mcpServerStub } from "../../src/testing/index.js";
+import { mcpServerStub } from "./mcp-server-stub.js";
 import { workflowOf } from "../../src/testing/workflow-of.js";
 import { toolOf } from "../../src/components/runtime.js";
 import { DtoError, Integer, List, Nested, Text, Url } from "../../src/dto/index.js";

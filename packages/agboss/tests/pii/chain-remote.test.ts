@@ -65,7 +65,7 @@ function editsRuns(
 describe("#1150 AC4: a child on another instance is masked by its chain", () => {
   test("AC4: the launch carries the chain's names; the worker's agent and events are masked by them", async ({
     apps,
-    mockLlm,
+    mockModel,
   }) => {
     const [a, b] = apps;
     if (a === undefined || b === undefined) throw new Error("two instances");
@@ -73,7 +73,7 @@ describe("#1150 AC4: a child on another instance is masked by its chain", () => 
     await a.ready();
     neverClaims(a);
     const carried = editsRuns(a, (names) => names);
-    const agent = mockLlm(ChainFarAgent);
+    const agent = mockModel(ChainFarAgent);
     agent.thenReturn(replyWith(`done ${CHILD_SECRET}`));
 
     const result = await execute(a, ChainFarRootStart, { text: TEXT }, { includeRecord: true });
@@ -97,7 +97,7 @@ describe("#1150 AC4: a child on another instance is masked by its chain", () => 
 
   test("AC4: a policy name the worker's application does not know fails the child — its model never called", async ({
     apps,
-    mockLlm,
+    mockModel,
   }) => {
     const [a, b] = apps;
     if (a === undefined || b === undefined) throw new Error("two instances");
@@ -105,7 +105,7 @@ describe("#1150 AC4: a child on another instance is masked by its chain", () => 
     await a.ready();
     neverClaims(a);
     editsRuns(a, (names) => [...names, "unknown-pii-policy"]);
-    const agent = mockLlm(ChainFarAgent);
+    const agent = mockModel(ChainFarAgent);
 
     await expect(execute(a, ChainFarRootStart, { text: TEXT })).rejects.toThrow(
       /unknown-pii-policy/u,

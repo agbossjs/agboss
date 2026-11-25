@@ -29,10 +29,10 @@ beforeEach(() => {
 describe("#1356: the frame of the start in which maxSpend() is read", () => {
   test("holds the execution's own ids, tenant, workflow and the start step", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(DrafterAgent).thenReturn(replyWith(DraftDto, { text: "a draft" }, { cost: usd(0) }));
-    mockLlm(ReviewerAgent).thenReturn(replyWith("fine", { cost: usd(0) }));
+    mockModel(DrafterAgent).thenReturn(replyWith(DraftDto, { text: "a draft" }, { cost: usd(0) }));
+    mockModel(ReviewerAgent).thenReturn(replyWith("fine", { cost: usd(0) }));
 
     const done = await execute(
       app,
@@ -74,9 +74,9 @@ describe("#1356: the frame of the start in which maxSpend() is read", () => {
     expect(read?.step.componentType).toBe(BriefStart);
   });
 
-  test("a thread that does not exist yet cannot be read there", async ({ app, mockLlm }) => {
-    mockLlm(DrafterAgent).thenReturn(replyWith(DraftDto, { text: "a draft" }, { cost: usd(0) }));
-    mockLlm(ReviewerAgent).thenReturn(replyWith("fine", { cost: usd(0) }));
+  test("a thread that does not exist yet cannot be read there", async ({ app, mockModel }) => {
+    mockModel(DrafterAgent).thenReturn(replyWith(DraftDto, { text: "a draft" }, { cost: usd(0) }));
+    mockModel(ReviewerAgent).thenReturn(replyWith("fine", { cost: usd(0) }));
 
     const done = await execute(app, BriefStart, { text: "a brief" }, { tenant: acme });
 

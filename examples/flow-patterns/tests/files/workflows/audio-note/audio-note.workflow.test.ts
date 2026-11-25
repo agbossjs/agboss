@@ -21,8 +21,8 @@ const inline = (bytes: Uint8Array, mediaType: string, filename: string) => ({
 
 const MP3 = Buffer.concat([Buffer.from("ID3"), Buffer.from("voice-note-bytes")]);
 
-test("the voice note is an audio part", async ({ app, mockLlm }) => {
-  const agent = mockLlm(AudioNoteAgent).thenReturn(replyWith("A reminder to call back."));
+test("the voice note is an audio part", async ({ app, mockModel }) => {
+  const agent = mockModel(AudioNoteAgent).thenReturn(replyWith("A reminder to call back."));
 
   const result = await app.execute(AudioNoteWorkflowStart, {
     note: inline(MP3, "audio/mpeg", "note.mp3"),

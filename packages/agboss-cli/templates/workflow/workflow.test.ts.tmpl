@@ -11,11 +11,11 @@ const test = testWith({{application}});
 
 test("the main router sends the text to {{agentName}}, whose answer finishes the run", async ({
   app,
-  mockLlm,
+  mockModel,
 }) => {
   // a router with one route decides without its model; once it has more, every call routes here
-  mockLlm({{routerClass}}).thenReturnAlways(routeTo({{agent}}Agent));
-  mockLlm({{agent}}Agent).thenReturn(replyWith("Done."));
+  mockModel({{routerClass}}).thenReturnAlways(routeTo({{agent}}Agent));
+  mockModel({{agent}}Agent).thenReturn(replyWith("Done."));
 
   const result = await app.execute(TextWorkflowStart, { text: "Hello" });
 

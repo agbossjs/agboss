@@ -24,13 +24,13 @@ const test = testWith(TreasuryApplication);
 describe("#1004: the reply interpreter is silent", () => {
   test("AC1: the interpreter's canary is not heard; the agent's answer after the approval is", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(TreasurerAgent).thenReturn(
+    mockModel(TreasurerAgent).thenReturn(
       callTool(PayOutTool, { payee: "ann", amountCents: 120_000 }),
       replyWith("Paid."),
     );
-    mockLlm(PayoutReplyInterpreter).thenReturn(
+    mockModel(PayoutReplyInterpreter).thenReturn(
       replyWith(ToolCallApprovalDecisionDto, { approved: true }),
     );
     await execute(app, TreasuryWorkflowStart, { text: "pay ann $1200" });
@@ -42,7 +42,7 @@ describe("#1004: the reply interpreter is silent", () => {
       { actor: { id: "manager-17" }, onStream: (event) => events.push(event) },
     );
 
-    expect(mockLlm(PayoutReplyInterpreter).requests).toHaveLength(1);
+    expect(mockModel(PayoutReplyInterpreter).requests).toHaveLength(1);
     expect(canaries(events)).toBe(1);
     expect(deltas(events)).toEqual(["CANARY", "Paid."]);
   });

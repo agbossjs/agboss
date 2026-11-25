@@ -82,11 +82,11 @@ describe("#280 AC7: parallel branches each see their own step", () => {
 
   test("two executions at once: each component reads its own execution", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
     resetSeen();
-    mockLlm(WriterAgent).thenReturnAlways(replyWith(DraftDto, { text: "a draft" }));
-    mockLlm(ReviewRouter).thenReturnAlways(routeTo(PublishAction));
+    mockModel(WriterAgent).thenReturnAlways(replyWith(DraftDto, { text: "a draft" }));
+    mockModel(ReviewRouter).thenReturnAlways(routeTo(PublishAction));
 
     const [first, second] = await Promise.all([
       execute(app, ContextStart, { text: "one" }),

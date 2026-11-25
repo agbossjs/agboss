@@ -87,7 +87,7 @@ export class PullRequest {}
 })
 export class ReviewGate {}
 
-/** A class the workflow never uses (mockOf of it is a test setup error). */
+/** A class the workflow never uses (mockService of it is a test setup error). */
 @Injectable()
 export class Unused {}
 

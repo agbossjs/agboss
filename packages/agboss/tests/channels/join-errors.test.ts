@@ -42,10 +42,10 @@ beforeEach(() => {
 async function payout({
   app,
   clock,
-  mockLlm,
-}: Pick<WorkflowFixtures, "app" | "clock" | "mockLlm">) {
-  mockLlm(PayoutConfirmAgent).thenReturn(callTool(ConfirmOrderTool, { orderId: "7" }));
-  mockLlm(PayoutRefundAgent).thenReturn(
+  mockModel,
+}: Pick<WorkflowFixtures, "app" | "clock" | "mockModel">) {
+  mockModel(PayoutConfirmAgent).thenReturn(callTool(ConfirmOrderTool, { orderId: "7" }));
+  mockModel(PayoutRefundAgent).thenReturn(
     waitFor(seconds(5)),
     callTool(RefundTool, { orderId: "7" }),
   );
@@ -67,8 +67,8 @@ const confirmation = async () => {
 describe("#267 AC10 / #273 S21: .onError(…) after a withdrawal matches by class and cause", () => {
   testWith(PayoutsApplication)(
     "the domain error's own handler takes it; the paused sibling was withdrawn",
-    async ({ app, clock, mockLlm }) => {
-      const done = await payout({ app, clock, mockLlm });
+    async ({ app, clock, mockModel }) => {
+      const done = await payout({ app, clock, mockModel });
 
       expect(done).toFinishWith(PayoutDeclinedWorkflowFinish, { text: "declined 7" });
       expect((await confirmation())?.status).toBe(PauseStatus.Cancelled);
@@ -79,8 +79,8 @@ describe("#267 AC10 / #273 S21: .onError(…) after a withdrawal matches by clas
 
   testWith(PayoutStepsApplication)(
     "StepFailedError's handler takes it: the agent's failure is a step failure",
-    async ({ app, clock, mockLlm }) => {
-      const done = await payout({ app, clock, mockLlm });
+    async ({ app, clock, mockModel }) => {
+      const done = await payout({ app, clock, mockModel });
 
       expect(done).toFinishWith(PayoutDeclinedWorkflowFinish, { text: "declined 7" });
       expect((await confirmation())?.status).toBe(PauseStatus.Cancelled);
@@ -89,8 +89,8 @@ describe("#267 AC10 / #273 S21: .onError(…) after a withdrawal matches by clas
 
   testWith(PayoutUnhandledApplication)(
     "no handler: the execution fails with the error object the branch threw, its cause kept",
-    async ({ app, clock, mockLlm }) => {
-      const run = payout({ app, clock, mockLlm });
+    async ({ app, clock, mockModel }) => {
+      const run = payout({ app, clock, mockModel });
 
       const failed: unknown = await run.catch((error: unknown) => error);
       expect(failed).toBeInstanceOf(AgentFailedError); // not a copy rebuilt from a record

@@ -37,9 +37,9 @@ beforeEach(() => {
 });
 
 describe("#261 AC1: app.execute runs any workflow of the application by its start", () => {
-  desks("any workflow by its start", async ({ app, mockLlm }) => {
-    mockLlm(OrdersAgent).thenReturn(replyWith("order 7 shipped"));
-    mockLlm(RefundsAgent).thenReturn(replyWith("refund sent"));
+  desks("any workflow by its start", async ({ app, mockModel }) => {
+    mockModel(OrdersAgent).thenReturn(replyWith("order 7 shipped"));
+    mockModel(RefundsAgent).thenReturn(replyWith("refund sent"));
 
     const order = await execute(app, OrdersWorkflowStart, { text: "where is order 7?" });
     const refund = await execute(app, RefundsWorkflowStart, { text: "refund order 7" });
@@ -49,8 +49,8 @@ describe("#261 AC1: app.execute runs any workflow of the application by its star
     expect(order.threadId).not.toBe(refund.threadId);
   });
 
-  desks("a thread continues in its own workflow; cancel finds it", async ({ app, mockLlm }) => {
-    mockLlm(RefundsAgent).thenReturn(replyWith("first"), replyWith("second"));
+  desks("a thread continues in its own workflow; cancel finds it", async ({ app, mockModel }) => {
+    mockModel(RefundsAgent).thenReturn(replyWith("first"), replyWith("second"));
 
     const first = await execute(app, RefundsWorkflowStart, { text: "refund" });
     const second = await execute(
@@ -136,11 +136,11 @@ describe("#261 AC16: testWith(Application) — lazy app, budgets are components"
     expect(started).toHaveLength(2);
   });
 
-  desks("a budget of the application can be mocked", async ({ app, mockOf }) => {
-    mockOf(TestTenantDailyBudget).maxSpend.mockReturnValue(usd(0.01));
+  desks("a budget of the application can be mocked", async ({ app, mockService }) => {
+    mockService(TestTenantDailyBudget).maxSpend.mockReturnValue(usd(0.01));
 
     await app.ready();
 
-    expect(mockOf(TestTenantDailyBudget).maxSpend()).toBe(0.01);
+    expect(mockService(TestTenantDailyBudget).maxSpend()).toBe(0.01);
   });
 });

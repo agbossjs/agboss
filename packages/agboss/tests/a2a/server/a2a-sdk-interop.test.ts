@@ -55,9 +55,9 @@ const kindsOf = (events: readonly StreamResponse[]) =>
 describe("#808 AC2: the SDK client runs every core method", () => {
   test("SendMessage (blocking) → COMPLETED with the finish's output as its artifact", async ({
     a2aServer,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(callTool(Step, { text: "one" }), done);
+    mockModel(Clerk).thenReturn(callTool(Step, { text: "one" }), done);
     const { url } = await a2aServer(listener);
     const client = await sdkClientOf(url);
 
@@ -78,9 +78,9 @@ describe("#808 AC2: the SDK client runs every core method", () => {
 
   test("returnImmediately → the task at once; GetTask reads it later; ListTasks lists it", async ({
     a2aServer,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(callTool(Hold, { text: "wait" }), done);
+    mockModel(Clerk).thenReturn(callTool(Hold, { text: "wait" }), done);
     const { url } = await a2aServer(listener);
     const client = await sdkClientOf(url);
 
@@ -108,8 +108,8 @@ describe("#808 AC2: the SDK client runs every core method", () => {
     expect(listed.nextPageToken).toBe("");
   });
 
-  test("CancelTask cancels the running task", async ({ a2aServer, mockLlm }) => {
-    mockLlm(Clerk).thenReturn(callTool(Hold, { text: "wait" }));
+  test("CancelTask cancels the running task", async ({ a2aServer, mockModel }) => {
+    mockModel(Clerk).thenReturn(callTool(Hold, { text: "wait" }));
     const { url } = await a2aServer(listener);
     const client = await sdkClientOf(url);
     const sent = taskOf(await client.sendMessage(request("m-1", true)));
@@ -126,9 +126,9 @@ describe("#808 AC2: the SDK client runs every core method", () => {
 
   test("SendStreamingMessage: the task first, its changes, the output artifact, the last status", async ({
     a2aServer,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(callTool(Step, { text: "one" }), done);
+    mockModel(Clerk).thenReturn(callTool(Step, { text: "one" }), done);
     const { url } = await a2aServer(listener);
     const client = await sdkClientOf(url);
 
@@ -142,9 +142,9 @@ describe("#808 AC2: the SDK client runs every core method", () => {
 
   test("SubscribeToTask: the current task first, then its changes until it is over", async ({
     a2aServer,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(callTool(Hold, { text: "wait" }), done);
+    mockModel(Clerk).thenReturn(callTool(Hold, { text: "wait" }), done);
     const { url } = await a2aServer(listener);
     const client = await sdkClientOf(url);
     const sent = taskOf(await client.sendMessage(request("m-1", true)));

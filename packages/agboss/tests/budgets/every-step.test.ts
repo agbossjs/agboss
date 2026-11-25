@@ -158,12 +158,12 @@ describe("#634: an exhausted budget holds back every step that can spend", () =>
     });
   });
 
-  test("an agent: no model call past the budget", async ({ app, mockLlm }) => {
+  test("an agent: no model call past the budget", async ({ app, mockModel }) => {
     await expect(execute(app, PaidAgentWorkflowStart, order)).rejects.toBeInstanceOf(
       BudgetExceededError,
     );
 
-    expect(mockLlm(PaidReviewAgent).requests).toHaveLength(0);
+    expect(mockModel(PaidReviewAgent).requests).toHaveLength(0);
     expect(paidSteps.ran).toEqual(["charge"]);
   });
 });

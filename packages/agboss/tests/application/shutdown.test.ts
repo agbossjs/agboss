@@ -61,8 +61,8 @@ const hold = callTool(Hold, { text: "a long job" });
 const holdThenAnswer = [hold, replyWith(ReceiptDto, { text: "Done." })] as const;
 
 describe("#265 S51: the stop waits for the running executions", () => {
-  test("one that ends within the timeout ends normally", async ({ app, mockLlm }) => {
-    mockLlm(Clerk).thenReturn(...holdThenAnswer);
+  test("one that ends within the timeout ends normally", async ({ app, mockModel }) => {
+    mockModel(Clerk).thenReturn(...holdThenAnswer);
     const started = await holding(app);
 
     const closed = app.close();
@@ -77,9 +77,9 @@ describe("#265 S51: the stop waits for the running executions", () => {
   test("the default timeout is 25 s: interrupted its 5 s grace before, stays running, no onError", async ({
     app,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(hold); // interrupted while it holds: no answer
+    mockModel(Clerk).thenReturn(hold); // interrupted while it holds: no answer
     const started = await holding(app);
 
     const closed = app.close();
@@ -97,8 +97,8 @@ describe("#265 S51: the stop waits for the running executions", () => {
 });
 
 describe("#265 S51: the timeout is the application's, or the call's", () => {
-  quick("@Application({ shutdownTimeout: seconds(5) })", async ({ app, clock, mockLlm }) => {
-    mockLlm(Clerk).thenReturn(hold); // interrupted while it holds: no answer
+  quick("@Application({ shutdownTimeout: seconds(5) })", async ({ app, clock, mockModel }) => {
+    mockModel(Clerk).thenReturn(hold); // interrupted while it holds: no answer
     await holding(app);
 
     const closed = app.close();
@@ -110,8 +110,8 @@ describe("#265 S51: the timeout is the application's, or the call's", () => {
 
   quick(
     "app.close({ timeout }) overrides it: seconds(10), interrupted at 8 s",
-    async ({ app, clock, mockLlm }) => {
-      mockLlm(Clerk).thenReturn(hold); // interrupted while it holds: no answer
+    async ({ app, clock, mockModel }) => {
+      mockModel(Clerk).thenReturn(hold); // interrupted while it holds: no answer
       await holding(app);
 
       const closed = app.close({ timeout: seconds(10) });
@@ -125,8 +125,8 @@ describe("#265 S51: the timeout is the application's, or the call's", () => {
     },
   );
 
-  test("a second close with a shorter timeout shortens the wait", async ({ app, mockLlm }) => {
-    mockLlm(Clerk).thenReturn(hold); // interrupted while it holds: no answer
+  test("a second close with a shorter timeout shortens the wait", async ({ app, mockModel }) => {
+    mockModel(Clerk).thenReturn(hold); // interrupted while it holds: no answer
     await holding(app);
 
     const first = app.close();

@@ -36,15 +36,15 @@ const asking = testWith(LimitApplication);
 describe("terminal approval (agboss run and agboss chat)", () => {
   test("asks about the pending call; yes runs the tool and the run finishes", async ({
     app,
-    mockLlm,
-    mcpOf,
+    mockModel,
+    mockMcp,
   }) => {
-    mockLlm(MainRouter).thenReturn(routeTo(Support));
-    mockLlm(Support).thenReturn(
+    mockModel(MainRouter).thenReturn(routeTo(Support));
+    mockModel(Support).thenReturn(
       callTool(SaveNote, { title: "n1", text: "call back" }),
       replyWith("Saved."),
     );
-    const notes = mcpOf(NotesServer).thenReturn({
+    const notes = mockMcp(NotesServer).thenReturn({
       write_file: () => Promise.resolve({ content: "ok" }),
     });
     const ask = vi.fn(() => Promise.resolve("y"));
@@ -62,15 +62,15 @@ describe("terminal approval (agboss run and agboss chat)", () => {
 
   test("#1123 AC1: the resumed run streams to the listener untilDone is given", async ({
     app,
-    mockLlm,
-    mcpOf,
+    mockModel,
+    mockMcp,
   }) => {
-    mockLlm(MainRouter).thenReturn(routeTo(Support));
-    mockLlm(Support).thenReturn(
+    mockModel(MainRouter).thenReturn(routeTo(Support));
+    mockModel(Support).thenReturn(
       callTool(SaveNote, { title: "n1", text: "call back" }),
       replyWith("Saved."),
     );
-    mcpOf(NotesServer).thenReturn({ write_file: () => Promise.resolve({ content: "ok" }) });
+    mockMcp(NotesServer).thenReturn({ write_file: () => Promise.resolve({ content: "ok" }) });
     const heard: string[] = [];
 
     const paused = await executeWithoutInputCheck(app, ChatStart, { text: "note: call back" });
@@ -90,13 +90,13 @@ describe("terminal approval (agboss run and agboss chat)", () => {
 
   test.for(["n", undefined])(
     "anything but yes — here %s — declines: the tool never runs",
-    async (reply, { app, mockLlm, mcpOf }) => {
-      mockLlm(MainRouter).thenReturn(routeTo(Support));
-      mockLlm(Support).thenReturn(
+    async (reply, { app, mockModel, mockMcp }) => {
+      mockModel(MainRouter).thenReturn(routeTo(Support));
+      mockModel(Support).thenReturn(
         callTool(SaveNote, { title: "n1", text: "x" }),
         replyWith("Not saved."),
       );
-      const notes = mcpOf(NotesServer).thenReturn({
+      const notes = mockMcp(NotesServer).thenReturn({
         write_file: () => Promise.resolve({ content: "ok" }),
       });
 

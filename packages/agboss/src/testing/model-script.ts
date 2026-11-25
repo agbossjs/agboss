@@ -61,7 +61,7 @@ export interface WhenScript<TSelf = unknown> {
 }
 
 /**
- * A component's script and what it was asked: `mockLlm(ScoutAgent).thenReturn(replyWith("…"))`.
+ * A component's script and what it was asked: `mockModel(ScoutAgent).thenReturn(replyWith("…"))`.
  * Turns are checked at compile time against the generated types of the component (#262).
  */
 export interface ModelScript<TSelf = unknown> {
@@ -70,13 +70,15 @@ export interface ModelScript<TSelf = unknown> {
   /** The turn every call after the scripted ones gets (never a leftover). */
   thenReturnAlways(turn: TurnFor<TSelf>): ModelScript<TSelf>;
   /** A dynamic closure to handle requests. Overrides the turns if set. */
-  thenAnswer(handler: (request: ModelRequest) => ScriptedTurn): ModelScript<TSelf>;
+  respondWith(handler: (request: ModelRequest) => ScriptedTurn): ModelScript<TSelf>;
   /**
    * Binds turns to the calls whose input matches, at any depth — `when({ review: undefined })` for
    * the first visit of a loop, `when({ companies: [] })` for an empty list. Agents and model
    * routers only; a call no script matches fails the test, naming its input.
    */
   when(partial: InputMatcherOf<TSelf>): WhenScript<TSelf>;
+  /** Forgets what is scripted and what was asked: the script starts again, empty. */
+  reset(): ModelScript<TSelf>;
   /** The node's input of every model call, in order (tracked DTOs, as the node read it). */
   readonly inputs: readonly RecordedInputOf<TSelf>[];
   /** Every request, in order. */

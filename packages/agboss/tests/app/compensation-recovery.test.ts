@@ -88,15 +88,15 @@ const waitsForAbort = (_guest: string, signal: AbortSignal): Promise<void> =>
 describe("#340 AC4: an undo interrupted on one instance is finished by the other", () => {
   pair(
     "close mid-undo: the rest is finished by the sweep, the done undo not run again",
-    async ({ apps, clock, mockOf }) => {
-      const desk = deskOf(mockOf(UndoDesk));
+    async ({ apps, clock, mockService }) => {
+      const desk = deskOf(mockService(UndoDesk));
       desk.held.add("seat-1");
-      mockOf(UnwindGate).wait.mockImplementation(waitsForAbort);
+      mockService(UnwindGate).wait.mockImplementation(waitsForAbort);
       const [first] = await both(apps);
       const run = execute(first, UnwindWorkflowStart, GUEST, THREAD);
       run.catch(() => undefined);
       await vi.waitFor(() => {
-        expect(mockOf(UnwindGate).wait.mock.calls).toHaveLength(1);
+        expect(mockService(UnwindGate).wait.mock.calls).toHaveLength(1);
       });
 
       await first.cancel("t-1");
@@ -131,10 +131,10 @@ describe("#340 AC4: an undo interrupted on one instance is finished by the other
 
   pair(
     "the lease lost mid-undo: the other instance finishes the rest, ending with the recorded reason",
-    async ({ apps, clock, mockOf }) => {
-      const desk = deskOf(mockOf(UndoDesk));
+    async ({ apps, clock, mockService }) => {
+      const desk = deskOf(mockService(UndoDesk));
       desk.held.add("seat-1");
-      mockOf(UnwindGate).wait.mockRejectedValue(new UndoDeskError("the gate is down"));
+      mockService(UnwindGate).wait.mockRejectedValue(new UndoDeskError("the gate is down"));
       const [first] = await both(apps);
       const run = execute(first, UnwindWorkflowStart, GUEST, THREAD);
       run.catch(() => undefined);
@@ -163,10 +163,10 @@ describe("#340 AC4: an undo interrupted on one instance is finished by the other
 
   pair(
     "a child re-entered mid-undo finishes its undo before any step; its parent's side path goes on",
-    async ({ apps, clock, mockOf }) => {
-      const desk = deskOf(mockOf(UndoDesk));
+    async ({ apps, clock, mockService }) => {
+      const desk = deskOf(mockService(UndoDesk));
       desk.held.add("room-1");
-      mockOf(UnwindGate).wait.mockRejectedValue(new UndoDeskError("the gate is down"));
+      mockService(UnwindGate).wait.mockRejectedValue(new UndoDeskError("the gate is down"));
       const [first] = await both(apps);
       const run = execute(first, UnwindParentWorkflowStart, GUEST, THREAD);
       run.catch(() => undefined);
@@ -184,7 +184,7 @@ describe("#340 AC4: an undo interrupted on one instance is finished by the other
       });
 
       // the child took no step again: its undo finished, then the parent's side path released the seat
-      expect(mockOf(UnwindGate).wait.mock.calls).toHaveLength(1);
+      expect(mockService(UnwindGate).wait.mock.calls).toHaveLength(1);
       expect(releasedIds(desk)).toEqual(["room-1", "room-1", "seat-1"]);
       expect(unwindSeen.errors.map((event) => event.error.name)).toEqual([
         "ChildExecutionFailedError",
@@ -196,8 +196,8 @@ describe("#340 AC4: an undo interrupted on one instance is finished by the other
 describe("#340 S7: the record after the undo, a failed undo's rejection", () => {
   single(
     "the record is running while the undo runs, then failed with CompensationFailedError",
-    async ({ app, mockOf }) => {
-      const desk = deskOf(mockOf(UndoDesk));
+    async ({ app, mockService }) => {
+      const desk = deskOf(mockService(UndoDesk));
       let letGo = (): void => undefined;
       desk.desk.release.mockImplementation((id: string) =>
         id === "room-1"
@@ -206,7 +206,7 @@ describe("#340 S7: the record after the undo, a failed undo's rejection", () => 
               letGo = resolve;
             }),
       );
-      mockOf(UnwindGate).wait.mockRejectedValue(new UndoDeskError("the gate is down"));
+      mockService(UnwindGate).wait.mockRejectedValue(new UndoDeskError("the gate is down"));
       const run = execute(app, UnwindWorkflowStart, GUEST, THREAD);
       run.catch(() => undefined);
       await vi.waitFor(() => {
@@ -225,14 +225,14 @@ describe("#340 S7: the record after the undo, a failed undo's rejection", () => 
 
   single(
     "a cancel of a running tree whose undo fails: the holder's call rejects with it (S7 1)",
-    async ({ app, mockOf }) => {
-      const desk = deskOf(mockOf(UndoDesk));
+    async ({ app, mockService }) => {
+      const desk = deskOf(mockService(UndoDesk));
       desk.desk.release.mockRejectedValue(new UndoDeskError("the desk is down"));
-      mockOf(UnwindGate).wait.mockImplementation(waitsForAbort);
+      mockService(UnwindGate).wait.mockImplementation(waitsForAbort);
       const run = execute(app, UnwindWorkflowStart, GUEST, THREAD);
       run.catch(() => undefined);
       await vi.waitFor(() => {
-        expect(mockOf(UnwindGate).wait.mock.calls).toHaveLength(1);
+        expect(mockService(UnwindGate).wait.mock.calls).toHaveLength(1);
       });
 
       await expect(app.cancel("t-1")).resolves.toEqual({ cancelled: true });

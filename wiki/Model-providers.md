@@ -220,7 +220,7 @@ export class BedrockModelProvider implements ModelProviderHandler {
 - **Everything else is the gateway's**, unchanged: the budgets before the call and
   `CostLedgerRepository` after it, the queue and its 429 pause, retries, the breaker (readiness
   `Degraded`) and its fallback — HTTP and transport either way —, PII masking and revealing, the
-  answer tools of a DTO agent, traces, and `mockLlm` in `testWith`, which answers above the provider
+  answer tools of a DTO agent, traces, and `mockModel` in `testWith`, which answers above the provider
   (`complete()` is never called by a scripted test). Inside, the transport is a `BaseChatModel`
   adapter and every provider's calls go through one attempt runner.
 - **Its lifecycle** is a component's (#385 S4): created on its first call, its `onInit` →

@@ -743,8 +743,8 @@ test("ready on its stores; a closing instance is not live", async ({ app }) => {
   expect((await app.checkLiveness()).status).toBe(HealthStatus.Unhealthy);
 });
 
-twoInstances("two instances share one set of stores", async ({ app, apps, mockLlm }) => {
-  mockLlm(ClaimAssessorAgent).thenReturn(replyWith(ClaimAssessmentDto, { assessment: "Covered." }));
+twoInstances("two instances share one set of stores", async ({ app, apps, mockModel }) => {
+  mockModel(ClaimAssessorAgent).thenReturn(replyWith(ClaimAssessmentDto, { assessment: "Covered." }));
 
   const result = await app.execute(ClaimWorkflowStart, { text: "a broken window" }); // apps[0]
 

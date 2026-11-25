@@ -90,10 +90,10 @@ const pauseId = (): string => {
 describe("#1343: onChannelInterpreterStart / onChannelInterpreterEnd", () => {
   test("a reply the interpreter read: a start and a Read end with its model's cost, in the waiting step", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(TreasurerAgent).thenReturn(callTool(PayOutTool, payout), replyWith("Paid."));
-    mockLlm(PayoutReplyInterpreter).thenReturn(
+    mockModel(TreasurerAgent).thenReturn(callTool(PayOutTool, payout), replyWith("Paid."));
+    mockModel(PayoutReplyInterpreter).thenReturn(
       replyWith(ToolCallApprovalDecisionDto, { approved: true }, { cost: usd(0.004) }),
     );
     await execute(app, TreasuryWorkflowStart, { text: "pay ann $10" });
@@ -115,10 +115,10 @@ describe("#1343: onChannelInterpreterStart / onChannelInterpreterEnd", () => {
 
   test("a reply nobody can read ends Unreadable and the pause stays pending", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(TreasurerAgent).thenReturn(callTool(PayOutTool, payout));
-    mockLlm(PayoutReplyInterpreter).thenReturn(replyWith("Unclear.", { cost: usd(0.001) }));
+    mockModel(TreasurerAgent).thenReturn(callTool(PayOutTool, payout));
+    mockModel(PayoutReplyInterpreter).thenReturn(replyWith("Unclear.", { cost: usd(0.001) }));
     await execute(app, TreasuryWorkflowStart, { text: "pay ann $10" });
 
     await expect(app.resume({ pauseId: pauseId(), reply: "hmm" }, manager)).rejects.toBeInstanceOf(
@@ -132,9 +132,9 @@ describe("#1343: onChannelInterpreterStart / onChannelInterpreterEnd", () => {
     });
   });
 
-  test("an event never shows the reply or the pause's id", async ({ app, mockLlm }) => {
-    mockLlm(TreasurerAgent).thenReturn(callTool(PayOutTool, payout), replyWith("Paid."));
-    mockLlm(PayoutReplyInterpreter).thenReturn(
+  test("an event never shows the reply or the pause's id", async ({ app, mockModel }) => {
+    mockModel(TreasurerAgent).thenReturn(callTool(PayOutTool, payout), replyWith("Paid."));
+    mockModel(PayoutReplyInterpreter).thenReturn(
       replyWith(ToolCallApprovalDecisionDto, { approved: true }),
     );
     await execute(app, TreasuryWorkflowStart, { text: "pay ann $10" });
@@ -149,10 +149,10 @@ describe("#1343: onChannelInterpreterStart / onChannelInterpreterEnd", () => {
 
   test("the observers are the paused execution's own workflow's: its filter and its mask apply", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(TreasurerAgent).thenReturn(callTool(PayOutTool, payout), replyWith("Paid."));
-    mockLlm(PayoutReplyInterpreter).thenReturn(
+    mockModel(TreasurerAgent).thenReturn(callTool(PayOutTool, payout), replyWith("Paid."));
+    mockModel(PayoutReplyInterpreter).thenReturn(
       replyWith(ToolCallApprovalDecisionDto, { approved: true }),
     );
     await execute(app, TreasuryWorkflowStart, { text: "pay ann $10" });

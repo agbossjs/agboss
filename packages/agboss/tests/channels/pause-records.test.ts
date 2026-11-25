@@ -69,8 +69,8 @@ function payoutPauseId(): string {
 describe("#267 S107: ExecutionRecord.pauses — who answered each pause, and how", () => {
   testWith(TreasuryApplication)(
     "a pause answered through its channel: Replied, its responder and times, the decision masked, no id",
-    async ({ app, clock, mockLlm }) => {
-      mockLlm(TreasurerAgent).thenReturn(
+    async ({ app, clock, mockModel }) => {
+      mockModel(TreasurerAgent).thenReturn(
         callTool(PayOutTool, { payee: "ann", amountCents: 1000 }),
         replyWith("Refused."),
       );
@@ -121,8 +121,8 @@ describe("#267 S107: ExecutionRecord.pauses — who answered each pause, and how
 
   testWith(TreasuryApplication)(
     "a pending pause is not in the record: it is in result.pending",
-    async ({ app, mockLlm }) => {
-      mockLlm(TreasurerAgent).thenReturn(callTool(PayOutTool, { payee: "ann", amountCents: 1 }));
+    async ({ app, mockModel }) => {
+      mockModel(TreasurerAgent).thenReturn(callTool(PayOutTool, { payee: "ann", amountCents: 1 }));
 
       const paused = await execute(
         app,
@@ -138,8 +138,8 @@ describe("#267 S107: ExecutionRecord.pauses — who answered each pause, and how
 
   testWith(TreasuryApplication)(
     "a thread owner's pause answered with a reply: its id and the owner; the interpreter's decision",
-    async ({ app, mockLlm }) => {
-      mockLlm(TreasurerAgent).thenReturn(
+    async ({ app, mockModel }) => {
+      mockModel(TreasurerAgent).thenReturn(
         callTool(BookExpenseTool, { purpose: "lunch" }),
         replyWith("Booked."),
       );
@@ -174,8 +174,8 @@ describe("#267 S107: ExecutionRecord.pauses — who answered each pause, and how
     services: [AutoApproveChannel.for(TransferToolApproval)],
   })(
     "a pause its channel decided at once: Decided, no responder, the channel's decision",
-    async ({ app, mockLlm }) => {
-      mockLlm(TreasurerAgent).thenReturn(
+    async ({ app, mockModel }) => {
+      mockModel(TreasurerAgent).thenReturn(
         callTool(TransferTool, { account: "DE-1" }),
         replyWith("Transferred."),
       );
@@ -202,10 +202,10 @@ describe("#267 S107: ExecutionRecord.pauses — who answered each pause, and how
 
   testWith(PayoutsApplication)(
     "a FailFast sibling failed: the paused branch's pause is Withdrawn, the failed one's TreeEnded with the tree (a failure, not a cancel) — no decision",
-    async ({ app, clock, mockLlm }) => {
+    async ({ app, clock, mockModel }) => {
       hooks.refusals = new Map([["7", new PaymentDeclinedError("the card was declined")]]);
-      mockLlm(PayoutConfirmAgent).thenReturn(callTool(ConfirmOrderTool, { orderId: "7" }));
-      mockLlm(PayoutRefundAgent).thenReturn(
+      mockModel(PayoutConfirmAgent).thenReturn(callTool(ConfirmOrderTool, { orderId: "7" }));
+      mockModel(PayoutRefundAgent).thenReturn(
         waitFor(seconds(5)),
         callTool(RefundTool, { orderId: "7" }),
       );
@@ -235,8 +235,8 @@ describe("#267 S107: ExecutionRecord.pauses — who answered each pause, and how
 
   testWith(TreasuryApplication)(
     "app.cancel of a paused thread: its pause is Cancelled",
-    async ({ app, mockLlm }) => {
-      mockLlm(TreasurerAgent).thenReturn(callTool(PayOutTool, { payee: "ann", amountCents: 1 }));
+    async ({ app, mockModel }) => {
+      mockModel(TreasurerAgent).thenReturn(callTool(PayOutTool, { payee: "ann", amountCents: 1 }));
       const paused = await execute(app, TreasuryWorkflowStart, { text: "pay ann" });
 
       await app.cancel(paused.threadId);
@@ -255,11 +255,11 @@ describe("#267 S107: ExecutionRecord.pauses — who answered each pause, and how
 describe("#267 S107: resolved pause records are kept retention.pauseRecords, then removed", () => {
   testWith(BriefTreasuryApplication)(
     "within it a late answer is PauseClosedError, after it UnknownPauseError; a pending pause stays",
-    async ({ app, clock, mockLlm }) => {
-      mockLlm(TreasurerAgent)
+    async ({ app, clock, mockModel }) => {
+      mockModel(TreasurerAgent)
         .when({ message: { text: "pay ann" } })
         .thenReturn(callTool(PayOutTool, { payee: "ann", amountCents: 1 }), replyWith("Paid."));
-      mockLlm(TreasurerAgent)
+      mockModel(TreasurerAgent)
         .when({ message: { text: "book lunch" } })
         .thenReturn(callTool(BookExpenseTool, { purpose: "lunch" }), replyWith("Booked."));
       await execute(app, TreasuryWorkflowStart, { text: "pay ann" });
@@ -279,8 +279,8 @@ describe("#267 S107: resolved pause records are kept retention.pauseRecords, the
 
   testWith(BriefTreasuryApplication)(
     "the record keeps a pause whose record the retention removed: record.pauses is the permanent log",
-    async ({ app, clock, mockLlm }) => {
-      mockLlm(TreasurerAgent).thenReturn(
+    async ({ app, clock, mockModel }) => {
+      mockModel(TreasurerAgent).thenReturn(
         callTool(PayOutTool, { payee: "ann", amountCents: 1 }),
         callTool(BookExpenseTool, { purpose: "lunch" }),
         replyWith("Paid and booked."),
@@ -315,8 +315,8 @@ describe("#267 S107: resolved pause records are kept retention.pauseRecords, the
 describe("#939: an unconsumed Resolved pause of an ended tree is closed not taken, then swept", () => {
   testWith(BriefTreasuryApplication)(
     "a pause answered while a cancel wins is Cancelled, its answer kept, the log says not taken, and it is removed after retention.pauseRecords",
-    async ({ app, clock, mockLlm }) => {
-      mockLlm(TreasurerAgent).thenReturn(callTool(BookExpenseTool, { purpose: "lunch" }));
+    async ({ app, clock, mockModel }) => {
+      mockModel(TreasurerAgent).thenReturn(callTool(BookExpenseTool, { purpose: "lunch" }));
       const waiting = await execute(app, TreasuryWorkflowStart, { text: "book lunch" });
       const pauseId = waiting.pending[0]?.pauseId ?? "";
       const pauses = treasuryPauses();

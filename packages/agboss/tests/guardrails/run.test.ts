@@ -42,10 +42,10 @@ const inputsOf = (requests: readonly ModelRequest[]): string[] =>
 describe("#120 AC1, AC2: a guardrail blocks with its refusal", () => {
   test("an input guardrail blocks before the agent's model: the class's refusal, in the sender's language", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(TriageRouter).thenReturn(routeTo(AdviceAgent));
-    mockLlm(LegalAdviceGuardrail).thenReturn(decideWith({ blocks: 0.9 }));
+    mockModel(TriageRouter).thenReturn(routeTo(AdviceAgent));
+    mockModel(LegalAdviceGuardrail).thenReturn(decideWith({ blocks: 0.9 }));
 
     const run = execute(
       app,
@@ -62,16 +62,16 @@ describe("#120 AC1, AC2: a guardrail blocks with its refusal", () => {
       probability: 0.9,
       threshold: 0.8,
     });
-    expect(mockLlm(AdviceAgent)).toHaveBeenCalledTimes(0);
+    expect(mockModel(AdviceAgent)).toHaveBeenCalledTimes(0);
   });
 
   test("an output guardrail blocks the answer: the decorator's refusal", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(TriageRouter).thenReturn(routeTo(AdviceAgent));
-    mockLlm(AdviceAgent).thenReturn(replyWith("Sue them under section 12."));
-    mockLlm(NoLegalAdviceGuardrail).thenReturn(decideWith({ blocks: 0.95 }));
+    mockModel(TriageRouter).thenReturn(routeTo(AdviceAgent));
+    mockModel(AdviceAgent).thenReturn(replyWith("Sue them under section 12."));
+    mockModel(NoLegalAdviceGuardrail).thenReturn(decideWith({ blocks: 0.95 }));
 
     const run = execute(app, ClinicStart, { text: "My landlord kept my deposit." }, english);
 
@@ -79,18 +79,18 @@ describe("#120 AC1, AC2: a guardrail blocks with its refusal", () => {
       guard: "no-legal-advice-guardrail",
       refusal: "I can't give legal advice. Please contact a lawyer.",
     });
-    expect(inputsOf(mockLlm(NoLegalAdviceGuardrail).requests)).toEqual([
+    expect(inputsOf(mockModel(NoLegalAdviceGuardrail).requests)).toEqual([
       expect.stringContaining("### answer (from advice-agent)\nSue them under section 12."),
     ]);
   });
 
   test("below the threshold the execution goes on; the guardrails' spend is the execution's", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(TriageRouter).thenReturn(routeTo(AdviceAgent));
-    mockLlm(LegalAdviceGuardrail).thenReturn(decideWith({ blocks: 0.79 }, { cost: usd(0.001) }));
-    mockLlm(AdviceAgent).thenReturn(replyWith("Drink water."));
+    mockModel(TriageRouter).thenReturn(routeTo(AdviceAgent));
+    mockModel(LegalAdviceGuardrail).thenReturn(decideWith({ blocks: 0.79 }, { cost: usd(0.001) }));
+    mockModel(AdviceAgent).thenReturn(replyWith("Drink water."));
 
     const result = await execute(app, ClinicStart, { text: "I have a headache." }, english);
 
@@ -103,64 +103,64 @@ describe("#120 AC1, AC2: a guardrail blocks with its refusal", () => {
 
   test("a guardrail's model that does not answer fails closed: GuardFailedError", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(PromptInjectionGuardrail).thenReturn(failWith(ModelFailure.Timeout));
+    mockModel(PromptInjectionGuardrail).thenReturn(failWith(ModelFailure.Timeout));
 
     const run = execute(app, ClinicStart, { text: "Hello" }, english);
 
     await expect(run).rejects.toFailWith(GuardFailedError, { code: "step.guard" });
-    expect(mockLlm(TriageRouter)).toHaveBeenCalledTimes(0);
+    expect(mockModel(TriageRouter)).toHaveBeenCalledTimes(0);
   });
 });
 
 describe("#120 AC4: levels — lists add up, a router takes input guardrails, exclude removes", () => {
   test("the router: the application's input guardrail; the agent: application + own + workflow's output", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(TriageRouter).thenReturn(routeTo(AdviceAgent));
-    mockLlm(AdviceAgent).thenReturn(replyWith("Rest."));
+    mockModel(TriageRouter).thenReturn(routeTo(AdviceAgent));
+    mockModel(AdviceAgent).thenReturn(replyWith("Rest."));
 
     await execute(app, ClinicStart, { text: "I feel tired." }, english);
 
-    expect(inputsOf(mockLlm(PromptInjectionGuardrail).requests)).toEqual([
+    expect(inputsOf(mockModel(PromptInjectionGuardrail).requests)).toEqual([
       expect.stringContaining("### message (to triage-router)"),
       expect.stringContaining("### message (to advice-agent)"),
     ]);
-    expect(mockLlm(LegalAdviceGuardrail).requests).toHaveLength(1);
-    expect(inputsOf(mockLlm(NoLegalAdviceGuardrail).requests)).toEqual([
+    expect(mockModel(LegalAdviceGuardrail).requests).toHaveLength(1);
+    expect(inputsOf(mockModel(NoLegalAdviceGuardrail).requests)).toEqual([
       expect.stringContaining("### answer (from advice-agent)"),
     ]);
   });
 
   test("excludeGuardrails: the notes agent's model is guarded by none of the excluded ones", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(TriageRouter).thenReturn(routeTo(NotesAgent));
-    mockLlm(NotesAgent).thenReturn(replyWith("Noted."));
+    mockModel(TriageRouter).thenReturn(routeTo(NotesAgent));
+    mockModel(NotesAgent).thenReturn(replyWith("Noted."));
 
     await execute(app, ClinicStart, { text: "Please call me back." }, english);
 
-    expect(inputsOf(mockLlm(PromptInjectionGuardrail).requests)).toEqual([
+    expect(inputsOf(mockModel(PromptInjectionGuardrail).requests)).toEqual([
       expect.stringContaining("### message (to triage-router)"),
     ]);
-    expect(mockLlm(NoLegalAdviceGuardrail).requests).toEqual([]);
+    expect(mockModel(NoLegalAdviceGuardrail).requests).toEqual([]);
   });
 });
 
 describe("#120 S84 (i): a guardrail reads the text behind the model boundary", () => {
   test("it reads the masked input message: a token, never the address", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(TriageRouter).thenReturn(routeTo(AdviceAgent));
-    mockLlm(AdviceAgent).thenReturn(replyWith("We will write to you."));
+    mockModel(TriageRouter).thenReturn(routeTo(AdviceAgent));
+    mockModel(AdviceAgent).thenReturn(replyWith("We will write to you."));
 
     await execute(app, ClinicStart, { text: "Write to alice@example.com please." }, english);
 
-    const [toRouter, toAgent] = inputsOf(mockLlm(PromptInjectionGuardrail).requests);
+    const [toRouter, toAgent] = inputsOf(mockModel(PromptInjectionGuardrail).requests);
     for (const input of [toRouter, toAgent]) {
       expect(input).not.toContain("alice@example.com");
       expect(input).toMatch(/<email:[0-9a-f]+>/);

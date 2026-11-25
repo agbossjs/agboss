@@ -26,9 +26,9 @@ describe("#265 AC2: the keys of a request through the application", () => {
   test("visible to the tree after a pause resumed on the other instance, removed when it finishes", async ({
     app,
     apps,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(
+    mockModel(Clerk).thenReturn(
       callTool(Claim, { text: "x" }),
       callTool(Charge, { text: "10 USD" }),
       callTool(Claim, { text: "x" }),
@@ -46,8 +46,11 @@ describe("#265 AC2: the keys of a request through the application", () => {
     expect(await rows?.findByIdInTree(root, "claim:x")).toBeUndefined();
   });
 
-  test("invisible to another request: the same key is claimed again", async ({ app, mockLlm }) => {
-    mockLlm(Clerk).thenReturn(
+  test("invisible to another request: the same key is claimed again", async ({
+    app,
+    mockModel,
+  }) => {
+    mockModel(Clerk).thenReturn(
       callTool(Claim, { text: "x" }),
       replyWith(ReceiptDto, { text: "One." }),
       callTool(Claim, { text: "x" }),
@@ -60,8 +63,11 @@ describe("#265 AC2: the keys of a request through the application", () => {
     expect(seen.claims).toEqual([true, true]);
   });
 
-  test("a cancelled paused tree loses its keys", async ({ app, mockLlm }) => {
-    mockLlm(Clerk).thenReturn(callTool(Claim, { text: "x" }), callTool(Charge, { text: "1 USD" }));
+  test("a cancelled paused tree loses its keys", async ({ app, mockModel }) => {
+    mockModel(Clerk).thenReturn(
+      callTool(Claim, { text: "x" }),
+      callTool(Charge, { text: "1 USD" }),
+    );
     const paused = await execute(app, OrderWorkflowStart, { text: "claim, charge" });
 
     await app.cancel(paused.threadId);

@@ -9,11 +9,5 @@ export { ComponentError, componentOf } from "./metadata.js";
 export { PromptError, type PromptProblem, type PromptProblemCode } from "./prompt-problems.js";
 export type { OnDestroy, OnInit, OnStart, OnStop } from "./container/lifecycle.js";
 export type { AgentMeta, WorkflowMeta } from "./meta-types.js";
-export {
-  McpServerClient,
-  mcpServerStub,
-  type ServerTool,
-  type ServerTools,
-  type ToolsOf,
-} from "./mcp-client.js";
+export { McpServerClient, type ServerTool, type ServerTools, type ToolsOf } from "./mcp-client.js";
 export { file } from "./file.js";

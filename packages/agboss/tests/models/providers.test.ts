@@ -78,9 +78,9 @@ describe("#266 AC1: an application's model providers serve its executions", () =
 
   test("a workflow whose agent names a provider the application does not list runs on it (scripted)", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(LocalAgent).thenReturn(replyWith("hello"));
+    mockModel(LocalAgent).thenReturn(replyWith("hello"));
 
     const result = await execute(app, LocalStart, { text: "hi" });
 

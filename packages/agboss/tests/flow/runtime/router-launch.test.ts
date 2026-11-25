@@ -53,12 +53,12 @@ const loyalty = replyWith(LoyaltyOfferDto, { offer: "10% off" });
 describe("S23: a model router decides its routes of a chooseMany launch", () => {
   desk(
     "yes/no: one decide, a boolean question per route, yes launches",
-    async ({ app, mockLlm }) => {
-      mockLlm(HelpDeskRouter).thenReturn(decideWith({ "refund-policy-agent": 0.9 }));
-      mockLlm(OrderLookupAgent).thenReturn(order);
-      mockLlm(RefundPolicyAgent).thenReturn(refund);
-      mockLlm(LoyaltyOfferAgent).thenReturn(loyalty);
-      mockLlm(AnswerAgent).thenReturn(reply);
+    async ({ app, mockModel }) => {
+      mockModel(HelpDeskRouter).thenReturn(decideWith({ "refund-policy-agent": 0.9 }));
+      mockModel(OrderLookupAgent).thenReturn(order);
+      mockModel(RefundPolicyAgent).thenReturn(refund);
+      mockModel(LoyaltyOfferAgent).thenReturn(loyalty);
+      mockModel(AnswerAgent).thenReturn(reply);
 
       const result = await app.execute(HelpDeskWorkflowStart, { text: "can I return it?" });
 
@@ -71,35 +71,37 @@ describe("S23: a model router decides its routes of a chooseMany launch", () => 
         AnswerAgent,
         HelpDeskWorkflowFinish,
       ]);
-      const [asked] = mockLlm(HelpDeskRouter).requests;
+      const [asked] = mockModel(HelpDeskRouter).requests;
       expect(asked).toMatchObject({
         kind: "decide",
         questions: {
           "refund-policy-agent": { type: "boolean", instructions: "The message is about returns" },
         },
       });
-      expect(JSON.stringify(mockLlm(AnswerAgent).requests[0]?.input)).toContain("30 days");
+      expect(JSON.stringify(mockModel(AnswerAgent).requests[0]?.input)).toContain("30 days");
     },
   );
 
-  desk("a no leaves the route out: its optional value is none", async ({ app, mockLlm }) => {
-    mockLlm(HelpDeskRouter).thenReturn(decideWith({ "refund-policy-agent": 0.5 }));
-    mockLlm(OrderLookupAgent).thenReturn(order);
-    mockLlm(LoyaltyOfferAgent).thenReturn(loyalty);
-    mockLlm(AnswerAgent).thenReturn(reply);
+  desk("a no leaves the route out: its optional value is none", async ({ app, mockModel }) => {
+    mockModel(HelpDeskRouter).thenReturn(decideWith({ "refund-policy-agent": 0.5 }));
+    mockModel(OrderLookupAgent).thenReturn(order);
+    mockModel(LoyaltyOfferAgent).thenReturn(loyalty);
+    mockModel(AnswerAgent).thenReturn(reply);
 
     const result = await app.execute(HelpDeskWorkflowStart, { text: "where is it?" });
 
     expect(result.path).not.toContain("refund-policy-agent");
     expect(result.launches).toMatchObject([{ items: 3, taken: 2 }]);
-    expect(JSON.stringify(mockLlm(AnswerAgent).requests[0]?.input)).toContain("### refund\\nnone");
+    expect(JSON.stringify(mockModel(AnswerAgent).requests[0]?.input)).toContain(
+      "### refund\\nnone",
+    );
   });
 
-  picky("all no: nothing is launched, and an empty answer is valid", async ({ app, mockLlm }) => {
-    mockLlm(PickyRouter).thenReturn(
+  picky("all no: nothing is launched, and an empty answer is valid", async ({ app, mockModel }) => {
+    mockModel(PickyRouter).thenReturn(
       decideWith({ "refund-policy-agent": 0.1, "loyalty-offer-agent": 0.2 }),
     );
-    mockLlm(PickyAnswerAgent).thenReturn(reply);
+    mockModel(PickyAnswerAgent).thenReturn(reply);
 
     const result = await execute(app, PickyWorkflowStart, { text: "hello" });
 
@@ -114,12 +116,12 @@ describe("S23: a model router decides its routes of a chooseMany launch", () => 
 
   picky(
     "a chat-model router answers through one answer tool, a boolean per route",
-    async ({ app, mockLlm }) => {
-      mockLlm(PickyRouter).thenReturn(
+    async ({ app, mockModel }) => {
+      mockModel(PickyRouter).thenReturn(
         decideWith({ "refund-policy-agent": 0, "loyalty-offer-agent": 1 }),
       );
-      mockLlm(LoyaltyOfferAgent).thenReturn(loyalty);
-      mockLlm(PickyAnswerAgent).thenReturn(reply);
+      mockModel(LoyaltyOfferAgent).thenReturn(loyalty);
+      mockModel(PickyAnswerAgent).thenReturn(reply);
 
       const result = await execute(app, PickyWorkflowStart, { text: "I always buy here" });
 
@@ -131,7 +133,7 @@ describe("S23: a model router decides its routes of a chooseMany launch", () => 
         "picky-answer-agent",
         "picky-workflow-finish",
       ]);
-      const [asked] = mockLlm(PickyRouter).requests;
+      const [asked] = mockModel(PickyRouter).requests;
       expect(asked?.kind).toBe("chat");
       expect(JSON.stringify(asked)).toContain(
         '"loyalty-offer-agent":{"description":"The customer is loyal","type":"boolean"}',
@@ -143,11 +145,11 @@ describe("S23: a model router decides its routes of a chooseMany launch", () => 
 describe("S21: Skip drops only the branch's own step failure", () => {
   desk(
     "Skip drops only StepFailedError: the execution goes on without the value",
-    async ({ app, mockLlm }) => {
-      mockLlm(HelpDeskRouter).thenReturn(decideWith({ "refund-policy-agent": 0 }));
-      mockLlm(OrderLookupAgent).thenReturn(order);
-      mockLlm(LoyaltyOfferAgent).thenReturn(failWith(ModelFailure.Timeout));
-      mockLlm(AnswerAgent).thenReturn(reply);
+    async ({ app, mockModel }) => {
+      mockModel(HelpDeskRouter).thenReturn(decideWith({ "refund-policy-agent": 0 }));
+      mockModel(OrderLookupAgent).thenReturn(order);
+      mockModel(LoyaltyOfferAgent).thenReturn(failWith(ModelFailure.Timeout));
+      mockModel(AnswerAgent).thenReturn(reply);
 
       const result = await app.execute(HelpDeskWorkflowStart, { text: "where is it?" });
 
@@ -156,7 +158,7 @@ describe("S21: Skip drops only the branch's own step failure", () => {
         (branch) => branch.nodeId === "loyalty-offer-agent",
       );
       expect(loyal).toMatchObject({ status: BranchStatus.Skipped, error: { code: "step.agent" } });
-      expect(JSON.stringify(mockLlm(AnswerAgent).requests[0]?.input)).toContain(
+      expect(JSON.stringify(mockModel(AnswerAgent).requests[0]?.input)).toContain(
         "### loyalty\\nnone",
       );
     },
@@ -164,9 +166,9 @@ describe("S21: Skip drops only the branch's own step failure", () => {
 
   budget(
     "a Skip branch hitting a budget cancels the others and fails the step",
-    async ({ app, mockLlm }) => {
-      mockLlm(HelpDeskRouter).thenReturn(decideWith({ "refund-policy-agent": 0 }));
-      mockLlm(OrderLookupAgent).thenReturn(
+    async ({ app, mockModel }) => {
+      mockModel(HelpDeskRouter).thenReturn(decideWith({ "refund-policy-agent": 0 }));
+      mockModel(OrderLookupAgent).thenReturn(
         replyWith(OrderStatusDto, { status: "shipped" }, { cost: usd(0.06) }),
       );
       // no scripts for the loyalty branch and the answer: neither is reached
@@ -176,8 +178,8 @@ describe("S21: Skip drops only the branch's own step failure", () => {
       // one at a time: the order spent the run's budget; the loyalty branch (Skip) starts over it —
       // a limit is no step failure, so it fails the launch instead of dropping out
       await expect(run).rejects.toBeInstanceOf(BudgetExceededError);
-      expect(mockLlm(LoyaltyOfferAgent).requests).toEqual([]);
-      expect(mockLlm(BudgetAnswerAgent).requests).toEqual([]);
+      expect(mockModel(LoyaltyOfferAgent).requests).toEqual([]);
+      expect(mockModel(BudgetAnswerAgent).requests).toEqual([]);
     },
   );
 });
@@ -185,10 +187,10 @@ describe("S21: Skip drops only the branch's own step failure", () => {
 describe("#280 S47 (f): a code router launches its Always targets and what route() returns", () => {
   offers(
     "code router Always + route(): the list it returns is launched",
-    async ({ app, mockLlm }) => {
-      mockLlm(RefundPolicyAgent).thenReturn(refund, refund);
-      mockLlm(LoyaltyOfferAgent).thenReturn(loyalty);
-      mockLlm(OffersAnswerAgent).thenReturn(reply, reply);
+    async ({ app, mockModel }) => {
+      mockModel(RefundPolicyAgent).thenReturn(refund, refund);
+      mockModel(LoyaltyOfferAgent).thenReturn(loyalty);
+      mockModel(OffersAnswerAgent).thenReturn(reply, reply);
 
       const loyal = await app.execute(OffersWorkflowStart, { text: "a loyal customer" });
       const other = await app.execute(OffersWorkflowStart, { text: "a new customer" });
@@ -208,10 +210,10 @@ describe("#280 S47 (f): a code router launches its Always targets and what route
 
   strict(
     "a list of its routes runs, none included; one class or a stranger is a decision error",
-    async ({ app, mockLlm }) => {
-      mockLlm(RefundPolicyAgent).thenReturn(refund);
-      mockLlm(LoyaltyOfferAgent).thenReturn(loyalty);
-      mockLlm(PickyAnswerAgent).thenReturnAlways(reply);
+    async ({ app, mockModel }) => {
+      mockModel(RefundPolicyAgent).thenReturn(refund);
+      mockModel(LoyaltyOfferAgent).thenReturn(loyalty);
+      mockModel(PickyAnswerAgent).thenReturnAlways(reply);
 
       const both = await execute(app, StrictWorkflowStart, { text: "both" });
       const one = execute(app, StrictWorkflowStart, { text: "one" });
@@ -240,10 +242,10 @@ describe("#280 S47 (f): a code router launches its Always targets and what route
 
   strict(
     "Skip on a code router's route: a failed agent drops out, the execution goes on",
-    async ({ app, mockLlm }) => {
-      mockLlm(RefundPolicyAgent).thenReturn(refund);
-      mockLlm(LoyaltyOfferAgent).thenReturn(failWith(ModelFailure.Timeout));
-      mockLlm(PickyAnswerAgent).thenReturn(reply);
+    async ({ app, mockModel }) => {
+      mockModel(RefundPolicyAgent).thenReturn(refund);
+      mockModel(LoyaltyOfferAgent).thenReturn(failWith(ModelFailure.Timeout));
+      mockModel(PickyAnswerAgent).thenReturn(reply);
 
       const result = await execute(app, StrictWorkflowStart, { text: "both" });
 

@@ -35,7 +35,7 @@ export class JobReportDto {
   jobs!: JobDto[];
 }
 
-/** Whether a job is still posted — a service the judge depends on, replaced by `mockOf` in tests. */
+/** Whether a job is still posted — a service the judge depends on, replaced by `mockService` in tests. */
 @Injectable()
 export class JobSearch {
   exists(url: string): Promise<boolean> {
@@ -43,7 +43,7 @@ export class JobSearch {
   }
 }
 
-/** The classes judges were given as `variant` (S125) — replaced by `mockOf` in tests. */
+/** The classes judges were given as `variant` (S125) — replaced by `mockService` in tests. */
 @Injectable()
 export class VariantLog {
   seen(variant: DtoClass): DtoClass {

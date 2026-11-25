@@ -141,10 +141,10 @@ describe("#333 PR 4 M2: remote child pauses and per-child recovery on two instan
 
   test("a remote child pauses on SQLite, and app.resume on the other instance continues only that child", async ({
     apps,
-    mockLlm,
+    mockModel,
   }) => {
     for (const app of apps) await app.ready();
-    mockLlm(ItemReviewerAgent).thenAnswer((request) => {
+    mockModel(ItemReviewerAgent).respondWith((request) => {
       const name = nameIn(request);
       const confirmed =
         request.kind === "chat" && request.messages.some((line) => line.role === "tool");

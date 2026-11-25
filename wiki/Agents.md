@@ -166,7 +166,7 @@ Output guardrails read the answer's files pinned to that digest; a file that cha
 
 An agent answers by script in a workflow test: `replyWith(text)`, `replyWith(Dto, value)` (a
 structured answer, through its answer tool), `callTool(Tool, args)` (args typed by the tool's input
-DTO), or a function of the request with `.thenAnswer(...)` ([Testing](Testing)):
+DTO), or a function of the request with `.respondWith(...)` ([Testing](Testing)):
 
 <!--
 ```ts file=support.workflow.ts
@@ -210,8 +210,8 @@ class SupportApplication {}
 
 const test = testWith(SupportApplication); // an application, never the workflow itself
 
-test("a refund request calls the refund tool, then answers", async ({ app, mockLlm }) => {
-  mockLlm(SupportAgent).thenAnswer((request) =>
+test("a refund request calls the refund tool, then answers", async ({ app, mockModel }) => {
+  mockModel(SupportAgent).respondWith((request) =>
     request.kind === "chat" && request.messages.some((line) => line.role === "tool")
       ? replyWith("Refunded.")
       : callTool(RefundTool, { amount: 100 }),
@@ -219,7 +219,7 @@ test("a refund request calls the refund tool, then answers", async ({ app, mockL
 
   const result = await app.execute(ChatStart, { text: "refund me 100" });
 
-  expect(mockLlm(SupportAgent)).toHaveCalledTools([RefundTool]);
+  expect(mockModel(SupportAgent)).toHaveCalledTools([RefundTool]);
   expect(result).toFinishWith(ChatFinish, { text: "Refunded." });
 });
 ```

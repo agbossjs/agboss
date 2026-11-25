@@ -45,9 +45,11 @@ const test = testWith(KeptUndoApplication);
 beforeEach(resetKeptUndo);
 
 describe("#635: a root's kept record lists every undo that ran, as its error event does", () => {
-  test("its pass fails: the room and the seat undone", async ({ app, mockOf }) => {
-    mockOf(UndoDesk).reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
-    mockOf(UnwindGate).wait.mockRejectedValue(new UndoDeskError("the gate is down"));
+  test("its pass fails: the room and the seat undone", async ({ app, mockService }) => {
+    mockService(UndoDesk).reserve.mockImplementation((kind: string) =>
+      Promise.resolve(`${kind}-1`),
+    );
+    mockService(UnwindGate).wait.mockRejectedValue(new UndoDeskError("the gate is down"));
 
     await expect(execute(app, UnwindWorkflowStart, GUEST, THREAD)).rejects.toThrow(
       "the gate is down",
@@ -58,14 +60,14 @@ describe("#635: a root's kept record lists every undo that ran, as its error eve
 
   test("its pass fails and an undo fails: both listed, the failed one failed", async ({
     app,
-    mockOf,
+    mockService,
   }) => {
-    const desk = mockOf(UndoDesk);
+    const desk = mockService(UndoDesk);
     desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
     desk.release.mockImplementation((id: string) =>
       id === "seat-1" ? Promise.reject(new Error("seat desk down")) : Promise.resolve(),
     );
-    mockOf(UnwindGate).wait.mockRejectedValue(new UndoDeskError("the gate is down"));
+    mockService(UnwindGate).wait.mockRejectedValue(new UndoDeskError("the gate is down"));
 
     const run = execute(app, UnwindWorkflowStart, GUEST, THREAD);
 
@@ -75,14 +77,16 @@ describe("#635: a root's kept record lists every undo that ran, as its error eve
 
   test("the running tree is cancelled: both undone, the record cancelled", async ({
     app,
-    mockOf,
+    mockService,
   }) => {
-    mockOf(UndoDesk).reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
-    mockOf(UnwindGate).wait.mockImplementation(heldUntilAborted);
+    mockService(UndoDesk).reserve.mockImplementation((kind: string) =>
+      Promise.resolve(`${kind}-1`),
+    );
+    mockService(UnwindGate).wait.mockImplementation(heldUntilAborted);
     const run = execute(app, UnwindWorkflowStart, GUEST, THREAD);
     run.catch(() => undefined);
     await vi.waitFor(() => {
-      expect(mockOf(UnwindGate).wait.mock.calls.length).toBeGreaterThan(0);
+      expect(mockService(UnwindGate).wait.mock.calls.length).toBeGreaterThan(0);
     });
 
     await app.cancel("t-1");
@@ -91,11 +95,14 @@ describe("#635: a root's kept record lists every undo that ran, as its error eve
     expect(await keptAsTheEvent(app, "cancelled")).toEqual([ROOM, SEAT]);
   });
 
-  test("a side path undid both, then the tree fails: its undos listed", async ({ app, mockOf }) => {
-    const desk = mockOf(UndoDesk);
+  test("a side path undid both, then the tree fails: its undos listed", async ({
+    app,
+    mockService,
+  }) => {
+    const desk = mockService(UndoDesk);
     desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
     desk.charge.mockRejectedValue(new UndoDeskError("card declined"));
-    mockOf(UnwindGate).wait.mockRejectedValue(new UndoDeskError("the gate is down"));
+    mockService(UnwindGate).wait.mockRejectedValue(new UndoDeskError("the gate is down"));
 
     await expect(execute(app, UnwindSidePathWorkflowStart, GUEST, THREAD)).rejects.toThrow(
       "the gate is down",
@@ -106,10 +113,12 @@ describe("#635: a root's kept record lists every undo that ran, as its error eve
 
   test("a per-item child fails: the child's room undone, listed by the child", async ({
     app,
-    mockOf,
+    mockService,
   }) => {
-    mockOf(UndoDesk).reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
-    mockOf(UnwindGate).wait.mockImplementation((guest: string, signal: AbortSignal) =>
+    mockService(UndoDesk).reserve.mockImplementation((kind: string) =>
+      Promise.resolve(`${kind}-1`),
+    );
+    mockService(UnwindGate).wait.mockImplementation((guest: string, signal: AbortSignal) =>
       guest === "bob"
         ? Promise.reject(new UndoDeskError("bob's gate is down"))
         : heldUntilAborted(guest, signal),
@@ -127,9 +136,11 @@ describe("#635: a root's kept record lists every undo that ran, as its error eve
     ).toEqual([["release-room-action"]]);
   });
 
-  test("the paused tree is cancelled: its room undone", async ({ app, mockLlm, mockOf }) => {
-    mockOf(UndoDesk).reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
-    mockLlm(GuestAgent).thenReturn(callTool(AskGuestTool, GUEST));
+  test("the paused tree is cancelled: its room undone", async ({ app, mockModel, mockService }) => {
+    mockService(UndoDesk).reserve.mockImplementation((kind: string) =>
+      Promise.resolve(`${kind}-1`),
+    );
+    mockModel(GuestAgent).thenReturn(callTool(AskGuestTool, GUEST));
     await execute(app, UnwindGuestWorkflowStart, GUEST, THREAD);
 
     await app.cancel("t-1");
@@ -139,11 +150,13 @@ describe("#635: a root's kept record lists every undo that ran, as its error eve
 
   test("a cancel requested while the pass ran, seen at rest: its room undone", async ({
     app,
-    mockLlm,
-    mockOf,
+    mockModel,
+    mockService,
   }) => {
-    mockOf(UndoDesk).reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
-    mockLlm(GuestAgent).thenReturn(callTool(AskGuestTool, GUEST));
+    mockService(UndoDesk).reserve.mockImplementation((kind: string) =>
+      Promise.resolve(`${kind}-1`),
+    );
+    mockModel(GuestAgent).thenReturn(callTool(AskGuestTool, GUEST));
     // the request appears once the pass stored its paused run: only the check at rest sees it
     const saves = vi.spyOn(InMemoryPausedExecutionRepository.prototype, "save");
     await app.ready();

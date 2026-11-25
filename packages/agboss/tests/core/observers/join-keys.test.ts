@@ -39,9 +39,9 @@ const invalidLookup: ToolCallTurn = { kind: "tool-call", tool: "lookup-tool", ar
 describe("#268 S93: configHash is the one key of the workflow", () => {
   test("every execution and node event carries the configHash describe --json gives", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(replyWith(AnswerDto, { text: "Done." }));
+    mockModel(Clerk).thenReturn(replyWith(AnswerDto, { text: "Done." }));
 
     await execute(app, Ask, { text: "one" });
 
@@ -55,9 +55,9 @@ describe("#268 S93: configHash is the one key of the workflow", () => {
 describe("#268 S93: a step's ComponentRecord carries its kind and hashes", () => {
   test("an agent's step is named by its kind, promptHash and schemaHash, as in the snapshot", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(replyWith(AnswerDto, { text: "Done." }));
+    mockModel(Clerk).thenReturn(replyWith(AnswerDto, { text: "Done." }));
 
     await execute(app, Ask, { text: "one" });
 
@@ -74,9 +74,9 @@ describe("#268 S93: a step's ComponentRecord carries its kind and hashes", () =>
 
   test("an action's step has a schema but no prompt; the finish of the result is a full record", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(replyWith(AnswerDto, { text: "Done." }));
+    mockModel(Clerk).thenReturn(replyWith(AnswerDto, { text: "Done." }));
 
     const result = await execute(app, Ask, { text: "one" });
 
@@ -98,9 +98,9 @@ describe("#268 S93: a step's ComponentRecord carries its kind and hashes", () =>
 describe("#268 S93: StepRecord + toolLoopIteration and validationAttempts", () => {
   test("a model call and the tool calls of its move name the loop's iteration", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(
+    mockModel(Clerk).thenReturn(
       callTool(Lookup, { text: "rust" }),
       replyWith(AnswerDto, { text: "2 jobs." }),
     );
@@ -116,9 +116,9 @@ describe("#268 S93: StepRecord + toolLoopIteration and validationAttempts", () =
 
   test("a tool call whose arguments fail the tool's input counts one validation attempt", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(
+    mockModel(Clerk).thenReturn(
       invalidLookup, // the tool refuses its arguments; the model tries again
 
       callTool(Lookup, { text: "rust" }),
@@ -141,9 +141,9 @@ describe("#268 S93: StepRecord + toolLoopIteration and validationAttempts", () =
 
   test("a pause keeps its step's join keys: the answer record names the iteration that asked", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(
+    mockModel(Clerk).thenReturn(
       callTool(Lookup, { text: "rust" }),
       callTool(Apply, { text: "job 1" }),
       replyWith(AnswerDto, { text: "Applied." }),
@@ -168,8 +168,8 @@ describe("#268 S93: StepRecord + toolLoopIteration and validationAttempts", () =
     ]);
   });
 
-  test("a StepRecord stays plain data", async ({ app, mockLlm }) => {
-    mockLlm(Clerk).thenReturn(replyWith(AnswerDto, { text: "One." }));
+  test("a StepRecord stays plain data", async ({ app, mockModel }) => {
+    mockModel(Clerk).thenReturn(replyWith(AnswerDto, { text: "One." }));
 
     await execute(app, Ask, { text: "one" });
 

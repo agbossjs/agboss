@@ -81,9 +81,9 @@ describe("#471 AC1: the fence of a step", () => {
 
   test("a tool call in an agent's loop reads the same lease, with its call's key", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ReleaseAgent).thenReturn(
+    mockModel(ReleaseAgent).thenReturn(
       callTool(StageTool, { artifact: "v1" }),
       replyWith(ReceiptDto, { text: "staged" }),
     );
@@ -170,25 +170,25 @@ describe("#471 AC6: a fenced error is a hand-over wherever it is found", () => {
 describe("#471 AC6: a fenced error inside an agent's loop and in an undo", () => {
   test("a fenced tool call ends the loop: no onToolEnd, the model reads nothing, the call rejects with it", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
     levers.wrap = "cause";
-    mockLlm(ReleaseAgent).thenReturn(callTool(StageTool, { artifact: "v1" }));
+    mockModel(ReleaseAgent).thenReturn(callTool(StageTool, { artifact: "v1" }));
 
     const error = await rejectionOf(execute(app, AgentReleaseWorkflowStart, { text: "stage v1" }));
 
     expect(error).toBeInstanceOf(ExecutionError.Fenced);
     expect(seen.toolEnds).toEqual([]);
-    expect(mockLlm(ReleaseAgent)).toHaveBeenCalledTimes(1);
+    expect(mockModel(ReleaseAgent)).toHaveBeenCalledTimes(1);
     expect(recovery.errors).toEqual([]);
   });
 
   test("a fenced tool interceptor is a hand-over, never the interceptor's failure", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
     levers.isInterceptorFenced = true;
-    mockLlm(ReleaseAgent).thenReturn(callTool(StageTool, { artifact: "v1" }));
+    mockModel(ReleaseAgent).thenReturn(callTool(StageTool, { artifact: "v1" }));
 
     const error = await rejectionOf(execute(app, AgentReleaseWorkflowStart, { text: "stage v1" }));
 
@@ -239,9 +239,9 @@ describe("#471 AC6: a fenced error inside an agent's loop and in an undo", () =>
 describe("#471 AC4: the token across passes; a replayed write is deduplicated", () => {
   test("a pause and its resume: the step after the resume fences with token 2, and its write passes", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ReleaseAgent).thenReturn(
+    mockModel(ReleaseAgent).thenReturn(
       callTool(ApprovedStageTool, { artifact: "v1" }),
       replyWith(ReceiptDto, { text: "staged" }),
     );

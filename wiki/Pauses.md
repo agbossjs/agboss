@@ -165,7 +165,7 @@ await app.resume({ pauseId: replyKey, reply: "ok, but only half" }, { tenantId: 
   no list of another length; nested objects are laid over the call's —, and every decision's
   `overrideInput` pass the tool's own input strictly (an unknown key at any depth is refused,
   never dropped). The kept record keeps the call as asked (`asked`) beside the decision. Tests:
-  `mockLlm(I).thenReturn(replyWith(ReplyInterpreterNotUnderstoodDto, { reason }))`. **For a tool approval the model may be a decision
+  `mockModel(I).thenReturn(replyWith(ReplyInterpreterNotUnderstoodDto, { reason }))`. **For a tool approval the model may be a decision
   model** (Jev, #267 S124 a): it reads approve / refuse only — one `Decision.boolean("approved")` about
   the question and the reply (the same input message, as the decision's state), the interpreter's
   `prompt` after the framework's question as its instructions; approved when P(yes) > 0.5, the
@@ -740,7 +740,7 @@ export class SlackRefundApprovalChannel {
   `send` threw). A pause opened before a listener was added has no `opened` for it (its mailbox did not
   exist); a receiver a deploy removed has its mailboxes set aside by the recovery sweep after the
   retention (`pause.notice-recipient-unknown`, once per mailbox) and its pauses removed with theirs.
-- Tests: `mockOf(SlackRefundApprovalChannel).onPauseClosed` records the calls; a contract that
+- Tests: `mockService(SlackRefundApprovalChannel).onPauseClosed` records the calls; a contract that
   resolves to a mocked implementation (a target, any `extends`) gets the mock too.
 
 ### `@ChannelListener`: every pause of the application
@@ -1443,14 +1443,14 @@ first.
 `app.resume(…)` in a test answers like a webhook: a `ThreadOwner` pause by
 `result.pending[0].pauseId`, a `Channel` pause by the `pauseId` your test implementation of the target
 was sent. `AutoApproveChannel` / `AutoRejectChannel` named on a tool decide at once (no pause), and
-`mockOf(Implementation).send.mockResolvedValue(ChannelOutcome.decided({ approved: true }))` scripts a
+`mockService(Implementation).send.mockResolvedValue(ChannelOutcome.decided({ approved: true }))` scripts a
 role's implementation ([Testing](Testing)). `testWith(App, { instances: 2 })` answers two pauses of
 one tree from two instances at once. A model reply interpreter is scripted by what it reads —
-`mockLlm(RefundReplyInterpreter).when({ reply: "ok, but only half" }).thenReturn(replyWith(ToolCallApprovalDecisionDto, { approved: true, … }))`,
-one on a decision model by its yes / no — `mockLlm(DepositReplyInterpreter).thenReturn(decideWith({ approved: 0.9 }))`
+`mockModel(RefundReplyInterpreter).when({ reply: "ok, but only half" }).thenReturn(replyWith(ToolCallApprovalDecisionDto, { approved: true, … }))`,
+one on a decision model by its yes / no — `mockModel(DepositReplyInterpreter).thenReturn(decideWith({ approved: 0.9 }))`
 (#267 S124) — and a code one replaced with
-`mockOf(Interpreter).interpret.mockReturnValue(ChannelInterpretation.understood({ approved: true }))`
-(`mockLlm` of a code interpreter is a setup error: it calls no model). Retention is tested with `clock.advance(…)`: the sweep runs on the
+`mockService(Interpreter).interpret.mockReturnValue(ChannelInterpretation.understood({ approved: true }))`
+(`mockModel` of a code interpreter is a setup error: it calls no model). Retention is tested with `clock.advance(…)`: the sweep runs on the
 test's clock.
 
 ## Not yet

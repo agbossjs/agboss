@@ -23,9 +23,9 @@ beforeEach(resetSeen);
 describe("#1341d: app.getStatusHistory", () => {
   test("a cancelled run reads running, cancelling (with its reason and actor), cancelled", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(callTool(Wait, { text: "a long job" }));
+    mockModel(Clerk).thenReturn(callTool(Wait, { text: "a long job" }));
     const started = new Promise<string>((resolve) => {
       blocking.started = resolve;
     });
@@ -71,8 +71,8 @@ describe("#1341d: app.getStatusHistory", () => {
 
   forgetful(
     "an application that keeps no history forgets a thread's rows when its tree ends",
-    async ({ app, mockLlm }) => {
-      mockLlm(Clerk).thenReturn(callTool(Wait, { text: "a long job" }));
+    async ({ app, mockModel }) => {
+      mockModel(Clerk).thenReturn(callTool(Wait, { text: "a long job" }));
       const started = new Promise<string>((resolve) => {
         blocking.started = resolve;
       });

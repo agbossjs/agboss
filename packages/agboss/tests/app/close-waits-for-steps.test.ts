@@ -110,9 +110,9 @@ describe("#367 AC1: the close waits for a body its interrupted pass left running
   test("a tool's body: the agent's pass rejected, the close waits for the tool call", async ({
     app,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(WorkerAgent).thenReturn(callTool(SlowTool, { text: "one" }));
+    mockModel(WorkerAgent).thenReturn(callTool(SlowTool, { text: "one" }));
     await app.ready();
     const { call, closed } = await interruptedWhileTheBodyRuns(app, clock, ToolWorkflowStart);
 

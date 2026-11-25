@@ -42,14 +42,14 @@ const order = (total: number) =>
 describe("#508 AC2: one credit application, two executions on two threads", () => {
   test("AC2: the second execution gets the first charge; the next application is charge 2", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(DeskRouter).thenReturn(
+    mockModel(DeskRouter).thenReturn(
       routeTo(OrderIntakeAgent),
       routeTo(OrderIntakeAgent),
       routeTo(OrderIntakeAgent),
     );
-    mockLlm(OrderIntakeAgent).thenReturn(order(50), order(50), order(60));
+    mockModel(OrderIntakeAgent).thenReturn(order(50), order(50), order(60));
 
     const first = await app.execute(CreditWorkflowStart, {
       text: "application app-50: $50 of tea",
@@ -65,10 +65,10 @@ describe("#508 AC2: one credit application, two executions on two threads", () =
 });
 
 describe("route() decides by the credit limit ($100 for c-1)", () => {
-  test("$50 → charge-card-action, $500 → approval-agent", async ({ app, mockLlm }) => {
-    mockLlm(DeskRouter).thenReturn(routeTo(OrderIntakeAgent), routeTo(OrderIntakeAgent));
-    mockLlm(OrderIntakeAgent).thenReturn(order(50), order(500));
-    mockLlm(ApprovalAgent).thenReturn(replyWith(CreditApprovalDto, { approved: true }));
+  test("$50 → charge-card-action, $500 → approval-agent", async ({ app, mockModel }) => {
+    mockModel(DeskRouter).thenReturn(routeTo(OrderIntakeAgent), routeTo(OrderIntakeAgent));
+    mockModel(OrderIntakeAgent).thenReturn(order(50), order(500));
+    mockModel(ApprovalAgent).thenReturn(replyWith(CreditApprovalDto, { approved: true }));
 
     const small = await app.execute(CreditWorkflowStart, { text: "50 dollars of tea" });
     const large = await app.execute(CreditWorkflowStart, { text: "500 dollars of tea" });
@@ -97,23 +97,23 @@ describe("route() decides by the credit limit ($100 for c-1)", () => {
 
   test("route() calls its service with the step's idempotency key", async ({
     app,
-    mockLlm,
-    mockOf,
+    mockModel,
+    mockService,
   }) => {
-    mockOf(CreditService).limitOf.mockResolvedValue(1_000);
-    mockLlm(DeskRouter).thenReturn(routeTo(OrderIntakeAgent));
-    mockLlm(OrderIntakeAgent).thenReturn(order(500));
+    mockService(CreditService).limitOf.mockResolvedValue(1_000);
+    mockModel(DeskRouter).thenReturn(routeTo(OrderIntakeAgent));
+    mockModel(OrderIntakeAgent).thenReturn(order(500));
 
     const result = await app.execute(CreditWorkflowStart, { text: "500 dollars of tea" });
 
     expect(result.path).not.toContain("approval-agent");
-    expect(mockOf(CreditService).limitOf.mock.calls).toEqual([
+    expect(mockService(CreditService).limitOf.mock.calls).toEqual([
       [{ customerId: "c-1", requestKey: `${result.executionId}:credit-limit-router:1` }],
     ]);
   });
 
-  test("a message that is not an order is handed over", async ({ app, mockLlm }) => {
-    mockLlm(DeskRouter).thenReturn(routeTo(NoOrderWorkflowFinish));
+  test("a message that is not an order is handed over", async ({ app, mockModel }) => {
+    mockModel(DeskRouter).thenReturn(routeTo(NoOrderWorkflowFinish));
 
     const result = await app.execute(CreditWorkflowStart, { text: "hello" });
 
@@ -124,12 +124,12 @@ describe("route() decides by the credit limit ($100 for c-1)", () => {
 describe("a failing route()", () => {
   test("credit service down → .onError(CreditServiceUnavailableError) → the held finish", async ({
     app,
-    mockLlm,
-    mockOf,
+    mockModel,
+    mockService,
   }) => {
-    mockOf(CreditService).limitOf.mockRejectedValue(new CreditServiceUnavailableError("down"));
-    mockLlm(DeskRouter).thenReturn(routeTo(OrderIntakeAgent));
-    mockLlm(OrderIntakeAgent).thenReturn(order(50));
+    mockService(CreditService).limitOf.mockRejectedValue(new CreditServiceUnavailableError("down"));
+    mockModel(DeskRouter).thenReturn(routeTo(OrderIntakeAgent));
+    mockModel(OrderIntakeAgent).thenReturn(order(50));
 
     const result = await app.execute(CreditWorkflowStart, { text: "tea" });
 
@@ -149,12 +149,12 @@ describe("a failing route()", () => {
 
   test("another error fails the run: RouterFailedError, the original as its cause", async ({
     app,
-    mockLlm,
-    mockOf,
+    mockModel,
+    mockService,
   }) => {
-    mockOf(CreditService).limitOf.mockRejectedValue(new Error("the credit database is down"));
-    mockLlm(DeskRouter).thenReturn(routeTo(OrderIntakeAgent));
-    mockLlm(OrderIntakeAgent).thenReturn(order(50));
+    mockService(CreditService).limitOf.mockRejectedValue(new Error("the credit database is down"));
+    mockModel(DeskRouter).thenReturn(routeTo(OrderIntakeAgent));
+    mockModel(OrderIntakeAgent).thenReturn(order(50));
 
     const run = app.execute(CreditWorkflowStart, { text: "tea" });
 
@@ -168,9 +168,9 @@ describe("a failing route()", () => {
 });
 
 describe("budgets (#261): the credit desk's own execution budget, the tenant's day", () => {
-  test("the desk's $0.05 is spent: the next step never runs", async ({ app, mockLlm }) => {
-    mockLlm(DeskRouter).thenReturn(routeTo(OrderIntakeAgent));
-    mockLlm(OrderIntakeAgent).thenReturn(
+  test("the desk's $0.05 is spent: the next step never runs", async ({ app, mockModel }) => {
+    mockModel(DeskRouter).thenReturn(routeTo(OrderIntakeAgent));
+    mockModel(OrderIntakeAgent).thenReturn(
       replyWith(
         CreditOrderDto,
         { applicationId: "app-1", customerId: "c-1", total: 500 },
@@ -182,29 +182,29 @@ describe("budgets (#261): the credit desk's own execution budget, the tenant's d
 
     await expect(run).rejects.toBeInstanceOf(BudgetExceededError);
     await expect(run).rejects.toMatchObject({ budget: { name: "credit-execution-budget" } });
-    expect(mockLlm(ApprovalAgent).requests).toHaveLength(0);
+    expect(mockModel(ApprovalAgent).requests).toHaveLength(0);
   });
 
   test("a tenant whose day is spent is refused before any call", async ({
     app,
-    mockLlm,
-    mockOf,
+    mockModel,
+    mockService,
   }) => {
-    mockOf(TenantDailyBudget).maxSpend.mockReturnValue(usd(0));
+    mockService(TenantDailyBudget).maxSpend.mockReturnValue(usd(0));
 
     const run = app.execute(CreditWorkflowStart, { text: "tea" }, { tenant: { tenantId: "acme" } });
 
     await expect(run).rejects.toThrow("tenant acme spent $0 today; tenant-daily-budget allows $0");
-    expect(mockLlm(DeskRouter).requests).toHaveLength(0);
+    expect(mockModel(DeskRouter).requests).toHaveLength(0);
   });
 });
 
 test("an answer that does not fit the agent's DTO is sent back; the third fails the step", async ({
   app,
-  mockLlm,
+  mockModel,
 }) => {
-  mockLlm(DeskRouter).thenReturn(routeTo(OrderIntakeAgent));
-  mockLlm(OrderIntakeAgent).thenReturn(
+  mockModel(DeskRouter).thenReturn(routeTo(OrderIntakeAgent));
+  mockModel(OrderIntakeAgent).thenReturn(
     ...[1, 2, 3].map(() =>
       replyWithInvalidAnswer(CreditOrderDto, {
         applicationId: "app-1",
@@ -236,9 +236,9 @@ describe("#472, #500 AC1: a crash after the charge, before its checkpoint", () =
 
   instances(
     "the recovered step charges no second time: one charge, the same chargeId",
-    async ({ apps, clock, mockLlm }) => {
-      mockLlm(DeskRouter).thenReturn(routeTo(OrderIntakeAgent));
-      mockLlm(OrderIntakeAgent).thenReturn(
+    async ({ apps, clock, mockModel }) => {
+      mockModel(DeskRouter).thenReturn(routeTo(OrderIntakeAgent));
+      mockModel(OrderIntakeAgent).thenReturn(
         replyWith(CreditOrderDto, { applicationId: "app-1", customerId: "c-crash", total: 50 }),
       );
       const [first, second] = apps;

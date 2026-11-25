@@ -179,9 +179,9 @@ async function startedTask(url: string, messageId: string): Promise<string> {
 describe("#1320a: two endpoints on one store", () => {
   test("a task of one endpoint is not found, listed or cancelled through the other", async ({
     a2aServer,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+    mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
     const a = await a2aServer({
       endpoint: OrdersAEndpoint,
       authenticator: BearerAuthenticator,
@@ -209,9 +209,9 @@ describe("#1320a: two endpoints on one store", () => {
 
   test("a message id used at one endpoint is another message at the other", async ({
     a2aServer,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+    mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
     const a = await a2aServer({
       endpoint: OrdersAEndpoint,
       authenticator: BearerAuthenticator,

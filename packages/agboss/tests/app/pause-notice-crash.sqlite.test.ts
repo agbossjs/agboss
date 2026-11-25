@@ -59,9 +59,9 @@ describe("#940 AC3: an instance that wrote a notice dies, the other delivers it"
   test("AC3: dead after the close committed, before any delivery: the other delivers opened, then closed — once each", async ({
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(
+    mockModel(Clerk).thenReturn(
       callTool(Charge, { text: "10 USD" }),
       replyWith(ReceiptDto, { text: "Charged." }),
     );
@@ -85,9 +85,9 @@ describe("#940 AC3: an instance that wrote a notice dies, the other delivers it"
   test("AC3: dead after the delivery, before its acknowledgement: delivered again, the same deliveryId, in order", async ({
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+    mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
     for (const app of apps) await app.ready();
     const store = instance(apps, 0).resolve(SqlitePausedExecutionRepository);
     // instance 1 delivers, and dies before the acknowledgement is written
@@ -114,9 +114,9 @@ describe("#940 AC3: an instance that wrote a notice dies, the other delivers it"
 
   test("AC3: a zombie's late acknowledgement changes nothing: the mailbox keeps what the new claim did", async ({
     apps,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+    mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
     for (const app of apps) await app.ready();
     const zombie = instance(apps, 0).resolve(SqlitePausedExecutionRepository);
     const holder = instance(apps, 1).resolve(SqlitePausedExecutionRepository);
@@ -151,9 +151,9 @@ describe("#940 AC3: an instance that wrote a notice dies, the other delivers it"
   test("AC3: two instances look at once: a mailbox is delivered by one at a time, opened before closed", async ({
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(
+    mockModel(Clerk).thenReturn(
       callTool(Charge, { text: "10 USD" }),
       replyWith(ReceiptDto, { text: "Charged." }),
     );

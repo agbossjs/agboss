@@ -54,10 +54,10 @@ describe("#901: a resume at its lease take reads whether its tree is over", () =
   test("C1 a tree that ended by a real failure (drain's pass threw): the waiting resume -> PauseClosedError, one charge; another tree's resume unaffected", async ({
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
     // one model turn only: the charge; the drain's pass, after the charge, finds the script exhausted
-    mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+    mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
     const [first, other] = pair(apps);
     const resumed: { call: Promise<ExecutionOutput> | undefined } = { call: undefined };
     hooks.afterSave = async (paused, repository) => {
@@ -85,7 +85,7 @@ describe("#901: a resume at its lease take reads whether its tree is over", () =
 
     // the lease given back: another tree pauses and resumes normally, on either instance
     delete hooks.afterSave;
-    mockLlm(Clerk)
+    mockModel(Clerk)
       .thenReturn(callTool(Charge, { text: "20 USD" }))
       .thenReturn(replyWith(ReceiptDto, { text: "charged 20 USD" }));
     const paused = await execute(
@@ -103,9 +103,9 @@ describe("#901: a resume at its lease take reads whether its tree is over", () =
   for (const status of ["failed", "guarded"] as const)
     test(`C2 a pending pause whose root record is ${status}: resume -> PauseClosedError, no charge, lease free`, async ({
       apps,
-      mockLlm,
+      mockModel,
     }) => {
-      mockLlm(Clerk)
+      mockModel(Clerk)
         .thenReturn(callTool(Charge, { text: "30 USD" }))
         .thenReturn(replyWith(ReceiptDto, { text: "charged" }));
       const [first, other] = pair(apps);
@@ -139,9 +139,9 @@ describe("#901: a resume at its lease take reads whether its tree is over", () =
 
   test("C3 a normal resume on the other instance: completes, one charge, record answered", async ({
     apps,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk)
+    mockModel(Clerk)
       .thenReturn(callTool(Charge, { text: "40 USD" }))
       .thenReturn(replyWith(ReceiptDto, { text: "charged 40 USD" }));
     const [first, other] = pair(apps);

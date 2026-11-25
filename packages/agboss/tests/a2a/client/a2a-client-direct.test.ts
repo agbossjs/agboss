@@ -162,9 +162,9 @@ const listener = { endpoint: QuotesA2AExpose, authenticator: BearerAuthenticator
 describe("#860 AC2: A2AClient against an AGBoss direct-reply skill", () => {
   test("AC2: execute and send get the reply; a second call is another message, the model called again", async ({
     a2aServer,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(QuoteAgent).thenReturn(replyWith("12.50 EUR."), replyWith("13 EUR."));
+    mockModel(QuoteAgent).thenReturn(replyWith("12.50 EUR."), replyWith("13 EUR."));
     const { url } = await a2aServer(listener);
     const client = new A2AClient<WorkflowStartTextDto, WorkflowFinishTextDto>({
       url,

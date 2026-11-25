@@ -33,9 +33,9 @@ describe("#1328: mockTool(T).thenReturn and app.runTool", () => {
 
   plain(
     "an agent reads the scripted output as the tool's own",
-    async ({ app, mockLlm, mockTool }) => {
+    async ({ app, mockModel, mockTool }) => {
       mockTool(OrderStatus).thenReturn({ status: "lost" });
-      mockLlm(Support).thenReturn(
+      mockModel(Support).thenReturn(
         callTool(OrderStatus, { orderId: "7" }),
         replyWith("It is lost."),
       );

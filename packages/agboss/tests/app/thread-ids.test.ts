@@ -29,21 +29,21 @@ const historyOf = (request: unknown): string =>
   JSON.stringify(request).includes("order-7 first") ? "with the first turn" : "without it";
 
 describe("#262 Q4: a caller's own thread id", () => {
-  test("a new id is created, and continued by the next execution", async ({ app, mockLlm }) => {
-    mockLlm(MainRouter).thenReturn(routeTo(Writer), routeTo(Writer));
-    mockLlm(Writer).thenReturn(replyWith("one"), replyWith("two"));
+  test("a new id is created, and continued by the next execution", async ({ app, mockModel }) => {
+    mockModel(MainRouter).thenReturn(routeTo(Writer), routeTo(Writer));
+    mockModel(Writer).thenReturn(replyWith("one"), replyWith("two"));
 
     const first = await execute(app, ChatStart, { text: "order-7 first" }, { threadId: "order-7" });
     const second = await execute(app, ChatStart, { text: "again" }, { threadId: "order-7" });
 
     expect([first.threadId, second.threadId]).toEqual(["order-7", "order-7"]);
-    expect(historyOf(mockLlm(Writer).lastRequest)).toBe("with the first turn");
+    expect(historyOf(mockModel(Writer).lastRequest)).toBe("with the first turn");
     expect(await app.cancel("order-7")).toEqual({ cancelled: false });
   });
 
-  test("the same id from another tenant is a different thread", async ({ app, mockLlm }) => {
-    mockLlm(MainRouter).thenReturn(routeTo(Writer), routeTo(Writer));
-    mockLlm(Writer).thenReturn(replyWith("acme"), replyWith("globex"));
+  test("the same id from another tenant is a different thread", async ({ app, mockModel }) => {
+    mockModel(MainRouter).thenReturn(routeTo(Writer), routeTo(Writer));
+    mockModel(Writer).thenReturn(replyWith("acme"), replyWith("globex"));
     const shared = "order-7";
 
     await execute(
@@ -61,16 +61,16 @@ describe("#262 Q4: a caller's own thread id", () => {
 
     expect(other.threadId).toBe(shared);
     expect(other.tenantId).toBe("globex");
-    expect(historyOf(mockLlm(Writer).lastRequest)).toBe("without it");
+    expect(historyOf(mockModel(Writer).lastRequest)).toBe("without it");
     await expect(app.cancel(shared)).rejects.toBeInstanceOf(UnknownThreadError);
   });
 
   test("the same id from another owner of the tenant is ThreadOwnerError", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(MainRouter).thenReturn(routeTo(Writer));
-    mockLlm(Writer).thenReturn(replyWith("for alice"));
+    mockModel(MainRouter).thenReturn(routeTo(Writer));
+    mockModel(Writer).thenReturn(replyWith("for alice"));
     await execute(app, ChatStart, { text: "hi" }, { threadId: "order-7", ownerId: "alice" });
 
     const mallory = execute(
@@ -96,9 +96,9 @@ describe("#262 Q4: a caller's own thread id", () => {
 
   test("a refused execution creates nothing: no thread before the budget check", async ({
     app,
-    mockOf,
+    mockService,
   }) => {
-    mockOf(DeskTenantDailyBudget).maxSpend.mockReturnValue(usd(0));
+    mockService(DeskTenantDailyBudget).maxSpend.mockReturnValue(usd(0));
 
     const refused = execute(app, ChatStart, { text: "hi" }, { threadId: "order-8" });
 

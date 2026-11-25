@@ -272,7 +272,7 @@ provider). There is no default model of the core's own: none anywhere is `[model
 and the numbered candidates in, a JSON ranking out (`{"ranking":[27,1,2]}`) — the model names
 candidates by number, never rewrites one; the ones it does not rank follow in retrieval order. A
 candidate's `id`, `title`, `url` and `metadata` stay intact. Its retries, rate limit and breaker are
-its provider's. In tests: `mockLlm(DocsReranker).thenReturn(replyWith('{"ranking":[27,1,2]}'))`;
+its provider's. In tests: `mockModel(DocsReranker).thenReturn(replyWith('{"ranking":[27,1,2]}'))`;
 unscripted it ranks nothing (the retrieval's order).
 
 **Your own reranker** — a dedicated API such as Cohere Rerank, on its official SDK, no AGBoss

@@ -61,9 +61,12 @@ beforeEach(() => {
 describe("#384: the before hooks decide", () => {
   test("allow(): the tool runs; befores outer first, afters inner first, in the call's frame", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ScoutAgent).thenReturn(callTool(JobSearchTool, { city: "Haifa" }), replyWith("Found."));
+    mockModel(ScoutAgent).thenReturn(
+      callTool(JobSearchTool, { city: "Haifa" }),
+      replyWith("Found."),
+    );
 
     const result = await execute(app, ScoutStart, { text: "jobs in Haifa" }, acme);
 
@@ -84,9 +87,9 @@ describe("#384: the before hooks decide", () => {
 
   test("reply(): the tool does not run, the model reads the message and goes on", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ScoutAgent).thenReturn(
+    mockModel(ScoutAgent).thenReturn(
       callTool(JobSearchTool, { city: "Eilat" }),
       replyWith("Eilat is not allowed."),
     );
@@ -95,7 +98,9 @@ describe("#384: the before hooks decide", () => {
 
     expect(result.output).toEqual({ text: "Eilat is not allowed." });
     expect(toolRuns).toEqual([]);
-    expect(toolMessageOf(mockLlm(ScoutAgent))).toBe('City "Eilat" is not allowed for this tenant.');
+    expect(toolMessageOf(mockModel(ScoutAgent))).toBe(
+      'City "Eilat" is not allowed for this tenant.',
+    );
     expect(byOf()).toEqual(["audit:before job-search-tool", "scope:before job-search-tool"]);
     // the trajectory keeps it (#395): replied, the message as its output
     expect(result.toolCalls).toMatchObject([
@@ -109,9 +114,9 @@ describe("#384: the before hooks decide", () => {
 
   test("block(): the tool does not run, the step fails with ToolBlockedError and the loop's spend", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ScoutAgent).thenReturn(callTool(CompanyTool, { company: "evil-corp" }));
+    mockModel(ScoutAgent).thenReturn(callTool(CompanyTool, { company: "evil-corp" }));
 
     const run = execute(app, ScoutStart, { text: "about evil-corp" }, acme);
 
@@ -131,13 +136,13 @@ describe("#384: the before hooks decide", () => {
     expect(toolRuns).toEqual([]);
     // the tool excludes the application's audit: only the workflow's, the agent's and its own
     expect(byOf()).toEqual(["block:before company-tool"]);
-    expect(mockLlm(ScoutAgent).requests).toHaveLength(1);
+    expect(mockModel(ScoutAgent).requests).toHaveLength(1);
   });
 });
 
 describe("#384: a misbehaving interceptor fails the step", () => {
-  test("one that throws: AgentFailedError, its error the cause", async ({ app, mockLlm }) => {
-    mockLlm(ScoutAgent).thenReturn(callTool(PingTool, { mode: "throw" }));
+  test("one that throws: AgentFailedError, its error the cause", async ({ app, mockModel }) => {
+    mockModel(ScoutAgent).thenReturn(callTool(PingTool, { mode: "throw" }));
 
     const run = execute(app, ScoutStart, { text: "ping" }, acme);
 
@@ -147,9 +152,9 @@ describe("#384: a misbehaving interceptor fails the step", () => {
 
   test("one that decides nothing: AgentFailedError naming the factories", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ScoutAgent).thenReturn(callTool(PingTool, { mode: "nothing" }));
+    mockModel(ScoutAgent).thenReturn(callTool(PingTool, { mode: "nothing" }));
 
     const run = execute(app, ScoutStart, { text: "ping" }, acme);
 
@@ -159,9 +164,9 @@ describe("#384: a misbehaving interceptor fails the step", () => {
 
   test("an afterToolCall output its tool does not give: DtoValidationError as the cause", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ScoutAgent).thenReturn(callTool(PingTool, { mode: "shape" }));
+    mockModel(ScoutAgent).thenReturn(callTool(PingTool, { mode: "shape" }));
 
     const run = execute(app, ScoutStart, { text: "ping" }, acme);
 
@@ -173,10 +178,10 @@ describe("#384: a misbehaving interceptor fails the step", () => {
 describe("#384: the order around PII and maxResultSize", () => {
   test("beforeAnyTool reads the arguments revealed; the result is masked after the interceptors", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    const script = mockLlm(ScoutAgent);
-    script.thenAnswer((request) => {
+    const script = mockModel(ScoutAgent);
+    script.respondWith((request) => {
       const [token] = tokensIn(requestText(request), "email");
       return script.requests.length === 1
         ? callTool(CompanyTool, { company: token ?? "" })
@@ -194,13 +199,13 @@ describe("#384: the order around PII and maxResultSize", () => {
 
   test("an afterToolCall's output is cut at maxResultSize, then masked", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ScoutAgent).thenReturn(callTool(PingTool, { mode: "big" }), replyWith("Long."));
+    mockModel(ScoutAgent).thenReturn(callTool(PingTool, { mode: "big" }), replyWith("Long."));
 
     await execute(app, ScoutStart, { text: "ping" }, acme);
 
-    const read = toolMessageOf(mockLlm(ScoutAgent));
+    const read = toolMessageOf(mockModel(ScoutAgent));
     expect(read).toContain("[result truncated:");
     expect(
       Buffer.byteLength(read.split("\n[result truncated")[0] ?? "", "utf8"),
@@ -211,9 +216,9 @@ describe("#384: the order around PII and maxResultSize", () => {
 describe("#384: levels, excludes and MCP tools", () => {
   test("an agent that excludes the application's interceptor: only its tool's own runs", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(QuietAgent).thenReturn(callTool(JobSearchTool, { city: "Eilat" }), replyWith("Ok."));
+    mockModel(QuietAgent).thenReturn(callTool(JobSearchTool, { city: "Eilat" }), replyWith("Ok."));
 
     await execute(app, QuietStart, { text: "jobs in Eilat" }, acme);
 
@@ -224,13 +229,13 @@ describe("#384: levels, excludes and MCP tools", () => {
 
   test("a @Tool that calls an MCP server is intercepted: allowed, and blocked before its server", async ({
     app,
-    mockLlm,
-    mcpOf,
+    mockModel,
+    mockMcp,
   }) => {
-    const board = mcpOf(JobBoardServer).thenReturn({
+    const board = mockMcp(JobBoardServer).thenReturn({
       lookup: () => Promise.resolve({ summary: "acme hires" }),
     });
-    mockLlm(ScoutAgent).thenReturn(
+    mockModel(ScoutAgent).thenReturn(
       callTool(BoardLookupTool, { company: "acme" }),
       callTool(BoardLookupTool, { company: "evil-corp" }),
     );

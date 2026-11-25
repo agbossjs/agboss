@@ -55,9 +55,12 @@ const statusesOf = async (
 describe("#1341c: app.pause / app.unpause of a running execution", () => {
   test("an AfterStep pause lets the step in flight finish, starts none after it: the call resolves Paused (isExternallyPaused), the record is `paused`, nothing is undone", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(GateAgent).thenReturn(callTool(Gate, { text: "a" }), replyWith(NoteDto, { text: "x" }));
+    mockModel(GateAgent).thenReturn(
+      callTool(Gate, { text: "a" }),
+      replyWith(NoteDto, { text: "x" }),
+    );
     const started = begun();
     const run = execute(app, GateStart, { text: "go" });
     const threadId = await started;
@@ -88,9 +91,12 @@ describe("#1341c: app.pause / app.unpause of a running execution", () => {
 
   test("an Immediate pause aborts the step in flight (its cleanups told `paused`) and parks the tree; unpause continues it from the checkpoint and finishes", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(GateAgent).thenReturn(callTool(Gate, { text: "a" }), replyWith(NoteDto, { text: "x" }));
+    mockModel(GateAgent).thenReturn(
+      callTool(Gate, { text: "a" }),
+      replyWith(NoteDto, { text: "x" }),
+    );
     const started = begun();
     const run = execute(app, GateStart, { text: "go" });
     const threadId = await started;
@@ -132,9 +138,12 @@ describe("#1341c: app.pause / app.unpause of a running execution", () => {
 
   test("a repeated pause writes the mark again and adds no history row; a pause of a parked tree is Paused", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(GateAgent).thenReturn(callTool(Gate, { text: "a" }), replyWith(NoteDto, { text: "x" }));
+    mockModel(GateAgent).thenReturn(
+      callTool(Gate, { text: "a" }),
+      replyWith(NoteDto, { text: "x" }),
+    );
     const started = begun();
     const run = execute(app, GateStart, { text: "go" });
     const threadId = await started;
@@ -149,9 +158,12 @@ describe("#1341c: app.pause / app.unpause of a running execution", () => {
 
   test("a pause of a thread that finished or never ran is NotRunning; unpause of one that is not paused is PauseError.NotPaused", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(GateAgent).thenReturn(callTool(Gate, { text: "a" }), replyWith(NoteDto, { text: "x" }));
+    mockModel(GateAgent).thenReturn(
+      callTool(Gate, { text: "a" }),
+      replyWith(NoteDto, { text: "x" }),
+    );
     const started = begun();
     const run = execute(app, GateStart, { text: "go" });
     const threadId = await started;
@@ -167,9 +179,9 @@ describe("#1341c: app.pause / app.unpause of a running execution", () => {
 
   test("a parked tree can be stopped, and cancelled: Cancel > Stop > Pause, each ends it where it rests", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(GateAgent).thenReturn(callTool(Gate, { text: "a" }));
+    mockModel(GateAgent).thenReturn(callTool(Gate, { text: "a" }));
     const started = begun();
     const run = execute(app, GateStart, { text: "go" });
     const threadId = await started;
@@ -192,9 +204,9 @@ describe("#1341c: app.pause / app.unpause of a running execution", () => {
 
   test("a parked tree is cancelled: the cancel takes the lease at a token above the pause's fence", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(GateAgent).thenReturn(callTool(Gate, { text: "a" }));
+    mockModel(GateAgent).thenReturn(callTool(Gate, { text: "a" }));
     const started = begun();
     const run = execute(app, GateStart, { text: "go" });
     const threadId = await started;
@@ -211,9 +223,9 @@ describe("#1341c: app.pause / app.unpause of a running execution", () => {
 describe("#1341c: cancel while the pause is still parking", () => {
   test("pause(Immediate) then cancel at once: the run resolves Cancelled, never rejected with a fence, and the stale step stays fenced", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(GateAgent).thenReturn(callTool(Gate, { text: "a" }));
+    mockModel(GateAgent).thenReturn(callTool(Gate, { text: "a" }));
     const started = begun();
     const run = execute(app, GateStart, { text: "go" });
     const threadId = await started;
@@ -229,9 +241,9 @@ describe("#1341c: cancel while the pause is still parking", () => {
 
   test("stop(Immediate) after pause(Immediate): Stopped, Cancel > Stop > Pause", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(GateAgent).thenReturn(callTool(Gate, { text: "a" }));
+    mockModel(GateAgent).thenReturn(callTool(Gate, { text: "a" }));
     const started = begun();
     const run = execute(app, GateStart, { text: "go" });
     const threadId = await started;
@@ -246,9 +258,9 @@ describe("#1341c: cancel while the pause is still parking", () => {
 
   test("a pause on a thread being cancelled is refused with ExecutionError.AlreadyTerminal", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(GateAgent).thenReturn(callTool(Gate, { text: "a" }));
+    mockModel(GateAgent).thenReturn(callTool(Gate, { text: "a" }));
     const started = begun();
     const run = execute(app, GateStart, { text: "go" });
     const threadId = await started;
@@ -268,8 +280,8 @@ const approve = { approved: true };
 describe("#1341c: app.pause of a tree resting at a business pause", () => {
   kept(
     "is dual_paused: an answer is refused until the unpause, then accepted",
-    async ({ app, mockLlm }) => {
-      mockLlm(Clerk).thenReturn(
+    async ({ app, mockModel }) => {
+      mockModel(Clerk).thenReturn(
         callTool(Probe, { text: "card" }),
         callTool(Charge, { text: "10 USD" }),
         replyWith(ReceiptDto, { text: "Charged." }),

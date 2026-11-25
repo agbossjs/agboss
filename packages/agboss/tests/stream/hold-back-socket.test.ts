@@ -52,10 +52,10 @@ function bytesOf(url: string, question: string): Promise<{ status: number; body:
 describe("#1006: blocked text is not on the wire", () => {
   test("AC3: a guardrail-blocked answer: no byte of it; the task ends FAILED", async ({
     a2aServer,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(GuardedAgent).thenReturn(replyWith("Here is the FORBIDDEN thing."));
-    mockLlm(FlowJudge).thenReturn(replyWith("PASS"));
+    mockModel(GuardedAgent).thenReturn(replyWith("Here is the FORBIDDEN thing."));
+    mockModel(FlowJudge).thenReturn(replyWith("PASS"));
     const { url } = await a2aServer(wireListener);
 
     const wire = await bytesOf(url, "Q");
@@ -66,8 +66,8 @@ describe("#1006: blocked text is not on the wire", () => {
     expect(wire.body).not.toContain("Here is the");
   });
 
-  test("AC3: a PII-refused card number: no byte of it", async ({ a2aServer, mockLlm }) => {
-    mockLlm(GuardedAgent).thenReturn(replyWith("Your card is 4242 4242 4242 4242."));
+  test("AC3: a PII-refused card number: no byte of it", async ({ a2aServer, mockModel }) => {
+    mockModel(GuardedAgent).thenReturn(replyWith("Your card is 4242 4242 4242 4242."));
     const { url } = await a2aServer(wireListener);
 
     const wire = await bytesOf(url, "Q");
@@ -79,10 +79,10 @@ describe("#1006: blocked text is not on the wire", () => {
 
   test("control: a passing answer is on the wire (the capture works)", async ({
     a2aServer,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(GuardedAgent).thenReturn(replyWith("A fine answer."));
-    mockLlm(FlowJudge).thenReturn(replyWith("PASS"));
+    mockModel(GuardedAgent).thenReturn(replyWith("A fine answer."));
+    mockModel(FlowJudge).thenReturn(replyWith("PASS"));
     const { url } = await a2aServer(wireListener);
 
     const wire = await bytesOf(url, "Q");

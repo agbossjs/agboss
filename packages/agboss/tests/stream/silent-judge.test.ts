@@ -16,10 +16,10 @@ const test = testWith(AuditJudgeApplication);
 describe("#1004: the model judge is silent", () => {
   test("AC1: the judge's tokens do not reach onStream; the answer does", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(AuditWriter).thenReturn(replyWith("The answer."));
-    mockLlm(AuditJudge).thenReturn(replyWith("PASS: SECRET JUDGE REASONING"));
+    mockModel(AuditWriter).thenReturn(replyWith("The answer."));
+    mockModel(AuditJudge).thenReturn(replyWith("PASS: SECRET JUDGE REASONING"));
     const events: ExecutionStreamEvent[] = [];
 
     const done = await execute(
@@ -30,13 +30,13 @@ describe("#1004: the model judge is silent", () => {
     );
 
     expect(done.output).toEqual({ text: "The answer." });
-    expect(mockLlm(AuditJudge)).toHaveBeenCalledTimes(1);
+    expect(mockModel(AuditJudge)).toHaveBeenCalledTimes(1);
     expect(deltas(events)).toEqual(["The answer."]);
   });
 
-  test("a throwing onStream listener does not fail the run", async ({ app, mockLlm }) => {
-    mockLlm(AuditWriter).thenReturn(replyWith("The answer."));
-    mockLlm(AuditJudge).thenReturn(replyWith("PASS"));
+  test("a throwing onStream listener does not fail the run", async ({ app, mockModel }) => {
+    mockModel(AuditWriter).thenReturn(replyWith("The answer."));
+    mockModel(AuditJudge).thenReturn(replyWith("PASS"));
     const done = await execute(
       app,
       AuditStart,

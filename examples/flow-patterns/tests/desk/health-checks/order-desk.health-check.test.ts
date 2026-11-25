@@ -20,8 +20,8 @@ describe("readiness: the order system's health check and the busy flag", () => {
     expect(report.isBusy).toBe(false); // executionLimits.maxConcurrentSteps: 16, none taken
   });
 
-  test("unhealthy when it does not, with the check's reason", async ({ app, mockOf }) => {
-    mockOf(OrderDeskService).isReachable.mockResolvedValue(false);
+  test("unhealthy when it does not, with the check's reason", async ({ app, mockService }) => {
+    mockService(OrderDeskService).isReachable.mockResolvedValue(false);
 
     const report = await app.checkReadiness();
 

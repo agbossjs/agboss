@@ -133,13 +133,13 @@ beforeEach(() => {
 describe("#1343: onArbiterStart / onArbiterEnd", () => {
   test("each judged answer has a start and an end, the verdict and the spend, in its step", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(RotaAnswerAgent).thenReturn(
+    mockModel(RotaAnswerAgent).thenReturn(
       replyWith(RotaAnswerDto, { owner: `Ann, ${EMAIL}` }),
       replyWith(RotaAnswerDto, { owner: "Bob" }),
     );
-    mockLlm(RotaArbiter).thenReturn(decideWith({ counts: 0.9 }), decideWith({ counts: 0.8 }));
+    mockModel(RotaArbiter).thenReturn(decideWith({ counts: 0.9 }), decideWith({ counts: 0.8 }));
 
     await execute(app, RotaStart, { text: "Who owns the rota?" });
 
@@ -162,9 +162,9 @@ describe("#1343: onArbiterStart / onArbiterEnd", () => {
     ]);
   });
 
-  test("an answer the arbiter rejects ends Rejected", async ({ app, mockLlm }) => {
-    mockLlm(RotaAnswerAgent).thenReturn(replyWith(RotaAnswerDto, { owner: "Ann" }));
-    mockLlm(RotaArbiter).thenReturn(decideWith({ counts: 0.1 }));
+  test("an answer the arbiter rejects ends Rejected", async ({ app, mockModel }) => {
+    mockModel(RotaAnswerAgent).thenReturn(replyWith(RotaAnswerDto, { owner: "Ann" }));
+    mockModel(RotaArbiter).thenReturn(decideWith({ counts: 0.1 }));
 
     // one rejection and a quorum of two cannot be reached: the other answer is never judged
     await execute(app, RotaStart, { text: "Who owns the rota?" }).catch(() => undefined);
@@ -174,12 +174,15 @@ describe("#1343: onArbiterStart / onArbiterEnd", () => {
     expect(events.filter((event) => !("outcome" in event))).toHaveLength(1);
   });
 
-  test("an event shows names and numbers, never the answer it judged", async ({ app, mockLlm }) => {
-    mockLlm(RotaAnswerAgent).thenReturn(
+  test("an event shows names and numbers, never the answer it judged", async ({
+    app,
+    mockModel,
+  }) => {
+    mockModel(RotaAnswerAgent).thenReturn(
       replyWith(RotaAnswerDto, { owner: `Ann, ${EMAIL}` }),
       replyWith(RotaAnswerDto, { owner: `Ann again, ${EMAIL}` }),
     );
-    mockLlm(RotaArbiter).thenReturn(decideWith({ counts: 0.9 }), decideWith({ counts: 0.9 }));
+    mockModel(RotaArbiter).thenReturn(decideWith({ counts: 0.9 }), decideWith({ counts: 0.9 }));
 
     await execute(app, RotaStart, { text: "Who owns the rota?" });
 

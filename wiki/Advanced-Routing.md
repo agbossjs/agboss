@@ -347,7 +347,7 @@ At run time (#273 PR 2, S21, S23):
 | All no | none of its routes launched: `[]` is an answer (S23) — the join gives the router's branches `optional` values, absent |
 | A code router | `route(input)` returns the targets to launch, as a list; a target outside its routes → `RouterDecisionError` |
 | `skip()` | `.onError(E, skip())` drops only the branch's own step failure — `error instanceof StepFailedError` (`AgentFailedError`, `AgentAnswerInvalidError`, `QualityGateError`, …): the branch ends `BranchStatus.Skipped`, its siblings go on; a limit error (`LimitExceededError`), a cancel or a pause is never dropped |
-| In a test | script the router's decision by target name: `mockLlm(SupportRouter).thenReturn(decideWith({ "refund-policy-agent": 0.9 }))` — also for a chat-model router (P(yes) above 0.5 is `true`) |
+| In a test | script the router's decision by target name: `mockModel(SupportRouter).thenReturn(decideWith({ "refund-policy-agent": 0.9 }))` — also for a chat-model router (P(yes) above 0.5 is `true`) |
 
 ## Not in the core yet
 

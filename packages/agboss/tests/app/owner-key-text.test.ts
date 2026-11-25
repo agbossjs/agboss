@@ -125,8 +125,8 @@ describe("#589 AC1: an owner id breaking a rule is refused at execute, resume an
 describe("#589 AC1: on SQLite bob\\uD800 creates no thread that bob\\uFFFD then owns", () => {
   sqlite(
     "bob\\uD800 is refused and creates nothing; alice then creates th-1; bob\\uFFFD is another owner",
-    async ({ app, mockLlm }) => {
-      mockLlm(Clerk).thenReturn(replyWith(ReceiptDto, { text: "One." }));
+    async ({ app, mockModel }) => {
+      mockModel(Clerk).thenReturn(replyWith(ReceiptDto, { text: "One." }));
       const at = (ownerId: string) =>
         execute(app, OrderWorkflowStart, { text: "a" }, { threadId: "th-1", ownerId });
 
@@ -149,8 +149,8 @@ describe("#589 AC1: on SQLite bob\\uD800 creates no thread that bob\\uFFFD then 
 describe("#589: who answers a pause is a key's text", () => {
   pauses(
     "a ThreadOwner pause: ownerId alice\\uD800 is refused, it keeps waiting, alice answers it",
-    async ({ app, mockLlm }) => {
-      mockLlm(DeskClerkAgent).thenReturn(
+    async ({ app, mockModel }) => {
+      mockModel(DeskClerkAgent).thenReturn(
         callTool(ConfirmOrderTool, { orderId: "7" }),
         replyWith("Confirmed."),
       );
@@ -178,8 +178,8 @@ describe("#589: who answers a pause is a key's text", () => {
 
   pauses.for(REFUSED_KEYS.filter(([, , text]) => text.trim() !== ""))(
     "a Channel pause: actor.id with %s (%s) is refused, it keeps waiting, nothing is recorded",
-    async ([, rule, actorId], { app, mockLlm }) => {
-      mockLlm(DeskClerkAgent).thenReturn(
+    async ([, rule, actorId], { app, mockModel }) => {
+      mockModel(DeskClerkAgent).thenReturn(
         callTool(RefundTool, { orderId: "7" }),
         replyWith("Done."),
       );

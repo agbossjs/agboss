@@ -44,8 +44,8 @@ for (const [label, application] of applications) {
   const test = testWith(application);
 
   describe(`AC2: inline never in any prompt, record, event or cassette (${label})`, () => {
-    test("the model reads the descriptors, never the bytes", async ({ app, mockLlm }) => {
-      const agent = mockLlm(ReaderAgent).thenReturn(
+    test("the model reads the descriptors, never the bytes", async ({ app, mockModel }) => {
+      const agent = mockModel(ReaderAgent).thenReturn(
         callTool(ScanTool, { name: "a" }),
         replyWith("done"),
       );
@@ -65,9 +65,9 @@ for (const [label, application] of applications) {
 
     test("records, tool calls and every observer event carry no bytes", async ({
       app,
-      mockLlm,
+      mockModel,
     }) => {
-      mockLlm(ReaderAgent).thenReturn(callTool(ScanTool, { name: "a" }), replyWith("done"));
+      mockModel(ReaderAgent).thenReturn(callTool(ScanTool, { name: "a" }), replyWith("done"));
       const document = await inlineFile(DOCUMENT_BYTES, "invoice.pdf");
 
       const result = await execute(app, ReaderStart, { document }, { includeRecord: true });

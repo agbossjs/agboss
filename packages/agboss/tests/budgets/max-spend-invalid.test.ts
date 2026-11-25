@@ -71,9 +71,9 @@ describe("#1373: a maxSpend() that is no amount of dollars refuses the execution
     expect(error).toBeInstanceOf(BudgetExceededError);
   });
 
-  test("a finite amount runs the execution as before", async ({ app, mockLlm }) => {
-    mockLlm(DrafterAgent).thenReturn(replyWith(DraftDto, { text: "a draft" }, { cost: usd(0) }));
-    mockLlm(ReviewerAgent).thenReturn(replyWith("fine", { cost: usd(0) }));
+  test("a finite amount runs the execution as before", async ({ app, mockModel }) => {
+    mockModel(DrafterAgent).thenReturn(replyWith(DraftDto, { text: "a draft" }, { cost: usd(0) }));
+    mockModel(ReviewerAgent).thenReturn(replyWith("fine", { cost: usd(0) }));
     given.amount = usd(2);
 
     const done = await execute(app, BriefStart, { text: "a brief" }, { tenant: acme });

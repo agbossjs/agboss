@@ -48,9 +48,9 @@ describe("#941 I17: an any-instance child's pause expires through its root", () 
   test("bound by the run's deadline: the pause is expired, the root fails with DeadlineExceededError", async ({
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ItemReviewerAgent).thenAnswer((request) => {
+    mockModel(ItemReviewerAgent).respondWith((request) => {
       const confirmed =
         request.kind === "chat" && request.messages.some((line) => line.role === "tool");
       return nameIn(request) === "b" && !confirmed

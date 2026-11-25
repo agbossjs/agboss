@@ -62,10 +62,10 @@ describe("#727: a takeover in the middle of an agent's loop", () => {
     apps,
     clock,
     leases,
-    mockLlm,
+    mockModel,
   }) => {
     ({ release } = resetLoopTakeover());
-    mockLlm(LoopPayAgent).thenAnswer(moveOf);
+    mockModel(LoopPayAgent).respondWith(moveOf);
     const byName = await readyAll(apps);
     const app = instance(apps, 0);
     const call = execute(app, LoopParentWorkflowStart, { name: "a", delay: 0, outcome: "ok" });

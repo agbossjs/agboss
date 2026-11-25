@@ -79,8 +79,8 @@ describe("#552 AC1: a tenant id breaking a rule is refused at execute, resume an
 describe("#552 AC1: two tenant ids UTF-8 makes one never share a thread", () => {
   sqlite(
     "t\\uFFFD's thread, then t\\uD800 on the same thread id: refused before anything is read or written",
-    async ({ app, mockLlm }) => {
-      mockLlm(Clerk).thenReturn(replyWith(ReceiptDto, { text: "One." }));
+    async ({ app, mockModel }) => {
+      mockModel(Clerk).thenReturn(replyWith(ReceiptDto, { text: "One." }));
       const first = await execute(
         app,
         OrderWorkflowStart,

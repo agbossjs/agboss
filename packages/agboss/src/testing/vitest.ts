@@ -22,7 +22,7 @@ export type VitestTestOptions = NonNullable<ViteUserConfig["test"]>;
 type ServerOptions = NonNullable<VitestTestOptions["server"]>;
 type InlinedDependencies = NonNullable<NonNullable<ServerOptions["deps"]>["inline"]>;
 
-/** The workflow matchers, `mockLlm`'s call matchers and the trajectory matchers. */
+/** The workflow matchers, `mockModel`'s call matchers and the trajectory matchers. */
 const SETUP_FILE = "@agboss/core/testing/setup";
 
 /**

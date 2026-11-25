@@ -8,7 +8,7 @@ import { KycAgent } from "../../../../src/files/agents/kyc/kyc.agent.js";
 import { KycResultWorkflowFinish } from "../../../../src/files/workflows/kyc/kyc-result.workflow-finish.js";
 import { KycWorkflowStart } from "../../../../src/files/workflows/kyc/kyc.workflow-start.js";
 
-/** #899: an ID photo reaches the model as a redacted copy made by the built-in redactor (scripted: mockLlm(FileRedactor)), never as the original; an SSN found in it refuses it. */
+/** #899: an ID photo reaches the model as a redacted copy made by the built-in redactor (scripted: mockModel(FileRedactor)), never as the original; an SSN found in it refuses it. */
 
 const test = testWith(FlowPatternsApplication);
 
@@ -36,13 +36,13 @@ async function idPhoto(): Promise<Buffer> {
 
 test("the ID photo reaches the model as a redacted copy, never as the original", async ({
   app,
-  mockLlm,
+  mockModel,
 }) => {
   const photo = await idPhoto();
-  const redactor = mockLlm(FileRedactor).thenReturn(
+  const redactor = mockModel(FileRedactor).thenReturn(
     replyWith('{"regions":[{"target":"card-number","x":0.08,"y":0.25,"w":0.34,"h":0.12}]}'),
   );
-  const agent = mockLlm(KycAgent).thenReturn(replyWith("An ID card, intact."));
+  const agent = mockModel(KycAgent).thenReturn(replyWith("An ID card, intact."));
 
   const result = await app.execute(KycWorkflowStart, {
     photo: inline(photo, "image/png", "id.png"),
@@ -58,13 +58,13 @@ test("the ID photo reaches the model as a redacted copy, never as the original",
 
 test("an SSN found in the photo refuses it: the model is never called", async ({
   app,
-  mockLlm,
+  mockModel,
 }) => {
   const photo = await idPhoto();
-  mockLlm(FileRedactor).thenReturn(
+  mockModel(FileRedactor).thenReturn(
     replyWith('{"regions":[{"target":"us-ssn","x":0.08,"y":0.25,"w":0.34,"h":0.12}]}'),
   );
-  const agent = mockLlm(KycAgent);
+  const agent = mockModel(KycAgent);
 
   const run = app.execute(KycWorkflowStart, { photo: inline(photo, "image/png", "id.png") });
 

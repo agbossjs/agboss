@@ -89,9 +89,9 @@ describe("#1320: anonymous callers of one A2A listener", () => {
 
   test("two connections: a task is reached by its id, each caller's messageId is its own, listing is 403", async ({
     a2aServer,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(done).thenReturn(done);
+    mockModel(Clerk).thenReturn(done).thenReturn(done);
     const { url } = await a2aServer({ endpoint: OrdersA2AExpose, allowAnonymous: true });
     const a = connect(url);
     const b = connect(url);
@@ -120,9 +120,9 @@ describe("#1320: anonymous callers of one A2A listener", () => {
 
   test("two clients behind one pooled connection stay apart: two tasks, no listing", async ({
     a2aServer,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(done).thenReturn(done);
+    mockModel(Clerk).thenReturn(done).thenReturn(done);
     const { url } = await a2aServer({ endpoint: OrdersA2AExpose, allowAnonymous: true });
     const pooled = connect(url);
 

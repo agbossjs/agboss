@@ -164,9 +164,9 @@ describe("#516 AC2: the holder dies while the parent waits", () => {
 describe("#516 AC3: a pause answered on the other instance while the parent waits", () => {
   test("AC3: a pause answered on the other instance while the parent waits still resumes, and both calls get the finished output", async ({
     apps,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(YieldReviewerAgent).thenAnswer(reviewer);
+    mockModel(YieldReviewerAgent).respondWith(reviewer);
     const [a, b] = await bothReady(apps);
     const call = execute(a, YieldReviewsWorkflowStart, [item("ask"), item("gate")]);
     await until(
@@ -183,7 +183,7 @@ describe("#516 AC3: a pause answered on the other instance while the parent wait
     expect(done).toFinishWith(SummaryWorkflowFinish, { text: "ask, gate" });
     expect(answered.status).toBe(ExecutionStatus.Finished);
     expect(answered.executionId).toBe(done.executionId);
-    expect(mockLlm(YieldReviewerAgent).requests.map(nameIn)).toEqual(["ask", "gate", "ask"]);
+    expect(mockModel(YieldReviewerAgent).requests.map(nameIn)).toEqual(["ask", "gate", "ask"]);
     expect(await takeoversOf(a, done.executionId)).toEqual([]);
   });
 });

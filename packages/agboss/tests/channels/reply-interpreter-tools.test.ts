@@ -49,16 +49,16 @@ interface Schema {
 describe("#648 AC1: overrideInput is described by the approved tool's input", () => {
   test("AC1: the answer tool lists the call's fields, none required; a not-understood tool beside it", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(TreasurerAgent).thenReturn(callTool(PayOutTool, payout), replyWith("Not paid."));
-    mockLlm(PayoutReplyInterpreter).thenReturn(
+    mockModel(TreasurerAgent).thenReturn(callTool(PayOutTool, payout), replyWith("Not paid."));
+    mockModel(PayoutReplyInterpreter).thenReturn(
       replyWith(ToolCallApprovalDecisionDto, { approved: false, reason: "no" }),
     );
     await execute(app, TreasuryWorkflowStart, { text: "pay ann $10" });
     await app.resume({ pauseId: payoutPauseId(), reply: "no" }, manager);
 
-    const request = mockLlm(PayoutReplyInterpreter).onlyRequest;
+    const request = mockModel(PayoutReplyInterpreter).onlyRequest;
     if (request.kind !== "chat") throw new Error("a chat request expected");
     const byName = new Map(request.tools.map((tool) => [tool.function.name, tool.function]));
     expect([...byName.keys()]).toEqual([
@@ -75,10 +75,10 @@ describe("#648 AC1: overrideInput is described by the approved tool's input", ()
 
   test("AC1: a correction of one field runs the call with the others as they were", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(TreasurerAgent).thenReturn(callTool(PayOutTool, payout), replyWith("Paid."));
-    mockLlm(PayoutReplyInterpreter)
+    mockModel(TreasurerAgent).thenReturn(callTool(PayOutTool, payout), replyWith("Paid."));
+    mockModel(PayoutReplyInterpreter)
       .when({ reply: "ok but only up to $5" })
       .thenReturn(
         replyWith(ToolCallApprovalDecisionDto, {
@@ -101,10 +101,10 @@ describe("#648 AC1: overrideInput is described by the approved tool's input", ()
 describe("#648 AC2: a model interpreter says 'not understood' through its tool", () => {
   test("AC2: UninterpretableReplyError with its reason; the pause stays pending and is answered later", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(TreasurerAgent).thenReturn(callTool(PayOutTool, payout), replyWith("Paid."));
-    mockLlm(PayoutReplyInterpreter)
+    mockModel(TreasurerAgent).thenReturn(callTool(PayOutTool, payout), replyWith("Paid."));
+    mockModel(PayoutReplyInterpreter)
       .when({ reply: "🤷" })
       .thenReturn(replyWith(ReplyInterpreterNotUnderstoodDto, { reason: "a shrug, no decision" }));
     await execute(app, TreasuryWorkflowStart, { text: "pay ann $10" });
@@ -130,16 +130,16 @@ describe("#648 AC2: a model interpreter says 'not understood' through its tool",
 
   test("AC2: the framework's instructions name the tool and say it is not a refusal", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(TreasurerAgent).thenReturn(callTool(PayOutTool, payout));
-    mockLlm(PayoutReplyInterpreter).thenReturn(
+    mockModel(TreasurerAgent).thenReturn(callTool(PayOutTool, payout));
+    mockModel(PayoutReplyInterpreter).thenReturn(
       replyWith(ReplyInterpreterNotUnderstoodDto, { reason: "unclear" }),
     );
     await execute(app, TreasuryWorkflowStart, { text: "pay ann $10" });
     await app.resume({ pauseId: payoutPauseId(), reply: "hmm" }, manager).catch(() => undefined);
 
-    const request = mockLlm(PayoutReplyInterpreter).onlyRequest;
+    const request = mockModel(PayoutReplyInterpreter).onlyRequest;
     expect(request.kind === "chat" && request.system).toContain(
       `call ${NOT_UNDERSTOOD_TOOL} with why; that is not a refusal`,
     );

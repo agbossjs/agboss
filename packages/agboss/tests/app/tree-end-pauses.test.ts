@@ -75,9 +75,9 @@ describe("#939 AC1: the drain took the answer, a cancel stopped the pass", () =>
   test("#910 AC1: the drain took the answer, a cancel stopped the pass — no Resolved pause, no paused run, log not taken", async ({
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+    mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
     const [first, other] = pair(apps);
     const root = { id: "" };
     const store: { repository?: HookedPausedExecutionRepository } = {};
@@ -124,10 +124,10 @@ describe("#939 AC1: the drain took the answer, a cancel stopped the pass", () =>
 describe("#939: an answer a step consumed is Taken, whatever fails after", () => {
   test("the tool ran and its node failed after it: the pause is Taken, the log says taken, nothing is closed not-taken", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
     // the charge's turn only: the node after the approved charge finds the script exhausted
-    mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+    mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
     const store: { repository?: HookedPausedExecutionRepository } = {};
     hooks.afterSave = (_paused, repository) => {
       store.repository = repository;
@@ -151,9 +151,9 @@ describe("#939: an answer a step consumed is Taken, whatever fails after", () =>
 describe("#939 AC2: a tree that ends normally", () => {
   test("#910 AC2: a finished tree: its Taken pause untouched, its log entry taken, no paused run", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk)
+    mockModel(Clerk)
       .thenReturn(callTool(Charge, { text: "10 USD" }))
       .thenReturn(replyWith(ReceiptDto, { text: "charged" }));
     const store: { repository?: HookedPausedExecutionRepository } = {};
@@ -177,9 +177,9 @@ describe("#939 AC2: a tree that ends normally", () => {
 
   test("a cancel of a resting tree: its waiting pause is Cancelled, its paused run gone", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+    mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
     const store: { repository?: HookedPausedExecutionRepository } = {};
     hooks.afterSave = (_paused, repository) => {
       store.repository = repository;

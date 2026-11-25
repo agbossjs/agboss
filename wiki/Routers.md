@@ -413,13 +413,13 @@ class DeskApplication {}
 
 const test = testWith(DeskApplication); // an application, never the workflow itself
 
-test("help goes to support", async ({ app, mockLlm }) => {
-  mockLlm(DeskRouter).thenAnswer((request) =>
+test("help goes to support", async ({ app, mockModel }) => {
+  mockModel(DeskRouter).respondWith((request) =>
     request.kind === "decision" && request.input.toString().includes("help")
       ? routeTo(SupportAgent)
       : routeTo(FallbackAgent),
   );
-  mockLlm(SupportAgent).thenReturn(replyWith("On it."));
+  mockModel(SupportAgent).thenReturn(replyWith("On it."));
 
   const result = await app.execute(DeskStart, { text: "help" });
 
@@ -430,7 +430,7 @@ test("help goes to support", async ({ app, mockLlm }) => {
 `app.router(DeskRouter).routeTo("…")` (the `app` fixture) asks one router alone with its scripted
 model.
 
-A code router calls no model, so there is nothing to script — `mockLlm(CreditLimitRouter)` throws
+A code router calls no model, so there is nothing to script — `mockModel(CreditLimitRouter)` throws
 and says so. Replace the services its `route()` uses instead:
 
 <!-- snippet-context
@@ -449,8 +449,8 @@ class CreditApplication {}
 
 const test = testWith(CreditApplication); // an application, never the workflow itself
 
-test("the credit service down holds the order", async ({ app, mockOf }) => {
-  mockOf(CreditService).limitOf.mockRejectedValue(new CreditServiceUnavailableError("down"));
+test("the credit service down holds the order", async ({ app, mockService }) => {
+  mockService(CreditService).limitOf.mockRejectedValue(new CreditServiceUnavailableError("down"));
 
   const result = await app.execute(OrderWorkflowStart, { customerId: "c-1", total: 50 });
 

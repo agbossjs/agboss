@@ -21,21 +21,21 @@ const desk = testWith(DeskApplication);
 describe("AC14: app.cancel from inside a mock", () => {
   desk(
     "the service cancels while the tool runs: the execution is cancelled",
-    async ({ app, mockLlm, mockOf }) => {
+    async ({ app, mockModel, mockService }) => {
       // the caller's own thread id (#262 Q4): this execution creates it, the mock cancels it
       const threadId = "thread-cancelled";
-      mockOf(OrderBook).statusOf.mockImplementation(async () => {
+      mockService(OrderBook).statusOf.mockImplementation(async () => {
         await app.cancel(threadId);
         return "order 7 shipped";
       });
-      mockLlm(MainRouter).thenReturn(routeTo(Support));
+      mockModel(MainRouter).thenReturn(routeTo(Support));
       // cancelled during the tool call: the agent's model is never asked again
-      mockLlm(Support).thenReturn(callTool(OrderStatus, { orderId: "7" }));
+      mockModel(Support).thenReturn(callTool(OrderStatus, { orderId: "7" }));
 
       const run = execute(app, ChatStart, { text: "where is 7?" }, { threadId });
 
       await expect(run).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
-      expect(mockOf(OrderBook).statusOf.mock.calls).toEqual([["7"]]);
+      expect(mockService(OrderBook).statusOf.mock.calls).toEqual([["7"]]);
     },
   );
 });

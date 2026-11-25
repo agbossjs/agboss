@@ -98,7 +98,7 @@ async function evalApp(): Promise<{ env: TestEnvironment; built: BuiltApplicatio
 describe("#1328d: beforeAttempt / afterAttempt", () => {
   it("run around each repetition: the suite's before, the case's before, the run, the case's after, the suite's after", async () => {
     const { env, built } = await evalApp();
-    env.mockLlm(DeskAgent).thenReturn(answer, answer);
+    env.mockModel(DeskAgent).thenReturn(answer, answer);
 
     const report = await runSuiteOn(built, AttemptsEvalSuite, { runs: 2 });
 
@@ -117,7 +117,7 @@ describe("#1328d: beforeAttempt / afterAttempt", () => {
 
   it("a before that throws fails the run without starting it, its after still runs; an after that throws fails a run that passed", async () => {
     const { env, built } = await evalApp();
-    env.mockLlm(DeskAgent).thenReturn(answer);
+    env.mockModel(DeskAgent).thenReturn(answer);
 
     const report = await runSuiteOn(built, BrokenHooksEvalSuite, { runs: 1 });
     const [notStarted] = report.cases[0]?.runResults ?? [];
@@ -160,7 +160,7 @@ describe("#1328d: runEvalSuite and compareEvalSuite", () => {
   it("runEvalSuite builds the application, runs every case `runs` times and closes it", async () => {
     const env = await TestEnvironment.of(EvalDeskApplication);
     environment = env;
-    env.mockLlm(DeskAgent).thenReturn(answer, answer);
+    env.mockModel(DeskAgent).thenReturn(answer, answer);
     const gateway = createScriptedGateway(env.book, env.clock);
 
     const report = await runEvalSuiteWith(EvalDeskApplication, PublicEvalSuite, {
@@ -176,7 +176,7 @@ describe("#1328d: runEvalSuite and compareEvalSuite", () => {
   it("compareEvalSuite runs the suite once per variant and reads each later one against the first", async () => {
     const env = await TestEnvironment.of(EvalDeskApplication);
     environment = env;
-    env.mockLlm(DeskAgent).thenReturn(answer, answer);
+    env.mockModel(DeskAgent).thenReturn(answer, answer);
     const gateway = createScriptedGateway(env.book, env.clock);
 
     const comparison = await compareEvalSuiteWith(EvalDeskApplication, PublicEvalSuite, {

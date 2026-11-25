@@ -52,10 +52,10 @@ describe("#901: a resume taken by the holder's drain, its tree then cancelled, m
   test("the other instance's resume reads the tree's end at its take: nothing charged, the record stays failed", async ({
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
     // the only model turn: the charge, which waits for its approval (no turn after it ever runs)
-    mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+    mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
     const [first, other] = pair(apps);
     const root = { id: "" };
     const resumed: { call: Promise<ExecutionOutput> | undefined } = { call: undefined };

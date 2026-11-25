@@ -61,10 +61,10 @@ afterEach(() => {
 describe("#928 AC1 lease scopes: #drain", () => {
   two(
     "#drain: the terminal record's completion held for ever hands over; forgetTree does not run; @agboss/unwinding is kept and the remaining compensations run on the next holder",
-    async ({ apps, clock, mockOf }) => {
-      const desk = mockOf(UndoDesk);
+    async ({ apps, clock, mockService }) => {
+      const desk = mockService(UndoDesk);
       desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
-      mockOf(UnwindGate).wait.mockRejectedValue(new UndoDeskError("the gate is down"));
+      mockService(UnwindGate).wait.mockRejectedValue(new UndoDeskError("the gate is down"));
       const [a, b] = await ready(apps);
       hangNext("records.complete");
       const failure = rejectionOf(execute(a, UnwindWorkflowStart, GUEST, THREAD));
@@ -93,10 +93,10 @@ describe("#928 AC1 lease scopes: #drain", () => {
 describe("#928 AC1 lease scopes: endedWithoutPass", () => {
   two(
     "endedWithoutPass: failedRecord held for ever hands over; no forgetTree",
-    async ({ apps, clock, mockLlm, mockOf }) => {
-      const desk = mockOf(UndoDesk);
+    async ({ apps, clock, mockModel, mockService }) => {
+      const desk = mockService(UndoDesk);
       desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
-      mockLlm(GuestAgent).thenReturn(callTool(AskGuestTool, GUEST));
+      mockModel(GuestAgent).thenReturn(callTool(AskGuestTool, GUEST));
       const [a, b] = await ready(apps);
       await execute(a, UnwindGuestWorkflowStart, GUEST, THREAD);
       hangNext("records.completeIfStatus.running");

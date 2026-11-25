@@ -13,7 +13,7 @@ import { BoundaryStubs, type A2AStub, type RagStub } from "./boundary-stubs.js";
 import { ToolScripts, type ToolScript } from "./tool-script.js";
 
 /**
- * What a test replaces or watches in the application's container (#261, #262): `mockOf(Class)`
+ * What a test replaces or watches in the application's container (#261, #262): `mockService(Class)`
  * instances, `mockTool(…).thenFail(…)` failures, and every action call for `mockAction(…)`. A mock
  * set after the first app was built would not reach it: a setup error.
  */
@@ -67,16 +67,16 @@ export class TestMocks {
     }
   }
 
-  mockOf<T>(cls: Class<T>): Mocked<T> {
+  mockService<T>(cls: Class<T>): Mocked<T> {
     const existing = this.#overrides.get(cls);
     // the mock stored for this class was created by mockInstanceOf(cls) below
     if (existing !== undefined) return existing as Mocked<T>;
     if (!this.used.has(cls)) {
       throw new TestSetupError({
-        message: `mockOf(${cls.name}): not a component of this application`,
+        message: `mockService(${cls.name}): not a component of this application`,
       });
     }
-    this.#beforeStart(`mockOf(${cls.name})`);
+    this.#beforeStart(`mockService(${cls.name})`);
     const mock = mockInstanceOf(cls);
     this.#overrides.set(cls, mock);
     return mock;

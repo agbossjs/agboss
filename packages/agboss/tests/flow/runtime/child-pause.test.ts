@@ -58,9 +58,9 @@ beforeEach(resetChildLog);
 describe("AC16: a paused child does not stop its siblings", () => {
   test("one child of ten pauses with maxConcurrency 2: every sibling finishes first", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ItemReviewerAgent).thenAnswer(reviewer);
+    mockModel(ItemReviewerAgent).respondWith(reviewer);
 
     const paused = await execute(app, ReviewItemsWorkflowStart, TEN.map(item), who);
 
@@ -68,24 +68,24 @@ describe("AC16: a paused child does not stop its siblings", () => {
     expect(paused.pending).toMatchObject([
       { step: "item-reviewer-agent", itemIndex: 1, toolCall: { tool: "confirm-review-tool" } },
     ]);
-    const asked = mockLlm(ItemReviewerAgent).requests.map(nameIn);
+    const asked = mockModel(ItemReviewerAgent).requests.map(nameIn);
     expect([...new Set(asked)].sort()).toEqual(TEN);
     expect(childStarts()).toHaveLength(10);
   });
 
   test("on resume only the paused child goes on, with its id; the join gives every value", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ItemReviewerAgent).thenAnswer(reviewer);
+    mockModel(ItemReviewerAgent).respondWith(reviewer);
     const paused = await execute(app, ReviewItemsWorkflowStart, TEN.map(item), who);
-    const before = mockLlm(ItemReviewerAgent).requests.length;
+    const before = mockModel(ItemReviewerAgent).requests.length;
     const started = childStarts();
 
     const done = await app.resume(answerOf(paused), { tenantId: "acme" });
 
     expect(done).toFinishWith(ReviewsSummaryWorkflowFinish, { text: TEN.join(", ") });
-    expect(mockLlm(ItemReviewerAgent).requests.slice(before).map(nameIn)).toEqual(["b"]);
+    expect(mockModel(ItemReviewerAgent).requests.slice(before).map(nameIn)).toEqual(["b"]);
     // no second onExecutionStart: the resumed child kept the id it started with
     expect(childStarts()).toEqual(started);
     expect([...done.children.map((child) => child.executionId)].sort()).toEqual(

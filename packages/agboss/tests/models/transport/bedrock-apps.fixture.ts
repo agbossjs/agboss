@@ -70,7 +70,7 @@ export class LookupStart {}
 /** The name of the tool agent's tool on the desk of `prefix`. */
 export const lookupToolOf = (prefix: string): string => `${prefix}-lookup-tool`;
 
-/** A desk's workflows and its text agent (for `mockLlm`). */
+/** A desk's workflows and its text agent (for `mockModel`). */
 export interface BedrockDesk {
   readonly workflows: readonly Class[];
   readonly textAgent: Class;

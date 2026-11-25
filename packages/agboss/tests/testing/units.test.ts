@@ -146,13 +146,13 @@ describe("AC12: setup errors name what is wrong", () => {
     );
   });
 
-  it("mcpOf(X) must be an MCP server of the workflow", async () => {
+  it("mockMcp(X) must be an MCP server of the workflow", async () => {
     const environment = await TestEnvironment.of(DeskApplication);
 
     class Other extends McpServerClient<Record<string, never>> {}
 
-    expect(() => environment.mcpOf(Other)).toThrow(
-      "mcpOf(Other): not an MCP server of this application",
+    expect(() => environment.mockMcp(Other)).toThrow(
+      "mockMcp(Other): not an MCP server of this application",
     );
     await environment.close();
   });

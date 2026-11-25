@@ -39,9 +39,9 @@ function expectOneRun(run: Pick<ExecutionOutput, "executionId" | "threadId">): v
 describe("#244 AC1: workflow events across a pause and its resume", () => {
   test("execute → pause → resume → finish: start, pause, resume, end — one runId, the real thread", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(
+    mockModel(Clerk).thenReturn(
       callTool(Apply, { text: "job 1" }),
       replyWith(AnswerDto, { text: "Applied." }),
     );
@@ -69,9 +69,9 @@ describe("#244 AC1: workflow events across a pause and its resume", () => {
 
   test("onWorkflowStart stays once per run: two pauses, two resumes, one start, one end", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(
+    mockModel(Clerk).thenReturn(
       callTool(Apply, { text: "job 1" }),
       callTool(Apply, { text: "job 2" }),
       replyWith(AnswerDto, { text: "Applied twice." }),
@@ -93,8 +93,8 @@ describe("#244 AC1: workflow events across a pause and its resume", () => {
     expectOneRun(done);
   });
 
-  test("a run that does not pause: start, end", async ({ app, mockLlm }) => {
-    mockLlm(Clerk).thenReturn(
+  test("a run that does not pause: start, end", async ({ app, mockModel }) => {
+    mockModel(Clerk).thenReturn(
       callTool(Lookup, { text: "rust" }),
       replyWith(AnswerDto, { text: "2 jobs." }),
     );
@@ -109,9 +109,9 @@ describe("#244 AC1: workflow events across a pause and its resume", () => {
 describe("#244 AC2: a run that fails after a resume, or is cancelled while paused, emits onError", () => {
   test("the resumed run fails: start, pause, resume, error — the error the resume rejects with", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(
+    mockModel(Clerk).thenReturn(
       callTool(Apply, { text: "job 1" }),
       failWith(ModelFailure.ServerError),
     );
@@ -132,9 +132,9 @@ describe("#244 AC2: a run that fails after a resume, or is cancelled while pause
 
   test("a paused run is cancelled: start, pause, cancel (an outcome, not an error)", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(callTool(Apply, { text: "job 1" }));
+    mockModel(Clerk).thenReturn(callTool(Apply, { text: "job 1" }));
 
     const paused = await execute(app, Ask, { text: "apply" });
     const cancelled = await app.cancel(paused.threadId);
@@ -152,9 +152,9 @@ describe("#244 AC2: a run that fails after a resume, or is cancelled while pause
 describe("#244 AC3: node-level events carry the real threadId, not the run id", () => {
   test("agent, model, tool, channel and action events before and after a resume name the thread", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(
+    mockModel(Clerk).thenReturn(
       callTool(Lookup, { text: "rust" }),
       callTool(Apply, { text: "job 1" }),
       replyWith(AnswerDto, { text: "Applied." }),
@@ -181,9 +181,9 @@ describe("#244 AC3: node-level events carry the real threadId, not the run id", 
 
   test("a second run on the same thread: its events carry that thread and their own run id", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(
+    mockModel(Clerk).thenReturn(
       replyWith(AnswerDto, { text: "One." }),
       replyWith(AnswerDto, { text: "Two." }),
     );

@@ -156,9 +156,9 @@ describe("#728 AC1: a new execution's admission", () => {
   const test = testWith(DimesApplication);
   test("the tenant spent $0.80 in eight dimes of its $0.80: the next execution is rejected", async ({
     app,
-    mockOf,
+    mockService,
   }) => {
-    mockOf(TestTenantDailyBudget).maxSpend.mockReturnValue(usd(0.8));
+    mockService(TestTenantDailyBudget).maxSpend.mockReturnValue(usd(0.8));
     const item = { name: "a", delay: 0, outcome: "ok" };
     await execute(app, DimesStart, item);
 

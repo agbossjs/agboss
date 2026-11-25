@@ -28,9 +28,9 @@ const GUEST = { guest: "ada" };
 describe("#1281b: the excluded branches of a quorum are undone", () => {
   test("the seat an arbiter refused is released at the join; the counted room is not", async ({
     app,
-    mockOf,
+    mockService,
   }) => {
-    const desk = mockOf(TripBookingDesk);
+    const desk = mockService(TripBookingDesk);
     desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
 
     const result = await execute(app, QuorumExcludedWorkflowStart, GUEST);
@@ -46,9 +46,9 @@ describe("#1281b: the excluded branches of a quorum are undone", () => {
 
   test("a failed undo of an excluded branch fails the execution; it is not retried", async ({
     app,
-    mockOf,
+    mockService,
   }) => {
-    const desk = mockOf(TripBookingDesk);
+    const desk = mockService(TripBookingDesk);
     desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
     desk.release.mockRejectedValue(new Error("the desk is down"));
 
@@ -63,9 +63,9 @@ describe("#1281b: the excluded branches of a quorum are undone", () => {
 describe("#1281b: a quorum not reached undoes its completed branches", () => {
   test("both reservations are released, newest first, once each, before .onError", async ({
     app,
-    mockOf,
+    mockService,
   }) => {
-    const desk = mockOf(TripBookingDesk);
+    const desk = mockService(TripBookingDesk);
     desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
 
     const result = await execute(app, QuorumRefusedWorkflowStart, GUEST);

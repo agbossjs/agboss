@@ -77,13 +77,13 @@ describe("AC6: cost — from the provider's response, a price table as the fallb
 describe("AC6: limits per run use the providers' cost", () => {
   test("a run's spend counts both sources, and crossing the execution budget fails the run", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Summariser).thenReturn(
+    mockModel(Summariser).thenReturn(
       replyWith(SummaryDto, { text: "short" }, { cost: usd(0.01) }),
       replyWith(SummaryDto, { text: "long" }, { cost: usd(0.06) }),
     );
-    mockLlm(Writer).thenReturn(replyWith("done", { cost: usd(0.02) }));
+    mockModel(Writer).thenReturn(replyWith("done", { cost: usd(0.02) }));
 
     const result = await execute(app, TaskStart, { text: "go" });
     expect(result.spend.totalUsd).toBeCloseTo(0.03, 6);

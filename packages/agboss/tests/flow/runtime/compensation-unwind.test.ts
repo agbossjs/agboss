@@ -75,15 +75,15 @@ const releasedIds = (desk: { release: { mock: { calls: unknown[][] } } }): unkno
 describe("a cancel of a running execution (AC1)", { timeout: 60_000 }, () => {
   test("undoes its open actions newest first, then rejects as cancelled", async ({
     app,
-    mockOf,
+    mockService,
   }) => {
-    const desk = mockOf(UndoDesk);
+    const desk = mockService(UndoDesk);
     desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
-    const gate = gateOf(mockOf(UnwindGate));
+    const gate = gateOf(mockService(UnwindGate));
     const run = execute(app, UnwindWorkflowStart, GUEST, THREAD);
     run.catch(() => undefined);
     await vi.waitFor(() => {
-      expect(mockOf(UnwindGate).wait.mock.calls.length).toBeGreaterThan(0);
+      expect(mockService(UnwindGate).wait.mock.calls.length).toBeGreaterThan(0);
     });
 
     await app.cancel("t-1");
@@ -101,15 +101,15 @@ describe("a cancel of a running execution (AC1)", { timeout: 60_000 }, () => {
 
   test("each undo runs on a clean-up signal, never the cancelled one (AC3)", async ({
     app,
-    mockOf,
+    mockService,
   }) => {
-    const desk = mockOf(UndoDesk);
+    const desk = mockService(UndoDesk);
     desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
-    const gate = gateOf(mockOf(UnwindGate));
+    const gate = gateOf(mockService(UnwindGate));
     const run = execute(app, UnwindWorkflowStart, GUEST, THREAD);
     run.catch(() => undefined);
     await vi.waitFor(() => {
-      expect(mockOf(UnwindGate).wait.mock.calls.length).toBeGreaterThan(0);
+      expect(mockService(UnwindGate).wait.mock.calls.length).toBeGreaterThan(0);
     });
 
     await app.cancel("t-1");
@@ -120,13 +120,18 @@ describe("a cancel of a running execution (AC1)", { timeout: 60_000 }, () => {
     expect(desk.seen.mock.calls[0]?.[0].key).toMatch(/:reserve-room-action:1:compensation$/);
   });
 
-  test("ExecutionErrorEvent.compensations lists the undo that ran", async ({ app, mockOf }) => {
-    mockOf(UndoDesk).reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
-    const gate = gateOf(mockOf(UnwindGate));
+  test("ExecutionErrorEvent.compensations lists the undo that ran", async ({
+    app,
+    mockService,
+  }) => {
+    mockService(UndoDesk).reserve.mockImplementation((kind: string) =>
+      Promise.resolve(`${kind}-1`),
+    );
+    const gate = gateOf(mockService(UnwindGate));
     const run = execute(app, UnwindWorkflowStart, GUEST, THREAD);
     run.catch(() => undefined);
     await vi.waitFor(() => {
-      expect(mockOf(UnwindGate).wait.mock.calls.length).toBeGreaterThan(0);
+      expect(mockService(UnwindGate).wait.mock.calls.length).toBeGreaterThan(0);
     });
 
     await app.cancel("t-1");
@@ -145,14 +150,14 @@ describe("a cancel of a running execution (AC1)", { timeout: 60_000 }, () => {
 
 // under a loaded gate (3 workers beside other gates) a case here ran 5.7-11 s against vitest's 5 s default, and 0.6-3 s alone (#1225, as #1160): the bound says "not hung"
 describe("what is committed or already undone is left (AC2)", { timeout: 60_000 }, () => {
-  test("a committed seat: only the room is undone", async ({ app, mockOf }) => {
-    const desk = mockOf(UndoDesk);
+  test("a committed seat: only the room is undone", async ({ app, mockService }) => {
+    const desk = mockService(UndoDesk);
     desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
-    const gate = gateOf(mockOf(UnwindGate));
+    const gate = gateOf(mockService(UnwindGate));
     const run = execute(app, UnwindCommittedWorkflowStart, GUEST, THREAD);
     run.catch(() => undefined);
     await vi.waitFor(() => {
-      expect(mockOf(UnwindGate).wait.mock.calls.length).toBeGreaterThan(0);
+      expect(mockService(UnwindGate).wait.mock.calls.length).toBeGreaterThan(0);
     });
 
     await app.cancel("t-1");
@@ -162,15 +167,18 @@ describe("what is committed or already undone is left (AC2)", { timeout: 60_000 
     expect(releasedIds(desk)).toEqual(["room-1"]);
   });
 
-  test("undone on a side path, then cancelled: each undo ran once", async ({ app, mockOf }) => {
-    const desk = mockOf(UndoDesk);
+  test("undone on a side path, then cancelled: each undo ran once", async ({
+    app,
+    mockService,
+  }) => {
+    const desk = mockService(UndoDesk);
     desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
     desk.charge.mockRejectedValue(new UndoDeskError("card declined"));
-    const gate = gateOf(mockOf(UnwindGate));
+    const gate = gateOf(mockService(UnwindGate));
     const run = execute(app, UnwindSidePathWorkflowStart, GUEST, THREAD);
     run.catch(() => undefined);
     await vi.waitFor(() => {
-      expect(mockOf(UnwindGate).wait.mock.calls.length).toBeGreaterThan(0);
+      expect(mockService(UnwindGate).wait.mock.calls.length).toBeGreaterThan(0);
     });
 
     await app.cancel("t-1");
@@ -184,10 +192,13 @@ describe("what is committed or already undone is left (AC2)", { timeout: 60_000 
 
 // under a loaded gate (3 workers beside other gates) a case here ran 5.7-11 s against vitest's 5 s default, and 0.6-3 s alone (#1225, as #1160): the bound says "not hung"
 describe("an uncaught failure", { timeout: 60_000 }, () => {
-  test("undoes the open actions, then fails with the step's error", async ({ app, mockOf }) => {
-    const desk = mockOf(UndoDesk);
+  test("undoes the open actions, then fails with the step's error", async ({
+    app,
+    mockService,
+  }) => {
+    const desk = mockService(UndoDesk);
     desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
-    mockOf(UnwindGate).wait.mockRejectedValue(new UndoDeskError("gate broke"));
+    mockService(UnwindGate).wait.mockRejectedValue(new UndoDeskError("gate broke"));
 
     const run = execute(app, UnwindWorkflowStart, GUEST);
 
@@ -201,12 +212,12 @@ describe("an uncaught failure", { timeout: 60_000 }, () => {
 
   test("a failed undo: the older still runs, then CompensationFailedError", async ({
     app,
-    mockOf,
+    mockService,
   }) => {
-    const desk = mockOf(UndoDesk);
+    const desk = mockService(UndoDesk);
     desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
     desk.release.mockRejectedValueOnce(new UndoDeskError("room desk down"));
-    mockOf(UnwindGate).wait.mockRejectedValue(new UndoDeskError("gate broke"));
+    mockService(UnwindGate).wait.mockRejectedValue(new UndoDeskError("gate broke"));
 
     const run = execute(app, UnwindWorkflowStart, GUEST);
 
@@ -218,8 +229,8 @@ describe("an uncaught failure", { timeout: 60_000 }, () => {
 
 // under a loaded gate (3 workers beside other gates) a case here ran 5.7-11 s against vitest's 5 s default, and 0.6-3 s alone (#1225, as #1160): the bound says "not hung"
 describe("a body still running when the execution ends (Q-A, Q-B)", { timeout: 60_000 }, () => {
-  test("one that returns before the undo ends is undone too", async ({ app, mockOf }) => {
-    const desk = mockOf(UndoDesk);
+  test("one that returns before the undo ends is undone too", async ({ app, mockService }) => {
+    const desk = mockService(UndoDesk);
     let roomReserved = (): void => undefined;
     desk.reserve.mockImplementation((kind: string) =>
       kind === "room"
@@ -248,10 +259,10 @@ describe("a body still running when the execution ends (Q-A, Q-B)", { timeout: 6
 
   test("one that returns after the undo ended is undone at once, in process", async ({
     app,
-    mockOf,
+    mockService,
     clock,
   }) => {
-    const desk = mockOf(UndoDesk);
+    const desk = mockService(UndoDesk);
     let roomReserved = (): void => undefined;
     desk.reserve.mockImplementation((kind: string) =>
       kind === "room"
@@ -284,11 +295,11 @@ describe("a body still running when the execution ends (Q-A, Q-B)", { timeout: 6
 describe("a child that ends without a finish (Q2, S5)", { timeout: 60_000 }, () => {
   real(
     "a FailFast sibling: each child undoes its own room, then the launch fails",
-    async ({ app, mockOf }) => {
-      const desk = mockOf(UndoDesk);
+    async ({ app, mockService }) => {
+      const desk = mockService(UndoDesk);
       let rooms = 0;
       desk.reserve.mockImplementation(() => Promise.resolve(`room-${String((rooms += 1))}`));
-      mockOf(UnwindGate).wait.mockImplementation(
+      mockService(UnwindGate).wait.mockImplementation(
         (guest: string, signal: AbortSignal) =>
           new Promise<void>((_resolve, reject) => {
             if (guest === "bob") {
@@ -315,11 +326,11 @@ describe("a child that ends without a finish (Q2, S5)", { timeout: 60_000 }, () 
 
   test("a failed child is undone before its parent's side path takes it", async ({
     app,
-    mockOf,
+    mockService,
   }) => {
-    const desk = mockOf(UndoDesk);
+    const desk = mockService(UndoDesk);
     desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
-    mockOf(UnwindGate).wait.mockRejectedValue(new UndoDeskError("gate broke"));
+    mockService(UnwindGate).wait.mockRejectedValue(new UndoDeskError("gate broke"));
 
     const result = await execute(app, UnwindParentWorkflowStart, GUEST);
 
@@ -337,12 +348,12 @@ describe("a child that ends without a finish (Q2, S5)", { timeout: 60_000 }, () 
 
   test("a child's failed undo passes the parent's boundary as it is: the parent undoes its own", async ({
     app,
-    mockOf,
+    mockService,
   }) => {
-    const desk = mockOf(UndoDesk);
+    const desk = mockService(UndoDesk);
     desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
     desk.release.mockRejectedValueOnce(new UndoDeskError("room desk down"));
-    mockOf(UnwindGate).wait.mockRejectedValue(new UndoDeskError("gate broke"));
+    mockService(UnwindGate).wait.mockRejectedValue(new UndoDeskError("gate broke"));
 
     const run = execute(app, UnwindParentWorkflowStart, GUEST);
 

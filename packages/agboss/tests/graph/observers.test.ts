@@ -77,8 +77,8 @@ export class ObsWfApplication {}
 const test = testWith(ObsWfApplication);
 
 describe("Observers", () => {
-  test("triggers observer hooks", async ({ app, mockLlm }) => {
-    mockLlm(WorkerAgent).thenReturn(replyWith("done"));
+  test("triggers observer hooks", async ({ app, mockModel }) => {
+    mockModel(WorkerAgent).thenReturn(replyWith("done"));
     logs.length = 0; // reset
     await execute(app, Start, { text: "hello" });
     expect(logs).toEqual(["start-wf", "start-agent-worker-agent", "end-agent-worker-agent"]);

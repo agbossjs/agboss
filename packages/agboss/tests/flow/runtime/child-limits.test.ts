@@ -54,10 +54,10 @@ beforeEach(resetChildLog);
 describe("S25: a child's own limit is the child's failure", () => {
   test("child maxSteps → ChildExecutionFailedError with cause; the handler may be an agent", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ItemReviewerAgent).thenAnswer(reviewer);
-    mockLlm(ReviewRescueAgent).thenReturn(replyWith(SummaryDto, { text: "skip loop" }));
+    mockModel(ItemReviewerAgent).respondWith(reviewer);
+    mockModel(ReviewRescueAgent).thenReturn(replyWith(SummaryDto, { text: "skip loop" }));
 
     const result = await execute(app, ReviewItemsWorkflowStart, [item("loop")], who);
 
@@ -79,9 +79,9 @@ describe("S25: a child's own limit is the child's failure", () => {
 
   test("a handler naming the limit catches the child's through the cause chain", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ItemReviewerAgent).thenAnswer(reviewer);
+    mockModel(ItemReviewerAgent).respondWith(reviewer);
 
     const result = await execute(app, ReviewOneWorkflowStart, item("loop"), who);
 
@@ -90,9 +90,9 @@ describe("S25: a child's own limit is the child's failure", () => {
 
   test("the child's steps are its own: the parent's maxSteps counts the parent's only", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ItemReviewerAgent).thenAnswer(reviewer);
+    mockModel(ItemReviewerAgent).respondWith(reviewer);
     const names = ["a", "b", "c", "d", "e", "f"];
 
     // six children, one step each; the parent's maxSteps is 4 and it has no agent step of its own
@@ -105,9 +105,9 @@ describe("S25: a child's own limit is the child's failure", () => {
 describe("AC10: money is the whole pass", () => {
   budgeted(
     "budget passes through: a budget hit inside a child stops the whole execution, unwrapped",
-    async ({ app, mockLlm, mockOf }) => {
-      mockOf(TestExecutionBudget).maxSpend.mockReturnValue(usd(0.0005));
-      mockLlm(ItemReviewerAgent).thenAnswer(reviewer);
+    async ({ app, mockModel, mockService }) => {
+      mockService(TestExecutionBudget).maxSpend.mockReturnValue(usd(0.0005));
+      mockModel(ItemReviewerAgent).respondWith(reviewer);
 
       const error: unknown = await execute(app, ReviewOneWorkflowStart, item("loop"), who).then(
         () => undefined,
@@ -129,8 +129,8 @@ describe("AC10: money is the whole pass", () => {
 
   budgeted(
     "spend per child: the root's spend holds every child's, each child its own",
-    async ({ app, mockLlm }) => {
-      mockLlm(ItemReviewerAgent).thenAnswer(reviewer);
+    async ({ app, mockModel }) => {
+      mockModel(ItemReviewerAgent).respondWith(reviewer);
 
       const result = await execute(app, ReviewItemsWorkflowStart, [item("a"), item("b")], who);
 
@@ -143,9 +143,9 @@ describe("AC10: money is the whole pass", () => {
 
   budgeted(
     "a child's own execution budget applies only when it is the root",
-    async ({ app, mockLlm, mockOf }) => {
-      mockOf(ItemReviewExecutionBudget).maxSpend.mockReturnValue(usd(0));
-      mockLlm(ItemReviewerAgent).thenAnswer(reviewer);
+    async ({ app, mockModel, mockService }) => {
+      mockService(ItemReviewExecutionBudget).maxSpend.mockReturnValue(usd(0));
+      mockModel(ItemReviewerAgent).respondWith(reviewer);
 
       const asChild = await execute(app, ReviewOneWorkflowStart, item("a"), who);
       const alone = execute(app, ItemReviewWorkflowStart, item("a"), who);

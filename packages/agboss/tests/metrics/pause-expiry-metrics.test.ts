@@ -71,11 +71,11 @@ const join = testWith(JoinExpiryApplication, {
 describe("#943 AC2 with #945: expiry inside a launch is counted", () => {
   quorum(
     "a quorum branch's pause expiring at the quorum's deadline closes expired, once",
-    async ({ app, clock, mockLlm }) => {
+    async ({ app, clock, mockModel }) => {
       const score = (value: number) => replyWith(RefundScoreDto, { score: value });
-      mockLlm(PolicyAgent).thenReturn(callTool(RefundTool, { orderId: "P" }), score(7));
-      mockLlm(RiskAgent).thenReturn(callTool(RefundTool, { orderId: "R" }), score(9));
-      mockLlm(FraudAgent).thenReturn(callTool(RefundTool, { orderId: "F" }));
+      mockModel(PolicyAgent).thenReturn(callTool(RefundTool, { orderId: "P" }), score(7));
+      mockModel(RiskAgent).thenReturn(callTool(RefundTool, { orderId: "R" }), score(9));
+      mockModel(FraudAgent).thenReturn(callTool(RefundTool, { orderId: "F" }));
       const paused = await execute(app, QuorumExpiryWorkflowStart, { orderId: "7" });
       expect(paused.status).toBe(ExecutionStatus.Paused);
       await app.resume(answerFor("P"), manager);
@@ -94,17 +94,17 @@ describe("#943 AC2 with #945: expiry inside a launch is counted", () => {
 
   join(
     "a plain join's pause expiring closes expired; the one still waiting is withdrawn",
-    async ({ app, clock, mockLlm }) => {
-      mockLlm(LegalApproverAgent).thenReturn(
+    async ({ app, clock, mockModel }) => {
+      mockModel(LegalApproverAgent).thenReturn(
         callTool(ApproveTool, { what: "legal" }),
         replyWith(LegalDecisionDto, { approved: true }),
       );
-      mockLlm(FinanceApproverAgent).thenReturn(
+      mockModel(FinanceApproverAgent).thenReturn(
         callTool(ApproveTool, { what: "finance" }),
         replyWith(FinanceDecisionDto, { approved: true }),
       );
-      mockLlm(CfoApproverAgent).thenReturn(callTool(ApproveInThirtyTool, { what: "cfo" }));
-      mockLlm(CooApproverAgent).thenReturn(callTool(ApproveTool, { what: "coo" }));
+      mockModel(CfoApproverAgent).thenReturn(callTool(ApproveInThirtyTool, { what: "cfo" }));
+      mockModel(CooApproverAgent).thenReturn(callTool(ApproveTool, { what: "coo" }));
       await execute(app, JoinExpiryWorkflowStart, { what: "the merger" });
       const idOf = (who: string) =>
         je.sent.find((ask) => JSON.stringify(ask.input).includes(`"what":"${who}"`))?.pauseId ?? "";

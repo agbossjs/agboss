@@ -12,7 +12,7 @@ const MESSAGE = "Write to alice@example.com, my phone is +1 555 123 4567.";
 /** The agent writes to the email it was given as a token, then answers with the token. */
 function scriptedEmailRound(book: ScriptBook): void {
   const script = book.scriptOf("agent:support-agent");
-  script.thenAnswer((request) => {
+  script.respondWith((request) => {
     const [token] = tokensIn(requestText(request), "email");
     return script.requests.length === 1
       ? callTool(SendEmail, { to: token ?? "", body: "hello" })

@@ -1,6 +1,6 @@
 import { McpTransport } from "../../src/config/mcp-server-config.js";
 import { describe, expect, it } from "vitest";
-import { mcpServerStub } from "../../src/testing/index.js";
+import { mcpServerStub } from "./mcp-server-stub.js";
 import { workflowOf } from "../../src/testing/workflow-of.js";
 import { toolOf } from "../../src/components/runtime.js";
 import { connectMcpServers, type ToolInvocationContext } from "../../src/tools/index.js";

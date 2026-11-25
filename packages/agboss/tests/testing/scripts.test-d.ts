@@ -49,105 +49,105 @@ import { ReviewDraftAction } from "../flow/fixtures/history.fixture.js";
  * `.agboss/types.d.ts` of the fixtures (`check:types`). Each `@ts-expect-error` is a negative test:
  * tsc fails this file if the line compiles. Never run: the declared fixtures only type the calls.
  */
-declare const mockLlm: WorkflowFixtures["mockLlm"];
+declare const mockModel: WorkflowFixtures["mockModel"];
 declare const mockAction: WorkflowFixtures["mockAction"];
 
 describe("#395 PR 3: replyWithInvalidAnswer is checked against the agent's output classes", () => {
   it("a class of the agent's output compiles, whatever the fields; one outside it does not", () => {
-    mockLlm(ProfilerAgent).thenReturn(replyWithInvalidAnswer(ProfileDto, { summary: 3 }));
-    mockLlm(ScoutAgent).thenReturn(replyWithInvalidAnswer(OpeningsDto, { openings: 3 }));
+    mockModel(ProfilerAgent).thenReturn(replyWithInvalidAnswer(ProfileDto, { summary: 3 }));
+    mockModel(ScoutAgent).thenReturn(replyWithInvalidAnswer(OpeningsDto, { openings: 3 }));
     // @ts-expect-error — OpeningsDto is not one of profiler-agent's outputs
-    mockLlm(ProfilerAgent).thenReturn(replyWithInvalidAnswer(OpeningsDto, {}));
+    mockModel(ProfilerAgent).thenReturn(replyWithInvalidAnswer(OpeningsDto, {}));
     // @ts-expect-error — a single output: not a list
-    mockLlm(ScoutAgent).thenReturn(replyWithInvalidAnswer(OpeningsDto, [{ openings: 3 }]));
+    mockModel(ScoutAgent).thenReturn(replyWithInvalidAnswer(OpeningsDto, [{ openings: 3 }]));
     expect(true).toBe(true);
   });
 });
 
 describe("#262 AC8: replyWith is checked against the agent's output", () => {
   it("a class of the agent's oneOf compiles; one outside it does not", () => {
-    mockLlm(ProfilerAgent).thenReturn(replyWith(ProfileDto, { summary: "TS, 8 years" }));
-    mockLlm(ProfilerAgent).thenReturn(replyWith(ResumeMissingDto, {}));
-    mockLlm(VerdictAgent).thenReturn(
+    mockModel(ProfilerAgent).thenReturn(replyWith(ProfileDto, { summary: "TS, 8 years" }));
+    mockModel(ProfilerAgent).thenReturn(replyWith(ResumeMissingDto, {}));
+    mockModel(VerdictAgent).thenReturn(
       replyWith(ApprovedVerdictDto, { note: "ok" }),
       replyWith(RejectedVerdictDto, { note: "no" }),
     );
     // @ts-expect-error — OpeningsDto is not one of profiler-agent's outputs
-    mockLlm(ProfilerAgent).thenReturn(replyWith(OpeningsDto, { openings: "3" }));
+    mockModel(ProfilerAgent).thenReturn(replyWith(OpeningsDto, { openings: "3" }));
     // @ts-expect-error — a single output: not a list
-    mockLlm(ScoutAgent).thenReturn(replyWith(OpeningsDto, [{ openings: "3" }]));
+    mockModel(ScoutAgent).thenReturn(replyWith(OpeningsDto, [{ openings: "3" }]));
     // @ts-expect-error — the fields are the class's: summary is a string
-    mockLlm(ProfilerAgent).thenReturn(replyWith(ProfileDto, { summary: 3 }));
+    mockModel(ProfilerAgent).thenReturn(replyWith(ProfileDto, { summary: 3 }));
     expect(true).toBe(true);
   });
 
   it("text, failures, waits and costs are any agent's turns", () => {
-    mockLlm(ScoutAgent).thenReturn(
+    mockModel(ScoutAgent).thenReturn(
       waitFor(seconds(31)),
       replyWith(OpeningsDto, { openings: "3" }, { cost: usd(0.01) }),
       replyWith("free text"),
       failWith(ModelFailure.Timeout),
     );
     // @ts-expect-error — an agent is not a router: no routeTo
-    mockLlm(ScoutAgent).thenReturn(routeTo(ProfilerAgent));
+    mockModel(ScoutAgent).thenReturn(routeTo(ProfilerAgent));
     expect(true).toBe(true);
   });
 });
 
 describe("#262 AC8 (Q55): routeTo is checked against Route<R>", () => {
   it("after .onRoute(…): exactly one target of the router's routes", () => {
-    mockLlm(MainRouter).thenReturn(routeTo(ScoutAgent), routeTo(NoReplyWorkflowFinish));
+    mockModel(MainRouter).thenReturn(routeTo(ScoutAgent), routeTo(NoReplyWorkflowFinish));
     // @ts-expect-error — not a route of main-router
-    mockLlm(MainRouter).thenReturn(routeTo(VerdictAgent));
+    mockModel(MainRouter).thenReturn(routeTo(VerdictAgent));
     // @ts-expect-error — .onRoute(…) takes exactly one target
-    mockLlm(MainRouter).thenReturn(routeTo(ScoutAgent, ProfilerAgent));
+    mockModel(MainRouter).thenReturn(routeTo(ScoutAgent, ProfilerAgent));
     // @ts-expect-error — .onRoute(…) takes exactly one target
-    mockLlm(MainRouter).thenReturn(routeTo());
+    mockModel(MainRouter).thenReturn(routeTo());
     // @ts-expect-error — a router is not an agent: no replyWith
-    mockLlm(MainRouter).thenReturn(replyWith("scout"));
+    mockModel(MainRouter).thenReturn(replyWith("scout"));
     expect(true).toBe(true);
   });
 
   it("before a launch: the OnDemand targets it launches, none with an Always route", () => {
-    mockLlm(HelpDeskRouter).thenReturn(routeTo(RefundPolicyAgent), routeTo());
-    mockLlm(HelpDeskRouter).thenReturn(decideWith({ "refund-policy-agent": 0.9 }));
+    mockModel(HelpDeskRouter).thenReturn(routeTo(RefundPolicyAgent), routeTo());
+    mockModel(HelpDeskRouter).thenReturn(decideWith({ "refund-policy-agent": 0.9 }));
     // @ts-expect-error — order-lookup-agent is an Always route: the framework launches it
-    mockLlm(HelpDeskRouter).thenReturn(routeTo(OrderLookupAgent));
+    mockModel(HelpDeskRouter).thenReturn(routeTo(OrderLookupAgent));
     expect(true).toBe(true);
   });
 });
 
 describe("#262 AC6: when(…) takes PartialValues<InputOf<Node>>", () => {
   it("values, deep partials, undefined for an absent field, lists by position", () => {
-    mockLlm(ScoutAgent)
+    mockModel(ScoutAgent)
       .when({ profile: { summary: "TS" } })
       .thenReturn(replyWith("…"));
-    mockLlm(ScoutAgent).when({ profile: undefined }).thenReturnAlways(replyWith("…"));
-    mockLlm(ScoutAgent).when({}).thenReturn(replyWith("…"));
-    mockLlm(BatchRankAgent)
+    mockModel(ScoutAgent).when({ profile: undefined }).thenReturnAlways(replyWith("…"));
+    mockModel(ScoutAgent).when({}).thenReturn(replyWith("…"));
+    mockModel(BatchRankAgent)
       .when({ companies: [] })
       .thenReturn(replyWith(CompanyScoreDto, { score: "9" }));
-    mockLlm(BatchRankAgent).when({ companies: [{ name: "Acme" }, {}] });
+    mockModel(BatchRankAgent).when({ companies: [{ name: "Acme" }, {}] });
     // @ts-expect-error — a misspelled field
-    mockLlm(ScoutAgent).when({ profil: { summary: "TS" } });
+    mockModel(ScoutAgent).when({ profil: { summary: "TS" } });
     // @ts-expect-error — the producer is not compared: values only
-    mockLlm(ScoutAgent).when({ profile: { producer: ProfilerAgent } });
+    mockModel(ScoutAgent).when({ profile: { producer: ProfilerAgent } });
     // @ts-expect-error — a list field is matched by a list
-    mockLlm(BatchRankAgent).when({ companies: { name: "Acme" } });
+    mockModel(BatchRankAgent).when({ companies: { name: "Acme" } });
   });
 });
 
 describe("#262 AC9: the call matchers are typed by the component", () => {
   it("toHaveBeenCalledWith takes the same matcher as when; toHaveReturned a returned class", () => {
-    expect(mockLlm(ScoutAgent)).toHaveBeenCalledWith({ profile: { summary: "TS" } });
-    expect(mockLlm(ScoutAgent)).not.toHaveBeenCalledWith({ profile: undefined });
-    expect(mockLlm(ScoutAgent)).toHaveBeenCalledTimes(1);
-    expect(mockLlm(ProfilerAgent)).toHaveReturned(ProfileDto, { summary: "TS" });
+    expect(mockModel(ScoutAgent)).toHaveBeenCalledWith({ profile: { summary: "TS" } });
+    expect(mockModel(ScoutAgent)).not.toHaveBeenCalledWith({ profile: undefined });
+    expect(mockModel(ScoutAgent)).toHaveBeenCalledTimes(1);
+    expect(mockModel(ProfilerAgent)).toHaveReturned(ProfileDto, { summary: "TS" });
     expect(mockAction(ReviewDraftAction)).toHaveBeenCalledTimes(2);
     // @ts-expect-error — a misspelled field
-    expect(mockLlm(ScoutAgent)).toHaveBeenCalledWith({ profil: {} });
+    expect(mockModel(ScoutAgent)).toHaveBeenCalledWith({ profil: {} });
     // @ts-expect-error — profiler-agent does not return ShortlistDto
-    expect(mockLlm(ProfilerAgent)).toHaveReturned(ShortlistDto);
+    expect(mockModel(ProfilerAgent)).toHaveReturned(ShortlistDto);
   });
 });
 
@@ -158,7 +158,7 @@ describe("#262 AC10, AC11: toFailWith's fields; no limits option", () => {
     expect(failure).toFailWith(BudgetExceededError, { budget: { name: "tenant-daily-budget" } });
     // @ts-expect-error — a misspelled field of RouterFailedError
     expect(failure).toFailWith(RouterFailedError, { nodeID: "main-router" });
-    // @ts-expect-error — testWith has no limits option: a limit is reached through mockOf(Budget)
+    // @ts-expect-error — testWith has no limits option: a limit is reached through mockService(Budget)
     testWith(ChatApplication, { limits: { perRun: 1 } });
   });
 });

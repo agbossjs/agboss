@@ -46,9 +46,9 @@ beforeEach(() => {
 describe("#808: a request the handler decodes otherwise than it was admitted", () => {
   test("a resume of task B admitted as one of task A: -32602, B never resumed", async ({
     a2aServer,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+    mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
     const { url } = await a2aServer(listener);
     const sent = await rpc(url, "SendMessage", { message: userMessage("m-1", [text("go")]) });
     const taskB = (sent.body.result as { task: { id: string } }).task.id;

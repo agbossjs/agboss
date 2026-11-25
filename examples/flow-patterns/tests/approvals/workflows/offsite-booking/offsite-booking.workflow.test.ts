@@ -36,10 +36,14 @@ afterEach(() => {
 });
 
 describe("two purchases wait for the thread's owner at once", () => {
-  test("both pauses are pending, each question asked once", async ({ app, mockLlm, mockOf }) => {
-    const terminal = mockOf(ApprovalTerminal);
-    mockLlm(VenueBuyerAgent).thenReturn(callTool(PlacePurchaseTool, VENUE));
-    mockLlm(FlightBuyerAgent).thenReturn(callTool(PlacePurchaseTool, FLIGHTS));
+  test("both pauses are pending, each question asked once", async ({
+    app,
+    mockModel,
+    mockService,
+  }) => {
+    const terminal = mockService(ApprovalTerminal);
+    mockModel(VenueBuyerAgent).thenReturn(callTool(PlacePurchaseTool, VENUE));
+    mockModel(FlightBuyerAgent).thenReturn(callTool(PlacePurchaseTool, FLIGHTS));
 
     const paused = await app.execute(OffsiteBookingWorkflowStart, REQUEST, OWNER);
 
@@ -58,13 +62,13 @@ describe("two purchases wait for the thread's owner at once", () => {
 
   realTest(
     "both answered at once: the run goes on, each branch with its own answer",
-    async ({ app, mockLlm, mockOf }) => {
-      const terminal = mockOf(ApprovalTerminal);
-      mockLlm(VenueBuyerAgent).thenReturn(
+    async ({ app, mockModel, mockService }) => {
+      const terminal = mockService(ApprovalTerminal);
+      mockModel(VenueBuyerAgent).thenReturn(
         callTool(PlacePurchaseTool, VENUE),
         replyWith(VenueBookingDto, { venue: "Lakeside Lodge", isBooked: true }),
       );
-      mockLlm(FlightBuyerAgent).thenReturn(
+      mockModel(FlightBuyerAgent).thenReturn(
         callTool(PlacePurchaseTool, FLIGHTS),
         replyWith(FlightBookingDto, { route: "TLV → LIS", isBooked: false }),
       );
@@ -85,15 +89,15 @@ describe("two purchases wait for the thread's owner at once", () => {
 
   test("one answer pressed twice: the second gets PauseClosedError", async ({
     app,
-    mockLlm,
-    mockOf,
+    mockModel,
+    mockService,
   }) => {
-    mockOf(ApprovalTerminal);
-    mockLlm(VenueBuyerAgent).thenReturn(
+    mockService(ApprovalTerminal);
+    mockModel(VenueBuyerAgent).thenReturn(
       callTool(PlacePurchaseTool, VENUE),
       replyWith(VenueBookingDto, { venue: "Lakeside Lodge", isBooked: true }),
     );
-    mockLlm(FlightBuyerAgent).thenReturn(callTool(PlacePurchaseTool, FLIGHTS));
+    mockModel(FlightBuyerAgent).thenReturn(callTool(PlacePurchaseTool, FLIGHTS));
     const paused = await app.execute(OffsiteBookingWorkflowStart, REQUEST, OWNER);
     const answer = { pauseId: pauseIdOf(paused, "venue-buyer-agent"), decision: APPROVE };
     const first = await app.resume(answer, OWNER);
@@ -102,10 +106,13 @@ describe("two purchases wait for the thread's owner at once", () => {
     expect(first.pending.map((pause) => pause.step)).toEqual(["flight-buyer-agent"]);
   });
 
-  test("the terminal channel prints the purchase with its pause's id", async ({ app, mockLlm }) => {
+  test("the terminal channel prints the purchase with its pause's id", async ({
+    app,
+    mockModel,
+  }) => {
     const output = vi.spyOn(process.stderr, "write").mockReturnValue(true);
-    mockLlm(VenueBuyerAgent).thenReturn(callTool(PlacePurchaseTool, VENUE));
-    mockLlm(FlightBuyerAgent).thenReturn(callTool(PlacePurchaseTool, FLIGHTS));
+    mockModel(VenueBuyerAgent).thenReturn(callTool(PlacePurchaseTool, VENUE));
+    mockModel(FlightBuyerAgent).thenReturn(callTool(PlacePurchaseTool, FLIGHTS));
 
     const paused = await app.execute(OffsiteBookingWorkflowStart, REQUEST, OWNER);
 
@@ -121,13 +128,13 @@ const twoInstances = testWith(FlowPatternsApplication, { instances: 2 });
 
 twoInstances(
   "paused on one instance, answered on the other: the other finishes it",
-  async ({ apps, mockLlm, mockOf }) => {
-    mockOf(ApprovalTerminal);
-    mockLlm(VenueBuyerAgent).thenReturn(
+  async ({ apps, mockModel, mockService }) => {
+    mockService(ApprovalTerminal);
+    mockModel(VenueBuyerAgent).thenReturn(
       callTool(PlacePurchaseTool, VENUE),
       replyWith(VenueBookingDto, { venue: "Lakeside Lodge", isBooked: true }),
     );
-    mockLlm(FlightBuyerAgent).thenReturn(
+    mockModel(FlightBuyerAgent).thenReturn(
       callTool(PlacePurchaseTool, FLIGHTS),
       replyWith(FlightBookingDto, { route: "TLV → LIS", isBooked: true }),
     );

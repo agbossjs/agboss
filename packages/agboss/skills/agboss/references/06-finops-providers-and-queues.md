@@ -383,7 +383,7 @@ injected `TenantContext` reads the calling execution. Everything of the gateway 
 `complete()` unchanged: the cascade, the budgets before the call and the ledger after it, the
 `rateLimitPolicy` queue and its 429 pause, `retryPolicy`, `circuitBreakerPolicy` (readiness
 `Degraded`, its `fallback` either way between HTTP and transport providers), PII masking, the answer
-tools of a DTO agent, traces, and `mockLlm` in `testWith` (which answers above it: `complete()` is
+tools of a DTO agent, traces, and `mockModel` in `testWith` (which answers above it: `complete()` is
 never called in a scripted test).
 
 The SDK's client is a service of its own; the provider injects it:
@@ -729,8 +729,8 @@ const test = testWith(BillingApplication);
 
 const TENANT = { tenant: { tenantId: "acme", dailyBudgetUsd: 5 } } as const;
 
-test("a tool's recorded cost is in the spend", async ({ app, mockLlm }) => {
-  mockLlm(InvoiceAgent).thenReturn(
+test("a tool's recorded cost is in the spend", async ({ app, mockModel }) => {
+  mockModel(InvoiceAgent).thenReturn(
     callTool(TaxRateTool, { country: "IL" }),
     replyWith(InvoiceDraftDto, { text: "3 h × $100 + 18% VAT" }),
   );
@@ -742,11 +742,11 @@ test("a tool's recorded cost is in the spend", async ({ app, mockLlm }) => {
 
 test("a cost that exhausts the execution budget stops the agent before its next call", async ({
   app,
-  mockLlm,
-  mockOf,
+  mockModel,
+  mockService,
 }) => {
-  mockOf(InvoiceExecutionBudget).maxSpend.mockReturnValue(usd(0.0005));
-  mockLlm(InvoiceAgent).thenReturn(callTool(TaxRateTool, { country: "IL" })); // the tool records $0.001
+  mockService(InvoiceExecutionBudget).maxSpend.mockReturnValue(usd(0.0005));
+  mockModel(InvoiceAgent).thenReturn(callTool(TaxRateTool, { country: "IL" })); // the tool records $0.001
 
   const run = app.execute(InvoiceWorkflowStart, { text: "invoice Acme" }, TENANT);
 

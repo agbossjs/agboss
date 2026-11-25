@@ -9,15 +9,15 @@ const test = testWith(A2AJudgedApplication);
 describe("#1004: the A2A stream carries the answer only", () => {
   test("AC1: no judge text in the chunks; the output replaces them", async ({
     a2aServer,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(A2AWriter).thenReturn(replyWith("Good."));
-    mockLlm(A2AJudge).thenReturn(replyWith("PASS judge says"));
+    mockModel(A2AWriter).thenReturn(replyWith("Good."));
+    mockModel(A2AJudge).thenReturn(replyWith("PASS judge says"));
     const { url } = await a2aServer(judgedListener);
 
     const chunks = chunksOf(await streamed(url, "m-judge"));
 
-    expect(mockLlm(A2AJudge).requests).toHaveLength(1);
+    expect(mockModel(A2AJudge).requests).toHaveLength(1);
     expect(chunks.map((chunk) => chunk.text)).toEqual(["Good.", "Good."]);
     expect(chunks.map((chunk) => chunk.append)).toEqual([false, false]);
     expect(chunks.at(-1)?.last).toBe(true);

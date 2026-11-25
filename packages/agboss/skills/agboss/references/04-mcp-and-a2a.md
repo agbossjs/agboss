@@ -123,8 +123,8 @@ export class SearchIssuesTool {
   call, reference 05), PII masking of arguments and results at the model boundary and block rules
   that reject the call (reference 07), `SpendRecorder`, `executionContext.step.idempotencyKey`.
 - A server tool that answers plain text declares `output: PlainTextDto` (`{ text }`).
-- Tests never start the server: `mcpOf(IssuesServer).thenReturn({ search_issues: () => (…) })` in
-  `testWith`, `mcpServerStub(IssuesServer, handlers)` for a unit (reference 10).
+- Tests never start the server: `mockMcp(IssuesServer).thenReturn({ search_issues: () => (…) })` in
+  `testWith`, `testModule` or `testAgent` (reference 10).
 
 ## Calling another application over A2A
 
@@ -756,7 +756,7 @@ class NoKeysDirectory extends ApiKeyDirectory {
 
 const test = testWith(SupportApplication, { services: [NoKeysDirectory] });
 
-test("an unknown key is 401 and never runs", async ({ a2aServer, mockLlm }) => {
+test("an unknown key is 401 and never runs", async ({ a2aServer, mockModel }) => {
   const { url } = await a2aServer({ endpoint: SupportA2AEndpoint, authenticator: SupportHttpAuthenticator });
 
   // any A2A v1.0 client calls the listener; a plain JSON-RPC `SendMessage` is the smallest one
@@ -773,7 +773,7 @@ test("an unknown key is 401 and never runs", async ({ a2aServer, mockLlm }) => {
 
   expect(sent.status).toBe(401);
   expect(await sent.json()).toMatchObject({ code: "a2a.caller-unauthenticated" });
-  expect(mockLlm(SupportAgent)).toHaveBeenCalledTimes(0);
+  expect(mockModel(SupportAgent)).toHaveBeenCalledTimes(0);
 });
 ```
 

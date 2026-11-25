@@ -36,9 +36,9 @@ const screenFirst = testWith(FlowPatternsApplication, {
 describe("the first complete group by priority goes on", () => {
   legalFirst(
     "the full check answers first: its group wins, the screen is cancelled",
-    async ({ app, mockLlm }) => {
-      mockLlm(LegalCheckAgent).thenReturn(replyWith(LegalReviewDto, LEGAL));
-      mockLlm(FastScreenAgent).thenReturn(replyWith(FastScreenDto, SCREEN));
+    async ({ app, mockModel }) => {
+      mockModel(LegalCheckAgent).thenReturn(replyWith(LegalReviewDto, LEGAL));
+      mockModel(FastScreenAgent).thenReturn(replyWith(FastScreenDto, SCREEN));
 
       const result = await app.execute(IntakeWorkflowStart, ANNA);
 
@@ -52,9 +52,9 @@ describe("the first complete group by priority goes on", () => {
 
   screenFirst(
     "the full check's model is rate-limited: the quick screen's group goes on",
-    async ({ app, mockLlm }) => {
-      mockLlm(FastScreenAgent).thenReturn(replyWith(FastScreenDto, SCREEN));
-      mockLlm(LegalCheckAgent).thenReturn(failWith(ModelFailure.RateLimited));
+    async ({ app, mockModel }) => {
+      mockModel(FastScreenAgent).thenReturn(replyWith(FastScreenDto, SCREEN));
+      mockModel(LegalCheckAgent).thenReturn(failWith(ModelFailure.RateLimited));
 
       const result = await app.execute(IntakeWorkflowStart, ANNA);
 

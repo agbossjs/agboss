@@ -20,9 +20,9 @@ const ask = (question: string) => ({ customerId: "c-1", question });
 describe("the desk's trajectory, asserted as invariants", () => {
   test("a lookup, its internal note cut by the interceptor; no account closed", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(DeskAgent).thenReturn(
+    mockModel(DeskAgent).thenReturn(
       callTool(OrderStatusTool, { orderId: "7" }),
       replyWith("Order 7 shipped on Monday."),
     );
@@ -42,9 +42,9 @@ describe("the desk's trajectory, asserted as invariants", () => {
 
   test("an archived order is answered by the interceptor, not the tool; the model goes on", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(DeskAgent).thenReturn(
+    mockModel(DeskAgent).thenReturn(
       callTool(OrderStatusTool, { orderId: "A-12" }),
       replyWith("That order is archived — do you have a recent one?"),
     );
@@ -59,9 +59,9 @@ describe("the desk's trajectory, asserted as invariants", () => {
 
   test("invalid arguments are refused before the tool, and the model tries again", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(DeskAgent).thenReturn(
+    mockModel(DeskAgent).thenReturn(
       callToolWithInvalidArguments(OrderStatusTool, { orderId: 7 }),
       callTool(OrderStatusTool, { orderId: "7" }),
       replyWith("Order 7 shipped on Monday."),
@@ -79,9 +79,9 @@ describe("the desk's trajectory, asserted as invariants", () => {
 describe("what the desk refuses", () => {
   test("closing an account: the interceptor blocks it and the step fails", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(DeskAgent).thenReturn(callTool(CloseAccountTool, { customerId: "c-1" }));
+    mockModel(DeskAgent).thenReturn(callTool(CloseAccountTool, { customerId: "c-1" }));
 
     await expect(app.execute(DeskWorkflowStart, ask("Close my account"))).rejects.toFailWith(
       ToolBlockedError,
@@ -99,9 +99,9 @@ describe("what the desk refuses", () => {
 
   test("a promised date in the answer: blocked as it leaves the agent", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(DeskAgent).thenReturn(replyWith("We guarantee delivery on Friday."));
+    mockModel(DeskAgent).thenReturn(replyWith("We guarantee delivery on Friday."));
 
     await expect(app.execute(DeskWorkflowStart, ask("When will #7 arrive?"))).rejects.toFailWith(
       GuardrailBlockedError,
@@ -112,10 +112,10 @@ describe("what the desk refuses", () => {
 
 test("past the two-turn window, older turns become case notes (a custom compaction)", async ({
   app,
-  mockLlm,
+  mockModel,
 }) => {
   const threadId = "desk-thread";
-  mockLlm(DeskAgent).thenReturn(
+  mockModel(DeskAgent).thenReturn(
     ...[1, 2, 3, 4].map((turn) => replyWith(`Answer ${String(turn)}.`)),
   );
 

@@ -90,9 +90,9 @@ const items = (...names: readonly string[]) =>
 describe("#520 M2: the lease rows of AnyWorker children on SQLite", () => {
   test("answered: released = 3 at once; paused: released = 1 until its end finishes it; the root's never 3 — and a restart takes no finished child's lease", async ({
     apps,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ItemReviewerAgent).thenAnswer(reviewer);
+    mockModel(ItemReviewerAgent).respondWith(reviewer);
     const [a, b] = apps;
     if (a === undefined || b === undefined) throw new Error("the test runs two instances");
     for (const app of apps) await app.ready();

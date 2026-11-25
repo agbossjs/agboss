@@ -43,9 +43,9 @@ const toolResultsOf = (request: ModelRequest | undefined): readonly string[] =>
 describe("#712 AC1 / AC2: the agent's question call pauses like any pause", () => {
   test("AC2: result.pending lists the question with its masked ask; nothing else ran", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(BuyerAgent).thenReturn(callTool(ApproverExternalTask, laptop));
+    mockModel(BuyerAgent).thenReturn(callTool(ApproverExternalTask, laptop));
 
     const paused = await execute(app, BuyerWorkflowStart, { text: "buy a laptop" }, asking);
 
@@ -87,9 +87,9 @@ describe("#712 AC1 / AC2: the agent's question call pauses like any pause", () =
 
   test("AC1 / AC3: the typed answer is the call's result; the model orders within it", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(BuyerAgent).thenReturn(
+    mockModel(BuyerAgent).thenReturn(
       callTool(ApproverExternalTask, laptop),
       callTool(OrderTool, { item: "laptop", limitUsd: 950 }),
       replyWith("ordered within 950"),
@@ -102,7 +102,7 @@ describe("#712 AC1 / AC2: the agent's question call pauses like any pause", () =
     );
 
     expect(done).toFinishWith(BuyerWorkflowFinish, { text: "ordered within 950" });
-    const [, afterAnswer] = mockLlm(BuyerAgent).requests;
+    const [, afterAnswer] = mockModel(BuyerAgent).requests;
     const [result = ""] = toolResultsOf(afterAnswer);
     expect(JSON.parse(result)).toMatchObject({ approved: true, limitUsd: 950 });
     // the approver's e-mail is `sensitive` in the answer DTO: the model reads it masked
@@ -118,8 +118,8 @@ describe("#712 AC1 / AC2: the agent's question call pauses like any pause", () =
 
   ruled(
     "AC2: a channel's decided(answer) goes on at once, nothing pending",
-    async ({ app, mockLlm }) => {
-      mockLlm(BuyerAgent).thenReturn(
+    async ({ app, mockModel }) => {
+      mockModel(BuyerAgent).thenReturn(
         callTool(ApproverExternalTask, { item: "mouse", priceUsd: 40 }),
         replyWith("approved up to 100"),
       );
@@ -127,7 +127,7 @@ describe("#712 AC1 / AC2: the agent's question call pauses like any pause", () =
       const done = await execute(app, BuyerWorkflowStart, { text: "buy a mouse" }, asking);
 
       expect(done).toFinishWith(BuyerWorkflowFinish, { text: "approved up to 100" });
-      const [, afterAnswer] = mockLlm(BuyerAgent).requests;
+      const [, afterAnswer] = mockModel(BuyerAgent).requests;
       expect(JSON.parse(toolResultsOf(afterAnswer)[0] ?? "")).toEqual({
         approved: true,
         limitUsd: 100,
@@ -139,9 +139,9 @@ describe("#712 AC1 / AC2: the agent's question call pauses like any pause", () =
 describe("#712 AC3: the answer is validated as the role's answer DTO", () => {
   test("AC3: an invalid decision is DtoValidationError and the pause stays pending", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(BuyerAgent).thenReturn(callTool(ApproverExternalTask, laptop), replyWith("ordered"));
+    mockModel(BuyerAgent).thenReturn(callTool(ApproverExternalTask, laptop), replyWith("ordered"));
     const paused = await execute(app, BuyerWorkflowStart, { text: "buy a laptop" }, asking);
     const pauseId = paused.pending[0]?.pauseId ?? "";
 
@@ -162,9 +162,9 @@ describe("#712 AC3: the answer is validated as the role's answer DTO", () => {
 
   test("AC3: a reply read by the interpreter resumes; one it does not understand keeps it pending", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(BuyerAgent).thenReturn(callTool(ApproverExternalTask, laptop), replyWith("declined"));
+    mockModel(BuyerAgent).thenReturn(callTool(ApproverExternalTask, laptop), replyWith("declined"));
     const paused = await execute(app, BuyerWorkflowStart, { text: "buy a laptop" }, asking);
     const pauseId = paused.pending[0]?.pauseId ?? "";
 
@@ -178,7 +178,7 @@ describe("#712 AC3: the answer is validated as the role's answer DTO", () => {
 
     const done = await app.resume({ pauseId, reply: "no, not now" }, owner);
     expect(done).toFinishWith(BuyerWorkflowFinish, { text: "declined" });
-    const [, afterAnswer] = mockLlm(BuyerAgent).requests;
+    const [, afterAnswer] = mockModel(BuyerAgent).requests;
     expect(JSON.parse(toolResultsOf(afterAnswer)[0] ?? "")).toEqual({
       approved: false,
       limitUsd: 0,

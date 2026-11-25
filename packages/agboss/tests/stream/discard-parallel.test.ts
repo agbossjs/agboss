@@ -42,13 +42,13 @@ function lines(events: readonly ExecutionStreamEvent[]): string[] {
 describe("#1006: parallel children", () => {
   fan(
     "AC1: two children, the first retried: the steps differ by branch, attempts count apart",
-    async ({ app, mockLlm }) => {
-      mockLlm(ChildWriter).thenReturn(
+    async ({ app, mockModel }) => {
+      mockModel(ChildWriter).thenReturn(
         replyWith("BAD zero."),
         replyWith("Good zero."),
         replyWith("One."),
       );
-      mockLlm(FlowJudge).thenReturn(replyWith("FAIL"), replyWith("PASS"), replyWith("PASS"));
+      mockModel(FlowJudge).thenReturn(replyWith("FAIL"), replyWith("PASS"), replyWith("PASS"));
       const events: ExecutionStreamEvent[] = [];
 
       const done = await execute(app, FanStart, [{ text: "a" }, { text: "b" }], {
@@ -76,11 +76,11 @@ describe("#1006: parallel children", () => {
 describe("#1006: a parallel launch and the agent after it", () => {
   flow(
     "AC1: the branches stream nothing; the closing agent is its own step",
-    async ({ app, mockLlm }) => {
-      mockLlm(LaunchShape).thenReturn(replyWith(ShapeDto, { shape: "round" }));
-      mockLlm(LaunchColor).thenReturn(replyWith(ColorDto, { color: "red" }));
-      mockLlm(ShapeJudge).thenReturn(replyWith("PASS"));
-      mockLlm(Closer).thenReturn(replyWith("Done."));
+    async ({ app, mockModel }) => {
+      mockModel(LaunchShape).thenReturn(replyWith(ShapeDto, { shape: "round" }));
+      mockModel(LaunchColor).thenReturn(replyWith(ColorDto, { color: "red" }));
+      mockModel(ShapeJudge).thenReturn(replyWith("PASS"));
+      mockModel(Closer).thenReturn(replyWith("Done."));
       const events: ExecutionStreamEvent[] = [];
 
       const done = await execute(

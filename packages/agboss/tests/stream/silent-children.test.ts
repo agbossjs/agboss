@@ -14,28 +14,28 @@ const test = testWith(StreamChildrenApplication);
 describe("#1004: child workflows", () => {
   test("AC1: a child workflow's agent streams its answer, its judge nothing", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ChildWriter).thenReturn(replyWith("From the child."));
-    mockLlm(FlowJudge).thenReturnAlways(replyWith("PASS: INTERNAL"));
+    mockModel(ChildWriter).thenReturn(replyWith("From the child."));
+    mockModel(FlowJudge).thenReturnAlways(replyWith("PASS: INTERNAL"));
     const events: ExecutionStreamEvent[] = [];
 
     await execute(app, OnceStart, { text: "Q" }, { onStream: (event) => events.push(event) });
 
-    expect(mockLlm(FlowJudge).requests).toHaveLength(1);
+    expect(mockModel(FlowJudge).requests).toHaveLength(1);
     expect(deltas(events)).toEqual(["CANARY", "From the child."]);
   });
 
-  test("AC1: parallel children: every answer once, no judge", async ({ app, mockLlm }) => {
-    mockLlm(ChildWriter).thenReturn(replyWith("One."), replyWith("Two."));
-    mockLlm(FlowJudge).thenReturnAlways(replyWith("PASS: INTERNAL"));
+  test("AC1: parallel children: every answer once, no judge", async ({ app, mockModel }) => {
+    mockModel(ChildWriter).thenReturn(replyWith("One."), replyWith("Two."));
+    mockModel(FlowJudge).thenReturnAlways(replyWith("PASS: INTERNAL"));
     const events: ExecutionStreamEvent[] = [];
 
     await execute(app, FanStart, [{ text: "a" }, { text: "b" }], {
       onStream: (event) => events.push(event),
     });
 
-    expect(mockLlm(FlowJudge).requests).toHaveLength(2);
+    expect(mockModel(FlowJudge).requests).toHaveLength(2);
     expect(canaries(events)).toBe(2);
     expect(
       deltas(events)

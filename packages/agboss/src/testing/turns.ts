@@ -4,7 +4,7 @@ import type { ModelFailure } from "../models/model-failure.js";
 import type { Milliseconds, Usd } from "../units/index.js";
 
 /**
- * The turns a script holds (`mockLlm(X).thenReturn(…)`): what one model call answers. Each is a
+ * The turns a script holds (`mockModel(X).thenReturn(…)`): what one model call answers. Each is a
  * named shape; the answer and route turns carry, at the type level only, what they give — so
  * `thenReturn` checks them against the generated `ProducerOutputOf<Agent>` / `RouterAnswerOf<Router>`
  * (#262 AC8). At run time only `kind` and the data matter.

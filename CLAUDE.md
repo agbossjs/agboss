@@ -229,7 +229,7 @@ compaction, code guardrails, a tool interceptor — on a transport model provide
 request, and the operational contracts — a code judge on `toolCalls`, a `@Rag`, a `PiiPolicyHandler`,
 an observer, a `@HealthCheck`, `maxConcurrentSteps` —, served over A2A (`@A2AEndpoint`, an `@HttpAuthenticator`) to `src/helpline/`, its consumer through an `@A2AAgent` contract (`a2aServer` in
 `tests/desk/a2a/desk.a2a-expose.test.ts`, #398) that also reads policies through a stubbed `@McpServer` /
-`@Tool` (`mcpOf`), and an
+`@Tool` (`mockMcp`), and an
 `@EvalSuite` with a code eval judge (#396); `src/intake/` a quorum by groups (`joinQuorumGroups`,
 tested under `TestConcurrency.inOrder` and `failWith(ModelFailure.RateLimited)`); the review loop's
 reviewer reads `historyOf(OfferDraftDto)`; `tests/approvals/workflows/offsite-booking/offsite-booking.workflow.test.ts` resumes a pause on a second
@@ -551,9 +551,9 @@ import { ChatWorkflowFinish } from "../src/desk/workflow-finishes/chat.workflow-
 
 const test = testWith(DeskApplication); // the only form: testWith(DeskWorkflow) does not compile
 
-test("an order question goes to support, which looks the order up", async ({ app, mockLlm }) => {
-  mockLlm(MainRouter).thenReturn(routeTo(SupportAgent));
-  mockLlm(SupportAgent).thenReturn(
+test("an order question goes to support, which looks the order up", async ({ app, mockModel }) => {
+  mockModel(MainRouter).thenReturn(routeTo(SupportAgent));
+  mockModel(SupportAgent).thenReturn(
     callTool(OrderStatus, { orderId: "7" }),
     replyWith("Order 7 has shipped."),
   );
@@ -564,14 +564,14 @@ test("an order question goes to support, which looks the order up", async ({ app
   expect(result).toFinishWith(ChatWorkflowFinish, { text: "Order 7 has shipped." });
 });
 
-test("a service is replaced by a mock", async ({ app, mockLlm, mockOf }) => {
-  mockOf(OrderBook).statusOf.mockResolvedValue("order 7 lost");
-  mockLlm(MainRouter).thenReturn(routeTo(SupportAgent));
-  mockLlm(SupportAgent).thenReturn(callTool(OrderStatus, { orderId: "7" }), replyWith("Lost."));
+test("a service is replaced by a mock", async ({ app, mockModel, mockService }) => {
+  mockService(OrderBook).statusOf.mockResolvedValue("order 7 lost");
+  mockModel(MainRouter).thenReturn(routeTo(SupportAgent));
+  mockModel(SupportAgent).thenReturn(callTool(OrderStatus, { orderId: "7" }), replyWith("Lost."));
 
   await app.execute(ChatWorkflowStart, { text: "where is order 7?" });
 
-  expect(mockOf(OrderBook).statusOf.mock.calls).toEqual([["7"]]);
+  expect(mockService(OrderBook).statusOf.mock.calls).toEqual([["7"]]);
 });
 ```
 
@@ -814,7 +814,7 @@ workflows: { placement } } })`, else `CurrentProcess`; `OtherWorker` is never cl
   join decides from the records only: the counted answers (the winning group's own path), or
   `QuorumNotReachedError` (`step.quorum`) into `.onError(…)`; an arbiter that throws or whose
   model does not answer is `ArbiterError` (`step.arbiter`), both `StepFailedError`s. A model
-  arbiter makes one decision per answer under `arbiter:<name>` (tests: `mockLlm(Arbiter)
+  arbiter makes one decision per answer under `arbiter:<name>` (tests: `mockModel(Arbiter)
 .thenReturn(decideWith({ counts: 0.9 }))`; a code arbiter is created by the container).
   `result.launches` (`isQuorumReached`, `group`, each branch's verdict) and
   `onQuorumDecided` (`QuorumDecidedEvent`) show it. `agboss generate arbiter <name>-arbiter
@@ -1822,7 +1822,7 @@ IdempotencyRunEventOutcome` — `Ran` / `Replayed` / `Joined` / `Refused` —, `
   `summaryQueueLength` for a queue); `[memory.not-a-memory]`, `[memory.invalid-setting]`,
   `[memory.uncompacted-turns-invalid]`, `[memory.conflicting-compaction]` at assembly; `agboss describe`:
   `strategy: custom (GraphMemory.compact())`, the class in `configHash`. Tests:
-  `mockLlm(ConversationMemory).thenReturn(replyWith("…"))` (`{ truncated: true }` = cut at the limit) —
+  `mockModel(ConversationMemory).thenReturn(replyWith("…"))` (`{ truncated: true }` = cut at the limit) —
   unscripted, a fixed summary; `testUnit(Memory)` runs one compaction on its own.
 
 ```ts
@@ -2149,7 +2149,7 @@ export class OrderAgent {}
   none (its own list: `[guardrail.no-model-call]`); a child workflow gets its own workflow's lists
   over the application's. Spend `guardrail:<name>` (category `guardrails`); events `onGuardrailStart`
   (`side`, `component` — a `ComponentRecord` —, `text`) / `onGuardrailEnd` (`isBlocked`, `probability`). Tests:
-  `mockLlm(G).thenReturn(decideWith({ blocks: 0.9 }))` — unscripted, a guardrail passes. **Code
+  `mockModel(G).thenReturn(decideWith({ blocks: 0.9 }))` — unscripted, a guardrail passes. **Code
   guardrails (#383):** a guardrail that sets no `prompt` / `model` / `threshold` (`@InputGuardrail()`; a
   `model` or a `prompt` without `threshold` does not compile, `decidedBy` is gone) decides by the
   class's `check(content)` (`GuardrailContent`: masked `text` with the text of text files appended, `files` — `[]` when none —, `component` — a `ComponentRecord` —, `side`) returning
@@ -2318,7 +2318,7 @@ judges (#396):** a `@Judge` with no `JudgeModel` in its `deps` (no `DecidedBy`; 
 compile only with `JudgeModel` in `deps` — then a hybrid, `model` left out = its provider's default role) decides by its `judge(input)` alone — no model call, cost 0, its services and the
 execution through `deps`; a `model` without `JudgeModel` is `[judge.model-on-code-judge]` at
 assembly (a `JudgeModel` reached through a service throws it when called); `WorkflowFinishTextDto extends PlainTextDto`, so one `PlainTextDto` judge serves a text agent and a text finish; it works in an agent's
-quality gate beside model judges, `mockLlm(CodeJudge)` names why it has no script, `testUnit(J)`
+quality gate beside model judges, `mockModel(CodeJudge)` names why it has no script, `testUnit(J)`
 takes no `model` (one is a `TestSetupError`). A model judge whose model has its judged agent's vendor prefix (`openai` of
 `openai/gpt-6`; a suite's judge: any agent of its start's workflow) warns `[judge.same-model-family]`
 (an error under `--strict`, #396 PR 5). **Eval suites (#396 PR 1, `@agboss/core/eval`):**
@@ -2946,8 +2946,8 @@ typeof X.code;` — so `switch (error.code)` over a union of errors narrows
   application or workflow that names none is `[model.missing-provider]` — the test app names `modelProvider: TestModelProvider` (a decisions
   component, `TestDecisionsModelProvider`) or its production providers (the worked example's: its script answers before
   a provider is reached, and no key is read); `app` is built on first use (`await app.ready()` for a test that
-  executes nothing). Vitest fixtures `app`, `mockLlm`, `mockAction`, `mockTool`, `mockOf` (budgets
-  too), `mcpOf`,
+  executes nothing). Vitest fixtures `app`, `mockModel`, `mockAction`, `mockTool`, `mockService` (budgets
+  too), `mockMcp`,
   `recoverApp`, `clock` — the test's `VirtualClock` (`@agboss/core/testing`), the application's `Clock`
   in every test whatever it lists: fixed at `2026-01-05T09:00:00Z`, moved only by
   `await clock.advance(seconds(31))` (or `"25h"`), which first lets the work already started reach its
@@ -2973,7 +2973,7 @@ typeof X.code;` — so `switch (error.code)` over a union of errors narrows
   `routeTo(...targets)` (`Route<R>`: exactly one target after `.onRoute(…)`, the launched ones in
   `toRouter(R).chooseMany([…])`, `routeTo()` for none), `decideWith(answers)` (a decision judge),
   `failWith(ModelFailure.Timeout)`, `waitFor(seconds(31))` (the next turn after that long on the
-  clock); the network is blocked. `mockLlm(X).when(PartialValues<InputOf<X>>)` binds turns to the
+  clock); the network is blocked. `mockModel(X).when(PartialValues<InputOf<X>>)` binds turns to the
   input values (agents, model routers and chat-model reply interpreters — `{ ask, reply }`, #267; a
   decision-model interpreter answers `decideWith({ approved: 0.9 })`;
   `undefined` = absent, lists by length and position,
@@ -2984,7 +2984,7 @@ typeof X.code;` — so `switch (error.code)` over a union of errors narrows
   `rejects.toFailWith(ErrorClass, { …fields, cause })` (through the cause chain), for child workflows
   (#263) `toHaveChildExecutions(W, [{ item, finish | failedWith | cancelled }, …])` and
   `toHaveHandledError(E, { at, by })`, and the call
-  matchers on `mockLlm(X)` / `mockAction(A)` (the action runs): `.inputs`,
+  matchers on `mockModel(X)` / `mockAction(A)` (the action runs): `.inputs`,
   `toHaveBeenCalledWith(partial)`, `toHaveBeenCalledTimes(n)`, `toHaveReturned(XDto, fields?)` —
   Vitest's own on anything else. The project's `vitest.config.ts` wraps its `test` options in
   `agbossVitest()` (`@agboss/core/testing/vitest`, #497): `server.deps.inline` gains `/@agboss\//`
@@ -2997,8 +2997,8 @@ typeof X.code;` — so `switch (error.code)` over a union of errors narrows
   `W`; `npm run check:packed` (CI's `packed-project` job) proves both on the packed tarballs in a
   project of its own — and that the packages ship the `src/` their source maps name (#645: no
   "points to missing source files", a stack trace inside the core names lines of the package). Errors only the real way:
-  `failWith`, a rejecting `mockOf`, `mockTool(Tool).thenFail(ToolFailure.Timeout)`, scripts that
-  reach a limit (a budget: `mockOf(Budget).maxSpend` + a scripted cost), `app.cancel` / `signal`.
+  `failWith`, a rejecting `mockService`, `mockTool(Tool).thenFail(ToolFailure.Timeout)`, scripts that
+  reach a limit (a budget: `mockService(Budget).maxSpend` + a scripted cost), `app.cancel` / `signal`.
 - A recorded run instead of scripts: `testWith(App, { vcr: { cassetteName, dir, mode: VcrMode.Replay } })`
   — an unrecorded call throws `CassetteMissingError` (REPLAY by default under `CI`). Recording builds
   the providers' gateway as `createApp` does (#439: `BuildOptions.gatewayOverProviders`, internal — the

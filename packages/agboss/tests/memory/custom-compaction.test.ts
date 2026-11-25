@@ -69,11 +69,11 @@ describe("#382: compact() is called with the turns due and the previous summarie
 
   test("every 2 turns older than the window, before the next turn, in its execution's frame", async ({
     app,
-    mockLlm,
-    mockOf,
+    mockModel,
+    mockService,
   }) => {
-    mockLlm(GraphAgent).thenReturnAlways(replyWith("ok"));
-    const graph = mockOf(KnowledgeGraphService);
+    mockModel(GraphAgent).thenReturnAlways(replyWith("ok"));
+    const graph = mockService(KnowledgeGraphService);
     graph.saveFactsAndSummarize
       .mockResolvedValueOnce(["t1 and t2"])
       .mockResolvedValueOnce(["t1 and t2", "t3 and t4"]);
@@ -112,13 +112,13 @@ describe("#382: compact() is called with the turns due and the previous summarie
 
   test("its summaries are stored and read: a reader sees the list compact() gave last", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(GraphAgent).thenReturnAlways(replyWith("ok"));
+    mockModel(GraphAgent).thenReturnAlways(replyWith("ok"));
 
     await conversation(app, 6);
 
-    const last = textOf(mockLlm(GraphAgent).lastRequest);
+    const last = textOf(mockModel(GraphAgent).lastRequest);
     expect(last).toContain('[1] fact: {"text":"t1"}');
     expect(last).toContain('[4] fact: {"text":"t4"}');
     expect(last).not.toContain('start graph-workflow-start: {"text":"t2"}');
@@ -128,9 +128,9 @@ describe("#382: compact() is called with the turns due and the previous summarie
 describe("#382: a custom compaction is tested through its services", () => {
   const test = testWith(GraphDeskApplication);
 
-  test("mockLlm of it is a setup error: it calls no model", async ({ mockLlm }) => {
-    expect(() => mockLlm(GraphMemory)).toThrow(
-      "mockLlm(GraphMemory): a custom compaction calls no model — mockOf() it, or the services its compact() uses",
+  test("mockModel of it is a setup error: it calls no model", async ({ mockModel }) => {
+    expect(() => mockModel(GraphMemory)).toThrow(
+      "mockModel(GraphMemory): a custom compaction calls no model — mockService() it, or the services its compact() uses",
     );
   });
 });
@@ -140,11 +140,11 @@ describe("#382: compact() reads its input masked; no raw value is stored", () =>
 
   test("a token for compact(), no raw address stored, and a reader that excludes the policy reads the mask", async ({
     app,
-    mockLlm,
-    mockOf,
+    mockModel,
+    mockService,
   }) => {
-    mockLlm(GraphAgent).thenReturnAlways(replyWith("written"));
-    const graph = mockOf(KnowledgeGraphService);
+    mockModel(GraphAgent).thenReturnAlways(replyWith("written"));
+    const graph = mockService(KnowledgeGraphService);
     graph.saveFactsAndSummarize.mockImplementation((_threadId, turns: readonly CompactionTurn[]) =>
       Promise.resolve([`the user wrote ${JSON.stringify(turns[0]?.input)}`]),
     );
@@ -156,7 +156,7 @@ describe("#382: compact() reads its input masked; no raw value is stored", () =>
     expect(seen).not.toContain("alice@example.com");
     expect(seen).toMatch(/<email:[0-9a-f]+>/u);
     // the turn lines are stored masked (#1301): the reader that excludes the policy reads the mask, never the address
-    const reader = textOf(mockLlm(GraphAgent).lastRequest);
+    const reader = textOf(mockModel(GraphAgent).lastRequest);
     expect(reader).not.toContain("alice@example.com");
     expect(reader).toMatch(/the user wrote \{"text":"write to <email:[0-9a-f]+>"\}/u);
   });
@@ -167,9 +167,13 @@ class GraphUnavailableError extends Error {}
 describe("#382: a compact() that fails fails the new execution — StepError.Memory", () => {
   const test = testWith(GraphDeskApplication);
 
-  test("its error is the cause; nothing of the new turn runs", async ({ app, mockLlm, mockOf }) => {
-    mockLlm(GraphAgent).thenReturn(replyWith("ok"), replyWith("ok"), replyWith("ok"));
-    mockOf(KnowledgeGraphService).saveFactsAndSummarize.mockRejectedValue(
+  test("its error is the cause; nothing of the new turn runs", async ({
+    app,
+    mockModel,
+    mockService,
+  }) => {
+    mockModel(GraphAgent).thenReturn(replyWith("ok"), replyWith("ok"), replyWith("ok"));
+    mockService(KnowledgeGraphService).saveFactsAndSummarize.mockRejectedValue(
       new GraphUnavailableError("graph unavailable"),
     );
     const [first] = await conversation(app, 3);
@@ -182,9 +186,9 @@ describe("#382: a compact() that fails fails the new execution — StepError.Mem
     });
   });
 
-  test("no summaries is not a summary", async ({ app, mockLlm, mockOf }) => {
-    mockLlm(GraphAgent).thenReturn(replyWith("ok"), replyWith("ok"), replyWith("ok"));
-    mockOf(KnowledgeGraphService).saveFactsAndSummarize.mockResolvedValue([]);
+  test("no summaries is not a summary", async ({ app, mockModel, mockService }) => {
+    mockModel(GraphAgent).thenReturn(replyWith("ok"), replyWith("ok"), replyWith("ok"));
+    mockService(KnowledgeGraphService).saveFactsAndSummarize.mockResolvedValue([]);
     const [first] = await conversation(app, 3);
 
     await expect(

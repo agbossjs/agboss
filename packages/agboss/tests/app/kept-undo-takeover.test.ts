@@ -28,9 +28,11 @@ const pair = testWith(KeptUndoApplication, { instances: 2 });
 beforeEach(resetKeptUndo);
 
 describe("#635: the pass that fails is the new holder's", () => {
-  pair("its record lists the room and the seat undone", async ({ apps, clock, mockOf }) => {
-    mockOf(UndoDesk).reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
-    const gate = mockOf(UnwindGate);
+  pair("its record lists the room and the seat undone", async ({ apps, clock, mockService }) => {
+    mockService(UndoDesk).reserve.mockImplementation((kind: string) =>
+      Promise.resolve(`${kind}-1`),
+    );
+    const gate = mockService(UnwindGate);
     gate.wait.mockImplementationOnce(heldUntilAborted).mockRejectedValue(new UndoDeskError("down"));
     const [first, second] = [instance(apps, 0), instance(apps, 1)];
     await first.ready();

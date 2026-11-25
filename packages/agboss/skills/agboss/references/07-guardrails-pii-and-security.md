@@ -553,10 +553,10 @@ it("a model reads a token, its answer gets the address back", async () => {
 A code guardrail runs its `check(content)` on its own container — no `model` option (one is a
 `TestSetupError`): `testUnit(TenantBlocklistGuardrail, { tenant: { tenantId: "acme" } })("…")`
 → `{ isBlocked: true, probability: 1, refusal }` or `{ isBlocked: false, probability: 0 }`; in
-`testWith(App)` it is not scripted (`mockLlm` of it names why) — `mockOf()` the services its `check`
+`testWith(App)` it is not scripted (`mockModel` of it names why) — `mockService()` the services its `check`
 uses.
 
-In `testWith(App)` an unscripted model guardrail passes; `mockLlm(LegalAdviceGuardrail).thenReturn(decideWith({ blocks: 0.9 }))`
+In `testWith(App)` an unscripted model guardrail passes; `mockModel(LegalAdviceGuardrail).thenReturn(decideWith({ blocks: 0.9 }))`
 blocks, and `rejects.toFailWith(GuardrailBlockedError, { guard: "legal-advice-guardrail" })`
 asserts it. A policy's `secret` or the storage's `piiSecret` whose variable is unset gets a fixed test key.
 

@@ -20,9 +20,9 @@ const FILE = { [A2A_SKILLS_EXTENSION]: { skill: "quote-file-workflow-start" } };
 describe("#860 AC2: a direct reply on the wire", () => {
   test("AC2: the official SDK client's sendMessage gets a Message, a resend the same one", async ({
     a2aServer,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(QuoteAgent).thenReturn(replyWith("12.50 EUR."));
+    mockModel(QuoteAgent).thenReturn(replyWith("12.50 EUR."));
     const { url } = await a2aServer(listener);
     const client = await sdkClientOf(url);
     const request = { tenant: "", message: textMessage("m-1", "price?", { metadata: QUOTE }) };
@@ -42,14 +42,14 @@ describe("#860 AC2: a direct reply on the wire", () => {
     if (!("messageId" in answer)) return;
     expect(answer.parts[0]?.content).toEqual({ $case: "text", value: "12.50 EUR." });
     expect(again).toEqual(answer);
-    expect(mockLlm(QuoteAgent).requests).toHaveLength(1);
+    expect(mockModel(QuoteAgent).requests).toHaveLength(1);
   });
 
   test("AC2: SendStreamingMessage is one frame — the message — and the stream ends", async ({
     a2aServer,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(QuoteAgent).thenReturn(replyWith("12.50 EUR."));
+    mockModel(QuoteAgent).thenReturn(replyWith("12.50 EUR."));
     const { url } = await a2aServer(listener);
 
     const { contentType, events } = await sseEvents(url, "SendStreamingMessage", {
@@ -65,9 +65,9 @@ describe("#860 AC2: a direct reply on the wire", () => {
 
   test("AC2: the SDK client's stream of a direct reply yields the message alone", async ({
     a2aServer,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(QuoteAgent).thenReturn(replyWith("12.50 EUR."));
+    mockModel(QuoteAgent).thenReturn(replyWith("12.50 EUR."));
     const { url } = await a2aServer(listener);
     const client = await sdkClientOf(url);
 

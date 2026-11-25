@@ -24,9 +24,9 @@ const shown = (events: readonly ExecutionStreamEvent[]): string =>
 describe("#1311b: a held stream carries the masked answer", () => {
   test("an email in the answer is masked in the stream, whole, after the checks passed", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(MaskedHeldAgent).thenReturn(replyWith("Write to ann@example.com today."));
+    mockModel(MaskedHeldAgent).thenReturn(replyWith("Write to ann@example.com today."));
     const events: ExecutionStreamEvent[] = [];
 
     await execute(app, MaskedHeldStart, { text: "Q" }, { onStream: (event) => events.push(event) });
@@ -37,9 +37,9 @@ describe("#1311b: a held stream carries the masked answer", () => {
 
   test("an answer the policies did not change goes out as the model wrote it", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(PlainHeldAgent).thenReturn(replyWith("Nothing private here."));
+    mockModel(PlainHeldAgent).thenReturn(replyWith("Nothing private here."));
     const events: ExecutionStreamEvent[] = [];
 
     await execute(app, PlainHeldStart, { text: "Q" }, { onStream: (event) => events.push(event) });

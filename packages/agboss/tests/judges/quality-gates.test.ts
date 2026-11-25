@@ -33,45 +33,47 @@ describe("quality gates of an agent", () => {
 
   test("a reply the judge passes is the answer; the judge used its own model with its deps", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Writer).thenReturn(replyWith("Acme is hiring a TS engineer."));
-    mockLlm(Grounded).thenReturn(replyWith("PASS"));
+    mockModel(Writer).thenReturn(replyWith("Acme is hiring a TS engineer."));
+    mockModel(Grounded).thenReturn(replyWith("PASS"));
 
     const result = await execute(app, TaskStart, { text: "find a TS job" });
 
     expect(result.status).toBe(ExecutionStatus.Finished);
     expect(result.output).toEqual({ text: "Acme is hiring a TS engineer." });
-    expect(mockLlm(Writer).requests).toHaveLength(1);
-    const asked = textsOf(mockLlm(Grounded).onlyRequest).join("\n");
+    expect(mockModel(Writer).requests).toHaveLength(1);
+    const asked = textsOf(mockModel(Grounded).onlyRequest).join("\n");
     expect(asked).toContain("Is the reply grounded in the task?");
     expect(asked).toContain("Reply: Acme is hiring a TS engineer.");
   });
 
   test("a rejected reply is retried with the judge's reason in the agent's next model call", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Writer)
+    mockModel(Writer)
       .thenReturn(replyWith("Some job somewhere."))
       .thenReturn(replyWith("Acme is hiring a TS engineer."));
-    mockLlm(Grounded).thenReturn(replyWith("FAIL: names no company")).thenReturn(replyWith("PASS"));
+    mockModel(Grounded)
+      .thenReturn(replyWith("FAIL: names no company"))
+      .thenReturn(replyWith("PASS"));
 
     const result = await execute(app, TaskStart, { text: "find a TS job" });
 
     expect(result.status).toBe(ExecutionStatus.Finished);
     expect(result.output).toEqual({ text: "Acme is hiring a TS engineer." });
-    const [first, second] = mockLlm(Writer).requests;
+    const [first, second] = mockModel(Writer).requests;
     expect(textsOf(first).join("\n")).not.toContain("names no company");
     expect(textsOf(second).at(-1)).toContain("[grounded] names no company");
   });
 
   test("AC1: a judge that always rejects ends the run with QualityGateError carrying its reason", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Writer).thenReturnAlways(replyWith("Some job somewhere."));
-    mockLlm(Grounded).thenReturnAlways(replyWith("FAIL: names no company"));
+    mockModel(Writer).thenReturnAlways(replyWith("Some job somewhere."));
+    mockModel(Grounded).thenReturnAlways(replyWith("FAIL: names no company"));
 
     const run = execute(app, TaskStart, { text: "find a TS job" });
 
@@ -83,16 +85,16 @@ describe("quality gates of an agent", () => {
       rejections: [{ judge: "grounded", reason: "names no company" }],
     });
     // the first reply and its one retry (maxRetries: 1), each judged
-    expect(mockLlm(Writer).requests).toHaveLength(2);
-    expect(mockLlm(Grounded).requests).toHaveLength(2);
+    expect(mockModel(Writer).requests).toHaveLength(2);
+    expect(mockModel(Grounded).requests).toHaveLength(2);
   });
 
   test("AC2: judge calls are in the run's cost report under the judge's own model", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Writer).thenReturnAlways(replyWith("Acme is hiring.", { cost: usd(0.002) }));
-    mockLlm(Grounded)
+    mockModel(Writer).thenReturnAlways(replyWith("Acme is hiring.", { cost: usd(0.002) }));
+    mockModel(Grounded)
       .thenReturn(replyWith("FAIL: too short", { cost: usd(0.0005) }))
       .thenReturn(replyWith("PASS", { cost: usd(0.0005) }));
 

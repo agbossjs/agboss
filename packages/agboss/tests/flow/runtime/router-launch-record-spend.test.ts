@@ -21,14 +21,14 @@ import { HelpDeskApplication } from "./fixtures/launch.applications.js";
 const desk = testWith(HelpDeskApplication);
 
 describe("#1366: the record of a run with a model router", () => {
-  desk("states the launch decision's cost", async ({ app, mockLlm }) => {
-    mockLlm(HelpDeskRouter).thenReturn(
+  desk("states the launch decision's cost", async ({ app, mockModel }) => {
+    mockModel(HelpDeskRouter).thenReturn(
       decideWith({ "refund-policy-agent": 0.9 }, { cost: usd(0.125) }),
     );
-    mockLlm(OrderLookupAgent).thenReturn(replyWith(OrderStatusDto, { status: "shipped" }));
-    mockLlm(RefundPolicyAgent).thenReturn(replyWith(RefundPolicyDto, { policy: "30 days" }));
-    mockLlm(LoyaltyOfferAgent).thenReturn(replyWith(LoyaltyOfferDto, { offer: "10% off" }));
-    mockLlm(AnswerAgent).thenReturn(
+    mockModel(OrderLookupAgent).thenReturn(replyWith(OrderStatusDto, { status: "shipped" }));
+    mockModel(RefundPolicyAgent).thenReturn(replyWith(RefundPolicyDto, { policy: "30 days" }));
+    mockModel(LoyaltyOfferAgent).thenReturn(replyWith(LoyaltyOfferDto, { offer: "10% off" }));
+    mockModel(AnswerAgent).thenReturn(
       replyWith(CustomerReplyDto, { text: "Here you go.", holdForReview: false }),
     );
 

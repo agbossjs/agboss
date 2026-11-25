@@ -43,33 +43,35 @@ const approve = { approved: true };
 describe("AC12: scripted models — answers, tool calls, decisions by script", () => {
   test("an agent answers and calls a tool by script; the router decides by script", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(MainRouter).thenReturn(routeTo(Support));
-    mockLlm(Support).thenReturn(callTool(OrderStatus, { orderId: "42" }), replyWith("Shipped."));
+    mockModel(MainRouter).thenReturn(routeTo(Support));
+    mockModel(Support).thenReturn(callTool(OrderStatus, { orderId: "42" }), replyWith("Shipped."));
 
     const result = await execute(app, ChatStart, { text: "Where is order 42?" });
 
     expect(result).toFollowPath([ChatStart, MainRouter, Support, Reply]);
     expect(result).toFinishWith(Reply, { text: "Shipped." });
-    expect(mockLlm(Support)).toHaveScriptedToolCalls([OrderStatus]);
-    expect(toolResultsOf(mockLlm(Support).lastRequest)).toEqual(['{"status":"order 42 shipped"}']);
+    expect(mockModel(Support)).toHaveScriptedToolCalls([OrderStatus]);
+    expect(toolResultsOf(mockModel(Support).lastRequest)).toEqual([
+      '{"status":"order 42 shipped"}',
+    ]);
   });
 
   review(
     "the code-review cycle: the gate sends the code back to the coder twice",
-    async ({ app, mockLlm }) => {
-      mockLlm(Coder).thenReturn(
+    async ({ app, mockModel }) => {
+      mockModel(Coder).thenReturn(
         replyWith(CodeDto, { text: "v1" }),
         replyWith(CodeDto, { text: "v2" }),
         replyWith(CodeDto, { text: "v3" }),
       );
-      mockLlm(Reviewer).thenReturn(
+      mockModel(Reviewer).thenReturn(
         replyWith(ReviewDto, { text: "fix A" }),
         replyWith(ReviewDto, { text: "fix B" }),
         replyWith(ReviewDto, { text: "clean" }),
       );
-      mockLlm(ReviewGate).thenReturn(routeTo(Coder), routeTo(Coder), routeTo(PullRequest));
+      mockModel(ReviewGate).thenReturn(routeTo(Coder), routeTo(Coder), routeTo(PullRequest));
 
       const result = await execute(app, TaskStart, { text: "Add a flag" });
 
@@ -79,10 +81,13 @@ describe("AC12: scripted models — answers, tool calls, decisions by script", (
     },
   );
 
-  test("thenReturnAlways answers every call after the scripted turns", async ({ app, mockLlm }) => {
-    mockLlm(MainRouter).thenReturnAlways(routeTo(Writer));
-    mockLlm(MainRouter).thenReturn(routeTo(Writer), routeTo(Writer));
-    mockLlm(Writer).thenReturn(replyWith("first")).thenReturnAlways(replyWith("again"));
+  test("thenReturnAlways answers every call after the scripted turns", async ({
+    app,
+    mockModel,
+  }) => {
+    mockModel(MainRouter).thenReturnAlways(routeTo(Writer));
+    mockModel(MainRouter).thenReturn(routeTo(Writer), routeTo(Writer));
+    mockModel(Writer).thenReturn(replyWith("first")).thenReturnAlways(replyWith("again"));
 
     const first = await execute(app, ChatStart, { text: "hi" });
     const second = await execute(
@@ -96,8 +101,11 @@ describe("AC12: scripted models — answers, tool calls, decisions by script", (
     expect(second.output).toEqual({ text: "again" });
   });
 
-  test("failWith: a router's failed call fails the run at the router", async ({ app, mockLlm }) => {
-    mockLlm(MainRouter).thenReturn(failWith(ModelFailure.Timeout));
+  test("failWith: a router's failed call fails the run at the router", async ({
+    app,
+    mockModel,
+  }) => {
+    mockModel(MainRouter).thenReturn(failWith(ModelFailure.Timeout));
 
     await expect(execute(app, ChatStart, { text: "hi" })).rejects.toFailWith(RouterFailedError, {
       nodeId: nameOf(MainRouter),
@@ -105,9 +113,12 @@ describe("AC12: scripted models — answers, tool calls, decisions by script", (
     });
   });
 
-  test("failWith: an agent's failed call fails the run at the agent", async ({ app, mockLlm }) => {
-    mockLlm(MainRouter).thenReturn(routeTo(Writer));
-    mockLlm(Writer).thenReturn(failWith(ModelFailure.RateLimited));
+  test("failWith: an agent's failed call fails the run at the agent", async ({
+    app,
+    mockModel,
+  }) => {
+    mockModel(MainRouter).thenReturn(routeTo(Writer));
+    mockModel(Writer).thenReturn(failWith(ModelFailure.RateLimited));
 
     await expect(execute(app, ChatStart, { text: "hi" })).rejects.toFailWith(AgentFailedError, {
       agent: nameOf(Writer),
@@ -117,10 +128,10 @@ describe("AC12: scripted models — answers, tool calls, decisions by script", (
 
   test("a script shorter than the run fails clearly, naming the class", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(MainRouter).thenReturn(routeTo(Writer), routeTo(Writer));
-    mockLlm(Writer).thenReturn(replyWith("only one"));
+    mockModel(MainRouter).thenReturn(routeTo(Writer), routeTo(Writer));
+    mockModel(Writer).thenReturn(replyWith("only one"));
     const first = await execute(app, ChatStart, { text: "hi" });
 
     const run = execute(app, ChatStart, { text: "hi" }, { threadId: first.threadId });
@@ -131,18 +142,18 @@ describe("AC12: scripted models — answers, tool calls, decisions by script", (
 
   test("routeTo(X) for a node that is not among the router's routes fails the test", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(MainRouter).thenReturn(routeTo(ChatStart));
+    mockModel(MainRouter).thenReturn(routeTo(ChatStart));
 
     await expect(execute(app, ChatStart, { text: "hi" })).rejects.toThrow(
       /test.not-a-route: routeTo\(chat-workflow-start\) for MainRouter: not one of its routes \(no-reply-workflow-finish, support-agent, writer-agent\)/,
     );
   });
 
-  test("a scripted cost is the run's spend", async ({ app, mockLlm }) => {
-    mockLlm(MainRouter).thenReturn(routeTo(Writer, { cost: usd(0.001) }));
-    mockLlm(Writer).thenReturn(replyWith("hi", { cost: usd(0.002), truncated: true }));
+  test("a scripted cost is the run's spend", async ({ app, mockModel }) => {
+    mockModel(MainRouter).thenReturn(routeTo(Writer, { cost: usd(0.001) }));
+    mockModel(Writer).thenReturn(replyWith("hi", { cost: usd(0.002), truncated: true }));
 
     const result = await execute(app, ChatStart, { text: "hi" });
 
@@ -155,15 +166,15 @@ describe("AC12: scripts are picked by position, so a resumed run continues the s
   test("a run paused in one app and resumed after recoverApp() continues the same script", async ({
     app,
     recoverApp,
-    mockLlm,
-    mcpOf,
+    mockModel,
+    mockMcp,
   }) => {
-    mockLlm(MainRouter).thenReturn(routeTo(Support));
-    mockLlm(Support).thenReturn(
+    mockModel(MainRouter).thenReturn(routeTo(Support));
+    mockModel(Support).thenReturn(
       callTool(SaveNote, { title: "n1", text: "call back" }),
       replyWith("Saved."),
     );
-    const notes = mcpOf(NotesServer).thenReturn({
+    const notes = mockMcp(NotesServer).thenReturn({
       write_file: () => Promise.resolve({ content: "ok" }),
     });
 
@@ -175,7 +186,7 @@ describe("AC12: scripts are picked by position, so a resumed run continues the s
     expect(done).toFinishWith(Reply, { text: "Saved." });
     expect(done).toFollowPath([ChatStart, MainRouter, Support, Reply]);
     expect(notes.calls.map((call) => call.tool)).toEqual(["write_file"]);
-    expect(mockLlm(MainRouter).requests).toHaveLength(1);
+    expect(mockModel(MainRouter).requests).toHaveLength(1);
   });
 });
 
@@ -183,10 +194,10 @@ describe("#148 AC4: recoverApp() closes the current app and returns a new one ov
   test("onStop runs on restart; the new app keeps the ids and the ledger going", async ({
     app,
     recoverApp,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(MainRouter).thenReturn(routeTo(Writer, { cost: usd(0.001) }), routeTo(Writer));
-    mockLlm(Writer).thenReturn(replyWith("one"), replyWith("two"));
+    mockModel(MainRouter).thenReturn(routeTo(Writer, { cost: usd(0.001) }), routeTo(Writer));
+    mockModel(Writer).thenReturn(replyWith("one"), replyWith("two"));
     await app.runTool(OrderStatus, { orderId: "1" });
     const first = await execute(app, ChatStart, { text: "1" });
     lifecycle.length = 0;
@@ -212,10 +223,10 @@ describe("#148 AC4: recoverApp() closes the current app and returns a new one ov
 
   test("recoverApp() twice: each restart closes the app returned before", async ({
     recoverApp,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(MainRouter).thenReturn(routeTo(Writer));
-    mockLlm(Writer).thenReturn(replyWith("third"));
+    mockModel(MainRouter).thenReturn(routeTo(Writer));
+    mockModel(Writer).thenReturn(replyWith("third"));
 
     const second = await recoverApp();
     const third = await recoverApp();

@@ -96,8 +96,8 @@ const requestOf = (app: TestApp, rootExecutionId = TASK) =>
     .findByIdInTree({ tenantId: "default", rootExecutionId }, CANCEL_REQUEST_KEY);
 
 describe("#807 AC1: a reserved execution id starts one execution, ever", () => {
-  test("the run's id is the reserved one", async ({ apps, mockLlm }) => {
-    mockLlm(Clerk).thenReturn(done);
+  test("the run's id is the reserved one", async ({ apps, mockModel }) => {
+    mockModel(Clerk).thenReturn(done);
     const [first] = await pair(apps);
 
     const result = await reserved(first);
@@ -107,9 +107,9 @@ describe("#807 AC1: a reserved execution id starts one execution, ever", () => {
 
   test("the same id again, on either instance, is DuplicateExecutionIdError: nothing runs", async ({
     apps,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(callTool(Step, { text: "once" }), done);
+    mockModel(Clerk).thenReturn(callTool(Step, { text: "once" }), done);
     const [first, second] = await pair(apps);
     await reserved(first);
 
@@ -120,9 +120,9 @@ describe("#807 AC1: a reserved execution id starts one execution, ever", () => {
 
   test("two instances starting one id at once: one runs, the other is refused", async ({
     apps,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(callTool(Step, { text: "once" }), done);
+    mockModel(Clerk).thenReturn(callTool(Step, { text: "once" }), done);
     const [first, second] = await pair(apps);
 
     const calls = await Promise.allSettled([reserved(first), reserved(second)]);
@@ -161,8 +161,8 @@ describe("#807 AC1: a reserved execution id starts one execution, ever", () => {
     await expect(reserved(second)).rejects.toBeInstanceOf(DuplicateExecutionIdError);
   });
 
-  test("a start wins: the fence finds the id taken", async ({ apps, mockLlm }) => {
-    mockLlm(Clerk).thenReturn(done);
+  test("a start wins: the fence finds the id taken", async ({ apps, mockModel }) => {
+    mockModel(Clerk).thenReturn(done);
     const [first, second] = await pair(apps);
     await reserved(first);
 
@@ -173,8 +173,8 @@ describe("#807 AC1: a reserved execution id starts one execution, ever", () => {
 });
 
 describe("#807 AC2: a cancel of one execution tree", () => {
-  test("running here: aborted, it rejects as cancelled", async ({ apps, mockLlm }) => {
-    mockLlm(Clerk).thenReturn(...stepAndHold);
+  test("running here: aborted, it rejects as cancelled", async ({ apps, mockModel }) => {
+    mockModel(Clerk).thenReturn(...stepAndHold);
     const [first] = await pair(apps);
     const { call } = await holding(first);
     const outcome = await controlOf(first).cancelExecution(tree());
@@ -187,9 +187,9 @@ describe("#807 AC2: a cancel of one execution tree", () => {
   test("running on the other instance: requested, its holder stops within one renewal", async ({
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(...stepAndHold);
+    mockModel(Clerk).thenReturn(...stepAndHold);
     const [first, second] = await pair(apps);
     const { call } = await holding(first);
 
@@ -203,9 +203,9 @@ describe("#807 AC2: a cancel of one execution tree", () => {
 
   test("another run of its thread is never touched: a thread cancel would stop it", async ({
     apps,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(...stepAndHold, done);
+    mockModel(Clerk).thenReturn(...stepAndHold, done);
     const [first, second] = await pair(apps);
     const { call } = await holding(first);
 
@@ -233,9 +233,9 @@ describe("#807 AC2: a cancel of one execution tree", () => {
 
   test("paused: ended here as cancelled, its pause withdrawn — a later answer is refused", async ({
     apps,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+    mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
     const [first, second] = await pair(apps);
     const paused = await reserved(first);
 
@@ -254,9 +254,9 @@ describe("#807 AC2: a cancel of one execution tree", () => {
 
   test("a cancel of another task of its context leaves a paused run paused", async ({
     apps,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }), done);
+    mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }), done);
     const [first, second] = await pair(apps);
     const paused = await reserved(first);
 
@@ -274,8 +274,8 @@ describe("#807 AC2: a cancel of one execution tree", () => {
     ["once it holds the lease", 3],
   ] as const)(
     "another run of its thread paused %s: left alone (review #1)",
-    async ([, from], { apps, mockLlm }) => {
-      mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+    async ([, from], { apps, mockModel }) => {
+      mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
       const [first, second] = await pair(apps);
       const paused = await reserved(first);
       const find = Reflect.get(
@@ -315,8 +315,8 @@ describe("#807 AC2: a cancel of one execution tree", () => {
     },
   );
 
-  test("over already: nothing cancelled, the request withdrawn", async ({ apps, mockLlm }) => {
-    mockLlm(Clerk).thenReturn(done);
+  test("over already: nothing cancelled, the request withdrawn", async ({ apps, mockModel }) => {
+    mockModel(Clerk).thenReturn(done);
     const [first, second] = await pair(apps);
     await reserved(first);
 
@@ -366,9 +366,9 @@ describe("#807 AC2: what a cancel saves", () => {
 describe("#807 AC2: a cancel racing a resume — never both", () => {
   test("resumed first: the decision recorded, then the cancel stops the run", async ({
     apps,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }), done);
+    mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }), done);
     const [first, second] = await pair(apps);
     const paused = await reserved(first);
 
@@ -380,8 +380,8 @@ describe("#807 AC2: a cancel racing a resume — never both", () => {
     expect(seen.charges).toEqual(["10 USD"]);
   });
 
-  test("cancelled first: the resume is refused, nothing charged", async ({ apps, mockLlm }) => {
-    mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+  test("cancelled first: the resume is refused, nothing charged", async ({ apps, mockModel }) => {
+    mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
     const [first, second] = await pair(apps);
     const paused = await reserved(first);
 
@@ -394,9 +394,9 @@ describe("#807 AC2: a cancel racing a resume — never both", () => {
 
   test("cancelled while the resumed pass runs: it stops, no step after the cancel", async ({
     apps,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(
+    mockModel(Clerk).thenReturn(
       callTool(Charge, { text: "10 USD" }),
       callTool(Hold, { text: "after the charge" }),
       // nothing after: a model call once cancelled would find no script and fail the test
@@ -426,9 +426,9 @@ describe("#807 AC2: a cancel racing a resume — never both", () => {
 describe("#807 AC3: where a tree is, from its durable records", () => {
   test("not started, running, paused, finished — read on any instance", async ({
     apps,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(...stepAndHold, callTool(Charge, { text: "5 USD" }), done);
+    mockModel(Clerk).thenReturn(...stepAndHold, callTool(Charge, { text: "5 USD" }), done);
     const [first, second] = await pair(apps);
     const states = controlOf(second);
 
@@ -459,9 +459,9 @@ describe("#807 AC3: where a tree is, from its durable records", () => {
 
   test("a run whose record is out of reach is running while its checkpoint shows it began", async ({
     apps,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(...stepAndHold, done);
+    mockModel(Clerk).thenReturn(...stepAndHold, done);
     const [first, second] = await pair(apps);
     const { call } = await holding(first);
     vi.spyOn(
@@ -479,9 +479,9 @@ describe("#807 AC3: where a tree is, from its durable records", () => {
 
   test("a finished record whose checkpoint is gone reads finished from the record (#1321d)", async ({
     apps,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(done);
+    mockModel(Clerk).thenReturn(done);
     const [first, second] = await pair(apps);
     await reserved(first);
     vi.spyOn(MemorySaver.prototype, "getTuple").mockResolvedValue(undefined);
@@ -531,8 +531,8 @@ describe("#807 AC3: where a tree is, from its durable records", () => {
     );
   });
 
-  test("a failure, with its record's reason", async ({ apps, mockLlm }) => {
-    mockLlm(Clerk).thenReturn(callTool(Step, { text: "one" }));
+  test("a failure, with its record's reason", async ({ apps, mockModel }) => {
+    mockModel(Clerk).thenReturn(callTool(Step, { text: "one" }));
     const [first, second] = await pair(apps);
     await expect(reserved(first)).rejects.toThrow();
 

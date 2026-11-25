@@ -508,8 +508,7 @@ export class SaveShortlist implements ToolHandler<ChosenJobs, SavedJobs> {
   fields), validated and parsed by the declared DTOs.
 - At startup every declared server tool must exist on the server with a compatible input schema, or
   the app stops naming it.
-- Test without a process: `mcpServerStub(ShortlistServer, { write_file: … })` in a unit test, or
-  `mcpOf(ShortlistServer)` in a workflow test ([Testing](Testing)).
+- Test without a process: `mockMcp(ShortlistServer).thenReturn({ write_file: … })` in a workflow test, a `testModule` or a `testAgent` ([Testing](Testing)).
 
 ## A knowledge base
 

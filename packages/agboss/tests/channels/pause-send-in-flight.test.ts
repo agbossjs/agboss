@@ -37,8 +37,8 @@ beforeEach(resetPauses);
 describe("a reassignment while the pause's first send is in flight", () => {
   desk(
     "a move is UpdateContended and changes nothing; the run rests at its pause, and the retry after the send moves it",
-    async ({ app, mockLlm }) => {
-      mockLlm(DeskClerkAgent).thenAnswer((request) =>
+    async ({ app, mockModel }) => {
+      mockModel(DeskClerkAgent).respondWith((request) =>
         isAnswered(request) ? replyWith("Refunded.") : callTool(RefundTool, { orderId: "7" }),
       );
       let during: unknown;
@@ -81,8 +81,8 @@ describe("a reassignment while the pause's first send is in flight", () => {
 
   desk(
     "an in-place change is UpdateContended; the retry after the send is told to the channel's listeners",
-    async ({ app, mockLlm }) => {
-      mockLlm(DeskClerkAgent).thenAnswer((request) =>
+    async ({ app, mockModel }) => {
+      mockModel(DeskClerkAgent).respondWith((request) =>
         isAnswered(request) ? replyWith("Refunded.") : callTool(RefundTool, { orderId: "7" }),
       );
       let during: unknown;
@@ -112,8 +112,8 @@ describe("a reassignment while the pause's first send is in flight", () => {
 describe("a channel's decision at once while the pause was answered during send", () => {
   desk(
     "the recorded answer wins: the step acts on the person's no, never on the channel's yes",
-    async ({ app, mockLlm }) => {
-      mockLlm(DeskClerkAgent).thenAnswer((request) =>
+    async ({ app, mockModel }) => {
+      mockModel(DeskClerkAgent).respondWith((request) =>
         isAnswered(request) ? replyWith("Not refunded.") : callTool(RefundTool, { orderId: "7" }),
       );
       hooks.decideFirst = true;

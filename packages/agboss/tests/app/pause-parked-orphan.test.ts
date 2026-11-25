@@ -40,9 +40,12 @@ describe("#1341c: the sweep wakes a parked root an unpause died on", () => {
   test("the freeze lifted and the record still `paused`: one sweep marks it running and its pass finishes it, once", async ({
     app,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(GateAgent).thenReturn(callTool(Gate, { text: "a" }), replyWith(NoteDto, { text: "x" }));
+    mockModel(GateAgent).thenReturn(
+      callTool(Gate, { text: "a" }),
+      replyWith(NoteDto, { text: "x" }),
+    );
     const started = begun();
     const run = execute(app, GateStart, { text: "go" });
     const threadId = await started;

@@ -33,8 +33,8 @@ const deltas = (events: readonly ExecutionStreamEvent[]): string[] =>
 describe("#1328: streamWith", () => {
   desk(
     "a streaming run hears each chunk, and the answer is the chunks joined",
-    async ({ app, mockLlm }) => {
-      mockLlm(Desk).thenReturn(streamWith(["Order", " 7", "", " shipped."]));
+    async ({ app, mockModel }) => {
+      mockModel(Desk).thenReturn(streamWith(["Order", " 7", "", " shipped."]));
       const events: ExecutionStreamEvent[] = [];
 
       const done = await execute(
@@ -49,21 +49,24 @@ describe("#1328: streamWith", () => {
     },
   );
 
-  desk("a run that does not stream gets the same answer as replyWith", async ({ app, mockLlm }) => {
-    mockLlm(Desk).thenReturn(streamWith(["Order ", "7 shipped."], { cost: usd(0.002) }));
+  desk(
+    "a run that does not stream gets the same answer as replyWith",
+    async ({ app, mockModel }) => {
+      mockModel(Desk).thenReturn(streamWith(["Order ", "7 shipped."], { cost: usd(0.002) }));
 
-    const done = await execute(app, AskStart, { text: "where is order 7?" });
+      const done = await execute(app, AskStart, { text: "where is order 7?" });
 
-    expect(done.output).toMatchObject({ text: "Order 7 shipped." });
-    expect(done.spend.totalUsd).toBeGreaterThan(0);
-  });
+      expect(done.output).toMatchObject({ text: "Order 7 shipped." });
+      expect(done.spend.totalUsd).toBeGreaterThan(0);
+    },
+  );
 });
 
 describe("#1328: failStreamAfter", () => {
   desk(
     "the chunks are heard, then the stream's text is discarded as broken and the run fails",
-    async ({ app, mockLlm }) => {
-      mockLlm(Desk).thenReturn(failStreamAfter(["Order"], ModelFailure.Timeout));
+    async ({ app, mockModel }) => {
+      mockModel(Desk).thenReturn(failStreamAfter(["Order"], ModelFailure.Timeout));
       const events: ExecutionStreamEvent[] = [];
 
       await expect(

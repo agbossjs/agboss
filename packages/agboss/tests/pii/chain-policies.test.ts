@@ -46,11 +46,11 @@ const allRequests = (requests: readonly Parameters<typeof requestText>[0][]): st
 describe("#1150 AC1: the child's models read through the chain's policies", () => {
   test("AC1: the child's model router and agent never see the root's, the child's or the application's values", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    const router = mockLlm(ChainChildRouter);
+    const router = mockModel(ChainChildRouter);
     router.thenReturn(routeTo(ChainChildAgent));
-    const agent = mockLlm(ChainChildAgent);
+    const agent = mockModel(ChainChildAgent);
     agent.thenReturn(replyWith("done"));
 
     await execute(app, ChainRootStart, { text: TEXT });
@@ -65,9 +65,9 @@ describe("#1150 AC1: the child's models read through the chain's policies", () =
 
   test("AC1: under a root that does not list it, the same kind of child is not over-masked", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    const agent = mockLlm(ChainPeekAgent);
+    const agent = mockModel(ChainPeekAgent);
     agent.thenReturn(replyWith("done"));
 
     await execute(app, ChainPlainRootStart, { text: TEXT });
@@ -83,9 +83,9 @@ describe("#1150 AC1: the child's models read through the chain's policies", () =
 describe("#1150 AC2: an exclusion is honoured at the model boundary only", () => {
   test("AC2: an agent's excludePiiPolicies names the root's policy — its model sees the value, its events never", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    const agent = mockLlm(ChainPeekAgent);
+    const agent = mockModel(ChainPeekAgent);
     agent.thenReturn(replyWith(`seen ${ROOT_SECRET}`));
 
     const result = await execute(app, ChainPeekRootStart, { text: TEXT }, { includeRecord: true });
@@ -104,9 +104,9 @@ describe("#1150 AC2: an exclusion is honoured at the model boundary only", () =>
 
   test("AC2: @Workflow({ excludePiiPolicies }) — every model of the child sees the value, its events never", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    const agent = mockLlm(ChainOpenAgent);
+    const agent = mockModel(ChainOpenAgent);
     agent.thenReturn(replyWith("done"));
 
     await execute(app, ChainOpenRootStart, { text: TEXT });
@@ -121,10 +121,10 @@ describe("#1150 AC2: an exclusion is honoured at the model boundary only", () =>
 describe("#1150 AC3: the child's observability is masked by the whole chain", () => {
   test("AC3: the child's start, agent and end events — one mask, the chain's (bug 3)", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ChainChildRouter).thenReturn(routeTo(ChainChildAgent));
-    mockLlm(ChainChildAgent).thenReturn(replyWith(`answered ${ROOT_SECRET} ${CHILD_SECRET}`));
+    mockModel(ChainChildRouter).thenReturn(routeTo(ChainChildAgent));
+    mockModel(ChainChildAgent).thenReturn(replyWith(`answered ${ROOT_SECRET} ${CHILD_SECRET}`));
 
     await execute(app, ChainRootStart, { text: TEXT });
 
@@ -139,10 +139,10 @@ describe("#1150 AC3: the child's observability is masked by the whole chain", ()
 
   test("AC3: result.record — each child by its chain, the root's own fields by the root's (bug 2)", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ChainChildRouter).thenReturn(routeTo(ChainChildAgent));
-    mockLlm(ChainChildAgent).thenReturn(replyWith(`answered ${CHILD_SECRET}`));
+    mockModel(ChainChildRouter).thenReturn(routeTo(ChainChildAgent));
+    mockModel(ChainChildAgent).thenReturn(replyWith(`answered ${CHILD_SECRET}`));
 
     const result = await execute(app, ChainRootStart, { text: TEXT }, { includeRecord: true });
 
@@ -160,10 +160,10 @@ describe("#1150 AC3: the child's observability is masked by the whole chain", ()
 
   test("AC3: the kept ExecutionHistory record — each child by its chain (bug 2)", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ChainChildRouter).thenReturn(routeTo(ChainChildAgent));
-    mockLlm(ChainChildAgent).thenReturn(replyWith(`answered ${CHILD_SECRET}`));
+    mockModel(ChainChildRouter).thenReturn(routeTo(ChainChildAgent));
+    mockModel(ChainChildAgent).thenReturn(replyWith(`answered ${CHILD_SECRET}`));
 
     const result = await execute(app, ChainRootStart, { text: TEXT });
     const [kept] = await app

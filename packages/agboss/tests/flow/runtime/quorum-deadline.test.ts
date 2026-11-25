@@ -47,11 +47,11 @@ beforeEach(resetPanel);
 describe("AC2: between min and max, the deadline", () => {
   checked(
     "between min and max: it waits for the third, which comes before the deadline",
-    async ({ app, mockLlm, clock }) => {
-      mockLlm(SkillsPanelAgent).thenReturn(score(7));
-      mockLlm(RisksPanelAgent).thenReturn(score(6));
-      mockLlm(HirePanelAgent).thenReturn(...slow(9, 10));
-      mockLlm(PanelSummaryAgent).thenReturn(summary);
+    async ({ app, mockModel, clock }) => {
+      mockModel(SkillsPanelAgent).thenReturn(score(7));
+      mockModel(RisksPanelAgent).thenReturn(score(6));
+      mockModel(HirePanelAgent).thenReturn(...slow(9, 10));
+      mockModel(PanelSummaryAgent).thenReturn(summary);
 
       const execution = execute(app, PanelWorkflowStart, ANNA);
       await untilWaiting(1);
@@ -65,17 +65,17 @@ describe("AC2: between min and max, the deadline", () => {
         BranchVerdict.Counted,
         BranchVerdict.Counted,
       ]);
-      expect(mockLlm(PanelSummaryAgent).requests[0]?.input).toContain('"score": 9');
+      expect(mockModel(PanelSummaryAgent).requests[0]?.input).toContain('"score": 9');
     },
   );
 
   checked(
     "the deadline with min reached: it goes on with the two, the third cancelled",
-    async ({ app, mockLlm, clock }) => {
-      mockLlm(SkillsPanelAgent).thenReturn(score(7));
-      mockLlm(RisksPanelAgent).thenReturn(score(6));
-      mockLlm(HirePanelAgent).thenReturn(cancelledWhileWaiting(60));
-      mockLlm(PanelSummaryAgent).thenReturn(summary);
+    async ({ app, mockModel, clock }) => {
+      mockModel(SkillsPanelAgent).thenReturn(score(7));
+      mockModel(RisksPanelAgent).thenReturn(score(6));
+      mockModel(HirePanelAgent).thenReturn(cancelledWhileWaiting(60));
+      mockModel(PanelSummaryAgent).thenReturn(summary);
 
       const execution = execute(app, PanelWorkflowStart, ANNA);
       await untilWaiting(1);
@@ -88,16 +88,16 @@ describe("AC2: between min and max, the deadline", () => {
         { verdict: BranchVerdict.Counted },
         { nodeId: "hire-panel-agent", status: BranchStatus.Cancelled },
       ]);
-      expect(mockLlm(HirePanelAgent).requests).toHaveLength(1);
+      expect(mockModel(HirePanelAgent).requests).toHaveLength(1);
     },
   );
 
   checked(
     "the deadline with min not reached: QuorumNotReachedError into .onError",
-    async ({ app, mockLlm, clock }) => {
-      mockLlm(SkillsPanelAgent).thenReturn(score(7));
-      mockLlm(RisksPanelAgent).thenReturn(cancelledWhileWaiting(60));
-      mockLlm(HirePanelAgent).thenReturn(cancelledWhileWaiting(60));
+    async ({ app, mockModel, clock }) => {
+      mockModel(SkillsPanelAgent).thenReturn(score(7));
+      mockModel(RisksPanelAgent).thenReturn(cancelledWhileWaiting(60));
+      mockModel(HirePanelAgent).thenReturn(cancelledWhileWaiting(60));
 
       const execution = execute(app, PanelWorkflowStart, ANNA, { includeRecord: true });
       await untilWaiting(2);
@@ -116,11 +116,11 @@ describe("AC2: between min and max, the deadline", () => {
 
   checked(
     "an answer still being checked at the deadline does not count",
-    async ({ app, mockLlm, clock }) => {
-      mockLlm(SkillsPanelAgent).thenReturn(score(7));
-      mockLlm(RisksPanelAgent).thenReturn(score(6));
-      mockLlm(HirePanelAgent).thenReturn(score(99)); // its check waits for a gate never opened
-      mockLlm(PanelSummaryAgent).thenReturn(summary);
+    async ({ app, mockModel, clock }) => {
+      mockModel(SkillsPanelAgent).thenReturn(score(7));
+      mockModel(RisksPanelAgent).thenReturn(score(6));
+      mockModel(HirePanelAgent).thenReturn(score(99)); // its check waits for a gate never opened
+      mockModel(PanelSummaryAgent).thenReturn(summary);
 
       const execution = execute(app, PanelWorkflowStart, ANNA);
       await untilChecked("in-range hire 99");
@@ -129,7 +129,7 @@ describe("AC2: between min and max, the deadline", () => {
 
       expect(result).toFinishWith(PanelReviewWorkflowFinish);
       expect(result.launches[0]?.branches[2]).toMatchObject({ status: BranchStatus.Cancelled });
-      expect(mockLlm(PanelSummaryAgent).requests[0]?.input).not.toContain('"score": 99');
+      expect(mockModel(PanelSummaryAgent).requests[0]?.input).not.toContain('"score": 99');
     },
   );
 });
@@ -137,12 +137,12 @@ describe("AC2: between min and max, the deadline", () => {
 describe("AC10: the deadline counts real time, pauses included", () => {
   checked(
     "the deadline passes during a pause: the paused branch is Expired (#945), without running again",
-    async ({ app, mockLlm, clock }) => {
-      mockLlm(SkillsPanelAgent).thenReturn(score(7));
+    async ({ app, mockModel, clock }) => {
+      mockModel(SkillsPanelAgent).thenReturn(score(7));
       // cancelled at its pause: the answer after the confirmation never comes
-      mockLlm(RisksPanelAgent).thenReturn(callTool(ConfirmScoreTool, { score: 6 }));
-      mockLlm(HirePanelAgent).thenReturn(score(9));
-      mockLlm(PanelSummaryAgent).thenReturn(summary);
+      mockModel(RisksPanelAgent).thenReturn(callTool(ConfirmScoreTool, { score: 6 }));
+      mockModel(HirePanelAgent).thenReturn(score(9));
+      mockModel(PanelSummaryAgent).thenReturn(summary);
 
       const paused = await execute(app, PanelWorkflowStart, ANNA);
       expect(paused.status).toBe(ExecutionStatus.Paused);
@@ -159,7 +159,7 @@ describe("AC10: the deadline counts real time, pauses included", () => {
       await expect(app.resume(answerOf(paused, approve))).rejects.toMatchObject({
         reason: "expired",
       });
-      expect(mockLlm(RisksPanelAgent).requests).toHaveLength(1);
+      expect(mockModel(RisksPanelAgent).requests).toHaveLength(1);
     },
   );
 });

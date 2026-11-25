@@ -6,10 +6,10 @@ import { inputText, matchesInput, matchesPartial, type RecordedInput } from "./i
 import type { ReturnedValue } from "./script-book.js";
 
 /**
- * The call matchers on `mockLlm(X)` and `mockAction(A)` (#262 AC9), under Vitest's names:
+ * The call matchers on `mockModel(X)` and `mockAction(A)` (#262 AC9), under Vitest's names:
  * `toHaveBeenCalledWith(PartialValues<InputOf<X>>)` (the matcher of `when`),
  * `toHaveBeenCalledTimes(n)`, `toHaveReturned(XDto, partial?)`. They are layered over Vitest's own
- * mock matchers of those names: anything else — a `vi.fn()`, a `mockOf(…)` method — goes to them.
+ * mock matchers of those names: anything else — a `vi.fn()`, a `mockService(…)` method — goes to them.
  */
 
 /** What a matcher reads from a script or an action's calls. */
@@ -24,7 +24,7 @@ function callRecordOf(received: unknown): CallRecord | undefined {
   if (received instanceof ComponentScript) {
     const { inputs, returned } = received;
     return {
-      what: `mockLlm(${received.label})`,
+      what: `mockModel(${received.label})`,
       calls: received.requests.length,
       inputs,
       returned,

@@ -36,9 +36,9 @@ const confirmer = (request: ModelRequest) =>
 describe("#267 × #263: a single child pauses", () => {
   test("the root lists the child's pause; its pauseId resumes the child and the parent finishes", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ChildRefundAgent).thenAnswer(confirmer);
+    mockModel(ChildRefundAgent).respondWith(confirmer);
 
     const paused = await execute(app, SingleChildWorkflowStart, { orderId: "A" });
 
@@ -77,9 +77,9 @@ describe("#267 × #263: a single child pauses", () => {
 describe("#267 × #263: per-item children pause at once", () => {
   test("two children wait at once: both in the root's pending, each with its child and item", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ChildRefundAgent).thenAnswer(refunder(["B", "C"]));
+    mockModel(ChildRefundAgent).respondWith(refunder(["B", "C"]));
 
     const paused = await execute(app, ChildBatchWorkflowStart, ORDERS);
 
@@ -103,15 +103,15 @@ describe("#267 × #263: per-item children pause at once", () => {
     expect(new Set(byItem.map((pause) => pause.childExecutionId)).size).toBe(2);
     expect(seen.asks.map((ask) => ask.orderId).sort()).toEqual(["B", "C"]);
     // the child that did not wait finished in the same pass
-    expect(mockLlm(ChildRefundAgent).requests.map(orderOf).sort()).toEqual(["A", "B", "C"]);
+    expect(mockModel(ChildRefundAgent).requests.map(orderOf).sort()).toEqual(["A", "B", "C"]);
     expect(seen.pauses).toHaveLength(1);
   });
 
   test("each pauseId resumes its child only; the last answer lets the parent join and finish", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ChildRefundAgent).thenAnswer(refunder(["B", "C"]));
+    mockModel(ChildRefundAgent).respondWith(refunder(["B", "C"]));
     const paused = await execute(app, ChildBatchWorkflowStart, ORDERS);
     const waiting = new Map(paused.pending.map((pause) => [pause.itemIndex, pause]));
 

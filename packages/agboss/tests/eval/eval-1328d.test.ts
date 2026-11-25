@@ -106,7 +106,7 @@ describe("#1328d: how the last turn must end", () => {
   it("a finished run passes its tools check and splits its spend", async () => {
     const { env, built } = await evalApp();
     env
-      .mockLlm(DeskAgent)
+      .mockModel(DeskAgent)
       .thenReturn(
         callTool(GetOrderTool, { orderId: "9" }),
         replyWith(DeskAnswerDto, { text: "Order 9 shipped." }),
@@ -128,7 +128,7 @@ describe("#1328d: how the last turn must end", () => {
   it("a run that ends otherwise than the case expects fails, saying how it ended", async () => {
     const { env, built } = await evalApp();
     env
-      .mockLlm(DeskAgent)
+      .mockModel(DeskAgent)
       .thenReturn(
         callTool(GetOrderTool, { orderId: "9" }),
         replyWith(DeskAnswerDto, { text: "Order 9 shipped." }),

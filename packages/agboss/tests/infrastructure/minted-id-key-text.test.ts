@@ -112,8 +112,8 @@ const confirmer = (request: ModelRequest) =>
 describe("#578 AC1: on SQLite, a minted id that is no key fails the execution before anything is stored", () => {
   sqlite(
     "newExecutionId() → x\\uD800, then x\\uDFFF: both refused, nothing on the file; the next valid id runs",
-    async ({ app, mockLlm }) => {
-      mockLlm(Clerk).thenReturn(replyWith(ReceiptDto, { text: "One." }));
+    async ({ app, mockModel }) => {
+      mockModel(Clerk).thenReturn(replyWith(ReceiptDto, { text: "One." }));
       await app.ready();
       await untilSweepMarked();
       const before = rowsOnFile();
@@ -133,8 +133,8 @@ describe("#578 AC1: on SQLite, a minted id that is no key fails the execution be
 
   sqlite(
     "newThreadId() → x\\uD800: refused before the thread is created — only the execution's kept id (#591) and its admitted budgets' maxSpend() are kept",
-    async ({ app, mockLlm }) => {
-      mockLlm(Clerk).thenReturn(replyWith(ReceiptDto, { text: "One." }));
+    async ({ app, mockModel }) => {
+      mockModel(Clerk).thenReturn(replyWith(ReceiptDto, { text: "One." }));
       await app.ready();
       await untilSweepMarked();
       const before = rowsOnFile();
@@ -159,8 +159,8 @@ describe("#578 AC1: on SQLite, a minted id that is no key fails the execution be
 
   sqlite(
     "a caller's own threadId mints no thread id: the generator is not asked",
-    async ({ app, mockLlm }) => {
-      mockLlm(Clerk).thenReturn(replyWith(ReceiptDto, { text: "One." }));
+    async ({ app, mockModel }) => {
+      mockModel(Clerk).thenReturn(replyWith(ReceiptDto, { text: "One." }));
       minting.threads = ["x\uD800"];
 
       const done = await execute(app, OrderWorkflowStart, { text: "a" }, { threadId: "order-a" });
@@ -174,20 +174,20 @@ describe("#578 AC1: on SQLite, a minted id that is no key fails the execution be
 describe("#578 AC1: a child's minted execution id", () => {
   planned(
     "x\\uD800 for the child: the launch fails with it in the cause chain, the child never starts",
-    async ({ app, mockLlm }) => {
-      mockLlm(ChildRefundAgent).thenAnswer(confirmer);
+    async ({ app, mockModel }) => {
+      mockModel(ChildRefundAgent).respondWith(confirmer);
       minting.executions = ["root-1", "x\uD800"];
 
       const failed = await rejectionOf(execute(app, SingleChildWorkflowStart, { orderId: "A" }));
 
       expect(failed).toBeInstanceOf(Error);
       expectRefusedMint(causeOf(failed), "newExecutionId", KeyTextRule.LoneSurrogate, "x\uD800");
-      expect(mockLlm(ChildRefundAgent).requests).toHaveLength(0);
+      expect(mockModel(ChildRefundAgent).requests).toHaveLength(0);
     },
   );
 
-  planned("a valid child id still pauses and finishes", async ({ app, mockLlm }) => {
-    mockLlm(ChildRefundAgent).thenAnswer(confirmer);
+  planned("a valid child id still pauses and finishes", async ({ app, mockModel }) => {
+    mockModel(ChildRefundAgent).respondWith(confirmer);
     minting.executions = ["root-1", "child-1"];
 
     const paused = await execute(app, SingleChildWorkflowStart, { orderId: "A" });

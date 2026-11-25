@@ -78,11 +78,11 @@ describe("#1281b: a crash between a child's finish and its parent's step", () =>
       "finished trip-booked-workflow-finish",
     ],
   ] as const) {
-    pair(title, async ({ apps, clock, mockOf }) => {
-      const desk = mockOf(TripBookingDesk);
+    pair(title, async ({ apps, clock, mockService }) => {
+      const desk = mockService(TripBookingDesk);
       desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
       if (charge === "declined")
-        mockOf(TripDesk).charge.mockRejectedValue(new Error("the card is declined"));
+        mockService(TripDesk).charge.mockRejectedValue(new Error("the card is declined"));
       const [first] = await both(apps);
       childEndGate.isArmed = true;
       const run = execute(first, start, GUEST, THREAD);
@@ -119,10 +119,10 @@ describe("#1281 (10): a crash between two undos of a failed join's held entries"
   ] as const) {
     pair(
       `${title}: the new holder undoes the rest, each reservation exactly once`,
-      async ({ apps, clock, mockOf }) => {
-        const desk = mockOf(TripBookingDesk);
+      async ({ apps, clock, mockService }) => {
+        const desk = mockService(TripBookingDesk);
         desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
-        mockOf(TripDesk).charge.mockRejectedValue(new Error("the card is declined"));
+        mockService(TripDesk).charge.mockRejectedValue(new Error("the card is declined"));
         const [first] = await both(apps);
         undoStartGate.at = 2;
         const run = execute(first, start, GUEST, THREAD);

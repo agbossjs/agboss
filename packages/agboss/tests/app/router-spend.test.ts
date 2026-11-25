@@ -53,9 +53,9 @@ describe("#1090: a model router's spend is tallied at its call", () => {
   test("a normal run writes the router's cost to the ledger once", async ({
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(OrderRouter).thenReturn(routeTo(ChargeOrderAction, { cost: usd(0.4) }));
+    mockModel(OrderRouter).thenReturn(routeTo(ChargeOrderAction, { cost: usd(0.4) }));
     const a = instance(apps, 0);
     await a.ready();
 
@@ -67,9 +67,9 @@ describe("#1090: a model router's spend is tallied at its call", () => {
 
   test("a router over its budget stops at its call: the charge after it never runs", async ({
     apps,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(OrderRouter).thenReturn(routeTo(ChargeOrderAction, { cost: usd(5) }));
+    mockModel(OrderRouter).thenReturn(routeTo(ChargeOrderAction, { cost: usd(5) }));
     const a = instance(apps, 0);
     await a.ready();
 
@@ -82,9 +82,9 @@ describe("#1090: a model router's spend is tallied at its call", () => {
   test("a router step whose writes were saved and whose holder lost the tree: its cost is in the ledger once", async ({
     apps,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(OrderRouter).thenReturn(routeTo(ChargeOrderAction, { cost: usd(0.4) }));
+    mockModel(OrderRouter).thenReturn(routeTo(ChargeOrderAction, { cost: usd(0.4) }));
     const [a, b] = [instance(apps, 0), instance(apps, 1)];
     await a.ready();
     await b.ready();

@@ -27,11 +27,11 @@ const vendors = (...names: readonly string[]) =>
 describe("a child workflow per vendor", () => {
   test("each vendor its own child; the ranker gets every result, a failed one too", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(VendorFinderAgent).thenReturn(vendors("Acme", "Globex", "Initech"));
-    mockLlm(VendorCheckerAgent).thenAnswer(checker);
-    mockLlm(VendorRankerAgent).thenReturn(
+    mockModel(VendorFinderAgent).thenReturn(vendors("Acme", "Globex", "Initech"));
+    mockModel(VendorCheckerAgent).respondWith(checker);
+    mockModel(VendorRankerAgent).thenReturn(
       replyWith(VendorRankingDto, { order: "Acme", leftOut: "Globex, Initech" }),
     );
 
@@ -46,7 +46,7 @@ describe("a child workflow per vendor", () => {
       { item: { name: "Globex" }, finish: VendorCheckFailedWorkflowFinish },
       { item: { name: "Initech" }, finish: VendorRejectedWorkflowFinish },
     ]);
-    const ranked = JSON.stringify(mockLlm(VendorRankerAgent).requests[0]?.input);
+    const ranked = JSON.stringify(mockModel(VendorRankerAgent).requests[0]?.input);
     expect(ranked).toContain("the check failed");
     expect(ranked).toContain("too small");
   });

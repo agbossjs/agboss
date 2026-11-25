@@ -396,8 +396,11 @@ describe("drivers", () => {
 describe("an application on a SQLite storage", () => {
   const test = testWith(StorageFileApplication);
 
-  test("runs on the file the driver names, with no environment field", async ({ app, mockLlm }) => {
-    mockLlm(Clerk).thenReturn(replyWith(ReceiptDto, { text: "One." }));
+  test("runs on the file the driver names, with no environment field", async ({
+    app,
+    mockModel,
+  }) => {
+    mockModel(Clerk).thenReturn(replyWith(ReceiptDto, { text: "One." }));
 
     const result = await execute(app, OrderWorkflowStart, { text: "note one" });
 

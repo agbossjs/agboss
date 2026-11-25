@@ -47,29 +47,32 @@ const REAL = { concurrency: TestConcurrency.Real };
 const research = testWith(ResearchApplication, REAL);
 
 describe("AC1: different agents, a repeated one", () => {
-  research("repeated agent — two copies, listOf after join, copy ids", async ({ app, mockLlm }) => {
-    mockLlm(PlannerAgent).thenReturn(replyWith(PlanDto, { outline: "intro, body" }));
-    mockLlm(PlanResearcherAgent).thenReturn(replyWith(ResearchDto, { facts: "three facts" }));
-    mockLlm(CriticAgent).thenReturn(
-      replyWith(CritiqueDto, { remark: "too long" }),
-      replyWith(CritiqueDto, { remark: "no sources" }),
-    );
-    mockLlm(ArticleWriterAgent).thenReturn(replyWith(ArticleDraftDto, { text: "the article" }));
+  research(
+    "repeated agent — two copies, listOf after join, copy ids",
+    async ({ app, mockModel }) => {
+      mockModel(PlannerAgent).thenReturn(replyWith(PlanDto, { outline: "intro, body" }));
+      mockModel(PlanResearcherAgent).thenReturn(replyWith(ResearchDto, { facts: "three facts" }));
+      mockModel(CriticAgent).thenReturn(
+        replyWith(CritiqueDto, { remark: "too long" }),
+        replyWith(CritiqueDto, { remark: "no sources" }),
+      );
+      mockModel(ArticleWriterAgent).thenReturn(replyWith(ArticleDraftDto, { text: "the article" }));
 
-    const result = await app.execute(ResearchWorkflowStart, { text: "write about tea" });
+      const result = await app.execute(ResearchWorkflowStart, { text: "write about tea" });
 
-    expect(result.path).toEqual([
-      "research-workflow-start",
-      "planner-agent",
-      "plan-researcher-agent",
-      "critic-agent#1",
-      "critic-agent#2",
-      "article-writer-agent",
-      "article-draft-workflow-finish",
-    ]);
-    expect(result).toFinishWith(ArticleDraftWorkflowFinish, { text: "the article" });
-    expect(mockLlm(ArticleWriterAgent).requests[0]?.input).toContain("too long");
-  });
+      expect(result.path).toEqual([
+        "research-workflow-start",
+        "planner-agent",
+        "plan-researcher-agent",
+        "critic-agent#1",
+        "critic-agent#2",
+        "article-writer-agent",
+        "article-draft-workflow-finish",
+      ]);
+      expect(result).toFinishWith(ArticleDraftWorkflowFinish, { text: "the article" });
+      expect(mockModel(ArticleWriterAgent).requests[0]?.input).toContain("too long");
+    },
+  );
 });
 
 const items = testWith(FanOutApplication, REAL);
@@ -166,12 +169,12 @@ const tired = testWith(TiredApplication, REAL);
 describe("a launch over time", () => {
   loop(
     "a launch inside a loop: each pass its own launch id, records of the earlier pass ignored",
-    async ({ app, mockLlm }) => {
-      mockLlm(LoopPlannerAgent).thenReturn(
+    async ({ app, mockModel }) => {
+      mockModel(LoopPlannerAgent).thenReturn(
         replyWith(PlanDto, { outline: "v1" }),
         replyWith(PlanDto, { outline: "v2" }),
       );
-      mockLlm(LoopCriticAgent).thenReturn(
+      mockModel(LoopCriticAgent).thenReturn(
         replyWith(CritiqueDto, { remark: "redo" }),
         replyWith(CritiqueDto, { remark: "thin" }),
         replyWith(CritiqueDto, { remark: "fine" }),
@@ -196,18 +199,18 @@ describe("a launch over time", () => {
 
   tired(
     "each launch is one visit of its node: copies share it, the second launch passes maxVisits",
-    async ({ app, mockLlm }) => {
-      mockLlm(TiredPlannerAgent).thenReturn(
+    async ({ app, mockModel }) => {
+      mockModel(TiredPlannerAgent).thenReturn(
         replyWith(PlanDto, { outline: "v1" }),
         replyWith(PlanDto, { outline: "v2" }),
       );
-      mockLlm(TiredCriticAgent).thenReturnAlways(replyWith(CritiqueDto, { remark: "redo" }));
+      mockModel(TiredCriticAgent).thenReturnAlways(replyWith(CritiqueDto, { remark: "redo" }));
 
       const result = await execute(app, TiredWorkflowStart, { text: "tea" });
 
       // pass 1: both copies are visit 1 of tired-critic-agent; pass 2 would be visit 2 > maxVisits 1
       expect(result).toFinishWith(TiredWorkflowFinish, { outline: "v2" });
-      expect(mockLlm(TiredCriticAgent).requests).toHaveLength(2);
+      expect(mockModel(TiredCriticAgent).requests).toHaveLength(2);
       expect(result.launches[1]?.branches).toMatchObject([
         {
           nodeId: "tired-critic-agent#1",

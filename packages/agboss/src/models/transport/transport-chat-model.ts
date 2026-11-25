@@ -41,7 +41,7 @@ export interface TransportCalls {
 /**
  * The chat model of a transport provider (#385): a `BaseChatModel` over its `complete(request)`,
  * so everything above the model — PII masking, answer tools, traces, budgets and the ledger,
- * `mockLlm` — works as for HTTP, and every call goes through the one attempt runner (retries, the
+ * `mockModel` — works as for HTTP, and every call goes through the one attempt runner (retries, the
  * rate limit and its 429 pause, the breaker).
  */
 export class TransportChatModel extends BaseChatModel {

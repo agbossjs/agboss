@@ -109,9 +109,9 @@ describe("#591: a repeated root id is refused before anything of the new tree is
 
   test("while the first tree is paused: its root's and its child's ids are refused as roots; the paused tree resumes to its own finish", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ChildRefundAgent).thenAnswer(confirmer);
+    mockModel(ChildRefundAgent).respondWith(confirmer);
     minting.executions = ["root-p", "child-p"];
     const paused = await execute(app, SingleChildWorkflowStart, { orderId: "A" });
     minting.executions = ["root-p", "child-p"];
@@ -123,14 +123,14 @@ describe("#591: a repeated root id is refused before anything of the new tree is
     expectRefused(asRoot, "root-p");
     expectRefused(asChild, "child-p");
     expect(done).toMatchObject({ status: ExecutionStatus.Finished, executionId: "root-p" });
-    expect(mockLlm(ChildRefundAgent).requests.map(orderOf)).toEqual(["A", "A"]);
+    expect(mockModel(ChildRefundAgent).requests.map(orderOf)).toEqual(["A", "A"]);
   });
 
   test("after the first tree was cancelled: its root's and its child's ids are refused", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ChildRefundAgent).thenAnswer(confirmer);
+    mockModel(ChildRefundAgent).respondWith(confirmer);
     minting.executions = ["root-c", "child-c"];
     const paused = await execute(app, SingleChildWorkflowStart, { orderId: "A" });
     await app.cancel(paused.threadId);
@@ -145,9 +145,9 @@ describe("#591: a repeated root id is refused before anything of the new tree is
 
   test("a create that fails after its id was kept (a budget's maxSpend() throws): the id stays taken, nothing is left to recover, a new id runs", async ({
     app,
-    mockOf,
+    mockService,
   }) => {
-    mockOf(TestExecutionBudget)
+    mockService(TestExecutionBudget)
       .maxSpend.mockResolvedValue(usd(1000))
       .mockRejectedValueOnce(new Error("billing is down"));
     minting.executions = ["half-made", "half-made"];
@@ -168,16 +168,16 @@ describe("#591: a repeated root id is refused before anything of the new tree is
 describe("#591: a child's or a level's id colliding with another execution fails its launch before it starts", () => {
   test("a child whose id is an earlier root's: the launch fails with the refusal, the child's agent is never called", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ChildRefundAgent).thenAnswer(confirmer);
+    mockModel(ChildRefundAgent).respondWith(confirmer);
     await finishedRoot(app, "tree-a");
     minting.executions = ["root-b", "tree-a"];
 
     const failed = await rejectionOf(execute(app, SingleChildWorkflowStart, { orderId: "B" }));
 
     expectRefused(failed, "tree-a");
-    expect(mockLlm(ChildRefundAgent).requests).toHaveLength(0);
+    expect(mockModel(ChildRefundAgent).requests).toHaveLength(0);
   });
 
   test("a recursion level whose id is its own root's, or an earlier tree's level: refused", async ({

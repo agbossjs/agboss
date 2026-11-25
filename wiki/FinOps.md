@@ -164,7 +164,7 @@ export class ExecutionBudget implements BudgetHandler {
   budget) only on `Execution` — without it, the default execution budget of every workflow without
   its own.
 - A budget is a component: injectable (`deps: [ApplicationDailyBudget]`), created at start with the
-  application, replaced in a test with `mockOf(TenantDailyBudget).maxSpend.mockReturnValue(usd(0.01))`.
+  application, replaced in a test with `mockService(TenantDailyBudget).maxSpend.mockReturnValue(usd(0.01))`.
 - **Who reads what**: a budget's data come through its constructor — the injected
   `ExecutionContext` (the execution, its step, `executionContext.tenant`), the project's tenant
   context (`deps: [ShopTenantContext]`, its own amount from server-side tenant data) or a service
@@ -492,7 +492,7 @@ or empty the entries by hand.
 A budget is unit-tested without the container:
 `new ShopTenantDailyBudget(testExecutionContext({ tenantContext: ShopTenantContext, tenant: { tenantId: "acme", dailyBudgetUsd: 40 } }).tenant).maxSpend()`
 is `usd(40)`. An application test reaches an exhausted budget the real way —
-`mockOf(TenantDailyBudget).maxSpend.mockReturnValue(usd(0.01))` plus a scripted cost
+`mockService(TenantDailyBudget).maxSpend.mockReturnValue(usd(0.01))` plus a scripted cost
 (`replyWith(…, { cost: usd(0.02) })`) — and checks its own reaction (the `.onError` path, the
 rejection). There is no `limits` option in `testWith`.
 

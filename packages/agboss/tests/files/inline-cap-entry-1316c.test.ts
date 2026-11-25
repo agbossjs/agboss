@@ -49,8 +49,8 @@ const keptOf = async (file: FileDto, ownerId: string) => {
 describe("app.execute: a start's input", () => {
   testWith(withStore.Application)(
     "a file over 64 KB is offloaded to the store under the run, its descriptor names it",
-    async ({ app, mockLlm }) => {
-      mockLlm(withStore.Agent).thenReturn(replyWith("ok"));
+    async ({ app, mockModel }) => {
+      mockModel(withStore.Agent).thenReturn(replyWith("ok"));
       const big = inlineOf(textOf(70));
       const input = { document: big };
 
@@ -64,8 +64,8 @@ describe("app.execute: a start's input", () => {
     },
   );
 
-  testWith(withStore.Application)("a file of 64 KB stays inline", async ({ app, mockLlm }) => {
-    mockLlm(withStore.Agent).thenReturn(replyWith("ok"));
+  testWith(withStore.Application)("a file of 64 KB stays inline", async ({ app, mockModel }) => {
+    mockModel(withStore.Agent).thenReturn(replyWith("ok"));
     const small = inlineOf(textOf(64));
 
     const out = await execute(app, withStore.Start, { document: small });
@@ -75,8 +75,8 @@ describe("app.execute: a start's input", () => {
 
   testWith(withStore.Application)(
     "files together over 256 KB: the largest leave until it fits",
-    async ({ app, mockLlm }) => {
-      mockLlm(withStore.Agent).thenReturn(replyWith("ok"));
+    async ({ app, mockModel }) => {
+      mockModel(withStore.Agent).thenReturn(replyWith("ok"));
       const input = {
         document: inlineOf(textOf(60, "a")),
         pages: [
@@ -110,8 +110,8 @@ describe("app.execute: a start's input", () => {
 
   testWith(noStore.Application)(
     "with no store a file under the caps still rides inline",
-    async ({ app, mockLlm }) => {
-      mockLlm(noStore.Agent).thenReturn(replyWith("ok"));
+    async ({ app, mockModel }) => {
+      mockModel(noStore.Agent).thenReturn(replyWith("ok"));
 
       const out = await execute(app, noStore.Start, { document: inlineOf(textOf(10)) });
 
@@ -123,10 +123,10 @@ describe("app.execute: a start's input", () => {
 describe("a tool's output", () => {
   testWith(withStore.Application)(
     "a file over 64 KB in a tool's result is offloaded under the root execution",
-    async ({ app, mockLlm }) => {
+    async ({ app, mockModel }) => {
       const big = inlineOf(textOf(70, "t"), "tool.txt");
       FETCHABLE.set("big", big);
-      mockLlm(withStore.Agent).thenReturn(callTool(FetchTool, { name: "big" }), replyWith("ok"));
+      mockModel(withStore.Agent).thenReturn(callTool(FetchTool, { name: "big" }), replyWith("ok"));
 
       const out = await execute(app, withStore.Start, { document: inlineOf(textOf(1)) });
 
@@ -136,9 +136,9 @@ describe("a tool's output", () => {
 
   testWith(noStore.Application)(
     "with no store the call is a tool error the model reads, never the bytes",
-    async ({ app, mockLlm }) => {
+    async ({ app, mockModel }) => {
       FETCHABLE.set("big2", inlineOf(textOf(70, "u"), "tool.txt"));
-      const agent = mockLlm(noStore.Agent).thenReturn(
+      const agent = mockModel(noStore.Agent).thenReturn(
         callTool(FetchTool, { name: "big2" }),
         replyWith("ok"),
       );

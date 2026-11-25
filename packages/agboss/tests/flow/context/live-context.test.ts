@@ -47,20 +47,20 @@ const lazyContext = async (): Promise<ExecutionContext> =>
 beforeEach(resetSeen);
 
 /** The writer notes once and answers; the review publishes. */
-const oneDraft = (mockLlm: WorkflowFixtures["mockLlm"]): void => {
-  mockLlm(WriterAgent).thenReturn(
+const oneDraft = (mockModel: WorkflowFixtures["mockModel"]): void => {
+  mockModel(WriterAgent).thenReturn(
     callTool(NoteTool, { text: "intro" }),
     replyWith(DraftDto, { text: "v1" }),
   );
-  mockLlm(ReviewRouter).thenReturn(routeTo(PublishAction));
+  mockModel(ReviewRouter).thenReturn(routeTo(PublishAction));
 };
 
 describe("#280 AC6, AC12: the injected ExecutionContext gives the current execution", () => {
   test("injected: a tool and an action read their execution and their own step", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    oneDraft(mockLlm);
+    oneDraft(mockModel);
 
     const done = await execute(app, ContextStart, { text: "a post" }, { ownerId: "dana" });
 
@@ -95,9 +95,9 @@ describe("#280 AC6, AC12: the injected ExecutionContext gives the current execut
 
   test("one-level tree before #263: no parent, root is itself, depth 1, executionOf(W)", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    oneDraft(mockLlm);
+    oneDraft(mockModel);
 
     const done = await execute(app, ContextStart, { text: "a post" });
 
@@ -107,9 +107,9 @@ describe("#280 AC6, AC12: the injected ExecutionContext gives the current execut
 
   test("the workflow descriptor names the class, its name and both versions", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    oneDraft(mockLlm);
+    oneDraft(mockModel);
 
     await execute(app, ContextStart, { text: "a post" });
 
@@ -197,9 +197,9 @@ describe("#280 AC8 (S18): data only, read-only, closed with its step", () => {
 
   test("after step ended throws: a stray promise of a tool names the ended tool call", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    oneDraft(mockLlm);
+    oneDraft(mockModel);
 
     const done = await execute(app, ContextStart, { text: "a post" });
     const [stray] = await Promise.all(seen.strays);
@@ -212,14 +212,14 @@ describe("#280 AC8 (S18): data only, read-only, closed with its step", () => {
 
   test("tool frame closes before the agent's: the stray read never falls back to the agent", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(WriterAgent).thenReturn(
+    mockModel(WriterAgent).thenReturn(
       callTool(NoteTool, { text: "intro" }),
       callTool(NoteTool, { text: "outro" }),
       replyWith(DraftDto, { text: "v1" }),
     );
-    mockLlm(ReviewRouter).thenReturn(routeTo(PublishAction));
+    mockModel(ReviewRouter).thenReturn(routeTo(PublishAction));
 
     await execute(app, ContextStart, { text: "a post" });
     const strays = await Promise.all(seen.strays);

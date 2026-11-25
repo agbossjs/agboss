@@ -30,7 +30,7 @@ const tools = {
 
 /**
  * The filesystem MCP server, limited to the policies folder: local, no network. Tests never start
- * it — `mcpOf(PolicyFilesServer)` answers its tools.
+ * it — `mockMcp(PolicyFilesServer)` answers its tools.
  */
 @McpServer({
   name: "policy-files",

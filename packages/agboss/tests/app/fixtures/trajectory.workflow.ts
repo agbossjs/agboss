@@ -64,7 +64,7 @@ export class LookupOrderTool {
   }
 }
 
-/** What the judge saw on each call: the test reads it through `mockOf`. */
+/** What the judge saw on each call: the test reads it through `mockService`. */
 @Injectable()
 export class TrajectoryLog {
   seen(toolCalls: readonly ToolCallRecord[]): readonly ToolCallRecord[] {

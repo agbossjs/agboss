@@ -129,9 +129,9 @@ describe("#333 PR 4 AC2: yielding the root lease while waiting for remote childr
 describe("#333 PR 4 AC3: remote children that pause, resume across instances, and PauseAnswerRecord parity", () => {
   test("a remote child's pause appears in result.pending with childExecutionId and itemIndex, resumes on the other instance, and records PauseAnswerRecord on the child and root", async ({
     apps,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ItemReviewerAgent).thenAnswer(reviewer);
+    mockModel(ItemReviewerAgent).respondWith(reviewer);
     await readyWorkerFirst(apps);
 
     const paused = await execute(
@@ -145,7 +145,7 @@ describe("#333 PR 4 AC3: remote children that pause, resume across instances, an
     expect(paused.pending).toHaveLength(1);
     expect(paused.pending[0]?.childExecutionId).toBeDefined();
     expect(paused.pending[0]?.itemIndex).toBe(1);
-    const before = mockLlm(ItemReviewerAgent).requests.length;
+    const before = mockModel(ItemReviewerAgent).requests.length;
 
     // resume on the SECOND instance: only "b" continues on its own thread, with the same child id
     const done = await instance(apps, 1).resume(answerOf(paused), {
@@ -154,7 +154,7 @@ describe("#333 PR 4 AC3: remote children that pause, resume across instances, an
     });
 
     expect(done).toFinishWith(ReviewsSummaryWorkflowFinish, { text: "a, b" });
-    expect(mockLlm(ItemReviewerAgent).requests.slice(before).map(nameIn)).toEqual(["b"]);
+    expect(mockModel(ItemReviewerAgent).requests.slice(before).map(nameIn)).toEqual(["b"]);
     expect(childStarts("item-review-workflow")).toHaveLength(2);
     const childB = done.children.find((child) => child.itemIndex === 1);
     expect(childB?.executionId).toBe(paused.pending[0]?.childExecutionId);
@@ -177,9 +177,9 @@ describe("#333 PR 4 AC3: remote children that pause, resume across instances, an
 
   test("a single remote child pauses and resumes with the same executionId", async ({
     apps,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ItemReviewerAgent).thenAnswer(reviewer);
+    mockModel(ItemReviewerAgent).respondWith(reviewer);
     await readyWorkerFirst(apps);
 
     const paused = await execute(instance(apps, 0), RemoteReviewOneWorkflowStart, item("b"), who);

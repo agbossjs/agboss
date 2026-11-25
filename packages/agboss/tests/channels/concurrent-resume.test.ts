@@ -44,9 +44,9 @@ describe("#267 AC12: concurrent resumes of one tree", () => {
   test("two pauses answered at once on two instances: both taken, no step twice", async ({
     app,
     apps,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(BatchRefundAgent).thenAnswer(refunder(["B", "C"]));
+    mockModel(BatchRefundAgent).respondWith(refunder(["B", "C"]));
     const paused = await execute(app, BatchWorkflowStart, ORDERS);
 
     const results = await Promise.all([
@@ -64,7 +64,7 @@ describe("#267 AC12: concurrent resumes of one tree", () => {
     ]);
     expect([...seen.refunds].sort()).toEqual(["B", "C"]);
     expect(seen.asks).toHaveLength(2);
-    expect(mockLlm(BatchRefundAgent).requests.map(orderOf).sort()).toEqual([
+    expect(mockModel(BatchRefundAgent).requests.map(orderOf).sort()).toEqual([
       "A",
       "B",
       "B",
@@ -76,9 +76,12 @@ describe("#267 AC12: concurrent resumes of one tree", () => {
   test("a double click: one resume moves the tree, the other gets PauseClosedError", async ({
     app,
     apps,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "7" }), replyWith("Done."));
+    mockModel(DeskClerkAgent).thenReturn(
+      callTool(RefundTool, { orderId: "7" }),
+      replyWith("Done."),
+    );
     await execute(app, DeskWorkflowStart, { text: "refund 7" });
 
     const [first, double] = await Promise.allSettled([
@@ -97,7 +100,7 @@ describe("#267 AC12: concurrent resumes of one tree", () => {
   test("a reply on the other instance before send returns: the step takes it, nothing pauses", async ({
     app,
     apps,
-    mockLlm,
+    mockModel,
   }) => {
     const replies: Promise<ExecutionOutput>[] = [];
     hooks.beforeSendReturns = async (ask) => {
@@ -110,7 +113,10 @@ describe("#267 AC12: concurrent resumes of one tree", () => {
           PauseStatus.Resolved,
       );
     };
-    mockLlm(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "7" }), replyWith("Done."));
+    mockModel(DeskClerkAgent).thenReturn(
+      callTool(RefundTool, { orderId: "7" }),
+      replyWith("Done."),
+    );
 
     const done = await execute(app, DeskWorkflowStart, { text: "refund 7" });
 

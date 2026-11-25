@@ -18,10 +18,10 @@ const test = testWith(MailApplication);
 describe("#1004: a throwing onStream listener", () => {
   test("every event still reaches it and the run finishes (text and tool call)", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
     sent.length = 0;
-    mockLlm(Mailer).thenReturn(callTool(SendEmail, { to: "dana" }), replyWith("Sent."));
+    mockModel(Mailer).thenReturn(callTool(SendEmail, { to: "dana" }), replyWith("Sent."));
     const heard: ExecutionStreamEvent[] = [];
     const listener = (event: ExecutionStreamEvent): void => {
       heard.push(event);
@@ -47,10 +47,10 @@ describe("#1004: a throwing onStream listener", () => {
 describe("#1124: an async onStream listener that rejects", () => {
   test("AC1+AC4: the run goes on, no unhandled rejection fires, every event is delivered", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
     sent.length = 0;
-    mockLlm(Mailer).thenReturn(callTool(SendEmail, { to: "dana" }), replyWith("Sent."));
+    mockModel(Mailer).thenReturn(callTool(SendEmail, { to: "dana" }), replyWith("Sent."));
     const rejections: unknown[] = [];
     const onRejection = (reason: unknown): void => void rejections.push(reason);
     process.on("unhandledRejection", onRejection);

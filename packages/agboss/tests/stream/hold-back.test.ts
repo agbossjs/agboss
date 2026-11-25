@@ -32,9 +32,9 @@ const failureOf = (run: Promise<unknown>): Promise<unknown> =>
 describe("#1006: an agent whose only blocking check is an output guardrail", () => {
   test("a blocked answer never reaches the stream: not a byte, nothing to retract", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(GuardrailOnlyAgent).thenReturn(replyWith("Here is the FORBIDDEN thing."));
+    mockModel(GuardrailOnlyAgent).thenReturn(replyWith("Here is the FORBIDDEN thing."));
     const events: ExecutionStreamEvent[] = [];
 
     const failure = await failureOf(
@@ -47,9 +47,9 @@ describe("#1006: an agent whose only blocking check is an output guardrail", () 
 
   test("an answer that passes goes out after the check, as the output", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(GuardrailOnlyAgent).thenReturn(replyWith("A fine answer."));
+    mockModel(GuardrailOnlyAgent).thenReturn(replyWith("A fine answer."));
     const events: ExecutionStreamEvent[] = [];
 
     const done = await execute(
@@ -65,9 +65,9 @@ describe("#1006: an agent whose only blocking check is an output guardrail", () 
 });
 
 describe("#1006: a blocking output guardrail holds the text back", () => {
-  test("AC3: a blocked answer: GuardrailBlockedError, zero events", async ({ app, mockLlm }) => {
-    mockLlm(GuardedAgent).thenReturn(replyWith("Here is the FORBIDDEN thing."));
-    mockLlm(FlowJudge).thenReturn(replyWith("PASS"));
+  test("AC3: a blocked answer: GuardrailBlockedError, zero events", async ({ app, mockModel }) => {
+    mockModel(GuardedAgent).thenReturn(replyWith("Here is the FORBIDDEN thing."));
+    mockModel(FlowJudge).thenReturn(replyWith("PASS"));
     const events: ExecutionStreamEvent[] = [];
 
     const failure = await failureOf(
@@ -80,10 +80,10 @@ describe("#1006: a blocking output guardrail holds the text back", () => {
 
   test("AC3: an answer that passes goes out after the checks, with its step; kept text = output", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(GuardedAgent).thenReturn(replyWith("  A fine answer.\n"));
-    mockLlm(FlowJudge).thenReturn(replyWith("PASS"));
+    mockModel(GuardedAgent).thenReturn(replyWith("  A fine answer.\n"));
+    mockModel(FlowJudge).thenReturn(replyWith("PASS"));
     const events: ExecutionStreamEvent[] = [];
 
     const done = await execute(
@@ -105,10 +105,10 @@ describe("#1006: a blocking output guardrail holds the text back", () => {
 
   test("AC3: a draft the judge rejects is never shown, not even as a retraction; the retry goes out", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(GuardedAgent).thenReturn(replyWith("BAD DRAFT"), replyWith("Good answer."));
-    mockLlm(FlowJudge).thenReturn(replyWith("FAIL"), replyWith("PASS"));
+    mockModel(GuardedAgent).thenReturn(replyWith("BAD DRAFT"), replyWith("Good answer."));
+    mockModel(FlowJudge).thenReturn(replyWith("FAIL"), replyWith("PASS"));
     const events: ExecutionStreamEvent[] = [];
 
     const done = await execute(
@@ -126,10 +126,10 @@ describe("#1006: a blocking output guardrail holds the text back", () => {
 
   test("AC3: text before a tool call is never shown; the tool turn leaves nothing to retract", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(GuardedAgent).thenReturn(callTool(EchoTool, { text: "x" }), replyWith("Done."));
-    mockLlm(FlowJudge).thenReturn(replyWith("PASS"));
+    mockModel(GuardedAgent).thenReturn(callTool(EchoTool, { text: "x" }), replyWith("Done."));
+    mockModel(FlowJudge).thenReturn(replyWith("PASS"));
     const events: ExecutionStreamEvent[] = [];
 
     await execute(app, GuardedStart, { text: "Q" }, { onStream: (event) => events.push(event) });
@@ -144,9 +144,9 @@ describe("#1006: a blocking output guardrail holds the text back", () => {
 describe("#1006: a PII block rule holds the text back", () => {
   test("AC3: a card number in the answer: the run is refused, the stream saw nothing", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(CardOnlyAgent).thenReturn(replyWith("Your card is 4242 4242 4242 4242."));
+    mockModel(CardOnlyAgent).thenReturn(replyWith("Your card is 4242 4242 4242 4242."));
     const events: ExecutionStreamEvent[] = [];
 
     const failure = await failureOf(
@@ -157,8 +157,11 @@ describe("#1006: a PII block rule holds the text back", () => {
     expect(events).toEqual([]);
   });
 
-  test("AC3: an answer without a card goes out whole after the check", async ({ app, mockLlm }) => {
-    mockLlm(CardOnlyAgent).thenReturn(replyWith("No card here."));
+  test("AC3: an answer without a card goes out whole after the check", async ({
+    app,
+    mockModel,
+  }) => {
+    mockModel(CardOnlyAgent).thenReturn(replyWith("No card here."));
     const events: ExecutionStreamEvent[] = [];
 
     const done = await execute(

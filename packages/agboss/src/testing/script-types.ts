@@ -83,7 +83,7 @@ export type PartialValues<TInput> = TInput extends GeneratedTypeError
 export type InputMatcherOf<TSelf> =
   IsKnown<TSelf> extends true ? PartialValues<InputOf<TSelf>> : Readonly<Record<string, unknown>>;
 
-/** What `mockLlm(X).inputs` / `mockAction(A).inputs` hold: the node's input as it read it. */
+/** What `mockModel(X).inputs` / `mockAction(A).inputs` hold: the node's input as it read it. */
 export type RecordedInputOf<TSelf> =
   IsKnown<TSelf> extends true ? InputOf<TSelf> : Readonly<Record<string, unknown>>;
 
@@ -142,7 +142,7 @@ export type RouterTurnFor<TSelf> =
 export type ReplyInterpreterTurnFor<TSelf> =
   AgentTurnFor<TSelf> | DecideTurn | AnswerTurn<ReplyInterpreterNotUnderstoodDto, false>;
 
-/** The turns `mockLlm(X).thenReturn(…)` accepts for a component. */
+/** The turns `mockModel(X).thenReturn(…)` accepts for a component. */
 export type TurnFor<TSelf> =
   IsKnown<TSelf> extends false
     ? ScriptedTurn

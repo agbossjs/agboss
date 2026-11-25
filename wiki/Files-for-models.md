@@ -167,5 +167,5 @@ files: seen-in-visit`) and `describe --json` carries `AgentSnapshot.files`. The 
 settings, each policy's file action and the application's own `FileRedactor` and `FileTranscriber` by class name
 (#1269: another one is another configuration — a paused run is not resumed blindly under it). A request shows a file as `{ kind, mediaType, sizeBytes, sha256 }` in
 events, traces, records and cassettes — never its bytes ([Observability](Observability)); tests script
-`mockLlm(FileTranscriber)` and `mockLlm(FileRedactor)` ([Testing](Testing)). The examples are `invoice-workflow`,
+`mockModel(FileTranscriber)` and `mockModel(FileRedactor)` ([Testing](Testing)). The examples are `invoice-workflow`,
 `kyc-workflow` and `audio-note-workflow` of `examples/flow-patterns`.

@@ -62,8 +62,8 @@ const leased = testWith(LeaseApplication);
 describe("#928 AC2: a pause resolve from the answer API", () => {
   leased(
     "AC2: unanswered: store.call-timeout; the retry finds it resolved; the tree resumes once",
-    async ({ app, clock, mockLlm }) => {
-      mockLlm(Clerk).thenReturn(
+    async ({ app, clock, mockModel }) => {
+      mockModel(Clerk).thenReturn(
         callTool(Charge, { text: "10 USD" }),
         replyWith(ReceiptDto, { text: "Done." }),
       );

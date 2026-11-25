@@ -16,10 +16,10 @@ const test = testWith(FlowPatternsApplication);
 
 test("the generated agent is a route of the router and calls its generated tool", async ({
   app,
-  mockLlm,
+  mockModel,
 }) => {
-  mockLlm(OnboardingMainRouter).thenReturn(routeTo(BillingAgent));
-  mockLlm(BillingAgent).thenReturn(
+  mockModel(OnboardingMainRouter).thenReturn(routeTo(BillingAgent));
+  mockModel(BillingAgent).thenReturn(
     callTool(RefundTool, { query: "order 42" }),
     replyWith("Refunded."),
   );

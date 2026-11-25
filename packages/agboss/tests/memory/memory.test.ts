@@ -34,10 +34,10 @@ const turnsSeen = (script: ModelScript): string[] =>
   );
 
 /** Every agent of the memory desk answers "ok". */
-const answerOk = (mockLlm: (agent: Class) => ModelScript): void => {
-  mockLlm(Recaller).thenReturnAlways(replyWith(RecallDto, { text: "ok" }));
-  mockLlm(Windowed).thenReturnAlways(replyWith(WindowDto, { text: "ok" }));
-  mockLlm(Noter).thenReturnAlways(replyWith("ok"));
+const answerOk = (mockModel: (agent: Class) => ModelScript): void => {
+  mockModel(Recaller).thenReturnAlways(replyWith(RecallDto, { text: "ok" }));
+  mockModel(Windowed).thenReturnAlways(replyWith(WindowDto, { text: "ok" }));
+  mockModel(Noter).thenReturnAlways(replyWith("ok"));
 };
 
 /** `count` turns on one thread: t1, t2, …; returns the last result. */
@@ -59,34 +59,36 @@ describe("memory on agent model calls (#1303)", () => {
 
   test("AC1: with a window of N, the model request holds at most N earlier turns", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    answerOk(mockLlm);
+    answerOk(mockModel);
 
     await converse(app, 6);
 
-    expect(turnsSeen(mockLlm(Windowed))).toEqual(["t4", "t5"]);
+    expect(turnsSeen(mockModel(Windowed))).toEqual(["t4", "t5"]);
   });
 
   test("an agent's own memory is used for that agent only; NoMemory sees no earlier turn", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    answerOk(mockLlm);
+    answerOk(mockModel);
 
     await converse(app, 6);
 
-    expect(turnsSeen(mockLlm(Noter))).toEqual([]);
-    expect(turnsSeen(mockLlm(Recaller))).toEqual(["t2", "t3", "t4", "t5"]);
+    expect(turnsSeen(mockModel(Noter))).toEqual([]);
+    expect(turnsSeen(mockModel(Recaller))).toEqual(["t2", "t3", "t4", "t5"]);
   });
 });
 
 describe("a memory's compaction", () => {
   const test = testWith(CompactingDeskApplication);
 
-  test("AC2: compaction cost is recorded in the run's cost report", async ({ app, mockLlm }) => {
-    mockLlm(Recaller).thenReturnAlways(replyWith(RecallDto, { text: "ok" }, { cost: usd(0.001) }));
-    mockLlm(DeskMemory).thenReturn(replyWith("t1 and t2 were asked", { cost: usd(0.004) }));
+  test("AC2: compaction cost is recorded in the run's cost report", async ({ app, mockModel }) => {
+    mockModel(Recaller).thenReturnAlways(
+      replyWith(RecallDto, { text: "ok" }, { cost: usd(0.001) }),
+    );
+    mockModel(DeskMemory).thenReturn(replyWith("t1 and t2 were asked", { cost: usd(0.004) }));
 
     // window 1, 2 turns between compactions: before turn 4 reads the thread, t1 and t2 are older
     const fourth = await converse(app, 4);
@@ -102,15 +104,18 @@ describe("a memory's compaction", () => {
     ]);
   });
 
-  test("agents then see the summary and the turns not yet compacted", async ({ app, mockLlm }) => {
-    mockLlm(Recaller).thenReturnAlways(replyWith(RecallDto, { text: "ok" }));
-    mockLlm(DeskMemory).thenReturn(replyWith("t1 and t2 were asked"));
+  test("agents then see the summary and the turns not yet compacted", async ({
+    app,
+    mockModel,
+  }) => {
+    mockModel(Recaller).thenReturnAlways(replyWith(RecallDto, { text: "ok" }));
+    mockModel(DeskMemory).thenReturn(replyWith("t1 and t2 were asked"));
 
     await converse(app, 4);
 
-    expect(inputOf(mockLlm(Recaller))).toContain(
+    expect(inputOf(mockModel(Recaller))).toContain(
       "Earlier in this conversation:\n[1] t1 and t2 were asked",
     );
-    expect(turnsSeen(mockLlm(Recaller))).toEqual(["t3"]);
+    expect(turnsSeen(mockModel(Recaller))).toEqual(["t3"]);
   });
 });

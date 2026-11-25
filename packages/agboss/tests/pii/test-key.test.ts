@@ -32,8 +32,8 @@ describe("#778: the application's key under testWith, its variable not set", () 
     vi.unstubAllEnvs();
   });
 
-  test("runs and makes the application's tokens with the test key", async ({ app, mockLlm }) => {
-    const agent = mockLlm(KeyedAgent).thenReturn(replyWith("ok"));
+  test("runs and makes the application's tokens with the test key", async ({ app, mockModel }) => {
+    const agent = mockModel(KeyedAgent).thenReturn(replyWith("ok"));
 
     await execute(app, KeyedStart, MESSAGE, EXECUTION);
 
@@ -42,9 +42,9 @@ describe("#778: the application's key under testWith, its variable not set", () 
     expect(sent).toContain(tokenOf("user-id", "zoe-7", TEST_PSEUDONYM_KEY, {}));
   });
 
-  test("an empty variable counts as not set", async ({ app, mockLlm }) => {
+  test("an empty variable counts as not set", async ({ app, mockModel }) => {
     vi.stubEnv(APP_KEY_VARIABLE, "");
-    const agent = mockLlm(KeyedAgent).thenReturn(replyWith("ok"));
+    const agent = mockModel(KeyedAgent).thenReturn(replyWith("ok"));
 
     await execute(app, KeyedStart, MESSAGE, EXECUTION);
 
@@ -64,8 +64,8 @@ describe("#778: the application's key under testWith, its variable set by the te
     vi.unstubAllEnvs();
   });
 
-  test("keeps the test's own value", async ({ app, mockLlm }) => {
-    const agent = mockLlm(KeyedAgent).thenReturn(replyWith("ok"));
+  test("keeps the test's own value", async ({ app, mockModel }) => {
+    const agent = mockModel(KeyedAgent).thenReturn(replyWith("ok"));
 
     await execute(app, KeyedStart, MESSAGE, EXECUTION);
 

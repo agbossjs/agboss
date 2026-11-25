@@ -8,7 +8,7 @@ import { HelplineAnswerWorkflowFinish } from "../../../../src/helpline/workflows
 import { HelplineWorkflowStart } from "../../../../src/helpline/workflows/helpline/helpline.workflow-start.js";
 
 /**
- * The helpline's MCP tool: the filesystem server is never started in a test — `mcpOf` answers its
+ * The helpline's MCP tool: the filesystem server is never started in a test — `mockMcp` answers its
  * tools.
  */
 
@@ -16,17 +16,17 @@ const test = testWith(FlowPatternsApplication);
 
 test("the policy is read through the MCP server's read_text_file", async ({
   app,
-  mockLlm,
-  mcpOf,
+  mockModel,
+  mockMcp,
 }) => {
   const paths: string[] = [];
-  mcpOf(PolicyFilesServer).thenReturn({
+  mockMcp(PolicyFilesServer).thenReturn({
     read_text_file: ({ path }: { path: string }) => {
       paths.push(path);
       return Promise.resolve({ content: "Returns within 30 days of delivery." });
     },
   });
-  mockLlm(HelplineAgent).thenReturn(
+  mockModel(HelplineAgent).thenReturn(
     callTool(ReadPolicyTool, { topic: "returns" }),
     replyWith("You can return it within 30 days."),
   );

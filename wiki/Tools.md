@@ -624,7 +624,7 @@ test("counts the issues the API found", async () => {
 });
 ```
 
-In a workflow test the tool's dependencies are replaced with `mockOf(Service)`, and
+In a workflow test the tool's dependencies are replaced with `mockService(Service)`, and
 `app.runTool(CountIssues, input)` runs the tool alone with the app's real (or mocked)
 dependencies, in an execution of its own (its `ExecutionContext` reads `step.callId`
 `"tool-slice"`) ([Testing](Testing)).

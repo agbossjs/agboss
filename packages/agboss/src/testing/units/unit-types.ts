@@ -38,7 +38,7 @@ export interface UnitOptions<
 
 /**
  * The scripted answers of a component's model, one turn per model call, in order — typed like
- * `mockLlm(X).thenReturn(…)` (a model router's `routeTo(…)` by its `Route<R>`).
+ * `mockModel(X).thenReturn(…)` (a model router's `routeTo(…)` by its `Route<R>`).
  */
 export type UnitModelScript<TSelf = unknown> = TurnFor<TSelf> | readonly TurnFor<TSelf>[];
 

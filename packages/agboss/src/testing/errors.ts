@@ -188,7 +188,7 @@ export class UnsettledWorkError extends TestFailure {
   }
 }
 
-/** The test itself is set up wrong: `mockOf` / `mcpOf` of something the workflow does not use. */
+/** The test itself is set up wrong: `mockService` / `mockMcp` of something the workflow does not use. */
 export class TestSetupError extends Error {
   static readonly code = "test.setup" as const;
   readonly code = TestSetupError.code;

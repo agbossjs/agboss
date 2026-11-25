@@ -41,9 +41,9 @@ describe("#939 AC4: a late answer is a PauseClosedError with its reason", () => 
   test("a second answer: answered, closedAt the first answer's time, the key in the message and the id in a field", async ({
     app,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk)
+    mockModel(Clerk)
       .thenReturn(callTool(Charge, { text: "10 USD" }))
       .thenReturn(replyWith(ReceiptDto, { text: "charged" }));
     const paused = await execute(app, OrderWorkflowStart, { text: "charge" });
@@ -70,9 +70,9 @@ describe("#939 AC4: a late answer is a PauseClosedError with its reason", () => 
   test("after app.cancel: cancelled, closedAt the cancel's time; a reply to it asks no interpreter", async ({
     app,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+    mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
     const paused = await execute(app, OrderWorkflowStart, { text: "charge" });
     const pauseId = paused.pending[0]?.pauseId ?? "";
     await clock.advance(minutes(2));
@@ -96,9 +96,9 @@ describe("#939 AC4: a late answer is a PauseClosedError with its reason", () => 
     test(`after ${ended} that left the pause open (its root's record ended): the resume finishes the end and is refused — ${reason}`, async ({
       app,
       clock,
-      mockLlm,
+      mockModel,
     }) => {
-      mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+      mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
       const paused = await execute(app, OrderWorkflowStart, { text: "charge" });
       const pauseId = paused.pending[0]?.pauseId ?? "";
       const records = seen.records[0];

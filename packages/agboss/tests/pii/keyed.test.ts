@@ -38,8 +38,8 @@ const ownKeys = testWith(KeyedApplication, withInstancePiiKeys({ instances: 2 })
 describe("#120: the application's secret", () => {
   instances(
     "two instances give one value one token — a project's detector, a sensitive field",
-    async ({ apps, mockLlm }) => {
-      const agent = mockLlm(KeyedAgent).thenReturnAlways(replyWith("ok"));
+    async ({ apps, mockModel }) => {
+      const agent = mockModel(KeyedAgent).thenReturnAlways(replyWith("ok"));
       const [first, second] = apps;
       if (first === undefined || second === undefined) throw new Error("two instances");
 
@@ -59,8 +59,8 @@ describe("#120: the application's secret", () => {
 
   ownKeys(
     "instances that would make keys of their own still use the application's: no execution key (#334)",
-    async ({ apps, mockLlm }) => {
-      const agent = mockLlm(KeyedAgent).thenReturnAlways(replyWith("ok"));
+    async ({ apps, mockModel }) => {
+      const agent = mockModel(KeyedAgent).thenReturnAlways(replyWith("ok"));
       const [first, second] = apps;
       if (first === undefined || second === undefined) throw new Error("two instances");
 
@@ -75,8 +75,8 @@ describe("#120: the application's secret", () => {
     },
   );
 
-  instances("a policy's own key wins over the application's", async ({ apps, mockLlm }) => {
-    const agent = mockLlm(KeyedAgent).thenReturn(replyWith("ok"));
+  instances("a policy's own key wins over the application's", async ({ apps, mockModel }) => {
+    const agent = mockModel(KeyedAgent).thenReturn(replyWith("ok"));
     const [first] = apps;
     if (first === undefined) throw new Error("an instance");
 

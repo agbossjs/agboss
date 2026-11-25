@@ -23,7 +23,7 @@ import {
 } from "./test-app-parts.js";
 
 /**
- * The app of a test: the same `run` / `resume` as in production, built on first use (so `mockOf`
+ * The app of a test: the same `run` / `resume` as in production, built on first use (so `mockService`
  * in the test body still takes effect), plus the test's clock and slices of single components.
  * A blocked live call or a script problem fails the call, even when the run swallowed it; any call
  * after `close()` (or `recoverApp()`) but the probes (#300) fails with `test.app-closed`.

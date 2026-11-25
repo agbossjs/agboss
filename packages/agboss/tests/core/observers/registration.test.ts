@@ -68,8 +68,8 @@ const recorded = testWith(applicationWith("observed-workflow", [RunRecorder]));
 describe("a registered observer", () => {
   recorded(
     "receives workflow, agent and tool events with typed payloads",
-    async ({ app, mockLlm }) => {
-      mockLlm(Worker).thenReturn(callTool(EchoTool, { text: "hi" }), replyWith("done"));
+    async ({ app, mockModel }) => {
+      mockModel(Worker).thenReturn(callTool(EchoTool, { text: "hi" }), replyWith("done"));
 
       const result = await execute(app, Start, { text: "hello" });
 
@@ -95,10 +95,10 @@ describe("a registered observer", () => {
 
   recorded(
     "a service with hook-named methods that is not registered is never called as one",
-    async ({ app, mockLlm }) => {
-      mockLlm(Worker).thenReturn(callTool(EchoTool, { text: "hi" }), replyWith("done"));
+    async ({ app, mockModel }) => {
+      mockModel(Worker).thenReturn(callTool(EchoTool, { text: "hi" }), replyWith("done"));
       await execute(app, Start, { text: "hello" });
-      mockLlm(Worker).thenReturn(failWith(ModelFailure.ServerError));
+      mockModel(Worker).thenReturn(failWith(ModelFailure.ServerError));
       await expect(execute(app, Start, { text: "again" })).rejects.toThrow();
 
       expect(events).toContain("error:AgentFailedError");
@@ -138,9 +138,9 @@ const stamped = testWith(
 describe("observers with dependencies and failures", () => {
   stamped(
     "gets its deps from the container; a throwing observer does not fail the run",
-    async ({ app, mockLlm }) => {
+    async ({ app, mockModel }) => {
       resetLogged();
-      mockLlm(Worker).thenReturn(replyWith("done"));
+      mockModel(Worker).thenReturn(replyWith("done"));
 
       const result = await execute(app, Start, { text: "hello" });
 

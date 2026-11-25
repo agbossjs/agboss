@@ -14,9 +14,11 @@ import { deltas } from "./writer.fixture.js";
 const test = testWith(DecisionDeskApplication);
 
 describe("#1004: the decision judge is silent", () => {
-  test("AC1: only the writer's answer is a delta", async ({ app, mockLlm }) => {
-    mockLlm(Writer).thenReturn(replyWith("Acme is hiring a TS engineer."));
-    mockLlm(AnswerGrounded).thenReturn(decideWith({ grounded: 0.9, tone: "neutral", quality: 2 }));
+  test("AC1: only the writer's answer is a delta", async ({ app, mockModel }) => {
+    mockModel(Writer).thenReturn(replyWith("Acme is hiring a TS engineer."));
+    mockModel(AnswerGrounded).thenReturn(
+      decideWith({ grounded: 0.9, tone: "neutral", quality: 2 }),
+    );
     const events: ExecutionStreamEvent[] = [];
 
     await execute(
@@ -26,7 +28,7 @@ describe("#1004: the decision judge is silent", () => {
       { onStream: (event) => events.push(event) },
     );
 
-    expect(mockLlm(AnswerGrounded).requests).toHaveLength(1);
+    expect(mockModel(AnswerGrounded).requests).toHaveLength(1);
     expect(deltas(events)).toEqual(["Acme is hiring a TS engineer."]);
   });
 });

@@ -29,8 +29,8 @@ beforeEach(resetSeen);
 describe("#280: a tool and an action read their execution through ExecutionContext", () => {
   checkout(
     "a tool sees the execution's id, thread and its own step; the action its own",
-    async ({ app, mockLlm }) => {
-      mockLlm(Clerk).thenReturn(
+    async ({ app, mockModel }) => {
+      mockModel(Clerk).thenReturn(
         callTool(Probe, { text: "order 7" }),
         replyWith(ReceiptDto, { text: "Found." }),
       );
@@ -61,8 +61,8 @@ describe("#280: a tool and an action read their execution through ExecutionConte
 
   checkout(
     "the execution id and a tool call's key stay the same across a pause and its resume",
-    async ({ app, mockLlm }) => {
-      mockLlm(Clerk).thenReturn(
+    async ({ app, mockModel }) => {
+      mockModel(Clerk).thenReturn(
         callTool(Probe, { text: "card" }),
         callTool(Charge, { text: "10 USD" }),
         replyWith(ReceiptDto, { text: "Charged." }),
@@ -91,8 +91,8 @@ const mail = testWith(MailApplication);
 describe("#181: execute and resume forward onStream", () => {
   mail(
     "AC2: a caller passing onStream to app.execute receives stream events",
-    async ({ app, mockLlm }) => {
-      mockLlm(Mailer).thenReturn(replyWith("Hello there."));
+    async ({ app, mockModel }) => {
+      mockModel(Mailer).thenReturn(replyWith("Hello there."));
       const events: ExecutionStreamEvent[] = [];
 
       await execute(app, MailStart, { text: "hi" }, { onStream: (event) => events.push(event) });
@@ -103,9 +103,9 @@ describe("#181: execute and resume forward onStream", () => {
     },
   );
 
-  mail("resume forwards onStream too", async ({ app, mockLlm }) => {
+  mail("resume forwards onStream too", async ({ app, mockModel }) => {
     sent.length = 0;
-    mockLlm(Mailer).thenReturn(callTool(SendEmail, { to: "dana" }), replyWith("Sent."));
+    mockModel(Mailer).thenReturn(callTool(SendEmail, { to: "dana" }), replyWith("Sent."));
     const events: ExecutionStreamEvent[] = [];
 
     const paused = await execute(

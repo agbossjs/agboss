@@ -73,8 +73,8 @@ beforeEach(() => {
 });
 
 describe("S24: a pause and a restart inside a single child", () => {
-  test("a paused single child resumes with the same id", async ({ app, mockLlm }) => {
-    mockLlm(ItemReviewerAgent).thenAnswer(reviewer);
+  test("a paused single child resumes with the same id", async ({ app, mockModel }) => {
+    mockModel(ItemReviewerAgent).respondWith(reviewer);
 
     const paused = await execute(app, ReviewOneWorkflowStart, item("b"), who);
     const done = await app.resume(answerOf(paused), { tenantId: "acme" });
@@ -90,17 +90,17 @@ describe("S24: a pause and a restart inside a single child", () => {
   test("a paused child survives a restart: the new instance resumes it, same id", async ({
     app,
     recoverApp,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ItemReviewerAgent).thenAnswer(reviewer);
+    mockModel(ItemReviewerAgent).respondWith(reviewer);
     const paused = await execute(app, ReviewItemsWorkflowStart, [item("a"), item("b")], who);
-    const before = mockLlm(ItemReviewerAgent).requests.length;
+    const before = mockModel(ItemReviewerAgent).requests.length;
 
     const restarted = await recoverApp();
     const done = await restarted.resume(answerOf(paused), { tenantId: "acme" });
 
     expect(done).toFinishWith(ReviewsSummaryWorkflowFinish, { text: "a, b" });
-    expect(mockLlm(ItemReviewerAgent).requests.slice(before).map(nameIn)).toEqual(["b"]);
+    expect(mockModel(ItemReviewerAgent).requests.slice(before).map(nameIn)).toEqual(["b"]);
     expect(childStarts("item-review-workflow")).toHaveLength(2);
     expect([...done.children.map((child) => child.executionId)].sort()).toEqual(
       [...childStarts("item-review-workflow")].sort(),

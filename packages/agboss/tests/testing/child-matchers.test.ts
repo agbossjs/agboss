@@ -155,14 +155,14 @@ describe("toHaveHandledError", () => {
 
   test("a single child's failure, and a child's limit taken by an agent", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ItemReviewerAgent).thenAnswer((request: ModelRequest) =>
+    mockModel(ItemReviewerAgent).respondWith((request: ModelRequest) =>
       JSON.stringify(request.input).includes("loop")
         ? replyWith(ItemNoteDto, { note: "again" }, { cost: usd(0.001) })
         : replyWith(ItemResultDto, { name: "x" }),
     );
-    mockLlm(ReviewRescueAgent).thenReturn(replyWith(SummaryDto, { text: "skip" }));
+    mockModel(ReviewRescueAgent).thenReturn(replyWith(SummaryDto, { text: "skip" }));
 
     const one = await execute(app, CheckOneWorkflowStart, item("bad", 0, "fail"), who);
     const reviews = await execute(app, ReviewItemsWorkflowStart, [item("loop")], who);

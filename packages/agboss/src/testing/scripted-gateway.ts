@@ -65,12 +65,12 @@ export const judgeKeyOf = (judge: string): string => `judge:${judge}`;
 export const arbiterKeyOf = (arbiter: string): string => `arbiter:${arbiter}`;
 /** The script key of a compaction (#120 PR 3): its cost caller. */
 export const compactionKeyOf = (compaction: string): string => `compaction:${compaction}`;
-/** The script key of a model `@Reranker` (#703): `mockLlm(DocsReranker)`. */
+/** The script key of a model `@Reranker` (#703): `mockModel(DocsReranker)`. */
 export const rerankerKeyOf = (reranker: string): string => `reranker:${reranker}`;
 /** The script key of a guardrail (#120): its cost caller. */
 export const guardrailKeyOf = (guardrail: string): string => `guardrail:${guardrail}`;
 
-/** What `mockLlm` scripts: an agent or a router (by class), or a `@Judge`. */
+/** What `mockModel` scripts: an agent or a router (by class), or a `@Judge`. */
 export type ModelTarget = Class;
 
 /** The script key of a `@Judge` class among the workflow's judges (by name); else none. */
@@ -90,7 +90,7 @@ export const optionOf = (target: Class): string => nodeNameOf(target);
 
 const failed = (reason: string): RouteOutcome => ({ kind: "failed", reason });
 
-/** A compaction nobody scripted writes this summary (`mockLlm(XCompaction)` scripts it). */
+/** A compaction nobody scripted writes this summary (`mockModel(XCompaction)` scripts it). */
 export const UNSCRIPTED_SUMMARY = "(summary of the earlier turns)";
 
 function usageOf(spec: DecisionSpec, details: DecisionDetails): UsageRecord | undefined {
@@ -145,7 +145,7 @@ function outcomeOf(turn: ScriptedTurn, spec: DecisionSpec, script: ComponentScri
   return usage === undefined ? { kind: "decided", decision } : { kind: "decided", decision, usage };
 }
 
-/** A router's decision request, as `mockLlm(Router).requests` records it. */
+/** A router's decision request, as `mockModel(Router).requests` records it. */
 const decisionRequestOf = (spec: DecisionSpec): ModelRequest => ({
   kind: "decision",
   input: shownContentOf(spec.request.input),

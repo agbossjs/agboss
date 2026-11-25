@@ -1700,7 +1700,7 @@ and `apps[1]`, each with its own container and instance id — over one set of s
 (`clock`, shared). With the in-memory defaults the instances share their rows, so the framework's
 own implementations are tested across instances; nothing is substituted, so an application that
 lists its own implementations is tested on those (against Testcontainers, or with its injected
-client replaced by `mockOf(…)`).
+client replaced by `mockService(…)`).
 
 **SQLite stores are shared only through a file** (#458). Each instance opens its own connection
 ([above](#sqlite--several-instances-on-one-machine)), and SQLite's `:memory:` is one database per connection: with
@@ -1721,8 +1721,8 @@ const test = testWith(App, { instances: 2, env: "instances" });
 ```ts no-check: the application and its workflow are a project's own (see Testing)
 const test = testWith(LeaseApplication, { instances: 2 });
 
-test("a pause made on one instance is resumed on the other", async ({ app, apps, mockLlm }) => {
-  mockLlm(ClerkAgent).thenReturn(callTool(ChargeTool, { amount: "10" }), replyWith("Charged."));
+test("a pause made on one instance is resumed on the other", async ({ app, apps, mockModel }) => {
+  mockModel(ClerkAgent).thenReturn(callTool(ChargeTool, { amount: "10" }), replyWith("Charged."));
   const paused = await app.execute(OrderWorkflowStart, { text: "charge" });
 
   const pauseId = paused.pending[0]?.pauseId ?? ""; // a ThreadOwner pause lists its id

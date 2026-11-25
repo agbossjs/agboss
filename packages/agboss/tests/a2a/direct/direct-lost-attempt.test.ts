@@ -122,9 +122,9 @@ describe("#860: a resend that finds its attempt lost", () => {
     a2aServer,
     app,
     clock,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(QuoteAgent).thenReturn(replyWith("12.50 EUR."));
+    mockModel(QuoteAgent).thenReturn(replyWith("12.50 EUR."));
     const { url } = await a2aServer(listener);
     const requestHash = requestHashOf(
       "quotes-a2a-expose",
@@ -143,6 +143,6 @@ describe("#860: a resend that finds its attempt lost", () => {
 
     expect(answer.body.result).toMatchObject({ message: { parts: [{ text: "12.50 EUR." }] } });
     expect(deleteByOwner.mock.calls).toContainEqual([{ tenantId: "default", ownerId: "run-lost" }]);
-    expect(mockLlm(QuoteAgent).requests).toHaveLength(1);
+    expect(mockModel(QuoteAgent).requests).toHaveLength(1);
   });
 });

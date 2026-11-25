@@ -35,8 +35,8 @@ class KeptQuestionsApplication {}
 const test = testWith(KeptQuestionsApplication);
 
 describe("#1366: the kept record of a run with a model interpreter", () => {
-  test("states the call that read the reply", async ({ app, mockLlm }) => {
-    mockLlm(BudgetOwnerReplyInterpreter).thenReturn(
+  test("states the call that read the reply", async ({ app, mockModel }) => {
+    mockModel(BudgetOwnerReplyInterpreter).thenReturn(
       replyWith(SpendingLimitAnswerDto, { approved: true, limitUsd: 800 }, { cost: usd(0.125) }),
     );
     const paused = await execute(app, OwnerPurchaseWorkflowStart, { text: "desk for 700" });

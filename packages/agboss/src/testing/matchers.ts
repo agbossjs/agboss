@@ -48,7 +48,7 @@ export const wrongReceived = (matcher: string, wanted: string): Verdict => ({
 const withoutCopyNumber = (nodeId: string): string => nodeId.replace(/#\d+$/, "");
 
 export const RUN = "a run result (app.execute / app.resume)";
-const SCRIPT = "mockLlm(…) of an agent or a router";
+const SCRIPT = "mockModel(…) of an agent or a router";
 
 const pathText = (path: readonly string[]): string => path.join(" → ") || "(none)";
 
@@ -96,7 +96,7 @@ function endedBy(
   return verdict(context, pass, `the run to be ${expected.status}${why}`, got);
 }
 
-/** Matchers on run results, errors and `mockLlm(…)` — all by class. Registered by the setup file. */
+/** Matchers on run results, errors and `mockModel(…)` — all by class. Registered by the setup file. */
 export const workflowMatchers = {
   /** The execution visited these components, in this order (compared by node id = `name`). */
   toFollowPath(this: MatcherContext, received: unknown, path: readonly Class[]): Verdict {
@@ -193,7 +193,7 @@ export interface WorkflowMatchers<R = unknown> {
     error: ErrorClass<TError>,
     fields?: ExpectedErrorFields<TError>,
   ): R;
-  /** `mockLlm(X)`'s model called exactly these tools, in order. */
+  /** `mockModel(X)`'s model called exactly these tools, in order. */
   toHaveScriptedToolCalls(tools: readonly Class[]): R;
   toHaveBeenAskedWith(request: ExpectedRequest): R;
 }

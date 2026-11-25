@@ -6,7 +6,7 @@ unit runner. Real-model checks are recorded cassettes (VCR) and evals.
 
 | You test…                                                                                                     | Use                                                                                                                               |
 | ------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| a path through the application                                                                                | `testWith(App)` → `app.execute(Start, input)`, `mockLlm(X).thenReturn(…)`, matchers                                               |
+| a path through the application                                                                                | `testWith(App)` → `app.execute(Start, input)`, `mockModel(X).thenReturn(…)`, matchers                                             |
 | a race between parallel branches                                                                              | `testWith(App, { concurrency: TestConcurrency.inOrder([step(A), step(B)]) })`                                                     |
 | time: timeouts, retries, retention, leases                                                                    | the `clock` fixture: `await clock.advance(seconds(31))`                                                                           |
 | a restart, a second instance                                                                                  | `recoverApp()`, `testWith(App, { instances: 2 })` → `apps`                                                                        |
@@ -576,32 +576,32 @@ import { ScreeningApplication } from "./src/screening.application.js";
 const test = testWith(ScreeningApplication); // the only form: testWith(Workflow) does not compile
 const candidate = { name: "Dana", cv: "TypeScript, 6 years; dana@example.com" };
 
-test("two reports, a hire verdict, the hire saved", async ({ app, mockLlm }) => {
-  mockLlm(SkillsAgent).thenReturn(
+test("two reports, a hire verdict, the hire saved", async ({ app, mockModel }) => {
+  mockModel(SkillsAgent).thenReturn(
     callTool(CandidateArchiveTool, { name: "Dana" }), // a turn that calls a tool, typed by its input
     replyWith(SkillsReportDto, { score: 8, notes: "strong TypeScript" }), // then the answer
   );
-  mockLlm(CultureAgent).thenReturn(replyWith(CultureReportDto, { score: 7, notes: "clear writer" }));
-  mockLlm(VerdictAgent).thenReturn(replyWith(VerdictDto, { decision: "hire", reason: "both reports at 7+" }));
-  mockLlm(ReasonedVerdictJudge).thenReturn(decideWith({ reasoned: 0.9 }));
+  mockModel(CultureAgent).thenReturn(replyWith(CultureReportDto, { score: 7, notes: "clear writer" }));
+  mockModel(VerdictAgent).thenReturn(replyWith(VerdictDto, { decision: "hire", reason: "both reports at 7+" }));
+  mockModel(ReasonedVerdictJudge).thenReturn(decideWith({ reasoned: 0.9 }));
 
   const result = await app.execute(ScreeningWorkflowStart, candidate);
 
   expect(result).toFinishWith(HiredWorkflowFinish);
   expect(result.threadId).toBe("thread-1"); // ids are sequential in tests (SequentialIdGenerator)
   expect(result.executionId).toBe("execution-1");
-  expect(mockLlm(VerdictAgent)).toHaveBeenCalledWith({ skills: { score: 8 } }); // its input, partly
-  expect(mockLlm(SkillsAgent).lastRequest.input).toContain("<email:"); // the model read a token
+  expect(mockModel(VerdictAgent)).toHaveBeenCalledWith({ skills: { score: 8 } }); // its input, partly
+  expect(mockModel(SkillsAgent).lastRequest.input).toContain("<email:"); // the model read a token
 });
 
-test("a verdict that does not reason is retried once", async ({ app, mockLlm }) => {
-  mockLlm(SkillsAgent).thenReturn(replyWith(SkillsReportDto, { score: 3, notes: "junior" }));
-  mockLlm(CultureAgent).thenReturn(replyWith(CultureReportDto, { score: 4, notes: "quiet" }));
-  mockLlm(VerdictAgent).thenReturn(
+test("a verdict that does not reason is retried once", async ({ app, mockModel }) => {
+  mockModel(SkillsAgent).thenReturn(replyWith(SkillsReportDto, { score: 3, notes: "junior" }));
+  mockModel(CultureAgent).thenReturn(replyWith(CultureReportDto, { score: 4, notes: "quiet" }));
+  mockModel(VerdictAgent).thenReturn(
     replyWith(VerdictDto, { decision: "reject", reason: "n/a" }),
     replyWith(VerdictDto, { decision: "reject", reason: "both reports below the bar of 7" }),
   );
-  mockLlm(ReasonedVerdictJudge).thenReturn(decideWith({ reasoned: 0.1 }), decideWith({ reasoned: 0.9 }));
+  mockModel(ReasonedVerdictJudge).thenReturn(decideWith({ reasoned: 0.1 }), decideWith({ reasoned: 0.9 }));
 
   const result = await app.execute(ScreeningWorkflowStart, candidate);
 
@@ -609,7 +609,7 @@ test("a verdict that does not reason is retried once", async ({ app, mockLlm }) 
     decision: "reject",
     reason: "both reports below the bar of 7", // the whole output: the second, judged answer
   });
-  expect(mockLlm(VerdictAgent)).toHaveBeenCalledTimes(2);
+  expect(mockModel(VerdictAgent)).toHaveBeenCalledTimes(2);
 });
 
 // a race, the same on every run: the culture answer completes first and is rejected by the
@@ -619,9 +619,9 @@ const raceTest = testWith(ScreeningApplication, {
   concurrency: TestConcurrency.inOrder([step(CultureAgent), step(SkillsAgent)]),
 });
 
-raceTest("an answer without notes leaves the quorum short", async ({ app, mockLlm }) => {
-  mockLlm(CultureAgent).thenReturn(replyWith(CultureReportDto, { score: 6, notes: " " }));
-  mockLlm(SkillsAgent).thenReturn(replyWith(SkillsReportDto, { score: 9, notes: "senior" }));
+raceTest("an answer without notes leaves the quorum short", async ({ app, mockModel }) => {
+  mockModel(CultureAgent).thenReturn(replyWith(CultureReportDto, { score: 6, notes: " " }));
+  mockModel(SkillsAgent).thenReturn(replyWith(SkillsReportDto, { score: 9, notes: "senior" }));
 
   await expect(app.execute(ScreeningWorkflowStart, candidate)).rejects.toFailWith(QuorumNotReachedError, {
     counted: 0,
@@ -641,13 +641,13 @@ raceTest("an answer without notes leaves the quorum short", async ({ app, mockLl
   counted in `step.validationAttempts` — and `replyWithInvalidAnswer(Dto, { body: "…" })` (a class
   of the agent's output, fields that do not fit it: the third fails the step with
   `AgentAnswerInvalidError`).
-- **`when(partial)`** binds turns to the input: `mockLlm(SkillsAgent).when({ candidate: { name: "Dana" } }).thenReturn(…)`.
+- **`when(partial)`** binds turns to the input: `mockModel(SkillsAgent).when({ candidate: { name: "Dana" } }).thenReturn(…)`.
 - **Unscripted**: a guardrail passes, a compaction writes a fixed summary; an agent, a router or a
   judge without a script is a blocked live call (`test.live-call-blocked`). A memory that compacts in code
-  (a `compact(input)` method) calls no model: `mockLlm(GraphMemory)` is a setup error —
-  `mockOf(KnowledgeGraphService).saveFactsAndSummarize.mockResolvedValue([…])` the services its
+  (a `compact(input)` method) calls no model: `mockModel(GraphMemory)` is a setup error —
+  `mockService(KnowledgeGraphService).saveFactsAndSummarize.mockResolvedValue([…])` the services its
   `compact()` uses.
-- **Replacing a class**: `mockOf(Service).method.mockResolvedValue(…)` (any component or service, a
+- **Replacing a class**: `mockService(Service).method.mockResolvedValue(…)` (any component or service, a
   budget's `maxSpend` too); `testWith(App, { services: [Replacement] })` creates a
   class instead of another — no instances, no `new`.
 - **A profile**: `testWith(App, { profile: "low-thinking" })` runs every workflow of the application,
@@ -660,7 +660,7 @@ raceTest("an answer without notes leaves the quorum short", async ({ app, mockLl
   `.version` is the profile's. An unknown profile is a `ProfileError` listing the profiles that
   exist, a model a profile switches to one its provider does not serve fails the assembly with
   `[model.missing-provider]` / `[model.incompatible-provider]`, not the first call.
-- **MCP**: `mcpOf(Server).thenReturn({ server_tool: (args) => result })`, `.calls`; **network** is
+- **MCP**: `mockMcp(Server).thenReturn({ server_tool: (args) => result })`, `.calls`; **network** is
   blocked except `allowNetwork: ["localhost"]`.
 - **A2A**: `const { url } = await a2aServer({ endpoint, authenticator })` serves the test's `app` through
   `a2aHttpListener` on `127.0.0.1:0` (the authenticator from its container, the loopback open, closed at
@@ -671,11 +671,11 @@ raceTest("an answer without notes leaves the quorum short", async ({ app, mockLl
   `toHaveHandledError(E, { at, by })`, `toHaveCalledTools([A, B])` and `toHaveToolCallMatching(Tool,
 partialOrCheck)` (the trajectory, below), `toHavePausedAt(Agent)`, `toStopWith(reason?)` /
   `toCancelWith(reason?)` (the run ended `Stopped` / `Cancelled`); on
-  `mockLlm(X)` / `mockAction(A)`: `toHaveBeenCalledWith(partial)`, `toHaveBeenCalledTimes(n)`,
+  `mockModel(X)` / `mockAction(A)`: `toHaveBeenCalledWith(partial)`, `toHaveBeenCalledTimes(n)`,
   `toHaveReturned(Dto, fields?)`, `toHaveScriptedToolCalls([Tool])` (its model's calls, exactly, in
   order), `.inputs`, `.lastRequest`.
-- **Errors only the real way**: `failWith(…)`, a rejecting `mockOf`, `mockTool(Tool).thenFail(ToolFailure.Timeout)`,
-  scripts that reach a limit (`mockOf(ExecutionBudget).maxSpend.mockReturnValue(usd(0.001))` + a
+- **Errors only the real way**: `failWith(…)`, a rejecting `mockService`, `mockTool(Tool).thenFail(ToolFailure.Timeout)`,
+  scripts that reach a limit (`mockService(ExecutionBudget).maxSpend.mockReturnValue(usd(0.001))` + a
   scripted `cost`), `app.cancel` / an aborted `signal`. Never throw a framework error by hand.
 - **Time**: the `clock` fixture is the application's `Clock` in every test, fixed at
   `2026-01-05T09:00:00Z`; `await clock.advance(seconds(31))` wakes every due wait (a tool's timeout,
@@ -690,14 +690,14 @@ partialOrCheck)` (the trajectory, below), `toHavePausedAt(Agent)`, `toStopWith(r
   `leases.thaw(apps[0])` wakes it: a fenced write of the old token is refused. A unit runner's step
   fences with a held lease (token 1), set by `fence: { token, isLost, renewNowFails }`.
 - **Health**: `await app.checkReadiness()` / `app.checkLiveness()` → `HealthReport` (a
-  `@HealthCheck`'s service mocked with `mockOf`). `testWith` never traps SIGTERM / SIGINT.
+  `@HealthCheck`'s service mocked with `mockService`). `testWith` never traps SIGTERM / SIGINT.
 
 ### Serving the application over A2A: `a2aServer`
 
 The `a2aServer` fixture (#387, an `A2AServerFixture`) serves the test's `app` through
 `a2aHttpListener` (its `@A2AEndpoint`, listed in `@Application({ endpoints })`, #398 PR 3) on `127.0.0.1:0` and returns an `A2ATestServer` — `{ url }` for `new A2AClient({
 url, headers })`. The app is built first and the authenticator taken from its container (so
-`services` and `mockOf` reach its services); the loopback is open for the test without
+`services` and `mockService` reach its services); the loopback is open for the test without
 `allowNetwork`, its `publicUrl` is its own address, and the server closes when the test ends. It
 serves A2A v1.0 (#808): the Agent Card at `<url>/.well-known/agent-card.json` and JSON-RPC 2.0 at
 `POST <url>` — any A2A client calls it, here a plain `fetch` of `SendMessage`. A refused caller is
@@ -738,18 +738,18 @@ const sendMessage = (url: string, data: object, headers: Record<string, string> 
     }),
   });
 
-test("a caller without a key is refused with 401, and nothing runs", async ({ a2aServer, mockLlm }) => {
+test("a caller without a key is refused with 401, and nothing runs", async ({ a2aServer, mockModel }) => {
   const { url } = await a2aServer(screening); // listed in the application's providers
 
   const sent = await sendMessage(url, candidate);
 
   expect(sent.status).toBe(401);
   expect(await sent.json()).toMatchObject({ code: "a2a.caller-unauthenticated" });
-  expect(mockLlm(SkillsAgent)).toHaveBeenCalledTimes(0);
+  expect(mockModel(SkillsAgent)).toHaveBeenCalledTimes(0);
 });
 
-test("a known key runs for its tenant: a COMPLETED task", async ({ a2aServer, mockLlm }) => {
-  mockLlm(SkillsAgent).thenReturn(replyWith("…")); // and the rest of the path's scripts
+test("a known key runs for its tenant: a COMPLETED task", async ({ a2aServer, mockModel }) => {
+  mockModel(SkillsAgent).thenReturn(replyWith("…")); // and the rest of the path's scripts
   const { url } = await a2aServer(screening);
 
   const sent = await sendMessage(url, candidate, { authorization: "Bearer key-acme" });
@@ -795,7 +795,7 @@ message), `Blocked` (a tool interceptor's `block`: the step fails with `ToolBloc
   `toHaveToolCallMatching(Tool, expected)` when some call matches — `expected` a
   `ToolCallExpectation<TInput>`: a deep partial of the input, or a check `(input) => boolean` run on
   the calls whose input passed the tool's input check (`.not`: none matches). A child's calls are
-  asserted through `result.children`. The script matcher of `mockLlm(X)` is
+  asserted through `result.children`. The script matcher of `mockModel(X)` is
   `toHaveScriptedToolCalls([…])`: the model's calls exactly, in order.
 - A judge reads the visit's calls — every attempt's, real values — as `input.toolCalls`;
   `toolCallsOf(Tool, toolCalls)` gives one tool's calls typed by its input and output
@@ -825,14 +825,14 @@ import { ScreeningApplication } from "./src/screening.application.js";
 ```ts
 const test = testWith(ScreeningApplication);
 
-test("the skills agent looks the candidate up, whatever else runs", async ({ app, mockLlm }) => {
-  mockLlm(SkillsAgent).thenReturn(
+test("the skills agent looks the candidate up, whatever else runs", async ({ app, mockModel }) => {
+  mockModel(SkillsAgent).thenReturn(
     callTool(CandidateArchiveTool, { name: "Dana" }),
     replyWith(SkillsReportDto, { score: 8, notes: "strong TypeScript" }),
   );
-  mockLlm(CultureAgent).thenReturn(replyWith(CultureReportDto, { score: 7, notes: "clear writer" }));
-  mockLlm(VerdictAgent).thenReturn(replyWith(VerdictDto, { decision: "hire", reason: "both reports at 7+" }));
-  mockLlm(ReasonedVerdictJudge).thenReturn(decideWith({ reasoned: 0.9 }));
+  mockModel(CultureAgent).thenReturn(replyWith(CultureReportDto, { score: 7, notes: "clear writer" }));
+  mockModel(VerdictAgent).thenReturn(replyWith(VerdictDto, { decision: "hire", reason: "both reports at 7+" }));
+  mockModel(ReasonedVerdictJudge).thenReturn(decideWith({ reasoned: 0.9 }));
 
   const result = await app.execute(ScreeningWorkflowStart, { name: "Dana", cv: "TypeScript" }, { includeRecord: true });
 
@@ -1111,8 +1111,8 @@ const test = testWith(RentalApplication);
 
 const REQUEST = { customer: "dana" };
 
-test("a declined deposit: the side path cancels the car", async ({ app, mockOf }) => {
-  const fleet = mockOf(FleetService); // every method of a mocked class is a mock
+test("a declined deposit: the side path cancels the car", async ({ app, mockService }) => {
+  const fleet = mockService(FleetService); // every method of a mocked class is a mock
   fleet.reserve.mockResolvedValue("car-1");
   fleet.chargeDeposit.mockRejectedValue(new DepositDeclinedError("declined"));
 
@@ -1127,8 +1127,8 @@ test("a declined deposit: the side path cancels the car", async ({ app, mockOf }
   expect(result.compensations).toHaveLength(1);
 });
 
-test("an uncaught failure: the car is cancelled automatically, then the run fails", async ({ app, mockOf }) => {
-  const fleet = mockOf(FleetService);
+test("an uncaught failure: the car is cancelled automatically, then the run fails", async ({ app, mockService }) => {
+  const fleet = mockService(FleetService);
   fleet.reserve.mockResolvedValue("car-1");
   fleet.chargeDeposit.mockRejectedValue(new Error("payment gateway down")); // no side path takes it
 
@@ -1138,8 +1138,8 @@ test("an uncaught failure: the car is cancelled automatically, then the run fail
   expect(fleet.cancel.mock.calls[0]?.[1]).toMatch(/:reserve-car-action:1:compensation$/u);
 });
 
-test("an undo that fails: CompensationFailedError, the original error as its cause", async ({ app, mockOf }) => {
-  const fleet = mockOf(FleetService);
+test("an undo that fails: CompensationFailedError, the original error as its cause", async ({ app, mockService }) => {
+  const fleet = mockService(FleetService);
   fleet.reserve.mockResolvedValue("car-1");
   fleet.chargeDeposit.mockRejectedValue(new Error("payment gateway down"));
   fleet.cancel.mockRejectedValue(new Error("fleet API down"));
@@ -1157,9 +1157,9 @@ test("an undo that fails: CompensationFailedError, the original error as its cau
 
 ## A transport provider (`complete`) in tests
 
-`mockLlm` answers **above** every model provider: in `testWith(App)` a transport provider's
+`mockModel` answers **above** every model provider: in `testWith(App)` a transport provider's
 `complete(request)` (#385, reference 06) is never called — script its agents like any other
-(`mockLlm(BillingAgent).thenReturn(replyWith("…"))`), and no SDK, key or network is needed. What
+(`mockModel(BillingAgent).thenReturn(replyWith("…"))`), and no SDK, key or network is needed. What
 is left to test is the class's own mapping: call `complete()` on an instance built with a fake SDK
 client and a `testExecutionContext()` for its `TenantContext` (a class created by hand) — the
 retries, the rate limit, the breaker and the accounting around it are the framework's.
@@ -1577,7 +1577,7 @@ snapshot among them checks that a changed export got a new version
 1. The unit runners first, one component on its own: `testUnit`,
    `testUnit`,
    `testUnit` (below).
-2. Then the whole application: `testWith(App)` with `mockLlm(X).thenReturn(…)` scripts, or a
+2. Then the whole application: `testWith(App)` with `mockModel(X).thenReturn(…)` scripts, or a
    recorded cassette (VCR) for real answers replayed with no key or network.
 3. Assert the path and the finish (`toFollowPath`, `toFinishWith`) and **trajectory invariants**
    through `result.toolCalls` — which tools ran, with what input, how each ended — written so they
@@ -1932,10 +1932,10 @@ tasks })`, on the workflow that `start` opens, assembled as `createApp` assemble
 ## Pitfalls
 
 - `new SkillsAgent()`, `new CandidateArchiveTool(fake)` in a test: use `testWith` or the runner and
-  `overrides` / `mockOf`.
+  `overrides` / `mockService`.
 - A script for a path the test does not take: it fails as unused — script only what runs.
 - `thenReturnAlways` to silence a loop: script the exact turns; a loop is bounded by `maxVisits`.
 - Asserting on `Date.now()` or real timers: advance the `clock` fixture.
 - A test environment that reads a secret: leave secrets out of `test.environment.ts`.
 - Testing the graph by inspecting it: run it and assert the path (`toFollowPath`) and the finish.
-- Expecting `testWith` to call a transport provider's `complete()`: `mockLlm` answers above it (only a VCR recording calls it, #439).
+- Expecting `testWith` to call a transport provider's `complete()`: `mockModel` answers above it (only a VCR recording calls it, #439).

@@ -124,7 +124,7 @@ export class TestEnvironment {
   readonly mcp = new McpStubs(this.book);
   /** The rows of the in-memory defaults, shared by every app instance of the test. */
   readonly database = new InMemoryDatabase();
-  /** `mockOf`, `mockTool`, `mockAction`: what the test replaces or watches. */
+  /** `mockService`, `mockTool`, `mockAction`: what the test replaces or watches. */
   readonly mocks: TestMocks;
   /** The tenant of the test (`testWith(App, { tenant })`), when it names one. */
   readonly tenant: TenantValues | undefined;
@@ -248,7 +248,7 @@ export class TestEnvironment {
     return skew === undefined ? this.clock : new SkewedClock(this.clock, skew);
   }
 
-  mockLlm(target: ModelTarget): ModelScript {
+  mockModel(target: ModelTarget): ModelScript {
     const label = target.name;
     const component = this.#targets.componentKeyOf(target);
     if (component !== undefined) {
@@ -259,16 +259,18 @@ export class TestEnvironment {
     const key = node === undefined ? undefined : scriptKeyOf(node);
     if (key === undefined)
       throw new TestSetupError({
-        message: `mockLlm(${label}): ${this.#targets.whyNoScript(target)}`,
+        message: `mockModel(${label}): ${this.#targets.whyNoScript(target)}`,
       });
     return this.book.scriptOf(key);
   }
 
-  mcpOf<TServer extends McpServerClient<ServerTools>>(server: new () => TServer): McpStub<TServer> {
+  mockMcp<TServer extends McpServerClient<ServerTools>>(
+    server: new () => TServer,
+  ): McpStub<TServer> {
     const name = this.#servers.get(server);
     if (name === undefined) {
       throw new TestSetupError({
-        message: `mcpOf(${server.name}): not an MCP server of this application`,
+        message: `mockMcp(${server.name}): not an MCP server of this application`,
       });
     }
     return this.mcp.stubOf<TServer>(name);

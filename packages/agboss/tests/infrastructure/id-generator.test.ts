@@ -77,7 +77,7 @@ async function pausedAndResumed(
 /** A `createApp` instance of `application`, the child's agent scripted. */
 async function scriptedApp(application: typeof PrefixedIdsApplication): Promise<App> {
   const book = new ScriptBook();
-  book.scriptOf("agent:child-refund-agent").thenAnswer(confirmer);
+  book.scriptOf("agent:child-refund-agent").respondWith(confirmer);
   return createTestAppWith(application, { gateway: createScriptedGateway(book) });
 }
 
@@ -86,9 +86,9 @@ describe("#313 AC2: under testWith the ids are deterministic", () => {
 
   test("thread-1 / execution-1 for the root, execution-2 for its child; the pauseId stays random", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ChildRefundAgent).thenAnswer(confirmer);
+    mockModel(ChildRefundAgent).respondWith(confirmer);
 
     const { ids, done } = await pausedAndResumed(app);
 
@@ -103,9 +103,9 @@ describe("#313 AC2: under testWith the ids are deterministic", () => {
 
   test("each new thread and execution takes the next number; a caller's own threadId is used as given", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ChildRefundAgent).thenAnswer(confirmer);
+    mockModel(ChildRefundAgent).respondWith(confirmer);
 
     const first = await pausedAndResumed(app);
     const second = await pausedAndResumed(app);
@@ -129,8 +129,8 @@ describe("#313 AC2: under testWith the ids are deterministic", () => {
     expect(own.pending[0]?.childExecutionId).toBe("execution-6");
   });
 
-  test("the sequence starts again in every test", async ({ app, mockLlm }) => {
-    mockLlm(ChildRefundAgent).thenAnswer(confirmer);
+  test("the sequence starts again in every test", async ({ app, mockModel }) => {
+    mockModel(ChildRefundAgent).respondWith(confirmer);
 
     const { ids } = await pausedAndResumed(app);
 
@@ -143,9 +143,9 @@ describe("#313 AC2: a listed generator replaces the default", () => {
 
   test("in testWith: the application's PrefixedIdGenerator, not the sequential one", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ChildRefundAgent).thenAnswer(confirmer);
+    mockModel(ChildRefundAgent).respondWith(confirmer);
 
     const { ids } = await pausedAndResumed(app);
 

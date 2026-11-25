@@ -113,12 +113,12 @@ const failureOf = (work: Promise<unknown>): Promise<unknown> =>
 
 /** A desk agent: one refund approval, then done; counts its model's turns. */
 function scriptedClerk(
-  mockLlm: (agent: typeof DeskClerkAgent) => {
-    thenAnswer: (answer: (request: ModelRequest) => ScriptedTurn) => unknown;
+  mockModel: (agent: typeof DeskClerkAgent) => {
+    respondWith: (answer: (request: ModelRequest) => ScriptedTurn) => unknown;
   },
 ): { turns: () => number } {
   let turns = 0;
-  mockLlm(DeskClerkAgent).thenAnswer((request) => {
+  mockModel(DeskClerkAgent).respondWith((request) => {
     turns += 1;
     return isAnswered(request) ? replyWith("Refunded.") : callTool(RefundTool, { orderId: "7" });
   });
@@ -128,8 +128,8 @@ function scriptedClerk(
 describe("#946 AC1: an operator reassigns an approval", () => {
   desk(
     "AC1: the old id is refused 'reassigned', the deputy's answer goes on, the agent's model is not called again",
-    async ({ app, mockLlm }) => {
-      const clerk = scriptedClerk(mockLlm);
+    async ({ app, mockModel }) => {
+      const clerk = scriptedClerk(mockModel);
       const paused = await execute(app, DeskWorkflowStart, REFUND);
       expect(paused.status).toBe(ExecutionStatus.Paused);
       const oldId = asksAbout("7")[0]?.pauseId ?? "";
@@ -161,8 +161,8 @@ describe("#946 AC1: an operator reassigns an approval", () => {
 
   desk(
     "AC1: the old pause is Cancelled / Reassigned, the replacement is sent; a first send carries neither assignee nor replaces",
-    async ({ app, mockLlm }) => {
-      scriptedClerk(mockLlm);
+    async ({ app, mockModel }) => {
+      scriptedClerk(mockModel);
       await execute(app, DeskWorkflowStart, REFUND);
       const [first] = asksAbout("7");
       expect(first).not.toHaveProperty("assignee");
@@ -198,8 +198,8 @@ describe("#946 AC1: an operator reassigns an approval", () => {
 
   desk(
     "AC1: the channel hears the new send and onPauseClosed(reassigned) of the old message — each once, in either order",
-    async ({ app, mockLlm }) => {
-      scriptedClerk(mockLlm);
+    async ({ app, mockModel }) => {
+      scriptedClerk(mockModel);
       await execute(app, DeskWorkflowStart, REFUND);
       const oldId = asksAbout("7")[0]?.pauseId ?? "";
 
@@ -229,8 +229,8 @@ describe("#946 AC1: an operator reassigns an approval", () => {
 
   desk(
     "AC1: one of three approvers reassigned: the other two pauses are unchanged; the pending list names the live pauses; the next answer's pass does not ask again",
-    async ({ app, mockLlm }) => {
-      mockLlm(BatchRefundAgent).thenAnswer((request) => {
+    async ({ app, mockModel }) => {
+      mockModel(BatchRefundAgent).respondWith((request) => {
         const orderId = orderOf(request);
         return isAnswered(request)
           ? replyWith(RefundDoneDto, { orderId })
@@ -285,8 +285,8 @@ describe("#946 AC1: an operator reassigns an approval", () => {
 
   priced(
     "AC1: a reassigned approval's sleeping loop keeps its spend at finishRun, and a resume counts nothing twice",
-    async ({ app, mockLlm }) => {
-      mockLlm(PricedRefundAgent).thenAnswer((request) => {
+    async ({ app, mockModel }) => {
+      mockModel(PricedRefundAgent).respondWith((request) => {
         const orderId = orderOf(request);
         const tools =
           request.kind === "chat" ? request.messages.filter((m) => m.role === "tool").length : 0;
@@ -325,8 +325,8 @@ describe("#946 AC1: an operator reassigns an approval", () => {
 
   desk(
     "AC1: the new id is in no log and no listener's notice without includePauseIds, and in no result of the call",
-    async ({ app, mockLlm }) => {
-      scriptedClerk(mockLlm);
+    async ({ app, mockModel }) => {
+      scriptedClerk(mockModel);
       await execute(app, DeskWorkflowStart, REFUND);
       const oldId = asksAbout("7")[0]?.pauseId ?? "";
 
@@ -363,8 +363,8 @@ describe("#946 AC1: an operator reassigns an approval", () => {
 describe("#946 AC2: the instance dies, or the channel fails, between the reassignment and the new send", () => {
   desk(
     "AC2: a send that fails leaves the replacement unsent; a later look sends it again with replaces and assignee, once",
-    async ({ app, mockLlm, clock }) => {
-      scriptedClerk(mockLlm);
+    async ({ app, mockModel, clock }) => {
+      scriptedClerk(mockModel);
       await execute(app, DeskWorkflowStart, REFUND);
       const oldId = asksAbout("7")[0]?.pauseId ?? "";
       hooks.beforeSendReturns = (ask) =>
@@ -407,8 +407,8 @@ describe("#946 AC2: the instance dies, or the channel fails, between the reassig
 
   desk(
     "AC2: the replacement is sent once more at most per look: a channel that keeps failing is asked once each look, never twice at once",
-    async ({ app, mockLlm, clock }) => {
-      scriptedClerk(mockLlm);
+    async ({ app, mockModel, clock }) => {
+      scriptedClerk(mockModel);
       await execute(app, DeskWorkflowStart, REFUND);
       const oldId = asksAbout("7")[0]?.pauseId ?? "";
       let release: () => void = () => undefined;
@@ -439,8 +439,8 @@ describe("#946 AC2: the instance dies, or the channel fails, between the reassig
 
   desk(
     "AC2: a slow channel's closed notice is retried while the new send went out (no order asserted)",
-    async ({ app, mockLlm, clock }) => {
-      scriptedClerk(mockLlm);
+    async ({ app, mockModel, clock }) => {
+      scriptedClerk(mockModel);
       await execute(app, DeskWorkflowStart, REFUND);
       const oldId = asksAbout("7")[0]?.pauseId ?? "";
       hooks.closeFailure = new Error("the old message cannot be edited yet");
@@ -462,8 +462,8 @@ describe("#946 AC2: the instance dies, or the channel fails, between the reassig
 
   twoDesks(
     "AC2: a failure whose message carries the new pause id reaches no log line, from the call or the re-send look",
-    async ({ apps, mockLlm, clock }) => {
-      scriptedClerk(mockLlm);
+    async ({ apps, mockModel, clock }) => {
+      scriptedClerk(mockModel);
       await execute(instance(apps, 0), DeskWorkflowStart, REFUND, THREAD);
       const oldId = asksAbout("7")[0]?.pauseId ?? "";
       const store = pauseStore();
@@ -492,8 +492,8 @@ describe("#946 AC2: the instance dies, or the channel fails, between the reassig
 
   desk(
     "AC2: a channel that decides at once for the reassigned send answers the replacement through the normal answer path, once; the run goes on",
-    async ({ app, mockLlm }) => {
-      const clerk = scriptedClerk(mockLlm);
+    async ({ app, mockModel }) => {
+      const clerk = scriptedClerk(mockModel);
       await execute(app, DeskWorkflowStart, REFUND, THREAD);
       const oldId = asksAbout("7")[0]?.pauseId ?? "";
       hooks.decideReassigned = approve;
@@ -521,8 +521,8 @@ describe("#946 AC2: the instance dies, or the channel fails, between the reassig
 
   twoDesks(
     "AC2 (money path): a reassigned send that decides, the answer lost before it was recorded, then the re-send looks of two instances: the channel decides again and the answer applies exactly once",
-    async ({ apps, mockLlm, clock }) => {
-      const clerk = scriptedClerk(mockLlm);
+    async ({ apps, mockModel, clock }) => {
+      const clerk = scriptedClerk(mockModel);
       await execute(instance(apps, 0), DeskWorkflowStart, REFUND, THREAD);
       const oldId = asksAbout("7")[0]?.pauseId ?? "";
       hooks.decideReassigned = approve;
@@ -567,8 +567,8 @@ describe("#946 AC2: the instance dies, or the channel fails, between the reassig
 
   desk(
     "V3.4: a Resolved replacement whose first interrupt still waits is closed not taken at the tree's end, never marked Taken",
-    async ({ app, mockLlm, clock }) => {
-      scriptedClerk(mockLlm);
+    async ({ app, mockModel, clock }) => {
+      scriptedClerk(mockModel);
       await execute(app, DeskWorkflowStart, REFUND, THREAD);
       const oldId = asksAbout("7")[0]?.pauseId ?? "";
       await app.reassignPause(

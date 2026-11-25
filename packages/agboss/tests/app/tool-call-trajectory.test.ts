@@ -35,9 +35,9 @@ describe("result.toolCalls", () => {
 
   test("lists the visit's calls in call order: the tool, the agent's visit, input, output, status", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ClerkAgent).thenReturn(
+    mockModel(ClerkAgent).thenReturn(
       callTool(LookupOrderTool, { orderId: "7" }),
       callTool(LookupOrderTool, { orderId: "lost" }),
       replyWith("Order 7 has shipped."),
@@ -75,8 +75,8 @@ describe("result.toolCalls", () => {
     expect(Date.parse(String(found?.startedAt))).not.toBeNaN();
   });
 
-  test("a child's calls are in its own record, not the root's", async ({ app, mockLlm }) => {
-    mockLlm(ClerkAgent).thenReturn(
+  test("a child's calls are in its own record, not the root's", async ({ app, mockModel }) => {
+    mockModel(ClerkAgent).thenReturn(
       callTool(LookupOrderTool, { orderId: "7" }),
       replyWith("Shipped."),
     );
@@ -89,9 +89,9 @@ describe("result.toolCalls", () => {
 
   test("the record's calls are masked by the application's PII policies, the result's are real", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ClerkAgent).thenReturn(
+    mockModel(ClerkAgent).thenReturn(
       callTool(LookupOrderTool, { orderId: "alice@example.com" }),
       replyWith("Shipped."),
     );
@@ -113,11 +113,11 @@ describe("JudgeInput.toolCalls", () => {
 
   test("holds the visit's calls of every attempt; the verdicts are the agent step's", async ({
     app,
-    mockLlm,
-    mockOf,
+    mockModel,
+    mockService,
   }) => {
-    const log = mockOf(TrajectoryLog);
-    mockLlm(ClerkAgent).thenReturn(
+    const log = mockService(TrajectoryLog);
+    mockModel(ClerkAgent).thenReturn(
       replyWith("It has shipped, I think."),
       callTool(LookupOrderTool, { orderId: "7" }),
       replyWith("Order 7 has shipped."),
@@ -149,9 +149,9 @@ describe("record.steps", () => {
 
   test("one entry per visit, in order: its step, input hash, guardrail decisions and spend", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ClerkAgent).thenReturn(
+    mockModel(ClerkAgent).thenReturn(
       callTool(LookupOrderTool, { orderId: "7" }),
       replyWith("Order 7 has shipped."),
     );
@@ -181,9 +181,9 @@ describe("record.steps", () => {
     });
   });
 
-  test("the same input gives the same hash, another input another", async ({ app, mockLlm }) => {
+  test("the same input gives the same hash, another input another", async ({ app, mockModel }) => {
     const lookUpAndAnswer = [callTool(LookupOrderTool, { orderId: "7" }), replyWith("Shipped.")];
-    mockLlm(ClerkAgent).thenReturn(...lookUpAndAnswer, ...lookUpAndAnswer, ...lookUpAndAnswer);
+    mockModel(ClerkAgent).thenReturn(...lookUpAndAnswer, ...lookUpAndAnswer, ...lookUpAndAnswer);
     const agentHashOf = async (text: string): Promise<string | undefined> => {
       const result = await execute(app, ClerkStart, { text }, { includeRecord: true });
       return result.record?.steps.find((step) => step.step.nodeId === "clerk-agent")?.inputHash;
@@ -245,9 +245,9 @@ describe("a failed visit keeps its calls and verdicts (#395 S6)", () => {
 
   test("a QualityGateError a side path takes: the agent's calls, verdict and failure in the record", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(StrictClerkAgent).thenReturn(
+    mockModel(StrictClerkAgent).thenReturn(
       callTool(LookupOrderTool, { orderId: "lost" }),
       replyWith("It has shipped."),
     );
@@ -274,9 +274,9 @@ describe("a failed visit keeps its calls and verdicts (#395 S6)", () => {
 
   test("a child that fails: its record keeps the failed visit's calls and steps", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ClerkAgent).thenReturn(
+    mockModel(ClerkAgent).thenReturn(
       replyWith("It shipped, I guess."),
       callTool(LookupOrderTool, { orderId: "lost" }),
       replyWith("Still shipped."),
@@ -302,8 +302,8 @@ describe("a failed visit keeps its calls and verdicts (#395 S6)", () => {
     expect(result.toolCalls).toEqual([]);
   });
 
-  test("a child that finishes: its own steps, in order", async ({ app, mockLlm }) => {
-    mockLlm(ClerkAgent).thenReturn(
+  test("a child that finishes: its own steps, in order", async ({ app, mockModel }) => {
+    mockModel(ClerkAgent).thenReturn(
       callTool(LookupOrderTool, { orderId: "7" }),
       replyWith("Shipped."),
     );

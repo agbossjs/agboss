@@ -34,9 +34,9 @@ beforeEach(() => {
 });
 
 describe("#1279a: .inParallel([…])", () => {
-  skipping("an action, a skipped action and an agent run at once", async ({ app, mockLlm }) => {
+  skipping("an action, a skipped action and an agent run at once", async ({ app, mockModel }) => {
     behaviour.fails = false;
-    mockLlm(ThirdAgent).thenReturn(third);
+    mockModel(ThirdAgent).thenReturn(third);
 
     const result = await execute(app, InParallelWorkflowStart, { text: "go" });
 
@@ -50,8 +50,8 @@ describe("#1279a: .inParallel([…])", () => {
 
   skipping(
     "a failed skip() branch leaves its place empty, the launch goes on",
-    async ({ app, mockLlm }) => {
-      mockLlm(ThirdAgent).thenReturn(third);
+    async ({ app, mockModel }) => {
+      mockModel(ThirdAgent).thenReturn(third);
 
       const result = await execute(app, InParallelWorkflowStart, { text: "go" });
 
@@ -103,8 +103,8 @@ const modelChooser = testWith(ModelChooserApplication);
 describe("#1279b: a model router's chooseMany", () => {
   modelChooser(
     "one decision, a yes or no per route; all no is an answer",
-    async ({ app, mockLlm }) => {
-      mockLlm(ModelChooserRouter).thenReturn(
+    async ({ app, mockModel }) => {
+      mockModel(ModelChooserRouter).thenReturn(
         decideWith({ "chosen-a-action": 0.9, "chosen-b-action": 0.1 }),
         decideWith({ "chosen-a-action": 0.1, "chosen-b-action": 0.1 }),
       );

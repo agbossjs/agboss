@@ -110,12 +110,12 @@ async function startedOn(app: TestApp, apps: readonly TestApp[]): Promise<void> 
 describe("#853: a lost pass of a step leaves one Unknown-cost entry", () => {
   two(
     "AC1: kill -9 during a model call, then a takeover → one Unknown entry for that pass, the re-run's cost counted once",
-    async ({ apps, clock, leases, mockLlm }) => {
+    async ({ apps, clock, leases, mockModel }) => {
       const [a] = apps;
       if (a === undefined) throw new Error("two instances");
       // a model step after the lost one, in the re-run's later supersteps: never a lost pass
-      mockLlm(ReviewerAgent).thenReturnAlways(replyWith(ReportDto, { text: "reviewed" }));
-      mockLlm(WriterAgent).thenReturn(
+      mockModel(ReviewerAgent).thenReturnAlways(replyWith(ReportDto, { text: "reviewed" }));
+      mockModel(WriterAgent).thenReturn(
         waitFor(hours(2)),
         replyWith(ReportDto, { text: "never heard" }),
         replyWith(ReportDto, { text: "done" }, { cost: usd(0.01) }),
@@ -143,10 +143,10 @@ describe("#853: a lost pass of a step leaves one Unknown-cost entry", () => {
     },
   );
 
-  one("AC2: a clean run records no Unknown entry", async ({ app, mockLlm, clock }) => {
+  one("AC2: a clean run records no Unknown entry", async ({ app, mockModel, clock }) => {
     // a model step after the lost one, in the re-run's later supersteps: never a lost pass
-    mockLlm(ReviewerAgent).thenReturnAlways(replyWith(ReportDto, { text: "reviewed" }));
-    mockLlm(WriterAgent).thenReturn(replyWith(ReportDto, { text: "done" }, { cost: usd(0.01) }));
+    mockModel(ReviewerAgent).thenReturnAlways(replyWith(ReportDto, { text: "reviewed" }));
+    mockModel(WriterAgent).thenReturn(replyWith(ReportDto, { text: "done" }, { cost: usd(0.01) }));
 
     await execute(app, LostPassWorkflowStart, { text: "write it" });
 
@@ -157,12 +157,14 @@ describe("#853: a lost pass of a step leaves one Unknown-cost entry", () => {
 
   two(
     "AC2: a recovery whose lost pass had finished the step records no Unknown entry",
-    async ({ apps, clock, leases, mockLlm }) => {
+    async ({ apps, clock, leases, mockModel }) => {
       const [a] = apps;
       if (a === undefined) throw new Error("two instances");
       // a model step after the lost one, in the re-run's later supersteps: never a lost pass
-      mockLlm(ReviewerAgent).thenReturnAlways(replyWith(ReportDto, { text: "reviewed" }));
-      mockLlm(WriterAgent).thenReturn(replyWith(ReportDto, { text: "done" }, { cost: usd(0.01) }));
+      mockModel(ReviewerAgent).thenReturnAlways(replyWith(ReportDto, { text: "reviewed" }));
+      mockModel(WriterAgent).thenReturn(
+        replyWith(ReportDto, { text: "done" }, { cost: usd(0.01) }),
+      );
       lostPassLevers.isHolding = true;
       for (const each of apps) await each.ready();
       const call = execute(a, LostPassWorkflowStart, { text: "write it" });
@@ -183,13 +185,13 @@ describe("#853: a lost pass of a step leaves one Unknown-cost entry", () => {
 
   two(
     "AC2: of one superstep, only the step the lost pass had not finished gets an Unknown entry",
-    async ({ apps, clock, leases, mockLlm }) => {
+    async ({ apps, clock, leases, mockModel }) => {
       const [a] = apps;
       if (a === undefined) throw new Error("two instances");
-      mockLlm(DrafterAgent).thenReturn(
+      mockModel(DrafterAgent).thenReturn(
         replyWith(ReportDto, { text: "draft" }, { cost: usd(0.01) }),
       );
-      mockLlm(CheckerAgent).thenReturn(
+      mockModel(CheckerAgent).thenReturn(
         waitFor(hours(2)),
         replyWith(CheckDto, { verdict: "never heard" }),
         replyWith(CheckDto, { verdict: "fine" }, { cost: usd(0.02) }),
@@ -218,12 +220,12 @@ describe("#853: a lost pass of a step leaves one Unknown-cost entry", () => {
 
   three(
     "AC2: two recoveries of one lost pass write one entry for it; the re-run that is lost too gets its own",
-    async ({ apps, clock, leases, mockLlm }) => {
+    async ({ apps, clock, leases, mockModel }) => {
       const [a] = apps;
       if (a === undefined) throw new Error("three instances");
       // a model step after the lost one, in the re-run's later supersteps: never a lost pass
-      mockLlm(ReviewerAgent).thenReturnAlways(replyWith(ReportDto, { text: "reviewed" }));
-      mockLlm(WriterAgent).thenReturn(
+      mockModel(ReviewerAgent).thenReturnAlways(replyWith(ReportDto, { text: "reviewed" }));
+      mockModel(WriterAgent).thenReturn(
         waitFor(hours(2)),
         replyWith(ReportDto, { text: "never heard" }),
         waitFor(hours(2)),
@@ -261,12 +263,12 @@ describe("#853: a lost pass of a step leaves one Unknown-cost entry", () => {
 describe("#875: the metric counts a lost pass whatever the execution's end", () => {
   meteredTwo(
     "AC1: a recovery whose re-run fails still counts its Unknown entry",
-    async ({ apps, clock, leases, mockLlm }) => {
+    async ({ apps, clock, leases, mockModel }) => {
       const [a] = apps;
       if (a === undefined) throw new Error("two instances");
       const before = await unknownCostsCounted();
-      mockLlm(ReviewerAgent).thenReturnAlways(replyWith(ReportDto, { text: "reviewed" }));
-      mockLlm(WriterAgent)
+      mockModel(ReviewerAgent).thenReturnAlways(replyWith(ReportDto, { text: "reviewed" }));
+      mockModel(WriterAgent)
         .thenReturn(waitFor(hours(2)), replyWith(ReportDto, { text: "never heard" }))
         .thenReturnAlways(failWith(ModelFailure.ServerError));
       await startedOn(a, apps);
@@ -283,12 +285,12 @@ describe("#875: the metric counts a lost pass whatever the execution's end", () 
 
   meteredTwo(
     "AC1: a recovery cancelled during its re-run still counts its Unknown entry",
-    async ({ apps, clock, leases, mockLlm }) => {
+    async ({ apps, clock, leases, mockModel }) => {
       const [a] = apps;
       if (a === undefined) throw new Error("two instances");
       const before = await unknownCostsCounted();
-      mockLlm(ReviewerAgent).thenReturnAlways(replyWith(ReportDto, { text: "reviewed" }));
-      mockLlm(WriterAgent).thenReturn(
+      mockModel(ReviewerAgent).thenReturnAlways(replyWith(ReportDto, { text: "reviewed" }));
+      mockModel(WriterAgent).thenReturn(
         waitFor(hours(2)),
         replyWith(ReportDto, { text: "never heard" }),
         waitFor(hours(2)),

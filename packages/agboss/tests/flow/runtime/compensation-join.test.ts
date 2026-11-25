@@ -42,8 +42,8 @@ beforeEach(() => {
 });
 
 describe("a failed join undoes its finished branches", () => {
-  test("newest first, before the side path, each recorded", async ({ app, mockOf }) => {
-    const desk = mockOf(UndoDesk);
+  test("newest first, before the side path, each recorded", async ({ app, mockService }) => {
+    const desk = mockService(UndoDesk);
     desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
     desk.charge.mockRejectedValue(new UndoDeskError("card declined"));
 
@@ -68,9 +68,9 @@ describe("a failed join undoes its finished branches", () => {
 
   test("each undo runs in its own frame: its key, the step it undoes, a live signal", async ({
     app,
-    mockOf,
+    mockService,
   }) => {
-    const desk = mockOf(UndoDesk);
+    const desk = mockService(UndoDesk);
     desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
     desk.charge.mockRejectedValue(new UndoDeskError("card declined"));
 
@@ -88,8 +88,8 @@ describe("a failed join undoes its finished branches", () => {
     });
   });
 
-  test("onCompensationStart / onCompensationEnd around each undo", async ({ app, mockOf }) => {
-    const desk = mockOf(UndoDesk);
+  test("onCompensationStart / onCompensationEnd around each undo", async ({ app, mockService }) => {
+    const desk = mockService(UndoDesk);
     desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
     desk.charge.mockRejectedValue(new UndoDeskError("card declined"));
 
@@ -120,9 +120,9 @@ describe("a failed join undoes its finished branches", () => {
 
   test("an undo's spend is the execution's: its service under the undo action", async ({
     app,
-    mockOf,
+    mockService,
   }) => {
-    const desk = mockOf(UndoDesk);
+    const desk = mockService(UndoDesk);
     desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
     desk.charge.mockRejectedValue(new UndoDeskError("card declined"));
 
@@ -133,9 +133,9 @@ describe("a failed join undoes its finished branches", () => {
 
   test("no side path: undone, then the execution fails with the branch's error", async ({
     app,
-    mockOf,
+    mockService,
   }) => {
-    const desk = mockOf(UndoDesk);
+    const desk = mockService(UndoDesk);
     desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
     desk.charge.mockRejectedValue(new UndoDeskError("card declined"));
 
@@ -147,9 +147,9 @@ describe("a failed join undoes its finished branches", () => {
 
   test("every branch finished: nothing is undone, the finish commits them", async ({
     app,
-    mockOf,
+    mockService,
   }) => {
-    const desk = mockOf(UndoDesk);
+    const desk = mockService(UndoDesk);
     desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
 
     const result = await execute(app, UndoWorkflowStart, GUEST);
@@ -163,9 +163,9 @@ describe("a failed join undoes its finished branches", () => {
 describe("an undo that fails (Q4)", () => {
   test("the rest still runs, then CompensationFailedError — never the side path", async ({
     app,
-    mockOf,
+    mockService,
   }) => {
-    const desk = mockOf(UndoDesk);
+    const desk = mockService(UndoDesk);
     desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
     desk.charge.mockRejectedValue(new UndoDeskError("card declined"));
     desk.release.mockRejectedValueOnce(new UndoDeskError("room desk down"));
@@ -192,8 +192,8 @@ describe("an undo that fails (Q4)", () => {
 describe("the clean-up signal (AC3)", () => {
   quick(
     "an undo's signal aborts after compensationTimeout; the undo fails with it",
-    async ({ app, mockOf, clock }) => {
-      const desk = mockOf(UndoDesk);
+    async ({ app, mockService, clock }) => {
+      const desk = mockService(UndoDesk);
       desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
       desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
       desk.charge.mockRejectedValue(new UndoDeskError("card declined"));

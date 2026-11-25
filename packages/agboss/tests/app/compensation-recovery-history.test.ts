@@ -32,8 +32,8 @@ beforeEach(() => {
 describe("the kept record of a tree whose undo a takeover finished", () => {
   pair(
     "lists every undo action that ran, as onExecutionError does",
-    async ({ apps, clock, mockOf }) => {
-      const desk = mockOf(UndoDesk);
+    async ({ apps, clock, mockService }) => {
+      const desk = mockService(UndoDesk);
       const held = new Set(["seat-1"]);
       desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
       desk.release.mockImplementation((id: string, _key: string, signal: AbortSignal) =>
@@ -45,7 +45,7 @@ describe("the kept record of a tree whose undo a takeover finished", () => {
             })
           : Promise.resolve(),
       );
-      mockOf(UnwindGate).wait.mockRejectedValue(new UndoDeskError("the gate is down"));
+      mockService(UnwindGate).wait.mockRejectedValue(new UndoDeskError("the gate is down"));
       const [first, second] = apps;
       if (first === undefined || second === undefined) throw new Error("two instances");
       await first.ready();

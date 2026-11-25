@@ -346,10 +346,10 @@ const toolTest = testWith(toolDesk.application);
 describe("#944 AC5: an agent's approval with a failing calendar", () => {
   toolTest(
     "AC5: the agent step fails with AgentFailedError, cause a WorkingCalendarError; the tool never ran",
-    async ({ app, clock, mockLlm }) => {
+    async ({ app, clock, mockModel }) => {
       flaky.mode = "throw";
       await moveTo(clock, "2026-01-08T15:30:00.000Z");
-      mockLlm(toolDesk.agent as never).thenReturn(
+      mockModel(toolDesk.agent as never).thenReturn(
         callTool(toolDesk.tool as never, { orderId: "7" } as never),
       );
 

@@ -65,8 +65,8 @@ describe("AC6: audio and video reach the model as parts", () => {
 
   testWith(reader.Application)(
     "AC6: an mp3 and an mp4 are an audio and a video part, shown as { kind, mediaType, sizeBytes, sha256 }",
-    async ({ app, mockLlm }) => {
-      const agent = mockLlm(reader.Agent).thenReturn(replyWith("heard"));
+    async ({ app, mockModel }) => {
+      const agent = mockModel(reader.Agent).thenReturn(replyWith("heard"));
 
       await execute(app, reader.Start, {
         document: inline(MP3, "audio/mpeg", "note.mp3"),
@@ -94,8 +94,8 @@ describe("AC6: audio and video reach the model as parts", () => {
 
   testWith(reader.Application)(
     "AC6: bytes that are not what the type says are refused before any model call",
-    async ({ app, mockLlm }) => {
-      const agent = mockLlm(reader.Agent);
+    async ({ app, mockModel }) => {
+      const agent = mockModel(reader.Agent);
 
       const run = execute(app, reader.Start, { document: inline(WAV, "audio/mpeg", "fake.mp3") });
 
@@ -122,8 +122,8 @@ describe("AC6: the limits of size and type hold for audio and video, before any 
 
   testWith(small.Application)(
     "AC6: a video over maxFileSize is ModelFileLimitError, the model is never called",
-    async ({ app, mockLlm }) => {
-      const agent = mockLlm(small.Agent);
+    async ({ app, mockModel }) => {
+      const agent = mockModel(small.Agent);
       const big = bytes([0, 0, 0, 24, ...ascii("ftypisom")], "y".repeat(2000));
 
       const run = execute(app, small.Start, { document: inline(big, "video/mp4", "big.mp4") });
@@ -137,8 +137,8 @@ describe("AC6: the limits of size and type hold for audio and video, before any 
 
   testWith(mp3Only.Application)(
     "AC6: a type that is not allowed (a video, here) is ModelFileLimitError, the model is never called",
-    async ({ app, mockLlm }) => {
-      const agent = mockLlm(mp3Only.Agent);
+    async ({ app, mockModel }) => {
+      const agent = mockModel(mp3Only.Agent);
 
       const run = execute(app, mp3Only.Start, { document: inline(MP4, "video/mp4", "clip.mp4") });
 

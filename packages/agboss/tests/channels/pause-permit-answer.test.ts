@@ -45,9 +45,9 @@ const approve = { approved: true } as const;
 describe("#1307c: permitAnswer gates the answer of a delegate approval", () => {
   test("false refuses it: the pause keeps waiting, the tool does not run; a permitted answer then goes through", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(GatedClerkAgent).thenReturn(
+    mockModel(GatedClerkAgent).thenReturn(
       callTool(GatedRefundTool, { orderId: "A-1" }),
       replyWith("Refunded."),
     );
@@ -76,9 +76,9 @@ describe("#1307c: permitAnswer gates the answer of a delegate approval", () => {
 
   test("a throw refuses it too: the error names the pause, not the hook's text", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(GatedClerkAgent).thenReturn(callTool(GatedRefundTool, { orderId: "A-1" }));
+    mockModel(GatedClerkAgent).thenReturn(callTool(GatedRefundTool, { orderId: "A-1" }));
     await execute(app, GatedStart, { text: "refund A-1" });
     app.resolve(PermitPolicy).verdict = "throw";
     const { pauseId } = app.resolve(GatedRefundChannel).asked[0] ?? { pauseId: "" };
@@ -99,8 +99,8 @@ describe("#1307c: permitAnswer gates the answer of a delegate approval", () => {
 
   test.for([undefined, "yes", 1, null])(
     "a verdict that is not true (%s) refuses it",
-    async (verdict, { app, mockLlm }) => {
-      mockLlm(GatedClerkAgent).thenReturn(callTool(GatedRefundTool, { orderId: "A-1" }));
+    async (verdict, { app, mockModel }) => {
+      mockModel(GatedClerkAgent).thenReturn(callTool(GatedRefundTool, { orderId: "A-1" }));
       await execute(app, GatedStart, { text: "refund A-1" });
       app.resolve(PermitPolicy).verdict = verdict;
       const { pauseId } = app.resolve(GatedRefundChannel).asked[0] ?? { pauseId: "" };
@@ -114,9 +114,9 @@ describe("#1307c: permitAnswer gates the answer of a delegate approval", () => {
 
   test("the hook reads who answered, the tool call, its arguments and the decision", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(GatedClerkAgent).thenReturn(
+    mockModel(GatedClerkAgent).thenReturn(
       callTool(GatedRefundTool, { orderId: "A-1" }),
       replyWith("Refunded."),
     );
@@ -138,9 +138,9 @@ describe("#1307c: permitAnswer gates the answer of a delegate approval", () => {
 
   test("a second answer is refused as closed, before the hook is asked again", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(GatedClerkAgent).thenReturn(
+    mockModel(GatedClerkAgent).thenReturn(
       callTool(GatedRefundTool, { orderId: "A-1" }),
       replyWith("Refunded."),
     );
@@ -159,10 +159,10 @@ describe("#1307c: permitAnswer gates the answer of a delegate approval", () => {
 
   test("an answer after the deadline is refused as closed, before the hook is asked", async ({
     app,
-    mockLlm,
+    mockModel,
     clock,
   }) => {
-    mockLlm(GatedClerkAgent).thenReturn(callTool(GatedRefundTool, { orderId: "A-1" }));
+    mockModel(GatedClerkAgent).thenReturn(callTool(GatedRefundTool, { orderId: "A-1" }));
     await execute(app, GatedStart, { text: "refund A-1" });
     const { pauseId } = app.resolve(GatedRefundChannel).asked[0] ?? { pauseId: "" };
     await clock.advance(hours(5));
@@ -178,9 +178,9 @@ describe("#1307c: permitAnswer gates the answer of a delegate approval", () => {
 describe("#1307c: an owner's target with no channel asks nobody", () => {
   test("a tool approval waits for the owner's resume: recorded as sent, no channel was called", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(OwnerClerkAgent).thenReturn(
+    mockModel(OwnerClerkAgent).thenReturn(
       callTool(OwnerRefundTool, { orderId: "B-2" }),
       replyWith("Refunded."),
     );

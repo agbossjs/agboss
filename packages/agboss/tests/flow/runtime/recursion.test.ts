@@ -63,10 +63,10 @@ beforeEach(() => {
 describe("AC1: a workflow runs itself as a child", () => {
   test("three levels: each subtopic its own child, merged after the join", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(ResearcherAgent).thenAnswer(researcher);
-    mockLlm(MergeAgent).thenAnswer(merger);
+    mockModel(ResearcherAgent).respondWith(researcher);
+    mockModel(MergeAgent).respondWith(merger);
 
     const result = await execute(app, TopicResearchWorkflowStart, { title: "ai", level: 0 });
 
@@ -82,16 +82,16 @@ describe("AC1: a workflow runs itself as a child", () => {
       { title: "ml", level: 1 },
       { title: "robotics", level: 1 },
     ]);
-    const merged = mockLlm(MergeAgent).requests.map(titleIn);
+    const merged = mockModel(MergeAgent).requests.map(titleIn);
     expect([...merged].sort()).toEqual(["ai", "ml"]);
-    expect(textOf(mockLlm(MergeAgent).requests.at(-1))).toContain("merged ml");
+    expect(textOf(mockModel(MergeAgent).requests.at(-1))).toContain("merged ml");
   });
 });
 
 describe("AC3: depth 1 … maxDepth in the context and the record", () => {
-  test("the root is 1, its children 2, theirs 3", async ({ app, mockLlm }) => {
-    mockLlm(ResearcherAgent).thenAnswer(researcher);
-    mockLlm(MergeAgent).thenAnswer(merger);
+  test("the root is 1, its children 2, theirs 3", async ({ app, mockModel }) => {
+    mockModel(ResearcherAgent).respondWith(researcher);
+    mockModel(MergeAgent).respondWith(merger);
 
     const result = await execute(app, TopicResearchWorkflowStart, { title: "ai", level: 0 });
 
@@ -117,12 +117,12 @@ describe("AC3: depth 1 … maxDepth in the context and the record", () => {
 describe("AC7: the root's budget counts every level; each execution its own maxSteps", () => {
   test("seven model calls of five executions, all in the root's spend", async ({
     app,
-    mockLlm,
-    mockOf,
+    mockModel,
+    mockService,
   }) => {
-    mockOf(TestExecutionBudget).maxSpend.mockReturnValue(usd(1));
-    mockLlm(ResearcherAgent).thenAnswer(researcher);
-    mockLlm(MergeAgent).thenAnswer(merger);
+    mockService(TestExecutionBudget).maxSpend.mockReturnValue(usd(1));
+    mockModel(ResearcherAgent).respondWith(researcher);
+    mockModel(MergeAgent).respondWith(merger);
 
     const result = await execute(app, TopicResearchWorkflowStart, { title: "ai", level: 0 });
 

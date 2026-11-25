@@ -201,34 +201,34 @@ describe("AC12: matchers by class — a passing and a failing case, readable fai
     }).toThrow("toHavePausedAt: expected a run result");
     expect(() => {
       expect(run({})).toHaveScriptedToolCalls([]);
-    }).toThrow("toHaveScriptedToolCalls: expected mockLlm(…) of an agent or a router");
+    }).toThrow("toHaveScriptedToolCalls: expected mockModel(…) of an agent or a router");
     expect(() => {
       expect(run({})).toHaveBeenAskedWith({});
-    }).toThrow("toHaveBeenAskedWith: expected mockLlm(…)");
+    }).toThrow("toHaveBeenAskedWith: expected mockModel(…)");
   });
 });
 
 const test = testWith(DeskApplication);
 
-describe("AC12: matchers on mockLlm(…)", () => {
+describe("AC12: matchers on mockModel(…)", () => {
   test("toHaveScriptedToolCalls and toHaveBeenAskedWith name the class", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(MainRouter).thenReturn(routeTo(Support));
-    mockLlm(Support).thenReturn(callTool(OrderStatus, { orderId: "5" }), replyWith("Shipped."));
+    mockModel(MainRouter).thenReturn(routeTo(Support));
+    mockModel(Support).thenReturn(callTool(OrderStatus, { orderId: "5" }), replyWith("Shipped."));
 
     await execute(app, ChatStart, { text: "where is 5?" });
 
-    expect(mockLlm(Support)).toHaveScriptedToolCalls([OrderStatus]);
-    expect(mockLlm(Writer)).toHaveScriptedToolCalls([]);
+    expect(mockModel(Support)).toHaveScriptedToolCalls([OrderStatus]);
+    expect(mockModel(Writer)).toHaveScriptedToolCalls([]);
     expect(() => {
-      expect(mockLlm(Support)).toHaveScriptedToolCalls([ReadNote]);
+      expect(mockModel(Support)).toHaveScriptedToolCalls([ReadNote]);
     }).toThrow("expected Support to call read-note-tool, it called order-status-tool");
-    expect(mockLlm(Support)).toHaveBeenAskedWith({ kind: "chat", input: "where is 5?" });
-    expect(mockLlm(Support)).not.toHaveBeenAskedWith({ input: "where is 6?" });
+    expect(mockModel(Support)).toHaveBeenAskedWith({ kind: "chat", input: "where is 5?" });
+    expect(mockModel(Support)).not.toHaveBeenAskedWith({ input: "where is 6?" });
     expect(() => {
-      expect(mockLlm(Writer)).toHaveBeenAskedWith({ input: "x" });
+      expect(mockModel(Writer)).toHaveBeenAskedWith({ input: "x" });
     }).toThrow('expected Writer to be asked with {"input":"x"}, its requests: []');
   });
 });

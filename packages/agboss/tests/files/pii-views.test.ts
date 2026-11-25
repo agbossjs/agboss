@@ -79,11 +79,11 @@ describe("AC3: a transcription reaches the model masked by the policy's rules", 
 
   testWith(masked.Application, options)(
     "AC3: tokens and kinds in the model's request, never the values; the agent's tool call reveals the token",
-    async ({ app, mockLlm }) => {
-      mockLlm(FileTranscriber).thenReturn(replyWith(SCAN));
+    async ({ app, mockModel }) => {
+      mockModel(FileTranscriber).thenReturn(replyWith(SCAN));
       FETCHABLE.set(EMAIL, inline(PNG_BYTES, "image/png", "found.png"));
       let calls = 0;
-      const agent = mockLlm(masked.Agent).thenAnswer((request) => {
+      const agent = mockModel(masked.Agent).respondWith((request) => {
         calls += 1;
         const [token] = tokensIn(requestText(request), "email");
         return calls === 1 ? callTool(FetchTool, { name: token ?? "no token" }) : replyWith("done");
@@ -104,11 +104,11 @@ describe("AC3: a transcription reaches the model masked by the policy's rules", 
 
   testWith(masked.Application, options)(
     "AC3: the checkpoint keeps the masked transcription — the one-way value is in none of its writes",
-    async ({ app, mockLlm }) => {
+    async ({ app, mockModel }) => {
       const puts = vi.spyOn(MemorySaver.prototype, "put");
       const writes = vi.spyOn(MemorySaver.prototype, "putWrites");
-      mockLlm(FileTranscriber).thenReturn(replyWith(SCAN));
-      mockLlm(masked.Agent).thenReturn(replyWith("ok"));
+      mockModel(FileTranscriber).thenReturn(replyWith(SCAN));
+      mockModel(masked.Agent).thenReturn(replyWith("ok"));
 
       await execute(app, masked.Start, { document: inline(PNG_BYTES, "image/png", "inv.png") });
 
@@ -124,8 +124,8 @@ describe("AC3: a transcription reaches the model masked by the policy's rules", 
 
   testWith(masked.Application, options)(
     "AC3: a text format is masked as text too: its own text goes through the policy",
-    async ({ app, mockLlm }) => {
-      const agent = mockLlm(masked.Agent).thenReturn(replyWith("ok"));
+    async ({ app, mockModel }) => {
+      const agent = mockModel(masked.Agent).thenReturn(replyWith("ok"));
       const csv = Buffer.from(`who,card\nbob,${CARD}\n`);
 
       await execute(app, masked.Start, { document: inline(csv, "text/csv", "cards.csv") });
@@ -138,9 +138,9 @@ describe("AC3: a transcription reaches the model masked by the policy's rules", 
 
   testWith(masked.Application, options)(
     "AC3: the transcription is made once for a file seen again; the checkpoint's cache serves it",
-    async ({ app, mockLlm }) => {
-      const transcriber = mockLlm(FileTranscriber).thenReturn(replyWith(SCAN));
-      mockLlm(masked.Agent).thenReturn(replyWith("ok"));
+    async ({ app, mockModel }) => {
+      const transcriber = mockModel(FileTranscriber).thenReturn(replyWith(SCAN));
+      mockModel(masked.Agent).thenReturn(replyWith("ok"));
 
       await execute(app, masked.Start, { document: inline(PNG_BYTES, "image/png", "inv.png") });
 
@@ -164,9 +164,9 @@ describe("AC3: a block rule in a file refuses", () => {
 
   testWith(blocking.Application, options)(
     "AC3: in an input file it fails the execution, as in the text; the agent's model is never called",
-    async ({ app, mockLlm }) => {
-      mockLlm(FileTranscriber).thenReturn(replyWith(`SSN ${SSN}`));
-      const agent = mockLlm(blocking.Agent);
+    async ({ app, mockModel }) => {
+      mockModel(FileTranscriber).thenReturn(replyWith(`SSN ${SSN}`));
+      const agent = mockModel(blocking.Agent);
 
       const run = execute(app, blocking.Start, {
         document: inline(PNG_BYTES, "image/png", "id.png"),
@@ -181,10 +181,10 @@ describe("AC3: a block rule in a file refuses", () => {
 
   testWith(toolBlocking.Application, options)(
     "AC3: in a tool-result file it rejects that call only: the model reads the refusal as the result",
-    async ({ app, mockLlm }) => {
+    async ({ app, mockModel }) => {
       FETCHABLE.set("id", inline(PNG_BYTES, "image/png", "id.png"));
-      mockLlm(FileTranscriber).thenReturn(replyWith(`SSN ${SSN}`));
-      const agent = mockLlm(toolBlocking.Agent).thenReturn(
+      mockModel(FileTranscriber).thenReturn(replyWith(`SSN ${SSN}`));
+      const agent = mockModel(toolBlocking.Agent).thenReturn(
         callTool(FetchTool, { name: "id" }),
         replyWith("I could not read it"),
       );
@@ -209,8 +209,8 @@ describe("AC3: the original goes through only where every policy lets files thro
 
   testWith(open.Application, options)(
     "AC3: an image is a part untouched, a text format is still masked as text; PII never reads the bytes",
-    async ({ app, mockLlm }) => {
-      const agent = mockLlm(open.Agent).thenReturn(replyWith("ok"));
+    async ({ app, mockModel }) => {
+      const agent = mockModel(open.Agent).thenReturn(replyWith("ok"));
       const csv = Buffer.from(`who\n${EMAIL}\n`);
 
       await execute(app, open.Start, {
@@ -237,9 +237,9 @@ describe("AC5: the cache never crosses executions or tenants", () => {
 
   testWith(masked.Application, options)(
     "AC5: the same file in another execution, or for another tenant, is transcribed again",
-    async ({ app, mockLlm }) => {
-      const transcriber = mockLlm(FileTranscriber).thenReturnAlways(replyWith(SCAN));
-      mockLlm(masked.Agent).thenReturnAlways(replyWith("ok"));
+    async ({ app, mockModel }) => {
+      const transcriber = mockModel(FileTranscriber).thenReturnAlways(replyWith(SCAN));
+      mockModel(masked.Agent).thenReturnAlways(replyWith("ok"));
       const document = inline(PNG_BYTES, "image/png", "inv.png");
 
       await execute(app, masked.Start, { document }, { tenant: { tenantId: "acme" } });
@@ -269,9 +269,9 @@ describe("AC3: PII never reads bytes: a detection model is never sent a file par
 
   testWith(detecting.Application, options)(
     "AC3: the picture reaches the agent's model as a part; the detector reads the texts only",
-    async ({ app, mockLlm }) => {
-      const detector = mockLlm(NamesFilesPolicy).thenReturnAlways(replyWith('{"found":[]}'));
-      const agent = mockLlm(detecting.Agent).thenReturn(replyWith("ok"));
+    async ({ app, mockModel }) => {
+      const detector = mockModel(NamesFilesPolicy).thenReturnAlways(replyWith('{"found":[]}'));
+      const agent = mockModel(detecting.Agent).thenReturn(replyWith("ok"));
 
       await execute(app, detecting.Start, {
         document: inline(PNG_BYTES, "image/png", "page.png"),
@@ -295,12 +295,12 @@ describe("AC3: a masked transcription is searched once", () => {
 
   testWith(detecting.Application, options)(
     "AC3: the detection model reads the transcript where it is made; the model boundary does not search the masked text again",
-    async ({ app, mockLlm }) => {
-      mockLlm(FileTranscriber).thenReturn(replyWith("Dana Cohen signed here"));
-      const detector = mockLlm(NamesFilesPolicy).thenReturnAlways(
+    async ({ app, mockModel }) => {
+      mockModel(FileTranscriber).thenReturn(replyWith("Dana Cohen signed here"));
+      const detector = mockModel(NamesFilesPolicy).thenReturnAlways(
         replyWith('{"found":[{"kind":"person-name","text":"Dana Cohen"}]}'),
       );
-      const agent = mockLlm(detecting.Agent).thenReturn(replyWith("ok"));
+      const agent = mockModel(detecting.Agent).thenReturn(replyWith("ok"));
 
       await execute(app, detecting.Start, {
         document: inline(PNG_BYTES, "image/png", "page.png"),

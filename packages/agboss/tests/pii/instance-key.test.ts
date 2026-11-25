@@ -59,12 +59,12 @@ const keysSaved = (): readonly (string | null)[] => [...new Set(savedKeys)];
 describe("#334 AC1, AC3: a key per root execution, on any instance", () => {
   instanceKeyed(
     "a paused execution resumed on the other instance gives the same value the same token",
-    async ({ apps, mockLlm }) => {
-      const desk = mockLlm(DeskAgent).thenReturn(
+    async ({ apps, mockModel }) => {
+      const desk = mockModel(DeskAgent).thenReturn(
         callTool(LookupTool, { author: AUTHOR }),
         replyWith(DeskNoteDto, { text: "found", author: AUTHOR }),
       );
-      mockLlm(FollowUpAgent).thenReturn(replyWith("followed up"));
+      mockModel(FollowUpAgent).thenReturn(replyWith("followed up"));
       const [first, second] = pair(apps);
 
       const paused = await execute(first, DeskStart, MESSAGE, EXECUTION);
@@ -80,12 +80,12 @@ describe("#334 AC1, AC3: a key per root execution, on any instance", () => {
 
   instanceKeyed(
     "a recovered execution (its lease expired) keeps its tokens",
-    async ({ apps, clock, mockLlm }) => {
-      const desk = mockLlm(DeskAgent).thenReturn(
+    async ({ apps, clock, mockModel }) => {
+      const desk = mockModel(DeskAgent).thenReturn(
         callTool(SlowLookupTool, { author: AUTHOR }),
         replyWith(DeskNoteDto, { text: "found", author: AUTHOR }),
       );
-      mockLlm(FollowUpAgent).thenReturn(replyWith("followed up"));
+      mockModel(FollowUpAgent).thenReturn(replyWith("followed up"));
       const [first, second] = pair(apps);
       await first.ready();
       await second.ready();
@@ -113,13 +113,13 @@ describe("#334 AC1, AC3: a key per root execution, on any instance", () => {
 
   instanceKeyed(
     "two executions give one value two tokens: each has its own key, in its checkpoint",
-    async ({ apps, mockLlm }) => {
+    async ({ apps, mockModel }) => {
       const turns = [
         callTool(LookupTool, { author: AUTHOR }),
         replyWith(DeskNoteDto, { text: "found", author: AUTHOR }),
       ] as const;
-      const desk = mockLlm(DeskAgent).thenReturn(...turns, ...turns);
-      mockLlm(FollowUpAgent).thenReturn(replyWith("one"), replyWith("two"));
+      const desk = mockModel(DeskAgent).thenReturn(...turns, ...turns);
+      mockModel(FollowUpAgent).thenReturn(replyWith("one"), replyWith("two"));
       const [first, second] = pair(apps);
 
       await second.resume(answerOf(await execute(first, DeskStart, MESSAGE, EXECUTION), APPROVE));
@@ -139,12 +139,12 @@ describe("#334 AC1, AC3: a key per root execution, on any instance", () => {
 describe("#334 AC2: a child workflow makes its tokens with its root's key", () => {
   instanceKeyed(
     "a child's model sees the parent's token after a failover",
-    async ({ apps, mockLlm }) => {
-      const desk = mockLlm(DeskAgent).thenReturn(
+    async ({ apps, mockModel }) => {
+      const desk = mockModel(DeskAgent).thenReturn(
         callTool(LookupTool, { author: AUTHOR }),
         replyWith(DeskNoteDto, { text: "found", author: AUTHOR }),
       );
-      const followUp = mockLlm(FollowUpAgent).thenReturn(replyWith("followed up"));
+      const followUp = mockModel(FollowUpAgent).thenReturn(replyWith("followed up"));
       const [first, second] = pair(apps);
 
       const paused = await execute(first, DeskStart, MESSAGE, EXECUTION);
@@ -162,12 +162,12 @@ describe("#334 AC2: a child workflow makes its tokens with its root's key", () =
 describe("#334: the application's key (here the test's) changes nothing", () => {
   testKeyed(
     "testWith's tokens are the fixed test key's, and no key is checkpointed",
-    async ({ app, mockLlm }) => {
-      const desk = mockLlm(DeskAgent).thenReturn(
+    async ({ app, mockModel }) => {
+      const desk = mockModel(DeskAgent).thenReturn(
         callTool(LookupTool, { author: AUTHOR }),
         replyWith(DeskNoteDto, { text: "found", author: AUTHOR }),
       );
-      mockLlm(FollowUpAgent).thenReturn(replyWith("followed up"));
+      mockModel(FollowUpAgent).thenReturn(replyWith("followed up"));
 
       await app.resume(answerOf(await execute(app, DeskStart, MESSAGE, EXECUTION), APPROVE));
 

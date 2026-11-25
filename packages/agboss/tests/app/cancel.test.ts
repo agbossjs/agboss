@@ -35,10 +35,10 @@ function waitingRun(run: () => Promise<unknown>): {
 describe("#187 AC1: after cancelling a paused run, approving it does not execute the tool", () => {
   test("cancel drops the pause: resume throws PauseClosedError and the tool never runs", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
     // the run pauses at the charge's approval and is cancelled there: no receipt
-    mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+    mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
     const paused = await execute(app, Start, { text: "charge" });
 
     const cancelled = await app.cancel(paused.threadId);
@@ -55,10 +55,10 @@ describe("#187 AC1: after cancelling a paused run, approving it does not execute
   test("the cancel holds after a restart: the recovered app cannot resume it either", async ({
     app,
     recoverApp,
-    mockLlm,
+    mockModel,
   }) => {
     // the run pauses at the charge's approval and is cancelled there: no receipt
-    mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+    mockModel(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
     const paused = await execute(app, Start, { text: "charge" });
     await app.cancel(paused.threadId);
 
@@ -70,8 +70,8 @@ describe("#187 AC1: after cancelling a paused run, approving it does not execute
     expect(seen.charges).toEqual([]);
   });
 
-  test("a thread with nothing running or paused is not cancelled", async ({ app, mockLlm }) => {
-    mockLlm(Clerk).thenReturn(replyWith(ReceiptDto, { text: "nothing" }));
+  test("a thread with nothing running or paused is not cancelled", async ({ app, mockModel }) => {
+    mockModel(Clerk).thenReturn(replyWith(ReceiptDto, { text: "nothing" }));
     const done = await execute(app, Start, { text: "hi" });
 
     expect(await app.cancel(done.threadId)).toEqual({ cancelled: false });
@@ -85,9 +85,9 @@ describe("#187 AC1: after cancelling a paused run, approving it does not execute
 describe("#187 AC2: cancelling a running run stops it before the next model/tool call", () => {
   test("cancel aborts executionContext.signal of the call in flight and the run rejects as cancelled", async ({
     app,
-    mockLlm,
+    mockModel,
   }) => {
-    mockLlm(Clerk).thenReturn(callTool(Wait, { text: "a long job" }));
+    mockModel(Clerk).thenReturn(callTool(Wait, { text: "a long job" }));
     const run = waitingRun(() => execute(app, Start, { text: "wait" }));
     const thread = await run.thread;
 
@@ -97,13 +97,13 @@ describe("#187 AC2: cancelling a running run stops it before the next model/tool
     await expect(run.done).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
     expect(seen.blocked).toHaveLength(1);
     expect(seen.blocked[0]?.aborted).toBe(true);
-    expect(mockLlm(Clerk).requests).toHaveLength(1);
+    expect(mockModel(Clerk).requests).toHaveLength(1);
     expect(seen.payments).toEqual([]);
     expect(await app.cancel(thread)).toEqual({ cancelled: false });
   });
 
-  test("a resumed run in flight is cancelled the same way", async ({ app, mockLlm }) => {
-    mockLlm(Clerk).thenReturn(
+  test("a resumed run in flight is cancelled the same way", async ({ app, mockModel }) => {
+    mockModel(Clerk).thenReturn(
       callTool(Charge, { text: "10 USD" }),
       callTool(Wait, { text: "a receipt" }),
     );
@@ -114,7 +114,7 @@ describe("#187 AC2: cancelling a running run stops it before the next model/tool
     expect(await app.cancel(paused.threadId)).toEqual({ cancelled: true });
     await expect(run.done).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
     expect(seen.charges).toHaveLength(1);
-    expect(mockLlm(Clerk).requests).toHaveLength(2);
+    expect(mockModel(Clerk).requests).toHaveLength(2);
     await expect(app.resume(answerOf(paused, approve))).rejects.toBeInstanceOf(PauseClosedError);
   });
 });

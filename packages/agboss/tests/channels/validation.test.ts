@@ -31,20 +31,29 @@ describe("#267 AC7: app.resume validates the decision before it records it", () 
     ["overrideInput with approved: false", { approved: false, overrideInput: { orderId: "8" } }],
     ["overrideInput the tool does not take", { approved: true, overrideInput: { orderId: 8 } }],
     ["no approved at all", { approve: true }],
-  ] as const)("%s is refused: the pause stays pending", async ([, decision], { app, mockLlm }) => {
-    mockLlm(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "7" }), replyWith("Done."));
-    await execute(app, DeskWorkflowStart, { text: "refund 7" });
+  ] as const)(
+    "%s is refused: the pause stays pending",
+    async ([, decision], { app, mockModel }) => {
+      mockModel(DeskClerkAgent).thenReturn(
+        callTool(RefundTool, { orderId: "7" }),
+        replyWith("Done."),
+      );
+      await execute(app, DeskWorkflowStart, { text: "refund 7" });
 
-    const refused = app.resume(answerFor("7", decision), manager);
+      const refused = app.resume(answerFor("7", decision), manager);
 
-    await expect(refused).rejects.toBeInstanceOf(DtoValidationError);
-    expect((await pauseOf7())?.status).toBe(PauseStatus.Pending);
-    await app.resume(answerFor("7"), manager);
-    expect(seen.refunds).toEqual(["7"]);
-  });
+      await expect(refused).rejects.toBeInstanceOf(DtoValidationError);
+      expect((await pauseOf7())?.status).toBe(PauseStatus.Pending);
+      await app.resume(answerFor("7"), manager);
+      expect(seen.refunds).toEqual(["7"]);
+    },
+  );
 
-  test("approved with overrideInput: the tool runs with them", async ({ app, mockLlm }) => {
-    mockLlm(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "7" }), replyWith("Done."));
+  test("approved with overrideInput: the tool runs with them", async ({ app, mockModel }) => {
+    mockModel(DeskClerkAgent).thenReturn(
+      callTool(RefundTool, { orderId: "7" }),
+      replyWith("Done."),
+    );
     await execute(app, DeskWorkflowStart, { text: "refund 7" });
 
     await app.resume(answerFor("7", { approved: true, overrideInput: { orderId: "8" } }), manager);

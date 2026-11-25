@@ -11,7 +11,7 @@ Every project in [`agbossjs/agboss-examples`](https://github.com/agbossjs/agboss
 
 | Project | Primary Engineering Proof |
 | :--- | :--- |
-| **[`01-hello-agboss`](https://github.com/agbossjs/agboss-examples/tree/main/01-hello-agboss)** | Clean `agboss create` project layout (`1 class = 1 file`, `src/workflows/hello-agboss/`, `src/agents/<name>/` with `.prompt.md`), real async HTTP service DI (`PricingCatalogService` passing `ExecutionContext.signal` + `step.idempotencyKey`), production HTTP server (`src/http/server.ts` with `202 Accepted` on pauses and `/health/live` + `/health/ready` probes), and symmetric `tests/` (`mockOf`, `testWith`). |
+| **[`01-hello-agboss`](https://github.com/agbossjs/agboss-examples/tree/main/01-hello-agboss)** | Clean `agboss create` project layout (`1 class = 1 file`, `src/workflows/hello-agboss/`, `src/agents/<name>/` with `.prompt.md`), real async HTTP service DI (`PricingCatalogService` passing `ExecutionContext.signal` + `step.idempotencyKey`), production HTTP server (`src/http/server.ts` with `202 Accepted` on pauses and `/health/live` + `/health/ready` probes), and symmetric `tests/` (`mockService`, `testWith`). |
 | **[`02-path-scope-proof`](https://github.com/agbossjs/agboss-examples/tree/main/02-path-scope-proof)** | Static dataflow proof across 4 cases (`01-missing-input`, `02-outdated-data`, `03-parallel-invalidation`, `04-uncompensated-action`) showing `[input.missing-on-path]`, `[input.outdated-on-path]`, `[launch.branch-outdates-sibling]`, and `[flow.uncompensated-action]` passing `tsc --noEmit` in raw LangGraph (`langgraph-broken/`) while caught before runtime by `agboss check` (`agboss-broken/` vs `agboss-fixed/`). |
 | **[`03-support-refund-desk`](https://github.com/agbossjs/agboss-examples/tree/main/03-support-refund-desk)** | Reversible `@PiiPolicy` (`tokenize()`, `revealPii: true`, `PiiRefusedError`), `@ToolInterceptor` (`reply`, `block`), `@InputGuardrail` (`DecidedBy.Code`), `@OutputGuardrail`, in-memory BM25/TF-IDF `@Rag` (`InMemoryKnowledgeIndexService` + `RefundPolicyRetriever`), `PolicyAwareCompaction` vs policy drift, and 5-layer `@EvalSuite` with compact git-tracked `eval/baseline/main-baseline.json` and `agboss eval calibrate` (Cohen's $\kappa$). |
 | **[`04-travel-booking-saga`](https://github.com/agbossjs/agboss-examples/tree/main/04-travel-booking-saga)** | Reverse-order LIFO saga compensation (`@Action({ compensateWith, committedBy })`) across `payment-saga`, `budget-saga`, `quorum-saga` (`.joinQuorum({ min: 2, max: 2 })`), and `hitl-hold-saga` (the approval message closed by the channel's `onPauseClosed`, `NotPausedError`), idempotent external ledgers (`step.idempotencyKey`), SQLite WAL crash recovery, and HTTP `202 Accepted` pause adapter. |
@@ -114,10 +114,10 @@ npm test
   (ask-desk-tool)`. `npm run snapshot` rewrites the desk's snapshot. `tests/desk/a2a/desk.a2a-expose.test.ts` serves
   the desk with the `a2aServer` fixture and calls it with the helpline's contract
   (`new A2AClient({ url, headers, contract })`); the consumer's own test replaces the remote with
-  `mockOf(DeskA2AAgent)`.
+  `mockService(DeskA2AAgent)`.
   The helpline also reads the customer policies (`data/policies/`) through the official filesystem
   [MCP](Mcp) server — `@McpServer` `policy-files` over stdio, its `read-policy-tool` a `@Tool` with the server in its `deps`;
-  `tests/helpline/workflows/helpline/helpline-mcp.test.ts` never starts it, `mcpOf(PolicyFilesServer)` answers `read_text_file`.
+  `tests/helpline/workflows/helpline/helpline-mcp.test.ts` never starts it, `mockMcp(PolicyFilesServer)` answers `read_text_file`.
 - **`src/intake/`** — a quorum by groups ([Parallel](Parallel), #279): a full legal check and a quick
   screen side by side, `.joinQuorumGroups({ deadline: seconds(30) }).onGroup([LegalCheckAgent],
   { priority: 1 }, …).onGroup([FastScreenAgent], { priority: 2 }, …)`. `tests/intake/workflows/intake/intake.workflow.test.ts` fixes the order the branches
