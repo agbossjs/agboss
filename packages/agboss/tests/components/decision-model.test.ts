@@ -31,9 +31,9 @@ function frameOf(signal?: AbortSignal) {
 
 const answering: DecisionService = () =>
   Promise.resolve({
-    answers: { route: { probability: 0.9 } },
+    answers: { route: { type: "boolean", probability: 0.9 } },
     usage: usageRecord("decision:x", 0.01),
-  }) as unknown as ReturnType<DecisionService>;
+  });
 
 describe("DecisionModel (#1313)", () => {
   it("answers, and the call's cost is the tool call's spend", async () => {
@@ -44,7 +44,7 @@ describe("DecisionModel (#1313)", () => {
       inToolCallFrame("call_1", { reportUsage }, () => model.decide(request)),
     );
 
-    expect(answers).toEqual({ route: { probability: 0.9 } });
+    expect(answers).toEqual({ route: { type: "boolean", probability: 0.9 } });
     expect(reportUsage).toHaveBeenCalledOnce();
     expect(reportUsage).toHaveBeenCalledWith(usageRecord("decision:x", 0.01));
   });

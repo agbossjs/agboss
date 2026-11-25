@@ -11,13 +11,7 @@ import {
   type ToStep,
 } from "../ast.js";
 import type { ComponentName } from "../registry.js";
-import {
-  EdgeKind,
-  edgeKey,
-  type FlowEdge,
-  type FlowGraph,
-  type FlowLaunch,
-} from "./flow-graph.js";
+import { EdgeKind, edgeKey, type FlowEdge, type FlowGraph, type FlowLaunch } from "./flow-graph.js";
 import {
   MentionKind,
   type BranchSite,

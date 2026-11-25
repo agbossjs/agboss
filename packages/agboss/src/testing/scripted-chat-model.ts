@@ -1,10 +1,6 @@
 import type { CallbackManagerForLLMRun } from "@langchain/core/callbacks/manager";
 import { BaseChatModel } from "@langchain/core/language_models/chat_models";
-import {
-  AIMessageChunk,
-  type AIMessage,
-  type BaseMessage,
-} from "@langchain/core/messages";
+import { AIMessageChunk, type AIMessage, type BaseMessage } from "@langchain/core/messages";
 import { ChatGenerationChunk, type ChatResult } from "@langchain/core/outputs";
 import type { ToolDefinition } from "@langchain/core/language_models/base";
 import { partMetaOf, partsOfContent } from "../models/content.js";
