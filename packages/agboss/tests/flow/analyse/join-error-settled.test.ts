@@ -1,9 +1,9 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { describe, expect, it } from "vitest";
 import { checkWorkflow } from "../../../src/flow/analyse/analyse.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import { Workflow, type WorkflowOptions } from "../../../src/flow/decorators/workflow.js";
 import { listOf, optional } from "../../../src/flow/dto-wrappers.js";
-import { PauseExpiredError } from "../../../src/flow/runtime/pause-expired-error.js";
 import { ScreeningFailedDto } from "../fixtures/launch-dtos.js";
 import {
   ArticleDraftWorkflowFinish,
@@ -61,7 +61,7 @@ function codesOf(sidePath: ReturnType<typeof toAction>): readonly string[] {
         maxConcurrency: 3,
       })
       .join()
-      .onError(PauseExpiredError, sidePath)
+      .onError(StepError.PauseExpired, sidePath)
       .toAgent(ArticleWriterAgent)
       .toFinish(ArticleDraftWorkflowFinish),
   ];
@@ -88,7 +88,7 @@ describe("V3.6: the settled answers on the error path", () => {
     expect(codesOf(side)).toContain("input.missing-on-path");
   });
 
-  it(".onError(PauseExpiredError, toFinish(F)) reading none of them: no [flow.unused-output]", () => {
+  it(".onError(StepError.PauseExpired, toFinish(F)) reading none of them: no [flow.unused-output]", () => {
     expect(codesOf(toFinish(ArticleDraftWorkflowFinish))).not.toContain("flow.unused-output");
   });
 });

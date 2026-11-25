@@ -1,3 +1,4 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { Bool, Text } from "../../../src/dto/index.js";
 import {
   Agent,
@@ -28,7 +29,6 @@ import { Application } from "../../../src/application/application.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import type { ActionHandler } from "../../../src/flow/handlers.js";
 import type { InputOf, OutputOf } from "../../../src/flow/generated-types.js";
-import { PauseExpiredError } from "../../../src/flow/runtime/pause-expired-error.js";
 import { minutes, days } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { RecordingLogger } from "../../helpers/log.js";
@@ -37,7 +37,7 @@ import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #945 AC4 — legal, finance, the CFO and the COO approve in a plain four-way `.join()` (FailFast);
- * the CFO's approval expires. `.onError(PauseExpiredError, …)` escalates to the CEO from the
+ * the CFO's approval expires. `.onError(StepError.PauseExpired, …)` escalates to the CEO from the
  * answers already settled; the approvers who answered are told the launch failed, the one still
  * waiting is withdrawn. What happened is in `je`, reset per test.
  */
@@ -296,7 +296,7 @@ export class EscalateToCeoAction implements ActionHandler<EscalateToCeoAction> {
       ])
       .join()
       .onError(
-        PauseExpiredError,
+        StepError.PauseExpired,
         toAction(EscalateToCeoAction)
           .toFinish(JoinExpiryEscalatedWorkflowFinish),
       )

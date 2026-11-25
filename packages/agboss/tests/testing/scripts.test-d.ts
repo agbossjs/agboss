@@ -1,3 +1,5 @@
+import { StepError } from "../../src/core/error-families/step-errors.js";
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { describe, expect, expectTypeOf, it } from "vitest";
 import {
   decideWith,
@@ -14,11 +16,9 @@ import {
   type AnswerOf,
   type BooleanAnswer,
   type BooleanQuestion,
-  BudgetExceededError,
   Decision,
   type DecisionAnswer,
   type DecisionQuestion,
-  RouterFailedError,
 } from "../../src/index.js";
 import type * as Core from "../../src/index.js";
 import { testWith } from "../../src/testing/index.js";
@@ -154,10 +154,10 @@ describe("#262 AC9: the call matchers are typed by the component", () => {
 describe("#262 AC10, AC11: toFailWith's fields; no limits option", () => {
   it("the fields are the error class's own; cause is a class", () => {
     const failure: unknown = new Error("x");
-    expect(failure).toFailWith(RouterFailedError, { nodeId: "main-router", cause: Error });
-    expect(failure).toFailWith(BudgetExceededError, { budget: { name: "tenant-daily-budget" } });
-    // @ts-expect-error — a misspelled field of RouterFailedError
-    expect(failure).toFailWith(RouterFailedError, { nodeID: "main-router" });
+    expect(failure).toFailWith(StepError.Router, { nodeId: "main-router", cause: Error });
+    expect(failure).toFailWith(LimitError.Budget, { budget: { name: "tenant-daily-budget" } });
+    // @ts-expect-error — a misspelled field of StepError.Router
+    expect(failure).toFailWith(StepError.Router, { nodeID: "main-router" });
     // @ts-expect-error — testWith has no limits option: a limit is reached through mockService(Budget)
     testWith(ChatApplication, { limits: { perRun: 1 } });
   });

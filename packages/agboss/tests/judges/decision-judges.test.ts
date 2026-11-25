@@ -3,9 +3,10 @@
  * (`judgeModel.decide`, `Decision.choice / boolean / score / image`), its spend under `judge:<name>`;
  * routers route on any decision model; the wrong call for a model's kind is a `ConfigError.ModelKind`.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
-import { AgentFailedError, DecisionError } from "../../src/index.js";
+import { DecisionError } from "../../src/index.js";
 import { Decision } from "../../src/index.js";
 import { decideWith, replyWith, routeTo, testWith } from "../../src/testing/index.js";
 import { usd } from "../../src/units/index.js";
@@ -149,12 +150,12 @@ describe("AC5: the wrong call for a model's kind is a ConfigError.ModelKind", ()
 
     const run = execute(app, TaskStart, task);
 
-    await expect(run).rejects.toBeInstanceOf(AgentFailedError);
+    await expect(run).rejects.toBeInstanceOf(StepError.Agent);
     await expect(run).rejects.toMatchObject({
       cause: { code: "config.model-kind", details: { model: "local/judge", call: "decide" } },
     });
     await expect(
-      run.catch((error: unknown) => (error instanceof AgentFailedError ? error.cause : error)),
+      run.catch((error: unknown) => (error instanceof StepError.Agent ? error.cause : error)),
     ).resolves.toBeInstanceOf(ConfigError.ModelKind);
     expect(mockModel(ChatDecider).requests).toEqual([]);
   });

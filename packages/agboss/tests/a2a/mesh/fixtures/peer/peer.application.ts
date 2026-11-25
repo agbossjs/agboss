@@ -1,6 +1,7 @@
 // #810 — the served peer of the end-to-end mesh tests: an AGBoss application whose one exported
 // skill answers a question in an action that pays a service, served over A2A v1.0 by the real
 // listener (P2a), its mesh signed and verifying the caller.
+import { LimitError } from "../../../../../src/core/error-families/limit-errors.js";
 import "../keys.js";
 import { Mesh, MeshInboundMode } from "../../../../../src/mesh/mesh.decorator.js";
 import { defineEnv } from "../../../../../src/environments/define-env.js";
@@ -31,7 +32,6 @@ import {
   A2ATaskState,
   type A2ATaskRecord,
 } from "../../../../../src/infrastructure/a2a-task.repository.js";
-import { MeshLoopDetectedError } from "../../../../../src/mesh/mesh-errors.js";
 import { IN_MEMORY_DATABASE } from "../../../../../src/infrastructure/in-memory-database.js";
 import { InMemoryA2ATaskRepository } from "../../../../../src/infrastructure/in-memory-a2a-task.repository.js";
 import {
@@ -155,7 +155,7 @@ export class PeerAnswerAction {
     peer.runs.push(text);
     // a call of the peer's own that a further hop refused as a loop: its run fails with that limit
     if (text === DOWNSTREAM_LOOP)
-      throw new MeshLoopDetectedError({ entry: DOWNSTREAM_ENTRY, callChain: DOWNSTREAM_CHAIN });
+      throw new LimitError.MeshLoop({ meshEntry: DOWNSTREAM_ENTRY, callChain: DOWNSTREAM_CHAIN });
     await peer.gate;
     this.spendRecorder.record({ service: "peer-service", cost: usd(peer.spend) });
     return { text: `answered ${text}` };

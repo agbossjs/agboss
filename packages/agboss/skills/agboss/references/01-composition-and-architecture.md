@@ -25,7 +25,7 @@ Rules of thumb:
   and `switch` on it; add a model router only where nothing has read the input yet (the first step
   of a desk) or where the choice is between many agents.
 - **A code router or a `switch` costs nothing**; a model router costs a call and can fail
-  (`RouterFailedError`, `RouterDecisionError`). Decide by data whenever the data exist.
+  (`StepError.Router`, `StepError.RouterDecision`). Decide by data whenever the data exist.
 - **Extract a child workflow** when the same sub-process is reached from two workflows, runs once
   per item of a list, needs its own failure finish (a per-item child that fails soft), or calls
   itself (`() => Self`, `maxDepth`). A child gets only its start's input as its scope — pass it
@@ -386,7 +386,7 @@ What this shows:
   `listOf`, `oneOf`, `optional` and `historyOf` come from `@agboss/core` only, not from `@agboss/core/dto`.
 - **An agent's invalid answer is retried for you.** Its answer tool's arguments are validated against
   the DTO; the model reads what was wrong and answers again, up to 3 attempts, then
-  `AgentAnswerInvalidError` (a `StepFailedError`, so an `.onError` can take it).
+  `StepError.AgentAnswerInvalid` (a `StepError`, so an `.onError` can take it).
 - **Narrow DTOs per step.** One class per result (`ShortlistDto`, `ShortlistSavedDto`), named by what
   it is, ending with `Dto`; DTO names are unique in the application (`[dto.duplicate-name]`).
 - **Standard DTOs** (`@agboss/core/dto`): `WorkflowStartTextDto` (`text`, `author?`),

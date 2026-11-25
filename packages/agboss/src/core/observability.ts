@@ -217,7 +217,7 @@ export enum ResumeReason {
   Recovered = "recovered",
   /**
    * A pause's deadline passed (#941): its tree continues with the expiry — the step fails with
-   * `PauseExpiredError`, or goes on with the answer the channel decided on expiry.
+   * `StepError.PauseExpired`, or goes on with the answer the channel decided on expiry.
    */
   Expired = "expired",
   /** `app.unpause` lifted an operator's freeze (#1341c): the tree continues from its last checkpoint. */

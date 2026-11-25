@@ -1,11 +1,12 @@
 /**
  * #383 — code guardrails at run time: `decidedBy: DecidedBy.Code` decides by the class's
  * `check(text)` on the text the model reads (masked); `GuardrailVerdict.blocked()` fails the
- * execution with the same `GuardrailBlockedError` and the refusal (static or computed); the
+ * execution with the same `GuardrailError.Blocked` and the refusal (static or computed); the
  * levels and `excludeGuardrails` work as for a model guardrail; no model call, no spend.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
+import { GuardrailError } from "../../src/core/error-families/limit-errors.js";
 import { describe, expect } from "vitest";
-import { GuardFailedError, GuardrailBlockedError } from "../../src/index.js";
 import { decideWith, replyWith, routeTo, testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
 import {
@@ -34,9 +35,9 @@ describe("#383: a code guardrail blocks with the same error and its refusal", ()
 
     const run = execute(app, ShopStart, { text: "What is on sale?" }, toys);
 
-    await expect(run).rejects.toFailWith(GuardrailBlockedError, {
+    await expect(run).rejects.toFailWith(GuardrailError.Blocked, {
       code: "guardrail.blocked",
-      guard: "tenant-blocklist-guardrail",
+      guardrail: "tenant-blocklist-guardrail",
       refusal: "The response contained restricted terms.",
       probability: 1,
       threshold: 1,
@@ -54,8 +55,8 @@ describe("#383: a code guardrail blocks with the same error and its refusal", ()
       { ...toys, execution: { locale: "he" } },
     );
 
-    await expect(run).rejects.toFailWith(GuardrailBlockedError, {
-      guard: "card-number-guardrail",
+    await expect(run).rejects.toFailWith(GuardrailError.Blocked, {
+      guardrail: "card-number-guardrail",
       refusal: "אל תשלחו מספרי כרטיס.",
     });
     expect(mockModel(ShopRouter)).toHaveBeenCalledTimes(0);
@@ -80,7 +81,7 @@ describe("#383: a code guardrail blocks with the same error and its refusal", ()
     );
   });
 
-  test("a check that throws fails closed: GuardFailedError with the error as its cause", async ({
+  test("a check that throws fails closed: StepError.Guardrail with the error as its cause", async ({
     app,
     mockModel,
   }) => {
@@ -88,9 +89,9 @@ describe("#383: a code guardrail blocks with the same error and its refusal", ()
 
     const run = execute(app, ShopStart, { text: "Hello" }, toys);
 
-    await expect(run).rejects.toFailWith(GuardFailedError, {
-      code: "step.guard",
-      guard: "broken-guardrail",
+    await expect(run).rejects.toFailWith(StepError.Guardrail, {
+      code: "step.guardrail",
+      guardrail: "broken-guardrail",
       message: 'Guard "broken-guardrail" failed: the blocklist is unreachable',
       cause: Error,
     });

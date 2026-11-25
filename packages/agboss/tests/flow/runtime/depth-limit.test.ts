@@ -1,5 +1,6 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import { beforeEach, describe, expect } from "vitest";
-import { DepthLimitExceededError, LimitExceededError } from "../../../src/index.js";
 import { ChildExecutionStatus } from "../../../src/flow/runtime/child-records.js";
 import { TestConcurrency, testWith } from "../../../src/testing/index.js";
 import { execute } from "../../helpers/flow.js";
@@ -18,9 +19,9 @@ import {
 
 /**
  * #264 AC6 — the hard stop: a recursion launched by code past `maxDepth` does not start; the level
- * above gets `ChildExecutionFailedError` caused by `DepthLimitExceededError`, which
- * `.onError(LimitExceededError, …)` right after `.toWorkflow(() => ItsOwnClass)` takes — and
- * `.onError(LimitExceededError, …)` after a per-item launch's join.
+ * above gets `StepError.Child` caused by `LimitError.Depth`, which
+ * `.onError(LimitError, …)` right after `.toWorkflow(() => ItsOwnClass)` takes — and
+ * `.onError(LimitError, …)` after a per-item launch's join.
  */
 
 const test = testWith(RecursionApplication);
@@ -51,7 +52,7 @@ describe("AC6: .toWorkflow(() => Self) by code past maxDepth", () => {
       depth: 4,
       status: ChildExecutionStatus.Failed,
       path: [],
-      error: { name: "DepthLimitExceededError", code: "limit.depth" },
+      error: { name: "LimitError.Depth", code: "limit.depth" },
     });
     expect(refused?.error?.message).toBe(
       "countdown-workflow went 4 levels deep; its maxDepth is 3",
@@ -65,27 +66,32 @@ describe("AC6: .toWorkflow(() => Self) by code past maxDepth", () => {
       startedVersion: "1.0.0",
       configHash: "hash",
     };
-    const error = new DepthLimitExceededError({
-      workflow,
+    const error = new LimitError.Depth({
+      workflowRecord: workflow,
       maxDepth: 3,
       path: ["countdown-action"],
     });
 
-    expect(error).toBeInstanceOf(LimitExceededError);
-    expect(error).toMatchObject({ code: "limit.depth", workflow, maxDepth: 3, depth: 4 });
+    expect(error).toBeInstanceOf(LimitError);
+    expect(error).toMatchObject({
+      code: "limit.depth",
+      workflow: workflow.name,
+      maxDepth: 3,
+      depth: 4,
+    });
   });
 
-  test("the level above handles ChildExecutionFailedError caused by it", async ({ app }) => {
+  test("the level above handles StepError.Child caused by it", async ({ app }) => {
     const result = await execute(app, ShallowWorkflowStart, { left: 1 });
 
     expect(result).toFinishWith(CountStoppedWorkflowFinish, { depth: 1 });
-    expect(result).toHaveHandledError(DepthLimitExceededError, {
+    expect(result).toHaveHandledError(LimitError.Depth, {
       at: ShallowWorkflow,
       by: DepthStoppedAction,
     });
     expect(result.handledErrors[0]?.error).toMatchObject({
-      name: "ChildExecutionFailedError",
-      cause: { name: "DepthLimitExceededError" },
+      name: "StepError.Child",
+      cause: { name: "LimitError.Depth" },
     });
   });
 });

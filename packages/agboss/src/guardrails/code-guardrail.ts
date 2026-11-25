@@ -1,3 +1,4 @@
+import { StepError } from "../core/error-families/step-errors.js";
 import type { Class } from "../components/injection.js";
 import {
   isGuardrailVerdict,
@@ -5,7 +6,6 @@ import {
   type GuardrailHandler,
 } from "../components/guardrail-handler.js";
 import type { GuardrailDecided } from "./runtime.js";
-import { GuardFailedError } from "../graph/errors.js";
 import type { LoadedCodeGuardrail } from "./assembly.js";
 import { textOfGuarded, type GuardedText } from "./guarded-text.js";
 import type { GuardrailDecision } from "./runtime.js";
@@ -15,7 +15,7 @@ import type { GuardrailDecision } from "./runtime.js";
  * (masked), in the step's frame — no model call, no spend. Its verdict is certain: blocked is
  * `probability` 1, passed 0, so its hit meets the fixed threshold `CODE_GUARDRAIL_THRESHOLD`. A
  * `check` that throws, or returns anything but a `GuardrailVerdict`, fails closed
- * (`GuardFailedError`, the error as its `cause`): nothing passes unchecked.
+ * (`StepError.Guardrail`, the error as its `cause`): nothing passes unchecked.
  */
 
 /** The threshold a code guardrail's verdict is measured against: blocked is P(yes) = 1. */
@@ -53,8 +53,8 @@ export function codeGuardrailDecision(
   return async (checked, spent) => {
     const instance = resolve(guardrail.type);
     if (!isHandler(instance))
-      throw new GuardFailedError({
-        guard: guardrail.name,
+      throw new StepError.Guardrail({
+        guardrail: guardrail.name,
         usage: [...spent],
         reason: "its class has no check(content)",
       });
@@ -62,16 +62,16 @@ export function codeGuardrailDecision(
     try {
       verdict = await instance.check(contentOf(checked));
     } catch (error: unknown) {
-      throw new GuardFailedError({
-        guard: guardrail.name,
+      throw new StepError.Guardrail({
+        guardrail: guardrail.name,
         usage: [...spent],
         reason: messageOf(error),
         cause: error,
       });
     }
     if (!isGuardrailVerdict(verdict))
-      throw new GuardFailedError({
-        guard: guardrail.name,
+      throw new StepError.Guardrail({
+        guardrail: guardrail.name,
         usage: [...spent],
         reason:
           "check(content) returned no GuardrailVerdict — return GuardrailVerdict.passed() or .blocked()",

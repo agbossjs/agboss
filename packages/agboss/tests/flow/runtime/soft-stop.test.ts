@@ -1,5 +1,5 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { beforeEach, describe, expect } from "vitest";
-import { ChildExecutionFailedError, RouterDecisionError } from "../../../src/index.js";
 import { replyWith, routeTo, testWith, type ModelRequest } from "../../../src/testing/index.js";
 import { execute } from "../../helpers/flow.js";
 import {
@@ -24,7 +24,7 @@ import {
  * #264 AC4 — the soft stop: on the last level (`depth === maxDepth`) a choice that launches
  * the workflow itself is not offered. The researcher's `TopicTooBroadDto` leaves its response schema
  * (its answer tool is not bound), a model router's model does not see its recursive route, a code
- * router that returns it fails with `RouterDecisionError`.
+ * router that returns it fails with `StepError.RouterDecision`.
  */
 
 const test = testWith(RecursionApplication);
@@ -99,13 +99,13 @@ describe("AC4: a model router does not see a recursive route on the last level",
 });
 
 describe("AC4: a code router returning a recursive route on the last level", () => {
-  test("fails with RouterDecisionError: the route is not ready", async ({ app }) => {
+  test("fails with StepError.RouterDecision: the route is not ready", async ({ app }) => {
     const run = execute(app, CodeChainWorkflowStart, { name: "a" });
 
     // the child at depth 2 (maxDepth) fails its step; the root sees the child's failure
-    await expect(run).rejects.toFailWith(ChildExecutionFailedError, { cause: RouterDecisionError });
+    await expect(run).rejects.toFailWith(StepError.Child, { cause: StepError.RouterDecision });
     await expect(execute(app, CodeChainWorkflowStart, { name: "b" })).rejects.toFailWith(
-      RouterDecisionError,
+      StepError.RouterDecision,
       { message: expect.stringContaining("is not ready") },
     );
   });

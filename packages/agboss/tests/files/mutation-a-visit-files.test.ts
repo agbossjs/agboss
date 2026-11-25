@@ -1,9 +1,9 @@
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { usd } from "../../src/units/index.js";
 /** #1269: what a visit's files become — limits at their edges, removed files, masked transcriptions. */
 import { describe, expect, it } from "vitest";
 import { CostSource } from "../../src/finops/cost-source.js";
 import type { UsageRecord } from "../../src/finops/usage.js";
-import { ModelFileLimitError } from "../../src/files/file-errors.js";
 import type { FileMask } from "../../src/files/file-mask.js";
 import { resolvedFilesOf } from "../../src/files/file-settings.js";
 import {
@@ -83,12 +83,12 @@ const batchOf = (
   ...over,
 });
 
-async function limitOf(run: Promise<unknown>): Promise<ModelFileLimitError> {
+async function limitOf(run: Promise<unknown>): Promise<StepError.ModelFileLimit> {
   const error = await run.then(
     () => undefined,
     (thrown: unknown) => thrown,
   );
-  if (!(error instanceof ModelFileLimitError)) throw new Error("no limit error");
+  if (!(error instanceof StepError.ModelFileLimit)) throw new Error("no limit error");
   return error;
 }
 

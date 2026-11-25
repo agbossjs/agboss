@@ -1,10 +1,6 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { beforeEach, describe, expect } from "vitest";
-import {
-  BranchStatus,
-  ChildExecutionFailedError,
-  ChildExecutionStatus,
-  StepFailedError,
-} from "../../../src/index.js";
+import { BranchStatus, ChildExecutionStatus } from "../../../src/index.js";
 import { ExecutionCancelledError } from "../../../src/core/errors.js";
 import { TestConcurrency, testWith } from "../../../src/testing/index.js";
 import { execute } from "../../helpers/flow.js";
@@ -58,7 +54,7 @@ describe("AC8: an uncaught child error fails the parent's step (FailFast)", () =
     ]);
   });
 
-  test("ChildExecutionFailedError fields: cause, childExecutionId, itemIndex", async ({ app }) => {
+  test("StepError.Child fields: cause, childExecutionId, itemIndex", async ({ app }) => {
     const result = await execute(
       app,
       CheckItemsWorkflowStart,
@@ -73,7 +69,7 @@ describe("AC8: an uncaught child error fails the parent's step (FailFast)", () =
     expect(handled).toMatchObject({
       error: {
         code: "step.child",
-        lineage: ["step.child", "step.failed", "step", "agboss"],
+        lineage: ["step.child", "step", "agboss"],
         details: { itemIndex: 1, nodeId: "item-check-workflow" },
         cause: { code: "step.action", cause: { code: "test.item-failed" } },
       },
@@ -96,14 +92,12 @@ describe("AC8: an uncaught child error fails the parent's step (FailFast)", () =
     ]);
   });
 
-  test("uncaught: the parent fails with ChildExecutionFailedError, the cause inside", async ({
-    app,
-  }) => {
+  test("uncaught: the parent fails with StepError.Child, the cause inside", async ({ app }) => {
     const failing = execute(app, CheckBareWorkflowStart, item("bad", 0, "fail"), who);
 
-    await expect(failing).rejects.toBeInstanceOf(ChildExecutionFailedError);
+    await expect(failing).rejects.toBeInstanceOf(StepError.Child);
     const error: unknown = await failing.catch((thrown: unknown) => thrown);
-    expect(error).toBeInstanceOf(StepFailedError);
+    expect(error).toBeInstanceOf(StepError);
     expect(error).toMatchObject({
       code: "step.child",
       nodeId: "item-check-workflow",
@@ -112,8 +106,8 @@ describe("AC8: an uncaught child error fails the parent's step (FailFast)", () =
       cause: { code: "step.action", cause: expect.any(ItemFailedError) },
     });
     expect(childLog.errors).toMatchObject([
-      { workflow: { name: "item-check-workflow" }, error: expect.any(ChildExecutionFailedError) },
-      { workflow: { name: "check-bare-workflow" }, error: expect.any(ChildExecutionFailedError) },
+      { workflow: { name: "item-check-workflow" }, error: expect.any(StepError.Child) },
+      { workflow: { name: "check-bare-workflow" }, error: expect.any(StepError.Child) },
     ]);
   });
 });
@@ -142,8 +136,8 @@ describe("AC9: the side path sees the scope before the launch, and the settled a
   });
 });
 
-describe("AC13: StepFailedError never catches a cancellation", () => {
-  test("StepFailedError never catches cancellation or a tree limit", async ({ app }) => {
+describe("AC13: StepError never catches a cancellation", () => {
+  test("StepError never catches cancellation or a tree limit", async ({ app }) => {
     const controller = new AbortController();
     const call = execute(app, CheckOrFallbackWorkflowStart, item("slow", 500), {
       ...who,

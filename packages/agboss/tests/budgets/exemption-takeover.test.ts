@@ -6,6 +6,7 @@
  * a launch after it ends the side path on the new holder too (AC1: its branches are held back).
  * The old holder's call rejects with `ExecutionLeaseLostError`.
  */
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { afterEach, beforeEach, describe, expect } from "vitest";
 import { ExecutionLeaseLostError, nameOf, type Class } from "../../src/index.js";
 import {
@@ -90,7 +91,7 @@ describe("#656: the budget's side path across a takeover", () => {
     const error = await takenOverAtHold(apps, clock, leases, HeldLaunchWorkflowStart);
 
     expect(error).toBeInstanceOf(ExecutionLeaseLostError);
-    expect(exemptions.ended).toEqual(["BudgetExceededError"]);
+    expect(exemptions.ended).toEqual(["LimitError.Budget"]);
     expect(paidSteps.ran).toEqual(["charge", "hold", "hold"]);
   });
 });

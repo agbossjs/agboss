@@ -150,7 +150,7 @@ export const PauseError: FamilyConstructor<
   variants: {
     NotPaused: ["the thread is not paused"],
     UnknownPause: ["no such pause"],
-    Closed: [closedMessageOf, undefined, undefined, ["pauseId", "tenantId"]],
+    Closed: [closedMessageOf, undefined, { hidden: ["pauseId", "tenantId"] }],
     WrongRespondent: ["the answer came from someone the pause does not wait for"],
     PermissionDenied: ["the caller may not answer this pause"],
     EscalationLimitExceeded: ["the pause was escalated as often as it may be"],

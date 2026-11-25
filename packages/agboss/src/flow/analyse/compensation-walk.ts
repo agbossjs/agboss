@@ -17,7 +17,7 @@ import { launchLabel } from "./join-groups.js";
 
 /** A side path entered with undoable actions open. */
 export interface SidePathEntry {
-  /** `.onError(StepFailedError, …) side path after offer-letter-agent`. */
+  /** `.onError(StepError, …) side path after offer-letter-agent`. */
   readonly label: string;
   readonly node: ComponentName;
   /** The actions open when it was entered, newest first. */

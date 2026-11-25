@@ -123,15 +123,15 @@ export class OrderWorkflow {}
   step's; the main path continues after it.
 - A step may have several; the most specific class wins, matched by class through the error's
   cause chain — a subclass is caught by its parent's handler, and so is an error caused by it
-  (`ActionFailedError` wraps what an action throws, the original in `cause`). Two handlers for one
+  (`StepError.Action` wraps what an action throws, the original in `cause`). Two handlers for one
   class on one step fail assembly (`[flow.duplicate-error-handler]`). Without a handler the
   execution fails.
 - The side path is a path like any other: `toAction(…)` / `toAgent(…)` continued to a finish, or
   `toFinish(F)` alone; it may have its own `.onError(…)` for a failed undo.
 - The failure is a plain record in state (`lastError`: its codes, message, the failed node), so a
   handler holds after a resume. The visited path shows the failed step before the side path.
-- Limits are errors too: `.onError(VisitsLimitExceededError, …)` after a node with `maxVisits`,
-  `.onError(LimitExceededError, …)` for any limit.
+- Limits are errors too: `.onError(LimitError.Visits, …)` after a node with `maxVisits`,
+  `.onError(LimitError, …)` for any limit.
 
 ## What `agboss check` proves
 
@@ -322,7 +322,7 @@ actions
 ## An execution that ends without a finish
 
 An execution that stops before a finish — an uncaught step failure, an uncaught limit
-(`BudgetExceededError`, `StepsLimitExceededError`, `VisitsLimitExceededError`), `app.cancel`, a
+(`LimitError.Budget`, `LimitError.Steps`, `LimitError.Visits`), `app.cancel`, a
 sibling's failure under `FailurePolicy.FailFast` — undoes its open undoable actions, newest first,
 before it ends (#340 PR 3): `CompensationReason.ExecutionFailed` for a failure or a limit,
 `ExecutionCancelled` for a cancel or a `FailFast` abort. Each undo runs as a failed join's does
@@ -353,9 +353,9 @@ is logged (`compensation.step-still-running`) and, if it returns later, undone a
 ([FinOps](FinOps)).
 
 A failing undo does not stop the others; then the execution fails with `ExecutionError.CompensationFailed`,
-its `cause` the original error (`toFailWith(StepFailedError)` still matches through it).
+its `cause` the original error (`toFailWith(StepError)` still matches through it).
 `ExecutionError.CompensationFailed` passes a child's boundary as it is — never wrapped in
-`ChildExecutionFailedError`, like a cancel or an exhausted budget — so no `.onError` of the parent
+`StepError.Child`, like a cancel or an exhausted budget — so no `.onError` of the parent
 takes it, and the parent, getting it uncaught, undoes its own open actions too. A cancel whose undo
 failed still cancels the tree, but `app.cancel` of a paused tree **rejects** with the
 `ExecutionError.CompensationFailed` (its `cause` the `ExecutionCancelledError`), and a running tree's holder's

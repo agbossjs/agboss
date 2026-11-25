@@ -6,10 +6,11 @@
  * validated as — from the answer tool the agent used — and `JudgeInput<A | B>` a discriminated union
  * on it; a `listOf(A, B)` judge reads each item as an instance of its class.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { describe, expect, it } from "vitest";
 import { checkWorkflow } from "../../src/flow/analyse/analyse.js";
-import { JudgeVerdict, QualityGateError, type JudgeInput } from "../../src/index.js";
+import { JudgeVerdict, type JudgeInput } from "../../src/index.js";
 import { PlainTextDto } from "../../src/dto/index.js";
 import { replyWith, testUnit, testWith, type ModelRequest } from "../../src/testing/index.js";
 import { offline } from "../components/fixture/deps-contract.workflow.js";
@@ -133,7 +134,7 @@ describe("a DTO judge", () => {
 
     const run = execute(app, TaskStart, { text: "find a TS job" });
 
-    await expect(run).rejects.toBeInstanceOf(QualityGateError);
+    await expect(run).rejects.toBeInstanceOf(StepError.QualityGate);
     await expect(run).rejects.toMatchObject({
       retries: 1,
       rejections: [{ judge: "answer-grounded-judge", reason: "the first job does not exist" }],

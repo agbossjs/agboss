@@ -7,6 +7,8 @@
  * refund a fenced effect keyed by the undo's step key, so a zombie is refused and a re-run is a
  * replay), an undo marked done never runs again, the root ends once, never by a frozen holder.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { beforeAll, beforeEach, describe, expect } from "vitest";
 import { CompensationStatus, ExecutionHistoryRepository } from "../../src/index.js";
 import { testWith } from "../../src/testing/index.js";
@@ -91,7 +93,7 @@ const CASES: readonly UndoCase[] = [
     name: "join",
     undos: 1,
     rootUndos: 1,
-    error: "ActionFailedError",
+    error: "StepError.Action",
   },
   {
     undo: "a failed join's undo, then its side path to a finish",
@@ -107,7 +109,7 @@ const CASES: readonly UndoCase[] = [
     name: "root",
     undos: 1,
     rootUndos: 1,
-    error: "ActionFailedError",
+    error: "StepError.Action",
   },
   {
     undo: "a cancelled root's undo",
@@ -124,7 +126,7 @@ const CASES: readonly UndoCase[] = [
     name: "budget",
     undos: 1,
     rootUndos: 1,
-    error: "BudgetExceededError",
+    error: "LimitError.Budget",
   },
   {
     undo: "#675: the undo a refund held back by the budget owes, then its side path to a finish",
@@ -140,7 +142,7 @@ const CASES: readonly UndoCase[] = [
     name: "branch",
     undos: 1,
     rootUndos: 1,
-    error: "BudgetExceededError",
+    error: "LimitError.Budget",
   },
   {
     undo: "a CurrentProcess child's undo",
@@ -148,7 +150,7 @@ const CASES: readonly UndoCase[] = [
     name: "local",
     undos: 1,
     rootUndos: 0,
-    error: "ChildExecutionFailedError",
+    error: "StepError.Child",
   },
   {
     undo: "an AnyWorker child's undo",
@@ -156,7 +158,7 @@ const CASES: readonly UndoCase[] = [
     name: "any",
     undos: 1,
     rootUndos: 0,
-    error: "ChildExecutionFailedError",
+    error: "StepError.Child",
   },
   {
     undo: "a recursion level's undo, then its root's",
@@ -164,7 +166,7 @@ const CASES: readonly UndoCase[] = [
     name: "level",
     undos: 2,
     rootUndos: 1,
-    error: "ChildExecutionFailedError",
+    error: "StepError.Child",
   },
 ];
 

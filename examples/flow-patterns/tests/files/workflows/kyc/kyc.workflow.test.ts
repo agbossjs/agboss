@@ -1,7 +1,8 @@
+import { PiiError } from "@agboss/core";
 import { createHash } from "node:crypto";
 import sharp from "sharp";
 import { expect } from "vitest";
-import { FileRedactor, PiiRefusedError } from "@agboss/core";
+import { FileRedactor } from "@agboss/core";
 import { replyWith, testWith } from "@agboss/core/testing";
 import { FlowPatternsApplication } from "../../../../src/flow-patterns.application.js";
 import { KycAgent } from "../../../../src/files/agents/kyc/kyc.agent.js";
@@ -68,6 +69,6 @@ test("an SSN found in the photo refuses it: the model is never called", async ({
 
   const run = app.execute(KycWorkflowStart, { photo: inline(photo, "image/png", "id.png") });
 
-  await expect(run).rejects.toBeInstanceOf(PiiRefusedError);
+  await expect(run).rejects.toBeInstanceOf(PiiError.Refused);
   expect(agent).toHaveBeenCalledTimes(0);
 });

@@ -582,7 +582,7 @@ export class DeskApplication {}
 ## Your own errors
 
 A domain error is an `AGBossError` subclass in `errors/<name>.error.ts`, its name ending with `Error`
-and a stable `code` of its own — never a `StepFailedError` (the framework's wrapper of a step's
+and a stable `code` of its own — never a `StepError` (the framework's wrapper of a step's
 failure, with the original as its `cause`): `.onError(OrderNotFoundError, …)` after the step that
 throws it takes it through that cause.
 
@@ -687,7 +687,7 @@ export class TriageTicketAction {
   (`threshold` in `(0, 1]`: the model scores, the answer passes at `score >= threshold`; else pass or fail). No `judge()`, no `deps`; the
   budgets are checked before each of its model calls; in tests an unscripted one passes. `[judge.zero-retries]` warns for an agent with judges and no `maxRetries`.
 - Verdicts only through `JudgeVerdict.passed({ metrics? })` / `JudgeVerdict.failed(reason)`; when
-  `maxRetries` are spent the step fails with `QualityGateError` (`rejections: [{ judge, reason }]`).
+  `maxRetries` are spent the step fails with `StepError.QualityGate` (`rejections: [{ judge, reason }]`).
 
 <!-- snippet-context
 import { Judge, JudgeModel, JudgeVerdict, oneOf, type JudgeHandler, type JudgeInput } from "@agboss/core";
@@ -808,8 +808,8 @@ export class AuditToolInterceptor {
   input DTO again) for the next hooks and the tool; `ToolCallDecision.reply(message)` — the tool is
   not called, the model reads `message` as the call's result and may try again (the step goes on);
   `ToolCallDecision.block(reason)` — the tool is not called and the agent's step fails with
-  `ToolBlockedError` (`step.tool-blocked`, a `StepFailedError`: `agent`, `tool`, `interceptor`,
-  `reason`; `.onError(ToolBlockedError, …)` after the agent takes it).
+  `StepError.ToolBlocked` (`step.tool-blocked`, a `StepError`: `agent`, `tool`, `interceptor`,
+  `reason`; `.onError(StepError.ToolBlocked, …)` after the agent takes it).
 - **The after hooks replace the result**, inner interceptor first, the tool's `@AfterTool` method (output, input) before `afterAnyTool`, on a successful call only (a tool error goes
   to the model as it is); each output is validated against the tool's output DTO.
 - **The order**: the arguments checked against the tool's input → PII block rules on the arguments → the before hooks (`beforeAnyTool` gets the arguments with PII tokens
@@ -818,7 +818,7 @@ export class AuditToolInterceptor {
 - **In the call's frame**: an injected `ExecutionContext` reads the tool call
   (`step.callId`, `step.idempotencyKey` with the call id, the call's `signal`).
 - An interceptor that throws, returns no `ToolCallDecision` or an output its tool does not give
-  fails the step — `AgentFailedError`, its error as the `cause` (`.onError(DomainError, …)` takes it
+  fails the step — `StepError.Agent`, its error as the `cause` (`.onError(DomainError, …)` takes it
   through the cause).
 - Only the project's own `@Tool` calls are intercepted — never an answer tool, a
   knowledge base's search tool or a tool called on its own (over MCP).

@@ -158,7 +158,7 @@ export const CALLER_BUDGET = "caller-budget";
 /**
  * The budget a trusted mesh caller's remaining budget sets (#398 PR 2): an execution budget
  * `caller-budget` of that amount — the receiver only lowers its own limits; exceeding it is
- * `BudgetExceededError` (`budget: "caller-budget"`).
+ * `LimitError.Budget` (`budget: "caller-budget"`).
  */
 function callerBudgetsOf(
   contexts: ExecutionContextValues,
@@ -191,7 +191,7 @@ const unbudgeted = (): PassBudgets => ({
 
 /**
  * The budgets of a new execution, before its first step: each `maxSpend()` once, the counters
- * read — one exhausted throws `BudgetExceededError` (the execution is rejected).
+ * read — one exhausted throws `LimitError.Budget` (the execution is rejected).
  */
 export async function openExecutionBudgets<TName extends string>(
   deps: AgentExecutionDeps<TName>,

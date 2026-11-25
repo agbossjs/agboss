@@ -1,3 +1,6 @@
+import { StepError } from "../../src/core/error-families/step-errors.js";
+import { PiiError } from "../../src/core/error-families/limit-errors.js";
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { usd } from "../../src/units/index.js";
 /**
  * #1366 (budget-loop shard) — the budget rules of an agent's input step, each on its own over fakes: the check
@@ -7,11 +10,8 @@ import { usd } from "../../src/units/index.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CostSource, ZERO_USAGE, type UsageRecord } from "../../src/finops/usage.js";
 import { filePiecesOf } from "../../src/files/visit-files.js";
-import { AgentFailedError } from "../../src/graph/errors.js";
 import { makeInputNode } from "../../src/graph/agent-loop/input-node.js";
-import { LimitExceededError } from "../../src/graph/limits.js";
 import { gatherKnowledge } from "../../src/graph/nodes/knowledge.js";
-import { PiiRefusedError } from "../../src/pii/errors.js";
 import { loopPoliciesOf } from "../../src/graph/agent-loop/model-pii.js";
 import { guardedFilesOf } from "../../src/files/guarded-files.js";
 import { fileMaskOf } from "../../src/files/file-mask.js";
@@ -188,15 +188,15 @@ describe("#1366: the check before a model call that reads a file", () => {
 
     const failure = await node(stateOf({ inputFiles: [file] }), undefined).catch((e: unknown) => e);
 
-    expect(failure).toBeInstanceOf(AgentFailedError);
-    expect((failure as AgentFailedError).usage).toEqual([record(0.5, "loop")]);
+    expect(failure).toBeInstanceOf(StepError.Agent);
+    expect((failure as StepError.Agent).usage).toEqual([record(0.5, "loop")]);
   });
 
   it("a step failure, a limit and a PII refusal rise as they are", async () => {
     const { node } = setup({ withRuntime: true });
     const failures = [
-      new AgentFailedError({ agent: "other", usage: [], cause: new Error("x") }),
-      new LimitExceededError({
+      new StepError.Agent({ agent: "other", usage: [], cause: new Error("x") }),
+      new LimitError.Agent({
         key: "k",
         limit: 1,
         actual: 2,
@@ -204,7 +204,7 @@ describe("#1366: the check before a model call that reads a file", () => {
         spentUsd: usd(0),
         usage: [],
       }),
-      new PiiRefusedError({ message: "pii" } as never),
+      new PiiError.Refused({ message: "pii" } as never),
     ];
 
     for (const failure of failures) {
@@ -220,7 +220,7 @@ describe("#1366: the check before a model call that reads a file", () => {
 
     const failure = await node(stateOf({ inputFiles: [file] }), undefined).catch((e: unknown) => e);
 
-    expect(failure).toBeInstanceOf(AgentFailedError);
+    expect(failure).toBeInstanceOf(StepError.Agent);
     expect(failure).toMatchObject({ agent: "alpha", usage: [record(0.5, "loop")] });
     expect((failure as Error).cause).toBe(cause);
   });

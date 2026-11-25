@@ -1,3 +1,4 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { Application } from "../../../src/application/application.js";
 import { ApplicationContext } from "../../../src/flow/context/application-context.js";
 import { Channel, Injectable } from "../../../src/components/decorators.js";
@@ -14,7 +15,6 @@ import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js"
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import type { InputOf, OutputOf } from "../../../src/flow/generated-types.js";
 import type { ActionHandler } from "../../../src/flow/handlers.js";
-import { PauseExpiredError } from "../../../src/flow/runtime/pause-expired-error.js";
 import type {
   ExecutionEndEvent,
   ExecutionCancelEvent,
@@ -32,7 +32,7 @@ import { PauseRespondent } from "../../../src/pause/respondent.js";
 
 /**
  * #941 — a pause with a deadline: an order the manager approves within 24 hours; when nobody
- * answers, the director is asked on the `.onError(PauseExpiredError, …)` side path. What the
+ * answers, the director is asked on the `.onError(StepError.PauseExpired, …)` side path. What the
  * expiry handler was asked and what the channel heard is in `expiry`, reset per test.
  */
 
@@ -323,7 +323,7 @@ export class RecordEscalatedAction implements ActionHandler<RecordEscalatedActio
     onStart(ExpiryWorkflowStart)
       .toExternalTask(ManagerExternalTask)
       .onError(
-        PauseExpiredError,
+        StepError.PauseExpired,
         toExternalTask(DirectorExternalTask)
           .toAction(RecordEscalatedAction)
           .toFinish(ExpiryWorkflowFinish),
@@ -390,7 +390,7 @@ export class SlowExpiryWorkflowStart {}
     onStart(SlowExpiryWorkflowStart)
       .toExternalTask(SlowManagerExternalTask)
       .onError(
-        PauseExpiredError,
+        StepError.PauseExpired,
         toAction(SlowEscalationAction)
           .toFinish(ExpiryWorkflowFinish),
       )

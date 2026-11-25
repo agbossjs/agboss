@@ -1,8 +1,9 @@
 /**
  * #333 PR 2 (AC1, M1 automated) — children on any instance, two application instances on one
  * SQLite file (two connections): a launch of six children runs on both instances and the parent
- * joins all six; a failed remote child reaches its parent's join as `ChildExecutionFailedError`.
+ * joins all six; a failed remote child reaches its parent's join as `StepError.Child`.
  */
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { beforeEach, describe, expect, vi } from "vitest";
 import { ExecutionStatus } from "../../../src/index.js";
 import { ExecutionCancelledError } from "../../../src/core/errors.js";

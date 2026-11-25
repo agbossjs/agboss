@@ -1,7 +1,7 @@
 /** #262 PR 3 (S55, S62, #120): `testUnit` — what a model reads, and its answer revealed. */
+import { PiiError } from "../../../src/core/error-families/limit-errors.js";
 import { ConfigError } from "../../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
-import { PiiRefusedError } from "../../../src/pii/errors.js";
 import { replyWith, testUnit } from "../../../src/testing/index.js";
 import { usd } from "../../../src/units/index.js";
 import {
@@ -35,7 +35,7 @@ describe("testUnit", () => {
   it("a block rule refuses the text", async () => {
     const pii = testUnit([ContactPiiPolicy, CardPiiPolicy]);
 
-    await expect(pii.mask("card 4242 4242 4242 4242")).rejects.toBeInstanceOf(PiiRefusedError);
+    await expect(pii.mask("card 4242 4242 4242 4242")).rejects.toBeInstanceOf(PiiError.Refused);
   });
 
   it("a project's detector finds what its injected service knows", async () => {

@@ -1,3 +1,4 @@
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { describe, expect, it } from "vitest";
 import { workflowOf } from "../../src/testing/workflow-of.js";
 import { recordUsage } from "../../src/finops/usage.js";
@@ -20,7 +21,6 @@ import {
   PricedApplication,
 } from "./fixtures/priced.workflow.js";
 import { execute } from "../helpers/flow.js";
-import { BudgetExceededError } from "../../src/errors.js";
 import { ConfigError } from "../../src/core/error-families/config-errors.js";
 
 const test = testWith(PricedApplication);
@@ -93,7 +93,7 @@ describe("AC6: limits per run use the providers' cost", () => {
     ]);
 
     const overRun = execute(app, TaskStart, { text: "again" });
-    await expect(overRun).rejects.toFailWith(BudgetExceededError, {
+    await expect(overRun).rejects.toFailWith(LimitError.Budget, {
       budget: { name: "priced-execution-budget" },
     });
   });

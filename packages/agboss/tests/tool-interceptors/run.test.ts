@@ -1,20 +1,15 @@
 /**
  * #384 — tool interceptors at run time on the whole application: `allow()` runs the tool,
  * `reply(message)` answers the model instead (the step goes on), `block(reason)`
- * fails the step with `ToolBlockedError`; `` / `afterAnyTool` replaces the result (inner first), which
+ * fails the step with `StepError.ToolBlocked`; `` / `afterAnyTool` replaces the result (inner first), which
  * is then bounded by `maxResultSize` and masked by the PII policies; `beforeAnyTool` reads the
  * arguments revealed; the four levels and their excludes; MCP tools; a misbehaving interceptor
  * fails the step with its error as the cause.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import type { ShownContent } from "../../src/models/messages.js";
 import { beforeEach, describe, expect } from "vitest";
-import {
-  AgentFailedError,
-  StepFailedError,
-  ToolBlockedError,
-  ToolCallStatus,
-  ValidationError,
-} from "../../src/index.js";
+import { ToolCallStatus, ValidationError } from "../../src/index.js";
 import { callTool, replyWith, testWith, type ModelRequest } from "../../src/testing/index.js";
 import type { ModelScript } from "../../src/testing/model-script.js";
 import { execute } from "../helpers/flow.js";
@@ -112,7 +107,7 @@ describe("#384: the before hooks decide", () => {
     ]);
   });
 
-  test("block(): the tool does not run, the step fails with ToolBlockedError and the loop's spend", async ({
+  test("block(): the tool does not run, the step fails with StepError.ToolBlocked and the loop's spend", async ({
     app,
     mockModel,
   }) => {
@@ -120,7 +115,7 @@ describe("#384: the before hooks decide", () => {
 
     const run = execute(app, ScoutStart, { text: "about evil-corp" }, acme);
 
-    await expect(run).rejects.toFailWith(ToolBlockedError, {
+    await expect(run).rejects.toFailWith(StepError.ToolBlocked, {
       code: "step.tool-blocked",
       agent: "scout-agent",
       tool: "company-tool",
@@ -128,9 +123,9 @@ describe("#384: the before hooks decide", () => {
       reason: "evil-corp is sanctioned",
     });
     const error: unknown = await run.catch((thrown: unknown) => thrown);
-    expect(error).toBeInstanceOf(StepFailedError);
+    expect(error).toBeInstanceOf(StepError);
     // the loop's model call is in the error's spend, so the record and the ledger keep it
-    expect((error as ToolBlockedError).usage.map((record) => record.caller)).toEqual([
+    expect((error as StepError.ToolBlocked).usage.map((record) => record.caller)).toEqual([
       "scout-agent",
     ]);
     expect(toolRuns).toEqual([]);
@@ -141,16 +136,16 @@ describe("#384: the before hooks decide", () => {
 });
 
 describe("#384: a misbehaving interceptor fails the step", () => {
-  test("one that throws: AgentFailedError, its error the cause", async ({ app, mockModel }) => {
+  test("one that throws: StepError.Agent, its error the cause", async ({ app, mockModel }) => {
     mockModel(ScoutAgent).thenReturn(callTool(PingTool, { mode: "throw" }));
 
     const run = execute(app, ScoutStart, { text: "ping" }, acme);
 
-    await expect(run).rejects.toFailWith(AgentFailedError, { cause: ScopeServiceDownError });
+    await expect(run).rejects.toFailWith(StepError.Agent, { cause: ScopeServiceDownError });
     expect(toolRuns).toEqual([]);
   });
 
-  test("one that decides nothing: AgentFailedError naming the factories", async ({
+  test("one that decides nothing: StepError.Agent naming the factories", async ({
     app,
     mockModel,
   }) => {
@@ -159,7 +154,7 @@ describe("#384: a misbehaving interceptor fails the step", () => {
     const run = execute(app, ScoutStart, { text: "ping" }, acme);
 
     await expect(run).rejects.toThrow(/returned no ToolCallDecision/);
-    await expect(run).rejects.toBeInstanceOf(AgentFailedError);
+    await expect(run).rejects.toBeInstanceOf(StepError.Agent);
   });
 
   test("an afterToolCall output its tool does not give: ValidationError.DtoInvalid as the cause", async ({
@@ -170,7 +165,7 @@ describe("#384: a misbehaving interceptor fails the step", () => {
 
     const run = execute(app, ScoutStart, { text: "ping" }, acme);
 
-    await expect(run).rejects.toFailWith(AgentFailedError, { cause: ValidationError.DtoInvalid });
+    await expect(run).rejects.toFailWith(StepError.Agent, { cause: ValidationError.DtoInvalid });
     expect(toolRuns).toEqual(["ping-tool:shape"]);
   });
 });
@@ -242,7 +237,7 @@ describe("#384: levels, excludes and MCP tools", () => {
 
     const run = execute(app, ScoutStart, { text: "acme and evil-corp" }, acme);
 
-    await expect(run).rejects.toFailWith(ToolBlockedError, { tool: "board-lookup-tool" });
+    await expect(run).rejects.toFailWith(StepError.ToolBlocked, { tool: "board-lookup-tool" });
     expect(board.calls.map((call) => call.tool)).toEqual(["lookup"]);
     expect(byOf().slice(0, 3)).toEqual([
       "audit:before board-lookup-tool",

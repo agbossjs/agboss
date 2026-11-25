@@ -1,3 +1,4 @@
+import { LimitError } from "@agboss/core";
 import { describe, expect, it } from "vitest";
 import { replyWith, testWith } from "@agboss/core/testing";
 import { NotifyRecruiterAction } from "../../../../src/offer/actions/notify-recruiter.action.js";
@@ -71,7 +72,7 @@ describe("the review loop", () => {
 });
 
 describe("the editor's maxVisits spent", () => {
-  test("VisitsLimitExceededError → .onError → notify the recruiter → the failed finish", async ({
+  test("LimitError.Visits → .onError → notify the recruiter → the failed finish", async ({
     app,
     mockModel,
     mockService,

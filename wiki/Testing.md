@@ -276,10 +276,10 @@ mockModel(Reviewer).thenReturn(failWith(ModelFailure.Timeout));
 | `waitFor(seconds(31))`                            | not a call of its own: the next turn answers only after that long on the test's clock (`clock.advance`) |
 | `streamWith(["3 jobs ", "found"], { cost? })`      | a text answer a streaming run hears chunk by chunk (#1311); a call that does not stream gets the chunks joined, as `replyWith` would give it |
 | `failStreamAfter(["3 jo"], ModelFailure.Timeout)` | the stream breaks after its chunks: a streaming run hears them, then the text is discarded (`StreamDiscardReason.StreamBroken`) and the call fails as `failWith` does |
-| `failWith(ModelFailure.Timeout \| RateLimited \| ServerError \| NetworkError)` (the same enum as `@agboss/core/models`) | the call fails: an agent fails the run at the agent, a router with `RouterFailedError` (`step.router`, the failure as its cause) |
+| `failWith(ModelFailure.Timeout \| RateLimited \| ServerError \| NetworkError)` (the same enum as `@agboss/core/models`) | the call fails: an agent fails the run at the agent, a router with `StepError.Router` (`step.router`, the failure as its cause) |
 | `callToolWithInvalidArguments(Tool, args)`        | the model calls a tool with arguments its input check refuses — `args` of any shape, no cast (#395): the tool never runs, the call is `ToolCallStatus.InvalidArguments`, counted in `step.validationAttempts`, and the model reads why |
 | `callToolWithTruncatedArguments(Tool, partialArgs)` | the call is cut at the output limit: `{"orderId":"7` as the provider's `invalid_tool_calls`, `finish_reason: "length"` — recorded `InvalidArguments`, the tool never runs |
-| `replyWithInvalidAnswer(Dto, fields, { cost? })`  | an agent with `output` answers through the answer tool of a class of its output (checked like `replyWith`) with fields that do not fit it: an invalid answer, sent back; the third fails the step with `AgentAnswerInvalidError` (`step.agent.invalid-answer`) |
+| `replyWithInvalidAnswer(Dto, fields, { cost? })`  | an agent with `output` answers through the answer tool of a class of its output (checked like `replyWith`) with fields that do not fit it: an invalid answer, sent back; the third fails the step with `StepError.AgentAnswerInvalid` (`step.agent.invalid-answer`) |
 
 - **By position, never by call order across components:** a component's n-th model call gets its
   n-th turn, counted over the whole test (every run and every app of it). LangGraph never repeats a
@@ -318,7 +318,7 @@ expect(result.toolCalls.at(-1)?.step.validationAttempts).toBe(2); // the two bef
 
 An agent with `output` gives an answer that does not fit its class with
 `replyWithInvalidAnswer(OfferDraftDto, { body: "no text field" })`: the third in a row fails the step
-with `AgentAnswerInvalidError` — `rejects.toFailWith(AgentAnswerInvalidError, { code:
+with `StepError.AgentAnswerInvalid` — `rejects.toFailWith(StepError.AgentAnswerInvalid, { code:
 "step.agent.invalid-answer" })`.
 
 ### Binding turns to the input — `when(…)`
@@ -776,7 +776,7 @@ framework's counting; there is no `limits` option on `testWith`.
 
 <!-- snippet-context
 import { expect } from "vitest";
-import { RouterFailedError } from "@agboss/core";
+import { StepError } from "@agboss/core";
 import { failWith, ModelCallFailedError, ModelFailure, testWith } from "@agboss/core/testing";
 import { ChatWorkflowStart, JobScoutApplication, MainRouter } from "./job-scout.js";
 testWith(JobScoutApplication)("a failed router", async ({ app, mockModel }) => {
@@ -787,7 +787,7 @@ testWith(JobScoutApplication)("a failed router", async ({ app, mockModel }) => {
 ```ts
 mockModel(MainRouter).thenReturn(failWith(ModelFailure.Timeout));
 
-await expect(app.execute(ChatWorkflowStart, { text: "hi" })).rejects.toFailWith(RouterFailedError, {
+await expect(app.execute(ChatWorkflowStart, { text: "hi" })).rejects.toFailWith(StepError.Router, {
   nodeId: "main-router",
   cause: ModelCallFailedError,
 });
@@ -831,7 +831,7 @@ the two matchers read them:
 
 <!-- snippet-context
 import { expect } from "vitest";
-import { ChildExecutionFailedError, StepsLimitExceededError, type ExecutionOutput } from "@agboss/core";
+import { StepError, LimitError, type ExecutionOutput } from "@agboss/core";
 declare class VendorCheckWorkflow {}
 declare class VendorScoredWorkflowFinish {}
 declare class ScreeningStoppedWorkflowFinish {}
@@ -841,17 +841,17 @@ declare const result: ExecutionOutput;
 ```ts
 expect(result).toHaveChildExecutions(VendorCheckWorkflow, [
   { item: { name: "Acme" }, finish: VendorScoredWorkflowFinish },
-  { item: { name: "Globex" }, failedWith: StepsLimitExceededError }, // in the cause chain
+  { item: { name: "Globex" }, failedWith: LimitError.Steps }, // in the cause chain
   { item: { name: "Initech" }, cancelled: true }, // a sibling failed first (FailFast)
 ]);
-expect(result).toHaveHandledError(ChildExecutionFailedError, {
+expect(result).toHaveHandledError(StepError.Child, {
   at: VendorCheckWorkflow,
   by: ScreeningStoppedWorkflowFinish,
 });
 ```
 
 `item` is the child's start input, or one field of a map input; `failedWith` matches the record's
-error or a cause (`ChildExecutionFailedError` → `ActionFailedError` → your domain error). A child
+error or a cause (`StepError.Child` → `StepError.Action` → your domain error). A child
 that never started (the launch was aborted first) has no execution: it is a `Cancelled` branch in
 `result.launches` only.
 
@@ -1110,12 +1110,12 @@ it("looks the order up in the book it is given", async () => {
   texts loaded (`prompt`, the route prompts, checked like at assembly) and its input
   message built from the fields, its model answering from `model` — `routeTo(X)` after
   `.onRoute(…)`, `decideWith({ "<target>": 0.9 })` / `routeTo(…)` for the `OnDemand` routes of a
-  launch; a target outside its routes is `RouterDecisionError`, a failed call `RouterFailedError`.
+  launch; a target outside its routes is `StepError.RouterDecision`, a failed call `StepError.Router`.
   A model router without its own `model` decides on a decision model, as `defaults.router` does.
 - **`testUnit`**: a code arbiter's `@Arbitrate(Target)` method gets the answer, tracked as the target
   gave it; one that injects `ArbiterModel` asks its model, and a declarative arbiter asks its model
   with the target's criterion (`model: decideWith({ counts: 0.9 })`, spend as `arbiter:<name>`). One that throws, answers no boolean or whose model does not answer is
-  `ArbiterError`, never a rejection.
+  `StepError.Arbiter`, never a rejection.
 - **`testUnit`** calls `retrieve(query, { topK, signal })` (`topK` default the `@Rag`'s); its reported
   `costUsd` is the spend, as `rag:<name>`.
 - **`testUnit`**: `reply` is a plain object of the judge's `reply` (`JudgeHandler<TReply>`: a
@@ -1147,14 +1147,14 @@ it("looks the order up in the book it is given", async () => {
   question, a threshold — a `ConfigError.GraphRules`), then asks its model on the text under its heading
   (`element` names the agent or router, default `test-agent`): `model: decideWith({ blocks: 0.9 })`
   (`{ cost }` for its spend, `guardrail:<name>`), unscripted it passes; a model that does not answer
-  rejects with `GuardFailedError`. A block is the output `{ isBlocked: true, probability, refusal }`
+  rejects with `StepError.Guardrail`. A block is the output `{ isBlocked: true, probability, refusal }`
   — the decorator's text or the class's `refusal()`, computed in the step's frame (`executionContext`
-  / `execution` as given) — never a thrown `GuardrailBlockedError`. A guardrail without its own
+  / `execution` as given) — never a thrown `GuardrailError.Blocked`. A guardrail without its own
   `model` decides on a decision model, as `defaults.guardrail.model` does.
 - **`testUnit`** checks the policies' own rules first (`[name.not-kebab-case]`,
   `[pii.duplicate-target]`, `[pii.conflicting-rules]`, …: one `ConfigError.GraphRules` with all of them), then
   `mask(text)` gives what a model would read — tokens made with a fixed test key and kept across
-  calls, as an execution's `piiTokens` are; a block rule rejects with `PiiRefusedError` — and
+  calls, as an execution's `piiTokens` are; a block rule rejects with `PiiError.Refused` — and
   `reveal(text)` what its answer becomes; a policy with a `model` answers from `model`
   (`replyWith('{"found":[{"kind":"person-name","text":"Anna Smith"}]}')`).
 

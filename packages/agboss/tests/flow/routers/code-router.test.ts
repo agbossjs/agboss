@@ -1,6 +1,7 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import { describeWorkflow } from "../../../src/describe/describe-workflow.js";
-import { nameOf, RouterFailedError } from "../../../src/index.js";
+import { nameOf } from "../../../src/index.js";
 import { replyWith, routeTo, testWith } from "../../../src/testing/index.js";
 import { workflowOf } from "../../../src/testing/workflow-of.js";
 import { ChargeResultDto, CreditApprovalDto, CreditOrderDto } from "../fixtures/credit-dtos.js";
@@ -113,7 +114,7 @@ describe("AC1: route() decides", () => {
   });
 });
 
-describe("AC1 (S19): a failing route() is RouterFailedError, its cause caught by .onError", () => {
+describe("AC1 (S19): a failing route() is StepError.Router, its cause caught by .onError", () => {
   test("the service's domain error takes the router's .onError through the cause", async ({
     app,
     mockModel,
@@ -147,14 +148,14 @@ describe("AC1 (S19): a failing route() is RouterFailedError, its cause caught by
     const run = app.execute(CreditWorkflowStart, { text: "tea" });
 
     await expect(run).rejects.toMatchObject({
-      name: "RouterFailedError",
+      name: "StepError.Router",
       code: "step.router",
       nodeId: "credit-limit-router",
       visitNumber: 1,
       component: { name: "credit-limit-router" },
       cause: { message: "the credit database is down" },
     });
-    await expect(run).rejects.toFailWith(RouterFailedError, { nodeId: nameOf(CreditLimitRouter) });
+    await expect(run).rejects.toFailWith(StepError.Router, { nodeId: nameOf(CreditLimitRouter) });
   });
 });
 

@@ -1,9 +1,9 @@
+import { LimitError } from "../../../../src/core/error-families/limit-errors.js";
 import { Text, WorkflowStartTextDto } from "../../../../src/dto/index.js";
 import {
   Agent,
   DecidedBy,
   Router,
-  VisitsLimitExceededError,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
@@ -131,7 +131,7 @@ export class PatientEditorAgent {}
 })
 export class PatientGateRouter {}
 
-/** The same loop, the refused visit caught: `.onError(VisitsLimitExceededError, toFinish(…))`. */
+/** The same loop, the refused visit caught: `.onError(LimitError.Visits, toFinish(…))`. */
 @Workflow({
   name: "patient-edit-workflow",
   version: "1.0.0",
@@ -140,11 +140,8 @@ export class PatientGateRouter {}
     onStart(EditStart)
       .toAgent(PatientEditorAgent),
     onAgent(PatientEditorAgent)
-      .onError(
-        VisitsLimitExceededError,
-        toAction(GaveUpAction)
-          .toFinish(GaveUpFinish),
-      )
+      .onError(LimitError.Visits, toAction(GaveUpAction)
+        .toFinish(GaveUpFinish))
       .toRouter(PatientGateRouter)
       .onRoute(toAgent(PatientEditorAgent))
       .onRoute(toFinish(DoneFinish)),

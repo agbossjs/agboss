@@ -11,6 +11,7 @@ export function takeoverShard() {
       // #1325a: a hand-over is no failure (its kinds, codes and the record guard) and the families' classes
       "src/core/error-families/hand-over.ts",
       "src/core/error-families/family.ts",
+      "src/core/error-families/family-args.ts",
       // a paid family error's spend, read through the report finops/cost-report sets
       "src/core/error-families/spend-report.ts",
     ],

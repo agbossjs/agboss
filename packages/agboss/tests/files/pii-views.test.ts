@@ -4,16 +4,10 @@
  * a tool-result file rejects that call); the original goes through only where the policy lets files
  * through; PII never reads bytes; the cache never crosses policies, executions or tenants.
  */
+import { PiiError } from "../../src/core/error-families/limit-errors.js";
 import { MemorySaver } from "@langchain/langgraph";
 import { afterEach, describe, expect, vi } from "vitest";
-import {
-  PiiFileAction,
-  PiiKind,
-  PiiPolicy,
-  PiiRefusedError,
-  secret,
-  type PiiRefusal,
-} from "../../src/index.js";
+import { PiiFileAction, PiiKind, PiiPolicy, secret, type PiiRefusal } from "../../src/index.js";
 import { FileTranscriber } from "../../src/files/file-transcriber.js";
 import { FileSource, FileView, ModelFiles } from "../../src/files/model-files.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
@@ -172,9 +166,9 @@ describe("AC3: a block rule in a file refuses", () => {
         document: inline(PNG_BYTES, "image/png", "id.png"),
       });
 
-      await expect(run).rejects.toFailWith(PiiRefusedError, { code: "pii.refused" });
+      await expect(run).rejects.toFailWith(PiiError.Refused, { code: "pii.refused" });
       // the refusal itself leaves the run, not a wrapper of the file read around it (as for the text)
-      await expect(run).rejects.toBeInstanceOf(PiiRefusedError);
+      await expect(run).rejects.toBeInstanceOf(PiiError.Refused);
       expect(agent).toHaveBeenCalledTimes(0);
     },
   );

@@ -3,8 +3,9 @@
  * its text held until the checks passed: a refused or rejected answer never reaches the stream,
  * not one byte, and nothing needs retracting.
  */
+import { PiiError } from "../../src/core/error-families/limit-errors.js";
+import { GuardrailError } from "../../src/core/error-families/limit-errors.js";
 import { describe, expect } from "vitest";
-import { GuardrailBlockedError, PiiRefusedError } from "../../src/index.js";
 import { StreamEventKind, type ExecutionStreamEvent } from "../../src/run/types.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
@@ -41,7 +42,7 @@ describe("#1006: an agent whose only blocking check is an output guardrail", () 
       execute(app, GuardrailStart, { text: "Q" }, { onStream: (event) => events.push(event) }),
     );
 
-    expect(failure).toBeInstanceOf(GuardrailBlockedError);
+    expect(failure).toBeInstanceOf(GuardrailError.Blocked);
     expect(events).toEqual([]);
   });
 
@@ -65,7 +66,7 @@ describe("#1006: an agent whose only blocking check is an output guardrail", () 
 });
 
 describe("#1006: a blocking output guardrail holds the text back", () => {
-  test("AC3: a blocked answer: GuardrailBlockedError, zero events", async ({ app, mockModel }) => {
+  test("AC3: a blocked answer: GuardrailError.Blocked, zero events", async ({ app, mockModel }) => {
     mockModel(GuardedAgent).thenReturn(replyWith("Here is the FORBIDDEN thing."));
     mockModel(FlowJudge).thenReturn(replyWith("PASS"));
     const events: ExecutionStreamEvent[] = [];
@@ -74,7 +75,7 @@ describe("#1006: a blocking output guardrail holds the text back", () => {
       execute(app, GuardedStart, { text: "Q" }, { onStream: (event) => events.push(event) }),
     );
 
-    expect(failure).toBeInstanceOf(GuardrailBlockedError);
+    expect(failure).toBeInstanceOf(GuardrailError.Blocked);
     expect(events).toEqual([]);
   });
 
@@ -153,7 +154,7 @@ describe("#1006: a PII block rule holds the text back", () => {
       execute(app, CardStart, { text: "Q" }, { onStream: (event) => events.push(event) }),
     );
 
-    expect(failure).toBeInstanceOf(PiiRefusedError);
+    expect(failure).toBeInstanceOf(PiiError.Refused);
     expect(events).toEqual([]);
   });
 

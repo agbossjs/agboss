@@ -172,14 +172,10 @@ export function routerApplication(
     flow: [
       onStart(RouterStart)
         .toRouter(PricedRouter)
-        .onRoute(
-          toAgent(PricedAnswerAgent)
-            .toFinish(RouterFinish),
-        )
-        .onRoute(
-          toAgent(other)
-            .toFinish(RouterFinish),
-        ),
+        .onRoute(toAgent(PricedAnswerAgent)
+          .toFinish(RouterFinish))
+        .onRoute(toAgent(other)
+          .toFinish(RouterFinish)),
     ],
   })
   class RouterPricesWorkflow {}
@@ -275,11 +271,9 @@ export function rerankerApplication(
     name: "rerank-prices-workflow",
     version: "1.0.0",
     historyTtl: Ttl.Forever,
-    flow: [
-      onStart(RerankStart)
-        .toAgent(ReadingAgent)
-        .toFinish(RerankFinish),
-    ],
+    flow: [onStart(RerankStart)
+      .toAgent(ReadingAgent)
+      .toFinish(RerankFinish)],
   })
   class RerankPricesWorkflow {}
 

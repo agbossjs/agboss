@@ -1,7 +1,7 @@
+import { LimitError } from "../../core/error-families/limit-errors.js";
 import { usd } from "../../units/index.js";
 import { totalCost, type UsageRecord } from "../../finops/usage.js";
 import { countBoundOf } from "../count-limit.js";
-import { LimitExceededError } from "../limits.js";
 import { loopUsage, type AgentLoopStateType } from "./state.js";
 
 /**
@@ -71,9 +71,9 @@ export interface AgentLimitBreach {
 export function agentLimitError(
   state: AgentLoopStateType,
   breach: AgentLimitBreach,
-): LimitExceededError {
+): LimitError.Agent {
   const usage = [...loopUsage(state), ...breach.spent];
-  return new LimitExceededError({
+  return new LimitError.Agent({
     key: `agents.${breach.agent}.limits.${breach.limit}`,
     limit: breach.max,
     actual: breach.actual,

@@ -8,9 +8,10 @@
  * spend before a step reaches holds that step back, naming the true spend (a dollar not counted
  * would let it run).
  */
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import fc from "fast-check";
 import { beforeEach, describe, expect } from "vitest";
-import { BudgetExceededError, type Class } from "../../src/index.js";
+import { type Class } from "../../src/index.js";
 import { BudgetPeriod, BudgetScope } from "../../src/budgets/budget.js";
 import { counterOf, type ExecutionBudgetRecord } from "../../src/budgets/execution-budgets.js";
 import { testWith, type TestApp } from "../../src/testing/index.js";
@@ -144,7 +145,7 @@ async function countersOf(app: TestApp, executionId: string): Promise<readonly n
  * record without details — the amount its sentence names (`… spent $12.34; … allows …`).
  */
 function spentCentsOf(error: unknown): number {
-  if (error instanceof BudgetExceededError) return Math.round(error.spent * 100);
+  if (error instanceof LimitError.Budget) return Math.round(error.spent * 100);
   const named = error instanceof Error ? /spent \$([0-9.]+);/.exec(error.message)?.[1] : undefined;
   return Math.round(Number(named) * 100);
 }
@@ -199,7 +200,7 @@ describe(`#685: every dollar of a tree counted once (seed ${String(seed)})`, () 
             );
 
             // a remote child held back fails its parent with the error as recorded: by its name
-            expect(error).toMatchObject({ name: "BudgetExceededError" });
+            expect(error).toMatchObject({ name: "LimitError.Budget" });
             expect(spentCentsOf(error)).toBe(before);
             expect(sum(spendTree.paid)).toBe(before);
           },

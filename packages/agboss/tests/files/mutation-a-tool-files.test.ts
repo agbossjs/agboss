@@ -1,3 +1,5 @@
+import { PiiError } from "../../src/core/error-families/limit-errors.js";
+import { GuardrailError } from "../../src/core/error-families/limit-errors.js";
 import { argsDigestOf } from "../../src/graph/agent-loop/move-entries.js";
 import { usd } from "../../src/units/index.js";
 /** #1269: the files of a tool's result — read, guarded, counted and stored — called with fake deps. */
@@ -332,7 +334,7 @@ describe("taskFilesOf: the input guardrails on the files", () => {
     const files = await taskFilesOf(deps, scanTool, taskOf(), okOf({ file: PDF }));
 
     expect(files.refused?.content).toBe("Tool error: the call was refused: not these files");
-    expect(files.refused?.error.name).toBe("GuardrailBlockedError");
+    expect(files.refused?.error.name).toBe("GuardrailError.Blocked");
     expect(files.files).toBeUndefined();
     expect(callersOf(files.usage)).toEqual(["transcriber", "guard"]);
     expect(files.decisions).toMatchObject([{ isBlocked: true, probability: 1 }]);
@@ -429,7 +431,7 @@ describe("withFiles", () => {
     });
 
     expect(result.closed.content).toBe("Tool error: the call was refused: not these files");
-    expect(result.closed.refusal?.name).toBe("GuardrailBlockedError");
+    expect(result.closed.refusal?.name).toBe("GuardrailError.Blocked");
     expect(result).not.toHaveProperty("refused");
     expect(result.files).toBeUndefined();
   });
@@ -457,7 +459,7 @@ describe("withFiles", () => {
       okOf({ file: PDF }),
     );
 
-    expect(files.refused?.error.name).toBe("PiiRefusedError");
+    expect(files.refused?.error.name).toBe("PiiError.Refused");
     expect(files.refused?.content).toContain("No cards.");
     expect(files.files).toBeUndefined();
   });

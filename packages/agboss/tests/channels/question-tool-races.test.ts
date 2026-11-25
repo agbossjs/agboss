@@ -4,12 +4,12 @@
  * again, a cancel withdraws it, another tenant or owner cannot answer it, the role's `maxVisits`
  * bounds the calls of one visit, and a channel that fails fails the agent's step.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { describe, expect } from "vitest";
-import { AgentFailedError } from "../../src/graph/errors.js";
 import { PauseStatus, PausedExecutionRepository, ValidationError } from "../../src/index.js";
-import { VisitsLimitExceededError } from "../../src/flow/runtime/errors.js";
 import { callTool, callTools, replyWith, testWith } from "../../src/testing/index.js";
 import type { TestApp } from "../../src/testing/test-app.js";
 import {
@@ -26,7 +26,6 @@ import {
 } from "../flow/fixtures/question-tools.fixture.js";
 import { answerOf, execute } from "../helpers/flow.js";
 import { TestTenantDailyBudget } from "../flow/fixtures/budgets.js";
-import { BudgetExceededError } from "../../src/index.js";
 import { usd } from "../../src/units/index.js";
 
 const test = testWith(QuestionToolsApplication, { instances: 2 });
@@ -169,7 +168,7 @@ describe("#712 AC4: maxVisits, several calls of one move, a failing channel", ()
 
     await expect(
       app.resume(answerOf(again, { approved: true, limitUsd: 600 }), owner),
-    ).rejects.toBeInstanceOf(VisitsLimitExceededError);
+    ).rejects.toBeInstanceOf(LimitError.Visits);
     expect(app.resolve(BuyerDesk).asked).toHaveLength(2);
   });
 });
@@ -198,9 +197,7 @@ describe("#712 AC4: a budget exhausted meanwhile asks nobody", () => {
     );
     expect(spender.spend.totalUsd).toBeGreaterThan(0.01);
 
-    await expect(app.resume(answerOf(first, yes), owner)).rejects.toBeInstanceOf(
-      BudgetExceededError,
-    );
+    await expect(app.resume(answerOf(first, yes), owner)).rejects.toBeInstanceOf(LimitError.Budget);
     expect(app.resolve(BuyerDesk).asked).toHaveLength(1);
   });
 });
@@ -212,7 +209,7 @@ describe("#712 AC4: a channel that fails", () => {
       mockModel(BuyerAgent).thenReturn(callTool(ApproverExternalTask, laptop));
 
       await expect(execute(app, BuyerWorkflowStart, { text: "buy" }, asking)).rejects.toFailWith(
-        AgentFailedError,
+        StepError.Agent,
         { cause: expect.objectContaining({ message: "the approvals service is down" }) },
       );
     },
@@ -224,7 +221,7 @@ describe("#712 AC4: a channel that fails", () => {
       mockModel(BuyerAgent).thenReturn(callTool(ApproverExternalTask, laptop));
 
       await expect(execute(app, BuyerWorkflowStart, { text: "buy" }, asking)).rejects.toFailWith(
-        AgentFailedError,
+        StepError.Agent,
         { cause: expect.any(ValidationError.DtoInvalid) },
       );
     },

@@ -68,10 +68,8 @@ export class OrderRouter {}
   flow: [
     onStart(RoutedChargeWorkflowStart)
       .toRouter(OrderRouter)
-      .onRoute(
-        toAction(ChargeOrderAction)
-          .toFinish(ChargedWorkflowFinish),
-      )
+      .onRoute(toAction(ChargeOrderAction)
+        .toFinish(ChargedWorkflowFinish))
       .onRoute(toFinish(NotChargedWorkflowFinish)),
   ],
 })

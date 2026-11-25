@@ -1,4 +1,5 @@
-import { StepFailedError, Workflow, onStart, toAction, Ttl } from "@agboss/core";
+import { StepError } from "@agboss/core";
+import { Workflow, onStart, toAction, Ttl } from "@agboss/core";
 import { AlertRecruiterAction } from "../../actions/alert-recruiter.action.js";
 import { BookOnboardingSlotAction } from "../../actions/book-onboarding-slot.action.js";
 import { ConfirmOfferAction } from "../../actions/confirm-offer.action.js";
@@ -32,7 +33,7 @@ import { SendOfferWorkflowStart } from "./send-offer.workflow-start.js";
       .toAction(BookOnboardingSlotAction)
       .toAgent(OfferLetterAgent)
       .onError(
-        StepFailedError, // the letter failed: undo both, newest first — checked by agboss check
+        StepError, // the letter failed: undo both, newest first — checked by agboss check
         toAction(ReleaseOnboardingSlotAction)
           .toAction(WithdrawOfferAction)
           .onError(

@@ -8,7 +8,7 @@ count and — with groups — which combination wins and where the execution goe
 
 > **Status.** #279 PR 1 (the grammar, `@Arbiter` / `@Arbitrate`, the analyser, the generated
 > types) and PR 2 (quorums at run time: counting, cancelling the rest, the deadline on the `Clock`,
-> `QuorumNotReachedError`, `ArbiterError`, traces and `onQuorumDecided`, `agboss generate arbiter`).
+> `StepError.QuorumNotReached`, `StepError.Arbiter`, traces and `onQuorumDecided`, `agboss generate arbiter`).
 > A runnable example: `examples/flow-patterns/src/panel`.
 
 > **A failed join's undo (#340).** When a launch fails, the join first undoes its finished
@@ -206,9 +206,9 @@ declare it optional(SkillsScoreDto) or listOf(SkillsScoreDto)
 
 A branch whose pause expired ends `BranchStatus.Expired` (`step.pause-expired` in `result.launches`), not
 `Cancelled` or `Skipped`. In a quorum it did not vote and is no failure whatever it skips; the quorum's
-deadline binds its pauses, so the tree wakes by itself at it, and `QuorumNotReachedError.expired` names the
+deadline binds its pauses, so the tree wakes by itself at it, and `StepError.QuorumNotReached.expired` names the
 branches that expired. In a plain `.join()` it follows the branch's `.onError(E, skip())`: a skipped one is dropped, else it fails the
-launch with its `PauseExpiredError`; the `.onError(…)` side path reads the answers already settled as
+launch with its `StepError.PauseExpired`; the `.onError(…)` side path reads the answers already settled as
 `optional(…)` inputs (see [Pauses](Pauses#expiry-in-parallel-launches-945)).
 
 ## External tasks in a launch (#1306)
@@ -228,7 +228,7 @@ onStart(ContractCommitteeWorkflowStart)
   .inParallel([toExternalTask(LegalSignOff), toExternalTask(SecuritySignOff), toExternalTask(FinanceDirector)])
   .arbitratedBy(SignOffArbiter)
   .joinQuorum({ min: 2, deadline: hours(2) })
-  .onError(QuorumNotReachedError, toFinish(ContractRejectedWorkflowFinish))
+  .onError(StepError.QuorumNotReached, toFinish(ContractRejectedWorkflowFinish))
   .toAction(SignContractAction)
   .toFinish(ContractSignedWorkflowFinish)
 ```
@@ -318,9 +318,9 @@ every branch and deciding at the join:
    model check's call (which cannot be stopped) is awaited for its cost; neither counts.
 4. The **join** decides from the branch records only: the counted answers in counting order
    (`acceptedSequence` — never listed or finish order) go into the path scope; for groups the winning
-   group's agents' answers, on that group's own path. Not reached → **`QuorumNotReachedError`**
-   (`step.quorum`, a `StepFailedError` naming the launching step, with `min` and `counted`) into
-   `.onError(QuorumNotReachedError, …)`, else the execution fails with it.
+   group's agents' answers, on that group's own path. Not reached → **`StepError.QuorumNotReached`**
+   (`step.quorum`, a `StepError` naming the launching step, with `min` and `counted`) into
+   `.onError(StepError.QuorumNotReached, …)`, else the execution fails with it.
 
 | What happens in a branch | Its record |
 | --- | --- |
@@ -328,10 +328,10 @@ every branch and deciding at the join:
 | an arbiter rejected it | `Finished`, `Rejected`, `rejectedBy` |
 | accepted after the quorum was decided | `Finished`, `Surplus` |
 | still running (or checked) when the quorum was decided | `Cancelled` |
-| its own step failed (`StepFailedError`) | `Skipped` — under a quorum it only leaves its place empty |
-| an arbiter threw, returned no boolean, or its model did not answer | `Failed` with `ArbiterError` (`step.arbiter`): the launch fails, `.onError(ArbiterError, …)` takes it |
+| its own step failed (`StepError`) | `Skipped` — under a quorum it only leaves its place empty |
+| an arbiter threw, returned no boolean, or its model did not answer | `Failed` with `StepError.Arbiter` (`step.arbiter`): the launch fails, `.onError(StepError.Arbiter, …)` takes it |
 | a limit, `app.cancel` | as for every launch (#273 S21): the launch fails / the execution is cancelled |
-| a budget exhausted by any branch's call (#338) | its calls in flight aborted at once, `Failed` with `BudgetExceededError`: the launch fails before the quorum is decided, `.onError(BudgetExceededError, …)` takes it ([FinOps → At run time](FinOps#at-run-time)) |
+| a budget exhausted by any branch's call (#338) | its calls in flight aborted at once, `Failed` with `LimitError.Budget`: the launch fails before the quorum is decided, `.onError(LimitError.Budget, …)` takes it ([FinOps → At run time](FinOps#at-run-time)) |
 
 Every branch's spend counts — a cancelled or surplus branch's too. Each branch's calls are counted
 the moment they are made (#338), so an arbiter's check before its model call sees the siblings'
@@ -342,11 +342,11 @@ spend while they run.
 `deadline` (`seconds()`, `minutes()`, `hours()`; or working time through the quorum's calendar, see above) is turned into `deadlineAt` once, when the launch is
 dispatched, from the application's `Clock`, and kept in the launch's ticket (the state and every
 branch's payload). A `Clock` sleep ends the quorum at that moment: `min` reached → go on (groups: the
-highest-priority complete group), else `QuorumNotReachedError` ("the deadline passed"). A pause
+highest-priority complete group), else `StepError.QuorumNotReached` ("the deadline passed"). A pause
 counts as elapsed time. The time its branches wait in the tree's queue (#264
 `maxConcurrency`) does not: the deadline moves by it, in the process that runs the launch
 ([FinOps → Concurrency of a tree](FinOps#concurrency-of-a-tree-264)); a model call's wait for a
-provider's rate limit (#266) is not excluded. A `QuorumNotReachedError` past the moved deadline says so: `the deadline passed
+provider's rate limit (#266) is not excluded. A `StepError.QuorumNotReached` past the moved deadline says so: `the deadline passed
 (2026-01-05T09:01:10.000Z: the ticket's deadline plus 40 s in the tree's queue)`. The time in the queue
 is kept by the process that runs the launch only: after a resume or a crash the next pass starts it
 again from 0, so an already-passed ticket deadline cancels the unfinished branches at once. Tests move it with the `VirtualClock`, in

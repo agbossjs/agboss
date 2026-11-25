@@ -1,5 +1,5 @@
+import { StepError } from "@agboss/core";
 import { describe, expect } from "vitest";
-import { QualityGateError } from "@agboss/core";
 import { callTool, replyWith, testWith } from "@agboss/core/testing";
 import { DeskAgent } from "../../../../src/desk/agents/desk/desk.agent.js";
 import { DeskMetricsService } from "../../../../src/desk/services/desk-metrics.service.js";
@@ -37,7 +37,10 @@ describe("the code judge reads the visit's tool calls", () => {
     expect(result).toFinishWith(DeskAnswerWorkflowFinish, { text: "Order 7 shipped on Monday." });
   });
 
-  test("retries spent: QualityGateError with the judge's reason", async ({ app, mockModel }) => {
+  test("retries spent: StepError.QualityGate with the judge's reason", async ({
+    app,
+    mockModel,
+  }) => {
     mockModel(DeskAgent).thenReturn(
       callTool(OrderStatusTool, { orderId: "7" }),
       replyWith("It shipped."),
@@ -46,7 +49,7 @@ describe("the code judge reads the visit's tool calls", () => {
 
     await expect(
       app.execute(DeskWorkflowStart, { customerId: "c-1", question: "Where is #7?" }),
-    ).rejects.toFailWith(QualityGateError, {
+    ).rejects.toFailWith(StepError.QualityGate, {
       rejections: [
         { judge: "quotes-lookup-judge", reason: "name the order you looked up in the answer" },
       ],

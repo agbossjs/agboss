@@ -100,7 +100,7 @@ here the front router hands money matters to a second one:
 <!-- snippet-context
 import { toAgent, toRouter, toAction } from "@agboss/core";
 import { Ttl } from "@agboss/core";
-import { Workflow, RouterFailedError, onAgent, onStart, toFinish } from "@agboss/core";
+import { Workflow, StepError, onAgent, onStart, toFinish } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { AnswerDto, AnswerWorkflowFinish, BillingAgent, ChatAgent, EscalatedWorkflowFinish, FrontRouter, MoneyRouter, NeedsHumanDto, OpenTicketAction, RefundAgent, ReplyWorkflowFinish, TicketDto, TicketRouter, TicketWorkflowStart, TriageAgent, UnroutedWorkflowFinish } from "./nodes.js";
 -->
@@ -114,7 +114,7 @@ import { AnswerDto, AnswerWorkflowFinish, BillingAgent, ChatAgent, EscalatedWork
     onStart(TicketWorkflowStart)
       .toRouter(FrontRouter)
       // 4. the router's own failure: a failed call or a not-allowed answer goes to a finish
-      .onError(RouterFailedError, toFinish(UnroutedWorkflowFinish))
+      .onError(StepError.Router, toFinish(UnroutedWorkflowFinish))
       // 1. a route to another router: its choice is continued right there
       .onRoute(
         toRouter(MoneyRouter)
@@ -163,19 +163,19 @@ refusing is just a branch that leads to a finish.
 A node reached from two or more places is continued in its own path (`onAgent(TriageAgent)…`,
 `onRouter(R)…`), and every path into it ends at it — the loop is visible. Every cycle needs
 `maxVisits` on one of its nodes (`[graph.cycle-without-max-visits]`); a visit past it fails before
-the model call with `VisitsLimitExceededError`, which `.onError` right after that step can take.
+the model call with `LimitError.Visits`, which `.onError` right after that step can take.
 
 ## 4. When the router fails
 
 `.onError(…)` right after `.toRouter(R)` takes the router's failure (#280 S19); a side path with
 `toAction(…)` can log it before its finish. Without a handler the run fails.
 
-- `.onError(RouterFailedError, …)` — any failure of the step: its model call or its `route()`
+- `.onError(StepError.Router, …)` — any failure of the step: its model call or its `route()`
   failed (`step.router`), or its answer is not allowed.
-- `.onError(RouterDecisionError, …)` — only a not-allowed answer (`step.router.invalid-decision`:
+- `.onError(StepError.RouterDecision, …)` — only a not-allowed answer (`step.router.invalid-decision`:
   a target outside its routes, an unknown or unreadable answer); never retried.
 - `.onError(DomainError, …)` — the error a code router's `route()` (or the service it calls)
-  threw, caught through `RouterFailedError`'s cause.
+  threw, caught through `StepError.Router`'s cause.
 
 ## 5. A rule decided by code
 
@@ -259,12 +259,12 @@ A code router may also sit inside a model router's `.onRoute(…)` — `.onRoute
 A router in a parallel launch (#273, #1279) is a **branch**: `toRouter(R).chooseMany([toAgent(A), …])`
 lists the router's routes (`[router.routes-mismatch]`) and the router decides which of them are
 launched — the others never run. A route a router may leave out gives an `optional(XDto)` value to the
-join, so does a branch a failure may drop: `.onError(StepFailedError, skip())` on it. The other
+join, so does a branch a failure may drop: `.onError(StepError, skip())` on it. The other
 branches of the launch run as listed.
 
 <!-- snippet-context
 import { Ttl } from "@agboss/core";
-import { toAgent, toRouter, skip, optional, StepFailedError } from "@agboss/core";
+import { toAgent, toRouter, skip, optional, StepError } from "@agboss/core";
 import { inline, Agent, DecidedBy, Router, Workflow, WorkflowFinish, WorkflowStart, onStart } from "@agboss/core";
 import { Text, WorkflowStartTextDto } from "@agboss/core/dto";
 
@@ -306,7 +306,7 @@ export class SupportWorkflowFinish {}
       .inParallel([
         toAgent(OrderAgent), // always runs
         toAgent(LoyaltyAgent)
-          .onError(StepFailedError, skip()), // a failure drops it: optional(LoyaltyOfferDto)
+          .onError(StepError, skip()), // a failure drops it: optional(LoyaltyOfferDto)
         toRouter(SupportRouter)
           .chooseMany([toAgent(RefundPolicyAgent)]), // the router decides: optional(RefundPolicyDto)
       ])
@@ -337,7 +337,7 @@ export class SupportRouter {}
 | A code router | its `route(input)` returns the agents to launch as a list, `[]` included |
 | Routes match | the `chooseMany([…])` list is exactly the router's routes (`[router.routes-mismatch]`) |
 | Agents only | a router launches agents; its branches are `toAgent(…)` |
-| No policies | there is no per-route `spawn` or `failure`: what always runs is a branch beside the router, what may fail softly is `.onError(StepFailedError, skip())` on its branch |
+| No policies | there is no per-route `spawn` or `failure`: what always runs is a branch beside the router, what may fail softly is `.onError(StepError, skip())` on its branch |
 
 At run time (#273 PR 2, S21, S23):
 
@@ -345,8 +345,8 @@ At run time (#273 PR 2, S21, S23):
 | --- | --- |
 | A model router decides in one call | one independent yes/no question per route, its text the route's `prompt`, keyed by the target's `name` in the order of `routes`; the router's own `prompt` leads the state; a decision model asks one `Decision.boolean` per route, a chat model one answer tool with a boolean per route |
 | All no | none of its routes launched: `[]` is an answer (S23) — the join gives the router's branches `optional` values, absent |
-| A code router | `route(input)` returns the targets to launch, as a list; a target outside its routes → `RouterDecisionError` |
-| `skip()` | `.onError(E, skip())` drops only the branch's own step failure — `error instanceof StepFailedError` (`AgentFailedError`, `AgentAnswerInvalidError`, `QualityGateError`, …): the branch ends `BranchStatus.Skipped`, its siblings go on; a limit error (`LimitExceededError`), a cancel or a pause is never dropped |
+| A code router | `route(input)` returns the targets to launch, as a list; a target outside its routes → `StepError.RouterDecision` |
+| `skip()` | `.onError(E, skip())` drops only the branch's own step failure — `error instanceof StepError` (`StepError.Agent`, `StepError.AgentAnswerInvalid`, `StepError.QualityGate`, …): the branch ends `BranchStatus.Skipped`, its siblings go on; a limit error (`LimitError`), a cancel or a pause is never dropped |
 | In a test | script the router's decision by target name: `mockModel(SupportRouter).thenReturn(decideWith({ "refund-policy-agent": 0.9 }))` — also for a chat-model router (P(yes) above 0.5 is `true`) |
 
 ## Not in the core yet

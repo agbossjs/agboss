@@ -1,8 +1,9 @@
 /**
  * #643: a hand-set `maxSteps` below the worst case of a loop every cycle of which `maxVisits`
  * bounds is `[limits.max-steps-below-worst-case]` — the run would fail with
- * `StepsLimitExceededError` before the loop's `.onError(VisitsLimitExceededError, …)` ends it.
+ * `LimitError.Steps` before the loop's `.onError(LimitError.Visits, …)` ends it.
  */
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import { describe, expect, it } from "vitest";
 import { checkWorkflow } from "../../../src/flow/analyse/analyse.js";
 import { boundedStepsFrom } from "../../../src/flow/analyse/strongly-connected.js";
@@ -10,7 +11,6 @@ import { walkFlow } from "../../../src/flow/analyse/walk.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { oneOf } from "../../../src/flow/dto-wrappers.js";
-import { StepsLimitExceededError } from "../../../src/graph/limits.js";
 import { ChangesRequestedDto, DraftApprovedDto, OfferDraftDto } from "../fixtures/dtos.js";
 import {
   DraftAgent,
@@ -19,7 +19,6 @@ import {
   OfferSentWorkflowFinish,
   OfferWorkflowStart,
   SendOfferAction,
-  VisitsLimitExceededError,
   offerPaths,
 } from "../fixtures/offer.fixture.js";
 import { onAgent, onStart, toAction, toAgent } from "../fixtures/paths.js";
@@ -51,9 +50,7 @@ class OfficerAgent {}
 })
 class RewriterAgent {}
 
-const reviewPaths = (
-  handled = VisitsLimitExceededError as abstract new (...args: never[]) => Error,
-) => [
+const reviewPaths = (handled = LimitError.Visits as abstract new (...args: never[]) => Error) => [
   onStart(OfferWorkflowStart).toAgent(DraftAgent).toAgent(OfficerAgent),
   onAgent(OfficerAgent).toOneOf([
     toAgent(RewriterAgent)
@@ -97,7 +94,7 @@ describe("#643 AC1: a maxSteps below the bounded worst case of a loop warns", ()
     expect(warningsOf(reviewWith(7)).map((found) => found.message)).toEqual([
       "review-steps-workflow: the worst case from offer-workflow-start takes 9 steps — through " +
         "officer-agent (maxVisits 4), rewriter-agent (maxVisits 3), but maxSteps is 7: a run that long " +
-        "fails with StepsLimitExceededError before its maxVisits ends it — set maxSteps: 9",
+        "fails with LimitError.Steps before its maxVisits ends it — set maxSteps: 9",
     ]);
     expect(checkWorkflow(reviewWith(7)).errors).toEqual([]);
   });
@@ -125,7 +122,7 @@ describe("#643 AC2: what is not warned", () => {
   });
 
   it("AC2: a flow that takes the steps limit itself means a smaller maxSteps", () => {
-    expect(warningsOf(reviewWith(7, StepsLimitExceededError))).toEqual([]);
+    expect(warningsOf(reviewWith(7, LimitError.Steps))).toEqual([]);
   });
 
   it("AC2: without a hand-set maxSteps nothing new is checked", () => {

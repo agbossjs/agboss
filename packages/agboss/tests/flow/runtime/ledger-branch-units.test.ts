@@ -1,3 +1,4 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { usd } from "../../../src/units/index.js";
 /**
  * #1366 (ledger-branch shard) — the spend of one branch of a launch, each rule on its own over fakes: what a
@@ -7,7 +8,6 @@ import { usd } from "../../../src/units/index.js";
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CostSource, ZERO_USAGE, type UsageRecord } from "../../../src/finops/usage.js";
-import { PaidStepError } from "../../../src/graph/errors.js";
 import { branchNode } from "../../../src/flow/runtime/launch/branch-runner.js";
 import { BranchStatus } from "../../../src/flow/runtime/launch/records.js";
 import { abortLaunch, settledEnd } from "../../../src/flow/runtime/launch/branch-settle.js";
@@ -96,6 +96,8 @@ vi.mock("../../../src/flow/runtime/node-runner.js", async (original) => ({
 }));
 vi.mock("../../../src/flow/context/frame.js", () => ({
   runInFrame: vi.fn((_frame: unknown, work: () => unknown) => work()),
+  // a step error made outside any step names its own step
+  currentFrame: vi.fn(() => undefined),
 }));
 
 const record = (costUsd: number, caller = "agent:a"): UsageRecord => ({
@@ -287,7 +289,8 @@ describe("#1366: a branch that failed carries the spend its error holds and its 
     return { ...setup({ live, runner: () => Promise.reject(error) }), live };
   };
   const paid = () =>
-    new PaidStepError({
+    new StepError.Agent({
+      agent: "x",
       message: "paid",
       usage: [record(0.5, "aborted")],
       cause: new Error("x"),
@@ -304,7 +307,7 @@ describe("#1366: a branch that failed carries the spend its error holds and its 
     const usage = [record(0.5, "aborted"), record(0.125, "lost")];
     expect(out.usage).toEqual(usage);
     expect(live.spent).toEqual(usage);
-    expect(failedVisitOf).toHaveBeenCalledWith("site", expect.any(PaidStepError), usage);
+    expect(failedVisitOf).toHaveBeenCalledWith("site", expect.any(StepError), usage);
     expect(out).toMatchObject({ failedVisit: true, visited: true });
   });
 

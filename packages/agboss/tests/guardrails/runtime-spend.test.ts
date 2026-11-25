@@ -2,9 +2,9 @@
  * #1366: what a model guardrail's decision cost — the call is in the spend the check hands on, whether the guardrail
  * decided or the call failed: a guardrail that fails closed names the spend of the calls so far on its error.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { AIMessage } from "@langchain/core/messages";
 import { describe, expect, it } from "vitest";
-import { GuardFailedError } from "../../src/errors.js";
 import { runtimeGuardrailOf } from "../../src/guardrails/runtime.js";
 import { GUARDRAIL_ANSWER_TOOL, GUARDRAIL_QUESTION } from "../../src/prompts/guardrail.js";
 import type { UsageRecord } from "../../src/finops/usage.js";
@@ -61,7 +61,7 @@ describe("#1366: the spend of a model guardrail", () => {
 
     const error = await runtime.decide(checked, spent).catch((caught: unknown) => caught);
 
-    expect(error).toBeInstanceOf(GuardFailedError);
-    expect((error as GuardFailedError).usage.map((each) => each.costUsd)).toEqual([0.25]);
+    expect(error).toBeInstanceOf(StepError.Guardrail);
+    expect((error as StepError.Guardrail).usage.map((each) => each.costUsd)).toEqual([0.25]);
   });
 });

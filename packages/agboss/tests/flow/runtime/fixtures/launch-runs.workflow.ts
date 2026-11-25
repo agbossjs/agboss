@@ -1,3 +1,4 @@
+import { LimitError } from "../../../../src/core/error-families/limit-errors.js";
 import { OwnerToolApproval } from "../../fixtures/owner-approval.fixture.js";
 import { Text } from "../../../../src/dto/index.js";
 import {
@@ -7,7 +8,6 @@ import {
   listOf,
   Router,
   Tool,
-  VisitsLimitExceededError,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
@@ -117,10 +117,8 @@ export class PlanLoopRouter {
       .join()
       .toRouter(PlanLoopRouter)
       .onRoute(toAgent(LoopPlannerAgent))
-      .onRoute(
-        toAction(CritiquesAction)
-          .toFinish(CritiquesWorkflowFinish),
-      ),
+      .onRoute(toAction(CritiquesAction)
+        .toFinish(CritiquesWorkflowFinish)),
   ],
 })
 export class PlanLoopWorkflow {}
@@ -252,13 +250,11 @@ export class TiredLoopRouter {
     onAgent(TiredPlannerAgent)
       .inParallel([toAgent(TiredCriticAgent), toAgent(TiredCriticAgent)])
       .join()
-      .onError(VisitsLimitExceededError, toFinish(TiredWorkflowFinish))
+      .onError(LimitError.Visits, toFinish(TiredWorkflowFinish))
       .toRouter(TiredLoopRouter)
       .onRoute(toAgent(TiredPlannerAgent))
-      .onRoute(
-        toAction(CritiquesAction)
-          .toFinish(CritiquesWorkflowFinish),
-      ),
+      .onRoute(toAction(CritiquesAction)
+        .toFinish(CritiquesWorkflowFinish)),
   ],
 })
 export class TiredWorkflow {}

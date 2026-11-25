@@ -3,9 +3,9 @@
  * start (one alone is no loop), no envelope is no refusal, and a claim the request does not make leaves its
  * key ABSENT in what the execution keeps (not present as undefined).
  */
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import { describe, expect, it } from "vitest";
 import { inboundMeshOfRequest, meshRefusalOf } from "../../../src/mesh/mesh-admission.js";
-import { MeshLoopDetectedError } from "../../../src/mesh/mesh-errors.js";
 import type { MeshEnvelope } from "../../../src/mesh/mesh-envelope.js";
 
 const envelope = (more: Partial<MeshEnvelope> = {}): MeshEnvelope => ({
@@ -45,7 +45,7 @@ describe("#1366: the admission of a request's call chain", () => {
     ).toBeUndefined();
     expect(
       meshRefusalOf(receiver("orders-application", "orders-workflow-start"), envelope()),
-    ).toBeInstanceOf(MeshLoopDetectedError);
+    ).toBeInstanceOf(LimitError.MeshLoop);
   });
 });
 

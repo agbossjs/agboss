@@ -315,7 +315,7 @@ scenario by scenario: [Payment scenarios](Payment-scenarios)):
   failure that crosses a takeover or an instance keeps that line with its message and causes (its
   record, `errorRecordOf` without `details`): a child's claimed failure, an undo's mark and an
   `AnyWorker` child's queue row. The instance that rebuilds it routes it as the instance that saw
-  it did: a side path on `ChildExecutionFailedError`, on `StepFailedError` or on the child's own
+  it did: a side path on `StepError.Child`, on `StepError` or on the child's own
   `PaymentDeclinedError` through the cause, whichever holder runs the parent. The rebuilt error is
   not an `instanceof` the project's class, so route on the class, never test it in a step. A cause
   chain is cut at 32 causes and at its first repeat, the same way wherever its record is made. A

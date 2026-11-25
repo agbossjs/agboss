@@ -11,7 +11,7 @@ import type { NodeEvent } from "./execution-event.js";
 export interface QuorumDecidedEvent extends NodeEvent {
   /** `${executionId}:${nodeId}:${visitNumber}` of the launching step (`result.launches`). */
   readonly launch: string;
-  /** Whether the execution goes on along the quorum's path (else `QuorumNotReachedError`). */
+  /** Whether the execution goes on along the quorum's path (else `StepError.QuorumNotReached`). */
   readonly isReached: boolean;
   /** Every launched branch, in the launch's order. */
   readonly branches: readonly BranchRecord[];

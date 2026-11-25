@@ -75,10 +75,8 @@ const desk = onStart(LazyWorkflowStart)
   historyTtl: Ttl.Forever,
   flow: [
     desk
-      .onRoute(
-        toAgent(LazyIntakeAgent)
-          .toFinish(LazyOrderFinish),
-      )
+      .onRoute(toAgent(LazyIntakeAgent)
+        .toFinish(LazyOrderFinish))
       .onRoute(toFinish(LazyNoOrderFinish)),
   ],
 })

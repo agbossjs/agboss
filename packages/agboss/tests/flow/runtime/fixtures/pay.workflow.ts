@@ -1,3 +1,4 @@
+import { StepError } from "../../../../src/core/error-families/step-errors.js";
 import { OwnerToolApproval } from "../../fixtures/owner-approval.fixture.js";
 import { AGBossError } from "../../../../src/core/errors.js";
 import { Enum, Text } from "../../../../src/dto/index.js";
@@ -46,7 +47,7 @@ export class ApologyDto {
   text!: string;
 }
 
-/** Charges the order; what it throws is the step's failure (`ActionFailedError`, the cause kept). */
+/** Charges the order; what it throws is the step's failure (`StepError.Action`, the cause kept). */
 @Action({
   name: "charge-action",
   description: "Charges the card",
@@ -125,11 +126,8 @@ export class DeclinedFinish {}
     onStart(PayStart)
       .toAction(ChargeAction)
       .onError(PaymentError, toFinish(PaymentFailedFinish))
-      .onError(
-        CardDeclinedError,
-        toAgent(ApologizerAgent)
-          .toFinish(DeclinedFinish),
-      )
+      .onError(CardDeclinedError, toAgent(ApologizerAgent)
+        .toFinish(DeclinedFinish))
       .toFinish(PaidFinish),
   ],
 })

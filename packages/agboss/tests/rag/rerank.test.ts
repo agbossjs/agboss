@@ -5,12 +5,12 @@
  * falls back to the retrieval's order with a trace when the reranker says `Fallback` (AC3); a
  * reranking that is no subset of the candidates is a failure (isolation).
  */
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { BaseCallbackHandler } from "@langchain/core/callbacks/base";
 import { FakeListChatModel } from "@langchain/core/utils/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { Budget, BudgetScope, type BudgetHandler } from "../../src/budgets/budget.js";
-import { BudgetExceededError } from "../../src/index.js";
 import { ragMeta } from "../../src/components/rag.js";
 import { boundRerankerOf } from "../../src/components/rag-reranker.js";
 import { knowledgeRetrieveOf } from "../../src/components/rag-retrieval.js";
@@ -212,7 +212,7 @@ describe("#703 AC2: the reranker's spend counts against the execution's budget",
       },
     ).catch((error: unknown) => error);
 
-    expect(stopped).toBeInstanceOf(BudgetExceededError);
+    expect(stopped).toBeInstanceOf(LimitError.Budget);
     expect(book.scriptOf("agent:model-context-agent").requests).toHaveLength(0);
   });
 });

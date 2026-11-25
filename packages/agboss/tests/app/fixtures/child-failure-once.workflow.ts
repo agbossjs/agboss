@@ -1,5 +1,5 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import {
-  ChildExecutionFailedError,
   EmptyEnvironment,
   Workflow,
   WorkflowFinish,
@@ -109,7 +109,7 @@ export class SidePathFailedWorkflowFinish {}
   flow: [
     onStart(SidePathLocalWorkflowStart)
       .toWorkflow(YieldCheckLocalWorkflow)
-      .onError(ChildExecutionFailedError, toFinish(SidePathFailedWorkflowFinish))
+      .onError(StepError.Child, toFinish(SidePathFailedWorkflowFinish))
       .toFinish(SidePathCheckedWorkflowFinish),
   ],
 })

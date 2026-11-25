@@ -1,3 +1,4 @@
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { McpTransport } from "../../src/config/mcp-server-config.js";
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -9,7 +10,6 @@ import { z } from "zod";
 import type { App } from "../../src/app/types.js";
 import { McpServerClient } from "../../src/components/mcp-client.js";
 import { runInFrame } from "../../src/flow/context/frame.js";
-import { HopsLimitExceededError, MeshLoopDetectedError } from "../../src/index.js";
 import { connectMcp, McpEndpoint } from "../../src/mcp/index.js";
 import { plainApp } from "../helpers/mcp-plain-app.js";
 import { encodeMeshEnvelope } from "../../src/mesh/mesh-envelope-codec.js";
@@ -231,15 +231,15 @@ describe("#398 PR 1: the AGBoss MCP client sends _meta and reads a mesh limit", 
       _meta: { "agboss.dev/error": { code: "limit.mesh-loop", error: "looped", details } },
     };
 
-    expect(() => mcpResultValue(raw, z.string())).toThrow(MeshLoopDetectedError);
+    expect(() => mcpResultValue(raw, z.string())).toThrow(LimitError.MeshLoop);
   });
 
   it("McpServerClient.call passes a mesh limit on as it is", async () => {
     const tools = { search: { input: PeerQuestion, output: PeerReply } };
     class KbServer extends McpServerClient<typeof tools> {}
     const server = new KbServer();
-    const limit = new HopsLimitExceededError({
-      entry: { application: "kb-application", start: "search" },
+    const limit = new LimitError.Hops({
+      meshEntry: { application: "kb-application", start: "search" },
       callChain: [elsewhere],
       maxMeshHops: 1,
     });

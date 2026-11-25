@@ -195,8 +195,8 @@ export class Scout {}
 - `tools` lists classes — a missing or not-imported tool does not compile; at startup names are
   re-checked against the registry (`ConfigError.Component`).
 - The agent runs the framework's own loop ([Agents](Agents)): usage recorded per model call, the
-  execution's budgets checked before each call (one exhausted → `BudgetExceededError`), `maxToolCalls` → `agents.<name>.limits.toolCalls` (default 20) **fails
-  the run** with `LimitExceededError`; the loop's spend still reaches the budgets' counters.
+  execution's budgets checked before each call (one exhausted → `LimitError.Budget`), `maxToolCalls` → `agents.<name>.limits.toolCalls` (default 20) **fails
+  the run** with `LimitError`; the loop's spend still reaches the budgets' counters.
 - Each call runs as its own task with its own signal; parallel calls of one turn run concurrently.
   In the call, `executionContext.signal` is the call's (#280 S45): the execution's signal (cancel
   included) combined with a timer of the tool's `timeout` (default 30 s), cleared when the call ends — so
@@ -318,11 +318,11 @@ application's.
 | `ToolCallDecision.allow()`          | runs               | goes on (the next interceptor decides first)                                                                           |
 | `ToolCallDecision.allow({ input })` | runs, with `input` | goes on (validated against the tool's input DTO again; the next hooks and the tool get it)                             |
 | `ToolCallDecision.reply(message)`   | not called         | goes on: the model reads `message` as the call's text result in its loop and may try again                             |
-| `ToolCallDecision.block(reason)`    | not called         | fails at once: `ToolBlockedError` (`step.tool-blocked`, a `StepFailedError`: `agent`, `tool`, `interceptor`, `reason`) |
+| `ToolCallDecision.block(reason)`    | not called         | fails at once: `StepError.ToolBlocked` (`step.tool-blocked`, a `StepError`: `agent`, `tool`, `interceptor`, `reason`) |
 
 A decision is built only by its factories (a plain object does not compile); in tests compare it
-with `toEqual(ToolCallDecision.reply(message))`. `.onError(ToolBlockedError, …)` (or
-`StepFailedError`) right after the agent takes a block; the error carries the loop's spend, so the
+with `toEqual(ToolCallDecision.reply(message))`. `.onError(StepError.ToolBlocked, …)` (or
+`StepError`) right after the agent takes a block; the error carries the loop's spend, so the
 record and the ledger keep it.
 
 **The after hooks replace the result**, in reverse order (inner interceptor first; its `@AfterTool`
@@ -344,7 +344,7 @@ message is cut and masked the same way.
 `timeout`). The interceptors themselves have no timer of their own.
 
 **Failures.** An interceptor that throws, returns no `ToolCallDecision` or an output its tool does
-not give fails the step: `AgentFailedError`, its error as the `cause` (`ScopeServiceDownError`,
+not give fails the step: `StepError.Agent`, its error as the `cause` (`ScopeServiceDownError`,
 `TypeError`, `ValidationError.DtoInvalid`), so `.onError(DomainError, …)` takes it through the cause; the
 tool does not run after a failed before hook.
 

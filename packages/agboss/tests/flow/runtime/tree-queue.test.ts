@@ -1,9 +1,6 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { beforeEach, describe, expect } from "vitest";
-import {
-  ApplicationStoppingError,
-  ChildExecutionFailedError,
-  QuorumNotReachedError,
-} from "../../../src/index.js";
+import { ApplicationStoppingError } from "../../../src/index.js";
 import { replyWith, TestConcurrency, testWith, waitFor } from "../../../src/testing/index.js";
 import type { TestApp } from "../../../src/testing/test-app.js";
 import { seconds } from "../../../src/units/index.js";
@@ -128,7 +125,7 @@ describe("AC9: time in the queue does not count toward a quorum's deadline", () 
     await passLive(clock, seconds(31));
 
     // dispatched at 09:00:00 with a 30 s deadline, 40 s in the queue: it passed at 09:01:10
-    await expect(execution).rejects.toFailWith(QuorumNotReachedError, {
+    await expect(execution).rejects.toFailWith(StepError.QuorumNotReached, {
       message: expect.stringContaining(
         "the deadline passed (2026-01-05T09:01:10.000Z: the ticket's deadline plus 40 s in the tree's queue)",
       ) as string,
@@ -148,7 +145,7 @@ describe("AC10: the queue after a failure, a pause and a crash", () => {
     await untilLogged("start x");
     await clock.advance(seconds(1));
 
-    await expect(execution).rejects.toBeInstanceOf(ChildExecutionFailedError);
+    await expect(execution).rejects.toBeInstanceOf(StepError.Child);
     // x's slot went to a before its failure reached the launch; b and c left the queue unstarted
     expect(treeLog.events).toEqual(["start x", "start a", "cancelled a"]);
   });

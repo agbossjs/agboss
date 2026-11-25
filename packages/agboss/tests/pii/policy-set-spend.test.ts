@@ -1,3 +1,4 @@
+import { PiiError } from "../../src/core/error-families/limit-errors.js";
 import { usd } from "../../src/units/index.js";
 /**
  * #1366 (files-pii shard) — what a policy set's model detectors cost: a search carries the spend of every policy's
@@ -6,7 +7,6 @@ import { usd } from "../../src/units/index.js";
  */
 import { describe, expect, it, vi } from "vitest";
 import { CostSource, ZERO_USAGE, type UsageRecord } from "../../src/finops/usage.js";
-import { PiiRefusedError } from "../../src/pii/errors.js";
 import { PiiPolicySet } from "../../src/pii/policy-set.js";
 import { DetectionMode } from "../../src/pii/runtime-policy.js";
 import { PiiActionKind } from "../../src/pii/actions.js";
@@ -74,9 +74,9 @@ describe("#1366: the refusal of a blocked finding", () => {
       [record(0.25, "search")],
     );
 
-    expect(refused).toBeInstanceOf(PiiRefusedError);
+    expect(refused).toBeInstanceOf(PiiError.Refused);
     expect(refused?.refusal).toBe("refused by a-pii-policy");
-    expect(refused?.kind).toBe("email");
+    expect(refused?.piiKind).toBe("email");
     expect(refused?.usage.map((u) => u.caller)).toEqual(["search"]);
     expect(policy.refusalOf).toHaveBeenCalledWith("email", blocking);
   });

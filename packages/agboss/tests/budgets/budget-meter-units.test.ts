@@ -4,9 +4,9 @@
  * once — never counted from the ledger and the state both, never subtracted twice —, and the
  * ledger's round trips: none for nothing to write or read.
  */
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { describe, expect, it } from "vitest";
 import { Budget, BudgetScope, type BudgetHandler } from "../../src/budgets/budget.js";
-import { DeadlineExceededError } from "../../src/budgets/execution-deadline.js";
 import {
   BudgetMeter,
   budgetsOfExecution,
@@ -17,7 +17,6 @@ import {
 import { LedgerState } from "../../src/finops/ledger-mark.js";
 import { recordToolCost, type UsageRecord } from "../../src/finops/usage.js";
 import { ledgerEntryOf } from "../helpers.js";
-import { BudgetExceededError } from "../../src/graph/limits.js";
 import {
   InMemoryCostLedgerRepository,
   type CostCounter,
@@ -93,8 +92,8 @@ describe("#633: a check counts what the meter recorded and tallied", () => {
       meter.check(0, ["clerk-agent"]);
     });
 
-    expect(error).toBeInstanceOf(BudgetExceededError);
-    expect((error as BudgetExceededError).spentUsd).toBeCloseTo(1.7);
+    expect(error).toBeInstanceOf(LimitError.Budget);
+    expect((error as LimitError.Budget).spentUsd).toBeCloseTo(1.7);
   });
 
   it("a tally of nothing new never stops a pass already over its budget", async () => {
@@ -115,8 +114,8 @@ describe("#633: a check counts what the meter recorded and tallied", () => {
     first.meter.tally([here(1)]);
     second.meter.tally([here(1)], ["writer-agent"]);
 
-    expect((first.meter.exhausted.reason as BudgetExceededError).path).toEqual([]);
-    expect((second.meter.exhausted.reason as BudgetExceededError).path).toEqual(["writer-agent"]);
+    expect((first.meter.exhausted.reason as LimitError.Budget).path).toEqual([]);
+    expect((second.meter.exhausted.reason as LimitError.Budget).path).toEqual(["writer-agent"]);
   });
 
   it("a deadline passed: the error carries the check's path, spend and usage", () => {
@@ -128,7 +127,7 @@ describe("#633: a check counts what the meter recorded and tallied", () => {
       meter.check(0.25, ["clerk-agent"], usage);
     });
 
-    expect(error).toBeInstanceOf(DeadlineExceededError);
+    expect(error).toBeInstanceOf(LimitError.Deadline);
     expect(error).toMatchObject({ path: ["clerk-agent"], spentUsd: usd(0.25), usage });
   });
 
@@ -212,7 +211,7 @@ describe("#685: a child's spend recorded elsewhere counts once", () => {
 
     expect(() => {
       meter.check(0.3, []);
-    }).toThrow(BudgetExceededError);
+    }).toThrow(LimitError.Budget);
     // what the execution may spend in all: the budget, its own $0.30 in it once
     expect(meter.budgetUsd()).toBeCloseTo(0.3);
   });
@@ -228,7 +227,7 @@ describe("#685: a child's spend recorded elsewhere counts once", () => {
 
     expect(() => {
       meter.check(0.4, []);
-    }).toThrow(BudgetExceededError);
+    }).toThrow(LimitError.Budget);
     expect(meter.budgetUsd()).toBeCloseTo(0.4);
   });
 

@@ -1,3 +1,4 @@
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import { beforeEach, describe, expect } from "vitest";
 import { BranchStatus } from "../../../src/index.js";
 import { replyWith, testWith, TestConcurrency } from "../../../src/testing/index.js";
@@ -59,7 +60,7 @@ describe("AC2: an agent per item", () => {
   });
 
   screening(
-    "a limit reached in a branch fails the launch into .onError(LimitExceededError, …)",
+    "a limit reached in a branch fails the launch into .onError(LimitError, …)",
     async ({ app, mockModel }) => {
       const names = ["a", "b", "c", "d", "e", "f", "g", "h", "i"];
       mockModel(ScreeningAgent).thenReturn(companies(...names));

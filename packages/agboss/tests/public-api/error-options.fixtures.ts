@@ -42,16 +42,6 @@ export const fixtures: Readonly<Record<string, object>> = Object.fromEntries([
   fx(models.ModelProviderFailureError, { failure: ModelFailure.Timeout, retryAfter: seconds(1) }),
   fx(root.ModelCallError, { code: "model.circuit-open", provider: "openai", message }),
   fx(models.ModelProviderInputError, { kind: "image", mediaType: "image/png" }),
-  fx(root.ModelFileLimitError, {
-    agent: "reader-agent",
-    limit: root.ModelFileLimit.MaxFiles,
-    actual: 6,
-    allowed: 5,
-  }),
-  fx(root.FileRedactionFailedError, {
-    agent: "reader-agent",
-    reason: "the model's answer is not usable",
-  }),
   fx(root.ToolTimeoutError, { timeout: seconds(1) }),
   fx(root.SpendOutsideStepError, { message }),
   fx(root.ExecutionContextUnavailableError, { message }),

@@ -1,3 +1,5 @@
+import { StepError } from "../core/error-families/step-errors.js";
+import { GuardrailError } from "../core/error-families/limit-errors.js";
 import type { Class } from "../components/injection.js";
 import { bytes } from "../units/index.js";
 import type { GuardrailRefusal } from "../components/policy-decorators.js";
@@ -5,10 +7,8 @@ import type { RouterModel } from "../config/types.js";
 import type { GuardrailOutcome } from "../core/observability.js";
 import type { ExecutionObserverManager } from "../core/observer-manager.js";
 import type { UsageRecord } from "../finops/usage.js";
-import { GuardrailBlockedError } from "../flow/runtime/errors.js";
 import type { LaunchDeciderDeps } from "../flow/runtime/launch/launch-decider.js";
 import { reportNodeEvent } from "../flow/observers/execution-event.js";
-import { GuardFailedError } from "../graph/errors.js";
 import { isModelGuardrail, type AssembledGuardrails, type LoadedGuardrail } from "./assembly.js";
 import type { GuardedText } from "./guarded-text.js";
 import { CODE_GUARDRAIL_THRESHOLD, codeGuardrailDecision, contentOf } from "./code-guardrail.js";
@@ -21,9 +21,9 @@ import { modelDecisionOf } from "./model-decision.js";
  * Guardrails at run time (#120): each one a yes / no decision on its own model — a decision model
  * (one `Decision.boolean`) or a chat model (one answer tool) — under the cost caller
  * `guardrail:<name>`, its `prompt` the question. Run in list order on the text; the first whose
- * P(yes) reaches its threshold fails the execution with `GuardrailBlockedError`, its refusal (the
+ * P(yes) reaches its threshold fails the execution with `GuardrailError.Blocked`, its refusal (the
  * verdict's text, the decorator's text, or the class's `refusal(content)`) the text to send instead. A model that does not
- * answer fails closed (`GuardFailedError`): nothing passes unchecked. A code guardrail (#383)
+ * answer fails closed (`StepError.Guardrail`): nothing passes unchecked. A code guardrail (#383)
  * decides by its class's `check(content)` instead — no model call, no spend (`code-guardrail.ts`).
  */
 
@@ -154,7 +154,7 @@ export type GuardrailsChecked =
   | ({ readonly kind: "passed" } & GuardrailsPassed)
   | {
       readonly kind: "blocked";
-      readonly error: GuardrailBlockedError;
+      readonly error: GuardrailError.Blocked;
       readonly usage: readonly UsageRecord[];
       readonly decisions: readonly GuardrailDecisionRecord[];
     };
@@ -162,7 +162,7 @@ export type GuardrailsChecked =
 /**
  * The guardrails on one text, in order: all passed, or the first that blocks — as a value, so a caller
  * that can survive a block (a tool call whose result files were blocked, #899 §8) does. A guardrail
- * that cannot decide still throws `GuardFailedError`: nothing passes unchecked.
+ * that cannot decide still throws `StepError.Guardrail`: nothing passes unchecked.
  */
 export async function checkGuardrails(
   guardrails: readonly RuntimeGuardrail[],
@@ -180,14 +180,19 @@ export async function checkGuardrails(
     const threshold = isModelGuardrail(guardrail) ? guardrail.threshold : CODE_GUARDRAIL_THRESHOLD;
     const refusal = outcome.refusal ?? (await runtime.refusal(contentOf(checked)));
     if (refusal === undefined)
-      throw new GuardFailedError({
-        guard: name,
+      throw new StepError.Guardrail({
+        guardrail: name,
         usage: [...spent],
         reason:
           "blocked with no refusal — give blocked(refusal), the decorator { refusal } or the class a refusal(content) method",
       });
     const blocked = { probability: outcome.probability, threshold };
-    const error = new GuardrailBlockedError({ guard: name, refusal, usage: spent, ...blocked });
+    const error = new GuardrailError.Blocked({
+      guardrail: name,
+      refusal,
+      usage: spent,
+      ...blocked,
+    });
     carryRecords(error, { guardrailDecisions: decisions }); // the blocking one last (#395 S6)
     return { kind: "blocked", error, usage: spent, decisions };
   }
@@ -196,7 +201,7 @@ export async function checkGuardrails(
 
 /**
  * The guardrails on one text, in order: their spend and decisions when every one passes; the first that blocks
- * fails the execution with `GuardrailBlockedError` (its refusal, its spend so far).
+ * fails the execution with `GuardrailError.Blocked` (its refusal, its spend so far).
  */
 export async function runGuardrails(
   guardrails: readonly RuntimeGuardrail[],

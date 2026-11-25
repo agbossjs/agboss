@@ -1,3 +1,4 @@
+import { StepError } from "../../../../src/core/error-families/step-errors.js";
 import { AGBossError } from "../../../../src/core/errors.js";
 import { Integer, List, Enum, Text } from "../../../../src/dto/index.js";
 import {
@@ -50,7 +51,7 @@ export class GroupDoneDto {
   name!: string;
 }
 
-/** A task that cannot be done: the domain error inside `ActionFailedError`. */
+/** A task that cannot be done: the domain error inside `StepError.Action`. */
 export class TaskFailedError extends AGBossError {
   static override readonly code: string = "test.task-failed";
 }
@@ -130,10 +131,8 @@ export class TaskDoneWorkflowFinish {}
   name: "task-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(TaskWorkflowStart)
-      .toAction(WorkAction)
-      .toFinish(TaskDoneWorkflowFinish),
-  ],
+  flow: [onStart(TaskWorkflowStart)
+    .toAction(WorkAction)
+    .toFinish(TaskDoneWorkflowFinish)],
 })
 export class TaskWorkflow {}

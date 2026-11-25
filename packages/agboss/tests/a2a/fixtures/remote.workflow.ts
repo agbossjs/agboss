@@ -112,11 +112,9 @@ const defaults = {
   name: "remote-desk-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(AskStart)
-      .toAgent(Desk)
-      .toFinish(DeskAnswer),
-  ],
+  flow: [onStart(AskStart)
+    .toAgent(Desk)
+    .toFinish(DeskAnswer)],
   defaults,
   memory: Window2Memory,
   providers: [SingleTenantAuthenticator],

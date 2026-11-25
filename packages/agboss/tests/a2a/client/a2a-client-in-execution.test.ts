@@ -1,3 +1,4 @@
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import { A2AError } from "../../../src/core/error-families/remote-errors.js";
 /**
  * #809 — the A2A v1.0 client inside an execution: the accept round trip through `Idempotency.sendOnce`
@@ -8,7 +9,6 @@ import { A2AError } from "../../../src/core/error-families/remote-errors.js";
 import { OutboundCallError } from "../../../src/core/error-families/effect-errors.js";
 import { afterEach, describe, expect, it } from "vitest";
 import { A2AContractRule, A2AMesh } from "../../../src/a2a/index.js";
-import { HopsLimitExceededError, MeshLoopDetectedError } from "../../../src/index.js";
 import type { App } from "../../../src/app/types.js";
 import { hours, seconds, usd } from "../../../src/units/index.js";
 import { audienceRefusalOf, MeshRefusalCode } from "../../../src/mesh/mesh-verification.js";
@@ -117,7 +117,7 @@ describe("#809: the mesh rides an AGBoss call", () => {
     expect(agent.received[0]?.headers.traceparent).toMatch(/^00-[0-9a-f]{32}-[0-9a-f]{16}-01$/u);
   });
 
-  it("a chain past the receiver's maxMeshHops is refused there: the same HopsLimitExceededError", async () => {
+  it("a chain past the receiver's maxMeshHops is refused there: the same LimitError.Hops", async () => {
     const agent = new SdkAgent({
       script: scripts.completeWith({ data: { text: "ran" } }),
       agboss: AGBOSS,
@@ -130,8 +130,11 @@ describe("#809: the mesh rides an AGBoss call", () => {
 
     await ask("hello").catch(() => undefined);
 
-    expect(errors[0]).toBeInstanceOf(HopsLimitExceededError);
-    expect(errors[0]).toMatchObject({ maxMeshHops: 1, entry: { application: "peer-application" } });
+    expect(errors[0]).toBeInstanceOf(LimitError.Hops);
+    expect(errors[0]).toMatchObject({
+      maxMeshHops: 1,
+      meshEntry: { application: "peer-application" },
+    });
   });
 
   it("a loop A → A is refused before anything is sent", async () => {
@@ -145,7 +148,7 @@ describe("#809: the mesh rides an AGBoss call", () => {
 
     await ask("hello").catch(() => undefined);
 
-    expect(errors[0]).toBeInstanceOf(MeshLoopDetectedError);
+    expect(errors[0]).toBeInstanceOf(LimitError.MeshLoop);
     expect(agent.count("SendMessage")).toBe(0);
   });
 

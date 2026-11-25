@@ -118,8 +118,7 @@ export class ChildBatchAction {
     readonly refunds: readonly Tracked<RefundDoneDto>[];
   }): Promise<BatchSummaryDto> {
     return {
-      text: input.refunds
-        .map((refund) => refund.orderId)
+      text: input.refunds.map((refund) => refund.orderId)
         .join(", "),
     };
   }

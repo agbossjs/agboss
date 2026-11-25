@@ -5,8 +5,9 @@
  * — and finishes its lease; A resumes. Before the fix A took the free lease of the finished child
  * (and kept it, renewed) and wrote a `RemoteChild` takeover for it.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { beforeEach, describe, expect } from "vitest";
-import { ChildExecutionFailedError, ExecutionRecordStatus } from "../../src/index.js";
+import { ExecutionRecordStatus } from "../../src/index.js";
 import { ExecutionCancelledError } from "../../src/core/errors.js";
 import { testWith, type TestLeases } from "../../src/testing/index.js";
 import type { TestApp } from "../../src/testing/test-app.js";
@@ -125,7 +126,7 @@ describe("#520 AC2: a stale instance does not re-claim a finished AnyWorker chil
     );
     const { error } = await resumed(frozen, leases);
 
-    expect(error).toBeInstanceOf(ChildExecutionFailedError);
+    expect(error).toBeInstanceOf(StepError.Child);
     await expectNoStaleClaim(frozen);
   });
 

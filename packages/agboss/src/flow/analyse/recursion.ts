@@ -17,7 +17,7 @@ import {
  * made further on is that branch's own. What the runtime does with them on the last level
  * (`depth === maxDepth`) depends on who decides: an agent's variants leave its response schema and a
  * model router's routes are hidden (the soft stop); a code router choosing one fails with
- * `RouterDecisionError`; any other launch beyond `maxDepth` fails with `DepthLimitExceededError`.
+ * `StepError.RouterDecision`; any other launch beyond `maxDepth` fails with `LimitError.Depth`.
  */
 
 /** Who decides a branch, so how its recursive options stop on the last level. */
@@ -26,7 +26,7 @@ export enum RecursionDecider {
   Agent = "agent",
   /** A model router: the recursive routes are hidden from its model. */
   ModelRouter = "model-router",
-  /** A code router: returning a recursive route fails with `RouterDecisionError`. */
+  /** A code router: returning a recursive route fails with `StepError.RouterDecision`. */
   CodeRouter = "code-router",
   /** Code or data (an action's or a child's `oneOf`): a launch beyond `maxDepth` fails. */
   Data = "data",

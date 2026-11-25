@@ -4,6 +4,8 @@
  * over A2A, #398), their kept executions exported as `agboss executions export` does — the call seen
  * from both sides, a budget failure — and an eval run artifact of the shop.
  */
+import { StepError } from "@agboss/core";
+import { LimitError } from "@agboss/core";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -58,12 +60,12 @@ const shopBudgetFailure = (): ExecutionHistoryRecord =>
     startedAt: "2026-01-06T09:00:00.000Z",
     endedAt: "2026-01-06T09:00:30.000Z",
     error: {
-      name: "StepFailedError",
+      name: "StepError",
       code: "step.failed",
       lineage: ["step.failed", "step"],
       message: "the step failed",
       cause: {
-        name: "BudgetExceededError",
+        name: "LimitError.Budget",
         code: "limit.budget",
         lineage: ["limit.budget", "limit"],
         message: "spent",

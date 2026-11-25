@@ -1,3 +1,5 @@
+import { StepError } from "../../src/core/error-families/step-errors.js";
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { ConfigError } from "../../src/core/error-families/config-errors.js";
 /**
  * Bughunt 2026-11-25 #2 (regression): every model use is priced by its own provider and model. A model
@@ -9,8 +11,6 @@ import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { afterEach, describe, expect, it } from "vitest";
 import type { App } from "../../src/app/types.js";
 import { ExecutionStatus } from "../../src/app/types.js";
-import { BudgetExceededError } from "../../src/errors.js";
-import { RouterFailedError } from "../../src/index.js";
 import { CostSource } from "../../src/finops/usage.js";
 import { RerankFailurePolicy } from "../../src/rag/index.js";
 import { usd } from "../../src/units/index.js";
@@ -86,7 +86,7 @@ describe("bughunt #2: a model router on a price-table provider", () => {
     });
     const running = await started(application, [routed, completion("done")]);
 
-    await expect(execute(running, start, { text: "hi" })).rejects.toFailWith(BudgetExceededError, {
+    await expect(execute(running, start, { text: "hi" })).rejects.toFailWith(LimitError.Budget, {
       budget: { name: "component-prices-execution-budget" },
     });
   });
@@ -101,8 +101,8 @@ describe("bughunt #2: a model router on a price-table provider", () => {
       (error: unknown) => error,
     );
 
-    expect(failure).toBeInstanceOf(RouterFailedError);
-    expect((failure as RouterFailedError).usage).toEqual([
+    expect(failure).toBeInstanceOf(StepError.Router);
+    expect((failure as StepError.Router).usage).toEqual([
       expect.objectContaining({
         caller: "router:priced-router",
         provider: "reporting-model-provider",

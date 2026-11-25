@@ -7,14 +7,14 @@ import { Wrapper, type OneOfWrapper, type OutputShape } from "../../dto-wrappers
 import type { RuntimeNode } from "../graph-model.js";
 import type { NodeRunner } from "../node-runner.js";
 import { stepNodeIdOf } from "../step-frame.js";
-import { ActionFailedError, passesThrough } from "../errors.js";
+import { passesThrough } from "../errors.js";
 import { readInput, type NodeValue } from "../scope.js";
 import { reportNodeEvent } from "../../observers/execution-event.js";
 import { currentFrame, runInFrame, type FrameSpec } from "../../context/frame.js";
 import { AGBossError } from "../../../core/errors.js";
 import { StepError } from "../../../core/error-families/step-errors.js";
 import { ExecutionError } from "../../../core/error-families/run-errors.js";
-import { stepCoordinatesOf } from "../../../graph/errors.js";
+import { stepCoordinatesOf } from "../../../graph/step-coordinates.js";
 import { timeoutOn, type Clock, type ClockTimeout } from "../../../infrastructure/clock.js";
 import type { Milliseconds } from "../../../units/index.js";
 import { ComponentKind } from "../records.js";
@@ -146,17 +146,17 @@ const isFamilyError = (error: unknown): boolean =>
  * A failure of the action's code; a limit, a cancel or a pause passes as it is (S22), and so does a
  * family's error (`LimitError.Items`, `ExecutionError.UnknownThread`): it already says what it is,
  * and a wrapper would shadow it — `.onError` resolves to the most specific class of the ORIGINAL
- * error (#1325). Any other error fails the step as `ActionFailedError`, the original its cause.
+ * error (#1325). Any other error fails the step as `StepError.Action`, the original its cause.
  */
 const failure = (node: string, error: unknown): unknown =>
   passesThrough(error) || isFamilyError(error)
     ? error
-    : new ActionFailedError({ action: node, cause: error });
+    : new StepError.Action({ action: node, cause: error });
 
 /**
  * An action: its instance from the container runs `execute(input)` with its fields from the scope;
  * the result is checked against its `output` (a `oneOf` result is told by its strict schema); without `output` it gives
- * nothing. What it throws fails the step as `ActionFailedError` (the original as the cause). It
+ * nothing. What it throws fails the step as `StepError.Action` (the original as the cause). It
  * runs only while its holder holds the tree (#662, as an automatic undo's action, #640): the
  * holder's own fence is checked right before `execute`, after the awaited `onActionStart`.
  */

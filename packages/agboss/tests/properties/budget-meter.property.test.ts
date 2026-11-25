@@ -11,6 +11,7 @@
  * than the state, the bypass), and once everything is written a fresh read gives exactly the sum of
  * the spend.
  */
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { BudgetPeriod, BudgetScope } from "../../src/budgets/budget.js";
@@ -24,7 +25,6 @@ import {
   type BudgetUsage,
 } from "../../src/infrastructure/cost-ledger.repository.js";
 import { systemClock } from "../../src/infrastructure/clock.js";
-import { BudgetExceededError } from "../../src/index.js";
 import type { Usd } from "../../src/units/index.js";
 import { seededProperties } from "../helpers/property-seed.js";
 
@@ -66,7 +66,7 @@ function countedBy(meter: BudgetMeter, state: readonly UsageRecord[]): number {
   try {
     meter.check(state, []);
   } catch (error) {
-    if (error instanceof BudgetExceededError) return error.spent;
+    if (error instanceof LimitError.Budget) return error.spent;
     throw error;
   }
   throw new Error("a zero limit always throws");

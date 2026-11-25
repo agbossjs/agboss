@@ -1,6 +1,6 @@
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import {
   Agent,
-  BudgetExceededError,
   DecidedBy,
   Router,
   Workflow,
@@ -78,10 +78,8 @@ export class PaidRouterWorkflowFinish {}
     onStart(PaidRouterWorkflowStart)
       .toAction(OverspendOrderAction)
       .toRouter(PaidOrderRouter)
-      .onRoute(
-        toAction(NoteOrderAction)
-          .toFinish(PaidRouterWorkflowFinish),
-      ),
+      .onRoute(toAction(NoteOrderAction)
+        .toFinish(PaidRouterWorkflowFinish)),
   ],
 })
 export class PaidRouterWorkflow {}
@@ -175,11 +173,8 @@ export class OverBudgetWorkflowFinish {}
     onStart(PaidLimitWorkflowStart)
       .toAction(OverspendOrderAction)
       .toAction(NoteOrderAction)
-      .onError(
-        BudgetExceededError,
-        toAction(NotifyOrderAction)
-          .toFinish(OverBudgetWorkflowFinish),
-      )
+      .onError(LimitError.Budget, toAction(NotifyOrderAction)
+        .toFinish(OverBudgetWorkflowFinish))
       .toFinish(PaidLimitWorkflowFinish),
   ],
 })

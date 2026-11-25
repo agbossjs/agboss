@@ -1,3 +1,4 @@
+import { StepError } from "../../core/error-families/step-errors.js";
 import { redactedFilesIn } from "../../a2a/files/a2a-file-scrub.js";
 import { errorRecordOf, type ErrorRecord } from "../../core/error-record.js";
 import type { StepRecord } from "../../flow/context/execution-context.js";
@@ -9,7 +10,6 @@ import { toolRecordOf } from "../../flow/runtime/tool-keys.js";
 import { ToolTimeoutError, type AnyTool, type ToolOutput } from "../../tools/index.js";
 import type { InvalidToolCallRequest } from "./deps.js";
 import { ToolCallStopKind, type ToolCallStop } from "./tool-stops.js";
-import { ToolBlockedError } from "../tool-blocked-error.js";
 import type { ToolCallRemote } from "../../mesh/mesh-call.js";
 
 /**
@@ -83,7 +83,7 @@ function interceptedOf(
   if (stop.kind === ToolCallStopKind.Failed)
     return { status: ToolCallStatus.Failed, output: undefined, error: errorRecordOf(stop.reason) };
   const blocked = { agent: call.step.nodeId, tool: call.tool.name, ...stop };
-  const error = errorRecordOf(new ToolBlockedError({ ...blocked, usage: [] }));
+  const error = errorRecordOf(new StepError.ToolBlocked({ ...blocked, usage: [] }));
   return { status: ToolCallStatus.Blocked, output: undefined, error };
 }
 

@@ -22,7 +22,7 @@ export enum ArbiterOutcome {
   Rejected = "rejected",
   /** The launch was decided first: the answer does not count, whatever was asked. */
   Abandoned = "abandoned",
-  /** It ended with no verdict: the arbiter failed (`ArbiterError`), a limit was reached or the execution was cancelled. */
+  /** It ended with no verdict: the arbiter failed (`StepError.Arbiter`), a limit was reached or the execution was cancelled. */
   NoVerdict = "no-verdict",
 }
 

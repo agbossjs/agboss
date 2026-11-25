@@ -39,7 +39,7 @@ export interface AgentDefinition {
   readonly knowledge: readonly KnowledgeSource[];
   /** Quality gates of the reply (`@Agent({ judges })`), each with its own model; none = no gate. */
   readonly judges?: readonly AgentJudge[];
-  /** How often a reply the judges rejected is retried before `QualityGateError`; default 0. */
+  /** How often a reply the judges rejected is retried before `StepError.QualityGate`; default 0. */
   readonly maxRetries?: number;
 }
 

@@ -199,10 +199,13 @@ export const A2AError: FamilyConstructor<
     Protocol: [
       protocolMessageOf,
       undefined,
-      ({ protocolVersions }: { readonly protocolVersions?: readonly string[] }) =>
-        protocolVersions === undefined
-          ? {}
-          : { protocolVersions: versionsShownOf(protocolVersions) },
+      {
+        force: true,
+        keep: ({ protocolVersions }: { readonly protocolVersions?: readonly string[] }) =>
+          protocolVersions === undefined
+            ? {}
+            : { protocolVersions: versionsShownOf(protocolVersions) },
+      },
     ],
     Remote: [remoteCallMessageOf],
     Unavailable: ["the remote cannot be reached"],

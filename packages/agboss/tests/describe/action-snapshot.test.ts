@@ -1,3 +1,4 @@
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
@@ -5,7 +6,6 @@ import { describeAssembledApplication } from "../../src/describe/describe-applic
 import { describeServices } from "../../src/describe/describe-workflow.js";
 import { workflowSnapshotOf } from "../../src/describe/snapshot.js";
 import { Workflow } from "../../src/flow/decorators/workflow.js";
-import { StepFailedError } from "../../src/graph/errors.js";
 import { EmptyEnvironment, Ttl } from "../../src/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import {
@@ -32,7 +32,7 @@ import { onStart, toAction } from "../flow/fixtures/paths.js";
     onStart(TripWorkflowStart)
       .toAction(BookTripAction)
       .toAction(ConfirmTripAction)
-      .onError(StepFailedError, toAction(CancelBookingAction).toFinish(TripNotBookedWorkflowFinish))
+      .onError(StepError, toAction(CancelBookingAction).toFinish(TripNotBookedWorkflowFinish))
       .toFinish(TripBookedWorkflowFinish),
   ],
 })

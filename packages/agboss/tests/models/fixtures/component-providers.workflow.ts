@@ -152,10 +152,8 @@ export function componentsApplication(levels: ComponentLevels): Class {
     flow: [
       onStart(LvStart)
         .toRouter(LvRouter)
-        .onRoute(
-          toAgent(LvAgent)
-            .toFinish(LvFinish),
-        )
+        .onRoute(toAgent(LvAgent)
+          .toFinish(LvFinish))
         .onRoute(toFinish(LvStop)),
     ],
     piiPolicies: [LvPii],

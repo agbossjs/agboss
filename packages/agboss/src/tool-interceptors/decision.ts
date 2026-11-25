@@ -71,7 +71,7 @@ export class ToolCallDecision<out TInput = never> {
     return new ToolCallDecision(ToolCallOutcome.Reply, message, undefined);
   }
 
-  /** The tool is not called and the agent's step fails at once with `ToolBlockedError`. */
+  /** The tool is not called and the agent's step fails at once with `StepError.ToolBlocked`. */
   static block(reason: string): ToolCallDecision {
     return new ToolCallDecision(ToolCallOutcome.Block, reason, undefined);
   }

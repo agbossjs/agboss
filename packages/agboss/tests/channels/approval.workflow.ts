@@ -168,11 +168,9 @@ class NoLimits implements WorkflowDefinition {
   name: "refunds-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(ChatStart)
-      .toAgent(Clerk)
-      .toFinish(Reply),
-  ],
+  flow: [onStart(ChatStart)
+    .toAgent(Clerk)
+    .toFinish(Reply)],
   defaults,
   memory: Window2Memory,
   providers: [ApprovalDesk],

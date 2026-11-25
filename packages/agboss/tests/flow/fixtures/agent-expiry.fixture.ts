@@ -1,3 +1,4 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { Application } from "../../../src/application/application.js";
 import {
   Agent,
@@ -22,7 +23,6 @@ import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js"
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import type { InputOf, OutputOf } from "../../../src/flow/generated-types.js";
 import type { ActionHandler } from "../../../src/flow/handlers.js";
-import { PauseExpiredError } from "../../../src/flow/runtime/pause-expired-error.js";
 import { hours, seconds, days } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import {
@@ -240,7 +240,7 @@ export class EscalateRefundAction implements ActionHandler<EscalateRefundAction>
     onStart(AgentExpiryWorkflowStart)
       .toAgent(ExpiryRefundAgent)
       .onError(
-        PauseExpiredError,
+        StepError.PauseExpired,
         toAction(EscalateRefundAction)
           .toFinish(AgentExpiryWorkflowFinish),
       )

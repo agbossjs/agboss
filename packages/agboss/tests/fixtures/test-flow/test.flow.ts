@@ -73,13 +73,9 @@ export class TestMain {}
 export const testPaths: readonly FlowPath[] = [
   onStart(TestChat)
     .toRouter(TestMain)
-    .onRoute(
-      toAgent(Alpha)
-        .toFinish(TestAnswer),
-    )
-    .onRoute(
-      toAgent(Beta)
-        .toFinish(TestAnswer),
-    )
+    .onRoute(toAgent(Alpha)
+      .toFinish(TestAnswer))
+    .onRoute(toAgent(Beta)
+      .toFinish(TestAnswer))
     .onRoute(toFinish(NoAnswer)),
 ];

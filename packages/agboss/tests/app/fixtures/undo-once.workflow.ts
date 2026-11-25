@@ -1,9 +1,9 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import {
-  BudgetExceededError,
   ChildPlacement,
   DecidedBy,
   Router,
-  StepFailedError,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
@@ -120,7 +120,7 @@ export class OnceJoinSideFailedWorkflowFinish {}
     onStart(OnceJoinSideWorkflowStart)
       .inParallel([toAction(PaidBookingAction), toAction(GatedItemAction)])
       .join()
-      .onError(StepFailedError, toFinish(OnceJoinSideFailedWorkflowFinish))
+      .onError(StepError, toFinish(OnceJoinSideFailedWorkflowFinish))
       .toAction(ConfirmBookingAction)
       .toFinish(OnceJoinSideWorkflowFinish),
   ],
@@ -190,10 +190,8 @@ export class OnceBudgetRouter {
       .toAction(PaidBookingAction)
       .toAction(OverspendAction)
       .toRouter(OnceBudgetRouter)
-      .onRoute(
-        toAction(ConfirmBookingAction)
-          .toFinish(OnceBudgetWorkflowFinish),
-      ),
+      .onRoute(toAction(ConfirmBookingAction)
+        .toFinish(OnceBudgetWorkflowFinish)),
   ],
 })
 export class OnceBudgetWorkflow {}
@@ -216,7 +214,7 @@ export class OnceHeldWorkflowFinish {}
       .toAction(PaidBookingAction)
       .toAction(OverspendAction)
       .toAction(RefundBookingAction)
-      .onError(BudgetExceededError, toFinish(OnceHeldWorkflowFinish))
+      .onError(LimitError.Budget, toFinish(OnceHeldWorkflowFinish))
       .toFinish(OnceHeldWorkflowFinish),
   ],
 })

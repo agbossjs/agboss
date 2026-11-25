@@ -3,13 +3,9 @@
  * `content.text` carries the text of text files (D8), and `GuardrailVerdict.blocked(refusal?)` puts
  * the refusal on the verdict of its own call — never on the shared instance.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { describe, expect, it } from "vitest";
-import {
-  GuardFailedError,
-  GuardrailVerdict,
-  InputGuardrail,
-  type GuardrailContent,
-} from "../../src/index.js";
+import { GuardrailVerdict, InputGuardrail, type GuardrailContent } from "../../src/index.js";
 import type { Class } from "../../src/components/injection.js";
 import { bareRecordOf, ComponentKind } from "../../src/flow/runtime/records.js";
 import { GuardrailSide } from "../../src/components/policy-decorators.js";
@@ -133,6 +129,8 @@ describe("#1289: check(content)", () => {
   it("blocked() with no refusal anywhere fails closed", async () => {
     const runtime = await runtimeOf(MuteGuardrail);
 
-    await expect(checkGuardrails([runtime], textOf("x"))).rejects.toBeInstanceOf(GuardFailedError);
+    await expect(checkGuardrails([runtime], textOf("x"))).rejects.toBeInstanceOf(
+      StepError.Guardrail,
+    );
   });
 });

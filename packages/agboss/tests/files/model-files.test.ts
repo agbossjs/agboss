@@ -3,9 +3,10 @@
  * call — the image and the PDF as parts, the CSV as text — pinned for every call of its visit, over the
  * limits it is held to before any call.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { FileError } from "../../src/core/error-families/remote-errors.js";
 import { describe, expect } from "vitest";
-import { ModelFileLimitError, FileRefusal } from "../../src/files/file-errors.js";
+import { FileRefusal } from "../../src/files/file-errors.js";
 import { kilobytes } from "../../src/units/index.js";
 import { FileSource, FileView, ModelFileLimit, ModelFiles } from "../../src/files/model-files.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
@@ -139,13 +140,13 @@ describe("AC6: limits fail closed before any model call", () => {
   for (const { name, files, input, expected } of cases) {
     const limited = readerApplication({ files });
     testWith(limited.Application)(
-      `AC6: ${name} → ModelFileLimitError, no model call`,
+      `AC6: ${name} → StepError.ModelFileLimit, no model call`,
       async ({ app, mockModel }) => {
         const agent = mockModel(limited.Agent);
 
         const failure = await execute(app, limited.Start, input).catch((error: unknown) => error);
 
-        expect(failure).toBeInstanceOf(ModelFileLimitError);
+        expect(failure).toBeInstanceOf(StepError.ModelFileLimit);
         expect(failure).toMatchObject({
           code: "step.model-file-limit",
           agent: limited.Agent.name === "" ? undefined : expect.any(String),

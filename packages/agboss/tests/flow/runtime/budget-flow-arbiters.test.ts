@@ -1,16 +1,16 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import { usd } from "../../../src/units/index.js";
 /**
  * #1366 (budget-flow shard) — the budget rules of the arbiter of a branch, each on its own over fakes: a model
  * arbiter's call is checked against the execution's budgets first, with what the check spent so far; its cost
- * is the answer's; a failed model call and any other failure carry that spend in their `ArbiterError`; a limit
+ * is the answer's; a failed model call and any other failure carry that spend in their `StepError.Arbiter`; a limit
  * passes through as it is; a code arbiter spends nothing.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CostSource, ZERO_USAGE, type UsageRecord } from "../../../src/finops/usage.js";
 import { LiveArbiterModel } from "../../../src/flow/runtime/launch/arbiter-live.js";
 import { judgeAnswer } from "../../../src/flow/runtime/launch/arbiters.js";
-import { ArbiterError } from "../../../src/flow/runtime/launch/quorum-errors.js";
-import { LimitExceededError } from "../../../src/graph/limits.js";
 
 vi.mock("../../../src/flow/decorators/arbiter.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../../src/flow/decorators/arbiter.js")>()),
@@ -108,7 +108,7 @@ describe("#1366: a model arbiter's call is checked against the budgets, and its 
     const arbiter = modelArbiter("a-arbiter");
     const judge = modelOf({ kind: "judged", passed: true, usage: [] });
     const { deps, beforeModelCall } = depsOf({ "a-arbiter": judge });
-    const limit = new LimitExceededError({
+    const limit = new LimitError.Agent({
       key: "k",
       limit: 1,
       actual: 2,
@@ -142,7 +142,7 @@ describe("#1366: a model arbiter's call is checked against the budgets, and its 
     );
   });
 
-  it("a model that did not answer is an ArbiterError that carries the call's spend", async () => {
+  it("a model that did not answer is an StepError.Arbiter that carries the call's spend", async () => {
     const arbiter = modelArbiter("second-arbiter");
     const { deps } = depsOf({
       "second-arbiter": modelOf({
@@ -154,9 +154,9 @@ describe("#1366: a model arbiter's call is checked against the budgets, and its 
 
     const failure = await judgeAnswer(arbiter as never, site, deps).catch((e: unknown) => e);
 
-    expect(failure).toBeInstanceOf(ArbiterError);
+    expect(failure).toBeInstanceOf(StepError.Arbiter);
     expect(failure).toMatchObject({ arbiter: "second-arbiter" });
-    expect((failure as ArbiterError).usage.map((u) => u.caller)).toEqual(["failed"]);
+    expect((failure as StepError.Arbiter).usage.map((u) => u.caller)).toEqual(["failed"]);
     expect((failure as Error).cause).toBe("timed out");
   });
 
@@ -172,7 +172,7 @@ describe("#1366: a model arbiter's call is checked against the budgets, and its 
     expect((failure as Error).cause).toBe(cause);
   });
 
-  it("a model that throws is an ArbiterError of that arbiter", async () => {
+  it("a model that throws is an StepError.Arbiter of that arbiter", async () => {
     const arbiter = modelArbiter("second-arbiter");
     const { deps } = depsOf({
       "second-arbiter": { judge: vi.fn(() => Promise.reject(new Error("boom"))) },
@@ -180,12 +180,12 @@ describe("#1366: a model arbiter's call is checked against the budgets, and its 
 
     const failure = await judgeAnswer(arbiter as never, site, deps).catch((e: unknown) => e);
 
-    expect(failure).toBeInstanceOf(ArbiterError);
+    expect(failure).toBeInstanceOf(StepError.Arbiter);
     expect(failure).toMatchObject({ arbiter: "second-arbiter" });
-    expect((failure as ArbiterError).usage).toEqual([]);
+    expect((failure as StepError.Arbiter).usage).toEqual([]);
   });
 
-  it("an arbiter with no model, or none for the agent, is an ArbiterError before any budget check", async () => {
+  it("an arbiter with no model, or none for the agent, is an StepError.Arbiter before any budget check", async () => {
     const noModel = modelArbiter("none-arbiter");
     const { deps, beforeModelCall } = depsOf({});
     const noCriterion = {
@@ -201,15 +201,15 @@ describe("#1366: a model arbiter's call is checked against the budgets, and its 
       (e: unknown) => e,
     );
 
-    expect(missingModel).toBeInstanceOf(ArbiterError);
-    expect(missingCriterion).toBeInstanceOf(ArbiterError);
+    expect(missingModel).toBeInstanceOf(StepError.Arbiter);
+    expect(missingCriterion).toBeInstanceOf(StepError.Arbiter);
     expect(beforeModelCall).not.toHaveBeenCalled();
     expect(withModel.beforeModelCall).not.toHaveBeenCalled();
   });
 
   it("a limit or a cancel passes through as it is, never wrapped", async () => {
     const arbiter = modelArbiter("a-arbiter");
-    const limit = new LimitExceededError({
+    const limit = new LimitError.Agent({
       key: "k",
       limit: 1,
       actual: 2,
@@ -237,15 +237,15 @@ describe("#1366: a code arbiter spends nothing", () => {
     expect(beforeModelCall).not.toHaveBeenCalled();
   });
 
-  it("a method that returns no boolean, or a class that is no arbiter, is an ArbiterError", async () => {
+  it("a method that returns no boolean, or a class that is no arbiter, is an StepError.Arbiter", async () => {
     const odd = codeArbiter("odd-arbiter", () => "yes");
     const { deps } = depsOf({});
 
     const wrong = await judgeAnswer(odd as never, site, deps).catch((e: unknown) => e);
     const none = await judgeAnswer({ name: "plain" } as never, site, deps).catch((e: unknown) => e);
 
-    expect(wrong).toBeInstanceOf(ArbiterError);
-    expect(none).toBeInstanceOf(ArbiterError);
+    expect(wrong).toBeInstanceOf(StepError.Arbiter);
+    expect(none).toBeInstanceOf(StepError.Arbiter);
   });
 });
 
@@ -348,7 +348,7 @@ describe("#1366: what is wrong with an arbiter is said", () => {
 describe("#1366: a code arbiter, and a launch decided while it works", () => {
   const causeOf = async (arbiter: object, deps: never): Promise<string> => {
     const failure = await judgeAnswer(arbiter as never, site, deps).catch((e: unknown) => e);
-    return ((failure as ArbiterError).cause as Error).message;
+    return ((failure as StepError.Arbiter).cause as Error).message;
   };
 
   it("the method of the agent that answered is the one asked, whatever the order of the methods", async () => {
@@ -574,7 +574,7 @@ describe("#1283: a hybrid arbiter's own model calls are budgeted, charged and ke
     expect(seen).toEqual([[], ["arbiter:hybrid-arbiter"]]);
   });
 
-  it("a method that fails after a call is an ArbiterError carrying that call's spend", async () => {
+  it("a method that fails after a call is an StepError.Arbiter carrying that call's spend", async () => {
     const arbiter = hybrid("hybrid-arbiter", async (live) => {
       await ask(live);
       throw new Error("not a clear score");
@@ -583,8 +583,8 @@ describe("#1283: a hybrid arbiter's own model calls are budgeted, charged and ke
 
     const failure = await judgeAnswer(arbiter as never, site, deps).catch((e: unknown) => e);
 
-    expect(failure).toBeInstanceOf(ArbiterError);
-    expect((failure as ArbiterError).usage.map((u) => u.costUsd)).toEqual([0.25]);
+    expect(failure).toBeInstanceOf(StepError.Arbiter);
+    expect((failure as StepError.Arbiter).usage.map((u) => u.costUsd)).toEqual([0.25]);
   });
 
   it("a limit that stops its second call passes through, the first call's spend handed to the branch", async () => {
@@ -593,7 +593,7 @@ describe("#1283: a hybrid arbiter's own model calls are budgeted, charged and ke
       await ask(live);
       return true;
     });
-    const limit = new LimitExceededError({
+    const limit = new LimitError.Agent({
       key: "k",
       limit: 1,
       actual: 2,
@@ -639,13 +639,13 @@ describe("#1283: a hybrid arbiter's own model calls are budgeted, charged and ke
     expect(calls).toEqual(["decide#0"]);
   });
 
-  it("a hybrid arbiter without a model is an ArbiterError before any call", async () => {
+  it("a hybrid arbiter without a model is an StepError.Arbiter before any call", async () => {
     const arbiter = hybrid("hybrid-arbiter", (live) => live.model);
     const { deps, beforeModelCall } = depsOf({});
 
     const failure = await judgeAnswer(arbiter as never, site, deps).catch((e: unknown) => e);
 
-    expect(failure).toBeInstanceOf(ArbiterError);
+    expect(failure).toBeInstanceOf(StepError.Arbiter);
     expect(beforeModelCall).not.toHaveBeenCalled();
   });
 });

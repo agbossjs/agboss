@@ -1,3 +1,4 @@
+import { LimitError } from "../core/error-families/limit-errors.js";
 import { usd } from "../units/index.js";
 import type { Clock } from "../infrastructure/clock.js";
 import { unrecordedOf } from "../finops/record-stream.js";
@@ -13,7 +14,6 @@ import {
   spendOf,
   type Spend,
 } from "./budget-spend.js";
-import type { BudgetExceededError } from "../graph/limits.js";
 import { LedgerState } from "../finops/ledger-mark.js";
 import type {
   CostLedgerRepository,
@@ -33,7 +33,7 @@ export { settledSaverOf } from "../app/settled-spend-checkpointer.js";
  * `maxSpend()` read once, at its start, and kept for the whole execution (in its state, so a resume
  * or a recovery keeps them), the ledger checked before the first step (any exhausted → the
  * execution is rejected) and every model call's cost counted in all of them, the first exhausted
- * stopping the execution with `BudgetExceededError`. Nothing is reserved: parallel executions of one
+ * stopping the execution with `LimitError.Budget`. Nothing is reserved: parallel executions of one
  * tenant may overrun a little on a race, and a budget may be exceeded by at most the calls in flight
  * when it was exhausted (#338: the pass's live tally aborts them), plus (#664) the spend of the steps
  * it never holds back (the undos, automatic or a side path's; the actions of the side path that took
@@ -55,7 +55,7 @@ export { settledSaverOf } from "../app/settled-spend-checkpointer.js";
  * so every record in a checkpoint's writes is in the ledger already. A check takes the larger of the caller's view (its state's spend) and the meter's (what it
  * recorded plus the tally not in the ledger yet), so a branch of a parallel launch sees its
  * siblings' spend while they run. A tally that exhausts a budget aborts `exhausted`
- * with that `BudgetExceededError`: every branch of the pass's launches watches it, so their
+ * with that `LimitError.Budget`: every branch of the pass's launches watches it, so their
  * in-flight calls stop at once. One meter per pass and tree on this instance (the lease gives one
  * mover); other instances see the spend through the ledger only.
  *
@@ -111,7 +111,7 @@ export class BudgetMeter implements BudgetCheck {
   /** What the execution spent before this pass: already in the ledger. */
   private readonly spentBefore: Spend;
 
-  /** Aborted, with its `BudgetExceededError` as the reason, when a tally exhausts a budget. */
+  /** Aborted, with its `LimitError.Budget` as the reason, when a tally exhausts a budget. */
   get exhausted(): AbortSignal {
     return this.#exhausted.signal;
   }
@@ -167,7 +167,7 @@ export class BudgetMeter implements BudgetCheck {
     path: readonly string[],
     usage: readonly UsageRecord[],
     counted = executionSpent,
-  ): BudgetExceededError | undefined {
+  ): LimitError.Budget | undefined {
     const now = this.clock.now();
     const place = { path, executionSpent: executionSpent.usd, usage };
     return firstBreachOf(this.records, (record) => this.#spentOf(record, counted, now), place);

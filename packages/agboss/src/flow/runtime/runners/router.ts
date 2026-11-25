@@ -130,8 +130,8 @@ const spendOf = (usage: UsageRecord | undefined): readonly UsageRecord[] =>
 /**
  * A model router (`DecidedBy.Model`, #272): its model decides on its `input` only — never the whole
  * path scope — through the decision gateway. A failed model call fails the step with
- * `RouterFailedError` (its cause and spend kept); an answer that is not one of its routes, or not a
- * readable answer, with `RouterDecisionError` — never retried (#280 S19).
+ * `StepError.Router` (its cause and spend kept); an answer that is not one of its routes, or not a
+ * readable answer, with `StepError.RouterDecision` — never retried (#280 S19).
  */
 export function routerRunner(
   node: RuntimeNode,

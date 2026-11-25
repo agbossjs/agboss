@@ -4,8 +4,9 @@
  * framework error; `rejects.toFailWith(ErrorClass, { …fields, cause })` matches through the cause
  * chain.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { describe, expect, it } from "vitest";
-import { ActionFailedError, AGBossError, RouterFailedError, nameOf } from "../../src/index.js";
+import { AGBossError, nameOf } from "../../src/index.js";
 import * as testing from "../../src/testing/index.js";
 import {
   callTool,
@@ -45,7 +46,7 @@ describe("AC10: only real causes", () => {
 
       const run = execute(app, ChatStart, { text: "hi" });
 
-      await expect(run).rejects.toFailWith(RouterFailedError, {
+      await expect(run).rejects.toFailWith(StepError.Router, {
         nodeId: nameOf(MainRouter),
         cause: ModelCallFailedError,
       });
@@ -62,7 +63,7 @@ describe("AC10: only real causes", () => {
 
       const run = app.execute(OrderWorkflowStart, { orderId: "9" });
 
-      await expect(run).rejects.toFailWith(ActionFailedError, {
+      await expect(run).rejects.toFailWith(StepError.Action, {
         nodeId: nameOf(ShipOrderAction),
         cause: TypeError,
       });
@@ -128,9 +129,9 @@ describe("AC10: toFailWith through the cause chain", () => {
     const run = app.execute(OrderWorkflowStart, { orderId: "10" });
 
     await expect(run).rejects.toFailWith(AGBossError, { code: "step.action" });
-    await expect(run).rejects.toFailWith(ActionFailedError, { visitNumber: 1, cause: RangeError });
+    await expect(run).rejects.toFailWith(StepError.Action, { visitNumber: 1, cause: RangeError });
     await expect(run).rejects.toFailWith(RangeError);
-    await expect(run).rejects.not.toFailWith(ActionFailedError, { nodeId: "reserve-stock-action" });
-    await expect(run).rejects.not.toFailWith(ActionFailedError, { cause: CarrierError });
+    await expect(run).rejects.not.toFailWith(StepError.Action, { nodeId: "reserve-stock-action" });
+    await expect(run).rejects.not.toFailWith(StepError.Action, { cause: CarrierError });
   });
 });

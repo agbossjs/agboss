@@ -12,7 +12,7 @@ import type {
 /**
  * The model's invalid turns (#395 PR 3): what a validation retry is tested with — each counts in
  * the step's `validationAttempts`, and the third invalid answer fails the step with
- * `AgentAnswerInvalidError`. No cast is needed: their arguments are deliberately not the tool's or
+ * `StepError.AgentAnswerInvalid`. No cast is needed: their arguments are deliberately not the tool's or
  * the class's input.
  */
 

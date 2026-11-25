@@ -1,3 +1,4 @@
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { Window4Memory } from "../helpers/window-memory.js";
 import {
   Agent,
@@ -9,8 +10,6 @@ import {
   Budget,
   BudgetScope,
   type BudgetHandler,
-  BudgetExceededError,
-  LimitExceededError,
   inline,
   Ttl,
 } from "../../src/index.js";
@@ -116,7 +115,7 @@ const SHOP_BUDGETS = [TestApplicationDailyBudget, TestTenantDailyBudget, ShopExe
     onStart(Order)
       .toAgent(Buyer)
       .toAgent(Checker)
-      .onError(BudgetExceededError, toFinish(OverBudget))
+      .onError(LimitError.Budget, toFinish(OverBudget))
       .toFinish(Done),
   ],
   defaults,
@@ -143,7 +142,7 @@ export class ShopApplication {}
     onStart(Order)
       .toAgent(Buyer)
       .toAgent(Checker)
-      .onError(LimitExceededError, toFinish(OverBudget))
+      .onError(LimitError, toFinish(OverBudget))
       .toFinish(Done),
   ],
   defaults,
@@ -166,7 +165,10 @@ export class ShopCatchingLimitsApplication {}
   name: "shop-uncaught-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [onStart(Order).toAgent(Buyer).toAgent(Checker).toFinish(Done)],
+  flow: [onStart(Order)
+    .toAgent(Buyer)
+    .toAgent(Checker)
+    .toFinish(Done)],
   defaults,
   memory: Window4Memory,
 })

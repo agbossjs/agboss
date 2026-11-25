@@ -1,10 +1,7 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import { beforeEach, describe, expect } from "vitest";
-import {
-  BudgetExceededError,
-  BudgetScope,
-  ChildExecutionFailedError,
-  ChildExecutionStatus,
-} from "../../../src/index.js";
+import { BudgetScope, ChildExecutionStatus } from "../../../src/index.js";
 import { replyWith, testWith, type ModelRequest } from "../../../src/testing/index.js";
 import { usd } from "../../../src/units/index.js";
 import { execute } from "../../helpers/flow.js";
@@ -52,7 +49,7 @@ const reviewer = (request: ModelRequest) => {
 beforeEach(resetChildLog);
 
 describe("S25: a child's own limit is the child's failure", () => {
-  test("child maxSteps → ChildExecutionFailedError with cause; the handler may be an agent", async ({
+  test("child maxSteps → StepError.Child with cause; the handler may be an agent", async ({
     app,
     mockModel,
   }) => {
@@ -114,8 +111,8 @@ describe("AC10: money is the whole pass", () => {
         (thrown: unknown) => thrown,
       );
 
-      expect(error).toBeInstanceOf(BudgetExceededError);
-      expect(error).not.toBeInstanceOf(ChildExecutionFailedError);
+      expect(error).toBeInstanceOf(LimitError.Budget);
+      expect(error).not.toBeInstanceOf(StepError.Child);
       const [root] = childLog.starts;
       expect(error).toMatchObject({
         budget: { name: "test-execution-budget" },
@@ -123,7 +120,7 @@ describe("AC10: money is the whole pass", () => {
         key: root?.executionId,
       });
       // the child's first call (0.001) travels with the error to the ledger
-      expect((error as BudgetExceededError).usage.length).toBeGreaterThan(0);
+      expect((error as LimitError.Budget).usage.length).toBeGreaterThan(0);
     },
   );
 

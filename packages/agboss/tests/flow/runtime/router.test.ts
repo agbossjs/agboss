@@ -1,5 +1,5 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { describe, expect, it } from "vitest";
-import { RouterDecisionError } from "../../../src/index.js";
 import { fakeDeps, memoryLedger, recordingRouters, routeTo, runText } from "../../helpers.js";
 import { ROUTES } from "../../fixtures/test-flow/test.flow.js";
 
@@ -43,12 +43,12 @@ describe("#272: a model router decides on its input only", () => {
     ]);
   });
 
-  it("an option that is not a route fails the run with RouterDecisionError and a failed Turn", async () => {
+  it("an option that is not a route fails the run with StepError.RouterDecision and a failed Turn", async () => {
     const deps = await fakeDeps({ "test/router": [routeTo("ghost-agent")] });
 
     const run = runText("hello", deps);
 
-    await expect(run).rejects.toBeInstanceOf(RouterDecisionError);
+    await expect(run).rejects.toBeInstanceOf(StepError.RouterDecision);
     await expect(run).rejects.toMatchObject({
       code: "step.router.invalid-decision",
       nodeId: "main-router",

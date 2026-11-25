@@ -5,8 +5,9 @@
  * ledger the two instances share. On the in-memory stores (shared by the test's instances) and on
  * one SQLite file (each instance its own connection: only the file carries the spend).
  */
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { afterEach, beforeEach, describe, expect } from "vitest";
-import { BudgetExceededError, BudgetScope } from "../../src/index.js";
+import { BudgetScope } from "../../src/index.js";
 import { testWith, type TestApp } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
 import { until } from "../helpers/until.js";
@@ -58,7 +59,7 @@ describe.each(STORES)(
       async ({ apps }) => {
         const held = holdThenSpend(apps, 1000);
 
-        await expect(held).rejects.toBeInstanceOf(BudgetExceededError);
+        await expect(held).rejects.toBeInstanceOf(LimitError.Budget);
         // the held execution spent nothing of its own: the refusal is the day's, read from the ledger
         await expect(held).rejects.toMatchObject({
           budget: { name: "test-application-daily-budget" },

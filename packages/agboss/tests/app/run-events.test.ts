@@ -1,6 +1,6 @@
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { beforeEach, describe, expect } from "vitest";
 import { ExecutionCancelledError } from "../../src/core/errors.js";
-import { AgentFailedError } from "../../src/graph/errors.js";
 import type { ExecutionOutput } from "../../src/index.js";
 import { callTool, failWith, ModelFailure, replyWith, testWith } from "../../src/testing/index.js";
 import {
@@ -119,7 +119,7 @@ describe("#244 AC2: a run that fails after a resume, or is cancelled while pause
     const paused = await execute(app, Ask, { text: "apply" });
     const resumed = app.resume(answerOf(paused, approve));
 
-    await expect(resumed).rejects.toBeInstanceOf(AgentFailedError);
+    await expect(resumed).rejects.toBeInstanceOf(StepError.Agent);
     expect(hooks()).toEqual([
       "execution-start",
       "execution-pause",

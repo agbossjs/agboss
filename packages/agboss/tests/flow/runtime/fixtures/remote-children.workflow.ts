@@ -1,7 +1,7 @@
+import { StepError } from "../../../../src/core/error-families/step-errors.js";
 import {
   Action,
   ApplicationContext,
-  ChildExecutionFailedError,
   ChildPlacement,
   EmptyEnvironment,
   ExecutionContext,
@@ -169,8 +169,7 @@ export class RemoteChecksAction {
     readonly results: readonly Tracked<ItemResultDto>[];
   }): Promise<SummaryDto> {
     return {
-      text: input.results
-        .map((result) => result.name)
+      text: input.results.map((result) => result.name)
         .join(", "),
     };
   }
@@ -212,7 +211,7 @@ export class RemoteChecksFailedWorkflowFinish {}
       .forEachItem(toWorkflow(RemoteItemWorkflow), { takeFirst: 10, maxConcurrency: 6 })
       .join()
       .onError(
-        ChildExecutionFailedError,
+        StepError.Child,
         toAction(RemoteChecksFailedAction)
           .toFinish(RemoteChecksFailedWorkflowFinish),
       )

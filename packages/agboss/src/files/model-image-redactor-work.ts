@@ -1,3 +1,4 @@
+import { StepError } from "../core/error-families/step-errors.js";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { lazyLoad } from "../infrastructure/clock.js";
 import { SILENT_LOG, type FrameworkLog } from "../infrastructure/logger.js";
@@ -6,7 +7,6 @@ import type { ModelBinding } from "../llm/registry.js";
 import { contentOf } from "../models/content.js";
 import { PiiKind, type PiiTarget } from "../pii/kinds.js";
 import { sha256Of, type FileContent } from "./file-bytes.js";
-import { FileRedactionFailedError } from "./file-errors.js";
 import type { RedactionResult, RedactOptions } from "./file-redactor.js";
 import { boxOf, MAX_REGIONS, type Region } from "./redaction-regions.js";
 import { answeredRegions, UNKNOWN_TARGET_CODE } from "./model-image-redactor-answer.js";
@@ -16,7 +16,7 @@ import { chargedCall, reportToFrame } from "../finops/charged-call.js";
  * What the built-in image redactor does (#899 §6), loaded with its first redaction: the image is turned
  * upright (its EXIF orientation applied) and read by `sharp` with a pixel cap, the vision model says
  * where the targets are, and a copy without metadata has those regions — padded — painted black.
- * Anything that goes wrong is `FileRedactionFailedError`: never the unredacted file.
+ * Anything that goes wrong is `StepError.FileMaskingFailed`: never the unredacted file.
  */
 
 export { UNKNOWN_TARGET_CODE };
@@ -52,7 +52,7 @@ async function sharpOf(agent: string): Promise<Sharp> {
     const loaded = await lazyLoad(import("sharp"));
     return loaded.default;
   } catch (cause) {
-    throw new FileRedactionFailedError({
+    throw new StepError.FileMaskingFailed({
       agent,
       reason: "the built-in redactor needs the optional peer dependency sharp (npm i sharp)",
       cause,
@@ -82,7 +82,7 @@ async function uprightOf(
   maxPixels: number,
 ): Promise<Upright> {
   const failed = (reason: string, cause?: unknown) =>
-    new FileRedactionFailedError({ agent, reason, cause });
+    new StepError.FileMaskingFailed({ agent, reason, cause });
   try {
     // #1257: the header alone (no pixel decoded) says the size: read without the pixel cap so that the
     // refusal says why, then decode under the cap
@@ -95,7 +95,7 @@ async function uprightOf(
     if (!isFormat(info.format)) throw failed(`the image format ${info.format} is not redacted`);
     return { data, format: info.format, width: info.width, height: info.height };
   } catch (cause) {
-    throw cause instanceof FileRedactionFailedError
+    throw cause instanceof StepError.FileMaskingFailed
       ? cause
       : failed("the image cannot be read", cause);
   }
@@ -134,7 +134,11 @@ async function regionsAsked(
       binding.model.invoke(messages, { signal: options.signal, callbacks }),
     );
   } catch (cause) {
-    throw new FileRedactionFailedError({ agent, reason: "the redaction model call failed", cause });
+    throw new StepError.FileMaskingFailed({
+      agent,
+      reason: "the redaction model call failed",
+      cause,
+    });
   }
   return answeredRegions(response, { agent, known, maxRegions, log }, binding);
 }
@@ -193,7 +197,7 @@ export async function redacted(
   try {
     bytes = await paintedOf(sharp, image, regions, limits.maxPixels);
   } catch (cause) {
-    throw new FileRedactionFailedError({
+    throw new StepError.FileMaskingFailed({
       agent,
       reason: "the redacted copy cannot be made",
       cause,

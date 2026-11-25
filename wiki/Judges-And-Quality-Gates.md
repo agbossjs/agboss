@@ -3,7 +3,7 @@
 A judge checks an agent's answer before it leaves the agent. A rejected answer goes back to the
 agent with the judge's `reason` — inside the agent's own loop, so the checkpoint history does not
 fill up with failed attempts — and once `maxRetries` retries are spent the run throws
-`QualityGateError` (`code: "step.agent.quality-gate"`, `rejections: [{ judge, reason }]`).
+`StepError.QualityGate` (`code: "step.agent.quality-gate"`, `rejections: [{ judge, reason }]`).
 
 ## A judge
 
@@ -142,7 +142,7 @@ export class GroundedAnswerJudge {}
   none (`[judge.bad-prompt]`) fail assembly.
 - `model` and `modelProvider` are as on any model judge: the role of its provider when left out.
 - The execution's budgets are checked **before each model call** of a judge: once a judge's call spends them, the
-  next judge makes none and the run stops with `BudgetExceededError`.
+  next judge makes none and the run stops with `LimitError.Budget`.
 - In `testUnit` and in `testWith` a declarative judge nobody scripted **passes** (`replyWith` /
   `decideWith({ verdict: … })` script it); it is still asked, so `mockModel(Judge).requests` shows what it read.
 
@@ -466,7 +466,7 @@ The judges are registered by the agent; list a judge's own dependencies in the w
 2. Every judge of the agent runs on it, each with its own copy (observers see `onJudgeStart` /
    `onJudgeEnd`, the verdict as `update`).
 3. A failed verdict's `reason` goes back to the agent's model (`- [<judge>] <reason>`), and the loop
-   runs again — until every judge passes or `maxRetries` retries are spent (`QualityGateError`,
+   runs again — until every judge passes or `maxRetries` retries are spent (`StepError.QualityGate`,
    `rejections` of the last answer).
 
 A model judge's calls read as the judged agent's model reads (#708): what `judgeModel.invoke` sends

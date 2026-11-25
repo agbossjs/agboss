@@ -1,11 +1,7 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { ExecutionError } from "../../../src/core/error-families/run-errors.js";
 import { beforeEach, describe, expect, vi, type Mocked } from "vitest";
-import {
-  ActionFailedError,
-  ChildExecutionFailedError,
-  CompensationReason,
-  CompensationStatus,
-} from "../../../src/index.js";
+import { CompensationReason, CompensationStatus } from "../../../src/index.js";
 import { ExecutionCancelledError } from "../../../src/core/errors.js";
 import { TestConcurrency, testWith } from "../../../src/testing/index.js";
 import { seconds } from "../../../src/units/index.js";
@@ -202,7 +198,7 @@ describe("an uncaught failure", { timeout: 60_000 }, () => {
 
     const run = execute(app, UnwindWorkflowStart, GUEST);
 
-    await expect(run).rejects.toFailWith(ActionFailedError, { cause: UndoDeskError });
+    await expect(run).rejects.toFailWith(StepError.Action, { cause: UndoDeskError });
     expect(releasedIds(desk)).toEqual(["room-1", "seat-1"]);
     expect(unwindSeen.undos.map((event) => event.reason)).toEqual([
       CompensationReason.ExecutionFailed,
@@ -222,7 +218,7 @@ describe("an uncaught failure", { timeout: 60_000 }, () => {
     const run = execute(app, UnwindWorkflowStart, GUEST);
 
     await expect(run).rejects.toFailWith(ExecutionError.CompensationFailed, {
-      cause: ActionFailedError,
+      cause: StepError.Action,
     });
     expect(releasedIds(desk)).toEqual(["room-1", "seat-1"]);
     expect(unwindSeen.errors[0]?.error).toBeInstanceOf(ExecutionError.CompensationFailed);
@@ -317,7 +313,7 @@ describe("a child that ends without a finish (Q2, S5)", { timeout: 60_000 }, () 
 
       const run = execute(app, UnwindManyWorkflowStart, [{ guest: "ada" }, { guest: "bob" }]);
 
-      await expect(run).rejects.toFailWith(ChildExecutionFailedError, { cause: ActionFailedError });
+      await expect(run).rejects.toFailWith(StepError.Child, { cause: StepError.Action });
       expect([...releasedIds(desk)].sort()).toEqual(["room-1", "room-2"]);
       expect(unwindSeen.undos.map((event) => event.reason).sort()).toEqual([
         CompensationReason.ExecutionCancelled,
@@ -360,7 +356,7 @@ describe("a child that ends without a finish (Q2, S5)", { timeout: 60_000 }, () 
     const run = execute(app, UnwindParentWorkflowStart, GUEST);
 
     await expect(run).rejects.toBeInstanceOf(ExecutionError.CompensationFailed);
-    await expect(run).rejects.not.toBeInstanceOf(ChildExecutionFailedError);
+    await expect(run).rejects.not.toBeInstanceOf(StepError.Child);
     expect(releasedIds(desk)).toEqual(["room-1", "seat-1"]);
     expect(unwindSeen.undos.at(-1)?.reason).toBe(CompensationReason.ExecutionFailed);
   });

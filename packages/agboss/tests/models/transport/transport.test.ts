@@ -4,8 +4,8 @@
  * read in the execution's frame), its request in the framework's own types, its answer accounted
  * (the price table, or its own `cost`) and checked against the budgets before the call.
  */
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import { describe, expect, it } from "vitest";
-import { BudgetExceededError } from "../../../src/index.js";
 import {
   Budget,
   BudgetPeriod,
@@ -114,7 +114,7 @@ describe("#385: a transport provider serves its models through complete(request)
     await execute(app, ChatStart, { text: "one" }, { tenant: { tenantId: "acme" } });
     const second = execute(app, ChatStart, { text: "two" }, { tenant: { tenantId: "acme" } });
 
-    await expect(second).rejects.toBeInstanceOf(BudgetExceededError);
+    await expect(second).rejects.toBeInstanceOf(LimitError.Budget);
     expect(client.invocations).toHaveLength(1);
     await app.close();
   });

@@ -1,9 +1,9 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import type { ActionHandler } from "../../../src/flow/handlers.js";
 import type { InputOf, OutputOf } from "../../../src/flow/generated-types.js";
-import { StepFailedError } from "../../../src/graph/errors.js";
 import { Application } from "../../../src/application/application.js";
 import { EmptyEnvironment } from "../../../src/environments/empty.js";
 import { TEST_BUDGETS } from "./budgets.js";
@@ -56,7 +56,7 @@ export class SideQuestionWorkflowStart {}
       .toAction(DraftQuestionAction)
       .toAction(FlakyCheckAction)
       .onError(
-        StepFailedError,
+        StepError,
         toExternalTask(SpendingLimitQuestionExternalTask)
           .toAction(PlacePurchaseAction)
           .toFinish(PurchaseWorkflowFinish),

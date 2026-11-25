@@ -1,10 +1,10 @@
+import { StepError } from "../../../../src/core/error-families/step-errors.js";
 import { Bool, Text } from "../../../../src/dto/index.js";
 import {
   Agent,
   DecidedBy,
   listOf,
   oneOf,
-  QuorumNotReachedError,
   Router,
   Workflow,
   WorkflowFinish,
@@ -119,7 +119,7 @@ export class NotVotedWorkflowFinish {}
       .inParallel([toAgent(FirstVoterAgent), toAgent(SecondVoterAgent)])
       .joinQuorum({ min: 2, deadline: seconds(30) })
       .onError(
-        QuorumNotReachedError,
+        StepError.QuorumNotReached,
         toAction(NotVotedAction)
           .toFinish(NotVotedWorkflowFinish),
       )
@@ -163,13 +163,14 @@ export class MixedNotVotedWorkflowFinish {}
   flow: [
     onStart(MixedWorkflowStart)
       .toRouter(TaskKindRouter)
-      .onRoute(
-        toWorkflow(TaskWorkflow)
-          .toFinish(TaskDoneWorkflowFinish),
-      )
+      .onRoute(toWorkflow(TaskWorkflow)
+        .toFinish(TaskDoneWorkflowFinish))
       .onRoute(
         toWorkflow(VoteWorkflow)
-          .toOneOf([toFinish(MixedNotVotedWorkflowFinish), toFinish(MixedVotedWorkflowFinish)]),
+          .toOneOf([
+            toFinish(MixedNotVotedWorkflowFinish),
+            toFinish(MixedVotedWorkflowFinish),
+          ]),
       ),
   ],
 })

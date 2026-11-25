@@ -1,17 +1,17 @@
 /**
  * #662 — an action's holder held in the action's `onActionStart` (an observer, or the PII mask of
  * its event — a model call with `detectWithModel` — taking long) while its lease runs out: the
- * undo action of a side path (`.onError(StepFailedError, toAction(CancelBookingAction))`, it closes
+ * undo action of a side path (`.onError(StepError, toAction(CancelBookingAction))`, it closes
  * the booking's entry) and a charge on the main path. The first `onActionStart` of the armed action
  * is held until the test lets it go; every charge is kept with its instance.
  */
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import {
   Action,
   ApplicationContext,
   EmptyEnvironment,
   ExecutionContext,
   Observer,
-  StepFailedError,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
@@ -96,7 +96,7 @@ export class SideKeptWorkflowFinish {}
     onStart(SideUndoWorkflowStart)
       .toAction(BookItemAction)
       .toAction(GatedItemAction)
-      .onError(StepFailedError, toAction(CancelBookingAction).toFinish(SideUndoneWorkflowFinish))
+      .onError(StepError, toAction(CancelBookingAction).toFinish(SideUndoneWorkflowFinish))
       .toAction(ConfirmBookingAction)
       .toFinish(SideKeptWorkflowFinish),
   ],

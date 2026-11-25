@@ -432,7 +432,7 @@ the 0.1.0 wire is gone, on both sides ([Upgrading to 0.1.1](Upgrading-to-0.1.1))
 - **Outcomes.** COMPLETED → the output, read from the artifact an AGBoss finish marks
   (`metadata[skills-uri].finish`) when the task has one, else from every artifact in order (none readable: `A2AError.Remote`, was `A2ARemoteError`);
   FAILED / REJECTED → `A2AError.TaskFailed` (an AGBoss peer's `limit.mesh-loop` / `limit.hops` → the
-  same `MeshLoopDetectedError` / `HopsLimitExceededError`, rebuilt only from an addressed, signed
+  same `LimitError.MeshLoop` / `LimitError.Hops`, rebuilt only from an addressed, signed
   peer — from an unaddressed server they are not rebuilt — and carrying `isRemote: true`); CANCELED → `A2AError.TaskCancelled`;
   INPUT_REQUIRED → `A2AError.TaskInterrupted` from `execute` (a remote pause is not a local one yet),
   the task from `send`; a JSON-RPC error → `A2AError.Protocol` (`rpcCode`); a refused caller →
@@ -554,15 +554,15 @@ A refusal runs nothing (no observer event, no record), like a refused caller. A 
 `maxHops` counts applications (`hops` = the chain + the receiver); anything but a whole number
 from 1 is `[limits.max-mesh-hops-invalid]`. A resume is not checked: its execution has its chain.
 
-**On the caller** a `409` (MCP), or over A2A the `REJECTED` task's code and details ([§4](#4-the-client-side--a2a-v10-809)), is rethrown as `MeshLoopDetectedError` (`limit.mesh-loop`:
-`entry`, `chain`) or `HopsLimitExceededError` (`limit.hops`: `entry`, `chain`, `maxMeshHops`,
-`hops`) — both `LimitExceededError`s. `execute` does the same for a remote run that another hop's
+**On the caller** a `409` (MCP), or over A2A the `REJECTED` task's code and details ([§4](#4-the-client-side--a2a-v10-809)), is rethrown as `LimitError.MeshLoop` (`limit.mesh-loop`:
+`entry`, `chain`) or `LimitError.Hops` (`limit.hops`: `entry`, `chain`, `maxMeshHops`,
+`hops`) — both `LimitError`s. `execute` does the same for a remote run that another hop's
 limit stopped: a failed task carries the error's `code`, and for these two limits its `details`. A tool that meets one **fails its step** with it — the model never reads it (a retry
 would loop again) — so a whole chain `A → B → A` fails at every hop, deterministically; take it on
 the path (its side path leads to actions and finishes only, as for every limit):
 
 <!-- snippet-context
-import { inline, Agent, MeshLoopDetectedError, Workflow, WorkflowFinish, WorkflowStart, onStart, toFinish, Ttl } from "@agboss/core";
+import { inline, Agent, LimitError, Workflow, WorkflowFinish, WorkflowStart, onStart, toFinish, Ttl } from "@agboss/core";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 @Agent({ name: "orders-agent", description: "Orders", prompt: inline("Answer."), model: "moonshotai/kimi-k2.6" })
 export class OrdersAgent {}
@@ -583,7 +583,7 @@ export class LoopedWorkflowFinish {}
     onStart(OrdersWorkflowStart)
       .toAgent(OrdersAgent) // its tool calls the billing application over A2A
       .onError(
-        MeshLoopDetectedError, // billing called back into orders-workflow-start
+        LimitError.MeshLoop, // billing called back into orders-workflow-start
         toFinish(LoopedWorkflowFinish),
       )
       .toFinish(OrdersWorkflowFinish),
@@ -692,8 +692,8 @@ What a trusted request gets — an untrusted one none of it:
 
 | From the caller                 | The receiver                                                                                                                                 |
 | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `budget.remaining`              | one more execution budget, `caller-budget` — it only lowers its own: `BudgetExceededError` (`"limited"`)                                     |
-| `deadline.remaining`            | the execution's deadline, the smaller of it and its own: `DeadlineExceededError` (`limit.deadline`)                                          |
+| `budget.remaining`              | one more execution budget, `caller-budget` — it only lowers its own: `LimitError.Budget` (`"limited"`)                                     |
+| `deadline.remaining`            | the execution's deadline, the smaller of it and its own: `LimitError.Deadline` (`limit.deadline`)                                          |
 | `origin` and the chain's length | `executionContext.origin`, the execution record's `origin` and every observer event's — its resumes' and recoveries' too (`ExecutionOrigin`) |
 | its body and idempotency key    | the body checked, the request deduplicated                                                                                                   |
 
@@ -709,7 +709,7 @@ report is ignored: a caller never pays what an untrusted peer says.
 **The deadline** is yours too: `app.execute(Start, input, { deadline: seconds(30) })` — fixed on the
 `Clock` when the execution starts, kept in its state (a pause counts), checked where the budgets
 are: before every agent and router step and every model call (a call in flight is not cut short).
-`DeadlineExceededError` (`limit.deadline`: `deadline`, `deadlineAt`) is a `LimitExceededError`.
+`LimitError.Deadline` (`limit.deadline`: `deadline`, `deadlineAt`) is a `LimitError`.
 
 The envelope's `audience` and a contract price come with declared contracts ([§7](#7-declared-contracts-398-pr-3)).
 
@@ -733,7 +733,7 @@ its operation are read, **before the authenticator and before anything runs**:
    is as long as `maxMeshHops`, is accepted as a **`REJECTED` task** — `status.message.metadata[uri]
 = { code: "limit.mesh-loop" | "limit.hops", details: { entry, chain, maxMeshHops? } }`, nothing
    started, a resend of its `messageId` gets it again — which the AGBoss client rebuilds into the
-   same `MeshLoopDetectedError` / `HopsLimitExceededError`.
+   same `LimitError.MeshLoop` / `LimitError.Hops`.
 5. The execution runs with the envelope's chain, and a trusted caller's origin
    (`executionContext.origin`), budget (`caller-budget` — a step's spend past it fails the remote
    execution with `limit.budget`) and deadline. The card declares the extension

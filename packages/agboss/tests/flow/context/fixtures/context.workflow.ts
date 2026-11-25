@@ -208,10 +208,8 @@ export class ReviewRouter {}
     onAgent(WriterAgent)
       .toRouter(ReviewRouter)
       .onRoute(toAgent(WriterAgent))
-      .onRoute(
-        toAction(PublishAction)
-          .toFinish(PublishedFinish),
-      ),
+      .onRoute(toAction(PublishAction)
+        .toFinish(PublishedFinish)),
   ],
 })
 export class ContextWorkflow {}
@@ -232,11 +230,9 @@ export class ContextApplication {}
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   defaults: { router: { model: "typesafe/jev-1.13" } },
-  flow: [
-    onStart(ContextStart)
-      .toAgent(JudgedWriterAgent)
-      .toFinish(PublishedFinish),
-  ],
+  flow: [onStart(ContextStart)
+    .toAgent(JudgedWriterAgent)
+    .toFinish(PublishedFinish)],
 })
 export class JudgedContextWorkflow {}
 
@@ -282,11 +278,9 @@ export class QuickWriterAgent {}
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   providers: [LazyAuditService],
-  flow: [
-    onStart(ContextStart)
-      .toAgent(QuickWriterAgent)
-      .toFinish(PublishedFinish),
-  ],
+  flow: [onStart(ContextStart)
+    .toAgent(QuickWriterAgent)
+    .toFinish(PublishedFinish)],
 })
 export class AuditWorkflow {}
 
@@ -306,11 +300,9 @@ export class AuditApplication {}
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   providers: [EagerAuditService],
-  flow: [
-    onStart(ContextStart)
-      .toAgent(QuickWriterAgent)
-      .toFinish(PublishedFinish),
-  ],
+  flow: [onStart(ContextStart)
+    .toAgent(QuickWriterAgent)
+    .toFinish(PublishedFinish)],
 })
 export class EagerAuditWorkflow {}
 

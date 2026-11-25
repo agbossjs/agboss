@@ -2,11 +2,12 @@
  * #338: a budget crossed inside a parallel launch stops the launch's siblings at once. The pass's
  * live tally (`BudgetMeter.tally`) counts every call as it is made, so a branch sees its siblings'
  * spend while they run; a tally that exhausts a budget aborts the in-flight calls of every branch
- * through their `executionContext.signal`; the launch fails with `BudgetExceededError` — into a
+ * through their `executionContext.signal`; the launch fails with `LimitError.Budget` — into a
  * code-only `.onError(…)`, else the execution fails —, its spend counted once.
  */
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { beforeEach, describe, expect, it } from "vitest";
-import { BranchStatus, BudgetExceededError } from "../../src/index.js";
+import { BranchStatus } from "../../src/index.js";
 import { counterOf, meterOf, type BudgetMeter } from "../../src/budgets/execution-budgets.js";
 import { recordToolCost, type UsageRecord } from "../../src/finops/usage.js";
 import { InMemoryCostLedgerRepository } from "../../src/infrastructure/cost-ledger.repository.js";
@@ -76,7 +77,7 @@ describe("AC1: a budget crossed in a launch aborts the in-flight siblings", () =
 
       const result = await execute(app, ParallelBudgetWorkflowStart, TASK);
 
-      expect(parallelBudgetLog.aborts).toEqual(["BudgetExceededError"]);
+      expect(parallelBudgetLog.aborts).toEqual(["LimitError.Budget"]);
       expect(parallelBudgetLog.events).toEqual([
         "waiter waits",
         "spender goes on",
@@ -99,7 +100,7 @@ describe("AC1: a budget crossed in a launch aborts the in-flight siblings", () =
 
       const result = await execute(app, ParallelBudgetWorkflowStart, TASK);
 
-      expect(parallelBudgetLog.aborts).toEqual(["BudgetExceededError"]);
+      expect(parallelBudgetLog.aborts).toEqual(["LimitError.Budget"]);
       expect(result).toFinishWith(BudgetStoppedWorkflowFinish);
       expect(result.launches[0]?.branches[1]?.status).toBe(BranchStatus.Failed);
     },
@@ -122,7 +123,7 @@ describe("AC1: a budget crossed in a launch aborts the in-flight siblings", () =
 
       const result = await execute(app, TasksWorkflowStart, [{ name: "spend" }, { name: "wait" }]);
 
-      expect(parallelBudgetLog.aborts).toEqual(["BudgetExceededError"]);
+      expect(parallelBudgetLog.aborts).toEqual(["LimitError.Budget"]);
       expect(result).toFinishWith(BudgetStoppedWorkflowFinish, { text: "stopped by the budget" });
     },
   );
@@ -137,7 +138,7 @@ describe("AC1: a budget crossed in a launch aborts the in-flight siblings", () =
     async ({ app }) => {
       const result = await execute(app, TasksWorkflowStart, [{ name: "wait" }, { name: "spend" }]);
 
-      expect(parallelBudgetLog.aborts).toEqual(["BudgetExceededError"]);
+      expect(parallelBudgetLog.aborts).toEqual(["LimitError.Budget"]);
       expect(result).toFinishWith(BudgetStoppedWorkflowFinish);
       expect(result.spend.totalUsd).toBeCloseTo(0.06);
     },
@@ -151,7 +152,7 @@ describe("AC1: a budget crossed in a launch aborts the in-flight siblings", () =
 
       const result = await execute(app, ParallelBudgetWorkflowStart, TASK);
 
-      expect(parallelBudgetLog.aborts).toEqual(["BudgetExceededError"]);
+      expect(parallelBudgetLog.aborts).toEqual(["LimitError.Budget"]);
       expect(result).toFinishWith(BudgetStoppedWorkflowFinish);
       expect(result.handledErrors[0]?.error).toMatchObject({
         code: "limit.budget",
@@ -161,9 +162,9 @@ describe("AC1: a budget crossed in a launch aborts the in-flight siblings", () =
   );
 });
 
-describe("AC2: the launch fails with BudgetExceededError", () => {
+describe("AC2: the launch fails with LimitError.Budget", () => {
   testWith(ParallelBudgetApplication, SPENDER_FIRST)(
-    "into .onError(BudgetExceededError, toAction(…).toFinish(…)): code only, no model after it",
+    "into .onError(LimitError.Budget, toAction(…).toFinish(…)): code only, no model after it",
     async ({ app, mockModel, mockAction }) => {
       mockModel(SpenderAgent).thenReturn(hold, spend(0.06));
       mockModel(WaiterAgent).thenReturn(wait);
@@ -193,11 +194,11 @@ describe("AC2: the launch fails with BudgetExceededError", () => {
 
       const run = execute(app, ParallelBudgetWorkflowStart, TASK);
 
-      await expect(run).rejects.toFailWith(BudgetExceededError, {
+      await expect(run).rejects.toFailWith(LimitError.Budget, {
         budget: { name: "tight-execution-budget" },
         scope: BudgetScope.Execution,
       });
-      expect(parallelBudgetLog.aborts).toEqual(["BudgetExceededError"]);
+      expect(parallelBudgetLog.aborts).toEqual(["LimitError.Budget"]);
     },
   );
 });
@@ -255,11 +256,11 @@ describe("the live tally (BudgetMeter)", () => {
     budgets.tally([call(0.03)], ["a-agent"]);
 
     expect(budgets.exhausted.aborted).toBe(true);
-    expect(budgets.exhausted.reason).toBeInstanceOf(BudgetExceededError);
+    expect(budgets.exhausted.reason).toBeInstanceOf(LimitError.Budget);
     expect(budgets.exhausted.reason).toMatchObject({ path: ["a-agent"], usage: [] });
     expect(() => {
       budgets.check(0, []);
-    }).toThrow(BudgetExceededError);
+    }).toThrow(LimitError.Budget);
   });
 
   it("a tally is written to the ledger at once; its kept record reaching the state counts once", async () => {

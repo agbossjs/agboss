@@ -249,14 +249,10 @@ export class MainRouter {}
   flow: [
     onStart(ChatStart)
       .toRouter(MainRouter)
-      .onRoute(
-        toAgent(Support)
-          .toFinish(Reply),
-      )
-      .onRoute(
-        toAgent(Writer)
-          .toFinish(Reply),
-      )
+      .onRoute(toAgent(Support)
+        .toFinish(Reply))
+      .onRoute(toAgent(Writer)
+        .toFinish(Reply))
       .onRoute(toFinish(NoReply)),
   ],
   defaults: {

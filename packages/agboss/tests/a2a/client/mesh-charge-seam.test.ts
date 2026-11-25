@@ -1,3 +1,4 @@
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import { A2AError } from "../../../src/core/error-families/remote-errors.js";
 /**
  * #1366 (mesh-charge shard) — what a call's mesh seam decides on its own, each rule over fakes: an agent that does not
@@ -17,7 +18,6 @@ import {
 import { A2A_MESH_EXTENSION } from "../../../src/a2a/a2a-extension-uris.js";
 import { currentFrame } from "../../../src/flow/context/frame.js";
 import { TRACEPARENT } from "../../../src/mesh/mesh-envelope.js";
-import { MeshLoopDetectedError } from "../../../src/mesh/mesh-errors.js";
 import { takeRunReport } from "../../../src/mesh/mesh-report.js";
 import { currentCallChainOf, outboundMeshOfHash } from "../../../src/mesh/outbound-mesh.js";
 import { usd } from "../../../src/units/index.js";
@@ -101,8 +101,8 @@ describe("#1366: the loop a call would make", () => {
     const run = () => AGBOSS_MESH.activate(meshed, peer, callOf());
 
     expect(run).toThrow(
-      new MeshLoopDetectedError({
-        entry: { application: "billing", start: "charge" },
+      new LimitError.MeshLoop({
+        meshEntry: { application: "billing", start: "charge" },
         callChain: chain,
       }),
     );
@@ -144,7 +144,7 @@ describe("#1366: the loop a call would make", () => {
   it("the loop is refused before the envelope is made", () => {
     vi.mocked(currentCallChainOf).mockReturnValue([hop("billing", "charge")] as never);
 
-    expect(() => AGBOSS_MESH.activate(meshed, peer, callOf())).toThrow(MeshLoopDetectedError);
+    expect(() => AGBOSS_MESH.activate(meshed, peer, callOf())).toThrow(LimitError.MeshLoop);
     expect(outboundMeshOfHash).not.toHaveBeenCalled();
   });
 });

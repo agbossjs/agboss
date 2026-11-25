@@ -1,9 +1,7 @@
+import { StepError } from "@agboss/core";
+import { LimitError } from "@agboss/core";
 import { afterEach, beforeEach, describe, expect } from "vitest";
-import {
-  AgentAnswerInvalidError,
-  BudgetExceededError,
-  ExecutionLeaseLostError,
-} from "@agboss/core";
+import { ExecutionLeaseLostError } from "@agboss/core";
 import { seconds, usd } from "@agboss/core/units";
 import { TenantDailyBudget } from "../../../../src/budgets/application.budgets.js";
 import { replyWith, replyWithInvalidAnswer, routeTo, testWith } from "@agboss/core/testing";
@@ -147,7 +145,7 @@ describe("a failing route()", () => {
     });
   });
 
-  test("another error fails the run: RouterFailedError, the original as its cause", async ({
+  test("another error fails the run: StepError.Router, the original as its cause", async ({
     app,
     mockModel,
     mockService,
@@ -159,7 +157,7 @@ describe("a failing route()", () => {
     const run = app.execute(CreditWorkflowStart, { text: "tea" });
 
     await expect(run).rejects.toMatchObject({
-      name: "RouterFailedError",
+      name: "StepError.Router",
       code: "step.router",
       nodeId: "credit-limit-router",
       cause: { message: "the credit database is down" },
@@ -180,7 +178,7 @@ describe("budgets (#261): the credit desk's own execution budget, the tenant's d
 
     const run = app.execute(CreditWorkflowStart, { text: "500 dollars of tea" });
 
-    await expect(run).rejects.toBeInstanceOf(BudgetExceededError);
+    await expect(run).rejects.toBeInstanceOf(LimitError.Budget);
     await expect(run).rejects.toMatchObject({ budget: { name: "credit-execution-budget" } });
     expect(mockModel(ApprovalAgent).requests).toHaveLength(0);
   });
@@ -215,7 +213,7 @@ test("an answer that does not fit the agent's DTO is sent back; the third fails 
   );
 
   await expect(app.execute(CreditWorkflowStart, { text: "lots of tea" })).rejects.toFailWith(
-    AgentAnswerInvalidError,
+    StepError.AgentAnswerInvalid,
   );
 });
 

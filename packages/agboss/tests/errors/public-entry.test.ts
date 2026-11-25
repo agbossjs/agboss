@@ -2,19 +2,15 @@
  * #194 AC2: every error a user can catch is importable from the public entry (`agboss`), is a
  * `AGBossError` and has its own stable code. Type-checked by `tsc` (tests are in the project).
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { describe, expect, expectTypeOf, it } from "vitest";
 import * as agboss from "../../src/index.js";
 import {
-  AgentFailedError,
-  BudgetExceededError,
   AGBossError,
-  GuardFailedError,
-  LimitExceededError,
   ModelCallError,
   NotPausedError,
-  PaidStepError,
-  RouterDecisionError,
   ToolTimeoutError,
   type ErrorRecord,
   ValidationError,
@@ -22,15 +18,11 @@ import {
 import { ExecutionCancelledError } from "../../src/core/errors.js";
 
 const catchable = {
-  AgentFailedError,
-  BudgetExceededError,
   ValidationError,
-  GuardFailedError,
-  LimitExceededError,
+  LimitError,
+  StepError,
   ModelCallError,
   NotPausedError,
-  PaidStepError,
-  RouterDecisionError,
   ToolTimeoutError,
   ExecutionError,
 };

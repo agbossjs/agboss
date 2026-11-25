@@ -1,3 +1,5 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import { describe, expect, it } from "vitest";
 import type { ErrorClass } from "../../../src/flow/ast.js";
 import type { PathBuilder } from "../../../src/flow/path-builder.js";
@@ -8,9 +10,6 @@ import { Agent } from "../../../src/flow/decorators/agent.js";
 import { Workflow, type WorkflowOptions } from "../../../src/flow/decorators/workflow.js";
 import { oneOf } from "../../../src/flow/dto-wrappers.js";
 import { AGBossError } from "../../../src/core/errors.js";
-import { StepFailedError } from "../../../src/graph/errors.js";
-import { BudgetExceededError, LimitExceededError } from "../../../src/graph/limits.js";
-import { VisitsLimitExceededError } from "../../../src/flow/runtime/errors.js";
 import {
   CompanyGradeDto,
   CompanyRejectedDto,
@@ -100,23 +99,18 @@ const apology = () => toAgent(ApologyAgent).toFinish(JobOfferWorkflowFinish);
 describe("#263 AC12: limit handler uses model", () => {
   it("which classes can catch a limit: the class, its subclasses and its parents", () => {
     expect(
-      [
-        LimitExceededError,
-        BudgetExceededError,
-        VisitsLimitExceededError,
-        AGBossError,
-        Error,
-        StepFailedError,
-      ].map(catchesLimit),
+      [LimitError, LimitError.Budget, LimitError.Visits, AGBossError, Error, StepError].map(
+        catchesLimit,
+      ),
     ).toEqual([true, true, true, true, true, false]);
   });
 
   it("a side path catching a limit that reaches an agent", () => {
-    expect(errorsOf([reviewed(LimitExceededError, apology())])).toEqual([
+    expect(errorsOf([reviewed(LimitError, apology())])).toEqual([
       {
         code: "graph.limit-handler-uses-model",
         message:
-          "company-review-workflow: .onError(LimitExceededError, …) can catch a limit and reaches apology-agent — after a limit a side path leads only to actions and finishes (no model call past a limit); catch a narrower class, or end the side path with toAction(…) / toFinish(…)",
+          "company-review-workflow: .onError(LimitError, …) can catch a limit and reaches apology-agent — after a limit a side path leads only to actions and finishes (no model call past a limit); catch a narrower class, or end the side path with toAction(…) / toFinish(…)",
       },
     ]);
   });
@@ -131,27 +125,27 @@ describe("#263 AC12: limit handler uses model", () => {
   });
 
   it("a step failure may lead to an agent; a limit to an action and a finish", () => {
-    expect(errorsOf([reviewed(StepFailedError, apology())])).toEqual([]);
+    expect(errorsOf([reviewed(StepError, apology())])).toEqual([]);
     const notify = toAction(LogFailureAction).toFinish(ReviewErrorWorkflowFinish);
-    expect(errorsOf([reviewed(LimitExceededError, notify)])).toEqual([]);
-    expect(errorsOf([reviewed(BudgetExceededError, toFinish(ReviewErrorWorkflowFinish))])).toEqual(
+    expect(errorsOf([reviewed(LimitError, notify)])).toEqual([]);
+    expect(errorsOf([reviewed(LimitError.Budget, toFinish(ReviewErrorWorkflowFinish))])).toEqual(
       [],
     );
   });
 
-  it("the join's .onError(LimitExceededError, …) leading to an agent", () => {
+  it("the join's .onError(LimitError, …) leading to an agent", () => {
     const joined = onStart(JobOfferWorkflowStart)
       .toAgent(CompanyFinderAgent)
       .forEachItem(toWorkflow(CompanyReviewWorkflow), { takeFirst: 5 })
       .join()
-      .onError(LimitExceededError, apology())
+      .onError(LimitError, apology())
       .toAgent(ReviewRankerAgent)
       .toFinish(GradedShortlistWorkflowFinish);
     expect(errorsOf([joined])).toEqual([
       {
         code: "graph.limit-handler-uses-model",
         message:
-          "the join of company-finder-agent → forEachItem(company-review-workflow): .onError(LimitExceededError, …) can catch a limit and reaches apology-agent — after a limit a side path leads only to actions and finishes (no model call past a limit); catch a narrower class, or end the side path with toAction(…) / toFinish(…)",
+          "the join of company-finder-agent → forEachItem(company-review-workflow): .onError(LimitError, …) can catch a limit and reaches apology-agent — after a limit a side path leads only to actions and finishes (no model call past a limit); catch a narrower class, or end the side path with toAction(…) / toFinish(…)",
       },
     ]);
   });

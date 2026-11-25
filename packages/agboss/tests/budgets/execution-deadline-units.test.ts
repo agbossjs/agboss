@@ -1,3 +1,4 @@
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { usd } from "../../src/units/index.js";
 /**
  * #1356 — an execution's deadline (#398 PR 2) on its own: when it is fixed, when it has passed, which of
@@ -6,13 +7,11 @@ import { usd } from "../../src/units/index.js";
 import { describe, expect, it } from "vitest";
 import {
   checkDeadline,
-  DeadlineExceededError,
   deadlineFrom,
   earliestOf,
   withExecutionDeadline,
 } from "../../src/budgets/execution-deadline.js";
 import { recordToolCost } from "../../src/finops/usage.js";
-import { LimitExceededError } from "../../src/graph/limits.js";
 import type { Milliseconds } from "../../src/units/index.js";
 
 const NOW = new Date("2026-11-20T10:00:00.000Z");
@@ -46,10 +45,10 @@ describe("#1356: a deadline that has passed", () => {
     }).not.toThrow();
     expect(() => {
       checkDeadline(deadline, new Date("2026-11-20T10:00:30.000Z"), place);
-    }).toThrow(DeadlineExceededError);
+    }).toThrow(LimitError.Deadline);
     expect(() => {
       checkDeadline(deadline, new Date("2026-11-20T10:01:00.000Z"), place);
-    }).toThrow(DeadlineExceededError);
+    }).toThrow(LimitError.Deadline);
   });
 
   it("fails with the deadline, where it passed and what the execution had spent", () => {
@@ -60,10 +59,10 @@ describe("#1356: a deadline that has passed", () => {
       caught = error;
     }
 
-    expect(caught).toBeInstanceOf(DeadlineExceededError);
-    expect(caught).toBeInstanceOf(LimitExceededError);
-    if (!(caught instanceof DeadlineExceededError)) throw new Error("not the deadline's error");
-    expect(caught.name).toBe("DeadlineExceededError");
+    expect(caught).toBeInstanceOf(LimitError.Deadline);
+    expect(caught).toBeInstanceOf(LimitError);
+    if (!(caught instanceof LimitError.Deadline)) throw new Error("not the deadline's error");
+    expect(caught.name).toBe("LimitError.Deadline");
     expect(caught.code).toBe("limit.deadline");
     expect(caught.key).toBe("deadline");
     expect(caught.limit).toBe(30_000);
@@ -87,7 +86,7 @@ describe("#1356: a deadline that has passed", () => {
 
   it("keeps the cause it is given, and no usage when it has none", () => {
     const cause = new Error("slow store");
-    const error = new DeadlineExceededError({
+    const error = new LimitError.Deadline({
       deadline: 1_500 as Milliseconds,
       deadlineAt: "2026-11-20T10:00:01.500Z",
       path: ["start"],

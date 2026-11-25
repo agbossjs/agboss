@@ -4,6 +4,7 @@
  * cannot call tools is refused only when the agent has some, and every tool call gets an id unique within the run —
  * the call's idempotency key, the same one when a recovered step replays the move (#335, #395).
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { AIMessage, HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -15,7 +16,6 @@ import {
   outgoingMove,
 } from "../../src/graph/agent-loop/model-pii.js";
 import { attemptOf } from "../../src/graph/agent-loop/answer-stream.js";
-import { AgentFailedError } from "../../src/graph/errors.js";
 
 vi.mock("../../src/graph/agent-loop/answer-stream.js", async (original) => ({
   ...(await original<typeof import("../../src/graph/agent-loop/answer-stream.js")>()),
@@ -232,8 +232,8 @@ describe("#1366: a model that cannot call tools", () => {
 
     const failure = await node(stateOf(), undefined).catch((error: unknown) => error);
 
-    expect(failure).toBeInstanceOf(AgentFailedError);
-    const cause = (failure as AgentFailedError).cause;
+    expect(failure).toBeInstanceOf(StepError.Agent);
+    const cause = (failure as StepError.Agent).cause;
     expect(cause).toBeInstanceOf(ConfigError.ModelKind);
     expect(cause).toMatchObject({
       name: "ConfigError.ModelKind",

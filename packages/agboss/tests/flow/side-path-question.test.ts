@@ -2,17 +2,16 @@
  * #933 AC1: `.onError(E, toExternalTask(Q)…)` — a question role's step starts a side path: the failure
  * is handled by asking, and the answer goes on the path. A question after a limit stays refused.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { describe, expect, it } from "vitest";
 import { ExecutionStatus } from "../../src/app/types.js";
 import { checkWorkflow } from "../../src/flow/analyse/analyse.js";
 import { Workflow } from "../../src/flow/decorators/workflow.js";
-import { BudgetExceededError } from "../../src/graph/limits.js";
-import { StepFailedError } from "../../src/graph/errors.js";
 import { PauseKind } from "../../src/pause/index.js";
 import { testWith } from "../../src/testing/index.js";
 import { answerOf, execute } from "../helpers/flow.js";
 import { toExternalTask as publicToQuestion } from "../../src/flow/builder.js";
-import { VisitsLimitExceededError } from "../../src/flow/runtime/errors.js";
 import { side, onStart, toExternalTask } from "./fixtures/paths.js";
 import {
   DraftQuestionAction,
@@ -43,7 +42,7 @@ const test = testWith(SideQuestionApplication);
 const asking = { threadId: "side-1", ownerId: "alice" };
 
 describe("#933 AC1: a question starts an .onError side path", () => {
-  test("AC1: onError(StepFailedError, toExternalTask(Q)…) runs the question", async ({ app }) => {
+  test("AC1: onError(StepError, toExternalTask(Q)…) runs the question", async ({ app }) => {
     const paused = await execute(
       app,
       SideQuestionWorkflowStart,
@@ -89,7 +88,7 @@ describe("#933 AC1: a question starts an .onError side path", () => {
 
 describe("#933 AC1: assembly", () => {
   let count = 0;
-  const sidePathCatching = (error: typeof StepFailedError | typeof BudgetExceededError) => {
+  const sidePathCatching = (error: typeof StepError | typeof LimitError.Budget) => {
     count += 1;
     @Workflow({
       name: `side-question-case-${String(count)}-workflow`,
@@ -112,12 +111,12 @@ describe("#933 AC1: assembly", () => {
     return checkWorkflow(CaseWorkflow).errors.map(({ code }) => code);
   };
 
-  test("AC1: a side path catching StepFailedError may start with a question", () => {
-    expect(sidePathCatching(StepFailedError)).toEqual([]);
+  test("AC1: a side path catching StepError may start with a question", () => {
+    expect(sidePathCatching(StepError)).toEqual([]);
   });
 
-  test("AC1: a side path catching BudgetExceededError reaching toQuestion → [graph.limit-handler-uses-model]", () => {
-    expect(sidePathCatching(BudgetExceededError)).toEqual(["graph.limit-handler-uses-model"]);
+  test("AC1: a side path catching LimitError.Budget reaching toQuestion → [graph.limit-handler-uses-model]", () => {
+    expect(sidePathCatching(LimitError.Budget)).toEqual(["graph.limit-handler-uses-model"]);
   });
 });
 
@@ -191,13 +190,13 @@ describe("#933 edge: the same role on the main path and on the side path", () =>
   );
 
   edgeTest(
-    "maxVisits 1: the side-path visit is the second one → VisitsLimitExceededError",
+    "maxVisits 1: the side-path visit is the second one → LimitError.Visits",
     async ({ app }) => {
       const first = await execute(app, EdgeOnceStart, { text: "laptop for 900" }, asking);
 
       await expect(
         app.resume(answerOf(first, { approved: true, limitUsd: 1000 }), { ownerId: "alice" }),
-      ).rejects.toBeInstanceOf(VisitsLimitExceededError);
+      ).rejects.toBeInstanceOf(LimitError.Visits);
     },
   );
 
@@ -236,7 +235,7 @@ describe("#933: a concrete channel class as the question", () => {
           .toAction(DraftQuestionAction)
           .toAction(FlakyCheckAction)
           .onError(
-            StepFailedError,
+            StepError,
             toExternalTask(InboxSpendingLimitChannel).toFinish(PurchaseWorkflowFinish),
           )
           .toFinish(PurchaseWorkflowFinish),

@@ -1,3 +1,4 @@
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { fencedRefusalOf } from "../../src/app/lease-lost.js";
 import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 /**
@@ -12,7 +13,7 @@ import {
 } from "../../src/core/error-families/effect-errors.js";
 import { describe, expect, it } from "vitest";
 import * as root from "../../src/index.js";
-import { KeyTextRule, QuestionFailedError } from "../../src/index.js";
+import { KeyTextRule } from "../../src/index.js";
 
 describe("#890 AC3: the errors say what failed", () => {
   it("AC3: IdempotencyError.KeyConflict, ExecutionError.ThreadIdsExhausted, with codes by mechanism", () => {
@@ -81,8 +82,10 @@ describe("#890 AC3: an options bag, its keys the error's fields", () => {
       generator: "G",
       tries: 100,
     });
-    expect(new QuestionFailedError({ question: "limit-external-task", cause })).toMatchObject({
-      question: "limit-external-task",
+    expect(
+      new StepError.ExternalTask({ externalTask: "limit-external-task", cause }),
+    ).toMatchObject({
+      externalTask: "limit-external-task",
       cause,
     });
   });

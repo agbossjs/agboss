@@ -4,6 +4,7 @@
  * translated (codes only), the origin policy and the fetch every request goes through, the outcome
  * of each task state, and how a pending accept is reconciled by peer.
  */
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import { TaskState, type Task } from "@a2a-js/sdk";
 import type { Client } from "@a2a-js/sdk/client";
 import {
@@ -58,7 +59,6 @@ import {
   wireErrorOf,
 } from "../../../src/a2a/client/a2a-wire-errors.js";
 import { ReconciliationVerdict } from "../../../src/app/outbound-recovery.js";
-import { HopsLimitExceededError, MeshLoopDetectedError } from "../../../src/index.js";
 import { hours } from "../../../src/units/index.js";
 
 /** A verdict's field, whatever its kind (#825: the reconciliation is a union by verdict). */
@@ -637,10 +637,10 @@ describe("each task state's outcome", () => {
     const hops = { [MESH]: { code: "limit.hops", details: { entry, chain, maxMeshHops: 1 } } };
 
     expect(failureOf(taskIn(TaskState.TASK_STATE_REJECTED, loop), "a", true)).toBeInstanceOf(
-      MeshLoopDetectedError,
+      LimitError.MeshLoop,
     );
     expect(failureOf(taskIn(TaskState.TASK_STATE_FAILED, hops), "a", true)).toBeInstanceOf(
-      HopsLimitExceededError,
+      LimitError.Hops,
     );
   });
 
@@ -653,7 +653,7 @@ describe("each task state's outcome", () => {
       A2AError.TaskFailed,
     );
     const limit = failureOf(taskIn(TaskState.TASK_STATE_FAILED, loop), "a", true);
-    expect(limit).toBeInstanceOf(MeshLoopDetectedError);
+    expect(limit).toBeInstanceOf(LimitError.MeshLoop);
     expect(limit).toMatchObject({ isRemote: true });
     expect(String(limit)).not.toContain("b-application");
   });
@@ -665,7 +665,7 @@ describe("each task state's outcome", () => {
         [MESH]: { code: "limit.mesh-loop", details: { entry: { application, start: "s" }, chain } },
       };
       expect(failureOf(taskIn(TaskState.TASK_STATE_FAILED, body), "a", true)).not.toBeInstanceOf(
-        MeshLoopDetectedError,
+        LimitError.MeshLoop,
       );
     }
   });

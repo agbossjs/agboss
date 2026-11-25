@@ -1,6 +1,6 @@
+import { StepError } from "@agboss/core";
 import {
   onStart,
-  QuorumNotReachedError,
   toExternalTask,
   toFinish,
   Workflow,
@@ -36,7 +36,7 @@ import { ContractSignedWorkflowFinish } from "./contract-signed.workflow-finish.
       ])
       .arbitratedBy(SignOffArbiter)
       .joinQuorum({ min: 2, deadline: hours(2) })
-      .onError(QuorumNotReachedError, toFinish(ContractRejectedWorkflowFinish))
+      .onError(StepError.QuorumNotReached, toFinish(ContractRejectedWorkflowFinish))
       .toAction(SignContractAction)
       .toFinish(ContractSignedWorkflowFinish),
   ],

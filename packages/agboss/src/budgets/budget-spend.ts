@@ -1,7 +1,7 @@
+import { LimitError } from "../core/error-families/limit-errors.js";
 import { resolveReferences } from "../environments/define-env.js";
 import { totalCost, totalTokens, type UsageRecord } from "../finops/usage.js";
 import { isFiniteNumber, shownLimit } from "../graph/count-limit.js";
-import { BudgetExceededError } from "../graph/limits.js";
 import type { BudgetLimit, BudgetUsage } from "../infrastructure/cost-ledger.repository.js";
 import { ConfigError } from "../core/error-families/config-errors.js";
 import { usd, type Usd } from "../units/index.js";
@@ -107,8 +107,8 @@ export const budgetExceededErrorOf = (
     readonly executionSpent: number;
     readonly usage: readonly UsageRecord[];
   },
-): BudgetExceededError =>
-  new BudgetExceededError({
+): LimitError.Budget =>
+  new LimitError.Budget({
     budget: record.budget,
     scope: record.scope,
     period: record.period,
@@ -191,12 +191,12 @@ export const limitOf = (record: ExecutionBudgetRecord): BudgetLimit => ({
   ...(record.maxTokens === undefined ? {} : { maxTokens: record.maxTokens }),
 });
 
-/** The first record `spentOf` says has reached a cap, as its `BudgetExceededError`; `undefined` when none has. */
+/** The first record `spentOf` says has reached a cap, as its `LimitError.Budget`; `undefined` when none has. */
 export function firstBreachOf(
   records: readonly ExecutionBudgetRecord[],
   spentOf: (record: ExecutionBudgetRecord) => Spend,
   place: Parameters<typeof budgetExceededErrorOf>[3],
-): BudgetExceededError | undefined {
+): LimitError.Budget | undefined {
   for (const record of records) {
     const spent = spentOf(record);
     const unit = exhaustedUnitOf(record, spent);

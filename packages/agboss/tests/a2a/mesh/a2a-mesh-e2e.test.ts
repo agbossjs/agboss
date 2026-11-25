@@ -1,3 +1,4 @@
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import { A2AError } from "../../../src/core/error-families/remote-errors.js";
 /**
  * #810 — the mesh between two AGBoss applications on the A2A v1.0 wire, end to end: the real P2b
@@ -13,7 +14,6 @@ import { signMeshHttp } from "../../../src/mesh/mesh-http.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
 import { afterEach, beforeEach, describe, expect } from "vitest";
 import { A2A_MESH_EXTENSION } from "../../../src/a2a/index.js";
-import { HopsLimitExceededError, MeshLoopDetectedError } from "../../../src/index.js";
 import { testWith } from "../../../src/testing/index.js";
 import { execute } from "../../helpers/flow.js";
 import { untilReached } from "../../helpers/reached.js";
@@ -120,7 +120,7 @@ describe("#810 AC2: a trusted caller's call is charged its verified run report, 
 });
 
 describe("#810 AC1: a chain the peer refuses is a REJECTED task: the same limit error", () => {
-  test("past the peer's maxMeshHops: HopsLimitExceededError, nothing ran there", async ({
+  test("past the peer's maxMeshHops: LimitError.Hops, nothing ran there", async ({
     app,
     clock,
   }) => {
@@ -128,7 +128,7 @@ describe("#810 AC1: a chain the peer refuses is a REJECTED task: the same limit 
 
     await execute(app, CallerWorkflowStart, { text: "hello" }).catch(() => undefined);
 
-    expect(caller.callErrors[0]).toBeInstanceOf(HopsLimitExceededError);
+    expect(caller.callErrors[0]).toBeInstanceOf(LimitError.Hops);
     expect(peer.runs).toEqual([]);
   });
 
@@ -143,7 +143,7 @@ describe("#810 AC1: a chain the peer refuses is a REJECTED task: the same limit 
     );
 
     expect(outcome).toBeInstanceOf(Error);
-    expect(caller.callErrors[0]).toBeInstanceOf(HopsLimitExceededError);
+    expect(caller.callErrors[0]).toBeInstanceOf(LimitError.Hops);
     expect(caller.sends).toHaveLength(1);
     expect(await executionSpentOf(app, "execution-1")).toBe(0);
   });
@@ -166,7 +166,7 @@ describe("#810 AC1: a chain the peer refuses is a REJECTED task: the same limit 
     expect(await executionSpentOf(app, "execution-1")).toBeCloseTo(PRICE);
   });
 
-  test("a run another hop's limit stopped is FAILED with that limit's facts: the caller rethrows the same MeshLoopDetectedError", async ({
+  test("a run another hop's limit stopped is FAILED with that limit's facts: the caller rethrows the same LimitError.MeshLoop", async ({
     app,
     clock,
   }) => {
@@ -175,7 +175,7 @@ describe("#810 AC1: a chain the peer refuses is a REJECTED task: the same limit 
     await execute(app, CallerWorkflowStart, { text: DOWNSTREAM_LOOP }).catch(() => undefined);
 
     expect(peer.runs).toEqual([DOWNSTREAM_LOOP]);
-    expect(caller.callErrors[0]).toBeInstanceOf(MeshLoopDetectedError);
+    expect(caller.callErrors[0]).toBeInstanceOf(LimitError.MeshLoop);
     expect(caller.callErrors[0]).toMatchObject({
       code: "limit.mesh-loop",
       details: expect.objectContaining({ entry: DOWNSTREAM_ENTRY, chain: DOWNSTREAM_CHAIN }),

@@ -1,3 +1,5 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import { fencedRefusalOf } from "../../../src/app/lease-lost.js";
 /**
  * #1366 (shard `cancel-x-runs`): how a branch that threw ends (`branch-end.ts`) — cancelled when its launch was
@@ -8,11 +10,7 @@ import { describe, expect, it } from "vitest";
 import { ExecutionCancelledError } from "../../../src/core/errors.js";
 import { newRunContext } from "../../../src/core/run-context.js";
 import { ExecutionLeaseLostError } from "../../../src/app/lease-lost.js";
-import { PauseExpiredError } from "../../../src/flow/runtime/pause-expired-error.js";
 import { PauseWithdrawnError } from "../../../src/flow/runtime/pause.js";
-import { StepFailedError } from "../../../src/graph/errors.js";
-import { LimitExceededError } from "../../../src/graph/limits.js";
-import { ArbiterError } from "../../../src/flow/runtime/launch/quorum-errors.js";
 import {
   BranchErrors,
   branchRecordOf,
@@ -23,9 +21,9 @@ import {
 } from "../../../src/flow/runtime/launch/branch-end.js";
 import { BranchStatus } from "../../../src/flow/runtime/launch/records.js";
 
-const stepFailed = (): Error => Object.create(StepFailedError.prototype) as Error;
-const arbiterFailed = (): Error => Object.create(ArbiterError.prototype) as Error;
-const expired = (): Error => Object.create(PauseExpiredError.prototype) as Error;
+const stepFailed = (): Error => Object.create(StepError.prototype) as Error;
+const arbiterFailed = (): Error => Object.create(StepError.Arbiter.prototype) as Error;
+const expired = (): Error => Object.create(StepError.PauseExpired.prototype) as Error;
 
 function siteOf(options: { aborted?: boolean; skip?: readonly string[]; isQuorum?: boolean } = {}) {
   const controller = new AbortController();
@@ -219,7 +217,7 @@ describe("#1366: the record of a branch and the errors kept for the join", () =>
     const stop = new AbortController();
     const budget = new Error("budget");
     stop.abort(budget);
-    const limit: Error = Object.create(LimitExceededError.prototype);
+    const limit: Error = Object.create(LimitError.prototype);
     const other = new Error("surfaced as");
 
     expect(failureOfBranch(stop.signal, other)).toBe(budget);

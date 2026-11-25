@@ -1,5 +1,6 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { beforeEach, describe, expect } from "vitest";
-import { BranchStatus, BranchVerdict, QuorumNotReachedError } from "../../../src/index.js";
+import { BranchStatus, BranchVerdict } from "../../../src/index.js";
 import { callTool, replyWith, testWith, TestConcurrency } from "../../../src/testing/index.js";
 import { seconds, usd } from "../../../src/units/index.js";
 import { execute } from "../../helpers/flow.js";
@@ -100,7 +101,7 @@ describe("AC3: min unreachable fails at once", () => {
       ]);
       expect(result.record?.lastError).toMatchObject({
         code: "step.quorum",
-        lineage: ["step.quorum", "step.failed", "step", "agboss"],
+        lineage: ["step.quorum", "step", "agboss"],
       });
       expect(result.record?.lastError?.message).toContain("min can no longer be reached");
     },
@@ -108,14 +109,14 @@ describe("AC3: min unreachable fails at once", () => {
 });
 
 describe("AC4: without .onError the execution fails", () => {
-  strict("QuorumNotReachedError names the launching step", async ({ app, mockModel }) => {
+  strict("StepError.QuorumNotReached names the launching step", async ({ app, mockModel }) => {
     mockModel(SkillsPanelAgent).thenReturn(score(0));
     mockModel(RisksPanelAgent).thenReturn(score(7));
     mockModel(HirePanelAgent).thenReturn(score(42));
 
     const failure = execute(app, PanelWorkflowStart, ANNA);
 
-    await expect(failure).rejects.toBeInstanceOf(QuorumNotReachedError);
+    await expect(failure).rejects.toBeInstanceOf(StepError.QuorumNotReached);
     await expect(failure).rejects.toMatchObject({
       nodeId: "panel-workflow-start",
       counted: 1,

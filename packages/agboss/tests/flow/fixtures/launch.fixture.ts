@@ -1,3 +1,4 @@
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import { onStart, skip, toAction, toAgent, toRouter } from "../../../src/flow/builder.js";
 import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { Action } from "../../../src/flow/decorators/action.js";
@@ -9,7 +10,6 @@ import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import { listOf, optional } from "../../../src/flow/dto-wrappers.js";
 import type { InputOf, OutputOf, RouterAnswerOf } from "../../../src/flow/generated-types.js";
 import type { ActionHandler, RouterHandler } from "../../../src/flow/handlers.js";
-import { LimitExceededError } from "../../../src/graph/limits.js";
 import { WorkflowStartTextDto } from "./dtos.js";
 import { CompanyDto, CustomerReplyDto, LoyaltyOfferDto, OrderStatusDto } from "./data-dtos.js";
 import {
@@ -197,11 +197,8 @@ export class ScreeningFailedWorkflowFinish {}
       .toAgent(ScreeningAgent)
       .forEachItem(toAgent(CompanyAuditAgent), { takeFirst: 50, maxConcurrency: 3 })
       .join()
-      .onError(
-        LimitExceededError,
-        toAction(NotifyOperatorAction)
-          .toFinish(ScreeningFailedWorkflowFinish),
-      )
+      .onError(LimitError, toAction(NotifyOperatorAction)
+        .toFinish(ScreeningFailedWorkflowFinish))
       .toAgent(RankerAgent)
       .toFinish(RankingWorkflowFinish),
   ],

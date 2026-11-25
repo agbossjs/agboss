@@ -1,3 +1,4 @@
+import { StepError } from "../../core/error-families/step-errors.js";
 import { ConfigError } from "../../core/error-families/config-errors.js";
 import type { AIMessageChunk, BaseMessage } from "@langchain/core/messages";
 import { shownMessagesOf } from "../../models/messages.js";
@@ -6,7 +7,6 @@ import type { RunnableConfig } from "@langchain/core/runnables";
 import { NO_PROVIDER, recordUsage, type UsageRecord } from "../../finops/usage.js";
 import { withSortedKeys } from "../../flow/runtime/json.js";
 import { toolDefinitionOf } from "../../tools/index.js";
-import { AgentFailedError } from "../errors.js";
 import type { AsyncNode } from "../types.js";
 import {
   callsOf,
@@ -74,7 +74,7 @@ async function callModel(
 
 /**
  * A budget of the execution is exhausted: no more model calls — the execution stops with
- * `BudgetExceededError` (the loop's spend so far travels with it to the ledger).
+ * `LimitError.Budget` (the loop's spend so far travels with it to the ledger).
  */
 function checkBudget(state: AgentLoopStateType, deps: AgentLoopDeps): void {
   deps.budgets.check(state.usage, state.flowPath, loopUsage(state));
@@ -118,7 +118,7 @@ async function observedCall(
       attempt?.discard(StreamDiscardReason.StreamBroken);
       // what it had used is spent all the same (#1399): counted in the budgets, carried to the ledger
       const spent = partialSpendOf(deps, state.flowPath, request.messages, error, counter);
-      throw new AgentFailedError({
+      throw new StepError.Agent({
         agent: name,
         usage: [...loopUsage(state), ...request.usage, ...spent],
         cause: error,

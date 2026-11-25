@@ -1,3 +1,4 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import {
   onAction,
   onAgent,
@@ -12,7 +13,6 @@ import { Arbiter, Arbitrate } from "../../../src/flow/decorators/arbiter.js";
 import { inline } from "../../../src/components/prompt-source.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { optional } from "../../../src/flow/dto-wrappers.js";
-import { StepFailedError } from "../../../src/graph/errors.js";
 import { minutes, seconds, Ttl } from "../../../src/units/index.js";
 import { CompanyCheckDto } from "./launch-dtos.js";
 import {
@@ -109,7 +109,7 @@ export class ValidScoreArbiter {}
       .inParallel([toAgent(ScoreAAgent), toAgent(ScoreBAgent), toAgent(ScoreCAgent)])
       .arbitratedBy(ValidScoreArbiter)
       .joinQuorum({ min: 2, max: 3, deadline: seconds(30) })
-      .onError(StepFailedError, toFinish(ScoreReviewFailedWorkflowFinish))
+      .onError(StepError, toFinish(ScoreReviewFailedWorkflowFinish))
       .toAgent(ScoreSummaryAgent)
       .toFinish(ScoreReviewWorkflowFinish),
   ],
@@ -200,7 +200,7 @@ export class DueDiligenceArbiter {}
       )
       .arbitratedBy(DueDiligenceArbiter)
       .joinQuorumGroups({ deadline: minutes(1) })
-      .onError(StepFailedError, toAction(NotifyReviewerAction))
+      .onError(StepError, toAction(NotifyReviewerAction))
       .onGroup([LegalAgent, DealCriticAgent], { priority: 1 }, toAgent(FullReviewAgent))
       .onGroup(
         [AuditorAgent],

@@ -1,5 +1,6 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { beforeEach, describe, expect } from "vitest";
-import { ArbiterError, BranchStatus, BranchVerdict } from "../../../src/index.js";
+import { BranchStatus, BranchVerdict } from "../../../src/index.js";
 import {
   decideWith,
   failWith,
@@ -46,7 +47,7 @@ import {
  * agent's criterion; a code arbiter by its `@Arbitrate` method, the copy and the item from
  * `ExecutionContext`; a hybrid arbiter asks its own model only for what its code cannot decide; a
  * check still running when the quorum is decided does not count; an arbiter
- * that fails is `ArbiterError`, never a rejection.
+ * that fails is `StepError.Arbiter`, never a rejection.
  */
 
 /** These tests are about the runtime's own concurrency (#262: tests default to one branch at a time). */
@@ -112,7 +113,7 @@ describe("AC5: a model arbiter judges each answer by its agent's criterion", () 
   );
 
   model(
-    "its model does not answer: ArbiterError, taken by .onError",
+    "its model does not answer: StepError.Arbiter, taken by .onError",
     async ({ app, mockModel }) => {
       mockModel(SkillsPanelAgent).thenReturn(score(7));
       mockModel(RisksPanelAgent).thenReturn(score(6));
@@ -124,7 +125,7 @@ describe("AC5: a model arbiter judges each answer by its agent's criterion", () 
       expect(result).toFinishWith(PanelUnjudgedWorkflowFinish, ANNA);
       expect(result.record?.lastError).toMatchObject({
         code: "step.arbiter",
-        lineage: ["step.arbiter", "step.failed", "step", "agboss"],
+        lineage: ["step.arbiter", "step", "agboss"],
         details: { arbiter: "panel-model-arbiter" },
       });
     },
@@ -200,25 +201,28 @@ describe("AC6: a code arbiter, the copy and the item from ExecutionContext", () 
     },
   );
 
-  checked("a method that throws: ArbiterError, never a rejection", async ({ app, mockModel }) => {
-    mockModel(SkillsPanelAgent).thenReturn(score(13));
-    mockModel(RisksPanelAgent).thenReturn(score(6));
-    mockModel(HirePanelAgent).thenReturn(score(9));
+  checked(
+    "a method that throws: StepError.Arbiter, never a rejection",
+    async ({ app, mockModel }) => {
+      mockModel(SkillsPanelAgent).thenReturn(score(13));
+      mockModel(RisksPanelAgent).thenReturn(score(6));
+      mockModel(HirePanelAgent).thenReturn(score(9));
 
-    const result = await execute(app, PanelWorkflowStart, ANNA, { includeRecord: true });
+      const result = await execute(app, PanelWorkflowStart, ANNA, { includeRecord: true });
 
-    expect(result).toFinishWith(PanelUnjudgedWorkflowFinish, ANNA);
-    expect(result.record?.lastError).toMatchObject({
-      code: "step.arbiter",
-      message: expect.stringContaining("thirteen is not a score") as unknown,
-      details: { arbiter: "in-range-arbiter", nodeId: "skills-panel-agent" },
-    });
-    expect(result.launches[0]?.branches[0]).toMatchObject({
-      status: BranchStatus.Failed,
-      error: { code: "step.arbiter" },
-    });
-    expect(ArbiterError.code).toBe("step.arbiter");
-  });
+      expect(result).toFinishWith(PanelUnjudgedWorkflowFinish, ANNA);
+      expect(result.record?.lastError).toMatchObject({
+        code: "step.arbiter",
+        message: expect.stringContaining("thirteen is not a score") as unknown,
+        details: { arbiter: "in-range-arbiter", nodeId: "skills-panel-agent" },
+      });
+      expect(result.launches[0]?.branches[0]).toMatchObject({
+        status: BranchStatus.Failed,
+        error: { code: "step.arbiter" },
+      });
+      expect(StepError.Arbiter.code).toBe("step.arbiter");
+    },
+  );
 });
 
 describe("AC12: one arbiter per launch — hybrid, inParallel, forEachItem, cancelled at max", () => {
@@ -247,7 +251,7 @@ describe("AC12: one arbiter per launch — hybrid, inParallel, forEachItem, canc
   );
 
   hybrid(
-    "a hybrid arbiter that fails after its model call is ArbiterError, and the call's spend is in the ledger (#1399)",
+    "a hybrid arbiter that fails after its model call is StepError.Arbiter, and the call's spend is in the ledger (#1399)",
     async ({ app, mockModel }) => {
       mockModel(SkillsPanelAgent).thenReturn(score(5)); // asks its model, then throws
       mockModel(RisksPanelAgent).thenReturn(score(9));

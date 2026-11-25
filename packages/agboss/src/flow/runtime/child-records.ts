@@ -19,7 +19,7 @@ import type { ExecutionStepRecord } from "./step-records.js";
 export enum ChildExecutionStatus {
   /** It ended at one of its finishes: its output is the parent's value. */
   Finished = "finished",
-  /** It failed: the parent's step failed with `ChildExecutionFailedError` (or a tree-wide limit). */
+  /** It failed: the parent's step failed with `StepError.Child` (or a tree-wide limit). */
   Failed = "failed",
   /** A sibling failed first (FailFast) or the execution was cancelled: it stopped midway. */
   Cancelled = "cancelled",

@@ -200,11 +200,9 @@ export class BuyerWorkflowFinish {}
   name: "buyer-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(BuyerWorkflowStart)
-      .toAgent(BuyerAgent)
-      .toFinish(BuyerWorkflowFinish),
-  ],
+  flow: [onStart(BuyerWorkflowStart)
+    .toAgent(BuyerAgent)
+    .toFinish(BuyerWorkflowFinish)],
   providers: [BuyerDesk],
 })
 export class BuyerWorkflow {}

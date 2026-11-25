@@ -1,9 +1,10 @@
 /**
  * #659 AC4: a free-text reply to a question is read by its role's interpreter into the role's
  * `answer` DTO — by code or by a chat model; a reply it does not understand keeps the pause pending.
- * #659 AC2: a channel whose `send` throws fails the step as `QuestionFailedError`, which `.onError`
+ * #659 AC2: a channel whose `send` throws fails the step as `StepError.ExternalTask`, which `.onError`
  * takes.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { describe, expect } from "vitest";
 import { ReplyInterpreterNotUnderstoodDto } from "../../src/dto/index.js";
@@ -128,7 +129,7 @@ const down = testWith(QuestionsApplication, {
 });
 
 describe("#659 AC2: a send that throws is the step's failure", () => {
-  down("AC2: QuestionFailedError, taken by .onError right after the step", async ({ app }) => {
+  down("AC2: StepError.ExternalTask, taken by .onError right after the step", async ({ app }) => {
     const done = await execute(app, PurchaseWorkflowStart, { text: "laptop for 900" }, asking);
 
     expect(done).toFinishWith(PurchaseUnaskedWorkflowFinish, {
@@ -139,9 +140,11 @@ describe("#659 AC2: a send that throws is the step's failure", () => {
     expect(done.handledErrors).toEqual([
       expect.objectContaining({
         error: expect.objectContaining({
-          code: "step.question",
+          code: "step.external-task",
           message: expect.stringContaining("inbox unreachable"),
-          details: expect.objectContaining({ question: "spending-limit-question-external-task" }),
+          details: expect.objectContaining({
+            externalTask: "spending-limit-question-external-task",
+          }),
         }),
       }),
     ]);

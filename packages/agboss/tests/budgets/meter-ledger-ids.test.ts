@@ -4,6 +4,7 @@
  * (restored into this pass's state, or in what it spent before) counted once, and what was taken
  * in as written elsewhere never taken in twice.
  */
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { describe, expect, it, vi } from "vitest";
 import { BudgetScope } from "../../src/budgets/budget.js";
 import {
@@ -13,7 +14,6 @@ import {
   type ExecutionBudgetRecord,
 } from "../../src/budgets/execution-budgets.js";
 import { recordToolCost, type UsageRecord } from "../../src/finops/usage.js";
-import { BudgetExceededError } from "../../src/graph/limits.js";
 import {
   InMemoryCostLedgerRepository,
   type CostCounter,
@@ -80,7 +80,7 @@ function checked(meter: BudgetMeter, state: readonly UsageRecord[]) {
   try {
     meter.check(state, []);
   } catch (error) {
-    if (error instanceof BudgetExceededError)
+    if (error instanceof LimitError.Budget)
       return { spent: error.spent, executionSpent: error.spentUsd };
     throw error;
   }

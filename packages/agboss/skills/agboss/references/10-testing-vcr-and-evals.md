@@ -555,7 +555,7 @@ export class ScreeningApplication {}
 ## The whole application: `testWith(App)`
 
 <!-- snippet-context
-import { QuorumNotReachedError } from "@agboss/core";
+import { StepError } from "@agboss/core";
 import { callTool, decideWith, replyWith, step, TestConcurrency, testWith } from "@agboss/core/testing";
 import { expect } from "vitest";
 import { CultureAgent } from "./src/screening/agents/culture/culture.agent.js";
@@ -623,7 +623,7 @@ raceTest("an answer without notes leaves the quorum short", async ({ app, mockMo
   mockModel(CultureAgent).thenReturn(replyWith(CultureReportDto, { score: 6, notes: " " }));
   mockModel(SkillsAgent).thenReturn(replyWith(SkillsReportDto, { score: 9, notes: "senior" }));
 
-  await expect(app.execute(ScreeningWorkflowStart, candidate)).rejects.toFailWith(QuorumNotReachedError, {
+  await expect(app.execute(ScreeningWorkflowStart, candidate)).rejects.toFailWith(StepError.QuorumNotReached, {
     counted: 0,
   });
 });
@@ -640,7 +640,7 @@ raceTest("an answer without notes leaves the quorum short", async ({ app, mockMo
   `finish_reason: "length"`) — the tool never runs, the call is `ToolCallStatus.InvalidArguments`,
   counted in `step.validationAttempts` — and `replyWithInvalidAnswer(Dto, { body: "…" })` (a class
   of the agent's output, fields that do not fit it: the third fails the step with
-  `AgentAnswerInvalidError`).
+  `StepError.AgentAnswerInvalid`).
 - **`when(partial)`** binds turns to the input: `mockModel(SkillsAgent).when({ candidate: { name: "Dana" } }).thenReturn(…)`.
 - **Unscripted**: a guardrail passes, a compaction writes a fixed summary; an agent, a router or a
   judge without a script is a blocked live call (`test.live-call-blocked`). A memory that compacts in code
@@ -772,7 +772,7 @@ its output failed its check, or a PII rule refused it — `error.code` `pii.refu
 `InvalidArguments` (the input check failed, or the arguments were no JSON at all — a truncated
 call; the tool never ran), `Declined` (its approval said no), `TimedOut` (past the tool's
 `timeout`), `Replied` (a tool interceptor's `reply` answered instead — `output` is its
-message), `Blocked` (a tool interceptor's `block`: the step fails with `ToolBlockedError`) and
+message), `Blocked` (a tool interceptor's `block`: the step fails with `StepError.ToolBlocked`) and
 `UnknownTool` (the model called a tool its agent does not have).
 
 - `result.toolCalls` — the root execution's own calls, in call order, **real values**;
@@ -786,7 +786,7 @@ message), `Blocked` (a tool interceptor's `block`: the step fails with `ToolBloc
   `metrics?`), `guardrailDecisions` (`GuardrailDecisionRecord`: `guardrail`, `side`, `isBlocked`,
   `probability`), `spend`, `startedAt` / `endedAt`, `error?` (a failure a side path took).
 - A failed visit keeps its records: the calls, judge verdicts and guardrail decisions of an agent
-  whose step fails (`QualityGateError`, a blocked call, a guardrail, a limit) are in
+  whose step fails (`StepError.QualityGate`, a blocked call, a guardrail, a limit) are in
   `result.toolCalls` and its `steps` entry (with `error`) when a side path takes the failure, and in
   the `ChildExecutionRecord` (`toolCalls`, `steps`) of a child it ends.
 - The trajectory matchers (`ToolCallMatchers`, registered by `@agboss/core/testing/setup`)
@@ -804,7 +804,7 @@ message), `Blocked` (a tool interceptor's `block`: the step fails with `ToolBloc
 - A model call whose arguments are no JSON (truncated — the provider's `invalid_tool_calls`) is an
   `InvalidArguments` call: the model reads why and tries again, the step's `validationAttempts`
   counts it; it is never an empty reply. A truncated **answer** is an invalid answer
-  (`AgentAnswerInvalidError` after the third).
+  (`StepError.AgentAnswerInvalid` after the third).
 
 <!-- snippet-context
 import { ToolCallStatus, toolCallsOf } from "@agboss/core";
@@ -1097,7 +1097,7 @@ The workflow's tests, in the mirror of its folder:
 
 ```ts file=tests/rental/workflows/rental/rental.workflow.test.ts
 import { expect } from "vitest";
-import { ExecutionError, CompensationReason, CompensationStatus, StepFailedError } from "@agboss/core";
+import { ExecutionError, CompensationReason, CompensationStatus, StepError } from "@agboss/core";
 import { testWith } from "@agboss/core/testing";
 import { RentalApplication } from "../../../../src/rental.application.js";
 import { CancelCarAction } from "../../../../src/rental/actions/cancel-car.action.js";
@@ -1132,7 +1132,7 @@ test("an uncaught failure: the car is cancelled automatically, then the run fail
   fleet.reserve.mockResolvedValue("car-1");
   fleet.chargeDeposit.mockRejectedValue(new Error("payment gateway down")); // no side path takes it
 
-  await expect(app.execute(RentalWorkflowStart, REQUEST)).rejects.toFailWith(StepFailedError);
+  await expect(app.execute(RentalWorkflowStart, REQUEST)).rejects.toFailWith(StepError);
 
   // the automatic undo's key is the undone step's key + ":compensation"
   expect(fleet.cancel.mock.calls[0]?.[1]).toMatch(/:reserve-car-action:1:compensation$/u);
@@ -1145,7 +1145,7 @@ test("an undo that fails: ExecutionError.CompensationFailed, the original error 
   fleet.cancel.mockRejectedValue(new Error("fleet API down"));
 
   await expect(app.execute(RentalWorkflowStart, REQUEST)).rejects.toFailWith(ExecutionError.CompensationFailed, {
-    cause: StepFailedError,
+    cause: StepError,
   });
 });
 ```
@@ -1589,7 +1589,7 @@ snapshot among them checks that a changed export got a new version
    `status` for the rest.
 4. Script the model's mistakes too — `callToolWithInvalidArguments`, `callToolWithTruncatedArguments`,
    `replyWithInvalidAnswer` — and assert the retry: the call recorded `InvalidArguments`, the next
-   one's `step.validationAttempts`, or `rejects.toFailWith(AgentAnswerInvalidError, …)` after the
+   one's `step.validationAttempts`, or `rejects.toFailWith(StepError.AgentAnswerInvalid, …)` after the
    third invalid answer.
 5. **A stale cassette** (`StaleCassetteError`, `[vcr.stale-cassette]`: a component's prompt or
    schema hash changed since it was recorded): never edit a cassette by hand — re-record its stale

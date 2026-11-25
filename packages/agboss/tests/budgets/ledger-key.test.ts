@@ -4,6 +4,7 @@
  * is one entry of the ledger, whichever pass writes it first and in either order; a spend without
  * one is the pass's own and counts on each pass, as before.
  */
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { describe, expect, it } from "vitest";
 import { BudgetScope } from "../../src/budgets/budget.js";
 import {
@@ -14,7 +15,6 @@ import {
 import { LedgerState } from "../../src/finops/ledger-mark.js";
 import { recordToolCost, type UsageRecord } from "../../src/finops/usage.js";
 import { InMemoryCostLedgerRepository } from "../../src/infrastructure/cost-ledger.repository.js";
-import { BudgetExceededError } from "../../src/graph/limits.js";
 import { VirtualClock } from "../../src/testing/index.js";
 
 const NOW = new Date("2026-11-04T12:00:00.000Z");
@@ -115,7 +115,7 @@ describe("#810: a spend of its own identity counts once across passes", () => {
     } catch (error) {
       thrown = error;
     }
-    expect(thrown).toBeInstanceOf(BudgetExceededError);
-    expect((thrown as BudgetExceededError).spentUsd).toBeCloseTo(1.5);
+    expect(thrown).toBeInstanceOf(LimitError.Budget);
+    expect((thrown as LimitError.Budget).spentUsd).toBeCloseTo(1.5);
   });
 });

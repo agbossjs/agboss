@@ -5,6 +5,7 @@
  * pays and works on (#727), a child launched right after its parent paid (#732) — is held back as
  * it is on the parent's instance. The ledger counts each payment once.
  */
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { afterEach, describe, expect } from "vitest";
 import { BudgetScope } from "../../src/budgets/budget.js";
 import { counterOf } from "../../src/budgets/execution-budgets.js";
@@ -67,7 +68,7 @@ describe("#727: a sibling child's spend while it works on", () => {
       const outcome = await run;
       // a child on any instance fails its parent with the error as recorded: by its name
       expect("error" in outcome ? outcome.error : outcome).toMatchObject({
-        name: "BudgetExceededError",
+        name: "LimitError.Budget",
         message: expect.stringContaining("spent $120;"),
       });
       expect(inFlight.ran).not.toContain("b:pay-three");
@@ -92,7 +93,7 @@ describe("#732: a child on any instance right after its parent paid", () => {
     release();
     const outcome = await run;
     expect("error" in outcome ? outcome.error : outcome).toMatchObject({
-      name: "BudgetExceededError",
+      name: "LimitError.Budget",
       message: expect.stringContaining("spent $120;"),
     });
     expect(inFlight.ran).toEqual(["a:parent-pay", "a:child-one"]);

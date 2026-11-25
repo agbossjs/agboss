@@ -1,13 +1,10 @@
 import { FileError } from "../core/error-families/remote-errors.js";
 import { bytes } from "../units/index.js";
-import { StepFailedError, stepCoordinatesOf } from "../graph/errors.js";
-import { ComponentKind } from "../flow/runtime/records.js";
-import { ModelFileLimit } from "./model-files.js";
 
 /**
  * What stops a file on its way to a model (#899): its bytes cannot be read (`FileError.Unavailable`),
  * the guarded path refuses them (`FileError.Refused`), or they are over a limit of the agent
- * (`ModelFileLimitError`, before any model call, never a silent truncation).
+ * (`StepError.ModelFileLimit`, before any model call, never a silent truncation).
  */
 
 /** Why a file's bytes cannot be read: `FileError.Unavailable`'s `reason`. */
@@ -95,76 +92,3 @@ export const fileConflict = (options: {
     message: "a file is saved once: another file is kept under this id",
     ...options,
   });
-
-/** What a file over a limit takes (#906). */
-export interface ModelFileLimitErrorOptions {
-  readonly agent: string;
-  readonly limit: ModelFileLimit;
-  /** What it was: a count, a size in bytes, or a media type. */
-  readonly actual: number | string;
-  /** What is allowed: the limit's value, or the allowed media types. */
-  readonly allowed: number | string;
-  readonly cause?: unknown;
-}
-
-/** A file over a limit of the agent's files, found before any model call (`step.model-file-limit`). */
-export class ModelFileLimitError extends StepFailedError {
-  static override readonly code = "step.model-file-limit" as const;
-  declare readonly code: typeof ModelFileLimitError.code;
-  override name = "ModelFileLimitError";
-  readonly agent: string;
-  readonly limit: ModelFileLimit;
-  readonly actual: number | string;
-  readonly allowed: number | string;
-
-  constructor(options: ModelFileLimitErrorOptions) {
-    const { agent, limit, actual, allowed, cause } = options;
-    const said = `${limit}: ${String(actual)} is over ${String(allowed)}`;
-    super({
-      message: `Agent "${agent}": its files are over a limit — ${said}`,
-      usage: [],
-      cause: cause ?? said,
-      ...stepCoordinatesOf(agent, ComponentKind.Agent),
-      details: { agent, limit, actual, allowed },
-    });
-    this.agent = agent;
-    this.limit = limit;
-    this.actual = actual;
-    this.allowed = allowed;
-  }
-}
-
-/** What a failed redaction takes (#906). */
-export interface FileRedactionFailedErrorOptions {
-  readonly agent: string;
-  /** What went wrong, in words: the model, its answer, the image, the store. */
-  readonly reason: string;
-  readonly cause?: unknown;
-}
-
-/**
- * A redacted copy of a file could not be made (`step.file-masking-failed`): the redactor failed, its
- * answer was not what it must be, the image could not be read, or the copy could not be kept. Fail
- * closed — the unredacted file never goes to the model in its place, and this is no `PiiRefusedError`
- * (that one is for a block rule whose kind was found).
- */
-export class FileRedactionFailedError extends StepFailedError {
-  static override readonly code = "step.file-masking-failed" as const;
-  declare readonly code: typeof FileRedactionFailedError.code;
-  override name = "FileRedactionFailedError";
-  readonly agent: string;
-  readonly reason: string;
-
-  constructor(options: FileRedactionFailedErrorOptions) {
-    const { agent, reason, cause } = options;
-    super({
-      message: `Agent "${agent}": a redacted copy of its file could not be made — ${reason}`,
-      usage: [],
-      cause: cause ?? reason,
-      ...stepCoordinatesOf(agent, ComponentKind.Agent),
-      details: { agent, reason },
-    });
-    this.agent = agent;
-    this.reason = reason;
-  }
-}

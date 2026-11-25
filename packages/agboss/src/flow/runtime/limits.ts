@@ -1,13 +1,12 @@
+import { LimitError } from "../../core/error-families/limit-errors.js";
 import type { HandledErrorRecord } from "./child-records.js";
 import type { BudgetMeter } from "../../budgets/execution-budgets.js";
 import { totalCost, type UsageRecord } from "../../finops/usage.js";
 import { callerOfSpend } from "../../finops/explicit-caller.js";
 import type { ErrorRecord } from "../../core/error-record.js";
 import { countBoundOf } from "../../graph/count-limit.js";
-import { LimitExceededError, StepsLimitExceededError } from "../../graph/limits.js";
 import { NodeKind } from "../ast.js";
 import { CompensationEntryStatus } from "../compensation.js";
-import { VisitsLimitExceededError } from "./errors.js";
 import type { RuntimeNode } from "./graph-model.js";
 import type { ExecutionStateType } from "./state.js";
 import { startedVersionOf, type WorkflowIdentity } from "./step-frame.js";
@@ -24,7 +23,7 @@ import { plainRecordOf, type ComponentRecord } from "./records.js";
  * no child — into that node's `.onError`, else the execution fails (its undo runs). Never checked:
  * a start and a finish (they spend nothing), an undo — automatic, or the undo action of a side path
  * closing an entry open when the side path was entered — (it gives money back, Wiki → Rollback),
- * and an action of the side path that took a limit (`.onError(BudgetExceededError, toAction(…))`:
+ * and an action of the side path that took a limit (`.onError(LimitError.Budget, toAction(…))`:
  * the application's reaction to it, which leads only to actions and finishes; what it spends
  * counts). Both only on the side path itself (#656, `SidePathRecord` below): a launch ends it — its branches
  * and what follows its join are held back —, and the same action reached any other way is a step.
@@ -59,8 +58,8 @@ export const sidePathOf = (
 ): SidePathRecord | undefined =>
   state.sidePath !== null && state.sidePath.next === node.id ? state.sidePath : undefined;
 
-/** Whether the failure is a limit (its lineage holds `LimitExceededError`). */
-const isLimit = (error: ErrorRecord): boolean => error.lineage.includes(LimitExceededError.code);
+/** Whether the failure is a limit (its lineage holds `LimitError`). */
+const isLimit = (error: ErrorRecord): boolean => error.lineage.includes(LimitError.code);
 
 /**
  * The side path an `.onError` takes the failure into, to `to`: after a limit when
@@ -159,7 +158,7 @@ function checkSteps(
   const visits = (state.visits[node.id] ?? 0) + 1;
   const maxVisits = countBoundOf(node.maxVisits);
   if (visits > maxVisits) {
-    throw new VisitsLimitExceededError({
+    throw new LimitError.Visits({
       component: plainRecordOf(site.component),
       maxVisits,
       path,
@@ -170,8 +169,8 @@ function checkSteps(
   const maxSteps = countBoundOf(limits.maxSteps);
   if (state.steps + 1 > maxSteps) {
     const record = { ...site.workflow, startedVersion: startedVersionOf(state, site.workflow) };
-    throw new StepsLimitExceededError({
-      workflow: record,
+    throw new LimitError.Steps({
+      workflowRecord: record,
       maxSteps,
       path,
       spentUsd: spent,

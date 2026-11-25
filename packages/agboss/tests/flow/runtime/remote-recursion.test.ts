@@ -1,5 +1,6 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { ChildExecutionFailedError } from "../../../src/index.js";
 import { ChildExecutionStatus } from "../../../src/flow/runtime/child-records.js";
 import { InMemoryChildExecutionQueueRepository } from "../../../src/infrastructure/child-execution-queue.repository.js";
 import { testWith } from "../../../src/testing/index.js";
@@ -18,7 +19,7 @@ import {
 /**
  * #333 PR 3 (AC3, depth) — a recursion on any instance meets `maxDepth` as on its parent's
  * instance: each level is queued and run by a worker, whose execution's depth is rebuilt from its
- * parents; the hard stop (`DepthLimitExceededError`) refuses the launch past `maxDepth` where the
+ * parents; the hard stop (`LimitError.Depth`) refuses the launch past `maxDepth` where the
  * level above runs, and the soft stop leaves the recursive route unready on the last level.
  */
 
@@ -61,7 +62,7 @@ describe("#333 PR 3: maxDepth for children on any instance", () => {
       depth: 4,
       status: ChildExecutionStatus.Failed,
       path: [],
-      error: { name: "DepthLimitExceededError", code: "limit.depth" },
+      error: { name: "LimitError.Depth", code: "limit.depth" },
     });
   });
 
@@ -75,9 +76,9 @@ describe("#333 PR 3: maxDepth for children on any instance", () => {
       (thrown: unknown) => thrown,
     );
 
-    expect(error).toBeInstanceOf(ChildExecutionFailedError);
+    expect(error).toBeInstanceOf(StepError.Child);
     expect(error).toMatchObject({
-      cause: { name: "RouterDecisionError", message: expect.stringContaining("is not ready") },
+      cause: { name: "StepError.RouterDecision", message: expect.stringContaining("is not ready") },
     });
   });
 });

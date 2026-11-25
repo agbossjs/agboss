@@ -1,8 +1,8 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { AGBossError } from "../../../src/core/errors.js";
 import {
   Agent,
   EmptyEnvironment,
-  StepFailedError,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
@@ -33,7 +33,7 @@ import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
  * #267 AC10 with `.onError(…)`: a payout confirms the order with the customer (a pause) while
  * its refund branch fails — the finance desk refuses the card with a domain error — so the paused
  * branch is withdrawn and the join routes the branch's error by its class and cause chain: to its
- * own handler, or to `StepFailedError`'s.
+ * own handler, or to `StepError`'s.
  */
 
 /** The card was declined: the domain error the refund branch fails with. */
@@ -156,11 +156,8 @@ export class PayoutsApplication {}
     onStart(PayoutWorkflowStart)
       .inParallel([toAgent(PayoutConfirmAgent), toAgent(PayoutRefundAgent)])
       .join()
-      .onError(
-        StepFailedError,
-        toAction(PayoutDeclinedAction)
-          .toFinish(PayoutDeclinedWorkflowFinish),
-      )
+      .onError(StepError, toAction(PayoutDeclinedAction)
+        .toFinish(PayoutDeclinedWorkflowFinish))
       .toAction(PayoutAction)
       .toFinish(PayoutWorkflowFinish),
   ],

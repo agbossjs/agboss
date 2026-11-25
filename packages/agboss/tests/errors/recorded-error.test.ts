@@ -1,3 +1,5 @@
+import { StepError } from "../../src/core/error-families/step-errors.js";
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { StoreError } from "../../src/core/error-families/store-errors.js";
 import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 /**
@@ -18,15 +20,8 @@ import {
   recordedErrorOf,
   type ErrorRecord,
 } from "../../src/core/error-record.js";
-import {
-  AGBossError,
-  BudgetExceededError,
-  BudgetScope,
-  ChildExecutionFailedError,
-  StepFailedError,
-} from "../../src/index.js";
+import { AGBossError, BudgetScope } from "../../src/index.js";
 import { ExecutionCancelledError } from "../../src/core/errors.js";
-import { ActionFailedError } from "../../src/flow/runtime/errors.js";
 import { CompensationReason } from "../../src/flow/compensation.js";
 import {
   causeOfMark,
@@ -61,7 +56,7 @@ const child = {
   workflow: { name: "pay-workflow", version: "1.0.0", startedVersion: "1.0.0", configHash: "h" },
 };
 
-const declined = new ActionFailedError({
+const declined = new StepError.Action({
   action: "charge-action",
   cause: new PaymentDeclinedError("declined"),
 });
@@ -84,10 +79,10 @@ describe("#598: a failure rebuilt from its durable record routes as the original
   });
 
   it("wrapped again on another instance, every side path's class matches it as the original", () => {
-    const classes = [StepFailedError, PaymentDeclinedError, CardError, CardExpiredError, Error];
+    const classes = [StepError, PaymentDeclinedError, CardError, CardExpiredError, Error];
     for (const failure of [declined, new CardExpiredError("x"), new Error("plain")]) {
       const here = errorRecordOf(
-        new ChildExecutionFailedError({
+        new StepError.Child({
           childExecutionId: child.executionId,
           workflow: child.workflow,
           cause: failure,
@@ -95,7 +90,7 @@ describe("#598: a failure rebuilt from its durable record routes as the original
         }),
       );
       const there = errorRecordOf(
-        new ChildExecutionFailedError({
+        new StepError.Child({
           childExecutionId: child.executionId,
           workflow: child.workflow,
           cause: stored(failure),
@@ -178,7 +173,7 @@ describe("#598: what a store holds, as each reader rebuilds it", () => {
   });
 
   it("a rebuilt budget's or failed undo's error keeps its class line: it passes a child's boundary as it is", () => {
-    const budget = new BudgetExceededError({
+    const budget = new LimitError.Budget({
       budget: { name: "b" },
       scope: BudgetScope.Tenant,
       key: "acme",
@@ -189,7 +184,7 @@ describe("#598: what a store holds, as each reader rebuilds it", () => {
     });
     const undo = new ExecutionError.CompensationFailed({ failures: [], cause: declined });
 
-    expect(stored(budget)?.record.lineage).toContain(BudgetExceededError.code);
+    expect(stored(budget)?.record.lineage).toContain(LimitError.Budget.code);
     expect(stored(undo)?.record.lineage).toContain(ExecutionError.CompensationFailed.code);
   });
 
@@ -211,7 +206,7 @@ describe("#598: what a store holds, as each reader rebuilds it", () => {
     const through = (error: unknown) =>
       childFailureOf(error, ended, [], new AbortController().signal).thrown;
     const budget = stored(
-      new BudgetExceededError({
+      new LimitError.Budget({
         budget: { name: "b" },
         scope: BudgetScope.Tenant,
         key: "acme",
@@ -225,6 +220,6 @@ describe("#598: what a store holds, as each reader rebuilds it", () => {
 
     expect(through(budget)).toBe(budget);
     expect(through(undo)).toBe(undo);
-    expect(through(stored(declined))).toBeInstanceOf(ChildExecutionFailedError);
+    expect(through(stored(declined))).toBeInstanceOf(StepError.Child);
   });
 });

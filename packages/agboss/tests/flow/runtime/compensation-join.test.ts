@@ -1,6 +1,7 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { ExecutionError } from "../../../src/core/error-families/run-errors.js";
 import { beforeEach, describe, expect, vi } from "vitest";
-import { ActionFailedError, CompensationReason, CompensationStatus } from "../../../src/index.js";
+import { CompensationReason, CompensationStatus } from "../../../src/index.js";
 import { testWith } from "../../../src/testing/index.js";
 import { execute } from "../../helpers/flow.js";
 import { seconds } from "../../../src/units/index.js";
@@ -137,7 +138,7 @@ describe("a failed join undoes its finished branches", () => {
 
     const run = execute(app, UndoUnhandledWorkflowStart, GUEST);
 
-    await expect(run).rejects.toFailWith(ActionFailedError, { cause: UndoDeskError });
+    await expect(run).rejects.toFailWith(StepError.Action, { cause: UndoDeskError });
     expect(desk.release.mock.calls.map(([id]) => id)).toEqual(["room-1", "seat-1"]);
   });
 
@@ -178,7 +179,7 @@ describe("an undo that fails (Q4)", () => {
           reason: CompensationReason.JoinFailed,
         },
       ],
-      cause: ActionFailedError,
+      cause: StepError.Action,
     });
     await expect(run).rejects.toFailWith(UndoDeskError);
     expect(desk.release.mock.calls.map(([id]) => id)).toEqual(["room-1", "seat-1"]);

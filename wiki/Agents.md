@@ -86,13 +86,13 @@ cannot reach a prompt or a model. A key of a component no `{{key}}` of its promp
   models call tools in parallel by default and would otherwise answer several times in one move. A
   move that still holds several calls of answer tools is the one answer when they repeat it exactly
   (the same tool, the same arguments) — no retry spent — and refused when they differ: the framework
-  never picks one of several different answers, and the step's `AgentAnswerInvalidError` names
+  never picks one of several different answers, and the step's `StepError.AgentAnswerInvalid` names
   "N different answers in one move". An agent with tools of its own, or a list of variants, is bound
   as before (parallel calls of its own tools are its loop's to run). A transport provider gets no
   hint; the same rule for repeats and differences holds.
 - Invalid answers go back to the model and spend a retry: arguments that fail the DTO, plain text
   instead of an answer tool, two different answers or an answer tool mixed with regular tools (none
-  of that message's tools runs). After 2 retries the step fails with `AgentAnswerInvalidError`
+  of that message's tools runs). After 2 retries the step fails with `StepError.AgentAnswerInvalid`
   (`step.agent.invalid-answer`), which `.onError` can take. A model that cannot call tools fails
   assembly for an agent with `output` (`[model.no-tool-calling]`).
 
@@ -137,10 +137,10 @@ in call order. Calls needing approval are asked first, one per pause, in call or
 
 Counted from the flow handing the agent its work to its answer. Until `@Agent({ limits })` (#152),
 `modelCalls` comes from `executionLimits.maxModelCalls` (default 12) and `toolCalls` from `executionLimits.maxToolCalls` (the agent's, then `defaults.tools.maxToolCalls`) when set.
-Hitting one **fails** the run with `LimitExceededError`; the loop's spend so far still reaches the
+Hitting one **fails** the run with `LimitError`; the loop's spend so far still reaches the
 ledger. `agboss describe` shows them: `limits: modelCalls 12 (default) · toolCalls 8`. An exhausted
 budget of the execution (#261: its own, its tenant's or the application's) ends the loop before the
-next model call with `BudgetExceededError` ([FinOps](FinOps#at-run-time)).
+next model call with `LimitError.Budget` ([FinOps](FinOps#at-run-time)).
 
 ## Approval
 

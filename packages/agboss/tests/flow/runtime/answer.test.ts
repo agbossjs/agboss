@@ -1,5 +1,5 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { describe, expect } from "vitest";
-import { AgentAnswerInvalidError } from "../../../src/index.js";
 import {
   callTool,
   replyWith,
@@ -64,14 +64,14 @@ describe("#272 S6 / S9: an agent with output answers through its answer tool", (
   );
 
   edit(
-    "S9: after 2 retries the step fails with AgentAnswerInvalidError",
+    "S9: after 2 retries the step fails with StepError.AgentAnswerInvalid",
     async ({ app, mockModel }) => {
       mockModel(EditorAgent).thenReturn(invalid, invalid, invalid);
 
       const run = execute(app, EditStart, { text: "a poem" });
 
-      await expect(run).rejects.toBeInstanceOf(AgentAnswerInvalidError);
-      await expect(run).rejects.toFailWith(AgentAnswerInvalidError, {
+      await expect(run).rejects.toBeInstanceOf(StepError.AgentAnswerInvalid);
+      await expect(run).rejects.toFailWith(StepError.AgentAnswerInvalid, {
         code: "step.agent.invalid-answer",
       });
       expect(mockModel(EditorAgent).requests).toHaveLength(3);

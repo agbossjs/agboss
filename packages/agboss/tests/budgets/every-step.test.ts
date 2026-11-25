@@ -5,8 +5,9 @@
  * back a finish, an undo, or the side path the budget's own error takes (the application's
  * reaction to it). Below the budget every one of them runs — the tests would pass vacuously else.
  */
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { beforeEach, describe, expect } from "vitest";
-import { BudgetExceededError, DeadlineExceededError, type Class } from "../../src/index.js";
+import { type Class } from "../../src/index.js";
 import { seconds } from "../../src/units/index.js";
 import { until } from "../helpers/until.js";
 import { testWith } from "../../src/testing/index.js";
@@ -135,7 +136,7 @@ describe("#634: an exhausted budget holds back every step that can spend", () =>
     test("past the budget it never runs: the execution fails, its undo runs", async ({ app }) => {
       const run = execute(app, start, input);
 
-      await expect(run).rejects.toBeInstanceOf(BudgetExceededError);
+      await expect(run).rejects.toBeInstanceOf(LimitError.Budget);
       await expect(run).rejects.toMatchObject({
         budget: { name: "test-execution-budget" },
         maxSpend: 100,
@@ -160,7 +161,7 @@ describe("#634: an exhausted budget holds back every step that can spend", () =>
 
   test("an agent: no model call past the budget", async ({ app, mockModel }) => {
     await expect(execute(app, PaidAgentWorkflowStart, order)).rejects.toBeInstanceOf(
-      BudgetExceededError,
+      LimitError.Budget,
     );
 
     expect(mockModel(PaidReviewAgent).requests).toHaveLength(0);
@@ -178,7 +179,7 @@ describe("#634: the execution's deadline holds an action back too", () => {
     await clock.advance(seconds(6));
     release();
 
-    await expect(held).rejects.toBeInstanceOf(DeadlineExceededError);
+    await expect(held).rejects.toBeInstanceOf(LimitError.Deadline);
     expect(paidSteps.ran).toEqual(["hold"]);
   });
 });
@@ -204,7 +205,7 @@ describe("#634: what an exhausted budget never holds back", () => {
 
     expect(done).toFinishWith(OverBudgetWorkflowFinish, { note: "notify" });
     expect(paidSteps.ran).toEqual(["charge", "notify"]);
-    expect(done).toHaveHandledError(BudgetExceededError, {
+    expect(done).toHaveHandledError(LimitError.Budget, {
       at: NoteOrderAction,
       by: NotifyOrderAction,
     });

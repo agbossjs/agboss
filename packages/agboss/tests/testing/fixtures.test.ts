@@ -1,3 +1,4 @@
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { describe, expect } from "vitest";
 import {
   replyWith,
@@ -9,7 +10,7 @@ import {
   TestSetupError,
   testWith,
 } from "../../src/testing/index.js";
-import { nameOf, RouterFailedError } from "../../src/index.js";
+import { nameOf } from "../../src/index.js";
 import {
   ChatStart,
   MainRouter,
@@ -145,7 +146,7 @@ describe("AC12: slices — one component of the real app on its own", () => {
   }) => {
     mockModel(MainRouter).thenReturn(failWith(ModelFailure.ServerError));
 
-    await expect(app.runRouter(MainRouter, "x")).rejects.toFailWith(RouterFailedError, {
+    await expect(app.runRouter(MainRouter, "x")).rejects.toFailWith(StepError.Router, {
       nodeId: nameOf(MainRouter),
       cause: ModelCallFailedError,
     });

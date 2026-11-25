@@ -1,3 +1,4 @@
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { describe, expect } from "vitest";
 import {
   replyWith,
@@ -9,7 +10,7 @@ import {
   TestFailure,
   testWith,
 } from "../../src/testing/index.js";
-import { AgentFailedError, nameOf, RouterFailedError } from "../../src/index.js";
+import { nameOf } from "../../src/index.js";
 import { usd } from "../../src/units/index.js";
 import {
   ChatStart,
@@ -107,7 +108,7 @@ describe("AC12: scripted models — answers, tool calls, decisions by script", (
   }) => {
     mockModel(MainRouter).thenReturn(failWith(ModelFailure.Timeout));
 
-    await expect(execute(app, ChatStart, { text: "hi" })).rejects.toFailWith(RouterFailedError, {
+    await expect(execute(app, ChatStart, { text: "hi" })).rejects.toFailWith(StepError.Router, {
       nodeId: nameOf(MainRouter),
       cause: ModelCallFailedError,
     });
@@ -120,7 +121,7 @@ describe("AC12: scripted models — answers, tool calls, decisions by script", (
     mockModel(MainRouter).thenReturn(routeTo(Writer));
     mockModel(Writer).thenReturn(failWith(ModelFailure.RateLimited));
 
-    await expect(execute(app, ChatStart, { text: "hi" })).rejects.toFailWith(AgentFailedError, {
+    await expect(execute(app, ChatStart, { text: "hi" })).rejects.toFailWith(StepError.Agent, {
       agent: nameOf(Writer),
       cause: ModelCallFailedError,
     });

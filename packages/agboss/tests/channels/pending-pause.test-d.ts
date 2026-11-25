@@ -1,3 +1,4 @@
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { describe, expectTypeOf, it } from "vitest";
 import {
   PauseKind,
@@ -9,7 +10,6 @@ import {
   type PauseToolCallSummary,
 } from "../../src/index.js";
 import type { PauseTrailRecord } from "../../src/infrastructure/pause-record.js";
-import { QuestionFailedError } from "../../src/errors.js";
 
 /**
  * The pause contract's types (#1307d): a pending pause says what it asks (`input`, an object, whatever
@@ -64,12 +64,10 @@ describe("AC3: the pause's step, and the base of a pending pause", () => {
   });
 });
 
-describe("AC3: QuestionFailedError names its question", () => {
+describe("AC3: StepError.ExternalTask names its question", () => {
   it("takes one options object, its cause in it (#890); its code is a literal", () => {
-    expectTypeOf(QuestionFailedError.code).toEqualTypeOf<"step.question">();
-    expectTypeOf<QuestionFailedError["question"]>().toEqualTypeOf<string>();
-    expectTypeOf(QuestionFailedError).constructorParameters.toEqualTypeOf<
-      [options: { readonly question: string; readonly cause?: unknown }]
-    >();
+    expectTypeOf(StepError.ExternalTask.code).toEqualTypeOf<string>();
+    expectTypeOf<StepError.ExternalTask["externalTask"]>().toEqualTypeOf<string>();
+    expectTypeOf<StepError.ExternalTask["code"]>().toEqualTypeOf<"step.external-task">();
   });
 });

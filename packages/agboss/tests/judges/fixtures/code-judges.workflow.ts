@@ -91,11 +91,9 @@ export class PromiseFinish {}
   name: "promise-desk-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(PromiseStart)
-      .toAgent(PromiseAgent)
-      .toFinish(PromiseFinish),
-  ],
+  flow: [onStart(PromiseStart)
+    .toAgent(PromiseAgent)
+    .toFinish(PromiseFinish)],
   defaults: DEFAULTS,
   memory: Window4Memory,
   providers: [BannedWords, provide(RUBRIC, "Is the reply grounded? Answer PASS or FAIL: <why>.")],

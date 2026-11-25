@@ -1,11 +1,12 @@
 /**
- * #194 AC1: `catchError(BudgetExceededError)` takes the error branch when the run budget runs out —
+ * #194 AC1: `catchError(LimitError.Budget)` takes the error branch when the run budget runs out —
  * also when the failure comes after a pause, a restart (`recoverApp`) and a resume from the
  * checkpoint; matching is by the error's stable code, kept as a plain record in the flow state.
  */
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { describe, expect } from "vitest";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
-import { BudgetExceededError, BudgetScope, LimitExceededError } from "../../src/index.js";
+import { BudgetScope } from "../../src/index.js";
 import { usd } from "../../src/units/index.js";
 import {
   Buyer,
@@ -26,7 +27,7 @@ const shop = testWith(ShopApplication);
 const parentCatch = testWith(ShopCatchingLimitsApplication);
 const uncaught = testWith(ShopUncaughtApplication);
 
-describe("#194 AC1: catchError(BudgetExceededError) when the run budget runs out", () => {
+describe("#194 AC1: catchError(LimitError.Budget) when the run budget runs out", () => {
   shop("the run takes the error branch instead of failing", async ({ app, mockModel }) => {
     mockModel(Buyer).thenReturn(replyWith(PurchaseDto, { item: "bought" }, { cost: usd(0.02) }));
 
@@ -58,7 +59,7 @@ describe("#194 AC1: catchError(BudgetExceededError) when the run budget runs out
   );
 
   parentCatch(
-    "catching the parent LimitExceededError catches the budget error too",
+    "catching the parent LimitError catches the budget error too",
     async ({ app, mockModel }) => {
       mockModel(Buyer).thenReturn(replyWith(PurchaseDto, { item: "bought" }, { cost: usd(0.02) }));
 
@@ -78,20 +79,20 @@ describe("#194 AC1: catchError(BudgetExceededError) when the run budget runs out
 });
 
 describe("#194: the budget failure is thrown typed where it happens", () => {
-  uncaught("without a catch the run fails with BudgetExceededError", async ({ app, mockModel }) => {
+  uncaught("without a catch the run fails with LimitError.Budget", async ({ app, mockModel }) => {
     mockModel(Buyer).thenReturn(replyWith(PurchaseDto, { item: "bought" }, { cost: usd(0.02) }));
 
     const error: unknown = await execute(app, Order, { text: "buy a lamp" }).catch(
       (e: unknown) => e,
     );
 
-    expect(error).toBeInstanceOf(BudgetExceededError);
-    expect(error).toBeInstanceOf(LimitExceededError);
+    expect(error).toBeInstanceOf(LimitError.Budget);
+    expect(error).toBeInstanceOf(LimitError);
     expect(error).toMatchObject({
       code: "limit.budget",
       budget: { name: "shop-execution-budget" },
       scope: BudgetScope.Execution,
     });
-    expect(error).toFailWith(BudgetExceededError, { budget: { name: "shop-execution-budget" } });
+    expect(error).toFailWith(LimitError.Budget, { budget: { name: "shop-execution-budget" } });
   });
 });

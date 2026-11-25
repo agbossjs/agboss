@@ -7,6 +7,7 @@
  * An identity derived from where the spend was made would take the second $60 for the first's
  * replay and let the tree go on at $60.
  */
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { afterEach, describe, expect } from "vitest";
 import { BudgetPeriod, BudgetScope } from "../../src/budgets/budget.js";
 import { counterOf, type ExecutionBudgetRecord } from "../../src/budgets/execution-budgets.js";
@@ -62,7 +63,7 @@ describe("#727: a step run again after a takeover bills again and counts again",
 
     // the step's $60 was paid twice — once per run — and both count: a's next step is held back
     expect(outcome).toMatchObject({
-      name: "BudgetExceededError",
+      name: "LimitError.Budget",
       message: expect.stringContaining("spent $120;"),
     });
     const executionId = /execution (\S+) spent/u.exec(String(outcome))?.[1] ?? "";

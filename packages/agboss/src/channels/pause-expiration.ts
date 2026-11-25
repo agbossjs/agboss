@@ -5,7 +5,7 @@ import type { ExpiredContext } from "./pause-contexts.js";
 
 /**
  * What a pause's deadline means (#941, D2): a channel may decide it —
- * `PauseExpiration.fail()` (the step fails with `PauseExpiredError`) or
+ * `PauseExpiration.fail()` (the step fails with `StepError.PauseExpired`) or
  * `PauseExpiration.decide(answer)` (the step goes on with that answer, recorded as answered by the
  * expiry). Without `onPauseExpired` a channel's pause fails. The expiry is the framework's call
  * once the deadline passed, never the channel's.
@@ -13,7 +13,7 @@ import type { ExpiredContext } from "./pause-contexts.js";
 
 /** The two things an expiry can mean. */
 export enum PauseExpirationKind {
-  /** The step fails with `PauseExpiredError`. */
+  /** The step fails with `StepError.PauseExpired`. */
   Fail = "fail",
   /** The step goes on with the channel's answer. */
   Decide = "decide",
@@ -64,7 +64,7 @@ const FAIL: FailExpiration = Object.freeze({ kind: PauseExpirationKind.Fail });
 
 /** The only way to build an expiry's decision. */
 export const PauseExpiration = {
-  /** The pause's step fails with `PauseExpiredError`: `.onError(PauseExpiredError, …)` takes it. */
+  /** The pause's step fails with `StepError.PauseExpired`: `.onError(StepError.PauseExpired, …)` takes it. */
   fail(): FailExpiration {
     return FAIL;
   },

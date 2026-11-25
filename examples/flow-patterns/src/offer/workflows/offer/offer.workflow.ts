@@ -1,9 +1,9 @@
+import { LimitError } from "@agboss/core";
 import {
   onAgent,
   onStart,
   toAction,
   toAgent,
-  VisitsLimitExceededError,
   Workflow,
   Ttl,
 } from "@agboss/core";
@@ -21,7 +21,7 @@ import { OfferWorkflowStart } from "./offer.workflow-start.js";
 /**
  * A review loop (#272, CLAUDE.md → The flow: paths): draft → reviewer, then reviewer → editor →
  * reviewer until it approves. The reviewer is reached from two places, so its `.toOneOf([…])` is a path
- * of its own; the editor's `maxVisits` spent is taken by `.onError(VisitsLimitExceededError, …)`.
+ * of its own; the editor's `maxVisits` spent is taken by `.onError(LimitError.Visits, …)`.
  */
 @Workflow({
   name: "offer-workflow",
@@ -37,7 +37,7 @@ import { OfferWorkflowStart } from "./offer.workflow-start.js";
         // the editor reads the requested changes: that tells this branch apart
         toAgent(EditorAgent)
           .onError(
-            VisitsLimitExceededError, // the editor's maxVisits spent: tell the recruiter, finish
+            LimitError.Visits, // the editor's maxVisits spent: tell the recruiter, finish
             toAction(NotifyRecruiterAction)
               .toFinish(OfferFailedWorkflowFinish),
           )

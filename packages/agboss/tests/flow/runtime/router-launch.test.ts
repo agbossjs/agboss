@@ -1,5 +1,7 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import { describe, expect } from "vitest";
-import { BranchStatus, BudgetExceededError, RouterDecisionError } from "../../../src/index.js";
+import { BranchStatus } from "../../../src/index.js";
 import {
   decideWith,
   failWith,
@@ -144,7 +146,7 @@ describe("S23: a model router decides its routes of a chooseMany launch", () => 
 
 describe("S21: Skip drops only the branch's own step failure", () => {
   desk(
-    "Skip drops only StepFailedError: the execution goes on without the value",
+    "Skip drops only StepError: the execution goes on without the value",
     async ({ app, mockModel }) => {
       mockModel(HelpDeskRouter).thenReturn(decideWith({ "refund-policy-agent": 0 }));
       mockModel(OrderLookupAgent).thenReturn(order);
@@ -177,7 +179,7 @@ describe("S21: Skip drops only the branch's own step failure", () => {
 
       // one at a time: the order spent the run's budget; the loyalty branch (Skip) starts over it —
       // a limit is no step failure, so it fails the launch instead of dropping out
-      await expect(run).rejects.toBeInstanceOf(BudgetExceededError);
+      await expect(run).rejects.toBeInstanceOf(LimitError.Budget);
       expect(mockModel(LoyaltyOfferAgent).requests).toEqual([]);
       expect(mockModel(BudgetAnswerAgent).requests).toEqual([]);
     },
@@ -230,7 +232,7 @@ describe("#280 S47 (f): a code router launches its Always targets and what route
       ]);
       await expect(one).rejects.toThrow("returns a list of its routes' targets");
       await expect(ghost).rejects.toThrow("order-lookup-agent: not one of its routes");
-      await expect(ghost).rejects.toBeInstanceOf(RouterDecisionError);
+      await expect(ghost).rejects.toBeInstanceOf(StepError.RouterDecision);
       expect(none.path).toEqual([
         "strict-workflow-start",
         "strict-router",

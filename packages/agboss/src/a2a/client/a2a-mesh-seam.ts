@@ -1,8 +1,8 @@
+import { LimitError } from "../../core/error-families/limit-errors.js";
 import { A2AError } from "../../core/error-families/remote-errors.js";
 import { HTTP_EXTENSION_HEADER, Message, TaskState, type AgentCard, type Task } from "@a2a-js/sdk";
 import { serviceUsageOf } from "../../components/spend-recorder.js";
 import { currentFrame } from "../../flow/context/frame.js";
-import { MeshLoopDetectedError } from "../../mesh/mesh-errors.js";
 import { TRACEPARENT } from "../../mesh/mesh-envelope.js";
 import { takeRunReport, type RunReportIdentity } from "../../mesh/mesh-report.js";
 import { currentCallChainOf, outboundMeshOfHash } from "../../mesh/outbound-mesh.js";
@@ -138,7 +138,7 @@ const declaresMesh = (card: AgentCard): boolean =>
 
 /**
  * A call to an entry the calling tree already passed through is a loop: refused before sending,
- * whatever the agent would check (the same `MeshLoopDetectedError` its refusal rebuilds).
+ * whatever the agent would check (the same `LimitError.MeshLoop` its refusal rebuilds).
  */
 function refuseLoop(call: A2AMeshCall): void {
   const chain = currentCallChainOf();
@@ -147,7 +147,7 @@ function refuseLoop(call: A2AMeshCall): void {
   const isLoop = chain.some(
     (hop) => hop.application === entry.application && hop.start === entry.start,
   );
-  if (isLoop) throw new MeshLoopDetectedError({ entry, callChain: chain });
+  if (isLoop) throw new LimitError.MeshLoop({ meshEntry: entry, callChain: chain });
 }
 
 /**

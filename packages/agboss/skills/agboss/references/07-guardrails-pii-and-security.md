@@ -156,11 +156,11 @@ export class TenantBlocklistGuardrail {
   masked) as it leaves the loop. A code guardrail's `check(content)` gets the same masked text in `content.text` — it
   sees `<email:7f3a91>`, never the address; a rule on raw values belongs in a `@PiiPolicy`
   detector.
-- **Blocked** → the execution fails with `GuardrailBlockedError` (`guardrail.blocked`: `guard`,
+- **Blocked** → the execution fails with `GuardrailError.Blocked` (`guardrail.blocked`: `guard`,
   `refusal` — the text to send instead —, `key: guardrails.<name>.threshold`, `probability`,
   `threshold`; a code guardrail's block is `probability` 1 against `threshold` 1, a pass 0). A model
   that does not answer, or a `check` that throws (its error the `cause`) or returns no
-  `GuardrailVerdict`, **fails closed**: `GuardFailedError` (`step.guard`, a `StepFailedError`).
+  `GuardrailVerdict`, **fails closed**: `StepError.Guardrail` (`step.guardrail`, a `StepError`).
 - **Levels add up**: `guardrails` on `@Application` → `@Workflow` → `@Agent` / `@Router`;
   `excludeGuardrails` on an agent or a router removes an inherited one for that element only. A model
   router takes input guardrails only; a code router calls no model and takes none. A child workflow
@@ -175,7 +175,7 @@ export class TenantBlocklistGuardrail {
 The caller sends the refusal instead of an answer:
 
 <!-- snippet-context
-import { GuardrailBlockedError, type App } from "@agboss/core";
+import { GuardrailError, type App } from "@agboss/core";
 import { ClinicWorkflowStart } from "./src/clinic/workflows/clinic/clinic.workflow-start.js";
 declare const app: App;
 declare function reply(text: string): Promise<void>;
@@ -190,7 +190,7 @@ try {
   );
   await reply(result.output?.text ?? "");
 } catch (error) {
-  if (!(error instanceof GuardrailBlockedError)) throw error;
+  if (!(error instanceof GuardrailError.Blocked)) throw error;
   await reply(error.refusal); // the guardrail's text, in the sender's language
 }
 ```
@@ -494,7 +494,7 @@ How PII masking works — the **model boundary** (S38):
 - Only `tokenize()` is reversible (HMAC-SHA256; its map is the checkpoint's `piiTokens`
   channel, surviving pauses, resumes and recovery). A token a model invents (no map knows it) is an
   invalid answer: the model reads why and answers again.
-- **Block rules**: in what comes in or in an answer → the execution fails with `PiiRefusedError`
+- **Block rules**: in what comes in or in an answer → the execution fails with `PiiError.Refused`
   (`pii.refused`, `kind`, `refusal`); in tool arguments or a tool result → only that call is
   rejected (the model reads `Tool error: the call was refused: …`).
 - **Levels add up**: `piiPolicies` on `@Application` → `@Workflow` → `@Agent` / `@Router`;
@@ -503,7 +503,7 @@ How PII masking works — the **model boundary** (S38):
 - **Detection**: formats are validated (Luhn, IBAN, Israeli ID, SSN rules, …); kinds without a
   format (`PersonName`, `StreetAddress`, `DateOfBirth`, `PassportNumber`, …) need
   `model: "<chat model>"` on the policy (`[pii.kind-needs-model]`); a detection answer that
-  is not the JSON asked for fails closed (`PiiDetectionFailedError`).
+  is not the JSON asked for fails closed (`PiiError.DetectionFailed`).
 - **The key**: a policy's own `secret: secret("…")`, else the application's
   `@DatabaseStorage({ piiSecret: secret("…") })` (no storage has a fixed one).
   A `tokenize()` rule or a `sensitive: PiiAction.tokenize()` field with neither fails the start,
@@ -557,7 +557,7 @@ A code guardrail runs its `check(content)` on its own container — no `model` o
 uses.
 
 In `testWith(App)` an unscripted model guardrail passes; `mockModel(LegalAdviceGuardrail).thenReturn(decideWith({ blocks: 0.9 }))`
-blocks, and `rejects.toFailWith(GuardrailBlockedError, { guard: "legal-advice-guardrail" })`
+blocks, and `rejects.toFailWith(GuardrailError.Blocked, { guard: "legal-advice-guardrail" })`
 asserts it. A policy's `secret` or the storage's `piiSecret` whose variable is unset gets a fixed test key.
 
 ## Rule codes
@@ -588,4 +588,4 @@ asserts it. A policy's `secret` or the storage's `piiSecret` whose variable is u
 - Excluding a policy on an agent and expecting logs to show the value: logs and traces stay masked.
 - A secret in a context subclass or a DTO: contexts are identity only; services read secrets from
   the environment (`Secret`, `.reveal()` only where it is sent).
-- Catching `GuardFailedError` as "allowed": it means nothing was checked.
+- Catching `StepError.Guardrail` as "allowed": it means nothing was checked.

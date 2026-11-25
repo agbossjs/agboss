@@ -1,12 +1,12 @@
 /**
  * #185: `@Agent({ judges, maxRetries })` quality gates run — each `@Judge` is created by the
  * container with its deps, judges with its own model through the model gateway (spend in the cost
- * report), sends its reason back for a retry, and fails the run with `QualityGateError` once the
+ * report), sends its reason back for a retry, and fails the run with `StepError.QualityGate` once the
  * retries are spent. A judge without a model fails at app start.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { describe, expect, it } from "vitest";
-import { QualityGateError } from "../../src/errors.js";
 import { replyWith, testWith, type ModelRequest } from "../../src/testing/index.js";
 import { usd } from "../../src/units/index.js";
 import { offline } from "../components/fixture/deps-contract.workflow.js";
@@ -68,7 +68,7 @@ describe("quality gates of an agent", () => {
     expect(textsOf(second).at(-1)).toContain("[grounded] names no company");
   });
 
-  test("AC1: a judge that always rejects ends the run with QualityGateError carrying its reason", async ({
+  test("AC1: a judge that always rejects ends the run with StepError.QualityGate carrying its reason", async ({
     app,
     mockModel,
   }) => {
@@ -77,7 +77,7 @@ describe("quality gates of an agent", () => {
 
     const run = execute(app, TaskStart, { text: "find a TS job" });
 
-    await expect(run).rejects.toBeInstanceOf(QualityGateError);
+    await expect(run).rejects.toBeInstanceOf(StepError.QualityGate);
     await expect(run).rejects.toMatchObject({
       code: "step.agent.quality-gate",
       agent: "writer-agent",

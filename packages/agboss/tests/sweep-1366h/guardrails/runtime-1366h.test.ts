@@ -5,19 +5,19 @@
  * the assembled ones by element and side; the observers hear each check with the sizes (not the bytes) of its files; a
  * block carries every decision made, the blocking one last.
  */
+import { StepError } from "../../../src/core/error-families/step-errors.js";
+import { GuardrailError } from "../../../src/core/error-families/limit-errors.js";
 import { bareRecordOf, ComponentKind } from "../../../src/flow/runtime/records.js";
 import { AIMessage, type BaseMessage } from "@langchain/core/messages";
 import { describe, expect, it, vi } from "vitest";
 import { GuardrailSide } from "../../../src/components/policy-decorators.js";
 import { carriedRecordsOf } from "../../../src/flow/runtime/carried-records.js";
-import { GuardrailBlockedError } from "../../../src/flow/runtime/errors.js";
 import {
   checkGuardrail,
   checkGuardrails,
   guardrailRuntimeOf,
   runtimeGuardrailOf,
 } from "../../../src/guardrails/runtime.js";
-import { GuardFailedError } from "../../../src/errors.js";
 import {
   GUARDRAIL_ANSWER_TOOL,
   GUARDRAIL_QUESTION,
@@ -126,8 +126,8 @@ describe("#1366: how a model guardrail asks", () => {
 
     const error = await runtime.decide(textOf(GuardrailSide.Input), []).catch((c: unknown) => c);
 
-    expect(error).toBeInstanceOf(GuardFailedError);
-    expect((error as GuardFailedError).cause).toBe(down);
+    expect(error).toBeInstanceOf(StepError.Guardrail);
+    expect((error as StepError.Guardrail).cause).toBe(down);
   });
 });
 
@@ -293,7 +293,7 @@ describe("#1366: a block carries what was decided", () => {
     const result = await checkGuardrails([passing, blocking], textOf(GuardrailSide.Input));
 
     if (result.kind !== "blocked") throw new Error("expected a block");
-    expect(result.error).toBeInstanceOf(GuardrailBlockedError);
+    expect(result.error).toBeInstanceOf(GuardrailError.Blocked);
     expect(result.decisions.map((each) => each.isBlocked)).toEqual([false, true]);
     expect(carriedRecordsOf(result.error).guardrailDecisions).toEqual(result.decisions);
     expect(result.usage.map((each) => each.costUsd)).toEqual([0.25, 0.25]);

@@ -4,13 +4,9 @@
  * inside the child, under the launch's branch (its `branchKeys`) — so the execution fails with the
  * child's error in the same call instead of resting paused.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { beforeEach, describe, expect } from "vitest";
-import {
-  ChildExecutionFailedError,
-  PauseClosedReason,
-  PauseResolution,
-  PauseStatus,
-} from "../../src/index.js";
+import { PauseClosedReason, PauseResolution, PauseStatus } from "../../src/index.js";
 import {
   callTool,
   failWith,
@@ -46,7 +42,7 @@ describe("#337 Bug B: FailFast withdraws a paused sibling child's pause", () => 
 
     const run = execute(app, ChildBatchWorkflowStart, [{ orderId: "A" }, { orderId: "B" }]);
 
-    await expect(run).rejects.toBeInstanceOf(ChildExecutionFailedError);
+    await expect(run).rejects.toBeInstanceOf(StepError.Child);
     const stored = await pauseStore().findByTenantIdAndPauseId("default", askFor("A").pauseId);
     expect(stored).toMatchObject({
       status: PauseStatus.Cancelled,

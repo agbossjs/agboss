@@ -2,8 +2,9 @@
  * #261 AC10 (PR 5): budgets at run time — every workflow, every tenant and the whole application
  * capped (assembly), `maxSpend()` read once per execution (in the execution's context), every
  * budget checked before the first step (an exhausted one rejects the execution) and counted after
- * every model call (the first exhausted stops it with `BudgetExceededError`).
+ * every model call (the first exhausted stops it with `LimitError.Budget`).
  */
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
@@ -11,7 +12,6 @@ import { applicationOf } from "../../src/application/assemble.js";
 import { periodStartOf } from "../../src/budgets/budget-period.js";
 import {
   Budget,
-  BudgetExceededError,
   BudgetPeriod,
   BudgetScope,
   CostLedgerRepository,
@@ -120,7 +120,7 @@ describe("#261 AC10: every budget is checked before the first step", () => {
 
       const run = execute(app, BriefStart, { text: "a brief" }, { tenant: acme });
 
-      await expect(run).rejects.toBeInstanceOf(BudgetExceededError);
+      await expect(run).rejects.toBeInstanceOf(LimitError.Budget);
       await expect(run).rejects.toMatchObject({
         budget: { name: "shop-tenant-daily-budget" },
         scope: BudgetScope.Tenant,
@@ -153,7 +153,7 @@ describe("#261 AC10: every budget is checked before the first step", () => {
       // the first one passes the check (nothing spent yet) and spends $0.02 in its one paid call
       await expect(
         execute(app, BriefStart, { text: "one" }, { tenant: acme }),
-      ).rejects.toBeInstanceOf(BudgetExceededError);
+      ).rejects.toBeInstanceOf(LimitError.Budget);
       const second = execute(
         app,
         BriefStart,

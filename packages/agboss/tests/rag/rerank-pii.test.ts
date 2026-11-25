@@ -8,6 +8,7 @@
  * refused, the execution refused — and the reranker's model reads nothing. The trace of the
  * reranking (its span and its model call) holds the masked text only.
  */
+import { PiiError } from "../../src/core/error-families/limit-errors.js";
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { BaseCallbackHandler } from "@langchain/core/callbacks/base";
 import type { BaseMessage } from "@langchain/core/messages";
@@ -18,7 +19,6 @@ import { ragMeta } from "../../src/components/rag.js";
 import { boundRerankerOf } from "../../src/components/rag-reranker.js";
 import { knowledgeRetrieveOf } from "../../src/components/rag-retrieval.js";
 import { gatherKnowledge } from "../../src/graph/nodes/knowledge.js";
-import { PiiRefusedError } from "../../src/pii/errors.js";
 import { modelReadingMaskOf, withModelReading } from "../../src/pii/model-boundary.js";
 import { PiiPolicySet } from "../../src/pii/policy-set.js";
 import { runtimePolicyOf } from "../../src/pii/runtime-policy.js";
@@ -157,12 +157,12 @@ describe("#708: a block rule in a candidate follows the rule of what the agent r
     expect(result.toolCalls[0]?.output).toBeUndefined();
   });
 
-  it("context mode: the execution is refused (PiiRefusedError), the reranker's model reads nothing", async () => {
+  it("context mode: the execution is refused (PiiError.Refused), the reranker's model reads nothing", async () => {
     const book = new ScriptBook();
 
     const refused = await run(book, CARDS_CONTEXT.start).catch((error: unknown) => error);
 
-    expect(refused).toBeInstanceOf(PiiRefusedError);
+    expect(refused).toBeInstanceOf(PiiError.Refused);
     expect(refused).toMatchObject({ refusal: "Please do not send a card-number." });
     expect(book.scriptOf(RERANKER).requests).toHaveLength(0);
   });

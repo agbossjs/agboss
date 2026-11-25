@@ -5,6 +5,8 @@
  * answer still refuses. The execution's exact PII values reach a redaction model only where the provider
  * or the setting allows it.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
+import { PiiError } from "../../src/core/error-families/limit-errors.js";
 import { createHash, createHmac, hkdfSync } from "node:crypto";
 import sharp from "sharp";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -14,14 +16,12 @@ import { FileView, ModelFiles, RedactionValues } from "../../src/files/model-fil
 import { redactedKeyOf } from "../../src/files/redacted-view.js";
 import { valuesForRedactor } from "../../src/files/redaction-values.js";
 import {
-  FileRedactionFailedError,
   ExecutionContext,
   Injectable,
   PiiAction,
   PiiFileAction,
   PiiKind,
   PiiPolicy,
-  PiiRefusedError,
   type FileContent,
   type RedactionResult,
   type RedactOptions,
@@ -86,7 +86,7 @@ describe("AC3: under a block rule an image is refused whole by default", () => {
 
       const run = execute(app, refusing.Start, { document: asFile(await injectedPhoto()) });
 
-      await expect(run).rejects.toBeInstanceOf(PiiRefusedError);
+      await expect(run).rejects.toBeInstanceOf(PiiError.Refused);
       await expect(run).rejects.toMatchObject({ refusal: "No cards, please." });
       expect(redactor).toHaveBeenCalledTimes(0);
       expect(agent).toHaveBeenCalledTimes(0);
@@ -120,7 +120,7 @@ describe("AC3: with the opt-in a model decides — a guardrail, not a guarantee"
 
       const run = execute(app, trusting.Start, { document: asFile(await injectedPhoto()) });
 
-      await expect(run).rejects.toBeInstanceOf(PiiRefusedError);
+      await expect(run).rejects.toBeInstanceOf(PiiError.Refused);
       expect(agent).toHaveBeenCalledTimes(0);
     },
   );
@@ -137,7 +137,7 @@ describe("AC3: with the opt-in a model decides — a guardrail, not a guarantee"
       ]) {
         mockModel(FileRedactor).thenReturn(replyWith(answer));
         const run = execute(app, trusting.Start, { document: asFile(await injectedPhoto()) });
-        await expect(run).rejects.toBeInstanceOf(FileRedactionFailedError);
+        await expect(run).rejects.toBeInstanceOf(StepError.FileMaskingFailed);
       }
       expect(agent).toHaveBeenCalledTimes(0);
     },
@@ -315,14 +315,14 @@ describe("AC3: the exact values reach a redactor only where allowed", () => {
   it("backstop: values to redact that cannot be sent fail closed, the redactor is never asked", async () => {
     const run = viewWith([SECRET], ["card-number"], false);
 
-    await expect(run).rejects.toBeInstanceOf(FileRedactionFailedError);
+    await expect(run).rejects.toBeInstanceOf(StepError.FileMaskingFailed);
     await expect(run).rejects.not.toThrow(NO_REDACTOR_CALL);
   });
 
   it("backstop: nothing to look for (no kind, no value sent) fails closed, never an unchanged re-encode", async () => {
     const run = viewWith([], [], true);
 
-    await expect(run).rejects.toBeInstanceOf(FileRedactionFailedError);
+    await expect(run).rejects.toBeInstanceOf(StepError.FileMaskingFailed);
     await expect(run).rejects.not.toThrow(NO_REDACTOR_CALL);
   });
 

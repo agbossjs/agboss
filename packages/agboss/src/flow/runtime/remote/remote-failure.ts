@@ -5,7 +5,7 @@ import { parsedStoredJson } from "../../../infrastructure/stored-step.js";
 /**
  * A remote child's error across instances (#333 PR 2, #598): the worker keeps its durable record —
  * its class line by code, message and causes (`durableErrorOf`) — in the queue row; the parent's
- * step gets it back as a `RecordedError`, the cause of its `ChildExecutionFailedError` as a local
+ * step gets it back as a `RecordedError`, the cause of its `StepError.Child` as a local
  * child's error is, routed by `.onError` as the original was: a side path on the child's own error
  * class is taken on every instance. A row whose `failure` is no durable record (a row of 0.1.0, which
  * kept names and messages only) is refused, never read as a failure of no class.

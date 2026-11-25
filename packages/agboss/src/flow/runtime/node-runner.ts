@@ -1,10 +1,9 @@
+import { isPaidError } from "../../core/error-families/paid.js";
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { lazyLoad } from "../../infrastructure/clock.js";
 import type { GraphDeps } from "../../graph/deps.js";
 import type { BudgetMeter } from "../../budgets/execution-budgets.js";
 import type { UsageRecord } from "../../finops/usage.js";
-import { PaidStepError } from "../../graph/errors.js";
-import { LimitExceededError } from "../../graph/limits.js";
 import type { FrameServices } from "../context/frame.js";
 import type { EndedChildRecord } from "./child-records.js";
 import type { RuntimeNode } from "./graph-model.js";
@@ -76,7 +75,7 @@ export const recordsOf = (outcome: NodeOutcome): VisitRecords => ({
 
 /** Spend a failure carries that the execution's state does not hold yet. */
 export const unrecordedSpendOf = (error: unknown): readonly UsageRecord[] =>
-  error instanceof PaidStepError || error instanceof LimitExceededError ? error.usage : [];
+  isPaidError(error) ? error.usage : [];
 
 /** What a visit's code reported besides its outcome: services' spend, ended child executions. */
 export interface Reported {

@@ -1,3 +1,4 @@
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { usd } from "../../src/units/index.js";
 /**
@@ -10,7 +11,6 @@ import { ExecutionCancelledError } from "../../src/core/errors.js";
 import { ExecutionLeaseLostError } from "../../src/app/lease-lost.js";
 import { orphanEndsOf } from "../../src/app/orphan-tree.js";
 import { RecordedError, errorRecordOf } from "../../src/core/error-record.js";
-import { ChildExecutionFailedError } from "../../src/flow/runtime/child-errors.js";
 import { assertAnnouncing, eventOf, failedChild } from "../../src/flow/runtime/child-failure.js";
 import { HandOverSite } from "../../src/infrastructure/execution-audit-log.repository.js";
 import { ChildExecutionStatus } from "../../src/flow/runtime/child-records.js";
@@ -345,7 +345,7 @@ describe("#1366: failedChild", () => {
 
     const thrown = await failed(parent, boom, false).catch((error: unknown) => error);
 
-    expect(thrown).toBeInstanceOf(ChildExecutionFailedError);
+    expect(thrown).toBeInstanceOf(StepError.Child);
     expect(services.recordChild).toHaveBeenCalledOnce();
     expect(services.recordChild).toHaveBeenCalledWith(
       expect.objectContaining({ executionId: "child-1", status: ChildExecutionStatus.Failed }),
@@ -367,7 +367,7 @@ describe("#1366: failedChild", () => {
       {},
     ).catch((error: unknown) => error);
 
-    expect(thrown).toBeInstanceOf(ChildExecutionFailedError);
+    expect(thrown).toBeInstanceOf(StepError.Child);
     expect(services.keepPiiTokens).not.toHaveBeenCalled();
     expect(services.recordChild).toHaveBeenCalledOnce();
   });
@@ -380,7 +380,7 @@ describe("#1366: failedChild", () => {
 
     const thrown = await failed(parent, boom, true).catch((error: unknown) => error);
 
-    expect(thrown).toBeInstanceOf(ChildExecutionFailedError);
+    expect(thrown).toBeInstanceOf(StepError.Child);
     expect(assertHeld).toHaveBeenCalledTimes(2);
     expect(mocks.isFailureClaimed).toHaveBeenCalledWith(
       (parent as { deps: unknown }).deps,
@@ -404,7 +404,7 @@ describe("#1366: failedChild", () => {
 
     const thrown = await failed(parent, new Error("x"), true).catch((error: unknown) => error);
 
-    expect(thrown).toBeInstanceOf(ChildExecutionFailedError);
+    expect(thrown).toBeInstanceOf(StepError.Child);
     expect(assertHeld).toHaveBeenCalledOnce();
     expect(onExecutionError).not.toHaveBeenCalled();
   });
@@ -540,7 +540,7 @@ describe("#1366: failedChild", () => {
     expect(mocks.unwoundChild).toHaveBeenCalledOnce();
     expect(mocks.unwoundChild).toHaveBeenCalledWith(
       expect.objectContaining({ executionId: "child-1", parent: frame }),
-      expect.any(ChildExecutionFailedError),
+      expect.any(StepError.Child),
     );
     expect(services.keepCompensations).toHaveBeenCalledWith([]);
     expect(onExecutionError).toHaveBeenCalledWith(expect.objectContaining({ error: undone }));
@@ -636,7 +636,7 @@ describe("#1366: failedChild of a child that has nothing to hand its parent", ()
         last: entries,
         error,
       },
-      expect.any(ChildExecutionFailedError),
+      expect.any(StepError.Child),
     );
     expect(services.keepCompensations).toHaveBeenCalledWith([]);
   });
@@ -699,6 +699,6 @@ describe("#1366: failedChild of a child that has nothing to hand its parent", ()
         { error: new Error("x"), last: stateOf(), announces: true },
         {},
       ),
-    ).rejects.toBeInstanceOf(ChildExecutionFailedError);
+    ).rejects.toBeInstanceOf(StepError.Child);
   });
 });

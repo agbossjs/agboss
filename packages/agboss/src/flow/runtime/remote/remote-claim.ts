@@ -2,7 +2,7 @@ import { ExecutionRecordStatus } from "../../../infrastructure/execution-record.
 import type { QueuedChildExecution } from "../../../infrastructure/child-execution-queue.repository.js";
 import { ChildPlacement } from "../../child-placement.js";
 import { StepError } from "../../../core/error-families/step-errors.js";
-import { stepCoordinatesOf } from "../../../graph/errors.js";
+import { stepCoordinatesOf } from "../../../graph/step-coordinates.js";
 import { ComponentKind } from "../records.js";
 import { encodedRun, type RemoteChildRun } from "./remote-child-run.js";
 import type { RemoteChildSite } from "./remote-child.js";

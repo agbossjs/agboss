@@ -56,7 +56,7 @@ Then turn each column into AGBoss's shapes, rule by rule:
    `listOf(ResearchQuestionDto)`; `question`, set only inside the `Send`, → the item each parallel run
    reads; `findings` (concatenated) → the join's `listOf(ResearchFindingDto)`. No reducer remains.
 4. **A counter is a limit.** `revisions` → `maxVisits` on the agents of the loop; the
-   `revisions >= 3 → END` edge → `.onError(VisitsLimitExceededError, toFinish(…))`.
+   `revisions >= 3 → END` edge → `.onError(LimitError.Visits, toFinish(…))`.
 5. **A key read before any node wrote it is a bug the old graph hid.** `write` reads `draft` and
    `critique` on its first visit, when they are `undefined` — the prompt says `Draft: undefined`. In
    AGBoss the first writer and the editor are two agents: one reads the findings, the other the draft
@@ -93,7 +93,7 @@ The result — one row per DTO, its producer and its readers — is the plan for
 | `addConditionalEdges` / `Command({ goto })` decided by code    | `@Router({ decidedBy: DecidedBy.Code, routes })` + `RouterHandler`: `route(input)` returns a target; `.toRouter(R).onRoute(toAgent(X)…).onRoute(…)`                                                     |
 | `addConditionalEdges` with an LLM classifier                   | `@Router({ decidedBy: DecidedBy.Model, prompt, model, routes: [{ prompt, target }] })` — a decision model or a chat model                                                                               |
 | a cycle `critic → editor → critic`                             | the reviewer in its own path `onAgent(Reviewer)…`; a `.toOneOf([…])` branch reading `ChangesDto`; `historyOf(DraftDto, { maxPrevious })` to read earlier versions                                       |
-| a loop counter, `recursionLimit`                               | `maxVisits` on a node, `@Workflow({ executionLimits: { maxSteps } })`; `.onError(VisitsLimitExceededError, …)` for the way out                                                                          |
+| a loop counter, `recursionLimit`                               | `maxVisits` on a node, `@Workflow({ executionLimits: { maxSteps } })`; `.onError(LimitError.Visits, …)` for the way out                                                                                 |
 | `new Send(node, item)` per list item                           | `.forEachItem(toAgent(Agent), { takeFirst, maxConcurrency })` after a step whose output is `listOf(ItemDto)` (or `.forEachItem(toWorkflow(Child), …)`) then `.join()` (the join gives `listOf(OutDto)`) |
 | `Send` to several different nodes, "first N answers win"       | `.inParallel([toAgent(A), toAgent(B), toAgent(C)])` + `.join()`, or `.arbitratedBy(Arbiter).joinQuorum({ min, max, deadline })`                                                                         |
 | a reducer (`(a, b) => a.concat(b)`, `operator.add`)            | the join's `listOf(…)` — values are never merged by hand                                                                                                                                                |
@@ -729,7 +729,7 @@ review edge is the reviewer's `oneOf` output; `revisions >= 3 → END` is the ed
 
 ```ts file=src/support/workflows/support/support.workflow.ts
 import {
-  VisitsLimitExceededError,
+  LimitError,
   Workflow,
   onAgent,
   listOf,
@@ -784,7 +784,7 @@ import { SupportWorkflowStart } from "./support.workflow-start.js";
       .toOneOf([
         // the editor reads the requested changes: that tells this branch apart
         toAgent(ReplyEditorAgent)
-          .onError(VisitsLimitExceededError, toFinish(ReplyStuckWorkflowFinish))
+          .onError(LimitError.Visits, toFinish(ReplyStuckWorkflowFinish))
           .toAgent(ReplyReviewerAgent),
         toRouter(RefundSizeRouter)
           .onRoute(

@@ -274,7 +274,7 @@ worst case of each start with how each number is made up — the [check report](
   calls read the typed contexts (an A2A request's from its `@HttpAuthenticator`, [A2A](A2A)). See
   [Context and Authorization](Context-And-Authorization).
 - Before the first step (#261 PR 5) each budget of the execution is read once (`maxSpend()`, in the
-  execution's context) and checked: one exhausted refuses it with `BudgetExceededError`
+  execution's context) and checked: one exhausted refuses it with `LimitError.Budget`
   (`limit.budget`) and an `onExecutionRejected` — no record, no model call ([FinOps](FinOps#at-run-time)).
 
 ## The result — `ExecutionOutput`

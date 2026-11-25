@@ -2,8 +2,8 @@
  * #262 PR 3 (S89): `testUnit` — a code router's `route(input)` on its own container, its answer
  * checked against its routes; a model router's texts loaded and its model answering by script.
  */
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { describe, expect, it } from "vitest";
-import { RouterDecisionError, RouterFailedError } from "../../../src/index.js";
 import {
   decideWith,
   failWith,
@@ -133,10 +133,10 @@ describe("testUnit: a model router", () => {
     expect([first.output, second.output]).toEqual([OrderIntakeAgent, NoOrderWorkflowFinish]);
   });
 
-  it("a failed model call rejects with RouterFailedError, its cause kept", async () => {
+  it("a failed model call rejects with StepError.Router, its cause kept", async () => {
     const runRouter = testUnit(DeskRouter, { model: failWith(ModelFailure.Timeout) });
 
-    await expect(runRouter(message("x"))).rejects.toBeInstanceOf(RouterFailedError);
+    await expect(runRouter(message("x"))).rejects.toBeInstanceOf(StepError.Router);
   });
 
   it("a script outside its routes fails the call, naming the routes", async () => {
@@ -181,12 +181,12 @@ describe("testUnit: a model router", () => {
     expect(() => testUnit(WorkflowStartTextDto)).toThrow("not a component it runs");
   });
 
-  it("a code router's answer outside its routes is RouterDecisionError", async () => {
+  it("a code router's answer outside its routes is StepError.RouterDecision", async () => {
     // its answer is outside its routes, so the generated types have no runner for it: called untyped
     const runRouter: (input: unknown) => Promise<unknown> = testUnit(OffRouteRouter) as never;
 
     await expect(
       runRouter({ request: produced(QuoteWorkflowStart, { product: "x", quantity: 1 }) }),
-    ).rejects.toBeInstanceOf(RouterDecisionError);
+    ).rejects.toBeInstanceOf(StepError.RouterDecision);
   });
 });

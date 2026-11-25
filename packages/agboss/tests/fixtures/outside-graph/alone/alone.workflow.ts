@@ -8,9 +8,7 @@ import { Ttl } from "../../../../src/index.js";
   name: "alone-probe-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(ProbeWorkflowStart)
-      .toFinish(ProbeWorkflowFinish),
-  ],
+  flow: [onStart(ProbeWorkflowStart)
+    .toFinish(ProbeWorkflowFinish)],
 })
 export class AloneProbeWorkflow {}

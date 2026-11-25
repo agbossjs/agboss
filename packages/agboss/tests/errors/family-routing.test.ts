@@ -6,6 +6,7 @@
  * DSL review (8): an action's failure stays wrapped (`StepError.Action` with the original as `cause`);
  * `.onError` matches the original's class first, and another project class falls to the wrapper.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { describe, expect } from "vitest";
 import { testWith } from "../../src/testing/index.js";
 import { errorRecordOf } from "../../src/core/error-record.js";
@@ -132,7 +133,7 @@ describe("#1325a: a project's error class is caught by its own name", () => {
     const failure: unknown = await runNarrow(app, "other-payment").catch((error: unknown) => error);
 
     expect(failure).toMatchObject({
-      name: "ActionFailedError",
+      name: "StepError.Action",
       code: "step.action",
       cause: { name: "OtherPaymentError" },
     });

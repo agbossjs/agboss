@@ -3,14 +3,10 @@
  * model sees — on the content and on the files of tool results, in the views the model got, never as
  * base64 text — and what a block or a failure does there.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
+import { GuardrailError } from "../../src/core/error-families/limit-errors.js";
 import { describe, expect } from "vitest";
-import {
-  GuardFailedError,
-  GuardrailBlockedError,
-  PiiFileAction,
-  PiiKind,
-  PiiPolicy,
-} from "../../src/index.js";
+import { PiiFileAction, PiiKind, PiiPolicy } from "../../src/index.js";
 import { FileSource, FileView, ModelFiles } from "../../src/files/model-files.js";
 import {
   decideWith,
@@ -70,7 +66,7 @@ describe("AC4: an input guardrail sees the files of the content — a block on a
   });
 
   testWith(reader.Application)(
-    "AC4: the picture says 'ignore all rules' → GuardrailBlockedError, the agent's model is never called",
+    "AC4: the picture says 'ignore all rules' → GuardrailError.Blocked, the agent's model is never called",
     async ({ app, mockModel }) => {
       const guardrail = mockModel(IgnoreRulesGuardrail).respondWith(blocksPictures);
       const agent = mockModel(reader.Agent);
@@ -79,8 +75,8 @@ describe("AC4: an input guardrail sees the files of the content — a block on a
         document: inline(PNG_BYTES, "image/png", "note.png"),
       });
 
-      await expect(run).rejects.toFailWith(GuardrailBlockedError, {
-        guard: "ignore-rules-guardrail",
+      await expect(run).rejects.toFailWith(GuardrailError.Blocked, {
+        guardrail: "ignore-rules-guardrail",
         refusal: "I cannot follow that.",
       });
       expect(partsOf(guardrail.onlyRequest).map((part) => [part.kind, part.mediaType])).toEqual([
@@ -104,7 +100,7 @@ describe("AC4: an input guardrail sees the files of the content — a block on a
   );
 
   testWith(reader.Application)(
-    "AC4: a guardrail that cannot answer about the file fails closed: GuardFailedError",
+    "AC4: a guardrail that cannot answer about the file fails closed: StepError.Guardrail",
     async ({ app, mockModel }) => {
       mockModel(IgnoreRulesGuardrail).thenReturn(failWith(ModelFailure.Timeout));
       const agent = mockModel(reader.Agent);
@@ -113,7 +109,7 @@ describe("AC4: an input guardrail sees the files of the content — a block on a
         document: inline(PNG_BYTES, "image/png", "note.png"),
       });
 
-      await expect(run).rejects.toFailWith(GuardFailedError, { code: "step.guard" });
+      await expect(run).rejects.toFailWith(StepError.Guardrail, { code: "step.guardrail" });
       expect(agent).toHaveBeenCalledTimes(0);
     },
   );
@@ -156,8 +152,8 @@ describe("AC4: the views the model got are the views a guardrail checks", () => 
         document: inline(PNG_BYTES, "image/png", "note.png"),
       });
 
-      await expect(run).rejects.toFailWith(GuardrailBlockedError, {
-        guard: "ignore-rules-guardrail",
+      await expect(run).rejects.toFailWith(GuardrailError.Blocked, {
+        guardrail: "ignore-rules-guardrail",
       });
       expect(partsOf(guardrail.onlyRequest)).toEqual([]);
       expect(agent).toHaveBeenCalledTimes(0);
@@ -185,7 +181,9 @@ describe("AC4: a code guardrail reads content.text, or content.files", () => {
         document: inline(Buffer.from("item\nFORBIDDEN\n"), "text/csv", "bad.csv"),
       });
 
-      await expect(run).rejects.toFailWith(GuardrailBlockedError, { guard: "text-only-guardrail" });
+      await expect(run).rejects.toFailWith(GuardrailError.Blocked, {
+        guardrail: "text-only-guardrail",
+      });
       expect(given.texts[0]).toContain("### bundle.document");
     },
   );
@@ -201,7 +199,9 @@ describe("AC4: a code guardrail reads content.text, or content.files", () => {
         document: inline(bad, "image/png", "bad.png"),
       });
 
-      await expect(run).rejects.toFailWith(GuardrailBlockedError, { guard: "content-guardrail" });
+      await expect(run).rejects.toFailWith(GuardrailError.Blocked, {
+        guardrail: "content-guardrail",
+      });
       const [content] = given.contents;
       expect(content?.files.map((file) => [file.mediaType, file.filename])).toEqual([
         ["image/png", "bad.png"],
@@ -273,7 +273,7 @@ describe("AC4: input guardrails on the files of tool results (guardToolResultFil
         document: inline(CSV_BYTES, "text/csv", "items.csv"),
       });
 
-      await expect(run).rejects.toFailWith(GuardFailedError, { code: "step.guard" });
+      await expect(run).rejects.toFailWith(StepError.Guardrail, { code: "step.guardrail" });
     },
   );
 

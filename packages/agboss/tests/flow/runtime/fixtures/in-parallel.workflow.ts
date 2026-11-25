@@ -1,3 +1,4 @@
+import { StepError } from "../../../../src/core/error-families/step-errors.js";
 import { AGBossError } from "../../../../src/core/errors.js";
 import { Text } from "../../../../src/dto/index.js";
 import {
@@ -7,7 +8,6 @@ import {
   EmptyEnvironment,
   optional,
   Router,
-  StepFailedError,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
@@ -125,7 +125,7 @@ export class SummaryWorkflowFinish {}
       .inParallel([
         toAction(FirstAction),
         toAction(SecondAction)
-          .onError(StepFailedError, skip()),
+          .onError(StepError, skip()),
         toAgent(ThirdAgent),
       ])
       .join()

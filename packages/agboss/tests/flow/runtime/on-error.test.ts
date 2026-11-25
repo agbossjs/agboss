@@ -1,3 +1,4 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { describe, expect } from "vitest";
 import { ExecutionStatus } from "../../../src/app/types.js";
 import { callTool, replyWith, testWith } from "../../../src/testing/index.js";
@@ -12,7 +13,6 @@ import {
   RefundTool,
   PayApplication,
 } from "./fixtures/pay.workflow.js";
-import { ActionFailedError } from "../../../src/errors.js";
 
 const test = testWith(PayApplication);
 const approve = { approved: true };
@@ -63,7 +63,7 @@ describe("#272 AC7: .onError(E, path) right after the step that throws", () => {
   test("no handler for the failure: the execution fails", async ({ app }) => {
     const run = execute(app, PayStart, { id: "9", outcome: "crash" });
 
-    await expect(run).rejects.toFailWith(ActionFailedError, { code: "step.action" });
+    await expect(run).rejects.toFailWith(StepError.Action, { code: "step.action" });
     await expect(run).rejects.toThrow("the ledger is down");
   });
 

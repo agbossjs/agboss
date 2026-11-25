@@ -1,8 +1,8 @@
+import { StepError } from "../../core/error-families/step-errors.js";
 import { HumanMessage, ToolMessage, type BaseMessage } from "@langchain/core/messages";
 import type { ApprovalRecord } from "../../pause/index.js";
 import { invalidArgumentsMessage, rejectionMessage } from "../../prompts/agents.js";
 import { contentWithPieces } from "../../files/file-pieces.js";
-import { ModelFileLimitError } from "../../files/file-errors.js";
 import { ModelFileLimit } from "../../files/model-files.js";
 import { fileMaskOf } from "../../files/file-mask.js";
 import { NO_FILES, filePiecesOf, type FileTally, type SeenFile } from "../../files/visit-files.js";
@@ -66,7 +66,7 @@ function decidedCalls(
 
 /**
  * The first call of the move a tool interceptor stopped (#384), or whose tool met a mesh limit
- * (#398), fails the step, with the loop's spend: a stop as a `StepFailedError`, a mesh limit as
+ * (#398), fails the step, with the loop's spend: a stop as a `StepError`, a mesh limit as
  * itself — at the loop's path, the model never reads it.
  */
 function stoppedErrorOf(
@@ -103,20 +103,20 @@ interface FileMessages {
   readonly piiMasked: Readonly<Record<string, string>>;
 }
 
-/** The conversation's files after one more call's: over `maxFiles` or `maxTotalFileSize` → `ModelFileLimitError`. */
+/** The conversation's files after one more call's: over `maxFiles` or `maxTotalFileSize` → `StepError.ModelFileLimit`. */
 function checkedTally(deps: AgentLoopDeps, before: FileTally, files: StoredToolFiles): FileTally {
   const tally = { count: before.count + files.count, bytes: before.bytes + files.bytes };
   const settings = deps.fileRuntime?.settings;
   const agent = deps.agent.name;
   if (settings !== undefined && tally.count > settings.maxFiles)
-    throw new ModelFileLimitError({
+    throw new StepError.ModelFileLimit({
       agent,
       limit: ModelFileLimit.MaxFiles,
       actual: tally.count,
       allowed: settings.maxFiles,
     });
   if (settings !== undefined && tally.bytes > settings.maxTotalFileSize)
-    throw new ModelFileLimitError({
+    throw new StepError.ModelFileLimit({
       agent,
       limit: ModelFileLimit.MaxTotalFileSize,
       actual: tally.bytes,
@@ -127,7 +127,7 @@ function checkedTally(deps: AgentLoopDeps, before: FileTally, files: StoredToolF
 
 /**
  * The user messages that carry the files of the move's results, and what the conversation then holds
- * of them: over a limit → `ModelFileLimitError` before the next model call. The files are numbered across
+ * of them: over a limit → `StepError.ModelFileLimit` before the next model call. The files are numbered across
  * the whole visit, continuing after the input's (#899 §8); each call's are read again — the guarded path —
  * and pinned to the digests the tool task saw: the stored call holds references, never bytes.
  */

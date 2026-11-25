@@ -85,9 +85,9 @@ remember (`thinking`, `timeoutMs`, `createApp(Workflow)`, `ctx`, zod schemas, `T
    `channels` / `channelSelectors` / `channelListeners`; observers in `observers`. A workflow's `providers`
    are its services (`[di.infrastructure-in-workflow]`). A contract gets the one listed class that `extends` it.
 9. **Failures are typed and handled in the flow.** Every error is an `AGBossError` subclass with a
-   stable `code` (`static override readonly code`) — never a `StepFailedError`, the framework's
+   stable `code` (`static override readonly code`) — never a `StepError`, the framework's
    wrapper of a step's failure; `.onError(ErrorClass, side path)` right after a step catches that class, its
-   subclasses and errors caused by it. A side path that can catch a `LimitExceededError` leads only
+   subclasses and errors caused by it. A side path that can catch a `LimitError` leads only
    to actions and finishes (`[graph.limit-handler-uses-model]`).
 10. **The generated types are the contract — regenerate, never edit.** `npx agboss check` writes
     `.agboss/types.d.ts` (input of every node, `app.execute`, scripts in tests); after changing a

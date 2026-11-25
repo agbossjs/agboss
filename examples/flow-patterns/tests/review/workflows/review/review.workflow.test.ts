@@ -1,3 +1,4 @@
+import { StepError } from "@agboss/core";
 import { describe, expect } from "vitest";
 import {
   failWith,
@@ -93,7 +94,7 @@ describe("a reviewer per section, then the critics side by side", () => {
     expect(mockModel(SectionReviewerAgent).requests).toHaveLength(20);
   });
 
-  test("a critic that fails takes .onError(StepFailedError, …): the plan, unreviewed", async ({
+  test("a critic that fails takes .onError(StepError, …): the plan, unreviewed", async ({
     app,
     mockModel,
   }) => {

@@ -22,6 +22,10 @@ import { StoreError, StoreErrorKind } from "../../src/stores/index.js";
 declare const thrown: unknown;
 
 describe("#1325a: a family is a discriminated union", () => {
+  it("a deadline names when it passed, as text", () => {
+    expectTypeOf<LimitError.Deadline["deadlineAt"]>().toEqualTypeOf<string>();
+  });
+
   it("narrows `unknown` with instanceof, then by kind to the variant's own facts", () => {
     if (!(thrown instanceof LimitError)) return;
     expectTypeOf(thrown).toEqualTypeOf<LimitError>();
@@ -31,22 +35,23 @@ describe("#1325a: a family is a discriminated union", () => {
         expectTypeOf(thrown.maxSpend).not.toBeAny();
         expectTypeOf(thrown.budget.name).toEqualTypeOf<string>();
         break;
-      case LimitErrorKind.Deadline:
-        expectTypeOf(thrown.deadlineAt).toEqualTypeOf<Date>();
-        break;
       case LimitErrorKind.Items:
         expectTypeOf(thrown.node).toEqualTypeOf<string>();
         expectTypeOf(thrown.actual).toEqualTypeOf<number>();
         break;
+      case LimitErrorKind.Agent:
       case LimitErrorKind.Steps:
       case LimitErrorKind.Visits:
-      case LimitErrorKind.Depth:
-      case LimitErrorKind.Hops:
-      case LimitErrorKind.MeshLoop:
         expectTypeOf(thrown.limit).toEqualTypeOf<number>();
         break;
       default:
-        expectTypeOf(thrown).toBeNever();
+        // the rest: a deadline, a depth, a mesh hop or loop
+        expectTypeOf(thrown.kind).toEqualTypeOf<
+          | LimitErrorKind.Deadline
+          | LimitErrorKind.Depth
+          | LimitErrorKind.Hops
+          | LimitErrorKind.MeshLoop
+        >();
     }
   });
 

@@ -93,7 +93,7 @@ export class ReviewWorkflow {}
   action, another router or a finish.
 - `maxVisits` bounds the cycles: every cycle needs it on at least one of its nodes, a router or an
   agent (`[graph.cycle-without-max-visits]`). A visit past it fails before the model call with
-  `VisitsLimitExceededError` (`limit.visits`, `<name>.maxVisits`), which `.onError` right after the
+  `LimitError.Visits` (`limit.visits`, `<name>.maxVisits`), which `.onError` right after the
   step can take. `@Workflow({ executionLimits: { maxSteps } })` stays the run-wide limit. `agboss g router` writes
   `maxVisits: 1`.
 - Routes are sent **sorted by target name** — declaration order changes neither the request nor its
@@ -103,8 +103,8 @@ export class ReviewWorkflow {}
   or a **chat model** (answers with the option, validated); without `model`, `defaults.router.model`.
   One route → no model call.
 - No guessing: a failed model call (after its provider's retries) fails the step with
-  `RouterFailedError` (`step.router`, the call's error as `cause`, its spend kept); an answer that is
-  not one of its routes, or not a readable answer, with `RouterDecisionError`
+  `StepError.Router` (`step.router`, the call's error as `cause`, its spend kept); an answer that is
+  not one of its routes, or not a readable answer, with `StepError.RouterDecision`
   (`step.router.invalid-decision`) — never retried ([Errors](#errors)).
 
 **There is no built-in "finish" option**: "return to the user" is a route to a workflow finish.
@@ -238,7 +238,7 @@ import { CreditLimitRouter } from "./credit-limit.router.js";
     onStart(OrderWorkflowStart)
       .toRouter(CreditLimitRouter)
       .onError(
-        CreditServiceUnavailableError, // thrown by route(): caught through RouterFailedError's cause
+        CreditServiceUnavailableError, // thrown by route(): caught through StepError.Router's cause
         toFinish(OrderHeldWorkflowFinish),
       )
       .onRoute(
@@ -267,7 +267,7 @@ export class CreditWorkflow {}
   DTO first.
 - **`Route<Self>`** is the union of the router's targets, generated into `.agboss/types.d.ts` by
   `agboss check` — returning a class outside `routes` does not compile. A cast that gets one past
-  the compiler fails the step at run time with `RouterDecisionError`.
+  the compiler fails the step at run time with `StepError.RouterDecision`.
 - **Dependencies through the constructor**, like an action: services in `deps`, the execution as
   `deps: [ExecutionContext]` (`executionContext.step.nodeId` is `credit-limit-router`, its
   `idempotencyKey` `${executionId}:credit-limit-router:${visitNumber}`). Unit-test it without the
@@ -287,7 +287,7 @@ and R decides which of them are launched, the others never run. A model router's
 router's `route()` returns the targets to launch as a list, `[]` included. A branch the router did not
 choose gives an `optional(XDto)` value to the join. There is no per-route launch policy: the 0.1.0
 `spawn` and `failure` options (`SpawnPolicy`, `FailurePolicy`) are gone — a failure a launch may
-survive is `.onError(StepFailedError, skip())` on its branch. How a model router decides its routes
+survive is `.onError(StepError, skip())` on its branch. How a model router decides its routes
 is in [Routing patterns](Advanced-Routing#6-a-router-decides-who-is-launched).
 
 ## Errors
@@ -296,14 +296,14 @@ A router's step fails in two ways (#280 S19), both caught by `.onError(…)` rig
 
 | Error | Code | When |
 | --- | --- | --- |
-| `RouterFailedError` | `step.router` | `route()` threw, or a model router's model call failed — the original error is its `cause` |
-| `RouterDecisionError` | `step.router.invalid-decision` | the answer is not allowed: a target outside `routes` (a cast), a list outside `chooseMany([…])`, an unknown or unreadable answer from the model — never retried |
+| `StepError.Router` | `step.router` | `route()` threw, or a model router's model call failed — the original error is its `cause` |
+| `StepError.RouterDecision` | `step.router.invalid-decision` | the answer is not allowed: a target outside `routes` (a cast), a list outside `chooseMany([…])`, an unknown or unreadable answer from the model — never retried |
 
-Both carry `component` (`{ name }`), `nodeId` and `visitNumber`; `RouterDecisionError` is a
-`RouterFailedError` (its `reason` says what was wrong), so `.onError(RouterFailedError, …)` takes
+Both carry `component` (`{ name }`), `nodeId` and `visitNumber`; `StepError.RouterDecision` is a
+`StepError.Router` (its `reason` says what was wrong), so `.onError(StepError.Router, …)` takes
 both. Matching goes through the cause chain: `.onError(CreditServiceUnavailableError, …)` takes the
-service's failure inside `RouterFailedError`, as in the credit flow above. A limit
-(`LimitExceededError`), a cancel or a pause thrown inside `route()` passes as it is, never wrapped.
+service's failure inside `StepError.Router`, as in the credit flow above. A limit
+(`LimitError`), a cancel or a pause thrown inside `route()` passes as it is, never wrapped.
 
 ## The router engine and `DecisionModel`
 
@@ -313,8 +313,8 @@ about graphs or agents, and it is not a public type (`RouterEngine`, `RouteReque
 (`DECISION_MODELS`: Jev and the others, on a provider with a `DecisionsDriver`: a `choice` question,
 probabilities, the cost the API reports) or a **chat model** (it replies with the option, validated).
 Failures (HTTP error, malformed output, unknown option) are `failed` outcomes, never exceptions; a
-failed call keeps its error as `cause` (the flow turns it into `RouterFailedError`, the other
-failures into `RouterDecisionError`). One option → decided without a model call.
+failed call keeps its error as `cause` (the flow turns it into `StepError.Router`, the other
+failures into `StepError.RouterDecision`). One option → decided without a model call.
 
 A component that needs a cheap decision of its own injects the public `DecisionModel` — a `@Tool`, an
 `@Action` or a service with `deps: [DecisionModel]`. Its call is checked against the tree's budgets

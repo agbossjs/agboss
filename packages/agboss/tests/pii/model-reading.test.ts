@@ -6,13 +6,13 @@
  * image's data left as it is), a chat reply revealed for `judge()`. A model arbiter: the answer, its
  * criterion and instructions masked before its model reads them.
  */
+import { PiiError } from "../../src/core/error-families/limit-errors.js";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { describe, expect, it } from "vitest";
 import { componentOf } from "../../src/components/metadata.js";
 import { JudgeReading } from "../../src/graph/agent-loop/judge-reading.js";
 import { createArbiterModel } from "../../src/flow/runtime/launch/arbiter-model.js";
 import { Decision } from "../../src/index.js";
-import { PiiRefusedError } from "../../src/pii/errors.js";
 import { modelReadingMaskOf, type ModelReadingMask } from "../../src/pii/model-boundary.js";
 import type { PiiPolicyMeta } from "../../src/pii/pii-policy.decorator.js";
 import { PiiPolicySet } from "../../src/pii/policy-set.js";
@@ -59,12 +59,12 @@ describe("#708: the reading of a model called on an agent's behalf", () => {
     expect(Object.values(read.tokens)).toContain(EMAIL);
   });
 
-  it("a block rule refuses with PiiRefusedError, whatever its place among the texts", async () => {
+  it("a block rule refuses with PiiError.Refused, whatever its place among the texts", async () => {
     const refused = await contacts()([`Write to ${EMAIL}`, `Card ${CARD}`]).catch(
       (error: unknown) => error,
     );
 
-    expect(refused).toBeInstanceOf(PiiRefusedError);
+    expect(refused).toBeInstanceOf(PiiError.Refused);
     expect(refused).toMatchObject({ refusal: "Please do not send a card-number." });
   });
 });

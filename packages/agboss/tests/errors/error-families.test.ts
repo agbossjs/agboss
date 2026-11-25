@@ -93,6 +93,9 @@ const FACTS: Readonly<Record<string, Readonly<Record<string, unknown>>>> = {
 
 /** The variants whose default sentence is made of their facts (the A2A client's: the agent, the task, the code). */
 const SENTENCE_OF_FACTS: ReadonlySet<string> = new Set([
+  "StepError.Agent",
+  "GuardrailError.Blocked",
+  "PiiError.Refused",
   "A2AError.Contract",
   "A2AError.Protocol",
   "A2AError.Remote",

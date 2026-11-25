@@ -1,4 +1,5 @@
-import { QuorumNotReachedError, onStart, toAgent, toFinish, Workflow, Ttl } from "@agboss/core";
+import { StepError } from "@agboss/core";
+import { onStart, toAgent, toFinish, Workflow, Ttl } from "@agboss/core";
 import { seconds } from "@agboss/core/units";
 import { CultureScoreAgent } from "../../agents/culture-score/culture-score.agent.js";
 import { HireScoreAgent } from "../../agents/hire-score/hire-score.agent.js";
@@ -25,7 +26,7 @@ import { PanelWorkflowStart } from "./panel.workflow-start.js";
       .inParallel([toAgent(SkillsScoreAgent), toAgent(CultureScoreAgent), toAgent(HireScoreAgent)])
       .arbitratedBy(PanelScoreArbiter)
       .joinQuorum({ min: 2, max: 3, deadline: seconds(30) })
-      .onError(QuorumNotReachedError, toFinish(PanelUndecidedWorkflowFinish))
+      .onError(StepError.QuorumNotReached, toFinish(PanelUndecidedWorkflowFinish))
       .toAgent(ScoreSummaryAgent)
       .toFinish(PanelReviewWorkflowFinish),
   ],

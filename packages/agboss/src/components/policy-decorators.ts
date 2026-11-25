@@ -12,7 +12,7 @@ import { resolvedName } from "../flow/names.js";
  * Guardrails (#120): safety checks at the model boundary of agents and model routers — they block,
  * judges correct. `@InputGuardrail` reads what a model reads in a visit (its input message, masked by
  * its PII policies), `@OutputGuardrail` what an agent answers. A model decides yes / no on the
- * guardrail's `prompt`; at P(yes) ≥ `threshold` the execution fails with `GuardrailBlockedError`
+ * guardrail's `prompt`; at P(yes) ≥ `threshold` the execution fails with `GuardrailError.Blocked`
  * and its `refusal` goes to the sender. Listed in `guardrails: [...]` of `@Application`, `@Workflow`,
  * `@Agent` and `@Router` — lists add up, `excludeGuardrails` removes one for an agent or a router.
  * A class that sets no question, threshold or model decides by its `check(content)` instead (#383,

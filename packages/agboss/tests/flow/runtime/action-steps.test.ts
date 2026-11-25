@@ -1,3 +1,4 @@
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import { describe, expect } from "vitest";
 import { Text } from "../../../src/dto/index.js";
 import {
@@ -5,7 +6,6 @@ import {
   DecidedBy,
   EmptyEnvironment,
   Router,
-  StepsLimitExceededError,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
@@ -114,7 +114,7 @@ class SpinShortWorkflow {}
     onStart(SpinStart).toAction(SpinAction),
     onAction(SpinAction)
       .toRouter(SpinRouter)
-      .onError(StepsLimitExceededError, toAction(SpinRecoverAction).toFinish(SpinRecoveredFinish))
+      .onError(LimitError.Steps, toAction(SpinRecoverAction).toFinish(SpinRecoveredFinish))
       .onRoute(toAction(SpinAction))
       .onRoute(toFinish(SpinFinish)),
   ],
@@ -143,7 +143,7 @@ describe("#1278b: actions count toward maxSteps", () => {
     async ({ app }) => {
       const run = execute(app, SpinStart, { text: "go" });
 
-      await expect(run).rejects.toBeInstanceOf(StepsLimitExceededError);
+      await expect(run).rejects.toBeInstanceOf(LimitError.Steps);
       await expect(run).rejects.toMatchObject({
         maxSteps: 5,
         steps: 6,

@@ -2,11 +2,12 @@
  * #120 PR 2 — guardrails at run time (AC1, AC2, AC4, S84 i): an input guardrail checks what an
  * agent's or a model router's model reads, masked by its PII policies, before that model is
  * called; an output guardrail checks what an agent answered. A hit at or above the threshold fails
- * the execution with `GuardrailBlockedError` and its refusal; a model that does not answer fails
+ * the execution with `GuardrailError.Blocked` and its refusal; a model that does not answer fails
  * closed.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
+import { GuardrailError } from "../../src/core/error-families/limit-errors.js";
 import { describe, expect } from "vitest";
-import { GuardFailedError, GuardrailBlockedError } from "../../src/index.js";
 import {
   decideWith,
   failWith,
@@ -54,9 +55,9 @@ describe("#120 AC1, AC2: a guardrail blocks with its refusal", () => {
       { execution: { locale: "he" } },
     );
 
-    await expect(run).rejects.toFailWith(GuardrailBlockedError, {
+    await expect(run).rejects.toFailWith(GuardrailError.Blocked, {
       code: "guardrail.blocked",
-      guard: "legal-advice-guardrail",
+      guardrail: "legal-advice-guardrail",
       refusal: "אני לא נותן ייעוץ משפטי.",
       key: "guardrails.legal-advice-guardrail.threshold",
       probability: 0.9,
@@ -75,8 +76,8 @@ describe("#120 AC1, AC2: a guardrail blocks with its refusal", () => {
 
     const run = execute(app, ClinicStart, { text: "My landlord kept my deposit." }, english);
 
-    await expect(run).rejects.toFailWith(GuardrailBlockedError, {
-      guard: "no-legal-advice-guardrail",
+    await expect(run).rejects.toFailWith(GuardrailError.Blocked, {
+      guardrail: "no-legal-advice-guardrail",
       refusal: "I can't give legal advice. Please contact a lawyer.",
     });
     expect(inputsOf(mockModel(NoLegalAdviceGuardrail).requests)).toEqual([
@@ -101,7 +102,7 @@ describe("#120 AC1, AC2: a guardrail blocks with its refusal", () => {
     );
   });
 
-  test("a guardrail's model that does not answer fails closed: GuardFailedError", async ({
+  test("a guardrail's model that does not answer fails closed: StepError.Guardrail", async ({
     app,
     mockModel,
   }) => {
@@ -109,7 +110,7 @@ describe("#120 AC1, AC2: a guardrail blocks with its refusal", () => {
 
     const run = execute(app, ClinicStart, { text: "Hello" }, english);
 
-    await expect(run).rejects.toFailWith(GuardFailedError, { code: "step.guard" });
+    await expect(run).rejects.toFailWith(StepError.Guardrail, { code: "step.guardrail" });
     expect(mockModel(TriageRouter)).toHaveBeenCalledTimes(0);
   });
 });

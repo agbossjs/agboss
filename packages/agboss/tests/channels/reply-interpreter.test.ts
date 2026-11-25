@@ -6,11 +6,12 @@
  * pause stays pending; a role without an interpreter throws `PauseError.ChannelInterpreterMissing`, the
  * pause untouched. The model call counts in the execution's spend and the tenant's ledger, once.
  */
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { beforeEach, describe, expect } from "vitest";
 import { BudgetScope } from "../../src/budgets/budget.js";
 import { ToolCallApprovalDecisionDto } from "../../src/dto/standard/framework.js";
-import { BudgetExceededError, PauseStatus, ValidationError } from "../../src/index.js";
+import { PauseStatus, ValidationError } from "../../src/index.js";
 import { ChannelInterpretation } from "../../src/channels/channel-interpreter.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import { TestSetupError } from "../../src/testing/errors.js";
@@ -174,7 +175,7 @@ describe("#267 AC8: a model interpreter reads a free-text reply", () => {
 
     const resumed = app.resume({ pauseId: payoutPauseId(), reply: "fine" }, manager);
 
-    await expect(resumed).rejects.toBeInstanceOf(BudgetExceededError);
+    await expect(resumed).rejects.toBeInstanceOf(LimitError.Budget);
     await expect(resumed).rejects.toMatchObject({ budget: { name: "test-tenant-daily-budget" } });
     // the decision is taken (the tool runs); the agent's next model call is stopped
     expect(mockModel(TreasurerAgent).requests).toHaveLength(1);
@@ -195,7 +196,7 @@ describe("#267 AC8: a model interpreter reads a free-text reply", () => {
 
     const refused = app.resume({ pauseId, reply: "yes" }, manager);
 
-    await expect(refused).rejects.toBeInstanceOf(BudgetExceededError);
+    await expect(refused).rejects.toBeInstanceOf(LimitError.Budget);
     expect(mockModel(PayoutReplyInterpreter).requests).toHaveLength(1);
     const stored = await treasuryPauses().findByTenantIdAndPauseId("default", pauseId);
     expect(stored?.status).toBe(PauseStatus.Pending);

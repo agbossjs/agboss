@@ -1,3 +1,6 @@
+import { StepError } from "../../core/error-families/step-errors.js";
+import { PiiError } from "../../core/error-families/limit-errors.js";
+import { LimitError } from "../../core/error-families/limit-errors.js";
 import { lazyLoad } from "../../infrastructure/clock.js";
 import { bareRecordOf, ComponentKind } from "../../flow/runtime/records.js";
 import { HumanMessage } from "@langchain/core/messages";
@@ -16,9 +19,6 @@ import type { UsageRecord } from "../../finops/usage.js";
 import { contentWithPieces } from "../../files/file-pieces.js";
 import { fileMaskOf, type FileMask } from "../../files/file-mask.js";
 import { NO_FILES, filePiecesOf, type FilePieces } from "../../files/visit-files.js";
-import { PiiRefusedError } from "../../pii/errors.js";
-import { AgentFailedError, StepFailedError } from "../errors.js";
-import { LimitExceededError } from "../limits.js";
 import { loopPoliciesOf } from "./model-pii.js";
 import { loopUsage, type AgentLoopStateType, type AgentLoopUpdate } from "./state.js";
 
@@ -134,12 +134,12 @@ async function inputFilesOf(
     });
   } catch (error) {
     if (
-      error instanceof StepFailedError ||
-      error instanceof LimitExceededError ||
-      error instanceof PiiRefusedError
+      error instanceof StepError ||
+      error instanceof LimitError ||
+      error instanceof PiiError.Refused
     )
       throw error;
-    throw new AgentFailedError({ agent: deps.agent.name, usage: loopUsage(state), cause: error });
+    throw new StepError.Agent({ agent: deps.agent.name, usage: loopUsage(state), cause: error });
   }
 }
 

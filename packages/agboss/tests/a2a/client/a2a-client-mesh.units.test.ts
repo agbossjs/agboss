@@ -1,3 +1,4 @@
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import { A2AError } from "../../../src/core/error-families/remote-errors.js";
 /**
  * #810 — the client's mesh facts one unit at a time: the echo of the extension (what the agent
@@ -27,7 +28,6 @@ import {
   A2AClientOperation,
   A2ARemoteCallReason,
 } from "../../../src/a2a/client/a2a-client-errors.js";
-import { HopsLimitExceededError } from "../../../src/index.js";
 import { A2APeerKind } from "../../../src/a2a/client/a2a-card.js";
 import { currentFrame, runInFrame } from "../../../src/flow/context/frame.js";
 import type { ToolCallRemote } from "../../../src/mesh/mesh-call.js";
@@ -240,7 +240,7 @@ describe("#849: a stored refusal is read back once, fail-closed", () => {
 
   it("still refused: the limit thrown, recorded, nothing charged", async () => {
     const done = await refusedWith("t-1", taskOf("t-1", TaskState.TASK_STATE_REJECTED, LIMIT));
-    expect(done.error).toBeInstanceOf(HopsLimitExceededError);
+    expect(done.error).toBeInstanceOf(LimitError.Hops);
     expect(done).toMatchObject({ charged: 0, recorded: 1, reads: ["t-1"] });
   });
 
@@ -268,7 +268,7 @@ describe("#849: a stored refusal is read back once, fail-closed", () => {
 
   it("a mesh refusal is a REJECTED task with a mesh limit only — not a FAILED one, nor one of no status", () => {
     expect(meshRefusalOf(taskOf("t-1", TaskState.TASK_STATE_REJECTED, LIMIT))).toBeInstanceOf(
-      HopsLimitExceededError,
+      LimitError.Hops,
     );
     expect(meshRefusalOf(taskOf("t-1", TaskState.TASK_STATE_FAILED, LIMIT))).toBeUndefined();
     expect(

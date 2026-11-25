@@ -4,10 +4,10 @@
  * `PauseError.Closed`; a join's deadline counts elapsed time, pauses included (#279:
  * `tests/flow/runtime/quorum-deadline.test.ts`).
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { beforeEach, describe, expect } from "vitest";
 import { PauseClosedReason, PauseStatus } from "../../src/index.js";
-import { AgentFailedError } from "../../src/graph/errors.js";
 import { callTool, failWith, ModelFailure, testWith, waitFor } from "../../src/testing/index.js";
 import { seconds } from "../../src/units/index.js";
 import { execute } from "../helpers/flow.js";
@@ -42,7 +42,7 @@ describe("#267 AC10: FailFast drops the paused siblings' pauses", () => {
     await clock.advance(seconds(5));
 
     // the join runs in the pass that took the withdrawal: the sibling's own error object, kept
-    await expect(run).rejects.toBeInstanceOf(AgentFailedError);
+    await expect(run).rejects.toBeInstanceOf(StepError.Agent);
     await expect(run).rejects.toMatchObject({ agent: "audit-check-agent" });
     const stored = await pauseStore().findByTenantIdAndPauseId("default", askFor("7").pauseId);
     expect(stored?.status).toBe(PauseStatus.Cancelled);

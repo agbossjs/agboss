@@ -4,6 +4,7 @@
  * no model call, no spend), refused at assembly with a model (`[judge.model-on-code-judge]`) or an
  * injected `JudgeModel`, and run by `testUnit` without a model script.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
@@ -15,7 +16,6 @@ import {
   Judge,
   JudgeModel,
   JudgeVerdict,
-  QualityGateError,
   Workflow,
   type JudgeHandler,
   inline,
@@ -62,7 +62,7 @@ describe("#396: a code judge in an agent's quality gate", () => {
     expect(result.spend.totalUsd).toBeCloseTo(0.005, 6);
   });
 
-  test("a code judge that keeps rejecting ends the run with QualityGateError", async ({
+  test("a code judge that keeps rejecting ends the run with StepError.QualityGate", async ({
     app,
     mockModel,
   }) => {
@@ -70,7 +70,7 @@ describe("#396: a code judge in an agent's quality gate", () => {
     mockModel(Grounded).thenReturnAlways(replyWith("PASS"));
 
     await expect(execute(app, PromiseStart, { text: "?" })).rejects.toBeInstanceOf(
-      QualityGateError,
+      StepError.QualityGate,
     );
   });
 

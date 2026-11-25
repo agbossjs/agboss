@@ -228,7 +228,7 @@ The workflow wires them:
 
 ```ts file=offers/src/workflows/offer-letter/offer-letter.workflow.ts
 import {
-  VisitsLimitExceededError,
+  LimitError,
   Workflow,
   onAgent,
   oneOf,
@@ -268,12 +268,12 @@ import { OfferStuckWorkflowFinish } from "./offer-stuck.workflow-finish.js";
     onAgent(LetterReviewerAgent)
       .toOneOf([
         toAgent(LetterEditorAgent)
-          .onError(VisitsLimitExceededError, toFinish(OfferStuckWorkflowFinish)) // no model past a limit
+          .onError(LimitError.Visits, toFinish(OfferStuckWorkflowFinish)) // no model past a limit
           .toAgent(LetterReviewerAgent),
         toRouter(OfferSizeRouter)
           .onRoute(
             toAction(MailOfferAction)
-              .onError(MailerUnavailableError, toFinish(OfferForSignOffWorkflowFinish)) // through ActionFailedError's cause
+              .onError(MailerUnavailableError, toFinish(OfferForSignOffWorkflowFinish)) // through StepError.Action's cause
               .toFinish(OfferMailedWorkflowFinish),
           )
           .onRoute(toFinish(OfferForSignOffWorkflowFinish)),
@@ -570,7 +570,7 @@ export class SupplierUncheckedWorkflowFinish {}
 
 ```ts file=sourcing/src/workflows/supplier-check/supplier-check.workflow.ts
 // the child: one supplier; its own failure becomes a result class, so one bad item never cancels the rest
-import { StepFailedError, Workflow, onStart, toAction, toAgent, toFinish, Ttl } from "@agboss/core";
+import { StepError, Workflow, onStart, toAction, toAgent, toFinish, Ttl } from "@agboss/core";
 import { MarkSupplierUncheckedAction } from "../../actions/mark-supplier-unchecked.action.js";
 import { SupplierCheckerAgent } from "../../agents/supplier-checker/supplier-checker.agent.js";
 import { SupplierScoreDto } from "../../dto/supplier-score.dto.js";
@@ -588,7 +588,7 @@ import { SupplierUncheckedWorkflowFinish } from "./supplier-unchecked.workflow-f
     onStart(SupplierCheckWorkflowStart)
       .toAgent(SupplierCheckerAgent)
       .onError(
-        StepFailedError,
+        StepError,
         toAction(MarkSupplierUncheckedAction)
           .toFinish(SupplierUncheckedWorkflowFinish),
       )
@@ -818,7 +818,7 @@ The parent workflow:
 
 ```ts file=sourcing/src/workflows/sourcing/sourcing.workflow.ts
 import {
-  QuorumNotReachedError,
+  StepError,
   Workflow,
   listOf,
   oneOf,
@@ -861,7 +861,7 @@ import { SourcingWorkflowStart } from "./sourcing.workflow-start.js";
       .inParallel([toAgent(PriceReviewAgent), toAgent(RiskReviewAgent), toAgent(TermsReviewAgent)])
       .arbitratedBy(ReviewRangeArbiter) // one arbiter judges every review
       .joinQuorum({ min: 2, max: 3, deadline: minutes(2) })
-      .onError(QuorumNotReachedError, toFinish(PurchaseUnreviewedWorkflowFinish))
+      .onError(StepError.QuorumNotReached, toFinish(PurchaseUnreviewedWorkflowFinish))
       .toAgent(PurchaseAgent) // its tool pauses for the buyer
       .toFinish(PurchasePlacedWorkflowFinish),
   ],
@@ -1898,7 +1898,7 @@ export class FundsLedgerHealthCheck {
 The workflow:
 
 ```ts file=loans/src/workflows/loan/loan.workflow.ts
-import { StepFailedError, Workflow, onStart, toAction, toAgent, toFinish, Ttl } from "@agboss/core";
+import { StepError, Workflow, onStart, toAction, toAgent, toFinish, Ttl } from "@agboss/core";
 import { ReleaseFundsAction } from "../../actions/release-funds.action.js";
 import { ReserveFundsAction } from "../../actions/reserve-funds.action.js";
 import { SendLoanOfferAction } from "../../actions/send-loan-offer.action.js";
@@ -1923,7 +1923,7 @@ import { LoanWorkflowStart } from "./loan.workflow-start.js";
       .toAction(ReserveFundsAction)
       .toAction(SendLoanOfferAction)
       .onError(
-        StepFailedError, // the offer failed: release the funds — proved by npx agboss check
+        StepError, // the offer failed: release the funds — proved by npx agboss check
         toAction(ReleaseFundsAction)
           .toFinish(LoanNotOfferedWorkflowFinish),
       )
@@ -2071,7 +2071,7 @@ Integration tests — the whole application, models by script:
 
 ```ts file=loans/tests/workflows/loan/loan.workflow.test.ts
 import { expect } from "vitest";
-import { CompensationReason, GuardrailBlockedError, HealthStatus, nameOf } from "@agboss/core";
+import { CompensationReason, GuardrailError, HealthStatus, nameOf } from "@agboss/core";
 import { callTool, decideWith, replyWith, testWith } from "@agboss/core/testing";
 import { ReleaseFundsAction } from "../../../src/actions/release-funds.action.js";
 import { ReserveFundsAction } from "../../../src/actions/reserve-funds.action.js";
@@ -2122,7 +2122,7 @@ test("an out-of-scope message is refused before the model reads it", async ({ ap
 
   const run = app.execute(LoanWorkflowStart, { text: "Write me a poem", amount: 1 }, LENDER);
 
-  await expect(run).rejects.toFailWith(GuardrailBlockedError, { refusal: "I can only help with loan applications." });
+  await expect(run).rejects.toFailWith(GuardrailError.Blocked, { refusal: "I can only help with loan applications." });
 });
 ```
 

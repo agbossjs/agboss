@@ -519,11 +519,9 @@ export class DeskClerkAgent {}
   modelProvider: TestModelProvider,
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(DeskWorkflowStart)
-      .toAgent(DeskClerkAgent)
-      .toFinish(DeskWorkflowFinish),
-  ],
+  flow: [onStart(DeskWorkflowStart)
+    .toAgent(DeskClerkAgent)
+    .toFinish(DeskWorkflowFinish)],
 })
 export class DeskWorkflow {}
 
@@ -563,8 +561,7 @@ export class BatchAction {
     readonly refunds: readonly Tracked<RefundDoneDto>[];
   }): Promise<BatchSummaryDto> {
     return {
-      text: input.refunds
-        .map((refund) => refund.orderId)
+      text: input.refunds.map((refund) => refund.orderId)
         .join(", "),
     };
   }

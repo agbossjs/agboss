@@ -2,8 +2,8 @@
  * #1006 AC1, AC2: every delta names its step; what a judge rejects, a refused move or a broken call
  * produced is retracted by a `discarded` event, once; the kept deltas, joined, are the reply.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { describe, expect } from "vitest";
-import { QualityGateError } from "../../src/index.js";
 import {
   StreamDiscardReason,
   StreamEventKind,
@@ -68,7 +68,7 @@ describe("#1006: a judge rejects an attempt", () => {
       (error: unknown) => error,
     );
 
-    expect(failure).toBeInstanceOf(QualityGateError);
+    expect(failure).toBeInstanceOf(StepError.QualityGate);
     expect(
       events.map((event) =>
         event.kind === StreamEventKind.ToolCall

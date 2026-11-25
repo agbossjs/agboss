@@ -35,7 +35,7 @@ export enum ToolCallStatus {
   Replied = "replied",
   /**
    * A tool interceptor stopped the call (#384: `ToolCallDecision.block`): the tool never ran and the
-   * step fails with `ToolBlockedError` (its record in `error`).
+   * step fails with `StepError.ToolBlocked` (its record in `error`).
    */
   Blocked = "blocked",
   /**

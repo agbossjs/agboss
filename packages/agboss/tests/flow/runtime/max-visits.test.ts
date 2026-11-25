@@ -1,6 +1,6 @@
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import { describe, expect } from "vitest";
 import { ExecutionStatus } from "../../../src/app/types.js";
-import { LimitExceededError, VisitsLimitExceededError } from "../../../src/index.js";
 import { replyWith, routeTo, testWith } from "../../../src/testing/index.js";
 import { execute } from "../../helpers/flow.js";
 import {
@@ -31,9 +31,9 @@ describe("#272 AC14: a visit past maxVisits fails before the node runs", () => {
 
       const run = execute(app, EditStart, { text: "a poem" });
 
-      await expect(run).rejects.toBeInstanceOf(VisitsLimitExceededError);
-      const error = (await run.catch((caught: unknown) => caught)) as VisitsLimitExceededError;
-      expect(error).toBeInstanceOf(LimitExceededError);
+      await expect(run).rejects.toBeInstanceOf(LimitError.Visits);
+      const error = (await run.catch((caught: unknown) => caught)) as LimitError.Visits;
+      expect(error).toBeInstanceOf(LimitError);
       expect(error).toMatchObject({
         code: "limit.visits",
         component: { name: "editor-agent" },
@@ -70,7 +70,7 @@ describe("#272 AC14: a visit past maxVisits fails before the node runs", () => {
   );
 
   patient(
-    "caught by .onError(VisitsLimitExceededError, …) right after the step",
+    "caught by .onError(LimitError.Visits, …) right after the step",
     async ({ app, mockModel }) => {
       mockModel(PatientGateRouter).thenReturnAlways(routeTo(PatientEditorAgent));
       mockModel(PatientEditorAgent).thenReturn(...drafts("v1", "v2"));

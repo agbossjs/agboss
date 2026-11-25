@@ -1,3 +1,6 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
+import { GuardrailError } from "../../../src/core/error-families/limit-errors.js";
 import { usd } from "../../../src/units/index.js";
 /**
  * #1366: the runtime errors keep their facts as fields and details (visits key and figures, attempts, a guardrail's
@@ -6,19 +9,13 @@ import { usd } from "../../../src/units/index.js";
 import { GraphInterrupt } from "@langchain/langgraph";
 import { describe, expect, it } from "vitest";
 import { ExecutionCancelledError } from "../../../src/core/errors.js";
-import { LimitExceededError } from "../../../src/graph/limits.js";
 import { bareRecordOf, ComponentKind } from "../../../src/flow/runtime/records.js";
-import {
-  AgentAnswerInvalidError,
-  GuardrailBlockedError,
-  passesThrough,
-  VisitsLimitExceededError,
-} from "../../../src/flow/runtime/errors.js";
+import { passesThrough } from "../../../src/flow/runtime/errors.js";
 
 describe("#1366: runtime errors", () => {
   it("a visits limit is keyed by its node and carries its figures in its details", () => {
     const component = bareRecordOf("router-1", ComponentKind.Router);
-    const error = new VisitsLimitExceededError({
+    const error = new LimitError.Visits({
       component,
       maxVisits: 3,
       path: ["a"],
@@ -38,15 +35,15 @@ describe("#1366: runtime errors", () => {
   });
 
   it("an invalid-answer error keeps its attempts in its details", () => {
-    const error = new AgentAnswerInvalidError({ agent: "writer", attempts: 3, usage: [] });
+    const error = new StepError.AgentAnswerInvalid({ agent: "writer", attempts: 3, usage: [] });
 
     expect(error.attempts).toBe(3);
     expect(error.details).toMatchObject({ agent: "writer", attempts: 3 });
   });
 
   it("a guardrail block keeps its refusal, key, sureness and threshold", () => {
-    const error = new GuardrailBlockedError({
-      guard: "pii",
+    const error = new GuardrailError.Blocked({
+      guardrail: "pii",
       refusal: "Withheld.",
       usage: [],
       probability: 0.9,
@@ -55,7 +52,7 @@ describe("#1366: runtime errors", () => {
 
     expect(error.key).toBe("guardrails.pii.threshold");
     expect(error.details).toEqual({
-      guard: "pii",
+      guardrail: "pii",
       refusal: "Withheld.",
       key: "guardrails.pii.threshold",
       probability: 0.9,
@@ -67,7 +64,7 @@ describe("#1366: runtime errors", () => {
     expect(passesThrough(new GraphInterrupt([]))).toBe(true);
     expect(
       passesThrough(
-        new LimitExceededError({ key: "k", limit: 1, actual: 2, path: [], spentUsd: usd(0) }),
+        new LimitError.Agent({ key: "k", limit: 1, actual: 2, path: [], spentUsd: usd(0) }),
       ),
     ).toBe(true);
     expect(passesThrough(new ExecutionCancelledError())).toBe(true);

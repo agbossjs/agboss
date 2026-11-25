@@ -1,3 +1,4 @@
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import { A2AError } from "../../../src/core/error-families/remote-errors.js";
 /**
  * #810 AC5 (money) — an A2A call's charges across a takeover, end to end: the caller's step asks
@@ -25,7 +26,6 @@ import {
   PRICE,
   resetCaller,
 } from "./fixtures/caller/caller.application.js";
-import { HopsLimitExceededError } from "../../../src/index.js";
 import { peer, resetPeer, StrictPeerApplication } from "./fixtures/peer/peer.application.js";
 import { executionSpentOf, servePeer, type ServedPeer } from "./fixtures/serve-peer.js";
 
@@ -173,13 +173,13 @@ describe("#849: a call the peer REJECTED charges nothing, a takeover's replay of
       const { a, b, call } = await started(apps, StrictPeerApplication);
       await untilReached(() => caller.frozen.length === 1, "A frozen after its refused call");
       await settle();
-      expect(caller.callErrors[0]).toBeInstanceOf(HopsLimitExceededError);
+      expect(caller.callErrors[0]).toBeInstanceOf(LimitError.Hops);
       // pass 1 charged nothing: the peer refused before anything ran
       expect(await executionSpentOf(b, ROOT)).toBe(0);
 
       await takenOverByB(clock, leases, a);
       await untilReached(
-        () => caller.callErrors.slice(1).some((error) => error instanceof HopsLimitExceededError),
+        () => caller.callErrors.slice(1).some((error) => error instanceof LimitError.Hops),
         "B's replayed call refused",
       );
       await settle();
@@ -187,9 +187,9 @@ describe("#849: a call the peer REJECTED charges nothing, a takeover's replay of
       expect(caller.sends).toHaveLength(1); // B replayed the accept: nothing sent again
       expect(peer.runs).toEqual([]); // nothing ran at the peer
       // B's pass heard the same refusal from the accept A recorded (a fenced write may come first)
-      expect(
-        caller.callErrors.slice(1).some((error) => error instanceof HopsLimitExceededError),
-      ).toBe(true);
+      expect(caller.callErrors.slice(1).some((error) => error instanceof LimitError.Hops)).toBe(
+        true,
+      );
       expect(await executionSpentOf(b, ROOT)).toBe(0);
       leases.thaw(a);
       for (const letGo of caller.frozen.splice(0)) letGo();

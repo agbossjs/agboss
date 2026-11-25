@@ -3,6 +3,7 @@
  * hand so each weight, each kind of edge and each message is read exactly. The shard `assembly-rules` mutates
  * `steps.ts` whole.
  */
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import { describe, expect, it } from "vitest";
 import { EdgeKind } from "../../../src/flow/analyse/flow-graph.js";
 import {
@@ -13,7 +14,6 @@ import {
   stepsRules,
 } from "../../../src/flow/analyse/steps.js";
 import { NodeKind } from "../../../src/flow/ast.js";
-import { StepsLimitExceededError } from "../../../src/graph/limits.js";
 import { branch, named, contextOf, edge, graphOf, join, node } from "./graph-fixture.js";
 
 const start = (name: string) => node(name, NodeKind.Start);
@@ -73,8 +73,8 @@ describe("#1366: a hand-set maxSteps against the shortest path", () => {
         ["S"],
       );
 
-    expect(tooLow(withHandler(StepsLimitExceededError), 1)).toEqual([]);
-    expect(tooLow(withHandler(Object.getPrototypeOf(StepsLimitExceededError)), 1)).toEqual([]);
+    expect(tooLow(withHandler(LimitError.Steps), 1)).toEqual([]);
+    expect(tooLow(withHandler(Object.getPrototypeOf(LimitError.Steps)), 1)).toEqual([]);
     expect(tooLow(withHandler(RangeError), 1)).toHaveLength(1);
     expect(tooLow(withHandler(undefined), 1)).toHaveLength(1);
   });

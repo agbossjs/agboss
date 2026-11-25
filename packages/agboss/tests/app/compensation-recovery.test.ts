@@ -1,3 +1,4 @@
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { beforeEach, describe, expect, vi, type Mocked } from "vitest";
 import { ApplicationStoppingError, ExecutionLeaseLostError } from "../../src/index.js";
@@ -183,9 +184,7 @@ describe("#340 AC4: an undo interrupted on one instance is finished by the other
       // the child took no step again: its undo finished, then the parent's side path released the seat
       expect(mockService(UnwindGate).wait.mock.calls).toHaveLength(1);
       expect(releasedIds(desk)).toEqual(["room-1", "room-1", "seat-1"]);
-      expect(unwindSeen.errors.map((event) => event.error.name)).toEqual([
-        "ChildExecutionFailedError",
-      ]);
+      expect(unwindSeen.errors.map((event) => event.error.name)).toEqual(["StepError.Child"]);
     },
   );
 });

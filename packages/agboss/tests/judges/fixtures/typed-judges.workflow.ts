@@ -98,11 +98,9 @@ export class ReportWorkflowFinish {}
   name: "typed-judge-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(TaskStart)
-      .toAgent(ScoutAgent)
-      .toFinish(ReportWorkflowFinish),
-  ],
+  flow: [onStart(TaskStart)
+    .toAgent(ScoutAgent)
+    .toFinish(ReportWorkflowFinish)],
   defaults: DEFAULTS,
   providers: [JobSearch, VariantLog],
 })
@@ -269,11 +267,8 @@ export class ListJudgedScoutAgent {}
   flow: [
     onStart(TaskStart)
       .toAgent(OfferJudgedScreenerAgent)
-      .toOneOf([
-        toFinish(OfferWorkflowFinish),
-        toAgent(ReportJudgedWriterAgent)
-          .toFinish(Reply),
-      ]),
+      .toOneOf([toFinish(OfferWorkflowFinish), toAgent(ReportJudgedWriterAgent)
+        .toFinish(Reply)]),
   ],
   defaults: DEFAULTS,
   providers: [JobSearch, VariantLog],
@@ -285,11 +280,9 @@ export class WrongReplyWorkflow {}
   name: "wrong-report-reply-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(TaskStart)
-      .toAgent(TextJudgedScoutAgent)
-      .toFinish(ReportWorkflowFinish),
-  ],
+  flow: [onStart(TaskStart)
+    .toAgent(TextJudgedScoutAgent)
+    .toFinish(ReportWorkflowFinish)],
   defaults: DEFAULTS,
 })
 export class WrongReportReplyWorkflow {}
@@ -369,12 +362,10 @@ export class JobsScoutAgent {}
   name: "list-judge-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(TaskStart)
-      .toAgent(JobsScoutAgent)
-      .toAgent(JobsSummaryAgent)
-      .toFinish(Reply),
-  ],
+  flow: [onStart(TaskStart)
+    .toAgent(JobsScoutAgent)
+    .toAgent(JobsSummaryAgent)
+    .toFinish(Reply)],
   defaults: DEFAULTS,
   providers: [JobSearch, VariantLog],
 })
@@ -479,11 +470,9 @@ export class ListJudgedReporterAgent {}
   name: "wrong-value-reply-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(TaskStart)
-      .toAgent(ListJudgedReporterAgent)
-      .toFinish(ReportWorkflowFinish),
-  ],
+  flow: [onStart(TaskStart)
+    .toAgent(ListJudgedReporterAgent)
+    .toFinish(ReportWorkflowFinish)],
   defaults: DEFAULTS,
   providers: [JobSearch, VariantLog],
 })

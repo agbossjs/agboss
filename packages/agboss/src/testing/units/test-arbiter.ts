@@ -33,7 +33,7 @@ const nameOfTarget = (target: Class): string => declarationOf(target)?.options.n
  * as given by the target; one that injects `ArbiterModel` asks its model, answering from `model`
  * like a declarative arbiter, which asks its own model with the target's criterion
  * (`decideWith({ counts: 0.9 })`, `{ cost }` for its spend, `arbiter:<name>`). An arbiter that
- * throws, returns no boolean or whose model does not answer rejects with `ArbiterError` (the
+ * throws, returns no boolean or whose model does not answer rejects with `StepError.Arbiter` (the
  * original as its cause) — never a rejection, as in a quorum.
  */
 export function arbiterUnit<

@@ -2,10 +2,11 @@
  * #395 PR 3: the model's invalid turns, scripted — `callToolWithInvalidArguments`,
  * `callToolWithTruncatedArguments` (both recorded `ToolCallStatus.InvalidArguments`, counted in the
  * step's `validationAttempts`, the tool never runs) and `replyWithInvalidAnswer` (an invalid answer:
- * the third fails the step with `AgentAnswerInvalidError`).
+ * the third fails the step with `StepError.AgentAnswerInvalid`).
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { describe, expect } from "vitest";
-import { AgentAnswerInvalidError, ToolCallStatus } from "../../src/index.js";
+import { ToolCallStatus } from "../../src/index.js";
 import {
   callTool,
   callToolWithInvalidArguments,
@@ -112,7 +113,7 @@ describe("replyWithInvalidAnswer", () => {
     mockModel(EditorAgent).thenReturn(invalid, invalid, invalid);
 
     await expect(execute(app, EditStart, { text: "a poem" })).rejects.toFailWith(
-      AgentAnswerInvalidError,
+      StepError.AgentAnswerInvalid,
       { code: "step.agent.invalid-answer" },
     );
   });

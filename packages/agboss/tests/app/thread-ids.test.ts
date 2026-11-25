@@ -4,9 +4,9 @@
  * `ownerId`. An existing thread keeps its rules (another owner → `ExecutionError.ThreadOwnerMismatch`); `resume` and
  * `cancel` of an unknown thread stay `ExecutionError.UnknownThread`; a refused execution creates nothing.
  */
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { describe, expect } from "vitest";
-import { BudgetExceededError } from "../../src/errors.js";
 import { replyWith, routeTo, testWith } from "../../src/testing/index.js";
 import { usd } from "../../src/units/index.js";
 import { execute } from "../helpers/flow.js";
@@ -98,7 +98,7 @@ describe("#262 Q4: a caller's own thread id", () => {
 
     const refused = execute(app, ChatStart, { text: "hi" }, { threadId: "order-8" });
 
-    await expect(refused).rejects.toBeInstanceOf(BudgetExceededError);
+    await expect(refused).rejects.toBeInstanceOf(LimitError.Budget);
     await expect(app.cancel("order-8")).rejects.toBeInstanceOf(ExecutionError.UnknownThread);
   });
 });

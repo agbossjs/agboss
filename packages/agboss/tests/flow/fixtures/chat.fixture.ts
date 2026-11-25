@@ -95,10 +95,8 @@ export const chatPaths = [
       toAgent(ProfilerAgent)
         .toOneOf([toRouter(MainRouter), toFinish(AskResumeWorkflowFinish)]),
     )
-    .onRoute(
-      toAgent(ScoutAgent)
-        .toFinish(ChatWorkflowFinish),
-    )
+    .onRoute(toAgent(ScoutAgent)
+      .toFinish(ChatWorkflowFinish))
     .onRoute(toFinish(NoReplyWorkflowFinish)),
 ] as const;
 

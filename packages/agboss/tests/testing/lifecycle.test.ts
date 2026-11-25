@@ -1,3 +1,4 @@
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { describe, expect } from "vitest";
 import { replyWith, routeTo, testWith, type ModelScript } from "../../src/testing/index.js";
 import { usd } from "../../src/units/index.js";
@@ -11,7 +12,6 @@ import {
   DeskApplication,
 } from "./fixtures/desk.workflow.js";
 import { execute } from "../helpers/flow.js";
-import { BudgetExceededError } from "../../src/errors.js";
 
 const test = testWith(DeskApplication);
 
@@ -87,7 +87,7 @@ describe("AC12: a controllable clock — the per-day limit resets after midnight
 
     await execute(app, ChatStart, { text: "1" });
     const overDay = execute(app, ChatStart, { text: "2" });
-    await expect(overDay).rejects.toFailWith(BudgetExceededError, {
+    await expect(overDay).rejects.toFailWith(LimitError.Budget, {
       budget: { name: "desk-tenant-daily-budget" },
     });
     await app.clock.advance("25h");

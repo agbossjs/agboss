@@ -75,7 +75,7 @@ export enum StreamEventKind {
 
 /** Why the text streamed for a step is retracted (#1006, #1311). */
 export enum StreamDiscardReason {
-  /** A judge failed the reply: a retry follows, or the agent fails with `QualityGateError`. */
+  /** A judge failed the reply: a retry follows, or the agent fails with `StepError.QualityGate`. */
   JudgeRejected = "judge-rejected",
   /** The turn ended with tool calls: its text is not the reply. */
   ToolTurn = "tool-turn",

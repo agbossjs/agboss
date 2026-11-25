@@ -1,5 +1,6 @@
+import { StepError } from "../../../../src/core/error-families/step-errors.js";
 import { LimitError } from "../../../../src/core/error-families/limit-errors.js";
-import { EmptyEnvironment, StepFailedError, Workflow, Ttl } from "../../../../src/index.js";
+import { EmptyEnvironment, Workflow, Ttl } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
 import { onStart, toAction } from "../../../helpers/flow.js";
@@ -23,14 +24,11 @@ import {
   historyTtl: Ttl.Forever,
   flow: [
     onStart(ItemsWorkflowStart)
-      .forEachItem(
-        toAction(ProcessItemAction)
-          .onError(StepFailedError, skip()),
-        {
-          takeFirst: 3,
-          maxConcurrency: 2,
-        },
-      )
+      .forEachItem(toAction(ProcessItemAction)
+        .onError(StepError, skip()), {
+        takeFirst: 3,
+        maxConcurrency: 2,
+      })
       .join()
       .toAction(SummaryAction)
       .toFinish(SummaryWorkflowFinish),
@@ -57,11 +55,8 @@ export class TakeFirstApplication {}
     onStart(ItemsWorkflowStart)
       .forEachItem(toAction(ProcessItemAction), { maxItems: 3 })
       .join()
-      .onError(
-        LimitError.Items,
-        toAction(ItemsFailedAction)
-          .toFinish(ItemsFailedWorkflowFinish),
-      )
+      .onError(LimitError.Items, toAction(ItemsFailedAction)
+        .toFinish(ItemsFailedWorkflowFinish))
       .toAction(SummaryAction)
       .toFinish(SummaryWorkflowFinish),
   ],

@@ -1,3 +1,4 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import {
   Arbiter,
   Arbitrate,
@@ -7,7 +8,6 @@ import {
   ExternalTask,
   Injectable,
   PauseRespondent,
-  QuorumNotReachedError,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
@@ -165,7 +165,7 @@ const parties = [toExternalTask(AuditorExternalTask), toExternalTask(CounselExte
       .inParallel([...parties])
       .arbitratedBy(AuditSignOffArbiter)
       .joinQuorum({ min: 1, deadline: workHours(2), calendar: OfficeWorkingCalendar })
-      .onError(QuorumNotReachedError, toFinish(ContractRejectedWorkflowFinish))
+      .onError(StepError.QuorumNotReached, toFinish(ContractRejectedWorkflowFinish))
       .toAction(SignContractAction)
       .toFinish(ContractSignedWorkflowFinish),
   ],
@@ -184,7 +184,7 @@ export class AuditHoursWorkflow {}
       .inParallel([...parties])
       .arbitratedBy(AuditSignOffArbiter)
       .joinQuorum({ min: 1, deadline: workDays(1), calendar: OfficeWorkingCalendar })
-      .onError(QuorumNotReachedError, toFinish(ContractRejectedWorkflowFinish))
+      .onError(StepError.QuorumNotReached, toFinish(ContractRejectedWorkflowFinish))
       .toAction(SignContractAction)
       .toFinish(ContractSignedWorkflowFinish),
   ],
@@ -203,7 +203,7 @@ export class AuditDaysWorkflow {}
       .inParallel([...parties])
       .arbitratedBy(AuditSignOffArbiter)
       .joinQuorumGroups({ deadline: workHours(2), calendar: OfficeWorkingCalendar })
-      .onError(QuorumNotReachedError, toFinish(ContractRejectedWorkflowFinish))
+      .onError(StepError.QuorumNotReached, toFinish(ContractRejectedWorkflowFinish))
       .onGroup(
         [AuditorExternalTask],
         toAction(SignContractAction)

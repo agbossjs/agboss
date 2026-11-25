@@ -2,7 +2,7 @@
  * #470: the shipped skills teach the layout by kind — one entity per file in its kind folder,
  * errors, repositories, schemas and SQL apart from services — and their own snippets keep to it:
  * every file a snippet writes sits in the folder of its kind, no TypeScript snippet holds DDL,
- * interpolated SQL, a `new XDto()` or a `StepFailedError` subclass.
+ * interpolated SQL, a `new XDto()` or a `StepError` subclass.
  *
  * #474: every skill file shows one class per file and names it (`file=`), at a path of the layout
  * SKILL.md states and `agboss generate` writes — `src/[<domain>/]<kind>/…`, a workflow with its
@@ -10,6 +10,7 @@
  * `dto/`, tests mirroring `src/` — and `examples/flow-patterns` keeps to it with its real files. The
  * rules live in layout-rules.ts.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { readdirSync, readFileSync, rmSync } from "node:fs";
 import { join, relative } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -119,7 +120,7 @@ describe("#470: the layout rules find what they guard against", () => {
     ['db.exec(`DELETE FROM notes WHERE id = "${id}"`);', "string-interpolated SQL"],
     ["return new OrderDto();", "a DTO built with new"],
     ["return Object.assign(new Order(), value);", "a DTO built with new"],
-    ["export class LostError extends StepFailedError {}", "a StepFailedError subclass"],
+    ["export class LostError extends StepError {}", "a StepError subclass"],
     ['import { openSqliteDatabase } from "x";', "an internal SQLite helper"],
     ['import { x } from "@agboss/core/internal";', "@agboss/core/internal"],
   ])("TypeScript `%s`: %s", (body, why) => {
@@ -163,7 +164,7 @@ describe("#470: the shipped skills keep to the layout they teach", () => {
     expect(shipped.flatMap(placementOf)).toEqual([]);
   });
 
-  it("AC1, AC2: no snippet holds DDL, interpolated SQL, new DTOs, StepFailedError subclasses or internals", () => {
+  it("AC1, AC2: no snippet holds DDL, interpolated SQL, new DTOs, StepError subclasses or internals", () => {
     expect(shipped.flatMap(forbiddenOf)).toEqual([]);
   });
 
@@ -607,7 +608,7 @@ const STATED: readonly (readonly [string, string, readonly string[]])[] = [
     [
       "`services/` holds **only** `*.service.ts`",
       "`AGBossError` subclass in `errors/<name>.error.ts`",
-      "never a `StepFailedError`",
+      "never a `StepError`",
       "never `new OrderDto()`",
       "under 200 lines",
       "one class per",
@@ -632,7 +633,7 @@ const STATED: readonly (readonly [string, string, readonly string[]])[] = [
     [
       "`repositories/<name>.repository.ts`",
       "`AGBossError` subclass (`errors/<name>.error.ts`)",
-      "never a `StepFailedError`",
+      "never a `StepError`",
       "static override readonly code",
     ],
   ],

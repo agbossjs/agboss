@@ -3,12 +3,12 @@
  * time, is refused; another instance continues it; a cancel withdraws it; another tenant or owner
  * cannot answer it; a cycle asks it at most `maxVisits` times.
  */
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { describe, expect } from "vitest";
 import { ExecutionStatus } from "../../src/app/types.js";
 import { PauseStatus, PausedExecutionRepository } from "../../src/index.js";
-import { VisitsLimitExceededError } from "../../src/flow/runtime/errors.js";
 import { testWith } from "../../src/testing/index.js";
 import type { TestApp } from "../../src/testing/test-app.js";
 import {
@@ -152,7 +152,7 @@ describe("#659 AC5: maxVisits on a cycle", () => {
 
     await expect(
       app.resume({ pauseId: pauseIdOf(1), decision: { approved: true, limitUsd: 600 } }, by),
-    ).rejects.toBeInstanceOf(VisitsLimitExceededError);
+    ).rejects.toBeInstanceOf(LimitError.Visits);
     expect(inbox.ownerAsked).toHaveLength(2);
   });
 

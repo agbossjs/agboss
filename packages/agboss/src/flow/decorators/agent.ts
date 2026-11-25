@@ -75,7 +75,7 @@ export interface AgentOptions {
  * left out is the framework's default (model calls 12, tool calls 20, retries 0) or, for visits, no limit.
  */
 export interface AgentExecutionLimits {
-  /** Visits per execution; one more fails before the model call (`VisitsLimitExceededError`). */
+  /** Visits per execution; one more fails before the model call (`LimitError.Visits`). */
   readonly maxVisits?: number;
   /** Model calls per run of the agent; crossing it fails the run (`agents.<name>.limits.modelCalls`). Default 12. */
   readonly maxModelCalls?: number;

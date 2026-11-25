@@ -1,3 +1,4 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { usd } from "../../../src/units/index.js";
 /**
  * #1366: a reranking is checked and traced as its contract says: more than topK results, a passage that is no
@@ -10,12 +11,7 @@ import { BaseCallbackHandler } from "@langchain/core/callbacks/base";
 import { AsyncLocalStorageProviderSingleton } from "@langchain/core/singletons";
 import { describe, expect, it, vi } from "vitest";
 import { withModelReading, type ModelReadingMask } from "../../../src/pii/model-boundary.js";
-import {
-  RerankFailedError,
-  rerankedRetrieval,
-  type BoundReranker,
-  type RerankCall,
-} from "../../../src/rag/rerank.js";
+import { rerankedRetrieval, type BoundReranker, type RerankCall } from "../../../src/rag/rerank.js";
 import { RerankFailurePolicy, type RerankerHandler } from "../../../src/rag/types.js";
 
 AsyncLocalStorageProviderSingleton.initializeGlobalInstance(new AsyncLocalStorage());
@@ -73,7 +69,7 @@ describe("#1366: a reranking that breaks its contract fails", () => {
         callOf(topK),
       ).catch((error: unknown) => error);
 
-      expect(failed).toBeInstanceOf(RerankFailedError);
+      expect(failed).toBeInstanceOf(StepError.RerankFailed);
       expect(failed).toMatchObject({
         code: "step.rerank-failed",
         rag: "docs",

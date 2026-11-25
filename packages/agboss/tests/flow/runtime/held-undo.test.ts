@@ -1,5 +1,7 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import { beforeEach, describe, expect } from "vitest";
-import { ArbiterError, BudgetExceededError, CompensationReason } from "../../../src/index.js";
+import { CompensationReason } from "../../../src/index.js";
 import { decideWith, testWith } from "../../../src/testing/index.js";
 import { usd } from "../../../src/units/index.js";
 import { TestExecutionBudget } from "../fixtures/budgets.js";
@@ -56,7 +58,7 @@ describe("#1281: an arbiter that fails a branch after its node answered", () => 
     desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
 
     await expect(execute(app, ArbiterThrowsWorkflowStart, GUEST)).rejects.toBeInstanceOf(
-      ArbiterError,
+      StepError.Arbiter,
     );
 
     // the room's branch was cancelled by the seat's failure, or finished and undone with it
@@ -73,7 +75,7 @@ describe("#1281: an arbiter that fails a branch after its node answered", () => 
     desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
 
     await expect(execute(app, ArbiterThrowsChildWorkflowStart, GUEST)).rejects.toBeInstanceOf(
-      ArbiterError,
+      StepError.Arbiter,
     );
 
     expect(released(desk)).toEqual(["room-1", "seat-1"]);
@@ -94,7 +96,7 @@ describe("#1281: an arbiter that fails a branch after its node answered", () => 
 
     const run = execute(app, ArbiterOutOfBudgetWorkflowStart, GUEST);
 
-    await expect(run).rejects.toBeInstanceOf(BudgetExceededError);
+    await expect(run).rejects.toBeInstanceOf(LimitError.Budget);
     expect(released(desk)).toContain("seat-1");
     expect(released(desk)).toEqual(reservedOf(desk));
     expect(new Set(undoReasons)).toEqual(new Set([CompensationReason.JoinFailed]));

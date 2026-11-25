@@ -479,7 +479,7 @@ import { PurchaseWorkflowStart } from "./purchase.workflow-start.js";
   historyTtl: Ttl.Forever,
   flow: [
     onStart(PurchaseWorkflowStart) // the input, on the path (an agent or an action may build it)
-      .toExternalTask(SpendingLimitExternalTask) // pauses; .onError(QuestionFailedError, …) may follow
+      .toExternalTask(SpendingLimitExternalTask) // pauses; .onError(StepError.ExternalTask, …) may follow
       .toFinish(PurchaseWorkflowFinish), // the typed output: later steps read it like any value
   ],
 })
@@ -500,11 +500,11 @@ answer tool, `answer-<output dto>`, and the not-understood tool; a code interpre
 pause. The step is no model call and no step of `maxSteps`; the execution's budgets are checked
 before it asks. A tool that names an external task as its `approval` is `[channel.wrong-tool]`.
 
-A task may also start an `.onError` side path (#933): `.onError(StepFailedError,
+A task may also start an `.onError` side path (#933): `.onError(StepError,
 toExternalTask(DirectorExternalTask)…)` — the failure is handled by asking, the task reads its
 input from the path as it stood before the failed step (field rules as for `.toExternalTask`), and
 its output goes on the path. One task is one node: its `maxVisits` counts the main path and the side
-path together. A side path that can catch a limit (`LimitExceededError`, `BudgetExceededError`, a
+path together. A side path that can catch a limit (`LimitError`, `LimitError.Budget`, a
 parent such as `AGBossError`) still leads only to actions and finishes — a task there is
 `[graph.limit-handler-uses-model]` (a reply interpreter may call a model).
 
@@ -529,9 +529,9 @@ the call runs no tool). `result.pending[i]` is `kind: PauseKind.ExternalTask`, `
 agent, `target` the task; every guarantee of an external-task step holds (one answer wins, another
 instance resumes it without asking again, a cancel withdraws it, tenant and owner checks). The task's
 `maxVisits` bounds how many times one visit of the agent asks it (the next call fails the step with
-`VisitsLimitExceededError` before it is asked); the budgets and the holder's fence are checked
+`LimitError.Visits` before it is asked); the budgets and the holder's fence are checked
 before every ask. A `send` that throws, or an invalid `decided(…)`, fails the agent's step
-(`AgentFailedError`, the cause kept). A `@ToolApproval` in `tools` is
+(`StepError.Agent`, the cause kept). A `@ToolApproval` in `tools` is
 `[channel.approval-role-as-tool]`. Tests script the call as `callTool(SpendingLimitExternalTask, { item,
 priceUsd })` (typed by the task's input); `agboss describe` prints `asked at <agent>'s tool loop
 (<workflow>)`.
@@ -594,7 +594,7 @@ priceUsd })` (typed by the task's input); `agboss describe` prints `asked at <ag
   correction is allowed — "never above the call's amount", "only in the call's currency", "never
   below 0". Put such a limit where it holds whoever approved the call: a tool interceptor's
   `beforeAnyTool` / `@BeforeTool` on the call as it runs (after the approval, with any correction —
-  `ToolCallDecision.block(reason)` fails the step with `ToolBlockedError`), or a check in the
+  `ToolCallDecision.block(reason)` fails the step with `StepError.ToolBlocked`), or a check in the
   tool's or action's own code (`min` / `max` on the input DTO's field for a plain bound). The
   payment guarantees — `Idempotency.runOnce` and `sendOnce`, one charge per business key — hold whatever
   the interpreter reads.
@@ -613,8 +613,8 @@ priceUsd })` (typed by the task's input); `agboss describe` prints `asked at <ag
   `closedAt` the deadline), decided atomically in the store — an answer and the expiry racing: one
   wins. Within seconds the tree is taken and the target's optional
   `onExpired(ctx)` (`implements PauseExpiryHandler<Target>`, `ctx` = `ExpiredContext`: `input`, `expiresAt`,
-  `trail`, …) says what the expiry means: `PauseExpiration.fail()` — the step fails with `PauseExpiredError`
-  (`step.pause-expired`, `step`, `stepKind`, `target`, `kind`, `expiresAt`; `.onError(PauseExpiredError, …)`
+  `trail`, …) says what the expiry means: `PauseExpiration.fail()` — the step fails with `StepError.PauseExpired`
+  (`step.pause-expired`, `step`, `stepKind`, `target`, `kind`, `expiresAt`; `.onError(StepError.PauseExpired, …)`
   escalates; an agent's approval or task call fails the whole agent step, its spend kept) — or
   `PauseExpiration.decide(answer)` — the step goes on with that answer, validated like a resume's,
   recorded as answered by the framework (`PauseResolution.DecidedOnExpiry`, `ResumeReason.Expired`;
@@ -626,7 +626,7 @@ priceUsd })` (typed by the task's input); `agboss describe` prints `asked at <ag
   crash before its decision was recorded — so it must only read; a throw, a hang past the tool's
   `timeout`, a value that is no expiration or an invalid answer fails the expiry with an
   `PauseError.ExpiryHandlerFailed` as the cause (`pause.expiry-handler-failed` warned, never the error's message).
-  A pause the run's deadline bound fails the run with `DeadlineExceededError` and asks the channel
+  A pause the run's deadline bound fails the run with `LimitError.Deadline` and asks the channel
   nothing. `app.cancel` always beats an expiry (the pause is closed `expired`, the run cancelled).
   Over A2A the task goes `WORKING`, then `FAILED` (`step.pause-expired`) or `COMPLETED`; a follow-up
   before the look is `-32004 a2a.pause-closed` `reason: expired`.
@@ -686,16 +686,16 @@ assignees })` (returns a `WorkingWeek.of(…)` or `WorkingWeek.anyOf([…])`, th
   `remindBefore` needs a working `timeout` (`[pause.remind-before-working-without-working-timeout]`; `extendPause`
   refuses a plain `expiresIn` there with `ValidationError.DtoInvalid`). A working duration with no `calendar` on the target is
   `[calendar.required-for-working-duration]`. A calendar that throws, times out,
-  answers no `Date` or a date not after `from` fails the step — `QuestionFailedError` / `AgentFailedError` with
+  answers no `Date` or a date not after `from` fails the step — `StepError.ExternalTask` / `StepError.Agent` with
   a `PauseError.WorkingCalendar` (`pause.working-calendar`) as its `cause` — and nobody is asked; an extension with
   it rejects with it. The run's deadline stays wall-clock (the smaller wins, a tie to the run).
 - **Expiry in parallel launches (#945):** a branch whose pause expired ends `BranchStatus.Expired`
   (its error `step.pause-expired` stays in `result.launches`). A pause asked in a quorum branch is
   bound by the quorum's deadline (`PauseExpiryBound.Quorum`): at it the tree wakes by itself and the
   quorum decides — an expired branch did not vote, never fails the launch, whatever its
-  its `skip()`; `QuorumNotReachedError.expired` lists the node ids that expired. In a plain
+  its `skip()`; `StepError.QuorumNotReached.expired` lists the node ids that expired. In a plain
   `.join()` an expired branch follows its `.onError(E, skip())`: a skipped one is dropped, else it fails the
-  launch with its `PauseExpiredError` for `.onError(…)`, and the branches still waiting are
+  launch with its `StepError.PauseExpired` for `.onError(…)`, and the branches still waiting are
   withdrawn. The side path of `.onError(…)` reads the answers already settled as `optional(XDto)`
   inputs of its first step (a per-item list stays a list); each branch that had answered hears
   `onPauseJoinFailed(event)` (`ChannelPauseJoinFailedEvent`: `launch`, `errorCode`, `at`) on its channel
@@ -764,8 +764,8 @@ test("a large refund waits for the manager, then runs", async ({ app, mockModel,
 | `[channel.shared-interpreter]`                                                                               | one `@ChannelInterpreter` on two targets → one each                                                                                                                       |
 | `[reply-interpreter.decision-model]`                                                                         | an external task's interpreter on a decision model → a chat model, or a code interpreter                                                                                  |
 | `[channel-listener.missing-handler]`, `[channel-listener.unknown-hook]`, `[channel-listener.duplicate-name]` | a `@ChannelListener` with no hook, a hook it does not know, or one name twice → fix it                                                                                    |
-| `QuestionFailedError`                                                                                        | a task's `send` threw or `decided(…)` was not the output DTO (`step.question`, `question`) → `.onError`                                                                   |
-| `PauseExpiredError`                                                                                          | a pause's deadline passed with no answer (`step.pause-expired`) → `.onError(PauseExpiredError, …)`, or `onExpired` → `PauseExpiration.decide(…)` / `.reassign(…)`         |
+| `StepError.ExternalTask`                                                                                     | a task's `send` threw or `decided(…)` was not the output DTO (`step.external-task`, `question`) → `.onError`                                                              |
+| `StepError.PauseExpired`                                                                                     | a pause's deadline passed with no answer (`step.pause-expired`) → `.onError(StepError.PauseExpired, …)`, or `onExpired` → `PauseExpiration.decide(…)` / `.reassign(…)`    |
 | `[limits.timeout-invalid]`                                                                                   | a target's `timeout` under `seconds(1)`, over 5 years or no finite duration → `hours(4)`                                                                                  |
 | `[pause.remind-before-invalid]`                                                                              | `remindBefore` is not a positive duration shorter than the `timeout` → `hours(2)` under `hours(24)`                                                                       |
 | `[pause.remind-before-below-tick]`                                                                           | `remindBefore` is shorter than the pause timers' 5 s tick (a warning): the reminder can be skipped → at least 5 s                                                         |

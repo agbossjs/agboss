@@ -3,22 +3,17 @@
  * fields a handler reads; a budget's dollars are formatted to four decimals with no trailing zeros; a budget with
  * no period states no period; a period budget's exhaustion is told from an execution budget's.
  */
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import { describe, expect, it } from "vitest";
 import { BudgetPeriod, BudgetScope } from "../../../src/budgets/budget.js";
-import {
-  BudgetExceededError,
-  dollars,
-  isPeriodBudgetExhausted,
-  LimitExceededError,
-  StepsLimitExceededError,
-} from "../../../src/graph/limits.js";
+import { dollars, isPeriodBudgetExhausted } from "../../../src/graph/limits.js";
 import { usd } from "../../../src/units/index.js";
 
 const workflow = { name: "desk", version: "1.0.0", startedVersion: "1.0.1", configHash: "h" };
 
 describe("#1366: limit error facts", () => {
   it("the base limit's code is limit, on the class and on its instances", () => {
-    const error = new LimitExceededError({
+    const error = new LimitError.Agent({
       key: "k",
       limit: 1,
       actual: 2,
@@ -26,13 +21,14 @@ describe("#1366: limit error facts", () => {
       spentUsd: usd(0),
     });
 
-    expect(LimitExceededError.code).toBe("limit");
-    expect(error.code).toBe("limit");
+    expect(LimitError.code).toBe("limit");
+    expect(error.code).toBe("limit.agent");
+    expect(error).toBeInstanceOf(LimitError);
   });
 
   it("the steps' limit is keyed maxSteps and keeps its workflow, limit and count in its details", () => {
-    const error = new StepsLimitExceededError({
-      workflow,
+    const error = new LimitError.Steps({
+      workflowRecord: workflow,
       maxSteps: 3,
       path: ["f"],
       spentUsd: usd(0),
@@ -57,7 +53,7 @@ describe("#1366: limit error facts", () => {
   });
 
   it("a tenant budget with no period is built without a period word", () => {
-    const error = new BudgetExceededError({
+    const error = new LimitError.Budget({
       budget: { name: "tb" },
       scope: BudgetScope.Tenant,
       key: "acme",
@@ -73,7 +69,7 @@ describe("#1366: limit error facts", () => {
   });
 
   it("a tenant budget with a period names it next to the figures", () => {
-    const error = new BudgetExceededError({
+    const error = new LimitError.Budget({
       budget: { name: "tb" },
       scope: BudgetScope.Tenant,
       period: BudgetPeriod.Day,
@@ -88,7 +84,7 @@ describe("#1366: limit error facts", () => {
   });
 
   it("isPeriodBudgetExhausted is true for a tenant budget", () => {
-    const error = new BudgetExceededError({
+    const error = new LimitError.Budget({
       budget: { name: "tb" },
       scope: BudgetScope.Tenant,
       period: BudgetPeriod.Day,

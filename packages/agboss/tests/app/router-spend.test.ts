@@ -4,8 +4,8 @@
  * never leaves it out of the ledger, a normal run writes it once, and a router over its budget stops
  * at the call, before the charge after it.
  */
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { beforeEach, describe, expect } from "vitest";
-import { BudgetExceededError } from "../../src/index.js";
 import { BudgetScope } from "../../src/budgets/budget.js";
 import { counterOf, type ExecutionBudgetRecord } from "../../src/budgets/execution-budgets.js";
 import { CostLedgerRepository } from "../../src/infrastructure/cost-ledger.repository.js";
@@ -75,7 +75,7 @@ describe("#1090: a model router's spend is tallied at its call", () => {
 
     const error = await rejectionOf(execute(a, RoutedChargeWorkflowStart, { text: "order-2" }));
 
-    expect(error).toBeInstanceOf(BudgetExceededError);
+    expect(error).toBeInstanceOf(LimitError.Budget);
     expect(book.charges).toEqual([]);
   });
 

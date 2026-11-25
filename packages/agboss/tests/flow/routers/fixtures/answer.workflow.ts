@@ -1,15 +1,15 @@
+import { StepError } from "../../../../src/core/error-families/step-errors.js";
+import { LimitError } from "../../../../src/core/error-families/limit-errors.js";
 import { usd, Ttl } from "../../../../src/units/index.js";
 import { Enum, Text } from "../../../../src/dto/index.js";
 import {
   Action,
   DecidedBy,
   Router,
-  RouterFailedError,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
 } from "../../../../src/index.js";
-import { LimitExceededError } from "../../../../src/graph/limits.js";
 import { onStart, toFinish, toAction } from "../../../helpers/flow.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
@@ -19,7 +19,7 @@ import { TestModelProvider } from "../../../../src/testing/test-model-provider.j
 /**
  * #280 S19 — a code router whose answer the test picks: a target, a class outside its routes (what
  * a cast lets through), a list, a domain error, a limit. Its routes' `.onError` takes the service's
- * domain error through the cause chain of `RouterFailedError`.
+ * domain error through the cause chain of `StepError.Router`.
  */
 
 /** What the test makes `route()` do. */
@@ -97,7 +97,7 @@ const answerOf = (answer: Answer): unknown => {
     case "crash":
       throw new TypeError("route() has a bug");
     case "limit":
-      throw new LimitExceededError({
+      throw new LimitError.Agent({
         key: "maxSteps",
         limit: 1,
         actual: 2,
@@ -129,14 +129,10 @@ export class AskRouter {
     onStart(AskWorkflowStart)
       .toRouter(AskRouter)
       .onError(LedgerDownError, toFinish(HeldWorkflowFinish))
-      .onRoute(
-        toAction(LeftAction)
-          .toFinish(DoneWorkflowFinish),
-      )
-      .onRoute(
-        toAction(RightAction)
-          .toFinish(DoneWorkflowFinish),
-      ),
+      .onRoute(toAction(LeftAction)
+        .toFinish(DoneWorkflowFinish))
+      .onRoute(toAction(RightAction)
+        .toFinish(DoneWorkflowFinish)),
   ],
 })
 export class AskWorkflow {}
@@ -151,7 +147,7 @@ export class AskWorkflow {}
 })
 export class AskApplication {}
 
-/** The same router with a side path for any of its failures: `RouterFailedError` takes both. */
+/** The same router with a side path for any of its failures: `StepError` takes both (a decision error is a variant of its own). */
 @Workflow({
   name: "ask-caught-workflow",
   version: "1.0.0",
@@ -159,15 +155,11 @@ export class AskApplication {}
   flow: [
     onStart(AskWorkflowStart)
       .toRouter(AskRouter)
-      .onError(RouterFailedError, toFinish(RefusedWorkflowFinish))
-      .onRoute(
-        toAction(LeftAction)
-          .toFinish(DoneWorkflowFinish),
-      )
-      .onRoute(
-        toAction(RightAction)
-          .toFinish(DoneWorkflowFinish),
-      ),
+      .onError(StepError, toFinish(RefusedWorkflowFinish))
+      .onRoute(toAction(LeftAction)
+        .toFinish(DoneWorkflowFinish))
+      .onRoute(toAction(RightAction)
+        .toFinish(DoneWorkflowFinish)),
   ],
 })
 export class AskCaughtWorkflow {}

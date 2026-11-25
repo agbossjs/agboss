@@ -3,8 +3,8 @@
  * any read or transcription, and what the loop stores of them holds references, never bytes — the
  * model still receives them.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { describe, expect } from "vitest";
-import { ModelFileLimitError } from "../../src/files/file-errors.js";
 import { FileSource, ModelFiles } from "../../src/files/model-files.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
@@ -43,7 +43,7 @@ describe("a tool result's files are refused before they are read", () => {
         document: inline(PNG_BYTES, "image/png", "a.png"),
       }).catch((error: unknown) => error);
 
-      expect(failure).toBeInstanceOf(ModelFileLimitError);
+      expect(failure).toBeInstanceOf(StepError.ModelFileLimit);
       expect(CountingFileRepository.reads).toBe(0);
     },
   );
@@ -61,7 +61,7 @@ describe("a tool result's files obey the visit's limits before any read", () => 
         document: inline(PNG_BYTES, "image/png", "a.png"),
       }).catch((error: unknown) => error);
 
-      expect(failure).toBeInstanceOf(ModelFileLimitError);
+      expect(failure).toBeInstanceOf(StepError.ModelFileLimit);
       expect(failure).toMatchObject({ limit: "max-files", actual: 2, allowed: 1 });
       expect(agent.requests).toHaveLength(1);
     },

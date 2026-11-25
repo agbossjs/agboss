@@ -8,11 +8,11 @@ between instances in reference 09.
 
 ## Three things that are not the same
 
-| Protects              | Set with                                                                                  | Hitting it                                                                                |
-| --------------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| money                 | `@Budget` components in `@Application({ budgets })`                                       | `BudgetExceededError` (`limit.budget`): rejected before the first step, or stopped        |
-| the graph             | `@Workflow({ executionLimits: { maxSteps } })`, `maxVisits`, `maxDepth`, `maxConcurrency` | `StepsLimitExceededError`, `VisitsLimitExceededError`, `DepthLimitExceededError`; a queue |
-| a provider's capacity | `@ModelProvider({ rateLimitPolicy, retryPolicy, circuitBreakerPolicy })`                  | a call waits in a tenant-fair queue; never an error, never money                          |
+| Protects              | Set with                                                                                  | Hitting it                                                                       |
+| --------------------- | ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| money                 | `@Budget` components in `@Application({ budgets })`                                       | `LimitError.Budget` (`limit.budget`): rejected before the first step, or stopped |
+| the graph             | `@Workflow({ executionLimits: { maxSteps } })`, `maxVisits`, `maxDepth`, `maxConcurrency` | `LimitError.Steps`, `LimitError.Visits`, `LimitError.Depth`; a queue             |
+| a provider's capacity | `@ModelProvider({ rateLimitPolicy, retryPolicy, circuitBreakerPolicy })`                  | a call waits in a tenant-fair queue; never an error, never money                 |
 
 ## Budgets
 
@@ -114,7 +114,7 @@ export class InvoiceExecutionBudget implements BudgetHandler {
   `[budget.missing-limit]` is a budget that limits nothing, `[budget.conflicting-limit]` one that declares and also has `limit()`.
   Both caps are enforced and each fails closed — an amount or a count that is no number refuses the execution before its first
   step. A call that cost `$0` but used tokens (an unpriced CLI or local model, `CostSource.Unpriced`) is spend: it is written to the
-  ledger, waited for before a checkpoint and counted by `maxTokens`; `BudgetExceededError.unit` says which cap was hit
+  ledger, waited for before a checkpoint and counted by `maxTokens`; `LimitError.Budget.unit` says which cap was hit
   (`BudgetUnit.Usd` or `Tokens`) beside `maxSpend?`, `spent`, `maxTokens?`, `usedTokens`. `@Workflow({ budget: ThatBudget })`
   attaches one, found without listing it in `@Application({ budgets })`; a budget's counter is keyed by its name, the scope key and
   the period — never by a workflow — so five workflows that attach one budget share one cap. Pruning ledger entries
@@ -124,12 +124,12 @@ export class InvoiceExecutionBudget implements BudgetHandler {
   `ExecutionContext` or tenant context is readable), and kept for the whole execution: a resume, a
   restart and a recovery count against the same amounts.
 - **Before the first step** every budget is checked: one exhausted **rejects** the execution —
-  `BudgetExceededError`, `onExecutionRejected` with `code: "limit.budget"`, no thread, no record.
+  `LimitError.Budget`, `onExecutionRejected` with `code: "limit.budget"`, no thread, no record.
 - **During the execution** every model call's and paid service's cost is counted the moment it is
   made, in every budget of the execution; before every agent and router step and every model call of
   an agent's loop the counters are read again (the tenant's other executions count). The first
-  exhausted **stops** the execution with `BudgetExceededError` (`budget`, `scope`, `key`,
-  `maxSpend`, `spent`) — into `.onError(BudgetExceededError, …)` if the step has one (actions and
+  exhausted **stops** the execution with `LimitError.Budget` (`budget`, `scope`, `key`,
+  `maxSpend`, `spent`) — into `.onError(LimitError.Budget, …)` if the step has one (actions and
   finishes only, `[graph.limit-handler-uses-model]`), else the execution fails. In a parallel launch the
   call that exhausts a budget aborts the calls in flight of every branch of the tree.
 - **Nothing is reserved**: a budget is exceeded by at most the calls in flight when it was exhausted,
@@ -715,7 +715,7 @@ never slow a test down.
 
 ```ts file=tests/billing/workflows/invoice/invoice.workflow.test.ts
 import { expect } from "vitest";
-import { BudgetExceededError, BudgetScope } from "@agboss/core";
+import { LimitError, BudgetScope } from "@agboss/core";
 import { callTool, replyWith, testWith } from "@agboss/core/testing";
 import { usd } from "@agboss/core/units";
 import { BillingApplication } from "../../../../src/billing.application.js";
@@ -750,7 +750,7 @@ test("a cost that exhausts the execution budget stops the agent before its next 
 
   const run = app.execute(InvoiceWorkflowStart, { text: "invoice Acme" }, TENANT);
 
-  await expect(run).rejects.toFailWith(BudgetExceededError, { scope: BudgetScope.Execution });
+  await expect(run).rejects.toFailWith(LimitError.Budget, { scope: BudgetScope.Execution });
 });
 ```
 

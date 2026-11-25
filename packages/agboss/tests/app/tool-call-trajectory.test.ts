@@ -4,6 +4,7 @@
  * `toolCallsOf`, and `record.steps` — one entry per visit with its input hash, judge verdicts,
  * guardrail decisions and spend.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { describe, expect, it } from "vitest";
 import {
   ChildExecutionStatus,
@@ -243,7 +244,7 @@ describe("testUnit", () => {
 describe("a failed visit keeps its calls and verdicts (#395 S6)", () => {
   const test = testWith(TrajectoryApplication);
 
-  test("a QualityGateError a side path takes: the agent's calls, verdict and failure in the record", async ({
+  test("a StepError.QualityGate a side path takes: the agent's calls, verdict and failure in the record", async ({
     app,
     mockModel,
   }) => {

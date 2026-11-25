@@ -1,9 +1,9 @@
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import { NodeKind, StepKind, type FlowPath } from "../../src/flow/ast.js";
 import { skip } from "../../src/flow/builder.js";
 import { flowLines } from "../../src/flow/print.js";
-import { StepFailedError } from "../../src/graph/errors.js";
 import {
   ChooserRouter,
   ChosenAAction,
@@ -32,7 +32,7 @@ describe("#1279a: .inParallel([…]) in the AST", () => {
       kind: StepKind.InParallel,
       branches: [
         { target: FirstAction, targetKind: NodeKind.Action, skip: [] },
-        { target: SecondAction, targetKind: NodeKind.Action, skip: [StepFailedError] },
+        { target: SecondAction, targetKind: NodeKind.Action, skip: [StepError] },
         { target: ThirdAgent, targetKind: NodeKind.Agent, skip: [] },
       ],
     });
@@ -78,30 +78,23 @@ describe("#1279a: .inParallel([…]) in the AST", () => {
   });
 
   it("skip() stands on a branch only", () => {
-    expect(() => onAction(FirstAction).onError(StepFailedError, skip())).toThrow(
-      ConfigError.FlowSyntax,
-    );
-    expect(() => onStart(FirstAction).onError(StepFailedError, skip())).toThrow(
-      ConfigError.FlowSyntax,
-    );
+    expect(() => onAction(FirstAction).onError(StepError, skip())).toThrow(ConfigError.FlowSyntax);
+    expect(() => onStart(FirstAction).onError(StepError, skip())).toThrow(ConfigError.FlowSyntax);
     // a branch that names a skip() is no side path of `.onError(E, …)`
     expect(() =>
-      onStart(FirstAction).onError(
-        StepFailedError,
-        toAction(SecondAction).onError(StepFailedError, skip()),
-      ),
+      onStart(FirstAction).onError(StepError, toAction(SecondAction).onError(StepError, skip())),
     ).toThrow(ConfigError.FlowSyntax);
   });
 
   it("is printed as it is written", () => {
     const path = onStart(InParallelWorkflowStart)
-      .inParallel([toAction(FirstAction), toAgent(ThirdAgent).onError(StepFailedError, skip())], {
+      .inParallel([toAction(FirstAction), toAgent(ThirdAgent).onError(StepError, skip())], {
         maxConcurrency: 2,
       })
       .join();
     expect(flowLines([path as FlowPath])).toEqual([
       "onStart(InParallelWorkflowStart)",
-      "  .inParallel([toAction(FirstAction), toAgent(ThirdAgent).onError(StepFailedError, skip())], { maxConcurrency: 2 })",
+      "  .inParallel([toAction(FirstAction), toAgent(ThirdAgent).onError(StepError, skip())], { maxConcurrency: 2 })",
       "  .join()",
     ]);
   });
@@ -147,10 +140,10 @@ describe("#1279a: .inParallel([…]) in the AST", () => {
         toRouter(ChooserRouter).chooseMany([toAction(ChosenAAction)]),
       ]),
     ).toThrow(ConfigError.FlowSyntax);
-    expect(() => toRouter(ChooserRouter).onError(StepFailedError, skip())).not.toThrow();
+    expect(() => toRouter(ChooserRouter).onError(StepError, skip())).not.toThrow();
     expect(() =>
       toRouter(ChooserRouter)
-        .onError(StepFailedError, skip())
+        .onError(StepError, skip())
         .chooseMany([toAction(ChosenAAction)]),
     ).toThrow(ConfigError.FlowSyntax);
   });
@@ -158,7 +151,7 @@ describe("#1279a: .inParallel([…]) in the AST", () => {
   it("a branch with chooseMany is no side path of .onError(E, …)", () => {
     expect(() =>
       onStart(FirstAction).onError(
-        StepFailedError,
+        StepError,
         toRouter(ChooserRouter).chooseMany([toAction(ChosenAAction)]),
       ),
     ).toThrow(ConfigError.FlowSyntax);

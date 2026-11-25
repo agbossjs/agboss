@@ -1,8 +1,10 @@
 /**
  * #1366: whether the run's deadline bound a pause that expired (#941 D8, #945) — told apart from the record alone:
  * a pause extended up to exactly the deadline it was made under is the run's when the run's own deadline is not
- * later than the pause's, a tie included, so the failure is `DeadlineExceededError` and not `PauseExpiredError`.
+ * later than the pause's, a tie included, so the failure is `LimitError.Deadline` and not `StepError.PauseExpired`.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { describe, expect, it } from "vitest";
 import { PauseExpiryBound, type PauseRecord } from "../../src/infrastructure/pause-record.js";
 import { isRunBound } from "../../src/flow/runtime/pause-expiry-failure.js";

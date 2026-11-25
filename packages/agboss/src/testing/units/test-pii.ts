@@ -22,7 +22,7 @@ import type { UnitClock, UnitModelOptions, UnitRun } from "./unit-types.js";
 export interface PiiRunner extends UnitClock {
   /**
    * The text as the policies mask it at the model boundary — `{ output: "Write to <email:7f3a91>",
-   * spend }`; a block rule rejects with `PiiRefusedError`. The tokens are kept, as an execution's
+   * spend }`; a block rule rejects with `PiiError.Refused`. The tokens are kept, as an execution's
    * `piiTokens` are.
    */
   mask(text: string): Promise<UnitRun<string>>;

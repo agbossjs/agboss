@@ -1,7 +1,8 @@
 /** #120 PR 2: `testUnit` — one guardrail on one text, its model scripted, in a step's frame. */
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { ConfigError } from "../../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
-import { GuardFailedError, InputGuardrail, inline } from "../../../src/index.js";
+import { InputGuardrail, inline } from "../../../src/index.js";
 import { decideWith, failWith, ModelFailure, testUnit } from "../../../src/testing/index.js";
 import { usd } from "../../../src/units/index.js";
 import { LegalAdviceGuardrail } from "../fixtures/units.js";
@@ -37,12 +38,12 @@ describe("testUnit", () => {
     expect((await check("anything")).output).toEqual({ isBlocked: false, probability: 0 });
   });
 
-  it("a model that does not answer fails closed: GuardFailedError", async () => {
+  it("a model that does not answer fails closed: StepError.Guardrail", async () => {
     const check = testUnit(LegalAdviceGuardrail, {
       model: failWith(ModelFailure.Timeout),
     });
 
-    await expect(check("Can I sue?")).rejects.toBeInstanceOf(GuardFailedError);
+    await expect(check("Can I sue?")).rejects.toBeInstanceOf(StepError.Guardrail);
   });
 
   it("its rules are checked first: a name that is not kebab-case is a ConfigError.GraphRules", () => {

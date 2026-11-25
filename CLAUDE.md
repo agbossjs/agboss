@@ -66,7 +66,7 @@ maxToolCalls, maxRetries }`.
   accounting; `@Workflow({ executionLimits: { maxSteps } })` and each node's `maxVisits` count steps, money is the
   application's `@Budget`s — per execution, per tenant and for the whole application per
   `BudgetPeriod` (UTC); an exhausted one rejects an execution before its first step or stops it
-  with `BudgetExceededError`, unless an `.onError(…)` takes it (`QUALITY.md` → FinOps).
+  with `LimitError.Budget`, unless an `.onError(…)` takes it (`QUALITY.md` → FinOps).
 - Vitest (+ v8 coverage), ESLint (`typescript-eslint` strict), Prettier,
   `@langchain/langgraph-api` (pinned) for LangGraph Studio — not `@langchain/langgraph-cli`, whose
   template download brings `extract-zip` (advisories, no fixed release; #791)
@@ -637,7 +637,7 @@ one LangGraph `StateGraph` and checked at assembly. `@Workflow({ historyTtl })` 
   run's `step.itemIndex` from 0; every run of one launch is one visit of its node, so all share its
   `visitNumber` and `maxVisits` counts launches); the join's lists keep listed / item order. A failed branch aborts
   its siblings (`FailFast`) and the join takes `.onError(E, …)` (class and cause chain) or fails
-  the execution with the branch's error; `.onError(E, skip())` on a branch drops only a `StepFailedError`, a
+  the execution with the branch's error; `.onError(E, skip())` on a branch drops only a `StepError`, a
   limit in a `skip()` branch fails the launch, and `app.cancel` cancels the whole execution — never a
   branch outcome, never taken by `.onError` (S21). A model router in a
   `chooseMany([…])` decides its routes in one call — a `Decision.boolean` per route on a decision
@@ -660,7 +660,7 @@ name>": 0.9 })`); all no launches none of them (`[]` is an answer, S23).
   `.onError(E, …)` right after `.toWorkflow(W)` or `onWorkflow(W)`, and right after the join (the
   join's own handler). A per-item child with no finish reachable from one of its
   `.onError` side paths warns `[graph.child-without-failure-finish]` (an error under `--strict`).
-  Any side path that can catch a `LimitExceededError` (the class, a subclass, a parent such as
+  Any side path that can catch a `LimitError` (the class, a subclass, a parent such as
   `AGBossError`) leads only to actions and finishes — `[graph.limit-handler-uses-model]`. A child
   may handle a failure too: `.onError(E, toWorkflow(W)…)` (S85), one more side-path starter. A
   child need not be listed in `@Application({ workflows })` — it belongs to its parent's
@@ -719,7 +719,7 @@ workflows: { placement } } })`, else `CurrentProcess`; `OtherWorker` is never cl
   thread, `ownerId`, tenant and the execution's own fields, and spends from the root's budgets (a
   child's own execution budget applies only when it runs as the root). An uncaught error of its
   own — a step's failure, its `maxSteps`, a node's `maxVisits` — fails the parent's step with
-  `ChildExecutionFailedError` (`step.child`, a `StepFailedError`: `cause`, `childExecutionId`,
+  `StepError.Child` (`step.child`, a `StepError`: `cause`, `childExecutionId`,
   `itemIndex`, `workflow`), so its handler may be an agent; an exhausted budget or a cancel stops
   the whole execution as it is (S25). A paused child does not stop its siblings; its pause is the
   root's — in `result.pending` with its `childExecutionId` (and `itemIndex` per item), answered by
@@ -743,10 +743,10 @@ workflows: { placement } } })`, else `CurrentProcess`; `OtherWorker` is never cl
   The **soft stop** on the last level: of a branch (`.toOneOf` / `.onRoute`) the options whose path
   launches the workflow itself before the next branch are not offered — an agent's variants leave its
   response schema (a second cache prefix for that level), a model router's routes are hidden, a code
-  router returning one is `RouterDecisionError`; each such branch keeps one that does not recurse
+  router returning one is `StepError.RouterDecision`; each such branch keeps one that does not recurse
   (`[graph.recursion-without-exit]`). A launch decided by code or data past `maxDepth` does not start:
-  `ChildExecutionFailedError` caused by `DepthLimitExceededError` (`limit.depth`: `workflow`,
-  `maxDepth`, `depth`; a refused child record with an empty path) — `.onError(LimitExceededError, …)`
+  `StepError.Child` caused by `LimitError.Depth` (`limit.depth`: `workflow`,
+  `maxDepth`, `depth`; a refused child record with an empty path) — `.onError(LimitError, …)`
   right after the launch, `.onError(…)` after a per-item join. Only direct recursion
   (`[graph.mutual-recursion]`, also for a class undefined by a circular import). Each level has its own
   `maxSteps`; the root's budgets count the tree. `agboss describe`: `recursive: maxDepth
@@ -812,8 +812,8 @@ workflows: { placement } } })`, else `CurrentProcess`; `OtherWorker` is never cl
   launch's ticket (a pause counts as time); after a resume or a crash the quorum is rebuilt from the
   finished branches' records and an expired deadline cancels the rest without running them. The
   join decides from the records only: the counted answers (the winning group's own path), or
-  `QuorumNotReachedError` (`step.quorum`) into `.onError(…)`; an arbiter that throws or whose
-  model does not answer is `ArbiterError` (`step.arbiter`), both `StepFailedError`s. A model
+  `StepError.QuorumNotReached` (`step.quorum`) into `.onError(…)`; an arbiter that throws or whose
+  model does not answer is `StepError.Arbiter` (`step.arbiter`), both `StepError`s. A model
   arbiter makes one decision per answer under `arbiter:<name>` (tests: `mockModel(Arbiter)
 .thenReturn(decideWith({ counts: 0.9 }))`; a code arbiter is created by the container).
   `result.launches` (`isQuorumReached`, `group`, each branch's verdict) and
@@ -890,7 +890,7 @@ workflows: { placement } } })`, else `CurrentProcess`; `OtherWorker` is never cl
   `onValuesOutdated` event per cascade (Wiki → Path-scope).
 
 <!-- snippet-context
-import { Action, Agent, VisitsLimitExceededError, Workflow, WorkflowFinish, WorkflowStart, onAgent, onStart, toAction, toAgent, toFinish, inline, Ttl } from "@agboss/core";
+import { Action, Agent, LimitError, Workflow, WorkflowFinish, WorkflowStart, onAgent, onStart, toAction, toAgent, toFinish, inline, Ttl } from "@agboss/core";
 import { Bool, Text } from "@agboss/core/dto";
 import { oneOf } from "@agboss/core";
 
@@ -953,7 +953,7 @@ export const offerPaths = [
       // the editor reads the requested changes: that tells this branch apart
       toAgent(EditorAgent)
         .onError(
-          VisitsLimitExceededError, // the editor's maxVisits spent: tell the recruiter, finish
+          LimitError.Visits, // the editor's maxVisits spent: tell the recruiter, finish
           toAction(NotifyRecruiterAction)
             .toFinish(OfferFailedWorkflowFinish),
         )
@@ -965,7 +965,7 @@ export const offerPaths = [
 ```
 
 <!-- snippet-context
-import { Agent, DecidedBy, Router, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, onStart, inline, skip, toAgent, toFinish, toRouter, Ttl } from "@agboss/core";
+import { Agent, DecidedBy, Router, StepError, Workflow, WorkflowFinish, WorkflowStart, onStart, inline, skip, toAgent, toFinish, toRouter, Ttl } from "@agboss/core";
 import { Bool, Text, WorkflowStartTextDto } from "@agboss/core/dto";
 import { listOf, optional } from "@agboss/core";
 
@@ -1049,7 +1049,7 @@ export const launchPaths = [
     .inParallel([
       toAgent(OrderAgent),
       toAgent(LoyaltyAgent)
-        .onError(StepFailedError, skip()),
+        .onError(StepError, skip()),
       toRouter(SupportRouter)
         .chooseMany([toAgent(RefundPolicyAgent)]),
     ])
@@ -1060,7 +1060,7 @@ export const launchPaths = [
 ```
 
 <!-- snippet-context
-import { Action, Agent, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, onStart, toAction, toAgent, toFinish, toWorkflow, inline, Ttl } from "@agboss/core";
+import { Action, Agent, StepError, Workflow, WorkflowFinish, WorkflowStart, onStart, toAction, toAgent, toFinish, toWorkflow, inline, Ttl } from "@agboss/core";
 import { Bool, Text, WorkflowStartTextDto } from "@agboss/core/dto";
 import { listOf, oneOf } from "@agboss/core";
 
@@ -1123,7 +1123,7 @@ export class VendorScreeningWorkflow {}
     onStart(VendorCheckWorkflowStart)
       .toAgent(VendorCheckerAgent)
       .onError(
-        StepFailedError, // the child catches its own failure: one more class for its parent
+        StepError, // the child catches its own failure: one more class for its parent
         toAction(MarkVendorFailedAction)
           .toFinish(VendorCheckFailedWorkflowFinish),
       )
@@ -1284,9 +1284,9 @@ export const quorumPaths = [
   `decidedBy` (`model` / `prompt` / a route `prompt` on a code router do not compile); both kinds
   take `input` (non-empty, `[router.empty-input]`) and `maxVisits`; a model router's route is `{ target, prompt }`, a code
   router's a class. In `.inParallel([…])` a router is a branch, `toRouter(R).chooseMany([…])`. A router that fails **fails the run** unless an
-  `.onError(…)` right after it takes it: `RouterFailedError` (`step.router`: `route()` threw or
+  `.onError(…)` right after it takes it: `StepError.Router` (`step.router`: `route()` threw or
   the model call failed, the original as `cause` — `.onError(DomainError, …)` catches it through
-  the cause) or `RouterDecisionError` (`step.router.invalid-decision`, a `RouterFailedError`: an
+  the cause) or `StepError.RouterDecision` (`step.router.invalid-decision`, a `StepError.Router`: an
   answer outside its routes, never retried).
 - `agboss describe` prints the flow in this grammar; Studio draws the same graph.
 
@@ -1637,12 +1637,12 @@ export class SeenJobsRepository {
   `ToolCallDecision.allow()` / `.allow({ input })` (the arguments the tool gets instead, validated
   against its input DTO again) / `.reply(message)` (the tool is not called, the model reads `message`
   as its result, bounded and masked, the step goes on) / `.block(reason)` (the step fails with
-  `ToolBlockedError`, `step.tool-blocked`, a `StepFailedError`: `agent`, `tool`, `interceptor`,
+  `StepError.ToolBlocked`, `step.tool-blocked`, a `StepError`: `agent`, `tool`, `interceptor`,
   `reason`); `ToolCallDecision<out TInput = never>`; the tool's `@AfterTool(Tool)` method (output,
   input) and then `afterAnyTool({ tool, agent, callId, input, output })` on a successful result,
   inner interceptor first, each output validated against the tool's output — then `maxResultSize`
   and PII masking. One that throws, decides nothing or gives a wrong output
-  fails the step (`AgentFailedError`, its error the `cause`). Never on answer tools, knowledge-base
+  fails the step (`StepError.Agent`, its error the `cause`). Never on answer tools, knowledge-base
   search tools or a tool called on its own. `agboss describe` prints `tool interceptors`, `--json`
   each agent's chains by tool, `configHash` covers them; `testUnit(I, options)` →
   `beforeToolCall(Tool, input)` / `afterToolCall(Tool, input, output)` → `{ output, spend }` (a phase with no hook at all: `TestSetupError`).
@@ -1668,9 +1668,9 @@ AnswerDto, respondent, timeout, channelInterpreter?, maxVisits? })` for a questi
   `app.resume({ pauseId, decision })` validated as `AnswerDto`, `{ reply }` read by its interpreter
   into it (a decision model there is `[reply-interpreter.decision-model]`), `decided(answer)` at
   once; a code node (no slot, no step of `maxSteps`, budget-checked like an action, its fence
-  checked before `send`), a `send` that throws or an invalid `decided(…)` is `QuestionFailedError`
-  (`step.question`, `question` the step; `new QuestionFailedError({ question, cause })`) for `.onError` right after it;
-  `agboss describe` prints `asked at <step> (<workflow>)` for it. **An agent asks one as a tool (#712):** `@Agent({ tools: [SpendingLimitExternalTask] })` — its model sees a tool named the task (input = `input`, strict: invalid arguments — an undeclared field too — ask nobody, the model reads a tool error, counted against `maxVisits`), the call pauses at the loop's approval step (before the move's other tools; a move's question calls one after another), the validated `output` is the call's result (PII-masked, `maxResultSize`, `onToolStart` / `onToolEnd`, `result.toolCalls` with `component.kind` `external-task`; no tool interceptors), `result.pending[i].step` the asking agent; `maxVisits` bounds one visit's calls (`VisitsLimitExceededError` before the ask), budgets and the fence checked before each ask, a failed `send` or invalid `decided(…)` is `AgentFailedError`; a `@ToolApproval` there is `[channel.approval-role-as-tool]`; `callTool(Task, input)` scripts it; describe: `asked at <agent>'s tool loop (<workflow>)`. A channel has
+  checked before `send`), a `send` that throws or an invalid `decided(…)` is `StepError.ExternalTask`
+  (`step.external-task`, `question` the step; `new StepError.ExternalTask({ question, cause })`) for `.onError` right after it;
+  `agboss describe` prints `asked at <step> (<workflow>)` for it. **An agent asks one as a tool (#712):** `@Agent({ tools: [SpendingLimitExternalTask] })` — its model sees a tool named the task (input = `input`, strict: invalid arguments — an undeclared field too — ask nobody, the model reads a tool error, counted against `maxVisits`), the call pauses at the loop's approval step (before the move's other tools; a move's question calls one after another), the validated `output` is the call's result (PII-masked, `maxResultSize`, `onToolStart` / `onToolEnd`, `result.toolCalls` with `component.kind` `external-task`; no tool interceptors), `result.pending[i].step` the asking agent; `maxVisits` bounds one visit's calls (`LimitError.Visits` before the ask), budgets and the fence checked before each ask, a failed `send` or invalid `decided(…)` is `StepError.Agent`; a `@ToolApproval` there is `[channel.approval-role-as-tool]`; `callTool(Task, input)` scripts it; describe: `asked at <agent>'s tool loop (<workflow>)`. A channel has
   one method, `send(ask: ChannelAsk<Target>): Promise<ChannelOutcome<Target>>` (`ask = { pauseId, input, toolCall?, expiresAt?, assignees?, trail }`,
   typed by the generated `AGBossTypes` tables): `ChannelOutcome.awaitReply()` pauses the execution until
   `app.resume({ pauseId, decision })`, `ChannelOutcome.decided(decision)` goes on at once (validated
@@ -1706,7 +1706,7 @@ AnswerDto, respondent, timeout, channelInterpreter?, maxVisits? })` for a questi
   compile; a `throw` is a crash only), `deps`, created by the container). Either kind reads in the pause's execution frame (its `ExecutionContext`:
   tenant, owner, the waiting step — the rate limits see the tenant); a model one reads the question
   and the reply through the application's and the workflow's PII policies, its answer revealed before
-  validation (an unknown token is a decline, a block rule `PiiRefusedError`). Unreadable (not
+  validation (an unknown token is a decline, a block rule `PiiError.Refused`). Unreadable (not
   understood, no answer, an invalid one, a crash) → `PauseError.UninterpretableReply`
   (`pause.uninterpretable-reply`, `reason`, `cause` when an error is behind it), the
   pause stays pending; a target without one → `PauseError.ChannelInterpreterMissing`
@@ -1921,8 +1921,8 @@ candidates` (`[rag.rerank-invalid]`); `onFailure` defaults to `RerankFailurePoli
   runner's) is refused, `[a2a.outside-application]`; the price is charged at the accept — on every pass, a replayed one too (a task an AGBoss agent the mesh rode to `REJECTED` at the accept with a mesh limit — a loop, the hop limit, nothing run —: nothing charged on any pass, the accept storing the refusal, the tool call's record `remote.refused: true`; never waited on, its output never used, read back once by `GetTask` — no longer refused → the price charged and `A2AError.Protocol`, #849), and a verified run report's excess at the task's end, each under the call's own ledger identity (`UsageRecord.ledgerKey`, `a2a:<messageId>:price` / `:report`, #810 AC5: the ledger adds each once, so a takeover that replays the accept charges price + excess exactly once, `tests/a2a/mesh/a2a-mesh-takeover.test.ts`); then the task is waited for by `SubscribeToTask` (a dropped stream
   reopened) or `GetTask` polled on the `Clock`, to the execution's deadline or `call.timeout`
   (best-effort `CancelTask`, `A2AError.Deadline` with its `cancel: A2ACancelOutcome`). Outcomes: FAILED / REJECTED
-  `A2AError.TaskFailed` (an AGBoss peer's mesh limit → the same `MeshLoopDetectedError` /
-  `HopsLimitExceededError`), CANCELED `A2AError.TaskCancelled`, INPUT_REQUIRED
+  `A2AError.TaskFailed` (an AGBoss peer's mesh limit → the same `LimitError.MeshLoop` /
+  `LimitError.Hops`), CANCELED `A2AError.TaskCancelled`, INPUT_REQUIRED
   `A2AError.TaskInterrupted`, a JSON-RPC error `A2AError.Protocol`, nothing usable
   `A2AError.Remote` — codes only, never a remote text. The mesh rides as the extension
   `https://agboss.dev/a2a/mesh/v1` (`A2AMesh.Required`, the default with a `target.application` →
@@ -2062,7 +2062,7 @@ target.skill)` with the export whose `skill` — the exported start's name — i
   for one kind are `[pii.conflicting-rules]`. Masked and revealed **only at the model boundary**:
   everything a model reads is masked, its move revealed before any DTO is validated (a tool gets
   `alice@example.com`; an unknown token is an invalid answer); a block rule in what comes in or in
-  an answer fails the execution (`PiiRefusedError`, `pii.refused`), in tool arguments or a result it
+  an answer fails the execution (`PiiError.Refused`, `pii.refused`), in tool arguments or a result it
   rejects that call. Scope, checkpoint and every step's code hold real values; the token map is
   the state's `piiTokens` channel. Logs, traces, events and `result.record` are masked by the
   application's and the workflow's lists, whatever an element excludes. A child workflow (#1150) is
@@ -2133,13 +2133,13 @@ export class OrderAgent {}
   (`guardrails/*.guardrail.ts`, `-guardrail`): a yes / no question on a decision model (one
   `Decision.boolean`) or a chat model (one answer tool), `model` else `defaults.guardrail.model`, else the default model of its provider (`modelProvider` of the guardrail, its workflow, its application; none anywhere:
   `[model.missing-provider]`), never the router's; P(yes) ≥ `threshold` fails the execution with
-  `GuardrailBlockedError` (`guardrail.blocked`; `guard`, `refusal` — the text to send instead —,
+  `GuardrailError.Blocked` (`guardrail.blocked`; `guard`, `refusal` — the text to send instead —,
   `key: guardrails.<name>.threshold`, `probability`, `threshold`). An input guardrail reads what an
   agent's or a model router's model reads of the visit — its input message, **masked** by that
   element's PII policies (S84 i) — before the model is called (an agent's in its loop's input node:
   a resume never checks again); an output guardrail reads an agent's answer (its text or its
   answer's JSON, masked) as it leaves the loop. A model that does not answer fails closed
-  (`GuardFailedError`). The refusal is the decorator's text or the class's `refusal(content)` (`GuardrailRefusal`, its services and the execution through `deps`) — never both
+  (`StepError.Guardrail`). The refusal is the decorator's text or the class's `refusal(content)` (`GuardrailRefusal`, its services and the execution through `deps`) — never both
   (`[guardrail.refusal-twice]`), never neither (a compile error through the decorator's overloads,
   `[guardrail.missing-refusal]` at assembly); also `[guardrail.no-prompt]`,
   `[guardrail.threshold-invalid]`. Listed in `guardrails` of `@Application` → `@Workflow` →
@@ -2154,9 +2154,9 @@ export class OrderAgent {}
   `model` or a `prompt` without `threshold` does not compile, `decidedBy` is gone) decides by the
   class's `check(content)` (`GuardrailContent`: masked `text` with the text of text files appended, `files` — `[]` when none —, `component` — a `ComponentRecord` —, `side`) returning
   `GuardrailVerdict.passed()` / `.blocked(refusal?)` (the refusal of this call, thread-safe; else the decorator's text, else `refusal(content)`, else it fails closed) (nominal: a plain object does not compile) — no model
-  call, cost 0, the same refusal (text or `refusal(content)`), `GuardrailBlockedError` (`probability` 1,
+  call, cost 0, the same refusal (text or `refusal(content)`), `GuardrailError.Blocked` (`probability` 1,
   `threshold` 1), levels, `excludeGuardrails` and events (a pass `probability` 0); a `check` that
-  throws or returns no verdict fails closed (`GuardFailedError`, its error the `cause`);
+  throws or returns no verdict fails closed (`StepError.Guardrail`, its error the `cause`);
   `[guardrail.missing-handler]` without `check`; `agboss describe` prints `code`;
   `testUnit(G)` takes no `model`.
 
@@ -2306,7 +2306,7 @@ text agent with a DTO judge, a `oneOf` variant it does not cover, a list agent w
 value or the other way round) fails assembly with `[judge.wrong-output]`. Verdicts are built only with
 `JudgeVerdict.passed({ metrics? })` / `JudgeVerdict.failed(reason, { metrics? })`; a failed one's
 `reason` goes back to the agent for its retry, and when retries are spent the run throws
-`QualityGateError` (`rejections: [{ judge, reason }]`). `testUnit(Judge, …)({ variant, output,
+`StepError.QualityGate` (`rejections: [{ judge, reason }]`). `testUnit(Judge, …)({ variant, output,
 task, attempt })` takes `output` as a plain object, typed by the judge (a `variant` with another
 class's value does not compile). A judge's own model is a chat
 model (`judgeModel.invoke`, `deps: [JudgeModel]`) or a **decision model**
@@ -2354,7 +2354,7 @@ passed (a skipped one fails it, S2 Q6).
   `executionRecords` unset keeps nothing); the audit log's and the cost ledger's are the application's
   `@DatabaseStorage({ auditLogTtl, ledgerEntriesTtl })` (#1321, both required; `Ttl.Forever` is never swept; `[storage.retention-conflict]` when
   `retention.auditLog` / `retention.costLedgerEntries` is set beside it). `app.execute(Start, input, { threadId, ownerId, signal,
-tenant, execution, onStream, deadline })` (`deadline`, #398: `DeadlineExceededError`, `limit.deadline`,
+tenant, execution, onStream, deadline })` (`deadline`, #398: `LimitError.Deadline`, `limit.deadline`,
   before the next step or model call) runs the workflow of that start (any workflow of the
   application; one start in two workflows → `[application.ambiguous-start]`) → `ExecutionOutput`
   (`output` is the finish's DTO, `finish`, `path`, `spend`, `threadId`, `tenantId`, `executionId`);
@@ -2416,7 +2416,7 @@ askedAt, resolvedAt, decision, asked }`, the decision PII-masked, none when with
   `expireByTenantIdAndPauseId`, the CAS, I1/I5; a cancel request found before the handler or the CAS drops the decision), then the pass
   that takes them (`ResumeReason.Expired`, `TreeResume.reasons` / `hasUnansweredExpiry`, `announceResume`). The drain does the same at every
   rest (`TreeMover.afterRest`): a pass never rests on a due pause (I6). `settledAnswer` throws `PauseExpirySignal` for `Cancelled / Expired`;
-  `questionRunner` and the agent's approval node turn it into `PauseExpiredError` (or, bound by the run, `DeadlineExceededError`:
+  `questionRunner` and the agent's approval node turn it into `StepError.PauseExpired` (or, bound by the run, `LimitError.Deadline`:
   `flow/runtime/pause-expiry-failure.ts`). Fault scenarios `s24*` (`faults/scenarios/s24-pause-expiry.ts`) and the invariants
   `one-expiry-decision`, `no-paused-root-with-closed-pause`, `no-answer-after-deadline`.
   **Extension and reminder (#942):** `@ToolApproval({ remindBefore })` / `@ExternalTask({ remindBefore })` → the target's own `remindBefore` →
@@ -2443,7 +2443,7 @@ askedAt, resolvedAt, decision, asked }`, the decision PII-masked, none when with
   `reminderOf`: both working → `calendar.add(askedAt, timeout − remindBefore)`, kept only strictly between the ask and the clamped
   `expiresAt`) asks `workingTimeAfter` (`calendar/calendar-call.ts`: the step's frame, the calendar's own `timeout` (`sec(30)`) on the clock, `workingReminderAt` walks a working reminder back from the clamped deadline (a custom add-only calendar: forward, one unit, else `mixed-units`), a throw / timeout /
   non-`Date` / not-after-`from` → `PauseError.WorkingCalendar`, logged `pause.working-calendar-failed`) before `send`; the question runner and the agent
-  approval wrap it in `QuestionFailedError` / `AgentFailedError`. `app.extendPause` (`app/pause-extension.ts`) asks the same in `pauseFrameOf`.
+  approval wrap it in `StepError.ExternalTask` / `StepError.Agent`. `app.extendPause` (`app/pause-extension.ts`) asks the same in `pauseFrameOf`.
   Rules: `channels/working-time-rules.ts`. `app.cancel(threadId, { tenantId, ownerId })` aborts a
   running execution (its `execute` resolves `ExecutionStatus.Cancelled`, `app/cancelled-output.ts`) or drops a paused one (its pauses withdrawn); **cancel is a hard fence for effects
   (#909):** every path that cancels a tree (a local `app.cancel`, a remote one, a paused tree's, A2A `CancelTask`) first writes the
@@ -2819,8 +2819,8 @@ const readiness: HealthReport = await app.checkReadiness();
   `[limits.max-steps-above-0.1.0-default]` (#1278: a flow without `maxSteps` whose worst case takes
   more steps than 0.1.0's default — (agents + routers) × 3 — allowed), `[limits.max-steps-below-worst-case]` (#643: a hand-set `maxSteps` below the worst case of a flow
   whose every loop `maxVisits` bounds — each component of a loop counted at its nodes' `maxVisits`
-  and its other nodes between them —, which would end a run with `StepsLimitExceededError` before
-  the loop's `.onError(VisitsLimitExceededError, …)` does; not when a side path takes the steps
+  and its other nodes between them —, which would end a run with `LimitError.Steps` before
+  the loop's `.onError(LimitError.Visits, …)` does; not when a side path takes the steps
   limit); a node's `maxVisits`. **Money is `@Budget` components** (#261), all in `@Application({ budgets })`
   (`src/budgets/`): `@Budget({ name, scope, period?, workflow?, deps? })` +
   `implements BudgetHandler` (`maxSpend(): Usd | Promise<Usd>`) — `BudgetScope.Execution` (a
@@ -2834,14 +2834,14 @@ const readiness: HealthReport = await app.checkReadiness();
   every step that can spend or reach out — an agent, a router, an action, a child workflow, a level of
   a recursion, a launch's branch, an action of a side path; never a start, a finish, an undo (a side
   path's undo action of an entry open when the side path was entered too), nor an
-  action of the side path that took a limit, `.onError(BudgetExceededError, toAction(…))`, the
+  action of the side path that took a limit, `.onError(LimitError.Budget, toAction(…))`, the
   application's reaction to it, and what it leads to step by step — its spend counted; #656: both
   only on that side path, which a launch ends, never an action by its name alone; #675: a step of
   the main path that is some entry's undo, held back with its own `.onError` taking the error,
   undoes that entry at once as an undo — `<step key>:compensation`, unchecked, marked done —, so the
   money still goes back; the deadline is checked there too) and
   aborts the calls in flight of its parallel branches (`executionContext.signal`; the launch fails
-  with `BudgetExceededError`). Nothing is reserved: a small overrun on a race between executions is
+  with `LimitError.Budget`). Nothing is reserved: a small overrun on a race between executions is
   accepted, and a budget is exceeded by at most (#664) the calls in flight when it was exhausted, plus
   the spend of the steps it never holds back — the undos (automatic or a side path's) and the actions
   of the side path that took a limit, step by step: a paid notice there overruns by what it costs —,
@@ -2867,9 +2867,9 @@ const readiness: HealthReport = await app.checkReadiness();
   `findSpentByCounter`, `spentUsd`); **usage** tokens only (`TokenUsage`) — `UsageRecord` keeps its
   name, a call's record with its cost. Every amount that crosses a store boundary is `Usd`; a
   `CostReport` (JSON) keeps `…Usd: number`. Hitting a limit **fails the
-  execution** — unless an `.onError(…)` takes it — one class per limit, all `LimitExceededError`s:
-  `StepsLimitExceededError` (`workflow`, `maxSteps`, `steps`), `VisitsLimitExceededError`,
-  `BudgetExceededError` (`budget`, `scope`, `key`, `maxSpend`, `spent`: `tenant acme spent $40.05
+  execution** — unless an `.onError(…)` takes it — one class per limit, all `LimitError`s:
+  `LimitError.Steps` (`workflow`, `maxSteps`, `steps`), `LimitError.Visits`,
+  `LimitError.Budget` (`budget`, `scope`, `key`, `maxSpend`, `spent`: `tenant acme spent $40.05
 today; tenant-daily-budget allows $40`).
   **A lost pass's cost is not known (#853):** a model call sent by a pass that dies before its answer (a `kill -9`, a frozen instance) leaves no amount — the recovery or the resume that takes the tree over and runs the step again records one ledger entry per lost pass first: `CostSource.Unknown`, `costUsd` 0, under `unknown:<rootExecutionId>:<step>:<task>:<lease token of the lost pass>` (`UsageRecord.ledgerKey`), so two takers, or a re-run lost in turn, write it once, and a second lost pass gets its own; a budget counts it as nothing. `result.spend.unknownCalls` (and the CLI's total, `… of unknown cost`) counts them next to `totalUsd` / `calls`, which hold only known costs; `agboss.instance.costs.unknown` (`{pass}`, `workflow`) adds them as the pass records them — whether the execution then finishes, fails or is cancelled (#875; a pass lost again before its checkpoint has its taker record them again, counted again) — and a takeover whose read of the lost passes fails (logged `cost.unknown-unrecorded`, none recorded) adds one to `agboss.instance.costs.unknown_unrecorded` (`{read}`, `workflow`). Found from the tree's audit log (a takeover at the head checkpoint from a lease that expired) and the checkpoint (no write there finished the step's task — a pause's, its resume's or an error's does not): nothing is written on a pass that takes no tree over. Limits: Unknown is "maybe nothing" — a taker that died before it ran the step is a lost pass too; only an agent's or a model router's step of the root workflow (a branch too, one cancelled before it runs included) records one — a call inside a child workflow and a lease released by a graceful stop past `shutdownTimeout` are not counted.
 - **Error families (#1325):** `StepError`, `LimitError`, `GuardrailError`, `PiiError`, `PauseError`,
@@ -2883,31 +2883,31 @@ LimitError` narrows to the union, `switch (err.kind)` is exhaustive, `.onError(L
   holds no fact. A family of a step, a limit, a guardrail or PII carries `usage` and `spend`. `ExecutionError`'s
   `CancelFenced`, `LeaseLost`, `Fenced` and `ApplicationStopping` are hand-overs: no `.onError` takes them. A
   class's code is its own `static code` — a project class without one is caught by its name, never by an inherited
-  `agboss`. The old classes (`BudgetExceededError`, `StepFailedError`, …) are still thrown until each family's
+  `agboss`. The old classes (`LimitError.Budget`, `StepError`, …) are still thrown until each family's
   owning ticket moves its throw sites. **`Result<T, E = AGBossError>`** is a utility: `Result.ok`, `Result.err`,
   `Result.try(fn)` (sync or async; keeps only an `AGBossError` as `{ ok: false, error }`, any other throw is a bug
   and goes on), `Result.tryAll(fn)` (keeps anything), `.unwrap()`, `.unwrapOr()`, `.map()`, `.mapErr()`; no `App`
   method returns one and none has a `try…` twin — every public async method rejects, never throws at the call.
 - **Errors** (root entry) are `AGBossError`s with stable `code`s (`config.eval-case` —
   `ConfigError.EvalCase`, #396; `limit` ⊃ `limit.budget`,
-  `limit.steps`, `limit.visits`, `limit.mesh-loop` / `limit.hops` (`MeshLoopDetectedError` /
-  `HopsLimitExceededError`, #398: an A2A or MCP call chain — the mesh envelope every call
+  `limit.steps`, `limit.visits`, `limit.mesh-loop` / `limit.hops` (`LimitError.MeshLoop` /
+  `LimitError.Hops`, #398: an A2A or MCP call chain — the mesh envelope every call
   made inside an execution carries (`message.metadata[A2A_MESH_EXTENSION].envelope` over A2A,
   `_meta["agboss.dev/mesh"]` over MCP) — that comes back to an application's start or is longer than
   its `@Mesh({ maxHops })`, default 8: the receiver refuses it before it runs (MCP `409`,
   A2A a `REJECTED` task), and
   the calling tool's step fails with it, never read by the model; with `@Application({ mesh: MyMesh })` (`@Mesh({ signingKey, peers, inboundMode, deduplicationTtl, maxHops, … })`, #1320; every HTTP request also carries a signed `X-AGBoss-Mesh` header, verified before anything else, each `jti` once, a verified peer owns its tasks as `mesh:<peer>`) the envelope is a signed JWS and a peer whose
   header and signature verify is trusted: its budget becomes `caller-budget`, its deadline the execution's
-  — `limit.deadline`, `DeadlineExceededError` —, its origin `executionContext.origin`, and its
+  — `limit.deadline`, `LimitError.Deadline` —, its origin `executionContext.origin`, and its
   answer a signed run report the caller records as `ToolCallRecord.remote` and `a2a:<issuer>`
   spend — the larger of it and the `@A2AAgent`'s `costPerCall`; the envelope's `audience` is the client's
-  `target.application`, another receiver refuses it, `401 mesh.audience-mismatch`), `step` ⊃ `step.failed` — `StepFailedError`, a step's own failure naming it (`component`, `nodeId`,
-  `visitNumber`, `itemIndex`, #273 S22) — ⊃ `step.agent` / `step.action` (`ActionFailedError`, the
-  action's error as `cause`) / `step.guard` (`GuardFailedError`: a guardrail's model did not answer —
+  `target.application`, another receiver refuses it, `401 mesh.audience-mismatch`), `step` — `StepError`, a step's own failure naming it (`component`, `nodeId`,
+  `visitNumber`, `itemIndex`, #273 S22) — ⊃ `step.agent` / `step.action` (`StepError.Action`, the
+  action's error as `cause`) / `step.guardrail` (`StepError.Guardrail`: a guardrail's model did not answer —
   fails closed) / `step.router` ⊃ `step.router.invalid-decision` /
-  `step.arbiter` (`ArbiterError`) / `step.quorum` (`QuorumNotReachedError`, #279) /
-  `step.child` (`ChildExecutionFailedError`, #263) / `step.tool-blocked` (`ToolBlockedError`, #384),
-  `limit.depth` (`DepthLimitExceededError`, #264),
+  `step.arbiter` (`StepError.Arbiter`) / `step.quorum` (`StepError.QuorumNotReached`, #279) /
+  `step.child` (`StepError.Child`, #263) / `step.tool-blocked` (`StepError.ToolBlocked`, #384),
+  `limit.depth` (`LimitError.Depth`, #264),
   `step.memory` (`StepError.Memory`, #1303),
   `pause.unknown-pause`, `pause.permission-denied`, `pause.uninterpretable-reply`, `pause.channel-interpreter-missing`,
   `execution.cancelled`, `app.stopping` — `ApplicationStoppingError`, `execute` / `resume` after
@@ -2923,8 +2923,8 @@ LimitError` narrows to the union, `switch (err.kind)` is exhaustive, `.onError(L
   is positional). Its instance `code` is its
   class's literal — `static override readonly code = "…" as const;` and `declare readonly code:
 typeof X.code;` — so `switch (error.code)` over a union of errors narrows
-  (`tests/public-api/error-codes.test-d.ts`); the six parents with subclasses (`PaidStepError`,
-  `StepFailedError`, `AgentFailedError`, `LimitExceededError`, `RouterFailedError`,
+  (`tests/public-api/error-codes.test-d.ts`); the six parents with subclasses (`StepError`,
+  `StepError`, `StepError.Agent`, `LimitError`, `StepError.Router`,
   `ExecutionLeaseLostError`) declare the literal union of their family on the instance — a new
   subclass must be listed there (the compiler says so) — while their `static code` stays `string`. `.onError` matches by class, so a subclass is caught by its parent's
   side path — by the class's code line (its `static code`, else its class name — give a routed class a

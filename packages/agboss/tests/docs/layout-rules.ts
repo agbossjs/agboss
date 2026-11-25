@@ -1,3 +1,4 @@
+import { StepError } from "../../src/core/error-families/step-errors.js";
 /**
  * The layout rules of #470 and #474, applied to the files the shipped skills' snippets write and to
  * the real files of `examples/flow-patterns` and of `agboss generate` (skills-layout.test.ts).
@@ -67,7 +68,7 @@ const FORBIDDEN_IN_TS: readonly (readonly [RegExp, string])[] = [
   [/\bCREATE\s+TABLE\b/i, "DDL in TypeScript — a sql/<name>.sql file"],
   [/`[^`]*\b(SELECT|INSERT|UPDATE|DELETE)\b[^`]*\$\{/i, "string-interpolated SQL — ? parameters"],
   [/\bnew \w+Dto\(|Object\.assign\(new /, "a DTO built with new — a plain object literal"],
-  [/\bextends StepFailedError\b/, "a StepFailedError subclass — extend AGBossError"],
+  [/\bextends StepError\b/, "a StepError subclass — extend AGBossError"],
   [/\bopenSqliteDatabase\b/, "an internal SQLite helper — inject SqliteConnection"],
   [/from "@agboss\/core\/internal"/, "@agboss/core/internal — the public entries only"],
 ];

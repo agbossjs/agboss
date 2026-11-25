@@ -33,7 +33,7 @@ import { chargedCall, reportToFrame } from "../finops/charged-call.js";
  * the reply in the input message, one answer tool of the role's answer DTO; no answer is a decline.
  * Its model reads them through the application's PII policies and its answer is revealed before
  * validation, like an agent's (#120): a token no map knows is a decline, a `block` value
- * in them throws `PiiRefusedError`. Either kind reads in the pause's execution frame — its step's
+ * in them throws `PiiError.Refused`. Either kind reads in the pause's execution frame — its step's
  * `ExecutionContext`, its tenant for the rate limits.
  */
 

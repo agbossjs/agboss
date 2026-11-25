@@ -1,12 +1,8 @@
+import { StepError } from "@agboss/core";
+import { LimitError } from "@agboss/core";
 import { ExecutionError } from "@agboss/core";
 import { expect } from "vitest";
-import {
-  BudgetExceededError,
-  ChannelOutcome,
-  CompensationReason,
-  CompensationStatus,
-  StepFailedError,
-} from "@agboss/core";
+import { ChannelOutcome, CompensationReason, CompensationStatus } from "@agboss/core";
 import { callTool, failWith, ModelFailure, replyWith, testWith } from "@agboss/core/testing";
 import { usd } from "@agboss/core/units";
 import { AlertRecruiterAction } from "../../../../src/hiring/actions/alert-recruiter.action.js";
@@ -163,7 +159,7 @@ test("an uncaught failure: undone automatically, newest first, then the run fail
 
   const run = app.execute(SendOfferWorkflowStart, REQUEST);
 
-  await expect(run).rejects.toFailWith(StepFailedError);
+  await expect(run).rejects.toFailWith(StepError);
   const [released] = mockService(HrCalendarService).releaseSlot.mock.invocationCallOrder;
   const [withdrawn] = mockService(AtsClientService).withdrawOffer.mock.invocationCallOrder;
   expect(released).toBeLessThan(withdrawn ?? 0);
@@ -194,7 +190,7 @@ test("an undo that fails: the rest still runs, the run fails with ExecutionError
         reason: CompensationReason.ExecutionFailed,
       }) as unknown,
     ],
-    cause: StepFailedError,
+    cause: StepError,
   });
   expect(mockService(AtsClientService).withdrawOffer.mock.calls).toHaveLength(1); // the older one still undone
 });
@@ -218,7 +214,7 @@ test("a cancel while paused: the pause is withdrawn, both undone, then cancelled
   expect(mockService(AtsClientService).withdrawOffer.mock.calls).toHaveLength(1);
 });
 
-test("an exhausted budget: no model call after it, both undone, then BudgetExceededError", async ({
+test("an exhausted budget: no model call after it, both undone, then LimitError.Budget", async ({
   app,
   mockModel,
   mockService,
@@ -232,7 +228,7 @@ test("an exhausted budget: no model call after it, both undone, then BudgetExcee
 
   const run = app.execute(SendOfferWorkflowStart, REQUEST);
 
-  await expect(run).rejects.toFailWith(BudgetExceededError, {
+  await expect(run).rejects.toFailWith(LimitError.Budget, {
     budget: expect.objectContaining({ name: "execution-budget" }) as unknown,
   });
   expect(mockService(HrCalendarService).releaseSlot.mock.calls).toHaveLength(1);

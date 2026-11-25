@@ -1,3 +1,4 @@
+import { StepError } from "../../../../src/core/error-families/step-errors.js";
 import {
   DecidedBy,
   listOf,
@@ -30,7 +31,7 @@ import {
 
 /**
  * #264 PR 2 (AC9) — the vote of `tree-vote.workflow.ts` with no `.onError(…)`: a quorum not
- * reached fails the tree, so the test reads `QuorumNotReachedError`'s reason — the effective
+ * reached fails the tree, so the test reads `StepError.QuorumNotReached`'s reason — the effective
  * deadline, the ticket's plus the time in the tree's queue.
  */
 
@@ -75,14 +76,10 @@ export class StrictMixedWorkflowStart {}
   flow: [
     onStart(StrictMixedWorkflowStart)
       .toRouter(StrictTaskKindRouter)
-      .onRoute(
-        toWorkflow(TaskWorkflow)
-          .toFinish(TaskDoneWorkflowFinish),
-      )
-      .onRoute(
-        toWorkflow(StrictVoteWorkflow)
-          .toFinish(MixedVotedWorkflowFinish),
-      ),
+      .onRoute(toWorkflow(TaskWorkflow)
+        .toFinish(TaskDoneWorkflowFinish))
+      .onRoute(toWorkflow(StrictVoteWorkflow)
+        .toFinish(MixedVotedWorkflowFinish)),
   ],
 })
 export class StrictMixedWorkflow {}

@@ -2,13 +2,12 @@
  * #1325c, at compile time: what an error reports about itself, and the mesh errors' `chain` field
  * that became `callChain` so `chain()` is the method on every error.
  */
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import { describe, expectTypeOf, it } from "vitest";
 import {
   AGBossError,
   BacktraceMode,
-  HopsLimitExceededError,
   ValidationError,
-  MeshLoopDetectedError,
   type ErrorFormatOptions,
   type ExecutionSpanFrame,
   type LabeledSpan,
@@ -45,10 +44,11 @@ describe("#1325c: what an error reports about itself", () => {
 
 describe("#1325c: the mesh limits' call chain", () => {
   it("is callChain; the old `chain` option is gone, so chain() is the method everywhere", () => {
-    expectTypeOf<MeshLoopDetectedError["callChain"]>().not.toBeAny();
-    expectTypeOf<HopsLimitExceededError["chain"]>().toEqualTypeOf<() => readonly Error[]>();
-    const stale: ConstructorParameters<typeof MeshLoopDetectedError>[0] = {
-      entry: { application: "a", start: "s" },
+    expectTypeOf<LimitError.MeshLoop["callChain"]>().not.toBeAny();
+    expectTypeOf<LimitError.Hops["chain"]>().toEqualTypeOf<() => readonly Error[]>();
+    const stale: ConstructorParameters<typeof LimitError.MeshLoop>[0] = {
+      entry: "a › s",
+      meshEntry: { application: "a", start: "s" },
       callChain: [],
       // @ts-expect-error the option `chain` is renamed `callChain`
       chain: [],

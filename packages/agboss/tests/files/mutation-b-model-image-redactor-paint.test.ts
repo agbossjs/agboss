@@ -1,10 +1,10 @@
 /**
  * #1269 (files-pii mutation shard): when the copy cannot be painted, the redaction fails closed.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { FakeListChatModel } from "@langchain/core/utils/testing";
 import { describe, expect, it, vi } from "vitest";
 import { sha256Of } from "../../src/files/file-bytes.js";
-import { FileRedactionFailedError } from "../../src/files/file-errors.js";
 import { redacted } from "../../src/files/model-image-redactor-work.js";
 import { PiiKind } from "../../src/pii/kinds.js";
 import { seconds } from "../../src/units/index.js";
@@ -62,8 +62,8 @@ describe("the copy cannot be painted", () => {
       (thrown: unknown) => thrown,
     );
 
-    expect(error).toBeInstanceOf(FileRedactionFailedError);
-    const failed = error as FileRedactionFailedError;
+    expect(error).toBeInstanceOf(StepError.FileMaskingFailed);
+    const failed = error as StepError.FileMaskingFailed;
     expect(failed.reason).toBe("the redacted copy cannot be made");
     expect(failed.agent).toBe("reader-agent");
     expect(failed.cause).toBe(broken);

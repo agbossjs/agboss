@@ -1,3 +1,5 @@
+import { StepError } from "../../core/error-families/step-errors.js";
+import { LimitError } from "../../core/error-families/limit-errors.js";
 import { isExecutionCancelled } from "../../core/execution-cancelled.js";
 import { ExecutionError } from "../../core/error-families/run-errors.js";
 import { storedOutputOf, type FinalOutputDeps } from "../../pii/final-output-mask.js";
@@ -8,9 +10,7 @@ import { HandOverSite } from "../../infrastructure/execution-audit-log.repositor
 import { errorRecordOf, RecordedError } from "../../core/error-record.js";
 import { ExecutionCancelledError } from "../../core/errors.js";
 import { CostReport, type UsageRecord } from "../../finops/usage.js";
-import { BudgetExceededError, LimitExceededError } from "../../graph/limits.js";
 import type { WorkflowRecord } from "../context/execution-context.js";
-import { ChildExecutionFailedError } from "./child-errors.js";
 import {
   ChildExecutionStatus,
   type EndedChildRecord,
@@ -24,7 +24,7 @@ import { unrecordedSpendOf } from "./node-runner.js";
 /**
  * How a child execution ends for its parent (#263 S25): at a finish, its output is the parent's
  * value; an uncaught error of its own — a step's failure, its `maxSteps`, a node's `maxVisits` — is
- * wrapped into `ChildExecutionFailedError`; a tree-wide limit (a budget) passes through as it is, the
+ * wrapped into `StepError.Child`; a tree-wide limit (a budget) passes through as it is, the
  * child's spend added to it; a cancellation (the execution's, or the launch's FailFast abort) passes
  * through as `ExecutionCancelledError`. A pause and a hand-over are no end: they rise as they are.
  * Every end is a nested record for the parent's state.
@@ -122,7 +122,7 @@ export interface ChildFailure {
 }
 
 /** A budget's error with the child's spend so far added to what it carries. */
-function withSpend(error: LimitExceededError, spent: readonly UsageRecord[]): LimitExceededError {
+function withSpend(error: LimitError, spent: readonly UsageRecord[]): LimitError {
   const usage: readonly UsageRecord[] = [...spent, ...error.usage];
   // the same error, its spend completed: a tree-wide limit is never wrapped (S25)
   Object.defineProperty(error, "usage", { value: usage, enumerable: true });
@@ -155,14 +155,14 @@ export function childFailureOf(
         });
     return { thrown: cancelled, status: ChildExecutionStatus.Cancelled, usage, reported: usage };
   }
-  if (error instanceof BudgetExceededError)
+  if (error instanceof LimitError.Budget)
     return {
       thrown: withSpend(error, spent),
       status: ChildExecutionStatus.Failed,
       usage,
       reported: [],
     };
-  if (isRecordedAs(error, BudgetExceededError.code))
+  if (isRecordedAs(error, LimitError.Budget.code))
     return { thrown: error, status: ChildExecutionStatus.Failed, usage, reported: usage };
   // a failed automatic undo passes the boundary as it is: no side path takes it (#340 S5)
   if (
@@ -171,7 +171,7 @@ export function childFailureOf(
   )
     return { thrown: error, status: ChildExecutionStatus.Failed, usage, reported: [] };
   const identity = { executionId: child.identity.executionId, workflow: child.workflow };
-  const thrown = new ChildExecutionFailedError({
+  const thrown = new StepError.Child({
     childExecutionId: identity.executionId,
     workflow: identity.workflow,
     cause: error,

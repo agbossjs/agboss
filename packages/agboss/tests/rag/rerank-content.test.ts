@@ -2,8 +2,9 @@
  * A reranker is untrusted (a model may back it): it contributes the ORDER and the score of the
  * candidates, never their text — what reaches the agent is always the retrieval's own passage.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { describe, expect, it } from "vitest";
-import { rerankedRetrieval, RerankFailedError, type BoundReranker } from "../../src/rag/rerank.js";
+import { rerankedRetrieval, type BoundReranker } from "../../src/rag/rerank.js";
 import {
   RerankFailurePolicy,
   type RagRetrieval,
@@ -56,7 +57,7 @@ describe("a reranker cannot rewrite what the agent reads", () => {
       { query: "q", topK: 1, signal: new AbortController().signal },
     );
 
-    await expect(outcome).rejects.toBeInstanceOf(RerankFailedError);
+    await expect(outcome).rejects.toBeInstanceOf(StepError.RerankFailed);
   });
 
   it("an invented id is refused", async () => {
@@ -64,7 +65,7 @@ describe("a reranker cannot rewrite what the agent reads", () => {
       /rerank/iu,
     );
     await expect(run([{ id: "zzz", source: "a.md", text: "x" }])).rejects.toBeInstanceOf(
-      RerankFailedError,
+      StepError.RerankFailed,
     );
   });
 
@@ -74,6 +75,6 @@ describe("a reranker cannot rewrite what the agent reads", () => {
         { id: "a", source: "a.md", text: "x" },
         { id: "a", source: "a.md", text: "y" },
       ]),
-    ).rejects.toBeInstanceOf(RerankFailedError);
+    ).rejects.toBeInstanceOf(StepError.RerankFailed);
   });
 });

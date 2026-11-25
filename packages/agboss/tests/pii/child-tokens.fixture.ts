@@ -4,10 +4,10 @@
  * the other side minted: the account of the parent's email tool (a sensitive field), the address the
  * child's notify tool echoes (an email in a tool result).
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import {
   Action,
   Agent,
-  ChildExecutionFailedError,
   ExecutionContext,
   Tool,
   Workflow,
@@ -250,10 +250,7 @@ export class FailedHandoverRecoveredFinish {}
   flow: [
     onStart(FailedHandoverStart)
       .toWorkflow(FailingNotifyWorkflow)
-      .onError(
-        ChildExecutionFailedError,
-        toAgent(RecoveryAgent).toFinish(FailedHandoverRecoveredFinish),
-      )
+      .onError(StepError.Child, toAgent(RecoveryAgent).toFinish(FailedHandoverRecoveredFinish))
       .toFinish(FailedHandoverFinish),
   ],
   defaults,
@@ -290,10 +287,7 @@ export class FailedListRecoveredFinish {}
     onStart(FailedListStart)
       .forEachItem(toWorkflow(FailingNotifyWorkflow), { takeFirst: 1, maxConcurrency: 1 })
       .join()
-      .onError(
-        ChildExecutionFailedError,
-        toAgent(ListRecoveryAgent).toFinish(FailedListRecoveredFinish),
-      )
+      .onError(StepError.Child, toAgent(ListRecoveryAgent).toFinish(FailedListRecoveredFinish))
       .toAgent(ListSummaryAgent)
       .toFinish(FailedListFinish),
   ],

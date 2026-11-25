@@ -1,5 +1,6 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { beforeEach, describe, expect } from "vitest";
-import { BranchStatus, StepFailedError } from "../../../src/index.js";
+import { BranchStatus } from "../../../src/index.js";
 import { decideWith, replyWith, testWith } from "../../../src/testing/index.js";
 import { execute } from "../../helpers/flow.js";
 import {
@@ -67,7 +68,7 @@ describe("#1279a: .inParallel([…])", () => {
   strict("without skip() the failed branch fails the launch", async ({ app }) => {
     const run = execute(app, UnskippedWorkflowStart, { text: "go" });
 
-    await expect(run).rejects.toBeInstanceOf(StepFailedError);
+    await expect(run).rejects.toBeInstanceOf(StepError);
   });
 });
 

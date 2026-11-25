@@ -112,7 +112,7 @@ function usageOf(spec: DecisionSpec, details: DecisionDetails): UsageRecord | un
 /** A scripted turn as the router's outcome; a target outside its routes fails the test. */
 function outcomeOf(turn: ScriptedTurn, spec: DecisionSpec, script: ComponentScript): RouteOutcome {
   if (turn.kind === "failure") {
-    // the model call failed: a router fails with RouterFailedError, this error as its cause (#280 S19)
+    // the model call failed: a router fails with StepError.Router, this error as its cause (#280 S19)
     const cause = new ModelCallFailedError({ failure: turn.failure, component: script.label });
     return { kind: "failed", reason: cause.message, cause };
   }

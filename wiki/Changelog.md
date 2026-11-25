@@ -42,10 +42,10 @@ Breaking changes and notable additions, newest first. The API reports
 
 - **Added**: `BranchStatus.Expired` — a branch whose pause expired (its own, the run's or the quorum's), the error
   `step.pause-expired` kept in `result.launches`. Under a quorum it did not vote and never fails the launch;
-  `QuorumNotReachedError.expired` lists the node ids. A pause asked in a quorum branch is bound by the quorum's
+  `StepError.QuorumNotReached.expired` lists the node ids. A pause asked in a quorum branch is bound by the quorum's
   deadline (`PauseExpiryBound.Quorum`, contexts `quorumDeadlineAt`): at it the tree wakes by itself.
 - **Added**: a plain `.join()` follows its `FailurePolicy` on an expired branch (`Skip` drops it, `FailFast` fails
-  the launch with `PauseExpiredError` and withdraws the waiting branches); the `.onJoinError(…)` side path reads
+  the launch with `StepError.PauseExpired` and withdraws the waiting branches); the `.onJoinError(…)` side path reads
   the answers already settled as `optional(…)` inputs; `onPauseJoinFailed` on `ChannelOf` and `@PauseListener`
   (`ChannelPauseJoinFailedEvent`, `PauseListenerJoinFailedEvent`), once per answered pause.
 - **Changed**: a quorum's deadline that passes while a branch waits closes its pause `Expired` (it was
@@ -66,19 +66,19 @@ Breaking changes and notable additions, newest first. The API reports
 - **Changed — stores** (`@agboss/core/stores`, unreleased): the argument of `extendByTenantIdAndPauseId`, `{ expiresAt,
   remindAt? }`, is `PauseDeadlineChange` (it was `PauseExtension`; no published version had it) and
   `findPendingByRemindAtBefore` takes the optional keyset `after?: PauseScanAfter`; PostgreSQL and MongoDB follow at their re-pin (#1064).
-- **Fixed**: a pause extended to exactly the deadline of its run expires as the run's own (`DeadlineExceededError`, the
+- **Fixed**: a pause extended to exactly the deadline of its run expires as the run's own (`LimitError.Deadline`, the
   channel's expiry decision not asked): a tie goes to the run.
 
-## Unreleased — 0.1.1: a pause has a deadline — `expiresIn`, `PauseExpiration`, `PauseExpiredError` (#941, part of #910)
+## Unreleased — 0.1.1: a pause has a deadline — `expiresIn`, `PauseExpiration`, `StepError.PauseExpired` (#941, part of #910)
 
 - **Added**: `@ChannelRole({ expiresIn })`, `.toQuestion(Role, { expiresIn })` (and the side path), `@Tool({ channel, expiresIn })`;
   the pause's absolute deadline is fixed when it is made (the smaller of it and the run's deadline); `PendingPause.expiresAt`.
   The deadline is hard: an answer at or after it is `PauseError.Closed` (`expired`), decided in the store's compare-and-set.
   The pause timers' expiry look takes the tree under its lease and asks the channel's optional `onPauseExpired(ask)`
-  (`PauseExpiryHandler<Role>`): `PauseExpiration.fail()` fails the step with `PauseExpiredError` (`step.pause-expired`,
+  (`PauseExpiryHandler<Role>`): `PauseExpiration.fail()` fails the step with `StepError.PauseExpired` (`step.pause-expired`,
   an agent's approval fails the agent step, its spend kept), `PauseExpiration.decide(answer)` goes on with the answer, recorded as
   answered by the channel (`PauseResolution.DecidedOnExpiry`). A handler problem fails the expiry with an `PauseError.ExpiryHandlerFailed`
-  (`pause.expiry-handler`) as the cause. A pause the run's deadline bound fails the run with `DeadlineExceededError`.
+  (`pause.expiry-handler`) as the cause. A pause the run's deadline bound fails the run with `LimitError.Deadline`.
 - **Added**: `ResumeReason.Expired` (every pass an expiry starts is announced once, with a decision or without),
   `LeaseTakeoverReason.Expired`, `QuestionStepOptions`; rules `[channel.expires-in-invalid]`, `[tool.expires-in-without-channel]`,
   `[question.expires-in-conflict]`; log codes `pause.expiry-handler-failed`, `pause.expiry-failed`; `agboss describe` prints each `expiresIn`.
@@ -215,11 +215,11 @@ Breaking changes and notable additions, newest first. The API reports
 - **Added (flow)**: `toQuestion(Q)` as an `.onError` side-path start (#933, #910): `.onError(E, toQuestion(Role).returns(AnswerDto)…)` — a question role's step handles a failure; after a limit a side path still leads only to actions and finishes (`[graph.limit-handler-uses-model]`).
 - **Changed — breaking (errors)**: every exported `AGBossError` subclass is made from **one options
   object** whose keys are its own properties, `cause` among them (kept as `.cause`):
-  `new DtoValidationError({ dto, issues })`, `new ActionFailedError({ action, cause })`,
-  `new LimitExceededError({ key, limit, actual, path, spentUsd })`,
-  `new BudgetExceededError({ budget, scope, period, key, maxSpend, spent, path, spentUsd })`,
-  `new StepFailedError({ message, usage, cause, component, nodeId, visitNumber })`,
-  `new AgentFailedError({ agent, usage, cause })`, `new RouterFailedError({ nodeId, visitNumber, cause })`,
+  `new DtoValidationError({ dto, issues })`, `new StepError.Action({ action, cause })`,
+  `new LimitError({ key, limit, actual, path, spentUsd })`,
+  `new LimitError.Budget({ budget, scope, period, key, maxSpend, spent, path, spentUsd })`,
+  `new StepError({ message, usage, cause, component, nodeId, visitNumber })`,
+  `new StepError.Agent({ agent, usage, cause })`, `new StepError.Router({ nodeId, visitNumber, cause })`,
   `new A2AProtocolError({ agent, operation, …, cause })`,
   `new A2ACallerRejectedError({ httpStatus, wireCode, reason })`,
   `new ModelProviderFailureError({ failure, retryAfter })`, `new ToolTimeoutError({ timeout })`, …;
@@ -231,8 +231,8 @@ Breaking changes and notable additions, newest first. The API reports
   `FencedEffectResultTooLargeError`, `ExecutionFencedError`). Only the base
   `AGBossError(message, { cause, details })` is positional — the base of your own errors.
   `FingerprintRequiredError({ effect, reason, cause })`: its option was `name`, shadowing
-  `Error.name`. Facts that only the message said are fields now: `GuardFailedError.reason`,
-  `QuorumNotReachedError.reason`, `ActionFailedError.action`, `BudgetExceededError.period`,
+  `Error.name`. Facts that only the message said are fields now: `StepError.Guardrail.reason`,
+  `StepError.QuorumNotReached.reason`, `StepError.Action.action`, `LimitError.Budget.period`,
   `A2ACallerRejectedError.reason`, `InvalidFencedEffectNameError.length`,
   `FencedEffectStoreMismatchError.expectedLeaseRepository`, `ConfigError.ModelKind.model` / `.kind` / `.call`,
   `ToolTimeoutError.timeout`. A test walks every entry's exports (`error-options.test.ts`).
@@ -280,8 +280,8 @@ Breaking changes and notable additions, newest first. The API reports
   named by `SqliteExecutionRecordRepository` and `AgentExecutionDeps` without being exported).
 - **Changed — breaking (codes)**: the instance `code` of every error is its class's literal, so
   `switch (error.code)` over a union of errors **narrows**. The seven parents with subclasses carry
-  the literal union of their family — `PaidStepError`, `StepFailedError`, `AgentFailedError`,
-  `LimitExceededError`, `RouterFailedError`, `DecisionError`, `ExecutionLeaseLostError`; their
+  the literal union of their family — `StepError`, `StepError`, `StepError.Agent`,
+  `LimitError`, `StepError.Router`, `DecisionError`, `ExecutionLeaseLostError`; their
   `static code` stays `string`. A class of yours extending one of them keeps its `static code` and
   an instance `code` assignable to the union — or extend `AGBossError`.
 - **Changed — breaking (names)**: `ExecutionRecordRepository.lastTerns` → `lastTurns`,
@@ -421,7 +421,7 @@ Breaking changes and notable additions, newest first. The API reports
   (`fenced-effect.sync-work-required`), no aliases; one options bag, its keys the error's fields
   (`effect`, `call`, `cause` among them), for `ExecutionError.InvalidMintedId`, `ExecutionError.ThreadIdsExhausted`,
   `FingerprintNotJsonError`, `InvalidBusinessKeyError`, `BusinessKeyConflictError`, the
-  outbound-call errors and `QuestionFailedError({ question, cause })`;
+  outbound-call errors and `StepError.ExternalTask({ question, cause })`;
   `OutboundCallUnreconciledError.reason` a code (`reconcile.unknown`, `reconcile.threw`,
   `reconcile.no-verdict`, `key-retention.passed`; the text in `detail`) and
   `OutboundCallResultNotStoredError.reason` one of three codes; `ExecutionFencedError.of({
@@ -753,7 +753,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
   [Payment gateways](Payment-gateways#rules-that-follow).
 - **Changed — breaking**: an attempt answered after a newer one took its intent over — both reached
   the other system — fails the step with `OutboundCallSupersededError` (`outbound-call.superseded`, a
-  `StepFailedError`: `call`, `target`, `operation`, `idempotencyKey`, `attempt`, `supersededBy`);
+  `StepError`: `call`, `target`, `operation`, `idempotencyKey`, `attempt`, `supersededBy`);
   `OutboundCallOutcomeStatus.Superseded` is removed (the lease log's `Superseded` row stays).
   **Migration:** a step that must go on takes it with `.onError(OutboundCallSupersededError, …)`.
 - **Changed — breaking**: `new OutboundCallSettings({ …, requiresMask })` — one options bag
@@ -776,7 +776,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
   `rerank.by` is a `RerankerClass`: a model `@Reranker` `extends ModelReranker`, a code one
   `implements RerankerHandler`; any other class does not compile. Renamed: `IndexReport` →
   `RagIndexReport`, `FtsOptions` → `SqliteFtsOptions`, its `dbFile` → `sqlitePath`, `maxChunkChars`
-  → `maxChunkLength`, `RagReranking` → `RerankResult`. `new RerankFailedError({ rag, reranker,
+  → `maxChunkLength`, `RagReranking` → `RerankResult`. `new StepError.RerankFailed({ rag, reranker,
   cause, usage })`. `KnowledgeSource`, `KnowledgeRetrieve`, `KnowledgeRetrieval` are no longer
   public. **Migration:** the renames; `extends ModelReranker` on each model reranker.
   [Knowledge bases](Knowledge-bases#reranking).
@@ -798,7 +798,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
   `pending[0].ask.arguments` compile as `unknown`); an approval's ask keeps its typing. A question's
   ask is read as `const fields: Readonly<Record<string, unknown>> = pause.ask`.
   `PendingPauseSite` is `PendingPauseBase`, and its `agent` is `step` (the agent whose call waits,
-  or the question step). `QuestionFailedError({ question }, cause)` carries `question`; its `code`
+  or the question step). `StepError.ExternalTask({ question }, cause)` carries `question`; its `code`
   is the literal `"step.question"`. [Pauses](Pauses).
 - **Changed — breaking for stores outside the core**: `PauseRecord.kind: PauseKind` is stored and
   read as written (a store no longer tells a question by `component?.kind`), and
@@ -925,7 +925,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
 - **Fixed**: a tallied spend's ledger write (#727) that landed while its caller heard an error was
   held by the pass's next read of the counters while its tally still counted it, so the checks and
   tallies before the write was retried counted it twice: a launch beside a step that paid $60
-  stopped with `BudgetExceededError` naming $146 for $86 spent of $100. Every read of the counters
+  stopped with `LimitError.Budget` naming $146 for $86 spent of $100. Every read of the counters
   now writes such spend again first, and fails when that write fails again; the ledger counted it
   once already. [FinOps](FinOps).
 ## Unreleased — 0.1.1: a worker claims children up to its free slots (#767)
@@ -1167,7 +1167,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
   `replyInterpreter`, `maxVisits`), asked by a flow step: `.toQuestion(Role)` / `question(Role)`.
   The step pauses like an approval and its answer — a `decision` validated as the `answer` DTO, a
   reply its interpreter reads into it, or the channel's `decided(answer)` — goes on the path.
-  `[reply-interpreter.decision-model]` back for a question role; `QuestionFailedError`
+  `[reply-interpreter.decision-model]` back for a question role; `StepError.ExternalTask`
   (`step.question`); `PauseKind`, `PendingApproval` / `PendingQuestion`, `PauseAsk`, `QuestionAsk`.
 - **Changed**: `PendingPause` is a union on `kind`; a code building one adds `kind:
   PauseKind.Approval`. `[channel.question-role-unavailable]` is gone. [Pauses](Pauses#a-question-the-workflow-asks-toquestionrole-659),
@@ -1191,7 +1191,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
   (default `openai/gpt-4.1-nano`), or `DecidedBy.Code` + `RerankerHandler` for a dedicated API on
   its own SDK. Both modes, `testRag`, `mockLlm(Reranker)`; the spend under `rag:<name>` in every
   budget; spans `rerank:<name>` (and `:fallback`); `RerankFailurePolicy.Fallback` (default) /
-  `FailStep` → `RerankFailedError` (`step.rerank-failed`); the result must be a subset of the
+  `FailStep` → `StepError.RerankFailed` (`step.rerank-failed`); the result must be a subset of the
   candidates. New model use `rerankers.<name>`; new assembly codes `rag.rerank-invalid`,
   `rag.not-a-reranker`, `reranker.missing-handler`, `reranker.decision-model`.
   [Knowledge bases](Knowledge-bases#reranking).
@@ -1286,7 +1286,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
 ## Unreleased — 0.1.1: a refund the budget held back still gives the money back (#675)
 
 - **Fixed**: since #656 a main-path refund that is also a booking's undo is held back by the
-  exhausted budget (right), but with its own `.onError(BudgetExceededError, …)` the booking was
+  exhausted budget (right), but with its own `.onError(LimitError.Budget, …)` the booking was
   closed as a failed undo and never refunded. Now the forward visit stays stopped and the booking
   is undone at once as an undo (`<step key>:compensation`, no budget check, marked done like the
   automatic undo, so a takeover does not undo it again), before the side path goes on —
@@ -1428,7 +1428,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
   now kept there and rebuilt as an error `.onError` routes as the original. A mark or a row written
   before has no record and routes as before, the same on every instance.
 - **Changed**: a remote child's exhausted budget or failed undo passes its parent's boundary as it
-  is (as a local child's), no longer wrapped in `ChildExecutionFailedError`.
+  is (as a local child's), no longer wrapped in `StepError.Child`.
   [Guarantees across processes](Guarantees-across-processes) · [ADR-0028](ADR-0028-Failures-cross-instances-as-their-records).
 
 ## Unreleased — 0.1.1: the guarantees, their assumptions and their proofs on one page (#533 item 6)
@@ -1883,7 +1883,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
   attempt's start; `[application.outbound-calls-invalid]`) and its instance's stop — the call is in
   flight for `attemptTimeout` plus up to the lease's 30 s. A send still hung past this bound can coincide with a reconcile and a resend; the provider must deduplicate on `call.idempotencyKey` (G1).
 - **Added — `OutboundCallResultNotStoredError`** (`outbound-call.result-not-stored`, a
-  `StepFailedError`): a replay of a call whose result was not stored — nothing sent, never the
+  `StepError`): a replay of a call whose result was not stored — nothing sent, never the
   marker as a result. Warnings `outbound-call.result-not-stored` and `outbound-call.text-redacted`;
   an error `outbound-call.answered-after-hand-over` for an answer fenced after its lease was
   handed over; `outbound-call.superseded` is written to the instance's log (`OutboundCalls` takes
@@ -2235,7 +2235,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
   placement })` and `route(W, …)` lets any instance of the application run the child; default
   `ChildPlacement.ParentInstance` (as before). The parent's node waits for it inside its step (#333
   S6) — `FailFast`, `app.cancel`, a lost lease and budgets as for a local child; its failure is
-  `ChildExecutionFailedError` with the child's error chain as `RemoteChildFailure`s. New rule codes
+  `StepError.Child` with the child's error chain as `RemoteChildFailure`s. New rule codes
   `[flow.conflicting-placement]` and, until #333 PR 4, `[graph.remote-child-can-pause]`.
 - **Added — infrastructure `ChildExecutionQueueRepository`** (in memory;
   `SqliteChildExecutionQueueRepository`, table `child_execution_queue`) and
@@ -2411,7 +2411,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
 
 - `examples/flow-patterns/src/desk/` adds a code `@Judge` on `toolCalls`, a `@Rag` knowledge base,
   a `PiiPolicyHandler` detector, an observer, a `@HealthCheck` and `maxConcurrentSteps`; the tests
-  now run all ten unit runners and `replyWithInvalidAnswer` → `AgentAnswerInvalidError`.
+  now run all ten unit runners and `replyWithInvalidAnswer` → `StepError.AgentAnswerInvalid`.
   [Example](Example#flow-patterns-a-review-loop-and-a-code-router).
 
 ## Unreleased — flow-patterns as the zero-cost harness: the extension points (#419 PR 1)
@@ -2581,8 +2581,8 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
 - **Added — what a trusted request gets**: the caller's remaining budget as the execution budget
   `caller-budget` (the receiver only lowers its own), its deadline, and its origin —
   `executionContext.origin`, `ExecutionRecord.origin`, `ExecutionEvent.origin` (`ExecutionOrigin`).
-- **Added — `app.execute(…, { deadline })`** and `DeadlineExceededError` (`limit.deadline`:
-  `deadline`, `deadlineAt`; a `LimitExceededError`): checked before every step and model call.
+- **Added — `app.execute(…, { deadline })`** and `LimitError.Deadline` (`limit.deadline`:
+  `deadline`, `deadlineAt`; a `LimitError`): checked before every step and model call.
 - **Added — run reports**: a trusted answer's `report` (A2A) / `_meta["agboss.dev/report"]` (MCP),
   a signed `MeshRunReport` (`MeshSpendReport`); the caller verifies it and records the spend
   (`a2a:<issuer>` / `mcp:<issuer>`) and `ToolCallRecord.remote` (`ToolCallRemote`). The
@@ -2692,9 +2692,9 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
 - **Added — loops and hops refused before they run**: a request whose chain already lists the
   receiver's `(application, start)` → `409` / an MCP error result `limit.mesh-loop`; one whose chain
   already lists `@Application({ maxMeshHops })` applications (new, default 8,
-  `[limits.max-mesh-hops-invalid]`) → `limit.hops`. New errors `MeshLoopDetectedError`
-  (`entry`, `chain`) and `HopsLimitExceededError` (`entry`, `chain`, `maxMeshHops`, `hops`), both
-  `LimitExceededError`s (`MeshLimitPlace` for their constructors); thrown by the client, and a tool
+  `[limits.max-mesh-hops-invalid]`) → `limit.hops`. New errors `LimitError.MeshLoop`
+  (`entry`, `chain`) and `LimitError.Hops` (`entry`, `chain`, `maxMeshHops`, `hops`), both
+  `LimitError`s (`MeshLimitPlace` for their constructors); thrown by the client, and a tool
   that meets one fails its step with it — never an error result for the model.
 - **Added — `A2AExecutionResponse.code` / `.details`**: a failed or limited run's error code (every
   `AGBossError`), and for the two mesh limits their facts, so the caller fails the same way.
@@ -2717,7 +2717,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
   partialArgs)`, `replyWithInvalidAnswer(Dto, fields)`** ([Testing](Testing#scripted-models)): a
   validation retry is tested without a cast — an invalid or a cut tool call (recorded
   `ToolCallStatus.InvalidArguments`, counted in `step.validationAttempts`, the tool never runs) and
-  an answer that does not fit its class (the third fails the step with `AgentAnswerInvalidError`).
+  an answer that does not fit its class (the third fails the step with `StepError.AgentAnswerInvalid`).
   Replace `replyWith(Dto, { … } as never)` with `replyWithInvalidAnswer(Dto, { … })`.
 
 ## Unreleased — trajectory matchers on a run result (#395 PR 2)
@@ -2736,7 +2736,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
 
 - **Changed — a failed visit keeps its records** ([Observability](Observability#tool-calls-and-steps)):
   the tool calls, judge verdicts and guardrail decisions of an agent whose step fails
-  (`QualityGateError`, `ToolBlockedError`, `GuardrailBlockedError`, a limit, any error) are in
+  (`StepError.QualityGate`, `StepError.ToolBlocked`, `GuardrailError.Blocked`, a limit, any error) are in
   `result.toolCalls`, `record.toolCalls` and its `record.steps` entry when a side path takes the
   failure, in a failed branch's too, and in the `ChildExecutionRecord` of a child the failure ends.
 - **Added — `ChildExecutionRecord.steps`**: each child's own `ExecutionStepRecord`s.
@@ -2838,9 +2838,9 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
   (`afterToolCall(call: ToolCallResultContext)` → the result the model reads), listed in
   `toolInterceptors` of `@Application` → `@Workflow` → `@Agent` → `@Tool` / `@McpTool` (outer first),
   removed with `excludeToolInterceptors` on an agent or a tool. `replyToModel` answers the model
-  without calling the tool; `block` fails the step with the new `ToolBlockedError`
-  (`step.tool-blocked`, a `StepFailedError`); a throwing interceptor fails it with
-  `AgentFailedError` (its error the `cause`). `beforeToolCall` reads the arguments PII-revealed; the
+  without calling the tool; `block` fails the step with the new `StepError.ToolBlocked`
+  (`step.tool-blocked`, a `StepError`); a throwing interceptor fails it with
+  `StepError.Agent` (its error the `cause`). `beforeToolCall` reads the arguments PII-revealed; the
   result after `afterToolCall` is validated, cut at `maxResultSize`, then masked. Rule codes
   `[tool-interceptor.not-an-interceptor]`, `[tool-interceptor.exclude-not-inherited]`,
   `[tool-interceptor.missing-handler]`; `agboss describe` prints `tool interceptors`, `describe
@@ -2925,12 +2925,12 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
 - **Added — guardrails decided by code** ([Guards](Guards#decided-by-code)): `@InputGuardrail` /
   `@OutputGuardrail({ decidedBy: DecidedBy.Code })` — the class's `check(text)` (`implements
   GuardrailHandler`) returns `GuardrailVerdict.passed()` / `.blocked()` on the masked text; no
-  model call, cost 0; the same refusal (text or `refusal()`), `GuardrailBlockedError` (`probability`
+  model call, cost 0; the same refusal (text or `refusal()`), `GuardrailError.Blocked` (`probability`
   1, `threshold` 1), levels, `excludeGuardrails`, events and `testGuardrail`; a throwing `check`
-  fails closed (`GuardFailedError`, its error as `cause`); `[guardrail.missing-handler]`; `agboss
+  fails closed (`StepError.Guardrail`, its error as `cause`); `[guardrail.missing-handler]`; `agboss
   describe` prints `decidedBy: code`. `decidedBy` is optional, `DecidedBy.Model` by default: every
   existing guardrail compiles and hashes as before. New public types `CodeGuardrailTextOptions`,
-  `CodeGuardrailComputedOptions`; `GuardFailedError` takes an optional `cause`.
+  `CodeGuardrailComputedOptions`; `StepError.Guardrail` takes an optional `cause`.
 
 ## Unreleased — the agboss skill: references 02, 06, 08, 09, 11, 12 and compensation (#305 PR 3)
 
@@ -3001,7 +3001,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
   returns `{ cancelled: true }` ([Cancellation](Saga-And-Cancellation#global-cancellation)); a cancel
   request (#360) found at lease take undoes first, then ends the tree as before.
 - **Changed — `ExecutionError.CompensationFailed` passes a child's boundary as it is**, never wrapped in
-  `ChildExecutionFailedError`: no `.onError` / `.onJoinError` of the parent takes it, and the
+  `StepError.Child`: no `.onError` / `.onJoinError` of the parent takes it, and the
   parent undoes its own open actions.
 - **Added — `ExecutionErrorEvent.compensations`** ([Observability](Observability#automatic-undo)):
   the undo actions that ran for the failed execution. **Breaking** for a project that builds
@@ -3206,9 +3206,9 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
   and writes (each DTO by its JSON Schema), each `undefined` when it has none — the values
   `describe --json` gives. It is every record that names a component: `event.step.component`,
   `executionContext.step.component`, `ExecutionOutput.finish`, `ExecutionEndEvent.finish`, child
-  records' `start` / `finish`, `handledErrors`' `at` / `by`, `StepFailedError.component`,
-  `VisitsLimitExceededError.component` (its constructor takes the record) and
-  `BudgetExceededError.budget` (`kind: ComponentKind.Budget`; `BudgetBreach.budget` names it by
+  records' `start` / `finish`, `handledErrors`' `at` / `by`, `StepError.component`,
+  `LimitError.Visits.component` (its constructor takes the record) and
+  `LimitError.Budget.budget` (`kind: ComponentKind.Budget`; `BudgetBreach.budget` names it by
   `name` only). A test comparing one with `toEqual({ name })` compares with `toMatchObject`.
 - **Breaking — `WorkflowRecord` has `configHash`**: the workflow's fingerprint, the one join key —
   in every execution event, `executionContext.workflow`, child records and limit errors; there is no
@@ -3291,8 +3291,8 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
   branch of `.toParallelAgents`, `.toParallelActions`, `.toParallelWorkflows` or a quorum sees its
   siblings' spend while they run. The call that exhausts an execution, tenant or application budget
   aborts the in-flight model and tool calls of the other branches through `executionContext.signal`;
-  they fail with that `BudgetExceededError` (their spend so far kept), and the launch fails with it
-  into `.onJoinError(BudgetExceededError, toAction(…)… | toFinish(…))`, else the execution fails.
+  they fail with that `LimitError.Budget` (their spend so far kept), and the launch fails with it
+  into `.onJoinError(LimitError.Budget, toAction(…)… | toFinish(…))`, else the execution fails.
   Before, every branch checked only its own view (the spend at the launch plus the siblings that had
   ended), so N branches could each spend the whole remainder. The promise is now "a budget is
   exceeded by at most the calls in flight when it was exhausted"; an aborted call's partial cost is
@@ -3590,9 +3590,9 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
   else `defaults.guardrail.model` (never the router's, `[guardrail.no-model]`). An input guardrail
   reads what an agent's or a model router's model reads — its input message, **masked** by that
   element's PII policies (S84 i) — before the call; an output guardrail reads an agent's answer. At
-  P(yes) ≥ `threshold` the execution fails with `GuardrailBlockedError` (`guardrail.blocked`;
+  P(yes) ≥ `threshold` the execution fails with `GuardrailError.Blocked` (`guardrail.blocked`;
   `refusal`, `key: guardrails.<name>.threshold`, `probability`, `threshold`); a model that does not
-  answer fails closed (`GuardFailedError`, `step.guard`).
+  answer fails closed (`StepError.Guardrail`, `step.guard`).
 - **New — the refusal:** a text in the decorator, or `refusal(): string | Promise<string>` of a class
   that `implements GuardrailRefusal` (its services and the execution through `deps`); neither does
   not compile (the decorator's overloads); at assembly `[guardrail.missing-refusal]`,
@@ -3684,7 +3684,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
 - **Breaking — `JudgeVerdict.feedback` is `reason`**, and verdicts are built only with
   `JudgeVerdict.passed({ metrics? })` / `JudgeVerdict.failed({ reason, metrics? })` — a plain
   `{ passed, feedback }` object no longer compiles. The `reason` goes back to the agent for its
-  retry. `QualityGateError.feedback` is `rejections: [{ judge, reason }]` (`JudgeFeedback` →
+  retry. `StepError.QualityGate.feedback` is `rejections: [{ judge, reason }]` (`JudgeFeedback` →
   `JudgeRejection`).
 - **New rule `[judge.wrong-reply]`**: an agent whose `output` does not fit a listed judge's `reply`
   fails assembly (also `agboss check`) — a text agent with a DTO judge, a DTO agent with another
@@ -3722,7 +3722,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
 - **The queue's order**: a parent closing its branch, then the deepest; `seconds(10)` of waiting
   counts as one level deeper (the `Clock`). A child's own smaller cap limits its subtree.
 - **A quorum's `deadline`** excludes the time its branches wait in the tree's queue; a
-  `QuorumNotReachedError` past it names the effective deadline (`the deadline passed
+  `StepError.QuorumNotReached` past it names the effective deadline (`the deadline passed
   (2026-01-05T09:01:10.000Z: the ticket's deadline plus 40 s in the tree's queue)`).
 - **New rules**: `[limits.max-concurrent-executions-invalid]` (not a whole number from 1, an error),
   `[limits.child-concurrency-above-parent]` (a child's cap above its parent's, a warning).
@@ -3772,10 +3772,10 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
 - **`@Workflow({ maxDepth })`** required on a recursive workflow (`[graph.recursion-without-depth]`);
   the root is depth 1, `ChildExecutionRecord.depth` and each child's trace metadata carry it.
 - **The soft stop** on the last level: an agent's recursive variants leave its schema, a model
-  router's recursive routes are hidden, a code router returning one is `RouterDecisionError`; every
+  router's recursive routes are hidden, a code router returning one is `StepError.RouterDecision`; every
   such branch keeps an exit (`[graph.recursion-without-exit]`).
-- **`DepthLimitExceededError`** (`limit.depth`; `workflow`, `maxDepth`, `depth`): a launch by code
-  past `maxDepth` does not start; the level above gets it as the `cause` of `ChildExecutionFailedError`.
+- **`LimitError.Depth`** (`limit.depth`; `workflow`, `maxDepth`, `depth`): a launch by code
+  past `maxDepth` does not start; the level above gets it as the `cause` of `StepError.Child`.
 - **`[graph.mutual-recursion]`**: mutual recursion, a flow naming its own class, a class undefined
   while the flow is built. **`[types.this-workflow-outputs]`**: recursive workflows of one project
   with different finish classes (removed in PR 3).
@@ -3796,10 +3796,10 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
 - **PII tokens** (#120): a child starts with its parent's tokens and gives its own back — with its
   value, or with its error (into the parent's state, never on the error) to the side path that
   takes it, a per-item child's too.
-- **`ChildExecutionFailedError`** (`step.child`, a `StepFailedError`: `cause`, `childExecutionId`,
+- **`StepError.Child`** (`step.child`, a `StepError`: `cause`, `childExecutionId`,
   `itemIndex`, `workflow`): an uncaught error of the child, its own `maxSteps` / `maxVisits`
-  included; budgets and cancellation pass through unwrapped (S25). `PaidStepError` stays the base of
-  `StepFailedError` (`step.failed`, #273 S71).
+  included; budgets and cancellation pass through unwrapped (S25). `StepError` stays the base of
+  `StepError` (`step.failed`, #273 S71).
 - **`toWorkflow(W)` side-path starter** (S85): `.onError(E, toWorkflow(W)…)`, also in `.onJoinError`.
 - **Records**: `result.children` / `result.record.children` (`ChildExecutionRecord`,
   `ChildExecutionStatus`), `result.handledErrors` (`HandledErrorRecord`); observer events carry
@@ -3849,7 +3849,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
   lands while `send` is returning is taken at once. **`FailFast` withdraws paused siblings'
   pauses** (`Cancelled`; a late answer → `NotPausedError`); so does `app.cancel` and the end of a
   tree. The join after a withdrawal gets the branch's own error object (`.onJoinError(E, …)` by
-  class and cause chain); a channel's `send` that throws fails the agent's step (`AgentFailedError`,
+  class and cause chain); a channel's `send` that throws fails the agent's step (`StepError.Agent`,
   the channel's error as `cause`).
 - **Spend while several loops are paused**: the execution's spend and the ledger hold every
   paused loop's spend, summed, each once; a resume records nothing twice.
@@ -3890,8 +3890,8 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
   `mockLlm(X)` / `mockAction(A)` (Vitest's own on anything else) and `mockLlm(X).inputs`.
 - **Breaking — `toFailWith(ErrorClass, { …fields, cause })`** replaces `toFailWith({ code, node })`
   (`ExpectedFailure` removed): `toFailWith({ code: "step.action" })` →
-  `toFailWith(ActionFailedError)`, `{ node: MainRouter }` → `toFailWith(RouterFailedError, {
-  nodeId: nameOf(MainRouter) })`, a budget by its name → `toFailWith(BudgetExceededError, { budget:
+  `toFailWith(StepError.Action)`, `{ node: MainRouter }` → `toFailWith(StepError.Router, {
+  nodeId: nameOf(MainRouter) })`, a budget by its name → `toFailWith(LimitError.Budget, { budget:
   { name: "tenant-daily-budget" } })`. The root `ErrorClass` takes the error's type
   (`ErrorClass<TError>`).
 ## Unreleased — optional environment variables (#266 S87, S90)
@@ -3913,7 +3913,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
   `PiiPolicy` interface (`mask` / `maskJson`) is removed; names end with `-pii-policy`.
 - **Actions** `PiiAction.replaceWithKind()`, `replacePart({ keep… } | { pattern })`,
   `replaceWithToken()` (HMAC-SHA256), `blockWithRefusal({ refusal } | ())` + `PiiRefusal`;
-  `PiiRefusedError` (`pii.refused`), `PiiDetectionFailedError` (`pii.detection-failed`).
+  `PiiError.Refused` (`pii.refused`), `PiiError.DetectionFailed` (`pii.detection-failed`).
 - **Levels**: `@Application({ piiPolicies })` (new) → `@Workflow` → `@Agent` / `@Router`; the lists
   add up, `excludePiiPolicies` removes. **Breaking:** `overridePiiPolicies` / `disablePiiPolicies`
   are removed, and so are the PII policies of `@Tool` (a tool sees real values; its agent's
@@ -3994,13 +3994,13 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
   recorded at once (`BranchVerdict.Counted` with `acceptedSequence`, `Rejected` with `rejectedBy`,
   `Surplus`), the rest cancelled once the quorum is fixed; the join decides from the records (counted
   answers in counting order, the winning group's own path). `flow.quorum-not-runnable` is removed.
-- **New errors**: `QuorumNotReachedError` (`step.quorum`) and `ArbiterError` (`step.arbiter`), both
-  `StepFailedError`s, taken by `.onJoinError(E, …)`; `QuorumShortfall`.
+- **New errors**: `StepError.QuorumNotReached` (`step.quorum`) and `StepError.Arbiter` (`step.arbiter`), both
+  `StepError`s, taken by `.onJoinError(E, …)`; `QuorumShortfall`.
 - **Deadline** on the application's `Clock`: `deadlineAt` at dispatch, kept in the launch's ticket; a
   pause counts. After a resume or a crash the quorum is rebuilt from the finished branches' records;
   an expired deadline cancels the rest without running it.
 - **Under a quorum** a branch's own step failure is `Skipped` (its place stays empty) whatever the
-  route's failure policy; an `ArbiterError` or a limit fails the launch.
+  route's failure policy; an `StepError.Arbiter` or a limit fails the launch.
 - **Model arbiters**: one decision per answer under `arbiter:<name>` (`answer-arbiter` on a chat
   model), budgets checked before each call; their prompts and criteria in the prompt version, their
   model a model use (`arbiters.<name>`). Code arbiters are created by the container at start.
@@ -4087,7 +4087,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
   own execution budget (else the default), every tenant budget, every application budget — have
   their `maxSpend()` read once, at its start, in its `ExecutionContext`, and kept in its state for
   the whole execution (a resume and a recovery count against the same amounts). Before the first
-  step an exhausted one **rejects** the execution (`BudgetExceededError`, `onRunRejected`) leaving
+  step an exhausted one **rejects** the execution (`LimitError.Budget`, `onRunRejected`) leaving
   no trace — no thread (a new thread is now created after the check), no record, no call; every model call's cost is then counted in all of them, and before every step and model
   call the first exhausted stops the execution. Nothing is reserved (#202's holds are gone): a small
   overrun on a race, or by one call, is accepted.
@@ -4099,9 +4099,9 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
   `WorkflowLimits`, `PerRunLimits`, `PerDayLimits`, `PerRunLimitRequiredError`
   (`[limits.per-run-required]`), `WorkflowSettingsError`, `LimitKey`, `SpendAccount` and
   `RunOptions.account` are gone; money is `@Budget`s only. `settings()` keeps `onIncompatibleResume`.
-- **Breaking — the limit errors** ([FinOps](FinOps#steps-and-visits)): `StepsLimitExceededError`
+- **Breaking — the limit errors** ([FinOps](FinOps#steps-and-visits)): `LimitError.Steps`
   (`limit.steps`: `workflow`, `maxSteps`, `steps`; `support-workflow took 41 steps; its maxSteps is
-  40`) for `maxSteps`; `BudgetExceededError` names its budget — `budget` (`{ name }`), `scope`, `key`
+  40`) for `maxSteps`; `LimitError.Budget` names its budget — `budget` (`{ name }`), `scope`, `key`
   (the application's name, the `tenantId`, the execution's id), `maxSpend`, `spent`, a sentence
   (`tenant acme spent $40.05 today; tenant-daily-budget allows $40`) — instead of the keys
   `limits.perRun.cost` / `limits.perDay.cost`. `toFailWith({ code })` matches a budget by its name.
@@ -4114,7 +4114,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
   per-workflow day table of a file written before (#265 S69 e).
 - **`maxSteps` and launches** (#273 S68 f): the default (agents + routers) × 3 must hold the worst
   case of a per-item launch (`maxItems` runs) — else `[limits.max-steps-too-low]`; set
-  `@Workflow({ maxSteps })`. `.onError(StepsLimitExceededError, …)` (or a parent class) counts as a
+  `@Workflow({ maxSteps })`. `.onError(LimitError.Steps, …)` (or a parent class) counts as a
   way out for the steps rules.
 - **Eval / replay / compare** run within the application's budgets; the judge's calls count in the
   application budgets, held to their last known `maxSpend()` (the eval account `<workflow>:eval` is
@@ -4165,7 +4165,7 @@ VirtualClock(start?)` in unit tests. **Breaking:** the `TestClock` type is gone 
   starts with its start input only.
 - **New rules**: `[graph.child-without-failure-finish]` (a warning, an error under `--strict`) and
   `[graph.limit-handler-uses-model]` — **breaking for flows that catch a limit**: an `.onError` /
-  `.onJoinError` side path that can catch a `LimitExceededError` (its class, a subclass or a parent
+  `.onJoinError` side path that can catch a `LimitError` (its class, a subclass or a parent
   such as `AGBossError` / `Error`) now fails assembly when it reaches an agent, a router or a child.
 - A workflow class mentioned as another kind (`toAgent(SomeWorkflow)`) is `[graph.wrong-kind]`, no
   longer `[graph.not-a-node]`.
@@ -4239,23 +4239,23 @@ tenantId, threadId)`, `threadOwner(workflow, tenantId, threadId)`; every record 
   branch frees its slot), the join a node of its own reading only its launch's outcome records
   (launch id `${executionId}:${nodeId}:${visitNumber}`); the join's lists keep listed / item order.
   `flow.launch-not-runnable` is gone.
-- **New: `StepFailedError`** (`step.failed`, #273 S22; lineage e.g. `[step.agent, step.failed, step]`) — a step's own failure, naming it: `component`,
+- **New: `StepError`** (`step.failed`, #273 S22; lineage e.g. `[step.agent, step.failed, step]`) — a step's own failure, naming it: `component`,
   `nodeId` (`critic-agent#2` for a copy), `visitNumber`, `itemIndex`; `StepCoordinates`.
-  **Breaking (class hierarchy)** — `AgentFailedError`, `GuardFailedError`, `RouterFailedError`
-  (with `RouterDecisionError`) and `ActionFailedError` extend it instead of `PaidStepError`
-  directly (still `PaidStepError`s); `AgentAnswerInvalidError`'s and `ActionFailedError`'s
+  **Breaking (class hierarchy)** — `StepError.Agent`, `StepError.Guardrail`, `StepError.Router`
+  (with `StepError.RouterDecision`) and `StepError.Action` extend it instead of `StepError`
+  directly (still `StepError`s); `StepError.AgentAnswerInvalid`'s and `StepError.Action`'s
   `component` / `nodeId` come from it, and every step error's record `details` now carries
   `visitNumber` (and `itemIndex` in a per-item run).
 - **`FailFast` and `Skip`** (S21): a failed branch aborts its siblings (`BranchStatus.Cancelled`, their
   spend counted) and the join takes the most specific `.onJoinError(E, …)` by class and cause chain,
   else the execution fails with the branch's error; `FailurePolicy.Skip` drops only a
-  `StepFailedError` — a limit in a `Skip` branch fails the launch; `app.cancel` during a launch
+  `StepError` — a limit in a `Skip` branch fails the launch; `app.cancel` during a launch
   cancels the whole execution (`WorkflowCancelledError`), never routed by the join.
 - **One visit per launch**: every copy and item of a launch is the same visit of its node (the
   launch's `visitNumber`, told apart by `copyNumber` / `itemIndex`); `maxVisits` counts launches.
 - **Router launches** (S23, #280 S47 f): a model router decides its `OnDemand` routes in one call —
   a `Decision.noul` per route on a decision model, one answer tool `answer-launch` with a boolean per
-  route on a chat model; all no without an `Always` route → `RouterDecisionError`. A code router's
+  route on a chat model; all no without an `Always` route → `StepError.RouterDecision`. A code router's
   `route()` list is launched beside its `Always` targets. Tests script both with
   `decideWith({ "<target>": P(yes) })` ([Testing → Parallel launches](Testing#parallel-launches)).
 - **New: `result.launches`** (`ExecutionOutput.launches: LaunchRecord[]` — `launch`, `items`,
@@ -4507,13 +4507,13 @@ tenantId, threadId)`, `threadOwner(workflow, tenantId, threadId)`; every record 
   and `Route<R>` is every target; before a launch `Route<R>` leaves `Always` targets out and every
   route `Always` → `[router.all-routes-always]`. The generated `RouterAnswers` table types what
   `route()` returns.
-- **Breaking — router errors (S19)**: `RouterFailedError` (`step.router`, the original as `cause`: a
-  model call or `route()` failed) and `RouterDecisionError` (`step.router.invalid-decision`, now a
-  `RouterFailedError`: an answer outside the routes, a list after `.chooseOne(…)`, an unreadable
+- **Breaking — router errors (S19)**: `StepError.Router` (`step.router`, the original as `cause`: a
+  model call or `route()` failed) and `StepError.RouterDecision` (`step.router.invalid-decision`, now a
+  `StepError.Router`: an answer outside the routes, a list after `.chooseOne(…)`, an unreadable
   answer — never retried). Both carry `component`, `nodeId`, `visitNumber`. The instance codes
   `router.failed` / `router.unknown-route`, the type `RouterFailureCode` and the field `router` are
-  gone (`router` → `nodeId`); an unreadable model answer is now `RouterDecisionError`, not a failure.
-  `.onError(RouterFailedError, …)` takes both; `.onError(DomainError, …)` the error inside.
+  gone (`router` → `nodeId`); an unreadable model answer is now `StepError.RouterDecision`, not a failure.
+  `.onError(StepError.Router, …)` takes both; `.onError(DomainError, …)` the error inside.
 - `agboss describe` lists code routers as `code`; `mockLlm(CodeRouter)` throws (a code router calls
   no model — `mockOf()` its services).
 
@@ -4603,7 +4603,7 @@ tenantId, threadId)`, `threadOwner(workflow, tenantId, threadId)`; every record 
   (`ActionHandler<Self>`). `ctx.run`, `ctx.idempotencyKey` and `ctx.executionContext` are gone
   from actions — since #280 the execution comes through `deps: [ExecutionContext]` (above).
 - **Limits**: `@Workflow({ maxSteps })` replaces `limits.perRun.steps`; `maxVisits` on routers and
-  agents (`VisitsLimitExceededError`, catchable with `.onError`); money stays in `settings()`.
+  agents (`LimitError.Visits`, catchable with `.onError`); money stays in `settings()`.
 - **Results**: `ExecutionStatus.Finished | Paused`; `result.finish` is `{ name }`; `{ record: true }`
   adds the execution record. The thread's history keeps finished executions as
   `start <name>: <input>` / `finish <name>: <output>`.

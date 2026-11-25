@@ -4,11 +4,12 @@
  * marker — in an agent's quality gate, in `testUnit`, and unscripted it passes. Its option rules fail
  * at assembly; the execution's budgets are checked before each of its model calls.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { describe, expect, it } from "vitest";
 import { ExecutionStatus } from "../../src/app/types.js";
-import { BudgetExceededError } from "../../src/graph/limits.js";
 import { PlainTextDto } from "../../src/dto/index.js";
-import { Judge, JudgeVerdict, QualityGateError, AgentFailedError } from "../../src/index.js";
+import { Judge, JudgeVerdict } from "../../src/index.js";
 import { checkedJudgeOf } from "../../src/components/judge-parts.js";
 import { inline } from "../../src/components/prompt-source.js";
 import { decideWith, replyWith, testUnit, testWith } from "../../src/testing/index.js";
@@ -183,7 +184,7 @@ describe("#1290b: a declarative judge in an agent's quality gate", () => {
 
     const run = execute(app, DeclaredStart, { text: "?" });
 
-    await expect(run).rejects.toBeInstanceOf(QualityGateError);
+    await expect(run).rejects.toBeInstanceOf(StepError.QualityGate);
     await expect(run).rejects.toMatchObject({
       rejections: [{ judge: "polite-judge", reason: "curt" }],
     });
@@ -209,7 +210,7 @@ describe("#1290b: a declarative judge in an agent's quality gate", () => {
 
     const run = execute(app, DeclaredStart, { text: "?" });
 
-    await expect(run).rejects.toBeInstanceOf(AgentFailedError);
+    await expect(run).rejects.toBeInstanceOf(StepError.Agent);
     await run.catch((error: unknown) => {
       expect((error as Error).message).not.toContain("secret-marker-123");
       expect(((error as Error).cause as Error).message).not.toContain("secret-marker-123");
@@ -232,7 +233,7 @@ describe("#1290b: the budget is checked before each model call of a judge", () =
 
     const run = execute(app, DeclaredStart, { text: "?" });
 
-    await expect(run).rejects.toBeInstanceOf(BudgetExceededError);
+    await expect(run).rejects.toBeInstanceOf(LimitError.Budget);
     expect(mockModel(GroundedJudge).requests).toHaveLength(1);
     expect(mockModel(ShortJudge).requests).toHaveLength(0);
   });

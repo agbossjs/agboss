@@ -1,8 +1,8 @@
+import { PiiError } from "../core/error-families/limit-errors.js";
 import type { UsageRecord } from "../finops/usage.js";
 import { PiiActionKind, type MaskingPiiAction } from "./actions.js";
 import type { PiiKind } from "./kinds.js";
 import { isCustomPolicy, PiiFileAction } from "./pii-policy.decorator.js";
-import { PiiRefusedError } from "./errors.js";
 import { maskedText, withoutOverlaps, type MaskedText, type PiiFinding } from "./masking.js";
 import { DetectionMode, type RuntimePiiPolicy } from "./runtime-policy.js";
 import type { PiiTokenMap } from "./tokens.js";
@@ -265,12 +265,12 @@ export class PiiPolicySet {
    * The refusal for a kind a redactor found in a file, when a block rule names it: the error the boundary
    * throws (the file never goes to the model). Other kinds are blacked out, not refused.
    */
-  async refusalForKind(kind: PiiKind): Promise<PiiRefusedError | undefined> {
+  async refusalForKind(kind: PiiKind): Promise<PiiError.Refused | undefined> {
     for (const policy of this.policies) {
       const action = policy.actions.get(kind);
       if (action?.kind === PiiActionKind.Block)
-        return new PiiRefusedError({
-          kind: kind.id,
+        return new PiiError.Refused({
+          piiKind: kind.id,
           refusal: await policy.refusalOf(kind, action),
         });
     }
@@ -281,11 +281,11 @@ export class PiiPolicySet {
   async refusalError(
     blocked: readonly PiiFinding[],
     usage: readonly UsageRecord[],
-  ): Promise<PiiRefusedError | undefined> {
+  ): Promise<PiiError.Refused | undefined> {
     const [finding] = blocked;
     if (finding?.action.kind !== PiiActionKind.Block) return undefined;
     const policy = this.policies.find((candidate) => candidate.name === finding.policy);
     const refusal = (await policy?.refusalOf(finding.kind, finding.action)) ?? "";
-    return new PiiRefusedError({ kind: finding.label, refusal, usage });
+    return new PiiError.Refused({ piiKind: finding.label, refusal, usage });
   }
 }

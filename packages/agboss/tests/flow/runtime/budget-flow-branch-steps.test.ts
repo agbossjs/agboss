@@ -2,6 +2,7 @@
  * #1366 (budget-flow shard) — the steps a launch's branches add to the run's `maxSteps` (a paid call past it is refused):
  * the visit a branch brings back counts its own step once, and the run's next step is checked against the steps the branches took.
  */
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import { describe, expect, it } from "vitest";
 import { CostReport } from "../../../src/finops/usage.js";
 import {
@@ -10,7 +11,6 @@ import {
 } from "../../../src/flow/runtime/child-records.js";
 import { bareRecordOf, ComponentKind } from "../../../src/flow/runtime/records.js";
 import { entryOf } from "./fixtures/compensation-entries.js";
-import { StepsLimitExceededError } from "../../../src/graph/limits.js";
 import {
   branchVisitOf,
   type BranchFrameRun,
@@ -47,7 +47,7 @@ describe("#1366: the steps the branches of a launch add to the run", () => {
 
       const run = app.execute(ScreeningWorkflowStart, { text: "many" });
 
-      await expect(run).rejects.toBeInstanceOf(StepsLimitExceededError);
+      await expect(run).rejects.toBeInstanceOf(LimitError.Steps);
       await expect(run).rejects.toMatchObject({ maxSteps: 9, steps: 10 });
       expect(mockModel(CompanyAuditAgent).requests).toHaveLength(8);
       expect(mockModel(RankerAgent).requests).toHaveLength(0);

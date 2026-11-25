@@ -3,7 +3,7 @@ import { formatHistory, formatSummaries } from "../flow/runtime/history.js";
 import { answerToolDescription } from "../flow/runtime/answer-tools.js";
 import { ONE_ANSWER_MESSAGE } from "../graph/agent-loop/answer-node.js";
 import { formatDecisionsForAgent } from "../graph/agent-loop/input-node.js";
-import { retryPrompt } from "../graph/agent-loop/judge-node.js";
+import { retryPrompt } from "../graph/agent-loop/judge-retry-prompt.js";
 import { answerWithToolMessage } from "../graph/agent-loop/reply-node.js";
 import type { AnyPiiAction } from "../pii/actions.js";
 import type { AssembledPii } from "../pii/assembly.js";

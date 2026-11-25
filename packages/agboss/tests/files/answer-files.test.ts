@@ -2,13 +2,14 @@
  * #899 §8: the files of an agent's answer — picked by number from the ones it saw (the default), the
  * model's own descriptors only when the developer allows them, and checked against origins and ownership.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
+import { GuardrailError } from "../../src/core/error-families/limit-errors.js";
 import { bytes as byteSize } from "../../src/units/index.js";
 import { describe, expect, it } from "vitest";
 import { FileDto } from "../../src/dto/standard/file.js";
 import { Nested, Text, List } from "../../src/dto/index.js";
 import { modelWrittenFileProblem } from "../../src/files/answer-files.js";
 import { AnswerFiles, FileSource, FileView, ModelFiles } from "../../src/files/model-files.js";
-import { AgentAnswerInvalidError, GuardrailBlockedError } from "../../src/index.js";
 import { callTool, decideWith, replyWith, testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
 import { AnswerFilesGuardrail } from "./guardrails.fixture.js";
@@ -104,7 +105,7 @@ describe("AC2: by default an agent returns only files it saw, picked by number",
         document: inline(PNG_BYTES, "image/png", "a.png"),
       });
 
-      await expect(run).rejects.toThrow(AgentAnswerInvalidError);
+      await expect(run).rejects.toThrow(StepError.AgentAnswerInvalid);
     },
   );
 
@@ -258,7 +259,7 @@ describe("AC2: AnswerFiles.Any — the model's own descriptors, checked", () => 
 
       const run = execute(app, any.Start, { document: inline(PNG_BYTES, "image/png", "a.png") });
 
-      await expect(run).rejects.toThrow(AgentAnswerInvalidError);
+      await expect(run).rejects.toThrow(StepError.AgentAnswerInvalid);
     },
   );
 
@@ -279,7 +280,7 @@ describe("AC2: AnswerFiles.Any — the model's own descriptors, checked", () => 
 
       const run = execute(app, any.Start, { document: inline(PNG_BYTES, "image/png", "a.png") });
 
-      await expect(run).rejects.toThrow(AgentAnswerInvalidError);
+      await expect(run).rejects.toThrow(StepError.AgentAnswerInvalid);
     },
   );
 });
@@ -300,8 +301,8 @@ describe("AC4: output guardrails see the files of the answer, in the views the m
 
       const run = execute(app, guarded.Start, { document: given });
 
-      await expect(run).rejects.toFailWith(GuardrailBlockedError, {
-        guard: "answer-files-guardrail",
+      await expect(run).rejects.toFailWith(GuardrailError.Blocked, {
+        guardrail: "answer-files-guardrail",
         refusal: "The answer is held back.",
       });
       const request = guardrail.onlyRequest;

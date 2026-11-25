@@ -1,10 +1,10 @@
+import { StepError } from "../core/error-families/step-errors.js";
 import { GuardrailSide } from "../components/policy-decorators.js";
 import {
   createYesNoDecider,
   type DecisionVoice,
   type LaunchDecider,
 } from "../flow/runtime/launch/launch-decider.js";
-import { GuardFailedError } from "../graph/errors.js";
 import {
   GUARDRAIL_ANSWER_DESCRIPTION,
   GUARDRAIL_ANSWER_TOOL,
@@ -52,8 +52,8 @@ export function modelDecisionOf(
     });
     if (outcome.usage !== undefined) spent.push(outcome.usage);
     if (outcome.kind === "failed")
-      throw new GuardFailedError({
-        guard: name,
+      throw new StepError.Guardrail({
+        guardrail: name,
         usage: [...spent],
         reason: outcome.reason,
         // the call's own error: `.onError(ModelCallError, …)` finds it through the cause chain

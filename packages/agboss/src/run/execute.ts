@@ -1,3 +1,4 @@
+import { isPaidError } from "../core/error-families/paid.js";
 import { isExecutionCancelled } from "../core/execution-cancelled.js";
 import { type Usd } from "../units/index.js";
 import { ExecutionCancelledError } from "../core/errors.js";
@@ -7,8 +8,6 @@ import { drainRecordingUsage } from "../finops/record-stream.js";
 import { totalCost, type UsageRecord } from "../finops/usage.js";
 import type { ExecutionGraph } from "../flow/runtime/build.js";
 import type { ExecutionStateType } from "../flow/runtime/state.js";
-import { PaidStepError } from "../graph/errors.js";
-import { LimitExceededError } from "../graph/limits.js";
 import type { NewTurn, TurnOutcome } from "../turns/index.js";
 import type { BaseCallbackHandler } from "@langchain/core/callbacks/base";
 import type { AgentExecutionDeps } from "./types.js";
@@ -122,7 +121,7 @@ async function* statesOnly(
 
 /** Spend a failure carries that the run's state does not hold yet. */
 const unrecordedSpendOf = (error: unknown): readonly UsageRecord[] =>
-  error instanceof PaidStepError || error instanceof LimitExceededError ? error.usage : [];
+  isPaidError(error) ? error.usage : [];
 
 /** Drains the graph stream; a paid failure (agent, guard, router, an agent's limit) still records its spend. */
 export function drainRun(

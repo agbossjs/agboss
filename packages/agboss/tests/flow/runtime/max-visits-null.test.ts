@@ -4,6 +4,7 @@
  * build refuses the value itself (`[limits.count-invalid]`), and a run that got past it refuses the node on its
  * first visit. The two agree, and fail closed.
  */
+import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import { describe, expect, it } from "vitest";
 import { BudgetMeter } from "../../../src/budgets/execution-budgets.js";
 import { InMemoryCostLedgerRepository } from "../../../src/infrastructure/cost-ledger.repository.js";
@@ -12,7 +13,6 @@ import { checkWorkflow } from "../../../src/flow/analyse/analyse.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { oneOf } from "../../../src/flow/dto-wrappers.js";
-import { VisitsLimitExceededError } from "../../../src/flow/runtime/errors.js";
 import { runtimeGraphOf } from "../../../src/flow/runtime/graph-model.js";
 import { checkVisit, type ExecutionLimits } from "../../../src/flow/runtime/limits.js";
 import { ChangesRequestedDto, DraftApprovedDto, OfferDraftDto } from "../fixtures/dtos.js";
@@ -104,6 +104,6 @@ describe("#1365, #1373: maxVisits null, at build time and at run time", () => {
         { name: "w", version: "1", configHash: "h" } as never,
         { name: "n", kind: "agent", promptHash: "p", schemaHash: "s" } as never,
       ),
-    ).rejects.toBeInstanceOf(VisitsLimitExceededError);
+    ).rejects.toBeInstanceOf(LimitError.Visits);
   });
 });

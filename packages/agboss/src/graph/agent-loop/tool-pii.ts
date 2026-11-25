@@ -1,8 +1,8 @@
+import { PiiError } from "../../core/error-families/limit-errors.js";
 import type { UsageRecord } from "../../finops/usage.js";
 import { scrubbedFilesOfDto } from "../../a2a/files/a2a-file-scrub.js";
 import { dtoOf, maskedDtoValue } from "../../dto/redact.js";
 import { tokenFieldMask } from "../../pii/field-masks.js";
-import { PiiRefusedError } from "../../pii/errors.js";
 import type { PiiFinding } from "../../pii/masking.js";
 import { errorRecordOf, type ErrorRecord } from "../../core/error-record.js";
 import type { PiiPolicySet } from "../../pii/policy-set.js";
@@ -67,7 +67,7 @@ export async function screenedArguments(
 /** What refuses a call before it runs: the text the model reads and the error behind it. */
 export interface ArgumentsRefusal {
   readonly content: string;
-  readonly refusal: PiiRefusedError;
+  readonly refusal: PiiError.Refused;
 }
 
 /** The refusal of a call whose arguments hold a blocked kind; none when it may run. */
@@ -111,7 +111,7 @@ function withFilesShown(
 
 /** A result a block rule refused: the text the model reads, the spend of the search, the error as data. */
 const refusedResult = (
-  refused: PiiRefusedError,
+  refused: PiiError.Refused,
   usage: readonly UsageRecord[],
   isTruncated: boolean,
 ): ClosedResult => ({
@@ -137,7 +137,7 @@ export async function closedResult(
 ): Promise<ClosedResult> {
   const none = { piiTokens: {}, piiMasked: {}, usage: [] };
   // a block rule in what a model the call made on the agent's behalf would read (#708): refused
-  if (output.kind === "error" && output.cause instanceof PiiRefusedError) {
+  if (output.kind === "error" && output.cause instanceof PiiError.Refused) {
     return refusedResult(output.cause, output.cause.usage, false);
   }
   // a text an interceptor gave the model (#384) has no output DTO: its text through the policies

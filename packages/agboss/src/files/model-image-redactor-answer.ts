@@ -1,7 +1,7 @@
+import { StepError } from "../core/error-families/step-errors.js";
 import { recordUsage, type UsageRecord } from "../finops/usage.js";
 import type { FrameworkLog } from "../infrastructure/logger.js";
 import type { ModelBinding } from "../llm/registry.js";
-import { FileRedactionFailedError } from "./file-errors.js";
 import { regionsOf, RegionsAnswerError, type Region } from "./redaction-regions.js";
 
 /** The log code of a region the model named with a target it was not asked for (#1301). */
@@ -33,7 +33,7 @@ export function answeredRegions(
   } catch (error) {
     // the reason is structural; the answer itself is neither in the message nor in the cause
     const said = error instanceof RegionsAnswerError ? error.message : "unreadable";
-    throw new FileRedactionFailedError({
+    throw new StepError.FileMaskingFailed({
       agent,
       reason: `the redaction model's answer is not usable: ${said}`,
     });

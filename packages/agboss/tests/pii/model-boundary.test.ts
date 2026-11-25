@@ -1,6 +1,6 @@
 /** #120 S38, AC5, AC9: PII is masked into the model and revealed out of it — only there. */
+import { PiiError } from "../../src/core/error-families/limit-errors.js";
 import { describe, expect, it } from "vitest";
-import { PiiRefusedError } from "../../src/index.js";
 import { callTool, replyWith } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { execute } from "../helpers/flow.js";
@@ -81,10 +81,10 @@ describe("#120 AC5: block", () => {
       (error: unknown) => error,
     );
 
-    expect(failure).toBeInstanceOf(PiiRefusedError);
+    expect(failure).toBeInstanceOf(PiiError.Refused);
     expect(failure).toMatchObject({
       code: "pii.refused",
-      kind: "card-number",
+      piiKind: "card-number",
       refusal: "Please do not send a card-number.",
     });
     expect(book.scriptOf("agent:support-agent").requests).toHaveLength(0);
@@ -131,7 +131,7 @@ describe("#120 AC5: block", () => {
 
     const failure = await execute(app, PiiStart, { text: "hi" }).catch((error: unknown) => error);
 
-    expect(failure).toBeInstanceOf(PiiRefusedError);
+    expect(failure).toBeInstanceOf(PiiError.Refused);
     await app.close();
   });
 });

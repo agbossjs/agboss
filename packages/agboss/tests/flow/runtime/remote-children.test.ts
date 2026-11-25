@@ -1,5 +1,5 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { ChildExecutionFailedError } from "../../../src/index.js";
 import { InMemoryChildExecutionQueueRepository } from "../../../src/infrastructure/child-execution-queue.repository.js";
 import { testWith } from "../../../src/testing/index.js";
 import { execute } from "../../helpers/flow.js";
@@ -63,11 +63,11 @@ describe("#333 PR 2: a child on any instance, one instance", () => {
     const call = execute(app, RemoteOneWorkflowStart, { name: "x", delay: 0, outcome: "fail" });
 
     const error: unknown = await call.catch((thrown: unknown) => thrown);
-    expect(error).toBeInstanceOf(ChildExecutionFailedError);
+    expect(error).toBeInstanceOf(StepError.Child);
     expect(error).toMatchObject({
       workflow: { name: "remote-item-workflow" },
       cause: {
-        name: "ActionFailedError",
+        name: "StepError.Action",
         code: "step.action",
         cause: {
           name: "ItemFailedError",

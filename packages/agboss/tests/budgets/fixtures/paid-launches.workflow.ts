@@ -84,8 +84,7 @@ export class PaidItemsAction {
     readonly notes: readonly Tracked<OrderNoteDto>[];
   }): Promise<OrderNoteDto> {
     return {
-      note: input.notes
-        .map((note) => note.note)
+      note: input.notes.map((note) => note.note)
         .join("; "),
     };
   }

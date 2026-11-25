@@ -8,7 +8,7 @@ const ARCHIVED_PREFIX = "A-";
 
 /**
  * Around the desk's tool calls (#384, #1295), in code, one method per tool: an account is never
- * closed from the desk (`block` — the step fails with `ToolBlockedError`); an archived order is not
+ * closed from the desk (`block` — the step fails with `StepError.ToolBlocked`); an archived order is not
  * looked up — the model reads why and goes on (`reply`); a status loses its internal note before the
  * model reads it.
  */

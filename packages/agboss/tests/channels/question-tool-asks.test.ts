@@ -4,9 +4,9 @@
  * asked. Invalid arguments ask nobody: no pause, no channel send; the model reads a tool error and
  * may try again, and the call counts against the role's `maxVisits`.
  */
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { describe, expect } from "vitest";
 import { ExecutionStatus } from "../../src/app/types.js";
-import { VisitsLimitExceededError } from "../../src/flow/runtime/errors.js";
 import { PausedExecutionRepository } from "../../src/index.js";
 import { callTool, replyWith, testWith, type ModelRequest } from "../../src/testing/index.js";
 import {
@@ -79,7 +79,7 @@ describe("#712: invalid question arguments ask nobody", () => {
 
     await expect(
       execute(app, BuyerWorkflowStart, { text: "buy a laptop" }, asking),
-    ).rejects.toBeInstanceOf(VisitsLimitExceededError);
+    ).rejects.toBeInstanceOf(LimitError.Visits);
     expect(app.resolve(BuyerDesk).asked).toEqual([]);
   });
 });

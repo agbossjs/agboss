@@ -1,3 +1,4 @@
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { fenceOf } from "../../src/flow/context/execution-fence.js";
 /**
  * #471 — `executionContext.fence` (internal now): the lease a step runs under, as an external system fences a
@@ -214,7 +215,7 @@ describe("#471 AC6: a fenced error inside an agent's loop and in an undo", () =>
     const result = await rejectionOf(execute(app, BookedReleaseWorkflowStart, { text: "v1" }));
 
     expect(result).toMatchObject({
-      name: "ActionFailedError",
+      name: "StepError.Action",
       cause: { name: "ReleaseRefusedError" },
     });
     expect(seen.undone).toHaveLength(1);

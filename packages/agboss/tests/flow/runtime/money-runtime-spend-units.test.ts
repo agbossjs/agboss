@@ -1,3 +1,4 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { usd } from "../../../src/units/index.js";
 /**
  * #1366 (money-runtime shard) — where a run's spend is recorded, forwarded or carried in the flow runtime, each rule on
@@ -20,7 +21,6 @@ import {
 import { recordsOf, reportingOf } from "../../../src/flow/runtime/node-runner.js";
 import { countedServiceSpend } from "../../../src/flow/runtime/limits.js";
 import { routerRunner } from "../../../src/flow/runtime/runners/router.js";
-import { RouterDecisionError, RouterFailedError } from "../../../src/flow/runtime/router-error.js";
 import { failedOutcome, runningOutcome } from "../../../src/run/execute.js";
 import { loopOf } from "../../../src/run/paused.js";
 import { modelRouterLaunch } from "../../../src/flow/runtime/launch/router-decision.js";
@@ -628,13 +628,13 @@ describe("#1366: what a router's visit spends", () => {
 
     const failure = await run(state, undefined).catch((e: unknown) => e);
 
-    expect(failure).toBeInstanceOf(RouterFailedError);
-    expect((failure as RouterFailedError).usage.map((u) => u.caller)).toEqual([
+    expect(failure).toBeInstanceOf(StepError.Router);
+    expect((failure as StepError.Router).usage.map((u) => u.caller)).toEqual([
       "guardrail",
       "router",
     ]);
     expect(
-      (failure as RouterFailedError).usage.every(
+      (failure as StepError.Router).usage.every(
         (u) => (u as { counted?: boolean }).counted === true,
       ),
     ).toBe(true);
@@ -647,8 +647,8 @@ describe("#1366: what a router's visit spends", () => {
 
     const failure = await run(state, undefined).catch((e: unknown) => e);
 
-    expect(failure).toBeInstanceOf(RouterDecisionError);
-    expect((failure as RouterDecisionError).usage).toEqual([]);
+    expect(failure).toBeInstanceOf(StepError.RouterDecision);
+    expect((failure as StepError.RouterDecision).usage).toEqual([]);
     expect(failure).toMatchObject({ nodeId: "r", visitNumber: 2 });
   });
 

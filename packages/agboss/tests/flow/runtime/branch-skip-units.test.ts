@@ -1,7 +1,7 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { describe, expect, it } from "vitest";
 import { AGBossError } from "../../../src/core/errors.js";
 import { isSkippedBranch, skipCodesOf } from "../../../src/flow/runtime/launch/branch-skip.js";
-import { StepFailedError } from "../../../src/graph/errors.js";
 import { errorRecordOf } from "../../../src/core/error-record.js";
 
 /** #1279a: which failures drop a branch out of its join. */
@@ -11,7 +11,8 @@ class DomainError extends AGBossError {
 }
 
 const failedStep = (): Error =>
-  new StepFailedError({
+  new StepError.Agent({
+    agent: "x",
     message: "x",
     usage: [],
     component: { name: "a-action", kind: "action", promptHash: "", schemaHash: "" },
@@ -27,7 +28,7 @@ describe("#1279a: isSkippedBranch", () => {
   });
 
   it("skip(E) drops a failure of E's class, its subclasses, and one caused by it", () => {
-    const skip = skipCodesOf([StepFailedError]);
+    const skip = skipCodesOf([StepError]);
     expect(isSkippedBranch({ skip }, failedStep())).toBe(true);
     const caused = new Error("outer", { cause: new DomainError("inner") });
     expect(isSkippedBranch({ skip: skipCodesOf([DomainError]) }, caused)).toBe(true);
@@ -37,7 +38,7 @@ describe("#1279a: isSkippedBranch", () => {
   it("reads a recorded error as well as a thrown one", () => {
     const record = errorRecordOf(new DomainError("x"));
     expect(isSkippedBranch({ skip: skipCodesOf([DomainError]) }, record)).toBe(true);
-    expect(isSkippedBranch({ skip: skipCodesOf([StepFailedError]) }, record)).toBe(false);
+    expect(isSkippedBranch({ skip: skipCodesOf([StepError]) }, record)).toBe(false);
   });
 
   it("Error catches every failure", () => {

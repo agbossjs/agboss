@@ -1,4 +1,5 @@
-import { STEPS_PER_WORKING_NODE, StepsLimitExceededError } from "../../graph/limits.js";
+import { LimitError } from "../../core/error-families/limit-errors.js";
+import { STEPS_PER_WORKING_NODE } from "../../graph/limits.js";
 import { isCountLimit, shownLimit } from "../../graph/count-limit.js";
 import { violation, type RuleViolation } from "../../graph/rule-error.js";
 import { NodeKind, type ErrorClass } from "../ast.js";
@@ -16,7 +17,7 @@ import type { AnalysisContext } from "./rules/context.js";
  * `maxSteps` bounds at assembly (#261 AC17, two passes over the graph): for every node, the fewest
  * steps from a start up to it and including it, plus the fewest from it to a finish. Weights: an
  * agent, a router, an action or an external task visit is 1 (#1278, D8); a start, a child workflow and a finish are 0. A node with a handler of the
- * steps limit (`.onError(StepsLimitExceededError, …)`, or a parent class) counts as reaching a finish: the visit past the
+ * steps limit (`.onError(LimitError.Steps, …)`, or a parent class) counts as reaching a finish: the visit past the
  * limit fails before it runs, into the handler. Only a hand-set
  * `maxSteps` is checked: the default always fits.
  */
@@ -35,10 +36,10 @@ export const weightOf = (node: FlowNode | undefined): number =>
     ? 1
     : 0;
 
-/** Whether `.onError(error, …)` catches the steps limit (`StepsLimitExceededError` or a parent class). */
+/** Whether `.onError(error, …)` catches the steps limit (`LimitError.Steps` or a parent class). */
 const catchesStepsLimit = (error: ErrorClass | undefined): boolean =>
   error !== undefined &&
-  (error === StepsLimitExceededError || StepsLimitExceededError.prototype instanceof error);
+  (error === LimitError.Steps || LimitError.Steps.prototype instanceof error);
 
 /** `maxSteps`, else its default: (agents + routers + actions + external tasks) × 3 — the limit a run takes (#1366: held against the flow below). */
 export function maxStepsOf(graph: FlowGraph, maxSteps: number | undefined): number {

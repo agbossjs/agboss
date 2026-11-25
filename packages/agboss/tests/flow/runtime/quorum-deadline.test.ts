@@ -1,3 +1,4 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { beforeEach, describe, expect } from "vitest";
 import { ExecutionStatus } from "../../../src/app/types.js";
 import { BranchStatus, BranchVerdict } from "../../../src/index.js";
@@ -26,7 +27,7 @@ import { passLive } from "../../helpers/live-time.js";
 /**
  * #279 PR 2 — `.joinQuorum({ min: 2, max: 3, deadline: seconds(30) })` on the test's virtual clock
  * (AC2, AC10, AC12): between `min` and `max` the join waits until `max`, every branch through, or
- * the deadline; at the deadline `min` reached goes on, else `QuorumNotReachedError`; an answer still
+ * the deadline; at the deadline `min` reached goes on, else `StepError.QuorumNotReached`; an answer still
  * being checked does not count; a pause counts as elapsed time.
  */
 
@@ -93,7 +94,7 @@ describe("AC2: between min and max, the deadline", () => {
   );
 
   checked(
-    "the deadline with min not reached: QuorumNotReachedError into .onError",
+    "the deadline with min not reached: StepError.QuorumNotReached into .onError",
     async ({ app, mockModel, clock }) => {
       mockModel(SkillsPanelAgent).thenReturn(score(7));
       mockModel(RisksPanelAgent).thenReturn(cancelledWhileWaiting(60));

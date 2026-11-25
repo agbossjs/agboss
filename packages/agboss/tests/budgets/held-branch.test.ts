@@ -7,8 +7,9 @@
  * action never undoes in `agboss check`'s walk, and its class is a branch only — the one guard
  * that keeps a finish from committing a booking the held branch owed (#675 handles the main path).
  */
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { beforeEach, describe, expect, it } from "vitest";
-import { BudgetExceededError, Workflow, Ttl } from "../../src/index.js";
+import { Workflow, Ttl } from "../../src/index.js";
 import { checkWorkflow } from "../../src/flow/analyse/analyse.js";
 import type { WorkflowOptions } from "../../src/flow/decorators/workflow.js";
 import { testWith } from "../../src/testing/index.js";
@@ -51,7 +52,7 @@ describe("#683: a refund launched as a branch and held back by the budget", () =
   }) => {
     const run = execute(app, HeldBranchWorkflowStart, order);
 
-    await expect(run).rejects.toBeInstanceOf(BudgetExceededError);
+    await expect(run).rejects.toBeInstanceOf(LimitError.Budget);
     expect(paidSteps.ran).toEqual(["book", "check", "refund o1"]);
     // the one refund is the booking's undo, never the held-back branch
     expect(exemptions.undone).toEqual([
@@ -65,7 +66,7 @@ describe("#683: a refund launched as a branch and held back by the budget", () =
   }) => {
     const run = execute(app, HeldItemsWorkflowStart, order);
 
-    await expect(run).rejects.toBeInstanceOf(BudgetExceededError);
+    await expect(run).rejects.toBeInstanceOf(LimitError.Budget);
     expect(paidSteps.ran).toEqual(["book", "split", "refund o1"]);
     expect(exemptions.undos).toEqual([UNDONE]);
   });
@@ -80,7 +81,7 @@ describe("#683: a refund launched as a branch and held back by the budget", () =
       const run = execute(app, child, order);
 
       // a child on another instance fails its parent with the error as recorded: by its name
-      await expect(run).rejects.toMatchObject({ name: "BudgetExceededError" });
+      await expect(run).rejects.toMatchObject({ name: "LimitError.Budget" });
       expect(paidSteps.ran).toEqual(["book", "check", "refund o1"]);
       expect(exemptions.undos).toEqual([UNDONE]);
     });
@@ -122,7 +123,7 @@ describe("#683: no side path takes the held branch's failure with the booking op
   it("the join's .onError owes the booking: the launched refund never undid it", () => {
     const flow = [
       launched
-        .onError(BudgetExceededError, toAction(TellOrderAction).toFinish(HeldBranchWorkflowFinish))
+        .onError(LimitError.Budget, toAction(TellOrderAction).toFinish(HeldBranchWorkflowFinish))
         .toFinish(HeldBranchWorkflowFinish),
     ];
 
@@ -131,7 +132,7 @@ describe("#683: no side path takes the held branch's failure with the booking op
 
   it("nor can the side path refund with the same class: it is the launch's branch", () => {
     const side = toAction(RefundOrderAction).toFinish(HeldBranchWorkflowFinish);
-    const flow = [launched.onError(BudgetExceededError, side).toFinish(HeldBranchWorkflowFinish)];
+    const flow = [launched.onError(LimitError.Budget, side).toFinish(HeldBranchWorkflowFinish)];
 
     expect(brokenRules(flow)).toEqual(expect.arrayContaining(["launch.branch-continued"]));
   });

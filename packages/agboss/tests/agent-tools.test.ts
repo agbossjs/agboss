@@ -1,7 +1,7 @@
+import { LimitError } from "../src/core/error-families/limit-errors.js";
 import { usd } from "../src/units/index.js";
 import { FakeListChatModel } from "@langchain/core/utils/testing";
 import { describe, expect, it } from "vitest";
-import { LimitExceededError } from "../src/graph/limits.js";
 import { BudgetScope, Decision, DecisionModel, Tool } from "../src/index.js";
 import { Text } from "../src/dto/index.js";
 import { ScriptedChatModel, type Reply } from "./fakes/scripted-model.js";
@@ -139,7 +139,7 @@ describe("agents with tools", () => {
 
     const failure = await runText("Loop", deps).catch((error: unknown) => error);
 
-    expect(failure).toBeInstanceOf(LimitExceededError);
+    expect(failure).toBeInstanceOf(LimitError);
     expect(failure).toMatchObject({
       key: "agents.alpha-agent.limits.toolCalls",
       limit: 1,
@@ -186,7 +186,7 @@ describe("tool costs in FinOps", () => {
   it("records tool spend of a failed agent", async () => {
     const { deps, ledger } = await setup({ alpha: [search, search, "never"], maxToolCalls: 1 });
 
-    await expect(runText("Loop", deps)).rejects.toBeInstanceOf(LimitExceededError);
+    await expect(runText("Loop", deps)).rejects.toBeInstanceOf(LimitError);
     expect(ledger.recorded.some((record) => record.caller === "tool:paid-search-tool")).toBe(true);
   });
 });

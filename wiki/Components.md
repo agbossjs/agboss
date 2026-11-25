@@ -336,7 +336,7 @@ export class ChargeAction implements ActionHandler<ChargeAction> {
 ```
 
 An action gets only its input; the execution comes through `deps: [ExecutionContext]`. What it
-throws is the step's failure (`ActionFailedError`, the original in `cause`), taken by an
+throws is the step's failure (`StepError.Action`, the original in `cause`), taken by an
 `.onError(…)` right after it ([Rollback](Rollback)).
 
 ## An arbiter

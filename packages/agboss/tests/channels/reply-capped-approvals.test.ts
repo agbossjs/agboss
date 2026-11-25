@@ -8,6 +8,7 @@
  * minimum, a correction on a refusal, an answer beside a not understood — is no approval: the pause
  * stays pending and nothing runs.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { beforeEach, describe, expect } from "vitest";
 import {
@@ -21,7 +22,7 @@ import {
   ReplyInterpreterNotUnderstoodDto,
   ToolCallApprovalDecisionDto,
 } from "../../src/dto/standard/framework.js";
-import { PauseStatus, ToolBlockedError } from "../../src/index.js";
+import { PauseStatus } from "../../src/index.js";
 import { callTool, callTools, replyWith, testWith } from "../../src/testing/index.js";
 import type { ToolCallTurn } from "../../src/testing/turns.js";
 import {
@@ -291,7 +292,7 @@ describe("#688: a reply interpreter reads intent; the tool's own rule stops what
       .resume({ pauseId: payoutPauseId(), reply: "approved, up to $2000 is fine" }, manager)
       .catch((error: unknown) => error);
 
-    expect(failed).toBeInstanceOf(ToolBlockedError);
+    expect(failed).toBeInstanceOf(StepError.ToolBlocked);
     expect(failed).toHaveProperty("interceptor", "payout-limit-tool-interceptor");
     expect(replyDesk.payouts).toEqual([]);
   });

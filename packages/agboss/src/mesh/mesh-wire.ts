@@ -1,11 +1,7 @@
+import { LimitError } from "../core/error-families/limit-errors.js";
 import { z } from "zod";
 import { keyTextRuleOf, type ErrorDetails } from "../core/errors.js";
-import {
-  HopsLimitExceededError,
-  isMeshLimitError,
-  MeshLoopDetectedError,
-  type MeshLimitError,
-} from "./mesh-errors.js";
+import { isMeshLimitError, type MeshLimitError } from "./mesh-errors.js";
 
 /**
  * A mesh limit on the wire (#398), the #387 refusal shape `{ code, error }` plus the limit's facts
@@ -73,12 +69,12 @@ export function meshLimitErrorOf(body: unknown): MeshLimitError | undefined {
   if (!parsed.success) return undefined;
   const { data } = parsed;
   if (data.code === "limit.mesh-loop") {
-    return new MeshLoopDetectedError({
-      entry: data.details.entry,
+    return new LimitError.MeshLoop({
+      meshEntry: data.details.entry,
       callChain: data.details.chain,
       isRemote: true,
     });
   }
   const { entry, chain, maxMeshHops } = data.details;
-  return new HopsLimitExceededError({ entry, callChain: chain, maxMeshHops, isRemote: true });
+  return new LimitError.Hops({ meshEntry: entry, callChain: chain, maxMeshHops, isRemote: true });
 }

@@ -112,14 +112,10 @@ export class MainRouter {}
     onStart(TestChat)
       .toRouter(MainRouter)
       .onRoute(toFinish(NoAnswer))
-      .onRoute(
-        toAgent(Researcher)
-          .toFinish(TestAnswer),
-      )
-      .onRoute(
-        toAgent(Coder)
-          .toFinish(TestAnswer),
-      ),
+      .onRoute(toAgent(Researcher)
+        .toFinish(TestAnswer))
+      .onRoute(toAgent(Coder)
+        .toFinish(TestAnswer)),
   ],
 })
 export class TestWorkflow {}

@@ -1,3 +1,4 @@
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import { NodeKind, StepKind, type FlowPath } from "../../src/flow/ast.js";
@@ -5,7 +6,6 @@ import { toAction, toRouter, toAgent } from "../../src/flow/builder.js";
 import { declarationOf } from "../../src/flow/decorators/declaration.js";
 import { listOf, optional } from "../../src/flow/dto-wrappers.js";
 import { flowLines } from "../../src/flow/print.js";
-import { LimitExceededError } from "../../src/graph/limits.js";
 import { LoyaltyOfferDto, OrderStatusDto } from "./fixtures/data-dtos.js";
 import { CompanyCheckDto, RefundPolicyDto } from "./fixtures/launch-dtos.js";
 import {
@@ -59,7 +59,7 @@ describe("#273: a launch and its join in the AST", () => {
       kind: StepKind.Join,
       onError: [
         {
-          error: LimitExceededError,
+          error: LimitError,
           path: {
             steps: toAction(NotifyOperatorAction).toFinish(ScreeningFailedWorkflowFinish).steps,
           },
@@ -109,16 +109,14 @@ describe("#273: the order around a launch holds for untyped code too (ConfigErro
 
   it(".join() follows a launch, and .onError right after it is the join's", () => {
     expect(() => onAgent(PlannerAgent).join()).toThrow(".join() follows a parallel launch");
-    const handled = launched()
-      .join()
-      .onError(LimitExceededError, toFinish(ScreeningFailedWorkflowFinish));
+    const handled = launched().join().onError(LimitError, toFinish(ScreeningFailedWorkflowFinish));
     expect(handled.steps.at(-1)).toMatchObject({ kind: StepKind.Join });
   });
 
   it(".onError between a launch and its join, and a second launch right after a join, are refused", () => {
-    expect(() =>
-      launched().onError(LimitExceededError, toFinish(ScreeningFailedWorkflowFinish)),
-    ).toThrow("a parallel launch is followed by .join()");
+    expect(() => launched().onError(LimitError, toFinish(ScreeningFailedWorkflowFinish))).toThrow(
+      "a parallel launch is followed by .join()",
+    );
     expect(() =>
       launched()
         .join()
@@ -156,7 +154,7 @@ describe("#273: describe prints launches and joins in the grammar", () => {
       "  .toAgent(ScreeningAgent)",
       "  .forEachItem(toAgent(CompanyAuditAgent), { takeFirst: 50, maxConcurrency: 3 })",
       "  .join()",
-      "  .onError(LimitExceededError, toAction(NotifyOperatorAction)",
+      "  .onError(LimitError, toAction(NotifyOperatorAction)",
       "    .toFinish(ScreeningFailedWorkflowFinish))",
       "  .toAgent(RankerAgent)",
       "  .toFinish(RankingWorkflowFinish)",

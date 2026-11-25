@@ -1,11 +1,11 @@
 /**
  * #267 AC10 with #273 S21: a branch fails with a domain error while a sibling is paused — the
  * sibling's pause is withdrawn and the join, in the next pass, routes the branch's error as it was
- * thrown: `.onError(E, …)` by class and cause chain (the domain error, or `StepFailedError`
+ * thrown: `.onError(E, …)` by class and cause chain (the domain error, or `StepError`
  * above it), and without a handler the execution fails with the original error object.
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { beforeEach, describe, expect } from "vitest";
-import { AgentFailedError } from "../../src/graph/errors.js";
 import { PauseStatus } from "../../src/index.js";
 import { callTool, testWith, waitFor, type WorkflowFixtures } from "../../src/testing/index.js";
 import { seconds } from "../../src/units/index.js";
@@ -78,7 +78,7 @@ describe("#267 AC10 / #273 S21: .onError(…) after a withdrawal matches by clas
   );
 
   testWith(PayoutStepsApplication)(
-    "StepFailedError's handler takes it: the agent's failure is a step failure",
+    "StepError's handler takes it: the agent's failure is a step failure",
     async ({ app, clock, mockModel }) => {
       const done = await payout({ app, clock, mockModel });
 
@@ -93,7 +93,7 @@ describe("#267 AC10 / #273 S21: .onError(…) after a withdrawal matches by clas
       const run = payout({ app, clock, mockModel });
 
       const failed: unknown = await run.catch((error: unknown) => error);
-      expect(failed).toBeInstanceOf(AgentFailedError); // not a copy rebuilt from a record
+      expect(failed).toBeInstanceOf(StepError.Agent); // not a copy rebuilt from a record
       expect(failed).toHaveProperty("cause", declined);
       await expect(run).rejects.toFailWith(PaymentDeclinedError);
       expect((await confirmation())?.status).toBe(PauseStatus.Cancelled);

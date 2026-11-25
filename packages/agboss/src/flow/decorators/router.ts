@@ -43,7 +43,7 @@ export interface ModelRouterOptions {
   readonly description: string;
   /** What it decides on, by type; required and non-empty (`[router.empty-input]`). */
   readonly input: InputFields;
-  /** Visits per execution; one more fails before it decides (`VisitsLimitExceededError`). */
+  /** Visits per execution; one more fails before it decides (`LimitError.Visits`). */
   readonly maxVisits?: number;
   readonly decidedBy: DecidedBy.Model;
   readonly routes: readonly [ChosenRouterRoute, ...ChosenRouterRoute[]];
@@ -78,7 +78,7 @@ export interface CodeRouterOptions<TDeps extends readonly Token[] = readonly Tok
   readonly description: string;
   /** What it decides on, by type; required and non-empty (`[router.empty-input]`). */
   readonly input: InputFields;
-  /** Visits per execution; one more fails before it decides (`VisitsLimitExceededError`). */
+  /** Visits per execution; one more fails before it decides (`LimitError.Visits`). */
   readonly maxVisits?: number;
   readonly decidedBy: DecidedBy.Code;
   /** The targets `route()` picks among: a class, or `() => Class` for one declared below (#1279b). */

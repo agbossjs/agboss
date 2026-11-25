@@ -168,8 +168,8 @@ Money is not a workflow setting (#261): the application's `@Budget`s — an exec
 workflow (its own `workflow: X`, or the default), tenant and application budgets per
 `BudgetPeriod` — listed in `@Application({ budgets })`; `settings()` has no `limits` any more.
 Hitting a limit **fails the execution** — unless an `.onError(…)` takes it — one class per limit,
-all `LimitExceededError`s: `StepsLimitExceededError`, `VisitsLimitExceededError`,
-`BudgetExceededError`, `DepthLimitExceededError` (a recursion past `@Workflow({ executionLimits: { maxDepth } })`, #264 —
+all `LimitError`s: `LimitError.Steps`, `LimitError.Visits`,
+`LimitError.Budget`, `LimitError.Depth` (a recursion past `@Workflow({ executionLimits: { maxDepth } })`, #264 —
 required on a workflow that launches itself); an exhausted budget also rejects an execution before its first step.
 `@Workflow({ executionLimits: { maxConcurrency } })` (#264, default 10) is a throttle, not a failure: how many
 executions of a tree — the root and its child workflows — work at once; the rest wait in a queue

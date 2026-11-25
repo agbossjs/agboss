@@ -1,9 +1,6 @@
+import { StepError } from "../../src/core/error-families/step-errors.js";
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { beforeEach, describe, expect } from "vitest";
-import {
-  ActionFailedError,
-  ChildExecutionFailedError,
-  StepsLimitExceededError,
-} from "../../src/index.js";
 import { ExecutionCancelledError } from "../../src/core/errors.js";
 import {
   replyWith,
@@ -67,7 +64,7 @@ describe("toHaveChildExecutions", () => {
     ]);
     expect(result).toHaveChildExecutions(ItemCheckWorkflow, [
       { cancelled: true },
-      { failedWith: ChildExecutionFailedError },
+      { failedWith: StepError.Child },
     ]);
   });
 
@@ -142,12 +139,12 @@ describe("toHaveHandledError", () => {
   }) => {
     const result = await execute(app, CheckItemsWorkflowStart, [item("bad", 0, "fail")], who);
 
-    expect(result).toHaveHandledError(ChildExecutionFailedError, {
+    expect(result).toHaveHandledError(StepError.Child, {
       at: ItemCheckWorkflow,
       by: ChecksFailedAction,
     });
     expect(result).toHaveHandledError(ItemFailedError);
-    expect(result).toHaveHandledError(ActionFailedError, { at: ItemCheckWorkflow });
+    expect(result).toHaveHandledError(StepError.Action, { at: ItemCheckWorkflow });
     expect(result).not.toHaveHandledError(ExecutionCancelledError);
     expect(result).not.toHaveHandledError(ItemFailedError, { by: OneFailedAction });
     expect(result).not.toHaveHandledError(ItemFailedError, { at: CheckItemAction });
@@ -172,13 +169,11 @@ describe("toHaveHandledError", () => {
       at: ItemCheckWorkflow,
       by: OneFailedAction,
     });
-    expect(reviews).toHaveHandledError(StepsLimitExceededError, {
+    expect(reviews).toHaveHandledError(LimitError.Steps, {
       at: ItemReviewWorkflow,
       by: ReviewRescueAgent,
     });
-    expect(reviews).toHaveChildExecutions(ItemReviewWorkflow, [
-      { failedWith: StepsLimitExceededError },
-    ]);
+    expect(reviews).toHaveChildExecutions(ItemReviewWorkflow, [{ failedWith: LimitError.Steps }]);
     expect(none).not.toHaveHandledError(Error);
   });
 });

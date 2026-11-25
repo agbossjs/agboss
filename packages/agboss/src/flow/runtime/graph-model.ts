@@ -223,7 +223,7 @@ function dtoIndexOf(analysis: FlowAnalysis): ReadonlyMap<string, DtoClass> {
   return new Map(shapes.flatMap(dtosOf).map((dto) => [dto.name, dto] as const));
 }
 
-/** The code of `ActionFailedError`: the wrapper the action runner puts around what an action's code threw. */
+/** The code of `StepError.Action`: the wrapper the action runner puts around what an action's code threw. */
 const ACTION_WRAPPER_CODE = "step.action";
 
 /** The code every framework error has: a handler on it says nothing about the original's own class. */
@@ -233,7 +233,7 @@ const FRAMEWORK_CODE = "agboss";
  * The `.onError` handler of a failure: the one whose class matches most specifically — nearest in
  * the error's class line, then nearest in its cause chain; `.onError(Error, …)` only when nothing
  * else matches. An action's code that threw an error of its own is routed as that ORIGINAL error
- * (#1325): the runner's `ActionFailedError` around it does not shadow a handler on the original's
+ * (#1325): the runner's `StepError.Action` around it does not shadow a handler on the original's
  * class (a project's own error class), and takes it only when none matches. None → the failure is
  * not handled; a failed automatic undo never is (#340 Q4).
  */

@@ -90,11 +90,9 @@ const defaults = {
   name: "payments-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(ChatStart)
-      .toAgent(Cashier)
-      .toFinish(Reply),
-  ],
+  flow: [onStart(ChatStart)
+    .toAgent(Cashier)
+    .toFinish(Reply)],
   defaults,
   memory: Window2Memory,
   providers: [ApprovalDesk, PaymentLog],
@@ -160,12 +158,10 @@ export class Editor {}
   name: "capped-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(ChatStart)
-      .toAgent(Drafter)
-      .toAgent(Editor)
-      .toFinish(Reply),
-  ],
+  flow: [onStart(ChatStart)
+    .toAgent(Drafter)
+    .toAgent(Editor)
+    .toFinish(Reply)],
   defaults,
   memory: Window2Memory,
 })

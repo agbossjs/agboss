@@ -12,12 +12,7 @@ export {
   type FileDefaults,
   type ModelFilesOptions,
 } from "../files/model-files.js";
-export {
-  FileRefusal,
-  FileUnavailableReason,
-  ModelFileLimitError,
-  type ModelFileLimitErrorOptions,
-} from "../files/file-errors.js";
+export { FileRefusal, FileUnavailableReason } from "../files/file-errors.js";
 // the service a step keeps and reads its files with (`deps: [Files]`, #1316)
 export { Files, type FileReference, type FileToSave } from "../a2a/files/files.service.js";
 export {
@@ -32,10 +27,6 @@ export {
   type RedactionResult,
   type RedactOptions,
 } from "../files/file-redactor.js";
-export {
-  FileRedactionFailedError,
-  type FileRedactionFailedErrorOptions,
-} from "../files/file-errors.js";
 export type { FileRuleCode } from "../files/file-rule-codes.js";
 export type { FileContent } from "../files/file-bytes.js";
 export type { ResolvedModelFiles } from "../files/file-settings.js";

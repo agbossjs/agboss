@@ -87,11 +87,9 @@ export const settingsDefaults = {
   name: "settings-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(ChatStart)
-      .toAgent(Clerk)
-      .toFinish(Reply),
-  ],
+  flow: [onStart(ChatStart)
+    .toAgent(Clerk)
+    .toFinish(Reply)],
   defaults: settingsDefaults,
   memory: Window4Memory,
   providers: [ApiClient],

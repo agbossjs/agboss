@@ -2,6 +2,7 @@
  * #1316f: `executionContext.handledError` is the failure the `.onError` side path a step runs on
  * took in — the record `ExecutionOutput.handledErrors` keeps — and `undefined` on any other step.
  */
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { describe, expect } from "vitest";
 import { Text } from "../../../src/dto/index.js";
 import {
@@ -10,7 +11,6 @@ import {
   EmptyEnvironment,
   ExecutionContext,
   Injectable,
-  StepFailedError,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
@@ -97,7 +97,7 @@ class HandledFinish {}
     onStart(HandledStart)
       .toAction(PlainAction)
       .toAction(FailingAction)
-      .onError(StepFailedError, toAction(RecoverAction).toFinish(HandledFinish))
+      .onError(StepError, toAction(RecoverAction).toFinish(HandledFinish))
       .toFinish(HandledFinish),
   ],
 })

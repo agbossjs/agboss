@@ -1,4 +1,4 @@
-import { LimitExceededError } from "../graph/limits.js";
+import { LimitError } from "../core/error-families/limit-errors.js";
 import type { UsageRecord } from "../finops/usage.js";
 import { type Milliseconds, type Usd } from "../units/index.js";
 
@@ -16,47 +16,6 @@ export interface ExecutionDeadline {
   readonly deadline: Milliseconds;
 }
 
-/** What a deadline that passed takes (#906): the deadline and where the execution was. */
-export interface DeadlineExceededErrorOptions {
-  /** The duration it was given. */
-  readonly deadline: Milliseconds;
-  /** When it passed (ISO 8601). */
-  readonly deadlineAt: string;
-  readonly path: readonly string[];
-  readonly spentUsd: Usd;
-  readonly usage?: readonly UsageRecord[];
-  readonly cause?: unknown;
-}
-
-/** An execution ran past its deadline: it fails before its next step or model call. */
-export class DeadlineExceededError extends LimitExceededError {
-  static override readonly code = "limit.deadline" as const;
-  declare readonly code: typeof DeadlineExceededError.code;
-  override name = "DeadlineExceededError";
-  /** The duration it was given. */
-  readonly deadline: Milliseconds;
-  /** When it passed (ISO 8601). */
-  readonly deadlineAt: string;
-
-  constructor(options: DeadlineExceededErrorOptions) {
-    const { deadline, deadlineAt, path, spentUsd, usage, cause } = options;
-    const seconds = deadline / 1000;
-    super({
-      key: "deadline",
-      limit: deadline,
-      actual: deadline,
-      path,
-      spentUsd,
-      usage: usage ?? [],
-      cause,
-      message: `the execution ran past its deadline of ${String(seconds)} s (at ${deadlineAt})`,
-      details: { deadline, deadlineAt },
-    });
-    this.deadline = deadline;
-    this.deadlineAt = deadlineAt;
-  }
-}
-
 /** Whether `delay` is a delay: a finite number — none, `NaN` and `Infinity` are not. */
 const isDelay = (delay: number | undefined): delay is number => Number.isFinite(delay);
 
@@ -67,7 +26,7 @@ export function deadlineFrom(now: Date, delay: number | undefined): ExecutionDea
   return { at: new Date(now.getTime() + deadline).toISOString(), deadline };
 }
 
-/** Throws `DeadlineExceededError` once `now` reached the deadline. */
+/** Throws `LimitError.Deadline` once `now` reached the deadline. */
 export function checkDeadline(
   deadline: ExecutionDeadline | undefined,
   now: Date,
@@ -78,7 +37,7 @@ export function checkDeadline(
   },
 ): void {
   if (deadline === undefined || now.getTime() < Date.parse(deadline.at)) return;
-  throw new DeadlineExceededError({
+  throw new LimitError.Deadline({
     deadline: deadline.deadline,
     deadlineAt: deadline.at,
     path: place.path,

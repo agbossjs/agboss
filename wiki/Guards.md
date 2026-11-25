@@ -121,14 +121,14 @@ export class TenantBlocklistGuardrail {
 Everything else is a model guardrail's: the refusal of a block is the one `blocked(refusal)` gives (it
 lives on that call's verdict, never on the shared instance — no `this.lastReason`), else the decorator's
 text, else the class's `refusal(content)`; a `blocked()` with none of the three fails closed
-(`GuardFailedError`). `check`
+(`StepError.Guardrail`). `check`
 reads the same text a model guardrail's model reads — **masked** (`<email:7f3a91>`, never the
 address) —, in the step's frame (its services and the execution through `deps`); the levels and
 `excludeGuardrails` are the same, and so are the placement rules (a model router takes the input
 ones, a code router none). `GuardrailVerdict.blocked()` fails the execution with the same
-`GuardrailBlockedError` and its refusal — `probability` 1, `threshold` 1; a pass is `probability` 0
+`GuardrailError.Blocked` and its refusal — `probability` 1, `threshold` 1; a pass is `probability` 0
 in `onGuardrailEnd`. A `check` that throws (its error the `cause`) or returns no `GuardrailVerdict`
-fails closed: `GuardFailedError`. No model call, no spend, no `guardrail:<name>` line. A code
+fails closed: `StepError.Guardrail`. No model call, no spend, no `guardrail:<name>` line. A code
 guardrail whose class has no `check(content)` method is `[guardrail.missing-handler]` at assembly.
 `agboss describe` prints `tenant-blocklist-guardrail — output · code · refusal: "The
 response contained restricted terms." · on support-agent`, and `configHash` covers its name, side,
@@ -147,7 +147,7 @@ A guardrail never reads the raw text: it is behind the model boundary like the m
 under a heading — `### message (to support-agent)` or `### answer (from support-agent)` — a decision
 model as one `Decision.boolean`, a chat model through the answer tool `answer-guardrail` (one boolean).
 Guardrails of one element run in list order; the first that blocks fails the execution with
-`GuardrailBlockedError` (`guardrail.blocked`):
+`GuardrailError.Blocked` (`guardrail.blocked`):
 
 | Field         | What                                                                                       |
 | ------------- | ------------------------------------------------------------------------------------------ |
@@ -158,7 +158,7 @@ Guardrails of one element run in list order; the first that blocks fails the exe
 | `threshold`   | its threshold                                                                              |
 
 A model that does not answer (a failed call, an unreadable answer) **fails closed**:
-`GuardFailedError` (`step.guard`, a `StepFailedError`) — nothing passes unchecked. Each check costs
+`StepError.Guardrail` (`step.guardrail`, a `StepError`) — nothing passes unchecked. Each check costs
 `guardrail:<name>` (category `guards` in the spend), counted in the execution's budgets; observers
 get `onGuardrailStart` (`input: { side, component, text }`, the masked text) and `onGuardrailEnd`
 (`update: { isBlocked, probability }`).
@@ -343,7 +343,7 @@ prefixes, IPv4 octets, coordinate ranges, SWIFT country codes. The kinds marked 
 in free text only the policy's `model` (a chat model; its calls are `pii:<policy>` in the spend, every
 model checked against the providers' `serves`) finds them, and a rule naming one without it is
 `[pii.kind-needs-model]`. A detection answer that is not the JSON asked for fails closed
-(`PiiDetectionFailedError`, `pii.detection-failed`): nothing goes to the model unmasked.
+(`PiiError.DetectionFailed`, `pii.detection-failed`): nothing goes to the model unmasked.
 
 ### Actions
 
@@ -382,7 +382,7 @@ not optional and not set fails the start, naming the variable — never its valu
 `block()` without
 a text takes `refusal(kind)` of the class (`implements PiiRefusal`, its services through `deps`);
 none → `[pii.missing-refusal]`, a method no rule uses → `[pii.unused-refusal]`. A block rule in an
-incoming message or in an answer fails the execution with `PiiRefusedError` (`pii.refused`,
+incoming message or in an answer fails the execution with `PiiError.Refused` (`pii.refused`,
 `kind`, `refusal` — the text to send instead); in tool arguments or a tool result it rejects only
 that call (the model reads `Tool error: the call was refused: …`).
 

@@ -1,3 +1,4 @@
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { ValidationError } from "../../src/index.js";
 import { usd } from "../../src/units/index.js";
 /**
@@ -9,7 +10,6 @@ import { usd } from "../../src/units/index.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CostSource, ZERO_USAGE, type UsageRecord } from "../../src/finops/usage.js";
 import { ChannelSendError } from "../../src/flow/runtime/pause.js";
-import { AgentFailedError } from "../../src/graph/errors.js";
 import { makeApprovalNode } from "../../src/graph/agent-loop/approval-node.js";
 import { awaitingApproval } from "../../src/graph/agent-loop/boundary.js";
 import { callStepOf, declinedCallRecordOf } from "../../src/graph/agent-loop/call-records.js";
@@ -197,9 +197,9 @@ describe("#1366: a failed ask fails the agent with the loop's spend", () => {
 
     const failure = await node(stateOf(), undefined).catch((e: unknown) => e);
 
-    expect(failure).toBeInstanceOf(AgentFailedError);
-    expect((failure as AgentFailedError).cause).toBe(cause);
-    expect((failure as AgentFailedError).usage).toEqual([record(0.5, "loop")]);
+    expect(failure).toBeInstanceOf(StepError.Agent);
+    expect((failure as StepError.Agent).cause).toBe(cause);
+    expect((failure as StepError.Agent).usage).toEqual([record(0.5, "loop")]);
   });
 
   it("any other failure of an approval rises as it is, a validation of the decision too", async () => {

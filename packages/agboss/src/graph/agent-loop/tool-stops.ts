@@ -1,12 +1,11 @@
+import { StepError } from "../../core/error-families/step-errors.js";
 import type { UsageRecord } from "../../finops/usage.js";
-import { AgentFailedError, type StepFailedError } from "../errors.js";
-import { ToolBlockedError } from "../tool-blocked-error.js";
 
 /**
  * A tool call a tool interceptor stopped (#384): `block({ reason })`, or an interceptor that threw
  * (or gave what it may not). The tool task stores the stop with the call's result — plain data, so a
  * restart replays it — and the collect node, which has the loop's spend, fails the step with it:
- * `ToolBlockedError`, or `AgentFailedError` whose `cause` is the interceptor's own error (kept in
+ * `StepError.ToolBlocked`, or `StepError.Agent` whose `cause` is the interceptor's own error (kept in
  * this process until the collect node takes it; after a restart, an `Error` with its message).
  */
 
@@ -62,10 +61,10 @@ export function stopErrorOf(
   call: StoppedCall,
   stop: ToolCallStop,
   usage: readonly UsageRecord[],
-): StepFailedError {
+): StepError {
   const kept = takeStopCause(call.runId, call.callId);
   if (stop.kind === ToolCallStopKind.Blocked)
-    return new ToolBlockedError({
+    return new StepError.ToolBlocked({
       agent: call.agent,
       tool: call.tool,
       interceptor: stop.interceptor,
@@ -73,7 +72,7 @@ export function stopErrorOf(
       usage,
     });
   const cause = kept ?? new Error(stop.reason);
-  return new AgentFailedError({
+  return new StepError.Agent({
     agent: call.agent,
     usage,
     cause,

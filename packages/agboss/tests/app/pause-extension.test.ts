@@ -4,10 +4,10 @@
  * after the deadline is refused "expired", one past the run's deadline is refused with that
  * deadline; the respondent is checked as for an answer; extend and the expiry look at one tick: one wins.
  */
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { beforeEach, describe, expect, vi } from "vitest";
 import { MAX_EXTEND_ATTEMPTS } from "../../src/app/pause-extension.js";
-import { DeadlineExceededError } from "../../src/budgets/execution-deadline.js";
 import { PauseError, PauseClosedReason, PauseStatus, ValidationError } from "../../src/index.js";
 import { pauseKeyOf } from "../../src/infrastructure/pause-record.js";
 import { PausedExecutionRepository } from "../../src/infrastructure/paused-execution.repository.js";
@@ -347,7 +347,7 @@ describe("#942: extend and the expiry look at the same tick: one wins (the store
 });
 
 describe("#942: extended to exactly the run's deadline: the tie goes to the run (#941 D8)", () => {
-  test("the run fails at that instant with DeadlineExceededError; the channel's expiry decision is not asked, whatever it would decide", async ({
+  test("the run fails at that instant with LimitError.Deadline; the channel's expiry decision is not asked, whatever it would decide", async ({
     app,
     clock,
   }) => {
@@ -359,7 +359,7 @@ describe("#942: extended to exactly the run's deadline: the tie goes to the run 
     await clock.advance(hours(30));
     await until(() => told.errors.length === 1);
 
-    expect(told.errors[0]).toBeInstanceOf(DeadlineExceededError);
+    expect(told.errors[0]).toBeInstanceOf(LimitError.Deadline);
     expect(told.expiryAsked).toEqual([]);
     expect(told.recorded).toEqual([]);
   });

@@ -804,15 +804,15 @@ without). What it does apply is the chain, before anything runs:
 | as long as its `@Mesh({ maxHops })` (default 8)               | MCP `409 { "code": "limit.hops", "error", "details": { maxMeshHops, hops, … } }`; A2A the same `REJECTED` task                                                                 |
 | anything else                                                 | the run, whose own calls carry the chain on with its hop added                                                                                                                 |
 
-On the caller `A2AClient` rethrows them typed — `MeshLoopDetectedError` / `HopsLimitExceededError`,
-both `LimitExceededError`s — from the `REJECTED` / `FAILED` task's code and details, and so does an
+On the caller `A2AClient` rethrows them typed — `LimitError.MeshLoop` / `LimitError.Hops`,
+both `LimitError`s — from the `REJECTED` / `FAILED` task's code and details, and so does an
 MCP error result with `_meta["agboss.dev/error"]`. They are rebuilt only from an addressed, signed
 peer; from an unaddressed server they are not rebuilt (its facts are not read), and a rebuilt one
 carries `isRemote: true` (its names are in `entry` / `callChain`, never in the message). A tool that meets one
 **fails its step** (the model never reads it: retrying a loop loops again); take it on the path:
 
 <!-- snippet-context
-import { Agent, MeshLoopDetectedError, Workflow, WorkflowFinish, WorkflowStart, onStart, toFinish, inline, Ttl } from "@agboss/core";
+import { Agent, LimitError, Workflow, WorkflowFinish, WorkflowStart, onStart, toFinish, inline, Ttl } from "@agboss/core";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 @Agent({ name: "orders-agent", description: "Orders", prompt: inline("Answer."), model: "moonshotai/kimi-k2.6" })
 export class OrdersAgent {}
@@ -833,7 +833,7 @@ export class LoopedWorkflowFinish {}
     onStart(OrdersWorkflowStart)
       .toAgent(OrdersAgent) // its tool calls the billing application over A2A
       .onError(
-        MeshLoopDetectedError, // billing called back into orders-workflow-start
+        LimitError.MeshLoop, // billing called back into orders-workflow-start
         toFinish(LoopedWorkflowFinish),
       )
       .toFinish(OrdersWorkflowFinish),
@@ -934,8 +934,8 @@ What a trusted request gets — never an untrusted one:
 
 | From the caller                   | The receiver                                                                                                                                                                                                                             |
 | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `budget.remaining`                | one more execution budget, `caller-budget`: it only lowers its own (`BudgetExceededError`)                                                                                                                                               |
-| `deadline.remaining`              | the execution's deadline (`DeadlineExceededError`, `limit.deadline`)                                                                                                                                                                     |
+| `budget.remaining`                | one more execution budget, `caller-budget`: it only lowers its own (`LimitError.Budget`)                                                                                                                                                 |
+| `deadline.remaining`              | the execution's deadline (`LimitError.Deadline`, `limit.deadline`)                                                                                                                                                                       |
 | `origin` (and the chain's length) | `executionContext.origin`, the record's `origin` and every observer event's, its resumes' too (`ExecutionOrigin`)                                                                                                                        |
 | `origin.step.idempotencyKey`      | dedupe: over MCP `MeshRequestRepository` — a repeat gets the kept answer, one in flight an error result `mesh.request-in-progress` (by `_meta.callId`); over A2A the task / message stores, by `messageId` (every caller, signed or not) |
 
@@ -982,10 +982,10 @@ application, expose } })`'s over MCP): a receiver of another name refuses it, si
 | `mesh.audience-missing`                                        | a signed envelope names no application: sign only with an audience (`target.application`)            |
 | `[http.not-an-authenticator] … is not an @HttpAuthenticator`   | decorate the class with `@HttpAuthenticator()` and list it in `@Application({ services })`           |
 | `A2AError.CallerRejected … (401 a2a.caller-unauthenticated)`   | the server's authenticator refused the client's credentials: check its `headers`                     |
-| `MeshLoopDetectedError` (`limit.mesh-loop`)                    | two applications call each other back: break the cycle, or `.onError` it to a finish                 |
-| `HopsLimitExceededError` (`limit.hops`)                        | the call chain is longer than the receiver's `maxMeshHops`: shorten it or raise it                   |
+| `LimitError.MeshLoop` (`limit.mesh-loop`)                      | two applications call each other back: break the cycle, or `.onError` it to a finish                 |
+| `LimitError.Hops` (`limit.hops`)                               | the call chain is longer than the receiver's `maxMeshHops`: shorten it or raise it                   |
 | `401 mesh.signature-invalid` / `mesh.envelope-expired`         | the caller signs with another key than its peer entry, or the clocks differ by > 30 s                |
-| `DeadlineExceededError` (`limit.deadline`)                     | the execution (or its trusted caller) ran out of time: raise `deadline`, or `.onError`               |
+| `LimitError.Deadline` (`limit.deadline`)                       | the execution (or its trusted caller) ran out of time: raise `deadline`, or `.onError`               |
 
 ## Pitfalls
 

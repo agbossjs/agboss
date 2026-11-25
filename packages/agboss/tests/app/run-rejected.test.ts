@@ -1,8 +1,8 @@
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { beforeEach, describe, expect } from "vitest";
-import { BudgetExceededError } from "../../src/errors.js";
 import {
   ExecutionOperation,
   type ExecutionRejectedEvent,
@@ -212,7 +212,7 @@ describe("#261 AC10: a tenant's day spent before the execution → it is rejecte
 
       const run = execute(app, Redeem, { text: "two", code: "V-2" });
 
-      await expect(run).rejects.toBeInstanceOf(BudgetExceededError);
+      await expect(run).rejects.toBeInstanceOf(LimitError.Budget);
       await expect(run).rejects.toThrow(
         "tenant default spent $0.06 today; vouchers-tenant-daily-budget allows $0.05",
       );
@@ -233,7 +233,7 @@ describe("#261: a request refused before it starts leaves no trace — no thread
     mockService(VouchersTenantDailyBudget).maxSpend.mockReturnValue(usd(0));
 
     await expect(execute(app, Redeem, { text: "one", code: "V-1" })).rejects.toBeInstanceOf(
-      BudgetExceededError,
+      LimitError.Budget,
     );
 
     await expectNoNewThread(app);
@@ -258,7 +258,7 @@ describe("#261: a request refused before it starts leaves no trace — no thread
       mockModel(VoucherClerk).thenReturn(replyWith(AnswerDto, { text: "Redeemed." }));
 
       await expect(execute(app, Redeem, { text: "one", code: "V-1" })).rejects.toBeInstanceOf(
-        BudgetExceededError,
+        LimitError.Budget,
       );
       const admitted = await execute(app, Redeem, { text: "two", code: "V-2" });
 

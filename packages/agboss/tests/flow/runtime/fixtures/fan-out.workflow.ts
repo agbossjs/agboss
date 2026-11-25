@@ -1,3 +1,4 @@
+import { StepError } from "../../../../src/core/error-families/step-errors.js";
 import { AGBossError } from "../../../../src/core/errors.js";
 import { Integer, Enum, Text } from "../../../../src/dto/index.js";
 import {
@@ -47,7 +48,7 @@ export class SummaryDto {
   text!: string;
 }
 
-/** An item could not be processed: the domain error inside `ActionFailedError`. */
+/** An item could not be processed: the domain error inside `StepError.Action`. */
 export class ItemFailedError extends AGBossError {
   static override readonly code: string = "test.item-failed";
 }

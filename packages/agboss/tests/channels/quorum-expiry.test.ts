@@ -3,11 +3,10 @@
  * tree wakes by itself, the branch ends `Expired` (not `Cancelled`, not `Skipped`) and counts as
  * "did not vote".
  */
+import { StepError } from "../../src/core/error-families/step-errors.js";
 import { beforeEach, describe, expect } from "vitest";
 import { ExecutionStatus } from "../../src/app/types.js";
 import { BranchStatus, PauseClosedReason, PauseResolution, PauseStatus } from "../../src/index.js";
-import { PauseExpiredError } from "../../src/flow/runtime/pause-expired-error.js";
-import { QuorumNotReachedError } from "../../src/flow/runtime/launch/quorum-errors.js";
 import { callTool, decideWith, replyWith, testWith } from "../../src/testing/index.js";
 import { hours, minutes } from "../../src/units/index.js";
 import { execute } from "../helpers/flow.js";
@@ -149,7 +148,7 @@ describe("AC1: min 2, max 3, two answered, the third never: at the deadline the 
 });
 
 describe("AC2: one answers, two never (their own deadlines pass)", () => {
-  test("AC2: QuorumNotReachedError { counted: 1, expired: [two node ids] }", async ({
+  test("AC2: StepError.QuorumNotReached { counted: 1, expired: [two node ids] }", async ({
     app,
     clock,
     mockModel,
@@ -164,7 +163,7 @@ describe("AC2: one answers, two never (their own deadlines pass)", () => {
     await until(() => qe.errors.length === 1);
 
     const [error] = qe.errors;
-    expect(error).toBeInstanceOf(QuorumNotReachedError);
+    expect(error).toBeInstanceOf(StepError.QuorumNotReached);
     expect(error).toMatchObject({
       counted: 1,
       expired: ["short-policy-agent", "short-risk-agent"],
@@ -210,7 +209,7 @@ describe("AC3: an expired reviewer never fails the panel", () => {
 });
 
 describe("Q11: a plain .join() follows its FailurePolicy", () => {
-  test("AC3: plain + FailFast: the launch fails with PauseExpiredError; the waiting sibling is withdrawn, no hang", async ({
+  test("AC3: plain + FailFast: the launch fails with StepError.PauseExpired; the waiting sibling is withdrawn, no hang", async ({
     app,
     clock,
     mockModel,
@@ -224,7 +223,7 @@ describe("Q11: a plain .join() follows its FailurePolicy", () => {
     await clock.advance(minutes(30));
     await until(() => qe.errors.length === 1);
 
-    expect(qe.errors[0]).toBeInstanceOf(PauseExpiredError);
+    expect(qe.errors[0]).toBeInstanceOf(StepError.PauseExpired);
     expect(qe.shortAsks).toHaveLength(1);
     expect(await stored("W")).toMatchObject({
       status: PauseStatus.Cancelled,

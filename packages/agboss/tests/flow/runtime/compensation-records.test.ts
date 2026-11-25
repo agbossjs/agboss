@@ -1,3 +1,4 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { ExecutionError } from "../../../src/core/error-families/run-errors.js";
 import { describe, expect, it } from "vitest";
 import {
@@ -108,7 +109,7 @@ describe("records on the path", () => {
       status: CompensationStatus.Failed,
     });
     expect(result).not.toHaveCompensated(HoldSeatAction, { by: ReleaseSeatAction });
-    expect(result.compensations[1]?.error).toMatchObject({ name: "ActionFailedError" });
+    expect(result.compensations[1]?.error).toMatchObject({ name: "StepError.Action" });
   });
 });
 

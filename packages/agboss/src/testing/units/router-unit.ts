@@ -1,3 +1,4 @@
+import { StepError } from "../../core/error-families/step-errors.js";
 import type { Class } from "../../components/injection.js";
 import { PromptLoader } from "../../components/prompt-render.js";
 import type { UsageRecord } from "../../finops/usage.js";
@@ -10,7 +11,7 @@ import {
 import { declarationOf } from "../../flow/decorators/declaration.js";
 import { Metadata } from "../../flow/metadata.js";
 import { prettyJson } from "../../flow/runtime/json.js";
-import { RouterDecisionError, routerFailureOf } from "../../flow/runtime/router-error.js";
+import { routerFailureOf } from "../../flow/runtime/router-error.js";
 import {
   loadRouter,
   type LoadedRouter,
@@ -67,14 +68,14 @@ export function checkedCodeAnswer(options: RouterOptions, answer: unknown): unkn
       (target) => !allowed.some((cls) => cls === target),
     );
     if (outside !== undefined)
-      throw new RouterDecisionError({
+      throw new StepError.RouterDecision({
         ...step,
         reason: "route() returned a target outside its routes",
       });
     return answer;
   }
   if (routesOf(options).some((route) => route.target === answer)) return answer;
-  throw new RouterDecisionError({
+  throw new StepError.RouterDecision({
     ...step,
     reason: "route() returned a target outside its routes",
   });
@@ -167,7 +168,7 @@ async function routeDecision(site: DecisionSite): Promise<ModelDecision> {
   if (outcome.kind === "failed") throw routerFailureOf(step, outcome);
   const target = targetNamed(options, outcome.decision.next);
   if (target === undefined)
-    throw new RouterDecisionError({
+    throw new StepError.RouterDecision({
       ...step,
       reason: `"${outcome.decision.next}" is not one of its routes`,
     });

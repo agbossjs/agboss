@@ -64,10 +64,8 @@ export function workflowWith(prompts: FlowPrompts): {
     flow: [
       onStart(TestChat)
         .toRouter(Main)
-        .onRoute(
-          toAgent(Scout)
-            .toFinish(TestAnswer),
-        )
+        .onRoute(toAgent(Scout)
+          .toFinish(TestAnswer))
         .onRoute(toFinish(NoAnswer)),
     ],
     promptVariables: { boards: "LinkedIn, AllJobs", boardCount: "2" },

@@ -21,7 +21,7 @@ interface RerankNames {
   readonly reranker: string;
 }
 
-/** The spend a failed reranking carries (`RerankFailedError.usage`); none for any other error. */
+/** The spend a failed reranking carries (`StepError.RerankFailed.usage`); none for any other error. */
 function spentByFailure(error: unknown): readonly UsageRecord[] {
   const usage: unknown = error instanceof Error ? Reflect.get(error, "usage") : undefined;
   return Array.isArray(usage) ? (usage as readonly UsageRecord[]) : [];

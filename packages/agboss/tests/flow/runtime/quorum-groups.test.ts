@@ -1,3 +1,4 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { beforeEach, describe, expect } from "vitest";
 import { BranchStatus, BranchVerdict } from "../../../src/index.js";
 import {
@@ -120,7 +121,7 @@ describe("AC7: groups with priority", () => {
   });
 
   deal(
-    "no group can complete any more: QuorumNotReachedError at once",
+    "no group can complete any more: StepError.QuorumNotReached at once",
     async ({ app, mockModel }) => {
       mockModel(LegalPanelAgent).thenReturn(wait(60)); // cancelled: no group can complete
       mockModel(CriticPanelAgent).thenReturnAlways(failWith(ModelFailure.Timeout));

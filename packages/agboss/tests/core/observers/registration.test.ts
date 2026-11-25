@@ -1,3 +1,4 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { beforeEach, describe, expect } from "vitest";
 import {
   Observer,
@@ -101,7 +102,7 @@ describe("a registered observer", () => {
       mockModel(Worker).thenReturn(failWith(ModelFailure.ServerError));
       await expect(execute(app, Start, { text: "again" })).rejects.toThrow();
 
-      expect(events).toContain("error:AgentFailedError");
+      expect(events).toContain("error:StepError.Agent");
       expect(auditCalls).toEqual(["record:hi"]);
     },
   );

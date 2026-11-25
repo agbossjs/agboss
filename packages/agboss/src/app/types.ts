@@ -97,7 +97,7 @@ export interface ExecutionOptions extends CallOptions {
   /**
    * How long the execution may take (#398 PR 2), `seconds(30)`: fixed on the application's `Clock`
    * at its start (a pause counts as time); past it the execution fails with
-   * `DeadlineExceededError` (`limit.deadline`) before its next step or model call. A trusted mesh
+   * `LimitError.Deadline` (`limit.deadline`) before its next step or model call. A trusted mesh
    * caller's remaining time sets it too — the smaller wins. Omitted → none. At most 24 days (#1141).
    */
   readonly deadline?: Milliseconds;

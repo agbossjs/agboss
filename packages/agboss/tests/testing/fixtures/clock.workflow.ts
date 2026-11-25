@@ -70,8 +70,7 @@ export class StampService {
   constructor(private readonly clock: Clock) {}
 
   stamp(): string {
-    return this.clock
-      .now()
+    return this.clock.now()
       .toISOString();
   }
 }
@@ -166,11 +165,9 @@ export class ClockWorkflowStart {}
 })
 export class ClockReceiptWorkflowFinish {}
 
-const flow = [
-  onStart(ClockWorkflowStart)
-    .toAgent(ClockClerk)
-    .toFinish(ClockReceiptWorkflowFinish),
-];
+const flow = [onStart(ClockWorkflowStart)
+  .toAgent(ClockClerk)
+  .toFinish(ClockReceiptWorkflowFinish)];
 
 const defaults = { models: { maxTokens: 100, temperature: 0 }, tools: { maxToolCalls: 4 } };
 

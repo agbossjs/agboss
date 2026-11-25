@@ -96,11 +96,8 @@ export const storyPaths = [
 
   onAgent(StoryWriterAgent)
     .toAgent(StoryReviewerAgent)
-    .toOneOf([
-      toAgent(StoryWriterAgent),
-      toAgent(PublisherAgent)
-        .toFinish(StoryWorkflowFinish),
-    ]),
+    .toOneOf([toAgent(StoryWriterAgent), toAgent(PublisherAgent)
+      .toFinish(StoryWorkflowFinish)]),
 ] as const;
 
 @Workflow({

@@ -1,3 +1,5 @@
+import { StepError } from "../../src/core/error-families/step-errors.js";
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { ValidationError } from "../../src/index.js";
 import { usd } from "../../src/units/index.js";
 /**
@@ -9,10 +11,8 @@ import { usd } from "../../src/units/index.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CostSource, ZERO_USAGE, type UsageRecord } from "../../src/finops/usage.js";
 import { currentFrame } from "../../src/flow/context/frame.js";
-import { VisitsLimitExceededError } from "../../src/flow/runtime/errors.js";
 import { ComponentKind } from "../../src/flow/runtime/records.js";
 import { expiryFailureOf, PauseExpirySignal } from "../../src/flow/runtime/pause-expiry-failure.js";
-import { AgentFailedError } from "../../src/graph/errors.js";
 import { makeApprovalNode } from "../../src/graph/agent-loop/approval-node.js";
 import { awaitingApproval } from "../../src/graph/agent-loop/boundary.js";
 
@@ -147,9 +147,9 @@ describe("#1366: the checks before a question is asked", () => {
 
     const failure = await made.node(state, undefined).catch((e: unknown) => e);
 
-    expect(failure).toBeInstanceOf(VisitsLimitExceededError);
+    expect(failure).toBeInstanceOf(LimitError.Visits);
     expect(failure).toMatchObject({ maxVisits: 1, path: ["a"], spentUsd: usd(1.5) });
-    expect((failure as VisitsLimitExceededError).component).toMatchObject({ name: "ask-tool" });
+    expect((failure as LimitError.Visits).component).toMatchObject({ name: "ask-tool" });
     expect(made.check).not.toHaveBeenCalled();
     expect(made.requestAnswer).not.toHaveBeenCalled();
   });
@@ -168,7 +168,7 @@ describe("#1366: the checks before a question is asked", () => {
 
       const failure = await made.node(stateOf(), undefined).catch((e: unknown) => e);
 
-      expect(failure).toBeInstanceOf(VisitsLimitExceededError);
+      expect(failure).toBeInstanceOf(LimitError.Visits);
       expect(failure).toMatchObject({ maxVisits: 0, path: ["a"], spentUsd: usd(1.5) });
       expect((failure as Error).message).not.toContain("five");
       expect(made.check).not.toHaveBeenCalled();
@@ -288,7 +288,7 @@ describe("#1366: what the checks leave alone", () => {
 
     const failure = await made.node(stateOf(), undefined).catch((e: unknown) => e);
 
-    expect(failure).toBeInstanceOf(AgentFailedError);
+    expect(failure).toBeInstanceOf(StepError.Agent);
     expect(failure).toMatchObject({ agent: "alpha", usage: [record(0.5, "loop")] });
     expect((failure as Error).cause).toBe(invalid);
   });

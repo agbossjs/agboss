@@ -1,3 +1,4 @@
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { Channel, Injectable } from "../../../src/components/decorators.js";
 import { type ChannelAsk } from "../../../src/channels/channel-handler.js";
 import { ChannelOutcome } from "../../../src/channels/channel-outcome.js";
@@ -20,7 +21,6 @@ import { PiiAction } from "../../../src/pii/index.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { WorkflowStartTextDto } from "./dtos.js";
 import { onExternalTask, onStart, toFinish, toExternalTask } from "./paths.js";
-import { QuestionFailedError } from "../../../src/flow/runtime/errors.js";
 import { inline, ExternalTask, Ttl } from "../../../src/index.js";
 import { PauseRespondent } from "../../../src/pause/respondent.js";
 import { days } from "../../../src/units/index.js";
@@ -248,7 +248,7 @@ export class CheckLimitAction implements ActionHandler<CheckLimitAction> {
     onStart(PurchaseWorkflowStart)
       .toAction(DraftQuestionAction)
       .toExternalTask(SpendingLimitQuestionExternalTask)
-      .onError(QuestionFailedError, toFinish(PurchaseUnaskedWorkflowFinish))
+      .onError(StepError.ExternalTask, toFinish(PurchaseUnaskedWorkflowFinish))
       .toAction(PlacePurchaseAction)
       .toFinish(PurchaseWorkflowFinish),
   ],
