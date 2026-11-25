@@ -212,10 +212,11 @@ describe("#1318d1: a profile that fails closed", () => {
   });
 });
 
-describe("#1318d1: a profile that switches a model to an unserved one", () => {
-  const unserved = /\[model\.unserved\] profile-kid-workflow agents\.kid-agent = cloud\/x/;
+describe("#1318d1: a profile that switches a model to a provider the application does not have", () => {
+  const unserved =
+    /\[model\.missing-provider\] profile-kid-workflow agents\.kid-agent = cloud\/x: modelProvider cloud-model-provider is not listed/;
 
-  it("testWith reports [model.unserved] at assembly, not at the first call", async () => {
+  it("testWith reports it at assembly, not at the first call", async () => {
     await expect(TestEnvironment.of(ProfileApplication, { profile: "to-cloud" })).rejects.toThrow(
       unserved,
     );

@@ -1,12 +1,13 @@
 import {
   DecisionsDriver,
+  CircuitBreakerPolicy,
   ModelCost,
   ModelProvider,
   type ModelProviderDecisionRequest,
   type ModelProviderRequest,
   type ModelProviderResponse,
 } from "../models/index.js";
-import { seconds } from "../units/index.js";
+import { minutes, seconds } from "../units/index.js";
 
 /**
  * The model provider of a test application (#1328): `modelProvider: TestModelProvider` on its
@@ -21,6 +22,12 @@ import { seconds } from "../units/index.js";
   description: "Serves the models of a test; the test's script answers every call",
   timeout: seconds(5),
   cost: ModelCost.fromResponse(),
+  // a test may open it (`stores.rateLimits.pauseUntil(circuitOpenKeyOf("test-model-provider"), …)`)
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
+    failureThreshold: 5,
+    failureWindow: minutes(1),
+    openDuration: seconds(30),
+  }),
   model: "test/model",
 })
 export class TestModelProvider {

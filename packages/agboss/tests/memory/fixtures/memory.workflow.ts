@@ -18,7 +18,6 @@ import { onStart } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../src/index.js";
-import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** What the recaller recalled. */
 export class RecallDto {
@@ -137,7 +136,7 @@ export class CompactingDesk {}
 
 @Application({
   name: "compacting-desk-application",
-  modelProvider: TestModelProvider,
+  modelProvider: LocalModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [CompactingDesk],

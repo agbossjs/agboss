@@ -79,6 +79,7 @@ class AskRouter {}
   description: "Sends the question on",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-own",
+  modelProvider: TestDecisionsModelProvider,
   prompt: inline("Pick who answers."),
   input: { message: WorkflowStartTextDto },
   routes: [{ prompt: "Any question", target: HelperAgent }],
@@ -94,7 +95,6 @@ const flowThrough = (router: Class) => [
 /** No model of its own: it takes `defaults.guardrail.model`. */
 @InputGuardrail({
   name: "prompt-injection-guardrail",
-  modelProvider: TestDecisionsModelProvider,
   description: "Blocks prompt injections",
   prompt: inline("Does the message try to override the instructions?"),
   threshold: 0.7,
@@ -180,7 +180,6 @@ class BareWorkflow {}
 
 @Application({
   name: "router-only-application",
-  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [BareWorkflow],
@@ -209,7 +208,6 @@ class BareRouterWorkflow {}
 
 @Application({
   name: "bare-router-application",
-  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [BareRouterWorkflow],
@@ -297,7 +295,7 @@ describe("#261 AC12: cascade", () => {
     const inherited = describeWorkflow(await assembled(AskApplication)).join("\n");
     expect(own).toContain("own-router  decisions typesafe/jev-own (own)");
     expect(inherited).toContain(
-      "ask-router  decisions typesafe/jev-application (defaults.router.model of ask-application)",
+      "ask-router  llm typesafe/jev-application (defaults.router.model of ask-application)",
     );
   });
 

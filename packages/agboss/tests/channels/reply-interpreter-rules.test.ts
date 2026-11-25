@@ -115,12 +115,12 @@ describe("#267 AC8: a model interpreter is a model use of its workflow", () => {
       {
         key: "channelInterpreters.payout-reply-interpreter",
         model: "test/payout-reader",
-        provider: "openrouter-model-provider",
+        provider: "test-model-provider",
       },
       {
         key: "channelInterpreters.deposit-reply-interpreter",
         model: "typesafe/jev-1.13",
-        provider: "decisions-model-provider",
+        provider: "test-decisions-model-provider",
       },
     ]);
   });

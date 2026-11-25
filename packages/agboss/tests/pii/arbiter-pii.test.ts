@@ -27,8 +27,8 @@ import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { execute, onStart, toAgent } from "../helpers/flow.js";
 import { requestText, tokensIn } from "./boundary.helpers.js";
 import { ContactPiiPolicy, PII_KEY_VARIABLE } from "./pii.fixture.js";
-import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 import { TestDecisionsModelProvider } from "../../src/testing/test-model-provider.js";
+import { LocalModelProvider } from "../models/providers.fixture.js";
 
 const EMAIL = "alice@example.com";
 
@@ -106,7 +106,7 @@ class OwnersWorkflow {}
 
 @Application({
   name: "owners-application",
-  modelProvider: TestModelProvider,
+  modelProvider: LocalModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [OwnersWorkflow],

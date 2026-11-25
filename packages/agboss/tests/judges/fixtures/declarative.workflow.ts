@@ -17,7 +17,7 @@ import { Application } from "../../../src/application/application.js";
 import { onStart } from "../../helpers/flow.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { DEFAULTS, MODEL_PROVIDERS } from "./judged.workflow.js";
-import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
+import { LocalModelProvider } from "../../models/providers.fixture.js";
 
 /**
  * #1290 — declarative model judges: empty classes with a `prompt` (a file next to this one, or
@@ -105,7 +105,7 @@ export class TwoJudgesDesk {}
 
 @Application({
   name: "declared-desk-application",
-  modelProvider: TestModelProvider,
+  modelProvider: LocalModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [DeclaredDesk],
@@ -116,7 +116,7 @@ export class DeclaredDeskApplication {}
 
 @Application({
   name: "two-judges-application",
-  modelProvider: TestModelProvider,
+  modelProvider: LocalModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [TwoJudgesDesk],

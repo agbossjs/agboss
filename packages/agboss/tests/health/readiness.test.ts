@@ -89,12 +89,7 @@ describe("#300 AC2: readiness", () => {
         status: "healthy",
       },
       {
-        name: "openrouter-model-provider",
-        kind: HealthComponentKind.ModelProvider,
-        status: "healthy",
-      },
-      {
-        name: "decisions-model-provider",
+        name: "test-model-provider",
         kind: HealthComponentKind.ModelProvider,
         status: "healthy",
       },
@@ -122,17 +117,16 @@ describe("#300 AC2: readiness", () => {
     async ({ app, clock }) => {
       await app.ready();
       const until = new Date(clock.now().getTime() + minutes(1));
-      await stores.rateLimits?.pauseUntil(circuitOpenKeyOf("openrouter-model-provider"), until);
+      await stores.rateLimits?.pauseUntil(circuitOpenKeyOf("test-model-provider"), until);
 
       const report = await app.checkReadiness();
 
       expect(report.status).toBe(HealthStatus.Degraded);
-      expect(componentOf(report, "openrouter-model-provider")).toMatchObject({
+      expect(componentOf(report, "test-model-provider")).toMatchObject({
         kind: HealthComponentKind.ModelProvider,
         status: HealthStatus.Degraded,
         reason: `circuit breaker open until ${until.toISOString()}`,
       });
-      expect(componentOf(report, "decisions-model-provider").status).toBe(HealthStatus.Healthy);
     },
   );
 

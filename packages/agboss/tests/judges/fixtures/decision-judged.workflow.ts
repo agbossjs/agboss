@@ -12,8 +12,8 @@ import { DEFAULTS, MODEL_PROVIDERS, Reply, TaskStart } from "./judged.workflow.j
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../src/index.js";
-import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
+import { LocalModelProvider } from "../../models/providers.fixture.js";
 
 /** The decision model judges run on (OpenRouter Decisions API, images supported). */
 export const LUNA = "openai/gpt-6-luna-decisions";
@@ -108,7 +108,7 @@ export class DecisionDesk {}
 
 @Application({
   name: "decision-judged-desk-application",
-  modelProvider: TestModelProvider,
+  modelProvider: LocalModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [DecisionDesk],
@@ -129,7 +129,7 @@ export class ImageDesk {}
 
 @Application({
   name: "image-judged-desk-application",
-  modelProvider: TestModelProvider,
+  modelProvider: LocalModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ImageDesk],

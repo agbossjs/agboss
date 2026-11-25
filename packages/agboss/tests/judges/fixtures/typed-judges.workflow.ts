@@ -18,7 +18,7 @@ import { Application } from "../../../src/application/application.js";
 import { onStart, toFinish, toAgent } from "../../helpers/flow.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { DEFAULTS, MODEL_PROVIDERS, Reply, TaskStart } from "./judged.workflow.js";
-import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
+import { LocalModelProvider } from "../../models/providers.fixture.js";
 
 /** One job of a report. */
 export class JobDto {
@@ -106,7 +106,7 @@ export class TypedJudgeWorkflow {}
 
 @Application({
   name: "typed-judge-application",
-  modelProvider: TestModelProvider,
+  modelProvider: LocalModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [TypedJudgeWorkflow],
@@ -191,7 +191,7 @@ export class VariantJudgeWorkflow {}
 
 @Application({
   name: "variant-judge-application",
-  modelProvider: TestModelProvider,
+  modelProvider: LocalModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [VariantJudgeWorkflow],
@@ -362,7 +362,7 @@ export class ListJudgeWorkflow {}
 
 @Application({
   name: "list-judge-application",
-  modelProvider: TestModelProvider,
+  modelProvider: LocalModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ListJudgeWorkflow],
@@ -432,7 +432,7 @@ export class VariantListJudgeWorkflow {}
 
 @Application({
   name: "variant-list-judge-application",
-  modelProvider: TestModelProvider,
+  modelProvider: LocalModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [VariantListJudgeWorkflow],

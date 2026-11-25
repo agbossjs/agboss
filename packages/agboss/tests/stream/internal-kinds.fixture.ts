@@ -22,7 +22,7 @@ import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { onStart, toAgent } from "../helpers/flow.js";
 import { MODEL_PROVIDERS } from "../judges/fixtures/judged.workflow.js";
-import { TestModelProvider } from "../../src/testing/test-model-provider.js";
+import { LocalModelProvider } from "../models/providers.fixture.js";
 
 @OutputGuardrail({
   name: "chat-guardrail",
@@ -136,7 +136,7 @@ class OwnersWorkflow {}
 
 @Application({
   name: "internal-kinds-application",
-  modelProvider: TestModelProvider,
+  modelProvider: LocalModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [GuardedTextWorkflow, OwnersWorkflow],

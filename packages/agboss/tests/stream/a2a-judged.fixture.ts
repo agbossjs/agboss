@@ -21,7 +21,7 @@ import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { onStart } from "../helpers/flow.js";
 import { DEFAULTS, MODEL_PROVIDERS } from "../judges/fixtures/judged.workflow.js";
 import { HttpAuthResult, HttpAuthenticator } from "../../src/index.js";
-import { TestModelProvider } from "../../src/testing/test-model-provider.js";
+import { LocalModelProvider } from "../models/providers.fixture.js";
 
 @Judge({ name: "a2a-audit-judge", model: "local/judge", output: PlainTextDto, deps: [JudgeModel] })
 export class A2AJudge implements JudgeHandler<PlainTextDto> {
@@ -80,7 +80,7 @@ export class AuditA2AExpose {}
 
 @Application({
   name: "a2a-audit-application",
-  modelProvider: TestModelProvider,
+  modelProvider: LocalModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [A2AWorkflow],

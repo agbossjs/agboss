@@ -48,7 +48,7 @@ class NotAReranker {
   readonly isReranker = false;
 }
 
-function workflowReading(reranker: Class, topK = 3): Class {
+function workflowReading(reranker: Class, topK = 3, workflowProvider = true): Class {
   @Rag({
     name: "docs-rag",
     description: "Docs",
@@ -63,12 +63,13 @@ function workflowReading(reranker: Class, topK = 3): Class {
     description: "Reads",
     prompt: inline("Read."),
     model: "local/llama",
+    modelProvider: TestModelProvider,
     rag: [DocsRag],
   })
   class ReaderAgent {}
   @Workflow({
     name: "reader-workflow",
-    modelProvider: TestModelProvider,
+    ...(workflowProvider ? { modelProvider: TestModelProvider } : {}),
     version: "1.0.0",
     historyTtl: Ttl.Forever,
     defaults: testDefaults,
@@ -118,11 +119,15 @@ describe("reranking at assembly", () => {
     expect(describeWorkflow(bundle)).toContain(
       "    rag: docs-rag (k 3, tenant, reranked by docs-reranker from 10, on failure fail-step)",
     );
-    expect(bundle.rerankers).toEqual([{ name: "docs-reranker", model: "local/llama" }]);
+    expect(bundle.rerankers).toEqual([
+      { name: "docs-reranker", model: "local/llama", modelProvider: "test-model-provider" },
+    ]);
   });
 
   it("a model reranker that names no model, under no model provider: [model.missing-provider] — the core has no default model", async () => {
-    expect(await codesOf(workflowReading(NoModelReranker))).toEqual(["model.missing-provider"]);
+    expect(await codesOf(workflowReading(NoModelReranker, 3, false))).toEqual([
+      "model.missing-provider",
+    ]);
   });
 });
 
@@ -140,7 +145,12 @@ describe("#1299: @RagReranker({ prompt }) is read at assembly", () => {
     const bundle = await workflowOf(workflowReading(PromptedReranker));
 
     expect(bundle.rerankers).toEqual([
-      { name: "prompted-reranker", model: "local/llama", prompt: "  Prefer the newest documents." },
+      {
+        name: "prompted-reranker",
+        model: "local/llama",
+        modelProvider: "test-model-provider",
+        prompt: "  Prefer the newest documents.",
+      },
     ]);
   });
 

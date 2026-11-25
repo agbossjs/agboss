@@ -32,7 +32,7 @@ import { onStart, toFinish } from "../../helpers/flow.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { MODEL_PROVIDERS } from "../../judges/fixtures/judged.workflow.js";
 import { PromptInjectionGuardrail } from "../../fixtures/guardrails.js";
-import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
+import { LocalModelProvider } from "../../models/providers.fixture.js";
 
 /**
  * #395 — tool-call trajectories: a clerk that looks orders up (a tool that fails for "lost"), a
@@ -215,7 +215,7 @@ export class OrderPiiPolicy {}
 
 @Application({
   name: "trajectory-application",
-  modelProvider: TestModelProvider,
+  modelProvider: LocalModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ClerkWorkflow, FrontDeskWorkflow, StrictClerkWorkflow],

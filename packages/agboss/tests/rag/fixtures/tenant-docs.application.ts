@@ -15,7 +15,7 @@ import {
 import { MODEL_PROVIDERS } from "../../judges/fixtures/judged.workflow.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart } from "../../helpers/flow.js";
-import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
+import { LocalModelProvider } from "../../models/providers.fixture.js";
 
 /**
  * #700 AC1 — two tenants, each its own folder of documents on one SQLite FTS index: tenant B's
@@ -135,7 +135,7 @@ export class ReadWorkflow {}
 
 @Application({
   name: "tenant-docs-application",
-  modelProvider: TestModelProvider,
+  modelProvider: LocalModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [SearchWorkflow, ReadWorkflow],

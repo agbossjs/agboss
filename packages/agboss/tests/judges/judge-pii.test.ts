@@ -26,7 +26,7 @@ import { execute, onStart } from "../helpers/flow.js";
 import { requestText, tokensIn } from "../pii/boundary.helpers.js";
 import { ContactPiiPolicy } from "../pii/pii.fixture.js";
 import { DEFAULTS, MODEL_PROVIDERS } from "./fixtures/judged.workflow.js";
-import { TestModelProvider } from "../../src/testing/test-model-provider.js";
+import { LocalModelProvider } from "../models/providers.fixture.js";
 
 const EMAIL = "alice@example.com";
 const seen: string[] = [];
@@ -78,7 +78,7 @@ class ContactWorkflow {}
 
 @Application({
   name: "contact-judge-application",
-  modelProvider: TestModelProvider,
+  modelProvider: LocalModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ContactWorkflow],

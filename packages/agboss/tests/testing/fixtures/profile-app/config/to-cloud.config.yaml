@@ -3,3 +3,4 @@ workflows:
     agents:
       kid-agent:
         model: cloud/x
+        modelProvider: cloud-model-provider

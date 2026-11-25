@@ -39,7 +39,11 @@ describe("describe a workflow: routers", () => {
     const bundle = await workflowOf(TestWorkflow);
     const chat: AssembledWorkflow = {
       ...bundle,
-      routers: bundle.routers.map((router) => ({ ...router, model: "test/router" })),
+      routers: bundle.routers.map((router) => ({
+        ...router,
+        model: "test/router",
+        modelProvider: "test-model-provider",
+      })),
     };
 
     expect(section(describeWorkflow(chat), "routers")).toEqual([

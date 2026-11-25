@@ -157,17 +157,17 @@ describe("#268 AC4: the tree — workflows, their starts and children", () => {
 });
 
 describe("#268 AC4: model providers and channels with their implementations", () => {
-  it("the built-in model providers when none is listed, and why", () => {
+  it("the model providers the application's cascade names, and how each is reached", () => {
     const lines = describeAssembledApplication(treasury);
     const at = lines.indexOf("model providers");
 
     expect(lines.slice(at, at + 3)).toEqual([
       "model providers",
       expect.stringMatching(
-        /^ {2}openrouter-model-provider → TestOpenRouterProvider \(built-in default: none listed\) · serves /,
+        /^ {2}test-model-provider → TestModelProvider \(named by modelProvider\) · transport: /,
       ),
       expect.stringMatching(
-        /^ {2}decisions-model-provider → TestDecisionsProvider \(built-in default: none listed\) · serves /,
+        /^ {2}test-decisions-model-provider → TestDecisionsModelProvider \(named by modelProvider\)/,
       ),
     ]);
   });

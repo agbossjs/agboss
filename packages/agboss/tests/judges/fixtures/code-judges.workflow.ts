@@ -26,7 +26,7 @@ import { Application } from "../../../src/application/application.js";
 import { onStart } from "../../helpers/flow.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { DEFAULTS, Grounded, MODEL_PROVIDERS, RUBRIC } from "./judged.workflow.js";
-import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
+import { LocalModelProvider } from "../../models/providers.fixture.js";
 
 /**
  * #396 — code judges: `@Judge({ })` decides by its `judge(input)` alone,
@@ -100,7 +100,7 @@ export class PromiseDesk {}
 
 @Application({
   name: "promise-desk-application",
-  modelProvider: TestModelProvider,
+  modelProvider: LocalModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [PromiseDesk],

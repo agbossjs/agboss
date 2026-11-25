@@ -11,10 +11,10 @@ import { TokenLimit } from "../src/config/types.js";
 import { testConfig } from "./helpers.js";
 
 describe("validateAgentsConfig", () => {
-  it("accepts the shipped config: Jev routers by default, model-max output", async () => {
+  it("accepts the shipped config: the default router is served by the workflow's provider, model-max output", async () => {
     const config = validateAgentsConfig((await workflowOf(TestWorkflow)).config);
 
-    expect(config.defaults.router?.kind).toBe("jev");
+    expect(config.defaults.router?.kind).toBe("llm");
     expect(config.defaults.models.maxTokens).toBe(TokenLimit.ModelMax);
   });
 

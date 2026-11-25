@@ -10,7 +10,7 @@ import { onStart } from "../helpers/flow.js";
 import { DEFAULTS, MODEL_PROVIDERS } from "../judges/fixtures/judged.workflow.js";
 import { GuardedAgent } from "./guarded.fixture.js";
 import { HttpAuthResult, HttpAuthenticator } from "../../src/index.js";
-import { TestModelProvider } from "../../src/testing/test-model-provider.js";
+import { LocalModelProvider } from "../models/providers.fixture.js";
 
 @WorkflowStart({
   name: "wire-guarded-workflow-start",
@@ -54,7 +54,7 @@ export class WireA2AExpose {}
 
 @Application({
   name: "wire-guarded-application",
-  modelProvider: TestModelProvider,
+  modelProvider: LocalModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [WireGuardedWorkflow],

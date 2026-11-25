@@ -156,6 +156,7 @@ export class ProbeWorkflow {}
     FlakyCostLedgerRepository,
     StallingExecutionRecordRepository,
     ReachableRateLimitRepository,
+    TestModelProvider,
   ],
   healthChecks: [CrmHealthCheck, SearchHealthCheck],
 })
@@ -177,6 +178,7 @@ export class ProbeApplication {}
     FlakyCostLedgerRepository,
     StallingExecutionRecordRepository,
     ReachableRateLimitRepository,
+    TestModelProvider,
     SharedCheckpointSaver,
   ],
 })

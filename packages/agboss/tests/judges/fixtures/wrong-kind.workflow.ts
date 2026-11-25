@@ -13,8 +13,8 @@ import { DEFAULTS, MODEL_PROVIDERS, Reply, TaskStart } from "./judged.workflow.j
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../src/index.js";
-import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
+import { LocalModelProvider } from "../../models/providers.fixture.js";
 
 /** On a chat model, yet asks for a decision. */
 @Judge({ name: "chat-decider", model: "local/judge", output: PlainTextDto, deps: [JudgeModel] })
@@ -76,7 +76,7 @@ export class ChatDeciderDesk {}
 
 @Application({
   name: "chat-decider-desk-application",
-  modelProvider: TestModelProvider,
+  modelProvider: LocalModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ChatDeciderDesk],
@@ -96,7 +96,7 @@ export class DecisionChatterDesk {}
 
 @Application({
   name: "decision-chatter-desk-application",
-  modelProvider: TestModelProvider,
+  modelProvider: LocalModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [DecisionChatterDesk],
@@ -164,7 +164,7 @@ export class LunaRouted {}
 
 @Application({
   name: "luna-routed-application",
-  modelProvider: TestModelProvider,
+  modelProvider: LocalModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [LunaRouted],
