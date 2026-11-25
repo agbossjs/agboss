@@ -26,6 +26,7 @@ import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { onStart, toAgent, toFinish } from "../helpers/flow.js";
 import { TestModelProvider } from "../../src/testing/test-model-provider.js";
+import { TestDecisionsModelProvider } from "../../src/testing/test-model-provider.js";
 
 /** The execution's own field: the sender's language. */
 export class ClinicExecutionContext extends ExecutionContext {
@@ -59,6 +60,7 @@ export class PromptInjectionGuardrail {}
   description: "Blocks requests for legal advice",
   prompt: inline("Does the message ask for legal advice?"),
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   threshold: 0.8,
   deps: [ClinicExecutionContext, RefusalTextService],
 })

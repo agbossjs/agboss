@@ -31,6 +31,7 @@ import { Rag } from "../../../src/components/decorators.js";
 import { Enum, PlainTextDto, Text } from "../../../src/dto/index.js";
 import type { RagRetrieval } from "../../../src/rag/types.js";
 import { seconds, usd } from "../../../src/units/index.js";
+import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
 
 // ── services the tests replace ──
 
@@ -194,6 +195,7 @@ export class HandbookRag extends RagSource {
   description: "Blocks requests for legal advice",
   prompt: inline("Does the message ask for legal advice?"),
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   threshold: 0.8,
   deps: [ApplicationContext, ExecutionContext],
 })

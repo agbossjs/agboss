@@ -14,7 +14,7 @@ import "../polyfills/symbol-metadata.js";
 import "./vitest-types.js";
 
 export { testWith, type WorkflowFixtures } from "./test-with.js";
-export { TestModelProvider } from "./test-model-provider.js";
+export { TestModelProvider, TestDecisionsModelProvider } from "./test-model-provider.js";
 export type { TestWithOptions } from "./environment.js";
 export type { TestWithSeams } from "./test-with-seams.js";
 export type { TestInstanceOptions } from "./instances.js";

@@ -1,5 +1,6 @@
 import { shownContentOf } from "../models/messages.js";
 import type { ChatModelUser, DecisionSpec, ModelGateway } from "../llm/gateway.js";
+import type { ProviderKinds } from "../models/use-purpose.js";
 import { componentOf } from "../components/metadata.js";
 import type { Class } from "../components/injection.js";
 import type { Clock } from "../infrastructure/clock.js";
@@ -169,8 +170,11 @@ function unscriptedRanking(script: ComponentScript): void {
 export function createScriptedGateway(
   book: ScriptBook,
   clock: Clock = new VirtualClock(),
+  kinds: ProviderKinds = new Map(),
 ): ModelGateway {
   return {
+    // what a model is is told by its provider's driver (#1313): a decision provider's models decide
+    kindOf: (modelProvider) => (modelProvider === undefined ? undefined : kinds.get(modelProvider)),
     chatModel: ({ user, settings }) => {
       if (user.kind === "compaction") unscriptedSummary(book.scriptOf(chatKeyOf(user)));
       if (user.kind === "reranker") unscriptedRanking(book.scriptOf(chatKeyOf(user)));

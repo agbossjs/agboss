@@ -1,4 +1,5 @@
 import {
+  DecisionsDriver,
   ModelCost,
   ModelProvider,
   type ModelProviderDecisionRequest,
@@ -31,3 +32,19 @@ export class TestModelProvider {
     return Promise.reject(new Error(`a test decided on ${request.model} with no script for it`));
   }
 }
+
+/**
+ * The provider of the components of a test that decide — a router, judge, arbiter, guardrail or
+ * reply interpreter on a decision model (`modelProvider: TestDecisionsModelProvider` on the
+ * component): a decision model has its own protocol, so no chat provider serves it. A test script
+ * (`decideWith`, `routeTo`) answers before it is reached.
+ */
+@ModelProvider({
+  name: "test-decisions-model-provider",
+  description: "Serves the decision models of a test; the test's script answers every decision",
+  driver: DecisionsDriver({ baseUrl: "http://decisions.test/v1" }),
+  timeout: seconds(5),
+  cost: ModelCost.fromResponse(),
+  model: "test/decisions",
+})
+export class TestDecisionsModelProvider {}

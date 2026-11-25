@@ -13,6 +13,7 @@ import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../src/index.js";
 import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
+import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** The decision model judges run on (OpenRouter Decisions API, images supported). */
 export const LUNA = "openai/gpt-6-luna-decisions";
@@ -22,7 +23,13 @@ export const PNG =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 
 /** Judges with three typed questions on a decision model: grounded (P(yes)), tone (choice), quality (score). */
-@Judge({ name: "answer-grounded", model: LUNA, output: PlainTextDto, deps: [JudgeModel] })
+@Judge({
+  name: "answer-grounded",
+  model: LUNA,
+  modelProvider: TestDecisionsModelProvider,
+  output: PlainTextDto,
+  deps: [JudgeModel],
+})
 export class AnswerGrounded implements JudgeHandler<PlainTextDto> {
   constructor(private readonly judgeModel: JudgeModel) {}
 
@@ -49,7 +56,13 @@ export class AnswerGrounded implements JudgeHandler<PlainTextDto> {
 }
 
 /** Looks at an image with the reply: the state is text and image parts. */
-@Judge({ name: "looks-right", model: LUNA, output: PlainTextDto, deps: [JudgeModel] })
+@Judge({
+  name: "looks-right",
+  model: LUNA,
+  modelProvider: TestDecisionsModelProvider,
+  output: PlainTextDto,
+  deps: [JudgeModel],
+})
 export class LooksRight implements JudgeHandler<PlainTextDto> {
   constructor(private readonly judgeModel: JudgeModel) {}
 

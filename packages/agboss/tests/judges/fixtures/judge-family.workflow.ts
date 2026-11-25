@@ -8,7 +8,8 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type JudgeHandler,
-  inline, Ttl,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
 import { ModelProvider, OpenAiCompatibleDriver } from "../../../src/models/index.js";
 import { seconds } from "../../../src/units/index.js";
@@ -70,11 +71,7 @@ export class FamilyReply {}
   name: "judge-family-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(FamilyTaskStart)
-      .toAgent(FamilyWriter)
-      .toFinish(FamilyReply),
-  ],
+  flow: [onStart(FamilyTaskStart).toAgent(FamilyWriter).toFinish(FamilyReply)],
   defaults: { router: { model: "typesafe/jev-1.13" } },
 })
 export class JudgeFamilyWorkflow {}

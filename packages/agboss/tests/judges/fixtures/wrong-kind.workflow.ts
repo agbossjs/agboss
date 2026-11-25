@@ -14,6 +14,7 @@ import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../src/index.js";
 import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
+import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** On a chat model, yet asks for a decision. */
 @Judge({ name: "chat-decider", model: "local/judge", output: PlainTextDto, deps: [JudgeModel] })
@@ -30,7 +31,13 @@ export class ChatDecider implements JudgeHandler<PlainTextDto> {
 }
 
 /** On a decision model, yet chats. */
-@Judge({ name: "decision-chatter", model: LUNA, output: PlainTextDto, deps: [JudgeModel] })
+@Judge({
+  name: "decision-chatter",
+  model: LUNA,
+  modelProvider: TestDecisionsModelProvider,
+  output: PlainTextDto,
+  deps: [JudgeModel],
+})
 export class DecisionChatter implements JudgeHandler<PlainTextDto> {
   constructor(private readonly judgeModel: JudgeModel) {}
 
@@ -131,6 +138,7 @@ export class AsIs {}
   decidedBy: DecidedBy.Model,
   prompt: inline("Who handles this?"),
   model: LUNA,
+  modelProvider: TestDecisionsModelProvider,
   input: { ask: AskDto },
   routes: [
     { prompt: "A coding ask", target: Coder },

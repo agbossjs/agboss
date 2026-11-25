@@ -5,6 +5,7 @@ import type { Class } from "../../../src/components/injection.js";
 import { SequentialIdGenerator } from "../../../src/testing/id-generator.js";
 import { McpStubs, stubbedMcpConnect } from "../../../src/testing/mcp-stubs.js";
 import { ScriptBook } from "../../../src/testing/script-book.js";
+import { providerKindsOf } from "../../../src/models/resolution.js";
 import { createScriptedGateway } from "../../../src/testing/scripted-gateway.js";
 import { Cassette } from "../../../src/testing/vcr-cassette.js";
 import { vcrGateway } from "../../../src/testing/vcr.js";
@@ -39,11 +40,12 @@ export async function recordRun(
   script(book);
   const assembled = await applicationOf(application);
   const cassette = open(file, cassetteHashesOf(assembled.workflows));
+  const kinds = providerKindsOf(assembled.workflows.flatMap((workflow) => workflow.modelProviders));
   const { app } = await buildApplication(
     assembled,
     {
       processEnv: {},
-      gateway: vcrGateway(cassette, () => createScriptedGateway(book)),
+      gateway: vcrGateway(cassette, () => createScriptedGateway(book, undefined, kinds), kinds),
       connectMcp: stubbedMcpConnect(new McpStubs(book), new Map(), new Set()),
     },
     { idGenerator: new SequentialIdGenerator() },

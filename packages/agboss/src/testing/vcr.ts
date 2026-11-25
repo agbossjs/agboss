@@ -3,6 +3,8 @@ import path from "node:path";
 import { DecisionError } from "../core/error-families/config-errors.js";
 import type { DecisionOutcome } from "../llm/decision-response.js";
 import type { GatewayOverProviders } from "../app/models.js";
+import { providerKindsOf } from "../models/resolution.js";
+import type { ProviderKinds } from "../models/use-purpose.js";
 import { type DecideSpec, type DecisionSpec, type ModelGateway } from "../llm/gateway.js";
 import type { RouteOutcome } from "../routers/index.js";
 import type { AssembledWorkflow } from "../workflow.js";
@@ -186,8 +188,13 @@ async function decideOf(
  * (routers, guards — Jev and LLM alike) and every judge's `decide` answers from it, or, while recording, from `real`
  * — created on the first recorded call, so a replay never builds a provider client or needs a key.
  */
-export function vcrGateway(cassette: Cassette, real: () => ModelGateway): ModelGateway {
+export function vcrGateway(
+  cassette: Cassette,
+  real: () => ModelGateway,
+  kinds: ProviderKinds = new Map(),
+): ModelGateway {
   return {
+    kindOf: (modelProvider) => (modelProvider === undefined ? undefined : kinds.get(modelProvider)),
     chatModel: (spec) =>
       new VcrChatModel(cassette, chatKeyOf(spec.user), spec.settings.model, () =>
         real().chatModel(spec),
@@ -232,5 +239,6 @@ export function vcrGatewayOverProviders(
     cassetteHashesOf(workflows),
     report,
   );
-  return (real) => vcrGateway(cassette, real);
+  const kinds = providerKindsOf(workflows.flatMap((workflow) => workflow.modelProviders));
+  return (real) => vcrGateway(cassette, real, kinds);
 }
