@@ -50,7 +50,10 @@ export class SqliteExecutionRecordRepository extends ExecutionRecordRepository {
     super();
     this.connection = connection;
     this.#records = new TurnStoreRecordRepository(
-      sharedTurnStore(connection.database, () => clock.now(), mintedThreadIdsOf(idGenerator)),
+      // the idle-thread sweep awaits between its statements: each group is served again (#1317)
+      sharedTurnStore(connection.database, () => clock.now(), mintedThreadIdsOf(idGenerator), {
+        served: (work) => connection.serve(work),
+      }),
       // the lease rows of this file, read inside the finish's own `BEGIN IMMEDIATE` (#1341b)
       sqliteInterruptedOf(connection.database),
     );

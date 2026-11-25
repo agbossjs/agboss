@@ -121,6 +121,7 @@ export const WriteRow = z.object({
   value_type: z.string(),
   value: Blob,
 });
+export type WriteRow = z.infer<typeof WriteRow>;
 
 /**
  * Where a checkpoint is: its thread, namespace and (absent = the latest) id — and the tenant it is

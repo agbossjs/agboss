@@ -6,7 +6,7 @@ import { migrateTurnDatabase, openTurnDatabase, placeholders, toTurn } from "./s
 import { configMethods } from "./configs.js";
 import { interruptibleWrites, pauseAnswerWrites, turnWrites } from "./writes.js";
 import { sqliteStatusLog, type StatusLog } from "./status-log.js";
-import { idleThreadMethods } from "./idle-threads.js";
+import { idleThreadMethods, type ServedStatements } from "./idle-threads.js";
 import { memoryMethods } from "./summaries.js";
 import { threadMethods, type ThreadIds } from "./threads.js";
 import type { Turn, TurnStore, VersionScore } from "./types.js";
@@ -158,10 +158,10 @@ export function sharedTurnStore(
   db: DatabaseSync,
   now: Now,
   threadIds: ThreadIds = RANDOM_THREAD_IDS,
-  log?: StatusLog,
+  options: { readonly log?: StatusLog; readonly served?: ServedStatements } = {},
 ): TurnStore {
   migrateTurnDatabase(db);
-  return turnStoreOn(db, now, threadIds, log);
+  return turnStoreOn(db, now, threadIds, options.log, options.served);
 }
 
 function turnStoreOn(
@@ -169,6 +169,7 @@ function turnStoreOn(
   now: Now,
   threadIds: ThreadIds,
   log: StatusLog = sqliteStatusLog(db),
+  served?: ServedStatements,
 ): TurnStore {
   const rows: Rows = (sql, ...params) =>
     db
@@ -185,7 +186,7 @@ function turnStoreOn(
     ...scoreMethods(db, now),
     ...memoryMethods(db, now),
     ...configMethods(db, now),
-    ...idleThreadMethods(db, log),
+    ...idleThreadMethods(db, log, served),
     statusHistory: (thread) => Promise.resolve(log.historyOf(thread)),
     forgetStatusHistory: (tenantId, threadId) => {
       log.forgotten({ tenantId, threadId });

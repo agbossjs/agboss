@@ -914,6 +914,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "src/infrastructure/latest-by-step.ts",
     "src/infrastructure/sqlite/sqlite-checkpoint-rows.ts",
     "src/infrastructure/sqlite/sqlite-checkpoint-saver.ts",
+    "src/infrastructure/sqlite/sqlite-checkpoint-tuples.ts",
     "src/infrastructure/sqlite/sqlite-latest-by-step.ts",
   ]),
   ...reviewed(

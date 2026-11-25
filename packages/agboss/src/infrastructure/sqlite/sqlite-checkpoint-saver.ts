@@ -3,18 +3,14 @@ import { BaseCheckpointSaver, copyCheckpoint, type CheckpointTuple } from "@lang
 import { Injectable } from "../../components/decorators.js";
 import {
   CHECKPOINT_COLUMNS,
-  CheckpointRow,
-  checkpointOf,
   configOf,
   hasRoot,
   keyOf,
   listQueryOf,
   matchesMetadata,
-  metadataOf,
-  WriteRow,
   writeIndexOf,
-  type PendingWrites,
 } from "./sqlite-checkpoint-rows.js";
+import { storedWithWrites, tupleOf } from "./sqlite-checkpoint-tuples.js";
 import type { LatestByStepCheckpointSaver } from "../latest-by-step.js";
 import { latestRowOf, newestIdOf, rowOf, stepsToRank } from "./sqlite-latest-by-step.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
@@ -51,21 +47,30 @@ export class SqliteCheckpointSaver
           : `SELECT ${CHECKPOINT_COLUMNS} FROM checkpoints WHERE thread_id = ? AND checkpoint_ns = ? AND checkpoint_id = ?`,
       )
       .get(...[threadId, namespace, ...(checkpointId === undefined ? [] : [checkpointId])]);
-    return row === undefined ? undefined : this.#tupleOf(CheckpointRow.parse(row));
+    // the row and its writes in one group, before any await: decoding them reads no more rows
+    return row === undefined
+      ? undefined
+      : tupleOf(this.serde, storedWithWrites(this.connection.database, row));
   }
 
   async latestByStep(config: RunnableConfig): Promise<CheckpointTuple | undefined> {
     const key = keyOf(config, "latestByStep");
     const toRank = stepsToRank(this.connection, key);
     // rows whose step SQL cannot read: the winner by the serde, then only its whole row (#1144)
-    const id = toRank === undefined ? undefined : await newestIdOf(this.serde, toRank);
-    const row =
-      toRank === undefined
-        ? latestRowOf(this.connection, key)
-        : id === undefined
-          ? undefined
-          : rowOf(this.connection, key, id);
-    return row === undefined ? undefined : this.#tupleOf(CheckpointRow.parse(row));
+    if (toRank === undefined) {
+      const row = latestRowOf(this.connection, key);
+      return row === undefined
+        ? undefined
+        : tupleOf(this.serde, storedWithWrites(this.connection.database, row));
+    }
+    const id = await newestIdOf(this.serde, toRank);
+    if (id === undefined) return undefined;
+    // after the await the gate no longer covers this call: the winner's rows are served again
+    const found = await this.connection.serve(() => {
+      const row = rowOf(this.connection, key, id);
+      return row === undefined ? undefined : storedWithWrites(this.connection.database, row);
+    });
+    return found === undefined ? undefined : tupleOf(this.serde, found);
   }
 
   async *list(
@@ -73,13 +78,21 @@ export class SqliteCheckpointSaver
     options: NonNullable<Parameters<BaseCheckpointSaver["list"]>[1]> = {},
   ): AsyncGenerator<CheckpointTuple> {
     const { where, params } = listQueryOf(config, options);
-    const rows = this.connection.database
-      .prepare(`SELECT ${CHECKPOINT_COLUMNS} FROM checkpoints ${where} ORDER BY checkpoint_id DESC`)
-      .all(...params);
+    // a stream has no part the gate covers: every group of reads is served (sqlite-served.ts)
+    const rows = await this.connection.serve(() =>
+      this.connection.database
+        .prepare(
+          `SELECT ${CHECKPOINT_COLUMNS} FROM checkpoints ${where} ORDER BY checkpoint_id DESC`,
+        )
+        .all(...params),
+    );
     let left = options.limit ?? Number.POSITIVE_INFINITY;
     for (const row of rows) {
       if (left <= 0) return;
-      const tuple = await this.#tupleOf(CheckpointRow.parse(row));
+      const tuple = await tupleOf(
+        this.serde,
+        await this.connection.serve(() => storedWithWrites(this.connection.database, row)),
+      );
       if (!matchesMetadata(tuple, options)) continue;
       left -= 1;
       yield tuple;
@@ -97,25 +110,28 @@ export class SqliteCheckpointSaver
       this.serde.dumpsTyped(copyCheckpoint(checkpoint)),
       this.serde.dumpsTyped(metadata),
     ]);
-    this.connection.transaction(() => {
-      this.connection.database
-        .prepare(
-          `INSERT OR REPLACE INTO checkpoints (thread_id, checkpoint_ns, checkpoint_id,
+    // after the serde's await the gate no longer covers this call: the write is served again
+    await this.connection.serve(() => {
+      this.connection.transaction(() => {
+        this.connection.database
+          .prepare(
+            `INSERT OR REPLACE INTO checkpoints (thread_id, checkpoint_ns, checkpoint_id,
              parent_checkpoint_id, checkpoint_type, checkpoint, metadata_type, metadata, tenant_id, root_id)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        )
-        .run(
-          threadId,
-          namespace,
-          checkpoint.id,
-          parentId ?? null,
-          checkpointType,
-          dumped,
-          metadataType,
-          dumpedMetadata,
-          tenantId,
-          rootId,
-        );
+          )
+          .run(
+            threadId,
+            namespace,
+            checkpoint.id,
+            parentId ?? null,
+            checkpointType,
+            dumped,
+            metadataType,
+            dumpedMetadata,
+            tenantId,
+            rootId,
+          );
+      });
     });
     return configOf(threadId, namespace, checkpoint.id);
   }
@@ -135,33 +151,36 @@ export class SqliteCheckpointSaver
       }),
     );
     const { database } = this.connection;
-    this.connection.transaction(() => {
-      for (const write of dumped) {
-        // a regular write is kept as first written; a special one (an error, …) replaces its own
-        const conflict =
-          write.index >= 0
-            ? "DO NOTHING"
-            : "DO UPDATE SET channel = excluded.channel, value_type = excluded.value_type, value = excluded.value";
-        database
-          .prepare(
-            `INSERT INTO checkpoint_writes (thread_id, checkpoint_ns, checkpoint_id, task_id, idx,
+    // after the serde's await: served again, never inside another's open runOnce
+    await this.connection.serve(() => {
+      this.connection.transaction(() => {
+        for (const write of dumped) {
+          // a regular write is kept as first written; a special one (an error, …) replaces its own
+          const conflict =
+            write.index >= 0
+              ? "DO NOTHING"
+              : "DO UPDATE SET channel = excluded.channel, value_type = excluded.value_type, value = excluded.value";
+          database
+            .prepare(
+              `INSERT INTO checkpoint_writes (thread_id, checkpoint_ns, checkpoint_id, task_id, idx,
                channel, value_type, value, tenant_id, root_id)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT (thread_id, checkpoint_ns, checkpoint_id, task_id, idx) ${conflict}`,
-          )
-          .run(
-            threadId,
-            namespace,
-            checkpointId,
-            taskId,
-            write.index,
-            write.channel,
-            write.type,
-            write.bytes,
-            tenantId,
-            rootId,
-          );
-      }
+            )
+            .run(
+              threadId,
+              namespace,
+              checkpointId,
+              taskId,
+              write.index,
+              write.channel,
+              write.type,
+              write.bytes,
+              tenantId,
+              rootId,
+            );
+        }
+      });
     });
   }
 
@@ -187,42 +206,6 @@ export class SqliteCheckpointSaver
       database.prepare(`DELETE FROM checkpoints WHERE ${where}`).run(threadId, threadId);
     });
     return Promise.resolve();
-  }
-
-  async #tupleOf(row: CheckpointRow): Promise<CheckpointTuple> {
-    const checkpoint = checkpointOf(
-      await this.serde.loadsTyped(row.checkpoint_type, row.checkpoint),
-    );
-    const metadata = metadataOf(await this.serde.loadsTyped(row.metadata_type, row.metadata));
-    const tuple: CheckpointTuple = {
-      config: configOf(row.thread_id, row.checkpoint_ns, row.checkpoint_id),
-      checkpoint,
-      metadata,
-      pendingWrites: await this.#pendingWritesOf(row),
-    };
-    return row.parent_checkpoint_id === null
-      ? tuple
-      : {
-          ...tuple,
-          parentConfig: configOf(row.thread_id, row.checkpoint_ns, row.parent_checkpoint_id),
-        };
-  }
-
-  async #pendingWritesOf(row: CheckpointRow): Promise<PendingWrites> {
-    const writes = this.connection.database
-      .prepare(
-        `SELECT task_id, channel, value_type, value FROM checkpoint_writes
-         WHERE thread_id = ? AND checkpoint_ns = ? AND checkpoint_id = ? ORDER BY rowid`,
-      )
-      .all(row.thread_id, row.checkpoint_ns, row.checkpoint_id)
-      .map((write) => WriteRow.parse(write));
-    return Promise.all(
-      writes.map(async (write): Promise<PendingWrites[number]> => [
-        write.task_id,
-        write.channel,
-        await this.serde.loadsTyped(write.value_type, write.value),
-      ]),
-    );
   }
 }
 

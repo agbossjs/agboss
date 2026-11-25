@@ -22,6 +22,7 @@ export { SQLITE_HOLD_CAP } from "./sqlite-hold.js";
 import { gatedSqliteImplementation, type SqliteGateOptions } from "./sqlite-gate.js";
 import { ambientHoldScope, mutexOfSqliteFile, type SqliteMutex } from "./sqlite-mutex.js";
 import { SqliteTransactionScope, type SqliteTransactionHandle } from "./sqlite-transaction.js";
+import { ServedGroups } from "./sqlite-served.js";
 import { IdempotencyError } from "../../core/error-families/effect-errors.js";
 import { runOnceNameOf } from "../../app/idempotency-scope.js";
 import type { Milliseconds } from "../../units/index.js";
@@ -67,6 +68,7 @@ export class SqliteConnection implements OnDestroy {
   readonly #database: DatabaseSync;
   readonly #mutex: SqliteMutex<SqliteTransactionScope>;
   readonly #attempt: CleanAttempt;
+  readonly #served = new ServedGroups(this);
 
   constructor(applicationContext: ApplicationContext, settings?: ResolvedSettings) {
     const parsed = SqliteEnvironment.safeParse(
@@ -95,7 +97,12 @@ export class SqliteConnection implements OnDestroy {
     this.#mutex = mutexOfSqliteFile(this.path) as SqliteMutex<SqliteTransactionScope>;
     const classified = classifiedDatabase(database);
     this.#attempt = new CleanAttempt(classified);
-    this.#database = guardedDatabase(classified, this.#mutex, this, this.#attempt);
+    this.#database = guardedDatabase(classified, {
+      mutex: this.#mutex,
+      owner: this,
+      attempt: this.#attempt,
+      served: this.#served,
+    });
   }
 
   /** The database itself: for the statements of one store. */
@@ -110,7 +117,9 @@ export class SqliteConnection implements OnDestroy {
   ping(): Promise<void> {
     // one read, served even inside an open `runOnce` transaction: a health check never waits for it
     return new Promise<void>((resolve) => {
-      void this.#mutex.ahead(this, () => this.#database.prepare("SELECT 1").get());
+      void this.#mutex.ahead(this, () =>
+        this.#served.served(() => this.#database.prepare("SELECT 1").get()),
+      );
       resolve();
     });
   }
@@ -120,6 +129,8 @@ export class SqliteConnection implements OnDestroy {
    * once when none is, else queued behind it, in order. Every operation of every SQLite repository
    * goes through here — never inside another's open transaction. Priority: a single statement of a
    * lease renewal is served ahead of the queue, inside the open transaction of this connection.
+   * The gate covers a repository method only up to its first `await`: each group of statements
+   * after one is served again here, at the point it runs (else it fails, `sqlite-served.ts`).
    */
   serve<TValue>(
     work: () => TValue,
@@ -134,11 +145,11 @@ export class SqliteConnection implements OnDestroy {
     options?: { readonly isPriority?: boolean; readonly isRenewal?: boolean },
   ): TValue | Promise<Awaited<TValue>> {
     // called from inside another operation: part of its attempt, its busy answer the outer one's
-    if (this.#attempt.isRunning) return this.#mutex.whenFree(work);
+    if (this.#attempt.isRunning) return this.#mutex.whenFree(() => this.#served.served(work));
     // each try asks the mutex again (a hold of this process may have opened meanwhile) and is one
-    // clean attempt (sqlite-attempt.ts): a retry never repeats a write
+    // clean attempt (sqlite-attempt.ts), a served group: a retry never repeats a write
     return whileBusy(this.#database, () => {
-      const attempt = (): TValue => this.#attempt.run(work);
+      const attempt = (): TValue => this.#served.served(() => this.#attempt.run(work));
       return options?.isPriority === true
         ? this.#mutex.ahead(this, attempt, options.isRenewal === true)
         : this.#mutex.whenFree(attempt);

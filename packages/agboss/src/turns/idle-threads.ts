@@ -143,18 +143,31 @@ async function isThreadEnded(
   return true;
 }
 
+/**
+ * How a group of the sweep's statements runs (#1317): on the application's shared SQLite connection
+ * it is served by the connection's gate (`connection.serve`), since each group after an `await` of
+ * `isEnded` is past what the gate of the sweep's call covers; on a file of the store's own, at once.
+ */
+export type ServedStatements = <TValue>(work: () => TValue) => Promise<Awaited<TValue>>;
+
+/** A file of the store's own: nothing else queues for it, each group runs at once. */
+export const AT_ONCE: ServedStatements = (work) => Promise.resolve(work());
+
 export function idleThreadMethods(
   db: DatabaseSync,
   log: StatusLog,
+  served: ServedStatements = AT_ONCE,
 ): Pick<TurnStore, "deleteIdleThreads"> {
   return {
     deleteIdleThreads: async (cutoffs, isEnded) => {
       let removed = 0;
       for (const [workflow, cutoff] of cutoffs) {
-        for (const thread of idleThreadsOf(db, workflow, cutoff)) {
-          const runs = runsOf(db, thread);
+        const threads = await served(() => idleThreadsOf(db, workflow, cutoff));
+        for (const thread of threads) {
+          const runs = await served(() => runsOf(db, thread));
           if (!(await isThreadEnded(runs, thread.tenantId, isEnded))) continue;
-          if (removeThread(db, thread, { workflow, cutoff, runs, log })) removed += 1;
+          const options = { workflow, cutoff, runs, log };
+          if (await served(() => removeThread(db, thread, options))) removed += 1;
         }
       }
       return removed;
