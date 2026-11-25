@@ -14,6 +14,7 @@ import {
   ConfigurationError,
   ModelCost,
   ModelProvider,
+  OpenAiCompatibleDriver,
   RetryPolicy,
   type ModelCapabilities,
   type ModelProviderHandler,
@@ -43,8 +44,12 @@ const transport = {
   }),
 };
 
-// @ts-expect-error -- a transport (complete) with a base URL: both modes at once
-@ModelProvider({ ...transport, name: "both-model-provider", baseUrl: "http://both.test/v1" })
+// a transport (complete) with a driver: both modes at once
+@ModelProvider({
+  ...transport,
+  name: "both-model-provider",
+  driver: OpenAiCompatibleDriver({ baseUrl: "http://both.test/v1" }),
+})
 class BothModelProvider implements ModelProviderHandler {
   complete(): Promise<ModelProviderResponse> {
     return Promise.resolve(answer("never"));
@@ -84,7 +89,7 @@ class ListingModelProvider implements ModelProviderHandler {
 }
 
 describe("#385: a transport provider at assembly, in describe and in configHash", () => {
-  it("[model-provider.both-modes]: complete(request) with a baseUrl fails the application's assembly", async () => {
+  it("[model-provider.both-modes]: complete(request) with a driver fails the application's assembly", async () => {
     const application = bedrockApplicationOn({
       name: "both-application",
       providers: [BothModelProvider],
@@ -94,7 +99,7 @@ describe("#385: a transport provider at assembly, in describe and in configHash"
 
     await expect(assembled).rejects.toBeInstanceOf(GraphRuleError);
     await expect(assembled).rejects.toThrow(
-      /\[model-provider\.both-modes\] both-model-provider \(BothModelProvider\) implements complete\(request\) and sets baseUrl/,
+      /\[model-provider\.both-modes\] both-model-provider \(BothModelProvider\) sets a driver and implements complete\(request\)/,
     );
   });
 
@@ -115,7 +120,7 @@ describe("#385: a transport provider at assembly, in describe and in configHash"
     if (workflow === undefined) throw new Error("a workflow");
 
     expect(applicationLines(describedApplicationOf(assembled))).toContain(
-      "  bedrock-model-provider → BedrockModelProvider (listed in @Application providers) · serves /^bedrock\\//" +
+      "  bedrock-model-provider → BedrockModelProvider (listed in @Application providers)" +
         " · transport: BedrockModelProvider.complete()",
     );
     expect(describeWorkflow(workflow)).toContain(

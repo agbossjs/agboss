@@ -16,6 +16,7 @@ import { EvalSuite } from "../../src/eval/suite/eval-suite.decorator.js";
 import { McpEndpoint } from "../../src/mcp/mcp-endpoint.decorator.js";
 import { Mesh } from "../../src/mesh/mesh.decorator.js";
 import { ModelProvider } from "../../src/models/model-provider.decorator.js";
+import { OpenAiCompatibleDriver } from "../../src/models/index.js";
 import { PiiPolicy } from "../../src/pii/pii-policy.decorator.js";
 import { RagReranker } from "../../src/rag/reranker.decorator.js";
 import { WorkingCalendar } from "../../src/calendar/working-calendar.js";
@@ -50,7 +51,11 @@ interface Row {
 }
 
 const rows: readonly Row[] = [
-  { decorator: "ModelProvider", apply: asLoose(ModelProvider), base: { serves: ["x/*"] } },
+  {
+    decorator: "ModelProvider",
+    apply: asLoose(ModelProvider),
+    base: { driver: OpenAiCompatibleDriver({ baseUrl: "http://x.test/v1" }) },
+  },
   { decorator: "Mesh", apply: asLoose(Mesh), base: {} },
   { decorator: "DatabaseStorage", apply: asLoose(DatabaseStorage), base: {} },
   { decorator: "ClusterStorage", apply: asLoose(ClusterStorage), base: {} },

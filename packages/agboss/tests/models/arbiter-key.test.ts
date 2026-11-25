@@ -108,6 +108,6 @@ describe("#716: an arbiter-only provider", () => {
     });
 
     await expect(started).rejects.toBeInstanceOf(EnvironmentError);
-    await expect(started).rejects.toThrow(/no openRouterApiKey/);
+    await expect(started).rejects.toThrow(/OPENROUTER_API_KEY is not set/);
   });
 });

@@ -13,7 +13,7 @@ import {
 } from "../../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { onStart, toAgent } from "../../helpers/flow.js";
-import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
+import { LocalModelProvider } from "../providers.fixture.js";
 
 export class AnswerDto {
   @Text({ prompt: "an answer" })
@@ -21,18 +21,20 @@ export class AnswerDto {
 }
 
 /** Two copies of a local agent, accepted by a model arbiter on `model`. */
-export function arbiterWorkflow(model: string): Class {
+export function arbiterWorkflow(model: string, modelProvider: Class): Class {
   @Agent({
     name: "ans-agent",
     description: "A",
     prompt: inline("A."),
     model: "local/llama",
+    modelProvider: LocalModelProvider,
     output: AnswerDto,
   })
   class AnsAgent {}
   @Arbiter({
     name: "ans-arbiter",
     model,
+    modelProvider,
     prompt: inline("Count it."),
     criteria: [{ target: AnsAgent, prompt: "ok" }],
   })
@@ -65,7 +67,7 @@ export function arbiterWorkflow(model: string): Class {
   class AnsFinish {}
   @Workflow({
     name: "ans-workflow",
-    modelProvider: TestModelProvider,
+    modelProvider: LocalModelProvider,
     version: "1.0.0",
     historyTtl: Ttl.Forever,
     flow: [

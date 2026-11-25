@@ -127,7 +127,14 @@ describe("AC6: prompt caching — on({ retention?, cachedParts, key? }) | off()"
   it("AC6: the component's caching wins over the provider's", async () => {
     const [body] = await wireBodies(
       [LocalModelProvider],
-      [{ ...claude, model: "local/llama", promptCaching: PromptCaching.off() }],
+      [
+        {
+          ...claude,
+          model: "local/llama",
+          modelProvider: "local-model-provider",
+          promptCaching: PromptCaching.off(),
+        },
+      ],
     );
 
     expect(body).not.toHaveProperty("prompt_cache_key");

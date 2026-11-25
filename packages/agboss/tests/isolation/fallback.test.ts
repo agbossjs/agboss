@@ -52,7 +52,7 @@ describe("#202 AC3: the fallback provider has its own model mapping and prices",
     await app.close();
   });
 
-  it("AC3: a fallback without a model for a used model fails at startup, before any call", async () => {
+  it("AC3: a fallback not told a model for a used model is sent it by name, and without a price for it fails at startup, before any call", async () => {
     const stub = providerStub([], [{ id: "primary/model" }]);
     const start = appWithKeys(UnmappedFallbackApplication, {
       processEnv: env,
@@ -61,7 +61,14 @@ describe("#202 AC3: the fallback provider has its own model mapping and prices",
 
     await expect(start).rejects.toBeInstanceOf(ConfigurationError);
     await expect(start).rejects.toMatchObject({
-      problems: [{ code: "model.fallback-unmapped", key: "agents.cashier-agent" }],
+      problems: [
+        {
+          code: "model.fallback-no-price",
+          key: "agents.cashier-agent",
+          model: "primary/model",
+          supported: expect.stringContaining("has no price for primary/model"),
+        },
+      ],
     });
     expect(stub.requests).toEqual([]);
   });

@@ -13,7 +13,7 @@ import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../src/index.js";
 import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
-import { LocalModelProvider } from "../../models/providers.fixture.js";
+import { LocalModelProvider, TestDecisionsProvider } from "../../models/providers.fixture.js";
 
 /** The decision model judges run on (OpenRouter Decisions API, images supported). */
 export const LUNA = "openai/gpt-6-luna-decisions";
@@ -59,7 +59,8 @@ export class AnswerGrounded implements JudgeHandler<PlainTextDto> {
 @Judge({
   name: "looks-right",
   model: LUNA,
-  modelProvider: TestDecisionsModelProvider,
+  // the real Decisions wire (a base URL and a key): the wire test reads what goes out
+  modelProvider: TestDecisionsProvider,
   output: PlainTextDto,
   deps: [JudgeModel],
 })
@@ -101,7 +102,9 @@ export class Illustrator {}
   name: "decision-judged-desk-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [onStart(TaskStart).toAgent(Writer).toFinish(Reply)],
+  flow: [onStart(TaskStart)
+    .toAgent(Writer)
+    .toFinish(Reply)],
   defaults: DEFAULTS,
 })
 export class DecisionDesk {}
@@ -122,7 +125,9 @@ export class DecisionDeskApplication {}
   name: "image-judged-desk-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [onStart(TaskStart).toAgent(Illustrator).toFinish(Reply)],
+  flow: [onStart(TaskStart)
+    .toAgent(Illustrator)
+    .toFinish(Reply)],
   defaults: DEFAULTS,
 })
 export class ImageDesk {}

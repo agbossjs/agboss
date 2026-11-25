@@ -26,11 +26,7 @@ import {
   TestTenantDailyBudget,
 } from "../flow/fixtures/budgets.js";
 import { onStart } from "../helpers/flow.js";
-import {
-  LocalMirrorModelProvider,
-  LocalModelProvider,
-  TestDecisionsProvider,
-} from "../models/providers.fixture.js";
+import { LocalModelProvider, TestDecisionsProvider } from "../models/providers.fixture.js";
 import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 /**
@@ -113,8 +109,16 @@ const textAgent = (
   name: string,
   model = "moonshotai/kimi-k2.6",
   tools: readonly ToolHandlerClass[] = [],
+  modelProvider?: Class,
 ): Class => {
-  @Agent({ name, description: "Answers", prompt: inline("Answer."), model, tools: [...tools] })
+  @Agent({
+    name,
+    description: "Answers",
+    prompt: inline("Answer."),
+    model,
+    tools: [...tools],
+    ...(modelProvider === undefined ? {} : { modelProvider }),
+  })
   class TextAgent {}
   return TextAgent;
 };
@@ -179,19 +183,6 @@ describe("#263: an unlisted child goes through the application's rules", () => {
     );
   });
 
-  it("[model.unserved]: a child's model no listed provider serves", async () => {
-    const { ParentWorkflow } = childAndParent(textAgent("rules-nowhere-agent", "nowhere/agent"));
-
-    const failure = await failureOf(
-      applicationOfParent(ParentWorkflow, { providers: [LocalModelProvider] }),
-    );
-
-    expect(failure).toContainEqual([
-      "model.unserved",
-      expect.stringContaining("agents.rules-nowhere-agent = nowhere/agent"),
-    ]);
-  });
-
   it("[di.infrastructure-in-workflow]: infrastructure in an unlisted child's providers", async () => {
     const { ParentWorkflow } = childAndParent(textAgent("rules-misplaced-agent"), {
       providers: [LocalModelProvider],
@@ -203,18 +194,36 @@ describe("#263: an unlisted child goes through the application's rules", () => {
     ]);
   });
 
-  it("[model.ambiguous-provider]: a child's model two listed providers serve", async () => {
-    const { ParentWorkflow } = childAndParent(textAgent("rules-twice-agent", "local/llama"));
+  it("[model.incompatible-provider]: a child's chat agent names a decisions provider", async () => {
+    const { ParentWorkflow } = childAndParent(
+      textAgent("rules-twice-agent", "local/llama", [], TestDecisionsProvider),
+    );
 
     const failure = await failureOf(
-      applicationOfParent(ParentWorkflow, {
-        providers: [LocalModelProvider, LocalMirrorModelProvider, TestDecisionsProvider],
-      }),
+      applicationOfParent(ParentWorkflow, { providers: [TestDecisionsProvider] }),
     );
 
     expect(failure).toContainEqual([
-      "model.ambiguous-provider",
-      expect.stringContaining("local/llama"),
+      "model.incompatible-provider",
+      expect.stringMatching(/local\/llama.*decisions-model-provider does not serve chat models/),
+    ]);
+  });
+
+  it("[model.missing-provider]: a child's agent with no provider in its cascade, when the application names none", async () => {
+    const { ParentWorkflow } = childAndParent(textAgent("rules-bare-agent", "local/llama"));
+    count += 1;
+    @Application({
+      name: `rules-${String(count)}-application`,
+      version: "1.0.0",
+      environment: EmptyEnvironment,
+      workflows: [ParentWorkflow],
+      budgets: TEST_BUDGETS,
+    })
+    class BareApplication {}
+
+    expect(await failureOf(BareApplication)).toContainEqual([
+      "model.missing-provider",
+      expect.stringContaining("agents.rules-bare-agent = local/llama"),
     ]);
   });
 

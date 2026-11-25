@@ -14,7 +14,7 @@ import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../src/index.js";
 import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
-import { LocalModelProvider } from "../../models/providers.fixture.js";
+import { LocalModelProvider, TestDecisionsProvider } from "../../models/providers.fixture.js";
 
 /** On a chat model, yet asks for a decision. */
 @Judge({ name: "chat-decider", model: "local/judge", output: PlainTextDto, deps: [JudgeModel] })
@@ -69,7 +69,9 @@ export class DecisionJudged {}
   name: "chat-decider-desk-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [onStart(TaskStart).toAgent(ChatJudged).toFinish(Reply)],
+  flow: [onStart(TaskStart)
+    .toAgent(ChatJudged)
+    .toFinish(Reply)],
   defaults: DEFAULTS,
 })
 export class ChatDeciderDesk {}
@@ -89,7 +91,9 @@ export class ChatDeciderDeskApplication {}
   name: "decision-chatter-desk-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [onStart(TaskStart).toAgent(DecisionJudged).toFinish(Reply)],
+  flow: [onStart(TaskStart)
+    .toAgent(DecisionJudged)
+    .toFinish(Reply)],
   defaults: DEFAULTS,
 })
 export class DecisionChatterDesk {}
@@ -138,7 +142,8 @@ export class AsIs {}
   decidedBy: DecidedBy.Model,
   prompt: inline("Who handles this?"),
   model: LUNA,
-  modelProvider: TestDecisionsModelProvider,
+  // the real Decisions wire (a base URL and a key): the wire test reads what goes out
+  modelProvider: TestDecisionsProvider,
   input: { ask: AskDto },
   routes: [
     { prompt: "A coding ask", target: Coder },
@@ -155,7 +160,8 @@ export class Triage {}
     onStart(TaskStart)
       .toAgent(Intake)
       .toRouter(Triage)
-      .onRoute(toAgent(Coder).toFinish(Reply))
+      .onRoute(toAgent(Coder)
+        .toFinish(Reply))
       .onRoute(toFinish(AsIs)),
   ],
   defaults: DEFAULTS,

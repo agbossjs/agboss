@@ -135,7 +135,12 @@ describe("#385: its errors and its wiring", () => {
     });
 
     expect(() =>
-      clients.chatModel({ model: "bedrock/claude", temperature: 0, maxTokens: 1 }),
+      clients.chatModel({
+        model: "bedrock/claude",
+        modelProvider: "bedrock-model-provider",
+        temperature: 0,
+        maxTokens: 1,
+      }),
     ).toThrow(ProviderCapabilityError);
   });
 

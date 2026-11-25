@@ -6,7 +6,7 @@ import { usd } from "../../src/units/index.js";
  */
 import { describe, expect, it } from "vitest";
 import type { AppDepsOptions } from "../../src/app/app-deps.js";
-import { appWithKeys } from "../models/gateway.js";
+import { appWithKeys, ENV } from "../models/gateway.js";
 import { Decision } from "../../src/index.js";
 import { DecisionError } from "../../src/index.js";
 import { createModelGateway } from "../../src/llm/gateway.js";
@@ -37,7 +37,7 @@ const decided = (answers: Record<string, unknown>, cost: number): StubReply => (
 });
 
 const wired = (stub: ReturnType<typeof providerStub>): AppDepsOptions => ({
-  processEnv: {},
+  processEnv: ENV,
   providerFetch: stub.fetch,
 });
 
@@ -209,7 +209,9 @@ describe("the eval judge (compareProfiles) is defaults.router: a decisions provi
       router: { ...router, model: LUNA, ...(modelProvider === undefined ? {} : { modelProvider }) },
       uncompactedTurns: 1,
     },
-    agents: { a: { model: "x/y", description: "a" } },
+    agents: {
+      a: { model: "x/y", modelProvider: "openrouter-model-provider", description: "a" },
+    },
   });
   const classes = [TestDecisionsProvider, TestOpenRouterProvider];
   const problemsOf = (modelProvider?: string) =>

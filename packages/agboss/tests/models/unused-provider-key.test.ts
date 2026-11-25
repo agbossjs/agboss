@@ -1,5 +1,5 @@
 /**
- * #716 — a model provider is connected at start (its key read from the application's environment)
+ * #716 — a model provider is connected at start (its key read from the driver's `secret(...)` variable)
  * only when it serves a model the workflow uses: an application whose workflows call no model —
  * actions only, no agent, router, guardrail, judge, compaction or reranker — starts with no key at
  * all, while one that does use a model still fails at `createApp`, naming the missing field, before
@@ -23,7 +23,7 @@ import { EnvironmentError } from "../../src/environments/errors.js";
 import { execute, onStart } from "../helpers/flow.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { Reply } from "../testing/fixtures/desk.workflow.js";
-import { TestModelProvider } from "../../src/testing/test-model-provider.js";
+import { TestOpenRouterProvider } from "./providers.fixture.js";
 
 class NoteDto {
   @Text({ prompt: "the note" })
@@ -81,7 +81,7 @@ class NotedWorkflow {}
 
 @Application({
   name: "model-using-application",
-  modelProvider: TestModelProvider,
+  modelProvider: TestOpenRouterProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [NotedWorkflow],
@@ -89,7 +89,7 @@ class NotedWorkflow {}
 })
 class ModelUsingApplication {}
 
-/** No process variable can stand in for the key: the key is the environment's field or nothing. */
+/** The key is the provider driver's `secret("OPENROUTER_API_KEY")`: no process variable is set. */
 const NO_KEYS: NodeJS.ProcessEnv = {};
 
 describe("#716: a provider that serves no model of the application needs no key", () => {
@@ -104,12 +104,12 @@ describe("#716: a provider that serves no model of the application needs no key"
     expect(app.models).toEqual([]);
   });
 
-  it("an application that uses a model still fails at createApp without its key, naming the field", async () => {
+  it("an application that uses a model still fails at createApp without its key, naming the variable", async () => {
     const started = createTestAppWith(ModelUsingApplication, { processEnv: NO_KEYS });
 
     await expect(started).rejects.toBeInstanceOf(EnvironmentError);
     await expect(started).rejects.toThrow(
-      "openrouter-model-provider reads its key from the application's environment: the environment has no openRouterApiKey",
+      "OPENROUTER_API_KEY is not set (openrouter-model-provider driver.apiKey)",
     );
   });
 });

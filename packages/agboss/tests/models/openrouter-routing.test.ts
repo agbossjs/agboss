@@ -26,6 +26,7 @@ import { ModelProviderDirectory } from "../../src/models/resolve.js";
 import { routingProblemsOf, type ModelEndpoint } from "../../src/models/openrouter-routing.js";
 import { servedByFetch } from "../../src/models/served-by.js";
 import type { ProviderFetch } from "../../src/models/resilient-fetch.js";
+import { ModelKind } from "../../src/models/model-kind.js";
 import { modelUsesOf } from "../../src/models/uses.js";
 import { minutes, seconds } from "../../src/units/index.js";
 import type { AgentsConfigOf } from "../../src/config/types.js";
@@ -78,7 +79,7 @@ describe("the routing on the wire: camelCase in, snake_case out", () => {
     const plan = handlerOf(PinnedOpenRouterProvider).wirePlanOf({
       settings: {
         model: "moonshotai/kimi-k2.6",
-        modelProvider: "openrouter-model-provider",
+        modelProvider: "pinned-openrouter-model-provider",
         temperature: 0,
         maxTokens: 10,
       },
@@ -132,7 +133,7 @@ describe("UsageRecord.servedBy: the host that served the call", () => {
     );
     const settings = {
       model: "moonshotai/kimi-k2.6",
-      modelProvider: "openrouter-model-provider",
+      modelProvider: "pinned-openrouter-model-provider",
       temperature: 0,
       maxTokens: 10,
     };
@@ -339,13 +340,28 @@ describe("agboss check --models: [model.no-matching-endpoint]", () => {
     version: "1",
     defaults: {
       models: { temperature: 0, maxTokens: 1000 },
-      router: { kind: "jev", model: "typesafe/jev-1.13" },
+      router: {
+        kind: "jev",
+        model: "typesafe/jev-1.13",
+        modelProvider: "decisions-model-provider",
+      },
       tools: { maxToolCalls: 1 },
       uncompactedTurns: 1,
     },
-    agents: { scout: { model: "moonshotai/kimi-k2.6", description: "s" } },
+    agents: {
+      scout: {
+        model: "moonshotai/kimi-k2.6",
+        modelProvider: "pinned-openrouter-model-provider",
+        description: "s",
+      },
+    },
   };
-  const uses = modelUsesOf(config, []);
+  const uses = modelUsesOf(
+    config,
+    [],
+    {},
+    new Map([["decisions-model-provider", ModelKind.Decisions]]),
+  );
 
   /** OpenRouter's model list and the model's endpoints, the URLs asked kept. */
   const openRouter = (endpoints: readonly Record<string, unknown>[]) => {
