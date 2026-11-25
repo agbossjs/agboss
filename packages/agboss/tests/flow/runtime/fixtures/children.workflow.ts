@@ -194,9 +194,7 @@ export class ItemCheckedWorkflowFinish {}
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: [
-    onStart(ItemCheckWorkflowStart)
-      .toAction(CheckItemAction)
-      .toFinish(ItemCheckedWorkflowFinish),
+    onStart(ItemCheckWorkflowStart).toAction(CheckItemAction).toFinish(ItemCheckedWorkflowFinish),
   ],
 })
 export class ItemCheckWorkflow {}
@@ -222,8 +220,7 @@ export class ChecksSummaryAction {
   }): Promise<SummaryDto> {
     childLog.producers.push(...input.results.map((result) => Metadata.createdBy(result)));
     return {
-      text: input.results.map((result) => result.name)
-        .join(", "),
+      text: input.results.map((result) => result.name).join(", "),
     };
   }
 }
@@ -264,8 +261,7 @@ export class ChecksFailedWorkflowFinish {}
     onStart(CheckItemsWorkflowStart)
       .forEachItem(toWorkflow(ItemCheckWorkflow), { takeFirst: 10, maxConcurrency: 2 })
       .join()
-      .onError(StepError.Child, toAction(ChecksFailedAction)
-        .toFinish(ChecksFailedWorkflowFinish))
+      .onError(StepError.Child, toAction(ChecksFailedAction).toFinish(ChecksFailedWorkflowFinish))
       .toAction(ChecksSummaryAction)
       .toFinish(ChecksSummaryWorkflowFinish),
   ],
@@ -313,8 +309,7 @@ export class OneFailedWorkflowFinish {}
   flow: [
     onStart(CheckOneWorkflowStart)
       .toWorkflow(ItemCheckWorkflow)
-      .onError(ItemFailedError, toAction(OneFailedAction)
-        .toFinish(OneFailedWorkflowFinish))
+      .onError(ItemFailedError, toAction(OneFailedAction).toFinish(OneFailedWorkflowFinish))
       .toFinish(OneCheckedWorkflowFinish),
   ],
 })
@@ -451,8 +446,7 @@ export class RecheckedWorkflowFinish {}
   flow: [
     onStart(CheckOrFallbackWorkflowStart)
       .toAction(CheckItemAction)
-      .onError(StepError, toWorkflow(FallbackCheckWorkflow)
-        .toFinish(RecheckedWorkflowFinish))
+      .onError(StepError, toWorkflow(FallbackCheckWorkflow).toFinish(RecheckedWorkflowFinish))
       .toFinish(OneCheckedWorkflowFinish),
   ],
 })
@@ -510,13 +504,11 @@ export class ItemReviewedWorkflowFinish {}
   historyTtl: Ttl.Forever,
   executionLimits: { maxSteps: 2 },
   flow: [
-    onStart(ItemReviewWorkflowStart)
-      .toAgent(ItemReviewerAgent),
-    onAgent(ItemReviewerAgent)
-      .toOneOf([
-        toFinish(ItemReviewedWorkflowFinish),
-        toAgent(ItemReviewerAgent),
-      ]),
+    onStart(ItemReviewWorkflowStart).toAgent(ItemReviewerAgent),
+    onAgent(ItemReviewerAgent).toOneOf([
+      toFinish(ItemReviewedWorkflowFinish),
+      toAgent(ItemReviewerAgent),
+    ]),
   ],
 })
 export class ItemReviewWorkflow {}
@@ -556,8 +548,7 @@ export class ReviewsSummaryAction {
     readonly results: readonly Tracked<ItemResultDto>[];
   }): Promise<SummaryDto> {
     return {
-      text: input.results.map((result) => result.name)
-        .join(", "),
+      text: input.results.map((result) => result.name).join(", "),
     };
   }
 }
@@ -579,8 +570,7 @@ export class ReviewsSummaryWorkflowFinish {}
     onStart(ReviewItemsWorkflowStart)
       .forEachItem(toWorkflow(ItemReviewWorkflow), { takeFirst: 10, maxConcurrency: 2 })
       .join()
-      .onError(StepError.Child, toAgent(ReviewRescueAgent)
-        .toFinish(ReviewsWorkflowFinish))
+      .onError(StepError.Child, toAgent(ReviewRescueAgent).toFinish(ReviewsWorkflowFinish))
       .toAction(ReviewsSummaryAction)
       .toFinish(ReviewsSummaryWorkflowFinish),
   ],
@@ -623,8 +613,7 @@ export class ReviewStoppedWorkflowFinish {}
       .toWorkflow(ItemReviewWorkflow)
       .onError(
         LimitError.Steps,
-        toAction(ReviewStoppedAction)
-          .toFinish(ReviewStoppedWorkflowFinish),
+        toAction(ReviewStoppedAction).toFinish(ReviewStoppedWorkflowFinish),
       )
       .toFinish(ItemReviewedWorkflowFinish),
   ],

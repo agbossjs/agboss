@@ -89,8 +89,7 @@ export class PickyWorkflowFinish {}
   flow: [
     onStart(PickyWorkflowStart)
       .inParallel([
-        toRouter(PickyRouter)
-          .chooseMany([toAgent(RefundPolicyAgent), toAgent(LoyaltyOfferAgent)]),
+        toRouter(PickyRouter).chooseMany([toAgent(RefundPolicyAgent), toAgent(LoyaltyOfferAgent)]),
       ])
       .join()
       .toAgent(PickyAnswerAgent)
@@ -146,12 +145,10 @@ export class StrictRouter {
   flow: [
     onStart(StrictWorkflowStart)
       .inParallel([
-        toRouter(StrictRouter)
-          .chooseMany([
-            toAgent(RefundPolicyAgent),
-            toAgent(LoyaltyOfferAgent)
-              .onError(StepError, skip()),
-          ]),
+        toRouter(StrictRouter).chooseMany([
+          toAgent(RefundPolicyAgent),
+          toAgent(LoyaltyOfferAgent).onError(StepError, skip()),
+        ]),
       ])
       .join()
       .toAgent(PickyAnswerAgent)
@@ -201,10 +198,8 @@ export class BudgetAnswerAgent {}
       .inParallel(
         [
           toAgent(OrderLookupAgent),
-          toAgent(LoyaltyOfferAgent)
-            .onError(StepError, skip()),
-          toRouter(HelpDeskRouter)
-            .chooseMany([toAgent(RefundPolicyAgent)]),
+          toAgent(LoyaltyOfferAgent).onError(StepError, skip()),
+          toRouter(HelpDeskRouter).chooseMany([toAgent(RefundPolicyAgent)]),
         ],
         { maxConcurrency: 1 },
       )

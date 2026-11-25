@@ -187,8 +187,7 @@ export class TopicFailedWorkflowFinish {}
           .onError(StepError, toAction(MarkTopicFailedAction))
           .toFinish(TopicReportWorkflowFinish),
       ]),
-    onAction(MarkTopicFailedAction)
-      .toFinish(TopicFailedWorkflowFinish),
+    onAction(MarkTopicFailedAction).toFinish(TopicFailedWorkflowFinish),
   ],
   executionLimits: { maxSteps: 4, maxDepth: 3 },
 })
@@ -261,8 +260,7 @@ const countdownPath = (from: typeof CountdownWorkflowStart, self: () => Class) =
     .toAction(CountdownAction)
     .toOneOf([
       toWorkflow(self)
-        .onError(LimitError, toAction(DepthStoppedAction)
-          .toFinish(CountStoppedWorkflowFinish))
+        .onError(LimitError, toAction(DepthStoppedAction).toFinish(CountStoppedWorkflowFinish))
         .toOneOf([toFinish(CountDoneWorkflowFinish), toFinish(CountStoppedWorkflowFinish)]),
       toFinish(CountDoneWorkflowFinish),
     ]);
@@ -347,8 +345,7 @@ export class SumAction {
         { takeFirst: 2 },
       )
       .join()
-      .onError(LimitError, toAction(SplitStoppedAction)
-        .toFinish(CountStoppedWorkflowFinish))
+      .onError(LimitError, toAction(SplitStoppedAction).toFinish(CountStoppedWorkflowFinish))
       .toAction(SumAction)
       .toFinish(CountDoneWorkflowFinish),
   ],
@@ -405,10 +402,8 @@ export class ChainDoneWorkflowFinish {}
   flow: [
     onStart(ChainWorkflowStart)
       .toRouter(LinkRouter)
-      .onRoute(toWorkflow(() => ChainWorkflow)
-        .toFinish(ChainDoneWorkflowFinish))
-      .onRoute(toAgent(LinkAgent)
-        .toFinish(ChainDoneWorkflowFinish)),
+      .onRoute(toWorkflow(() => ChainWorkflow).toFinish(ChainDoneWorkflowFinish))
+      .onRoute(toAgent(LinkAgent).toFinish(ChainDoneWorkflowFinish)),
   ],
   executionLimits: { maxDepth: 2 },
 })
@@ -439,10 +434,8 @@ export class DeeperRouter {
   flow: [
     onStart(CodeChainWorkflowStart)
       .toRouter(DeeperRouter)
-      .onRoute(toWorkflow(() => CodeChainWorkflow)
-        .toFinish(ChainDoneWorkflowFinish))
-      .onRoute(toAgent(LinkAgent)
-        .toFinish(ChainDoneWorkflowFinish)),
+      .onRoute(toWorkflow(() => CodeChainWorkflow).toFinish(ChainDoneWorkflowFinish))
+      .onRoute(toAgent(LinkAgent).toFinish(ChainDoneWorkflowFinish)),
   ],
   executionLimits: { maxDepth: 2 },
 })

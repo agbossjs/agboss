@@ -102,8 +102,7 @@ export class RemoteHoldItemsWorkflowStart {}
     onStart(RemoteHoldItemsWorkflowStart)
       .forEachItem(toWorkflow(RemoteHoldCheckWorkflow), { takeFirst: 10 })
       .join()
-      .onError(StepError.Child, toAction(ChecksFailedAction)
-        .toFinish(ChecksFailedWorkflowFinish))
+      .onError(StepError.Child, toAction(ChecksFailedAction).toFinish(ChecksFailedWorkflowFinish))
       .toAction(SummaryAction)
       .toFinish(SummaryWorkflowFinish),
   ],

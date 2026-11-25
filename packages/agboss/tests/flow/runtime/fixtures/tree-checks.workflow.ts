@@ -52,9 +52,7 @@ export class TaskCheckWorkflowStart {}
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: [
-    onStart(TaskCheckWorkflowStart)
-      .toAgent(TaskCheckerAgent)
-      .toFinish(TaskDoneWorkflowFinish),
+    onStart(TaskCheckWorkflowStart).toAgent(TaskCheckerAgent).toFinish(TaskDoneWorkflowFinish),
   ],
 })
 export class TaskCheckWorkflow {}

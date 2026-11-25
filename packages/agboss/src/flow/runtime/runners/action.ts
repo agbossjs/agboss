@@ -11,7 +11,10 @@ import { passesThrough } from "../errors.js";
 import { readInput, type NodeValue } from "../scope.js";
 import { reportNodeEvent } from "../../observers/execution-event.js";
 import { currentFrame, runInFrame, type FrameSpec } from "../../context/frame.js";
-import { AGBossError } from "../../../core/errors.js";
+import { isHandedOver } from "../../../app/handed-over.js";
+import { IdempotencyError } from "../../../core/error-families/effect-errors.js";
+import { OutboundCallError } from "../../../core/error-families/outbound-call-errors.js";
+import { FileError, McpError } from "../../../core/error-families/remote-errors.js";
 import { StepError } from "../../../core/error-families/step-errors.js";
 import { ExecutionError } from "../../../core/error-families/run-errors.js";
 import { stepCoordinatesOf } from "../../../graph/step-coordinates.js";
@@ -138,20 +141,32 @@ const outcomeUnknown = (action: string, timeout: Milliseconds): StepError.Action
     message: `Action "${action}" ran past its timeout of ${String(timeout)} ms: its effect may have happened — it is not retried or undone`,
   });
 
-/** A variant of an error family (`LimitError.Items`, `StepError.Agent`): an `AGBossError` with a `kind`. */
-const isFamilyError = (error: unknown): boolean =>
-  error instanceof AGBossError && typeof Reflect.get(error, "kind") === "string";
+/**
+ * What an action's code may throw that is no failure of its step (S22, #1325b): a limit, a cancel
+ * (a fenced write after the tree's cancel too) or a pause (`passesThrough`), a hand-over, a failed
+ * automatic undo, and a step failure that already names its step.
+ */
+const isNoStepFailure = (error: unknown): boolean =>
+  passesThrough(error) ||
+  isHandedOver(error) ||
+  error instanceof ExecutionError.CompensationFailed ||
+  error instanceof StepError ||
+  isPreFoldFamily(error);
+
+/** The families that passed an action unwrapped before #1325b folded the rest: their errors say what they are. */
+const isPreFoldFamily = (error: unknown): boolean =>
+  error instanceof IdempotencyError ||
+  error instanceof OutboundCallError ||
+  error instanceof McpError ||
+  error instanceof FileError;
 
 /**
- * A failure of the action's code; a limit, a cancel or a pause passes as it is (S22), and so does a
- * family's error (`LimitError.Items`, `ExecutionError.UnknownThread`): it already says what it is,
- * and a wrapper would shadow it — `.onError` resolves to the most specific class of the ORIGINAL
- * error (#1325). Any other error fails the step as `StepError.Action`, the original its cause.
+ * A failure of the action's code: what is no step failure passes as it is, every other error — a
+ * remote agent's `A2AError`, a store's, a DTO's, a family's — fails the step as `StepError.Action`,
+ * the original its cause (`.onError` resolves the ORIGINAL's class first, then the wrapper's, #1325).
  */
 const failure = (node: string, error: unknown): unknown =>
-  passesThrough(error) || isFamilyError(error)
-    ? error
-    : new StepError.Action({ action: node, cause: error });
+  isNoStepFailure(error) ? error : new StepError.Action({ action: node, cause: error });
 
 /**
  * An action: its instance from the container runs `execute(input)` with its fields from the scope;

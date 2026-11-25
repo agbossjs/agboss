@@ -24,8 +24,7 @@ import {
   historyTtl: Ttl.Forever,
   flow: [
     onStart(ItemsWorkflowStart)
-      .forEachItem(toAction(ProcessItemAction)
-        .onError(StepError, skip()), {
+      .forEachItem(toAction(ProcessItemAction).onError(StepError, skip()), {
         takeFirst: 3,
         maxConcurrency: 2,
       })
@@ -55,8 +54,7 @@ export class TakeFirstApplication {}
     onStart(ItemsWorkflowStart)
       .forEachItem(toAction(ProcessItemAction), { maxItems: 3 })
       .join()
-      .onError(LimitError.Items, toAction(ItemsFailedAction)
-        .toFinish(ItemsFailedWorkflowFinish))
+      .onError(LimitError.Items, toAction(ItemsFailedAction).toFinish(ItemsFailedWorkflowFinish))
       .toAction(SummaryAction)
       .toFinish(SummaryWorkflowFinish),
   ],

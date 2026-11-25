@@ -81,8 +81,7 @@ export class DiggerAgent {}
     onStart(DigWorkflowStart)
       .toAgent(DiggerAgent)
       .toOneOf([
-        toWorkflow(() => DigWorkflow)
-          .toFinish(CountDoneWorkflowFinish),
+        toWorkflow(() => DigWorkflow).toFinish(CountDoneWorkflowFinish),
         toFinish(CountDoneWorkflowFinish),
       ]),
   ],
@@ -140,8 +139,7 @@ export class HoldDepthAction {
     onStart(HoldDepthWorkflowStart)
       .toAction(HoldDepthAction)
       .toOneOf([
-        toWorkflow(() => HoldDepthWorkflow)
-          .toFinish(CountDoneWorkflowFinish),
+        toWorkflow(() => HoldDepthWorkflow).toFinish(CountDoneWorkflowFinish),
         toFinish(CountDoneWorkflowFinish),
       ]),
   ],
