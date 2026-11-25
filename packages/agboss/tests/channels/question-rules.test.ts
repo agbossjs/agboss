@@ -32,6 +32,7 @@ import {
 import { PauseRespondent } from "../../src/pause/respondent.js";
 import { days } from "../../src/units/index.js";
 import { TestModelProvider } from "../../src/testing/test-model-provider.js";
+import { TestDecisionsModelProvider } from "../../src/testing/test-model-provider.js";
 
 const assemble = (application: Class) =>
   createTestAppWith(application, {
@@ -184,6 +185,7 @@ describe("#659 AC4: a question role's interpreter", () => {
       name: "jev-limit-reply-interpreter",
       description: "d",
       model: "typesafe/jev-1.13",
+      modelProvider: TestDecisionsModelProvider,
     })
     class JevLimitReplyInterpreter {}
     const { role, channel } = questionRole("jev-limit-external-task", JevLimitReplyInterpreter);
@@ -192,7 +194,7 @@ describe("#659 AC4: a question role's interpreter", () => {
       expect.objectContaining({
         code: "reply-interpreter.decision-model",
         message: expect.stringContaining(
-          "typesafe/jev-1.13 is a decision model — it answers only yes / no (approved), but external task jev-limit-external-task asks for SpendingLimitAnswerDto",
+          "TestDecisionsModelProvider is a decisions provider — it answers only yes / no (approved), but external task jev-limit-external-task asks for SpendingLimitAnswerDto",
         ),
       }),
     ]);

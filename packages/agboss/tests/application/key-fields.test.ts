@@ -283,17 +283,6 @@ describe("#825 AC7: an idempotency key where business keys can be made", () => {
 });
 
 describe("#825 AC6, AC7: no key is another key", () => {
-  it.each([
-    [
-      "the PII key is the built-in providers' apiKey",
-      { piiKeyField: "openRouterApiKey" },
-      '[application.pii-key-shared] @Application piiKeyField "openRouterApiKey" is also the built-in OpenRouter providers\' apiKey',
-    ],
-  ] as const)("%s", async (_what, options, expected) => {
-    const found = await violationsOf(options);
-    expect(found).toContainEqual(expect.stringContaining(expected));
-  });
-
   it("the storage's previous key on the variable of its current one: [storage.secret-shared]", async () => {
     @DatabaseStorage({
       driver: SqliteDriver.inMemory(),

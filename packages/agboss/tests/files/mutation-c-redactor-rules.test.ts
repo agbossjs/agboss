@@ -218,7 +218,7 @@ describe("[files.redactor-values-withheld]", () => {
       executionContext: PersonContext,
     });
 
-    const message = `${name}: its contexts hold sensitive values and it reads FileView.Redacted, but the built-in redactor's model on openrouter-model-provider may not be told them — the agent's model is on openrouter-model-provider; serve both from one provider, or set defaults.files.redactionValues: RedactionValues.Always to send the values wherever the redactor runs (redactionValues is same-provider)`;
+    const message = `${name}: its contexts hold sensitive values and it reads FileView.Redacted, but the built-in redactor's model on test-model-provider may not be told them — the agent's model is on test-model-provider; serve both from one provider, or set defaults.files.redactionValues: RedactionValues.Always to send the values wherever the redactor runs (redactionValues is same-provider)`;
     expect(found).toEqual([{ code: "files.redactor-values-withheld", message, nodes: [name] }]);
   });
 
@@ -245,7 +245,7 @@ describe("[files.redactor-values-withheld]", () => {
     });
 
     expect(found[0]?.message).toContain(
-      "but your own FileRedactor PngRedactor may not be told them — the agent's model is on openrouter-model-provider;",
+      "but your own FileRedactor PngRedactor may not be told them — the agent's model is on test-model-provider;",
     );
   });
 

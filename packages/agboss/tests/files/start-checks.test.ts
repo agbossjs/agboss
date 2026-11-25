@@ -373,7 +373,9 @@ describe("AC4: a guardrail's or a judge's model that cannot take a file's type s
     const files = filesOf({ allowedMediaTypes: ["image/png"], views: [FileView.Original] });
     const config = {
       ...configOf("vision/full", files),
-      judges: { "grounded-judge": { model: "text/only" } },
+      judges: {
+        "grounded-judge": { model: "text/only", modelProvider: "openrouter-model-provider" },
+      },
     };
     const agent = config.agents["reader-agent"];
     const judged = {
