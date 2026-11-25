@@ -80,3 +80,12 @@ describe("facts", () => {
     expect(error.spend).toBeDefined();
   });
 });
+
+describe("reserved facts (#1413 L5)", () => {
+  it("a fact named like what an instance owns is refused", () => {
+    for (const key of ["kind", "code", "name", "spend"])
+      expect(() => new StepError.Agent({ agent: "a", [key]: "x" } as never), key).toThrow(
+        TypeError,
+      );
+  });
+});

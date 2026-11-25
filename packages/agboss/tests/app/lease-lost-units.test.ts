@@ -201,8 +201,11 @@ describe("#1356: a write the tree's cancel refused", () => {
 
   it("keeps the cause it is given", () => {
     const cause = new Error("driver");
+    const { name: _name, ...facts } = key;
 
-    expect(new ExecutionError.CancelFenced({ ...key, effect: "charge", cause }).cause).toBe(cause);
+    expect(new ExecutionError.CancelFenced({ ...facts, effect: "charge", cause }).cause).toBe(
+      cause,
+    );
   });
 });
 

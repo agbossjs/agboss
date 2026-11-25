@@ -47,7 +47,7 @@ export function handedOverReason(signal: AbortSignal | undefined): HandedOver | 
  * the family's, never rebuilt as another class.
  */
 export const fencedErrorOf = (error: unknown): FencedRefusalError | undefined =>
-  errorOfClass(error, ExecutionError.Fenced) ?? errorOfClass(error, ExecutionError.Fenced);
+  errorOfClass(error, ExecutionError.Fenced);
 
 /**
  * The cancel's, a stop's or a pause's fenced refusal behind `error` (#909): the error itself, or one in its `cause`

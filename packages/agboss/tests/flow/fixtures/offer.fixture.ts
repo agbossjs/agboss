@@ -19,7 +19,7 @@ import { inline, Ttl } from "../../../src/index.js";
 
 /** #272 example 2a — a review loop: a node reached from two places has its own path. */
 
-/** Stands in for #261's `VisitsLimitExceededError` until the runtime brings it (PR 4). */
+/** A project's own error class the builder tests route by (it stands for any class of a project). */
 export class VisitsLimitExceededError extends Error {}
 
 @WorkflowStart({

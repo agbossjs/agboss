@@ -59,7 +59,7 @@ installReportMembers(AGBossError.prototype, (error) => error instanceof AGBossEr
 /** The run was cancelled: its signal aborted, or a cancel was requested before a node ran. */
 export class ExecutionCancelledError extends AGBossError {
   static override readonly code: string = "execution.cancelled";
-  /** This class's code, or its subclass `ExecutionError.CancelFenced`'s (#909: `switch (error.code)` narrows). */
+  /** This class's code, or its stop and pause subclasses' (#909: `switch (error.code)` narrows); the type also lists `execution.cancelled.fenced`, the sibling `ExecutionError.CancelFenced`'s code, which `isExecutionCancelled` finds. */
   declare readonly code: CancelledErrorCode;
   override name = "ExecutionCancelledError";
 

@@ -20,7 +20,6 @@ function defaultMessageOf(spec: VariantSpec[0], facts: object): string {
   return typeof spec === "string" ? spec : (spec as (facts: object) => string)(facts);
 }
 
-/** What a variant's constructor hands its base: the sentence, the base's options and the facts it keeps. */
 /** The sentence of a variant made with none of its own: `plain` without the facts it needs, else made of them. */
 function sentenceOf(
   [defaultMessage, , more = {}]: VariantSpec,
@@ -39,6 +38,9 @@ function factsOf(
   given: Readonly<Record<string, unknown>>,
 ): Readonly<Record<string, unknown>> {
   const { keep, force } = spec[2] ?? {};
+  const reserved = RESERVED_FACTS.find((key) => key in given);
+  if (reserved !== undefined)
+    throw new TypeError(`"${reserved}" is not a fact of an error: the instance owns it`);
   const kept = keep === undefined ? {} : (keep as (facts: object) => object)(given);
   // a fact given as `undefined` stays a (key-bearing) fact unless the variant derives its value
   const defined = Object.fromEntries(
@@ -47,6 +49,10 @@ function factsOf(
   return force === true ? { ...given, ...kept } : { ...kept, ...defined };
 }
 
+/** What an instance owns itself: a fact of these names would clobber it (or throw, `spend` being a getter). */
+const RESERVED_FACTS: readonly string[] = ["kind", "code", "name", "spend"];
+
+/** What a variant's constructor hands its base: the sentence, the base's options and the facts it keeps. */
 export function argsOf(
   spec: VariantSpec,
   options: VariantCommon & Readonly<Record<string, unknown>>,

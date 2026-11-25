@@ -132,6 +132,7 @@ export const LIMIT_SPECS = {
         key: "deadline",
         limit: f.deadline,
         actual: f.deadline,
+        // the deadline passed; how far is not measured here, so the limit and the actual agree
       })),
     ],
     ["deadline"],
