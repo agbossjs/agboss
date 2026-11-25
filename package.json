@@ -46,7 +46,7 @@
   "scripts": {
     "build": "npm run build -w @agboss/core -w @agboss/cli -w @agboss/langfuse",
     "dev": "npm run dev -w @agboss/core",
-    "lint": "eslint .",
+    "lint": "node --max-old-space-size=8192 node_modules/eslint/bin/eslint.js .",
     "format": "prettier --write . && node scripts/format-flows.mjs",
     "format:check": "prettier --check .",
     "typecheck": "npm run typecheck --workspaces",
