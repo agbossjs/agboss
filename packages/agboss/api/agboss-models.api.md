@@ -98,27 +98,6 @@ export abstract class CliModelProvider {
 export type CliResult = Omit<ModelProviderResponse, "toolCalls">;
 
 // @public
-export class ConfigurationError extends AGBossError {
-    constructor(options: ConfigurationErrorOptions);
-    // (undocumented)
-    static readonly code: "config.model-settings";
-    // (undocumented)
-    readonly code: typeof ConfigurationError.code;
-    // (undocumented)
-    name: string;
-    // (undocumented)
-    readonly problems: readonly ModelProblem[];
-}
-
-// @public
-export interface ConfigurationErrorOptions {
-    // (undocumented)
-    readonly cause?: unknown;
-    // (undocumented)
-    readonly problems: readonly ModelProblem[];
-}
-
-// @public
 export const DECISION_MODELS: readonly string[];
 
 // @public
@@ -1144,12 +1123,6 @@ export interface WireTool {
 // src/models/problems.ts - (ae-undocumented) Missing documentation for "value".
 // src/models/problems.ts - (ae-undocumented) Missing documentation for "model".
 // src/models/problems.ts - (ae-undocumented) Missing documentation for "supported".
-// src/models/problems.ts - (ae-undocumented) Missing documentation for "problems".
-// src/models/problems.ts - (ae-undocumented) Missing documentation for "cause".
-// src/models/problems.ts - (ae-undocumented) Missing documentation for "code".
-// src/models/problems.ts - (ae-undocumented) Missing documentation for "code".
-// src/models/problems.ts - (ae-undocumented) Missing documentation for "name".
-// src/models/problems.ts - (ae-undocumented) Missing documentation for "problems".
 // src/models/prompt-caching.ts - (ae-undocumented) Missing documentation for "FiveMinutes".
 // src/models/prompt-caching.ts - (ae-undocumented) Missing documentation for "OneHour".
 // src/models/prompt-caching.ts - (ae-undocumented) Missing documentation for "OneDay".

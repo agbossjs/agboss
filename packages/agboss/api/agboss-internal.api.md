@@ -147,17 +147,6 @@ export interface ApplicationFacts {
 }
 
 // @public
-export class ApplicationLoadError extends AGBossError {
-    constructor(options: MessageErrorOptions);
-    // (undocumented)
-    static readonly code: "load.application";
-    // (undocumented)
-    readonly code: typeof ApplicationLoadError.code;
-    // (undocumented)
-    name: string;
-}
-
-// @public
 export function applicationModelUsesOf(workflows: readonly WorkflowModels_2[]): readonly ModelUse[];
 
 // @public (undocumented)
@@ -2088,9 +2077,6 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/infrastructure/sqlite/sqlite-checkpoint-saver.ts - (ae-undocumented) Missing documentation for "list".
 // src/infrastructure/sqlite/sqlite-checkpoint-saver.ts - (ae-undocumented) Missing documentation for "put".
 // src/infrastructure/sqlite/sqlite-checkpoint-saver.ts - (ae-undocumented) Missing documentation for "putWrites".
-// src/loader/load-errors.ts - (ae-undocumented) Missing documentation for "code".
-// src/loader/load-errors.ts - (ae-undocumented) Missing documentation for "code".
-// src/loader/load-errors.ts - (ae-undocumented) Missing documentation for "name".
 // src/loader/load-eval-suites.ts - (ae-undocumented) Missing documentation for "file".
 // src/loader/load-eval-suites.ts - (ae-undocumented) Missing documentation for "suite".
 // src/loader/load-eval-suites.ts - (ae-undocumented) Missing documentation for "name".
