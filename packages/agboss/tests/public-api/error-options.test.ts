@@ -75,7 +75,8 @@ describe("#906 AC1: every exported error takes one options bag with a cause", ()
     // `ConfigError` and `StoreError` (F2)
     // 91 once the ten A2A client error classes folded into `A2AError` (F2)
     // 87 once the exported configuration errors folded into `ConfigError` (F2)
-    expect(classes.size).toBeGreaterThanOrEqual(87);
+    // 57 once the execution, pause, configuration and store errors of #1325b folded into their families (F2)
+    expect(classes.size).toBeGreaterThanOrEqual(57);
     expect([...classes.keys()].filter((name) => !(name in fixtures)).sort()).toEqual([]);
     expect(
       Object.keys(fixtures)

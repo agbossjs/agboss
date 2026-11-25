@@ -308,7 +308,7 @@ spend under `action:<undo name>` ([FinOps](FinOps)). `onCompensationStart` / `on
 report each one ([Observability](Observability)).
 
 An undo that fails does not stop the others; then the execution fails with
-`ExecutionError.CompensationFailed` (`compensation.failed`): `failures` are the undo actions that threw,
+`ExecutionError.CompensationFailed` (`execution.compensation-failed`): `failures` are the undo actions that threw,
 `cause` the branch's error — `toFailWith(BookingFailedError)` still matches through it. No
 `.onError` takes it (after a launch, on its join). `agboss describe` marks a launched undoable action:
 

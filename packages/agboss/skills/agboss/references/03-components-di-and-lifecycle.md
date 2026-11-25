@@ -1085,7 +1085,7 @@ export class SeatWorkflow {}
   `@Application({ executionLimits: { compensationTimeout } })` (default `seconds(15)`), when the lease is lost or the
   instance stops; no budget refuses it; what its services cost (`SpendRecorder`) is spend under
   `action:<undo name>`. An undo that fails does not stop the others; then the execution fails with
-  `ExecutionError.CompensationFailed` (`compensation.failed`: `failures`, `cause`).
+  `ExecutionError.CompensationFailed` (`execution.compensation-failed`: `failures`, `cause`).
 - **Observers** see the automatic ones through `onCompensationStart` / `onCompensationEnd`
   (`CompensationStartEvent`: `step`, `compensated`, `reason`; `CompensationEndEvent` adds `status`,
   `error`), around the undo action's own `onActionStart` / `onActionEnd`; `onExecutionError`'s

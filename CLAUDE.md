@@ -845,7 +845,7 @@ workflows: { placement } } })`, else `CurrentProcess`; `OtherWorker` is never cl
   the undo action's own run up to its write, which only a fenced write closes; #662: every action's
   visit — a side path's undo action too, and a forward step — checks the same fence right before its
   `execute`, after its awaited `onActionStart`: a holder past its lease runs no action, a hand-over); an undo that fails → the rest still run, then `ExecutionError.CompensationFailed`
-  (`compensation.failed`, `failures`, `cause`), never taken by a side path; `result.compensations`,
+  (`execution.compensation-failed`, `failures`, `cause`), never taken by a side path; `result.compensations`,
   `onCompensationStart` / `onCompensationEnd`, `toHaveCompensated(A, { by, reason?, status? })`.
   An execution that ends without a finish (#340 PR 3) undoes its open records the same way, newest
   first, before it ends — `ExecutionFailed` for an uncaught failure or limit, `ExecutionCancelled`
