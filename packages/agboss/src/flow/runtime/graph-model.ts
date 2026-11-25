@@ -1,3 +1,4 @@
+import { ExecutionCancelledError } from "../../core/errors.js";
 import { ExecutionError } from "../../core/error-families/run-errors.js";
 import type { Class } from "../../components/injection.js";
 import type { DtoClass } from "../../dto/types.js";
@@ -229,6 +230,12 @@ const ACTION_WRAPPER_CODE = "step.action";
 /** The code every framework error has: a handler on it says nothing about the original's own class. */
 const FRAMEWORK_CODE = "agboss";
 
+/** A record of a cancel (`execution.cancelled`, or a fenced write after it): no `.onError` takes it (#1413). */
+const isCancelRecord = (record: ErrorRecord): boolean =>
+  record.lineage.some(
+    (code) => code === ExecutionCancelledError.code || code === ExecutionError.CancelFenced.code,
+  );
+
 /**
  * The `.onError` handler of a failure: the one whose class matches most specifically — nearest in
  * the error's class line, then nearest in its cause chain; `.onError(Error, …)` only when nothing
@@ -241,7 +248,11 @@ export function errorHandlerOf(
   exits: Pick<NodeExits, "errors">,
   record: ErrorRecord,
 ): FlowEdge | undefined {
-  if (record.code === ExecutionError.CompensationFailed.code || isHandOverRecord(record))
+  if (
+    record.code === ExecutionError.CompensationFailed.code ||
+    isHandOverRecord(record) ||
+    isCancelRecord(record)
+  )
     return undefined;
   const original = record.lineage[0] === ACTION_WRAPPER_CODE ? record.cause : undefined;
   const ofOriginal =

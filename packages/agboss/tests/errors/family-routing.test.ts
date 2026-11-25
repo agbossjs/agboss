@@ -16,9 +16,12 @@ import {
   ExecutionError,
   ExecutionLeaseLostError,
 } from "../../src/index.js";
+import { isExecutionCancelled } from "../../src/core/execution-cancelled.js";
+import { ExecutionStatus } from "../../src/index.js";
 import { isHandedOver } from "../../src/app/handed-over.js";
 import { execute } from "../helpers/flow.js";
 import {
+  CancelRouteStart,
   ExecutionCaughtFinish,
   FamilyOkFinish,
   NarrowOwnCaughtFinish,
@@ -137,5 +140,23 @@ describe("#1325a: a project's error class is caught by its own name", () => {
       code: "step.action",
       cause: { name: "OtherPaymentError" },
     });
+  });
+});
+
+describe("#1413: a cancel unwound under the lease reaches no .onError", () => {
+  test("CancelFenced thrown by an action goes past .onError(ExecutionError) and .onError(AGBossError)", async ({
+    app,
+  }) => {
+    const ended: unknown = await execute(app, CancelRouteStart, { fail: "cancel-fenced" }).then(
+      (result) => result,
+      (error: unknown) => error,
+    );
+
+    // ended as a cancel — a cancelled result or the cancel itself — never at the handlers' finish
+    expect(ended).not.toMatchObject({ finish: { name: "cancel-route-caught-workflow-finish" } });
+    const cancelled =
+      isExecutionCancelled(ended) ||
+      (ended as { status?: string }).status === ExecutionStatus.Cancelled;
+    expect(cancelled).toBe(true);
   });
 });
