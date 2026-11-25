@@ -11,6 +11,8 @@ import {
   WorkflowFinish,
   WorkflowStart,
   inline,
+  PiiKind,
+  PiiPolicy,
 } from "../../../src/index.js";
 import type { StepDescriptor } from "../../../src/index.js";
 import { onStart } from "../../helpers/flow.js";
@@ -209,3 +211,41 @@ export class CheckoutApplication {}
   retention: { executionRecords: hours(24) },
 })
 export class KeptCheckoutApplication {}
+
+/** Hides e-mail addresses in what is observed and kept (an operator's reasons too). */
+@PiiPolicy({
+  name: "checkout-email-pii-policy",
+  description: "Hides e-mail addresses",
+  rules: [PiiKind.Email.mask()],
+})
+export class CheckoutEmailPiiPolicy {}
+
+/** The checkout under a PII policy. */
+@Workflow({
+  name: "masked-checkout-workflow",
+  version: "1.0.0",
+  historyTtl: Ttl.Forever,
+  defaults,
+  memory: Window1Memory,
+  providers: [Pay],
+  piiPolicies: [CheckoutEmailPiiPolicy],
+  flow: [
+    onStart(Start)
+      .toAgent(Clerk)
+      .toAction(Pay)
+      .toFinish(Finish),
+  ],
+})
+export class MaskedCheckout {}
+
+/** The masked checkout, keeping its execution history. */
+@Application({
+  name: "masked-checkout-application",
+  modelProvider: TestModelProvider,
+  version: "1.0.0",
+  environment: EmptyEnvironment,
+  workflows: [MaskedCheckout],
+  budgets: TEST_BUDGETS,
+  retention: { executionRecords: hours(24) },
+})
+export class MaskedCheckoutApplication {}

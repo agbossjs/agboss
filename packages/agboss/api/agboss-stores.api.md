@@ -2198,6 +2198,7 @@ export interface PauseScanAfter {
 export interface PauseSeen {
     readonly assignees?: readonly string[];
     readonly expiresAt?: string;
+    readonly isSent: boolean;
     readonly trailLength: number;
 }
 

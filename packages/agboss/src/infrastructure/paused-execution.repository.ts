@@ -218,6 +218,11 @@ export abstract class PausedExecutionRepository {
    * while the deadline is at or before `at` (an expiry's reassignment), otherwise only while the pause is open;
    * `maxReassignments` refuses it, in the same transaction, once the chain holds that many `reassigned` entries.
    * A replacement made `to` another target or channel is `Pending` and unsent under it, with no `externalRef`.
+   * With `seen` the write applies only while the pause is still as it was planned against: the same
+   * trail length, deadline, assignees and `isSent` (a pause marked sent since is refused). With
+   * `countsAsExtension` a `timeout-changed` entry follows the `reassigned` one — on the replacement
+   * as on a pause changed in place — and `maxExtensions` refuses the change, in the same transaction,
+   * once the chain holds that many.
    */
   abstract reassignByTenantIdAndPauseId(
     tenantId: string,

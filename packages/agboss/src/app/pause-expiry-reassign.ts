@@ -121,7 +121,10 @@ async function refusedOnExpiry(
   pause: PauseRecord,
 ): Promise<"failed" | "lost"> {
   const fresh = await stores.pauses.findByTenantIdAndPauseId(pause.tenantId, pause.pauseId);
-  return fresh?.status === PauseStatus.Pending && fresh.expiresAt === pause.expiresAt
+  // a pause marked sent meanwhile is as it was planned for in all but that: the next look moves it
+  return fresh?.status === PauseStatus.Pending &&
+    fresh.expiresAt === pause.expiresAt &&
+    fresh.isSent === pause.isSent
     ? "failed"
     : "lost";
 }

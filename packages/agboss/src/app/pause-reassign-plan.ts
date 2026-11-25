@@ -174,6 +174,7 @@ function deadlineOfChange(plan: Omit<ReassignPlan, "change">, ask: ReassignFacts
 /** What the plan was made against: the store applies it only while the pause is still this (#1307). */
 const seenOf = (pause: PauseRecord): PauseSeen => ({
   trailLength: pause.trail.length,
+  isSent: pause.isSent,
   ...definedFields({ assignees: pause.assignees, expiresAt: pause.expiresAt }),
 });
 

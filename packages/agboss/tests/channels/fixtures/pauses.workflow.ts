@@ -120,6 +120,8 @@ export const hooks: {
   beforeSendReturns?: (ask: SentAsk) => Promise<void>;
   /** The decision the desk gives at once to the send of a reassignment (#946); none: it waits for a reply. */
   decideReassigned?: unknown;
+  /** The desk also gives `decideReassigned` at once to a pause's first send (not only a reassignment's). */
+  decideFirst?: boolean;
   /** The orders the desk refuses before it asks anyone (its `send` throws the error). */
   refusals?: ReadonlyMap<string, Error>;
   /** How many calls of every listener's hooks fail before one succeeds (#940). */
@@ -136,6 +138,7 @@ export function resetPauses(): void {
   for (const list of Object.values(seen)) list.length = 0;
   delete hooks.beforeSendReturns;
   delete hooks.decideReassigned;
+  delete hooks.decideFirst;
   delete hooks.refusals;
   delete hooks.listenerFailures;
   delete hooks.closeFailure;
@@ -250,7 +253,8 @@ abstract class FinanceDeskChannelBase {
     if (refusal !== undefined) throw refusal;
     seen.asks.push(sent);
     await hooks.beforeSendReturns?.(sent);
-    if (ask.replaces !== undefined && hooks.decideReassigned !== undefined)
+    const decides = ask.replaces !== undefined || hooks.decideFirst === true;
+    if (decides && hooks.decideReassigned !== undefined)
       return ChannelOutcome.decided(hooks.decideReassigned as never);
     return ChannelOutcome.awaitReply();
   }

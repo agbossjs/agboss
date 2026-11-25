@@ -5,6 +5,7 @@ import { PauseError } from "../core/error-families/pause-errors.js";
 import { checkedCallerId, checkedTenantId } from "../flow/context/context-values.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
 import type { CancelThreadParts } from "./cancel-thread.js";
+import { maskedOperatorReason } from "./interrupt-requests.js";
 import type { UnpauseExecutionOptions } from "./interrupt-types.js";
 import type { TreeMoves } from "./tree-moves.js";
 import { maskedRecordOf } from "./result.js";
@@ -60,7 +61,8 @@ export async function unpauseThread(
   const call = { ...options, ownerId: options.ownerId };
   const result = await moves.unpaused(state, call, {
     ownerId: options.ownerId,
-    reason: options.reason,
+    // kept in the status history: masked by the workflow's PII policy
+    reason: await maskedOperatorReason(deps, options.reason),
   });
   return maskedRecordOf(result, deps);
 }
