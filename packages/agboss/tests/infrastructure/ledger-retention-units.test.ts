@@ -94,7 +94,7 @@ describe("#1366: the sweep removes each kind of rows past its retention", () => 
     await sweep(sources).done;
 
     expect(pauses.deleteByResolvedAtBefore).toHaveBeenCalledWith(cutoffOf(1000));
-    expect(stores.meshRequests.deleteExpired).toHaveBeenCalledWith(cutoffOf(2000));
+    expect(stores.meshRequests.deleteExpired).toHaveBeenCalledWith(NOW); // each request keeps its own expiry (#1319c): due now
     expect(stores.executionHistory.deleteExpired).toHaveBeenCalledWith(cutoffOf(3000));
     expect(stores.fencedEffects.deleteExpired).toHaveBeenCalledWith(cutoffOf(0));
     expect(stores.auditLog.deleteExpired).toHaveBeenCalledWith(

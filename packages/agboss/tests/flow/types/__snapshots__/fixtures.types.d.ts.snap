@@ -46,7 +46,7 @@ import type { QuorumExcludedWorkflow, QuorumExcludedWorkflowStart, QuorumRefused
 import type { AuditApplication, AuditBrokenWorkflow, AuditBrokenWorkflowStart, AuditDaysWorkflow, AuditDaysWorkflowStart, AuditGroupsWorkflow, AuditGroupsWorkflowStart, AuditHoursWorkflow, AuditHoursWorkflowStart, AuditUnhandledWorkflow, AuditUnhandledWorkflowStart, AuditorExternalTask, CounselExternalTask } from "../tests/flow/fixtures/quorum-working-deadline.fixture.js";
 import type { CandidateReviewWorkflow, CompanySearchWorkflow, DueDiligenceWorkflow, FitReviewWorkflow } from "../tests/flow/fixtures/quorum.fixture.js";
 import type { DeepResearchWorkflow, DeepResearchWorkflowStart, FailTopicAction, OutlineAgent, OutlineDepthRouter, OutlineWorkflow, OutlineWorkflowStart, ReportMergerAgent, ResearchFailedDto, ResearchFailedWorkflowFinish, ResearchReportDto, ResearchReportWorkflowFinish, ResearchTooBroadDto, ResearchTopicDto, SplitTopicAction, TopicResearcherAgent } from "../tests/flow/fixtures/recursion.fixture.js";
-import type { CardRefundsWorkflow, DoubledRefundsApplication, RefundCardInputDto, RefundCardOutputDto, RefundCardTool, RefundClerkAgent, RefundDeskToolApproval, RefundWorkflowFinish, RefundWorkflowStart, RuleRefundsApplication, SlackRefundsApplication, UnprovidedRefundsApplication } from "../tests/flow/fixtures/refunds.fixture.js";
+import type { CardRefundsWorkflow, DoubledRefundsApplication, RefundCardInputDto, RefundCardOutputDto, RefundCardTool, RefundClerkAgent, RefundDeskToolApproval, RefundWorkflowFinish, RefundWorkflowStart, RuleRefundsApplication, SlackRefundsApplication, UnprovidedRefundsApplication, UnservedRefundsApplication } from "../tests/flow/fixtures/refunds.fixture.js";
 import type { BatchSummaryAgent, BookExpenseTool, BriefTreasuryApplication, DepositReplyInterpreter, DepositReturnDto, DepositToolApproval, ExpenseReplyInterpreter, ExpenseRequestDto, ExpenseToolApproval, PayOutTool, PayoutReplyInterpreter, PayoutRequestDto, PayoutToolApproval, ReturnDepositTool, SplitRequestsAction, TransferRequestDto, TransferTool, TransferToolApproval, TreasurerAgent, TreasuryApplication, TreasuryBatchWorkflow, TreasuryBatchWorkflowFinish, TreasuryBatchWorkflowStart, TreasuryDeskWorkflow, TreasuryDeskWorkflowFinish, TreasuryDeskWorkflowStart, TreasuryWorkflow, TreasuryWorkflowFinish, TreasuryWorkflowStart } from "../tests/flow/fixtures/replies.fixture.js";
 import type { ApprovalDto, CritiqueDto, DraftDto, PlanDto, ResearchDto } from "../tests/flow/fixtures/review-dtos.js";
 import type { CritiqueAction, CritiqueRouter, PolishAgent, PolishApplication, PolishWorkflow, PolishedWorkflowFinish, PublisherAgent, ResearcherAgent, StoryApplication, StoryReviewerAgent, StoryWorkflow, StoryWorkflowFinish, StoryWorkflowStart, StoryWriterAgent } from "../tests/flow/fixtures/review.fixture.js";
@@ -3560,6 +3560,9 @@ declare module "../tests/flow/fixtures/refunds.fixture.js" {
     readonly [agbossTenantContext]?: false;
   }
   interface UnprovidedRefundsApplication {
+    readonly [agbossTenantContext]?: false;
+  }
+  interface UnservedRefundsApplication {
     readonly [agbossTenantContext]?: false;
   }
 }

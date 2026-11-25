@@ -58,6 +58,7 @@ const stateOf = (changes: Record<string, unknown> = {}) =>
 const setup = (options: { paused?: boolean; compacted?: unknown; pause?: boolean } = {}) => {
   const append = vi.fn(() => Promise.resolve({ id: "turn-new" }));
   const complete = vi.fn(() => Promise.resolve());
+  const completeUnlessInterrupted = vi.fn(() => Promise.resolve(true));
   const recorded = vi.fn(() => Promise.resolve());
   const pauses = { name: "pauses" };
   const checkpointer = { name: "saver" };
@@ -65,7 +66,8 @@ const setup = (options: { paused?: boolean; compacted?: unknown; pause?: boolean
   const ctx = {
     deps: {
       config: { version: "9.9.9" },
-      turns: { append, complete },
+      graph: { nodes: new Map() }, // no finish node declared: the stored output stays as it is (#1301)
+      turns: { append, complete, completeUnlessInterrupted },
       ...(options.pause === false ? {} : { pause: { pauses, checkpointer } }),
     },
     graph,
@@ -79,7 +81,7 @@ const setup = (options: { paused?: boolean; compacted?: unknown; pause?: boolean
     compacted: options.compacted,
   };
   vi.mocked(isWaiting).mockResolvedValue(options.paused === true);
-  return { ctx: ctx as never, raw: ctx, append, complete, recorded, pauses, checkpointer, graph };
+  return { ctx: ctx as never, raw: ctx, append, complete, completeUnlessInterrupted, recorded, pauses, checkpointer, graph };
 };
 
 beforeEach(() => {
@@ -136,16 +138,24 @@ describe("#1366: a finished run's turn", () => {
   });
 
   it("is completed, not appended, when it had a record while it ran", async () => {
-    const { ctx, append, complete } = setup();
+    const { ctx, append, complete, completeUnlessInterrupted } = setup();
 
     const out = await finishRun(ctx, stateOf(), "turn-running");
 
     expect(append).not.toHaveBeenCalled();
-    expect(complete).toHaveBeenCalledWith(
+    expect(complete).not.toHaveBeenCalled(); // a finish is written only while no stop or cancel is marked (#1341b)
+    expect(completeUnlessInterrupted).toHaveBeenCalledWith(
       "turn-running",
       expect.objectContaining({ status: "answered", costUsd: usd(0.5) }),
     );
     expect(out.turnId).toBe("turn-running");
+  });
+
+  it("a finish a stop or cancel mark refuses is not recorded: the run ends as the mark", async () => {
+    const { ctx, completeUnlessInterrupted } = setup();
+    completeUnlessInterrupted.mockResolvedValueOnce(false);
+
+    await expect(finishRun(ctx, stateOf(), "turn-running")).rejects.toBeInstanceOf(AGBossError);
   });
 
   it("keeps the version it started on, else the application's", async () => {
