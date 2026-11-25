@@ -259,9 +259,13 @@ const a2aMessagesOf = (failure: FaultInvariantError): readonly string[] =>
 const RAN_START_LOST =
   /^task \S+ was settled a2a\.start-lost, yet ran reserve on a, charge\.before on a/u;
 
-/** The task's id kept twice — b's fence and a's start — the second start under one task. */
+/**
+ * The task's id kept twice or more — b's fence and a's start — the second start under one task. A
+ * start the loaded store made twice (a retried claim, kept again each time) keeps it a third time:
+ * the invariant bites on the second keep, so the count is not pinned.
+ */
 const KEPT_TWICE =
-  /^execution id \S+ was kept 2 times \(by [ab], [ab]\): two starts under one task$/u;
+  /^execution id \S+ was kept [2-9] times \(by [ab](, [ab])+\): two starts under one task$/u;
 
 describe("#811 AC4: a broken store fails the A2A scenario that targets it", () => {
   it("a lease store that keeps an id twice: 17's fence fences nothing — the id kept twice, the start-lost task run", async () => {
