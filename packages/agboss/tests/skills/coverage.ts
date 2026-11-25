@@ -1,7 +1,3 @@
-import { StepError } from "../../src/core/error-families/step-errors.js";
-import { PiiError } from "../../src/core/error-families/limit-errors.js";
-import { LimitError } from "../../src/core/error-families/limit-errors.js";
-import { GuardrailError } from "../../src/core/error-families/limit-errors.js";
 /**
  * The skill matrix of #305 (AC1): the public names each skill file covers. Each name appears in
  * its file and is exported by an API report (`packages/agboss/api/*.api.md`) — a renamed or removed
