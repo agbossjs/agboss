@@ -97,7 +97,11 @@ export function workflowWith(
     name,
     modelProvider: TestModelProvider,
     historyTtl: Ttl.Forever,
-    flow: [onStart(Chat).toAgent(agent).toFinish(Done)],
+    flow: [
+      onStart(Chat)
+        .toAgent(agent)
+        .toFinish(Done),
+    ],
     ...base,
     ...extra,
   })
@@ -129,7 +133,12 @@ export function applicationWith(
 @Workflow({
   name: "vault-workflow",
   historyTtl: Ttl.Forever,
-  flow: [onStart(Chat).toAgent(Keeper).toAction(StampAction).toFinish(Kept)],
+  flow: [
+    onStart(Chat)
+      .toAgent(Keeper)
+      .toAction(StampAction)
+      .toFinish(Kept),
+  ],
   ...base,
   piiPolicies: [MaskSecret],
   providers: [Vault, provide(SECRET, "s3cret"), RemoteA2AAgent],

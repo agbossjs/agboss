@@ -12,7 +12,8 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type Tracked,
-  Observer, Ttl,
+  Observer,
+  Ttl,
 } from "../../../src/index.js";
 import { hours, seconds } from "../../../src/units/index.js";
 import { Application } from "../../../src/application/application.js";

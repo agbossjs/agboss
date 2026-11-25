@@ -15,7 +15,8 @@ import {
   listOf,
   type Class,
   type Tracked,
-  inline, Ttl,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
 import { Text } from "../../../src/dto/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";

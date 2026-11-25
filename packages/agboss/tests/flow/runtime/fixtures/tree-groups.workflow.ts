@@ -4,7 +4,8 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Tracked, Ttl,
+  type Tracked,
+  Ttl,
 } from "../../../../src/index.js";
 import { onStart, toWorkflow } from "../../../helpers/flow.js";
 import {
@@ -61,7 +62,12 @@ const groupPath = (from: typeof GroupWorkflowStart) =>
     .toAction(CloseGroupAction)
     .toFinish(GroupDoneWorkflowFinish);
 
-@Workflow({ name: "group-workflow", version: "1.0.0", historyTtl: Ttl.Forever, flow: [groupPath(GroupWorkflowStart)] })
+@Workflow({
+  name: "group-workflow",
+  version: "1.0.0",
+  historyTtl: Ttl.Forever,
+  flow: [groupPath(GroupWorkflowStart)],
+})
 export class GroupWorkflow {}
 
 @WorkflowStart({ name: "narrow-group-workflow-start", description: "One group", input: GroupDto })

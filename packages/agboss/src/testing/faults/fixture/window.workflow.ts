@@ -1,4 +1,11 @@
-import { Action, Workflow, WorkflowFinish, WorkflowStart, type Tracked, ExternalTask } from "../../../index.js";
+import {
+  Action,
+  Workflow,
+  WorkflowFinish,
+  WorkflowStart,
+  type Tracked,
+  ExternalTask,
+} from "../../../index.js";
 import { Channel } from "../../../components/decorators.js";
 import { ChannelOutcome } from "../../../channels/channel-outcome.js";
 import type { Class } from "../../../components/injection.js";
@@ -71,7 +78,12 @@ export class FaultChildPauseWorkflow {}
 export class FaultSecondPauseExternalTask {}
 
 /** Nobody is sent anything: the second question waits for its `app.resume`. */
-@Channel({ name: "fault-second-pause-channel", description: "Waits for the order's second answer", target: FaultSecondPauseExternalTask, ttl: days(1) })
+@Channel({
+  name: "fault-second-pause-channel",
+  description: "Waits for the order's second answer",
+  target: FaultSecondPauseExternalTask,
+  ttl: days(1),
+})
 export class FaultSecondPauseChannel {
   send(): Promise<ChannelOutcome<FaultSecondPauseExternalTask>> {
     return Promise.resolve(ChannelOutcome.awaitReply());

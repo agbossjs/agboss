@@ -206,7 +206,8 @@ export class AuditDaysWorkflow {}
       .onError(QuorumNotReachedError, toFinish(ContractRejectedWorkflowFinish))
       .onGroup(
         [AuditorExternalTask],
-        toAction(SignContractAction).toFinish(ContractSignedWorkflowFinish),
+        toAction(SignContractAction)
+          .toFinish(ContractSignedWorkflowFinish),
       ),
   ],
 })

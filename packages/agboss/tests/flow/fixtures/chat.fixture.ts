@@ -87,13 +87,18 @@ export class NoReplyWorkflowFinish {}
 export class MainRouter {}
 
 export const chatPaths = [
-  onStart(IntakeWorkflowStart).toRouter(MainRouter),
+  onStart(IntakeWorkflowStart)
+    .toRouter(MainRouter),
 
   onRouter(MainRouter)
     .onRoute(
-      toAgent(ProfilerAgent).toOneOf([toRouter(MainRouter), toFinish(AskResumeWorkflowFinish)]),
+      toAgent(ProfilerAgent)
+        .toOneOf([toRouter(MainRouter), toFinish(AskResumeWorkflowFinish)]),
     )
-    .onRoute(toAgent(ScoutAgent).toFinish(ChatWorkflowFinish))
+    .onRoute(
+      toAgent(ScoutAgent)
+        .toFinish(ChatWorkflowFinish),
+    )
     .onRoute(toFinish(NoReplyWorkflowFinish)),
 ] as const;
 

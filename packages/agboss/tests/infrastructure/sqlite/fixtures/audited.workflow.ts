@@ -67,7 +67,11 @@ export class AuditedSqliteExecutionRecordRepository extends SqliteExecutionRecor
     models: { maxTokens: 100, temperature: 0 },
     tools: { maxToolCalls: 8 },
   },
-  flow: [onStart(OrderWorkflowStart).toAgent(Clerk).toFinish(ReceiptWorkflowFinish)],
+  flow: [
+    onStart(OrderWorkflowStart)
+      .toAgent(Clerk)
+      .toFinish(ReceiptWorkflowFinish),
+  ],
 })
 export class AuditedNoteWorkflow {}
 

@@ -136,7 +136,8 @@ export class ResearchFailedWorkflowFinish {}
           .onError(StepFailedError, toAction(FailTopicAction))
           .toFinish(ResearchReportWorkflowFinish),
       ]),
-    onAction(FailTopicAction).toFinish(ResearchFailedWorkflowFinish),
+    onAction(FailTopicAction)
+      .toFinish(ResearchFailedWorkflowFinish),
   ],
   executionLimits: { maxDepth: 4 },
 })
@@ -183,16 +184,18 @@ export class OutlineDepthRouter implements RouterHandler<OutlineDepthRouter> {
     onStart(OutlineWorkflowStart)
       .toRouter(OutlineDepthRouter)
       .onRoute(
-        toWorkflow(() => OutlineWorkflow).toOneOf([
-          toFinish(ResearchReportWorkflowFinish),
-          toFinish(ResearchFailedWorkflowFinish),
-        ]),
+        toWorkflow(() => OutlineWorkflow)
+          .toOneOf([
+            toFinish(ResearchReportWorkflowFinish),
+            toFinish(ResearchFailedWorkflowFinish),
+          ]),
       )
       .onRoute(
         toAgent(OutlineAgent)
           .onError(
             StepFailedError,
-            toAction(FailTopicAction).toFinish(ResearchFailedWorkflowFinish),
+            toAction(FailTopicAction)
+              .toFinish(ResearchFailedWorkflowFinish),
           )
           .toFinish(ResearchReportWorkflowFinish),
       ),

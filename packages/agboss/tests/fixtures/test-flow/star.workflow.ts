@@ -68,7 +68,11 @@ export function toolWorkflowOf(options: ToolWorkflowOptions): Class {
     modelProvider: TestModelProvider,
     version: "1.0.0",
     historyTtl: Ttl.Forever,
-    flow: [onStart(TestChat).toAgent(ToolAlpha).toFinish(TestAnswer)],
+    flow: [
+      onStart(TestChat)
+        .toAgent(ToolAlpha)
+        .toFinish(TestAnswer),
+    ],
     defaults: {
       tools: { maxToolCalls: 3 },
       router: { model: "typesafe/jev-test" },

@@ -1,8 +1,11 @@
-import { PauseExpiration,
+import {
+  PauseExpiration,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type DecideExpiration, ExternalTask } from "../../../index.js";
+  type DecideExpiration,
+  ExternalTask,
+} from "../../../index.js";
 import { Channel } from "../../../components/decorators.js";
 import { pauseKeyOf } from "../../../infrastructure/pause-record.js";
 import { ChannelOutcome } from "../../../channels/channel-outcome.js";
@@ -56,8 +59,7 @@ export class FaultPauseExternalTask {}
   ttl: days(1),
 })
 export class FaultPauseChannel {
-  constructor(private readonly faultPodLink: FaultPodLink) {
-  }
+  constructor(private readonly faultPodLink: FaultPodLink) {}
 
   send(ask: {
     readonly pauseId: string;

@@ -157,7 +157,6 @@ export abstract class ManagerChannelBase {
     expiry.closed.push(event);
     return Promise.resolve();
   }
-
 }
 
 @Channel({
@@ -390,8 +389,11 @@ export class SlowExpiryWorkflowStart {}
   flow: [
     onStart(SlowExpiryWorkflowStart)
       .toExternalTask(SlowManagerExternalTask)
-      .onError(PauseExpiredError, toAction(SlowEscalationAction)
-        .toFinish(ExpiryWorkflowFinish))
+      .onError(
+        PauseExpiredError,
+        toAction(SlowEscalationAction)
+          .toFinish(ExpiryWorkflowFinish),
+      )
       .toAction(RecordExpiryAction)
       .toFinish(ExpiryWorkflowFinish),
   ],

@@ -102,9 +102,11 @@ export class Illustrator {}
   name: "decision-judged-desk-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [onStart(TaskStart)
-    .toAgent(Writer)
-    .toFinish(Reply)],
+  flow: [
+    onStart(TaskStart)
+      .toAgent(Writer)
+      .toFinish(Reply),
+  ],
   defaults: DEFAULTS,
 })
 export class DecisionDesk {}
@@ -125,9 +127,11 @@ export class DecisionDeskApplication {}
   name: "image-judged-desk-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [onStart(TaskStart)
-    .toAgent(Illustrator)
-    .toFinish(Reply)],
+  flow: [
+    onStart(TaskStart)
+      .toAgent(Illustrator)
+      .toFinish(Reply),
+  ],
   defaults: DEFAULTS,
 })
 export class ImageDesk {}

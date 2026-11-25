@@ -126,7 +126,8 @@ const providers = [
       .join()
       .onError(
         PaymentDeclinedError,
-        toAction(PayoutDeclinedAction).toFinish(PayoutDeclinedWorkflowFinish),
+        toAction(PayoutDeclinedAction)
+          .toFinish(PayoutDeclinedWorkflowFinish),
       )
       .toAction(PayoutAction)
       .toFinish(PayoutWorkflowFinish),
@@ -157,7 +158,8 @@ export class PayoutsApplication {}
       .join()
       .onError(
         StepFailedError,
-        toAction(PayoutDeclinedAction).toFinish(PayoutDeclinedWorkflowFinish),
+        toAction(PayoutDeclinedAction)
+          .toFinish(PayoutDeclinedWorkflowFinish),
       )
       .toAction(PayoutAction)
       .toFinish(PayoutWorkflowFinish),

@@ -14,7 +14,8 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Tracked, Ttl,
+  type Tracked,
+  Ttl,
 } from "../../../src/index.js";
 import { OutboundMasking } from "../../../src/app/outbound-masking.js";
 import { hours, seconds } from "../../../src/units/index.js";

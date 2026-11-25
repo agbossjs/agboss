@@ -273,7 +273,11 @@ export class ReceiptWorkflowFinish {}
     tools: { maxToolCalls: 8 },
   },
   memory: Window1Memory,
-  flow: [onStart(OrderWorkflowStart).toAgent(Clerk).toFinish(ReceiptWorkflowFinish)],
+  flow: [
+    onStart(OrderWorkflowStart)
+      .toAgent(Clerk)
+      .toFinish(ReceiptWorkflowFinish),
+  ],
 })
 export class LeaseWorkflow {}
 

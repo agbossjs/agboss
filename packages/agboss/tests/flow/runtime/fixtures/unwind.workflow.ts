@@ -11,7 +11,8 @@ import {
   type CompensationEndEvent,
   type ExecutionCancelEvent,
   type ExecutionErrorEvent,
-  type Tracked, Ttl,
+  type Tracked,
+  Ttl,
 } from "../../../../src/index.js";
 import { Injectable } from "../../../../src/components/decorators.js";
 import { ExecutionCancelledError } from "../../../../src/core/errors.js";

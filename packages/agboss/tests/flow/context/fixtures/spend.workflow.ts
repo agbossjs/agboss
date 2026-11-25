@@ -137,7 +137,10 @@ export class SpendStart {}
 export class ShippedFinish {}
 
 const paths = [
-  onStart(SpendStart).toAgent(SearcherAgent).toAction(ShipAction).toFinish(ShippedFinish),
+  onStart(SpendStart)
+    .toAgent(SearcherAgent)
+    .toAction(ShipAction)
+    .toFinish(ShippedFinish),
 ];
 
 /** start → searcher (paid search) → ship (paid courier) → shipped; the test budgets ($100 an execution). */

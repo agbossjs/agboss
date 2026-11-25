@@ -457,7 +457,9 @@ export class ReleaseWorkflow {}
   historyTtl: Ttl.Forever,
   defaults: { models: { maxTokens: 100, temperature: 0 } },
   flow: [
-    onStart(AgentReleaseWorkflowStart).toAgent(ReleaseAgent).toFinish(AgentReleaseWorkflowFinish),
+    onStart(AgentReleaseWorkflowStart)
+      .toAgent(ReleaseAgent)
+      .toFinish(AgentReleaseWorkflowFinish),
   ],
   providers: [ArtifactLedger],
 })

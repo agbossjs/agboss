@@ -90,11 +90,17 @@ export class PublisherAgent {}
 export class StoryWorkflowFinish {}
 
 export const storyPaths = [
-  onStart(StoryWorkflowStart).toAgent(ResearcherAgent).toAgent(StoryWriterAgent),
+  onStart(StoryWorkflowStart)
+    .toAgent(ResearcherAgent)
+    .toAgent(StoryWriterAgent),
 
   onAgent(StoryWriterAgent)
     .toAgent(StoryReviewerAgent)
-    .toOneOf([toAgent(StoryWriterAgent), toAgent(PublisherAgent).toFinish(StoryWorkflowFinish)]),
+    .toOneOf([
+      toAgent(StoryWriterAgent),
+      toAgent(PublisherAgent)
+        .toFinish(StoryWorkflowFinish),
+    ]),
 ] as const;
 
 @Workflow({
@@ -173,7 +179,8 @@ export class CritiqueRouter {}
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: [
-    onStart(StoryWorkflowStart).toAgent(PolishAgent),
+    onStart(StoryWorkflowStart)
+      .toAgent(PolishAgent),
     onAgent(PolishAgent)
       .toAction(CritiqueAction)
       .toRouter(CritiqueRouter)

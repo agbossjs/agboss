@@ -199,7 +199,8 @@ export class ScreeningFailedWorkflowFinish {}
       .join()
       .onError(
         LimitExceededError,
-        toAction(NotifyOperatorAction).toFinish(ScreeningFailedWorkflowFinish),
+        toAction(NotifyOperatorAction)
+          .toFinish(ScreeningFailedWorkflowFinish),
       )
       .toAgent(RankerAgent)
       .toFinish(RankingWorkflowFinish),
@@ -385,8 +386,10 @@ export class HelpDeskWorkflowFinish {}
     onStart(HelpDeskWorkflowStart)
       .inParallel([
         toAgent(OrderLookupAgent),
-        toAgent(LoyaltyOfferAgent).onError(StepError, skip()),
-        toRouter(HelpDeskRouter).chooseMany([toAgent(RefundPolicyAgent)]),
+        toAgent(LoyaltyOfferAgent)
+          .onError(StepError, skip()),
+        toRouter(HelpDeskRouter)
+          .chooseMany([toAgent(RefundPolicyAgent)]),
       ])
       .join()
       .toAgent(AnswerAgent)
@@ -447,7 +450,8 @@ export class OffersWorkflowFinish {}
     onStart(OffersWorkflowStart)
       .inParallel([
         toAgent(RefundPolicyAgent),
-        toRouter(OffersRouter).chooseMany([toAgent(LoyaltyOfferAgent)]),
+        toRouter(OffersRouter)
+          .chooseMany([toAgent(LoyaltyOfferAgent)]),
       ])
       .join()
       .toAgent(OffersAnswerAgent)

@@ -98,7 +98,8 @@ export class Unused {}
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: [
-    onStart(TaskStart).toAgent(Coder),
+    onStart(TaskStart)
+      .toAgent(Coder),
     onAgent(Coder)
       .toAgent(Reviewer) // the review is about this code (#271)
       .toRouter(ReviewGate)

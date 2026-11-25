@@ -241,7 +241,8 @@ export class EscalateRefundAction implements ActionHandler<EscalateRefundAction>
       .toAgent(ExpiryRefundAgent)
       .onError(
         PauseExpiredError,
-        toAction(EscalateRefundAction).toFinish(AgentExpiryWorkflowFinish),
+        toAction(EscalateRefundAction)
+          .toFinish(AgentExpiryWorkflowFinish),
       )
       .toFinish(AgentExpiryWorkflowFinish),
   ],
@@ -261,7 +262,9 @@ export class AgentBareWorkflowStart {}
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: [
-    onStart(AgentBareWorkflowStart).toAgent(ExpiryRefundAgent).toFinish(AgentExpiryWorkflowFinish),
+    onStart(AgentBareWorkflowStart)
+      .toAgent(ExpiryRefundAgent)
+      .toFinish(AgentExpiryWorkflowFinish),
   ],
 })
 export class AgentBareWorkflow {}

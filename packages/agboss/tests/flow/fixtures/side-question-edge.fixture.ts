@@ -1,7 +1,10 @@
 import { Application } from "../../../src/application/application.js";
 import { type ChannelAsk } from "../../../src/channels/channel-handler.js";
 import { ChannelOutcome } from "../../../src/channels/channel-outcome.js";
-import { ChannelInterpretation, ChannelInterpreter } from "../../../src/channels/channel-interpreter.js";
+import {
+  ChannelInterpretation,
+  ChannelInterpreter,
+} from "../../../src/channels/channel-interpreter.js";
 import { Channel, Injectable } from "../../../src/components/decorators.js";
 import { EmptyEnvironment } from "../../../src/environments/empty.js";
 import { Action } from "../../../src/flow/decorators/action.js";
@@ -152,14 +155,24 @@ export class EdgeOnceExternalTask {}
 })
 export class EdgeTwiceExternalTask {}
 
-@Channel({ name: "edge-once-channel", description: "inbox", target: EdgeOnceExternalTask, ttl: days(1) })
+@Channel({
+  name: "edge-once-channel",
+  description: "inbox",
+  target: EdgeOnceExternalTask,
+  ttl: days(1),
+})
 export class EdgeOnceChannel {
   send(_ask: ChannelAsk<EdgeOnceExternalTask>): Promise<ChannelOutcome<EdgeOnceExternalTask>> {
     return Promise.resolve(ChannelOutcome.awaitReply());
   }
 }
 
-@Channel({ name: "edge-twice-channel", description: "inbox", target: EdgeTwiceExternalTask, ttl: days(1) })
+@Channel({
+  name: "edge-twice-channel",
+  description: "inbox",
+  target: EdgeTwiceExternalTask,
+  ttl: days(1),
+})
 export class EdgeTwiceChannel {
   send(_ask: ChannelAsk<EdgeTwiceExternalTask>): Promise<ChannelOutcome<EdgeTwiceExternalTask>> {
     return Promise.resolve(ChannelOutcome.awaitReply());

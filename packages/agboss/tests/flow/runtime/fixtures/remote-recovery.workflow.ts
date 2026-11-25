@@ -104,7 +104,8 @@ export class RemoteHoldItemsWorkflowStart {}
       .join()
       .onError(
         ChildExecutionFailedError,
-        toAction(ChecksFailedAction).toFinish(ChecksFailedWorkflowFinish),
+        toAction(ChecksFailedAction)
+          .toFinish(ChecksFailedWorkflowFinish),
       )
       .toAction(SummaryAction)
       .toFinish(SummaryWorkflowFinish),

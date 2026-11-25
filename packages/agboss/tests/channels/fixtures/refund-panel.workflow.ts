@@ -92,7 +92,9 @@ interface RefundScoresInput {
 }
 
 const scoresOf = (input: RefundScoresInput): BatchSummaryDto => ({
-  text: input.scores.map((score) => String(score.score)).join(", "),
+  text: input.scores
+    .map((score) => String(score.score))
+    .join(", "),
 });
 
 @Action({
@@ -165,12 +167,14 @@ export class RefundGroupsWorkflowStart {}
       .onGroup(
         [PolicyAgent],
         { priority: 1 },
-        toAction(RefundDecidedAction).toFinish(RefundDecidedWorkflowFinish),
+        toAction(RefundDecidedAction)
+          .toFinish(RefundDecidedWorkflowFinish),
       )
       .onGroup(
         [RiskAgent],
         { priority: 2 },
-        toAction(RefundEscalatedAction).toFinish(RefundEscalatedWorkflowFinish),
+        toAction(RefundEscalatedAction)
+          .toFinish(RefundEscalatedWorkflowFinish),
       ),
   ],
 })

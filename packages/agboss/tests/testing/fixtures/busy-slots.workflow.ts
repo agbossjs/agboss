@@ -52,7 +52,11 @@ export class ChunkWorkflowFinish {}
   name: "chunk-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [onStart(ChunkWorkflowStart).toAgent(ChunkWorkerAgent).toFinish(ChunkWorkflowFinish)],
+  flow: [
+    onStart(ChunkWorkflowStart)
+      .toAgent(ChunkWorkerAgent)
+      .toFinish(ChunkWorkflowFinish),
+  ],
 })
 export class ChunkWorkflow {}
 

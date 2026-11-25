@@ -81,7 +81,17 @@ const setup = (options: { paused?: boolean; compacted?: unknown; pause?: boolean
     compacted: options.compacted,
   };
   vi.mocked(isWaiting).mockResolvedValue(options.paused === true);
-  return { ctx: ctx as never, raw: ctx, append, complete, completeUnlessInterrupted, recorded, pauses, checkpointer, graph };
+  return {
+    ctx: ctx as never,
+    raw: ctx,
+    append,
+    complete,
+    completeUnlessInterrupted,
+    recorded,
+    pauses,
+    checkpointer,
+    graph,
+  };
 };
 
 beforeEach(() => {

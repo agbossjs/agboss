@@ -10,7 +10,8 @@ import {
   WorkflowStart,
   type ExecutionEndEvent,
   type ExecutionErrorEvent,
-  type Tracked, Ttl,
+  type Tracked,
+  Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import type { Class } from "../../../src/components/injection.js";

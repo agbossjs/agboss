@@ -6,7 +6,8 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  inline, Ttl,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
 import { onStart, toAction } from "../../helpers/flow.js";
 import {

@@ -6,7 +6,8 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  inline, Ttl,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { Application } from "../../../src/application/application.js";

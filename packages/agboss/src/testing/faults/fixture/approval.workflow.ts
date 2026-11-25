@@ -1,4 +1,11 @@
-import { Workflow, WorkflowFinish, WorkflowStart, Action, type Tracked, ExternalTask } from "../../../index.js";
+import {
+  Workflow,
+  WorkflowFinish,
+  WorkflowStart,
+  Action,
+  type Tracked,
+  ExternalTask,
+} from "../../../index.js";
 import { Channel } from "../../../components/decorators.js";
 import { ChannelOutcome } from "../../../channels/channel-outcome.js";
 import type { Class } from "../../../components/injection.js";
@@ -75,7 +82,12 @@ export class FaultApprovedAction {
 export class FaultApprovalExternalTask {}
 
 /** The caller answers over A2A: the question waits for its follow-up. */
-@Channel({ name: "fault-caller-channel", description: "The A2A task's caller", target: FaultApprovalExternalTask, ttl: days(1) })
+@Channel({
+  name: "fault-caller-channel",
+  description: "The A2A task's caller",
+  target: FaultApprovalExternalTask,
+  ttl: days(1),
+})
 export class FaultCallerChannel {
   send(): Promise<ChannelOutcome<FaultApprovalExternalTask>> {
     return Promise.resolve(ChannelOutcome.awaitReply());

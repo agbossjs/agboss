@@ -277,7 +277,10 @@ export class MortalExecutionLeaseRepository extends InMemoryExecutionLeaseReposi
 @Injectable({ deps: [IN_MEMORY_DATABASE] })
 export class StampedExecutionRecordRepository extends TurnStoreRecordRepository {
   constructor(database: InMemoryDatabase) {
-    super(createSqliteTurnStore(":memory:", () => new Date()), inMemoryInterruptedOf(database));
+    super(
+      createSqliteTurnStore(":memory:", () => new Date()),
+      inMemoryInterruptedOf(database),
+    );
     stores.records ??= this;
   }
 
@@ -309,7 +312,11 @@ export class ReceiptWorkflowFinish {}
     tools: { maxToolCalls: 8 },
   },
   memory: Window1Memory,
-  flow: [onStart(OrderWorkflowStart).toAgent(Clerk).toFinish(ReceiptWorkflowFinish)],
+  flow: [
+    onStart(OrderWorkflowStart)
+      .toAgent(Clerk)
+      .toFinish(ReceiptWorkflowFinish),
+  ],
 })
 export class RecoveryWorkflow {}
 

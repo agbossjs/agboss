@@ -52,7 +52,8 @@ export class RemoteCountdownWorkflowStart {}
         toWorkflow(() => RemoteCountdownWorkflow)
           .onError(
             LimitExceededError,
-            toAction(DepthStoppedAction).toFinish(CountStoppedWorkflowFinish),
+            toAction(DepthStoppedAction)
+              .toFinish(CountStoppedWorkflowFinish),
           )
           .toOneOf([toFinish(CountDoneWorkflowFinish), toFinish(CountStoppedWorkflowFinish)]),
         toFinish(CountDoneWorkflowFinish),
@@ -92,8 +93,14 @@ export class RemoteDeeperRouter {
   flow: [
     onStart(RemoteChainWorkflowStart)
       .toRouter(RemoteDeeperRouter)
-      .onRoute(toWorkflow(() => RemoteChainWorkflow).toFinish(ChainDoneWorkflowFinish))
-      .onRoute(toAgent(LinkAgent).toFinish(ChainDoneWorkflowFinish)),
+      .onRoute(
+        toWorkflow(() => RemoteChainWorkflow)
+          .toFinish(ChainDoneWorkflowFinish),
+      )
+      .onRoute(
+        toAgent(LinkAgent)
+          .toFinish(ChainDoneWorkflowFinish),
+      ),
   ],
   executionLimits: { maxDepth: 2 },
 })

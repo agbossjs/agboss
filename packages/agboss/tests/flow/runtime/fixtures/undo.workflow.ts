@@ -10,7 +10,8 @@ import {
   WorkflowStart,
   type CompensationEndEvent,
   type CompensationStartEvent,
-  type Tracked, Ttl,
+  type Tracked,
+  Ttl,
 } from "../../../../src/index.js";
 import { Injectable } from "../../../../src/components/decorators.js";
 import { Application } from "../../../../src/application/application.js";

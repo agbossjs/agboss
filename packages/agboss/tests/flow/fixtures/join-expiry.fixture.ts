@@ -297,7 +297,8 @@ export class EscalateToCeoAction implements ActionHandler<EscalateToCeoAction> {
       .join()
       .onError(
         PauseExpiredError,
-        toAction(EscalateToCeoAction).toFinish(JoinExpiryEscalatedWorkflowFinish),
+        toAction(EscalateToCeoAction)
+          .toFinish(JoinExpiryEscalatedWorkflowFinish),
       )
       .toFinish(JoinExpiryApprovedWorkflowFinish),
   ],

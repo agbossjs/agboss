@@ -3,7 +3,8 @@ import {
   EmptyEnvironment,
   ExecutionContext,
   Workflow,
-  type Tracked, Ttl,
+  type Tracked,
+  Ttl,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";

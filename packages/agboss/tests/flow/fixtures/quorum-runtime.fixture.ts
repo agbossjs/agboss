@@ -239,7 +239,8 @@ export class RecoveryPanelWorkflow {}
       .onGroup(
         [LegalPanelAgent, CriticPanelAgent],
         { priority: 1 },
-        toAgent(DealReportPanelAgent).toFinish(DealReportPanelWorkflowFinish),
+        toAgent(DealReportPanelAgent)
+          .toFinish(DealReportPanelWorkflowFinish),
       )
       .onGroup([CriticPanelAgent], { priority: 2 }, toFinish(SecondOpinionPanelWorkflowFinish))
       .onGroup([FastPanelAgent], { priority: 3 }, toFinish(QuickRejectPanelWorkflowFinish)),

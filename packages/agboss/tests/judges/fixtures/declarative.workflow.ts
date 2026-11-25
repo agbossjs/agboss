@@ -89,7 +89,11 @@ export class DeclaredFinish {}
   name: "declared-desk-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [onStart(DeclaredStart).toAgent(DeclaredWriter).toFinish(DeclaredFinish)],
+  flow: [
+    onStart(DeclaredStart)
+      .toAgent(DeclaredWriter)
+      .toFinish(DeclaredFinish),
+  ],
   defaults: DEFAULTS,
 })
 export class DeclaredDesk {}
@@ -98,7 +102,11 @@ export class DeclaredDesk {}
   name: "two-judges-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [onStart(DeclaredStart).toAgent(TwoJudgesWriter).toFinish(DeclaredFinish)],
+  flow: [
+    onStart(DeclaredStart)
+      .toAgent(TwoJudgesWriter)
+      .toFinish(DeclaredFinish),
+  ],
   defaults: DEFAULTS,
 })
 export class TwoJudgesDesk {}

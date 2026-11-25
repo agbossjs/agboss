@@ -93,7 +93,9 @@ interface ScoresInput {
 const record = (input: ScoresInput): RefundDoneDto => {
   qe.finished.push(input.scores.map((score) => String(score.score)));
   return {
-    orderId: input.scores.map((score) => String(score.score)).join(","),
+    orderId: input.scores
+      .map((score) => String(score.score))
+      .join(","),
   };
 };
 
@@ -330,12 +332,14 @@ export class QuorumExpiryGroupsWorkflowStart {}
       .onGroup(
         [PolicyAgent, RiskAgent, FraudAgent],
         { priority: 1 },
-        toAction(QuorumExpiryAction).toFinish(QuorumExpiryWorkflowFinish),
+        toAction(QuorumExpiryAction)
+          .toFinish(QuorumExpiryWorkflowFinish),
       )
       .onGroup(
         [QuickScoreAgent],
         { priority: 2 },
-        toAction(QuorumExpirySecondAction).toFinish(QuorumExpirySecondWorkflowFinish),
+        toAction(QuorumExpirySecondAction)
+          .toFinish(QuorumExpirySecondWorkflowFinish),
       ),
   ],
 })
@@ -421,8 +425,10 @@ export class SkipExpiryWorkflowStart {}
   flow: [
     onStart(SkipExpiryWorkflowStart)
       .inParallel([
-        toAgent(ShortPolicyAgent).onError(StepError, skip()),
-        toRouter(SkipPanelRouter).chooseMany([toAgent(ShortRiskAgent)]),
+        toAgent(ShortPolicyAgent)
+          .onError(StepError, skip()),
+        toRouter(SkipPanelRouter)
+          .chooseMany([toAgent(ShortRiskAgent)]),
       ])
       .join()
       .toAction(QuorumExpiryAction)
