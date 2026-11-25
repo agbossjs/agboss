@@ -1,4 +1,3 @@
-import { LimitError } from "@agboss/core";
 import { describe, expect, it } from "vitest";
 import { replyWith, testWith } from "@agboss/core/testing";
 import { NotifyRecruiterAction } from "../../../../src/offer/actions/notify-recruiter.action.js";

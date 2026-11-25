@@ -1,4 +1,3 @@
-import { StepError } from "@agboss/core";
 import { describe, expect } from "vitest";
 import {
   failWith,
