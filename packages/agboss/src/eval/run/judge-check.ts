@@ -16,6 +16,7 @@ import { plainOutputClassOf } from "../../flow/finish-output.js";
 import { isJudgedBy, judgedShapeOf } from "../../flow/analyse/rules/text-agents.js";
 import { runInFrame } from "../../flow/context/frame.js";
 import type { ToolCallRecord } from "../../flow/runtime/tool-calls.js";
+import { modelReadingMaskOf } from "../../pii/model-boundary.js";
 import { meteredModel } from "../../graph/agent-loop/judge-model.js";
 import { DEFAULT_MODEL_ALIAS } from "../../models/model-cascade.js";
 import { modelProviderOf } from "../../models/model-provider.decorator.js";
@@ -122,7 +123,12 @@ export async function runJudgeCheck(
   const binding = bindingOf(deps, meta, suiteProvider);
   // a judge's calls are the yardstick's, not the candidate's: recorded as `judgeUsd`, never billed
   // to the application's budgets (#1328)
-  const model = meteredModel({ name: meta.name, binding }, spent);
+  // its model reads as a workflow's own models read (#1328): through the application's PII policies
+  const model = meteredModel(
+    { name: meta.name, binding },
+    spent,
+    modelReadingMaskOf(deps.pii?.workflowPolicies),
+  );
   const handler = deps.container.get(judge) as RunnableJudge;
   const declared = await loadedCriterionOf(meta);
   const input: AnyJudgeInput = {

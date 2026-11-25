@@ -83,6 +83,19 @@ export interface FinalOutputDeps {
 export const storedOutputOf = (deps: FinalOutputDeps, finish: string, output: unknown): unknown =>
   maskedFinishOutput(deps.graph, finish, output, storedFieldMask(deps.pii));
 
+/**
+ * The output an eval's judge reads (#1301, #1328): the stored one, then the observability policies
+ * over it — a DTO's class kept, for a code judge. The judge's model reads it masked again.
+ */
+export async function storedJudgedOutput(
+  deps: FinalOutputDeps,
+  finish: string | undefined,
+  output: unknown,
+): Promise<unknown> {
+  const stored = finish === undefined ? output : storedOutputOf(deps, finish, output);
+  return deps.pii === undefined ? stored : deps.pii.observability.value(stored);
+}
+
 /** One declared value of a start's input (a DTO, a list of them, or an optional one) as it is stored. */
 function maskedShape(shape: ValueShape, value: unknown, mask: FieldMask): unknown {
   if (typeof shape === "function") return maskedDtoValue(shape, value, mask, FileDto);
