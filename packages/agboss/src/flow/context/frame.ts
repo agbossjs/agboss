@@ -1,11 +1,8 @@
 import type { HandledErrorRecord } from "../runtime/child-records.js";
 import type { ExecutionCancelFencedError } from "../../app/lease-lost.js";
 import type { InterruptReason } from "../../app/interrupt-types.js";
-import {
-  interruptCleanups,
-  interruptReasonOf,
-  type InterruptCleanups,
-} from "./interrupt-cleanup.js";
+import { interruptCleanups, type InterruptCleanups } from "./interrupt-cleanup.js";
+import { interruptedOf, withReport } from "./frame-interrupt.js";
 import type { InterruptFenced } from "../../app/lease-stopped.js";
 import type { StoreOutcomeUnknownError } from "../../infrastructure/store-call-timeout.js";
 import type { FingerprintKeys } from "../../infrastructure/fenced-effect-key.js";
@@ -245,8 +242,6 @@ export interface Frame extends FrameSpec {
 
 const storage = new AsyncLocalStorage<Frame>();
 
-const noReport = (): undefined => undefined;
-
 // an error made inside a step carries its `Span trace` (#1325c)
 registerSpanTraceSource(() => {
   const frame = storage.getStore();
@@ -266,28 +261,7 @@ export async function runInFrame<TResult>(
   const services = spec.services ?? {};
   const frame: Frame = { ...spec, services, isClosed: () => closed, interrupts };
   const { signal } = spec.execution;
-  // the cleanups run before the frame closes — so `executionContext` still reads inside them — and
-  // before the lease is released or an undo starts: awaited, newest first (#1341b)
-  const interrupted = async (error?: unknown): Promise<void> => {
-    const reason = interruptReasonOf(error, signal);
-    if (reason === undefined) return;
-    const report = services.interruptCleanupFailed ?? noReport;
-    const { interruptBound: bound } = services;
-    if (bound === undefined) return interrupts.run(reason, report);
-    // bounded: the cleanups and the bound's timer race; the one that lost is stopped
-    const over = new AbortController();
-    const ran = interrupts.run(reason, report, over.signal).then(() => "ran" as const);
-    const timer = bound.sleep(bound.timeout, over.signal).then(() => "timed-out" as const);
-    const first = await Promise.race([ran, timer]);
-    if (first === "ran") {
-      over.abort();
-      return;
-    }
-    over.abort();
-    await Promise.resolve(
-      report(reason, new Error("the onInterrupted cleanups did not finish within shutdownTimeout")),
-    ).catch(noReport);
-  };
+  const interrupted = interruptedOf(interrupts, services, signal);
   return storage.run(frame, async () => {
     try {
       const result = await work();
@@ -344,18 +318,6 @@ export function inToolCallFrame<TResult>(
     ? work()
     : runInFrame(toolCallFrameOf(step, callId, withReport(step.services, services), signal), work);
 }
-
-/** A tool call's services, told of an `onInterrupted` cleanup failing as its step is, and bound as it is (#1341b). */
-const withReport = (parent: FrameServices, own: FrameServices): FrameServices => ({
-  ...own,
-  ...(own.interruptCleanupFailed === undefined && parent.interruptCleanupFailed !== undefined
-    ? { interruptCleanupFailed: parent.interruptCleanupFailed }
-    : {}),
-  // its cleanups are bounded like the step's own (`shutdownTimeout`)
-  ...(own.interruptBound === undefined && parent.interruptBound !== undefined
-    ? { interruptBound: parent.interruptBound }
-    : {}),
-});
 
 /** Where an agent's loop is (#268 S93): its model call in the visit, the failed validations so far. */
 export interface LoopProgress {

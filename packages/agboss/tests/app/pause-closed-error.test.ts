@@ -4,7 +4,7 @@
  * reply's interpreter is asked.
  */
 import { beforeEach, describe, expect } from "vitest";
-import { cancelledRecordOutcome, CANCELLED_STOP_REASON } from "../../src/app/live-runs.js";
+import { cancelledRecordOutcome, CANCELLED_STOP_REASON } from "../../src/app/cancelled-run.js";
 import { DEFAULT_TENANT_ID } from "../../src/flow/context/tenant-context.js";
 import { pauseKeyOf } from "../../src/infrastructure/pause-record.js";
 import { PauseClosedError, PauseClosedReason, UnknownPauseError } from "../../src/index.js";

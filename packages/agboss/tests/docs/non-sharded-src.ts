@@ -955,6 +955,10 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/flow/context/interrupt-cleanup.ts"],
   ),
   ...reviewed(
+    "the frame's run of the `onInterrupted` cleanups and a tool call's services, moved out of `frame.ts` as they were for its size bound (#1341b): the cleanups race their `shutdownTimeout` bound as before; covered by tests/app/stop.test.ts, not a money or lease path",
+    ["src/flow/context/frame-interrupt.ts"],
+  ),
+  ...reviewed(
     "the abstract contract of the record store, moved out of `execution-record.repository.ts` (#1341d) with its docs; what implements it is reviewed beside it (the same reason)",
     ["src/infrastructure/execution-record-contract.ts"],
   ),

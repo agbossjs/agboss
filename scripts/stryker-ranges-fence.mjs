@@ -80,6 +80,8 @@ export function cancelRunsShard() {
     configFile: "vitest.mutation-cancel-x-runs.config.ts",
     mutate: [
       "src/app/live-runs.ts",
+      "src/app/live-run-index.ts",
+      "src/app/cancelled-run.ts",
       "src/a2a/client/a2a-waiter.ts",
       "src/flow/runtime/launch/branch-end.ts",
     ],

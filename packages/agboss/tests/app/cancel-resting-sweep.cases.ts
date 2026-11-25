@@ -9,7 +9,7 @@ import type { TestAPI } from "vitest";
 import { expect, vi } from "vitest";
 import { ExecutionCancelledError } from "../../src/core/errors.js";
 import { ExecutionStatus } from "../../src/app/types.js";
-import { CANCELLED_STOP_REASON } from "../../src/app/live-runs.js";
+import { CANCELLED_STOP_REASON } from "../../src/app/cancelled-run.js";
 import {
   markUnwinding,
   unwindingMarkOf,

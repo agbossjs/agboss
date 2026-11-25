@@ -45,6 +45,8 @@ vi.mock("../../src/app/cancel-requests.js", () => ({
   endIfCancelled: mocks.endIfCancelled,
   endedAtTake: mocks.endedAtTake,
   endIfCancelledAtRest: mocks.endIfCancelledAtRest,
+}));
+vi.mock("../../src/app/cancel-watch.js", () => ({
   cancelWatchOf: () => ({ check: () => Promise.resolve() }),
   watchedBy: () => undefined,
 }));

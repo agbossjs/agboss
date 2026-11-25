@@ -4,7 +4,7 @@ import { ExecutionRecordStatus } from "../infrastructure/execution-record.reposi
 import { runningOutcome } from "../run/execute.js";
 import type { Turn, TurnOutcome } from "../turns/index.js";
 import type { AppDeps } from "./app-deps.js";
-import { cancelledRecordOutcome } from "./live-runs.js";
+import { cancelledRecordOutcome } from "./cancelled-run.js";
 import { isStop, reasonOfError, STOPPED_STOP_REASON } from "./interrupt-requests.js";
 import { executionEventAt } from "./run-events.js";
 import { forgetTree } from "./tree-ends.js";

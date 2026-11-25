@@ -36,24 +36,19 @@ function listedClassesIn(options: ApplicationOptions): readonly Class[] {
 const channelClassesOf = (options: ApplicationOptions): readonly Class[] =>
   listedClassesIn(options).filter((cls) => componentOf(cls)?.kind === "channel");
 
-/** A shelf name is a channel of the application, and a `ttl` is given only to a channel bound to a pause target. */
+/** A shelf name is a channel of the application (every `@Channel` is bound to a target, so it may carry a `ttl`). */
 export function checkChannels(folded: FoldedConfig, options: ApplicationOptions): void {
   const profiles = folded.profiles.join(",");
   const metas = channelClassesOf(options).flatMap((cls) => {
     const component = componentOf(cls);
     return component?.kind === "channel" ? [component.meta] : [];
   });
-  for (const [name, overlay] of Object.entries(folded.channels)) {
+  for (const name of Object.keys(folded.channels)) {
     const meta = metas.find((one) => one.name === name);
     if (meta === undefined)
       throw failure(
         ProfileErrorReason.Unknown,
         `profile ${profiles}: channels.${name}: no such @Channel in the application — it has: ${metas.map((one) => one.name).join(", ") || "none"}`,
-      );
-    if (overlay.ttl !== undefined && meta.target === undefined)
-      throw failure(
-        ProfileErrorReason.Invalid,
-        `profile ${profiles}: channels.${name}.ttl: ${name} is bound to no pause target, so it keeps no closed pause — only a @Channel({ target }) has a ttl`,
       );
   }
 }

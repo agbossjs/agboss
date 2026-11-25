@@ -87,11 +87,11 @@ describe("the fileTranscribers and fileMaskers shelves", () => {
 
     const patched = withFileModels(config as never, overrides);
 
-    expect(patched.agents?.["reads-agent"]?.files).toMatchObject({
+    expect(patched.agents["reads-agent"]?.files).toMatchObject({
       transcriptionModel: "local/t",
       redactionModel: "local/r",
     });
-    expect(patched.agents?.["plain-agent"]?.files?.transcriptionModel).toBe("local/llama");
+    expect(patched.agents["plain-agent"]?.files?.transcriptionModel).toBe("local/llama");
     expect([...overrides.reached].sort()).toEqual([
       "fileMaskers.reads-agent",
       "fileTranscribers.reads-agent",

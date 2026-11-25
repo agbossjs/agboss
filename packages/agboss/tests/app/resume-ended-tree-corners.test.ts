@@ -8,7 +8,7 @@
  * - C3, an ordinary resume on the other instance: finished, one charge, the record answered.
  */
 import { beforeEach, describe, expect } from "vitest";
-import { cancelledRecordOutcome } from "../../src/app/live-runs.js";
+import { cancelledRecordOutcome } from "../../src/app/cancelled-run.js";
 import { DEFAULT_TENANT_ID } from "../../src/flow/context/tenant-context.js";
 import {
   ExecutionStatus,

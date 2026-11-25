@@ -111,6 +111,27 @@ function remembering(testApp: TestApp, readyApp: () => AnyTenantApp, gate: Lease
   return testApp;
 }
 
+/** The pause and stop controls of a test app: the built application's own, under the app's checks. */
+function controlsOf(
+  environment: TestEnvironment,
+  built: () => Promise<BuiltApplication>,
+): Pick<TestApp, "extendPause" | "reassignPause" | "cancel" | "stop" | "pause" | "unpause"> {
+  return {
+    extendPause: (request, options) =>
+      checked(environment, async () => (await built()).app.extendPause(request, options)),
+    reassignPause: (request, options) =>
+      checked(environment, async () => (await built()).app.reassignPause(request, options)),
+    cancel: (thread, options) =>
+      checked(environment, async () => (await built()).app.cancel(thread, options)),
+    stop: (thread, options) =>
+      checked(environment, async () => (await built()).app.stop(thread, options)),
+    pause: (thread, options) =>
+      checked(environment, async () => (await built()).app.pause(thread, options)),
+    unpause: (thread, options) =>
+      checked(environment, async () => (await built()).app.unpause(thread, options)),
+  };
+}
+
 export function createTestApp(environment: TestEnvironment): TestApp {
   const gate = new LeaseGate();
   let building: Promise<BuiltApplication> | undefined;
@@ -138,18 +159,7 @@ export function createTestApp(environment: TestEnvironment): TestApp {
     clock: environment.clock,
     settings: settingsOf(environment),
     ...runsOf(environment, built),
-    extendPause: (request, options) =>
-      checked(environment, async () => (await built()).app.extendPause(request, options)),
-    reassignPause: (request, options) =>
-      checked(environment, async () => (await built()).app.reassignPause(request, options)),
-    cancel: (thread, options) =>
-      checked(environment, async () => (await built()).app.cancel(thread, options)),
-    stop: (thread, options) =>
-      checked(environment, async () => (await built()).app.stop(thread, options)),
-    pause: (thread, options) =>
-      checked(environment, async () => (await built()).app.pause(thread, options)),
-    unpause: (thread, options) =>
-      checked(environment, async () => (await built()).app.unpause(thread, options)),
+    ...controlsOf(environment, built),
     ...probesOf(environment, probed),
     ready: () =>
       checked(environment, async () => {

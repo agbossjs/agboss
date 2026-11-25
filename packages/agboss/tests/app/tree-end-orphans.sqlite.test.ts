@@ -8,7 +8,7 @@
  * application's root are skipped.
  */
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { cancelledRecordOutcome, CANCELLED_STOP_REASON } from "../../src/app/live-runs.js";
+import { cancelledRecordOutcome, CANCELLED_STOP_REASON } from "../../src/app/cancelled-run.js";
 import { DEFAULT_TENANT_ID } from "../../src/flow/context/tenant-context.js";
 import {
   ExecutionLeaseRepository,

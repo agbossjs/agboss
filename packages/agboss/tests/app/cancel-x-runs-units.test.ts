@@ -8,16 +8,13 @@ import { getEventListeners } from "node:events";
 import { describe, expect, it, vi } from "vitest";
 import { ApplicationStoppingError, ExecutionCancelledError } from "../../src/core/errors.js";
 import {
-  abortAll,
-  counted,
-  entered,
-  CANCELLED_STOP_REASON,
   cancelledErrorOf,
   cancelledOutcome,
   cancelledRecordOutcome,
-  LiveRuns,
-  runOptionsOf,
-} from "../../src/app/live-runs.js";
+  CANCELLED_STOP_REASON,
+} from "../../src/app/cancelled-run.js";
+import { abortAll, counted, entered } from "../../src/app/live-run-index.js";
+import { LiveRuns, runOptionsOf } from "../../src/app/live-runs.js";
 
 const THREAD = { tenantId: "acme", threadId: "thread-1" };
 const TREE = { tenantId: "acme", rootExecutionId: "root-1" };

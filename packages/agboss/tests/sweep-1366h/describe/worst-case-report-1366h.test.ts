@@ -31,7 +31,7 @@ const childOf = (
   worst: WorstCase,
   more: Partial<WorstCaseChild> & { readonly count?: number } = {},
 ): WorstCaseChild => ({
-  from: "launcher" as never,
+  from: "launcher",
   count: 1,
   atOnce: 1,
   isRecursive: false,

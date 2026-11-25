@@ -31,7 +31,7 @@ export async function pauseThread(
   threadId: string,
   options: PauseExecutionOptions,
 ): Promise<PauseOutput> {
-  const { live, deps, leases } = parts;
+  const { live, leases } = parts;
   const thread = { tenantId: options.tenantId ?? DEFAULT_TENANT_ID, threadId };
   await parts.admit({ operation: ExecutionOperation.Pause, ...thread }, () => {
     checkedTenantId(thread.tenantId);
@@ -42,7 +42,7 @@ export async function pauseThread(
   });
   const mode = options.mode ?? InterruptMode.AfterStep;
   const request = { mode, ...(options.reason === undefined ? {} : { reason: options.reason }) };
-  const mark = async (tree: ExecutionTree, status: ThreadStatus): Promise<void> => {
+  const mark: Mark = async (tree, status) => {
     await assertNotEnding(leases, tree, threadId);
     const transition = pauseTransitionOf(thread, status, options);
     await leases.requestPause(tree, request, transition);
@@ -54,9 +54,22 @@ export async function pauseThread(
     await requestChecksOf(live).checked(thread);
     return { state: PauseRequestState.Pausing };
   }
-  // one that is not moved here: a running root belongs to a holder elsewhere, a resting one is frozen now
-  const records = await deps.turns.lastTurns(thread.tenantId, threadId, 20);
-  const own = records.filter((record) => record.workflow === deps.config.name);
+  return { state: await storedRootsMarked(parts, thread, mark) };
+}
+
+type Mark = (tree: ExecutionTree, status: ThreadStatus) => Promise<void>;
+
+/**
+ * The roots of the thread that are not moved on this instance: a running root belongs to a holder
+ * elsewhere (marked for its next renewal), a resting one is frozen now. What the thread is, after.
+ */
+async function storedRootsMarked(
+  parts: CancelThreadParts,
+  thread: { readonly tenantId: string; readonly threadId: string },
+  mark: Mark,
+): Promise<PauseRequestState> {
+  const records = await parts.deps.turns.lastTurns(thread.tenantId, thread.threadId, 20);
+  const own = records.filter((record) => record.workflow === parts.deps.config.name);
   let state: PauseRequestState = PauseRequestState.NotRunning;
   for (const record of own) {
     if (record.runId === null) continue;
@@ -71,7 +84,7 @@ export async function pauseThread(
       if (state !== PauseRequestState.Pausing) state = PauseRequestState.Paused;
     }
   }
-  return { state };
+  return state;
 }
 
 /** A tree with a cancel or stop request is ending: `Cancel > Stop > Pause`, a pause is refused. */

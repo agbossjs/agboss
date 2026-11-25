@@ -126,7 +126,7 @@ export function recoveryShard() {
       "src/app/answered-wake.ts",
       "src/app/ended-tree.ts",
       "src/app/tree-ends.ts",
-      "src/app/{tree-moves,lost-attempt,unstarted-run}.ts",
+      "src/app/{tree-moves,tree-drain,lost-attempt,unstarted-run}.ts",
     ],
   };
 }

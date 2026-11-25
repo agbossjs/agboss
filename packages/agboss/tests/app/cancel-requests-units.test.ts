@@ -6,16 +6,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   CANCEL_REQUEST_KEY,
-  cancelWatchOf,
   endCancelled,
   endedAtTake,
   endIfCancelled,
   endIfCancelledAtRest,
   isCancelRequested,
   isEndedAtTakeover,
-  watchedBy,
   writeCancelRequest,
 } from "../../src/app/cancel-requests.js";
+import { cancelWatchOf, watchedBy } from "../../src/app/cancel-watch.js";
 import { remoteCancel } from "../../src/app/cancel-remote.js";
 import { WITHOUT_RECOVERY_KEY } from "../../src/app/tree-ends.js";
 import { ExecutionStatus } from "../../src/app/types.js";

@@ -113,7 +113,7 @@ export async function unpausedMove(
     const isBusiness = (await paused.find(state))?.run.runId === state.runId;
     if (isBusiness) return await liftedAtRest(parts, hooks, { state, call, command, lease });
     // parked at a step boundary, or left `running` by a holder that died before it parked
-    if (record.status === ExecutionRecordStatus.Paused) {
+    if (record.status === "paused") {
       const outcome = runningOutcome(record.route, record.costUsd);
       const context = liftOf(state, ThreadStatus.Running, command);
       await deps.turns.completeIfStatus(record.id, ExecutionRecordStatus.Paused, outcome, context);

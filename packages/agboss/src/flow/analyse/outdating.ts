@@ -87,6 +87,23 @@ function liveSources(scope: Map<SlotKey, SlotState>, written: ReadonlySet<SlotKe
   }
 }
 
+/** The twins of a written slot (#1288b) — the slices of a polymorphic list, the lists a slice is part of — are outdated by it. */
+function outdateTwins(
+  next: Map<SlotKey, SlotState>,
+  written: ReadonlySet<SlotKey>,
+  out: { readonly causes: Map<SlotKey, SlotKey>; readonly queue: SlotKey[] },
+): void {
+  for (const slot of written) {
+    for (const twin of twinSlotsOf(slot, next.keys())) {
+      const state = next.get(twin);
+      if (written.has(twin) || state?.status !== SlotStatus.Current) continue;
+      next.set(twin, outdated(state));
+      out.causes.set(twin, slot);
+      out.queue.push(twin);
+    }
+  }
+}
+
 /** The cascade of one write: `after` holds the new values in `written`; `before` the older ones. */
 export function outdate(
   before: AbstractScope,
@@ -97,16 +114,7 @@ export function outdate(
   const next = new Map(after);
   const causes = new Map<SlotKey, SlotKey>();
   const queue = [...replaced];
-  // the twins of a written slot (#1288b): the slices of a polymorphic list, the lists a slice is part of
-  for (const slot of written) {
-    for (const twin of twinSlotsOf(slot, next.keys())) {
-      const state = next.get(twin);
-      if (written.has(twin) || state?.status !== SlotStatus.Current) continue;
-      next.set(twin, outdated(state));
-      causes.set(twin, slot);
-      queue.push(twin);
-    }
-  }
+  outdateTwins(next, written, { causes, queue });
   for (let cause = queue.shift(); cause !== undefined; cause = queue.shift()) {
     for (const [slot, state] of next) {
       if (written.has(slot) || state.status !== SlotStatus.Current) continue;

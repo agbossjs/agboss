@@ -12,26 +12,20 @@ import type { InterruptedRun } from "../run/continue-agent.js";
 import type { TreeResume } from "../run/resume-map.js";
 import { currentOutputOf, refusedIfFailed } from "./current-output.js";
 import { endedAtTakeOf } from "./take-end.js";
-import { isHandedOver } from "./handed-over.js";
-import { forgetTree, markedIfWithoutRecovery, passEnded, treeOf } from "./tree-ends.js";
+import { markedIfWithoutRecovery, treeOf } from "./tree-ends.js";
 import type { RecordedAnswer } from "./resume.js";
 import { announceResume, callWithLostPasses } from "./tree-resume.js";
 import { expiredMove } from "./tree-expiry.js";
-import { withPauseAnswers } from "./result.js";
 import { executionEventAt } from "./run-events.js";
 import { LeaseTakeoverReason } from "../infrastructure/execution-audit-log.repository.js";
 import { lazyLoad } from "../infrastructure/clock.js";
 import { rootTakeOf, type HeldExecutionLease } from "./execution-leases.js";
 import { startedOrSaid } from "./unstarted-run.js";
-import { leaseScope } from "./lease-scope.js";
-import { passesOf } from "./drain-passes.js";
 import { withTreeOrigin } from "./tree-origin.js";
-import { ExecutionStatus, type ExecutionOutput } from "./types.js";
+import type { ExecutionOutput } from "./types.js";
 import { isUnwinding } from "../flow/runtime/compensation/unwinding-marks.js";
-import { historyEndOf, historyRestOf, keepExecutionRecord } from "./execution-history.js";
-import { cancelCauseOf } from "./cancelled-output.js";
-import type { EndedTreeUndo } from "./tree-unwind.js";
 import { unpausedMove } from "./unpause-move.js";
+import { drainTree } from "./tree-drain.js";
 
 /** Cancel requests (#360), loaded with the first pass. */
 const cancelRequests = () => lazyLoad(import("./cancel-requests.js"));
@@ -224,79 +218,9 @@ class TreeMover implements TreeMoves {
     first: PlannedPass,
   ): Promise<ExecutionOutput> {
     const leaving = this.#resuming.enter(state.runId);
-    return this.parts.live.moving(this.drain(state, call, lease, first).finally(leaving));
-  }
-
-  /**
-   * Passes until the tree finishes or rests paused with no recorded answer left (the drain, Q58);
-   * the pauses each pass took are marked `Taken` once it returned; the lease released at the end —
-   * while the instance stops, only after the tree's running step bodies returned (#367); the
-   * record's pause answers read last.
-   */
-  private async drain(
-    state: TreeState,
-    call: TreeCall,
-    lease: HeldExecutionLease,
-    first: PlannedPass,
-  ): Promise<ExecutionOutput> {
-    const { deps, live } = this.parts;
-    // what the undo of the pass that ends the tree ran: its record lists it, as its event (#635)
-    const undo: EndedTreeUndo = {};
-    // the tree's terminal record (finished, failed, stopped or cancelled) is durable (#928)
-    let isEnded = false;
-    let leaveWatch: (() => void) | undefined;
-    try {
-      // a cancel requested on another instance stops the passes at a renewal (#360)
-      const requests = await cancelRequests();
-      const watch = requests.cancelWatchOf(this.parts.trees, state, this.parts.leases);
-      leaveWatch = requests.watchedBy(lease, watch, live, state);
-      // the passes up to the terminal record's completion hold the lease (#928): an unanswered call
-      // there hands over; the cleanup after them (kept record, keys) stays outside it
-      const result = await leaseScope(lease, () =>
-        passesOf(this.parts, this, { state, call }, { held: { lease, watch, undo }, first }),
-      );
-      isEnded = result.status !== ExecutionStatus.Paused;
-      // #699: the kept record first — a pod killed in the cleanup's round trips keeps it
-      await keepExecutionRecord(deps, state, this.#restOf(result, undo));
-      if (isEnded) await forgetTree(this.parts, state, cancelCauseOf(result));
-      // who answered each pause (#267 S107): read once the pauses were taken and withdrawn
-      return await withPauseAnswers(result, deps);
-    } catch (error) {
-      if (!isHandedOver(error)) {
-        await keepExecutionRecord(deps, state, historyEndOf(error, undo.compensations));
-        await forgetTree(this.parts, state, error);
-        isEnded = true;
-      }
-      throw error;
-    } finally {
-      leaveWatch?.();
-      await passEnded(live, deps, state);
-      await this.#released(lease, state, isEnded);
-    }
-  }
-
-  /** How a returned tree stands in its kept record: a cancel keeps the error and the undo it ran. */
-  #restOf(result: ExecutionOutput, undo: EndedTreeUndo) {
-    const cause = cancelCauseOf(result);
-    return cause === undefined
-      ? historyRestOf(result.status)
-      : historyEndOf(cause, undo.compensations);
-  }
-
-  /**
-   * The lease released. After the tree's terminal record is durable (#928) a release that fails or
-   * hangs to its bound does not change what the caller gets — a client without an idempotency key
-   * would retry a run that already charged: it is logged and the lease expires in its store.
-   */
-  async #released(lease: HeldExecutionLease, state: TreeState, isEnded: boolean): Promise<void> {
-    if (!isEnded) return lease.release();
-    await lease.release().catch((error: unknown) => {
-      const text = `the lease of execution ${state.runId} was not released after its end (${String(error)}): it expires`;
-      this.parts.deps.log.warn("execution.lease-release-failed", text, {
-        executionId: state.runId,
-        tenantId: state.tenantId,
-      });
-    });
+    return this.parts.live.moving(
+      drainTree(this.parts, this, { state, call }, { lease, first }).finally(leaving),
+    );
   }
 }
 

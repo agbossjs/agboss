@@ -9,7 +9,7 @@ import { logPauseNotTaken } from "../infrastructure/pause-answer-log.js";
 import { withdrawPause, type PauseStores } from "../flow/runtime/launch/withdrawn-pauses.js";
 import type { Turn } from "../turns/index.js";
 import { isStop } from "./interrupt-requests.js";
-import { cancelledErrorOf } from "./live-runs.js";
+import { cancelledErrorOf } from "./cancelled-run.js";
 import { ExecutionRecordStatus } from "../infrastructure/execution-record.repository.js";
 import { noticesWritten, recipientsIn } from "../pause/index.js";
 import { pauseTallyOf } from "../pause/pause-tally.js";

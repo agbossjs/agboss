@@ -22,6 +22,43 @@ export interface DrainSteps {
 }
 
 /**
+ * What a pass that rested ended: a cancel found at rest, a pause that a cancel or a stop met
+ * meanwhile, a tree frozen from outside (#1341c); `undefined` when the drain goes on.
+ */
+async function endedAtRest(
+  parts: TreeMoveParts,
+  state: TreeState,
+  run: { readonly held: HeldPass; readonly result: ExecutionOutput },
+): Promise<ExecutionOutput | undefined> {
+  const { result } = run;
+  const requests = await lazyLoad(import("./cancel-requests.js"));
+  // a cancel found at rest ends the tree: the passes stop with its cancelled output
+  const cancelled = await requests.endIfCancelledAtRest(parts, state, { result, ...run.held });
+  if (cancelled !== undefined) return cancelled;
+  // a tree parked by a pause that a cancel or a stop met meanwhile (its lease row's mark: a local
+  // cancel writes no key) is ended here, not left parked with its request unanswered
+  if (
+    result.status === ExecutionStatus.Paused &&
+    result.isExternallyPaused &&
+    (await markedInterruptOf(parts.leases, treeOf(state))) !== undefined
+  ) {
+    // the unwind runs on a lease taken anew — at a token above the pause's fence, which the
+    // parked holder's own token is under: the stale step stays fenced, the undo is not (#1341c)
+    await run.held.lease.release();
+    const ended = await requests.endHeld(parts, state);
+    if (ended instanceof Error) throw ended;
+    if (ended !== undefined) return ended;
+  }
+  // frozen from outside (#1341c): a parked tree, or a business rest the operator froze — nothing
+  // takes an answer or an expiry before `app.unpause`
+  const parked =
+    result.status === ExecutionStatus.Paused
+      ? await parkedAtRest(parts, state, result, run.held.lease)
+      : undefined;
+  return parked;
+}
+
+/**
  * The passes of a drain (Q58): each pass, the answers it took marked `Taken`, a cancel found at rest,
  * and the next answers or the due pauses' expiry (#941, I6), until the tree finishes, is stopped or cancelled, or rests with none left — its result.
  */
@@ -32,7 +69,6 @@ export async function passesOf(
   run: { readonly held: HeldPass; readonly first: PlannedPass },
 ): Promise<ExecutionOutput> {
   const { state, call } = at;
-  const requests = await lazyLoad(import("./cancel-requests.js"));
   let planned: PlannedPass | undefined = run.first;
   let result: ExecutionOutput;
   const track = { passed: new Set<string>(), tried: new Set<string>() };
@@ -46,30 +82,8 @@ export async function passesOf(
       await markTaken(parts.deps, planned.resume);
       for (const pauseId of planned.resume.pauseIds) track.passed.add(pauseId);
     }
-    // a cancel found at rest ends the tree: the passes stop with its cancelled output
-    const cancelled = await requests.endIfCancelledAtRest(parts, state, { result, ...run.held });
-    if (cancelled !== undefined) return cancelled;
-    // a tree parked by a pause that a cancel or a stop met meanwhile (its lease row's mark: a local
-    // cancel writes no key) is ended here, not left parked with its request unanswered
-    if (
-      result.status === ExecutionStatus.Paused &&
-      result.isExternallyPaused &&
-      (await markedInterruptOf(parts.leases, treeOf(state))) !== undefined
-    ) {
-      // the unwind runs on a lease taken anew — at a token above the pause's fence, which the
-      // parked holder's own token is under: the stale step stays fenced, the undo is not (#1341c)
-      await run.held.lease.release();
-      const ended = await requests.endHeld(parts, state);
-      if (ended instanceof Error) throw ended;
-      if (ended !== undefined) return ended;
-    }
-    // frozen from outside (#1341c): a parked tree, or a business rest the operator froze — nothing
-    // takes an answer or an expiry before `app.unpause`
-    const parked =
-      result.status === ExecutionStatus.Paused
-        ? await parkedAtRest(parts, state, result, run.held.lease)
-        : undefined;
-    if (parked !== undefined) return parked;
+    const ended = await endedAtRest(parts, state, { ...run, result });
+    if (ended !== undefined) return ended;
     const isPaused = result.status === ExecutionStatus.Paused;
     // a pass never rests on a due pause (#941, I6): the holder expires it before it lets go
     const next = isPaused ? await restedPassOf(parts, state, call, track) : undefined;

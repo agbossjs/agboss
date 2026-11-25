@@ -6,7 +6,7 @@ import type { TreeResume } from "../run/resume-map.js";
 import type { AgentExecutionOutput, AgentExecutionDeps } from "../run/types.js";
 import type { AppDeps } from "./app-deps.js";
 import type { AuditLogReader } from "./app-deps-parts.js";
-import type { CancelWatch } from "./cancel-requests.js";
+import type { CancelWatch } from "./cancel-watch.js";
 import type { ExecutionLeases, HeldExecutionLease } from "./execution-leases.js";
 import type { LiveRuns, TreeCall } from "./live-runs.js";
 import type { PausedRunBook } from "./paused-runs.js";

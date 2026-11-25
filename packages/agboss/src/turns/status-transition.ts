@@ -120,6 +120,16 @@ export function transitionOf(
   };
 }
 
+/** What made the status when no command says so: a write of `running` after a pause is a resume. */
+function ownTriggerOf(
+  made: { readonly status: ThreadStatus; readonly trigger: StatusTrigger },
+  last: ThreadStatusTransition | undefined,
+): StatusTrigger {
+  const wasPaused =
+    last?.toStatus === ThreadStatus.Paused || last?.toStatus === ThreadStatus.DualPaused;
+  return made.status === ThreadStatus.Running && wasPaused ? StatusTrigger.Resume : made.trigger;
+}
+
 /**
  * The transition a record's status write makes, from the statuses alone (a command's context
  * overrides the trigger): `undefined` for a status that is no thread status (`queued`, `written`).
@@ -132,15 +142,11 @@ export function recordTransitionOf(
 ): NewStatusTransition | undefined {
   const made = RECORD_STATUS[turnStatus];
   if (made === undefined) return undefined;
-  const wasPaused =
-    last?.toStatus === ThreadStatus.Paused || last?.toStatus === ThreadStatus.DualPaused;
-  const own =
-    made.status === ThreadStatus.Running && wasPaused ? StatusTrigger.Resume : made.trigger;
   return {
     ...thread,
     // a command may name the status its write makes (an operator's pause: `ExternallyPaused`)
     toStatus: context?.toStatus ?? made.status,
-    trigger: context?.trigger ?? own,
+    trigger: context?.trigger ?? ownTriggerOf(made, last),
     ...detailsOf(context),
   };
 }

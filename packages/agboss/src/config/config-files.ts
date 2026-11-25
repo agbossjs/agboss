@@ -128,7 +128,7 @@ export async function loadedProfileOf(entry: ConfigFile): Promise<LoadedProfile>
   const spec =
     entry.kind === ConfigFileKind.Yaml
       ? // the YAML parser (72 modules) loads with the first .config.yaml, not with the root entry
-        (await import("./yaml-profile.js")).yamlSpecOf(entry.file)
+        (await lazyLoad(import("./yaml-profile.js"))).yamlSpecOf(entry.file)
       : await typeScriptSpecOf(entry.file);
   return { name: entry.name, file: entry.file, spec, promptTexts: promptTextsOf(entry.file, spec) };
 }

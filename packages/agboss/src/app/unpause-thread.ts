@@ -4,7 +4,6 @@ import { ExecutionError } from "../core/error-families/run-errors.js";
 import { PauseError } from "../core/error-families/pause-errors.js";
 import { checkedCallerId, checkedTenantId } from "../flow/context/context-values.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
-import { ExecutionRecordStatus } from "../infrastructure/execution-record.repository.js";
 import type { CancelThreadParts } from "./cancel-thread.js";
 import type { UnpauseExecutionOptions } from "./interrupt-types.js";
 import type { TreeMoves } from "./tree-moves.js";
@@ -39,9 +38,7 @@ export async function unpauseThread(
   const own = records.filter((record) => record.workflow === deps.config.name);
   const alive = own.filter(
     (record) =>
-      record.runId !== null &&
-      (record.status === ExecutionRecordStatus.Running ||
-        record.status === ExecutionRecordStatus.Paused),
+      record.runId !== null && (record.status === "running" || record.status === "paused"),
   );
   const record = alive.at(-1);
   if (record?.runId == null) {

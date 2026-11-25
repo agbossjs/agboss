@@ -1,4 +1,4 @@
-import { lazyLoad } from "../infrastructure/clock.js";
+import { interruptControlsOf } from "./interrupt-controls.js";
 import { runIdOf, treeControlOf, type TreeControl } from "./tree-control.js";
 import { containerInlineFilesOf } from "../files/inline-offload.js";
 import { newThreadOf } from "./new-thread.js";
@@ -193,21 +193,7 @@ export async function buildApp(
       // the generated `WorkflowStarts` types the output; at run time it is the finish's validated DTO
       return result as ExecutionOutput<never>;
     },
-    // loaded on the first cancel; one on another instance's execution leaves it a request (#360)
-    cancel: async (threadId, options = {}) =>
-      (await lazyLoad(import("./cancel-thread.js"))).cancelThread(cancelParts, threadId, options),
-    // a stop is a cancel that undoes nothing (#1341b): its twin, loaded on the first stop
-    stop: async (threadId, options = {}) =>
-      (await lazyLoad(import("./stop-thread.js"))).stopThread(cancelParts, threadId, options),
-    // a pause freezes the execution where it stands, an unpause continues it (#1341c)
-    pause: async (threadId, options = {}) =>
-      (await lazyLoad(import("./pause-thread.js"))).pauseThread(cancelParts, threadId, options),
-    unpause: async (threadId, options = {}) =>
-      (await lazyLoad(import("./unpause-thread.js"))).unpauseThread(
-        { ...cancelParts, moves },
-        threadId,
-        options,
-      ),
+    ...interruptControlsOf(cancelParts, moves),
     resume: resumeOf(resuming),
     extendPause: extendPauseOf({ pauses, owned, clock, accepting, deps }),
     reassignPause: reassignPauseOf({ ...resends, owned, accepting }),

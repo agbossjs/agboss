@@ -12,30 +12,30 @@ describe("F2: the old provider forms are removed", () => {
   it("a provider handler has complete, stream, decide and capabilities — no chat, no routeTo", () => {
     const handler = {} as ModelProviderHandler;
 
-    // @ts-expect-error — `chat` is the driver's own, not part of a provider class's contract
-    handler.chat;
-    // @ts-expect-error — `routeTo` is `decide`
-    handler.routeTo;
+    // `chat` is the driver's own, not part of a provider class's contract
+    expectTypeOf(handler).not.toHaveProperty("chat");
+    // `routeTo` is `decide`
+    expectTypeOf(handler).not.toHaveProperty("routeTo");
     expectTypeOf(handler.decide).not.toBeAny();
   });
 
   it("the provider classes of 0.1.0 and their defaults are not exported", () => {
-    // @ts-expect-error — OpenAiCompatibleDriver
-    models.OpenAiCompatibleProvider;
-    // @ts-expect-error — OpenRouterDriver
-    models.OpenRouterProvider;
-    // @ts-expect-error — a provider is named by `modelProvider`; there is no built-in one
-    models.OpenRouterModelProvider;
-    // @ts-expect-error — DecisionsDriver
-    models.DecisionsModelProvider;
-    // @ts-expect-error — the deprecated alias
-    models.JevModelProvider;
-    // @ts-expect-error — no defaults: every component reaches a provider through `modelProvider`
-    models.DEFAULT_MODEL_PROVIDERS;
-    // @ts-expect-error — a model's name tells no kind: its provider's driver does
-    models.isDecisionModel;
-    // @ts-expect-error — a driver's `baseUrl`
-    models.OPENROUTER_BASE_URL;
+    // OpenAiCompatibleDriver
+    expectTypeOf(models).not.toHaveProperty("OpenAiCompatibleProvider");
+    // OpenRouterDriver
+    expectTypeOf(models).not.toHaveProperty("OpenRouterProvider");
+    // a provider is named by `modelProvider`; there is no built-in one
+    expectTypeOf(models).not.toHaveProperty("OpenRouterModelProvider");
+    // DecisionsDriver
+    expectTypeOf(models).not.toHaveProperty("DecisionsModelProvider");
+    // the deprecated alias
+    expectTypeOf(models).not.toHaveProperty("JevModelProvider");
+    // no defaults: every component reaches a provider through `modelProvider`
+    expectTypeOf(models).not.toHaveProperty("DEFAULT_MODEL_PROVIDERS");
+    // a model's name tells no kind: its provider's driver does
+    expectTypeOf(models).not.toHaveProperty("isDecisionModel");
+    // a driver's `baseUrl`
+    expectTypeOf(models).not.toHaveProperty("OPENROUTER_BASE_URL");
   });
 
   it("the provider options have no serves, baseUrl, baseUrlField or apiKey", () => {

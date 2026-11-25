@@ -167,6 +167,12 @@ export class StoreClock {
 export const systemClock: Clock = new SystemClock();
 
 /**
+ * The machine's monotonic time in nanoseconds: one origin for every process of the host, so the
+ * fault suite orders what separate pods did (`performance.now()` starts at each process's own start).
+ */
+export const hostMonotonicNanoseconds = (): bigint => process.hrtime.bigint();
+
+/**
  * The ids the framework mints (#313), infrastructure like `Clock` (and in its module: one contract
  * of the instance's identity, no root module of its own): every new thread id (`app.execute`
  * without a `threadId`) and every execution id — roots, children, recursion levels — comes from the
