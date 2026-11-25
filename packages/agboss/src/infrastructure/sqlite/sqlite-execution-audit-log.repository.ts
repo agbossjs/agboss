@@ -79,7 +79,10 @@ export class SqliteExecutionAuditLogRepository extends ExecutionAuditLogReposito
     for (const { tenant_id: tenantId, root_execution_id: rootExecutionId } of trees) {
       // an ended tree stays ended: asked before its rows go, never a live tree's are removed
       if (!(await isEnded({ tenantId, rootExecutionId }))) continue;
-      removed += Number(removal.run(tenantId, rootExecutionId, cutoff.getTime()).changes);
+      // after the await the gate no longer covers this call: each removal is served again
+      removed += await this.connection.serve(() =>
+        Number(removal.run(tenantId, rootExecutionId, cutoff.getTime()).changes),
+      );
     }
     return removed;
   }

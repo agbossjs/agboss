@@ -581,41 +581,49 @@ describe("each task state's outcome", () => {
   });
 
   it("maps each state to its error", () => {
-    expect(failureOf(taskIn(TaskState.TASK_STATE_COMPLETED), "a")).toBeUndefined();
-    expect(failureOf(taskIn(TaskState.TASK_STATE_FAILED), "a")).toMatchObject({
+    expect(failureOf(taskIn(TaskState.TASK_STATE_COMPLETED), "a", true)).toBeUndefined();
+    expect(failureOf(taskIn(TaskState.TASK_STATE_FAILED), "a", true)).toMatchObject({
       end: A2ATaskEnd.Failed,
       remoteCode: undefined,
       taskId: "t-1",
       contextId: "c-1",
       agent: "a",
     });
-    expect(failureOf(taskIn(TaskState.TASK_STATE_REJECTED), "a")).toMatchObject({
+    expect(failureOf(taskIn(TaskState.TASK_STATE_REJECTED), "a", true)).toMatchObject({
       end: A2ATaskEnd.Rejected,
     });
     expect(
-      failureOf(taskIn(TaskState.TASK_STATE_FAILED, { [MESH]: { code: "a2a.start-lost" } }), "a"),
+      failureOf(
+        taskIn(TaskState.TASK_STATE_FAILED, { [MESH]: { code: "a2a.start-lost" } }),
+        "a",
+        true,
+      ),
     ).toMatchObject({
       remoteCode: "a2a.start-lost",
     });
     expect(
-      failureOf(taskIn(TaskState.TASK_STATE_FAILED, { [MESH]: { code: "Not A Code!" } }), "a"),
+      failureOf(
+        taskIn(TaskState.TASK_STATE_FAILED, { [MESH]: { code: "Not A Code!" } }),
+        "a",
+        true,
+      ),
     ).toMatchObject({ remoteCode: undefined });
-    expect(failureOf(taskIn(TaskState.TASK_STATE_FAILED, { [MESH]: "x" }), "a")).toBeInstanceOf(
-      A2ATaskFailedError,
-    );
-    expect(failureOf(taskIn(TaskState.TASK_STATE_CANCELED), "a")).toBeInstanceOf(
+    expect(
+      failureOf(taskIn(TaskState.TASK_STATE_FAILED, { [MESH]: "x" }), "a", true),
+    ).toBeInstanceOf(A2ATaskFailedError);
+    expect(failureOf(taskIn(TaskState.TASK_STATE_CANCELED), "a", true)).toBeInstanceOf(
       A2ATaskCancelledError,
     );
-    expect(failureOf(taskIn(TaskState.TASK_STATE_INPUT_REQUIRED), "a")).toMatchObject({
+    expect(failureOf(taskIn(TaskState.TASK_STATE_INPUT_REQUIRED), "a", true)).toMatchObject({
       interruption: A2ATaskInterruption.InputRequired,
     });
-    expect(failureOf(taskIn(TaskState.TASK_STATE_AUTH_REQUIRED), "a")).toBeInstanceOf(
+    expect(failureOf(taskIn(TaskState.TASK_STATE_AUTH_REQUIRED), "a", true)).toBeInstanceOf(
       A2ATaskInterruptedError,
     );
-    expect(failureOf(taskIn(TaskState.TASK_STATE_AUTH_REQUIRED), "a")).toMatchObject({
+    expect(failureOf(taskIn(TaskState.TASK_STATE_AUTH_REQUIRED), "a", true)).toMatchObject({
       interruption: A2ATaskInterruption.AuthRequired,
     });
-    expect(failureOf(taskIn(TaskState.TASK_STATE_UNSPECIFIED), "a")).toBeInstanceOf(
+    expect(failureOf(taskIn(TaskState.TASK_STATE_UNSPECIFIED), "a", true)).toBeInstanceOf(
       A2ARemoteCallError,
     );
   });
@@ -626,12 +634,38 @@ describe("each task state's outcome", () => {
     const loop = { [MESH]: { code: "limit.mesh-loop", details: { entry, chain } } };
     const hops = { [MESH]: { code: "limit.hops", details: { entry, chain, maxMeshHops: 1 } } };
 
-    expect(failureOf(taskIn(TaskState.TASK_STATE_REJECTED, loop), "a")).toBeInstanceOf(
+    expect(failureOf(taskIn(TaskState.TASK_STATE_REJECTED, loop), "a", true)).toBeInstanceOf(
       MeshLoopDetectedError,
     );
-    expect(failureOf(taskIn(TaskState.TASK_STATE_FAILED, hops), "a")).toBeInstanceOf(
+    expect(failureOf(taskIn(TaskState.TASK_STATE_FAILED, hops), "a", true)).toBeInstanceOf(
       HopsLimitExceededError,
     );
+  });
+
+  it("a mesh limit is read only from a verified peer, and its message holds none of the peer's text", () => {
+    const entry = { application: "b-application", start: "b-workflow-start" };
+    const chain = [{ application: "a-application", start: "a-workflow-start", executionId: "e" }];
+    const loop = { [MESH]: { code: "limit.mesh-loop", details: { entry, chain } } };
+
+    expect(failureOf(taskIn(TaskState.TASK_STATE_FAILED, loop), "a", false)).toBeInstanceOf(
+      A2ATaskFailedError,
+    );
+    const limit = failureOf(taskIn(TaskState.TASK_STATE_FAILED, loop), "a", true);
+    expect(limit).toBeInstanceOf(MeshLoopDetectedError);
+    expect(limit).toMatchObject({ isRemote: true });
+    expect(String(limit)).not.toContain("b-application");
+  });
+
+  it("a mesh limit with names that are not names (control characters, spaces, too long) is no mesh limit", () => {
+    const chain = [{ application: "a", start: "s", executionId: "e" }];
+    for (const application of ["evil\nINFO forged", "two words", "x".repeat(129), 'quote"d']) {
+      const body = {
+        [MESH]: { code: "limit.mesh-loop", details: { entry: { application, start: "s" }, chain } },
+      };
+      expect(failureOf(taskIn(TaskState.TASK_STATE_FAILED, body), "a", true)).not.toBeInstanceOf(
+        MeshLoopDetectedError,
+      );
+    }
   });
 
   it("a remote code is read only when it is one", () => {
@@ -1037,7 +1071,7 @@ describe("the transport's edges", () => {
 describe("the outcome's edges", () => {
   it("a task without a status, or a FAILED one whose mesh entry is null, a string or has no code", () => {
     expect(
-      failureOf({ ...taskIn(TaskState.TASK_STATE_FAILED), status: undefined }, "a"),
+      failureOf({ ...taskIn(TaskState.TASK_STATE_FAILED), status: undefined }, "a", true),
     ).toMatchObject({
       name: "A2ARemoteCallError",
       agent: "a",
@@ -1045,12 +1079,14 @@ describe("the outcome's edges", () => {
       taskId: "t-1",
     });
     for (const entry of [null, "x", {}, { code: 7 }]) {
-      expect(failureOf(taskIn(TaskState.TASK_STATE_FAILED, { [MESH]: entry }), "a")).toMatchObject({
+      expect(
+        failureOf(taskIn(TaskState.TASK_STATE_FAILED, { [MESH]: entry }), "a", true),
+      ).toMatchObject({
         name: "A2ATaskFailedError",
         remoteCode: undefined,
       });
     }
-    expect(failureOf(taskIn(TaskState.TASK_STATE_UNSPECIFIED), "a")).toMatchObject({
+    expect(failureOf(taskIn(TaskState.TASK_STATE_UNSPECIFIED), "a", true)).toMatchObject({
       agent: "a",
       taskId: "t-1",
     });

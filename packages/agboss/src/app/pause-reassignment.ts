@@ -1,7 +1,12 @@
 import { isChannelOutcome, ChannelOutcomeKind } from "../channels/channel-outcome.js";
 import { definedFields } from "../core/defined-fields.js";
 import { checked } from "./reassign-request.js";
-import { maskedReason, ownTargetOf, refusedReassignment } from "./pause-reassign-support.js";
+import {
+  assertNotInFirstSend,
+  maskedReason,
+  ownTargetOf,
+  refusedReassignment,
+} from "./pause-reassign-support.js";
 import type { PauseActor } from "../channels/pause-contexts.js";
 import type { ReassignPauseRequest } from "./reassign-types.js";
 import { checkedCallers } from "../flow/context/context-values.js";
@@ -176,6 +181,7 @@ export const reassignPauseOf =
     const actor = await actorOf(parts, pause, call);
     await assertOpen(parts, pause);
     const from = ownTargetOf(parts.deps, pause);
+    assertNotInFirstSend(pause, from);
     const plan = await permittedPlan(parts, { pause, request, actor }, from);
     // the write is judged at this instant, after every read above (#1148)
     const at = parts.clock.now();

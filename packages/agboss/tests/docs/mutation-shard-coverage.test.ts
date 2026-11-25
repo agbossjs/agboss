@@ -64,7 +64,8 @@ const names = (entry: string, file: string): boolean =>
 const reviewedAs = (file: string): string[] =>
   Object.keys(NON_SHARDED_SRC).filter((entry) => names(entry, file));
 
-describe("#1356: the mutation shards cover src/", () => {
+// matching every file against every pattern: ~6 s here, ~30 s on a CI runner under coverage
+describe("#1356: the mutation shards cover src/", { timeout: 120_000 }, () => {
   const sources = sourcesOf("src");
 
   it("every file of src/ is mutated by a shard or reviewed as not", async () => {

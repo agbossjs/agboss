@@ -4,7 +4,7 @@ import { errorRecordOf, type ErrorRecord } from "../../../core/error-record.js";
 import type { UsageRecord } from "../../../finops/usage.js";
 import { runInFrame } from "../../context/frame.js";
 import { failedVisitOf, visitStepsOf, visitTimerOf, type VisitSite } from "../visit-step.js";
-import { compensationsOfBranch, type CompensationEntry } from "../../compensation.js";
+import type { CompensationEntry } from "../../compensation.js";
 import type { RuntimeGraph, RuntimeNode } from "../graph-model.js";
 import { checkVisit } from "../limits.js";
 import { recordsOf, type GraphNode, type NodeOutcome, type NodeRunner } from "../node-runner.js";
@@ -32,7 +32,8 @@ import {
 import type { LiveLaunch } from "./launch-registry.js";
 import { reportBranch } from "./launch-report.js";
 import { arbiterDepsFor, liveLaunchOf, type BranchQuorumDeps } from "./branch-quorum.js";
-import { leaveQuorum, markAnswer, type MarkedAnswer, type QuorumMark } from "./quorum-branch.js";
+import { leaveQuorum, type MarkedAnswer, type QuorumMark } from "./quorum-branch.js";
+import { answeredEntriesOf, markedAnswer } from "./branch-answer.js";
 import { BranchStatus, type BranchTicket } from "./records.js";
 import { abortLaunch, settledEnd } from "./branch-settle.js";
 import { isSkippedBranch } from "./branch-skip.js";
@@ -40,7 +41,6 @@ import { gated, inSchedule, type ScheduledBranch } from "./branch-schedule.js";
 import { branchFrameOf, branchVisitOf } from "./branch-view.js";
 import type { EndedChildRecord } from "../child-records.js";
 import type { PiiTokenMap } from "../../../pii/tokens.js";
-import { withTaken } from "../compensation/held-entries.js";
 
 /**
  * One branch of a launch (#273 S20, S21): one `Send` task. It takes a slot of the launch's
@@ -74,8 +74,13 @@ interface BranchRun {
   readonly children: EndedChildRecord[];
   /** A failed per-item child's PII tokens (#120): kept with its error. */
   piiTokens: PiiTokenMap;
-  /** A failed per-item child's undone entries (#340). */
+  /**
+   * A failed per-item child's undone entries (#340); the branch's own open ones when its arbiters
+   * failed it after its node answered (#1281).
+   */
   readonly compensations: CompensationEntry[];
+  /** Its node's spend when its arbiters failed it after the node answered (#1281). */
+  readonly answered: UsageRecord[];
   /** The branch as a test's scheduler sees it (#262 S33). */
   readonly scheduled: ScheduledBranch;
   /** Whether it passed its limits and ran as a step (agents only). */
@@ -141,7 +146,7 @@ async function ran(run: BranchRun, runner: NodeRunner): Promise<BranchEnd> {
   const gate = { scheduler: deps.scheduler, branch: run.scheduled, signal };
   // a slot of the tree (#264) after the launch's; a quorum's deadline excludes the wait (#279)
   const slot = { slots: deps.slots, graph: deps.graph, node, state: view, config, ...frame };
-  const { outcome, marked } = await inTreeSlot(
+  const { outcome, marked, entries } = await inTreeSlot(
     { ...slot, watch: live.quorum?.queued },
     async () => {
       // the view's spend: the execution's at the launch plus the siblings that ended (#273 S71)
@@ -150,18 +155,14 @@ async function ran(run: BranchRun, runner: NodeRunner): Promise<BranchEnd> {
       return runInFrame(frame, async () => {
         // a test's completion gate (#262 S33): none in production
         const answered = await gated(gate, () => runner(view, config));
-        return {
-          outcome: answered,
-          marked: await markAnswer(live, ticket, answered.value, arbiters),
-        };
+        // #1281: open before its arbiters run, so a failed mark carries them to the join
+        const opened = await answeredEntriesOf(run, { view, frame, config }, answered);
+        const done = { outcome: answered, entries: opened };
+        return { ...done, marked: await markedAnswer(run, done, arbiters) };
       });
     },
   );
-  const { launchId } = run.owner.ticket;
-  const branch = { launchId, branchIndex: ticket.index, value: outcome.value };
-  const opened = await compensationsOfBranch({ node, view, frame, config, branch, deps });
-  const taken = { taken: outcome.compensations, branch, parts: deps.compensation, frame };
-  return answeredEnd(run, outcome, marked, withTaken(taken, opened), run.visited());
+  return answeredEnd(run, outcome, marked, entries, run.visited());
 }
 
 /** A branch that threw: skipped, failed (aborting its siblings) or cancelled by a sibling. */
@@ -170,7 +171,7 @@ async function ended(run: BranchRun, error: unknown): Promise<BranchEnd> {
   passThroughStops(run.config, run.state.runId, error);
   const { live, ticket } = run;
   // the spend the error carries is the original one's (an aborted loop's calls so far)
-  const usage = [...unrecordedSpendOf(error), ...run.services];
+  const usage = [...unrecordedSpendOf(error), ...run.answered, ...run.services];
   live.spent.push(...usage);
   const failure = failureOfBranch(run.budgetStop, error);
   const status = failedStatusOf({ live, ticket, isQuorum: live.quorum !== undefined }, failure);
@@ -226,6 +227,7 @@ export function branchNode(node: RuntimeNode, runner: NodeRunner, deps: BranchDe
       children: [],
       piiTokens: {},
       compensations: [],
+      answered: [],
       ranAsStep: false,
     };
     const branch = (): Promise<BranchEnd> =>

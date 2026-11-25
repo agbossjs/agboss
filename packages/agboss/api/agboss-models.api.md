@@ -453,7 +453,7 @@ export interface ModelProblem {
 }
 
 // @public
-export type ModelProblemCode = "model.missing-provider" | "model.incompatible-provider" | "model.missing" | "model.unknown-model" | "model.unsupported-setting" | "model.no-price" | "model.fallback-no-price" | "model.no-matching-endpoint" | "model.unsupported-input";
+export type ModelProblemCode = "model.missing-provider" | "model.incompatible-provider" | "model.duplicate-provider-name" | "model.missing" | "model.unknown-model" | "model.unsupported-setting" | "model.no-price" | "model.fallback-no-price" | "model.no-matching-endpoint" | "model.unsupported-input";
 
 // @public
 export function ModelProvider<const D extends readonly Token[] = []>(options: TransportModelProviderOptions<D>): <C extends TransportModelProviderType<D>>(value: C) => C;

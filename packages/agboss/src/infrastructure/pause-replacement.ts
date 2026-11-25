@@ -80,7 +80,7 @@ function reassignedEntryOf(
 /** What a replacement is made from. */
 type ReplacementOf = Pick<
   PauseReplacement,
-  "pauseId" | "assignees" | "actor" | "reason" | "due" | "timeout" | "to"
+  "pauseId" | "assignees" | "actor" | "reason" | "due" | "timeout" | "to" | "countsAsExtension"
 > & {
   readonly stepKey: string;
 };
@@ -114,8 +114,9 @@ function placeOf(pause: PauseRecord, to: PauseReplacement["to"]) {
 /**
  * The pause that takes the place of `pause` for other addressees (#946): `Pending` and unsent, its
  * channel asked again; the deadline, its source, its reminder, the branches and the question are the
- * old pause's — a reassignment is no new deadline, unless an expiry made it (`due`, #1310a). Its
- * chain of custody is the old one's and a `reassigned` entry; the channel's reference is not kept.
+ * old pause's — a reassignment is no new deadline, unless an expiry made it (`due`, #1310a) or the
+ * call set one (`timeout`). Its chain of custody is the old one's and a `reassigned` entry (and a
+ * `timeout-changed` for a call that set a deadline); the channel's reference is not kept.
  */
 export function replacementPause(
   pause: PauseRecord,
@@ -135,6 +136,22 @@ export function replacementPause(
     isSent: false,
     askedAt: at.toISOString(),
     reassignedFrom: pause.pauseId,
-    trail: [...pause.trail, reassignedEntryOf(pause, replacement, at)],
+    trail: [...pause.trail, ...entriesOf(pause, replacement, at)],
   };
+}
+
+/**
+ * The entries a replacement adds to the chain of custody: its `reassigned`, and a `timeout-changed`
+ * when the call set a deadline (`countsAsExtension`) — counted against `maxExtensions` in the same
+ * write, as an in-place change's is, so a move to another target or channel is no way around it.
+ */
+function entriesOf(
+  pause: PauseRecord,
+  replacement: ReplacementOf,
+  at: Date,
+): readonly PauseTrailRecord[] {
+  const entry = reassignedEntryOf(pause, replacement, at);
+  return replacement.countsAsExtension === true
+    ? [entry, { ...entry, action: "timeout-changed" }]
+    : [entry];
 }

@@ -59,6 +59,9 @@ export function a2aServerShard() {
       "src/mcp/mcp-http-io.ts",
       "src/mcp/mcp-public-url.ts",
       "src/mcp/mcp-session-identity.ts",
+      // the session caps and the idle lifetime (#1402)
+      "src/mcp/mcp-session-limits.ts",
+      "src/mcp/mcp-http-identity.ts",
       // #1320: the mesh's numbers: hops from 1, a deduplication that outlives a signature
       "src/mesh/mesh-rules.ts",
     ],
@@ -136,6 +139,8 @@ export function streamShard() {
       // #1399: the same for a call of any other component, and a fallback's share of it
       "src/finops/charged-call.ts",
       "src/finops/failed-decision.ts",
+      // bughunt 2026-11-25 #2: a decision priced by its own provider's table when it reports no cost
+      "src/finops/decision-price.ts",
     ],
   };
 }

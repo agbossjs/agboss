@@ -155,15 +155,19 @@ export class OutsideCasExpireSqlitePausedExecutionRepository extends SqlitePause
     this.#connection = connection;
   }
 
-  override expireByTenantIdAndPauseId(
+  override async expireByTenantIdAndPauseId(
     ...args: Parameters<SqlitePausedExecutionRepository["expireByTenantIdAndPauseId"]>
   ): Promise<PauseRecord | undefined> {
     const [tenantId, pauseId] = args;
-    this.#connection.database
-      .prepare(
-        "UPDATE pauses SET status = 'pending', resolution = NULL, resolved_at = NULL WHERE tenant_id = ? AND pause_id = ?",
-      )
-      .run(tenantId, pauseId);
+    // through the connection's serve: its busy retry answers a lock another pod holds (a bare
+    // statement fails "database is locked" under the pods' contention and hides the double close)
+    await this.#connection.serve(() =>
+      this.#connection.database
+        .prepare(
+          "UPDATE pauses SET status = 'pending', resolution = NULL, resolved_at = NULL WHERE tenant_id = ? AND pause_id = ?",
+        )
+        .run(tenantId, pauseId),
+    );
     return super.expireByTenantIdAndPauseId(...args);
   }
 }

@@ -200,25 +200,45 @@ async function settledAnswer(
   return { decision: answer.decision, by, usage: answer.usage ?? [] };
 }
 
-/** The decision the channel gave at once: validated, recorded as `Decided`, logged. */
+/**
+ * A pause the step's own write found no longer pending (`decide` or `markSent` refused it): its live
+ * record — a moved pause's replacement — as the step takes it. The answer recorded meanwhile, or the
+ * withdrawal or expiry, is honoured; a replacement still waiting stops the step at `interrupt()`
+ * (`undefined`). Never what this pass's `send` returned: only a recorded answer is acted on.
+ */
+async function takenAfterLostWrite(
+  site: PauseStepSite,
+  pause: PauseRecord,
+): Promise<StepAnswer | undefined> {
+  const { tenantId } = site.frame.execution.tenant;
+  const fresh = (await site.pauses.findByTenantIdAndPauseId(tenantId, pause.pauseId)) ?? pause;
+  const live = await livePauseAfter(site.pauses, fresh);
+  if (live.status === PauseStatus.Pending) return undefined;
+  return settledAnswer(site, live);
+}
+
+/**
+ * The decision the channel gave at once: validated, recorded as `Decided`, logged — only when the
+ * store's compare-and-set took it. A pause answered, withdrawn or moved while `send` ran keeps what
+ * closed it: the step takes that (`takenAfterLostWrite`), never the channel's decision.
+ */
 async function answeredAtOnce(
   site: PauseStepSite,
   pause: PauseRecord,
   given: unknown,
-): Promise<StepAnswer> {
+): Promise<StepAnswer | undefined> {
   const { pauses, frame } = site;
   const decision = site.validate(given);
   const answer = { decision, actor: undefined };
   const at = site.clock.now();
-  if (
-    await pauses.decideByTenantIdAndPauseId(
-      frame.execution.tenant.tenantId,
-      pause.pauseId,
-      answer,
-      at,
-    )
-  )
-    await logPauseAnswer(site.answers, decidedPause(pause, answer, at), PauseResolution.Decided);
+  const isDecided = await pauses.decideByTenantIdAndPauseId(
+    frame.execution.tenant.tenantId,
+    pause.pauseId,
+    answer,
+    at,
+  );
+  if (!isDecided) return takenAfterLostWrite(site, pause);
+  await logPauseAnswer(site.answers, decidedPause(pause, answer, at), PauseResolution.Decided);
   return { decision, by: pause.channel ?? pause.target, usage: [] };
 }
 
@@ -252,8 +272,7 @@ async function sentOnce(site: PauseStepSite, pause: PauseRecord): Promise<StepAn
   pauseTallyOf(site)?.opened(pause);
   if (isPending) return undefined;
   // a reply resolved it while `send` was still returning: the step goes on with it
-  const settled = (await pauses.findByTenantIdAndPauseId(tenantId, pause.pauseId)) ?? pause;
-  return settledAnswer(site, settled);
+  return takenAfterLostWrite(site, pause);
 }
 
 /** Asks the step's question through its pause: the answer, or the step stops at `interrupt()`. */

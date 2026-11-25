@@ -59,6 +59,7 @@ export const FILES_APPLICATION = `import {
   BudgetPeriod,
   BudgetScope,
   EmptyEnvironment,
+  FilePolicy,
   Ttl,
   Workflow,
   WorkflowFinish,
@@ -66,7 +67,7 @@ export const FILES_APPLICATION = `import {
   onStart,
 } from "@agboss/core";
 import { File, FileDto, WorkflowFinishFileDto } from "@agboss/core/dto";
-import { usd } from "@agboss/core/units";
+import { hours, usd } from "@agboss/core/units";
 
 export class DocumentDto {
   @File({ prompt: "the document" })
@@ -86,10 +87,15 @@ export class FilesAction {
 @WorkflowFinish({ name: "files-workflow-finish", description: "The document", output: WorkflowFinishFileDto })
 export class FilesWorkflowFinish {}
 
+// a workflow that takes or gives files names its file policy (#1316, [workflow.file-policy-required])
+@FilePolicy({ name: "files-workflow-policy", ttl: hours(24) })
+export class FilesWorkflowPolicy {}
+
 @Workflow({
   name: "files-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
+  filePolicy: FilesWorkflowPolicy,
   flow: [
     onStart(FilesWorkflowStart)
       .toAction(FilesAction)

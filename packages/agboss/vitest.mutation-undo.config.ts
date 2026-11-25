@@ -17,6 +17,8 @@ export default defineConfig({
       "tests/flow/runtime/{compensation-*,on-error,child-failure,launch-failure,in-parallel,for-each-item,action-errors,*-units}.test.ts",
       // #1281b: a quorum's excluded branches, a child's undo moved up to its parent
       "tests/flow/runtime/{quorum-undo,child-undo,child-undo-recovery}.test.ts",
+      // #1281: a launch's failure undoes the branch's entries and what an earlier child held
+      "tests/flow/runtime/held-undo.test.ts",
       "tests/app/compensation/*-units.test.ts",
       "tests/app/unwinding-takeover-units.test.ts",
       "tests/app/{compensation-*,kept-undo-*,undo-*,action-fence,child-failure-once,*end-once*,finished-work*,error-class-route,zombie-evidence,cancel*,execution-fence}.test.ts",

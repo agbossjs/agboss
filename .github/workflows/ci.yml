@@ -5,6 +5,7 @@ on:
     branches: [main]
   push:
     branches: [main]
+  workflow_dispatch: # the mutation job below runs only on a dispatch until the 0.1.1 release
 
 permissions:
   contents: read
@@ -22,7 +23,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          fetch-depth: 2 # the Wiki step diffs this change's `wiki/` folder against HEAD^1
+          fetch-depth: 2 # the shared-Wiki check (back at the 0.1.1 release) diffs `wiki/` against HEAD^1
       - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
@@ -30,11 +31,12 @@ jobs:
       - run: npm ci
       - run: npm run check:static
       # the GitHub Wiki is docs too (#240): its ts blocks compile, its commands and links exist.
-      # It is checked as it goes with this code (#341, #1026): the shared Wiki (`docs/wiki-pending`,
-      # which holds only pages for code already on main; else the published Wiki) plus this change's
-      # own pages from its `wiki/` folder, and nothing else. `scripts/wiki-sync.sh` publishes the
-      # folder's pages after the merge.
-      - name: Choose the Wiki to check
+      # Until the 0.1.1 release this checks the repo's own `wiki/` folder (the 0.1.1 pages): the
+      # shared Wiki (`docs/wiki-pending`, else the published Wiki) still documents 0.1.0, which the
+      # 0.1.1 DSL broke on purpose, so its pages count only as link targets (`--wiki-links`).
+      # At the 0.1.1 release this goes back to the shared-Wiki check (#341, #1026): overlay this
+      # change's pages with `scripts/wiki-overlay.sh apply shared-wiki HEAD^1` and check shared-wiki.
+      - name: Choose the Wiki whose pages wiki/ links to
         id: wiki
         run: |
           if git ls-remote --exit-code --heads origin docs/wiki-pending > /dev/null 2>&1; then
@@ -48,13 +50,9 @@ jobs:
         with:
           repository: ${{ steps.wiki.outputs.repository }}
           ref: ${{ steps.wiki.outputs.ref }}
-          path: shared-wiki # not wiki/: that folder is this change's own pages
-      # a pull_request run checks out the merge commit, a push the commit itself: HEAD^1 is main
-      # without this change in both (`fetch-depth: 2` above)
-      - name: Add this change's own Wiki pages (wiki/)
-        run: scripts/wiki-overlay.sh apply shared-wiki HEAD^1
-      - name: Check the Wiki (${{ steps.wiki.outputs.ref || 'published' }})
-        run: node scripts/check-docs.mjs --wiki shared-wiki
+          path: shared-wiki # not wiki/: that folder is this repo's own pages
+      - name: Check the Wiki (wiki/, until the 0.1.1 release)
+        run: node scripts/check-docs.mjs --wiki wiki --wiki-links shared-wiki
 
   # The core suite: vitest's two projects in shards, one runner each (`faults` runs one file at a
   # time inside its shard, as its `singleFork` demands). A shard writes its results and coverage
@@ -190,7 +188,10 @@ jobs:
   # #533 item 3, #626: mutation testing of the payment-relevant modules, one job per shard of
   # stryker.config.mjs (MUTATION_SHARD), each incremental (its last run's results cached): every
   # mutant killed or justified where it stands, else red. mutation-nightly.yml runs every shard cold.
+  # Until the 0.1.1 release it does not run on pull requests or pushes (CI minutes): only on a
+  # manual dispatch here, and every night in mutation-nightly.yml.
   mutation:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     # a cold run of a shard (no cached results) takes up to about 50 min here; an incremental one a few
     timeout-minutes: 90

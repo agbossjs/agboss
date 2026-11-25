@@ -8,6 +8,7 @@ import {
   type HeldVisitSite,
 } from "../../compensation.js";
 import { rootFactsOf } from "../../context/frame.js";
+import { isOwnEntry } from "./held-entries.js";
 import { unwound } from "./unwind.js";
 import { markUndone, withUndoneMarks, type UndoneMarks } from "./unwinding-marks.js";
 
@@ -26,13 +27,17 @@ import { markUndone, withUndoneMarks, type UndoneMarks } from "./unwinding-marks
 
 /** The newest open entry the visit's undo action undoes; `undefined` when it undoes none. */
 function owedEntryOf(site: HeldVisitSite): CompensationEntry | undefined {
-  return site.entries
-    .filter(
-      (entry) =>
-        entry.status === CompensationEntryStatus.Open && entry.compensator === site.node.id,
-    )
-    .sort((first, second) => first.sequence - second.sequence)
-    .at(-1);
+  return (
+    site.entries
+      .filter(
+        (entry) =>
+          entry.status === CompensationEntryStatus.Open && entry.compensator === site.node.id,
+      )
+      // a child's moved entry is no node's here: its undo action is its own workflow's (#1281b)
+      .filter(isOwnEntry)
+      .sort((first, second) => first.sequence - second.sequence)
+      .at(-1)
+  );
 }
 
 /** Undoes the entry the held-back visit would have closed: the entry closed and the undo's spend. */

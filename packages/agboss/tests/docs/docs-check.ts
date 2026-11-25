@@ -29,9 +29,10 @@ export function checkDocs(dir: string, docs: readonly string[]): Promise<Process
 }
 
 /** `node scripts/check-docs.mjs --wiki <wiki> --out <dir>/out`, run from `dir` (#240). */
-export function checkWiki(dir: string, wiki: string): Promise<ProcessRun> {
+export function checkWiki(dir: string, wiki: string, links?: string): Promise<ProcessRun> {
   const script = join(repo, "scripts/check-docs.mjs");
   const args = ["--wiki", wiki, "--out", join(dir, "out")];
+  if (links !== undefined) args.push("--wiki-links", links);
   return runNode([script, ...args], { cwd: dir });
 }
 

@@ -29,6 +29,8 @@ export interface Launched {
 export interface LaunchAttempt {
   readonly launched?: Launched;
   readonly stoppedBy?: ExecutionStateUpdate;
+  /** The error its join's `.onError(…)` took when it stopped: what the held undo's failure names. */
+  readonly failure?: Error;
 }
 
 /** What a visit dispatches from. */
@@ -54,14 +56,13 @@ export async function launchAttemptOf(
   const visit = { graph: deps.graph, node, state, outcome, executionId, scope, now, calendar };
   try {
     const launched = { launch, ticket: await launchTicketOf(visit, launch) };
-    const stoppedBy = itemsOverflowOf(launched, node, state, deps);
-    return stoppedBy === undefined ? { launched } : { stoppedBy };
+    return itemsOverflowOf(launched, node, state, deps) ?? { launched };
   } catch (error) {
     if (!(error instanceof WorkingCalendarError)) throw error;
     const failure = new PauseError.WorkingCalendar({
       message: `${node.id}: the deadline of the quorum could not be counted: ${error.message}`,
       cause: error,
     });
-    return { stoppedBy: joinErrorTaken({ launch, node, state, records: deps }, failure) };
+    return { stoppedBy: joinErrorTaken({ launch, node, state, records: deps }, failure), failure };
   }
 }

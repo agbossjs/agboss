@@ -7,7 +7,7 @@ import { InterruptSettlement, remoteInterrupt } from "./cancel-remote.js";
 import { requestChecksOf } from "./request-checks.js";
 import { writeCancelRequest } from "./cancel-requests.js";
 import type { CancelThreadParts } from "./cancel-thread.js";
-import { InterruptKind } from "./interrupt-requests.js";
+import { InterruptKind, maskedOperatorReason } from "./interrupt-requests.js";
 import {
   InterruptMode,
   StopRequestState,
@@ -41,9 +41,11 @@ export async function stopThread(
     return parts.known({ ...thread, ownerId: options.ownerId });
   });
   const mode = options.mode ?? InterruptMode.AfterStep;
+  // the reason is kept by the tree (history, mark, key): masked by the workflow's PII policy
+  const reason = await maskedOperatorReason(parts.deps, options.reason);
   const command: CancelCommand = {
     ownerId: options.ownerId,
-    reason: options.reason,
+    reason,
     kind: InterruptKind.Stop,
     mode,
   };
@@ -52,7 +54,7 @@ export async function stopThread(
   const trees = live.treesOf(thread);
   for (const tree of trees)
     await writeCancelRequest(parts, tree, {
-      ...{ requestedAt, ownerId: options.ownerId ?? null, reason: options.reason },
+      ...{ requestedAt, ownerId: options.ownerId ?? null, reason },
       ...{ threadId, kind: InterruptKind.Stop, mode },
     });
   if (trees.length > 0) {

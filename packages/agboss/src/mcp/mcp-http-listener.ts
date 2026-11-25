@@ -1,4 +1,3 @@
-import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { randomUUID } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
@@ -16,7 +15,8 @@ import type { HttpCaller } from "../http/http-auth.js";
 import { Clock } from "../infrastructure/clock.js";
 import { frameworkLogOf, Logger } from "../infrastructure/logger.js";
 import { meshSettingsOf } from "../mesh/mesh-settings.js";
-import { kilobytes, type Bytes } from "../units/index.js";
+import { kilobytes, type Bytes, type Milliseconds } from "../units/index.js";
+import { carrying, messageIdentity } from "./mcp-http-identity.js";
 import { headerOf, jsonOf, pathOf } from "./mcp-http-io.js";
 import { originFn } from "./mcp-public-url.js";
 import { inSession, isSameCaller } from "./mcp-session-identity.js";
@@ -24,6 +24,7 @@ import { admitMcpHttp } from "./mcp-http-gate.js";
 import type { McpEndpointOptions } from "./mcp-endpoint.decorator.js";
 import { mcpServerOf, servedEndpointOf } from "./mcp-server-instance.js";
 import type { McpCaller } from "./mcp-service-helpers.js";
+import { callerKeyOf, McpSessions, type TrackedSession } from "./mcp-session-limits.js";
 
 /**
  * `mcpHttpListener` (#1319): an `@McpEndpoint` over MCP's Streamable HTTP, symmetric with
@@ -64,6 +65,10 @@ export interface McpHttpListenerOptions {
   readonly base?: string;
   /** The largest request body read: over it `413`, nothing run. By default `kilobytes(1024)`. */
   readonly maxBodySize?: Bytes;
+  /** How long an idle session lives, and how many sessions one caller and the listener keep open (safe defaults). */
+  readonly sessionIdleTimeout?: Milliseconds;
+  readonly maxSessionsPerCaller?: number;
+  readonly maxSessions?: number;
   /** Told of an error the listener or the authenticator hit, with the request: its text never goes on the wire. */
   readonly onError?: (error: unknown, req: IncomingMessage) => void;
 }
@@ -72,11 +77,6 @@ const SESSION_HEADER = "mcp-session-id";
 const UNAVAILABLE = { code: "mcp.listener-failed", error: "the MCP server is not available" };
 const NO_SESSION = { code: "mcp.session-not-found", error: "there is no such session" };
 const NOT_JSON = { code: "mcp.body-not-json", error: "the request body is not JSON" };
-
-interface OpenSession {
-  readonly transport: StreamableHTTPServerTransport;
-  readonly identity: McpCaller;
-}
 
 const UNAUTHENTICATED = {
   code: "mcp.caller-unauthenticated",
@@ -87,23 +87,6 @@ const TENANT_MISSING = {
   code: "mcp.caller-anonymous",
   error: "the caller names no tenant: this application serves only a caller with one",
 };
-
-/** What a request's verified identity is passed on as to the server: the SDK's `req.auth`, read back per message. */
-const verified = new WeakMap<AuthInfo, McpCaller>();
-
-/** Marks `req` as carrying `identity`, for the server that handles it. */
-function carrying(req: IncomingMessage, identity: McpCaller): void {
-  const info: AuthInfo = { token: "", clientId: "", scopes: [] };
-  verified.set(info, identity);
-  (req as IncomingMessage & { auth?: AuthInfo }).auth = info;
-}
-
-/** The identity of the message being served: the one its own request was verified as; none is refused. */
-function messageIdentity(extra: { readonly authInfo?: AuthInfo }): McpCaller {
-  const identity = extra.authInfo === undefined ? undefined : verified.get(extra.authInfo);
-  if (identity === undefined) throw new Error("an MCP message arrived with no verified identity");
-  return identity;
-}
 
 /** The identity a host's `@HttpAuthenticator` gave, as a connection's session. */
 const sessionOf = (caller: HttpCaller): McpCaller => ({
@@ -124,7 +107,7 @@ interface Listening {
   readonly base: string;
   readonly maxBody: Bytes;
   readonly log: ReturnType<typeof frameworkLogOf>;
-  readonly sessions: Map<string, OpenSession>;
+  readonly sessions: McpSessions;
 }
 
 /**
@@ -176,32 +159,44 @@ async function identityOf(
   return identity;
 }
 
-/** A new session of `caller`: its own server, kept from the SDK's `initialize` until it closes. */
-function opened(l: Listening, caller: McpCaller): OpenSession {
+/** A new session of `caller`: its own server, kept from the SDK's `initialize` until it closes or lapses; none when over a cap. */
+function opened(l: Listening, caller: McpCaller, res: ServerResponse): TrackedSession | undefined {
+  const callerKey = callerKeyOf(caller);
+  const refusal = l.sessions.refusalFor(callerKey);
+  if (refusal !== undefined) {
+    writeRejection(res, refusal.status, refusal.body);
+    return undefined;
+  }
   const id = randomUUID();
   const identity = inSession(caller, id);
-  const transport = new StreamableHTTPServerTransport({
-    sessionIdGenerator: () => id,
-    onsessioninitialized: () => {
-      l.sessions.set(id, { transport, identity });
-    },
-  });
-  transport.onclose = () => {
-    l.sessions.delete(id);
+  l.sessions.opening(id, callerKey, res);
+  const session: TrackedSession = {
+    transport: new StreamableHTTPServerTransport({
+      sessionIdGenerator: () => id,
+      onsessioninitialized: () => {
+        l.sessions.add(id, session);
+      },
+    }),
+    identity,
+    callerKey,
+    inFlight: 0,
   };
-  void mcpServerOf(l.app, l.served, messageIdentity).connect(transport);
-  return { transport, identity };
+  session.transport.onclose = () => {
+    l.sessions.remove(id);
+  };
+  void mcpServerOf(l.app, l.served, messageIdentity).connect(session.transport);
+  return session;
 }
 
-/** The transport of this request and who it runs as: the session's, or a new one for the request that opens it. */
+/** The session of this request and who it runs as: the one it names, or a new one for the request that opens it. */
 function transportOf(
   l: Listening,
   request: { req: IncomingMessage; res: ServerResponse },
   caller: McpCaller,
-): OpenSession | undefined {
+): TrackedSession | undefined {
   const { req, res } = request;
   const id = headerOf(req, SESSION_HEADER);
-  if (id === undefined && req.method === "POST") return opened(l, caller);
+  if (id === undefined && req.method === "POST") return opened(l, caller, res);
   const open = id === undefined ? undefined : l.sessions.get(id);
   const asked = id === undefined ? caller : inSession(caller, id);
   if (open === undefined || !isSameCaller(asked, open.identity)) {
@@ -209,7 +204,8 @@ function transportOf(
     writeRejection(res, 404, NO_SESSION);
     return undefined;
   }
-  return { transport: open.transport, identity: open.identity };
+  l.sessions.use(open, res);
+  return open;
 }
 
 /** Serves one request. */
@@ -247,7 +243,7 @@ export function mcpHttpListener<TApp>(
     base: options.base ?? "/",
     maxBody: options.maxBodySize ?? kilobytes(1024),
     log: frameworkLogOf(app.resolve(Logger), app.resolve(Clock)),
-    sessions: new Map(),
+    sessions: new McpSessions(options, app.resolve(Clock)),
   };
   return (req, res) => {
     serve(listening, req, res).catch((error: unknown) => {

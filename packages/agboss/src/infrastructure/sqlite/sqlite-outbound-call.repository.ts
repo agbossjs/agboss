@@ -18,20 +18,9 @@ import {
 } from "../outbound-call.repository.js";
 import { pendingOutboundCallOf } from "../fenced-effect-key.js";
 import { sqlitePageOf } from "./sqlite-outbound-call-pages.js";
-import {
-  AS_READ,
-  OUTBOUND_CALL_COLUMNS,
-  recordFound,
-  recordOf,
-  storedUnder,
-  whereOf,
-} from "./sqlite-outbound-call-schema.js";
-import {
-  checkSqliteCancel,
-  oneRowChanged,
-  SqliteConnection,
-  sqliteImplementation,
-} from "./sqlite-connection.js";
+import { OUTBOUND_CALL_COLUMNS, recordFound, recordOf } from "./sqlite-outbound-call-schema.js";
+import { writtenOver } from "./sqlite-outbound-call-write.js";
+import { checkSqliteCancel, SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
 import { checkSqliteFence, raiseSqliteMark } from "./sqlite-fenced-effect.repository.js";
 
 /**
@@ -107,8 +96,11 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
     // the store's changes load on first use (#658: the root import stays within its budget)
     const startedAt = this.clock.now();
     const { claimedOf } = await this.#changes;
-    // #909: a new attempt is a new send, refused after the tree's cancel
-    return this.#update(key, (found) => claimedOf(found, expected, claim, startedAt), true);
+    // #909: a new attempt is a new send, refused after the tree's cancel; after the await the
+    // gate no longer covers this call: its transaction is served again (sqlite-served.ts)
+    return this.connection.serve(() =>
+      this.#changed(key, (found) => claimedOf(found, expected, claim, startedAt), true),
+    );
   }
 
   markCompleted(
@@ -140,11 +132,14 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
   ): Promise<boolean> {
     const endedAt = this.clock.now().toISOString();
     const { endedOf } = await this.#changes;
-    return this.#update(
-      key,
-      (found) => endedOf(found, attemptOwner, ending, endedAt),
-      false,
-      expiresAt?.getTime() ?? null,
+    // after the await: served again, never inside another's open runOnce (sqlite-served.ts)
+    return this.connection.serve(() =>
+      this.#changed(
+        key,
+        (found) => endedOf(found, attemptOwner, ending, endedAt),
+        false,
+        expiresAt?.getTime() ?? null,
+      ),
     );
   }
 
@@ -171,7 +166,9 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
 
   async leaseStateOf(lease: OutboundCallLease): Promise<OutboundCallLeaseState> {
     const { sqliteLeaseStateOf } = await lazyLoad(import("../live-lease.js"));
-    return sqliteLeaseStateOf(this.connection.database, lease, this.clock.now());
+    return this.connection.serve(() =>
+      sqliteLeaseStateOf(this.connection.database, lease, this.clock.now()),
+    );
   }
 
   deleteExpired(now: Date): Promise<number> {
@@ -185,63 +182,42 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
     return recordFound(this.connection.database, key);
   }
 
-  /** A fenced change of the key's intent, written under the key's token; none recorded → nothing. */
-  #update(
+  /**
+   * A fenced change of the key's intent, written under the key's token; none recorded → nothing.
+   * Synchronous: the caller serves it (`connection.serve`).
+   */
+  #changed(
     key: EffectKey,
     change: (found: OutboundCallRecord) => OutboundCallRecord | undefined,
     isSend = false,
     expiresAt: number | null = null,
-  ): Promise<boolean> {
-    return this.#fenced(key, () => {
+  ): boolean {
+    return this.#inFence(key, () => {
       if (isSend) checkSqliteCancel(this.connection.database, key);
       const found = this.#found(key);
       if (found === undefined) return false;
       const changed = change(found);
-      return changed !== undefined && this.#written(key, changed, found, expiresAt);
+      return (
+        changed !== undefined &&
+        writtenOver(this.connection.database, key, { changed, found, expiresAt })
+      );
     });
   }
 
-  /**
-   * Writes `change` as the key's intent, under the key's token (inside a fenced transaction) — only
-   * while the row is still `from` (its status, attempt and attempt owner repeated in the `WHERE`).
-   * The reference for a port to a store with row locks: here `from` was read in this same `BEGIN
-   * IMMEDIATE` transaction, so exactly one row changes — any other count is a bug, thrown (#626).
-   */
-  #written(
-    key: EffectKey,
-    change: OutboundCallRecord,
-    from: OutboundCallRecord,
-    expiresAt: number | null,
-  ): true {
-    const record = { ...change, token: key.token, leaseExecutionId: key.leaseExecutionId };
-    const [where, values] = whereOf(storedUnder(key, from));
-    const { changes } = this.connection.database
-      .prepare(
-        `UPDATE outbound_calls SET status = ?, expires_at = ?, record = ? WHERE ${where} AND ${AS_READ}`,
-      )
-      .run(
-        record.status,
-        expiresAt,
-        JSON.stringify(record),
-        ...values,
-        from.status,
-        from.attempt,
-        from.attemptOwner,
-      );
-    return oneRowChanged(changes);
-  }
-
-  /** `work` after the fencing checks, the mark raised, in one transaction. */
+  /** `work` after the fencing checks, the mark raised, in one transaction (a rejection when it throws). */
   #fenced<TValue>(key: EffectKey, work: () => TValue): Promise<TValue> {
     return new Promise((resolve) => {
-      resolve(
-        this.connection.transaction(() => {
-          const now = this.clock.now().getTime();
-          checkSqliteFence(this.connection.database, key, now);
-          raiseSqliteMark(this.connection.database, key, now);
-          return work();
-        }),
-      );
+      resolve(this.#inFence(key, work));
+    });
+  }
+
+  /** `work` after the fencing checks, the mark raised, in one transaction: synchronous. */
+  #inFence<TValue>(key: EffectKey, work: () => TValue): TValue {
+    return this.connection.transaction(() => {
+      const now = this.clock.now().getTime();
+      checkSqliteFence(this.connection.database, key, now);
+      raiseSqliteMark(this.connection.database, key, now);
+      return work();
     });
   }
 }

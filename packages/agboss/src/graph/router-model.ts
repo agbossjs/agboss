@@ -1,4 +1,5 @@
-import type { AgentsConfigOf, ChatDefaults, ModelSettings, RouterModel } from "../config/types.js";
+import type { ChatDefaults, ModelSettings, RouterModel } from "../config/types.js";
+import type { ModelPricing } from "../models/model-pricing.js";
 import type { ModelGateway } from "../llm/gateway.js";
 import { createRouter, type RouterEngine } from "../routers/index.js";
 import type { LoadedRouter } from "../flow/runtime/routers.js";
@@ -16,8 +17,8 @@ import { guardrailRuntimeOf, type GuardrailRuntime } from "../guardrails/runtime
 export interface FlowRouterFactoryDeps {
   readonly gateway: ModelGateway;
   readonly chatDefaults: ChatDefaults;
-  /** Settings (price) of a chat model used as a router, by model id. */
-  readonly chatModelSettings: (model: string) => ModelSettings;
+  /** Settings (price) of a chat model used as a router, by the provider its cascade resolved and its model id. */
+  readonly chatModelSettings: (model: string, modelProvider?: string) => ModelSettings;
 }
 
 /** A router's model by its id: a decision model (`kind: "jev"`), or a chat model with the settings the registry knows. */
@@ -33,7 +34,7 @@ export function routerModelOf(
   const account = unpriced === undefined ? named : { ...named, unpriced };
   return kind === ModelKind.Decisions
     ? { kind: "jev", model, ...named }
-    : { ...deps.chatModelSettings(model), kind: "llm", model, ...account };
+    : { ...deps.chatModelSettings(model, modelProvider), kind: "llm", model, ...account };
 }
 
 /** A loaded router's model: its provider resolved through the cascade says what it is (#1313). */
@@ -103,20 +104,14 @@ export function flowGuardrailRuntime(
 }
 
 /**
- * A router on a chat model: priced like the agent (or compaction) that uses the same model when one
- * has a price; otherwise its provider reports the cost (or prices it from its table).
+ * The settings of a chat model a router, a guardrail, an arbiter, a launch decider or a reply
+ * interpreter calls: priced by its own provider's table for its own model (bughunt 2026-11-25 #2) —
+ * never by another component's price for a model of the same name — else its provider reports the
+ * cost, or (no `cost`) the call is unpriced.
  */
 export function chatModelSettingsOf(
-  config: AgentsConfigOf<string>,
-): (model: string) => ModelSettings {
-  const known: readonly ModelSettings[] = [
-    ...Object.values(config.agents),
-    ...Object.values(config.memories ?? {}).flatMap((compaction) =>
-      compaction.model === undefined ? [] : [compaction.model],
-    ),
-  ];
-  return (model) => {
-    const price = known.find((candidate) => candidate.model === model)?.price;
-    return price === undefined ? { model } : { model, price };
-  };
+  pricing: ModelPricing,
+): (model: string, modelProvider?: string) => ModelSettings {
+  return (model, modelProvider) =>
+    pricing(modelProvider === undefined ? { model } : { model, modelProvider });
 }

@@ -9,7 +9,12 @@ import { mergedHeaders, resolvedServerOf, type Env, type ResolvedMcpServer } fro
 import { schemaDifferences } from "./compat.js";
 import { callIdentityOf } from "./call-identity.js";
 import type { McpCaller, McpFacade, McpServerHandle } from "./facade.js";
-import { MESH_META_KEY, MESH_REPORT_META_KEY, TRACEPARENT } from "../../mesh/mesh-envelope.js";
+import {
+  MESH_ERROR_META_KEY,
+  MESH_META_KEY,
+  MESH_REPORT_META_KEY,
+  TRACEPARENT,
+} from "../../mesh/mesh-envelope.js";
 import { outboundMeshOf, type OutboundMesh } from "../../mesh/outbound-mesh.js";
 import { takeRunReport } from "../../mesh/mesh-report.js";
 import { signedFetch } from "./signed-fetch.js";
@@ -122,6 +127,15 @@ function callMetaOf(mesh: OutboundMesh): Record<string, string> {
 const resultMetaOf = (result: unknown): unknown =>
   typeof result === "object" && result !== null ? Reflect.get(result, "_meta") : undefined;
 
+/** The result without its mesh-limit facts (`_meta["agboss.dev/error"]`): what an unverified server said of limits is not read. */
+function withoutMeshError(result: unknown): unknown {
+  const meta = resultMetaOf(result);
+  if (typeof meta !== "object" || meta === null || !(MESH_ERROR_META_KEY in meta)) return result;
+  const rest = { ...(meta as Record<string, unknown>) };
+  Reflect.deleteProperty(rest, MESH_ERROR_META_KEY);
+  return { ...(result as object), _meta: rest };
+}
+
 const callerFor =
   (client: Client, audience: string | undefined): McpCaller =>
   async (tool, input, signal) => {
@@ -138,7 +152,9 @@ const callerFor =
     const reported = resultMetaOf(result);
     if (mesh !== undefined && typeof reported === "object" && reported !== null)
       takeRunReport("mcp", Reflect.get(reported, MESH_REPORT_META_KEY), mesh.bodyHash);
-    return result;
+    // a mesh limit's facts are a verified peer's word only: a server we did not address and sign
+    // for (no `target.application`) has its error `_meta` dropped, so its text reaches nothing
+    return mesh === undefined || audience === undefined ? withoutMeshError(result) : result;
   };
 
 /**

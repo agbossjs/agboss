@@ -195,6 +195,7 @@ export type RuleCode =
   | "model.incompatible-provider"
   | "model.missing"
   | "model.price-invalid"
+  | "model.duplicate-provider-name"
   | "model-provider.both-modes"
   // contexts (#261 PR 3), reported at the application's assembly
   | "context.prompt-unused"

@@ -74,8 +74,12 @@ export const wakeAnsweredOf =
  */
 export type WakeParked = (record: Turn) => Promise<boolean>;
 
-/** Whether a pause of the tree still waits for its decision or for a pass to take it: a business rest, not a parked tree. */
-async function isAtBusinessPause(deps: AppDeps, tree: TreeRun): Promise<boolean> {
+/**
+ * Whether a pause of the tree still waits for its decision or for a pass to take it: a business rest,
+ * not a parked tree. Read from the tree's pauses, never from its paused-run row: a pass that `app.pause`
+ * parked after a resume leaves the row of the earlier rest in place, stale under the same run id.
+ */
+export async function isAtBusinessPause(deps: AppDeps, tree: TreeRun): Promise<boolean> {
   const records = await deps.pause?.pauses.findAllByTenantIdAndRootExecutionId(
     tree.tenantId,
     tree.runId,

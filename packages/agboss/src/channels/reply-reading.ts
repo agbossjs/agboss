@@ -40,7 +40,7 @@ async function byModel(
   }
   const settings = resolveSettings(
     {
-      ...parts.chatModelSettings(model),
+      ...parts.chatModelSettings(model, modelProvider),
       model,
       ...(modelProvider === undefined ? {} : { modelProvider }),
       ...(unpriced === undefined ? {} : { unpriced }),

@@ -8,6 +8,8 @@ import { DecisionError } from "../core/error-families/config-errors.js";
 import type { DecisionOutcome } from "./decision-response.js";
 import type { DecisionRequest } from "./decisions.js";
 import type { ChatModelUser, ModelGateway } from "./gateway.js";
+import type { ModelPricing } from "../models/model-pricing.js";
+import type { RerankerModelUse } from "../workflow.js";
 import type {
   AgentsConfigOf,
   ChatDefaults,
@@ -110,6 +112,7 @@ const providerOfAgent = (settings: ModelSettings): Partial<ModelSettings> => ({
 export function createModelRegistry(
   config: AgentsConfigOf<string>,
   gateway: RegistryGateway,
+  pricing: ModelPricing,
 ): ModelRegistry {
   const bindFor =
     (user: ChatModelUser) =>
@@ -145,7 +148,8 @@ export function createModelRegistry(
           maxTokens: files.transcriptionMaxTokens,
           ...providerOfAgent(settings),
         };
-        return [[name, bindFor({ kind })(model)] as const];
+        // the file model is priced by the agent's provider for its own model, not the agent's (bughunt #2)
+        return [[name, bindFor({ kind })(pricing(model))] as const];
       }),
     );
   const fileTranscribers = fileBindings(FileView.Transcription, "file-transcriber");
@@ -180,12 +184,22 @@ export function judgeBindingOf(
  * `reranker:<name>`, its spend billed by the core to the knowledge base (`rag:<name>`).
  */
 export const rerankerBindingOf =
-  (config: Pick<AgentsConfigOf<string>, "defaults">, gateway: RegistryGateway) =>
-  (reranker: string, model: string, modelProvider?: string): ModelBinding => {
+  (
+    config: Pick<AgentsConfigOf<string>, "defaults">,
+    gateway: RegistryGateway,
+    pricing: ModelPricing,
+  ) =>
+  (reranker: RerankerModelUse): ModelBinding => {
+    // priced by its own provider and model, its provider's `unpriced` mark kept (bughunt 2026-11-25 #2)
+    const { model, modelProvider, unpriced } = reranker;
     const settings = resolveSettings(
-      { model, ...(modelProvider === undefined ? {} : { modelProvider }) },
+      pricing({
+        model,
+        ...(modelProvider === undefined ? {} : { modelProvider }),
+        ...(unpriced === undefined ? {} : { unpriced }),
+      }),
       config.defaults.models,
     );
-    const user: ChatModelUser = { kind: "reranker", reranker };
+    const user: ChatModelUser = { kind: "reranker", reranker: reranker.name };
     return { model: gateway.chatModel({ user, settings }), settings };
   };

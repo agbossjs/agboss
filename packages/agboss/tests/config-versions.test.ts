@@ -2,7 +2,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { KEYS } from "./models/gateway.js";
 import { createWorkflowDeps } from "../src/app/app-deps.js";
-import { standaloneInfrastructure } from "../src/application/application-container.js";
+import { standaloneApplicationOf } from "../src/application/application-container.js";
 import { TurnStoreRecordRepository } from "../src/infrastructure/execution-record.repository.js";
 import { providerStub } from "./models/stub.js";
 import { TestWorkflow } from "./fixtures/test-workflow/test.workflow.js";
@@ -113,7 +113,7 @@ describe("config versions", () => {
     const providerFetch = providerStub([], [{ id: "test/researcher" }, { id: "test/coder" }]).fetch;
     // the records outlive the app instance: a durable repository both starts share
     const infrastructure = {
-      ...standaloneInfrastructure(base, {}),
+      ...standaloneApplicationOf(base, {}).infrastructure,
       records: new TurnStoreRecordRepository(createSqliteTurnStore(":memory:", () => new Date())),
     };
     const options = { processEnv: {}, environment: KEYS, providerFetch };

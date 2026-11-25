@@ -1,8 +1,9 @@
-import type { AgentsConfigOf } from "../config/types.js";
+import type { AgentsConfigOf, ResolvedModelSettings } from "../config/types.js";
 import type { RuntimeContexts } from "../flow/context/runtime-contexts.js";
 import type { Infrastructure } from "../infrastructure/contracts.js";
 import { frameworkLogOf } from "../infrastructure/logger.js";
 import type { ModelGateway } from "../llm/gateway.js";
+import type { ModelPricing } from "../models/model-pricing.js";
 import { resolveSettings } from "../llm/registry.js";
 import { modelDetectionOf } from "../pii/detectors/model.js";
 import { piiRuntimeOf, type PiiRuntime } from "../pii/runtime.js";
@@ -13,6 +14,8 @@ import type { ApplicationPiiKey } from "../application/application-pii.js";
 /** What a workflow's PII runtime is built from at its start. */
 export interface PiiParts {
   readonly gateway: ModelGateway;
+  /** Prices a detection's model by its own provider and model (bughunt 2026-11-25 #2). */
+  readonly pricing: ModelPricing;
   readonly services: WorkflowServices;
   readonly contexts: RuntimeContexts;
   readonly env: NodeJS.ProcessEnv;
@@ -24,6 +27,27 @@ export interface PiiInstance {
   readonly piiKey?: ApplicationPiiKey | undefined;
   /** A detection model that names a kind of no id is said on its log (#1301). */
   readonly infrastructure: Pick<Infrastructure, "logger" | "clock">;
+}
+
+/**
+ * A `detectWithModel` policy's model settings: the model the cascade resolved for the policy (its
+ * provider, #1313; else as written), priced by that provider's table for that model (bughunt #2).
+ */
+export function detectionSettingsOf(
+  bundle: Pick<AssembledWorkflow, "pii">,
+  config: Pick<AgentsConfigOf<string>, "defaults">,
+  pricing: ModelPricing,
+  asked: { readonly policy: string; readonly model: string },
+): ResolvedModelSettings {
+  const used = bundle.pii?.detectors.find((detector) => detector.name === asked.policy);
+  return resolveSettings(
+    pricing({
+      model: used?.model ?? asked.model,
+      ...(used?.modelProvider === undefined ? {} : { modelProvider: used.modelProvider }),
+      ...(used?.unpriced === undefined ? {} : { unpriced: used.unpriced }),
+    }),
+    config.defaults.models,
+  );
 }
 
 /**
@@ -50,16 +74,7 @@ export function piiFor(
     previousFieldKey: key.previousKey,
     isInstanceKey: key.isInstanceKey,
     detectionOf: (policy, model) => {
-      // the model the cascade resolved for the policy (its provider, #1313); else as written
-      const used = bundle.pii?.detectors.find((detector) => detector.name === policy);
-      const settings = resolveSettings(
-        {
-          model: used?.model ?? model,
-          ...(used?.modelProvider === undefined ? {} : { modelProvider: used.modelProvider }),
-          ...(used?.unpriced === undefined ? {} : { unpriced: used.unpriced }),
-        },
-        config.defaults.models,
-      );
+      const settings = detectionSettingsOf(bundle, config, parts.pricing, { policy, model });
       const user = { kind: "pii-policy", policy } as const;
       return modelDetectionOf(
         policy,

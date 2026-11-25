@@ -176,6 +176,11 @@ export interface PauseSeen {
   readonly assignees?: readonly string[];
   /** The deadline the pause had (ISO 8601); absent: none. */
   readonly expiresAt?: string;
+  /**
+   * Whether its channel had been asked (`markSent`): a pause marked sent since the plan is no longer
+   * the one it was made for — the step that asked it may be acting on what `send` returned.
+   */
+  readonly isSent: boolean;
 }
 
 /** A deadline a reassignment sets: what the pause waits until now, and its reminder. */

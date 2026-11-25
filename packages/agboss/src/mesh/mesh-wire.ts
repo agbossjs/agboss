@@ -19,7 +19,16 @@ export interface MeshLimitBody {
   readonly details: ErrorDetails;
 }
 
-const NAME = z.string().min(1).max(200);
+/**
+ * A name on the wire (an application, a start, an execution id): printable ASCII of the shapes names
+ * and ids take, never a control character, a space or a quote — what a remote says is data, not text
+ * for a log or a model. Over 128 characters is not one.
+ */
+const NAME = z
+  .string()
+  .min(1)
+  .max(128)
+  .regex(/^[A-Za-z0-9][A-Za-z0-9._:/@+-]*$/u);
 
 const EntrySchema = z.object({ application: NAME, start: NAME });
 
@@ -47,14 +56,22 @@ export function meshLimitBodyOf(error: unknown): MeshLimitBody | undefined {
   return { code: error.code, error: error.message, details: error.details ?? {} };
 }
 
-/** The mesh limit a body names (a refusal, a failed response, an MCP result); else `undefined`. */
+/**
+ * The mesh limit a body names (a refusal, a failed response, an MCP result); else `undefined`. The
+ * caller reads a body only from a verified mesh peer (signed to its application); the error's
+ * message is fixed text — the remote's names are in its fields, never in its message.
+ */
 export function meshLimitErrorOf(body: unknown): MeshLimitError | undefined {
   const parsed = BodySchema.safeParse(body);
   if (!parsed.success) return undefined;
   const { data } = parsed;
   if (data.code === "limit.mesh-loop") {
-    return new MeshLoopDetectedError({ entry: data.details.entry, callChain: data.details.chain });
+    return new MeshLoopDetectedError({
+      entry: data.details.entry,
+      callChain: data.details.chain,
+      isRemote: true,
+    });
   }
   const { entry, chain, maxMeshHops } = data.details;
-  return new HopsLimitExceededError({ entry, callChain: chain, maxMeshHops });
+  return new HopsLimitExceededError({ entry, callChain: chain, maxMeshHops, isRemote: true });
 }

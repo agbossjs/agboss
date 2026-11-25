@@ -91,6 +91,12 @@ export class ModelProviderDirectory {
     return new ModelProviderDirectory(classes.map(registeredOf));
   }
 
+  /** The one provider of this `name`; none when no provider, or more than one, has it (`[model.duplicate-provider-name]`). */
+  named(name: string): RegisteredModelProvider | undefined {
+    const named = this.providers.filter((candidate) => candidate.options.name === name);
+    return named.length === 1 ? named[0] : undefined;
+  }
+
   /**
    * The provider a model use goes to: the cascade's (`query.modelProvider`), which must be listed
    * and speak the purpose's protocol. A use whose cascade names none is `[model.missing-provider]`.
@@ -106,11 +112,18 @@ export class ModelProviderDirectory {
         `no modelProvider is set for it — name one on the component, its workflow or its application (listed: ${names(this.providers)})`,
       );
     const name = query.modelProvider;
-    const provider = this.providers.find((candidate) => candidate.options.name === name);
+    const named = this.providers.filter((candidate) => candidate.options.name === name);
+    const [provider] = named;
     if (provider === undefined)
       return problem(
         "model.missing-provider",
         `modelProvider ${name} is not listed in @Application({ providers }) (listed: ${names(this.providers)})`,
+      );
+    // two classes of one name: the call would reach either's upstream with either's key — never guess
+    if (named.length > 1)
+      return problem(
+        "model.duplicate-provider-name",
+        `${String(named.length)} model providers are named ${name} (${named.map((one) => one.type.name).join(", ")}) — give each its own name`,
       );
     if (!canServe(provider, query.purpose))
       return problem(

@@ -1,7 +1,16 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { errorRecordOf, RecordedError, type ErrorRecord } from "../../../core/error-record.js";
 import { valueWrite, type FlowEdge } from "../../analyse/flow-graph.js";
-import { compensationsOfFailedJoin, type CompensationEntry } from "../../compensation.js";
+import {
+  compensationsOfFailedJoin,
+  mergeCompensations,
+  type CompensationEntry,
+  type FailedJoinUndo,
+} from "../../compensation.js";
+import { extractRunContext } from "../../../core/run-context.js";
+import { heldEntriesUndone, withHeldUndone } from "../compensation/held-on-error.js";
+import type { StepErrorSite } from "../compensation/step-error-undo.js";
+import { stepFrameAt } from "../step-frame.js";
 import { isSkippedBranch } from "./branch-skip.js";
 import { errorHandlerOf } from "../graph-model.js";
 import { sidePathEntered } from "../limits.js";
@@ -26,6 +35,8 @@ export const failureRecordOf = (record: BranchOutcomeRecord): ErrorRecord =>
  * A failed launch: its `.onError(…)` side path, else the branch's error. The side path starts
  * with the answers already settled (#945): the branches that finished, read from the checkpointed
  * records, each as the value of its class — a branch whose undo ran in this failed join is left out.
+ * Before it, what the execution's finished children left open is undone (#1281 (10)), as for a
+ * plain step's failure: after the launch's own entries (`joinUndo`), whose closes it reads first.
  */
 async function failedJoin(
   launch: RuntimeLaunch,
@@ -38,16 +49,48 @@ async function failedJoin(
     readonly deps: JoinDeps;
     readonly records: readonly BranchOutcomeRecord[];
     readonly undone: readonly string[];
+    readonly joinUndo: FailedJoinUndo;
   },
   cause: Error,
 ): Promise<ExecutionStateUpdate> {
   const { record } = failed;
   const handler = errorHandlerOf({ errors: launch.joinErrors }, record);
   if (handler === undefined) throw cause;
+  const held = await heldEntriesUndone(heldSiteOf(failed, cause));
   const handled = handledErrorOf(failed.deps, record, failed.node, handler.to);
   const entered = sidePathEntered(failed.state, record, handler.to, undefined, handled);
   const settled = await settledValues(launch, handler, failed);
-  return { ...settled, lastError: record, next: handler.to, handledErrors: [handled], ...entered };
+  const update = {
+    ...settled,
+    lastError: record,
+    next: handler.to,
+    handledErrors: [handled],
+    ...entered,
+  };
+  return withHeldUndone({ ...update, ...failed.joinUndo }, held);
+}
+
+/** Where a failed join undoes the held entries: the launching step's frame, the state as its undo left it. */
+function heldSiteOf(
+  failed: {
+    readonly state: ExecutionStateType;
+    readonly config: RunnableConfig | undefined;
+    readonly ticket: LaunchTicket;
+    readonly deps: JoinDeps;
+    readonly joinUndo: FailedJoinUndo;
+  },
+  cause: Error,
+): StepErrorSite {
+  const { state, config, ticket, deps } = failed;
+  const node = deps.graph.nodes.get(ticket.launcher);
+  if (node === undefined) throw new TypeError(`${ticket.launcher} is not a node of the graph`);
+  const frame = stepFrameAt({ node, visitNumber: ticket.visitNumber }, state, config, deps);
+  const compensations = mergeCompensations(
+    state.compensations,
+    failed.joinUndo.compensations ?? [],
+  );
+  const { clock } = extractRunContext(config, state.runId);
+  return { state: { ...state, compensations }, frame, deps, clock, cause };
 }
 
 /** The settled answers' write onto the side path's scope; nothing when the launch gives no value. */
@@ -116,12 +159,8 @@ export async function failedJoined(
   try {
     const undoneNodes = undoneBranchesOf(undone.compensations, site.ticket);
     const failure = failureRecordOf(record);
-    const entered = await failedJoin(
-      launch,
-      { ...site, record: failure, node, undone: undoneNodes },
-      cause,
-    );
-    return { ...undone, ...entered };
+    const joined = { ...site, record: failure, node, undone: undoneNodes, joinUndo: undone };
+    return await failedJoin(launch, joined, cause);
   } catch (error) {
     // no side path: the undo's spend reaches no state — the ledger at once (#340 S4)
     await site.deps.limits.budgets.record(undone.usage ?? []);
@@ -171,8 +210,8 @@ export async function failedQuorum(
   try {
     const undoneNodes = undoneBranchesOf(undone.compensations, site.ticket);
     const node = site.ticket.launcher;
-    const entered = await failedJoin(launch, { ...site, record, node, undone: undoneNodes }, error);
-    return { ...undone, ...entered };
+    const joined = { ...site, record, node, undone: undoneNodes, joinUndo: undone };
+    return await failedJoin(launch, joined, error);
   } catch (thrown) {
     await site.deps.limits.budgets.record(undone.usage ?? []);
     throw thrown;

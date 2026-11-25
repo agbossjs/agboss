@@ -92,7 +92,8 @@ export class SqliteExecutionLeaseRepository extends SqliteClusterMirror {
   /** Loaded on first use (#591): the root import stays as it was. */
   async claimExecutionId(identity: ExecutionIdentity): Promise<boolean> {
     const { savedExecutionId } = await lazyLoad(import("./sqlite-execution-ids.js"));
-    return savedExecutionId(this.connection, identity);
+    // after the await the gate no longer covers this call: served again (sqlite-served.ts)
+    return this.connection.serve(() => savedExecutionId(this.connection, identity));
   }
 
   acquire(

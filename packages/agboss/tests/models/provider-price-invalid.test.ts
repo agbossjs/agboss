@@ -149,6 +149,7 @@ describe("#1385: assembly refuses a provider's price that is no amount from 0", 
 describe("#1385: at run time a bad price throws before any cost is recorded", () => {
   it("the provider prices a model of the config through priceOf: a bad table throws a ConfigError.Unit", () => {
     const config = {
+      defaults: { models: {} },
       agents: { a: { model: "bedrock/m", modelProvider: "run-time-model-provider" } },
     } as never;
     const bad: ModelCost = {

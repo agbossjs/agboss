@@ -1,3 +1,4 @@
+import { asDeclared } from "../src/models/model-pricing.js";
 import { FakeListChatModel } from "@langchain/core/utils/testing";
 import { describe, expect, it } from "vitest";
 import { formatHistory } from "../src/flow/runtime/history.js";
@@ -36,6 +37,7 @@ async function setup(
       fakeGateway((settings) =>
         settings.model === "test/alpha" ? alpha : new FakeListChatModel({ responses: ["x"] }),
       ),
+      asDeclared,
     ),
   });
   return { deps, alpha, routed };

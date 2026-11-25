@@ -71,17 +71,49 @@ const hint = (item: UnknownOption): string => {
 
 const nameOf = (cls: Class): string => cls.name || "(anonymous class)";
 
+const isBag = (value: unknown): value is Readonly<Record<string, unknown>> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+/** The `name` a decorator's options give their class (a provider's `openai-model-provider`), shown after it. */
+const namedOf = (options: unknown): string => {
+  const name = isBag(options) ? options.name : undefined;
+  return typeof name === "string" ? ` (${shown(name)})` : "";
+};
+
+/**
+ * The keys a factory value among a decorator's options was given and does not take: a model driver's
+ * (`driver: OpenRouterDriver({ baseURL })`, bughunt 2026-11-25 #5), reported under the class that uses it.
+ */
+function factoryViolationsOf(cls: Class, options: unknown, owner: string): RuleViolation[] {
+  if (!isBag(options)) return [];
+  return Object.entries(options).flatMap(([field, value]) =>
+    typeof value === "object" && value !== null
+      ? recordedOptionsOf(value).flatMap((made) =>
+          made.unknown.map((item) => {
+            const bag = item.bag === undefined ? "" : `${shown(item.bag)} of `;
+            const message =
+              `${nameOf(cls)}${namedOf(options)}: ${shown(item.key)} is not an option of ` +
+              `${made.decorator}(…) (in ${bag}${owner} ${shown(field)})` +
+              hint(item);
+            return violation("decorator.unknown-option", message, [nameOf(cls)]);
+          }),
+        )
+      : [],
+  );
+}
+
 /** The violations of one class's recorded options. */
 function violationsOf(cls: Class): RuleViolation[] {
-  return recordedOptionsOf(cls).flatMap((recorded) =>
-    recorded.unknown.map((item) => {
+  return recordedOptionsOf(cls).flatMap((recorded) => [
+    ...recorded.unknown.map((item) => {
       const place = item.bag === undefined ? "" : ` (in ${shown(item.bag)})`;
       const message =
         `${nameOf(cls)}: ${shown(item.key)} is not an option of @${recorded.decorator}${place}` +
         hint(item);
       return violation("decorator.unknown-option", message, [nameOf(cls)]);
     }),
-  );
+    ...factoryViolationsOf(cls, recorded.options, `@${recorded.decorator}`),
+  ]);
 }
 
 const isPlain = (value: object): boolean => {

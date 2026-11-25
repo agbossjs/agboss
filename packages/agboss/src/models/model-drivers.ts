@@ -17,6 +17,12 @@ import { OpenAiCompatibleProvider } from "./openai-compatible.provider.js";
 import type { OpenRouterRouting } from "./openrouter-routing.js";
 import { OpenRouterProvider, type OpenRouterFields } from "./openrouter.provider.js";
 import type { SecretRef, OptionalSecretRef } from "../environments/env-ref.js";
+import { recordOptionKeys, type OptionKeys } from "../components/option-keys.js";
+import {
+  DECISIONS_DRIVER_KEYS,
+  OPENAI_COMPATIBLE_DRIVER_KEYS,
+  OPENROUTER_DRIVER_KEYS,
+} from "../components/option-lists/infrastructure.js";
 
 /** OpenRouter's API, the default of `OpenRouterDriver`. */
 export const OPENROUTER_API_URL = "https://openrouter.ai/api/v1";
@@ -122,6 +128,30 @@ const IMAGE_DECISION_MODEL =
 const decisionInputsOf = (model: string): readonly ModelInputKind[] =>
   IMAGE_DECISION_MODEL.test(model) ? ["text", "image"] : ["text"];
 
+/**
+ * The driver with the keys it was given that its factory does not take recorded on it (bughunt
+ * 2026-11-25 #5): `[decorator.unknown-option]` reports them at assembly under the provider that uses it.
+ */
+function recorded<T extends object>(
+  driver: T,
+  factory: string,
+  options: unknown,
+  allow: OptionKeys,
+): T {
+  recordOptionKeys(driver, factory, options, allow);
+  return driver;
+}
+
+/** The connection settings a driver keeps: the known ones only, an unset one left out. */
+const connectionOf = (
+  baseUrl: TextSetting,
+  given: Pick<DriverConnectionSettings, "apiKey" | "headers">,
+): DriverConnectionSettings => ({
+  baseUrl,
+  ...(given.apiKey === undefined ? {} : { apiKey: given.apiKey }),
+  ...(given.headers === undefined ? {} : { headers: given.headers }),
+});
+
 const describesUrl = (baseUrl: TextSetting): string =>
   typeof baseUrl === "string" ? baseUrl : `$${baseUrl.variable}`;
 
@@ -130,43 +160,47 @@ const describesUrl = (baseUrl: TextSetting): string =>
  * Chat Completions API and `GET /models`, nothing OpenRouter-only on the wire.
  */
 export function OpenAiCompatibleDriver(options: OpenAiCompatibleDriverOptions): ChatModelDriver {
-  const { requestFields = {}, ...settings } = options;
-  return defineModelDriver<ModelKind.Chat>({
+  const { requestFields = {}, baseUrl, apiKey, headers } = options;
+  const settings = connectionOf(baseUrl, { apiKey, headers });
+  const driver = defineModelDriver<ModelKind.Chat>({
     kind: ModelKind.Chat,
     dialect: "openai-compatible",
     settings,
     requestFields,
     createHandler: () => new OpenAiCompatibleHandler(requestFields),
-    describes: `openai-compatible ${describesUrl(settings.baseUrl)}`,
+    describes: `openai-compatible ${describesUrl(baseUrl)}`,
   });
+  return recorded(driver, "OpenAiCompatibleDriver", options, OPENAI_COMPATIBLE_DRIVER_KEYS);
 }
 
 /** OpenRouter as a dialect: its reasoning and caching fields, the cost in every answer, host routing. */
 export function OpenRouterDriver(options: OpenRouterDriverOptions): ChatModelDriver {
-  const { routing, transforms, baseUrl = OPENROUTER_API_URL, ...rest } = options;
+  const { routing, transforms, baseUrl = OPENROUTER_API_URL, apiKey, headers } = options;
   const requestFields: OpenRouterFields = {
     ...(routing === undefined ? {} : { provider: routing }),
     ...(transforms === undefined ? {} : { transforms }),
   };
-  return defineModelDriver<ModelKind.Chat>({
+  const driver = defineModelDriver<ModelKind.Chat>({
     kind: ModelKind.Chat,
     dialect: "openrouter",
-    settings: { ...rest, baseUrl },
+    settings: connectionOf(baseUrl, { apiKey, headers }),
     requestFields: { ...requestFields },
     createHandler: () => new OpenRouterHandler(requestFields),
     describes: `openrouter ${describesUrl(baseUrl)}`,
   });
+  return recorded(driver, "OpenRouterDriver", options, OPENROUTER_DRIVER_KEYS);
 }
 
 /** A gateway of decision models: choice, yes/no and score questions answered with calibrated confidence. */
 export function DecisionsDriver(options: DecisionsDriverOptions): DecisionsModelDriver {
-  const { path, knownModels, ...settings } = options;
-  return defineModelDriver<ModelKind.Decisions>({
+  const { path, knownModels, baseUrl, apiKey, headers } = options;
+  const driver = defineModelDriver<ModelKind.Decisions>({
     kind: ModelKind.Decisions,
     dialect: "decisions",
-    settings,
+    settings: connectionOf(baseUrl, { apiKey, headers }),
     requestFields: { ...(path === undefined ? {} : { path }) },
     createHandler: () => new DecisionsHandler(path, knownModels),
-    describes: `decisions ${describesUrl(settings.baseUrl)}`,
+    describes: `decisions ${describesUrl(baseUrl)}`,
   });
+  return recorded(driver, "DecisionsDriver", options, DECISIONS_DRIVER_KEYS);
 }

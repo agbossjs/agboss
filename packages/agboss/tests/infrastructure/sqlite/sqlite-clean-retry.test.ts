@@ -16,6 +16,7 @@ import { applicationContextOf } from "../../../src/flow/context/application-cont
 import { VirtualClock } from "../../../src/testing/clock.js";
 import { storeClockOf } from "../../helpers/store-clock.js";
 import { connectionTo, temporarySqlitePath } from "../contracts/store-kinds.js";
+import { unservedStatementsOf } from "./served-scan.js";
 
 const pause = (length: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, length));
@@ -315,5 +316,61 @@ describe("#1317c: a new direct SQLite caller cannot appear unreviewed", () => {
   it("the listed files still exist and still touch a database (a stale entry is removed)", () => {
     for (const file of [...Object.keys(OUTSIDE_THE_GATE)])
       expect(DIRECT.test(sourceOf(file))).toBe(true);
+  });
+});
+
+/** The gate itself: its statements are the queue's, the hold's and the attempt's own. */
+const THE_GATE = new Set(
+  [
+    "sqlite-attempt.ts",
+    "sqlite-gate.ts",
+    "sqlite-guard.ts",
+    "sqlite-hold.ts",
+    "sqlite-lock-wait.ts",
+    "sqlite-mutex.ts",
+    "sqlite-served.ts",
+  ].map((name) => `infrastructure/sqlite/${name}`),
+);
+
+describe("#1317: no statement of a SQLite operation runs after an await outside connection.serve", () => {
+  const files = sourcesUnder(SRC);
+
+  it("every file on the application's connection serves each group of statements after an await", () => {
+    // the turn store runs on the application's connection too (sharedTurnStore), as does live-lease
+    const scanned = files.filter(
+      (file) =>
+        (file.startsWith("infrastructure/sqlite/") && !THE_GATE.has(file)) ||
+        file.startsWith("turns/") ||
+        file === "infrastructure/live-lease.ts",
+    );
+    const unserved = scanned.flatMap((file) =>
+      unservedStatementsOf(sourceOf(file)).map((found) => `${file}:${found}`),
+    );
+
+    expect(scanned.length).toBeGreaterThan(40);
+    expect(unserved).toEqual([]);
+  });
+
+  it("the scan bites: the shapes the bug hunt found are each reported", () => {
+    const shapes = [
+      // the outbound call's markCompleted before #1317: a member that opens a transaction, after an await
+      `class A { #fenced() { return this.connection.transaction(() => 1); }
+        async mark() { const { endedOf } = await this.changes; return this.#fenced(); } }`,
+      // the checkpoint saver's put: the serde awaited, then the transaction
+      `class B { async put() { await this.serde.dumpsTyped(1); this.connection.transaction(() => 1); } }`,
+      // a helper handed the connection after an await
+      `class C { async claim() { const m = await load(); return m.saved(this.connection, 1); } }`,
+      // a loop: its second turn runs after the first turn's await
+      `async function sweep(db) { for (const t of ts) { removal.run(t); await isEnded(t); } }`,
+      // a stream: the gate never covers its body
+      `class D { async *list() { yield this.connection.database.prepare("x").all(); } }`,
+    ];
+
+    for (const shape of shapes) expect(unservedStatementsOf(shape), shape).not.toEqual([]);
+    expect(
+      unservedStatementsOf(
+        `class E { async put() { await x(); await this.connection.serve(() => db.prepare("y").run()); } }`,
+      ),
+    ).toEqual([]);
   });
 });
