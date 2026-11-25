@@ -22,6 +22,7 @@ import {
 } from "./launch-dtos.js";
 import { CritiqueDto, PlanDto, ResearchDto } from "./review-dtos.js";
 import { inline, Ttl } from "../../../src/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #273 — the issue's four launches, each a workflow of its own: different agents (a repeated one),
@@ -97,6 +98,7 @@ export class ArticleDraftWorkflowFinish {}
 
 @Workflow({
   name: "research-workflow",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: [
@@ -196,8 +198,7 @@ export class ScreeningFailedWorkflowFinish {}
       .join()
       .onError(
         LimitExceededError,
-        toAction(NotifyOperatorAction)
-          .toFinish(ScreeningFailedWorkflowFinish),
+        toAction(NotifyOperatorAction).toFinish(ScreeningFailedWorkflowFinish),
       )
       .toAgent(RankerAgent)
       .toFinish(RankingWorkflowFinish),
@@ -382,10 +383,8 @@ export class HelpDeskWorkflowFinish {}
     onStart(HelpDeskWorkflowStart)
       .inParallel([
         toAgent(OrderLookupAgent),
-        toAgent(LoyaltyOfferAgent)
-          .onError(StepError, skip()),
-        toRouter(HelpDeskRouter)
-          .chooseMany([toAgent(RefundPolicyAgent)]),
+        toAgent(LoyaltyOfferAgent).onError(StepError, skip()),
+        toRouter(HelpDeskRouter).chooseMany([toAgent(RefundPolicyAgent)]),
       ])
       .join()
       .toAgent(AnswerAgent)
@@ -446,8 +445,7 @@ export class OffersWorkflowFinish {}
     onStart(OffersWorkflowStart)
       .inParallel([
         toAgent(RefundPolicyAgent),
-        toRouter(OffersRouter)
-          .chooseMany([toAgent(LoyaltyOfferAgent)]),
+        toRouter(OffersRouter).chooseMany([toAgent(LoyaltyOfferAgent)]),
       ])
       .join()
       .toAgent(OffersAnswerAgent)

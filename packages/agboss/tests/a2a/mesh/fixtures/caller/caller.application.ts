@@ -29,6 +29,7 @@ import {
 import { onStart } from "../../../../helpers/flow.js";
 import { MeshEnvironment } from "../../../fixtures/environments/mesh.environment.js";
 import { CALLER_TOKEN, PEER_APPLICATION } from "../peer/peer.application.js";
+import { TestModelProvider } from "../../../../../src/testing/test-model-provider.js";
 
 /** Where the client thinks the peer is: its card's interface is there too (the listener's publicUrl). */
 export const PEER_URL = "http://peer.test/a2a";
@@ -262,6 +263,7 @@ class CallerMesh {}
 
 @Application({
   name: "caller-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: MeshEnvironment,
   workflows: [CallerWorkflow],

@@ -24,6 +24,7 @@ import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { ContactPiiPolicy } from "../pii/pii.fixture.js";
 import { onStart, toAgent } from "../helpers/flow.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 /** What a caller sends: a document and a note. */
 export class ReadRequestDto {
@@ -125,6 +126,7 @@ export class ReaderFilePolicy {}
 
 @Workflow({
   name: "reader-workflow",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   filePolicy: ReaderFilePolicy,
@@ -174,6 +176,7 @@ export class EveryEvent {
 
 @Application({
   name: "reader-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ReaderWorkflow],
@@ -184,6 +187,7 @@ export class ReaderApplication {}
 
 @Application({
   name: "private-reader-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ReaderWorkflow],

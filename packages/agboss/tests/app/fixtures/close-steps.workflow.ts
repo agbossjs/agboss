@@ -14,7 +14,8 @@ import {
   type ExecutionLease,
   type OnDestroy,
   type Tracked,
-  inline, Ttl,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { IN_MEMORY_DATABASE } from "../../../src/infrastructure/in-memory-database.js";
@@ -27,6 +28,7 @@ import {
   RecoveryLog,
   StampedExecutionRecordRepository,
 } from "../../infrastructure/fixtures/recovery.workflow.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #367 — a step whose body ignores its signal: the first run of the slow action (and of the slow
@@ -170,25 +172,18 @@ export class ToolWorkflowFinish {}
   name: "slow-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(SlowWorkflowStart)
-      .toAction(SlowAction)
-      .toFinish(SlowWorkflowFinish),
-  ],
+  flow: [onStart(SlowWorkflowStart).toAction(SlowAction).toFinish(SlowWorkflowFinish)],
   providers: [Teardown],
 })
 export class SlowWorkflow {}
 
 @Workflow({
   name: "tool-workflow",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   defaults: { models: { maxTokens: 100, temperature: 0 } },
-  flow: [
-    onStart(ToolWorkflowStart)
-      .toAgent(WorkerAgent)
-      .toFinish(ToolWorkflowFinish),
-  ],
+  flow: [onStart(ToolWorkflowStart).toAgent(WorkerAgent).toFinish(ToolWorkflowFinish)],
   providers: [Teardown],
 })
 export class ToolWorkflow {}
@@ -196,6 +191,7 @@ export class ToolWorkflow {}
 /** A minute to stop: interrupted at 55 s, its bodies awaited in the 5 s grace (#367 S3). */
 @Application({
   name: "close-steps-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [SlowWorkflow, ToolWorkflow],

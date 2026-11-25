@@ -18,9 +18,11 @@ import {
   SpendingLimitAnswerDto,
 } from "../flow/fixtures/questions.fixture.js";
 import { execute } from "../helpers/flow.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 @Application({
   name: "kept-questions-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [PurchaseWorkflow, OwnerPurchaseWorkflow],

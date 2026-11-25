@@ -26,6 +26,7 @@ import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { SqliteTestEnvironment } from "../../infrastructure/sqlite/fixtures/environments/app.environment.js";
 import { MortalExecutionLeaseRepository } from "../../infrastructure/fixtures/recovery.workflow.js";
 import { ReleaseWorkflow } from "../../app/fixtures/fence.workflow.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 const LEASE_DEPS = { deps: [StoreClock, ApplicationContext, IN_MEMORY_DATABASE] } as const;
 const EFFECT_DEPS = {
@@ -215,6 +216,7 @@ export const CALL_STORES: readonly FencingChoice[] = [
 export function storesApplication(providers: readonly Provider[]): Class {
   @Application({
     name: "stores-application",
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     environment: SqliteTestEnvironment,
     workflows: [ReleaseWorkflow],

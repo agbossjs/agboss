@@ -23,6 +23,7 @@ import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { onStart, toAgent, toWorkflow } from "../helpers/flow.js";
 import { ContactPiiPolicy, Outbox, SendEmail } from "./pii.fixture.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 const price = { inputPerMTok: 1, outputPerMTok: 10 };
 const defaults = { models: { temperature: 0 }, tools: { maxToolCalls: 2 } } as const;
@@ -309,6 +310,7 @@ export class FailedListWorkflow {}
 
 @Application({
   name: "handover-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [HandoverWorkflow, FailedHandoverWorkflow, FailedListWorkflow],

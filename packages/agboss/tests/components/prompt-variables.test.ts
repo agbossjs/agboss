@@ -29,6 +29,7 @@ import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { testConfig, testDefaults } from "../helpers.js";
 import { onStart, toAgent, toFinish } from "../helpers/flow.js";
 import { NoAnswer, TestAnswer, TestChat } from "../fixtures/test-flow/test.flow.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 /** #1347c: `promptVariables` cascade (application → workflow → component), `env(…)` values, no secrets. */
 
@@ -100,6 +101,7 @@ function applicationWith(levels: Levels): Class {
 
   @Application({
     name: "variables-application",
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     environment: EmptyEnvironment,
     workflows: [Variables],

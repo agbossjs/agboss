@@ -29,6 +29,7 @@ import {
   RuleRefundApprovalChannel,
 } from "../flow/fixtures/refunds.fixture.js";
 import { PauseRespondent } from "../../src/pause/respondent.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 class ChargeInputDto {
   @Text() orderId!: string;
@@ -71,6 +72,7 @@ function applicationWith(name: string, tools: readonly (typeof ChargeTool)[]) {
 
   @Workflow({
     name: `${name}-workflow`,
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     historyTtl: Ttl.Forever,
     flow: [onStart(RefundWorkflowStart).toAgent(ToolAgent).toFinish(RefundWorkflowFinish)],

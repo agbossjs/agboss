@@ -19,6 +19,7 @@ import {
 import { seconds } from "../../src/units/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { CrmClient, ProbeWorkflow } from "./fixtures/health.application.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 /** The codes and messages an application's assembly fails with. */
 async function violationsOf(application: Class): Promise<string[]> {
@@ -61,6 +62,7 @@ class UndecoratedHealthCheck {
 
 @Application({
   name: "checked-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ProbeWorkflow],

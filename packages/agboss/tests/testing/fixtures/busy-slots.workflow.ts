@@ -5,11 +5,13 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  inline, Ttl,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart } from "../../helpers/flow.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #646 — the documented pattern: two executions started and the clock advanced at once. Each one's
@@ -50,16 +52,13 @@ export class ChunkWorkflowFinish {}
   name: "chunk-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(ChunkWorkflowStart)
-      .toAgent(ChunkWorkerAgent)
-      .toFinish(ChunkWorkflowFinish),
-  ],
+  flow: [onStart(ChunkWorkflowStart).toAgent(ChunkWorkerAgent).toFinish(ChunkWorkflowFinish)],
 })
 export class ChunkWorkflow {}
 
 @Application({
   name: "busy-slots-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ChunkWorkflow],

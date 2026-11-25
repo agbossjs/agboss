@@ -18,6 +18,7 @@ import type { ActionHandler, RouterHandler } from "../../../src/flow/handlers.js
 import { StepFailedError } from "../../../src/graph/errors.js";
 import { Integer, List, Text } from "../../../src/dto/index.js";
 import { inline, Ttl } from "../../../src/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #264 — the issue's recursive topic research in the typed builder: `forEachItem(() => Self, …)` as a per-item
@@ -116,6 +117,7 @@ export class ResearchFailedWorkflowFinish {}
 
 @Workflow({
   name: "deep-research-workflow",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: [
@@ -134,8 +136,7 @@ export class ResearchFailedWorkflowFinish {}
           .onError(StepFailedError, toAction(FailTopicAction))
           .toFinish(ResearchReportWorkflowFinish),
       ]),
-    onAction(FailTopicAction)
-      .toFinish(ResearchFailedWorkflowFinish),
+    onAction(FailTopicAction).toFinish(ResearchFailedWorkflowFinish),
   ],
   executionLimits: { maxDepth: 4 },
 })
@@ -175,24 +176,23 @@ export class OutlineDepthRouter implements RouterHandler<OutlineDepthRouter> {
 /** The same finishes as the research; each recursive workflow names itself with a thunk. */
 @Workflow({
   name: "outline-workflow",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: [
     onStart(OutlineWorkflowStart)
       .toRouter(OutlineDepthRouter)
       .onRoute(
-        toWorkflow(() => OutlineWorkflow)
-          .toOneOf([
-            toFinish(ResearchReportWorkflowFinish),
-            toFinish(ResearchFailedWorkflowFinish),
-          ]),
+        toWorkflow(() => OutlineWorkflow).toOneOf([
+          toFinish(ResearchReportWorkflowFinish),
+          toFinish(ResearchFailedWorkflowFinish),
+        ]),
       )
       .onRoute(
         toAgent(OutlineAgent)
           .onError(
             StepFailedError,
-            toAction(FailTopicAction)
-              .toFinish(ResearchFailedWorkflowFinish),
+            toAction(FailTopicAction).toFinish(ResearchFailedWorkflowFinish),
           )
           .toFinish(ResearchReportWorkflowFinish),
       ),

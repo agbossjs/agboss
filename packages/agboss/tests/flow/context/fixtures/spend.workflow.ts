@@ -8,7 +8,8 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  inline, Ttl,
+  inline,
+  Ttl,
 } from "../../../../src/index.js";
 import { seconds, usd, type Usd } from "../../../../src/units/index.js";
 import { onStart } from "../../../helpers/flow.js";
@@ -20,6 +21,7 @@ import {
 } from "../../fixtures/budgets.js";
 import { Budget, BudgetScope, type BudgetHandler } from "../../../../src/budgets/budget.js";
 import { EmptyEnvironment } from "../../../../src/index.js";
+import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /** What the components saw (reset by `resetSpendSeen`). */
 export const spendSeen = {
@@ -135,18 +137,22 @@ export class SpendStart {}
 export class ShippedFinish {}
 
 const paths = [
-  onStart(SpendStart)
-    .toAgent(SearcherAgent)
-    .toAction(ShipAction)
-    .toFinish(ShippedFinish),
+  onStart(SpendStart).toAgent(SearcherAgent).toAction(ShipAction).toFinish(ShippedFinish),
 ];
 
 /** start → searcher (paid search) → ship (paid courier) → shipped; the test budgets ($100 an execution). */
-@Workflow({ name: "spend-workflow", version: "1.0.0", historyTtl: Ttl.Forever, providers: [ShipAction], flow: paths })
+@Workflow({
+  name: "spend-workflow",
+  version: "1.0.0",
+  historyTtl: Ttl.Forever,
+  providers: [ShipAction],
+  flow: paths,
+})
 export class SpendWorkflow {}
 
 @Application({
   name: "spend-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [SpendWorkflow],
@@ -155,7 +161,13 @@ export class SpendWorkflow {}
 export class SpendApplication {}
 
 /** The same with its own execution budget of $0.001: one paid search spends it. */
-@Workflow({ name: "tight-spend-workflow", version: "1.0.0", historyTtl: Ttl.Forever, providers: [ShipAction], flow: paths })
+@Workflow({
+  name: "tight-spend-workflow",
+  version: "1.0.0",
+  historyTtl: Ttl.Forever,
+  providers: [ShipAction],
+  flow: paths,
+})
 export class TightSpendWorkflow {}
 
 @Budget({
@@ -171,6 +183,7 @@ export class TightSpendExecutionBudget implements BudgetHandler {
 
 @Application({
   name: "tight-spend-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [TightSpendWorkflow],

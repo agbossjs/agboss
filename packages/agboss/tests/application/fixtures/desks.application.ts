@@ -23,6 +23,7 @@ import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { testDefaults } from "../../helpers.js";
 import { onStart } from "../../helpers/flow.js";
 import { EmptyEnvironment } from "../../../src/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #261 PR 2 — an application of two workflows: orders and refunds, each its own start; a service
@@ -151,6 +152,7 @@ export class RefundsWorkflow {}
 
 @Application({
   name: "desks-application",
+  modelProvider: TestModelProvider,
   version: "3.1.0",
   environment: EmptyEnvironment,
   workflows: [OrdersWorkflow, RefundsWorkflow],
@@ -171,6 +173,7 @@ export class OrdersCopyWorkflow {}
 
 @Application({
   name: "ambiguous-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [OrdersWorkflow, OrdersCopyWorkflow],

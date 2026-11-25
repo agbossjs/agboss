@@ -16,6 +16,7 @@ import {
   UnwindSidePathWorkflow,
   UnwindWorkflow,
 } from "../../flow/runtime/fixtures/unwind.workflow.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #635 — every way a root's tree ends undone, its history kept (`retention.executionRecords`): a
@@ -25,6 +26,7 @@ import {
  */
 @Application({
   name: "kept-undo-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [UnwindWorkflow, UnwindSidePathWorkflow, UnwindManyWorkflow, UnwindGuestWorkflow],

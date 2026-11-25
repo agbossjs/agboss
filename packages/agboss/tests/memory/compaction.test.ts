@@ -65,6 +65,7 @@ import {
   WindowDeskApplication,
   WindowRouter,
 } from "./compaction.fixture.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 const JEV = "typesafe/jev-1.13";
 
@@ -223,6 +224,7 @@ class OddWorkflow {}
 
 @Application({
   name: "odd-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [OddWorkflow],
@@ -615,6 +617,7 @@ describe("#1303: onCompactionStart / onCompactionEnd", () => {
 
   @Application({
     name: "observed-notes-desk-application",
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     environment: EmptyEnvironment,
     workflows: [NotesDeskWorkflow],

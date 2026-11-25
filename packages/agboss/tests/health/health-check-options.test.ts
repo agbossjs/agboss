@@ -16,6 +16,7 @@ import { testWith } from "../../src/testing/index.js";
 import { seconds } from "../../src/units/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { ProbeWorkflow, resetHealth } from "./fixtures/health.application.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 const seen: string[] = [];
 
@@ -46,6 +47,7 @@ class WaitingHealthCheck {
 
 @Application({
   name: "options-probe-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ProbeWorkflow],
@@ -56,6 +58,7 @@ class WaitingProbeApplication {}
 
 @Application({
   name: "bare-probe-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ProbeWorkflow],

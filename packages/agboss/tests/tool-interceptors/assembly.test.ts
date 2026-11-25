@@ -38,6 +38,7 @@ import {
   PingTool,
   StampToolInterceptor,
 } from "./components.fixture.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 const workflowsOf = async (application: object): Promise<readonly AssembledWorkflow[]> =>
   (await applicationOf(application as never)).workflows;
@@ -309,6 +310,7 @@ describe("#1295: the hook rules", () => {
     class QuietPingWorkflow {}
     @Application({
       name: "quiet-ping-application",
+      modelProvider: TestModelProvider,
       version: "1.0.0",
       environment: EmptyEnvironment,
       workflows: [QuietPingWorkflow],

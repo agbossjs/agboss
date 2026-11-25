@@ -15,11 +15,13 @@ import { temporaryFileDatabaseStorage } from "../../src/storage/in-memory-storag
 import { testWith } from "../../src/testing/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { workflowWith } from "../core/observers/fixture.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 const Storage = temporaryFileDatabaseStorage();
 
 @Application({
   name: "storage-health-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [workflowWith("storage-health-workflow")],

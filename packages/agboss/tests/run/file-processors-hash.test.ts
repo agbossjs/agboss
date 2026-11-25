@@ -34,6 +34,7 @@ import {
   SharedPausedExecutionRepository,
 } from "../helpers/shared-infrastructure.js";
 import { MailV1, SendEmail, sent, Start } from "../app/fixtures/mail.workflow.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 @Injectable()
 class PresidioImageRedactor extends FileRedactor {
@@ -79,6 +80,7 @@ const durable = [
 function deployment(processors: readonly Class[]): Class {
   @Application({
     name: "mail-v1-application",
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     environment: EmptyEnvironment,
     workflows: [MailV1],

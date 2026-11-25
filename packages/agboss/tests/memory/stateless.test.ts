@@ -21,6 +21,7 @@ import { replyWith, testWith } from "../../src/testing/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { execute, onStart } from "../helpers/flow.js";
 import { Window2Memory } from "../helpers/window-memory.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 const entries: LogEntry[] = [];
 
@@ -73,6 +74,7 @@ class RememberingWorkflow {}
 const applicationOf = (workflow: typeof StatelessWorkflow, name: string) => {
   @Application({
     name,
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     environment: EmptyEnvironment,
     workflows: [workflow],

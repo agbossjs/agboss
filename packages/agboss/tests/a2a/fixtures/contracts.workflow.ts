@@ -11,7 +11,8 @@ import {
   Tool,
   Workflow,
   WorkflowFinish,
-  WorkflowStart, Ttl,
+  WorkflowStart,
+  Ttl,
 } from "../../../src/index.js";
 import { McpEndpoint } from "../../../src/mcp/index.js";
 import { defineEnv, secret } from "../../../src/environments/index.js";
@@ -20,6 +21,7 @@ import { hours, minutes, usd } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart } from "../../helpers/flow.js";
 import { HttpAuthResult, HttpAuthenticator } from "../../../src/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * Declared contracts (#398 PR 3): a shop that exports two starts over A2A and one over MCP, and
@@ -174,11 +176,7 @@ export class OpenAuthenticator {
   name: "quote-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(QuoteWorkflowStart)
-      .toAgent(QuoteDeskAgent)
-      .toFinish(QuoteWorkflowFinish),
-  ],
+  flow: [onStart(QuoteWorkflowStart).toAgent(QuoteDeskAgent).toFinish(QuoteWorkflowFinish)],
   defaults: { models: { temperature: 0 }, tools: { maxToolCalls: 2 } },
   providers: [BillingDeskA2AAgent, WeatherA2AAgent, OracleA2AAgent, OpenAuthenticator],
 })
@@ -188,10 +186,7 @@ export class QuoteWorkflow {}
   name: "refund-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(RefundWorkflowStart)
-      .toFinish(RefundWorkflowFinish),
-  ],
+  flow: [onStart(RefundWorkflowStart).toFinish(RefundWorkflowFinish)],
 })
 export class RefundWorkflow {}
 
@@ -199,11 +194,7 @@ export class RefundWorkflow {}
   name: "kb-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(KbWorkflowStart)
-      .toAgent(KbDeskAgent)
-      .toFinish(KbWorkflowFinish),
-  ],
+  flow: [onStart(KbWorkflowStart).toAgent(KbDeskAgent).toFinish(KbWorkflowFinish)],
   defaults: { models: { temperature: 0 }, tools: { maxToolCalls: 2 } },
 })
 export class KbWorkflow {}
@@ -232,6 +223,7 @@ export class ShopMcpEndpoint {}
 /** The shop served over A2A: two exported starts, one listed expose left out of `exposes`. */
 @Application({
   name: "shop-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [QuoteWorkflow, RefundWorkflow],
@@ -254,6 +246,7 @@ export class ShopDatabaseStorage {}
 /** The same with a knowledge base: what `describe --json` lists (assembled, never started). */
 @Application({
   name: "shop-kb-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [QuoteWorkflow, RefundWorkflow, KbWorkflow],

@@ -3,17 +3,14 @@ import { ApiClient, ChatStart, Clerk, Reply, settingsDefaults } from "../app/set
 import { onStart } from "../../../helpers/flow.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
+import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /** The same service reading the environment, but no `environments/` folder next to this file. */
 @Workflow({
   name: "no-environment-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(ChatStart)
-      .toAgent(Clerk)
-      .toFinish(Reply),
-  ],
+  flow: [onStart(ChatStart).toAgent(Clerk).toFinish(Reply)],
   defaults: settingsDefaults,
   providers: [ApiClient],
 })
@@ -23,6 +20,7 @@ export class NoEnvironmentApp {}
 // what an untyped caller gets at run time (an empty environment)
 @Application({
   name: "no-environment-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   workflows: [NoEnvironmentApp],
   budgets: TEST_BUDGETS,

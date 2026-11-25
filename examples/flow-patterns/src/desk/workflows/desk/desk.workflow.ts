@@ -8,6 +8,7 @@ import { OrderDeskService } from "../../services/order-desk.service.js";
 import { ShippingPolicyRag } from "../../rag/shipping-policy.rag.js";
 import { DeskAnswerWorkflowFinish } from "./desk-answer.workflow-finish.js";
 import { DeskWorkflowStart } from "./desk.workflow-start.js";
+import { TestModelProvider } from "../../../../../../packages/agboss/src/testing/test-model-provider.js";
 
 /**
  * The help desk (#382–#385): one agent on a transport model provider, its code guardrails and tool
@@ -16,6 +17,7 @@ import { DeskWorkflowStart } from "./desk.workflow-start.js";
  */
 @Workflow({
   name: "desk-workflow",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: [

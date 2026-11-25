@@ -63,6 +63,7 @@ import { untilReached } from "../helpers/reached.js";
 import { passLive } from "../helpers/live-time.js";
 import { IdempotencyKeyEnvironment } from "../helpers/idempotency-key.environment.js";
 import { ExecutionStatus } from "../../src/app/types.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 const services = [RecordingLogger];
 const test = testWith(BusinessKeyApplication, { services });
@@ -92,6 +93,7 @@ function settledFlag(promise: Promise<unknown>): () => boolean {
 /** The business-key application, its root executions kept (#401) and its calls heard. */
 @Application({
   name: "kept-business-key-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: IdempotencyKeyEnvironment,
   workflows: [CashierWorkflow, ChargeOrderWorkflow, SendChargeWorkflow, SendChargesWorkflow],

@@ -17,7 +17,8 @@ import {
   type ExecutionTreeValue,
   type PausedExecution,
   type ExecutionResumeEvent,
-  inline, Ttl,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { InMemoryPausedExecutionRepository } from "../../../src/infrastructure/in-memory-paused-execution.repository.js";
@@ -31,6 +32,7 @@ import {
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart } from "../../helpers/flow.js";
 import { EmptyEnvironment } from "../../../src/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #265 PR 1 — a clerk that charges (each charge waits for an approval), holds (the first hold
@@ -271,16 +273,13 @@ export class ReceiptWorkflowFinish {}
     tools: { maxToolCalls: 8 },
   },
   memory: Window1Memory,
-  flow: [
-    onStart(OrderWorkflowStart)
-      .toAgent(Clerk)
-      .toFinish(ReceiptWorkflowFinish),
-  ],
+  flow: [onStart(OrderWorkflowStart).toAgent(Clerk).toFinish(ReceiptWorkflowFinish)],
 })
 export class LeaseWorkflow {}
 
 @Application({
   name: "lease-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [LeaseWorkflow],

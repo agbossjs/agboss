@@ -15,6 +15,7 @@ import { hours, days } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { onStart } from "./paths.js";
 import { PauseRespondent } from "../../../src/pause/respondent.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #943 — pauses to list: a manager's approval (24 h, a channel pause, its workflow masks social
@@ -58,7 +59,12 @@ export function resetAsked(): void {
 })
 export class ListManagerExternalTask {}
 
-@Channel({ name: "list-manager-channel", description: "Asks the manager", target: ListManagerExternalTask, ttl: days(1) })
+@Channel({
+  name: "list-manager-channel",
+  description: "Asks the manager",
+  target: ListManagerExternalTask,
+  ttl: days(1),
+})
 export class ListManagerChannel {
   send(ask: ChannelAsk<ListManagerExternalTask>): Promise<ChannelOutcome<ListManagerExternalTask>> {
     asked.sent.push(ask);
@@ -76,7 +82,12 @@ export class ListManagerChannel {
 })
 export class ListOwnerExternalTask {}
 
-@Channel({ name: "list-owner-channel", description: "Waits for the owner", target: ListOwnerExternalTask, ttl: days(1) })
+@Channel({
+  name: "list-owner-channel",
+  description: "Waits for the owner",
+  target: ListOwnerExternalTask,
+  ttl: days(1),
+})
 export class ListOwnerChannel {
   send(): Promise<ChannelOutcome<ListOwnerExternalTask>> {
     return Promise.resolve(ChannelOutcome.awaitReply());
@@ -93,7 +104,12 @@ export class ListOwnerChannel {
 })
 export class ListFinanceExternalTask {}
 
-@Channel({ name: "list-finance-channel", description: "Asks finance", target: ListFinanceExternalTask, ttl: days(1) })
+@Channel({
+  name: "list-finance-channel",
+  description: "Asks finance",
+  target: ListFinanceExternalTask,
+  ttl: days(1),
+})
 export class ListFinanceChannel {
   send(): Promise<ChannelOutcome<ListFinanceExternalTask>> {
     return Promise.resolve(ChannelOutcome.awaitReply());
@@ -110,7 +126,12 @@ export class ListFinanceChannel {
 })
 export class ListOpenExternalTask {}
 
-@Channel({ name: "list-open-channel", description: "Asks, no deadline", target: ListOpenExternalTask, ttl: days(1) })
+@Channel({
+  name: "list-open-channel",
+  description: "Asks, no deadline",
+  target: ListOpenExternalTask,
+  ttl: days(1),
+})
 export class ListOpenChannel {
   send(): Promise<ChannelOutcome<ListOpenExternalTask>> {
     return Promise.resolve(ChannelOutcome.awaitReply());
@@ -229,6 +250,7 @@ export const openFlow = { start: ListOpenWorkflowStart, role: "list-open-externa
 
 @Application({
   name: "listing-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ListManagerWorkflow, ListOwnerWorkflow, ListFinanceWorkflow, ListOpenWorkflow],

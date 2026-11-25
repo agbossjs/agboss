@@ -13,6 +13,7 @@ import { DEFAULTS, MODEL_PROVIDERS, Reply, TaskStart } from "./judged.workflow.j
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../src/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** On a chat model, yet asks for a decision. */
 @Judge({ name: "chat-decider", model: "local/judge", output: PlainTextDto, deps: [JudgeModel] })
@@ -61,17 +62,14 @@ export class DecisionJudged {}
   name: "chat-decider-desk-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(TaskStart)
-      .toAgent(ChatJudged)
-      .toFinish(Reply),
-  ],
+  flow: [onStart(TaskStart).toAgent(ChatJudged).toFinish(Reply)],
   defaults: DEFAULTS,
 })
 export class ChatDeciderDesk {}
 
 @Application({
   name: "chat-decider-desk-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ChatDeciderDesk],
@@ -84,17 +82,14 @@ export class ChatDeciderDeskApplication {}
   name: "decision-chatter-desk-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(TaskStart)
-      .toAgent(DecisionJudged)
-      .toFinish(Reply),
-  ],
+  flow: [onStart(TaskStart).toAgent(DecisionJudged).toFinish(Reply)],
   defaults: DEFAULTS,
 })
 export class DecisionChatterDesk {}
 
 @Application({
   name: "decision-chatter-desk-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [DecisionChatterDesk],
@@ -152,10 +147,7 @@ export class Triage {}
     onStart(TaskStart)
       .toAgent(Intake)
       .toRouter(Triage)
-      .onRoute(
-        toAgent(Coder)
-          .toFinish(Reply),
-      )
+      .onRoute(toAgent(Coder).toFinish(Reply))
       .onRoute(toFinish(AsIs)),
   ],
   defaults: DEFAULTS,
@@ -164,6 +156,7 @@ export class LunaRouted {}
 
 @Application({
   name: "luna-routed-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [LunaRouted],

@@ -16,6 +16,7 @@ import { encodeMeshEnvelope, meshEnvelopeOf } from "../../src/mesh/mesh-envelope
 import type { MeshEnvelope } from "../../src/mesh/mesh-envelope.js";
 import { meshLimitBodyOf, meshLimitErrorOf } from "../../src/mesh/mesh-wire.js";
 import { traceIdOf } from "../../src/mesh/outbound-mesh.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 const envelope: MeshEnvelope = {
   schema: 1,
@@ -142,6 +143,7 @@ describe("#398 PR 1: @Mesh({ maxHops })", () => {
     class HopsMesh {}
     @Application({
       name: "hops-invalid-application",
+      modelProvider: TestModelProvider,
       version: "1.0.0",
       environment: EmptyEnvironment,
       workflows: [parts.MeshWorkflow],

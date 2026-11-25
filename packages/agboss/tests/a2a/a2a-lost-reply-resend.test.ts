@@ -46,6 +46,7 @@ import {
   userMessage,
   type RpcAnswer,
 } from "./server/rpc.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 @A2AEndpoint({
   name: "ac4-orders-a2a-expose",
@@ -58,6 +59,7 @@ class SqliteOrdersA2AExpose {}
 
 @Application({
   name: "ac4-sqlite-orders-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: SqliteTestEnvironment,
   workflows: [RecoveryWorkflow],

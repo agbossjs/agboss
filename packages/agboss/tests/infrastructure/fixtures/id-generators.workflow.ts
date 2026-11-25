@@ -7,7 +7,8 @@ import {
   Injectable,
   Workflow,
   WorkflowFinish,
-  WorkflowStart, Ttl,
+  WorkflowStart,
+  Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -20,6 +21,7 @@ import {
   PauseLog,
   SeenPausedExecutionRepository,
 } from "../../channels/fixtures/pauses.workflow.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #313 — a project's own ids: `IdGenerator` replaced by listing a subclass in
@@ -75,6 +77,7 @@ const CHANNELS = [
 /** The child-pauses workflow (a root, a child and a pause) on the project's ids. */
 @Application({
   name: "prefixed-ids-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [SingleChildWorkflow],
@@ -87,6 +90,7 @@ export class PrefixedIdsApplication {}
 /** The same workflow on the built-in ids. */
 @Application({
   name: "built-in-ids-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [SingleChildWorkflow],
@@ -99,6 +103,7 @@ export class BuiltInIdsApplication {}
 /** Two generators listed: `[di.ambiguous-implementation]`. */
 @Application({
   name: "two-generators-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [SingleChildWorkflow],
@@ -110,6 +115,7 @@ export class TwoGeneratorsApplication {}
 /** A generator that injects `ApplicationContext`: the start fails, naming why. */
 @Application({
   name: "context-generator-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [SingleChildWorkflow],
@@ -137,10 +143,7 @@ export class EchoWorkflowFinish {}
   name: "echo-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(EchoWorkflowStart)
-      .toFinish(EchoWorkflowFinish),
-  ],
+  flow: [onStart(EchoWorkflowStart).toFinish(EchoWorkflowFinish)],
   providers: [PrefixedIdGenerator],
 })
 export class EchoWorkflow {}

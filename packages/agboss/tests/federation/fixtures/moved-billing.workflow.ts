@@ -11,6 +11,7 @@ import {
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart } from "../../helpers/flow.js";
 import { BillingAnswerDto, BillingQuestionDto } from "./billing.dto.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 export { BillingAnswerDto, BillingQuestionDto } from "./billing.dto.js";
 
@@ -41,6 +42,7 @@ export class MovedBillingWorkflowFinish {}
 
 @Workflow({
   name: "billing-workflow",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: [
@@ -62,6 +64,7 @@ export class MovedBillingA2AExpose {}
 
 @Application({
   name: "billing-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [MovedBillingWorkflow],

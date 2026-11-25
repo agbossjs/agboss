@@ -9,12 +9,14 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  inline, Ttl,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart } from "../../helpers/flow.js";
 import { ItemDto, ItemResultDto } from "../../flow/runtime/fixtures/fan-out.workflow.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #727 — a takeover in the middle of an agent's loop on a child on any instance: the loop's first
@@ -95,11 +97,7 @@ export class LoopPaidWorkflowFinish {}
   name: "loop-pay-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(LoopPayWorkflowStart)
-      .toAgent(LoopPayAgent)
-      .toFinish(LoopPaidWorkflowFinish),
-  ],
+  flow: [onStart(LoopPayWorkflowStart).toAgent(LoopPayAgent).toFinish(LoopPaidWorkflowFinish)],
 })
 export class LoopPayWorkflow {}
 
@@ -114,15 +112,14 @@ export class LoopParentWorkflowFinish {}
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: [
-    onStart(LoopParentWorkflowStart)
-      .toWorkflow(LoopPayWorkflow)
-      .toFinish(LoopParentWorkflowFinish),
+    onStart(LoopParentWorkflowStart).toWorkflow(LoopPayWorkflow).toFinish(LoopParentWorkflowFinish),
   ],
 })
 export class LoopParentWorkflow {}
 
 @Application({
   name: "loop-takeover-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [LoopParentWorkflow],

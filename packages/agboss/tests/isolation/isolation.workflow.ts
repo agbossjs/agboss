@@ -7,7 +7,8 @@ import {
   WorkflowSettings,
   type WorkflowDefinition,
   PiiAction,
-  Tool, Ttl,
+  Tool,
+  Ttl,
 } from "../../src/index.js";
 import { Text } from "../../src/dto/index.js";
 import { usd, type Usd } from "../../src/units/index.js";
@@ -25,6 +26,7 @@ import { TEST_BUDGETS, TestApplicationDailyBudget } from "../flow/fixtures/budge
 import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "../../src/budgets/budget.js";
 import { SharedExecutionRecordRepository } from "../helpers/shared-infrastructure.js";
 import { EmptyEnvironment } from "../../src/index.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 /** What the payment tool got: the owner of each call (`executionContext.ownerId`) and the cards charged. */
 @Injectable()
@@ -91,24 +93,20 @@ const defaults = {
   name: "payments-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(ChatStart)
-      .toAgent(Cashier)
-      .toFinish(Reply),
-  ],
+  flow: [onStart(ChatStart).toAgent(Cashier).toFinish(Reply)],
   defaults,
   memory: Window2Memory,
   providers: [ApprovalDesk, PaymentLog],
 })
 export class Payments implements WorkflowDefinition {
   settings(): WorkflowSettings {
-    return WorkflowSettings.builder()
-      .build();
+    return WorkflowSettings.builder().build();
   }
 }
 
 @Application({
   name: "payments-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [Payments],
@@ -120,6 +118,7 @@ export class PaymentsApplication {}
 /** The payments over a durable record repository: a restarted instance keeps the threads' owners. */
 @Application({
   name: "durable-payments-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [Payments],
@@ -161,12 +160,7 @@ export class Editor {}
   name: "capped-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(ChatStart)
-      .toAgent(Drafter)
-      .toAgent(Editor)
-      .toFinish(Reply),
-  ],
+  flow: [onStart(ChatStart).toAgent(Drafter).toAgent(Editor).toFinish(Reply)],
   defaults,
   memory: Window2Memory,
 })
@@ -188,6 +182,7 @@ export class CappedTenantDailyBudget implements BudgetHandler {
 
 @Application({
   name: "capped-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [Capped],

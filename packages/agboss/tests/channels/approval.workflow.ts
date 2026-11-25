@@ -14,7 +14,8 @@ import {
   WorkflowStart,
   type WorkflowDefinition,
   Tool,
-  ToolApproval, Ttl,
+  ToolApproval,
+  Ttl,
 } from "../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { onStart } from "../helpers/flow.js";
@@ -22,6 +23,7 @@ import { Application } from "../../src/application/application.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../src/index.js";
 import { days } from "../../src/units/index.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 /** One ask a channel posted: the pause's id and the question (the tool call, read by the tests). */
 export interface PostedAsk {
@@ -157,8 +159,7 @@ const defaults = {
 
 class NoLimits implements WorkflowDefinition {
   settings(): WorkflowSettings {
-    return WorkflowSettings.builder()
-      .build();
+    return WorkflowSettings.builder().build();
   }
 }
 
@@ -167,11 +168,7 @@ class NoLimits implements WorkflowDefinition {
   name: "refunds-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(ChatStart)
-      .toAgent(Clerk)
-      .toFinish(Reply),
-  ],
+  flow: [onStart(ChatStart).toAgent(Clerk).toFinish(Reply)],
   defaults,
   memory: Window2Memory,
   providers: [ApprovalDesk],
@@ -180,6 +177,7 @@ export class Refunds extends NoLimits {}
 
 @Application({
   name: "refunds-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [Refunds],

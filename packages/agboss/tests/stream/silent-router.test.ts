@@ -25,6 +25,7 @@ import {
 } from "../models/transport/bedrock-provider.fixture.js";
 import { transportApp } from "../models/transport/transport-app.js";
 import { deltas } from "./writer.fixture.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 @Agent({
   name: "routed-audit-agent",
@@ -71,6 +72,7 @@ class RoutedWorkflow {}
 
 @Application({
   name: "routed-audit-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [RoutedWorkflow],

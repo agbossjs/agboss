@@ -11,12 +11,14 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type OnStart,
-  inline, Ttl,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart } from "../../helpers/flow.js";
 import { seconds, type Milliseconds } from "../../../src/units/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #262 PR 1 — a clerk whose tools read the time through an injected `Clock` and wait past their
@@ -68,9 +70,7 @@ export class StampService {
   constructor(private readonly clock: Clock) {}
 
   stamp(): string {
-    return this.clock
-      .now()
-      .toISOString();
+    return this.clock.now().toISOString();
   }
 }
 
@@ -164,19 +164,23 @@ export class ClockWorkflowStart {}
 })
 export class ClockReceiptWorkflowFinish {}
 
-const flow = [
-  onStart(ClockWorkflowStart)
-    .toAgent(ClockClerk)
-    .toFinish(ClockReceiptWorkflowFinish),
-];
+const flow = [onStart(ClockWorkflowStart).toAgent(ClockClerk).toFinish(ClockReceiptWorkflowFinish)];
 
 const defaults = { models: { maxTokens: 100, temperature: 0 }, tools: { maxToolCalls: 4 } };
 
-@Workflow({ name: "clock-workflow", version: "1.0.0", historyTtl: Ttl.Forever, defaults, flow, providers: [StampService] })
+@Workflow({
+  name: "clock-workflow",
+  version: "1.0.0",
+  historyTtl: Ttl.Forever,
+  defaults,
+  flow,
+  providers: [StampService],
+})
 export class ClockWorkflow {}
 
 @Application({
   name: "clock-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ClockWorkflow],
@@ -187,6 +191,7 @@ export class ClockApplication {}
 
 @Application({
   name: "fixed-clock-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ClockWorkflow],
@@ -197,6 +202,7 @@ export class FixedClockApplication {}
 
 @Application({
   name: "context-clock-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ClockWorkflow],
@@ -217,6 +223,7 @@ export class ClockedWorkflow {}
 
 @Application({
   name: "clocked-workflow-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ClockedWorkflow],

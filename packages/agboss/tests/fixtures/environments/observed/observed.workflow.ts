@@ -1,8 +1,16 @@
-import { Agent, ApplicationContext, Observer, Workflow, inline, Ttl } from "../../../../src/index.js";
+import {
+  Agent,
+  ApplicationContext,
+  Observer,
+  Workflow,
+  inline,
+  Ttl,
+} from "../../../../src/index.js";
 import { ChatStart, Reply, settingsDefaults } from "../app/settings.workflow.js";
 import { onStart } from "../../../helpers/flow.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
+import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /** An observer — not a tool — that reads the app's environment; created when the app starts. */
 @Observer({ deps: [ApplicationContext] })
@@ -29,11 +37,7 @@ export class Greeter {}
   name: "observed-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(ChatStart)
-      .toAgent(Greeter)
-      .toFinish(Reply),
-  ],
+  flow: [onStart(ChatStart).toAgent(Greeter).toFinish(Reply)],
   defaults: settingsDefaults,
 })
 export class ObservedApp {}
@@ -42,6 +46,7 @@ export class ObservedApp {}
 // what an untyped caller gets at run time (an empty environment)
 @Application({
   name: "observed-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   workflows: [ObservedApp],
   observers: [RunLog],

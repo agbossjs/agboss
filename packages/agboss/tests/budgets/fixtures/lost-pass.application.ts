@@ -30,6 +30,7 @@ import type { CostReport } from "../../../src/finops/usage.js";
 import type { Usd } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart, toAgent } from "../../helpers/flow.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #853 — a step whose pass is lost mid model call: one agent (its model scripted, the first call
@@ -264,6 +265,7 @@ export class LostBranchWorkflow {}
 
 @Application({
   name: "lost-pass-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [LostPassWorkflow, LostBranchWorkflow],

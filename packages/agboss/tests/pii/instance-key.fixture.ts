@@ -28,6 +28,7 @@ import {
   RecoveryLog,
   StampedExecutionRecordRepository,
 } from "../infrastructure/fixtures/recovery.workflow.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 /** Who the desk talks to: a token field of the execution's context (the built-in author is masked one-way). */
 export class DeskExecutionContext extends ExecutionContext {
@@ -194,6 +195,7 @@ export class InstanceKeyWorkflow {}
 /** No `secret` and no policy that needs one: field tokens on a key of each execution. */
 @Application({
   name: "instance-key-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [InstanceKeyWorkflow],

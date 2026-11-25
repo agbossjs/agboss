@@ -16,6 +16,7 @@ import {
   TestAnswer,
   TestChat,
 } from "../../../../agboss/tests/fixtures/test-flow/test.flow.js";
+import { TestModelProvider } from "../../../../agboss/src/testing/test-model-provider.js";
 
 // `agboss check` fixture (#199): a {{typo}} in the agent's prompt file and one in the router's prompt, and an unused key (#1347c)
 
@@ -64,6 +65,7 @@ export class BadPrompts {}
 /** The application `agboss --application` loads (#268): this workflow alone. */
 @Application({
   name: "prompts-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [BadPrompts],

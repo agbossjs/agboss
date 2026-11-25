@@ -11,6 +11,7 @@ import {
 } from "../../src/rag/index.js";
 import { testConfig, testDefaults } from "../helpers.js";
 import { starOf } from "../fixtures/test-flow/star.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 /** A source with fixed results — any `RagSource` is a knowledge base. */
 @Rag({ name: "handbook", description: "The team handbook", scope: RagScope.Tenant, topK: 2 })
@@ -73,6 +74,7 @@ export function bundleWith(use: Class, reading: Reading): Class {
   @Workflow({
     ...base,
     name: "handbook-bundle-workflow",
+    modelProvider: TestModelProvider,
     historyTtl: Ttl.Forever,
     flow: starOf(Helper),
     providers: reading === "tool" ? [use, SearchHandbook] : [],

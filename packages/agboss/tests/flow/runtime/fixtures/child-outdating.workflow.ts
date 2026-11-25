@@ -7,7 +7,8 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type Tracked,
-  inline, Ttl,
+  inline,
+  Ttl,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
@@ -15,6 +16,7 @@ import { WorkflowStartTextDto } from "../../fixtures/dtos.js";
 import { onAgent, onStart, toAgent, toFinish } from "../../../helpers/flow.js";
 import { ItemDto, ItemResultDto } from "./fan-out.workflow.js";
 import { ItemCheckWorkflow, ShopExecutionContext, ShopTenantContext } from "./children.workflow.js";
+import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /**
  * #263 / #271 AC12 — a child in a loop: the picker gives an item, the child checks it, a code router
@@ -66,8 +68,7 @@ export class PickAgainRouter {
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: [
-    onStart(PickLoopWorkflowStart)
-      .toAgent(ItemPickerAgent),
+    onStart(PickLoopWorkflowStart).toAgent(ItemPickerAgent),
     onAgent(ItemPickerAgent)
       .toWorkflow(ItemCheckWorkflow)
       .toRouter(PickAgainRouter)
@@ -79,6 +80,7 @@ export class PickLoopWorkflow {}
 
 @Application({
   name: "pick-loop-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   tenantContext: ShopTenantContext,

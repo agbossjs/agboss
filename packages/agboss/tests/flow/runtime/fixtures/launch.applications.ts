@@ -8,11 +8,13 @@ import {
   ResearchWorkflow,
   ScreeningWorkflow,
 } from "../../fixtures/launch.fixture.js";
+import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /** #273 PR 2: the issue's four launches and the code router's, each run as an application. */
 
 @Application({
   name: "research-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ResearchWorkflow],
@@ -22,6 +24,7 @@ export class ResearchApplication {}
 
 @Application({
   name: "screening-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ScreeningWorkflow],
@@ -31,6 +34,7 @@ export class ScreeningApplication {}
 
 @Application({
   name: "checkout-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [CheckoutWorkflow],
@@ -40,6 +44,7 @@ export class CheckoutApplication {}
 
 @Application({
   name: "help-desk-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [HelpDeskWorkflow],
@@ -49,6 +54,7 @@ export class HelpDeskApplication {}
 
 @Application({
   name: "offers-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [OffersWorkflow],

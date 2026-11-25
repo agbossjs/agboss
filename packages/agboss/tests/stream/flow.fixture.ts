@@ -6,6 +6,7 @@ import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { onStart, toAgent } from "../helpers/flow.js";
 import { MODEL_PROVIDERS } from "../judges/fixtures/judged.workflow.js";
 import { Closer, Editor, LaunchColor, LaunchShape, ShapeDto, Shaper } from "./agents.fixture.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 @WorkflowStart({ name: "chain-workflow-start", description: "A task", input: WorkflowStartTextDto })
 export class ChainStart {}
@@ -74,6 +75,7 @@ class LaunchWorkflow {}
 
 @Application({
   name: "stream-flow-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ChainWorkflow, ShapeWorkflow, LaunchWorkflow],

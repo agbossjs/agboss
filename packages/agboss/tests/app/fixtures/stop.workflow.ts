@@ -16,6 +16,7 @@ import {
 import { onStart } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** What the stop fixture saw: the payments made, and the gate a test opens. */
 export const stopSeen: {
@@ -130,18 +131,14 @@ export class GateFinish {}
   historyTtl: Ttl.Forever,
   defaults: { models: { maxTokens: 100, temperature: 0 }, tools: { maxToolCalls: 3 } },
   providers: [Settle],
-  flow: [
-    onStart(GateStart)
-      .toAgent(GateAgent)
-      .toAction(Settle)
-      .toFinish(GateFinish),
-  ],
+  flow: [onStart(GateStart).toAgent(GateAgent).toAction(Settle).toFinish(GateFinish)],
 })
 export class GateWorkflow {}
 
 /** Keeps its execution history, so a test reads the thread's status history after the end. */
 @Application({
   name: "gate-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [GateWorkflow],

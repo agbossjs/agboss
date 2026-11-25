@@ -44,6 +44,7 @@ import {
   SharedPausedExecutionRepository,
 } from "../helpers/shared-infrastructure.js";
 import { SendEmail, sent } from "../app/fixtures/mail.workflow.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 const none = (): readonly PiiMatch[] => [];
 
@@ -124,6 +125,7 @@ function deployment({ application = [], root = [], own = [] }: Policies): {
 
   @Application({
     name: "cr-application",
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     environment: EmptyEnvironment,
     workflows: [CrRoot],
@@ -189,6 +191,7 @@ function nested(middle: readonly Class[]): Class {
 
   @Application({
     name: "cr-nested-application",
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     environment: EmptyEnvironment,
     workflows: [CrRoot],

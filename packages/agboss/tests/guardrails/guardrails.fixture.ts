@@ -25,6 +25,7 @@ import { Application } from "../../src/application/application.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { onStart, toAgent, toFinish } from "../helpers/flow.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 /** The execution's own field: the sender's language. */
 export class ClinicExecutionContext extends ExecutionContext {
@@ -163,6 +164,7 @@ export class ClinicWorkflow {}
 
 @Application({
   name: "clinic-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ClinicWorkflow],

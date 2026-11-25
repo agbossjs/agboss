@@ -23,6 +23,7 @@ import { MeshEnvironment } from "../../fixtures/environments/mesh.environment.js
 import { meshEnvOf, meshOf, type MeshKeyPair } from "../../fixtures/mesh-keys.js";
 import { AGENT_URL, type SdkAgent } from "../support/sdk-agent.js";
 import { offline } from "../../fixtures/remote.workflow.js";
+import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /**
  * An application whose agent calls an A2A agent through one tool (#809): the client is the new
@@ -149,6 +150,7 @@ export async function callerOf(spec: CallerSpec): Promise<CallerParts> {
   const environment: Class = spec.signing === undefined ? EmptyEnvironment : MeshEnvironment;
   @Application({
     name: `${name}-application`,
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     environment,
     workflows: [CallerWorkflow],

@@ -45,6 +45,7 @@ import {
   ReceiptDto,
 } from "../infrastructure/fixtures/recovery.workflow.js";
 import { SqliteTestEnvironment } from "../infrastructure/sqlite/fixtures/environments/app.environment.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 const folder = mkdtempSync(join(tmpdir(), "agboss-storage-test-"));
 afterAll(() => {
@@ -61,6 +62,7 @@ class FileDatabaseStorage {}
 
 @Application({
   name: "storage-file-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [NoteWorkflow],
@@ -83,6 +85,7 @@ describe("storage components", () => {
   it("the execution history of an application with a storage opens on its driver's file", async () => {
     @Application({
       name: "history-storage-application",
+      modelProvider: TestModelProvider,
       version: "1.0.0",
       environment: EmptyEnvironment,
       workflows: [NoteWorkflow],
@@ -123,6 +126,7 @@ describe("storage components", () => {
     class OddStorage {}
     @Application({
       name: "odd-storage-application",
+      modelProvider: TestModelProvider,
       version: "1.0.0",
       environment: SqliteTestEnvironment,
       workflows: [NoteWorkflow],
@@ -140,6 +144,7 @@ describe("storage components", () => {
   it("InMemoryDatabaseStorage lists no store: the built-in defaults", async () => {
     @Application({
       name: "memory-storage-application",
+      modelProvider: TestModelProvider,
       version: "1.0.0",
       environment: SqliteTestEnvironment,
       workflows: [NoteWorkflow],
@@ -186,6 +191,7 @@ describe("storage rules", () => {
 
     @Application({
       name: "services-storage-application",
+      modelProvider: TestModelProvider,
       version: "1.0.0",
       environment: SqliteTestEnvironment,
       workflows: [NoteWorkflow],
@@ -201,6 +207,7 @@ describe("storage rules", () => {
   it("a store class listed beside the storage is [storage.providers-conflict]", async () => {
     @Application({
       name: "conflict-storage-application",
+      modelProvider: TestModelProvider,
       version: "1.0.0",
       environment: SqliteTestEnvironment,
       workflows: [NoteWorkflow],
@@ -216,6 +223,7 @@ describe("storage rules", () => {
   it("retention.auditLog beside the storage is [storage.retention-conflict]", async () => {
     @Application({
       name: "retention-storage-application",
+      modelProvider: TestModelProvider,
       version: "1.0.0",
       environment: SqliteTestEnvironment,
       workflows: [NoteWorkflow],
@@ -234,6 +242,7 @@ describe("storage rules", () => {
     }
     @Application({
       name: "plain-storage-application",
+      modelProvider: TestModelProvider,
       version: "1.0.0",
       environment: SqliteTestEnvironment,
       workflows: [NoteWorkflow],
@@ -254,6 +263,7 @@ describe("storage rules", () => {
     class ShortStorage {}
     @Application({
       name: "short-storage-application",
+      modelProvider: TestModelProvider,
       version: "1.0.0",
       environment: SqliteTestEnvironment,
       workflows: [NoteWorkflow],
@@ -276,6 +286,7 @@ describe("storage rules", () => {
     }
     @Application({
       name: "none-storage-application",
+      modelProvider: TestModelProvider,
       version: "1.0.0",
       environment: SqliteTestEnvironment,
       workflows: [NoteWorkflow],
@@ -299,6 +310,7 @@ describe("storage rules", () => {
     class AnyCluster {}
     @Application({
       name: "volatile-storage-application",
+      modelProvider: TestModelProvider,
       version: "1.0.0",
       environment: SqliteTestEnvironment,
       workflows: [NoteWorkflow],
@@ -323,6 +335,7 @@ describe("storage rules", () => {
     class SharedStorage {}
     @Application({
       name: "shared-storage-application",
+      modelProvider: TestModelProvider,
       version: "1.0.0",
       environment: SqliteTestEnvironment,
       workflows: [NoteWorkflow],
@@ -343,6 +356,7 @@ describe("storage rules", () => {
     class WrongStorage {}
     @Application({
       name: "wrong-storage-application",
+      modelProvider: TestModelProvider,
       version: "1.0.0",
       environment: SqliteTestEnvironment,
       workflows: [NoteWorkflow],
@@ -406,6 +420,7 @@ describe("the storage's secrets", () => {
   }
   @Application({
     name: "keyed-storage-application",
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     environment: EmptyEnvironment,
     workflows: [NoteWorkflow],

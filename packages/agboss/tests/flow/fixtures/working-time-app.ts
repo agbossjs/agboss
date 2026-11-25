@@ -26,6 +26,7 @@ import { onStart } from "./paths.js";
 import { inline, ExternalTask, ToolApproval, Ttl } from "../../../src/index.js";
 import { PauseRespondent } from "../../../src/pause/respondent.js";
 import { days } from "../../../src/units/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #944: an application with one external task (its times and calendar) and a workflow that asks it —
@@ -173,6 +174,7 @@ export function workingApp(name: string, config: WorkingAppConfig): WorkingApp {
   const parts = workingParts(name, config);
   @Application({
     name: `${name}-application`,
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     environment: EmptyEnvironment,
     workflows: [parts.workflow],
@@ -248,15 +250,12 @@ export function workingToolApp(
     name: `${name}-workflow`,
     version: "1.0.0",
     historyTtl: Ttl.Forever,
-    flow: [
-      onStart(SomeStart)
-        .toAgent(SomeAgent)
-        .toFinish(SomeFinish),
-    ],
+    flow: [onStart(SomeStart).toAgent(SomeAgent).toFinish(SomeFinish)],
   })
   class SomeWorkflow {}
   @Application({
     name: `${name}-application`,
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     environment: EmptyEnvironment,
     workflows: [SomeWorkflow],

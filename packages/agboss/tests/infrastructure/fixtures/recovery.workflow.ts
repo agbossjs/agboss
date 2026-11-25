@@ -20,7 +20,8 @@ import {
   type ExecutionErrorEvent,
   type ExecutionLease,
   type ExecutionResumeEvent,
-  inline, Ttl,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
 import { ApplicationContext, Clock } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
@@ -39,6 +40,7 @@ import { onStart } from "../../helpers/flow.js";
 import { EmptyEnvironment } from "../../../src/index.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import { storeClockOf } from "../../helpers/store-clock.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #265 PR 2 — a clerk that takes steps (each one counted), holds (the first hold waits until its
@@ -307,11 +309,7 @@ export class ReceiptWorkflowFinish {}
     tools: { maxToolCalls: 8 },
   },
   memory: Window1Memory,
-  flow: [
-    onStart(OrderWorkflowStart)
-      .toAgent(Clerk)
-      .toFinish(ReceiptWorkflowFinish),
-  ],
+  flow: [onStart(OrderWorkflowStart).toAgent(Clerk).toFinish(ReceiptWorkflowFinish)],
 })
 export class RecoveryWorkflow {}
 
@@ -323,6 +321,7 @@ const providers = [
 
 @Application({
   name: "recovery-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [RecoveryWorkflow],
@@ -335,6 +334,7 @@ export class RecoveryApplication {}
 /** The same application keeping its executions' records (#401): what `executions export` reads. */
 @Application({
   name: "kept-recovery-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [RecoveryWorkflow],
@@ -348,6 +348,7 @@ export class KeptRecoveryApplication {}
 /** The same application with its own shutdown timeout. */
 @Application({
   name: "quick-stop-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [RecoveryWorkflow],

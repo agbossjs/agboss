@@ -26,6 +26,7 @@ import { seconds } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart } from "../../helpers/flow.js";
 import { SharedCheckpointSaver } from "../../helpers/shared-infrastructure.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #300 — an application with one project health check (a CRM client the tests mock), a cost
@@ -136,6 +137,7 @@ export class ProbeWorkflowFinish {}
 
 @Workflow({
   name: "probe-workflow",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: [onStart(ProbeWorkflowStart).toAgent(ProbeAgent).toFinish(ProbeWorkflowFinish)],
@@ -145,6 +147,7 @@ export class ProbeWorkflow {}
 
 @Application({
   name: "probe-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ProbeWorkflow],
@@ -164,6 +167,7 @@ export class ProbeApplication {}
  */
 @Application({
   name: "plain-probe-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ProbeWorkflow],

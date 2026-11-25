@@ -27,6 +27,7 @@ import { workflowOf } from "../src/testing/workflow-of.js";
 import { usd, type Usd } from "../src/units/index.js";
 import { onStart } from "./helpers/flow.js";
 import { RecordingCostLedgerRepository } from "./application/fixtures/desks.application.js";
+import { TestModelProvider } from "../src/testing/test-model-provider.js";
 
 @Agent({
   name: "teller-agent",
@@ -49,6 +50,7 @@ class ToldWorkflowFinish {}
 
 @Workflow({
   name: "tell-workflow",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   executionLimits: { maxSteps: 2 },

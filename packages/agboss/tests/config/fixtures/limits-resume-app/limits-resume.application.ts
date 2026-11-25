@@ -19,6 +19,7 @@ import {
 import { ConfirmTaskTool } from "../../../flow/runtime/fixtures/tree-checks.workflow.js";
 import { DigWorkflow } from "../../../flow/runtime/fixtures/recursion-pause.workflow.js";
 import { TaskDto, TaskWorkflow } from "../../../flow/runtime/fixtures/tree-task.workflow.js";
+import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /**
  * #1318c: workflows whose limits a profile LOWERS (the declared ones are looser), to hold that the run
@@ -64,6 +65,7 @@ export class GatedBatchWorkflow {}
 
 @Application({
   name: "limits-resume-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [GatedBatchWorkflow, BatchWorkflow, DigWorkflow],

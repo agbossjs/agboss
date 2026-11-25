@@ -24,12 +24,14 @@ import {
   type ModelStartEvent,
   type NodeEvent,
   type ToolStartEvent,
-  inline, Ttl,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
 import { onStart } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../src/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** One observer event: the hook, the run and thread it carried, and what else the test checks. */
 export interface SeenEvent {
@@ -189,17 +191,13 @@ export class Done {}
   },
   memory: Window1Memory,
   providers: [FileAway],
-  flow: [
-    onStart(Ask)
-      .toAgent(Clerk)
-      .toAction(FileAway)
-      .toFinish(Done),
-  ],
+  flow: [onStart(Ask).toAgent(Clerk).toAction(FileAway).toFinish(Done)],
 })
 export class Applications {}
 
 @Application({
   name: "applications-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [Applications],

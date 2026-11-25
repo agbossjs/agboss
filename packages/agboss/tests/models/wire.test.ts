@@ -35,6 +35,7 @@ import {
 import { handlerOf } from "./driver-handler.js";
 import { completion, providerStub } from "./stub.js";
 import { onStart } from "../helpers/flow.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 @WorkflowStart({ name: "task-workflow-start", description: "A task", input: WorkflowStartTextDto })
 class Start {}
@@ -173,6 +174,7 @@ describe("AC6: prompts are normalised at load and sent normalised", () => {
     class Writer {}
     @Workflow({
       name: "normalised-workflow",
+      modelProvider: TestModelProvider,
       version: "1",
       historyTtl: Ttl.Forever,
       flow: [onStart(Start).toAgent(Writer).toFinish(Finish)],

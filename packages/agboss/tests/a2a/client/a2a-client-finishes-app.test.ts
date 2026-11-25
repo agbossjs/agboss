@@ -37,6 +37,7 @@ import {
 } from "../fixtures/files.application.js";
 import { agentEndingAt, AnswerDto } from "./support/finishes-agent.js";
 import { AGENT_URL } from "./support/sdk-agent.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 const apps: App[] = [];
 afterEach(async () => {
@@ -106,6 +107,7 @@ class AskWorkflow {}
 
 @Application({
   name: "ask-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [AskWorkflow],

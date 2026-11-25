@@ -17,6 +17,7 @@ import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { MODEL_PROVIDERS } from "../judges/fixtures/judged.workflow.js";
 import { starOf } from "../fixtures/test-flow/star.js";
 import { testDefaults } from "../helpers.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 class Empty extends RagSource {
   protected override retrieve(): RagRetrieval {
@@ -67,6 +68,7 @@ function workflowReading(reranker: Class, topK = 3): Class {
   class ReaderAgent {}
   @Workflow({
     name: "reader-workflow",
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     historyTtl: Ttl.Forever,
     defaults: testDefaults,

@@ -9,6 +9,7 @@ import { OpeningsDto, ProfileDto, ResumeMissingDto, WorkflowStartTextDto } from 
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { EmptyEnvironment, inline, Ttl } from "../../../src/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** #272 example 1 — chat: a router in a loop. */
 
@@ -84,18 +85,13 @@ export class NoReplyWorkflowFinish {}
 export class MainRouter {}
 
 export const chatPaths = [
-  onStart(IntakeWorkflowStart)
-    .toRouter(MainRouter),
+  onStart(IntakeWorkflowStart).toRouter(MainRouter),
 
   onRouter(MainRouter)
     .onRoute(
-      toAgent(ProfilerAgent)
-        .toOneOf([toRouter(MainRouter), toFinish(AskResumeWorkflowFinish)]),
+      toAgent(ProfilerAgent).toOneOf([toRouter(MainRouter), toFinish(AskResumeWorkflowFinish)]),
     )
-    .onRoute(
-      toAgent(ScoutAgent)
-        .toFinish(ChatWorkflowFinish),
-    )
+    .onRoute(toAgent(ScoutAgent).toFinish(ChatWorkflowFinish))
     .onRoute(toFinish(NoReplyWorkflowFinish)),
 ] as const;
 
@@ -109,6 +105,7 @@ export class ChatWorkflow {}
 
 @Application({
   name: "chat-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ChatWorkflow],

@@ -1,4 +1,5 @@
-import { Agent,
+import {
+  Agent,
   Channel,
   ChannelOutcome,
   EmptyEnvironment,
@@ -10,7 +11,10 @@ import { Agent,
   type ChannelAsk,
   type Tracked,
   Action,
-  inline, ToolApproval, Ttl } from "../../../../src/index.js";
+  inline,
+  ToolApproval,
+  Ttl,
+} from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
 import { onStart } from "../../../helpers/flow.js";
@@ -25,6 +29,7 @@ import {
 } from "./undo.workflow.js";
 import { UnwindLog } from "./unwind.workflow.js";
 import { days } from "../../../../src/units/index.js";
+import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /**
  * #340 PR 3 — trees that rest paused when they are cancelled: a room reserved, then an agent that
@@ -41,7 +46,12 @@ import { days } from "../../../../src/units/index.js";
 })
 export class GuestToolApproval {}
 
-@Channel({ name: "guest-inbox-channel", description: "Asks the guest and waits", target: GuestToolApproval, ttl: days(1) })
+@Channel({
+  name: "guest-inbox-channel",
+  description: "Asks the guest and waits",
+  target: GuestToolApproval,
+  ttl: days(1),
+})
 export class GuestInboxChannel {
   send(_ask: ChannelAsk<GuestToolApproval>): Promise<ChannelOutcome<GuestToolApproval>> {
     return Promise.resolve(ChannelOutcome.awaitReply());
@@ -148,6 +158,7 @@ export class UnwindPausedWorkflow {}
 
 @Application({
   name: "unwind-pause-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [UnwindGuestWorkflow, UnwindPausedWorkflow],

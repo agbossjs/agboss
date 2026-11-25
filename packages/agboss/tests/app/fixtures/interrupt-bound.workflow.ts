@@ -15,6 +15,7 @@ import {
 import { onStart } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** What the bound fixture saw. */
 export const boundSeen: {
@@ -92,17 +93,14 @@ export class BoundFinish {}
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   defaults: { models: { maxTokens: 100, temperature: 0 }, tools: { maxToolCalls: 3 } },
-  flow: [
-    onStart(BoundStart)
-      .toAgent(BoundAgent)
-      .toFinish(BoundFinish),
-  ],
+  flow: [onStart(BoundStart).toAgent(BoundAgent).toFinish(BoundFinish)],
 })
 export class BoundWorkflow {}
 
 /** The cleanups of an interrupted step are bounded by `executionLimits.shutdownTimeout` (5 s). */
 @Application({
   name: "bound-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [BoundWorkflow],

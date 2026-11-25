@@ -19,6 +19,7 @@ import { LocalModelProvider, TestDecisionsProvider } from "./providers.fixture.j
 import { providerStub } from "./stub.js";
 import { everyKindWorkflows, type KindModels } from "./startup-keys/components.js";
 import { FallbackLocalModelProvider, KeyedModelProvider } from "./startup-keys/providers.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 const LOCAL = "local/llama";
 const KEYED = "keyed/llama";
@@ -43,6 +44,7 @@ function applicationFor(models: KindModels, providers: readonly Class[]): Class 
   const parts = everyKindWorkflows(models);
   @Application({
     name: "every-kind-application",
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     environment: EmptyEnvironment,
     workflows: [...parts.workflows],

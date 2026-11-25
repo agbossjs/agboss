@@ -23,6 +23,7 @@ import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import { Checkout } from "./run-context.workflow.js";
 import { ClaimRoomBatchWorkflow, ClaimRoomItemWorkflow } from "./claim-room.workflow.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #923 AC3 — a store whose call is never answered: from the moment the test sets a flag, the
@@ -116,6 +117,7 @@ export class HungStoreApplication {}
 /** The checkout workflow (it pauses for an approval) on a lease store that can go quiet: for a `resume()`. */
 @Application({
   name: "hung-checkout-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [Checkout],

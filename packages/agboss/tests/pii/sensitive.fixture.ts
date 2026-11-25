@@ -20,6 +20,7 @@ import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { onStart, toAgent, toFinish } from "../helpers/flow.js";
 import { ContactPiiPolicy, PII_KEY_VARIABLE } from "./pii.fixture.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 /** Who the execution talks to: identity, marked for PII. */
 export class ShopExecutionContext extends ExecutionContext {
@@ -114,6 +115,7 @@ export class SensitiveWorkflow {}
 
 @Application({
   name: "sensitive-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [SensitiveWorkflow],

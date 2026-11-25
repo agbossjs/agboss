@@ -15,12 +15,14 @@ import {
   type ExecutionStartEvent,
   type ModelStartEvent,
   type ToolStartEvent,
-  inline, Ttl,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
 import { onStart } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../src/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** What the components and the observer saw of their run, in order (reset with `resetSeen`). */
 export const seen = {
@@ -144,6 +146,7 @@ export class Done {}
 /** search → searcher → shortlist → done, observed. */
 @Workflow({
   name: "job-search-workflow",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   defaults: {
@@ -152,17 +155,13 @@ export class Done {}
   },
   memory: Window1Memory,
   providers: [Shortlist],
-  flow: [
-    onStart(SearchStart)
-      .toAgent(Searcher)
-      .toAction(Shortlist)
-      .toFinish(Done),
-  ],
+  flow: [onStart(SearchStart).toAgent(Searcher).toAction(Shortlist).toFinish(Done)],
 })
 export class JobSearch {}
 
 @Application({
   name: "job-search-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [JobSearch],
@@ -184,14 +183,11 @@ export class Typo {}
 /** Its agent's instructions name `{{input.limit}}`: instructions are static (#270 Q51). */
 @Workflow({
   name: "typo-search-workflow",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   defaults: { models: { maxTokens: 100, temperature: 0 } },
   memory: Window1Memory,
-  flow: [
-    onStart(SearchStart)
-      .toAgent(Typo)
-      .toFinish(Done),
-  ],
+  flow: [onStart(SearchStart).toAgent(Typo).toFinish(Done)],
 })
 export class TypoSearch {}

@@ -14,7 +14,8 @@ import {
   SqlitePausedExecutionRepository,
   SqliteRateLimitRepository,
   Workflow,
-  type ExecutionLease, Ttl,
+  type ExecutionLease,
+  Ttl,
 } from "../../../../src/index.js";
 import { SqliteCheckpointSaver } from "../../../../src/internal.js";
 import { SqliteConnection } from "../../../../src/infrastructure/sqlite/sqlite-connection.js";
@@ -23,9 +24,18 @@ import { seconds, type Milliseconds } from "../../../../src/units/index.js";
 import { UnwindLog, UnwindWorkflow } from "../../../flow/runtime/fixtures/unwind.workflow.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { onStart } from "../../../helpers/flow.js";
-import { Clerk, levers, OrderWorkflowStart, ReceiptWorkflowFinish, RecoveryLog, RecoveryWorkflow, seen } from "../../fixtures/recovery.workflow.js";
+import {
+  Clerk,
+  levers,
+  OrderWorkflowStart,
+  ReceiptWorkflowFinish,
+  RecoveryLog,
+  RecoveryWorkflow,
+  seen,
+} from "../../fixtures/recovery.workflow.js";
 import { SqliteTestEnvironment } from "./environments/app.environment.js";
 import { storeClockOf } from "../../../helpers/store-clock.js";
+import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /**
  * #265 PR 3 — the recovery fixture's workflow in applications that list every SQLite
@@ -108,6 +118,7 @@ const SQLITE_STORES = [
 
 @Application({
   name: "sqlite-recovery-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: SqliteTestEnvironment,
   workflows: [RecoveryWorkflow],
@@ -127,16 +138,13 @@ export class SqliteRecoveryApplication {}
     tools: { maxToolCalls: 8 },
   },
   memory: Window1Memory,
-  flow: [
-    onStart(OrderWorkflowStart)
-      .toAgent(Clerk)
-      .toFinish(ReceiptWorkflowFinish),
-  ],
+  flow: [onStart(OrderWorkflowStart).toAgent(Clerk).toFinish(ReceiptWorkflowFinish)],
 })
 export class NoteWorkflow {}
 
 @Application({
   name: "sqlite-note-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: SqliteTestEnvironment,
   workflows: [NoteWorkflow],

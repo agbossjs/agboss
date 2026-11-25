@@ -8,7 +8,8 @@ import {
   WorkflowFinish,
   WorkflowStart,
   Action,
-  inline, Ttl,
+  inline,
+  Ttl,
 } from "../../../../src/index.js";
 import { optional } from "../../../../src/flow/dto-wrappers.js";
 import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "../../../../src/index.js";
@@ -17,6 +18,7 @@ import { onAgent, onStart, toFinish, toAction, toAgent } from "../../../helpers/
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS, TestApplicationDailyBudget } from "../../fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../../src/index.js";
+import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /** The editor's draft: each visit replaces the one before in the path scope. */
 export class DraftDto {
@@ -89,8 +91,7 @@ export class GateRouter {}
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: [
-    onStart(EditStart)
-      .toAgent(EditorAgent),
+    onStart(EditStart).toAgent(EditorAgent),
     onAgent(EditorAgent)
       .toRouter(GateRouter)
       .onRoute(toAgent(EditorAgent))
@@ -101,6 +102,7 @@ export class EditWorkflow {}
 
 @Application({
   name: "edit-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [EditWorkflow],
@@ -132,14 +134,9 @@ export class PatientGateRouter {}
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: [
-    onStart(EditStart)
-      .toAgent(PatientEditorAgent),
+    onStart(EditStart).toAgent(PatientEditorAgent),
     onAgent(PatientEditorAgent)
-      .onError(
-        VisitsLimitExceededError,
-        toAction(GaveUpAction)
-          .toFinish(GaveUpFinish),
-      )
+      .onError(VisitsLimitExceededError, toAction(GaveUpAction).toFinish(GaveUpFinish))
       .toRouter(PatientGateRouter)
       .onRoute(toAgent(PatientEditorAgent))
       .onRoute(toFinish(DoneFinish)),
@@ -149,6 +146,7 @@ export class PatientEditWorkflow {}
 
 @Application({
   name: "patient-edit-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [PatientEditWorkflow],
@@ -157,8 +155,7 @@ export class PatientEditWorkflow {}
 export class PatientEditApplication {}
 
 const editPaths = [
-  onStart(EditStart)
-    .toAgent(EditorAgent),
+  onStart(EditStart).toAgent(EditorAgent),
   onAgent(EditorAgent)
     .toRouter(GateRouter)
     .onRoute(toAgent(EditorAgent))
@@ -177,6 +174,7 @@ export class ShortEditWorkflow {}
 
 @Application({
   name: "short-edit-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ShortEditWorkflow],
@@ -185,7 +183,12 @@ export class ShortEditWorkflow {}
 export class ShortEditApplication {}
 
 /** The loop with its own execution budget of $0.015 and a tenant budget of $0.02 a day. */
-@Workflow({ name: "cheap-edit-workflow", version: "1.0.0", historyTtl: Ttl.Forever, flow: editPaths })
+@Workflow({
+  name: "cheap-edit-workflow",
+  version: "1.0.0",
+  historyTtl: Ttl.Forever,
+  flow: editPaths,
+})
 export class CheapEditWorkflow {}
 
 @Budget({
@@ -208,6 +211,7 @@ export class CheapTenantDailyBudget implements BudgetHandler {
 
 @Application({
   name: "cheap-edit-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [CheapEditWorkflow],

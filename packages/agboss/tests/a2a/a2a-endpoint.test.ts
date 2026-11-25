@@ -32,6 +32,7 @@ import {
 import { BearerAuthenticator, resetAsked } from "./fixtures/bearer-authenticator.js";
 import { RefundWorkflow, RefundWorkflowStart } from "./fixtures/contracts.workflow.js";
 import { rpc, text, userMessage } from "./server/rpc.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 const TTL = { tasks: hours(24), messages: minutes(15) };
 
@@ -49,6 +50,7 @@ function applicationWith(endpoint: Partial<A2AEndpointOptions>) {
 
   @Application({
     name: "refunds-application",
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     environment: EmptyEnvironment,
     workflows: [RefundWorkflow],
@@ -151,6 +153,7 @@ class OrdersBEndpoint {}
 
 @Application({
   name: "two-doors-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [RecoveryWorkflow],

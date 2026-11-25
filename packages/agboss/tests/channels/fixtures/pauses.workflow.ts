@@ -40,6 +40,7 @@ import { InMemoryPausedExecutionRepository } from "../../../src/infrastructure/i
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import { onStart, toAgent } from "../../helpers/flow.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #267 PR 2 — pauses and resume: a refund approval answered through its channel (a finance desk
@@ -511,13 +512,10 @@ export class DeskClerkAgent {}
 
 @Workflow({
   name: "desk-workflow",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(DeskWorkflowStart)
-      .toAgent(DeskClerkAgent)
-      .toFinish(DeskWorkflowFinish),
-  ],
+  flow: [onStart(DeskWorkflowStart).toAgent(DeskClerkAgent).toFinish(DeskWorkflowFinish)],
 })
 export class DeskWorkflow {}
 
@@ -557,9 +555,7 @@ export class BatchAction {
     readonly refunds: readonly Tracked<RefundDoneDto>[];
   }): Promise<BatchSummaryDto> {
     return {
-      text: input.refunds
-        .map((refund) => refund.orderId)
-        .join(", "),
+      text: input.refunds.map((refund) => refund.orderId).join(", "),
     };
   }
 }
@@ -650,6 +646,7 @@ export class AuditWorkflow {}
 
 @Application({
   name: "pauses-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [DeskWorkflow, BatchWorkflow, AuditWorkflow],
@@ -672,6 +669,7 @@ export class PausesApplication {}
 /** The same application with a short retention: a set-aside notice and a closed pause go in minutes. */
 @Application({
   name: "retained-pauses-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [DeskWorkflow],

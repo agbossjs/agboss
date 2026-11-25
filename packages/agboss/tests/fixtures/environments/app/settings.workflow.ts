@@ -7,13 +7,15 @@ import {
   TokenLimit,
   Tool,
   WorkflowFinish,
-  WorkflowStart, Ttl,
+  WorkflowStart,
+  Ttl,
 } from "../../../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../../src/dto/index.js";
 import { onStart } from "../../../helpers/flow.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { SettingsEnvironment } from "./environments/app.environment.js";
+import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /** A service that reads the application's environment (#182, #261: through `ApplicationContext`). */
 @Injectable({ deps: [ApplicationContext] })
@@ -86,11 +88,7 @@ export const settingsDefaults = {
   name: "settings-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(ChatStart)
-      .toAgent(Clerk)
-      .toFinish(Reply),
-  ],
+  flow: [onStart(ChatStart).toAgent(Clerk).toFinish(Reply)],
   defaults: settingsDefaults,
   memory: Window4Memory,
   providers: [ApiClient],
@@ -99,6 +97,7 @@ export class SettingsApp {}
 
 @Application({
   name: "settings-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: SettingsEnvironment,
   workflows: [SettingsApp],

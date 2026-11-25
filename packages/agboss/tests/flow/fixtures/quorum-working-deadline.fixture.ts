@@ -14,7 +14,8 @@ import {
   WorkingCalendar,
   type ChannelAsk,
   type WorkingCalendarContext,
-  type WorkingCalendarHandler, Ttl,
+  type WorkingCalendarHandler,
+  Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { PauseError } from "../../../src/core/error-families/pause-errors.js";
@@ -32,6 +33,7 @@ import {
   ContractRejectedWorkflowFinish,
   ContractSignedWorkflowFinish,
 } from "./committee.fixture.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #1306 — a committee's quorum with a deadline in working time: `deadline: workHours(2)` /
@@ -204,8 +206,7 @@ export class AuditDaysWorkflow {}
       .onError(QuorumNotReachedError, toFinish(ContractRejectedWorkflowFinish))
       .onGroup(
         [AuditorExternalTask],
-        toAction(SignContractAction)
-          .toFinish(ContractSignedWorkflowFinish),
+        toAction(SignContractAction).toFinish(ContractSignedWorkflowFinish),
       ),
   ],
 })
@@ -250,6 +251,7 @@ export class AuditUnhandledWorkflow {}
 
 @Application({
   name: "audit-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [

@@ -7,10 +7,12 @@ import {
   PurchaseTargetsWorkflow,
   RefundTargetsWorkflow,
 } from "../../../channels/pause-targets.fixture.js";
+import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /** The pause targets of the channels' fixture, under profiles: how long their pauses wait. */
 @Application({
   name: "pause-shelves-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [PurchaseTargetsWorkflow, RefundTargetsWorkflow],

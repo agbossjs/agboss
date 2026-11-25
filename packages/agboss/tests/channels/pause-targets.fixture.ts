@@ -36,6 +36,7 @@ import {
   SpendingLimitAnswerDto,
 } from "../flow/fixtures/questions.fixture.js";
 import { QuestionInbox } from "../flow/fixtures/questions.fixture.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 /**
  * #1307a / #1310c: the pause targets in their new form — `@ExternalTask` and `@ToolApproval` bound to
@@ -239,6 +240,7 @@ export class RefundTargetsWorkflow {}
 
 @Application({
   name: "targets-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [PurchaseTargetsWorkflow, RefundTargetsWorkflow],

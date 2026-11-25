@@ -1,4 +1,12 @@
-import { Agent, Application, DecidedBy, Router, Workflow, inline, Ttl } from "../../../src/index.js";
+import {
+  Agent,
+  Application,
+  DecidedBy,
+  Router,
+  Workflow,
+  inline,
+  Ttl,
+} from "../../../src/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import type { PromptSource } from "../../../src/components/prompt-source.js";
 import type { Class } from "../../../src/components/injection.js";
@@ -7,6 +15,7 @@ import { testConfig, testDefaults } from "../../helpers.js";
 import { onStart, toAgent, toFinish } from "../../helpers/flow.js";
 import { NoAnswer, TestAnswer, TestChat } from "../../fixtures/test-flow/test.flow.js";
 import { EmptyEnvironment } from "../../../src/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** Prompts of one flow: the agent's (inline or files), the router's and its route's. */
 export interface FlowPrompts {
@@ -56,10 +65,7 @@ export function workflowWith(prompts: FlowPrompts): {
     flow: [
       onStart(TestChat)
         .toRouter(Main)
-        .onRoute(
-          toAgent(Scout)
-            .toFinish(TestAnswer),
-        )
+        .onRoute(toAgent(Scout).toFinish(TestAnswer))
         .onRoute(toFinish(NoAnswer)),
     ],
     promptVariables: { boards: "LinkedIn, AllJobs", boardCount: "2" },
@@ -68,6 +74,7 @@ export function workflowWith(prompts: FlowPrompts): {
 
   @Application({
     name: "prompts-application",
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     environment: EmptyEnvironment,
     workflows: [Prompts],

@@ -9,6 +9,7 @@ import {
   PauseLog,
   SeenPausedExecutionRepository,
 } from "../../channels/fixtures/pauses.workflow.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #578 — a project's own `IdGenerator` whose next ids each test sets: what it mints is held to the
@@ -50,6 +51,7 @@ export class PlannedIdGenerator extends IdGenerator {
 /** A root and its child (a pause), in memory, on the planned ids. */
 @Application({
   name: "planned-ids-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [SingleChildWorkflow],

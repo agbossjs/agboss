@@ -19,6 +19,7 @@ import {
   SeenPausedExecutionRepository,
 } from "../../channels/fixtures/pauses.workflow.js";
 import { BearerAuthenticator } from "./bearer-authenticator.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 @A2AEndpoint({
   name: "desk-a2a-expose",
@@ -35,6 +36,7 @@ export class DeskA2AExpose {}
 
 @Application({
   name: "served-pauses-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [DeskWorkflow, BatchWorkflow, AuditWorkflow],

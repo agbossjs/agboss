@@ -32,6 +32,7 @@ import {
   NoLegalAdviceGuardrail,
   PromptInjectionGuardrail,
 } from "./guardrails.fixture.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 const JEV = "typesafe/jev-1.13";
 
@@ -266,6 +267,7 @@ class GuardedWorkflow {}
 
 @Application({
   name: "gr-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [GuardedWorkflow],

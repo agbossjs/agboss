@@ -21,6 +21,7 @@ import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { onStart } from "../helpers/flow.js";
 import { SharedExecutionRecordRepository } from "../helpers/shared-infrastructure.js";
 import { ContactPiiPolicy, EmailSend, EmailSent, Outbox } from "./pii.fixture.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 /** What the approved email tool received, across app instances (a recovery builds a new one). */
 export const approvedRecipients: string[] = [];
@@ -83,6 +84,7 @@ export class MailWorkflow {}
 
 @Application({
   name: "mail-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [MailWorkflow],

@@ -14,6 +14,7 @@ import { onStart, toFinish, toAction } from "../../../helpers/flow.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../../src/index.js";
+import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /**
  * #280 S19 — a code router whose answer the test picks: a target, a class outside its routes (what
@@ -128,20 +129,15 @@ export class AskRouter {
     onStart(AskWorkflowStart)
       .toRouter(AskRouter)
       .onError(LedgerDownError, toFinish(HeldWorkflowFinish))
-      .onRoute(
-        toAction(LeftAction)
-          .toFinish(DoneWorkflowFinish),
-      )
-      .onRoute(
-        toAction(RightAction)
-          .toFinish(DoneWorkflowFinish),
-      ),
+      .onRoute(toAction(LeftAction).toFinish(DoneWorkflowFinish))
+      .onRoute(toAction(RightAction).toFinish(DoneWorkflowFinish)),
   ],
 })
 export class AskWorkflow {}
 
 @Application({
   name: "ask-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [AskWorkflow],
@@ -158,14 +154,8 @@ export class AskApplication {}
     onStart(AskWorkflowStart)
       .toRouter(AskRouter)
       .onError(RouterFailedError, toFinish(RefusedWorkflowFinish))
-      .onRoute(
-        toAction(LeftAction)
-          .toFinish(DoneWorkflowFinish),
-      )
-      .onRoute(
-        toAction(RightAction)
-          .toFinish(DoneWorkflowFinish),
-      ),
+      .onRoute(toAction(LeftAction).toFinish(DoneWorkflowFinish))
+      .onRoute(toAction(RightAction).toFinish(DoneWorkflowFinish)),
   ],
 })
 export class AskCaughtWorkflow {}

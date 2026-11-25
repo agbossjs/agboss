@@ -12,13 +12,15 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type Tracked,
-  inline, Ttl,
+  inline,
+  Ttl,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
 import { WorkflowStartTextDto } from "../../fixtures/dtos.js";
 import { onStart, toAction, toAgent, toRouter } from "../../../helpers/flow.js";
 import { skip } from "../../../../src/flow/builder.js";
+import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /**
  * #1279a — `.inParallel([…])` with branches of mixed kinds: an action that answers, an action that
@@ -122,8 +124,7 @@ export class SummaryWorkflowFinish {}
     onStart(InParallelWorkflowStart)
       .inParallel([
         toAction(FirstAction),
-        toAction(SecondAction)
-          .onError(StepFailedError, skip()),
+        toAction(SecondAction).onError(StepFailedError, skip()),
         toAgent(ThirdAgent),
       ])
       .join()
@@ -135,6 +136,7 @@ export class InParallelWorkflow {}
 
 @Application({
   name: "in-parallel-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [InParallelWorkflow],
@@ -166,6 +168,7 @@ export class UnskippedWorkflow {}
 
 @Application({
   name: "unskipped-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [UnskippedWorkflow],
@@ -260,8 +263,7 @@ export class ChooserWorkflowStart {}
     onStart(ChooserWorkflowStart)
       .inParallel([
         toAction(FirstAction),
-        toRouter(ChooserRouter)
-          .chooseMany([toAction(ChosenAAction), toAction(ChosenBAction)]),
+        toRouter(ChooserRouter).chooseMany([toAction(ChosenAAction), toAction(ChosenBAction)]),
       ])
       .join()
       .toAction(ChosenSummaryAction)
@@ -309,8 +311,7 @@ export class ModelChooserWorkflowStart {}
     onStart(ModelChooserWorkflowStart)
       .inParallel([
         toAction(FirstAction),
-        toRouter(ModelChooserRouter)
-          .chooseMany([toAction(ChosenAAction), toAction(ChosenBAction)]),
+        toRouter(ModelChooserRouter).chooseMany([toAction(ChosenAAction), toAction(ChosenBAction)]),
       ])
       .join()
       .toAction(ChosenSummaryAction)
@@ -321,6 +322,7 @@ export class ModelChooserWorkflow {}
 
 @Application({
   name: "model-chooser-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ModelChooserWorkflow],

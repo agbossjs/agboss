@@ -36,6 +36,7 @@ import {
   resetFencedEffect,
 } from "../app/fixtures/fenced-effect.workflow.js";
 import { ReleaseWorkflow } from "../app/fixtures/fence.workflow.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 sqliteFilePerTest();
 
@@ -50,6 +51,7 @@ class OwnFencedEffectRepository extends InMemoryFencedEffectRepository {
 const assembledWith = (providers: readonly Provider[]) => {
   @Application({
     name: "stores-application",
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     environment: SqliteTestEnvironment,
     workflows: [ReleaseWorkflow],

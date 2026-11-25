@@ -30,6 +30,7 @@ import type { FileKey, FileMetadata } from "../../src/infrastructure/file.reposi
 import { InMemoryFileRepository } from "../../src/infrastructure/in-memory-file.repository.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { onStart } from "../helpers/flow.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 /** What a caller sends: a document, more pages, a note. */
 export class BundleDto {
@@ -173,6 +174,7 @@ export function readerApplication(options: ReaderOptions = {}): ReaderApp {
 
   @Workflow({
     name: `reader-${suffix}-workflow`,
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     historyTtl: Ttl.Forever,
     memory: Window5Memory,
@@ -184,6 +186,7 @@ export function readerApplication(options: ReaderOptions = {}): ReaderApp {
 
   @Application({
     name: `reader-${suffix}-application`,
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     environment: EmptyEnvironment,
     workflows: [ReaderWorkflow],

@@ -15,6 +15,7 @@ import { WorkflowStartTextDto } from "./dtos.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { EmptyEnvironment, inline, Ttl } from "../../../src/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** #280 — the credit-limit flow: a code router inside a model router's route. */
 
@@ -150,17 +151,13 @@ export const creditPaths = [
       toAgent(OrderIntakeAgent)
         .toRouter(CreditLimitRouter)
         .onError(CreditServiceUnavailableError, toFinish(OrderHeldWorkflowFinish))
-        .onRoute(
-          toAgent(ApprovalAgent)
-            .toAction(ChargeCardAction),
-        )
+        .onRoute(toAgent(ApprovalAgent).toAction(ChargeCardAction))
         .onRoute(toAction(ChargeCardAction)),
     )
     .onRoute(toFinish(NoOrderWorkflowFinish)),
 
   // two ways in (ApprovalAgent, CreditLimitRouter) → its own path
-  onAction(ChargeCardAction)
-    .toFinish(CreditWorkflowFinish),
+  onAction(ChargeCardAction).toFinish(CreditWorkflowFinish),
 ] as const;
 
 @Workflow({
@@ -174,6 +171,7 @@ export class CreditWorkflow {}
 
 @Application({
   name: "credit-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [CreditWorkflow],
@@ -203,15 +201,11 @@ export const creditByModelPaths = [
     .onRoute(
       toAgent(OrderIntakeAgent)
         .toRouter(CreditLimitByModelRouter)
-        .onRoute(
-          toAgent(ApprovalAgent)
-            .toAction(ChargeCardAction),
-        )
+        .onRoute(toAgent(ApprovalAgent).toAction(ChargeCardAction))
         .onRoute(toAction(ChargeCardAction)),
     )
     .onRoute(toFinish(NoOrderWorkflowFinish)),
-  onAction(ChargeCardAction)
-    .toFinish(CreditWorkflowFinish),
+  onAction(ChargeCardAction).toFinish(CreditWorkflowFinish),
 ] as const;
 
 @Workflow({
@@ -224,6 +218,7 @@ export class CreditByModelWorkflow {}
 
 @Application({
   name: "credit-by-model-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [CreditByModelWorkflow],

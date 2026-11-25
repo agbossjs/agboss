@@ -7,6 +7,7 @@ import {
   Coder,
   Researcher,
 } from "../../../../agboss/tests/fixtures/test-workflow/test.workflow.js";
+import { TestModelProvider } from "../../../../agboss/src/testing/test-model-provider.js";
 
 /** `agboss check` fixture: the researcher leads nowhere (graph.dead-end), the coder is unreachable. */
 @Workflow({
@@ -30,6 +31,7 @@ export class BrokenWorkflow {}
 /** The application `agboss --application` loads (#268): this workflow alone. */
 @Application({
   name: "broken-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [BrokenWorkflow],

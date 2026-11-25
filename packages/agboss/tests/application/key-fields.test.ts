@@ -43,6 +43,7 @@ import { WorkflowStartTextDto } from "../../src/dto/index.js";
 import { onStart } from "../helpers/flow.js";
 import { hours } from "../../src/units/index.js";
 import type { ApplicationOptions } from "../../src/application/application.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 /** A workflow none of whose components can write under a business key. */
 @WorkflowStart({
@@ -133,6 +134,7 @@ describe("#825 AC7: an idempotency key where business keys can be made", () => {
   it("an application whose components reach neither needs none", async () => {
     @Application({
       name: "plain-application",
+      modelProvider: TestModelProvider,
       version: "1.0.0",
       environment: EmptyEnvironment,
       workflows: [PlainWorkflow],
@@ -147,6 +149,7 @@ describe("#825 AC7: an idempotency key where business keys can be made", () => {
   it("no storage declared: a component that reaches Idempotency is refused at assembly, not at its first keyed call", async () => {
     @Application({
       name: "in-memory-application",
+      modelProvider: TestModelProvider,
       version: "1.0.0",
       environment: KeysEnvironment,
       workflows: [BookOrderWorkflow],

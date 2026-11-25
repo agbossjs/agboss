@@ -21,6 +21,7 @@ import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index
 import { hours } from "../../src/units/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { onStart } from "../helpers/flow.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 @Memory({ name: "hour-memory", description: "An hour", ttl: hours(1), uncompactedTurns: 2 })
 class HourMemory {}
@@ -62,6 +63,7 @@ const workflowOf = (name: string, memory?: Class) => {
 const ttlsOf = async (workflows: readonly Class[], records: object) => {
   @Application({
     name: "ttl-application",
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     environment: EmptyEnvironment,
     workflows,

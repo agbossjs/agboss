@@ -17,10 +17,12 @@ import { OutlineWorkflow } from "../../flow/fixtures/recursion.fixture.js";
 import { NotesDeskApplication } from "../../memory/compaction.fixture.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { TestApplication } from "../../fixtures/test-workflow/test.workflow.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 const outlineApplication = async () => {
   @Application({
     name: "outline-application",
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     environment: EmptyEnvironment,
     workflows: [OutlineWorkflow],

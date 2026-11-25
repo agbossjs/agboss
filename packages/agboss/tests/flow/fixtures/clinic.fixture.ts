@@ -17,6 +17,7 @@ import type { ExecutionRejectedEvent } from "../../../src/core/observability.js"
 import { WorkflowStartTextDto } from "./dtos.js";
 import { onStart } from "./paths.js";
 import { Observer, inline, Ttl } from "../../../src/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #261 PR 3 — a clinic: the project's tenant level (its units) and execution level (the clinician
@@ -222,6 +223,7 @@ export class BedRequestWorkflow {}
 
 @Application({
   name: "clinic-application",
+  modelProvider: TestModelProvider,
   version: "2.1.0",
   environment: EmptyEnvironment,
   workflows: [BedRequestWorkflow],

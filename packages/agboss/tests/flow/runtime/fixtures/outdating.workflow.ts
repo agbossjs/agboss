@@ -11,7 +11,8 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type ValuesOutdatedEvent,
-  inline, Ttl,
+  inline,
+  Ttl,
 } from "../../../../src/index.js";
 import { oneOf, optional } from "../../../../src/flow/dto-wrappers.js";
 import { onAgent, onStart, toAgent, toFinish } from "../../../helpers/flow.js";
@@ -29,6 +30,7 @@ import {
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../../src/index.js";
+import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /**
  * #271 PR 2 — workflows that outdate at run time: the review loop of the issue (the reviewer's
@@ -131,15 +133,12 @@ export class LoopWorkflowFinish {}
   memory: Window5Memory,
   executionLimits: { maxSteps: 30 },
   flow: [
-    onStart(LoopWorkflowStart)
-      .toAgent(LoopResearcherAgent)
-      .toAgent(LoopWriterAgent),
+    onStart(LoopWorkflowStart).toAgent(LoopResearcherAgent).toAgent(LoopWriterAgent),
     onAgent(LoopWriterAgent)
       .toAgent(LoopReviewerAgent)
       .toOneOf([
         toAgent(LoopWriterAgent),
-        toAgent(LoopPublisherAgent)
-          .toFinish(LoopWorkflowFinish),
+        toAgent(LoopPublisherAgent).toFinish(LoopWorkflowFinish),
       ]),
   ],
 })
@@ -147,6 +146,7 @@ export class LoopWorkflow {}
 
 @Application({
   name: "loop-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [LoopWorkflow],
@@ -248,8 +248,7 @@ export class JobsRouter {}
   memory: Window5Memory,
   executionLimits: { maxSteps: 20 },
   flow: [
-    onStart(JobsWorkflowStart)
-      .toAgent(ProfileAgent),
+    onStart(JobsWorkflowStart).toAgent(ProfileAgent),
     onAgent(ProfileAgent)
       .toAgent(SearchAgent)
       .toAgent(ScoreAgent)
@@ -264,6 +263,7 @@ export class JobsWorkflow {}
 
 @Application({
   name: "jobs-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [JobsWorkflow],

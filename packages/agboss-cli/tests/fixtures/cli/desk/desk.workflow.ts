@@ -20,6 +20,7 @@ import {
 import { TEST_BUDGETS } from "../../../../../agboss/tests/flow/fixtures/budgets.js";
 import { onStart } from "../../../../../agboss/tests/helpers/flow.js";
 import { DeskEnvironment } from "./environments/app.environment.js";
+import { TestModelProvider } from "../../../../../agboss/src/testing/test-model-provider.js";
 
 @WorkflowStart({
   name: "inbox-workflow-start",
@@ -153,6 +154,7 @@ export class ScreeningWorkflow {}
 /** Two workflows, four starts (a text, a DTO, a list, a map): `agboss run` needs `--start`. */
 @Application({
   name: "desk-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: DeskEnvironment,
   workflows: [InboxWorkflow, ScreeningWorkflow],

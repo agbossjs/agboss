@@ -14,6 +14,7 @@ import { ApprovalDto, CritiqueDto, DraftDto, ResearchDto } from "./review-dtos.j
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { EmptyEnvironment, inline, Ttl } from "../../../src/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #271 — the review loop (`caseOf(…)` after the reviewer, #299) and a polish
@@ -88,17 +89,11 @@ export class PublisherAgent {}
 export class StoryWorkflowFinish {}
 
 export const storyPaths = [
-  onStart(StoryWorkflowStart)
-    .toAgent(ResearcherAgent)
-    .toAgent(StoryWriterAgent),
+  onStart(StoryWorkflowStart).toAgent(ResearcherAgent).toAgent(StoryWriterAgent),
 
   onAgent(StoryWriterAgent)
     .toAgent(StoryReviewerAgent)
-    .toOneOf([
-      toAgent(StoryWriterAgent),
-      toAgent(PublisherAgent)
-        .toFinish(StoryWorkflowFinish),
-    ]),
+    .toOneOf([toAgent(StoryWriterAgent), toAgent(PublisherAgent).toFinish(StoryWorkflowFinish)]),
 ] as const;
 
 @Workflow({
@@ -111,6 +106,7 @@ export class StoryWorkflow {}
 
 @Application({
   name: "story-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [StoryWorkflow],
@@ -175,8 +171,7 @@ export class CritiqueRouter {}
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: [
-    onStart(StoryWorkflowStart)
-      .toAgent(PolishAgent),
+    onStart(StoryWorkflowStart).toAgent(PolishAgent),
     onAgent(PolishAgent)
       .toAction(CritiqueAction)
       .toRouter(CritiqueRouter)
@@ -188,6 +183,7 @@ export class PolishWorkflow {}
 
 @Application({
   name: "polish-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [PolishWorkflow],

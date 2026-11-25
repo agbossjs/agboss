@@ -9,13 +9,15 @@ import {
   type OnInit,
   type OnStart,
   type OnStop,
-  inline, Ttl,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { onStart } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../src/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** What the hooks and the tool did, in order (`Pool.onInit`, `search started`, …). */
 export const events: string[] = [];
@@ -128,17 +130,14 @@ export class SearchWorkflowFinish {}
   name: "lifecycle-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(SearchWorkflowStart)
-      .toAgent(ScoutAgent)
-      .toFinish(SearchWorkflowFinish),
-  ],
+  flow: [onStart(SearchWorkflowStart).toAgent(ScoutAgent).toFinish(SearchWorkflowFinish)],
   providers: [JobIndexService, ConnectionPoolProvider],
 })
 export class LifecycleWorkflow {}
 
 @Application({
   name: "lifecycle-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [LifecycleWorkflow],
@@ -182,17 +181,14 @@ export class BrokenScoutAgent {}
   name: "broken-lifecycle-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(SearchWorkflowStart)
-      .toAgent(BrokenScoutAgent)
-      .toFinish(SearchWorkflowFinish),
-  ],
+  flow: [onStart(SearchWorkflowStart).toAgent(BrokenScoutAgent).toFinish(SearchWorkflowFinish)],
   providers: [BrokenPoolProvider],
 })
 export class BrokenLifecycleWorkflow {}
 
 @Application({
   name: "broken-lifecycle-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [BrokenLifecycleWorkflow],

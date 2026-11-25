@@ -6,7 +6,8 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  inline, Ttl,
+  inline,
+  Ttl,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import {
@@ -21,6 +22,7 @@ import { minutes, seconds, usd } from "../../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { onStart } from "../../../helpers/flow.js";
 import { CircuitBreakerPolicy } from "../../../../src/models/circuit-breaker-policy.js";
+import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /**
  * #649 — an agent whose only tool is its answer tool, on a real OpenAI-compatible HTTP provider: it
@@ -103,11 +105,7 @@ export class ReadingWorkflowFinish {}
   name: "review-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(ReviewWorkflowStart)
-      .toAgent(LegalReviewAgent)
-      .toFinish(ReviewWorkflowFinish),
-  ],
+  flow: [onStart(ReviewWorkflowStart).toAgent(LegalReviewAgent).toFinish(ReviewWorkflowFinish)],
 })
 export class ReviewWorkflow {}
 
@@ -115,11 +113,7 @@ export class ReviewWorkflow {}
   name: "reading-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(ReadingWorkflowStart)
-      .toAgent(ClauseReaderAgent)
-      .toFinish(ReadingWorkflowFinish),
-  ],
+  flow: [onStart(ReadingWorkflowStart).toAgent(ClauseReaderAgent).toFinish(ReadingWorkflowFinish)],
 })
 export class ReadingWorkflow {}
 
@@ -143,6 +137,7 @@ export class WireModelProvider {}
 
 @Application({
   name: "one-answer-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ReviewWorkflow, ReadingWorkflow],

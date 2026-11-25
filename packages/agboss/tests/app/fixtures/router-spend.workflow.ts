@@ -6,7 +6,8 @@ import {
   Workflow,
   WorkflowStart,
   type BudgetHandler,
-  inline, Ttl,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { DecidedBy, Router } from "../../../src/flow/decorators/router.js";
@@ -22,6 +23,7 @@ import {
   NotChargedWorkflowFinish,
 } from "./fenced-effect.workflow.js";
 import { WindowMemoryCheckpoints } from "./writes-window.application.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #1090 — a model router before a charge: start, router (its decision costs money), charge,
@@ -64,10 +66,7 @@ export class OrderRouter {}
   flow: [
     onStart(RoutedChargeWorkflowStart)
       .toRouter(OrderRouter)
-      .onRoute(
-        toAction(ChargeOrderAction)
-          .toFinish(ChargedWorkflowFinish),
-      )
+      .onRoute(toAction(ChargeOrderAction).toFinish(ChargedWorkflowFinish))
       .onRoute(toFinish(NotChargedWorkflowFinish)),
   ],
 })
@@ -75,6 +74,7 @@ export class RoutedChargeWorkflow {}
 
 @Application({
   name: "router-spend-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: IdempotencyKeyEnvironment,
   workflows: [RoutedChargeWorkflow],

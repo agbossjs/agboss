@@ -5,7 +5,8 @@ import {
   LimitExceededError,
   Router,
   Workflow,
-  WorkflowStart, Ttl,
+  WorkflowStart,
+  Ttl,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
@@ -22,6 +23,7 @@ import {
   LinkAgent,
   LinkDto,
 } from "./recursion.workflow.js";
+import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /**
  * #333 PR 3 — a recursion whose every level runs on any instance (`ChildPlacement.AnyWorker`):
@@ -50,8 +52,7 @@ export class RemoteCountdownWorkflowStart {}
         toWorkflow(() => RemoteCountdownWorkflow)
           .onError(
             LimitExceededError,
-            toAction(DepthStoppedAction)
-              .toFinish(CountStoppedWorkflowFinish),
+            toAction(DepthStoppedAction).toFinish(CountStoppedWorkflowFinish),
           )
           .toOneOf([toFinish(CountDoneWorkflowFinish), toFinish(CountStoppedWorkflowFinish)]),
         toFinish(CountDoneWorkflowFinish),
@@ -91,14 +92,8 @@ export class RemoteDeeperRouter {
   flow: [
     onStart(RemoteChainWorkflowStart)
       .toRouter(RemoteDeeperRouter)
-      .onRoute(
-        toWorkflow(() => RemoteChainWorkflow)
-          .toFinish(ChainDoneWorkflowFinish),
-      )
-      .onRoute(
-        toAgent(LinkAgent)
-          .toFinish(ChainDoneWorkflowFinish),
-      ),
+      .onRoute(toWorkflow(() => RemoteChainWorkflow).toFinish(ChainDoneWorkflowFinish))
+      .onRoute(toAgent(LinkAgent).toFinish(ChainDoneWorkflowFinish)),
   ],
   executionLimits: { maxDepth: 2 },
 })
@@ -107,6 +102,7 @@ export class RemoteChainWorkflow {}
 /** On the built-in in-memory stores: the test's instances share the queue. */
 @Application({
   name: "remote-recursion-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [RemoteCountdownWorkflow, RemoteChainWorkflow],

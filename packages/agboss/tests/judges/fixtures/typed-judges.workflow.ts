@@ -8,7 +8,8 @@ import {
   WorkflowFinish,
   type JudgeHandler,
   type JudgeInput,
-  inline, Ttl,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
 import { EmptyEnvironment } from "../../../src/index.js";
 import { Integer, List, PlainTextDto, Text, type DtoClass } from "../../../src/dto/index.js";
@@ -17,6 +18,7 @@ import { Application } from "../../../src/application/application.js";
 import { onStart, toFinish, toAgent } from "../../helpers/flow.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { DEFAULTS, MODEL_PROVIDERS, Reply, TaskStart } from "./judged.workflow.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** One job of a report. */
 export class JobDto {
@@ -96,11 +98,7 @@ export class ReportWorkflowFinish {}
   name: "typed-judge-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(TaskStart)
-      .toAgent(ScoutAgent)
-      .toFinish(ReportWorkflowFinish),
-  ],
+  flow: [onStart(TaskStart).toAgent(ScoutAgent).toFinish(ReportWorkflowFinish)],
   defaults: DEFAULTS,
   providers: [JobSearch, VariantLog],
 })
@@ -108,6 +106,7 @@ export class TypedJudgeWorkflow {}
 
 @Application({
   name: "typed-judge-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [TypedJudgeWorkflow],
@@ -192,6 +191,7 @@ export class VariantJudgeWorkflow {}
 
 @Application({
   name: "variant-judge-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [VariantJudgeWorkflow],
@@ -265,11 +265,7 @@ export class ListJudgedScoutAgent {}
   flow: [
     onStart(TaskStart)
       .toAgent(OfferJudgedScreenerAgent)
-      .toOneOf([
-        toFinish(OfferWorkflowFinish),
-        toAgent(ReportJudgedWriterAgent)
-          .toFinish(Reply),
-      ]),
+      .toOneOf([toFinish(OfferWorkflowFinish), toAgent(ReportJudgedWriterAgent).toFinish(Reply)]),
   ],
   defaults: DEFAULTS,
   providers: [JobSearch, VariantLog],
@@ -281,11 +277,7 @@ export class WrongReplyWorkflow {}
   name: "wrong-report-reply-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(TaskStart)
-      .toAgent(TextJudgedScoutAgent)
-      .toFinish(ReportWorkflowFinish),
-  ],
+  flow: [onStart(TaskStart).toAgent(TextJudgedScoutAgent).toFinish(ReportWorkflowFinish)],
   defaults: DEFAULTS,
 })
 export class WrongReportReplyWorkflow {}
@@ -306,10 +298,7 @@ export class JobsSummaryAgent {}
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: [
-    onStart(TaskStart)
-      .toAgent(ListJudgedScoutAgent)
-      .toAgent(JobsSummaryAgent)
-      .toFinish(Reply),
+    onStart(TaskStart).toAgent(ListJudgedScoutAgent).toAgent(JobsSummaryAgent).toFinish(Reply),
   ],
   defaults: DEFAULTS,
   providers: [JobSearch, VariantLog],
@@ -365,12 +354,7 @@ export class JobsScoutAgent {}
   name: "list-judge-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(TaskStart)
-      .toAgent(JobsScoutAgent)
-      .toAgent(JobsSummaryAgent)
-      .toFinish(Reply),
-  ],
+  flow: [onStart(TaskStart).toAgent(JobsScoutAgent).toAgent(JobsSummaryAgent).toFinish(Reply)],
   defaults: DEFAULTS,
   providers: [JobSearch, VariantLog],
 })
@@ -378,6 +362,7 @@ export class ListJudgeWorkflow {}
 
 @Application({
   name: "list-judge-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ListJudgeWorkflow],
@@ -438,10 +423,7 @@ export class DecisionsSummaryAgent {}
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: [
-    onStart(TaskStart)
-      .toAgent(PanelScreenerAgent)
-      .toAgent(DecisionsSummaryAgent)
-      .toFinish(Reply),
+    onStart(TaskStart).toAgent(PanelScreenerAgent).toAgent(DecisionsSummaryAgent).toFinish(Reply),
   ],
   defaults: DEFAULTS,
   providers: [VariantLog],
@@ -450,6 +432,7 @@ export class VariantListJudgeWorkflow {}
 
 @Application({
   name: "variant-list-judge-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [VariantListJudgeWorkflow],
@@ -473,11 +456,7 @@ export class ListJudgedReporterAgent {}
   name: "wrong-value-reply-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(TaskStart)
-      .toAgent(ListJudgedReporterAgent)
-      .toFinish(ReportWorkflowFinish),
-  ],
+  flow: [onStart(TaskStart).toAgent(ListJudgedReporterAgent).toFinish(ReportWorkflowFinish)],
   defaults: DEFAULTS,
   providers: [JobSearch, VariantLog],
 })

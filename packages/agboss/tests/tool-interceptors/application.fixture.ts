@@ -30,6 +30,7 @@ import {
   PingTool,
   TenantScopeToolInterceptor,
 } from "./components.fixture.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 @PiiPolicy({
   name: "contact-pii-policy",
@@ -99,6 +100,7 @@ export class QuietWorkflow {}
 
 @Application({
   name: "scout-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ScoutWorkflow, QuietWorkflow],

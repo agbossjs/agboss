@@ -12,6 +12,7 @@ import { TEST_BUDGETS } from "./budgets.js";
 import { DraftChangesDto } from "./data-dtos.js";
 import { ChangesRequestedDto, DraftApprovedDto, OfferDraftDto, ShortlistDto } from "./dtos.js";
 import { EmptyEnvironment, inline, Ttl } from "../../../src/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #299 S56 — earlier versions without tags: the review loop's reviewer reads
@@ -94,9 +95,7 @@ export class DraftHistoryAction {
   async execute(input: InputOf<DraftHistoryAction>): Promise<OutputOf<DraftHistoryAction>> {
     const { current, previous } = input.drafts;
     return {
-      changes: [...previous, current]
-        .map((draft) => draft.text)
-        .join(" → "),
+      changes: [...previous, current].map((draft) => draft.text).join(" → "),
     };
   }
 }
@@ -109,16 +108,11 @@ export class DraftHistoryAction {
 export class DraftHistoryWorkflowFinish {}
 
 export const historyPaths = [
-  onStart(HistoryOfferWorkflowStart)
-    .toAgent(FirstDraftAgent)
-    .toAction(ReviewDraftAction),
-  onAction(ReviewDraftAction)
-    .toOneOf([
-      toAgent(DraftEditorAgent)
-        .toAction(ReviewDraftAction),
-      toAction(DraftHistoryAction)
-        .toFinish(DraftHistoryWorkflowFinish),
-    ]),
+  onStart(HistoryOfferWorkflowStart).toAgent(FirstDraftAgent).toAction(ReviewDraftAction),
+  onAction(ReviewDraftAction).toOneOf([
+    toAgent(DraftEditorAgent).toAction(ReviewDraftAction),
+    toAction(DraftHistoryAction).toFinish(DraftHistoryWorkflowFinish),
+  ]),
 ] as const;
 
 @Workflow({
@@ -131,6 +125,7 @@ export class HistoryOfferWorkflow {}
 
 @Application({
   name: "history-offer-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [HistoryOfferWorkflow],

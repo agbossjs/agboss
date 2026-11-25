@@ -10,7 +10,8 @@ import {
   Workflow,
   WorkflowStart,
   type Tracked,
-  inline, Ttl,
+  inline,
+  Ttl,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
@@ -26,6 +27,7 @@ import {
   CountDto,
   recursionLog,
 } from "./recursion.workflow.js";
+import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /**
  * #264 AC3 — depth across a pause and a crash. `dig-workflow` (`maxDepth: 3`): the digger goes one
@@ -79,8 +81,7 @@ export class DiggerAgent {}
     onStart(DigWorkflowStart)
       .toAgent(DiggerAgent)
       .toOneOf([
-        toWorkflow(() => DigWorkflow)
-          .toFinish(CountDoneWorkflowFinish),
+        toWorkflow(() => DigWorkflow).toFinish(CountDoneWorkflowFinish),
         toFinish(CountDoneWorkflowFinish),
       ]),
   ],
@@ -90,6 +91,7 @@ export class DigWorkflow {}
 
 @Application({
   name: "recursion-pause-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [DigWorkflow],
@@ -137,8 +139,7 @@ export class HoldDepthAction {
     onStart(HoldDepthWorkflowStart)
       .toAction(HoldDepthAction)
       .toOneOf([
-        toWorkflow(() => HoldDepthWorkflow)
-          .toFinish(CountDoneWorkflowFinish),
+        toWorkflow(() => HoldDepthWorkflow).toFinish(CountDoneWorkflowFinish),
         toFinish(CountDoneWorkflowFinish),
       ]),
   ],

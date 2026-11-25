@@ -8,7 +8,8 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  inline, Ttl,
+  inline,
+  Ttl,
 } from "../../../../src/index.js";
 import { Rag } from "../../../../src/components/decorators.js";
 import type { ToolEndEvent } from "../../../../src/core/observability.js";
@@ -25,6 +26,7 @@ import type { RagRetrieval } from "../../../../src/rag/types.js";
 import { kilobytes } from "../../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { onStart } from "../../../helpers/flow.js";
+import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /** What the observer saw of each tool call, and every text the PII detector read (tests reset both). */
 export const toolEnds: ToolEndEvent[] = [];
@@ -175,12 +177,8 @@ export class PageFinish {}
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: [
-    onStart(PageStart)
-      .toAgent(ResearchAgent)
-      .toFinish(PageFinish),
-    onStart(ContextStart)
-      .toAgent(ContextAgent)
-      .toFinish(PageFinish),
+    onStart(PageStart).toAgent(ResearchAgent).toFinish(PageFinish),
+    onStart(ContextStart).toAgent(ContextAgent).toFinish(PageFinish),
   ],
   providers: [PageReader],
 })
@@ -189,6 +187,7 @@ export class PageWorkflow {}
 /** No bound set anywhere: every tool without its own reads the built-in 128 KB. */
 @Application({
   name: "page-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [PageWorkflow],
@@ -201,6 +200,7 @@ export class PageApplication {}
 /** One bound for every tool result a model reads, from the application. */
 @Application({
   name: "bounded-page-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [PageWorkflow],
@@ -243,11 +243,7 @@ export class ZeroBoundStart {}
   name: "zero-bound-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(ZeroBoundStart)
-      .toAgent(ZeroBoundAgent)
-      .toFinish(PageFinish),
-  ],
+  flow: [onStart(ZeroBoundStart).toAgent(ZeroBoundAgent).toFinish(PageFinish)],
   defaults: { tools: { maxResultSize: kilobytes(0.1) } },
 })
 export class ZeroBoundWorkflow {}

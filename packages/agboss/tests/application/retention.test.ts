@@ -23,6 +23,7 @@ import { hours, minutes, seconds, type Milliseconds } from "../../src/units/inde
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { ChargeWorkflow, resetFencedEffect } from "../app/fixtures/fenced-effect.workflow.js";
 import { IdempotencyKeyEnvironment } from "../helpers/idempotency-key.environment.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 beforeEach(() => {
   resetFencedEffect();
@@ -31,6 +32,7 @@ beforeEach(() => {
 const assembledWith = (retention: unknown, others: Readonly<Record<string, unknown>> = {}) => {
   @Application({
     name: "retention-application",
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     environment: IdempotencyKeyEnvironment,
     workflows: [ChargeWorkflow],

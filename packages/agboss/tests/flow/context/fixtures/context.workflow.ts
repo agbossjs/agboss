@@ -24,6 +24,7 @@ import { onAgent, onStart, toAgent, toAction } from "../../../helpers/flow.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../../src/index.js";
+import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /** What the components read of their execution, in order (reset by `resetSeen`). */
 export const seen = {
@@ -200,21 +201,18 @@ export class ReviewRouter {}
   historyTtl: Ttl.Forever,
   providers: [PublishAction],
   flow: [
-    onStart(ContextStart)
-      .toAgent(WriterAgent),
+    onStart(ContextStart).toAgent(WriterAgent),
     onAgent(WriterAgent)
       .toRouter(ReviewRouter)
       .onRoute(toAgent(WriterAgent))
-      .onRoute(
-        toAction(PublishAction)
-          .toFinish(PublishedFinish),
-      ),
+      .onRoute(toAction(PublishAction).toFinish(PublishedFinish)),
   ],
 })
 export class ContextWorkflow {}
 
 @Application({
   name: "context-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ContextWorkflow],
@@ -228,16 +226,13 @@ export class ContextApplication {}
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   defaults: { router: { model: "typesafe/jev-1.13" } },
-  flow: [
-    onStart(ContextStart)
-      .toAgent(JudgedWriterAgent)
-      .toFinish(PublishedFinish),
-  ],
+  flow: [onStart(ContextStart).toAgent(JudgedWriterAgent).toFinish(PublishedFinish)],
 })
 export class JudgedContextWorkflow {}
 
 @Application({
   name: "judged-context-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [JudgedContextWorkflow],
@@ -278,16 +273,13 @@ export class QuickWriterAgent {}
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   providers: [LazyAuditService],
-  flow: [
-    onStart(ContextStart)
-      .toAgent(QuickWriterAgent)
-      .toFinish(PublishedFinish),
-  ],
+  flow: [onStart(ContextStart).toAgent(QuickWriterAgent).toFinish(PublishedFinish)],
 })
 export class AuditWorkflow {}
 
 @Application({
   name: "audit-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [AuditWorkflow],
@@ -301,16 +293,13 @@ export class AuditApplication {}
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   providers: [EagerAuditService],
-  flow: [
-    onStart(ContextStart)
-      .toAgent(QuickWriterAgent)
-      .toFinish(PublishedFinish),
-  ],
+  flow: [onStart(ContextStart).toAgent(QuickWriterAgent).toFinish(PublishedFinish)],
 })
 export class EagerAuditWorkflow {}
 
 @Application({
   name: "eager-audit-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [EagerAuditWorkflow],

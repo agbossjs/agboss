@@ -31,6 +31,7 @@ import {
 } from "../../flow/runtime/fixtures/unwind-pause.workflow.js";
 import { UnwindLog, UnwindWorkflow } from "../../flow/runtime/fixtures/unwind.workflow.js";
 import { YieldLog, YieldOneWorkflow } from "./remote-child-yield.workflow.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #928 lease scopes — stores whose next call of a named operation never answers, as a silent
@@ -122,6 +123,7 @@ export const HeldHistory = withHoldPoints(InMemoryExecutionHistoryRepository);
 
 @Application({
   name: "lease-scope-bound-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [UnwindWorkflow, UnwindGuestWorkflow, YieldOneWorkflow],

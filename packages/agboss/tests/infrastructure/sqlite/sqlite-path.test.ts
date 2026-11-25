@@ -28,6 +28,7 @@ import { isSqliteImplementation } from "../../../src/infrastructure/sqlite/sqlit
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { RecoveryWorkflow } from "../fixtures/recovery.workflow.js";
 import { connectionTo } from "../contracts/store-kinds.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 const ALL_SQLITE = [
   SqliteCheckpointSaver,
@@ -42,6 +43,7 @@ const ALL_SQLITE = [
 /** Lists every SQLite implementation, but its contract has no `sqlitePath`. */
 @Application({
   name: "pathless-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [RecoveryWorkflow],
@@ -53,6 +55,7 @@ class PathlessApplication {}
 /** Lists none: no `sqlitePath` needed, every contract in memory. */
 @Application({
   name: "in-memory-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [RecoveryWorkflow],

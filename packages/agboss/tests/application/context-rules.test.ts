@@ -36,6 +36,7 @@ import {
   RefundsWorkflowStart,
 } from "./fixtures/desks.application.js";
 import { EmptyEnvironment } from "../../src/index.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 class PlanTenantContext extends TenantContext {
   @Text({ prompt: "the plan of the organization" })
@@ -82,6 +83,7 @@ class UnitsWorkflow {}
 
 @Application({
   name: "plan-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [PlainWorkflow],
@@ -92,6 +94,7 @@ class PlanApplication {}
 
 @Application({
   name: "spoofed-tenant-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [PlainWorkflow],
@@ -102,6 +105,7 @@ class SpoofedTenantApplication {}
 
 @Application({
   name: "spoofed-execution-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [PlainWorkflow],
@@ -112,6 +116,7 @@ class SpoofedExecutionApplication {}
 
 @Application({
   name: "own-fields-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [PlainWorkflow],
@@ -141,6 +146,7 @@ class UnitsApplication {}
 
 @Application({
   name: "plain-application",
+  modelProvider: TestModelProvider,
   version: "2.0.0",
   environment: EmptyEnvironment,
   workflows: [PlainWorkflow],

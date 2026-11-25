@@ -26,6 +26,7 @@ import { applicationWith, workflowWith } from "../../components/fixture/deps-con
 import type { DtoClass } from "../../../src/dto/types.js";
 import { DtoError, Text } from "../../../src/dto/index.js";
 import { DiamondDto, PingDto, SelfDto, TreeDto } from "../../dto/fixtures-cycles.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 const workflowDefaults = {
   defaults: {
@@ -102,6 +103,7 @@ describe("#1080: an agent's output that holds itself", () => {
     class DiamondAgent {}
     @Workflow({
       name: "diamond-workflow",
+      modelProvider: TestModelProvider,
       version: "1.0.0",
       historyTtl: Ttl.Forever,
       flow: [onStart(DiamondStart).toAgent(DiamondAgent).toFinish(DiamondFinish)],

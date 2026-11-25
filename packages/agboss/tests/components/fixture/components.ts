@@ -16,6 +16,7 @@ import { Text } from "../../../src/dto/index.js";
 import { testConfig, testDefaults } from "../../helpers.js";
 import { starOf } from "../../fixtures/test-flow/star.js";
 import { Reasoning, ReasoningEffort } from "../../../src/models/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 export const GREETING = new InjectionToken<string>("GREETING");
 
@@ -103,6 +104,7 @@ export class GreeterAgent {}
 
 @Workflow({
   name: "greetings-workflow",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   defaults: testDefaults,

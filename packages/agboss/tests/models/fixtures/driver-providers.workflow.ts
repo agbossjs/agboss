@@ -6,7 +6,8 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  inline, Ttl,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { Application } from "../../../src/application/application.js";
@@ -24,6 +25,7 @@ import {
 import { minutes, seconds } from "../../../src/units/index.js";
 import { onStart } from "../../helpers/flow.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 const breaker = CircuitBreakerPolicy.fixed({
   failureThreshold: 3,
@@ -202,11 +204,7 @@ const defaults = { models: { temperature: 0, maxTokens: TokenLimit.ModelMax } };
   name: "fast-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(FastStart)
-      .toAgent(FastAgent)
-      .toFinish(FastFinish),
-  ],
+  flow: [onStart(FastStart).toAgent(FastAgent).toFinish(FastFinish)],
   defaults,
   memory: Window1Memory,
 })
@@ -216,11 +214,7 @@ export class FastWorkflow {}
   name: "plain-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(PlainStart)
-      .toAgent(PlainAgent)
-      .toFinish(PlainFinish),
-  ],
+  flow: [onStart(PlainStart).toAgent(PlainAgent).toFinish(PlainFinish)],
   defaults,
   memory: Window1Memory,
 })
@@ -230,11 +224,7 @@ export class PlainWorkflow {}
   name: "own-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(OwnStart)
-      .toAgent(OwnAgent)
-      .toFinish(OwnFinish),
-  ],
+  flow: [onStart(OwnStart).toAgent(OwnAgent).toFinish(OwnFinish)],
   defaults,
   memory: Window1Memory,
 })
@@ -244,11 +234,7 @@ export class OwnWorkflow {}
   name: "literal-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(LiteralStart)
-      .toAgent(LiteralAgent)
-      .toFinish(LiteralFinish),
-  ],
+  flow: [onStart(LiteralStart).toAgent(LiteralAgent).toFinish(LiteralFinish)],
   defaults,
   memory: Window1Memory,
 })
@@ -281,11 +267,7 @@ export class UnlistedApplication {}
   name: "bare-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(BareStart)
-      .toAgent(PlainAgent)
-      .toFinish(BareFinish),
-  ],
+  flow: [onStart(BareStart).toAgent(PlainAgent).toFinish(BareFinish)],
   defaults,
   memory: Window1Memory,
   modelProvider: BareChatModels,
@@ -306,11 +288,7 @@ export class BareApplication {}
   name: "no-provider-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(NopStart)
-      .toAgent(FastAgent)
-      .toFinish(NopFinish),
-  ],
+  flow: [onStart(NopStart).toAgent(FastAgent).toFinish(NopFinish)],
   defaults,
   memory: Window1Memory,
 })
@@ -319,6 +297,7 @@ export class NoProviderWorkflow {}
 /** A driver provider is listed, no cascade names one: `[model.missing-provider]`. */
 @Application({
   name: "no-provider-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [NoProviderWorkflow],
@@ -331,11 +310,7 @@ export class NoProviderApplication {}
   name: "decision-provider-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(DecStart)
-      .toAgent(LiteralAgent)
-      .toFinish(DecFinish),
-  ],
+  flow: [onStart(DecStart).toAgent(LiteralAgent).toFinish(DecFinish)],
   defaults,
   memory: Window1Memory,
   modelProvider: DecisionModels,
@@ -345,6 +320,7 @@ export class DecisionProviderWorkflow {}
 /** A chat agent on a provider with a decisions driver: `[model.incompatible-provider]`. */
 @Application({
   name: "decision-provider-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [DecisionProviderWorkflow],

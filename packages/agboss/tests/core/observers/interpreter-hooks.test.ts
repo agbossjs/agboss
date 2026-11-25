@@ -32,6 +32,7 @@ import {
   treasuryChannels,
 } from "../../flow/fixtures/replies.fixture.js";
 import { execute } from "../../helpers/flow.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 const events: (ChannelInterpreterStartEvent | ChannelInterpreterEndEvent)[] = [];
 
@@ -58,6 +59,7 @@ class DeskInterpreterWatch {
 
 @Application({
   name: "watched-treasury-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [TreasuryWorkflow, TreasuryDeskWorkflow, TreasuryBatchWorkflow],

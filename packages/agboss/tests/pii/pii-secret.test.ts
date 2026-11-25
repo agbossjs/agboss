@@ -38,6 +38,7 @@ import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { logged, RecordingLogger, resetLogged } from "../helpers/log.js";
 import { ContactPiiPolicy, OpenWorkflow, PII_KEY_VARIABLE, PiiWorkflow } from "./pii.fixture.js";
 import { piiApp } from "./boundary.helpers.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 const OLD = "old-pii-key";
 const NEW = "new-pii-key";
@@ -248,6 +249,7 @@ const applicationWith = async (
 ) => {
   @Application({
     name,
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     environment: EmptyEnvironment,
     workflows: [options.workflow ?? OpenWorkflow],
@@ -314,6 +316,7 @@ describe("#1301b: [pii.secret-required]", () => {
   it("a real storage without piiSecret and a tokenize() policy: the start fails, naming the policy", async () => {
     @Application({
       name: "keyless-application",
+      modelProvider: TestModelProvider,
       version: "1.0.0",
       environment: EmptyEnvironment,
       workflows: [PiiWorkflow],
@@ -333,6 +336,7 @@ describe("#1301b: [pii.secret-required]", () => {
   it("a policy with a secret of its own needs none", async () => {
     @Application({
       name: "own-secret-application",
+      modelProvider: TestModelProvider,
       version: "1.0.0",
       environment: EmptyEnvironment,
       workflows: [OpenWorkflow],
@@ -430,6 +434,7 @@ describe("#1301b: [pii.secret-required]", () => {
     class TokenFieldWorkflow {}
     @Application({
       name: "token-field-application",
+      modelProvider: TestModelProvider,
       version: "1.0.0",
       environment: EmptyEnvironment,
       workflows: [TokenFieldWorkflow],
@@ -479,6 +484,7 @@ describe("#1301b: a Logger the application's components inject is masked", () =>
     }
     @Application({
       name: "logger-masking-application",
+      modelProvider: TestModelProvider,
       version: "1.0.0",
       environment: EmptyEnvironment,
       workflows: [OpenWorkflow],

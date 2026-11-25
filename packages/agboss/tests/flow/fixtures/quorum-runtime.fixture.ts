@@ -3,7 +3,8 @@ import {
   ArbiterError,
   EmptyEnvironment,
   QuorumNotReachedError,
-  Workflow, Ttl,
+  Workflow,
+  Ttl,
 } from "../../../src/index.js";
 import { seconds } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "./budgets.js";
@@ -40,6 +41,7 @@ import {
   SecondOpinionPanelWorkflowFinish,
   SkillsPanelAgent,
 } from "./quorum-runtime-parts.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #279 PR 2 — quorums at run time, one application per workflow: any two of three; a quorum with an
@@ -237,8 +239,7 @@ export class RecoveryPanelWorkflow {}
       .onGroup(
         [LegalPanelAgent, CriticPanelAgent],
         { priority: 1 },
-        toAgent(DealReportPanelAgent)
-          .toFinish(DealReportPanelWorkflowFinish),
+        toAgent(DealReportPanelAgent).toFinish(DealReportPanelWorkflowFinish),
       )
       .onGroup([CriticPanelAgent], { priority: 2 }, toFinish(SecondOpinionPanelWorkflowFinish))
       .onGroup([FastPanelAgent], { priority: 3 }, toFinish(QuickRejectPanelWorkflowFinish)),
@@ -248,6 +249,7 @@ export class DealPanelWorkflow {}
 
 @Application({
   name: "quick-panel-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [QuickPanelWorkflow],
@@ -258,6 +260,7 @@ export class QuickPanelApplication {}
 
 @Application({
   name: "checked-panel-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [CheckedPanelWorkflow],
@@ -268,6 +271,7 @@ export class CheckedPanelApplication {}
 
 @Application({
   name: "strict-panel-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [StrictPanelWorkflow],
@@ -277,6 +281,7 @@ export class StrictPanelApplication {}
 
 @Application({
   name: "model-panel-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ModelPanelWorkflow],
@@ -286,6 +291,7 @@ export class ModelPanelApplication {}
 
 @Application({
   name: "hybrid-panel-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [HybridPanelWorkflow],
@@ -295,6 +301,7 @@ export class HybridPanelApplication {}
 
 @Application({
   name: "arbitrated-panel-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ArbitratedPanelWorkflow],
@@ -304,6 +311,7 @@ export class ArbitratedPanelApplication {}
 
 @Application({
   name: "each-item-panel-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [EachItemPanelWorkflow],
@@ -313,6 +321,7 @@ export class EachItemPanelApplication {}
 
 @Application({
   name: "item-panel-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ItemPanelWorkflow],
@@ -322,6 +331,7 @@ export class ItemPanelApplication {}
 
 @Application({
   name: "copies-panel-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [CopiesPanelWorkflow],
@@ -331,6 +341,7 @@ export class CopiesPanelApplication {}
 
 @Application({
   name: "deal-panel-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [DealPanelWorkflow],
@@ -341,6 +352,7 @@ export class DealPanelApplication {}
 
 @Application({
   name: "recovery-panel-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [RecoveryPanelWorkflow],
@@ -352,6 +364,7 @@ export class RecoveryPanelApplication {}
 
 @Application({
   name: "chat-panel-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ChatPanelWorkflow],

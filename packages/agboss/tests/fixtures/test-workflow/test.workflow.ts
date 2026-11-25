@@ -6,7 +6,8 @@ import {
   Router,
   Tool,
   Workflow,
-  inline, Ttl,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
 import { Reasoning, ReasoningEffort } from "../../../src/models/index.js";
 import { IsoDateTime, TimeZone, WorkflowStartTextDto } from "../../../src/dto/index.js";
@@ -16,6 +17,7 @@ import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../src/index.js";
 import { PersonalDataGuardrail, PromptInjectionGuardrail } from "../guardrails.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 const price = { inputPerMTok: 0.5, outputPerMTok: 3, cacheReadPerMTok: 0.1 };
 class ClockQuery {
@@ -42,11 +44,9 @@ export class Clock {
   constructor(private readonly now: () => Date = () => new Date("2026-09-25T10:00:00Z")) {}
   execute({ timeZone }: ClockQuery): Promise<ClockTime> {
     // an unknown time zone throws — the model sees it as a tool error
-    new Intl.DateTimeFormat("en-GB", { timeZone })
-      .format(this.now());
+    new Intl.DateTimeFormat("en-GB", { timeZone }).format(this.now());
     return Promise.resolve({
-      iso: this.now()
-        .toISOString(),
+      iso: this.now().toISOString(),
       timeZone,
     });
   }
@@ -110,20 +110,15 @@ export class MainRouter {}
     onStart(TestChat)
       .toRouter(MainRouter)
       .onRoute(toFinish(NoAnswer))
-      .onRoute(
-        toAgent(Researcher)
-          .toFinish(TestAnswer),
-      )
-      .onRoute(
-        toAgent(Coder)
-          .toFinish(TestAnswer),
-      ),
+      .onRoute(toAgent(Researcher).toFinish(TestAnswer))
+      .onRoute(toAgent(Coder).toFinish(TestAnswer)),
   ],
 })
 export class TestWorkflow {}
 
 @Application({
   name: "test-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [TestWorkflow],

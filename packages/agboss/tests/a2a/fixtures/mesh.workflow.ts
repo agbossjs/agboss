@@ -11,7 +11,8 @@ import {
   WorkflowStart,
   Mesh,
   MeshInboundMode,
-  type ExecutionEvent, Ttl,
+  type ExecutionEvent,
+  Ttl,
 } from "../../../src/index.js";
 import { MeshEnvironment } from "./environments/mesh.environment.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
@@ -22,6 +23,7 @@ import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart, toFinish } from "../../helpers/flow.js";
 import { HttpAuthenticator, HttpAuthResult, type HttpAuthRequest } from "../../../src/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * One application of a mesh (#398): its agent asks a peer application over A2A through one tool,
@@ -162,9 +164,7 @@ export function meshAppOf(spec: MeshAppSpec): MeshAppParts {
           .toAgent(MeshDesk)
           .onError(MeshLoopDetectedError, toFinish(LoopFinish))
           .toFinish(MeshAnswer)
-      : onStart(MeshStart)
-          .toAgent(MeshDesk)
-          .toFinish(MeshAnswer);
+      : onStart(MeshStart).toAgent(MeshDesk).toFinish(MeshAnswer);
 
   @Workflow({
     name: `${name}-workflow`,
@@ -198,6 +198,7 @@ export function meshAppOf(spec: MeshAppSpec): MeshAppParts {
   const environment: Class = spec.mesh === undefined ? EmptyEnvironment : MeshEnvironment;
   @Application({
     name: `${name}-application`,
+    modelProvider: TestModelProvider,
     endpoints: [MeshA2AExpose],
     version: "1.0.0",
     environment,

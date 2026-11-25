@@ -22,6 +22,7 @@ import {
   UndeclaredA2ATasks,
 } from "../fixtures/a2a-task-stores.fixture.js";
 import { QuoteWorkflow, QuoteWorkflowStart } from "../fixtures/direct.application.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** A direct store that declares no backend. */
 @Injectable({ deps: [IN_MEMORY_DATABASE] })
@@ -44,6 +45,7 @@ const exposeOf = (name: string, reply: A2AReply): Class => {
 const applicationWith = (providers: readonly Provider[], endpoints: readonly Class[]): Class => {
   @Application({
     name: "stores-application",
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     environment: SqliteTestEnvironment,
     workflows: [QuoteWorkflow],

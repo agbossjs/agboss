@@ -20,6 +20,7 @@ import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { onStart } from "../helpers/flow.js";
 import { EmployeeDirectory, PII_KEY_VARIABLE } from "./pii.fixture.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 /** Who the execution talks to: a token field of the context (the built-in author is masked one-way). */
 export class KeyedExecutionContext extends ExecutionContext {
@@ -98,6 +99,7 @@ export class KeyedWorkflow {}
 /** The same workflow in an application that sets no key: its project detector needs one. */
 @Application({
   name: "unkeyed-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [KeyedWorkflow],
@@ -109,6 +111,7 @@ export class UnkeyedApplication {}
 /** A key field the contract does not declare. */
 @Application({
   name: "misnamed-key-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   // @ts-expect-error #825: a field the contract lacks (or a text one) does not compile — the runtime rule is a JavaScript caller's

@@ -33,6 +33,7 @@ import {
   LocalModelProvider,
   TestDecisionsProvider,
 } from "../providers.fixture.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #266: every model of an application resolves to exactly one of its model providers by `serves` —
@@ -113,10 +114,7 @@ export class NowhereMemory {}
   flow: [
     onStart(ResolutionStart)
       .toRouter(NowhereRouter)
-      .onRoute(
-        toAgent(NowhereAgent)
-          .toFinish(ResolutionFinish),
-      ),
+      .onRoute(toAgent(NowhereAgent).toFinish(ResolutionFinish)),
   ],
   defaults: {
     models: { temperature: 0, maxTokens: TokenLimit.ModelMax },
@@ -131,6 +129,7 @@ export class EveryKindWorkflow {}
 /** Only the local server is listed, and nothing names it: no model has a provider. */
 @Application({
   name: "every-kind-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [EveryKindWorkflow],
@@ -151,11 +150,7 @@ export class LocalStart {}
   name: "local-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(LocalStart)
-      .toAgent(LocalAgent)
-      .toFinish(ResolutionFinish),
-  ],
+  flow: [onStart(LocalStart).toAgent(LocalAgent).toFinish(ResolutionFinish)],
   defaults: {
     models: { temperature: 0, maxTokens: TokenLimit.ModelMax },
   },
@@ -204,11 +199,7 @@ export class NotInfrastructure {}
   name: "misplaced-provider-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(LocalStart)
-      .toAgent(LocalAgent)
-      .toFinish(ResolutionFinish),
-  ],
+  flow: [onStart(LocalStart).toAgent(LocalAgent).toFinish(ResolutionFinish)],
   defaults: {
     models: { temperature: 0, maxTokens: TokenLimit.ModelMax },
   },

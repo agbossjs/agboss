@@ -5,7 +5,8 @@ import {
   SpendRecorder,
   Tool,
   Workflow,
-  inline, Ttl,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { usd } from "../../../src/units/index.js";
@@ -27,6 +28,7 @@ import {
   SeenPausedExecutionRepository,
   BatchAction,
 } from "./pauses.workflow.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #267 spend while several agent loops are paused: each branch pays for a lookup (a paid service,
@@ -100,6 +102,7 @@ export class PricedBatchWorkflow {}
 
 @Application({
   name: "priced-pauses-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [PricedBatchWorkflow],

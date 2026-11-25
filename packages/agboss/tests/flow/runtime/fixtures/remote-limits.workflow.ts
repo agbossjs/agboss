@@ -8,7 +8,8 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type Tracked,
-  inline, Ttl,
+  inline,
+  Ttl,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
@@ -20,6 +21,7 @@ import {
   remoteLog,
   RemoteChecksAction,
 } from "./remote-children.workflow.js";
+import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /**
  * #333 PR 3 — the limits of a tree whose children run on any instance: `remote-capped-workflow`
@@ -138,6 +140,7 @@ export class RemoteSpendWorkflow {}
 /** On the built-in in-memory stores: the test's instances share the queue and the slots. */
 @Application({
   name: "remote-limits-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [RemoteCappedWorkflow, RemoteSpendWorkflow],

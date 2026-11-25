@@ -28,6 +28,7 @@ import type { Class } from "../../src/components/injection.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { onStart, toAgent } from "../helpers/flow.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 /** What one variant changes; nothing set = the base desk. */
 export interface DeskVariant {
@@ -150,6 +151,7 @@ export function deskApplicationOf(variant: DeskVariant = {}): Class {
 
   @Workflow({
     name: "desk-workflow",
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     historyTtl: Ttl.Forever,
     flow: [
@@ -161,6 +163,7 @@ export function deskApplicationOf(variant: DeskVariant = {}): Class {
 
   @Application({
     name: "desk-application",
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     environment: EmptyEnvironment,
     workflows: [DeskWorkflow],

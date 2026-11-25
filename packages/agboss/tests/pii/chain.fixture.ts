@@ -30,6 +30,7 @@ import { hours } from "../../src/units/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { onStart, toAgent, toFinish } from "../helpers/flow.js";
 import { ContactPiiPolicy } from "./pii.fixture.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 export const ROOT_SECRET = "ROOT-7731";
 export const CHILD_SECRET = "CHILD-5512";
@@ -298,6 +299,7 @@ export class ChainPlainRootWorkflow {}
 
 @Application({
   name: "chain-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ChainRootWorkflow, ChainPlainRootWorkflow],

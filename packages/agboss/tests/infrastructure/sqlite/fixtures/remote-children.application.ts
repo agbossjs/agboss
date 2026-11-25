@@ -21,6 +21,7 @@ import {
   RemoteReviewItemsWorkflow,
 } from "../../../flow/runtime/fixtures/remote-recovery.workflow.js";
 import { SqliteTestEnvironment } from "./environments/app.environment.js";
+import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /**
  * #333 PR 2, PR 4 — children on any instance over one SQLite file (`AGBOSS_SQLITE_TEST_PATH`, a new
@@ -29,6 +30,7 @@ import { SqliteTestEnvironment } from "./environments/app.environment.js";
  */
 @Application({
   name: "remote-sqlite-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: SqliteTestEnvironment,
   workflows: [

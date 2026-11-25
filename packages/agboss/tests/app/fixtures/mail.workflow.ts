@@ -25,6 +25,7 @@ import {
   SharedPausedExecutionRepository,
 } from "../../helpers/shared-infrastructure.js";
 import { EmptyEnvironment, Ttl } from "../../../src/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** Emails the tool really sent, in order (the tests reset it). */
 export const sent: string[] = [];
@@ -115,11 +116,7 @@ const workflow = {
     tools: { maxToolCalls: 2 },
   },
   memory: Window1Memory,
-  flow: [
-    onStart(Start)
-      .toAgent(Mailer)
-      .toFinish(Finish),
-  ],
+  flow: [onStart(Start).toAgent(Mailer).toFinish(Finish)],
 };
 
 /** The first deployment. */
@@ -127,11 +124,11 @@ const workflow = {
 export class MailV1 {}
 
 /** The next deployment: another version, so another config hash; no resume policy. */
-@Workflow({ ...workflow, version: "2.0.0" })
+@Workflow({ ...workflow, modelProvider: TestModelProvider, version: "2.0.0" })
 export class MailV2 {}
 
 /** The next deployment, declaring that runs paused under 1.0.0 may continue on it. */
-@Workflow({ ...workflow, version: "2.0.0" })
+@Workflow({ ...workflow, modelProvider: TestModelProvider, version: "2.0.0" })
 export class MailV2Migrating {
   settings(): WorkflowSettings {
     return WorkflowSettings.builder()
@@ -154,6 +151,7 @@ const durable = [
 
 @Application({
   name: "mail-v1-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [MailV1],
@@ -165,6 +163,7 @@ export class MailV1Application {}
 
 @Application({
   name: "mail-v2-application",
+  modelProvider: TestModelProvider,
   version: "2.0.0",
   environment: EmptyEnvironment,
   workflows: [MailV2],
@@ -176,6 +175,7 @@ export class MailV2Application {}
 
 @Application({
   name: "mail-v2-migrating-application",
+  modelProvider: TestModelProvider,
   version: "2.0.0",
   environment: EmptyEnvironment,
   workflows: [MailV2Migrating],
@@ -188,6 +188,7 @@ export class MailV2MigratingApplication {}
 /** The first deployment with the built-in in-memory paused executions (checkpoints still shared). */
 @Application({
   name: "mail-v1-memory-pauses-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [MailV1],
@@ -200,6 +201,7 @@ export class MailV1MemoryPausesApplication {}
 /** The first deployment on the built-in in-memory infrastructure (one app instance per test). */
 @Application({
   name: "mail-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [MailV1],

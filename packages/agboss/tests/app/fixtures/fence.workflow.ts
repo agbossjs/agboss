@@ -16,7 +16,8 @@ import {
   WorkflowStart,
   type Tracked,
   Observer,
-  inline, Ttl,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
 import { type ExecutionFence } from "../../../src/stores/index.js";
 import { fenceOf } from "../../../src/flow/context/execution-fence.js";
@@ -25,6 +26,7 @@ import { OwnerToolApproval } from "../../flow/fixtures/owner-approval.fixture.js
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart, toFinish } from "../../helpers/flow.js";
 import { RecoveryLog } from "../../infrastructure/fixtures/recovery.workflow.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #471 — a release that stages an artifact in an external ledger, fenced by the step's lease: the
@@ -455,9 +457,7 @@ export class ReleaseWorkflow {}
   historyTtl: Ttl.Forever,
   defaults: { models: { maxTokens: 100, temperature: 0 } },
   flow: [
-    onStart(AgentReleaseWorkflowStart)
-      .toAgent(ReleaseAgent)
-      .toFinish(AgentReleaseWorkflowFinish),
+    onStart(AgentReleaseWorkflowStart).toAgent(ReleaseAgent).toFinish(AgentReleaseWorkflowFinish),
   ],
   providers: [ArtifactLedger],
 })
@@ -465,6 +465,7 @@ export class AgentReleaseWorkflow {}
 
 @Application({
   name: "fence-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ReleaseWorkflow, AgentReleaseWorkflow, BookedReleaseWorkflow],

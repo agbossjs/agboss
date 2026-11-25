@@ -24,6 +24,7 @@ import {
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { onStart, toAgent } from "../helpers/flow.js";
 import { providerStub } from "./stub.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 class AnsDto {
   @Text({ prompt: "a" }) a!: string;
@@ -75,6 +76,7 @@ class AnsFinish {}
 
 @Workflow({
   name: "ans-workflow",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: [

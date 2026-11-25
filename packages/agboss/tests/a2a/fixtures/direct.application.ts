@@ -20,6 +20,7 @@ import { InMemoryFileRepository } from "../../../src/infrastructure/in-memory-fi
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart } from "../../helpers/flow.js";
 import { BearerAuthenticator } from "./bearer-authenticator.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 export class SkuDto {
   @Text({ prompt: "the product" })
@@ -178,6 +179,7 @@ export class QuotesA2AExpose {}
 
 @Application({
   name: "quotes-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [QuoteWorkflow, QuoteFileWorkflow, AckWorkflow],

@@ -21,7 +21,8 @@ import {
   type ChannelListenerJoinFailedEvent,
   type ChannelListenerOpenedEvent,
   inline,
-  ToolApproval, Ttl,
+  ToolApproval,
+  Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { Action } from "../../../src/flow/decorators/action.js";
@@ -32,6 +33,7 @@ import { minutes, days } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import { onStart, toAction, toAgent } from "./paths.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #945 AC4 — legal, finance, the CFO and the COO approve in a plain four-way `.join()` (FailFast);
@@ -295,8 +297,7 @@ export class EscalateToCeoAction implements ActionHandler<EscalateToCeoAction> {
       .join()
       .onError(
         PauseExpiredError,
-        toAction(EscalateToCeoAction)
-          .toFinish(JoinExpiryEscalatedWorkflowFinish),
+        toAction(EscalateToCeoAction).toFinish(JoinExpiryEscalatedWorkflowFinish),
       )
       .toFinish(JoinExpiryApprovedWorkflowFinish),
   ],
@@ -316,6 +317,7 @@ export class JoinExpiryLog {
 
 @Application({
   name: "join-expiry-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [JoinExpiryWorkflow],

@@ -1,9 +1,20 @@
 import { Window2Memory } from "../../helpers/window-memory.js";
 import { Channel, Injectable, Tool } from "../../../src/components/decorators.js";
-import { ToolCallDecision, ToolInterceptor, type ToolCallContext, inline, ToolApproval, PauseRespondent, Ttl } from "../../../src/index.js";
+import {
+  ToolCallDecision,
+  ToolInterceptor,
+  type ToolCallContext,
+  inline,
+  ToolApproval,
+  PauseRespondent,
+  Ttl,
+} from "../../../src/index.js";
 import { type ChannelAsk } from "../../../src/channels/channel-handler.js";
 import { ChannelOutcome } from "../../../src/channels/channel-outcome.js";
-import { ChannelInterpretation, ChannelInterpreter } from "../../../src/channels/channel-interpreter.js";
+import {
+  ChannelInterpretation,
+  ChannelInterpreter,
+} from "../../../src/channels/channel-interpreter.js";
 import { Integer, Text, WorkflowFinishTextDto } from "../../../src/dto/index.js";
 import { ExecutionContext } from "../../../src/flow/context/execution-context.js";
 import { Action } from "../../../src/flow/decorators/action.js";
@@ -24,6 +35,7 @@ import { InMemoryCostLedgerRepository } from "../../../src/infrastructure/cost-l
 import { TEST_BUDGETS } from "./budgets.js";
 import { WorkflowStartTextDto } from "./dtos.js";
 import { onStart, toWorkflow } from "./paths.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #267 PR 3 — free-text replies: a payout approved by a finance desk that passes the manager's
@@ -218,7 +230,12 @@ export class DepositToolApproval {}
 })
 export class TransferToolApproval {}
 
-@Channel({ name: "desk-payout-approval-channel", description: "Asks the finance desk", target: PayoutToolApproval, ttl: days(1) })
+@Channel({
+  name: "desk-payout-approval-channel",
+  description: "Asks the finance desk",
+  target: PayoutToolApproval,
+  ttl: days(1),
+})
 export class DeskPayoutApprovalChannel {
   send(ask: ChannelAsk<PayoutToolApproval>): Promise<ChannelOutcome<PayoutToolApproval>> {
     replyDesk.asks.push(ask);
@@ -226,7 +243,12 @@ export class DeskPayoutApprovalChannel {
   }
 }
 
-@Channel({ name: "button-expense-approval-channel", description: "Shows the owner two buttons", target: ExpenseToolApproval, ttl: days(1) })
+@Channel({
+  name: "button-expense-approval-channel",
+  description: "Shows the owner two buttons",
+  target: ExpenseToolApproval,
+  ttl: days(1),
+})
 export class ButtonExpenseApprovalChannel {
   send(ask: ChannelAsk<ExpenseToolApproval>): Promise<ChannelOutcome<ExpenseToolApproval>> {
     replyDesk.confirmations.push(ask);
@@ -234,7 +256,12 @@ export class ButtonExpenseApprovalChannel {
   }
 }
 
-@Channel({ name: "desk-deposit-approval-channel", description: "Asks the clerk on duty", target: DepositToolApproval, ttl: days(1) })
+@Channel({
+  name: "desk-deposit-approval-channel",
+  description: "Asks the clerk on duty",
+  target: DepositToolApproval,
+  ttl: days(1),
+})
 export class DeskDepositApprovalChannel {
   send(ask: ChannelAsk<DepositToolApproval>): Promise<ChannelOutcome<DepositToolApproval>> {
     replyDesk.depositAsks.push(ask);
@@ -242,7 +269,12 @@ export class DeskDepositApprovalChannel {
   }
 }
 
-@Channel({ name: "desk-transfer-approval-channel", description: "Asks the treasury desk", target: TransferToolApproval, ttl: days(1) })
+@Channel({
+  name: "desk-transfer-approval-channel",
+  description: "Asks the treasury desk",
+  target: TransferToolApproval,
+  ttl: days(1),
+})
 export class DeskTransferApprovalChannel {
   send(ask: ChannelAsk<TransferToolApproval>): Promise<ChannelOutcome<TransferToolApproval>> {
     replyDesk.transfers.push(ask);
@@ -356,11 +388,7 @@ export class TreasuryWorkflowFinish {}
   name: "treasury-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(TreasuryWorkflowStart)
-      .toAgent(TreasurerAgent)
-      .toFinish(TreasuryWorkflowFinish),
-  ],
+  flow: [onStart(TreasuryWorkflowStart).toAgent(TreasurerAgent).toFinish(TreasuryWorkflowFinish)],
   defaults: { tools: { maxToolCalls: 3 } },
   memory: Window2Memory,
   providers: [ExpenseButtonCodes],
@@ -409,11 +437,7 @@ export class TreasuryBatchWorkflowStart {}
 })
 export class SplitRequestsAction implements ActionHandler<SplitRequestsAction> {
   execute(input: InputOf<SplitRequestsAction>): Promise<OutputOf<SplitRequestsAction>> {
-    return Promise.resolve(
-      input.message.text
-        .split("\n")
-        .map((text) => ({ text })),
-    );
+    return Promise.resolve(input.message.text.split("\n").map((text) => ({ text })));
   }
 }
 
@@ -468,6 +492,7 @@ export const treasuryChannels = [
 
 @Application({
   name: "treasury-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [TreasuryWorkflow, TreasuryDeskWorkflow, TreasuryBatchWorkflow],
@@ -480,6 +505,7 @@ export class TreasuryApplication {}
 /** The same, its resolved pause records kept five minutes only (#267 S107). */
 @Application({
   name: "brief-treasury-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [TreasuryWorkflow],

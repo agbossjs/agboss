@@ -28,6 +28,7 @@ import { readingClassesOf } from "../../src/environments/contract.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { RecoveryWorkflow } from "../infrastructure/fixtures/recovery.workflow.js";
 import { onStart } from "../helpers/flow.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 /** A store's connection: what it reads from the environment. */
 @Injectable({
@@ -91,7 +92,15 @@ const applicationListing = (
   providers: readonly Class[],
   workflows: readonly Class[] = [RecoveryWorkflow],
 ): Class => {
-  @Application({ name, version: "1.0.0", environment, workflows, providers, budgets: TEST_BUDGETS })
+  @Application({
+    name,
+    modelProvider: TestModelProvider,
+    version: "1.0.0",
+    environment,
+    workflows,
+    providers,
+    budgets: TEST_BUDGETS,
+  })
   class ListingApplication {}
   return ListingApplication;
 };

@@ -31,6 +31,7 @@ import {
 } from "../../a2a-tck/tck.application.js";
 import { PriceLookupTool, QuoteWorkflow } from "./direct.application.js";
 import { inline } from "../../../src/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 interface Message {
   readonly message: Tracked<WorkflowStartTextDto>;
@@ -181,6 +182,7 @@ export function directRulesApplication(
   const workflow = STARTS.get(exported);
   @Application({
     name: "rules-application",
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     environment: SqliteTestEnvironment,
     workflows: workflow === undefined ? [] : [workflow, QuoteWorkflow],

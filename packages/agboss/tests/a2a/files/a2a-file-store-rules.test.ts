@@ -30,6 +30,7 @@ import {
   FileReviewWorkflowStart,
   fileReviewFlow,
 } from "../fixtures/files.application.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** A file store every instance reaches (an S3 bucket, say). */
 @Injectable({ deps: [IN_MEMORY_DATABASE] })
@@ -65,6 +66,7 @@ const appWith = (
 
   @Application({
     name: "rules-application",
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     environment: EmptyEnvironment,
     workflows: [RulesWorkflow],

@@ -21,6 +21,7 @@ import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../src/index.js";
 import { HttpAuthResult, HttpAuthenticator } from "../../../src/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 export class LookupQuery {
   @Text({ prompt: "the order id" })
@@ -112,19 +113,14 @@ const defaults = {
   name: "remote-desk-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(AskStart)
-      .toAgent(Desk)
-      .toFinish(DeskAnswer),
-  ],
+  flow: [onStart(AskStart).toAgent(Desk).toFinish(DeskAnswer)],
   defaults,
   memory: Window2Memory,
   providers: [SingleTenantAuthenticator],
 })
 export class RemoteDesk implements WorkflowDefinition {
   settings(): WorkflowSettings {
-    return WorkflowSettings.builder()
-      .build();
+    return WorkflowSettings.builder().build();
   }
 }
 
@@ -140,6 +136,7 @@ export class RemoteDeskA2AExpose {}
 
 @Application({
   name: "remote-desk-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [RemoteDesk],

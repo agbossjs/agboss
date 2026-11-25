@@ -22,6 +22,7 @@ import {
   ShopKbApplication,
 } from "./fixtures/contracts.workflow.js";
 import { offline } from "./fixtures/remote.workflow.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 const apps: App[] = [];
 
@@ -69,6 +70,7 @@ describe("#398 PR 3: the contracts at assembly", () => {
 
     @Application({
       name: "broken-application",
+      modelProvider: TestModelProvider,
       version: "1.0.0",
       environment: EmptyEnvironment,
       workflows: [QuoteWorkflow, RefundWorkflow],

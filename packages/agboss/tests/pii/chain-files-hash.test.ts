@@ -29,6 +29,7 @@ import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { onStart } from "../helpers/flow.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 const none = (): readonly PiiMatch[] => [];
 
@@ -77,6 +78,7 @@ class FhChildFinish {}
 
 @Workflow({
   name: "fh-child-workflow",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: [onStart(FhChildStart).toAgent(FhChildAgent).toFinish(FhChildFinish)],

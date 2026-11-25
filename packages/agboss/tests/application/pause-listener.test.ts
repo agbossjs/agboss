@@ -44,6 +44,7 @@ import {
   resetPauses,
   seen,
 } from "../channels/fixtures/pauses.workflow.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 const desk = testWith(PausesApplication);
 
@@ -81,6 +82,7 @@ class LedgerPauseListener implements OnInit {
 
 @Application({
   name: "listened-questions-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [PurchaseWorkflow, OwnerPurchaseWorkflow],

@@ -8,7 +8,8 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  inline, Ttl,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
 import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { optional } from "../../../src/flow/dto-wrappers.js";
@@ -17,6 +18,7 @@ import { onAgent, onStart, toAgent, toFinish } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../src/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 const price = { inputPerMTok: 1, outputPerMTok: 2 };
 
@@ -90,11 +92,11 @@ export class Unused {}
 /** The code-review cycle: the gate sends the code back to the coder until the review is clean. */
 @Workflow({
   name: "code-review-workflow",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: [
-    onStart(TaskStart)
-      .toAgent(Coder),
+    onStart(TaskStart).toAgent(Coder),
     onAgent(Coder)
       .toAgent(Reviewer) // the review is about this code (#271)
       .toRouter(ReviewGate)
@@ -117,6 +119,7 @@ export class CodeReview {}
 
 @Application({
   name: "code-review-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [CodeReview],

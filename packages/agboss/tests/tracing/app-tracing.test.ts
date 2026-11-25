@@ -37,10 +37,12 @@ import {
   managerFlow,
   resetAsked,
 } from "../flow/fixtures/list-pauses.fixture.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 /** pii-workflow lists the employee-id policy; open-workflow lists none: two workflows in one application. */
 @Application({
   name: "pii-traced-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [PiiWorkflow, OpenWorkflow],

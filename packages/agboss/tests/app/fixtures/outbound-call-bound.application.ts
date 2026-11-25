@@ -22,6 +22,7 @@ import {
   EmailPiiPolicy,
   OutboundCallLog,
 } from "./outbound-call.workflow.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #928 AC2 — the outbound-call store whose `markCompleted` can answer with an error, once
@@ -67,6 +68,7 @@ export class OutboundCallBoundApplication {}
 /** The business-key workflows of #508 (`send-charge-workflow`: `order:<id>`) on the held outbound store. */
 @Application({
   name: "outbound-call-bound-keyed-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: IdempotencyKeyEnvironment,
   workflows: [CashierWorkflow, ChargeOrderWorkflow, SendChargeWorkflow, SendChargesWorkflow],

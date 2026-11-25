@@ -18,6 +18,7 @@ import { onStart } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../src/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** What the recaller recalled. */
 export class RecallDto {
@@ -91,13 +92,7 @@ const MODEL_PROVIDERS = [TestDecisionsProvider, LocalModelProvider];
   name: "memory-desk-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(TaskStart)
-      .toAgent(Recaller)
-      .toAgent(Windowed)
-      .toAgent(Noter)
-      .toFinish(Answer),
-  ],
+  flow: [onStart(TaskStart).toAgent(Recaller).toAgent(Windowed).toAgent(Noter).toFinish(Answer)],
   defaults: DEFAULTS,
   memory: Window4Memory,
 })
@@ -134,11 +129,7 @@ export class DeskMemory {}
   name: "compacting-desk-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(TaskStart)
-      .toAgent(Recaller)
-      .toFinish(Recalled),
-  ],
+  flow: [onStart(TaskStart).toAgent(Recaller).toFinish(Recalled)],
   defaults: DEFAULTS,
   memory: DeskMemory,
 })
@@ -146,6 +137,7 @@ export class CompactingDesk {}
 
 @Application({
   name: "compacting-desk-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [CompactingDesk],

@@ -28,6 +28,7 @@ import { arbiterPromptHashOf } from "../../src/flow/runtime/model-component-keys
 import { unitArbiterUsesOf } from "../../src/flow/runtime/launch/arbiter-prompts.js";
 import { fakeDeps, testDefaults } from "../helpers.js";
 import { onStart, toAgent } from "../helpers/flow.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 class AnsDto {
   @Text({ prompt: "a" }) a!: string;
@@ -79,6 +80,7 @@ function workflowWith(prompt: PromptSource) {
 
   @Workflow({
     name: "ans-workflow",
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     historyTtl: Ttl.Forever,
     defaults: testDefaults,

@@ -9,6 +9,7 @@ import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { TestAnswer, TestChat, testPaths } from "./test.flow.js";
 import { EmptyEnvironment, inline, Ttl } from "../../../src/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * The star test workflow (tests/fixtures/test-flow): chat → main-router ("test/router", a chat
@@ -16,6 +17,7 @@ import { EmptyEnvironment, inline, Ttl } from "../../../src/index.js";
  */
 @Workflow({
   name: "test-bundle-workflow",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: testPaths,
@@ -29,6 +31,7 @@ export class StarWorkflow {}
 
 @Application({
   name: "test-bundle-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [StarWorkflow],
@@ -62,13 +65,10 @@ export function toolWorkflowOf(options: ToolWorkflowOptions): Class {
 
   @Workflow({
     name: "tools-workflow",
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     historyTtl: Ttl.Forever,
-    flow: [
-      onStart(TestChat)
-        .toAgent(ToolAlpha)
-        .toFinish(TestAnswer),
-    ],
+    flow: [onStart(TestChat).toAgent(ToolAlpha).toFinish(TestAnswer)],
     defaults: {
       tools: { maxToolCalls: 3 },
       router: { model: "typesafe/jev-test" },

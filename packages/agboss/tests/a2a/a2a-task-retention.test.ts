@@ -20,6 +20,7 @@ import {
   OrderWorkflowStart,
   RecoveryWorkflow,
 } from "../infrastructure/fixtures/recovery.workflow.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 @A2AEndpoint({
   name: "short-tasks",
@@ -50,6 +51,7 @@ class ForeverTasksEndpoint {}
 
 @Application({
   name: "short-tasks-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [RecoveryWorkflow],

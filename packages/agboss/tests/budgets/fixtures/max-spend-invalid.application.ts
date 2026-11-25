@@ -8,6 +8,7 @@ import {
   ShopTenantContext,
   ShopTenantMonthlyBudget,
 } from "./budgets.application.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #1373: an execution budget whose `maxSpend()` gives what the test says — a stored amount a database or a file
@@ -26,6 +27,7 @@ export class GivenBudget implements BudgetHandler {
 
 @Application({
   name: "given-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [BriefWorkflow],

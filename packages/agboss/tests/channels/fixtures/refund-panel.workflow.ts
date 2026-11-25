@@ -8,7 +8,8 @@ import {
   WorkflowStart,
   type Tracked,
   Action,
-  inline, Ttl,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -30,6 +31,7 @@ import {
   RefundTool,
   SeenPausedExecutionRepository,
 } from "./pauses.workflow.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #337 — a refund decided by a panel: three agents score it, any two decide (a quorum); the risk
@@ -90,9 +92,7 @@ interface RefundScoresInput {
 }
 
 const scoresOf = (input: RefundScoresInput): BatchSummaryDto => ({
-  text: input.scores
-    .map((score) => String(score.score))
-    .join(", "),
+  text: input.scores.map((score) => String(score.score)).join(", "),
 });
 
 @Action({
@@ -165,14 +165,12 @@ export class RefundGroupsWorkflowStart {}
       .onGroup(
         [PolicyAgent],
         { priority: 1 },
-        toAction(RefundDecidedAction)
-          .toFinish(RefundDecidedWorkflowFinish),
+        toAction(RefundDecidedAction).toFinish(RefundDecidedWorkflowFinish),
       )
       .onGroup(
         [RiskAgent],
         { priority: 2 },
-        toAction(RefundEscalatedAction)
-          .toFinish(RefundEscalatedWorkflowFinish),
+        toAction(RefundEscalatedAction).toFinish(RefundEscalatedWorkflowFinish),
       ),
   ],
 })
@@ -180,6 +178,7 @@ export class RefundGroupsWorkflow {}
 
 @Application({
   name: "refund-panel-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [RefundPanelWorkflow, RefundGroupsWorkflow],
@@ -212,6 +211,7 @@ export class RefundRecoveryWorkflow {}
 
 @Application({
   name: "refund-recovery-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [RefundRecoveryWorkflow],

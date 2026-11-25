@@ -15,6 +15,7 @@ import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { onStart, toWorkflow } from "../helpers/flow.js";
 import { MODEL_PROVIDERS } from "../judges/fixtures/judged.workflow.js";
 import { ChildWriter } from "./agents.fixture.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 @WorkflowStart({
   name: "child-writer-workflow-start",
@@ -104,6 +105,7 @@ class FanWorkflow {}
 
 @Application({
   name: "stream-children-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [OnceWorkflow, FanWorkflow, ChildWriterWorkflow],

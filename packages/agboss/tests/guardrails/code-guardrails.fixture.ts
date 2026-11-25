@@ -32,6 +32,7 @@ import { Application } from "../../src/application/application.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { onStart, toAgent } from "../helpers/flow.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 /** The tenant's own field: which shop it is (its blocklist). */
 export class ShopTenantContext extends TenantContext {
@@ -218,6 +219,7 @@ export class GuardrailEventsObserver {
 
 @Application({
   name: "shop-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ShopWorkflow],

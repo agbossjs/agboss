@@ -15,7 +15,8 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type Tracked,
-  inline, Ttl,
+  inline,
+  Ttl,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
@@ -27,6 +28,7 @@ import {
   toAgent,
   toFinish,
 } from "../../../helpers/flow.js";
+import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /**
  * #264 — recursion at run time. `topic-research-workflow` (the issue's example, `maxDepth: 3`): a
@@ -184,8 +186,7 @@ export class TopicFailedWorkflowFinish {}
           .onError(StepFailedError, toAction(MarkTopicFailedAction))
           .toFinish(TopicReportWorkflowFinish),
       ]),
-    onAction(MarkTopicFailedAction)
-      .toFinish(TopicFailedWorkflowFinish),
+    onAction(MarkTopicFailedAction).toFinish(TopicFailedWorkflowFinish),
   ],
   executionLimits: { maxSteps: 4, maxDepth: 3 },
 })
@@ -260,8 +261,7 @@ const countdownPath = (from: typeof CountdownWorkflowStart, self: () => Class) =
       toWorkflow(self)
         .onError(
           LimitExceededError,
-          toAction(DepthStoppedAction)
-            .toFinish(CountStoppedWorkflowFinish),
+          toAction(DepthStoppedAction).toFinish(CountStoppedWorkflowFinish),
         )
         .toOneOf([toFinish(CountDoneWorkflowFinish), toFinish(CountStoppedWorkflowFinish)]),
       toFinish(CountDoneWorkflowFinish),
@@ -349,8 +349,7 @@ export class SumAction {
       .join()
       .onError(
         LimitExceededError,
-        toAction(SplitStoppedAction)
-          .toFinish(CountStoppedWorkflowFinish),
+        toAction(SplitStoppedAction).toFinish(CountStoppedWorkflowFinish),
       )
       .toAction(SumAction)
       .toFinish(CountDoneWorkflowFinish),
@@ -407,14 +406,8 @@ export class ChainDoneWorkflowFinish {}
   flow: [
     onStart(ChainWorkflowStart)
       .toRouter(LinkRouter)
-      .onRoute(
-        toWorkflow(() => ChainWorkflow)
-          .toFinish(ChainDoneWorkflowFinish),
-      )
-      .onRoute(
-        toAgent(LinkAgent)
-          .toFinish(ChainDoneWorkflowFinish),
-      ),
+      .onRoute(toWorkflow(() => ChainWorkflow).toFinish(ChainDoneWorkflowFinish))
+      .onRoute(toAgent(LinkAgent).toFinish(ChainDoneWorkflowFinish)),
   ],
   executionLimits: { maxDepth: 2 },
 })
@@ -445,14 +438,8 @@ export class DeeperRouter {
   flow: [
     onStart(CodeChainWorkflowStart)
       .toRouter(DeeperRouter)
-      .onRoute(
-        toWorkflow(() => CodeChainWorkflow)
-          .toFinish(ChainDoneWorkflowFinish),
-      )
-      .onRoute(
-        toAgent(LinkAgent)
-          .toFinish(ChainDoneWorkflowFinish),
-      ),
+      .onRoute(toWorkflow(() => CodeChainWorkflow).toFinish(ChainDoneWorkflowFinish))
+      .onRoute(toAgent(LinkAgent).toFinish(ChainDoneWorkflowFinish)),
   ],
   executionLimits: { maxDepth: 2 },
 })
@@ -460,6 +447,7 @@ export class CodeChainWorkflow {}
 
 @Application({
   name: "recursion-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [

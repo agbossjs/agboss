@@ -33,6 +33,7 @@ import {
 } from "../../app/fixtures/trajectory.workflow.js";
 import { execute } from "../../helpers/flow.js";
 import { auditCalls } from "./fixture.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 const ends: string[] = [];
 const retries: AgentRetryEvent[] = [];
@@ -119,6 +120,7 @@ describe("@Observer workflows / agents filters", () => {
 
 @Application({
   name: "retry-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ClerkWorkflow],

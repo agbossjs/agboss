@@ -36,6 +36,7 @@ import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { onStart, toAgent } from "../helpers/flow.js";
 import { EmptyEnvironment } from "../../src/index.js";
 import { modelGuardrailsOf } from "../../src/guardrails/loaded.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 @WorkflowStart({
   name: "ask-workflow-start",
@@ -133,6 +134,7 @@ const applicationDefaults: WorkflowDefaults = {
 
 @Application({
   name: "ask-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [AskWorkflow],
@@ -154,6 +156,7 @@ class OwnDefaultsWorkflow {}
 
 @Application({
   name: "own-defaults-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [OwnDefaultsWorkflow],
@@ -174,6 +177,7 @@ class BareWorkflow {}
 
 @Application({
   name: "router-only-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [BareWorkflow],
@@ -202,6 +206,7 @@ class BareRouterWorkflow {}
 
 @Application({
   name: "bare-router-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [BareRouterWorkflow],

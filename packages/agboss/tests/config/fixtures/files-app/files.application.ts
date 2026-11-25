@@ -17,6 +17,7 @@ import {
   fileReviewFlow,
 } from "../../../a2a/fixtures/files.application.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
+import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /** A skill's own policy: it only tightens its workflow's. */
 @FilePolicy({ name: "files-skill-policy", maxFileSize: kilobytes(4) })
@@ -81,6 +82,7 @@ export class FilesSkillExpose {}
 /** The application whose files every profile of `config/` changes. */
 @Application({
   name: "files-config-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [FileReviewWorkflow, FileSummaryWorkflow, FilesReaderWorkflow],

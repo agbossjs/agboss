@@ -36,6 +36,7 @@ import { execute } from "../helpers/flow.js";
 import { ComponentOptions } from "../../src/components/component-options.js";
 import { PauseRespondent } from "../../src/pause/respondent.js";
 import { days } from "../../src/units/index.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 const offline = (book = new ScriptBook()) => ({
   processEnv: {},
@@ -164,6 +165,7 @@ describe("#267 AC9: implementations in @Application({ providers })", () => {
     class MisplacedWorkflow {}
     @Application({
       name: "misplaced-application",
+      modelProvider: TestModelProvider,
       version: "1.0.0",
       environment: EmptyEnvironment,
       workflows: [MisplacedWorkflow],

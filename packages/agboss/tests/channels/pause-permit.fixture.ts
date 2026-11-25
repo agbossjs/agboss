@@ -29,6 +29,7 @@ import {
   QuestionInbox,
   SpendingLimitAnswerDto,
 } from "../flow/fixtures/questions.fixture.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 /**
  * #1307c: a target's `permitAnswer` is called by the resume (a delegate approval whose hook the test
@@ -232,6 +233,7 @@ export class SilentPurchaseWorkflow {}
 
 @Application({
   name: "permit-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [GatedRefundWorkflow, OwnerRefundWorkflow, SilentPurchaseWorkflow],

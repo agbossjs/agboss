@@ -16,7 +16,8 @@ import {
   WorkflowFinish,
   WorkflowStart,
   listOf,
-  type ChannelAsk, Ttl,
+  type ChannelAsk,
+  Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { Bool, PlainTextDto, Text, WorkflowFinishTextDto } from "../../../src/dto/index.js";
@@ -33,6 +34,7 @@ import {
 import { days, hours } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { WorkflowStartTextDto } from "./dtos.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #1306 — `toExternalTask(…)` in parallel launches: a committee of external parties signs a contract
@@ -327,9 +329,7 @@ export class LoadBudgetOwnersAction {
     readonly message: WorkflowStartTextDto;
   }): Promise<readonly OwnerAskDto[]> {
     await Promise.resolve();
-    return input.message.text
-      .split(",")
-      .map((owner) => ({ owner: owner.trim() }));
+    return input.message.text.split(",").map((owner) => ({ owner: owner.trim() }));
   }
 }
 
@@ -373,14 +373,12 @@ export class BudgetApprovalWorkflow {}
       .onGroup(
         [FinanceDirectorExternalTask],
         { priority: 1 },
-        toAction(SignAsFinanceAction)
-          .toFinish(ContractSignedWorkflowFinish),
+        toAction(SignAsFinanceAction).toFinish(ContractSignedWorkflowFinish),
       )
       .onGroup(
         [LegalSignOffExternalTask, SecuritySignOffExternalTask],
         { priority: 2 },
-        toAction(SignAsPanelAction)
-          .toFinish(ContractSignedWorkflowFinish),
+        toAction(SignAsPanelAction).toFinish(ContractSignedWorkflowFinish),
       ),
   ],
 })
@@ -413,10 +411,7 @@ export class CommitteeChildWorkflowFinish {}
   name: "committee-child-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(CommitteeChildWorkflowStart)
-      .toFinish(CommitteeChildWorkflowFinish),
-  ],
+  flow: [onStart(CommitteeChildWorkflowStart).toFinish(CommitteeChildWorkflowFinish)],
 })
 export class CommitteeChildWorkflow {}
 
@@ -474,6 +469,7 @@ export class CommitteeNotesWorkflow {}
 
 @Application({
   name: "committee-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [

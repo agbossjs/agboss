@@ -13,6 +13,7 @@ import {
 } from "../../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { onStart, toAgent } from "../../helpers/flow.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 export class AnswerDto {
   @Text({ prompt: "an answer" })
@@ -64,6 +65,7 @@ export function arbiterWorkflow(model: string): Class {
   class AnsFinish {}
   @Workflow({
     name: "ans-workflow",
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     historyTtl: Ttl.Forever,
     flow: [

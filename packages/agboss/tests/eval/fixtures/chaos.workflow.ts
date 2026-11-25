@@ -8,7 +8,8 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type Tracked,
-  inline, Ttl,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
 import { Injectable } from "../../../src/components/decorators.js";
 import { Application } from "../../../src/application/application.js";
@@ -25,6 +26,7 @@ import { minutes, seconds, usd } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart, toAction } from "../../helpers/flow.js";
 import { CircuitBreakerPolicy } from "../../../src/models/circuit-breaker-policy.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #396 PR 6 — what chaos exercises: a reservation (undone by its release, #340), then an agent on a
@@ -112,11 +114,7 @@ export class ReleasedWorkflowFinish {}
     onStart(ChaosWorkflowStart)
       .toAction(ReserveAction)
       .toAgent(ConfirmAgent)
-      .onError(
-        StepFailedError,
-        toAction(ReleaseAction)
-          .toFinish(ReleasedWorkflowFinish),
-      )
+      .onError(StepFailedError, toAction(ReleaseAction).toFinish(ReleasedWorkflowFinish))
       .toFinish(ConfirmedWorkflowFinish),
   ],
   providers: [ChaosDesk],
@@ -161,6 +159,7 @@ export class FragileModelProvider {}
 
 @Application({
   name: "retrying-chaos-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ChaosWorkflow],
@@ -171,6 +170,7 @@ export class RetryingChaosApplication {}
 
 @Application({
   name: "fragile-chaos-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ChaosWorkflow],

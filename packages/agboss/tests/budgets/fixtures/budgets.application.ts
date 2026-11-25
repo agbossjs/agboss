@@ -26,6 +26,7 @@ import {
 } from "../../../src/dto/index.js";
 import { usd, type Usd } from "../../../src/units/index.js";
 import { onStart } from "../../helpers/flow.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #261 PR 5: an application whose budgets read the execution — the tenant's own daily amount from
@@ -164,6 +165,7 @@ export class BriefExecutionBudget implements BudgetHandler {
 
 @Application({
   name: "shop-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [BriefWorkflow],

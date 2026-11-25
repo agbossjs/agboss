@@ -43,6 +43,7 @@ import {
   ROOT_SECRET,
   TEXT,
 } from "./chain.fixture.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 /** What each test application's provider exported, by application. */
 const exporters = {
@@ -72,6 +73,7 @@ class BreakingObserver {
 /** pii-workflow lists `EmployeeIdPiiPolicy`; open-workflow, built after it, lists none. */
 @Application({
   name: "trace-policies-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [PiiWorkflow, OpenWorkflow],
@@ -86,6 +88,7 @@ class TracePoliciesApplication {}
 /** A second application of the process: open-workflow alone, its own tracer provider. */
 @Application({
   name: "other-tracing-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [OpenWorkflow],

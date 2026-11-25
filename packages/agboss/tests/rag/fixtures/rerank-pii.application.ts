@@ -19,6 +19,7 @@ import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart } from "../../helpers/flow.js";
 import { CardPiiPolicy, ContactPiiPolicy, PII_KEY_VARIABLE } from "../../pii/pii.fixture.js";
 import { ShopExecutionContext } from "../../pii/sensitive.fixture.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #708 — a knowledge base whose candidates hold PII, reranked by the core's LLM reranker, read by
@@ -137,6 +138,7 @@ function workflowWith(
   class Finish {}
   @Workflow({
     name: `${name}-workflow`,
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     historyTtl: Ttl.Forever,
     flow: [onStart(Start).toAgent(ReaderAgent).toFinish(Finish)],
@@ -155,6 +157,7 @@ export const CARDS_CONTEXT = workflowWith("cards-context", CardsRag, "context");
 /** The application: no PII policies of its own — the agents' policies are the only ones. */
 @Application({
   name: "rerank-pii-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   executionContext: ShopExecutionContext,

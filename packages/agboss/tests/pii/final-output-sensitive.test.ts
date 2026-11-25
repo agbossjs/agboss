@@ -32,6 +32,7 @@ import {
   SensitiveWorkflow,
   ShopExecutionContext,
 } from "./sensitive.fixture.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 const AUTHOR = "zoe-7-secret";
 const REPORTER = "reporter-4-secret";
@@ -57,6 +58,7 @@ class EndObserver {
 
 @Application({
   name: "final-output-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [SensitiveWorkflow],

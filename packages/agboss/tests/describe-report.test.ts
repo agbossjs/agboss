@@ -40,6 +40,7 @@ import {
 } from "./memory/compaction.fixture.js";
 import { onStart } from "./helpers/flow.js";
 import { PauseRespondent } from "../src/pause/respondent.js";
+import { TestModelProvider } from "../src/testing/test-model-provider.js";
 
 /** A block rule with its own text, beside one whose class computes it. */
 @PiiPolicy({
@@ -78,6 +79,7 @@ class ClerkWorkflow {}
 
 @Application({
   name: "clerk-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ClerkWorkflow],
@@ -253,6 +255,7 @@ class OwnNoteWorkflowFinish {}
 
 @Workflow({
   name: "own-note-workflow",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: [onStart(OwnNoteWorkflowStart).toAgent(OwnNoteAgent).toFinish(OwnNoteWorkflowFinish)],
@@ -326,6 +329,7 @@ describe("#268 AC5: the worst case of one call of each start, each number with h
 function applicationWith(workflow: Class): Class {
   @Application({
     name: "one-workflow-application",
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     environment: EmptyEnvironment,
     workflows: [workflow],

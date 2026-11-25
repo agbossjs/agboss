@@ -30,6 +30,7 @@ import { testUnit } from "../../src/testing/index.js";
 import { workflowOf } from "../../src/testing/workflow-of.js";
 import { starOf } from "../fixtures/test-flow/star.js";
 import { testDefaults } from "../helpers.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 const liveSignal = (): AbortSignal => new AbortController().signal;
 
@@ -53,6 +54,7 @@ function workflowReading(options: object): Class {
   class ReaderAgent {}
   @Workflow({
     name: "reader-workflow",
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     historyTtl: Ttl.Forever,
     defaults: testDefaults,

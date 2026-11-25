@@ -1,7 +1,10 @@
 import { Channel, Injectable } from "../../../src/components/decorators.js";
 import { type ChannelAsk } from "../../../src/channels/channel-handler.js";
 import { ChannelOutcome } from "../../../src/channels/channel-outcome.js";
-import { ChannelInterpretation, ChannelInterpreter } from "../../../src/channels/channel-interpreter.js";
+import {
+  ChannelInterpretation,
+  ChannelInterpreter,
+} from "../../../src/channels/channel-interpreter.js";
 import { Bool, Integer, Text } from "../../../src/dto/index.js";
 import { ExecutionContext } from "../../../src/flow/context/execution-context.js";
 import { Action } from "../../../src/flow/decorators/action.js";
@@ -21,6 +24,7 @@ import { QuestionFailedError } from "../../../src/flow/runtime/errors.js";
 import { inline, ExternalTask, Ttl } from "../../../src/index.js";
 import { PauseRespondent } from "../../../src/pause/respondent.js";
 import { days } from "../../../src/units/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #659 — question roles: a purchase asks its budget owner for a spending limit before it is placed.
@@ -102,8 +106,7 @@ export class InboxSpendingLimitChannel {
   constructor(
     private readonly executionContext: ExecutionContext,
     private readonly questionInbox: QuestionInbox,
-  ) {
-  }
+  ) {}
 
   send(
     ask: ChannelAsk<SpendingLimitQuestionExternalTask>,
@@ -115,7 +118,12 @@ export class InboxSpendingLimitChannel {
 }
 
 /** Decides at once: a purchase of $100 or less goes on with a limit of $100. */
-@Channel({ name: "rule-spending-limit-channel", description: "Up to $100 at once", target: SpendingLimitQuestionExternalTask, ttl: days(1) })
+@Channel({
+  name: "rule-spending-limit-channel",
+  description: "Up to $100 at once",
+  target: SpendingLimitQuestionExternalTask,
+  ttl: days(1),
+})
 export class RuleSpendingLimitChannel {
   send(
     ask: ChannelAsk<SpendingLimitQuestionExternalTask>,
@@ -155,8 +163,7 @@ export class BudgetOwnerQuestionExternalTask {}
   ttl: days(1),
 })
 export class InboxBudgetOwnerChannel {
-  constructor(private readonly questionInbox: QuestionInbox) {
-  }
+  constructor(private readonly questionInbox: QuestionInbox) {}
 
   send(
     ask: ChannelAsk<BudgetOwnerQuestionExternalTask>,
@@ -284,6 +291,7 @@ export class OwnerPurchaseWorkflow {}
 
 @Application({
   name: "questions-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [PurchaseWorkflow, OwnerPurchaseWorkflow],

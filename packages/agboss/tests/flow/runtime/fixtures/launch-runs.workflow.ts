@@ -13,7 +13,8 @@ import {
   WorkflowStart,
   type Tracked,
   Action,
-  inline, Ttl,
+  inline,
+  Ttl,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
@@ -28,6 +29,7 @@ import {
   SummaryWorkflowFinish,
   SummaryAction,
 } from "./fan-out.workflow.js";
+import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /**
  * #273 PR 2 — launches over time: one inside a loop (each pass its own launch id and records), a
@@ -108,23 +110,20 @@ export class PlanLoopRouter {
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: [
-    onStart(PlanLoopWorkflowStart)
-      .toAgent(LoopPlannerAgent),
+    onStart(PlanLoopWorkflowStart).toAgent(LoopPlannerAgent),
     onAgent(LoopPlannerAgent)
       .inParallel([toAgent(LoopCriticAgent), toAgent(LoopCriticAgent)])
       .join()
       .toRouter(PlanLoopRouter)
       .onRoute(toAgent(LoopPlannerAgent))
-      .onRoute(
-        toAction(CritiquesAction)
-          .toFinish(CritiquesWorkflowFinish),
-      ),
+      .onRoute(toAction(CritiquesAction).toFinish(CritiquesWorkflowFinish)),
   ],
 })
 export class PlanLoopWorkflow {}
 
 @Application({
   name: "plan-loop-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [PlanLoopWorkflow],
@@ -181,6 +180,7 @@ export class ClerkWorkflow {}
 
 @Application({
   name: "clerk-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ClerkWorkflow],
@@ -243,24 +243,21 @@ export class TiredLoopRouter {
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: [
-    onStart(TiredWorkflowStart)
-      .toAgent(TiredPlannerAgent),
+    onStart(TiredWorkflowStart).toAgent(TiredPlannerAgent),
     onAgent(TiredPlannerAgent)
       .inParallel([toAgent(TiredCriticAgent), toAgent(TiredCriticAgent)])
       .join()
       .onError(VisitsLimitExceededError, toFinish(TiredWorkflowFinish))
       .toRouter(TiredLoopRouter)
       .onRoute(toAgent(TiredPlannerAgent))
-      .onRoute(
-        toAction(CritiquesAction)
-          .toFinish(CritiquesWorkflowFinish),
-      ),
+      .onRoute(toAction(CritiquesAction).toFinish(CritiquesWorkflowFinish)),
   ],
 })
 export class TiredWorkflow {}
 
 @Application({
   name: "tired-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [TiredWorkflow],

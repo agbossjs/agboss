@@ -33,6 +33,7 @@ import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { onStart, toWorkflow } from "../helpers/flow.js";
 import { ChainApplication, ChildSecretPiiPolicy, RootSecretPiiPolicy } from "./chain.fixture.js";
 import { ContactPiiPolicy, GovernmentPiiPolicy } from "./pii.fixture.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 @PiiPolicy({
   name: "email-kind-chain-pii-policy",
@@ -172,6 +173,7 @@ class ConflictRootWorkflow {}
 
 @Application({
   name: "cc-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ConflictRootWorkflow],

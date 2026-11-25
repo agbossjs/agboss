@@ -1,7 +1,10 @@
 import { Channel, Injectable, Tool } from "../../../src/components/decorators.js";
 import { type ChannelAsk } from "../../../src/channels/channel-handler.js";
 import { ChannelOutcome } from "../../../src/channels/channel-outcome.js";
-import { ChannelInterpretation, ChannelInterpreter } from "../../../src/channels/channel-interpreter.js";
+import {
+  ChannelInterpretation,
+  ChannelInterpreter,
+} from "../../../src/channels/channel-interpreter.js";
 import { Bool, Integer, Text, WorkflowFinishTextDto } from "../../../src/dto/index.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
@@ -23,6 +26,7 @@ import {
 import { inline, ExternalTask, Ttl } from "../../../src/index.js";
 import { PauseRespondent } from "../../../src/pause/respondent.js";
 import { days } from "../../../src/units/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #712 — a question role as an agent's tool: a buyer agent decides itself whether to ask its
@@ -94,10 +98,15 @@ export class ApproverReplyInterpreter {
 export class ApproverExternalTask {}
 
 /** Posts the question to the desk and waits for the reply. */
-@Channel({ name: "desk-approver-channel", description: "The desk", deps: [BuyerDesk], target: ApproverExternalTask, ttl: days(1) })
+@Channel({
+  name: "desk-approver-channel",
+  description: "The desk",
+  deps: [BuyerDesk],
+  target: ApproverExternalTask,
+  ttl: days(1),
+})
 export class DeskApproverChannel {
-  constructor(private readonly buyerDesk: BuyerDesk) {
-  }
+  constructor(private readonly buyerDesk: BuyerDesk) {}
 
   send(ask: ChannelAsk<ApproverExternalTask>): Promise<ChannelOutcome<ApproverExternalTask>> {
     this.buyerDesk.asked.push(ask);
@@ -106,7 +115,12 @@ export class DeskApproverChannel {
 }
 
 /** Decides at once: up to $100 goes on with a limit of $100. */
-@Channel({ name: "rule-approver-channel", description: "Up to $100 at once", target: ApproverExternalTask, ttl: days(1) })
+@Channel({
+  name: "rule-approver-channel",
+  description: "Up to $100 at once",
+  target: ApproverExternalTask,
+  ttl: days(1),
+})
 export class RuleApproverChannel {
   send(ask: ChannelAsk<ApproverExternalTask>): Promise<ChannelOutcome<ApproverExternalTask>> {
     const approved = ask.input.priceUsd <= 100;
@@ -115,7 +129,12 @@ export class RuleApproverChannel {
 }
 
 /** Decides at once with what is no answer of the role: a limit below zero. */
-@Channel({ name: "wrong-approver-channel", description: "Answers out of range", target: ApproverExternalTask, ttl: days(1) })
+@Channel({
+  name: "wrong-approver-channel",
+  description: "Answers out of range",
+  target: ApproverExternalTask,
+  ttl: days(1),
+})
 export class WrongApproverChannel {
   send(): Promise<ChannelOutcome<ApproverExternalTask>> {
     return Promise.resolve(ChannelOutcome.decided({ approved: true, limitUsd: -5 }));
@@ -123,7 +142,12 @@ export class WrongApproverChannel {
 }
 
 /** A channel that cannot be reached. */
-@Channel({ name: "down-approver-channel", description: "Unreachable", target: ApproverExternalTask, ttl: days(1) })
+@Channel({
+  name: "down-approver-channel",
+  description: "Unreachable",
+  target: ApproverExternalTask,
+  ttl: days(1),
+})
 export class DownApproverChannel {
   send(): Promise<ChannelOutcome<ApproverExternalTask>> {
     return Promise.reject(new Error("the approvals service is down"));
@@ -176,11 +200,7 @@ export class BuyerWorkflowFinish {}
   name: "buyer-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(BuyerWorkflowStart)
-      .toAgent(BuyerAgent)
-      .toFinish(BuyerWorkflowFinish),
-  ],
+  flow: [onStart(BuyerWorkflowStart).toAgent(BuyerAgent).toFinish(BuyerWorkflowFinish)],
   providers: [BuyerDesk],
 })
 export class BuyerWorkflow {}
@@ -204,9 +224,7 @@ export class OwnerBuyerWorkflowFinish {}
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: [
-    onStart(OwnerBuyerWorkflowStart)
-      .toAgent(OwnerBuyerAgent)
-      .toFinish(OwnerBuyerWorkflowFinish),
+    onStart(OwnerBuyerWorkflowStart).toAgent(OwnerBuyerAgent).toFinish(OwnerBuyerWorkflowFinish),
   ],
   providers: [QuestionInbox],
 })
@@ -214,6 +232,7 @@ export class OwnerBuyerWorkflow {}
 
 @Application({
   name: "question-tools-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [BuyerWorkflow, OwnerBuyerWorkflow],
@@ -224,6 +243,7 @@ export class QuestionToolsApplication {}
 
 @Application({
   name: "rule-question-tools-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [BuyerWorkflow],
@@ -234,6 +254,7 @@ export class RuleQuestionToolsApplication {}
 
 @Application({
   name: "down-question-tools-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [BuyerWorkflow],
@@ -244,6 +265,7 @@ export class DownQuestionToolsApplication {}
 
 @Application({
   name: "wrong-question-tools-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [BuyerWorkflow],

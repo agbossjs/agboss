@@ -31,6 +31,7 @@ import {
 } from "../flow/fixtures/questions.fixture.js";
 import { PauseRespondent } from "../../src/pause/respondent.js";
 import { days } from "../../src/units/index.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 const assemble = (application: Class) =>
   createTestAppWith(application, {
@@ -62,6 +63,7 @@ function askingApplication(name: string, role: Class, providers: readonly Class[
   class AskingWorkflow {}
   @Application({
     name: `${name}-application`,
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     environment: EmptyEnvironment,
     workflows: [AskingWorkflow],

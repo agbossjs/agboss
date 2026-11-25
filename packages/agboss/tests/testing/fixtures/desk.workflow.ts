@@ -15,7 +15,8 @@ import {
   Router,
   WorkflowFinish,
   WorkflowStart,
-  inline, Ttl,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
 import { Reasoning } from "../../../src/models/index.js";
 import { onStart, toAgent, toFinish } from "../../helpers/flow.js";
@@ -33,6 +34,7 @@ import {
 import { usd, type Usd } from "../../../src/units/index.js";
 import { EmptyEnvironment } from "../../../src/index.js";
 import { PromptInjectionGuardrail } from "../../fixtures/guardrails.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** What the lifecycle hooks of real components did, in order (the lifecycle tests read it). */
 export const lifecycle: string[] = [];
@@ -100,8 +102,7 @@ export const NOTES_DIR = tmpdir();
 
 const FILESYSTEM_SERVER = join(
   dirname(
-    createRequire(import.meta.url)
-      .resolve("@modelcontextprotocol/server-filesystem/package.json"),
+    createRequire(import.meta.url).resolve("@modelcontextprotocol/server-filesystem/package.json"),
   ),
   "dist",
   "index.js",
@@ -236,14 +237,8 @@ export class MainRouter {}
   flow: [
     onStart(ChatStart)
       .toRouter(MainRouter)
-      .onRoute(
-        toAgent(Support)
-          .toFinish(Reply),
-      )
-      .onRoute(
-        toAgent(Writer)
-          .toFinish(Reply),
-      )
+      .onRoute(toAgent(Support).toFinish(Reply))
+      .onRoute(toAgent(Writer).toFinish(Reply))
       .onRoute(toFinish(NoReply)),
   ],
   defaults: {
@@ -280,6 +275,7 @@ export class DeskTenantDailyBudget implements BudgetHandler {
 
 @Application({
   name: "desk-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [Desk],

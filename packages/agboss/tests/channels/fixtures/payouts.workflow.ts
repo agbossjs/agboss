@@ -8,7 +8,8 @@ import {
   WorkflowStart,
   type Tracked,
   Action,
-  inline, Ttl,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -26,6 +27,7 @@ import {
   RefundTool,
   SeenPausedExecutionRepository,
 } from "./pauses.workflow.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #267 AC10 with `.onError(…)`: a payout confirms the order with the customer (a pause) while
@@ -124,8 +126,7 @@ const providers = [
       .join()
       .onError(
         PaymentDeclinedError,
-        toAction(PayoutDeclinedAction)
-          .toFinish(PayoutDeclinedWorkflowFinish),
+        toAction(PayoutDeclinedAction).toFinish(PayoutDeclinedWorkflowFinish),
       )
       .toAction(PayoutAction)
       .toFinish(PayoutWorkflowFinish),
@@ -135,6 +136,7 @@ export class PayoutWorkflow {}
 
 @Application({
   name: "payouts-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [PayoutWorkflow],
@@ -155,8 +157,7 @@ export class PayoutsApplication {}
       .join()
       .onError(
         StepFailedError,
-        toAction(PayoutDeclinedAction)
-          .toFinish(PayoutDeclinedWorkflowFinish),
+        toAction(PayoutDeclinedAction).toFinish(PayoutDeclinedWorkflowFinish),
       )
       .toAction(PayoutAction)
       .toFinish(PayoutWorkflowFinish),
@@ -166,6 +167,7 @@ export class PayoutStepsWorkflow {}
 
 @Application({
   name: "payout-steps-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [PayoutStepsWorkflow],
@@ -192,6 +194,7 @@ export class PayoutUnhandledWorkflow {}
 
 @Application({
   name: "payout-unhandled-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [PayoutUnhandledWorkflow],

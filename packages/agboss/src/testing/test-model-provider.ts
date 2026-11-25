@@ -1,0 +1,33 @@
+import {
+  ModelCost,
+  ModelProvider,
+  type ModelProviderDecisionRequest,
+  type ModelProviderRequest,
+  type ModelProviderResponse,
+} from "../models/index.js";
+import { seconds } from "../units/index.js";
+
+/**
+ * The model provider of a test application (#1328): `modelProvider: TestModelProvider` on its
+ * `@Application` serves every model use of its workflows — chat agents, routers and judges on
+ * `decide`, arbiters, and the default models of the levels. A test script (`mockLlm`, `replyWith`,
+ * `routeTo`) answers every call before the provider is reached, so it never goes anywhere: a call
+ * that gets through unscripted fails and says so. `/testing` makes no provider of its own — an
+ * application that names none is `[model.missing-provider]`.
+ */
+@ModelProvider({
+  name: "test-model-provider",
+  description: "Serves the models of a test; the test's script answers every call",
+  timeout: seconds(5),
+  cost: ModelCost.fromResponse(),
+  model: "test/model",
+})
+export class TestModelProvider {
+  complete(request: ModelProviderRequest): Promise<ModelProviderResponse> {
+    return Promise.reject(new Error(`a test called ${request.model} with no script for it`));
+  }
+
+  decide(request: ModelProviderDecisionRequest): Promise<unknown> {
+    return Promise.reject(new Error(`a test decided on ${request.model} with no script for it`));
+  }
+}

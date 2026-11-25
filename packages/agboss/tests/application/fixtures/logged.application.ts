@@ -26,6 +26,7 @@ import {
   SharedPausedExecutionRepository,
 } from "../../helpers/shared-infrastructure.js";
 import { RecordingCostLedgerRepository } from "./desks.application.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #261 PR 6 — applications whose log the tests read (a `RecordingLogger` listed): the start log,
@@ -151,6 +152,7 @@ export class SendWorkflow {}
 /** Both workflows on the built-in in-memory infrastructure: both warnings. */
 @Application({
   name: "logged-application",
+  modelProvider: TestModelProvider,
   version: "2.3.0",
   environment: EmptyEnvironment,
   workflows: [NoteWorkflow, SendWorkflow],
@@ -162,6 +164,7 @@ export class LoggedApplication {}
 /** The same on durable stores of its own: no warning. */
 @Application({
   name: "durable-logged-application",
+  modelProvider: TestModelProvider,
   version: "2.3.0",
   environment: EmptyEnvironment,
   workflows: [NoteWorkflow, SendWorkflow],
@@ -178,6 +181,7 @@ export class DurableLoggedApplication {}
 /** No pause possible, in-memory ledger: only the ledger's warning. */
 @Application({
   name: "note-logged-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [NoteWorkflow],

@@ -33,6 +33,7 @@ import {
 } from "./child-dtos.js";
 import { CompanyDto } from "./data-dtos.js";
 import { WorkflowStartTextDto } from "./dtos.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #263 — the issue's child workflow and its three parents: one child per item of a list, one child
@@ -121,29 +122,26 @@ export class CompanyReviewFailedWorkflowFinish {}
 
 @Workflow({
   name: "company-review-workflow",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: [
-    onStart(CompanyReviewWorkflowStart)
-      .toAgent(CompanyReviewerAgent),
+    onStart(CompanyReviewWorkflowStart).toAgent(CompanyReviewerAgent),
 
-    onStart(CompanyLinkReviewWorkflowStart)
-      .toAgent(CompanyReviewerAgent),
+    onStart(CompanyLinkReviewWorkflowStart).toAgent(CompanyReviewerAgent),
 
     // two ways in (two starts) → its own path
-    onAgent(CompanyReviewerAgent)
-      .toOneOf([
-        toAgent(DeepDiveAgent)
-          .onError(StepFailedError, toAction(MarkReviewFailedAction))
-          .toAgent(GraderAgent)
-          .onError(StepFailedError, toAction(MarkReviewFailedAction))
-          .toFinish(CompanyGradedWorkflowFinish),
-        toFinish(CompanyRejectedWorkflowFinish),
-      ]),
+    onAgent(CompanyReviewerAgent).toOneOf([
+      toAgent(DeepDiveAgent)
+        .onError(StepFailedError, toAction(MarkReviewFailedAction))
+        .toAgent(GraderAgent)
+        .onError(StepFailedError, toAction(MarkReviewFailedAction))
+        .toFinish(CompanyGradedWorkflowFinish),
+      toFinish(CompanyRejectedWorkflowFinish),
+    ]),
 
     // two ways in (two onError side paths) → its own path: the soft failure of a per-item child
-    onAction(MarkReviewFailedAction)
-      .toFinish(CompanyReviewFailedWorkflowFinish),
+    onAction(MarkReviewFailedAction).toFinish(CompanyReviewFailedWorkflowFinish),
   ],
   executionLimits: { maxSteps: 10 },
 })
@@ -214,8 +212,7 @@ export class ScreeningStoppedWorkflowFinish {}
       .join()
       .onError(
         LimitExceededError,
-        toAction(NotifyReviewStoppedAction)
-          .toFinish(ScreeningStoppedWorkflowFinish),
+        toAction(NotifyReviewStoppedAction).toFinish(ScreeningStoppedWorkflowFinish),
       )
       .toAgent(ReviewRankerAgent)
       .toFinish(GradedShortlistWorkflowFinish),
@@ -282,6 +279,7 @@ export class ReviewErrorWorkflowFinish {}
 
 @Workflow({
   name: "job-offer-workflow",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: [
@@ -290,8 +288,7 @@ export class ReviewErrorWorkflowFinish {}
       .toWorkflow(CompanyReviewWorkflow)
       .onError(StepFailedError, toFinish(ReviewErrorWorkflowFinish))
       .toOneOf([
-        toAgent(JobOfferAgent)
-          .toFinish(JobOfferWorkflowFinish),
+        toAgent(JobOfferAgent).toFinish(JobOfferWorkflowFinish),
         toFinish(NoOfferRejectedWorkflowFinish),
         toFinish(NoOfferFailedWorkflowFinish),
       ]),
@@ -331,8 +328,7 @@ export class LinkOfferWorkflowStart {}
     onWorkflow(CompanyReviewWorkflow)
       .onError(StepFailedError, toFinish(ReviewErrorWorkflowFinish))
       .toOneOf([
-        toAgent(JobOfferAgent)
-          .toFinish(JobOfferWorkflowFinish),
+        toAgent(JobOfferAgent).toFinish(JobOfferWorkflowFinish),
         toFinish(NoOfferRejectedWorkflowFinish),
         toFinish(NoOfferFailedWorkflowFinish),
       ]),
@@ -342,6 +338,7 @@ export class LinkOfferWorkflow {}
 
 @Application({
   name: "company-review-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [CompanyReviewWorkflow, CompanyScreeningWorkflow, JobOfferWorkflow, LinkOfferWorkflow],

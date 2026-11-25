@@ -37,6 +37,7 @@ import {
   SlackRefundsApplication,
 } from "../flow/fixtures/refunds.fixture.js";
 import { execute } from "../helpers/flow.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 const offline = (book: ScriptBook) => ({ processEnv: {}, gateway: createScriptedGateway(book) });
 
@@ -117,6 +118,7 @@ function applicationWith(name: string, channel: Class): Class {
   class ChannelWorkflow {}
   @Application({
     name: `${name}-application`,
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     environment: EmptyEnvironment,
     workflows: [ChannelWorkflow],

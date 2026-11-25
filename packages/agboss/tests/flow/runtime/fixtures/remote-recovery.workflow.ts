@@ -7,7 +7,8 @@ import {
   listOf,
   Workflow,
   WorkflowStart,
-  type Tracked, Ttl,
+  type Tracked,
+  Ttl,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
@@ -32,6 +33,7 @@ import {
 } from "./children.workflow.js";
 import { HoldCheckedWorkflowFinish, HoldCheckWorkflowStart } from "./child-recovery.workflow.js";
 import { RecoverableItemAction, recoveryRuns } from "./launch-recovery.workflow.js";
+import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /**
  * #333 PR 4 — remote children (`ChildPlacement.AnyWorker`) that pause, yield the parent's root
@@ -102,8 +104,7 @@ export class RemoteHoldItemsWorkflowStart {}
       .join()
       .onError(
         ChildExecutionFailedError,
-        toAction(ChecksFailedAction)
-          .toFinish(ChecksFailedWorkflowFinish),
+        toAction(ChecksFailedAction).toFinish(ChecksFailedWorkflowFinish),
       )
       .toAction(SummaryAction)
       .toFinish(SummaryWorkflowFinish),
@@ -153,6 +154,7 @@ export class RemoteReviewItemsWorkflow {}
 
 @Application({
   name: "remote-recovery-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   tenantContext: ShopTenantContext,

@@ -15,7 +15,8 @@ import {
   WorkflowStart,
   type BudgetHandler,
   type Tracked,
-  inline, Ttl,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { Injectable } from "../../../src/components/decorators.js";
@@ -29,6 +30,7 @@ import {
 } from "../../flow/fixtures/budgets.js";
 import { onStart, toAction, toWorkflow, toAgent } from "../../helpers/flow.js";
 import { toFinish } from "../../helpers/flow.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #338 — a budget crossed inside a parallel launch. Two branches: the spender waits until the
@@ -171,9 +173,7 @@ export class ParallelBudgetWorkflowStart {}
 export class NotesAction {
   async execute(input: { readonly notes: readonly Tracked<NoteDto>[] }): Promise<NoteDto> {
     return {
-      text: input.notes
-        .map((note) => note.text)
-        .join("; "),
+      text: input.notes.map((note) => note.text).join("; "),
     };
   }
 }
@@ -205,8 +205,7 @@ export class NoteBudgetStopAction {
 })
 export class BudgetStoppedWorkflowFinish {}
 
-const onBudget = toAction(NoteBudgetStopAction)
-  .toFinish(BudgetStoppedWorkflowFinish);
+const onBudget = toAction(NoteBudgetStopAction).toFinish(BudgetStoppedWorkflowFinish);
 
 /** Both branches at once; an exhausted budget takes `.onError(…)`. */
 @Workflow({
@@ -279,11 +278,7 @@ export class TaskDoneWorkflowFinish {}
   name: "task-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(TaskWorkflowStart)
-      .toAgent(TaskAgent)
-      .toFinish(TaskDoneWorkflowFinish),
-  ],
+  flow: [onStart(TaskWorkflowStart).toAgent(TaskAgent).toFinish(TaskDoneWorkflowFinish)],
 })
 export class TaskWorkflow {}
 
@@ -389,6 +384,7 @@ const application = {
 @Application({
   ...application,
   name: "parallel-budget-application",
+  modelProvider: TestModelProvider,
   workflows: [ParallelBudgetWorkflow],
   budgets: TIGHT_EXECUTION,
 })
@@ -397,6 +393,7 @@ export class ParallelBudgetApplication {}
 @Application({
   ...application,
   name: "unhandled-budget-application",
+  modelProvider: TestModelProvider,
   workflows: [UnhandledBudgetWorkflow],
   budgets: TIGHT_EXECUTION,
 })
@@ -405,6 +402,7 @@ export class UnhandledBudgetApplication {}
 @Application({
   ...application,
   name: "quorum-budget-application",
+  modelProvider: TestModelProvider,
   workflows: [QuorumBudgetWorkflow],
   budgets: TIGHT_EXECUTION,
 })
@@ -413,6 +411,7 @@ export class QuorumBudgetApplication {}
 @Application({
   ...application,
   name: "tasks-budget-application",
+  modelProvider: TestModelProvider,
   workflows: [TasksBudgetWorkflow],
   budgets: TIGHT_EXECUTION,
 })
@@ -429,6 +428,7 @@ export class TaskActionsBudgetApplication {}
 @Application({
   ...application,
   name: "tenant-budget-application",
+  modelProvider: TestModelProvider,
   workflows: [ParallelBudgetWorkflow],
   budgets: [TestApplicationDailyBudget, TightTenantDailyBudget, TestExecutionBudget],
 })

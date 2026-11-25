@@ -31,6 +31,7 @@ import {
   LocalModelProvider,
   TestDecisionsProvider,
 } from "../models/providers.fixture.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 /**
  * #263: a child workflow that its application does not list is a workflow of that application all
@@ -125,6 +126,7 @@ const applicationOfParent = (
   count += 1;
   @Application({
     name: `rules-${String(count)}-application`,
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     environment: EmptyEnvironment,
     workflows: [parent],
@@ -261,6 +263,7 @@ describe("#263: an unlisted child goes through the application's rules", () => {
     }
     @Application({
       name: "rules-budgeted-application",
+      modelProvider: TestModelProvider,
       version: "1.0.0",
       environment: EmptyEnvironment,
       workflows: [ParentWorkflow],

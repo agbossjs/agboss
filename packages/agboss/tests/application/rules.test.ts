@@ -32,6 +32,7 @@ import {
   RefundsWorkflowStart,
 } from "./fixtures/desks.application.js";
 import { EmptyEnvironment } from "../../src/index.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 /** The codes and messages an application's assembly fails with. */
 async function violationsOf(application: Class): Promise<string[]> {
@@ -89,6 +90,7 @@ class SecondOrdersWorkflow {}
 
 @Application({
   name: "clashing-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [OrdersWorkflow, SecondOrdersWorkflow, OrdersAgent],
@@ -108,6 +110,7 @@ class LedgeredWorkflow {}
 
 @Application({
   name: "ledgered-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [LedgeredWorkflow],
@@ -150,6 +153,7 @@ class SecondPausedExecutionRepository extends InMemoryPausedExecutionRepository 
 
 @Application({
   name: "two-pauses-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [OrdersWorkflow],

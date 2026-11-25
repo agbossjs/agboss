@@ -45,6 +45,7 @@ import {
   EditStart,
   GateRouter,
 } from "../flow/runtime/fixtures/edit.workflow.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 const shop = testWith(ShopApplication);
 const cheap = testWith(CheapEditApplication);
@@ -270,6 +271,7 @@ describe("#261 AC10: a budget's maxSpend() is unit-tested without the container"
 function applicationWith(budgets: readonly Class[]) {
   @Application({
     name: "budgets-rules-application",
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     environment: EmptyEnvironment,
     workflows: [BriefWorkflow],

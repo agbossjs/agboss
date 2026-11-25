@@ -37,6 +37,7 @@ import { UntestedApplication } from "../fixtures/environments/untested/untested.
 import { toolResultsOf } from "../testing/fixtures/requests.js";
 import { execute } from "../helpers/flow.js";
 import { EmptyEnvironment } from "../../src/index.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 /** Everything external given; `processEnv` is what `env(…)` and `secret(…)` read. */
 function offline(processEnv: NodeJS.ProcessEnv = {}): BuildApplicationOptions {
@@ -211,6 +212,7 @@ export class ValuedEnvironment {
 
 @Application({
   name: "valued-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: ValuedEnvironment,
   workflows: [SettingsApp],
@@ -228,6 +230,7 @@ requireEnvironmentFields(FilePausedExecutionRepository, [
 
 @Application({
   name: "ledger-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: ValuedEnvironment,
   workflows: [SettingsApp],
@@ -239,6 +242,7 @@ class LedgerApplication {}
 // @ts-expect-error — environment is required (#261): an untyped caller without one is checked too
 @Application({
   name: "contractless-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   workflows: [SettingsApp],
   providers: [FilePausedExecutionRepository],
@@ -248,6 +252,7 @@ class ContractlessApplication {}
 
 @Application({
   name: "no-settings-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [SettingsApp],

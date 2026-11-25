@@ -14,9 +14,11 @@ import { rejectingListener } from "./async-listener.js";
 import { logged, RecordingLogger, resetLogged } from "../helpers/log.js";
 import { MODEL_PROVIDERS } from "../judges/fixtures/judged.workflow.js";
 import { deltas, AuditJudge, AuditStart, AuditWorkflow, AuditWriter } from "./writer.fixture.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 @Application({
   name: "listener-log-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [AuditWorkflow],

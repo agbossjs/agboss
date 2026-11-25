@@ -8,7 +8,8 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type Tracked,
-  inline, Ttl,
+  inline,
+  Ttl,
 } from "../../../../src/index.js";
 import { WorkflowStartTextDto } from "../../fixtures/dtos.js";
 import { Application } from "../../../../src/application/application.js";
@@ -30,6 +31,7 @@ import {
 import { RefundPolicyDto } from "../../fixtures/launch-dtos.js";
 import { onStart, skip, toAgent, toRouter } from "../../../helpers/flow.js";
 import { StepError } from "../../../../src/core/error-families/step-errors.js";
+import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /**
  * #273 PR 2 — routers before a launch, beside the issue's help desk: a chat-model router whose
@@ -87,8 +89,7 @@ export class PickyWorkflowFinish {}
   flow: [
     onStart(PickyWorkflowStart)
       .inParallel([
-        toRouter(PickyRouter)
-          .chooseMany([toAgent(RefundPolicyAgent), toAgent(LoyaltyOfferAgent)]),
+        toRouter(PickyRouter).chooseMany([toAgent(RefundPolicyAgent), toAgent(LoyaltyOfferAgent)]),
       ])
       .join()
       .toAgent(PickyAnswerAgent)
@@ -99,6 +100,7 @@ export class PickyWorkflow {}
 
 @Application({
   name: "picky-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [PickyWorkflow],
@@ -143,12 +145,10 @@ export class StrictRouter {
   flow: [
     onStart(StrictWorkflowStart)
       .inParallel([
-        toRouter(StrictRouter)
-          .chooseMany([
-            toAgent(RefundPolicyAgent),
-            toAgent(LoyaltyOfferAgent)
-              .onError(StepError, skip()),
-          ]),
+        toRouter(StrictRouter).chooseMany([
+          toAgent(RefundPolicyAgent),
+          toAgent(LoyaltyOfferAgent).onError(StepError, skip()),
+        ]),
       ])
       .join()
       .toAgent(PickyAnswerAgent)
@@ -159,6 +159,7 @@ export class StrictWorkflow {}
 
 @Application({
   name: "strict-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [StrictWorkflow],
@@ -197,10 +198,8 @@ export class BudgetAnswerAgent {}
       .inParallel(
         [
           toAgent(OrderLookupAgent),
-          toAgent(LoyaltyOfferAgent)
-            .onError(StepError, skip()),
-          toRouter(HelpDeskRouter)
-            .chooseMany([toAgent(RefundPolicyAgent)]),
+          toAgent(LoyaltyOfferAgent).onError(StepError, skip()),
+          toRouter(HelpDeskRouter).chooseMany([toAgent(RefundPolicyAgent)]),
         ],
         { maxConcurrency: 1 },
       )
@@ -221,6 +220,7 @@ export class BudgetDeskExecutionBudget implements BudgetHandler {
 
 @Application({
   name: "budget-desk-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [BudgetDeskWorkflow],

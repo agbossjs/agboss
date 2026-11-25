@@ -32,6 +32,7 @@ import {
 } from "../flow/fixtures/question-tools.fixture.js";
 import { PauseRespondent } from "../../src/pause/respondent.js";
 import { days } from "../../src/units/index.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 const assemble = (application: Class) =>
   createTestAppWith(application, {
@@ -64,6 +65,7 @@ function buyingApplication(
 
   @Application({
     name: `${name}-application`,
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     environment: EmptyEnvironment,
     workflows: [BuyingWorkflow],

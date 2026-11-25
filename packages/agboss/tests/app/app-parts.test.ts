@@ -28,6 +28,7 @@ import { ExecutionStatus } from "../../src/app/types.js";
 import { Application } from "../../src/application/application.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../src/index.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 const offline = () => ({
   gateway: createScriptedGateway(new ScriptBook()),
@@ -72,6 +73,7 @@ class Tickets implements WorkflowDefinition {
 
 @Application({
   name: "tickets-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [Tickets],

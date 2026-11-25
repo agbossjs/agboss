@@ -14,7 +14,8 @@ import {
   provide,
   type JudgeHandler,
   type JudgeInput,
-  inline, Ttl,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
 import {
   PlainTextDto,
@@ -25,6 +26,7 @@ import { Application } from "../../../src/application/application.js";
 import { onStart } from "../../helpers/flow.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { DEFAULTS, Grounded, MODEL_PROVIDERS, RUBRIC } from "./judged.workflow.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #396 — code judges: `@Judge({ })` decides by its `judge(input)` alone,
@@ -89,11 +91,7 @@ export class PromiseFinish {}
   name: "promise-desk-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(PromiseStart)
-      .toAgent(PromiseAgent)
-      .toFinish(PromiseFinish),
-  ],
+  flow: [onStart(PromiseStart).toAgent(PromiseAgent).toFinish(PromiseFinish)],
   defaults: DEFAULTS,
   memory: Window4Memory,
   providers: [BannedWords, provide(RUBRIC, "Is the reply grounded? Answer PASS or FAIL: <why>.")],
@@ -102,6 +100,7 @@ export class PromiseDesk {}
 
 @Application({
   name: "promise-desk-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [PromiseDesk],
@@ -141,8 +140,7 @@ export class SecondOpinionJudge implements JudgeHandler<PlainTextDto> {
     const tries = await Promise.allSettled([
       this.secondOpinion.ask(output.text),
       this.secondOpinion.decide(),
-      Promise.resolve()
-        .then(() => this.secondOpinion.model()),
+      Promise.resolve().then(() => this.secondOpinion.model()),
     ]);
     const outcomes = tries.map((tried) =>
       tried.status === "rejected" && tried.reason instanceof Error

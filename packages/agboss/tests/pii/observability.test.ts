@@ -32,6 +32,7 @@ import {
   PiiWorkflow,
   SendEmail,
 } from "./pii.fixture.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 const EMAIL = "alice@example.com";
 
@@ -57,6 +58,7 @@ class SeeingObserver {
 
 @Application({
   name: "seen-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [PiiWorkflow, OpenWorkflow],

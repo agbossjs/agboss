@@ -24,6 +24,7 @@ import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { onStart } from "../helpers/flow.js";
 import { DEFAULTS, MODEL_PROVIDERS } from "../judges/fixtures/judged.workflow.js";
 import { ContactPiiPolicy } from "../pii/pii.fixture.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 /** What the judge's model is asked: it answers `PASS…` or `FAIL…`. */
 @Judge({ name: "audit-judge", model: "local/judge", output: PlainTextDto, deps: [JudgeModel] })
@@ -68,6 +69,7 @@ export class AuditWorkflow {}
 
 @Application({
   name: "audit-judge-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [AuditWorkflow],

@@ -21,6 +21,7 @@ import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { onStart } from "../helpers/flow.js";
 import { DEFAULTS, MODEL_PROVIDERS } from "../judges/fixtures/judged.workflow.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 @OutputGuardrail({
   name: "always-pass-guardrail",
@@ -107,6 +108,7 @@ class PlainHeldWorkflow {}
 
 @Application({
   name: "masked-held-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [MaskedHeldWorkflow, PlainHeldWorkflow],

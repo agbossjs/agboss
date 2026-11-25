@@ -41,6 +41,7 @@ import type { RagRetrieval } from "../../../src/rag/index.js";
 import type { ModelUseKind } from "../../../src/models/uses.js";
 import { arbiterWorkflow, AnswerDto } from "./arbiter.js";
 import { onStart, toAgent } from "../../helpers/flow.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** The model each kind of model use is given: the keyless `local/llama`, or the one under test. */
 export type KindModels = Readonly<Record<ModelUseKind, string>>;
@@ -201,6 +202,7 @@ export function everyKindWorkflows(models: KindModels): {
   class DeskFilePolicy {}
   @Workflow({
     name: "desk-workflow",
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     historyTtl: Ttl.Forever,
     filePolicy: DeskFilePolicy,

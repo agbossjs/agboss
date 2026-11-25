@@ -6,7 +6,8 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type WorkflowOptions, Ttl,
+  type WorkflowOptions,
+  Ttl,
 } from "../../../src/index.js";
 import type { Class } from "../../../src/components/injection.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
@@ -29,6 +30,7 @@ import {
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../src/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** Scripted models and in-memory stores: nothing external. */
 export const offline = (book = new ScriptBook()): BuildApplicationOptions => ({
@@ -93,12 +95,9 @@ export function workflowWith(
 ): Class {
   @Workflow({
     name,
+    modelProvider: TestModelProvider,
     historyTtl: Ttl.Forever,
-    flow: [
-      onStart(Chat)
-        .toAgent(agent)
-        .toFinish(Done),
-    ],
+    flow: [onStart(Chat).toAgent(agent).toFinish(Done)],
     ...base,
     ...extra,
   })
@@ -130,12 +129,7 @@ export function applicationWith(
 @Workflow({
   name: "vault-workflow",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(Chat)
-      .toAgent(Keeper)
-      .toAction(StampAction)
-      .toFinish(Kept),
-  ],
+  flow: [onStart(Chat).toAgent(Keeper).toAction(StampAction).toFinish(Kept)],
   ...base,
   piiPolicies: [MaskSecret],
   providers: [Vault, provide(SECRET, "s3cret"), RemoteA2AAgent],
@@ -144,6 +138,7 @@ export class VaultWorkflow {}
 
 @Application({
   name: "vault-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [VaultWorkflow],

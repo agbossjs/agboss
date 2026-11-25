@@ -16,6 +16,7 @@ import { onStart } from "./paths.js";
 import { inline, ToolApproval, Ttl } from "../../../src/index.js";
 import { PauseRespondent } from "../../../src/pause/respondent.js";
 import { days } from "../../../src/units/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #267 PR 1 — a card refund approved through a channel role: the tool names the role, the role
@@ -139,11 +140,7 @@ export class RefundWorkflowFinish {}
   name: "card-refunds-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(RefundWorkflowStart)
-      .toAgent(RefundClerkAgent)
-      .toFinish(RefundWorkflowFinish),
-  ],
+  flow: [onStart(RefundWorkflowStart).toAgent(RefundClerkAgent).toFinish(RefundWorkflowFinish)],
   defaults: { router: { model: "typesafe/jev-test" } },
   memory: Window2Memory,
   providers: [RefundDesk],
@@ -152,6 +149,7 @@ export class CardRefundsWorkflow {}
 
 @Application({
   name: "slack-refunds-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [CardRefundsWorkflow],
@@ -162,6 +160,7 @@ export class SlackRefundsApplication {}
 
 @Application({
   name: "rule-refunds-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [CardRefundsWorkflow],

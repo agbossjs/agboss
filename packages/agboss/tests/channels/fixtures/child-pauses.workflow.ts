@@ -7,7 +7,8 @@ import {
   WorkflowStart,
   type Tracked,
   Action,
-  inline, Ttl,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -24,6 +25,7 @@ import {
   RefundTool,
   SeenPausedExecutionRepository,
 } from "./pauses.workflow.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #267 × #263 — pauses inside child workflows: a child whose agent waits on a channel role, alone
@@ -64,9 +66,7 @@ export class ChildRefundAgent {}
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: [
-    onStart(RefundOneWorkflowStart)
-      .toAgent(ChildRefundAgent)
-      .toFinish(RefundOneWorkflowFinish),
+    onStart(RefundOneWorkflowStart).toAgent(ChildRefundAgent).toFinish(RefundOneWorkflowFinish),
   ],
 })
 export class RefundOneWorkflow {}
@@ -116,9 +116,7 @@ export class ChildBatchAction {
     readonly refunds: readonly Tracked<RefundDoneDto>[];
   }): Promise<BatchSummaryDto> {
     return {
-      text: input.refunds
-        .map((refund) => refund.orderId)
-        .join(", "),
+      text: input.refunds.map((refund) => refund.orderId).join(", "),
     };
   }
 }
@@ -147,6 +145,7 @@ export class ChildBatchWorkflow {}
 
 @Application({
   name: "child-pauses-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [SingleChildWorkflow, ChildBatchWorkflow],

@@ -12,6 +12,7 @@ import {
 import { CountdownWorkflow } from "../../flow/runtime/fixtures/recursion.workflow.js";
 import { RemoteCountdownWorkflow } from "../../flow/runtime/fixtures/remote-recursion.workflow.js";
 import { PlannedIdGenerator } from "./minted-ids.application.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #591 — the planned ids of #578 on a root with a pausing child, a recursion on this instance and
@@ -20,6 +21,7 @@ import { PlannedIdGenerator } from "./minted-ids.application.js";
  */
 @Application({
   name: "repeated-ids-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [SingleChildWorkflow, CountdownWorkflow, RemoteCountdownWorkflow],

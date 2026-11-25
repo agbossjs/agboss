@@ -20,6 +20,7 @@ import {
 import { TreasuryWorkflow, treasuryChannels } from "./replies.fixture.js";
 import { ContactPiiPolicy } from "../../pii/pii.fixture.js";
 import { SensitiveWorkflow, ShopExecutionContext } from "../../pii/sensitive.fixture.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #401 PR 1 — applications that keep their root executions' history (`retention.executionRecords`):
@@ -29,6 +30,7 @@ import { SensitiveWorkflow, ShopExecutionContext } from "../../pii/sensitive.fix
 
 @Application({
   name: "history-desk-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [EvalDeskWorkflow],
@@ -42,6 +44,7 @@ export class HistoryDeskApplication {}
 
 @Application({
   name: "history-treasury-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [TreasuryWorkflow],
@@ -53,6 +56,7 @@ export class HistoryTreasuryApplication {}
 
 @Application({
   name: "history-sensitive-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [SensitiveWorkflow],
@@ -74,6 +78,7 @@ export class RefusingExecutionHistoryRepository extends InMemoryExecutionHistory
 /** The refunds desk on a history store that is down, its log recorded. */
 @Application({
   name: "broken-history-desk-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [EvalDeskWorkflow],
@@ -109,6 +114,7 @@ export class NotingExecutionTreeRepository extends InMemoryExecutionTreeReposito
 /** The refunds desk whose history and tree stores note the order of a tree's end (#699). */
 @Application({
   name: "end-order-desk-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [EvalDeskWorkflow],
@@ -123,6 +129,7 @@ export class EndOrderDeskApplication {}
 /** The treasury whose history and tree stores note the order of a tree's end without a pass (#699). */
 @Application({
   name: "end-order-treasury-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [TreasuryWorkflow],

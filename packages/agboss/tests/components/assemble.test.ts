@@ -95,6 +95,7 @@ describe("components — assembly", () => {
 });
 
 import { Reasoning, ReasoningEffort } from "../../src/models/index.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 describe("components — errors at assembly", () => {
   it("AC3: unknown prompt variables fail at assembly", async () => {
@@ -112,6 +113,7 @@ describe("components — errors at assembly", () => {
     @Workflow({
       ...baseBundle,
       name: "tester-workflow",
+      modelProvider: TestModelProvider,
       historyTtl: Ttl.Forever,
       flow: starOf(Tester),
     })

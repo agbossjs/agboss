@@ -17,6 +17,7 @@ import { onStart } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../src/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** What a component read of its execution (`deps: [ExecutionContext]`, #280). */
 export interface ExecutionSnapshot {
@@ -178,17 +179,13 @@ const defaults = {
   defaults,
   memory: Window1Memory,
   providers: [Pay],
-  flow: [
-    onStart(Start)
-      .toAgent(Clerk)
-      .toAction(Pay)
-      .toFinish(Finish),
-  ],
+  flow: [onStart(Start).toAgent(Clerk).toAction(Pay).toFinish(Finish)],
 })
 export class Checkout {}
 
 @Application({
   name: "checkout-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [Checkout],
@@ -199,6 +196,7 @@ export class CheckoutApplication {}
 /** The same application keeping its execution history (`retention.executionRecords`, #1341d). */
 @Application({
   name: "kept-checkout-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [Checkout],

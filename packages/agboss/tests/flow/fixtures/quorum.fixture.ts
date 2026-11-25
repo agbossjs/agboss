@@ -49,6 +49,7 @@ import {
   SkillsScoreAgent,
 } from "./quorum-agents.js";
 import { ScoreDto } from "./quorum-dtos.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #279 — the issue's quorums, each a workflow: any two of three with a deadline and an arbiter
@@ -98,6 +99,7 @@ export class ValidScoreArbiter {}
 
 @Workflow({
   name: "candidate-review-workflow",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: [
@@ -199,8 +201,7 @@ export class DueDiligenceArbiter {}
       .onGroup(
         [AuditorAgent],
         { priority: 1 },
-        toAction(OpenDealRoomAction)
-          .toFinish(DealRoomOpenedWorkflowFinish),
+        toAction(OpenDealRoomAction).toFinish(DealRoomOpenedWorkflowFinish),
       )
       .onGroup(
         [DealCriticAgent, DealCriticAgent],
@@ -211,11 +212,9 @@ export class DueDiligenceArbiter {}
       )
       .onGroup([FastScreenAgent], { priority: 3 }, toFinish(QuickRejectWorkflowFinish)),
 
-    onAgent(FullReviewAgent)
-      .toFinish(DueDiligenceReportWorkflowFinish),
+    onAgent(FullReviewAgent).toFinish(DueDiligenceReportWorkflowFinish),
 
-    onAction(NotifyReviewerAction)
-      .toFinish(ReviewerNotifiedWorkflowFinish),
+    onAction(NotifyReviewerAction).toFinish(ReviewerNotifiedWorkflowFinish),
   ],
 })
 export class DueDiligenceWorkflow {}

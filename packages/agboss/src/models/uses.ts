@@ -131,6 +131,8 @@ function fileModelUsesOf(
     const use = chat(`fileTranscribers.${name}`, {
       model: files.transcriptionModel,
       maxTokens: files.transcriptionMaxTokens,
+      // the agent's provider reads its files too (#899, #1313)
+      ...(agent.modelProvider === undefined ? {} : { modelProvider: agent.modelProvider }),
     });
     return [{ ...use, needs: transcriberNeedsOf(files), isNeedStrict: true }];
   });
@@ -149,6 +151,7 @@ function redactorUsesOf(
     const use = chat(`fileMaskers.${name}`, {
       model: files.redactionModel,
       maxTokens: files.transcriptionMaxTokens,
+      ...(agent.modelProvider === undefined ? {} : { modelProvider: agent.modelProvider }),
     });
     return [
       {

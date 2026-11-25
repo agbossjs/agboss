@@ -12,6 +12,7 @@ import { defineEnv, env, secret } from "../../src/environments/index.js";
 import { hours } from "../../src/units/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { NoteWorkflow } from "../infrastructure/sqlite/fixtures/sqlite.workflow.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 const keys = defineEnv({
   path: env("REF_TEST_SQLITE_PATH", { default: "app.sqlite" }),
@@ -32,6 +33,7 @@ class KeyedStorage {}
 
 @Application({
   name: "referenced-variables-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [NoteWorkflow],

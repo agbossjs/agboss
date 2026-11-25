@@ -12,6 +12,7 @@ import {
   RecoveryWorkflow,
   StampedExecutionRecordRepository,
 } from "../../infrastructure/fixtures/recovery.workflow.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 @A2AEndpoint({
   name: "orders-a2a-expose",
@@ -24,6 +25,7 @@ export class OrdersA2AExpose {}
 
 @Application({
   name: "orders-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [RecoveryWorkflow],
@@ -37,6 +39,7 @@ export class OrdersApplication {}
 /** The same workflow with no A2A exposed: no projection. */
 @Application({
   name: "orders-internal-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [RecoveryWorkflow],

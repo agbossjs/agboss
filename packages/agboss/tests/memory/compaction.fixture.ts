@@ -24,6 +24,7 @@ import { Application } from "../../src/application/application.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { onStart, toAgent, toFinish } from "../helpers/flow.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 const JEV = "typesafe/jev-1.13";
 
@@ -155,6 +156,7 @@ export class HelpDeskWorkflow {}
 
 @Application({
   name: "help-desk-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [HelpDeskWorkflow],
@@ -182,6 +184,7 @@ export class NotesDeskWorkflow {}
 
 @Application({
   name: "notes-desk-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [NotesDeskWorkflow],
@@ -229,6 +232,7 @@ export class WindowDeskWorkflow {}
 
 @Application({
   name: "window-desk-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [WindowDeskWorkflow],
@@ -271,6 +275,7 @@ export class EagerDeskWorkflow {}
 
 @Application({
   name: "eager-desk-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [EagerDeskWorkflow],

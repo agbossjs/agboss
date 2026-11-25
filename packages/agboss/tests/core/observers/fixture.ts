@@ -7,7 +7,8 @@ import {
   type ExecutionObserver,
   type Provider,
   WorkflowFinish,
-  WorkflowStart, Ttl,
+  WorkflowStart,
+  Ttl,
 } from "../../../src/index.js";
 import { WorkflowStartTextDto, WorkflowFinishTextDto, Text } from "../../../src/dto/index.js";
 import { onStart } from "../../helpers/flow.js";
@@ -15,6 +16,7 @@ import { Application } from "../../../src/application/application.js";
 import type { Class } from "../../../src/components/injection.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../src/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 export class EchoInput {
   @Text() text!: string;
@@ -80,11 +82,7 @@ export function workflowWith(name: string, providers: readonly Provider[] = []):
       tools: { maxToolCalls: 2 },
     },
     memory: Window1Memory,
-    flow: [
-      onStart(Start)
-        .toAgent(Worker)
-        .toFinish(Finish),
-    ],
+    flow: [onStart(Start).toAgent(Worker).toFinish(Finish)],
     providers: [AuditService, ...providers],
   })
   class ObservedWorkflow {}
@@ -104,6 +102,7 @@ export function applicationWith(
   const workflow = workflowWith(name, providers);
   @Application({
     name: name.replace(/-workflow$/, "-application"),
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     environment: EmptyEnvironment,
     workflows: [workflow],

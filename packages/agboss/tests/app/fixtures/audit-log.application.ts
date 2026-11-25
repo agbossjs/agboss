@@ -38,6 +38,7 @@ import {
   ToolEndLog,
 } from "./fence.workflow.js";
 import { IdempotencyKeyEnvironment } from "../../helpers/idempotency-key.environment.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #501 — the fence's release (fence.workflow.ts) and a parent waiting for an `AnyWorker` child
@@ -121,6 +122,7 @@ const WORKFLOWS = [ReleaseWorkflow, AgentReleaseWorkflow, BookedReleaseWorkflow,
 
 @Application({
   name: "audit-log-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: IdempotencyKeyEnvironment,
   workflows: WORKFLOWS,
@@ -131,6 +133,7 @@ export class AuditLogApplication {}
 
 @Application({
   name: "throwing-lease-observer-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: IdempotencyKeyEnvironment,
   workflows: WORKFLOWS,
@@ -142,6 +145,7 @@ export class ThrowingLeaseObserverApplication {}
 
 @Application({
   name: "silent-takeover-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: IdempotencyKeyEnvironment,
   workflows: WORKFLOWS,
@@ -153,6 +157,7 @@ export class SilentTakeoverApplication {}
 
 @Application({
   name: "down-audit-log-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: IdempotencyKeyEnvironment,
   workflows: WORKFLOWS,
@@ -164,6 +169,7 @@ export class DownLeaseLogApplication {}
 
 @Application({
   name: "kept-audit-log-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: IdempotencyKeyEnvironment,
   workflows: WORKFLOWS,

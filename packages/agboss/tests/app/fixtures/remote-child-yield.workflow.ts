@@ -1,5 +1,26 @@
 import { Text } from "../../../src/dto/index.js";
-import { Action, Agent, Channel, ChannelOutcome, ChildPlacement, EmptyEnvironment, ExecutionContext, Observer, listOf, Tool, Workflow, WorkflowFinish, WorkflowStart, type ChannelAsk, type ExecutionEndEvent, type ExecutionStartEvent, type Tracked, inline, ToolApproval, Ttl } from "../../../src/index.js";
+import {
+  Action,
+  Agent,
+  Channel,
+  ChannelOutcome,
+  ChildPlacement,
+  EmptyEnvironment,
+  ExecutionContext,
+  Observer,
+  listOf,
+  Tool,
+  Workflow,
+  WorkflowFinish,
+  WorkflowStart,
+  type ChannelAsk,
+  type ExecutionEndEvent,
+  type ExecutionStartEvent,
+  type Tracked,
+  inline,
+  ToolApproval,
+  Ttl,
+} from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart, toWorkflow } from "../../helpers/flow.js";
@@ -12,6 +33,7 @@ import {
 } from "../../flow/runtime/fixtures/fan-out.workflow.js";
 import { days } from "../../../src/units/index.js";
 import { PauseRespondent } from "../../../src/pause/respondent.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #516 — a parent waiting for its `ChildPlacement.AnyWorker` children while another instance's
@@ -184,9 +206,7 @@ export class YieldCheckedWorkflowFinish {}
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: [
-    onStart(YieldCheckWorkflowStart)
-      .toAction(GatedItemAction)
-      .toFinish(YieldCheckedWorkflowFinish),
+    onStart(YieldCheckWorkflowStart).toAction(GatedItemAction).toFinish(YieldCheckedWorkflowFinish),
   ],
 })
 export class YieldCheckWorkflow {}
@@ -238,9 +258,7 @@ export class YieldOneWorkflowFinish {}
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: [
-    onStart(YieldOneWorkflowStart)
-      .toWorkflow(YieldCheckWorkflow)
-      .toFinish(YieldOneWorkflowFinish),
+    onStart(YieldOneWorkflowStart).toWorkflow(YieldCheckWorkflow).toFinish(YieldOneWorkflowFinish),
   ],
 })
 export class YieldOneWorkflow {}
@@ -298,6 +316,7 @@ export class YieldLog {
 
 @Application({
   name: "remote-child-yield-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [YieldOneWorkflow, YieldReviewsWorkflow],

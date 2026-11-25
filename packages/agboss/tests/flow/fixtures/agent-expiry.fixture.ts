@@ -9,7 +9,8 @@ import {
   listOf,
   type Tracked,
   inline,
-  ToolApproval, Ttl,
+  ToolApproval,
+  Ttl,
 } from "../../../src/index.js";
 import { PauseExpiration } from "../../../src/channels/pause-expiration.js";
 import type { ExpiredContext } from "../../../src/channels/pause-contexts.js";
@@ -34,6 +35,7 @@ import {
   ManagerExternalTask,
 } from "./expiry.fixture.js";
 import { onStart, toAction, toAgent } from "./paths.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #941 AC5 — an agent whose tool calls wait for an approval with a deadline: a refund approved by a
@@ -58,8 +60,8 @@ export const agentExpiry = {
   behavior: undefined as
     | undefined
     | ((
-      ask: ExpiredContext<RefundApprovalToolApproval>,
-    ) => PauseExpiration<RefundApprovalToolApproval>),
+        ask: ExpiredContext<RefundApprovalToolApproval>,
+      ) => PauseExpiration<RefundApprovalToolApproval>),
   /** The contexts the approval targets' handler was called with. */
   asked: [] as ExpiredContext<RefundApprovalToolApproval>[],
   /** What the gate tool waits for: replaced by each test. */
@@ -239,8 +241,7 @@ export class EscalateRefundAction implements ActionHandler<EscalateRefundAction>
       .toAgent(ExpiryRefundAgent)
       .onError(
         PauseExpiredError,
-        toAction(EscalateRefundAction)
-          .toFinish(AgentExpiryWorkflowFinish),
+        toAction(EscalateRefundAction).toFinish(AgentExpiryWorkflowFinish),
       )
       .toFinish(AgentExpiryWorkflowFinish),
   ],
@@ -260,9 +261,7 @@ export class AgentBareWorkflowStart {}
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: [
-    onStart(AgentBareWorkflowStart)
-      .toAgent(ExpiryRefundAgent)
-      .toFinish(AgentExpiryWorkflowFinish),
+    onStart(AgentBareWorkflowStart).toAgent(ExpiryRefundAgent).toFinish(AgentExpiryWorkflowFinish),
   ],
 })
 export class AgentBareWorkflow {}
@@ -405,6 +404,7 @@ export class AgentGatedWorkflow {}
 
 @Application({
   name: "agent-expiry-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [AgentExpiryWorkflow, AgentBareWorkflow, AgentBatchWorkflow, AgentGatedWorkflow],

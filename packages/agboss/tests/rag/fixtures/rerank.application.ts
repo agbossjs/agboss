@@ -25,6 +25,7 @@ import { ragMeta } from "../../../src/components/rag.js";
 import { MODEL_PROVIDERS } from "../../judges/fixtures/judged.workflow.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart } from "../../helpers/flow.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #703 — reranking: 30 candidates, the one that answers ranked 27th by the retriever. A model
@@ -204,6 +205,7 @@ function workflowWith(
   class Finish {}
   @Workflow({
     name: `${name}-workflow`,
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     historyTtl: Ttl.Forever,
     flow: [onStart(Start).toAgent(ReaderAgent).toFinish(Finish)],
@@ -229,6 +231,7 @@ export function rerankApplication(
 ): Class {
   @Application({
     name: "rerank-application",
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     environment: EmptyEnvironment,
     workflows: [

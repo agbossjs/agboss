@@ -16,7 +16,8 @@ import {
   type JudgeHandler,
   type JudgeInput,
   type ToolCallRecord,
-  inline, Ttl,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
 import {
   PlainTextDto,
@@ -31,6 +32,7 @@ import { onStart, toFinish } from "../../helpers/flow.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { MODEL_PROVIDERS } from "../../judges/fixtures/judged.workflow.js";
 import { PromptInjectionGuardrail } from "../../fixtures/guardrails.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #395 — tool-call trajectories: a clerk that looks orders up (a tool that fails for "lost"), a
@@ -128,11 +130,7 @@ const DEFAULTS = {
   name: "clerk-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(ClerkStart)
-      .toAgent(ClerkAgent)
-      .toFinish(ClerkFinish),
-  ],
+  flow: [onStart(ClerkStart).toAgent(ClerkAgent).toFinish(ClerkFinish)],
   defaults: DEFAULTS,
   providers: [TrajectoryLog],
 })
@@ -217,6 +215,7 @@ export class OrderPiiPolicy {}
 
 @Application({
   name: "trajectory-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ClerkWorkflow, FrontDeskWorkflow, StrictClerkWorkflow],

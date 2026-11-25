@@ -26,6 +26,7 @@ import { Application } from "../../src/application/application.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { onStart } from "../helpers/flow.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 /** The variable the test key is read from. */
 export const PII_KEY_VARIABLE = "PII_TEST_PSEUDONYM_KEY";
@@ -189,6 +190,7 @@ export class PiiWorkflow {}
 
 @Workflow({
   name: "open-workflow",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: [onStart(OpenStart).toAgent(OpenAgent).toFinish(OpenFinish)],
@@ -213,6 +215,7 @@ export class PiiAppStorage {}
 
 @Application({
   name: "pii-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [PiiWorkflow, OpenWorkflow],

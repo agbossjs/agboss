@@ -23,6 +23,7 @@ import { EnvironmentError } from "../../src/environments/errors.js";
 import { execute, onStart } from "../helpers/flow.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { Reply } from "../testing/fixtures/desk.workflow.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 class NoteDto {
   @Text({ prompt: "the note" })
@@ -80,6 +81,7 @@ class NotedWorkflow {}
 
 @Application({
   name: "model-using-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [NotedWorkflow],
