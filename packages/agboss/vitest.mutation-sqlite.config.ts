@@ -17,7 +17,7 @@ export default defineConfig({
       // #1166: a stored text that is no JSON is the coded unreadable refusal, at every site
       "tests/infrastructure/sqlite/stored-not-json-sites.test.ts",
       "tests/infrastructure/{fence-fingerprint,store-conformance.sqlite,live-lease-sqlite,repeated-execution-id.sqlite,in-memory-fenced-effect-edges,execution-lease-*-bites}.test.ts",
-      "tests/infrastructure/sqlite/{sqlite-fencing-edges,sqlite-fenced-effect,sqlite-run-once-hold,sqlite-lock-wait,sqlite-finished-leases,sqlite-instances,sqlite-tenants,sqlite-persistence,sqlite-remote-children,subclass,sqlite-schema-version}.test.ts",
+      "tests/infrastructure/sqlite/{sqlite-fencing-edges,sqlite-fenced-effect,sqlite-run-once-hold,sqlite-lock-wait,sqlite-clean-retry,sqlite-finished-leases,sqlite-instances,sqlite-tenants,sqlite-persistence,sqlite-remote-children,subclass,sqlite-schema-version}.test.ts",
       // #1321e: the cluster lease mirror, on the in-memory pair and on SQLite
       "tests/infrastructure/cluster-lease.test.ts",
       "tests/application/cluster-fence-pairing.test.ts",

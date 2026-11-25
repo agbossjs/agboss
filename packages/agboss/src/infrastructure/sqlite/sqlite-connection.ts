@@ -7,11 +7,13 @@ import type { Class } from "../../components/injection.js";
 import { ApplicationContext } from "../../flow/context/application-context.js";
 import type { OnDestroy } from "../../components/container/lifecycle.js";
 import { EnvironmentField } from "../../environments/contract.js";
-import { afterFailedCommit, classifiedDatabase } from "./sqlite-outcome.js";
+import { classifiedDatabase } from "./sqlite-outcome.js";
 import { ensureBaselineSchema } from "./sqlite-baseline-schema.js";
 import { checkedSchemaVersion } from "./sqlite-schema-version.js";
 import { BUSY_TIMEOUT, openSqliteDatabase } from "./sqlite-open.js";
 export { BUSY_TIMEOUT, openSqliteDatabase } from "./sqlite-open.js";
+import { CleanAttempt, inImmediateTransaction, joinedTransaction } from "./sqlite-attempt.js";
+export { inImmediateTransaction } from "./sqlite-attempt.js";
 import { guardedDatabase } from "./sqlite-guard.js";
 import { heldTransaction, SQLITE_HOLD_CAP } from "./sqlite-hold.js";
 import { assertLockWaitBudget, whileBusy } from "./sqlite-lock-wait.js";
@@ -48,33 +50,6 @@ const SqliteEnvironment = z.object({
 const ColumnRow = z.looseObject({ name: z.string() });
 
 /**
- * `work` in one `BEGIN IMMEDIATE` transaction: the write lock is taken first, so of two connections
- * one waits (up to the busy timeout) and each sees the other's committed rows. Rolled back when
- * `work` throws. `work` is synchronous — nothing else runs on this connection meanwhile. A COMMIT
- * that fails is `StoreOutcomeUnknownError` unless SQLite leaves the transaction open (#1017).
- */
-export function inImmediateTransaction<TResult>(
-  database: DatabaseSync,
-  work: () => TResult,
-): TResult {
-  database.exec("BEGIN IMMEDIATE");
-  let result: TResult;
-  try {
-    result = work();
-  } catch (error) {
-    if (database.isTransaction) database.exec("ROLLBACK");
-    throw error;
-  }
-  try {
-    database.exec("COMMIT");
-  } catch (error) {
-    // #1017: a failed COMMIT may have been applied (sqlite-outcome.ts)
-    throw afterFailedCommit(database, error);
-  }
-  return result;
-}
-
-/**
  * The SQLite connection of one application instance: created only by the container, shared by its
  * SQLite stores — and the DI token a subclass of a SQLite implementation names in its `deps`
  * (`@Injectable({ deps: [SqliteConnection, Clock, ApplicationContext] })`, #265 S70; a fencing
@@ -91,6 +66,7 @@ export class SqliteConnection implements OnDestroy {
   readonly #prepared = new Set<string>();
   readonly #database: DatabaseSync;
   readonly #mutex: SqliteMutex<SqliteTransactionScope>;
+  readonly #attempt: CleanAttempt;
 
   constructor(applicationContext: ApplicationContext, settings?: ResolvedSettings) {
     const parsed = SqliteEnvironment.safeParse(
@@ -117,7 +93,9 @@ export class SqliteConnection implements OnDestroy {
       throw error;
     }
     this.#mutex = mutexOfSqliteFile(this.path) as SqliteMutex<SqliteTransactionScope>;
-    this.#database = guardedDatabase(classifiedDatabase(database), this.#mutex, this);
+    const classified = classifiedDatabase(database);
+    this.#attempt = new CleanAttempt(classified);
+    this.#database = guardedDatabase(classified, this.#mutex, this, this.#attempt);
   }
 
   /** The database itself: for the statements of one store. */
@@ -155,12 +133,16 @@ export class SqliteConnection implements OnDestroy {
     work: () => TValue,
     options?: { readonly isPriority?: boolean; readonly isRenewal?: boolean },
   ): TValue | Promise<Awaited<TValue>> {
-    // each try asks the mutex again: a hold of this process may have opened while the lock was waited for
-    return whileBusy(this.#database, () =>
-      options?.isPriority === true
-        ? this.#mutex.ahead(this, work, options.isRenewal === true)
-        : this.#mutex.whenFree(work),
-    );
+    // called from inside another operation: part of its attempt, its busy answer the outer one's
+    if (this.#attempt.isRunning) return this.#mutex.whenFree(work);
+    // each try asks the mutex again (a hold of this process may have opened meanwhile) and is one
+    // clean attempt (sqlite-attempt.ts): a retry never repeats a write
+    return whileBusy(this.#database, () => {
+      const attempt = (): TValue => this.#attempt.run(work);
+      return options?.isPriority === true
+        ? this.#mutex.ahead(this, attempt, options.isRenewal === true)
+        : this.#mutex.whenFree(attempt);
+    });
   }
 
   /** Whether the caller is inside this file's open `runOnce` transaction. */
@@ -229,13 +211,17 @@ export class SqliteConnection implements OnDestroy {
       .map((row) => ColumnRow.parse(row).name);
   }
 
-  /** `work` in one `BEGIN IMMEDIATE` transaction on this connection. */
+  /**
+   * `work` in one `BEGIN IMMEDIATE` transaction. Synchronous: call it from a repository operation
+   * (gated: it waits for another process's lock) or from start-up code.
+   */
   transaction<TResult>(work: () => TResult): TResult {
     if (this.#mutex.isInside)
       throw new IdempotencyError.NestedTransaction({
         message:
           "connection.transaction() was called inside an Idempotency.runOnce: the effect already has its transaction — write through requireTransaction(), so an uncaught error rolls everything back",
       });
+    if (this.#attempt.lock()) return joinedTransaction(this.#database, work);
     return inImmediateTransaction(this.#database, work);
   }
 

@@ -10,7 +10,7 @@ import {
 } from "../cluster-lease-types.js";
 import { ExecutionLeaseRepository, type ExecutionLease } from "../execution-lease-contract.js";
 import type { ClusterLeaseMirror } from "../cluster-lease-types.js";
-import type { SqliteConnection } from "./sqlite-connection.js";
+import { sqliteImplementation, type SqliteConnection } from "./sqlite-connection.js";
 import { reclaimedFenceSql } from "./sqlite-pause.js";
 import type { ExecutionTree } from "../execution-tree.repository.js";
 
@@ -117,3 +117,6 @@ export abstract class SqliteClusterMirror
     return Promise.resolve(mirroredOnSqlite(this.connection.database, tree));
   }
 }
+
+// its operations are gated for every store that extends it (the lease store, a store package's own)
+sqliteImplementation(SqliteClusterMirror);
