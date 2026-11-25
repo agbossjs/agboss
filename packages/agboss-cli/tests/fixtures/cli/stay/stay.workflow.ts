@@ -38,9 +38,11 @@ export class StayWorkflowFinish {}
   name: "stay-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [onStart(HotelWorkflowStart)
-    .toAction(ConfirmAction)
-    .toFinish(StayWorkflowFinish)],
+  flow: [
+    onStart(HotelWorkflowStart)
+      .toAction(ConfirmAction)
+      .toFinish(StayWorkflowFinish),
+  ],
 })
 export class StayWorkflow {}
 

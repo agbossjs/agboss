@@ -86,7 +86,8 @@ export class StudioItemsWorkflowStart {}
 export class SummaryAction {
   execute(input: { readonly results: readonly StudioResultDto[] }): Promise<StudioSummaryDto> {
     return Promise.resolve({
-      text: input.results.map((result) => result.name)
+      text: input.results
+        .map((result) => result.name)
         .join(", "),
     });
   }

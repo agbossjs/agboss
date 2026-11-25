@@ -1,6 +1,7 @@
 // `agboss run` after a pause (#1123): one agent on the default OpenRouter provider whose only tool
 // asks for an approval in the terminal (its role is answered by the thread's owner).
-import { Agent,
+import {
+  Agent,
   Application,
   Channel,
   ChannelOutcome,
@@ -11,7 +12,10 @@ import { Agent,
   WorkflowFinish,
   WorkflowStart,
   type ChannelAsk,
-  inline, ToolApproval, Ttl } from "../../../../../agboss/src/index.js";
+  inline,
+  ToolApproval,
+  Ttl,
+} from "../../../../../agboss/src/index.js";
 import {
   Text,
   WorkflowFinishTextDto,

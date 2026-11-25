@@ -6,20 +6,32 @@ import {
   type Page,
 } from "../../../src/index.js";
 import { type OutboundCallStatusQuery } from "../../../src/stores/index.js";
+import { MAX_OUTBOUND_CALL_PAGE } from "../../../src/infrastructure/outbound-call-pages.js";
 import { outboundCallContract } from "../../../src/testing/contracts/index.js";
 import { inMemoryOutboundCalls } from "../../infrastructure/contracts/outbound-call-stores.js";
 import { inMemoryTarget } from "../../infrastructure/contracts/store-kinds.js";
 
-/** Every matching row, as the core's in-memory store lists it in one page. */
+/** Every matching row, as the core's in-memory store lists it: its own pages (none is larger than the store allows), joined. */
 async function allOf(
   store: InMemoryOutboundCallRepository,
   query: OutboundCallStatusQuery,
 ): Promise<readonly OutboundCallRecord[]> {
-  const page = await InMemoryOutboundCallRepository.prototype.findAllByTenantIdAndStatus.call(
-    store,
-    { ...query, limit: 1_000_000 },
-  );
-  return page.items;
+  const rows: OutboundCallRecord[] = [];
+  const { tenantId, status } = query;
+  for (let cursor: string | undefined; ;) {
+    const page = await InMemoryOutboundCallRepository.prototype.findAllByTenantIdAndStatus.call(
+      store,
+      {
+        tenantId,
+        status,
+        limit: MAX_OUTBOUND_CALL_PAGE,
+        ...(cursor === undefined ? {} : { cursor }),
+      },
+    );
+    rows.push(...page.items);
+    if (page.nextCursor === undefined) return rows;
+    cursor = page.nextCursor;
+  }
 }
 
 /** Pages by an offset into what matches now: a row that leaves the status shifts the next page. */

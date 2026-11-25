@@ -34,7 +34,13 @@ const complete: DriverModelProviderOptions = {
   }),
 };
 
-@ModelProvider({ ...complete, circuitBreakerPolicy: null } as unknown as DriverModelProviderOptions)
+/** A JS caller's `null` breaker, which the options' type refuses: the spread's type still holds `T`. */
+const withNullBreaker = <T extends object>(options: T): T => ({
+  ...options,
+  circuitBreakerPolicy: null,
+});
+
+@ModelProvider(withNullBreaker(complete))
 export class NullBreakerModelProvider {}
 
 /** The application `agboss --application` loads: the test workflow on that provider. */

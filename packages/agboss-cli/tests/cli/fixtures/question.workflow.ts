@@ -38,7 +38,12 @@ export class LimitAnswerDto {
 })
 export class LimitExternalTask {}
 
-@Channel({ name: "terminal-limit-channel", description: "Waits for the terminal", target: LimitExternalTask, ttl: days(1) })
+@Channel({
+  name: "terminal-limit-channel",
+  description: "Waits for the terminal",
+  target: LimitExternalTask,
+  ttl: days(1),
+})
 export class TerminalLimitChannel {
   send(): Promise<ChannelOutcome<LimitExternalTask>> {
     return Promise.resolve(ChannelOutcome.awaitReply());

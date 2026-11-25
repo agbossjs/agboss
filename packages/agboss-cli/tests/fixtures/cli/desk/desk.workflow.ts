@@ -122,7 +122,11 @@ export class ScoreWorkflowFinish {}
   name: "inbox-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [onStart(InboxWorkflowStart).toAction(EchoAction).toFinish(EchoWorkflowFinish)],
+  flow: [
+    onStart(InboxWorkflowStart)
+      .toAction(EchoAction)
+      .toFinish(EchoWorkflowFinish),
+  ],
 })
 export class InboxWorkflow {}
 
@@ -131,9 +135,15 @@ export class InboxWorkflow {}
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: [
-    onStart(ScreeningWorkflowStart).toAction(ScreenAction).toFinish(ScoreWorkflowFinish),
-    onStart(BatchScreeningWorkflowStart).toAction(RankAction).toFinish(ScoreWorkflowFinish),
-    onStart(CriteriaScreeningWorkflowStart).toAction(CriteriaAction).toFinish(ScoreWorkflowFinish),
+    onStart(ScreeningWorkflowStart)
+      .toAction(ScreenAction)
+      .toFinish(ScoreWorkflowFinish),
+    onStart(BatchScreeningWorkflowStart)
+      .toAction(RankAction)
+      .toFinish(ScoreWorkflowFinish),
+    onStart(CriteriaScreeningWorkflowStart)
+      .toAction(CriteriaAction)
+      .toFinish(ScoreWorkflowFinish),
   ],
 })
 export class ScreeningWorkflow {}

@@ -9,7 +9,8 @@ import {
   BudgetScope,
   EmptyEnvironment,
   type BudgetHandler,
-  inline, Ttl,
+  inline,
+  Ttl,
 } from "../../../../agboss/src/index.js";
 import { Action } from "../../../../agboss/src/flow/decorators/action.js";
 import { Agent } from "../../../../agboss/src/flow/decorators/agent.js";

@@ -119,25 +119,29 @@ const toolApiOf = (srcDir: string, tool: Names, at: WorkflowPlacement): ToolApi 
 const srcDirFrom = (at: WorkflowPlacement): string =>
   at.srcDir ?? (basename(dirname(at.dir)) === "workflows" ? dirname(dirname(at.dir)) : at.dir);
 
+/** The flow's `.onRoute(…)` of one agent: it answers, and the workflow ends. */
+const routeOf = (a: { readonly names: { readonly pascal: string } }): string =>
+  `      .onRoute(toAgent(${a.names.pascal}Agent)\n        .toFinish(TextWorkflowFinish))`;
+
+/** The agents of a spec with their full names. */
+const plannedAgentsOf = (spec: WorkflowSpec): PlannedAgent[] =>
+  spec.agents.map((a) => ({
+    spec: a,
+    names: fullNameOf(a.name, "agent"),
+    tools: a.tools.map((tool) => fullNameOf(tool, "tool")),
+  }));
+
 /**
  * Every file of one new workflow (#268 AC8): its start and finish, its main router, its agents with
  * their tools and tests, its MCP server and knowledge base, the module and its test. Names are
  * full names: the workflow's ends with `-workflow`, an agent's with `-agent`, a tool's with `-tool`.
  */
-/** The flow's `.onRoute(…)` of one agent: it answers, and the workflow ends. */
-const routeOf = (a: { readonly names: { readonly pascal: string } }): string =>
-  `      .onRoute(toAgent(${a.names.pascal}Agent)\n        .toFinish(TextWorkflowFinish))`;
-
 export function planWorkflow(spec: WorkflowSpec, at: WorkflowPlacement): FileToWrite[] {
   const workflow = fullNameOf(spec.name, "workflow");
   const { dir } = at;
   const srcDir = srcDirFrom(at);
   const routerNames = namesOf(at.routerName ?? "main");
-  const agents: PlannedAgent[] = spec.agents.map((a) => ({
-    spec: a,
-    names: fullNameOf(a.name, "agent"),
-    tools: a.tools.map((tool) => fullNameOf(tool, "tool")),
-  }));
+  const agents = plannedAgentsOf(spec);
   const [first] = agents;
   if (first === undefined) throw new ScaffoldUsageError("A workflow needs at least one agent");
   const [firstAgent, ...otherAgentFiles] = agents.flatMap((a) =>

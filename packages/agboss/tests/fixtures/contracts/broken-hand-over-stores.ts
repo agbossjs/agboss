@@ -25,7 +25,10 @@ import {
   checkInMemoryFence,
   raiseInMemoryMark,
 } from "../../../src/infrastructure/in-memory-fenced-effect.repository.js";
-import { checkInMemoryCancel } from "../../../src/infrastructure/in-memory-database.js";
+import {
+  checkInMemoryCancel,
+  prunedFencedAt,
+} from "../../../src/infrastructure/in-memory-database.js";
 import type { FencedEffectTarget } from "../../../src/testing/contracts/index.js";
 import {
   sharedInMemory,
@@ -69,7 +72,8 @@ export class UnlockedCheckEffects extends FencedEffectRepository {
         this.results.delete(row);
         removed += 1;
       }
-    return Promise.resolve(removed);
+    // the scopes' marks, kept in the database as every store's (the latest expiry of a scope's results)
+    return Promise.resolve(removed + prunedFencedAt(this.seam.database, now.getTime()));
   }
 
   protected runInTransaction<TResult>(

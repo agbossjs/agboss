@@ -32,7 +32,11 @@ import {
   type IdempotencyRunOutcome,
   type FencedEffectWork,
 } from "../../../src/infrastructure/fenced-effect.repository.js";
-import { checkInMemoryCancel, treeKeyOf } from "../../../src/infrastructure/in-memory-database.js";
+import {
+  checkInMemoryCancel,
+  prunedFencedAt,
+  treeKeyOf,
+} from "../../../src/infrastructure/in-memory-database.js";
 import {
   checkInMemoryFence,
   InMemoryFencedEffectRepository,
@@ -84,7 +88,8 @@ abstract class BrokenEffects extends FencedEffectRepository {
         this.results.delete(row);
         removed += 1;
       }
-    return Promise.resolve(removed);
+    // the scopes' marks, kept in the database as every store's (the latest expiry of a scope's results)
+    return Promise.resolve(removed + prunedFencedAt(this.seam.database, now.getTime()));
   }
 
   /** The stored result of `key`, replayed. */
