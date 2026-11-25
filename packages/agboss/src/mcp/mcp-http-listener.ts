@@ -65,9 +65,14 @@ export interface McpHttpListenerOptions {
   readonly base?: string;
   /** The largest request body read: over it `413`, nothing run. By default `kilobytes(1024)`. */
   readonly maxBodySize?: Bytes;
-  /** How long an idle session lives, and how many sessions one caller and the listener keep open (safe defaults). */
+  /**
+   * How long a session may sit with no request in flight before the listener closes it; each request
+   * (and each open stream) renews it. By default `minutes(30)`.
+   */
   readonly sessionIdleTimeout?: Milliseconds;
+  /** The sessions one caller (its peer, owner and tenant; every anonymous caller counts as one) may keep open: over it `429`. By default 100. */
   readonly maxSessionsPerCaller?: number;
+  /** The sessions open in all: over it `503`. By default 10 000. */
   readonly maxSessions?: number;
   /** Told of an error the listener or the authenticator hit, with the request: its text never goes on the wire. */
   readonly onError?: (error: unknown, req: IncomingMessage) => void;
