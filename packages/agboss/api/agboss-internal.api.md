@@ -254,12 +254,9 @@ export interface AssembledWorkflow<TName extends string = string> {
     // (undocumented)
     readonly prompts: AgentPrompts<TName>;
     readonly replyInterpreters?: readonly AssembledReplyInterpreter[];
-    readonly rerankers?: readonly {
-        readonly name: string;
-        readonly model: string;
-        readonly modelProvider?: string;
+    readonly rerankers?: readonly (RerankerModelUse & {
         readonly prompt?: string;
-    }[];
+    })[];
     readonly resolve: (services: WorkflowServices) => (token: Class) => unknown;
     readonly routers: readonly LoadedRouter[];
     readonly serverTools?: readonly McpFacade[];
@@ -1340,6 +1337,7 @@ export function migratedDatabaseOf(storage: AssembledStorage | undefined, proces
 // @public
 export class ModelProviderDirectory {
     constructor(providers: readonly RegisteredModelProvider[]);
+    named(name: string): RegisteredModelProvider | undefined;
     static of(classes: readonly ModelProviderType[]): ModelProviderDirectory;
     // (undocumented)
     readonly providers: readonly RegisteredModelProvider[];
@@ -1770,7 +1768,7 @@ export interface WorkflowServices {
     readonly contexts?: RuntimeContexts;
     readonly decide?: DecisionService;
     readonly rerankInstructions?: (reranker: string) => string;
-    readonly rerankModel?: (reranker: string, model: string, modelProvider?: string) => ModelBinding;
+    readonly rerankModel?: (reranker: RerankerModelUse) => ModelBinding;
     readonly router: (name: string) => RouterEngine;
 }
 

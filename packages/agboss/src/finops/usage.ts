@@ -183,6 +183,31 @@ export function recordUsage(
   );
 }
 
+/**
+ * The record of a call its provider answered — and billed — that `recordUsage` could not price (it
+ * threw a `ModelCostError`): its tokens at 0 USD, `CostSource.Unpriced`, under the model and provider
+ * that served it (bughunt 2026-11-25 #2). The call still fails as it did; its tokens are never dropped,
+ * so a token budget counts them.
+ */
+export function unpricedUsageOf(
+  caller: string,
+  settings: Pick<ResolvedModelSettings, "model" | "modelProvider">,
+  message: UsageCarrier,
+): UsageRecord {
+  const usage = extractTokenUsage(message);
+  const servedBy = servedByOf(message.response_metadata);
+  const fallback = fallbackMarkOf(message.response_metadata);
+  return {
+    caller,
+    model: fallback?.model ?? settings.model,
+    ...usage,
+    ...(servedBy === undefined ? {} : { servedBy }),
+    provider: (fallback === undefined ? settings.modelProvider : fallback.provider) ?? NO_PROVIDER,
+    costUsd: usd(0),
+    costSource: CostSource.Unpriced,
+  };
+}
+
 /** The cost of a call's tokens at the model's price: no amount (NaN) is never accounted (#817). */
 function pricedOf(
   caller: string,

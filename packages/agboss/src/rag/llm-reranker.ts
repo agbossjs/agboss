@@ -1,6 +1,12 @@
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { copyOfResult, type RagSearchResultDto } from "./dto.js";
-import { recordUsage, type UsageRecord } from "../finops/usage.js";
+import {
+  ModelCostError,
+  recordUsage,
+  unpricedUsageOf,
+  type UsageCarrier,
+  type UsageRecord,
+} from "../finops/usage.js";
 import type { ModelBinding } from "../llm/registry.js";
 import type { RerankerHandler, RerankResult } from "./types.js";
 import { chargedCall, reportToFrame } from "../finops/charged-call.js";
@@ -39,6 +45,22 @@ export class RerankReplyError extends Error {
     readonly usage: readonly UsageRecord[],
   ) {
     super(message);
+  }
+}
+
+/**
+ * The record of the reranker's answered call. One its accounting cannot price still spent: the call
+ * fails as a reply error that carries its tokens, unpriced, so `Fallback` and `FailStep` both keep
+ * the paid call's spend (bughunt 2026-11-25 #2).
+ */
+function billedUsageOf(caller: string, binding: ModelBinding, response: UsageCarrier): UsageRecord {
+  try {
+    return recordUsage(caller, binding.settings, response);
+  } catch (error) {
+    if (!(error instanceof ModelCostError)) throw error;
+    throw new RerankReplyError(error.message, [
+      unpricedUsageOf(caller, binding.settings, response),
+    ]);
   }
 }
 
@@ -145,7 +167,7 @@ export function modelRerankerOf(
       const response = await chargedCall(spec, (callbacks) =>
         binding.model.invoke(messages, { signal, callbacks }),
       );
-      const usage = [recordUsage(`reranker:${name}`, binding.settings, response)];
+      const usage = [billedUsageOf(`reranker:${name}`, binding, response)];
       const ranking = rankingOf(response.text, candidates.length);
       if (ranking === undefined)
         throw new RerankReplyError(

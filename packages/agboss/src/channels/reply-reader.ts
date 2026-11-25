@@ -183,8 +183,8 @@ export interface ReplyReaderParts {
   readonly interpreters: readonly AssembledReplyInterpreter[];
   readonly gateway: ModelGateway;
   readonly chatDefaults: ChatDefaults;
-  /** Settings (price) of a chat model, by model id — like a chat-model router's. */
-  readonly chatModelSettings: (model: string) => ModelSettings;
+  /** Settings (price) of a chat model, by its provider and model id — like a chat-model router's. */
+  readonly chatModelSettings: (model: string, modelProvider?: string) => ModelSettings;
   /** A code interpreter's instance (the container's, or a test's mock). */
   readonly instanceOf: (interpreter: Class) => unknown;
 }

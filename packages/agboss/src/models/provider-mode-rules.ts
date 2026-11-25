@@ -12,6 +12,7 @@ import {
 import { modelPricesProblemOf } from "./cost.js";
 import { fallbackCycleOf } from "./fallback-chain.js";
 import { listedModelProvidersOf, withFallbacks } from "./resolution.js";
+import { tokenName } from "../components/injection.js";
 
 /**
  * A `@ModelProvider` is either a driver — `driver`, an empty class — or a transport (#385):
@@ -136,6 +137,34 @@ export function providerFallbackViolations(
         : [];
     return [...cycle, ...mismatch];
   });
+}
+
+/**
+ * `[model.duplicate-provider-name]` (bughunt 2026-11-25 #1): two `@ModelProvider` classes of one `name`
+ * among the providers a place reaches — listed, named by a cascade level or a component, a profile's
+ * slot, a breaker's fallback. A model use is resolved to its provider's `name`, so the second class's
+ * calls would go to the first one's upstream with the first one's key and be accounted under it.
+ */
+export function providerNameViolations(
+  scope: string,
+  providers: readonly Provider[] | undefined,
+): RuleViolation[] {
+  const byName = new Map<string, ModelProviderType[]>();
+  for (const cls of withFallbacks(listedModelProvidersOf(providers))) {
+    const { name } = modelProviderOf(cls);
+    byName.set(name, [...(byName.get(name) ?? []), cls]);
+  }
+  return [...byName].flatMap(([name, classes]) =>
+    classes.length < 2
+      ? []
+      : [
+          violation(
+            "model.duplicate-provider-name",
+            `${name} names ${classes.map(tokenName).join(" and ")} — each @ModelProvider needs its own name`,
+            [scope],
+          ),
+        ],
+  );
 }
 
 /**

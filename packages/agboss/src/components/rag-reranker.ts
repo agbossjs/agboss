@@ -1,6 +1,5 @@
-import { GraphRuleError, violation, type RuleViolation } from "../graph/rule-error.js";
-import { modelNamedBy, type ModelCascade } from "../models/model-cascade.js";
-import { isModelProviderClass, modelProviderOf } from "../models/model-provider.decorator.js";
+import type { ModelCascade } from "../models/model-cascade.js";
+import { componentModelOf, modelResolverOf, type ModelResolver } from "../models/model-resolver.js";
 import type { BoundReranker } from "../rag/rerank.js";
 import { isCodeRerankerClass, type RecordedRerankerMeta } from "../rag/reranker.decorator.js";
 import type { PromptLoader } from "./prompt-render.js";
@@ -10,101 +9,66 @@ import type { Class } from "./injection.js";
 import { ComponentError } from "./metadata.js";
 import { ragMeta, rerankedBy, type RagMeta } from "./rag.js";
 
-/** A model reranker's model as the cascade resolves it, and the provider that serves it. */
+/** A model reranker's model as the cascade resolves it, the provider that serves it and its price mark. */
 export interface ResolvedRerankerModel {
   readonly name: string;
   readonly model: string;
   readonly modelProvider?: string;
+  /** Its provider has no `cost` (#1313): its calls are 0 USD records with their tokens. */
+  readonly unpriced?: true;
   /** Its `prompt` as assembly read it (#1347); `""` when it has none. */
   readonly prompt?: string;
 }
 
-/** The `@ModelProvider` class of this `name` among those the workflow reaches. */
-const providerNamed = (name: string, cascade: ModelCascade): Class | undefined =>
-  (cascade.componentModels?.providers ?? []).find(
-    (cls) => isModelProviderClass(cls) && modelProviderOf(cls).name === name,
-  );
-
-/** The reranker with what a profile's `ragRerankers` shelf changes of its model and provider; a provider named that is none is a violation. */
-function overriddenReranker(
-  meta: { readonly name: string; readonly model?: string; readonly modelProvider?: Class },
-  cascade: ModelCascade,
-): typeof meta | RuleViolation {
-  const key = `ragRerankers.${meta.name}`;
-  const override = cascade.componentModels?.byKey.get(key);
-  if (override === undefined) return meta;
-  cascade.componentModels?.reached.add(key);
-  const named = override.modelProvider;
-  const provider = typeof named === "string" ? providerNamed(named, cascade) : named;
-  if (typeof named === "string" && provider === undefined)
-    return violation(
-      "model.missing-provider",
-      `profile: ragRerankers.${meta.name}.modelProvider: no such model provider reaches the workflow`,
-      [meta.name],
-    );
+/**
+ * A model reranker's model through the workflow's cascade resolver, like every other model use
+ * (`ragRerankers.<name>`, bughunt 2026-11-25 #6): its own `modelProvider` and `model`, a profile's
+ * override of either, a profile's `modelProviders` overlay of the provider's model names, and the
+ * levels' `defaults.models.model` — never the declared provider options alone.
+ */
+function rerankerModelOf(
+  resolver: ModelResolver,
+  declared: { readonly name: string; readonly model?: string; readonly modelProvider?: Class },
+): ResolvedRerankerModel {
   return {
-    ...meta,
-    ...(override.model === undefined ? {} : { model: override.model }),
-    ...(provider === undefined ? {} : { modelProvider: provider }),
+    name: declared.name,
+    ...componentModelOf(resolver, `ragRerankers.${declared.name}`, {
+      model: declared.model,
+      provider: declared.modelProvider,
+      isRequired: true,
+    }),
   };
 }
 
-/**
- * A model reranker's model: its own `model`, else its provider's default — the provider it names, else
- * its workflow's, else its application's. None of them has one → `[model.missing]`; no provider
- * anywhere and no `model` → `[model.missing-provider]`.
- */
-function rerankerModelOf(
-  cls: Class,
-  declared: { readonly name: string; readonly model?: string; readonly modelProvider?: Class },
-  cascade: ModelCascade,
-): ResolvedRerankerModel | RuleViolation {
-  const overridden = overriddenReranker(declared, cascade);
-  if ("code" in overridden) return overridden;
-  const meta = overridden;
-  const level = meta.modelProvider ?? cascade.workflow ?? cascade.application;
-  const options =
-    level !== undefined && isModelProviderClass(level) ? modelProviderOf(level) : undefined;
-  if (options === undefined) {
-    if (meta.model !== undefined) return { name: meta.name, model: meta.model };
-    return violation(
-      "model.missing-provider",
-      `${meta.name}: a model reranker names no model and no @ModelProvider serves it — set modelProvider on it, its workflow or its application, or model on it (${cls.name})`,
-      [meta.name],
-    );
+/** The model rerankers of knowledge bases, each once: its class and what it declares. */
+function modelRerankersOf(rags: readonly Class[]): ReadonlyMap<string, RecordedRerankerMeta> {
+  const found = new Map<string, RecordedRerankerMeta>();
+  for (const rag of rags) {
+    const reranked = rerankedBy(ragMeta(rag));
+    if (reranked === undefined || isCodeRerankerClass(reranked.cls)) continue;
+    if (!found.has(reranked.meta.name)) found.set(reranked.meta.name, reranked.meta);
   }
-  const model = modelNamedBy(options, meta.model);
-  if (model === undefined)
-    return violation(
-      "model.missing",
-      `${meta.name}: names no model and ${options.name} has no model or models.default — set model on the reranker or on the provider`,
-      [meta.name],
-    );
-  return { name: meta.name, model, modelProvider: options.name };
+  return found;
 }
 
-/** The model rerankers' models of knowledge bases, once each, resolved through the cascade. */
+/**
+ * The model rerankers' models of knowledge bases, once each, resolved through the cascade: on the
+ * workflow's resolver at assembly (its violations thrown with the other model uses' by its `check`),
+ * else on a resolver of `cascade` of their own, checked here.
+ */
 export function rerankerModelsOf(
   rags: readonly Class[],
   cascade: ModelCascade = {},
   prompts: ReadonlyMap<string, string> = new Map(),
+  shared?: ModelResolver,
 ): readonly ResolvedRerankerModel[] {
-  const found = new Map<string, ResolvedRerankerModel | RuleViolation>();
-  for (const rag of rags) {
-    const reranked = rerankedBy(ragMeta(rag));
-    if (reranked === undefined || isCodeRerankerClass(reranked.cls)) continue;
-    if (!found.has(reranked.meta.name))
-      found.set(reranked.meta.name, rerankerModelOf(reranked.cls, reranked.meta, cascade));
-  }
-  const all = [...found.values()];
-  const violations = all.filter((one): one is RuleViolation => "code" in one);
-  if (violations.length > 0) throw new GraphRuleError({ violations });
-  return all
-    .filter((one): one is ResolvedRerankerModel => !("code" in one))
-    .map((one) => {
-      const prompt = prompts.get(one.name) ?? "";
-      return prompt === "" ? one : { ...one, prompt };
-    });
+  const resolver = shared ?? modelResolverOf("rerankers", cascade);
+  const all = [...modelRerankersOf(rags).values()].map((meta) => rerankerModelOf(resolver, meta));
+  if (shared === undefined) resolver.check();
+  return all.map((one) => {
+    const prompt = prompts.get(one.name) ?? "";
+    return prompt === "" ? one : { ...one, prompt };
+  });
 }
 
 /**
@@ -147,13 +111,15 @@ export function boundRerankerOf(
   const { cls, meta: reranker } = reranked;
   const isCode = isCodeRerankerClass(cls);
   const binding = () => {
-    const resolved = rerankerModelOf(cls, reranker, cascade);
-    if ("code" in resolved) throw new GraphRuleError({ violations: [resolved] });
+    // the cascade's resolver, as at assembly: a profile's overlay and override reach the call too
+    const resolver = modelResolverOf(meta.name, cascade);
+    const resolved = rerankerModelOf(resolver, reranker);
+    resolver.check();
     if (services.rerankModel === undefined)
       throw new ComponentError({
         message: `[reranker.no-model-gateway] ${reranker.name}: no model gateway here`,
       });
-    return services.rerankModel(reranker.name, resolved.model, resolved.modelProvider);
+    return services.rerankModel(resolved);
   };
   return {
     rag: meta.name,

@@ -247,7 +247,10 @@ class Bare {}
 describe("#1366: a model reranker's model through the cascade", () => {
   it("none of its own: the default of its provider — its own, else its workflow's, else its application's", () => {
     rerankerMeta[ModelReranker.name] = { name: "model-reranker", candidates: 20 };
-    const expected = [{ name: "model-reranker", model: "fast/default", modelProvider: "fast" }];
+    // a provider with no cost: its calls are unpriced, the mark travels with the model (bughunt 2026-11-25 #2)
+    const expected = [
+      { name: "model-reranker", model: "fast/default", modelProvider: "fast", unpriced: true },
+    ];
 
     expect(rerankerModelsOf([DocsRag], { workflow: Fast })).toEqual(expected);
     expect(rerankerModelsOf([DocsRag], { application: Fast })).toEqual(expected);
@@ -262,11 +265,11 @@ describe("#1366: a model reranker's model through the cascade", () => {
   it("a role is the provider's mapping; a name no mapping knows is the vendor's own", () => {
     rerankerMeta[ModelReranker.name] = { name: "model-reranker", candidates: 20, model: "cheap" };
     expect(rerankerModelsOf([DocsRag], { workflow: Fast })).toEqual([
-      { name: "model-reranker", model: "fast/cheap", modelProvider: "fast" },
+      { name: "model-reranker", model: "fast/cheap", modelProvider: "fast", unpriced: true },
     ]);
     rerankerMeta[ModelReranker.name] = { name: "model-reranker", candidates: 20, model: "x/y" };
     expect(rerankerModelsOf([DocsRag], { workflow: Fast })).toEqual([
-      { name: "model-reranker", model: "x/y", modelProvider: "fast" },
+      { name: "model-reranker", model: "x/y", modelProvider: "fast", unpriced: true },
     ]);
   });
 
@@ -358,7 +361,7 @@ describe("#1366: the reranker bound to a knowledge base", () => {
   });
 
   it("is a model reranker: its candidates, a failed step by default, and its model from the gateway of the services", () => {
-    const rerankModel = vi.fn((name: string, model: string) => ({ name, model }));
+    const rerankModel = vi.fn((use: { name: string; model: string }) => use);
     const out = bound(DocsRag, { rerankModel });
 
     expect(out).toMatchObject({

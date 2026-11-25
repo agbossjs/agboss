@@ -250,25 +250,25 @@ export async function createWorkflowDeps(
   const contexts =
     parts.contexts ?? contextsOutsideExecution(bundle.config, options.environment, clock);
   const started = await appModelsFor(bundle, options, parts, contexts);
-  const { gateway, ...models } = started;
+  const { gateway, pricing, ...models } = started;
   const lifecycle = lifecycleOf(options.container, parts.infrastructure, parts.created);
-  const services = servicesFor(bundle, gateway, contexts, lifecycle.options);
+  const services = servicesFor(bundle, gateway, contexts, lifecycle.options, pricing);
   const { tools, config } = await startedModels(bundle, started, services, lifecycle);
   const connect = options.connectMcp ?? connectConfigured(options.transport);
   const mcp = await connect(bundle, config, env, mcpIdentityOf(contexts));
   throwIfViolated(redactorValuesViolations(bundle, config, contexts));
-  const pii = piiFor(bundle, config, { gateway, services, contexts, env }, parts);
+  const pii = piiFor(bundle, config, { gateway, pricing, services, contexts, env }, parts);
   const tracing = await tracingFor(options, pii.observability, config.name, parts);
   const components = componentsAtStart(bundle, services);
   const budgets = budgetsOf(parts.budgets, components.container, parts.infrastructure, clock);
   const own = ownNoticesOf(parts.notices);
   const deps = {
     config,
-    registry: createModelRegistry(config, gateway),
-    ...flowFor(bundle, config, gateway, options.branchScheduler),
+    registry: createModelRegistry(config, gateway, pricing),
+    ...flowFor(bundle, config, gateway, pricing, options.branchScheduler),
     prompts: bundle.prompts,
     ...hashedProvidersOf(bundle),
-    ...policiesFor(bundle, services, config, gateway),
+    ...policiesFor(bundle, services, config, gateway, pricing),
     tools: toolLookup(tools),
     pause: pauseFor(checkpointer, parts.infrastructure.pausedExecutions, turns, own.notices),
     ...(bundle.memories === undefined ? {} : { memories: bundle.memories }),
@@ -280,7 +280,7 @@ export async function createWorkflowDeps(
     tracing,
     contexts,
     clock,
-    replies: repliesFor(bundle, config, gateway, components.container),
+    replies: repliesFor(bundle, config, gateway, pricing, components.container),
     ...observedBy(parts.observer, parts.infrastructure.logger, clock, pii.observability),
     ...treeDepsOf(parts.infrastructure, withChainedChildren(parts, pii)), // #1150
     ...historyKeeperOf(historySourcesOf(parts, bundle), { clock, contexts, pii, answers: turns }),

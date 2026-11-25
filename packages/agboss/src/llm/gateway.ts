@@ -1,5 +1,8 @@
 import { servedDecisionOf } from "./decisions-failover.js";
 import { billedDecisionRecord, withDecisionSpend } from "../finops/failed-decision.js";
+import { pricedDecisionRecord } from "../finops/decision-price.js";
+import type { UsageRecord } from "../finops/usage.js";
+import type { ModelPricing } from "../models/model-pricing.js";
 import type { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import type { ResolvedModelSettings } from "../config/types.js";
 import {
@@ -103,6 +106,8 @@ export interface ModelClients {
   readonly chatModel: ModelFactory;
   readonly jevClient: JevClient;
   readonly kindOf?: ModelGateway["kindOf"];
+  /** Prices a decision its provider reported no cost for, by that provider's table (bughunt 2026-11-25 #2). */
+  readonly pricing?: ModelPricing;
 }
 
 /** Settings that make a different client; identical ones share one. */
@@ -115,6 +120,29 @@ const clientKey = (settings: ResolvedModelSettings): string =>
     settings.promptCaching,
     settings.modelProvider,
   ]);
+
+/** One decision through the clients: validated, recorded under who answered, priced by its table (bughunt #2). */
+async function decisionOf(
+  clients: ModelClients,
+  { caller, model, modelProvider, request }: DecideSpec,
+): Promise<DecisionOutcome> {
+  checkDecisionRequest(request);
+  const { state, questions } = request;
+  const raw = await clients.jevClient({ model, state, questions }, modelProvider);
+  // a fallback that answered is who the call is recorded under, as its own model (#1313d)
+  const by = servedDecisionOf(raw);
+  const answered = { model: by?.model ?? model, provider: by?.provider ?? modelProvider };
+  const priced = (record: UsageRecord): UsageRecord =>
+    pricedDecisionRecord(record, raw, answered.model, clients.pricing);
+  try {
+    const outcome = readDecision(raw, { caller, ...answered, questions });
+    return { ...outcome, usage: priced(outcome.usage) };
+  } catch (error) {
+    // the provider answered and billed it: the spend travels with the failure, once (#1399)
+    const call = { caller, ...answered };
+    throw withDecisionSpend(error, priced(billedDecisionRecord(call, { state, questions }, raw)));
+  }
+}
 
 /** The default gateway over raw clients: one chat client per settings, Jev or LLM decisions. */
 export function createModelGateway(clients: ModelClients): DecidingGateway {
@@ -133,32 +161,14 @@ export function createModelGateway(clients: ModelClients): DecidingGateway {
           client: (request) => clients.jevClient(request, model.modelProvider),
           provider: model.modelProvider,
           servedBy: servedDecisionOf,
+          ...(clients.pricing === undefined ? {} : { pricing: clients.pricing }),
         })
       : createLlmRouter({
           name: router,
           model: chatModel({ user: { kind: "router", router }, settings: model.settings }),
           settings: model.settings,
         });
-  const decide = async ({
-    caller,
-    model,
-    modelProvider,
-    request,
-  }: DecideSpec): Promise<DecisionOutcome> => {
-    checkDecisionRequest(request);
-    const { state, questions } = request;
-    const raw = await clients.jevClient({ model, state, questions }, modelProvider);
-    // a fallback that answered is who the call is recorded under, as its own model (#1313d)
-    const by = servedDecisionOf(raw);
-    const answered = { model: by?.model ?? model, provider: by?.provider ?? modelProvider };
-    try {
-      return readDecision(raw, { caller, ...answered, questions });
-    } catch (error) {
-      // the provider answered and billed it: the spend travels with the failure, once (#1399)
-      const call = { caller, ...answered };
-      throw withDecisionSpend(error, billedDecisionRecord(call, { state, questions }, raw));
-    }
-  };
+  const decide = (spec: DecideSpec): Promise<DecisionOutcome> => decisionOf(clients, spec);
   return {
     chatModel,
     routeTo: (spec) => strategyOf(spec).route(spec.request),

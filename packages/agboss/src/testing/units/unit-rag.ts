@@ -27,10 +27,10 @@ export function bindUnitRag(
     router: () => {
       throw new TypeError("a unit runner has no router");
     },
-    rerankModel: (reranker, model) => {
-      const settings = unitChatSettings(model);
-      const chat = gateway().chatModel({ user: { kind: "reranker", reranker }, settings });
-      return { model: chat, settings };
+    rerankModel: (reranker) => {
+      const settings = unitChatSettings(reranker.model);
+      const user = { kind: "reranker", reranker: reranker.name } as const;
+      return { model: gateway().chatModel({ user, settings }), settings };
     },
   };
   bindRagRuntime(

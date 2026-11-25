@@ -1646,6 +1646,10 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/models/workflow-models.ts"],
   ),
   ...reviewed(
+    "a type and the identity pricing of a registry built with no provider directory (a test): no number, no spend decision of its own — the pricing an application uses is modelPricingOf in workflow-models; covered by tests/models/component-prices-kinds.test.ts and tests/models/component-prices.test.ts (bughunt 2026-11-25 #2)",
+    ["src/models/model-pricing.ts"],
+  ),
+  ...reviewed(
     "holds spend, rate-limit or deadline sites (detector model usage []) - not mutated: covered by tests/pii/sensitive-field.test.ts, each sabotage of it (1 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
     ["src/pii/detectors/model.ts"],
   ),

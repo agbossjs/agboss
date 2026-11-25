@@ -23,6 +23,8 @@ import { chatOfProviders, connectionsOf, registeredIn } from "./provider-chat-of
 import { loadChatOpenAI } from "../models/chat-openai.js";
 import { withFallbacks } from "../models/resolution.js";
 import { lazyLoad } from "../infrastructure/clock.js";
+import { modelPricingOf } from "../models/workflow-models.js";
+import type { ModelPricing } from "../models/model-pricing.js";
 
 export { ProviderCapabilityError } from "./provider-chat-of.js";
 
@@ -79,6 +81,7 @@ export function providerClients(
   readonly chatModel: ModelFactory;
   readonly jevClient: JevClient;
   readonly kindOf: (modelProvider: string | undefined) => ModelKind | undefined;
+  readonly pricing: ModelPricing;
 } {
   const connectionFor = connectionsOf(options);
   const registeredFor = registeredIn(directory);
@@ -116,7 +119,7 @@ export function providerClients(
       registeredFor,
       decideOn: decideThrough(connectionFor),
     });
-  return { chatModel, jevClient, kindOf: kindOfIn(directory) };
+  return { chatModel, jevClient, kindOf: kindOfIn(directory), pricing: modelPricingOf(directory) };
 }
 
 /**

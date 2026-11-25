@@ -24,6 +24,15 @@ import type { RuntimeContexts } from "./flow/context/runtime-contexts.js";
 import type { IncompatibleResumePolicy } from "./run/resume-guard.js";
 import type { AssembledReplyInterpreter } from "./channels/discovery.js";
 
+/** A model `@RagReranker`'s model as its cascade resolved it: the vendor's name, its provider, its price mark. */
+export interface RerankerModelUse {
+  readonly name: string;
+  readonly model: string;
+  readonly modelProvider?: string;
+  /** Its provider has no `cost`: its calls are 0 USD records with their tokens. */
+  readonly unpriced?: true;
+}
+
 /** What the core offers the tools of a workflow. */
 export interface WorkflowServices {
   /** A router on the workflow's default router model (Jev) — cheap decisions inside tools. */
@@ -42,7 +51,7 @@ export interface WorkflowServices {
    * A model `@Reranker`'s chat model (#703), through the application's model gateway with the
    * workflow's chat defaults; absent where no gateway is (describe, the CLI's index).
    */
-  readonly rerankModel?: (reranker: string, model: string, modelProvider?: string) => ModelBinding;
+  readonly rerankModel?: (reranker: RerankerModelUse) => ModelBinding;
   /** A model `@RagReranker`'s `prompt` as assembly read it (#1347); absent: none. */
   readonly rerankInstructions?: (reranker: string) => string;
 }
@@ -92,13 +101,10 @@ export interface AssembledWorkflow<TName extends string = string> {
     services: WorkflowServices,
   ) => ReadonlyMap<string, readonly KnowledgeSource[]>;
   /** Its knowledge bases' model rerankers, by name and resolved model: model uses `ragRerankers.<name>`. */
-  readonly rerankers?: readonly {
-    readonly name: string;
-    readonly model: string;
-    readonly modelProvider?: string;
+  readonly rerankers?: readonly (RerankerModelUse & {
     /** Its `prompt` as assembly read it (#1347). */
     readonly prompt?: string;
-  }[];
+  })[];
   /** Every knowledge base of the workflow (for `npm run rag:index`). */
   readonly knowledgeBases?: (services: WorkflowServices) => readonly {
     readonly name: string;

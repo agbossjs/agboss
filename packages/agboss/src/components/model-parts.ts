@@ -4,9 +4,9 @@ import type { RuntimeGraph } from "../flow/runtime/graph-model.js";
 import type { LoadedGuardrail } from "../guardrails/assembly.js";
 import { resolvedModelProvidersOf, type WorkflowModels } from "../models/resolution.js";
 import { GraphRuleError } from "../graph/rule-error.js";
-import { providerRuleViolations } from "../models/provider-mode-rules.js";
+import { providerNameViolations, providerRuleViolations } from "../models/provider-mode-rules.js";
 import type { AssembledPii } from "../pii/assembly.js";
-import type { AssembledWorkflow } from "../workflow.js";
+import type { AssembledWorkflow, RerankerModelUse } from "../workflow.js";
 import type { AgentsConfigOf } from "../config/types.js";
 import { referencedModelProvidersOf, type ModelCascade } from "../models/model-cascade.js";
 import { withModelProviders } from "../models/config-cascade.js";
@@ -34,12 +34,7 @@ export interface PolicyModels {
 export interface ModelUsers extends PolicyModels {
   readonly replyInterpreters: readonly AssembledReplyInterpreter[];
   /** The knowledge bases' model rerankers (#703). */
-  readonly rerankers: readonly {
-    readonly name: string;
-    readonly model: string;
-    readonly modelProvider?: string;
-    readonly unpriced?: true;
-  }[];
+  readonly rerankers: readonly RerankerModelUse[];
   /** The model arbiters with their models resolved (#1313); none given: as declared. */
   readonly arbiters?: readonly ModelArbiterUse[];
 }
@@ -67,7 +62,12 @@ export function modelPartsOf(
   const arbiters = users.arbiters ?? modelArbitersOf(graph.launches);
   const { replyInterpreters, rerankers } = users;
   // a provider only a workflow or a component names is checked like a listed one (#1313)
-  const named = providerRuleViolations(models.config.name, referencedModelProvidersOf(cascade));
+  const referenced = referencedModelProvidersOf(cascade);
+  const named = [
+    ...providerRuleViolations(models.config.name, referenced),
+    // one name, one class among every provider the workflow reaches: listed, named, a profile's, a fallback
+    ...providerNameViolations(models.config.name, [...(owner?.providers ?? []), ...referenced]),
+  ];
   if (named.length > 0) throw new GraphRuleError({ violations: named });
   return {
     arbiters,
@@ -87,7 +87,7 @@ export function modelPartsOf(
         replyInterpreters,
         rerankers,
       },
-      referencedModelProvidersOf(cascade),
+      referenced,
     ),
   };
 }
@@ -153,6 +153,13 @@ export const workflowModelPartsOf = (
   const { rags, ...rest } = users;
   // every model through its cascade; a model that resolves to nothing fails the assembly here
   const arbiters = modelArbitersOf(graph.launches, resolver, modelPrompts.arbiterPrompts);
+  // the rerankers through the same resolver (bughunt 2026-11-25 #6): a profile's overlay reaches them
+  const rerankers = rerankerModelsOf(
+    rags,
+    bundle.modelCascade ?? {},
+    modelPrompts.rerankerPrompts,
+    resolver,
+  );
   resolver.check();
   const base = modelCascadeOf(bundle, agents);
   // the providers the components named and the cascade's own are all subject to the provider rules
@@ -165,7 +172,7 @@ export const workflowModelPartsOf = (
       graph,
       {
         ...rest,
-        rerankers: rerankerModelsOf(rags, bundle.modelCascade ?? {}, modelPrompts.rerankerPrompts),
+        rerankers,
         arbiters,
       },
       cascade,
