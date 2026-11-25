@@ -103,7 +103,8 @@ An AGBoss application's `@McpServer` calls made inside an execution send `_meta`
 
 - `callId` — the step's `executionContext.step.idempotencyKey` (over an MCP server, the execution id and
   this key follow the caller's stable identity — tenant, owner, peer, tool and `callId` — not the MCP session,
-  so a retry after a reconnect, an idle timeout or a restart repeats the same call), so an AGBoss MCP server answers a
+  so a retry after a reconnect, an idle timeout or a restart repeats the same call; an anonymous caller,
+  with no tenant, owner or peer, is no one principal: its key is per session, a retry in a new session is a new call), so an AGBoss MCP server answers a
   repeated call as the same one (its call frame's key follows it);
 - `"agboss.dev/mesh"` — the mesh envelope ([A2A → The mesh](A2A#6-the-mesh--call-chains-hops-and-loops-398)),
   the same unsecured JWS as the `agboss-mesh` header;

@@ -30,7 +30,7 @@ export type McpCaller = McpSessionOptions & {
   readonly peer?: string;
   /**
    * Set by the HTTP listener once the caller is in a session (`inSession`): the owner it came with,
-   * none for a caller whose `ownerId` is the session's own. Scopes call idempotency across sessions.
+   * none for a tenant's key; absent for an anonymous caller, whose `ownerId` is the session's own. Scopes call idempotency across sessions.
    */
   readonly authOwnerId?: string | undefined;
 };

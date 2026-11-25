@@ -74,12 +74,18 @@ describe("#1366: the frame of an MCP call", () => {
     const tenantOnly = { tenant: { tenantId: "acme" } };
     const first = await idsOf("c-1", inSession(tenantOnly, "session-1"));
     const second = await idsOf("c-1", inSession(tenantOnly, "session-2"));
-    const anonymous = await idsOf("c-1", inSession({}, "session-1"));
-    const anonymousLater = await idsOf("c-1", inSession({}, "session-2"));
 
     expect(second).toEqual(first);
-    expect(anonymousLater).toEqual(anonymous);
-    expect(anonymous.key).not.toBe(first.key);
+  });
+
+  it("#1410 H1: anonymous callers are no one principal: the same callId in two sessions, or in one, is a key per session", async () => {
+    const one = await idsOf("c-1", inSession({}, "session-1"));
+    const oneAgain = await idsOf("c-1", inSession({}, "session-1"));
+    const two = await idsOf("c-1", inSession({}, "session-2"));
+
+    expect(oneAgain).toEqual(one);
+    expect(two.key).not.toBe(one.key);
+    expect(two.executionId).not.toBe(one.executionId);
   });
 
   it("#1410 H1: other tenants, owners and peers still differ, in sessions too", async () => {

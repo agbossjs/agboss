@@ -791,7 +791,7 @@ without any code of yours:
 - a W3C `traceparent` (header / `_meta.traceparent`): the caller's trace continued;
 - over MCP `_meta.callId` = `executionContext.step.idempotencyKey`, so an AGBoss MCP server answers
   a repeated call as the same one, also in a new MCP session (the key follows tenant, owner, peer, tool and
-  `callId`, never the `Mcp-Session-Id`); over A2A the step's key is the message's `messageId`.
+  `callId`, never the `Mcp-Session-Id`; an anonymous caller with no tenant, owner or peer is per session instead); over A2A the step's key is the message's `messageId`.
 
 Outside an execution (a script's `new A2AClient(…)`) nothing is sent. The receiver reads the
 envelope into `MeshEnvelope` for the mesh checks — a **claim** (unless signed by a
