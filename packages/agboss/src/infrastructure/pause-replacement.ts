@@ -57,7 +57,7 @@ export const reassignedPause = (
 /** The entry a reassignment adds to the chain of custody: who moved the pause, when, to whom, why. */
 function reassignedEntryOf(
   pause: PauseRecord,
-  replacement: ReplacementOf,
+  replacement: PauseReplacementInput,
   at: Date,
 ): PauseTrailRecord {
   const { assignees, actor, reason, due, timeout, to } = replacement;
@@ -78,7 +78,7 @@ function reassignedEntryOf(
 }
 
 /** What a replacement is made from. */
-type ReplacementOf = Pick<
+export type PauseReplacementInput = Pick<
   PauseReplacement,
   "pauseId" | "assignees" | "actor" | "reason" | "due" | "timeout" | "to" | "countsAsExtension"
 > & {
@@ -120,7 +120,7 @@ function placeOf(pause: PauseRecord, to: PauseReplacement["to"]) {
  */
 export function replacementPause(
   pause: PauseRecord,
-  replacement: ReplacementOf,
+  replacement: PauseReplacementInput,
   at: Date,
 ): PauseRecord {
   const { pauseId, assignees, stepKey, due, timeout, to } = replacement;
@@ -147,7 +147,7 @@ export function replacementPause(
  */
 function entriesOf(
   pause: PauseRecord,
-  replacement: ReplacementOf,
+  replacement: PauseReplacementInput,
   at: Date,
 ): readonly PauseTrailRecord[] {
   const entry = reassignedEntryOf(pause, replacement, at);

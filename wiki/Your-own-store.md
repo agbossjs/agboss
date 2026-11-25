@@ -164,6 +164,17 @@ and `@agboss/core/stores` exports each one (#526 AC5, #890). Don't copy them:
 | `replayedFromOf(key, stored)` | on a row found for the key: another fingerprint under a business key is `IdempotencyError.KeyConflict` (never a replay) — during a rotation the previous idempotency secret's (`key.previousFingerprint`, #825) is the same one, so store `key.fingerprint` only; a row another step wrote is named as `replayedFrom`. It takes a row's `null`s and checks a stored step: a row is never trusted |
 | `pendingOutboundCallOf(key, intent, recordedAt)` | the record `saveIfAbsent` writes: the intent, `Pending` under the key's lease and token, its business identity |
 
+## The rules every store keeps the same (#1324)
+
+Four pure functions of `@agboss/core/stores` hold the rules a store of the core and a store of your
+own must not restate: `transitionOf(next, last, at)` (the status-history row a status change makes,
+or `undefined` for a repeated or ignored one), `recordTransitionOf(thread, turnStatus, last,
+context)` (the change a record's status write makes; `turnStatus` is an `ExecutionRecordStatus` or a
+`TurnStatus`), `statusPageOf(query, read)` (a page of `findByStatus` from a read of `limit + 1`
+records, with its cursor) and `replacementPause(pause, replacement, at)` (the pause that takes
+another's place, from a `PauseReplacementInput`). On SQLite, the ambient transaction of a `runOnce`
+is `connection.requireTransaction()` of the `SqliteConnection` your repository was given.
+
 ## Recipes: SQL
 
 **The store's time decides a lease's expiry (#533)** — never the calling instance's clock, which
@@ -427,14 +438,17 @@ checkpoint by `(step, id)` instead. Without help the framework
 does it by listing the thread's whole namespace and sorting it in memory, on every read for the
 thread's life. A saver can answer it with one indexed read, by an **optional** method:
 
-```ts no-check: `LatestByStepCheckpointSaver` is an internal type since #1321; a saver is created by its driver
+```ts no-check: a saver is created by its driver; the saver types of LangGraph are not part of the core's entries
 import type { RunnableConfig } from "@langchain/core/runnables";
-import type { CheckpointTuple } from "@langchain/langgraph";
-import { stepOf, type LatestByStepCheckpointSaver } from "@agboss/core/stores";
+import type { BaseCheckpointSaver, CheckpointTuple } from "@langchain/langgraph";
+import { stepOf } from "@agboss/core/stores";
 
-declare const saver: LatestByStepCheckpointSaver;
+// the optional method a saver adds to LangGraph's own ones
+declare const saver: BaseCheckpointSaver & {
+  latestByStep?(config: RunnableConfig): Promise<CheckpointTuple | undefined>;
+};
 declare const config: RunnableConfig;
-const newest: Promise<CheckpointTuple | undefined> = saver.latestByStep(config);
+const newest: Promise<CheckpointTuple | undefined> | undefined = saver.latestByStep?.(config);
 const order = stepOf({ step: 4 }); // 4; a missing or non-number step is -2 (NO_STEP)
 ```
 

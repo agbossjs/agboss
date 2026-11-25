@@ -171,3 +171,12 @@ export {
   type DriverTimeouts,
   type ResolvedSettings,
 } from "../storage/settings.js";
+
+// the rules every store keeps the same, from the core (#1324): the status change a write makes, the
+// page of a status listing, the pause that takes another's place
+export { recordTransitionOf, transitionOf } from "../turns/index.js";
+export { statusPageOf } from "../infrastructure/execution-record-status-page.js";
+export {
+  replacementPause,
+  type PauseReplacementInput,
+} from "../infrastructure/pause-replacement.js";

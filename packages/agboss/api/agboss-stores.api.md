@@ -2168,6 +2168,11 @@ export interface PauseReplacement {
 }
 
 // @public
+export type PauseReplacementInput = Pick<PauseReplacement, "pauseId" | "assignees" | "actor" | "reason" | "due" | "timeout" | "to" | "countsAsExtension"> & {
+    readonly stepKey: string;
+};
+
+// @public
 export enum PauseResolution {
     Cancelled = "cancelled",
     Decided = "decided",
@@ -2353,6 +2358,12 @@ export interface RecordedElsewhereLedgerMark {
 }
 
 // @public
+export function recordTransitionOf(thread: {
+    readonly tenantId: string;
+    readonly threadId: string;
+}, turnStatus: TurnStatus, last: ThreadStatusTransition | undefined, context: StatusContext | undefined): NewStatusTransition | undefined;
+
+// @public
 export const remainingOf: (expiresAt: Date, now: Date) => Milliseconds;
 
 // @public
@@ -2362,6 +2373,9 @@ export interface ReplacementKeyed {
     // (undocumented)
     readonly stepKey: string;
 }
+
+// @public
+export function replacementPause(pause: PauseRecord, replacement: PauseReplacementInput, at: Date): PauseRecord;
 
 // @public
 export function replacementStepKeyOf(pause: ReplacementKeyed, taken: ReadonlySet<string>): string;
@@ -2535,6 +2549,9 @@ export interface SqliteTransactionStatement {
 
 // @public
 export type StatusContext = Partial<Pick<NewStatusTransition, "toStatus" | "trigger" | "reason" | "actor" | "leaseToken">>;
+
+// @public
+export function statusPageOf(query: ExecutionRecordStatusQuery, read: (limit: number, after: string | undefined) => Promise<Turn[]>): Promise<Page<Turn>>;
 
 // @public
 export interface StepHandedOverRecord extends ExecutionAuditEventBase {
@@ -2906,6 +2923,9 @@ export enum ToolCallStatus {
     TimedOut = "timed-out",
     UnknownTool = "unknown-tool"
 }
+
+// @public
+export function transitionOf(next: NewStatusTransition, last: ThreadStatusTransition | undefined, at: Date): ThreadStatusTransition | undefined;
 
 // @public (undocumented)
 export interface Turn {

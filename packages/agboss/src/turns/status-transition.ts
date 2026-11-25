@@ -1,3 +1,5 @@
+import type { TurnStatus } from "./types.js";
+
 /**
  * The status history of a thread (#1341d): every change of a thread's status is one row of
  * `thread_status_transitions`, written in the very transaction of the change — a lease mark
@@ -133,10 +135,11 @@ function ownTriggerOf(
 /**
  * The transition a record's status write makes, from the statuses alone (a command's context
  * overrides the trigger): `undefined` for a status that is no thread status (`queued`, `written`).
+ * An `ExecutionRecordStatus` is accepted as it is: each of its values is a `TurnStatus`.
  */
 export function recordTransitionOf(
   thread: { readonly tenantId: string; readonly threadId: string },
-  turnStatus: string,
+  turnStatus: TurnStatus,
   last: ThreadStatusTransition | undefined,
   context: StatusContext | undefined,
 ): NewStatusTransition | undefined {
