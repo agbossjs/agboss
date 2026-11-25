@@ -9,46 +9,56 @@ Multi-agent project on LangGraph + LangChain (TypeScript). Built with a three-ph
 - `@langchain/langgraph` (graph, and each agent's own loop as a subgraph), `@langchain/core`
   (messages, prompts, tools, test fakes), `zod` (inside the framework only — workflows use DTO
   classes, `@agboss/core/dto`)
-- LLM access: **model providers** (#266) — `@ModelProvider` classes (`@agboss/core/models`) listed only in
-  `@Application({ providers })`; none listed → the built-in `OpenRouterModelProvider` (chat) +
-  `DecisionsModelProvider` (decision models), one listed → the list is complete. A workflow and its
-  components name models only: every model of the application resolves to exactly one listed
-  provider by `serves` at assembly (`[model.unserved]`, `[model.ambiguous-provider]`; one model
-  through two providers = two model strings; the built-ins are catch-alls that yield a model another
-  listed provider claims, #454); `agboss describe` prints `model: … → <provider>`.
-  The built-ins are OpenRouter: their key is the `Secret` field `openRouterApiKey` of the
-  application's environment (`secret("OPENROUTER_API_KEY")`; a provider's `apiKey` names its field),
-  the base URL optionally its text field `openRouterBaseUrl` (`baseUrlField`;
-  `env.optional("OPENROUTER_BASE_URL")` — unset → the decorator's `baseUrl`, no repeated default). A provider's `name` is optional: kebab-case, the class name in kebab-case by default (`[name.not-kebab-case]`; #1343a).
-  A **transport** provider (#385) `implements ModelProviderHandler` with `complete(request)` in
-  place of `baseUrl` / `baseUrlField` / `apiKey` (both modes → a compile error and
-  `[model-provider.both-modes]`; `cost`, `retryPolicy` and `circuitBreakerPolicy` are optional — none: unpriced, no retry, no breaker, #1313; an OpenAI-compatible subclass without `requestFields` is `[model-provider.request-fields-missing]`, #644): `ModelProviderRequest` (`model`, `messages:
-ModelProviderMessage[]`, `tools: ModelProviderToolDefinition[]`, `temperature`, `maxTokens`,
-  `reasoning`, `promptCaching` — automatic when unset: system prompt, tools and history at `FiveMinutes` where the model supports it, none where not —, `signal`) → `ModelProviderResponse` (`text`,
-  `toolCalls?`, `usage`, `cost?`, `finishReason?`), a failure thrown as
-  `new ModelProviderFailureError({ failure: ModelFailure.…, retryAfter?, cause? })`; its `deps` injected by the
-  application's container on its first call (one instance; `TenantContext` reads the calling
-  execution; its `onInit` → `onStart` awaited before that call, once, a failure failing the call
-  and retried by the next, `onStop` / `onDestroy` at `app.close()` only once created, #385 S4); `description`, `timeout`, `cost` required, `capabilities?` optional (absent → its
-  settings are not checked). It is a `BaseChatModel` adapter (`TransportChatModel`), and every call
-  of every provider goes through one attempt runner (`models/calls/attempt-runner.ts`: retries, the
-  rate limit and its 429 pause, the breaker); a breaker's `fallback` is at the chat model
-  (`FallbackChatModel`), HTTP ↔ transport either way.
+- LLM access: **model providers** (#266, #1313) — `@ModelProvider` classes (`@agboss/core/models`) listed in
+  `@Application({ providers })`, and **explicit**: there are no built-in providers and no default one — an
+  application that lists none has none, and every model use (an agent, a router, an arbiter, a guardrail, a
+  judge, a memory's compaction, a reply interpreter, a `detectWithModel` PII policy, a reranker) must reach one by
+  `modelProvider`: its own, its `@Workflow`'s or its `@Application`'s (`Component → Workflow → Application`), else
+  `[model.missing-provider]`; a provider whose driver is not the model's kind (a chat model on a decisions
+  provider) is `[model.incompatible-provider]`; a component with no `model` takes the provider's `model` /
+  `models.default` (`[model.missing]` when it has none), and a role alias (`model: "fast"`) is looked up in the
+  provider's `models`. There is no regex over model names (`serves`, `[model.unserved]` and
+  `[model.ambiguous-provider]` are gone); `agboss describe` prints `model: … → <provider>`.
+  A **driver** provider holds its protocol: `@ModelProvider({ name?, description?, driver, timeout, cost?, model?,
+models?, … })` with `OpenRouterDriver({ apiKey, baseUrl?, routing?, transforms? })` (chat),
+  `OpenAiCompatibleDriver({ baseUrl, apiKey?, headers?, requestFields? })` (chat) or `DecisionsDriver({ baseUrl,
+apiKey?, path?, knownModels? })` (decision models: `DECISION_MODELS` — Jev, `openai/gpt-6-luna-decisions`, pplx-decider,
+  Clef, … — probabilities and exact cost); the class body is empty. The key is a reference
+  (`secret("OPENROUTER_API_KEY")`, `secret.optional`) and the base URL a text one (`env("OPENROUTER_BASE_URL", { default })`),
+  both read once when the application starts — never a literal, never a field of the environment contract. A
+  provider's `name` is optional: kebab-case, the class name in kebab-case by default (`[name.not-kebab-case]`; #1343a).
+  A **transport** provider (#385) `implements ModelProviderHandler` with `complete(request)` in place of `driver`
+  (`driver` with `complete` → a compile error and `[model-provider.both-modes]`): `ModelProviderRequest` (`model`,
+  `messages: ModelProviderMessage[]`, `tools: ModelProviderToolDefinition[]`, `temperature`, `maxTokens`,
+  `reasoning`, `promptCaching` — automatic when unset: system prompt, tools and history at `FiveMinutes` where the
+  model supports it, none where not —, `signal`) → `ModelProviderResponse` (`text`, `toolCalls?`, `usage`, `cost?`,
+  `finishReason?`), a failure thrown as `new ModelProviderFailureError({ failure: ModelFailure.…, retryAfter?, cause? })`;
+  a provider that only implements `decide(request: ModelProviderDecisionRequest)` is a decisions provider; its `deps`
+  are injected by the application's container on its first call (one instance; `TenantContext` reads the calling
+  execution; its `onInit` → `onStart` awaited before that call, once, a failure failing the call and retried by
+  the next, `onStop` / `onDestroy` at `app.close()` only once created, #385 S4). `timeout` is required on both modes; `cost`, `retryPolicy` and `circuitBreakerPolicy` are optional — none: unpriced (`CostSource.Unpriced`,
+  0 USD, the tokens still counted against token budgets), no retry, no breaker (#1313). `fallback` is a provider's option
+  (a provider class or `{ provider, models }`, chained; it answers an open breaker and a call that failed after its
+  retries). Every call of every provider goes through one attempt runner (`models/calls/attempt-runner.ts`: retries,
+  the rate limit and its 429 pause, the breaker).
   Policies per provider, app-wide (#266 PR 2): `retryPolicy` retries one call (the only backoff);
-  `rateLimitPolicy: RateLimitPolicy.of({ maxConcurrentCalls, perMinute: { calls, tokens },
-balancing })` — one limit for every execution, tenant and instance (`RateLimitRepository`), a
-  call without room waits in a tenant-fair queue (`QueueBalancingStrategy`), a 429 pauses the whole
-  queue for `Retry-After` on every instance and halves the instance's concurrency (back by one a
-  minute); `circuitBreakerPolicy` — its state in `RateLimitRepository`, on the app's `Clock`. No
-  `rateLimitPolicy` → no limit.
-  - Routers: each `@Router` names its own `model` — a **decision model** (`DECISION_MODELS`: Jev,
-    `openai/gpt-6-luna-decisions`, pplx-decider, Clef, …; OpenRouter Decisions API via
-    `DecisionsModelProvider` — probabilities, exact cost) or any chat model. Guardrails use
-    `defaults.guardrail.model` (Jev), never `defaults.router`. Judges on a decision model call `judgeModel.decide` with
-    `Decision.boolean` / `Decision.choice` / `Decision.score` / `Decision.image` (typed answers);
+  `rateLimitPolicy: RateLimitPolicy.of({ maxConcurrentCalls, perMinute: { calls, tokens }, balancing })` — one limit
+  for every execution, tenant and instance (`RateLimitRepository`), a call without room waits in a tenant-fair queue
+  (`QueueBalancingStrategy`), a 429 pauses the whole queue for `Retry-After` on every instance and halves the instance's
+  concurrency (back by one a minute); `circuitBreakerPolicy: CircuitBreakerPolicy.fixed({ failureThreshold,
+failureWindow, openDuration, halfOpenProbes? })` (or `.exponential`) — its state in `RateLimitRepository`, on the app's
+  `Clock`. No `rateLimitPolicy` → no limit.
+  - Routers: each `@Router` names its own `model` and `modelProvider` (or takes them from its workflow's /
+    application's cascade; `defaults.router.model` is the model of a router that names none) — a **decision model**
+    on a `DecisionsDriver` provider or any chat model on a chat provider. Guardrails use `defaults.guardrail.model`
+    (Jev), never `defaults.router`. What a model is — chat or decisions (`ModelKind`) — follows its provider's
+    driver, not its name. Judges on a decision model call `judgeModel.decide` with
+    `Decision.boolean` / `Decision.choice` / `Decision.score` / `Decision.image` (typed answers), and a `@Tool` or
+    `@Action` with `deps: [DecisionModel]` calls `decide({ state, questions }, { model?, modelProvider? })` the same way;
     `invoke` or `decide` on the wrong kind of model → `ModelKindError`.
-  - Agents: cheap chat models (default `moonshotai/kimi-k2.6`) via `@langchain/openai`, each with
-    `maxTokens` (`TokenLimit.ModelMax` = model's maximum), `reasoning` (`Reasoning.on({ effort })`, `@agboss/core/models`), `cache`.
+  - Agents: cheap chat models, each with `maxTokens` (`TokenLimit.ModelMax` = model's maximum), `reasoning`
+    (`Reasoning.on({ effort })`, `@agboss/core/models`), `cache`, and `executionLimits: { maxVisits, maxModelCalls,
+maxToolCalls, maxRetries }`.
   - Everything is set in the workflow's components (`@Workflow` with its `flow` of paths,
     `@Router`, `@Agent`) and its application (`@Application`, its `@Budget`s) — reference: Architecture below (compiled by `make check`), then Wiki →
     Workflow, Routers, Components, Configuration (compiled by CI, see Quality gates).
@@ -168,7 +178,7 @@ studio` and reads each graph from the server).
 prints the application's tree — the workflows it lists with their starts and the child workflows
 they launch (`per item from vendor-finder-agent (maxItems 20, maxConcurrency 3)`, `recursive,
 maxDepth 3`) —, each contract's implementation and why, the model providers and why, each
-channel (a role's question → answer, who answers, its reply interpreter and its implementation),
+channel (its target's question → answer, who answers, its reply interpreter and its implementation),
 the budgets by scope and the execution budget of each workflow, then every workflow: its guardrails
 and PII policies with their refusals (the text, or `ClassName.refusal()`), flow, each node's inputs
 with their producers, its limits (`maxSteps`, `maxVisits`, `maxDepth`,
@@ -200,7 +210,7 @@ no model key): `npm run check` (`agboss check --strict --cassettes` on its offli
 `--federation snapshots/` — its A2A export against its checked-in `describe --json`, its VCR
 cassette `tests/desk/workflows/desk/__snapshots__/desk-lookup.cassette.json` (recorded offline through the transport,
 #439; replayed by `tests/desk/workflows/desk/desk-cassette.test.ts`) against its prompts and schemas — and on its
-application's twelve workflows `--federation` against the desk's fresh `describe --json`, then
+application's workflows `--federation` against the desk's fresh `describe --json`, then
 `--models` on `test`, then `eslint .` with `@agboss/core/eslint`, then `npm run eval:check` — the desk's
 eval suite run offline on `--env offline` against its baseline `eval/runs/desk-eval-suite.json`
 with `--fail-on-regression`, `eval show --html` and `eval calibrate` on `eval/labels/`, then `npm
@@ -212,7 +222,7 @@ eval-case --from-execution --dry-run` (#396 PR 8, what `eval ui`'s "Save as gold
 (each of them: `src/offer/` the review loop, `src/credit/` a code router, `src/review/` parallel
 launches in waves, #273, `src/panel/` a quorum with a code and a model arbiter, #279, `src/vendor/` a
 child workflow per vendor, #263, `src/topic/` a workflow launching itself, #264, `src/approvals/` two
-approvals at once through a `ThreadOwner` channel role answered in the terminal, #267, `src/hiring/`
+approvals at once, `@ToolApproval` targets whose `@Channel` is answered in the terminal, #267, #1307, `src/hiring/`
 an offer whose steps declare their undo, `compensateWith` / `committedBy`, #339, `src/travel/` two
 bookings a failed join undoes automatically, #340, `src/desk/` the extension points — a custom
 compaction, code guardrails, a tool interceptor — on a transport model provider that answers by the
@@ -225,9 +235,9 @@ tested under `TestConcurrency.inOrder` and `failWith(ModelFailure.RateLimited)`)
 reviewer reads `historyOf(OfferDraftDto)`; `tests/approvals/workflows/offsite-booking/offsite-booking.workflow.test.ts` resumes a pause on a second
 instance (`testWith(App, { instances: 2, env: "instances" })`, one SQLite file per test — `tests/environments/support/instances-file.ts`, #550);
 every unit runner runs on the patterns' components in the test that mirrors each
-(`tests/credit/routers/credit-limit/credit-limit.router.test.ts`, …), `src/model-providers/` beside the built-in OpenRouter, which yields `harness/…` to it, #382–#385, #454) · `npm test`.
+(`tests/credit/routers/credit-limit/credit-limit.router.test.ts`, …), `src/model-providers/`: the driver providers of OpenRouter (chat) and of the Decisions API, and the offline transport `HarnessModelProvider` the desk agent names, #382–#385, #1313) · `npm test`.
 Real runs (#346, its README: the manual checks #263 M1, #264 M1, #267 M1): `dev` reads
-`OPENROUTER_API_KEY` (`openRouterBaseUrl` optional) and `PII_PSEUDONYM_KEY`, every store is SQLite,
+`OPENROUTER_API_KEY` (`OPENROUTER_BASE_URL` optional) and `PII_PSEUDONYM_KEY`, every store is SQLite,
 `tracerProvider` traces it (`LangfuseTracer` from `@agboss/langfuse`) — `npx agboss run --start <name> --input '<json>'`, and
 `npm run answer -- <pauseId…> [--decline]` answers waiting pauses from another process.
 
@@ -365,10 +375,11 @@ export class HandOverWorkflowFinish {}
 
 ```ts file=src/desk/routers/main.router.ts
 // routers/main.router.ts — `prompt` says how to choose, `routes` what each choice means, `input`
-// what it decides on
+// what it decides on, `model` + `modelProvider` who decides
 import { DecidedBy, Router, inline } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { SupportAgent } from "../agents/support.agent.js";
+import { DecisionsModelProvider } from "../model-providers/decisions.model-provider.js";
 import { HandOverWorkflowFinish } from "../workflow-finishes/hand-over.workflow-finish.js";
 
 @Router({
@@ -376,6 +387,7 @@ import { HandOverWorkflowFinish } from "../workflow-finishes/hand-over.workflow-
   description: "Sends the message to the agent that answers it, or hands it over",
   decidedBy: DecidedBy.Model,
   prompt: inline("Pick who handles the customer's message."),
+  modelProvider: DecisionsModelProvider, // a decision model needs a decisions provider
   model: "typesafe/jev-1.13",
   input: { message: WorkflowStartTextDto },
   maxVisits: 1,
@@ -388,6 +400,45 @@ import { HandOverWorkflowFinish } from "../workflow-finishes/hand-over.workflow-
   ],
 })
 export class MainRouter {}
+```
+
+```ts file=src/desk/model-providers/openrouter.model-provider.ts
+// model-providers/openrouter.model-provider.ts — a driver provider: the protocol is the driver's, the
+// key and the base URL are references read once at start (`secret(…)`, `env(…)`), never literals
+import { env, secret } from "@agboss/core";
+import { ModelCost, ModelProvider, OpenRouterDriver } from "@agboss/core/models";
+import { minutes } from "@agboss/core/units";
+
+@ModelProvider({
+  name: "openrouter-model-provider",
+  description: "OpenRouter — many chat models behind one OpenAI-compatible API",
+  driver: OpenRouterDriver({
+    apiKey: secret("OPENROUTER_API_KEY"),
+    baseUrl: env("OPENROUTER_BASE_URL", { default: "https://openrouter.ai/api/v1" }),
+  }),
+  timeout: minutes(2), // per attempt
+  cost: ModelCost.fromResponse(), // OpenRouter returns usage.cost; no cost → unpriced calls, no retry, no breaker
+})
+export class OpenRouterModelProvider {}
+```
+
+```ts file=src/desk/model-providers/decisions.model-provider.ts
+// model-providers/decisions.model-provider.ts — decision models (Jev & co.) are a driver of their own
+import { env, secret } from "@agboss/core";
+import { DecisionsDriver, ModelCost, ModelProvider } from "@agboss/core/models";
+import { seconds } from "@agboss/core/units";
+
+@ModelProvider({
+  name: "decisions-model-provider",
+  description: "Decision models on OpenRouter's Decisions API",
+  driver: DecisionsDriver({
+    apiKey: secret("OPENROUTER_API_KEY"),
+    baseUrl: env("OPENROUTER_BASE_URL", { default: "https://openrouter.ai/api/v1" }),
+  }),
+  timeout: seconds(30),
+  cost: ModelCost.fromResponse(),
+})
+export class DecisionsModelProvider {}
 ```
 
 ```ts file=src/desk/desk.workflow.ts
@@ -461,20 +512,25 @@ budget's name, scope key and period, never by a workflow, so workflows sharing o
 `findUsageByCounter` (`{ spent, tokens }`), `findLimitByAccount` / `saveLimit`; a prune never lowers a counter.
 
 ```ts file=src/desk/desk.application.ts
-// desk.application.ts — the application: its workflows, infrastructure (`providers`; none listed →
-// the built-in in-memory defaults and the built-in OpenRouter + Decisions model providers), budgets,
+// desk.application.ts — the application: its workflows, infrastructure (`providers`; `storage` unset →
+// the in-memory database), the explicit `modelProvider` of every model that names none, budgets,
 // the defaults of every workflow and the environment contract (`environments/` next to this file)
 import { Application } from "@agboss/core";
 import { ApplicationDailyBudget, ExecutionBudget, TenantDailyBudget } from "./budgets/application.budgets.js";
 import { DeskWorkflow } from "./desk.workflow.js";
 import { AppEnvironment } from "./environments/app.environment.js";
+import { DecisionsModelProvider } from "./model-providers/decisions.model-provider.js";
+import { OpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
 
 @Application({
   name: "desk-application",
   version: "1.0.0",
   environment: AppEnvironment,
   workflows: [DeskWorkflow],
-  defaults: { models: { temperature: 0 }, router: { model: "typesafe/jev-1.13" } },
+  modelProvider: OpenRouterModelProvider, // every chat model; the router names the decisions provider itself
+  providers: [OpenRouterModelProvider, DecisionsModelProvider],
+  defaults: { models: { temperature: 0 } },
+  executionLimits: { maxConcurrentSteps: 16 }, // agent, router and action steps of one instance at once
   budgets: [ApplicationDailyBudget, TenantDailyBudget, ExecutionBudget],
 })
 export class DeskApplication {}
@@ -550,10 +606,10 @@ one LangGraph `StateGraph` and checked at assembly. `@Workflow({ historyTtl })` 
 - **Sources:** `onStart(Start)` (where an execution begins); `onAgent(X)` / `onRouter(R)` / `onAction(A)` /
   `onWorkflow(W)` (#263) / `onExternalTask(Q)` (#659) — the path of a node reached from two places (a review loop), written once.
 - **Steps:** `.toAgent(X)`, `.toRouter(R)`, `.toAction(A)`, `.toFinish(F)`, `.toWorkflow(W)`
-  (#263), `.toExternalTask(Q)` (#659: a question role's step, Components → Channels). What a step puts on the path
+  (#263), `.toExternalTask(Q)` (#659: an `@ExternalTask`'s step, Components → Pause targets and channels). What a step puts on the path
   (its **scope**: later nodes read their `input` fields from it, `[input.missing-on-path]` when no
   path brings one) is derived from its declaration (#1270; there is no `.returns`): a start its
-  `input` (one value per field of a map), an agent, action, question role or child workflow its
+  `input` (one value per field of a map), an agent, action, external task or child workflow its
   `output`, a text agent its reply as `WorkflowFinishTextDto`; `.onRoute(toAgent(X)…)` — the router's
   choice, one `.onRoute(…)` per `@Router` route; `.toOneOf([…])` — a branch
   per variant of a step's `oneOf(…)` output; `.onError(ErrorClass, toAction(…)… | toAgent(…)… | toExternalTask(…)… | toWorkflow(…)… | toFinish(…))` — the side
@@ -623,8 +679,7 @@ name>": 0.9 })`); all no launches none of them (`[]` is an answer, S23).
   step; a child that rests at a pause makes its
   parent's node interrupt with a waiting marker (`child-own-thread.ts`, no pause), its pauses read
   through it and its answers forwarded by the node (`run/waiting-pauses.ts`, `run/resume-map.ts`);
-  a child started before ADR-0022 (its whole state under its task) is continued that way, for one
-  version (S4 D6). **On any instance (#333 PR 2–4, S6–S9):** `@Workflow({ placement:
+  **On any instance (#333 PR 2–4, S6–S9):** `@Workflow({ placement:
 ChildPlacement.AnyWorker })` on the child (#1286: never on the flow; else `@Application({ defaults: {
 workflows: { placement } } })`, else `CurrentProcess`; `OtherWorker` is never claimed by the instance that
   queued it and fails the parent's step with `StepError.ChildWorkerUnavailable` (`step.child-worker-unavailable`) after `executionLimits.childClaimTimeout`;
@@ -820,11 +875,11 @@ workflows: { placement } } })`, else `CurrentProcess`; `OtherWorker` is never cl
   `input` is the start's input, `result.output` the finishes' outputs.
 - **Assembly rules** fail before any model call with **all** violations at once (`GraphRuleError`,
   stable codes `flow.*` / `graph.*` / `input.*` / `io.*` / `launch.*` / `router.*` / `arbiter.*` / `judge.*` / `eval.*`): names end with their kind
-  (`-agent`, `-router`, `-action`, `-workflow-start`, `-workflow-finish`, `-workflow`, a question
-  role's `-question`) and are unique
+  (`-agent`, `-router`, `-action`, `-workflow-start`, `-workflow-finish`, `-workflow`, an
+  `@ToolApproval`'s `-tool-approval`, an `@ExternalTask`'s `-external-task`) and are unique
   in the application (`[name.kind-suffix]`, `[graph.duplicate-node-name]`); DTO classes on paths
   end with `Dto` (`[dto.name]`) and never hold themselves through `@Nested` / `@List`, directly or
-  via other DTOs (`[dto.cyclic]`, naming the component and `A → B → A`; #1080); an action's `oneOf` / `listOf(A, B, …)` output whose classes one plain value could all satisfy (`[dto.ambiguous-one-of]`, #1288); a path ends in a finish; a router's `chooseOne` lists exactly its
+  via other DTOs (`[dto.cyclic]`, naming the component and `A → B → A`; #1080); an action's `oneOf` / `listOf(A, B, …)` output whose classes one plain value could all satisfy (`[dto.ambiguous-one-of]`, #1288); a path ends in a finish; a router's `.onRoute(…)` paths (or its `chooseMany([…])` list in a launch) name exactly its
   routes (`[router.routes-mismatch]`; a route's `target` is a class or a thunk `() => Class` for one
   declared below the router, #1271); a node on a cycle has `maxVisits`. No field reads an outdated
   value — one built from an older version of what was renewed since (`[input.outdated-on-path]`,
@@ -835,7 +890,7 @@ workflows: { placement } } })`, else `CurrentProcess`; `OtherWorker` is never cl
   `onValuesOutdated` event per cascade (Wiki → Path-scope).
 
 <!-- snippet-context
-import { Action, Agent, VisitsLimitExceededError, Workflow, WorkflowFinish, WorkflowStart, onAgent, onStart, toAction, inline, Ttl } from "@agboss/core";
+import { Action, Agent, VisitsLimitExceededError, Workflow, WorkflowFinish, WorkflowStart, onAgent, onStart, toAction, toAgent, toFinish, inline, Ttl } from "@agboss/core";
 import { Bool, Text } from "@agboss/core/dto";
 import { oneOf } from "@agboss/core";
 
@@ -910,7 +965,7 @@ export const offerPaths = [
 ```
 
 <!-- snippet-context
-import { Agent, DecidedBy, Router, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, onStart, inline, skip, toAgent, toRouter, Ttl } from "@agboss/core";
+import { Agent, DecidedBy, Router, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, onStart, inline, skip, toAgent, toFinish, toRouter, Ttl } from "@agboss/core";
 import { Bool, Text, WorkflowStartTextDto } from "@agboss/core/dto";
 import { listOf, optional } from "@agboss/core";
 
@@ -1005,7 +1060,7 @@ export const launchPaths = [
 ```
 
 <!-- snippet-context
-import { Action, Agent, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, onStart, toAction, inline, Ttl } from "@agboss/core";
+import { Action, Agent, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, onStart, toAction, toAgent, toFinish, toWorkflow, inline, Ttl } from "@agboss/core";
 import { Bool, Text, WorkflowStartTextDto } from "@agboss/core/dto";
 import { listOf, oneOf } from "@agboss/core";
 
@@ -1250,7 +1305,7 @@ export const quorumPaths = [
   on the decorator line, `implements` is documentation (#120 PR 4): every contract is a
   function-typed property (strict variance), so a method with a narrower parameter fails on
   `@Tool`, `@Rag`, `@Judge`, `@PiiPolicy`, `@ModelProvider`, … Prompts are
-  `prompt` (a file path, `inline("…")` or a list) plus `promptVariables` — `prompt` also takes a file path (`"./x.prompt.md"`; a string starting with `./`, `../` or `/` is a file), `inline("…")` / `` inline`…` `` or a list of them (#1347a, `PromptSource`; `file()` goes with #1347b) — normalised
+  `prompt` plus `promptVariables` — `prompt` is a `PromptSource` (#1347): a file path (`"./x.prompt.md"`; a string starting with `./`, `../` or `/` is a file, read next to the declaring file), `inline("…")` / `` inline`…` `` (the tagged form drops the common indentation) or a list of them; bare text does not compile (`[prompt.bare-text]` for a JavaScript caller) and there is no `promptUrls` — normalised
   at load — no BOM, `\n` line breaks, no blank lines at the edges, NFC; parts joined with one blank
   line — and sent and fingerprinted as normalised;
   `{{variables}}` are checked at assembly (`[prompt.unknown-variable]`); `promptVariables` is `Record<string, string | EnvRef<string>>` on `@Application`, `@Workflow` and every prompt-bearing component (the nearest wins; an `env(…)` reference is read once at assembly, from `createApp`'s `processEnv`): a `SecretRef` anywhere is `[prompt.secret-in-instructions]` (fails closed, a secret never reaches a model), a component's key no `{{key}}` of its prompt uses is `[prompt.unused-variable]`, a model reply interpreter's rendered instructions are in `promptVersion` (#1347c). What a node reads comes in
@@ -1306,30 +1361,40 @@ registered …`); a class in `providers` without a decorator fails with `[di.und
   `IdempotencyRunRecord` (`name`, `outcome`, the step, `writtenToken?`, `observedToken?`), identities and
   tokens only, masked like observer events; always written, whatever `retention.executionRecords` says,
   readable mid-run with `app.auditLogOf({ tenantId, rootExecutionId })`, removed by the recovery
-  sweep after `@Application({ retention: { auditLog } })`, default `hours(24)`; a kept
+  sweep after `@DatabaseStorage({ auditLogTtl })` (`Ttl.None` sweeps it at the next look, `Ttl.Forever` never); a kept
   `ExecutionHistoryRecord` carries its tree's rows as `auditLog`, so `agboss executions export` does)
   — and the
-  `@ModelProvider` classes (#266; an HTTP one is not created by the container, a transport one
+  `@ModelProvider` classes (#266; a driver one is not created by the container, a transport one
   is — on its first call, #385; a misplaced one in a workflow's `providers` is
-  `[di.infrastructure-in-workflow]` too). Listed **only** in
-  `@Application({ providers })` (a class that `extends` the contract, `@Injectable`; in a workflow's
+  `[di.infrastructure-in-workflow]` too). Listed **only** at the application — `@Application({ providers })`
+  (a class that `extends` the contract, `@Injectable`; in a workflow's
   `providers` → `[di.infrastructure-in-workflow]`), found by inheritance (two →
-  `[di.ambiguous-implementation]`); `agboss describe` prints each contract's implementation and why
-  (listed, or the built-in default), the budgets by scope and the count limits. Nothing is written to
-  the home folder. Every contract has a
-  ready SQLite implementation, enabled only by listing it (#265: `SqliteExecutionRecordRepository`,
-  `SqliteCostLedgerRepository`, `SqlitePausedExecutionRepository`,
-  `SqliteExecutionLeaseRepository`, `SqliteExecutionTreeRepository`, `SqliteRateLimitRepository`,
-  `SqliteMeshRequestRepository`, `SqliteExecutionHistoryRepository`,
-  `SqliteChildExecutionQueueRepository`, `SqliteExecutionAuditLogRepository`,
-  `SqliteFencedEffectRepository`, `SqliteOutboundCallRepository`) —
-  one `node:sqlite` connection per instance on the environment's `sqlitePath` (required only then,
-  `[environment.missing-field]`; `:memory:` in tests), WAL + `busy_timeout`, atomic operations in
-  `BEGIN IMMEDIATE`, time from the host's clock (`StoreClock`, #533: the test's clock in tests); flow-patterns' applications list seven of them. A project subclasses
-  one through public tokens only, with `extends` + `override` and the class's own `deps` — `@Injectable({
-deps: [SqliteConnection, Clock, ApplicationContext] })` (#265 S70) — a fencing store (the lease,
-  fenced-effect and outbound-call stores) takes `StoreClock` in its place, `[SqliteConnection,
-StoreClock, ApplicationContext]` (#847: `StoreClock.now()` is a branded `StoreTime`, so a `Clock`
+  `[di.ambiguous-implementation]`) — or, for the stores, given by **storage components** (#1321): `@Application({ storage:
+AppDatabaseStorage })` or `storage: { database, cluster?, objects? }`, each a decorated class that holds its driver —
+  `@DatabaseStorage({ name?, description?, driver: SqliteDriver({ path: env("…") }), auditLogTtl, ledgerEntriesTtl,
+idempotencySecret?, piiSecret?, previousIdempotencySecret?, previousPiiSecret? })` (`SqliteDriver.inMemory()` for a
+  test; the store packages bring `PostgresDriver`, `MongoDriver` — `defineStorageDriver` from `@agboss/core/stores` —;
+  `InMemoryDatabaseStorage` is the built-in in-memory database an application with no `storage` gets), `@ClusterStorage({ driver:
+RedisDriver(…) })` (the leases, the child queue and the rate limits; its lease keeps its execution ids in the
+  database's lease row, which stays the authority for the fence token, the stop mark and the external pause — written
+  before the cluster acknowledges) and `@ObjectStorage({ driver: S3Driver(…) | LocalDiskDriver(…) | InMemoryObjectDriver() })`
+  (the files' bytes). Their `env(…)` / `secret(…)` references are read once when the application starts, never a
+  literal. The stores come from the drivers: a store class listed in `providers` beside `storage` is
+  `[storage.providers-conflict]`, `retention.auditLog` / `retention.costLedgerEntries` beside `auditLogTtl` /
+  `ledgerEntriesTtl` is `[storage.retention-conflict]`, a secret shared by two keys `[storage.secret-shared]`;
+  `agboss describe` prints each contract's implementation and why (the storage component, a listed class, or the
+  in-memory default), each storage component, the budgets by scope and the count limits. Nothing is written to
+  the home folder. The SQLite driver opens one `node:sqlite` connection per instance on its `path` (`:memory:` in tests;
+  `SqliteConnection` is `@agboss/core/stores`'s), WAL + `busy_timeout`, atomic operations in
+  `BEGIN IMMEDIATE`, time from the host's clock (`StoreClock`, #533: the test's clock in tests), and creates the whole 0.1.1
+  schema when it opens (#1321c: one baseline in `agboss_schema`; a file an older build wrote is refused with
+  `StoreError.SchemaMissing` and recreated, the CLI's `migrate` command moves a database to it with its `db` step, #1321f). The ready SQLite store classes
+  (`SqliteExecutionRecordRepository`, `SqliteCostLedgerRepository`, `SqlitePausedExecutionRepository`,
+  `SqliteExecutionLeaseRepository`, … #265) are what the driver builds; a project's own store for a backend no driver
+  covers extends the contract and is listed in `providers` (no `storage`), through public tokens only, with `extends` +
+  `override` and the class's own `deps` — `@Injectable({ deps: [SqliteConnection, Clock, ApplicationContext] })` (#265 S70) —
+  a fencing store (the lease, fenced-effect and outbound-call stores) takes `StoreClock` in its place,
+  `[SqliteConnection, StoreClock, ApplicationContext]` (#847: `StoreClock.now()` is a branded `StoreTime`, so a `Clock`
   there does not compile); `SqliteExecutionRecordRepository`
   adds `IdGenerator` (`[SqliteConnection, Clock, ApplicationContext, IdGenerator]`, the in-memory one
   `[Clock, IdGenerator, IN_MEMORY_DATABASE]` — it shares the thread status history with the in-memory lease store, #1341d —, #313). Every #265 store contract has `abstract ping(): Promise<void>`
@@ -1442,7 +1507,7 @@ fixture/`: reserve with an undo, a fenced charge, a payment through `Idempotency
   `advance` lets a database round trip finish; the checkpoint saver's `put` is given the versions
   LangGraph passes, so LangGraph's own savers (`MemorySaver`, `PostgresSaver`) pass as they are;
   every type a contract's members name is exported by the root entry (`Turn`, `ExecutionData`, …;
-  #890: `Turn*`, the deprecated `Tern*` aliases kept one minor) or `@agboss/core/stores` (#890: the
+  #890: `Turn*`) or `@agboss/core/stores` (#890: the
   store-implementer entry — the contracts, every type they name, the rows at a store's boundary
   (`OutboundCallIntent`, …) and the core's store helpers (`assertEffectName`, `remainingOf`,
   `assertLedgerEntries`, …), none of which the root has; its report `api/agboss-stores.api.md`;
@@ -1458,7 +1523,7 @@ EnvironmentField.integer({ optional: true }) } })` (#834: made only by `Environm
   `@Injectable` runs) — checked at assembly for every class the application or
   a workflow lists and every class their `deps` reach: a required one the contract lacks is
   `[environment.missing-field]` (`… needs postgresUrl: Secret in AppEnvironment (read by
-PostgresConnection)`; `SqliteConnection` declares `sqlitePath` so), one field of two types
+PostgresConnection)`; a storage driver's `env(…)` / `secret(…)` references are not fields of the contract), one field of two types
   `[environment.conflicting-field]`.
 - **Time is the application's `Clock` (#262):** infrastructure too — `now()` and
   `sleep(delay, signal?)`; the system's unless `@Application({ providers })` lists a class that
@@ -1557,7 +1622,7 @@ export class SeenJobsRepository {
   / `@AfterTool(Tool)` methods (`@BeforeTool(A, B)`: one method for several tools, the union of their
   inputs in, the intersection out) and / or plain `beforeAnyTool(call)` / `afterAnyTool(call)` (none:
   `[tool-interceptor.missing-handler]`; a non-tool target `[tool-interceptor.target-not-a-tool]`, two
-  methods for one tool and phase `[tool-interceptor.duplicate-hook]`, a misspelt hook such as the 0.1.0
+  methods for one tool and phase `[tool-interceptor.duplicate-hook]`, a misspelt hook such as
   `beforeToolCall` `[tool-interceptor.unknown-hook]`), listed in `toolInterceptors` of `@Application` →
   `@Workflow` → `@Agent` → `@Tool` (lists add up, outer first; `excludeToolInterceptors`
   on an agent or a tool removes an inherited one, `[tool-interceptor.exclude-not-inherited]`,
@@ -1614,14 +1679,15 @@ AnswerDto, respondent, timeout, channelInterpreter?, maxVisits? })` for a questi
   idempotency key). Tests: `AutoApproveChannel.for(Target)` / `AutoRejectChannel.for(Target)`
   (`@agboss/core/testing`) decide at once. **Deadlines (#1310a):** only the target sets them (`timeout`, `remindBefore`,
   `calendar`; a channel's own `timeout` may only shorten); a working duration needs a `@WorkingCalendar` named by the target's
-  `calendar` (`[calendar.required-for-working-duration]`; no application-wide calendar); 0.1.0's step/tool `expiresIn` overrides are gone.
+  `calendar` (`[calendar.required-for-working-duration]`; no application-wide calendar).
   **Free-text replies (#267 PR 3):** a target's `channelInterpreter` is a
   `@ChannelInterpreter` (`-reply-interpreter`, one per target) that reads `app.resume({ pauseId, reply })`
-  with the pause's question — `{ ask, reply }` — into the role's answer, validated like a decision:
-  `DecidedBy.Model` (a chat model, one answer tool — for an approval role its `overrideInput`
+  with the pause's question — `{ ask, reply }` — into the target's answer, validated like a decision:
+  a **model** interpreter (a class with a `prompt`, optional `model` / `modelProvider` through the cascade `@ChannelInterpreter` →
+  `@Workflow` → `@Application`; a chat model, one answer tool — for an approval target its `overrideInput`
   described by the approved tool's input, every field optional: the fields the reply changes, laid
   over the call's own arguments before validation, #648 — and `answer-reply-interpreter-not-understood-dto`
-  (`ReplyInterpreterNotUnderstoodDto { reason }`: the reply does not answer, never a refusal; #688: for an approval role
+  (`ReplyInterpreterNotUnderstoodDto { reason }`: the reply does not answer, never a refusal; #688: for an approval target
   the tool's decision is named — `approve` / `approve-with-changes` / `refuse` (`ReplyDecision`), mapped onto
   the DTO, a script's DTO-shaped answer as is — a yes with a limit below the call's value is a change in any
   language; an unknown decision, `approve-with-changes` without a correction, `approved` beside a decision or a
@@ -1631,21 +1697,21 @@ AnswerDto, respondent, timeout, channelInterpreter?, maxVisits? })` for a questi
   in a guardrail or the action (a tool interceptor's `@BeforeTool` / `beforeAnyTool` sees the corrected call before the tool runs);
   `PauseAnswerRecord.asked` keeps the call as asked beside the decision), one
   call per move (`parallel_tool_calls: false`), static `prompt`; for an approval
-  role a decision model too — approve / refuse only, one `Decision.boolean("approved")`, P(yes) > 0.5,
+  target a decision model too (an interpreter's model on a decisions provider) — approve / refuse only, one `Decision.boolean("approved")`, P(yes) > 0.5,
   no `reason` / `overrideInput` (#267 S124); the call checked against the tree's budgets, counted in their
   ledger at once and in the execution's spend when its step takes the answer, traced as
-  `reply-interpreter:<name>`) or `DecidedBy.Code` (`implements ReplyInterpreterHandler<Self>` —
+  `reply-interpreter:<name>`) or a **code** interpreter (`@ChannelInterpreter({ deps? })`, `implements ChannelInterpreterHandler<Self>` —
   `interpret(input: InputOf<Self>)` returns `ChannelInterpretation.understood(decision)` or
-  `ChannelInterpretation.notUnderstood({ reason })` (sync or a promise; a plain object does not
+  `ChannelInterpretation.notUnderstood(reason)` (sync or a promise; a plain object does not
   compile; a `throw` is a crash only), `deps`, created by the container). Either kind reads in the pause's execution frame (its `ExecutionContext`:
   tenant, owner, the waiting step — the rate limits see the tenant); a model one reads the question
   and the reply through the application's and the workflow's PII policies, its answer revealed before
   validation (an unknown token is a decline, a block rule `PiiRefusedError`). Unreadable (not
   understood, no answer, an invalid one, a crash) → `UninterpretableReplyError`
   (`pause.uninterpretable-reply`, `reason`, `cause` when an error is behind it), the
-  pause stays pending; a role without one → `ReplyInterpreterMissingError`
-  (`pause.channel-interpreter-missing`); `[reply-interpreter.not-an-interpreter]`,
-  `[reply-interpreter.no-interpret-method]` at assembly.
+  pause stays pending; a target without one → `ReplyInterpreterMissingError`
+  (`pause.channel-interpreter-missing`); `[channel-interpreter.not-an-interpreter]`,
+  `[channel-interpreter.no-interpret-method]` at assembly.
 - **Observers are registered only in `@Application({ observers: [...] })`** (#261), not discovered
   and never in `@Workflow`: an `@Observer({ name?, workflows?, agents?, deps? })` class with a
   method per hook (`onToolEnd(event: ToolEndEvent)`, no `implements`), one instance each, called for
@@ -1760,7 +1826,7 @@ IdempotencyRunEventOutcome` — `Ran` / `Replayed` / `Joined` / `Refused` —, `
   unscripted, a fixed summary; `testUnit(Memory)` runs one compaction on its own.
 
 ```ts
-import { Agent, CompactionStrategy, Memory, Ttl, TurnLimit, inline } from "@agboss/core";
+import { Agent, Workflow, CompactionStrategy, Memory, Ttl, TurnLimit, inline } from "@agboss/core";
 import { days } from "@agboss/core/units";
 
 @Memory({
@@ -1886,12 +1952,13 @@ guaranteed (foreign peer)`). The server's side (#810, `src/a2a/server/a2a-mesh-a
   event was lost and read repair completed it, from the tree's record — written after its agents'
   memory update, so it is the end event's spend (#844: never the price alone for a missed end,
   `tests/a2a/mesh/a2a-mesh-read-repair.test.ts`). What
-  an application serves is an `@A2AExpose({ name: "-a2a-expose", version, description, exports:
-[Start], skills? })` (`a2a/*.a2a-expose.ts`) listed in
+  an application serves is an `@A2AEndpoint({ name: "-a2a-expose", version, description, ttl:
+{ tasks, messages }, skills: [Start | { start, tags?, examples?, filePolicy?, reply?, cardFileFields? }], defaultSkill?, provider?,
+cardFileFields? })` (`a2a/*.a2a-expose.ts`; one typed `skills` list, no `exports`) listed in
   `@Application({ endpoints })` with its `@McpEndpoint`s (`[application.endpoint-unknown-start]`,
-  `[application.not-an-endpoint]`) and served as an **A2A v1.0 agent** (#808) by
+  `[application.not-an-endpoint]`, `[application.duplicate-endpoint]`; `[a2a.ttl-invalid]`, `[a2a.duplicate-skill]`) and served as an **A2A v1.0 agent** (#808) by
   `a2aHttpListener(app, { endpoint, authenticator, publicUrl, base?, onError?, maxBodySize? })`
-  (`[application.expose-unlisted]`) on the official SDK `@a2a-js/sdk` (exact pin; our own
+  (`[application.endpoint-unlisted]`) on the official SDK `@a2a-js/sdk` (exact pin; our own
   `A2ARequestHandler` over the app, never its `DefaultRequestHandler`): the Agent Card at
   `<base>/.well-known/agent-card.json` (one skill per exported start, `capabilities.streaming`, the
   skills extension `A2A_SKILLS_EXTENSION` with each skill's JSON Schemas, `securitySchemes` from the
@@ -1915,7 +1982,7 @@ guaranteed (foreign peer)`). The server's side (#810, `src/a2a/server/a2a-mesh-a
   end —; the card never asks for a file field in data, of the input or of a finish's output (#916) — `@A2AEndpoint({ cardFileFields })`, `A2ACardFileFields.Extension` (out of the data schemas, in the skills extension's `files` / `outputFiles` by finish) or `.Marker` (`x-agboss-file-part: { list, optional, mediaTypes }`, which the client's card check reads as it reads `files`), per skill too, #904; a finish with file fields answers with file parts; steps use `Files` (`read` / `save` /
   `fromUrl`); bytes ride inline with no `FileRepository` listed (`[a2a.inline-files-without-store]`
   above 64 KB, `[a2a.file-store-required]` above 256 KB) or in the store under the task
-  (`InMemoryFileRepository`, `LocalDiskFileRepository`, `S3FileRepository`;
+  (`@ObjectStorage` with `InMemoryObjectDriver()`, `LocalDiskDriver(…)` or `S3Driver(…)`;
   `fileContract`; `[a2a.file-store-not-shared]`), removed by their `@FilePolicy({ ttl })` after the task is over, never while it
   waits; the client's `FileDto.fromBytes` / `.fromUrl` (the wire's `A2APart.fromFile`), `downloadFile`). One task = one root execution under the task's id (P1's reserved
   id) in `A2ATaskRepository`: the same `messageId` (per tenant and owner) again gets the same task,
@@ -1959,7 +2026,7 @@ decision }` or a text reply; another task's pause `-32602`; a resume that loses 
   band"; reads repair from the records (a root's record by `findByTenantIdAndRunId`). Nothing of an
   error's own text reaches the wire: a failure's stable code (`status.message.metadata
 [A2A_MESH_EXTENSION].code`) and that code's fixed text, anything unexpected `-32603` "the request
-  failed". The 0.1.0 wire (`POST /execute`, `/resume`, `/cancel`) is gone; `agboss describe --json` lists both sides
+  failed". `agboss describe --json` lists both sides
   under `application.contracts` (`exports`, `imports` with `usedBy`, each DTO's `schemaHash`, `schemas`);
   `agboss check --federation <snapshot…>` (#398 PR 4; files or folders of neighbours' `describe
 --json`, no network; `checkFederation` in `@agboss/core/internal`) compares every consumed contract whose
@@ -1974,15 +2041,13 @@ target.skill)` with the export whose `skill` — the exported start's name — i
   without `target.application` (a foreign A2A agent) is listed in `imports` with `foreign: true`
   (`A2AForeignImportContract`: `target: null`, and `input` / `output` `null` when untyped), never
   compared — `check --federation` skips it and `[federation.missing-target]` does not apply to it.
-  The assembly rules of an A2A side: `[a2a.expose-description-required]` (a blank `description`),
+  The assembly rules of an A2A side: `[a2a.endpoint-description-required]` (a blank `description`),
   `[a2a.skill-tags]` (a warning: a skill with no `tags`, its card says the application's name),
   `[a2a.unpriced-foreign-peer]` (a warning: a foreign `@A2AAgent` without `price`), with the store,
   file and direct-reply rules above; a resend of a follow-up whose reply was lost is told apart by
-  its kept message and gets its task, not `a2a.task-over` (#939). The 0.1.1 migration from the 0.1.0
-  wire: `target.start` → `target.skill`, `cancel(threadId)` → `cancel(taskId)`, `A2ARoute` →
-  `A2AOperation` (`SendMessage` with a `taskId` is a resume), `publicUrl` on `a2aHttpListener`,
-  `@A2AEndpoint({ ttl })`; `A2AStatus`, `A2AEvent`, `A2AExecutionRequest`
-  and `A2AExecutionResponse` are gone.
+  its kept message and gets its task, not `a2a.task-over` (#939). The wire is A2A v1: `target.skill` names the
+  callee's skill, `cancel(taskId)` cancels a task, `A2AOperation` names the call (`SendMessage` with a `taskId` is a
+  resume), `publicUrl` is on `a2aHttpListener` and `@A2AEndpoint({ ttl })` is its task's lifetime.
 - **PII policies (#120, S38):** a declarative `@PiiPolicy` — `name?` (kebab-case, default: the class name),
   `description?`, `rules: [PiiKind.X.mask() | .mask(part) | .tokenize() | .block(refusal?), PiiGroup.Y.…]` (each target once, `[pii.duplicate-target]`), `model?`, `modelProvider?`, `secret?` + `previousSecret?` (#1301) — or a
   project's own detector — `@PiiPolicy({ name, action, deps })` + `implements PiiPolicyHandler`
@@ -2025,7 +2090,7 @@ target.skill)` with the export whose `skill` — the exported start's name — i
   (`files.redactor-unknown-target`), never refused — only a region that cannot be painted refuses.
   `piiKeyField` (#825, replaced by `piiSecret`) is typed `SecretFieldOf<TEnvironment>` — only a `Secret`
   field of the contract compiles, as `@DatabaseStorage({ idempotencySecret })` does —, and a key field that is also a
-  model provider's `apiKey` (the built-ins' `openRouterApiKey` when none is listed), a `Secret` a listed class reads or another key field is
+  model provider's key (`secret("OPENROUTER_API_KEY")` of its driver), a `Secret` a listed class reads or another key field is
   `[application.pii-key-shared]` / `[application.idempotency-key-shared]`: a provider rotates its key
   routinely, and every token (every fingerprint) would change with it. The PII key makes tokens and
   business-key handles only — never a fingerprint (Business idempotency keys below). It is a root
@@ -2039,7 +2104,7 @@ import { Agent, PiiAction, PiiKind, PiiPolicy, secret } from "@agboss/core";
 -->
 
 ```ts
-import { inline } from "@agboss/core";
+import { inline, optional } from "@agboss/core";
 @PiiPolicy({
   name: "contact-pii-policy",
   description: "Hides contact details from models",
@@ -2164,7 +2229,7 @@ export class AppEnvironment {
 port: env.integer("PORT", { default: 8080 }), deadline: env.duration("DEADLINE"), history: env.ttl("HISTORY_TTL", {
 allowNone: true }), maxFile: env.bytes("MAX_FILE"), budget: env.usd("DAILY_BUDGET"), apiKey: secret("API_KEY"), token:
 secret.optional("TOKEN") })` is the one reader of the process's variables — `env` is `env.text`; the readers are
-`env.text`, `.integer`, `.number`, `.boolean` (the old `.flag` stays until the flip), `.duration` (`30d`, `24h`, `15m`, `10s`),
+`env.text`, `.integer`, `.number`, `.boolean` (`env.flag` is the same as `.boolean`), `.duration` (`30d`, `24h`, `15m`, `10s`),
 `.ttl` (a duration or `forever`; `none` only with `{ allowNone: true }` → `Ttl.Forever` / `Ttl.None`, exported from the root
 and `/units`), `.bytes` (`64kb`, `10mb`) and `.usd`, each with `{ default }` and `.optional("VAR")`. It returns a frozen,
 method-free, prototype-less dictionary (a key `then`, `__proto__`, `constructor` or `prototype` fails to compile and at
@@ -2247,7 +2312,7 @@ class's value does not compile). A judge's own model is a chat
 model (`judgeModel.invoke`, `deps: [JudgeModel]`) or a **decision model**
 (`judgeModel.decide({ state, questions })` with
 `Decision.boolean` / `Decision.choice` / `Decision.score`, answers typed by the questions; `DECISION_MODELS`
-served by `DecisionsModelProvider`). The wrong call for the model's kind throws `ModelKindError`.
+served by a `DecisionsDriver` provider). The wrong call for the model's kind throws `ModelKindError`.
 Routers and guardrails use decision models too. README → Quality gates has a full judge. **Code
 judges (#396):** a `@Judge` with no `JudgeModel` in its `deps` (no `DecidedBy`; `model` / `modelProvider`
 compile only with `JudgeModel` in `deps` — then a hybrid, `model` left out = its provider's default role) decides by its `judge(input)` alone — no model call, cost 0, its services and the
@@ -2284,10 +2349,11 @@ passed (a skipped one fails it, S2 Q6).
   `providerFetch`, MCP transports, the container's hooks — are the internal build path's,
   `createAppWith` / `builtApplicationOf` in `@agboss/core/internal`, what `testWith` and the CLI use;
   `AppDeps`, `createAppDeps`, `GraphDeps` and `ExecutionObserverManager` are internal too). How long
-  each kind of row is kept is one `@Application({ retention: { pauseRecords, executionRecords,
-auditLog, costLedgerEntries, fencedEffects, outboundCalls } })` (#834,
-  `RetentionOptions`; each a positive duration, the fencing ones above the lease, an unknown key
-  refused — `[application.retention-invalid]`; `executionRecords` unset keeps nothing). `app.execute(Start, input, { threadId, ownerId, signal,
+  each kind of row is kept is one `@Application({ retention: { pauseRecords, executionRecords } })`
+  (#834, `RetentionOptions`; each a positive duration, an unknown key refused — `[application.retention-invalid]`;
+  `executionRecords` unset keeps nothing); the audit log's and the cost ledger's are the application's
+  `@DatabaseStorage({ auditLogTtl, ledgerEntriesTtl })` (#1321, both required; `Ttl.Forever` is never swept; `[storage.retention-conflict]` when
+  `retention.auditLog` / `retention.costLedgerEntries` is set beside it). `app.execute(Start, input, { threadId, ownerId, signal,
 tenant, execution, onStream, deadline })` (`deadline`, #398: `DeadlineExceededError`, `limit.deadline`,
   before the next step or model call) runs the workflow of that start (any workflow of the
   application; one start in two workflows → `[application.ambiguous-start]`) → `ExecutionOutput`
@@ -2296,10 +2362,11 @@ tenant, execution, onStream, deadline })` (`deadline`, #398: `DeadlineExceededEr
   by its id, never by thread, found by `(tenantId, pauseId)` anywhere in the tree (unknown or another
   tenant's → `UnknownPauseError`); `result.pending: PendingPause[]` lists every waiting pause
   (parallel branches each pause on their own; the execution rests when nothing else can move) and
-  an execution with others left pauses again with the rest. Who may answer is the role's `answerer`:
-  `ThreadOwner` — `ownerId`, the id listed in `result.pending`; `Channel` — `actor: { id, orgId? }` (`id` non-empty,
+  an execution with others left pauses again with the rest. Who may answer is the target's `respondent`:
+  `PauseRespondent.Owner` — `ownerId`, the id listed in `result.pending`; `PauseRespondent.Delegate` — `actor: { id, orgId? }` (`id` non-empty,
   recorded on the pause and in `onExecutionResume`), the id only in the channel's `ask.pauseId`; the
-  other credential → `PauseError.PermissionDenied`. The decision (`ToolCallApprovalDecisionDto`: `approved`,
+  other credential → `PauseError.PermissionDenied`; the target's `permitAnswer` is asked after the answer is read and validated and
+  before it is recorded — only `true` lets it through, else `PauseError.PermissionDenied` and the pause stays pending. The decision (`ToolCallApprovalDecisionDto`: `approved`,
   `reason?`, `overrideInput?` only with `approved: true`) is validated before it is recorded.
   Each pause is a record (`PausedExecutionRepository`, S35) made by its step's idempotency key in
   its tree before `send` (#663: found by tenant, `rootExecutionId` and step key — never another
@@ -2307,10 +2374,10 @@ tenant, execution, onStream, deadline })` (`deadline`, #398: `DeadlineExceededEr
   (withdrawn: a `FailFast` sibling failed, the thread was cancelled, the tree ended) — an answer to
   any but `Pending` → `PauseClosedError` (`reason`; `NotPausedError` is the thread-level miss). `app.resume({ pauseId, reply }, …)` answers with free text
   instead (exactly one of `decision` / a non-empty `reply`, else `DtoValidationError`), read by the
-  role's `@ChannelInterpreter` (Components above). Who answered each pause is in
+  target's `@ChannelInterpreter` (Components above). Who answered each pause is in
   `result.record.pauses` (`{ includeRecord: true }`, #267 S107): every resolved pause of the tree in the order
-  asked — `PauseAnswerRecord { pauseId (none for a Channel pause), executionId, step, role,
-answerer, actor (a `PauseActor`), input, toolCall, assignees, externalRef, trail, resolution: PauseResolution,
+  asked — `PauseAnswerRecord { pauseId (none for a Delegate pause), executionId, step, target, channel?,
+respondent, actor (a `PauseActor`), input, toolCall, assignees, externalRef, trail, resolution: PauseResolution,
 askedAt, resolvedAt, decision, asked }`, the decision PII-masked, none when withdrawn or cancelled, `asked` (#688) the call as
   asked — its own arguments before a reply's correction — or a question's ask, masked; each
   child's own in its `ChildExecutionRecord.pauses` (#267 S124) — written when the pause is
@@ -2337,9 +2404,8 @@ askedAt, resolvedAt, decision, asked }`, the decision PII-masked, none when with
   mailbox aside (`pause.notice-dead`); a mailbox nobody claims is set aside by the recovery sweep (`pause.notice-recipient-unknown`).
   A `@ChannelListener` gets `pauseKey`, never a channel pause's `pauseId` unless `includePauseIds`. `withdraw` is gone.
   **Pause deadlines (#941):** a pause's record carries `expiresAt` / `expiryBound` (`Pause` | `RunDeadline` | `Quorum`) / `boundAt`, fixed
-  when the record is made (`flow/runtime/pause-record-made.ts` `deadlineOf`: `min(askedAt + expiresIn, frame.execution.deadline.at)`, a
-  tie → `RunDeadline`; `expiresIn` of the step/tool over the role's: `PauseQuestion.expiresIn ?? PauseChannel.expiresIn`; a question
-  node's own value from its `.toExternalTask` edges, `analyse/question-expiry.ts`). `app/resume.ts` refuses an answer at `expiresAt ≤ now`
+  when the record is made (`flow/runtime/pause-record-made.ts` `deadlineOf`: `min(askedAt + timeout, frame.execution.deadline.at)`, a
+  tie → `RunDeadline`; the deadline is the target's own `timeout` (a working duration on its `@WorkingCalendar`; a channel's `timeout` may only shorten it), whatever step or tool asked). `app/resume.ts` refuses an answer at `expiresAt ≤ now`
   before the interpreter and before the mark; the store's `resolve` condition (`expires_at > at`) is the final word (I2). The expiry look
   (`application/pause-expiry-look.ts`, a look of the pause timers: `findPendingByExpiresAtBefore(now, 50)`, grouped by root, the root's
   workflow by its record's `bundle`, `BuiltApp.expire` = `app/expire-root.ts`) calls `TreeMoves.expired`: `leases.tryHold(…, Expired)` →
@@ -2353,11 +2419,11 @@ askedAt, resolvedAt, decision, asked }`, the decision PII-masked, none when with
   `questionRunner` and the agent's approval node turn it into `PauseExpiredError` (or, bound by the run, `DeadlineExceededError`:
   `flow/runtime/pause-expiry-failure.ts`). Fault scenarios `s24*` (`faults/scenarios/s24-pause-expiry.ts`) and the invariants
   `one-expiry-decision`, `no-paused-root-with-closed-pause`, `no-answer-after-deadline`.
-  **Extension and reminder (#942):** `@ToolApproval({ remindBefore })` / `@ExternalTask({ remindBefore })` → `PauseChannel.remindBefore` (`components/channel-parts.ts`) →
+  **Extension and reminder (#942):** `@ToolApproval({ remindBefore })` / `@ExternalTask({ remindBefore })` → the target's own `remindBefore` →
   `remindAtOf(expiresAt, remindBefore, askedAt)` in `newRecordOf` (`remindAt` only when after the ask; the effective `expiresAt`, so a
   run-bound pause is reminded before the run's deadline); rules `[channel.remind-before-invalid]` (`channels/channel-rules.ts`) and the
-  warning `[channel.remind-before-exceeds-expiry]` (`flow/analyse/remind-before.ts`: a question step's or a tool's `expiresIn` ≤ the
-  role's `remindBefore`). `app.extendPause` (`app/pause-extension.ts`; the workflow app's, routed by the composed app like `resume`):
+  warning `[channel.remind-before-exceeds-expiry]` (`flow/analyse/remind-before.ts`: a target's `timeout` ≤ its
+  `remindBefore`). `app.extendPause` (`app/pause-extension.ts`; the workflow app's, routed by the composed app like `resume`):
   `actorOf` as an answer, then refusals (`DtoValidationError` `ExtendPauseRequest`: no deadline, not later, past `boundAt`;
   `PauseClosedError` closed or due), `remindAtOf` recomputed, then `extendByTenantIdAndPauseId` — its CAS is the final word against the
   expiry look — and `noticesWritten`; no lease, no tree move. The reminder look (`application/pause-reminder-look.ts`, a look of the
@@ -2368,14 +2434,13 @@ askedAt, resolvedAt, decision, asked }`, the decision PII-masked, none when with
   `expiring` reach a channel's `onPauseTimeoutChanged` / `onPauseExpiring` (`app/pause-notice-receive.ts`; a channel overriding any of the
   four hooks has a mailbox) and a listener's optional methods of the same names.
   **Working time (#944):** `workingHours` / `workingMinutes` (concise `workHours` / `workMin` / `workDays` and `bytes` / `kb` / `mb` / `gb` / `tb`, `ms` / `sec` / `min` / `days` since #1314b-add) (`units/index.ts`: `WorkingDuration`, a frozen `{ [Symbol.for("agboss.units.working-duration")]: true, unit: "ms" | "days", amount }` — `workDays` is `unit: "days"`, a working day of the resolved schedule, never 24 hours (#1310b);
-  `units/working-time.ts`: `amountOf` (in the span's own unit), `unitOf`, `isSameSpan`, `spanText`) are accepted by `expiresIn` / `remindBefore` / `extendPause`. A calendar is a
+  `units/working-time.ts`: `amountOf` (in the span's own unit), `unitOf`, `isSameSpan`, `spanText`) are accepted by a target's `timeout` / `remindBefore` and by `extendPause`. A calendar is a
   `WorkingCalendarHandler` (`calendar/working-calendar.ts`: `@WorkingCalendar`, `WorkingCalendarError`): `WorkingWeek.of` / `WorkingWeek.anyOf` (`calendar/working-week.ts`, the grid class; `working-grid.ts`: the `Grid` seam, the registry of problems / grids / reach (`weekReaches`) read at assembly as
   `[working-calendar.invalid]`; `working-walk.ts`: the walks — `walkMilliseconds` over the union of the grids a day at a time, `walkDays` per grid by local dates, both forward and (mirrored time) backward; `working-add.ts`: unit dispatch, `anyOf` days = earliest forward / latest back;
-  `time-zones.ts` — `Intl` offsets with `hourCycle: "h23"`; per local date the UTC segments of `hours \ breaks` over the offset windows around it, merged), a declarative `@WorkingCalendar({ week })` class (a grid made once per class, no instance), a class with `resolveSchedule(ctx)` (the core walks the schedule it returns; an invalid or empty one is `WorkingCalendarProblem.InvalidSchedule`) or a class with `addWorkingTime(ctx)`, resolved by the container; `WorkingCalendarContext` is `{ from, amount: WorkingDuration, tenantId, target?, assignees? }`. `channelPartsOf` gives each `PauseChannel` its `calendar` (the role's, else
-  `@Application({ workingCalendar })`'s; `components/channel-parts.ts`, `calendar/calendar-source.ts`). `pauseStep` (`flow/runtime/pause.ts`) looks the
-  step key up first when its `expiresIn` is working (`findByTenantIdAndRootExecutionIdAndStepKey`; a re-entry never calls the calendar), then
+  `time-zones.ts` — `Intl` offsets with `hourCycle: "h23"`; per local date the UTC segments of `hours \ breaks` over the offset windows around it, merged), a declarative `@WorkingCalendar({ week })` class (a grid made once per class, no instance), a class with `resolveSchedule(ctx)` (the core walks the schedule it returns; an invalid or empty one is `WorkingCalendarProblem.InvalidSchedule`) or a class with `addWorkingTime(ctx)`, resolved by the container; `WorkingCalendarContext` is `{ from, amount: WorkingDuration, tenantId, target?, assignees? }`. A pause's calendar is its target's own `calendar` — there is no application-wide one (`calendar/calendar-source.ts`). `pauseStep` (`flow/runtime/pause.ts`) looks the
+  step key up first when its `timeout` is working (`findByTenantIdAndRootExecutionIdAndStepKey`; a re-entry never calls the calendar), then
   `newRecordOf` (`flow/runtime/pause-record-made.ts`: `ownDeadlineOf`, `boundedDeadlineOf` — the run's deadline wall-clock, a tie to the run —,
-  `reminderOf`: both working → `calendar.add(askedAt, expiresIn − remindBefore)`, kept only strictly between the ask and the clamped
+  `reminderOf`: both working → `calendar.add(askedAt, timeout − remindBefore)`, kept only strictly between the ask and the clamped
   `expiresAt`) asks `workingTimeAfter` (`calendar/calendar-call.ts`: the step's frame, the calendar's own `timeout` (`sec(30)`) on the clock, `workingReminderAt` walks a working reminder back from the clamped deadline (a custom add-only calendar: forward, one unit, else `mixed-units`), a throw / timeout /
   non-`Date` / not-after-`from` → `WorkingCalendarError`, logged `pause.working-calendar-failed`) before `send`; the question runner and the agent
   approval wrap it in `QuestionFailedError` / `AgentFailedError`. `app.extendPause` (`app/pause-extension.ts`) asks the same in `pauseFrameOf`.
@@ -2786,8 +2851,8 @@ const readiness: HealthReport = await app.checkReadiness();
   and counts again — and the lost pass is an Unknown-cost entry, below —, while a record kept in a durable state counts once —, added once by
   `CostLedgerRepository.saveAll`, so a write retried after a lost answer counts once; #771: each
   entry dated by its record's `madeAt`, pruned by the recovery sweep after
-  `@Application({ retention: { costLedgerEntries } })` — default `hours(24)`, above the lease,
-  `[application.retention-invalid]` — through `deleteByMadeAtBefore(cutoff)`,
+  `@DatabaseStorage({ ledgerEntriesTtl })` — required, above the lease (`Ttl.Forever` never prunes),
+  `[storage.ttl-invalid]` — through `deleteByMadeAtBefore(cutoff)`,
   which raises the store's pruning mark; a save of an entry made before the mark that the store does
   not hold is refused, `CostLedgerEntryExpiredError`, nothing added and the pass's reads failing
   with it, so a retry that late never counts twice; #817: `saveAll` takes `LedgerEntry` values
@@ -2852,7 +2917,7 @@ LimitError` narrows to the union, `switch (err.kind)` is exhaustive, `.onError(L
   an error with only its text `new UnknownPauseError({ message, cause })` — and every one takes a
   `cause` (kept as `.cause`; `tests/public-api/error-options.test.ts` walks every entry of
   `package.json#exports` for every `Error` subclass — `AGBossError` or not, the `/testing` ones and
-  the platform's `RangeError` ones included (`ReasoningError`, …: `{ message, cause }`,
+  the platform's `RangeError` ones included (`{ message, cause }`,
   `PlainErrorOptions`, a literal `code`) — and fails for a class without a fixture, with positional
   facts, or one that drops its `cause`; only the base `new AGBossError(message, { cause, details })`
   is positional). Its instance `code` is its
@@ -2869,16 +2934,18 @@ typeof X.code;` — so `switch (error.code)` over a union of errors narrows
   class line, message, causes, at most `MAX_ERROR_CAUSES` = 32 deep, a looping chain cut at its
   first repeat — the same cut wherever a record is made) and rebuild it as a `RecordedError`
   (internal: its `errorRecordOf` is that record, `instanceof` the project's class does not hold; a
-  budget's or a failed undo's still passes a child's boundary as it is); a mark or a row written
-  before #598 has no record and routes on every instance as an `AGBossError` with the message (a
-  mark) or a `RemoteChildFailure` (a row) — never the child's own class.
+  budget's or a failed undo's still passes a child's boundary as it is); a record that cannot be
+  read routes as an `AGBossError` with the message — never the child's own class.
 
 ### Testing
 
 - The whole application: `testWith(Application, options?)` from `@agboss/core/testing` — the only form
   (`testWith(Workflow)` does not compile, #261); one workflow is tested through its start with
   `app.execute`. Each test assembles the application anew on the implementations it lists (else
-  the in-memory defaults); `app` is built on first use (`await app.ready()` for a test that
+  the in-memory defaults) and, like production, on **explicit model providers** (#1313, #1328): `/testing` makes none of its own, so an
+  application or workflow that names none is `[model.missing-provider]` — the test app names `modelProvider: TestModelProvider` (a decisions
+  component, `TestDecisionsModelProvider`) or its production providers (the worked example's: its script answers before
+  a provider is reached, and no key is read); `app` is built on first use (`await app.ready()` for a test that
   executes nothing). Vitest fixtures `app`, `mockLlm`, `mockAction`, `mockTool`, `mockOf` (budgets
   too), `mcpOf`,
   `recoverApp`, `clock` — the test's `VirtualClock` (`@agboss/core/testing`), the application's `Clock`
@@ -2896,15 +2963,15 @@ typeof X.code;` — so `switch (error.code)` over a union of errors narrows
   `@agboss/core/testing`, #313), unless the application lists its own `IdGenerator` — and, with
   `testWith(App, { instances: 2 })`, `apps` (each instance its own container, one set of stores and
   one clock: a lease, a pause resumed on the other instance, a rate-limit slot — the in-memory
-  defaults are shared; listed SQLite stores on `sqlitePath: ":memory:"` are **not**, each instance
+  defaults are shared; the SQLite storage on `SqliteDriver.inMemory()` is **not**, each instance
   opens its own database, so a multi-instance test names one file, e.g. flow-patterns'
   `instances` environment on a temp path, #458) and `leases` (#471: `leases.freeze(apps[0])` freezes
   that instance's lease store calls and lease timers while its steps run on, `leases.thaw(…)`
   lets them go — a zombie writer on the `VirtualClock`); models answer by script — `replyWith(text)` or
   `replyWith(Dto, value, { cost })` (a structured answer, a class of the agent's output: checked by
   the generated types, #262), `callTool(Tool, args)` (args typed by the tool's input DTO),
-  `routeTo(...targets)` (`Route<R>`: one target after `.onRoute(…)`, the `OnDemand` ones before a
-  launch, `routeTo()` only with an `Always` route), `decideWith(answers)` (a decision judge),
+  `routeTo(...targets)` (`Route<R>`: exactly one target after `.onRoute(…)`, the launched ones in
+  `toRouter(R).chooseMany([…])`, `routeTo()` for none), `decideWith(answers)` (a decision judge),
   `failWith(ModelFailure.Timeout)`, `waitFor(seconds(31))` (the next turn after that long on the
   clock); the network is blocked. `mockLlm(X).when(PartialValues<InputOf<X>>)` binds turns to the
   input values (agents, model routers and chat-model reply interpreters — `{ ask, reply }`, #267; a
@@ -2941,9 +3008,9 @@ typeof X.code;` — so `switch (error.code)` over a union of errors narrows
   `vcr.mode` or `AGBOSS_VCR_MODE`) fails the test app's start, `[vcr.record-in-ci]`, unless
   `AGBOSS_VCR_RECORD_IN_CI=1` (#839).
 - Replacing a class in the application (#267 S104): `testWith(App, { services:
-[AutoApproveChannel.for(RefundApprovalRole)] })` — the same `Replacement`
-  as the unit runners, a class created instead of another over any listed one; a channel role's
-  replacement need not extend it, but its `send` must fit the role's `ChannelAsk` →
+[AutoApproveChannel.for(RefundToolApproval)] })` — the same `Replacement`
+  as the unit runners, a class created instead of another over any listed one; a channel's
+  replacement need not extend it, but its `send` must fit the target's `ChannelAsk` →
   `ChannelOutcome` (else it does not compile). There is no `channels` option.
 - Parallel branches (#262 S33): `testWith(App, { concurrency })` — `TestConcurrency.Sequential`
   (the default: one branch at a time, in listed / item order), `TestConcurrency.Real` (as in
@@ -2959,7 +3026,7 @@ timeout: seconds(1) })` → `{ output, spend }` (a tool call's frame: `execution
   with the timeout, `SpendRecorder` into `spend`; input and output validated); the same shape for
   `testUnit` (a code router's `route()`, or a model router with `model: routeTo(X)`
   / `decideWith(…)`), `testUnit(A)(Agent, answer)`, `testUnit(R)(query, { topK })`,
-  `testUnit(Role, { model })` (#644: the role's `@ChannelInterpreter` on `{ ask, reply }` → `{ isUnderstood: true, answer }` | `{ isUnderstood: false, reason }`, as `app.resume({ reply })` reads it), `testUnit(I)` (#384: `.beforeToolCall(Tool, input)` → the `ToolCallDecision`,
+  `testUnit(Interpreter, { model })` (#644: the target's `@ChannelInterpreter` on `{ ask, reply }` → `{ isUnderstood: true, answer }` | `{ isUnderstood: false, reason }`, as `app.resume({ reply })` reads it), `testUnit(I)` (#384: `.beforeToolCall(Tool, input)` → the `ToolCallDecision`,
   `.afterToolCall(Tool, input, output)`), `testUnit(J, { model: decideWith(…) | replyWith(…) })` (`{ variant, reply, task, attempt }`, its `reply` a plain object of the judge's DTO), `testUnit(G, { model: decideWith({ blocks: 0.9 }) })(text, { element })` → `{ isBlocked,
 probability, refusal? }`
   and `testUnit([Policies])` → `mask(text)` / `reveal(text)` (rules checked first);
@@ -2984,15 +3051,15 @@ isPassed }` (#799: every requirement probed and passed — G3 skipped without a 
 
 An example (and any project) imports only the public entries: the root `@agboss/core` (decorators,
 DI, the path builder, settings, environments, observers, judges and decisions, `createApp`, errors,
-types), `@agboss/core/dto` (+ the DTO wrappers), `/units`, `/models`, `/testing` (+ `/testing/setup`; `/testing/vitest`, #497, the vitest preset `agbossVitest()`; `/testing/contracts`, #481, the store
+types), `@agboss/core/dto` (+ the DTO wrappers), `/units`, `/models`, `/stores` (#890: the store-implementer entry), `/describe` (the `agboss describe` report types), `/testing` (+ `/testing/setup`; `/testing/faults`, the fault suite; `/testing/vitest`, #497, the vitest preset `agbossVitest()`; `/testing/contracts`, #481, the store
 contract suites), and
-the integrations `/mcp`, `/rag`, `/a2a`, `/memory`, `/eval` (#396: `@EvalSuite` and the builders of
+the integrations `/mcp`, `/rag`, `/a2a`, `/eval` (#396: `@EvalSuite` and the builders of
 its cases and checks — no runner at import), and `/eslint` (#388: the lint rules for a
 project's ESLint config; types from `@typescript-eslint/utils`, an optional peer). ESLint enforces it from
-`packages/agboss/package.json#exports` minus `deprecatedExports` (`scripts/public-entries.mjs`): a
+`packages/agboss/package.json#exports` minus `internalExports` (`scripts/public-entries.mjs`): a
 new entry is allowed by adding it there, never by an `eslint-disable`; a project and agbossjs/agboss-examples
 get the same refusal of `@agboss/core/internal` from `agboss/no-internal-import` (`@agboss/core/eslint`, #818). `/core`, `/graph`, `/router`,
-`/tool`, `/channels` are deprecated re-exports; `agboss migrate imports` rewrites them. The root
+`/tool`, `/channels` are removed (#1324d: import from the root; `agboss migrate imports` rewrites old imports). The root
 import has no side effects (load tracing, MCP, SQLite lazily), and each name has one meaning across
 entries. A public surface change updates the api-extractor reports (`npm run api:update` →
 `packages/agboss/api/*.api.md`). A public signature names only types a public entry exports (`npm run
@@ -3135,6 +3202,11 @@ packages/agboss/        the framework (npm package `@agboss/core`; builds to dis
                     MCP, tracing) on the application's infrastructure
     infrastructure/ the contracts + in-memory defaults (ledger, records, paused executions, leases,
                     tree keys, rate-limit slots); sqlite/ — the connection and every Sqlite* one
+    models/         @ModelProvider (a driver or a transport class), OpenRouterDriver / OpenAiCompatibleDriver /
+                    DecisionsDriver, the model cascade (resolution.ts), the attempt runner (calls/); `@agboss/core/models`
+    storage/        @DatabaseStorage, @ClusterStorage, @ObjectStorage and their drivers (SqliteDriver, S3Driver, …,
+                    #1321); the stores the application is built on come from them; `@agboss/core/stores` holds the
+                    store-implementer entry (src/stores/)
     budgets/        @Budget, BudgetScope, BudgetPeriod, BudgetHandler; the rules; at run time: the checks,
                     the counting and the live tally (execution-budgets.ts; maxSpend() once per
                     execution in run/run-budgets.ts)
