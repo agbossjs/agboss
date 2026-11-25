@@ -123,7 +123,7 @@ async function runOnce<TName extends string>(
   const spent: UsageRecord[] = [];
   const base = turnBaseOf(
     deps,
-    { runId, threadId, tenantId, task: await storedStartLine(deps, start, input) },
+    { runId, threadId, tenantId, task: storedStartLine(deps, start, input) },
     options,
   );
   let turnId: string | undefined;

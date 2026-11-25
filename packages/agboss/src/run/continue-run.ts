@@ -62,7 +62,7 @@ export async function continueRun<TName extends string>(
     threadId: run.threadId,
     tenantId: run.tenantId,
     workflow: deps.config.name,
-    task: await storedStartLine(deps, run.start, run.startInput),
+    task: storedStartLine(deps, run.start, run.startInput),
     replayOf: null,
     ...executionVersions(deps),
   };

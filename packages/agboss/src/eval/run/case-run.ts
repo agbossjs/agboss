@@ -141,18 +141,18 @@ async function metamorphicResultOf(
 }
 
 // the task line is the stored one: the judge's model sees a token or a mask, never a raw sensitive value (#1301)
-const judgedTurnOf = async (
+const judgedTurnOf = (
   parts: SuiteRunParts,
   lastTurn: EvalTurn | undefined,
   last: ExecutionOutput,
   values: CaseContextValues,
-): Promise<JudgedTurn> => ({
+): JudgedTurn => ({
   executionId: last.executionId,
   threadId: last.threadId,
   values,
   finish: last.finish,
   output: last.output,
-  task: await storedStartLine(parts.deps, parts.start.name, lastTurn?.input),
+  task: storedStartLine(parts.deps, parts.start.name, lastTurn?.input),
   toolCalls: last.toolCalls,
 });
 
@@ -211,7 +211,7 @@ async function runAttempt(
   const turns = await runTurns(parts, written, { threadId, values });
   if (turns.kind === "failed") return failedRunOf(ids, turns.error, turns.spentUsd);
   const { last } = turns;
-  const turn = await judgedTurnOf(parts, turnsOfCase(written).at(-1), last, values);
+  const turn = judgedTurnOf(parts, turnsOfCase(written).at(-1), last, values);
   const expected = written.expectedStatus ?? ExecutionStatus.Finished;
   if (last.status !== expected)
     return failedRunOf(ids, statusMismatchOf(last, expected), turns.spentUsd, {

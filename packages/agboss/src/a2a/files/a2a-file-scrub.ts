@@ -78,6 +78,35 @@ export const withoutInlineBytes = (value: unknown): unknown =>
     Object.fromEntries(Object.entries(file).filter(([key]) => key !== "inline")),
   );
 
+/** Stands where a file descriptor is while a value goes through a mask: its place in the list of kept ones. */
+const FILE_SLOT = "$agbossKeptFile";
+
+/** The value with each kept-file slot back as its descriptor. */
+function withFilesBack(value: unknown, files: readonly unknown[]): unknown {
+  if (Array.isArray(value)) return value.map((item: unknown) => withFilesBack(item, files));
+  if (!isPlain(value)) return value;
+  const slot = value[FILE_SLOT];
+  if (typeof slot === "number") return files[slot];
+  return rebuilt(value, (item) => withFilesBack(item, files));
+}
+
+/**
+ * A value through `through` with its file descriptors left out of it and put back after, bytes
+ * (`inline`) aside: what a turn line keeps of a file is its whole descriptor (`fileId`, `url`, digest),
+ * so a later turn can read it, while the rest of the value is masked.
+ */
+export async function throughKeepingFiles(
+  value: unknown,
+  through: (rest: unknown) => Promise<unknown>,
+): Promise<unknown> {
+  const files: unknown[] = [];
+  const rest = mapped(value, (file) => {
+    files.push(withoutInlineBytes(file));
+    return { [FILE_SLOT]: files.length - 1 };
+  });
+  return withFilesBack(await through(rest), files);
+}
+
 const isFileDto = (dto: DtoClass): boolean => dto === FileDto || dto.prototype instanceof FileDto;
 
 /** What is left of a value a file DTO's place holds that is no descriptor: nothing that carries bytes. */

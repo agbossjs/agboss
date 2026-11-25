@@ -1,4 +1,4 @@
-import { withoutInlineBytes } from "../../a2a/files/a2a-file-scrub.js";
+import { throughKeepingFiles, withoutInlineBytes } from "../../a2a/files/a2a-file-scrub.js";
 import { sortedJson } from "./json.js";
 
 /**
@@ -52,14 +52,19 @@ export const finishLine = (finish: string, output: unknown): string =>
 
 /**
  * The finish line of a turn as it is written to the store (#1321d): the output masked by the
- * observability policies first (what no observer sees is not stored either), files without bytes.
+ * observability policies first (what no observer sees is not stored either). A file stays its whole
+ * descriptor without bytes: the mask would show it as a scrub, and a later turn reads the file by
+ * its `fileId`.
  */
 export async function maskedFinishLine(
   finish: string,
   output: unknown,
   mask: { value(value: unknown): Promise<unknown> } | undefined,
 ): Promise<string> {
-  return finishLine(finish, mask === undefined ? output : await mask.value(output));
+  return finishLine(
+    finish,
+    mask === undefined ? output : await throughKeepingFiles(output, (rest) => mask.value(rest)),
+  );
 }
 
 /** The finish name and the output (as JSON) a finish line holds; `undefined` for any other line. */

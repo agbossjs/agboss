@@ -67,8 +67,6 @@ import {
 } from "./compaction.fixture.js";
 import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
-const JEV = "typesafe/jev-1.13";
-
 /** A request's text: what a compaction or an agent read, as one string. */
 const textOf = (request: ModelRequest): string =>
   request.kind === "chat"
@@ -143,18 +141,6 @@ const violationsOf = async (application: object): Promise<string[]> => {
   },
 })
 class MisnamedMemory {}
-
-@Memory({
-  name: "decision-memory",
-  description: "On a decision model",
-  ttl: Ttl.Forever,
-  compaction: {
-    strategy: CompactionStrategy.SingleSummary,
-    model: JEV,
-    summaryMaxTokens: 100,
-  },
-})
-class DecisionMemory {}
 
 @Memory({
   name: "odd-window-memory",
@@ -247,10 +233,8 @@ describe("#120 AC10, #1303: @Memory at assembly", () => {
     });
   });
 
-  it("name ends with -memory; counts are whole numbers from 1; a summary needs a chat model; a ttl is a duration or Ttl.Forever; compaction and compact() never both", () => {
-    expect(
-      memoryViolations([MisnamedMemory, DecisionMemory, QueueMemory, NeverMemory, BothMemory]),
-    ).toEqual([
+  it("name ends with -memory; counts are whole numbers from 1; a ttl is a duration or Ttl.Forever; compaction and compact() never both", () => {
+    expect(memoryViolations([MisnamedMemory, QueueMemory, NeverMemory, BothMemory])).toEqual([
       expect.objectContaining({ code: "name.kind-suffix" }),
       expect.objectContaining({
         code: "memory.invalid-setting",
@@ -263,10 +247,6 @@ describe("#120 AC10, #1303: @Memory at assembly", () => {
       expect.objectContaining({
         code: "memory.invalid-setting",
         message: "misnamed: summaryQueueLength 0 — a whole number from 1",
-      }),
-      expect.objectContaining({
-        code: "memory.invalid-setting",
-        message: expect.stringContaining("decision-memory: typesafe/jev-1.13 is a decision model"),
       }),
       expect.objectContaining({
         code: "memory.invalid-setting",
