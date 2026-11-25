@@ -5,11 +5,13 @@ import {
   ClusterLeaseSyncOutcome,
   MirroredLeaseState,
   type ClusterLeaseSync,
+  type ClusterLeaseTake,
   type MirroredLease,
 } from "../cluster-lease-types.js";
 import { ExecutionLeaseRepository, type ExecutionLease } from "../execution-lease-contract.js";
 import type { ClusterLeaseMirror } from "../cluster-lease-types.js";
 import type { SqliteConnection } from "./sqlite-connection.js";
+import { reclaimedFenceSql } from "./sqlite-pause.js";
 import type { ExecutionTree } from "../execution-tree.repository.js";
 
 /**
@@ -40,11 +42,20 @@ function isBehind(row: z.infer<typeof Row>, lease: ExecutionLease): boolean {
 }
 
 /** Writes `lease` into its tree's row (inside the caller's transaction); refuses a stale one or a retired row. */
-export function syncedOnSqlite(database: DatabaseSync, lease: ExecutionLease): ClusterLeaseSync {
+export function syncedOnSqlite(
+  database: DatabaseSync,
+  lease: ExecutionLease,
+  take: ClusterLeaseTake = {},
+): ClusterLeaseSync {
   const stored = readRow(database, lease);
   if (stored?.released === RETIRED) return { outcome: ClusterLeaseSyncOutcome.Retired };
   if (stored !== undefined && isBehind(stored, lease))
     return { outcome: ClusterLeaseSyncOutcome.Behind, rowToken: stored.lease_epoch };
+  // a reclaim under an `Immediate` pause: its token fenced in this same statement (#1341c)
+  const fence =
+    take.isReclaim === true
+      ? `, ${reclaimedFenceSql("excluded.lease_epoch", "execution_leases.")}`
+      : "";
   database
     .prepare(
       `INSERT INTO execution_leases (tenant_id, root_execution_id,
@@ -52,7 +63,7 @@ export function syncedOnSqlite(database: DatabaseSync, lease: ExecutionLease): C
        VALUES (?, ?, ?, ?, ?, 0, 0)
        ON CONFLICT (tenant_id, root_execution_id) DO UPDATE SET
          holder_instance_id = excluded.holder_instance_id, lease_epoch = excluded.lease_epoch,
-         expires_at = excluded.expires_at, released = 0, yielded = 0`,
+         expires_at = excluded.expires_at, released = 0, yielded = 0${fence}`,
     )
     .run(
       lease.tenantId,
@@ -89,9 +100,9 @@ export abstract class SqliteClusterMirror
     super();
   }
 
-  syncClusterLease(lease: ExecutionLease): Promise<ClusterLeaseSync> {
+  syncClusterLease(lease: ExecutionLease, take?: ClusterLeaseTake): Promise<ClusterLeaseSync> {
     return Promise.resolve(
-      this.connection.transaction(() => syncedOnSqlite(this.connection.database, lease)),
+      this.connection.transaction(() => syncedOnSqlite(this.connection.database, lease, take)),
     );
   }
 

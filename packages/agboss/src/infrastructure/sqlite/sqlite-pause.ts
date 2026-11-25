@@ -60,6 +60,18 @@ export function pauseMarksOf(database: DatabaseSync, tree: Tree): PauseMarks {
   };
 }
 
+/**
+ * The `SET` term of a reclaim at the token `next` (an SQL expression over the row; #1341c): while an
+ * `Immediate` pause is set, `fenced_through_token` rises to the reclaimed token in the reclaim's own
+ * statement — a holder that yielded under the pause gets no token above the fence. `row` names the
+ * table the stored columns are read from (an upsert's `execution_leases`, a plain `UPDATE`'s none).
+ */
+export const reclaimedFenceSql = (next: string, row = ""): string =>
+  `fenced_through_token = CASE WHEN ${row}is_externally_paused = 1
+     AND ${row}external_pause_mode = '${InterruptMode.Immediate}'
+     THEN MAX(COALESCE(${row}fenced_through_token, 0), ${next})
+     ELSE ${row}fenced_through_token END`;
+
 /** Marks the tree paused from outside, in the caller's transaction (see `ExecutionLeaseRepository.requestPause`). */
 export function markedPaused(
   database: DatabaseSync,

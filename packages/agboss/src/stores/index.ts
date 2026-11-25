@@ -98,6 +98,7 @@ export {
   type ClusterLeaseCoordinator,
   type ClusterLeaseMirror,
   type ClusterLeaseSync,
+  type ClusterLeaseTake,
   type MirroredLease,
 } from "../infrastructure/cluster-lease.js";
 export { InMemoryCluster, type ClusterOutage } from "../infrastructure/in-memory-cluster-lease.js";

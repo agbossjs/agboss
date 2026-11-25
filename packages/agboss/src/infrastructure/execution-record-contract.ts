@@ -69,6 +69,18 @@ export abstract class ExecutionRecordRepository {
     context?: StatusContext,
   ): Promise<boolean>;
   /**
+   * Completes a running record with its final outcome only while its tree — the record's `tenantId`
+   * and `runId` — carries no stop or cancel mark on its lease row (#1341b), read in the write's own
+   * transaction: the store is on the lease store's backend (as the thread's status history, #1341d),
+   * so a mark written meanwhile by any instance serializes with it and a finish never lands over a
+   * durable mark. `true` when it wrote, `false` when it refused (nothing written).
+   */
+  abstract completeUnlessInterrupted(
+    turnId: string,
+    outcome: TurnOutcome,
+    context?: StatusContext,
+  ): Promise<boolean>;
+  /**
    * The thread's status history (#1341d), oldest first: one row per change of its status, written
    * in the transaction of the change (a record's status write, a lease's stop or cancel mark);
    * empty for a thread with none. Removed with the thread (`deleteIdleThreads`, and its tree's

@@ -29,7 +29,9 @@ async function takenBy(store: ExecutionLeaseRepository): Promise<ExecutionLease>
  * the pause is lifted: what a child's holder reads to abort at once or finish its step) —, changing
  * no lease; and the fence an `Immediate` pause raises,
  * `fencedThroughToken = GREATEST(itself, the row's token)`: it only ever rises, `unpause` never lowers
- * it, a lease at a higher token (`release` then `acquire`, `reclaim`) is not fenced by it. What the fence
+ * it, a lease at a higher token taken by `release` then `acquire` is not fenced by it, nor one
+ * `reclaim`ed after `unpause` — but a `reclaim` while an `Immediate` pause is set inherits the fence
+ * (`fencedThroughToken` = the reclaimed token, in the reclaim's own step). What the fence
  * refuses is the fencing stores' contract (`fenced-effect-pause.cases.ts`).
  */
 export const LEASE_PAUSE_CASES: readonly ContractCase<ExecutionLeaseRepository>[] = [
@@ -86,6 +88,34 @@ export const LEASE_PAUSE_CASES: readonly ContractCase<ExecutionLeaseRepository>[
 
       expect((await first.pauseOf(TREE)).fencedThroughToken).toBe(next?.token);
       expect(next?.token).toBe(held.token + 1);
+    },
+  },
+  {
+    name: "#1341c: a reclaim while an Immediate pause is set inherits the fence — fencedThroughToken is the reclaimed token, read from both instances; under an AfterStep pause or after unpause a reclaim leaves the fence where it was",
+    run: async ({ first, second }: Instances): Promise<void> => {
+      const held = await takenBy(first);
+      await first.yield(held);
+      await second.requestPause(TREE, { mode: InterruptMode.AfterStep });
+      const underAfterStep = await first.reclaim(held, LEASE);
+      if (underAfterStep === undefined) throw new Error("a yielded lease must be reclaimed");
+      expect((await second.pauseOf(TREE)).fencedThroughToken).toBeUndefined();
+
+      await first.yield(underAfterStep);
+      await second.requestPause(TREE, { mode: InterruptMode.Immediate });
+      expect((await second.pauseOf(TREE)).fencedThroughToken).toBe(underAfterStep.token);
+      const fenced = await first.reclaim(underAfterStep, LEASE);
+
+      expect(fenced).toMatchObject({ token: underAfterStep.token + 1 });
+      expect((await second.pauseOf(TREE)).fencedThroughToken).toBe(fenced?.token);
+      expect((await first.pauseOf(TREE)).fencedThroughToken).toBe(fenced?.token);
+
+      if (fenced === undefined) throw new Error("a yielded lease must be reclaimed");
+      await second.unpause(TREE);
+      await first.yield(fenced);
+      const lifted = await first.reclaim(fenced, LEASE);
+
+      expect(lifted).toMatchObject({ token: fenced.token + 1 });
+      expect((await second.pauseOf(TREE)).fencedThroughToken).toBe(fenced.token);
     },
   },
   {

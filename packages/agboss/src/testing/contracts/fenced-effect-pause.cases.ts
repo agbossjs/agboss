@@ -20,7 +20,7 @@ import {
  * or below is refused — `ExecutionError.Fenced`, the hand-over of a stale holder: the work not run,
  * nothing written — an undo's key too, whatever a cancel marked after it; the fence outlives
  * `unpause`. A write at a higher token (the lease taken again, `token + 1`) runs, its cancel's undo
- * included. An `AfterStep` pause fences nothing: the step in flight commits.
+ * included — but not one at a token `reclaim`ed while the pause is set: that token inherits the fence. An `AfterStep` pause fences nothing: the step in flight commits.
  */
 
 type Case = ContractCase<FencedEffectTarget>;
@@ -138,8 +138,55 @@ const childrenAreFenced = (): Case => ({
   },
 });
 
+const reclaimInheritsFence = (): Case => ({
+  name: "#1341c: a reclaim under an Immediate pause hands out no token above the fence — the root's write on the reclaimed token and a child's write are both refused; a reclaim after unpause writes",
+  isFencing: true,
+  run: async ({ first, second }) => {
+    const root = await leaseOf(first, "root-1");
+    const child = await leaseOf(first, "child-1");
+    const childKey = (name: string) =>
+      effectKeyForTesting(keyOf(child, name), { rootExecutionId: "root-1" });
+    const count: WriteCount = { runs: 0 };
+    // the root waits for a remote child: its lease yielded, then paused from another instance
+    await first.leases.yield(root);
+    await second.leases.requestPause(treeOf(root), { mode: InterruptMode.Immediate });
+
+    const reclaimed = await first.leases.reclaim(root, root.remaining);
+    if (reclaimed === undefined) throw new Error("the holder's yielded lease must be reclaimed");
+    const ofRoot = await rejectionOf(
+      first.effects.runOnce(keyOf(reclaimed, "charge"), writing(first.rows, "charge", count)),
+    );
+    const ofChild = await rejectionOf(
+      first.effects.runOnce(childKey("child-charge"), writing(first.rows, "child-charge", count)),
+    );
+    await second.leases.unpause(treeOf(root));
+    await first.leases.yield(reclaimed);
+    const lifted = await first.leases.reclaim(reclaimed, root.remaining);
+    if (lifted === undefined) throw new Error("the holder's yielded lease must be reclaimed");
+    const afterUnpause = await first.effects.runOnce(
+      keyOf(lifted, "after"),
+      writing(first.rows, "after", count),
+    );
+
+    expect(reclaimed.token).toBe(root.token + 1);
+    expect(ofRoot).toBeInstanceOf(ExecutionPauseFencedError);
+    expect(ofRoot).toMatchObject({ token: reclaimed.token, rootExecutionId: "root-1" });
+    expect(ofChild).toBeInstanceOf(ExecutionPauseFencedError);
+    expect(ofChild).toMatchObject({ rootExecutionId: "root-1", leaseExecutionId: "child-1" });
+    expect(afterUnpause.status).toBe(IdempotencyRunStatus.Ran);
+    expect(count.runs).toBe(1);
+    expect(await second.rows.committed()).toEqual(["after"]);
+  },
+});
+
 /** The pause as a fence of the fenced effect. */
 export const pauseCases = (): ContractGroup<FencedEffectTarget> => ({
   title: "a tree's Immediate pause is a fence (#1341c)",
-  cases: [immediateFences(), fenceOutlivesUnpause(), childrenAreFenced(), otherTreesUntouched()],
+  cases: [
+    immediateFences(),
+    fenceOutlivesUnpause(),
+    childrenAreFenced(),
+    reclaimInheritsFence(),
+    otherTreesUntouched(),
+  ],
 });

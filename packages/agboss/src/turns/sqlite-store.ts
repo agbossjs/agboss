@@ -4,7 +4,7 @@ import type { DatabaseSync, SQLInputValue } from "node:sqlite";
 import { z } from "zod";
 import { migrateTurnDatabase, openTurnDatabase, placeholders, toTurn } from "./schema.js";
 import { configMethods } from "./configs.js";
-import { pauseAnswerWrites, turnWrites } from "./writes.js";
+import { interruptibleWrites, pauseAnswerWrites, turnWrites } from "./writes.js";
 import { sqliteStatusLog, type StatusLog } from "./status-log.js";
 import { idleThreadMethods } from "./idle-threads.js";
 import { memoryMethods } from "./summaries.js";
@@ -178,6 +178,7 @@ function turnStoreOn(
   return {
     ...threadMethods(db, now, threadIds),
     ...turnWrites(db, now, log),
+    ...interruptibleWrites(db, now, log),
     ...pauseAnswerWrites(db),
     ...turnReads(rows),
     ...statusReads(rows),

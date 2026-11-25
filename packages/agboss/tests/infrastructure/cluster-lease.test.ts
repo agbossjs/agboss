@@ -250,4 +250,25 @@ describe("#1321e: SQLite's lease row mirrors a cluster lease", () => {
     });
     expect(await one.stopOf(TREE)).toEqual({ mode: InterruptMode.Immediate });
   });
+
+  it("#1341c: a reclaim's mirror under an Immediate pause raises the fence to its token in the upsert; an AfterStep pause, an acquire's mirror and a reclaim after unpause leave it", async () => {
+    const { one, two } = sqlite();
+    await one.syncClusterLease(lease(1));
+    await two.requestPause(TREE, { mode: InterruptMode.AfterStep });
+    await one.syncClusterLease(lease(2), { isReclaim: true });
+    expect((await two.pauseOf(TREE)).fencedThroughToken).toBeUndefined();
+
+    await two.requestPause(TREE, { mode: InterruptMode.Immediate });
+    expect(await one.syncClusterLease(lease(3), { isReclaim: true })).toEqual({
+      outcome: ClusterLeaseSyncOutcome.Synced,
+    });
+    expect((await two.pauseOf(TREE)).fencedThroughToken).toBe(3);
+
+    await one.endClusterLease(lease(3), { isRetired: false });
+    await one.syncClusterLease(lease(4));
+    expect((await two.pauseOf(TREE)).fencedThroughToken).toBe(3);
+    await two.unpause(TREE);
+    await one.syncClusterLease(lease(5), { isReclaim: true });
+    expect((await two.pauseOf(TREE)).fencedThroughToken).toBe(3);
+  });
 });

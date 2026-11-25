@@ -184,6 +184,12 @@ export type EndedRun = (tree: {
   readonly rootExecutionId: string;
 }) => Promise<boolean>;
 
+/** The execution tree a root's Turn is the record of: its tenant and its run (the root's id). */
+export interface TurnTree {
+  readonly tenantId: string;
+  readonly rootExecutionId: string;
+}
+
 /** Durable memory of runs: threads, Turns, their quality scores and conversation summaries. */
 export interface TurnStore extends MemoryStore, ConfigStore {
   /** A new thread (`NewThread`); its id. */
@@ -212,6 +218,18 @@ export interface TurnStore extends MemoryStore, ConfigStore {
     expected: TurnStatus,
     outcome: TurnOutcome,
     context?: StatusContext,
+  ): Promise<boolean>;
+  /**
+   * Completes a Turn with its final outcome only while `isInterrupted` says its tree (the Turn's
+   * tenant and run) carries no stop or cancel mark — asked inside the write's own transaction, so a
+   * mark the same backend writes in a transaction of its own serializes with it (#1341b); none given:
+   * a Turn store with no lease row beside it, no mark is seen. `false` when it refused: nothing written.
+   */
+  completeUnlessInterrupted(
+    turnId: string,
+    outcome: TurnOutcome,
+    context?: StatusContext,
+    isInterrupted?: (tree: TurnTree) => boolean,
   ): Promise<boolean>;
   /** The last `limit` Turns of a thread (its tenant and id), oldest first. */
   readonly lastTurns: (tenantId: string, threadId: string, limit: number) => Promise<Turn[]>;

@@ -4,7 +4,7 @@ import { z } from "zod";
 import type { StatusLog } from "./status-log.js";
 import { recordTransitionOf, type StatusContext } from "./status-transition.js";
 import { storedTextOf } from "./schema.js";
-import type { PauseAnswerEntry, Turn, TurnOutcome, TurnStore } from "./types.js";
+import type { PauseAnswerEntry, Turn, TurnOutcome, TurnStore, TurnTree } from "./types.js";
 
 /** The current time (the application's clock, given by the caller). */
 type Now = () => Date;
@@ -140,6 +140,44 @@ function threadOfTurn(
   if (row === undefined) return undefined;
   const parsed = ThreadOfTurn.parse(row);
   return { tenantId: parsed.tenant_id, threadId: parsed.thread_id };
+}
+
+const TreeOfTurn = z.object({ tenant_id: z.string(), run_id: z.string().nullable() });
+
+/** The execution tree a Turn is the root record of (its tenant and run), by its id; none without a run. */
+function treeOfTurn(db: DatabaseSync, id: string): TurnTree | undefined {
+  const row = db.prepare("SELECT tenant_id, run_id FROM terns WHERE id = ?").get(id);
+  if (row === undefined) return undefined;
+  const parsed = TreeOfTurn.parse(row);
+  return parsed.run_id === null
+    ? undefined
+    : { tenantId: parsed.tenant_id, rootExecutionId: parsed.run_id };
+}
+
+/**
+ * A finish's write conditional on its tree's marks (#1341b): `isInterrupted` is asked inside the
+ * write's own transaction — a stop or cancel mark is written in a transaction of its own on the same
+ * backend —, so the two serialize and a finish never lands over a mark.
+ */
+export function interruptibleWrites(
+  db: DatabaseSync,
+  now: Now,
+  log: StatusLog,
+): Pick<TurnStore, "completeUnlessInterrupted"> {
+  return {
+    completeUnlessInterrupted: (id, o, context, isInterrupted = () => false) => {
+      const isDone = inWriteTransaction(db, () => {
+        const tree = treeOfTurn(db, id);
+        if (tree !== undefined && isInterrupted(tree)) return false;
+        db.prepare(COMPLETE).run(...outcomeParams(o), id);
+        db.prepare(TOUCH_THREAD_OF_TURN).run(now().toISOString(), id);
+        const thread = threadOfTurn(db, id);
+        if (thread !== undefined) appendedStatus(log, now, thread, o.status, context);
+        return true;
+      });
+      return Promise.resolve(isDone);
+    },
+  };
 }
 
 /** Appending a Turn and completing it — unconditionally, or only from an expected status (#265 S66 h). */

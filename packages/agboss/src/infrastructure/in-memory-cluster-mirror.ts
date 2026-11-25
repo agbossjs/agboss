@@ -3,6 +3,7 @@ import {
   ClusterLeaseSyncOutcome,
   MirroredLeaseState,
   type ClusterLeaseSync,
+  type ClusterLeaseTake,
   type MirroredLease,
 } from "./cluster-lease-types.js";
 import { markOf } from "./in-memory-cancel-mark.js";
@@ -29,6 +30,7 @@ function isBehind(
 export function syncedInMemory(
   database: InMemoryDatabase,
   lease: ExecutionLease,
+  take: ClusterLeaseTake = {},
 ): ClusterLeaseSync {
   const key = treeKeyOf(lease.tenantId, lease.rootExecutionId);
   const stored = database.executionLeases.get(key);
@@ -38,7 +40,8 @@ export function syncedInMemory(
   database.executionLeases.set(key, {
     lease: { ...lease, expiresAt: CLUSTER_LEASE_EXPIRY },
     released: false,
-    ...markOf(stored),
+    // a reclaim under an `Immediate` pause: its token fenced in this same step (#1341c)
+    ...markOf(stored, take.isReclaim === true ? lease.token : undefined),
   });
   return { outcome: ClusterLeaseSyncOutcome.Synced };
 }
@@ -72,8 +75,8 @@ export abstract class InMemoryClusterMirror
     super();
   }
 
-  syncClusterLease(lease: ExecutionLease): Promise<ClusterLeaseSync> {
-    return Promise.resolve(syncedInMemory(this.database, lease));
+  syncClusterLease(lease: ExecutionLease, take?: ClusterLeaseTake): Promise<ClusterLeaseSync> {
+    return Promise.resolve(syncedInMemory(this.database, lease, take));
   }
 
   async endClusterLease(

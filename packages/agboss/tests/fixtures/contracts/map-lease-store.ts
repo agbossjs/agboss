@@ -218,6 +218,9 @@ export class MapExecutionLeaseRepository extends ExecutionLeaseRepository {
     };
     this.table.rows.set(key, reclaimed);
     this.table.yielded.delete(key);
+    // under an `Immediate` pause the reclaimed token inherits the fence, in this same step (#1341c)
+    if (this.table.pauses.get(key)?.mode === InterruptMode.Immediate)
+      this.table.fences.set(key, Math.max(this.table.fences.get(key) ?? 0, token));
     return Promise.resolve(reclaimed);
   }
 

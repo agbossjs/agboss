@@ -16,7 +16,7 @@ import {
 } from "../execution-lease.repository.js";
 import type { InterruptMode } from "../../app/interrupt-types.js";
 import { SqliteClusterMirror } from "./sqlite-cluster-mirror.js";
-import { pauseMarksOf, pausedOn, unpausedOn } from "./sqlite-pause.js";
+import { pauseMarksOf, pausedOn, reclaimedFenceSql, unpausedOn } from "./sqlite-pause.js";
 import { marksOf, stopModeOf, stopRequestedOn } from "./sqlite-stop.js";
 import type { NewStatusTransition } from "../../turns/index.js";
 import type { ExecutionTree } from "../execution-tree.repository.js";
@@ -236,7 +236,9 @@ export class SqliteExecutionLeaseRepository extends SqliteClusterMirror {
     const expiresAt = now + duration;
     const { changes } = this.connection.database
       .prepare(
-        `UPDATE execution_leases SET lease_epoch = lease_epoch + 1, expires_at = ?, yielded = 0
+        // one statement: under an `Immediate` pause the new token inherits the fence (#1341c)
+        `UPDATE execution_leases SET lease_epoch = lease_epoch + 1, expires_at = ?, yielded = 0,
+         ${reclaimedFenceSql("lease_epoch + 1")}
          WHERE ${HELD_BY}`,
       )
       .run(expiresAt, ...heldBy(executionLease, now));

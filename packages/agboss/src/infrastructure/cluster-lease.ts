@@ -8,6 +8,7 @@ import {
   ClusterLeaseSyncOutcome,
   type ClusterLeaseCoordinator,
   type ClusterLeaseSync,
+  type ClusterLeaseTake,
 } from "./cluster-lease-types.js";
 import {
   ExecutionLeaseRepository,
@@ -41,7 +42,8 @@ const CATCH_UP_ATTEMPTS = 3;
  * `ExecutionLeaseRepository` over a cluster and a database (#1321e, D6): the lease's liveness is the
  * cluster's; its token, its stop mark, its external pause and the fence are the database row's, written first.
  *
- * - **A take** (`acquire`, `reclaim`) is mirrored in the row before it is handed out; if the row cannot be
+ * - **A take** (`acquire`, `reclaim`) is mirrored in the row before it is handed out — a reclaim under an
+ *   `Immediate` pause with the fence raised to its token in the same step; if the row cannot be
  *   written, or is ahead, the cluster's lease is given back and the call fails (`ClusterLeaseBehind`) —
  *   after the cluster has been raised past the row's token, a few times (`raiseEpoch`).
  * - **An end** (`release`, `retire`) is written to the row first; the cluster's key changes after.
@@ -110,7 +112,8 @@ export class ClusterExecutionLeaseRepository extends ExecutionLeaseRepository {
   ): Promise<ExecutionLease | undefined> {
     const taken = await this.cluster.reclaim(lease, duration);
     if (taken === undefined) return undefined;
-    const sync = await this.#mirrored(taken);
+    // the row inherits an `Immediate` pause's fence in the mirror's own step (#1341c)
+    const sync = await this.#mirrored(taken, { isReclaim: true });
     if (sync.outcome === ClusterLeaseSyncOutcome.Synced) return taken;
     await this.cluster.release(taken);
     if (sync.outcome === ClusterLeaseSyncOutcome.Retired) return undefined;
@@ -165,9 +168,9 @@ export class ClusterExecutionLeaseRepository extends ExecutionLeaseRepository {
    * The lease written into the row. A row that cannot be written ends the call: the cluster's lease is
    * given back (best effort — it expires by itself otherwise) and the failure is the caller's.
    */
-  async #mirrored(lease: ExecutionLease): Promise<ClusterLeaseSync> {
+  async #mirrored(lease: ExecutionLease, take?: ClusterLeaseTake): Promise<ClusterLeaseSync> {
     try {
-      return await this.database.syncClusterLease(lease);
+      return await this.database.syncClusterLease(lease, take);
     } catch (error) {
       await this.cluster.release(lease).catch(() => undefined);
       throw error;

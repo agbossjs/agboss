@@ -191,6 +191,33 @@ describe("#360: the execution moves between the request and the re-read", () => 
     expect(seen.errors).toEqual([]);
   });
 
+  test("#1341b: a cancel that lands between the finish's look and its write — the stored outcome is cancelled, as the cancel answered", async ({
+    apps,
+    mockLlm,
+  }) => {
+    mockLlm(Clerk).thenReturn(...stepAndHold, replyWith(ReceiptDto, { text: "Done." }));
+    const [first, second] = await pair(apps);
+    const { call } = await holding(first);
+    const records = stores.records;
+    if (records === undefined) throw new Error("the records were not created");
+    const write = records.completeUnlessInterrupted.bind(records);
+    const answers: unknown[] = [];
+    // the finish has looked for a mark and found none: the other instance's cancel lands now
+    vi.spyOn(records, "completeUnlessInterrupted").mockImplementationOnce(async (...args) => {
+      answers.push(await second.cancel(THREAD));
+      return write(...args);
+    });
+
+    levers.letGo?.();
+
+    await expect(call).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
+    expect(answers).toEqual([{ cancelled: true }]);
+    expect(await lastStatus()).toBe("cancelled");
+    expect(seen.ends).toEqual([]);
+    expect(seen.cancels).toHaveLength(1);
+    expect(seen.errors).toEqual([]);
+  });
+
   test("it paused: the cancel waits for the holder's lease, counted once", async ({
     apps,
     mockLlm,

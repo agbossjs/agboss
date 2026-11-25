@@ -110,6 +110,30 @@ function assertEnded(runId: string, state: ExecutionStateType, paused: boolean):
 const maskOf = <TName extends string>(ctx: FinishContext<TName>): ObservabilityMask | undefined =>
   ctx.deps.pii?.observability;
 
+/**
+ * The Turn written: a new one, a paused one completed, or a finish written only while no stop or
+ * cancel is under way (#1341b) — the look before it is not
+ * enough — a remote `app.cancel` may mark the tree between that look and this write —, so the write
+ * reads the mark's history row in its own transaction and refuses over it; the run then ends as
+ * that mark, never `answered` beside a cancel that answered `cancelled: true`.
+ */
+async function writtenTurnOf<TName extends string>(
+  ctx: FinishContext<TName>,
+  outcome: TurnOutcome,
+  turn: { readonly existingTurnId: string | undefined; readonly paused: boolean },
+): Promise<string> {
+  const { existingTurnId: turnId, paused } = turn;
+  if (turnId === undefined) return (await ctx.deps.turns.append({ ...ctx.base, ...outcome })).id;
+  if (paused) await ctx.deps.turns.complete(turnId, outcome);
+  if (paused || (await ctx.deps.turns.completeUnlessInterrupted(turnId, outcome))) return turnId;
+  throw (
+    (await ctx.deps.compensation?.interrupted?.()) ??
+    new AGBossError(
+      `execution ${ctx.runId} is being stopped or cancelled: its finish is not recorded over the request`,
+    )
+  );
+}
+
 /** Writes (or completes) the Turn and shapes the result: finished or paused. */
 export async function finishRun<TName extends string>(
   ctx: FinishContext<TName>,
@@ -123,9 +147,7 @@ export async function finishRun<TName extends string>(
   if (interrupted !== undefined) throw interrupted;
   const fields = { graph: ctx.deps.graph, mask: storedFieldMask(ctx.deps.pii, state) };
   const outcome = await outcomeOf(state, usage, paused, maskOf(ctx), fields);
-  let turnId = existingTurnId;
-  if (turnId === undefined) turnId = (await ctx.deps.turns.append({ ...ctx.base, ...outcome })).id;
-  else await ctx.deps.turns.complete(turnId, outcome);
+  const turnId = await writtenTurnOf(ctx, outcome, { existingTurnId, paused });
   return {
     status: paused ? ExecutionStatus.Paused : ExecutionStatus.Finished,
     start: state.start,

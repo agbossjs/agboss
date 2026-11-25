@@ -19,9 +19,11 @@ import {
   type Turn,
   type TurnOutcome,
   type TurnStore,
+  type TurnTree,
   type VersionScore,
 } from "../turns/index.js";
 import { IN_MEMORY_DATABASE, InMemoryDatabase } from "./in-memory-database.js";
+import { inMemoryInterruptedOf } from "./in-memory-cancel-mark.js";
 import type { EndedTree } from "./execution-audit-log.repository.js";
 import { Injectable } from "../components/decorators.js";
 import type { PauseAnswerRecord } from "../flow/runtime/execution-record.js";
@@ -34,9 +36,19 @@ export { ExecutionRecordStatus } from "./execution-record-status.js";
 /** What a pause answer is saved by: its tenant, its tree and the entry. */
 export type AnswerArgs = Parameters<ExecutionRecordRepository["savePauseAnswer"]>;
 
+/** A Turn store with no lease row beside it: no tree's mark is visible to its writes. */
+const NO_MARKS = (): boolean => false;
+
 /** The records kept in a Turn store: what the built-in default and the SQLite ones build on. */
 export class TurnStoreRecordRepository extends ExecutionRecordRepository {
-  constructor(private readonly store: TurnStore) {
+  /**
+   * `isInterrupted` reads a tree's stop and cancel marks on the lease store's backend, inside the
+   * Turn store's write (#1341b); a Turn store off that backend sees none (`NO_MARKS`).
+   */
+  constructor(
+    private readonly store: TurnStore,
+    private readonly isInterrupted: (tree: TurnTree) => boolean = NO_MARKS,
+  ) {
     super();
   }
 
@@ -67,6 +79,13 @@ export class TurnStoreRecordRepository extends ExecutionRecordRepository {
   }
   completeIfStatus(...args: Parameters<TurnStore["completeIfStatus"]>): Promise<boolean> {
     return this.store.completeIfStatus(...args);
+  }
+  completeUnlessInterrupted(
+    turnId: string,
+    outcome: TurnOutcome,
+    context?: StatusContext,
+  ): Promise<boolean> {
+    return this.store.completeUnlessInterrupted(turnId, outcome, context, this.isInterrupted);
   }
   lastTurns(tenantId: string, threadId: string, limit: number): Promise<Turn[]> {
     return this.store.lastTurns(tenantId, threadId, limit);
@@ -154,6 +173,8 @@ export class InMemoryExecutionRecordRepository extends TurnStoreRecordRepository
     const log: StatusLog = memoryStatusLog(database.statusTransitions);
     super(
       createSqliteTurnStore(":memory:", () => clock.now(), mintedThreadIdsOf(idGenerator), log),
+      // the marks are the in-memory lease store's, read in the finish's synchronous step (#1341b)
+      inMemoryInterruptedOf(database),
     );
   }
 }

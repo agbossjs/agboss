@@ -506,7 +506,7 @@ export interface ClusterLeaseMirror {
         readonly isRetired: boolean;
     }): Promise<void>;
     mirroredLeaseOf(tree: ExecutionTree): Promise<MirroredLease | undefined>;
-    syncClusterLease(lease: ExecutionLease): Promise<ClusterLeaseSync>;
+    syncClusterLease(lease: ExecutionLease, take?: ClusterLeaseTake): Promise<ClusterLeaseSync>;
 }
 
 // @public
@@ -524,6 +524,11 @@ export enum ClusterLeaseSyncOutcome {
     Behind = "behind",
     Retired = "retired",
     Synced = "synced"
+}
+
+// @public
+export interface ClusterLeaseTake {
+    readonly isReclaim?: boolean;
 }
 
 // @public
@@ -1092,6 +1097,7 @@ export abstract class ExecutionRecordRepository {
     abstract byVersion(workflow: string, promptVersion: string, limit: number): Promise<Turn[]>;
     abstract complete(turnId: string, outcome: TurnOutcome, context?: StatusContext): Promise<void>;
     abstract completeIfStatus(turnId: string, expected: ExecutionRecordStatus, outcome: TurnOutcome, context?: StatusContext): Promise<boolean>;
+    abstract completeUnlessInterrupted(turnId: string, outcome: TurnOutcome, context?: StatusContext): Promise<boolean>;
     // (undocumented)
     abstract configSnapshots(workflow: string, version: string): Promise<ConfigSnapshot[]>;
     abstract createThread(thread: NewThread): Promise<string>;
@@ -2423,7 +2429,7 @@ export abstract class SqliteClusterMirror extends ExecutionLeaseRepository imple
     // (undocumented)
     mirroredLeaseOf(tree: ExecutionTree): Promise<MirroredLease | undefined>;
     // (undocumented)
-    syncClusterLease(lease: ExecutionLease): Promise<ClusterLeaseSync>;
+    syncClusterLease(lease: ExecutionLease, take?: ClusterLeaseTake): Promise<ClusterLeaseSync>;
 }
 
 // @public

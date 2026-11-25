@@ -162,10 +162,11 @@ export class InMemoryExecutionLeaseRepository extends InMemoryClusterMirror {
       ...{ tenantId, rootExecutionId, holderInstanceId, token, expiresAt },
       remaining: duration,
     };
+    // under an `Immediate` pause the new token inherits the fence, in this same step (#1341c)
     this.database.executionLeases.set(key, {
       lease: reclaimed,
       released: false,
-      ...markOf(stored),
+      ...markOf(stored, token),
     });
     return Promise.resolve(reclaimed);
   }

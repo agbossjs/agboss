@@ -207,7 +207,12 @@ export abstract class ExecutionLeaseRepository {
    * The holder takes its lease back (#516: after a yield, before a step runs again) at `token + 1`,
    * held again for `duration` from now, with no `takenOverFrom`; `undefined` when it is no longer
    * the caller's (expired at `now >= expiresAt`, #534 — taken or not —, or released) — the lease
-   * `renew` would keep. An expired holder `acquire`s again: a takeover from itself.
+   * `renew` would keep. An expired holder `acquire`s again: a takeover from itself. While an
+   * `Immediate` external pause is set (#1341c), the reclaimed token inherits the fence **in the same
+   * atomic step**: `fencedThroughToken` becomes `GREATEST(itself, token + 1)`, so the holder's first
+   * write on it — and every child's, checked against the root's row — is refused as the fenced token
+   * was, and the holder parks. A cancel or stop mark needs no such step: it fences by the row, not by
+   * the token.
    */
   abstract reclaim(
     executionLease: ExecutionLease,
@@ -261,7 +266,8 @@ export abstract class ExecutionLeaseRepository {
    * `InterruptMode.Immediate` the row's `fencedThroughToken` becomes `GREATEST(itself, the row's
    * current token)`: from then on a write of the tree's root lease at that token or below is refused
    * with `ExecutionError.Fenced`, in the transaction that checks the lease — a stale step in flight
-   * is fenced, a lease taken at `token + 1` (an unpause, a cancel's unwind) is not. The fence only
+   * is fenced, a lease taken at `token + 1` by `acquire` (an unpause, a cancel's unwind) is not — a
+   * `reclaim` while the pause is set inherits the fence (see `reclaim`). The fence only
    * ever rises and is never cleared on the same token. The thread's history row is written in the
    * same transaction, only when this call set the mark.
    */

@@ -33,6 +33,7 @@ export {
   type TurnStore,
   type PauseAnswerEntry,
   type TurnRecords,
+  type TurnTree,
   type VersionScore,
 } from "./types.js";
 export {

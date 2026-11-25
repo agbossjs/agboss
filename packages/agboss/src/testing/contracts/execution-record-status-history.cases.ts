@@ -56,6 +56,25 @@ const ended = (): Promise<boolean> => Promise.resolve(true);
 
 const CASES: readonly ContractCase<ExecutionRecordRepository>[] = [
   {
+    name: "#1341b: completeUnlessInterrupted on a tree with no stop or cancel mark writes the finish like complete — its history row in the same transaction, read by either instance",
+    run: async ({ first, second }) => {
+      const thread = await first.createThread({ workflow: WORKFLOW, tenantId: "default" });
+      const written = await first.append(record(thread));
+
+      const isWritten = await second.completeUnlessInterrupted(
+        written.id,
+        outcome(ExecutionRecordStatus.Answered),
+      );
+
+      expect(isWritten).toBe(true);
+      expect((await first.byIds([written.id]))[0]?.status).toBe("answered");
+      expect(shapeOf(await first.statusHistory("default", thread))).toEqual([
+        { seq: 1, fromStatus: null, toStatus: "running", trigger: "start" },
+        { seq: 2, fromStatus: "running", toStatus: "finished", trigger: "finish" },
+      ]);
+    },
+  },
+  {
     name: "#1341d: a run's record writes are its history — started, asked, resumed, finished — read by either instance",
     run: async ({ first, second }) => {
       const thread = await first.createThread({ workflow: WORKFLOW, tenantId: "default" });

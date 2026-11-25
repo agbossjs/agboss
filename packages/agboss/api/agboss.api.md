@@ -3500,6 +3500,7 @@ export abstract class ExecutionRecordRepository {
     abstract byVersion(workflow: string, promptVersion: string, limit: number): Promise<Turn[]>;
     abstract complete(turnId: string, outcome: TurnOutcome, context?: StatusContext): Promise<void>;
     abstract completeIfStatus(turnId: string, expected: ExecutionRecordStatus, outcome: TurnOutcome, context?: StatusContext): Promise<boolean>;
+    abstract completeUnlessInterrupted(turnId: string, outcome: TurnOutcome, context?: StatusContext): Promise<boolean>;
     // (undocumented)
     abstract configSnapshots(workflow: string, version: string): Promise<ConfigSnapshot[]>;
     abstract createThread(thread: NewThread): Promise<string>;
@@ -4656,7 +4657,7 @@ export interface HistoryOptions {
 }
 
 // @public
-export type HistoryTtlRuleCode = "limits.history-ttl-invalid";
+export type HistoryTtlRuleCode = "limits.history-ttl-required" | "limits.history-ttl-invalid";
 
 // @public
 export interface HistoryWrapper<TDto extends DtoClass = DtoClass> {
@@ -9235,6 +9236,8 @@ export class SqliteExecutionRecordRepository extends ExecutionRecordRepository {
     // (undocumented)
     completeIfStatus(...args: Parameters<ExecutionRecordRepository["completeIfStatus"]>): Promise<boolean>;
     // (undocumented)
+    completeUnlessInterrupted(...args: Parameters<ExecutionRecordRepository["completeUnlessInterrupted"]>): Promise<boolean>;
+    // (undocumented)
     configSnapshots(workflow: string, version: string): Promise<ConfigSnapshot[]>;
     // (undocumented)
     createThread(thread: NewThread): Promise<string>;
@@ -11010,7 +11013,7 @@ export interface WorkflowOptions<TName extends string = string, TFlow extends re
     readonly filePolicy?: Class;
     readonly flow: TFlow;
     readonly guardrails?: readonly Class[];
-    readonly historyTtl?: Milliseconds | Ttl;
+    readonly historyTtl: Milliseconds | Ttl;
     readonly memory?: Class;
     readonly modelProvider?: Class;
     readonly name: TName;
@@ -12584,6 +12587,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/sqlite/sqlite-execution-record.repository.ts - (ae-undocumented) Missing documentation for "statusHistory".
 // src/infrastructure/sqlite/sqlite-execution-record.repository.ts - (ae-undocumented) Missing documentation for "forgetStatusHistory".
 // src/infrastructure/sqlite/sqlite-execution-record.repository.ts - (ae-undocumented) Missing documentation for "completeIfStatus".
+// src/infrastructure/sqlite/sqlite-execution-record.repository.ts - (ae-undocumented) Missing documentation for "completeUnlessInterrupted".
 // src/infrastructure/sqlite/sqlite-execution-record.repository.ts - (ae-undocumented) Missing documentation for "lastTurns".
 // src/infrastructure/sqlite/sqlite-execution-record.repository.ts - (ae-undocumented) Missing documentation for "byIds".
 // src/infrastructure/sqlite/sqlite-execution-record.repository.ts - (ae-undocumented) Missing documentation for "findByStatus".

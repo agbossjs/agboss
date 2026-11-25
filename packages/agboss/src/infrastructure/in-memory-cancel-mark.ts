@@ -9,9 +9,14 @@ import { treeKeyOf, type ExecutionLeaseRow, type InMemoryDatabase } from "./in-m
  * set once and kept by every later write of the row — no lease operation and no retention lifts it.
  */
 
-/** The tree's cancel mark of a stored row, for the row written in its place: kept for good. */
+/**
+ * The tree's marks of a stored row, for the row written in its place: kept for good. A reclaim
+ * passes its new token as `reclaimedAt` (#1341c): while an `Immediate` pause is set the fence rises
+ * to it (`GREATEST`) in the same synchronous step, so the holder gets no token above the fence.
+ */
 export const markOf = (
   stored: ExecutionLeaseRow | undefined,
+  reclaimedAt?: number,
 ): Pick<
   ExecutionLeaseRow,
   "cancelRequestedAt" | "stopMode" | "externalPause" | "fencedThroughToken"
@@ -21,10 +26,20 @@ export const markOf = (
     : { cancelRequestedAt: stored.cancelRequestedAt }),
   ...(stored?.stopMode === undefined ? {} : { stopMode: stored.stopMode }),
   ...(stored?.externalPause === undefined ? {} : { externalPause: stored.externalPause }),
-  ...(stored?.fencedThroughToken === undefined
-    ? {}
-    : { fencedThroughToken: stored.fencedThroughToken }),
+  ...fenceOf(stored, reclaimedAt),
 });
+
+/** The row's fence, raised to `reclaimedAt` while an `Immediate` pause is set (see `markOf`). */
+function fenceOf(
+  stored: ExecutionLeaseRow | undefined,
+  reclaimedAt: number | undefined,
+): Pick<ExecutionLeaseRow, "fencedThroughToken"> {
+  const kept = stored?.fencedThroughToken;
+  const isRaised =
+    reclaimedAt !== undefined && stored?.externalPause?.mode === InterruptMode.Immediate;
+  const fenced = isRaised ? Math.max(kept ?? 0, reclaimedAt) : kept;
+  return fenced === undefined ? {} : { fencedThroughToken: fenced };
+}
 
 /**
  * The row of a tree cancelled before its first acquire: token 0, released, never held — its first
@@ -101,3 +116,12 @@ export const inMemoryStopOf = (
   )?.stopMode;
   return mode === undefined ? undefined : { mode };
 };
+
+/**
+ * Whether a tree carries a stop or a cancel mark on its in-memory lease row (#1341b): what the
+ * in-memory records read in the finish's own synchronous step, so a mark never lands in between.
+ */
+export const inMemoryInterruptedOf =
+  (database: InMemoryDatabase) =>
+  (tree: ExecutionTree): boolean =>
+    isInMemoryCancelMarked(database, tree) || inMemoryStopOf(database, tree) !== undefined;

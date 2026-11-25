@@ -32,6 +32,7 @@ import {
 } from "../../../src/infrastructure/execution-record.repository.js";
 import type { InMemoryDatabase } from "../../../src/infrastructure/in-memory-database.js";
 import { createSqliteTurnStore, type Turn } from "../../../src/turns/index.js";
+import { inMemoryInterruptedOf } from "../../../src/infrastructure/in-memory-cancel-mark.js";
 import { hours, seconds, type Milliseconds } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart } from "../../helpers/flow.js";
@@ -267,11 +268,14 @@ export class MortalExecutionLeaseRepository extends InMemoryExecutionLeaseReposi
   }
 }
 
-/** The records in memory; `levers.stampedHash` makes the running ones read as another deploy's. */
-@Injectable()
+/**
+ * The records in memory; `levers.stampedHash` makes the running ones read as another deploy's. A
+ * finish reads the in-memory lease store's marks, as the built-in records do (#1341b).
+ */
+@Injectable({ deps: [IN_MEMORY_DATABASE] })
 export class StampedExecutionRecordRepository extends TurnStoreRecordRepository {
-  constructor() {
-    super(createSqliteTurnStore(":memory:", () => new Date()));
+  constructor(database: InMemoryDatabase) {
+    super(createSqliteTurnStore(":memory:", () => new Date()), inMemoryInterruptedOf(database));
     stores.records ??= this;
   }
 

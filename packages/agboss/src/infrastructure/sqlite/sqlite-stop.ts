@@ -76,6 +76,17 @@ export function marksOf(
   return { isCancelRequested, ...(mode === null ? {} : { stop: { mode } }) };
 }
 
+/**
+ * Whether a tree carries a stop or a cancel mark on its lease row of this file (#1341b): read by the
+ * SQLite records inside the finish's own `BEGIN IMMEDIATE`, which a mark's own one serializes with.
+ */
+export const sqliteInterruptedOf =
+  (database: DatabaseSync) =>
+  (tree: { readonly tenantId: string; readonly rootExecutionId: string }): boolean => {
+    const marks = marksOf(database, tree);
+    return marks.isCancelRequested || marks.stop !== undefined;
+  };
+
 /** `markedStopRequested` in a `BEGIN IMMEDIATE` of its own, like every fenced method, so the mark and its row serialize with them. */
 export function stopRequestedOn(
   connection: SqliteConnection,

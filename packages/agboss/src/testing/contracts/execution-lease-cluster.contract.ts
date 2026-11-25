@@ -165,6 +165,29 @@ const CLUSTER_CASES: readonly ContractCase<ClusterLeaseSet>[] = [
     },
   },
   {
+    name: "#1341c: a reclaim under an Immediate pause is mirrored with the fence raised to its token, in the row's own step; an acquire under the pause is not fenced",
+    run: async ({ first, second }) => {
+      const held = await first.cluster.acquire("default", "root-1", LEASE);
+      if (held === undefined) throw new Error("the first take of a free tree must take its lease");
+      await first.cluster.yield(held);
+      await second.cluster.requestPause(TREE, { mode: InterruptMode.Immediate });
+
+      const reclaimed = await first.cluster.reclaim(held, LEASE);
+
+      expect(reclaimed).toMatchObject({ token: held.token + 1 });
+      expect(await second.database.mirroredLeaseOf(TREE)).toMatchObject({
+        token: held.token + 1,
+        state: MirroredLeaseState.Held,
+      });
+      expect((await second.cluster.pauseOf(TREE)).fencedThroughToken).toBe(reclaimed?.token);
+      if (reclaimed === undefined) throw new Error("a yielded lease must be reclaimed");
+      await first.cluster.release(reclaimed);
+      const taken = await second.cluster.acquire("default", "root-1", LEASE);
+      expect(taken).toMatchObject({ token: reclaimed.token + 1 });
+      expect((await second.cluster.pauseOf(TREE)).fencedThroughToken).toBe(reclaimed.token);
+    },
+  },
+  {
     name: "the execution id is kept by the database, once, whichever instance asks",
     run: async ({ first, second }) => {
       const identity = { executionId: "exec-1", tenantId: "default" };

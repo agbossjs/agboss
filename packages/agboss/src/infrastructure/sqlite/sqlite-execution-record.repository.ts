@@ -22,6 +22,7 @@ import {
 import type { EndedTree } from "../execution-audit-log.repository.js";
 import type { StatusContext, ThreadStatusTransition } from "../../turns/index.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
+import { sqliteInterruptedOf } from "./sqlite-stop.js";
 
 /**
  * `ExecutionRecordRepository` on the application's SQLite file (#265, S32): threads, records,
@@ -50,6 +51,8 @@ export class SqliteExecutionRecordRepository extends ExecutionRecordRepository {
     this.connection = connection;
     this.#records = new TurnStoreRecordRepository(
       sharedTurnStore(connection.database, () => clock.now(), mintedThreadIdsOf(idGenerator)),
+      // the lease rows of this file, read inside the finish's own `BEGIN IMMEDIATE` (#1341b)
+      sqliteInterruptedOf(connection.database),
     );
   }
 
@@ -91,6 +94,12 @@ export class SqliteExecutionRecordRepository extends ExecutionRecordRepository {
     ...args: Parameters<ExecutionRecordRepository["completeIfStatus"]>
   ): Promise<boolean> {
     return this.#records.completeIfStatus(...args);
+  }
+
+  completeUnlessInterrupted(
+    ...args: Parameters<ExecutionRecordRepository["completeUnlessInterrupted"]>
+  ): Promise<boolean> {
+    return this.#records.completeUnlessInterrupted(...args);
   }
 
   lastTurns(tenantId: string, threadId: string, limit: number): Promise<Turn[]> {

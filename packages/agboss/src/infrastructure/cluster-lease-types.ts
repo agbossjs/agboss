@@ -41,6 +41,12 @@ export enum ClusterLeaseSyncOutcome {
   Retired = "retired",
 }
 
+/** What kind of take `syncClusterLease` mirrors: an `acquire` (the default) or a holder's `reclaim`. */
+export interface ClusterLeaseTake {
+  /** The holder's own take back after a yield (`reclaim`): it inherits an `Immediate` pause's fence. */
+  readonly isReclaim?: boolean;
+}
+
 /** The answer of `syncClusterLease`. */
 export type ClusterLeaseSync =
   | { readonly outcome: ClusterLeaseSyncOutcome.Synced }
@@ -58,9 +64,12 @@ export interface ClusterLeaseMirror {
    * (`CLUSTER_LEASE_EXPIRY`) — in one atomic step that keeps the row's marks (cancel, stop, pause and
    * the fence) and never lowers its token: refused as `Behind` when the row's token is above the
    * lease's (or equal with another holder), as `Retired` when the row is retired. Idempotent for the
-   * same lease. A seed row (a mark before the first take) is taken over like a released one.
+   * same lease. A seed row (a mark before the first take) is taken over like a released one. A
+   * reclaim's lease (`take.isReclaim`) inherits the fence of an `Immediate` external pause set on the
+   * row, in the same atomic step: `fencedThroughToken = GREATEST(itself, lease.token)` (#1341c, see
+   * `ExecutionLeaseRepository.reclaim`); an acquire's does not.
    */
-  syncClusterLease(lease: ExecutionLease): Promise<ClusterLeaseSync>;
+  syncClusterLease(lease: ExecutionLease, take?: ClusterLeaseTake): Promise<ClusterLeaseSync>;
   /**
    * The holder's own end of the cluster's lease in the row — released, or retired for good —,
    * written **before** the cluster's key changes (retire-before-expire): another holder's row is
