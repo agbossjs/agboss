@@ -103,6 +103,16 @@ describe("[decorator.unknown-option]: flow decorators", () => {
     expect(found.every((m) => m.includes("move it into executionLimits"))).toBe(true);
   });
 
+  it("an @Agent given price (gone in 0.1.1: a provider's cost is its table) is named, not ignored", () => {
+    @Agent(loose({ name: "a-priced-agent", description: "d", price: { inputPerMTok: 1 } }))
+    class Priced {}
+
+    const found = messagesOf(Priced);
+
+    expect(found).toHaveLength(1);
+    expect(found[0]).toContain("price is not an option of @Agent");
+  });
+
   it("finds a stray key behind a spread, and suggests the nearest option", () => {
     const shared = { name: "a-two-agent", description: "d", guardrail: [SECRET] };
     @Agent({ ...shared })

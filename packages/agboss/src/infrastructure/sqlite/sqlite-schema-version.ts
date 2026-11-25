@@ -11,8 +11,9 @@ import { BASELINE_TABLES } from "./sqlite-baseline-schema.js";
  * (`1`, then `2` from #1117; `0` is "no stamp"), so no older stamp can pass for it. Only a file
  * with no table of the baseline is stamped; a 0.1.0 or development file (any older stamp, or
  * tables without one) is refused, never read or migrated — it must be recreated. A build opening a
- * file stamped above its own refuses it (`StoreError.SchemaTooNew`) before it writes a row — what
- * `StoreError.SchemaTooNew` does for PostgreSQL.
+ * file stamped above its own refuses it (`StoreError.SchemaTooNew`) before it writes a row — the
+ * refusal the PostgreSQL store makes with its own `PostgresSchemaTooNewError` (it takes this
+ * variant when that store is ported to 0.1.1).
  */
 export const SQLITE_SCHEMA_VERSION = 100;
 

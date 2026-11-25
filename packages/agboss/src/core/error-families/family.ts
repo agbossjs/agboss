@@ -93,7 +93,12 @@ export type FamilyConstructor<
  * variant's facts (never made of a stored or model text) — and, when it is not
  * `<family code>.<kind>`, its code.
  */
-export type VariantSpec = readonly [message: string | ((facts: never) => string), code?: string];
+export type VariantSpec = readonly [
+  message: string | ((facts: never) => string),
+  code?: string,
+  /** Makes the facts the variant keeps (and its record's details) of the ones it was given: a remote text never gets past it. */
+  keep?: (facts: never) => object,
+];
 
 /** The names of a family constructor's variants. */
 export type VariantNamesOf<TConstructor> = Exclude<keyof TConstructor, "prototype" | "code">;
@@ -167,7 +172,7 @@ function variantOf(
   if (typeof kind !== "string" || !isVariantSpec(spec))
     throw new TypeError(`${family.name}.${variant} is not declared`);
   const kindName: string = kind;
-  const [defaultMessage, ownCode] = spec;
+  const [defaultMessage, ownCode, keep] = spec;
   const code = ownCode ?? `${family.code}.${kind}`;
   const Variant = class extends Base {
     static override readonly code: string = code;
@@ -184,8 +189,10 @@ function variantOf(
         notes,
         help,
         suggestionPatch,
-        ...facts
+        ...given
       } = options;
+      const facts: Readonly<Record<string, unknown>> =
+        keep === undefined ? given : { ...given, ...(keep as (facts: object) => object)(given) };
       super(typeof message === "string" ? message : defaultMessageOf(defaultMessage, facts), {
         cause,
         location,

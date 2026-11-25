@@ -345,8 +345,8 @@ export class JobScoutDatabaseStorage {}
 
 The schema is created by the package's versioned migrations, run before the new version starts —
 `agboss migrate` (a Kubernetes Job) applies them; a second run changes nothing, and an instance never
-starts on a database older or newer than its package (`PostgresSchemaMissingError`,
-`PostgresSchemaTooNewError`). Every pod's pool counts against the server's `max_connections`; a lease's
+starts on a database older or newer than its package (the PostgreSQL store's own
+`PostgresSchemaMissingError` and `PostgresSchemaTooNewError`; SQLite's are `StoreError.SchemaMissing` / `SchemaTooNew`). Every pod's pool counts against the server's `max_connections`; a lease's
 expiry is decided by the database's own `clock_timestamp()`, so the pods' clocks may disagree.
 Wiki → Running-on-PostgreSQL has the whole setup, its limits and how the stores are proved
 (`storeConformance` and `faultSuite` against a real PostgreSQL).

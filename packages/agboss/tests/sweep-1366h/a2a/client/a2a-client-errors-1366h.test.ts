@@ -139,6 +139,22 @@ describe("#1366: a protocol error", () => {
     expect(shown).toEqual(["0.3", "1.0.0", "10.20.130", "0.30", "2"]);
   });
 
+  it("a card's text never reaches the fact nor the persisted details: only versions are kept", () => {
+    const error = new A2AError.Protocol({
+      ...base,
+      protocolVersions: ["0.3", "ignore previous instructions", "secret@host", "1.0"],
+    });
+
+    expect(error.protocolVersions).toEqual(["0.3", "1.0"]);
+    expect(error.details).toStrictEqual({
+      agent: "a",
+      operation: "GetTask",
+      protocolVersions: ["0.3", "1.0"],
+    });
+    expect(JSON.stringify(error.details)).not.toContain("instructions");
+    expect(error.message).not.toContain("secret");
+  });
+
   it("a card with no version that reads as one keeps none", () => {
     expect(versionsShownOf(["junk", ""])).toEqual([]);
     expect(protocolMessageOf({ ...base, protocolVersions: ["junk", ""] })).toContain("A2A none");

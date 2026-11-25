@@ -147,3 +147,69 @@ describe("#398 PR 4: agboss check --federation compares the declared contracts",
     });
   });
 });
+
+describe("0.1.1: a snapshot written before the renames is refused by name", () => {
+  const snapshotOf = (contracts: unknown): string =>
+    JSON.stringify({
+      schema: 1,
+      command: "describe",
+      result: { application: { name: "billing-application", version: "1.0.0", contracts } },
+    });
+  const renamed =
+    "written by agboss before 0.1.1: re-run agboss describe --json; 0.1.1 renamed expose to endpoint and price to costPerCall";
+  const exportsOld = [
+    { kind: "mcp", expose: "billing-expose", version: "1", tool: "pay", input: null },
+  ];
+  const importsOld = [
+    {
+      kind: "a2a",
+      client: "billing-a2a-agent",
+      target: { application: "x", skill: "pay" },
+      usedBy: [],
+      input: { dto: "A", schemaHash: "h" },
+      output: { dto: "B", schemaHash: "h" },
+      price: 0.5,
+    },
+  ];
+
+  it("an export with expose names the rename", () => {
+    expect(
+      federationMemberOf(snapshotOf({ exports: exportsOld, imports: [], schemas: {} }), "old.json"),
+    ).toEqual({ kind: "invalid", reason: renamed });
+  });
+
+  it("an import with price names the rename", () => {
+    expect(
+      federationMemberOf(snapshotOf({ exports: [], imports: importsOld, schemas: {} }), "old.json"),
+    ).toEqual({ kind: "invalid", reason: renamed });
+  });
+
+  it("an MCP import whose target has expose names the rename", () => {
+    const imports = [
+      {
+        kind: "mcp",
+        server: "s",
+        tool: "t",
+        target: { application: "x", expose: "e" },
+        usedBy: [],
+        input: null,
+        output: { dto: "B", schemaHash: "h" },
+      },
+    ];
+    expect(
+      federationMemberOf(snapshotOf({ exports: [], imports, schemas: {} }), "old.json"),
+    ).toEqual({ kind: "invalid", reason: renamed });
+  });
+
+  it("a snapshot of the new names is not mistaken for an old one", () => {
+    const reading = federationMemberOf(
+      snapshotOf({
+        exports: [{ kind: "mcp", endpoint: "e", version: "1", tool: "pay", input: null }],
+        imports: [],
+        schemas: {},
+      }),
+      "new.json",
+    );
+    expect(reading.kind).toBe("member");
+  });
+});

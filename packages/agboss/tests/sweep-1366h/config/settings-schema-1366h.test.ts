@@ -25,6 +25,7 @@ import {
 } from "../../../src/config/types.js";
 import { testConfig } from "../../helpers.js";
 import { usd } from "../../../src/units/index.js";
+import { ComponentModelOverlaySchema } from "../../../src/config/overlay-schema.js";
 
 interface Parser {
   safeParse(value: unknown): { success: boolean };
@@ -216,5 +217,22 @@ describe("config schemas", () => {
     })();
     expect(thrown).toBeInstanceOf(ConfigError.Component);
     expect((thrown as Error).name).toBe("ConfigError.Component");
+  });
+});
+
+describe("#1313: a model has no price in a config", () => {
+  // The resolved settings (`ModelSettingsSchema`) are built by the cascade from the decorators, never
+  // typed by hand, and read like every non-overlay schema of this file: unknown keys are not kept.
+  // What a person writes is the profile's overlay, which is strict — a stale `price` is refused there.
+  it("the resolved model settings do not carry a price through", () => {
+    const parsed = ModelSettingsSchema.parse({ model: "m", price: { inputPerMTok: 1 } });
+
+    expect(parsed).toEqual({ model: "m" });
+    expect("price" in parsed).toBe(false);
+  });
+
+  it("a profile's overlay of a component's model refuses a price, like every unknown key", () => {
+    refuses(ComponentModelOverlaySchema, { model: "m", price: { inputPerMTok: 1 } });
+    admits(ComponentModelOverlaySchema, { model: "m" });
   });
 });

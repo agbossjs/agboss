@@ -13,9 +13,10 @@ export interface PricedUse {
 export type PricedModelSettings = ModelSettings & Pick<PricedUse, "price">;
 
 /**
- * Prices a model use by its own provider and model (bughunt 2026-11-25 #2): the price its settings
- * give, else the entry of the provider its cascade resolved for that model, keyed by the provider and
- * never by the model's name alone; a provider with no `cost` marks it `unpriced` (0 USD, tokens kept).
+ * Prices a model use by its own provider and model (bughunt 2026-11-25 #2): the entry of the provider
+ * its cascade resolved for that model (its `models` table, else its `cost`), keyed by the provider and
+ * never by the model's name alone; settings carry no price of their own (#1313); a provider with no
+ * `cost` marks it `unpriced` (0 USD, tokens kept).
  * Every model-backed component's settings go through one of these before their first call.
  */
 export type ModelPricing = <T extends PricedUse>(settings: T) => T;

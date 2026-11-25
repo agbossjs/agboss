@@ -207,6 +207,9 @@ describe("which failed sends did nothing", () => {
 
   it("only a network failure or an indefinite protocol error is ambiguous (asked again)", () => {
     expect(isAmbiguous(new A2AError.Unavailable({ sent: true }))).toBe(true);
+    // not said: the request may have arrived; said false: it certainly never left
+    expect(isAmbiguous(new A2AError.Unavailable({}))).toBe(true);
+    expect(isAmbiguous(new A2AError.Unavailable({ sent: false }))).toBe(false);
     expect(isAmbiguous(protocol({ httpStatus: 503 }))).toBe(true);
     expect(isAmbiguous(protocol({ rpcCode: -32603 }))).toBe(true);
     expect(isAmbiguous(protocol({ rpcCode: -32602 }))).toBe(false);

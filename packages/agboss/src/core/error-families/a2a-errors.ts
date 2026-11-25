@@ -10,6 +10,7 @@ import {
   taskFailedMessageOf,
   taskInterruptedMessageOf,
   unexpectedFinishMessageOf,
+  versionsShownOf,
 } from "../../a2a/client/a2a-error-messages.js";
 import type {
   A2AClientOperation,
@@ -102,7 +103,10 @@ export declare namespace A2AError {
   export type Unavailable = ErrorVariant<A2AErrorKind.Unavailable, "a2a.unavailable"> & {
     readonly agent?: string | undefined;
     readonly operation?: A2AClientOperation | undefined;
-    /** `false`: the request certainly never left the client. */
+    /**
+     * `false`: the request certainly never left the client. `true` — or not said — the request
+     * may have arrived: the outcome is unknown, so only an idempotent send may be repeated.
+     */
     readonly sent?: boolean | undefined;
   };
   /** The wait for a remote task reached its deadline; the cancel the client sent is `cancel`. */
@@ -191,7 +195,15 @@ export const A2AError: FamilyConstructor<
   variants: {
     CallerRejected: ["the caller was rejected"],
     Contract: [contractMessageOf],
-    Protocol: [protocolMessageOf],
+    // a card is remote text: only what reads as a version is kept, in the fact and in the details
+    Protocol: [
+      protocolMessageOf,
+      undefined,
+      ({ protocolVersions }: { readonly protocolVersions?: readonly string[] }) =>
+        protocolVersions === undefined
+          ? {}
+          : { protocolVersions: versionsShownOf(protocolVersions) },
+    ],
     Remote: [remoteCallMessageOf],
     Unavailable: ["the remote cannot be reached"],
     Deadline: [deadlineMessageOf],
