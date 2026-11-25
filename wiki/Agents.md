@@ -144,9 +144,9 @@ next model call with `BudgetExceededError` ([FinOps](FinOps#at-run-time)).
 
 ## Approval
 
-A tool declared with a `channel` (`@Tool({ channel: AutoApproveChannel })` or a channel role, found
-through the tool — [Tools → Approval channels](Tools#approval-channels)) waits for a decision before
-it runs: its channel's `send` decides at once (`ChannelOutcome.decided`), or the call pauses
+A tool declared with an `approval` (`@Tool({ approval: RefundToolApproval })`, a `@ToolApproval` target whose
+channels are listed in `@Application({ channels })` — [Tools → Approval channels](Tools#approval-channels)) waits for a decision before
+it runs: the target's channel's `send` decides at once (`ChannelOutcome.decided`), or the call pauses
 (`ExecutionOutput.pending`, one entry per waiting call — parallel branches each wait on their own)
 and `app.resume({ pauseId, decision })` answers it with a `ToolCallApprovalDecisionDto`
 ([Pauses](Pauses), [Pause seam](Pause-seam)). Approved → the call runs; rejected → the model reads
@@ -170,7 +170,7 @@ DTO), or a function of the request with `.thenAnswer(...)` ([Testing](Testing)):
 
 <!--
 ```ts file=support.workflow.ts
-import { Agent, Tool, Workflow, WorkflowFinish, WorkflowStart, onStart, toAgent, toFinish, Ttl } from "@agboss/core";
+import { inline, Agent, Tool, Workflow, WorkflowFinish, WorkflowStart, onStart, toAgent, toFinish, Ttl } from "@agboss/core";
 import { Integer, Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 class RefundRequest { @Integer({ prompt: "the amount, USD" }) amount!: number; }
 class RefundDone { @Text() status!: string; }
@@ -180,7 +180,7 @@ export class RefundTool { execute(): Promise<RefundDone> { return Promise.resolv
 export class ChatStart {}
 @WorkflowFinish({ name: "chat-workflow-finish", description: "The answer", output: WorkflowFinishTextDto })
 export class ChatFinish {}
-@Agent({ name: "support-agent", description: "Helps", prompt: "Help the customer.", model: "moonshotai/kimi-k2.6", tools: [RefundTool] })
+@Agent({ name: "support-agent", description: "Helps", prompt: inline("Help the customer."), model: "moonshotai/kimi-k2.6", tools: [RefundTool] })
 export class SupportAgent {}
 @Workflow({
   name: "support-workflow",

@@ -160,7 +160,7 @@ the run step by step.
 | Liveness | every 10 s, timeout 2 s, ≥ 7 failures (≥ 70 s) | R4: longer than a takeover |
 | `maxConcurrentSteps` | the pod's capacity; the autoscaler's target per pod | [Autoscaling](Autoscaling) |
 | `postgresPoolSize` | 5–10; pods × it < `max_connections` | R6 |
-| `piiKeyField`, `idempotencySecret` | one `Secret` each, the same for every pod (#825: never one another, nor a provider's key) | [Guarantees](Guarantees) A8 |
+| `piiSecret`, `idempotencySecret` (`@DatabaseStorage`) | one `Secret` each, the same for every pod (#825: never one another, nor a provider's key) | [Guarantees](Guarantees) A8 |
 | `runOnce({ ttl })` / `sendOnce({ ttl })` | per call, required; longer than any retry of the step | [Guarantees](Guarantees) A12 |
 | `sendOnce({ timeout })` | per call, required; above the other system's own timeout | [Guarantees](Guarantees) A6 |
 | `retention.auditLog` | 24 h (the default) | the audit log an operator and a verification read |

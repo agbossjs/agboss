@@ -46,13 +46,7 @@ A verdict is built only with **`JudgeVerdict.passed({ metrics? })`** or
 failed verdict's `reason` is what the agent reads before its retry.
 
 ```ts file=judges/correctness.judge.ts
-import {
-  Judge,
-  JudgeModel,
-  JudgeVerdict,
-  type JudgeHandler,
-  type JudgeInput,
-} from "@agboss/core";
+import { Judge, JudgeModel, JudgeVerdict, type JudgeHandler, type JudgeInput } from "@agboss/core";
 import { PlainTextDto } from "@agboss/core/dto";
 
 @Judge({
@@ -80,14 +74,7 @@ with `Decision.boolean` (yes/no → P(yes)), `Decision.choice` (an option, proba
 `Decision.score` (levels, lowest first → the level's index); the answers are typed by the questions:
 
 ```ts file=judges/grounded.judge.ts
-import {
-  Decision,
-  Judge,
-  JudgeModel,
-  JudgeVerdict,
-  type JudgeHandler,
-  type JudgeInput,
-} from "@agboss/core";
+import { Decision, Judge, JudgeModel, JudgeVerdict, type JudgeHandler, type JudgeInput } from "@agboss/core";
 import { PlainTextDto } from "@agboss/core/dto";
 
 @Judge({
@@ -121,6 +108,15 @@ export class GroundedJudge implements JudgeHandler<PlainTextDto> {
 A model judge needs no code. An empty `@Judge` class with a `prompt` — a `.prompt.md` file next to it,
 or `inline(…)` — is decided by its own model, which reads the criterion, the task and the answer and
 answers one **structured verdict**, never a text marker:
+
+<!-- snippet-context
+import { Judge } from "@agboss/core";
+import { Text } from "@agboss/core/dto";
+export class SupportAnswerDto {
+  @Text({ prompt: "the explanation" })
+  text!: string;
+}
+-->
 
 ```ts
 @Judge({
@@ -196,14 +192,7 @@ An agent with `output` answers a DTO; its judge declares that class and reads th
 parsing, no text matching. A judge may need no model call at all (its model stays required):
 
 ```ts file=judges/answer-grounded.judge.ts
-import {
-  Injectable,
-  Judge,
-  JudgeModel,
-  JudgeVerdict,
-  type JudgeHandler,
-  type JudgeInput,
-} from "@agboss/core";
+import { Injectable, Judge, JudgeModel, JudgeVerdict, type JudgeHandler, type JudgeInput } from "@agboss/core";
 import { List, Text } from "@agboss/core/dto";
 
 export class JobDto {
@@ -271,7 +260,7 @@ export class RefusalDto {
 -->
 
 ```ts
-import { Judge, JudgeVerdict, type JudgeHandler, type JudgeInput } from "@agboss/core";
+import { Judge, JudgeModel, JudgeVerdict, type JudgeHandler, type JudgeInput } from "@agboss/core";
 import { oneOf } from "@agboss/core";
 
 @Judge({ name: "fair-decision-judge", model: "typesafe/jev-1.13", output: oneOf(OfferDto, RefusalDto), deps: [JudgeModel] })
@@ -313,7 +302,7 @@ export class RefusalDto {
 -->
 
 ```ts
-import { Judge, JudgeVerdict, type JudgeHandler, type JudgeInput } from "@agboss/core";
+import { Judge, JudgeModel, JudgeVerdict, type JudgeHandler, type JudgeInput } from "@agboss/core";
 import { listOf } from "@agboss/core";
 
 type Decisions = readonly (OfferDto | RefusalDto)[];
@@ -322,9 +311,8 @@ type Decisions = readonly (OfferDto | RefusalDto)[];
   name: "decisions-judge",
   model: "typesafe/jev-1.13",
   output: listOf(OfferDto, RefusalDto),
-},
   deps: [JudgeModel],
-)
+})
 export class DecisionsJudge implements JudgeHandler<Decisions> {
   judge({ output }: JudgeInput<Decisions>): Promise<JudgeVerdict> {
     const salaries: readonly number[] = output.flatMap((decision) =>
@@ -342,7 +330,7 @@ export class DecisionsJudge implements JudgeHandler<Decisions> {
 A list agent's judge declares the list and gets its items (`variant` is `JobDto`):
 
 ```ts
-import { Judge, JudgeVerdict, type JudgeHandler, type JudgeInput } from "@agboss/core";
+import { Judge, JudgeModel, JudgeVerdict, type JudgeHandler, type JudgeInput } from "@agboss/core";
 import { listOf } from "@agboss/core";
 import { JobDto, JobSearch } from "./judges/answer-grounded.judge.js";
 
@@ -376,7 +364,7 @@ fail an answer that no successful lookup backs, without a model call; `toolCalls
 toolCalls)` types one tool's calls by its input and output once narrowed by `status`.
 
 <!-- snippet-context
-import { Judge, JudgeVerdict, Tool, ToolCallStatus, toolCallsOf, type JudgeHandler, type JudgeInput } from "@agboss/core";
+import { Judge, JudgeModel, JudgeVerdict, Tool, ToolCallStatus, toolCallsOf, type JudgeHandler, type JudgeInput } from "@agboss/core";
 import { PlainTextDto, Text } from "@agboss/core/dto";
 export class OrderQuery {
   @Text() orderId!: string;

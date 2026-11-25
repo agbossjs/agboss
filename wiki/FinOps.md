@@ -403,9 +403,9 @@ compile, and a JS caller's is refused, `CostLedgerEntryInvalidError`, nothing ad
 budget and key (`findMaxSpendByAccount`, `saveMaxSpend`: "the last known limit" for a report
 outside an execution). A period is named by its first UTC day: `2026-10-18` for that day,
 `2026-10-12` for the week starting Monday the 12th, `2026-10-01` for the month; an execution budget's
-counter has no period. Listed in `@Application({ providers })` (a class that
-`extends CostLedgerRepository`), else the built-in in-memory one — each instance counts on its own
-and the counters reset on restart; `SqliteCostLedgerRepository` (#265) shares them between the
+counter has no period. A store of the application's `@DatabaseStorage` (a class that
+`extends CostLedgerRepository` is a driver's store), else the in-memory storage — each instance counts on its own
+and the counters reset on restart; a durable driver (`SqliteDriver`, #265, #1321) shares them between the
 instances on one file and survives a restart (a file written before budgets has its old per-workflow
 day counters dropped).
 

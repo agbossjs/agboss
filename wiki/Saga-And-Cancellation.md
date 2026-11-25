@@ -52,11 +52,12 @@ import type { App } from "@agboss/core";
 declare const app: App;
 declare const threadId: string;
 declare const userId: string;
+declare const tenantId: string;
 -->
 
 ```ts
 // e.g. in the API handler of a "Cancel" button
-const { cancelled } = await app.cancel(threadId, { ownerId: userId });
+const { cancelled } = await app.cancel(threadId, { tenantId, ownerId: userId });
 ```
 
 The caller's own `signal` (`execute(…, { signal })`) aborts the same way; tools and actions see

@@ -1,36 +1,40 @@
 # Model providers
 
-Every model a workflow uses — an agent's, compaction's, a router's, a guardrail's, a judge's — comes
-from a **model provider**: an `@ModelProvider` class from `@agboss/core/models`. The provider says which
-models it serves, how it is reached (base URL, key, timeout), what a call costs, how its models
-reason and cache by default, how many calls it takes (rate limit) and what happens when a call
-fails (retry policy, circuit breaker).
-Introduced in #151 ([ADR-0016](ADR-0016-Model-providers)); since #266 model providers are
-**application infrastructure**: listed in `@Application({ providers })`, shared by every workflow
-of the application — a workflow and its components name models only and never pick a provider.
+Every model a workflow uses — an agent's, a memory's compaction, a router's, a guardrail's, a judge's —
+comes from a **model provider**: an `@ModelProvider` class from `@agboss/core/models`. A provider says how
+it is reached (its **driver**: protocol, base URL, key, headers), the model names it owns, what a call
+costs, how its models reason and cache by default, how many calls it takes (rate limit) and what
+happens when a call fails (retry policy, circuit breaker, a fallback provider).
+Introduced in #151 ([ADR-0016](ADR-0016-Model-providers)); since #266 providers are **application
+infrastructure** and since #1313 each is an independent class with a driver — there is no built-in
+provider and none is picked by a model's name: a component reaches one through `modelProvider`
+([below](#register-them-in-the-application)).
 
 ## A provider
 
 ```ts file=src/model-providers/openrouter.model-provider.ts
+import { env, secret } from "@agboss/core";
 import {
-  CircuitBreakerPolicy,
-  CachedPart, CacheRetention, ModelCost, ModelFailure, ModelProvider, OpenRouterProvider,
-  PromptCaching, ProviderSort, QueueBalancingStrategy, RateLimitPolicy, Reasoning, RetryPolicy,
-  type OpenRouterFields,
+  CachedPart, CacheRetention, CircuitBreakerPolicy, ModelCost, ModelFailure, ModelProvider,
+  OpenRouterDriver, PromptCaching, ProviderSort, QueueBalancingStrategy, RateLimitPolicy, Reasoning,
+  RetryPolicy,
 } from "@agboss/core/models";
 import { minutes, seconds } from "@agboss/core/units";
 
 @ModelProvider({
   name: "openrouter-model-provider",                    // kebab-case, ends with -model-provider
   description: "OpenRouter — many models behind one OpenAI-compatible API",
-  serves: [/.*/],                                       // which model names it serves
-  baseUrl: "https://openrouter.ai/api/v1",              // the default…
-  baseUrlField: "openRouterBaseUrl",                    // …unless this text field of the environment sets one
-  apiKey: "openRouterApiKey",                           // a Secret field of the application's environment
+  driver: OpenRouterDriver({
+    apiKey: secret("OPENROUTER_API_KEY"),               // read from the process when the application starts
+    baseUrl: env("OPENROUTER_BASE_URL", { default: "https://openrouter.ai/api/v1" }), // a proxy, a stub
+    // OpenRouter's provider routing: skip an upstream, order the rest by price (ProviderSort, #269)
+    routing: { ignore: ["Inceptron"], sort: ProviderSort.Price },
+  }),
+  model: "moonshotai/kimi-k2.6",                        // a component that names no model of its own
   timeout: minutes(2),                                  // per attempt, from the moment it has room
   cost: ModelCost.fromResponse(),                       // OpenRouter returns usage.cost
-  reasoning: Reasoning.modelDecides(),                  // required here; components may override
-  promptCaching: PromptCaching.on({         // required here; components may override
+  reasoning: Reasoning.modelDecides(),                  // components may override
+  promptCaching: PromptCaching.on({                     // components may override
     retention: CacheRetention.FiveMinutes,
     cachedParts: [CachedPart.SystemPrompt, CachedPart.Tools, CachedPart.History],
   }),
@@ -45,64 +49,72 @@ import { minutes, seconds } from "@agboss/core/units";
   }),
   circuitBreakerPolicy: CircuitBreakerPolicy.fixed({ failureThreshold: 5, failureWindow: minutes(1), openDuration: seconds(30) }), // fallback?: another provider
 })
-export class OpenRouterModelProvider extends OpenRouterProvider {
-  // OpenRouter's provider routing: skip an upstream, order the rest by price (ProviderSort, #269)
-  override readonly requestFields: OpenRouterFields = {
-    provider: { ignore: ["Inceptron"], sort: ProviderSort.Price },
-  };
-}
+export class OpenRouterModelProvider {}
 ```
 
-`ProviderSort.Price` / `Throughput` / `Latency` — OpenRouter's `provider.sort`; closed sets are
-enums, so a string (`"price"`) does not compile.
+The class is empty: the **driver** speaks the protocol. `ProviderSort.Price` / `Throughput` / `Latency` —
+OpenRouter's `provider.sort`; closed sets are enums, so a string (`"price"`) does not compile.
 
 ### Pinning the host and the precision (#395)
 
-`OpenRouterRouting` is OpenRouter's `provider` field in camelCase — `order`, `only`, `ignore`
-(hosts by OpenRouter's slug: `fireworks`, `together`), `sort`, `quantizations` (`Quantization.Int4`,
-`Int8`, `Fp4`, `Fp6`, `Fp8`, `Fp16`, `Bf16`, `Fp32`, `Unknown`) and `allowFallbacks`. The TypeScript
-API is camelCase everywhere; only the body sent to OpenRouter is snake_case (`allow_fallbacks`), so
-`allow_fallbacks` in `requestFields` does not compile. Pin a host and a precision when answers must
-not drift between upstreams — an eval, a benchmark, a cassette recorded once:
+`OpenRouterRouting` (the driver's `routing`) is OpenRouter's `provider` field in camelCase — `order`,
+`only`, `ignore` (hosts by OpenRouter's slug: `fireworks`, `together`), `sort`, `quantizations`
+(`Quantization.Int4`, `Int8`, `Fp4`, `Fp6`, `Fp8`, `Fp16`, `Bf16`, `Fp32`, `Unknown`) and
+`allowFallbacks`. The TypeScript API is camelCase everywhere; only the body sent to OpenRouter is
+snake_case (`allow_fallbacks`). Pin a host and a precision when answers must not drift between
+upstreams — an eval, a benchmark, a cassette recorded once:
 
 <!-- snippet-context
-import { ModelCost, ModelProvider, OpenRouterProvider, PromptCaching, Quantization, Reasoning, RetryPolicy, type OpenRouterFields } from "@agboss/core/models";
+import { secret } from "@agboss/core";
+import { ModelCost, ModelProvider, OpenRouterDriver, PromptCaching, Quantization, Reasoning, CircuitBreakerPolicy } from "@agboss/core/models";
 import { minutes, seconds } from "@agboss/core/units";
 -->
 
 ```ts
-import { CircuitBreakerPolicy } from "@agboss/core/models";
 @ModelProvider({
   name: "pinned-openrouter-model-provider",
   description: "Kimi on Fireworks at bf16, no fallback",
-  serves: [/^moonshotai\//],
-  baseUrl: "https://openrouter.ai/api/v1",
-  apiKey: "openRouterApiKey",
+  driver: OpenRouterDriver({
+    apiKey: secret("OPENROUTER_API_KEY"),
+    routing: { only: ["fireworks"], quantizations: [Quantization.Bf16], allowFallbacks: false },
+  }),
+  model: "moonshotai/kimi-k2.6",
   timeout: minutes(2),
   cost: ModelCost.fromResponse(),
   reasoning: Reasoning.modelDecides(),
   promptCaching: PromptCaching.off(),
   circuitBreakerPolicy: CircuitBreakerPolicy.fixed({ failureThreshold: 5, failureWindow: minutes(1), openDuration: seconds(30) }),
 })
-export class PinnedOpenRouterModelProvider extends OpenRouterProvider {
-  override readonly requestFields: OpenRouterFields = {
-    provider: { only: ["fireworks"], quantizations: [Quantization.Bf16], allowFallbacks: false },
-  };
-}
+export class PinnedOpenRouterModelProvider {}
 ```
 
 Every call's `UsageRecord.servedBy` names the host that served it — OpenRouter's `provider` of the
 answer, plain or streamed (absent when a provider does not say). `agboss check --models` asks
-OpenRouter for each served model's endpoints (`GET /models/<model>/endpoints`) and reports
+OpenRouter for each model's endpoints (`GET /models/<model>/endpoints`) and reports
 `[model.no-matching-endpoint]` for a pinned host (`only`) that does not serve the model, and for
 pinned `quantizations` no allowed host (in `only`, not in `ignore`) serves it at; the endpoints are
 never asked at startup.
+
+### Drivers
+
+| Driver | What it speaks |
+| --- | --- |
+| `OpenAiCompatibleDriver({ baseUrl, apiKey?, headers?, requestFields? })` | any OpenAI-compatible server (OpenAI, LiteLLM, vLLM, Ollama, Groq, DeepSeek, …): the Chat Completions API and `GET /models`; `requestFields` are extra body fields |
+| `OpenRouterDriver({ apiKey, baseUrl?, headers?, routing?, transforms? })` | OpenRouter's dialect: `reasoning: { effort \| max_tokens, exclude }`, `usage: { include: true }` (the cost in every answer), `cache_control` markers for Anthropic and Google models |
+| `DecisionsDriver({ baseUrl, apiKey?, headers?, path?, knownModels? })` | OpenRouter's Decisions API: the decision models (`DECISION_MODELS`: `typesafe/jev-*`, `openai/gpt-6-luna-decisions`, pplx-decider, Clef, …) for **decisions only** — routers, guardrails, judges; no chat |
+| a transport class | `complete(request)`, below — an SDK, a corporate gateway |
+
+`baseUrl`, `apiKey` and header values are text, `env(…)` or `secret(…)` references read from the process
+once, at start (a provider never reads `process.env` itself); a missing key fails the start of an
+application that calls the provider, naming its variable, never a value. Only a provider a model of the
+application resolves to is connected at start (#716): an application whose workflows call no model needs no
+key at all. Tests script or replay models and need none.
 
 ## A custom transport: `complete(request)` (#385)
 
 A provider that is not an OpenAI-compatible HTTP server — AWS Bedrock through its SDK, Vertex AI, a
 corporate gateway with its own authorisation — `implements ModelProviderHandler` with
-`complete(request)` instead of `baseUrl` / `baseUrlField` / `apiKey`, and takes its services through
+`complete(request)` instead of a `driver`, and takes its services through
 `deps`:
 
 ```ts file=src/model-providers/bedrock.model-provider.ts
@@ -142,7 +154,7 @@ export class BedrockSdkClient {
 @ModelProvider({
   name: "bedrock-model-provider",
   description: "AWS Bedrock through its SDK",
-  serves: [/^bedrock\//],
+  model: "bedrock/claude",                             // the model of a component that names none
   timeout: minutes(2),                                  // per attempt: request.signal aborts at it
   cost: ModelCost.fromPrices({
     "bedrock/claude": { inputPerMillion: usd(3), outputPerMillion: usd(15) },
@@ -179,7 +191,7 @@ export class BedrockModelProvider implements ModelProviderHandler {
 - **Trying it on a subscription.** A transport can also drive a vendor's own CLI under your own login
   (Codex, Claude, Gemini) — a demo-only example with its terms warnings:
   [Try agboss on a subscription](Try-agboss-on-a-subscription).
-- **One mode.** HTTP (`baseUrl`, `apiKey`, `baseUrlField`, a `chat` class) or a transport
+- **One mode.** A driver (`driver`) or a transport
   (`complete`, `deps`) — both at once do not compile (the decorator's overloads) and fail assembly
   with `[model-provider.both-modes]`; so does neither. `description`, `timeout`, `cost` and
   `retryPolicy` (`RetryPolicy.exponential(…)` and the others) are required as for HTTP;
@@ -205,7 +217,7 @@ export class BedrockModelProvider implements ModelProviderHandler {
   (`model.provider-failure`): the retry policy retries the failures it lists, `RateLimited` pauses
   the provider's whole queue for `retryAfter` and halves the instance's concurrency, the breaker
   counts it. Any other error is not retried and is counted by the breaker.
-- **Everything else is the gateway's**, unchanged: `serves`, the budgets before the call and
+- **Everything else is the gateway's**, unchanged: the budgets before the call and
   `CostLedgerRepository` after it, the queue and its 429 pause, retries, the breaker (readiness
   `Degraded`) and its fallback — HTTP and transport either way —, PII masking and revealing, the
   answer tools of a DTO agent, traces, and `mockLlm` in `testWith`, which answers above the provider
@@ -222,26 +234,19 @@ export class BedrockModelProvider implements ModelProviderHandler {
   like an HTTP provider's (the instance created for it); absent, its models' settings are not checked
   — `agboss check --models` never creates a transport.
 - `agboss describe` prints `bedrock-model-provider → BedrockModelProvider (listed in @Application
-  providers) · serves /^bedrock\// · transport: BedrockModelProvider.complete()` and each
-  `model: bedrock/claude → bedrock-model-provider`; the transport providers (name, class, `serves`)
+  providers) · transport: BedrockModelProvider.complete()` and each
+  `model: bedrock/claude → bedrock-model-provider`; the transport providers (name, class)
   are part of `configHash` — only where there is one.
 
 ## Register them in the application
 
-`@ModelProvider` classes are listed **only** in `@Application({ providers })`, next to the rest of the
-infrastructure ([App](App)). They are not created by the container (nothing injects a provider), and
-one in a workflow's `providers` fails the application's assembly with
-`[di.infrastructure-in-workflow] … is a @ModelProvider — infrastructure is listed only in
-@Application({ providers })`.
-
-```ts file=src/environments/app.environment.ts
-import type { Secret } from "@agboss/core";
-
-/** The key both providers read (`apiKey: "openRouterApiKey"`); `test` leaves it out. */
-export class AppEnvironment {
-  openRouterApiKey?: Secret;
-}
-```
+A provider is named by the **cascade** `Component.modelProvider ?? Workflow.modelProvider ??
+Application.modelProvider`: `@Agent`, a model `@Router`, `@Arbiter`, `@InputGuardrail` /
+`@OutputGuardrail`, `@ChannelInterpreter`, a `@Memory`'s compaction, a `@PiiPolicy` (its `model`),
+`@Workflow` and `@Application` take `modelProvider`. A provider the cascade names is part of the
+application even when it is not in `providers`. No provider anywhere in a component's cascade is
+`[model.missing-provider]` at assembly — there is no implicit one, in a test either
+(`TestModelProvider`, [Testing](Testing)).
 
 <!-- snippet-context
 import { Workflow, WorkflowFinish, WorkflowStart, onStart, Ttl } from "@agboss/core";
@@ -264,134 +269,64 @@ export class JobScout {}
 -->
 
 ```ts file=src/job-scout.application.ts
-import { Application } from "@agboss/core";
-import { DecisionsModelProvider } from "@agboss/core/models";
-import { AppEnvironment } from "./environments/app.environment.js";
+import { Application, EmptyEnvironment } from "@agboss/core";
 import { OpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
 
 @Application({
   name: "job-scout-application",
   version: "1.0.0",
-  environment: AppEnvironment,
+  environment: EmptyEnvironment,
   workflows: [JobScout],
-  // chat models through job-scout's own OpenRouter, decision models through the Decisions API
-  providers: [OpenRouterModelProvider, DecisionsModelProvider],
+  modelProvider: OpenRouterModelProvider, // every chat model that names no provider of its own
+  providers: [OpenRouterModelProvider],
 })
 export class JobScoutApplication {}
 ```
 
-- **None listed** → the built-in `OpenRouterModelProvider` (every chat model) and
-  `DecisionsModelProvider` (the decision models, `DECISION_MODELS`).
-- **At least one listed** → the list is complete: the built-ins are **not** added next to it, so
-  what serves each model is visible in one place. An application listing only a local server and
-  using Jev lists `DecisionsModelProvider` too, or its routers fail with `[model.unserved]`.
-- A workflow has no provider setting (`settings().modelProviders(…)` and `defaultModelProvider(…)`
-  were removed in #266), and no component has one.
+- A router or an arbiter on a **decision model** names its own provider (`modelProvider:
+  DecisionsModelProvider`, a provider with a `DecisionsDriver`); a chat provider does not serve it
+  (`[model.incompatible-provider]`).
+- Providers are infrastructure, listed only in `@Application({ providers })`: one in a workflow's
+  `providers` fails assembly with `[di.infrastructure-in-workflow]`. They are not created by the
+  container — nothing injects a provider (a component that needs a decision injects `DecisionModel`,
+  [Routers](Routers#the-router-engine-and-decisionmodel)).
+- [`08-job-scout`](https://github.com/agbossjs/agboss-examples/tree/main/08-job-scout) (agbossjs/agboss-examples): `src/model-providers/openrouter.model-provider.ts`,
+  named in `job-scout.application.ts`; `agboss create` generates the same.
 
-[`08-job-scout`](https://github.com/agbossjs/agboss-examples/tree/main/08-job-scout) (agbossjs/agboss-examples): `src/model-providers/openrouter.model-provider.ts`,
-listed in `job-scout.application.ts`; `agboss create` generates the same.
+### The name
 
-### The key and the name
+The name is optional and kebab-case (`[name.not-kebab-case]` at the application's assembly; left out, it
+is the class name in kebab-case). It keys the provider's shared state (its slots, windows, pause and
+breaker in `RateLimitRepository`) and appears in logs and `agboss describe`.
 
-- **The key is a `Secret` of the application's environment** (#266 S73 c, [Environments](Environments)):
-  `apiKey` names the field — `apiKey: "openRouterApiKey"` — and each environment that calls the
-  provider sets it, `openRouterApiKey: secret("OPENROUTER_API_KEY")`; the built-ins read
-  `openRouterApiKey`. It is read from `applicationContext.environment` when the app starts (a secret
-  of an environment passed as written takes its own variable); a provider never reads `process.env`
-  for it. Only a provider that serves a model of the application is connected at start (#716): an
-  application whose workflows call no model — actions only — needs no key at all, and a provider
-  no model resolves to reads its key on its first call. A missing one fails the start of an app
-  that calls the provider:
-  `openrouter-model-provider reads its key from the application's environment: the environment has
-  no openRouterApiKey — declare openRouterApiKey: Secret in the environment contract and set
-  openRouterApiKey: secret("…") in each environment that calls it`. Tests script or replay models,
-  so a `test` environment may leave the field out (declare it optional, `openRouterApiKey?: Secret`)
-  and `agboss check` writes the types without a key (it reads the contract's shape); only
-  `agboss check --models`, which connects, needs the secrets of the chosen environment.
-- **The base URL** is `baseUrl`, unless `baseUrlField` names a text field of the environment that
-  holds one — the built-ins read `openRouterBaseUrl` (a proxy or a local stub). The field is
-  declared without a default, `openRouterBaseUrl: env.optional("OPENROUTER_BASE_URL")` with
-  `openRouterBaseUrl?: string` in the contract: unset, it is `undefined` and the provider uses its
-  decorator's `baseUrl` — the default is written once, in the decorator (#266 S87).
-- **The name is optional and kebab-case** (`[name.not-kebab-case] "Local_Server" on @ModelProvider — a name is
-  kebab-case: "local-server"`, at the application's assembly; left out, it is the class name in kebab-case) — the
-  built-ins are `openrouter-model-provider` and `decisions-model-provider`. The name keys the provider's shared
-  state (its slots, windows, pause and breaker in `RateLimitRepository`) and appears in logs and
-  `agboss describe`.
+## The model cascade (#1313)
 
-### Built in
+A provider owns the model names of its own — `model`, or `models`, a map of role names (`default`,
+`fast`) to the vendor's names — and a component reaches it by `modelProvider`, never by a model's name:
 
-| Class                               | What it is                                                                                                                                                                             |
-| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `OpenAiCompatibleProvider<Fields>`  | any OpenAI-compatible server; `requestFields` is a typed member (`override readonly requestFields: Fields = { … }`) — a typo is a compile error. OpenAI's dialect: `reasoning_effort`, `prompt_cache_key`, `prompt_cache_retention`. |
-| `OpenRouterProvider<Fields>`        | OpenRouter's dialect: `reasoning: { effort \| max_tokens, exclude }`, `usage: { include: true }` (the cost in every answer), `cache_control` markers for Anthropic and Google models, a model list that says what each model supports. `OpenRouterFields`: `provider` routing, `transforms`. |
-| `OpenRouterModelProvider`           | the default chat provider (above, without request fields)                                                                                                                            |
-| `DecisionsModelProvider`            | OpenRouter's Decisions API: serves the decision models (`DECISION_MODELS`: `typesafe/jev-*`, `openai/gpt-6-luna-decisions`, pplx-decider, Clef, …) for **decisions only** (routers, guardrails, decision judges); `JevModelProvider` is its deprecated alias |
-| own provider                        | implement `ModelProviderHandler`: `chat?(request)` → a LangChain chat model, `routeTo?(request)`, `capabilities(model, connection)` (`undefined` = not served)                         |
-
-## Which provider serves a model
-
-- Exactly **one** listed provider must match the model name **for its purpose** — a chat model
-  (agents, compaction, LLM routers, chat judges) needs a provider with `chat`, a decision (Jev and
-  the other decision models: routers, guardrails, decision judges) one with decisions. So OpenRouter on
-  `/.*/` and the decision models never clash.
-- Checked for **every** model of the application at assembly — agents, model routers, the default
-  router (`defaults.router.model`), guardrails, compaction and judges (arbiters and reply interpreters
-  join when they exist, #267) — all at once, before any model call (`createApp`, `testWith`,
-  `agboss check`):
-  - none → `[model.unserved] job-scout-workflow agents.scout-agent = local/llama: no listed provider
-    serves it for chat (listed: openrouter-model-provider, decisions-model-provider) — list a @ModelProvider that serves it in
-    @Application({ providers })`;
-  - several → `[model.ambiguous-provider] … served by several providers: local-model-provider, local-mirror-model-provider — one
-    model string per provider, each in one serves`. No default breaks the tie: one model through
-    two providers is two model strings, each in one provider's `serves`.
-- **The built-ins yield** (#454): `OpenRouterModelProvider` and `DecisionsModelProvider` are
-  catch-alls — listed (by default or by name), each serves its models **except** those another
-  listed provider claims by `serves`. A project's provider for its own prefix (a transport serving
-  `/^harness\//`, a local server on `/^local\//`) works next to them with no narrowed copy of the
-  built-in: `harness/x` resolves to it, `moonshotai/kimi-k2.6` to OpenRouter. Only these two classes
-  yield — a subclass with its own `@ModelProvider` claims what its `serves` says, like any other
-  provider, and two such claims on one model stay `[model.ambiguous-provider]`. The key check at
-  start does not change: a listed HTTP provider still needs its key.
-- `agboss describe` prints the provider each model resolves to, though no component names it
-  (`--json`: `models: [{ key, model, provider }]`):
-
-```
-models
-  agents.scout-agent  model: moonshotai/kimi-k2.6 → openrouter-model-provider
-  routers.main-router  model: typesafe/jev-1.13 → decisions-model-provider
-```
-
-## Driver providers and the model cascade (#1313)
-
-A provider can be an **independent class with a driver** instead of a `serves` pattern: the driver
-speaks the protocol, the class holds the model names of its own, and a component reaches it by
-`modelProvider`, never by a model's name.
+<!-- snippet-context
+import { env, secret } from "@agboss/core";
+import { CircuitBreakerPolicy, ModelCost, ModelProvider, OpenAiCompatibleDriver } from "@agboss/core/models";
+import { minutes, seconds } from "@agboss/core/units";
+-->
 
 ```ts
-import { CircuitBreakerPolicy } from "@agboss/core/models";
 @ModelProvider({
   driver: OpenAiCompatibleDriver({
-    baseUrl: appEnv.llmBaseUrl, // OpenAI, LiteLLM, vLLM, Ollama, Groq, DeepSeek, …
-    apiKey: appEnv.llmApiKey, // optional for a local server
+    baseUrl: env("LLM_BASE_URL"), // OpenAI, LiteLLM, vLLM, Ollama, Groq, DeepSeek, …
+    apiKey: secret.optional("LLM_API_KEY"), // optional for a local server
     headers: { "x-tenant": "acme" }, // text, env(…) or secret(…)
   }),
-  timeout: min(2),
+  timeout: minutes(2),
   cost: ModelCost.fromResponse(),
-  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({ failureThreshold: 5, failureWindow: min(1), openDuration: sec(30) }),
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({ failureThreshold: 5, failureWindow: minutes(1), openDuration: seconds(30) }),
   models: { default: "gpt-4.1", fast: "gpt-4.1-mini" }, // or model: "gpt-4.1"
 })
 export class AppChatModels {}
 
-@Application({ …, modelProvider: AppChatModels, providers: [AppChatModels] })
+// @Application({ …, modelProvider: AppChatModels, providers: [AppChatModels] })
 ```
 
-- **Drivers:** `OpenAiCompatibleDriver({ baseUrl, apiKey?, headers?, requestFields? })` (the Chat
-  Completions API and `GET /models`, no OpenRouter-only header), `OpenRouterDriver({ apiKey, baseUrl?,
-  headers?, routing?, transforms? })` (OpenRouter's dialect), `DecisionsDriver({ baseUrl, apiKey?,
-  headers?, path?, knownModels? })` (decision models; no `Authorization` header without a key). `baseUrl`,
-  `apiKey` and header values are read from the process once, at start; a missing key fails naming its
-  variable.
 - **The cascade:** `Component.modelProvider ?? Workflow.modelProvider ?? Application.modelProvider` —
   `@Agent`, a model `@Router`, `@Arbiter`, `@InputGuardrail` / `@OutputGuardrail`, `@ChannelInterpreter`
   and `@PiiPolicy` (its `model`), `@Workflow` and `@Application` take `modelProvider`. A provider the cascade names is part
@@ -413,8 +348,6 @@ export class AppChatModels {}
 - **Rules:** `[model.missing-provider]` (no provider in the cascade, or the named one is not listed),
   `[model.incompatible-provider]` (a chat model on a decisions driver, or the reverse), `[model.missing]`
   (no model named and the provider has neither `model` nor `models.default`).
-- The older `serves` providers and the built-ins stay until every test application names its
-  provider; a component with no provider in its cascade is resolved by `serves` as before.
 
 ## Cost
 
@@ -484,7 +417,7 @@ no limit**, as before #266.
   shares it. Its state — the `maxConcurrentCalls` slots (leases, renewed while a call runs, free
   again after a minute if an instance dies), the per-minute windows and the pause after a 429 — is
   in the application's `RateLimitRepository` ([Several instances](Several-instances)): with
-  `SqliteRateLimitRepository` (or your own over Redis) it holds on every instance at once.
+  a shared storage (`SqliteDriver` on one file, or your own over Redis) it holds on every instance at once.
 - **A call without room waits**, in this order: the provider's tenant-fair queue → the pause → the
   per-minute tokens → a slot → the per-minute calls → the attempt's `timeout` starts → the call →
   its real usage counted → the slot released (when the answer has been read to its end). The wait

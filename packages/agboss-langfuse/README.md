@@ -26,7 +26,7 @@ const app = await createApp(SupportApplication, {
   }),
 });
 
-const result = await app.execute(SupportStart, { text: "hello" });
+const result = await app.execute(SupportStart, { text: "hello" }, { tenantId: "acme" });
 result.traceUrl; // https://langfuse.example.com/project/my-project/sessions/<threadId>
 await app.close(); // flushes the tracer and shuts it down: the application owns it
 ```

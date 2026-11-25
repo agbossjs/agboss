@@ -112,8 +112,8 @@ export class PostgresFencedEffectRepository extends FencedEffectRepository {
 - **Assembly** compares each listed fenced-effect or outbound-call store with the application's
   lease store (the listed one, else the in-memory default):
   - two backends fail with `[application.store-backend-mismatch]`, naming both classes and both
-    backends, and what to list instead: a lease store on the fencing store's backend (the core's,
-    `SqliteExecutionLeaseRepository` for `"sqlite"`, else "a lease store declaring backend
+    backends, and what to list instead: a lease store on the fencing store's backend (the core's
+    SQLite one for `"sqlite"`, else "a lease store declaring backend
     `"postgres:billing"`"), or a fencing store on the leases' backend (#539);
   - a store that declares none (the fencing store or its lease store) fails with
     `[application.store-backend-undeclared]`;
@@ -427,7 +427,7 @@ checkpoint by `(step, id)` instead. Without help the framework
 does it by listing the thread's whole namespace and sorting it in memory, on every read for the
 thread's life. A saver can answer it with one indexed read, by an **optional** method:
 
-```ts
+```ts no-check: `LatestByStepCheckpointSaver` is an internal type since #1321; a saver is created by its driver
 import type { RunnableConfig } from "@langchain/core/runnables";
 import type { CheckpointTuple } from "@langchain/langgraph";
 import { stepOf, type LatestByStepCheckpointSaver } from "@agboss/core/stores";
@@ -497,7 +497,7 @@ declare const PgLeases: new (pool: Pool, clock: StoreClock, application: Applica
 declare const PgLeaseLog: new (pool: Pool) => ExecutionAuditLogRepository;
 declare const PgCalls: new (pool: Pool, clock: StoreClock) => OutboundCallRepository;
 declare const PgRateLimits: new (pool: Pool, clock: Clock, application: ApplicationContext) => RateLimitRepository;
-declare function pgFencedEffects(pool: Pool, clock: StoreClock, application: ApplicationContext): FencedEffectTarget<PoolClient>;
+declare function pgFencedEffects(pool: Pool, clock: StoreClock, application: ApplicationContext): FencedEffectTarget;
 -->
 
 ```ts
@@ -682,7 +682,7 @@ overrides it: such a store passes **no** fencing case, even when it would pass t
 import type { ExecutionAuditLogRepository, ExecutionLeaseRepository } from "@agboss/core";
 import { storeConformance, type FencedEffectTarget, type OutboundCallTarget } from "@agboss/core/testing/contracts";
 declare const redisLeases: () => ExecutionLeaseRepository;
-declare const redisEffects: () => FencedEffectTarget<unknown>;
+declare const redisEffects: () => FencedEffectTarget;
 declare const redisCalls: () => OutboundCallTarget;
 declare const redisLog: () => ExecutionAuditLogRepository;
 -->
@@ -758,7 +758,7 @@ declare function secret(name: string): unknown;
 declare function resolveConnection(app: App): PgConnection;
 -->
 
-```ts
+```ts no-check: the fault harness follows the storage drivers (#1321); the store follow-up rewrites this example
 // tests/faults/postgres.fault-stores.ts — imported by every pod
 import { FaultStoreTime, type FaultStoreSet } from "@agboss/core/testing/faults";
 

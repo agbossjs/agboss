@@ -42,12 +42,7 @@ export class SupportWorkflowStart {}
 -->
 
 ```ts file=shop.http-authenticator.ts
-import {
-  HttpAuthenticator,
-  HttpAuthResult,
-  HttpSecurity,
-  type HttpAuthRequest,
-} from "@agboss/core";
+import { HttpAuthenticator, HttpAuthResult, HttpSecurity, type HttpAuthRequest } from "@agboss/core";
 import { A2AOperation } from "@agboss/core/a2a";
 
 // created by the container, like any service; its schemes are the card's securitySchemes
@@ -166,6 +161,12 @@ protocolVersion: "1.0" }`.
   gets the same task — never a second run, on any instance; with other content it is `-32602`. A
   task whose start was lost (a crash right after it was accepted) is started by the resend, under
   the same id, once.
+  **A storage limit:** a finished tree leaves no checkpoints and its record rotates with its
+  retention (`historyTtl`), so a task whose worker died before `onExecutionEnd` is repaired from the
+  record only while the record is alive (`Completed`, with the masked `output` and `spentUsd`); once it
+  has rotated and the task's `startTimeout` has passed it closes as `Failed` (`a2a.start-lost`), never as
+  a started execution — what reads the storage then sees `NotStarted`
+  ([Execution history](Execution-history#a-storage-limit-a-finished-tree-that-has-rotated-reads-notstarted)).
 - **The task store is shared by the instances** (#824). "On any instance" holds only when every
   instance reads one store, so the store declares its backend (`static store = { backend }`, #825) and assembly checks it: an
   application that serves A2A on a lease store its instances share (any backend but `in-memory`)
@@ -560,9 +561,9 @@ would loop again) — so a whole chain `A → B → A` fails at every hop, deter
 the path (its side path leads to actions and finishes only, as for every limit):
 
 <!-- snippet-context
-import { Agent, MeshLoopDetectedError, Workflow, WorkflowFinish, WorkflowStart, onStart, toFinish, Ttl } from "@agboss/core";
+import { inline, Agent, MeshLoopDetectedError, Workflow, WorkflowFinish, WorkflowStart, onStart, toFinish, Ttl } from "@agboss/core";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
-@Agent({ name: "orders-agent", description: "Orders", prompt: "Answer.", model: "moonshotai/kimi-k2.6" })
+@Agent({ name: "orders-agent", description: "Orders", prompt: inline("Answer."), model: "moonshotai/kimi-k2.6" })
 export class OrdersAgent {}
 @WorkflowStart({ name: "orders-workflow-start", description: "A question", input: WorkflowStartTextDto })
 export class OrdersWorkflowStart {}
@@ -601,7 +602,7 @@ rotation lists the old and the new one — `secret(…)` / `secret.optional(…)
 `-----BEGIN PUBLIC KEY-----`).
 
 <!-- snippet-context
-import { Application, Mesh, MeshInboundMode, defineEnv, secret } from "@agboss/core";
+import { Application, EmptyEnvironment, Mesh, MeshInboundMode, defineEnv, secret } from "@agboss/core";
 import { minutes } from "@agboss/core/units";
 export class BillingWorkflow {} // a @Workflow of its own
 -->
@@ -631,6 +632,7 @@ export class BillingMesh {}
 @Application({
   name: "billing-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [BillingWorkflow],
   mesh: BillingMesh,
 })

@@ -193,7 +193,7 @@ Breaking changes and notable additions, newest first. The API reports
 ## Unreleased — 0.1.1: one meaning per name — `answeredBy` is who answered, `answerer` is who may (#934, API review Q3, Q13)
 
 - **Changed — breaking (silent)**: `PauseAnswerRecord.answeredBy` (`result.record.pauses[i]`, the answer log,
-  `agboss records export`) keeps its name and changes its meaning — before: the kind (`"channel"` or
+  `agboss executions export`) keeps its name and changes its meaning — before: the kind (`"channel"` or
   `"thread-owner"`), now: the person who answered (`"manager-17"`, or `undefined`). Nothing fails to compile and no
   alias can keep the old meaning; read `answerer` for the kind. `PauseAnswer.answerer` (the person, in
   `PauseRecord.answer`) is `answeredBy` now, with no alias.
@@ -460,7 +460,7 @@ Breaking changes and notable additions, newest first. The API reports
   `LeaseEventStep` → `ExecutionAuditEventRecord` / `ExecutionAuditEventBase` /
   `ExecutionAuditEventKind` / `AuditEventStep`, `app.leaseEventsOf(tree)` →
   `app.auditLogOf(tree: ExecutionTreeQuery)` (`LeaseEventsQuery` → `ExecutionTreeQuery`, also on
-  `outboundCallsOf`), `ExecutionHistoryRecord.leaseEvents` → `auditLog` (so in `agboss records
+  `outboundCallsOf`), `ExecutionHistoryRecord.leaseEvents` → `auditLog` (so in `agboss executions
   export` too), `retention.leaseEvents` → `retention.auditLog` (the old key refused by
   `[application.retention-invalid]`, naming the new one), `executionLeaseEventContract` →
   `executionAuditLogContract`, `storeConformance({ stores: { executionLeaseEvent } })` →
@@ -1527,7 +1527,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
 
 - `app.leaseEventsOf` and `app.outboundCallsOf` refuse a `rootExecutionId` that is no key's text
   (`dto.invalid` naming `rootExecutionId` and the rule, never the id): on SQLite and PostgreSQL
-  `r\uD800` read root `r\uFFFD`'s lease log. `agboss records export --tenant` and `agboss generate
+  `r\uD800` read root `r\uFFFD`'s lease log. `agboss executions export --tenant` and `agboss generate
   eval-case --tenant` refuse a tenant id that is no key's text (exit 2, `usage.option-value`)
   instead of reading nothing. Ids a project's own `IdGenerator` mints are not checked yet (#578).
 ## Unreleased — 0.1.1: what an execution interrupted by a stop says (#582)
@@ -1974,7 +1974,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
   ([Observability](Observability#outbound-calls-505)), and **`OutboundCallEventRecord`**, the lease
   log's `OutboundCall` row ([Several instances](Several-instances#the-audit-log-501)) — never a payload.
 - **Added — `ExecutionHistoryRecord.outboundCalls`** ([Execution history](Execution-history)):
-  a kept execution carries its tree's intents, and so does `agboss records export`.
+  a kept execution carries its tree's intents, and so does `agboss executions export`.
 - **Changed — `OutboundCallRepository.markPending(key, expected, claim)`** is a compare-and-set
   (`OutboundCallState`: `status`, `attempt`, `attemptOwner`; `OutboundCallClaim`: `attempt`,
   `attemptOwner`) and returns whether it moved the intent; a caller that loses it sends nothing.
@@ -2048,7 +2048,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
   `ExecutionLeaseEventRecord` is now `LeaseTakeoverRecord | StepHandedOverRecord` and `checkpointId`
   is the takeover's own field.
 - **Added — `ExecutionHistoryRecord.leaseEvents`**: a kept execution carries its tree's rows of the
-  lease log ([Execution history](Execution-history)), and so does `agboss records export`.
+  lease log ([Execution history](Execution-history)), and so does `agboss executions export`.
 
 ## Unreleased — 0.1.1: handover telemetry, the lease log (#501 PR 1)
 
@@ -2292,7 +2292,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
 ## Unreleased — flow-patterns as the zero-cost harness: the desk's history (#419)
 
 - `examples/flow-patterns`' desk keeps its executions (`executionRecordRetention`) and its
-  `npm run check` runs `npm run records:check`: one offline run, `agboss records export`, and
+  `npm run check` runs `npm run records:check`: one offline run, `agboss executions export`, and
   `agboss generate eval-case --from-execution --dry-run`.
   [Example](Example#flow-patterns-a-review-loop-and-a-code-router).
 
@@ -2364,7 +2364,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
   the transport created by the test app's container on its first call, with its lifecycle hooks.
   A replay still creates no provider.
 
-## Unreleased — execution history: `ExecutionHistoryRepository`, `executionRecordRetention`, `agboss records export` (#401 PR 1)
+## Unreleased — execution history: `ExecutionHistoryRepository`, `executionRecordRetention`, `agboss executions export` (#401 PR 1)
 
 - **Added — `@Application({ executionRecordRetention })`** ([Execution history](Execution-history)):
   unset → nothing is kept (as before); set, every root execution's `ExecutionHistoryRecord` — its
@@ -2375,7 +2375,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
   it warns `[application.in-memory-execution-history]`.
 - **Added — infrastructure `ExecutionHistoryRepository`** (in memory, `SqliteExecutionHistoryRepository`),
   additive: `ExecutionRecordRepository` is unchanged; readiness pings it.
-- **Added — `agboss records export (--tenant <id> | --all-tenants) --out <file.jsonl> [--since]
+- **Added — `agboss executions export (--tenant <id> | --all-tenants) --out <file.jsonl> [--since]
   [--until]`**: JSON Lines, one `{ "kind": "agboss.execution-record", "schema": 1, … }` per line,
   read from the stores without running anything; `records.tenant-required`, `records.not-kept`.
 

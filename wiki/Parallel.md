@@ -20,7 +20,7 @@ count and — with groups — which combination wins and where the execution goe
 ## Writing it
 
 <!-- snippet-context
-import { Agent, Arbiter, Arbitrate, Workflow, WorkflowFinish, WorkflowStart, onStart, toAgent, toFinish, Ttl } from "@agboss/core";
+import { inline, Agent, Arbiter, Arbitrate, Workflow, WorkflowFinish, WorkflowStart, onStart, toAgent, toFinish, Ttl } from "@agboss/core";
 import { Integer, Text } from "@agboss/core/dto";
 import { listOf, optional } from "@agboss/core";
 import { minutes, seconds } from "@agboss/core/units";
@@ -55,25 +55,25 @@ export class DealReportDto {
 }
 @WorkflowStart({ name: "candidate-workflow-start", description: "A candidate", input: CandidateDto })
 export class CandidateWorkflowStart {}
-@Agent({ name: "score-a-agent", description: "Scores skills", prompt: "Score.", model: "moonshotai/kimi-k2.6", input: { candidate: CandidateDto }, output: ScoreDto })
+@Agent({ name: "score-a-agent", description: "Scores skills", prompt: inline("Score."), model: "moonshotai/kimi-k2.6", input: { candidate: CandidateDto }, output: ScoreDto })
 export class ScoreAAgent {}
-@Agent({ name: "score-b-agent", description: "Scores risks", prompt: "Score.", model: "moonshotai/kimi-k2.6", input: { candidate: CandidateDto }, output: ScoreDto })
+@Agent({ name: "score-b-agent", description: "Scores risks", prompt: inline("Score."), model: "moonshotai/kimi-k2.6", input: { candidate: CandidateDto }, output: ScoreDto })
 export class ScoreBAgent {}
-@Agent({ name: "score-c-agent", description: "Scores the hire", prompt: "Score.", model: "moonshotai/kimi-k2.6", input: { candidate: CandidateDto }, output: ScoreDto })
+@Agent({ name: "score-c-agent", description: "Scores the hire", prompt: inline("Score."), model: "moonshotai/kimi-k2.6", input: { candidate: CandidateDto }, output: ScoreDto })
 export class ScoreCAgent {}
-@Agent({ name: "score-summary-agent", description: "Sums up", prompt: "Sum up.", model: "moonshotai/kimi-k2.6", input: { candidate: CandidateDto, scores: listOf(ScoreDto) }, output: ScoreReviewDto })
+@Agent({ name: "score-summary-agent", description: "Sums up", prompt: inline("Sum up."), model: "moonshotai/kimi-k2.6", input: { candidate: CandidateDto, scores: listOf(ScoreDto) }, output: ScoreReviewDto })
 export class ScoreSummaryAgent {}
 @WorkflowFinish({ name: "score-review-workflow-finish", description: "The review", output: ScoreReviewDto })
 export class ScoreReviewWorkflowFinish {}
 @WorkflowStart({ name: "deal-workflow-start", description: "A deal", input: CandidateDto })
 export class DealWorkflowStart {}
-@Agent({ name: "legal-agent", description: "Legal review", prompt: "Review.", model: "moonshotai/kimi-k2.6", input: { deal: CandidateDto }, output: LegalReviewDto })
+@Agent({ name: "legal-agent", description: "Legal review", prompt: inline("Review."), model: "moonshotai/kimi-k2.6", input: { deal: CandidateDto }, output: LegalReviewDto })
 export class LegalAgent {}
-@Agent({ name: "critic-agent", description: "Objects", prompt: "Object.", model: "moonshotai/kimi-k2.6", input: { deal: CandidateDto }, output: CritiqueDto })
+@Agent({ name: "critic-agent", description: "Objects", prompt: inline("Object."), model: "moonshotai/kimi-k2.6", input: { deal: CandidateDto }, output: CritiqueDto })
 export class CriticAgent {}
-@Agent({ name: "fast-screen-agent", description: "Screens", prompt: "Screen.", model: "moonshotai/kimi-k2.6", input: { deal: CandidateDto }, output: FastScreenDto })
+@Agent({ name: "fast-screen-agent", description: "Screens", prompt: inline("Screen."), model: "moonshotai/kimi-k2.6", input: { deal: CandidateDto }, output: FastScreenDto })
 export class FastScreenAgent {}
-@Agent({ name: "full-review-agent", description: "Reports", prompt: "Report.", model: "moonshotai/kimi-k2.6", input: { legal: optional(LegalReviewDto), critiques: listOf(CritiqueDto) }, output: DealReportDto })
+@Agent({ name: "full-review-agent", description: "Reports", prompt: inline("Report."), model: "moonshotai/kimi-k2.6", input: { legal: optional(LegalReviewDto), critiques: listOf(CritiqueDto) }, output: DealReportDto })
 export class FullReviewAgent {}
 @WorkflowFinish({ name: "deal-report-workflow-finish", description: "The report", output: DealReportDto })
 export class DealReportWorkflowFinish {}
@@ -189,7 +189,7 @@ from the branches (#1270); the shape comes from **the launch**, not from the gro
 
 | After | A single agent's value | A repeated class, or several agents with one `output` |
 | --- | --- | --- |
-| `.join()` | required `XDto` (`optional` for an `OnDemand` / `Skip` route) | `listOf(XDto)` |
+| `.join()` | required `XDto` (`optional` for a branch a router may leave out or a `skip()` drops) | `listOf(XDto)` |
 | `.joinQuorum({ min })`, `min` = agents launched | required `XDto` | `listOf(XDto)` |
 | `.joinQuorum({ min })`, any other `min` | `optional(XDto)` | `listOf(XDto)` |
 | `.onGroup([A, B…], …)` of `.joinQuorumGroups(…)` | required `XDto` (the group's targets only) | `listOf(XDto)`, even when the group counts one copy |
@@ -199,7 +199,7 @@ Nothing is written for them: a step that requires a single answer a quorum may l
 ```text
 [input.missing-on-path] skills-reader-agent.skills (SkillsScoreDto) is not produced on the path
 fit-review-workflow-start → skills-reader-agent (skills-score-agent may be left out of the quorum) —
-make it optional(SkillsScoreDto) or listOf(SkillsScoreDto)
+declare it optional(SkillsScoreDto) or listOf(SkillsScoreDto)
 ```
 
 ## Expiry of a branch's pause (#945)
@@ -213,7 +213,7 @@ launch with its `PauseExpiredError`; the `.onError(…)` side path reads the ans
 
 ## External tasks in a launch (#1306)
 
-`toExternalTask(Task)` is a branch of `.inParallel([…])` and the step of `.forEachItem(…, { maxItems })`
+`toExternalTask(Task)` is a branch of `.inParallel([…])` and the step of `.forEachItem(…, { takeFirst })`
 like `toAgent`, `toAction` and `toWorkflow` — no `@Agent` wrapped around a person or a service just to
 wait in parallel. Every branch is its own pause on its task's channel (`PendingPause.itemIndex` for the
 item of a `.forEachItem`); `.onError(E, skip())` on the branch drops its failure from the join. A
@@ -280,7 +280,7 @@ of a repeated target and every item of a per-item launch.
 
 | Code | |
 | --- | --- |
-| `[flow.quorum-impossible]` | `min` above the agents launched (per item: above `maxItems`); a group listing an agent the launch does not run, or more copies than it runs |
+| `[flow.quorum-impossible]` | `min` above the agents launched (per item: above `takeFirst`); a group listing an agent the launch does not run, or more copies than it runs |
 | `[launch.unjoinable-output]` | a branch's output no join value can carry (a list launched several times, a lone `oneOf`) |
 | `[input.missing-on-path]` | a required field whose producer may be left out — the message names the agent and the fix `optional(…)` / `listOf(…)` |
 | `[arbiter.not-an-arbiter]` | `.arbitratedBy(X)` of a class without `@Arbiter` |

@@ -32,7 +32,7 @@ import {
 const LEDGER =
   "[application.in-memory-cost-ledger] in-memory cost ledger: each application instance counts budgets on its own and the counters reset on restart";
 const PAUSES =
-  "[application.in-memory-pauses] in-memory pauses: the pause records (PausedExecutionRepository — list SqlitePausedExecutionRepository) and the checkpoints (BaseCheckpointSaver — list SqliteCheckpointSaver) are kept in memory — another application instance cannot resume a pause and it is lost on restart";
+  "[application.in-memory-pauses] in-memory pauses: the pause records (PausedExecutionRepository) and the checkpoints (BaseCheckpointSaver) are kept in memory — another application instance cannot resume a pause and it is lost on restart — name a durable @DatabaseStorage in @Application({ storage })";
 
 const offline = { processEnv: {}, gateway: createScriptedGateway(new ScriptBook()) };
 
@@ -76,7 +76,7 @@ describe("#261 AC14: in-memory ledger and pauses warn", () => {
     );
 
     expect(pauses.map((warning) => warning.message)).toEqual([
-      "in-memory pauses: the checkpoints (BaseCheckpointSaver — list SqliteCheckpointSaver) are kept in memory — another application instance cannot resume a pause and it is lost on restart",
+      "in-memory pauses: the checkpoints (BaseCheckpointSaver) are kept in memory — another application instance cannot resume a pause and it is lost on restart — name a durable @DatabaseStorage in @Application({ storage })",
     ]);
   });
 
@@ -89,7 +89,7 @@ describe("#261 AC14: in-memory ledger and pauses warn", () => {
     );
 
     expect(pauses.map((warning) => warning.message)).toEqual([
-      "in-memory pauses: the pause records (PausedExecutionRepository — list SqlitePausedExecutionRepository) are kept in memory — another application instance cannot resume a pause and it is lost on restart",
+      "in-memory pauses: the pause records (PausedExecutionRepository) are kept in memory — another application instance cannot resume a pause and it is lost on restart — name a durable @DatabaseStorage in @Application({ storage })",
     ]);
   });
 });

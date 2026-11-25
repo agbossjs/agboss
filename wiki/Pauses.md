@@ -100,8 +100,9 @@ A webhook that only has the person's words — a Slack thread reply, a mail — 
 are; the pause's target reads them with its **reply interpreter** (#267 PR 3), named on the target:
 
 <!-- snippet-context
-import { DecidedBy, PauseRespondent, ChannelInterpreter, type App, ExternalTask, ToolApproval } from "@agboss/core";
+import { inline, PauseRespondent, ChannelInterpreter, type App, ExternalTask, ToolApproval } from "@agboss/core";
 import { Integer, Text } from "@agboss/core/dto";
+import { hours } from "@agboss/core/units";
 declare const app: App;
 declare const replyKey: string;
 export class RefundCardInputDto {
@@ -114,7 +115,6 @@ export class RefundCardInputDto {
 @ChannelInterpreter({
   name: "refund-reply-interpreter",
   description: "Turns a manager's free-text reply into a refund decision",
-  decidedBy: DecidedBy.Model,
   model: "moonshotai/kimi-k2.6",
   prompt:
     inline("The manager answered a refund approval in free text. Decide approve / reject and any changed amount."),
@@ -131,7 +131,7 @@ export class RefundReplyInterpreter {}
 export class RefundToolApproval {}
 
 // the webhook passes the text as it came; the result is the same as with a decision
-await app.resume({ pauseId: replyKey, reply: "ok, but only half" }, { actor: { id: "manager-17" } });
+await app.resume({ pauseId: replyKey, reply: "ok, but only half" }, { tenantId: "acme", actor: { id: "manager-17" } });
 ```
 
 - **Exactly one of `decision` or `reply`** — by types (`ResumeRequest = DecisionResumeRequest |
@@ -207,8 +207,14 @@ Both new forms side by side — a decision model for a deposit return, and an ow
 code:
 
 <!-- snippet-context
-import { Agent, Channel, ChannelOutcome, DecidedBy, Injectable, PauseRespondent, ChannelInterpretation, ChannelInterpreter, Tool, Workflow, WorkflowFinish, WorkflowStart, onStart, type ChannelAsk, type InputOf, type OutputOf, type ReplyInterpreterHandler, ExternalTask, ToolApproval, Ttl } from "@agboss/core";
+import { inline, Agent, Channel, ChannelOutcome, DecidedBy, Injectable, PauseRespondent, ChannelInterpretation, ChannelInterpreter, Tool, Workflow, WorkflowFinish, WorkflowStart, onStart, type ChannelAsk, type InputOf, type OutputOf, type ChannelInterpreterHandler, ExternalTask, ToolApproval, Ttl } from "@agboss/core";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
+import { hours } from "@agboss/core/units";
+import { DecisionsDriver, ModelProvider } from "@agboss/core/models";
+import { secret } from "@agboss/core";
+import { seconds } from "@agboss/core/units";
+@ModelProvider({ driver: DecisionsDriver({ apiKey: secret("OPENROUTER_API_KEY"), baseUrl: "https://openrouter.ai/api/v1" }), timeout: seconds(30) })
+export class DecisionsModelProvider {}
 
 export class DepositReturnDto {
   @Text({ prompt: "the lease whose deposit is returned" })
@@ -229,8 +235,8 @@ export class DeskDoneDto {
 @ChannelInterpreter({
   name: "deposit-reply-interpreter",
   description: "Reads whether a clerk's reply approves a deposit return",
-  decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
+  modelProvider: DecisionsModelProvider, // a decision model: a provider with a DecisionsDriver
   prompt: inline("The clerk answered a deposit return."),
 })
 export class DepositReplyInterpreter {}
@@ -248,15 +254,14 @@ export class DepositToolApproval {}
 @ChannelInterpreter({
   name: "expense-reply-interpreter",
   description: "Reads an expense button's value",
-  decidedBy: DecidedBy.Code,
 })
-export class ExpenseReplyInterpreter implements ReplyInterpreterHandler<ExpenseReplyInterpreter> {
+export class ExpenseReplyInterpreter implements ChannelInterpreterHandler<ExpenseReplyInterpreter> {
   interpret(
     input: InputOf<ExpenseReplyInterpreter>,
   ): ChannelInterpretation<OutputOf<ExpenseReplyInterpreter>> {
     const value: unknown = JSON.parse(input.reply); // a text that is no JSON: a crash
     if (typeof value !== "object" || value === null || !("approved" in value))
-      return ChannelInterpretation.notUnderstood({ reason: `not an expense button: ${input.reply}` });
+      return ChannelInterpretation.notUnderstood(`not an expense button: ${input.reply}`);
     return ChannelInterpretation.understood({ approved: value.approved === true });
   }
 }
@@ -489,7 +494,7 @@ thread's owner (`executionContext.ownerId`), whoever answered.
 ## A pause's life
 
 Every pause is a record of the application's `PausedExecutionRepository`
-([App → infrastructure](App), its SQLite implementation `SqlitePausedExecutionRepository`), keyed
+([App → infrastructure](App); the application's `@DatabaseStorage` driver creates it), keyed
 by the waiting step's idempotency key, so a step re-entered — after a sibling's answer, or a retry
 after a crash — finds the same `pauseId`:
 
@@ -614,7 +619,7 @@ costs it nothing. (#942: `onPauseTimeoutChanged` and `onPauseExpiring` are told 
 overrides any of the four notices has a mailbox.)
 
 <!-- snippet-context
-import { Injectable, Ttl } from "@agboss/core";
+import { inline, Injectable, Ttl } from "@agboss/core";
 import { Text } from "@agboss/core/dto";
 @Injectable()
 export class SlackClient {
@@ -637,7 +642,7 @@ export class RefundTool {
     return Promise.resolve(input);
   }
 }
-@Agent({ name: "refund-agent", description: "Refunds", prompt: "Refund.", model: "moonshotai/kimi-k2.6", tools: [RefundTool] })
+@Agent({ name: "refund-agent", description: "Refunds", prompt: inline("Refund."), model: "moonshotai/kimi-k2.6", tools: [RefundTool] })
 export class RefundAgent {}
 @WorkflowStart({ name: "refund-workflow-start", description: "A request", input: WorkflowStartTextDto })
 export class RefundWorkflowStart {}
@@ -696,8 +701,8 @@ export class SlackRefundApprovalChannel {
   }
 
   // at least once whenever a pause this channel sent closes; deduplicate by event.deliveryId
-  override async onPauseClosed(event: ChannelPauseClosedEvent<RefundToolApproval>): Promise<void> {
-    const { orderId } = event.input.arguments;
+  async onPauseClosed(event: ChannelPauseClosedEvent<RefundToolApproval>): Promise<void> {
+    const { orderId } = event.input;
     const why =
       event.reason === PauseClosedReason.Answered
         ? `answered by ${event.actor?.id ?? "someone"}`
@@ -754,19 +759,14 @@ export class BackOfficeApi {
 -->
 
 ```ts
-import {
-  ChannelListener,
-  type ChannelListenerClosedEvent,
-  type ChannelListenerHandler,
-  type ChannelListenerOpenedEvent,
-} from "@agboss/core";
+import { ChannelListener, type ChannelListenerClosedEvent, type ChannelListenerHandler, type ChannelListenerOpenedEvent } from "@agboss/core";
 
 @ChannelListener({ name: "back-office-pause-listener", deps: [BackOfficeApi] })
 export class BackOfficePauseListener implements ChannelListenerHandler {
   constructor(private readonly backOffice: BackOfficeApi) {}
 
   async onPauseOpened(event: ChannelListenerOpenedEvent): Promise<void> {
-    await this.backOffice.track(event.pauseKey, event.channel, event.input);
+    await this.backOffice.track(event.pauseKey, event.channel ?? "", event.input);
   }
 
   async onPauseClosed(event: ChannelListenerClosedEvent): Promise<void> {
@@ -971,7 +971,7 @@ export class DeskWorkflow {}
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [DeskWorkflow],
-  providers: [DeskManagerChannel, DeskDirectorChannel],
+  channels: [DeskManagerChannel, DeskDirectorChannel],
 })
 export class DeskApplication {}
 ```
@@ -980,39 +980,34 @@ After 24 hours the manager's pause closes `expired`, the step fails with `PauseE
 path asks the director (a pause of its own, with its own 24 hours) and its answer goes on to its own
 action. A question with no `.onError` for it fails the run with `PauseExpiredError`.
 
-**A default answer instead of a failure.** The channel that decides what "nobody answered" means
-implements `PauseExpiryHandler`:
+**A default answer instead of a failure.** The target that decides what "nobody answered" means
+implements `PauseExpiryHandler` — an `onExpired(ctx)` on the target class, not on its channel:
 
-```ts
-import {
-  Channel,
-  ChannelOutcome,
-  PauseExpiration,
-  type ChannelAsk,
-  type PauseExpiryHandler,
-} from "@agboss/core";
-import { DeskManagerExternalTask } from "./desk-flow.js";
+```ts no-check: a variant of the first example's target, which is defined in the page's hidden desk-flow file
+import { ExternalTask, PauseExpiration, PauseRespondent, type ExpiredContext, type PauseExpiryHandler } from "@agboss/core";
+import { hours } from "@agboss/core/units";
+import { DeskDecisionDto, DeskOrderDto } from "./desk-flow.js";
 
-// the manager's channel again, now deciding what "nobody answered" means (use it instead of the first)
-@Channel({ name: "desk-manager-channel", description: "Asks the manager in the chat" })
-export class DeskManagerChannel
-  extends DeskManagerExternalTask
-  implements PauseExpiryHandler<DeskManagerExternalTask>
-{
-  send(_ask: ChannelAsk<DeskManagerExternalTask>): Promise<ChannelOutcome<DeskManagerExternalTask>> {
-    return Promise.resolve(ChannelOutcome.awaitReply());
-  }
-
+// the manager's target again, now deciding what "nobody answered" means (use it instead of the first)
+@ExternalTask({
+  name: "desk-manager-external-task",
+  description: "Asks the manager to approve a refund",
+  input: DeskOrderDto,
+  output: DeskDecisionDto,
+  respondent: PauseRespondent.Delegate,
+  timeout: hours(24),
+})
+export class DeskManagerExternalTask implements PauseExpiryHandler<DeskManagerExternalTask> {
   // once per expiry, in the pause's frame; it may only read — a crash may run it again
-  onPauseExpired(_ask: ChannelAsk<DeskManagerExternalTask>): PauseExpiration<DeskManagerExternalTask> {
-    // a refusal the channel makes, recorded as its own; PauseExpiration.fail() is the default
+  onExpired(_ctx: ExpiredContext<DeskManagerExternalTask>): PauseExpiration<DeskManagerExternalTask> {
+    // a refusal the target makes, recorded as its own; PauseExpiration.fail() is the default
     return PauseExpiration.decide({ approved: false });
   }
 }
 ```
 
-The step goes on with `{ approved: false }` as if the manager had answered, `actor` the
-channel's name in the audit trail (`PauseResolution.DecidedOnExpiry`); `decide` is typed by the target's
+The step goes on with that answer as if the manager had answered, `actor` the
+target's name in the audit trail (`PauseResolution.DecidedOnExpiry`); `decide` is typed by the target's
 answer.
 
 **The deadline is hard.** An answer at or after it is refused with `PauseClosedError` (`reason:
@@ -1079,17 +1074,7 @@ keyset cursor and hands each to the store without waiting, like the expiry look:
 due pauses on a shared store never hide yours.
 
 ```ts
-import {
-  Channel,
-  ChannelOutcome,
-  ChannelListener,
-  type ChannelAsk,
-  type ChannelPauseExpiringEvent,
-  type ChannelListenerClosedEvent,
-  type ChannelListenerExpiringEvent,
-  type ChannelListenerHandler,
-  type ChannelListenerOpenedEvent,
-} from "@agboss/core";
+import { Channel, ChannelOutcome, ChannelListener, type ChannelAsk, type ChannelPauseExpiringEvent, type ChannelListenerClosedEvent, type ChannelListenerExpiringEvent, type ChannelListenerHandler, type ChannelListenerOpenedEvent } from "@agboss/core";
 import { hours } from "@agboss/core/units";
 import { DeskChat, DeskManagerExternalTask } from "./desk-flow.js";
 
@@ -1109,7 +1094,7 @@ export class DeskManagerChannel {
 
   // once per deadline, whatever the number of instances; at least once, so a chat message
   // that is sent twice must be harmless — deduplicate by event.deliveryId
-  override async onPauseExpiring(event: ChannelPauseExpiringEvent<DeskManagerExternalTask>): Promise<void> {
+  async onPauseExpiring(event: ChannelPauseExpiringEvent<DeskManagerExternalTask>): Promise<void> {
     await this.chat.ask("manager", event.pauseId, `Order ${event.input.orderId}: answer by ${event.expiresAt}`);
   }
 }
@@ -1157,10 +1142,10 @@ import type { App, PauseExtension } from "@agboss/core";
 declare const app: App;
 declare const pauseId: string; // the id the channel was sent
 
-// the manager asks for one more day; the Channel role's credential is `actor`
+// the manager asks for one more day; the credential of a `Delegate` target is `actor`
 const extension: PauseExtension = await app.extendPause(
   { pauseId, expiresIn: hours(24) },
-  { actor: { id: "manager-17" } },
+  { tenantId: "acme", actor: { id: "manager-17" } },
 );
 console.log(extension.expiresAt, extension.previousExpiresAt);
 ```
@@ -1227,10 +1212,10 @@ import type { App, PauseReassignment } from "@agboss/core";
 declare const app: App;
 declare const pauseId: string; // the id the channel was sent
 
-// the operator hands the approval to the deputy; the Channel role's credential is `actor`
+// the operator hands the approval to the deputy; the credential of a `Delegate` target is `actor`
 const moved: PauseReassignment = await app.reassignPause(
   { pauseId, assignees: ["deputy-3"] },
-  { actor: { id: "operator-1" } },
+  { tenantId: "acme", actor: { id: "operator-1" } },
 );
 console.log(moved.pauseKey); // the new pause's key: a correlation, it answers nothing
 ```
@@ -1400,7 +1385,7 @@ import { PauseClosedError, PauseClosedReason } from "@agboss/core";
 
 // the Slack webhook of "Approve": the pause may be closed by now
 try {
-  await app.resume({ pauseId, decision: { approved: true } }, { actor: { id: "manager-17" } });
+  await app.resume({ pauseId, decision: { approved: true } }, { tenantId: "acme", actor: { id: "manager-17" } });
 } catch (error) {
   if (!(error instanceof PauseClosedError)) throw error;
   const sorry =

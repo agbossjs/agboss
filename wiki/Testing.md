@@ -69,7 +69,7 @@ enters a CI run (`RELEASE_CHECKLIST.md` → Dependency installs).
 
 <!--
 ```ts file=job-scout.ts
-import { Agent, Application, DecidedBy, Injectable, EmptyEnvironment, Tool, ToolApproval, PauseRespondent, Router, onStart, Workflow, WorkflowFinish, WorkflowStart, toAgent, toAction, toRouter, toFinish, Ttl } from "@agboss/core";
+import { inline, Agent, Application, DecidedBy, Injectable, EmptyEnvironment, Tool, ToolApproval, PauseRespondent, Router, onStart, Workflow, WorkflowFinish, WorkflowStart, toAgent, toAction, toRouter, toFinish, Ttl } from "@agboss/core";
 import { List, Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 import { McpServer, McpServerClient, McpTransport } from "@agboss/core/mcp";
 import { hours } from "@agboss/core/units";
@@ -118,15 +118,15 @@ export class JobQuery { @Text() query!: string; }
 export class JobList { @List(Text) jobs!: string[]; }
 @Tool({ name: "greenhouse-jobs-tool", description: "Finds jobs", input: JobQuery, output: JobList })
 export class GreenhouseJobs { execute(): Promise<JobList> { return Promise.resolve({ jobs: [] }); } }
-@Agent({ name: "scout-agent", description: "Finds jobs", prompt: "Find jobs.", model, tools: [GreenhouseJobs, OrderStatus] }) export class Scout {}
-@Agent({ name: "shortlist-agent", description: "Saves jobs", prompt: "Save jobs.", model, tools: [SaveShortlist] }) export class Shortlist {}
-@Agent({ name: "writer-agent", description: "Writes", prompt: "Write.", model }) export class Writer {}
-@Agent({ name: "reviewer-agent", description: "Reviews", prompt: "Review.", model }) export class Reviewer {}
+@Agent({ name: "scout-agent", description: "Finds jobs", prompt: inline("Find jobs."), model, tools: [GreenhouseJobs, OrderStatus] }) export class Scout {}
+@Agent({ name: "shortlist-agent", description: "Saves jobs", prompt: inline("Save jobs."), model, tools: [SaveShortlist] }) export class Shortlist {}
+@Agent({ name: "writer-agent", description: "Writes", prompt: inline("Write."), model }) export class Writer {}
+@Agent({ name: "reviewer-agent", description: "Reviews", prompt: inline("Review."), model }) export class Reviewer {}
 @WorkflowStart({ name: "chat-workflow-start", description: "A message", input: WorkflowStartTextDto })
 export class ChatWorkflowStart {}
 @WorkflowFinish({ name: "chat-workflow-finish", description: "The answer", output: WorkflowFinishTextDto })
 export class ChatWorkflowFinish {}
-@Router({ name: "main-router", description: "Routes", decidedBy: DecidedBy.Model, prompt: "Pick who handles the message.", model: "typesafe/jev-1.13", input: { message: WorkflowStartTextDto }, routes: [{ prompt: "Finding jobs", target: Scout }, { prompt: "Saving jobs", target: Shortlist }, { prompt: "Writing", target: Writer }, { prompt: "Reviewing", target: Reviewer }] })
+@Router({ name: "main-router", description: "Routes", decidedBy: DecidedBy.Model, prompt: inline("Pick who handles the message."), model: "typesafe/jev-1.13", input: { message: WorkflowStartTextDto }, routes: [{ prompt: "Finding jobs", target: Scout }, { prompt: "Saving jobs", target: Shortlist }, { prompt: "Writing", target: Writer }, { prompt: "Reviewing", target: Reviewer }] })
 export class MainRouter {}
 @Workflow({
   name: "job-scout-workflow",
@@ -140,7 +140,7 @@ export class MainRouter {}
           .toFinish(ChatWorkflowFinish),
       )
       .onRoute(
-        toAction(Shortlist)
+        toAgent(Shortlist)
           .toFinish(ChatWorkflowFinish),
       )
       .onRoute(
@@ -812,7 +812,7 @@ expect(result.record?.outdatedValues.map((value) => [value.valueId, value.outdat
   ["writer-agent:1/DraftDto", { byValueId: "writer-agent:2/DraftDto", reason: OutdatedReason.Replaced }],
   [
     "reviewer-agent:1/ArticleChangesDto",
-    { byValueId: "writer-agent:2/DraftDto", reason: OutdatedReason.AboutReplaced },
+    { byValueId: "writer-agent:2/DraftDto", reason: OutdatedReason.BuiltFromReplaced },
   ],
 ]);
 expect(result.record?.scope.find((value) => value.slot === "DraftDto")?.value).toEqual({ text: "v2" });
@@ -1195,7 +1195,7 @@ it("a grounded reply passes, at the decision's cost", async () => {
   const reply = { text: "Acme hires TS engineers [acme.example]" }; // a PlainTextDto, as an object
   const { output, spend } = await runJudge({
     variant: PlainTextDto, // the class of a text agent's reply
-    reply,
+    output: reply,
     task: "Find TS jobs",
     attempt: 0,
   });

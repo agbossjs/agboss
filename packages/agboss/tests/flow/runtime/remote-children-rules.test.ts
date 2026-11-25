@@ -152,7 +152,7 @@ describe("#333 PR 2: [application.in-memory-child-queue]", () => {
     expect(assemblyWarningsOf(assembled)).toContainEqual({
       code: "application.in-memory-child-queue",
       message:
-        "in-memory child queue: children of a workflow with a placement other than CurrentProcess run only on the instance that launched them — list SqliteChildExecutionQueueRepository (or your own ChildExecutionQueueRepository) so another instance claims them",
+        "in-memory child queue: children of a workflow with a placement other than CurrentProcess run only on the instance that launched them — name a durable @DatabaseStorage in @Application({ storage }) (or list your own ChildExecutionQueueRepository) so another instance claims them",
     });
   });
 

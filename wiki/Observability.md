@@ -103,7 +103,7 @@ filter, and a standalone `@Tool` call through an `@McpEndpoint` has no `agent`.
 | `onChannelStart` / `onChannelEnd`                     | `ChannelStartEvent` / `ChannelEndEvent`                                                                                                                         |
 | `onJudgeStart` / `onJudgeEnd`                         | `JudgeStartEvent` / `JudgeEndEvent` (`judge`, `agent`, `output`)                                                                                                |
 | `onValuesOutdated`                                    | `ValuesOutdatedEvent` (step, trigger, outdated — [below](#outdated-values))                                                                                     |
-| `onLaunchItemsTruncated`                              | `LaunchItemsTruncatedEvent` (step, launch, items, maxItems — [below](#parallel-launches))                                                                       |
+| `onLaunchItemsTruncated`                              | `LaunchItemsTruncatedEvent` (step, launch, items, takeFirst — [below](#parallel-launches))                                                                       |
 | `onQuorumDecided`                                     | `QuorumDecidedEvent` (step, launch, isReached, branches, group — [below](#quorums))                                                                             |
 | `onCompensationStart` / `onCompensationEnd`           | `CompensationStartEvent` (step, compensated, reason) / `CompensationEndEvent` (+ status, error — [below](#automatic-undo))                                      |
 | `onExecutionLeaseTakeover`                            | `ExecutionLeaseTakeoverEvent` (tenant, root, lease execution, scope key, token, holders, reason — [below](#lease-takeovers-501))                                |
@@ -178,7 +178,7 @@ schemaHash }`), `nodeId`, `visitNumber`, `copyNumber` (from 1), `itemIndex`, `id
   `callId`, `toolLoopIteration`, `validationAttempts`;
 - `trigger` — the new value (`valueId`, `slot`, `producer`), the root of the cascade;
 - `outdated` — the replaced value first, then what was built from it, each with its `reason`
-  (`OutdatedReason.Replaced`, `AboutReplaced`, `BuiltFromReplaced`): the same set as the cascade
+  (`OutdatedReason.Replaced`, `BuiltFromReplaced`): the same set as the cascade
   adds to `outdatedValues`, each with `byValueId` = the trigger's `valueId`.
 
 ```ts
@@ -187,7 +187,7 @@ import { Observer, OutdatedReason, type ValuesOutdatedEvent } from "@agboss/core
 @Observer()
 export class OutdatingAudit {
   onValuesOutdated(event: ValuesOutdatedEvent) {
-    const answers = event.outdated.filter((value) => value.reason === OutdatedReason.AboutReplaced);
+    const answers = event.outdated.filter((value) => value.reason === OutdatedReason.BuiltFromReplaced);
     console.log(
       `${event.step.nodeId} wrote ${event.trigger.valueId}: ${String(answers.length)} answers outdated`,
     );
@@ -209,12 +209,12 @@ ends, named `critic-agent#2` or `company-check-agent[3]` (its item's index), wit
 failed, was skipped or cancelled); a model router's launch decision adds a "launch decision" entry
 with every route's P(yes).
 
-A per-item launch whose list is longer than its `maxItems` launches the first `maxItems` items and
+A per-item launch whose list is longer than its `takeFirst` launches the first `takeFirst` items and
 drops the rest — never an error. It emits **one** `onLaunchItemsTruncated` and a trace entry "launch
 items truncated"; `LaunchItemsTruncatedEvent` carries the execution's fields (`executionId`,
 `threadId`, `workflow`, …), the launching `step`, the `launch` id
 (`${executionId}:${nodeId}:${visitNumber}`, the same as in `result.launches`), how many `items` the
-list had and the `maxItems` that were taken. No item values.
+list had and the `takeFirst` that were taken. No item values.
 
 ```ts
 import { Observer, type LaunchItemsTruncatedEvent } from "@agboss/core";
@@ -222,7 +222,7 @@ import { Observer, type LaunchItemsTruncatedEvent } from "@agboss/core";
 @Observer()
 export class LaunchAudit {
   onLaunchItemsTruncated(event: LaunchItemsTruncatedEvent) {
-    console.warn(`${event.step.nodeId} found ${String(event.items)}, ran ${String(event.maxItems)}`);
+    console.warn(`${event.step.nodeId} found ${String(event.items)}, ran ${String(event.takeFirst)}`);
   }
 }
 ```
@@ -511,12 +511,12 @@ the execution.
 ## Example: a tracer
 
 <!-- snippet-context
-import { Agent, Budget, BudgetPeriod, BudgetScope, WorkflowFinish, WorkflowStart, Workflow, onStart, type BudgetHandler, Ttl } from "@agboss/core";
+import { inline, Agent, Budget, BudgetPeriod, BudgetScope, WorkflowFinish, WorkflowStart, Workflow, onStart, type BudgetHandler, Ttl } from "@agboss/core";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 import { usd, type Usd } from "@agboss/core/units";
 @WorkflowStart({ name: "support-workflow-start", description: "A message", input: WorkflowStartTextDto })
 export class ChatWorkflowStart {}
-@Agent({ name: "support-agent", description: "Answers", prompt: "Answer the message.", model: "moonshotai/kimi-k2.6" })
+@Agent({ name: "support-agent", description: "Answers", prompt: inline("Answer the message."), model: "moonshotai/kimi-k2.6" })
 export class SupportAgent {}
 @WorkflowFinish({ name: "support-workflow-finish", description: "The answer", output: WorkflowFinishTextDto })
 export class ChatWorkflowFinish {}
@@ -569,7 +569,7 @@ export class ConsoleTracer {
   }
 
   onModelEnd(event: ModelEndEvent): void {
-    console.log(`[trace] ${event.callerName} → ${event.model}: ${String(event.usage.totalTokens)} tokens`);
+    console.log(`[trace] ${event.caller} → ${event.model}: ${String(event.usage.inputTokens + event.usage.outputTokens)} tokens`);
   }
 
   onExecutionError(event: ExecutionErrorEvent): void {
@@ -602,7 +602,7 @@ no budget amount), nothing per tenant — two kinds of lines, then the startup w
 ```text
 15:02:11 INFO  Started job-scout-application 1.0.0 — environment prod, host scout-7f3a, process 41237
 15:02:11 INFO  Worst case of one chat-workflow-start call: 1 workflow execution, 1 at the same time, 12 steps
-15:02:11 WARN  [application.in-memory-pauses] in-memory pauses: the pause records (PausedExecutionRepository — list SqlitePausedExecutionRepository) and the checkpoints (BaseCheckpointSaver — list SqliteCheckpointSaver) are kept in memory — another application instance cannot resume a pause and it is lost on restart [app.warning]
+15:02:11 WARN  [application.in-memory-pauses] in-memory pauses: the pause records (PausedExecutionRepository) and the checkpoints (BaseCheckpointSaver) are kept in memory — another application instance cannot resume a pause and it is lost on restart — name a durable @DatabaseStorage in @Application({ storage }) [app.warning]
 ```
 
 More at start is the project's own: a component with `OnStart` logs what it wants (a budget is a

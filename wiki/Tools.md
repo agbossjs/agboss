@@ -234,12 +234,7 @@ export class JobScoutTenantContext extends TenantContext {
 -->
 
 ```ts file=src/scout/tenant-scope.tool-interceptor.ts
-import {
-  ToolCallDecision,
-  ToolInterceptor,
-  type ToolCallContext,
-  type ToolCallResultContext,
-} from "@agboss/core";
+import { ToolCallDecision, ToolInterceptor, type ToolCallContext, type ToolCallResultContext } from "@agboss/core";
 
 @ToolInterceptor({
   name: "tenant-scope-tool-interceptor",
@@ -453,7 +448,7 @@ instance serves every workflow of the application. `AutoApproveChannel.for(Targe
 `AutoRejectChannel.for(Target)` are the test channels that decide at once:
 
 <!-- snippet-context
-import { Agent, Application, EmptyEnvironment, Injectable, Workflow, WorkflowFinish, WorkflowStart, onStart, Ttl } from "@agboss/core";
+import { inline, Agent, Application, EmptyEnvironment, Injectable, Workflow, WorkflowFinish, WorkflowStart, onStart, Ttl } from "@agboss/core";
 import { Integer, Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 export class RefundCardInputDto {
   @Text() orderId!: string;
@@ -469,7 +464,7 @@ export class SlackService {
   }
 }
 // @snippet
-@Agent({ name: "refund-agent", description: "Refunds", prompt: "Refund.", model: "moonshotai/kimi-k2.6", tools: [RefundCardTool] })
+@Agent({ name: "refund-agent", description: "Refunds", prompt: inline("Refund."), model: "moonshotai/kimi-k2.6", tools: [RefundCardTool] })
 export class RefundAgent {}
 @WorkflowStart({ name: "refund-workflow-start", description: "A request", input: WorkflowStartTextDto })
 export class RefundWorkflowStart {}
@@ -494,15 +489,7 @@ export class RefundApplication {}
 -->
 
 ```ts file=refunds.ts
-import {
-  Channel,
-  ChannelOutcome,
-  ExecutionContext,
-  PauseRespondent,
-  Tool,
-  ToolApproval,
-  type ChannelAsk,
-} from "@agboss/core";
+import { Channel, ChannelOutcome, ExecutionContext, PauseRespondent, Tool, ToolApproval, type ChannelAsk } from "@agboss/core";
 import { hours } from "@agboss/core/units";
 
 // approvals/refund.tool-approval.ts — the target: what it approves, who answers, how long it waits
@@ -582,7 +569,7 @@ export class RefundCardTool {
 - **Who answers** (#267 PR 2, #1307): the target's `respondent`. A `PauseRespondent.Owner` pause is
   answered with the thread's `ownerId` and its `pauseId` is listed in `result.pending`; a
   `PauseRespondent.Delegate` pause — the reply comes through the channel's own system — is answered
-  with `app.resume({ pauseId: ask.pauseId, decision }, { actor: { id: "manager-17" } })`, its id never
+  with `app.resume({ pauseId: ask.pauseId, decision }, { tenantId: "acme", actor: { id: "manager-17" } })`, its id never
   listed (it is the right to answer). The `pauseId` is made once per pause, before the first `send`:
   a retried `send` gets the same one — use it as the idempotency key of the post. Several pauses
   at once, concurrent answers, validation: [Pauses](Pauses).
@@ -618,7 +605,7 @@ class CountIssues {
 -->
 
 ```ts
-import { override, testUnit } from "@agboss/core/testing";
+import { testUnit } from "@agboss/core/testing";
 import { expect, test } from "vitest";
 
 @Injectable()

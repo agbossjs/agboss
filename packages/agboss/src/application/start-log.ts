@@ -62,14 +62,12 @@ const IN_MEMORY_LEDGER: AssemblyWarning = {
  */
 function inMemoryPauses(records: boolean, checkpoints: boolean): AssemblyWarning {
   const stores = [
-    ...(records
-      ? ["the pause records (PausedExecutionRepository — list SqlitePausedExecutionRepository)"]
-      : []),
-    ...(checkpoints ? ["the checkpoints (BaseCheckpointSaver — list SqliteCheckpointSaver)"] : []),
+    ...(records ? ["the pause records (PausedExecutionRepository)"] : []),
+    ...(checkpoints ? ["the checkpoints (BaseCheckpointSaver)"] : []),
   ];
   return {
     code: "application.in-memory-pauses",
-    message: `in-memory pauses: ${stores.join(" and ")} are kept in memory — another application instance cannot resume a pause and it is lost on restart`,
+    message: `in-memory pauses: ${stores.join(" and ")} are kept in memory — another application instance cannot resume a pause and it is lost on restart — name a durable @DatabaseStorage in @Application({ storage })`,
   };
 }
 
@@ -82,7 +80,7 @@ const IN_MEMORY_EXECUTION_HISTORY: AssemblyWarning = {
 const IN_MEMORY_CHILD_QUEUE: AssemblyWarning = {
   code: "application.in-memory-child-queue",
   message:
-    "in-memory child queue: children of a workflow with a placement other than CurrentProcess run only on the instance that launched them — list SqliteChildExecutionQueueRepository (or your own ChildExecutionQueueRepository) so another instance claims them",
+    "in-memory child queue: children of a workflow with a placement other than CurrentProcess run only on the instance that launched them — name a durable @DatabaseStorage in @Application({ storage }) (or list your own ChildExecutionQueueRepository) so another instance claims them",
 };
 
 /** A listed fencing store that opts out of the atomic lease check (#526): what it gives up, and where to read why (#543). */

@@ -16,7 +16,7 @@ needs none) or a
 ([Tools → Approval channels](Tools#approval-channels)):
 
 <!-- snippet-context
-import { Agent, ExecutionStatus, PauseRespondent, Tool, ToolApproval, Workflow, WorkflowFinish, WorkflowStart, onStart, Ttl } from "@agboss/core";
+import { inline, Agent, ExecutionStatus, PauseRespondent, Tool, ToolApproval, Workflow, WorkflowFinish, WorkflowStart, onStart, Ttl } from "@agboss/core";
 import { hours } from "@agboss/core/units";
 import { Email, Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 class EmailDraft { @Email() to!: string; @Text() body!: string; }
@@ -49,7 +49,7 @@ export class SendEmail {
   }
 }
 
-@Agent({ name: "assistant-agent", description: "Does errands", prompt: "Do the errand.", model: "moonshotai/kimi-k2.6", tools: [SendEmail] })
+@Agent({ name: "assistant-agent", description: "Does errands", prompt: inline("Do the errand."), model: "moonshotai/kimi-k2.6", tools: [SendEmail] })
 export class Assistant {}
 
 @Workflow({
@@ -76,11 +76,12 @@ import { EmptyEnvironment } from "@agboss/core";
 class ErrandsApplication {}
 
 const app = await createApp(ErrandsApplication);
-const first = await app.execute(TaskStart, { text: "Email the report to my boss" });
-const [waiting] = first.pending; // { pauseId, answerer, step, channel, ask: { tool, arguments, … } }
+const tenant = { tenantId: "acme", ownerId: "boss-1" };
+const first = await app.execute(TaskStart, { text: "Email the report to my boss" }, tenant);
+const [waiting] = first.pending; // { pauseId, respondent, target, step, channel?, input, toolCall, … }
 if (first.status === ExecutionStatus.Paused && waiting?.pauseId !== undefined) {
   // the owner's pauses are answered by the thread's owner: their id is listed
-  const done = await app.resume({ pauseId: waiting.pauseId, decision: { approved: true } });
+  const done = await app.resume({ pauseId: waiting.pauseId, decision: { approved: true } }, tenant);
   console.log(done.output);
 }
 ```
@@ -99,9 +100,8 @@ asking one from a step or a tool is #659.
 
 Paused runs and their pauses live in the application's `PausedExecutionRepository` and their state
 in its `BaseCheckpointSaver` (#261) — in memory by default, lost on restart. A pause survives a
-restart when both are durable: a class that `extends PausedExecutionRepository` and a durable
-`BaseCheckpointSaver` listed in `@Application({ providers })` (`SqlitePausedExecutionRepository`, #265, and the storage
-driver's checkpointer).
+restart when both are durable: a durable `@DatabaseStorage` in `@Application({ storage })` (#1321: its driver creates the
+`PausedExecutionRepository` and the checkpointer, `SqliteDriver` on one machine).
 
 ## How it works
 

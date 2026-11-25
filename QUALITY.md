@@ -97,22 +97,26 @@ holds from its type**, not guess it from the name.
   `defaults.router.model`; guardrails take `defaults.guardrail.model` (Jev), never the router's —
   `defaults` cascade application → workflow → component (#261). Model choice is config, never code. Reference: Wiki → Configuration.
 - **`TokenLimit.ModelMax` is the only way to say "no output cap"** — never a magic large number.
-- **Models come from model providers** (`@ModelProvider`, `@agboss/core/models`, #151): application
-  infrastructure, listed only in `@Application({ providers })` (#266; none → the built-in OpenRouter
-  - Decisions providers, one listed → the list is complete); each model of the application is
-    served by exactly one listed provider (`serves`) — `[model.unserved]` /
-    `[model.ambiguous-provider]` at assembly, a workflow never picks one; reasoning and caching are the
-    provider's, a component may override them (`reasoning`, `cache`). Cache markers and
-    every other provider-specific request field are set in one place, the provider's wire form
-    (`toWireRequest`) — no provider-specific request code outside `src/models` / `src/llm`.
+- **Models come from model providers** (`@ModelProvider({ driver, … })`, `@agboss/core/models`, #151,
+  #1313): application infrastructure, an empty class whose driver speaks one protocol; there is no
+  built-in provider and no provider is picked by a model's name. A component reaches one through
+  `modelProvider` (its own, its workflow's, else `@Application({ modelProvider })`): none anywhere is
+  `[model.missing-provider]` at assembly, a kind that does not fit (a chat model on a decisions
+  driver) `[model.incompatible-provider]`; reasoning and caching are the provider's, a component may
+  override them (`reasoning`, `cache`). Cache markers and
+  every other provider-specific request field are set in one place, the provider's wire form
+  (`toWireRequest`) — no provider-specific request code outside `src/models` / `src/llm`.
 - **Provider policies are the provider's** (#266): `retryPolicy` is the only place backoff is set
   (a sleeping retry holds no slot); `rateLimitPolicy` and `circuitBreakerPolicy` keep their shared
   state — slots, per-minute windows, the 429 pause, the open breaker — in the application's
   `RateLimitRepository`, never in process memory, and read the time from its `Clock`.
 - **Settings must fit their models**: checked against the provider's capabilities at startup and
   by `agboss check --models` (in `make check`), all problems at once; nothing is silently substituted.
+- **Prompts are files first** (#1347): `prompt` is a `PromptSource` — a path to a `.prompt.md` file
+  (`./`, `../` or `/`), `inline("…")` or `` inline`…` `` (the common indentation is removed), or a list of those; a
+  bare string that is no path does not compile (`[prompt.bare-text]` for a JavaScript caller).
 - **Prompts are checked at assembly** (#199): every agent, router and route prompt is read
-  (`promptUrls` eagerly) and its `{{variables}}` checked against `promptVariables` —
+  and its `{{variables}}` checked against `promptVariables` —
   `[prompt.unknown-variable] file:line …`, `[prompt.missing-file]`, all at once, also by
   `agboss check`; what a node reads comes in its input message, never as `{{input.…}}`
   (`[prompt.input-in-instructions]`). `promptVersion` hashes the rendered texts, never file paths.
@@ -120,10 +124,10 @@ holds from its type**, not guess it from the name.
   `RouteOutcome` union (`decided` | `failed`); they import only `config`, `finops`, `llm`, and the
   rest of the code imports them only via `src/routers/index.ts` — ESLint-enforced. Routers are
   tested on their own (`packages/agboss/tests/routers/`), the graph adapter separately.
-- **`@Router` = how + what.** `decidedBy` says who chooses: a model router's `prompt` /
-  `promptUrls` say how, its `routes` what each choice means (`{ prompt, target }`, the text
+- **`@Router` = how + what.** `decidedBy` says who chooses: a model router's `prompt` says how, its
+  `routes` what each choice means (`{ prompt, target }`, the text
   required); a code router's `route(input)` (`implements RouterHandler<Self>`) decides by types,
-  never by matching text. `.onRoute(…)` in the flow lists exactly those targets
+  never by matching text. One `.onRoute(toX(Target)…)` per route in the flow lists exactly those targets
   (`[router.routes-mismatch]`). A route
   **to a workflow finish** is worded as a stop instruction ("Stop and send the answer: …") — worded as
   "the answer is ready", Jev kept sending the turn back to the last agent (#116).
@@ -169,8 +173,8 @@ period?, workflow?, deps? })` + `implements BudgetHandler` (`maxSpend(): Usd | P
   - `maxSpend()` is read **once per execution**, at its start (in its frame: an injected
     `ExecutionContext` reads it), and kept in its state for the whole execution — a resume and a
     recovery count against the same amounts; the ledger keeps the last one read.
-  - The ledger (`CostLedgerRepository`: listed in `@Application({ providers })`, else the built-in
-    in-memory one — nothing in the home folder) keeps one counter per budget, scope key (the
+  - The ledger (`CostLedgerRepository`, a store of the application's `@DatabaseStorage`, else the in-memory
+    storage — nothing in the home folder; its entries live `ledgerEntriesTtl`) keeps one counter per budget, scope key (the
     application's name, the `tenantId`, the execution's id) and period; every call's cost is added
     to all of the execution's counters while it streams, so a crashed execution's spend still counts.
   - Before the first step every budget is checked: one exhausted **rejects** the execution

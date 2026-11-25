@@ -56,7 +56,7 @@ turn of the conversation.
 The core knows no tracing vendor and reads no environment variable for it. It emits vendor-neutral
 OpenTelemetry spans on the provider you give `createApp` (#1324f):
 
-```ts
+```ts no-check: needs your own tracer provider and @agboss/langfuse, which are not installed here
 // your own OpenTelemetry provider (Datadog, Tempo, Honeycomb, ...): you own it, app.close() only flushes it
 await createApp(SupportApplication, { tracerProvider: myTracerProvider });
 

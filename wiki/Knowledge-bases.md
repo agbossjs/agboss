@@ -12,7 +12,7 @@ tokens into the budgets, tracing — so a caller cannot bypass any of it: `retri
 import type { RagIndexReport, RagRetrieval, RagRetrieveOptions, RagIndexOptions } from "@agboss/core/rag";
 -->
 
-```ts
+```ts no-check: the contract in outline, declarations only
 abstract class RagSource<TFilter = never> {
   protected abstract retrieve(query: string, options: RagRetrieveOptions<TFilter>): RagRetrieval | Promise<RagRetrieval>;
   protected index?(options: RagIndexOptions): RagIndexReport | Promise<RagIndexReport>; // optional: build / update one scope's index
@@ -82,7 +82,7 @@ Dependencies come through the constructor (`@Rag({ deps: [...] })`), like any
 ## Using it — two ways, no mode
 
 <!-- snippet-context
-import { Agent, Tool } from "@agboss/core";
+import { inline, Agent, Tool } from "@agboss/core";
 import { RagQueryDto, RagSearchResultsDto } from "@agboss/core/rag";
 import { CompanyDocs } from "./rag/company-docs.rag.js";
 -->
@@ -285,6 +285,7 @@ import {
   type RerankOptions,
   type RerankResult,
 } from "@agboss/core/rag";
+import { usd } from "@agboss/core/units";
 declare const rerankApi: { rerank(query: string, documents: readonly string[], topN: number): Promise<readonly { index: number; score: number }[]> };
 -->
 
@@ -297,7 +298,7 @@ export class ApiReranker {
       const candidate = candidates[index];
       return candidate === undefined ? [] : [candidate];
     });
-    return { results, costUsd: 0.002 };
+    return { results, costUsd: usd(0.002) };
   }
 }
 ```

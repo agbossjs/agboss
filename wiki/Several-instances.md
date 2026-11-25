@@ -26,15 +26,17 @@ shared implementation of each:
 | `ChildExecutionQueueRepository` | a child launched with `ChildPlacement.AnyWorker` is claimed by one instance, whichever (#333) |
 | `ExecutionAuditLogRepository` | the audit log is read through the public API whichever instance took a lease over (#501, [below](#the-audit-log-501)) |
 
-Each contract has a ready **SQLite** implementation (#265 PR 3) and a **PostgreSQL** one
-([below](#postgresql--several-instances-on-several-machines)), or a project lists its own
-(`extends` the contract, `@Injectable({ deps })`, [below](#your-own-implementation)).
+Where the durable rows go is one **storage component** (#1321): a `@DatabaseStorage({ driver, … })` named
+in `@Application({ storage })`. The core ships a **SQLite** driver, `@agboss/postgres` and `@agboss/mongodb`
+a **PostgreSQL** and a **MongoDB** one ([below](#postgresql--several-instances-on-several-machines)),
+`@agboss/redis` a `@ClusterStorage` driver; a project writes its own driver or a store of its own
+(`extends` the contract, [below](#your-own-implementation)).
 
 ## SQLite — several instances on one machine
 
-| Contract                    | SQLite implementation             | Tables                            |
+| Contract                    | Store the SQLite driver creates   | Tables                            |
 | --------------------------- | --------------------------------- | --------------------------------- |
-| `BaseCheckpointSaver`       | the storage driver's (internal)   | `checkpoints`, `checkpoint_writes` |
+| `BaseCheckpointSaver`       | the driver's own (internal)       | `checkpoints`, `checkpoint_writes` |
 | `PausedExecutionRepository` | `SqlitePausedExecutionRepository` | `paused_executions`               |
 | `ExecutionRecordRepository` | `SqliteExecutionRecordRepository` | the Turn tables (`threads`, `terns`, …) |
 | `CostLedgerRepository`      | `SqliteCostLedgerRepository`      | `cost_ledger`, `cost_ledger_max_spend` |
@@ -60,38 +62,34 @@ version, then start the new one** ([ADR-0034](ADR-0034-Schema-upgrades-stop-the-
 0.1.0 process left running writes pauses without a channel (a page filtered by channel still finds
 them, and the column is filled at the next open) and does not take part in the cancel's fence.
 
-Each one is enabled only by listing it in `@Application({ providers })` — list one, some or all; a
-contract not listed keeps its in-memory default. They are built on `node:sqlite` (no native
-driver to install; the checkpoint saver is our own `BaseCheckpointSaver`, serializing with
-LangGraph's `serde`, and not public) and share **one file**: the environment contract's `sqlitePath`, required only
-when a SQLite implementation is listed — a contract without it fails assembly with
-`[environment.missing-field] SqliteExecutionLeaseRepository needs sqlitePath: string in
-AppEnvironment (read by SqliteConnection)` ([Environments](Environments)), an empty value fails the start naming it.
+No store is listed one by one: the driver creates them all over one connection (a store the storage
+does not provide is not needed). They are built on `node:sqlite` (no native driver to install; the
+checkpoint saver is our own `BaseCheckpointSaver`, serializing with LangGraph's `serde`, and not public)
+and share **one file**: the driver's `path` (`SqliteDriver({ path })`, read from the environment with
+`defineEnv` / `env("AGBOSS_SQLITE_PATH")` when the application starts; `SqliteDriver.inMemory()` for
+tests). An empty path fails the start naming it.
 
 <!-- snippet-context
-import { Application, EmptyEnvironment, SqliteCostLedgerRepository, SqliteExecutionLeaseRepository, SqliteExecutionRecordRepository, SqliteExecutionTreeRepository, SqlitePausedExecutionRepository, SqliteRateLimitRepository, env } from "@agboss/core";
+import { DatabaseStorage, SqliteDriver, defineEnv, env, secret } from "@agboss/core";
+import { hours } from "@agboss/core/units";
 -->
 
 ```ts
-// environments/app.environment.ts — the contract
-export class AppEnvironment {
-  sqlitePath!: string; // required because SQLite implementations are listed
-}
+// storages/job-scout.database-storage.ts — one file per machine; tests: SqliteDriver.inMemory()
+const databaseEnv = defineEnv({
+  path: env("AGBOSS_SQLITE_PATH"),
+});
 
-// environments/prod.environment.ts — one file per machine; tests: sqlitePath: ":memory:"
-export const environment: AppEnvironment = {
-  sqlitePath: env("AGBOSS_SQLITE_PATH"),
-};
+@DatabaseStorage({
+  name: "job-scout-database-storage",
+  driver: SqliteDriver({ path: databaseEnv.path }),
+  auditLogTtl: hours(24 * 7),
+  ledgerEntriesTtl: hours(24 * 7),
+  piiSecret: secret("PII_PSEUDONYM_KEY"),
+})
+export class JobScoutDatabaseStorage {}
 
-// job-scout.application.ts: @Application({ …, environment: AppEnvironment, providers: sqliteStores })
-export const sqliteStores = [
-  SqliteExecutionRecordRepository,
-  SqliteCostLedgerRepository,
-  SqlitePausedExecutionRepository,
-  SqliteExecutionLeaseRepository,
-  SqliteExecutionTreeRepository,
-  SqliteRateLimitRepository,
-];
+// job-scout.application.ts: @Application({ …, storage: JobScoutDatabaseStorage })
 ```
 
 - **One connection per application instance**, shared by its SQLite stores and opened when the
@@ -168,10 +166,10 @@ export class LeaseAuditService {
 import {
   ApplicationContext,
   Injectable,
-  SqliteConnection,
   SqliteExecutionLeaseRepository,
   StoreClock,
 } from "@agboss/core";
+import { SqliteConnection } from "@agboss/core/stores";
 import type { Milliseconds } from "@agboss/core/units";
 
 /** The SQLite leases, each one taken written to the audit log as well. */
@@ -215,10 +213,10 @@ import {
   Clock,
   IdGenerator,
   Injectable,
-  SqliteConnection,
   SqliteExecutionRecordRepository,
   type NewThread,
 } from "@agboss/core";
+import { SqliteConnection } from "@agboss/core/stores";
 
 /** The SQLite records, each new thread written to the audit log as well. */
 @Injectable({
@@ -745,13 +743,12 @@ same on every attempt, replay and holder.
   recovery (`instances: 2`). Unit runners (`testUnit`) run `Idempotency` on the
   runner's held lease; a second run of one runner is the same step run again.
 
-- **On SQLite:** `SqliteOutboundCallRepository`, listed with `SqliteExecutionLeaseRepository` — its
+- **On SQLite:** `SqliteOutboundCallRepository`, created by the `SqliteDriver` of the application's `@DatabaseStorage` with its lease store — its
   intents in `outbound_calls` of the application's file, every fenced method one `BEGIN IMMEDIATE`
   transaction with the lease check and the scope's mark (the idempotent write's `fenced_effect_marks`:
-  one mark per scope for both). Beside a lease store of another backend it fails assembly with
-  `[application.store-backend-mismatch]`, as `SqliteFencedEffectRepository` does (#526); the
+  one mark per scope for both). One storage has one backend, so its stores cannot mismatch; a store of your own beside another
+  backend's leases fails assembly with `[application.store-backend-mismatch]` (#526), and the
   in-memory default beside SQLite leases fails its first call (`IdempotencyError.StoreMismatch`).
-  `SqliteConnection` need not be listed for it (#526).
 - **Told:** every move of a call is an `OutboundCall` row of the [audit log](#the-audit-log-501) and
   an [`onOutboundCall`](Observability#outbound-calls-505), and a kept execution carries its tree's
   intents as `ExecutionHistoryRecord.outboundCalls` ([Execution history](Execution-history)).
@@ -807,7 +804,7 @@ export class ChargeDto {
 export class ChargeOrderAction {
   constructor(private readonly idempotency: Idempotency) {}
 
-  async execute(input: { readonly order: { readonly value: ChargeDto } }): Promise<ChargeDto> {
+  async execute(input: { readonly order: ChargeDto }): Promise<ChargeDto> {
     const { orderId, amountUsd } = input.order;
     await this.idempotency.sendOnce({
       name: "charge",
@@ -819,7 +816,7 @@ export class ChargeOrderAction {
       ttl: hours(48),
       send: (call) => paymentClient.charge(call.request, call.idempotencyKey),
       // never asked for a call that is not pending: with no lookup, a person decides
-      recovery: OutboundRecovery.permanentLookup(() => Reconciliation.unknown("no lookup")),
+      recovery: OutboundRecovery.permanentLookup<{ chargeId: string }>(() => Reconciliation.unknown("no lookup")),
     });
     return { orderId, amountUsd };
   }
@@ -919,8 +916,7 @@ export class ChargeOrderAction {
   reaches `Idempotency` or a fenced-effect store (`[application.idempotency-key-required]`), never
   another key (`[application.idempotency-key-shared]`), and a key made without it is
   `IdempotencyError.SecretKeyMissing` — never an unkeyed SHA-256. The handle below is keyed by the PII
-  key — stable across executions with `piiKeyField`; with per-execution keys (#334) within one tree
-  only. The fingerprint stays in the store's row: no read, kept record, export, event or audit-log
+  key — stable across executions: the storage's `piiSecret`, the same on every instance. The fingerprint stays in the store's row: no read, kept record, export, event or audit-log
   row shows it. **Rotating the idempotency secret** (#825): name the new one `idempotencySecret` and
   the old one `previousIdempotencySecret` — a fingerprint is then compared under both
   (`EffectKey.previousFingerprint`, never stored) and stored under the new one, so an intent
@@ -930,8 +926,7 @@ export class ChargeOrderAction {
   second charge (`tests/app/idempotency-key-rotation.test.ts`).
 - **Another fingerprint is refused:** `IdempotencyError.KeyConflict` (`idempotency.key-conflict`:
   `effect`, `businessKeyHash?`), nothing run or sent. The handle is 12 hex characters of
-  `HMAC(subkey, "business-key\0" + key)`, under a subkey derived from the execution's PII key — its
-  own (#334), else the application's `piiKeyField` — as `HMAC(piiKey, "agboss/business-key-handle/v1")`.
+  `HMAC(subkey, "business-key\0" + key)`, under a subkey derived from the application's PII key (the storage's `piiSecret`) — as `HMAC(piiKey, "agboss/business-key-handle/v1")`.
   Never a plain hash, which `order:42` would give away, and never the PII key itself: a handle must
   not equal the PII token of the same text, or errors would tie business keys to pseudonyms. Every
   other use of the PII key than its tokens derives a subkey under a label of its own. A key made
@@ -1204,7 +1199,7 @@ next tick go on, and a replacement already in flight on this instance is not sta
 A takeover of a tree's lease is silent for the tree — a recovery goes on from its last checkpoint
 — but not for its operators: each one is a `Takeover` row of the **audit log**, an append-only
 infrastructure contract, `ExecutionAuditLogRepository` (the in-memory default,
-`SqliteExecutionAuditLogRepository` on the application's file, a project's own one proven by
+`SqliteExecutionAuditLogRepository` of the SQLite storage, a project's own one proven by
 `executionAuditLogContract` of [`@agboss/core/testing/contracts`](#writing-your-own-store-the-published-contract-suites-481)),
 and an [`onExecutionLeaseTakeover`](Observability#lease-takeovers-501) after it:
 
@@ -1404,7 +1399,7 @@ export class SubtopicClaimDto {
 }
 -->
 
-```ts
+```ts no-check: the tree repository's methods take the tree (`saveIfAbsentInTree`) since #1321; the store follow-up rewrites this example
 import { ExecutionTreeRepository, Tool } from "@agboss/core";
 
 @Tool({
@@ -1486,7 +1481,7 @@ export class LeaseTableService {
 }
 -->
 
-```ts
+```ts no-check: the lease contract grew (stop and pause marks, #1341); the store follow-up rewrites this example
 import {
   ExecutionLeaseRepository,
   Injectable,
@@ -1881,8 +1876,8 @@ may run on **any** instance instead, through the application's `ChildExecutionQu
    ([Cancelling from any instance](#cancelling-from-any-instance)) or the tree's end — its root's end
    removes its rows (`deleteAllByTenantIdAndRootExecutionId`) — aborts it.
 
-List `SqliteChildExecutionQueueRepository` (table `child_execution_queue`) or your own `extends
-ChildExecutionQueueRepository`; on the built-in in-memory queue only the instances of one process
+Name a durable `@DatabaseStorage` (its queue is the table `child_execution_queue`) or your own store `extends
+ChildExecutionQueueRepository`; on the in-memory in-memory queue only the instances of one process
 (a test's) share it — `[application.in-memory-child-queue]`. The queue, the checkpointer, the
 ledger, the leases, the paused executions and `RateLimitRepository` must be shared for a child to
 run elsewhere. For a tree that can launch on any instance (#333 PR 3, S8), `maxConcurrency`

@@ -10,13 +10,13 @@ same `app`.
 
 <!--
 ```ts file=job-scout.workflow.ts
-import { Agent, Workflow, WorkflowFinish, WorkflowStart, onStart, toAgent, toFinish, Ttl } from "@agboss/core";
+import { inline, Agent, Workflow, WorkflowFinish, WorkflowStart, onStart, toAgent, toFinish, Ttl } from "@agboss/core";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 @WorkflowStart({ name: "chat-workflow-start", description: "A message", input: WorkflowStartTextDto })
 export class ChatWorkflowStart {}
 @WorkflowFinish({ name: "chat-workflow-finish", description: "The answer", output: WorkflowFinishTextDto })
 export class ChatWorkflowFinish {}
-@Agent({ name: "shortlist-agent", description: "Keeps the shortlist", prompt: "Keep the shortlist.", model: "moonshotai/kimi-k2.6" })
+@Agent({ name: "shortlist-agent", description: "Keeps the shortlist", prompt: inline("Keep the shortlist."), model: "moonshotai/kimi-k2.6" })
 export class ShortlistAgent {}
 @Workflow({
   name: "job-scout-workflow",
@@ -212,21 +212,22 @@ export class PrefixedIdGenerator extends IdGenerator {
 }
 ```
 
-**Model providers** (#266) are infrastructure too: `@ModelProvider` classes in the same
-`providers` list — none listed → the built-in `OpenRouterModelProvider` + `DecisionsModelProvider`,
-one listed → the list is complete. They are not created by the container and not injected; the
-application's model gateway calls them ([Model providers](Model-providers#register-them-in-the-application)).
+**Model providers** (#266, #1313) are infrastructure too: `@ModelProvider` classes, driver-based and
+named through `@Application({ modelProvider })` or a component's own `modelProvider` — there is no
+built-in one. They are not created by the container and not injected; the application's model gateway
+calls them ([Model providers](Model-providers#register-them-in-the-application)).
 
-Nothing is written to the home folder: with the defaults, records, spend, pauses and leases live in
-the instance and are gone after a restart. Each contract has a ready SQLite implementation, enabled
-only by listing it (`SqliteExecutionRecordRepository`, `SqliteCostLedgerRepository`,
-`SqlitePausedExecutionRepository`, `SqliteExecutionLeaseRepository`,
-`SqliteExecutionTreeRepository`, `SqliteRateLimitRepository`, `SqliteExecutionHistoryRepository`,
-`SqliteChildExecutionQueueRepository` — one file, the environment's
-`sqlitePath`, required only then: [Several instances → SQLite](Several-instances#sqlite--several-instances-on-one-machine));
-your own `extends` the contract and goes in `@Application({ providers })`. A workflow run on its
-own (`agboss eval` / `replay` / `golden`, `createAppDeps`) uses the infrastructure of the one
-application that lists it.
+Nothing is written to the home folder: with no `storage` (`InMemoryDatabaseStorage`), records, spend,
+pauses and leases live in the instance and are gone after a restart. Where the durable rows go is one
+**storage component** (#1321): `@Application({ storage: DeskDatabaseStorage })` names a
+`@DatabaseStorage({ driver, auditLogTtl, ledgerEntriesTtl, … })` — the core ships `SqliteDriver({ path })`,
+`@agboss/postgres` and `@agboss/mongodb` their own drivers — and every store of the database (records,
+ledger, pauses, leases, trees, rate limits, checkpoints, the child queue, history, …) is created by the
+driver over one connection; `{ database, cluster?, objects? }` adds a `@ClusterStorage` (Redis) and an
+`@ObjectStorage` (files) beside it ([Several instances → SQLite](Several-instances#sqlite--several-instances-on-one-machine)).
+A store of your own `extends` its contract and is a driver's store, written with `defineStorageDriver`
+([Your own store](Your-own-store)). A workflow run on its own (`agboss eval` / `replay` / `golden`,
+`createAppDeps`) uses the infrastructure of the one application that lists it.
 Running more than one instance: [Several instances](Several-instances). Every store contract has a
 fast `ping()` (#300) — `app.checkReadiness()` calls it; a project's own implementation adds it
 ([Health checks](Health-checks)).
@@ -244,8 +245,7 @@ logs none of it. Observers are listed in `@Application({ observers })` only
 
 `agboss describe` (the application of `package.json`, or `--application <path>`, #268) shows the
 application once: its tree of workflows, starts and children, each infrastructure contract with its
-implementation and why (`CostLedgerRepository → SqliteCostLedgerRepository (listed in @Application
-providers)` / `(built-in default: none listed)`, the `Logger`, the `Clock` and the
+implementation and why (`CostLedgerRepository → SqliteCostLedgerRepository (job-scout-database-storage, driver sqlite)` / `(in-memory default: no storage)`, the `Logger`, the `Clock` and the
 `IdGenerator` included), the model
 providers, the channels, the budgets by scope with their periods, the execution budget that caps
 each workflow (its own or the default — when it is the root of `app.execute`; nested, it spends from
@@ -467,6 +467,7 @@ OnStop, OnDestroy`, each optional (#261):
 | `onDestroy` | the running executions on this instance have finished, paused or been interrupted | closing connections, releasing resources         |
 
 <!-- snippet-context
+import { onStart } from "@agboss/core";
 import { Injectable, type OnDestroy, type OnInit, type OnStart, type OnStop } from "@agboss/core";
 interface Pool {
   ping(): Promise<void>;

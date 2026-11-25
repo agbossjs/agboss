@@ -119,11 +119,12 @@ A tool that needs a decision before it runs names a **channel** (#267). Channels
 the tools that name them — there is nothing to list in the workflow — and are created once per
 application, shared by all its workflows.
 
-### 1. Declare the role and implement it
+### 1. Declare the target and its channel
 
-A **role** is the project's abstract class: what it approves and who may answer (`answerer` is
-required — a forgotten value must not let a customer approve their own refund). Its implementation
-`extends` it and has one method, `send`: post the question somewhere (the pause's `pauseId` is the
+A **target** (`@ToolApproval`, or `@ExternalTask` for a question) says what is asked and who may answer
+(`respondent` is required — a forgotten value must not let a customer approve their own refund) and
+how long the pause waits (`timeout`). A **channel** carries it to the people: `@Channel({ target, ttl })`,
+a class with one method, `send`: post the question somewhere (the pause's `pauseId` is the
 reply key and the idempotency key of the call) and say what happens — `ChannelOutcome.awaitReply()`
 pauses the execution until the reply, `ChannelOutcome.decided(decision)` goes on at once. The
 execution — its tenant, the project's context fields — comes through an injected `ExecutionContext`.
@@ -178,14 +179,14 @@ export class SlackUserDeletionApprovalChannel {
 }
 ```
 
-### 2. Name the role on the tool, list the implementation in the application
+### 2. Name the target on the tool, list the channel in the application
 
-`@Tool({ channel })` names the role; every call of that tool asks the channel before
-the tool runs. The implementation is channel transport — infrastructure — listed only in
-`@Application({ providers })` (none → `[di.missing-implementation]`, two →
-`[di.ambiguous-implementation]`, in a workflow's `providers` → `[di.infrastructure-in-workflow]`). A
-tool may also name a concrete `@Channel` as is (`AutoApproveChannel` / `AutoRejectChannel`, which
-decide at once, for tests and scripts); an approval the thread's owner answers needs no channel at
+`@Tool({ approval })` names the target; every call of that tool asks the channel before
+the tool runs. The channel is transport — infrastructure — listed only in
+`@Application({ channels })` (one target with several channels names a `@ChannelSelector({ target })`
+that picks one; a `Delegate` target with no channel is refused at assembly). In tests
+`AutoApproveChannel.for(Target)` / `AutoRejectChannel.for(Target)` from `@agboss/core/testing` decide at
+once; an approval the thread's owner answers needs no channel at
 all (`@ToolApproval({ respondent: PauseRespondent.Owner })`, answered by `app.resume`).
 
 <!-- snippet-context
@@ -215,7 +216,7 @@ export class AdminWorkflow {}
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [AdminWorkflow],
-  providers: [SlackUserDeletionApprovalChannel], // the role's one implementation
+  channels: [SlackUserDeletionApprovalChannel], // the target's channel
 })
 export class AdminApplication {}
 -->
@@ -226,7 +227,7 @@ export class AdminApplication {}
   description: "Deletes a user account.",
   input: DeleteUserInputDto,
   output: UserDeletedDto,
-  approval: UserDeletionToolApproval, // calls wait for an approval through the role
+  approval: UserDeletionToolApproval, // calls wait for an approval of the target
 })
 export class DeleteUserTool {
   execute({ userId }: DeleteUserInputDto): Promise<UserDeletedDto> {
@@ -260,7 +261,7 @@ const result = await app.execute(
 After `awaitReply()` the run rests paused. Once the reply arrives out-of-band (e.g., the admin clicks
 "Approve" in Slack), answer that pause **by its id** — the `pauseId` the channel was sent (the
 reply key of its message) — with the decision, a `ToolCallApprovalDecisionDto` validated on the way
-in. The role says who may answer: this one is `PauseRespondent.Delegate`, so Slack's side names who
+in. The target says who may answer: this one is `PauseRespondent.Delegate`, so Slack's side names who
 answered (`actor`, recorded on the pause and in `onExecutionResume`); its id never appears in
 `result.pending`. A `PauseRespondent.Owner` pause is answered with the thread's `ownerId`
 instead, its id listed in `result.pending`. `agboss chat` asks in the terminal and answers by
@@ -291,6 +292,6 @@ await app.resume(
 - **Override Arguments**: If the user modifies the tool arguments during the approval step, returning `overrideInput` in the decision will inject those modified arguments straight into the tool, bypassing the LLM — only with `approved: true`, and checked against the tool's input DTO (`DtoValidationError` otherwise; the pause keeps waiting).
 - **Several pauses at once**: parallel branches each pause on their own; the execution rests only when nothing else can move, `result.pending` lists every waiting pause, and answering one continues it while the others keep waiting. Two answers to one pause (a double click) — the second gets `PauseClosedError`.
 - **Decided at once**: a rule-based channel ("up to $50 approve at once") returns `ChannelOutcome.decided(decision)` — the step goes on with no pause, the decision validated like a reply. No channel needs the application to resume itself, and nothing waits in memory for a person.
-- **Timeouts and Rejections**: If a run should timeout, use an external cron job or scheduler to answer the pause: `app.resume({ pauseId, decision: { approved: false, reason: "Timeout" } }, { actor: { id: "scheduler" } })`.
-- **Durable pauses**: each pause is a record of `PausedExecutionRepository`, made by its step's idempotency key before the channel is asked, so a retried `send` carries the same `pauseId`. By default paused runs live in memory (the built-in in-memory `PausedExecutionRepository` and checkpointer, #261) and are lost on restart — dev and tests only. In production list durable implementations in `@Application({ providers })`: a class that `extends PausedExecutionRepository` and a durable `BaseCheckpointSaver` — e.g. `SqlitePausedExecutionRepository` and the checkpointer of the storage driver (#265, #1321, `sqlitePath` in the environment).
+- **Timeouts and Rejections**: a pause has a deadline — the target's `timeout` — and an expiry rule (`PauseExpiration`: decide, fail, or reassign); the framework expires it, no external cron job needed. A person who must refuse answers `app.resume({ pauseId, decision: { approved: false, reason: "Timeout" } }, { tenantId, actor: { id: "scheduler" } })`.
+- **Durable pauses**: each pause is a record of `PausedExecutionRepository`, made by its step's idempotency key before the channel is asked, so a retried `send` carries the same `pauseId`. By default paused runs live in memory (the built-in in-memory storage, `InMemoryDatabaseStorage`) and are lost on restart — dev and tests only. In production name a durable `@DatabaseStorage` in `@Application({ storage })`: its driver (`SqliteDriver({ path })`, or the PostgreSQL / MongoDB one) holds the pauses, the checkpoints and every other store (#265, #1321).
 - **Resume across deployments**: each pause stores the workflow version and config hash it paused under. Resuming it on an app with another config hash throws `IncompatibleResumeError` (naming both versions) unless the workflow accepts it: `WorkflowSettings.builder().onIncompatibleResume(({ paused }) => paused.workflowVersion === "1.0.0" ? "resume" : "reject")`. A rejected resume leaves the run paused.

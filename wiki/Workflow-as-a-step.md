@@ -19,7 +19,8 @@ where a per-item launch of one agent (`.forEachItem(toAgent(A), …)`) runs exac
 ## Writing it
 
 <!-- snippet-context
-import { Action, Agent, LimitExceededError, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, onAgent, onStart, toAction, toFinish, onWorkflow, Ttl } from "@agboss/core";
+import { toAgent, toWorkflow } from "@agboss/core";
+import { inline, Action, Agent, LimitExceededError, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, onAgent, onStart, toAction, toFinish, onWorkflow, Ttl } from "@agboss/core";
 import { Bool, Text, WorkflowStartTextDto } from "@agboss/core/dto";
 import { listOf, oneOf, optional } from "@agboss/core";
 
@@ -55,7 +56,7 @@ export class ContractDto {
 export class VendorCheckWorkflowStart {}
 @WorkflowStart({ name: "vendor-link-check-workflow-start", description: "A vendor by a link", input: VendorLinkDto })
 export class VendorLinkCheckWorkflowStart {}
-@Agent({ name: "vendor-checker-agent", description: "Checks a vendor", prompt: "Check it.", model: "moonshotai/kimi-k2.6", input: { vendor: optional(VendorDto), link: optional(VendorLinkDto) }, output: oneOf(VendorScoreDto, VendorRejectedDto) })
+@Agent({ name: "vendor-checker-agent", description: "Checks a vendor", prompt: inline("Check it."), model: "moonshotai/kimi-k2.6", input: { vendor: optional(VendorDto), link: optional(VendorLinkDto) }, output: oneOf(VendorScoreDto, VendorRejectedDto) })
 export class VendorCheckerAgent {}
 @Action({ name: "mark-vendor-failed-action", description: "Records a failed check", output: VendorCheckFailedDto })
 export class MarkVendorFailedAction {
@@ -77,13 +78,13 @@ export class ContractWorkflowStart {}
 export class PickedContractWorkflowStart {}
 @WorkflowStart({ name: "link-contract-workflow-start", description: "Contract the vendor behind a link", input: { message: WorkflowStartTextDto, link: VendorLinkDto } })
 export class LinkContractWorkflowStart {}
-@Agent({ name: "vendor-finder-agent", description: "Finds vendors", prompt: "Find them.", model: "moonshotai/kimi-k2.6", input: { message: WorkflowStartTextDto }, output: listOf(VendorDto) })
+@Agent({ name: "vendor-finder-agent", description: "Finds vendors", prompt: inline("Find them."), model: "moonshotai/kimi-k2.6", input: { message: WorkflowStartTextDto }, output: listOf(VendorDto) })
 export class VendorFinderAgent {}
-@Agent({ name: "vendor-picker-agent", description: "Picks the vendor", prompt: "Pick one.", model: "moonshotai/kimi-k2.6", input: { message: WorkflowStartTextDto }, output: VendorDto })
+@Agent({ name: "vendor-picker-agent", description: "Picks the vendor", prompt: inline("Pick one."), model: "moonshotai/kimi-k2.6", input: { message: WorkflowStartTextDto }, output: VendorDto })
 export class VendorPickerAgent {}
-@Agent({ name: "vendor-ranker-agent", description: "Ranks", prompt: "Rank.", model: "moonshotai/kimi-k2.6", input: { checks: listOf(VendorScoreDto, VendorRejectedDto, VendorCheckFailedDto) }, output: VendorRankingDto })
+@Agent({ name: "vendor-ranker-agent", description: "Ranks", prompt: inline("Rank."), model: "moonshotai/kimi-k2.6", input: { checks: listOf(VendorScoreDto, VendorRejectedDto, VendorCheckFailedDto) }, output: VendorRankingDto })
 export class VendorRankerAgent {}
-@Agent({ name: "contract-agent", description: "Writes the contract", prompt: "Write it.", model: "moonshotai/kimi-k2.6", input: { score: VendorScoreDto }, output: ContractDto })
+@Agent({ name: "contract-agent", description: "Writes the contract", prompt: inline("Write it."), model: "moonshotai/kimi-k2.6", input: { score: VendorScoreDto }, output: ContractDto })
 export class ContractAgent {}
 @Action({ name: "notify-operator-action", description: "Tells the operator", input: { vendors: listOf(VendorDto) } })
 export class NotifyOperatorAction {
@@ -183,7 +184,7 @@ export const ownPaths = [
 | Form | |
 | --- | --- |
 | `.toWorkflow(W)` | one child execution of `W`; also `route(W)` among a router's routes |
-| `.forEachItem(toWorkflow(W), { takeFirst, maxConcurrency })` | one child per item, right after a step whose output is `listOf(ItemDto)`; one workflow class; `maxItems` required; followed by `.join()` like any launch ([Workflow → Parallel launches](Workflow#parallel-launches)); a router launches agents only |
+| `.forEachItem(toWorkflow(W), { takeFirst, maxConcurrency })` | one child per item, right after a step whose output is `listOf(ItemDto)`; one workflow class; `takeFirst` (or `maxItems`) required; followed by `.join()` like any launch ([Workflow → Parallel launches](Workflow#parallel-launches)); a router launches agents only |
 | One way in → inline | a child reached from one place is continued right after `.toWorkflow(W)` (`.onError(…)`, `.toOneOf([…])`); an own path for it → `[flow.single-entry-own-path]` |
 | Two or more ways in → own path | `onWorkflow(W).onError(…).toOneOf([…])`; every path into it ends with `.toWorkflow(W)`; inline → `[flow.shared-node-inline]` |
 | One class = one node | `W` mentioned again in the graph is the same node; two stages running the same child are two workflow classes (`[flow.continuation-twice]`) |
@@ -410,7 +411,7 @@ application lists), channel roles. Budgets aside: a child spends from its root's
 execution budget of its own.
 
 **Worst case.** The start log and `describe` count the children: one call of a start is the
-execution itself plus each child edge's worst case, `maxItems` times per item (at most
+execution itself plus each child edge's worst case, `takeFirst` / `maxItems` times per item (at most
 `maxConcurrency` at once) — `Worst case of one vendor-screening-workflow-start call: 51 workflow
 executions, 4 at the same time, …`.
 
@@ -421,7 +422,7 @@ instance** of the application run it instead — a fan-out of heavy children the
 instances that share the stores ([Several instances](Several-instances#children-on-any-instance-333)):
 
 <!-- snippet-context
-import { Agent, ChildExecutionFailedError, Workflow, WorkflowFinish, WorkflowStart, onStart, toFinish, Ttl } from "@agboss/core";
+import { inline, Agent, ChildExecutionFailedError, Workflow, WorkflowFinish, WorkflowStart, onStart, toAgent, toFinish, toWorkflow, Ttl } from "@agboss/core";
 import { Text, WorkflowStartTextDto } from "@agboss/core/dto";
 import { listOf } from "@agboss/core";
 export class SupplierDto {
@@ -438,7 +439,7 @@ export class SupplierRankingDto {
 }
 @WorkflowStart({ name: "supplier-check-workflow-start", description: "One supplier", input: SupplierDto })
 export class SupplierCheckWorkflowStart {}
-@Agent({ name: "supplier-checker-agent", description: "Checks a supplier", prompt: "Check it.", model: "moonshotai/kimi-k2.6", input: { supplier: SupplierDto }, output: SupplierScoreDto })
+@Agent({ name: "supplier-checker-agent", description: "Checks a supplier", prompt: inline("Check it."), model: "moonshotai/kimi-k2.6", input: { supplier: SupplierDto }, output: SupplierScoreDto })
 export class SupplierCheckerAgent {}
 @WorkflowFinish({ name: "supplier-scored-workflow-finish", description: "Scored", output: SupplierScoreDto })
 export class SupplierScoredWorkflowFinish {}
@@ -455,9 +456,9 @@ export class SupplierScoredWorkflowFinish {}
 export class SupplierCheckWorkflow {}
 @WorkflowStart({ name: "supplier-screening-workflow-start", description: "What to look for", input: WorkflowStartTextDto })
 export class SupplierScreeningWorkflowStart {}
-@Agent({ name: "supplier-finder-agent", description: "Finds suppliers", prompt: "Find them.", model: "moonshotai/kimi-k2.6", input: { message: WorkflowStartTextDto }, output: listOf(SupplierDto) })
+@Agent({ name: "supplier-finder-agent", description: "Finds suppliers", prompt: inline("Find them."), model: "moonshotai/kimi-k2.6", input: { message: WorkflowStartTextDto }, output: listOf(SupplierDto) })
 export class SupplierFinderAgent {}
-@Agent({ name: "supplier-ranker-agent", description: "Ranks", prompt: "Rank.", model: "moonshotai/kimi-k2.6", input: { scores: listOf(SupplierScoreDto) }, output: SupplierRankingDto })
+@Agent({ name: "supplier-ranker-agent", description: "Ranks", prompt: inline("Rank."), model: "moonshotai/kimi-k2.6", input: { scores: listOf(SupplierScoreDto) }, output: SupplierRankingDto })
 export class SupplierRankerAgent {}
 @WorkflowFinish({ name: "supplier-ranking-workflow-finish", description: "The ranking", output: SupplierRankingDto })
 export class SupplierRankingWorkflowFinish {}
@@ -469,7 +470,7 @@ export class SupplierScreeningWorkflow {}
 -->
 
 ```ts
-import { ChildPlacement, toAgent, toFinish, toWorkflow } from "@agboss/core";
+import { ChildPlacement } from "@agboss/core";
 
 export const anyInstancePaths = [
   onStart(SupplierScreeningWorkflowStart)
@@ -551,7 +552,8 @@ errors and limits. It is one node, named by the workflow itself (from two places
 and each subtopic researched the same way:
 
 <!-- snippet-context
-import { Action, Agent, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, onAction, onStart, toAction, type ActionHandler, type InputOf, type OutputOf, Ttl } from "@agboss/core";
+import { toFinish, toWorkflow } from "@agboss/core";
+import { inline, Action, Agent, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, onAction, onStart, toAction, type ActionHandler, type InputOf, type OutputOf, Ttl } from "@agboss/core";
 import { Integer, List, Text } from "@agboss/core/dto";
 import { listOf, oneOf } from "@agboss/core";
 
@@ -578,7 +580,7 @@ export class TopicResearchWorkflowStart {}
 @Agent({
   name: "researcher-agent",
   description: "Researches a topic, or lists its subtopics",
-  prompt: "Research the topic, or say it is too broad and list its subtopics.",
+  prompt: inline("Research the topic, or say it is too broad and list its subtopics."),
   model: "moonshotai/kimi-k2.6",
   input: { topic: TopicDto },
   output: oneOf(TopicReportDto, TopicTooBroadDto),
@@ -587,7 +589,7 @@ export class ResearcherAgent {}
 @Agent({
   name: "merge-agent",
   description: "Merges the subtopics' results",
-  prompt: "Merge the reports into one report on the topic.",
+  prompt: inline("Merge the reports into one report on the topic."),
   model: "moonshotai/kimi-k2.6",
   input: { topic: TopicDto, results: listOf(TopicReportDto, TopicFailedDto) },
   output: TopicReportDto,
