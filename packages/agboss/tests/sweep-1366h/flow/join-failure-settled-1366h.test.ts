@@ -23,6 +23,10 @@ vi.mock("../../../src/flow/runtime/launch/join-notices.js", () => ({
 vi.mock("../../../src/flow/runtime/launch/withdrawn-pauses.js", () => ({
   launchPausesOf: vi.fn(() => ({})),
 }));
+// #1281: a failed join first undoes what the launching step held, at the launcher's frame
+vi.mock("../../../src/flow/runtime/step-frame.js", () => ({
+  stepFrameAt: vi.fn(() => ({ execution: { executionId: "e1" } })),
+}));
 vi.mock("../../../src/flow/runtime/launch/join-write.js", () => ({
   joinedValues: mocks.joinedValues,
 }));
@@ -67,7 +71,11 @@ function site(over: { config?: object; branches?: object[]; records?: object[] }
         { node: "branch-b", nodeId: "b" },
       ],
     },
-    deps: { pauses: {}, limits: { budgets: { record: vi.fn(() => Promise.resolve()) } } },
+    deps: {
+      pauses: {},
+      limits: { budgets: { record: vi.fn(() => Promise.resolve()) } },
+      graph: { nodes: new Map([["launcher", { name: "launcher" }]]) },
+    },
     records: over.records ?? [failedRecord, finished(1), finished(2)],
   };
   return parts;
