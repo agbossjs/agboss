@@ -163,9 +163,20 @@ async function isThreadEnded(
   return true;
 }
 
+/**
+ * How a group of the sweep's statements runs (#1317): on the application's shared SQLite connection
+ * it is served by the connection's gate (`connection.serve`), since each group after an `await` of
+ * `isEnded` is past what the gate of the sweep's call covers; on a file of the store's own, at once.
+ */
+export type ServedStatements = <TValue>(work: () => TValue) => Promise<Awaited<TValue>>;
+
+/** A file of the store's own: nothing else queues for it, each group runs at once. */
+export const AT_ONCE: ServedStatements = (work) => Promise.resolve(work());
+
 export function idleThreadMethods(
   db: DatabaseSync,
   log: StatusLog,
+  served: ServedStatements = AT_ONCE,
 ): Pick<TurnStore, "deleteIdleThreads"> {
   // where the last look of a workflow stopped: the next one goes on from there, so threads a look
   // kept (a paused run, a live tree) cannot starve the idle ones behind them; the end wraps round
@@ -176,11 +187,13 @@ export function idleThreadMethods(
     let scanned = 0;
     let after = resumeAt.get(workflow);
     while (removed < THREADS_PER_LOOK && scanned < SCANNED_PER_LOOK) {
-      const page = idleThreadsOf(db, workflow, cutoff, after);
+      const from = after;
+      const page = await served(() => idleThreadsOf(db, workflow, cutoff, from));
       for (const thread of page) {
-        const runs = runsOf(db, thread);
+        const runs = await served(() => runsOf(db, thread));
         if (!(await isThreadEnded(runs, thread.tenantId, isEnded))) continue;
-        if (removeThread(db, thread, { workflow, cutoff, runs, log })) removed += 1;
+        const options = { workflow, cutoff, runs, log };
+        if (await served(() => removeThread(db, thread, options))) removed += 1;
       }
       scanned += page.length;
       if (page.length < THREADS_PER_LOOK) {
