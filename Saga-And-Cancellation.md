@@ -10,33 +10,30 @@ itself, newest first (#340, [Rollback](Rollback#an-execution-that-ends-without-a
 effects of an agent's tool calls are not undone. The explicit form:
 
 ```ts no-check: the pattern only — the full, compiled example is on the Rollback page
-start(OrderWorkflowStart)
-  .returns(OrderRequestDto)
+onStart(OrderWorkflowStart)
   .toAction(ChargeCardAction)
-  .returns(PaymentDto)
   .toAction(BookHotelAction)
   .onError(HotelUnavailableError, toAction(RefundPaymentAction).toFinish(NotBookedWorkflowFinish))
-  .returns(BookingDto)
   .toFinish(BookedWorkflowFinish),
 ```
 
 ## Global cancellation
 
 `app.cancel(threadId)` stops a running run **softly**: the run stops before its next model or tool call
-and `execute` rejects with `ExecutionCancelledError` (`execution.cancelled`). A paused run is dropped
+and `execute` resolves with `status: ExecutionStatus.Cancelled` (a cancel is an outcome, not an error, #1341). A paused run is dropped
 instead (its `resume` then throws `PauseClosedError`, `reason: cancelled`). `{ cancelled }` is `false` when the thread had
 neither.
 
 **The undo on cancel (#340 PR 3).** A cancelled execution's open undoable actions
 (`@Action({ compensateWith })` not yet committed or undone) are undone, newest first, before it
-ends (`CompensationReason.ExecutionCancelled`). A running one rejects with `ExecutionCancelledError`
+ends (`CompensationReason.ExecutionCancelled`). A running one resolves cancelled
 once its holder has undone them (`app.cancel` itself returns at once). A paused one is cancelled
 under its lease: its pauses are withdrawn first (their channels told, #337), then the undo runs —
 each undo action bounded by `compensationTimeout` — and `app.cancel` returns `{ cancelled: true }`
 only after it; a paused child's actions are undone with its parent's. An undo that fails does not
 stop the others (#340 S7): when `app.cancel` runs the undo itself — a paused tree, where
 `{ cancelled: true }` means every undo succeeded — it **rejects with `CompensationFailedError`**
-(its `cause` the `ExecutionCancelledError`; the tree is cancelled all the same, its record failed
+(the tree is cancelled all the same, its record failed
 with that error and `onExecutionError` given it); when it only aborts or requests the stop of a
 running pass, the holder's `app.execute` / `app.resume` rejects with it. Committed actions and
 actions a side path already undid are left as they are. While the undo runs the execution's record
@@ -55,11 +52,12 @@ import type { App } from "@agboss/core";
 declare const app: App;
 declare const threadId: string;
 declare const userId: string;
+declare const tenantId: string;
 -->
 
 ```ts
 // e.g. in the API handler of a "Cancel" button
-const { cancelled } = await app.cancel(threadId, { ownerId: userId });
+const { cancelled } = await app.cancel(threadId, { tenantId, ownerId: userId });
 ```
 
 The caller's own `signal` (`execute(…, { signal })`) aborts the same way; tools and actions see
@@ -77,7 +75,7 @@ the external API (most payment APIs accept an idempotency key) and duplicates ar
 
 <!--
 ```ts file=refund.workflow.ts
-import { Action, Workflow, WorkflowFinish, WorkflowStart, start, type ActionHandler, type InputOf } from "@agboss/core";
+import { Action, Workflow, WorkflowFinish, WorkflowStart, onStart, type ActionHandler, type InputOf } from "@agboss/core";
 import { Text } from "@agboss/core/dto";
 export class PaymentDto {
   @Text({ prompt: "the payment id" })
@@ -91,10 +89,10 @@ export class RefundedWorkflowFinish {}
 -->
 
 <!-- snippet-context
-import { Action, ExecutionContext, Workflow, start, type ActionHandler, type InputOf } from "@agboss/core";
+import { Action, ExecutionContext, Workflow, onStart, type ActionHandler, type InputOf, Ttl } from "@agboss/core";
 import { PaymentDto, RefundWorkflowStart, RefundedWorkflowFinish } from "./refund.workflow.js";
 // @snippet
-@Workflow({ name: "refund-workflow", version: "1.0.0", flow: [start(RefundWorkflowStart).returns(PaymentDto).toAction(RefundPaymentAction).toFinish(RefundedWorkflowFinish)] })
+@Workflow({ name: "refund-workflow", version: "1.0.0", historyTtl: Ttl.Forever, flow: [onStart(RefundWorkflowStart).toAction(RefundPaymentAction).toFinish(RefundedWorkflowFinish)] })
 export class RefundWorkflow {}
 -->
 
@@ -110,7 +108,7 @@ export class RefundPaymentAction implements ActionHandler<RefundPaymentAction> {
   constructor(private readonly executionContext: ExecutionContext) {}
 
   async execute(input: InputOf<RefundPaymentAction>): Promise<void> {
-    await fetch(`https://payments.example.com/refunds/${input.payment.value.paymentId}`, {
+    await fetch(`https://payments.example.com/refunds/${input.payment.paymentId}`, {
       method: "POST",
       headers: { "Idempotency-Key": this.executionContext.step.idempotencyKey },
     });

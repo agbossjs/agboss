@@ -9,9 +9,11 @@ by its runner, `agboss eval run` ([below](#running-a-suite-agboss-eval-run), #39
   `-eval-suite`, its class with `EvalSuite` (`[name.kind-suffix]`).
 - `start`: the `@WorkflowStart` every turn of every case goes through — a start of the application
   (`[eval.unknown-start]`).
-- `checks`: what decides whether a run passed, **in the order listed** — `checkTrajectory()` (each
-  case's `tools`, deterministic, $0) and `judgedBy(Judge)` (a `@Judge` on the finish's output).
-- `cascade`: required — `EvalCascade.StopAtFirstFailure` (a failed check skips the rest:
+- `tools` and `judges`: what decides whether a run passed — the cases' `tools` first (each case's tool
+  expectations, deterministic, $0), then the `@Judge` classes of `judges` **in the order listed** (a
+  judge judges the finish's output as its DTO). `modelProvider` pins the model judges' provider (a
+  judge's own wins).
+- `cascade`: `EvalCascade.StopAtFirstFailure` (the default: a failed check skips the rest:
   `CheckStatus.Skipped`, and a skipped check fails the run) or `EvalCascade.RunAll`.
 - `cases`: each one a thread of its own (below), each `name` unique in the suite
   (`[eval.duplicate-case]` — a case name keys reports and baselines).
@@ -19,7 +21,8 @@ by its runner, `agboss eval run` ([below](#running-a-suite-agboss-eval-run), #39
 ## The application under eval
 
 <!-- snippet-context
-import { Application, DecidedBy, EmptyEnvironment, Injectable, Judge, JudgeModel, JudgeVerdict, Tool, Workflow, WorkflowFinish, WorkflowStart, Agent, start, type JudgeHandler, type JudgeInput, type ToolHandler } from "@agboss/core";
+import { Ttl } from "@agboss/core";
+import { inline, Application, EmptyEnvironment, Injectable, Judge, JudgeModel, JudgeVerdict, Tool, Workflow, WorkflowFinish, WorkflowStart, Agent, onStart, type JudgeHandler, type JudgeInput, type ToolHandler } from "@agboss/core";
 import { Integer, Text, WorkflowStartTextDto } from "@agboss/core/dto";
 -->
 
@@ -54,7 +57,7 @@ export class RefundLedger {
 export class RefundTool implements ToolHandler<RefundRequestDto, RefundDoneDto> {
   constructor(private readonly refundLedger: RefundLedger) {}
 
-  async run({ orderId }: RefundRequestDto): Promise<RefundDoneDto> {
+  async execute({ orderId }: RefundRequestDto): Promise<RefundDoneDto> {
     return { status: await this.refundLedger.record(orderId) };
   }
 }
@@ -66,7 +69,7 @@ export class RefundTool implements ToolHandler<RefundRequestDto, RefundDoneDto> 
   output: RefundDoneDto,
 })
 export class DeleteOrderTool implements ToolHandler<RefundRequestDto, RefundDoneDto> {
-  run({ orderId }: RefundRequestDto): Promise<RefundDoneDto> {
+  execute({ orderId }: RefundRequestDto): Promise<RefundDoneDto> {
     return Promise.resolve({ status: `deleted ${orderId}` });
   }
 }
@@ -74,7 +77,7 @@ export class DeleteOrderTool implements ToolHandler<RefundRequestDto, RefundDone
 @Agent({
   name: "refund-agent",
   description: "Refunds orders",
-  prompt: "Refund what is asked, within policy.",
+  prompt: inline("Refund what is asked, within policy."),
   model: "moonshotai/kimi-k2.6",
   input: { message: WorkflowStartTextDto },
   output: RefundDoneDto,
@@ -90,12 +93,10 @@ export class RefundWorkflowFinish {}
 
 @Workflow({
   name: "refunds-workflow",
-  version: "1.0.0",
+  version: "1.0.0", historyTtl: Ttl.Forever,
   flow: [
-    start(RefundWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(RefundWorkflowStart)
       .toAgent(RefundAgent)
-      .returns(RefundDoneDto)
       .toFinish(RefundWorkflowFinish),
   ],
   providers: [RefundLedger],
@@ -111,27 +112,27 @@ export class RefundsWorkflow {}
 export class RefundsApplication {}
 
 // a code judge: deterministic, $0
-@Judge({ name: "refund-reported-judge", decidedBy: DecidedBy.Code, reply: RefundDoneDto })
+@Judge({ name: "refund-reported-judge", output: RefundDoneDto })
 export class RefundReportedJudge implements JudgeHandler<RefundDoneDto> {
-  judge({ reply }: JudgeInput<RefundDoneDto>): Promise<JudgeVerdict> {
+  judge({ output }: JudgeInput<RefundDoneDto>): Promise<JudgeVerdict> {
     return Promise.resolve(
-      reply.status.startsWith("refunded")
+      output.status.startsWith("refunded")
         ? JudgeVerdict.passed()
-        : JudgeVerdict.failed({ reason: "the answer does not report a refund" }),
+        : JudgeVerdict.failed("the answer does not report a refund"),
     );
   }
 }
 
 // a model judge: paid
-@Judge({ name: "polite-refund-judge", model: "moonshotai/kimi-k2.6", reply: RefundDoneDto, deps: [JudgeModel] })
+@Judge({ name: "polite-refund-judge", model: "moonshotai/kimi-k2.6", output: RefundDoneDto, deps: [JudgeModel] })
 export class PoliteRefundJudge implements JudgeHandler<RefundDoneDto> {
   constructor(private readonly judgeModel: JudgeModel) {}
 
-  async judge({ reply }: JudgeInput<RefundDoneDto>): Promise<JudgeVerdict> {
-    const answer = await this.judgeModel.invoke(`Is "${reply.status}" polite? Answer yes or no.`);
+  async judge({ output }: JudgeInput<RefundDoneDto>): Promise<JudgeVerdict> {
+    const answer = await this.judgeModel.invoke(`Is "${output.status}" polite? Answer yes or no.`);
     return /^\s*yes/iu.test(answer)
       ? JudgeVerdict.passed()
-      : JudgeVerdict.failed({ reason: "be polite" });
+      : JudgeVerdict.failed("be polite");
   }
 }
 ```
@@ -146,9 +147,7 @@ import { DeleteOrderTool, PoliteRefundJudge, RefundReportedJudge, RefundTool, Re
 import {
   EvalCascade,
   EvalSuite,
-  checkTrajectory,
   evalCase,
-  judgedBy,
   pastTurn,
   toolCall,
   toolInvariant,
@@ -159,12 +158,10 @@ import {
   name: "refunds-eval-suite",
   description: "Refunds: looked up once, never deleted, never over $100",
   start: RefundWorkflowStart,
-  checks: [
-    checkTrajectory(), // 1. each case's `tools`: free
-    judgedBy(RefundReportedJudge), // 2. a code judge: free
-    judgedBy(PoliteRefundJudge), // 3. a model judge: paid, runs only on a run the two above passed
-  ],
-  cascade: EvalCascade.StopAtFirstFailure, // required: no implicit order
+  // the cases' `tools` run first (free), then these judges in order: a code judge (free), then a
+  // model judge (paid), which runs only on a run the checks before it passed
+  judges: [RefundReportedJudge, PoliteRefundJudge],
+  cascade: EvalCascade.StopAtFirstFailure, // the default; RunAll runs every check
   cases: [
     evalCase({
       name: "refund-within-policy",
@@ -180,13 +177,16 @@ import {
       name: "refund-after-a-question",
       history: [
         // written into the thread, not run: what memory and its compaction read
-        pastTurn(RefundWorkflowStart, { text: "Was order 8 refunded?" }, RefundWorkflowFinish, {
-          status: "refunded 8",
+        pastTurn({
+          start: RefundWorkflowStart,
+          input: { text: "Was order 8 refunded?" },
+          finish: RefundWorkflowFinish,
+          output: { status: "refunded 8" },
         }),
       ],
       turns: [turn({ text: "Now order 9, please" })],
       tools: { required: [toolCall(RefundTool, { orderId: "9" })] },
-      judges: [judgedBy(RefundReportedJudge)], // after the suite's checks, for this case only
+      judges: [RefundReportedJudge], // after the suite's judges, for this case only
       variants: [turn({ text: "Please refund order 9 as well" })], // rewordings: the same tools
     }),
   ],
@@ -203,7 +203,7 @@ export class RefundsEvalSuite {}
   `pastTurn(Start, input, Finish, output)`, the input typed by that start, the output by that finish.
 - **`tenant` / `execution`** — the execution's context values, typed and required as at
   `app.execute` (an application that declares its own `TenantContext` subclass needs its fields).
-- **`tools`** — what `checkTrajectory()` checks: `required` (`toolCall(Tool, partial?)` — a deep
+- **`tools`** — what the tool check reads: `required` (`toolCall(Tool, partial?)` — a deep
   partial of the tool's input; without it any call), `forbidden` (tool classes), `invariants`
   (`toolInvariant(Tool, (input) => boolean)` — every call of the tool, its input typed by the tool's
   DTO).
@@ -213,7 +213,7 @@ export class RefundsEvalSuite {}
 ## The cascade: cheapest check first
 
 The order is a declaration, never a convention: free trajectory invariants first, then code judges
-(`@Judge({ decidedBy: DecidedBy.Code })`, [Judges](Judges-And-Quality-Gates)), then model judges.
+(a `@Judge` with no `JudgeModel` in its `deps`, [Judges](Judges-And-Quality-Gates)), then model judges.
 Under `EvalCascade.StopAtFirstFailure` a paid judge runs only on a run the free checks passed.
 
 When a case passes at least once in k runs but not every time (pass@k high, pass^k low), do not grow
@@ -264,13 +264,13 @@ agboss eval run --suite refunds-eval-suite --runs 3 --env eval --report .artifac
   order through `app.execute` with the case's `tenant` / `execution` (validated as there), then the
   checks judge the last turn, in order, under the suite's cascade. A turn that fails, or an earlier
   one that pauses, ends the run with its `error: { code, message }` and no checks.
-- **`checkTrajectory()`** reads the last turn's `result.toolCalls` ([Testing](Testing)): a `required`
+- **The tool check** reads the last turn's `result.toolCalls` ([Testing](Testing)): a `required`
   tool needs a call the tool ran (`Succeeded`, `Failed` or `TimedOut`) whose input matches the
   partial; a `forbidden` one fails on any call, even one that never ran; an invariant must hold on
   every call with checked arguments (not `InvalidArguments`). Every broken expectation is named in
   the reason: `get-order-tool not called with {"orderId":"7"} (required; 0 call(s)); delete-order-tool
   called (forbidden)`.
-- **A judge** (`judgedBy(Judge)`, the suite's or the case's) is created by the application's container
+- **A judge** (one of `judges`, the suite's or the case's) is created by the application's container
   and runs in the frame of the case's last execution: its services, an injected `ExecutionContext`
   (that execution's `executionId` and thread), the project's `TenantContext` / execution fields with
   the case's values. It gets the finish's output as its DTO (`variant` = the finish's output class),

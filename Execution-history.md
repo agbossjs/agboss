@@ -3,27 +3,31 @@
 What an application keeps of its root executions after they end, and how it is exported (#401
 PR 1). Nothing is kept unless the application says how long; then each root execution's record is
 kept in the `ExecutionHistoryRepository` — masked like its traces — and the recovery sweep removes it
-once it ended longer ago than that. `agboss records export` writes it as JSON Lines.
+once it ended longer ago than that. `agboss executions export` writes it as JSON Lines.
 
 ## Keeping it: `retention.executionRecords`
 
 <!-- snippet-context
-import { Application, Injectable, SqliteExecutionHistoryRepository, SqliteExecutionRecordRepository } from "@agboss/core";
+import { Application, DatabaseStorage, EmptyEnvironment, Injectable, SqliteDriver } from "@agboss/core";
 import { hours } from "@agboss/core/units";
 @Injectable()
 export class DeskWorkflow {}
-export class AppEnvironment {
-  sqlitePath!: string;
-}
+@DatabaseStorage({
+  name: "desk-database-storage",
+  driver: SqliteDriver({ path: ".agboss/desk.sqlite" }),
+  auditLogTtl: hours(24),
+  ledgerEntriesTtl: hours(24),
+})
+export class DeskDatabaseStorage {}
 -->
 
 ```ts
 @Application({
   name: "desk-application",
   version: "1.0.0",
-  environment: AppEnvironment, // its sqlitePath: the file of the SQLite stores
+  environment: EmptyEnvironment,
   workflows: [DeskWorkflow],
-  providers: [SqliteExecutionRecordRepository, SqliteExecutionHistoryRepository],
+  storage: DeskDatabaseStorage, // SQLite: its stores keep the history too
   retention: { executionRecords: hours(24 * 30) }, // unset → nothing is kept (the default)
 })
 export class DeskApplication {}
@@ -41,9 +45,9 @@ export class DeskApplication {}
 - **Removed** by the recovery sweep (every 30 s, on the `Clock`) once it ended longer ago than
   `retention.executionRecords`; a record still paused is never removed.
 - On the built-in in-memory store it warns **`[application.in-memory-execution-history]`** — each
-  instance keeps its own, another instance and `agboss records export` do not see them, a restart
-  loses them (an error under `agboss check --strict`). `SqliteExecutionHistoryRepository` keeps it in
-  the application's SQLite file (table `execution_history`); a store of your own `extends
+  instance keeps its own, another instance and `agboss executions export` do not see them, a restart
+  loses them (an error under `agboss check --strict`). A `@DatabaseStorage` with a durable driver (`SqliteDriver`, PostgreSQL, MongoDB) keeps it in
+  the database (table `execution_history` on SQLite); a store of your own `extends
   ExecutionHistoryRepository` ([Several instances → Your own implementation](Several-instances#your-own-implementation)).
 
 ## What a record holds: `ExecutionHistoryRecord`
@@ -73,8 +77,8 @@ trace would not show ([Guards → PII](Guards)).
 
 ## The store: `ExecutionHistoryRepository`
 
-Infrastructure ([App → Infrastructure](App#infrastructure)), listed only in
-`@Application({ providers })`, Spring Data names:
+A store of the application's `@DatabaseStorage` ([App → Infrastructure](App#infrastructure)),
+created by its driver, Spring Data names:
 
 | Method | What it does |
 | --- | --- |
@@ -87,11 +91,11 @@ Infrastructure ([App → Infrastructure](App#infrastructure)), listed only in
 | `findAllByStartedAtBetween(from, to, page)` | every tenant's, the same way |
 | `deleteByEndedAtBefore(cutoff)` | the sweep: removes what ended before `cutoff` |
 
-## Exporting it: `agboss records export`
+## Exporting it: `agboss executions export`
 
 ```bash
-agboss records export --env prod --tenant acme --since 2026-10-16 --out hub/records/acme.jsonl
-agboss records export --env prod --all-tenants --out hub/records/all.jsonl
+agboss executions export --env prod --tenant acme --since 2026-10-16 --out hub/records/acme.jsonl
+agboss executions export --env prod --all-tenants --out hub/records/all.jsonl
 ```
 
 ```text
@@ -119,3 +123,22 @@ kept ([Eval suites](Eval-Suites#a-case-from-a-kept-execution-agboss-generate-eva
 
 Exported records are one of the [Mesh Hub](Mesh-Hub)'s inputs: the calls they saw between
 applications are its observed edges, and their statuses, durations, errors and spend its health.
+
+## A storage limit: a finished tree that has rotated reads `NotStarted`
+
+A kept record is not a tombstone. A finished tree leaves no checkpoints (#1321d) and its record is
+removed once it ended longer ago than its retention — the workflow's `historyTtl` for its turn, and
+`retention.executionRecords` for this history — so after a **full rotation** nothing of the execution
+is left in the storage, on purpose: a tombstone that lived for ever would contradict the required
+TTLs of #1318 and #1321. What reads the storage then sees no such execution — `NotStarted`:
+
+- While the record is alive, a finished tree reads its `output` as it ended (masked, `spentUsd` too);
+  it is a **limit** only once the record has rotated.
+- An A2A task that missed `onExecutionEnd` (its worker died) is repaired from the record while it is
+  alive: it reads `Completed` with the masked `output` and `spentUsd`. When the record has rotated and
+  its `startTimeout` has passed, the task closes as `Failed` with `a2a.start-lost`
+  ([A2A](A2A)) — never as a started execution.
+- An `app.resume`, an inspect or a `--thread` read of a tree that has rotated finds nothing; keep a
+  record you must read later with `retention.executionRecords` and `agboss executions export`, which
+  write it out before it rotates.
+

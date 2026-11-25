@@ -100,7 +100,7 @@ The levels are fixed (application → tenant → execution → step); the projec
 the execution level by **subclassing** them, with DTO field decorators (`@agboss/core/dto`), and declares
 the subclasses once, `@Application({ tenantContext, executionContext })` — workflows declare none.
 How an organization is structured inside (clinics → units → wards) is data in the tenant
-subclass, nested with `@ListOf` / `@Nested`, not new framework levels.
+subclass, nested with `@List` / `@Nested`, not new framework levels.
 
 - Fields of a context take **no `prompt`**: no model reads a context, the field's name is its
   meaning — a `prompt` fails assembly, `[context.prompt-unused] ClinicTenantContext.units has a
@@ -114,8 +114,8 @@ executionContext: ClinicExecutionContext })`.
   so `this.clinicExecutionContext.tenant.units` is typed.
 - **Identity, never secrets:** the levels hold who we interact with (ids, roles, licence numbers),
   never access tokens, passwords or API keys. Identity that must not reach a model, a log or a trace
-  is marked `sensitive: PiiAction.…` (#120 — a masking action only: `replaceWithKind()`,
-  `replacePart(…)`, `replaceWithToken()`; `blockWithRefusal` does not compile there): its value is
+  is marked `sensitive: PiiAction.…` (#120 — a masking action only: `mask()`,
+  `mask(…)`, `tokenize()`; `block` does not compile there): its value is
   masked wherever it appears in what a model reads, and the context fields in a trace of the state
   are masked too ([Guards → PII policies](Guards#pii-policies)); a service gets a secret from the identity when it needs one
   (`credentialService.tokenFor(clinicianId)`), so it is never checkpointed, never inherited and
@@ -123,7 +123,7 @@ executionContext: ClinicExecutionContext })`.
 
 ```ts file=clinic.context.ts
 import { ExecutionContext, Injectable, PiiAction, TenantContext } from "@agboss/core";
-import { ListOf, Nested, Text } from "@agboss/core/dto";
+import { List, Nested, Text } from "@agboss/core/dto";
 
 export class UnitDto {
   @Text()
@@ -134,13 +134,13 @@ export class UnitDto {
 }
 
 export class ClinicianDto {
-  @Text({ sensitive: PiiAction.replaceWithToken() }) // the model sees <clinician-id:…>
+  @Text({ sensitive: PiiAction.tokenize() }) // the model sees <clinician-id:…>
   clinicianId!: string;
 }
 
 // config/context.config.ts — the project's tenant level
 export class ClinicTenantContext extends TenantContext {
-  @ListOf(UnitDto)
+  @List(UnitDto)
   units!: UnitDto[];
 }
 
@@ -181,7 +181,7 @@ come from is the project's choice; the framework loads nothing.
   with `dto.invalid` and `onExecutionRejected`; the message names the field, never the value
   (`invalid ClinicTenantContext: units[0].unitId: …`).
 - Frozen for the whole execution, kept in its checkpoint: a resume — `app.resume({ pauseId,
-  decision }, { tenantId, ownerId | answeredBy })` ([Pauses](Pauses)) — runs on the values it
+  decision }, { tenantId, ownerId | actor })` ([Pauses](Pauses)) — runs on the values it
   started with, and takes only the tenant's id (a plan changed meanwhile applies from the next
   execution). Child executions (#263) inherit them.
 
@@ -218,7 +218,7 @@ export class RoleService {
 ```
 
 ```ts file=secure-data.tool.ts
-import { ExecutionContext, Tool, type ToolHandler } from "@agboss/core";
+import { ExecutionContext, Tool } from "@agboss/core";
 import { Text } from "@agboss/core/dto";
 import { RoleService } from "./roles.service.js";
 
@@ -236,13 +236,13 @@ export class SecureData {
   output: SecureData,
   deps: [ExecutionContext, RoleService],
 })
-export class SecureDataTool implements ToolHandler<SecureQuery, SecureData> {
+export class SecureDataTool {
   constructor(
     private readonly executionContext: ExecutionContext,
     private readonly roleService: RoleService,
   ) {}
 
-  async run({ query }: SecureQuery): Promise<SecureData> {
+  async execute({ query }: SecureQuery): Promise<SecureData> {
     if (!(await this.roleService.isAdmin(this.executionContext.ownerId))) {
       return { text: "Access denied." };
     }
@@ -256,7 +256,7 @@ A tool error or a denied call reaches the model as the call's result; the loop c
 
 <!--
 ```ts file=data.workflow.ts
-import { Agent, Workflow, WorkflowFinish, WorkflowStart, start } from "@agboss/core";
+import { inline, Agent, Workflow, WorkflowFinish, WorkflowStart, onStart, toAgent, toFinish, Ttl } from "@agboss/core";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 import { RoleService } from "./roles.service.js";
 import { SecureDataTool } from "./secure-data.tool.js";
@@ -264,15 +264,15 @@ import { SecureDataTool } from "./secure-data.tool.js";
 export class DataWorkflowStart {}
 @WorkflowFinish({ name: "data-workflow-finish", description: "The answer", output: WorkflowFinishTextDto })
 export class DataWorkflowFinish {}
-@Agent({ name: "data-agent", description: "Looks data up", prompt: "Look it up.", model: "moonshotai/kimi-k2.6", tools: [SecureDataTool] })
+@Agent({ name: "data-agent", description: "Looks data up", prompt: inline("Look it up."), model: "moonshotai/kimi-k2.6", tools: [SecureDataTool] })
 export class DataAgent {}
 @Workflow({
   name: "data-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   providers: [RoleService],
   flow: [
-    start(DataWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(DataWorkflowStart)
       .toAgent(DataAgent)
       .toFinish(DataWorkflowFinish),
   ],
@@ -305,18 +305,18 @@ There is no untyped `metadata` or `executionContext` option (#261 PR 6): what a 
 or any other component needs of the execution it reads through its injected `ExecutionContext`
 (the tenant, the owner, the project's own fields — `deps: [ExecutionContext]`; a channel's request
 is made inside the paused step). An MCP session takes the values from its authenticated caller —
-`createMcpService(app, Mcp).connect(transport, { tenant, execution, ownerId })` (`McpSessionOptions`,
-`@agboss/core/mcp`) — and so does an A2A call: `a2aHttpListener(app, { expose, callerResolver, publicUrl })` asks
-the host's **caller resolver** (an `@Injectable` in `providers`) for every request, with its
+`connectMcp(app, { endpoint: Mcp, transport, session: { tenant, execution, ownerId } })` (`McpSessionOptions`,
+`@agboss/core/mcp`) — and so does an A2A call: `a2aHttpListener(app, { endpoint, authenticator, publicUrl })` asks
+the host's **`@HttpAuthenticator`** (a class in `services`) for every request, with its
 operation and task decoded from its body and nothing of it run before —
-`A2ACallerResolution.resolved({ tenant, ownerId, execution })`, typed by the start's application
-(a declared `TenantContext`'s values are required), or `.unauthenticated(…)` / `.forbidden(…)`: a
+`HttpAuthResult.authenticated({ tenant, ownerId, execution })`
+(a declared `TenantContext`'s values are required when the request runs), or `.unauthenticated(…)` / `.forbidden(…)`: a
 real `401` / `403`, nothing run, never the default tenant (#387, #808,
-[A2A](A2A#1-who-calls--the-caller-resolver)). A
+[A2A](A2A#1-who-calls--the-http-authenticator)). A
 resume through either takes the tenant's id; an A2A `CancelTask` cancels only the caller's own task.
 
-Tool arguments a channel shows (and `ExecutionOutput.pending[i].ask.arguments`) have the input DTO's `sensitive`
-fields through their action — `replacePart(…)` as written, a token or a kind as `<field-name>`
+Tool arguments a channel shows (and `ExecutionOutput.pending[i].input`) have the input DTO's `sensitive`
+fields through their action — `mask(…)` as written, a token or a kind as `<field-name>`
 (#120); the tool itself still gets them whole.
 
 ## In unit tests
@@ -327,12 +327,12 @@ given ([Testing](Testing)); `{ tenantContext, tenant, executionContext, executio
 environment } }` set the levels, checked like at `execute`:
 
 <!-- snippet-context
-import { testTool } from "@agboss/core/testing";
+import { testUnit } from "@agboss/core/testing";
 import { SecureDataTool } from "./secure-data.tool.js";
 -->
 
 ```ts
-const run = testTool(SecureDataTool, { execution: { ownerId: "usr_admin" } });
+const run = testUnit(SecureDataTool, { execution: { ownerId: "usr_admin" } });
 const answer = await run({ query: "salaries" });
 ```
 

@@ -34,7 +34,7 @@ flowchart LR
 | `tool` | one task (`Send`) per allowed call: runs the tool with the run's signal + its `timeout`; stores the result (or `Tool error: …`) under its `callId`; reported costs join the loop's usage |
 | `collect` | tool messages in the **call order**, `afterToolCall` (tool, then agent) for calls that ran, decisions recorded; back to `model` |
 | `agent-reply` | a text agent's answer: `beforeAgentAnswer`, then the text leaves the loop |
-| `agent-answer` | a structured answer through an answer tool: validated by the DTO, `beforeAgentAnswer`, then it leaves the loop as the step's value (`.returns(…)`) |
+| `agent-answer` | a structured answer through an answer tool: validated by the DTO, `beforeAgentAnswer`, then it leaves the loop as the step's value |
 
 ## The request: static first, then the input message
 
@@ -44,7 +44,7 @@ thread's **memory** (finished turns as `start <name>: <input>` / `finish <name>:
 compaction summaries), then the **input message**, then the loop's own turns. The static part is the
 same for every run of the agent, so a provider that caches reads it from the cache (Wiki →
 [Model providers](Model-providers)). An agent of a recursive workflow whose `oneOf` variant leads to
-`ThisWorkflow` has **two** static parts (#264): on the last level (`depth === maxDepth`) that
+the workflow itself has **two** static parts (#264): on the last level (`depth === maxDepth`) that
 variant's answer tool is left out ([Workflow as a step → Recursion](Workflow-as-a-step#recursion-264)),
 so levels `1 … maxDepth - 1` share one warmed prefix and `maxDepth` has its own — expected, not a
 cache miss to chase. The input message has one block per `input` field in
@@ -64,6 +64,13 @@ declaration order:
 
 An absent `optional` field is `### field` and `none`. A field in the instructions as `{{input.…}}`
 fails assembly (`[prompt.input-in-instructions]`) — it would change the static part each run.
+
+`{{key}}` values come from `promptVariables` — on `@Application`, `@Workflow` and the component (`@Agent`,
+`@Router`, the guardrails, a `@Memory` compaction, a reply interpreter); the nearest level wins. A value
+is a text or a `defineEnv` reference (`appEnv.companyName`), read once when the application is assembled.
+A `secret(…)` is never a value: it fails assembly with `[prompt.secret-in-instructions]`, so a secret
+cannot reach a prompt or a model. A key of a component no `{{key}}` of its prompt uses is
+`[prompt.unused-variable]` (also in `agboss check --prompts`).
 
 ## Answers
 
@@ -129,7 +136,7 @@ in call order. Calls needing approval are asked first, one per pause, in call or
 | `toolCalls` | 20 | `agents.<name>.limits.toolCalls` |
 
 Counted from the flow handing the agent its work to its answer. Until `@Agent({ limits })` (#152),
-`toolCalls` comes from `maxToolCalls` (the agent's, then `defaults.tools.maxToolCalls`) when set.
+`modelCalls` comes from `executionLimits.maxModelCalls` (default 12) and `toolCalls` from `executionLimits.maxToolCalls` (the agent's, then `defaults.tools.maxToolCalls`) when set.
 Hitting one **fails** the run with `LimitExceededError`; the loop's spend so far still reaches the
 ledger. `agboss describe` shows them: `limits: modelCalls 12 (default) · toolCalls 8`. An exhausted
 budget of the execution (#261: its own, its tenant's or the application's) ends the loop before the
@@ -137,9 +144,9 @@ next model call with `BudgetExceededError` ([FinOps](FinOps#at-run-time)).
 
 ## Approval
 
-A tool declared with a `channel` (`@Tool({ channel: TerminalUserChannel })` or a channel role, found
-through the tool — [Tools → Approval channels](Tools#approval-channels)) waits for a decision before
-it runs: its channel's `send` decides at once (`ChannelOutcome.decided`), or the call pauses
+A tool declared with an `approval` (`@Tool({ approval: RefundToolApproval })`, a `@ToolApproval` target whose
+channels are listed in `@Application({ channels })` — [Tools → Approval channels](Tools#approval-channels)) waits for a decision before
+it runs: the target's channel's `send` decides at once (`ChannelOutcome.decided`), or the call pauses
 (`ExecutionOutput.pending`, one entry per waiting call — parallel branches each wait on their own)
 and `app.resume({ pauseId, decision })` answers it with a `ToolCallApprovalDecisionDto`
 ([Pauses](Pauses), [Pause seam](Pause-seam)). Approved → the call runs; rejected → the model reads
@@ -151,7 +158,7 @@ An agent whose output has file fields returns only files it saw: the answer tool
 the number in the headings (`file 3 of 5`, numbered once per visit across fields and sources), mapped back
 to the descriptor with the digest it was read as (`AnswerFiles.SeenInVisit`, the default). The original is
 returned only if `FileView.Original` was among its views. `AnswerFiles.Any` takes the model's own
-descriptors: a `url` only `https:` on `allowedFileOrigins`, a `fileId` only one the root execution holds.
+descriptors: a `url` only `https:` on the workflow `@FilePolicy`'s `allowedOrigins`, a `fileId` only one the root execution holds.
 `[files.answer-file-unseen]` at start for file fields in an answer whose agent saw no original to return.
 Output guardrails read the answer's files pinned to that digest; a file that changed fails closed.
 
@@ -163,24 +170,24 @@ DTO), or a function of the request with `.thenAnswer(...)` ([Testing](Testing)):
 
 <!--
 ```ts file=support.workflow.ts
-import { Agent, Tool, Workflow, WorkflowFinish, WorkflowStart, start, type ToolHandler } from "@agboss/core";
+import { inline, Agent, Tool, Workflow, WorkflowFinish, WorkflowStart, onStart, toAgent, toFinish, Ttl } from "@agboss/core";
 import { Integer, Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 class RefundRequest { @Integer({ prompt: "the amount, USD" }) amount!: number; }
 class RefundDone { @Text() status!: string; }
 @Tool({ name: "refund-tool", description: "Refunds an amount", input: RefundRequest, output: RefundDone })
-export class RefundTool implements ToolHandler<RefundRequest, RefundDone> { run(): Promise<RefundDone> { return Promise.resolve({ status: "refunded" }); } }
+export class RefundTool { execute(): Promise<RefundDone> { return Promise.resolve({ status: "refunded" }); } }
 @WorkflowStart({ name: "chat-workflow-start", description: "A message", input: WorkflowStartTextDto })
 export class ChatStart {}
 @WorkflowFinish({ name: "chat-workflow-finish", description: "The answer", output: WorkflowFinishTextDto })
 export class ChatFinish {}
-@Agent({ name: "support-agent", description: "Helps", prompt: "Help the customer.", model: "moonshotai/kimi-k2.6", tools: [RefundTool] })
+@Agent({ name: "support-agent", description: "Helps", prompt: inline("Help the customer."), model: "moonshotai/kimi-k2.6", tools: [RefundTool] })
 export class SupportAgent {}
 @Workflow({
   name: "support-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ChatStart)
-      .returns(WorkflowStartTextDto)
+    onStart(ChatStart)
       .toAgent(SupportAgent)
       .toFinish(ChatFinish),
   ],

@@ -34,7 +34,7 @@ prompts:
   `@Budget`s) — not profile keys (#116).
 - Objects merge key by key; arrays and scalars replace. The merged config is validated again.
 - Typos and unknown agents fail with the file and the key (`profiles/…yaml: agents.coder.thinkin: …`).
-- `schema/profile.schema.json` is generated from the zod schema (`npm run schema`; a test fails
+- `schema/profile.schema.json` is generated from the zod schema (a test fails
   when it is stale) → autocomplete and validation in editors with the YAML language server.
 
 Use a profile anywhere: `agboss chat --profile scout-low-thinking` (also `agboss run`,

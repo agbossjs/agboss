@@ -67,16 +67,16 @@ export const environment: AppEnvironment = {
   retention: { costLedgerEntries: hours(24) }, // the ledger's entries (#771): the default, pruned by the sweep
   providers: [
     PostgresCheckpointSaver, // LangGraph's PostgresSaver on the shared pool
-    PostgresChildExecutionQueueRepository, // ChildPlacement.AnyInstance children
+    PostgresChildExecutionQueueRepository, // ChildPlacement.AnyWorker children
     PostgresCostLedgerRepository, // budgets count every pod's spend
-    PostgresExecutionHistoryRepository, // agboss records export on any pod
+    PostgresExecutionHistoryRepository, // agboss executions export on any pod
     PostgresExecutionAuditLogRepository, // the audit log: app.auditLogOf
     PostgresExecutionLeaseRepository, // one holder per tree, fenced by epoch
     PostgresExecutionRecordRepository, // threads, records, scores, summaries
     PostgresExecutionTreeRepository, // the shared state of one request
     PostgresFencedEffectRepository, // a protected write once per step or business key
     PostgresMeshRequestRepository, // a mesh request retried on another pod runs once
-    PostgresOutboundCallRepository, // OutboundCalls: intents, reconciled on any pod
+    PostgresOutboundCallRepository, // Idempotency.sendOnce: intents, recovered on any pod
     PostgresPausedExecutionRepository, // a pause answered on any pod
     PostgresRateLimitRepository, // a provider's limits, 429 pauses and breakers across pods
   ],
@@ -269,11 +269,11 @@ else stops.
   `trustedUntil` and then hands the tree over ([Several-instances](Several-instances#the-execution-lease))
   — but a pool too small for `maxConcurrentSteps` makes hand-overs out of healthy pods. Size it to
   the steps an instance runs at once, plus a few.
-- **A fenced effect's `work` holds a connection and the tree's lease row.** It runs inside the
+- **`runOnce`'s `execute` holds a connection and the tree's lease row.** It runs inside the
   store's transaction, after `SELECT … FOR UPDATE` of the lease row, and gets the transaction's
   `PoolClient`: everything it awaits holds that connection and that row lock, and the tree's own
-  renewal waits for it. Keep `work` to the business rows of that transaction; a call to another
-  system belongs in `OutboundCalls.send`, which holds no transaction while it sends.
+  renewal waits for it. Keep `execute` to the business rows of that transaction; a call to another
+  system belongs in `Idempotency.sendOnce`, which holds no transaction while it sends.
 - **Poolers.** The migration command needs a session of its own (a session advisory lock): run it
   against the server, not through a transaction-mode pooler (PgBouncer `pool_mode = transaction`).
   The stores themselves run every atomic operation as one statement or one transaction and lock only
@@ -399,9 +399,9 @@ agbossjs/postgres's CI runs, on PostgreSQL 16, on every pull request, every push
   than the core's (#607) — split over three parallel jobs (`shard: "env"`, `AGBOSS_FAULT_SHARD`,
   #831), its sabotages included.
 - **Two-process tests** of each acceptance criterion: a pod killed mid-step and its tree taken
-  over, `AnyInstance` children claimed once, a pause answered on the other pod, a shared budget and
+  over, `AnyWorker` children claimed once, a pause answered on the other pod, a shared budget and
   rate limit, the history export, mesh deduplication, and a payment whose pod froze mid-charge
-  reconciled, never sent twice.
+  recovered, never sent twice.
 - **Migrations**: a second run changes nothing (a schema dump compared), concurrent runs serialize, a
   changed file fails, and a database too old or too new fails the start.
 

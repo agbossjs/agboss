@@ -12,7 +12,7 @@ cd support-desk && cp .env.example .env && npx agboss chat
 `agboss create <project>` writes **an application and its first workflow** (#268 AC8): the
 application `src/support-desk.application.ts` (`support-desk-application`; its path is
 `"agboss": { "application" }` in the project's `package.json`), beside it what every workflow shares —
-`environments/` (the contract, `dev`, `staging`, `test`), `config/budget.config.ts`,
+`environments/` (the contract, `dev`, `staging`, `test`), `budgets/` (`application-daily.budget.ts`, …),
 `model-providers/openrouter.model-provider.ts`, `guardrails/prompt-injection.guardrail.ts` (listed in
 `@Application({ guardrails })`, its model `defaults.guardrail.model`) and `services/api.service.ts` —
 and the first workflow `support-desk-workflow` in `src/support-desk/`.
@@ -30,7 +30,7 @@ agboss c support-desk --yes --agents "triage-agent:Sorts requests,answerer-agent
 ```
 
 The skeleton runs at once: tools return a marked placeholder (`TODO`), prompts are drafted from the roles,
-every tool has a test (`testTool(XTool)`) and the workflow has one on `testWith`
+every tool has a test (`testUnit(XTool)`) and the workflow has one on `testWith`
 (`src/<project>/<project>.workflow.test.ts`: the main router and the first agent by script, in the
 application — it runs offline, [Testing](Testing)). Files follow the
 [conventions](Components#file-conventions): `*.agent.ts` + `*.prompt.md`, `*.tool.ts` +
@@ -40,7 +40,7 @@ application — it runs offline, [Testing](Testing)). Files follow the
 `workflow-finishes/text.workflow-finish.ts` (`TextWorkflowFinish`, `<workflow>-text-workflow-finish`)
 — names carry the workflow, so a second workflow never clashes; a text-only MCP server tool replies
 with `PlainTextDto`. The workflow is one path ([Workflow](Workflow)):
-`start(TextWorkflowStart).returns(WorkflowStartTextDto).toRouter(MainRouter).chooseOne(route(TriageAgent).toFinish(TextWorkflowFinish), …)`
+`onStart(TextWorkflowStart).toRouter(MainRouter).onRoute(toAgent(TriageAgent).toFinish(TextWorkflowFinish))…`
 — the main router chooses the agent that answers, each agent's text finishes the run. The scripts run
 a workflow by its start's full name (`"chat": "agboss chat --start support-desk-text-workflow-start"`,
 `run` the same), so they keep working when the application gets more workflows; `npm run types`
@@ -58,12 +58,13 @@ AGBoss code follows, the same ones the framework's own gate runs:
 | Rule                                   | Files                              | Fails                                                                                 |
 | -------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------- |
 | `agboss/no-component-state`            | `src/**/*.ts` but `*.test.ts`      | `this.x = …` outside the constructor of a component ([Components](Components))        |
-| `agboss/no-direct-time`                | `src/**/*.ts` but `*.test.ts`      | `Date.now()`, `new Date()`, `setTimeout`, … — inject `Clock` (`clock.now()`)          |
+| `agboss/no-direct-time`                | `src/**/*.ts` but `*.test.ts`      | `Date.now()`, `new Date()`, `process.hrtime`, `setTimeout`, … — inject `Clock` (`clock.now()`)          |
+| `agboss/no-process-env`                | `src/**/*.ts` but tests            | a raw `process.env` — read it with `defineEnv`; `processEnv: process.env` in an entry point is allowed (#1324) |
 | `agboss/no-internal-import`            | every `.ts` / `.js` file           | an import of `@agboss/core/internal` — the CLI's, no semver promise; `studioOf` is in `@agboss/core/testing` (#818) |
-| `@stylistic/newline-per-chained-call`  | `**/*.workflow.ts`                 | two calls of a chain on one line: `start(A)` / `.returns(B)` / `.toFinish(C)`         |
+| `@stylistic/newline-per-chained-call`  | `**/*.workflow.ts`                 | two calls of a chain on one line: `onStart(A)` / `.toAgent(B)` / `.toFinish(C)`         |
 
 The `agboss/…` rules come from the public entry `@agboss/core/eslint` of the framework (#388 S2):
-`agbossPlugin` and `FLOW_CHAIN_RULE` — the one-call-per-line rule with the framework's options
+`agbossPlugin` (its types `AGBossPlugin`, `AGBossRules`; `configs.recommended` holds the blocks above) and `FLOW_CHAIN_RULE` — the one-call-per-line rule with the framework's options
 (`ignoreChainWithDepth: 1`); the entry needs `@typescript-eslint/utils` (an optional peer of
 `@agboss/core`, installed with `typescript-eslint`), and the root import never loads it. The generated
 config, in short:
@@ -71,9 +72,7 @@ config, in short:
 ```js
 import { FLOW_CHAIN_RULE, agbossPlugin } from "@agboss/core/eslint";
 // …
-{ files: ["src/**/*.ts"], ignores: ["src/**/*.test.ts"], plugins: { agboss: agbossPlugin },
-  rules: { "agboss/no-component-state": "error", "agboss/no-direct-time": "error" } },
-{ files: ["**/*.{ts,mts,cts,js,mjs,cjs}"], plugins: { agboss: agbossPlugin }, rules: { "agboss/no-internal-import": "error" } },
+...agbossPlugin.configs.recommended, // the state, time, env and internal-import rules above
 { files: ["**/*.workflow.ts"], plugins: { "@stylistic": stylistic }, rules: FLOW_CHAIN_RULE },
 ```
 
@@ -89,7 +88,7 @@ src/services/api.service.ts
 ```
 
 Generated code follows the [conventions](Components#conventions): explicit return types,
-`implements …Handler` (`ToolHandler<In, Out>`, `BudgetHandler`), `@Injectable`s named by their role
+`implements …Handler` (`BudgetHandler`; a tool needs none), `@Injectable`s named by their role
 (`ApiService`, the OpenAPI client `PetsApiService`) and fields named after their type
 (`private readonly apiService: ApiService`), the execution through the constructor
 (`deps: [ExecutionContext]`, `private readonly executionContext: ExecutionContext`) and code outside
@@ -122,7 +121,7 @@ Each part is **wired** (the TypeScript Compiler API edits the `@Agent` / `@Workf
 `@Application` arrays, the flow and imports): a new agent joins the main router's choice — a route
 `{ prompt: "Handles invoices", target: BillingAgent }` in `routers/main.router.ts`'s `routes`, and
 `route(BillingAgent).toFinish(TextWorkflowFinish)` after the last `route(…)` of
-`.toRouter(MainRouter).chooseOne(…)`. A new router gets the answer route only and is **not** put into
+`.toRouter(MainRouter).onRoute(…)`. A new router gets the answer route only and is **not** put into
 the flow — where it sits is your choice. `generate workflow` writes the workflow in a folder beside
 the application file (`src/onboarding/`, its test there too) and lists its class in
 `@Application({ workflows })` — a name the application already has is a conflict (exit 4). At its
@@ -356,7 +355,7 @@ and `; `.) `agboss chat` sends what is typed as a text, so its start takes `Work
 | `agboss describe` | [the whole application](#describe-268): its tree of workflows, starts and children, each contract's implementation and why, the model providers, the channels, the budgets, the environment; then every workflow (the listed ones, then their child workflows) — no key. `--json`: `{ application: { name, version, tree, implementations, modelProviders, channels, budgets, executionBudgets, maxConcurrentSteps, … }, workflows: [ … ] }`, each workflow with its [declarative snapshot](#the-declarative-snapshot-268) |
 | `agboss check --strict` | the same, every warning of the analyser (`[flow.path-too-deep]`, `[graph.child-without-failure-finish]`, `[judge.same-model-family]`, `[limits.max-steps-below-worst-case]`, `[limits.child-concurrency-above-parent]`, `[flow.committer-unreachable]`; #769: all of them, never a list of some) and the application's assembly warnings (`[application.in-memory-cost-ledger]`, `[application.in-memory-pauses]`, #261) errors — exit 3; without `--strict` they are printed as `warning: …` lines ([Workflow as a step](Workflow-as-a-step#errors)) |
 | `agboss check --models` | every model setting of every workflow of the application against what its resolved provider says the model supports, and OpenRouter's pinned hosts and quantizations against each served model's endpoints (`[model.no-matching-endpoint]`, #395) — all problems at once, exit 1 on any; no model call, but it connects, so the chosen environment's secrets must be set — a missing one names its variable ([Model providers](Model-providers#fail-fast-settings-must-fit-their-models)) |
-| `agboss check --cassettes` | also every VCR cassette under the working directory against the application's components (#395): a component whose prompt or schema hash changed since it was recorded, or one the application no longer has, is `[vcr.stale-cassette]` (exit 3) — fixed by `AGBOSS_VCR_MODE=RECORD_STALE npm test`, never by a hand edit; a version 1 cassette is a `hint:` line; no test runs, no key ([Testing](Testing#stale-cassettes-395)) |
+| `agboss check --cassettes` | also every VCR cassette under the working directory against the application's components (#395): a component whose prompt or schema hash changed since it was recorded, or one the application no longer has, is `[vcr.stale-cassette]` (exit 3) — fixed by `AGBOSS_VCR_MODE=record-stale npm test`, never by a hand edit; a version 1 cassette is a `hint:` line; no test runs, no key ([Testing](Testing#stale-cassettes-395)) |
 | `agboss check --federation <snapshot…>` | also the application's declared contracts against its neighbours' `agboss describe --json` snapshots — files or folders of them, read from disk, no network (#398 PR 4): `[federation.missing-target]`, `[federation.incompatible-schema]` (structural, with the consumer's workflows and tools it affects), `[federation.snapshot-schema]`, `[federation.duplicate-application]`, and with the project's own earlier snapshot `[federation.version-not-bumped]` (a warning, an error under `--strict`); exit 3 on a problem ([A2A](A2A#8-the-federation-check-398-pr-4)) |
 | `agboss eval run [--suite <name>] [--runs <k>] [--report <run.json>] [--html <file>] [--baseline <run.json> [--fail-on-regression]] [--chaos <rate> --chaos-seed <n> [--chaos-failures <list>]] [--metamorphic] [--profile <name>]` | run an `@EvalSuite` on the application: each case k times, its checks under the cascade, pass@k / pass^k per case, the run artifact ([Eval suites](Eval-Suites#running-a-suite-agboss-eval-run), #396), its HTML report (#397); each case against a baseline, exit 5 on a regression; failures injected into its model calls ([Eval suites](Eval-Suites#under-failures---chaos)) |
 | `agboss eval show <run.json> [--html <file>]` | a saved run artifact: its table, and with `--html` its self-contained HTML report — nothing runs, no key ([Eval suites](Eval-Suites#the-html-report---html-and-agboss-eval-show-397), #397) |
@@ -367,10 +366,10 @@ and `; `.) `agboss chat` sends what is typed as a text, so its start takes `Work
 | `agboss compare [--start <name>] --profiles base,<p>` | profiles side by side on the start's workflow ([Profiles and comparisons](Profiles-and-comparisons)) |
 | `agboss dev [--strict]` | watch mode: `agboss check` rerun in a short-lived process on every change of the application's `src/` — the types regenerated, the problems printed ([below](#watch-mode-and-studio-268)) |
 | `agboss studio [--port N]` | LangGraph Studio on every workflow of the application, a child drawn inside its parent — no `studio.ts` / `langgraph.json` in the project ([below](#watch-mode-and-studio-268)) |
-| `agboss records export (--tenant <id> \| --all-tenants) --out <file.jsonl> [--since <date>] [--until <date>] [--env <name>]` | the application's kept execution records (`@Application({ retention: { executionRecords } })`) as masked JSON Lines, `kind: "agboss.execution-record"` — its stores opened, nothing run; `records.tenant-required` (exit 2), `records.not-kept` (exit 3) ([Execution history](Execution-history#exporting-it-agboss-records-export)) |
+| `agboss executions export (--tenant <id> \| --all-tenants) --out <file.jsonl> [--since <date>] [--until <date>] [--env <name>]` | the application's kept execution records (`@Application({ retention: { executionRecords } })`) as masked JSON Lines, `kind: "agboss.execution-record"` — its stores opened, nothing run; `records.tenant-required` (exit 2), `records.not-kept` (exit 3) ([Execution history](Execution-history#exporting-it-agboss-records-export)) |
 | `agboss hub show <path…> [--html <file>]` | many applications' describe snapshots, eval runs and exported executions read from files and folders (each by its marker) into one mesh — the applications, the calls between them, each one's health from its files, the trees across applications, the radar, the declared contracts with `check --federation`'s problems and their blast radius — and with `--html` one self-contained page; no project, nothing runs; `hub.input-schema`, `hub.duplicate-application`, `hub.input-not-found` (exit 3) ([Mesh Hub](Mesh-Hub)) |
 | `agboss hub ui <path…> [--port N]` | the same files served on 127.0.0.1 behind a printed token, on `eval ui`'s server and rules, read-only: the mesh page, a search of the kept executions and a JSON API; a bad `--port` exit 2, a bad file exit 3 ([Mesh Hub](Mesh-Hub#served-agboss-hub-ui)) |
-| `agboss rag index [--rag <name>] [--tenant <id>]` | build / update every knowledge base of the application for one tenant (#700) — `--tenant` is required when the application declares a tenant context (none is exit 2, `rag.tenant-required`, nothing built, #797), else `default`, each once; Ctrl+C (SIGINT / SIGTERM) aborts the connector's signal — exit 1, `rag.interrupted`, the knowledge base it was building left as it was (#891) (one bound by two agents too); `--rag` one by its full name — an unknown one is exit 2 with a `Did you mean "…"?` and the list ([Knowledge bases](Knowledge-bases)) |
+| `agboss rag index [--rag <name>] [--tenant <id>] [--scope <id>]` | build / update every knowledge base of the application for one scope — `--tenant` is required when a target `@Rag` declares a scope other than `Shared` (`rag.tenant-required`), and an `Owner` / `Custom` one needs `--scope` too (`rag.scope-required`), nothing built; a shared one is built with no scope, so a multi-tenant application never names a tenant for it; each once; Ctrl+C (SIGINT / SIGTERM) aborts the source's signal — exit 1, `rag.interrupted`, the knowledge base it was building left as it was (#891) (one bound by two agents too); `--rag` one by its full name — an unknown one is exit 2 with a `Did you mean "…"?` and the list ([Knowledge bases](Knowledge-bases)) |
 
 Every command that loads the application takes `--env <name>` and `--application <path>`; exit codes
 are 0 ok · 1 internal · 2 usage (an unknown option, start or knowledge base, an input that does not
@@ -382,8 +381,10 @@ baseline, `eval.regressed`, #396).
 input to the chosen start, print the finish's output, ask in the terminal about each pause the
 thread's owner answers and continue it with `app.resume({ pauseId, decision })` ([Pauses](Pauses)),
 and close the app (components' `onStop`, MCP servers) at the end. `eval score`, `replay`, `golden`
-and `compare` assemble the application and work on the start's workflow — a `--profile` is that
-workflow's own (`profiles/<workflow>/<name>.yaml`).
+and `compare` assemble the application and work on the start's workflow — a `--profile` is a
+profile of the application (`src/config/<name>.config.ts|yaml`, layered `a,b` left to right over
+`base.config.*`; `compare` joins the layers of one entry with `+`). The project's `.env` is read from
+the folder of the `package.json` that holds the application, not the working directory.
 
 ### `agboss eval`: subcommands (#396)
 
@@ -478,9 +479,9 @@ on every run. Since #791 the CLI does not install `@langchain/langgraph-cli`: it
 needed it.
 
 What Studio shows (S37): a child workflow is a **subgraph inside its parent** — entered by an edge
-(`.toWorkflow(W)`, `route(W)`) or one per item (`.toParallelWorkflows(W, …)`), its steps drawn as
+(`.toWorkflow(W)`, `route(W)`) or one per item (`.forEachItem(toWorkflow(W), …)`), its steps drawn as
 `vendor-check-workflow:vendor-checker-agent` in the parent's graph — and also a graph of its own
-(it runs alone through its own starts). `ThisWorkflow` is the node `this-workflow`, never its own
+(it runs alone through its own starts). A workflow launching itself (`() => Self`) is the node of its own name, never its own
 subgraph; `getGraphAsync({ xray: true })` marks it `recursive: maxDepth N` in the node's metadata,
 which Studio's graph endpoint does not pass on (its JSON keeps a node's id, type and name only) — so
 Studio shows a plain node there (an open question of #268 PR 3). Studio's own runs are limited by
@@ -488,12 +489,19 @@ steps and visits; budgets are opened per execution by the app ([FinOps](FinOps))
 
 ## describe (#268)
 
+Code reads the same facts from `@agboss/core/describe` (#1324): `describeApplication(AppClass, options?)`
+and `describeWorkflow(AppClass, WorkflowClass, options?)` return the text lines, and
+`describeApplicationData(AppClass, options?)` the typed `--json` projection
+`{ application: DescribedApplication, workflows: DescribedWorkflow[] }`. They take the `@Application`
+class and assemble it as `createApp` does — `options` is `{ profile?, processEnv?, source? }` — so no
+assembled structure is public.
+
 `agboss describe` prints the application first, then each workflow — from the decorators, with no
 key, no network and no project code run (no `maxSpend()`):
 
 - **The tree** — the workflows `@Application({ workflows })` lists, each with its starts (and their
   input) and, below it, the child workflows it launches, by which step, one or one per item, down to
-  their own children; `ThisWorkflow` is the workflow again, marked with its `maxDepth`.
+  their own children; a workflow launching itself is the workflow again, marked with its `maxDepth`.
 - **Implementations** — each infrastructure contract's class and why (listed in `@Application
   providers` / built-in default); **model providers** — the listed ones, else the built-ins, each
   with what it `serves` ([Model providers](Model-providers)).
@@ -508,8 +516,8 @@ key, no network and no project code run (no `maxSpend()`):
 - **Each workflow** — its guardrails and PII policies with their refusals (the text, or
   `ClassName.refusal()` when the class computes it), the paths as written, each node's inputs with
   their producers (`prepare-offer-action ← draft: editor-agent | draft-agent (latest), …`), each
-  value written `{ about }`, the start each edge into a child enters through, its limits —
-  `maxSteps` (set or default), each node's `maxVisits`, `maxDepth`, `maxConcurrentExecutions` and
+  the start each edge into a child enters through, its limits —
+  `maxSteps` (set or default), each node's `maxVisits`, `maxDepth`, `maxConcurrency` and
   the worst case of each start ([below](#the-check-report-268)) — `model → provider`, its agents,
   tools, dependencies, knowledge bases and settings; each agent's compaction and `uncompactedTurns`
   with where they came from (`(own)`, the workflow's or the application's name, `(built-in)`,
@@ -524,7 +532,7 @@ vendor-screening-workflow 1.0.0
     start vendor-check-workflow-start (VendorDto)
 topic-research-workflow 1.0.0
   start topic-research-workflow-start (TopicDto)
-  child topic-research-workflow (ThisWorkflow, recursive, maxDepth 3) per item from subtopics-action (maxItems 5, maxConcurrency 3)
+  child topic-research-workflow (recursive, maxDepth 3) per item from subtopics-action (maxItems 5, maxConcurrency 3)
 ```
 
 ### The declarative snapshot (#268)
@@ -538,10 +546,10 @@ each entry of `workflows[]` has:
 | `configHash` | the workflow's fingerprint — the one join key: the same in `WorkflowRecord`, every execution event, `executionContext.workflow` and the records ([Observability → Join keys](Observability#join-keys)) |
 | `starts`, `finishes` | its starts' and finishes' names                                                                                     |
 | `nodes`    | every node: `name`, `kind` (`ComponentKind`), `description`, `promptHash`, `schemaHash`, `input` / `output` (each DTO as `{ dto, schemaHash }`, wrappers as `listOf` / `oneOf` / `optional` / `historyOf` / `fields`), `maxVisits`; an agent's `agent` — `model`, `provider`, `reasoning`, `maxTokens`, `maxModelCalls`, `maxToolCalls`, `uncompactedTurns`, `compaction`, `tools`, `rag` (`name`, `mode`, `topK`), the `guardrails` and `piiPolicies` in effect after the application → workflow → agent cascade, `judges`, `maxRetries`, `instructions`; a router's `router` — `decidedBy`, `model`, `provider`, `instructions`, its `routes` with `spawn` and `failure`; an action's `action` — `compensateWith`, `committedBy` (component names, #339), only when it declares one |
-| `edges`    | every edge: `from`, `to`, `kind` (`next`, `case`, `route`, `error`, `launch`, `join`, `join-error`), what it `writes` (`value`, `about`, `isCase`), the `error` class of a side path, a quorum group's agents |
-| `onError`  | the `.onError` / `.onJoinError` table: `at`, `error` (the class), `by` (the side path's first node), `kind`                  |
-| `launches` | every launch: `launcher`, `targets`, `isPerItem`, `maxConcurrency`, `maxItems`, its `quorum` (`{ kind, min, max, deadline }` or its `groups`) and its arbiters — each `.acceptedBy(…)` in path order, an `anyOf` as one list — with `decidedBy`, `model` and `promptHash` |
-| `modelComponents` | every component that calls a model but is no node (#395): model judges, guardrails, arbiters, compactions that write summaries, model reply interpreters, PII policies with `detectWithModel` — each `{ name, kind, promptHash, schemaHash }` (`ComponentKind.Judge`, `Guardrail`, `Arbiter`, `Compaction`, `ReplyInterpreter`, `PiiPolicy`); what a VCR cassette compares to find a stale recording ([Testing](Testing#stale-cassettes-395)) |
+| `edges`    | every edge: `from`, `to`, `kind` (`next`, `case`, `route`, `error`, `launch`, `join`, `join-error`), what it `writes` (`value`, `isCase`), the `error` class of a side path, a quorum group's agents |
+| `onError`  | the `.onError` table: `at`, `error` (the class), `by` (the side path's first node), `kind`                  |
+| `launches` | every launch: `launcher`, `targets`, `isPerItem`, `maxConcurrency`, `maxItems`, its `quorum` (`{ kind, min, max, deadline }` or its `groups`) and its `arbitratedBy` arbiter — with `decidedBy`, `model` and `promptHash` |
+| `modelComponents` | every component that calls a model but is no node (#395): model judges, guardrails, arbiters, compactions that write summaries, model reply interpreters, PII policies with `model` — each `{ name, kind, promptHash, schemaHash }` (`ComponentKind.Judge`, `Guardrail`, `Arbiter`, `Compaction`, `ChannelInterpreter`, `PiiPolicy`); what a VCR cassette compares to find a stale recording ([Testing](Testing#stale-cassettes-395)) |
 | `schemas`  | `dtos` — every DTO on its paths by class name, `{ schemaHash, jsonSchema }`; `tools` — every tool by name, `{ promptHash, schemaHash, input, output }` (JSON Schemas) |
 
 A hash that does not apply is left out (`promptHash` of an action, `schemaHash` of a node that
@@ -562,7 +570,7 @@ $ agboss describe --json | jq '.result.workflows[0] | { configHash, node: .nodes
 rule as the [start log](App#at-start-the-log-the-warnings-describe): only what the decorators say. Each number says how it is made up:
 `maxItems` and `maxConcurrency` of the launches on the way (multiplied out level by level), each
 workflow's `maxSteps` or its longest path, `maxDepth` of a workflow launching itself, and the tree's
-`maxConcurrentExecutions` when it is lower than the executions alive at once:
+`maxConcurrency` when it is lower than the executions alive at once:
 
 ```
 flow-patterns-application 1.0.0, environment prod
@@ -570,7 +578,7 @@ flow-patterns-application 1.0.0, environment prod
 Worst case of one vendor-screening-workflow-start call
   workflow executions     21  1 vendor-screening-workflow + 20 vendor-check-workflow (maxItems 20)
   at the same time        4   1 vendor-screening-workflow + 3 vendor-check-workflow (maxConcurrency 3)
-  agent and router steps  22  2 in vendor-screening-workflow (longest path) + 20 × 1 in vendor-check-workflow (longest path)
+  steps  22  2 in vendor-screening-workflow (longest path) + 20 × 1 in vendor-check-workflow (longest path)
   nesting depth           2   vendor-screening-workflow → vendor-check-workflow
 
 prod environment needs 3 process variables:

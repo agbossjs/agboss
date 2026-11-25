@@ -10,13 +10,14 @@ limits, spend recording or Turns.
 ## Plug it in
 
 A tool that needs approval names a **channel** — who is asked — found through the tool, nothing to
-list in the workflow (#267): a concrete `@Channel` used as is (`TerminalUserChannel` asks in the
-terminal; `AutoApproveChannel` / `AutoRejectChannel` decide at once, for tests and scripts) or a
+list in the workflow (#267): a concrete `@Channel` used as is (`AutoApproveChannel` / `AutoRejectChannel` decide at once, for tests and scripts; an owner's approval
+needs none) or a
 **channel role** whose implementation the application lists
 ([Tools → Approval channels](Tools#approval-channels)):
 
 <!-- snippet-context
-import { Agent, ExecutionStatus, TerminalUserChannel, Tool, Workflow, WorkflowFinish, WorkflowStart, start, type ToolHandler } from "@agboss/core";
+import { inline, Agent, ExecutionStatus, PauseRespondent, Tool, ToolApproval, Workflow, WorkflowFinish, WorkflowStart, onStart, Ttl } from "@agboss/core";
+import { hours } from "@agboss/core/units";
 import { Email, Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 class EmailDraft { @Email() to!: string; @Text() body!: string; }
 class EmailSent { @Text() id!: string; }
@@ -27,28 +28,36 @@ export class Done {}
 -->
 
 ```ts file=errands.workflow.ts
+@ToolApproval({
+  name: "owner-tool-approval",
+  description: "The thread's owner approves the call",
+  respondent: PauseRespondent.Owner,
+  timeout: hours(24),
+})
+export class OwnerApproval {}
+
 @Tool({
   name: "send-email-tool",
   description: "Sends an email",
   input: EmailDraft,
   output: EmailSent,
-  channel: TerminalUserChannel, // the call waits for a decision
+  approval: OwnerApproval, // the call waits for the owner's decision
 })
-export class SendEmail implements ToolHandler<EmailDraft, EmailSent> {
-  run(draft: EmailDraft): Promise<EmailSent> {
+export class SendEmail {
+  execute(draft: EmailDraft): Promise<EmailSent> {
     return Promise.resolve({ id: `sent to ${draft.to}` });
   }
 }
 
-@Agent({ name: "assistant-agent", description: "Does errands", prompt: "Do the errand.", model: "moonshotai/kimi-k2.6", tools: [SendEmail] })
+@Agent({ name: "assistant-agent", description: "Does errands", prompt: inline("Do the errand."), model: "moonshotai/kimi-k2.6", tools: [SendEmail] })
 export class Assistant {}
 
 @Workflow({
   name: "errands-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(TaskStart)
-      .returns(WorkflowStartTextDto)
+    onStart(TaskStart)
       .toAgent(Assistant)
       .toFinish(Done),
   ],
@@ -67,18 +76,19 @@ import { EmptyEnvironment } from "@agboss/core";
 class ErrandsApplication {}
 
 const app = await createApp(ErrandsApplication);
-const first = await app.execute(TaskStart, { text: "Email the report to my boss" });
-const [waiting] = first.pending; // { pauseId, answeredBy, agent, channel, ask: { tool, arguments, … } }
+const tenant = { tenantId: "acme", ownerId: "boss-1" };
+const first = await app.execute(TaskStart, { text: "Email the report to my boss" }, tenant);
+const [waiting] = first.pending; // { pauseId, respondent, target, step, channel?, input, toolCall, … }
 if (first.status === ExecutionStatus.Paused && waiting?.pauseId !== undefined) {
-  // TerminalUserChannel's pauses are answered by the thread's owner: their id is listed
-  const done = await app.resume({ pauseId: waiting.pauseId, decision: { approved: true } });
+  // the owner's pauses are answered by the thread's owner: their id is listed
+  const done = await app.resume({ pauseId: waiting.pauseId, decision: { approved: true } }, tenant);
   console.log(done.output);
 }
 ```
 
 The decision is a `ToolCallApprovalDecisionDto` (`@agboss/core/dto`): `approved`, `reason?` — why,
-`overrideArguments?` — only with `approved: true`, checked by the tool's input. Who answered is not
-part of it: the framework knows it from the resume (`answeredBy`, or the thread's owner). It is
+`overrideInput?` — only with `approved: true`, checked by the tool's input. Who answered is not
+part of it: the framework knows it from the resume (`actor`, or the thread's owner). It is
 validated before it is recorded (`DtoValidationError` otherwise; the pause keeps waiting). `agboss
 chat` asks in the terminal; a decline carries `reason: "declined in the terminal"`. `sensitive`
 fields of the input DTO are shown masked.
@@ -90,9 +100,8 @@ asking one from a step or a tool is #659.
 
 Paused runs and their pauses live in the application's `PausedExecutionRepository` and their state
 in its `BaseCheckpointSaver` (#261) — in memory by default, lost on restart. A pause survives a
-restart when both are durable: a class that `extends PausedExecutionRepository` and a durable
-`BaseCheckpointSaver` listed in `@Application({ providers })` (`SqlitePausedExecutionRepository` and
-`SqliteCheckpointSaver`, #265).
+restart when both are durable: a durable `@DatabaseStorage` in `@Application({ storage })` (#1321: its driver creates the
+`PausedExecutionRepository` and the checkpointer, `SqliteDriver` on one machine).
 
 ## How it works
 
@@ -168,7 +177,7 @@ answers. **Then the turn ends** — the router is not asked again
 `PauseSeam.notices` (`recipientsOf(pause)`, `delivered()`) replaced the old `withdrawn` hook: every
 transition call site — the pause step's `markSent`, `app.resume`, a cancel, a `FailFast` or quorum
 withdrawal, a tree's end — asks `recipientsOf` who hears of the change (the channel that asked when
-it overrides `onPauseClosed` or `onPauseAnswerNotTaken`, and every `@PauseListener`), passes it to
+it overrides `onPauseClosed` or `onPauseAnswerNotTaken`, and every `@ChannelListener`), passes it to
 the store transition — the notices are written in its transaction — and calls `delivered()` right
 after the transition returned, before anything that may throw. See
 [Pauses → Telling the channel and the listeners](Pauses#telling-the-channel-and-the-listeners-940)

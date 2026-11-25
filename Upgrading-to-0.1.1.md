@@ -18,24 +18,64 @@ the AGBoss guarantees as two extensions
 
 ## Migration
 
-| 0.1.0 | 0.1.1 |
-| --- | --- |
-| `@A2AAgent({ target: { application, start } })` | `target: { application, skill }` — the skill id is the exported start's name, so the value stays; `target` itself is optional (a foreign agent has none) |
-| `client.cancel(threadId)` | `client.cancel(taskId)` — cancels that task only; `call.threadId` is `call.contextId` |
-| `A2ARoute` (`Execute`, `Resume`, `Cancel`), `request.route` | `A2AOperation`, `request.operation`; a resume is `SendMessage` with a `taskId` |
-| `a2aHttpListener(app, { expose, callerResolver })` | adds `publicUrl`: where callers reach it, the card's interface URL |
-| `@A2AExpose({ name, version, exports })` | adds a `description` (`[a2a.expose-description-required]`) and, for a card worth finding, `skills: { [start]: { tags } }` (`[a2a.skill-tags]`, a warning) |
-| `A2AExecutionResponse`, `A2AStatus`, `A2AEvent`, `A2AExecutionRequest` | removed; a call returns the remote output (`execute`) or an `A2ATaskResult` (`send`) |
-| `A2ARemoteError`, `A2AContract` | `A2ARemoteCallError`, `A2AClientContract`; the adapter types are gone |
-| the mesh envelope in the `agboss-mesh` header | `message.metadata["https://agboss.dev/a2a/mesh/v1"].envelope` |
-| a run report in the response body | `task.metadata[uri].report` |
-| `describe --json` exports and imports by `start` | by `skill`; a foreign `@A2AAgent` is listed with `foreign: true` — re-save your federation snapshots (a 0.1.0 snapshot is still read) |
-| — | `@Application({ retention: { a2aTasks, a2aMessages, a2aFiles } })`: how long a finished task (and a resent `messageId`'s answer), a direct reply and a task's files are kept — defaults 24 h, 15 min, `a2aTasks` |
-| — | an application serving A2A on shared leases lists a task store they share (`[a2a.task-store-not-shared]`) |
+| 0.1.0                                                                  | 0.1.1                                                                                                                                                                                                            |
+| ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@A2AAgent({ target: { application, start } })`                        | `target: { application, skill }` — the skill id is the exported start's name, so the value stays; `target` itself is optional (a foreign agent has none)                                                         |
+| `client.cancel(threadId)`                                              | `client.cancel(taskId)` — cancels that task only; `call.threadId` is `call.contextId`                                                                                                                            |
+| `A2ARoute` (`Execute`, `Resume`, `Cancel`), `request.route`            | `A2AOperation`, `request.operation`; a resume is `SendMessage` with a `taskId`                                                                                                                                   |
+| `a2aHttpListener(app, { endpoint, authenticator })`                      | adds `publicUrl`: where callers reach it, the card's interface URL                                                                                                                                               |
+| `@A2AExpose({ name, version, exports })`                               | `@A2AEndpoint({ name, version, description, ttl, skills })`: a `description` (`[a2a.endpoint-description-required]`), a required `ttl`, and `skills: [{ start, tags }]` for a card worth finding (`[a2a.skill-tags]`, a warning) |
+| `A2AExecutionResponse`, `A2AStatus`, `A2AEvent`, `A2AExecutionRequest` | removed; a call returns the remote output (`execute`) or an `A2ATaskResult` (`send`)                                                                                                                             |
+| `A2ARemoteError`, `A2AContract`                                        | `A2ARemoteCallError`, `A2AClientContract`; the adapter types are gone                                                                                                                                            |
+| the mesh envelope in the `agboss-mesh` header                          | `message.metadata["https://agboss.dev/a2a/mesh/v1"].envelope`                                                                                                                                                    |
+| a run report in the response body                                      | `task.metadata[uri].report`                                                                                                                                                                                      |
+| `describe --json` exports and imports by `start`                       | by `skill`; a foreign `@A2AAgent` is listed with `foreign: true` — re-save your federation snapshots (a 0.1.0 snapshot is still read)                                                                            |
+| —                                                                      | `@A2AEndpoint({ ttl: { tasks, messages } })`: how long a finished task (and a resent `messageId`'s answer) and a direct reply are kept, per endpoint; files age by `@FilePolicy({ ttl })` |
+| —                                                                      | an application serving A2A on shared leases lists a task store they share (`[a2a.task-store-not-shared]`)                                                                                                        |
 
 A disconnect no longer cancels a run: the task goes on, and `GetTask` / `SubscribeToTask` read it.
 A client resends an ambiguous accept only to an AGBoss peer, within the retention its card declares
 — never to a foreign peer.
+
+## PII rules — three verbs on the kind (#1301)
+
+A declarative `@PiiPolicy` writes each rule on its kind or group; `pii(…)` and the `replace…` /
+`blockWithRefusal` names are gone, with no alias. Tokens do not change: a token's label is still
+the kind's id (`<email:7f3a91>`).
+
+| 0.1.0                                                                                                                 | 0.1.1                                                                        |
+| --------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `pii(PiiKind.Email, PiiAction.replaceWithKind())`                                                                     | `PiiKind.Email.mask()`                                                       |
+| `pii(PiiKind.CardNumber, PiiAction.replacePart({ keepLast: 4 }))`                                                     | `PiiKind.CardNumber.mask({ keepLast: 4 })`                                   |
+| `pii(PiiKind.Phone, PiiAction.replaceWithToken())`                                                                    | `PiiKind.Phone.tokenize()`                                                   |
+| `pii(PiiKind.UsSsn, PiiAction.blockWithRefusal({ refusal: "…" }))`                                                    | `PiiKind.UsSsn.block("…")`                                                   |
+| `pii(PiiGroup.Contact, …)`                                                                                            | `PiiGroup.Contact.mask()` (and the other verbs)                              |
+| `sensitive: PiiAction.replaceWithToken()`, `action: PiiAction.replaceWithKind()`                                      | `PiiAction.tokenize()`, `PiiAction.mask()`                                   |
+| `PiiActionKind.ReplaceWithKind` / `ReplacePart` / `ReplaceWithToken` / `BlockWithRefusal`                             | `Mask` / `MaskPart` / `Tokenize` / `Block`                                   |
+| `PiiRefusalOptions`, `ReplaceWithKindAction`, `ReplacePartAction`, `ReplaceWithTokenAction`, `BlockWithRefusalAction` | removed; `MaskAction`, `MaskPartAction`, `TokenizeAction`, `BlockAction`     |
+| `refusal(kind)` reading `kind` as a string                                                                            | `kind.id` (a `PiiKind` is a descriptor; `PiiKind.fromId(id)` reads one back) |
+| one kind in two rules of a policy                                                                                     | `[pii.duplicate-target]` at assembly: one rule per kind or group             |
+
+## PII keys — a policy's `secret`, the storage's `piiSecret`, rotation (#1301)
+
+Tokens need a key that is the same on every instance, so one that was made up by the instance is gone:
+a `tokenize()` rule or action, or a `sensitive: PiiAction.tokenize()` field, with no key to make its
+token fails the start with `[pii.secret-required]`, naming the policy or the `Dto.field`. A key
+can be rotated without a value getting a second token in a thread that holds the first.
+
+| 0.1.0                                                                          | 0.1.1                                                                                                                          |
+| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| `@PiiPolicy({ pseudonymKey: secret("…") })`                                    | `@PiiPolicy({ secret: secret("…") })`                                                                                          |
+| `@PiiPolicy({ detectWithModel: "…" })`                                         | `@PiiPolicy({ model: "…", modelProvider? })`                                                                                   |
+| `@Application({ piiKeyField })` and a key made up by the instance              | `@DatabaseStorage({ piiSecret: secret("…") })`; none, and a token to make: `[pii.secret-required]`                             |
+| `[application.pii-instance-key]` (a warning)                                   | gone: nothing tokenizes by a key of the instance                                                                               |
+| `WorkflowStartTextDto.author` was a token                                      | `mask()`: a placeholder, no key needed                                                                                         |
+| a key change gave every value a new token                                      | `previousSecret` / `previousPiiSecret` (`secret.optional("…")`): a thread's token for a value is kept, old tokens still reveal |
+| a `Logger` a component injected wrote what it was given                        | masked by the application's PII policies, as the framework's own log is                                                        |
+| an image redactor's region with a target it was not asked for refused the file | painted and warned (`files.redactor-unknown-target`); a region that cannot be painted still refuses                            |
+
+No storage supplies a key, `InMemoryDatabaseStorage` included: a public constant would let anyone forge
+a token. `testWith` has a fixed test key (refused under `NODE_ENV=production`), so tests need no secret.
 
 ## PII tokens change once (#1269)
 
@@ -55,13 +95,13 @@ the child's models and traces as it is. In 0.1.1 a child is masked by the union 
 application's, the root's, every ancestor's and its own lists, at its models and in everything
 observed of it ([Guards → Levels](Guards#levels)). What to check:
 
-| 0.1.0 | 0.1.1 |
-| --- | --- |
-| a child's agents and routers read the values its parent's `@Workflow` policies mask | they read them masked; where one must see a value, `excludePiiPolicies: [ParentPolicy]` on that agent or router, or `@Workflow({ excludePiiPolicies })` on the child for all its models — observability stays masked |
-| an ancestor's rule and the child's may differ for one kind | `[pii.conflicting-rules]` at assembly, naming the way (`… (under root-workflow)`): make the lists agree |
-| an `excludePiiPolicies` naming an ancestor's policy | allowed; one no way into the workflow inherits is still `[pii.exclude-not-inherited]` |
-| a child's spans, events, records, outbound calls and pause notices by its own lists (an `AnyInstance` child's spans by the root's) | by its chain's, wherever it runs; the root's record parts by the root's only |
-| a queued `AnyInstance` child row | carries `piiPolicies` (its chain's policy names); a row without them is not readable, so finish or drain children queued by 0.1.0 before the upgrade (ADR-0034) |
+| 0.1.0                                                                                                                              | 0.1.1                                                                                                                                                                                                                |
+| ---------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| a child's agents and routers read the values its parent's `@Workflow` policies mask                                                | they read them masked; where one must see a value, `excludePiiPolicies: [ParentPolicy]` on that agent or router, or `@Workflow({ excludePiiPolicies })` on the child for all its models — observability stays masked |
+| an ancestor's rule and the child's may differ for one kind                                                                         | `[pii.conflicting-rules]` at assembly, naming the way (`… (under root-workflow)`): make the lists agree                                                                                                              |
+| an `excludePiiPolicies` naming an ancestor's policy                                                                                | allowed; one no way into the workflow inherits is still `[pii.exclude-not-inherited]`                                                                                                                                |
+| a child's spans, events, records, outbound calls and pause notices by its own lists (an `AnyWorker` child's spans by the root's) | by its chain's, wherever it runs; the root's record parts by the root's only                                                                                                                                         |
+| a queued `AnyWorker` child row                                                                                                   | carries `piiPolicies` (its chain's policy names); a row without them is not readable, so finish or drain children queued by 0.1.0 before the upgrade (ADR-0034)                                                      |
 
 `agboss describe` shows each way's effective sets under `pii chains`; the start log says the same
 (`app.pii-policies`). A child's own `configHash` does not change. **The `configHash` of a workflow
@@ -69,7 +109,7 @@ that launches another changes once** when the application or the workflow itself
 policy: its snapshot adds `handedDown`, the policies its children inherit, so an inherited policy's
 change is a change of the root. A tree of such a root paused or running before the upgrade is
 incompatible with it (`IncompatibleResumeError`, `recovery.incompatible`) unless the root's
-`onIncompatibleResume` says `"resume"` — as for any change of what its models read: the child now
+`onIncompatibleResume` says `ResumeDecision.Resume` — as for any change of what its models read: the child now
 runs under its chain's policies, which it did not under 0.1.0. Finish or drain those trees before
 the upgrade, or give the root an `onIncompatibleResume` policy. Workflows without children, and trees where
 neither the application nor a launching workflow lists a policy, keep their hash.
@@ -87,42 +127,48 @@ closes — withdrawn, cancelled, expired, answered (also elsewhere), its tree en
 ```ts
 import {
   Channel,
-  ChannelOf,
   ChannelOutcome,
-  ChannelRole,
-  PauseAnswerer,
+  ExternalTask,
   PauseClosedReason,
+  PauseRespondent,
   type ChannelAsk,
   type ChannelPauseClosedEvent,
 } from "@agboss/core";
-import { Flag, Text } from "@agboss/core/dto";
+import { Bool, Text } from "@agboss/core/dto";
+import { hours } from "@agboss/core/units";
 
 export class HoldRequest {
   @Text() bookingId!: string;
 }
 
 export class HoldDecision {
-  @Flag({ prompt: "whether the hold goes on" }) approved!: boolean;
+  @Bool({ prompt: "whether the hold goes on" }) approved!: boolean;
 }
 
-@ChannelRole({
-  name: "hold-question",
+@ExternalTask({
+  name: "hold-external-task",
   description: "Approves a hold",
-  ask: HoldRequest,
-  answer: HoldDecision,
-  answerer: PauseAnswerer.Channel,
+  input: HoldRequest,
+  output: HoldDecision,
+  respondent: PauseRespondent.Delegate,
+  timeout: hours(24),
 })
-export abstract class HoldQuestion extends ChannelOf<HoldQuestion> {}
+export class HoldExternalTask {}
 
-@Channel({ name: "mail-hold-channel", description: "Asks by mail" })
-export class MailHoldChannel extends HoldQuestion {
-  send(_ask: ChannelAsk<HoldQuestion>): Promise<ChannelOutcome<HoldQuestion>> {
+@Channel({
+  name: "mail-hold-channel",
+  description: "Asks by mail",
+  target: HoldExternalTask,
+  ttl: hours(1),
+})
+export class MailHoldChannel {
+  send(_ask: ChannelAsk<HoldExternalTask>): Promise<ChannelOutcome<HoldExternalTask>> {
     return Promise.resolve(ChannelOutcome.awaitReply());
   }
 
   // 0.1.0: override withdraw(withdrawal) — called once, only when a pause was taken back
   // 0.1.1: called for every close; event.reason says which, event.deliveryId is the dedupe key
-  override onPauseClosed(event: ChannelPauseClosedEvent<HoldQuestion>): Promise<void> {
+  onPauseClosed(event: ChannelPauseClosedEvent<HoldExternalTask>): Promise<void> {
     if (event.reason === PauseClosedReason.Answered) return Promise.resolve(); // marked by whoever answered
     console.log(`take back the question ${event.pauseId}: ${event.reason}`);
     return Promise.resolve();
@@ -130,21 +176,36 @@ export class MailHoldChannel extends HoldQuestion {
 }
 ```
 
-| 0.1.0 | 0.1.1 |
-| --- | --- |
-| `override withdraw(w)` | `override onPauseClosed(event)` |
-| `w.resolution` (`PauseResolution`) | `event.reason` (`PauseClosedReason`: `Answered`, `Expired`, `Cancelled`, `Withdrawn`, `TreeEnded`) |
-| called once, never after a crash | at least once: **deduplicate by `event.deliveryId`**, and make the hook safe to run twice |
-| the warning `channel.withdraw-failed` | `pause.notice-failed` (each failed attempt), `pause.notice-dead` (set aside after `retention.pauseRecords`) |
-| — | `@PauseListener` for a hook on every pause of the application; `PauseExpiration`, `remindBefore`, `app.extendPause` — [Pauses](Pauses) |
+| 0.1.0                                 | 0.1.1                                                                                                                                  |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `override withdraw(w)`                | `override onPauseClosed(event)`                                                                                                        |
+| `w.resolution` (`PauseResolution`)    | `event.reason` (`PauseClosedReason`: `Answered`, `Expired`, `Cancelled`, `Withdrawn`, `TreeEnded`)                                     |
+| called once, never after a crash      | at least once: **deduplicate by `event.deliveryId`**, and make the hook safe to run twice                                              |
+| the warning `channel.withdraw-failed` | `pause.notice-failed` (each failed attempt), `pause.notice-dead` (set aside after `retention.pauseRecords`)                            |
+| —                                     | `@ChannelListener` for a hook on every pause of the application; `PauseExpiration`, `remindBefore`, `app.extendPause` — [Pauses](Pauses) |
 
-**`answeredBy` on a role → `answerer`.** `@ChannelRole({ answeredBy: PauseAnswerer.Channel })` becomes
-`answerer: PauseAnswerer.Channel` (#934): `answerer` is who *may* answer, `answeredBy` is who *did*. The
-old spelling is accepted, `@deprecated`, until 0.2. One change has no alias and does not fail to compile:
-`PauseAnswerRecord.answeredBy` (`result.record.pauses`) used to hold the kind (`"channel"`,
-`"thread-owner"`) and now holds the person (`"manager-17"`) — an audit filter on the old meaning now
-matches nobody; filter on `answerer`. The list of every renamed field is in the
-[Changelog](Changelog).
+**A pause target and its channel are two classes (#1307).** 0.1.0's `@ChannelRole` (an abstract class a
+`@Channel` `extends`) is split: the **target** says what is asked and who may answer, the **channel** only
+carries it to the people. It is a hard break — no alias, nothing to keep compiling:
+
+| 0.1.0                                                            | 0.1.1                                                                                                    |
+| ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `@ChannelRole({ approves: Dto, answerer, … })`                   | `@ToolApproval({ name, description, respondent, timeout, … })` (named `…-tool-approval`)                |
+| `@ChannelRole({ ask, answer, … })`, a question role              | `@ExternalTask({ input, output, respondent, timeout, … })` (named `…-external-task`)                    |
+| `answerer: PauseAnswerer.Channel` / `.ThreadOwner`               | `respondent: PauseRespondent.Delegate` / `.Owner` (`answeredBy` is who _did_, `respondent` who _may_)   |
+| `@Channel` that `extends` the role, in `providers`               | `@Channel({ target, ttl })` with no `extends`, in `@Application({ channels })`                          |
+| `@Tool({ channel: Role, expiresIn })`                            | `@Tool({ approval: Target })`; the deadline is the target's `timeout`                                    |
+| `.toExternalTask(Role, { expiresIn })`                           | `.toExternalTask(Task)`; a different deadline is a different target                                      |
+| `expiresIn` on a role, `@Application({ workingCalendar })`       | `timeout`, `remindBefore` and `calendar` on the target; no application-wide calendar                     |
+| `ChannelOf<Self>`, `ChannelQuestionOf`, `ChannelAnswerOf`        | `ChannelAsk<Target>`, `ChannelOutcome<Target>` (typed by the target)                                     |
+| `@PauseListener`, `allowAnswering`                               | `@ChannelListener`, `includePauseIds`                                                                    |
+| `@ReplyInterpreter`, `ReplyInterpretation`, `overrideArguments`  | `@ChannelInterpreter`, `ChannelInterpretation`, `overrideInput`                                          |
+| `PauseAnswerRecord.role`; pause record `channel` = the role      | `target` (the target) and `channel?` (the transport, absent for an owner's pause nobody is asked about) |
+| `app.listPauses({ role })`                                       | `app.listPauses({ target })`                                                                             |
+
+A target with several channels names a `@ChannelSelector({ target })` that picks one when a pause is
+made. An `Owner` target with no channel at all waits for `app.resume`. A stored pause, run or answer entry
+written by 0.1.0 has no `target` and is refused (`StoredNamesUnreadableError`), never read.
 
 Your own `PausedExecutionRepository` or a store of another team: pauses have a deadline, a reminder and
 mailboxes of notices now, in the same transactions as their changes — a schema change in each of the
@@ -173,11 +234,11 @@ apply`), see [Deploying on Kubernetes](Deploying-on-Kubernetes#upgrading-across-
 below are for a database an earlier build of the package wrote; SQLite is the core's own, written by
 0.1.0.
 
-| Store | What to run | What you see if you skip it |
-| --- | --- | --- |
-| PostgreSQL | `npx agboss-postgres migrate` **after the old pods are stopped** and before the new ones start. It applies the numbered migrations, then builds the index `checkpoints_latest_by_step` (`CREATE INDEX CONCURRENTLY`: checkpoint writes keep flowing while it builds). Its last line says `built index …`, `index … is ready` or `skipped index …` (another run holds the build's lock: run it again when that one ends). | A start refuses an unmigrated schema (`PostgresSchemaMissingError`, naming the command). A start with `postgresSchemaSetup: SchemaSetup.MigrateOnStart` waits for live leases to lapse (`PostgresLiveLeasesError` while one is live), then migrates and builds the index in the background. Without the index everything is correct, a marked thread's latest read only lists and sorts its namespace (38 ms on 10 000 checkpoints, instead of 1.7 ms). |
-| MongoDB | `npx agboss-mongodb migrate` is **mandatory before the 0.1.1 pods start**, and runs **after the old pods are stopped**: once the database is migrated, an old pod that restarts is refused (`MongoSchemaTooNewError`), but an old pod that is still running is not stopped by it. It applies the schema versions up to the build's (`checkpoint_latest_by_step`, version 2, the checkpoints' index `latest_by_step`; `pause-deadlines-and-notices`, version 3, the pause channels) and rewrites no checkpoint. | A 0.1.1 pod on a database at version 1 does not start (`MongoSchemaMissingError`, naming the command). Checkpoints written before get their `step` when their thread is first read: about 100 ms for a thread of 2 000 checkpoints, once per thread. |
-| SQLite | Nothing to run, but stop every 0.1.0 process on the file first: it is migrated when the first 0.1.1 process opens it — a generated column `step` on the metadata and an index on it, no row rewritten (57 ms for 20 000 checkpoints), a column for each tree's cancel mark on the leases (#1117), and the file is stamped with its schema version (table `agboss_schema`). A file with no stamp is a 0.1.0 file and is migrated. | Nothing to skip. A 0.1.0 process that is still running is **not refused** (0.1.0 never reads the stamp): it writes pauses with no channel, and takes no part in the cancel fence. |
+| Store      | What to run                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | What you see if you skip it                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PostgreSQL | `npx agboss-postgres migrate` **after the old pods are stopped** and before the new ones start. It applies the numbered migrations, then builds the index `checkpoints_latest_by_step` (`CREATE INDEX CONCURRENTLY`: checkpoint writes keep flowing while it builds). Its last line says `built index …`, `index … is ready` or `skipped index …` (another run holds the build's lock: run it again when that one ends).                                                                                       | A start refuses an unmigrated schema (`PostgresSchemaMissingError`, naming the command). A start with `postgresSchemaSetup: SchemaSetup.MigrateOnStart` waits for live leases to lapse (`PostgresLiveLeasesError` while one is live), then migrates and builds the index in the background. Without the index everything is correct, a marked thread's latest read only lists and sorts its namespace (38 ms on 10 000 checkpoints, instead of 1.7 ms). |
+| MongoDB    | `npx agboss-mongodb migrate` is **mandatory before the 0.1.1 pods start**, and runs **after the old pods are stopped**: once the database is migrated, an old pod that restarts is refused (`MongoSchemaTooNewError`), but an old pod that is still running is not stopped by it. It applies the schema versions up to the build's (`checkpoint_latest_by_step`, version 2, the checkpoints' index `latest_by_step`; `pause-deadlines-and-notices`, version 3, the pause channels) and rewrites no checkpoint. | A 0.1.1 pod on a database at version 1 does not start (`MongoSchemaMissingError`, naming the command). Checkpoints written before get their `step` when their thread is first read: about 100 ms for a thread of 2 000 checkpoints, once per thread.                                                                                                                                                                                                    |
+| SQLite     | A 0.1.0 file is not migrated: recreate it (the file of a 0.1.0 build, or of a development build, holds tables and no 0.1.1 stamp). A new file is stamped and its whole schema is created when the first 0.1.1 process opens it.                                                                                                                                                                                                                                                                                | The first 0.1.1 process refuses the old file at open (`StoreError.SchemaMissing`, code `store.schema-missing`) before it writes a row. A 0.1.0 process that is still running on a file is **not refused** (0.1.0 never reads the stamp): stop it first.                                                                                                                                                                                                 |
 
 - **SQLite and an older version**: the column is generated, so 0.1.0's own `INSERT` of a checkpoint
   still works on a file 0.1.1 opened, and 0.1.1 reads what 0.1.0 wrote in order (#1035). A second

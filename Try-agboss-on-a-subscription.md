@@ -24,7 +24,7 @@ JavaScript gets a thrown error when the provider is made). Nothing is refused an
 provider logs a warning when the application starts, quoting the vendor's terms with their URLs.
 
 ```ts no-check: example 01's code in agbossjs/agboss-examples, not an agboss export
-import { Application, SqliteCostLedgerRepository } from "@agboss/core";
+import { Application } from "@agboss/core";
 import { claudeCliModelProvider } from "./cli-providers/claude-cli.provider.js";
 
 // Anthropic's terms prohibit this for third-party products: read the startup warning, then decide
@@ -32,7 +32,8 @@ const ClaudeCliModelProvider = claudeCliModelProvider({ acknowledgeVendorTermsRi
 
 @Application({
   name: "my-claude-cli-application",
-  providers: [ClaudeCliModelProvider, SqliteCostLedgerRepository],
+  modelProvider: ClaudeCliModelProvider,
+  storage: DemoDatabaseStorage, // a @DatabaseStorage on SqliteDriver: the ledger survives a restart
   // …
 })
 export class MyApplication {}
@@ -91,22 +92,25 @@ OpenRouter ([Model providers](Model-providers)), or write a transport provider o
 If you go on, run `gemini` once and sign in, then `demo:gemini-cli`.
 
 *The sanctioned alternative: a free Google AI Studio key.* It is an API key, so it needs no CLI; it
-speaks the OpenAI dialect, so the built-in `OpenAiCompatibleProvider` serves it (set the
-`geminiApiKey` secret in the application's environment):
+speaks the OpenAI dialect, so the `OpenAiCompatibleDriver` serves it (name the provider as the
+application's `modelProvider`, or on the components that use it; the key is read from the process):
 
 ```ts file=src/model-providers/gemini-ai-studio.model-provider.ts
+import { secret } from "@agboss/core";
 import {
-  ModelCost, ModelProvider, OpenAiCompatibleProvider, PromptCaching, Reasoning, RetryPolicy,
-  TRANSIENT_FAILURES, type NoRequestFields,
+  CircuitBreakerPolicy, ModelCost, ModelProvider, OpenAiCompatibleDriver, PromptCaching, Reasoning,
+  RetryPolicy, TRANSIENT_FAILURES,
 } from "@agboss/core/models";
 import { minutes, seconds } from "@agboss/core/units";
 
 @ModelProvider({
   name: "gemini-ai-studio-model-provider",
   description: "Google AI Studio through its OpenAI-compatible endpoint",
-  serves: [/^gemini\//u],
-  baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai/",
-  apiKey: "geminiApiKey",                               // a Secret field of the environment
+  driver: OpenAiCompatibleDriver({
+    baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai/",
+    apiKey: secret("GEMINI_API_KEY"), // a variable of the process, read when the application starts
+  }),
+  model: "gemini-2.5-flash", // a component that names no model of its own
   timeout: minutes(2),
   cost: ModelCost.fromResponse(),
   reasoning: Reasoning.modelDecides(),
@@ -115,11 +119,11 @@ import { minutes, seconds } from "@agboss/core/units";
     maxAttempts: 3, initialDelay: seconds(1), maxDelay: seconds(20), jitter: true,
     retryOn: TRANSIENT_FAILURES,
   }),
-  circuitBreakerPolicy: { failureThreshold: 5, window: minutes(1), openFor: seconds(30) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
+    failureThreshold: 5, failureWindow: minutes(1), openDuration: seconds(30),
+  }),
 })
-export class GeminiAiStudioModelProvider extends OpenAiCompatibleProvider {
-  override readonly requestFields: NoRequestFields = {};
-}
+export class GeminiAiStudioModelProvider {}
 ```
 
 The free tier has three caveats, from the Gemini API terms (<https://ai.google.dev/gemini-api/terms>,

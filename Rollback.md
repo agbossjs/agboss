@@ -5,14 +5,14 @@ when a later step fails. The undo is an ordinary `@Action`, and the action that 
 `@Action({ compensateWith: ReleaseStockAction })` (#339,
 [ADR-0020](ADR-0020-Declared-compensation)). Where a path can say what happens after a failure —
 an `.onError(ErrorClass, <side path>)` right after the step that throws, or a join's
-`.onJoinError(…)` — the side path runs the undo actions itself, newest first, and `agboss check`
+the join's `.onError(…)` — the side path runs the undo actions itself, newest first, and `agboss check`
 proves it does. Where no path can say it, the framework runs them itself: a failed join's finished
 branches (#340 PR 2, below); a cancel, an uncaught failure or limit, an aborted child workflow
 (#340 PR 3, [below](#an-execution-that-ends-without-a-finish)).
 
 <!--
 ```ts file=order.components.ts
-import { Action, WorkflowFinish, WorkflowStart, type ActionHandler, type FinishHandler, type InputOf, type OutputOf } from "@agboss/core";
+import { Action, WorkflowFinish, WorkflowStart, type ActionHandler, type InputOf, type OutputOf } from "@agboss/core";
 import { Text } from "@agboss/core/dto";
 
 export class OrderRequestDto {
@@ -38,54 +38,51 @@ export class OrderWorkflowStart {}
 @Action({ name: "release-stock-action", description: "Releases the reserved stock", input: { reservation: StockReservationDto } })
 export class ReleaseStockAction implements ActionHandler<ReleaseStockAction> {
   async execute(input: InputOf<ReleaseStockAction>): Promise<void> {
-    await Promise.resolve(input.reservation.value.reservationId);
+    await Promise.resolve(input.reservation.reservationId);
   }
 }
 @Action({ name: "refund-card-action", description: "Refunds the card", input: { payment: PaymentDto } })
 export class RefundCardAction implements ActionHandler<RefundCardAction> {
   async execute(input: InputOf<RefundCardAction>): Promise<void> {
-    await Promise.resolve(input.payment.value.paymentId);
+    await Promise.resolve(input.payment.paymentId);
   }
 }
 @Action({ name: "reserve-stock-action", description: "Reserves the stock", input: { order: OrderRequestDto }, output: StockReservationDto, compensateWith: ReleaseStockAction })
 export class ReserveStockAction implements ActionHandler<ReserveStockAction> {
   execute(input: InputOf<ReserveStockAction>): Promise<OutputOf<ReserveStockAction>> {
-    return Promise.resolve({ reservationId: `reservation-${input.order.value.orderId}` });
+    return Promise.resolve({ reservationId: `reservation-${input.order.orderId}` });
   }
 }
 @Action({ name: "charge-card-action", description: "Charges the card", input: { order: OrderRequestDto }, output: PaymentDto, compensateWith: RefundCardAction })
 export class ChargeCardAction implements ActionHandler<ChargeCardAction> {
   execute(input: InputOf<ChargeCardAction>): Promise<OutputOf<ChargeCardAction>> {
-    return Promise.resolve({ paymentId: `payment-${input.order.value.orderId}` });
+    return Promise.resolve({ paymentId: `payment-${input.order.orderId}` });
   }
 }
 @Action({ name: "ship-order-action", description: "Hands the order to the carrier", input: { order: OrderRequestDto }, output: OrderShippedDto })
 export class ShipOrderAction implements ActionHandler<ShipOrderAction> {
   execute(input: InputOf<ShipOrderAction>): Promise<OutputOf<ShipOrderAction>> {
-    return Promise.resolve({ trackingNumber: `track-${input.order.value.orderId}` });
+    return Promise.resolve({ trackingNumber: `track-${input.order.orderId}` });
   }
 }
 @Action({ name: "notify-finance-team-action", description: "Tells finance a refund failed", input: { order: OrderRequestDto } })
 export class NotifyFinanceTeamAction implements ActionHandler<NotifyFinanceTeamAction> {
   async execute(input: InputOf<NotifyFinanceTeamAction>): Promise<void> {
-    await Promise.resolve(input.order.value.orderId);
+    await Promise.resolve(input.order.orderId);
   }
 }
 @WorkflowFinish({ name: "order-failed-workflow-finish", description: "The order could not be shipped", output: OrderRequestDto })
 export class OrderFailedWorkflowFinish {}
-@WorkflowFinish({ name: "order-workflow-finish", description: "The shipped order", input: { shipped: OrderShippedDto }, output: OrderShippedDto })
-export class OrderWorkflowFinish implements FinishHandler<OrderWorkflowFinish> {
-  finish(input: InputOf<OrderWorkflowFinish>): OutputOf<OrderWorkflowFinish> {
-    return { trackingNumber: input.shipped.value.trackingNumber };
-  }
-}
+@WorkflowFinish({ name: "order-workflow-finish", description: "The shipped order", output: OrderShippedDto })
+export class OrderWorkflowFinish {}
 ```
 -->
 
 ## The pattern
 
 <!-- snippet-context
-import { Workflow, action, start, toAction } from "@agboss/core";
+import { Ttl } from "@agboss/core";
+import { Workflow, onAction, onStart, toAction } from "@agboss/core";
 import { CarrierError, ChargeCardAction, NotifyFinanceTeamAction, OrderFailedWorkflowFinish, OrderRequestDto, OrderShippedDto, OrderWorkflowFinish, OrderWorkflowStart, PaymentDto, PaymentProviderError, RefundCardAction, ReleaseStockAction, ReserveStockAction, ShipOrderAction, StockReservationDto } from "./order.components.js";
 -->
 
@@ -93,14 +90,11 @@ import { CarrierError, ChargeCardAction, NotifyFinanceTeamAction, OrderFailedWor
 // ReserveStockAction { compensateWith: ReleaseStockAction }, ChargeCardAction { compensateWith: RefundCardAction }
 @Workflow({
   name: "order-workflow",
-  version: "1.0.0",
+  version: "1.0.0", historyTtl: Ttl.Forever,
   flow: [
-    start(OrderWorkflowStart)
-      .returns(OrderRequestDto)
+    onStart(OrderWorkflowStart)
       .toAction(ReserveStockAction)
-      .returns(StockReservationDto) // data: ReleaseStockAction reads its reservationId
       .toAction(ChargeCardAction)
-      .returns(PaymentDto) // RefundCardAction reads its paymentId
       .toAction(ShipOrderAction)
       .onError(
         CarrierError, // the carrier failed: undo what was done, newest first — checked
@@ -112,10 +106,9 @@ import { CarrierError, ChargeCardAction, NotifyFinanceTeamAction, OrderFailedWor
           )
           .toAction(ReleaseStockAction),
       )
-      .returns(OrderShippedDto)
       .toFinish(OrderWorkflowFinish), // a finish commits what is still open
 
-    action(ReleaseStockAction) // reached from two places: its own path
+    onAction(ReleaseStockAction) // reached from two places: its own path
       .toFinish(OrderFailedWorkflowFinish),
   ],
 })
@@ -150,7 +143,7 @@ export class OrderWorkflow {}
   what it returned, on every path (`[action.invalid-compensator-input]`): `ReleaseStockAction`
   reads the `StockReservationDto` its action returned.
 - A side path entered after an undoable action succeeded — `.onError` of a later step, or
-  `.onJoinError` of a later launch — reaches a finish only through its undo action
+  the join's `.onError` of a later launch — reaches a finish only through its undo action
   (`[flow.uncompensated-action]`), and runs several undo actions newest first
   (`[flow.compensation-out-of-order]`). An undo whose own `.onError` takes over still counts as run.
   A failed join's side path owes what was open before the launch; the launch's finished branches are
@@ -209,7 +202,7 @@ reason?, status? })` ([Testing](Testing)).
 
 ## A failed join undoes its finished branches
 
-A join that fails drops its branches' values: an `.onJoinError` side path cannot undo a finished
+A join that fails drops its branches' values: a join's `.onError` side path cannot undo a finished
 sibling. So before that side path runs — or the branch's error fails the execution — the framework
 undoes the launch's finished undoable branches itself (`CompensationReason.JoinFailed`), newest
 first. It first awaits the launch's branches whose bodies still run, up to `compensationTimeout`;
@@ -217,7 +210,7 @@ one that returns meanwhile is undone too.
 
 <!--
 ```ts file=trip.components.ts
-import { Action, WorkflowFinish, WorkflowStart, type ActionHandler, type FinishHandler, type InputOf, type OutputOf } from "@agboss/core";
+import { Action, WorkflowFinish, WorkflowStart, type ActionHandler, type InputOf, type OutputOf } from "@agboss/core";
 import { Text } from "@agboss/core/dto";
 
 export class TripRequestDto {
@@ -242,41 +235,45 @@ export class TripWorkflowStart {}
 @Action({ name: "cancel-flight-action", description: "Cancels the flight", input: { flight: FlightBookingDto } })
 export class CancelFlightAction implements ActionHandler<CancelFlightAction> {
   async execute(input: InputOf<CancelFlightAction>): Promise<void> {
-    await Promise.resolve(input.flight.value.bookingId);
+    await Promise.resolve(input.flight.bookingId);
   }
 }
 @Action({ name: "cancel-hotel-action", description: "Cancels the hotel", input: { hotel: HotelBookingDto } })
 export class CancelHotelAction implements ActionHandler<CancelHotelAction> {
   async execute(input: InputOf<CancelHotelAction>): Promise<void> {
-    await Promise.resolve(input.hotel.value.bookingId);
+    await Promise.resolve(input.hotel.bookingId);
   }
 }
 @Action({ name: "book-flight-action", description: "Books the flight", input: { request: TripRequestDto }, output: FlightBookingDto, compensateWith: CancelFlightAction })
 export class BookFlightAction implements ActionHandler<BookFlightAction> {
   execute(input: InputOf<BookFlightAction>): Promise<OutputOf<BookFlightAction>> {
-    return Promise.resolve({ bookingId: `flight-${input.request.value.destination}` });
+    return Promise.resolve({ bookingId: `flight-${input.request.destination}` });
   }
 }
 @Action({ name: "book-hotel-action", description: "Books the hotel", input: { request: TripRequestDto }, output: HotelBookingDto, compensateWith: CancelHotelAction })
 export class BookHotelAction implements ActionHandler<BookHotelAction> {
   execute(input: InputOf<BookHotelAction>): Promise<OutputOf<BookHotelAction>> {
-    return Promise.resolve({ bookingId: `hotel-${input.request.value.destination}` });
+    return Promise.resolve({ bookingId: `hotel-${input.request.destination}` });
   }
 }
 @WorkflowFinish({ name: "trip-not-booked-workflow-finish", description: "Not booked", output: TripRequestDto })
 export class TripNotBookedWorkflowFinish {}
-@WorkflowFinish({ name: "trip-booked-workflow-finish", description: "Booked", input: { flight: FlightBookingDto, hotel: HotelBookingDto }, output: TripBookedDto })
-export class TripBookedWorkflowFinish implements FinishHandler<TripBookedWorkflowFinish> {
-  finish(input: InputOf<TripBookedWorkflowFinish>): OutputOf<TripBookedWorkflowFinish> {
-    return { summary: `${input.flight.value.bookingId} + ${input.hotel.value.bookingId}` };
+@Action({ name: "summarise-trip-action", description: "Writes both ids down", input: { flight: FlightBookingDto, hotel: HotelBookingDto }, output: TripBookedDto })
+export class SummariseTripAction implements ActionHandler<SummariseTripAction> {
+  execute(input: InputOf<SummariseTripAction>): Promise<OutputOf<SummariseTripAction>> {
+    return Promise.resolve({ summary: `${input.flight.bookingId} + ${input.hotel.bookingId}` });
   }
 }
+@WorkflowFinish({ name: "trip-booked-workflow-finish", description: "Booked", output: TripBookedDto })
+export class TripBookedWorkflowFinish {}
 ```
 -->
 
 <!-- snippet-context
-import { Workflow, start, toFinish } from "@agboss/core";
-import { BookFlightAction, BookHotelAction, BookingFailedError, FlightBookingDto, HotelBookingDto, TripBookedWorkflowFinish, TripNotBookedWorkflowFinish, TripRequestDto, TripWorkflowStart } from "./trip.components.js";
+import { Ttl } from "@agboss/core";
+import { toAction } from "@agboss/core";
+import { Workflow, onStart, toFinish } from "@agboss/core";
+import { BookFlightAction, BookHotelAction, BookingFailedError, FlightBookingDto, HotelBookingDto, SummariseTripAction, TripBookedWorkflowFinish, TripNotBookedWorkflowFinish, TripRequestDto, TripWorkflowStart } from "./trip.components.js";
 -->
 
 ```ts
@@ -284,18 +281,16 @@ import { BookFlightAction, BookHotelAction, BookingFailedError, FlightBookingDto
 // neither has committedBy: the finish commits
 @Workflow({
   name: "trip-workflow",
-  version: "1.0.0",
+  version: "1.0.0", historyTtl: Ttl.Forever,
   flow: [
-    start(TripWorkflowStart)
-      .returns(TripRequestDto)
-      .toParallelActions(BookFlightAction, BookHotelAction)
+    onStart(TripWorkflowStart)
+      .inParallel([toAction(BookFlightAction), toAction(BookHotelAction)])
       .join()
-      .onJoinError(
+      .onError(
         BookingFailedError, // the hotel failed: the finished flight is cancelled before this path runs
         toFinish(TripNotBookedWorkflowFinish),
       )
-      .returns(FlightBookingDto)
-      .returns(HotelBookingDto)
+      .toAction(SummariseTripAction)
       .toFinish(TripBookedWorkflowFinish),
   ],
 })
@@ -315,7 +310,7 @@ report each one ([Observability](Observability)).
 An undo that fails does not stop the others; then the execution fails with
 `CompensationFailedError` (`compensation.failed`): `failures` are the undo actions that threw,
 `cause` the branch's error — `toFailWith(BookingFailedError)` still matches through it. No
-`.onError` / `.onJoinError` takes it. `agboss describe` marks a launched undoable action:
+`.onError` takes it (after a launch, on its join). `agboss describe` marks a launched undoable action:
 
 ```
 actions

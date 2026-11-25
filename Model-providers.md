@@ -1,35 +1,40 @@
 # Model providers
 
-Every model a workflow uses — an agent's, compaction's, a router's, a guardrail's, a judge's — comes
-from a **model provider**: an `@ModelProvider` class from `@agboss/core/models`. The provider says which
-models it serves, how it is reached (base URL, key, timeout), what a call costs, how its models
-reason and cache by default, how many calls it takes (rate limit) and what happens when a call
-fails (retry policy, circuit breaker).
-Introduced in #151 ([ADR-0016](ADR-0016-Model-providers)); since #266 model providers are
-**application infrastructure**: listed in `@Application({ providers })`, shared by every workflow
-of the application — a workflow and its components name models only and never pick a provider.
+Every model a workflow uses — an agent's, a memory's compaction, a router's, a guardrail's, a judge's —
+comes from a **model provider**: an `@ModelProvider` class from `@agboss/core/models`. A provider says how
+it is reached (its **driver**: protocol, base URL, key, headers), the model names it owns, what a call
+costs, how its models reason and cache by default, how many calls it takes (rate limit) and what
+happens when a call fails (retry policy, circuit breaker, a fallback provider).
+Introduced in #151 ([ADR-0016](ADR-0016-Model-providers)); since #266 providers are **application
+infrastructure** and since #1313 each is an independent class with a driver — there is no built-in
+provider and none is picked by a model's name: a component reaches one through `modelProvider`
+([below](#register-them-in-the-application)).
 
 ## A provider
 
 ```ts file=src/model-providers/openrouter.model-provider.ts
+import { env, secret } from "@agboss/core";
 import {
-  CachedPart, CacheRetention, ModelCost, ModelFailure, ModelProvider, OpenRouterProvider,
-  PromptCaching, ProviderSort, QueueBalancingStrategy, RateLimitPolicy, Reasoning, RetryPolicy,
-  type OpenRouterFields,
+  CachedPart, CacheRetention, CircuitBreakerPolicy, ModelCost, ModelFailure, ModelProvider,
+  OpenRouterDriver, PromptCaching, ProviderSort, QueueBalancingStrategy, RateLimitPolicy, Reasoning,
+  RetryPolicy,
 } from "@agboss/core/models";
 import { minutes, seconds } from "@agboss/core/units";
 
 @ModelProvider({
   name: "openrouter-model-provider",                    // kebab-case, ends with -model-provider
   description: "OpenRouter — many models behind one OpenAI-compatible API",
-  serves: [/.*/],                                       // which model names it serves
-  baseUrl: "https://openrouter.ai/api/v1",              // the default…
-  baseUrlField: "openRouterBaseUrl",                    // …unless this text field of the environment sets one
-  apiKey: "openRouterApiKey",                           // a Secret field of the application's environment
+  driver: OpenRouterDriver({
+    apiKey: secret("OPENROUTER_API_KEY"),               // read from the process when the application starts
+    baseUrl: env("OPENROUTER_BASE_URL", { default: "https://openrouter.ai/api/v1" }), // a proxy, a stub
+    // OpenRouter's provider routing: skip an upstream, order the rest by price (ProviderSort, #269)
+    routing: { ignore: ["Inceptron"], sort: ProviderSort.Price },
+  }),
+  model: "moonshotai/kimi-k2.6",                        // a component that names no model of its own
   timeout: minutes(2),                                  // per attempt, from the moment it has room
   cost: ModelCost.fromResponse(),                       // OpenRouter returns usage.cost
-  reasoning: Reasoning.modelDecides(),                  // required here; components may override
-  promptCaching: PromptCaching.whereSupported({         // required here; components may override
+  reasoning: Reasoning.modelDecides(),                  // components may override
+  promptCaching: PromptCaching.on({                     // components may override
     retention: CacheRetention.FiveMinutes,
     cachedParts: [CachedPart.SystemPrompt, CachedPart.Tools, CachedPart.History],
   }),
@@ -42,30 +47,26 @@ import { minutes, seconds } from "@agboss/core/units";
     perMinute: { calls: 120, tokens: 400_000 },
     balancing: QueueBalancingStrategy.TenantRoundRobin, // the default
   }),
-  circuitBreakerPolicy: { failureThreshold: 5, window: minutes(1), openFor: seconds(30) }, // fallback?: another provider
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({ failureThreshold: 5, failureWindow: minutes(1), openDuration: seconds(30) }), // fallback?: another provider
 })
-export class OpenRouterModelProvider extends OpenRouterProvider {
-  // OpenRouter's provider routing: skip an upstream, order the rest by price (ProviderSort, #269)
-  override readonly requestFields: OpenRouterFields = {
-    provider: { ignore: ["Inceptron"], sort: ProviderSort.Price },
-  };
-}
+export class OpenRouterModelProvider {}
 ```
 
-`ProviderSort.Price` / `Throughput` / `Latency` — OpenRouter's `provider.sort`; closed sets are
-enums, so a string (`"price"`) does not compile.
+The class is empty: the **driver** speaks the protocol. `ProviderSort.Price` / `Throughput` / `Latency` —
+OpenRouter's `provider.sort`; closed sets are enums, so a string (`"price"`) does not compile.
 
 ### Pinning the host and the precision (#395)
 
-`OpenRouterRouting` is OpenRouter's `provider` field in camelCase — `order`, `only`, `ignore`
-(hosts by OpenRouter's slug: `fireworks`, `together`), `sort`, `quantizations` (`Quantization.Int4`,
-`Int8`, `Fp4`, `Fp6`, `Fp8`, `Fp16`, `Bf16`, `Fp32`, `Unknown`) and `allowFallbacks`. The TypeScript
-API is camelCase everywhere; only the body sent to OpenRouter is snake_case (`allow_fallbacks`), so
-`allow_fallbacks` in `requestFields` does not compile. Pin a host and a precision when answers must
-not drift between upstreams — an eval, a benchmark, a cassette recorded once:
+`OpenRouterRouting` (the driver's `routing`) is OpenRouter's `provider` field in camelCase — `order`,
+`only`, `ignore` (hosts by OpenRouter's slug: `fireworks`, `together`), `sort`, `quantizations`
+(`Quantization.Int4`, `Int8`, `Fp4`, `Fp6`, `Fp8`, `Fp16`, `Bf16`, `Fp32`, `Unknown`) and
+`allowFallbacks`. The TypeScript API is camelCase everywhere; only the body sent to OpenRouter is
+snake_case (`allow_fallbacks`). Pin a host and a precision when answers must not drift between
+upstreams — an eval, a benchmark, a cassette recorded once:
 
 <!-- snippet-context
-import { ModelCost, ModelProvider, OpenRouterProvider, PromptCaching, Quantization, Reasoning, RetryPolicy, type OpenRouterFields } from "@agboss/core/models";
+import { secret } from "@agboss/core";
+import { ModelCost, ModelProvider, OpenRouterDriver, PromptCaching, Quantization, Reasoning, CircuitBreakerPolicy } from "@agboss/core/models";
 import { minutes, seconds } from "@agboss/core/units";
 -->
 
@@ -73,40 +74,53 @@ import { minutes, seconds } from "@agboss/core/units";
 @ModelProvider({
   name: "pinned-openrouter-model-provider",
   description: "Kimi on Fireworks at bf16, no fallback",
-  serves: [/^moonshotai\//],
-  baseUrl: "https://openrouter.ai/api/v1",
-  apiKey: "openRouterApiKey",
+  driver: OpenRouterDriver({
+    apiKey: secret("OPENROUTER_API_KEY"),
+    routing: { only: ["fireworks"], quantizations: [Quantization.Bf16], allowFallbacks: false },
+  }),
+  model: "moonshotai/kimi-k2.6",
   timeout: minutes(2),
   cost: ModelCost.fromResponse(),
   reasoning: Reasoning.modelDecides(),
   promptCaching: PromptCaching.off(),
-  retryPolicy: RetryPolicy.none(),
-  circuitBreakerPolicy: { failureThreshold: 5, window: minutes(1), openFor: seconds(30) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({ failureThreshold: 5, failureWindow: minutes(1), openDuration: seconds(30) }),
 })
-export class PinnedOpenRouterModelProvider extends OpenRouterProvider {
-  override readonly requestFields: OpenRouterFields = {
-    provider: { only: ["fireworks"], quantizations: [Quantization.Bf16], allowFallbacks: false },
-  };
-}
+export class PinnedOpenRouterModelProvider {}
 ```
 
 Every call's `UsageRecord.servedBy` names the host that served it — OpenRouter's `provider` of the
 answer, plain or streamed (absent when a provider does not say). `agboss check --models` asks
-OpenRouter for each served model's endpoints (`GET /models/<model>/endpoints`) and reports
+OpenRouter for each model's endpoints (`GET /models/<model>/endpoints`) and reports
 `[model.no-matching-endpoint]` for a pinned host (`only`) that does not serve the model, and for
 pinned `quantizations` no allowed host (in `only`, not in `ignore`) serves it at; the endpoints are
 never asked at startup.
+
+### Drivers
+
+| Driver | What it speaks |
+| --- | --- |
+| `OpenAiCompatibleDriver({ baseUrl, apiKey?, headers?, requestFields? })` | any OpenAI-compatible server (OpenAI, LiteLLM, vLLM, Ollama, Groq, DeepSeek, …): the Chat Completions API and `GET /models`; `requestFields` are extra body fields |
+| `OpenRouterDriver({ apiKey, baseUrl?, headers?, routing?, transforms? })` | OpenRouter's dialect: `reasoning: { effort \| max_tokens, exclude }`, `usage: { include: true }` (the cost in every answer), `cache_control` markers for Anthropic and Google models |
+| `DecisionsDriver({ baseUrl, apiKey?, headers?, path?, knownModels? })` | OpenRouter's Decisions API: the decision models (`DECISION_MODELS`: `typesafe/jev-*`, `openai/gpt-6-luna-decisions`, pplx-decider, Clef, …) for **decisions only** — routers, guardrails, judges; no chat |
+| a transport class | `complete(request)`, below — an SDK, a corporate gateway |
+
+`baseUrl`, `apiKey` and header values are text, `env(…)` or `secret(…)` references read from the process
+once, at start (a provider never reads `process.env` itself); a missing key fails the start of an
+application that calls the provider, naming its variable, never a value. Only a provider a model of the
+application resolves to is connected at start (#716): an application whose workflows call no model needs no
+key at all. Tests script or replay models and need none.
 
 ## A custom transport: `complete(request)` (#385)
 
 A provider that is not an OpenAI-compatible HTTP server — AWS Bedrock through its SDK, Vertex AI, a
 corporate gateway with its own authorisation — `implements ModelProviderHandler` with
-`complete(request)` instead of `baseUrl` / `baseUrlField` / `apiKey`, and takes its services through
+`complete(request)` instead of a `driver`, and takes its services through
 `deps`:
 
 ```ts file=src/model-providers/bedrock.model-provider.ts
 import { Injectable, TenantContext } from "@agboss/core";
 import {
+  CircuitBreakerPolicy,
   ModelCost, ModelFailure, ModelProvider, ModelProviderFailureError, QueueBalancingStrategy,
   RateLimitPolicy, RetryPolicy, TRANSIENT_FAILURES,
   type ModelProviderHandler, type ModelProviderMessage, type ModelProviderRequest,
@@ -140,7 +154,7 @@ export class BedrockSdkClient {
 @ModelProvider({
   name: "bedrock-model-provider",
   description: "AWS Bedrock through its SDK",
-  serves: [/^bedrock\//],
+  model: "bedrock/claude",                             // the model of a component that names none
   timeout: minutes(2),                                  // per attempt: request.signal aborts at it
   cost: ModelCost.fromPrices({
     "bedrock/claude": { inputPerMillion: usd(3), outputPerMillion: usd(15) },
@@ -153,8 +167,8 @@ export class BedrockSdkClient {
     maxAttempts: 3, initialDelay: seconds(1), maxDelay: seconds(20), jitter: true,
     retryOn: TRANSIENT_FAILURES,
   }),
-  circuitBreakerPolicy: { failureThreshold: 5, window: minutes(1), openFor: seconds(30) },
-  deps: [BedrockSdkClient, TenantContext],              // reasoning / promptCaching unset: off
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({ failureThreshold: 5, failureWindow: minutes(1), openDuration: seconds(30) }),
+  deps: [BedrockSdkClient, TenantContext],              // reasoning unset: off; promptCaching unset: automatic
 })
 export class BedrockModelProvider implements ModelProviderHandler {
   constructor(
@@ -177,32 +191,33 @@ export class BedrockModelProvider implements ModelProviderHandler {
 - **Trying it on a subscription.** A transport can also drive a vendor's own CLI under your own login
   (Codex, Claude, Gemini) — a demo-only example with its terms warnings:
   [Try agboss on a subscription](Try-agboss-on-a-subscription).
-- **One mode.** HTTP (`baseUrl`, `apiKey`, `baseUrlField`, a `chat` class) or a transport
+- **One mode.** A driver (`driver`) or a transport
   (`complete`, `deps`) — both at once do not compile (the decorator's overloads) and fail assembly
   with `[model-provider.both-modes]`; so does neither. `description`, `timeout`, `cost` and
   `retryPolicy` (`RetryPolicy.exponential(…)` and the others) are required as for HTTP;
-  `reasoning` / `promptCaching` are optional — `Reasoning.off()` / `PromptCaching.off()` when unset.
+  `reasoning` / `promptCaching` are optional — `Reasoning.off()` when unset, and for `promptCaching` the
+  automatic default (below).
 - **Created by the application's container**, on its first call: one instance per application, its
   `deps` injected and checked at assembly with the components' (`Consumer: "TOKEN" is not
   registered …`). An injected `TenantContext` / `ExecutionContext` reads the execution of the call
   (`complete()` runs in the step's frame).
-- **The request** — `ModelProviderRequest`: `model` (with a fallback, its `fallbackModels` entry),
+- **The request** — `ModelProviderRequest`: `model` (when a fallback serves, the model it is mapped to),
   `messages` (`ModelProviderMessage { role: ModelProviderMessageRole.System | User | Assistant | Tool,
   text, toolCalls?, toolCallId? }` — text only, masked by the PII policies), `tools`
   (`ModelProviderToolDefinition { name, description, parameters }` — the agent's own tools and its
-  `answer-<dto>` tools), `temperature`, `maxTokens` (`undefined` = `TokenLimit.MODEL_MAX`),
+  `answer-<dto>` tools), `temperature`, `maxTokens` (`undefined` = `TokenLimit.ModelMax`),
   `reasoning`, `promptCaching`, `signal` (the attempt's timeout, a cancel, an exhausted budget — an
   SDK that ignores it is cut at `timeout` anyway, as a `Timeout`). No LangChain type in the contract.
 - **The answer** — `ModelProviderResponse`: `text`, `toolCalls?` (`ModelProviderToolCall { id, name,
-  arguments }`), `usage` (`ModelProviderUsage { inputTokens, outputTokens, cacheReadTokens?,
-  cacheWriteTokens? }`: the rate limit's tokens, the price table's), `cost?` (exact, `costSource:
+  arguments }`), `usage` (`TokenUsage { inputTokens, outputTokens, cacheReadTokens,
+  cacheWriteTokens }`, the same type as a streamed call's `result.usage`: the rate limit's tokens, the price table's), `cost?` (exact, `costSource:
   CostSource.Api`; absent → the decorator's price table), `finishReason?` (`FinishReason.Length`). An answer
   without `text` or `usage` is a `ModelProviderError`.
 - **Failures** — throw `new ModelProviderFailureError({ failure: ModelFailure.…, retryAfter?, cause? })`
   (`model.provider-failure`): the retry policy retries the failures it lists, `RateLimited` pauses
   the provider's whole queue for `retryAfter` and halves the instance's concurrency, the breaker
   counts it. Any other error is not retried and is counted by the breaker.
-- **Everything else is the gateway's**, unchanged: `serves`, the budgets before the call and
+- **Everything else is the gateway's**, unchanged: the budgets before the call and
   `CostLedgerRepository` after it, the queue and its 429 pause, retries, the breaker (readiness
   `Degraded`) and its fallback — HTTP and transport either way —, PII masking and revealing, the
   answer tools of a DTO agent, traces, and `mockLlm` in `testWith`, which answers above the provider
@@ -219,29 +234,22 @@ export class BedrockModelProvider implements ModelProviderHandler {
   like an HTTP provider's (the instance created for it); absent, its models' settings are not checked
   — `agboss check --models` never creates a transport.
 - `agboss describe` prints `bedrock-model-provider → BedrockModelProvider (listed in @Application
-  providers) · serves /^bedrock\// · transport: BedrockModelProvider.complete()` and each
-  `model: bedrock/claude → bedrock-model-provider`; the transport providers (name, class, `serves`)
+  providers) · transport: BedrockModelProvider.complete()` and each
+  `model: bedrock/claude → bedrock-model-provider`; the transport providers (name, class)
   are part of `configHash` — only where there is one.
 
 ## Register them in the application
 
-`@ModelProvider` classes are listed **only** in `@Application({ providers })`, next to the rest of the
-infrastructure ([App](App)). They are not created by the container (nothing injects a provider), and
-one in a workflow's `providers` fails the application's assembly with
-`[di.infrastructure-in-workflow] … is a @ModelProvider — infrastructure is listed only in
-@Application({ providers })`.
-
-```ts file=src/environments/app.environment.ts
-import type { Secret } from "@agboss/core";
-
-/** The key both providers read (`apiKey: "openRouterApiKey"`); `test` leaves it out. */
-export class AppEnvironment {
-  openRouterApiKey?: Secret;
-}
-```
+A provider is named by the **cascade** `Component.modelProvider ?? Workflow.modelProvider ??
+Application.modelProvider`: `@Agent`, a model `@Router`, `@Arbiter`, `@InputGuardrail` /
+`@OutputGuardrail`, `@ChannelInterpreter`, a `@Memory`'s compaction, a `@PiiPolicy` (its `model`),
+`@Workflow` and `@Application` take `modelProvider`. A provider the cascade names is part of the
+application even when it is not in `providers`. No provider anywhere in a component's cascade is
+`[model.missing-provider]` at assembly — there is no implicit one, in a test either
+(`TestModelProvider`, [Testing](Testing)).
 
 <!-- snippet-context
-import { Workflow, WorkflowFinish, WorkflowStart, start } from "@agboss/core";
+import { Workflow, WorkflowFinish, WorkflowStart, onStart, Ttl } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 @WorkflowStart({ name: "chat-workflow-start", description: "A message", input: WorkflowStartTextDto })
 export class ChatWorkflowStart {}
@@ -250,9 +258,9 @@ export class ChatWorkflowFinish {}
 @Workflow({
   name: "job-scout-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ChatWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(ChatWorkflowStart)
       .toFinish(ChatWorkflowFinish),
   ],
 })
@@ -261,109 +269,91 @@ export class JobScout {}
 -->
 
 ```ts file=src/job-scout.application.ts
-import { Application } from "@agboss/core";
-import { DecisionsModelProvider } from "@agboss/core/models";
-import { AppEnvironment } from "./environments/app.environment.js";
+import { Application, EmptyEnvironment } from "@agboss/core";
 import { OpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
 
 @Application({
   name: "job-scout-application",
   version: "1.0.0",
-  environment: AppEnvironment,
+  environment: EmptyEnvironment,
   workflows: [JobScout],
-  // chat models through job-scout's own OpenRouter, decision models through the Decisions API
-  providers: [OpenRouterModelProvider, DecisionsModelProvider],
+  modelProvider: OpenRouterModelProvider, // every chat model that names no provider of its own
+  providers: [OpenRouterModelProvider],
 })
 export class JobScoutApplication {}
 ```
 
-- **None listed** → the built-in `OpenRouterModelProvider` (every chat model) and
-  `DecisionsModelProvider` (the decision models, `DECISION_MODELS`).
-- **At least one listed** → the list is complete: the built-ins are **not** added next to it, so
-  what serves each model is visible in one place. An application listing only a local server and
-  using Jev lists `DecisionsModelProvider` too, or its routers fail with `[model.unserved]`.
-- A workflow has no provider setting (`settings().modelProviders(…)` and `defaultModelProvider(…)`
-  were removed in #266), and no component has one.
+- A router or an arbiter on a **decision model** names its own provider (`modelProvider:
+  DecisionsModelProvider`, a provider with a `DecisionsDriver`); a chat provider does not serve it
+  (`[model.incompatible-provider]`).
+- Providers are infrastructure, listed only in `@Application({ providers })`: one in a workflow's
+  `providers` fails assembly with `[di.infrastructure-in-workflow]`. They are not created by the
+  container — nothing injects a provider (a component that needs a decision injects `DecisionModel`,
+  [Routers](Routers#the-router-engine-and-decisionmodel)).
+- [`08-job-scout`](https://github.com/agbossjs/agboss-examples/tree/main/08-job-scout) (agbossjs/agboss-examples): `src/model-providers/openrouter.model-provider.ts`,
+  named in `job-scout.application.ts`; `agboss create` generates the same.
 
-[`08-job-scout`](https://github.com/agbossjs/agboss-examples/tree/main/08-job-scout) (agbossjs/agboss-examples): `src/model-providers/openrouter.model-provider.ts`,
-listed in `job-scout.application.ts`; `agboss create` generates the same.
+### The name
 
-### The key and the name
+The name is optional and kebab-case (`[name.not-kebab-case]` at the application's assembly; left out, it
+is the class name in kebab-case). It keys the provider's shared state (its slots, windows, pause and
+breaker in `RateLimitRepository`) and appears in logs and `agboss describe`.
 
-- **The key is a `Secret` of the application's environment** (#266 S73 c, [Environments](Environments)):
-  `apiKey` names the field — `apiKey: "openRouterApiKey"` — and each environment that calls the
-  provider sets it, `openRouterApiKey: secret("OPENROUTER_API_KEY")`; the built-ins read
-  `openRouterApiKey`. It is read from `applicationContext.environment` when the app starts (a secret
-  of an environment passed as written takes its own variable); a provider never reads `process.env`
-  for it. Only a provider that serves a model of the application is connected at start (#716): an
-  application whose workflows call no model — actions only — needs no key at all, and a provider
-  no model resolves to reads its key on its first call. A missing one fails the start of an app
-  that calls the provider:
-  `openrouter-model-provider reads its key from the application's environment: the environment has
-  no openRouterApiKey — declare openRouterApiKey: Secret in the environment contract and set
-  openRouterApiKey: secret("…") in each environment that calls it`. Tests script or replay models,
-  so a `test` environment may leave the field out (declare it optional, `openRouterApiKey?: Secret`)
-  and `agboss check` writes the types without a key (it reads the contract's shape); only
-  `agboss check --models`, which connects, needs the secrets of the chosen environment.
-- **The base URL** is `baseUrl`, unless `baseUrlField` names a text field of the environment that
-  holds one — the built-ins read `openRouterBaseUrl` (a proxy or a local stub). The field is
-  declared without a default, `openRouterBaseUrl: env.optional("OPENROUTER_BASE_URL")` with
-  `openRouterBaseUrl?: string` in the contract: unset, it is `undefined` and the provider uses its
-  decorator's `baseUrl` — the default is written once, in the decorator (#266 S87).
-- **The name ends with `-model-provider`** (`[name.kind-suffix] "local" on @ModelProvider — name it
-  "local-model-provider"`, at the application's assembly) — the built-ins are
-  `openrouter-model-provider` and `decisions-model-provider`. The name keys the provider's shared
-  state (its slots, windows, pause and breaker in `RateLimitRepository`) and appears in logs and
-  `agboss describe`.
+## The model cascade (#1313)
 
-### Built in
+A provider owns the model names of its own — `model`, or `models`, a map of role names (`default`,
+`fast`) to the vendor's names — and a component reaches it by `modelProvider`, never by a model's name:
 
-| Class                               | What it is                                                                                                                                                                             |
-| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `OpenAiCompatibleProvider<Fields>`  | any OpenAI-compatible server; `requestFields` is a typed member (`override readonly requestFields: Fields = { … }`) — a typo is a compile error. OpenAI's dialect: `reasoning_effort`, `prompt_cache_key`, `prompt_cache_retention`. |
-| `OpenRouterProvider<Fields>`        | OpenRouter's dialect: `reasoning: { effort \| max_tokens, exclude }`, `usage: { include: true }` (the cost in every answer), `cache_control` markers for Anthropic and Google models, a model list that says what each model supports. `OpenRouterFields`: `provider` routing, `transforms`. |
-| `OpenRouterModelProvider`           | the default chat provider (above, without request fields)                                                                                                                            |
-| `DecisionsModelProvider`            | OpenRouter's Decisions API: serves the decision models (`DECISION_MODELS`: `typesafe/jev-*`, `openai/gpt-6-luna-decisions`, pplx-decider, Clef, …) for **decisions only** (routers, guardrails, decision judges); `JevModelProvider` is its deprecated alias |
-| own provider                        | implement `ModelProviderHandler`: `chat?(request)` → a LangChain chat model, `routeTo?(request)`, `capabilities(model, connection)` (`undefined` = not served)                         |
+<!-- snippet-context
+import { env, secret } from "@agboss/core";
+import { CircuitBreakerPolicy, ModelCost, ModelProvider, OpenAiCompatibleDriver } from "@agboss/core/models";
+import { minutes, seconds } from "@agboss/core/units";
+-->
 
-## Which provider serves a model
+```ts
+@ModelProvider({
+  driver: OpenAiCompatibleDriver({
+    baseUrl: env("LLM_BASE_URL"), // OpenAI, LiteLLM, vLLM, Ollama, Groq, DeepSeek, …
+    apiKey: secret.optional("LLM_API_KEY"), // optional for a local server
+    headers: { "x-tenant": "acme" }, // text, env(…) or secret(…)
+  }),
+  timeout: minutes(2),
+  cost: ModelCost.fromResponse(),
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({ failureThreshold: 5, failureWindow: minutes(1), openDuration: seconds(30) }),
+  models: { default: "gpt-4.1", fast: "gpt-4.1-mini" }, // or model: "gpt-4.1"
+})
+export class AppChatModels {}
 
-- Exactly **one** listed provider must match the model name **for its purpose** — a chat model
-  (agents, compaction, LLM routers, chat judges) needs a provider with `chat`, a decision (Jev and
-  the other decision models: routers, guardrails, decision judges) one with decisions. So OpenRouter on
-  `/.*/` and the decision models never clash.
-- Checked for **every** model of the application at assembly — agents, model routers, the default
-  router (`defaults.router.model`), guardrails, compaction and judges (arbiters and reply interpreters
-  join when they exist, #267) — all at once, before any model call (`createApp`, `testWith`,
-  `agboss check`):
-  - none → `[model.unserved] job-scout-workflow agents.scout-agent = local/llama: no listed provider
-    serves it for chat (listed: openrouter-model-provider, decisions-model-provider) — list a @ModelProvider that serves it in
-    @Application({ providers })`;
-  - several → `[model.ambiguous-provider] … served by several providers: local-model-provider, local-mirror-model-provider — one
-    model string per provider, each in one serves`. No default breaks the tie: one model through
-    two providers is two model strings, each in one provider's `serves`.
-- **The built-ins yield** (#454): `OpenRouterModelProvider` and `DecisionsModelProvider` are
-  catch-alls — listed (by default or by name), each serves its models **except** those another
-  listed provider claims by `serves`. A project's provider for its own prefix (a transport serving
-  `/^harness\//`, a local server on `/^local\//`) works next to them with no narrowed copy of the
-  built-in: `harness/x` resolves to it, `moonshotai/kimi-k2.6` to OpenRouter. Only these two classes
-  yield — a subclass with its own `@ModelProvider` claims what its `serves` says, like any other
-  provider, and two such claims on one model stay `[model.ambiguous-provider]`. The key check at
-  start does not change: a listed HTTP provider still needs its key.
-- `agboss describe` prints the provider each model resolves to, though no component names it
-  (`--json`: `models: [{ key, model, provider }]`):
-
+// @Application({ …, modelProvider: AppChatModels, providers: [AppChatModels] })
 ```
-models
-  agents.scout-agent  model: moonshotai/kimi-k2.6 → openrouter-model-provider
-  routers.main-router  model: typesafe/jev-1.13 → decisions-model-provider
-```
+
+- **The cascade:** `Component.modelProvider ?? Workflow.modelProvider ?? Application.modelProvider` —
+  `@Agent`, a model `@Router`, `@Arbiter`, `@InputGuardrail` / `@OutputGuardrail`, `@ChannelInterpreter`
+  and `@PiiPolicy` (its `model`), `@Workflow` and `@Application` take `modelProvider`. A provider the cascade names is part
+  of the application even when it is not in `providers`, and the provider rules (`timeout`, prices,
+  breaker, mode) check it exactly like a listed one, wherever it is named; `agboss describe` lists it as
+  "named by modelProvider".
+- **Roles:** a component's `model: "fast"` is the vendor's name `models.fast` maps to; a name that is
+  no role goes to the server as written.
+- **The default model:** a component that names no `model` (an `@Arbiter` and a `@ChannelInterpreter`
+  may leave it out) takes, in this order: its profile's override, its own `model`,
+  `@Workflow({ defaults: { models: { model } } })`, `@Application({ defaults: { models: { model } } })`,
+  the provider's `model`, the provider's `models.default`. A level's `defaults.models.model` applies
+  only when the component resolves to that level's provider (the workflow's own, else the
+  application's; the application's): a component that names another provider skips it, so `"fast"` on
+  the application never names a model of a provider that has no such role. A component that names
+  `model: "default"` asks for the provider's default role, not for the levels'.
+- **What a model is** is said by its provider's driver (chat or decisions), not by its name:
+  `ModelKind.Chat` / `ModelKind.Decisions`.
+- **Rules:** `[model.missing-provider]` (no provider in the cascade, or the named one is not listed),
+  `[model.incompatible-provider]` (a chat model on a decisions driver, or the reverse), `[model.missing]`
+  (no model named and the provider has neither `model` nor `models.default`).
 
 ## Cost
 
 - `ModelCost.fromResponse()` — the provider reports each call's cost in its answer (`usage.cost`),
   recorded as `costSource: CostSource.Api`.
-- `ModelCost.fromPrices({ "<model>": { inputPerMillion: usd(…), outputPerMillion: usd(…), cachedInputPerMillion?: usd(…) } })`
+- `ModelCost.fromPrices({ "<model>": { inputPerMillion: usd(…), outputPerMillion: usd(…), cacheReadPerMillion?: usd(…), cacheWritePerMillion?: usd(…) } })`
   — tokens × the table (`CostSource.PriceTable`); a model it does not price → `model.no-price` at startup.
 - The reported cost always comes first; a component's own `price` overrides the table. A call with
   neither fails (`ModelCostError`) — an unaccounted call is never silently free. Limits per run and
@@ -380,8 +370,10 @@ forms). Unset on the component = the provider's.
 
 ## Prompt caching
 
-`PromptCaching.whereSupported({ retention: CacheRetention.FiveMinutes | OneHour | OneDay, cachedParts: [CachedPart.SystemPrompt | Tools | History], key? })`
-· `PromptCaching.off()`. Where the model caches automatically (OpenAI, Kimi, DeepSeek…) nothing is
+`PromptCaching.on({ retention: CacheRetention.FiveMinutes | OneHour | OneDay, cachedParts: [CachedPart.SystemPrompt | Tools | History], key? })`
+· `PromptCaching.off()`. A provider that sets none caches opportunistically: the system prompt, the tools and the
+history at `FiveMinutes` wherever the model supports it, none where it does not — and, unlike an explicit
+`PromptCaching.on`, which the startup check refuses where the model cannot honour it. Where the model caches automatically (OpenAI, Kimi, DeepSeek…) nothing is
 marked; Anthropic and Google models get `cache_control` after the stable prefix (the system prompt,
 which ends the tools + system prefix) and at the previous turn's end (history as a growing prefix),
 with `ttl: "1h"` for `OneHour`; OpenAI's dialect sends `prompt_cache_key` and
@@ -398,14 +390,14 @@ Three policies of a provider, each with one duty — all app-wide, since the pro
 | `rateLimitPolicy`      | how many calls go to the provider, and how **everyone** slows down after a 429                |
 | `circuitBreakerPolicy` | stops calling a provider that is down for a while (unchanged by #266, its state moved)        |
 
-Next to them, `@Workflow({ maxConcurrentExecutions })` (#264) governs an execution tree's
+Next to them, `@Workflow({ executionLimits: { maxConcurrency } })` (#264) governs an execution tree's
 structure and cost; `rateLimitPolicy` governs the provider API's capacity.
 
 ### `retryPolicy`
 
 - `RetryPolicy.exponential({ maxAttempts, initialDelay, maxDelay, jitter, retryOn })` ·
-  `RetryPolicy.fixed({ maxAttempts, delay, retryOn })` · `RetryPolicy.none()` — every field
-  required, delays with units (`seconds()`, `minutes()`: a bare number does not compile). Only the
+  `RetryPolicy.fixed({ maxAttempts, delay, retryOn })` — every field
+  required (omit `retryPolicy` for no retries), delays with units (`seconds()`, `minutes()`: a bare number does not compile). Only the
   listed `ModelFailure`s (`Timeout`, `RateLimited`, `ServerError`, `NetworkError`) are retried; a
   client error (4xx) is the answer. `jitter` makes each wait a random point of its upper half.
 - `Retry-After` is honoured; one longer than the policy's longest wait (`maxDelay`, or `delay`) ends
@@ -425,7 +417,7 @@ no limit**, as before #266.
   shares it. Its state — the `maxConcurrentCalls` slots (leases, renewed while a call runs, free
   again after a minute if an instance dies), the per-minute windows and the pause after a 429 — is
   in the application's `RateLimitRepository` ([Several instances](Several-instances)): with
-  `SqliteRateLimitRepository` (or your own over Redis) it holds on every instance at once.
+  a shared storage (`SqliteDriver` on one file, or your own over Redis) it holds on every instance at once.
 - **A call without room waits**, in this order: the provider's tenant-fair queue → the pause → the
   per-minute tokens → a slot → the per-minute calls → the attempt's `timeout` starts → the call →
   its real usage counted → the slot released (when the answer has been read to its end). The wait
@@ -440,8 +432,9 @@ no limit**, as before #266.
   - `TenantRoundRobin` (default) — round-robin between waiting tenants, FIFO inside one: one tenant's
     50-item launch does not hold up another tenant's single call until the batch is done;
   - `TenantLeastInFlight` — the waiting tenant with the fewest calls in flight;
-  - `TenantWeighted` — round-robin where a tenant gets up to its `weight` slots per round
-    (`app.execute(Start, input, { tenant: { tenantId: "enterprise-corp", weight: 3 } })`, default 1);
+  - `TenantWeighted` — round-robin where a tenant gets up to its weight in slots per round; the
+    weight is the policy's own `tenantWeight: (tenant) => tenant.plan === "enterprise" ? 3 : 1`
+    (an integer from 1; required with `TenantWeighted`, and allowed only with it);
   - `Fifo` — one queue in arrival order.
 
   Fairness is **per instance**: the queue is in-process, and between instances a slot goes to
@@ -465,22 +458,39 @@ keeping some headroom (about 80 %) for other clients of the same key:
 | a plan with requests and tokens per minute | the plan's concurrency, else RPM ÷ 30 | `{ calls: RPM × 0.8, tokens: TPM × 0.8 }` |
 | a local server (one GPU)                   | its batch size       | —                                        |
 
-### `circuitBreakerPolicy`
+### `circuitBreakerPolicy` and `fallback`
 
-- `{ failureThreshold, window, openFor, fallback?, fallbackModels? }`: that many failed calls
-  within the window open the breaker for `openFor`; while open, calls go to the `fallback` provider's
-  chat model (its own base URL, key and request fields — or its `complete()`, #385: HTTP and transport
-  fall back to each other either way), each model as its `fallbackModels` entry, or fail fast with
-  `ModelCallError` `model.circuit-open`.
-- Its state — the failures in the window, the open breaker — is in the application's
-  `RateLimitRepository` (#265 S52), so a breaker opened on one instance is open on every instance;
-  its time is the application's `Clock` (no longer the system's, #262 S75 d).
-- **Required** on every provider, like `retryPolicy`: the type requires it, and a provider without
-  it — a JavaScript project, a cast — fails the application's assembly (`agboss check`,
-  `createApp`), a breaker's `fallback` too:
-  `[model-provider.circuit-breaker-required] unguarded-model-provider (UnguardedModelProvider) has
-  no circuitBreakerPolicy — set circuitBreakerPolicy: { failureThreshold, window, openFor } on its
-  @ModelProvider` (#521; before, its first read crashed with `Cannot read properties of undefined`).
+- `CircuitBreakerPolicy.fixed({ failureThreshold, failureWindow, openDuration, halfOpenProbes? })`:
+  that many failed calls within `failureWindow` open the breaker for `openDuration`.
+  `CircuitBreakerPolicy.exponential({ failureThreshold, failureWindow, initialOpenDuration,
+  maxOpenDuration, jitter, halfOpenProbes? })`: each open in a row lasts twice as long as the one
+  before, up to `maxOpenDuration`. While it is open, calls fail fast with `ModelCallError`
+  `model.circuit-open` — or go to the provider's `fallback`.
+- **Half-open**: after an open, `halfOpenProbes` (default 1) calls at a time go through to try the
+  provider. A success closes the breaker; a failure opens it again (longer, with `exponential`). The
+  other calls are refused (or fall back) until the probes report.
+- Its state — the failures in the window, the open pause, the opens in a row, the probe slots — is in
+  the application's `RateLimitRepository` (#265 S52) as windows and pauses, so a breaker opened on
+  one instance is open on every instance; its time is the application's `Clock`.
+- **`fallback`** (on `@ModelProvider`, not in the policy): `fallback: BackupProvider`, or
+  `{ provider: BackupProvider, models: { "primary/model": "backup/model" } }`. It answers when the
+  breaker is open (or half-open with every probe taken) and when a call failed after its retries —
+  a timeout, a 429, a 5xx, a broken connection, a refused key (401, 403), an unknown model or
+  endpoint (404), a used-up quota (402). Never on a caller's cancel, on an input the model cannot
+  take, or on a request the provider refused as wrong (400, 422). It chains: the fallback may name its
+  own (`A → B → C`); the hops are tried in order and the last one's error is the call's when none
+  answers. Each hop is asked for the model its `models` entry names for the primary's, else the
+  same role (`default`, `fast`) of its own `models`, else the same name; it keeps its own reasoning,
+  caching, price and base URL. The call is recorded under the provider that answered (`provider` on
+  the usage and the cost line), at that provider's price — never twice.
+- Checked at start and by `agboss check --models`: every hop serves the model it is asked for, lists
+  it (`model.unknown-model`) and prices it (`model.fallback-no-price`); a cycle is
+  `[model-provider.fallback-cycle]`, a fallback of the other kind (chat ↔ decisions)
+  `[model.incompatible-fallback-provider]`.
+- An open or half-open breaker makes readiness `Degraded`, never `Unhealthy`: the instance stays in
+  rotation while its fallback serves.
+- **Optional** (#1313): a provider without it has no breaker — its calls are never refused for a failing
+  provider.
 
 ## Streaming (#1005)
 
@@ -505,10 +515,21 @@ What `onStream` hears depends on the provider kind:
   empty body, another content type, an `{error}` inside the 200) fails that call like any other
   failed call — retried under the retry policy, counted by the breaker — never as a configuration
   error.
-- **Transport providers** (`complete()`, #385) stream the whole answer as one delta at the end
-  (a streaming form is #1011).
-- **A fallback model** streams like the primary. A primary that dies mid-stream with its breaker
-  open is answered by the fallback from the start, after a `discarded` event (`stream-broken`).
+- **Transport providers** (`complete()`, #385) stream the whole answer as one delta at the end,
+  unless the class has `stream(request)` (#1011): it returns a `ModelProviderStream` — `{ textStream:
+  AsyncIterable<string>, result: Promise<ModelProviderStreamResult> }`, where `result` is
+  `{ usage: TokenUsage, cost?, finishReason? }` (#1311), what `complete()`'s answer holds beside its
+  text. Each chunk is a `StreamEventKind.TextDelta`; the call's usage, cost and budgets are a plain
+  call's. `result` must settle when the stream ends, fails or is aborted — after a failure, with
+  what the call used so far (the provider's rate-limit window counts it, and so do the cost ledger
+  and every budget: a stream that fails mid-way is charged what it used — the provider's usage, else
+  counted from the chunks that came, unpriced tokens when it has no price); one that never settles
+  within the provider's `timeout` is a `ModelFailure.Timeout`. A `result` that settles to anything
+  but `{ usage: { inputTokens, outputTokens }, … }` fails the call as the project's bug, never as
+  a call of zero tokens.
+- **A fallback model** streams like the primary. A primary that dies with its breaker open is
+  answered by the fallback from the start inside the same stream: before any text transparently,
+  after text with a `StreamEventKind.Discarded` event (`StreamDiscardReason.StreamBroken`) first.
 - `agboss run` prints the answer from the result when nothing streamed.
 
 ## Fail fast: settings must fit their models

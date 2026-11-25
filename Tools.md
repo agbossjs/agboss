@@ -1,7 +1,7 @@
 # Tools
 
 A tool is a `@Tool` class in its workflow's `tools/` folder — see [Components](Components) for the
-pattern (constructor dependencies, `ToolHandler`, tests with `new`).
+pattern (constructor dependencies, an `execute` method, tests with `new`).
 
 <!-- snippet-context
 import { InjectionToken } from "@agboss/core";
@@ -10,8 +10,8 @@ const ISSUES_API = new InjectionToken<IssuesApi>("ISSUES_API");
 -->
 
 ```ts
-import { ExecutionContext, Tool, type ToolHandler } from "@agboss/core";
-import { ListOf, Text } from "@agboss/core/dto";
+import { ExecutionContext, Tool } from "@agboss/core";
+import { List, Text } from "@agboss/core/dto";
 import { seconds } from "@agboss/core/units";
 
 export class Issue {
@@ -25,7 +25,7 @@ export class IssueQuery {
 }
 
 export class IssueList {
-  @ListOf(Issue)
+  @List(Issue)
   issues!: Issue[];
 }
 
@@ -37,13 +37,13 @@ export class IssueList {
   timeout: seconds(10), // with units — there is no timeoutMs
   deps: [ExecutionContext, ISSUES_API],
 })
-export class SearchIssues implements ToolHandler<IssueQuery, IssueList> {
+export class SearchIssues {
   constructor(
     private readonly executionContext: ExecutionContext,
     private readonly issuesApi: IssuesApi,
   ) {}
 
-  run({ query }: IssueQuery): Promise<IssueList> {
+  execute({ query }: IssueQuery): Promise<IssueList> {
     return this.issuesApi.search(query, this.executionContext.signal);
   }
 }
@@ -56,30 +56,30 @@ JSON Schema, with each field's `prompt` as its description.
 
 | Step of `tool.invoke(raw)`                         | On failure                                                    |
 | ---------------------------------------------------- | ----------------------------------------------------------------- |
-| input validated against the input DTO             | `error: invalid input: <path>: <issue>` (`jobs[2].url`) — `run` is not called |
+| input validated against the input DTO             | `error: invalid input: <path>: <issue>` (`jobs[2].url`) — `execute` is not called |
 | run is not started if the run is already cancelled | `error: <abort reason>`                                       |
-| `run` under its `timeout` and the run's `AbortSignal` | `error: timed out after 10 s` / `error: <message>`          |
+| `execute` under its `timeout` and the run's `AbortSignal` | `error: timed out after 10 s` / `error: <message>`          |
 | output validated against the output DTO           | `error: invalid output: …` — a contract bug of the tool       |
 
 Results are values — `ToolResult = { kind: "ok", value } | { kind: "error", message }` — never
 exceptions: the model sees `Tool error: …` and can recover.
 
-`run` gets only its input (#280 — there is no `ToolContext`). The execution it runs in comes through
+`execute` gets only its input (#280 — there is no `ToolContext`). The execution it runs in comes through
 the constructor: `deps: [ExecutionContext]` gives `executionId`, `threadId`, `ownerId`, `signal`,
 `workflow` and the call's `step` (`callId`, `idempotencyKey`, …)
 ([Context and Authorization](Context-And-Authorization)). A tool's model spend through
-`ROUTER_FACTORY` is recorded as the tool's; what it pays a service that is not a model it records
+`DecisionModel` is recorded as the tool's; what it pays a service that is not a model it records
 with `deps: [SpendRecorder]` — `this.spendRecorder.record({ service, cost: usd(…) })`, counted in
 the money limits ([FinOps](FinOps)).
 
 ## Names
 
-A tool's `name` is named like every component (#268 AC9): kebab-case ending with `-tool` —
-`search-issues-tool`, `@McpTool` too (`[name.kind-suffix]` at assembly, with the name to use:
-`"search_issues" on @Tool — name it "search-issues-tool"`). A knowledge base's tool is
-`search-<rag name>-tool` (`search-jobs-rag-tool` for `jobs-rag`, [Knowledge bases](Knowledge-bases)).
+A tool's `name` is what the model calls (#268 AC9, #1343a): letters, digits, `_` and `-`, at most 64
+characters (`[tool.name-invalid]`, `[tool.name-too-long]`); no `-tool` suffix is needed (`search-issues`,
+`search_issues`). A knowledge base has no tool of its own: a `@Tool` injects the `@Rag` (`deps: [JobsRag]`)
+and calls `search(query)`, with the ready-made `RagQueryDto` / `RagSearchResultsDto` ([Knowledge bases](Knowledge-bases)).
 The tools an MCP server offers keep the server's own names (`read_text_file`, declared in
-`@McpServer({ tools })`) — a model never sees them, only the `@McpTool` calling them. Every name a
+`@McpServer({ tools })`) — a model never sees them, only the `@Tool` calling them. Every name a
 model sees — the framework's answer tools (`answer-<dto>`) too — fits what the providers accept
 (OpenAI, Anthropic, Gemini): `[a-zA-Z0-9_-]`, at most 64 characters (`[tool.name-too-long]`,
 `[tool.name-invalid]`), and is unique over the agent's tools (`[tool.duplicate-name]`). All found at
@@ -118,7 +118,7 @@ export class PageContent {
 
 ```ts
 // tools/fetch-page.tool.ts — a tool whose pages may be long sets its own
-import { Tool, type ToolHandler } from "@agboss/core";
+import { Tool } from "@agboss/core";
 import { kilobytes, seconds } from "@agboss/core/units";
 
 @Tool({
@@ -130,24 +130,24 @@ import { kilobytes, seconds } from "@agboss/core/units";
   maxResultSize: kilobytes(256),
   deps: [PageReader],
 })
-export class FetchPageTool implements ToolHandler<PageQuery, PageContent> {
+export class FetchPageTool {
   constructor(private readonly pageReader: PageReader) {}
 
-  async run({ url }: PageQuery): Promise<PageContent> {
+  async execute({ url }: PageQuery): Promise<PageContent> {
     return { text: await this.pageReader.textOf(url) };
   }
 }
 ```
 
 - The bound applies to the **rendered** result — the JSON of the output DTO, or `Tool error: …` for a
-  failed call — of a `@Tool`, an `@McpTool` and a knowledge base's `search-<rag>-tool` alike. Over
+  failed call — of a `@Tool` and a knowledge base's `search-<rag>-tool` alike. Over
   it, the text is cut at the last whitespace (space, tab, line break) within the final 256 bytes it
   keeps, else at the bound, never inside a character, and ends with
   `\n[result truncated: 1,048,587 bytes, the first 262,144 kept]` — a framework text the model reads,
   part of every workflow's `configHash`. The result stays useful; it is never turned into an error.
 - It is cut **before** PII masking: the policies read only the kept part, the marker follows it in
   what the model reads and in the checkpoint.
-- A knowledge base in `RagMode.Context` is bounded the same way: each knowledge base's block in the
+- A knowledge base listed in an agent's `rag` is bounded the same way: each knowledge base's block in the
   agent's input message by the agent's `maxResultSize` (its workflow's `defaults.tools`, else 128 KB).
 - `onToolEnd` carries `isResultTruncated` (`update` then ends with the marker,
   [Observability](Observability)); `agboss describe` prints each tool's bound and where it came from
@@ -156,7 +156,7 @@ export class FetchPageTool implements ToolHandler<PageQuery, PageContent> {
   `maxResultSize` (its context blocks and the tools without their own).
 - A bound that is not a whole number of bytes from 1 (`kilobytes(0)`, `kilobytes(0.1)`) fails
   assembly with `[tools.max-result-size-invalid]`, naming the tool or the workflow, all at once.
-- `testTool(…).run` returns the tool's full output — the bound is what a model reads, not what a
+- `testUnit(…).run` returns the tool's full output — the bound is what a model reads, not what a
   tool returns.
 
 ## Library and workflow tools
@@ -167,8 +167,8 @@ registry: an agent's `tools: [SearchIssues]` **is** the registration.
 ## MCP
 
 A server declares the tools it offers that the workflow uses (`@McpServer({ tools })`, `extends McpServerClient`);
-an `@McpTool` is a tool with that server injected, calling it in `run` — see
-[Components → MCP](Components#mcp). Env variable NAMES only in the config, never secrets.
+a `@Tool` lists the server class in its `deps` and calls it in `execute` — see
+[Components → MCP](Components#mcp). Secrets are `defineEnv` references in the config, never values.
 A server tool that answers with plain text declares `output: PlainTextDto` (`@agboss/core/dto`, the one
 field `text`) — the server's text arrives as `{ text }`; `agboss g mcp` writes that by default.
 
@@ -176,7 +176,7 @@ field `text`) — the server's text arrives as `{ text }`; `agboss g mcp` writes
 
 <!-- snippet-context
 import { Agent } from "@agboss/core";
-declare class GreenhouseJobs { run(input: object): Promise<object> }
+declare class GreenhouseJobs { execute(input: object): Promise<object> }
 -->
 
 ```ts
@@ -184,10 +184,10 @@ declare class GreenhouseJobs { run(input: object): Promise<object> }
 @Agent({
   name: "scout",
   description: "Finds jobs",
-  promptUrls: ["./scout.prompt.md"],
+  prompt: "./scout.prompt.md",
   model: "moonshotai/kimi-k2.6",
   tools: [GreenhouseJobs],
-  maxToolCalls: 4,
+  executionLimits: { maxToolCalls: 4 },
 })
 export class Scout {}
 ```
@@ -217,41 +217,34 @@ export class Scout {}
 
 ## Tool interceptors
 
-A `@ToolInterceptor` (#384) wraps an agent's calls to its own `@Tool`s and `@McpTool`s — a check
+A `@ToolInterceptor` (#384) wraps an agent's calls to its own `@Tool`s — a check
 of the arguments against the tenant, an audit, a rewrite of a result — without touching the tools.
-Its class implements `BeforeToolCall`, `AfterToolCall` or both: two one-method interfaces, so a
-class never writes an empty second method. A class with neither does not compile (and is
-`[tool-interceptor.missing-handler]` at assembly); its `name` ends with `-tool-interceptor`
-(`[name.kind-suffix]`); its `deps` are injected by the container like any component's.
+Its class has `@BeforeTool(Tool)` / `@AfterTool(Tool)` methods (the target-bound hooks, below),
+plain `beforeAnyTool(call)` / `afterAnyTool(call)` methods for every tool, or both kinds. A class
+with none is `[tool-interceptor.missing-handler]` at assembly; its `name` is optional (kebab-case,
+the class name by default); its `deps` are injected by the container like any component's.
 
 <!-- snippet-context
 import { TenantContext } from "@agboss/core";
-import { ListOf, Text } from "@agboss/core/dto";
+import { List, Text } from "@agboss/core/dto";
 export class JobScoutTenantContext extends TenantContext {
-  @ListOf(Text)
+  @List(Text)
   allowedCities!: string[];
 }
 -->
 
 ```ts file=src/scout/tenant-scope.tool-interceptor.ts
-import {
-  ToolCallDecision,
-  ToolInterceptor,
-  type AfterToolCall,
-  type BeforeToolCall,
-  type ToolCallContext,
-  type ToolCallResultContext,
-} from "@agboss/core";
+import { ToolCallDecision, ToolInterceptor, type ToolCallContext, type ToolCallResultContext } from "@agboss/core";
 
 @ToolInterceptor({
   name: "tenant-scope-tool-interceptor",
   description: "Checks that tool arguments respect the tenant's allowed cities",
   deps: [JobScoutTenantContext],
 })
-export class TenantScopeToolInterceptor implements BeforeToolCall {
+export class TenantScopeToolInterceptor {
   constructor(private readonly jobScoutTenantContext: JobScoutTenantContext) {}
 
-  beforeToolCall(call: ToolCallContext): ToolCallDecision {
+  beforeAnyTool(call: ToolCallContext): ToolCallDecision {
     if (
       typeof call.input === "object" &&
       call.input !== null &&
@@ -259,53 +252,91 @@ export class TenantScopeToolInterceptor implements BeforeToolCall {
       typeof call.input.city === "string" &&
       !this.jobScoutTenantContext.allowedCities.includes(call.input.city)
     ) {
-      return ToolCallDecision.replyToModel({
-        message: `City "${call.input.city}" is not allowed for this tenant.`,
-      });
+      return ToolCallDecision.reply(`City "${call.input.city}" is not allowed for this tenant.`);
     }
     return ToolCallDecision.allow();
   }
 }
 
 @ToolInterceptor({ name: "result-stamp-tool-interceptor", description: "Marks results as checked" })
-export class ResultStampToolInterceptor implements AfterToolCall {
-  afterToolCall(call: ToolCallResultContext): unknown {
+export class ResultStampToolInterceptor {
+  afterAnyTool(call: ToolCallResultContext): unknown {
     return call.output; // the result the model reads: the tool's, or a replacement of its shape
   }
 }
 ```
 
-**Levels.** `toolInterceptors: [...]` on `@Application` → `@Workflow` → `@Agent` → `@Tool` /
-`@McpTool`: the lists add up, outer first, each class once. `excludeToolInterceptors: [...]` on an
+**Target-bound hooks.** `@BeforeTool(OrderStatusTool)` decides on that tool's calls with its
+validated input DTO in hand, `@AfterTool(OrderStatusTool)` reads or replaces its output (and sees the
+input); `@BeforeTool(A, B)` shares one method between tools — it takes the union of their inputs and
+may rewrite the input only to what every one of them accepts. The `before` method returns a
+`ToolCallDecision` (`ToolCallDecision<OrderLookupDto>` when it rewrites the input); a method taking
+no input runs before the arguments are validated, one taking it is skipped for invalid arguments (the
+tool answers its own invalid-input error). Which method serves which tool is read from the decorator,
+never from a name or an arity. A target that is no tool is `[tool-interceptor.target-not-a-tool]`,
+two methods for one tool and phase `[tool-interceptor.duplicate-hook]`, a method named like a hook
+that is none (the 0.1.0 `beforeToolCall`) `[tool-interceptor.unknown-hook]`. `ToolCall.typeOf(call)`
+gives the tool class of a catch-all's `call`, which also carries `agent` and `callId`.
+
+<!-- snippet-context
+declare class CityJobsTool {
+  execute(input: { readonly city: string }): { readonly listing: string };
+}
+-->
+
+```ts file=src/scout/city-jobs.tool-interceptor.ts
+import { AfterTool, BeforeTool, ToolCallDecision, ToolInterceptor } from "@agboss/core";
+
+@ToolInterceptor({ name: "city-jobs-tool-interceptor", description: "Normalises a city" })
+export class CityJobsToolInterceptor {
+  @BeforeTool(CityJobsTool)
+  trimCity({ city }: { readonly city: string }): ToolCallDecision<{ readonly city: string }> {
+    return ToolCallDecision.allow({ input: { city: city.trim() } }); // validated again, then the tool runs
+  }
+
+  @AfterTool(CityJobsTool)
+  shorten({ listing }: { readonly listing: string }): { readonly listing: string } {
+    return { listing: listing.slice(0, 200) };
+  }
+}
+```
+
+**Levels.** `toolInterceptors: [...]` on `@Application` → `@Workflow` → `@Agent` → `@Tool`:
+the lists add up, outer first, each class once. `@Workflow({ excludeToolInterceptors })`
+removes an application-level one for the whole workflow. `excludeToolInterceptors: [...]` on an
 agent removes one its application or workflow lists; on a tool, one listed above it (by its
 application, its workflow or an agent that calls it) — excluding one nothing above lists is
 `[tool-interceptor.exclude-not-inherited]`, a class in a list that is not a `@ToolInterceptor` is
 `[tool-interceptor.not-an-interceptor]`. A child workflow gets its own workflow's lists over the
 application's.
 
-**`beforeToolCall(call)` decides**, in list order (outer first); the first decision that is not
-`allow()` ends the chain:
+**The before hooks decide**, in list order (outer first; an interceptor's `beforeAnyTool(call)` before its
+`@BeforeTool` method); the first decision that is not `allow()` ends the chain:
 
 | Decision                                   | The tool | The step                                                                                         |
 | ------------------------------------------ | -------- | ------------------------------------------------------------------------------------------------ |
 | `ToolCallDecision.allow()`                 | runs     | goes on (the next interceptor decides first)                                                     |
-| `ToolCallDecision.replyToModel({ message })` | not called | goes on: the model reads `message` as the call's text result in its loop and may try again      |
-| `ToolCallDecision.block({ reason })`       | not called | fails at once: `ToolBlockedError` (`step.tool-blocked`, a `StepFailedError`: `agent`, `tool`, `interceptor`, `reason`) |
+| `ToolCallDecision.allow({ input })`          | runs, with `input` | goes on (validated against the tool's input DTO again; the next hooks and the tool get it) |
+| `ToolCallDecision.reply(message)`          | not called | goes on: the model reads `message` as the call's text result in its loop and may try again      |
+| `ToolCallDecision.block(reason)`           | not called | fails at once: `ToolBlockedError` (`step.tool-blocked`, a `StepFailedError`: `agent`, `tool`, `interceptor`, `reason`) |
 
 A decision is built only by its factories (a plain object does not compile); in tests compare it
-with `toEqual(ToolCallDecision.replyToModel({ message }))`. `.onError(ToolBlockedError, …)` (or
+with `toEqual(ToolCallDecision.reply(message))`. `.onError(ToolBlockedError, …)` (or
 `StepFailedError`) right after the agent takes a block; the error carries the loop's spend, so the
 record and the ledger keep it.
 
-**`afterToolCall(call)` replaces the result**, in reverse order (inner first), on a successful
+**The after hooks replace the result**, in reverse order (inner interceptor first; its `@AfterTool`
+method, then its `afterAnyTool(call)`), on a successful
 call only — a tool error goes to the model as it is. `call.output` is the tool's result (or what an
 inner interceptor gave); the value returned is validated against the tool's output DTO before the
 next one reads it.
 
-**The order of one call**: the arguments' PII block rules → each `beforeToolCall` — the arguments
-as the tool gets them, PII tokens revealed (`alice@example.com`, never `<email:7f3a91>`), not
-validated yet (`call.input` is `unknown`: narrow it) → the tool → each `afterToolCall` → the
-`maxResultSize` cut ([Result size](#result-size)) → the PII policies' masking. A `replyToModel`
+**The order of one call**: the arguments checked against the tool's input → the arguments'
+PII block rules → each before hook — the arguments as the tool gets them, PII tokens revealed
+(`alice@example.com`, never `<email:7f3a91>`; `call.input` is `unknown`: narrow it) → the
+approval, when the tool has one (its approver sees the arguments masked, as the hooks left them, and
+nothing above is run again on resume) → the tool → each after hook → the
+`maxResultSize` cut ([Result size](#result-size)) → the PII policies' masking. A `reply`
 message is cut and masked the same way.
 
 **In the call's frame**: an injected `ExecutionContext` reads the tool call — `step.callId`,
@@ -315,11 +346,11 @@ message is cut and masked the same way.
 **Failures.** An interceptor that throws, returns no `ToolCallDecision` or an output its tool does
 not give fails the step: `AgentFailedError`, its error as the `cause` (`ScopeServiceDownError`,
 `TypeError`, `DtoValidationError`), so `.onError(DomainError, …)` takes it through the cause; the
-tool does not run after a failed `beforeToolCall`.
+tool does not run after a failed before hook.
 
-**What is intercepted**: an agent's calls to the project's `@Tool` / `@McpTool` classes — never
+**What is intercepted**: an agent's calls to the project's `@Tool` classes — never
 its answer tools, a knowledge base's `search-…-tool`, or a tool called on its own (over MCP,
-`createMcpService`).
+`connectMcp`).
 
 **Visible**: `agboss describe` prints
 
@@ -334,12 +365,12 @@ tool interceptors
 a workflow without one keeps its hash.
 
 **Tests**: on the whole application they run as in production; one on its own with
-`testToolInterceptor` ([Testing](Testing)):
+`testUnit` ([Testing](Testing)):
 
 <!-- snippet-context
-import { Tool, ToolCallDecision, type ToolHandler } from "@agboss/core";
+import { Tool, ToolCallDecision } from "@agboss/core";
 import { Text } from "@agboss/core/dto";
-import { testToolInterceptor } from "@agboss/core/testing";
+import { testUnit } from "@agboss/core/testing";
 import { JobScoutTenantContext, TenantScopeToolInterceptor } from "./src/scout/tenant-scope.tool-interceptor.js";
 import { expect, it } from "vitest";
 export class CityQuery {
@@ -351,8 +382,8 @@ export class CityJobs {
   listing!: string;
 }
 @Tool({ name: "city-jobs-tool", description: "Jobs in a city", input: CityQuery, output: CityJobs })
-export class CityJobsTool implements ToolHandler<CityQuery, CityJobs> {
-  run({ city }: CityQuery): Promise<CityJobs> {
+export class CityJobsTool {
+  execute({ city }: CityQuery): Promise<CityJobs> {
     return Promise.resolve({ listing: `Engineer in ${city}` });
   }
 }
@@ -360,7 +391,7 @@ export class CityJobsTool implements ToolHandler<CityQuery, CityJobs> {
 
 ```ts
 it("a city outside the tenant's goes back to the model", async () => {
-  const scope = testToolInterceptor(TenantScopeToolInterceptor, {
+  const scope = testUnit(TenantScopeToolInterceptor, {
     tenantContext: JobScoutTenantContext,
     tenant: { tenantId: "acme", allowedCities: ["Haifa"] },
   });
@@ -368,7 +399,7 @@ it("a city outside the tenant's goes back to the model", async () => {
   const { output } = await scope.beforeToolCall(CityJobsTool, { city: "Eilat" });
 
   expect(output).toEqual(
-    ToolCallDecision.replyToModel({ message: 'City "Eilat" is not allowed for this tenant.' }),
+    ToolCallDecision.reply('City "Eilat" is not allowed for this tenant.'),
   );
 });
 ```
@@ -409,15 +440,15 @@ unassigned tools: none
 
 ## Approval channels
 
-A tool that needs a decision before it runs names a channel: `@Tool({ channel })` (or `@McpTool`).
-Channels are found through the tools that name them, like services through `deps` — there is no
-`channelClasses` (#267) — and one instance serves every workflow of the application. A tool names
-either a concrete `@Channel` as is (`TerminalUserChannel`, `AutoApproveChannel`,
-`AutoRejectChannel`) or a **channel role** — the project's abstract class that says what it approves
-and who may answer:
+A tool that needs a decision before it runs names its approval: `@Tool({ approval })`. The approval
+is a **pause target** (#1307) — the project's class that says what is approved, who may answer and
+how long the pause may wait; the **channel** that asks the people is a separate class, listed in
+`@Application({ channels })` and found through its target, like services through `deps`. One
+instance serves every workflow of the application. `AutoApproveChannel.for(Target)` and
+`AutoRejectChannel.for(Target)` are the test channels that decide at once:
 
 <!-- snippet-context
-import { Agent, Application, EmptyEnvironment, Injectable, Workflow, WorkflowFinish, WorkflowStart, start } from "@agboss/core";
+import { inline, Agent, Application, EmptyEnvironment, Injectable, Workflow, WorkflowFinish, WorkflowStart, onStart, Ttl } from "@agboss/core";
 import { Integer, Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 export class RefundCardInputDto {
   @Text() orderId!: string;
@@ -433,7 +464,7 @@ export class SlackService {
   }
 }
 // @snippet
-@Agent({ name: "refund-agent", description: "Refunds", prompt: "Refund.", model: "moonshotai/kimi-k2.6", tools: [RefundCardTool] })
+@Agent({ name: "refund-agent", description: "Refunds", prompt: inline("Refund."), model: "moonshotai/kimi-k2.6", tools: [RefundCardTool] })
 export class RefundAgent {}
 @WorkflowStart({ name: "refund-workflow-start", description: "A request", input: WorkflowStartTextDto })
 export class RefundWorkflowStart {}
@@ -442,7 +473,8 @@ export class RefundWorkflowFinish {}
 @Workflow({
   name: "refund-workflow",
   version: "1.0.0",
-  flow: [start(RefundWorkflowStart).returns(WorkflowStartTextDto).toAgent(RefundAgent).toFinish(RefundWorkflowFinish)],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(RefundWorkflowStart).toAgent(RefundAgent).toFinish(RefundWorkflowFinish)],
   providers: [SlackService],
 })
 export class RefundWorkflow {}
@@ -451,113 +483,100 @@ export class RefundWorkflow {}
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [RefundWorkflow],
-  providers: [SlackRefundApprovalChannel], // the role's one implementation: channel transport
+  channels: [SlackRefundApprovalChannel], // the target's channel: its transport
 })
 export class RefundApplication {}
 -->
 
 ```ts file=refunds.ts
-import {
-  Channel,
-  ChannelOf,
-  ChannelOutcome,
-  ChannelRole,
-  ExecutionContext,
-  PauseAnswerer,
-  Tool,
-  type ChannelAsk,
-  type ToolHandler,
-} from "@agboss/core";
+import { Channel, ChannelOutcome, ExecutionContext, PauseRespondent, Tool, ToolApproval, type ChannelAsk } from "@agboss/core";
+import { hours } from "@agboss/core/units";
 
-// channels/refund-approval.channel.ts — the role: what it approves, who answers
-@ChannelRole({
-  name: "refund-approval-channel",
+// approvals/refund.tool-approval.ts — the target: what it approves, who answers, how long it waits
+@ToolApproval({
+  name: "refund-tool-approval",
   description: "Approves card refunds",
-  approves: RefundCardInputDto, // the tools' input DTO — imports go DTO ← role ← tool
-  answerer: PauseAnswerer.Channel,
+  respondent: PauseRespondent.Delegate,
+  timeout: hours(24),
 })
-export abstract class RefundApprovalChannel extends ChannelOf<RefundApprovalChannel> {}
+export class RefundToolApproval {}
 
-// channels/slack-refund-approval.channel.ts — its implementation, listed in the application
+// channels/slack-refund-approval.channel.ts — the transport that asks the people, listed in the application
 @Channel({
   name: "slack-refund-approval-channel",
   description: "Asks a finance manager in Slack",
+  target: RefundToolApproval,
+  ttl: hours(1),
   deps: [ExecutionContext, SlackService],
 })
-export class SlackRefundApprovalChannel extends RefundApprovalChannel {
+export class SlackRefundApprovalChannel {
   constructor(
     private readonly executionContext: ExecutionContext,
     private readonly slackService: SlackService,
-  ) {
-    super();
-  }
+  ) {}
 
-  async send(ask: ChannelAsk<RefundApprovalChannel>): Promise<ChannelOutcome<RefundApprovalChannel>> {
-    const cents: number = ask.value.arguments.amountCents; // typed by RefundCardInputDto
+  async send(ask: ChannelAsk<RefundToolApproval>): Promise<ChannelOutcome<RefundToolApproval>> {
+    const cents: number = ask.input.amountCents; // typed by the tool's input DTO
     const tenant = this.executionContext.tenant.tenantId;
     await this.slackService.post("#finance", `Refund ${String(cents)}¢ (${tenant})?`, ask.pauseId);
     return ChannelOutcome.awaitReply();
   }
 }
 
-// tools/refund-card.tool.ts — the tool names the role
+// tools/refund-card.tool.ts — the tool names its approval
 @Tool({
   name: "refund-card-tool",
   description: "Refunds a card payment",
   input: RefundCardInputDto,
   output: RefundCardOutputDto,
-  channel: RefundApprovalChannel,
+  approval: RefundToolApproval,
 })
-export class RefundCardTool implements ToolHandler<RefundCardInputDto, RefundCardOutputDto> {
-  run({ orderId }: RefundCardInputDto): Promise<RefundCardOutputDto> {
+export class RefundCardTool {
+  execute({ orderId }: RefundCardInputDto): Promise<RefundCardOutputDto> {
     return Promise.resolve({ status: `refunded ${orderId}` });
   }
 }
 ```
 
-- **`@ChannelRole({ name, description, answeredBy, approves, replyInterpreter? })`** — a tool
-  approval: `approves: XDto` (the question is `ToolCallApprovalAskDto` with `arguments: XDto`, the
-  answer `ToolCallApprovalDecisionDto` with `overrideArguments?: XDto`). A question role (`ask` /
-  `answer`, #659) is asked by a flow step — `.toQuestion(Role)`
-  ([Pauses](Pauses#a-question-the-workflow-asks-toquestionrole-659)) — or by an agent that lists the
-  role itself in its `tools` (#712, [Pauses](Pauses#an-agent-asks-a-question-role-as-a-tool-712));
-  a `@Tool` naming one as its `channel` is `[channel.wrong-tool]`. `answeredBy` is required —
-  `PauseAnswerer.ThreadOwner` or `PauseAnswerer.Channel`, no default (`[channel.role-form]` without
-  it, with both `approves` and `ask` / `answer`, or with neither). A tool whose `input` is not its role's `approves` fails assembly with
-  `[channel.wrong-tool]`; one `replyInterpreter` class in two roles with
-  `[channel.shared-interpreter]`. `replyInterpreter` is a `@ReplyInterpreter` class (#267 PR 3) that
-  reads a free-text `app.resume({ pauseId, reply })` with the pause's question into the role's
-  answer — by its chat model, for an approval role a decision model (approve / refuse only, #267
-  S124), or by its code, which returns a `ReplyInterpretation` ([Pauses → free text](Pauses#answering-with-free-text-appresume-pauseid-reply--options)).
-- **The implementation** is a `@Channel` that `extends` the role, listed in
-  `@Application({ providers })` — found by inheritance, like any contract: none →
-  `[di.missing-implementation]`, two → `[di.ambiguous-implementation]`; a `@Channel` in a workflow's
-  `providers` → `[di.infrastructure-in-workflow]` (channel transport is infrastructure). Different
-  questions to different people are different roles; one question to several places, or a place
-  chosen by the request's data, is one implementation that does it inside. Child workflows' tools
-  count too: their roles need an implementation in the parent's application.
-- **`send(ask: ChannelAsk<Role>): Promise<ChannelOutcome<Role>>`** is the one method: `ask` is
-  `{ pauseId, value }` (the value typed by the generated `ChannelRoles` table — `agboss check`;
-  `ChannelQuestionOf<Role>` is the question, `ChannelAnswerOf<Role>` the answer `decided` takes;
-  the execution through `deps`). `ChannelOutcome.awaitReply()` — the call pauses and is saved
-  until the reply ([Pauses](Pauses), [Pause seam](Pause-seam)); `ChannelOutcome.decided(decision)` — the answer now
-  (a rule such as "up to $50 at once", `AutoApproveChannel`): no pause, the decision validated like
-  a reply, its pause record closed at once (`PauseResolution.Decided`). A `send` that returns
-  anything else fails the step.
-- **Who answers** (#267 PR 2): the role's `answerer`. A `PauseAnswerer.ThreadOwner` pause is
+- **A pause target** (#1307) is what a pause waits under: `@ToolApproval({ name, description,
+  respondent, timeout, … })` for a tool call's approval (the question is the tool's input, the
+  answer `ToolCallApprovalDecisionDto` with `overrideInput?`), `@ExternalTask({ name, description,
+  input, output, respondent, timeout, … })` for a step's or an agent's question (#659). A
+  `@Tool({ approval })` names its approval; an external task is asked by a flow step —
+  `.toExternalTask(Task)` ([Pauses](Pauses#a-question-the-workflow-asks-toexternaltasktask-659)) —
+  or by an agent that lists it in its `tools` (#712). A `@Tool` naming an external task as its
+  `approval` is `[channel.wrong-tool]`. `respondent` and `timeout` are required, no defaults:
+  `PauseRespondent.Owner` is answered by the thread's owner, `PauseRespondent.Delegate` by whoever
+  the channel's side authenticates. A `channelInterpreter` (a `@ChannelInterpreter` class) reads a
+  free-text `app.resume({ pauseId, reply })` into the target's answer; one interpreter class on two
+  targets is `[channel.shared-interpreter]` ([Pauses → free text](Pauses#answering-with-free-text-appresume-pauseid-reply--options)).
+- **A channel** is the transport: `@Channel({ name, description, target, ttl, timeout?, deps? })`
+  names the one target it serves and needs no `extends`. List it in `@Application({ channels })`;
+  a channel for no target, or in a workflow's `providers`, fails assembly. A target with no
+  channel at all is allowed when its `respondent` is `Owner`: the pause waits for `app.resume`
+  (a channel-less pause); a `Delegate` target with no channel is `[channel.missing-for-target]`.
+  Several channels for one target need a `@ChannelSelector({ target })` that picks one when the
+  pause is made (`[channel.ambiguous-for-target]` without it): the record keeps the channel chosen,
+  and a re-entry never asks the selector again. Child workflows' targets count too: they need their
+  channels in the parent's application.
+- **`send(ask: ChannelAsk<Target>): Promise<ChannelOutcome<Target>>`** is the one method: `ask` is
+  `{ pauseId, input, toolCall?, … }` (`input` typed by the target's DTOs — `agboss check`
+  generates the table). `ChannelOutcome.awaitReply()` — the call pauses and is saved until the
+  reply ([Pauses](Pauses), [Pause seam](Pause-seam)); `ChannelOutcome.decided(decision)` — the
+  answer now (a rule such as "up to $50 at once", `AutoApproveChannel.for(Target)`): no pause, the
+  decision validated like a reply, its pause record closed at once (`PauseResolution.Decided`). A
+  `send` that returns anything else fails the step.
+- **Who answers** (#267 PR 2, #1307): the target's `respondent`. A `PauseRespondent.Owner` pause is
   answered with the thread's `ownerId` and its `pauseId` is listed in `result.pending`; a
-  `PauseAnswerer.Channel` pause — the reply comes through the channel's own system — is answered
-  with `app.resume({ pauseId: ask.pauseId, decision }, { answeredBy: "manager-17" })`, its id never
+  `PauseRespondent.Delegate` pause — the reply comes through the channel's own system — is answered
+  with `app.resume({ pauseId: ask.pauseId, decision }, { tenantId: "acme", actor: { id: "manager-17" } })`, its id never
   listed (it is the right to answer). The `pauseId` is made once per pause, before the first `send`:
   a retried `send` gets the same one — use it as the idempotency key of the post. Several pauses
   at once, concurrent answers, validation: [Pauses](Pauses).
-- Not yet: choosing an implementation per
-  environment (a terminal in dev, Slack in prod) is a documented limit: one implementation per
-  application.
 
 ## Testing
 
-A tool is tested on its own with `testTool` (`@agboss/core/testing`, #262): its own container — its
+A tool is tested on its own with `testUnit` (`@agboss/core/testing`, #262): its own container — its
 `deps` resolved, `overrides` replacing classes by classes — and every call in the frame of a tool
 call, as the agent loop runs it: the input and output validated against the DTOs, the call's
 `executionContext.signal` aborting after `timeout` (default the tool's own `timeout`) on the runner's clock,
@@ -565,7 +584,7 @@ call, as the agent loop runs it: the input and output validated against the DTOs
 ([Testing → Unit runners](Testing#unit-runners--one-component-on-its-own)):
 
 <!-- snippet-context
-import { ExecutionContext, Injectable, Tool, type ToolHandler } from "@agboss/core";
+import { ExecutionContext, Injectable, Tool } from "@agboss/core";
 import { Text } from "@agboss/core/dto";
 @Injectable()
 export class IssuesApi {
@@ -576,9 +595,9 @@ export class IssuesApi {
 class IssueQuery { @Text() query!: string; }
 class IssueCount { @Text() summary!: string; }
 @Tool({ name: "count-issues-tool", description: "Counts issues", input: IssueQuery, output: IssueCount, deps: [ExecutionContext, IssuesApi] })
-class CountIssues implements ToolHandler<IssueQuery, IssueCount> {
+class CountIssues {
   constructor(private readonly executionContext: ExecutionContext, private readonly issuesApi: IssuesApi) {}
-  async run({ query }: IssueQuery): Promise<IssueCount> {
+  async execute({ query }: IssueQuery): Promise<IssueCount> {
     this.executionContext.signal.throwIfAborted();
     return { summary: `${String((await this.issuesApi.search(query)).length)} issues` };
   }
@@ -586,7 +605,7 @@ class CountIssues implements ToolHandler<IssueQuery, IssueCount> {
 -->
 
 ```ts
-import { override, testTool } from "@agboss/core/testing";
+import { testUnit } from "@agboss/core/testing";
 import { expect, test } from "vitest";
 
 @Injectable()
@@ -597,7 +616,7 @@ export class TwoIssuesApi extends IssuesApi {
 }
 
 test("counts the issues the API found", async () => {
-  const countIssues = testTool(CountIssues, { overrides: [override(IssuesApi, TwoIssuesApi)] });
+  const countIssues = testUnit(CountIssues, { services: [TwoIssuesApi] });
 
   const { output } = await countIssues({ query: "login" });
 
@@ -606,6 +625,6 @@ test("counts the issues the API found", async () => {
 ```
 
 In a workflow test the tool's dependencies are replaced with `mockOf(Service)`, and
-`app.tool(CountIssues).invoke(input)` runs the tool alone with the app's real (or mocked)
+`app.runTool(CountIssues, input)` runs the tool alone with the app's real (or mocked)
 dependencies, in an execution of its own (its `ExecutionContext` reads `step.callId`
 `"tool-slice"`) ([Testing](Testing)).

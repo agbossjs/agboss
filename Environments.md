@@ -31,7 +31,7 @@ export class AppEnvironment {
 ```
 
 <!-- snippet-context
-import { Application, Budget, BudgetScope, Workflow, WorkflowFinish, WorkflowStart, start, type BudgetHandler } from "@agboss/core";
+import { Application, Budget, BudgetScope, Ttl, Workflow, WorkflowFinish, WorkflowStart, onStart, type BudgetHandler } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { usd, type Usd } from "@agboss/core/units";
 @WorkflowStart({ name: "audit-workflow-start", description: "A request", input: WorkflowStartTextDto })
@@ -41,9 +41,9 @@ export class AuditWorkflowFinish {}
 @Workflow({
   name: "audit-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(AuditWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(AuditWorkflowStart)
       .toFinish(AuditWorkflowFinish),
   ],
 })
@@ -76,11 +76,10 @@ export class AuditApplication {}
   the contract declares fields only; put the value in each environment`. A default is
   `env("X", { default })` in an environment; a value that may be missing is an optional field
   (`region?: string`) read with `env.optional("X")`.
-- **Fields of the framework's own implementations** (`sqlitePath`, `langfusePublicKey`, …) are written
-  by the project in its contract; nothing is added implicitly. A listed implementation whose field
-  is missing fails assembly: `[environment.missing-field] SqliteExecutionRecordRepository needs
-  sqlitePath: string in AppEnvironment (read by SqliteConnection)` (the SQLite implementations come
-  with #265).
+- **The framework's own storage and providers read no field of the contract**: a driver's path, URL
+  and keys are references (`SqliteDriver({ path: env("AGBOSS_SQLITE_PATH") })`, `secret("OPENROUTER_API_KEY")`)
+  read from the process when the application starts, so there is nothing to declare for them
+  (#1313, #1321).
 - **A class declares the fields it reads (#511)**: `@Injectable({ environmentFields: { postgresUrl:
   EnvironmentField.secret(), postgresPoolSize: EnvironmentField.integer({ optional: true }) } })` —
   `EnvironmentField.text()`, `.integer()`, `.flag()`, `.secret()`, each `({ optional: true })` for an
@@ -199,16 +198,13 @@ The values are frozen.
   the variable at deploy (`gcloud run deploy … --set-secrets=DATABASE_URL=database-url:3`) and
   resolved when the instance starts; the framework calls no cloud SDK and nothing over the network
   for this — the same code runs locally (`.env`), in CI, Cloud Run and Kubernetes.
-- **Model provider keys are secrets of the environment too** (#266 PR 2): a `@ModelProvider` names
-  the field that holds its key — `apiKey: "openRouterApiKey"`, the built-ins read `openRouterApiKey`
-  — and every environment that calls models sets it, `openRouterApiKey: secret("OPENROUTER_API_KEY")`.
-  Tests script or replay models, so the contract may declare it optional
-  (`openRouterApiKey?: Secret`) and `test.environment.ts` leave it out. A missing key fails the
-  start of an app that calls the provider, naming the field
-  ([Model providers](Model-providers#the-key-and-the-name)). A provider's **base URL** is read the
-  same way: `baseUrlField: "openRouterBaseUrl"` names a text field, declared without a default
-  (`openRouterBaseUrl: env.optional("OPENROUTER_BASE_URL")`): unset → the provider's `baseUrl`. There is no second way: `env()` / `secret()` in an environment
-  are the only readers of process variables (`EnvironmentVariable` is removed, #266).
+- **Model provider keys are secrets of the driver, not fields of the environment** (#1313): a
+  `@ModelProvider`'s driver reads its key and base URL as references — `OpenRouterDriver({ apiKey:
+  secret("OPENROUTER_API_KEY"), baseUrl: env("OPENROUTER_BASE_URL", { default: "…" }) })` — from the
+  process when the application starts. A missing key fails the start of an app that calls the provider,
+  naming the variable ([Model providers](Model-providers#drivers)); tests script or replay models and need
+  none. There is no second way: `env()` / `secret()` (and `defineEnv`) are the only readers of process
+  variables (`EnvironmentVariable` is removed, #266).
 - **`agboss check` reads the contract's shape, not its secrets**: without `--models` a secret whose
   variable is unset is no problem — writing types and checking the assembly need no key, so
   `npm run types` (`postinstall`) works on a fresh `npm install`. `--models` connects to the
@@ -218,43 +214,24 @@ The values are frozen.
 
 ## The PII key
 
-The application's PII key (#120) is a `Secret` field of the environment, named by
-`@Application({ piiKeyField: "piiPseudonymKey" })`, the same pattern as a model provider's
-`apiKey`. Each environment sets it, for example `piiPseudonymKey: secret("PII_PSEUDONYM_KEY")`.
+The application's PII key (#120, #1301, #1321) is a `Secret` of its **database storage**:
+`@DatabaseStorage({ piiSecret: secret("PII_PSEUDONYM_KEY") })` (rotated with `previousPiiSecret:
+secret.optional("…")`), read from the process when the application starts — never a field of the
+environment, never made up by an instance.
 
-- **What uses it:** the `replaceWithToken()` HMAC of `sensitive` fields, of a project's own
-  detectors (`PiiPolicyHandler`) and of every `@PiiPolicy` without its own `pseudonymKey`.
+- **What uses it:** the `tokenize()` HMAC of `sensitive` fields, of a project's own detectors
+  (`PiiPolicyHandler`) and of every `@PiiPolicy` without its own `secret`; every use has a key of its
+  own, derived by HKDF ([Guards → the PII key hierarchy](Guards#the-pii-key-hierarchy)).
 - **Why it is shared:** every instance uses the same key, so one value gets one token on every
   machine, and logs and traces from different machines match.
-- **Precedence:** a policy's own `pseudonymKey` wins.
-- **Assembly check:** `piiKeyField` (#825, was `pseudonymKey`) is typed as a `Secret` field of the
-  contract — a typo or a text field does not compile; a field the contract does not declare (a
-  JavaScript caller) fails assembly with `[environment.missing-field]`, one that is also a provider's
-  `apiKey` or another key `[application.pii-key-shared]`.
-- **At start:**
-  - A policy that needs the key when it is not set fails the start, naming the field and the
-    policies.
-  - When nothing needs the key and it is not set, `sensitive` fields use a key **of each root
-    execution** (S94, #334): made once when the execution starts, kept in its checkpoint next to
-    its token map (`piiTokens`) and handed to its child workflows — so a pause resumed, a failover
-    or a recovery on another instance gives one value the same token within the execution
-    ([Several instances → PII tokens](Several-instances#pii-tokens-across-instances)). The start goes
-    on, with the warning `[application.pii-instance-key]` in `app.warnings` and the start log — only
-    when something of the application makes a token (a PII policy, a `sensitive` field of a path's,
-    a tool's or a context's DTO — a text start's optional `sender` is one —, #644) — an
-    error under `agboss check --strict`, silent in tests. Only one value gets another token in each
-    execution, and logs and traces mask with a key of the instance, so tokens compare across
-    executions (and the logs of several instances) only with the application's key.
-  - `testWith` uses a fixed test key when the variable is unset (no warning, #778): the field's
-    `secret("PII_PSEUDONYM_KEY")` resolves to it, so a project's tests need no variable in their
-    vitest `env`; a test that sets the variable keeps its own value. `createApp` and the CLI never
-    do: without the variable the start fails (`PII_PSEUDONYM_KEY is not set
-    (AppEnvironment.piiPseudonymKey, dev)`).
-- **Tests and the optional field:** a test environment may also declare it optional
-  (`piiPseudonymKey?: Secret`) and leave it out of `test.environment.ts`, as a model provider's
-  key; `flow-patterns` does so.
+- **Precedence:** a policy's own `secret` wins.
+- **At start:** a `tokenize()` rule or action, or a `sensitive: PiiAction.tokenize()` field, with no
+  key to make its token fails the start with `[pii.secret-required]`, naming the policy or the
+  `Dto.field` — no storage supplies one, `InMemoryDatabaseStorage` included. `mask()` needs no key.
+- **Tests:** `testWith` has a fixed test key (refused under `NODE_ENV=production`), so a project's
+  tests need no variable; `createApp` and the CLI never do.
 
-See [Guards → PII policies](Guards#pii-policies).
+See [Guards → PII policies](Guards#pii-policies) and [Upgrading to 0.1.1](Upgrading-to-0.1.1).
 
 ## The CLI
 

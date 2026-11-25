@@ -66,7 +66,7 @@ A dependency of the project — a CRM, a queue, a search index — is checked by
 class: `name` ends with `-health-check`, `timeout` is required, `deps` are injected like any
 component's (checked against the constructor by the compiler). `check()` returns a
 `HealthCheckResult`, built only with `HealthCheckResult.healthy()`,
-`HealthCheckResult.degraded({ reason })` or `HealthCheckResult.unhealthy({ reason })` — a plain
+`HealthCheckResult.degraded(reason)` or `HealthCheckResult.unhealthy(reason)` — a plain
 object does not compile.
 
 ```ts file=crm.ts
@@ -88,7 +88,7 @@ export class CrmHealthCheck implements HealthCheckHandler {
     const isReachable: boolean = await this.crmClient.ping();
     return isReachable
       ? HealthCheckResult.healthy()
-      : HealthCheckResult.unhealthy({ reason: "CRM is unreachable" });
+      : HealthCheckResult.unhealthy("CRM is unreachable");
   }
 }
 ```

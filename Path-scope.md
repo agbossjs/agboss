@@ -2,8 +2,8 @@
 
 Every path carries a **scope**: the values its steps returned so far (#270, [ADR-0019](ADR-0019-Flow-as-paths-with-path-scope)).
 Components declare what they read by type (`input: { draft: OfferDraftDto }`) and what they give
-(`output: OfferDraftDto`); the flow writes on each edge what was given (`.returns(OfferDraftDto)`).
-The same definition is used by the analyser at assembly, by the generated types and by the runtime.
+(`output: OfferDraftDto`); what a step writes on the path is derived from that declaration — nothing
+is written on an edge (#1270, there is no `.returns`). The same definition is used by the analyser at assembly, by the generated types and by the runtime.
 
 ## Slots and writes
 
@@ -11,14 +11,11 @@ The same definition is used by the analyser at assembly, by the generated types 
   `listOf(oneOf(ADto, BDto))` is one slot of the whole polymorphic list — it never fills a
   `listOf(ADto)` field (#299 S53: no filtered list drops the other variants; a step that hands on
   two separate lists returns two lists). A slot holds one value: the latest.
-- Writes: a start's `.returns(…)` (its validated input), every `.returns(…)` after a step, and a
-  `caseOf(…)` branch (the variant it matched). A `.returns(…)` names **one value**; a step that
-  gives several — a start whose `input` is a map of fields — names them in a chain,
-  `.returns(CompanyDto).returns(optional(SearchRequestDto))`, in any order. A `oneOf` output is
-  written `.returns(oneOf(A, B))` and branched right after by `.switch(caseOf(A)…, caseOf(B)…)`.
-  A write replaces the slot's value.
-- In the checkpoint a slot is plain data — `{ slot, producer: "<name>", variant?: "<DtoClass>",
-  value, builtFrom, about? }` — keyed by the DTO's class name, which is unique in the application
+- Writes: a start's validated input (one value per field of a map), and the `output` of every step
+  after it — an agent, action, external task or child workflow. A step that gives several values — a
+  start whose `input` is a map of fields — writes each. A `oneOf` output writes the variant that was
+  answered, and `.toOneOf([…])` branches on it. A write replaces the slot's value.
+- In the checkpoint a slot is plain data — `{ slot, producer: "<name>", value, builtFrom }` — keyed by the DTO's class name, which is unique in the application
   (`[dto.duplicate-name]`); renaming a DTO class changes the workflow's config fingerprint.
 
 ## Reads
@@ -26,9 +23,10 @@ The same definition is used by the analyser at assembly, by the generated types 
 - A field `name: XDto` reads the slot's current value; `listOf(XDto)` reads the latest list;
   `optional(XDto)` may be absent. Two fields of one class would read the same value
   (`[flow.ambiguous-field]`): the earlier versions are read with `historyOf(XDto)`.
-- Code (actions, finishes with `input`) gets each field as `Produced<T, P>` — `{ value, producer }`,
-  `producer` the union of the classes the paths can bring; `isVariant(value, XDto)` narrows a
-  `oneOf` value.
+- Code (actions, routers) gets each field as the DTO itself — a **tracked** instance, `input.order.total`,
+  with no wrapper (#1288 prototype hydration: no `.value`, no variant). Who made it is
+  `Metadata.createdBy(input.order)`, the producing class (`Metadata.of(value)` has its slot, visit and
+  parents); a `oneOf` value is told apart by `instanceof`.
 - An agent gets them in its **input message**, one block per field in declaration order:
   `### draft (from editor-agent)` and the value as JSON with sorted keys (`### after` and `none`
   for an absent `optional`). The instructions stay static — a field in the instructions as
@@ -36,8 +34,8 @@ The same definition is used by the analyser at assembly, by the generated types 
 
 <!--
 ```ts file=history.components.ts
-import { Agent, WorkflowFinish, WorkflowStart } from "@agboss/core";
-import { Text, historyOf, oneOf } from "@agboss/core/dto";
+import { inline, Agent, WorkflowFinish, WorkflowStart } from "@agboss/core";
+import { Text } from "@agboss/core/dto";
 
 export class ShortlistDto {
   @Text({ prompt: "the shortlisted candidates" })
@@ -57,29 +55,28 @@ export class DraftApprovedDto {
 }
 @WorkflowStart({ name: "history-offer-workflow-start", description: "A shortlist", input: ShortlistDto })
 export class HistoryOfferWorkflowStart {}
-@Agent({ name: "first-draft-agent", description: "Drafts the offer", prompt: "Draft the offer.", model: "moonshotai/kimi-k2.6", input: { shortlist: ShortlistDto }, output: OfferDraftDto })
+@Agent({ name: "first-draft-agent", description: "Drafts the offer", prompt: inline("Draft the offer."), model: "moonshotai/kimi-k2.6", input: { shortlist: ShortlistDto }, output: OfferDraftDto })
 export class FirstDraftAgent {}
-@Agent({ name: "draft-editor-agent", description: "Rewrites the draft", prompt: "Rewrite the draft.", model: "moonshotai/kimi-k2.6", input: { draft: OfferDraftDto, changes: ChangesRequestedDto }, output: OfferDraftDto, maxVisits: 3 })
+@Agent({ name: "draft-editor-agent", description: "Rewrites the draft", prompt: inline("Rewrite the draft."), model: "moonshotai/kimi-k2.6", input: { draft: OfferDraftDto, changes: ChangesRequestedDto }, output: OfferDraftDto, executionLimits: { maxVisits: 3 } })
 export class DraftEditorAgent {}
-@WorkflowFinish({ name: "offer-workflow-finish", description: "The approved offer", input: { drafts: historyOf(OfferDraftDto) }, output: OfferDraftDto })
-export class OfferWorkflowFinish {
-  finish(input: { drafts: { current: { value: OfferDraftDto } } }): OfferDraftDto {
-    return input.drafts.current.value;
-  }
-}
+@WorkflowFinish({ name: "offer-workflow-finish", description: "The approved offer", output: OfferDraftDto })
+export class OfferWorkflowFinish {}
 ```
 -->
 
-## Earlier versions: `historyOf(XDto, { limit })`
+## Earlier versions: `historyOf(XDto, { maxPrevious })`
 
 A node that needs the versions a value went through declares `historyOf(XDto)` in its `input`
-(#299 S56; there are no string tags). The field is `HistoryOf<Produced<XDto, P>>` —
+(#299 S56; there are no string tags). The field is a `HistoryOf<XDto>` —
 `{ current, previous }`: the current value, and the earlier versions of that slot in this execution,
-oldest first — every one, or at most `limit` (the latest ones).
+oldest first — every one, or at most `maxPrevious` (the latest ones).
 
 <!-- snippet-context
-import { Agent, Workflow, agent, caseOf, start } from "@agboss/core";
-import { historyOf, oneOf } from "@agboss/core/dto";
+import { toAgent } from "@agboss/core";
+import { toFinish, Ttl } from "@agboss/core";
+import { oneOf, historyOf } from "@agboss/core";
+import { inline, Agent, Workflow, onAgent, onStart } from "@agboss/core";
+
 import { ChangesRequestedDto, DraftApprovedDto, DraftEditorAgent, FirstDraftAgent, HistoryOfferWorkflowStart, OfferDraftDto, OfferWorkflowFinish, ShortlistDto } from "./history.components.js";
 -->
 
@@ -87,33 +84,28 @@ import { ChangesRequestedDto, DraftApprovedDto, DraftEditorAgent, FirstDraftAgen
 @Agent({
   name: "draft-review-agent",
   description: "Reviews the latest draft against the two before it",
-  prompt: "Review the draft.",
+  prompt: inline("Review the draft."),
   model: "moonshotai/kimi-k2.6",
-  input: { draft: historyOf(OfferDraftDto, { limit: 2 }) },
+  input: { draft: historyOf(OfferDraftDto, { maxPrevious: 2 }) },
   output: oneOf(ChangesRequestedDto, DraftApprovedDto),
 })
 export class DraftReviewAgent {}
 
 @Workflow({
   name: "history-offer-workflow",
-  version: "1.0.0",
+  version: "1.0.0", historyTtl: Ttl.Forever,
   flow: [
-    start(HistoryOfferWorkflowStart)
-      .returns(ShortlistDto)
+    onStart(HistoryOfferWorkflowStart)
       .toAgent(FirstDraftAgent)
-      .returns(OfferDraftDto)
       .toAgent(DraftReviewAgent),
 
-    agent(DraftReviewAgent)
-      .returns(oneOf(ChangesRequestedDto, DraftApprovedDto))
-      .switch(
-        caseOf(ChangesRequestedDto, { about: OfferDraftDto }) // the changes are about this draft
-          .toAgent(DraftEditorAgent)
-          .returns(OfferDraftDto)
+    onAgent(DraftReviewAgent)
+      .toOneOf([
+        // the editor reads the requested changes: that tells this branch apart
+        toAgent(DraftEditorAgent)
           .toAgent(DraftReviewAgent),
-        caseOf(DraftApprovedDto)
-          .toFinish(OfferWorkflowFinish), // input: { drafts: historyOf(OfferDraftDto) }
-      ),
+        toFinish(OfferWorkflowFinish),
+      ]),
   ],
 })
 export class HistoryOfferWorkflow {}
@@ -124,16 +116,16 @@ export class HistoryOfferWorkflow {}
 | 1 | v1 | `[]` |
 | 2 | v2 | `[v1]` |
 | 3 | v3 | `[v1, v2]` |
-| 4 | v4 | `[v2, v3]` (`limit: 2`) |
+| 4 | v4 | `[v2, v3]` (`maxPrevious: 2`) |
 
 - A `historyOf(XDto)` field needs a **current** `XDto` on every path into its node, else
   `[input.missing-on-path]` — also where the latest `XDto` is outdated. The replaced versions are
   its `previous`, never `[input.outdated-on-path]`.
-- `previous` is built from the slot's `outdatedValues` (below): each version with its producer.
+- `previous` is built from the slot's `outdatedValues` (below): the versions, oldest first.
 - The input message shows the current value as a field, then `### draft, earlier versions (oldest
-  first)` and the versions as a JSON array of `{ producer, value }` (`[]` on the first visit).
-- `limit` is a positive integer (`[input.history-limit]`); `describe` prints the field as
-  `draft: … (historyOf, limit 2)`.
+  first)` and the versions as a JSON array (`[]` on the first visit).
+- `maxPrevious` is a positive integer (`[input.history-max-previous]`); `describe` prints the field as
+  `draft: … (historyOf, maxPrevious 2)`.
 
 ## Outdating: current values only
 
@@ -154,22 +146,21 @@ before the user corrected it, the reviewer's notes about a draft that was rewrit
 - Limits: data from the outside world is not tracked (a tool's price may be stale), and a list is
   outdated as a whole, never item by item.
 
-### `{ about }`: the direction of a cycle
+### Cycles: nothing to declare
 
 In a cycle whose classes are built from each other — the writer reads the reviewer's notes, the
-reviewer reads the writer's draft — the **flow** states what one of the values is about (#299 S54):
-`.returns(CritiqueDto, { about: DraftDto })` after a step that gives one class or a list
-(`{ about: [PlanDto, BudgetEstimateDto] }` for several), and for a `oneOf` on the branch,
-`caseOf(ArticleChangesDto, { about: DraftDto })` — never on `.returns(oneOf(…))`, whose variants
-mean different things (an approval is no critique of the draft). A start's `.returns(…)` takes no `{ about }`:
-its input answers nothing (a compile error, `[io.about-on-start]` at assembly). A new draft outdates the values
-about the older one; a new value about it never outdates the draft. Components declare a plain
-`output`; `OutputOf<X>` and the answer tools are those of the `output`.
+reviewer reads the writer's draft — nothing is written in the flow: a new value outdates what was
+built from the slot's older value, so a new draft outdates the notes about the older one, and a new
+note never outdates the draft it was built from. (The 0.1.0 `{ about }` on `.returns(…)` / `caseOf(…)`
+and its rules `[io.ambiguous-cycle]`, `[io.ambiguous-about]`, `[io.about-on-start]` are gone with the
+edge writes.) Components declare a plain `output`; `OutputOf<X>` and the answer tools are those of the
+`output`.
 
 <!--
 ```ts file=review.components.ts
-import { Agent, WorkflowFinish, WorkflowStart } from "@agboss/core";
-import { Text, optional } from "@agboss/core/dto";
+import { optional } from "@agboss/core";
+import { inline, Agent, WorkflowFinish, WorkflowStart } from "@agboss/core";
+import { Text } from "@agboss/core/dto";
 
 export class ArticleRequestDto {
   @Text({ prompt: "what to write about" })
@@ -197,11 +188,11 @@ export class ArticleDto {
 }
 @WorkflowStart({ name: "article-workflow-start", description: "What to write about", input: ArticleRequestDto })
 export class ArticleWorkflowStart {}
-@Agent({ name: "researcher-agent", description: "Researches the subject", prompt: "Research it.", model: "moonshotai/kimi-k2.6", input: { request: ArticleRequestDto }, output: ResearchDto })
+@Agent({ name: "researcher-agent", description: "Researches the subject", prompt: inline("Research it."), model: "moonshotai/kimi-k2.6", input: { request: ArticleRequestDto }, output: ResearchDto })
 export class ResearcherAgent {}
-@Agent({ name: "writer-agent", description: "Writes the article, or rewrites it from the notes", prompt: "Write it.", model: "moonshotai/kimi-k2.6", maxVisits: 4, input: { request: ArticleRequestDto, research: ResearchDto, changes: optional(ArticleChangesDto) }, output: DraftDto })
+@Agent({ name: "writer-agent", description: "Writes the article, or rewrites it from the notes", prompt: inline("Write it."), model: "moonshotai/kimi-k2.6", executionLimits: { maxVisits: 4 }, input: { request: ArticleRequestDto, research: ResearchDto, changes: optional(ArticleChangesDto) }, output: DraftDto })
 export class WriterAgent {}
-@Agent({ name: "publisher-agent", description: "Prepares the approved draft", prompt: "Prepare it.", model: "moonshotai/kimi-k2.6", input: { draft: DraftDto, approval: ApprovalDto }, output: ArticleDto })
+@Agent({ name: "publisher-agent", description: "Prepares the approved draft", prompt: inline("Prepare it."), model: "moonshotai/kimi-k2.6", input: { draft: DraftDto, approval: ApprovalDto }, output: ArticleDto })
 export class PublisherAgent {}
 @WorkflowFinish({ name: "article-workflow-finish", description: "The article", output: ArticleDto })
 export class ArticleWorkflowFinish {}
@@ -209,8 +200,10 @@ export class ArticleWorkflowFinish {}
 -->
 
 <!-- snippet-context
-import { Agent, Workflow, agent, caseOf, start } from "@agboss/core";
-import { oneOf } from "@agboss/core/dto";
+import { toAgent, Ttl } from "@agboss/core";
+import { oneOf } from "@agboss/core";
+import { inline, Agent, Workflow, onAgent, onStart } from "@agboss/core";
+
 import { ApprovalDto, ArticleChangesDto, ArticleDto, ArticleRequestDto, ArticleWorkflowFinish, ArticleWorkflowStart, DraftDto, PublisherAgent, ResearchDto, ResearcherAgent, WriterAgent } from "./review.components.js";
 -->
 
@@ -218,9 +211,9 @@ import { ApprovalDto, ArticleChangesDto, ArticleDto, ArticleRequestDto, ArticleW
 @Agent({
   name: "reviewer-agent",
   description: "Approves the draft or asks for changes",
-  prompt: "Review the draft.",
+  prompt: inline("Review the draft."),
   model: "moonshotai/kimi-k2.6",
-  maxVisits: 4,
+  executionLimits: { maxVisits: 4 },
   input: { draft: DraftDto },
   output: oneOf(ApprovalDto, ArticleChangesDto),
 })
@@ -228,26 +221,20 @@ export class ReviewerAgent {}
 
 @Workflow({
   name: "article-workflow",
-  version: "1.0.0",
+  version: "1.0.0", historyTtl: Ttl.Forever,
   flow: [
-    start(ArticleWorkflowStart)
-      .returns(ArticleRequestDto)
+    onStart(ArticleWorkflowStart)
       .toAgent(ResearcherAgent)
-      .returns(ResearchDto)
       .toAgent(WriterAgent),
 
-    agent(WriterAgent) // two ways in: the first draft, a rewrite
-      .returns(DraftDto)
+    onAgent(WriterAgent) // two ways in: the first draft, a rewrite
       .toAgent(ReviewerAgent)
-      .returns(oneOf(ApprovalDto, ArticleChangesDto))
-      .switch(
-        caseOf(ArticleChangesDto, { about: DraftDto }) // the notes are about this draft
-          .toAgent(WriterAgent),
-        caseOf(ApprovalDto)
-          .toAgent(PublisherAgent) // approval: built from the draft, current only with it
-          .returns(ArticleDto)
+      .toOneOf([
+        // the writer reads the notes: that tells this branch apart
+        toAgent(WriterAgent),
+        toAgent(PublisherAgent) // approval: built from the draft, current only with it
           .toFinish(ArticleWorkflowFinish),
-      ),
+      ]),
   ],
 })
 export class ArticleWorkflow {}
@@ -256,8 +243,8 @@ export class ArticleWorkflow {}
 | Step | What happened | Outdated, why |
 | --- | --- | --- |
 | 2 | writer-agent → Draft#1 | — |
-| 3 | reviewer-agent → Changes#1 (about Draft#1) | — |
-| 4 | writer-agent → Draft#2 (read Changes#1) | Draft#1: replaced; Changes#1: about Draft#1 |
+| 3 | reviewer-agent → Changes#1 (built from Draft#1) | — |
+| 4 | writer-agent → Draft#2 (read Changes#1) | Draft#1: replaced; Changes#1: built from Draft#1 |
 | 5 | reviewer-agent → Approval#1 (built from Draft#2) | — |
 | 6 | publisher-agent reads Draft#2 and Approval#1 | — |
 
@@ -269,40 +256,27 @@ an unapproved draft can never be published:
 [input.outdated-on-path] publisher-agent.approval (ApprovalDto) is outdated on the path … → reviewer-agent → editor-router → writer-agent → editor-router → publisher-agent (built from DraftDto, replaced by writer-agent)
 ```
 
-- A cycle of classes built from each other with no `{ about }` on any of their values →
-  `[io.ambiguous-cycle]`, the hint naming where to add it: `write caseOf(ArticleChangesDto, {
-  about: DraftDto }) after reviewer-agent`, or `write .returns(CritiqueDto, { about: DraftDto })
-  after critique-action` for a value of one class or a list.
-- `{ about: T }` means the **current** `T`. A producer whose values are `{ about: T }` and that reads
-  `T` in two or more fields (`draft: DraftDto` and `drafts: historyOf(DraftDto)`) →
-  `[io.ambiguous-about]`: read `T` in one field — with `historyOf(T)` the answers are about its
-  current value (#271 S14 after #299 S56: without tags, two values of `T` are read only through a
-  history).
 
 ### At run time
 
 The runtime keeps the two channels the analyser reasons about, in the execution's checkpoint:
 
 - **`scope`** holds **current values only** — one `ScopeValueRecord` per slot: `valueId`, `slot`,
-  `producer` (a component name), `variant` (for a `oneOf`), `value`, and `builtFrom` (the
-  `valueId`s its step read) and `about` (the slots its `{ about }` in the flow names, when it has
-  one). `valueId` is `${nodeId}:${visitNumber}/${slot}` — `writer-agent:2/DraftDto`,
+  `producer` (a component name), `value`, and `builtFrom` (the
+  `valueId`s its step read). `valueId` is `${nodeId}:${visitNumber}/${slot}` — `writer-agent:2/DraftDto`,
   `chat-workflow-start:1/WorkflowStartTextDto` — the same in tests and after a resume.
 - **`outdatedValues`** is append-only: when a write renews a slot, the slot's older value and every
   value built from it, transitively, move there **in the same step**, each as an
   `OutdatedValueRecord` with `outdated: { byValueId, reason }`. `byValueId` is always the **root
   trigger** — the new value that started the cascade, whatever path reached the record (the direct
   cause is the outdated entry of its own `builtFrom`); `reason` is `OutdatedReason.Replaced` (its
-  slot got a new value), `AboutReplaced` (it is an answer about a value that was outdated) or
+  slot got a new value) or
   `BuiltFromReplaced` (it was built from one).
 
 `builtFrom` follows the same rules as the analysis: a step's `input` fields; every current value for
-an agent with `output` and no `input`; the value's own `{ about }` targets, even when its step does
-not read them; never a value about the class the step writes. After the write a value keeps only the
-sources still current — one its own write outdated (the draft a rewrite read) leaves its
-`builtFrom`, as in the analysis. The cascade starts from current values
-only, and `{ about }` protects its target directly only — through a third class the target is
-outdated like any other value.
+an agent with `output` and no `input`; never a value about the class the step writes. After the write a
+value keeps only the sources still current — one its own write outdated (the draft a rewrite read) leaves
+its `builtFrom`, as in the analysis. The cascade starts from current values only.
 
 Nothing that reads the scope can see an outdated value — input messages, handlers' `input`,
 finishes and the thread's history (finished executions' start and finish only) read `scope`, and an
@@ -314,7 +288,7 @@ step that wrote:
 
 ```text
 DraftDto#1 outdated: replaced by DraftDto#2 from writer-agent
-ArticleChangesDto#1 outdated: about DraftDto#1, replaced by DraftDto#2 from writer-agent
+ArticleChangesDto#1 outdated: built from DraftDto#1, replaced by DraftDto#2 from writer-agent
 ```
 
 The labels `DraftDto#2` are ordinals within a slot. A second execution on a thread starts with its
@@ -337,7 +311,7 @@ later or not (#271 S13):
 ```text
 [launch.branch-outdates-sibling] replanner-agent returns PlanDto, which researcher-agent of the same
 launch was built from: researcher-agent's ResearchDto is outdated at the join of
-planner-agent → toParallelAgents(researcher-agent, replanner-agent)
+planner-agent → inParallel(researcher-agent, replanner-agent)
 ```
 
 A per-item launch and the copies of one agent never trigger it: their join writes one list slot
@@ -354,8 +328,8 @@ record). Each value is built from what its branches read; a per-item run's item 
 ## Quorums
 
 After a quorum (#279, [Parallel](Parallel)) only **counted** answers enter the scope — not counted,
-cancelled or rejected answers never do. They are the values the quorum's `.returns(…)` names (after
-`.joinQuorum(…)`, or after each `group(…)`), written at the join like any launch's values, and the
+cancelled or rejected answers never do. They are the values the quorum's join gives (after
+`.joinQuorum(…)`, or after each `.onGroup(…)`), written at the join like any launch's values, and the
 next step reads them by type: a `listOf(XDto)` field gets the counted `XDto` answers, a single field
 the latest single value. An answer a `.joinQuorum({ min })` may leave out is `optional(XDto)`, so a
 required field reading it is `[input.missing-on-path]`, the message naming the agent a quorum may
@@ -363,8 +337,7 @@ leave out (`skills-score-agent may be left out of the quorum`) and the fix — t
 `optional(SkillsScoreDto)` or `listOf(SkillsScoreDto)`.
 
 A group's path carries its own agents' values only, required; the next node knows which group won
-from the path it is on and from each `Produced<T, P>` value's `producer` — `P` is the union of the
-agents that can be counted for it. A counted answer nobody reads is `[flow.unused-output]`.
+from the path it is on and from each value's `Metadata.createdBy(value)`. A counted answer nobody reads is `[flow.unused-output]`.
 
 ## Child workflows
 
@@ -376,8 +349,8 @@ unread (`[flow.unused-output]`). The edge into the child reads what its chosen s
 (per item) or the chain's value, plus the start's other required fields from the parent's path —
 checked per edge (`[input.missing-on-path]`, `[input.outdated-on-path]`, `[input.several-on-path]`);
 an optional field of a map start may be missing. The child gives back exactly one value — the
-output of the finish it ended at: one `caseOf(XDto)` write (a case counts as read), a single
-`.returns(XDto)` write, or, after `.toParallelWorkflows(W, …)`, one element of the join's
+output of the finish it ended at: one branch of `.toOneOf([…])` (it counts as read), a single
+value, or, after `.forEachItem(toWorkflow(W), …)`, one element of the join's
 `listOf(oneOf(…))` slot; the values the child produced on its own path stay in its scope.
 
 At run time (#263 PR 2) the child's state is its own — its scope, `outdatedValues`, path and steps —
@@ -397,16 +370,12 @@ breaks it:
 | --- | --- |
 | `[input.missing-on-path]` | a required field has no current value on some path into the node |
 | `[input.outdated-on-path]` | a field (required or `optional`) whose value is outdated on some path into the node |
-| `[io.ambiguous-cycle]` | classes built from each other in a cycle, with no `{ about }` on their values |
-| `[io.ambiguous-about]` | a producer whose values are `{ about: T }` reading `T` in two or more fields |
-| `[io.about-on-start]` | `{ about }` on a start's `.returns(…)` — its input is no answer about anything (also a compile error) |
 | `[input.never-produced]` | an `optional` field no path brings |
 | `[input.several-on-path]` | a single field where several values arrive (one step's, or a join's list) |
 | `[launch.branch-outdates-sibling]` | a branch of a launch renewing a value another branch of it was built from ([Parallel branches](#parallel-branches)) |
-| `[flow.unused-output]` | a value returned on a path that no node reads (a `caseOf` counts as a read) |
+| `[flow.unused-output]` | a value returned on a path that no node reads (a `.toOneOf` branch counts as a read) |
 | `[flow.ambiguous-field]` | two fields of one node that read one slot (`historyOf` gives the earlier versions) |
-| `[input.history-limit]` | a `historyOf(…, { limit })` that is not a positive integer |
-| `[flow.returns-mismatch]` | `.returns(…)` that is not what the step gives; a `.switch` without its `.returns(oneOf(…))` |
+| `[input.history-max-previous]` | a `historyOf(…, { maxPrevious })` that is not a positive integer |
 | `[dto.name]`, `[dto.duplicate-name]` | a DTO class on a path that does not end with `Dto`; two DTO classes of one name |
 
 The analyser works on the whole graph to a fixed point, path-sensitively: a node keeps every

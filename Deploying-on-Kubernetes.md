@@ -32,16 +32,16 @@ stores' state. The pages it builds on: [Several instances](Several-instances),
 | --- | --- | --- | --- | --- | --- |
 | **SIGTERM** (scale-in, rollout, node drain) | readiness `Unhealthy`; no new execution; running steps get `shutdownTimeout`; what still runs is handed over (record stays `running`, lease released) and another pod continues it from its last checkpoint | send SIGTERM to the process, wait the grace (R3), take the pod out of the endpoints | — | nothing | [scenarios](#proofs) 1, 1b, 6, 11; #487 scale-in |
 | **SIGKILL, OOM kill, node lost** | nothing in the dead pod; its lease expires after ≤ 30 s, another pod's sweep (≤ 30 s) or a worker's reclaim takes the tree over at a higher token and runs the interrupted step again | replace the pod (a Deployment does) | keep what was committed | make each external effect a fenced effect or an outbound call, so the step run again replays it | [scenarios](#proofs) 2, 3, 3b; #487 "AC3 a killed worker" |
-| **A frozen pod** (GC pause, SIGSTOP, a VM paused) | its lease expires and another pod takes the tree over; when the pod resumes, its fence has expired: a step past its last check that reaches a fenced write is **refused** (`ExecutionFencedError`) and hands over | liveness tolerant of the freeze (R4) | the lease check inside the write's transaction | the same: writes inside the fenced effect | [scenarios](#proofs) 5, 5b, 5c, 5d, 12b, 13; #487 "AC5 zombie cannot write" |
+| **A frozen pod** (GC pause, SIGSTOP, a VM paused) | its lease expires and another pod takes the tree over; when the pod resumes, its fence has expired: a step past its last check that reaches a fenced write is **refused** (`ExecutionError.Fenced`) and hands over | liveness tolerant of the freeze (R4) | the lease check inside the write's transaction | the same: writes inside the fenced effect | [scenarios](#proofs) 5, 5b, 5c, 5d, 12b, 13; #487 "AC5 zombie cannot write" |
 | **A network partition** (the pod loses the database) | renewals fail; at its last confirmed renewal + 30 s − 1 s the pod stops its steps and writes nothing; another pod takes the trees over; when the database comes back the old pass does not continue | — | — | — | [scenarios](#proofs) 4, 8, 8b |
 | **A database outage** (all pods) | every pod stops its trees at its fence; readiness `Unhealthy` (the stores' `ping`); when the database is back, the sweep takes every orphaned tree over at a new token | keep the pods (liveness does not depend on the database) | durability of what was committed; one primary; its clock (R5) | — | [scenario](#proofs) 8b; [Running on PostgreSQL → What the guarantees assume](Running-on-PostgreSQL#what-the-guarantees-assume-of-postgresql) |
-| **A crash after an external effect, before the checkpoint** | the new holder runs the step again; a fenced effect returns its stored result (`Replayed`), an outbound call reconciles its pending intent with the other system and resends only when it never arrived | — | — | an other system that deduplicates on `call.idempotencyKey` and can be asked what happened ([Payment gateways](Payment-gateways) G1–G6) | [scenarios](#proofs) 3, 3b, 9, 10; #487 "AC5 the replayed effect applied once" |
+| **A crash after an external effect, before the checkpoint** | the new holder runs the step again; an idempotent write returns its stored result (`Replayed`), an outbound call recovers its pending intent with the other system and resends only when it never arrived | — | — | an other system that deduplicates on `call.idempotencyKey` and can be asked what happened ([Payment gateways](Payment-gateways) G1–G6) | [scenarios](#proofs) 3, 3b, 9, 10; #487 "AC5 the replayed effect applied once" |
 | **A real failure of a step** (an error, not a hand-over) | the step fails; declared undos run, once, and only for a real failure — never because a lease was handed over | — | — | declare `compensateWith` for what must be undone | [scenarios](#proofs) 12, 12b |
 
 ### Compensation is not crash recovery
 
 A **crash** (SIGKILL, a frozen pod, a lost database) never undoes anything: the tree is taken over
-and the interrupted step runs again — its fenced effects replay, its outbound calls reconcile. An
+and the interrupted step runs again — its idempotent writes replay, its outbound calls recover. An
 **undo** runs only when a step really failed or the execution was cancelled, and once it is marked
 done it never runs again on any instance ([Guarantees](Guarantees) P5, scenarios 12 and 12b). The
 two are separate mechanisms: an application whose external effect is not fenced is not made safe by
@@ -53,7 +53,7 @@ declaring an undo for it ([Rollback](Rollback), [Cancellation and idempotency](S
 
 - **P1 — one owner per tree**: at any moment at most one instance trusts a tree's lease, and no write
   is accepted under a superseded, released, finished or expired token;
-- **P2 — one effect per business key**: a fenced effect runs its write once per step or business key;
+- **P2 — one effect per business key**: `Idempotency.runOnce` runs its write once per step or business key;
 - **P3 — one send per attempt**: an outbound call sends only after it claimed the attempt, while its lease holds;
 - **P4 — no takeover of finished work**;
 - **P5 — compensation only on real failure, once**.
@@ -66,10 +66,10 @@ only to ready pods; keep the hosts' clocks synchronized.
 stepped — a failover to a host whose clock differs is a step ([Guarantees](Guarantees) A3); enough
 connections (R6). The stores' contracts and fault suite on PostgreSQL are agbossjs/postgres's CI.
 
-**The application**: every write that must happen once inside a fenced effect, in the store's own
+**The application**: every write that must happen once inside `Idempotency.runOnce`, in the store's own
 database ([Several instances → The fenced effect](Several-instances#the-fenced-effect-500)); every
-call to another system through `OutboundCalls`, keyed by a business key, with a `reconcile`
-([Payments](Payments)); the other system deduplicating on the key; one idempotency key (`idempotencyKeyField`, #825) shared by every
+call to another system through `Idempotency.sendOnce`, keyed by a business key, with a `recovery`
+([Payments](Payments)); the other system deduplicating on the key; one idempotency secret (`@DatabaseStorage({ idempotencySecret })`, #825) shared by every
 pod ([Guarantees](Guarantees) A8).
 
 ## Kubernetes
@@ -154,17 +154,17 @@ the run step by step.
 | Setting | Value | Why |
 | --- | --- | --- |
 | The execution lease | 30 s, renewed every 7.5 s — fixed, not a setting | two renewals may fail before it expires |
-| `@Application({ shutdownTimeout })` | 25 s (the default) to 30 s; below the platform's grace less the preStop | R3 |
+| `@Application({ executionLimits: { shutdownTimeout } })` | 25 s (the default) to 30 s; below the platform's grace less the preStop | R3 |
 | `terminationGracePeriodSeconds` | preStop + `shutdownTimeout` + 10 s (45 s for 5 + 30) | R3 |
 | Readiness | every 5 s, 2 failures | a stopping pod leaves the endpoints within 10 s |
 | Liveness | every 10 s, timeout 2 s, ≥ 7 failures (≥ 70 s) | R4: longer than a takeover |
 | `maxConcurrentSteps` | the pod's capacity; the autoscaler's target per pod | [Autoscaling](Autoscaling) |
 | `postgresPoolSize` | 5–10; pods × it < `max_connections` | R6 |
-| `piiKeyField`, `idempotencyKeyField` | one `Secret` each, the same for every pod (#825: never one another, nor a provider's key) | [Guarantees](Guarantees) A8 |
-| `retention.fencedEffects` | 24 h (the default); longer than any retry of a step | [Guarantees](Guarantees) A12 |
-| `outboundCalls.attemptTimeout` | 2 min (the default); above the other system's own timeout | [Guarantees](Guarantees) A6 |
+| `piiSecret`, `idempotencySecret` (`@DatabaseStorage`) | one `Secret` each, the same for every pod (#825: never one another, nor a provider's key) | [Guarantees](Guarantees) A8 |
+| `runOnce({ ttl })` / `sendOnce({ ttl })` | per call, required; longer than any retry of the step | [Guarantees](Guarantees) A12 |
+| `sendOnce({ timeout })` | per call, required; above the other system's own timeout | [Guarantees](Guarantees) A6 |
 | `retention.auditLog` | 24 h (the default) | the audit log an operator and a verification read |
-| `retention.executionRecords` | set, when anyone reads the history | `agboss records export` |
+| `retention.executionRecords` | set, when anyone reads the history | `agboss executions export` |
 | Scale-in | stabilization 300 s, one pod per minute | a lull does not kill pods about to get work |
 
 ## Kubernetes-like platforms
@@ -315,11 +315,11 @@ and on PostgreSQL in agbossjs/postgres
 | 3, 3b | a crash after the effect committed (and after the gateway answered), before the checkpoint: replayed | [`s03-crash-after-effect.ts`](https://github.com/agbossjs/agboss/blob/main/packages/agboss/src/testing/faults/scenarios/s03-crash-after-effect.ts) |
 | 4 | a lease expires (renewals stall): the step stops, another pod takes over | [`s04-lease-expiry.ts`](https://github.com/agbossjs/agboss/blob/main/packages/agboss/src/testing/faults/scenarios/s04-lease-expiry.ts) |
 | 5, 5b, 5c | a frozen pod comes back: its stale write refused | [`s05-zombie.ts`](https://github.com/agbossjs/agboss/blob/main/packages/agboss/src/testing/faults/scenarios/s05-zombie.ts) |
-| 5d | a zombie between its payment's intent and its send: reconciled, paid once | [`s05d-recorded-not-sent.ts`](https://github.com/agbossjs/agboss/blob/main/packages/agboss/src/testing/faults/scenarios/s05d-recorded-not-sent.ts) |
+| 5d | a zombie between its payment's intent and its send: recovered, paid once | [`s05d-recorded-not-sent.ts`](https://github.com/agbossjs/agboss/blob/main/packages/agboss/src/testing/faults/scenarios/s05d-recorded-not-sent.ts) |
 | 6, 6b | scale-down while children run; a frozen ask for a finished child's lease | [`s06-children.ts`](https://github.com/agbossjs/agboss/blob/main/packages/agboss/src/testing/faults/scenarios/s06-children.ts) |
 | 7 | a new pod joins and claims the queued child | [`s07-new-pod.ts`](https://github.com/agbossjs/agboss/blob/main/packages/agboss/src/testing/faults/scenarios/s07-new-pod.ts) |
 | 8, 8b | a pod loses its database; the database comes back after the lease expired | [`s08-database-loss.ts`](https://github.com/agbossjs/agboss/blob/main/packages/agboss/src/testing/faults/scenarios/s08-database-loss.ts) |
-| 9, 10 | a crash after sending, before the answer: reconciled; one order, two executions: one payment | [`s09-s10-gateway.ts`](https://github.com/agbossjs/agboss/blob/main/packages/agboss/src/testing/faults/scenarios/s09-s10-gateway.ts) |
+| 9, 10 | a crash after sending, before the answer: recovered; one order, two executions: one payment | [`s09-s10-gateway.ts`](https://github.com/agbossjs/agboss/blob/main/packages/agboss/src/testing/faults/scenarios/s09-s10-gateway.ts) |
 | 11, 11b | a 10 s grace: `shutdownTimeout` below it hands over in time; above it, killed mid-drain, recovered | [`s11-short-grace.ts`](https://github.com/agbossjs/agboss/blob/main/packages/agboss/src/testing/faults/scenarios/s11-short-grace.ts) |
 | 12, 12b | a real failure undoes once, across a kill; a marked undo never again | [`s12-real-failure.ts`](https://github.com/agbossjs/agboss/blob/main/packages/agboss/src/testing/faults/scenarios/s12-real-failure.ts), [`s12b-marked-undo.ts`](https://github.com/agbossjs/agboss/blob/main/packages/agboss/src/testing/faults/scenarios/s12b-marked-undo.ts) |
 | 13 | a pod's clock ten leases ahead or behind | [`s13-clock-skew.ts`](https://github.com/agbossjs/agboss/blob/main/packages/agboss/src/testing/faults/scenarios/s13-clock-skew.ts) |

@@ -57,10 +57,9 @@ Every component reads the same way, top to bottom:
    type (`ordersService: OrdersService`); the execution comes the same way
    (`deps: [ExecutionContext]`, [below](#the-execution-context)).
 3. **The methods implement a contract**:
-   - your own implementation → `implements` the contract (`ToolHandler<In, Out>` for `@Tool` /
-     `@McpTool`, `ActionHandler<Self>` for `@Action`, `RouterHandler<Self>` for a code `@Router`
-     (`decidedBy: DecidedBy.Code`, [Routers](Routers#routers-decided-by-code)), `FinishHandler<Self>`
-     for a `@WorkflowFinish` with `input`, `RagConnector` for `@Rag`, `JudgeHandler<TReply>` for `@Judge`,
+   - your own implementation → `implements` the contract (`ToolHandler<In, Out>` for `@Tool`,
+     `ActionHandler<Self>` for `@Action`, `RouterHandler<Self>` for a code `@Router`
+     (`decidedBy: DecidedBy.Code`, [Routers](Routers#routers-decided-by-code)), `RagConnector` for `@Rag`, `JudgeHandler<TReply>` for `@Judge`,
      `BeforeToolCall` and / or `AfterToolCall` for a `@ToolInterceptor`, [Tools](Tools#tool-interceptors));
    - extending a standard implementation → `extends` it (`SqliteFtsConnector`, `McpServerClient`) and
      mark overridden methods `override` (`noImplicitOverride` is on).
@@ -71,11 +70,11 @@ Every component reads the same way, top to bottom:
    (`retrieve(query: "faq")` on a `@Rag`, `findMatches(text: "x")` on a `@PiiPolicy`,
    `refusal(kind: PiiKind.Iban)` on a policy with two block rules, `capabilities(model: "x/one")` on
    a `@ModelProvider`) does not compile on the decorator — with or without `implements`. The
-   decorators whose method's types are known on that line check it there: `@Tool` / `@McpTool`,
+   decorators whose method's types are known on that line check it there: `@Tool`,
    `@Rag`, `@Judge`, `@PiiPolicy` (its detector's `findMatches`, a declarative policy's
    `refusal(kind)`), `@InputGuardrail` / `@OutputGuardrail` without `refusal`, `@Budget`,
    `@HealthCheck`, `@ModelProvider`. The generated ones (`ActionHandler<Self>`, `RouterHandler<Self>`,
-   `FinishHandler<Self>`, `ReplyInterpreterHandler<Self>`, a channel's `send`) are checked by
+   `ChannelInterpreterHandler<Self>`, a channel's `send`) are checked by
    `implements` with the same strict variance. Every relation by class — the kinds in
    `guardrails` / `piiPolicies` / `exclude…`, a router's `routes` against the flow, `@Tool({ channel })`,
    `routeTo(X)` and `toFollowPath([…])` in tests — is checked at assembly or in the test, never by the
@@ -102,7 +101,7 @@ One component per file, the kind in the name; `agboss create` / `agboss generate
 | `tools/<name>.tool.ts` + `tests/tools/<name>.tool.test.ts` | a `@Tool` and its test (`tests/` mirrors `src/`)             |
 | `dto/<name>.dto.ts`                            | one DTO class (plain data) — of a tool, a server, a path                 |
 | `mcp/<name>.server.ts`                         | an `@McpServer` and the server tools it uses (`extends McpServerClient`) |
-| `mcp/<name>.mcp.ts`                            | an `@McpTool` — a tool with its server injected                          |
+| `mcp/<name>.mcp.ts`                            | a `@Tool` with its `@McpServer` in `deps`                                |
 | `rag/<name>.rag.ts`                            | a `@Rag` knowledge base                                                  |
 | `rerankers/<name>.reranker.ts`                 | a `@Reranker` of a knowledge base (#703)                                 |
 | `tool-interceptors/<name>.tool-interceptor.ts` | a `@ToolInterceptor` — before / after an agent's tool calls ([Tools](Tools#tool-interceptors)) |
@@ -125,7 +124,7 @@ as `{{input.…}}` (`[prompt.input-in-instructions]`).
 ## A tool
 
 ```ts file=tools/search-orders.dto.ts
-import { OneOf, Text } from "@agboss/core/dto";
+import { Enum, Text } from "@agboss/core/dto";
 
 export class OrderQuery {
   @Text({ prompt: "the order id, e.g. A-1042" })
@@ -133,7 +132,7 @@ export class OrderQuery {
 }
 
 export class OrderStatus {
-  @OneOf({ values: ["placed", "shipped", "delivered"] })
+  @Enum(["placed", "shipped", "delivered"])
   status!: "placed" | "shipped" | "delivered";
 
   @Text({ prompt: "expected delivery day, YYYY-MM-DD" })
@@ -171,7 +170,7 @@ export class SearchOrders implements ToolHandler<OrderQuery, OrderStatus> {
     private readonly ordersService: OrdersService,
   ) {}
 
-  run(query: OrderQuery): Promise<OrderStatus> {
+  execute(query: OrderQuery): Promise<OrderStatus> {
     this.executionContext.signal.throwIfAborted();
     return this.ordersService.find(query.orderId);
   }
@@ -192,28 +191,27 @@ export class SearchOrders implements ToolHandler<OrderQuery, OrderStatus> {
 
 Data shapes — tool inputs and outputs, server tools, the inputs and outputs of flow nodes — are
 **classes with one field decorator per field**, imported from `@agboss/core/dto`. A DTO on a path (a
-node's `input` / `output`, `.returns(…)`, `caseOf(…)`) ends with `Dto` (`[dto.name]`) and its class
+node's `input` / `output`) ends with `Dto` (`[dto.name]`) and its class
 name is unique (`[dto.duplicate-name]`: in its workflow at assembly, across the project's workflows
 for the generated types of `agboss check`, #371); on paths they are wrapped as
-`listOf(Dto)`, `oneOf(A, B)`, `optional(Dto)` (input only), `historyOf(Dto, { limit })` (input
-only: the current value and its earlier versions, [Path scope](Path-scope)) and
-`variant(Dto, value)` (an action returning one class of its `oneOf`). zod stays inside the framework.
+`listOf(Dto)`, `oneOf(A, B)`, `optional(Dto)` (input only), `historyOf(Dto, { maxPrevious })` (input
+only: the current value and its earlier versions, [Path scope](Path-scope)). zod stays inside the framework.
 Decision: [ADR-0013](ADR-0013-DTO-classes-instead-of-zod); ready-made ones: [Standard DTOs](Standard-DTOs).
 
 ```ts
-import { Integer, ListOf, OneOf, Text } from "@agboss/core/dto";
+import { Enum, Integer, List, Text } from "@agboss/core/dto";
 
 export class JobQuery {
   @Text({ prompt: "what the user wants", minLength: 20 })
   profile!: string;
 
-  @ListOf(Text, { prompt: "places or cities", minItems: 1 })
+  @List(Text, { prompt: "places or cities", minItems: 1 })
   locations!: string[];
 
   @Integer({ prompt: "how many jobs", min: 1, max: 50, default: 20 })
   count!: number;
 
-  @OneOf({ values: ["remote", "office"], optional: true })
+  @Enum(["remote", "office"], { optional: true })
   mode?: "remote" | "office";
 }
 ```
@@ -221,15 +219,15 @@ export class JobQuery {
 | Decorator                                                          | Field type  | Checked at runtime                                       |
 | ------------------------------------------------------------------ | ----------- | -------------------------------------------------------- |
 | `@Text({ minLength?, maxLength?, pattern? })`                      | `string`    | length; `pattern` — your own format (say it in `prompt`) |
-| `@Integer({ min?, max? })` / `@Decimal({ min?, max? })`            | `number`    | whole / finite number, range                             |
-| `@Flag()`                                                          | `boolean`   | —                                                        |
+| `@Integer({ min?, max? })` / `@Float({ min?, max? })`              | `number`    | whole / finite number, range                             |
+| `@Bool()`                                                          | `boolean`   | —                                                        |
 | `@Email()`, `@Url()`, `@Uuid()`                                    | `string`    | format                                                   |
-| `@DateTime()` / `@Duration()`                                      | `string`    | ISO 8601; a date-time **needs an offset or `Z`**         |
+| `@IsoDateTime()` / `@IsoDate()` / `@IsoDuration()`                 | `string`    | ISO 8601; a date-time **needs an offset or `Z`**         |
 | `@DecimalString({ scale? })`                                       | `string`    | `"19.99"`, at most `scale` digits after the point        |
 | `@CurrencyCode()` / `@CountryCode()`                               | `string`    | ISO 4217 (`USD`) / ISO 3166-1 alpha-2 (`IL`), from lists |
 | `@PhoneNumber()` / `@MediaType()` / `@TimeZone()`                  | `string`    | E.164 / `type/subtype` / IANA zone (or `UTC`)            |
-| `@OneOf({ values })`                                               | their union | one of the values                                        |
-| `@ListOf(Dto or Text…, { minItems?, maxItems? })` / `@Nested(Dto)` | `T[]` / `T` | each element / the nested DTO                            |
+| `@Enum([values])`                                                  | their union | one of the values                                        |
+| `@List(Dto or Text…, { minItems?, maxItems? })` / `@Nested(Dto)`   | `T[]` / `T` | each element / the nested DTO                            |
 
 Every decorator takes `prompt` (what the model reads — the field's JSON Schema `description`),
 `optional: true` or a `default`, `sensitive: PiiAction.…` (#120: a masking action applied to the
@@ -237,7 +235,7 @@ field on its way into a model and wherever the arguments are shown — [Guards �
 policies](Guards#pii-policies)) and `example`.
 
 - **The compiler checks**: the decorator fits the field's type (`@Text` on a `number`), `optional: true`
-  ↔ `name?:` both ways, `@OneOf` values ≡ the field's union, the element type of `@ListOf` / `@Nested`.
+  ↔ `name?:` both ways, `@Enum` values ≡ the field's union, the element type of `@List` / `@Nested`.
 - **At runtime** (a `DtoValidationError` with the field path and the reason): integer vs decimal,
   formats, lengths, ranges, list sizes, code lists, cross-field rules of the standard DTOs.
 - **At startup**: a field without a decorator → `dto.undecorated-field`; methods, accessors or
@@ -250,6 +248,7 @@ policies](Guards#pii-policies)) and `example`.
 ## An agent
 
 <!-- snippet-context
+import { inline } from "@agboss/core";
 import { SearchOrders } from "./tools/search-orders.tool.js";
 -->
 
@@ -260,7 +259,7 @@ import { Reasoning } from "@agboss/core/models";
 @Agent({
   name: "support-agent",
   description: "Answers questions about orders", // what routers read
-  promptUrls: ["./support.prompt.md"], // next to this file; or prompt: "…"
+  prompt: "./support.prompt.md", // a file next to this one; or prompt: inline("…")
   model: "moonshotai/kimi-k2.6",
   reasoning: Reasoning.off(),
   maxTokens: 2000,
@@ -329,7 +328,7 @@ export class ChargeAction implements ActionHandler<ChargeAction> {
   async execute(input: InputOf<ChargeAction>): Promise<OutputOf<ChargeAction>> {
     // each field is { value, producer }; the step's key is the charge's idempotency key
     return this.paymentsService.charge(
-      input.order.value,
+      input.order,
       this.executionContext.step.idempotencyKey,
     );
   }
@@ -409,7 +408,7 @@ What `agboss generate`, the examples and these pages follow — a style guide, n
 
 - an explicit return type on every method;
 - `implements …Handler` where the kind has one (`ToolHandler<In, Out>`, `ActionHandler<Self>`,
-  `RouterHandler<Self>`, `FinishHandler<Self>`, `JudgeHandler<TReply>`, `ChannelHandler`);
+  `RouterHandler<Self>`, `JudgeHandler<TReply>`, `ChannelHandler`);
 - `@Injectable` classes named by role: `…Repository` (database access), `…Service` (calls to an
   external service), `…Provider` (system things the app runs on);
 - injected fields named after their type (`ordersService: OrdersService`); the execution context's
@@ -423,7 +422,7 @@ A server declares the server tools the workflow uses; an MCP tool is a tool with
 (more: [Mcp](Mcp)):
 
 ```ts file=mcp/shortlist.dto.ts
-import { ListOf, Text } from "@agboss/core/dto";
+import { List, Text } from "@agboss/core/dto";
 
 export class FileRead {
   @Text({ prompt: "path inside the shortlist folder" }) path!: string;
@@ -439,15 +438,15 @@ export class FileWritten {
   @Text() content!: string;
 }
 export class ChosenJobs {
-  @ListOf(Text, { prompt: "links of the jobs the user chose", minItems: 1 }) jobs!: string[];
+  @List(Text, { prompt: "links of the jobs the user chose", minItems: 1 }) jobs!: string[];
 }
 export class SavedJobs {
-  @ListOf(Text) added!: string[];
+  @List(Text) added!: string[];
 }
 ```
 
 ```ts file=mcp/shortlist.server.ts
-import { McpServer, McpServerClient } from "@agboss/core/mcp";
+import { McpServer, McpServerClient, McpTransport } from "@agboss/core/mcp";
 import { FileContent, FileRead, FileWrite, FileWritten } from "./shortlist.dto.js";
 
 const tools = {
@@ -457,7 +456,7 @@ const tools = {
 
 @McpServer({
   name: "shortlist",
-  transport: "stdio",
+  transport: McpTransport.Stdio,
   command: "npx",
   args: ["-y", "@modelcontextprotocol/server-filesystem", "./shortlist"],
   tools,
@@ -466,21 +465,29 @@ export class ShortlistServer extends McpServerClient<typeof tools> {}
 ```
 
 ```ts file=mcp/save-shortlist.mcp.ts
-import { InjectionToken, TerminalUserChannel, type ToolHandler } from "@agboss/core";
-import { McpTool } from "@agboss/core/mcp";
+import { InjectionToken, PauseRespondent, Tool, ToolApproval, type ToolHandler } from "@agboss/core";
+import { hours } from "@agboss/core/units";
 import { ChosenJobs, SavedJobs } from "./shortlist.dto.js";
 import { ShortlistServer } from "./shortlist.server.js";
 
 export const SHORTLIST = new InjectionToken<string>("SHORTLIST");
 
-@McpTool({
-  server: ShortlistServer,
+// a write the thread's owner approves first: an owner's pause needs no channel
+@ToolApproval({
+  name: "save-shortlist-tool-approval",
+  description: "The owner approves a write to the shortlist",
+  respondent: PauseRespondent.Owner,
+  timeout: hours(24),
+})
+export class SaveShortlistToolApproval {}
+
+@Tool({
   name: "save-shortlist-tool",
   description: "Save the jobs the user chose to their shortlist",
-  channel: TerminalUserChannel, // a write the user approves first
+  approval: SaveShortlistToolApproval,
   input: ChosenJobs,
   output: SavedJobs,
-  deps: [ShortlistServer, SHORTLIST],
+  deps: [ShortlistServer, SHORTLIST], // the MCP server is a dependency like any other: connected at start
 })
 export class SaveShortlist implements ToolHandler<ChosenJobs, SavedJobs> {
   constructor(
@@ -488,7 +495,7 @@ export class SaveShortlist implements ToolHandler<ChosenJobs, SavedJobs> {
     private readonly file: string,
   ) {}
 
-  async run({ jobs }: ChosenJobs): Promise<SavedJobs> {
+  async execute({ jobs }: ChosenJobs): Promise<SavedJobs> {
     const { content } = await this.server.call("read_text_file", { path: this.file }); // typed by `tools`
     const added = jobs.filter((job) => !content.includes(job));
     await this.server.call("write_file", { path: this.file, content: [content, ...added].join("\n") });
@@ -511,7 +518,8 @@ export class SaveShortlist implements ToolHandler<ChosenJobs, SavedJobs> {
 ## The module
 
 <!-- snippet-context
-import { Agent, DecidedBy, Router, WorkflowFinish, WorkflowStart } from "@agboss/core";
+import { toAgent, Ttl } from "@agboss/core";
+import { inline, Agent, DecidedBy, Router, WorkflowFinish, WorkflowStart } from "@agboss/core";
 import { WorkflowFinishTextDto } from "@agboss/core/dto";
 import { SearchOrders } from "./tools/search-orders.tool.js";
 import { SaveShortlist, SHORTLIST } from "./mcp/save-shortlist.mcp.js";
@@ -519,31 +527,32 @@ import { SaveShortlist, SHORTLIST } from "./mcp/save-shortlist.mcp.js";
 export class ChatWorkflowStart {}
 @WorkflowFinish({ name: "chat-workflow-finish", description: "The answer", output: WorkflowFinishTextDto })
 export class ChatWorkflowFinish {}
-@Agent({ name: "support-agent", description: "Orders", prompt: "Answer about orders.", model: "moonshotai/kimi-k2.6", tools: [SearchOrders] })
+@Agent({ name: "support-agent", description: "Orders", prompt: inline("Answer about orders."), model: "moonshotai/kimi-k2.6", tools: [SearchOrders] })
 export class SupportAgent {}
-@Agent({ name: "shortlist-agent", description: "Shortlist", prompt: "Keep the shortlist.", model: "moonshotai/kimi-k2.6", tools: [SaveShortlist] })
+@Agent({ name: "shortlist-agent", description: "Shortlist", prompt: inline("Keep the shortlist."), model: "moonshotai/kimi-k2.6", tools: [SaveShortlist] })
 export class ShortlistAgent {}
-@Router({ name: "main-router", description: "Routes", decidedBy: DecidedBy.Model, prompt: "Pick who handles the message.", model: "typesafe/jev-1.13", input: { message: WorkflowStartTextDto }, routes: [{ prompt: "Orders", target: SupportAgent }, { prompt: "The shortlist", target: ShortlistAgent }] })
+@Router({ name: "main-router", description: "Routes", decidedBy: DecidedBy.Model, prompt: inline("Pick who handles the message."), model: "typesafe/jev-1.13", input: { message: WorkflowStartTextDto }, routes: [{ prompt: "Orders", target: SupportAgent }, { prompt: "The shortlist", target: ShortlistAgent }] })
 export class MainRouter {}
 -->
 
 ```ts
-import { TerminalUserChannel, Workflow, provide, route, start } from "@agboss/core";
+import { Workflow, provide, onStart } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { ShortlistServer } from "./mcp/shortlist.server.js";
 import { OrdersService } from "./services/orders.service.js";
 
 @Workflow({
   name: "shop-workflow",
-  version: "2.0.0",
+  version: "2.0.0", historyTtl: Ttl.Forever,
   flow: [
-    start(ChatWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(ChatWorkflowStart)
       .toRouter(MainRouter)
-      .chooseOne(
-        route(SupportAgent)
+      .onRoute(
+        toAgent(SupportAgent)
           .toFinish(ChatWorkflowFinish),
-        route(ShortlistAgent)
+      )
+      .onRoute(
+        toAgent(ShortlistAgent)
           .toFinish(ChatWorkflowFinish),
       ),
   ],
@@ -552,10 +561,8 @@ import { OrdersService } from "./services/orders.service.js";
     router: { model: "typesafe/jev-1.13" },
     tools: { maxToolCalls: 8 },
   },
-  uncompactedTurns: 5,
-  maxSteps: 6,
-  mcp: [ShortlistServer],
-  providers: [OrdersService, provide(SHORTLIST, "./shortlist/shortlist.md")],
+  executionLimits: { maxSteps: 6 },
+  providers: [OrdersService, ShortlistServer, provide(SHORTLIST, "./shortlist/shortlist.md")],
 })
 export class Shop {} // money: the application's @Budgets (FinOps → Budgets)
 ```
@@ -637,7 +644,7 @@ The lint rule `agboss/no-component-state` flags an assignment to `this.x` (`=`, 
 the constructor of any component the container creates — `@Injectable`, `@Tool`, `@Action`,
 `@Router`, `@WorkflowFinish`, `@Channel`, `@ReplyInterpreter`, `@InputGuardrail` /
 `@OutputGuardrail`, `@ToolInterceptor` (#384), `@PiiPolicy`, `@Judge`, `@Arbiter`, `@Compaction`, `@Budget`, `@HealthCheck`,
-`@ModelProvider` (`@agboss/core/models`), `@McpServer` / `@McpTool` (`@agboss/core/mcp`), `@Rag`
+`@ModelProvider` (`@agboss/core/models`), `@McpServer` / `@McpEndpoint` (`@agboss/core/mcp`), `@Rag`
 (`@agboss/core/rag`), `@A2AAgent` (`@agboss/core/a2a`). The list is one module of the framework
 (`src/components/component-decorators.ts`, #402); a test fails when an exported class decorator
 is neither in it nor named as not a component (`@Agent`, `@WorkflowStart`, `@Workflow`,
@@ -651,7 +658,7 @@ is neither in it nor named as not a component (`@Agent`, `@WorkflowStart`, `@Wor
 - **an agent** — `agents/<name>.agent.ts` (+ `<name>.prompt.md`), one route in its router's `routes`,
   and its path in the router's choice (`route(NewAgent).toFinish(…)`).
 - **an action** — `actions/<name>.action.ts`, a step of a path (`.toAction(NewAction)`).
-- **an MCP server** — `@McpServer` + `@McpTool` classes in `mcp/`, the server in `@Workflow({ mcp })`.
+- **an MCP server** — an `@McpServer` class and the `@Tool`s that call it, in `mcp/`; the tools list the server in their `deps`, the workflow lists it in `providers`.
 - **another application to call** — an `@A2AAgent` in `a2a/<name>.a2a-agent.ts` (its `target`, `input`,
   `output`), listed in `providers`; what you serve — an `@A2AExpose` in `a2a/<name>.a2a-expose.ts`,
   listed in `@Application({ exposes })` ([A2A](A2A#7-declared-contracts-398-pr-3)).

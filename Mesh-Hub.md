@@ -9,7 +9,7 @@ service. It needs no project, assembles no application and reaches no network (#
 # each service's CI saves what it has
 agboss describe --json > hub/desk-application/describe.json
 agboss eval run --suite refunds-eval-suite --runs 5 --env eval --report hub/desk-application/refunds.run.json
-agboss records export --env prod --tenant acme --since 2026-10-16 --out hub/desk-application/records/acme.jsonl
+agboss executions export --env prod --tenant acme --since 2026-10-16 --out hub/desk-application/records/acme.jsonl
 
 # a platform repo reads the folder: one static page
 agboss hub show hub/ --html .artifacts/mesh.html
@@ -31,7 +31,7 @@ manifest and no folder convention: **each file says what it is by its own marker
 | --- | --- | --- |
 | an application's snapshot | `{ "schema": 1, "ok": true, "command": "describe", … }` | `agboss describe --json` |
 | an eval run | `{ "kind": "agboss.eval-run", "schemaVersion": …, … }` | `agboss eval run --report` ([Eval suites](Eval-Suites)) |
-| kept executions | JSON Lines, every line `{ "kind": "agboss.execution-record", "schema": 1, … }` | `agboss records export` ([Execution history](Execution-history)) |
+| kept executions | JSON Lines, every line `{ "kind": "agboss.execution-record", "schema": 1, … }` | `agboss executions export` ([Execution history](Execution-history)) |
 
 A file of any other kind, or a schema newer than this agboss reads, is `hub.input-schema` (exit 3)
 naming the file — and for an export, the line and the field (`bad.jsonl: line 2.executionId is not

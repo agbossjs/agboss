@@ -2,47 +2,48 @@
 
 `@agboss/core/mcp` works both ways:
 
-- **Using MCP servers** — `@McpServer` declares a server and the server tools the workflow uses,
-  `@McpTool` is a tool with that server injected. See [Components → MCP](Components#mcp) and
-  [Tools](Tools).
-- **Exposing a workflow over MCP** — `@McpExpose` lists the workflow's tools and workflow starts to
-  offer to MCP clients (Claude Desktop, other agents); `createMcpService` serves them over stdio or
-  HTTP. This page is about this side.
+- **Using MCP servers** — `@McpServer` declares a server and the server tools the workflow uses; a
+  `@Tool` that calls it lists it in its `deps` (the server is connected at start). See
+  [Components → MCP](Components#mcp) and [Tools](Tools).
+- **Exposing tools over MCP** — `@McpEndpoint` lists the tools to offer to MCP clients (Claude Desktop,
+  other agents) and is listed in `@Application({ endpoints })`; `mcpHttpListener` serves it over
+  Streamable HTTP, `connectMcpStdio` over stdio, `connectMcp` over any transport. This page is about
+  this side.
 
-## 1. What to expose — `@McpExpose`
+## 1. What to expose — `@McpEndpoint`
 
 <!-- snippet-context
-import { Tool, WorkflowStart, type ToolHandler } from "@agboss/core";
+import { Tool, WorkflowStart } from "@agboss/core";
 import { Text, WorkflowStartTextDto } from "@agboss/core/dto";
 class IssueQuery { @Text() query!: string; }
 class Issues { @Text() text!: string; }
 @Tool({ name: "search-issues-tool", description: "Searches the tracker", input: IssueQuery, output: Issues })
-class SearchIssues implements ToolHandler<IssueQuery, Issues> { run(): Promise<Issues> { return Promise.resolve({ text: "" }); } }
-@WorkflowStart({ name: "chat-workflow-start", description: "A message", input: WorkflowStartTextDto })
-class ChatWorkflowStart {}
+class SearchIssues { execute(): Promise<Issues> { return Promise.resolve({ text: "" }); } }
 -->
 
 ```ts
-// src/mcp/job-scout.expose.ts
-import { McpExpose } from "@agboss/core/mcp";
+// src/mcp/job-scout.mcp-endpoint.ts
+import { McpEndpoint } from "@agboss/core/mcp";
 
-@McpExpose({
+@McpEndpoint({
   name: "job-scout-mcp",
   version: "1.0.0",
-  exports: [SearchIssues, ChatWorkflowStart], // tools of the workflow, and its workflow starts
+  description: "Searches the tracker",
+  tools: [SearchIssues], // tools of the application's workflows
 })
 export class JobScoutMcp {}
 ```
 
-- A `@Tool` / `@McpTool` export runs through the same adapter as an agent's tool call: its input and
-  output DTOs become the JSON Schemas, both are validated, its timeout applies, it gets a `callId`.
-  It must be a tool of the workflow (one of its agents' tools), else `createMcpService` fails naming it.
-- A `@WorkflowStart` export becomes a tool that runs the workflow (`app.execute`); with any start
-  exported, `resume_workflow` (`app.resume`) is offered too.
+- A `@Tool` export runs through the same adapter as an agent's tool call: its input and output DTOs
+  become the JSON Schemas, both are validated, its timeout applies, it gets a `callId`. It must be
+  a tool of the application's workflows (one of its agents' tools), else the application is refused at
+  assembly naming it.
+- The endpoint is listed in `@Application({ endpoints: [JobScoutMcp] })`; an endpoint no application
+  lists is `[application.endpoint-unlisted]` when its listener is made.
 
 ## 2. Serving it locally (stdio)
 
-For Claude Desktop and other local clients, the service talks over stdin/stdout:
+For Claude Desktop and other local clients, `connectMcpStdio` talks over stdin/stdout:
 
 <!-- snippet-context
 import { createApp } from "@agboss/core";
@@ -51,47 +52,50 @@ declare class JobScoutMcp {}
 -->
 
 ```ts
-import { createMcpService } from "@agboss/core/mcp";
+import { connectMcpStdio } from "@agboss/core/mcp";
 
 const app = await createApp(JobScoutApplication);
-const service = createMcpService(app, JobScoutMcp);
-await service.connectStdio(); // serves until stdin closes
+const connection = await connectMcpStdio(app, {
+  endpoint: JobScoutMcp,
+  session: { tenant: { tenantId: "acme" } }, // who every call of this local client runs as
+});
+// serves until stdin closes; `await connection.close()` ends it earlier
 ```
 
 ## 3. Serving it over HTTP
 
-`McpService` knows no HTTP framework: `handleSse(res, messageEndpoint, session)` opens a session's
-event stream, `handleMessage(req, res, sessionId, body)` takes the client's messages. The `session`
-(`McpSessionOptions`: `tenant`, `execution`, `ownerId` — the typed context values, #261) is what
-every execution and resume of the session runs with, taken from the authenticated caller, never
-from a call's arguments; components read it through their `ExecutionContext` — authorization stays
-out of the tools' code ([Context and Authorization](Context-And-Authorization)).
+`mcpHttpListener(app, { endpoint, publicUrl, authenticator?, allowAnonymous?, base?, maxBodySize?,
+onError? })` is a Node request handler, symmetric with `a2aHttpListener`. Every request is admitted on
+its own before anything of it is read as MCP: a signed mesh peer (`X-AGBoss-Mesh`, verified against
+this very request) or a caller the `@HttpAuthenticator` judges. A session belongs to the identity
+that opened it (`Mcp-Session-Id`): another caller's request naming its id is answered "no such
+session". The caller's tenant and owner come from the authenticator, never from a call's arguments;
+components read them through their `ExecutionContext` — authorization stays out of the tools' code
+([Context and Authorization](Context-And-Authorization)). Without an authenticator the listener is
+refused unless `allowAnonymous: true` is set, and an application that serves several instances' MCP
+sets `publicUrl` (required with an `@Mesh`).
 
 <!-- snippet-context
-import type { McpService } from "@agboss/core/mcp";
-declare const service: McpService;
+import { type App } from "@agboss/core";
+import { mcpHttpListener } from "@agboss/core/mcp";
+declare const app: App;
+declare class JobScoutMcp {}
 -->
 
 ```ts
 import { createServer } from "node:http";
 
-createServer((req, res) => {
-  const url = new URL(req.url ?? "/", "http://localhost");
-  if (req.method === "GET" && url.pathname === "/mcp") {
-    const tenantId = req.headers["x-tenant-id"]?.toString() ?? "default"; // after authentication
-    void service.handleSse(res, "/mcp/messages", { tenant: { tenantId } }); // bound to this session
-    return;
-  }
-  if (req.method === "POST" && url.pathname === "/mcp/messages") {
-    void service.handleMessage(req, res, url.searchParams.get("sessionId") ?? "");
-    return;
-  }
-  res.writeHead(404).end();
-}).listen(3001);
+const handle = mcpHttpListener(app, {
+  endpoint: JobScoutMcp,
+  publicUrl: "https://agents.example.com/mcp",
+  allowAnonymous: true, // dev only: list an @HttpAuthenticator as `authenticator` in production
+});
+
+createServer(handle).listen(3001);
 ```
 
-`service.connect(transport, session)` takes any MCP SDK transport instead (e.g. in tests, an
-in-memory pair).
+`connectMcp(app, { endpoint, transport, session })` takes any MCP wire transport instead (e.g. in
+tests, an in-memory pair).
 
 ## 4. Calls between AGBoss applications — `_meta` (#398)
 
@@ -103,9 +107,9 @@ An AGBoss application's `@McpServer` calls made inside an execution send `_meta`
   the same unsecured JWS as the `agboss-mesh` header;
 - `traceparent` — the W3C trace context.
 
-Outside an execution nothing is sent. `createMcpService` reads `_meta["agboss.dev/mesh"]` as a claim
+Outside an execution nothing is sent. The endpoint reads `_meta["agboss.dev/mesh"]` as a claim
 (a malformed one is ignored): a chain that already passed through this application's tool — an
-exported start or an exported `@Tool` / `@McpTool`, each an entry of the chain — or that is as long
+exported tool, each an entry of the chain — or that is as long
 as its `@Application({ maxMeshHops })` is refused before it runs, with an error result whose
 `_meta["agboss.dev/error"]` is `{ code: "limit.mesh-loop" | "limit.hops", error, details }`. An
 admitted start runs with the chain (its own calls carry it on); an execution or a tool that fails
