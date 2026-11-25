@@ -26,7 +26,7 @@ export interface EvalSuitesCheck {
 
 const RULE_CODE = /^\[([\w.-]+)\]\s*/;
 
-function problemsOf(file: string, error: unknown): CheckProblem[] {
+export function problemsOf(file: string, error: unknown): CheckProblem[] {
   if (error instanceof ConfigError.GraphRules)
     return error.violations.map((found) => ({ file, code: found.code, message: found.message }));
   if (error instanceof ConfigError.EvalCase) {
@@ -39,7 +39,11 @@ function problemsOf(file: string, error: unknown): CheckProblem[] {
       message: `${suite ?? ""}: case "${issue.case}": ${issue.path} — ${issue.reason}`,
     }));
   }
-  if (error instanceof ConfigError.Component) {
+  if (
+    error instanceof ConfigError.Component ||
+    error instanceof ConfigError.Prompt ||
+    error instanceof ConfigError.NoDefaultRouter
+  ) {
     const code = RULE_CODE.exec(error.message)?.[1] ?? "workflow.assembly";
     return [{ file, code, message: error.message.replace(RULE_CODE, "") }];
   }

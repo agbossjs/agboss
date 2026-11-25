@@ -35,12 +35,15 @@ import type { Class } from "../components/injection.js";
 import { decisionServiceOf } from "../components/decision-target.js";
 import type { ModelPricing } from "../models/model-pricing.js";
 
+/** The lookup's miss: only this is "no such tool" — any other `ConfigError.Component` is a real failure (#1413 M4). */
+export class UnknownToolError extends ConfigError.Component {}
+
 /** Tool lookup for the graph; an unknown name is a wiring bug. */
 export const toolLookup = (tools: readonly AnyTool[]): ((name: string) => AnyTool) => {
   const byName = new Map(tools.map((tool) => [tool.name, tool] as const));
   return (name) => {
     const tool = byName.get(name);
-    if (tool === undefined) throw new ConfigError.Component({ message: `Unknown tool "${name}"` });
+    if (tool === undefined) throw new UnknownToolError({ message: `Unknown tool "${name}"` });
     return tool;
   };
 };
@@ -51,7 +54,7 @@ export function knows(lookup: (name: string) => AnyTool, name: string): boolean 
     lookup(name);
     return true;
   } catch (error) {
-    if (error instanceof ConfigError.Component) return false;
+    if (error instanceof UnknownToolError) return false;
     throw error;
   }
 }

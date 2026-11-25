@@ -1,4 +1,4 @@
-import { ConfigError } from "../core/error-families/config-errors.js";
+import { UnknownToolError } from "./parts.js";
 import { workflowInApplication } from "../application/workflow-application.js";
 import type { Class } from "../components/injection.js";
 import { childrenFirst } from "../flow/analyse/child-workflow.js";
@@ -62,7 +62,7 @@ export function treeToolsOf(deps: GraphDeps<string>): (name: string) => AnyTool 
     try {
       return of.tools(name);
     } catch (error) {
-      if (!(error instanceof ConfigError.Component)) throw error;
+      if (!(error instanceof UnknownToolError)) throw error;
     }
     for (const child of childrenOf(of)) {
       const tool = find(child, name, seen);
