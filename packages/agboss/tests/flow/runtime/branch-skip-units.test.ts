@@ -97,7 +97,7 @@ describe("#1325b: a branch whose action called a remote agent that failed", () =
   });
   const wrapped = new StepError.Action({ action: "x-action", cause: remote });
 
-  it("under a quorum leaves its place empty, as any step failure does", () => {
+  it("under a quorum leaves its place empty, like every step failure", () => {
     expect(failedStatusOf(site(true), wrapped)).toBe(BranchStatus.Skipped);
   });
 

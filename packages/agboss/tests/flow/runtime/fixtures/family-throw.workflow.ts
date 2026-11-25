@@ -106,7 +106,9 @@ export class RemoteCatchWorkflow {}
   name: "uncaught-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [onStart(UncaughtStart).toAction(RemoteCallAction).toFinish(FamilyDoneFinish)],
+  flow: [onStart(UncaughtStart)
+    .toAction(RemoteCallAction)
+    .toFinish(FamilyDoneFinish)],
 })
 export class UncaughtWorkflow {}
 

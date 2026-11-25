@@ -18,7 +18,7 @@ describe("tool lookup", () => {
     };
 
     expect(() => knows(broken, "x")).toThrow("no such binding");
-    const deps = { graph: { type: class A {}, nodes: new Map() }, tools: broken } as never;
+    const deps = { graph: { type: Object, nodes: new Map() }, tools: broken } as never;
     expect(() => treeToolsOf(deps)("x")).toThrow("no such binding");
   });
 });

@@ -6,7 +6,7 @@ import { TaskState } from "@a2a-js/sdk";
 import { A2AContractRule } from "../../src/a2a/client/a2a-client-errors.js";
 import { failureOf } from "../../src/a2a/client/a2a-outcome.js";
 
-const wire = (error: Error): string =>
+const wire = (error: Error | undefined): string =>
   JSON.stringify((error as { details?: unknown }).details ?? {});
 
 describe("details", () => {
@@ -54,10 +54,10 @@ describe("details", () => {
       false,
     );
     expect(failure).toBeInstanceOf(A2AError.TaskFailed);
-    expect(wire(failure as Error)).not.toContain("evil");
+    expect(wire(failure)).not.toContain("evil");
     expect(JSON.stringify((failure as A2AError.TaskFailed).taskId)).not.toContain("evil");
     const malformed = failureOf({ id: raw, contextId: "c" } as never, "a", false);
-    expect(wire(malformed as Error)).not.toContain("evil");
+    expect(wire(malformed)).not.toContain("evil");
   });
 
   it("a router decision's and a guardrail's reason (a model's text) stay out of details", () => {
@@ -84,8 +84,6 @@ describe("facts", () => {
 describe("reserved facts (#1413 L5)", () => {
   it("a fact named like what an instance owns is refused", () => {
     for (const key of ["kind", "code", "name", "spend"])
-      expect(() => new StepError.Agent({ agent: "a", [key]: "x" } as never), key).toThrow(
-        TypeError,
-      );
+      expect(() => new StepError.Agent({ agent: "a", [key]: "x" }), key).toThrow(TypeError);
   });
 });
