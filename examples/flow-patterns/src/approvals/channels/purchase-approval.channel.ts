@@ -1,7 +1,6 @@
-import { PauseRespondent } from "@agboss/core";
+import { PauseRespondent, ToolApproval } from "@agboss/core";
 import { PurchaseOrder } from "../dto/place-purchase.dto.js";
-import { ToolApproval } from "../../../../../packages/agboss/src/channels/pause-targets.js";
-import { days } from "../../../../../packages/agboss/src/units/index.js";
+import { days } from "@agboss/core/units";
 
 /**
  * The role a purchase is approved through (#267): it approves `place-purchase-tool` calls and the

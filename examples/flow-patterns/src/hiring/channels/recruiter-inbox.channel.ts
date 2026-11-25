@@ -1,7 +1,7 @@
 import { Channel, ChannelOutcome, type ChannelAsk } from "@agboss/core";
 import { RecruiterDeskService } from "../services/recruiter-desk.service.js";
 import { RecruiterToolApproval } from "./recruiter-approval.channel.js";
-import { days } from "../../../../../packages/agboss/src/units/index.js";
+import { days } from "@agboss/core/units";
 
 /** Shows the letter to the recruiter once and waits for the reply (`app.resume`). */
 @Channel({

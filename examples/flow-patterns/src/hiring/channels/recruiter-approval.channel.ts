@@ -1,7 +1,6 @@
-import { PauseRespondent } from "@agboss/core";
+import { PauseRespondent, ToolApproval } from "@agboss/core";
 import { LetterDelivery } from "../dto/send-offer-letter.dto.js";
-import { ToolApproval } from "../../../../../packages/agboss/src/channels/pause-targets.js";
-import { days } from "../../../../../packages/agboss/src/units/index.js";
+import { days } from "@agboss/core/units";
 
 /** The role a letter is approved through: the thread's owner — the recruiter — answers. */
 @ToolApproval({

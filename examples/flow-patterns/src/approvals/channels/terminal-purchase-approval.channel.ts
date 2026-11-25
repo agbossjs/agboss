@@ -1,7 +1,7 @@
 import { Channel, ChannelOutcome, type ChannelAsk } from "@agboss/core";
 import { ApprovalTerminal } from "../services/approval-terminal.service.js";
 import { PurchaseToolApproval } from "./purchase-approval.channel.js";
-import { days } from "../../../../../packages/agboss/src/units/index.js";
+import { days } from "@agboss/core/units";
 
 /**
  * Asks in the terminal: prints the purchase once, with its pause's id,
