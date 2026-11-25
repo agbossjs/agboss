@@ -5,7 +5,10 @@
  */
 import { existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, rmSync } from "node:fs";
 import { join } from "node:path";
+import { applicationOf } from "@agboss/core/internal";
 import { afterAll, describe, expect, it } from "vitest";
+import { checkApplicationModels } from "../../src/cli/check-models.js";
+import { KIMI_ENTRY, providerStub } from "../../../agboss/tests/models/stub.js";
 import { specFromFlags } from "../../src/scaffold/flags.js";
 import { FINISH_ROUTE_TEXT } from "../../src/scaffold/flow-files.js";
 import { planGenerate } from "../../src/scaffold/generate.js";
@@ -147,6 +150,18 @@ describe("agboss create / agboss generate end to end", () => {
     expect(vitestOf(project, ["--project", "integration"]).ok).toBe(true);
     expect(vitestOf(project, ["--project", "suites"]).ok).toBe(true);
     expect(scripts().test).toBe("vitest run --project unit --project integration");
+    // `check --models` on a fresh project, against a listing of chat models only (offline): the
+    // router's Jev model is the decisions provider's, no chat provider is asked for it
+    const { DeskApplication } = (await import(join(project, "src/desk.application.ts"))) as {
+      DeskApplication: abstract new () => unknown;
+    };
+    const models = await checkApplicationModels(
+      await applicationOf(DeskApplication),
+      {},
+      providerStub([], [KIMI_ENTRY]).fetch,
+    );
+    expect(models.lines.join("\n")).not.toContain("model.unknown-model");
+    expect(models.exitCode).toBe(0);
   }, 240_000);
 
   it("AC2: generate agent, router, tool, mcp, rag and workflow — each wired, the project still compiles and passes", async () => {
