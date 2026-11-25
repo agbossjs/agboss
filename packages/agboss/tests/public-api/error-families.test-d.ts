@@ -120,6 +120,9 @@ describe("#1325a: StoreError.of is typed by the kind", () => {
     const made = StoreError.of(StoreErrorKind.SchemaTooNew, {});
 
     expectTypeOf(made).toEqualTypeOf<StoreError.SchemaTooNew>();
+    expectTypeOf(made.applied).toEqualTypeOf<number | undefined>();
+    expectTypeOf(made.expected).toEqualTypeOf<number | undefined>();
+    expectTypeOf(made.store).toEqualTypeOf<string | undefined>();
     expectTypeOf(made.kind).toEqualTypeOf<StoreErrorKind.SchemaTooNew>();
   });
 });

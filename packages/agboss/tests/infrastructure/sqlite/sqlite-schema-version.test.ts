@@ -98,6 +98,9 @@ describe("#1104 AC2: an older build opening a newer file fails closed", () => {
     expect(caught).toBeInstanceOf(StoreError.SchemaTooNew);
     expect(caught).toMatchObject({
       code: "store.schema-too-new",
+      applied: SQLITE_SCHEMA_VERSION + 1,
+      expected: SQLITE_SCHEMA_VERSION,
+      store: "sqlite",
       details: { applied: SQLITE_SCHEMA_VERSION + 1, expected: SQLITE_SCHEMA_VERSION },
     });
     expect(versionOf(path)).toBe(SQLITE_SCHEMA_VERSION + 1);

@@ -2670,7 +2670,11 @@ export namespace StoreError {
         readonly source: StoreOutcomeSource;
     };
     export type SchemaMissing = ErrorVariant<StoreErrorKind.SchemaMissing, "store.schema-missing">;
-    export type SchemaTooNew = ErrorVariant<StoreErrorKind.SchemaTooNew, "store.schema-too-new">;
+    export type SchemaTooNew = ErrorVariant<StoreErrorKind.SchemaTooNew, "store.schema-too-new"> & {
+        readonly applied?: number | undefined;
+        readonly expected?: number | undefined;
+        readonly store?: string | undefined;
+    };
     export type SettingsInvalid = ErrorVariant<StoreErrorKind.SettingsInvalid, "store.settings-invalid">;
     export type UnreadableRecord = ErrorVariant<StoreErrorKind.UnreadableRecord, "store.unreadable-record"> & {
         readonly record?: string | undefined;

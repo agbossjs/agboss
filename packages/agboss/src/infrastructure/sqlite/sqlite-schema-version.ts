@@ -20,12 +20,14 @@ export const SQLITE_SCHEMA_VERSION = 100;
 /**
  * The file was migrated by a newer build of `@agboss/core` than the one running: an application
  * rolled back over a migrated file. Deploy the newer build again — a migration is never rolled back.
- * A `StoreError.SchemaTooNew`: the versions are its details.
+ * A `StoreError.SchemaTooNew`: the versions are its `applied` and `expected`.
  */
 function schemaTooNew(applied: number, expected: number): StoreError.SchemaTooNew {
   return StoreError.of(StoreErrorKind.SchemaTooNew, {
     message: `the SQLite file is at schema version ${String(applied)}, newer than this build's ${String(expected)}: a newer @agboss/core migrated it — deploy that version, a migration is not rolled back`,
-    details: { applied, expected },
+    applied,
+    expected,
+    store: "sqlite",
   });
 }
 

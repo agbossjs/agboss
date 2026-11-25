@@ -102,7 +102,14 @@ export declare namespace StoreError {
   /** The store has no schema. */
   export type SchemaMissing = ErrorVariant<StoreErrorKind.SchemaMissing, "store.schema-missing">;
   /** The store's schema is newer than this version. */
-  export type SchemaTooNew = ErrorVariant<StoreErrorKind.SchemaTooNew, "store.schema-too-new">;
+  export type SchemaTooNew = ErrorVariant<StoreErrorKind.SchemaTooNew, "store.schema-too-new"> & {
+    /** The schema version the store's data is at. */
+    readonly applied?: number | undefined;
+    /** The newest schema version this build knows. */
+    readonly expected?: number | undefined;
+    /** Which store: `sqlite`, `postgres`, … */
+    readonly store?: string | undefined;
+  };
   /** An applied migration changed. */
   export type MigrationChanged = ErrorVariant<
     StoreErrorKind.MigrationChanged,
