@@ -1,4 +1,4 @@
-import { ComponentError, EnvironmentError } from "@agboss/core";
+import { ConfigError, EnvironmentError } from "@agboss/core";
 import {
   createStartComponents,
   describeServices,
@@ -27,13 +27,18 @@ export interface EnvironmentTarget {
 }
 
 /** `[di.missing-environment] …` → its code; another component error is the app's start failing. */
-const componentCode = (error: ComponentError): string =>
-  /^\[([a-z][\w.-]*)\]/.exec(error.message)?.[1] ?? "workflow.start";
+const componentCode = (
+  error: ConfigError.Component | ConfigError.Prompt | ConfigError.NoDefaultRouter,
+): string => /^\[([a-z][\w.-]*)\]/.exec(error.message)?.[1] ?? "workflow.start";
 
 const problemOf = (file: string, error: unknown): CheckProblem[] => {
   if (error instanceof EnvironmentError)
     return [{ file, code: error.code, message: error.message }];
-  if (error instanceof ComponentError)
+  if (
+    error instanceof ConfigError.Component ||
+    error instanceof ConfigError.Prompt ||
+    error instanceof ConfigError.NoDefaultRouter
+  )
     return [{ file, code: componentCode(error), message: error.message }];
   throw error;
 };

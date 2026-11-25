@@ -1,3 +1,4 @@
+import { promptProblemLine, type PromptProblem } from "../../components/prompt-problems.js";
 import { defineFamily, type ErrorVariant, type FamilyConstructor } from "./family.js";
 
 /** The kinds of `ConfigError`: `switch (error.kind)` is exhaustive. */
@@ -76,7 +77,10 @@ export declare namespace ConfigError {
   /** A component is not valid. */
   export type Component = ErrorVariant<ConfigErrorKind.Component, "config.component">;
   /** A prompt is not valid. */
-  export type Prompt = ErrorVariant<ConfigErrorKind.Prompt, "config.prompt">;
+  export type Prompt = ErrorVariant<ConfigErrorKind.Prompt, "config.prompt"> & {
+    /** Every problem found, reported at once. */
+    readonly problems: readonly PromptProblem[];
+  };
   /** The application has no default router. */
   export type NoDefaultRouter = ErrorVariant<
     ConfigErrorKind.NoDefaultRouter,
@@ -129,6 +133,15 @@ export declare namespace ConfigError {
   export type Option = ErrorVariant<ConfigErrorKind.Option, "config.option">;
 }
 
+/** What `ConfigError.Prompt` says: every problem found, one line each, before any model call. */
+const promptMessageOf = (
+  facts: Partial<{ readonly problems: readonly PromptProblem[] }>,
+): string => {
+  const problems = facts.problems ?? [];
+  const lines = problems.map((problem) => `  - ${promptProblemLine(problem)}`);
+  return `The workflow's prompts have ${String(problems.length)} problem(s):\n${lines.join("\n")}`;
+};
+
 /** `ConfigError`: the family's constructor and its variants'. */
 export const ConfigError: FamilyConstructor<
   ConfigError,
@@ -169,7 +182,7 @@ export const ConfigError: FamilyConstructor<
     NotAWorkflowStart: ["the class is not a workflow start"],
     WorkingCalendar: ["a working calendar is not valid"],
     Component: ["a component is not valid"],
-    Prompt: ["a prompt is not valid"],
+    Prompt: [promptMessageOf],
     NoDefaultRouter: ["the application has no default router"],
     Environment: ["the environment is not valid"],
     Profile: ["a profile is not valid"],

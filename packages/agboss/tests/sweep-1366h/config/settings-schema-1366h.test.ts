@@ -1,8 +1,9 @@
+import { ConfigError } from "../../../src/core/error-families/config-errors.js";
 /**
  * #1366: the config schemas admit exactly the settings they document - price, token ceiling, reasoning,
  * prompt caching, temperature, turn window, compaction, agent (with knowledge bases), router model,
  * workflow name/defaults - and a config with an unknown tool fails with
- * `UnknownAgentToolError` (an agent without tools never does).
+ * `ConfigError.Component` (an agent without tools never does).
  */
 import { describe, expect, it } from "vitest";
 import {
@@ -19,7 +20,6 @@ import {
   RouterModelSchema,
   ThinkingSchema,
   UncompactedTurnsSchema,
-  UnknownAgentToolError,
   validateAgentsConfig,
   type AgentsConfigOf,
 } from "../../../src/config/types.js";
@@ -199,7 +199,7 @@ describe("config schemas", () => {
     );
   });
 
-  it("an unknown tool fails with UnknownAgentToolError; an agent without tools never does", () => {
+  it("an unknown tool fails with ConfigError.Component; an agent without tools never does", () => {
     const withTools = (tools: string[]): AgentsConfigOf<string> => ({
       ...testConfig,
       agents: { alpha: { ...testConfig.agents.alpha, tools }, beta: testConfig.agents.beta },
@@ -214,7 +214,7 @@ describe("config schemas", () => {
       }
       return undefined;
     })();
-    expect(thrown).toBeInstanceOf(UnknownAgentToolError);
-    expect((thrown as Error).name).toBe("UnknownAgentToolError");
+    expect(thrown).toBeInstanceOf(ConfigError.Component);
+    expect((thrown as Error).name).toBe("ConfigError.Component");
   });
 });

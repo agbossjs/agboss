@@ -1,3 +1,4 @@
+import { ConfigError } from "../../core/error-families/config-errors.js";
 import { A2AError } from "../../core/error-families/remote-errors.js";
 import { randomUUID } from "node:crypto";
 import {
@@ -6,7 +7,6 @@ import {
   type OutboundCallOutcome,
   type IdempotencySendOptions,
 } from "../../app/outbound-call-types.js";
-import { ComponentError } from "../../components/metadata.js";
 import { currentFrame } from "../../flow/context/frame.js";
 import { liveExecutionContextOf } from "../../flow/context/live-context.js";
 import { stableJson } from "../../turns/index.js";
@@ -191,7 +191,7 @@ export async function accept(call: AcceptCall): Promise<Accepted> {
   if (frame === undefined) return acceptedDirectly(call);
   const services = a2aClientServicesOf(frame.execution.tenant.application);
   if (services === undefined) {
-    throw new ComponentError({
+    throw new ConfigError.Component({
       message: `[a2a.outside-application] ${call.agent} was called in a step of no application (a unit runner's): its call cannot be recorded, so it is not sent — mock the client (mockService), or run the step in testWith`,
     });
   }

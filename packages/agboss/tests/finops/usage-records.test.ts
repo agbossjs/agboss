@@ -9,8 +9,6 @@ import { SERVED_BY_FIELD } from "../../src/finops/served-by.js";
 import {
   costOf,
   CostSource,
-  InvalidToolCostError,
-  ModelCostError,
   recordReportedCost,
   recordToolCost,
   recordUsage,
@@ -137,14 +135,16 @@ describe("#1356: one model call's record", () => {
       response_metadata: { usage: { [FALLBACK_MARK]: { model: "backup/m", priced: true } } },
     };
 
-    expect(() => recordUsage("writer", { model: "m/a", price }, answered)).toThrow(ModelCostError);
+    expect(() => recordUsage("writer", { model: "m/a", price }, answered)).toThrow(
+      ConfigError.Component,
+    );
     expect(() => recordUsage("writer", { model: "m/a", price }, answered)).toThrow(
       "writer: fallback model backup/m — no cost and no price",
     );
   });
 
   it("a call with neither a reported cost nor a price fails", () => {
-    expect(() => recordUsage("writer", { model: "m/a" }, tokens)).toThrow(ModelCostError);
+    expect(() => recordUsage("writer", { model: "m/a" }, tokens)).toThrow(ConfigError.Component);
     expect(() => recordUsage("writer", { model: "m/a" }, tokens)).toThrow(
       "writer: model m/a — its provider reported no cost and it has no price",
     );
@@ -174,8 +174,8 @@ describe("#1356: one model call's record", () => {
   });
 
   it("the errors are named", () => {
-    expect(new ModelCostError("x").name).toBe("ModelCostError");
-    expect(new InvalidToolCostError("x").name).toBe("InvalidToolCostError");
+    expect(new ConfigError.Component({ message: "x" }).name).toBe("ConfigError.Component");
+    expect(new ConfigError.Component({ message: "x" }).name).toBe("ConfigError.Component");
   });
 });
 

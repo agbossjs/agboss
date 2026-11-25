@@ -1,7 +1,7 @@
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import { ExecutionStatus } from "../../src/app/types.js";
 import { workflowOf } from "../../src/components/assemble.js";
-import { PromptError } from "../../src/components/prompt-problems.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import { execute, answerOf } from "../helpers/flow.js";
 import {
@@ -95,8 +95,8 @@ describe("#270 Q51: instructions are static", () => {
   it("{{input.<field>}} in an agent's instructions fails assembly, naming the prompt", async () => {
     const error = await workflowOf(TypoSearch).catch((caught: unknown) => caught);
 
-    expect(error).toBeInstanceOf(PromptError);
-    expect((error as PromptError).problems).toEqual([
+    expect(error).toBeInstanceOf(ConfigError.Prompt);
+    expect((error as ConfigError.Prompt).problems).toEqual([
       {
         code: "prompt.input-in-instructions",
         message: expect.stringMatching(

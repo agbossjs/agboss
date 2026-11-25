@@ -259,7 +259,7 @@ export const SKILL_COVERAGE: SkillCoverage = {
     "ExecutionContextUnavailableError",
   ],
   "references/11-cli-studio-and-error-catalog.md": [
-    ...["GraphRuleError", "RuleCode", "RuleViolation", "FlowSyntaxError", "AGBossError"],
+    ...["GraphRuleError", "RuleCode", "RuleViolation", "ConfigError", "AGBossError"],
     "EvalCaseInvalidError",
     "A2AError",
     ...["CassetteMissingError", "StaleCassetteError"],

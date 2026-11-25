@@ -1,3 +1,4 @@
+import { ConfigError } from "../../core/error-families/config-errors.js";
 import { recordOptionKeys } from "../../components/option-keys.js";
 import { ARBITER_KEYS } from "../../components/decorator-options.js";
 import "../../polyfills/symbol-metadata.js";
@@ -12,7 +13,6 @@ import { resolvedName } from "../names.js";
 import type { KindCheck } from "../builder-types.js";
 import type { WorkflowFinishTextDto } from "../../dto/standard/framework.js";
 import type { KindOf, NoOutput, ProducerOutputOf } from "../generated-types.js";
-import { FlowSyntaxError } from "../launch-step.js";
 import type { Tracked } from "../metadata.js";
 
 /**
@@ -243,7 +243,7 @@ export function Arbitrate<const TTargets extends readonly [Class, ...Class[]]>(
   return (_value, context) => {
     const { metadata } = context;
     if (metadata === undefined)
-      throw new FlowSyntaxError({
+      throw new ConfigError.FlowSyntax({
         message: `@Arbitrate on ${String(context.name)}: decorator metadata is missing — import "@agboss/core" first`,
       });
     const methods = answerMethods.get(metadata) ?? [];

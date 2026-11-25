@@ -1,3 +1,4 @@
+import { ConfigError } from "../../../src/core/error-families/config-errors.js";
 /**
  * #261 PR 6 — observer events: one event object per hook with the common fields of the execution
  * (`ExecutionEvent`), node events with their `step` (`StepRecord`), plain data — never the
@@ -5,7 +6,6 @@
  */
 import { beforeEach, describe, expect } from "vitest";
 import {
-  ComponentError,
   ComponentKind,
   ExecutionOperation,
   InvalidThreadIdError,
@@ -205,6 +205,6 @@ describe("#261 AC7: nameOf(C) — the name of any AGBoss-decorated class", () =>
       readonly kind = "plain";
     }
 
-    expect(() => nameOf(Plain)).toThrow(ComponentError);
+    expect(() => nameOf(Plain)).toThrow(ConfigError.Component);
   });
 });

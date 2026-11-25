@@ -13,8 +13,6 @@ import {
  * The typed builder makes the wrong forms compile errors; these checks hold for untyped code.
  */
 
-export { FlowSyntaxError } from "./flow-syntax-error.js";
-
 /**
  * What may follow a join (its `.onError(…)` is the join's own, `PathBuilder.onError`): anything but a transition is refused; nothing follows
  * `.joinQuorumGroups(…)` — each `.onGroup(…)` continues its own path (#279, #1284).

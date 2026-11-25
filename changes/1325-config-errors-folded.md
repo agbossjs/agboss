@@ -1,0 +1,6 @@
+---
+section: Breaking
+issue: 1325
+---
+
+**Fifteen configuration errors are variants of `ConfigError`** (#1325b): `ComponentError`, `InvalidToolNameError`, `UnknownToolError`, `UnknownAgentToolError`, `MissingAgentPromptError`, `MissingJudgeError`, `MeshKeyError`, `ModelCostError` and `InvalidToolCostError` are `ConfigError.Component` (code `config.component`; the sentences, `[mesh.invalid-key]` and the other bracketed rule codes among them, are as they were); `NoDefaultRouterError` is `ConfigError.NoDefaultRouter` (`config.no-default-router`), `PromptError` is `ConfigError.Prompt` (`config.prompt`, with `problems: readonly PromptProblem[]`), `FlowSyntaxError` is `ConfigError.FlowSyntax` (`config.flow-syntax`, was `flow.syntax`), `ModelProviderError` is `ConfigError.ModelProvider` (`config.model-provider`) and `GoldenSetError` is `ConfigError.EvalCase` (`config.eval-case`). The classes and `PromptErrorOptions` are removed from `@agboss/core`, `@agboss/core/models` and `@agboss/core/components`; `.onError(ConfigError.Component, …)` and `error.kind` take the place of `instanceof` on the old classes. `agboss check` and `agboss run` classify the three assembly variants as `workflow.assembly`, as before.

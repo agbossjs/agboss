@@ -1,3 +1,4 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import { NO_PROVIDER } from "./no-provider.js";
 import { isFiniteNumber } from "../graph/count-limit.js";
 import { checkedPrice } from "../models/cost.js";
@@ -121,10 +122,6 @@ export function costOf(usage: TokenUsage, unchecked: ModelPrice): number {
   return micro / 1_000_000;
 }
 
-export class ModelCostError extends Error {
-  override name = "ModelCostError";
-}
-
 /** The cost the provider reported in its replyWith (`usage.cost`), when it did. */
 export function reportedCostOf(message: UsageCarrier): Usd | undefined {
   const usage = message.response_metadata?.usage;
@@ -151,7 +148,9 @@ function fallbackRecordOf(
     return { ...base, costUsd: reported, costSource };
   }
   if (fallback.unpriced) return { ...base, costUsd: usd(0), costSource: CostSource.Unpriced };
-  throw new ModelCostError(`${caller}: fallback model ${fallback.model} — no cost and no price`);
+  throw new ConfigError.Component({
+    message: `${caller}: fallback model ${fallback.model} — no cost and no price`,
+  });
 }
 
 /**
@@ -179,14 +178,14 @@ export function recordUsage(
     return { ...made, ...pricedOf(caller, settings.model, settings.price, usage) };
   if (settings.unpriced === true)
     return { ...made, costUsd: usd(0), costSource: CostSource.Unpriced };
-  throw new ModelCostError(
-    `${caller}: model ${settings.model} — its provider reported no cost and it has no price`,
-  );
+  throw new ConfigError.Component({
+    message: `${caller}: model ${settings.model} — its provider reported no cost and it has no price`,
+  });
 }
 
 /**
  * The record of a call its provider answered — and billed — that `recordUsage` could not price (it
- * threw a `ModelCostError`): its tokens at 0 USD, `CostSource.Unpriced`, under the model and provider
+ * threw a `ConfigError.Component`): its tokens at 0 USD, `CostSource.Unpriced`, under the model and provider
  * that served it (bughunt 2026-11-25 #2). The call still fails as it did; its tokens are never dropped,
  * so a token budget counts them.
  */
@@ -218,14 +217,10 @@ function pricedOf(
 ): Pick<UsageRecord, "costUsd" | "costSource"> {
   const priced = costOf(usage, price);
   if (!Number.isFinite(priced) || priced < 0)
-    throw new ModelCostError(
-      `${caller}: model ${model} — its tokens price at no amount: ${String(priced)}`,
-    );
+    throw new ConfigError.Component({
+      message: `${caller}: model ${model} — its tokens price at no amount: ${String(priced)}`,
+    });
   return { costUsd: usd(priced), costSource: CostSource.PriceTable };
-}
-
-export class InvalidToolCostError extends Error {
-  override name = "InvalidToolCostError";
 }
 
 /** A paid tool's own cost, recorded like a model call: caller `tool:<name>`. */
@@ -240,7 +235,9 @@ export const recordReportedCost = (
 
 export function recordToolCost(tool: string, costUsd: number): UsageRecord {
   if (!Number.isFinite(costUsd) || costUsd < 0) {
-    throw new InvalidToolCostError(`Tool "${tool}" reported an invalid cost: ${String(costUsd)}`);
+    throw new ConfigError.Component({
+      message: `Tool "${tool}" reported an invalid cost: ${String(costUsd)}`,
+    });
   }
   return {
     caller: `tool:${tool}`,

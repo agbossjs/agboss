@@ -1,6 +1,7 @@
+import { ConfigError } from "../../../../src/core/error-families/config-errors.js";
 /**
  * #1366: the transport's messages: a file part is carried in `parts` and never as text, an unsupported block or a
- * role-less message is refused with ModelProviderError, tool calls and tool-call ids appear only where they belong;
+ * role-less message is refused with ConfigError.ModelProvider, tool calls and tool-call ids appear only where they belong;
  * a provider's answer is accepted only with text and numeric usage, and its token details, cost and finish reason
  * reach the AIMessage exactly as stated (cache tokens default to 0, nothing is invented for cost or finish reason).
  */
@@ -12,7 +13,7 @@ import {
   ToolMessage,
 } from "@langchain/core/messages";
 import { describe, expect, it } from "vitest";
-import { ModelProviderError, ModelProviderMessageRole } from "../../../../src/models/index.js";
+import { ModelProviderMessageRole } from "../../../../src/models/index.js";
 import {
   aiMessageOf,
   providerMessagesOf,
@@ -62,13 +63,13 @@ describe("#1366: providerMessagesOf", () => {
       { type: "foo" },
     ]) {
       const e = thrown(() => providerMessagesOf([new HumanMessage({ content: [block] })], P));
-      expect(e).toBeInstanceOf(ModelProviderError);
+      expect(e).toBeInstanceOf(ConfigError.ModelProvider);
     }
   });
 
   it("refuses a message without a transport role", () => {
     const e = thrown(() => providerMessagesOf([new ChatMessage("hi", "custom")], P));
-    expect(e).toBeInstanceOf(ModelProviderError);
+    expect(e).toBeInstanceOf(ConfigError.ModelProvider);
     expect((e as Error).message).not.toBe("");
   });
 
@@ -164,7 +165,7 @@ describe("#1366: aiMessageOf", () => {
       { text: 5, usage: ok.usage },
     ];
     for (const b of bads)
-      expect(thrown(() => aiMessageOf(b, "m", P))).toBeInstanceOf(ModelProviderError);
+      expect(thrown(() => aiMessageOf(b, "m", P))).toBeInstanceOf(ConfigError.ModelProvider);
     expect((thrown(() => aiMessageOf(null, "m", P)) as Error).message).not.toBe("");
   });
 

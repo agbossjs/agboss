@@ -1,6 +1,7 @@
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import { LiveJudgeModel, runJudgeCall } from "../../src/components/judge-call.js";
-import { ComponentError, JudgeModel } from "../../src/index.js";
+import { JudgeModel } from "../../src/index.js";
 
 /** A judge's metered model, as the agent loop hands it over. */
 const metered = (model: string): JudgeModel => ({
@@ -37,7 +38,7 @@ describe("#280: a judge's model through deps: [JudgeModel]", () => {
   it("outside a judge() it names the consumer", () => {
     const judgeModel = new LiveJudgeModel("GroundedJudge");
 
-    expect(() => judgeModel.model).toThrow(ComponentError);
+    expect(() => judgeModel.model).toThrow(ConfigError.Component);
     expect(() => judgeModel.model).toThrow(
       "[judge.model-outside-judge] GroundedJudge used judgeModel.model outside a judge's judge()",
     );

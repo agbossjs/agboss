@@ -1,9 +1,9 @@
+import { ConfigError } from "../../core/error-families/config-errors.js";
 import { timeoutError, timeoutOn, type Clock } from "../../infrastructure/clock.js";
 import type { Milliseconds } from "../../units/index.js";
 import type { Attempt, AttemptCarrier } from "../calls/model-call.js";
 import type { CircuitBreaker } from "../circuit-breaker.js";
 import { ModelFailure } from "../model-failure.js";
-import { ModelProviderError } from "../model-provider.decorator.js";
 import { ModelProviderFailureError } from "./failure-error.js";
 import { withPartialSpend } from "./stream-partial.js";
 import { sourceOf } from "./transport-stream-source.js";
@@ -71,10 +71,10 @@ function closeQuietly(iterator: AsyncIterator<string>): void {
     .catch(nothing);
 }
 
-const notAString = (provider: string): ModelProviderError =>
-  new ModelProviderError({
-    message: `${provider}: stream(request).textStream must yield strings`,
-  });
+const { ModelProvider } = ConfigError;
+
+const notAString = (provider: string): ConfigError.ModelProvider =>
+  new ModelProvider({ message: `${provider}: stream(request).textStream must yield strings` });
 
 /** A chunk of the text, checked: it is the project's code. */
 function textOf(pulled: Pull, provider: string): string | undefined {
@@ -127,7 +127,7 @@ async function settledAfterFailure(
 
 /** How a failed read ends: a project's bug or the caller's abort is no failure of the provider. */
 function endOf(error: unknown, caller: AbortSignal | undefined): End {
-  return error instanceof ModelProviderError || caller?.aborted === true ? "ignored" : "failed";
+  return error instanceof ModelProvider || caller?.aborted === true ? "ignored" : "failed";
 }
 
 /**
@@ -247,7 +247,7 @@ export function transportStreamCarrier(
       } catch (error) {
         if (iterator !== undefined) closeQuietly(iterator);
         if (caller?.aborted === true) throw error;
-        if (error instanceof ModelProviderError) return { kind: "threw", error, isRejected: true };
+        if (error instanceof ModelProvider) return { kind: "threw", error, isRejected: true };
         return failedAttempt(error, signal, { provider: limits.provider, model: request.model });
       }
     },

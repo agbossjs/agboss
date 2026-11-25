@@ -108,12 +108,12 @@ of values are enums (`Reasoning`, …), never strings.
 
 ## `defaults.models` — applied to every chat model (agents and LLM routers)
 
-| Field         | Values                                                                                                                                                       | Default        |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------- |
-| `temperature` | 0–2                                                                                                                                                          | required       |
-| `maxTokens`   | positive int, or `TokenLimit.ModelMax` (`"max"`) for no ceiling — set explicitly                                                                                       | `8192`         |
+| Field         | Values                                                                                                                                              | Default        |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| `temperature` | 0–2                                                                                                                                                 | required       |
+| `maxTokens`   | positive int, or `TokenLimit.ModelMax` (`"max"`) for no ceiling — set explicitly                                                                    | `8192`         |
 | `reasoning`   | override of the provider's reasoning: `Reasoning.modelDecides()` · `Reasoning.off()` · `Reasoning.on({ effort?, budget? })` (#269: no string forms) | the provider's |
-| `cache`       | override of the provider's caching: `true` = the provider's · `false` = off · a `PromptCaching` value                                                       | the provider's |
+| `cache`       | override of the provider's caching: `true` = the provider's · `false` = off · a `PromptCaching` value                                               | the provider's |
 
 Timeouts, retries, circuit breakers, request fields (e.g. OpenRouter's `provider: { ignore: [...] }`)
 and costs belong to the **model provider** — see [Model providers](Model-providers); an agent has
@@ -122,9 +122,9 @@ model at startup and by `agboss check --models`.
 
 ## `defaults.tools`
 
-| Field          | Meaning                                                                                                                                                               |
-| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `maxToolCalls` | optional: tool calls per call of an agent (`agents.<name>.limits.toolCalls`, default 20); crossing it fails the run — see [Agents](Agents#limits-per-call-of-the-agent) |
+| Field           | Meaning                                                                                                                                                                                                                                                                                                                                                                              |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `maxToolCalls`  | optional: tool calls per call of an agent (`agents.<name>.limits.toolCalls`, default 20); crossing it fails the run — see [Agents](Agents#limits-per-call-of-the-agent)                                                                                                                                                                                                              |
 | `maxResultSize` | optional (#336): what a model reads of one tool result at most, in bytes of UTF-8 — `kilobytes(64)` (`@agboss/core/units`); a tool's own `@Tool({ maxResultSize })` wins; default 128 KB. Longer results are cut with a marker; context-mode knowledge blocks too — see [Tools → Result size](Tools#result-size). A profile sets it in bytes (`defaults.tools.maxResultSize: 65536`) |
 
 ## `memory` — a single setting (#1303)
@@ -193,23 +193,23 @@ Details: [FinOps](FinOps).
 
 A server a tool lists in its `deps` is connected when the application starts (no `mcp` list).
 
-| Transport             | Fields                                                                                        |
-| --------------------- | --------------------------------------------------------------------------------------------- |
-| `McpTransport.Stdio`  | `command`, `args?`, `env?`, `inheritSystemEnv?` — texts or `defineEnv` references             |
-| `McpTransport.Http`   | `url`, `headers?` — a text, an `EnvRef`, a `SecretRef` or `bearer(secretRef)` per header      |
+| Transport            | Fields                                                                                   |
+| -------------------- | ---------------------------------------------------------------------------------------- |
+| `McpTransport.Stdio` | `command`, `args?`, `env?`, `inheritSystemEnv?` — texts or `defineEnv` references        |
+| `McpTransport.Http`  | `url`, `headers?` — a text, an `EnvRef`, a `SecretRef` or `bearer(secretRef)` per header |
 
 Both take `timeout?`, `costPerCall?`, `maxConcurrentCalls?` and `target?`. A used server that is
 unreachable, lacks an env variable or has a drifted contract stops startup (`McpError`). See [Mcp](Mcp).
 
 ## `a2aHttpListener` — serving an `@A2AEndpoint` as an A2A v1.0 agent (#808)
 
-| Option             | What it is                                                                                        |
-| ------------------ | ------------------------------------------------------------------------------------------------- |
-| `endpoint`         | the `@A2AEndpoint` (listed in `@Application({ endpoints })`): its `skills` are the card's skills  |
-| `authenticator`   | the `@HttpAuthenticator` class (listed in `services`): who calls, per request                     |
-| `publicUrl`        | required: where callers reach the listener, an absolute http(s) URL (or a function giving it, asked at the first request) — the card's interface URL |
-| `base?`            | its path (`"/a2a"`): JSON-RPC at `POST <base>`, the card at `<base>/.well-known/agent-card.json` |
-| `maxBodySize?`     | the largest request body read, default `kilobytes(1024)`; over it `413`, nothing run             |
+| Option          | What it is                                                                                                                                           |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `endpoint`      | the `@A2AEndpoint` (listed in `@Application({ endpoints })`): its `skills` are the card's skills                                                     |
+| `authenticator` | the `@HttpAuthenticator` class (listed in `services`): who calls, per request                                                                        |
+| `publicUrl`     | required: where callers reach the listener, an absolute http(s) URL (or a function giving it, asked at the first request) — the card's interface URL |
+| `base?`         | its path (`"/a2a"`): JSON-RPC at `POST <base>`, the card at `<base>/.well-known/agent-card.json`                                                     |
+| `maxBodySize?`  | the largest request body read, default `kilobytes(1024)`; over it `413`, nothing run                                                                 |
 
 Tasks are kept `@A2AEndpoint({ ttl: { tasks } })` after they end, a direct reply `ttl: { messages }`. See
 [A2A](A2A#2-serving--a2ahttplistenerapp-options).
@@ -336,19 +336,19 @@ to 1 ms and warns `TimeoutOverflowWarning`, so a longer one would fire at once �
 gives up immediately, an undo that times out immediately. Every such setting is refused above its
 maximum, naming the field, and accepted at it:
 
-| Setting                                                             | Largest    | Refused as                                                                    |
-| ------------------------------------------------------------------- | ---------- | ----------------------------------------------------------------------------- |
-| `@Application({ executionLimits: { shutdownTimeout } })`, `compensationTimeout`          | 24 hours   | `[limits.timeout-invalid]` at assembly                                        |
-| `Idempotency.sendOnce({ timeout })`                                 | 24 hours   | the call rejects with `ConfigError.Option`, nothing recorded or sent          |
-| `app.close({ timeout })`                                            | 24 hours   | the `close` promise rejects with `ConfigError.Unit` (`config.unit`), nothing stopped |
-| `@Tool` / `defineTool` `timeout`                       | 24 hours   | `[limits.timeout-invalid]` at assembly; `ConfigError.Unit` from `defineTool`         |
-| `@HealthCheck({ timeout })`                                         | 24 hours   | `[limits.timeout-invalid]` at assembly                                        |
-| `@ModelProvider({ timeout })`                                       | 24 hours   | `[limits.timeout-invalid]` at assembly                                        |
-| `RetryPolicy` `initialDelay`, `maxDelay`, `delay`                   | 24 hours   | `RetryPolicyError` (`config.retry-policy`)                                    |
-| `@FilePolicy({ fetchTimeout })`                                     | 24 hours   | `[file-policy.invalid]` at assembly                                           |
-| an A2A client call's `timeout`                                      | 24 hours   | `ComponentError` `[a2a.timeout-invalid]` before anything is sent              |
-| `.joinQuorum({ deadline })`, `.joinQuorumGroups({ deadline })`   | 24 days    | `FlowSyntaxError` where the flow is written                                   |
-| `app.execute(…, { deadline })`                                      | 24 days    | `ConfigError.Unit` (`config.unit`), the execution not started                        |
+| Setting                                                                         | Largest  | Refused as                                                                           |
+| ------------------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------ |
+| `@Application({ executionLimits: { shutdownTimeout } })`, `compensationTimeout` | 24 hours | `[limits.timeout-invalid]` at assembly                                               |
+| `Idempotency.sendOnce({ timeout })`                                             | 24 hours | the call rejects with `ConfigError.Option`, nothing recorded or sent                 |
+| `app.close({ timeout })`                                                        | 24 hours | the `close` promise rejects with `ConfigError.Unit` (`config.unit`), nothing stopped |
+| `@Tool` / `defineTool` `timeout`                                                | 24 hours | `[limits.timeout-invalid]` at assembly; `ConfigError.Unit` from `defineTool`         |
+| `@HealthCheck({ timeout })`                                                     | 24 hours | `[limits.timeout-invalid]` at assembly                                               |
+| `@ModelProvider({ timeout })`                                                   | 24 hours | `[limits.timeout-invalid]` at assembly                                               |
+| `RetryPolicy` `initialDelay`, `maxDelay`, `delay`                               | 24 hours | `RetryPolicyError` (`config.retry-policy`)                                           |
+| `@FilePolicy({ fetchTimeout })`                                                 | 24 hours | `[file-policy.invalid]` at assembly                                                  |
+| an A2A client call's `timeout`                                                  | 24 hours | `ConfigError.Component` `[a2a.timeout-invalid]` before anything is sent              |
+| `.joinQuorum({ deadline })`, `.joinQuorumGroups({ deadline })`                  | 24 days  | `ConfigError.FlowSyntax` where the flow is written                                   |
+| `app.execute(…, { deadline })`                                                  | 24 days  | `ConfigError.Unit` (`config.unit`), the execution not started                        |
 
 A pause's `expiresIn` is not one timer: pause deadlines are read by the pause timers' loop every
 5 seconds, never by one `setTimeout`, so a long deadline is safe. The system `Clock` also waits out

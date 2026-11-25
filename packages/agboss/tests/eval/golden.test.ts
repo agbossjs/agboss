@@ -1,14 +1,9 @@
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import {
-  goldenFile,
-  goldenFromRecent,
-  GoldenSetError,
-  loadGolden,
-  saveGolden,
-} from "../../src/eval/golden.js";
+import { goldenFile, goldenFromRecent, loadGolden, saveGolden } from "../../src/eval/golden.js";
 import { routeTo, fakeDeps, runText } from "../helpers.js";
 
 describe("golden sets", () => {
@@ -49,6 +44,6 @@ describe("golden sets", () => {
     await expect(loadGolden(file)).rejects.toThrow(`${file}: tasks`);
     await expect(
       goldenFromRecent((await fakeDeps({})).turns, "empty", "x", 5),
-    ).rejects.toBeInstanceOf(GoldenSetError);
+    ).rejects.toBeInstanceOf(ConfigError.EvalCase);
   });
 });

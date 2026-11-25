@@ -1,3 +1,4 @@
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 /**
  * #1382 (ledger-a2a-client shard) — an A2A contract's price is a finite number of dollars from 0, or none: the
  * check on its own, and what refuses it — `[a2a.cost-per-call-invalid]` at assembly of an `@A2AAgent`, and at the call of
@@ -8,7 +9,6 @@ import { A2AAgent, A2AClient } from "../../src/a2a/index.js";
 import { checkedCostPerCall, costPerCallProblemOf } from "../../src/a2a/a2a-rules.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import { Application } from "../../src/application/application.js";
-import { ComponentError } from "../../src/components/metadata.js";
 import type { Class } from "../../src/components/injection.js";
 import { GraphRuleError, type RuleViolation } from "../../src/graph/rule-error.js";
 import { EmptyEnvironment } from "../../src/index.js";
@@ -55,7 +55,7 @@ describe("#1382: a price is a finite number of dollars from 0", () => {
     expect(costPerCallProblemOf({})).toMatch(/^costPerCall is an object,/);
   });
 
-  it("checkedCostPerCall throws a ComponentError [a2a.cost-per-call-invalid] naming the agent", () => {
+  it("checkedCostPerCall throws a ConfigError.Component [a2a.cost-per-call-invalid] naming the agent", () => {
     const refused = (() => {
       try {
         checkedCostPerCall("peer-a2a-agent", -1);
@@ -64,7 +64,7 @@ describe("#1382: a price is a finite number of dollars from 0", () => {
       }
       return undefined;
     })();
-    expect(refused).toBeInstanceOf(ComponentError);
+    expect(refused).toBeInstanceOf(ConfigError.Component);
     expect((refused as Error).message).toBe(
       `[a2a.cost-per-call-invalid] peer-a2a-agent: ${costPerCallProblemOf(-1) ?? ""}`,
     );

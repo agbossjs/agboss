@@ -1,8 +1,9 @@
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { Window1Memory } from "../helpers/window-memory.js";
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { describe, expect, it, vi } from "vitest";
 import { createAppDeps } from "../../src/app/app-deps.js";
-import { toolLookup, UnknownToolError } from "../../src/app/parts.js";
+import { toolLookup } from "../../src/app/parts.js";
 import { runResultOf } from "../../src/app/result.js";
 import { bareRecordOf, ComponentKind } from "../../src/flow/runtime/records.js";
 
@@ -83,7 +84,7 @@ export class TicketsApplication {}
 
 describe("AC12: the app's parts", () => {
   it("an unknown tool name is a wiring bug", () => {
-    expect(() => toolLookup([])("nope")).toThrow(UnknownToolError);
+    expect(() => toolLookup([])("nope")).toThrow(ConfigError.Component);
   });
 
   it("a run's result keeps memory and trace link; the record only when asked", () => {

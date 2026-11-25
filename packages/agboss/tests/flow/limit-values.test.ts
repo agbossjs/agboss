@@ -1,3 +1,4 @@
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 /**
  * #1373 — the sibling numeric limits of `maxVisits` refuse a value that is no number as well, each at its own
  * place, and name no text: a launch's `maxItems` and `maxConcurrency`, a quorum's `min`, `max` and `deadline`, a
@@ -9,7 +10,6 @@ import { describe, expect, it } from "vitest";
 import { limitViolations } from "../../src/application/limit-rules.js";
 import { checkWorkflow } from "../../src/flow/analyse/analyse.js";
 import { Workflow, type WorkflowOptions } from "../../src/flow/decorators/workflow.js";
-import { FlowSyntaxError } from "../../src/flow/launch-step.js";
 import { onStart, toAgent } from "../helpers/flow.js";
 import { KitWorkflowStart, SentKitWorkflowFinish } from "./fixtures/kit.fixture.js";
 import { FitReviewWorkflowStart, ScoreAAgent, ScoreBAgent } from "./fixtures/quorum-agents.js";
@@ -35,7 +35,7 @@ const messageOf = (work: () => unknown): string => {
   try {
     work();
   } catch (error) {
-    if (error instanceof FlowSyntaxError) return error.message;
+    if (error instanceof ConfigError.FlowSyntax) return error.message;
     throw error;
   }
   return "";

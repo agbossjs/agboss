@@ -36,7 +36,6 @@ export {
   type RuleCode,
   type RuleViolation,
 } from "./graph/rule-error.js";
-export { FlowSyntaxError } from "./flow/path-builder.js";
 export {
   BudgetExceededError,
   type BudgetExceededErrorOptions,

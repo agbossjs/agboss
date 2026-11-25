@@ -1,3 +1,4 @@
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import * as a2a from "../../src/a2a/index.js";
 import * as dto from "../../src/dto/index.js";
@@ -80,7 +81,7 @@ describe("#272 AC8: the path grammar replaces the old flow DSL in every entry", 
       "Agent",
       "DecidedBy",
       "GraphRuleError",
-      "FlowSyntaxError",
+      "ConfigError",
       "LimitExceededError",
       "Router",
       "RouterDecisionError",

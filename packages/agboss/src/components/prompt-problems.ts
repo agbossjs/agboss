@@ -1,5 +1,4 @@
 import path from "node:path";
-import { ComponentError } from "./metadata.js";
 
 /** Codes of the prompt checks at assembly — stable, for people and for tests. */
 export type PromptProblemCode =
@@ -21,30 +20,6 @@ export interface PromptProblem {
 /** One `{{var}}` / `[code] message` line per problem, as `agboss check --prompts` prints them. */
 export const promptProblemLine = (problem: PromptProblem): string =>
   `[${problem.code}] ${problem.message}`;
-
-/** What a prompt error takes (#906): every problem found. */
-export interface PromptErrorOptions {
-  readonly problems: readonly PromptProblem[];
-  readonly cause?: unknown;
-}
-
-/** The workflow's prompts have problems — every one found, reported at once, before any model call. */
-export class PromptError extends ComponentError {
-  static override readonly code = "component.prompt" as const;
-  declare readonly code: typeof PromptError.code;
-  override name = "PromptError";
-  readonly problems: readonly PromptProblem[];
-
-  constructor(options: PromptErrorOptions) {
-    const { problems, cause } = options;
-    const lines = problems.map((problem) => `  - ${promptProblemLine(problem)}`);
-    super({
-      message: `The workflow's prompts have ${String(problems.length)} problem(s):\n${lines.join("\n")}`,
-      cause,
-    });
-    this.problems = problems;
-  }
-}
 
 /** A prompt file as messages show it: relative to the working directory when it is inside it. */
 export function displayPath(file: string): string {

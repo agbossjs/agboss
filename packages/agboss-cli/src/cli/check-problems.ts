@@ -1,4 +1,4 @@
-import { ComponentError, GraphRuleError } from "@agboss/core";
+import { ConfigError, GraphRuleError } from "@agboss/core";
 import { ConfigurationError, type ModelProblem } from "@agboss/core/models";
 import {
   diagnosticOfViolation,
@@ -69,7 +69,9 @@ function problemsOfError(file: string, error: unknown): readonly CheckProblem[] 
   if (error instanceof ConfigurationError)
     return error.problems.map((problem) => modelProblem(file, problem));
   const codes: readonly (readonly [new (...args: never[]) => Error, string])[] = [
-    [ComponentError, "workflow.assembly"],
+    [ConfigError.Component, "workflow.assembly"],
+    [ConfigError.Prompt, "workflow.assembly"],
+    [ConfigError.NoDefaultRouter, "workflow.assembly"],
     [ProfileError, "profile.invalid"],
   ];
   const known = codes.find(([type]) => error instanceof type);

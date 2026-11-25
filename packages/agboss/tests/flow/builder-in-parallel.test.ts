@@ -1,6 +1,7 @@
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import { NodeKind, StepKind, type FlowPath } from "../../src/flow/ast.js";
-import { FlowSyntaxError, skip } from "../../src/flow/builder.js";
+import { skip } from "../../src/flow/builder.js";
 import { flowLines } from "../../src/flow/print.js";
 import { StepFailedError } from "../../src/graph/errors.js";
 import {
@@ -48,15 +49,15 @@ describe("#1279a: .inParallel([…]) in the AST", () => {
       onStart(FirstAction)
         .inParallel([toAction(FirstAction)])
         .toAction(FirstAction),
-    ).toThrow(FlowSyntaxError);
+    ).toThrow(ConfigError.FlowSyntax);
   });
 
   it("maxConcurrency is a positive integer", () => {
     expect(() =>
       onStart(FirstAction).inParallel([toAction(FirstAction)], { maxConcurrency: 0 }),
-    ).toThrow(FlowSyntaxError);
+    ).toThrow(ConfigError.FlowSyntax);
     expect(() => onStart(FirstAction).inParallel([toAction(FirstAction)], { maxItems: 3 })).toThrow(
-      FlowSyntaxError,
+      ConfigError.FlowSyntax,
     );
     const step = onStart(FirstAction).inParallel([toAction(FirstAction)], { maxConcurrency: 2 })
       .steps[0];
@@ -64,24 +65,32 @@ describe("#1279a: .inParallel([…]) in the AST", () => {
   });
 
   it("a branch is one entering step: no second step, no finish, no empty list", () => {
-    expect(() => onStart(FirstAction).inParallel([])).toThrow(FlowSyntaxError);
+    expect(() => onStart(FirstAction).inParallel([])).toThrow(ConfigError.FlowSyntax);
     expect(() =>
       onStart(FirstAction).inParallel([toAction(FirstAction).toAction(SecondAction)]),
-    ).toThrow(FlowSyntaxError);
-    expect(() => onStart(FirstAction).inParallel([toFinish(FirstAction)])).toThrow(FlowSyntaxError);
-    expect(() => onStart(FirstAction).inParallel(toAction(FirstAction))).toThrow(FlowSyntaxError);
+    ).toThrow(ConfigError.FlowSyntax);
+    expect(() => onStart(FirstAction).inParallel([toFinish(FirstAction)])).toThrow(
+      ConfigError.FlowSyntax,
+    );
+    expect(() => onStart(FirstAction).inParallel(toAction(FirstAction))).toThrow(
+      ConfigError.FlowSyntax,
+    );
   });
 
   it("skip() stands on a branch only", () => {
-    expect(() => onAction(FirstAction).onError(StepFailedError, skip())).toThrow(FlowSyntaxError);
-    expect(() => onStart(FirstAction).onError(StepFailedError, skip())).toThrow(FlowSyntaxError);
+    expect(() => onAction(FirstAction).onError(StepFailedError, skip())).toThrow(
+      ConfigError.FlowSyntax,
+    );
+    expect(() => onStart(FirstAction).onError(StepFailedError, skip())).toThrow(
+      ConfigError.FlowSyntax,
+    );
     // a branch that names a skip() is no side path of `.onError(E, …)`
     expect(() =>
       onStart(FirstAction).onError(
         StepFailedError,
         toAction(SecondAction).onError(StepFailedError, skip()),
       ),
-    ).toThrow(FlowSyntaxError);
+    ).toThrow(ConfigError.FlowSyntax);
   });
 
   it("is printed as it is written", () => {
@@ -122,28 +131,28 @@ describe("#1279a: .inParallel([…]) in the AST", () => {
 
   it("chooseMany stands right after toRouter(R), once, and nowhere else", () => {
     expect(() => toAction(FirstAction).chooseMany([toAction(ChosenAAction)])).toThrow(
-      FlowSyntaxError,
+      ConfigError.FlowSyntax,
     );
     expect(() => onStart(InParallelWorkflowStart).toRouter(ChooserRouter).chooseMany([])).toThrow(
-      FlowSyntaxError,
+      ConfigError.FlowSyntax,
     );
     const chosen = toRouter(ChooserRouter).chooseMany([toAction(ChosenAAction)]);
-    expect(() => chosen.chooseMany([toAction(ChosenBAction)])).toThrow(FlowSyntaxError);
+    expect(() => chosen.chooseMany([toAction(ChosenBAction)])).toThrow(ConfigError.FlowSyntax);
     // a router branch without its choice, a router among the chosen, a skip() on the router
     expect(() => onStart(FirstAction).inParallel([toRouter(ChooserRouter)])).toThrow(
-      FlowSyntaxError,
+      ConfigError.FlowSyntax,
     );
     expect(() =>
       toRouter(ChooserRouter).chooseMany([
         toRouter(ChooserRouter).chooseMany([toAction(ChosenAAction)]),
       ]),
-    ).toThrow(FlowSyntaxError);
+    ).toThrow(ConfigError.FlowSyntax);
     expect(() => toRouter(ChooserRouter).onError(StepFailedError, skip())).not.toThrow();
     expect(() =>
       toRouter(ChooserRouter)
         .onError(StepFailedError, skip())
         .chooseMany([toAction(ChosenAAction)]),
-    ).toThrow(FlowSyntaxError);
+    ).toThrow(ConfigError.FlowSyntax);
   });
 
   it("a branch with chooseMany is no side path of .onError(E, …)", () => {
@@ -152,7 +161,7 @@ describe("#1279a: .inParallel([…]) in the AST", () => {
         StepFailedError,
         toRouter(ChooserRouter).chooseMany([toAction(ChosenAAction)]),
       ),
-    ).toThrow(FlowSyntaxError);
+    ).toThrow(ConfigError.FlowSyntax);
   });
 
   it("is printed with its choice", () => {

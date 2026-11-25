@@ -1,3 +1,4 @@
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -11,7 +12,6 @@ import {
   env,
   inline,
   InputGuardrail,
-  PromptError,
   Router,
   secret,
   Workflow,
@@ -124,7 +124,8 @@ async function problemsOf(levels: Levels, processEnv: NodeJS.ProcessEnv = ENV): 
     () => undefined,
     (thrown: unknown) => thrown,
   );
-  if (!(error instanceof PromptError)) throw new Error(`expected a PromptError: ${String(error)}`);
+  if (!(error instanceof ConfigError.Prompt))
+    throw new Error(`expected a ConfigError.Prompt: ${String(error)}`);
   return error.problems.map((problem) => `[${problem.code}] ${problem.message}`);
 }
 
@@ -205,7 +206,7 @@ describe("#1347c: a secret never reaches a prompt", () => {
       (thrown: unknown) => thrown,
     );
 
-    expect(error).toBeInstanceOf(PromptError);
+    expect(error).toBeInstanceOf(ConfigError.Prompt);
     expect(JSON.stringify(error, Object.getOwnPropertyNames(error))).not.toContain(SECRET_VALUE);
     expect(String(error)).not.toContain(SECRET_VALUE);
   });
@@ -222,7 +223,7 @@ describe("#1347c: a secret never reaches a prompt", () => {
     expect(text).toBe("Hi {{company}}");
     expect(() => {
       loader.throwIfAny();
-    }).toThrow(PromptError);
+    }).toThrow(ConfigError.Prompt);
   });
 });
 

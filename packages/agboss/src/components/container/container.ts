@@ -1,10 +1,11 @@
+import { ConfigError } from "../../core/error-families/config-errors.js";
 import { InjectionToken, tokenName, type Class, type Token } from "../injection.js";
 import { isEnvContract, resolveEnv } from "../../environments/define-env.js";
 import type { EnvContract } from "../../environments/env-ref.js";
 import { declarationOf } from "../../flow/decorators/declaration.js";
 import { arbiterOf } from "../../flow/decorators/arbiter.js";
 import { channelInterpreterOf } from "../../channels/channel-interpreter.js";
-import { ComponentError, componentOf } from "../metadata.js";
+import { componentOf } from "../metadata.js";
 import {
   isModelProviderClass,
   modelProviderDepsOf,
@@ -106,8 +107,8 @@ export interface Container {
   readonly created: readonly string[];
 }
 
-const unregistered = (token: Token, dependant: string): ComponentError =>
-  new ComponentError({
+const unregistered = (token: Token, dependant: string): ConfigError.Component =>
+  new ConfigError.Component({
     message: `[di.unregistered-token] ${dependant}: "${tokenName(token)}" is not registered in @Workflow({ providers })`,
   });
 
@@ -130,7 +131,7 @@ function registrationOf(
 ): Registration {
   const found = registrations.find(token, dependant);
   if (found?.kind === "value" && found.value instanceof UnavailableValue) {
-    throw new ComponentError({ message: found.value.message(dependant) });
+    throw new ConfigError.Component({ message: found.value.message(dependant) });
   }
   if (found === undefined && isRefused(token, isStrict)) throw unregistered(token, dependant);
   return found ?? { kind: "class", cls: token as Class };
@@ -142,7 +143,7 @@ type Resolve = (token: Token, dependant: string) => unknown;
 function construct(cls: Class, resolve: Resolve): unknown {
   const args = depsOf(cls).map((dep) => resolve(dep, tokenName(cls)));
   if (args.length === 0 && cls.length > 0 && !isDecorated(cls)) {
-    throw new ComponentError({
+    throw new ConfigError.Component({
       message: `[di.undecorated-provider] ${tokenName(cls)} takes ${String(cls.length)} constructor argument(s) but has no @Injectable({ deps }) or similar decorator.`,
     });
   }

@@ -1,3 +1,4 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import { AgentFilesSchema } from "../files/files-schema.js";
 import type { PromptInput } from "../components/prompt-input.js";
 import type { AgentSettings, AgentsConfig, MaxTokens } from "./settings-types.js";
@@ -221,10 +222,6 @@ export type AgentsConfigOf<TName extends string, TTool extends string = string> 
   readonly agents: Readonly<Record<TName, AgentSettingsOf<TTool>>>;
 };
 
-export class UnknownAgentToolError extends Error {
-  override name = "UnknownAgentToolError";
-}
-
 /** One system prompt per configured agent; a missing prompt is a compile error. */
 export type AgentPrompts<TName extends string> = Readonly<Record<TName, PromptInput>>;
 
@@ -257,6 +254,7 @@ export function validateAgentsConfig<TConfig extends AgentsConfigOf<string>>(
       .filter((tool) => knownTools !== undefined && !knownTools.includes(tool))
       .map((tool) => `${agent} → ${tool}`),
   );
-  if (unknown.length > 0) throw new UnknownAgentToolError(`Unknown tools: ${unknown.join(", ")}`);
+  if (unknown.length > 0)
+    throw new ConfigError.Component({ message: `Unknown tools: ${unknown.join(", ")}` });
   return config;
 }

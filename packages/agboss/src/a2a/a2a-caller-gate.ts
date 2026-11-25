@@ -1,6 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Class } from "../components/injection.js";
-import { ComponentError } from "../components/metadata.js";
 import { ConfigError } from "../core/error-families/config-errors.js";
 import {
   HttpAuthKind,
@@ -47,7 +46,7 @@ export interface ListenerAuthenticator {
 export function authenticatorOf(app: A2AApp, authenticator: Class): ListenerAuthenticator {
   const meta = httpAuthenticatorOf(authenticator);
   if (meta === undefined) {
-    throw new ComponentError({
+    throw new ConfigError.Component({
       message:
         `[http.not-an-authenticator] ${authenticator.name} is not an @HttpAuthenticator — ` +
         `decorate it with @HttpAuthenticator() and list it in @Application({ services })`,

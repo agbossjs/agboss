@@ -1,5 +1,5 @@
+import { ConfigError } from "../../core/error-families/config-errors.js";
 import type { Class } from "../../components/injection.js";
-import { ComponentError } from "../../components/metadata.js";
 import { fieldsOf } from "../../dto/metadata.js";
 import type { A2AExportContract, ApplicationContracts } from "../../describe/contracts-types.js";
 import type { JsonSchema } from "../../dto/schema.js";
@@ -133,7 +133,7 @@ function skillOf(start: Class, sources: SkillSources): ServedSkill {
   const { contracts } = sources;
   const declaration = declarationOf(start);
   if (declaration?.kind !== NodeKind.Start)
-    throw new ComponentError({
+    throw new ConfigError.Component({
       message: `[a2a.not-a-start] ${start.name} is not a @WorkflowStart`,
     });
   const { name, description, input } = declaration.options;
@@ -142,7 +142,7 @@ function skillOf(start: Class, sources: SkillSources): ServedSkill {
       entry.kind === "a2a" && entry.skill === name && entry.endpoint === sources.expose.name,
   );
   if (found?.kind !== "a2a")
-    throw new ComponentError({
+    throw new ConfigError.Component({
       message: `[application.endpoint-unknown-start] ${name} is not a start of the application's workflows`,
     });
   return {

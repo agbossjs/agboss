@@ -32,7 +32,6 @@ import type { ClassOf, TargetRef } from "./target-ref.js";
  * (#279, #1284) begin a sub-path and return the same builder.
  */
 
-export { FlowSyntaxError } from "./path-builder.js";
 export { skip, type Skip } from "./parallel-step.js";
 
 /** A path from a start: `onStart(S).toAgent(A)…`. */

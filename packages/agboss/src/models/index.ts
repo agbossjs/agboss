@@ -7,7 +7,6 @@
  */
 export {
   ModelProvider,
-  ModelProviderError,
   type ModelFallback,
   type ModelProviderOptions,
   type ModelProviderType,

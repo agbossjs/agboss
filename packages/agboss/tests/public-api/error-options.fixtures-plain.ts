@@ -2,14 +2,11 @@
  * #906 AC1 (D1), part three: the errors that are not `AGBossError`s — and the `AGBossError`s the
  * first pass missed: configuration, loading, testing and fault-suite errors. One options object each.
  */
-import { ComponentError } from "../../src/components/metadata.js";
-import { PromptError } from "../../src/components/prompt-problems.js";
 import { ProfileError } from "../../src/config/profile-error.js";
 import { EnvironmentError, EnvironmentErrorCode } from "../../src/environments/errors.js";
 import { GraphRuleError } from "../../src/graph/rule-error.js";
 import { ApplicationLoadError, WorkflowLoadError } from "../../src/loader/load-errors.js";
 import { ConfigurationError } from "../../src/models/problems.js";
-import { ModelProviderError } from "../../src/models/model-provider.decorator.js";
 import { ModelFailure } from "../../src/models/model-failure.js";
 import {
   AppCloseTimeoutError,
@@ -35,14 +32,7 @@ import { ModelCallFailedError } from "../../src/testing/script.js";
 import { fx } from "./error-options.fx.js";
 
 const message = "it went wrong";
-const problem = {
-  code: "prompt.unknown-variable",
-  message: "a.md:3 {{x}} — known: (none)",
-} as const;
-
 export const plainFixtures: Readonly<Record<string, object>> = Object.fromEntries([
-  fx(ComponentError, { message }),
-  fx(PromptError, { problems: [problem] }),
   fx(EnvironmentError, { code: EnvironmentErrorCode.NotFound, message }),
   fx(WorkflowLoadError, { message }),
   fx(ApplicationLoadError, { message }),
@@ -52,7 +42,6 @@ export const plainFixtures: Readonly<Record<string, object>> = Object.fromEntrie
       { code: "model.unsupported-setting", key: "k", value: "v", model: "m", supported: "s" },
     ],
   }),
-  fx(ModelProviderError, { message }),
   fx(ProfileError, { message }),
   fx(TestFailure, { code: "test.app-closed", message }),
   fx(LiveCallBlockedError, { message }),

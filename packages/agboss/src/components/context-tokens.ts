@@ -1,3 +1,4 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import { ApplicationContext } from "../flow/context/application-context.js";
 import type { ExecutionContextClass, TenantContextClass } from "../flow/context/context-values.js";
 import { ExecutionContext } from "../flow/context/execution-context.js";
@@ -6,7 +7,6 @@ import type { RuntimeContexts } from "../flow/context/runtime-contexts.js";
 import { TenantContext } from "../flow/context/tenant-context.js";
 import { DependantValue } from "./container/container.js";
 import { tokenName, type Token } from "./injection.js";
-import { ComponentError } from "./metadata.js";
 
 /**
  * The context tokens of the container (#261): exactly three levels, each its type and its token —
@@ -62,14 +62,14 @@ const isContextClass = (token: Token): boolean =>
 export function undeclaredContextError(
   token: Token,
   dependant: string,
-): ComponentError | undefined {
+): ConfigError.Component | undefined {
   if (!isContextClass(token)) return undefined;
   const name = tokenName(token);
   const option =
     typeof token === "function" && token.prototype instanceof TenantContext
       ? "tenantContext"
       : "executionContext";
-  return new ComponentError({
+  return new ConfigError.Component({
     message: `[context.not-declared] ${dependant} injects ${name}, which its application does not declare — @Application({ ${option}: ${name} })`,
   });
 }

@@ -1,3 +1,4 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import { workflowInApplication } from "../application/workflow-application.js";
 import type { Class } from "../components/injection.js";
 import { childrenFirst } from "../flow/analyse/child-workflow.js";
@@ -6,7 +7,6 @@ import type { AssembledWorkflow } from "../workflow.js";
 import { NodeKind } from "../flow/ast.js";
 import type { AnyTool } from "../tools/index.js";
 import type { DtoClass } from "../dto/types.js";
-import { UnknownToolError } from "./parts.js";
 
 /**
  * The child workflows of a workflow run on its own (#263: eval, replay, Studio): each child is
@@ -62,7 +62,7 @@ export function treeToolsOf(deps: GraphDeps<string>): (name: string) => AnyTool 
     try {
       return of.tools(name);
     } catch (error) {
-      if (!(error instanceof UnknownToolError)) throw error;
+      if (!(error instanceof ConfigError.Component)) throw error;
     }
     for (const child of childrenOf(of)) {
       const tool = find(child, name, seen);

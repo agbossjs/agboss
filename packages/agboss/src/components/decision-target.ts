@@ -1,8 +1,8 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import type { AgentsConfigOf } from "../config/types.js";
 import { OMITTED_MODEL, type ModelCascade } from "../models/model-cascade.js";
 import { modelResolverOf, type ModelUseLike } from "../models/model-resolver.js";
 import type { DecisionTargetOf } from "./decision-model.js";
-import { ComponentError } from "./metadata.js";
 import type { DecisionService } from "./decision-model.js";
 import type { AssembledWorkflow } from "../workflow.js";
 import type { ModelGateway } from "../llm/gateway.js";
@@ -31,7 +31,7 @@ export const decisionTargetOfWorkflow = (
       return { model: used.model, modelProvider: used.modelProvider };
     const model = options.model ?? config.defaults.router?.model;
     if (model === undefined)
-      throw new ComponentError({
+      throw new ConfigError.Component({
         message: `DecisionModel.decide names no model and no modelProvider is set — pass { model } or { modelProvider }, or set modelProvider on the @Workflow or the @Application`,
       });
     return { model };
@@ -48,7 +48,9 @@ export const decisionServiceOf =
     const target = bundle.decisionTargetOf?.(options) ?? { model: options.model };
     const { model, modelProvider } = target as { model?: string; modelProvider?: string };
     if (model === undefined)
-      throw new ComponentError({ message: `${caller}: DecisionModel.decide names no model` });
+      throw new ConfigError.Component({
+        message: `${caller}: DecisionModel.decide names no model`,
+      });
     if (gateway.decide === undefined)
       throw new TypeError(`${caller}: the model gateway has no decisions (${model})`);
     if (gateway.kindOf?.(modelProvider) === ModelKind.Chat)

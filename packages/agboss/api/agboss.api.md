@@ -1809,17 +1809,6 @@ export interface ComponentDescriptor extends ComponentRecord {
 }
 
 // @public
-export class ComponentError extends AGBossError {
-    constructor(options: MessageErrorOptions);
-    // (undocumented)
-    static readonly code: string;
-    // (undocumented)
-    readonly code: "component" | "component.prompt" | "component.no-default-router";
-    // (undocumented)
-    name: string;
-}
-
-// @public
 export enum ComponentKind {
     Action = "action",
     Agent = "agent",
@@ -1894,7 +1883,9 @@ export namespace ConfigError {
     export type NotAWorkflowStart = ErrorVariant<ConfigErrorKind.NotAWorkflowStart, "config.not-a-workflow-start">;
     export type Option = ErrorVariant<ConfigErrorKind.Option, "config.option">;
     export type Profile = ErrorVariant<ConfigErrorKind.Profile, "config.profile">;
-    export type Prompt = ErrorVariant<ConfigErrorKind.Prompt, "config.prompt">;
+    export type Prompt = ErrorVariant<ConfigErrorKind.Prompt, "config.prompt"> & {
+        readonly problems: readonly PromptProblem[];
+    };
     export type PromptCaching = ErrorVariant<ConfigErrorKind.PromptCaching, "config.prompt-caching">;
     export type RagIndex = ErrorVariant<ConfigErrorKind.RagIndex, "config.rag-index">;
     export type RateLimitPolicy = ErrorVariant<ConfigErrorKind.RateLimitPolicy, "config.rate-limit-policy">;
@@ -4165,15 +4156,6 @@ export interface FlowPath {
     readonly source: PathSource;
     // (undocumented)
     readonly steps: readonly Step[];
-}
-
-// @public
-export class FlowSyntaxError extends AGBossError {
-    constructor(options: MessageErrorOptions);
-    // (undocumented)
-    static readonly code: "flow.syntax";
-    // (undocumented)
-    readonly code: typeof FlowSyntaxError.code;
 }
 
 declare namespace FlowTypes {
@@ -8194,27 +8176,6 @@ export interface ProfileReport {
 export type ProfileSelection = string | readonly string[];
 
 // @public
-export class PromptError extends ComponentError {
-    constructor(options: PromptErrorOptions);
-    // (undocumented)
-    static readonly code: "component.prompt";
-    // (undocumented)
-    readonly code: typeof PromptError.code;
-    // (undocumented)
-    name: string;
-    // (undocumented)
-    readonly problems: readonly PromptProblem[];
-}
-
-// @public
-export interface PromptErrorOptions {
-    // (undocumented)
-    readonly cause?: unknown;
-    // (undocumented)
-    readonly problems: readonly PromptProblem[];
-}
-
-// @public
 export type PromptFilePath = `./${string}` | `../${string}` | `/${string}`;
 
 // @public
@@ -11483,9 +11444,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/components/judge-decorators.ts - (ae-undocumented) Missing documentation for "passed".
 // src/components/judge-decorators.ts - (ae-undocumented) Missing documentation for "judge".
 // src/components/judge-decorators.ts - (ae-undocumented) Missing documentation for "Judge".
-// src/components/metadata.ts - (ae-undocumented) Missing documentation for "code".
-// src/components/metadata.ts - (ae-undocumented) Missing documentation for "code".
-// src/components/metadata.ts - (ae-undocumented) Missing documentation for "name".
 // src/components/name-of.ts - (ae-undocumented) Missing documentation for "nameOf".
 // src/components/policy-decorators.ts - (ae-undocumented) Missing documentation for "Input".
 // src/components/policy-decorators.ts - (ae-undocumented) Missing documentation for "Output".
@@ -11500,12 +11458,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/components/policy-decorators.ts - (ae-undocumented) Missing documentation for "threshold".
 // src/components/prompt-problems.ts - (ae-undocumented) Missing documentation for "code".
 // src/components/prompt-problems.ts - (ae-undocumented) Missing documentation for "message".
-// src/components/prompt-problems.ts - (ae-undocumented) Missing documentation for "problems".
-// src/components/prompt-problems.ts - (ae-undocumented) Missing documentation for "cause".
-// src/components/prompt-problems.ts - (ae-undocumented) Missing documentation for "code".
-// src/components/prompt-problems.ts - (ae-undocumented) Missing documentation for "code".
-// src/components/prompt-problems.ts - (ae-undocumented) Missing documentation for "name".
-// src/components/prompt-problems.ts - (ae-undocumented) Missing documentation for "problems".
 // src/components/prompt-source.ts - (ae-undocumented) Missing documentation for "[inlinePrompt]".
 // src/components/prompt-source.ts - (ae-undocumented) Missing documentation for "text".
 // src/components/prompt-source.ts - (ae-undocumented) Missing documentation for "inline".
@@ -12068,8 +12020,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "previous".
 // src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "optional".
 // src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "oneOf".
-// src/flow/flow-syntax-error.ts - (ae-undocumented) Missing documentation for "code".
-// src/flow/flow-syntax-error.ts - (ae-undocumented) Missing documentation for "code".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[noOutput]".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[noInput]".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "__error".

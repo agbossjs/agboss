@@ -1,3 +1,4 @@
+import { ConfigError } from "../../core/error-families/config-errors.js";
 import type { Class } from "../../components/injection.js";
 import type { DtoClass } from "../../dto/types.js";
 import { NodeKind, QuorumKind, StepKind, type FlowPath, type Step } from "../ast.js";
@@ -8,7 +9,6 @@ import {
   type WorkflowStartDeclaration,
 } from "../decorators/declaration.js";
 import { oneOf, type ListWrapper, type OutputShape, type ValueShape } from "../dto-wrappers.js";
-import { FlowSyntaxError } from "../flow-syntax-error.js";
 import type { ComponentName } from "../registry.js";
 import { shapeLabel } from "./labels.js";
 import { slotOfField, type SlotKey } from "./scope.js";
@@ -116,7 +116,7 @@ const outputShapeOf = (
   const classes = outputs.filter((output): output is DtoClass => typeof output === "function");
   const [firstClass, secondClass, ...moreClasses] = classes;
   if (classes.length !== outputs.length || firstClass === undefined || secondClass === undefined) {
-    throw new FlowSyntaxError({
+    throw new ConfigError.FlowSyntax({
       message: `${workflow}: its finishes give ${outputs
         .map(shapeLabel)
         .join(

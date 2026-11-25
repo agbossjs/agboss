@@ -1,3 +1,4 @@
+import { ConfigError } from "../../../src/core/error-families/config-errors.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   Observer,
@@ -18,7 +19,6 @@ import {
 import { createTestAppWith } from "../../../src/testing/create-app-with.js";
 import { ScriptBook } from "../../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../../src/testing/scripted-gateway.js";
-import { ComponentError } from "../../../src/index.js";
 import { observerOf } from "../../../src/core/observer-hooks.js";
 import { EchoTool, Start, Worker, applicationWith, workflowWith } from "./fixture.js";
 import { Application } from "../../../src/application/application.js";
@@ -194,7 +194,7 @@ const assemblyError = (observers: Parameters<typeof applicationWith>[1]): Promis
       await app.close();
       return "assembled";
     },
-    (error: unknown) => (error instanceof ComponentError ? error.message : String(error)),
+    (error: unknown) => (error instanceof ConfigError.Component ? error.message : String(error)),
   );
 
 /** A class with a hook but no decorator. */

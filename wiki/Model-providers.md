@@ -97,12 +97,12 @@ never asked at startup.
 
 ### Drivers
 
-| Driver | What it speaks |
-| --- | --- |
-| `OpenAiCompatibleDriver({ baseUrl, apiKey?, headers?, requestFields? })` | any OpenAI-compatible server (OpenAI, LiteLLM, vLLM, Ollama, Groq, DeepSeek, …): the Chat Completions API and `GET /models`; `requestFields` are extra body fields |
-| `OpenRouterDriver({ apiKey, baseUrl?, headers?, routing?, transforms? })` | OpenRouter's dialect: `reasoning: { effort \| max_tokens, exclude }`, `usage: { include: true }` (the cost in every answer), `cache_control` markers for Anthropic and Google models |
-| `DecisionsDriver({ baseUrl, apiKey?, headers?, path?, knownModels? })` | OpenRouter's Decisions API: the decision models (`DECISION_MODELS`: `typesafe/jev-*`, `openai/gpt-6-luna-decisions`, pplx-decider, Clef, …) for **decisions only** — routers, guardrails, judges; no chat |
-| a transport class | `complete(request)`, below — an SDK, a corporate gateway |
+| Driver                                                                    | What it speaks                                                                                                                                                                                            |
+| ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `OpenAiCompatibleDriver({ baseUrl, apiKey?, headers?, requestFields? })`  | any OpenAI-compatible server (OpenAI, LiteLLM, vLLM, Ollama, Groq, DeepSeek, …): the Chat Completions API and `GET /models`; `requestFields` are extra body fields                                        |
+| `OpenRouterDriver({ apiKey, baseUrl?, headers?, routing?, transforms? })` | OpenRouter's dialect: `reasoning: { effort \| max_tokens, exclude }`, `usage: { include: true }` (the cost in every answer), `cache_control` markers for Anthropic and Google models                      |
+| `DecisionsDriver({ baseUrl, apiKey?, headers?, path?, knownModels? })`    | OpenRouter's Decisions API: the decision models (`DECISION_MODELS`: `typesafe/jev-*`, `openai/gpt-6-luna-decisions`, pplx-decider, Clef, …) for **decisions only** — routers, guardrails, judges; no chat |
+| a transport class                                                         | `complete(request)`, below — an SDK, a corporate gateway                                                                                                                                                  |
 
 `baseUrl`, `apiKey` and header values are text, `env(…)` or `secret(…)` references read from the process
 once, at start (a provider never reads `process.env` itself); a missing key fails the start of an
@@ -199,20 +199,20 @@ export class BedrockModelProvider implements ModelProviderHandler {
   automatic default (below).
 - **Created by the application's container**, on its first call: one instance per application, its
   `deps` injected and checked at assembly with the components' (`Consumer: "TOKEN" is not
-  registered …`). An injected `TenantContext` / `ExecutionContext` reads the execution of the call
+registered …`). An injected `TenantContext` / `ExecutionContext` reads the execution of the call
   (`complete()` runs in the step's frame).
 - **The request** — `ModelProviderRequest`: `model` (when a fallback serves, the model it is mapped to),
   `messages` (`ModelProviderMessage { role: ModelProviderMessageRole.System | User | Assistant | Tool,
-  text, toolCalls?, toolCallId? }` — text only, masked by the PII policies), `tools`
+text, toolCalls?, toolCallId? }` — text only, masked by the PII policies), `tools`
   (`ModelProviderToolDefinition { name, description, parameters }` — the agent's own tools and its
   `answer-<dto>` tools), `temperature`, `maxTokens` (`undefined` = `TokenLimit.ModelMax`),
   `reasoning`, `promptCaching`, `signal` (the attempt's timeout, a cancel, an exhausted budget — an
   SDK that ignores it is cut at `timeout` anyway, as a `Timeout`). No LangChain type in the contract.
 - **The answer** — `ModelProviderResponse`: `text`, `toolCalls?` (`ModelProviderToolCall { id, name,
-  arguments }`), `usage` (`TokenUsage { inputTokens, outputTokens, cacheReadTokens,
-  cacheWriteTokens }`, the same type as a streamed call's `result.usage`: the rate limit's tokens, the price table's), `cost?` (exact, `costSource:
-  CostSource.Api`; absent → the decorator's price table), `finishReason?` (`FinishReason.Length`). An answer
-  without `text` or `usage` is a `ModelProviderError`.
+arguments }`), `usage` (`TokenUsage { inputTokens, outputTokens, cacheReadTokens,
+cacheWriteTokens }`, the same type as a streamed call's `result.usage`: the rate limit's tokens, the price table's), `cost?` (exact, `costSource:
+CostSource.Api`; absent → the decorator's price table), `finishReason?` (`FinishReason.Length`). An answer
+  without `text` or `usage` is a `ConfigError.ModelProvider`.
 - **Failures** — throw `new ModelProviderFailureError({ failure: ModelFailure.…, retryAfter?, cause? })`
   (`model.provider-failure`): the retry policy retries the failures it lists, `RateLimited` pauses
   the provider's whole queue for `retryAfter` and halves the instance's concurrency, the breaker
@@ -234,7 +234,7 @@ export class BedrockModelProvider implements ModelProviderHandler {
   like an HTTP provider's (the instance created for it); absent, its models' settings are not checked
   — `agboss check --models` never creates a transport.
 - `agboss describe` prints `bedrock-model-provider → BedrockModelProvider (listed in @Application
-  providers) · transport: BedrockModelProvider.complete()` and each
+providers) · transport: BedrockModelProvider.complete()` and each
   `model: bedrock/claude → bedrock-model-provider`; the transport providers (name, class)
   are part of `configHash` — only where there is one.
 
@@ -284,7 +284,7 @@ export class JobScoutApplication {}
 ```
 
 - A router or an arbiter on a **decision model** names its own provider (`modelProvider:
-  DecisionsModelProvider`, a provider with a `DecisionsDriver`); a chat provider does not serve it
+DecisionsModelProvider`, a provider with a `DecisionsDriver`); a chat provider does not serve it
   (`[model.incompatible-provider]`).
 - Providers are infrastructure, listed only in `@Application({ providers })`: one in a workflow's
   `providers` fails assembly with `[di.infrastructure-in-workflow]`. They are not created by the
@@ -356,7 +356,7 @@ export class AppChatModels {}
 - `ModelCost.fromPrices({ "<model>": { inputPerMillion: usd(…), outputPerMillion: usd(…), cacheReadPerMillion?: usd(…), cacheWritePerMillion?: usd(…) } })`
   — tokens × the table (`CostSource.PriceTable`); a model it does not price → `model.no-price` at startup.
 - The reported cost always comes first, then the provider's table; a component has no price of its own. A call with
-  neither fails (`ModelCostError`) — an unaccounted call is never silently free. Limits per run and
+  neither fails (`ConfigError.Component`) — an unaccounted call is never silently free. Limits per run and
   per day ([FinOps](FinOps)) use these costs.
 
 ## Reasoning
@@ -384,11 +384,11 @@ provider's, `false` = off, or a `PromptCaching` value).
 
 Three policies of a provider, each with one duty — all app-wide, since the provider is:
 
-| Policy                 | Its duty                                                                                     |
-| ---------------------- | -------------------------------------------------------------------------------------------- |
-| `retryPolicy`          | retries **this** call: attempts and backoff — the only place backoff is set                  |
-| `rateLimitPolicy`      | how many calls go to the provider, and how **everyone** slows down after a 429                |
-| `circuitBreakerPolicy` | stops calling a provider that is down for a while (unchanged by #266, its state moved)        |
+| Policy                 | Its duty                                                                               |
+| ---------------------- | -------------------------------------------------------------------------------------- |
+| `retryPolicy`          | retries **this** call: attempts and backoff — the only place backoff is set            |
+| `rateLimitPolicy`      | how many calls go to the provider, and how **everyone** slows down after a 429         |
+| `circuitBreakerPolicy` | stops calling a provider that is down for a while (unchanged by #266, its state moved) |
 
 Next to them, `@Workflow({ executionLimits: { maxConcurrency } })` (#264) governs an execution tree's
 structure and cost; `rateLimitPolicy` governs the provider API's capacity.
@@ -439,6 +439,7 @@ no limit**, as before #266.
 
   Fairness is **per instance**: the queue is in-process, and between instances a slot goes to
   whoever takes the lease first. A cancelled waiter leaves its queue at once.
+
 - **On a 429** the provider's **whole queue pauses** for `Retry-After` (else the retry policy's next
   delay) — on every instance, the pause being in `RateLimitRepository`; a later pause already set is
   kept. Then the instance that saw it **halves** its effective `maxConcurrentCalls` (at least one)
@@ -451,19 +452,19 @@ no limit**, as before #266.
 **Recommended starting points** — set the limits from your provider plan's documented limits,
 keeping some headroom (about 80 %) for other clients of the same key:
 
-| Plan                                       | `maxConcurrentCalls` | `perMinute`                              |
-| ------------------------------------------ | -------------------- | ---------------------------------------- |
-| a free or trial key                        | 2                    | `{ calls: 20 }`                          |
-| a small paid plan (requests per minute)    | 8                    | `{ calls: 120 }`                         |
+| Plan                                       | `maxConcurrentCalls`                  | `perMinute`                               |
+| ------------------------------------------ | ------------------------------------- | ----------------------------------------- |
+| a free or trial key                        | 2                                     | `{ calls: 20 }`                           |
+| a small paid plan (requests per minute)    | 8                                     | `{ calls: 120 }`                          |
 | a plan with requests and tokens per minute | the plan's concurrency, else RPM ÷ 30 | `{ calls: RPM × 0.8, tokens: TPM × 0.8 }` |
-| a local server (one GPU)                   | its batch size       | —                                        |
+| a local server (one GPU)                   | its batch size                        | —                                         |
 
 ### `circuitBreakerPolicy` and `fallback`
 
 - `CircuitBreakerPolicy.fixed({ failureThreshold, failureWindow, openDuration, halfOpenProbes? })`:
   that many failed calls within `failureWindow` open the breaker for `openDuration`.
   `CircuitBreakerPolicy.exponential({ failureThreshold, failureWindow, initialOpenDuration,
-  maxOpenDuration, jitter, halfOpenProbes? })`: each open in a row lasts twice as long as the one
+maxOpenDuration, jitter, halfOpenProbes? })`: each open in a row lasts twice as long as the one
   before, up to `maxOpenDuration`. While it is open, calls fail fast with `ModelCallError`
   `model.circuit-open` — or go to the provider's `fallback`.
 - **Half-open**: after an open, `halfOpenProbes` (default 1) calls at a time go through to try the
@@ -517,7 +518,7 @@ What `onStream` hears depends on the provider kind:
   error.
 - **Transport providers** (`complete()`, #385) stream the whole answer as one delta at the end,
   unless the class has `stream(request)` (#1011): it returns a `ModelProviderStream` — `{ textStream:
-  AsyncIterable<string>, result: Promise<ModelProviderStreamResult> }`, where `result` is
+AsyncIterable<string>, result: Promise<ModelProviderStreamResult> }`, where `result` is
   `{ usage: TokenUsage, cost?, finishReason? }` (#1311), what `complete()`'s answer holds beside its
   text. Each chunk is a `StreamEventKind.TextDelta`; the call's usage, cost and budgets are a plain
   call's. `result` must settle when the stream ends, fails or is aborted — after a failure, with

@@ -334,7 +334,7 @@ describe("#807 AC2: a cancel of one execution tree", () => {
 
     await expect(
       controlOf(first).cancelExecution({ ...tree(), rootExecutionId: "x\uD800" }),
-    ).rejects.toMatchObject({ code: "dto.invalid" });
+    ).rejects.toMatchObject({ code: "validation.dto-invalid" });
     await expect(
       controlOf(first).cancelExecution({ ...tree(), threadId: "x\uD800" }),
     ).rejects.toMatchObject({ code: "run.invalid-thread-id" });

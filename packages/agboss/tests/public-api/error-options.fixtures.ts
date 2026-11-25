@@ -116,7 +116,6 @@ export const fixtures: Readonly<Record<string, object>> = Object.fromEntries([
   fx(root.ToolTimeoutError, { timeout: seconds(1) }),
   fx(root.SpendOutsideStepError, { message }),
   fx(root.NotAWorkflowStartError, { message }),
-  fx(root.FlowSyntaxError, { message }),
   fx(root.ExecutionContextUnavailableError, { message }),
   fx(root.OutputInvalidError, { message }),
   ...Object.entries(flowFixtures),

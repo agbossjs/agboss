@@ -969,10 +969,10 @@ application, expose } })`'s over MCP): a receiver of another name refuses it, si
 | `MCP server "issues" needs env variable ISSUES_MCP_TOKEN`      | set the variable; the decorator only names it                                                        |
 | `[tool.name-invalid]` on a tool that calls an MCP server       | letters, digits, `_` and `-` only (no `-tool` suffix needed)                                         |
 | `[tool.duplicate-name]`                                        | two tools a model sees share a name (local, MCP, `search-<rag>-tool`, `answer-<dto>`)                |
-| `A2AError.TaskInterrupted` (`input-required`)                   | the remote task waits for input: use `send` and `reply(taskId, …)`, or answer it remotely            |
-| `A2AError.Protocol … declares A2A 0.3`                          | the agent speaks A2A v0.3 only: 0.1.1 calls v1.0 agents                                              |
-| `A2AError.OriginRefused` (`a2a.origin-refused`)                        | the card names an interface on another origin: list it in `allowedOrigins` if it is the agent's      |
-| `A2AError.MeshUnsupported`                                      | the AGBoss target does not declare the mesh: `mesh: A2AMesh.IfSupported`, or fix its card            |
+| `A2AError.TaskInterrupted` (`input-required`)                  | the remote task waits for input: use `send` and `reply(taskId, …)`, or answer it remotely            |
+| `A2AError.Protocol … declares A2A 0.3`                         | the agent speaks A2A v0.3 only: 0.1.1 calls v1.0 agents                                              |
+| `A2AError.OriginRefused` (`a2a.origin-refused`)                | the card names an interface on another origin: list it in `allowedOrigins` if it is the agent's      |
+| `A2AError.MeshUnsupported`                                     | the AGBoss target does not declare the mesh: `mesh: A2AMesh.IfSupported`, or fix its card            |
 | `OutboundCallError.Unreconciled` (`foreign A2A peer`)          | a send to a foreign agent got no answer: check the agent, then decide (`app.pendingOutboundCallsOf`) |
 | `[a2a.no-url]`                                                 | the client class lacks `@A2AAgent({ url })`                                                          |
 | `[a2a.no-contract]`                                            | `execute` on a client without `@A2AAgent({ input, output })`: declare them, or use `send`            |

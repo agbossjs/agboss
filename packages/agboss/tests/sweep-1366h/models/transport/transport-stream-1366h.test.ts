@@ -1,3 +1,4 @@
+import { ConfigError } from "../../../../src/core/error-families/config-errors.js";
 /**
  * #1366: a streamed transport call — a chunk that is no string and a stream of the wrong shape are
  * the project's bugs (a rejected attempt, the breaker not told); the SDK's iterator is closed after
@@ -9,7 +10,6 @@
 import { describe, expect, it } from "vitest";
 import {
   ModelCallError,
-  ModelProviderError,
   ModelProviderFailureError,
   ModelProviderInputError,
   type ModelProviderRequest,
@@ -127,7 +127,7 @@ const settledError = (promise: Promise<unknown>): Promise<unknown> =>
 const USAGE = { inputTokens: 7, outputTokens: 5, cacheReadTokens: 0, cacheWriteTokens: 0 };
 
 describe("#1366: a stream that breaks the transport's contract is the project's bug", () => {
-  it("a first chunk that is no string is a rejected attempt with a ModelProviderError", async () => {
+  it("a first chunk that is no string is a rejected attempt with a ConfigError.ModelProvider", async () => {
     const bad: AsyncIterable<string> = {
       [Symbol.asyncIterator]: () => ({
         next: () => Promise.resolve({ done: false, value: 42 as never }),
@@ -139,7 +139,7 @@ describe("#1366: a stream that breaks the transport's contract is the project's 
     );
 
     expect(attempt).toMatchObject({ kind: "threw", isRejected: true });
-    expect(attempt.kind === "threw" && attempt.error).toBeInstanceOf(ModelProviderError);
+    expect(attempt.kind === "threw" && attempt.error).toBeInstanceOf(ConfigError.ModelProvider);
   });
 
   it("a later chunk that is no string rejects with it, tells the breaker nothing, releases the usage", async () => {
@@ -166,7 +166,7 @@ describe("#1366: a stream that breaks the transport's contract is the project's 
 
     const error = await settledError(answer.consume(() => Promise.resolve()));
 
-    expect(error).toBeInstanceOf(ModelProviderError);
+    expect(error).toBeInstanceOf(ConfigError.ModelProvider);
     expect(opened.breaker.told).toEqual([]);
     expect(released).toEqual([12]);
   });
@@ -175,7 +175,7 @@ describe("#1366: a stream that breaks the transport's contract is the project's 
     const attempt = await sendOn(carrierOf(() => ({}) as never));
 
     expect(attempt).toMatchObject({ kind: "threw", isRejected: true });
-    expect(attempt.kind === "threw" && attempt.error).toBeInstanceOf(ModelProviderError);
+    expect(attempt.kind === "threw" && attempt.error).toBeInstanceOf(ConfigError.ModelProvider);
   });
 
   it("a part the SDK cannot take is a rejected attempt with a ModelCallError naming provider and model", async () => {

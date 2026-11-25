@@ -1,3 +1,4 @@
+import { ConfigError } from "../../core/error-families/config-errors.js";
 import { isDeepStrictEqual } from "node:util";
 import {
   InjectionToken,
@@ -10,7 +11,6 @@ import {
 } from "../injection.js";
 import { isEnvContract } from "../../environments/define-env.js";
 import { channelTargetOf } from "../../channels/pause-targets.js";
-import { ComponentError } from "../metadata.js";
 import { STORAGE_SETTINGS_TOKENS } from "../../storage/settings.js";
 
 /**
@@ -52,13 +52,13 @@ export const implementsContract = (cls: Class, contract: Class): boolean =>
 /** Values must come with an `InjectionToken`: a class is listed and created by the container. */
 function checkValueToken(token: Token, owner: string): void {
   if (token instanceof InjectionToken) return;
-  throw new ComponentError({
+  throw new ConfigError.Component({
     message: `[di.instance-provider] ${owner}: provide(${tokenName(token)}, …) binds an instance to a class — list ${tokenName(token)} in providers and let the container create it; values go with an InjectionToken`,
   });
 }
 
-const conflictingValues = (token: Token, first: string, second: string): ComponentError =>
-  new ComponentError({
+const conflictingValues = (token: Token, first: string, second: string): ConfigError.Component =>
+  new ConfigError.Component({
     message:
       first === second
         ? `[di.conflicting-values] ${tokenName(token)} has two different values in ${first} — keep one`
@@ -193,11 +193,11 @@ export class Registrations {
     return { kind: "class", cls: this.#replacements.get(cls) ?? cls };
   }
 
-  #ambiguous(contract: Class, found: readonly Class[], dependant: string): ComponentError {
+  #ambiguous(contract: Class, found: readonly Class[], dependant: string): ConfigError.Component {
     const listed = found
       .map((cls) => `${tokenName(cls)} (${this.#classes.get(cls) ?? ""})`)
       .join(", ");
-    return new ComponentError({
+    return new ConfigError.Component({
       message: `[di.ambiguous-implementation] ${dependant} depends on ${tokenName(contract)}, and ${String(found.length)} listed classes implement it: ${listed} — list one`,
     });
   }

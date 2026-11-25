@@ -1,3 +1,4 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import {
   createContainer,
   UnavailableValue,
@@ -8,7 +9,6 @@ import type { ProviderModule } from "../components/container/registrations.js";
 import type { Class, Token } from "../components/injection.js";
 import type { Environment } from "../flow/generated-types.js";
 import { CONTEXT_TOKENS, contextValuesOf } from "../components/context-tokens.js";
-import { ComponentError } from "../components/metadata.js";
 import {
   contextsOutsideExecution,
   type RuntimeContexts,
@@ -133,7 +133,7 @@ export function clockOf(modules: readonly ProviderModule[], options: ContainerOp
   const sources = { modules, core, defaults: INFRASTRUCTURE_DEFAULTS };
   const clock = createContainer(sources, options).get(Clock);
   if (!(clock instanceof Clock))
-    throw new ComponentError({ message: "the application's Clock is not a Clock" });
+    throw new ConfigError.Component({ message: "the application's Clock is not a Clock" });
   return clock;
 }
 
@@ -158,7 +158,9 @@ export function idGeneratorOf(
   const container = createContainer({ modules, core, defaults }, { ...options, application });
   const generator = container.get(IdGenerator);
   if (!(generator instanceof IdGenerator)) {
-    throw new ComponentError({ message: "the application's IdGenerator is not an IdGenerator" });
+    throw new ConfigError.Component({
+      message: "the application's IdGenerator is not an IdGenerator",
+    });
   }
   return generator;
 }

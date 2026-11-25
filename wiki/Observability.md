@@ -29,7 +29,7 @@ A node event (`NodeEvent`) adds `step`, a `StepRecord` — the serialized `execu
 `validationAttempts` ([Join keys](#join-keys) below). An observer interested
 in one workflow or agent says so in the decorator — `@Observer({ workflows: [SupportWorkflow], agents:
 [CriticAgent] })` — and its hooks receive only those events; otherwise it filters by name, taken
-with `nameOf(C)` (any AGBoss-decorated class; an undecorated one throws `ComponentError`):
+with `nameOf(C)` (any AGBoss-decorated class; an undecorated one throws `ConfigError.Component`):
 `event.step.component.name === nameOf(CriticAgent)` — never by parsing `nodeId`.
 
 ### Join keys
@@ -82,7 +82,7 @@ filter, and a standalone `@Tool` call through an `@McpEndpoint` has no `agent`.
 | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `onExecutionStart`                                    | `ExecutionStartEvent` (the common fields)                                                                                                                       |
 | `onExecutionEnd`                                      | `ExecutionEndEvent` (`finish`: a `ComponentRecord`, `output`, `spend`)                                                                                          |
-| `onExecutionPause` / `onExecutionResume`              | `ExecutionPauseEvent` (`pending`) / `ExecutionResumeEvent` (`reason`, `decision`, `actor`)                                                                 |
+| `onExecutionPause` / `onExecutionResume`              | `ExecutionPauseEvent` (`pending`) / `ExecutionResumeEvent` (`reason`, `decision`, `actor`)                                                                      |
 | `onExecutionError`                                    | `ExecutionErrorEvent` (`error`)                                                                                                                                 |
 | `onExecutionRejected`                                 | `ExecutionRejectedEvent` (`operation`, `threadId?`, `tenantId`, `code`, `message`)                                                                              |
 | `onAgentStart` / `onAgentEnd`                         | `AgentStartEvent` / `AgentEndEvent` (`output`)                                                                                                                  |
@@ -103,7 +103,7 @@ filter, and a standalone `@Tool` call through an `@McpEndpoint` has no `agent`.
 | `onChannelStart` / `onChannelEnd`                     | `ChannelStartEvent` / `ChannelEndEvent`                                                                                                                         |
 | `onJudgeStart` / `onJudgeEnd`                         | `JudgeStartEvent` / `JudgeEndEvent` (`judge`, `agent`, `output`)                                                                                                |
 | `onValuesOutdated`                                    | `ValuesOutdatedEvent` (step, trigger, outdated — [below](#outdated-values))                                                                                     |
-| `onLaunchItemsTruncated`                              | `LaunchItemsTruncatedEvent` (step, launch, items, takeFirst — [below](#parallel-launches))                                                                       |
+| `onLaunchItemsTruncated`                              | `LaunchItemsTruncatedEvent` (step, launch, items, takeFirst — [below](#parallel-launches))                                                                      |
 | `onQuorumDecided`                                     | `QuorumDecidedEvent` (step, launch, isReached, branches, group — [below](#quorums))                                                                             |
 | `onCompensationStart` / `onCompensationEnd`           | `CompensationStartEvent` (step, compensated, reason) / `CompensationEndEvent` (+ status, error — [below](#automatic-undo))                                      |
 | `onExecutionLeaseTakeover`                            | `ExecutionLeaseTakeoverEvent` (tenant, root, lease execution, scope key, token, holders, reason — [below](#lease-takeovers-501))                                |
@@ -131,15 +131,15 @@ for an `execute` without one), the `tenantId` it named (`"default"` otherwise), 
 `code` and a `message` without the input values. It never carries an `executionId`: no execution
 started, and another owner's is not revealed.
 
-| Refusal                                                      | Operation                     | `code`                 |
-| ------------------------------------------------------------ | ----------------------------- | ---------------------- |
-| a thread of another owner (`ThreadOwnerError`)               | `Execute`, `Resume`, `Cancel` | `run.thread-owner`     |
-| nothing paused on the thread (`NotPausedError`)              | `Resume`                      | `run.not-paused`       |
-| an unknown thread of the tenant (`UnknownThreadError`)       | `Execute`, `Cancel`           | `run.unknown-thread`   |
-| a class that is not a start of the workflow                  | `Execute`                     | `workflow.not-a-start` |
-| invalid start input or context values (`ValidationError.DtoInvalid`) | `Execute`                     | `validation.dto-invalid`          |
-| an exhausted budget before the first step                    | `Execute`                     | `limit.budget`         |
-| the app is stopping (`ApplicationStoppingError`)             | `Execute`, `Resume`           | `app.stopping`         |
+| Refusal                                                              | Operation                     | `code`                   |
+| -------------------------------------------------------------------- | ----------------------------- | ------------------------ |
+| a thread of another owner (`ThreadOwnerError`)                       | `Execute`, `Resume`, `Cancel` | `run.thread-owner`       |
+| nothing paused on the thread (`NotPausedError`)                      | `Resume`                      | `run.not-paused`         |
+| an unknown thread of the tenant (`UnknownThreadError`)               | `Execute`, `Cancel`           | `run.unknown-thread`     |
+| a class that is not a start of the workflow                          | `Execute`                     | `workflow.not-a-start`   |
+| invalid start input or context values (`ValidationError.DtoInvalid`) | `Execute`                     | `validation.dto-invalid` |
+| an exhausted budget before the first step                            | `Execute`                     | `limit.budget`           |
+| the app is stopping (`ApplicationStoppingError`)                     | `Execute`, `Resume`           | `app.stopping`           |
 
 For invalid input the message names the DTO and its fields (`invalid Voucher at code`), never
 their values; the thrown error keeps the full message. A resume refused after a deploy

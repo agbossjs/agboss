@@ -1,6 +1,6 @@
+import { ConfigError } from "../../core/error-families/config-errors.js";
 import { tokenName, type Class, type Token } from "../injection.js";
 import { isEnvContract } from "../../environments/define-env.js";
-import { ComponentError } from "../metadata.js";
 import { depsOf, isDecorated } from "./container.js";
 import { Registrations, type ProviderModule, type Registration } from "./registrations.js";
 import { CONTAINER_DEFAULTS, infrastructureContractOf } from "../../infrastructure/contracts.js";
@@ -51,7 +51,7 @@ function registrationOf(
   if (context !== undefined) throw context;
   const own = ownRegistrationOf(dep, isUnderStore);
   if (own !== undefined) return own;
-  throw new ComponentError({
+  throw new ConfigError.Component({
     message: `[di.unregistered-token] ${dependant}: "${tokenName(dep)}" is not registered in @Workflow({ providers })`,
   });
 }
@@ -72,7 +72,7 @@ export function checkGraph(
     if (done.has(cls)) return;
     const path = [...chain, tokenName(cls)];
     if (chain.includes(tokenName(cls)))
-      throw new ComponentError({ message: `Dependency cycle: ${path.join(" → ")}` });
+      throw new ConfigError.Component({ message: `Dependency cycle: ${path.join(" → ")}` });
     const isStore = isUnderStore || infrastructureContractOf(cls) !== undefined;
     for (const dep of depsOf(cls)) {
       if (isEnvContract(dep)) continue;

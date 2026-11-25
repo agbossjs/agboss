@@ -1,5 +1,5 @@
 import {
-  ComponentError,
+  ConfigError,
   EnvironmentError,
   EvalCaseInvalidError,
   GraphRuleError,
@@ -76,7 +76,9 @@ const PROJECT_ERRORS: readonly (readonly [new (...args: never[]) => Error, strin
   [ApplicationLoadError, "application.load"],
   [WorkflowLoadError, "workflow.load"],
   [GraphRuleError, "graph.rules"],
-  [ComponentError, "workflow.assembly"],
+  [ConfigError.Component, "workflow.assembly"],
+  [ConfigError.Prompt, "workflow.assembly"],
+  [ConfigError.NoDefaultRouter, "workflow.assembly"],
   [ConfigurationError, "model.configuration"],
   [ProfileError, "profile.invalid"],
   [NoTextStartError, "workflow.no-text-start"],

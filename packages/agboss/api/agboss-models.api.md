@@ -470,17 +470,6 @@ export interface ModelProviderDecisionRequest {
     readonly state: DecisionState;
 }
 
-// @public (undocumented)
-export class ModelProviderError extends AGBossError {
-    constructor(options: MessageErrorOptions);
-    // (undocumented)
-    static readonly code: "config.model-provider";
-    // (undocumented)
-    readonly code: typeof ModelProviderError.code;
-    // (undocumented)
-    name: string;
-}
-
 // @public
 export class ModelProviderFailureError extends AGBossError {
     constructor(options: ModelProviderFailureOptions);
@@ -1130,10 +1119,6 @@ export interface WireTool {
 // src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "description".
 // src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "description".
 // src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "deps".
-// src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "ModelProviderError".
-// src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "code".
-// src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "code".
-// src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "name".
 // src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "ModelProvider".
 // src/models/openrouter-routing.ts - (ae-undocumented) Missing documentation for "Price".
 // src/models/openrouter-routing.ts - (ae-undocumented) Missing documentation for "Throughput".

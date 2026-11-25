@@ -1,9 +1,9 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import type { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import type { ModelChaos } from "../eval/chaos/model-chaos.js";
 import type { ResolvedModelSettings } from "../config/types.js";
 import type { ProviderCalls } from "../models/calls/provider-calls.js";
 import { resilienceOf } from "../models/connections.js";
-import { ModelProviderError } from "../models/model-provider.decorator.js";
 import type { TransportResolver } from "../models/transport/transport-resolver.js";
 import type { RegisteredModelProvider } from "../models/resolve.js";
 import {
@@ -37,7 +37,7 @@ async function callsOf(
   const handler = provider.handler ?? (await options.transports?.started(provider.type));
   const complete = handler?.complete?.bind(handler);
   if (complete === undefined)
-    throw new ModelProviderError({
+    throw new ConfigError.ModelProvider({
       message: `${provider.options.name}: a transport provider is created by the application's container — run it through createApp or testWith`,
     });
   if (options.chaos !== undefined) return { complete: options.chaos.completeOf(complete) };

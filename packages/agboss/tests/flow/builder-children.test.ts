@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { NodeKind, StepKind, type FlowPath } from "../../src/flow/ast.js";
-import { FlowSyntaxError } from "../../src/flow/builder.js";
 import { declarationOf } from "../../src/flow/decorators/declaration.js";
 import { flowLines } from "../../src/flow/print.js";
 import { workflowOf } from "../../src/components/assemble.js";

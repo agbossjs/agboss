@@ -1,3 +1,4 @@
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 /**
  * #1313a: a `@ModelProvider({ driver })` is an independent class; a component's model is served by
  * the provider its cascade names (`Component.modelProvider ?? Workflow.modelProvider ??
@@ -12,7 +13,6 @@ import {
   DecisionsDriver,
   ModelKind,
   ModelProvider,
-  ModelProviderError,
   OpenAiCompatibleDriver,
   OpenRouterDriver,
 } from "../../src/models/index.js";
@@ -179,7 +179,7 @@ describe("#1313a: drivers and the directory", () => {
         retryPolicy: undefined,
         circuitBreakerPolicy: undefined,
       }),
-    ).toThrow(ModelProviderError);
+    ).toThrow(ConfigError.ModelProvider);
   });
 
   it("the kind of a driver: OpenAI-compatible and OpenRouter chat, Decisions decide", () => {

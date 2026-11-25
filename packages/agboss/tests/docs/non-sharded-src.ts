@@ -494,6 +494,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
   ...reviewed(
     "the error families' declarations (#1325a): enums, types and a table of codes and sentences; their behaviour is `family.ts` and the hand-over guard of `run-errors.ts`, both in the takeover shard",
     [
+      "src/core/error-families/a2a-errors.ts",
       "src/core/error-families/config-errors.ts",
       "src/core/error-families/effect-errors.ts",
       "src/core/error-families/limit-errors.ts",
@@ -658,7 +659,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "src/flow/compensation-failed.ts",
     "src/flow/dto-wrappers.ts",
     "src/flow/finish-output.ts",
-    "src/flow/flow-syntax-error.ts",
     "src/flow/generated-types.ts",
     "src/flow/handlers.ts",
     "src/flow/launch-step.ts",

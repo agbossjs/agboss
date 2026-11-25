@@ -9,7 +9,6 @@ import {
   Injectable,
   DecisionModel,
   provide,
-  ComponentError,
   Tool,
   inline,
   Ttl,

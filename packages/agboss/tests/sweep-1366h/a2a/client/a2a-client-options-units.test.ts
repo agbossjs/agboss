@@ -1,3 +1,4 @@
+import { ConfigError } from "../../../../src/core/error-families/config-errors.js";
 /**
  * #1366: what an `A2AClient` checks of a call before anything is sent or charged — the call's timeout (a timer's
  * bound), its key (an outbound call's charset), its contract's price — and what it reads of its class: the
@@ -11,7 +12,6 @@ import {
   typedContractOf,
   urlOf,
 } from "../../../../src/a2a/client/a2a-client-options.js";
-import { ComponentError } from "../../../../src/components/metadata.js";
 import { seconds, type Milliseconds } from "../../../../src/units/index.js";
 import { MAX_TIMEOUT } from "../../../../src/units/timer-limits.js";
 
@@ -20,7 +20,7 @@ const refusal = (work: () => unknown): string | undefined => {
     work();
     return undefined;
   } catch (error) {
-    return error instanceof ComponentError ? error.message : String(error);
+    return error instanceof ConfigError.Component ? error.message : String(error);
   }
 };
 

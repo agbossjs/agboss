@@ -1,7 +1,8 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import type { ComponentOptions } from "../components/component-options.js";
 import type { ApplicationOptions } from "../application/application.js";
 import type { Class, Provider } from "../components/injection.js";
-import { ComponentError, componentOf } from "../components/metadata.js";
+import { componentOf } from "../components/metadata.js";
 import { moduleOf } from "../components/module.js";
 import { flowClassesOf, withChildWorkflows } from "../flow/analyse/child-workflow.js";
 import { NodeKind } from "../flow/ast.js";
@@ -162,7 +163,9 @@ export const costPerCallProblemOf = (price: unknown): string | undefined =>
 export function checkedCostPerCall(agent: string, price: unknown): void {
   const problem = costPerCallProblemOf(price);
   if (problem !== undefined)
-    throw new ComponentError({ message: `[a2a.cost-per-call-invalid] ${agent}: ${problem}` });
+    throw new ConfigError.Component({
+      message: `[a2a.cost-per-call-invalid] ${agent}: ${problem}`,
+    });
 }
 
 /** `[a2a.cost-per-call-invalid]` at assembly (#1382): the agent's `price` is a finite number of dollars from 0, or none. */

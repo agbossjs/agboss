@@ -1,10 +1,10 @@
+import { ConfigError } from "../../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import {
   FinishReason,
   ModelFailure,
   ModelProviderFailureError,
 } from "../../../src/models/index.js";
-import { ModelProviderError } from "../../../src/models/model-provider.decorator.js";
 import { transportStreamCarrier } from "../../../src/models/transport/transport-stream.js";
 import type { StreamedAnswer } from "../../../src/models/transport/transport-stream.js";
 import type { ModelProviderRequest, ModelProviderStream } from "../../../src/models/index.js";
@@ -220,7 +220,7 @@ describe("#1311: a stream settles with result: { usage, cost?, finishReason? }",
 
       const error = await settledError(answer.consume(() => Promise.resolve()));
 
-      expect(error).toBeInstanceOf(ModelProviderError);
+      expect(error).toBeInstanceOf(ConfigError.ModelProvider);
       expect((error as Error).message).toBe(
         "p: stream(request).result must settle to { usage: { inputTokens, outputTokens }, cost?, finishReason? }",
       );

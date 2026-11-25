@@ -1,3 +1,4 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import type { AgentSettingsOf, AgentsConfigOf } from "../config/types.js";
 import { AnswerFiles } from "../files/model-files.js";
 import { NodeKind } from "../flow/ast.js";
@@ -5,15 +6,6 @@ import { answerToolsOf, NO_ANSWER_TOOLS, type AnswerTools } from "../flow/runtim
 import { resolveAgentLimits, type AgentDefinition, type AgentJudge } from "./agent-loop/index.js";
 import type { GraphDeps } from "./deps.js";
 import { defaultMaxResultSizeOf } from "../tools/index.js";
-
-export class MissingAgentPromptError extends Error {
-  override name = "MissingAgentPromptError";
-}
-
-/** A wiring bug: an agent names a judge the app did not create. */
-export class MissingJudgeError extends Error {
-  override name = "MissingJudgeError";
-}
 
 /** An agent's limits with defaults applied. */
 const limitsOf = <TName extends string>(
@@ -32,12 +24,14 @@ function judgesOf<TName extends string>(
 ): Pick<AgentDefinition, "judges" | "maxRetries"> {
   const judges = (agent?.judges ?? []).map((name): AgentJudge => {
     const judge = deps.judges?.get(name);
-    if (judge === undefined) throw new MissingJudgeError(`Judge "${name}" has no instance`);
+    if (judge === undefined)
+      throw new ConfigError.Component({ message: `Judge "${name}" has no instance` });
     const { handler, output, declared } = judge;
     // a code judge has no model; a judge with `JudgeModel` always has its binding
     if (!judge.hasModel) return { name, handler, output };
     const binding = deps.registry.judges.get(name);
-    if (binding === undefined) throw new MissingJudgeError(`Judge "${name}" has no model`);
+    if (binding === undefined)
+      throw new ConfigError.Component({ message: `Judge "${name}" has no model` });
     return { name, handler, output, binding, ...(declared === undefined ? {} : { declared }) };
   });
   return { judges, maxRetries: agent?.maxRetries ?? 0 };
@@ -66,7 +60,8 @@ export function agentDefinitions<TName extends string>(
   const definitions = new Map<string, AgentDefinition>();
   for (const [name, binding] of deps.registry.agents) {
     const instructions = prompts.get(name);
-    if (instructions === undefined) throw new MissingAgentPromptError(`No prompt for ${name}`);
+    if (instructions === undefined)
+      throw new ConfigError.Component({ message: `No prompt for ${name}` });
     const agent = settings.get(name);
     definitions.set(name, {
       name,

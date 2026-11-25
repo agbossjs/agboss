@@ -1,8 +1,9 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import { applicationDeclarationOf } from "../application/application.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import type { NameOf } from "../flow/generated-types.js";
 import type { Class } from "./injection.js";
-import { ComponentError, componentOf } from "./metadata.js";
+import { componentOf } from "./metadata.js";
 
 /**
  * `nameOf(Class)` (#261): the `name` of any AGBoss-decorated class — a workflow, a start, a
@@ -10,7 +11,7 @@ import { ComponentError, componentOf } from "./metadata.js";
  * serialized data are compared by: `event.workflow.name === nameOf(SupportWorkflow)`,
  * `event.step.component.name === nameOf(CriticAgent)`. Its type is the name's literal where the
  * generated `.agboss/types.d.ts` brands the class, else `string`; a class no AGBoss decorator
- * describes throws `ComponentError`.
+ * describes throws `ConfigError.Component`.
  */
 export type ComponentName<TComponent extends Class> = [NameOf<InstanceType<TComponent>>] extends [
   never,
@@ -32,7 +33,7 @@ function recordedName(component: Class): string | undefined {
 export function nameOf<TComponent extends Class>(component: TComponent): ComponentName<TComponent> {
   const name = recordedName(component);
   if (name === undefined) {
-    throw new ComponentError({
+    throw new ConfigError.Component({
       message: `nameOf(${component.name || "(anonymous class)"}): no AGBoss decorator describes this class`,
     });
   }

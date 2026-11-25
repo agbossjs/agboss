@@ -1,8 +1,9 @@
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { createApp, inline, PromptError } from "../../src/index.js";
+import { createApp, inline } from "../../src/index.js";
 import type { Class } from "../../src/components/injection.js";
 import { replyWith, routeTo, testWith } from "../../src/testing/index.js";
 import { workflowOf } from "../../src/testing/workflow-of.js";
@@ -16,13 +17,14 @@ import { Templated, workflowWith, type FlowPrompts } from "./prompts/flows.js";
 const AGENT_KNOWN = "known: boards, boardCount";
 const ROUTER_KNOWN = "known: boards, boardCount";
 
-/** The problem lines of the PromptError assembly fails with. */
+/** The problem lines of the ConfigError.Prompt assembly fails with. */
 async function problemsOf(application: Class): Promise<string[]> {
   const error: unknown = await applicationOf(application).then(
     () => undefined,
     (thrown: unknown) => thrown,
   );
-  if (!(error instanceof PromptError)) throw new Error(`expected a PromptError: ${String(error)}`);
+  if (!(error instanceof ConfigError.Prompt))
+    throw new Error(`expected a ConfigError.Prompt: ${String(error)}`);
   return error.problems.map((problem) => `[${problem.code}] ${problem.message}`);
 }
 

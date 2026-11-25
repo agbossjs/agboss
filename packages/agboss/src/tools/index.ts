@@ -9,7 +9,6 @@ export {
   DEFAULT_MAX_RESULT_SIZE,
   defaultMaxResultSizeOf,
   defineTool,
-  InvalidToolNameError,
   ToolTimeoutError,
   type ToolTimeoutErrorOptions,
   type ToolDefinition,

@@ -1,8 +1,8 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { ModelMessage } from "../models/messages.js";
 import type { AnswersOf, DecisionQuestions, DecisionRequest } from "../llm/decisions.js";
 import { JudgeModel } from "./judge-decorators.js";
-import { ComponentError } from "./metadata.js";
 
 /**
  * Which judge is judging now (#280): the agent loop runs each `judge()` with that judge's metered
@@ -42,7 +42,7 @@ export class LiveJudgeModel extends JudgeModel {
   private current(member: string): JudgeModel {
     const model = judging.getStore();
     if (model === undefined) {
-      throw new ComponentError({
+      throw new ConfigError.Component({
         message: `[judge.model-outside-judge] ${this.consumer} used judgeModel.${member} outside a judge's judge() — inject JudgeModel only into a @Judge and call it from judge()`,
       });
     }

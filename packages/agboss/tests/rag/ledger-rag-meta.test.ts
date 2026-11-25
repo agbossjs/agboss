@@ -1,3 +1,4 @@
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 /**
  * #1366 (ledger-retention shard) — what a knowledge base's file settles besides its search spend, each rule on its
  * own over fakes: the classes an agent binds or a tool injects are @Rag classes (named when not, a duplicate refused),
@@ -18,7 +19,7 @@ import {
 import { boundRerankerOf, rerankerModelsOf } from "../../src/components/rag-reranker.js";
 import { knowledgeRetrieveOf } from "../../src/components/rag-retrieval.js";
 import { scopeKeyOfRetrieval } from "../../src/components/rag-scope.js";
-import { ComponentError, componentOf, requireComponent } from "../../src/components/metadata.js";
+import { componentOf, requireComponent } from "../../src/components/metadata.js";
 import { ExecutionContextUnavailableError } from "../../src/flow/context/errors.js";
 import { currentFrame } from "../../src/flow/context/frame.js";
 import { GraphRuleError } from "../../src/graph/rule-error.js";
@@ -113,7 +114,7 @@ describe("#1366: the knowledge bases of a workflow", () => {
 
   it("a class that is no @Rag is refused by name, naming the workflow", () => {
     expect(() => ragClassesOf(workflow, [agentOf("a", NotAReranker)])).toThrow(
-      new ComponentError({
+      new ConfigError.Component({
         message: `@Workflow "w": NotAReranker in an agent's rag is not a @Rag`,
       }),
     );
@@ -126,7 +127,7 @@ describe("#1366: the knowledge bases of a workflow", () => {
           },
         ),
       ]),
-    ).toThrow(ComponentError);
+    ).toThrow(ConfigError.Component);
   });
 
   it("[agent.duplicate-rag]: one @Rag listed twice in one agent is refused, naming the agent", () => {
@@ -379,7 +380,7 @@ describe("#1366: the reranker bound to a knowledge base", () => {
     const without = bound(DocsRag)?.source as { binding: () => unknown };
 
     expect(() => without.binding()).toThrow(
-      new ComponentError({
+      new ConfigError.Component({
         message: "[reranker.no-model-gateway] model-reranker: no model gateway here",
       }),
     );

@@ -201,7 +201,7 @@ describe("#261 AC4: the declared context classes are checked at the application'
 
   it("a context field without a decorator fails the assembly, naming it", async () => {
     await expect(applicationOf(UndecoratedApplication)).rejects.toMatchObject({
-      code: "dto.undecorated-field",
+      code: "config.dto",
       message: expect.stringContaining("UndecoratedExecutionContext") as string,
     });
   });

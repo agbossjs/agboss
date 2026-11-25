@@ -1,3 +1,4 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import { checkedTimer, MAX_TIMEOUT } from "../units/timer-limits.js";
 import { handedOverOf, recordedHandOver } from "../app/handed-over.js";
 import { HandOverSite } from "../infrastructure/execution-audit-log.repository.js";
@@ -26,10 +27,6 @@ export const defaultMaxResultSizeOf = (configured: number | undefined): Bytes =>
 
 /** Function names accepted by OpenAI-compatible providers. */
 const TOOL_NAME = /^[a-zA-Z0-9_-]{1,64}$/;
-
-export class InvalidToolNameError extends Error {
-  override name = "InvalidToolNameError";
-}
 
 /** What a tool that ran out of time takes (#906): the timeout it ran past. */
 export interface ToolTimeoutErrorOptions {
@@ -137,9 +134,9 @@ export function defineTool<TName extends string, TInput, TOutput>(
   definition: ToolDefinition<TName, TInput, TOutput>,
 ): Tool<TName, TInput, TOutput> {
   if (!TOOL_NAME.test(definition.name)) {
-    throw new InvalidToolNameError(
-      `Tool name "${definition.name}" must match ${String(TOOL_NAME)}`,
-    );
+    throw new ConfigError.Component({
+      message: `Tool name "${definition.name}" must match ${String(TOOL_NAME)}`,
+    });
   }
   const timeout = checkedTimer(
     `tool ${definition.name}: timeout`,

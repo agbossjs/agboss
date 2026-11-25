@@ -1,8 +1,8 @@
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import { NodeKind, StepKind, type Step } from "../../src/flow/ast.js";
 import * as builder from "../../src/flow/builder.js";
 import {
-  FlowSyntaxError,
   onStart,
   toAction,
   toAgent,
@@ -201,7 +201,7 @@ describe("1278a: .onRoute(subPath) builds the routes of a router", () => {
     ["a path that is no side path", () => entry().onRoute(builder.onAgent(ProfilerAgent))],
     ["a value that is no path", () => entry().onRoute({})],
   ])("%s is a syntax error", (_label, call) => {
-    expect(call).toThrow(FlowSyntaxError);
+    expect(call).toThrow(ConfigError.FlowSyntax);
   });
 });
 
@@ -413,7 +413,7 @@ describe("paths are immutable", () => {
   });
 });
 
-describe("misuse from untyped code fails with FlowSyntaxError", () => {
+describe("misuse from untyped code fails with ConfigError.FlowSyntax", () => {
   const reviewer = builder.onAgent(ReviewerAgent);
   const router = builder.onRouter(MainRouter);
   const edited = builder.onAgent(EditorAgent);
@@ -436,18 +436,17 @@ describe("misuse from untyped code fails with FlowSyntaxError", () => {
       () => callUntyped(edited, "onError", [CarrierError, builder.onAgent(DraftAgent)]),
     ],
   ])("%s", (_name, misuse) => {
-    expect(misuse).toThrow(FlowSyntaxError);
+    expect(misuse).toThrow(ConfigError.FlowSyntax);
   });
 
-  it("FlowSyntaxError has a stable code", () => {
-    expect(new FlowSyntaxError({ message: "x" }).code).toBe("flow.syntax");
+  it("ConfigError.FlowSyntax has a stable code", () => {
+    expect(new ConfigError.FlowSyntax({ message: "x" }).code).toBe("config.flow-syntax");
   });
 });
 
 describe("AC4 / AC8: removed forms do not exist", () => {
   it("removed forms do not exist", () => {
     expect(Object.keys(builder).sort()).toEqual([
-      "FlowSyntaxError",
       "forEachItem",
       "inParallel",
       "onAction",

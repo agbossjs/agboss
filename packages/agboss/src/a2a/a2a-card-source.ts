@@ -1,4 +1,4 @@
-import { ComponentError } from "../components/metadata.js";
+import { ConfigError } from "../core/error-families/config-errors.js";
 import type { MeshSettings } from "../mesh/mesh-settings.js";
 import { interfaceUrlOf } from "./a2a-public-url.js";
 import { Ttl } from "../units/index.js";
@@ -14,13 +14,13 @@ export function publicUrlOf(options: A2AHttpListenerOptions): string {
   try {
     url = options.publicUrl();
   } catch (cause) {
-    throw new ComponentError({
+    throw new ConfigError.Component({
       message: "[a2a.public-url-invalid] a2aHttpListener's publicUrl function threw",
       cause,
     });
   }
   if (typeof url !== "string")
-    throw new ComponentError({
+    throw new ConfigError.Component({
       message: "[a2a.public-url-invalid] a2aHttpListener's publicUrl function gave no text",
     });
   return url;

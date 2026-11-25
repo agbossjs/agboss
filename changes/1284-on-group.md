@@ -7,7 +7,7 @@ issue: 1284
 (#1284). The deadline is the join's own option, written where the join is; `.onError(E, …)` follows the
 join as for every join and stands right after it — before the first group, never after an
 `.onGroup(…)`: the type system (`GroupsJoining` has `.onError`, `GroupsJoined` does not) and the untyped
-builder (`FlowSyntaxError`) refuse the other order. Each group is one `.onGroup([A, B], { priority }, subPath)`:
+builder (`ConfigError.FlowSyntax`) refuse the other order. Each group is one `.onGroup([A, B], { priority }, subPath)`:
 `targets` are classes of the launch (`@Agent`, `@ExternalTask`, `@Action`, `@Workflow`; a repeat is one more
 copy), `{ priority }` is optional (1 is the highest; none — equal), `subPath` starts with any side-path
 starter (`toAgent`, `toAction`, `toRouter`, `toExternalTask`, `toWorkflow`, `toFinish`, `inParallel`,

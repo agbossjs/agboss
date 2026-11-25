@@ -1,8 +1,8 @@
+import { ConfigError } from "../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import { TestWorkflow } from "./fixtures/test-workflow/test.workflow.js";
 import { workflowOf } from "../src/testing/workflow-of.js";
 import {
-  UnknownAgentToolError,
   validateAgentsConfig,
   type AgentsConfig,
   type AgentsConfigOf,
@@ -36,7 +36,7 @@ describe("validateAgentsConfig", () => {
     };
 
     expect(() => validateAgentsConfig(config, ["current-time-tool"])).toThrow(
-      UnknownAgentToolError,
+      ConfigError.Component,
     );
     expect(() => validateAgentsConfig(config, ["current-time-tool"])).toThrow("alpha → ghost");
   });

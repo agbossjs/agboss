@@ -117,10 +117,12 @@ describe("#261 AC4: the values are validated before the first step and frozen", 
       },
     );
 
-    await expect(refused).rejects.toMatchObject({ code: "dto.invalid" });
+    await expect(refused).rejects.toMatchObject({ code: "validation.dto-invalid" });
     await expect(refused).rejects.toThrow(/units\[0\]\.unitId/);
     await expect(refused).rejects.not.toThrow(/4711/);
-    expect(clinicSeen.rejections).toMatchObject([{ operation: "execute", code: "dto.invalid" }]);
+    expect(clinicSeen.rejections).toMatchObject([
+      { operation: "execute", code: "validation.dto-invalid" },
+    ]);
     expect(clinicSeen.rejections[0]?.message).not.toContain("4711");
     expect(mockModel(BedAgent).requests).toHaveLength(0);
   });

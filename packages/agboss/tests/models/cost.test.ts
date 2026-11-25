@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { workflowOf } from "../../src/testing/workflow-of.js";
-import { ModelCostError, recordUsage } from "../../src/finops/usage.js";
+import { recordUsage } from "../../src/finops/usage.js";
 import { ModelCost } from "../../src/models/index.js";
 import {
   costLabel,
@@ -55,7 +55,7 @@ describe("AC6: cost — from the provider's response, a price table as the fallb
   });
 
   it("AC6: a call with neither a reported cost nor a price cannot be accounted", () => {
-    expect(() => recordUsage("writer", { model: "x/y" }, tokens)).toThrow(ModelCostError);
+    expect(() => recordUsage("writer", { model: "x/y" }, tokens)).toThrow(ConfigError.Component);
   });
 
   it("AC6: a provider's price table prices the models that set none; fromResponse prices none", async () => {

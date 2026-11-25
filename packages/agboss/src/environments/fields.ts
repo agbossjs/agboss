@@ -1,4 +1,4 @@
-import { ComponentError } from "../components/metadata.js";
+import { ConfigError } from "../core/error-families/config-errors.js";
 import { shownValueOf } from "../core/shown-value.js";
 
 /** The type of a field a class reads from the environment, as printed in a violation. */
@@ -50,7 +50,7 @@ const fieldOf =
       keys.some((key) => key !== "optional") ||
       (optional !== undefined && typeof optional !== "boolean")
     ) {
-      throw new ComponentError({
+      throw new ConfigError.Component({
         message: `EnvironmentField.${maker}(${shownValueOf(given)}): its options are { optional?: boolean } — EnvironmentField.${maker}({ optional: true })`,
       });
     }

@@ -12,7 +12,7 @@ enters or is used: `ModelCost.fromPrices` refuses a price that is not a finite n
 required, cached input is optional) and keeps its own frozen copy of every entry; assembly refuses a listed provider's (or a breaker
 fallback's) literal table with `[model.price-invalid]`; `priceOf` checks the entry it returns, so a table changed after it was made
 throws a `UnitError` `[model.price-invalid]` before any cost is computed; and the cost of a call (`costOf`, which every price
-reaches: a config `price`, a provider's table, a fallback's) throws a `ModelCostError` for a price field that is no amount, so a
+reaches: a config `price`, a provider's table, a fallback's) throws a `ConfigError.Component` for a price field that is no amount, so a
 negative price can never offset a positive one. A model named like `Object.prototype` members (`constructor`) has no price. The
 messages name the field and the value's kind or number, never the model or any text; `ModelCost.fromPrices` no longer names the
 model either. A provider's `fromResponse()` cost and a config `price` (zod) were already checked.

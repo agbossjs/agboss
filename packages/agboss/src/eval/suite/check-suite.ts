@@ -1,6 +1,6 @@
+import { ConfigError } from "../../core/error-families/config-errors.js";
 import { requireApplication } from "../../application/application.js";
 import type { Class } from "../../components/injection.js";
-import { ComponentError } from "../../components/metadata.js";
 import { ExecutionContext } from "../../flow/context/execution-context.js";
 import { TenantContext } from "../../flow/context/tenant-context.js";
 import { throwIfViolated } from "../../graph/rule-error.js";
@@ -14,13 +14,13 @@ import type { RuleViolation } from "../../graph/rule-error.js";
  * Assembles an `@EvalSuite` against the application it runs on (#396), before anything runs: its
  * rules first — every violation at once, one `GraphRuleError` (`[name.kind-suffix]`,
  * `[eval.unknown-start]`, `[eval.duplicate-case]`, `[eval.judge-wrong-output]`; a judge's own
- * `[judge.*]` rules as a `ComponentError`) — then its cases' values (`EvalCaseInvalidError`,
+ * `[judge.*]` rules as a `ConfigError.Component`) — then its cases' values (`EvalCaseInvalidError`,
  * `eval.case-invalid`). Gives the suite as recorded.
  */
 export function checkEvalSuite(application: Class, suite: Class): EvalSuiteMeta {
   const meta = evalSuiteOf(suite);
   if (meta === undefined)
-    throw new ComponentError({
+    throw new ConfigError.Component({
       message: `checkEvalSuite: ${suite.name || "(anonymous class)"} is not an @EvalSuite — decorate it with @EvalSuite({ name, start, judges, cases })`,
     });
   throwIfViolated(evalSuiteViolations(application, suite, meta));

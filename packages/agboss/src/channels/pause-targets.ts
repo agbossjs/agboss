@@ -1,3 +1,4 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import { recordOptionKeys } from "../components/option-keys.js";
 import { EXTERNAL_TASK_KEYS, TOOL_APPROVAL_KEYS } from "../components/decorator-options.js";
 import { callerFile } from "../components/call-site.js";
@@ -8,7 +9,7 @@ import { NodeKind } from "../flow/ast.js";
 import { declared, recordDeclaration } from "../flow/decorators/declaration.js";
 import { PauseRespondent } from "../pause/respondent.js";
 import type { PauseEscalationLimits } from "./pause-contexts.js";
-import { ComponentError, componentOf } from "../components/metadata.js";
+import { componentOf } from "../components/metadata.js";
 import type { DecideExpiration, FailExpiration, ReassignExpiration } from "./pause-expiration.js";
 import type { ProviderModule } from "../components/container/registrations.js";
 
@@ -155,7 +156,7 @@ export const isExternalTask = (options: PauseTargetOptions): options is External
 export const targetNameOf = (cls: Class): string => {
   const declaration = targets.get(cls);
   if (declaration === undefined)
-    throw new ComponentError({
+    throw new ConfigError.Component({
       message: `${cls.name || "(anonymous class)"} is named as a pause target but is neither a @ToolApproval nor an @ExternalTask`,
     });
   return declaration.options.name;
@@ -193,7 +194,7 @@ function questionDeclarationOf(options: ExternalTaskOptions, source: string | un
 /** `respondent` of an untyped (JS) caller: the types rule other values out already. */
 function checkRespondent(decorator: string, name: string, respondent: unknown): void {
   if (respondent === PauseRespondent.Owner || respondent === PauseRespondent.Delegate) return;
-  throw new ComponentError({
+  throw new ConfigError.Component({
     message: `[pause-target.respondent] ${decorator} "${name}" has no respondent — say who may answer: PauseRespondent.Owner or PauseRespondent.Delegate`,
   });
 }

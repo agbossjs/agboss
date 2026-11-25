@@ -1,6 +1,7 @@
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import { NodeKind, StepKind, type FlowPath } from "../../src/flow/ast.js";
-import { FlowSyntaxError, toAction, toRouter, toAgent } from "../../src/flow/builder.js";
+import { toAction, toRouter, toAgent } from "../../src/flow/builder.js";
 import { declarationOf } from "../../src/flow/decorators/declaration.js";
 import { listOf, optional } from "../../src/flow/dto-wrappers.js";
 import { flowLines } from "../../src/flow/print.js";
@@ -96,11 +97,11 @@ describe("#273: a launch and its join in the AST", () => {
   });
 });
 
-describe("#273: the order around a launch holds for untyped code too (FlowSyntaxError)", () => {
+describe("#273: the order around a launch holds for untyped code too (ConfigError.FlowSyntax)", () => {
   const launched = () => onAgent(PlannerAgent).inParallel([toAgent(PlanResearcherAgent)]);
 
   it("a launch is followed by .join()", () => {
-    expect(() => launched().toAgent(CriticAgent)).toThrow(FlowSyntaxError);
+    expect(() => launched().toAgent(CriticAgent)).toThrow(ConfigError.FlowSyntax);
     expect(() => launched().toAgent(CriticAgent)).toThrow(
       "a parallel launch is followed by .join()",
     );
