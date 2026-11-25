@@ -63,7 +63,7 @@ export function stepOf<T extends object>(
     keep: (facts: Coordinated) => coordinatesOf(facts, nameOf(facts as T), kind),
     extra: (facts: StepCoordinates) => ({
       ...detailsOfStep(facts),
-      ...(details === undefined ? {} : details(facts as unknown as T)),
+      ...(details === undefined ? {} : details(facts as StepCoordinates & T)),
     }),
   };
 }
