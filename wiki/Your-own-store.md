@@ -264,7 +264,9 @@ All of them run after the same lease and mark check.
 'queued' ORDER BY depth DESC, queued_at LIMIT 1 FOR UPDATE SKIP LOCKED) RETURNING …`.
 
 SQLite has no row locks. The core's stores run each atomic step in one `BEGIN IMMEDIATE`
-transaction, which takes the write lock first. Its work must be synchronous.
+transaction, which takes the write lock first. Its work must be synchronous. In a custom SQLite
+repository every statement after an `await` must run through `connection.serve(…)`; outside it the
+statement fails at once (#1317).
 
 ## Recipes: databases without SQL transactions
 

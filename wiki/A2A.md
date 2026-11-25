@@ -432,7 +432,8 @@ the 0.1.0 wire is gone, on both sides ([Upgrading to 0.1.1](Upgrading-to-0.1.1))
 - **Outcomes.** COMPLETED → the output, read from the artifact an AGBoss finish marks
   (`metadata[skills-uri].finish`) when the task has one, else from every artifact in order (none readable: `A2ARemoteCallError`, was `A2ARemoteError`);
   FAILED / REJECTED → `A2ATaskFailedError` (an AGBoss peer's `limit.mesh-loop` / `limit.hops` → the
-  same `MeshLoopDetectedError` / `HopsLimitExceededError`); CANCELED → `A2ATaskCancelledError`;
+  same `MeshLoopDetectedError` / `HopsLimitExceededError`, rebuilt only from an addressed, signed
+  peer — from an unaddressed server they are not rebuilt — and carrying `isRemote: true`); CANCELED → `A2ATaskCancelledError`;
   INPUT_REQUIRED → `A2ATaskInterruptedError` from `execute` (a remote pause is not a local one yet),
   the task from `send`; a JSON-RPC error → `A2AProtocolError` (`rpcCode`); a refused caller →
   `A2ACallerRejectedError`. Only codes: an agent's message, status text or body is never kept.
