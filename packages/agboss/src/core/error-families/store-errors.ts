@@ -218,7 +218,7 @@ export const StoreError: FamilyConstructor<
     variants: {
       OutcomeUnknown: [outcomeUnknownMessageOf],
       CallTimeout: [callTimeoutMessageOf],
-      UnreadableRecord: [unreadableRecordMessageOf],
+      UnreadableRecord: [unreadableRecordMessageOf, undefined, { hidden: ["ids"] }],
       Mismatch: ["the store does not match what the application declares"],
       LiveLeases: ["the store holds live leases"],
       SchemaMissing: ["the store has no schema"],
