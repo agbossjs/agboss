@@ -1,3 +1,4 @@
+import { StoreError } from "../../core/error-families/store-errors.js";
 import { z } from "zod";
 import { BudgetScope } from "../../budgets/budget.js";
 import { Injectable } from "../../components/decorators.js";
@@ -16,7 +17,6 @@ import {
   type CostCounter,
   type LedgerEntry,
 } from "../cost-ledger.repository.js";
-import { CostLedgerEntryExpiredError } from "../../finops/ledger-mark.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
 
 const UsageRow = z.object({ spent_usd: z.number(), tokens: z.number() });
@@ -85,8 +85,8 @@ export class SqliteCostLedgerRepository extends CostLedgerRepository {
   #add(
     counters: readonly CostCounter[],
     entries: readonly LedgerEntry[],
-  ): CostLedgerEntryExpiredError | undefined {
-    let refused: CostLedgerEntryExpiredError | undefined;
+  ): StoreError.LedgerEntryExpired | undefined {
+    let refused: StoreError.LedgerEntryExpired | undefined;
     this.connection.transaction(() => {
       // an entry it may have pruned is refused, the whole save with it (#771): the mark is read
       // in the transaction a prune's is written in, one writer at a time on the file
@@ -100,7 +100,7 @@ export class SqliteCostLedgerRepository extends CostLedgerRepository {
         // Stryker disable next-line ConditionalExpression: an expired entry needs a mark — `expiredEntriesOf` names none without one; the check only narrows its type
         prunedBefore !== undefined
       ) {
-        refused = new CostLedgerEntryExpiredError({ ledgerIds: expired, prunedBefore });
+        refused = new StoreError.LedgerEntryExpired({ ledgerIds: expired, prunedBefore });
         return;
       }
       // each entry once (#727): its id kept, with its date, in the transaction that adds its cost

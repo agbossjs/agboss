@@ -1,10 +1,7 @@
+import { StoreError } from "../core/error-families/store-errors.js";
 import type { Clock } from "../infrastructure/clock.js";
 import type { FrameworkLog } from "../infrastructure/logger.js";
-import {
-  StoreCallTimeoutError,
-  StoreOutcomeSource,
-  StoreOutcomeUnknownError,
-} from "../infrastructure/store-call-timeout.js";
+import { isStoreOutcomeUnknown, StoreOutcomeSource } from "../infrastructure/store-call-timeout.js";
 import { ExecutionLeaseLostError } from "./lease-lost.js";
 import type { StoreCallLimit } from "./store-call-kind.js";
 
@@ -59,7 +56,7 @@ function quietly(report: () => void): void {
 function reportTimeout(
   parts: StoreCallParts,
   facts: CallFacts,
-  error: StoreCallTimeoutError,
+  error: StoreError.CallTimeout,
 ): void {
   const how =
     error.source === StoreOutcomeSource.Framework
@@ -80,10 +77,10 @@ function reportTimeout(
 }
 
 /** What the holder is told and the log shows when the bound fired. */
-export function timedOut(parts: StoreCallParts, facts: CallFacts): StoreCallTimeoutError {
+export function timedOut(parts: StoreCallParts, facts: CallFacts): StoreError.CallTimeout {
   const { store, operation } = facts;
   const timeout = facts.bound;
-  const error = new StoreCallTimeoutError({
+  const error = new StoreError.CallTimeout({
     store,
     operation,
     timeout,
@@ -102,10 +99,10 @@ export async function failure(
   facts: CallFacts,
   error: unknown,
 ): Promise<Error> {
-  if (error instanceof StoreCallTimeoutError && error.source === StoreOutcomeSource.Command)
+  if (error instanceof StoreError.CallTimeout && error.source === StoreOutcomeSource.Command)
     reportTimeout(parts, facts, error);
   const { lease } = facts;
-  if (lease === undefined || !(error instanceof StoreOutcomeUnknownError)) return errorOf(error);
+  if (lease === undefined || !isStoreOutcomeUnknown(error)) return errorOf(error);
   if (error.source !== StoreOutcomeSource.Framework)
     quietly(() =>
       // Stryker disable next-line OptionalChaining: equivalent: with no log `parts.log.warn` throws a TypeError, which `quietly` swallows as the missing log does

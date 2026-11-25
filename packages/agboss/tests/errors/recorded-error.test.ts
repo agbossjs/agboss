@@ -1,5 +1,5 @@
+import { StoreError } from "../../src/core/error-families/store-errors.js";
 import { ExecutionError } from "../../src/core/error-families/run-errors.js";
-import { StoredNamesUnreadableError } from "../../src/core/stored-json.js";
 /**
  * #598 — a failure's durable record and the failure rebuilt from it: the record of the rebuilt one
  * is the original's (its class line by code, its causes; no details), at the same depth wherever it
@@ -173,8 +173,8 @@ describe("#598: what a store holds, as each reader rebuilds it", () => {
     const legacy = JSON.stringify({ name: "PaymentDeclinedError", message: "declined" });
 
     expect(errorRecordOf(remoteFailureOf(row))).toEqual(withoutDetails(errorRecordOf(declined)));
-    expect(() => remoteFailureOf(legacy)).toThrow(StoredNamesUnreadableError);
-    expect(() => remoteFailureOf(undefined)).toThrow(StoredNamesUnreadableError);
+    expect(() => remoteFailureOf(legacy)).toThrow(StoreError.UnreadableRecord);
+    expect(() => remoteFailureOf(undefined)).toThrow(StoreError.UnreadableRecord);
   });
 
   it("a rebuilt budget's or failed undo's error keeps its class line: it passes a child's boundary as it is", () => {

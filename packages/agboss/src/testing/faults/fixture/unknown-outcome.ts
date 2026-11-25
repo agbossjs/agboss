@@ -1,4 +1,4 @@
-import { StoreOutcomeUnknownError } from "../../../infrastructure/store-call-timeout.js";
+import { isStoreOutcomeUnknown } from "../../../infrastructure/store-call-timeout.js";
 
 /**
  * Whether `error` carries a store call of unknown outcome (#928) in its chain of causes: what a
@@ -7,7 +7,7 @@ import { StoreOutcomeUnknownError } from "../../../infrastructure/store-call-tim
  */
 export function isUnknownOutcome(error: unknown): boolean {
   for (let current = error, depth = 0; current instanceof Error && depth < 8; depth += 1) {
-    if (current instanceof StoreOutcomeUnknownError) return true;
+    if (isStoreOutcomeUnknown(current)) return true;
     current = current.cause;
   }
   return false;

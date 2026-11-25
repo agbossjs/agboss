@@ -536,7 +536,7 @@ Fencing semantics are unchanged: who holds a lease, when it expires and which wr
 - **Changed — breaking for stores outside the core**: `CostLedgerRepository.saveAll(counters,
   entries: readonly LedgerEntry[])` — a `UsageRecord` with its `ledgerId`, `madeAt: Date` and
   `costUsd: Usd`; a record without an identity does not compile, and `assertLedgerEntries` refuses
-  a JS caller's (`CostLedgerEntryInvalidError`, `cost-ledger.entry-invalid`). `deleteByMadeAtBefore`
+  a JS caller's (`StoreError.LedgerEntryInvalid`, `cost-ledger.entry-invalid`). `deleteByMadeAtBefore`
   (was `deleteEntriesByMadeAtBefore`), `unrecordedEntriesOf` (was `newEntriesOf`, its callback's
   `madeAt` a `Date`) and the newly exported `expiredEntriesOf`. A spend's identity across passes
   (#810, `LedgerKey`) is dated the same way: `LedgerKey.madeAt` is a `Date`. Three contract cases: anything but
@@ -892,7 +892,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
 
 - **Changed — breaking for stores outside the core**: `CostLedgerRepository` has a new abstract
   `deleteEntriesByMadeAtBefore(cutoff)`, and `saveAll` dates each entry by its record's new `madeAt`
-  and refuses (`CostLedgerEntryExpiredError`, nothing added) an entry made before the store's pruning
+  and refuses (`StoreError.LedgerEntryExpired`, nothing added) an entry made before the store's pruning
   mark that it no longer holds. The recovery sweep prunes entries made longer ago than
   `@Application({ ledgerEntryRetention })` (default `hours(24)`,
   `[application.ledger-entry-retention-invalid]` at or below the lease). Before, every paid call left

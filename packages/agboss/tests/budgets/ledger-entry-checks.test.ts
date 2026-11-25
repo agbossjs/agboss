@@ -3,6 +3,7 @@
  * refuses and says, a date that is no date refused as a cutoff or a mark, what `expiredEntriesOf`
  * and `unrecordedEntriesOf` give.
  */
+import { StoreError } from "../../src/core/error-families/store-errors.js";
 import { describe, expect, it } from "vitest";
 import { ledgerEntryOf } from "../../src/budgets/budget-check.js";
 import { recordToolCost } from "../../src/finops/usage.js";
@@ -16,11 +17,6 @@ import {
   invalidLedgerEntryErrorOf,
   unrecordedEntriesOf,
 } from "../../src/infrastructure/cost-ledger.repository.js";
-import {
-  CostLedgerCutoffInvalidError,
-  CostLedgerEntryExpiredError,
-  CostLedgerEntryInvalidError,
-} from "../../src/finops/ledger-mark.js";
 import { SqliteCostLedgerRepository } from "../../src/infrastructure/sqlite/sqlite-cost-ledger.repository.js";
 import { connectionTo, temporarySqlitePath } from "../infrastructure/contracts/store-kinds.js";
 
@@ -51,10 +47,10 @@ describe("#817: assertLedgerEntries refuses anything but a ledger entry, naming 
   it.each(cases)("%o: %s", (entry, reason) => {
     const refused = invalidLedgerEntryErrorOf([fine, entry]);
 
-    expect(refused).toBeInstanceOf(CostLedgerEntryInvalidError);
+    expect(refused).toBeInstanceOf(StoreError.LedgerEntryInvalid);
     expect(refused).toMatchObject({
-      code: "cost-ledger.entry-invalid",
-      name: "CostLedgerEntryInvalidError",
+      code: "store.ledger-entry-invalid",
+      name: "StoreError.LedgerEntryInvalid",
       index: 1,
       reason,
       message: `the ledger was handed no ledger entry at index 1: ${reason} — the save added nothing; save only LedgerEntry values (an id, a madeAt Date, a costUsd in Usd)`,
@@ -105,9 +101,9 @@ describe("#817: a date that is no date is refused, as a cutoff or a mark", () =>
         assertLedgerCutoff(cutoff);
       }).toThrow(
         expect.objectContaining({
-          constructor: CostLedgerCutoffInvalidError,
-          name: "CostLedgerCutoffInvalidError",
-          code: "cost-ledger.cutoff-invalid",
+          constructor: StoreError.LedgerCutoffInvalid,
+          name: "StoreError.LedgerCutoffInvalid",
+          code: "store.ledger-cutoff-invalid",
           reason: `the cutoff is no valid Date: ${String(cutoff)}`,
           message: `the ledger was handed no valid Date as its prune's cutoff: the cutoff is no valid Date: ${String(cutoff)} — nothing was pruned and the pruning mark stays where it was; prune with a valid Date`,
         }),
@@ -172,7 +168,7 @@ describe("#817, #869: a store refuses a cutoff that is no date, naming it, with 
     const ledger = ledgerOf();
 
     await expect(ledger.deleteByMadeAtBefore(new Date(Number.NaN))).rejects.toThrow(
-      new CostLedgerCutoffInvalidError({ reason: "the cutoff is no valid Date: Invalid Date" }),
+      new StoreError.LedgerCutoffInvalid({ reason: "the cutoff is no valid Date: Invalid Date" }),
     );
   });
 });
@@ -181,10 +177,11 @@ describe("#906: the ledger's errors keep their cause", () => {
   it("each takes a cause and keeps it", () => {
     const cause = new Error("why");
 
-    expect(new CostLedgerCutoffInvalidError({ reason: "r", cause }).cause).toBe(cause);
-    expect(new CostLedgerEntryInvalidError({ index: 0, reason: "r", cause }).cause).toBe(cause);
+    expect(new StoreError.LedgerCutoffInvalid({ reason: "r", cause }).cause).toBe(cause);
+    expect(new StoreError.LedgerEntryInvalid({ index: 0, reason: "r", cause }).cause).toBe(cause);
     expect(
-      new CostLedgerEntryExpiredError({ ledgerIds: ["l"], prunedBefore: new Date(0), cause }).cause,
+      new StoreError.LedgerEntryExpired({ ledgerIds: ["l"], prunedBefore: new Date(0), cause })
+        .cause,
     ).toBe(cause);
   });
 });

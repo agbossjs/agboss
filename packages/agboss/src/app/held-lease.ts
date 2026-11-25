@@ -1,3 +1,4 @@
+import type { StoreOutcomeUnknown } from "../infrastructure/store-call-timeout.js";
 import type {
   ExecutionLease,
   ExecutionLeaseRepository,
@@ -19,7 +20,6 @@ import {
 import { ExecutionLeaseLostError, leaseTakenWhileYieldedError, scopeKeyOf } from "./lease-lost.js";
 import { Abandonment } from "./lease-abandon.js";
 import { leasedRenewal, leaseScope } from "./lease-scope.js";
-import type { StoreOutcomeUnknownError } from "../infrastructure/store-call-timeout.js";
 import { leaseReleases } from "./lease-releases.js";
 import { LeaseAttempts, LeaseTurns, LeaseYields } from "./lease-yields.js";
 import { ReportingLease } from "./lease-reporting.js";
@@ -193,7 +193,7 @@ export class HeldLease extends ReportingLease implements HeldExecutionLease {
    * holder's — once the hand-over rows are written. Nothing is released and no waiter woken as if
    * the lease were free: it expires in the store, and only then is the tree taken over.
    */
-  abandon(cause: StoreOutcomeUnknownError): Promise<void> {
+  abandon(cause: StoreOutcomeUnknown): Promise<void> {
     return this.#abandonment.run(cause, async () => {
       const lost = new ExecutionLeaseLostError({ rootExecutionId: this.rootExecutionId, cause });
       // the abort stops the renewals and the expiry loop and forgets the holder (its listener)

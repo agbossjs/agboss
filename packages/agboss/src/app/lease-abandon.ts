@@ -1,5 +1,5 @@
+import type { StoreOutcomeUnknown } from "../infrastructure/store-call-timeout.js";
 import type { FrameworkLog } from "../infrastructure/logger.js";
-import type { StoreOutcomeUnknownError } from "../infrastructure/store-call-timeout.js";
 
 /**
  * A held lease abandoned (#928): a store call under it did not answer, so its holder stopped as at
@@ -7,11 +7,11 @@ import type { StoreOutcomeUnknownError } from "../infrastructure/store-call-time
  * tree taken over. The first cause stays; the hand-over runs once, whoever asks again waits for it.
  */
 export class Abandonment {
-  #cause: StoreOutcomeUnknownError | undefined;
+  #cause: StoreOutcomeUnknown | undefined;
   #done: Promise<void> | undefined;
 
   /** Why it was abandoned; `undefined` while it is not. */
-  get cause(): StoreOutcomeUnknownError | undefined {
+  get cause(): StoreOutcomeUnknown | undefined {
     return this.#cause;
   }
 
@@ -22,7 +22,7 @@ export class Abandonment {
   }
 
   /** Abandons with `work` once; a second call gets the same end. */
-  run(cause: StoreOutcomeUnknownError, work: () => Promise<void>): Promise<void> {
+  run(cause: StoreOutcomeUnknown, work: () => Promise<void>): Promise<void> {
     this.#cause ??= cause;
     this.#done ??= work();
     return this.#done;
@@ -40,7 +40,7 @@ export interface AbandonedLease {
 function tellAbandoned(
   log: FrameworkLog | undefined,
   lease: AbandonedLease,
-  cause: StoreOutcomeUnknownError,
+  cause: StoreOutcomeUnknown,
 ): void {
   const { executionId, tenantId, token } = lease;
   const text = `the lease of execution ${executionId} (token ${String(token)}) was abandoned: ${cause.store}.${cause.operation} ended with its outcome unknown (${cause.source}) — nothing is released, the lease expires in its store and the next take of it reconciles`;

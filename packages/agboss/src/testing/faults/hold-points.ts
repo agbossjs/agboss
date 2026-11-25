@@ -1,8 +1,6 @@
+import { StoreError } from "../../core/error-families/store-errors.js";
 import { causeOptionOf, type PlainErrorOptions } from "../../core/errors.js";
-import {
-  StoreOutcomeSource,
-  StoreOutcomeUnknownError,
-} from "../../infrastructure/store-call-timeout.js";
+import { StoreOutcomeSource } from "../../infrastructure/store-call-timeout.js";
 /**
  * Named hold points (#484 AC5): places in a process where a test stops an operation and lets it go
  * when it chooses — the way to force the order of operations across processes without a sleep.
@@ -37,7 +35,7 @@ export interface HoldRequest {
   readonly loseAnswer?: boolean;
   /**
    * With `loseAnswer` (#1017): the caller hears what a store package makes of a connection reset
-   * after the request was sent — `StoreOutcomeUnknownError`, source `Transport` — not the test's
+   * after the request was sent — `StoreError.OutcomeUnknown`, source `Transport` — not the test's
    * `StoreAnswerLostError`: on a store set with no network, the same lost answer a TCP set gets
    * from `DatabaseProxy.dropAfter`.
    */
@@ -90,7 +88,7 @@ const matches = (armed: Armed, point: string, phase: HoldPhase, key: string | un
 function lostAnswerOf(request: HoldRequest, point: string): Error {
   const lost = new StoreAnswerLostError({ message: `the answer of ${point} was lost` });
   if (request.asTransportError !== true) return lost;
-  return new StoreOutcomeUnknownError({
+  return new StoreError.OutcomeUnknown({
     ...{ store: "held store", operation: point, source: StoreOutcomeSource.Transport },
     cause: lost,
   });

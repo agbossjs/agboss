@@ -72,7 +72,7 @@ export { settledSaverOf } from "../app/settled-spend-checkpointer.js";
  * again; the ledger adds an entry once (`CostLedgerRepository.saveAll`), so a write retried after its
  * answer was lost counts once. Each entry is dated by its `madeAt` (#771): the ledger prunes
  * entries made longer ago than `@Application({ retention: { costLedgerEntries } })` and refuses a write of one
- * it may have pruned (`CostLedgerEntryExpiredError`, the pass's reads fail with it), so a retry that
+ * it may have pruned (`StoreError.LedgerEntryExpired`, the pass's reads fail with it), so a retry that
  * late is never counted twice — and one within it counts once.
  */
 export class BudgetMeter implements BudgetCheck {

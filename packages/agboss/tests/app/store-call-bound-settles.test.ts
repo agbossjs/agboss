@@ -3,18 +3,14 @@
  * counter that throws, a clock whose sleep rejects never leave the caller waiting, and nothing is
  * left as an unhandled rejection. A subclass registered as a contract is that contract everywhere.
  */
+import { StoreError } from "../../src/core/error-families/store-errors.js";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { boundedStoreOf } from "../../src/app/store-call-bound.js";
 import { limitOf } from "../../src/app/store-call-kind.js";
 import { leaseScope } from "../../src/app/lease-scope.js";
 import { FileRepository } from "../../src/infrastructure/file.repository.js";
 import { ExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
-import {
-  ExecutionLeaseLostError,
-  StoreCallTimeoutError,
-  StoreOutcomeSource,
-  StoreOutcomeUnknownError,
-} from "../../src/index.js";
+import { ExecutionLeaseLostError, StoreOutcomeSource } from "../../src/index.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { seconds } from "../../src/units/index.js";
 import { boundedOver, heldLease, outcomeOf, silent } from "./fixtures/bound-stubs.js";
@@ -23,8 +19,8 @@ abstract class Kv {
   abstract get(): Promise<string>;
 }
 
-const unknown = (): StoreOutcomeUnknownError =>
-  new StoreOutcomeUnknownError({
+const unknown = (): StoreError.OutcomeUnknown =>
+  new StoreError.OutcomeUnknown({
     store: "Kv",
     operation: "get",
     source: StoreOutcomeSource.Transport,
@@ -92,13 +88,13 @@ describe("#928: a bounded call settles on every path", () => {
     const call = outcomeOf(store.get());
     await clock.advance(seconds(16));
 
-    expect(await call).toBeInstanceOf(StoreCallTimeoutError);
+    expect(await call).toBeInstanceOf(StoreError.CallTimeout);
     await flush();
     expect(unhandled).toEqual([]);
   });
 
   it("a store error settles with itself although the log throws", async () => {
-    const own = new StoreCallTimeoutError({
+    const own = new StoreError.CallTimeout({
       store: "Kv",
       operation: "get",
       timeout: 10_000 as never,
@@ -135,7 +131,7 @@ describe("#928: a bounded call settles on every path", () => {
     const error = await outcomeOf(store.get());
     await flush();
 
-    expect(error).toBeInstanceOf(StoreCallTimeoutError);
+    expect(error).toBeInstanceOf(StoreError.CallTimeout);
     expect(unhandled).toEqual([]);
   });
 });

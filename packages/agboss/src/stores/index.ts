@@ -112,17 +112,13 @@ export {
 export { idGeneratorNameOf } from "../infrastructure/clock.js";
 // what a store reads of a pause, a log entry or a kept history record, given the parsed JSON it
 // holds (#934): every field they read is checked, only the 0.1.1 shape is read, and any other value
-// throws `StoredNamesUnreadableError`, naming the record's id and the field
+// throws `StoreError.UnreadableRecord`, naming the record's id and the field
 export { executionHistoryRecordOfJson } from "../infrastructure/stored-history.js";
 export { pauseAnswerRecordOfValue } from "../infrastructure/stored-step.js";
 export { pauseRecordOfJson } from "../infrastructure/stored-pause.js";
 export { pausedRunOfValue } from "../infrastructure/stored-run.js";
 // a stored text that is no JSON is refused the same way (#1121): the coded error, no text in it
-export {
-  parsedStoredJson,
-  StoredNamesUnreadableError,
-  type StoredNamesUnreadableErrorOptions,
-} from "../infrastructure/stored-step.js";
+export { parsedStoredJson } from "../infrastructure/stored-step.js";
 
 // the step of a checkpoint (#962): the pure functions of the latest-by-step read; the saver
 // capability itself holds LangGraph types and stays in `@agboss/core/internal` (#1324)

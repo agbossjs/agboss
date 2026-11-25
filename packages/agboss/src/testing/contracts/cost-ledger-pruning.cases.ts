@@ -14,7 +14,7 @@ import type { ContractCase } from "./define.js";
 
 /** What a refused save rejects with (#771): its expired entries and the store's mark. */
 const expired = (ledgerIds: readonly string[], prunedBefore: string) => ({
-  code: "cost-ledger.entry-expired",
+  code: "store.ledger-entry-expired",
   ledgerIds,
   prunedBefore: new Date(prunedBefore),
 });
@@ -100,7 +100,7 @@ const PRUNING_CASES: readonly ContractCase<CostLedgerRepository>[] = [
       const resolved = new Set<string>();
       outcomes.forEach((outcome, index) => {
         if (outcome.status === "fulfilled") resolved.add(racing(index).ledgerId);
-        else expect(outcome.reason).toMatchObject({ code: "cost-ledger.entry-expired" });
+        else expect(outcome.reason).toMatchObject({ code: "store.ledger-entry-expired" });
       });
 
       // every entry a save resolved counts once; none refused counts
@@ -110,7 +110,7 @@ const PRUNING_CASES: readonly ContractCase<CostLedgerRepository>[] = [
       // saved again on both, after the prune: refused or held — nothing more
       for (let index = 0; index < 20; index += 1)
         await save(index).catch((error: unknown) => {
-          expect(error).toMatchObject({ code: "cost-ledger.entry-expired" });
+          expect(error).toMatchObject({ code: "store.ledger-entry-expired" });
         });
       for (const counter of counters)
         expect((await second.findUsageByCounter(counter)).spent).toBe(counted);
@@ -135,7 +135,7 @@ const PRUNING_CASES: readonly ContractCase<CostLedgerRepository>[] = [
   {
     // #817: a cutoff that is no date compares false with every entry — it would lower the mark;
     // #869: refused with the ledger's code in every store, as an invalid entry is
-    name: "#817, #869: a prune whose cutoff is no valid Date is refused (cost-ledger.cutoff-invalid), and the mark stays where it was",
+    name: "#817, #869: a prune whose cutoff is no valid Date is refused (store.ledger-cutoff-invalid), and the mark stays where it was",
     run: async ({ first, second }) => {
       const old = entry("run-1:pass-g:0", 0.25, "2026-10-18T08:00:00.000Z");
       await first.saveAll([tenantDay], [old]);
@@ -144,7 +144,7 @@ const PRUNING_CASES: readonly ContractCase<CostLedgerRepository>[] = [
 
       for (const cutoff of invalid)
         await expect(first.deleteByMadeAtBefore(cutoff as Date)).rejects.toMatchObject({
-          code: "cost-ledger.cutoff-invalid",
+          code: "store.ledger-cutoff-invalid",
           reason: `the cutoff is no valid Date: ${String(cutoff)}`,
         });
       await expect(second.saveAll([tenantDay], [old])).rejects.toMatchObject(

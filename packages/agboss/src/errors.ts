@@ -110,14 +110,6 @@ export * from "./flow/runtime/pause-expired-error.js";
 export { NotPausedError } from "./run/resume-agent.js";
 export { ModelKind } from "./llm/decision-errors.js";
 export { ApplicationStoppingError } from "./core/errors.js";
-export {
-  CostLedgerCutoffInvalidError,
-  type CostLedgerCutoffInvalidErrorOptions,
-  CostLedgerEntryExpiredError,
-  CostLedgerEntryInvalidError,
-  type CostLedgerEntryExpiredErrorOptions,
-  type CostLedgerEntryInvalidErrorOptions,
-} from "./finops/ledger-mark.js";
 export { cancelFencedErrorOf } from "./app/handed-over.js";
 export {
   ExecutionCancelFencedError,

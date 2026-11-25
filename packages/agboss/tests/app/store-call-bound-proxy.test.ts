@@ -1,3 +1,5 @@
+import type { StoreOutcomeUnknown } from "../../src/infrastructure/store-call-timeout.js";
+import { StoreError } from "../../src/core/error-families/store-errors.js";
 import { fencedRefusalOf } from "../../src/app/lease-lost.js";
 import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 /**
@@ -12,9 +14,7 @@ import type { FrameLease } from "../../src/flow/context/frame.js";
 import {
   ExecutionCancelFencedError,
   ExecutionLeaseLostError,
-  StoreCallTimeoutError,
   StoreOutcomeSource,
-  StoreOutcomeUnknownError,
 } from "../../src/index.js";
 import { VirtualClock } from "../../src/testing/index.js";
 import { seconds } from "../../src/units/index.js";
@@ -34,13 +34,13 @@ class Ledger {
 
 /** What a lease says to the proxy, and what the proxy did to it. */
 interface FakeLease extends FrameLease {
-  readonly abandoned: StoreOutcomeUnknownError[];
+  readonly abandoned: StoreOutcomeUnknown[];
   readonly lose: (reason: Error) => void;
 }
 
 function fakeLease(left: number): FakeLease {
   const lost = new AbortController();
-  const abandoned: StoreOutcomeUnknownError[] = [];
+  const abandoned: StoreOutcomeUnknown[] = [];
   return {
     ...{ tenantId: "acme", leaseExecutionId: "root-1", scopeKey: "acme:root-1", token: 1 },
     ...{ trustedUntil: 0, isYielded: false, left, signal: lost.signal, abandoned },
@@ -84,7 +84,7 @@ afterEach(() => {
   unhandled.length = 0;
 });
 
-const commandTimeout = new StoreCallTimeoutError({
+const commandTimeout = new StoreError.CallTimeout({
   store: "Ledger",
   operation: "read",
   timeout: seconds(10),
@@ -92,7 +92,7 @@ const commandTimeout = new StoreCallTimeoutError({
 });
 
 describe("#928 AC1: what a store's own error becomes", () => {
-  it("AC1: a Command StoreCallTimeoutError from a store under a lease is a hand-over", async () => {
+  it("AC1: a Command StoreError.CallTimeout from a store under a lease is a hand-over", async () => {
     const { ledger, store } = boundOn(new VirtualClock());
     const lease = fakeLease(seconds(20));
     const call = rejectionOf(leaseScope(lease, () => store.read()));
@@ -137,8 +137,8 @@ describe("#928 AC1: what a late or a never answer does", () => {
     const lateAnswer = rejectionOf(store.read());
     const lateFailure = rejectionOf(store.read());
     await clock.advance(seconds(15));
-    expect(await lateAnswer).toBeInstanceOf(StoreCallTimeoutError);
-    expect(await lateFailure).toBeInstanceOf(StoreCallTimeoutError);
+    expect(await lateAnswer).toBeInstanceOf(StoreError.CallTimeout);
+    expect(await lateFailure).toBeInstanceOf(StoreError.CallTimeout);
 
     ledger.asked[0]?.(Promise.resolve("too late"));
     ledger.asked[1]?.(Promise.reject(new Error("too late too")));
@@ -152,7 +152,7 @@ describe("#928 AC1: what a late or a never answer does", () => {
     const { ledger, store, entries, counted } = boundOn(clock);
     const call = rejectionOf(store.read());
     await clock.advance(seconds(15));
-    expect(await call).toBeInstanceOf(StoreCallTimeoutError);
+    expect(await call).toBeInstanceOf(StoreError.CallTimeout);
     expect(entries.map((entry) => entry.code)).toEqual(["store.call-timeout"]);
     expect(counted).toHaveLength(1);
 
@@ -177,7 +177,7 @@ describe("#928 AC1: what a late or a never answer does", () => {
     const timedOut = counted.length;
 
     // the answer that comes late: the transport's unknown outcome, after the hand-over
-    const late = new StoreOutcomeUnknownError({
+    const late = new StoreError.OutcomeUnknown({
       ...{ store: "Ledger", operation: "read", source: StoreOutcomeSource.Transport },
       cause: new Error("connection reset"),
     });

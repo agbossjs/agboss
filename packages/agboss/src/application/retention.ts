@@ -39,7 +39,7 @@ export interface RetentionOptions {
    * An entry of the cost ledger after its spend was made (#771, `CostLedgerRepository`): every
    * tallied spend is an entry under its `ledgerId` so that a write retried after a lost answer
    * counts once; older entries are pruned (the counters never), and a write retried later than this
-   * is refused (`CostLedgerEntryExpiredError`), never counted twice. Above the lease. Default
+   * is refused (`StoreError.LedgerEntryExpired`), never counted twice. Above the lease. Default
    * `hours(24)`.
    */
   readonly costLedgerEntries?: Milliseconds;

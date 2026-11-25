@@ -4,13 +4,13 @@
  * pause row reads through it too, so its tests catch a removal as well, but this one names it). Also
  * the answer-log entry and the kept history record a store parsed. The rows are 0.1.1's.
  */
+import { StoreError } from "../../src/core/error-families/store-errors.js";
 import { describe, expect, it } from "vitest";
 import { PauseRespondent } from "../../src/index.js";
 import {
   executionHistoryRecordOfJson,
   pauseAnswerRecordOfValue,
   pauseRecordOfJson,
-  StoredNamesUnreadableError,
 } from "../../src/stores/index.js";
 import { answerLogEntry, historyRecord, historyRecordWith } from "./sqlite/stored-rows.fixtures.js";
 
@@ -95,7 +95,7 @@ describe("a store's parsed JSON is read through the core", () => {
   ])("%s is unreadable: its id and the field", (_name, change, field) => {
     const read = (): unknown => pauseRecordOfJson({ ...PAUSE, ...change });
 
-    expect(read).toThrow(StoredNamesUnreadableError);
+    expect(read).toThrow(StoreError.UnreadableRecord);
     expect(read).toThrow(new RegExp(`pauseId p1.*${field}`));
     expect(read).not.toThrow(/sk-live-PLANTED/);
   });
@@ -120,7 +120,7 @@ describe("0.1.0 is refused, never defaulted", () => {
     } catch (thrown) {
       error = thrown;
     }
-    expect(error).toBeInstanceOf(StoredNamesUnreadableError);
+    expect(error).toBeInstanceOf(StoreError.UnreadableRecord);
     if (!(error instanceof Error)) throw new TypeError("nothing was thrown");
     expect(error.message).toContain(field);
   };

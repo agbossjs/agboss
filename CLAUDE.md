@@ -2854,12 +2854,12 @@ const readiness: HealthReport = await app.checkReadiness();
   `@DatabaseStorage({ ledgerEntriesTtl })` — required, above the lease (`Ttl.Forever` never prunes),
   `[storage.ttl-invalid]` — through `deleteByMadeAtBefore(cutoff)`,
   which raises the store's pruning mark; a save of an entry made before the mark that the store does
-  not hold is refused, `CostLedgerEntryExpiredError`, nothing added and the pass's reads failing
+  not hold is refused, `StoreError.LedgerEntryExpired`, nothing added and the pass's reads failing
   with it, so a retry that late never counts twice; #817: `saveAll` takes `LedgerEntry` values
   only — a `UsageRecord` with its `ledgerId`, `madeAt: Date` and `costUsd: Usd`, every save of the
   core one, a step's end too —, a JS caller's record without them refused,
-  `CostLedgerEntryInvalidError`, by `assertLedgerEntries` that every store calls first — a prune's
-  cutoff that is no valid `Date` likewise, `CostLedgerCutoffInvalidError` by `assertLedgerCutoff`
+  `StoreError.LedgerEntryInvalid`, by `assertLedgerEntries` that every store calls first — a prune's
+  cutoff that is no valid `Date` likewise, `StoreError.LedgerCutoffInvalid` by `assertLedgerCutoff`
   (#869); a record's
   one ledger state is `UsageRecord.ledger`, read by `ledgerMarkOf`, which also reads a state kept
   before 0.1.1). The terms (#817): **cost** is what one call cost (`costUsd`, `CostLine`,

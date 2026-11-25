@@ -3,8 +3,9 @@
  * unanswered forgetTree, kept record or audit row is an ordinary store error at 15 s, never a
  * hand-over (a hand-over there would delete `@agboss/unwinding` or release a lease too early).
  */
+import { StoreError } from "../../src/core/error-families/store-errors.js";
 import { afterEach, beforeEach, describe, expect } from "vitest";
-import { ExecutionLeaseLostError, StoreCallTimeoutError } from "../../src/index.js";
+import { ExecutionLeaseLostError } from "../../src/index.js";
 import { testWith, type WorkflowFixtures } from "../../src/testing/index.js";
 import { processHoldPoints } from "../../src/testing/faults/hold-points.js";
 import { StoreHoldPoint } from "../../src/testing/faults/store-points.js";
@@ -76,7 +77,7 @@ describe("#928 AC1 lease scopes: the cleanup after the terminal record stays out
     );
 
     // an ordinary store error at 15 s, the pass's lease released as at any end: no hand-over
-    expect(run.error).toBeInstanceOf(StoreCallTimeoutError);
+    expect(run.error).toBeInstanceOf(StoreError.CallTimeout);
     expect(unleased()).toContain("unleased call");
     expect((await rootOf(b)).status).toBe("failed");
   });

@@ -1,5 +1,6 @@
+import { StoreError } from "../../core/error-families/store-errors.js";
 import type { DatabaseSync } from "node:sqlite";
-import { StoreOutcomeSource, StoreOutcomeUnknownError } from "../store-call-timeout.js";
+import { StoreOutcomeSource } from "../store-call-timeout.js";
 import { afterFailedCommit, sqliteCodeOf } from "./sqlite-outcome.js";
 import { isWriteSql } from "./sqlite-write-sql.js";
 
@@ -19,7 +20,7 @@ const CONTROL = /^\s*(?:begin|commit|end|rollback|savepoint|release)\b/i;
  *   (`connection.transaction` joins it as a savepoint); reads before the first write take no lock.
  * - The guard under it: `total_changes()` before the try and after a busy answer. A busy answer
  *   after rows changed (a write path that skipped the attempt) is never retried — the call would
- *   repeat that write — it fails with `StoreOutcomeUnknownError`.
+ *   repeat that write — it fails with `StoreError.OutcomeUnknown`.
  * The attempt is the synchronous part of the operation: the repositories' statements run with no
  * `await` between them (the file's mutex relies on the same), so the transaction ends when the
  * operation returns.
@@ -110,7 +111,7 @@ export class CleanAttempt {
   /** A busy answer after rows changed outside the attempt's transaction: never retried. */
   #guarded(error: unknown, before: number): unknown {
     if (sqliteCodeOf(error) !== SQLITE_BUSY || this.#totalChanges() === before) return error;
-    return new StoreOutcomeUnknownError({
+    return new StoreError.OutcomeUnknown({
       store: "SqliteConnection",
       operation: "write",
       source: StoreOutcomeSource.Transport,
@@ -136,7 +137,7 @@ export function joinedTransaction<TResult>(database: DatabaseSync, work: () => T
  * `work` in one `BEGIN IMMEDIATE` transaction: the write lock is taken first, so of two connections
  * one waits (up to the busy timeout) and each sees the other's committed rows. Rolled back when
  * `work` throws. `work` is synchronous — nothing else runs on this connection meanwhile. A COMMIT
- * that fails is `StoreOutcomeUnknownError` unless SQLite leaves the transaction open (#1017).
+ * that fails is `StoreError.OutcomeUnknown` unless SQLite leaves the transaction open (#1017).
  */
 export function inImmediateTransaction<TResult>(
   database: DatabaseSync,

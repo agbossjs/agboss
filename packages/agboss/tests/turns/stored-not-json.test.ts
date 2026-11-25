@@ -1,8 +1,9 @@
+import { StoreError } from "../../src/core/error-families/store-errors.js";
 import { usd } from "../../src/units/index.js";
 /**
  * #1194 (#1166, #1121, #906 D4-b): the SQLite Turn store reads its stored texts — a turn's task,
  * answer, stop reason, route and steps, a summary's text — with `parsedStoredJson`: a row whose text
- * is no JSON is the coded `StoredNamesUnreadableError` (`code: "stored.unreadable"`, the record, the
+ * is no JSON is the coded `StoreError.UnreadableRecord` (`code: "store.unreadable-record"`, the record, the
  * row's ids) and quotes no stored text, not in the message, the stack or the cause. A column that
  * goes back to a bare `JSON.parse` fails its cases: the parser's `SyntaxError` quotes the planted
  * secret and has no code.
@@ -13,7 +14,6 @@ import { join } from "node:path";
 import { inspect } from "node:util";
 import { DatabaseSync } from "node:sqlite";
 import { describe, expect, it } from "vitest";
-import { StoredNamesUnreadableError } from "../../src/infrastructure/stored-step.js";
 import { createSqliteTurnStore } from "../../src/turns/index.js";
 
 const SECRET = "ssn-078-05-1194";
@@ -83,8 +83,8 @@ async function rejection(read: () => Promise<unknown>): Promise<unknown> {
 
 /** What an unreadable refusal must be: coded, named, and without any stored text. */
 function expectRefusal(error: unknown, record: string, ids: string): void {
-  expect(error).toBeInstanceOf(StoredNamesUnreadableError);
-  expect(error).toMatchObject({ code: "stored.unreadable", record, ids });
+  expect(error).toBeInstanceOf(StoreError.UnreadableRecord);
+  expect(error).toMatchObject({ code: "store.unreadable-record", record, ids });
   expect((error as Error).cause).toBeInstanceOf(SyntaxError);
   const shown = inspect(error, { depth: 10 });
   expect(shown).not.toContain(SECRET);
@@ -120,8 +120,8 @@ describe("#1194: a stored turn text that is no JSON is unreadable, not a SyntaxE
       const error = await rejection(() => store.latestSummaries("default", threadId, "c", 1));
       store.close();
 
-      expect(error).toBeInstanceOf(StoredNamesUnreadableError);
-      expect(error).toMatchObject({ code: "stored.unreadable", record: "turn summary text" });
+      expect(error).toBeInstanceOf(StoreError.UnreadableRecord);
+      expect(error).toMatchObject({ code: "store.unreadable-record", record: "turn summary text" });
       expect(inspect(error, { depth: 10 })).not.toContain(SECRET);
     });
   });

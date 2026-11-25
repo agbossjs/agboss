@@ -2,13 +2,13 @@
  * #906 AC1: each exported error's documented options (without `cause`), typed by its constructor —
  * `tsc` checks them — and keyed by the class's name. Part two: `error-options.fixtures-flow.ts`.
  */
+import { StoreError } from "../../src/core/error-families/store-errors.js";
 import * as root from "../../src/index.js";
 import * as stores from "../../src/stores/index.js";
 import * as models from "../../src/models/index.js";
 import { ModelKind } from "../../src/llm/decision-errors.js";
 import { seconds } from "../../src/units/index.js";
 import { ModelFailure } from "../../src/models/model-failure.js";
-import { StoredNamesUnreadableError } from "../../src/infrastructure/stored-step.js";
 import { fx } from "./error-options.fx.js";
 import { flowFixtures } from "./error-options.fixtures-flow.js";
 
@@ -35,19 +35,8 @@ export const fixtures: Readonly<Record<string, object>> = Object.fromEntries([
     token: 2,
     effect: "charge",
   }),
-  fx(StoredNamesUnreadableError, { record: "pause", ids: "pauseId p1", fields: "respondent" }),
+  fx(StoreError.UnreadableRecord, { record: "pause", ids: "pauseId p1", fields: "respondent" }),
   fx(root.ExecutionLeaseLostError, { rootExecutionId: "root-1" }),
-  fx(root.StoreOutcomeUnknownError, {
-    store: "PgFencedEffectRepository",
-    operation: "runOnce",
-    source: root.StoreOutcomeSource.Transport,
-  }),
-  fx(root.StoreCallTimeoutError, {
-    store: "PgFencedEffectRepository",
-    operation: "runOnce",
-    source: root.StoreOutcomeSource.Command,
-    timeout: seconds(10),
-  }),
   fx(root.ExecutionCancelFencedError, {
     scopeKey: "acme:root-1",
     tenantId: "acme",
@@ -56,9 +45,6 @@ export const fixtures: Readonly<Record<string, object>> = Object.fromEntries([
     token: 2,
     effect: "charge",
   }),
-  fx(root.CostLedgerCutoffInvalidError, { reason: "not a Date" }),
-  fx(root.CostLedgerEntryExpiredError, { ledgerIds: ["l-1"], prunedBefore: new Date(0) }),
-  fx(root.CostLedgerEntryInvalidError, { index: 0, reason: "no id" }),
   fx(stores.InvalidA2APageTokenError, {}),
   fx(root.NotPausedError, { message }),
   fx(models.ModelProviderFailureError, { failure: ModelFailure.Timeout, retryAfter: seconds(1) }),

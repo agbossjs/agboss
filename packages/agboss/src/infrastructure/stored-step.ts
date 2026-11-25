@@ -1,9 +1,6 @@
+import { StoreError } from "../core/error-families/store-errors.js";
 import { z } from "zod";
-import {
-  StoredNamesUnreadableError,
-  type StoredNamesUnreadableErrorOptions,
-  parsedStoredJson,
-} from "../core/stored-json.js";
+import { parsedStoredJson } from "../core/stored-json.js";
 import { ComponentKind, type ComponentRecord } from "../flow/runtime/records.js";
 import type { StepRecord } from "../flow/context/execution-context.js";
 import type { PauseAnswerRecord } from "../flow/runtime/execution-record.js";
@@ -57,7 +54,7 @@ export const StoredTrailEntry = z
 
 // The error and the text parser live in core (#1194: the turn store reads its texts with them and
 // may import nothing above core); every importer of this module keeps its path.
-export { StoredNamesUnreadableError, type StoredNamesUnreadableErrorOptions, parsedStoredJson };
+export { parsedStoredJson };
 
 /** A component record as JSON stored it (`undefined` hashes are left out by JSON): every hash present. */
 export const StoredComponent = z
@@ -119,7 +116,7 @@ export function readStored<S extends z.ZodType>(
   const parsed = schema.safeParse(value);
   if (parsed.success) return parsed.data;
   const ids = idsOf(value, idKeys);
-  throw new StoredNamesUnreadableError({
+  throw new StoreError.UnreadableRecord({
     record: what,
     ids,
     // what an error names instead of the value (#906 D4)

@@ -683,7 +683,7 @@ handed unchanged — a model's or a tool's answer may hold a NUL character (U+00
 PostgreSQL's `jsonb` and `text` reject: keep JSON as text there (`\u0000` is an escape in it), as
 the core's SQLite record store keeps free text (#521; each contract suite has a NUL case). A ledger
 (#817) takes `LedgerEntry` values only — calls `assertLedgerEntries(entries)` first
-(`CostLedgerEntryInvalidError` for a JS caller's record without `ledgerId`, a `madeAt` `Date` or a
+(`StoreError.LedgerEntryInvalid` for a JS caller's record without `ledgerId`, a `madeAt` `Date` or a
 `costUsd` amount), refuses what `expiredEntriesOf(entries, prunedBefore, isHeld)` names, adds what
 `unrecordedEntriesOf(entries, isNew)` keeps (dates are `Date`, to the millisecond) and sums it with
 the core's `totalCost(entries)` (`Usd`); `deleteByMadeAtBefore(cutoff)` prunes. A store imports

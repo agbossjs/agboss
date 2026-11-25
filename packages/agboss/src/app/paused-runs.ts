@@ -141,7 +141,7 @@ export const encodePausedRun = (value: unknown): string =>
 /**
  * The run `encodePausedRun` wrote, or why it is refused.
  * `ids` are the store's own keys of the row: text that is not JSON names no id of its own. A text that
- * is no JSON is `StoredNamesUnreadableError` (#1121), as a value that fails the schema is.
+ * is no JSON is `StoreError.UnreadableRecord` (#1121), as a value that fails the schema is.
  */
 export function decodePausedRun(
   text: string,

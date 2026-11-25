@@ -1,9 +1,10 @@
 /**
  * #934 D1 / D2: a stored value that is not the shape 0.1.1 writes is refused — in the
  * history record (its pauses and its children's, at any depth), in the answer log and in a pause's
- * answer column alike — with `StoredNamesUnreadableError` naming the record's id and the field, never
+ * answer column alike — with `StoreError.UnreadableRecord` naming the record's id and the field, never
  * the value. Rows are inserted as a damaged file would hold them.
  */
+import { StoreError } from "../../../src/core/error-families/store-errors.js";
 import { inspect } from "node:util";
 import { describe, expect, it } from "vitest";
 import { SqliteExecutionHistoryRepository } from "../../../src/infrastructure/sqlite/sqlite-execution-history.repository.js";
@@ -11,7 +12,6 @@ import { SqliteExecutionRecordRepository } from "../../../src/infrastructure/sql
 import { SqlitePausedExecutionRepository } from "../../../src/infrastructure/sqlite/sqlite-paused-execution.repository.js";
 import { PAUSES_SCHEMA } from "../../../src/infrastructure/sqlite/sqlite-pause-schema.js";
 import { randomIdGenerator } from "../../../src/infrastructure/clock.js";
-import { StoredNamesUnreadableError } from "../../../src/infrastructure/stored-step.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
 import { applicationOn, connectionTo, temporarySqlitePath } from "../contracts/store-kinds.js";
 import {
@@ -36,7 +36,7 @@ async function refusal(read: () => unknown, id: string, field: string): Promise<
       () => new Error("it was read"),
       (thrown: unknown) => thrown,
     );
-  expect(error).toBeInstanceOf(StoredNamesUnreadableError);
+  expect(error).toBeInstanceOf(StoreError.UnreadableRecord);
   if (!(error instanceof Error)) throw new TypeError("nothing was thrown");
   expect(error.message).toContain(id);
   expect(error.message).toContain(field);

@@ -2,11 +2,11 @@
  * #1317c, review of 502ad948a: a lock wait retries an operation from a clean transaction, and no
  * SQLite path of the core fails fast under another process's lock.
  */
+import { StoreError } from "../../../src/core/error-families/store-errors.js";
 import { readdirSync, readFileSync, statSync, symlinkSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { describe, expect, it } from "vitest";
-import { StoreOutcomeUnknownError } from "../../../src/infrastructure/store-call-timeout.js";
 import { CleanAttempt } from "../../../src/infrastructure/sqlite/sqlite-attempt.js";
 import { SqliteCheckpointSaver } from "../../../src/infrastructure/sqlite/sqlite-checkpoint-saver.js";
 import { SqliteExecutionLeaseRepository } from "../../../src/infrastructure/sqlite/sqlite-execution-lease.repository.js";
@@ -132,7 +132,7 @@ describe("#1317c: a lock-wait retry starts from a clean transaction", () => {
 });
 
 describe("#1317c: the guard — a busy answer after rows changed is never retried", () => {
-  it("total_changes moved before the busy answer: StoreOutcomeUnknownError, the call is not run again", async () => {
+  it("total_changes moved before the busy answer: StoreError.OutcomeUnknown, the call is not run again", async () => {
     const path = temporarySqlitePath();
     const alias = join(dirname(path), "alias");
     symlinkSync(dirname(path), alias);
@@ -166,7 +166,7 @@ describe("#1317c: the guard — a busy answer after rows changed is never retrie
         (error: unknown) => error,
       );
 
-    expect(failed).toBeInstanceOf(StoreOutcomeUnknownError);
+    expect(failed).toBeInstanceOf(StoreError.OutcomeUnknown);
     expect(tries).toBe(1);
     expect(database.prepare("SELECT row FROM rows").all()).toEqual([{ row: "first" }]);
     database.close();

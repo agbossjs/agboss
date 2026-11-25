@@ -9,8 +9,8 @@ import type { EffectKey } from "../../infrastructure/fenced-effect.repository.js
 import { systemClock } from "../../infrastructure/clock.js";
 import { IdempotencyRunStatus } from "../../infrastructure/fenced-effect.repository.js";
 import {
+  isStoreOutcomeUnknown,
   StoreOutcomeSource,
-  StoreOutcomeUnknownError,
 } from "../../infrastructure/store-call-timeout.js";
 import { seconds } from "../../units/index.js";
 import { effectKeyForTesting } from "../contracts/effect-key.js";
@@ -125,7 +125,7 @@ export class ConnectionResetError extends Error {
 }
 
 /**
- * `store` (a fenced-effect store class) that reads every `StoreOutcomeUnknownError` of source
+ * `store` (a fenced-effect store class) that reads every `StoreError.OutcomeUnknown` of source
  * `Transport` as an ordinary `ConnectionResetError` (#1017 S3: the classifier off): the framework
  * then fails the step and undoes what ran before it, for a charge the store holds. Named
  * `ResetAsDefinite<Store>`; it wraps the store with its hold points.
@@ -142,8 +142,7 @@ export function resetAsDefinite<TStore extends Class>(store: TStore): TStore {
         return await base.call(this, key, work);
       } catch (error) {
         const isReset =
-          error instanceof StoreOutcomeUnknownError &&
-          error.source === StoreOutcomeSource.Transport;
+          isStoreOutcomeUnknown(error) && error.source === StoreOutcomeSource.Transport;
         if (!isReset) throw error;
         throw new ConnectionResetError(`${error.message} (read as a definite failure)`, {
           cause: error,

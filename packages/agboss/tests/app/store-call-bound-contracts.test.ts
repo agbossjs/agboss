@@ -3,9 +3,10 @@
  * have taken effect, and what is done next (a retry, a resend, the sweep) finds the store as it is
  * and moves it once. Each case lets the real store apply the call and then never answers.
  */
+import { StoreError } from "../../src/core/error-families/store-errors.js";
 import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { ExecutionCancelFencedError, PauseStatus, StoreCallTimeoutError } from "../../src/index.js";
+import { ExecutionCancelFencedError, PauseStatus } from "../../src/index.js";
 import { ExecutionCancelledError } from "../../src/core/errors.js";
 import { STORE_CALL_BOUND } from "../../src/app/lease-fence.js";
 import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
@@ -73,7 +74,7 @@ describe("#928 AC2: a pause resolve from the answer API", () => {
       await clock.advance(STORE_CALL_BOUND);
       const error = await first;
 
-      expect(error).toBeInstanceOf(StoreCallTimeoutError);
+      expect(error).toBeInstanceOf(StoreError.CallTimeout);
       expect(error).toMatchObject({
         code: "store.call-timeout",
         operation: "resolveByTenantIdAndPauseId",
@@ -127,7 +128,7 @@ describe("#928 AC2: requestCancel", () => {
       await first.clock.advance(STORE_CALL_BOUND);
       const error = await unanswered;
 
-      expect(error).toBeInstanceOf(StoreCallTimeoutError);
+      expect(error).toBeInstanceOf(StoreError.CallTimeout);
       expect(error).toMatchObject({ operation: "requestCancel", code: "store.call-timeout" });
       const [written] = cancelMarksOf(first);
       // the retry (another instance): the mark is there, written again as it is

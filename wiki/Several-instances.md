@@ -113,7 +113,7 @@ export class JobScoutDatabaseStorage {}
   the container creates it — project code never constructs it.
 - **Which errors are of unknown outcome** (#1017). SQLite answers in the process, so a statement
   either ran or threw; the one window is the commit. A COMMIT that fails with anything but
-  `SQLITE_BUSY` or `SQLITE_CONSTRAINT` (a deferred foreign key) is `StoreOutcomeUnknownError`
+  `SQLITE_BUSY` or `SQLITE_CONSTRAINT` (a deferred foreign key) is `StoreError.OutcomeUnknown`
   (`source: Transport`, the cause the driver's error): `SQLITE_IOERR` and its extended codes
   (`_FSYNC`, `_WRITE`, …), `SQLITE_FULL`, `SQLITE_NOMEM`, `SQLITE_INTERRUPT`, `SQLITE_PROTOCOL`, any
   other — the journal's or the WAL's sync may have failed before or after the commit point, and
@@ -1022,7 +1022,7 @@ takeover or is fenced after it. The step is a hand-over: no `.onError`, no undo,
 (P5). A lease renewal that does not answer is **not** a hand-over: the holder goes on while its
 fence holds: a renewal is bounded at 5 s and the renewals run on a fixed cadence of a quarter of the lease, 7.5 s (one still in flight at its tick is skipped), so of the three tries inside the 29 s of trust any two may fail and the third confirm, and three in a row cost the lease — and `fence.renewNow()` before an
 outbound send is the one renewal that hands over. Other calls (the sweep's look, a child's claim,
-`acquire`, `requestCancel`) fail with `StoreCallTimeoutError` after 15 s and run again at the next
+`acquire`, `requestCancel`) fail with `StoreError.CallTimeout` after 15 s and run again at the next
 period. [Guarantees](Guarantees) P8, A19.
 
 ## Recovery

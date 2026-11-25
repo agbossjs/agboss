@@ -1,5 +1,5 @@
+import { StoreError } from "../../../core/error-families/store-errors.js";
 import { durableErrorOf, recordedErrorOf } from "../../../core/error-record.js";
-import { StoredNamesUnreadableError } from "../../../core/stored-json.js";
 import { parsedStoredJson } from "../../../infrastructure/stored-step.js";
 
 /**
@@ -14,12 +14,12 @@ import { parsedStoredJson } from "../../../infrastructure/stored-step.js";
 /** An error as the queue row's `failure` text: its durable record (#598). */
 export const failureTextOf = (error: unknown): string => JSON.stringify(durableErrorOf(error));
 
-/** The error a row's `failure` text names, rebuilt from its record; `StoredNamesUnreadableError` for any other text. */
+/** The error a row's `failure` text names, rebuilt from its record; `StoreError.UnreadableRecord` for any other text. */
 export function remoteFailureOf(text: string | undefined): Error {
   const value: unknown =
     text === undefined ? undefined : parsedStoredJson({ what: "child failure", text });
   const recorded = recordedErrorOf(value);
   if (recorded === undefined)
-    throw new StoredNamesUnreadableError({ record: "child failure", ids: "", fields: "failure" });
+    throw new StoreError.UnreadableRecord({ record: "child failure", ids: "", fields: "failure" });
   return recorded;
 }

@@ -3,8 +3,8 @@
  * outside the lease scope: a call there that never answers is an unleased store error at 15 s, never
  * a hand-over.
  */
+import { StoreError } from "../../src/core/error-families/store-errors.js";
 import { beforeEach, describe, expect } from "vitest";
-import { StoreCallTimeoutError } from "../../src/index.js";
 import { ExecutionLeaseLostError } from "../../src/index.js";
 import { STORE_CALL_BOUND } from "../../src/app/lease-fence.js";
 import { testWith } from "../../src/testing/index.js";
@@ -53,7 +53,7 @@ describe("#928 AC1: the post-terminal cleanup is unleased", () => {
       await passLive(clock, seconds(15));
       const error = await failure;
 
-      expect(error).toBeInstanceOf(StoreCallTimeoutError);
+      expect(error).toBeInstanceOf(StoreError.CallTimeout);
       expect(error).not.toBeInstanceOf(ExecutionLeaseLostError);
       expect(error).toMatchObject({ operation: "deleteAllInTree", timeout: STORE_CALL_BOUND });
       const timeouts = logged.filter((entry) => entry.code === "store.call-timeout");

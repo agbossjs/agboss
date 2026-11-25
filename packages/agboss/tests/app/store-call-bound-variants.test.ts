@@ -3,9 +3,10 @@
  * store never answers: a tree's key (`saveIfAbsentInTree`) and a pause's `findOrCreateByStepKey`
  * (the next pass finds the pause the first one created: same id, no second question).
  */
+import { StoreError } from "../../src/core/error-families/store-errors.js";
 import { describe, expect, it } from "vitest";
 import { leaseScope } from "../../src/app/lease-scope.js";
-import { ExecutionLeaseLostError, StoreCallTimeoutError } from "../../src/index.js";
+import { ExecutionLeaseLostError } from "../../src/index.js";
 import { ExecutionTreeRepository } from "../../src/infrastructure/execution-tree.repository.js";
 import { PausedExecutionRepository } from "../../src/infrastructure/paused-execution.repository.js";
 import { seconds } from "../../src/units/index.js";
@@ -32,7 +33,7 @@ describe("#928 AC1: a call under a lease the store never answers hands over", ()
       const error = await outcome;
 
       expect(error).toBeInstanceOf(ExecutionLeaseLostError);
-      expect(error).toMatchObject({ cause: expect.any(StoreCallTimeoutError) });
+      expect(error).toMatchObject({ cause: expect.any(StoreError.CallTimeout) });
       expect(abandoned).toHaveLength(1);
       expect(reported.warned).toEqual(["store.call-timeout"]);
     });

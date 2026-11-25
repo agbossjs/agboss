@@ -122,7 +122,7 @@ And what no setting can enforce — the assumptions of [Guarantees](Guarantees) 
   every single-command write of every store outside a transaction (not only a lease's), and every
   transaction's commit. A write inside a transaction is left as it is: its commit decides. Only an
   error that proves the write was not applied is known and rethrown as it is; every other one
-  rejects with `StoreOutcomeUnknownError` (source `Transport`): under a lease the holder hands the
+  rejects with `StoreError.OutcomeUnknown` (source `Transport`): under a lease the holder hands the
   tree over, the next one reads what was left, and the work is never run again for it. The client's
   `socketTimeoutMS` is forced to 300 s, so that a retry always falls inside the server's receipt of
   the first attempt.

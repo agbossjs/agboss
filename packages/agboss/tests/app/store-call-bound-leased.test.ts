@@ -3,12 +3,9 @@
  * lease's loss or at the trust's end (fixed at its start), never by the bound of an unleased call;
  * a call that hangs with its lease ends at the loss.
  */
+import { StoreError } from "../../src/core/error-families/store-errors.js";
 import { afterEach, beforeEach, describe, expect } from "vitest";
-import {
-  ExecutionLeaseLostError,
-  StoreCallTimeoutError,
-  StoreOutcomeSource,
-} from "../../src/index.js";
+import { ExecutionLeaseLostError, StoreOutcomeSource } from "../../src/index.js";
 import { testWith } from "../../src/testing/index.js";
 import { processHoldPoints } from "../../src/testing/faults/hold-points.js";
 import { reportHeldOperations } from "../../src/testing/faults/held-stores.js";
@@ -78,7 +75,7 @@ describe("#928 AC1: the bound of a call under a lease", () => {
       const error = await call;
       expect(error).toBeInstanceOf(ExecutionLeaseLostError);
       // the lease's own loss, not the bound's hand-over
-      expect(causeOf(error)).not.toBeInstanceOf(StoreCallTimeoutError);
+      expect(causeOf(error)).not.toBeInstanceOf(StoreError.CallTimeout);
       expect(clock.now().getTime() - startedAt).toBeLessThan(TRUST);
       expect(logged.filter((entry) => entry.code === "store.call-timeout")).toEqual([]);
     },
@@ -100,8 +97,8 @@ describe("#928 AC1: the bound of a call under a lease", () => {
       await until(isSettled, "the call handed over at its own bound");
 
       const cause = causeOf(await call);
-      expect(cause).toBeInstanceOf(StoreCallTimeoutError);
-      if (!(cause instanceof StoreCallTimeoutError)) throw new Error("not a timeout");
+      expect(cause).toBeInstanceOf(StoreError.CallTimeout);
+      if (!(cause instanceof StoreError.CallTimeout)) throw new Error("not a timeout");
       expect(cause.timeout).toBeGreaterThan(TRUST - seconds(1));
       expect(cause.timeout).toBeLessThanOrEqual(TRUST);
     },

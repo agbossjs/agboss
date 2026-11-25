@@ -3,6 +3,7 @@
  * guarantee the way a hand-written store would, so the published suites are shown to bite —
  * `naive-guarantees.contract-fixture.ts` runs them, `guarantees-sabotage.test.ts` reads the failures.
  */
+import { StoreError } from "../../../src/core/error-families/store-errors.js";
 import {
   accountKeyOf,
   assertLedgerEntries,
@@ -18,7 +19,6 @@ import {
   type BudgetLimit,
   type BudgetUsage,
 } from "../../../src/infrastructure/cost-ledger.repository.js";
-import { CostLedgerEntryExpiredError } from "../../../src/finops/ledger-mark.js";
 import { totalCost, totalTokens } from "../../../src/finops/usage.js";
 import {
   treeKeyOf,
@@ -228,7 +228,7 @@ abstract class BreakableCostLedger extends CostLedgerRepository {
     const expired = expiredEntriesOf(named, this.#prunedBefore, (id) => this.#entries.has(id));
     if (expired.length > 0 && this.#prunedBefore !== undefined)
       return Promise.reject(
-        new CostLedgerEntryExpiredError({ ledgerIds: expired, prunedBefore: this.#prunedBefore }),
+        new StoreError.LedgerEntryExpired({ ledgerIds: expired, prunedBefore: this.#prunedBefore }),
       );
     const added = this.#addedOf(records);
     const spent = totalCost(added);

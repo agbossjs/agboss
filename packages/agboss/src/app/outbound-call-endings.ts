@@ -2,7 +2,7 @@ import { errorRecordOf } from "../core/error-record.js";
 import { cancelFencedErrorOf } from "./handed-over.js";
 import {} from "./lease-lost.js";
 import { ExecutionError } from "../core/error-families/run-errors.js";
-import { StoreOutcomeUnknownError } from "../infrastructure/store-call-timeout.js";
+import { isStoreOutcomeUnknown } from "../infrastructure/store-call-timeout.js";
 import { parsedStoredJson } from "../infrastructure/stored-step.js";
 import { OutboundCallEventOutcome } from "../infrastructure/execution-audit-log.repository.js";
 import {
@@ -107,7 +107,7 @@ export async function fencedEnd<TRequest, TResult>(
       run.parts.log.error("outbound-call.answered-after-hand-over", text, subjectOf(run));
     }
     // the store did not answer the write (#928): sent, but unrecorded — the next holder reconciles
-    if (error instanceof Error && error.cause instanceof StoreOutcomeUnknownError) {
+    if (error instanceof Error && isStoreOutcomeUnknown(error.cause)) {
       const { name } = run.key;
       const { operation, target } = run.options;
       const text = `outbound call "${name}" (${operation} on ${target}) attempt ${String(attempt)} was sent, but its end was not recorded (${error.cause.store}.${error.cause.operation}, outcome unknown): the intent stays as it is and the next holder reconciles it — check ${target} if it was sent again`;

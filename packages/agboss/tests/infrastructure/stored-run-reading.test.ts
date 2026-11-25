@@ -3,9 +3,10 @@
  * in the shape 0.1.1 writes it: `turnId`, a pending approval with `step`, `respondent` and `kind`, every
  * usage naming its provider, a launch's group by `targets`. A wrong-typed field is refused by name.
  */
+import { StoreError } from "../../src/core/error-families/store-errors.js";
 import { inspect } from "node:util";
 import { describe, expect, it } from "vitest";
-import { pausedRunOfValue, StoredNamesUnreadableError } from "../../src/stores/index.js";
+import { pausedRunOfValue } from "../../src/stores/index.js";
 import { pausedRun as RUN } from "./sqlite/stored-rows.fixtures.js";
 
 const SECRET = "sk-live-PLANTED-SECRET-934";
@@ -75,7 +76,7 @@ describe("a paused run is read whole", () => {
       error = thrown;
     }
 
-    expect(error).toBeInstanceOf(StoredNamesUnreadableError);
+    expect(error).toBeInstanceOf(StoreError.UnreadableRecord);
     if (!(error instanceof Error)) throw new TypeError("nothing was thrown");
     expect(error.message).toContain("threadId t-1, runId run-1");
     expect(error.message).toContain(field);
@@ -122,7 +123,7 @@ describe("a paused run is read whole", () => {
       error = thrown;
     }
 
-    expect(error).toBeInstanceOf(StoredNamesUnreadableError);
+    expect(error).toBeInstanceOf(StoreError.UnreadableRecord);
     if (!(error instanceof Error)) throw new TypeError("nothing was thrown");
     expect(error.message).toContain(field);
     expect(inspect(error, { depth: 12 })).not.toContain(SECRET);

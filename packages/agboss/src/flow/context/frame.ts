@@ -1,10 +1,10 @@
+import type { StoreOutcomeUnknown } from "../../infrastructure/store-call-timeout.js";
 import type { HandledErrorRecord } from "../runtime/child-records.js";
 import type { ExecutionCancelFencedError } from "../../app/lease-lost.js";
 import type { InterruptReason } from "../../app/interrupt-types.js";
 import { interruptCleanups, type InterruptCleanups } from "./interrupt-cleanup.js";
 import { interruptedOf, withReport } from "./frame-interrupt.js";
 import type { InterruptFenced } from "../../app/lease-stopped.js";
-import type { StoreOutcomeUnknownError } from "../../infrastructure/store-call-timeout.js";
 import type { FingerprintKeys } from "../../infrastructure/fenced-effect-key.js";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { registerSpanTraceSource } from "../../core/diagnostics/span-trace.js";
@@ -143,7 +143,7 @@ export interface FrameLease {
    * A store call under the lease did not answer, its outcome unknown (#928): the holder stops as if
    * its lease expired — no release, the lease expires in the store — and the next holder reconciles.
    */
-  abandon?(cause: StoreOutcomeUnknownError): Promise<void>;
+  abandon?(cause: StoreOutcomeUnknown): Promise<void>;
 }
 
 /** A child's parent (#263): its execution and the step that launched the child. */

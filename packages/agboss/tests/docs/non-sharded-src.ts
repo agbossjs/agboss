@@ -506,6 +506,8 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
       "src/core/error-families/run-error-messages.ts",
       "src/core/error-families/run-errors.ts",
       "src/core/error-families/step-errors.ts",
+      "src/core/error-families/store-error-messages.ts",
+      "src/core/error-families/store-error-of.ts",
       "src/core/error-families/store-errors.ts",
     ],
   ),

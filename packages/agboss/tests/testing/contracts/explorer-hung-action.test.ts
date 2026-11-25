@@ -3,6 +3,7 @@
  * `acquire` never answers fails its case within the bound (15 s; a shorter one here, the real time
  * it takes), naming the action — never a run that hangs to the suite's own timeout.
  */
+import { StoreError } from "../../../src/core/error-families/store-errors.js";
 import { describe, expect, it } from "vitest";
 import { STORE_CALL_BOUND } from "../../../src/app/lease-fence.js";
 import { InMemoryDatabase } from "../../../src/infrastructure/in-memory-database.js";
@@ -57,7 +58,7 @@ describe("#928 AC1: the explorer fails a hung action fast", () => {
     expect(run.observer.violations).toHaveLength(1);
     expect(run.observer.violations[0]).toMatchObject({ invariant: ExplorerInvariant.StoreError });
     expect(run.observer.violations[0]?.message).toMatch(
-      /instance-1 acquire tree-1 threw StoreCallTimeoutError: .*did not answer within 150 ms/u,
+      /instance-1 acquire tree-1 threw StoreError.CallTimeout: .*did not answer within 150 ms/u,
     );
     await run.close();
   });

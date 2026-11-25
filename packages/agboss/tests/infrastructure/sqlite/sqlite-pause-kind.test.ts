@@ -2,8 +2,8 @@
  * 0.1.1 (the pause contract): a pause record stores its `kind` and names its `step`; the reader never
  * infers a kind — a row without one fails its own read, naming the pause.
  */
+import { StoreError } from "../../../src/core/error-families/store-errors.js";
 import { describe, expect, it } from "vitest";
-import { StoredNamesUnreadableError } from "../../../src/infrastructure/stored-step.js";
 import { PauseKind } from "../../../src/index.js";
 import { SqlitePausedExecutionRepository } from "../../../src/infrastructure/sqlite/sqlite-paused-execution.repository.js";
 import { PAUSES_SCHEMA } from "../../../src/infrastructure/sqlite/sqlite-pause-schema.js";
@@ -92,7 +92,7 @@ describe("0.1.1: the SQLite pause store reads the kind it stores", () => {
     expect(await pauses.findByTenantIdAndPauseId("default", "old")).toMatchObject({
       kind: PauseKind.Approval,
     });
-    await expect(readOf(pauses, "broken")).rejects.toThrow(StoredNamesUnreadableError);
+    await expect(readOf(pauses, "broken")).rejects.toThrow(StoreError.UnreadableRecord);
   });
 
   it("a row the migration could not read (no agent, no kind) fails its read naming the pause", async () => {

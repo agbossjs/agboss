@@ -1,3 +1,4 @@
+import { StoreError } from "../../src/core/error-families/store-errors.js";
 import { fencedRefusalOf } from "../../src/app/lease-lost.js";
 /**
  * #1017 AC1 — a store error of unknown outcome that the store itself found (a transport error after
@@ -12,9 +13,7 @@ import {
   ExecutionAuditEventKind,
   ExecutionLeaseLostError,
   IdempotencyRunStatus,
-  StoreCallTimeoutError,
   StoreOutcomeSource,
-  StoreOutcomeUnknownError,
 } from "../../src/index.js";
 import { testWith, VirtualClock } from "../../src/testing/index.js";
 import { HoldPhase, processHoldPoints } from "../../src/testing/faults/hold-points.js";
@@ -48,7 +47,7 @@ class Ledger {
   }
 }
 
-const reset = new StoreOutcomeUnknownError({
+const reset = new StoreError.OutcomeUnknown({
   ...{ store: "Ledger", operation: "read", source: StoreOutcomeSource.Transport },
   cause: new Error("read ECONNRESET"),
 });
@@ -110,7 +109,7 @@ describe("#1017 AC1: what the bound makes of a store's own unknown outcome", () 
   });
 
   it("the family is one: a timeout of the store's own and a transport error hand over alike", async () => {
-    const own = new StoreCallTimeoutError({
+    const own = new StoreError.CallTimeout({
       ...{ store: "Ledger", operation: "read", timeout: seconds(10) },
       source: StoreOutcomeSource.Command,
     });

@@ -557,7 +557,7 @@ priceUsd })` (typed by the task's input); `agboss describe` prints `asked at <ag
   `pauseId`, `executionId`, `step`, `target`, `channel?`, `respondent`, `actor`, `resolution`
   (`PauseResolution.Decided` | `Replied` | `Withdrawn` | `Cancelled`), `askedAt`, `resolvedAt`, the
   masked `decision`, `trail`. A child's own are in its `ChildExecutionRecord.pauses`. A pause record a
-  0.1.0 build wrote has no `target` and is refused (`StoredNamesUnreadableError`), never read.
+  0.1.0 build wrote has no `target` and is refused (`StoreError.UnreadableRecord`), never read.
 - **`onPauseClosed(event)`** (`ChannelPauseClosedEvent`: `pauseId`, `input`, `reason`
   (`PauseClosedReason.Answered` | `Expired` | `Cancelled` | `Withdrawn` | `TreeEnded` | `Reassigned`), `closedAt`,
   `actor?`, the masked `answer?`, `deliveryId`) is called **at least once** whenever a pause the

@@ -205,7 +205,7 @@ carries it to the people. It is a hard break — no alias, nothing to keep compi
 
 A target with several channels names a `@ChannelSelector({ target })` that picks one when a pause is
 made. An `Owner` target with no channel at all waits for `app.resume`. A stored pause, run or answer entry
-written by 0.1.0 has no `target` and is refused (`StoredNamesUnreadableError`), never read.
+written by 0.1.0 has no `target` and is refused (`StoreError.UnreadableRecord`), never read.
 
 Your own `PausedExecutionRepository` or a store of another team: pauses have a deadline, a reminder and
 mailboxes of notices now, in the same transactions as their changes — a schema change in each of the

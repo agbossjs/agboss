@@ -1,5 +1,6 @@
+import { StoreError } from "../../../src/core/error-families/store-errors.js";
 import { describe, expect, it } from "vitest";
-import { StoreOutcomeSource, StoreOutcomeUnknownError } from "../../../src/index.js";
+import { StoreOutcomeSource } from "../../../src/index.js";
 import {
   HoldPhase,
   HoldPoints,
@@ -178,7 +179,7 @@ describe("#720: a lost answer — the operation took effect, its caller hears an
       .reach({ point: "fencedEffect.write", phase: HoldPhase.After, key: "k-1" })
       .catch((thrown: unknown) => thrown);
 
-    expect(error).toBeInstanceOf(StoreOutcomeUnknownError);
+    expect(error).toBeInstanceOf(StoreError.OutcomeUnknown);
     expect(error).toMatchObject({
       operation: "fencedEffect.write",
       source: StoreOutcomeSource.Transport,

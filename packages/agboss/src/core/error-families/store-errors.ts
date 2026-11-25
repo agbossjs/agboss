@@ -1,10 +1,17 @@
+import { defineFamily, type ErrorVariant, type FamilyConstructor } from "./family.js";
+import type { StoreOutcomeSource } from "../../infrastructure/store-call-timeout.js";
+import type { Milliseconds } from "../../units/index.js";
 import {
-  defineFamily,
-  type ErrorVariant,
-  type FamilyConstructor,
-  type VariantOptions,
-} from "./family.js";
-import { AGBossError } from "../errors.js";
+  callTimeoutMessageOf,
+  ledgerCutoffInvalidMessageOf,
+  ledgerEntryExpiredMessageOf,
+  ledgerEntryInvalidMessageOf,
+  outcomeUnknownMessageOf,
+  unreadableRecordMessageOf,
+} from "./store-error-messages.js";
+import { withOf } from "./store-error-of.js";
+export type { StoreErrorOfKind, StoreErrorStatics } from "./store-error-of.js";
+import type { StoreErrorStatics } from "./store-error-of.js";
 
 /** The kinds of `StoreError`: `switch (error.kind)` is exhaustive. */
 export enum StoreErrorKind {
@@ -56,14 +63,38 @@ export type StoreError =
 /** The variants of `StoreError`, each with the facts it carries. */
 export declare namespace StoreError {
   /** The store did not say whether the write took effect. */
-  export type OutcomeUnknown = ErrorVariant<StoreErrorKind.OutcomeUnknown, "store.outcome-unknown">;
+  export type OutcomeUnknown = ErrorVariant<
+    StoreErrorKind.OutcomeUnknown,
+    "store.outcome-unknown"
+  > & {
+    /** The store class, or the connection, the call went to. */
+    readonly store: string;
+    /** The contract method, or the driver command. */
+    readonly operation: string;
+    readonly source: StoreOutcomeSource;
+  };
   /** A store call ran past its timeout. */
-  export type CallTimeout = ErrorVariant<StoreErrorKind.CallTimeout, "store.call-timeout">;
+  export type CallTimeout = ErrorVariant<StoreErrorKind.CallTimeout, "store.call-timeout"> & {
+    readonly store: string;
+    readonly operation: string;
+    readonly source: StoreOutcomeSource;
+    /** The limit the call was given. */
+    readonly timeout: Milliseconds;
+  };
   /** A stored record cannot be read. */
   export type UnreadableRecord = ErrorVariant<
     StoreErrorKind.UnreadableRecord,
     "store.unreadable-record"
-  >;
+  > & {
+    /** What was stored: `pause`, `pause answer`, `execution history record`. */
+    readonly record?: string | undefined;
+    /** The ids that name it (`pauseId p1, executionId run-1`); empty when none is readable. */
+    readonly ids?: string | undefined;
+    /** The field paths that failed (`pauses.0.respondent`) — never a value. */
+    readonly fields?: string | undefined;
+    /** The text is no JSON at all: the message says so, not "the field(s) … missing". */
+    readonly isNotJson?: boolean | undefined;
+  };
   /** The store does not match what the application declares. */
   export type Mismatch = ErrorVariant<StoreErrorKind.Mismatch, "store.mismatch">;
   /** The store holds live leases. */
@@ -113,17 +144,30 @@ export declare namespace StoreError {
   export type LedgerCutoffInvalid = ErrorVariant<
     StoreErrorKind.LedgerCutoffInvalid,
     "store.ledger-cutoff-invalid"
-  >;
+  > & {
+    /** What is wrong with the cutoff: `the cutoff is no valid Date: <what it got>`. */
+    readonly reason: string;
+  };
   /** The ledger entry is past its retention. */
   export type LedgerEntryExpired = ErrorVariant<
     StoreErrorKind.LedgerEntryExpired,
     "store.ledger-entry-expired"
-  >;
+  > & {
+    /** The refused entries' `ledgerId`s. */
+    readonly ledgerIds: readonly string[];
+    /** The store's pruning mark when it refused them. */
+    readonly prunedBefore: Date;
+  };
   /** The ledger entry is not valid. */
   export type LedgerEntryInvalid = ErrorVariant<
     StoreErrorKind.LedgerEntryInvalid,
     "store.ledger-entry-invalid"
-  >;
+  > & {
+    /** The entry's index in the save. */
+    readonly index: number;
+    /** What it lacks: `ledgerId`, `madeAt` or `costUsd`, and why. */
+    readonly reason: string;
+  };
   /** The cluster's lease could not be recorded in the database: its token is behind the lease row's, or the row is unreachable (#1321e). */
   export type ClusterLeaseBehind = ErrorVariant<
     StoreErrorKind.ClusterLeaseBehind,
@@ -131,43 +175,6 @@ export declare namespace StoreError {
   >;
   /** The store's lock stayed held by another process past the wait: nothing was applied, a retry is safe. */
   export type LockTimeout = ErrorVariant<StoreErrorKind.LockTimeout, "store.lock-timeout">;
-}
-
-/** The variant of `StoreError` of one kind. */
-export type StoreErrorOfKind<TKind extends StoreErrorKind> = Extract<
-  StoreError,
-  { readonly kind: TKind }
->;
-
-/** What the store packages build errors with: `StoreError.of(StoreErrorKind.SchemaTooNew, { … })`. */
-export interface StoreErrorStatics {
-  /** A genuine `StoreError` of `kind`: how `@agboss/postgres` & co. report without a class of their own. */
-  of<TKind extends StoreErrorKind>(
-    kind: TKind,
-    options: VariantOptions<StoreErrorOfKind<TKind>>,
-  ): StoreErrorOfKind<TKind>;
-}
-
-/** The variant's name of a kind: `"schema-too-new"` → `SchemaTooNew`. */
-const variantNameOf = (kind: StoreErrorKind): string | undefined =>
-  Object.entries(StoreErrorKind).find(([, value]) => value === kind)?.[0];
-
-/** `of` finds the variant of a kind among the family's own constructors. */
-function withOf<TConstructor extends object>(
-  constructor: TConstructor,
-): TConstructor & StoreErrorStatics {
-  function of<TKind extends StoreErrorKind>(
-    kind: TKind,
-    options: VariantOptions<StoreErrorOfKind<TKind>>,
-  ): StoreErrorOfKind<TKind> {
-    const name = variantNameOf(kind);
-    const Variant: unknown = name === undefined ? undefined : Reflect.get(constructor, name);
-    if (typeof Variant !== "function") throw new TypeError(`${kind} is not a kind of StoreError`);
-    const error: unknown = Reflect.construct(Variant, [options]);
-    if (!(error instanceof AGBossError)) throw new TypeError(`${kind} did not make an error`);
-    return error as StoreErrorOfKind<TKind>;
-  }
-  return Object.assign(constructor, { of });
 }
 
 /** `StoreError`: the family's constructor and its variants'. */
@@ -202,9 +209,9 @@ export const StoreError: FamilyConstructor<
     code: "store",
     kinds: StoreErrorKind,
     variants: {
-      OutcomeUnknown: ["the store did not say whether the write took effect"],
-      CallTimeout: ["a store call ran past its timeout"],
-      UnreadableRecord: ["a stored record cannot be read"],
+      OutcomeUnknown: [outcomeUnknownMessageOf],
+      CallTimeout: [callTimeoutMessageOf],
+      UnreadableRecord: [unreadableRecordMessageOf],
       Mismatch: ["the store does not match what the application declares"],
       LiveLeases: ["the store holds live leases"],
       SchemaMissing: ["the store has no schema"],
@@ -217,9 +224,9 @@ export const StoreError: FamilyConstructor<
       LedgerMarkMissing: ["a ledger entry has no mark"],
       LeaseKeyConflict: ["a lease key is held under another scope"],
       ObjectStorage: ["an object storage call failed"],
-      LedgerCutoffInvalid: ["the ledger's cutoff is not valid"],
-      LedgerEntryExpired: ["the ledger entry is past its retention"],
-      LedgerEntryInvalid: ["the ledger entry is not valid"],
+      LedgerCutoffInvalid: [ledgerCutoffInvalidMessageOf],
+      LedgerEntryExpired: [ledgerEntryExpiredMessageOf],
+      LedgerEntryInvalid: [ledgerEntryInvalidMessageOf],
       ClusterLeaseBehind: ["the cluster's lease is behind the database's lease row"],
       LockTimeout: ["the store's lock stayed held by another process past the wait"],
     },

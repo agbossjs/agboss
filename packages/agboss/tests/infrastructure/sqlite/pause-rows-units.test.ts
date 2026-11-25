@@ -3,8 +3,8 @@
  * pause row and a mailbox row read back, what a text that is no JSON says, a write over a row another writer
  * changed, a claim with no recipient asked of no SQL, and a mailbox claimed under a token with no end.
  */
+import { StoreError } from "../../../src/core/error-families/store-errors.js";
 import { describe, expect, it, vi } from "vitest";
-import { StoredNamesUnreadableError } from "../../../src/core/stored-json.js";
 import {
   PauseResolution,
   PauseStatus,
@@ -127,12 +127,12 @@ describe("#1356: a pause row", () => {
     const pause = unreadable({ pause: "{not json" });
     const answer = unreadable({ answer: "{not json" });
 
-    expect(pause).toBeInstanceOf(StoredNamesUnreadableError);
+    expect(pause).toBeInstanceOf(StoreError.UnreadableRecord);
     expect(pause).toHaveProperty(
       "message",
       "a stored pause is not readable (pauseId p-1): the text is not valid JSON",
     );
-    expect(answer).toBeInstanceOf(StoredNamesUnreadableError);
+    expect(answer).toBeInstanceOf(StoreError.UnreadableRecord);
     expect(answer).toHaveProperty(
       "message",
       "a stored pause answer is not readable (pauseId p-1): the text is not valid JSON",
@@ -215,7 +215,7 @@ describe("#1356: a mailbox row", () => {
       }
     })();
 
-    expect(failure).toBeInstanceOf(StoredNamesUnreadableError);
+    expect(failure).toBeInstanceOf(StoreError.UnreadableRecord);
     expect(failure).toHaveProperty(
       "message",
       "a stored pause notice mailbox is not readable (pauseId p-1): the text is not valid JSON",

@@ -1,8 +1,6 @@
+import { StoreError } from "../../core/error-families/store-errors.js";
 import { expect } from "vitest";
-import {
-  StoreOutcomeSource,
-  StoreOutcomeUnknownError,
-} from "../../infrastructure/store-call-timeout.js";
+import { StoreOutcomeSource } from "../../infrastructure/store-call-timeout.js";
 import { IdempotencyRunStatus } from "../../infrastructure/fenced-effect.repository.js";
 import type { ContractCase, ContractGroup } from "./define.js";
 import {
@@ -17,7 +15,7 @@ import {
 
 /**
  * The fenced-effect contract's unknown outcomes (#1017): an ambiguous error injected into the
- * effect — the work throws `StoreOutcomeUnknownError`, as a store's own transport error after the
+ * effect — the work throws `StoreError.OutcomeUnknown`, as a store's own transport error after the
  * send is — reaches the caller as it is (the framework's hand-over reads that class, so a store
  * must not wrap, translate or swallow it), and the effect is rolled back like any failed work.
  */
@@ -26,8 +24,8 @@ import {
 type Case = ContractCase<FencedEffectTarget>;
 
 /** What a store package's classifier throws for a connection reset after the COMMIT was sent. */
-const resetAfterSend = (): StoreOutcomeUnknownError =>
-  new StoreOutcomeUnknownError({
+const resetAfterSend = (): StoreError.OutcomeUnknown =>
+  new StoreError.OutcomeUnknown({
     ...{ store: "ContractStore", operation: "runOnce", source: StoreOutcomeSource.Transport },
     cause: new Error("read ECONNRESET"),
   });

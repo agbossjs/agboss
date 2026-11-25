@@ -4,6 +4,7 @@
  * changes (`instanceof`, `#private` fields, `static store`, the in-memory lease check, a joined
  * `runOnce`), and the proxy is never stacked.
  */
+import { StoreError } from "../../src/core/error-families/store-errors.js";
 import { describe, expect, it } from "vitest";
 import { FencedEffectRepository, IdempotencyRunStatus } from "../../src/index.js";
 import { boundedStoreOf, MAINTENANCE_METHODS, targetOf } from "../../src/app/store-call-bound.js";
@@ -18,7 +19,6 @@ import {
 import { FileRepository } from "../../src/infrastructure/file.repository.js";
 import { ExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
 import { InMemoryFencedEffectRepository } from "../../src/infrastructure/in-memory-fenced-effect.repository.js";
-import { StoreCallTimeoutError } from "../../src/infrastructure/store-call-timeout.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
@@ -89,7 +89,7 @@ describe("#928 AC1 guard: every method of every bounded contract is bounded", ()
         );
         await clock.advance(bound);
         const error = await rejects;
-        expect(error, `${contract.name}.${name}`).toBeInstanceOf(StoreCallTimeoutError);
+        expect(error, `${contract.name}.${name}`).toBeInstanceOf(StoreError.CallTimeout);
         expect(error).toMatchObject({
           operation: name,
           timeout: bound,

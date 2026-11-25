@@ -126,9 +126,9 @@ const LEDGER_CASES: readonly ContractCase<CostLedgerRepository>[] = [
         // counters to add to or none
         await expect(
           first.saveAll([tenantDay], [fine, record as LedgerEntry]),
-        ).rejects.toMatchObject({ code: "cost-ledger.entry-invalid", index: 1 });
+        ).rejects.toMatchObject({ code: "store.ledger-entry-invalid", index: 1 });
         await expect(second.saveAll([], [record as LedgerEntry])).rejects.toMatchObject({
-          code: "cost-ledger.entry-invalid",
+          code: "store.ledger-entry-invalid",
           index: 0,
         });
       }

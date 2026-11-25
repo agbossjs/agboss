@@ -398,7 +398,7 @@ entries)` (each entry's cost added to every counter, atomically per counter; an 
 its `ledgerId`, #727 — a repeated or racing save of the id adds nothing; #771: one made before the
 store's pruning mark and not held is refused; #817: only a `LedgerEntry` — a `UsageRecord` with
 its `ledgerId`, `madeAt: Date` and `costUsd: Usd` — so a record without an identity does not
-compile, and a JS caller's is refused, `CostLedgerEntryInvalidError`, nothing added),
+compile, and a JS caller's is refused, `StoreError.LedgerEntryInvalid`, nothing added),
 `deleteByMadeAtBefore(cutoff)` (#771) — and the last `maxSpend()` read per
 budget and key (`findMaxSpendByAccount`, `saveMaxSpend`: "the last known limit" for a report
 outside an execution). A period is named by its first UTC day: `2026-10-18` for that day,
@@ -460,7 +460,7 @@ the mark.
 The prune raises the store's **pruning mark** to its cutoff (never lowers it) and removes the
 entries made before the mark, atomically against a save. A save of an entry made before the mark
 that the store does not hold — it may have been counted and pruned since — is refused:
-`CostLedgerEntryExpiredError` (`cost-ledger.entry-expired`), nothing of that save added, and the
+`StoreError.LedgerEntryExpired` (`store.ledger-entry-expired`), nothing of that save added, and the
 pass's reads fail with it from then on. So a retry is never counted twice, whatever the clocks say:
 the guarantee compares an entry's own `madeAt` with the mark, never two machines' times; the
 retention only decides how late a retry may come before it is refused. Within it a lost answer
