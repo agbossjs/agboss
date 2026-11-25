@@ -89,7 +89,7 @@ function a2aExportsOf(
     return [
       {
         kind: "a2a",
-        expose: meta.meta.name,
+        endpoint: meta.meta.name,
         version: meta.meta.version,
         skill: declaration.options.name,
         workflow: workflow.name,
@@ -111,7 +111,7 @@ function mcpExportsOf(expose: Class, dtos: Dtos): readonly McpExportContract[] {
   return meta.meta.tools.flatMap((exported): McpExportContract[] => {
     const start = declarationOf(exported);
     const tool = componentOf(exported);
-    const base = { kind: "mcp" as const, expose: meta.meta.name, version: meta.meta.version };
+    const base = { kind: "mcp" as const, endpoint: meta.meta.name, version: meta.meta.version };
     if (start?.kind === NodeKind.Start)
       return [{ ...base, tool: start.options.name, input: dtos.ofShape(start.options.input) }];
     if (tool?.kind === "tool")
@@ -141,7 +141,7 @@ function a2aImportOf(
   dtos: Dtos,
   options: ComponentOptions,
 ): A2AImport[] {
-  // the agent as the profiles leave it: its price is what the snapshot says
+  // the agent as the profiles leave it: its costPerCall is what the snapshot says
   const meta = options.a2aAgentMetaOf(client);
   if (meta === undefined) return [];
   const { name, target, input, output, costPerCall } = meta;
@@ -149,7 +149,7 @@ function a2aImportOf(
     kind: "a2a" as const,
     client: name,
     usedBy: usesOf(client, parts),
-    price: costPerCall ?? null,
+    costPerCall: costPerCall ?? null,
   };
   if (target?.application === undefined) return [foreignImportOf(base, meta, dtos)];
   if (input === undefined || output === undefined) return [];
@@ -196,7 +196,7 @@ function mcpImportsOf(
     const target =
       declared === undefined
         ? null
-        : { application: declared.application, expose: declared.endpoint };
+        : { application: declared.application, endpoint: declared.endpoint };
     return Object.entries(meta.meta.tools).map(([tool, io]) => ({
       kind: "mcp",
       server: meta.meta.name,

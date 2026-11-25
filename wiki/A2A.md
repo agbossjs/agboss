@@ -809,7 +809,7 @@ input, output } })` (`A2AClientContract`, #809); without its DTOs, `execute` thr
   trusted peer's signed run report gives — the price alone without one — as `a2a:<application>`;
   nothing for a call the agent `REJECTED` before anything ran (#849).
 - **The audience**: the envelope's `audience` is `target.application` (over MCP an `@McpServer({
-target: { application, expose } })`'s). A receiver of another name refuses it, signed or not,
+target: { application, endpoint } })`'s). A receiver of another name refuses it, signed or not,
   before its authenticator — `401 { "code": "mesh.audience-mismatch" }` (MCP: an error result with that
   code): a call meant for one application is never run by another it was forwarded to. A signed
   envelope must name one (#809): a sender signs only with an audience, and a signed envelope without
@@ -868,12 +868,12 @@ export class BillingApplication {}
 {
   "exports": [
     {
-      "kind": "a2a", "expose": "billing", "version": "1.0.0",
+      "kind": "a2a", "endpoint": "billing", "version": "1.0.0",
       "skill": "billing-workflow-start", "workflow": "billing-workflow", "reply": "task", "cardFileFields": "extension",
       "input": { "dto": "InvoiceQuestionDto", "schemaHash": "600a…" },
       "outputs": [{ "finish": "billing-answer-workflow-finish", "dto": "InvoiceAnswerDto", "schemaHash": "6b22…" }]
     },
-    { "kind": "mcp", "expose": "billing-mcp-expose", "version": "1.0.0", "tool": "invoice-status-tool", "input": { "dto": "InvoiceQueryDto", "schemaHash": "380d…" } }
+    { "kind": "mcp", "endpoint": "billing-mcp-expose", "version": "1.0.0", "tool": "invoice-status-tool", "input": { "dto": "InvoiceQueryDto", "schemaHash": "380d…" } }
   ],
   "imports": [
     {
@@ -882,9 +882,9 @@ export class BillingApplication {}
       "usedBy": [{ "workflow": "orders-workflow", "tool": "ask-billing-tool" }],
       "input": { "dto": "InvoiceQuestionDto", "schemaHash": "600a…" },
       "output": { "dto": "InvoiceAnswerDto", "schemaHash": "6b22…" },
-      "price": 0.05
+      "costPerCall": 0.05
     },
-    { "kind": "a2a", "client": "weather-a2a-agent", "foreign": true, "target": null, "usedBy": [], "input": null, "output": null, "price": null },
+    { "kind": "a2a", "client": "weather-a2a-agent", "foreign": true, "target": null, "usedBy": [], "input": null, "output": null, "costPerCall": null },
     { "kind": "mcp", "server": "kb", "tool": "search", "target": null, "usedBy": [{ "workflow": "orders-workflow", "tool": "search-kb-tool" }], "input": { "…": "…" }, "output": { "…": "…" } }
   ],
   "schemas": { "InvoiceQuestionDto": { "schemaHash": "600a…", "jsonSchema": {} } }
@@ -913,11 +913,11 @@ npx agboss check --federation ../snapshots            # in this application, bef
 
 Every consumed contract whose target application is among the snapshots (or is this application)
 is checked against that application's exports — an `@A2AAgent`'s `target.application` and
-`target.skill` (paired with the export's `skill`, the exported start's name), an `@McpServer`'s `target: { application, expose }` and its tools:
+`target.skill` (paired with the export's `skill`, the exported start's name), an `@McpServer`'s `target: { application, endpoint }` and its tools:
 
 | Code                                 | When                                                                                                                                                                                                                               |
 | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `[federation.missing-target]`        | the target application exports no such skill (or no such tool under that expose); never for a foreign `@A2AAgent`, which is skipped                                                                                                |
+| `[federation.missing-target]`        | the target application exports no such skill (or no such tool under that endpoint); never for a foreign `@A2AAgent`, which is skipped                                                                                                |
 | `[federation.incompatible-schema]`   | the export's input does not accept every value the consumer may send, or the consumer's output does not accept every value one of the export's finishes may give — of those its `target.finishes` names, when it names some (#916) |
 | `[federation.unknown-finish]`        | the consumer's `target.finishes` names a finish the export's start does not have (#916)                                                                                                                                            |
 | `[federation.snapshot-schema]`       | a file that is not an `agboss describe --json` output with `application.contracts` (or a path that does not exist)                                                                                                                 |

@@ -1,3 +1,4 @@
+import type { Usd } from "../units/index.js";
 import type { A2ACardFileFields } from "../a2a/files/a2a-file-options.js";
 import type { A2AReply } from "../a2a/a2a-message-skill-rule.js";
 import type { JsonSchema } from "../dto/schema.js";
@@ -13,7 +14,7 @@ export interface ContractDto {
 /** An `@A2AEndpoint` start. */
 export interface A2AExportContract {
   readonly kind: "a2a";
-  readonly expose: string;
+  readonly endpoint: string;
   readonly version: string;
   /** The skill's id on the card: the exported start's name (#812). */
   readonly skill: string;
@@ -30,7 +31,7 @@ export interface A2AExportContract {
 /** An `@McpEndpoint` tool: an exported start or tool. */
 export interface McpExportContract {
   readonly kind: "mcp";
-  readonly expose: string;
+  readonly endpoint: string;
   readonly version: string;
   readonly tool: string;
   readonly input: ContractDto | null;
@@ -47,8 +48,8 @@ export interface A2AImportBase {
   readonly kind: "a2a";
   readonly client: string;
   readonly usedBy: readonly ContractUse[];
-  /** The contract price of one call, in USD; `null` without one. */
-  readonly price: number | null;
+  /** The contract price of one call (`costPerCall`); `null` without one. */
+  readonly costPerCall: Usd | null;
 }
 
 /**
@@ -84,7 +85,7 @@ export interface McpImportContract {
   readonly server: string;
   readonly tool: string;
   /** The AGBoss application behind the server; `null` for a third-party one (no federation). */
-  readonly target: { readonly application: string; readonly expose: string } | null;
+  readonly target: { readonly application: string; readonly endpoint: string } | null;
   /** The tools of the application's agents that call it (#398 PR 4). */
   readonly usedBy: readonly ContractUse[];
   /** `null` for a tool without arguments. */

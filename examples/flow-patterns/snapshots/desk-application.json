@@ -177,7 +177,7 @@
         "exports": [
           {
             "kind": "a2a",
-            "expose": "desk-a2a-expose",
+            "endpoint": "desk-a2a-expose",
             "version": "1.0.0",
             "skill": "desk-workflow-start",
             "workflow": "desk-workflow",

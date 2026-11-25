@@ -102,7 +102,7 @@ describe("#398 PR 3: the contracts at assembly", () => {
 });
 
 describe("#398 PR 3: describe --json lists the declared contracts", () => {
-  it("AC2: exports by expose and skill, imports (a foreign peer with foreign: true) by client and server, each DTO with its schemaHash", async () => {
+  it("AC2: exports by endpoint and skill, imports (a foreign peer with foreign: true) by client and server, each DTO with its schemaHash", async () => {
     const contracts = contractsOf(
       await applicationOf(ShopKbApplication, { withoutIdempotencyKeys: true }),
     );
@@ -110,7 +110,7 @@ describe("#398 PR 3: describe --json lists the declared contracts", () => {
     expect(contracts.exports).toEqual([
       {
         kind: "a2a",
-        expose: "shop-a2a-expose",
+        endpoint: "shop-a2a-expose",
         version: "2.0.0",
         skill: "quote-workflow-start",
         workflow: "quote-workflow",
@@ -128,7 +128,7 @@ describe("#398 PR 3: describe --json lists the declared contracts", () => {
       expect.objectContaining({ kind: "a2a", skill: "refund-workflow-start" }),
       {
         kind: "mcp",
-        expose: "shop-mcp-expose",
+        endpoint: "shop-mcp-expose",
         version: "1.0.0",
         tool: "refund-workflow-start",
         input: { dto: "WorkflowStartTextDto", schemaHash: expect.any(String) },
@@ -143,7 +143,7 @@ describe("#398 PR 3: describe --json lists the declared contracts", () => {
         usedBy: [{ workflow: "quote-workflow", tool: "ask-billing-tool" }],
         input: { dto: "InvoiceQuestionDto", schemaHash: expect.any(String) },
         output: { dto: "InvoiceAnswerDto", schemaHash: expect.any(String) },
-        price: 0.05,
+        costPerCall: 0.05,
       },
       {
         kind: "a2a",
@@ -153,7 +153,7 @@ describe("#398 PR 3: describe --json lists the declared contracts", () => {
         usedBy: [],
         input: { dto: "InvoiceQuestionDto", schemaHash: expect.any(String) },
         output: { dto: "InvoiceAnswerDto", schemaHash: expect.any(String) },
-        price: null,
+        costPerCall: null,
       },
       {
         kind: "a2a",
@@ -163,13 +163,13 @@ describe("#398 PR 3: describe --json lists the declared contracts", () => {
         usedBy: [],
         input: null,
         output: null,
-        price: null,
+        costPerCall: null,
       },
       {
         kind: "mcp",
         server: "kb",
         tool: "search",
-        target: { application: "kb-application", expose: "kb-mcp-expose" },
+        target: { application: "kb-application", endpoint: "kb-mcp-expose" },
         usedBy: [{ workflow: "kb-workflow", tool: "search-kb-tool" }],
         input: { dto: "SearchQueryDto", schemaHash: expect.any(String) },
         output: { dto: "SearchHitDto", schemaHash: expect.any(String) },

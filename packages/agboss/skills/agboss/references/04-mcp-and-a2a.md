@@ -450,7 +450,7 @@ export class SupportApplication {}
   neighbour's as a file and run `npx agboss check --federation snapshots/`: no network, every
   consumed contract whose target is among the snapshots compared field by field — an `@A2AAgent`
   is paired by `(target.application, target.skill)` with the export `skill` of that application,
-  an MCP server's `target: { application, expose }` the same way —
+  an MCP server's `target: { application, endpoint }` the same way —
   `[federation.missing-target]`, `[federation.incompatible-schema]`, each with the consumer's
   workflows it affects. An `@A2AAgent` without `target.application` (a foreign A2A agent, typed or
   not) is listed with `foreign: true` — `input` / `output` `null` when untyped — and never
