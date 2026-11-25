@@ -16,6 +16,8 @@ export default defineConfig({
       "tests/flow/runtime/{arbiters,router-launch,join-notices,join-keys}.test.ts",
       "tests/budgets/{parallel-budget,lost-pass}.test.ts",
       "tests/flow/runtime/ledger-branch-units.test.ts",
+      // #1281: a branch an arbiter fails after it answered keeps its entries and its spend
+      "tests/flow/runtime/held-undo.test.ts",
     ],
   },
 });

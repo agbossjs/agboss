@@ -22,7 +22,7 @@ import type { ExecutionStateType, ExecutionStateUpdate } from "./state.js";
 import { exitOf, visitWrite, type SpentOutcome, type VisitWrite } from "./visit-write.js";
 import { succeededStepsOf, type VisitAt } from "./visit-step.js";
 import { caught, visited } from "./visit-failure.js";
-import { handledFailure } from "./visit-handled.js";
+import { handledFailure, stoppedAtDispatch } from "./visit-handled.js";
 import { itemBoundOf, type FlowEdge } from "../analyse/flow-graph.js";
 import { launchEdgeOf, launchFor, nextOfLaunch, type DeadlineSite } from "./launch/launch-exit.js";
 import { launchAttemptOf, type Launched } from "./launch/launch-attempt.js";
@@ -62,6 +62,8 @@ interface Succeeded {
   readonly update: ExecutionStateUpdate;
   readonly write: VisitWrite;
   readonly launched: Launched | undefined;
+  /** The error a launch stopped at its dispatch with, its join's `.onError(…)` taking it. */
+  readonly stopped: Error | undefined;
 }
 
 /** Where a visit goes on: its launch's branches (or join), else its exit. */
@@ -100,7 +102,7 @@ async function succeeded(
     ...(outcome.finish === undefined ? {} : { finish: node.id, output: outcome.finish.output }),
     stepRecords: succeededStepsOf({ ...at, node, state, endedAt: at.now }, outcome),
   };
-  return { update, write, launched };
+  return { update, write, launched, stopped: dispatch?.failure };
 }
 
 /** The step's frame with the services its code reports through (#280 S43) and its interruption's (#1341b). */
@@ -174,7 +176,8 @@ export function visitNode(node: RuntimeNode, runner: NodeRunner, deps: VisitDeps
       const spent = { ...outcome, usage: [...(outcome.usage ?? []), ...reported.usage] };
       const at = { executionId: frame.execution.executionId, now: clock.now(), frame, startedAt };
       const calendar = { clock, interruption: config?.signal };
-      const { update, write, launched } = await succeeded(node, state, spent, deps, at, calendar);
+      const done = await succeeded(node, state, spent, deps, at, calendar);
+      const { update, write, launched } = done;
       const outdatedSoFar = [...state.outdatedValues, ...write.outdated];
       const site = { observer: deps.observer, config, ...frame, outdatedSoFar };
       await reportOutdating(write.cascades, site);
@@ -186,7 +189,9 @@ export function visitNode(node: RuntimeNode, runner: NodeRunner, deps: VisitDeps
       const own = await compensationsOfVisit(after);
       const taken = { taken: outcome.compensations, parts: deps.compensation, frame };
       const compensations = withTaken(taken, own);
-      return { ...update, children: [...reported.children], ...compensations, ...kept };
+      const visited = { ...update, children: [...reported.children], ...compensations, ...kept };
+      if (done.stopped === undefined) return visited;
+      return await stoppedAtDispatch(visited, { state, frame, deps, clock, cause: done.stopped });
     } catch (error) {
       const visit = { frame, node, state, startedAt, endedAt: clock.now() };
       const handled = caught(deps, visit, error, { ranAsStep, reported }, config?.signal);

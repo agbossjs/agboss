@@ -160,6 +160,8 @@ export function unwindShard() {
       // #1281 (10): a failed step an `.onError` takes undoes what its children held, before the side path
       "src/flow/runtime/compensation/step-error-undo.ts",
       "src/flow/runtime/visit-handled.ts",
+      // #1281 (10): a failed join, or a launch stopped at dispatch, does the same
+      "src/flow/runtime/compensation/held-on-error.ts",
       "src/flow/runtime/launch/branch-skip.ts",
       "src/flow/runtime/launch/items-limit.ts",
       "src/app/compensation/root-unwind.ts",

@@ -84,6 +84,26 @@ describe("#633: the entry a held-back visit owes", () => {
       false,
     ]);
   });
+
+  it("#1281: its own, never a newer one a child moved up with the same undo action", async () => {
+    const { site } = siteOf([
+      entryOf("own", { sequence: 1 }),
+      entryOf("moved", { sequence: 2, childPath: ["trip-child-workflow"], heldBy: "root-1" }),
+    ]);
+
+    await heldUndoOf(site);
+
+    expect(unwindAsked().known.map((entry) => entry.key)).toEqual(["own"]);
+  });
+
+  it("#1281: none when only a child's moved entry names its undo action", async () => {
+    const { site } = siteOf([
+      entryOf("moved", { childPath: ["trip-child-workflow"], heldBy: "root-1" }),
+    ]);
+
+    expect(await heldUndoOf(site)).toEqual({});
+    expect(mocks.unwound).not.toHaveBeenCalled();
+  });
 });
 
 describe("#633: undone as an undo of its own", () => {
