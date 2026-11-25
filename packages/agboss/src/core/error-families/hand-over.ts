@@ -1,4 +1,5 @@
 import type { ErrorRecord } from "../error-record.js";
+import { ApplicationStoppingError } from "../errors.js";
 import { ExecutionError, ExecutionErrorKind } from "./run-errors.js";
 
 /**
@@ -19,6 +20,8 @@ const HAND_OVER_CODES: ReadonlySet<string> = new Set([
   ExecutionError.LeaseLost.code,
   ExecutionError.Fenced.code,
   ExecutionError.ApplicationStopping.code,
+  // what `app.close()` throws today is the standalone class, whose record carries its own code
+  ApplicationStoppingError.code,
 ]);
 
 /** Whether `error` is an `ExecutionError` of a hand-over kind. */

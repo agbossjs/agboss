@@ -8,7 +8,9 @@ describe("problemsOf", () => {
     const router = new ConfigError.NoDefaultRouter({
       message: "[workflow.router] no default router",
     });
-    const prompt = new ConfigError.Prompt({ problems: ["a placeholder is missing"] });
+    const prompt = new ConfigError.Prompt({
+      problems: [{ code: "prompt.missing" as never, message: "a placeholder is missing" }],
+    });
 
     expect(problemsOf("s.ts", router)).toHaveLength(1);
     expect(problemsOf("s.ts", prompt)).toHaveLength(1);
