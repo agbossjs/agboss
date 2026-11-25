@@ -4,6 +4,9 @@ import { strictMatchOf } from "../dto/schema.js";
 import type { DtoClass } from "../dto/types.js";
 import { outputClassesOf } from "../flow/finish-output.js";
 import { NodeKind } from "../flow/ast.js";
+import { isFieldMap } from "../flow/decorators/declaration.js";
+import { Wrapper, type ValueShape } from "../flow/dto-wrappers.js";
+import { startLine } from "../flow/runtime/history.js";
 import type { RuntimeGraph } from "../flow/runtime/graph-model.js";
 import { tokenFieldMask } from "./field-masks.js";
 import type { PiiRuntime } from "./runtime.js";
@@ -78,3 +81,59 @@ export interface FinalOutputDeps {
 /** A finish's output as a record, an event or a stored state keeps it, under the workflow's own key. */
 export const storedOutputOf = (deps: FinalOutputDeps, finish: string, output: unknown): unknown =>
   maskedFinishOutput(deps.graph, finish, output, storedFieldMask(deps.pii));
+
+/** One declared value of a start's input (a DTO, a list of them, or an optional one) as it is stored. */
+function maskedShape(shape: ValueShape, value: unknown, mask: FieldMask): unknown {
+  if (typeof shape === "function") return maskedDtoValue(shape, value, mask, FileDto);
+  if (shape.kind === Wrapper.Optional) {
+    return value === undefined ? value : maskedShape(shape.inner, value, mask);
+  }
+  return Array.isArray(value)
+    ? (value as readonly unknown[]).map((item) => maskedItem(shape.variants, item, mask))
+    : maskedItem(shape.variants, value, mask);
+}
+
+/**
+ * The input of the graph's start `start` as it is stored (#1301): the DTO's `sensitive` fields —
+ * a DTO, a list of them, or each field of a map of fields — through `mask`. Unchanged for a name
+ * that is no start.
+ */
+export function maskedStartInput(
+  graph: Pick<RuntimeGraph, "nodes">,
+  start: string,
+  input: unknown,
+  mask: FieldMask,
+): unknown {
+  const declaration = graph.nodes.get(start)?.declaration;
+  if (declaration?.kind !== NodeKind.Start) return input;
+  const declared = declaration.options.input;
+  if (!isFieldMap(declared)) return maskedShape(declared, input, mask);
+  if (typeof input !== "object" || input === null || Array.isArray(input)) return input;
+  return Object.fromEntries(
+    Object.entries(input).map(([name, value]) => {
+      const shape = declared[name];
+      return [name, shape === undefined ? value : maskedShape(shape, value, mask)];
+    }),
+  );
+}
+
+/** A start's input as a record, an event, a history or a child's record keeps it, under the workflow's own key. */
+export const storedInputOf = (deps: FinalOutputDeps, start: string, input: unknown): unknown =>
+  maskedStartInput(deps.graph, start, input, storedFieldMask(deps.pii));
+
+/**
+ * The start line of a turn as it is written to the store: the start DTO's sensitive fields first,
+ * then the observability policies, like the finish line (`maskedFinishLine`). What a thread's
+ * memory reads of its past turns holds the token or the mask, never the value.
+ */
+export async function storedStartLine(
+  deps: FinalOutputDeps,
+  start: string,
+  input: unknown,
+): Promise<string> {
+  const stored = storedInputOf(deps, start, input);
+  return startLine(
+    start,
+    deps.pii === undefined ? stored : await deps.pii.observability.value(stored),
+  );
+}

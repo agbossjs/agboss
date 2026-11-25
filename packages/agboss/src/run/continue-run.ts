@@ -2,7 +2,7 @@ import type { ExecutionBudgetRecord } from "../budgets/execution-budgets.js";
 import type { ExecutionDeadline } from "../budgets/execution-deadline.js";
 import type { UsageRecord } from "../finops/usage.js";
 import { executionGraphOf, type ExecutionGraph } from "../flow/runtime/build.js";
-import { startLine } from "../flow/runtime/history.js";
+import { storedStartLine } from "../pii/final-output-mask.js";
 import type { ExecutionStateType } from "../flow/runtime/state.js";
 import { failedOutcome, outcomeError, recordFailure, type TurnBase } from "./execute.js";
 import { continuedExecutionBudgets, recorder } from "./run-budgets.js";
@@ -62,7 +62,7 @@ export async function continueRun<TName extends string>(
     threadId: run.threadId,
     tenantId: run.tenantId,
     workflow: deps.config.name,
-    task: startLine(run.start, run.startInput),
+    task: await storedStartLine(deps, run.start, run.startInput),
     replayOf: null,
     ...executionVersions(deps),
   };

@@ -1,3 +1,4 @@
+import { storedInputOf } from "../pii/final-output-mask.js";
 import { maskedTreeRecordOf, treeMasksFor } from "./record-masks.js";
 import { ExecutionCancelledError } from "../core/errors.js";
 import { ExecutionStoppedError } from "../app/lease-stopped.js";
@@ -189,7 +190,7 @@ function historyRecordOf(
     status: end.status,
     ...timesOf(values, end.status, keeper.clock.now().toISOString()),
     start: nodeRecordIn(deps, values.start),
-    input: values.startInput,
+    input: storedInputOf(deps, values.start, values.startInput),
     ...finishPartOf(deps, values),
     contexts: { tenant: values.contexts.tenant, execution: values.contexts.execution },
     ...(end.error === undefined ? {} : { error: errorRecordOf(end.error) }),

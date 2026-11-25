@@ -1,3 +1,4 @@
+import { storedOutputOf, type FinalOutputDeps } from "../../pii/final-output-mask.js";
 import { recordOfNode, type ComponentRecords } from "./workflow-keys.js";
 import { isGraphInterrupt } from "@langchain/langgraph";
 import { handedOverOf, recordedHandOver } from "../../app/handed-over.js";
@@ -36,7 +37,10 @@ export interface EndedChild {
   readonly workflow: WorkflowRecord;
   readonly launchedBy: ChildLaunchRecord;
   readonly start: string;
+  /** Its start's input as it is stored: the start DTO's sensitive fields masked (#1301). */
   readonly input: unknown;
+  /** What masks its output as it is stored (#1301); without it, the graph of its `records` and no PII runtime. */
+  readonly stored?: FinalOutputDeps | undefined;
   /** The child workflow's component records (#268 S93): its start's and finishes'. */
   readonly records: ComponentRecords;
 }
@@ -92,7 +96,14 @@ export function childRecordOf(
     input: child.input,
     status: end.status,
     ...(isFinished
-      ? { finish: recordOfNode(child.records, state.finish), output: state.output }
+      ? {
+          finish: recordOfNode(child.records, state.finish),
+          output: storedOutputOf(
+            child.stored ?? { graph: child.records.graph },
+            state.finish,
+            state.output,
+          ),
+        }
       : {}),
     ...(end.error === undefined ? {} : { error: errorRecordOf(end.error) }),
     spend: CostReport.fromUsage(end.usage),

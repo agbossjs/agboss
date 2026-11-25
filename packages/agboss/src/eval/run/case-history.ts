@@ -2,8 +2,8 @@ import { usd } from "../../units/index.js";
 import type { AppDeps } from "../../app/app-deps.js";
 import { nameOf } from "../../components/name-of.js";
 import { ExecutionRecordStatus } from "../../infrastructure/execution-record.repository.js";
-import { finishLine, startLine } from "../../flow/runtime/history.js";
-import { storedOutputOf } from "../../pii/final-output-mask.js";
+import { finishLine } from "../../flow/runtime/history.js";
+import { storedOutputOf, storedStartLine } from "../../pii/final-output-mask.js";
 import { executionVersions } from "../../run/versions.js";
 import type { NewTurn } from "../../turns/index.js";
 import type { EvalPastTurn } from "../suite/cases.js";
@@ -22,14 +22,15 @@ export interface CaseThread {
   readonly threadId: string;
 }
 
-function turnOf(deps: AppDeps, thread: CaseThread, past: EvalPastTurn): NewTurn {
+async function turnOf(deps: AppDeps, thread: CaseThread, past: EvalPastTurn): Promise<NewTurn> {
   const versions = executionVersions(deps);
   return {
     runId: null,
     threadId: thread.threadId,
     tenantId: thread.tenantId,
     workflow: deps.config.name,
-    task: startLine(nameOf(past.start), past.input),
+    // the start DTO's too: what the first turn's memory reads holds no raw value
+    task: await storedStartLine(deps, nameOf(past.start), past.input),
     // the finish DTO's sensitive fields as every stored final output holds them (#1301)
     replyWith: finishLine(
       nameOf(past.finish),
@@ -57,5 +58,5 @@ export async function writeCaseHistory(
   if (history.length === 0) return;
   const { tenantId, threadId } = thread;
   await deps.turns.createThread({ workflow: deps.config.name, tenantId, threadId });
-  for (const past of history) await deps.turns.append(turnOf(deps, thread, past));
+  for (const past of history) await deps.turns.append(await turnOf(deps, thread, past));
 }

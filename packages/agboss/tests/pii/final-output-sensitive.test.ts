@@ -22,6 +22,7 @@ import { routeTo, testWith } from "../../src/testing/index.js";
 import { hours } from "../../src/units/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { execute } from "../helpers/flow.js";
+import { LocalModelProvider } from "../models/providers.fixture.js";
 import { ContactPiiPolicy } from "./pii.fixture.js";
 import {
   DeskMessageDto,
@@ -67,7 +68,7 @@ class EndObserver {
 })
 class FinalOutputApplication {}
 
-const test = testWith(FinalOutputApplication);
+const test = testWith(FinalOutputApplication, { modelProvider: LocalModelProvider });
 
 const graph = {
   nodes: new Map([

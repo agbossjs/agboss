@@ -67,7 +67,7 @@ const setup = () => {
   const complete = vi.fn(() => Promise.resolve());
   const deps = {
     config: { name: "bundle", version: "1.0.0" },
-    graph: {},
+    graph: { nodes: new Map() },
     turns: { append, complete },
     executionIds: { newExecutionId: vi.fn(() => Promise.resolve("run-1")) },
     clock: { now: () => new Date("2026-11-21T10:00:00.000Z") },
@@ -93,6 +93,9 @@ const startedWith = { start: "chat", input: { text: "hi" } };
 beforeEach(() => {
   vi.resetAllMocks();
 });
+
+/** The PII runtime's observability mask, as an identity: the start line is written through it. */
+const noMask = { observability: { value: (value: unknown) => Promise.resolve(value) } };
 
 describe("#1366: a new run records what it spends", () => {
   const compaction = record(0.125, "compaction:c");
@@ -282,8 +285,8 @@ describe("#1366: a new run records what it spends", () => {
     const { raw, graph } = setup();
     graph.stream.mockImplementation(() => Promise.resolve(statesOf({ usage: [] })));
 
-    await executeAgent(startedWith, { ...raw, pii: { isInstanceKey: true } } as never);
-    await executeAgent(startedWith, { ...raw, pii: { isInstanceKey: false } } as never);
+    await executeAgent(startedWith, { ...raw, pii: { isInstanceKey: true, ...noMask } } as never);
+    await executeAgent(startedWith, { ...raw, pii: { isInstanceKey: false, ...noMask } } as never);
 
     expect(typeof graph.stream.mock.calls[0]?.[0].piiKey).toBe("string");
     expect(graph.stream.mock.calls[1]?.[0].piiKey).toBeNull();

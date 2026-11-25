@@ -2,7 +2,7 @@ import { usd } from "../units/index.js";
 import { systemClock, unkeptExecutionIds } from "../infrastructure/clock.js";
 import type { UsageRecord } from "../finops/usage.js";
 import { executionGraphOf } from "../flow/runtime/build.js";
-import { startLine } from "../flow/runtime/history.js";
+import { storedStartLine } from "../pii/final-output-mask.js";
 import { startNamed, validStartInput } from "../flow/runtime/start-input.js";
 import { RunInputSchema } from "../input.js";
 import {
@@ -123,7 +123,7 @@ async function runOnce<TName extends string>(
   const spent: UsageRecord[] = [];
   const base = turnBaseOf(
     deps,
-    { runId, threadId, tenantId, task: startLine(start, input) },
+    { runId, threadId, tenantId, task: await storedStartLine(deps, start, input) },
     options,
   );
   let turnId: string | undefined;

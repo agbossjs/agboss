@@ -26,6 +26,7 @@ import { workflowChainOf } from "../../tracing/workflow-chain.js";
 import { remoteChildEndOf, type RemoteChildSite } from "./remote/remote-child.js";
 import { remoteSiteOf } from "./remote/remote-child-site.js";
 import type { ChildInitialState } from "./remote/remote-child-run.js";
+import { storedInputOf, storedOutputOf } from "../../pii/final-output-mask.js";
 import { takenBy } from "./compensation/held-entries.js";
 
 /**
@@ -132,7 +133,9 @@ async function runChild(
     finish: recordOfNode(ended.records, last.finish),
   };
   // the child's event, masked by its own chain like its steps' (#1150)
-  await child.deps.observer?.onExecutionEnd({ ...event, output: last.output, spend: record.spend });
+  // its output as every stored copy of it holds it: the finish DTO's sensitive fields masked (#1301)
+  const output = storedOutputOf(child.deps, last.finish, last.output);
+  await child.deps.observer?.onExecutionEnd({ ...event, output, spend: record.spend });
   return { state: last, usage };
 }
 
@@ -154,7 +157,8 @@ const endedChildOf = (
   workflow: { ...child.workflow, startedVersion: child.workflow.version },
   launchedBy: { nodeId: frame.step.nodeId, visitNumber: frame.step.visitNumber },
   start: startName,
-  input,
+  input: storedInputOf(child.deps, startName, input),
+  stored: child.deps,
   records: { components: joinKeysOf(child.deps).components, graph: child.deps.graph },
 });
 
