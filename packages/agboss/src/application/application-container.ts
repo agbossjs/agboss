@@ -231,26 +231,13 @@ function applicationProvidersOf(bundle: AssembledWorkflow): ProviderModule {
 }
 
 /**
- * The infrastructure of a workflow run on its own (eval, replay, golden, compare): its
- * application's — the implementations it lists (its SQLite file, so records persist across
- * processes, #265), else the built-in in-memory defaults. `onCreate` gets every instance created
- * (their lifecycle hooks: a SQLite connection is closed at the end).
- */
-export function standaloneInfrastructure(
-  bundle: AssembledWorkflow,
-  options: {
-    readonly environment?: Environment | undefined;
-    readonly processEnv?: NodeJS.ProcessEnv | undefined;
-  },
-  onCreate?: (instance: unknown) => void,
-): Infrastructure {
-  return standaloneApplicationOf(bundle, options, onCreate).infrastructure;
-}
-
-/**
- * The application container of a workflow run on its own, and the infrastructure built on it: what
- * the workflow's components share — the storage's settings (`SqliteConnection` reads its path) and
- * its stores — as in `createApp`, the storage read from `options.processEnv` (default: the process's).
+ * The application container of a workflow run on its own (eval, replay, golden, compare, studio)
+ * and the infrastructure built on it: its application's — the implementations it lists (its SQLite
+ * file, so records persist across processes, #265), else the built-in in-memory defaults. The
+ * workflow's components share it — the storage's settings (`SqliteConnection` reads its path) and
+ * its stores — as in `createApp`, the storage read from `options.processEnv` (default: the
+ * process's). `onCreate` gets every instance created (their lifecycle hooks: a SQLite connection
+ * is closed at the end).
  */
 export function standaloneApplicationOf(
   bundle: AssembledWorkflow,

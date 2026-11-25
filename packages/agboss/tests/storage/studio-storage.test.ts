@@ -41,7 +41,11 @@ class StudioLedger {
   }
 }
 
-@WorkflowStart({ name: "studio-ledger-start-workflow-start", description: "A text", input: WorkflowStartTextDto })
+@WorkflowStart({
+  name: "studio-ledger-start-workflow-start",
+  description: "A text",
+  input: WorkflowStartTextDto,
+})
 class StudioLedgerStart {}
 
 @Action({
@@ -54,11 +58,15 @@ class StudioLedgerStart {}
 class StudioLedgerAction {
   constructor(private readonly ledger: StudioLedger) {}
   async execute() {
-    return { text: String(this.ledger !== undefined) };
+    return { text: this.ledger.constructor.name };
   }
 }
 
-@WorkflowFinish({ name: "studio-ledger-finish-workflow-finish", description: "Done", output: WorkflowFinishTextDto })
+@WorkflowFinish({
+  name: "studio-ledger-finish-workflow-finish",
+  description: "Done",
+  output: WorkflowFinishTextDto,
+})
 class StudioLedgerFinish {}
 
 @Workflow({

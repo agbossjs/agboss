@@ -31,6 +31,11 @@ function recordingGateway(specs: DecideSpec[]) {
   };
 }
 
+/** The guardrail's class: a model guardrail is decided by its model, never by the class. */
+class RudeGuardrail {
+  readonly question = "Is it rude?";
+}
+
 const model: RouterModel = { kind: "jev", model: "decide-1", modelProvider: "decisions" };
 
 describe("a decision model's provider reaches the gateway", () => {
@@ -50,21 +55,22 @@ describe("a decision model's provider reaches the gateway", () => {
 
   it("a model guardrail's decision names the provider it resolved to", async () => {
     const specs: DecideSpec[] = [];
-    const guardrail = {
+    const guardrail: LoadedModelGuardrail = {
       kind: "model",
       name: "rude",
-      type: class {},
+      type: RudeGuardrail,
       side: GuardrailSide.Input,
       prompt: "Is it rude?",
       threshold: 0.5,
       model: "decide-1",
       modelProvider: "decisions",
       isOwnModel: true,
-    } as unknown as LoadedModelGuardrail;
-    const parts = {
+    };
+    const parts: GuardrailRuntimeParts = {
+      resolve: () => undefined,
       modelOf: () => model,
       deciderDeps: { gateway: recordingGateway(specs) as never, chatDefaults: { temperature: 0 } },
-    } as unknown as GuardrailRuntimeParts;
+    };
 
     const decision = modelDecisionOf(guardrail, parts);
     await decision(
