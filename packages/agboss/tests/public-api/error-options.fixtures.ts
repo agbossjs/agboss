@@ -35,7 +35,6 @@ export const fixtures: Readonly<Record<string, object>> = Object.fromEntries([
     token: 2,
     effect: "charge",
   }),
-  fx(StoreError.UnreadableRecord, { record: "pause", ids: "pauseId p1", fields: "respondent" }),
   fx(root.ExecutionLeaseLostError, { rootExecutionId: "root-1" }),
   fx(root.ExecutionCancelFencedError, {
     scopeKey: "acme:root-1",

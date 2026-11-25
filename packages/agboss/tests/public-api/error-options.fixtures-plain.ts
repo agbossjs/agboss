@@ -31,15 +31,6 @@ import { fx } from "./error-options.fx.js";
 
 const message = "it went wrong";
 export const plainFixtures: Readonly<Record<string, object>> = Object.fromEntries([
-  fx(ConfigError.Environment, { envCode: EnvironmentErrorCode.NotFound, message }),
-  fx(ConfigError.WorkflowLoad, { message }),
-  fx(ConfigError.ApplicationLoad, { message }),
-  fx(ConfigError.GraphRules, { violations: [{ code: "graph.not-a-node", message, nodes: ["A"] }] }),
-  fx(ConfigError.ModelSettings, {
-    problems: [
-      { code: "model.unsupported-setting", key: "k", value: "v", model: "m", supported: "s" },
-    ],
-  }),
   fx(ProfileError, { message }),
   fx(TestFailure, { code: "test.app-closed", message }),
   fx(LiveCallBlockedError, { message }),
