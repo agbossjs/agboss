@@ -5,7 +5,8 @@ import {
   Application,
   Workflow,
   WorkflowFinish,
-  WorkflowStart, Ttl,
+  WorkflowStart,
+  Ttl,
 } from "../../../../../agboss/src/index.js";
 import {
   WorkflowFinishTextDto,
@@ -57,9 +58,7 @@ export class CriteriaScreeningWorkflowStart {}
   output: WorkflowFinishTextDto,
 })
 export class EchoAction {
-  execute(input: {
-    readonly message: { readonly value: WorkflowStartTextDto };
-  }): Promise<WorkflowFinishTextDto> {
+  execute(input: { readonly message: WorkflowStartTextDto }): Promise<WorkflowFinishTextDto> {
     return Promise.resolve({ text: `echo: ${input.message.text}` });
   }
 }
@@ -71,7 +70,7 @@ export class EchoAction {
   output: CompanyScoreDto,
 })
 export class ScreenAction {
-  execute(input: { readonly company: { readonly value: CompanyDto } }): Promise<CompanyScoreDto> {
+  execute(input: { readonly company: CompanyDto }): Promise<CompanyScoreDto> {
     return Promise.resolve({ score: `${input.company.name}: fits` });
   }
 }
@@ -83,9 +82,7 @@ export class ScreenAction {
   output: CompanyScoreDto,
 })
 export class RankAction {
-  execute(input: {
-    readonly companies: readonly { readonly value: CompanyDto }[];
-  }): Promise<CompanyScoreDto> {
+  execute(input: { readonly companies: readonly CompanyDto[] }): Promise<CompanyScoreDto> {
     const names = input.companies.map((company) => company.name);
     return Promise.resolve({ score: names.join(" > ") });
   }
@@ -99,8 +96,8 @@ export class RankAction {
 })
 export class CriteriaAction {
   execute(input: {
-    readonly company: { readonly value: CompanyDto };
-    readonly request?: { readonly value: SearchRequestDto };
+    readonly company: CompanyDto;
+    readonly request?: SearchRequestDto;
   }): Promise<CompanyScoreDto> {
     const criteria = input.request?.criteria ?? "anything";
     return Promise.resolve({ score: `${input.company.name} for ${criteria}` });
@@ -125,11 +122,7 @@ export class ScoreWorkflowFinish {}
   name: "inbox-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(InboxWorkflowStart)
-      .toAction(EchoAction)
-      .toFinish(EchoWorkflowFinish),
-  ],
+  flow: [onStart(InboxWorkflowStart).toAction(EchoAction).toFinish(EchoWorkflowFinish)],
 })
 export class InboxWorkflow {}
 
@@ -138,15 +131,9 @@ export class InboxWorkflow {}
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: [
-    onStart(ScreeningWorkflowStart)
-      .toAction(ScreenAction)
-      .toFinish(ScoreWorkflowFinish),
-    onStart(BatchScreeningWorkflowStart)
-      .toAction(RankAction)
-      .toFinish(ScoreWorkflowFinish),
-    onStart(CriteriaScreeningWorkflowStart)
-      .toAction(CriteriaAction)
-      .toFinish(ScoreWorkflowFinish),
+    onStart(ScreeningWorkflowStart).toAction(ScreenAction).toFinish(ScoreWorkflowFinish),
+    onStart(BatchScreeningWorkflowStart).toAction(RankAction).toFinish(ScoreWorkflowFinish),
+    onStart(CriteriaScreeningWorkflowStart).toAction(CriteriaAction).toFinish(ScoreWorkflowFinish),
   ],
 })
 export class ScreeningWorkflow {}

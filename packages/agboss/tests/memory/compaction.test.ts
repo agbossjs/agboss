@@ -442,10 +442,10 @@ describe("#120 AC10: a queue summarises what is older than the smallest window",
   });
 });
 
-describe("#120 S84 (i): the compaction's model reads the turns masked, the summary is revealed", () => {
+describe("#120 S84 (i): the compaction's model reads the turns masked, no raw value is stored", () => {
   const test = testWith(HelpDeskApplication);
 
-  test("the compactor sees a token, the store keeps the address, each reader masks it again", async ({
+  test("the compactor sees a token, the store keeps no raw address, each reader reads the mask", async ({
     app,
     mockLlm,
   }) => {
@@ -473,10 +473,11 @@ describe("#120 S84 (i): the compaction's model reads the turns masked, the summa
     const router = textOf(mockLlm(HelpRouter).lastRequest);
     expect(router).toMatch(/the user's address is <email:[0-9a-f]+>/u);
     expect(router).not.toContain("alice@example.com");
-    // the contact agent excludes the policy: it reads the summary as stored, revealed
-    expect(textOf(mockLlm(ContactAgent).onlyRequest)).toContain(
-      "the user's address is alice@example.com",
-    );
+    // the turn lines are stored masked by the observability policies (#1301): no raw address is stored,
+    // so even the contact agent, which excludes the policy, never reads it — only the mask
+    const contact = textOf(mockLlm(ContactAgent).onlyRequest);
+    expect(contact).not.toContain("alice@example.com");
+    expect(contact).toMatch(/the user's address is <email:[0-9a-f]+>/u);
   });
 });
 

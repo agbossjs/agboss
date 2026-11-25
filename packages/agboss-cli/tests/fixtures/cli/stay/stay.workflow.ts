@@ -5,7 +5,8 @@ import {
   Application,
   EmptyEnvironment,
   Workflow,
-  WorkflowFinish, Ttl,
+  WorkflowFinish,
+  Ttl,
 } from "../../../../../agboss/src/index.js";
 import { Text } from "../../../../../agboss/src/dto/index.js";
 import { TEST_BUDGETS } from "../../../../../agboss/tests/flow/fixtures/budgets.js";
@@ -24,7 +25,7 @@ export class BookingDto {
   output: BookingDto,
 })
 export class ConfirmAction {
-  execute(input: { readonly booking: { readonly value: HotelBookingDto } }): Promise<BookingDto> {
+  execute(input: { readonly booking: HotelBookingDto }): Promise<BookingDto> {
     return Promise.resolve({ confirmation: input.booking.room });
   }
 }
@@ -36,11 +37,7 @@ export class StayWorkflowFinish {}
   name: "stay-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [
-    onStart(HotelWorkflowStart)
-      .toAction(ConfirmAction)
-      .toFinish(StayWorkflowFinish),
-  ],
+  flow: [onStart(HotelWorkflowStart).toAction(ConfirmAction).toFinish(StayWorkflowFinish)],
 })
 export class StayWorkflow {}
 

@@ -5,7 +5,8 @@ import {
   Application,
   Workflow,
   WorkflowFinish,
-  WorkflowStart, Ttl,
+  WorkflowStart,
+  Ttl,
 } from "../../../../../agboss/src/index.js";
 import { Text } from "../../../../../agboss/src/dto/index.js";
 import { listOf } from "../../../../../agboss/src/flow/dto-wrappers.js";
@@ -43,7 +44,7 @@ export class StudioItemWorkflowStart {}
   output: StudioResultDto,
 })
 export class CheckItemAction {
-  execute(input: { readonly item: { readonly value: StudioItemDto } }): Promise<StudioResultDto> {
+  execute(input: { readonly item: StudioItemDto }): Promise<StudioResultDto> {
     return Promise.resolve({ name: input.item.name });
   }
 }
@@ -61,9 +62,7 @@ export class ItemCheckedWorkflowFinish {}
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: [
-    onStart(StudioItemWorkflowStart)
-      .toAction(CheckItemAction)
-      .toFinish(ItemCheckedWorkflowFinish),
+    onStart(StudioItemWorkflowStart).toAction(CheckItemAction).toFinish(ItemCheckedWorkflowFinish),
   ],
 })
 export class StudioItemWorkflow {}
@@ -82,13 +81,9 @@ export class StudioItemsWorkflowStart {}
   output: StudioSummaryDto,
 })
 export class SummaryAction {
-  execute(input: {
-    readonly results: readonly { readonly value: StudioResultDto }[];
-  }): Promise<StudioSummaryDto> {
+  execute(input: { readonly results: readonly StudioResultDto[] }): Promise<StudioSummaryDto> {
     return Promise.resolve({
-      text: input.results
-        .map((result) => result.name)
-        .join(", "),
+      text: input.results.map((result) => result.name).join(", "),
     });
   }
 }

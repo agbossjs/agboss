@@ -6,6 +6,7 @@ import { outputClassesOf } from "../flow/finish-output.js";
 import { NodeKind } from "../flow/ast.js";
 import { isFieldMap } from "../flow/decorators/declaration.js";
 import { Wrapper, type ValueShape } from "../flow/dto-wrappers.js";
+import { throughKeepingFiles } from "../a2a/files/a2a-file-scrub.js";
 import { startLine } from "../flow/runtime/history.js";
 import type { RuntimeGraph } from "../flow/runtime/graph-model.js";
 import { tokenFieldMask } from "./field-masks.js";
@@ -122,11 +123,22 @@ export const storedInputOf = (deps: FinalOutputDeps, start: string, input: unkno
   maskedStartInput(deps.graph, start, input, storedFieldMask(deps.pii));
 
 /**
- * The start line of a turn as it is written to the store: the start DTO's sensitive fields through
- * the mask — a token or a mask, never the value (#1301). Nothing else is masked here: the line is
- * what the thread's memory reads of the turn, and it meets the model-side policies at the model's
- * boundary (a compaction reveals what its model saw masked).
+ * The start line of a turn as it is written to the store: the start DTO's sensitive fields first,
+ * then the observability policies, like the finish line (`maskedFinishLine`). What a thread's
+ * memory reads of its past turns holds the token or the mask, never the value. A file stays its
+ * descriptor, which a later turn reads again.
  */
-export function storedStartLine(deps: FinalOutputDeps, start: string, input: unknown): string {
-  return startLine(start, storedInputOf(deps, start, input));
+export async function storedStartLine(
+  deps: FinalOutputDeps,
+  start: string,
+  input: unknown,
+): Promise<string> {
+  const stored = storedInputOf(deps, start, input);
+  const { pii } = deps;
+  return startLine(
+    start,
+    pii === undefined
+      ? stored
+      : await throughKeepingFiles(stored, (rest) => pii.observability.value(rest)),
+  );
 }

@@ -32,7 +32,7 @@ const complete: DriverModelProviderOptions = {
   }),
 };
 
-@ModelProvider(Object.assign({}, complete, { circuitBreakerPolicy: null }))
+@ModelProvider({ ...complete, circuitBreakerPolicy: null } as unknown as DriverModelProviderOptions)
 export class NullBreakerModelProvider {}
 
 /** The application `agboss --application` loads: the test workflow on that provider. */

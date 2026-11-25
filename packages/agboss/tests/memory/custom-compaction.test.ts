@@ -135,10 +135,10 @@ describe("#382: a custom compaction is tested through its services", () => {
   });
 });
 
-describe("#382: compact() reads its input masked; what it gives is stored revealed", () => {
+describe("#382: compact() reads its input masked; no raw value is stored", () => {
   const test = testWith(GraphDeskApplication);
 
-  test("a token for compact(), the address for the store and a reader that excludes the policy", async ({
+  test("a token for compact(), no raw address stored, and a reader that excludes the policy reads the mask", async ({
     app,
     mockLlm,
     mockOf,
@@ -155,9 +155,10 @@ describe("#382: compact() reads its input masked; what it gives is stored reveal
     const seen = JSON.stringify(turns);
     expect(seen).not.toContain("alice@example.com");
     expect(seen).toMatch(/<email:[0-9a-f]+>/u);
-    expect(textOf(mockLlm(GraphAgent).lastRequest)).toContain(
-      'the user wrote {"text":"write to alice@example.com"}',
-    );
+    // the turn lines are stored masked (#1301): the reader that excludes the policy reads the mask, never the address
+    const reader = textOf(mockLlm(GraphAgent).lastRequest);
+    expect(reader).not.toContain("alice@example.com");
+    expect(reader).toMatch(/the user wrote \{"text":"write to <email:[0-9a-f]+>"\}/u);
   });
 });
 

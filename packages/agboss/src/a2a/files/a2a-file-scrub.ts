@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { BaseMessage, type ContentBlock } from "@langchain/core/messages";
 import { definedOf } from "../../infrastructure/clock.js";
 import { partMetaOf, partOfBlock } from "../../models/content.js";
@@ -78,33 +79,69 @@ export const withoutInlineBytes = (value: unknown): unknown =>
     Object.fromEntries(Object.entries(file).filter(([key]) => key !== "inline")),
   );
 
-/** Stands where a file descriptor is while a value goes through a mask: its place in the list of kept ones. */
-const FILE_SLOT = "$agbossKeptFile";
+/** What a turn line keeps of a file: where its bytes are and what they are; the name goes through the mask. */
+const KEPT_KEYS = ["mediaType", "fileId", "url", "sha256", "sizeBytes"] as const;
 
-/** The value with each kept-file slot back as its descriptor. */
-function withFilesBack(value: unknown, files: readonly unknown[]): unknown {
-  if (Array.isArray(value)) return value.map((item: unknown) => withFilesBack(item, files));
+/** Whether a url may stay in a turn line: an `https:` url without a user or a password. */
+function isKeptUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "https:" && parsed.username === "" && parsed.password === "";
+  } catch {
+    return false;
+  }
+}
+
+/** The descriptor's kept fields only (never its bytes, never a key the DTO does not have). */
+function keptDescriptorOf(file: FileDto): Plain | undefined {
+  if (file.url !== undefined && !isKeptUrl(file.url)) return undefined;
+  return Object.fromEntries(
+    KEPT_KEYS.flatMap((key) => (file[key] === undefined ? [] : [[key, file[key]]])),
+  );
+}
+
+/** The value with each slot (the key is this call's own nonce) back as its descriptor. */
+function withFilesBack(
+  value: unknown,
+  slotKey: string,
+  files: readonly Plain[],
+  depth = 0,
+): unknown {
+  if (depth > MAX_DEPTH) return TOO_DEEP;
+  if (Array.isArray(value))
+    return value.map((item: unknown) => withFilesBack(item, slotKey, files, depth + 1));
   if (!isPlain(value)) return value;
-  const slot = value[FILE_SLOT];
-  if (typeof slot === "number") return files[slot];
-  return rebuilt(value, (item) => withFilesBack(item, files));
+  const slot = value[slotKey];
+  if (typeof slot === "number") {
+    const { filename } = value;
+    return { ...files[slot], ...(typeof filename === "string" ? { filename } : {}) };
+  }
+  return rebuilt(value, (item) => withFilesBack(item, slotKey, files, depth + 1));
 }
 
 /**
- * A value through `through` with its file descriptors left out of it and put back after, bytes
- * (`inline`) aside: what a turn line keeps of a file is its whole descriptor (`fileId`, `url`, digest),
- * so a later turn can read it, while the rest of the value is masked.
+ * A value through `through` with its file descriptors held out of it and put back after: what a turn
+ * line keeps of a file is `mediaType`, `fileId`, `url` (an `https:` one), digest and size — so a later
+ * turn can read it again — and its name, masked with the rest. Any other key, and the bytes
+ * (`inline`), are left out; a file with a url that is no `https:` one shows as `redactedFileOf`
+ * shows it. The slot's key is made for this call: a value that came in cannot name it.
  */
 export async function throughKeepingFiles(
   value: unknown,
   through: (rest: unknown) => Promise<unknown>,
 ): Promise<unknown> {
-  const files: unknown[] = [];
+  const slotKey = `$kept-${randomUUID()}`;
+  const files: Plain[] = [];
   const rest = mapped(value, (file) => {
-    files.push(withoutInlineBytes(file));
-    return { [FILE_SLOT]: files.length - 1 };
+    const kept = keptDescriptorOf(file);
+    if (kept === undefined) return redactedFileOf(file);
+    files.push(kept);
+    return {
+      [slotKey]: files.length - 1,
+      ...(file.filename === undefined ? {} : { filename: file.filename }),
+    };
   });
-  return withFilesBack(await through(rest), files);
+  return withFilesBack(await through(rest), slotKey, files);
 }
 
 const isFileDto = (dto: DtoClass): boolean => dto === FileDto || dto.prototype instanceof FileDto;
