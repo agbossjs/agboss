@@ -198,6 +198,7 @@ export { pauseKeyOf } from "../infrastructure/pause-record.js";
 export type { PauseAnswer, PauseSite } from "../infrastructure/pause-record.js";
 export type {
   PauseDeadlineSet,
+  PauseSeen,
   PauseInPlaceReassignment,
   PauseReassignmentChange,
   PauseReplacement,

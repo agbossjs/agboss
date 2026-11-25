@@ -163,6 +163,21 @@ export interface PauseDeadlineChange {
   readonly maxExtensions?: number;
 }
 
+/**
+ * The state of the pause a reassignment was permitted and planned against (#1307): the store applies
+ * the change only while the pause is still exactly this — the compare of a compare-and-set, as
+ * `previousExpiresAt` is for an extension — so a reassignment that ran between the permit and the
+ * write is never overwritten with a plan made for the older state.
+ */
+export interface PauseSeen {
+  /** How many entries the chain of custody held: any reassignment, extension or move adds one. */
+  readonly trailLength: number;
+  /** Who the pause was for; absent: nobody in particular. */
+  readonly assignees?: readonly string[];
+  /** The deadline the pause had (ISO 8601); absent: none. */
+  readonly expiresAt?: string;
+}
+
 /** A deadline a reassignment sets: what the pause waits until now, and its reminder. */
 export interface PauseDeadlineSet {
   /** The new deadline (ISO 8601); absent: none. */
@@ -178,6 +193,8 @@ export interface PauseDeadlineSet {
  * as `onPauseReassigned`. A `reassign…` call takes this when it has no `pauseId`.
  */
 export interface PauseInPlaceReassignment {
+  /** The state the change was planned against; absent: unguarded (a store's own test). The core always sets it. */
+  readonly seen?: PauseSeen;
   /** None: the pause keeps its own. */
   readonly pauseId?: never;
   /** Who the pause is for now (one to 100 key's texts, none twice); absent: nobody in particular (released). */
@@ -206,6 +223,8 @@ export interface PauseInPlaceReassignment {
 
 /** The replacement a `reassign…` makes (#946): its id and the addressee; the store copies the rest from the old pause. */
 export interface PauseReplacement {
+  /** As `PauseInPlaceReassignment.seen`. */
+  readonly seen?: PauseSeen;
   /** The new pause's id: a random 128-bit token the caller made (`newPauseId()`), never the old one's. */
   readonly pauseId: string;
   /** The addressees (key's texts, #589; one to 100, none twice): who the channel asks now; absent: nobody in particular. */

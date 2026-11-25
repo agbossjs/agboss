@@ -13,6 +13,7 @@ import type {
   PauseInPlaceReassignment,
   PauseReassignmentChange,
   PauseReplacement,
+  PauseSeen,
 } from "../infrastructure/pause-notices.js";
 import type { TimeSpan } from "../units/working-time.js";
 import type { AppDeps } from "./app-deps.js";
@@ -170,14 +171,22 @@ function deadlineOfChange(plan: Omit<ReassignPlan, "change">, ask: ReassignFacts
   return plan.deadline === undefined ? {} : { timeout: plan.deadline };
 }
 
+/** What the plan was made against: the store applies it only while the pause is still this (#1307). */
+const seenOf = (pause: PauseRecord): PauseSeen => ({
+  trailLength: pause.trail.length,
+  ...definedFields({ assignees: pause.assignees, expiresAt: pause.expiresAt }),
+});
+
 /** The change the store applies for a plan. */
 function changeOf(
   plan: Omit<ReassignPlan, "change">,
   ask: ReassignFacts,
   limits: ChainLimits,
-): PauseReassignmentChange {
+  pause: PauseRecord,
+): PauseReassignmentChange & { readonly seen: PauseSeen } {
   const counts = ask.timeout !== undefined && !ask.isExpiry;
   const common = {
+    seen: seenOf(pause),
     ...commonOf(plan, ask, limits),
     ...deadlineOfChange(plan, ask),
     ...(counts ? { countsAsExtension: true as const } : {}),
@@ -226,5 +235,5 @@ export async function planOf(
     expiresAt: deadline?.expiresAt ?? pause.expiresAt,
   });
   const plan = { target: to, channel, assignees, isInPlace, deadline };
-  return { ...plan, change: changeOf(plan, ask, limits) };
+  return { ...plan, change: changeOf(plan, ask, limits, pause) };
 }

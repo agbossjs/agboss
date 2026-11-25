@@ -6,7 +6,7 @@ import type { PauseActor } from "../channels/pause-contexts.js";
 import type { ReassignPauseRequest } from "./reassign-types.js";
 import { checkedCallers } from "../flow/context/context-values.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
-import { sentBy, type PauseChannel } from "../flow/runtime/pause.js";
+import { checkedExternalRef, sentBy, type PauseChannel } from "../flow/runtime/pause.js";
 import { askOfPause } from "../flow/runtime/pause-chain.js";
 import type { ResendReassigned } from "../application/pause-resend-look.js";
 import type { Clock } from "../infrastructure/clock.js";
@@ -105,7 +105,8 @@ export async function sendReplacement(parts: ResendParts, pause: PauseRecord): P
     );
   if (outcome.kind === ChannelOutcomeKind.Decided)
     return answeredAtOnce(parts, pause, channel.name, outcome.decision);
-  await markedSent(parts, pause, outcome.externalRef);
+  // a bad reference is the channel's send failure, as in a step's own send: never stored
+  await markedSent(parts, pause, checkedExternalRef(channel.name, outcome.externalRef));
 }
 
 /** The replacement recorded as sent: asked of its channel, or of nobody (an owner's pause with no channel). */

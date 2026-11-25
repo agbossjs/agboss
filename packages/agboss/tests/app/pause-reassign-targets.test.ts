@@ -51,6 +51,9 @@ const told = {
   /** What `resolveTimeout` of tier one gives. */
   timeout: undefined as ReturnType<typeof hours> | undefined,
   permit: true as unknown,
+  permitCalls: 0,
+  /** What tier two's channel gives as `externalRef`. */
+  tierTwoRef: "SAP-9" as unknown,
   onExpired: undefined as ((ctx: ExpiredContext<TierOneTask>) => unknown) | undefined,
 };
 
@@ -62,6 +65,8 @@ beforeEach(() => {
   told.assignees = ["on-duty-1"];
   told.timeout = undefined;
   told.permit = true;
+  told.permitCalls = 0;
+  told.tierTwoRef = "SAP-9";
   told.onExpired = undefined;
 });
 
@@ -95,8 +100,9 @@ class TierOneTask {
     return told.timeout;
   }
 
-  permitReassign(): boolean {
-    return told.permit as boolean;
+  permitReassign(): boolean | Promise<boolean> {
+    told.permitCalls += 1;
+    return told.permit as boolean | Promise<boolean>;
   }
 
   onExpired(ctx: ExpiredContext<TierOneTask>) {
@@ -144,7 +150,7 @@ class TierTwoChannel {
       ...(ask.assignees === undefined ? {} : { assignees: ask.assignees }),
       ...(ask.replaces === undefined ? {} : { replaces: ask.replaces.pauseId }),
     });
-    return Promise.resolve(ChannelOutcome.awaitReply({ externalRef: "SAP-9" }));
+    return Promise.resolve(ChannelOutcome.awaitReply({ externalRef: told.tierTwoRef as string }));
   }
 }
 
@@ -495,6 +501,52 @@ describe("a reassignment to another target is a new pause", () => {
 
     expect(refused).toBeInstanceOf(PauseError.IncompatibleTarget);
     expect(await pausesOf(app, rootId)).toHaveLength(1);
+  });
+});
+
+describe("a reassignment applies only to the pause the permit saw (#1307)", () => {
+  test("a change that lands between the permit and the write wins: the reassignment is UpdateContended and overwrites nothing", async ({
+    app,
+  }) => {
+    const { pauseId, rootId } = await opened(app);
+    let release: (value: boolean) => void = () => undefined;
+    told.permit = new Promise<boolean>((resolve) => {
+      release = resolve;
+    });
+    // planned against the pause as it is now, then held in permitReassign
+    const held = app
+      .reassignPause({ pauseId, assignees: ["stale"] }, operator)
+      .catch((error: unknown) => error);
+    await until(() => told.permitCalls === 1);
+
+    await app.extendPause({ pauseId, expiresIn: hours(30) }, operator);
+    release(true);
+
+    expect(await held).toBeInstanceOf(PauseError.UpdateContended);
+    const [pause] = await pausesOf(app, rootId);
+    expect(pause?.assignees).toEqual(["on-duty-1"]);
+    expect(pause?.trail.map((entry) => entry.action)).toEqual(["opened", "timeout-changed"]);
+    // the caller may run the permit again: the retry applies to what the pause is now
+    told.permit = true;
+    await app.reassignPause({ pauseId, assignees: ["fresh"] }, operator);
+    const [after] = await pausesOf(app, rootId);
+    expect(after?.assignees).toEqual(["fresh"]);
+  });
+});
+
+describe("an externalRef a channel gives a reassigned pause is checked as a step's own send is", () => {
+  test("a bad reference is a send failure: the replacement stays unsent and nothing is stored", async ({
+    app,
+  }) => {
+    const { pauseId, rootId } = await opened(app);
+    told.tierTwoRef = "";
+
+    await app.reassignPause({ pauseId, target: TierTwoTask, assignees: ["lead"] }, operator);
+
+    const next = (await pausesOf(app, rootId)).find((one) => one.reassignedFrom === pauseId);
+    expect(next?.isSent).toBe(false);
+    expect(next?.externalRef).toBeUndefined();
+    expect(next?.trail.every((entry) => entry.externalRef !== "")).toBe(true);
   });
 });
 

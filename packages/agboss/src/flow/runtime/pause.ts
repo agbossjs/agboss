@@ -123,7 +123,7 @@ export const channelOfPause = (
 export type Sent = { readonly decision: unknown } | { readonly externalRef?: string | undefined };
 
 /** The reference a channel gave its pause: a key's text, else `send` is refused — never a stored value nobody can read back. */
-function checkedExternalRef(channel: string, given: unknown): string | undefined {
+export function checkedExternalRef(channel: string, given: unknown): string | undefined {
   if (given === undefined) return undefined;
   if (typeof given !== "string" || keyTextRuleOf(given) !== undefined)
     throw new TypeError(`channel ${channel}: externalRef of awaitReply() is a key's text`);

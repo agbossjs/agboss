@@ -4,6 +4,7 @@ import {
   recipientKeysOf,
   type PauseInPlaceReassignment,
   type PauseReassignmentChange,
+  type PauseSeen,
   type PauseRecipients,
   type PauseReplacement,
 } from "./pause-notices.js";
@@ -27,8 +28,27 @@ import { closing, isDueAt, isOpenAt, type PauseChange } from "./pause-transition
 export const reassignmentsOf = (pause: Pick<PauseRecord, "trail">): number =>
   pause.trail.filter((entry) => entry.action === "reassigned").length;
 
-/** Whether the change may apply to the pause now: open (or due, for an expiry's), and under its limit. */
+const sameAssignees = (
+  one: readonly string[] | undefined,
+  other: readonly string[] | undefined,
+): boolean =>
+  one === undefined || other === undefined
+    ? one === other
+    : one.length === other.length && one.every((key, index) => key === other[index]);
+
+/** Whether the pause is still the one the change was permitted and planned against (#1307). */
+const isAsSeen = (pause: PauseRecord, seen: PauseSeen | undefined): boolean =>
+  seen === undefined ||
+  (pause.trail.length === seen.trailLength &&
+    pause.expiresAt === seen.expiresAt &&
+    sameAssignees(pause.assignees, seen.assignees));
+
+/**
+ * Whether the change may apply to the pause now: still as the permit saw it, open (or due, for an
+ * expiry's), and under its limit.
+ */
 function isApplicable(pause: PauseRecord, change: PauseReassignmentChange, at: Date): boolean {
+  if (!isAsSeen(pause, change.seen)) return false;
   const isExpiry = change.due !== undefined;
   if (isExpiry ? !isDueAt(pause, at) : !isOpenAt(pause, at)) return false;
   if (change.maxReassignments !== undefined && reassignmentsOf(pause) >= change.maxReassignments)

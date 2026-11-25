@@ -89,6 +89,57 @@ export const REASSIGN_RACE_CASES: readonly ContractCase<PausedExecutionRepositor
     },
   },
   {
+    name: "a reassignment planned against a pause that has changed since — another reassignment, an extension — is refused whole, in place or as a replacement (#1307)",
+    run: async ({ first, second }: Instances): Promise<void> => {
+      await first.findOrCreateByStepKey(expiringPauseOf("pause-a"));
+      const seen = { trailLength: 1, expiresAt: DEADLINE.toISOString() };
+      const inPlace = (store: PausedExecutionRepository, who: string) =>
+        store.reassignByTenantIdAndPauseId(
+          "default",
+          "pause-a",
+          { assignees: [who], seen },
+          BEFORE_DEADLINE,
+          RECIPIENTS,
+        );
+
+      // both were planned against the same pause: the first applies, the second is refused untouched
+      const won = await inPlace(first, "deputy-1");
+      expect(won?.assignees).toEqual(["deputy-1"]);
+      expect(await inPlace(second, "deputy-2")).toBeUndefined();
+      expect(
+        await second.reassignByTenantIdAndPauseId(
+          "default",
+          "pause-a",
+          { pauseId: "pause-b", assignees: ["deputy-3"], seen },
+          BEFORE_DEADLINE,
+          RECIPIENTS,
+        ),
+      ).toBeUndefined();
+      const stored = await first.findByTenantIdAndPauseId("default", "pause-a");
+      expect(stored?.assignees).toEqual(["deputy-1"]);
+      expect(stored?.trail.filter((entry) => entry.action === "reassigned")).toHaveLength(1);
+      expect(await first.findByTenantIdAndPauseId("default", "pause-b")).toBeUndefined();
+
+      // planned against what the pause is now: applies
+      const now = {
+        trailLength: stored?.trail.length ?? 0,
+        assignees: ["deputy-1"],
+        expiresAt: DEADLINE.toISOString(),
+      };
+      expect(
+        (
+          await second.reassignByTenantIdAndPauseId(
+            "default",
+            "pause-a",
+            { assignees: ["deputy-4"], seen: now },
+            BEFORE_DEADLINE,
+            RECIPIENTS,
+          )
+        )?.assignees,
+      ).toEqual(["deputy-4"]);
+    },
+  },
+  {
     name: "after a reassignment the old pause takes no answer, no second reassignment and no extension; its replacement takes them",
     run: async ({ first, second }: Instances): Promise<void> => {
       await first.findOrCreateByStepKey(expiringPauseOf("pause-a"));

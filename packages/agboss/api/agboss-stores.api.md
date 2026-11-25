@@ -2018,6 +2018,7 @@ export interface PauseInPlaceReassignment {
     readonly maxReassignments?: number;
     readonly pauseId?: never;
     readonly reason?: string;
+    readonly seen?: PauseSeen;
     readonly timeout?: PauseDeadlineSet;
 }
 
@@ -2157,6 +2158,7 @@ export interface PauseReplacement {
     readonly maxReassignments?: number;
     readonly pauseId: string;
     readonly reason?: string;
+    readonly seen?: PauseSeen;
     readonly timeout?: PauseDeadlineSet;
     readonly to?: {
         readonly target: string;
@@ -2190,6 +2192,13 @@ export interface PauseScanAfter {
     readonly pauseId: string;
     // (undocumented)
     readonly tenantId: string;
+}
+
+// @public
+export interface PauseSeen {
+    readonly assignees?: readonly string[];
+    readonly expiresAt?: string;
+    readonly trailLength: number;
 }
 
 // @public
