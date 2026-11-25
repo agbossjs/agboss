@@ -15,28 +15,48 @@ import type { EndedRun, TurnStore } from "./types.js";
 /** How many threads of one workflow one look removes: the rest go at the next look. */
 const THREADS_PER_LOOK = 100;
 
+/** How many threads of one workflow one look reads (kept or removed): bounds a look's work. */
+const SCANNED_PER_LOOK = 1000;
+
 /** The statuses of a Turn whose execution may still move: its thread is never removed. */
 const LIVE_STATUSES = ["running", "paused", "queued"] as const;
 
-const ThreadKey = z.object({ tenant_id: z.string(), id: z.string() });
+const ThreadKey = z.object({ tenant_id: z.string(), id: z.string(), last_active_at: z.string() });
 const RunRow = z.object({ run_id: z.string() });
 
 interface IdleThread {
   readonly tenantId: string;
   readonly threadId: string;
+  readonly lastActiveAt: string;
 }
 
-/** The threads of `workflow` idle since before `cutoff`, longest idle first. */
-function idleThreadsOf(db: DatabaseSync, workflow: string, cutoff: Date): IdleThread[] {
+/**
+ * The threads of `workflow` idle since before `cutoff`, longest idle first, the ones after `after`
+ * (a keyset cursor: a look pages past the threads it kept, so they never hide the ones behind them).
+ */
+function idleThreadsOf(
+  db: DatabaseSync,
+  workflow: string,
+  cutoff: Date,
+  after: IdleThread | undefined,
+): IdleThread[] {
+  const cursor =
+    after === undefined
+      ? { sql: "", args: [] }
+      : {
+          sql: "AND (last_active_at, tenant_id, id) > (?, ?, ?)",
+          args: [after.lastActiveAt, after.tenantId, after.threadId],
+        };
   return db
     .prepare(
-      `SELECT tenant_id, id FROM threads WHERE bundle = ? AND is_swept = 0 AND last_active_at < ?
-       ORDER BY last_active_at LIMIT ?`,
+      `SELECT tenant_id, id, last_active_at FROM threads
+       WHERE bundle = ? AND is_swept = 0 AND last_active_at < ? ${cursor.sql}
+       ORDER BY last_active_at, tenant_id, id LIMIT ?`,
     )
-    .all(workflow, cutoff.toISOString(), THREADS_PER_LOOK)
+    .all(workflow, cutoff.toISOString(), ...cursor.args, THREADS_PER_LOOK)
     .map((row) => {
       const key = ThreadKey.parse(row);
-      return { tenantId: key.tenant_id, threadId: key.id };
+      return { tenantId: key.tenant_id, threadId: key.id, lastActiveAt: key.last_active_at };
     });
 }
 
@@ -147,16 +167,35 @@ export function idleThreadMethods(
   db: DatabaseSync,
   log: StatusLog,
 ): Pick<TurnStore, "deleteIdleThreads"> {
+  // where the last look of a workflow stopped: the next one goes on from there, so threads a look
+  // kept (a paused run, a live tree) cannot starve the idle ones behind them; the end wraps round
+  const resumeAt = new Map<string, IdleThread>();
+  /** One look at one workflow: pages from its cursor until it removed enough or read enough. */
+  const lookAt = async (workflow: string, cutoff: Date, isEnded: EndedRun): Promise<number> => {
+    let removed = 0;
+    let scanned = 0;
+    let after = resumeAt.get(workflow);
+    while (removed < THREADS_PER_LOOK && scanned < SCANNED_PER_LOOK) {
+      const page = idleThreadsOf(db, workflow, cutoff, after);
+      for (const thread of page) {
+        const runs = runsOf(db, thread);
+        if (!(await isThreadEnded(runs, thread.tenantId, isEnded))) continue;
+        if (removeThread(db, thread, { workflow, cutoff, runs, log })) removed += 1;
+      }
+      scanned += page.length;
+      if (page.length < THREADS_PER_LOOK) {
+        resumeAt.delete(workflow);
+        return removed;
+      }
+      after = page[page.length - 1];
+      if (after !== undefined) resumeAt.set(workflow, after);
+    }
+    return removed;
+  };
   return {
     deleteIdleThreads: async (cutoffs, isEnded) => {
       let removed = 0;
-      for (const [workflow, cutoff] of cutoffs) {
-        for (const thread of idleThreadsOf(db, workflow, cutoff)) {
-          const runs = runsOf(db, thread);
-          if (!(await isThreadEnded(runs, thread.tenantId, isEnded))) continue;
-          if (removeThread(db, thread, { workflow, cutoff, runs, log })) removed += 1;
-        }
-      }
+      for (const [workflow, cutoff] of cutoffs) removed += await lookAt(workflow, cutoff, isEnded);
       return removed;
     },
   };

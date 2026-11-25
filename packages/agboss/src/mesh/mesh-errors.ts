@@ -28,6 +28,11 @@ export interface MeshLoopDetectedErrorOptions extends Partial<MeshLimitPlace> {
   /** The applications the request passed through, the first caller first. */
   readonly callChain: readonly MeshHop[];
   readonly cause?: unknown;
+  /**
+   * Whether the facts came off the wire from a peer: its names are the peer's words, so the
+   * error's message is fixed text and they stay in the fields (`entry`, `callChain`).
+   */
+  readonly isRemote?: boolean;
 }
 
 /** What a hops limit error takes (#906). */
@@ -45,9 +50,12 @@ export class MeshLoopDetectedError extends LimitExceededError {
   readonly entry: MeshEntry;
   /** The applications the request passed through, the first caller first. */
   readonly callChain: readonly MeshHop[];
+  /** Whether a peer reported it (its names are in `entry` and `callChain`, never in the message). */
+  readonly isRemote: boolean;
 
   constructor(options: MeshLoopDetectedErrorOptions) {
     const { entry, callChain, path = [], spentUsd = usd(0), usage = [], cause } = options;
+    const isRemote = options.isRemote === true;
     const line = chainText([...callChain, entry]);
     super({
       key: "mesh.callChain",
@@ -57,11 +65,14 @@ export class MeshLoopDetectedError extends LimitExceededError {
       spentUsd,
       usage,
       cause,
-      message: `${entry.application} › ${entry.start} was called again through the mesh: ${line}`,
+      message: isRemote
+        ? `a mesh peer refused the call: it was called again through the mesh (a call chain of ${String(callChain.length + 1)} hops)`
+        : `${entry.application} › ${entry.start} was called again through the mesh: ${line}`,
       details: { entry: { ...entry }, chain: callChain.map((hop) => ({ ...hop })) },
     });
     this.entry = entry;
     this.callChain = callChain;
+    this.isRemote = isRemote;
   }
 }
 
@@ -78,6 +89,8 @@ export class HopsLimitExceededError extends LimitExceededError {
   readonly maxMeshHops: number;
   /** The applications the chain would reach with the receiver: one more than `maxMeshHops`. */
   readonly hops: number;
+  /** Whether a peer reported it (its names are in `entry` and `callChain`, never in the message). */
+  readonly isRemote: boolean;
 
   constructor(options: HopsLimitExceededErrorOptions) {
     const {
@@ -90,6 +103,7 @@ export class HopsLimitExceededError extends LimitExceededError {
       cause,
     } = options;
     const hops = callChain.length + 1;
+    const isRemote = options.isRemote === true;
     super({
       key: "maxMeshHops",
       limit: maxMeshHops,
@@ -98,9 +112,10 @@ export class HopsLimitExceededError extends LimitExceededError {
       spentUsd,
       usage,
       cause,
-      message:
-        `${entry.application} › ${entry.start} would be hop ${String(hops)} of the call chain; ` +
-        `its maxMeshHops is ${String(maxMeshHops)}: ${chainText(callChain)}`,
+      message: isRemote
+        ? `a mesh peer refused the call: it would be hop ${String(hops)} of the call chain; its maxMeshHops is ${String(maxMeshHops)}`
+        : `${entry.application} › ${entry.start} would be hop ${String(hops)} of the call chain; ` +
+          `its maxMeshHops is ${String(maxMeshHops)}: ${chainText(callChain)}`,
       details: {
         entry: { ...entry },
         chain: callChain.map((hop) => ({ ...hop })),
@@ -112,6 +127,7 @@ export class HopsLimitExceededError extends LimitExceededError {
     this.callChain = callChain;
     this.maxMeshHops = maxMeshHops;
     this.hops = hops;
+    this.isRemote = isRemote;
   }
 }
 
@@ -125,11 +141,17 @@ export const isMeshLimitError = (error: unknown): error is MeshLimitError =>
 /** The same limit at another place (the agent loop's path and spend, before it fails the step). */
 export function meshLimitAt(error: MeshLimitError, place: MeshLimitPlace): MeshLimitError {
   return error instanceof MeshLoopDetectedError
-    ? new MeshLoopDetectedError({ entry: error.entry, callChain: error.callChain, ...place })
+    ? new MeshLoopDetectedError({
+        entry: error.entry,
+        callChain: error.callChain,
+        isRemote: error.isRemote,
+        ...place,
+      })
     : new HopsLimitExceededError({
         entry: error.entry,
         callChain: error.callChain,
         maxMeshHops: error.maxMeshHops,
+        isRemote: error.isRemote,
         ...place,
       });
 }

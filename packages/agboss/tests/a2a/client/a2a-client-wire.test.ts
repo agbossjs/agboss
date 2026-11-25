@@ -24,7 +24,6 @@ import {
 } from "../../../src/a2a/index.js";
 import { TaskState } from "@a2a-js/sdk";
 import { A2A_SKILLS_EXTENSION } from "../../../src/a2a/a2a-extension-uris.js";
-import { HopsLimitExceededError } from "../../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { hours } from "../../../src/units/index.js";
 import { AGENT_URL, scripts, SdkAgent, urlOf, workingThen } from "./support/sdk-agent.js";
@@ -320,7 +319,7 @@ describe("#809: typed and untyped calls against a foreign agent", () => {
     await expect(canceled).rejects.toBeInstanceOf(A2ATaskCancelledError);
   });
 
-  it("an AGBoss peer's mesh limit code is rebuilt as the same limit error", async () => {
+  it("a mesh limit from an agent the call did not mesh with (no signed envelope to its application) is an ordinary failed task", async () => {
     const entry = { application: "billing-application", start: "billing-workflow-start" };
     const chain = [
       { application: "orders-application", start: "orders-workflow-start", executionId: "e-1" },
@@ -335,7 +334,7 @@ describe("#809: typed and untyped calls against a foreign agent", () => {
       script: scripts.endWith(TaskState.TASK_STATE_REJECTED, "too many hops", metadata),
     });
 
-    await expect(clientOf(agent).send("x")).rejects.toBeInstanceOf(HopsLimitExceededError);
+    await expect(clientOf(agent).send("x")).rejects.toBeInstanceOf(A2ATaskFailedError);
   });
 
   it("a JSON-RPC error keeps its code, never the agent's message", async () => {

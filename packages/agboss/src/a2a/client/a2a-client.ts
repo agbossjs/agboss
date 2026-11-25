@@ -135,10 +135,10 @@ export class A2AClient<TIn extends object = object, TOut extends object = object
     const contract = typedContractOf(this.constructor.name, this.contract);
     const read = storedFileReaderOf(this.#services());
     const parts = await inputPartsOf(contract.input, validate(contract.input, input), read);
-    const { task, accepted } = await this.#call(parts, undefined, call);
+    const { task, accepted, peer } = await this.#call(parts, undefined, call);
     // Stryker disable next-line OptionalChaining: equivalent: `typedContractOf` above refused a client without its contract, so it is there
     const finishes = this.contract?.finishes;
-    const raw = outputOf(this.#agent, contract.output, task, accepted.message, finishes);
+    const raw = outputOf(this.#agent, contract.output, task, accepted.message, finishes, peer.mesh);
     // the contract's output DTO is the class's `TOut` (the decorator ties them)
     return validate(contract.output, raw) as TOut;
   }

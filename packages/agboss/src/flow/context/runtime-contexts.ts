@@ -6,6 +6,7 @@ import type { Environment } from "../generated-types.js";
 import {
   DEFAULT_TENANT,
   executionFieldsOf,
+  type ContextFields,
   tenantContextOf,
   tenantFieldsOf,
   type ExecutionContextClass,
@@ -86,3 +87,11 @@ export const contextValuesOf = (
   tenant: tenantFieldsOf(contexts.tenantContext, given.tenant),
   execution: executionFieldsOf(contexts.executionContext, given.execution),
 });
+
+/** The contexts of a call that names its own values (a session's, over MCP): checked, the tenant built. */
+export const callContextsOf =
+  (contexts: RuntimeContexts) =>
+  (given: GivenContextValues): { tenant: TenantContext; execution: ContextFields } => {
+    const values = contextValuesOf(contexts, given);
+    return { tenant: tenantOfExecution(contexts, values.tenant), execution: values.execution };
+  };
