@@ -12,7 +12,9 @@
 // Options: --docs a.md,b.md (default: the root docs and docs/**), --wiki <dir> (instead: every page
 // of a GitHub Wiki checkout, whose links to other pages must name existing pages; CI clones the
 // wiki and runs this — #240), --out <dir> (keep the written snippets there; default a temporary
-// folder), --no-cli-sources (skip step 2 for the CLI's sources; implied by --wiki).
+// folder), --no-cli-sources (skip step 2 for the CLI's sources; implied by --wiki),
+// --wiki-links <dir> (with --wiki: the pages of this wiki checkout count as link targets too, but
+// are not checked — the repo's own wiki/ until the 0.1.1 release, linking to the shared Wiki's pages).
 import {
   existsSync,
   mkdirSync,
@@ -54,6 +56,7 @@ const { values } = parseArgs({
   options: {
     docs: { type: "string" },
     wiki: { type: "string" },
+    "wiki-links": { type: "string" },
     out: { type: "string" },
     "no-cli-sources": { type: "boolean", default: false },
   },
@@ -77,6 +80,12 @@ function docsToCheck() {
 }
 
 const docs = docsToCheck();
+if (values["wiki-links"] !== undefined && values.wiki === undefined)
+  throw new Error("--wiki-links goes with --wiki");
+const linkTargets =
+  values["wiki-links"] === undefined
+    ? docs
+    : [...docs, ...wikiPages(resolve(values["wiki-links"]))];
 const out = values.out ? resolve(values.out) : mkdtempSync(join(tmpdir(), "agboss-docs-"));
 mkdirSync(out, { recursive: true });
 const root = realpathSync(out);
@@ -93,7 +102,7 @@ for (const path of docs) {
   const snippets = snippetsOf(markdown, doc);
   problems.push(...conventionProblems(snippets), ...referenceProblems(doc, markdown, known));
   problems.push(...flowLintProblems(snippets), ...removedPathProblems(doc, markdown));
-  if (values.wiki !== undefined) problems.push(...wikiLinkProblems(doc, markdown, docs));
+  if (values.wiki !== undefined) problems.push(...wikiLinkProblems(doc, markdown, linkTargets));
   const { folder, files } = writeDoc(root, doc, snippets);
   compiled += files.length;
   const typed = await writeDocTypes(folder, doc, files);
