@@ -4,8 +4,7 @@
  * pending when it is refused. On `ChannelOutcome.decided(…)`: `tests/channels/channel-outcome.test.ts`.
  */
 import { beforeEach, describe, expect } from "vitest";
-import { DtoValidationError } from "../../src/dto/index.js";
-import { PauseStatus } from "../../src/index.js";
+import { PauseStatus, ValidationError } from "../../src/index.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
 import {
@@ -42,7 +41,7 @@ describe("#267 AC7: app.resume validates the decision before it records it", () 
 
       const refused = app.resume(answerFor("7", decision), manager);
 
-      await expect(refused).rejects.toBeInstanceOf(DtoValidationError);
+      await expect(refused).rejects.toBeInstanceOf(ValidationError.DtoInvalid);
       expect((await pauseOf7())?.status).toBe(PauseStatus.Pending);
       await app.resume(answerFor("7"), manager);
       expect(seen.refunds).toEqual(["7"]);

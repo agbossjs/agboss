@@ -326,7 +326,7 @@ export interface ExecutionRejectedEvent {
   readonly threadId?: string;
   /** The tenant the request named (`"default"` when it named none, or its values were invalid). */
   readonly tenantId: string;
-  /** The error's stable code (`run.thread-owner`, `run.not-paused`, `dto.invalid`, …). */
+  /** The error's stable code (`run.thread-owner`, `run.not-paused`, `validation.dto-invalid`, …). */
   readonly code: string;
   /** What went wrong, without the input values (`invalid WorkflowStartTextDto at text`). */
   readonly message: string;

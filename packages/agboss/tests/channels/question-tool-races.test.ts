@@ -7,8 +7,12 @@
 import { describe, expect } from "vitest";
 import { UnknownPauseError } from "../../src/run/resume-agent.js";
 import { AgentFailedError } from "../../src/graph/errors.js";
-import { DtoValidationError } from "../../src/dto/errors.js";
-import { PauseClosedError, PauseStatus, PausedExecutionRepository } from "../../src/index.js";
+import {
+  PauseClosedError,
+  PauseStatus,
+  PausedExecutionRepository,
+  ValidationError,
+} from "../../src/index.js";
 import { ThreadOwnerError } from "../../src/core/errors.js";
 import { VisitsLimitExceededError } from "../../src/flow/runtime/errors.js";
 import { callTool, callTools, replyWith, testWith } from "../../src/testing/index.js";
@@ -224,7 +228,7 @@ describe("#712 AC4: a channel that fails", () => {
 
       await expect(execute(app, BuyerWorkflowStart, { text: "buy" }, asking)).rejects.toFailWith(
         AgentFailedError,
-        { cause: expect.any(DtoValidationError) },
+        { cause: expect.any(ValidationError.DtoInvalid) },
       );
     },
   );

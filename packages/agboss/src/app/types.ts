@@ -83,13 +83,13 @@ export interface ExecutionOptions extends CallOptions {
    * Who the thread belongs to (its access key, `executionContext.ownerId`). A new thread is bound
    * to it; continuing, resuming or cancelling a thread with another owner (or none for an owned
    * thread) throws `ThreadOwnerError` before anything runs. A key's text (#589: `keyTextRuleOf`),
-   * else `dto.invalid` naming `ownerId` and the rule, never the id.
+   * else `validation.dto-invalid` naming `ownerId` and the rule, never the id.
    */
   readonly ownerId?: string | undefined;
   /**
    * The tenant's values (`ContextValues<T>` of the declared `TenantContext`): with nothing declared
    * `{ tenantId?, weight? }`, omitted → the tenant `"default"`. Validated before the first step
-   * (invalid → `dto.invalid`, `onRunRejected`), frozen, inherited by child executions.
+   * (invalid → `validation.dto-invalid`, `onRunRejected`), frozen, inherited by child executions.
    */
   readonly tenant?: TenantValues;
   /** The values of the declared `ExecutionContext` subclass; with the built-in class none. */
@@ -247,7 +247,7 @@ export interface App<TApp = unknown> {
    * The channel and the listeners hear "extended" and, `remindBefore` before the new deadline,
    * "expiring". Refused: a pause that is closed or past its deadline (`PauseClosedError`), one with
    * no deadline, a deadline not later than the current one, or one past the deadline of the run (or
-   * quorum) it was made under (`DtoValidationError`, `dto: "ExtendPauseRequest"`); another tenant's
+   * quorum) it was made under (`ValidationError.DtoInvalid`, `dto: "ExtendPauseRequest"`); another tenant's
    * or an unknown pause is `UnknownPauseError`. Atomic at the store against the expiry look; a call
    * that loses the store's compare-and-set to other writers 8 times in a row is
    * `PauseExtensionContendedError` (`pause.update-contended`; nothing changed, retry is safe).
@@ -270,7 +270,7 @@ export interface App<TApp = unknown> {
    * a reassignment and an answer, at the same moment exactly one wins), one reassigned as often as
    * its `escalationLimits.maxReassignments` allow (`PauseError.EscalationLimitExceeded`), a target
    * of another kind or other DTOs (`PauseError.IncompatibleTarget`), a bad assignee list
-   * (`DtoValidationError`, `dto: "ReassignPauseRequest"`); another tenant's or an unknown pause is
+   * (`ValidationError.DtoInvalid`, `dto: "ReassignPauseRequest"`); another tenant's or an unknown pause is
    * `UnknownPauseError`. The new id of a moved pause is returned to no caller: only its key. The new
    * send is made by this call; when the instance dies first, another instance's timers send it.
    */
@@ -370,7 +370,7 @@ export interface App<TApp = unknown> {
    * order, so a pause that opens or closes between two pages never makes another skipped or
    * repeated. A pause's id is shown as `result.pending` shows it (only a `ThreadOwner` pause's),
    * its `pauseKey` always; its `ask` is masked by its workflow's observability policies. Another
-   * tenant's pauses are never listed; an invalid query is a `DtoValidationError` (`PausesQuery`).
+   * tenant's pauses are never listed; an invalid query is a `ValidationError.DtoInvalid` (`PausesQuery`).
    */
   listPauses(query: PausesQuery): Promise<PausesPage>;
   /**

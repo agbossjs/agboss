@@ -2,14 +2,14 @@ import { isPauseTimeout } from "../channels/channel-rules.js";
 import type { PauseTarget } from "../flow/runtime/pause.js";
 import { isWorkingDuration } from "../units/index.js";
 import { spanText } from "../units/working-time.js";
-import { DtoValidationError, type DtoIssue } from "../dto/errors.js";
+import { type DtoIssue, invalidDto } from "../dto/errors.js";
 import type { PauseRecord } from "../infrastructure/pause-record.js";
 import type { ExtendPauseRequest } from "./extend-types.js";
 
 /** The checks of an extension's request and of the deadline it moves to (#942, #944): split from `pause-extension.ts`. */
 
 export function reject(issues: readonly DtoIssue[]): never {
-  throw new DtoValidationError({ dto: "ExtendPauseRequest", issues });
+  throw invalidDto({ dto: "ExtendPauseRequest", issues });
 }
 
 /** The request as an untyped (JS) caller may pass it, checked: a pause id and a duration. */

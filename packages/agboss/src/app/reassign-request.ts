@@ -1,6 +1,6 @@
 import { definedFields } from "../core/defined-fields.js";
 import { KEY_TEXT_RULE_TEXT, keyTextRuleOf } from "../core/errors.js";
-import { DtoValidationError, type DtoIssue } from "../dto/errors.js";
+import { type DtoIssue, invalidDto } from "../dto/errors.js";
 import { isPauseTimeout } from "../channels/channel-rules.js";
 import type { Class } from "../components/injection.js";
 import { spanText } from "../units/working-time.js";
@@ -9,7 +9,7 @@ import type { ReassignPauseRequest } from "./reassign-types.js";
 /** The checks of a reassignment's request (#946, #1307d): split from `pause-reassignment.ts`. */
 
 export function reject(issues: readonly DtoIssue[]): never {
-  throw new DtoValidationError({ dto: "ReassignPauseRequest", issues });
+  throw invalidDto({ dto: "ReassignPauseRequest", issues });
 }
 
 /** The most assignees one reassignment names. */

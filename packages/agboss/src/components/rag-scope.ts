@@ -56,7 +56,7 @@ const RESOLVERS: Readonly<Partial<Record<RagScope, (call: ScopeCall) => string>>
 
 /**
  * The scope's key of a retrieval — its tenant and its id within it, none for `Shared` — resolved from the frame of the step or tool call that runs it, and
- * checked as a key's text (`dto.invalid` naming the rule, never the id). No open frame →
+ * checked as a key's text (`validation.dto-invalid` naming the rule, never the id). No open frame →
  * `context.unavailable`. A scope the call cannot resolve (an owner-scoped source without an owner, a
  * custom scope that returns nothing, a scope that is none of the four) fails closed — never another
  * scope's passages.

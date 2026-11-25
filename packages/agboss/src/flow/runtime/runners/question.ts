@@ -1,5 +1,5 @@
+import { ValidationError } from "../../../core/error-families/effect-errors.js";
 import { redactedDto } from "../../../dto/redact.js";
-import { DtoValidationError } from "../../../dto/errors.js";
 import { validate } from "../../../dto/schema.js";
 import type { GraphDeps } from "../../../graph/deps.js";
 import { systemClock } from "../../../infrastructure/clock.js";
@@ -27,7 +27,7 @@ async function failedAsking(
   const question = node.id;
   if (error instanceof ChannelSendError)
     throw new QuestionFailedError({ question, cause: error.cause });
-  if (error instanceof DtoValidationError || error instanceof WorkingCalendarError)
+  if (error instanceof ValidationError.DtoInvalid || error instanceof WorkingCalendarError)
     throw new QuestionFailedError({ question, cause: error });
   if (!(error instanceof PauseExpirySignal)) throw error;
   // the run's deadline may have bound it: the budgets' counters read first, as at any visit

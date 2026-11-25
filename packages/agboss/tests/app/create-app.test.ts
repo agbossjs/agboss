@@ -11,8 +11,9 @@ import {
   WorkflowStart,
   inline,
   Ttl,
+  ValidationError,
 } from "../../src/index.js";
-import { DtoValidationError, Text } from "../../src/dto/index.js";
+import { Text } from "../../src/dto/index.js";
 import { replyWith, callTool, routeTo } from "../../src/testing/index.js";
 import { McpStubs, stubbedMcpConnect } from "../../src/testing/mcp-stubs.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
@@ -224,7 +225,9 @@ describe("AC12: createApp — the real app", () => {
     await expect(execute(app, Reply, { text: "hi" })).rejects.toThrow(
       'reply-workflow-finish is not a workflow start of "code-review-workflow"',
     );
-    await expect(execute(app, TaskStart, { text: "" })).rejects.toBeInstanceOf(DtoValidationError);
+    await expect(execute(app, TaskStart, { text: "" })).rejects.toBeInstanceOf(
+      ValidationError.DtoInvalid,
+    );
     expect(book.scriptOf("agent:coder-agent").requests).toEqual([]);
     await app.close();
   });

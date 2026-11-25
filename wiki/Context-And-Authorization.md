@@ -178,7 +178,7 @@ come from is the project's choice; the framework loads nothing.
   required; with nothing declared `tenant: { tenantId?, weight? }` is optional (omitted → the
   tenant `"default"`) and passing `execution` does not compile.
 - Validated by the field decorators before the first step: invalid → the execution is rejected
-  with `dto.invalid` and `onExecutionRejected`; the message names the field, never the value
+  with `validation.dto-invalid` and `onExecutionRejected`; the message names the field, never the value
   (`invalid ClinicTenantContext: units[0].unitId: …`).
 - Frozen for the whole execution, kept in its checkpoint: a resume — `app.resume({ pauseId,
   decision }, { tenantId, ownerId | actor })` ([Pauses](Pauses)) — runs on the values it

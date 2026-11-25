@@ -10,10 +10,10 @@ import type { ShownContent } from "../../src/models/messages.js";
 import { beforeEach, describe, expect } from "vitest";
 import {
   AgentFailedError,
-  DtoValidationError,
   StepFailedError,
   ToolBlockedError,
   ToolCallStatus,
+  ValidationError,
 } from "../../src/index.js";
 import { callTool, replyWith, testWith, type ModelRequest } from "../../src/testing/index.js";
 import type { ModelScript } from "../../src/testing/model-script.js";
@@ -162,7 +162,7 @@ describe("#384: a misbehaving interceptor fails the step", () => {
     await expect(run).rejects.toBeInstanceOf(AgentFailedError);
   });
 
-  test("an afterToolCall output its tool does not give: DtoValidationError as the cause", async ({
+  test("an afterToolCall output its tool does not give: ValidationError.DtoInvalid as the cause", async ({
     app,
     mockModel,
   }) => {
@@ -170,7 +170,7 @@ describe("#384: a misbehaving interceptor fails the step", () => {
 
     const run = execute(app, ScoutStart, { text: "ping" }, acme);
 
-    await expect(run).rejects.toFailWith(AgentFailedError, { cause: DtoValidationError });
+    await expect(run).rejects.toFailWith(AgentFailedError, { cause: ValidationError.DtoInvalid });
     expect(toolRuns).toEqual(["ping-tool:shape"]);
   });
 });

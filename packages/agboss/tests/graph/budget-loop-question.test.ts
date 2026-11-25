@@ -1,3 +1,4 @@
+import { ValidationError } from "../../src/index.js";
 import { usd } from "../../src/units/index.js";
 /**
  * #1366 (budget-loop shard) — the budget rules at the loop's approval step, for a question role an agent asks as a
@@ -11,7 +12,6 @@ import { currentFrame } from "../../src/flow/context/frame.js";
 import { VisitsLimitExceededError } from "../../src/flow/runtime/errors.js";
 import { ComponentKind } from "../../src/flow/runtime/records.js";
 import { expiryFailureOf, PauseExpirySignal } from "../../src/flow/runtime/pause-expiry-failure.js";
-import { DtoValidationError } from "../../src/dto/errors.js";
 import { AgentFailedError } from "../../src/graph/errors.js";
 import { makeApprovalNode } from "../../src/graph/agent-loop/approval-node.js";
 import { awaitingApproval } from "../../src/graph/agent-loop/boundary.js";
@@ -282,7 +282,7 @@ describe("#1366: what the checks leave alone", () => {
   it("an answer its channel decided at once that is no valid answer fails the agent with the loop's spend", async () => {
     const made = setup();
     // built bare: its own constructor reads the (faked) frame
-    const invalid: DtoValidationError = Object.create(DtoValidationError.prototype);
+    const invalid: ValidationError.DtoInvalid = Object.create(ValidationError.DtoInvalid.prototype);
     made.requestAnswer.mockRejectedValue(invalid);
     vi.mocked(currentFrame).mockReturnValue(undefined);
 

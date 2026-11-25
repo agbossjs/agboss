@@ -345,7 +345,7 @@ message is cut and masked the same way.
 
 **Failures.** An interceptor that throws, returns no `ToolCallDecision` or an output its tool does
 not give fails the step: `AgentFailedError`, its error as the `cause` (`ScopeServiceDownError`,
-`TypeError`, `DtoValidationError`), so `.onError(DomainError, …)` takes it through the cause; the
+`TypeError`, `ValidationError.DtoInvalid`), so `.onError(DomainError, …)` takes it through the cause; the
 tool does not run after a failed before hook.
 
 **What is intercepted**: an agent's calls to the project's `@Tool` classes — never

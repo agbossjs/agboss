@@ -1,5 +1,5 @@
 import { AGBossError, type MessageErrorOptions } from "../core/errors.js";
-import { DtoValidationError, pathOf } from "../dto/errors.js";
+import { pathOf, invalidDto } from "../dto/errors.js";
 import { validate } from "../dto/schema.js";
 import { ToolCallApprovalDecisionDto } from "../dto/standard/framework.js";
 import type { UsageRecord } from "../finops/usage.js";
@@ -53,7 +53,7 @@ export function validDecisionOf(
     // strict (#688): a key the tool's input does not have, at any depth, is refused — never dropped
     const dropped = droppedKeysOf(valid.overrideInput, checked.data, []);
     if (dropped.length > 0)
-      throw new DtoValidationError({
+      throw invalidDto({
         dto: ToolCallApprovalDecisionDto.name,
         issues: dropped.map((path) => ({
           path: pathOf(["overrideInput", ...path]),
@@ -62,7 +62,7 @@ export function validDecisionOf(
       });
     return valid;
   }
-  throw new DtoValidationError({
+  throw invalidDto({
     dto: ToolCallApprovalDecisionDto.name,
     issues: checked.error.issues.map((issue) => ({
       path: pathOf(["overrideInput", ...issue.path]),

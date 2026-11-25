@@ -1,3 +1,4 @@
+import { ValidationError } from "../../core/error-families/effect-errors.js";
 import { WorkingCalendarError } from "../../calendar/working-calendar.js";
 import type { AsyncNode } from "../types.js";
 import { awaitingApproval } from "./boundary.js";
@@ -14,7 +15,6 @@ import {
   type CallDecision,
 } from "./state.js";
 import type { RunnableConfig } from "@langchain/core/runnables";
-import { DtoValidationError } from "../../dto/errors.js";
 import { countBoundOf } from "../count-limit.js";
 import { totalCost } from "../../finops/usage.js";
 import { currentFrame } from "../../flow/context/frame.js";
@@ -147,7 +147,7 @@ async function askedOrFailed<TAnswer>(
   } catch (error) {
     // a calendar that could not answer (#944): nobody was asked, the agent's step fails
     const isCalendar = error instanceof WorkingCalendarError;
-    if ((isQuestion && error instanceof DtoValidationError) || isCalendar)
+    if ((isQuestion && error instanceof ValidationError.DtoInvalid) || isCalendar)
       throw new AgentFailedError({ agent: deps.agent.name, usage: loopUsage(state), cause: error });
     // its pause's deadline passed (#941): the whole agent step fails, its spend kept
     if (error instanceof PauseExpirySignal) throw expiryOf(error, state, deps);

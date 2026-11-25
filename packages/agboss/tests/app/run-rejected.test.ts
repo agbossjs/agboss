@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect } from "vitest";
-import { DtoValidationError } from "../../src/dto/index.js";
 import {
   BudgetExceededError,
   InvalidThreadIdError,
@@ -12,6 +11,7 @@ import {
   ExecutionOperation,
   NotAWorkflowStartError,
   type ExecutionRejectedEvent,
+  ValidationError,
 } from "../../src/index.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import { usd } from "../../src/units/index.js";
@@ -175,13 +175,13 @@ describe("#246 AC2: nothing to resume, an unknown thread, an invalid start → o
 
       const run = execute(app, Redeem, input);
 
-      await expect(run).rejects.toBeInstanceOf(DtoValidationError);
+      await expect(run).rejects.toBeInstanceOf(ValidationError.DtoInvalid);
       // the caller still gets the whole error, value included
       await expect(run).rejects.toThrow(/SECRET-4471/);
-      const event = expectRejected({ operation: ExecutionOperation.Execute, code: "dto.invalid" }, [
-        input.code,
-        input.text,
-      ]);
+      const event = expectRejected(
+        { operation: ExecutionOperation.Execute, code: "validation.dto-invalid" },
+        [input.code, input.text],
+      );
       expect(event.message).toBe("invalid VoucherDto at code");
       expect(workflowEvents()).toEqual([]);
     },
@@ -232,7 +232,7 @@ describe("#261: a request refused before it starts leaves no trace — no thread
 
   vouchers("an invalid start input", async ({ app }) => {
     await expect(execute(app, Redeem, { text: "redeem", code: "BAD" })).rejects.toBeInstanceOf(
-      DtoValidationError,
+      ValidationError.DtoInvalid,
     );
 
     await expectNoNewThread(app);

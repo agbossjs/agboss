@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { dtoCycleOf, cycleText } from "./cycles.js";
-import { DtoError, DtoValidationError, pathOf } from "./errors.js";
+import { pathOf, dtoClassError, invalidDto } from "./errors.js";
 import { scalarSchemas } from "./formats.js";
 import { checksOf, isOpen, registerDto } from "./metadata.js";
 import { hydrateInPlace } from "./hydrate.js";
@@ -101,7 +101,7 @@ export function objectSchemaOf(dto: DtoClass): ObjectSchema {
   const fields = registerDto(dto);
   const cycle = dtoCycleOf(dto);
   if (cycle !== undefined)
-    throw new DtoError({ code: "dto.cyclic", message: cyclicMessage(cycle) });
+    throw dtoClassError({ code: "dto.cyclic", message: cyclicMessage(cycle) });
   const checks = checksOf(dto);
   const schema = fieldsSchemaOf(fields)
     .superRefine((value, ctx) => {
@@ -150,7 +150,7 @@ export const jsonSchemaOf = (dto: DtoClass): Readonly<Record<string, unknown>> =
 export function validate<T extends object>(dto: DtoClass<T>, raw: unknown): T {
   const parsed = schemaOf(dto).safeParse(raw);
   if (parsed.success) return parsed.data;
-  throw new DtoValidationError({
+  throw invalidDto({
     dto: dto.name,
     issues: parsed.error.issues.map((issue) => ({
       path: pathOf(issue.path),

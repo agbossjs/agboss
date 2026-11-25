@@ -1,25 +1,21 @@
-import { AGBossError } from "../core/errors.js";
+import { ConfigError } from "../core/error-families/config-errors.js";
+import { ValidationError } from "../core/error-families/effect-errors.js";
+
 /** What went wrong with a DTO class itself (found at registration, before any data). */
-export type DtoErrorCode =
+export type DtoClassProblem =
   "dto.undecorated-field" | "dto.not-plain-data" | "dto.no-metadata" | "dto.cyclic";
 
-/** What a DTO class error takes (#906): why, and the sentence naming the class and fields. */
-export interface DtoErrorOptions {
-  readonly code: DtoErrorCode;
+/** What a DTO class error takes: why, and the sentence naming the class and fields. */
+export interface DtoClassProblemOptions {
+  readonly code: DtoClassProblem;
   readonly message: string;
   readonly cause?: unknown;
 }
 
-/** A DTO class that cannot be used: the code says why, the message names the class and fields. */
-export class DtoError extends AGBossError {
-  static override readonly code: string = "dto";
-  declare readonly code: DtoErrorCode;
-  override name = "DtoError";
-
-  constructor(options: DtoErrorOptions) {
-    super(`${options.code}: ${options.message}`, options);
-    this.code = options.code;
-  }
+/** A DTO class that cannot be used (`ConfigError.Dto`): the reason leads the message, the class and fields follow. */
+export function dtoClassError(options: DtoClassProblemOptions): ConfigError.Dto {
+  const { code, message, cause } = options;
+  return new ConfigError.Dto({ message: `${code}: ${message}`, cause, details: { reason: code } });
 }
 
 /** One rejected value: where (`jobs[2].url`) and why. */
@@ -28,30 +24,23 @@ export interface DtoIssue {
   readonly reason: string;
 }
 
-/** What invalid data takes (#906): the DTO and each issue. */
-export interface DtoValidationErrorOptions {
+/** What invalid data takes: the DTO's name and each issue. */
+export interface InvalidDtoOptions {
   /** The DTO class's name. */
   readonly dto: string;
   readonly issues: readonly DtoIssue[];
   readonly cause?: unknown;
 }
 
-/** Data that does not fit a DTO: every issue with its field path and reason. */
-export class DtoValidationError extends AGBossError {
-  static override readonly code = "dto.invalid" as const;
-  declare readonly code: typeof DtoValidationError.code;
-  override name = "DtoValidationError";
-  /** The DTO class's name. */
-  readonly dto: string;
-  /** Each value that failed, by path. */
-  readonly issues: readonly DtoIssue[];
-
-  constructor(options: DtoValidationErrorOptions) {
-    const { dto, issues, cause } = options;
-    super(`invalid ${dto}: ${issues.map((i) => `${i.path}: ${i.reason}`).join("; ")}`, { cause });
-    this.dto = dto;
-    this.issues = issues;
-  }
+/** Data that does not fit a DTO (`ValidationError.DtoInvalid`): every issue with its field path and reason. */
+export function invalidDto(options: InvalidDtoOptions): ValidationError.DtoInvalid {
+  const { dto, issues, cause } = options;
+  return new ValidationError.DtoInvalid({
+    message: `invalid ${dto}: ${issues.map((i) => `${i.path}: ${i.reason}`).join("; ")}`,
+    dto,
+    issues,
+    cause,
+  });
 }
 
 /** A zod issue path as people write it: `jobs[2].url`, `(root)` for the whole value. */

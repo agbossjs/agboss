@@ -2,10 +2,10 @@
  * #1080: a DTO that holds itself (through `@Nested` or `@List`, directly or via other DTOs) is a
  * typed error, never a stack overflow; a DTO used twice and a deep finite chain are fine.
  */
+import { ConfigError } from "../../src/index.js";
 import { describe, expect, it } from "vitest";
 import type { DtoClass } from "../../src/dto/types.js";
 import { dtoCycleOf } from "../../src/dto/cycles.js";
-import { DtoError } from "../../src/dto/errors.js";
 import { hasSensitiveFields } from "../../src/dto/redact.js";
 import { jsonSchemaOf, objectSchemaOf, validate } from "../../src/dto/schema.js";
 import { chainOf, DiamondDto, PingDto, PongDto, SelfDto, TreeDto } from "./fixtures-cycles.js";
@@ -44,7 +44,7 @@ describe("#1080 every DTO walk refuses a cycle with dto.cyclic", () => {
   ];
 
   it.each(cyclic)("%s: the runtime schema", (_label, dto, path) => {
-    expect(() => objectSchemaOf(dto)).toThrow(DtoError);
+    expect(() => objectSchemaOf(dto)).toThrow(ConfigError.Dto);
     expect(() => objectSchemaOf(dto)).toThrow(path);
   });
 

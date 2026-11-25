@@ -5,6 +5,7 @@
  * policy), the models a reranker is given, the scope every retrieval is made for (never another one), and the
  * reranker bound to a knowledge base — a model one refused without a gateway — with the retrieval that runs through it.
  */
+import { ValidationError } from "../../src/index.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   checkedRagClassesOf,
@@ -18,7 +19,6 @@ import { boundRerankerOf, rerankerModelsOf } from "../../src/components/rag-rera
 import { knowledgeRetrieveOf } from "../../src/components/rag-retrieval.js";
 import { scopeKeyOfRetrieval } from "../../src/components/rag-scope.js";
 import { ComponentError, componentOf, requireComponent } from "../../src/components/metadata.js";
-import { DtoValidationError } from "../../src/dto/errors.js";
 import { ExecutionContextUnavailableError } from "../../src/flow/context/errors.js";
 import { currentFrame } from "../../src/flow/context/frame.js";
 import { GraphRuleError } from "../../src/graph/rule-error.js";
@@ -331,7 +331,7 @@ describe("#1366: the scope of a retrieval", () => {
 
     inFrame(frameOf({ tenantId: "" }));
     expect(() => scopeKeyOfRetrieval(metaOf(RagScope.Tenant), {}, services)).toThrow(
-      DtoValidationError,
+      ValidationError.DtoInvalid,
     );
   });
 

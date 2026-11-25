@@ -22,7 +22,7 @@ import {
 } from "../infrastructure/pause-record.js";
 import type { ReplyAnswering, ReadReply } from "./reply-answer.js";
 import type { AppDeps } from "./app-deps.js";
-import { DtoValidationError } from "../dto/errors.js";
+import { invalidDto } from "../dto/errors.js";
 import { ExecutionOperation } from "../core/observability.js";
 import type { ExecutionRequest } from "./run-events.js";
 import type { TreeMoves } from "./tree-moves.js";
@@ -53,7 +53,7 @@ type GivenAnswer =
   | { readonly kind: "decision"; readonly decision: unknown }
   | { readonly kind: "reply"; readonly reply: string };
 
-/** The request's answer; a request with both, or an empty reply, is refused (`DtoValidationError`). */
+/** The request's answer; a request with both, or an empty reply, is refused (`ValidationError.DtoInvalid`). */
 function answerGivenBy(request: ResumeRequest): GivenAnswer {
   // read as an untyped caller may pass it: the types rule both forms together out already
   const reply: unknown = Reflect.get(request, "reply");
@@ -66,7 +66,7 @@ function answerGivenBy(request: ResumeRequest): GivenAnswer {
 }
 
 function reject(path: string, reason: string): never {
-  throw new DtoValidationError({ dto: "ResumeRequest", issues: [{ path, reason }] });
+  throw invalidDto({ dto: "ResumeRequest", issues: [{ path, reason }] });
 }
 
 /**

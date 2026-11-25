@@ -11,10 +11,10 @@ import { BudgetScope } from "../../src/budgets/budget.js";
 import { ToolCallApprovalDecisionDto } from "../../src/dto/standard/framework.js";
 import {
   BudgetExceededError,
-  DtoValidationError,
   PauseStatus,
   ReplyInterpreterMissingError,
   UninterpretableReplyError,
+  ValidationError,
 } from "../../src/index.js";
 import { ChannelInterpretation } from "../../src/channels/channel-interpreter.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
@@ -246,7 +246,7 @@ describe("#267 AC8: a model interpreter reads a free-text reply", () => {
       .catch((error: unknown) => error);
 
     expect(failed).toBeInstanceOf(UninterpretableReplyError);
-    expect(failed).toHaveProperty("cause", expect.any(DtoValidationError));
+    expect(failed).toHaveProperty("cause", expect.any(ValidationError.DtoInvalid));
     const stored = await treasuryPauses().findByTenantIdAndPauseId("default", payoutPauseId());
     expect(stored?.status).toBe(PauseStatus.Pending);
   });
@@ -406,6 +406,6 @@ describe("#267 AC2 / AC8: what a reply resume takes", () => {
     // an untyped (JS) caller: both forms, or an empty text, do not compile
     const refused = app.resume(request as never, manager);
 
-    await expect(refused).rejects.toBeInstanceOf(DtoValidationError);
+    await expect(refused).rejects.toBeInstanceOf(ValidationError.DtoInvalid);
   });
 });

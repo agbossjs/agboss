@@ -7,7 +7,6 @@ import * as agboss from "../../src/index.js";
 import {
   AgentFailedError,
   BudgetExceededError,
-  DtoValidationError,
   AGBossError,
   GuardFailedError,
   LimitExceededError,
@@ -19,12 +18,13 @@ import {
   UnknownThreadError,
   ExecutionCancelledError,
   type ErrorRecord,
+  ValidationError,
 } from "../../src/index.js";
 
 const catchable = {
   AgentFailedError,
   BudgetExceededError,
-  DtoValidationError,
+  ValidationError,
   GuardFailedError,
   LimitExceededError,
   ModelCallError,

@@ -1202,7 +1202,7 @@ all there is (`weight`, a positive integer, default 1, is the tenant's share for
 `@Application({ tenantContext: ShopTenantContext, executionContext: ShopExecutionContext })` — its
 own subclasses with DTO field decorators, identity only, never secrets — gets their values typed
 per start (`tenant: ContextValues<ShopTenantContext>`, `execution: …`), checked before the first
-step (invalid → `dto.invalid`, an `onExecutionRejected`, the field named, never the value) and frozen. Tool arguments a channel shows (and `ExecutionOutput.pending[i].input`) have the input DTO's
+step (invalid → `validation.dto-invalid`, an `onExecutionRejected`, the field named, never the value) and frozen. Tool arguments a channel shows (and `ExecutionOutput.pending[i].input`) have the input DTO's
 `sensitive` fields through their action (`mask(part)` as written, a token or a kind as `<field>`,
 #120); the tool itself still gets them whole.
 
@@ -1221,7 +1221,7 @@ the pause target's `respondent`: a `PauseRespondent.Owner` pause lists its `paus
 "manager-17" }`, recorded on the pause and in `onExecutionResume`; the other credential (or an empty
 `actor`) is a `pause.wrong-respondent` error. The decision is validated before
 it is recorded — a `ToolCallApprovalDecisionDto` (`approved`, `reason?`, `overrideInput?`
-only with `approved: true`, checked by the tool's input), else `DtoValidationError` and the pause
+only with `approved: true`, checked by the tool's input), else `ValidationError.DtoInvalid` and the pause
 keeps waiting:
 
 <!-- snippet-context
@@ -1414,7 +1414,7 @@ moves an open pause's deadline to `now + expiresIn` and returns `PauseExtension`
 `@ChannelListener`'s `onPauseTimeoutChanged` hear "extended until …". Refused: a closed pause or one past its
 deadline (`PauseClosedError`, `reason: expired`), a pause with no deadline (none is ever added), a
 deadline not later than the current one, and one past the deadline of the run the pause was made
-under (`DtoValidationError`, `dto: "ExtendPauseRequest"`) — atomically in the store against the
+under (`ValidationError.DtoInvalid`, `dto: "ExtendPauseRequest"`) — atomically in the store against the
 expiry look: one wins. `@ToolApproval({ timeout: hours(24), remindBefore: hours(2) })` makes the
 channel's optional `onPauseExpiring(event)` and a listener's `onPauseExpiring` hear "expiring at …"
 once per deadline, whatever the number of instances, and again before the new deadline after an
@@ -1432,7 +1432,7 @@ the call returns `PauseReassignment` (`pauseKey` only: the new id is a capabilit
 channel and to a `@ChannelListener({ includePauseIds })`, never to the caller or a log). One implementation
 of the role routes on `assignee` (a Slack user, an address, a queue): no other role or implementation.
 Refused: a closed pause or one past its deadline (`PauseClosedError`), an `assignee` that is no key's text
-(`DtoValidationError`, `dto: "ReassignPauseRequest"`), another tenant's pause (`UnknownPauseError`); two
+(`ValidationError.DtoInvalid`, `dto: "ReassignPauseRequest"`), another tenant's pause (`UnknownPauseError`); two
 reassignments, or a reassignment and an answer, at the same moment: exactly one wins. `send` of the new
 pause is at-least-once: an instance that dies, or a channel that fails, between the write and the send is
 made up by the pause timers of another instance within a minute.

@@ -8,8 +8,7 @@
  * event. Undefined is no owner; anything else that is not a text is refused as `length`.
  */
 import { beforeEach, describe, expect } from "vitest";
-import { DtoValidationError } from "../../src/dto/errors.js";
-import { KeyTextRule, PauseStatus, ThreadOwnerError } from "../../src/index.js";
+import { KeyTextRule, PauseStatus, ThreadOwnerError, ValidationError } from "../../src/index.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import { answerOf, execute } from "../helpers/flow.js";
 import {
@@ -60,7 +59,7 @@ const rejectionOf = (call: Promise<unknown>): Promise<unknown> =>
 
 /** The error names the field and the rule, never the id. */
 function expectRefused(error: unknown, field: string, rule: KeyTextRule, id: unknown): void {
-  expect(error).toBeInstanceOf(DtoValidationError);
+  expect(error).toBeInstanceOf(ValidationError.DtoInvalid);
   const { message } = error as Error;
   expect(message).toContain(field);
   expect(message).toContain(`(${rule})`);
@@ -92,7 +91,8 @@ describe("#589 AC1: an owner id breaking a rule is refused at execute, resume an
       expectRefused(error, "ownerId", rule, ownerId);
     expect(echoSeen.ran).toBe(0);
     expect(echoSeen.events).toHaveLength(4);
-    for (const event of echoSeen.events) expect(event).toMatchObject({ code: "dto.invalid" });
+    for (const event of echoSeen.events)
+      expect(event).toMatchObject({ code: "validation.dto-invalid" });
     if (ownerId.length >= 3)
       expect(JSON.stringify(echoSeen.events)).not.toContain(JSON.stringify(ownerId).slice(1, -1));
   });
@@ -140,7 +140,7 @@ describe("#589 AC1: on SQLite bob\\uD800 creates no thread that bob\\uFFFD then 
       expect(merged).toBeInstanceOf(ThreadOwnerError);
       expectRefused(again, "ownerId", KeyTextRule.LoneSurrogate, "bob\uD800");
       await expect(app.cancel("th-1", { ownerId: "alice\uD800" })).rejects.toBeInstanceOf(
-        DtoValidationError,
+        ValidationError.DtoInvalid,
       );
     },
   );

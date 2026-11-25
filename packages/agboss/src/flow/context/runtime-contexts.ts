@@ -77,7 +77,7 @@ export interface GivenContextValues {
 
 /**
  * The context values of a new execution: checked against the declared classes before the first
- * step (invalid → `DtoValidationError`, `dto.invalid`, naming the field and never the value),
+ * step (invalid → `ValidationError.DtoInvalid`, `validation.dto-invalid`, naming the field and never the value),
  * frozen. Nothing passed → the tenant `"default"`; `execution` with the built-in class is invalid.
  */
 export const contextValuesOf = (

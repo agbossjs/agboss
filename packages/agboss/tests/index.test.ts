@@ -1,5 +1,5 @@
+import { ValidationError } from "../src/index.js";
 import { describe, expect, it } from "vitest";
-import { DtoValidationError } from "../src/dto/errors.js";
 import { ExecutionStatus } from "../src/app/types.js";
 import { executeAgent } from "../src/run/run-agent.js";
 import { routeTo, fakeDeps, runText } from "./helpers.js";
@@ -27,6 +27,6 @@ describe("executeAgent", () => {
   it("rejects an invalid start input before the first step", async () => {
     await expect(
       executeAgent({ start: "chat-workflow-start", input: { text: 3 } }, await deps()),
-    ).rejects.toBeInstanceOf(DtoValidationError);
+    ).rejects.toBeInstanceOf(ValidationError.DtoInvalid);
   });
 });

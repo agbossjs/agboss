@@ -89,7 +89,7 @@ if (first.status === ExecutionStatus.Paused && waiting?.pauseId !== undefined) {
 The decision is a `ToolCallApprovalDecisionDto` (`@agboss/core/dto`): `approved`, `reason?` — why,
 `overrideInput?` — only with `approved: true`, checked by the tool's input. Who answered is not
 part of it: the framework knows it from the resume (`actor`, or the thread's owner). It is
-validated before it is recorded (`DtoValidationError` otherwise; the pause keeps waiting). `agboss
+validated before it is recorded (`ValidationError.DtoInvalid` otherwise; the pause keeps waiting). `agboss
 chat` asks in the terminal; a decline carries `reason: "declined in the terminal"`. `sensitive`
 fields of the input DTO are shown masked.
 

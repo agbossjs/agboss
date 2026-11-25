@@ -1,7 +1,7 @@
+import { ValidationError } from "../core/error-families/effect-errors.js";
 import type { CompensationRecord } from "../flow/compensation.js";
 import type { ExecutionOperation, ExecutionRejectedEvent } from "../core/observability.js";
 import type { ExecutionObserverManager } from "../core/observer-manager.js";
-import { DtoValidationError } from "../dto/errors.js";
 import type { ExecutionEvent } from "../flow/observers/execution-event.js";
 import { keyTextRuleOf } from "../core/errors.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
@@ -159,7 +159,7 @@ const codeOf = (error: unknown): string =>
 
 /** The error's message without the input values: a DTO's issues name only their fields. */
 const safeMessageOf = (error: unknown): string => {
-  if (error instanceof DtoValidationError) {
+  if (error instanceof ValidationError.DtoInvalid) {
     return `invalid ${error.dto} at ${error.issues.map((issue) => issue.path).join(", ")}`;
   }
   return asError(error).message;

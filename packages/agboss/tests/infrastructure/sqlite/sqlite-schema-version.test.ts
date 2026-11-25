@@ -5,7 +5,6 @@
  * stamps it. The stamp is the 0.1.1 baseline's (#1321c): no 0.1.0 file is migrated.
  */
 import { describe, expect, it } from "vitest";
-import { SqliteSchemaTooNewError } from "../../../src/index.js";
 import { StoreError } from "../../../src/core/error-families/store-errors.js";
 import {
   openSqliteDatabase,
@@ -96,11 +95,10 @@ describe("#1104 AC2: an older build opening a newer file fails closed", () => {
       caught = error;
     }
 
-    expect(caught).toBeInstanceOf(SqliteSchemaTooNewError);
+    expect(caught).toBeInstanceOf(StoreError.SchemaTooNew);
     expect(caught).toMatchObject({
-      code: "sqlite.schema-too-new",
-      applied: SQLITE_SCHEMA_VERSION + 1,
-      expected: SQLITE_SCHEMA_VERSION,
+      code: "store.schema-too-new",
+      details: { applied: SQLITE_SCHEMA_VERSION + 1, expected: SQLITE_SCHEMA_VERSION },
     });
     expect(versionOf(path)).toBe(SQLITE_SCHEMA_VERSION + 1);
   });
@@ -109,7 +107,7 @@ describe("#1104 AC2: an older build opening a newer file fails closed", () => {
     const path = temporarySqlitePath();
     stampedNewer(path);
 
-    expect(() => new SqliteCheckpointSaver(connectionTo(path))).toThrow(SqliteSchemaTooNewError);
+    expect(() => new SqliteCheckpointSaver(connectionTo(path))).toThrow(StoreError.SchemaTooNew);
 
     const check = openSqliteDatabase(path);
     expect(

@@ -601,7 +601,7 @@ priceUsd })` (typed by the task's input); `agboss describe` prints `asked at <ag
 - **Free text** that cannot be read throws `UninterpretableReplyError` (`pause.uninterpretable-reply`,
   `reason`) and the pause stays `Pending`; a target without `channelInterpreter` →
   `ReplyInterpreterMissingError`. Exactly one of `decision` / a non-empty `reply`, else
-  `DtoValidationError`.
+  `ValidationError.DtoInvalid`.
 - **A deadline for the answer** (#941): the target's `timeout` — `hours(24)`, at least
   `seconds(1)` — gives every pause of the target an absolute deadline, fixed when the pause is made (a
   deploy that changes `timeout` never moves an open pause; a profile's `toolApprovals` / `externalTasks`
@@ -649,7 +649,7 @@ expiresIn: hours(24) }, { actor })` (the `ownerId` for an owner's pause — who 
   made again before the new deadline. Refused: a closed pause or one past its deadline —
   `PauseClosedError` (`reason: expired`) —, a pause with no deadline (none is ever added), a deadline
   not later than the current one, and one past the deadline of the run (or quorum) the pause was made
-  under (exactly that deadline is allowed) — `DtoValidationError` (`dto: "ExtendPauseRequest"`);
+  under (exactly that deadline is allowed) — `ValidationError.DtoInvalid` (`dto: "ExtendPauseRequest"`);
   another tenant's pause is `UnknownPauseError`; `escalationLimits` on the target bounds the number of
   extensions, reassignments and the total time (`PauseExtensionContendedError` when two race for one pause).
   An extension and the expiry look at one tick: the store lets one win.
@@ -663,7 +663,7 @@ expiresIn: hours(24) }, { actor })` (the `ownerId` for an owner's pause — who 
   message; both absent on a first send) and its `onPauseClosed` hears `reason: reassigned` for the old one
   (`PauseClosedReason.Reassigned`) — in no fixed order: edit the old message from `send`, or from the notice;
   `onPauseReassigned(event)` hears the move itself. The old id gives `PauseClosedError` (`reassigned`); a closed
-  pause or one past its deadline gives `PauseClosedError`, an `assignee` that is no key's text `DtoValidationError`
+  pause or one past its deadline gives `PauseClosedError`, an `assignee` that is no key's text `ValidationError.DtoInvalid`
   (`dto: "ReassignPauseRequest"`); two reassignments, or a reassignment and an answer, at once: exactly one wins.
   A new `send` that fails or never happens (the instance died) is made up by another instance's pause timers within a minute
   (at-least-once: deduplicate by the new `pauseId`). A new `send` that returns `ChannelOutcome.decided(…)` answers the replacement at once, once.
@@ -684,7 +684,7 @@ assignees })` (returns a `WorkingWeek.of(…)` or `WorkingWeek.anyOf([…])`, th
   (before the channel is asked), into `expiresAt` / `remindAt`; a calendar changed later never moves an open
   pause — change its deadline. Reminder: both working → `calendar.add(askedAt, timeout − remindBefore)`; a working
   `remindBefore` needs a working `timeout` (`[pause.remind-before-working-without-working-timeout]`; `extendPause`
-  refuses a plain `expiresIn` there with `DtoValidationError`). A working duration with no `calendar` on the target is
+  refuses a plain `expiresIn` there with `ValidationError.DtoInvalid`). A working duration with no `calendar` on the target is
   `[calendar.required-for-working-duration]`. A calendar that throws, times out,
   answers no `Date` or a date not after `from` fails the step — `QuestionFailedError` / `AgentFailedError` with
   a `WorkingCalendarError` (`pause.working-calendar`) as its `cause` — and nobody is asked; an extension with

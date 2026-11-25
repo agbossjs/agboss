@@ -5,10 +5,10 @@
  */
 import { describe, expect, it } from "vitest";
 import {
-  DtoValidationError,
   GraphRuleError,
   ToolCallDecision,
   ToolInterceptor,
+  ValidationError,
 } from "../../src/index.js";
 import { TestSetupError, testUnit } from "../../src/testing/index.js";
 import {
@@ -59,7 +59,7 @@ describe("#384: testUnit", () => {
     const moody = testUnit(MoodyToolInterceptor);
     await expect(
       moody.afterToolCall(PingTool, { mode: "shape" }, { text: "pong" }),
-    ).rejects.toBeInstanceOf(DtoValidationError);
+    ).rejects.toBeInstanceOf(ValidationError.DtoInvalid);
   });
 
   it("runs in the frame of a call to the tool", async () => {

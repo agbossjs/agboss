@@ -8,9 +8,8 @@ import { IdempotencyError } from "../../src/core/error-families/effect-errors.js
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { WorkflowStartTextDto } from "../../src/dto/index.js";
-import { DtoValidationError } from "../../src/dto/errors.js";
 import { InvalidThreadIdError, KeyTextRule, keyTextRuleOf } from "../../src/errors.js";
-import { Action, ExecutionContext, type Tracked } from "../../src/index.js";
+import { Action, ExecutionContext, type Tracked, ValidationError } from "../../src/index.js";
 import { effectKeyOf } from "../../src/stores/index.js";
 import { testUnit, testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
@@ -204,7 +203,7 @@ describe("#547 acceptance: every entry point names the same rule for a text brea
         expect(thread).toBeInstanceOf(InvalidThreadIdError);
         expect(thread).toMatchObject({ rule: expected });
       }
-      expect(tenant).toBeInstanceOf(DtoValidationError);
+      expect(tenant).toBeInstanceOf(ValidationError.DtoInvalid);
       expect((tenant as Error).message).toContain(`(${expected})`);
     },
   );

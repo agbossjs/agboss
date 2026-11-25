@@ -1,4 +1,4 @@
-import { DtoError } from "../../dto/errors.js";
+import { ConfigError } from "../../core/error-families/config-errors.js";
 import { fieldsOf } from "../../dto/metadata.js";
 import type { DtoClass } from "../../dto/types.js";
 import { violation, type RuleViolation } from "../../graph/rule-error.js";
@@ -75,13 +75,13 @@ function checkFields(check: () => unknown): void {
   try {
     check();
   } catch (error) {
-    // an undecorated field (`DtoError`) fails the start; missing values are the execution's business
-    if (error instanceof DtoError) throw error;
+    // an undecorated field (`ConfigError.Dto`) fails the start; missing values are the execution's business
+    if (error instanceof ConfigError.Dto) throw error;
   }
 }
 
 /**
- * Every field of the declared context classes has a field decorator — else `DtoError`
+ * Every field of the declared context classes has a field decorator — else `ConfigError.Dto`
  * (`dto.undecorated-field`), at the application's assembly, before any execution.
  */
 export function checkContextFields(declared: DeclaredContexts): void {

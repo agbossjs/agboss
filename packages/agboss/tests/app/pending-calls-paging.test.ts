@@ -5,8 +5,8 @@
  * the largest 1000; a limit that is not a whole number from 1 to 1000, or an empty cursor, is
  * `dto.invalid` naming the field, before the store is read.
  */
+import { ValidationError } from "../../src/index.js";
 import { beforeEach, describe, expect } from "vitest";
-import { DtoValidationError } from "../../src/index.js";
 import { testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
 import { gateway, resetGateway } from "./fixtures/payment-gateway.js";
@@ -78,8 +78,8 @@ describe("#825 AC3: the pending calls, a page at a time", () => {
       await expect(
         app.pendingOutboundCallsOf({ tenantId: "default", limit }),
       ).rejects.toMatchObject({
-        name: DtoValidationError.name,
-        code: "dto.invalid",
+        name: ValidationError.DtoInvalid.name,
+        code: "validation.dto-invalid",
         issues: [{ path: "limit", reason: "a page is a whole number of calls from 1 to 1000" }],
       });
     },
@@ -88,7 +88,7 @@ describe("#825 AC3: the pending calls, a page at a time", () => {
   test("an empty cursor is dto.invalid naming after", async ({ app }) => {
     await expect(
       app.pendingOutboundCallsOf({ tenantId: "default", after: "" }),
-    ).rejects.toMatchObject({ code: "dto.invalid", issues: [{ path: "after" }] });
+    ).rejects.toMatchObject({ code: "validation.dto-invalid", issues: [{ path: "after" }] });
   });
 
   test("a cursor the store never gave is dto.invalid naming after, never the store's RangeError", async ({
@@ -97,7 +97,7 @@ describe("#825 AC3: the pending calls, a page at a time", () => {
     for (const after of ["abc", "0", "1e3"])
       await expect(
         app.pendingOutboundCallsOf({ tenantId: "default", after }),
-      ).rejects.toMatchObject({ code: "dto.invalid", issues: [{ path: "after" }] });
+      ).rejects.toMatchObject({ code: "validation.dto-invalid", issues: [{ path: "after" }] });
   });
 
   test("the largest page is taken as asked", async ({ app }) => {

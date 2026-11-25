@@ -244,7 +244,7 @@ below are for a database an earlier build of the package wrote; SQLite is the co
   still works on a file 0.1.1 opened, and 0.1.1 reads what 0.1.0 wrote in order (#1035). A second
   process still on 0.1.0, or a rollback to it, does not break checkpoint writes — but it is not
   supported: the file is stamped, and **a later build** that finds a stamp above its own refuses the
-  file at open (`SqliteSchemaTooNewError`, code `sqlite.schema-too-new`, before it creates a table
+  file at open (`StoreError.SchemaTooNew`, code `store.schema-too-new`, before it creates a table
   or writes a row), as `PostgresSchemaTooNewError` and `MongoSchemaTooNewError` do. 0.1.0 is already
   released and cannot be taught that: stopping it is the rule (#1104). A pause that a 0.1.0 process
   writes without its `channel` is found by a page filtered by channel all the same, and the column is

@@ -1,12 +1,12 @@
 /** #118 AC5: tools and MCP servers on DTOs — validation at the edge, DTO-shaped data inside. */
 import { McpTransport } from "../../src/config/mcp-server-config.js";
 import { describe, expect, it } from "vitest";
-import { Agent, Workflow, Tool, Ttl } from "../../src/index.js";
+import { Agent, Workflow, Tool, Ttl, ConfigError } from "../../src/index.js";
 import { McpServer, McpServerClient } from "../../src/mcp/index.js";
 import { mcpServerStub } from "./mcp-server-stub.js";
 import { workflowOf } from "../../src/testing/workflow-of.js";
 import { toolOf } from "../../src/components/runtime.js";
-import { DtoError, Integer, List, Nested, Text, Url } from "../../src/dto/index.js";
+import { Integer, List, Nested, Text, Url } from "../../src/dto/index.js";
 import { toolDefinitionOf, type ToolInvocationContext } from "../../src/tools/index.js";
 import { testConfig, testDefaults } from "../helpers.js";
 import { starOf } from "../fixtures/test-flow/star.js";
@@ -105,7 +105,7 @@ describe("tools on DTOs (#118)", () => {
     })
     class LooseWorkflow {}
 
-    await expect(workflowOf(LooseWorkflow)).rejects.toThrow(DtoError);
+    await expect(workflowOf(LooseWorkflow)).rejects.toThrow(ConfigError.Dto);
     await expect(workflowOf(LooseWorkflow)).rejects.toThrow(
       /dto\.undecorated-field: Loose: .*extra/,
     );

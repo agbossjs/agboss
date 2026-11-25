@@ -373,7 +373,7 @@ What this shows:
 - **Plain data**: no methods, no getters, no constructor logic (`[dto.not-plain-data]`). Values are
   object literals; the framework validates every value that crosses a boundary — a start's input,
   a tool's arguments and result, an agent's answer, an action's output, a resume's decision — and
-  throws `DtoValidationError` (`dto`, `issues: [{ path, reason }]`) naming the field, never the value.
+  throws `ValidationError.DtoInvalid` (`dto`, `issues: [{ path, reason }]`) naming the field, never the value.
 - **No cycles** (`[dto.cyclic]`): a DTO may not hold itself through `@Nested` or `@List`, directly
   or via other DTOs — its JSON Schema would never end. Start fails naming the component and the cycle
   (`PingDto → PongDto → PingDto`); use an id field or a flat list. A DTO used twice is fine.

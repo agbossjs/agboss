@@ -1642,7 +1642,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/models/transport/transport-stream.ts"],
   ),
   ...reviewed(
-    "holds spend, rate-limit or deadline sites (provider price never applied; provider price overrides own) - not mutated: covered by tests/models/usage-contract.test.ts, tests/models/provider-price-own.test.ts, each sabotage of it (2 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    "holds spend, rate-limit or deadline sites (provider price never applied; a component has no price of its own) - not mutated: covered by tests/models/usage-contract.test.ts, tests/models/cost.test.ts, each sabotage of it (2 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
     ["src/models/workflow-models.ts"],
   ),
   ...reviewed(

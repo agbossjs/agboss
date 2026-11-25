@@ -137,7 +137,7 @@ started, and another owner's is not revealed.
 | nothing paused on the thread (`NotPausedError`)              | `Resume`                      | `run.not-paused`       |
 | an unknown thread of the tenant (`UnknownThreadError`)       | `Execute`, `Cancel`           | `run.unknown-thread`   |
 | a class that is not a start of the workflow                  | `Execute`                     | `workflow.not-a-start` |
-| invalid start input or context values (`DtoValidationError`) | `Execute`                     | `dto.invalid`          |
+| invalid start input or context values (`ValidationError.DtoInvalid`) | `Execute`                     | `validation.dto-invalid`          |
 | an exhausted budget before the first step                    | `Execute`                     | `limit.budget`         |
 | the app is stopping (`ApplicationStoppingError`)             | `Execute`, `Resume`           | `app.stopping`         |
 

@@ -2373,7 +2373,7 @@ tenant, execution, onStream, deadline })` (`deadline`, #398: `DeadlineExceededEr
   tree's, so an id minted again asks again): `Pending` → `Resolved` (an answer) → `Taken` (its step went on), or `Cancelled`
   (withdrawn: a `FailFast` sibling failed, the thread was cancelled, the tree ended) — an answer to
   any but `Pending` → `PauseClosedError` (`reason`; `NotPausedError` is the thread-level miss). `app.resume({ pauseId, reply }, …)` answers with free text
-  instead (exactly one of `decision` / a non-empty `reply`, else `DtoValidationError`), read by the
+  instead (exactly one of `decision` / a non-empty `reply`, else `ValidationError.DtoInvalid`), read by the
   target's `@ChannelInterpreter` (Components above). Who answered each pause is in
   `result.record.pauses` (`{ includeRecord: true }`, #267 S107): every resolved pause of the tree in the order
   asked — `PauseAnswerRecord { pauseId (none for a Delegate pause), executionId, step, target, channel?,
@@ -2424,7 +2424,7 @@ askedAt, resolvedAt, decision, asked }`, the decision PII-masked, none when with
   run-bound pause is reminded before the run's deadline); rules `[channel.remind-before-invalid]` (`channels/channel-rules.ts`) and the
   warning `[channel.remind-before-exceeds-expiry]` (`flow/analyse/remind-before.ts`: a target's `timeout` ≤ its
   `remindBefore`). `app.extendPause` (`app/pause-extension.ts`; the workflow app's, routed by the composed app like `resume`):
-  `actorOf` as an answer, then refusals (`DtoValidationError` `ExtendPauseRequest`: no deadline, not later, past `boundAt`;
+  `actorOf` as an answer, then refusals (`ValidationError.DtoInvalid` `ExtendPauseRequest`: no deadline, not later, past `boundAt`;
   `PauseClosedError` closed or due), `remindAtOf` recomputed, then `extendByTenantIdAndPauseId` — its CAS is the final word against the
   expiry look — and `noticesWritten`; no lease, no tree move. The reminder look (`application/pause-reminder-look.ts`, a look of the
   timers, `ReminderLook`: a sweep of `findPendingByRemindAtBefore(now, 50, after)` pages with the keyset `PauseScanAfter` like the expiry
@@ -2467,7 +2467,7 @@ askedAt, resolvedAt, decision, asked }`, the decision PII-masked, none when with
   level by subclassing with DTO field decorators (no `prompt`: `[context.prompt-unused]`) and
   declares it once, `@Application({ tenantContext, executionContext })`; the values come per
   execution, `tenant: { … }` / `execution: { … }` — `ContextValues<T>`, typed per start by the
-  generated types, validated before the first step (invalid → `dto.invalid`, `onExecutionRejected`, the
+  generated types, validated before the first step (invalid → `validation.dto-invalid`, `onExecutionRejected`, the
   field named, never the value), frozen, kept in the checkpoint (a resume runs on them). Nothing
   declared → `tenant: { tenantId }` optional (`"default"`), `execution` does not compile. A
   thread's key is `tenantId` + `threadId`: another tenant's thread does not exist for the caller —
@@ -2478,7 +2478,7 @@ askedAt, resolvedAt, decision, asked }`, the decision PII-masked, none when with
   a tenant id is a key's text too (#552: at `execute`, `resume` and `cancel` — #568: and at
   `auditLogOf`, `outboundCallsOf`, `pendingOutboundCallsOf`, whose tree reads check `rootExecutionId` (#580)
   so too; `agboss executions export --tenant` and `generate eval-case --tenant`, `usage.option-value`; a
-  trusted A2A / MCP request under another is never deduplicated —, else `dto.invalid` naming
+  trusted A2A / MCP request under another is never deduplicated —, else `validation.dto-invalid` naming
   `tenantId` and the rule, never the id — `t\uD800` and `t\uD801` would be one tenant in UTF-8; so is
   who calls, #589: `ownerId` at `execute`, `resume`, `cancel` and a `Channel` pause's `actor`); every
   record, lease and tree key carries `tenantId`, traces too (LangGraph `metadata` / `tags`,

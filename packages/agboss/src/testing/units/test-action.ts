@@ -108,7 +108,7 @@ function hydratedInputOf(
  * records into the call's `spend` as `action:<name>` — and checks the result against its `output`
  * as the flow does. The input is what `execute` takes, plain (`Untracked`): its
  * fields as DTOs, tracked by default. A failure rejects as it was thrown (`OutputInvalidError` /
- * `DtoValidationError` for a result that does not fit).
+ * `ValidationError.DtoInvalid` for a result that does not fit).
  */
 export function actionUnit<
   TAction extends Class<ExecuteMethod>,

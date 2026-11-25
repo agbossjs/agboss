@@ -7,7 +7,6 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { AGBossError } from "../../src/index.js";
-import { DtoError } from "../../src/dto/index.js";
 import { EnvironmentError, EnvironmentErrorCode } from "../../src/environments/errors.js";
 import {
   CassetteChange,
@@ -30,18 +29,14 @@ describe("#906 D1: the platform classes stay", () => {
     expect(() => usd(-1)).toThrow(ConfigError.Unit);
   });
 
-  it("an environment or DTO error takes its code as an option and keeps it as the instance's", () => {
+  it("an environment error takes its code as an option and keeps it as the instance's", () => {
     const environment = new EnvironmentError({
       code: EnvironmentErrorCode.MissingVariables,
       message: "STRIPE_KEY is not set",
     });
-    const dto = new DtoError({ code: "dto.no-metadata", message: "Order has no fields" });
 
     expect(environment).toBeInstanceOf(AGBossError);
     expect(environment.code).toBe("environment.missing-variables");
-    expect(dto).toBeInstanceOf(AGBossError);
-    expect(dto.code).toBe("dto.no-metadata");
-    expect(dto.message).toBe("dto.no-metadata: Order has no fields");
   });
 
   it("a test failure's message starts with its code; its subclasses carry their facts", () => {

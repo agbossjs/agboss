@@ -141,7 +141,7 @@ closed, never another scope's passages.
 
 **Every scope but `Shared` is bound to the tenant**: an owner id or a custom key is unique within a tenant only, so a call carries both `tenantId` and `scopeId` and a source keys its rows on the pair — each part compared as given, never joined into one string (`("a", "b:c")` and `("a:b", "c")` are two scopes); only the declared global `Shared` spans tenants. The id is compared **as given** — `acme`, `Acme`, `ａｃｍｅ`, `café` and `cafe` are five scopes — and
 is a key's text ([Several instances](Several-instances), #552): one that breaks a rule is refused
-before the source runs — `dto.invalid` naming the rule, never the id. A shared source is never told
+before the source runs — `validation.dto-invalid` naming the rule, never the id. A shared source is never told
 a tenant. TypeScript cannot see whether a source reads the scope, so the choice is stated where a
 reviewer reads it. Without `scope` the decorator does not compile; a JS project or a cast is
 `[rag.scope-required]` at assembly. `agboss describe` prints it — `rag: faq (k 3, tenant)` — and

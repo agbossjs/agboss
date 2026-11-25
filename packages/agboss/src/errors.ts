@@ -123,7 +123,6 @@ export {
   type ModelCallErrorCode,
 } from "./models/circuit-breaker.js";
 export { ToolTimeoutError, type ToolTimeoutErrorOptions } from "./tools/index.js";
-export { DtoValidationError, type DtoValidationErrorOptions } from "./dto/errors.js";
 export {
   EvalCaseInvalidError,
   type EvalCaseInvalidErrorOptions,

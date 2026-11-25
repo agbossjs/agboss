@@ -10,13 +10,14 @@
 import { beforeEach, describe, expect, vi } from "vitest";
 import { ExecutionStatus } from "../../src/app/types.js";
 import { DurableExecutionStatus, executionControlOf } from "../../src/app/execution-control.js";
+import { PauseClosedError, ThreadOwnerError, UnknownPauseError } from "../../src/errors.js";
 import {
-  DtoValidationError,
-  PauseClosedError,
-  ThreadOwnerError,
-  UnknownPauseError,
-} from "../../src/errors.js";
-import { PauseError, PauseClosedReason, PauseResolution, PauseStatus } from "../../src/index.js";
+  PauseError,
+  PauseClosedReason,
+  PauseResolution,
+  PauseStatus,
+  ValidationError,
+} from "../../src/index.js";
 import { pauseKeyOf } from "../../src/infrastructure/pause-record.js";
 import { PausedExecutionRepository } from "../../src/infrastructure/paused-execution.repository.js";
 import {
@@ -854,7 +855,7 @@ describe("#946: who may reassign, and what is refused", () => {
   });
 
   extension(
-    "an assignee that is no key's text is a DtoValidationError on ReassignPauseRequest",
+    "an assignee that is no key's text is a ValidationError.DtoInvalid on ReassignPauseRequest",
     async ({ app }) => {
       await execute(app, managerFlow.start, { orderId: "o-1" }, THREAD);
       const pauseId = told.sent[0]?.pauseId ?? "";
@@ -877,7 +878,7 @@ describe("#946: who may reassign, and what is refused", () => {
               manager,
             ),
           ),
-        ).toMatchObject({ name: "DtoValidationError", dto: "ReassignPauseRequest" });
+        ).toMatchObject({ name: "ValidationError.DtoInvalid", dto: "ReassignPauseRequest" });
       expect(
         await failureOf(
           app.reassignPause(
@@ -885,7 +886,7 @@ describe("#946: who may reassign, and what is refused", () => {
             manager,
           ),
         ),
-      ).toBeInstanceOf(DtoValidationError);
+      ).toBeInstanceOf(ValidationError.DtoInvalid);
       expect(told.sent).toHaveLength(1);
     },
   );

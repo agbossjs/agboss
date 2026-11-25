@@ -55,8 +55,8 @@ its rows in the tenant `"default"`.
 
 **Upgrading the file** (#1104): the file carries its schema version (table `agboss_schema`; 0.1.0
 wrote none, so a file without it is a 0.1.0 file). The first process of a newer build migrates and
-stamps it; a build older than the stamp refuses the file at open (`SqliteSchemaTooNewError`,
-`sqlite.schema-too-new`) before it writes a row. The published 0.1.0 never reads the stamp and cannot
+stamps it; a build older than the stamp refuses the file at open (`StoreError.SchemaTooNew`,
+`store.schema-too-new`) before it writes a row. The published 0.1.0 never reads the stamp and cannot
 be refused, so the sequence is the same as for the other stores: **stop every process of the old
 version, then start the new one** ([ADR-0034](ADR-0034-Schema-upgrades-stop-the-old-version-first)). A
 0.1.0 process left running writes pauses without a channel (a page filtered by channel still finds
@@ -892,7 +892,7 @@ export class ChargeOrderAction {
   `runOnce`, `sendOnce` and every store's entry, for a key built by hand
   (`assertBusinessKey`, for a store of your own), before anything runs; a thread id at
   `app.execute` and `app.cancel`. A tenant id is held to the same rules at `app.execute`
-  (`tenant: { tenantId }`), `app.resume` and `app.cancel` (#552: `dto.invalid` naming `tenantId` and
+  (`tenant: { tenantId }`), `app.resume` and `app.cancel` (#552: `validation.dto-invalid` naming `tenantId` and
   the rule, never the id) — `t\uD800` and `t\uD801` are both `t\uFFFD` in UTF-8, one tenant in a
   database, and an NFD or zero-width tenant id would be a second tenant of one customer. So do the
   operator's reads (#568): `app.auditLogOf`, `app.outboundCallsOf` and `app.pendingOutboundCallsOf`
@@ -900,12 +900,12 @@ export class ChargeOrderAction {
   pending charges and audit log); a trusted A2A request or MCP call under one is never deduplicated
   (its answer would be kept under `t\uFFFD`'s key); and its `onExecutionRejected` names the tenant
   `"default"`, never the id. A tree's two reads check its `rootExecutionId` the same way (#580)
-  (`dto.invalid` naming `rootExecutionId`: `r\uD800` would read root `r\uFFFD`'s audit log), and
+  (`validation.dto-invalid` naming `rootExecutionId`: `r\uD800` would read root `r\uFFFD`'s audit log), and
   `agboss executions export --tenant` and `agboss generate eval-case --tenant` refuse such a tenant id
   (exit 2, `usage.option-value`, the rule named) instead of reading nothing. Who calls is held to
   the same rules (#589): `ownerId` at `app.execute`, `app.resume` and `app.cancel`, and a `Channel`
   pause's `actor` (recorded on the pause and in the records, read by the agent), refused
-  before anything is read or written with `dto.invalid` naming the field and the rule, never the id;
+  before anything is read or written with `validation.dto-invalid` naming the field and the rule, never the id;
   a value that is not a text is `length`. Before, on SQLite and PostgreSQL an execute under
   `bob\uD800` created a thread stored as `bob\uFFFD`'s and then refused its own caller. A lone
   surrogate never reaches a step at all: the start's input is JSON, which refuses it. It is never sent to a model. The

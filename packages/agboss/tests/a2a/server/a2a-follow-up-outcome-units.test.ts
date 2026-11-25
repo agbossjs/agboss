@@ -4,6 +4,7 @@
  * before its pause took the answer, accepted after it (logged), or — an unexpected failure, its
  * pause still pending — the request failed (logged).
  */
+import { ValidationError } from "../../../src/index.js";
 import { describe, expect, it } from "vitest";
 import {
   isKeptReply,
@@ -17,7 +18,6 @@ import {
   ReplyInterpreterMissingError,
   UninterpretableReplyError,
 } from "../../../src/channels/decision.js";
-import { DtoValidationError } from "../../../src/dto/errors.js";
 import { NotPausedError } from "../../../src/run/resume-agent.js";
 import { ThreadOwnerError } from "../../../src/core/errors.js";
 import { scriptOf, unitParts } from "./support/unit-parts.js";
@@ -144,7 +144,7 @@ describe("#824: a resume that settled", () => {
   });
 
   it("an invalid decision, its pause still waiting: refused; the pause gone: the answer was taken", () => {
-    const invalid = new DtoValidationError({ dto: "Decision", issues: [] });
+    const invalid = new ValidationError.DtoInvalid({ dto: "Decision", issues: [] });
 
     expect(outcomeOf(invalid, true).outcome).toEqual({
       refused: "invalid-params",
@@ -153,7 +153,7 @@ describe("#824: a resume that settled", () => {
     const taken = outcomeOf(invalid, false);
     expect(taken.outcome).toEqual({ accepted: true });
     expect(taken.script.warnings).toEqual([
-      `a2a.resume-failed-after-answer a resume of task task-1 failed (DtoValidationError) after it took its answer ${SUBJECT}`,
+      `a2a.resume-failed-after-answer a resume of task task-1 failed (ValidationError.DtoInvalid) after it took its answer ${SUBJECT}`,
     ]);
   });
 

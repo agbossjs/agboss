@@ -5,7 +5,6 @@
 import { ComponentError } from "../../src/components/metadata.js";
 import { PromptError } from "../../src/components/prompt-problems.js";
 import { ProfileError } from "../../src/config/profile-error.js";
-import { DtoError } from "../../src/dto/errors.js";
 import { EnvironmentError, EnvironmentErrorCode } from "../../src/environments/errors.js";
 import { GraphRuleError } from "../../src/graph/rule-error.js";
 import { ApplicationLoadError, WorkflowLoadError } from "../../src/loader/load-errors.js";
@@ -45,7 +44,6 @@ export const plainFixtures: Readonly<Record<string, object>> = Object.fromEntrie
   fx(ComponentError, { message }),
   fx(PromptError, { problems: [problem] }),
   fx(EnvironmentError, { code: EnvironmentErrorCode.NotFound, message }),
-  fx(DtoError, { code: "dto.no-metadata", message }),
   fx(WorkflowLoadError, { message }),
   fx(ApplicationLoadError, { message }),
   fx(GraphRuleError, { violations: [{ code: "graph.not-a-node", message, nodes: ["A"] }] }),

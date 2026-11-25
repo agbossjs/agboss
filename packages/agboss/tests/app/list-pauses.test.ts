@@ -4,13 +4,13 @@
  * another tenant's never, the ask masked by the pause's workflow's policies.
  */
 import { beforeEach, describe, expect } from "vitest";
-import { DtoValidationError } from "../../src/errors.js";
 import {
   PauseRespondent,
   PauseClosedReason,
   PauseKind,
   PauseStatus,
   type ListedPause,
+  ValidationError,
 } from "../../src/index.js";
 import { pauseKeyOf } from "../../src/infrastructure/pause-record.js";
 import { testWith } from "../../src/testing/index.js";
@@ -219,7 +219,7 @@ describe("#943 AC1: listing pauses", () => {
     const other = await app.listPauses({ tenantId: "tenant-b", after: "0" });
     expect(other.pauses.map((one) => one.threadId)).toEqual(["t-tenant-b-b1"]);
     expect(await failureOf(app.listPauses({ tenantId: "t\uD800" }))).toBeInstanceOf(
-      DtoValidationError,
+      ValidationError.DtoInvalid,
     );
   });
 
@@ -316,7 +316,7 @@ describe("#943 AC1: listing pauses", () => {
     expect((await app.listPauses({ tenantId: "default", limit: 1000 })).pauses).toHaveLength(2);
   });
 
-  test("an invalid query is a DtoValidationError of PausesQuery", async ({ app }) => {
+  test("an invalid query is a ValidationError.DtoInvalid of PausesQuery", async ({ app }) => {
     const bad: readonly unknown[] = [
       { tenantId: "default", limit: 0 },
       { tenantId: "default", limit: 1001 },
@@ -334,8 +334,8 @@ describe("#943 AC1: listing pauses", () => {
     ];
     for (const query of bad) {
       const error = await failureOf(app.listPauses(query as never));
-      expect(error, JSON.stringify(query)).toBeInstanceOf(DtoValidationError);
-      expect((error as DtoValidationError).dto).toBe("PausesQuery");
+      expect(error, JSON.stringify(query)).toBeInstanceOf(ValidationError.DtoInvalid);
+      expect((error as ValidationError.DtoInvalid).dto).toBe("PausesQuery");
     }
   });
 });

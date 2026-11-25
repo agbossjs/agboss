@@ -1,13 +1,13 @@
 /**
  * #1366: what an extension of a pause's deadline guarantees: a request that is no object or has no pause id
- * is a DtoValidationError on `.pauseId`, a bad duration one on `.expiresIn`, a pause without a deadline one on
+ * is a ValidationError.DtoInvalid on `.pauseId`, a bad duration one on `.expiresIn`, a pause without a deadline one on
  * `.pauseId`; a pause whose channel its workflow no longer has still extends by a plain duration and refuses
  * working time on `.expiresIn`; a stopped application refuses at once; a pause without a reminder writes none.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ApplicationStoppingError, DtoValidationError } from "../../../src/errors.js";
+import { ApplicationStoppingError } from "../../../src/errors.js";
 import { extendPauseOf } from "../../../src/app/pause-extension.js";
-import { PauseStatus } from "../../../src/index.js";
+import { PauseStatus, ValidationError } from "../../../src/index.js";
 import { PausedExecutionRepository } from "../../../src/infrastructure/paused-execution.repository.js";
 import { testWith } from "../../../src/testing/index.js";
 import type { TestApp } from "../../../src/testing/test-app.js";
@@ -48,22 +48,22 @@ const pauseOf = async (app: TestApp, pauseId: string) => {
 const noParts = (accepting: () => void) => extendPauseOf({ accepting } as never);
 
 describe("#1366: a request is checked before any pause is read", () => {
-  it("no object, no pause id: DtoValidationError on .pauseId", async () => {
+  it("no object, no pause id: ValidationError.DtoInvalid on .pauseId", async () => {
     const extend = noParts(() => undefined);
     for (const request of [null, undefined, "pause", 5, {}, { pauseId: "" }, { pauseId: 5 }]) {
       const error = await failureOf(extend(request as never, {}));
-      expect(error).toBeInstanceOf(DtoValidationError);
+      expect(error).toBeInstanceOf(ValidationError.DtoInvalid);
       expect(error).toMatchObject({ dto: "ExtendPauseRequest", issues: [{ path: ".pauseId" }] });
     }
   });
 
-  test("a bad duration: DtoValidationError on .expiresIn", async ({ app }) => {
+  test("a bad duration: ValidationError.DtoInvalid on .expiresIn", async ({ app }) => {
     await app.ready();
     const refused = await failureOf(
       app.extendPause({ pauseId: "any", expiresIn: 0 } as never, manager),
     );
 
-    expect(refused).toBeInstanceOf(DtoValidationError);
+    expect(refused).toBeInstanceOf(ValidationError.DtoInvalid);
     expect(refused).toMatchObject({ issues: [{ path: ".expiresIn" }] });
   });
 
@@ -95,7 +95,7 @@ describe("#1366: a pause whose channel its workflow no longer has", () => {
     );
     const extended = await app.extendPause({ pauseId, expiresIn: hours(48) }, manager);
 
-    expect(working).toBeInstanceOf(DtoValidationError);
+    expect(working).toBeInstanceOf(ValidationError.DtoInvalid);
     expect(working).toMatchObject({ issues: [{ path: ".expiresIn" }] });
     expect(Date.parse(extended.expiresAt)).toBeGreaterThan(Date.parse(extended.previousExpiresAt));
     expect((await pauseOf(app, pauseId)).status).toBe(PauseStatus.Pending);
@@ -145,7 +145,7 @@ describe("#1366: the other refusals name their field", () => {
 
     const refused = await failureOf(app.extendPause({ pauseId, expiresIn: hours(31) }, manager));
 
-    expect(refused).toBeInstanceOf(DtoValidationError);
+    expect(refused).toBeInstanceOf(ValidationError.DtoInvalid);
     expect(refused).toMatchObject({ dto: "ExtendPauseRequest", issues: [{ path: ".expiresIn" }] });
   });
 });

@@ -1,3 +1,4 @@
+import { ValidationError } from "../../src/index.js";
 import { usd } from "../../src/units/index.js";
 /**
  * #1366 (budget-loop shard) — the approval of a tool call at the loop's approval step, each rule on its own over
@@ -6,7 +7,6 @@ import { usd } from "../../src/units/index.js";
  * the loop's spend — a channel's failure with its own cause.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { DtoValidationError } from "../../src/dto/errors.js";
 import { CostSource, ZERO_USAGE, type UsageRecord } from "../../src/finops/usage.js";
 import { ChannelSendError } from "../../src/flow/runtime/pause.js";
 import { AgentFailedError } from "../../src/graph/errors.js";
@@ -204,7 +204,7 @@ describe("#1366: a failed ask fails the agent with the loop's spend", () => {
 
   it("any other failure of an approval rises as it is, a validation of the decision too", async () => {
     const { node, requestApproval } = setup();
-    const invalid = new DtoValidationError({
+    const invalid = new ValidationError.DtoInvalid({
       dto: "Decision",
       issues: [{ path: "by", reason: "Required" }],
     });

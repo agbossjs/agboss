@@ -16,6 +16,7 @@ import {
   WorkflowStart,
   inline,
   Ttl,
+  ConfigError,
 } from "../../../src/index.js";
 import { checkWorkflow } from "../../../src/flow/analyse/analyse.js";
 import { Reasoning } from "../../../src/models/index.js";
@@ -24,7 +25,7 @@ import { Action } from "../../../src/flow/decorators/action.js";
 import { workflowOf } from "../../../src/testing/workflow-of.js";
 import { applicationWith, workflowWith } from "../../components/fixture/deps-contract.workflow.js";
 import type { DtoClass } from "../../../src/dto/types.js";
-import { DtoError, Text } from "../../../src/dto/index.js";
+import { Text } from "../../../src/dto/index.js";
 import { DiamondDto, PingDto, SelfDto, TreeDto } from "../../dto/fixtures-cycles.js";
 import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
@@ -176,8 +177,8 @@ describe("#1080: a tool's DTOs", () => {
 
     const error = await failureOf(() => workflowOf(workflowWith("cyc-workflow", {}, agent)));
 
-    expect(error).toBeInstanceOf(DtoError);
-    expect(error).toMatchObject({ code: "dto.cyclic" });
+    expect(error).toBeInstanceOf(ConfigError.Dto);
+    expect(error).toMatchObject({ details: { reason: "dto.cyclic" } });
     expect(String(error)).toContain("PingDto → PongDto → PingDto");
   });
 
@@ -186,7 +187,7 @@ describe("#1080: a tool's DTOs", () => {
 
     const error = await failureOf(() => workflowOf(workflowWith("cyc-workflow", {}, agent)));
 
-    expect(error).toMatchObject({ code: "dto.cyclic" });
+    expect(error).toMatchObject({ details: { reason: "dto.cyclic" } });
     expect(String(error)).toContain("TreeDto → TreeDto");
   });
 

@@ -2502,28 +2502,6 @@ export interface DepthLimitExceededErrorOptions {
 }
 
 // @public
-export class DtoValidationError extends AGBossError {
-    constructor(options: DtoValidationErrorOptions);
-    // (undocumented)
-    static readonly code: "dto.invalid";
-    // (undocumented)
-    readonly code: typeof DtoValidationError.code;
-    readonly dto: string;
-    readonly issues: readonly DtoIssue[];
-    // (undocumented)
-    name: string;
-}
-
-// @public
-export interface DtoValidationErrorOptions {
-    // (undocumented)
-    readonly cause?: unknown;
-    readonly dto: string;
-    // (undocumented)
-    readonly issues: readonly DtoIssue[];
-}
-
-// @public
 export class DuplicateExecutionIdError extends AGBossError {
     constructor(options: DuplicateExecutionIdErrorOptions);
     static readonly code: "run.duplicate-execution-id";
@@ -9466,29 +9444,6 @@ export class SqliteRateLimitRepository extends RateLimitRepository {
 }
 
 // @public
-export class SqliteSchemaTooNewError extends AGBossError {
-    constructor(options: SqliteSchemaTooNewErrorOptions);
-    // (undocumented)
-    readonly applied: number;
-    // (undocumented)
-    static readonly code: "sqlite.schema-too-new";
-    // (undocumented)
-    readonly code: typeof SqliteSchemaTooNewError.code;
-    // (undocumented)
-    readonly expected: number;
-    // (undocumented)
-    name: string;
-}
-
-// @public
-export interface SqliteSchemaTooNewErrorOptions extends AGBossErrorOptions {
-    // (undocumented)
-    readonly applied: number;
-    // (undocumented)
-    readonly expected: number;
-}
-
-// @public
 export interface StartEvent<I> extends NodeEvent {
     // (undocumented)
     readonly input: I;
@@ -11810,11 +11765,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/core/result.ts - (ae-undocumented) Missing documentation for "value".
 // src/core/result.ts - (ae-undocumented) Missing documentation for "ok".
 // src/core/result.ts - (ae-undocumented) Missing documentation for "error".
-// src/dto/errors.ts - (ae-undocumented) Missing documentation for "issues".
-// src/dto/errors.ts - (ae-undocumented) Missing documentation for "cause".
-// src/dto/errors.ts - (ae-undocumented) Missing documentation for "code".
-// src/dto/errors.ts - (ae-undocumented) Missing documentation for "code".
-// src/dto/errors.ts - (ae-undocumented) Missing documentation for "name".
 // src/environments/define-env.ts - (ae-undocumented) Missing documentation for "contract".
 // src/environments/define-env.ts - (ae-undocumented) Missing documentation for "values".
 // src/environments/define-env.ts - (ae-undocumented) Missing documentation for "kind".
@@ -12684,13 +12634,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/sqlite/sqlite-rate-limit.repository.ts - (ae-undocumented) Missing documentation for "clearWindow".
 // src/infrastructure/sqlite/sqlite-rate-limit.repository.ts - (ae-undocumented) Missing documentation for "pauseUntil".
 // src/infrastructure/sqlite/sqlite-rate-limit.repository.ts - (ae-undocumented) Missing documentation for "pausedUntil".
-// src/infrastructure/sqlite/sqlite-schema-version.ts - (ae-undocumented) Missing documentation for "applied".
-// src/infrastructure/sqlite/sqlite-schema-version.ts - (ae-undocumented) Missing documentation for "expected".
-// src/infrastructure/sqlite/sqlite-schema-version.ts - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/sqlite/sqlite-schema-version.ts - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/sqlite/sqlite-schema-version.ts - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/sqlite/sqlite-schema-version.ts - (ae-undocumented) Missing documentation for "applied".
-// src/infrastructure/sqlite/sqlite-schema-version.ts - (ae-undocumented) Missing documentation for "expected".
 // src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "source".
 // src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "code".
 // src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "name".

@@ -7,12 +7,12 @@
  * tenant id first.
  */
 import { beforeEach, describe, expect } from "vitest";
-import { DtoValidationError } from "../../src/dto/errors.js";
 import {
   ExecutionAuditEventKind,
   ExecutionAuditLogRepository,
   LeaseTakeoverReason,
   type LeaseTakeoverRecord,
+  ValidationError,
 } from "../../src/index.js";
 import type { TestApp } from "../../src/testing/test-app.js";
 import { testWith } from "../../src/testing/index.js";
@@ -81,7 +81,7 @@ describe("#580: a root execution id at the operator's reads of a tree", () => {
       for (const surrogate of ["r\uD800", "r\uDFFF"])
         for (const [read, made] of reads(app, "default", surrogate)) {
           const error = await rejectionOf(made);
-          expect(error, read).toBeInstanceOf(DtoValidationError);
+          expect(error, read).toBeInstanceOf(ValidationError.DtoInvalid);
           const { message } = error as Error;
           expect(message, read).toContain("rootExecutionId");
           expect(message, read).toContain("(lone-surrogate)");
@@ -96,7 +96,7 @@ describe("#580: a root execution id at the operator's reads of a tree", () => {
       await app.ready();
       for (const [read, made] of reads(app, "default", rootExecutionId)) {
         const error = await rejectionOf(made);
-        expect(error, read).toBeInstanceOf(DtoValidationError);
+        expect(error, read).toBeInstanceOf(ValidationError.DtoInvalid);
         const { message } = error as Error;
         expect(message, read).toContain("rootExecutionId");
         expect(message, read).toContain(`(${rule})`);

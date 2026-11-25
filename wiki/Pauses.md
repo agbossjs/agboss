@@ -87,7 +87,7 @@ console.log(result.threadId, result.executionId, result.pending.length);
   carries `threadId` and `executionId`, so a webhook that needs them gets them back.
 - **The decision is validated before it is recorded**: a `ToolCallApprovalDecisionDto` —
   `approved`, `reason?`, `overrideInput?` (only with `approved: true`, and a valid input of the
-  tool) — else `DtoValidationError` and the pause keeps waiting. The same check applies to a
+  tool) — else `ValidationError.DtoInvalid` and the pause keeps waiting. The same check applies to a
   channel's `ChannelOutcome.decided(…)` (the step fails). Approved → the tool runs once (with the
   `overrideInput`, if given); rejected → the model reads `Tool error: the call was rejected by
   <who answered>[: <reason>]`.
@@ -135,7 +135,7 @@ await app.resume({ pauseId: replyKey, reply: "ok, but only half" }, { tenantId: 
 ```
 
 - **Exactly one of `decision` or `reply`** — by types (`ResumeRequest = DecisionResumeRequest |
-  ReplyResumeRequest`) and at run time: both, or an empty `reply`, is `DtoValidationError` before the
+  ReplyResumeRequest`) and at run time: both, or an empty `reply`, is `ValidationError.DtoInvalid` before the
   pause is looked up. The credential (`ownerId` / `actor`) is checked as for a decision.
 - **The interpreter gets the pause's original question and the reply** — `{ ask, reply }`, where the
   amount to halve is in `ask.arguments` — and what it gives is validated like a decision (the target's
@@ -404,7 +404,7 @@ waits for `app.resume` (channel-less). Everything else is a pause like an approv
   `step` the question step, `input` the masked question; `ChannelOutcome.decided(answer)` goes on at once
   (`PauseResolution.Decided`).
 - `app.resume({ pauseId, decision })` — the decision validated as `AnswerDto` before anything is
-  recorded (`DtoValidationError`, the pause still pending); `{ pauseId, reply }` — read by the target's
+  recorded (`ValidationError.DtoInvalid`, the pause still pending); `{ pauseId, reply }` — read by the target's
   interpreter into `AnswerDto` (not understood → `UninterpretableReplyError`, still pending; no
   interpreter → `ReplyInterpreterMissingError`). Who may answer is the target's `respondent`, checked as above.
 - Exactly one answer wins (`PauseClosedError` for the second, at the same time too); another instance
@@ -1127,10 +1127,10 @@ optional `onPauseTimeoutChanged(event)` and a listener's `onPauseTimeoutChanged`
 
 - a pause that is closed, or already past its deadline — `PauseClosedError` (`reason: expired`);
 - a pause with **no deadline** — none is ever added to it — and a new deadline that is not later than the
-  current one — `DtoValidationError` (`dto: "ExtendPauseRequest"`);
+  current one — `ValidationError.DtoInvalid` (`dto: "ExtendPauseRequest"`);
 - a deadline past the one the pause was made under — its run's (or a quorum's): exactly that deadline is
   allowed, and a pause extended to it expires there as the run's own, as one made with it does — also
-  `DtoValidationError`, naming that deadline;
+  `ValidationError.DtoInvalid`, naming that deadline;
 - another tenant's pause or an unknown id — `UnknownPauseError`.
 - eight lost races in a row against other extensions of the same pause — `PauseExtensionContendedError`
   (`pause.update-contended`; nothing changed, trying again is safe).
@@ -1153,7 +1153,7 @@ console.log(extension.expiresAt, extension.previousExpiresAt);
 The store applies the extension atomically: its compare-and-set applies it only while the pause is open, over
 the deadline the caller read (`PauseDeadlineChange.previousExpiresAt`) and to a deadline later than the stored
 one. So exactly one of an extension and an expiry at one tick wins, and of two extensions at once one wins and the
-other re-reads: it is refused ("not later", `DtoValidationError`) when the winner's deadline is at least as late,
+other re-reads: it is refused ("not later", `ValidationError.DtoInvalid`) when the winner's deadline is at least as late,
 and otherwise applied over the new deadline — the deadline never shortens, "extended" is told once by the writer
 that won, and `previousExpiresAt` is the deadline that write replaced. A store of your own does the same in its
 `extendByTenantIdAndPauseId` (the contract suite has the cases). An extended pause answered on any
@@ -1201,7 +1201,7 @@ It is refused:
 - a pause that is closed — `PauseClosedError` with the reason of its close — or whose deadline is at or before
   the write (`reason: expired`, also when the look has not expired it yet);
 - an `assignee` that is no key's text (#589: non-empty, no control or invisible characters, NFC) —
-  `DtoValidationError` (`dto: "ReassignPauseRequest"`);
+  `ValidationError.DtoInvalid` (`dto: "ReassignPauseRequest"`);
 - another tenant's pause or an unknown id — `UnknownPauseError`; a caller that may not answer it —
   `ThreadOwnerError` / `PauseError.PermissionDenied`;
 - a pause its channel decided at once: it never waited, it is closed `answered`;
@@ -1346,7 +1346,7 @@ otherwise none.
 
 **`extendPause` with working time.** `expiresAt = calendar.add(now, expiresIn)`, the reminder from `now` as
 above. A **plain** `expiresIn` for a pause whose target reminds in working time is refused with
-`DtoValidationError` (`dto: "ExtendPauseRequest"`, `.expiresIn`: "this target reminds in working time: extend
+`ValidationError.DtoInvalid` (`dto: "ExtendPauseRequest"`, `.expiresIn`: "this target reminds in working time: extend
 it with workingHours / workingMinutes"); a pause whose channel has no calendar any more is refused working
 time the same way. The pause is unchanged on every refusal. **The calendar may take seconds, the write is
 decided at its own instant:** the deadline counts from the call's start, but whether the pause is still open

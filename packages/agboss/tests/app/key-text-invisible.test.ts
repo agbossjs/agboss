@@ -5,8 +5,8 @@
  * `REFUSED_KEYS` in key-text-rules / key-text.acceptance). Each refusal names its rule, never the
  * text, and nothing runs.
  */
+import { ValidationError } from "../../src/index.js";
 import { beforeEach, describe, expect } from "vitest";
-import { DtoValidationError } from "../../src/dto/errors.js";
 import { InvalidThreadIdError, KeyTextRule } from "../../src/errors.js";
 import { testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
@@ -60,7 +60,7 @@ describe("#556 AC1: a tenant id and a cancel's thread id", () => {
     const cancelled = await rejectionOf(app.cancel(text));
 
     for (const error of tenantRefusals) {
-      expect(error).toBeInstanceOf(DtoValidationError);
+      expect(error).toBeInstanceOf(ValidationError.DtoInvalid);
       expect((error as Error).message).toContain("tenantId");
       expect((error as Error).message).toContain(`(${rule})`);
       expect((error as Error).message).not.toContain(text);

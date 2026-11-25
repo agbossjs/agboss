@@ -5,11 +5,11 @@
  */
 import { describe, expect } from "vitest";
 import { ExecutionStatus } from "../../src/app/types.js";
-import { DtoValidationError } from "../../src/dto/errors.js";
 import {
   PauseStatus,
   PausedExecutionRepository,
   UninterpretableReplyError,
+  ValidationError,
 } from "../../src/index.js";
 import { PauseKind } from "../../src/pause/index.js";
 import { callTool, replyWith, testWith, type ModelRequest } from "../../src/testing/index.js";
@@ -137,7 +137,7 @@ describe("#712 AC1 / AC2: the agent's question call pauses like any pause", () =
 });
 
 describe("#712 AC3: the answer is validated as the role's answer DTO", () => {
-  test("AC3: an invalid decision is DtoValidationError and the pause stays pending", async ({
+  test("AC3: an invalid decision is ValidationError.DtoInvalid and the pause stays pending", async ({
     app,
     mockModel,
   }) => {
@@ -147,10 +147,10 @@ describe("#712 AC3: the answer is validated as the role's answer DTO", () => {
 
     await expect(
       app.resume({ pauseId, decision: { approved: true } }, owner),
-    ).rejects.toBeInstanceOf(DtoValidationError);
+    ).rejects.toBeInstanceOf(ValidationError.DtoInvalid);
     await expect(
       app.resume({ pauseId, decision: { approved: true, limitUsd: -1 } }, owner),
-    ).rejects.toBeInstanceOf(DtoValidationError);
+    ).rejects.toBeInstanceOf(ValidationError.DtoInvalid);
 
     const pause = await app
       .resolve(PausedExecutionRepository)

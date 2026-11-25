@@ -5,8 +5,8 @@
  * Refused at `app.execute`, `app.resume` and `app.cancel` with `dto.invalid`, the field and the rule
  * named, never the id; and `app.cancel`'s thread id is held to the rules `execute`'s is.
  */
+import { ValidationError } from "../../src/index.js";
 import { beforeEach, describe, expect } from "vitest";
-import { DtoValidationError } from "../../src/dto/errors.js";
 import { InvalidThreadIdError, KeyTextRule } from "../../src/errors.js";
 import { replyWith, testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
@@ -53,7 +53,7 @@ const rejectionOf = (call: Promise<unknown>): Promise<unknown> =>
 
 /** The error names the field and the rule, never the id. */
 function expectRefusedTenant(error: unknown, rule: KeyTextRule, tenantId: string): void {
-  expect(error).toBeInstanceOf(DtoValidationError);
+  expect(error).toBeInstanceOf(ValidationError.DtoInvalid);
   const { message } = error as Error;
   expect(message).toContain("tenantId");
   expect(message).toContain(`(${rule})`);
@@ -101,7 +101,7 @@ describe("#552 AC1: two tenant ids UTF-8 makes one never share a thread", () => 
       expectRefusedTenant(second, KeyTextRule.LoneSurrogate, "t\uD800");
       await expect(
         app.cancel("thread-x", { tenantId: "t\uD801", ownerId: "alice" }),
-      ).rejects.toBeInstanceOf(DtoValidationError);
+      ).rejects.toBeInstanceOf(ValidationError.DtoInvalid);
     },
   );
 });

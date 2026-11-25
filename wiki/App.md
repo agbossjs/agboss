@@ -259,7 +259,7 @@ worst case of each start with how each number is made up — the [check report](
 - `Start` is a `@WorkflowStart` of any workflow of the application: the execution runs the
   workflow that start opens (else `NotAWorkflowStartError`); `input` is
   typed by the generated `.agboss/types.d.ts` (`agboss check`) and checked against the start's
-  `input` before any call (`DtoValidationError`, the field named, never the value).
+  `input` before any call (`ValidationError.DtoInvalid`, the field named, never the value).
 - Options: `threadId` continues a conversation (without it a new thread is created; its id is in
   the result). An id the tenant does not have yet creates that thread (#262 Q4): the caller's own,
   idempotent id — an order number, a ticket — keyed by `tenantId` + `threadId` (the same id in
@@ -310,7 +310,7 @@ target says (`respondent` on `@ToolApproval` / `@ExternalTask`): `ownerId` for a
 pause (another → `ThreadOwnerError`), a non-empty `actor` for a `PauseRespondent.Delegate` one;
 the other credential → `PauseError.PermissionDenied`. The decision is a `ToolCallApprovalDecisionDto`
 (`approved`, `reason?`, `overrideInput?` only with `approved: true`), validated before it is
-recorded (`DtoValidationError`; the pause keeps waiting). The execution runs on the context values
+recorded (`ValidationError.DtoInvalid`; the pause keeps waiting). The execution runs on the context values
 it started with ([Context and Authorization](Context-And-Authorization#the-values-per-execution)),
 as the thread's owner; the result has the same shape — `threadId` and `executionId` included — and, when
 other pauses remain, `status: Paused` with the rest in `pending`. A pause that is closed (taken,
@@ -343,7 +343,7 @@ Moves an open pause's deadline to `now + expiresIn` and returns `PauseExtension 
 previousExpiresAt }`. Who may: as an answer (the `ownerId` of a thread owner's pause, the `actor` of
 a channel's). The options are `PauseCallerOptions` — the caller fields only, no `signal` / `onStream` /
 `record`: nothing runs. Refused: a closed or expired pause (`PauseClosedError`), a pause with no deadline,
-a deadline not later than the current one or past the one the pause was made under (`DtoValidationError`,
+a deadline not later than the current one or past the one the pause was made under (`ValidationError.DtoInvalid`,
 `dto: "ExtendPauseRequest"`), another tenant's pause (`UnknownPauseError`). Atomic in the store against
 the expiry look; no lease is taken. [Pauses → Extending a pause](Pauses#extending-a-pause-and-reminding-before-its-deadline-942).
 
@@ -359,7 +359,7 @@ channel pause's id stays with its channel), its `pauseKey` always, `kind`, `step
 `answerer`, `status`, `rootExecutionId`, `threadId`, `askedAt`, `expiresAt`; a closed one also `reason`
 (`PauseClosedReason`), `closedAt` and `actor` (who answered; absent when its channel decided). Its
 `ask` is masked by the policies of the workflow it waits in. Another tenant's pauses are never listed; an
-invalid query is a `DtoValidationError` (`dto: "PausesQuery"`). On the application the method finds each
+invalid query is a `ValidationError.DtoInvalid` (`dto: "PausesQuery"`). On the application the method finds each
 pause's workflow by its root's; a pause of a workflow the application no longer lists is masked with the
 union of every workflow's policies (fail closed).
 
@@ -370,7 +370,7 @@ Moves an open pause to another addressee of the same channel — `send` again wi
 message, in no fixed order — and returns `PauseReassignment { pauseKey }`: the new id goes to the channel only.
 Who may: as an answer; the options are `PauseCallerOptions`, as `extendPause`. The old id is `PauseClosedError`
 (`reassigned`) from then on; the deadline is kept; the agent and the step do not run again. Refused: a closed
-or expired pause (`PauseClosedError`), an `assignee` that is no key's text (`DtoValidationError`, `dto:
+or expired pause (`PauseClosedError`), an `assignee` that is no key's text (`ValidationError.DtoInvalid`, `dto:
 "ReassignPauseRequest"`), another tenant's pause (`UnknownPauseError`); of two reassignments, or a
 reassignment and an answer, at once exactly one wins. [Pauses → Reassigning a pause](Pauses#reassigning-a-pause-to-someone-else-946).
 

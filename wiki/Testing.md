@@ -1051,7 +1051,7 @@ replacing classes by classes (no `new`, no instance: `provide(Class, …)` stays
 call in the frame of its step, as the flow would: an `ExecutionContext` of the execution
 `test-execution` (the component's step; the tenant and the execution's values the options give —
 `tenantContext` / `tenant`, `executionContext` / `execution`, as [`testExecutionContext`](#testexecutioncontext--)
-takes them and checked by the classes' field decorators, a wrong one a `DtoValidationError` when the
+takes them and checked by the classes' field decorators, a wrong one a `ValidationError.DtoInvalid` when the
 runner is made — else the default tenant), `executionContext.signal` aborting
 after `timeout` on the runner's `VirtualClock` (`run.clock`), `SpendRecorder` and the component's
 model calls into the call's `spend`. A component that calls a model answers from `model` — one turn
@@ -1101,7 +1101,7 @@ it("looks the order up in the book it is given", async () => {
 ```
 
 - **`testUnit`** runs `execute` as an agent's tool call runs it: the input validated against its input
-  DTO (`DtoValidationError`), the call's `step.callId`, its timeout (`ToolTimeoutError` — move
+  DTO (`ValidationError.DtoInvalid`), the call's `step.callId`, its timeout (`ToolTimeoutError` — move
   `runStatus.clock` past it), the output validated; `SpendRecorder` records as `tool:<name>`.
 - **`testUnit`** takes what `execute` takes — `{ order: { … } }`, DTOs as plain objects (tracked by default; `Metadata.with(dto, { createdBy: … })` states a producer)
   — and checks the result against its `output`, spend as

@@ -46,7 +46,6 @@ export const fixtures: Readonly<Record<string, object>> = Object.fromEntries([
   fx(root.ThreadIdsExhaustedError, { generator: "G", tries: 100 }),
   fx(StoredNamesUnreadableError, { record: "pause", ids: "pauseId p1", fields: "respondent" }),
   fx(root.ExecutionLeaseLostError, { rootExecutionId: "root-1" }),
-  fx(root.SqliteSchemaTooNewError, { applied: 2, expected: 1 }),
   fx(root.StoreOutcomeUnknownError, {
     store: "PgFencedEffectRepository",
     operation: "runOnce",
@@ -98,7 +97,6 @@ export const fixtures: Readonly<Record<string, object>> = Object.fromEntries([
   }),
   fx(root.ReplyInterpreterMissingError, { message }),
   fx(root.UninterpretableReplyError, { message, reason: "no verdict" }),
-  fx(root.DtoValidationError, { dto: "Order", issues: [{ path: "id", reason: "missing" }] }),
   fx(root.EvalCaseInvalidError, {
     suite: "refund-suite",
     issues: [{ case: "c-1", path: "input", reason: "missing" }],

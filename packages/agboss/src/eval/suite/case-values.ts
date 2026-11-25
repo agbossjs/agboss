@@ -1,5 +1,6 @@
+import { ValidationError } from "../../core/error-families/effect-errors.js";
 import type { Class } from "../../components/injection.js";
-import { DtoValidationError, type DtoIssue } from "../../dto/errors.js";
+import { type DtoIssue } from "../../dto/errors.js";
 import { validOutput } from "../../flow/finish-output.js";
 import { NodeKind } from "../../flow/ast.js";
 import {
@@ -39,7 +40,7 @@ function issuesOf(prefix: string, check: () => unknown): DtoIssue[] {
     check();
     return [];
   } catch (error) {
-    if (!(error instanceof DtoValidationError)) throw error;
+    if (!(error instanceof ValidationError.DtoInvalid)) throw error;
     return prefixed(prefix, error.issues);
   }
 }

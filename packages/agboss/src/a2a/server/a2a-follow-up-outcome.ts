@@ -1,10 +1,10 @@
+import { ValidationError } from "../../core/error-families/effect-errors.js";
 import type { A2AError } from "@a2a-js/sdk/errors";
 import { NotPausedError, UnknownPauseError } from "../../run/resume-agent.js";
 import {
   ReplyInterpreterMissingError,
   UninterpretableReplyError,
 } from "../../channels/decision.js";
-import { DtoValidationError } from "../../dto/errors.js";
 import type { A2ATaskKey } from "../../infrastructure/a2a-task.repository.js";
 import { PauseClosedError } from "../../app/pause-closed-error.js";
 import { PauseClosedReason } from "../../infrastructure/pause-record.js";
@@ -89,7 +89,7 @@ function refusedResume(error: unknown, isStillPending: boolean): KeptReply | und
   if (error instanceof UninterpretableReplyError || error instanceof ReplyInterpreterMissingError)
     return { refused: "invalid-params", code: "a2a.reply-not-understood" };
   if (!isStillPending) return undefined; // the tree moved: the run's own failure is its task's
-  if (error instanceof DtoValidationError)
+  if (error instanceof ValidationError.DtoInvalid)
     return { refused: "invalid-params", code: "a2a.decision-invalid" };
   return undefined;
 }

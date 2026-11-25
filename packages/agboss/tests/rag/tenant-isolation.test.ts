@@ -9,6 +9,7 @@
  * path once while it is collected (one app, one search to its finish), so each test's timeout
  * bounds its own work only (QUALITY.md → Tests: warm the path first).
  */
+import { ValidationError } from "../../src/index.js";
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { afterEach, describe, expect, it } from "vitest";
 import type { App } from "../../src/app/types.js";
@@ -18,7 +19,6 @@ import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import type { ToolCallTurn } from "../../src/testing/turns.js";
 import { resolveTools, type WorkflowServices } from "../../src/workflow.js";
 import { workflowOf } from "../../src/testing/workflow-of.js";
-import { DtoValidationError } from "../../src/dto/errors.js";
 import { ExecutionContextUnavailableError } from "../../src/flow/context/errors.js";
 import { inTenantFrame } from "../helpers/frame.js";
 import { execute } from "../helpers/flow.js";
@@ -132,7 +132,7 @@ describe("#700: the tenant comes from the execution's frame, checked, never echo
     const output = await inTenantFrame(tenantId, () => search.invoke({ query: "vault" }, ctx));
 
     const cause = output.kind === "error" ? output.cause : undefined;
-    expect(cause).toBeInstanceOf(DtoValidationError);
+    expect(cause).toBeInstanceOf(ValidationError.DtoInvalid);
     expect((cause as Error).message).toContain("format-character");
     expect((cause as Error).message).not.toContain(tenantId);
   });

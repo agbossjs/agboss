@@ -1,5 +1,5 @@
 import { AGBossError, type MessageErrorOptions } from "../../core/errors.js";
-import { DtoValidationError } from "../../dto/errors.js";
+import { invalidDto } from "../../dto/errors.js";
 import { validate } from "../../dto/schema.js";
 import type { DtoClass } from "../../dto/types.js";
 import { WorkflowStartTextDto } from "../../dto/standard/framework.js";
@@ -12,7 +12,7 @@ import type { RuntimeGraph, RuntimeNode } from "./graph-model.js";
 /**
  * A start's input (#270 → Starts and finishes): one DTO, a list of them, or a map of fields. The
  * payload of `app.execute(Start, payload)` is checked against it before the first step — an invalid
- * one is rejected (`dto.invalid`, the field named, never the value).
+ * one is rejected (`validation.dto-invalid`, the field named, never the value).
  */
 
 const elementClass = (list: ListWrapper): DtoClass | undefined =>
@@ -21,7 +21,7 @@ const elementClass = (list: ListWrapper): DtoClass | undefined =>
 function validList(list: ListWrapper, value: unknown, field: string): unknown[] {
   const dto = elementClass(list);
   if (!Array.isArray(value) || dto === undefined) {
-    throw new DtoValidationError({
+    throw invalidDto({
       dto: field,
       issues: [{ path: "(root)", reason: "expected a list" }],
     });

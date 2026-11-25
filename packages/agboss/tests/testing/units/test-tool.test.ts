@@ -3,8 +3,8 @@
  * container (`overrides`), the frame of a tool call (`signal` with its timeout, `SpendRecorder`),
  * the input and the output validated.
  */
+import { ValidationError } from "../../../src/index.js";
 import { describe, expect, it } from "vitest";
-import { DtoValidationError } from "../../../src/dto/index.js";
 import { testUnit } from "../../../src/testing/index.js";
 import { ToolTimeoutError } from "../../../src/tools/define-tool.js";
 import { seconds } from "../../../src/units/index.js";
@@ -70,13 +70,13 @@ describe("testUnit", () => {
     });
 
     // @ts-expect-error — the input is typed by the tool's input DTO; the runtime check stays
-    await expect(runSearch({ query: 7 })).rejects.toBeInstanceOf(DtoValidationError);
+    await expect(runSearch({ query: 7 })).rejects.toBeInstanceOf(ValidationError.DtoInvalid);
   });
 
   it("an output that does not fit the output DTO fails the call", async () => {
     const runBroken = testUnit(BrokenJobsTool);
 
-    await expect(runBroken({ query: "TS" })).rejects.toBeInstanceOf(DtoValidationError);
+    await expect(runBroken({ query: "TS" })).rejects.toBeInstanceOf(ValidationError.DtoInvalid);
   });
 
   it("a class that is no tool is a setup error", () => {
@@ -105,7 +105,7 @@ describe("testUnit", () => {
         // @ts-expect-error — userId is a string in ShopExecutionContext
         execution: { userId: 7 },
       }),
-    ).toThrow(DtoValidationError);
+    ).toThrow(ValidationError.DtoInvalid);
   });
 
   it("a tenant value outside its Enum is refused, as app.execute refuses it", () => {
@@ -115,6 +115,6 @@ describe("testUnit", () => {
         // @ts-expect-error — the plan is free or pro
         tenant: { tenantId: "acme", plan: "gold" },
       }),
-    ).toThrow(DtoValidationError);
+    ).toThrow(ValidationError.DtoInvalid);
   });
 });

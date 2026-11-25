@@ -4,8 +4,12 @@
  */
 import { describe, expect } from "vitest";
 import { ExecutionStatus } from "../../src/app/types.js";
-import { DtoValidationError } from "../../src/dto/errors.js";
-import { PauseResolution, PauseStatus, PausedExecutionRepository } from "../../src/index.js";
+import {
+  PauseResolution,
+  PauseStatus,
+  PausedExecutionRepository,
+  ValidationError,
+} from "../../src/index.js";
 import { PauseKind } from "../../src/pause/index.js";
 import { testWith } from "../../src/testing/index.js";
 import {
@@ -128,10 +132,10 @@ describe("#659 AC3: the typed answer reaches later nodes", () => {
 
     await expect(
       app.resume({ pauseId, decision: { approved: true } }, owner),
-    ).rejects.toBeInstanceOf(DtoValidationError);
+    ).rejects.toBeInstanceOf(ValidationError.DtoInvalid);
     await expect(
       app.resume({ pauseId, decision: { approved: true, limitUsd: -1 } }, owner),
-    ).rejects.toBeInstanceOf(DtoValidationError);
+    ).rejects.toBeInstanceOf(ValidationError.DtoInvalid);
 
     const pause = await app
       .resolve(PausedExecutionRepository)

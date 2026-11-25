@@ -7,8 +7,7 @@
  * moved to explicit instants; no machine zone is read.
  */
 import { beforeEach, describe, expect } from "vitest";
-import { DtoValidationError } from "../../src/errors.js";
-import { PauseStatus } from "../../src/index.js";
+import { PauseStatus, ValidationError } from "../../src/index.js";
 import { PauseExpiryBound } from "../../src/infrastructure/pause-record.js";
 import { PausedExecutionRepository } from "../../src/infrastructure/paused-execution.repository.js";
 import { callTool, testWith } from "../../src/testing/index.js";
@@ -161,7 +160,7 @@ describe("#944 AC4: the reminder and an extension count working time", () => {
     expect((await pauseOf(first, pauseId)).remindAt).toBe("2026-01-11T14:30:00.000Z");
   });
 
-  test("AC4: extendPause with a plain duration on a role whose reminder is working time → DtoValidationError, the pause unchanged", async ({
+  test("AC4: extendPause with a plain duration on a role whose reminder is working time → ValidationError.DtoInvalid, the pause unchanged", async ({
     app,
     clock,
   }) => {
@@ -175,7 +174,7 @@ describe("#944 AC4: the reminder and an extension count working time", () => {
       .extendPause({ pauseId, expiresIn: hours(100) }, manager)
       .catch((error: unknown) => error);
 
-    expect(refused).toBeInstanceOf(DtoValidationError);
+    expect(refused).toBeInstanceOf(ValidationError.DtoInvalid);
     expect(refused).toMatchObject({
       dto: "ExtendPauseRequest",
       issues: [
@@ -203,7 +202,7 @@ describe("#944 AC4: the reminder and an extension count working time", () => {
       .extendPause({ pauseId, expiresIn: workingHours(1) }, manager)
       .catch((error: unknown) => error);
 
-    expect(refused).toBeInstanceOf(DtoValidationError);
+    expect(refused).toBeInstanceOf(ValidationError.DtoInvalid);
     expect((await pauseOf(app, pauseId)).expiresAt).toBe("2026-01-11T08:30:00.000Z");
   });
 
@@ -228,7 +227,7 @@ describe("#944 AC4: the reminder and an extension count working time", () => {
       const refused: unknown = await app
         .extendPause({ pauseId, expiresIn } as never, manager)
         .catch((error: unknown) => error);
-      expect(refused).toBeInstanceOf(DtoValidationError);
+      expect(refused).toBeInstanceOf(ValidationError.DtoInvalid);
     }
   });
 });
@@ -301,8 +300,8 @@ describe("#944: the run's deadline stays wall-clock (#941 D8)", () => {
     const past: unknown = await app
       .extendPause({ pauseId, expiresIn: workingHours(9) }, manager)
       .catch((error: unknown) => error);
-    expect(past).toBeInstanceOf(DtoValidationError);
-    expect(String((past as DtoValidationError).issues[0]?.reason)).toContain("bound");
+    expect(past).toBeInstanceOf(ValidationError.DtoInvalid);
+    expect(String((past as ValidationError.DtoInvalid).issues[0]?.reason)).toContain("bound");
 
     const exact = await app.extendPause({ pauseId, expiresIn: workingHours(8) }, manager);
     expect(exact.expiresAt).toBe("2026-01-11T15:30:00.000Z");
@@ -353,7 +352,7 @@ describe("#944: extendPause with working time on a pause whose channel has no ca
       .extendPause({ pauseId, expiresIn: workingHours(8) }, manager)
       .catch((error: unknown) => error);
 
-    expect(refused).toBeInstanceOf(DtoValidationError);
+    expect(refused).toBeInstanceOf(ValidationError.DtoInvalid);
     expect(refused).toMatchObject({
       issues: [{ path: ".expiresIn", reason: expect.stringContaining("no working calendar") }],
     });

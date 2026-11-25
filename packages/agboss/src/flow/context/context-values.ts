@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { KEY_TEXT_RULE_TEXT, KeyTextRule, keyTextRuleOf } from "../../core/errors.js";
-import { DtoError, DtoValidationError, pathOf } from "../../dto/errors.js";
+import { pathOf, dtoClassError, invalidDto } from "../../dto/errors.js";
 import { fieldsOf } from "../../dto/metadata.js";
 import { fieldsSchemaOf } from "../../dto/schema.js";
 import type { DtoClass } from "../../dto/types.js";
@@ -13,7 +13,7 @@ import { DEFAULT_TENANT_ID, DEFAULT_TENANT_WEIGHT, TenantContext } from "./tenan
 /**
  * The values of a context level (#261): what `app.execute(…, { tenant, execution })` passes, typed by
  * the declared subclasses, validated by their field decorators before the first step (invalid →
- * `dto.invalid`, naming the field, never the value), then frozen. The framework creates the
+ * `validation.dto-invalid`, naming the field, never the value), then frozen. The framework creates the
  * instance and links it up; the project never creates a context with `new`.
  */
 
@@ -99,7 +99,7 @@ function checkDecorated(type: Class): void {
   const fields = typeof instance === "object" && instance !== null ? Object.keys(instance) : [];
   const undecorated = fields.filter((field) => !decorated.has(field));
   if (undecorated.length > 0) {
-    throw new DtoError({
+    throw dtoClassError({
       code: "dto.undecorated-field",
       message: `${type.name}: every field of a context needs a field decorator — ${undecorated.join(", ")}`,
     });
@@ -116,12 +116,12 @@ export const tenantIdReason = (tenantId: string): string | undefined => {
 
 /**
  * Checks a tenant id given outside the tenant's values (#552: `app.resume`'s and `app.cancel`'s
- * `tenantId`): a key's text, else `DtoValidationError` (`dto.invalid`) naming the rule, never the id.
+ * `tenantId`): a key's text, else `ValidationError.DtoInvalid` (`validation.dto-invalid`) naming the rule, never the id.
  */
 export function checkedTenantId(tenantId: string): void {
   const reason = tenantIdReason(tenantId);
   if (reason !== undefined)
-    throw new DtoValidationError({
+    throw invalidDto({
       dto: TenantContext.name,
       issues: [{ path: "tenantId", reason }],
     });
@@ -130,7 +130,7 @@ export function checkedTenantId(tenantId: string): void {
 /**
  * Checks who a call names (#589: `ownerId` at `execute`, `resume`, `cancel`; a `Channel` pause's
  * `answeredBy`): `undefined` is none, anything else a key's text — UTF-8 stores `bob\uD800` as
- * `bob\uFFFD` — else `DtoValidationError` on `options` naming `field` and the rule, never the id;
+ * `bob\uFFFD` — else `ValidationError.DtoInvalid` on `options` naming `field` and the rule, never the id;
  * a value that is no text (a JS caller) is `length`.
  */
 export function checkedCallerId(options: string, field: string, id: unknown): void {
@@ -138,7 +138,7 @@ export function checkedCallerId(options: string, field: string, id: unknown): vo
   const rule = typeof id === "string" ? keyTextRuleOf(id) : KeyTextRule.Length;
   if (rule === undefined) return;
   const reason = `an id of who calls is a key's text (${rule}): ${KEY_TEXT_RULE_TEXT[rule]}`;
-  throw new DtoValidationError({ dto: options, issues: [{ path: field, reason }] });
+  throw invalidDto({ dto: options, issues: [{ path: field, reason }] });
 }
 
 /**
@@ -146,7 +146,7 @@ export function checkedCallerId(options: string, field: string, id: unknown): vo
  * created with or a delegate's `actor` (#589) — recorded on the pause, in the records and read by a
  * model. A missing actor, or one with a blank `id`, is left to the role's own check
  * (`PauseError.PermissionDenied`); an actor that is no `{ id, orgId? }` object, or whose `id` or
- * `orgId` is no key's text, is `DtoValidationError`.
+ * `orgId` is no key's text, is `ValidationError.DtoInvalid`.
  */
 export function checkedCallers(
   options: string,
@@ -157,7 +157,7 @@ export function checkedCallers(
   const { actor } = call;
   if (actor === undefined) return;
   if (typeof actor !== "object" || actor === null || Array.isArray(actor))
-    throw new DtoValidationError({
+    throw invalidDto({
       dto: options,
       issues: [{ path: "actor", reason: "an actor is an object: { id, orgId? }" }],
     });
@@ -177,7 +177,7 @@ const TREE_QUERY = "ExecutionTreeQuery";
 
 /**
  * `read`, once a tree's ids are checked as keys' text (#580): its tenant id, then its root
- * execution id — on a UTF-8 store `x\uD800` reads root `x\uFFFD`'s rows. `dto.invalid` naming the
+ * execution id — on a UTF-8 store `x\uD800` reads root `x\uFFFD`'s rows. `validation.dto-invalid` naming the
  * field and the rule, never the id.
  */
 export async function treeRead<T>(
@@ -188,7 +188,7 @@ export async function treeRead<T>(
   const rule = keyTextRuleOf(tree.rootExecutionId);
   if (rule !== undefined) {
     const reason = `an execution id is a key's text (${rule}): ${KEY_TEXT_RULE_TEXT[rule]}`;
-    throw new DtoValidationError({
+    throw invalidDto({
       dto: TREE_QUERY,
       issues: [{ path: "rootExecutionId", reason }],
     });
@@ -227,11 +227,11 @@ function deepFrozen<T>(value: T): T {
   return Object.freeze(value);
 }
 
-/** Checks `raw` against a context class's fields: the parsed, frozen values, else `dto.invalid`. */
+/** Checks `raw` against a context class's fields: the parsed, frozen values, else `validation.dto-invalid`. */
 function validated(type: Class, raw: unknown, isTenant: boolean): ContextFields {
   const parsed = schemaOf(type, isTenant).safeParse(raw ?? {});
   if (!parsed.success) {
-    throw new DtoValidationError({
+    throw invalidDto({
       dto: type.name,
       issues: parsed.error.issues.map((issue) => ({
         path: pathOf(issue.path),

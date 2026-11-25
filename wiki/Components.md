@@ -236,7 +236,7 @@ policies](Guards#pii-policies)) and `example`.
 
 - **The compiler checks**: the decorator fits the field's type (`@Text` on a `number`), `optional: true`
   ↔ `name?:` both ways, `@Enum` values ≡ the field's union, the element type of `@List` / `@Nested`.
-- **At runtime** (a `DtoValidationError` with the field path and the reason): integer vs decimal,
+- **At runtime** (a `ValidationError.DtoInvalid` with the field path and the reason): integer vs decimal,
   formats, lengths, ranges, list sizes, code lists, cross-field rules of the standard DTOs.
 - **At startup**: a field without a decorator → `dto.undecorated-field`; methods, accessors or
   `#private` fields → `dto.not-plain-data`. A DTO is plain data, so object literals fit it.

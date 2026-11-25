@@ -1,6 +1,5 @@
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
-import { AGBossError, type AGBossErrorOptions } from "../../core/errors.js";
 import { StoreError, StoreErrorKind } from "../../core/error-families/store-errors.js";
 import { BASELINE_TABLES } from "./sqlite-baseline-schema.js";
 
@@ -12,37 +11,21 @@ import { BASELINE_TABLES } from "./sqlite-baseline-schema.js";
  * (`1`, then `2` from #1117; `0` is "no stamp"), so no older stamp can pass for it. Only a file
  * with no table of the baseline is stamped; a 0.1.0 or development file (any older stamp, or
  * tables without one) is refused, never read or migrated — it must be recreated. A build opening a
- * file stamped above its own refuses it (`SqliteSchemaTooNewError`) before it writes a row — what
- * `PostgresSchemaTooNewError` does for PostgreSQL.
+ * file stamped above its own refuses it (`StoreError.SchemaTooNew`) before it writes a row — what
+ * `StoreError.SchemaTooNew` does for PostgreSQL.
  */
 export const SQLITE_SCHEMA_VERSION = 100;
-
-/** What a refusal knows: the version the file is stamped with and the one this build writes. */
-export interface SqliteSchemaTooNewErrorOptions extends AGBossErrorOptions {
-  readonly applied: number;
-  readonly expected: number;
-}
 
 /**
  * The file was migrated by a newer build of `@agboss/core` than the one running: an application
  * rolled back over a migrated file. Deploy the newer build again — a migration is never rolled back.
+ * A `StoreError.SchemaTooNew`: the versions are its details.
  */
-export class SqliteSchemaTooNewError extends AGBossError {
-  static override readonly code = "sqlite.schema-too-new" as const;
-  declare readonly code: typeof SqliteSchemaTooNewError.code;
-  override name = "SqliteSchemaTooNewError";
-  readonly applied: number;
-  readonly expected: number;
-
-  constructor(options: SqliteSchemaTooNewErrorOptions) {
-    const { applied, expected, ...rest } = options;
-    super(
-      `the SQLite file is at schema version ${String(applied)}, newer than this build's ${String(expected)}: a newer @agboss/core migrated it — deploy that version, a migration is not rolled back`,
-      rest,
-    );
-    this.applied = applied;
-    this.expected = expected;
-  }
+function schemaTooNew(applied: number, expected: number): StoreError.SchemaTooNew {
+  return StoreError.of(StoreErrorKind.SchemaTooNew, {
+    message: `the SQLite file is at schema version ${String(applied)}, newer than this build's ${String(expected)}: a newer @agboss/core migrated it — deploy that version, a migration is not rolled back`,
+    details: { applied, expected },
+  });
 }
 
 export const SCHEMA_TABLE = "agboss_schema";
@@ -102,13 +85,11 @@ export function checkedSchemaVersion(database: DatabaseSync): void {
 function stampedOrRefused(database: DatabaseSync): void {
   const seen = stampOf(database);
   if (seen === SQLITE_SCHEMA_VERSION) return;
-  if (seen > SQLITE_SCHEMA_VERSION)
-    throw new SqliteSchemaTooNewError({ applied: seen, expected: SQLITE_SCHEMA_VERSION });
+  if (seen > SQLITE_SCHEMA_VERSION) throw schemaTooNew(seen, SQLITE_SCHEMA_VERSION);
   database.exec("BEGIN IMMEDIATE");
   try {
     const applied = stampOf(database);
-    if (applied > SQLITE_SCHEMA_VERSION)
-      throw new SqliteSchemaTooNewError({ applied, expected: SQLITE_SCHEMA_VERSION });
+    if (applied > SQLITE_SCHEMA_VERSION) throw schemaTooNew(applied, SQLITE_SCHEMA_VERSION);
     if (applied < SQLITE_SCHEMA_VERSION) {
       if (applied !== 0 || holdsAgbossTables(database)) throw predatesBaseline();
       database.exec(STAMP_TABLE);

@@ -156,7 +156,7 @@ async function rewrite(
  * `beforeToolCall(Tool, input)` gives the decision — `beforeAnyTool` first, then the tool's
  * `@BeforeTool` method; compare it with `toEqual(ToolCallDecision.reply(message))` —,
  * `afterToolCall(Tool, input, output)` the output the model would read (the `@AfterTool` method,
- * then `afterAnyTool`), validated against the tool's output DTO (`DtoValidationError`). A phase the
+ * then `afterAnyTool`), validated against the tool's output DTO (`ValidationError.DtoInvalid`). A phase the
  * class has no hook for at all is a mistake in the test (`TestSetupError`); one it has hooks for
  * but not for this tool passes the call through (`allow()`, the output unchanged).
  */

@@ -1,6 +1,6 @@
+import { ValidationError } from "../../../src/index.js";
 import { describe, expect } from "vitest";
 import { ExecutionStatus } from "../../../src/app/types.js";
-import { DtoValidationError } from "../../../src/dto/errors.js";
 import { replyWith, testWith } from "../../../src/testing/index.js";
 import { CompanyScoreDto } from "../fixtures/data-dtos.js";
 import {
@@ -63,7 +63,7 @@ describe("#270 AC20 / AC21: starts with a map of fields or a list, typed by the 
   }) => {
     const run = app.execute(CompanyCheckWorkflowStart, { company: {} } as never);
 
-    await expect(run).rejects.toBeInstanceOf(DtoValidationError);
+    await expect(run).rejects.toBeInstanceOf(ValidationError.DtoInvalid);
     await expect(run).rejects.toThrow("invalid CompanyDto: name");
     expect(mockModel(CompanyCheckAgent).requests).toHaveLength(0);
   });
