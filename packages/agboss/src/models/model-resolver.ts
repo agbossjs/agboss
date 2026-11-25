@@ -1,5 +1,6 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import type { Class } from "../components/injection.js";
-import { GraphRuleError, violation, type RuleViolation } from "../graph/rule-error.js";
+import { violation, type RuleViolation } from "../graph/rule-error.js";
 import {
   levelModelOf,
   modelNamedBy,
@@ -182,7 +183,8 @@ export function modelResolverOf(
     isInherited: inheritedOf(cascade) !== undefined,
     providers: () => [...state.reached],
     check: () => {
-      if (state.violations.length > 0) throw new GraphRuleError({ violations: state.violations });
+      if (state.violations.length > 0)
+        throw new ConfigError.GraphRules({ violations: state.violations });
     },
   };
 }

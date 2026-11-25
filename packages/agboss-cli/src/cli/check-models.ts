@@ -1,3 +1,4 @@
+import { ConfigError } from "@agboss/core";
 import {
   applicationModelUsesOf,
   checkModelUses,
@@ -79,7 +80,7 @@ export async function checkApplicationModels(
   }
   return {
     lines: [
-      `ConfigurationError: ${String(problems.length)} model setting(s) do not fit their models`,
+      `ConfigError.ModelSettings: ${String(problems.length)} model setting(s) do not fit their models`,
       ...problems.map((problem) => `  ${problemLine(problem)}`),
     ],
     exitCode: 1,

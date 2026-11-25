@@ -1,4 +1,5 @@
-import { EnvironmentError, EnvironmentErrorCode } from "../environments/errors.js";
+import { ConfigError } from "../core/error-families/config-errors.js";
+import { EnvironmentErrorCode } from "../environments/errors.js";
 import { Secret, variableOfSecret } from "../environments/secret.js";
 import type { Environment } from "../flow/generated-types.js";
 import type { AssembledKeyFields } from "./assembled-keys.js";
@@ -37,8 +38,8 @@ export function assertKeyVariablesApart(
       ([name]) => name !== field && variableOf(environment, name) === variable,
     );
     if (other === undefined) continue;
-    throw new EnvironmentError({
-      code: EnvironmentErrorCode.InvalidValue,
+    throw new ConfigError.Environment({
+      envCode: EnvironmentErrorCode.InvalidValue,
       message: `${application}: @Application({ ${option}: "${field}" }) reads ${variable}, as ${other[0]} (${other[1]}) does — give it a variable of its own: rotating the other key would change every value made with this one`,
     });
   }

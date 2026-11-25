@@ -1,3 +1,4 @@
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { usd } from "../../src/units/index.js";
 import { describe, expect, it } from "vitest";
 import { bareRecordOf, ComponentKind } from "../../src/flow/runtime/records.js";
@@ -6,7 +7,6 @@ import { CostReport } from "../../src/finops/usage.js";
 import { PauseKind } from "../../src/pause/index.js";
 import { AgentFailedError } from "../../src/graph/errors.js";
 import {
-  GraphRuleError,
   LimitExceededError,
   nameOf,
   RouterDecisionError,
@@ -163,7 +163,7 @@ describe("AC12: matchers by class — a passing and a failing case, readable fai
       usage: [],
       cause: new TestFailure({ code: "test.script-exhausted", message: "x" }),
     });
-    const rules = new GraphRuleError({
+    const rules = new ConfigError.GraphRules({
       violations: [{ code: "graph.unreachable-node", message: "x", nodes: ["writer-agent"] }],
     });
 
@@ -172,7 +172,7 @@ describe("AC12: matchers by class — a passing and a failing case, readable fai
     expect(limit).toFailWith(LimitExceededError, { key: "maxSteps" });
     expect(agent).toFailWith(AgentFailedError, { agent: "writer-agent", cause: TestFailure });
     expect(agent).toFailWith(TestFailure, { code: "test.script-exhausted" });
-    expect(rules).toFailWith(GraphRuleError, {
+    expect(rules).toFailWith(ConfigError.GraphRules, {
       violations: [{ code: "graph.unreachable-node", nodes: [nameOf(Writer)] }],
     });
     expect(router).not.toFailWith(AgentFailedError);

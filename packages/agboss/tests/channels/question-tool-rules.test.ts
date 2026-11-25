@@ -3,6 +3,7 @@
  * fails, the role needs its one implementation, its name is the tool name the model sees; and
  * `agboss describe` names the agent that asks it. Without a pause seam the call is a tool error.
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
@@ -14,7 +15,6 @@ import { ChannelImplementationReason, describedChannelsOf } from "../../src/desc
 import { describeAssembledApplication } from "../../src/describe/describe-application.js";
 import { Agent } from "../../src/flow/decorators/agent.js";
 import { Workflow } from "../../src/flow/decorators/workflow.js";
-import { GraphRuleError } from "../../src/graph/rule-error.js";
 import { EmptyEnvironment, inline, ExternalTask, Ttl } from "../../src/index.js";
 import type { AgentToolClass } from "../../src/components/decorators.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
@@ -161,7 +161,8 @@ describe("#1373: the maxVisits of a question role an agent asks as a tool is a w
       () => undefined,
       (thrown: unknown) => thrown,
     );
-    if (!(error instanceof GraphRuleError)) throw new Error("expected a GraphRuleError");
+    if (!(error instanceof ConfigError.GraphRules))
+      throw new Error("expected a ConfigError.GraphRules");
     return error.violations;
   };
 
@@ -193,7 +194,8 @@ describe("#1373: the maxVisits of a question role an agent asks as a tool is a w
         () => undefined,
         (thrown: unknown) => thrown,
       );
-      const codes = error instanceof GraphRuleError ? error.violations.map((one) => one.code) : [];
+      const codes =
+        error instanceof ConfigError.GraphRules ? error.violations.map((one) => one.code) : [];
       expect(codes).not.toContain("limits.count-invalid");
     }
   });

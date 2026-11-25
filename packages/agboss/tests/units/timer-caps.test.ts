@@ -13,7 +13,6 @@ import { testWith } from "../../src/testing/index.js";
 import { toolNameViolations } from "../../src/components/assemble-checks.js";
 import { Text } from "../../src/dto/index.js";
 import { countQuorumOf } from "../../src/flow/quorum-step.js";
-import { GraphRuleError } from "../../src/graph/rule-error.js";
 import { SystemClock } from "../../src/infrastructure/clock.js";
 import { Idempotency } from "../../src/app/idempotency.js";
 import { OutboundMasking } from "../../src/app/outbound-masking.js";
@@ -50,7 +49,7 @@ async function timeoutProblemsOf(application: new () => object): Promise<string[
     (thrown: unknown) => thrown,
   );
   if (error === undefined) return [];
-  if (!(error instanceof GraphRuleError)) throw error as Error;
+  if (!(error instanceof ConfigError.GraphRules)) throw error as Error;
   return error.violations
     .filter((one) => one.code === "limits.timeout-invalid")
     .map((one) => one.message);

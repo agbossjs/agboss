@@ -224,7 +224,7 @@ an `@Action`.
 ## The rules
 
 A suite is assembled on its application before anything runs — every rule violation at once, one
-`GraphRuleError`:
+`ConfigError.GraphRules`:
 
 | Code                       | Means                                                                              |
 | -------------------------- | ---------------------------------------------------------------------------------- |
@@ -240,7 +240,7 @@ warn: a model judge of the model family of an agent of the start's workflow is
 [`[judge.same-model-family]`](Judges-And-Quality-Gates#judgesame-model-family), printed by `agboss check`
 and an error under `--strict`.
 
-Then the cases' values: `EvalCaseInvalidError` (`eval.case-invalid`, from `agboss`) lists every
+Then the cases' values: `ConfigError.EvalCase` (`config.eval-case`, from `agboss`) lists every
 issue at once — `case "x": tenant.plan — <reason>`, `turns[0].text`, `history[1].output.status`,
 `variants[0]`, `turns` (no turn) — the field named, never the value.
 
@@ -257,7 +257,7 @@ agboss eval run --suite refunds-eval-suite --runs 3 --env eval --report .artifac
   `eval.unknown-suite`, exit 2, the suites listed.
 - **The application** is built as `createApp` builds it, on the `--env` environment (default `dev`):
   its services, its model providers, its stores and budgets. The suite is assembled first — its rules
-  (`graph.rules`, exit 3), then its cases' values (`eval.case-invalid`, exit 3) — before any case runs.
+  (`config.graph-rules`, exit 3), then its cases' values (`config.eval-case`, exit 3) — before any case runs.
 - **Each case runs `--runs` times** (k, default 1), one run after the other, each on a thread of its
   own: the case's `history` is written into the thread (each past turn a finished turn of the
   workflow — `start <name>: <input>` / `finish <name>: <output>` — no model call), its `turns` run in
@@ -621,7 +621,7 @@ evalCase({
   `turn`. A tool without a class in the project is left out and named in the notes.
 - **Values are masked** as the history keeps them — read the case, replace what a turn needs real,
   tighten `required` to the partials that matter, add `forbidden`, `invariants` and judges, then
-  `agboss check` (the case is assembled with its suite, `eval.case-invalid`).
+  `agboss check` (the case is assembled with its suite, `config.eval-case`).
 - `--suite` is optional when the application has one; its `start` must be the execution's
   (`[eval.case-start-mismatch]`). Errors: an id two tenants kept needs `--tenant`
   (`records.ambiguous-execution`, exit 2), an unknown one is `records.not-found` (exit 3), an

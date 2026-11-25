@@ -1,6 +1,6 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import type { EnvRef } from "../environments/env-ref.js";
 import { resolveReferences } from "../environments/define-env.js";
-import { EnvironmentError } from "../environments/errors.js";
 import { OptionalSecretReference, Secret } from "../environments/secret.js";
 import { VariableReference } from "../environments/variables.js";
 import type { PromptProblem } from "./prompt-problems.js";
@@ -51,7 +51,7 @@ function textOf(
       },
     };
   } catch (error) {
-    if (!(error instanceof EnvironmentError)) throw error;
+    if (!(error instanceof ConfigError.Environment)) throw error;
     return { problem: { code: "prompt.invalid-variable", message: `${name}: ${error.message}` } };
   }
 }

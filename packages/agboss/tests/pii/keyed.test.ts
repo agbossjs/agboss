@@ -1,4 +1,5 @@
 /** #120: the application's PII key — one token per value on every instance, a policy's own key wins. */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { createAppWithoutPiiKey } from "./without-pii-key.js";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { applicationOf } from "../../src/application/assemble.js";
@@ -7,7 +8,6 @@ import { replyWith, testWith } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { withInstancePiiKeys } from "../../src/testing/pii-parts.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
-import { GraphRuleError } from "../../src/graph/rule-error.js";
 import { execute } from "../helpers/flow.js";
 import { requestText } from "./boundary.helpers.js";
 import {
@@ -95,8 +95,8 @@ describe("#120: a missing application key", () => {
       gateway: createScriptedGateway(new ScriptBook()),
     }).catch((error: unknown) => error);
 
-    expect(failure).toBeInstanceOf(GraphRuleError);
-    expect((failure as GraphRuleError).violations).toEqual([
+    expect(failure).toBeInstanceOf(ConfigError.GraphRules);
+    expect((failure as ConfigError.GraphRules).violations).toEqual([
       expect.objectContaining({
         code: "pii.secret-required",
         message:
@@ -108,8 +108,8 @@ describe("#120: a missing application key", () => {
   it("a key field the contract does not declare fails assembly", async () => {
     const failure = await applicationOf(MisnamedKeyApplication).catch((error: unknown) => error);
 
-    expect(failure).toBeInstanceOf(GraphRuleError);
-    expect((failure as GraphRuleError).violations).toContainEqual(
+    expect(failure).toBeInstanceOf(ConfigError.GraphRules);
+    expect((failure as ConfigError.GraphRules).violations).toContainEqual(
       expect.objectContaining({
         code: "environment.missing-field",
         message: "@Application piiKeyField needs piiKey: Secret in EmptyEnvironment",

@@ -5,12 +5,13 @@
  * application with no storage gets the test's keys only. (The `idempotencyKeyField` options of
  * `@Application`, and the environment field they named, are gone: nothing of them is tested.)
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import {
   applicationIdempotencyKeysOf,
   TEST_IDEMPOTENCY_KEYS,
 } from "../../src/application/idempotency-key.js";
-import { EnvironmentError, EnvironmentErrorCode } from "../../src/environments/errors.js";
+import { EnvironmentErrorCode } from "../../src/environments/errors.js";
 import { unitEnvironmentOf } from "../../src/environments/resolve.js";
 import { secret } from "../../src/index.js";
 import type { FingerprintKeys } from "../../src/infrastructure/fenced-effect-key.js";
@@ -66,9 +67,9 @@ describe("#825 AC7: the idempotency keys at start", () => {
   it("a secret whose variable is unset fails the start, naming the variable — never a value", () => {
     const refused = refusalOf(() => keysOf({ idempotencySecret: secret("KEY_V2") }));
 
-    expect(refused).toBeInstanceOf(EnvironmentError);
+    expect(refused).toBeInstanceOf(ConfigError.Environment);
     expect(refused).toMatchObject({
-      code: EnvironmentErrorCode.MissingVariables,
+      envCode: EnvironmentErrorCode.MissingVariables,
       message: expect.stringContaining("KEY_V2 is not set"),
     });
   });
@@ -80,7 +81,7 @@ describe("#825 AC7: the idempotency keys at start", () => {
     };
 
     expect(refusalOf(() => keysOf(both, { KEY_V2: "v2" }))).toMatchObject({
-      code: EnvironmentErrorCode.MissingVariables,
+      envCode: EnvironmentErrorCode.MissingVariables,
     });
     expect(
       keysOf({ ...both, previousIdempotencySecret: secret.optional("KEY_V1") }, { KEY_V2: "v2" }),

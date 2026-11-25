@@ -3,8 +3,9 @@
  * no provider setting; none listed → the built-in OpenRouter + Decisions providers, one listed → the
  * list is complete.
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
-import { GraphRuleError, WorkflowSettings } from "../../src/index.js";
+import { WorkflowSettings } from "../../src/index.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import type { Class } from "../../src/components/injection.js";
 import {} from "../../src/models/index.js";
@@ -30,8 +31,8 @@ async function violationsOf(application: Class): Promise<string[]> {
     () => undefined,
     (thrown: unknown) => thrown,
   );
-  if (!(error instanceof GraphRuleError))
-    throw new Error(`expected a GraphRuleError: ${String(error)}`);
+  if (!(error instanceof ConfigError.GraphRules))
+    throw new Error(`expected a ConfigError.GraphRules: ${String(error)}`);
   return error.violations.map((found) => `[${found.code}] ${found.message}`);
 }
 

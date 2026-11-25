@@ -1,8 +1,9 @@
-import { GraphRuleError, type RuleViolation } from "../graph/rule-error.js";
+import { ConfigError } from "../core/error-families/config-errors.js";
+import { type RuleViolation } from "../graph/rule-error.js";
 import { distinctViolations } from "../graph/distinct-violations.js";
 
-/** The rules an application breaks, its workflows' included: a `GraphRuleError` naming the application. */
-class ApplicationRuleError extends GraphRuleError {
+/** The rules an application breaks, its workflows' included: a `ConfigError.GraphRules` naming the application. */
+class ApplicationRuleError extends ConfigError.GraphRules {
   constructor(violations: readonly RuleViolation[]) {
     super({ violations });
     const lines = violations.map((item) => `  - [${item.code}] ${item.message}`);
@@ -11,7 +12,10 @@ class ApplicationRuleError extends GraphRuleError {
 }
 
 /** One error for everything found: a single workflow's own error as it is, else all violations. */
-export function throwIfAny(own: readonly RuleViolation[], errors: readonly GraphRuleError[]): void {
+export function throwIfAny(
+  own: readonly RuleViolation[],
+  errors: readonly ConfigError.GraphRules[],
+): void {
   const [only] = errors;
   if (own.length === 0 && errors.length === 1 && only !== undefined) throw only;
   const all = distinctViolations([...own, ...errors.flatMap((error) => error.violations)]);

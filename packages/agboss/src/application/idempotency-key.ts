@@ -1,5 +1,6 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import { IdempotencyError } from "../core/error-families/effect-errors.js";
-import { EnvironmentError, EnvironmentErrorCode } from "../environments/errors.js";
+import { EnvironmentErrorCode } from "../environments/errors.js";
 import type { OptionalSecretRef, SecretRef } from "../environments/env-ref.js";
 import { OptionalSecretReference, variableOfSecretRef } from "../environments/secret.js";
 import type { Environment } from "../flow/generated-types.js";
@@ -39,8 +40,8 @@ function storageSecretOf(
   // never a key of the framework's own: a declared secret that is not set fails the start
   if (raw !== undefined && raw !== "") return raw;
   if (isOptionalRef(ref)) return undefined;
-  throw new EnvironmentError({
-    code: EnvironmentErrorCode.MissingVariables,
+  throw new ConfigError.Environment({
+    envCode: EnvironmentErrorCode.MissingVariables,
     message: `${application}: @DatabaseStorage({ ${option} }) has no value — ${variable} is not set`,
   });
 }

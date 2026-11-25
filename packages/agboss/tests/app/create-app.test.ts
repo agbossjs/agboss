@@ -1,18 +1,10 @@
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { Window2Memory } from "../helpers/window-memory.js";
 import { createApp, type BuildApplicationOptions } from "../../src/application/create-app.js";
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { describe, expect, it } from "vitest";
-import { NotAWorkflowStartError } from "../../src/app/create-app.js";
-import {
-  Agent,
-  Workflow,
-  GraphRuleError,
-  WorkflowStart,
-  inline,
-  Ttl,
-  ValidationError,
-} from "../../src/index.js";
+import { Agent, Workflow, WorkflowStart, inline, Ttl, ValidationError } from "../../src/index.js";
 import { Text } from "../../src/dto/index.js";
 import { replyWith, callTool, routeTo } from "../../src/testing/index.js";
 import { McpStubs, stubbedMcpConnect } from "../../src/testing/mcp-stubs.js";
@@ -137,9 +129,9 @@ describe("AC12: createApp — the real app", () => {
 
     const built = createTestAppWith(BrokenApplication, offline(book));
 
-    await expect(built).rejects.toBeInstanceOf(GraphRuleError);
+    await expect(built).rejects.toBeInstanceOf(ConfigError.GraphRules);
     const codes = await built.catch((error: unknown) =>
-      error instanceof GraphRuleError ? error.violations.map((item) => item.code) : [],
+      error instanceof ConfigError.GraphRules ? error.violations.map((item) => item.code) : [],
     );
     expect(codes).toEqual(expect.arrayContaining(["graph.unreachable-node"]));
   });
@@ -220,7 +212,7 @@ describe("AC12: createApp — the real app", () => {
     const app = await createTestAppWith(CodeReviewApplication, offline(book));
 
     await expect(execute(app, ChatStart, { text: "hi" })).rejects.toBeInstanceOf(
-      NotAWorkflowStartError,
+      ConfigError.NotAWorkflowStart,
     );
     await expect(execute(app, Reply, { text: "hi" })).rejects.toThrow(
       'reply-workflow-finish is not a workflow start of "code-review-workflow"',

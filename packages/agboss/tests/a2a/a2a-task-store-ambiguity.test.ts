@@ -3,10 +3,10 @@
  * backends (`[di.ambiguous-implementation]`, as two lease stores are named), whether or not an
  * `@A2AEndpoint` is served and whatever the leases are; the task-store rule adds nothing to it.
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import { applicationOf } from "../../src/application/assemble.js";
 import type { Provider } from "../../src/components/injection.js";
-import { GraphRuleError } from "../../src/graph/rule-error.js";
 import { SqliteA2ATaskRepository } from "../../src/infrastructure/sqlite/sqlite-a2a-task.repository.js";
 import { PostgresLeases } from "../application/fixtures/store-backends.fixture.js";
 import {
@@ -24,7 +24,7 @@ async function violationsOf(
     await applicationOf(a2aStoresApplication(providers, { isExposed }));
     return [];
   } catch (error) {
-    if (!(error instanceof GraphRuleError)) throw error;
+    if (!(error instanceof ConfigError.GraphRules)) throw error;
     return error.violations.map((found) => `[${found.code}] ${found.message}`);
   }
 }

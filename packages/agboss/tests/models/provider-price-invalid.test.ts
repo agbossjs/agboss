@@ -7,7 +7,6 @@
 import { AIMessage } from "@langchain/core/messages";
 import { describe, expect, it } from "vitest";
 import { applicationOf } from "../../src/application/assemble.js";
-import { GraphRuleError } from "../../src/graph/rule-error.js";
 import { markedFallbackMessage } from "../../src/models/fallback.js";
 import {
   ModelCost,
@@ -101,7 +100,7 @@ describe("#1385: assembly refuses a provider's price that is no amount from 0", 
       {},
     );
 
-    await expect(assembled).rejects.toBeInstanceOf(GraphRuleError);
+    await expect(assembled).rejects.toBeInstanceOf(ConfigError.GraphRules);
     await expect(assembled).rejects.toThrow(
       /\[model\.price-invalid\] negative-input-model-provider \(NegativeInputProvider\): inputPerMillion is -5, not a finite number of dollars from 0/,
     );

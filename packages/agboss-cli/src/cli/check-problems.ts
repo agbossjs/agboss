@@ -1,5 +1,5 @@
-import { ConfigError, GraphRuleError } from "@agboss/core";
-import { ConfigurationError, type ModelProblem } from "@agboss/core/models";
+import { ConfigError } from "@agboss/core";
+import { type ModelProblem } from "@agboss/core/models";
 import {
   diagnosticOfViolation,
   ProfileError,
@@ -59,15 +59,15 @@ export const modelProblem = (file: string, problem: ModelProblem): CheckProblem 
 function problemsOfError(file: string, error: unknown): readonly CheckProblem[] | undefined {
   const prompts = promptProblemsOf(file, error);
   if (prompts !== undefined) return prompts;
-  if (error instanceof GraphRuleError)
+  if (error instanceof ConfigError.GraphRules)
     return error.violations.map((v) => ({
       file,
       code: v.code,
       message: v.message,
       diagnostic: diagnosticOfViolation(v),
     }));
-  if (error instanceof ConfigurationError)
-    return error.problems.map((problem) => modelProblem(file, problem));
+  if (error instanceof ConfigError.ModelSettings)
+    return (error.problems ?? []).map((problem) => modelProblem(file, problem));
   const codes: readonly (readonly [new (...args: never[]) => Error, string])[] = [
     [ConfigError.Component, "workflow.assembly"],
     [ConfigError.Prompt, "workflow.assembly"],

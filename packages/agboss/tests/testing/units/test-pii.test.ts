@@ -1,6 +1,6 @@
 /** #262 PR 3 (S55, S62, #120): `testUnit` — what a model reads, and its answer revealed. */
+import { ConfigError } from "../../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
-import { GraphRuleError } from "../../../src/graph/rule-error.js";
 import { PiiRefusedError } from "../../../src/pii/errors.js";
 import { replyWith, testUnit } from "../../../src/testing/index.js";
 import { usd } from "../../../src/units/index.js";
@@ -60,7 +60,7 @@ describe("testUnit", () => {
   });
 
   it("the policies' own rules are checked first: a name that is not kebab-case", () => {
-    expect(() => testUnit([MisnamedPolicy])).toThrow(GraphRuleError);
+    expect(() => testUnit([MisnamedPolicy])).toThrow(ConfigError.GraphRules);
   });
 
   it("no policies is a setup error", () => {

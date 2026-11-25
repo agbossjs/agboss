@@ -8,10 +8,10 @@
  *   `[di.ambiguous-implementation]` at assembly, naming both with their backends;
  * - AC3: every violation of a layout is reported at once, never the first only.
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import { applicationOf } from "../../src/application/assemble.js";
 import type { Provider } from "../../src/components/injection.js";
-import { GraphRuleError } from "../../src/graph/rule-error.js";
 import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
 import {
   InMemoryFencedEffectRepository,
@@ -40,7 +40,7 @@ async function violationsOf(providers: readonly Provider[]): Promise<readonly st
     await applicationOf(storesApplication(providers));
     return [];
   } catch (error) {
-    if (!(error instanceof GraphRuleError)) throw error;
+    if (!(error instanceof ConfigError.GraphRules)) throw error;
     return error.violations.map((found) => `[${found.code}] ${found.message}`);
   }
 }

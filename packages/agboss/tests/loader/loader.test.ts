@@ -1,5 +1,6 @@
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
-import { loadWorkflowClass, WorkflowLoadError } from "../../src/loader/load-workflow.js";
+import { loadWorkflowClass } from "../../src/loader/load-workflow.js";
 import { TestWorkflow } from "../fixtures/test-workflow/test.workflow.js";
 
 const fixture = (name: string): string => new URL(`../fixtures/${name}`, import.meta.url).pathname;
@@ -22,6 +23,6 @@ describe("workflow loader (agboss <command> --workflow <path>)", () => {
     );
     await expect(
       loadWorkflowClass(fixture("loader/two.workflow.ts"), options),
-    ).rejects.toBeInstanceOf(WorkflowLoadError);
+    ).rejects.toBeInstanceOf(ConfigError.WorkflowLoad);
   });
 });

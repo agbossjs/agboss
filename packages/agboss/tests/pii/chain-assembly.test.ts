@@ -5,6 +5,7 @@
  * `[pii.conflicting-rules]` naming the way; `agboss describe` and the start log show each way's
  * effective sets and every exclusion.
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import {
   Agent,
@@ -25,7 +26,6 @@ import { applicationContextOf } from "../../src/flow/context/application-context
 import { piiPolicyLines } from "../../src/describe/pii-policies.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
-import { GraphRuleError } from "../../src/graph/rule-error.js";
 import type { FrameworkLog } from "../../src/infrastructure/logger.js";
 import { listOf } from "../../src/flow/dto-wrappers.js";
 import { effectivePiiPolicies } from "../../src/pii/effective-policies.js";
@@ -185,8 +185,8 @@ describe("#1150 AC7: assembly checks every way into a child", () => {
   it("AC7: an ancestor's and the child's rules conflict — [pii.conflicting-rules] naming the way", async () => {
     const failure = await applicationOf(ConflictApplication).catch((error: unknown) => error);
 
-    expect(failure).toBeInstanceOf(GraphRuleError);
-    const messages = (failure as GraphRuleError).violations
+    expect(failure).toBeInstanceOf(ConfigError.GraphRules);
+    const messages = (failure as ConfigError.GraphRules).violations
       .filter((item) => item.code === "pii.conflicting-rules")
       .map((item) => item.message);
     expect(messages).toEqual(

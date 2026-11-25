@@ -97,12 +97,7 @@ export {
   type PerMinuteLimits,
   type RateLimitOptions,
 } from "./policies/rate-limit-policy.js";
-export {
-  ConfigurationError,
-  type ConfigurationErrorOptions,
-  type ModelProblem,
-  type ModelProblemCode,
-} from "./problems.js";
+export { type ModelProblem, type ModelProblemCode } from "./problems.js";
 export type {
   AGBossErrorOptions,
   ErrorDetails,

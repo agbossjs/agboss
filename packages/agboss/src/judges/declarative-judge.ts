@@ -8,7 +8,7 @@ import {
   type RunnableJudge,
 } from "../components/judge-decorators.js";
 import type { JudgeBinding } from "../llm/registry.js";
-import { DecisionError } from "../core/error-families/config-errors.js";
+import { DecisionError } from "../core/error-families/decision-errors.js";
 import { ModelKind } from "../llm/decision-errors.js";
 import { Decision } from "../llm/decisions.js";
 

@@ -1,3 +1,4 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import { z } from "zod";
 import type { ProviderConnection } from "./handler.js";
 
@@ -34,10 +35,6 @@ const ModelEntrySchema = z.looseObject({
 
 const ModelListSchema = z.looseObject({ data: z.array(ModelEntrySchema) });
 
-export class ModelListError extends Error {
-  override name = "ModelListError";
-}
-
 /** The provider's model list (`GET {baseUrl}/models`), by model id. */
 export async function fetchModelList(
   connection: ProviderConnection,
@@ -50,13 +47,13 @@ export async function fetchModelList(
     headers,
   });
   if (!response.ok) {
-    throw new ModelListError(
+    throw new ConfigError.ModelProvider(
       `${connection.provider}: GET /models answered ${String(response.status)}`,
     );
   }
   const parsed = ModelListSchema.safeParse(await response.json());
   if (!parsed.success) {
-    throw new ModelListError(
+    throw new ConfigError.ModelProvider(
       `${connection.provider}: GET /models: ${z.prettifyError(parsed.error)}`,
     );
   }

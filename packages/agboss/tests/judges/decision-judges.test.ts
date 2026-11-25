@@ -1,10 +1,11 @@
 /**
  * #226: decision models are first-class — a judge decides on any decision model with typed answers
  * (`judgeModel.decide`, `Decision.choice / boolean / score / image`), its spend under `judge:<name>`;
- * routers route on any decision model; the wrong call for a model's kind is a `ModelKindError`.
+ * routers route on any decision model; the wrong call for a model's kind is a `ConfigError.ModelKind`.
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
-import { AgentFailedError, DecisionError, ModelKindError } from "../../src/index.js";
+import { AgentFailedError, DecisionError } from "../../src/index.js";
 import { Decision } from "../../src/index.js";
 import { decideWith, replyWith, routeTo, testWith } from "../../src/testing/index.js";
 import { usd } from "../../src/units/index.js";
@@ -140,7 +141,7 @@ describe("AC3: a router on openai/gpt-6-luna-decisions routes", () => {
   });
 });
 
-describe("AC5: the wrong call for a model's kind is a ModelKindError", () => {
+describe("AC5: the wrong call for a model's kind is a ConfigError.ModelKind", () => {
   const chatDecider = testWith(ChatDeciderDeskApplication);
 
   chatDecider("decide on a chat model", async ({ app, mockModel }) => {
@@ -150,11 +151,11 @@ describe("AC5: the wrong call for a model's kind is a ModelKindError", () => {
 
     await expect(run).rejects.toBeInstanceOf(AgentFailedError);
     await expect(run).rejects.toMatchObject({
-      cause: { code: "model.wrong-kind", details: { model: "local/judge", call: "decide" } },
+      cause: { code: "config.model-kind", details: { model: "local/judge", call: "decide" } },
     });
     await expect(
       run.catch((error: unknown) => (error instanceof AgentFailedError ? error.cause : error)),
-    ).resolves.toBeInstanceOf(ModelKindError);
+    ).resolves.toBeInstanceOf(ConfigError.ModelKind);
     expect(mockModel(ChatDecider).requests).toEqual([]);
   });
 
@@ -167,7 +168,7 @@ describe("AC5: the wrong call for a model's kind is a ModelKindError", () => {
 
     await expect(run).rejects.toMatchObject({
       code: "step.agent",
-      cause: { code: "model.wrong-kind", details: { model: LUNA, call: "invoke" } },
+      cause: { code: "config.model-kind", details: { model: LUNA, call: "invoke" } },
     });
     expect(mockModel(DecisionChatter).requests).toEqual([]);
   });

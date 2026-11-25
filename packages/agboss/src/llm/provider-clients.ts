@@ -1,3 +1,4 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import type { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import type { ResolvedModelSettings } from "../config/types.js";
 import type { Environment } from "../flow/generated-types.js";
@@ -8,7 +9,6 @@ import {
   isDriverOptions,
   isTransportClass,
 } from "../models/model-provider.decorator.js";
-import { ConfigurationError } from "../models/problems.js";
 import type { ProviderFetch } from "../models/resilient-fetch.js";
 import type { ModelChaos } from "../eval/chaos/model-chaos.js";
 import { ModelKind } from "../models/model-kind.js";
@@ -25,8 +25,6 @@ import { withFallbacks } from "../models/resolution.js";
 import { lazyLoad } from "../infrastructure/clock.js";
 import { modelPricingOf } from "../models/workflow-models.js";
 import type { ModelPricing } from "../models/model-pricing.js";
-
-export { ProviderCapabilityError } from "./provider-chat-of.js";
 
 /**
  * What the production clients need: the process environment (base URLs), the application's
@@ -98,7 +96,7 @@ export function providerClients(
   ): RegisteredModelProvider => {
     const resolution = directory.resolve({ key: model, model, purpose, modelProvider });
     if (resolution.kind === "problem")
-      throw new ConfigurationError({ problems: [resolution.problem] });
+      throw new ConfigError.ModelSettings({ problems: [resolution.problem] });
     return resolution.provider;
   };
   const chatModel = (settings: ResolvedModelSettings): BaseChatModel => {

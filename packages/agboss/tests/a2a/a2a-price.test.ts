@@ -10,7 +10,7 @@ import { checkedCostPerCall, costPerCallProblemOf } from "../../src/a2a/a2a-rule
 import { applicationOf } from "../../src/application/assemble.js";
 import { Application } from "../../src/application/application.js";
 import type { Class } from "../../src/components/injection.js";
-import { GraphRuleError, type RuleViolation } from "../../src/graph/rule-error.js";
+import { type RuleViolation } from "../../src/graph/rule-error.js";
 import { EmptyEnvironment } from "../../src/index.js";
 import { usd } from "../../src/units/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
@@ -92,7 +92,7 @@ const violationsOf = async (price: unknown): Promise<readonly RuleViolation[]> =
   try {
     await applicationOf(applicationWith(price), { withoutIdempotencyKeys: true });
   } catch (error) {
-    if (error instanceof GraphRuleError) return error.violations;
+    if (error instanceof ConfigError.GraphRules) return error.violations;
     throw error;
   }
   return [];

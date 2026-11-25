@@ -3,6 +3,7 @@
  * by listing it; `sqlitePath` is required only then, and a missing one fails — at assembly when
  * the contract lacks the field, at start when its value is empty — naming it.
  */
+import { ConfigError } from "../../../src/core/error-families/config-errors.js";
 import { createTestAppWith } from "../../../src/testing/create-app-with.js";
 import { describe, expect, it } from "vitest";
 import { Application } from "../../../src/application/application.js";
@@ -10,7 +11,6 @@ import { applicationOf } from "../../../src/application/assemble.js";
 import type { Class } from "../../../src/components/injection.js";
 import {
   EmptyEnvironment,
-  GraphRuleError,
   SqliteCostLedgerRepository,
   SqliteExecutionLeaseRepository,
   SqliteExecutionRecordRepository,
@@ -68,7 +68,7 @@ async function violationsOf(application: Class): Promise<string[]> {
     () => undefined,
     (thrown: unknown) => thrown,
   );
-  if (!(error instanceof GraphRuleError)) return [];
+  if (!(error instanceof ConfigError.GraphRules)) return [];
   return error.violations.map((found) => `[${found.code}] ${found.message}`);
 }
 

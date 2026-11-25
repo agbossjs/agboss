@@ -1,5 +1,5 @@
 import { ConfigError } from "../core/error-families/config-errors.js";
-import { GraphRuleError, violation, type RuleViolation } from "../graph/rule-error.js";
+import { violation, type RuleViolation } from "../graph/rule-error.js";
 import type { RagRuntime } from "../rag/rag-source.js";
 import type { RecordedRerankerMeta } from "../rag/reranker.decorator.js";
 import { RerankFailurePolicy, type KnowledgeSource } from "../rag/types.js";
@@ -35,7 +35,7 @@ export function ragClassesOf(
   tools: readonly Class[] = [],
 ): Class[] {
   const duplicates = duplicateRagViolations(agents);
-  if (duplicates.length > 0) throw new GraphRuleError({ violations: duplicates });
+  if (duplicates.length > 0) throw new ConfigError.GraphRules({ violations: duplicates });
   const listed = agents.flatMap((agent) => agent.rag ?? []);
   for (const cls of listed) {
     if (componentOf(cls)?.kind !== "rag") {

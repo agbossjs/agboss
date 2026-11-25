@@ -101,7 +101,7 @@ export class GroundedJudge implements JudgeHandler<PlainTextDto> {
 }
 ```
 
-`decide` on a chat model or `invoke` on a decision model throws `ModelKindError` (`model.wrong-kind`).
+`decide` on a chat model or `invoke` on a decision model throws `ConfigError.ModelKind` (`config.model-kind`).
 
 ## A declarative judge: an empty class with a prompt
 

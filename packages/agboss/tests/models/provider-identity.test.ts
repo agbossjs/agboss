@@ -8,13 +8,13 @@
  *   left `baseUrl` at the default, so a proxy's key and every prompt went to public openrouter.ai.
  *   Each driver factory has its allowed keys; a stray one is `[decorator.unknown-option]` at assembly.
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import { applicationOf } from "../../src/application/assemble.js";
 import { Application } from "../../src/application/application.js";
 import {
   Agent,
   EmptyEnvironment,
-  GraphRuleError,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
@@ -106,8 +106,8 @@ async function violationsOf(application: Class): Promise<readonly (readonly [str
     () => undefined,
     (thrown: unknown) => thrown,
   );
-  if (!(error instanceof GraphRuleError))
-    throw new Error(`expected a GraphRuleError, got ${String(error)}`);
+  if (!(error instanceof ConfigError.GraphRules))
+    throw new Error(`expected a ConfigError.GraphRules, got ${String(error)}`);
   return error.violations.map((found) => [found.code, found.message] as const);
 }
 
@@ -119,7 +119,7 @@ describe("bughunt #1: two model providers of one name", () => {
       providerFetch: stub.fetch,
     });
 
-    await expect(started).rejects.toThrow(GraphRuleError);
+    await expect(started).rejects.toThrow(ConfigError.GraphRules);
     await expect(started).rejects.toThrow(/\[model\.duplicate-provider-name\]/u);
     expect(stub.requests).toEqual([]);
   });
@@ -172,7 +172,7 @@ describe("bughunt #5: a driver's unknown option", () => {
       providerFetch: stub.fetch,
     });
 
-    await expect(started).rejects.toThrow(GraphRuleError);
+    await expect(started).rejects.toThrow(ConfigError.GraphRules);
     expect(stub.requests).toEqual([]);
     expect(await violationsOf(applicationOfDriver(driver))).toContainEqual([
       "decorator.unknown-option",

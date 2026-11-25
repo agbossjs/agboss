@@ -7,7 +7,6 @@ import type { DecisionService } from "./decision-model.js";
 import type { AssembledWorkflow } from "../workflow.js";
 import type { ModelGateway } from "../llm/gateway.js";
 import { ModelKind } from "../models/model-kind.js";
-import { ModelKindError } from "../llm/decision-errors.js";
 
 /** Where a `DecisionModel` call goes (#1313): its own `modelProvider` / `model`, else the workflow's cascade; with no provider anywhere, `defaults.router.model` as before drivers (until F2). */
 export const decisionTargetOfWorkflow = (
@@ -54,6 +53,6 @@ export const decisionServiceOf =
     if (gateway.decide === undefined)
       throw new TypeError(`${caller}: the model gateway has no decisions (${model})`);
     if (gateway.kindOf?.(modelProvider) === ModelKind.Chat)
-      throw new ModelKindError({ model, kind: ModelKind.Chat, call: "decide" });
+      throw new ConfigError.ModelKind({ model, modelKind: ModelKind.Chat, call: "decide" });
     return gateway.decide({ caller, model, modelProvider, request });
   };

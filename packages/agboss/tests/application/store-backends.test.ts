@@ -1,3 +1,4 @@
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import {
   optsOutOfLeaseCheck,
   storeDescriptorOf,
@@ -14,7 +15,6 @@ import {
 import { describe, expect, it } from "vitest";
 import { applicationOf } from "../../src/application/assemble.js";
 import type { Class, Provider } from "../../src/components/injection.js";
-import { GraphRuleError } from "../../src/graph/rule-error.js";
 import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
 import {
   ExecutionLeaseRepository,
@@ -50,7 +50,7 @@ async function violationsOf(providers: readonly Provider[]): Promise<readonly st
     await applicationOf(storesApplication(providers));
     return [];
   } catch (error) {
-    if (!(error instanceof GraphRuleError)) throw error;
+    if (!(error instanceof ConfigError.GraphRules)) throw error;
     return error.violations.map((found) => `[${found.code}] ${found.message}`);
   }
 }
@@ -156,13 +156,13 @@ describe("#526 AC1: the messages", () => {
     );
   });
 
-  it("every violation at once, with the application's other rules: one GraphRuleError", async () => {
+  it("every violation at once, with the application's other rules: one ConfigError.GraphRules", async () => {
     const error = await applicationOf(
       storesApplication([PostgresEffects, RedisCalls, BillingLeases]),
     ).catch((thrown: unknown) => thrown);
 
-    expect(error).toBeInstanceOf(GraphRuleError);
-    const violations = (error as GraphRuleError).violations;
+    expect(error).toBeInstanceOf(ConfigError.GraphRules);
+    const violations = (error as ConfigError.GraphRules).violations;
     expect(violations.map((found) => [found.code, found.nodes])).toEqual([
       ["application.store-backend-mismatch", ["stores-application"]],
       ["application.store-backend-mismatch", ["stores-application"]],

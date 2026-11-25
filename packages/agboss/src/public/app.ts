@@ -158,7 +158,7 @@ export type {
   TenantContextClass,
   TenantValues,
 } from "../flow/context/context-values.js";
-export { loadWorkflowClass, WorkflowLoadError } from "../loader/load-workflow.js";
+export { loadWorkflowClass } from "../loader/load-workflow.js";
 export {
   compareProfiles,
   type CompareProfilesOptions,

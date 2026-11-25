@@ -3,6 +3,7 @@
  * declarations — `[a2a.endpoint-description-required]` (an error: a blank description),
  * `[a2a.skill-tags]` and `[a2a.unpriced-foreign-peer]` (warnings).
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import { A2AAgent } from "../../src/a2a/a2a-decorator.js";
 import { A2AEndpoint, type A2AEndpointOptions } from "../../src/a2a/a2a-endpoint.decorator.js";
@@ -10,7 +11,6 @@ import { A2AClient } from "../../src/a2a/client/a2a-client.js";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import { assemblyWarningsOf } from "../../src/application/start-log.js";
-import { GraphRuleError } from "../../src/graph/rule-error.js";
 import { EmptyEnvironment } from "../../src/index.js";
 import { usd, hours, minutes } from "../../src/units/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
@@ -64,7 +64,7 @@ describe("#812 AC5: [a2a.endpoint-description-required]", () => {
   it.each(["", "   "])("a blank description (%j) is refused at assembly", async (description) => {
     const built = applicationOf(applicationWith({ description }), { withoutIdempotencyKeys: true });
 
-    await expect(built).rejects.toBeInstanceOf(GraphRuleError);
+    await expect(built).rejects.toBeInstanceOf(ConfigError.GraphRules);
     await expect(built).rejects.toThrow(
       /\[a2a\.endpoint-description-required\] card-a2a-expose has no description/,
     );

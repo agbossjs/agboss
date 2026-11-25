@@ -1,4 +1,5 @@
-import { EnvironmentError, EnvironmentErrorCode } from "../environments/errors.js";
+import { ConfigError } from "../core/error-families/config-errors.js";
+import { EnvironmentErrorCode } from "../environments/errors.js";
 import type { OptionalSecretRef, SecretRef } from "../environments/env-ref.js";
 import { OptionalSecretReference, variableOfSecretRef } from "../environments/secret.js";
 import { isCustomPolicy, type PiiPolicyMeta } from "./pii-policy.decorator.js";
@@ -16,9 +17,13 @@ export interface PolicyKeyParts {
   readonly previousFieldKey?: string | undefined;
 }
 
-const unsetSecret = (meta: PiiPolicyMeta, option: string, variable: string): EnvironmentError =>
-  new EnvironmentError({
-    code: EnvironmentErrorCode.MissingVariables,
+const unsetSecret = (
+  meta: PiiPolicyMeta,
+  option: string,
+  variable: string,
+): ConfigError.Environment =>
+  new ConfigError.Environment({
+    envCode: EnvironmentErrorCode.MissingVariables,
     message: `${variable} is not set (${meta.name}.${option})`,
   });
 

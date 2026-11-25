@@ -1125,7 +1125,7 @@ it("looks the order up in the book it is given", async () => {
   another shape, or a `variant` with another class's value (`{ variant: OfferDto, reply: { why } }`),
   does not compile (#262 S115, S125); the injected `JudgeModel` is the judge's own model
   answering from `model` — `decideWith(…)` on a decision model, `replyWith(…)` on a chat model; the
-  wrong call for its kind is `ModelKindError`, as at run time. The output is the verdict,
+  wrong call for its kind is `ConfigError.ModelKind`, as at run time. The output is the verdict,
   `JudgeVerdict.passed(…)` / `JudgeVerdict.failed(reason)`. A code judge (`decidedBy:
   DecidedBy.Code`, #396) runs its `judge(input)` alone: no `model` (one is a `TestSetupError`), no
   spend; the judge's assembly rules apply (`[judge.model-on-code-judge]`).
@@ -1144,7 +1144,7 @@ it("looks the order up in the book it is given", async () => {
   PII policies apply. It checks the request and the plumbing — whether a fact survives compaction is
   an eval case ([Testing suites and comparisons](Testing-Suites-And-Comparisons)).
 - **`testUnit`** (#120 PR 2) checks the guardrail's own rules first (kebab-case name, one refusal, a
-  question, a threshold — a `GraphRuleError`), then asks its model on the text under its heading
+  question, a threshold — a `ConfigError.GraphRules`), then asks its model on the text under its heading
   (`element` names the agent or router, default `test-agent`): `model: decideWith({ blocks: 0.9 })`
   (`{ cost }` for its spend, `guardrail:<name>`), unscripted it passes; a model that does not answer
   rejects with `GuardFailedError`. A block is the output `{ isBlocked: true, probability, refusal }`
@@ -1152,7 +1152,7 @@ it("looks the order up in the book it is given", async () => {
   / `execution` as given) — never a thrown `GuardrailBlockedError`. A guardrail without its own
   `model` decides on a decision model, as `defaults.guardrail.model` does.
 - **`testUnit`** checks the policies' own rules first (`[name.not-kebab-case]`,
-  `[pii.duplicate-target]`, `[pii.conflicting-rules]`, …: one `GraphRuleError` with all of them), then
+  `[pii.duplicate-target]`, `[pii.conflicting-rules]`, …: one `ConfigError.GraphRules` with all of them), then
   `mask(text)` gives what a model would read — tokens made with a fixed test key and kept across
   calls, as an execution's `piiTokens` are; a block rule rejects with `PiiRefusedError` — and
   `reveal(text)` what its answer becomes; a policy with a `model` answers from `model`

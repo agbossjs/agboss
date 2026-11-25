@@ -56,7 +56,7 @@ function runtimePoliciesOf(site: UnitSite, policies: readonly Class[]): RuntimeP
 /**
  * The policies as an element that lists them applies them (#120): their own rules checked first
  * (`[name.kind-suffix]` — a name ends with `-pii-policy` —, `[pii.conflicting-rules]`, …, a
- * `GraphRuleError` with all of them), each created by the runner's container (a project detector's
+ * `ConfigError.GraphRules` with all of them), each created by the runner's container (a project detector's
  * `deps`, `overrides`, the `environment`), tokens made with the fixed test key; a `model`
  * policy's model answers from `model` (`replyWith('{"found":[…]}')`, one turn per detection).
  */

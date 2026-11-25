@@ -3,6 +3,7 @@
  * reach, wherever it is provided: the application's own `providers`, a listed workflow's, and a child workflow's that
  * only a listed workflow launches. A place the check does not look at leaves a negative price unrefused at assembly.
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import { A2AAgent, A2AClient } from "../../src/a2a/index.js";
 import { Application } from "../../src/application/application.js";
@@ -12,7 +13,6 @@ import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index
 import { Workflow } from "../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../src/flow/decorators/workflow-start.js";
-import { GraphRuleError } from "../../src/graph/rule-error.js";
 import { EmptyEnvironment, Ttl } from "../../src/index.js";
 import { usd } from "../../src/units/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
@@ -101,7 +101,7 @@ async function codesOf(place: Place, price: unknown): Promise<readonly string[]>
   try {
     await applicationOf(PlacedApplication);
   } catch (error) {
-    if (error instanceof GraphRuleError) return error.violations.map((found) => found.code);
+    if (error instanceof ConfigError.GraphRules) return error.violations.map((found) => found.code);
     throw error;
   }
   return [];
@@ -140,8 +140,8 @@ describe("#1366: a class listed as a workflow that is none is a rule violation, 
       () => undefined,
       (thrown: unknown) => thrown,
     );
-    expect(error).toBeInstanceOf(GraphRuleError);
-    const codes = (error as GraphRuleError).violations.map((found) => found.code);
+    expect(error).toBeInstanceOf(ConfigError.GraphRules);
+    const codes = (error as ConfigError.GraphRules).violations.map((found) => found.code);
     expect(codes).toContain("application.not-a-workflow");
     expect(codes.filter((code) => code === "a2a.cost-per-call-invalid")).toHaveLength(1);
   });

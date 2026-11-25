@@ -3,6 +3,7 @@
  * it prints as `***` everywhere — logs, JSON (traces), errors, `agboss describe` — and only
  * `.reveal()` gives the value.
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { inspect } from "node:util";
 import { describe, expect, it } from "vitest";
@@ -11,7 +12,7 @@ import {
   environmentVariablesOf,
   VariableUse,
 } from "../../src/environments/resolve.js";
-import { EnvironmentError, Secret, env, secret } from "../../src/index.js";
+import { Secret, env, secret } from "../../src/index.js";
 import { McpStubs, stubbedMcpConnect } from "../../src/testing/mcp-stubs.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
@@ -61,7 +62,7 @@ describe("#261 AC9: *** everywhere, reveal()", () => {
   });
 
   it("a secret of an environment file is not resolved: reveal() names where to read it", () => {
-    expect(() => staging.apiToken.reveal()).toThrow(EnvironmentError);
+    expect(() => staging.apiToken.reveal()).toThrow(ConfigError.Environment);
     expect(() => secret("X").reveal()).toThrow(
       /not resolved: read it from the application's environment/,
     );

@@ -1,9 +1,9 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import { ComponentOptions } from "./component-options.js";
 import type { AssembledWorkflow, WorkflowServices } from "../workflow.js";
 import {
   bindRagRuntime,
   indexOf,
-  RagScopeError,
   RagSource,
   ragRuntimeOf as boundRagRuntimeOf,
   type RagRuntime,
@@ -213,7 +213,7 @@ function runtimeOf(source: unknown): RagRuntime {
   const runtime =
     typeof source === "object" && source !== null ? boundRagRuntimeOf(source) : undefined;
   if (runtime === undefined)
-    throw new RagScopeError({
+    throw new ConfigError.Component({
       message:
         "[rag.unbound] a @Rag listed in an agent's rag is no RagSource the application created — extend RagSource",
     });

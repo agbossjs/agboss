@@ -1,6 +1,6 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import { applicationDeclarationOf, applicationsListing } from "../application/application.js";
 import type { WorkflowMeta } from "../components/meta-types.js";
-import { EnvironmentError } from "../environments/errors.js";
 import { settingsEntriesOf } from "./settings.js";
 import { resolvedStorageOfOptions } from "./storage-fields.js";
 
@@ -22,7 +22,7 @@ export function standaloneStorageEntriesOf(
   try {
     return settingsEntriesOf(resolvedStorageOfOptions(storage, process.env));
   } catch (error) {
-    if (error instanceof EnvironmentError) return [];
+    if (error instanceof ConfigError.Environment) return [];
     throw error;
   }
 }

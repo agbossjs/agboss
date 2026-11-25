@@ -6,7 +6,6 @@ import { ConfigError } from "../../src/core/error-families/config-errors.js";
  */
 import { describe, expect, it } from "vitest";
 import { applicationOf } from "../../src/application/assemble.js";
-import { GraphRuleError } from "../../src/index.js";
 import type { Class } from "../../src/components/injection.js";
 import { createProviderGateway } from "../../src/llm/gateway.js";
 import {
@@ -43,8 +42,8 @@ async function violationsOf(application: Class): Promise<(readonly [string, stri
     () => undefined,
     (thrown: unknown) => thrown,
   );
-  if (!(error instanceof GraphRuleError))
-    throw new Error(`expected a GraphRuleError: ${String(error)}`);
+  if (!(error instanceof ConfigError.GraphRules))
+    throw new Error(`expected a ConfigError.GraphRules: ${String(error)}`);
   return error.violations.map((found) => [found.code, found.message] as const);
 }
 

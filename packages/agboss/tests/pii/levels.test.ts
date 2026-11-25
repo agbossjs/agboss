@@ -1,4 +1,5 @@
 /** #120 AC4, AC6, AC11: the lists add up, removal is explicit, conflicts and refusals are checked. */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import {
   Agent,
@@ -17,7 +18,6 @@ import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
-import { GraphRuleError } from "../../src/graph/rule-error.js";
 import { effectivePiiPolicies } from "../../src/pii/effective-policies.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { onStart } from "../helpers/flow.js";
@@ -222,8 +222,8 @@ class LevelApplication {}
 describe("#120: the rules fail the application's assembly, all at once", () => {
   it("a conflict and an exclude of what is not inherited", async () => {
     const failure = await applicationOf(LevelApplication).catch((error: unknown) => error);
-    expect(failure).toBeInstanceOf(GraphRuleError);
-    const codes = (failure as GraphRuleError).violations.map((item) => item.code);
+    expect(failure).toBeInstanceOf(ConfigError.GraphRules);
+    const codes = (failure as ConfigError.GraphRules).violations.map((item) => item.code);
     expect(codes).toEqual(
       expect.arrayContaining(["pii.exclude-not-inherited", "pii.conflicting-rules"]),
     );

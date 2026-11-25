@@ -1,10 +1,10 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import { workflowOf } from "../components/assemble.js";
 import type { ProviderModule } from "../components/container/registrations.js";
 import type { Class, Provider } from "../components/injection.js";
 import { moduleOf } from "../components/module.js";
 import { NodeKind } from "../flow/ast.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
-import { GraphRuleError } from "../graph/rule-error.js";
 import { containerProvidersOf } from "../models/resolution.js";
 import * as P from "./effective-options.js";
 import type { Milliseconds } from "../units/index.js";
@@ -155,9 +155,9 @@ async function assembleWorkflows(
   modules: readonly ProviderModule[],
   assembly: ApplicationAssembly,
   profiles: P.AppliedProfiles,
-): Promise<{ readonly assembled: AssembledWorkflow[]; readonly errors: GraphRuleError[] }> {
+): Promise<{ readonly assembled: AssembledWorkflow[]; readonly errors: ConfigError.GraphRules[] }> {
   const assembled: AssembledWorkflow[] = [];
-  const errors: GraphRuleError[] = [];
+  const errors: ConfigError.GraphRules[] = [];
   const owner = profiles.options;
   const contexts = contextTokensOf(declaredContextsOf(owner));
   for (const workflow of workflows) {
@@ -166,7 +166,7 @@ async function assembleWorkflows(
       const bundle = await workflowOf(workflow, modules, own, contexts, assembly.processEnv);
       assembled.push(P.withAppliedProfiles(bundle, profiles));
     } catch (error) {
-      if (!(error instanceof GraphRuleError)) throw error;
+      if (!(error instanceof ConfigError.GraphRules)) throw error;
       errors.push(error);
     }
   }

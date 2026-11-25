@@ -2,11 +2,11 @@
  * #1313a: the provider rules (timeout, price, breaker, mode) run for every provider a cascade names —
  * the application's, a workflow's, an agent's — not only the listed ones; and `describe` lists them.
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import { applicationOf } from "../../src/application/assemble.js";
 import { describedApplicationOf } from "../../src/describe/application.js";
 import { describeAssembledApplication } from "../../src/describe/describe-application.js";
-import { GraphRuleError } from "../../src/index.js";
 import type { Class } from "../../src/components/injection.js";
 import {
   BrokenAgentApplication,
@@ -21,8 +21,8 @@ async function codesOf(application: Class): Promise<string[]> {
     () => undefined,
     (thrown: unknown) => thrown,
   );
-  if (!(error instanceof GraphRuleError))
-    throw new Error(`expected a GraphRuleError: ${String(error)}`);
+  if (!(error instanceof ConfigError.GraphRules))
+    throw new Error(`expected a ConfigError.GraphRules: ${String(error)}`);
   return error.violations.map((found) => found.code).sort();
 }
 

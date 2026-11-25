@@ -1,3 +1,4 @@
+import { ConfigError } from "@agboss/core";
 import { describe, expect, it } from "vitest";
 import { applicationOf } from "@agboss/core/internal";
 import { checkApplicationModels } from "../../src/cli/check-models.js";
@@ -32,7 +33,7 @@ describe("AC6: agboss check --models", () => {
     expect(report).toEqual({
       exitCode: 1,
       lines: [
-        "ConfigurationError: 3 model setting(s) do not fit their models",
+        "ConfigError.ModelSettings: 3 model setting(s) do not fit their models",
         "  model.unknown-model  agents.summariser-agent = local/llama — model local/llama: local-model-provider does not list it",
         "  model.unknown-model  agents.writer-agent = moonshotai/kimi-k2.6 — model moonshotai/kimi-k2.6: openrouter-model-provider does not list it",
         "  model.unknown-model  agents.writer-agent = backup/kimi-k2.6 — model backup/kimi-k2.6: backup-model-provider does not list it",
@@ -50,7 +51,7 @@ describe("AC6: agboss check --models", () => {
     expect(report).toEqual({
       exitCode: 1,
       lines: [
-        "ConfigurationError: 2 model setting(s) do not fit their models",
+        "ConfigError.ModelSettings: 2 model setting(s) do not fit their models",
         "  model.unknown-model  polishing-workflow agents.polishing-agent = moonshotai/kimi-k2.6 — model moonshotai/kimi-k2.6: openrouter-model-provider does not list it",
         "  model.unknown-model  polishing-workflow agents.polishing-agent = backup/kimi-k2.6 — model backup/kimi-k2.6: backup-model-provider does not list it",
       ],

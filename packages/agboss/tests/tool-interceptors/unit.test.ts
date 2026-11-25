@@ -3,13 +3,9 @@
  * call in the frame of a call to the tool (the tenant given), `beforeToolCall` giving the decision,
  * `afterToolCall` the output validated against the tool's output DTO.
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
-import {
-  GraphRuleError,
-  ToolCallDecision,
-  ToolInterceptor,
-  ValidationError,
-} from "../../src/index.js";
+import { ToolCallDecision, ToolInterceptor, ValidationError } from "../../src/index.js";
 import { TestSetupError, testUnit } from "../../src/testing/index.js";
 import {
   AuditToolInterceptor,
@@ -94,7 +90,7 @@ describe("#384: testUnit", () => {
         return ToolCallDecision.allow();
       }
     }
-    expect(() => testUnit(Short)).toThrow(GraphRuleError);
+    expect(() => testUnit(Short)).toThrow(ConfigError.GraphRules);
     class Plain {
       readonly isPlain = true;
     }

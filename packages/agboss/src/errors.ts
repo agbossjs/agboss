@@ -24,12 +24,7 @@ export { BacktraceMode } from "./core/diagnostics/backtrace.js";
 export type { ErrorDiagnostics, ErrorFormatOptions } from "./core/diagnostics/error-report.js";
 export type { ExecutionSpanFrame } from "./core/diagnostics/span-trace.js";
 export type { LabeledSpan, SourceSpan } from "./core/diagnostics/source-span.js";
-export {
-  GraphRuleError,
-  type GraphRuleErrorOptions,
-  type RuleCode,
-  type RuleViolation,
-} from "./graph/rule-error.js";
+export { type RuleCode, type RuleViolation } from "./graph/rule-error.js";
 export {
   BudgetExceededError,
   type BudgetExceededErrorOptions,
@@ -80,7 +75,6 @@ export {
   type QuorumShortfall,
 } from "./flow/runtime/launch/quorum-errors.js";
 export { ToolBlockedError, type ToolBlockedErrorOptions } from "./graph/tool-blocked-error.js";
-export { NotAWorkflowStartError } from "./flow/runtime/start-input.js";
 export { PiiRefusedError, type PiiRefusedErrorOptions } from "./pii/errors.js";
 export { PiiDetectionFailedError } from "./pii/detectors/model.js";
 export {
@@ -111,14 +105,10 @@ export {
   type ModelCallErrorCode,
 } from "./models/circuit-breaker.js";
 export { ToolTimeoutError, type ToolTimeoutErrorOptions } from "./tools/index.js";
-export {
-  EvalCaseInvalidError,
-  type EvalCaseInvalidErrorOptions,
-  type EvalCaseIssue,
-} from "./eval/suite/errors.js";
+export { type EvalCaseIssue } from "./eval/suite/errors.js";
 export * from "./flow/runtime/pause-expired-error.js";
 export { NotPausedError } from "./run/resume-agent.js";
-export { ModelKind, ModelKindError, type ModelKindErrorOptions } from "./llm/decision-errors.js";
+export { ModelKind } from "./llm/decision-errors.js";
 export { ApplicationStoppingError } from "./core/errors.js";
 export {
   CostLedgerCutoffInvalidError,

@@ -4,6 +4,7 @@
  * a component injects but the application does not declare (`[context.not-declared]`); the
  * application level itself (`ApplicationContext`) and `testExecutionContext` with the levels.
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
@@ -12,7 +13,6 @@ import { Text } from "../../src/dto/index.js";
 import {
   ApplicationContext,
   ExecutionContext,
-  GraphRuleError,
   Injectable,
   TenantContext,
   Workflow,
@@ -160,8 +160,8 @@ describe("#261 AC4: the declared context classes are checked at the application'
   it("a prompt on a context field is [context.prompt-unused]: no model reads a context", async () => {
     const error: unknown = await applicationOf(PlanApplication).catch((thrown: unknown) => thrown);
 
-    expect(error).toBeInstanceOf(GraphRuleError);
-    expect((error as GraphRuleError).violations).toMatchObject([
+    expect(error).toBeInstanceOf(ConfigError.GraphRules);
+    expect((error as ConfigError.GraphRules).violations).toMatchObject([
       {
         code: "context.prompt-unused",
         message: "PlanTenantContext.plan has a prompt — no model reads a context; remove it",
@@ -174,8 +174,8 @@ describe("#261 AC4: the declared context classes are checked at the application'
       (thrown: unknown) => thrown,
     );
 
-    expect(error).toBeInstanceOf(GraphRuleError);
-    expect((error as GraphRuleError).violations).toMatchObject([
+    expect(error).toBeInstanceOf(ConfigError.GraphRules);
+    expect((error as ConfigError.GraphRules).violations).toMatchObject([
       {
         code: "context.reserved-field",
         message:
@@ -189,7 +189,7 @@ describe("#261 AC4: the declared context classes are checked at the application'
       (thrown: unknown) => thrown,
     );
 
-    expect((error as GraphRuleError).violations.map((found) => found.message)).toEqual([
+    expect((error as ConfigError.GraphRules).violations.map((found) => found.message)).toEqual([
       "SpoofedExecutionContext.ownerId shadows a field the framework sets on every context — rename it",
       "SpoofedExecutionContext.handledError shadows a field the framework sets on every context — rename it",
     ]);

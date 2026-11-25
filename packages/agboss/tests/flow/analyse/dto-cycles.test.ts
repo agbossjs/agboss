@@ -9,7 +9,6 @@ import { describe, expect, it } from "vitest";
 import { createTestAppWith } from "../../../src/testing/create-app-with.js";
 import {
   Agent,
-  GraphRuleError,
   Tool,
   Workflow,
   WorkflowFinish,
@@ -45,8 +44,8 @@ const agentWith = (options: Partial<Parameters<typeof Agent>[0]>) => {
 };
 
 const cyclicOf = async (error: unknown): Promise<string[]> => {
-  expect(error).toBeInstanceOf(GraphRuleError);
-  return error instanceof GraphRuleError
+  expect(error).toBeInstanceOf(ConfigError.GraphRules);
+  return error instanceof ConfigError.GraphRules
     ? error.violations.filter((found) => found.code === "dto.cyclic").map((found) => found.message)
     : [];
 };
@@ -83,7 +82,7 @@ describe("#1080: an agent's output that holds itself", () => {
       createTestAppWith(applicationWith("cyc-workflow", {}, agent), { processEnv: {} }),
     );
 
-    expect(error).toBeInstanceOf(GraphRuleError);
+    expect(error).toBeInstanceOf(ConfigError.GraphRules);
     expect(String(error)).toContain("PingDto → PongDto → PingDto");
   });
 

@@ -5,6 +5,7 @@
  * KB in one host's store are `[a2a.file-store-not-shared]`; and the options and the retention of
  * files are checked (`[file-policy.invalid]`, `[application.retention-invalid]`).
  */
+import { ConfigError } from "../../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import { A2AEndpoint } from "../../../src/a2a/a2a-endpoint.decorator.js";
 import { FilePolicy, type FilePolicyOptions } from "../../../src/files/file-policy.js";
@@ -15,7 +16,6 @@ import { retentionViolations } from "../../../src/application/retention.js";
 import { assemblyWarningsOf } from "../../../src/application/start-log.js";
 import { Injectable } from "../../../src/components/decorators.js";
 import type { Provider } from "../../../src/components/injection.js";
-import { GraphRuleError } from "../../../src/graph/rule-error.js";
 import { IN_MEMORY_DATABASE } from "../../../src/infrastructure/in-memory-database.js";
 import { InMemoryFileRepository } from "../../../src/infrastructure/in-memory-file.repository.js";
 import type { StoreDescriptor } from "../../../src/infrastructure/execution-lease.repository.js";
@@ -96,7 +96,7 @@ async function outcomeOf(application: ReturnType<typeof appWith>) {
         .filter(isOwn),
     };
   } catch (error) {
-    if (!(error instanceof GraphRuleError)) throw error;
+    if (!(error instanceof ConfigError.GraphRules)) throw error;
     const violations = error.violations.map((each) => each.code).filter(isOwn);
     return { violations, warnings: [] as string[] };
   }

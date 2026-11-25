@@ -829,7 +829,7 @@ the answers are typed by them. `state` is a text, a JSON object, or text and ima
 (`Decision.image(dataUrl)` — png/jpeg/webp data URLs; Luna, pplx-decider and Clef read images). At
 most 200 questions per call; an answer that does not fit its question fails with
 `model.decision.invalid-response`. `decide` on a chat model or `invoke` on a decision model throws
-`ModelKindError` (`model.wrong-kind`).
+`ConfigError.ModelKind` (`config.model-kind`).
 
 <!-- snippet-context
 import { InjectionToken } from "@agboss/core";

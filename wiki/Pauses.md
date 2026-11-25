@@ -1388,7 +1388,7 @@ declare const pauseId: string;
 -->
 
 ```ts
-import { PauseError.Closed, PauseClosedReason } from "@agboss/core";
+import { PauseError, PauseClosedReason } from "@agboss/core";
 
 // the Slack webhook of "Approve": the pause may be closed by now
 try {

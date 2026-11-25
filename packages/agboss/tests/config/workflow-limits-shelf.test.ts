@@ -6,13 +6,13 @@
  * static analysis does not see (or the other way round) would let a flow past what it was written under.
  * A declared `@Workflow` is never changed.
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import { applicationOf, type AssembledApplication } from "../../src/application/assemble.js";
 import { ProfileError, ProfileErrorReason } from "../../src/config/profile-error.js";
 import { ComponentOptions } from "../../src/components/component-options.js";
 import { describedLimitsOf } from "../../src/describe/limits.js";
 import { describedTreeOf } from "../../src/describe/tree.js";
-import { GraphRuleError } from "../../src/graph/rule-error.js";
 import { declaredExecutionLimitsOf } from "../../src/flow/decorators/workflow.js";
 import { checkWorkflow } from "../../src/flow/analyse/analyse.js";
 import { historyKeeperOf } from "../../src/app/app-deps-parts.js";
@@ -145,8 +145,8 @@ describe("maxSteps: one bound on every path (actions count, #1278b)", () => {
   it("the analysis refuses a bound the profile sets below what a run needs, as it does a declared one", async () => {
     const error = await failure(assembled("low"));
 
-    expect(error).toBeInstanceOf(GraphRuleError);
-    expect((error as GraphRuleError).violations.map((one) => one.code)).toContain(
+    expect(error).toBeInstanceOf(ConfigError.GraphRules);
+    expect((error as ConfigError.GraphRules).violations.map((one) => one.code)).toContain(
       "limits.max-steps-too-low",
     );
   });

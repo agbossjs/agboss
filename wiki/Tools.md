@@ -407,7 +407,7 @@ it("a city outside the tenant's goes back to the model", async () => {
 `beforeToolCall(Tool, input)` → `{ output: ToolCallDecision, spend }`, `afterToolCall(Tool, input,
 output)` → `{ output, spend }` (validated against the tool's output DTO); each call runs in the frame
 of a call to that tool (`step.callId` `test-call`) for the tenant and execution given; a method the
-class does not have is a `TestSetupError`, a broken rule a `GraphRuleError`.
+class does not have is a `TestSetupError`, a broken rule a `ConfigError.GraphRules`.
 
 ## For the model
 

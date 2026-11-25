@@ -1,8 +1,9 @@
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { usd } from "../../src/units/index.js";
 import { describe, expect, it } from "vitest";
 import { createProviderGateway } from "../../src/llm/gateway.js";
-import { providerClients, ProviderCapabilityError } from "../../src/llm/provider-clients.js";
-import { ConfigurationError, ModelKind } from "../../src/models/index.js";
+import { providerClients } from "../../src/llm/provider-clients.js";
+import { ModelKind } from "../../src/models/index.js";
 import { ModelProviderDirectory } from "../../src/models/resolve.js";
 import { modelProviderOf } from "../../src/models/model-provider.decorator.js";
 import type { ProviderResolution, RegisteredModelProvider } from "../../src/models/resolve.js";
@@ -60,7 +61,7 @@ describe("AC6: the default gateway resolves each model's provider", () => {
         user: { kind: "compaction", compaction: "conversation-compaction" },
         settings: { model: "x/y", temperature: 0, maxTokens: 1 },
       }),
-    ).toThrow(ConfigurationError);
+    ).toThrow(ConfigError.ModelSettings);
     expect(
       await gateway.routeTo({
         router: "main",
@@ -88,11 +89,11 @@ describe("AC6: the default gateway resolves each model's provider", () => {
     const clients = providerClients(new ResolvesAnything([]), options());
 
     expect(() => clients.chatModel({ model: "local/llama", temperature: 0, maxTokens: 1 })).toThrow(
-      ProviderCapabilityError,
+      ConfigError.ModelProvider,
     );
     await expect(
       clients.jevClient({ model: "local/llama", state: "", questions: {} }),
-    ).rejects.toThrow(ProviderCapabilityError);
+    ).rejects.toThrow(ConfigError.ModelProvider);
     expect(ModelKind.Chat).toBe("chat");
   });
 });

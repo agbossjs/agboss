@@ -494,7 +494,9 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "the error families' declarations (#1325a): enums, types and a table of codes and sentences; their behaviour is `family.ts` and the hand-over guard `hand-over.ts`, both in the takeover shard; the sentences made of the facts of `ExecutionError` are `run-error-messages.ts`, message text only, asserted by tests/core/errors-units.test.ts; the pause errors' sentences are `pause-error-messages.ts`, asserted by tests/app/pause-closed-error.test-d.ts and tests/app/pause-extension-fresh-now.test.ts",
     [
       "src/core/error-families/a2a-errors.ts",
+      "src/core/error-families/config-error-messages.ts",
       "src/core/error-families/config-errors.ts",
+      "src/core/error-families/decision-errors.ts",
       "src/core/error-families/effect-errors.ts",
       "src/core/error-families/limit-errors.ts",
       "src/core/error-families/outbound-call-errors.ts",

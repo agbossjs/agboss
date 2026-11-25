@@ -1,6 +1,6 @@
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import { loadFlowProject } from "../../src/loader/load-flow.js";
-import { WorkflowLoadError } from "../../src/loader/load-workflow.js";
 import { PartsWorkflow } from "../flow/fixtures/wide.fixture.js";
 
 /** The v2 loader of type generation (#272 S2): the workflows and the modules they came from. */
@@ -35,7 +35,9 @@ describe("S2: loading v2 workflows and their modules", () => {
     expect(project.workflows).toEqual([]);
   });
 
-  it("a missing file is a WorkflowLoadError naming it", async () => {
-    await expect(loadFlowProject([fixture("nope.ts")], options)).rejects.toThrow(WorkflowLoadError);
+  it("a missing file is a ConfigError.WorkflowLoad naming it", async () => {
+    await expect(loadFlowProject([fixture("nope.ts")], options)).rejects.toThrow(
+      ConfigError.WorkflowLoad,
+    );
   });
 });

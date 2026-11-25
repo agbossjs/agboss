@@ -7,7 +7,7 @@ import { ConfigError } from "../../../src/core/error-families/config-errors.js";
 import { AIMessage, HumanMessage, SystemMessage, ToolMessage } from "@langchain/core/messages";
 import { describe, expect, it } from "vitest";
 import { lateTransports } from "../../../src/app/late-transports.js";
-import { providerClients, ProviderCapabilityError } from "../../../src/llm/provider-clients.js";
+import { providerClients } from "../../../src/llm/provider-clients.js";
 import {
   FinishReason,
   ModelFailure,
@@ -143,7 +143,7 @@ describe("#385: its errors and its wiring", () => {
         temperature: 0,
         maxTokens: 1,
       }),
-    ).toThrow(ProviderCapabilityError);
+    ).toThrow(ConfigError.ModelProvider);
   });
 
   it("configHash's transports: only where there is one", () => {

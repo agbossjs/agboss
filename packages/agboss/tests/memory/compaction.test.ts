@@ -4,6 +4,7 @@
  * readers), the "shorter" retry and `StepError.Memory`, and the compaction's model behind the PII
  * boundary (S84 i). Models answer by script; nothing reaches a network.
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { Window2Memory } from "../helpers/window-memory.js";
 import { describe, expect, it } from "vitest";
 import {
@@ -29,7 +30,6 @@ import { memoryViolations } from "../../src/memory/checks.js";
 import { effectiveMemories } from "../../src/memory/levels.js";
 import { memoryPlanOf, readerOf, windowOfCompaction } from "../../src/memory/plan.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
-import { GraphRuleError } from "../../src/graph/rule-error.js";
 import { SHORTER_SUMMARY_REQUEST } from "../../src/prompts/compaction.js";
 import {
   failWith,
@@ -123,7 +123,7 @@ const violationsOf = async (application: object): Promise<string[]> => {
     await applicationOf(application as never);
     return [];
   } catch (error) {
-    if (!(error instanceof GraphRuleError)) throw error;
+    if (!(error instanceof ConfigError.GraphRules)) throw error;
     return error.violations.map((found) => `[${found.code}] ${found.message}`);
   }
 };

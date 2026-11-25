@@ -5,6 +5,7 @@
  * exported start's input, its finishes' outputs, an `@A2AAgent`'s input and output), and a client
  * built with such a contract refuses to call.
  */
+import { ConfigError } from "../../../src/core/error-families/config-errors.js";
 import { hours, minutes, Ttl } from "../../../src/units/index.js";
 import { describe, expect, it } from "vitest";
 import { A2AAgent } from "../../../src/a2a/a2a-decorator.js";
@@ -18,7 +19,6 @@ import { listOf, oneOf, type ListWrapper } from "../../../src/flow/dto-wrappers.
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
-import { GraphRuleError } from "../../../src/graph/rule-error.js";
 import { EmptyEnvironment } from "../../../src/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart } from "../../helpers/flow.js";
@@ -50,7 +50,7 @@ const codesOf = async (application: new () => object): Promise<string[]> => {
     await applicationOf(application);
     return [];
   } catch (error) {
-    if (!(error instanceof GraphRuleError)) throw error;
+    if (!(error instanceof ConfigError.GraphRules)) throw error;
     return error.violations.map((each) => each.code).filter((code) => code.startsWith("a2a."));
   }
 };

@@ -1,5 +1,5 @@
+import { ConfigError } from "../../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
-import { GraphRuleError } from "../../../src/graph/rule-error.js";
 import { analyseWorkflow, checkWorkflow } from "../../../src/flow/analyse/analyse.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
@@ -125,10 +125,10 @@ class SameNameAgent {}
 class SameNameWorkflow {}
 
 describe("AC11: assembly reports all errors at once, before any model call", () => {
-  it("throws one GraphRuleError listing every violation", () => {
+  it("throws one ConfigError.GraphRules listing every violation", () => {
     const { errors } = checkWorkflow(BrokenWorkflow);
 
-    expect(() => analyseWorkflow(BrokenWorkflow)).toThrow(GraphRuleError);
+    expect(() => analyseWorkflow(BrokenWorkflow)).toThrow(ConfigError.GraphRules);
     expect(() => analyseWorkflow(BrokenWorkflow)).toThrow(
       `The workflow's flow breaks ${String(errors.length)} rule(s)`,
     );
@@ -209,6 +209,6 @@ describe("AC11: assembly reports all errors at once, before any model call", () 
       ],
       warnings: [],
     });
-    expect(() => analyseWorkflow(DraftKitAgent)).toThrow(GraphRuleError);
+    expect(() => analyseWorkflow(DraftKitAgent)).toThrow(ConfigError.GraphRules);
   });
 });

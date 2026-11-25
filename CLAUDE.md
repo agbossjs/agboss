@@ -55,7 +55,7 @@ failureWindow, openDuration, halfOpenProbes? })` (or `.exponential`) — its sta
     driver, not its name. Judges on a decision model call `judgeModel.decide` with
     `Decision.boolean` / `Decision.choice` / `Decision.score` / `Decision.image` (typed answers), and a `@Tool` or
     `@Action` with `deps: [DecisionModel]` calls `decide({ state, questions }, { model?, modelProvider? })` the same way;
-    `invoke` or `decide` on the wrong kind of model → `ModelKindError`.
+    `invoke` or `decide` on the wrong kind of model → `ConfigError.ModelKind`.
   - Agents: cheap chat models, each with `maxTokens` (`TokenLimit.ModelMax` = model's maximum), `reasoning`
     (`Reasoning.on({ effort })`, `@agboss/core/models`), `cache`, and `executionLimits: { maxVisits, maxModelCalls,
 maxToolCalls, maxRetries }`.
@@ -873,7 +873,7 @@ workflows: { placement } } })`, else `CurrentProcess`; `OtherWorker` is never cl
   parent undoes its own), `@WorkflowFinish`
   (output DTO). `app.execute(Start, input)` is typed by the generated tables:
   `input` is the start's input, `result.output` the finishes' outputs.
-- **Assembly rules** fail before any model call with **all** violations at once (`GraphRuleError`,
+- **Assembly rules** fail before any model call with **all** violations at once (`ConfigError.GraphRules`,
   stable codes `flow.*` / `graph.*` / `input.*` / `io.*` / `launch.*` / `router.*` / `arbiter.*` / `judge.*` / `eval.*`): names end with their kind
   (`-agent`, `-router`, `-action`, `-workflow-start`, `-workflow-finish`, `-workflow`, an
   `@ToolApproval`'s `-tool-approval`, an `@ExternalTask`'s `-external-task`) and are unique
@@ -1876,7 +1876,7 @@ scopeId?, filter? })`, optional `protected index`, `resolveScope?(context)` for 
   in an agent is `[agent.duplicate-rag]`. `@Rag({ scope })` is required (`[rag.scope-required]`):
   `Shared` (one corpus, the source is told no scope), `Tenant` (the execution's tenant), `Owner`
   (the call's owner), `Custom` (`resolveScope(context)`, `[rag.custom-scope-missing-resolver]`) — a
-  data-isolation boundary: every non-global scope is keyed by the pair (`tenantId`, `scopeId`) — an owner id is unique within a tenant only — and a call that cannot name its scope reads nothing (`RagScopeError`), ids are
+  data-isolation boundary: every non-global scope is keyed by the pair (`tenantId`, `scopeId`) — an owner id is unique within a tenant only — and a call that cannot name its scope reads nothing (`ConfigError.Component`), ids are
   key's text compared as given, `describe` and `configHash` carry the scope. `topK` stays on `@Rag`;
   `reranker: Class` names a `@RagReranker({ candidates, maxCandidateLength?, onFailure?, model?,
 modelProvider? })` (an empty class is the LLM reranker on its provider's model through the cascade —
@@ -2312,7 +2312,7 @@ class's value does not compile). A judge's own model is a chat
 model (`judgeModel.invoke`, `deps: [JudgeModel]`) or a **decision model**
 (`judgeModel.decide({ state, questions })` with
 `Decision.boolean` / `Decision.choice` / `Decision.score`, answers typed by the questions; `DECISION_MODELS`
-served by a `DecisionsDriver` provider). The wrong call for the model's kind throws `ModelKindError`.
+served by a `DecisionsDriver` provider). The wrong call for the model's kind throws `ConfigError.ModelKind`.
 Routers and guardrails use decision models too. README → Quality gates has a full judge. **Code
 judges (#396):** a `@Judge` with no `JudgeModel` in its `deps` (no `DecidedBy`; `model` / `modelProvider`
 compile only with `JudgeModel` in `deps` — then a hybrid, `model` left out = its provider's default role) decides by its `judge(input)` alone — no model call, cost 0, its services and the
@@ -2331,8 +2331,8 @@ typed by the start's input, the application's contexts and each tool's input. As
 application by `checkEvalSuite` (`@agboss/core/internal`; run by `runEvalSuite`, PR 2 — `agboss eval run`):
 `[name.kind-suffix]`
 (name and class), `[eval.unknown-start]`, `[eval.duplicate-case]`, `[eval.judge-wrong-output]` (an
-eval judge judges a finish output its start reaches, one value), then `EvalCaseInvalidError`
-(`eval.case-invalid`: tenant / execution, turns, variants and history validated, every issue, no
+eval judge judges a finish output its start reaches, one value), then `ConfigError.EvalCase`
+(`config.eval-case`: tenant / execution, turns, variants and history validated, every issue, no
 value). At run time (#396 PR 2, `src/eval/run/`) the `tools` check reads the last turn's
 `result.toolCalls` (a required tool: a call it ran with the partial's input; a forbidden one: any
 call; an invariant: every call with checked input), and a judge runs in the frame of the case's last
@@ -2888,8 +2888,8 @@ LimitError` narrows to the union, `switch (err.kind)` is exhaustive, `.onError(L
   `Result.try(fn)` (sync or async; keeps only an `AGBossError` as `{ ok: false, error }`, any other throw is a bug
   and goes on), `Result.tryAll(fn)` (keeps anything), `.unwrap()`, `.unwrapOr()`, `.map()`, `.mapErr()`; no `App`
   method returns one and none has a `try…` twin — every public async method rejects, never throws at the call.
-- **Errors** (root entry) are `AGBossError`s with stable `code`s (`eval.case-invalid` —
-  `EvalCaseInvalidError`, #396; `limit` ⊃ `limit.budget`,
+- **Errors** (root entry) are `AGBossError`s with stable `code`s (`config.eval-case` —
+  `ConfigError.EvalCase`, #396; `limit` ⊃ `limit.budget`,
   `limit.steps`, `limit.visits`, `limit.mesh-loop` / `limit.hops` (`MeshLoopDetectedError` /
   `HopsLimitExceededError`, #398: an A2A or MCP call chain — the mesh envelope every call
   made inside an execution carries (`message.metadata[A2A_MESH_EXTENSION].envelope` over A2A,

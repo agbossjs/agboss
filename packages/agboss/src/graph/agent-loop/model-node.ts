@@ -1,3 +1,4 @@
+import { ConfigError } from "../../core/error-families/config-errors.js";
 import type { AIMessageChunk, BaseMessage } from "@langchain/core/messages";
 import { shownMessagesOf } from "../../models/messages.js";
 import type { ToolDefinition } from "@langchain/core/language_models/base";
@@ -26,10 +27,6 @@ import type { AttemptStream } from "../../run/stream/agent-stream.js";
 import { StreamDiscardReason } from "../../run/types.js";
 import { answering, attemptOf } from "./answer-stream.js";
 import { ChunkCounter, earlierSpendOf, partialSpendOf, withChunkCounter } from "./chunk-counter.js";
-
-export class ToolCallingUnsupportedError extends Error {
-  override name = "ToolCallingUnsupportedError";
-}
 
 /**
  * The agent's tools as the model sees them — its own and its answer tools (S6), sorted by name,
@@ -68,7 +65,9 @@ async function callModel(
   const tools = toolDefinitionsOf(deps.agent);
   if (tools.length === 0) return binding.model.invoke([...messages], call);
   if (binding.model.bindTools === undefined) {
-    throw new ToolCallingUnsupportedError(`The model of agent "${name}" cannot call tools`);
+    throw new ConfigError.ModelKind({
+      message: `The model of agent "${name}" cannot call tools`,
+    });
   }
   return binding.model.bindTools([...tools], toolBindingOf(deps.agent)).invoke([...messages], call);
 }

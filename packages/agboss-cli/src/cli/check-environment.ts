@@ -1,4 +1,4 @@
-import { ConfigError, EnvironmentError } from "@agboss/core";
+import { ConfigError } from "@agboss/core";
 import {
   createStartComponents,
   describeServices,
@@ -32,8 +32,8 @@ const componentCode = (
 ): string => /^\[([a-z][\w.-]*)\]/.exec(error.message)?.[1] ?? "workflow.start";
 
 const problemOf = (file: string, error: unknown): CheckProblem[] => {
-  if (error instanceof EnvironmentError)
-    return [{ file, code: error.code, message: error.message }];
+  if (error instanceof ConfigError.Environment)
+    return [{ file, code: error.envCode ?? error.code, message: error.message }];
   if (
     error instanceof ConfigError.Component ||
     error instanceof ConfigError.Prompt ||

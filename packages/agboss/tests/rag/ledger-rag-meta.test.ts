@@ -22,9 +22,8 @@ import { scopeKeyOfRetrieval } from "../../src/components/rag-scope.js";
 import { componentOf, requireComponent } from "../../src/components/metadata.js";
 import { ExecutionContextUnavailableError } from "../../src/flow/context/errors.js";
 import { currentFrame } from "../../src/flow/context/frame.js";
-import { GraphRuleError } from "../../src/graph/rule-error.js";
 import { checkRags } from "../../src/rag/rag-checks.js";
-import { RagScopeError, retrieveOf } from "../../src/rag/rag-source.js";
+import { retrieveOf } from "../../src/rag/rag-source.js";
 import { rerankedRetrieval } from "../../src/rag/rerank.js";
 import { RagScope, RerankFailurePolicy } from "../../src/rag/types.js";
 import { ModelProvider, OpenAiCompatibleDriver } from "../../src/models/index.js";
@@ -133,7 +132,7 @@ describe("#1366: the knowledge bases of a workflow", () => {
   it("[agent.duplicate-rag]: one @Rag listed twice in one agent is refused, naming the agent", () => {
     const failed = (): unknown => ragClassesOf(workflow, [agentOf("a", JobsRag, JobsRag)]);
 
-    expect(failed).toThrow(GraphRuleError);
+    expect(failed).toThrow(ConfigError.GraphRules);
     expect(failed).toThrow(/agent\.duplicate-rag|listed twice/u);
     // two agents may list the same one
     expect(ragClassesOf(workflow, [agentOf("a", JobsRag), agentOf("b", JobsRag)])).toEqual([
@@ -225,7 +224,7 @@ describe("#1366: the rerankers of knowledge bases", () => {
   it("with no model of its own and no provider anywhere it is [model.missing-provider] — the core has no default", () => {
     rerankerMeta[ModelReranker.name] = { name: "model-reranker", candidates: 20 };
 
-    expect(() => rerankerModelsOf([DocsRag])).toThrow(GraphRuleError);
+    expect(() => rerankerModelsOf([DocsRag])).toThrow(ConfigError.GraphRules);
     expect(() => rerankerModelsOf([DocsRag])).toThrow(/names no model/u);
   });
 });
@@ -339,9 +338,15 @@ describe("#1366: the scope of a retrieval", () => {
   it("Owner with no owner, a scope that is none of the four, a Custom with no resolver: fail closed", () => {
     inFrame(frameOf());
 
-    expect(() => scopeKeyOfRetrieval(metaOf(RagScope.Owner), {}, services)).toThrow(RagScopeError);
-    expect(() => scopeKeyOfRetrieval(metaOf("everyone"), {}, services)).toThrow(RagScopeError);
-    expect(() => scopeKeyOfRetrieval(metaOf(RagScope.Custom), {}, services)).toThrow(RagScopeError);
+    expect(() => scopeKeyOfRetrieval(metaOf(RagScope.Owner), {}, services)).toThrow(
+      ConfigError.Component,
+    );
+    expect(() => scopeKeyOfRetrieval(metaOf("everyone"), {}, services)).toThrow(
+      ConfigError.Component,
+    );
+    expect(() => scopeKeyOfRetrieval(metaOf(RagScope.Custom), {}, services)).toThrow(
+      ConfigError.Component,
+    );
   });
 });
 

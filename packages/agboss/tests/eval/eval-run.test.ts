@@ -4,8 +4,8 @@
  * execution values, the trajectory check, judges in the frame of the case's last execution, the
  * cascade, pass@k / pass^k over k runs, and the run artifact.
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { afterEach, describe, expect, it } from "vitest";
-import { EvalCaseInvalidError } from "../../src/errors.js";
 import {
   CheckStatus,
   EvalCascade,
@@ -231,7 +231,7 @@ describe("#396 PR 2: a case's history, turns and contexts", () => {
     const { built } = await evalApp();
 
     await expect(runSuiteOn(built, InvalidEvalSuite, { runs: 1 })).rejects.toBeInstanceOf(
-      EvalCaseInvalidError,
+      ConfigError.EvalCase,
     );
   });
 });

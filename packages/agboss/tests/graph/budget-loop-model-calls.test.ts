@@ -4,13 +4,10 @@
  * cannot call tools is refused only when the agent has some, and every tool call gets an id unique within the run —
  * the call's idempotency key, the same one when a recovered step replays the move (#335, #395).
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { AIMessage, HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  makeModelNode,
-  toolDefinitionsOf,
-  ToolCallingUnsupportedError,
-} from "../../src/graph/agent-loop/model-node.js";
+import { makeModelNode, toolDefinitionsOf } from "../../src/graph/agent-loop/model-node.js";
 import { withCallIds } from "../../src/graph/agent-loop/call-ids.js";
 import {
   loopPoliciesOf,
@@ -237,9 +234,9 @@ describe("#1366: a model that cannot call tools", () => {
 
     expect(failure).toBeInstanceOf(AgentFailedError);
     const cause = (failure as AgentFailedError).cause;
-    expect(cause).toBeInstanceOf(ToolCallingUnsupportedError);
+    expect(cause).toBeInstanceOf(ConfigError.ModelKind);
     expect(cause).toMatchObject({
-      name: "ToolCallingUnsupportedError",
+      name: "ConfigError.ModelKind",
       message: 'The model of agent "alpha" cannot call tools',
     });
   });

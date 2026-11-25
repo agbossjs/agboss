@@ -99,7 +99,7 @@ await app.close(); // onStop hooks, the running executions (up to the shutdown t
 
 ## The application's rules
 
-Checked at assembly, all at once (`GraphRuleError`, stable codes): `name` ends with `-application`
+Checked at assembly, all at once (`ConfigError.GraphRules`, stable codes): `name` ends with `-application`
 and the class with `Application` (`[name.kind-suffix]`); it lists workflows
 (`[application.no-workflows]`, `[application.not-a-workflow]`); workflow names are unique in the
 application (`[application.duplicate-workflow]`), and so is every component name
@@ -257,7 +257,7 @@ worst case of each start with how each number is made up — the [check report](
 ## `app.execute(Start, input, options?)`
 
 - `Start` is a `@WorkflowStart` of any workflow of the application: the execution runs the
-  workflow that start opens (else `NotAWorkflowStartError`); `input` is
+  workflow that start opens (else `ConfigError.NotAWorkflowStart`); `input` is
   typed by the generated `.agboss/types.d.ts` (`agboss check`) and checked against the start's
   `input` before any call (`ValidationError.DtoInvalid`, the field named, never the value).
 - Options: `threadId` continues a conversation (without it a new thread is created; its id is in

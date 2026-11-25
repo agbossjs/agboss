@@ -1,13 +1,8 @@
 import {
   ConfigError,
-  EnvironmentError,
-  EvalCaseInvalidError,
-  GraphRuleError,
   keyTextRuleOf,
-  WorkflowLoadError,
 } from "@agboss/core";
-import { ConfigurationError } from "@agboss/core/models";
-import { ApplicationLoadError, ProfileError } from "@agboss/core/internal";
+import { ProfileError } from "@agboss/core/internal";
 import { ScaffoldConflictError, ScaffoldError, ScaffoldUsageError } from "../scaffold/errors.js";
 import { NoTextStartError } from "./text-start.js";
 
@@ -73,16 +68,16 @@ export function tenantOptionOf(command: string, tenant: string | undefined): str
 
 /** Errors of an invalid project: the application, its workflows or their parts, fixed by editing the project. */
 const PROJECT_ERRORS: readonly (readonly [new (...args: never[]) => Error, string])[] = [
-  [ApplicationLoadError, "application.load"],
-  [WorkflowLoadError, "workflow.load"],
-  [GraphRuleError, "graph.rules"],
+  [ConfigError.ApplicationLoad, "application.load"],
+  [ConfigError.WorkflowLoad, "workflow.load"],
+  [ConfigError.GraphRules, "graph.rules"],
   [ConfigError.Component, "workflow.assembly"],
   [ConfigError.Prompt, "workflow.assembly"],
   [ConfigError.NoDefaultRouter, "workflow.assembly"],
-  [ConfigurationError, "model.configuration"],
+  [ConfigError.ModelSettings, "model.configuration"],
   [ProfileError, "profile.invalid"],
   [NoTextStartError, "workflow.no-text-start"],
-  [EvalCaseInvalidError, "eval.case-invalid"],
+  [ConfigError.EvalCase, "eval.case-invalid"],
 ];
 
 function scaffoldError(error: ScaffoldError): CliError {
@@ -97,7 +92,7 @@ function scaffoldError(error: ScaffoldError): CliError {
 export function cliErrorOf(error: unknown): CliError {
   if (error instanceof CliError) return error;
   if (error instanceof ScaffoldError) return scaffoldError(error);
-  if (error instanceof EnvironmentError) return new CliError("project", error.code, error.message);
+  if (error instanceof ConfigError.Environment) return new CliError("project", error.envCode ?? error.code, error.message);
   const message = error instanceof Error ? error.message : String(error);
   const known = PROJECT_ERRORS.find(([type]) => error instanceof type);
   if (known !== undefined) return new CliError("project", known[1], message);

@@ -4,6 +4,7 @@
  * budget checked before the first step (an exhausted one rejects the execution) and counted after
  * every model call (the first exhausted stops it with `BudgetExceededError`).
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
@@ -15,7 +16,6 @@ import {
   BudgetScope,
   CostLedgerRepository,
   EmptyEnvironment,
-  GraphRuleError,
   type BudgetHandler,
 } from "../../src/index.js";
 import { replyWith, routeTo, testExecutionContext, testWith } from "../../src/testing/index.js";
@@ -308,7 +308,7 @@ async function violationsOf(application: new () => object): Promise<readonly str
     () => undefined,
     (failure: unknown) => failure,
   );
-  if (!(error instanceof GraphRuleError)) throw new Error("expected the assembly to fail");
+  if (!(error instanceof ConfigError.GraphRules)) throw new Error("expected the assembly to fail");
   return error.violations.map((violation) => `[${violation.code}] ${violation.message}`);
 }
 

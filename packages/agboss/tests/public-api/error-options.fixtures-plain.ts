@@ -2,11 +2,9 @@
  * #906 AC1 (D1), part three: the errors that are not `AGBossError`s — and the `AGBossError`s the
  * first pass missed: configuration, loading, testing and fault-suite errors. One options object each.
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { ProfileError } from "../../src/config/profile-error.js";
-import { EnvironmentError, EnvironmentErrorCode } from "../../src/environments/errors.js";
-import { GraphRuleError } from "../../src/graph/rule-error.js";
-import { ApplicationLoadError, WorkflowLoadError } from "../../src/loader/load-errors.js";
-import { ConfigurationError } from "../../src/models/problems.js";
+import { EnvironmentErrorCode } from "../../src/environments/errors.js";
 import { ModelFailure } from "../../src/models/model-failure.js";
 import {
   AppCloseTimeoutError,
@@ -33,11 +31,11 @@ import { fx } from "./error-options.fx.js";
 
 const message = "it went wrong";
 export const plainFixtures: Readonly<Record<string, object>> = Object.fromEntries([
-  fx(EnvironmentError, { code: EnvironmentErrorCode.NotFound, message }),
-  fx(WorkflowLoadError, { message }),
-  fx(ApplicationLoadError, { message }),
-  fx(GraphRuleError, { violations: [{ code: "graph.not-a-node", message, nodes: ["A"] }] }),
-  fx(ConfigurationError, {
+  fx(ConfigError.Environment, { envCode: EnvironmentErrorCode.NotFound, message }),
+  fx(ConfigError.WorkflowLoad, { message }),
+  fx(ConfigError.ApplicationLoad, { message }),
+  fx(ConfigError.GraphRules, { violations: [{ code: "graph.not-a-node", message, nodes: ["A"] }] }),
+  fx(ConfigError.ModelSettings, {
     problems: [
       { code: "model.unsupported-setting", key: "k", value: "v", model: "m", supported: "s" },
     ],

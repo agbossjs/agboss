@@ -234,18 +234,18 @@ Breaking changes and notable additions, newest first. The API reports
   `Error.name`. Facts that only the message said are fields now: `GuardFailedError.reason`,
   `QuorumNotReachedError.reason`, `ActionFailedError.action`, `BudgetExceededError.period`,
   `A2ACallerRejectedError.reason`, `InvalidFencedEffectNameError.length`,
-  `FencedEffectStoreMismatchError.expectedLeaseRepository`, `ModelKindError.model` / `.kind` / `.call`,
+  `FencedEffectStoreMismatchError.expectedLeaseRepository`, `ConfigError.ModelKind.model` / `.kind` / `.call`,
   `ToolTimeoutError.timeout`. A test walks every entry's exports (`error-options.test.ts`).
 - **Changed — breaking (errors, the other classes)**: "every exported error class" means every one —
   the 27 that were not `AGBossError`s or took their facts positionally are made the same way (a
   test walks the exports of every entry of `package.json#exports` for every `Error` subclass:
   `error-options.test.ts`). Extending `AGBossError` now, each with a literal `code` (the parents
   carry their family's union): `ComponentError` (`component`; `PromptError` `component.prompt`,
-  `NoDefaultRouterError` `component.no-default-router`), `EnvironmentError` and `DtoError` (the
+  `NoDefaultRouterError` `component.no-default-router`), `ConfigError.Environment` and `DtoError` (the
   `code` they always took — an `EnvironmentErrorCode`, a `DtoErrorCode` — under `environment` and
-  `dto`), `GraphRuleError` (`graph.rules`), `ConfigurationError` (`config.model-settings`),
+  `dto`), `ConfigError.GraphRules` (`graph.rules`), `ConfigError.ModelSettings` (`config.model-settings`),
   `ModelProviderError` (`config.model-provider`), `ProfileError` (`config.profile`),
-  `WorkflowLoadError` (`load.workflow`), `ApplicationLoadError` (`load.application`). Still plain
+  `ConfigError.WorkflowLoad` (`load.workflow`), `ConfigError.ApplicationLoad` (`load.application`). Still plain
   `Error`s or `RangeError`s — a platform class they keep, so `catch` tells them apart — with the same
   shape (one options object, `cause`, a literal instance and static `code`): `UnitError`
   (`config.unit`), `ReasoningError`, `PromptCachingError`, `RetryPolicyError`, `RateLimitPolicyError`
@@ -2861,7 +2861,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
   `TrajectoryEvalCheck`, `JudgeEvalCheck`, `EvalToolExpectations`, `ExpectedToolCall`,
   `ToolArgumentsOf`, `ToolInvariant`. Declarations only — nothing runs at import; the runner comes
   with PR 2. Assembly rules `[eval.unknown-start]`, `[eval.duplicate-case]`,
-  `[eval.judge-wrong-reply]`, `[name.kind-suffix]`; case values → `EvalCaseInvalidError`
+  `[eval.judge-wrong-reply]`, `[name.kind-suffix]`; case values → `ConfigError.EvalCase`
   (`eval.case-invalid`, root entry, with `EvalCaseIssue`).
 - **Added — code judges** ([Judges](Judges-And-Quality-Gates#a-code-judge--decidedby-decidedbycode-396)):
   `@Judge({ decidedBy: DecidedBy.Code })` decides by `judge(input)` alone — no model, no cost — in
@@ -3526,7 +3526,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
   `createApp` does (its rules across workflows too) and its problems name the application's path
   (`ok: src/job-scout.application.ts — …`); `result.application` replaces `result.workflow`.
 - **Internal (`@agboss/core/internal`)**: `loadApplicationClass(path)` loads the one exported
-  `@Application` of a module (`ApplicationLoadError`, CLI code `application.load`) — the `--workflow`
+  `@Application` of a module (`ConfigError.ApplicationLoad`, CLI code `application.load`) — the `--workflow`
   bridges `environmentOwnerOfFile`, `textStartOfWorkflow` and `workflowsOfApplication` are gone;
   new `startsOfApplication(App)` (`ApplicationStart`: name, description, workflow, class, input — from
   the decorators), `startInputIssuesOf(Start, payload)`, `applicationOf`, `environmentOwnerOf`;
@@ -4439,7 +4439,7 @@ tenantId, threadId)`, `threadOwner(workflow, tenantId, threadId)`; every record 
   workflow of the application); `resume` / `cancel` find the workflow of the thread; `app.name` /
   `app.version` are the application's. Environments are found next to the application file
   ([App](App), [Testing](Testing)).
-- **New assembly rules** (`GraphRuleError`, all at once): `[application.no-workflows]`,
+- **New assembly rules** (`ConfigError.GraphRules`, all at once): `[application.no-workflows]`,
   `[application.not-a-workflow]`, `[application.duplicate-workflow]`, `[application.ambiguous-start]`
   (one start in two workflows), `[graph.duplicate-node-name]` across workflows,
   `[budget.not-a-budget]`, `[di.infrastructure-in-workflow]`, `[name.kind-suffix]` on the

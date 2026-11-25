@@ -2,7 +2,7 @@ import type { ToolDefinition } from "@langchain/core/language_models/base";
 import { AIMessage, HumanMessage, SystemMessage } from "@langchain/core/messages";
 import type { ChatDefaults, ResolvedModelSettings, RouterModel } from "../../../config/types.js";
 import { recordUsage, type UsageRecord } from "../../../finops/usage.js";
-import { DecisionError } from "../../../core/error-families/config-errors.js";
+import { DecisionError } from "../../../core/error-families/decision-errors.js";
 import { Decision, type DecisionQuestions } from "../../../llm/decisions.js";
 import type { ChatModelUser, ModelGateway } from "../../../llm/gateway.js";
 import { resolveSettings } from "../../../llm/registry.js";

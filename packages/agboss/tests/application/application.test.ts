@@ -3,11 +3,11 @@
  * `testWith(App)`; `app.execute(Start, …)` runs any workflow of the application by its start,
  * `resume` / `cancel` the workflow of the thread; one container for the whole application.
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { createApp } from "../../src/application/create-app.js";
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Class } from "../../src/components/injection.js";
-import { GraphRuleError } from "../../src/index.js";
 import { replyWith, testWith } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
@@ -77,7 +77,7 @@ describe("#261 AC1: app.execute runs any workflow of the application by its star
   it("ambiguous start: one start in two workflows fails assembly", async () => {
     const built = createTestAppWith(AmbiguousApplication, { processEnv: {} });
 
-    await expect(built).rejects.toBeInstanceOf(GraphRuleError);
+    await expect(built).rejects.toBeInstanceOf(ConfigError.GraphRules);
     await expect(built).rejects.toThrow(
       "[application.ambiguous-start] orders-workflow-start is a start of orders-workflow and orders-copy-workflow — a start is the door of one workflow; give each workflow its own",
     );

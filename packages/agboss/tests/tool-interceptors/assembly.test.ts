@@ -5,12 +5,12 @@
  * `[name.not-kebab-case]`, `[tool-interceptor.target-not-a-tool]`, `[tool-interceptor.duplicate-hook]`,
  * `[tool-interceptor.unknown-hook]` and `@Workflow({ excludeToolInterceptors })` (#1295).
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import {
   Agent,
   AfterTool,
   BeforeTool,
-  GraphRuleError,
   Tool,
   ToolCallDecision,
   ToolInterceptor,
@@ -123,7 +123,8 @@ async function codesOf(application: object): Promise<string[]> {
   const error: unknown = await applicationOf(application as never).catch(
     (thrown: unknown) => thrown,
   );
-  if (!(error instanceof GraphRuleError)) throw new Error("expected a GraphRuleError");
+  if (!(error instanceof ConfigError.GraphRules))
+    throw new Error("expected a ConfigError.GraphRules");
   return error.violations.map((item) => item.code);
 }
 

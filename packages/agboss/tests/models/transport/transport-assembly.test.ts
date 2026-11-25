@@ -3,15 +3,14 @@
  * (`[model-provider.both-modes]`), its `deps` are checked with the components', `agboss describe`
  * names it, `configHash` covers it, and `capabilities` (optional) is checked at start when given.
  */
+import { ConfigError } from "../../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import { Injectable, TenantContext } from "../../../src/index.js";
 import { applicationOf } from "../../../src/application/assemble.js";
 import { InjectionToken } from "../../../src/components/injection.js";
 import { applicationLines, describedApplicationOf } from "../../../src/describe/application.js";
 import { describeWorkflow } from "../../../src/describe/describe-workflow.js";
-import { GraphRuleError } from "../../../src/graph/rule-error.js";
 import {
-  ConfigurationError,
   ModelCost,
   ModelProvider,
   OpenAiCompatibleDriver,
@@ -97,7 +96,7 @@ describe("#385: a transport provider at assembly, in describe and in configHash"
 
     const assembled = applicationOf(application, {});
 
-    await expect(assembled).rejects.toBeInstanceOf(GraphRuleError);
+    await expect(assembled).rejects.toBeInstanceOf(ConfigError.GraphRules);
     await expect(assembled).rejects.toThrow(
       /\[model-provider\.both-modes\] both-model-provider \(BothModelProvider\) sets a driver and implements complete\(request\)/,
     );
@@ -163,7 +162,9 @@ describe("#385: a transport provider at assembly, in describe and in configHash"
     });
 
     await expect(transportApp(listed, { client })).resolves.toBeDefined();
-    await expect(transportApp(unlisted, { client })).rejects.toBeInstanceOf(ConfigurationError);
+    await expect(transportApp(unlisted, { client })).rejects.toBeInstanceOf(
+      ConfigError.ModelSettings,
+    );
     await expect(transportApp(unlisted, { client })).rejects.toMatchObject({
       problems: [expect.objectContaining({ code: "model.unknown-model", model: "bedrock/titan" })],
     });

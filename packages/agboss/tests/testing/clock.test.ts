@@ -4,11 +4,11 @@
  * pauses, backoff and leases with `clock.advance(…)`, without real waiting; an application may list
  * its own `Clock`, which production uses. The gate rule itself: tests/lint/no-direct-time.test.ts.
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { type BuildApplicationOptions } from "../../src/application/create-app.js";
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import { applicationOf } from "../../src/application/assemble.js";
-import { GraphRuleError } from "../../src/index.js";
 import { ModelFailure, RetryPolicy } from "../../src/models/index.js";
 import { resilientFetch } from "../../src/models/resilient-fetch.js";
 import { callTool, replyWith, testWith, VirtualClock } from "../../src/testing/index.js";
@@ -191,7 +191,7 @@ describe("#262: a Clock the application lists", () => {
       (thrown: unknown) => thrown,
     );
 
-    expect(error).toBeInstanceOf(GraphRuleError);
+    expect(error).toBeInstanceOf(ConfigError.GraphRules);
     expect(String(error)).toContain(
       "[di.infrastructure-in-workflow] FixedClockProvider extends Clock",
     );

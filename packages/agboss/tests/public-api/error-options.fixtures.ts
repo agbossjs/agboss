@@ -61,11 +61,6 @@ export const fixtures: Readonly<Record<string, object>> = Object.fromEntries([
   fx(root.CostLedgerEntryInvalidError, { index: 0, reason: "no id" }),
   fx(stores.InvalidA2APageTokenError, {}),
   fx(root.NotPausedError, { message }),
-  fx(root.EvalCaseInvalidError, {
-    suite: "refund-suite",
-    issues: [{ case: "c-1", path: "input", reason: "missing" }],
-  }),
-  fx(root.ModelKindError, { model: "gpt", kind: ModelKind.Chat, call: "decide" }),
   fx(models.ModelProviderFailureError, { failure: ModelFailure.Timeout, retryAfter: seconds(1) }),
   fx(root.ModelCallError, { code: "model.circuit-open", provider: "openai", message }),
   fx(models.ModelProviderInputError, { kind: "image", mediaType: "image/png" }),
@@ -81,7 +76,6 @@ export const fixtures: Readonly<Record<string, object>> = Object.fromEntries([
   }),
   fx(root.ToolTimeoutError, { timeout: seconds(1) }),
   fx(root.SpendOutsideStepError, { message }),
-  fx(root.NotAWorkflowStartError, { message }),
   fx(root.ExecutionContextUnavailableError, { message }),
   ...Object.entries(flowFixtures),
 ]);

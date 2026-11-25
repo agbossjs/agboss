@@ -14,7 +14,7 @@ import {
   resolveEnv,
 } from "../../src/environments/define-env.js";
 import { env } from "../../src/environments/env-readers.js";
-import { EnvironmentError, EnvironmentErrorCode } from "../../src/environments/errors.js";
+import { EnvironmentErrorCode } from "../../src/environments/errors.js";
 import { Secret, secret } from "../../src/environments/secret.js";
 import { ConfigError } from "../../src/index.js";
 import { Ttl, kilobytes, megabytes, usd } from "../../src/units/index.js";
@@ -109,8 +109,8 @@ describe("#1324b: resolveEnv reads the process once, typed", () => {
   it("names every missing variable at once, never a value", () => {
     const error = catching(() => resolveEnv(appEnv, {}));
 
-    expect(error).toBeInstanceOf(EnvironmentError);
-    expect(error.code).toBe(EnvironmentErrorCode.MissingVariables);
+    expect(error).toBeInstanceOf(ConfigError.Environment);
+    expect(error.envCode).toBe(EnvironmentErrorCode.MissingVariables);
     for (const variable of ["REGION", "RATIO", "DEADLINE", "HISTORY_TTL", "API_KEY"])
       expect(error.message).toContain(variable);
     expect(error.message).not.toContain("TOKEN");
@@ -121,7 +121,7 @@ describe("#1324b: resolveEnv reads the process once, typed", () => {
       resolveEnv(appEnv, { ...GOOD, DEADLINE: "soon-4242", AUDIT_TTL: "never", PORT: "80x" }),
     );
 
-    expect(error.code).toBe(EnvironmentErrorCode.InvalidValue);
+    expect(error.envCode).toBe(EnvironmentErrorCode.InvalidValue);
     expect(error.message).toContain("DEADLINE is not a duration");
     expect(error.message).toContain("AUDIT_TTL is not a duration");
     expect(error.message).toContain("PORT is not an integer");
@@ -196,12 +196,12 @@ describe("#1324b: configureEnv, bearer and the dependency token", () => {
   });
 });
 
-function catching(call: () => unknown): EnvironmentError {
+function catching(call: () => unknown): ConfigError.Environment {
   try {
     call();
   } catch (error) {
-    if (error instanceof EnvironmentError) return error;
+    if (error instanceof ConfigError.Environment) return error;
     throw error;
   }
-  throw new Error("expected an EnvironmentError");
+  throw new Error("expected an ConfigError.Environment");
 }

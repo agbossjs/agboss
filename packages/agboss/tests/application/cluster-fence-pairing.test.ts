@@ -3,12 +3,12 @@
  * (the one bound to `EXECUTION_ID_STORE`), not against the cluster's: the database row is what a
  * fenced write is checked by.
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import { applicationOf } from "../../src/application/assemble.js";
 import { fencedLeaseStoreOf } from "../../src/application/implementations.js";
 import { provide } from "../../src/components/injection.js";
 import type { Provider } from "../../src/components/injection.js";
-import { GraphRuleError } from "../../src/graph/rule-error.js";
 import { EXECUTION_ID_STORE } from "../../src/infrastructure/execution-id-store.js";
 import {
   PostgresEffects,
@@ -22,7 +22,7 @@ async function codesOf(providers: readonly Provider[]): Promise<readonly string[
     await applicationOf(storesApplication(providers));
     return [];
   } catch (error) {
-    if (!(error instanceof GraphRuleError)) throw error;
+    if (!(error instanceof ConfigError.GraphRules)) throw error;
     return error.violations.map((found) => found.code);
   }
 }

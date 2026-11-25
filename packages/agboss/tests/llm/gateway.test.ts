@@ -1,3 +1,4 @@
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { asDeclared } from "../../src/models/model-pricing.js";
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
@@ -10,7 +11,6 @@ import {
   type ModelGateway,
 } from "../../src/llm/gateway.js";
 import type { JevClient } from "../../src/llm/jev-client.js";
-import { EnvironmentError } from "../../src/environments/errors.js";
 import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import { ENV, KEYS } from "../models/gateway.js";
 import { TestDecisionsProvider, TestOpenRouterProvider } from "../models/providers.fixture.js";
@@ -94,7 +94,7 @@ describe("AC12: the default model gateway", () => {
         env: {},
         environment: NO_ENVIRONMENT_VALUES,
       }),
-    ).toThrow(EnvironmentError);
+    ).toThrow(ConfigError.Environment);
     expect(
       Object.keys(
         createProviderGateway(directoryOf([TestOpenRouterProvider, TestDecisionsProvider]), {

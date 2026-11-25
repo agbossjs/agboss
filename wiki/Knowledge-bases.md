@@ -136,7 +136,7 @@ closed, never another scope's passages.
 | ----------------- | ------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
 | `RagScope.Shared` | none (both `undefined`)                                                     | serves one corpus every tenant may read (a public help center)             |
 | `RagScope.Tenant` | the execution's tenant id, as both                                                | keeps each tenant's passages apart                                         |
-| `RagScope.Owner`  | the execution's tenant and its owner (`CallOptions.owner`; none → `rag.scope-unresolved`) | keeps each owner's passages apart                                          |
+| `RagScope.Owner`  | the execution's tenant and its owner (`CallOptions.owner`; none → `config.component`) | keeps each owner's passages apart                                          |
 | `RagScope.Custom` | what the tenant and what `resolveScope(context)` of the source returns (an org and a department, …) | keeps each scope apart; the source must have `resolveScope` (`[rag.custom-scope-missing-resolver]`) |
 
 **Every scope but `Shared` is bound to the tenant**: an owner id or a custom key is unique within a tenant only, so a call carries both `tenantId` and `scopeId` and a source keys its rows on the pair — each part compared as given, never joined into one string (`("a", "b:c")` and `("a:b", "c")` are two scopes); only the declared global `Shared` spans tenants. The id is compared **as given** — `acme`, `Acme`, `ａｃｍｅ`, `café` and `cafe` are five scopes — and

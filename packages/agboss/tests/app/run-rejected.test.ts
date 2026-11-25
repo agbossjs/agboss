@@ -1,10 +1,10 @@
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { beforeEach, describe, expect } from "vitest";
 import { BudgetExceededError } from "../../src/errors.js";
 import {
   ExecutionOperation,
-  NotAWorkflowStartError,
   type ExecutionRejectedEvent,
   ValidationError,
 } from "../../src/index.js";
@@ -170,13 +170,13 @@ describe("#246 AC2: nothing to resume, an unknown thread, an invalid start → o
     });
   });
 
-  test("execute from a class that is not a start of the workflow: workflow.not-a-start", async ({
+  test("execute from a class that is not a start of the workflow: config.not-a-workflow-start", async ({
     app,
   }) => {
     const run = execute(app, Redeem, { text: "hi", code: "V-1" });
 
-    await expect(run).rejects.toBeInstanceOf(NotAWorkflowStartError);
-    expectRejected({ operation: ExecutionOperation.Execute, code: "workflow.not-a-start" });
+    await expect(run).rejects.toBeInstanceOf(ConfigError.NotAWorkflowStart);
+    expectRejected({ operation: ExecutionOperation.Execute, code: "config.not-a-workflow-start" });
   });
 
   vouchers(

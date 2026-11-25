@@ -1,6 +1,6 @@
+import { ConfigError } from "@agboss/core";
 import { readdirSync } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
-import { WorkflowLoadError } from "@agboss/core";
 import {
   FlowTypesStatus,
   GENERATED_TYPES_FILE,
@@ -121,7 +121,7 @@ async function generate(
     return result;
   } catch (error) {
     // a missing module is reported by the old path as workflow.load, with its own message
-    if (error instanceof WorkflowLoadError) return undefined;
+    if (error instanceof ConfigError.WorkflowLoad) return undefined;
     throw error;
   }
 }

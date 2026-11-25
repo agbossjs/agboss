@@ -1,8 +1,9 @@
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { generateKeyPairSync } from "node:crypto";
 import { afterEach, describe, expect, it } from "vitest";
 import type { App } from "../../src/app/types.js";
-import { DeadlineExceededError, GraphRuleError, type MeshOptions } from "../../src/index.js";
+import { DeadlineExceededError, type MeshOptions } from "../../src/index.js";
 import { callTool, replyWith } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { seconds } from "../../src/units/index.js";
@@ -45,7 +46,7 @@ describe("#398 PR 2: @Application({ mesh }) at assembly and start", () => {
       { processEnv: {} },
     );
 
-    await expect(twice).rejects.toBeInstanceOf(GraphRuleError);
+    await expect(twice).rejects.toBeInstanceOf(ConfigError.GraphRules);
     await expect(twice).rejects.toThrow(/\[mesh\.duplicate-peer\] .*orders-application twice/);
     await expect(twice).rejects.toThrow(
       /\[mesh\.peer-without-keys\] .*orders-application lists no verifyKeys/,

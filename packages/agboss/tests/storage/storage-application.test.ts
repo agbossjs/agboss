@@ -3,6 +3,7 @@
  * replace the stores in `providers`: the stores, the ttls, the secrets, the rules and the run on a
  * SQLite file the driver names.
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -14,7 +15,6 @@ import { describedApplicationOf } from "../../src/describe/application.js";
 import { Application } from "../../src/application/application.js";
 import { openExecutionHistory } from "../../src/application/execution-history-store.js";
 import { applicationOf } from "../../src/application/assemble.js";
-import { GraphRuleError } from "../../src/graph/rule-error.js";
 import {
   ClusterStorage,
   DatabaseStorage,
@@ -76,7 +76,7 @@ const violationsOf = async (application: new () => unknown): Promise<readonly st
     await applicationOf(application);
     return [];
   } catch (error) {
-    if (error instanceof GraphRuleError) return error.violations.map((one) => one.code);
+    if (error instanceof ConfigError.GraphRules) return error.violations.map((one) => one.code);
     throw error;
   }
 };

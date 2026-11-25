@@ -136,7 +136,7 @@ started, and another owner's is not revealed.
 | a thread of another owner (`ExecutionError.ThreadOwnerMismatch`)                       | `Execute`, `Resume`, `Cancel` | `execution.thread-owner-mismatch`       |
 | nothing paused on the thread (`NotPausedError`)                      | `Resume`                      | `run.not-paused`         |
 | an unknown thread of the tenant (`ExecutionError.UnknownThread`)               | `Execute`, `Cancel`           | `execution.unknown-thread`     |
-| a class that is not a start of the workflow                          | `Execute`                     | `workflow.not-a-start`   |
+| a class that is not a start of the workflow                          | `Execute`                     | `config.not-a-workflow-start`   |
 | invalid start input or context values (`ValidationError.DtoInvalid`) | `Execute`                     | `validation.dto-invalid` |
 | an exhausted budget before the first step                            | `Execute`                     | `limit.budget`           |
 | the app is stopping (`ApplicationStoppingError`)                     | `Execute`, `Resume`           | `app.stopping`           |

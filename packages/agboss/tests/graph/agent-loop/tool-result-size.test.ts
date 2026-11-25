@@ -3,11 +3,11 @@
  * `defaults.tools` (application → workflow), else 128 KB — cut before PII masking, with a marker;
  * error results and context-mode knowledge blocks too; `onToolEnd` says whether it was cut.
  */
+import { ConfigError } from "../../../src/core/error-families/config-errors.js";
 import type { ShownContent } from "../../../src/models/messages.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import { applicationOf } from "../../../src/application/assemble.js";
 import { describeWorkflow } from "../../../src/describe/describe-workflow.js";
-import { GraphRuleError } from "../../../src/index.js";
 import { truncatedResultMarker } from "../../../src/prompts/agents.js";
 import { callTool, replyWith, testUnit, testWith } from "../../../src/testing/index.js";
 import type { ModelScript } from "../../../src/testing/model-script.js";
@@ -171,8 +171,9 @@ describe("#336 AC3: the bound's settings", () => {
       (thrown: unknown) => thrown,
     );
 
-    expect(error).toBeInstanceOf(GraphRuleError);
-    const codes = error instanceof GraphRuleError ? error.violations.map((v) => v.message) : [];
+    expect(error).toBeInstanceOf(ConfigError.GraphRules);
+    const codes =
+      error instanceof ConfigError.GraphRules ? error.violations.map((v) => v.message) : [];
     expect(codes).toEqual([
       expect.stringContaining("zero-bound-workflow: defaults.tools.maxResultSize is 102.4 bytes"),
       expect.stringContaining("ZeroBoundTool: its maxResultSize is 0 bytes"),

@@ -543,7 +543,7 @@ reasoning, cache pricing; Jev: its known models). **All problems at once**, each
 key, the value, the model and what the model supports:
 
 ```
-ConfigurationError: 2 model setting(s) do not fit their models
+ConfigError.ModelSettings: 2 model setting(s) do not fit their models
   model.unsupported-setting  agents.scout-agent.thinking = on(effort high, budget 4000 tokens) — model moonshotai/kimi-k2.6: efforts minimal, low, medium, high, xhigh; budget yes; effort with budget no
   model.unknown-model  routers.main = typesafe/jev-1.4 — model typesafe/jev-1.4: decisions-model-provider does not list it
 ```

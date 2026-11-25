@@ -2,9 +2,9 @@
  * #825 — a listed store's `static store` that is no `{ backend, leaseCheck? }` is refused at
  * assembly (`[application.store-descriptor-invalid]`), never read as undeclared or as atomic.
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import { applicationOf } from "../../src/application/assemble.js";
-import { GraphRuleError } from "../../src/graph/rule-error.js";
 import {
   StoreClock,
   ExecutionLeaseRepository,
@@ -53,7 +53,7 @@ async function codesOf(providers: readonly Provider[]): Promise<readonly string[
     await applicationOf(storesApplication(providers));
     return [];
   } catch (error) {
-    if (!(error instanceof GraphRuleError)) throw error;
+    if (!(error instanceof ConfigError.GraphRules)) throw error;
     return error.violations.map((found) => `[${found.code}] ${found.message}`);
   }
 }

@@ -3,6 +3,7 @@
  * came behind a spread, an untyped variable or from JS. The message names the option and the decorator,
  * never the value. No shard mutates it (tests/docs/non-sharded-src.ts gives the reason).
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, expectTypeOf, it } from "vitest";
 import { Application, requireApplication } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
@@ -26,7 +27,6 @@ import {
   Ttl,
 } from "../../src/index.js";
 import { ItemDto } from "../flow/runtime/fixtures/fan-out.workflow.js";
-import { GraphRuleError } from "../../src/graph/rule-error.js";
 import { onStart } from "../helpers/flow.js";
 
 /** A value no message may carry. */
@@ -328,8 +328,8 @@ describe("[decorator.unknown-option]: @Application", () => {
       (error: unknown) => error,
     );
 
-    if (!(failure instanceof GraphRuleError)) throw failure;
-    expect(failure).toBeInstanceOf(GraphRuleError);
+    if (!(failure instanceof ConfigError.GraphRules)) throw failure;
+    expect(failure).toBeInstanceOf(ConfigError.GraphRules);
     const violations = failure.violations;
     expect(
       violations.map((one) => one.code).filter((code) => code === "decorator.unknown-option"),

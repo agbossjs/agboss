@@ -1,4 +1,15 @@
 import { promptProblemLine, type PromptProblem } from "../../components/prompt-problems.js";
+import type { EnvironmentErrorCode } from "../../environments/errors.js";
+import type { EvalCaseIssue } from "../../eval/suite/errors.js";
+import type { RuleViolation } from "../../graph/rule-error.js";
+import type { ModelKind as ModelKindOf } from "../../models/model-kind.js";
+import type { ModelProblem } from "../../models/problems.js";
+import {
+  evalCaseMessageOf,
+  graphRulesMessageOf,
+  modelKindMessageOf,
+  modelSettingsMessageOf,
+} from "./config-error-messages.js";
 import { defineFamily, type ErrorVariant, type FamilyConstructor } from "./family.js";
 
 /** The kinds of `ConfigError`: `switch (error.kind)` is exhaustive. */
@@ -61,7 +72,10 @@ export type ConfigError =
 /** The variants of `ConfigError`, each with the facts it carries. */
 export declare namespace ConfigError {
   /** The workflow graph breaks assembly rules. */
-  export type GraphRules = ErrorVariant<ConfigErrorKind.GraphRules, "config.graph-rules">;
+  export type GraphRules = ErrorVariant<ConfigErrorKind.GraphRules, "config.graph-rules"> & {
+    /** Every rule the flow breaks, reported at once. */
+    readonly violations: readonly RuleViolation[];
+  };
   /** A flow is written wrongly. */
   export type FlowSyntax = ErrorVariant<ConfigErrorKind.FlowSyntax, "config.flow-syntax">;
   /** The class is not a workflow start. */
@@ -87,15 +101,31 @@ export declare namespace ConfigError {
     "config.no-default-router"
   >;
   /** The environment is not valid. */
-  export type Environment = ErrorVariant<ConfigErrorKind.Environment, "config.environment">;
+  export type Environment = ErrorVariant<ConfigErrorKind.Environment, "config.environment"> & {
+    /** Why: the stable code `environment.not-found`, `environment.missing-variables`, … */
+    readonly envCode?: EnvironmentErrorCode | undefined;
+  };
   /** A profile is not valid. */
   export type Profile = ErrorVariant<ConfigErrorKind.Profile, "config.profile">;
   /** A model provider is not valid. */
   export type ModelProvider = ErrorVariant<ConfigErrorKind.ModelProvider, "config.model-provider">;
   /** A model's settings do not fit it. */
-  export type ModelSettings = ErrorVariant<ConfigErrorKind.ModelSettings, "config.model-settings">;
+  export type ModelSettings = ErrorVariant<
+    ConfigErrorKind.ModelSettings,
+    "config.model-settings"
+  > & {
+    /** Every setting that cannot work, all at once. */
+    readonly problems?: readonly ModelProblem[] | undefined;
+  };
   /** A model is used for what it cannot do. */
-  export type ModelKind = ErrorVariant<ConfigErrorKind.ModelKind, "config.model-kind">;
+  export type ModelKind = ErrorVariant<ConfigErrorKind.ModelKind, "config.model-kind"> & {
+    /** The model's `name`. */
+    readonly model?: string | undefined;
+    /** What the model is: a chat model, or a decision model (`kind` is the variant's own). */
+    readonly modelKind?: ModelKindOf | undefined;
+    /** The call that was made on it. */
+    readonly call?: "invoke" | "decide" | undefined;
+  };
   /** A DTO class is not valid. */
   export type Dto = ErrorVariant<ConfigErrorKind.Dto, "config.dto">;
   /** A unit value is not valid. */
@@ -117,7 +147,12 @@ export declare namespace ConfigError {
   /** The retry policy is not valid. */
   export type RetryPolicy = ErrorVariant<ConfigErrorKind.RetryPolicy, "config.retry-policy">;
   /** An eval case is not valid. */
-  export type EvalCase = ErrorVariant<ConfigErrorKind.EvalCase, "config.eval-case">;
+  export type EvalCase = ErrorVariant<ConfigErrorKind.EvalCase, "config.eval-case"> & {
+    /** The suite's `name`. */
+    readonly suite?: string | undefined;
+    /** Every invalid value, by case and path. */
+    readonly issues?: readonly EvalCaseIssue[] | undefined;
+  };
   /** The RAG index cannot be used. */
   export type RagIndex = ErrorVariant<ConfigErrorKind.RagIndex, "config.rag-index">;
   /** A workflow cannot be loaded. */
@@ -177,7 +212,7 @@ export const ConfigError: FamilyConstructor<
   code: "config",
   kinds: ConfigErrorKind,
   variants: {
-    GraphRules: ["the workflow graph breaks assembly rules"],
+    GraphRules: [graphRulesMessageOf],
     FlowSyntax: ["a flow is written wrongly"],
     NotAWorkflowStart: ["the class is not a workflow start"],
     WorkingCalendar: ["a working calendar is not valid"],
@@ -187,8 +222,8 @@ export const ConfigError: FamilyConstructor<
     Environment: ["the environment is not valid"],
     Profile: ["a profile is not valid"],
     ModelProvider: ["a model provider is not valid"],
-    ModelSettings: ["a model's settings do not fit it"],
-    ModelKind: ["a model is used for what it cannot do"],
+    ModelSettings: [modelSettingsMessageOf],
+    ModelKind: [modelKindMessageOf],
     Dto: ["a DTO class is not valid"],
     Unit: ["a unit value is not valid"],
     PromptCaching: ["the prompt-caching policy is not valid"],
@@ -196,50 +231,11 @@ export const ConfigError: FamilyConstructor<
     CircuitBreakerPolicy: ["the circuit-breaker policy is not valid"],
     Reasoning: ["the reasoning setting is not valid"],
     RetryPolicy: ["the retry policy is not valid"],
-    EvalCase: ["an eval case is not valid"],
+    EvalCase: [evalCaseMessageOf],
     RagIndex: ["the RAG index cannot be used"],
     WorkflowLoad: ["a workflow cannot be loaded"],
     ApplicationLoad: ["the application cannot be loaded"],
     Tool: ["a tool is not valid"],
     Option: ["an option is not valid"],
-  },
-});
-
-/** The kinds of `DecisionError`: `switch (error.kind)` is exhaustive. */
-export enum DecisionErrorKind {
-  InvalidRequest = "invalid-request",
-  InvalidResponse = "invalid-response",
-}
-
-/** A decision call failed on the framework's side of the Decisions API: a request it would refuse, or an answer that is unknown or malformed. */
-export type DecisionError = DecisionError.InvalidRequest | DecisionError.InvalidResponse;
-
-/** The variants of `DecisionError`, each with the facts it carries. */
-export declare namespace DecisionError {
-  /** A decision request the Decisions API would refuse: too many questions, a bad image, no options. */
-  export type InvalidRequest = ErrorVariant<
-    DecisionErrorKind.InvalidRequest,
-    "model.decision.invalid-request"
-  >;
-  /** A Decisions API answer that is unknown or malformed. */
-  export type InvalidResponse = ErrorVariant<
-    DecisionErrorKind.InvalidResponse,
-    "model.decision.invalid-response"
-  >;
-}
-
-/** `DecisionError`: the family's constructor and its variants'. */
-export const DecisionError: FamilyConstructor<
-  DecisionError,
-  { InvalidRequest: DecisionError.InvalidRequest; InvalidResponse: DecisionError.InvalidResponse }
-> = defineFamily({
-  name: "DecisionError",
-  code: "model.decision",
-  kinds: DecisionErrorKind,
-  variants: {
-    InvalidRequest: [
-      "a decision request the Decisions API would refuse: too many questions, a bad image, no options",
-    ],
-    InvalidResponse: ["a Decisions API answer that is unknown or malformed"],
   },
 });

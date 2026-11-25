@@ -1,6 +1,7 @@
 /** #120 PR 2: `testUnit` — one guardrail on one text, its model scripted, in a step's frame. */
+import { ConfigError } from "../../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
-import { GuardFailedError, GraphRuleError, InputGuardrail, inline } from "../../../src/index.js";
+import { GuardFailedError, InputGuardrail, inline } from "../../../src/index.js";
 import { decideWith, failWith, ModelFailure, testUnit } from "../../../src/testing/index.js";
 import { usd } from "../../../src/units/index.js";
 import { LegalAdviceGuardrail } from "../fixtures/units.js";
@@ -44,7 +45,7 @@ describe("testUnit", () => {
     await expect(check("Can I sue?")).rejects.toBeInstanceOf(GuardFailedError);
   });
 
-  it("its rules are checked first: a name that is not kebab-case is a GraphRuleError", () => {
+  it("its rules are checked first: a name that is not kebab-case is a ConfigError.GraphRules", () => {
     @InputGuardrail({
       name: "Legal_One",
       description: "Misnamed",
@@ -54,7 +55,7 @@ describe("testUnit", () => {
     })
     class Misnamed {}
 
-    expect(() => testUnit(Misnamed)).toThrow(GraphRuleError);
+    expect(() => testUnit(Misnamed)).toThrow(ConfigError.GraphRules);
     expect(() => testUnit(Misnamed)).toThrow("[name.not-kebab-case]");
   });
 });

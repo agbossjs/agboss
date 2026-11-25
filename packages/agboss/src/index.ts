@@ -33,6 +33,7 @@ export * from "./public/files.js";
 export * from "./errors.js";
 // the error families (#1325): each a type, a namespace of variants and a constructor
 export * from "./core/error-families/config-errors.js";
+export * from "./core/error-families/decision-errors.js";
 export * from "./core/error-families/effect-errors.js";
 export * from "./core/error-families/limit-errors.js";
 export * from "./core/error-families/pause-errors.js";

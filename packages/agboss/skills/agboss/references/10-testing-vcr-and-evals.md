@@ -1097,7 +1097,7 @@ The workflow's tests, in the mirror of its folder:
 
 ```ts file=tests/rental/workflows/rental/rental.workflow.test.ts
 import { expect } from "vitest";
-import { ExecutionError.CompensationFailed, CompensationReason, CompensationStatus, StepFailedError } from "@agboss/core";
+import { ExecutionError, CompensationReason, CompensationStatus, StepFailedError } from "@agboss/core";
 import { testWith } from "@agboss/core/testing";
 import { RentalApplication } from "../../../../src/rental.application.js";
 import { CancelCarAction } from "../../../../src/rental/actions/cancel-car.action.js";
@@ -1713,7 +1713,7 @@ export class ScreeningEvalSuite {}
 - Assembled on its application before anything runs, every violation at once:
   `[name.kind-suffix]`, `[eval.unknown-start]` (the start is not one of the application's),
   `[eval.duplicate-case]` (case names key reports and baselines), `[eval.judge-wrong-output]`, the
-  judges' own `[judge.*]` rules; then the cases' values — `EvalCaseInvalidError`
+  judges' own `[judge.*]` rules; then the cases' values — `ConfigError.EvalCase`
   (`eval.case-invalid`, each issue as `case "x": tenant.plan — reason`, never a value).
 
 ## Running a suite: `agboss eval run`

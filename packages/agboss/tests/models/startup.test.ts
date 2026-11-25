@@ -1,8 +1,8 @@
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import type { AgentsConfigOf } from "../../src/config/types.js";
 import { createAppDeps } from "../../src/app/app-deps.js";
 import { workflowOf } from "../../src/testing/workflow-of.js";
-import { ConfigurationError } from "../../src/models/index.js";
 import { ModelProviderDirectory } from "../../src/models/resolve.js";
 import { modelUsesOf } from "../../src/models/uses.js";
 import { modelSummaryOf } from "../../src/models/workflow-models.js";
@@ -24,7 +24,7 @@ const config = (agents: AgentsConfigOf<string>["agents"]): AgentsConfigOf<string
 });
 
 describe("AC6: the check runs at every startup, before any model call", () => {
-  it("AC6: a workflow whose settings do not fit fails with a ConfigurationError listing every problem", async () => {
+  it("AC6: a workflow whose settings do not fit fails with a ConfigError.ModelSettings listing every problem", async () => {
     const stub = providerStub([], [KIMI_ENTRY, { id: "backup/kimi-k2.6" }]);
     const start = createAppDeps(await workflowOf(Priced), {
       processEnv: { TERN_DB: ":memory:", ...ENV },
@@ -32,7 +32,7 @@ describe("AC6: the check runs at every startup, before any model call", () => {
       providerFetch: stub.fetch,
     });
 
-    await expect(start).rejects.toThrow(ConfigurationError);
+    await expect(start).rejects.toThrow(ConfigError.ModelSettings);
     await expect(start).rejects.toMatchObject({
       problems: [{ code: "model.unknown-model", key: "agents.summariser-agent" }],
     });

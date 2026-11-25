@@ -1,3 +1,4 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import type { AgentsConfigOf } from "../config/types.js";
 import { createProviderGateway, type ModelGateway } from "../llm/gateway.js";
 import type { ModelInputKind } from "../models/content.js";
@@ -12,7 +13,6 @@ import type { ProviderFetch } from "../models/resilient-fetch.js";
 import type { ChaosOptions } from "../eval/chaos/chaos-failure.js";
 import { modelChaosOf } from "../eval/chaos/model-chaos.js";
 import { checkedModelUses, resolutionProblems } from "../models/check.js";
-import { ConfigurationError } from "../models/problems.js";
 import { workflowModelUsesOf } from "../models/resolution.js";
 import { providersAtStart } from "./providers-at-start.js";
 import {
@@ -99,7 +99,7 @@ export async function modelsFor(
   const directory = directoryOf(bundle.modelProviders);
   const uses = workflowModelUsesOf(bundle);
   const unresolved = resolutionProblems(uses, directory);
-  if (unresolved.length > 0) throw new ConfigurationError({ problems: unresolved });
+  if (unresolved.length > 0) throw new ConfigError.ModelSettings({ problems: unresolved });
   // the production gateway reads the key of every provider a model use needs: a missing one fails
   // before the model check; a provider that serves no model of the workflow needs none (#716)
   const connectAtStart = providersAtStart(uses, directory);
@@ -113,7 +113,7 @@ export async function modelsFor(
   const checkModels = async (): Promise<ModelInputs> => {
     if (given !== undefined) return new Map();
     const { problems, inputs } = await checkedModelUses(uses, directory, clients);
-    if (problems.length > 0) throw new ConfigurationError({ problems });
+    if (problems.length > 0) throw new ConfigError.ModelSettings({ problems });
     return inputs;
   };
   return {

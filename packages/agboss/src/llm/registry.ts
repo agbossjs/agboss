@@ -4,7 +4,7 @@ import type { BaseChatModel } from "@langchain/core/language_models/chat_models"
 import { DEFAULT_MAX_TOKENS } from "../config/types.js";
 import { promptCachingOfSetting } from "../models/prompt-caching.js";
 import { reasoningOfThinking } from "../models/reasoning.js";
-import { DecisionError } from "../core/error-families/config-errors.js";
+import { DecisionError } from "../core/error-families/decision-errors.js";
 import type { DecisionOutcome } from "./decision-response.js";
 import type { DecisionRequest } from "./decisions.js";
 import type { ChatModelUser, ModelGateway } from "./gateway.js";

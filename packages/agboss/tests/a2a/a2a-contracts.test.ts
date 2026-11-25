@@ -1,3 +1,4 @@
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { hours, minutes } from "../../src/units/index.js";
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { afterEach, describe, expect, it } from "vitest";
@@ -7,7 +8,7 @@ import { applicationOf } from "../../src/application/assemble.js";
 import type { App } from "../../src/app/types.js";
 import { contractsOf } from "../../src/describe/contracts.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
-import { EmptyEnvironment, GraphRuleError, Injectable } from "../../src/index.js";
+import { EmptyEnvironment, Injectable } from "../../src/index.js";
 import { replyWith } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
@@ -82,7 +83,7 @@ describe("#398 PR 3: the contracts at assembly", () => {
 
     const built = applicationOf(BrokenApplication, { withoutIdempotencyKeys: true });
 
-    await expect(built).rejects.toBeInstanceOf(GraphRuleError);
+    await expect(built).rejects.toBeInstanceOf(ConfigError.GraphRules);
     const message = await built.catch((error: unknown) => String(error));
     expect(message).toContain(
       '[name.not-kebab-case] "Shop_Expose" on @A2AEndpoint — a name is kebab-case: "shop-expose"',
