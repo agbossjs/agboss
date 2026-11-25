@@ -8,6 +8,9 @@ import { FaultInvariant, violation, type FaultViolation } from "./violations.js"
  * ended tree — one a rest told the test of, or one the tree's record lists — has been told to the
  * fixture's listener: exactly one `opened` and exactly one `closed`, the `opened` first; a notice
  * heard more than once (a delivery whose ack a crash lost) carries the same `deliveryId` every time.
+ * A reassignment to another channel (#1307d) is told to the listeners once, as `reassigned` of the
+ * replacement: the replacement is told that in place of `opened`, and the pause it replaced is not told
+ * `closed` (its channel is).
  * Never zero times: a pod killed between the close and its notice, or between the notice and its
  * delivery, leaves the notice to another pod.
  */
@@ -43,12 +46,25 @@ export const heardOf = (run: FaultRun, key: string): readonly Heard[] =>
     .filter((event) => event.type === "pause-notice" && event.pauseKey === key)
     .map((event) => ({ notice: String(event.notice), deliveryId: String(event.deliveryId) }));
 
+/** The keys of the pauses a reassignment moved away from: a replacement was sent naming them. */
+const replacedKeysOf = (run: FaultRun): ReadonlySet<string> =>
+  new Set(
+    run.events.flatMap((event) =>
+      event.type === "pause-sent" && typeof event.replacesKey === "string"
+        ? [event.replacesKey]
+        : [],
+    ),
+  );
+
 function noticeViolationsOf(
   pause: { key: string; root: string },
   heard: readonly Heard[],
+  isReplaced: boolean,
 ): string[] {
   const found: string[] = [];
-  for (const notice of ["opened", "closed"]) {
+  const isReplacement = heard.some((one) => one.notice === "reassigned");
+  const told = [isReplacement ? "reassigned" : "opened", ...(isReplaced ? [] : ["closed"])];
+  for (const notice of told) {
     const ids = new Set(heard.filter((one) => one.notice === notice).map((one) => one.deliveryId));
     if (ids.size === 0) found.push(`pause ${pause.key} of ${pause.root} was never told ${notice}`);
     if (ids.size > 1)
@@ -57,7 +73,9 @@ function noticeViolationsOf(
       );
   }
   const firstClosed = heard.findIndex((one) => one.notice === "closed");
-  const firstOpened = heard.findIndex((one) => one.notice === "opened");
+  const firstOpened = heard.findIndex(
+    (one) => one.notice === "opened" || one.notice === "reassigned",
+  );
   if (firstClosed >= 0 && firstOpened > firstClosed)
     found.push(`pause ${pause.key} was told closed before opened`);
   return found;
@@ -65,8 +83,9 @@ function noticeViolationsOf(
 
 /** Every pause of an ended tree told exactly once under one id each, opened first. */
 export function pauseNoticeViolations(run: FaultRun): FaultViolation[] {
+  const replaced = replacedKeysOf(run);
   return pausesOf(run).flatMap((pause) =>
-    noticeViolationsOf(pause, heardOf(run, pause.key)).map((message) =>
+    noticeViolationsOf(pause, heardOf(run, pause.key), replaced.has(pause.key)).map((message) =>
       violation(FaultInvariant.NoticesOnceEachInOrder, message),
     ),
   );

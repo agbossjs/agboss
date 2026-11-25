@@ -7,6 +7,7 @@ import {
   ExternalTask,
 } from "../../../index.js";
 import { Channel } from "../../../components/decorators.js";
+import { ChannelSelector } from "../../../channels/channel-selector.js";
 import { pauseKeyOf } from "../../../infrastructure/pause-record.js";
 import { ChannelOutcome } from "../../../channels/channel-outcome.js";
 import type { Class } from "../../../components/injection.js";
@@ -46,6 +47,29 @@ const onStart = (source: Class): PathBuilder<PathSource> =>
 })
 export class FaultPauseExternalTask {}
 
+/** What a send of the fault channels is given. */
+interface FaultSend {
+  readonly pauseId: string;
+  readonly assignees?: readonly string[];
+  readonly replaces?: { readonly pauseId: string };
+}
+
+/** Tells the test the send, and waits for the reply. */
+function toldSend(
+  link: FaultPodLink,
+  ask: FaultSend,
+): Promise<ChannelOutcome<FaultPauseExternalTask>> {
+  link.emit("pause-sent", {
+    pauseKey: pauseKeyOf("default", ask.pauseId),
+    pauseId: ask.pauseId,
+    ...(ask.assignees?.[0] === undefined ? {} : { assignee: ask.assignees[0] }),
+    ...(ask.replaces === undefined
+      ? {}
+      : { replacesKey: pauseKeyOf("default", ask.replaces.pauseId) }),
+  });
+  return Promise.resolve(ChannelOutcome.awaitReply());
+}
+
 /**
  * Nobody is sent anything: the question waits for its `app.resume`. Each send is told to the test
  * (#946): the pause's key and, for a reassignment, its assignee and the key of the pause it
@@ -61,20 +85,40 @@ export class FaultPauseExternalTask {}
 export class FaultPauseChannel {
   constructor(private readonly faultPodLink: FaultPodLink) {}
 
-  send(ask: {
-    readonly pauseId: string;
-    readonly assignees?: readonly string[];
-    readonly replaces?: { readonly pauseId: string };
-  }): Promise<ChannelOutcome<FaultPauseExternalTask>> {
-    this.faultPodLink.emit("pause-sent", {
-      pauseKey: pauseKeyOf("default", ask.pauseId),
-      pauseId: ask.pauseId,
-      ...(ask.assignees?.[0] === undefined ? {} : { assignee: ask.assignees[0] }),
-      ...(ask.replaces === undefined
-        ? {}
-        : { replacesKey: pauseKeyOf("default", ask.replaces.pauseId) }),
-    });
-    return Promise.resolve(ChannelOutcome.awaitReply());
+  send(ask: FaultSend): Promise<ChannelOutcome<FaultPauseExternalTask>> {
+    return toldSend(this.faultPodLink, ask);
+  }
+}
+
+/** Two channels serve the question's target: the first asks the owner, unless a reassignment names the other. */
+@ChannelSelector({
+  name: "fault-pause-selector",
+  description: "Asks the order's question through the owner's channel",
+  target: FaultPauseExternalTask,
+})
+export class FaultPauseSelector {
+  selectChannel(): Class {
+    return FaultPauseChannel;
+  }
+}
+
+/**
+ * The second channel of the same target: a reassignment that names it moves the question to it (a
+ * replacement, #946), where one that only names another assignee changes the pause in place — so a
+ * replacement exists for a pod to be killed before it is sent.
+ */
+@Channel({
+  name: "fault-pause-deputy-channel",
+  description: "Waits for the deputy's answer",
+  deps: [FaultPodLink],
+  target: FaultPauseExternalTask,
+  ttl: days(1),
+})
+export class FaultPauseDeputyChannel {
+  constructor(private readonly faultPodLink: FaultPodLink) {}
+
+  send(ask: FaultSend): Promise<ChannelOutcome<FaultPauseExternalTask>> {
+    return toldSend(this.faultPodLink, ask);
   }
 }
 

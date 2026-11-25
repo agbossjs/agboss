@@ -2,6 +2,7 @@ import {
   ChannelListener,
   type ChannelListenerClosedEvent,
   type ChannelListenerOpenedEvent,
+  type ChannelListenerReassignedEvent,
 } from "../../../index.js";
 import { FaultPodLink } from "./pod-link.js";
 
@@ -23,6 +24,16 @@ export class FaultPauseListener {
   onPauseOpened(event: ChannelListenerOpenedEvent): Promise<void> {
     this.faultPodLink.emit("pause-notice", {
       notice: "opened",
+      pauseKey: event.pauseKey,
+      deliveryId: event.deliveryId,
+    });
+    return Promise.resolve();
+  }
+
+  /** The one notice a listener hears of a reassignment (#1307d): it stands for the replacement's `opened`. */
+  onPauseReassigned(event: ChannelListenerReassignedEvent): Promise<void> {
+    this.faultPodLink.emit("pause-notice", {
+      notice: "reassigned",
       pauseKey: event.pauseKey,
       deliveryId: event.deliveryId,
     });

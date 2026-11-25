@@ -1,4 +1,5 @@
 import type { AnyTenantApp, ExecutionOutput } from "../../app/types.js";
+import { FaultPauseDeputyChannel } from "./fixture/pause.workflow.js";
 import { sendToTest } from "./fixture/pod-link.js";
 import type { PodCommand } from "./pod-protocol.js";
 
@@ -49,7 +50,7 @@ function cancelled(app: AnyTenantApp, tag: string, threadId: string): void {
 
 /** `app.reassignPause` in the background (#946): its end is an event under the call's tag. */
 function reassigned(app: AnyTenantApp, tag: string, pauseId: string, assignee: string): void {
-  app.reassignPause({ pauseId, assignees: [assignee] }).then(
+  app.reassignPause({ pauseId, assignees: [assignee], channel: FaultPauseDeputyChannel }).then(
     () => {
       sendToTest({ kind: "event", event: { type: "reassigned", tag } });
     },

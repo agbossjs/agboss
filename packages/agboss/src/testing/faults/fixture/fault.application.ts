@@ -19,6 +19,8 @@ import {
   FaultExpiringChannel,
   FaultExpiringWorkflow,
   FaultPauseChannel,
+  FaultPauseDeputyChannel,
+  FaultPauseSelector,
   FaultPauseWorkflow,
 } from "./pause.workflow.js";
 import { FaultPauseListener } from "./pause.listener.js";
@@ -130,6 +132,7 @@ export function faultApplicationOf(stores: FaultStoreSet, settings: FaultPodSett
       ...a2a.workflows,
     ],
     ...(a2a.endpoints.length === 0 ? {} : { endpoints: a2a.endpoints }),
+    channelSelectors: [FaultPauseSelector],
     observers: [FaultObserver],
     budgets: [FaultApplicationBudget, FaultTenantBudget, FaultExecutionBudget],
     retention: { executionRecords: hours(24) },
@@ -147,6 +150,7 @@ export function faultApplicationOf(stores: FaultStoreSet, settings: FaultPodSett
       FaultModelProvider,
       FaultPodLink,
       FaultPauseChannel,
+      FaultPauseDeputyChannel,
       FaultSecondPauseChannel,
       ...(expiring ? [FaultExpiringChannel] : []),
       FaultPauseListener,
