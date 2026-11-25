@@ -18,6 +18,7 @@ import type { ApprovalAgent, ChargeCardAction, CreditApplication, CreditByModelA
 import type { CompanyDto, CompanyScoreDto, CustomerReplyDto, DraftChangesDto, ExpertDraftDto, FastDraftDto, LoyaltyOfferDto, OrderStatusDto, SearchRequestDto } from "../tests/flow/fixtures/data-dtos.js";
 import type { ArticleDto, ArticleRequestDto, ChangesRequestedDto, DraftApprovedDto, OfferDraftDto, OfferSentDto, OpeningsDto, OrderRequestDto, OrderShippedDto, ProfileDto, ResumeMissingDto, ReviewDto, ShortlistDto, StockReservationDto, WorkflowStartTextDto } from "../tests/flow/fixtures/dtos.js";
 import type { AnswerGroundedJudge, DeleteOrderTool, DeskAgent, DeskAnswerDto, DeskExecutionContext, DeskTenantContext, DeskWorkflowFinish, DeskWorkflowStart, EvalDeskApplication, EvalDeskWorkflow, GetOrderTool, HandOverDto, HandOverWorkflowFinish, RefundRecordedJudge, RefundTool } from "../tests/flow/fixtures/eval-desk.fixture.js";
+import type { JudgedDeskAgent, JudgedDeskApplication, JudgedDeskFinish, JudgedDeskStart, JudgedDeskWorkflow, SensitiveMessageDto, TaskPiiJudge } from "../tests/flow/fixtures/eval-pii.fixture.js";
 import type { AnswerWorkflowFinish, AskDto, AskWorkflowStart, EvalsApplication, LookupAgent, LookupTool, LookupWorkflow, QuotesLookupJudge } from "../tests/flow/fixtures/evals.fixture.js";
 import type { PublicExpiryApplication, PublicExpiryWorkflow, PublicExpiryWorkflowStart } from "../tests/flow/fixtures/expiry-public.fixture.js";
 import type { CappedExpiryApplication, DirectorExternalTask, ExpiryApplication, ExpiryDoneDto, ExpiryWorkflow, ExpiryWorkflowFinish, ExpiryWorkflowStart, HourDirectorExternalTask, ManagerExternalTask, OwnerExternalTask, OwnerWorkflow, OwnerWorkflowStart, PlainWorkflow, PlainWorkflowStart, RecordEscalatedAction, RecordExpiryAction, ReviewerExternalTask, ReviewerWorkflow, ReviewerWorkflowStart, ShortExpiryWorkflow, ShortExpiryWorkflowStart, ShortManagerExternalTask, SlowEscalationAction, SlowExpiryWorkflow, SlowExpiryWorkflowStart, SlowManagerExternalTask } from "../tests/flow/fixtures/expiry.fixture.js";
@@ -202,6 +203,8 @@ declare module "../src/flow/generated-types.js" {
       "job-offer-agent": JobOfferDto;
       "job-offer-workflow-start": WorkflowStartTextDto;
       "join-expiry-workflow-start": ApprovalRequestDto;
+      "judged-desk-agent": NoOutput;
+      "judged-desk-workflow-start": SensitiveMessageDto;
       "lazy-intake-agent": ChargeResultDto;
       "lazy-workflow-start": WorkflowStartTextDto;
       "legal-agent": LegalReviewDto;
@@ -627,6 +630,10 @@ declare module "../src/flow/generated-types.js" {
       "join-expiry-escalated-workflow-finish": NoInput;
       "join-expiry-workflow": ApprovalRequestDto;
       "join-expiry-workflow-start": ApprovalRequestDto;
+      "judged-desk-agent": { message: Tracked<SensitiveMessageDto, typeof JudgedDeskStart> };
+      "judged-desk-workflow": SensitiveMessageDto;
+      "judged-desk-workflow-finish": NoInput;
+      "judged-desk-workflow-start": SensitiveMessageDto;
       "lazy-desk-router": { message: Tracked<WorkflowStartTextDto, typeof LazyWorkflowStart> };
       "lazy-intake-agent": { message: Tracked<WorkflowStartTextDto, typeof LazyWorkflowStart> };
       "lazy-no-order-workflow-finish": NoInput;
@@ -1003,6 +1010,7 @@ declare module "../src/flow/generated-types.js" {
       "job-offer-workflow-finish": JobOfferDto;
       "join-expiry-approved-workflow-finish": CooDecisionDto;
       "join-expiry-escalated-workflow-finish": EscalationDto;
+      "judged-desk-workflow-finish": WorkflowFinishTextDto;
       "lazy-no-order-workflow-finish": WorkflowStartTextDto;
       "lazy-order-workflow-finish": ChargeResultDto;
       "legal-sign-off-external-task": SignOffDto;
@@ -1159,6 +1167,7 @@ declare module "../src/flow/generated-types.js" {
       "intake-workflow-start": { input: WorkflowStartTextDto; output: OpeningsDto | ResumeMissingDto | WorkflowStartTextDto; readonly finishes: "ask-resume-workflow-finish" | "chat-workflow-finish" | "no-reply-workflow-finish" };
       "job-offer-workflow-start": { input: WorkflowStartTextDto; output: CompanyRejectedDto | CompanyReviewFailedDto | JobOfferDto | WorkflowStartTextDto; readonly finishes: "job-offer-workflow-finish" | "no-offer-failed-workflow-finish" | "no-offer-rejected-workflow-finish" | "review-error-workflow-finish" };
       "join-expiry-workflow-start": { input: ApprovalRequestDto; output: CooDecisionDto | EscalationDto; readonly finishes: "join-expiry-approved-workflow-finish" | "join-expiry-escalated-workflow-finish" };
+      "judged-desk-workflow-start": { input: SensitiveMessageDto; output: WorkflowFinishTextDto; readonly finishes: "judged-desk-workflow-finish" };
       "lazy-workflow-start": { input: WorkflowStartTextDto; output: ChargeResultDto | WorkflowStartTextDto; readonly finishes: "lazy-no-order-workflow-finish" | "lazy-order-workflow-finish" };
       "link-offer-workflow-start": { input: { message: WorkflowStartTextDto; link: CompanyLinkDto }; output: CompanyRejectedDto | CompanyReviewFailedDto | JobOfferDto | WorkflowStartTextDto; readonly finishes: "job-offer-workflow-finish" | "no-offer-failed-workflow-finish" | "no-offer-rejected-workflow-finish" | "review-error-workflow-finish" };
       "list-finance-workflow-start": { input: ListOrderDto; output: ListDoneDto; readonly finishes: "list-workflow-finish" };
@@ -1355,6 +1364,7 @@ declare module "../src/flow/generated-types.js" {
       "hire-panel-agent": "confirm-score-tool" | "wait-tool";
       "item-blind-agent": never;
       "job-offer-agent": never;
+      "judged-desk-agent": never;
       "lazy-intake-agent": never;
       "legal-agent": never;
       "legal-approver-agent": "approve-tool";
@@ -1409,6 +1419,7 @@ declare module "../src/flow/generated-types.js" {
       "answer-grounded-judge": DeskAnswerDto;
       "quotes-lookup-judge": WorkflowFinishTextDto;
       "refund-recorded-judge": DeskAnswerDto;
+      "task-pii-judge": WorkflowFinishTextDto;
     }
     interface DtoBrands {
       "AgentBatchSummaryDto": AgentBatchSummaryDto;
@@ -1515,6 +1526,7 @@ declare module "../src/flow/generated-types.js" {
       "ScoreReviewDto": ScoreReviewDto;
       "ScreeningFailedDto": ScreeningFailedDto;
       "SearchRequestDto": SearchRequestDto;
+      "SensitiveMessageDto": SensitiveMessageDto;
       "ShortlistDto": ShortlistDto;
       "SignedDto": SignedDto;
       "SignOffDto": SignOffDto;
@@ -2274,6 +2286,30 @@ declare module "../tests/flow/fixtures/eval-desk.fixture.js" {
   }
   interface RefundTool {
     readonly [agbossComponent]?: { readonly name: "refund-tool" };
+  }
+}
+
+declare module "../tests/flow/fixtures/eval-pii.fixture.js" {
+  interface JudgedDeskAgent {
+    readonly [agbossComponent]?: { readonly name: "judged-desk-agent"; readonly kind: NodeKind.Agent };
+  }
+  interface JudgedDeskApplication {
+    readonly [agbossTenantContext]?: false;
+  }
+  interface JudgedDeskFinish {
+    readonly [agbossComponent]?: { readonly name: "judged-desk-workflow-finish"; readonly kind: NodeKind.Finish };
+  }
+  interface JudgedDeskStart {
+    readonly [agbossComponent]?: { readonly name: "judged-desk-workflow-start"; readonly kind: NodeKind.Start };
+  }
+  interface JudgedDeskWorkflow {
+    readonly [agbossComponent]?: { readonly name: "judged-desk-workflow"; readonly kind: NodeKind.Workflow };
+  }
+  interface SensitiveMessageDto {
+    readonly [agbossDto]?: "SensitiveMessageDto";
+  }
+  interface TaskPiiJudge {
+    readonly [agbossComponent]?: { readonly name: "task-pii-judge" };
   }
 }
 

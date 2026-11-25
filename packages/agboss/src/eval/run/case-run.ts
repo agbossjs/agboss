@@ -1,7 +1,7 @@
 import type { AppDeps } from "../../app/app-deps.js";
 import type { AssembledWorkflow } from "../../workflow.js";
 import { ExecutionStatus, type AnyTenantApp, type ExecutionOutput } from "../../app/types.js";
-import { startLine } from "../../flow/runtime/history.js";
+import { storedStartLine } from "../../pii/final-output-mask.js";
 import type { ApplicationStart } from "../../application/application-starts.js";
 import { usd } from "../../units/index.js";
 import { turnsOfCase, type EvalCase, type EvalTurn } from "../suite/cases.js";
@@ -140,18 +140,19 @@ async function metamorphicResultOf(
   return (await runMetamorphicCheck(parts, written, turn.values, turn.toolCalls)).result;
 }
 
-const judgedTurnOf = (
+// the task line is the stored one: the judge's model sees a token or a mask, never a raw sensitive value (#1301)
+const judgedTurnOf = async (
   parts: SuiteRunParts,
   lastTurn: EvalTurn | undefined,
   last: ExecutionOutput,
   values: CaseContextValues,
-): JudgedTurn => ({
+): Promise<JudgedTurn> => ({
   executionId: last.executionId,
   threadId: last.threadId,
   values,
   finish: last.finish,
   output: last.output,
-  task: startLine(parts.start.name, lastTurn?.input),
+  task: await storedStartLine(parts.deps, parts.start.name, lastTurn?.input),
   toolCalls: last.toolCalls,
 });
 
@@ -210,7 +211,7 @@ async function runAttempt(
   const turns = await runTurns(parts, written, { threadId, values });
   if (turns.kind === "failed") return failedRunOf(ids, turns.error, turns.spentUsd);
   const { last } = turns;
-  const turn = judgedTurnOf(parts, turnsOfCase(written).at(-1), last, values);
+  const turn = await judgedTurnOf(parts, turnsOfCase(written).at(-1), last, values);
   const expected = written.expectedStatus ?? ExecutionStatus.Finished;
   if (last.status !== expected)
     return failedRunOf(ids, statusMismatchOf(last, expected), turns.spentUsd, {
