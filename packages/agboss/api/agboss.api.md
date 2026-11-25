@@ -1859,7 +1859,7 @@ interface ComponentSource {
 }
 
 // @public
-export type ConfigError = ConfigError.GraphRules | ConfigError.FlowSyntax | ConfigError.NotAWorkflowStart | ConfigError.WorkingCalendar | ConfigError.Component | ConfigError.Prompt | ConfigError.NoDefaultRouter | ConfigError.Environment | ConfigError.Profile | ConfigError.ModelProvider | ConfigError.ModelSettings | ConfigError.ModelKind | ConfigError.Dto | ConfigError.Unit | ConfigError.PromptCaching | ConfigError.RateLimitPolicy | ConfigError.CircuitBreakerPolicy | ConfigError.Reasoning | ConfigError.RetryPolicy | ConfigError.EvalCase | ConfigError.RagIndex | ConfigError.WorkflowLoad | ConfigError.ApplicationLoad | ConfigError.Tool | ConfigError.Option;
+export type ConfigError = ConfigError.GraphRules | ConfigError.FlowSyntax | ConfigError.NotAWorkflowStart | ConfigError.WorkingCalendar | ConfigError.Component | ConfigError.Prompt | ConfigError.NoDefaultRouter | ConfigError.Environment | ConfigError.Profile | ConfigError.ModelProvider | ConfigError.ModelSettings | ConfigError.ModelKind | ConfigError.Dto | ConfigError.Unit | ConfigError.PromptCaching | ConfigError.RateLimitPolicy | ConfigError.CircuitBreakerPolicy | ConfigError.Reasoning | ConfigError.RetryPolicy | ConfigError.EvalCase | ConfigError.RagIndex | ConfigError.WorkflowLoad | ConfigError.ApplicationLoad | ConfigError.Tool | ConfigError.Option | ConfigError.ModelCost;
 
 // @public
 export namespace ConfigError {
@@ -1877,6 +1877,10 @@ export namespace ConfigError {
     export type FlowSyntax = ErrorVariant<ConfigErrorKind.FlowSyntax, "config.flow-syntax">;
     export type GraphRules = ErrorVariant<ConfigErrorKind.GraphRules, "config.graph-rules"> & {
         readonly violations: readonly RuleViolation[];
+    };
+    export type ModelCost = ErrorVariant<ConfigErrorKind.ModelCost, "config.model-cost"> & {
+        readonly model?: string | undefined;
+        readonly field?: string | undefined;
     };
     export type ModelKind = ErrorVariant<ConfigErrorKind.ModelKind, "config.model-kind"> & {
         readonly model?: string | undefined;
@@ -1932,6 +1936,7 @@ export const ConfigError: FamilyConstructor<ConfigError, {
     ApplicationLoad: ConfigError.ApplicationLoad;
     Tool: ConfigError.Tool;
     Option: ConfigError.Option;
+    ModelCost: ConfigError.ModelCost;
 }>;
 
 // @public
@@ -1952,6 +1957,8 @@ export enum ConfigErrorKind {
     FlowSyntax = "flow-syntax",
     // (undocumented)
     GraphRules = "graph-rules",
+    // (undocumented)
+    ModelCost = "model-cost",
     // (undocumented)
     ModelKind = "model-kind",
     // (undocumented)
@@ -10867,6 +10874,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/core/error-families/config-errors.ts - (ae-undocumented) Missing documentation for "ApplicationLoad".
 // src/core/error-families/config-errors.ts - (ae-undocumented) Missing documentation for "Tool".
 // src/core/error-families/config-errors.ts - (ae-undocumented) Missing documentation for "Option".
+// src/core/error-families/config-errors.ts - (ae-undocumented) Missing documentation for "ModelCost".
 // src/core/error-families/decision-errors.ts - (ae-undocumented) Missing documentation for "InvalidRequest".
 // src/core/error-families/decision-errors.ts - (ae-undocumented) Missing documentation for "InvalidResponse".
 // src/core/error-families/effect-errors.ts - (ae-undocumented) Missing documentation for "KeyConflict".

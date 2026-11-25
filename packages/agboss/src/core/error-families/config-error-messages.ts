@@ -1,3 +1,4 @@
+import { promptProblemLine, type PromptProblem } from "../../components/prompt-problems.js";
 import type { EvalCaseIssue } from "../../eval/suite/errors.js";
 import type { RuleViolation } from "../../graph/rule-error.js";
 import { ModelKind } from "../../models/model-kind.js";
@@ -49,4 +50,13 @@ export const evalCaseMessageOf = (
     (issue) => `  - case "${issue.case}": ${issue.path} — ${issue.reason}`,
   );
   return `${facts.suite}: ${String(facts.issues.length)} invalid value(s) in its cases:\n${lines.join("\n")}`;
+};
+
+/** What `ConfigError.Prompt` says: every problem found, one line each, before any model call. */
+export const promptMessageOf = (
+  facts: Partial<{ readonly problems: readonly PromptProblem[] }>,
+): string => {
+  const problems = facts.problems ?? [];
+  const lines = problems.map((problem) => `  - ${promptProblemLine(problem)}`);
+  return `The workflow's prompts have ${String(problems.length)} problem(s):\n${lines.join("\n")}`;
 };

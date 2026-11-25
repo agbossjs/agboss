@@ -2,7 +2,7 @@ import { ConfigError } from "../../src/core/error-families/config-errors.js";
 /**
  * Bughunt 2026-11-25 #2 (regression): every model use is priced by its own provider and model. A model
  * router and a model reranker on a provider whose `cost` is a price table failed every call with a
- * `ConfigError.Component` (the router's paid call then recorded at 0 USD, the reranker's dropped under
+ * `ConfigError.ModelCost` (the router's paid call then recorded at 0 USD, the reranker's dropped under
  * `Fallback`), and a router was billed at the price of an agent on another provider whose model had the
  * same name. Each case runs the application on stubbed OpenAI-compatible servers, as production does.
  */
@@ -49,7 +49,7 @@ async function started(application: Class, replies: readonly StubReply[]): Promi
 const routed = completion(JSON.stringify({ next: "priced-answer-agent", reason: "here" }));
 
 describe("bughunt #2: a model router on a price-table provider", () => {
-  it("is priced by its own provider's table: no ConfigError.Component, the call in the spend and its tokens", async () => {
+  it("is priced by its own provider's table: no ConfigError.ModelCost, the call in the spend and its tokens", async () => {
     const { application, start } = routerApplication(PricedLocalProvider);
     const running = await started(application, [routed, completion("done")]);
 

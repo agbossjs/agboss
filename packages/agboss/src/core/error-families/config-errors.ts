@@ -1,4 +1,4 @@
-import { promptProblemLine, type PromptProblem } from "../../components/prompt-problems.js";
+import type { PromptProblem } from "../../components/prompt-problems.js";
 import type { EnvironmentErrorCode } from "../../environments/errors.js";
 import type { EvalCaseIssue } from "../../eval/suite/errors.js";
 import type { RuleViolation } from "../../graph/rule-error.js";
@@ -9,6 +9,7 @@ import {
   graphRulesMessageOf,
   modelKindMessageOf,
   modelSettingsMessageOf,
+  promptMessageOf,
 } from "./config-error-messages.js";
 import { defineFamily, type ErrorVariant, type FamilyConstructor } from "./family.js";
 
@@ -39,6 +40,7 @@ export enum ConfigErrorKind {
   ApplicationLoad = "application-load",
   Tool = "tool",
   Option = "option",
+  ModelCost = "model-cost",
 }
 
 /** The application's declaration is wrong: a rule of the graph, a component, a prompt, an environment, a profile, a model's settings. Found at assembly or load, before any model call. */
@@ -67,7 +69,8 @@ export type ConfigError =
   | ConfigError.WorkflowLoad
   | ConfigError.ApplicationLoad
   | ConfigError.Tool
-  | ConfigError.Option;
+  | ConfigError.Option
+  | ConfigError.ModelCost;
 
 /** The variants of `ConfigError`, each with the facts it carries. */
 export declare namespace ConfigError {
@@ -166,16 +169,13 @@ export declare namespace ConfigError {
   export type Tool = ErrorVariant<ConfigErrorKind.Tool, "config.tool">;
   /** An option is not valid. */
   export type Option = ErrorVariant<ConfigErrorKind.Option, "config.option">;
+  /** A model call cannot be accounted: no reported cost and no price, or a price that makes no amount. */
+  export type ModelCost = ErrorVariant<ConfigErrorKind.ModelCost, "config.model-cost"> & {
+    readonly model?: string | undefined;
+    /** The field of the price that is no amount, when one is. */
+    readonly field?: string | undefined;
+  };
 }
-
-/** What `ConfigError.Prompt` says: every problem found, one line each, before any model call. */
-const promptMessageOf = (
-  facts: Partial<{ readonly problems: readonly PromptProblem[] }>,
-): string => {
-  const problems = facts.problems ?? [];
-  const lines = problems.map((problem) => `  - ${promptProblemLine(problem)}`);
-  return `The workflow's prompts have ${String(problems.length)} problem(s):\n${lines.join("\n")}`;
-};
 
 /** `ConfigError`: the family's constructor and its variants'. */
 export const ConfigError: FamilyConstructor<
@@ -206,6 +206,7 @@ export const ConfigError: FamilyConstructor<
     ApplicationLoad: ConfigError.ApplicationLoad;
     Tool: ConfigError.Tool;
     Option: ConfigError.Option;
+    ModelCost: ConfigError.ModelCost;
   }
 > = defineFamily({
   name: "ConfigError",
@@ -237,5 +238,6 @@ export const ConfigError: FamilyConstructor<
     ApplicationLoad: ["the application cannot be loaded"],
     Tool: ["a tool is not valid"],
     Option: ["an option is not valid"],
+    ModelCost: ["a model call cannot be accounted"],
   },
 });

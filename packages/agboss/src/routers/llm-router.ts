@@ -54,7 +54,7 @@ function failedCallUsageOf(
   try {
     return recordUsage(caller, deps.settings, answered);
   } catch (failure) {
-    if (!(failure instanceof ConfigError.Component)) throw failure;
+    if (!(failure instanceof ConfigError.ModelCost)) throw failure;
     return unpricedUsageOf(caller, deps.settings, answered);
   }
 }

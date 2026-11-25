@@ -55,7 +55,7 @@ describe("AC6: cost — from the provider's response, a price table as the fallb
   });
 
   it("AC6: a call with neither a reported cost nor a price cannot be accounted", () => {
-    expect(() => recordUsage("writer", { model: "x/y" }, tokens)).toThrow(ConfigError.Component);
+    expect(() => recordUsage("writer", { model: "x/y" }, tokens)).toThrow(ConfigError.ModelCost);
   });
 
   it("AC6: a provider's price table prices the models that set none; fromResponse prices none", async () => {

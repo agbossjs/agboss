@@ -136,7 +136,7 @@ describe("#1356: one model call's record", () => {
     };
 
     expect(() => recordUsage("writer", { model: "m/a", price }, answered)).toThrow(
-      ConfigError.Component,
+      ConfigError.ModelCost,
     );
     expect(() => recordUsage("writer", { model: "m/a", price }, answered)).toThrow(
       "writer: fallback model backup/m — no cost and no price",
@@ -144,10 +144,29 @@ describe("#1356: one model call's record", () => {
   });
 
   it("a call with neither a reported cost nor a price fails", () => {
-    expect(() => recordUsage("writer", { model: "m/a" }, tokens)).toThrow(ConfigError.Component);
+    expect(() => recordUsage("writer", { model: "m/a" }, tokens)).toThrow(ConfigError.ModelCost);
+    expect(() => recordUsage("writer", { model: "m/a" }, tokens)).toThrow(
+      expect.objectContaining({ code: "config.model-cost", model: "m/a" }),
+    );
     expect(() => recordUsage("writer", { model: "m/a" }, tokens)).toThrow(
       "writer: model m/a — its provider reported no cost and it has no price",
     );
+  });
+
+  it("a price that makes no amount is a ModelCost with its model and field; a tool's invalid cost is no ModelCost", () => {
+    const nan = { usage_metadata: { input_tokens: Number.NaN, output_tokens: 1 } };
+
+    expect(() => recordUsage("writer", { model: "m/a", price }, nan)).toThrow(
+      expect.objectContaining({ code: "config.model-cost", model: "m/a", field: "price" }),
+    );
+    let tool: unknown;
+    try {
+      recordToolCost("search", Number.NaN);
+    } catch (error) {
+      tool = error;
+    }
+    expect(tool).toBeInstanceOf(ConfigError.Component);
+    expect(tool).not.toBeInstanceOf(ConfigError.ModelCost);
   });
 
   it("tokens that price at no amount are never accounted", () => {
@@ -175,7 +194,7 @@ describe("#1356: one model call's record", () => {
 
   it("the errors are named", () => {
     expect(new ConfigError.Component({ message: "x" }).name).toBe("ConfigError.Component");
-    expect(new ConfigError.Component({ message: "x" }).name).toBe("ConfigError.Component");
+    expect(new ConfigError.ModelCost({ message: "x" }).name).toBe("ConfigError.ModelCost");
   });
 });
 

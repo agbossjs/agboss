@@ -120,7 +120,7 @@ function shareRecordOf(
     });
     return recordUsage(caller, settings, markedFallbackMessage(message, server));
   } catch (failure) {
-    if (!(failure instanceof ConfigError.Component)) throw failure;
+    if (!(failure instanceof ConfigError.ModelCost)) throw failure;
     return server === undefined
       ? unpricedOf(caller, settings.model, settings.modelProvider, usage)
       : unpricedOf(caller, server.model, server.provider, usage);

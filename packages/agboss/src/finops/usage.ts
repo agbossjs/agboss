@@ -148,7 +148,8 @@ function fallbackRecordOf(
     return { ...base, costUsd: reported, costSource };
   }
   if (fallback.unpriced) return { ...base, costUsd: usd(0), costSource: CostSource.Unpriced };
-  throw new ConfigError.Component({
+  throw new ConfigError.ModelCost({
+    model: fallback.model,
     message: `${caller}: fallback model ${fallback.model} — no cost and no price`,
   });
 }
@@ -178,14 +179,15 @@ export function recordUsage(
     return { ...made, ...pricedOf(caller, settings.model, settings.price, usage) };
   if (settings.unpriced === true)
     return { ...made, costUsd: usd(0), costSource: CostSource.Unpriced };
-  throw new ConfigError.Component({
+  throw new ConfigError.ModelCost({
+    model: settings.model,
     message: `${caller}: model ${settings.model} — its provider reported no cost and it has no price`,
   });
 }
 
 /**
  * The record of a call its provider answered — and billed — that `recordUsage` could not price (it
- * threw a `ConfigError.Component`): its tokens at 0 USD, `CostSource.Unpriced`, under the model and provider
+ * threw a `ConfigError.ModelCost`): its tokens at 0 USD, `CostSource.Unpriced`, under the model and provider
  * that served it (bughunt 2026-11-25 #2). The call still fails as it did; its tokens are never dropped,
  * so a token budget counts them.
  */
@@ -217,7 +219,9 @@ function pricedOf(
 ): Pick<UsageRecord, "costUsd" | "costSource"> {
   const priced = costOf(usage, price);
   if (!Number.isFinite(priced) || priced < 0)
-    throw new ConfigError.Component({
+    throw new ConfigError.ModelCost({
+      model,
+      field: "price",
       message: `${caller}: model ${model} — its tokens price at no amount: ${String(priced)}`,
     });
   return { costUsd: usd(priced), costSource: CostSource.PriceTable };

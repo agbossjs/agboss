@@ -57,7 +57,7 @@ describe("#1313b: an unpriced call", () => {
 
   it("a call with no cost, no price and a provider that has a cost fails closed", () => {
     expect(() => recordUsage("writer", { model: "m/a", modelProvider: "p" }, tokens)).toThrow(
-      ConfigError.Component,
+      ConfigError.ModelCost,
     );
   });
 
